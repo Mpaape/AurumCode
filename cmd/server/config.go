@@ -9,6 +9,8 @@ import (
 type ServerConfig struct {
 	Port              string
 	WebhookSecret     string
+	GitHubToken       string
+	OpenAIKey         string
 	ShutdownTimeout   int
 	EnableDebugLogs   bool
 }
@@ -25,6 +27,9 @@ func LoadConfig() *ServerConfig {
 		webhookSecret = "dev-secret" // default for dev only
 	}
 
+	githubToken := os.Getenv("GITHUB_TOKEN")
+	openaiKey := os.Getenv("OPENAI_API_KEY")
+
 	shutdownTimeout := 30
 	if val := os.Getenv("SHUTDOWN_TIMEOUT_SECONDS"); val != "" {
 		if parsed, err := strconv.Atoi(val); err == nil {
@@ -37,6 +42,8 @@ func LoadConfig() *ServerConfig {
 	return &ServerConfig{
 		Port:            port,
 		WebhookSecret:   webhookSecret,
+		GitHubToken:     githubToken,
+		OpenAIKey:       openaiKey,
 		ShutdownTimeout: shutdownTimeout,
 		EnableDebugLogs: debugLogs,
 	}

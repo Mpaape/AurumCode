@@ -1,9 +1,18 @@
 package main
 
 import (
+	"aurumcode/internal/config"
+	"aurumcode/internal/git/githubclient"
 	"aurumcode/internal/git/webhook"
+	"aurumcode/internal/llm"
+	"aurumcode/internal/llm/cost"
+	"aurumcode/internal/llm/provider/openai"
+	"aurumcode/internal/pipeline"
+	"aurumcode/pkg/types"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -107,7 +116,12 @@ func WebhookHandler(cfg *ServerConfig, cache *webhook.IdempotencyCache) http.Han
 			return
 		}
 
-		// TODO: Process event (emit to channel/queue)
+		// Process event asynchronously
+		go func() {
+			if err := processEvent(context.Background(), cfg, event, requestID); err != nil {
+				log.Printf("[%s] Pipeline error: %v", requestID, err)
+			}
+		}()
 
 		log.Printf("[%s] Event parsed: type=%s repo=%s delivery=%s",
 			requestID, event.EventType, event.Repo, event.DeliveryID)
@@ -120,4 +134,41 @@ func WebhookHandler(cfg *ServerConfig, cache *webhook.IdempotencyCache) http.Han
 			"repo":       event.Repo,
 		})
 	}
+}
+
+// processEvent processes a GitHub webhook event through the pipeline orchestrator
+func processEvent(ctx context.Context, cfg *ServerConfig, event *types.Event, requestID interface{}) error {
+	log.Printf("[%s] Processing event: type=%s repo=%s pr=%d",
+		requestID, event.EventType, event.Repo, event.PRNumber)
+
+	// Create GitHub client
+	ghClient := githubclient.NewClient(cfg.GitHubToken)
+
+	// Create LLM provider (using OpenAI for now)
+	provider := openai.NewProvider(cfg.OpenAIKey, "gpt-4")
+
+	// Create cost tracker
+	priceMap := cost.NewPriceMap()
+	tracker := cost.NewTracker(100.0, 1000.0, priceMap)
+
+	// Create LLM orchestrator
+	llmOrch := llm.NewOrchestrator(provider, nil, tracker)
+
+	// Load AurumCode configuration
+	aurumCfg, err := config.LoadFromPath(".aurumcode/config.yml")
+	if err != nil {
+		log.Printf("[%s] Failed to load config, using defaults: %v", requestID, err)
+		aurumCfg = types.NewDefaultConfig()
+	}
+
+	// Create main orchestrator
+	mainOrch := pipeline.NewMainOrchestrator(aurumCfg, ghClient, llmOrch)
+
+	// Process event through pipelines
+	if err := mainOrch.ProcessEvent(ctx, event); err != nil {
+		return fmt.Errorf("pipeline processing failed: %w", err)
+	}
+
+	log.Printf("[%s] Event processed successfully", requestID)
+	return nil
 }
