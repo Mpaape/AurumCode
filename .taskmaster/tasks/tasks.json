@@ -1,0 +1,1014 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Bootstrap Go Monorepo, Hexagonal Layout, Core Types",
+        "description": "Initialize the Go module and repository layout per PRD, define shared domain types and ports (interfaces) to support provider-agnostic, language-agnostic pipelines.",
+        "details": "- Create module `aurumcode` with Go ≥1.21.\n- Scaffold folders: `cmd/{server,cli}`, `internal/{git,config,llm,analysis,review,documentation,testing,deploy}`, `pkg/types`, `docs`, `rag`, `configs`, `deployments`, `tests/{unit,integration,fixtures}`.\n- Add `pkg/types` with domain models:\n  - Event: repo, provider, eventType, deliveryID, payload, signature.\n  - Diff: files[], each with path, lang, hunks[] (oldStart, oldLines, newStart, newLines, lines).\n  - Config: llm (provider, model, temps, budgets), prompts, rules, outputs flags.\n  - ReviewIssue: id, file, line, severity, ruleID, message, suggestion.\n  - ReviewResult: issues[], isoScores{functionality,reliability,usability,efficiency,maintainability,portability,security,compatibility}, summary, cost.\n  - QAArtifacts: coverage, sarif, sbom, changelog path.\n  - Ports: Provider, GitClient, CostTracker, PromptBuilder, ResponseParser.\n- Pseudocode (Go):\n  - type Event struct{ Repo string; Provider string; EventType string; DeliveryID string; Payload []byte; Signature string }\n  - type DiffHunk struct{ OldStart, OldLines, NewStart, NewLines int; Lines []string }\n  - type Provider interface{ Complete(prompt string, opts Options) (Response, error); Tokens(input string) (int, error); Name() string }\n- Add Makefile tasks: build, test, lint, cover.\n- Seed `.aurumcode/config.yml` in `configs/default-config.yml` mirroring PRD minimal config.",
+        "testStrategy": "- Unit: Validate JSON/YAML round-trip for `Config` (marshal/unmarshal), equality on defaults merge.\n- Unit: Ensure `Diff` and `ReviewResult` marshal to JSON deterministically.\n- Lint/Fmt: `go vet`, `gofmt -s`, `golangci-lint` if available.\n- Coverage: add `go test ./... -coverprofile=coverage.out` target and assert ≥85% for types utils.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize Go module `aurumcode` with Go ≥1.21",
+            "description": "Create a new Go module and set the toolchain/version constraints for Go 1.21 or newer.",
+            "dependencies": [],
+            "details": "Run `go mod init aurumcode`, set `go 1.21` in `go.mod`, add a minimal `cmd/server` and `cmd/cli` main placeholder to ensure the module builds, and include a `.gitignore` suited for Go and coverage artifacts.",
+            "status": "done",
+            "testStrategy": "Verify `go list ./...` and `go build ./...` succeed; ensure `go.mod` contains `go 1.21`."
+          },
+          {
+            "id": 2,
+            "title": "Scaffold hexagonal monorepo directory layout",
+            "description": "Create the prescribed hexagonal directories and placeholders to establish structure.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create `cmd/{server,cli}`, `internal/{git,config,llm,analysis,review,documentation,testing,deploy}`, `pkg/types`, `docs`, `rag`, `configs`, `deployments`, `tests/{unit,integration,fixtures}`. Add `.keep` or minimal files so packages compile and paths are tracked.",
+            "status": "done",
+            "testStrategy": "Check directory existence and that `go list ./...` enumerates packages without errors."
+          },
+          {
+            "id": 3,
+            "title": "Define core domain models and ports in `pkg/types`",
+            "description": "Add Go types for events, diffs, config, review results/artifacts, and provider ports.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement `Event`, `DiffFile`, `DiffHunk`, `Config` (llm provider/model/temp/budgets, prompts/rules/outputs flags), `ReviewIssue`, `ReviewResult` (issues, isoScores, summary, cost), `QAArtifacts`, and ports `Provider`, `GitClient`, `CostTracker`, `PromptBuilder`, `ResponseParser`. Include JSON/YAML tags and sensible zero-values.",
+            "status": "done",
+            "testStrategy": "Build package to ensure types compile; later unit tests validate serialization and determinism."
+          },
+          {
+            "id": 4,
+            "title": "Seed `configs/default-config.yml` and `.aurumcode/` skeleton",
+            "description": "Provide a minimal default config and a repo-local `.aurumcode/config.yml` example.",
+            "dependencies": [
+              2
+            ],
+            "details": "Create `configs/default-config.yml` mirroring PRD minimal fields (llm provider/model/temp/budgets, prompts/rules paths, output flags). Add `.aurumcode/` with `config.yml` example and placeholder subfolders for prompts/rules if referenced.",
+            "status": "done",
+            "testStrategy": "YAML loads and unmarshals into `pkg/types.Config` in a simple loader; keys match struct tags."
+          },
+          {
+            "id": 5,
+            "title": "Add Makefile with build, test, lint, and cover targets",
+            "description": "Create developer-friendly commands to build, test, lint, and generate coverage.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement `make build` (`go build ./...`), `make test` (`go test ./...`), `make lint` (`gofmt -s -l . && go vet ./...` and optionally `golangci-lint run` if present), and `make cover` (`go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out`). Mark targets `.PHONY`.",
+            "status": "done",
+            "testStrategy": "Dry-run `make -n` to confirm commands; run `make test` on a clean tree to ensure no failures."
+          },
+          {
+            "id": 6,
+            "title": "Unit tests for JSON/YAML round-trip and determinism",
+            "description": "Write tests for Config round-trip and deterministic JSON for Diff/ReviewResult.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Under `tests/unit` (or package-local `_test.go`), add table-driven tests: Config marshal→unmarshal equality (including defaults merge), Diff and ReviewResult deterministic JSON (stable field order, stable slices where applicable), and coverage reporting. Use fixtures in `tests/fixtures`.",
+            "status": "done",
+            "testStrategy": "Run `make test` and check assertions; verify consistent marshaled strings across runs and platforms; ensure coverage file is created by `make cover`."
+          },
+          {
+            "id": 7,
+            "title": "Bootstrap repo documentation and README",
+            "description": "Add initial README and docs describing goals, layout, and workflows.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Create `README.md` with project overview, Go version, layout description, Makefile usage, and contribution basics. Add `docs/` stubs (e.g., architecture/hexagonal overview, types and ports summary). Link to `configs/default-config.yml` and `.aurumcode/config.yml` example.",
+            "status": "done",
+            "testStrategy": "Manual review for clarity; run a markdown linter if available; verify internal links and paths resolve."
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Config Loader, Defaults, Schema Validation",
+        "description": "Implement configuration loader for `.aurumcode/config.yml` with environment overrides and schema validation; add loaders for prompts/rules/documents directories.",
+        "details": "- Package: `internal/config`.\n- Read order: repo `.aurumcode/config.yml` → env overrides (`LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`) → defaults from `configs/default-config.yml`.\n- Implement caching with mtime/hash key to avoid re-parsing within a run.\n- Validation: required fields, numeric ranges (temperature 0–1, budgets ≥0), enum for provider (`auto|litellm|openai|anthropic|ollama`). Use `go-playground/validator` or custom checks.\n- Prompt/rule/document resolvers: resolve relative paths under `.aurumcode/{prompts,rules,documents}`; ensure existence; load as bytes for injection.\n- Pseudocode:\n  - func Load(path string) (types.Config, error) { base := loadDefault(); file := parseYAML(path); cfg := merge(base,file); cfg = applyEnv(cfg); err := validate(cfg); cache.Store(hash, cfg); return cfg }\n  - func LoadPrompt(key string) ([]byte, error) { return os.ReadFile(resolve(cfg.Prompts[key])) }\n  - func Merge(a,b Config) Config { // field-wise preference of b when non-zero }",
+        "testStrategy": "- Unit: table-driven tests for valid/invalid configs (missing llm.model, out-of-range temperature, negative budgets).\n- Unit: env override precedence tests using temporary env vars.\n- Integration: load minimal example repo fixture with `.aurumcode/` tree under `tests/fixtures/repo1`.\n- Regression: schema round-trip tests compare input YAML to marshaled YAML for stable fields.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define Config struct and load defaults in internal/config",
+            "description": "Introduce core configuration types and default values for the system.",
+            "dependencies": [],
+            "details": "Create package `internal/config` with `types.Config` capturing LLM provider, model, temperature, budgets, and maps for prompts/rules/documents. Implement `loadDefault()` to parse `configs/default-config.yml`. Establish base `.aurumcode/` directory conventions and fields for relative directories.",
+            "status": "done",
+            "testStrategy": "Unit: load defaults-only config and assert populated fields match `configs/default-config.yml`."
+          },
+          {
+            "id": 2,
+            "title": "YAML file parsing and merge precedence implementation",
+            "description": "Parse repo `.aurumcode/config.yml` and merge into defaults with clear precedence.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add `parseYAML(path string)` and `Merge(a,b Config) Config` (field-wise, prefer non-zero from `b`). Implement `Load(path string)` to read defaults then file, applying precedence: repo file overrides defaults. Support given path or default `.aurumcode/config.yml`. Handle missing file gracefully.",
+            "status": "done",
+            "testStrategy": "Unit: table-driven merge tests where file overrides defaults; verify missing file falls back to defaults without error."
+          },
+          {
+            "id": 3,
+            "title": "Environment overrides and secret handling logic",
+            "description": "Apply environment variables to override config, handling secrets safely.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement `applyEnv(cfg Config) Config` supporting `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`. Ensure env values override file and defaults as specified. Avoid logging secret values; redact in errors. Document precedence clearly and keep keys scoped.",
+            "status": "done",
+            "testStrategy": "Unit: use `t.Setenv` to assert env overrides take effect over file/default values and that secrets are never logged."
+          },
+          {
+            "id": 4,
+            "title": "In-memory caching keyed by mtime/hash to avoid re-parsing",
+            "description": "Cache loaded configs to prevent redundant parsing during a single run.",
+            "dependencies": [
+              2
+            ],
+            "details": "Introduce hash key built from config file contents (if present), its mtime, and relevant env subset. Maintain `sync.RWMutex` protected map cache. On `Load`, compute key, return cached config if valid; invalidate when file mtime or env-derived hash changes.",
+            "status": "done",
+            "testStrategy": "Unit: load once, then load again and assert cache hit; modify temp config file to change mtime/content and assert cache miss with refreshed values."
+          },
+          {
+            "id": 5,
+            "title": "Schema validation with numeric ranges and provider enum",
+            "description": "Validate required fields, ranges, and enums after all overrides.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Add `Validate(cfg Config) error` using `go-playground/validator` or custom checks. Enforce: required LLM fields, temperature in [0,1], budgets ≥ 0, provider in `auto|litellm|openai|anthropic|ollama`. Integrate into `Load` after merge+env to fail fast with clear errors.",
+            "status": "done",
+            "testStrategy": "Unit: table-driven invalid cases (missing model, out-of-range temperature, negative budgets, bad provider) and valid happy-path config."
+          },
+          {
+            "id": 6,
+            "title": "Prompt, rule, and document resolvers with fixtures and tests",
+            "description": "Resolve and load resources under `.aurumcode/{prompts,rules,documents}`.",
+            "dependencies": [
+              1,
+              2,
+              5
+            ],
+            "details": "Implement `LoadPrompt(key)`, `LoadRule(key)`, `LoadDocument(key)` to map keys to paths from config, resolve relative to `.aurumcode/...`, ensure files exist, and return bytes. Add test fixtures under `tests/fixtures/repo1` with a minimal `.aurumcode/` tree and end-to-end tests calling `Load` then the resolvers.",
+            "status": "done",
+            "testStrategy": "Integration: load fixture repo and resolve files successfully; Unit: error when key missing or file absent; assert bytes match fixture contents."
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "LLM Provider Abstraction, Cost Tracker, Adapters",
+        "description": "Implement provider-agnostic LLM interface, request options, response model, cost tracking, and adapters for OpenAI, Anthropic, LiteLLM proxy, and Ollama with budget enforcement and fallbacks.",
+        "details": "- Package: `internal/llm` with subpackages `{provider,cost}`.\n- Define `Options{System,Temperature,MaxTokens,Stop,Metadata,ModelKey}` and `Response{Text,TokensIn,TokensOut,Raw}`.\n- CostTracker: price map by logical model → {in,out $/1k tokens}; track per-run and daily budgets; expose `Allow(tokensIn, tokensOut) bool` and `Spend()`.\n- Fallback policy: try primary; on error/budget breach → alternate of same class; final → local (Ollama) if configured.\n- Adapters use `net/http` with timeouts, retries (exp backoff), request/response logging (redact secrets).\n- Token counting: call provider endpoint if available or approximate via model heuristics; cache counts for prompts.\n- Pseudocode:\n  - func Complete(p Provider, pb PromptBuilder, ctxCtx, budget *CostTracker) (Response, error) { pr := pb.Build(); if !budget.Allow(estIn, estOut) return ErrBudget; r, err := p.Complete(pr.Text, opts); if err!=nil { p=Fallback(p); r, err=p.Complete(...)}; budget.Spend(r.TokensIn,r.TokensOut); return r }\n  - type Provider interface { Complete(prompt string, opts Options)(Response,error); Tokens(input string)(int,error); Name() string }",
+        "testStrategy": "- Unit: mock providers to simulate tokens, failures, and verify fallback order and budget blocks.\n- Unit: cost math correctness for various price maps.\n- Integration: hit LiteLLM-compatible mock server (local HTTP test handler) to validate request/response schemas.\n- Determinism: ensure temperature default is 0.3 and can be set to 0.0 in tests to compare outputs.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define core LLM interfaces, types, and package layout",
+            "description": "Create provider-agnostic interfaces and shared types for options and responses under internal/llm.",
+            "dependencies": [],
+            "details": "Introduce packages internal/llm, internal/llm/provider, and internal/llm/cost. Define Options{System,Temperature,MaxTokens,Stop,Metadata,ModelKey} and Response{Text,TokensIn,TokensOut,Raw}. Specify Provider interface with Complete(prompt, opts) (Response, error), Tokens(input) (int, error), and Name() string. Add basic input validation and sane defaults for options.",
+            "status": "done",
+            "testStrategy": "Unit tests validating struct defaults, JSON marshaling of Raw, and interface conformance via small fake provider."
+          },
+          {
+            "id": 2,
+            "title": "Implement CostTracker with price map, per-run and daily budgets",
+            "description": "Track token pricing and enforce budgets with Allow and Spend methods.",
+            "dependencies": [
+              1
+            ],
+            "details": "Build internal/llm/cost.CostTracker with thread-safe counters. Maintain price map of logical model keys to {in,out $/1k tokens}. Implement Allow(tokensIn, tokensOut) bool using estimated costs against per-run and daily budgets. Implement Spend(tokensIn, tokensOut) to record actual usage. Include reset-at-midnight daily window handling and hooks for metrics.",
+            "status": "done",
+            "testStrategy": "Table-driven unit tests for cost math, boundary conditions, and daily reset behavior using a controllable clock."
+          },
+          {
+            "id": 3,
+            "title": "Token counting heuristics and LRU cache",
+            "description": "Provide token estimation via provider endpoints or heuristic fallbacks with caching.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Add token.CountEstimator that first calls Provider.Tokens, else uses model-specific heuristics (e.g., GPT, Claude, Llama families) to approximate counts. Implement an LRU cache keyed by prompt hash and model key to avoid recomputation. Expose EstimateIn/EstimateOut helpers for preflight budget checks, with pluggable heuristics to update per model family.",
+            "status": "done",
+            "testStrategy": "Unit tests with fake providers for exact counts; heuristic accuracy sanity checks; cache hit/miss behavior and eviction."
+          },
+          {
+            "id": 4,
+            "title": "HTTP client base: timeouts, retries, backoff, and redacted logging",
+            "description": "Centralize HTTP concerns for all adapters including resilient retries and safe logs.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create httpbase client in internal/llm/provider/httpbase with configurable timeouts, exponential backoff with jitter, and retry-on-transient error policy (5xx, 429 with Retry-After). Implement request/response logging with redaction of Authorization and API keys in headers and payloads. Provide helpers for building requests, decoding JSON, and attaching context deadlines.",
+            "status": "done",
+            "testStrategy": "Unit tests using httptest servers covering retries, backoff, timeout propagation, and redaction in logged output."
+          },
+          {
+            "id": 5,
+            "title": "OpenAI adapter implementing Provider interface",
+            "description": "Add OpenAI provider with Complete and Tokens using shared HTTP base.",
+            "dependencies": [
+              1,
+              3,
+              4,
+              2
+            ],
+            "details": "Implement internal/llm/provider/openai using net/http base. Support base URL, API key, model mapping via Options.ModelKey, temperature, max tokens, stop sequences, and system content. Parse responses into Response with token counts from usage fields where available; fall back to estimator otherwise. Include error normalization and request/response schemas for chat completions.",
+            "status": "done",
+            "testStrategy": "Unit tests with httptest verifying payloads, header auth, error normalization, and token accounting from usage fields."
+          },
+          {
+            "id": 6,
+            "title": "Anthropic, LiteLLM proxy, and Ollama adapters",
+            "description": "Implement remaining adapters aligned to Provider interface using HTTP base.",
+            "dependencies": [
+              1,
+              3,
+              4,
+              2
+            ],
+            "details": "Add internal/llm/provider/anthropic for Messages API, internal/llm/provider/litellm for proxy-compatible routes, and internal/llm/provider/ollama for local completions. Normalize options to each API schema, handle streaming off, parse outputs to Response, and compute tokens via provider endpoints when available or heuristics otherwise. Ensure robust error handling and consistent naming via Name().",
+            "status": "done",
+            "testStrategy": "Unit tests per adapter via local httptest handlers; golden payload verification; failure path tests for retries and schema mismatches."
+          },
+          {
+            "id": 7,
+            "title": "Fallback chain, budget enforcement, and end-to-end tests",
+            "description": "Wire Complete orchestration with budget checks, fallbacks, and mocks.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "details": "Implement orchestrator Complete(p, pb, ctx, budget) that estimates tokens, calls budget.Allow, executes primary provider, on error or budget breach selects configured alternate of same class, and finally local Ollama if present. After success, call budget.Spend with actual usage. Add configuration-driven fallback ordering and pluggable policy. Provide comprehensive mocks and integration tests spanning success, retries, fallbacks, and budget blocks.",
+            "status": "done",
+            "testStrategy": "End-to-end tests with fake providers simulating errors and costs; verify fallback order, budget blocking, and Spend/Allow interactions; deterministic runs with fixed random seed for backoff."
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "HTTP Server & GitHub Webhook Receiver",
+        "description": "Create server in `cmd/server` with health/metrics and GitHub webhook receiver validating signatures, parsing PR and push events, and persisting minimal event context.",
+        "details": "- Use `net/http` with middleware for request ID, logging, panic recovery.\n- Endpoints: `GET /healthz`, `GET /metrics` (placeholder), `POST /webhook/github`.\n- Signature: `X-Hub-Signature-256` HMAC SHA-256 over body using `GITHUB_WEBHOOK_SECRET`.\n- Idempotency: dedupe by `X-GitHub-Delivery` via in-memory LRU cache (e.g., `golang-lru`) or map with TTL.\n- Parse events: `pull_request` (opened, synchronize), `push` (to main) → produce `types.Event`.\n- Emit internal `Event` to orchestrator channel (future step) or log for now.\n- Pseudocode:\n  - func webhook(w,r){ if !validSig(r) {w.WriteHeader(401);return}; ev := parseGitHub(r); if seen(ev.DeliveryID) {return}; save(ev); processAsync(ev) }",
+        "testStrategy": "- Unit: signature validation with known secret and example payload (fixture `.taskmaster/tools/simulate-webhook.json` equivalent).\n- Unit: idempotency cache behavior under duplicate deliveries.\n- Integration: end-to-end HTTP test using httptest server, posting PR event JSON and asserting 200 + event capture.\n- Negative: invalid signature returns 401; unknown event returns 204.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Scaffold HTTP server with middleware and core endpoints",
+            "description": "Create `cmd/server` with `net/http` server, middleware stack, and routes.",
+            "dependencies": [],
+            "details": "Implement server using `net/http` with middleware for request ID, structured logging, and panic recovery. Add routes: `GET /healthz`, `GET /metrics` (placeholder), and `POST /webhook/github`. Provide graceful shutdown and basic env-driven config (e.g., `GITHUB_WEBHOOK_SECRET`). Wire the webhook handler but leave validation/parsing stubs for later subtasks.",
+            "status": "done",
+            "testStrategy": "Unit: handlers return expected status codes; middleware sets request ID header; healthz/metrics respond with 200."
+          },
+          {
+            "id": 2,
+            "title": "Add HMAC SHA-256 GitHub signature validation utility",
+            "description": "Validate `X-Hub-Signature-256` against request body using secret.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement a function to compute HMAC SHA-256 of the raw body using `GITHUB_WEBHOOK_SECRET` and compare to the `sha256=` prefixed header using constant-time comparison. Handle missing/invalid headers and malformed hex safely. Integrate into webhook handler early-returning 401 on failure.",
+            "status": "done",
+            "testStrategy": "Unit: known secret + payload fixture yields valid signature; wrong secret, missing header, bad prefix, and malformed hex are rejected."
+          },
+          {
+            "id": 3,
+            "title": "Parse GitHub pull_request and push events into types.Event",
+            "description": "Map PR (opened, synchronize) and push-to-main payloads to `types.Event`.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Read `X-GitHub-Event` and `X-GitHub-Delivery` headers, unmarshal JSON payloads for `pull_request` and `push`. Extract minimal context (repo, ref/branch, PR number, commit SHA, action) and build `pkg/types.Event` including delivery ID, provider, signature, and raw payload for traceability. Log or emit the event (stub channel for now).",
+            "status": "done",
+            "testStrategy": "Unit: parse fixtures for PR opened/synchronize and push-to-main; verify fields on `types.Event`; ignore unsupported events/actions."
+          },
+          {
+            "id": 4,
+            "title": "Implement idempotency dedupe cache for delivery IDs with TTL",
+            "description": "Prevent duplicate processing via in-memory cache keyed by delivery ID.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Introduce a concurrency-safe in-memory cache (LRU or map+TTL) to track seen `X-GitHub-Delivery` IDs. Expose `SeenOrAdd(id)` to short-circuit duplicates. Make capacity/TTL configurable. Integrate into webhook flow after signature validation and before parsing/persisting.",
+            "status": "done",
+            "testStrategy": "Unit: duplicate deliveries are detected; entries expire after TTL; concurrent access remains safe."
+          },
+          {
+            "id": 5,
+            "title": "End-to-end webhook tests with httptest and negative cases",
+            "description": "Exercise the full HTTP path with real handlers and fixtures.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Use `httptest` to spin up the server and POST webhook fixtures with correct headers and signatures. Assert 200 on valid PR and push-to-main, 401 on invalid signature, and no reprocessing on duplicate delivery IDs. Include checks for `GET /healthz` and placeholder `/metrics`. Capture logs to ensure event emission is invoked.",
+            "status": "done",
+            "testStrategy": "Integration: end-to-end tests with fixtures for PR and push; negative tests for bad signature and duplicates; verify response codes and side-effects."
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "GitHub API Client: Diffs, Comments, Status",
+        "description": "Implement minimal GitHub client to fetch PR diffs/files, post review comments, and set commit status/checks with retry and rate-limit handling.",
+        "details": "- Package: `internal/git/githubclient` implements `types.GitClient` port.\n- Auth: token from `GITHUB_TOKEN`; set `User-Agent: AurumCode`.\n- Methods:\n  - `GetPullRequestDiff(owner,repo,number) (types.Diff, error)` using `Accept: application/vnd.github.v3.diff`.\n  - `ListChangedFiles(owner,repo,number)` for metadata/lang hints.\n  - `PostReviewComment(owner,repo,number, comment)` supporting file+line and markdown body.\n  - `SetStatus(sha, state, context, description, targetURL)` pending/success/failure.\n- Resilience: retry on 429 with `Retry-After`, ETag caching for diff fetch, exponential backoff.\n- Pseudocode:\n  - func GetPRDiff(..){ req:=newReq(\"/pulls/{n}\"); req.Header[Accept]=\"...diff\"; body:=do(req); return analysis.ParseUnifiedDiff(body) }\n  - func PostComment(..){ payload := { body, path, line }; doPOST(\"/pulls/{n}/comments\", payload) }",
+        "testStrategy": "- Unit: mock HTTP server returning fixture diff, verify parsed `types.Diff` structure.\n- Unit: 429 + Retry-After honored by client.\n- Integration: golden tests for comment payload formatting and status transitions.\n- Idempotency: posting same comment with dedupe key results in at-most-once behavior (store hash per PR session).",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Scaffold authenticated GitHub HTTP client with UA, retries, and backoff",
+            "description": "Create package `internal/git/githubclient` and an HTTP wrapper that injects auth and headers, and handles retries.",
+            "dependencies": [],
+            "details": "Build a reusable client: read `GITHUB_TOKEN`, set `Authorization: token ...` and `User-Agent: AurumCode`. Provide `baseURL` override for tests, context-aware timeouts, exponential backoff with jitter, and 429 handling using `Retry-After` (fallback to `X-RateLimit-Reset`). Centralize request/response, JSON decode helpers, and error types.",
+            "status": "done",
+            "testStrategy": "Unit tests with `httptest`: verify UA and Authorization headers, simulate 429 with Retry-After to assert retry/backoff behavior and context cancellation."
+          },
+          {
+            "id": 2,
+            "title": "Implement GetPullRequestDiff with Accept header and ETag caching",
+            "description": "Fetch PR unified diff and return `types.Diff`, honoring caching to reduce calls.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add `GetPullRequestDiff(owner, repo, number)` that calls `/repos/{owner}/{repo}/pulls/{number}` with `Accept: application/vnd.github.v3.diff`. Store and use ETag: send `If-None-Match`, on 304 return cached parsed `types.Diff`. Parse body via existing parser hook (e.g., `analysis.ParseUnifiedDiff`) and adapt errors cleanly.",
+            "status": "done",
+            "testStrategy": "Mock server returns fixture diff then 304; assert Accept header present, ETag stored, and cached `types.Diff` returned without re-parse on 304."
+          },
+          {
+            "id": 3,
+            "title": "Implement ListChangedFiles for PR file metadata with pagination and language hints",
+            "description": "List all changed files for a PR, aggregating pages and enriching with language hints.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add `ListChangedFiles(owner, repo, number)` calling `/repos/{o}/{r}/pulls/{n}/files` with pagination. Parse JSON fields (filename, status, sha, additions, deletions, changes, patch?). Derive simple language hints from filename extensions to aid downstream analysis. Return stable, typed results.",
+            "status": "done",
+            "testStrategy": "Mock paginated responses (e.g., two pages) and assert accumulation order, field mapping correctness, and language hint derivation for common extensions."
+          },
+          {
+            "id": 4,
+            "title": "Implement PostReviewComment supporting path+line, markdown body, and idempotency",
+            "description": "Post a review comment on a PR with file and line context; avoid duplicates when a dedupe key is supplied.",
+            "dependencies": [
+              1
+            ],
+            "details": "Add `PostReviewComment(owner, repo, number, comment)` that POSTs to `/repos/{o}/{r}/pulls/{n}/comments` with `{body,path,line}`. Support markdown body. If a `DedupeKey` is provided, first list existing review comments to skip posting an identical one (at-most-once). Handle 422 for outdated positions with a clear error.",
+            "status": "done",
+            "testStrategy": "Mock server validating payload; simulate existing matching comment to confirm no-op; assert markdown preserved and 422 mapped to a typed error."
+          },
+          {
+            "id": 5,
+            "title": "Implement SetStatus for commit SHA with pending/success/failure and resilient posting",
+            "description": "Set commit status on a SHA with context, description, and optional target URL using robust retries.",
+            "dependencies": [
+              1
+            ],
+            "details": "Expose `SetStatus(sha, state, context, description, targetURL)`. Post to `/repos/{owner}/{repo}/statuses/{sha}` using owner/repo from client config. Validate and map states (pending/success/failure). Reuse retry/backoff for 429/5xx, and surface non-retryable errors with details. Optionally gate length of description per GitHub limits.",
+            "status": "done",
+            "testStrategy": "Golden-compare request JSON; mock 429 with Retry-After to ensure retry; verify final 201 Created and response parsing; test invalid state rejection."
+          },
+          {
+            "id": 6,
+            "title": "End-to-end tests with mock server and golden fixtures for diff and JSON payloads",
+            "description": "Add comprehensive tests and fixtures covering diffs, comments, statuses, caching, and rate-limit behavior.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Create `httptest` server serving fixture diff and JSON files. Add golden fixtures for unified diff, comment payloads, and status bodies. Verify ETag cache hit path, pagination, idempotent comments, and exponential backoff timing within bounds. Include concurrency-safe tests and CI-friendly deterministic timings via injected clock.",
+            "status": "done",
+            "testStrategy": "Integration tests using `httptest` + golden files; table-driven cases across endpoints; verify headers, retries, and payload shapes; race detector on test package."
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Diff Analyzer and Language Detector",
+        "description": "Parse unified diffs into structured hunks, detect languages by extension and heuristics, and filter noise/large hunks for efficient prompts.",
+        "details": "- Package: `internal/analysis/{diff,language}`.\n- Diff parser: support file headers, chunk headers (`@@ -a,b +c,d @@`), added/removed/context lines, binary file detection; produce `types.Diff`.\n- Language detection: extension map {go,py,js,ts,java,rb,rs,cs,cpp,sh,yml,json,md}; fallback by shebang/keywords; per-file `Lang` on Diff.\n- Filtering: collapse large hunks (e.g., >500 lines) with summarization markers, ignore vendor/build files; prioritize source over lockfiles.\n- Pseudocode:\n  - func ParseUnifiedDiff(s string) (types.Diff, error) { scan lines; on new file: cur=File{Path}; on hunk header: push Hunk; classify lines by prefix; }\n  - func DetectLang(path, content) string { switch ext {...}; if shebang contains python -> py }",
+        "testStrategy": "- Unit: table-driven tests over multi-file diff fixture including renames, binary, large hunks.\n- Unit: language detection for edge cases (.mjs, .tsx, Makefile, Dockerfile).\n- Performance: benchmark parser on large diff strings.\n- Regression: ensure noise filters exclude `package-lock.json`, `yarn.lock`, `vendor/` by default.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Scaffold analysis packages and public APIs for diff parsing and language detection",
+            "description": "Create package structure and define clear, documented function signatures and types.",
+            "dependencies": [],
+            "details": "Add `internal/analysis/diff` and `internal/analysis/language` with exported APIs: `ParseUnifiedDiff(s string) (types.Diff, error)`, `DetectLang(path string, content []byte) types.Lang`, and `FilterAndSummarize(d types.Diff, opts Options) types.Diff`. Ensure alignment with `pkg/types` and prepare options/config structs.",
+            "status": "done",
+            "testStrategy": "Build-only smoke check to ensure packages compile and public APIs are wired."
+          },
+          {
+            "id": 2,
+            "title": "Implement unified diff parser with headers, hunks, and binary detection",
+            "description": "Parse unified diffs into structured files and hunks with line classifications.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement a streaming/state-machine parser handling file headers (`diff --git`, `---`, `+++`), hunk headers (`@@ -a,b +c,d @@`), and line prefixes (`+`, `-`, space). Detect `Binary files differ` and `GIT binary patch`. Populate `types.Diff` with files, hunks (oldStart, oldLines, newStart, newLines), and line kinds.",
+            "status": "done",
+            "testStrategy": "Table-driven unit tests over multi-file fixtures covering adds, deletes, renames, and binary patches; assert counts and positions."
+          },
+          {
+            "id": 3,
+            "title": "Add language detection by extension with shebang and keyword fallbacks",
+            "description": "Map common extensions to languages and provide heuristics for ambiguous cases.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement extension map {go,py,js,ts,java,rb,rs,cs,cpp,sh,yml,json,md} and handle special names (Makefile, Dockerfile). Add shebang parsing for python/node/bash and lightweight keyword heuristics reading first KB of content or added lines. Annotate each parsed file in the Diff with `Lang`.",
+            "status": "done",
+            "testStrategy": "Unit tests for edge cases: .mjs → js, .tsx → ts, Makefile, Dockerfile, shells via shebang, and keyword-based fallbacks."
+          },
+          {
+            "id": 4,
+            "title": "Implement noise filtering and large-hunk collapsing with summarization markers",
+            "description": "Filter vendor/build and lockfiles; collapse overly large hunks with markers.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Provide `ShouldIncludeFile(path)` and rules to ignore vendor/build paths and lockfiles (e.g., package-lock.json, yarn.lock). Implement hunk collapsing for >500 lines by inserting summarization markers and preserving hunk metadata. Add prioritization to favor source files over generated/minified assets.",
+            "status": "done",
+            "testStrategy": "Unit tests verifying excluded files, collapsed hunk markers, and prioritization behavior on mixed file sets."
+          },
+          {
+            "id": 5,
+            "title": "Add fixtures, table-driven tests, and benchmarks for parser, language, and filters",
+            "description": "Create comprehensive tests and measure performance on large diffs.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Add fixtures with multi-file diffs including renames, binary files, and large hunks under `tests/fixtures`. Write table-driven tests for parser correctness, language detection edge cases, and filter/collapse rules. Add `testing.B` benchmarks to assess allocations and throughput on large diff strings.",
+            "status": "done",
+            "testStrategy": "Run `go test ./...` with coverage; golden assertions for filtered output; benchmarks for parser throughput and allocation counts."
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Prompt Builder, Robust Response Parser, Deterministic LLM Calls",
+        "description": "Create prompt construction with token budgeting and a response parser that extracts JSON from markdown/code fences and repairs minor malformations; add retry/backoff and safety filters.",
+        "details": "- Package: `internal/llm/{prompt,parser}`.\n- PromptBuilder inputs: Config, Diff (selected hunks), language rules, documents; outputs a structured prompt with instructions for strict JSON schema responses for reviews/tests/docs.\n- Token budgeting: estimate tokens of system+user; trim context by priority (changed functions > headers > comments) until within `max_tokens` budget.\n- ResponseParser:\n  - Extract first JSON code fence if present; fallback to bracket matching.\n  - Attempt repair: remove trailing commas, fix quotes, ensure required fields present; if irreparable, return error.\n- Determinism: default `temperature=0.3`; allow `0.0` for QA; set `top_p=1`, `frequency_penalty=0` where applicable.\n- Pseudocode:\n  - func BuildReviewPrompt(diff, rules) Prompt { return Prompt{System: sys, User: fmt.Sprintf(template, diffSummary, rules)} }\n  - func ParseJSONFromMarkdown(s string) (map[string]any, error) { if codeFenceJSON(s) ok; else if findFirstBracePair ok; else err }",
+        "testStrategy": "- Unit: prompts include required sections and fit budget given token estimator stub.\n- Unit: response parser over fixtures: valid JSON, JSON-in-markdown, malformed variants; verify repair outcomes or errors.\n- Integration: simulate provider returning markdown; ensure parser extracts canonical JSON map.\n- Negative: ensure unsafe content (secrets) triggers filter or redaction path.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Scaffold prompt/parser packages and core types/interfaces",
+            "description": "Create initial package layout and define the fundamental types and contracts.",
+            "dependencies": [],
+            "details": "Create `internal/llm/prompt` and `internal/llm/parser`. Define `PromptParts{System string, User string, Meta map[string]string}`, `BuildOptions{MaxTokens int, SchemaKind string, Role string, ReserveReply int}`, `LanguageRules`, and `Document`. Add `TokenEstimator` interface with `Estimate(text string) int`. Define context segment model with `PriorityTier` and stable sort keys.",
+            "status": "done",
+            "testStrategy": "Compile-time checks and minimal unit tests for constructors and interface satisfaction using a stub estimator."
+          },
+          {
+            "id": 2,
+            "title": "Implement token budgeting and priority-based trimming in PromptBuilder",
+            "description": "Add budgeting logic that estimates tokens and trims context by priority until within limits.",
+            "dependencies": [
+              1
+            ],
+            "details": "In `internal/llm/prompt`, implement `BuildPrompt(diff, rules, docs, cfg, opts) (PromptParts, error)`. Use `TokenEstimator` to measure system+user+schema, maintain `ReserveReply` headroom. Slice context into segments (changed functions, headers, comments, docs) with priorities, deterministically trim lowest-priority segments first, then least-recent hunks. Ensure stable ordering and idempotent results.",
+            "status": "done",
+            "testStrategy": "Unit tests with a stub estimator controlling counts; verify results fit budget, trimming order matches priorities, and headroom is honored."
+          },
+          {
+            "id": 3,
+            "title": "Add JSON schema templates and structured prompt assembly",
+            "description": "Provide schema-driven templates for reviews/tests/docs with strict JSON code-fence instructions.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create templates in `internal/llm/prompt/templates.go` for schema kinds (review, tests, docs). Embed explicit instructions: respond with a single ```json fenced block matching the provided schema. Include fields, types, and required arrays. Inject diff summaries, language rules, and redaction notes. Compose final `System` and `User` strings from parts with consistent section headers.",
+            "status": "done",
+            "testStrategy": "Golden tests for each schema kind asserting presence of required sections, the JSON fence instruction, and deterministic ordering of sections."
+          },
+          {
+            "id": 4,
+            "title": "Build ResponseParser to extract and repair JSON from markdown",
+            "description": "Implement robust extraction from code fences, fallback bracket matching, and light repairs.",
+            "dependencies": [
+              1,
+              3
+            ],
+            "details": "In `internal/llm/parser`, implement `ParseJSONFromMarkdown(s string) (map[string]any, error)`. Steps: (1) regex for first ```json fence, (2) fallback to first balanced brace pair scan, (3) repair pass: strip trailing commas, normalize quotes (smart→standard, single→double when safe), close missing brackets, and inject missing required fields with null defaults when specified. Canonicalize keys for deterministic output; return clear errors on irreparable input.",
+            "status": "done",
+            "testStrategy": "Fixture-based tests covering valid JSON, JSON-in-markdown, and malformed variants (trailing commas, quotes, minor structure issues). Assert successful repair or precise error messages."
+          },
+          {
+            "id": 5,
+            "title": "Add safety filters/redaction and deterministic retry/backoff wrapper",
+            "description": "Introduce secret/PII redaction, enforce deterministic options, and add retry with backoff around parseable responses.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Implement pre-flight filter that scans context (diff, docs) for secrets/PII (e.g., keys, tokens, emails) and replaces with `[REDACTED]`. Provide deterministic defaults: `temperature=0.3` (QA override to `0.0`), `top_p=1`, `frequency_penalty=0`. Add a wrapper `CallWithRetry(ctx, doCall, opts)` using exponential backoff with jitter and max attempts; on each attempt, ensure prompt fits budget and parser can extract JSON or trigger retry on transient/parsing errors. Keep provider coupling via a small interface to align with Task 3.",
+            "status": "done",
+            "testStrategy": "Unit tests with a fake `doCall` function simulating transient failures and malformed markdown that becomes valid on retry; verify backoff schedule bounds, determinism options applied, and redaction replaced sensitive tokens."
+          },
+          {
+            "id": 6,
+            "title": "Create fixtures and golden tests for edge cases and regression",
+            "description": "Add comprehensive fixtures and golden files to validate trimming, parsing, repairs, and determinism.",
+            "dependencies": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Add `tests/fixtures`: large diffs with headers/comments, language-rule variants, and multiple malformed JSON samples. Add golden prompts per schema kind and budgets. Write table-driven tests asserting stable prompt outputs across runs, correct trimming order under tight budgets, successful parser repairs, and unchanged outputs with identical inputs to prove determinism.",
+            "status": "done",
+            "testStrategy": "Run unit and golden tests; verify deterministic byte-for-byte equality for prompts and parsed JSON across seeds; include edge cases: empty context, huge docs, binary diff markers."
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Automated Review Generation and ISO/IEC 25010 Scoring",
+        "description": "Implement AI-assisted code review flow that maps findings to files/lines, assigns severity and rule IDs, and computes ISO/IEC 25010 characteristic scores with weights.",
+        "details": "- Package: `internal/review/{reviewer,iso25010,suggestion}`.\n- Reviewer orchestrates: build prompt → call provider → parse → map to `ReviewIssue[]`; include rule mapping from `.aurumcode/rules`.\n- ISO/IEC 25010: define weights configurable in config; compute 0–100 scores for 8 characteristics from LLM output + static signals (e.g., cyclomatic complexity change, TODOs, smells).\n- Suggestions: before/after patches as unified diff snippets for each issue; validate formatting.\n- Output: `ReviewResult` with issues, isoScores, summary, and cost.\n- Pseudocode:\n  - func GenerateReview(ctx, diff, cfg) (types.ReviewResult, error) { pr := prompts.BuildReviewPrompt(...); resp := llm.Complete(...); parsed := parser.ParseReview(resp.Text); scores := iso.Score(parsed, metrics); return types.ReviewResult{Issues: parsed.Issues, Iso: scores} }",
+        "testStrategy": "- Unit: scoring function deterministically maps inputs to expected scores given weights.\n- Unit: suggestion generator outputs valid unified diff blocks.\n- Integration: golden tests from diff fixture → synthetic provider stub returns known findings → expected `ReviewResult` JSON.\n- Validation: ensure each issue has file+line and ruleID; severity within enum.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement reviewer orchestration pipeline in `internal/review/reviewer`",
+            "description": "Create the end-to-end flow to build prompts, call the LLM, parse, and assemble a `ReviewResult`.",
+            "dependencies": [
+              6
+            ],
+            "details": "Implement `GenerateReview(ctx, diff, cfg)` orchestrating: prompts.BuildReviewPrompt → provider.Complete → parser.ParseReview → assemble `types.ReviewResult` with issues, isoScores placeholder, summary, and cost placeholder. Wire logging, timeouts, and error handling.",
+            "status": "done",
+            "testStrategy": "Integration test with stub provider to assert prompt shape, parser invocation, and final `ReviewResult` structure; unit tests for error propagation and context timeouts."
+          },
+          {
+            "id": 2,
+            "title": "Map LLM findings to `ReviewIssue[]` with rule IDs and locations",
+            "description": "Transform parsed findings into typed issues with severity, rule mapping, and file/line anchors.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement mapper to resolve `.aurumcode/rules` → rule ID/metadata, attach to issues; locate file and line from diff hunks; handle multiple occurrences; normalize severities; include fallback when path not found and mark as repository-level.",
+            "status": "done",
+            "testStrategy": "Unit tests: rule lookup by key, missing rule fallback, file/line mapping from sample diff hunks, and deterministic ordering for stable outputs."
+          },
+          {
+            "id": 3,
+            "title": "ISO/IEC 25010 scoring with configurable weights and static signals",
+            "description": "Compute 0–100 scores for the 8 characteristics using weights and metrics.",
+            "dependencies": [
+              2
+            ],
+            "details": "Create `internal/review/iso25010` with `Score(parsed, metrics, weights)`; load weights from config; blend LLM-derived ratings with static signals (complexity deltas, TODO counts, smells); validate weights and clamp outputs to 0–100; return per-characteristic and overall.",
+            "status": "done",
+            "testStrategy": "Unit tests: deterministic scoring given fixed inputs; boundary conditions (weights sum, zero weights); verify clamping and contribution from static metrics."
+          },
+          {
+            "id": 4,
+            "title": "Generate suggestion unified diff snippets and validate formatting",
+            "description": "Produce before/after patch snippets per issue and ensure unified diff validity.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement `internal/review/suggestion` with helpers to extract context from original diff and render minimal unified diff blocks; validate headers/hunks format; support multiple hunks per issue; gracefully skip when context not available.",
+            "status": "done",
+            "testStrategy": "Unit tests: generated diffs parse with a unified diff parser; verify correct file headers, hunk ranges, and no malformed patches on edge cases."
+          },
+          {
+            "id": 5,
+            "title": "Capture token usage and monetary cost into `ReviewResult`",
+            "description": "Record usage metrics from provider calls and compute estimated cost.",
+            "dependencies": [
+              1
+            ],
+            "details": "Augment orchestration to read token usage from provider response; compute cost using provider pricing in config (prompt/completion rates); include currency, totals, and per-step breakdown in `ReviewResult`.",
+            "status": "done",
+            "testStrategy": "Unit tests: pricing math with various token counts and rates; rounding rules; missing pricing defaults; ensure totals match per-step sums."
+          },
+          {
+            "id": 6,
+            "title": "Integrate provider and parser contracts with a deterministic stub",
+            "description": "Define interfaces for LLM provider and parser and implement a stub for tests.",
+            "dependencies": [],
+            "details": "Create `Provider` interface (`Complete(ctx, req) -> {Text,Usage}`) and `Parser` that converts LLM text into structured findings; add a stub provider returning canned text and usage; support provider selection via config but default to stub in tests.",
+            "status": "done",
+            "testStrategy": "Unit tests: stub returns expected payload; parser handles valid/malformed sections; contract tests ensure orchestration only relies on interfaces."
+          },
+          {
+            "id": 7,
+            "title": "Golden end-to-end tests with fixtures for `ReviewResult` JSON",
+            "description": "Assert full pipeline output from diff fixture through stubbed LLM to stable JSON.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "details": "Create fixtures: input diff, rules, config weights, and stub LLM output; run `GenerateReview` and compare the resulting `ReviewResult` JSON to golden files; include update flag for intentional changes.",
+            "status": "done",
+            "testStrategy": "Integration golden tests using stub provider; verify issues, iso scores, suggestions, summary, and cost fields match expected JSON exactly."
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Documentation Generation Pipeline (Changelog, README, API, Site)",
+        "description": "Generate conventional-commit changelog, safely update README sections, produce API docs where applicable, and integrate Hugo + Pagefind static site build artifacts.",
+        "details": "- Package: `internal/documentation/{changelog,readme,api,site}`.\n- Changelog: parse git history (on push to main) using conventional commits → `docs/CHANGELOG.md` with versions/tags.\n- README updater: update marked sections between `<!-- aurum:start -->` and `<!-- aurum:end -->`, preserving manual content elsewhere.\n- API docs: language-agnostic mode—if OpenAPI is detected (`openapi.yaml/json`), render/transform to Markdown summary; else skip.\n- Site builder: invoke Hugo (version per PRD 0.134.2) and Pagefind; write output under `docs/public` or CI workspace.\n- Pseudocode:\n  - func UpdateChangelog(repoPath) error { commits := git.Log(...); entries := parseConv(commits); writeMarkdown(entries) }\n  - func BuildSite(dir) error { run(\"hugo --minify\"); run(\"npx pagefind --source ./public\") }",
+        "testStrategy": "- Unit: parse conventional commits into sections (feat/fix/chore/docs/refactor/breaking) with fixtures.\n- Unit: README updater preserves text outside markers and idempotently updates within markers.\n- Integration: simulate repo with existing docs; run builder in a temp dir and assert output structure; mock Hugo/Pagefind commands behind an interface.\n- Links QA: validate internal links and anchors in generated Markdown.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Conventional Commit Parser and Changelog Writer",
+            "description": "Build a parser for conventional commits and write a Markdown changelog.",
+            "dependencies": [],
+            "details": "Create `internal/documentation/changelog` with functions to read git history (on push to main), parse conventional commits (feat/fix/chore/docs/refactor/breaking), group by version/tag, and emit `docs/CHANGELOG.md` with sections and dates. Include tag detection and fallback to Unreleased when no tag. Ensure idempotent writes and stable ordering.",
+            "status": "done",
+            "testStrategy": "Unit tests with commit fixture logs covering types, scopes, BREAKING changes, and tag boundaries; golden snapshot for `CHANGELOG.md` output."
+          },
+          {
+            "id": 2,
+            "title": "Implement Idempotent README Section Updater with Markers",
+            "description": "Write updater that safely replaces only marked README regions.",
+            "dependencies": [],
+            "details": "Create `internal/documentation/readme` to find markers `<!-- aurum:start -->` and `<!-- aurum:end -->` and replace content in-between while preserving everything else. Support multiple distinct named sections via optional keys, handle missing markers gracefully, and ensure repeated runs are idempotent. Provide dry-run mode and diff output.",
+            "status": "done",
+            "testStrategy": "Unit tests verifying preservation of unmarked text, correct replacement within markers, handling of missing/duplicated markers, and idempotent second run producing no diff."
+          },
+          {
+            "id": 3,
+            "title": "Implement OpenAPI Detector and Markdown Summary Generator",
+            "description": "Detect OpenAPI specs and render a concise Markdown summary.",
+            "dependencies": [],
+            "details": "Create `internal/documentation/api` to discover `openapi.yaml`/`openapi.json` in repo root or `api/`. Parse using a language-agnostic approach, extract title/version, servers, tags, and top endpoints grouped by tag and method, then render `docs/API.md`. If no spec is found, no-op with clear return codes. Avoid external network calls.",
+            "status": "done",
+            "testStrategy": "Unit tests with YAML and JSON fixtures: valid spec, minimal spec, and malformed spec; assert detection, parsed fields, and generated Markdown sections."
+          },
+          {
+            "id": 4,
+            "title": "Implement Site Builder Interfaces for Hugo and Pagefind with Mocks",
+            "description": "Design interfaces to run Hugo and Pagefind and produce static site artifacts.",
+            "dependencies": [],
+            "details": "Create `internal/documentation/site` with a `Builder` interface and concrete executors for `hugo --minify` (version 0.134.2) and `npx pagefind --source ./public`. Support configurable workdir and output to `docs/public`. Provide mockable runners for tests (command exec abstraction), environment probing, and meaningful errors. No network during tests.",
+            "status": "done",
+            "testStrategy": "Unit tests using mocked command runner verifying correct args, env, workdir, and error surfacing; simulate success and failure for both Hugo and Pagefind."
+          },
+          {
+            "id": 5,
+            "title": "Create End-to-End Integration Tests on Sample Repository",
+            "description": "Add integration tests that run the full documentation pipeline on a temp repo.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Assemble a temporary git repo with sample commits, README with markers, and an OpenAPI file. Execute changelog, README updater, API generator, and site builder in sequence, writing artifacts into `docs/` and `docs/public`. Assert expected files, directory structure, and stable outputs on repeated runs.",
+            "status": "done",
+            "testStrategy": "Integration tests using temp directories: initialize git history, run pipeline, assert files (`docs/CHANGELOG.md`, `README.md` updated, `docs/API.md`, `docs/public/index.html` placeholder), and verify idempotency by re-running."
+          },
+          {
+            "id": 6,
+            "title": "Implement Link Validation for Generated Docs and Site",
+            "description": "Validate internal and external links across generated Markdown and site output.",
+            "dependencies": [
+              4,
+              5
+            ],
+            "details": "Create a link checker that scans `docs/` Markdown and `docs/public` HTML for broken internal links (anchors, relative paths) and optionally pings external links with a timeout. Provide report with locations and severities; allow ignore list. Integrate as a final step returning non-zero on hard failures.",
+            "status": "done",
+            "testStrategy": "Integration-style tests with fixtures containing good and bad links; assert detection of missing anchors/files and the ignore list behavior. For external URLs, stub HTTP requests or skip in offline mode."
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Test Generation and Executor with Coverage Parsing",
+        "description": "Generate unit/API tests for changed code via LLM where configured, create mocks for interfaces, execute tests per language, and parse coverage to enforce QA gates.",
+        "details": "- Package: `internal/testing/{unit,api,mock,executor}`.\n- Generators: build prompts for changed functions/classes; suggest table-driven tests where idiomatic (Go), pytest style (Python), jest/vitest (JS/TS). Output files under language-specific test dirs.\n- Mock generator: infer interfaces and create minimal mocks/stubs; for Go, use simple hand-written fakes to avoid external deps.\n- Executor: per-language runners—Go: `go test -coverprofile`; Python: `pytest --cov`; JS: `npm test -- --coverage`. Parse coverage into unified `QAArtifacts`.\n- Gates: configurable thresholds (line ≥80%, branch ≥75%); fail the phase if thresholds not met.\n- Pseudocode:\n  - func GenerateUnitTests(diff, cfg) ([]FileEdit, error) { cases := llm.Complete(prompts.Unit(...)); return writeEdits(cases) }\n  - func RunCoverage(langSet) (Coverage, error) { for lang in langSet { runTool(lang); parse; aggregate } }",
+        "testStrategy": "- Unit: ensure generator writes tests only for changed targets and is idempotent (hash markers in files).\n- Integration: run executors against small polyglot fixture repo from PRD; parse coverage reports into unified struct.\n- Flakiness: rerun generated tests N times; flag flaky if intermittent failures (>0 but <N).\n- Gate tests: verify enforcement blocks when below thresholds and passes when above.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Build per-language unit test generator (Go, Python, JS/TS) with LLM prompts",
+            "description": "Create a generator that targets changed functions/classes and emits idiomatic unit tests per language.",
+            "dependencies": [],
+            "details": "Implement in `internal/testing/unit`. Detect changed symbols from diff, build prompts via `internal/llm/prompt`, and generate tests idempotently using file hash markers. Emit Go table-driven `_test.go` in same package, pytest files under `tests/test_*.py`, and Jest/Vitest under `__tests__/*.test.ts|js`. Respect config toggles to disable LLM or limit targets; fall back to skeletons when LLM off.",
+            "status": "done",
+            "testStrategy": "Unit: diff fixture → expected targets, file paths, and idempotent re-run (no duplicates). Golden tests for minimal per-language outputs."
+          },
+          {
+            "id": 2,
+            "title": "Implement API test generator using OpenAPI/routes heuristics",
+            "description": "Generate API tests for HTTP handlers/endpoints using OpenAPI when available or code heuristics.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement in `internal/testing/api`. If `openapi.yaml/json` found, derive request/response cases; otherwise infer from router/handler signatures. Build LLM prompts with examples, auth/header handling hints, and write pytest/Jest request tests and Go `httptest` cases. Place files under language-appropriate API test dirs. Ensure idempotent updates with markers.",
+            "status": "done",
+            "testStrategy": "Integration: fixture with OpenAPI and router → expected API test files created. Unit: idempotency and path conventions."
+          },
+          {
+            "id": 3,
+            "title": "Create minimal mock/fake generator for interfaces and dependencies",
+            "description": "Infer interfaces and produce simple language-idiomatic fakes/mocks to unblock generated tests.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement in `internal/testing/mock`. For Go, emit hand-written fakes (no external deps); for Python, simple stub classes; for JS/TS, inline jest.fn() or lightweight stubs. Detect constructor injection and function params; place mocks near tests or in `/testutils`. Avoid overwriting manual mocks; support regeneration via markers.",
+            "status": "done",
+            "testStrategy": "Unit: given small interface/type examples, verify generated mock structure and import paths. Integration: generated tests compile using created fakes."
+          },
+          {
+            "id": 4,
+            "title": "Add per-language test executors with coverage capture",
+            "description": "Implement runners for Go, Python, and JS/TS that execute tests and collect coverage artifacts.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Implement in `internal/testing/executor`. Commands: Go `go test ./... -coverprofile=coverage.out`, Python `pytest --cov --cov-report=xml`, JS `npm test -- --coverage`. Stream logs, capture exit codes, handle timeouts, and collect paths to coverage outputs. Normalize working dirs and env settings per language.",
+            "status": "done",
+            "testStrategy": "Integration: run against polyglot fixture repos, assert exit codes, presence of coverage files, and captured logs."
+          },
+          {
+            "id": 5,
+            "title": "Parse coverage outputs and aggregate into unified Coverage model",
+            "description": "Normalize Go, pytest, and Jest coverage formats into a single structure and compute totals.",
+            "dependencies": [
+              4
+            ],
+            "details": "Extend `internal/testing/executor` with parsers: Go coverprofile, Python coverage XML, and JS lcov.info. Map to files/functions/lines, compute line and branch percentages, and aggregate across languages. Expose `RunCoverage(langSet)` that runs, parses, and returns aggregated coverage.",
+            "status": "done",
+            "testStrategy": "Unit: parse stored sample reports for each language → expected per-file and total metrics. Integration: run executor then parse; verify aggregate numbers."
+          },
+          {
+            "id": 6,
+            "title": "Enforce QA gates with configurable line/branch thresholds and failure signaling",
+            "description": "Add configurable coverage thresholds and fail the phase if metrics do not meet gates.",
+            "dependencies": [
+              5
+            ],
+            "details": "In `internal/testing/executor`, compare aggregated coverage against config (default line ≥80%, branch ≥75%). Produce a verdict with reasons, mark phase failure, and propagate a non-zero status for pipelines when enforced. Support per-language overrides and allow soft-fail mode.",
+            "status": "done",
+            "testStrategy": "Unit: boundary-value tests for thresholds and overrides. Integration: run against fixtures crafted to pass/fail and assert gating behavior."
+          },
+          {
+            "id": 7,
+            "title": "Implement flakiness detection and automatic re-runs for generated tests",
+            "description": "Detect intermittent test failures by re-running selected suites N times and classifying flaky tests.",
+            "dependencies": [
+              4,
+              5,
+              6
+            ],
+            "details": "Add to `internal/testing/executor`: configurable re-run count/backoff, only for generated tests or failed tests. Track pass/fail across attempts, mark tests as flaky with rate and stabilize if later passes. Optionally quarantine flaky tests from gating, controlled by config.",
+            "status": "done",
+            "testStrategy": "Integration: include a purposely flaky test in fixtures; verify re-run behavior, flaky classification, and optional quarantine rules."
+          },
+          {
+            "id": 8,
+            "title": "Produce QAArtifacts reporting (coverage, gates, flakiness) and concise console summaries",
+            "description": "Serialize results into a stable artifact and print human-friendly summaries.",
+            "dependencies": [
+              5,
+              6,
+              7
+            ],
+            "details": "Implement `QAArtifacts` struct carrying per-language coverage, aggregated totals, gate verdicts, flaky test list, and logs. Persist as JSON under `artifacts/qa.json` (path configurable) and print concise console tables/summaries. Ensure fields are stable for downstream tooling.",
+            "status": "done",
+            "testStrategy": "Unit: schema snapshot test for QAArtifacts JSON. Integration: end-to-end run writes file with expected keys and summary lines in stdout."
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Refactor prompt builder to use markdown templates",
+        "description": "Refactored internal/prompt/builder.go to load prompts from markdown template files instead of using sb.WriteString inline. Created .aurumcode/prompts/ directory with templates and internal/prompt/templates/ for embedded templates.",
+        "details": "- Created .aurumcode/prompts/ directory with review.md, documentation.md, test.md, summary.md templates\n- Created internal/prompt/templates/ for embedded templates\n- Refactored BuildReviewPrompt, BuildDocumentationPrompt, BuildTestPrompt, BuildSummaryPrompt to use Go text/template\n- Added fallback implementations in case templates fail to load\n- Templates use {{.Variable}} syntax for dynamic content injection",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Pipeline Orchestrator Implementation - 3 Use Cases Integration",
+        "description": "Implement Main Pipeline Orchestrator that coordinates the 3 main use cases (Code Review, Documentation Generation, QA Testing) in parallel. Create internal/pipeline/ directory structure with orchestrator.go (main coordinator), review_pipeline.go (Use Case 1 - complete), docs_pipeline.go (Use Case 2 - stub), qa_pipeline.go (Use Case 3 - stub). Update pkg/types/ for Event, ReviewComment, Config with FeaturesConfig. Create config.example.yml template. Integrate with webhook handler via processEvent().",
+        "details": "This is the core integration layer that makes AurumCode functional end-to-end. The Pipeline Orchestrator receives events from the webhook handler and decides which pipelines to run based on event type and configuration. Review Pipeline is fully implemented and functional. Docs and QA pipelines are stubs ready for future implementation.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create internal/pipeline directory structure",
+            "description": "Created directories: internal/pipeline/, internal/qa/docker/, internal/qa/environments/, configs/.aurumcode/prompts/code-review/, configs/.aurumcode/prompts/documentation/, configs/.aurumcode/prompts/qa/, configs/.aurumcode/rules/, configs/.aurumcode/qa/",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 2,
+            "title": "Update pkg/types/types.go with Event and ReviewComment types",
+            "description": "Updated Event struct with fields: RepoOwner, Action, PRNumber, CommitSHA, Branch, Merged. Added new ReviewComment type with Path, Line, Body, CommitID fields. Updated ReviewResult with optional ISOScores and OverallScore float64.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 3,
+            "title": "Update pkg/types/config.go with FeaturesConfig",
+            "description": "Added FeaturesConfig struct with fields: CodeReview, CodeReviewOnPush, Documentation, QATesting (all bool). Updated Config struct to include Features field. Updated NewDefaultConfig() with default feature flags.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 4,
+            "title": "Implement internal/pipeline/orchestrator.go - Main Orchestrator",
+            "description": "Implemented MainOrchestrator struct with 3 pipeline references. Created NewMainOrchestrator() constructor. Implemented ProcessEvent() that runs 3 pipelines in parallel using goroutines. Implemented shouldRunReview(), shouldRunDocs(), shouldRunQA() decision functions. Complete error handling and logging. 207 lines total. FULLY FUNCTIONAL.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 5,
+            "title": "Implement internal/pipeline/review_pipeline.go - Use Case 1 COMPLETE",
+            "description": "Implemented ReviewPipeline struct with config, githubClient, reviewer, analyzer. Created NewReviewPipeline() constructor. Implemented Run() with complete flow: fetch diff → analyze → LLM review → post inline comments → post summary comment → set commit status. Implemented formatIssueComment() with emoji formatting. Implemented formatSummaryComment() with ISO scores, metrics, cost. 178 lines total. FULLY FUNCTIONAL END-TO-END.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 6,
+            "title": "Create stubs for docs_pipeline.go and qa_pipeline.go",
+            "description": "Created internal/pipeline/docs_pipeline.go with DocumentationPipeline struct and stub Run() method. Created internal/pipeline/qa_pipeline.go with QATestingPipeline struct and stub Run() method. Both return not-yet-implemented errors. Structure ready for future implementation.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 7,
+            "title": "Create configs/.aurumcode/config.example.yml complete template",
+            "description": "Created comprehensive config example with: LLM configuration (provider, model, temperature, budgets), Code Review settings (enabled, triggers, rules, prompts, ISO scoring), Documentation settings (mode, triggers, outputs, investigation mode, RAG), QA Testing settings (environments, docker, test types, reporting), Features flags, Cost control, GitHub integration. Complete template ready for users.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 8,
+            "title": "Create comprehensive documentation (4 documents, ~500 lines)",
+            "description": "Created docs/PRODUCT_VISION.md (architecture based on 3 use cases, complete diagrams, configuration structure, implementation phases). Created docs/ARCHITECTURE_AUDIT.md (audit identifying orphaned code, duplications, decisions needed). Created docs/CLEANUP_PLAN.md (detailed action plan, code examples, timeline). Created docs/IMPLEMENTATION_STATUS.md (complete status, roadmap, next steps). Total ~500 lines of documentation.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 12
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Verify .gitignore and commit Pipeline Orchestrator solution",
+        "description": "Ensure .gitignore file has proper patterns for Go projects, IDE files, build artifacts, and secrets. Stage all Pipeline Orchestrator changes and commit to GitHub.",
+        "details": "Files to commit: internal/pipeline/*, pkg/types/*, configs/.aurumcode/*, docs/PRODUCT_VISION.md, docs/ARCHITECTURE_AUDIT.md, docs/IMPLEMENTATION_STATUS.md. Create comprehensive commit message explaining the 3-use-case architecture.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Check and verify .gitignore file",
+            "description": "Verify .gitignore contains proper patterns for Go projects, IDE files, build artifacts, and secrets.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 13
+          },
+          {
+            "id": 2,
+            "title": "Stage all Pipeline Orchestrator implementation files",
+            "description": "Stage internal/pipeline/*, pkg/types/*, configs/.aurumcode/*, docs/* files.",
+            "details": "",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 13
+          },
+          {
+            "id": 3,
+            "title": "Create comprehensive commit message",
+            "description": "Write detailed commit message explaining Pipeline Orchestrator implementation with 3 use cases.",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 13
+          },
+          {
+            "id": 4,
+            "title": "Commit and push to GitHub main branch",
+            "description": "Execute git commit and push changes to GitHub main branch.",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 13
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Develop Full Demo POC - All 3 Use Cases Working",
+        "description": "Create complete end-to-end demonstration with real API keys and GitHub repository showing all 3 use cases: Code Review, Documentation Generation, and QA Testing automation.",
+        "details": "Setup: Real OpenAI/Anthropic keys, configure webhooks, deploy server. Demo: (1) Code Review on PR with comments and ISO scores, (2) Docs generation on merge, (3) QA testing with Docker. Document with screenshots/logs.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-10-31T19:08:34.162Z",
+      "updated": "2025-11-01T19:28:24.813Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

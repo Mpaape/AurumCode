@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+coverage.out
+*.test
+
+# Documentation
+docs/
+
+# Node modules if any
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# TaskMaster
+.taskmaster/
+
+# Claude/Gemini
+.claude/
+.gemini/
+

@@ -1,0 +1,9 @@
+rules:
+  naming_convention:
+    severity: warning
+    pattern: "camelCase variables"
+  
+  complexity:
+    severity: error
+    max_cyclomatic: 10
+

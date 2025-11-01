@@ -1,0 +1,22 @@
+version: "2.0"
+
+llm:
+  provider: "openai"
+  model: "gpt-4"
+  temperature: 0.5
+  max_tokens: 6000
+  budgets:
+    daily_usd: 20.0
+    per_review_tokens: 10000
+
+prompts:
+  code_review: "prompts/code-review/custom.md"
+
+rules:
+  code_standards: "rules/standards.yml"
+  security: "rules/security.yml"
+
+outputs:
+  comment_on_pr: false
+  generate_tests: true
+

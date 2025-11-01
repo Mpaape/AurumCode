@@ -1,0 +1,115 @@
+version: "2.0"
+
+# LLM Configuration
+llm:
+  provider: "openai"        # openai, anthropic, ollama, litellm
+  model: "gpt-4"
+  temperature: 0.3
+  max_tokens: 4000
+  budgets:
+    daily_usd: 50.0
+    per_review_tokens: 8000
+
+# Caso de Uso #1: Code Review Automático
+code_review:
+  enabled: true
+  triggers:
+    - pull_request
+    - push                  # opcional: review em push também
+  rules:
+    - code-standards.yml    # regras customizadas
+    - security-rules.yml
+  prompts:
+    default: prompts/code-review/general.md
+    security_focus: prompts/code-review/security-focus.md
+  iso_scoring:
+    enabled: true
+    weights:
+      functionality: 1.5
+      reliability: 2.0
+      security: 2.5          # peso maior para segurança
+      maintainability: 1.0
+      usability: 1.0
+      efficiency: 1.0
+      portability: 1.0
+      compatibility: 1.0
+
+# Caso de Uso #2: Geração de Documentação
+documentation:
+  enabled: true
+  mode: auto                # auto, investigation, manual
+  triggers:
+    - push:main             # após merge para main
+    - pull_request:merged   # PR mergeado
+  outputs:
+    inline: true            # docs inline no código
+    changelog: true         # CHANGELOG.md
+    readme: true            # README.md
+    api_docs: true          # API.md (se OpenAPI detectado)
+    static_site: false      # Hugo + Pagefind (opcional)
+  prompts:
+    inline: prompts/documentation/inline.md
+    changelog: prompts/documentation/changelog.md
+    readme: prompts/documentation/readme.md
+    api: prompts/documentation/api.md
+  investigation_mode:
+    enabled: true           # modo investigação (geração completa)
+    use_rag: true           # usa RAG para contexto profundo
+    depth: full             # full, incremental
+
+# Caso de Uso #3: QA Testing Automático
+qa_testing:
+  enabled: true
+  triggers:
+    - pull_request          # em todo PR
+  environments_config: qa/environments.yml
+  test_strategy_config: qa/test-strategy.yml
+  docker:
+    auto_generate_dockerfile: true  # gera Dockerfile via LLM se não existir
+    build_timeout: 600              # 10 minutos
+    container_timeout: 1800         # 30 minutos
+    cleanup_on_success: true
+    cleanup_on_failure: false       # mantém para debug
+  test_types:
+    unit: true
+    integration: true
+    api: true
+    e2e: true
+  reporting:
+    post_to_pr: true
+    coverage_threshold: 80
+    fail_on_threshold: false
+
+# RAG System (opcional - para modo investigação)
+rag:
+  enabled: false
+  provider: qdrant          # qdrant, local
+  collection: aurumcode-docs
+  embedding_model: text-embedding-ada-002
+  chunk_size: 1000
+  chunk_overlap: 200
+
+# GitHub Integration
+github:
+  post_comments: true
+  set_status: true
+  create_issues: false      # criar issues para problemas críticos (opcional)
+  labels:
+    review_approved: "✅ reviewed"
+    review_failed: "❌ review-failed"
+    needs_docs: "📚 needs-docs"
+    tests_passing: "🧪 tests-passing"
+
+# Cost Control
+cost_control:
+  daily_limit_usd: 50.0
+  per_run_limit_usd: 5.0
+  alert_threshold: 0.8      # alerta em 80% do budget
+  alert_webhook: ""         # webhook para alertas (opcional)
+
+# Features (enable/disable)
+features:
+  code_review: true
+  code_review_on_push: false
+  documentation: true
+  qa_testing: true

@@ -1,0 +1,60 @@
+# Task ID: 2
+# Title: Config Loader, Defaults, Schema Validation
+# Status: done
+# Dependencies: None
+# Priority: medium
+# Description: Implement configuration loader for `.aurumcode/config.yml` with environment overrides and schema validation; add loaders for prompts/rules/documents directories.
+# Details:
+- Package: `internal/config`.
+- Read order: repo `.aurumcode/config.yml` → env overrides (`LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`) → defaults from `configs/default-config.yml`.
+- Implement caching with mtime/hash key to avoid re-parsing within a run.
+- Validation: required fields, numeric ranges (temperature 0–1, budgets ≥0), enum for provider (`auto|litellm|openai|anthropic|ollama`). Use `go-playground/validator` or custom checks.
+- Prompt/rule/document resolvers: resolve relative paths under `.aurumcode/{prompts,rules,documents}`; ensure existence; load as bytes for injection.
+- Pseudocode:
+  - func Load(path string) (types.Config, error) { base := loadDefault(); file := parseYAML(path); cfg := merge(base,file); cfg = applyEnv(cfg); err := validate(cfg); cache.Store(hash, cfg); return cfg }
+  - func LoadPrompt(key string) ([]byte, error) { return os.ReadFile(resolve(cfg.Prompts[key])) }
+  - func Merge(a,b Config) Config { // field-wise preference of b when non-zero }
+
+# Test Strategy:
+- Unit: table-driven tests for valid/invalid configs (missing llm.model, out-of-range temperature, negative budgets).
+- Unit: env override precedence tests using temporary env vars.
+- Integration: load minimal example repo fixture with `.aurumcode/` tree under `tests/fixtures/repo1`.
+- Regression: schema round-trip tests compare input YAML to marshaled YAML for stable fields.
+
+# Subtasks:
+## 1. Define Config struct and load defaults in internal/config [done]
+### Dependencies: None
+### Description: Introduce core configuration types and default values for the system.
+### Details:
+Create package `internal/config` with `types.Config` capturing LLM provider, model, temperature, budgets, and maps for prompts/rules/documents. Implement `loadDefault()` to parse `configs/default-config.yml`. Establish base `.aurumcode/` directory conventions and fields for relative directories.
+
+## 2. YAML file parsing and merge precedence implementation [done]
+### Dependencies: 2.1
+### Description: Parse repo `.aurumcode/config.yml` and merge into defaults with clear precedence.
+### Details:
+Add `parseYAML(path string)` and `Merge(a,b Config) Config` (field-wise, prefer non-zero from `b`). Implement `Load(path string)` to read defaults then file, applying precedence: repo file overrides defaults. Support given path or default `.aurumcode/config.yml`. Handle missing file gracefully.
+
+## 3. Environment overrides and secret handling logic [done]
+### Dependencies: 2.2
+### Description: Apply environment variables to override config, handling secrets safely.
+### Details:
+Implement `applyEnv(cfg Config) Config` supporting `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`. Ensure env values override file and defaults as specified. Avoid logging secret values; redact in errors. Document precedence clearly and keep keys scoped.
+
+## 4. In-memory caching keyed by mtime/hash to avoid re-parsing [done]
+### Dependencies: 2.2
+### Description: Cache loaded configs to prevent redundant parsing during a single run.
+### Details:
+Introduce hash key built from config file contents (if present), its mtime, and relevant env subset. Maintain `sync.RWMutex` protected map cache. On `Load`, compute key, return cached config if valid; invalidate when file mtime or env-derived hash changes.
+
+## 5. Schema validation with numeric ranges and provider enum [done]
+### Dependencies: 2.2, 2.3
+### Description: Validate required fields, ranges, and enums after all overrides.
+### Details:
+Add `Validate(cfg Config) error` using `go-playground/validator` or custom checks. Enforce: required LLM fields, temperature in [0,1], budgets ≥ 0, provider in `auto|litellm|openai|anthropic|ollama`. Integrate into `Load` after merge+env to fail fast with clear errors.
+
+## 6. Prompt, rule, and document resolvers with fixtures and tests [done]
+### Dependencies: 2.1, 2.2, 2.5
+### Description: Resolve and load resources under `.aurumcode/{prompts,rules,documents}`.
+### Details:
+Implement `LoadPrompt(key)`, `LoadRule(key)`, `LoadDocument(key)` to map keys to paths from config, resolve relative to `.aurumcode/...`, ensure files exist, and return bytes. Add test fixtures under `tests/fixtures/repo1` with a minimal `.aurumcode/` tree and end-to-end tests calling `Load` then the resolvers.
+

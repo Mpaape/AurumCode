@@ -1,0 +1,37 @@
+# Performance Review Rules
+
+rules:
+  - id: performance/inefficient-loop
+    title: Inefficient Loop
+    description: Loop can be optimized for better performance
+    severity: info
+    category: performance
+    tags: [loop, optimization]
+
+  - id: performance/n-plus-one
+    title: N+1 Query Problem
+    description: Potential N+1 database query issue
+    severity: warning
+    category: performance
+    tags: [database, query, optimization]
+
+  - id: performance/memory-leak
+    title: Potential Memory Leak
+    description: Resource not properly released
+    severity: warning
+    category: performance
+    tags: [memory, leak, resource]
+
+  - id: performance/inefficient-algorithm
+    title: Inefficient Algorithm
+    description: Algorithm complexity can be improved
+    severity: info
+    category: performance
+    tags: [algorithm, complexity, optimization]
+
+  - id: performance/excessive-allocation
+    title: Excessive Memory Allocation
+    description: Unnecessary memory allocations detected
+    severity: info
+    category: performance
+    tags: [memory, allocation, optimization]

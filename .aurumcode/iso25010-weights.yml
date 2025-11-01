@@ -1,0 +1,54 @@
+# ISO/IEC 25010 Quality Characteristics Weights
+# Values should sum to 1.0 (or 100%)
+
+weights:
+  # Functional Suitability: Degree to which product provides functions that meet stated and implied needs
+  functionality: 0.15
+
+  # Reliability: Degree to which a system performs specified functions under specified conditions
+  reliability: 0.15
+
+  # Usability: Degree to which product can be used by specified users to achieve specified goals
+  usability: 0.10
+
+  # Performance Efficiency: Performance relative to amount of resources used under stated conditions
+  efficiency: 0.12
+
+  # Maintainability: Degree of effectiveness and efficiency with which product can be modified
+  maintainability: 0.18
+
+  # Portability: Degree of effectiveness and efficiency with which system can be transferred
+  portability: 0.08
+
+  # Security: Degree to which product protects information and data
+  security: 0.17
+
+  # Compatibility: Degree to which product can exchange information with other systems
+  compatibility: 0.05
+
+# Scoring thresholds
+thresholds:
+  excellent: 90  # 90-100
+  good: 75       # 75-89
+  acceptable: 60 # 60-74
+  poor: 40       # 40-59
+  critical: 0    # 0-39
+
+# Static analysis signals and their weights
+static_signals:
+  # Complexity signals
+  complexity_increase: -5  # Penalty per 10 point increase in complexity
+  complexity_decrease: 3   # Bonus per 10 point decrease
+
+  # Code quality signals
+  todo_comments: -2        # Penalty per TODO comment
+  fixme_comments: -3       # Penalty per FIXME comment
+  code_smells: -4          # Penalty per detected code smell
+
+  # Test coverage signals
+  test_coverage_increase: 5   # Bonus per 10% coverage increase
+  test_coverage_decrease: -10 # Penalty per 10% coverage decrease
+
+  # Documentation signals
+  missing_docs: -2         # Penalty per undocumented public function
+  added_docs: 3            # Bonus per newly documented function

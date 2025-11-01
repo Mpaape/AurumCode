@@ -1,0 +1,58 @@
+# Code Quality Review Rules
+
+rules:
+  - id: quality/high-complexity
+    title: High Cyclomatic Complexity
+    description: Function has high cyclomatic complexity
+    severity: warning
+    category: quality
+    tags: [complexity, maintainability]
+
+  - id: quality/long-function
+    title: Long Function
+    description: Function is too long and should be refactored
+    severity: info
+    category: quality
+    tags: [length, refactor, maintainability]
+
+  - id: quality/duplicate-code
+    title: Code Duplication
+    description: Duplicate code detected
+    severity: warning
+    category: quality
+    tags: [duplication, dry, refactor]
+
+  - id: quality/magic-numbers
+    title: Magic Numbers
+    description: Use of magic numbers without explanation
+    severity: info
+    category: quality
+    tags: [constants, readability]
+
+  - id: quality/poor-naming
+    title: Poor Naming Convention
+    description: Variable or function name is unclear or non-descriptive
+    severity: info
+    category: quality
+    tags: [naming, readability]
+
+  - id: quality/missing-error-handling
+    title: Missing Error Handling
+    description: Error not properly handled or checked
+    severity: warning
+    category: quality
+    tags: [error, exception, reliability]
+
+  - id: quality/unused-variable
+    title: Unused Variable
+    description: Variable declared but never used
+    severity: info
+    category: quality
+    tags: [unused, cleanup]
+
+  - id: quality/dead-code
+    title: Dead Code
+    description: Unreachable or unused code detected
+    severity: info
+    category: quality
+    tags: [dead-code, cleanup]

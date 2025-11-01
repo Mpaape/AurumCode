@@ -1,0 +1,29 @@
+version: "2.0"
+
+llm:
+  provider: "auto"         # auto|litellm|openai|anthropic|ollama
+  model: "sonnet-like"     # logical model key; mapping in runtime
+  temperature: 0.3
+  max_tokens: 4000
+  budgets:
+    daily_usd: 10.0
+    per_review_tokens: 8000
+
+prompts:
+  code_review: "prompts/code-review/general.md"
+  documentation:
+    changelog: "prompts/documentation/changelog.md"
+  testing:
+    unit: "prompts/test-generation/unit-tests.md"
+
+rules:
+  code_standards: "rules/code-standards.yml"
+  iso_compliance: "rules/iso-compliance.yml"
+  security: "rules/security-rules.yml"
+
+outputs:
+  comment_on_pr: true
+  update_docs: true
+  generate_tests: true
+  deploy_site: true
+
