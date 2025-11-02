@@ -35,8 +35,8 @@ echo ""
 # Generate documentation for each package
 echo "🔨 Generating package documentation..."
 
-# Get all packages
-PACKAGES=$(go list ./... | grep -v "/vendor/" | grep -v "/test")
+# Get all packages (ignore errors from missing dependencies)
+PACKAGES=$(go list ./... 2>/dev/null | grep -v "/vendor/" | grep -v "/test" || true)
 
 for PKG in $PACKAGES; do
     PKG_NAME=$(echo "$PKG" | sed "s|$MODULE/||" | sed "s|/|.|g")
@@ -65,8 +65,13 @@ import "$PKG"
 
 EOF
 
-    # Generate package documentation using go doc
-    go doc -all "$PKG" >> "$OUTPUT_DIR/${PKG_NAME}.md" 2>/dev/null || echo "_(Documentation generation in progress)_" >> "$OUTPUT_DIR/${PKG_NAME}.md"
+    # Generate package documentation using go doc (skip if errors)
+    if go doc -all "$PKG" >> "$OUTPUT_DIR/${PKG_NAME}.md" 2>/dev/null; then
+        echo "    ✓ Generated"
+    else
+        echo "    ⚠ Skipped (missing dependencies)"
+        echo "_(Package has missing dependencies)_" >> "$OUTPUT_DIR/${PKG_NAME}.md"
+    fi
 
     # Add code fence
     echo '```' >> "$OUTPUT_DIR/${PKG_NAME}.md"

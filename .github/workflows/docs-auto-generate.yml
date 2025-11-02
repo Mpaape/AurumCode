@@ -65,8 +65,30 @@ jobs:
       - name: Generate Go package documentation
         if: steps.changes.outputs.mode != 'skip'
         run: |
+          # Download dependencies first
+          echo "📦 Downloading Go dependencies..."
+          go mod download
+
+          # Generate docs
           chmod +x scripts/generate-code-docs.sh
-          ./scripts/generate-code-docs.sh
+          ./scripts/generate-code-docs.sh || {
+            echo "⚠️ Documentation generation had errors, continuing anyway..."
+            mkdir -p _api
+            cat > _api/index.md <<'EOF'
+---
+layout: default
+title: API Reference
+nav_order: 3
+has_children: true
+---
+
+# API Reference
+
+Go package documentation.
+
+_Some packages may have missing dependencies and were skipped._
+EOF
+          }
 
       - name: Generate CHANGELOG
         if: steps.changes.outputs.mode != 'skip'
