@@ -2,9 +2,7 @@
 layout: default
 title: QUICKSTART
 parent: Documentation
-nav_order: 1
 ---
-
 # Quickstart Guide
 
 Get AurumCode running in 5 minutes.
