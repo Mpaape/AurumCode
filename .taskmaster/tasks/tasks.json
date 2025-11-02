@@ -951,7 +951,7 @@
         "description": "Ensure .gitignore file has proper patterns for Go projects, IDE files, build artifacts, and secrets. Stage all Pipeline Orchestrator changes and commit to GitHub.",
         "details": "Files to commit: internal/pipeline/*, pkg/types/*, configs/.aurumcode/*, docs/PRODUCT_VISION.md, docs/ARCHITECTURE_AUDIT.md, docs/IMPLEMENTATION_STATUS.md. Create comprehensive commit message explaining the 3-use-case architecture.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [
@@ -969,7 +969,7 @@
             "title": "Stage all Pipeline Orchestrator implementation files",
             "description": "Stage internal/pipeline/*, pkg/types/*, configs/.aurumcode/*, docs/* files.",
             "details": "",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 13
           },
@@ -978,7 +978,7 @@
             "title": "Create comprehensive commit message",
             "description": "Write detailed commit message explaining Pipeline Orchestrator implementation with 3 use cases.",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 13
           },
@@ -987,7 +987,7 @@
             "title": "Commit and push to GitHub main branch",
             "description": "Execute git commit and push changes to GitHub main branch.",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 13
           }
@@ -999,15 +999,220 @@
         "description": "Create complete end-to-end demonstration with real API keys and GitHub repository showing all 3 use cases: Code Review, Documentation Generation, and QA Testing automation.",
         "details": "Setup: Real OpenAI/Anthropic keys, configure webhooks, deploy server. Demo: (1) Code Review on PR with comments and ISO scores, (2) Docs generation on merge, (3) QA testing with Docker. Document with screenshots/logs.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Integrate processEvent() in webhook handler",
+            "description": "Implement processEvent() function in cmd/server/handlers.go to wire Main Orchestrator to webhook events (missing piece from Task 12).",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 14
+          },
+          {
+            "id": 2,
+            "title": "Setup environment variables with API keys",
+            "description": "Create .env file with GITHUB_TOKEN, OPENAI_API_KEY or ANTHROPIC_API_KEY, GITHUB_WEBHOOK_SECRET.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 14
+          },
+          {
+            "id": 3,
+            "title": "Build and run AurumCode server locally",
+            "description": "Build Go binary and run server with go run cmd/server/main.go or make build && ./bin/aurumcode-server.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 14
+          },
+          {
+            "id": 4,
+            "title": "Setup ngrok or expose server for GitHub webhooks",
+            "description": "Use ngrok or similar to expose local server to internet for GitHub webhook delivery.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 14
+          },
+          {
+            "id": 5,
+            "title": "Create test GitHub repository and configure webhook",
+            "description": "Create demo repository on GitHub, add webhook pointing to ngrok URL, configure secret.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 14
+          },
+          {
+            "id": 6,
+            "title": "Demonstrate Use Case 1: Code Review on PR",
+            "description": "Create PR in test repo, verify webhook triggers, check inline comments, ISO scores, commit status. Capture screenshots/logs.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 14
+          },
+          {
+            "id": 7,
+            "title": "Document Demo results and create DEMO_RESULTS.md",
+            "description": "Create comprehensive documentation with screenshots, logs, GitHub PR links showing the demo in action.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 14
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Implement Documentation Pipeline - Use Case #2",
+        "description": "Implement the complete Documentation Generation pipeline including conventional commit changelog, README updates, API docs, and investigation mode with RAG support.",
+        "details": "Wire up existing documentation components (internal/documentation/*, internal/docgen/) to the docs_pipeline.go. Implement full workflow: detect push to main → analyze commits → generate changelog → update README → create API docs → optionally build static site. Add investigation mode for comprehensive doc generation when no docs exist.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement docs_pipeline.go Run() method",
+            "description": "Replace stub in docs_pipeline.go with complete implementation. Detect event type (push to main, PR merged), analyze commits, orchestrate documentation generation.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 15
+          },
+          {
+            "id": 2,
+            "title": "Wire up changelog generation",
+            "description": "Integrate internal/documentation/changelog components. Parse conventional commits, generate CHANGELOG.md with sections.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 15
+          },
+          {
+            "id": 3,
+            "title": "Wire up README section updater",
+            "description": "Integrate internal/documentation/readme updater. Safely update marked README sections without destroying content.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 15
+          },
+          {
+            "id": 4,
+            "title": "Wire up API documentation generator",
+            "description": "Integrate internal/documentation/api components. Detect OpenAPI specs, generate API.md documentation.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 15
+          },
+          {
+            "id": 5,
+            "title": "Add investigation mode support",
+            "description": "Implement investigation mode that uses LLM to generate comprehensive docs when none exist. Optional RAG integration for deep context.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 15
+          },
+          {
+            "id": 6,
+            "title": "Add static site generation (optional)",
+            "description": "Integrate internal/documentation/site components. Build Hugo static site with Pagefind search if configured.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 15
+          },
+          {
+            "id": 7,
+            "title": "Test and commit documentation pipeline",
+            "description": "Test full workflow, verify docs are generated correctly, create tests, commit to GitHub.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 15
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "title": "Implement QA Testing Pipeline - Use Case #3",
+        "description": "Implement the complete QA Testing automation pipeline including Docker environment orchestration, multi-language test execution, coverage parsing, and test artifact generation.",
+        "details": "Wire up existing test components (internal/testing/executor/*, internal/testgen/) to qa_pipeline.go. Implement workflow: detect PR → analyze code → generate tests if needed → setup Docker environment → execute tests → parse coverage → generate reports → post to PR. Support Go, Python, JavaScript/TypeScript, and other languages.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement qa_pipeline.go Run() method",
+            "description": "Replace stub with complete implementation. Detect PR events, analyze changed code, orchestrate test execution workflow.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 16
+          },
+          {
+            "id": 2,
+            "title": "Wire up test executors for Go, Python, JS",
+            "description": "Integrate existing test executors from internal/testing/executor. Support go test, pytest, jest with coverage.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 16
+          },
+          {
+            "id": 3,
+            "title": "Add test generation support",
+            "description": "Wire up internal/testgen for LLM-based test generation when tests don't exist or coverage is low.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 16
+          },
+          {
+            "id": 4,
+            "title": "Add coverage parsing and gate enforcement",
+            "description": "Parse coverage reports from different tools, aggregate results, enforce thresholds, fail if gates not met.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 16
+          },
+          {
+            "id": 5,
+            "title": "Add QA report posting to PR",
+            "description": "Generate comprehensive QA report with test results, coverage, failures. Post as PR comment. Set commit status.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 16
+          },
+          {
+            "id": 6,
+            "title": "Test and commit QA pipeline",
+            "description": "Test full workflow, verify tests execute correctly, create tests, commit to GitHub.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 16
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-10-31T19:08:34.162Z",
-      "updated": "2025-11-01T19:28:24.813Z",
+      "updated": "2025-11-02T04:30:25.436Z",
       "description": "Tasks for master context"
     }
   }
