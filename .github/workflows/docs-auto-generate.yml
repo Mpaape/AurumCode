@@ -4,252 +4,79 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '**.go'
-      - 'docs/**'
-      - '_config.yml'
-      - '.github/workflows/docs-auto-generate.yml'
   workflow_dispatch:
-    inputs:
-      mode:
-        description: 'Generation mode'
-        required: true
-        default: 'incremental'
-        type: choice
-        options:
-          - incremental
-          - full
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
-  generate-docs:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.21'
 
-      - name: Setup Ruby (for Jekyll)
-        uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-          bundler-cache: false
 
-      - name: Detect changes
-        id: changes
+      - name: Setup
         run: |
-          if [ "${{ github.event.inputs.mode }}" = "full" ] || [ ! -f _site/index.html ]; then
-            echo "mode=full" >> $GITHUB_OUTPUT
-            echo "Running FULL documentation generation"
-          else
-            CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E '\.(go|md)$' || true)
-            if [ -n "$CHANGED" ]; then
-              echo "mode=incremental" >> $GITHUB_OUTPUT
-              echo "Running INCREMENTAL update"
-            else
-              echo "mode=skip" >> $GITHUB_OUTPUT
-              echo "No changes, skipping"
-            fi
-          fi
+          gem install bundler jekyll just-the-docs
+          go mod download || true
 
-      - name: Generate Go package documentation
-        if: steps.changes.outputs.mode != 'skip'
+      - name: Generate docs
         run: |
-          # Download dependencies first
-          echo "📦 Downloading Go dependencies..."
-          go mod download
+          # Simple CHANGELOG
+          ./generate-docs-simple.sh || echo "Skipped changelog"
 
-          # Generate docs
-          chmod +x scripts/generate-code-docs.sh
-          ./scripts/generate-code-docs.sh || {
-            echo "⚠️ Documentation generation had errors, continuing anyway..."
-            mkdir -p _api
-            cat > _api/index.md <<'EOF'
+          # Convert existing docs to Jekyll
+          mkdir -p _docs _api
+          for md in docs/*.md; do
+            [ -f "$md" ] || continue
+            base=$(basename "$md" .md)
+            cat > "_docs/${base}.md" <<EOF
+---
+layout: default
+title: ${base}
+parent: Documentation
+---
+$(cat "$md")
+EOF
+          done
+
+          # Simple API index
+          cat > _api/index.md <<'EOF'
 ---
 layout: default
 title: API Reference
 nav_order: 3
-has_children: true
 ---
-
 # API Reference
-
-Go package documentation.
-
-_Some packages may have missing dependencies and were skipped._
+Auto-generated Go documentation.
 EOF
-          }
 
-      - name: Generate CHANGELOG
-        if: steps.changes.outputs.mode != 'skip'
+      - name: Build Jekyll
         run: |
-          chmod +x generate-docs-simple.sh
-          ./generate-docs-simple.sh
-
-      - name: Convert docs to Jekyll format
-        if: steps.changes.outputs.mode != 'skip'
-        run: |
-          # Create _docs directory
-          mkdir -p _docs _guides
-
-          # Convert markdown docs with Jekyll front matter
-          for md in docs/*.md; do
-            if [ -f "$md" ]; then
-              base=$(basename "$md" .md)
-              title=$(echo "$base" | tr '_' ' ' | sed 's/\b\(.\)/\u\1/g')
-
-              # Create Jekyll page with front matter
-              cat > "_docs/${base}.md" <<EOF
----
-layout: default
-title: ${title}
-parent: Documentation
-nav_order: 1
----
-
-$(cat "$md")
-EOF
-            fi
-          done
-
-          echo "✅ Converted $(ls -1 _docs | wc -l) documentation files"
-
-      - name: Install Jekyll and dependencies
-        if: steps.changes.outputs.mode != 'skip'
-        run: |
-          gem install bundler
-          cat > Gemfile <<EOF
+          cat > Gemfile <<'EOF'
 source 'https://rubygems.org'
-gem 'jekyll', '~> 4.3'
-gem 'just-the-docs', '0.8.0'
-gem 'jekyll-seo-tag'
-gem 'jekyll-sitemap'
-gem 'jekyll-feed'
-gem 'webrick'
+gem 'jekyll'
+gem 'just-the-docs'
 EOF
           bundle install
-
-      - name: Build Jekyll site
-        if: steps.changes.outputs.mode != 'skip'
-        run: |
           bundle exec jekyll build
-          echo "✅ Jekyll site built in _site/"
 
-      - name: Install and run Pagefind (search index)
-        if: steps.changes.outputs.mode != 'skip'
+      - name: Deploy
         run: |
-          # Install Pagefind
-          npx -y pagefind --site _site
-
-          echo "✅ Search index created"
-
-<<<<<<< Updated upstream
-      - name: Deploy to GitHub Pages
-        if: steps.changes.outputs.mode != 'skip'
-        shell: bash
-        run: |
-          echo "📤 Deploying to gh-pages branch..."
-
-          # Configure git
-          git config user.name "AurumCode Bot"
-          git config user.email "bot@aurumcode.dev"
-
-          # Clone gh-pages branch or create if doesn't exist
-          if git ls-remote --heads origin gh-pages | grep gh-pages; then
-            git fetch origin gh-pages
-            git checkout gh-pages
-            # Remove old files but keep .git
-            git rm -rf . || true
-          else
-            git checkout --orphan gh-pages
-            git rm -rf . || true
-          fi
-
-          # Copy built site
-          cp -r _site/* .
-
-          # Add .nojekyll to disable GitHub's Jekyll processing
-          touch .nojekyll
-
-          # Commit and push
-          git add .
-          git commit -m "docs: Deploy documentation [skip ci]" || echo "No changes"
-          git push -f origin gh-pages
-
-          echo "✅ Deployed to gh-pages"
-=======
-      - name: Deploy to GitHub Pages (via gh-pages branch)
-        if: steps.changes.outputs.mode != 'skip'
-        run: |
-          echo "📤 Deploying to GitHub Pages..."
-
-          # Save built site to temp
-          cp -r _site /tmp/_site_backup
-
-          # Setup git
+          cd _site
+          git init
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Get current commit info
-          COMMIT_SHA=$(git rev-parse HEAD)
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-
-          # Switch to gh-pages branch (create if doesn't exist)
-          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
-            echo "Checking out existing gh-pages branch"
-            git fetch origin gh-pages
-            git checkout -B gh-pages origin/gh-pages
-          else
-            echo "Creating new gh-pages branch"
-            git checkout --orphan gh-pages
-          fi
-
-          # Clear everything
-          git rm -rf . 2>/dev/null || true
-          rm -rf * .gitignore .github 2>/dev/null || true
-
-          # Copy built site
-          cp -r /tmp/_site_backup/* .
-          cp -r /tmp/_site_backup/.* . 2>/dev/null || true
-
-          # Add .nojekyll
-          touch .nojekyll
-
-          # Commit and push
           git add -A
-          if git diff --staged --quiet; then
-            echo "No changes to deploy"
-          else
-            git commit -m "docs: Deploy from $COMMIT_SHA [skip ci]"
-            git push -f origin gh-pages
-            echo "✅ Successfully deployed to gh-pages"
-          fi
->>>>>>> Stashed changes
-
-      - name: Summary
-        if: steps.changes.outputs.mode != 'skip'
-        run: |
-          echo "## 📚 Documentation Generated" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Mode**: ${{ steps.changes.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
-<<<<<<< Updated upstream
-          echo "- **Pages**: $(find _site -name "*.html" | wc -l)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Size**: $(du -sh _site | cut -f1)" >> $GITHUB_STEP_SUMMARY
-=======
-          echo "- **Pages**: $(find _site -name "*.html" 2>/dev/null | wc -l || echo '0')" >> $GITHUB_STEP_SUMMARY
-          echo "- **Size**: $(du -sh _site 2>/dev/null | cut -f1 || echo 'N/A')" >> $GITHUB_STEP_SUMMARY
->>>>>>> Stashed changes
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🌐 **Site**: https://mpaape.github.io/AurumCode/" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Documentation deployed successfully!" >> $GITHUB_STEP_SUMMARY
+          git commit -m "Deploy docs"
+          git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages
