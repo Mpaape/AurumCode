@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  test-docs-pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aurumcode-test-docs
+    volumes:
+      - ./:/app/workspace
+    working_dir: /app/workspace
+    environment:
+      - PROVEDOR_API_KEY=${PROVEDOR_API_KEY}
+      - PROVEDOR_BASE_URL=${PROVEDOR_BASE_URL}
+    command: /app/test-docs-pipeline

@@ -15,6 +15,7 @@ COPY . .
 # Build the application
 RUN go build -o aurumcode ./cmd/server
 RUN go build -o aurumcode-cli ./cmd/cli
+RUN go build -o test-docs-pipeline ./cmd/test-docs-pipeline
 
 # Final stage
 FROM alpine:latest
@@ -25,6 +26,7 @@ WORKDIR /app
 
 COPY --from=builder /build/aurumcode /app/aurumcode
 COPY --from=builder /build/aurumcode-cli /app/aurumcode-cli
+COPY --from=builder /build/test-docs-pipeline /app/test-docs-pipeline
 
 CMD ["./aurumcode"]
 
