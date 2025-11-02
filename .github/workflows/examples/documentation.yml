@@ -1,0 +1,77 @@
+# Example: AurumCode Documentation Generation
+# Copy this file to your repo: .github/workflows/aurumcode-docs.yml
+
+name: AurumCode - Documentation
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '**.go'
+      - '**.py'
+      - '**.js'
+      - '**.ts'
+      - 'docs/**'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Generation mode'
+        required: true
+        default: 'incremental'
+        type: choice
+        options:
+          - incremental
+          - full
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for change detection
+
+      - name: Run AurumCode Documentation
+        uses: Mpaape/AurumCode@main
+        with:
+          mode: 'documentation'
+          llm_provider: 'openai'
+          llm_model: 'gpt-4'
+          llm_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          documentation_mode: ${{ github.event.inputs.mode || 'incremental' }}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/public
+          publish_branch: gh-pages
+          force_orphan: true
+
+      - name: Commit generated docs
+        run: |
+          git config user.name "AurumCode Bot"
+          git config user.email "bot@aurumcode.dev"
+
+          git add docs/ CHANGELOG.md README.md
+
+          if git diff --staged --quiet; then
+            echo "No documentation changes"
+          else
+            git commit -m "docs: Auto-generate documentation [skip ci]"
+            git push
+          fi
+
+      - name: Documentation Summary
+        run: |
+          echo "✅ Documentation generated"
+          echo "📚 View at: ${{ steps.docs.outputs.documentation_url }}"

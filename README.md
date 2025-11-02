@@ -109,19 +109,47 @@ aurumcode/
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- **Go 1.21+** - [Download](https://go.dev/dl/)
-- **Git** - [Download](https://git-scm.com/downloads)
-- **GitHub Account** with repo admin access
-- **API Key** - OpenAI or Anthropic
+### Use AurumCode in Your Project (2 minutes) ⚡
 
-### Quick Demo (30 minutes)
+Add automated code review, documentation, and QA testing to any GitHub repository:
 
-Follow our comprehensive [Demo Setup Guide](docs/DEMO_SETUP_GUIDE.md) to:
+```bash
+# 1. Copy workflow file to your repo
+mkdir -p .github/workflows
+curl -o .github/workflows/aurumcode.yml \
+  https://raw.githubusercontent.com/Mpaape/AurumCode/main/.github/workflows/examples/all-pipelines.yml
+
+# 2. Add API key secret in GitHub
+# Settings → Secrets → New: OPENAI_API_KEY
+
+# 3. Open a PR - AurumCode reviews it automatically! 🤖
+```
+
+**That's it!** See [Usage Guide](docs/USAGE_GUIDE.md) for detailed setup options.
+
+### Three Ways to Activate AurumCode
+
+| Method | Best For | Setup Time | Cost |
+|--------|----------|------------|------|
+| **GitHub Action** | Public repos, serverless | 2 min | GitHub Actions minutes |
+| **Webhook Server** | Private repos, enterprise | 10 min | Self-hosted infrastructure |
+| **Hybrid** | Best of both worlds | 15 min | Combined |
+
+📖 **Full guide:** [Usage Guide](docs/USAGE_GUIDE.md)
+
+### Run AurumCode Demo Locally (30 minutes)
+
+Want to try AurumCode's server mode? Follow our [Demo Setup Guide](docs/DEMO_SETUP_GUIDE.md):
 1. Build and run AurumCode server locally
 2. Configure GitHub webhook
 3. Create test PR
 4. Watch automated code review in action
+
+### Prerequisites for Local Development
+- **Go 1.21+** - [Download](https://go.dev/dl/)
+- **Git** - [Download](https://git-scm.com/downloads)
+- **Docker** - [Download](https://docker.com)
+- **API Key** - OpenAI, Anthropic, or TOTVS DTA
 
 ### Using Docker (Recommended)
 
