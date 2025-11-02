@@ -131,6 +131,7 @@ EOF
 
           echo "✅ Search index created"
 
+<<<<<<< Updated upstream
       - name: Deploy to GitHub Pages
         if: steps.changes.outputs.mode != 'skip'
         shell: bash
@@ -164,6 +165,54 @@ EOF
           git push -f origin gh-pages
 
           echo "✅ Deployed to gh-pages"
+=======
+      - name: Deploy to GitHub Pages (via gh-pages branch)
+        if: steps.changes.outputs.mode != 'skip'
+        run: |
+          echo "📤 Deploying to GitHub Pages..."
+
+          # Save built site to temp
+          cp -r _site /tmp/_site_backup
+
+          # Setup git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Get current commit info
+          COMMIT_SHA=$(git rev-parse HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+
+          # Switch to gh-pages branch (create if doesn't exist)
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            echo "Checking out existing gh-pages branch"
+            git fetch origin gh-pages
+            git checkout -B gh-pages origin/gh-pages
+          else
+            echo "Creating new gh-pages branch"
+            git checkout --orphan gh-pages
+          fi
+
+          # Clear everything
+          git rm -rf . 2>/dev/null || true
+          rm -rf * .gitignore .github 2>/dev/null || true
+
+          # Copy built site
+          cp -r /tmp/_site_backup/* .
+          cp -r /tmp/_site_backup/.* . 2>/dev/null || true
+
+          # Add .nojekyll
+          touch .nojekyll
+
+          # Commit and push
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "docs: Deploy from $COMMIT_SHA [skip ci]"
+            git push -f origin gh-pages
+            echo "✅ Successfully deployed to gh-pages"
+          fi
+>>>>>>> Stashed changes
 
       - name: Summary
         if: steps.changes.outputs.mode != 'skip'
@@ -171,8 +220,13 @@ EOF
           echo "## 📚 Documentation Generated" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Mode**: ${{ steps.changes.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+<<<<<<< Updated upstream
           echo "- **Pages**: $(find _site -name "*.html" | wc -l)" >> $GITHUB_STEP_SUMMARY
           echo "- **Size**: $(du -sh _site | cut -f1)" >> $GITHUB_STEP_SUMMARY
+=======
+          echo "- **Pages**: $(find _site -name "*.html" 2>/dev/null | wc -l || echo '0')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Size**: $(du -sh _site 2>/dev/null | cut -f1 || echo 'N/A')" >> $GITHUB_STEP_SUMMARY
+>>>>>>> Stashed changes
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🌐 **Site**: https://mpaape.github.io/AurumCode/" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
