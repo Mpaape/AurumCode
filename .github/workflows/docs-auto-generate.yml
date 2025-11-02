@@ -133,15 +133,37 @@ EOF
 
       - name: Deploy to GitHub Pages
         if: steps.changes.outputs.mode != 'skip'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./_site
-          publish_branch: gh-pages
-          force_orphan: false
-          user_name: 'AurumCode Bot'
-          user_email: 'bot@aurumcode.dev'
-          commit_message: 'docs: Deploy documentation via Jekyll [skip ci]'
+        shell: bash
+        run: |
+          echo "📤 Deploying to gh-pages branch..."
+
+          # Configure git
+          git config user.name "AurumCode Bot"
+          git config user.email "bot@aurumcode.dev"
+
+          # Clone gh-pages branch or create if doesn't exist
+          if git ls-remote --heads origin gh-pages | grep gh-pages; then
+            git fetch origin gh-pages
+            git checkout gh-pages
+            # Remove old files but keep .git
+            git rm -rf . || true
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . || true
+          fi
+
+          # Copy built site
+          cp -r _site/* .
+
+          # Add .nojekyll to disable GitHub's Jekyll processing
+          touch .nojekyll
+
+          # Commit and push
+          git add .
+          git commit -m "docs: Deploy documentation [skip ci]" || echo "No changes"
+          git push -f origin gh-pages
+
+          echo "✅ Deployed to gh-pages"
 
       - name: Summary
         if: steps.changes.outputs.mode != 'skip'
