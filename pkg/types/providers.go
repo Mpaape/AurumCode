@@ -31,13 +31,7 @@ type GitClient interface {
 	SetStatus(repo, owner, sha, status, context, description string) error
 }
 
-// ReviewComment represents a comment to post on a PR
-type ReviewComment struct {
-	Path     string `json:"path"`
-	Line     int    `json:"line"`
-	Body     string `json:"body"`
-	Severity string `json:"severity"`
-}
+// ReviewComment is defined in types.go
 
 // CostTracker defines the interface for budget management
 type CostTracker interface {
