@@ -66,10 +66,10 @@ func (p *ResponseParser) repairJSON(jsonStr string) string {
 	repaired := regexp.MustCompile(`,\s*([}\]])`).ReplaceAllString(jsonStr, "$1")
 
 	// Normalize smart quotes to standard quotes
-	repaired = strings.ReplaceAll(repaired, """, "\"")
-	repaired = strings.ReplaceAll(repaired, """, "\"")
-	repaired = strings.ReplaceAll(repaired, "'", "'")
-	repaired = strings.ReplaceAll(repaired, "'", "'")
+	repaired = strings.ReplaceAll(repaired, "\u201c", "\"") // left double quote
+	repaired = strings.ReplaceAll(repaired, "\u201d", "\"") // right double quote
+	repaired = strings.ReplaceAll(repaired, "\u2018", "'")  // left single quote
+	repaired = strings.ReplaceAll(repaired, "\u2019", "'")  // right single quote
 
 	// Trim whitespace
 	repaired = strings.TrimSpace(repaired)
