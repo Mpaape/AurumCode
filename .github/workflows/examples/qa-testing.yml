@@ -1,0 +1,43 @@
+# Example: AurumCode QA Testing
+# Copy this file to your repo: .github/workflows/aurumcode-qa.yml
+
+name: AurumCode - QA Testing
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, master]
+
+jobs:
+  qa-testing:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run AurumCode QA Pipeline
+        uses: Mpaape/AurumCode@main
+        with:
+          mode: 'qa'
+          llm_provider: 'openai'
+          llm_model: 'gpt-4'
+          llm_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          coverage_threshold: '80'
+
+      - name: QA Summary
+        run: |
+          echo "✅ QA testing completed"
+          echo "📊 Coverage: ${{ steps.qa.outputs.coverage_percentage }}%"
+          echo "🎯 Threshold: 80%"
+
+      - name: Fail if coverage below threshold
+        if: steps.qa.outputs.coverage_percentage < 80
+        run: |
+          echo "❌ Coverage below threshold"
+          exit 1

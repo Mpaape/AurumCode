@@ -1,0 +1,38 @@
+# Example: AurumCode Code Review
+# Copy this file to your repo: .github/workflows/aurumcode-review.yml
+
+name: AurumCode - Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff analysis
+
+      - name: Run AurumCode Review
+        uses: Mpaape/AurumCode@main
+        with:
+          mode: 'review'
+          llm_provider: 'openai'
+          llm_model: 'gpt-4'
+          llm_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          post_pr_comments: 'true'
+
+      - name: Review Summary
+        run: |
+          echo "✅ AurumCode review completed"
+          echo "Issues found: ${{ steps.review.outputs.issues_found }}"
+          echo "Review result: ${{ steps.review.outputs.review_result }}"

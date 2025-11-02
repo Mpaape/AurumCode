@@ -1,0 +1,85 @@
+name: 'AurumCode'
+description: 'Automated AI-Powered Code Quality Platform - Code Review, Documentation, and QA Testing'
+author: 'AurumCode Team'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  mode:
+    description: 'Pipeline mode to run: review, documentation, qa, or all'
+    required: true
+    default: 'all'
+
+  llm_provider:
+    description: 'LLM provider: openai, anthropic, litellm, ollama'
+    required: false
+    default: 'openai'
+
+  llm_model:
+    description: 'LLM model to use'
+    required: false
+    default: 'gpt-4'
+
+  llm_api_key:
+    description: 'API key for LLM provider'
+    required: true
+
+  llm_base_url:
+    description: 'Base URL for LLM provider (optional, for custom endpoints)'
+    required: false
+    default: ''
+
+  github_token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+
+  config_path:
+    description: 'Path to AurumCode config file'
+    required: false
+    default: '.aurumcode/config.yml'
+
+  documentation_mode:
+    description: 'Documentation generation mode: full or incremental'
+    required: false
+    default: 'incremental'
+
+  post_pr_comments:
+    description: 'Post review comments on PRs'
+    required: false
+    default: 'true'
+
+  coverage_threshold:
+    description: 'Minimum test coverage percentage'
+    required: false
+    default: '80'
+
+outputs:
+  review_result:
+    description: 'Code review result (passed/failed)'
+
+  documentation_url:
+    description: 'URL to generated documentation'
+
+  coverage_percentage:
+    description: 'Test coverage percentage'
+
+  issues_found:
+    description: 'Number of issues found'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    AURUMCODE_MODE: ${{ inputs.mode }}
+    LLM_PROVIDER: ${{ inputs.llm_provider }}
+    LLM_MODEL: ${{ inputs.llm_model }}
+    LLM_API_KEY: ${{ inputs.llm_api_key }}
+    LLM_BASE_URL: ${{ inputs.llm_base_url }}
+    GITHUB_TOKEN: ${{ inputs.github_token }}
+    CONFIG_PATH: ${{ inputs.config_path }}
+    DOCUMENTATION_MODE: ${{ inputs.documentation_mode }}
+    POST_PR_COMMENTS: ${{ inputs.post_pr_comments }}
+    COVERAGE_THRESHOLD: ${{ inputs.coverage_threshold }}
