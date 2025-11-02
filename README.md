@@ -21,6 +21,7 @@ Automated, provider-agnostic code review, documentation, and test generation wit
 | 🧪 **QA Testing** | ✅ Functional | 90% |
 
 **Quick Links:**
+- 🏢 [**Enterprise Deployment**](docs/ENTERPRISE_DEPLOYMENT.md) - Deploy to 100+ repos in 30 minutes
 - 📖 [Demo Setup Guide](docs/DEMO_SETUP_GUIDE.md) - Run a live demo in 30 minutes
 - 📊 [Current Status Report](docs/CURRENT_STATUS.md) - Comprehensive project status
 - 📝 [Changelog](CHANGELOG.md) - All changes and features
@@ -150,6 +151,35 @@ Want to try AurumCode's server mode? Follow our [Demo Setup Guide](docs/DEMO_SET
 - **Git** - [Download](https://git-scm.com/downloads)
 - **Docker** - [Download](https://docker.com)
 - **API Key** - OpenAI, Anthropic, or TOTVS DTA
+
+## 🏢 Enterprise Deployment (100+ Repositories)
+
+Deploy AurumCode across your entire organization with **one command**:
+
+```bash
+# Run the interactive setup wizard
+./scripts/setup-github-app.sh
+
+# Or bulk-enable for all repos
+./scripts/bulk-enable-repos.sh
+```
+
+**Result:** All 100+ repositories automatically get:
+- ✅ Automated code review on every PR
+- ✅ Documentation auto-generation on merge
+- ✅ QA testing with coverage enforcement
+- ✅ Centralized configuration management
+
+**📚 Complete Guide:** [Enterprise Deployment Guide](docs/ENTERPRISE_DEPLOYMENT.md)
+
+### Four Deployment Options:
+
+| Option | Best For | Setup Time |
+|--------|----------|------------|
+| **GitHub App** ⭐ | 100+ repos, centralized | 30 min |
+| **Workflow Templates** | GitHub Actions users | 45 min |
+| **Self-Hosted Server** | On-premise/security | 30 min |
+| **API Integration** | Existing CI/CD | Custom |
 
 ### Using Docker (Recommended)
 
