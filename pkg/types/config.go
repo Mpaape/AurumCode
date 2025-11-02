@@ -12,17 +12,10 @@ type Config struct {
 
 // LLMConfig configures the LLM provider and parameters
 type LLMConfig struct {
-	Provider  string         `json:"provider" yaml:"provider"` // "auto", "litellm", "openai", "anthropic", "ollama"
-	Model     string         `json:"model" yaml:"model"`
-	Temperature float64      `json:"temperature" yaml:"temperature"`
-	MaxTokens int            `json:"max_tokens" yaml:"max_tokens"`
-	Budgets   BudgetConfig   `json:"budgets" yaml:"budgets"`
-}
-
-// BudgetConfig defines cost controls
-type BudgetConfig struct {
-	DailyUSD          float64 `json:"daily_usd" yaml:"daily_usd"`
-	PerReviewTokens   int     `json:"per_review_tokens" yaml:"per_review_tokens"`
+	Provider    string  `json:"provider" yaml:"provider"` // "auto", "litellm", "openai", "anthropic", "ollama"
+	Model       string  `json:"model" yaml:"model"`
+	Temperature float64 `json:"temperature" yaml:"temperature"`
+	MaxTokens   int     `json:"max_tokens" yaml:"max_tokens"`
 }
 
 // OutputConfig controls what AurumCode generates
@@ -50,10 +43,6 @@ func NewDefaultConfig() *Config {
 			Model:       "sonnet-like",
 			Temperature: 0.3,
 			MaxTokens:   4000,
-			Budgets: BudgetConfig{
-				DailyUSD:        10.0,
-				PerReviewTokens: 8000,
-			},
 		},
 		Prompts: map[string]string{
 			"code_review": "prompts/code-review/general.md",
