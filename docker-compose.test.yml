@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  test-docs-pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aurumcode-test-docs
+    volumes:
+      - ./:/app/workspace
+    working_dir: /app/workspace
+    environment:
+      - TOTVS_DTA_API_KEY=${TOTVS_DTA_API_KEY}
+      - TOTVS_DTA_BASE_URL=${TOTVS_DTA_BASE_URL}
+    command: /app/test-docs-pipeline
