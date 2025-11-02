@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AurumCode Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.3em;
+            opacity: 0.95;
+        }
+
+        nav {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1em;
+            padding: 10px 20px;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+
+        nav a:hover {
+            background: #f0f0f0;
+        }
+
+        main {
+            background: white;
+            padding: 50px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .status-section {
+            background: #f9f9f9;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 5px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .status-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #10b981;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .status-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .badge-info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin: 40px 0;
+        }
+
+        .feature {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .feature:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .feature h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .feature ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .feature li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .feature li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        .quick-links {
+            background: #fffbeb;
+            border-left: 5px solid #f59e0b;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+
+        .quick-links h2 {
+            color: #f59e0b;
+            margin-bottom: 15px;
+        }
+
+        .quick-links ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .quick-links li {
+            padding: 8px 0;
+        }
+
+        .quick-links a {
+            color: #f59e0b;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1.1em;
+        }
+
+        .quick-links a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        h2 {
+            color: #333;
+            margin: 30px 0 20px 0;
+            font-size: 2em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        tr:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 AurumCode</h1>
+            <p>Automated AI-Powered Code Quality Platform</p>
+        </header>
+
+        <nav>
+            <a href="#status">Status</a>
+            <a href="#features">Features</a>
+            <a href="#quick-start">Quick Start</a>
+            <a href="DEMO_SETUP_GUIDE.md">Demo Guide</a>
+            <a href="../CHANGELOG.md">Changelog</a>
+            <a href="../README.md">README</a>
+            <a href="https://github.com/Mpaape/AurumCode">GitHub</a>
+        </nav>
+
+        <main>
+            <div class="quick-links">
+                <h2>📚 Quick Documentation Links</h2>
+                <ul>
+                    <li>📖 <a href="DEMO_SETUP_GUIDE.md">Demo Setup Guide</a> - Run a live demo in 30 minutes</li>
+                    <li>📊 <a href="CURRENT_STATUS.md">Current Status Report</a> - Comprehensive project status</li>
+                    <li>📝 <a href="../CHANGELOG.md">Changelog</a> - All changes and features</li>
+                    <li>🏗️ <a href="PRODUCT_VISION.md">Architecture</a> - Complete system architecture</li>
+                    <li>📋 <a href="../README.md">README</a> - Project overview</li>
+                    <li>🧪 <a href="DOCUMENTATION_TEST.md">Documentation Test Report</a> - Pipeline verification</li>
+                    <li>🚀 <a href="../BUILD_DOCS.md">Build Hugo Site</a> - How to build the full site</li>
+                </ul>
+            </div>
+
+            <section id="status">
+                <h2>🚀 Current Status</h2>
+
+                <div class="status-section">
+                    <p><strong>Version:</strong> 1.0.0</p>
+                    <p><strong>Last Updated:</strong> 2025-11-02</p>
+                    <p><strong>Build:</strong> <span class="badge badge-success">✅ All 3 Use Cases Operational</span></p>
+                </div>
+
+                <div class="status-grid">
+                    <div class="status-card">
+                        <h3>🔍 Code Review <span class="badge badge-success">100%</span></h3>
+                        <p><strong>Status:</strong> Production Ready</p>
+                        <p>AI-powered code analysis, inline PR comments, ISO/IEC 25010 quality scoring</p>
+                    </div>
+
+                    <div class="status-card">
+                        <h3>📚 Documentation <span class="badge badge-info">80%</span></h3>
+                        <p><strong>Status:</strong> Functional & Tested</p>
+                        <p>Changelog generation, README updates, Hugo static sites</p>
+                    </div>
+
+                    <div class="status-card">
+                        <h3>🧪 QA Testing <span class="badge badge-info">90%</span></h3>
+                        <p><strong>Status:</strong> Functional</p>
+                        <p>Multi-language testing, coverage analysis, QA reports</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="features">
+                <h2>🌟 Features</h2>
+
+                <div class="features">
+                    <div class="feature">
+                        <h3>🔍 Use Case #1: Code Review</h3>
+                        <ul>
+                            <li>AI-Powered Analysis (GPT-4, Claude)</li>
+                            <li>Inline PR Comments</li>
+                            <li>ISO/IEC 25010 Quality Metrics</li>
+                            <li>Real-time Cost Tracking</li>
+                            <li>Automatic Commit Status</li>
+                            <li>Customizable YAML Rules</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature">
+                        <h3>📚 Use Case #2: Documentation</h3>
+                        <ul>
+                            <li>Conventional Commit Changelog</li>
+                            <li>Safe README Updates</li>
+                            <li>OpenAPI to Markdown</li>
+                            <li>Hugo Static Sites</li>
+                            <li>Pagefind Search</li>
+                            <li>RAG Investigation (planned)</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature">
+                        <h3>🧪 Use Case #3: QA Testing</h3>
+                        <ul>
+                            <li>Go, Python, JavaScript Testing</li>
+                            <li>Coverage Aggregation</li>
+                            <li>80% Coverage Gates</li>
+                            <li>Comprehensive QA Reports</li>
+                            <li>LLM Test Generation</li>
+                            <li>Docker Orchestration (planned)</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section id="quick-start">
+                <h2>🚀 Quick Start</h2>
+
+                <h3>Prerequisites</h3>
+                <ul>
+                    <li><strong>Go 1.21+</strong> - <a href="https://go.dev/dl/">Download</a></li>
+                    <li><strong>Git</strong> - <a href="https://git-scm.com/downloads">Download</a></li>
+                    <li><strong>GitHub Account</strong> with repo admin access</li>
+                    <li><strong>API Key</strong> - OpenAI or Anthropic</li>
+                </ul>
+
+                <h3>Build and Run</h3>
+                <pre><code># Clone repository
+git clone https://github.com/Mpaape/AurumCode.git
+cd AurumCode
+
+# Install dependencies
+go mod download
+
+# Build
+make build
+
+# Run server
+go run cmd/server/main.go</code></pre>
+
+                <h3>Configuration</h3>
+                <p>Create <code>.env</code> file:</p>
+                <pre><code># GitHub Configuration
+GITHUB_TOKEN=ghp_your_token_here
+GITHUB_WEBHOOK_SECRET=your_secret_here
+
+# LLM Provider
+OPENAI_API_KEY=sk-your_key_here
+# OR
+ANTHROPIC_API_KEY=sk-ant-your_key_here
+
+# Server
+PORT=8080
+DEBUG_LOGS=true</code></pre>
+
+                <h3>Run Demo</h3>
+                <p>Follow the comprehensive <a href="DEMO_SETUP_GUIDE.md">Demo Setup Guide</a> to see AurumCode in action!</p>
+            </section>
+
+            <section id="performance">
+                <h2>📊 Performance Metrics</h2>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Response Time</td>
+                            <td>10-20 seconds per PR</td>
+                        </tr>
+                        <tr>
+                            <td>Cost per PR (Small)</td>
+                            <td>$0.01-$0.05 USD</td>
+                        </tr>
+                        <tr>
+                            <td>Cost per PR (Medium)</td>
+                            <td>$0.05-$0.20 USD</td>
+                        </tr>
+                        <tr>
+                            <td>Cost per PR (Large)</td>
+                            <td>$0.20-$0.50 USD</td>
+                        </tr>
+                        <tr>
+                            <td>Test Coverage</td>
+                            <td>78-96% across components</td>
+                        </tr>
+                        <tr>
+                            <td>Supported Languages</td>
+                            <td>Go, Python, JavaScript/TypeScript</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section id="architecture">
+                <h2>🏗️ Architecture</h2>
+
+                <p>AurumCode follows a <strong>hexagonal architecture</strong> (ports and adapters):</p>
+
+                <pre><code>┌─────────────────────────────────────────────────────┐
+│              Pipeline Orchestrator                   │
+│  ┌─────────────┐ ┌──────────────┐ ┌──────────────┐ │
+│  │   Review    │ │     Docs     │ │      QA      │ │
+│  │  Pipeline   │ │   Pipeline   │ │   Pipeline   │ │
+│  └─────────────┘ └──────────────┘ └──────────────┘ │
+└─────────────────────────────────────────────────────┘
+         ↓                  ↓                  ↓
+┌─────────────────────────────────────────────────────┐
+│                Core Components                       │
+│  • LLM Orchestrator (multi-provider)                │
+│  • GitHub Client (webhooks, API)                    │
+│  • Analyzer (diff, language detection)              │
+│  • Cost Tracker (budgets, limits)                   │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+                <h3>Key Principles</h3>
+                <ul>
+                    <li><strong>Provider-agnostic:</strong> Supports OpenAI, Anthropic, Ollama, LiteLLM</li>
+                    <li><strong>Language-agnostic:</strong> Works with Go, Python, JavaScript, and more</li>
+                    <li><strong>Event-driven:</strong> GitHub webhooks trigger pipelines</li>
+                    <li><strong>Customizable:</strong> Markdown prompts + YAML rules in <code>.aurumcode/</code></li>
+                </ul>
+            </section>
+        </main>
+
+        <footer>
+            <p><strong>AurumCode</strong> - Automated AI-Powered Code Quality</p>
+            <p>
+                <a href="https://github.com/Mpaape/AurumCode">GitHub</a> •
+                <a href="https://github.com/Mpaape/AurumCode/issues">Issues</a> •
+                <a href="../README.md">Documentation</a>
+            </p>
+            <p style="margin-top: 20px;">🤖 Built with ❤️ by the AurumCode team</p>
+        </footer>
+    </div>
+</body>
+</html>
