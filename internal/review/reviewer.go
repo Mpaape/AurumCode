@@ -101,23 +101,15 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	isoScores := r.scorer.Score(result, metrics)
 	result.ISOScores = isoScores
 
-	// Add cost information
-	totalTokens := resp.TokensIn + resp.TokensOut
-	result.Cost = types.CostSummary{
-		Tokens:   totalTokens,
-		CostUSD:  float64(totalTokens) * 0.0001, // Default pricing
-		Provider: "llm",
-		Model:    resp.Model,
-	}
-
 	// Add metadata
-	result.Metadata = map[string]string{
-		"total_files":       fmt.Sprintf("%d", metrics.TotalFiles),
-		"lines_added":       fmt.Sprintf("%d", metrics.LinesAdded),
-		"lines_deleted":     fmt.Sprintf("%d", metrics.LinesDeleted),
-		"segments_used":     promptParts.Meta["segments_used"],
-		"estimated_tokens":  promptParts.Meta["estimated_tokens"],
+	if result.Metadata == nil {
+		result.Metadata = make(map[string]string)
 	}
+	result.Metadata["total_files"] = fmt.Sprintf("%d", metrics.TotalFiles)
+	result.Metadata["lines_added"] = fmt.Sprintf("%d", metrics.LinesAdded)
+	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", metrics.LinesDeleted)
+	result.Metadata["segments_used"] = promptParts.Meta["segments_used"]
+	result.Metadata["estimated_tokens"] = promptParts.Meta["estimated_tokens"]
 
 	return result, nil
 }

@@ -62,11 +62,14 @@ type ISOScores struct {
 
 // ReviewResult represents the complete output of a code review
 type ReviewResult struct {
-	Issues       []ReviewIssue `json:"issues" yaml:"issues"`
-	ISOScores    *ISOScores    `json:"iso_scores,omitempty" yaml:"iso_scores,omitempty"`
-	Summary      string        `json:"summary" yaml:"summary"`
-	OverallScore float64       `json:"overall_score" yaml:"overall_score"`
-	Cost         CostSummary   `json:"cost" yaml:"cost"`
+	Issues           []ReviewIssue    `json:"issues" yaml:"issues"`
+	ISOScores        *ISOScores       `json:"iso_scores,omitempty" yaml:"iso_scores,omitempty"`
+	Summary          string           `json:"summary" yaml:"summary"`
+	OverallScore     float64          `json:"overall_score" yaml:"overall_score"`
+	LineComments     []ReviewComment  `json:"line_comments" yaml:"line_comments"`         // Line-by-line comments
+	FileComments     []ReviewComment  `json:"file_comments" yaml:"file_comments"`         // File-level summaries
+	CommitComment    string           `json:"commit_comment" yaml:"commit_comment"`       // Overall PR/commit summary
+	Metadata         map[string]string `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 // ReviewComment represents a comment to post on a PR
@@ -75,14 +78,6 @@ type ReviewComment struct {
 	Line     int    `json:"line" yaml:"line"`         // 0 for general comment
 	Body     string `json:"body" yaml:"body"`
 	CommitID string `json:"commit_id" yaml:"commit_id"`
-}
-
-// CostSummary tracks token usage and estimated cost
-type CostSummary struct {
-	Tokens     int     `json:"tokens" yaml:"tokens"`
-	CostUSD    float64 `json:"cost_usd" yaml:"cost_usd"`
-	Provider   string  `json:"provider" yaml:"provider"`
-	Model      string  `json:"model" yaml:"model"`
 }
 
 // QAArtifacts tracks generated test and quality artifacts

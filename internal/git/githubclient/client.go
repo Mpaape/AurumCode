@@ -373,6 +373,40 @@ func (c *Client) PostReviewComment(ctx context.Context, owner, repo string, numb
 	return nil
 }
 
+// PostIssueComment posts a general comment on a pull request (not tied to a specific line)
+func (c *Client) PostIssueComment(ctx context.Context, owner, repo string, number int, body string) error {
+	url := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, owner, repo, number)
+
+	comment := map[string]string{
+		"body": body,
+	}
+
+	jsonData, err := json.Marshal(comment)
+	if err != nil {
+		return fmt.Errorf("failed to marshal comment: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(ctx, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // CommitStatus represents a commit status update
 type CommitStatus struct {
 	State       string `json:"state"`                  // "pending", "success", "error", or "failure"
