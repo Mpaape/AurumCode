@@ -7,6 +7,7 @@ on:
     paths:
       - '**.go'
       - 'docs/**'
+      - '_config.yml'
       - '.github/workflows/docs-auto-generate.yml'
   workflow_dispatch:
     inputs:
@@ -31,58 +32,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for diff detection
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
 
-      - name: Install documentation tools
-        run: |
-          go install golang.org/x/tools/cmd/godoc@latest
-          go install github.com/swaggo/swag/cmd/swag@latest
+      - name: Setup Ruby (for Jekyll)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: false
 
       - name: Detect changes
         id: changes
         run: |
-          if [ "${{ github.event.inputs.mode }}" = "full" ] || [ ! -f docs/api-reference.html ]; then
+          if [ "${{ github.event.inputs.mode }}" = "full" ] || [ ! -f _site/index.html ]; then
             echo "mode=full" >> $GITHUB_OUTPUT
             echo "Running FULL documentation generation"
           else
-            # Check if Go files changed
-            CHANGED_GO=$(git diff --name-only HEAD~1 HEAD | grep '\.go$' || true)
-            if [ -n "$CHANGED_GO" ]; then
+            CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E '\.(go|md)$' || true)
+            if [ -n "$CHANGED" ]; then
               echo "mode=incremental" >> $GITHUB_OUTPUT
-              echo "Go files changed, running INCREMENTAL update"
+              echo "Running INCREMENTAL update"
             else
               echo "mode=skip" >> $GITHUB_OUTPUT
-              echo "No Go files changed, skipping"
+              echo "No changes, skipping"
             fi
           fi
 
-      - name: Generate static Go documentation
+      - name: Generate Go package documentation
         if: steps.changes.outputs.mode != 'skip'
         run: |
-          # Generate godoc HTML
-          mkdir -p docs/static/godoc
-
-          # Run godoc server in background
-          godoc -http=:6060 &
-          GODOC_PID=$!
-
-          # Wait for server to start
-          sleep 3
-
-          # Fetch HTML pages for each package
-          for pkg in $(go list ./...); do
-            pkg_path=$(echo $pkg | sed 's|aurumcode/||')
-            mkdir -p "docs/static/godoc/$pkg_path"
-            wget -q "http://localhost:6060/pkg/$pkg" -O "docs/static/godoc/${pkg_path}.html" || true
-          done
-
-          # Kill godoc server
-          kill $GODOC_PID
+          chmod +x scripts/generate-code-docs.sh
+          ./scripts/generate-code-docs.sh
 
       - name: Generate CHANGELOG
         if: steps.changes.outputs.mode != 'skip'
@@ -90,47 +74,84 @@ jobs:
           chmod +x generate-docs-simple.sh
           ./generate-docs-simple.sh
 
-      - name: Generate enhanced documentation with LLM
+      - name: Convert docs to Jekyll format
         if: steps.changes.outputs.mode != 'skip'
-        env:
-          TOTVS_DTA_API_KEY: ${{ secrets.TOTVS_DTA_API_KEY }}
-          TOTVS_DTA_BASE_URL: ${{ secrets.TOTVS_DTA_BASE_URL }}
         run: |
-          chmod +x scripts/generate-enhanced-docs.sh
-          ./scripts/generate-enhanced-docs.sh ${{ steps.changes.outputs.mode }}
+          # Create _docs directory
+          mkdir -p _docs _guides
 
-      - name: Build documentation site
+          # Convert markdown docs with Jekyll front matter
+          for md in docs/*.md; do
+            if [ -f "$md" ]; then
+              base=$(basename "$md" .md)
+              title=$(echo "$base" | tr '_' ' ' | sed 's/\b\(.\)/\u\1/g')
+
+              # Create Jekyll page with front matter
+              cat > "_docs/${base}.md" <<EOF
+---
+layout: default
+title: ${title}
+parent: Documentation
+nav_order: 1
+---
+
+$(cat "$md")
+EOF
+            fi
+          done
+
+          echo "✅ Converted $(ls -1 _docs | wc -l) documentation files"
+
+      - name: Install Jekyll and dependencies
         if: steps.changes.outputs.mode != 'skip'
         run: |
-          chmod +x scripts/build-docs-site.sh
-          ./scripts/build-docs-site.sh
+          gem install bundler
+          cat > Gemfile <<EOF
+source 'https://rubygems.org'
+gem 'jekyll', '~> 4.3'
+gem 'just-the-docs', '0.8.0'
+gem 'jekyll-seo-tag'
+gem 'jekyll-sitemap'
+gem 'jekyll-feed'
+gem 'webrick'
+EOF
+          bundle install
+
+      - name: Build Jekyll site
+        if: steps.changes.outputs.mode != 'skip'
+        run: |
+          bundle exec jekyll build
+          echo "✅ Jekyll site built in _site/"
+
+      - name: Install and run Pagefind (search index)
+        if: steps.changes.outputs.mode != 'skip'
+        run: |
+          # Install Pagefind
+          npx -y pagefind --site _site
+
+          echo "✅ Search index created"
 
       - name: Deploy to GitHub Pages
         if: steps.changes.outputs.mode != 'skip'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/public
+          publish_dir: ./_site
           publish_branch: gh-pages
-          force_orphan: true
+          force_orphan: false
+          user_name: 'AurumCode Bot'
+          user_email: 'bot@aurumcode.dev'
+          commit_message: 'docs: Deploy documentation via Jekyll [skip ci]'
 
-      - name: Commit generated docs to main
+      - name: Summary
         if: steps.changes.outputs.mode != 'skip'
         run: |
-          git config user.name "AurumCode Bot"
-          git config user.email "bot@aurumcode.dev"
-
-          git add docs/ CHANGELOG.md README.md
-
-          if git diff --staged --quiet; then
-            echo "No documentation changes to commit"
-          else
-            git commit -m "docs: Auto-generate documentation [skip ci]
-
-Generated by GitHub Actions workflow
-Mode: ${{ steps.changes.outputs.mode }}
-Commit: ${{ github.sha }}
-
-🤖 Automated by AurumCode"
-            git push
-          fi
+          echo "## 📚 Documentation Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ steps.changes.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pages**: $(find _site -name "*.html" | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Size**: $(du -sh _site | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Site**: https://mpaape.github.io/AurumCode/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Documentation deployed successfully!" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,277 @@
+name: 'AurumCode Documentation Generator'
+description: 'Generate searchable documentation for ANY codebase (Go, Python, JS, Java, etc.)'
+author: 'AurumCode'
+
+branding:
+  icon: 'book-open'
+  color: 'blue'
+
+inputs:
+  github_token:
+    description: 'GitHub token for API access'
+    required: true
+  language:
+    description: 'Primary language (auto-detected if not specified)'
+    required: false
+    default: 'auto'
+  deploy:
+    description: 'Deploy to GitHub Pages'
+    required: false
+    default: 'true'
+  search:
+    description: 'Enable Pagefind search'
+    required: false
+    default: 'true'
+  theme:
+    description: 'Jekyll theme (just-the-docs, minimal, cayman)'
+    required: false
+    default: 'just-the-docs'
+
+outputs:
+  site_url:
+    description: 'URL of deployed documentation'
+    value: ${{ steps.deploy.outputs.url }}
+  pages_generated:
+    description: 'Number of pages generated'
+    value: ${{ steps.build.outputs.count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect language
+      id: detect
+      shell: bash
+      run: |
+        LANG="${{ inputs.language }}"
+
+        if [ "$LANG" = "auto" ]; then
+          # Auto-detect primary language
+          if [ -f "go.mod" ]; then
+            LANG="go"
+          elif [ -f "package.json" ]; then
+            LANG="javascript"
+          elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+            LANG="python"
+          elif [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
+            LANG="java"
+          elif [ -f "Gemfile" ]; then
+            LANG="ruby"
+          elif [ -f "Cargo.toml" ]; then
+            LANG="rust"
+          elif [ -f "composer.json" ]; then
+            LANG="php"
+          else
+            LANG="markdown"
+          fi
+        fi
+
+        echo "language=$LANG" >> $GITHUB_OUTPUT
+        echo "🔍 Detected language: $LANG"
+
+    - name: Generate code documentation
+      id: generate
+      shell: bash
+      run: |
+        LANG="${{ steps.detect.outputs.language }}"
+        echo "📦 Generating $LANG documentation..."
+
+        mkdir -p _api
+
+        case "$LANG" in
+          go)
+            echo "Generating Go documentation..."
+            for pkg in $(go list ./... 2>/dev/null | grep -v "/vendor/" || echo ""); do
+              if [ -n "$pkg" ]; then
+                pkg_name=$(echo "$pkg" | sed 's|.*/||' | sed 's|/|.|g')
+                echo "---" > "_api/${pkg_name}.md"
+                echo "layout: default" >> "_api/${pkg_name}.md"
+                echo "title: $pkg_name" >> "_api/${pkg_name}.md"
+                echo "parent: API Reference" >> "_api/${pkg_name}.md"
+                echo "---" >> "_api/${pkg_name}.md"
+                echo "" >> "_api/${pkg_name}.md"
+                echo "# $pkg" >> "_api/${pkg_name}.md"
+                echo "" >> "_api/${pkg_name}.md"
+                echo '```go' >> "_api/${pkg_name}.md"
+                go doc -all "$pkg" 2>/dev/null >> "_api/${pkg_name}.md" || echo "No documentation" >> "_api/${pkg_name}.md"
+                echo '```' >> "_api/${pkg_name}.md"
+              fi
+            done
+            ;;
+
+          python)
+            echo "Generating Python documentation..."
+            if command -v pydoc &> /dev/null; then
+              for py in $(find . -name "*.py" -not -path "*/\.*" -not -path "*/test*" | head -20); do
+                module=$(echo "$py" | sed 's|^\./||' | sed 's|\.py$||' | sed 's|/|.|g')
+                echo "---" > "_api/${module}.md"
+                echo "layout: default" >> "_api/${module}.md"
+                echo "title: $module" >> "_api/${module}.md"
+                echo "parent: API Reference" >> "_api/${module}.md"
+                echo "---" >> "_api/${module}.md"
+                echo "" >> "_api/${module}.md"
+                echo "# $module" >> "_api/${module}.md"
+              done
+            fi
+            ;;
+
+          javascript|typescript)
+            echo "Generating JavaScript/TypeScript documentation..."
+            if [ -f "package.json" ]; then
+              for js in $(find . -name "*.js" -o -name "*.ts" -not -path "*/node_modules/*" -not -path "*/\.*" | head -20); do
+                base=$(basename "$js" | sed 's|\.[^.]*$||')
+                echo "---" > "_api/${base}.md"
+                echo "layout: default" >> "_api/${base}.md"
+                echo "title: $base" >> "_api/${base}.md"
+                echo "parent: API Reference" >> "_api/${base}.md"
+                echo "---" >> "_api/${base}.md"
+                echo "" >> "_api/${base}.md"
+                echo "# $base" >> "_api/${base}.md"
+              done
+            fi
+            ;;
+
+          java)
+            echo "Generating Java documentation..."
+            for java in $(find . -name "*.java" -not -path "*/\.*" -not -path "*/test*" | head -20); do
+              base=$(basename "$java" .java)
+              echo "---" > "_api/${base}.md"
+              echo "layout: default" >> "_api/${base}.md"
+              echo "title: $base" >> "_api/${base}.md"
+              echo "parent: API Reference" >> "_api/${base}.md"
+              echo "---" >> "_api/${base}.md"
+              echo "" >> "_api/${base}.md"
+              echo "# $base" >> "_api/${base}.md"
+            done
+            ;;
+
+          *)
+            echo "📝 Markdown-only mode (language: $LANG)"
+            echo "Collecting existing documentation..."
+            ;;
+        esac
+
+        # Create API index
+        cat > "_api/index.md" <<'EOF'
+---
+layout: default
+title: API Reference
+nav_order: 3
+has_children: true
+---
+
+# API Reference
+
+Auto-generated documentation from source code.
+
+_Updated: $(date +%Y-%m-%d)_
+EOF
+
+        echo "✅ Generated API documentation"
+
+    - name: Setup Jekyll
+      shell: bash
+      run: |
+        # Create minimal Jekyll config if none exists
+        if [ ! -f "_config.yml" ]; then
+          cat > "_config.yml" <<EOF
+title: "$(basename $(pwd)) Documentation"
+description: "Auto-generated documentation"
+remote_theme: just-the-docs/just-the-docs@v0.8.0
+search_enabled: true
+color_scheme: dark
+EOF
+        fi
+
+        # Create Gemfile
+        cat > "Gemfile" <<EOF
+source 'https://rubygems.org'
+gem 'jekyll', '~> 4.3'
+gem 'just-the-docs', '0.8.0'
+gem 'jekyll-seo-tag'
+gem 'webrick'
+EOF
+
+    - name: Convert docs to Jekyll
+      shell: bash
+      run: |
+        mkdir -p _docs
+
+        # Convert markdown files
+        for md in docs/*.md README.md; do
+          if [ -f "$md" ]; then
+            base=$(basename "$md" .md)
+            title=$(echo "$base" | tr '_-' ' ' | sed 's/\b\(.\)/\u\1/g')
+
+            cat > "_docs/${base}.md" <<DOCEOF
+---
+layout: default
+title: ${title}
+parent: Documentation
+---
+
+$(cat "$md")
+DOCEOF
+          fi
+        done
+
+        # Create index if none exists
+        if [ ! -f "index.md" ]; then
+          cat > "index.md" <<'IDXEOF'
+---
+layout: home
+title: Home
+nav_order: 1
+---
+
+# Documentation
+
+Auto-generated documentation for this project.
+
+[View API Reference](/api/){: .btn .btn-primary }
+[View Documentation](/docs/){: .btn }
+IDXEOF
+        fi
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        gem install bundler
+        bundle install
+
+    - name: Build Jekyll site
+      id: build
+      shell: bash
+      run: |
+        bundle exec jekyll build
+        COUNT=$(find _site -name "*.html" | wc -l)
+        echo "count=$COUNT" >> $GITHUB_OUTPUT
+        echo "✅ Built $COUNT pages"
+
+    - name: Add search index
+      if: inputs.search == 'true'
+      shell: bash
+      run: |
+        npx -y pagefind --site _site
+        echo "✅ Search index created"
+
+    - name: Deploy to GitHub Pages
+      id: deploy
+      if: inputs.deploy == 'true'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ inputs.github_token }}
+        publish_dir: ./_site
+        publish_branch: gh-pages
+        force_orphan: false
+        user_name: 'AurumCode Bot'
+        user_email: 'bot@aurumcode.dev'
+
+    - name: Output URL
+      shell: bash
+      run: |
+        REPO="${{ github.repository }}"
+        OWNER=$(echo "$REPO" | cut -d'/' -f1)
+        NAME=$(echo "$REPO" | cut -d'/' -f2)
+        URL="https://${OWNER}.github.io/${NAME}/"
+        echo "url=$URL" >> $GITHUB_OUTPUT
+        echo "🌐 Documentation: $URL"

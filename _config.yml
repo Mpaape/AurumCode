@@ -1,0 +1,133 @@
+# Jekyll configuration for AurumCode documentation
+# This scales to 100+ repositories using GitHub Pages
+
+title: AurumCode Documentation
+description: >
+  Automated AI-Powered Code Quality Platform.
+  Searchable documentation generated from code.
+
+baseurl: "/AurumCode"
+url: "https://mpaape.github.io"
+
+# Theme: Use GitHub's official docs theme
+remote_theme: just-the-docs/just-the-docs@v0.8.0
+
+# Professional color scheme
+color_scheme: dark
+
+# Logo
+logo: "/assets/images/logo.svg"
+
+# Search enabled
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: true
+
+# Navigation structure
+nav_sort: case_insensitive
+
+# Enable heading anchors
+heading_anchors: true
+
+# Footer
+footer_content: >
+  Copyright &copy; 2025 AurumCode.
+  <a href="https://github.com/Mpaape/AurumCode">View on GitHub</a>
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Enable copy code button
+enable_copy_code_button: true
+
+# Collections for organized docs
+collections:
+  docs:
+    permalink: "/:collection/:path/"
+    output: true
+  api:
+    permalink: "/api/:path/"
+    output: true
+  guides:
+    permalink: "/guides/:path/"
+    output: true
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "docs"
+    values:
+      layout: "default"
+      nav_order: 1
+  - scope:
+      path: ""
+      type: "api"
+    values:
+      layout: "default"
+      nav_order: 2
+  - scope:
+      path: ""
+      type: "guides"
+    values:
+      layout: "default"
+      nav_order: 3
+
+# Plugins
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-feed
+  - jekyll-github-metadata
+
+# Exclude from processing
+exclude:
+  - "*.go"
+  - "*.mod"
+  - "*.sum"
+  - ".git/"
+  - ".github/"
+  - "vendor/"
+  - "node_modules/"
+  - "Makefile"
+  - "Dockerfile"
+  - ".env*"
+  - "*.sh"
+
+# Markdown
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: true
+
+# Aux links for the upper right navigation
+aux_links:
+  "GitHub Repository":
+    - "https://github.com/Mpaape/AurumCode"
+  "Issues":
+    - "https://github.com/Mpaape/AurumCode/issues"
+
+# External navigation
+nav_external_links:
+  - title: Live Demo
+    url: https://github.com/Mpaape/AurumCode/actions
+  - title: Docker Hub
+    url: https://hub.docker.com/r/aurumcode/aurumcode
+
+# Google Analytics (optional)
+# ga_tracking: UA-XXXXXXXX-X
+
+# Open Graph / Social Media
+og_image: /assets/images/social-card.png
+twitter:
+  username: aurumcode
+  card: summary_large_image
