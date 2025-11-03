@@ -1312,7 +1312,7 @@
         "testStrategy": "Verify build succeeds with 'go build ./cmd/...', all tests pass with 'go test ./...', no broken imports exist, coverage is maintained or improved, and 'go mod tidy' runs cleanly",
         "priority": "high",
         "dependencies": [],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1352,7 +1352,7 @@
         "complexity": 4,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break down the removal of the internal/testing/ framework into: 1) Scan and identify all imports of internal/testing packages across the codebase, 2) Remove the directory structure and all files within internal/testing/, 3) Verify build and test suite passes after cleanup",
-        "updatedAt": "2025-11-03T19:23:01.381Z"
+        "updatedAt": "2025-11-03T19:31:37.889Z"
       },
       {
         "id": "18",
@@ -1364,7 +1364,7 @@
         "dependencies": [
           "17"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1416,7 +1416,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split the Hugo to Jekyll migration into: 1) Implement JekyllBuilder struct with Validate() and Build() methods following the existing HugoBuilder pattern, 2) Update SiteBuilder to use JekyllBuilder instead of HugoBuilder, 3) Remove hugo.go and hugo_test.go files, 4) Create comprehensive unit tests and update integration tests",
-        "updatedAt": "2025-11-03T19:23:01.388Z"
+        "updatedAt": "2025-11-03T19:31:37.895Z"
       },
       {
         "id": "19",
@@ -1428,7 +1428,7 @@
         "dependencies": [
           "18"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1481,7 +1481,7 @@
         "complexity": 5,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide the extractor architecture into: 1) Define core interfaces (Extractor) and types (Language enum, ExtractRequest/Result structs), 2) Implement thread-safe Registry with registration and retrieval methods, 3) Create language constants and validation for 10 supported languages, 4) Develop comprehensive unit tests with mock extractors",
-        "updatedAt": "2025-11-03T19:23:01.397Z"
+        "updatedAt": "2025-11-03T19:31:37.899Z"
       },
       {
         "id": "20",
@@ -1493,7 +1493,7 @@
         "dependencies": [
           "19"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1533,7 +1533,7 @@
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break language detection into: 1) Implement file system scanning with directory exclusion logic (vendor/, node_modules/, etc.), 2) Create language detection by file extension mapping and statistics collection, 3) Add context cancellation support and comprehensive testing with mock filesystem",
-        "updatedAt": "2025-11-03T19:23:01.403Z"
+        "updatedAt": "2025-11-03T19:31:37.902Z"
       },
       {
         "id": "21",
@@ -1545,7 +1545,7 @@
         "dependencies": [
           "20"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1597,7 +1597,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide Go extractor implementation into: 1) Create extractor struct implementing the interface with gomarkdoc integration, 2) Implement tool installation checking and command execution, 3) Add incremental generation logic for changed packages only, 4) Create integration tests with real Go packages and unit tests with mocks",
-        "updatedAt": "2025-11-03T19:23:01.406Z"
+        "updatedAt": "2025-11-03T19:31:37.910Z"
       },
       {
         "id": "22",
@@ -1609,7 +1609,7 @@
         "dependencies": [
           "21"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1664,7 +1664,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split JS/TS extractor into: 1) Implement project type detection (TypeScript vs JavaScript via tsconfig.json/package.json), 2) Create TypeDoc integration with markdown plugin for documentation generation, 3) Handle both project types with appropriate command variations, 4) Develop integration tests for both JS and TS sample projects",
-        "updatedAt": "2025-11-03T19:23:01.411Z"
+        "updatedAt": "2025-11-03T19:31:37.913Z"
       },
       {
         "id": "23",
@@ -1676,7 +1676,7 @@
         "dependencies": [
           "22"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1717,7 +1717,7 @@
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break Python extractor into: 1) Implement pydoc-markdown integration with installation checking, 2) Create module and package discovery logic for Python projects, 3) Develop integration tests with Python sample containing docstrings and comprehensive unit tests",
-        "updatedAt": "2025-11-03T19:23:01.415Z"
+        "updatedAt": "2025-11-03T19:31:37.917Z"
       },
       {
         "id": "24",
@@ -1729,7 +1729,7 @@
         "dependencies": [
           "23"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1782,7 +1782,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide C# extractor into: 1) Implement .csproj project detection and XML documentation build configuration, 2) Create xmldocmd tool integration with proper command execution, 3) Handle .NET build process with documentation generation flags, 4) Develop integration tests with sample C# project containing XML docs",
-        "updatedAt": "2025-11-03T19:23:01.420Z"
+        "updatedAt": "2025-11-03T19:31:37.920Z"
       },
       {
         "id": "25",
@@ -1794,7 +1794,7 @@
         "dependencies": [
           "24"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1873,7 +1873,7 @@
         "complexity": 8,
         "recommendedSubtasks": 6,
         "expansionPrompt": "Break multi-language extractors into: 1) Implement C/C++ extractor using doxygen + doxybook2 pipeline, 2) Create Rust extractor using rustdoc/cargo doc with HTML output handling, 3) Implement Bash extractor using shdoc for comment parsing, 4) Create PowerShell extractor using platyPS module, 5) Establish common patterns across all extractors, 6) Develop comprehensive integration tests for each language",
-        "updatedAt": "2025-11-03T19:23:01.424Z"
+        "updatedAt": "2025-11-03T19:31:37.924Z"
       },
       {
         "id": "26",
@@ -1885,7 +1885,7 @@
         "dependencies": [
           "25"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1926,7 +1926,7 @@
         "complexity": 4,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break Jekyll setup into: 1) Create complete Jekyll configuration (_config.yml, Gemfile) with just-the-docs theme, 2) Establish directory structure for all documentation sections (Stack, Architecture, Tutorials, API, Roadmap, Custom), 3) Create placeholder content and validate Jekyll build process",
-        "updatedAt": "2025-11-03T19:23:01.429Z"
+        "updatedAt": "2025-11-03T19:31:37.927Z"
       },
       {
         "id": "27",
@@ -1938,7 +1938,7 @@
         "dependencies": [
           "26"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -1978,7 +1978,7 @@
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Divide normalizer implementation into: 1) Create front matter generation logic based on file paths and language context, 2) Implement single file and directory processing with existing front matter merging, 3) Develop comprehensive unit tests with temporary files and directory processing scenarios",
-        "updatedAt": "2025-11-03T19:23:01.434Z"
+        "updatedAt": "2025-11-03T19:31:37.931Z"
       },
       {
         "id": "28",
@@ -1990,7 +1990,7 @@
         "dependencies": [
           "27"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -2042,7 +2042,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split welcome page generator into: 1) Create prompt template for transforming README.md into documentation homepage, 2) Implement LLM orchestrator integration for content generation, 3) Add Jekyll front matter generation with layout configuration, 4) Develop unit tests with mock LLM responses and README processing",
-        "updatedAt": "2025-11-03T19:23:01.439Z"
+        "updatedAt": "2025-11-03T19:31:37.935Z"
       },
       {
         "id": "29",
@@ -2054,7 +2054,7 @@
         "dependencies": [
           "28"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -2109,7 +2109,7 @@
         "complexity": 7,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Break incremental support into: 1) Implement git-based change detection using git diff commands, 2) Create cache system for source-to-documentation file mappings with JSON persistence, 3) Develop affected documentation determination logic, 4) Create comprehensive unit tests with mock git repository and cache scenarios",
-        "updatedAt": "2025-11-03T19:23:01.442Z"
+        "updatedAt": "2025-11-03T19:31:37.938Z"
       },
       {
         "id": "30",
@@ -2121,7 +2121,7 @@
         "dependencies": [
           "29"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -2185,7 +2185,7 @@
         "complexity": 8,
         "recommendedSubtasks": 5,
         "expansionPrompt": "Divide complete pipeline into: 1) Integrate language detection and extractor registry for multi-language processing, 2) Implement incremental vs full generation modes with change detection, 3) Add markdown normalization and LLM welcome page generation, 4) Create Jekyll site validation and gh-pages deployment logic, 5) Develop comprehensive integration tests and error handling with graceful degradation",
-        "updatedAt": "2025-11-03T19:23:01.446Z"
+        "updatedAt": "2025-11-03T19:31:37.942Z"
       },
       {
         "id": "31",
@@ -2197,7 +2197,7 @@
         "dependencies": [
           "30"
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -2253,7 +2253,7 @@
         "complexity": 7,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Break workflow creation into: 1) Design multi-tool Docker container with all documentation tools (Go, Node.js, Python, .NET, Rust, etc.), 2) Create GitHub Actions workflow with trigger configuration and caching, 3) Implement automated deployment to gh-pages branch using actions, 4) Test workflow execution and validate site deployment",
-        "updatedAt": "2025-11-03T19:22:50.143Z"
+        "updatedAt": "2025-11-03T19:31:37.945Z"
       },
       {
         "id": "32",
@@ -2314,9 +2314,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:23:01.447Z",
+      "lastModified": "2025-11-03T19:31:37.946Z",
       "taskCount": 32,
-      "completedCount": 32,
+      "completedCount": 17,
       "tags": [
         "master"
       ]
