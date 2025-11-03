@@ -1740,7 +1740,7 @@
         "dependencies": [
           "23"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1793,7 +1793,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide C# extractor into: 1) Implement .csproj project detection and XML documentation build configuration, 2) Create xmldocmd tool integration with proper command execution, 3) Handle .NET build process with documentation generation flags, 4) Develop integration tests with sample C# project containing XML docs",
-        "updatedAt": "2025-11-03T19:31:37.920Z"
+        "updatedAt": "2025-11-03T20:47:50.292Z"
       },
       {
         "id": "25",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T20:45:12.587Z",
+      "lastModified": "2025-11-03T20:47:50.294Z",
       "taskCount": 32,
-      "completedCount": 24,
+      "completedCount": 25,
       "tags": [
         "master"
       ]
