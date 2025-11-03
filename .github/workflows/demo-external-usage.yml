@@ -1,0 +1,42 @@
+# Example workflow showing how external repositories can use AurumCode
+# This demonstrates the reusable action in action
+name: Demo - External Repository Usage
+
+on:
+  workflow_dispatch:  # Manual trigger only for demo
+
+jobs:
+  generate-docs:
+    name: Generate Documentation with AurumCode
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}  # Change to target repo
+          fetch-depth: 0
+
+      - name: Generate Documentation
+        uses: Mpaape/AurumCode@main  # Use the AurumCode action
+        with:
+          source-dir: '.'
+          output-dir: 'docs'
+          generate-welcome: 'false'  # Set to 'true' to enable AI welcome page
+          build-jekyll: 'true'
+          # llm-api-key: ${{ secrets.LLM_API_KEY }}  # Uncomment for AI features
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/_site/
+          retention-days: 30
+
+      - name: Deploy to GitHub Pages (optional)
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/_site
+          publish_branch: gh-pages

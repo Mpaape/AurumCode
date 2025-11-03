@@ -1,85 +1,75 @@
-name: 'AurumCode'
-description: 'Automated AI-Powered Code Quality Platform - Code Review, Documentation, and QA Testing'
-author: 'AurumCode Team'
+name: 'AurumCode Documentation Generator'
+description: 'Multi-language documentation generator with AI-powered enhancements'
+author: 'Mpaape'
 
 branding:
-  icon: 'check-circle'
+  icon: 'book-open'
   color: 'blue'
 
 inputs:
-  mode:
-    description: 'Pipeline mode to run: review, documentation, qa, or all'
-    required: true
-    default: 'all'
-
-  llm_provider:
-    description: 'LLM provider: openai, anthropic, litellm, ollama'
+  source-dir:
+    description: 'Source code directory to scan'
     required: false
-    default: 'openai'
-
-  llm_model:
-    description: 'LLM model to use'
+    default: '.'
+  output-dir:
+    description: 'Output directory for generated documentation'
     required: false
-    default: 'gpt-4'
-
-  llm_api_key:
-    description: 'API key for LLM provider'
-    required: true
-
-  llm_base_url:
-    description: 'Base URL for LLM provider (optional, for custom endpoints)'
+    default: 'docs'
+  languages:
+    description: 'Comma-separated list of languages to extract (empty = all)'
     required: false
     default: ''
-
-  github_token:
-    description: 'GitHub token for API access'
-    required: true
-    default: ${{ github.token }}
-
-  config_path:
-    description: 'Path to AurumCode config file'
+  incremental:
+    description: 'Enable incremental mode (only process changed files)'
     required: false
-    default: '.aurumcode/config.yml'
-
-  documentation_mode:
-    description: 'Documentation generation mode: full or incremental'
+    default: 'false'
+  generate-welcome:
+    description: 'Generate AI-powered welcome page from README'
     required: false
-    default: 'incremental'
-
-  post_pr_comments:
-    description: 'Post review comments on PRs'
+    default: 'false'
+  llm-api-key:
+    description: 'API key for LLM provider (required if generate-welcome=true)'
+    required: false
+    default: ''
+  llm-base-url:
+    description: 'Base URL for LLM API (for custom endpoints)'
+    required: false
+    default: ''
+  build-jekyll:
+    description: 'Build Jekyll site after documentation generation'
     required: false
     default: 'true'
 
-  coverage_threshold:
-    description: 'Minimum test coverage percentage'
-    required: false
-    default: '80'
-
 outputs:
-  review_result:
-    description: 'Code review result (passed/failed)'
-
-  documentation_url:
-    description: 'URL to generated documentation'
-
-  coverage_percentage:
-    description: 'Test coverage percentage'
-
-  issues_found:
-    description: 'Number of issues found'
+  docs-generated:
+    description: 'Number of documentation files generated'
+    value: \${{ steps.generate.outputs.docs-generated }}
+  languages-detected:
+    description: 'Languages detected in the repository'
+    value: \${{ steps.generate.outputs.languages-detected }}
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  env:
-    AURUMCODE_MODE: ${{ inputs.mode }}
-    LLM_PROVIDER: ${{ inputs.llm_provider }}
-    LLM_MODEL: ${{ inputs.llm_model }}
-    LLM_API_KEY: ${{ inputs.llm_api_key }}
-    LLM_BASE_URL: ${{ inputs.llm_base_url }}
-    GITHUB_TOKEN: ${{ inputs.github_token }}
-    CONFIG_PATH: ${{ inputs.config_path }}
-    DOCUMENTATION_MODE: ${{ inputs.documentation_mode }}
-    POST_PR_COMMENTS: ${{ inputs.post_pr_comments }}
-    COVERAGE_THRESHOLD: ${{ inputs.coverage_threshold }}
+  using: 'composite'
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Generate documentation
+      id: generate
+      shell: bash
+      env:
+        TOTVS_DTA_API_KEY: \${{ inputs.llm-api-key }}
+        TOTVS_DTA_BASE_URL: \${{ inputs.llm-base-url }}
+      run: |
+        echo "🚀 Generating documentation with AurumCode..."
+        
+        # Build and run
+        cd \$GITHUB_ACTION_PATH
+        go run cmd/regenerate-docs/main.go
+        
+        # Output stats
+        docs_count=\$(find \${{ inputs.output-dir }} -name "*.md" | wc -l)
+        echo "docs-generated=\$docs_count" >> \$GITHUB_OUTPUT
+        echo "✅ Generated \$docs_count documentation files"
