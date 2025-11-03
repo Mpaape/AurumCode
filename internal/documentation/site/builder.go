@@ -7,16 +7,16 @@ import (
 	"time"
 )
 
-// SiteBuilder orchestrates Hugo and Pagefind builds
+// SiteBuilder orchestrates Jekyll and Pagefind builds
 type SiteBuilder struct {
-	hugo     *HugoBuilder
+	jekyll   *JekyllBuilder
 	pagefind *PagefindBuilder
 }
 
 // NewSiteBuilder creates a new site builder
 func NewSiteBuilder(runner CommandRunner) *SiteBuilder {
 	return &SiteBuilder{
-		hugo:     NewHugoBuilder(runner),
+		jekyll:   NewJekyllBuilder(runner),
 		pagefind: NewPagefindBuilder(runner),
 	}
 }
@@ -25,11 +25,11 @@ func NewSiteBuilder(runner CommandRunner) *SiteBuilder {
 func (s *SiteBuilder) Build(ctx context.Context, config *BuildConfig) (*BuildResult, error) {
 	start := time.Now()
 
-	// Step 1: Build Hugo site
-	if err := s.hugo.BuildWithConfig(ctx, config); err != nil {
+	// Step 1: Build Jekyll site
+	if err := s.jekyll.BuildWithConfig(ctx, config); err != nil {
 		return &BuildResult{
 			Success: false,
-			Error:   fmt.Errorf("hugo build failed: %w", err),
+			Error:   fmt.Errorf("jekyll build failed: %w", err),
 		}, err
 	}
 
@@ -43,10 +43,10 @@ func (s *SiteBuilder) Build(ctx context.Context, config *BuildConfig) (*BuildRes
 
 	duration := time.Since(start)
 
-	// Determine output path
+	// Determine output path (Jekyll uses _site by default)
 	outputPath := config.OutputDir
 	if outputPath == "" {
-		outputPath = filepath.Join(config.WorkDir, "public")
+		outputPath = filepath.Join(config.WorkDir, "_site")
 	}
 
 	return &BuildResult{
@@ -56,11 +56,11 @@ func (s *SiteBuilder) Build(ctx context.Context, config *BuildConfig) (*BuildRes
 	}, nil
 }
 
-// Validate validates both Hugo and Pagefind are available
+// Validate validates both Jekyll and Pagefind are available
 func (s *SiteBuilder) Validate(ctx context.Context) error {
-	// Validate Hugo
-	if err := s.hugo.Validate(ctx); err != nil {
-		return fmt.Errorf("hugo validation failed: %w", err)
+	// Validate Jekyll
+	if err := s.jekyll.Validate(ctx); err != nil {
+		return fmt.Errorf("jekyll validation failed: %w", err)
 	}
 
 	// Validate Pagefind
@@ -71,11 +71,11 @@ func (s *SiteBuilder) Validate(ctx context.Context) error {
 	return nil
 }
 
-// BuildHugoOnly builds only the Hugo site (skip search index)
-func (s *SiteBuilder) BuildHugoOnly(ctx context.Context, config *BuildConfig) (*BuildResult, error) {
+// BuildJekyllOnly builds only the Jekyll site (skip search index)
+func (s *SiteBuilder) BuildJekyllOnly(ctx context.Context, config *BuildConfig) (*BuildResult, error) {
 	start := time.Now()
 
-	if err := s.hugo.BuildWithConfig(ctx, config); err != nil {
+	if err := s.jekyll.BuildWithConfig(ctx, config); err != nil {
 		return &BuildResult{
 			Success: false,
 			Error:   err,
@@ -86,7 +86,7 @@ func (s *SiteBuilder) BuildHugoOnly(ctx context.Context, config *BuildConfig) (*
 
 	outputPath := config.OutputDir
 	if outputPath == "" {
-		outputPath = filepath.Join(config.WorkDir, "public")
+		outputPath = filepath.Join(config.WorkDir, "_site")
 	}
 
 	return &BuildResult{

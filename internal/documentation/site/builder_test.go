@@ -9,9 +9,9 @@ import (
 func TestSiteBuilderBuild(t *testing.T) {
 	mock := NewMockRunner()
 
-	// Setup Hugo
-	mock.WithOutput("hugo version", "hugo v0.134.2+extended")
-	mock.WithOutput("hugo", "Built in 100 ms")
+	// Setup Jekyll
+	mock.WithOutput("jekyll --version", "jekyll 4.3.3")
+	mock.WithOutput("jekyll", "done in 1.234 seconds")
 
 	// Setup Pagefind
 	mock.WithOutput("npx pagefind --version", "pagefind 1.0.0")
@@ -20,7 +20,7 @@ func TestSiteBuilderBuild(t *testing.T) {
 	builder := NewSiteBuilder(mock)
 	config := &BuildConfig{
 		WorkDir:   "/tmp/site",
-		OutputDir: "/tmp/site/public",
+		OutputDir: "/tmp/site/_site",
 		BaseURL:   "https://example.com",
 		Minify:    true,
 	}
@@ -34,7 +34,7 @@ func TestSiteBuilderBuild(t *testing.T) {
 		t.Error("Expected successful build")
 	}
 
-	if result.OutputPath != "/tmp/site/public" {
+	if result.OutputPath != "/tmp/site/_site" {
 		t.Errorf("OutputPath = %v", result.OutputPath)
 	}
 
@@ -42,23 +42,23 @@ func TestSiteBuilderBuild(t *testing.T) {
 		t.Error("Expected positive duration")
 	}
 
-	// Verify both Hugo and Pagefind were called
+	// Verify both Jekyll and Pagefind were called
 	calls := mock.GetCalls()
 
-	hugoFound := false
+	jekyllFound := false
 	pagefindFound := false
 
 	for _, call := range calls {
-		if call.Cmd == "hugo" && len(call.Args) > 0 {
-			hugoFound = true
+		if call.Cmd == "jekyll" && len(call.Args) > 0 {
+			jekyllFound = true
 		}
 		if call.Cmd == "npx" && contains(call.Args, "pagefind") {
 			pagefindFound = true
 		}
 	}
 
-	if !hugoFound {
-		t.Error("Hugo was not called")
+	if !jekyllFound {
+		t.Error("Jekyll was not called")
 	}
 
 	if !pagefindFound {
@@ -68,7 +68,7 @@ func TestSiteBuilderBuild(t *testing.T) {
 
 func TestSiteBuilderValidate(t *testing.T) {
 	mock := NewMockRunner()
-	mock.WithOutput("hugo version", "hugo v0.134.2+extended")
+	mock.WithOutput("jekyll --version", "jekyll 4.3.3")
 	mock.WithOutput("npx pagefind --version", "pagefind 1.0.0")
 
 	builder := NewSiteBuilder(mock)
@@ -78,25 +78,25 @@ func TestSiteBuilderValidate(t *testing.T) {
 	}
 }
 
-func TestSiteBuilderValidateHugoMissing(t *testing.T) {
+func TestSiteBuilderValidateJekyllMissing(t *testing.T) {
 	mock := NewMockRunner()
-	mock.WithError("hugo version", fmt.Errorf("hugo not found"))
+	mock.WithError("jekyll --version", fmt.Errorf("jekyll not found"))
 	mock.WithOutput("npx pagefind --version", "pagefind 1.0.0")
 
 	builder := NewSiteBuilder(mock)
 	err := builder.Validate(context.Background())
 	if err == nil {
-		t.Error("Expected validation error when Hugo is missing")
+		t.Error("Expected validation error when Jekyll is missing")
 	}
 
-	if !strings.Contains(err.Error(), "hugo") {
-		t.Errorf("Error should mention hugo: %v", err)
+	if !strings.Contains(err.Error(), "jekyll") {
+		t.Errorf("Error should mention jekyll: %v", err)
 	}
 }
 
 func TestSiteBuilderValidatePagefindMissing(t *testing.T) {
 	mock := NewMockRunner()
-	mock.WithOutput("hugo version", "hugo v0.134.2+extended")
+	mock.WithOutput("jekyll --version", "jekyll 4.3.3")
 	mock.WithError("npx pagefind --version", fmt.Errorf("pagefind not found"))
 
 	builder := NewSiteBuilder(mock)
@@ -110,9 +110,9 @@ func TestSiteBuilderValidatePagefindMissing(t *testing.T) {
 	}
 }
 
-func TestSiteBuilderBuildHugoOnly(t *testing.T) {
+func TestSiteBuilderBuildJekyllOnly(t *testing.T) {
 	mock := NewMockRunner()
-	mock.WithOutput("hugo", "Built in 100 ms")
+	mock.WithOutput("jekyll", "done in 1.234 seconds")
 
 	builder := NewSiteBuilder(mock)
 	config := &BuildConfig{
@@ -120,21 +120,21 @@ func TestSiteBuilderBuildHugoOnly(t *testing.T) {
 		Minify:  true,
 	}
 
-	result, err := builder.BuildHugoOnly(context.Background(), config)
+	result, err := builder.BuildJekyllOnly(context.Background(), config)
 	if err != nil {
-		t.Fatalf("BuildHugoOnly failed: %v", err)
+		t.Fatalf("BuildJekyllOnly failed: %v", err)
 	}
 
 	if !result.Success {
 		t.Error("Expected successful build")
 	}
 
-	// Verify only Hugo was called
+	// Verify only Jekyll was called
 	calls := mock.GetCalls()
 
 	for _, call := range calls {
 		if call.Cmd == "npx" && contains(call.Args, "pagefind") {
-			t.Error("Pagefind should not be called in Hugo-only build")
+			t.Error("Pagefind should not be called in Jekyll-only build")
 		}
 	}
 }
@@ -146,7 +146,7 @@ func TestSiteBuilderBuildSearchOnly(t *testing.T) {
 	builder := NewSiteBuilder(mock)
 	config := &BuildConfig{
 		WorkDir:   "/tmp/site",
-		OutputDir: "/tmp/site/public",
+		OutputDir: "/tmp/site/_site",
 	}
 
 	result, err := builder.BuildSearchOnly(context.Background(), config)
@@ -162,15 +162,15 @@ func TestSiteBuilderBuildSearchOnly(t *testing.T) {
 	calls := mock.GetCalls()
 
 	for _, call := range calls {
-		if call.Cmd == "hugo" {
-			t.Error("Hugo should not be called in search-only build")
+		if call.Cmd == "jekyll" {
+			t.Error("Jekyll should not be called in search-only build")
 		}
 	}
 }
 
-func TestSiteBuilderBuildHugoFailure(t *testing.T) {
+func TestSiteBuilderBuildJekyllFailure(t *testing.T) {
 	mock := NewMockRunner()
-	mock.WithError("hugo", fmt.Errorf("hugo build failed"))
+	mock.WithError("jekyll", fmt.Errorf("jekyll build failed"))
 
 	builder := NewSiteBuilder(mock)
 	config := &BuildConfig{
@@ -193,7 +193,7 @@ func TestSiteBuilderBuildHugoFailure(t *testing.T) {
 
 func TestSiteBuilderBuildPagefindFailure(t *testing.T) {
 	mock := NewMockRunner()
-	mock.WithOutput("hugo", "Built")
+	mock.WithOutput("jekyll", "Built")
 	mock.WithError("npx pagefind", fmt.Errorf("indexing failed"))
 
 	builder := NewSiteBuilder(mock)

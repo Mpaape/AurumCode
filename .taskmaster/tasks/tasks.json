@@ -1367,7 +1367,7 @@
         "dependencies": [
           "17"
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -1375,9 +1375,10 @@
             "description": "Create internal/documentation/site/jekyll.go implementing JekyllBuilder following the existing HugoBuilder pattern with proper interface compatibility",
             "dependencies": [],
             "details": "Create jekyll.go file with JekyllBuilder struct implementing the SiteBuilder interface. Include Validate() method to check Jekyll installation and _config.yml presence, and Build() method to execute Jekyll build commands. Follow the same pattern as HugoBuilder for consistency and interface compatibility. Implement proper error handling and command execution using the existing CommandRunner interface.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with mock CommandRunner to verify Jekyll commands are executed correctly, test validation logic for Jekyll requirements",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:41:07.771Z"
           },
           {
             "id": 2,
@@ -1387,9 +1388,10 @@
               1
             ],
             "details": "Update the SiteBuilder factory methods and configuration to create JekyllBuilder instances instead of HugoBuilder. Ensure all references to HugoBuilder in builder.go are replaced with JekyllBuilder. Update any configuration or initialization code that was specific to Hugo to work with Jekyll. Maintain backward compatibility where possible.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests to verify SiteBuilder correctly instantiates JekyllBuilder, test that build pipeline works end-to-end with Jekyll",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:41:39.441Z"
           },
           {
             "id": 3,
@@ -1399,9 +1401,10 @@
               2
             ],
             "details": "Delete internal/documentation/site/hugo.go and internal/documentation/site/hugo_test.go files. Ensure no other files import or reference these deleted files. Update any import statements that were using HugoBuilder. Search for any remaining references to hugo files and clean them up.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify compilation succeeds after file removal, ensure no broken imports or references remain in the codebase",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:42:18.130Z"
           },
           {
             "id": 4,
@@ -1411,15 +1414,16 @@
               3
             ],
             "details": "Create jekyll_test.go with comprehensive unit tests for JekyllBuilder including Validate() and Build() method testing with various scenarios. Update integration tests that previously tested Hugo functionality to work with Jekyll. Search codebase using 'grep -r hugo internal/' to find and update any remaining Hugo references in tests or other files. Ensure all tests pass with 'go test ./internal/documentation/site/...'",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Run full test suite to ensure all tests pass, verify integration tests work with real Jekyll _config.yml files, test edge cases and error conditions",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:42:20.657Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split the Hugo to Jekyll migration into: 1) Implement JekyllBuilder struct with Validate() and Build() methods following the existing HugoBuilder pattern, 2) Update SiteBuilder to use JekyllBuilder instead of HugoBuilder, 3) Remove hugo.go and hugo_test.go files, 4) Create comprehensive unit tests and update integration tests",
-        "updatedAt": "2025-11-03T19:31:37.895Z"
+        "updatedAt": "2025-11-03T19:42:20.657Z"
       },
       {
         "id": "19",
@@ -2317,7 +2321,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:34:58.521Z",
+      "lastModified": "2025-11-03T19:42:20.661Z",
       "taskCount": 32,
       "completedCount": 18,
       "tags": [
