@@ -1435,7 +1435,7 @@
         "dependencies": [
           "18"
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -1443,9 +1443,10 @@
             "description": "Create the foundational Extractor interface and supporting types for the documentation extraction system",
             "dependencies": [],
             "details": "Create internal/documentation/extractors/interface.go with Extractor interface defining Extract(ctx context.Context, req ExtractRequest) (*ExtractResult, error). Create types.go with Language enum constants, ExtractRequest struct (language Language, projectPath string, outputPath string, options map[string]interface{}), and ExtractResult struct (success bool, outputFiles []string, metadata map[string]interface{}, error string). Ensure types are JSON serializable for future API usage.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for type validation, JSON marshaling/unmarshaling of ExtractRequest and ExtractResult, interface compliance verification",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:45:50.563Z"
           },
           {
             "id": 2,
@@ -1455,9 +1456,10 @@
               1
             ],
             "details": "Create registry.go with Registry struct containing mutex-protected map[Language]Extractor. Implement Register(lang Language, extractor Extractor) error with duplicate registration validation, Get(lang Language) (Extractor, bool) for retrieval, List() []Language for available extractors, and Languages() []Language for all supported languages. Use sync.RWMutex for concurrent read access optimization. Include proper error handling for invalid registrations.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for concurrent registration/retrieval, duplicate registration error handling, thread safety verification with goroutines, registry state consistency",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:45:50.569Z"
           },
           {
             "id": 3,
@@ -1467,9 +1469,10 @@
               1
             ],
             "details": "Extend types.go with Language type as string enum. Define constants: LanguageGo, LanguageJavaScript, LanguageTypeScript, LanguagePython, LanguageCSharp, LanguageCPP, LanguageRust, LanguageBash, LanguagePowerShell, LanguageC. Implement IsValid() method on Language type for validation. Create helper functions GetSupportedLanguages() []Language and ParseLanguage(s string) (Language, error) for string conversion with case-insensitive matching.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for language validation, string parsing with various cases, supported languages enumeration, invalid language handling",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:45:50.573Z"
           },
           {
             "id": 4,
@@ -1480,15 +1483,16 @@
               3
             ],
             "details": "Create extractors_test.go with mock extractor implementations for testing. Implement MockExtractor struct that satisfies Extractor interface with configurable success/failure scenarios. Create test cases for Registry operations: successful registration, duplicate registration errors, concurrent access patterns, retrieval of registered/unregistered extractors. Add integration tests combining all components. Include table-driven tests for language validation and error scenarios.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Unit tests covering 100% of registry functionality, mock extractor behavior verification, race condition testing with go test -race, error path validation",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:45:54.000Z"
           }
         ],
         "complexity": 5,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide the extractor architecture into: 1) Define core interfaces (Extractor) and types (Language enum, ExtractRequest/Result structs), 2) Implement thread-safe Registry with registration and retrieval methods, 3) Create language constants and validation for 10 supported languages, 4) Develop comprehensive unit tests with mock extractors",
-        "updatedAt": "2025-11-03T19:31:37.899Z"
+        "updatedAt": "2025-11-03T19:45:54.000Z"
       },
       {
         "id": "20",
@@ -2321,7 +2325,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:43:26.048Z",
+      "lastModified": "2025-11-03T19:45:54.001Z",
       "taskCount": 32,
       "completedCount": 19,
       "tags": [
