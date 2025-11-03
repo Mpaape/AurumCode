@@ -1620,7 +1620,7 @@
         "dependencies": [
           "21"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1675,7 +1675,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split JS/TS extractor into: 1) Implement project type detection (TypeScript vs JavaScript via tsconfig.json/package.json), 2) Create TypeDoc integration with markdown plugin for documentation generation, 3) Handle both project types with appropriate command variations, 4) Develop integration tests for both JS and TS sample projects",
-        "updatedAt": "2025-11-03T19:31:37.913Z"
+        "updatedAt": "2025-11-03T19:56:37.842Z"
       },
       {
         "id": "23",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:53:55.629Z",
+      "lastModified": "2025-11-03T19:56:37.844Z",
       "taskCount": 32,
-      "completedCount": 22,
+      "completedCount": 23,
       "tags": [
         "master"
       ]
