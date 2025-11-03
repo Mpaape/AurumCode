@@ -32,10 +32,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  DOCKER_IMAGE: ghcr.io/${{ github.repository }}/docs-builder
-  CACHE_VERSION: v1
-
 jobs:
   build-docs:
     name: Generate Documentation
@@ -47,60 +43,41 @@ jobs:
         with:
           fetch-depth: 0  # Full history for incremental detection
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ env.CACHE_VERSION }}-${{ hashFiles('.docker/docs.Dockerfile') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-${{ env.CACHE_VERSION }}-
-            ${{ runner.os }}-buildx-
-
-      - name: Build documentation container
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: .docker/docs.Dockerfile
-          tags: aurumcode-docs:latest
-          load: true
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          go-version: '1.21'
 
       - name: Extract documentation (Full Mode)
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+        env:
+          TOTVS_DTA_API_KEY: ${{ secrets.TOTVS_DTA_API_KEY }}
+          TOTVS_DTA_BASE_URL: ${{ secrets.TOTVS_DTA_BASE_URL }}
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            -w /workspace \
-            aurumcode-docs:latest \
-            bash -c "
-              echo '=== Running Documentation Pipeline ===' &&
-              echo 'Source Directory: /workspace' &&
-              echo 'Output Directory: /workspace/docs' &&
-              echo 'Mode: Full Generation' &&
-              ls -la /workspace &&
-              echo '=== Pipeline Complete ===' &&
-              echo 'Generated documentation files:' &&
-              find /workspace/docs -name '*.md' -type f || echo 'No markdown files generated yet'
-            "
+          echo '=== Running AurumCode Documentation Generator ==='
+          echo 'Source Directory: .'
+          echo 'Output Directory: docs'
+          echo 'Mode: Full Generation'
+
+          # Build and run the documentation generator
+          go run cmd/regenerate-docs/main.go
+
+          echo '=== Pipeline Complete ==='
+          echo 'Generated documentation files:'
+          find docs -name '*.md' -type f | head -20 || echo 'No markdown files generated yet'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: docs
 
       - name: Install Jekyll dependencies
         working-directory: docs
         run: |
           if [ -f "Gemfile" ]; then
-            docker run --rm \
-              -v ${{ github.workspace }}/docs:/workspace/docs \
-              -w /workspace/docs \
-              aurumcode-docs:latest \
-              bash -c "bundle install"
+            bundle install
           else
             echo "No Gemfile found, skipping bundle install"
           fi
@@ -109,11 +86,7 @@ jobs:
         working-directory: docs
         run: |
           if [ -f "_config.yml" ]; then
-            docker run --rm \
-              -v ${{ github.workspace }}/docs:/workspace/docs \
-              -w /workspace/docs \
-              aurumcode-docs:latest \
-              bash -c "bundle exec jekyll build"
+            bundle exec jekyll build
           else
             echo "No Jekyll _config.yml found, skipping build"
           fi
