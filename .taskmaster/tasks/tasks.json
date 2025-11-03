@@ -1312,7 +1312,7 @@
         "testStrategy": "Verify build succeeds with 'go build ./cmd/...', all tests pass with 'go test ./...', no broken imports exist, coverage is maintained or improved, and 'go mod tidy' runs cleanly",
         "priority": "high",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1320,10 +1320,10 @@
             "description": "Search the entire codebase to find all files that import packages from internal/testing/* and create a comprehensive list of affected files and their specific imports.",
             "dependencies": [],
             "details": "Use grep or ripgrep to search for all import statements containing 'internal/testing' across Go files. Create a detailed inventory of: 1) Which files contain these imports, 2) What specific packages are imported (executor, unit, api, mock), 3) How these packages are used in each file. This will inform the cleanup strategy and ensure no imports are missed during removal.",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "Verify search completeness by running multiple grep patterns and cross-referencing results. Ensure all Go files are scanned including test files, vendor exclusions are applied, and no false positives from comments are included.",
             "parentId": "undefined",
-            "updatedAt": "2025-11-03T19:32:24.568Z"
+            "updatedAt": "2025-11-03T19:34:58.508Z"
           },
           {
             "id": 2,
@@ -1333,9 +1333,10 @@
               1
             ],
             "details": "Physically remove the internal/testing/ directory and all its contents using rm -rf or equivalent. This includes: internal/testing/executor/, internal/testing/unit/, internal/testing/api/, internal/testing/mock/ and any other files or subdirectories within internal/testing/. Ensure the removal is complete and no remnants remain that could cause confusion or build issues.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify directory removal by checking that 'ls internal/testing' returns 'no such file or directory' and that no references to internal/testing exist in the filesystem. Confirm git status shows the deletion properly.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:34:58.516Z"
           },
           {
             "id": 3,
@@ -1345,15 +1346,16 @@
               2
             ],
             "details": "Execute the following validation steps: 1) Run 'go build ./cmd/...' to ensure all command builds succeed, 2) Run 'go test ./...' to verify all tests pass, 3) Check for any remaining broken imports related to internal/testing, 4) Run 'go mod tidy' to clean up unused dependencies, 5) Verify test coverage hasn't dropped significantly compared to baseline. Fix any issues discovered during validation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Success criteria: 'go build ./cmd/...' exits with code 0, 'go test ./...' shows all tests passing, no import errors related to internal/testing packages, 'go mod tidy' completes without errors, and test coverage remains within acceptable thresholds.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T19:34:58.520Z"
           }
         ],
         "complexity": 4,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break down the removal of the internal/testing/ framework into: 1) Scan and identify all imports of internal/testing packages across the codebase, 2) Remove the directory structure and all files within internal/testing/, 3) Verify build and test suite passes after cleanup",
-        "updatedAt": "2025-11-03T19:32:24.568Z"
+        "updatedAt": "2025-11-03T19:34:58.520Z"
       },
       {
         "id": "18",
@@ -2315,9 +2317,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:32:24.570Z",
+      "lastModified": "2025-11-03T19:34:58.521Z",
       "taskCount": 32,
-      "completedCount": 17,
+      "completedCount": 18,
       "tags": [
         "master"
       ]
