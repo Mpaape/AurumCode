@@ -1367,7 +1367,7 @@
         "dependencies": [
           "17"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1414,16 +1414,16 @@
               3
             ],
             "details": "Create jekyll_test.go with comprehensive unit tests for JekyllBuilder including Validate() and Build() method testing with various scenarios. Update integration tests that previously tested Hugo functionality to work with Jekyll. Search codebase using 'grep -r hugo internal/' to find and update any remaining Hugo references in tests or other files. Ensure all tests pass with 'go test ./internal/documentation/site/...'",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "Run full test suite to ensure all tests pass, verify integration tests work with real Jekyll _config.yml files, test edge cases and error conditions",
             "parentId": "undefined",
-            "updatedAt": "2025-11-03T19:42:20.657Z"
+            "updatedAt": "2025-11-03T19:43:26.046Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split the Hugo to Jekyll migration into: 1) Implement JekyllBuilder struct with Validate() and Build() methods following the existing HugoBuilder pattern, 2) Update SiteBuilder to use JekyllBuilder instead of HugoBuilder, 3) Remove hugo.go and hugo_test.go files, 4) Create comprehensive unit tests and update integration tests",
-        "updatedAt": "2025-11-03T19:42:20.657Z"
+        "updatedAt": "2025-11-03T19:43:26.046Z"
       },
       {
         "id": "19",
@@ -2321,9 +2321,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:42:20.661Z",
+      "lastModified": "2025-11-03T19:43:26.048Z",
       "taskCount": 32,
-      "completedCount": 18,
+      "completedCount": 19,
       "tags": [
         "master"
       ]
