@@ -1,0 +1,139 @@
+# AurumCode Documentation Site Configuration
+# Jekyll configuration for GitHub Pages with just-the-docs theme
+
+title: AurumCode Documentation
+description: Comprehensive documentation system for multi-language codebases
+baseurl: "/AurumCode"
+url: "https://mpaape.github.io"
+
+# Theme Configuration
+theme: just-the-docs
+remote_theme: just-the-docs/just-the-docs@v0.10.0
+
+# Color scheme
+color_scheme: dark
+
+# Logo and branding
+logo: "/assets/images/logo.png"
+
+# Search Configuration
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: false
+
+# Navigation Configuration
+nav_sort: case_insensitive
+nav_fold: true
+
+# Aux links for the upper right navigation
+aux_links:
+  "AurumCode on GitHub":
+    - "https://github.com/Mpaape/AurumCode"
+  "Report Issue":
+    - "https://github.com/Mpaape/AurumCode/issues/new"
+
+# GitHub repository information
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: "https://github.com/Mpaape/AurumCode"
+gh_edit_branch: "main"
+gh_edit_view_mode: "edit"
+
+# Footer configuration
+footer_content: 'Copyright &copy; 2025 AurumCode. Documentation powered by <a href="https://github.com/just-the-docs/just-the-docs">Just the Docs</a>.'
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Footer last modified timestamp
+last_edit_timestamp: true
+last_edit_time_format: "%b %e %Y at %I:%M %p"
+
+# Collections for organizing documentation
+collections:
+  stack:
+    permalink: "/:collection/:path/"
+    output: true
+  architecture:
+    permalink: "/:collection/:path/"
+    output: true
+  tutorials:
+    permalink: "/:collection/:path/"
+    output: true
+  api:
+    permalink: "/:collection/:path/"
+    output: true
+  roadmap:
+    permalink: "/:collection/:path/"
+    output: true
+  custom:
+    permalink: "/:collection/:path/"
+    output: true
+
+# Default front matter
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+  - scope:
+      path: "_stack"
+      type: "stack"
+    values:
+      layout: default
+      nav_section: "Technology Stack"
+  - scope:
+      path: "_architecture"
+      type: "architecture"
+    values:
+      layout: default
+      nav_section: "Architecture"
+  - scope:
+      path: "_tutorials"
+      type: "tutorials"
+    values:
+      layout: default
+      nav_section: "Tutorials"
+  - scope:
+      path: "_api"
+      type: "api"
+    values:
+      layout: default
+      nav_section: "API Reference"
+  - scope:
+      path: "_roadmap"
+      type: "roadmap"
+    values:
+      layout: default
+      nav_section: "Roadmap"
+  - scope:
+      path: "_custom"
+      type: "custom"
+    values:
+      layout: default
+      nav_section: "Custom Documentation"
+
+# Plugins
+plugins:
+  - jekyll-seo-tag
+  - jekyll-github-metadata
+  - jekyll-include-cache
+
+# Exclude from processing
+exclude:
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - vendor/
+  - README.md
+  - LICENSE
