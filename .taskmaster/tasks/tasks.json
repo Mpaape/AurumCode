@@ -2208,7 +2208,7 @@
         "dependencies": [
           "30"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -2264,7 +2264,7 @@
         "complexity": 7,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Break workflow creation into: 1) Design multi-tool Docker container with all documentation tools (Go, Node.js, Python, .NET, Rust, etc.), 2) Create GitHub Actions workflow with trigger configuration and caching, 3) Implement automated deployment to gh-pages branch using actions, 4) Test workflow execution and validate site deployment",
-        "updatedAt": "2025-11-03T21:11:02.977Z"
+        "updatedAt": "2025-11-03T21:12:53.308Z"
       },
       {
         "id": "32",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T21:11:02.979Z",
+      "lastModified": "2025-11-03T21:12:53.310Z",
       "taskCount": 32,
-      "completedCount": 31,
+      "completedCount": 32,
       "tags": [
         "master"
       ]
