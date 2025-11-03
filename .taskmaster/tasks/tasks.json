@@ -2132,7 +2132,7 @@
         "dependencies": [
           "29"
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -2196,7 +2196,7 @@
         "complexity": 8,
         "recommendedSubtasks": 5,
         "expansionPrompt": "Divide complete pipeline into: 1) Integrate language detection and extractor registry for multi-language processing, 2) Implement incremental vs full generation modes with change detection, 3) Add markdown normalization and LLM welcome page generation, 4) Create Jekyll site validation and gh-pages deployment logic, 5) Develop comprehensive integration tests and error handling with graceful degradation",
-        "updatedAt": "2025-11-03T19:31:37.942Z"
+        "updatedAt": "2025-11-03T21:08:24.644Z"
       },
       {
         "id": "31",
@@ -2325,7 +2325,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T21:07:24.022Z",
+      "lastModified": "2025-11-03T21:08:24.646Z",
       "taskCount": 32,
       "completedCount": 30,
       "tags": [
