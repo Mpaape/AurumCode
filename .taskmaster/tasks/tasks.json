@@ -1208,11 +1208,886 @@
             "parentTaskId": 16
           }
         ]
+      },
+      {
+        "id": 17,
+        "title": "Remove Orphaned Testing Framework",
+        "description": "Remove the entire internal/testing/ directory structure and update all imports",
+        "details": "Remove directories: internal/testing/executor/, internal/testing/unit/, internal/testing/api/, internal/testing/mock/. Search codebase for any imports of 'internal/testing/*' packages and update them. Run 'go build ./cmd/...' and 'go test ./...' to ensure no broken imports remain. Check test coverage to ensure it doesn't drop significantly. Run 'go mod tidy' to clean up dependencies.",
+        "testStrategy": "Verify build succeeds with 'go build ./cmd/...', all tests pass with 'go test ./...', no broken imports exist, coverage is maintained or improved, and 'go mod tidy' runs cleanly",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Scan and identify all imports of internal/testing packages",
+            "description": "Search the entire codebase to find all files that import packages from internal/testing/* and create a comprehensive list of affected files and their specific imports.",
+            "dependencies": [],
+            "details": "Use grep or ripgrep to search for all import statements containing 'internal/testing' across Go files. Create a detailed inventory of: 1) Which files contain these imports, 2) What specific packages are imported (executor, unit, api, mock), 3) How these packages are used in each file. This will inform the cleanup strategy and ensure no imports are missed during removal.",
+            "status": "pending",
+            "testStrategy": "Verify search completeness by running multiple grep patterns and cross-referencing results. Ensure all Go files are scanned including test files, vendor exclusions are applied, and no false positives from comments are included."
+          },
+          {
+            "id": 2,
+            "title": "Remove internal/testing directory structure and all files",
+            "description": "Delete the entire internal/testing/ directory tree including all subdirectories (executor/, unit/, api/, mock/) and their contents.",
+            "dependencies": [
+              1
+            ],
+            "details": "Physically remove the internal/testing/ directory and all its contents using rm -rf or equivalent. This includes: internal/testing/executor/, internal/testing/unit/, internal/testing/api/, internal/testing/mock/ and any other files or subdirectories within internal/testing/. Ensure the removal is complete and no remnants remain that could cause confusion or build issues.",
+            "status": "pending",
+            "testStrategy": "Verify directory removal by checking that 'ls internal/testing' returns 'no such file or directory' and that no references to internal/testing exist in the filesystem. Confirm git status shows the deletion properly."
+          },
+          {
+            "id": 3,
+            "title": "Verify build and test suite passes after cleanup",
+            "description": "Run comprehensive build and test validation to ensure the removal of internal/testing framework doesn't break the codebase and clean up any remaining dependencies.",
+            "dependencies": [
+              2
+            ],
+            "details": "Execute the following validation steps: 1) Run 'go build ./cmd/...' to ensure all command builds succeed, 2) Run 'go test ./...' to verify all tests pass, 3) Check for any remaining broken imports related to internal/testing, 4) Run 'go mod tidy' to clean up unused dependencies, 5) Verify test coverage hasn't dropped significantly compared to baseline. Fix any issues discovered during validation.",
+            "status": "pending",
+            "testStrategy": "Success criteria: 'go build ./cmd/...' exits with code 0, 'go test ./...' shows all tests passing, no import errors related to internal/testing packages, 'go mod tidy' completes without errors, and test coverage remains within acceptable thresholds."
+          }
+        ]
+      },
+      {
+        "id": 18,
+        "title": "Migrate Hugo to Jekyll Site Builder",
+        "description": "Replace Hugo-based site building with Jekyll for native GitHub Pages support",
+        "details": "Create internal/documentation/site/jekyll.go implementing JekyllBuilder with Validate() and Build() methods. Remove internal/documentation/site/hugo.go and hugo_test.go. Update internal/documentation/site/builder.go to use JekyllBuilder instead of HugoBuilder. Create comprehensive unit tests for JekyllBuilder. Update any integration tests that reference Hugo. Search for all Hugo references in the codebase using 'grep -r hugo internal/' and update them.",
+        "testStrategy": "Unit tests for JekyllBuilder with mock CommandRunner, integration tests with real Jekyll _config.yml, verify 'go test ./internal/documentation/site/...' passes, ensure build commands work correctly",
+        "priority": "high",
+        "dependencies": [
+          17
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement JekyllBuilder struct with Validate() and Build() methods",
+            "description": "Create internal/documentation/site/jekyll.go implementing JekyllBuilder following the existing HugoBuilder pattern with proper interface compatibility",
+            "dependencies": [],
+            "details": "Create jekyll.go file with JekyllBuilder struct implementing the SiteBuilder interface. Include Validate() method to check Jekyll installation and _config.yml presence, and Build() method to execute Jekyll build commands. Follow the same pattern as HugoBuilder for consistency and interface compatibility. Implement proper error handling and command execution using the existing CommandRunner interface.",
+            "status": "pending",
+            "testStrategy": "Unit tests with mock CommandRunner to verify Jekyll commands are executed correctly, test validation logic for Jekyll requirements"
+          },
+          {
+            "id": 2,
+            "title": "Update SiteBuilder to use JekyllBuilder instead of HugoBuilder",
+            "description": "Modify internal/documentation/site/builder.go to instantiate and use JekyllBuilder instead of HugoBuilder throughout the codebase",
+            "dependencies": [
+              1
+            ],
+            "details": "Update the SiteBuilder factory methods and configuration to create JekyllBuilder instances instead of HugoBuilder. Ensure all references to HugoBuilder in builder.go are replaced with JekyllBuilder. Update any configuration or initialization code that was specific to Hugo to work with Jekyll. Maintain backward compatibility where possible.",
+            "status": "pending",
+            "testStrategy": "Integration tests to verify SiteBuilder correctly instantiates JekyllBuilder, test that build pipeline works end-to-end with Jekyll"
+          },
+          {
+            "id": 3,
+            "title": "Remove hugo.go and hugo_test.go files",
+            "description": "Clean up legacy Hugo implementation by removing internal/documentation/site/hugo.go and hugo_test.go files from the codebase",
+            "dependencies": [
+              2
+            ],
+            "details": "Delete internal/documentation/site/hugo.go and internal/documentation/site/hugo_test.go files. Ensure no other files import or reference these deleted files. Update any import statements that were using HugoBuilder. Search for any remaining references to hugo files and clean them up.",
+            "status": "pending",
+            "testStrategy": "Verify compilation succeeds after file removal, ensure no broken imports or references remain in the codebase"
+          },
+          {
+            "id": 4,
+            "title": "Create comprehensive unit tests and update integration tests",
+            "description": "Develop complete test suite for JekyllBuilder and update existing integration tests to work with Jekyll instead of Hugo",
+            "dependencies": [
+              3
+            ],
+            "details": "Create jekyll_test.go with comprehensive unit tests for JekyllBuilder including Validate() and Build() method testing with various scenarios. Update integration tests that previously tested Hugo functionality to work with Jekyll. Search codebase using 'grep -r hugo internal/' to find and update any remaining Hugo references in tests or other files. Ensure all tests pass with 'go test ./internal/documentation/site/...'",
+            "status": "pending",
+            "testStrategy": "Run full test suite to ensure all tests pass, verify integration tests work with real Jekyll _config.yml files, test edge cases and error conditions"
+          }
+        ]
+      },
+      {
+        "id": 19,
+        "title": "Create Extractor Interface and Registry",
+        "description": "Implement core extractor architecture with pluggable documentation tool adapters",
+        "details": "Create internal/documentation/extractors/ package with interface.go (Extractor interface), types.go (Language enum, ExtractRequest/Result), and registry.go (Registry for managing extractors). Support 10 languages: Go, JavaScript, TypeScript, Python, C#, C/C++, Rust, Bash, PowerShell. Implement thread-safe Registry with Register(), Get(), List(), and Languages() methods. Include comprehensive unit tests with mock extractors.",
+        "testStrategy": "Unit tests for Registry with mock extractors, test successful registration, duplicate registration errors, thread safety, retrieval of registered extractors, and listing functionality",
+        "priority": "medium",
+        "dependencies": [
+          18
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define core interfaces and types",
+            "description": "Create the foundational Extractor interface and supporting types for the documentation extraction system",
+            "dependencies": [],
+            "details": "Create internal/documentation/extractors/interface.go with Extractor interface defining Extract(ctx context.Context, req ExtractRequest) (*ExtractResult, error). Create types.go with Language enum constants, ExtractRequest struct (language Language, projectPath string, outputPath string, options map[string]interface{}), and ExtractResult struct (success bool, outputFiles []string, metadata map[string]interface{}, error string). Ensure types are JSON serializable for future API usage.",
+            "status": "pending",
+            "testStrategy": "Unit tests for type validation, JSON marshaling/unmarshaling of ExtractRequest and ExtractResult, interface compliance verification"
+          },
+          {
+            "id": 2,
+            "title": "Implement thread-safe Registry",
+            "description": "Create the central Registry for managing extractor instances with thread-safe operations",
+            "dependencies": [
+              1
+            ],
+            "details": "Create registry.go with Registry struct containing mutex-protected map[Language]Extractor. Implement Register(lang Language, extractor Extractor) error with duplicate registration validation, Get(lang Language) (Extractor, bool) for retrieval, List() []Language for available extractors, and Languages() []Language for all supported languages. Use sync.RWMutex for concurrent read access optimization. Include proper error handling for invalid registrations.",
+            "status": "pending",
+            "testStrategy": "Unit tests for concurrent registration/retrieval, duplicate registration error handling, thread safety verification with goroutines, registry state consistency"
+          },
+          {
+            "id": 3,
+            "title": "Create language constants and validation",
+            "description": "Define the 10 supported programming languages with proper validation and enumeration",
+            "dependencies": [
+              1
+            ],
+            "details": "Extend types.go with Language type as string enum. Define constants: LanguageGo, LanguageJavaScript, LanguageTypeScript, LanguagePython, LanguageCSharp, LanguageCPP, LanguageRust, LanguageBash, LanguagePowerShell, LanguageC. Implement IsValid() method on Language type for validation. Create helper functions GetSupportedLanguages() []Language and ParseLanguage(s string) (Language, error) for string conversion with case-insensitive matching.",
+            "status": "pending",
+            "testStrategy": "Unit tests for language validation, string parsing with various cases, supported languages enumeration, invalid language handling"
+          },
+          {
+            "id": 4,
+            "title": "Develop comprehensive unit tests with mock extractors",
+            "description": "Create complete test suite with mock implementations to validate the extractor architecture",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Create extractors_test.go with mock extractor implementations for testing. Implement MockExtractor struct that satisfies Extractor interface with configurable success/failure scenarios. Create test cases for Registry operations: successful registration, duplicate registration errors, concurrent access patterns, retrieval of registered/unregistered extractors. Add integration tests combining all components. Include table-driven tests for language validation and error scenarios.",
+            "status": "pending",
+            "testStrategy": "Unit tests covering 100% of registry functionality, mock extractor behavior verification, race condition testing with go test -race, error path validation"
+          }
+        ]
+      },
+      {
+        "id": 20,
+        "title": "Implement Language Detection System",
+        "description": "Create project-wide language detector for identifying all programming languages in use",
+        "details": "Create internal/documentation/extractors/detector.go with Detector struct that scans project files to detect languages by file extensions. Exclude common directories like vendor/, node_modules/, .git/, bin/, obj/, _site/, .taskmaster/. Return LanguageStats with file counts and file lists per language. Support context cancellation for large projects. Include comprehensive unit tests with mock filesystem.",
+        "testStrategy": "Unit tests with temporary directory containing sample files for each supported language, verify excluded directories are skipped, test context cancellation, validate language detection accuracy by file extension",
+        "priority": "medium",
+        "dependencies": [
+          19
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement file system scanning with directory exclusion logic",
+            "description": "Create the core file scanning functionality that traverses project directories while excluding common build and dependency folders",
+            "dependencies": [],
+            "details": "Implement recursive directory traversal in detector.go that skips excluded directories (vendor/, node_modules/, .git/, bin/, obj/, _site/, .taskmaster/). Create efficient path filtering logic using filepath.Walk or similar. Handle symlinks appropriately and avoid infinite loops. Implement configurable exclusion patterns for flexibility.",
+            "status": "pending",
+            "testStrategy": "Unit tests with temporary directory structure containing excluded directories, verify skipping behavior, test symlink handling, validate path filtering accuracy"
+          },
+          {
+            "id": 2,
+            "title": "Create language detection by file extension mapping and statistics collection",
+            "description": "Build the language detection engine that maps file extensions to programming languages and collects comprehensive statistics",
+            "dependencies": [
+              1
+            ],
+            "details": "Create comprehensive file extension to language mapping (e.g., .go->Go, .js/.ts->JavaScript/TypeScript, .py->Python, .cs->C#). Implement LanguageStats struct with file counts and file lists per language. Build efficient data structures for statistics aggregation. Support configurable language definitions and handle edge cases like multiple extensions per language.",
+            "status": "pending",
+            "testStrategy": "Unit tests with sample files of various languages, verify extension mapping accuracy, test statistics collection, validate edge cases like unknown extensions"
+          },
+          {
+            "id": 3,
+            "title": "Add context cancellation support and comprehensive testing with mock filesystem",
+            "description": "Implement context cancellation for large project scanning and create comprehensive test suite using mock filesystem",
+            "dependencies": [
+              2
+            ],
+            "details": "Add context.Context parameter to all scanning functions and check for cancellation at regular intervals during traversal. Implement graceful shutdown that returns partial results. Create mock filesystem interface for testing using afero or similar. Build comprehensive test suite covering normal operation, cancellation scenarios, error conditions, and performance with large directory structures.",
+            "status": "pending",
+            "testStrategy": "Unit tests with mock filesystem covering various scenarios, integration tests with context cancellation timing, performance tests with large mock directory structures, error handling verification"
+          }
+        ]
+      },
+      {
+        "id": 21,
+        "title": "Implement Go Documentation Extractor",
+        "description": "Create Go language extractor using gomarkdoc for API documentation generation",
+        "details": "Create internal/documentation/extractors/go/ package with extractor.go implementing Extractor interface using gomarkdoc tool. Check installation with 'which gomarkdoc', provide install instructions 'go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest'. Extract documentation per Go package with command 'gomarkdoc -o docs/api/go/package.md ./path/to/package'. Support incremental generation for changed packages only. Create comprehensive unit and integration tests.",
+        "testStrategy": "Integration test with tests/fixtures/go-sample/ containing real Go package, verify markdown generation, test installation check, validate incremental processing for changed files only",
+        "priority": "medium",
+        "dependencies": [
+          20
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Go extractor struct with gomarkdoc integration",
+            "description": "Implement the core Go documentation extractor struct that implements the Extractor interface with gomarkdoc tool integration",
+            "dependencies": [],
+            "details": "Create internal/documentation/extractors/go/extractor.go with struct implementing Extractor interface. Add fields for gomarkdoc path, output directory configuration, and package discovery logic. Implement basic Extract method signature and struct initialization with proper dependency injection for external tools.",
+            "status": "pending",
+            "testStrategy": "Unit tests with mock interfaces for tool execution, verify struct implements Extractor interface correctly"
+          },
+          {
+            "id": 2,
+            "title": "Implement gomarkdoc installation checking and command execution",
+            "description": "Add tool installation verification and command execution logic for gomarkdoc with proper error handling",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement CheckInstallation method using 'which gomarkdoc' command, provide install instructions via error messages ('go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest'). Add executeGomarkdoc method to run 'gomarkdoc -o docs/api/go/package.md ./path/to/package' with proper error handling, output capture, and timeout management.",
+            "status": "pending",
+            "testStrategy": "Unit tests with command execution mocks, integration tests verifying actual gomarkdoc installation and execution"
+          },
+          {
+            "id": 3,
+            "title": "Add incremental generation logic for changed packages",
+            "description": "Implement incremental documentation generation that only processes Go packages with changes since last run",
+            "dependencies": [
+              2
+            ],
+            "details": "Add change detection logic using file modification times and git status to identify modified Go packages. Implement package dependency tracking to regenerate dependent packages when imports change. Store generation metadata in .docgen cache file with package paths and timestamps. Support force regeneration flag to bypass incremental logic.",
+            "status": "pending",
+            "testStrategy": "Unit tests for change detection logic with mock filesystem, integration tests with real Go packages and git repository"
+          },
+          {
+            "id": 4,
+            "title": "Create comprehensive integration and unit tests",
+            "description": "Develop complete test suite including integration tests with real Go packages and unit tests with mocks",
+            "dependencies": [
+              3
+            ],
+            "details": "Create tests/fixtures/go-sample/ directory with sample Go package containing exported functions, structs, and proper documentation comments. Implement integration tests verifying end-to-end markdown generation, installation checking, and incremental processing. Add unit tests with mocked command execution and filesystem operations covering error scenarios and edge cases.",
+            "status": "pending",
+            "testStrategy": "Integration tests with sample Go project, unit tests achieving >90% code coverage, benchmark tests for performance validation"
+          }
+        ]
+      },
+      {
+        "id": 22,
+        "title": "Implement JavaScript/TypeScript Extractor",
+        "description": "Create JavaScript and TypeScript extractor using TypeDoc with markdown plugin",
+        "details": "Create internal/documentation/extractors/javascript/ package supporting both JS and TS. Use TypeDoc with typedoc-plugin-markdown for generating markdown output. Check installation with 'typedoc --version', install with 'npm install -g typedoc typedoc-plugin-markdown'. Detect TypeScript via tsconfig.json or JavaScript via package.json. Extract with 'typedoc --plugin typedoc-plugin-markdown --out docs/api/javascript src/'. Handle both project types appropriately.",
+        "testStrategy": "Integration tests with tests/fixtures/js-sample/ and tests/fixtures/ts-sample/, verify TypeDoc installation detection, test markdown output generation, validate project type detection logic",
+        "priority": "medium",
+        "dependencies": [
+          21
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement JavaScript/TypeScript project type detection",
+            "description": "Create detection logic to differentiate between TypeScript and JavaScript projects by examining configuration files",
+            "dependencies": [],
+            "details": "Implement project type detection by checking for tsconfig.json (TypeScript) or package.json with appropriate fields (JavaScript). Create utility functions to scan project directories and determine the primary language type. Handle edge cases where both files exist and prioritize TypeScript detection. Return project type enum (TypeScript/JavaScript) for downstream processing.",
+            "status": "pending",
+            "testStrategy": "Unit tests for detection logic with mock file systems, integration tests with sample projects containing tsconfig.json and package.json configurations"
+          },
+          {
+            "id": 2,
+            "title": "Create TypeDoc integration with markdown plugin",
+            "description": "Implement TypeDoc tool integration with typedoc-plugin-markdown for generating markdown documentation",
+            "dependencies": [
+              1
+            ],
+            "details": "Integrate TypeDoc with typedoc-plugin-markdown plugin for markdown output generation. Implement installation detection with 'typedoc --version' command. Provide installation instructions for 'npm install -g typedoc typedoc-plugin-markdown'. Create command execution wrapper for 'typedoc --plugin typedoc-plugin-markdown --out docs/api/javascript src/' with error handling and output parsing.",
+            "status": "pending",
+            "testStrategy": "Mock TypeDoc command execution, test installation detection, verify markdown output generation with sample TypeScript project"
+          },
+          {
+            "id": 3,
+            "title": "Handle project type-specific command variations",
+            "description": "Implement appropriate TypeDoc command variations for TypeScript and JavaScript projects",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create project type-specific command generation logic. For TypeScript projects, use standard TypeDoc with tsconfig.json discovery. For JavaScript projects, adapt commands to handle JSDoc comments and appropriate source file patterns. Implement configuration parameter adjustment based on detected project type and ensure proper source directory scanning for both languages.",
+            "status": "pending",
+            "testStrategy": "Integration tests with both JavaScript and TypeScript sample projects, verify command generation differences, test documentation extraction quality for both project types"
+          },
+          {
+            "id": 4,
+            "title": "Develop integration tests for JavaScript and TypeScript projects",
+            "description": "Create comprehensive integration tests using sample JavaScript and TypeScript projects",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Develop integration test suite with tests/fixtures/js-sample/ and tests/fixtures/ts-sample/ containing realistic project structures. Test complete extraction pipeline from project detection through markdown generation. Verify TypeDoc installation detection, markdown output quality, project type detection accuracy, and error handling for missing dependencies or malformed projects.",
+            "status": "pending",
+            "testStrategy": "End-to-end integration tests with sample projects, verify generated markdown content quality, test error scenarios with missing tools or invalid project structures"
+          }
+        ]
+      },
+      {
+        "id": 23,
+        "title": "Implement Python Documentation Extractor",
+        "description": "Create Python extractor using pydoc-markdown for docstring extraction",
+        "details": "Create internal/documentation/extractors/python/ package implementing Python documentation extraction. Use pydoc-markdown tool for converting Python docstrings to markdown. Check installation with 'pydoc-markdown --version', install with 'pip install pydoc-markdown'. Extract documentation with 'pydoc-markdown -m module_name -o docs/api/python/module.md'. Support detection of Python modules and packages.",
+        "testStrategy": "Integration test with tests/fixtures/python-sample/ containing Python modules with docstrings, verify tool installation detection, test markdown generation from docstrings, validate module discovery",
+        "priority": "medium",
+        "dependencies": [
+          22
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement pydoc-markdown integration with installation checking",
+            "description": "Create the core Python extractor package with pydoc-markdown tool integration, including installation detection and automated installation capabilities",
+            "dependencies": [],
+            "details": "Create internal/documentation/extractors/python/extractor.go implementing the Extractor interface. Add installation check using 'pydoc-markdown --version' command execution. Implement automated installation via 'pip install pydoc-markdown' with proper error handling. Create utility functions for running pydoc-markdown commands and parsing output. Include configuration options for custom pydoc-markdown installation paths.",
+            "status": "pending",
+            "testStrategy": "Unit tests for installation detection logic, mock command execution for pydoc-markdown version check, test error handling for missing pip/python, verify installation command execution"
+          },
+          {
+            "id": 2,
+            "title": "Create module and package discovery logic for Python projects",
+            "description": "Develop Python-specific project scanning to automatically discover Python modules, packages, and their structure for documentation extraction",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement Python project detection by scanning for __init__.py files, setup.py, pyproject.toml, or requirements.txt. Create module discovery logic that identifies individual .py files and package directories. Handle nested package structures and relative imports. Build file tree representation of Python modules for systematic documentation extraction. Support filtering of test files and private modules (starting with underscore).",
+            "status": "pending",
+            "testStrategy": "Integration tests with sample Python project structure containing packages, modules, and nested directories. Verify correct identification of Python files vs other file types. Test filtering logic for excluding test and private modules."
+          },
+          {
+            "id": 3,
+            "title": "Develop integration tests with Python sample containing docstrings and comprehensive unit tests",
+            "description": "Create comprehensive test suite including integration tests with real Python sample project and thorough unit test coverage for all extractor functionality",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create tests/fixtures/python-sample/ directory with realistic Python project containing modules with docstrings, classes with method documentation, and package structure. Implement integration tests that verify end-to-end documentation extraction from Python source to markdown output. Add unit tests covering module discovery, pydoc-markdown command execution, error handling, and output parsing. Include tests for edge cases like missing docstrings, malformed Python files, and installation failures.",
+            "status": "pending",
+            "testStrategy": "Integration test executes full extraction pipeline on Python sample project and validates generated markdown structure and content. Unit tests achieve high code coverage with mocked dependencies. Performance tests for large Python projects with many modules."
+          }
+        ]
+      },
+      {
+        "id": 24,
+        "title": "Implement C# Documentation Extractor",
+        "description": "Create C# extractor using xmldocmd for XML documentation comments",
+        "details": "Create internal/documentation/extractors/csharp/ package for C# documentation. Use xmldocmd tool to convert XML documentation to markdown. Check installation with 'xmldocmd --version', install with 'dotnet tool install -g xmldocmd'. Build project with XML documentation enabled: 'dotnet build /p:GenerateDocumentationFile=true'. Extract with 'xmldocmd bin/Debug/netX.0/Assembly.xml docs/api/csharp/'. Detect .csproj projects.",
+        "testStrategy": "Integration test with tests/fixtures/csharp-sample/ containing .csproj with XML documentation comments, verify dotnet build with documentation generation, test xmldocmd processing",
+        "priority": "medium",
+        "dependencies": [
+          23
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement .csproj project detection and XML documentation build configuration",
+            "description": "Create functionality to detect C# projects by scanning for .csproj files and configure build settings for XML documentation generation",
+            "dependencies": [],
+            "details": "Implement project discovery logic to find .csproj files in the target directory. Add functionality to modify or validate build configuration to ensure XML documentation is enabled during compilation. Handle different .NET framework versions and project structures. Validate that GenerateDocumentationFile property is set to true in the project configuration.",
+            "status": "pending",
+            "testStrategy": "Unit tests for .csproj file detection, integration tests with sample C# projects of different .NET versions, verify build configuration detection and modification"
+          },
+          {
+            "id": 2,
+            "title": "Create xmldocmd tool integration with proper command execution",
+            "description": "Implement wrapper functionality for xmldocmd tool installation detection, validation, and command execution",
+            "dependencies": [
+              1
+            ],
+            "details": "Create xmldocmd tool integration that checks for installation using 'xmldocmd --version', provides installation instructions using 'dotnet tool install -g xmldocmd', and executes documentation extraction commands. Handle different command-line argument formats and error scenarios. Implement proper subprocess execution with timeout handling and output capture.",
+            "status": "pending",
+            "testStrategy": "Unit tests for tool detection and command building, mock tests for subprocess execution, integration tests with actual xmldocmd installation"
+          },
+          {
+            "id": 3,
+            "title": "Handle .NET build process with documentation generation flags",
+            "description": "Implement .NET project building with XML documentation generation enabled and handle build artifacts",
+            "dependencies": [
+              1
+            ],
+            "details": "Execute 'dotnet build /p:GenerateDocumentationFile=true' commands to build C# projects with XML documentation enabled. Handle different .NET framework versions (netX.0) and locate generated XML files in bin/Debug/ directories. Implement error handling for build failures and missing dependencies. Support both single projects and solution files.",
+            "status": "pending",
+            "testStrategy": "Integration tests with sample C# projects, verify XML documentation file generation, test build error handling, validate output file location detection"
+          },
+          {
+            "id": 4,
+            "title": "Develop integration tests with sample C# project containing XML docs",
+            "description": "Create comprehensive test suite with sample C# project fixtures and end-to-end documentation extraction validation",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Create tests/fixtures/csharp-sample/ directory with a complete C# project containing XML documentation comments. Implement integration tests that verify the entire workflow: project detection, build with documentation, xmldocmd extraction, and markdown output validation. Test various XML documentation comment types including summaries, parameters, returns, and examples.",
+            "status": "pending",
+            "testStrategy": "End-to-end integration tests with fixture project, verify complete documentation extraction pipeline, validate markdown output quality and completeness"
+          }
+        ]
+      },
+      {
+        "id": 25,
+        "title": "Implement Multi-Language Extractors (C/C++, Rust, Bash, PowerShell)",
+        "description": "Create remaining language extractors for C/C++, Rust, Bash, and PowerShell",
+        "details": "Create extractors for: 1) C/C++ using doxygen + doxybook2 with XML to markdown conversion, 2) Rust using rustdoc/cargo doc (accept HTML output or convert to markdown), 3) Bash using shdoc for parsing bash comments above functions, 4) PowerShell using platyPS module. Each extractor should follow the established pattern with installation checking, tool validation, and appropriate extraction commands. Include unit tests for each.",
+        "testStrategy": "Integration tests for each language in tests/fixtures/: cpp-sample/, rust-sample/, bash-sample/, powershell-sample/. Verify tool installation detection, test documentation generation, validate language-specific comment parsing",
+        "priority": "medium",
+        "dependencies": [
+          24
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement C/C++ extractor using doxygen + doxybook2 pipeline",
+            "description": "Create C/C++ documentation extractor that uses doxygen to generate XML documentation and doxybook2 to convert XML to markdown format",
+            "dependencies": [],
+            "details": "Create internal/documentation/extractors/cpp/ package implementing Extractor interface. Check for doxygen installation with 'doxygen --version' and doxybook2 with 'doxybook2 --version'. Provide installation instructions for both tools. Generate Doxyfile configuration, run 'doxygen Doxyfile' to create XML output, then use 'doxybook2 --input xml/ --output docs/api/cpp/' to convert to markdown. Handle both C and C++ projects by detecting header files and source files.",
+            "status": "pending",
+            "testStrategy": "Integration test with tests/fixtures/cpp-sample/ containing C/C++ source files with doxygen comments, verify tool installation detection, test XML generation and markdown conversion pipeline"
+          },
+          {
+            "id": 2,
+            "title": "Create Rust extractor using rustdoc/cargo doc with HTML output handling",
+            "description": "Implement Rust documentation extractor using rustdoc and cargo doc tools with HTML output processing",
+            "dependencies": [
+              1
+            ],
+            "details": "Create internal/documentation/extractors/rust/ package for Rust projects. Check for rustc and cargo installation with 'rustc --version' and 'cargo --version'. Detect Rust projects by presence of Cargo.toml. Generate documentation using 'cargo doc --no-deps' which produces HTML output. Either accept HTML output as-is or implement HTML to markdown conversion using a tool like pandoc. Handle both library and binary crate types appropriately.",
+            "status": "pending",
+            "testStrategy": "Integration test with tests/fixtures/rust-sample/ containing Cargo.toml and Rust source files with doc comments, verify cargo doc execution, test HTML output handling and optional markdown conversion"
+          },
+          {
+            "id": 3,
+            "title": "Implement Bash extractor using shdoc for comment parsing",
+            "description": "Create Bash script documentation extractor using shdoc tool to parse comments above functions",
+            "dependencies": [
+              2
+            ],
+            "details": "Create internal/documentation/extractors/bash/ package implementing Bash documentation extraction. Check for shdoc installation with 'shdoc --version', provide installation instructions (typically 'curl -s https://raw.githubusercontent.com/reconquest/shdoc/master/shdoc > /usr/local/bin/shdoc && chmod +x /usr/local/bin/shdoc'). Parse .sh and .bash files, extract documentation comments above functions using 'shdoc input.sh > docs/api/bash/input.md'. Handle multiple script files in a project.",
+            "status": "pending",
+            "testStrategy": "Integration test with tests/fixtures/bash-sample/ containing bash scripts with shdoc-formatted comments above functions, verify shdoc installation check, test markdown generation from comment parsing"
+          },
+          {
+            "id": 4,
+            "title": "Create PowerShell extractor using platyPS module",
+            "description": "Implement PowerShell documentation extractor using the platyPS PowerShell module for help generation",
+            "dependencies": [
+              3
+            ],
+            "details": "Create internal/documentation/extractors/powershell/ package for PowerShell script documentation. Check for PowerShell installation with 'pwsh --version' or 'powershell --version'. Verify platyPS module with 'pwsh -c \"Get-Module -ListAvailable platyPS\"'. Install with 'pwsh -c \"Install-Module -Name platyPS -Scope CurrentUser\"'. Extract documentation from .ps1 and .psm1 files using platyPS commands like 'New-MarkdownHelp' to generate markdown from PowerShell help comments.",
+            "status": "pending",
+            "testStrategy": "Integration test with tests/fixtures/powershell-sample/ containing PowerShell scripts with comment-based help, verify PowerShell and platyPS module detection, test markdown help generation"
+          },
+          {
+            "id": 5,
+            "title": "Establish common patterns across all extractors",
+            "description": "Create shared utilities and enforce consistent patterns across C/C++, Rust, Bash, and PowerShell extractors",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Refactor common functionality into shared utilities in internal/documentation/extractors/common/ package. Establish consistent error handling, tool installation checking, project detection, and output formatting patterns. Create base extractor interface methods that all language extractors implement. Ensure consistent directory structure, naming conventions, and configuration handling across all four new extractors. Document extractor development guidelines.",
+            "status": "pending",
+            "testStrategy": "Unit tests for shared utilities, integration tests verifying consistent behavior across all four extractors, validate common interface compliance and error handling patterns"
+          },
+          {
+            "id": 6,
+            "title": "Develop comprehensive integration tests for each language",
+            "description": "Create complete integration test suite covering all four language extractors with realistic sample projects",
+            "dependencies": [
+              5
+            ],
+            "details": "Expand tests/fixtures/ with comprehensive sample projects: cpp-sample/ with doxygen comments, rust-sample/ with doc comments and Cargo.toml, bash-sample/ with shdoc-formatted scripts, and powershell-sample/ with comment-based help. Create integration tests in internal/documentation/extractors/*_test.go files that verify tool detection, installation checking, documentation generation, and error handling for each language. Include end-to-end pipeline tests.",
+            "status": "pending",
+            "testStrategy": "Integration test suite covering successful documentation generation, tool missing scenarios, invalid project structures, and error recovery for all four language extractors"
+          }
+        ]
+      },
+      {
+        "id": 26,
+        "title": "Setup Jekyll Site Structure",
+        "description": "Create complete Jekyll site structure in docs/ with just-the-docs theme",
+        "details": "Create docs/_config.yml with just-the-docs remote theme configuration, docs/Gemfile with Jekyll dependencies, directory structure for Stack, Architecture, Tutorials, API, Roadmap, and Custom sections. Configure search with search_enabled: true, set navigation sorting, add GitHub repository links. Create placeholder index.md and section index files. Ensure proper Jekyll front matter structure throughout.",
+        "testStrategy": "Validate with 'cd docs/ && bundle install && bundle exec jekyll build', verify _site/ directory creation, test local server with 'bundle exec jekyll serve', check navigation and search functionality",
+        "priority": "medium",
+        "dependencies": [
+          25
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Jekyll configuration files with just-the-docs theme",
+            "description": "Set up the core Jekyll configuration files including _config.yml with just-the-docs remote theme and Gemfile with Jekyll dependencies",
+            "dependencies": [],
+            "details": "Create docs/_config.yml with just-the-docs remote theme configuration, title, description, baseurl, url, GitHub repository links, search_enabled: true, navigation sorting settings, and proper theme configuration. Create docs/Gemfile with Jekyll gem, just-the-docs theme, and any required plugins. Configure proper Jekyll settings for GitHub Pages compatibility.",
+            "status": "pending",
+            "testStrategy": "Validate configuration with 'cd docs/ && bundle install' to ensure dependencies resolve correctly, check _config.yml syntax with Jekyll --config-check if available"
+          },
+          {
+            "id": 2,
+            "title": "Create directory structure for documentation sections",
+            "description": "Establish the complete directory structure for all documentation sections including Stack, Architecture, Tutorials, API, Roadmap, and Custom",
+            "dependencies": [
+              1
+            ],
+            "details": "Create docs/ directory structure with folders for Stack/, Architecture/, Tutorials/, API/, Roadmap/, and Custom/ sections. Each section should have proper navigation hierarchy supporting the just-the-docs theme. Create any necessary subdirectories and ensure proper organization for multi-level navigation.",
+            "status": "pending",
+            "testStrategy": "Verify all directories are created with proper structure, ensure directory names follow Jekyll conventions and are compatible with just-the-docs navigation"
+          },
+          {
+            "id": 3,
+            "title": "Create placeholder content and validate Jekyll build",
+            "description": "Generate placeholder index files for all sections with proper Jekyll front matter and validate the complete Jekyll build process",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create docs/index.md as main landing page with proper front matter (layout, title, nav_order). Create index.md files for each section (Stack, Architecture, Tutorials, API, Roadmap, Custom) with appropriate front matter including title, layout, nav_order, and has_children if applicable. Ensure all files follow Jekyll front matter conventions and just-the-docs theme requirements.",
+            "status": "pending",
+            "testStrategy": "Run 'cd docs/ && bundle exec jekyll build' to verify site builds without errors, check _site/ directory creation, test local server with 'bundle exec jekyll serve' and verify navigation works correctly"
+          }
+        ]
+      },
+      {
+        "id": 27,
+        "title": "Implement Markdown Normalizer with Jekyll Front Matter",
+        "description": "Create normalizer to add consistent Jekyll front matter to all generated markdown files",
+        "details": "Create internal/documentation/normalizer/ package with frontmatter.go for adding YAML front matter to markdown files. Support NormalizeFile() for single files and NormalizeDir() for entire directories. Generate appropriate front matter based on file path and language context (title, layout, parent, grand_parent, nav_order). Handle merging with existing front matter. Include comprehensive unit tests with temporary files.",
+        "testStrategy": "Unit tests with temporary markdown files, verify front matter addition without existing front matter, test merging with existing front matter, validate directory processing with multiple files",
+        "priority": "medium",
+        "dependencies": [
+          26
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create front matter generation logic with path and language context",
+            "description": "Implement core front matter generation functionality that analyzes file paths and language context to create appropriate Jekyll YAML front matter",
+            "dependencies": [],
+            "details": "Create internal/documentation/normalizer/frontmatter.go with functions to generate Jekyll front matter based on file path analysis. Implement logic to determine title from filename, layout from file type, parent/grand_parent from directory structure, and nav_order from file position. Support language-specific context inference for generating appropriate metadata fields like category, tags, and custom Jekyll variables.",
+            "status": "pending",
+            "testStrategy": "Unit tests for front matter generation with various file paths, verify correct title extraction from filenames, test parent/child relationship detection from directory structures, validate nav_order assignment logic"
+          },
+          {
+            "id": 2,
+            "title": "Implement file and directory processing with front matter merging",
+            "description": "Create NormalizeFile() and NormalizeDir() functions that process markdown files and handle existing front matter merging",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement NormalizeFile() function to process single markdown files by reading existing content, parsing any existing YAML front matter, merging with generated front matter, and writing back to file. Create NormalizeDir() function for recursive directory processing. Handle YAML parsing errors gracefully, preserve existing front matter values when conflicts occur, and support dry-run mode for validation.",
+            "status": "pending",
+            "testStrategy": "Unit tests with temporary files containing existing front matter, verify merging logic preserves user values, test directory traversal with nested structures, validate error handling for malformed YAML"
+          },
+          {
+            "id": 3,
+            "title": "Develop comprehensive unit tests with temporary files and scenarios",
+            "description": "Create complete test suite covering all normalizer functionality with temporary file system operations and edge cases",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement comprehensive unit tests using temporary directories and files to test all normalizer functionality. Create test scenarios for files without front matter, files with existing front matter, empty files, malformed YAML, nested directory structures, and various file types. Include integration tests that verify end-to-end processing of sample markdown files and validate generated Jekyll front matter compatibility.",
+            "status": "pending",
+            "testStrategy": "Create temporary test directories with sample markdown files, verify front matter addition and merging scenarios, test error conditions with malformed files, validate Jekyll compatibility of generated front matter"
+          }
+        ]
+      },
+      {
+        "id": 28,
+        "title": "Create LLM-Powered Welcome Page Generator",
+        "description": "Implement AI-generated welcome page creation from README.md content",
+        "details": "Create internal/documentation/welcome/ package with generator.go using LLM orchestrator to transform README.md into engaging documentation homepage. Create prompt template in .aurumcode/prompts/documentation/welcome-page.md for generating hero section, features grid, quick start guide, and navigation. Generate Jekyll front matter with layout: home. Include unit tests with mock LLM responses.",
+        "testStrategy": "Unit tests with mock LLM orchestrator, verify prompt template loading, test README.md processing, validate Jekyll front matter generation, ensure output formatting meets requirements",
+        "priority": "medium",
+        "dependencies": [
+          27
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create prompt template for README.md transformation",
+            "description": "Create the prompt template file that will guide the LLM in transforming README.md content into a structured documentation homepage",
+            "dependencies": [],
+            "details": "Create .aurumcode/prompts/documentation/welcome-page.md template file with structured prompts for generating hero section, features grid, quick start guide, and navigation from README.md content. Template should include clear instructions for LLM on output format, sections to extract, and Jekyll front matter requirements. Include examples of expected input/output transformations.",
+            "status": "pending",
+            "testStrategy": "Unit tests to verify template file creation, validate template structure and content format, test template loading and parsing"
+          },
+          {
+            "id": 2,
+            "title": "Implement LLM orchestrator integration for content generation",
+            "description": "Integrate with the LLM orchestrator system to process README.md content using the welcome page prompt template",
+            "dependencies": [
+              1
+            ],
+            "details": "Create generator.go in internal/documentation/welcome/ package that integrates with the LLM orchestrator. Implement ReadmeProcessor that loads README.md, applies the welcome page prompt template, and generates structured content. Handle LLM API calls, response parsing, and error handling for failed generations. Include retry logic and timeout handling.",
+            "status": "pending",
+            "testStrategy": "Unit tests with mock LLM orchestrator responses, test README.md loading and processing, verify error handling and retry logic"
+          },
+          {
+            "id": 3,
+            "title": "Add Jekyll front matter generation with layout configuration",
+            "description": "Implement Jekyll front matter generation with proper layout configuration for the welcome page",
+            "dependencies": [
+              2
+            ],
+            "details": "Extend the generator to create proper Jekyll front matter with layout: home configuration. Generate YAML front matter with title, description, permalink, and other Jekyll-specific metadata. Ensure output format is compatible with Jekyll site generation and includes proper formatting for the documentation homepage.",
+            "status": "pending",
+            "testStrategy": "Unit tests to verify Jekyll front matter generation, validate YAML format and required fields, test integration with generated content"
+          },
+          {
+            "id": 4,
+            "title": "Develop unit tests with mock LLM responses and README processing",
+            "description": "Create comprehensive unit tests covering the entire welcome page generation pipeline with mock LLM responses",
+            "dependencies": [
+              3
+            ],
+            "details": "Implement comprehensive unit test suite covering all components: mock LLM orchestrator with predefined responses, test README.md processing with various content formats, validate prompt template application, verify Jekyll front matter generation, and ensure complete end-to-end pipeline functionality. Include edge cases like empty README, malformed content, and LLM API failures.",
+            "status": "pending",
+            "testStrategy": "Comprehensive unit test suite with mock LLM responses, integration tests with sample README files, error scenario testing"
+          }
+        ]
+      },
+      {
+        "id": 29,
+        "title": "Implement Incremental Documentation Support",
+        "description": "Add incremental documentation generation using git diff for change detection",
+        "details": "Create internal/documentation/incremental/ package with detector.go (ChangeDetector using git commands) and cache.go (Cache for storing source→doc file mappings). Implement DetectChanges() using 'git diff --name-only', DetectChangesSinceLast() for incremental builds, and GetAffectedDocs() for determining which documentation files need regeneration. Support JSON serialization for cache persistence.",
+        "testStrategy": "Unit tests with mock git repository, test change detection between commits, verify cache serialization/deserialization, validate affected doc file mapping, test first-run vs incremental scenarios",
+        "priority": "medium",
+        "dependencies": [
+          28
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement git-based change detection",
+            "description": "Create ChangeDetector in detector.go that uses git diff commands to identify changed files",
+            "dependencies": [],
+            "details": "Implement ChangeDetector struct with DetectChanges() method using 'git diff --name-only' command, DetectChangesSinceLast() for incremental builds tracking last processed commit, and proper error handling for git command execution. Include validation for git repository existence and handling edge cases like initial commits.",
+            "status": "pending",
+            "testStrategy": "Unit tests with mock git repository, test change detection between commits, verify git command execution and error handling"
+          },
+          {
+            "id": 2,
+            "title": "Create cache system for source-to-documentation mappings",
+            "description": "Implement Cache in cache.go with JSON persistence for storing source file to documentation file mappings",
+            "dependencies": [
+              1
+            ],
+            "details": "Create Cache struct with methods for storing and retrieving source→doc file mappings, implement JSON serialization/deserialization for persistence, add cache invalidation logic, and support for cache file management. Include thread-safe operations and proper error handling for file I/O operations.",
+            "status": "pending",
+            "testStrategy": "Unit tests for cache serialization/deserialization, verify file persistence, test cache invalidation and concurrent access scenarios"
+          },
+          {
+            "id": 3,
+            "title": "Develop affected documentation determination logic",
+            "description": "Implement GetAffectedDocs() method that determines which documentation files need regeneration based on source changes",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create logic in ChangeDetector to analyze changed source files against cached mappings and determine affected documentation files. Support dependency graph analysis for cascading changes, handle new files without existing mappings, and provide efficient algorithms for large codebases with complex file relationships.",
+            "status": "pending",
+            "testStrategy": "Unit tests validating affected doc file mapping, test dependency graph scenarios, verify handling of new and deleted files"
+          },
+          {
+            "id": 4,
+            "title": "Create comprehensive unit tests with mock scenarios",
+            "description": "Develop complete test suite covering all incremental documentation functionality with mock git repository and cache scenarios",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Create comprehensive unit tests covering ChangeDetector and Cache functionality, implement mock git repository for testing different change scenarios, test first-run vs incremental build scenarios, validate error handling and edge cases, and ensure proper test coverage for all public methods and interfaces.",
+            "status": "pending",
+            "testStrategy": "Full test suite with mock git repository, test change detection scenarios, cache persistence tests, integration tests for complete incremental workflow"
+          }
+        ]
+      },
+      {
+        "id": 30,
+        "title": "Implement Complete Documentation Pipeline",
+        "description": "Enhance internal/pipeline/docs_pipeline.go with full multi-language documentation orchestration",
+        "details": "Replace existing stub implementation with complete pipeline supporting: language detection, extractor registry integration, incremental vs full generation modes, markdown normalization, LLM welcome page generation, and Jekyll site validation. Support configuration-driven language filtering, deploy to gh-pages branch option, and comprehensive error handling with graceful degradation. Integrate with existing LLM orchestrator and GitHub client.",
+        "testStrategy": "Integration test with multi-language test project, verify full pipeline execution, test incremental mode with git changes, validate Jekyll site generation, ensure error handling for missing tools",
+        "priority": "high",
+        "dependencies": [
+          29
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Integrate language detection and extractor registry for multi-language processing",
+            "description": "Enhance docs_pipeline.go to integrate with language detection system and extractor registry for processing multiple programming languages",
+            "dependencies": [],
+            "details": "Import and integrate the language detection package to identify programming languages in the project. Connect with the extractor registry to dynamically load appropriate extractors for detected languages. Implement configuration-driven language filtering to allow users to specify which languages to process. Add proper error handling for unsupported languages and graceful fallback mechanisms.",
+            "status": "pending",
+            "testStrategy": "Unit tests for language detection integration, mock extractor registry tests, verify configuration filtering works correctly"
+          },
+          {
+            "id": 2,
+            "title": "Implement incremental vs full generation modes with change detection",
+            "description": "Add intelligent change detection and processing modes to optimize documentation generation performance",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement git-based change detection to identify modified files since last documentation generation. Create incremental mode that processes only changed files and their dependencies. Add full generation mode for complete rebuilds. Store generation metadata and timestamps for change tracking. Integrate with existing file system utilities for efficient file monitoring.",
+            "status": "pending",
+            "testStrategy": "Integration tests with git repositories, verify incremental processing only updates changed files, test full mode processes entire project"
+          },
+          {
+            "id": 3,
+            "title": "Add markdown normalization and LLM welcome page generation",
+            "description": "Implement markdown processing pipeline with normalization and LLM-powered welcome page creation",
+            "dependencies": [
+              2
+            ],
+            "details": "Create markdown normalization engine to standardize formatting, fix common issues, and ensure consistent structure across generated documentation. Integrate with existing LLM orchestrator to generate contextual welcome pages that summarize project structure and key documentation sections. Add configuration options for markdown formatting preferences and LLM prompt customization.",
+            "status": "pending",
+            "testStrategy": "Unit tests for markdown normalization functions, integration tests with LLM orchestrator, verify welcome page generation quality"
+          },
+          {
+            "id": 4,
+            "title": "Create Jekyll site validation and gh-pages deployment logic",
+            "description": "Implement Jekyll site generation, validation, and automated GitHub Pages deployment functionality",
+            "dependencies": [
+              3
+            ],
+            "details": "Add Jekyll site structure creation with proper _config.yml, navigation, and theme integration. Implement Jekyll build validation to catch configuration errors and broken links. Create gh-pages branch deployment logic using existing GitHub client. Add rollback mechanisms for failed deployments and validation checks before publishing. Support both manual and automated deployment modes.",
+            "status": "pending",
+            "testStrategy": "Integration tests with Jekyll build process, verify gh-pages deployment functionality, test validation catches common Jekyll errors"
+          },
+          {
+            "id": 5,
+            "title": "Develop comprehensive integration tests and error handling with graceful degradation",
+            "description": "Create robust error handling system and comprehensive test suite for the complete documentation pipeline",
+            "dependencies": [
+              4
+            ],
+            "details": "Implement comprehensive error handling throughout the pipeline with graceful degradation for missing tools or failed operations. Create detailed logging and progress reporting. Add recovery mechanisms for partial failures. Develop integration test suite covering multi-language projects, incremental processing, Jekyll deployment, and error scenarios. Include performance benchmarks and validation of end-to-end pipeline execution.",
+            "status": "pending",
+            "testStrategy": "End-to-end integration tests with complete multi-language project, error injection tests, performance benchmarks, verify graceful degradation works correctly"
+          }
+        ]
+      },
+      {
+        "id": 31,
+        "title": "Create GitHub Actions Workflow and Docker Container",
+        "description": "Implement automated documentation generation workflow with multi-language tool support",
+        "details": "Create .github/workflows/documentation.yml triggered on source code changes in main branch. Build .docker/docs.Dockerfile containing all documentation tools: Go, Node.js, Python, .NET, Rust, doxygen, gomarkdoc, typedoc, pydoc-markdown, xmldocmd, doxybook2, shdoc, platyPS. Configure workflow to run documentation pipeline in container and deploy to gh-pages branch using peaceiris/actions-gh-pages. Include proper caching and secrets management.",
+        "testStrategy": "Test Dockerfile builds successfully with all tools installed, verify workflow execution on test repository, validate automatic deployment to GitHub Pages, ensure site accessibility at github.io URL",
+        "priority": "high",
+        "dependencies": [
+          30
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Multi-Tool Docker Container with All Documentation Tools",
+            "description": "Create comprehensive Dockerfile that includes all required documentation tools and runtimes for multi-language support",
+            "dependencies": [],
+            "details": "Design and implement .docker/docs.Dockerfile that installs Go, Node.js, Python, .NET SDK, Rust, doxygen, gomarkdoc, typedoc, pydoc-markdown, xmldocmd, doxybook2, shdoc, and platyPS. Use multi-stage build to optimize container size. Configure proper PATH and environment variables for all tools. Include health checks and version validation for each tool.",
+            "status": "pending",
+            "testStrategy": "Test Dockerfile builds successfully, verify all tools are accessible and return correct versions, validate container size is reasonable, test tool functionality with sample documentation generation"
+          },
+          {
+            "id": 2,
+            "title": "Create GitHub Actions Workflow with Trigger Configuration and Caching",
+            "description": "Implement GitHub Actions workflow with proper triggers, caching strategy, and workflow configuration",
+            "dependencies": [
+              1
+            ],
+            "details": "Create .github/workflows/documentation.yml with trigger on push to main branch for source code changes. Configure Docker layer caching and dependency caching. Set up workflow inputs and environment variables. Include proper error handling and workflow status reporting. Configure workflow permissions and security settings.",
+            "status": "pending",
+            "testStrategy": "Test workflow triggers correctly on main branch changes, verify caching reduces build times, validate workflow runs without errors, test workflow cancellation and retry behavior"
+          },
+          {
+            "id": 3,
+            "title": "Implement Automated Deployment to GitHub Pages Branch",
+            "description": "Configure automated deployment pipeline to gh-pages branch using GitHub Actions",
+            "dependencies": [
+              2
+            ],
+            "details": "Integrate peaceiris/actions-gh-pages action for deployment. Configure secrets management for GitHub token. Set up gh-pages branch creation and management. Include proper artifact handling and deployment validation. Configure custom domain support if needed. Add deployment status checks and rollback capabilities.",
+            "status": "pending",
+            "testStrategy": "Test deployment to gh-pages branch succeeds, verify GitHub Pages site is accessible, validate deployment artifacts are correct, test rollback functionality, ensure secrets are properly managed"
+          },
+          {
+            "id": 4,
+            "title": "Test Workflow Execution and Validate Site Deployment",
+            "description": "Comprehensive testing of the complete workflow pipeline and site deployment validation",
+            "dependencies": [
+              3
+            ],
+            "details": "Execute end-to-end testing of the complete workflow from trigger to deployment. Test with various repository configurations and documentation changes. Validate site accessibility at github.io URL. Test workflow behavior with different file types and documentation formats. Include performance testing and error scenario validation.",
+            "status": "pending",
+            "testStrategy": "End-to-end test from code change to deployed site, verify site loads correctly and documentation is properly formatted, test workflow with edge cases and error conditions, validate performance meets requirements"
+          }
+        ]
+      },
+      {
+        "id": 32,
+        "title": "Add Documentation Configuration Support",
+        "description": "Extend configuration system with comprehensive documentation options",
+        "details": "Enhance pkg/types/config.go with DocumentationConfig struct supporting enabled/disabled toggle, full vs incremental mode selection, language filtering, output directory configuration, site generator selection (Jekyll), deploy options, and category visibility controls. Update configs/.aurumcode/config.example.yml with comprehensive documentation section. Include configuration validation and parsing tests.",
+        "testStrategy": "Unit tests for configuration parsing and validation, verify example configuration file is valid YAML, test all configuration options are properly handled, ensure backward compatibility with existing configs",
+        "priority": "low",
+        "dependencies": [
+          31
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Extend Configuration Types with DocumentationConfig Struct",
+            "description": "Add comprehensive DocumentationConfig struct to pkg/types/config.go with all required fields for documentation generation control",
+            "dependencies": [],
+            "details": "Create DocumentationConfig struct in pkg/types/config.go with fields: Enabled (bool), Mode (string - full/incremental), LanguageFilter ([]string), OutputDir (string), SiteGenerator (string - Jekyll), Deploy (DeployConfig struct), CategoryVisibility (map[string]bool). Include proper struct tags for YAML parsing and validation. Add DeployConfig sub-struct for deployment options.",
+            "status": "pending",
+            "testStrategy": "Unit tests for struct initialization, YAML marshaling/unmarshaling, field validation, and default value handling"
+          },
+          {
+            "id": 2,
+            "title": "Update Example Configuration with Documentation Section",
+            "description": "Add comprehensive documentation configuration section to configs/.aurumcode/config.example.yml with all available options and validation",
+            "dependencies": [
+              1
+            ],
+            "details": "Update configs/.aurumcode/config.example.yml with complete documentation section showing all DocumentationConfig options with examples and comments. Include enabled/disabled toggle, mode selection (full/incremental), language filtering examples, output directory paths, Jekyll site generator config, deployment options, and category visibility controls. Ensure YAML syntax is valid and well-documented.",
+            "status": "pending",
+            "testStrategy": "Validate YAML syntax, verify all configuration options are present, test parsing with Go YAML library, ensure example values are realistic and functional"
+          },
+          {
+            "id": 3,
+            "title": "Implement Configuration Parsing and Backward Compatibility Testing",
+            "description": "Add configuration parsing logic and comprehensive tests to ensure backward compatibility with existing configurations",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement configuration parsing in the main config loading logic to handle the new DocumentationConfig section. Add validation for documentation configuration fields with appropriate defaults. Create comprehensive test suite covering: parsing new documentation config, backward compatibility with configs missing documentation section, validation of invalid values, default value assignment, and integration with existing configuration loading mechanisms.",
+            "status": "pending",
+            "testStrategy": "Unit tests for configuration parsing, backward compatibility tests with old config files, validation tests for invalid configurations, integration tests with full configuration loading pipeline"
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-10-31T19:08:34.162Z",
-      "updated": "2025-11-02T04:30:25.436Z",
+      "updated": "2025-11-03T09:56:14.164Z",
       "description": "Tasks for master context"
     }
   }

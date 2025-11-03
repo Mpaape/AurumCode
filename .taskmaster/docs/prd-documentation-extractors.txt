@@ -1,0 +1,2620 @@
+# PRD: Multi-Language Source Code Documentation System
+
+**Type:** Incremental Feature PRD (extends existing AurumCode system)
+**Version:** 2.0
+**Date:** 2025-11-02
+**Status:** Ready for TaskMaster Parsing
+
+---
+
+## Context & Motivation
+
+### What Already EXISTS
+- ✅ Code Review Pipeline (100% functional)
+- ✅ `internal/documentation/api/` - OpenAPI generator
+- ✅ `internal/documentation/changelog/` - Conventional commit parser
+- ✅ `internal/documentation/readme/` - README updater
+- ✅ `internal/documentation/site/` - Hugo builder + Pagefind (TO BE REPLACED)
+- ✅ `internal/pipeline/docs_pipeline.go` - Stub for documentation pipeline
+
+### What's MISSING (This PRD)
+- ❌ **Source code extractors** for Go, JS/TS, Python, C#, C/C++, Rust, Bash, PowerShell
+- ❌ **Adapter architecture** for plugging opensource documentation tools
+- ❌ **Language detection** for entire project (not just diffs)
+- ❌ **Incremental generation** (only extract changed files)
+- ❌ **Normalizer** for consistent markdown output with Jekyll front matter
+- ❌ **Jekyll site structure** in docs/ (native GitHub Pages)
+- ❌ **LLM-generated welcome page** (README + prompt → beautiful home page)
+- ❌ **Documentation pipeline** implementation
+- ❌ **GitHub Actions workflow** for automated doc generation
+
+### Orphaned Code to Remove FIRST
+- ❌ `internal/testing/*` (~1500 lines) - Decision: Use LLM-based testgen instead
+- ❌ Hugo implementation (replace with Jekyll for GitHub Pages compatibility)
+
+---
+
+## Product Requirements
+
+### PR-1: Code Cleanup & Migration (CRITICAL - DO FIRST)
+
+**Goal:** Remove orphaned code and migrate Hugo to Jekyll safely
+
+#### PR-1.1: Remove Orphaned Testing Framework
+
+**Requirements:**
+1. Remove `internal/testing/executor/` directory
+2. Remove `internal/testing/unit/` directory
+3. Remove `internal/testing/api/` directory
+4. Remove `internal/testing/mock/` directory
+5. Search codebase for imports of `internal/testing/*`
+6. Update any files importing removed packages
+7. Validate build: `go build ./cmd/...`
+8. Validate tests: `go test ./...`
+9. Validate coverage does not drop: `go test -coverprofile=coverage.out ./...`
+
+**Validation Checklist:**
+- [ ] Build succeeds with no errors
+- [ ] All tests pass
+- [ ] No broken imports in any file
+- [ ] Coverage >= baseline (check before/after)
+- [ ] `go mod tidy` runs cleanly
+
+**Git Workflow:**
+```bash
+git checkout -b refactor/remove-orphaned-testing
+# Remove files
+go build ./cmd/...
+go test ./...
+git add -A
+git commit -m "refactor: remove orphaned testing framework
+
+- Removed internal/testing/{executor,unit,api,mock}
+- Decision: Use LLM-based testgen for multi-language scalability
+- Static code for 10+ languages is unmaintainable
+- All tests pass, coverage maintained
+
+Refs: CLEANUP_PLAN.md, ARCHITECTURE_AUDIT.md"
+git push origin refactor/remove-orphaned-testing
+# Create PR
+# Merge after review
+```
+
+**QA Gate:**
+- ✅ Commit created and pushed
+- ✅ PR created with description
+- ✅ Code review approved
+- ✅ CI passes (build + tests)
+- ✅ Merged to main
+
+---
+
+#### PR-1.2: Migrate Hugo to Jekyll
+
+**Goal:** Replace Hugo with Jekyll for GitHub Pages native support
+
+**Reason:** Hugo requires pre-build and had branch issues. Jekyll is native to GitHub Pages - push to gh-pages branch and GitHub automatically builds and deploys.
+
+**Files to Remove:**
+- `internal/documentation/site/hugo.go`
+- `internal/documentation/site/hugo_test.go`
+
+**Files to Create:**
+- `internal/documentation/site/jekyll.go`
+- `internal/documentation/site/jekyll_test.go`
+
+**Files to Update:**
+- `internal/documentation/site/builder.go` (replace HugoBuilder with JekyllBuilder)
+- `internal/documentation/site/builder_test.go` (update tests for Jekyll)
+- `internal/documentation/integration_test.go` (update if it uses Hugo)
+- `internal/pipeline/docs_pipeline.go` (update if it references Hugo)
+
+**Implementation:**
+
+**1. Create Jekyll Builder:**
+```go
+// internal/documentation/site/jekyll.go
+
+package site
+
+import (
+    "context"
+    "fmt"
+    "os"
+    "os/exec"
+    "path/filepath"
+)
+
+// JekyllBuilder builds Jekyll sites
+type JekyllBuilder struct {
+    runner CommandRunner
+}
+
+// NewJekyllBuilder creates a new Jekyll builder
+func NewJekyllBuilder(runner CommandRunner) *JekyllBuilder {
+    return &JekyllBuilder{runner: runner}
+}
+
+// BuildWithConfig builds Jekyll site
+func (j *JekyllBuilder) BuildWithConfig(ctx context.Context, config *BuildConfig) error {
+    // Jekyll can be built by GitHub Pages automatically
+    // For local testing: bundle exec jekyll build
+    // This method validates Jekyll structure
+    return j.Validate(ctx)
+}
+
+// Validate validates Jekyll configuration exists
+func (j *JekyllBuilder) Validate(ctx context.Context) error {
+    configPath := filepath.Join("docs", "_config.yml")
+    if _, err := os.Stat(configPath); err != nil {
+        return fmt.Errorf("Jekyll _config.yml not found at %s: %w", configPath, err)
+    }
+    return nil
+}
+
+// Build is optional - GitHub Pages will build automatically
+// Useful for local testing only
+func (j *JekyllBuilder) Build(ctx context.Context, workDir string) error {
+    cmd := exec.CommandContext(ctx, "bundle", "exec", "jekyll", "build")
+    cmd.Dir = workDir
+    return j.runner.Run(cmd)
+}
+```
+
+**2. Update SiteBuilder:**
+```go
+// internal/documentation/site/builder.go
+
+type SiteBuilder struct {
+    jekyll   *JekyllBuilder  // Changed from hugo
+    pagefind *PagefindBuilder
+}
+
+func NewSiteBuilder(runner CommandRunner) *SiteBuilder {
+    return &SiteBuilder{
+        jekyll:   NewJekyllBuilder(runner),  // Changed
+        pagefind: NewPagefindBuilder(runner),
+    }
+}
+
+func (s *SiteBuilder) Build(ctx context.Context, config *BuildConfig) (*BuildResult, error) {
+    start := time.Now()
+
+    // Step 1: Validate Jekyll structure
+    if err := s.jekyll.Validate(ctx); err != nil {
+        return &BuildResult{
+            Success: false,
+            Error:   fmt.Errorf("jekyll validation failed: %w", err),
+        }, err
+    }
+
+    // Step 2: Build Pagefind index (optional, can run after GitHub Pages builds)
+    if err := s.pagefind.BuildWithConfig(ctx, config); err != nil {
+        return &BuildResult{
+            Success: false,
+            Error:   fmt.Errorf("pagefind build failed: %w", err),
+        }, err
+    }
+
+    duration := time.Since(start)
+
+    return &BuildResult{
+        Success:    true,
+        OutputPath: filepath.Join(config.WorkDir, "_site"),  // Jekyll output
+        Duration:   duration.Milliseconds(),
+    }, nil
+}
+```
+
+**3. Tests:**
+```go
+// internal/documentation/site/jekyll_test.go
+
+package site
+
+import (
+    "context"
+    "os"
+    "path/filepath"
+    "testing"
+)
+
+func TestJekyllBuilder_Validate(t *testing.T) {
+    // Test with valid _config.yml
+    // Test with missing _config.yml
+    // Test with invalid YAML
+}
+
+func TestJekyllBuilder_Build(t *testing.T) {
+    // Test build command execution
+    // Test error handling
+}
+```
+
+**Search for Hugo References:**
+```bash
+# Find all Hugo references
+grep -r "hugo" internal/ --include="*.go" -i
+grep -r "Hugo" internal/ --include="*.go"
+
+# Update each file found
+```
+
+**Validation Checklist:**
+- [ ] All Hugo references removed
+- [ ] Jekyll builder implemented with tests
+- [ ] SiteBuilder uses Jekyll instead of Hugo
+- [ ] All tests pass: `go test ./internal/documentation/site/...`
+- [ ] Integration tests updated
+- [ ] Build succeeds: `go build ./cmd/...`
+- [ ] Coverage maintained or increased
+
+**Git Workflow:**
+```bash
+git checkout -b refactor/migrate-hugo-to-jekyll
+# Create Jekyll implementation
+# Remove Hugo files
+# Update references
+go test ./internal/documentation/site/...
+go build ./cmd/...
+git add -A
+git commit -m "refactor: migrate from Hugo to Jekyll for GitHub Pages
+
+- Replaced internal/documentation/site/hugo.go with jekyll.go
+- Updated SiteBuilder to use JekyllBuilder
+- Reason: Jekyll is native to GitHub Pages, no pre-build needed
+- Hugo had branch deployment issues, Jekyll works with gh-pages branch
+- All tests pass, coverage maintained
+
+Breaking Change: site.HugoBuilder → site.JekyllBuilder"
+git push origin refactor/migrate-hugo-to-jekyll
+# Create PR
+# Merge after review
+```
+
+**QA Gate:**
+- ✅ Commit created and pushed
+- ✅ PR created with detailed description
+- ✅ Code review approved
+- ✅ CI passes (build + tests)
+- ✅ Merged to main
+
+---
+
+### PR-2: Extractor Architecture
+
+**Goal:** Create pluggable adapter system for documentation tools supporting ALL languages from day 1
+
+#### PR-2.1: Core Interfaces
+
+**Files to create:**
+```
+internal/documentation/extractors/interface.go
+internal/documentation/extractors/types.go
+internal/documentation/extractors/registry.go
+internal/documentation/extractors/registry_test.go
+```
+
+**Extractor Interface:**
+```go
+package extractors
+
+import (
+    "context"
+    "time"
+)
+
+// Language represents supported programming languages
+type Language string
+
+const (
+    LangGo         Language = "go"
+    LangJavaScript Language = "javascript"
+    LangTypeScript Language = "typescript"
+    LangPython     Language = "python"
+    LangCSharp     Language = "csharp"
+    LangC          Language = "c"
+    LangCPlusPlus  Language = "cpp"
+    LangRust       Language = "rust"
+    LangBash       Language = "bash"
+    LangPowerShell Language = "powershell"
+)
+
+// Extractor interface for documentation extraction
+type Extractor interface {
+    // Name returns extractor name (e.g., "gomarkdoc", "typedoc")
+    Name() string
+
+    // Language returns supported language
+    Language() Language
+
+    // Install checks if tool is installed, returns instructions if not
+    Install(ctx context.Context) (installed bool, instructions string, err error)
+
+    // Extract generates documentation for given files
+    Extract(ctx context.Context, req ExtractRequest) (*ExtractResult, error)
+
+    // SupportsIncremental indicates if extractor can process individual files
+    SupportsIncremental() bool
+}
+
+// ExtractRequest contains extraction parameters
+type ExtractRequest struct {
+    ProjectRoot string                 // Absolute path to project root
+    Files       []string               // Files to document (relative paths)
+    OutputDir   string                 // Where to write markdown files
+    Options     map[string]interface{} // Extractor-specific options
+}
+
+// ExtractResult contains extraction results
+type ExtractResult struct {
+    Files    []string               // Generated markdown files (absolute paths)
+    Errors   []error                // Non-fatal errors (warnings)
+    Duration time.Duration          // Time taken
+    Metadata map[string]interface{} // Extractor-specific metadata
+}
+```
+
+**Registry Implementation:**
+```go
+// internal/documentation/extractors/registry.go
+
+package extractors
+
+import (
+    "fmt"
+    "sync"
+)
+
+// Registry manages available extractors
+type Registry struct {
+    mu         sync.RWMutex
+    extractors map[Language]Extractor
+}
+
+// NewRegistry creates a new extractor registry
+func NewRegistry() *Registry {
+    return &Registry{
+        extractors: make(map[Language]Extractor),
+    }
+}
+
+// Register adds an extractor to the registry
+func (r *Registry) Register(e Extractor) error {
+    if e == nil {
+        return fmt.Errorf("extractor cannot be nil")
+    }
+
+    r.mu.Lock()
+    defer r.mu.Unlock()
+
+    lang := e.Language()
+    if _, exists := r.extractors[lang]; exists {
+        return fmt.Errorf("extractor for language %s already registered", lang)
+    }
+
+    r.extractors[lang] = e
+    return nil
+}
+
+// Get retrieves an extractor for a language
+func (r *Registry) Get(lang Language) (Extractor, bool) {
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+
+    e, ok := r.extractors[lang]
+    return e, ok
+}
+
+// List returns all registered extractors
+func (r *Registry) List() []Extractor {
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+
+    list := make([]Extractor, 0, len(r.extractors))
+    for _, e := range r.extractors {
+        list = append(list, e)
+    }
+    return list
+}
+
+// Languages returns all supported languages
+func (r *Registry) Languages() []Language {
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+
+    langs := make([]Language, 0, len(r.extractors))
+    for lang := range r.extractors {
+        langs = append(langs, lang)
+    }
+    return langs
+}
+```
+
+**Unit Tests:**
+```go
+// internal/documentation/extractors/registry_test.go
+
+package extractors
+
+import "testing"
+
+type mockExtractor struct {
+    name string
+    lang Language
+}
+
+func (m *mockExtractor) Name() string { return m.name }
+func (m *mockExtractor) Language() Language { return m.lang }
+// ... implement other methods
+
+func TestRegistry_Register(t *testing.T) {
+    // Test successful registration
+    // Test duplicate registration error
+    // Test nil extractor error
+}
+
+func TestRegistry_Get(t *testing.T) {
+    // Test successful retrieval
+    // Test missing extractor
+}
+
+func TestRegistry_List(t *testing.T) {
+    // Test listing multiple extractors
+    // Test empty registry
+}
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/extractor-architecture
+# Create interface, types, registry
+# Write unit tests
+go test ./internal/documentation/extractors/...
+go build ./cmd/...
+git add -A
+git commit -m "feat(docs): add extractor interface and registry
+
+- Created Extractor interface for pluggable documentation tools
+- Implemented Registry pattern for extractor management
+- Supports 10 languages: Go, JS/TS, Python, C#, C/C++, Rust, Bash, PowerShell
+- Unit tests with 85%+ coverage"
+git push origin feat/extractor-architecture
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Unit tests pass with 80%+ coverage
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+#### PR-2.2: Language Detector
+
+**Goal:** Scan project files to detect all used languages
+
+**Files:**
+```
+internal/documentation/extractors/detector.go
+internal/documentation/extractors/detector_test.go
+```
+
+**Implementation:**
+```go
+// internal/documentation/extractors/detector.go
+
+package extractors
+
+import (
+    "context"
+    "io/fs"
+    "path/filepath"
+    "strings"
+)
+
+// LanguageStats contains language detection statistics
+type LanguageStats struct {
+    Language  Language
+    FileCount int
+    Files     []string
+}
+
+// Detector detects languages in a project
+type Detector struct {
+    excludeDirs map[string]bool
+}
+
+// NewDetector creates a new language detector
+func NewDetector() *Detector {
+    return &Detector{
+        excludeDirs: map[string]bool{
+            "vendor":       true,
+            "node_modules": true,
+            ".git":         true,
+            "bin":          true,
+            "obj":          true,
+            "_site":        true,
+            "public":       true,
+            ".taskmaster":  true,
+        },
+    }
+}
+
+// Detect scans projectRoot and returns detected languages
+func (d *Detector) Detect(ctx context.Context, projectRoot string) ([]LanguageStats, error) {
+    stats := make(map[Language]*LanguageStats)
+
+    err := filepath.WalkDir(projectRoot, func(path string, entry fs.DirEntry, err error) error {
+        if err != nil {
+            return err
+        }
+
+        // Check context cancellation
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+        }
+
+        // Skip excluded directories
+        if entry.IsDir() && d.excludeDirs[entry.Name()] {
+            return filepath.SkipDir
+        }
+
+        // Skip directories
+        if entry.IsDir() {
+            return nil
+        }
+
+        // Detect language by extension
+        lang, ok := d.detectLanguage(path)
+        if !ok {
+            return nil
+        }
+
+        // Add to stats
+        if stats[lang] == nil {
+            stats[lang] = &LanguageStats{
+                Language: lang,
+                Files:    []string{},
+            }
+        }
+        stats[lang].FileCount++
+        stats[lang].Files = append(stats[lang].Files, path)
+
+        return nil
+    })
+
+    if err != nil {
+        return nil, err
+    }
+
+    // Convert map to slice
+    result := make([]LanguageStats, 0, len(stats))
+    for _, s := range stats {
+        result = append(result, *s)
+    }
+
+    return result, nil
+}
+
+// detectLanguage detects language from file path
+func (d *Detector) detectLanguage(path string) (Language, bool) {
+    ext := strings.ToLower(filepath.Ext(path))
+
+    switch ext {
+    case ".go":
+        return LangGo, true
+    case ".js", ".jsx", ".mjs":
+        return LangJavaScript, true
+    case ".ts", ".tsx":
+        return LangTypeScript, true
+    case ".py":
+        return LangPython, true
+    case ".cs":
+        return LangCSharp, true
+    case ".c", ".h":
+        return LangC, true
+    case ".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx":
+        return LangCPlusPlus, true
+    case ".rs":
+        return LangRust, true
+    case ".sh":
+        return LangBash, true
+    case ".ps1":
+        return LangPowerShell, true
+    default:
+        return "", false
+    }
+}
+```
+
+**Unit Tests:**
+```go
+// internal/documentation/extractors/detector_test.go
+
+package extractors
+
+import (
+    "context"
+    "os"
+    "path/filepath"
+    "testing"
+)
+
+func TestDetector_Detect(t *testing.T) {
+    // Create temp directory with sample files
+    tmpDir := t.TempDir()
+
+    files := map[string]string{
+        "main.go":         "package main",
+        "app.py":          "def main():",
+        "index.js":        "console.log('hello')",
+        "test.ts":         "const x: number = 1",
+        "Program.cs":      "class Program {}",
+        "main.cpp":        "int main() {}",
+        "lib.rs":          "fn main() {}",
+        "script.sh":       "#!/bin/bash",
+        "script.ps1":      "Write-Host 'hello'",
+        "vendor/main.go":  "package vendor", // Should be excluded
+    }
+
+    for path, content := range files {
+        fullPath := filepath.Join(tmpDir, path)
+        os.MkdirAll(filepath.Dir(fullPath), 0755)
+        os.WriteFile(fullPath, []byte(content), 0644)
+    }
+
+    detector := NewDetector()
+    stats, err := detector.Detect(context.Background(), tmpDir)
+
+    if err != nil {
+        t.Fatalf("Detect failed: %v", err)
+    }
+
+    // Verify all languages detected
+    expected := map[Language]int{
+        LangGo:         1, // vendor/main.go excluded
+        LangPython:     1,
+        LangJavaScript: 1,
+        LangTypeScript: 1,
+        LangCSharp:     1,
+        LangCPlusPlus:  1,
+        LangRust:       1,
+        LangBash:       1,
+        LangPowerShell: 1,
+    }
+
+    for _, s := range stats {
+        if count, ok := expected[s.Language]; !ok {
+            t.Errorf("Unexpected language: %s", s.Language)
+        } else if s.FileCount != count {
+            t.Errorf("Language %s: expected %d files, got %d", s.Language, count, s.FileCount)
+        }
+    }
+}
+
+func TestDetector_detectLanguage(t *testing.T) {
+    tests := []struct {
+        path string
+        want Language
+        ok   bool
+    }{
+        {"main.go", LangGo, true},
+        {"app.py", LangPython, true},
+        {"index.js", LangJavaScript, true},
+        {"test.ts", LangTypeScript, true},
+        {"README.md", "", false},
+    }
+
+    detector := NewDetector()
+    for _, tt := range tests {
+        lang, ok := detector.detectLanguage(tt.path)
+        if ok != tt.ok || lang != tt.want {
+            t.Errorf("detectLanguage(%q) = (%v, %v), want (%v, %v)",
+                tt.path, lang, ok, tt.want, tt.ok)
+        }
+    }
+}
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/language-detector
+# Implement detector with tests
+go test ./internal/documentation/extractors/... -v
+go build ./cmd/...
+git add -A
+git commit -m "feat(docs): add language detector for project scanning
+
+- Scans project files to detect all used languages
+- Supports 10 languages via file extensions
+- Excludes vendor/, node_modules/, .git/, etc.
+- Unit tests with mock filesystem
+- Test coverage: 90%+"
+git push origin feat/language-detector
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Unit tests pass with 80%+ coverage
+- ✅ Test with mock filesystem
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-3 to PR-10: Language Extractors
+
+**Note:** All extractors implemented with same QA process. Listing compactly.
+
+---
+
+#### PR-3: Go Extractor (gomarkdoc)
+
+**Files:** `internal/documentation/extractors/go/{extractor.go, installer.go, extractor_test.go}`
+
+**Tool:** `gomarkdoc` (https://github.com/princjef/gomarkdoc)
+
+**Implementation Summary:**
+- Check if `gomarkdoc` installed: `which gomarkdoc`
+- Install instructions: `go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest`
+- Extract: `gomarkdoc -o docs/api/go/package.md ./path/to/package`
+- Incremental: Re-generate only packages with changed files
+- Output: One markdown per package
+
+**Integration Test:** Create `tests/fixtures/go-sample/` with sample Go package, run extractor, validate markdown generated
+
+**Git:** Branch `feat/go-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+#### PR-4: JavaScript/TypeScript Extractor (typedoc)
+
+**Files:** `internal/documentation/extractors/javascript/{extractor.go, installer.go, extractor_test.go}`
+
+**Tool:** `typedoc` + `typedoc-plugin-markdown`
+
+**Implementation Summary:**
+- Check: `typedoc --version`
+- Install: `npm install -g typedoc typedoc-plugin-markdown`
+- Detect: `tsconfig.json` (TS) or `package.json` (JS)
+- Extract: `typedoc --plugin typedoc-plugin-markdown --out docs/api/javascript src/`
+- Output: Markdown in `docs/api/javascript/`
+
+**Integration Test:** `tests/fixtures/js-sample/` and `tests/fixtures/ts-sample/`
+
+**Git:** Branch `feat/javascript-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+#### PR-5: Python Extractor (pydoc-markdown)
+
+**Files:** `internal/documentation/extractors/python/{extractor.go, installer.go, extractor_test.go}`
+
+**Tool:** `pydoc-markdown`
+
+**Implementation Summary:**
+- Check: `pydoc-markdown --version`
+- Install: `pip install pydoc-markdown`
+- Extract: `pydoc-markdown -m module_name -o docs/api/python/module.md`
+- Output: Markdown in `docs/api/python/`
+
+**Integration Test:** `tests/fixtures/python-sample/`
+
+**Git:** Branch `feat/python-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+#### PR-6: C# Extractor (xmldocmd)
+
+**Files:** `internal/documentation/extractors/csharp/{extractor.go, installer.go, extractor_test.go}`
+
+**Tool:** `xmldocmd`
+
+**Implementation Summary:**
+- Check: `xmldocmd --version`
+- Install: `dotnet tool install -g xmldocmd`
+- Build project: `dotnet build /p:GenerateDocumentationFile=true`
+- Extract: `xmldocmd bin/Debug/netX.0/Assembly.xml docs/api/csharp/`
+- Output: Markdown in `docs/api/csharp/`
+
+**Integration Test:** `tests/fixtures/csharp-sample/` (.csproj project)
+
+**Git:** Branch `feat/csharp-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+#### PR-7: C/C++ Extractor (doxygen + doxybook2)
+
+**Files:** `internal/documentation/extractors/cpp/{extractor.go, installer.go, extractor_test.go}`
+
+**Tool:** `doxygen` + `doxybook2`
+
+**Implementation Summary:**
+- Check: `doxygen --version` and `doxybook2 --version`
+- Install: Platform-specific (apt/brew/choco)
+- Generate config: `doxygen -g Doxyfile.tmp`
+- Configure: XML output, input directories
+- Run: `doxygen Doxyfile.tmp`
+- Convert: `doxybook2 --input xml/ --output docs/api/cpp/`
+- Output: Markdown in `docs/api/cpp/`
+
+**Integration Test:** `tests/fixtures/cpp-sample/`
+
+**Git:** Branch `feat/cpp-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+#### PR-8: Rust Extractor (rustdoc)
+
+**Files:** `internal/documentation/extractors/rust/{extractor.go, installer.go, extractor_test.go}`
+
+**Tool:** `rustdoc` (built into Rust) or `cargo doc`
+
+**Implementation Summary:**
+- Check: `rustc --version`
+- Rustdoc included with Rust toolchain
+- Extract: `cargo doc --no-deps --target-dir docs/api/rust/`
+- Output: HTML in `docs/api/rust/doc/` (acceptable) or convert to markdown
+- Alternative: Accept HTML output, GitHub Pages can render it
+
+**Integration Test:** `tests/fixtures/rust-sample/` (Cargo project)
+
+**Git:** Branch `feat/rust-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+#### PR-9: Bash Extractor (Custom or shdoc)
+
+**Files:** `internal/documentation/extractors/bash/{extractor.go, extractor_test.go}`
+
+**Tool:** `shdoc` (https://github.com/reconquest/shdoc) or custom parser
+
+**Implementation Summary:**
+- Check: `shdoc --version`
+- Install: `go install github.com/reconquest/shdoc@latest`
+- Extract: `shdoc script.sh > docs/api/bash/script.md`
+- Parse bash comments above functions
+- Output: Markdown in `docs/api/bash/`
+
+**Integration Test:** `tests/fixtures/bash-sample/`
+
+**Git:** Branch `feat/bash-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+#### PR-10: PowerShell Extractor (platyPS)
+
+**Files:** `internal/documentation/extractors/powershell/{extractor.go, extractor_test.go}`
+
+**Tool:** `platyPS` PowerShell module
+
+**Implementation Summary:**
+- Check: `Get-Module -ListAvailable PlatyPS`
+- Install: `Install-Module -Name platyPS`
+- Extract: `New-MarkdownHelp -Module ModuleName -OutputFolder docs/api/powershell/`
+- Output: Markdown in `docs/api/powershell/`
+
+**Integration Test:** `tests/fixtures/powershell-sample/`
+
+**Git:** Branch `feat/powershell-extractor`, commit, PR, merge
+
+**QA Gate:** ✅ Integration test passes ✅ Code review ✅ CI passes ✅ Merged
+
+---
+
+### PR-11: Jekyll Site Structure
+
+**Goal:** Setup Jekyll site in docs/ with just-the-docs theme
+
+**Files to create:**
+```
+docs/_config.yml
+docs/Gemfile
+docs/index.md
+docs/stack/index.md
+docs/architecture/index.md
+docs/tutorials/index.md
+docs/api/.gitkeep
+docs/roadmap/index.md
+docs/custom/.gitkeep
+```
+
+**_config.yml:**
+```yaml
+title: "AurumCode Documentation"
+description: "Automated code review, documentation, and testing with AI"
+baseurl: "/AurumCode"
+url: "https://mpaape.github.io"
+
+# Theme
+remote_theme: just-the-docs/just-the-docs@v0.7.0
+
+# Search
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+
+# Navigation
+nav_sort: case_insensitive
+nav_enabled: true
+
+# Aux links
+aux_links:
+  "GitHub": "https://github.com/Mpaape/AurumCode"
+
+# Collections
+collections:
+  api:
+    output: true
+    permalink: /api/:path/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+  - scope:
+      path: "api"
+    values:
+      layout: default
+      parent: "API Reference"
+```
+
+**Gemfile:**
+```ruby
+source "https://rubygems.org"
+
+gem "jekyll", "~> 4.3"
+gem "just-the-docs", "0.7.0"
+```
+
+**docs/index.md (placeholder - will be LLM-generated later):**
+```markdown
+---
+layout: home
+title: Home
+nav_order: 1
+---
+
+# Welcome to AurumCode
+
+Automated code review, documentation, and testing powered by AI.
+
+## Quick Start
+
+```bash
+docker run aurumcode/server:latest
+```
+
+See [Tutorials](./tutorials/) for detailed setup.
+```
+
+**Directory Structure:**
+```
+docs/
+├── _config.yml
+├── Gemfile
+├── index.md
+├── stack/
+│   └── index.md
+├── architecture/
+│   └── index.md
+├── tutorials/
+│   └── index.md
+├── api/
+│   └── .gitkeep
+├── roadmap/
+│   └── index.md
+└── custom/
+    └── .gitkeep
+```
+
+**Validation:**
+```bash
+cd docs/
+bundle install
+bundle exec jekyll build
+# Check _site/ directory was created
+bundle exec jekyll serve
+# Browse to http://localhost:4000/AurumCode/
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/jekyll-site-structure
+# Create all files
+cd docs/ && bundle install && bundle exec jekyll build
+git add -A
+git commit -m "feat(docs): setup Jekyll site structure with just-the-docs theme
+
+- Created docs/_config.yml with just-the-docs remote theme
+- Setup 6 main categories: Stack, Architecture, Tutorials, API, Roadmap, Custom
+- Configured search and navigation
+- Added Gemfile for Jekyll dependencies
+- Local build tested and successful"
+git push origin feat/jekyll-site-structure
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ `bundle exec jekyll build` succeeds
+- ✅ Site renders correctly in browser
+- ✅ Navigation works
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-12: Markdown Normalizer
+
+**Goal:** Add consistent Jekyll front matter to all generated markdowns
+
+**Files:**
+```
+internal/documentation/normalizer/frontmatter.go
+internal/documentation/normalizer/templates.go
+internal/documentation/normalizer/frontmatter_test.go
+```
+
+**Implementation:**
+```go
+// internal/documentation/normalizer/frontmatter.go
+
+package normalizer
+
+import (
+    "bufio"
+    "fmt"
+    "os"
+    "path/filepath"
+    "strings"
+
+    "gopkg.in/yaml.v3"
+)
+
+// FrontMatter represents Jekyll front matter
+type FrontMatter struct {
+    Title       string `yaml:"title"`
+    Layout      string `yaml:"layout"`
+    Parent      string `yaml:"parent,omitempty"`
+    GrandParent string `yaml:"grand_parent,omitempty"`
+    NavOrder    int    `yaml:"nav_order,omitempty"`
+}
+
+// Normalizer adds front matter to markdown files
+type Normalizer struct{}
+
+// NewNormalizer creates a new normalizer
+func NewNormalizer() *Normalizer {
+    return &Normalizer{}
+}
+
+// NormalizeFile adds front matter to a markdown file
+func (n *Normalizer) NormalizeFile(filePath string, fm FrontMatter) error {
+    // Read file
+    content, err := os.ReadFile(filePath)
+    if err != nil {
+        return fmt.Errorf("read file: %w", err)
+    }
+
+    // Check if front matter already exists
+    if n.hasFrontMatter(string(content)) {
+        // Merge with existing
+        return n.mergeFrontMatter(filePath, fm)
+    }
+
+    // Add front matter
+    frontMatterYAML, err := yaml.Marshal(fm)
+    if err != nil {
+        return fmt.Errorf("marshal front matter: %w", err)
+    }
+
+    newContent := fmt.Sprintf("---\n%s---\n\n%s", frontMatterYAML, content)
+
+    // Write back
+    if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
+        return fmt.Errorf("write file: %w", err)
+    }
+
+    return nil
+}
+
+// NormalizeDir normalizes all markdown files in a directory
+func (n *Normalizer) NormalizeDir(dir, language string) error {
+    return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+
+        if info.IsDir() || !strings.HasSuffix(path, ".md") {
+            return nil
+        }
+
+        // Generate front matter based on path
+        fm := n.generateFrontMatter(path, language)
+
+        return n.NormalizeFile(path, fm)
+    })
+}
+
+// hasFrontMatter checks if file has front matter
+func (n *Normalizer) hasFrontMatter(content string) bool {
+    return strings.HasPrefix(content, "---\n")
+}
+
+// generateFrontMatter generates front matter from file path
+func (n *Normalizer) generateFrontMatter(filePath, language string) FrontMatter {
+    base := filepath.Base(filePath)
+    title := strings.TrimSuffix(base, ".md")
+
+    return FrontMatter{
+        Title:       title,
+        Layout:      "default",
+        Parent:      strings.Title(language),
+        GrandParent: "API Reference",
+        NavOrder:    0, // Will be set by Jekyll
+    }
+}
+
+// mergeFrontMatter merges new front matter with existing
+func (n *Normalizer) mergeFrontMatter(filePath string, newFM FrontMatter) error {
+    // Parse existing front matter
+    // Merge fields (prefer existing if set)
+    // Write back
+    // Implementation details...
+    return nil
+}
+```
+
+**Unit Tests:**
+```go
+// internal/documentation/normalizer/frontmatter_test.go
+
+package normalizer
+
+import (
+    "os"
+    "path/filepath"
+    "strings"
+    "testing"
+)
+
+func TestNormalizer_NormalizeFile(t *testing.T) {
+    tmpDir := t.TempDir()
+    testFile := filepath.Join(tmpDir, "test.md")
+
+    // Write test content
+    content := "# Test\n\nSome content"
+    os.WriteFile(testFile, []byte(content), 0644)
+
+    normalizer := NewNormalizer()
+    fm := FrontMatter{
+        Title:  "Test",
+        Layout: "default",
+        Parent: "Go",
+    }
+
+    err := normalizer.NormalizeFile(testFile, fm)
+    if err != nil {
+        t.Fatalf("NormalizeFile failed: %v", err)
+    }
+
+    // Read result
+    result, _ := os.ReadFile(testFile)
+    resultStr := string(result)
+
+    // Verify front matter added
+    if !strings.HasPrefix(resultStr, "---\n") {
+        t.Error("Front matter not added")
+    }
+
+    if !strings.Contains(resultStr, "title: Test") {
+        t.Error("Title not in front matter")
+    }
+
+    if !strings.Contains(resultStr, "# Test\n\nSome content") {
+        t.Error("Original content not preserved")
+    }
+}
+
+func TestNormalizer_NormalizeDir(t *testing.T) {
+    tmpDir := t.TempDir()
+
+    // Create test files
+    files := []string{"file1.md", "file2.md", "subdir/file3.md"}
+    for _, f := range files {
+        path := filepath.Join(tmpDir, f)
+        os.MkdirAll(filepath.Dir(path), 0755)
+        os.WriteFile(path, []byte("# Test"), 0644)
+    }
+
+    normalizer := NewNormalizer()
+    err := normalizer.NormalizeDir(tmpDir, "go")
+
+    if err != nil {
+        t.Fatalf("NormalizeDir failed: %v", err)
+    }
+
+    // Verify all files normalized
+    for _, f := range files {
+        path := filepath.Join(tmpDir, f)
+        content, _ := os.ReadFile(path)
+        if !strings.HasPrefix(string(content), "---\n") {
+            t.Errorf("File %s not normalized", f)
+        }
+    }
+}
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/markdown-normalizer
+# Implement normalizer with tests
+go test ./internal/documentation/normalizer/... -v
+go build ./cmd/...
+git add -A
+git commit -m "feat(docs): add markdown normalizer for Jekyll front matter
+
+- Adds consistent YAML front matter to all markdown files
+- Supports merging with existing front matter
+- NormalizeDir() processes entire directories
+- Unit tests with 85%+ coverage"
+git push origin feat/markdown-normalizer
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Unit tests pass with 80%+ coverage
+- ✅ Test with sample markdown files
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-13: LLM-Generated Welcome Page
+
+**Goal:** Generate beautiful docs/index.md from README + prompt
+
+**Files:**
+```
+internal/documentation/welcome/generator.go
+internal/documentation/welcome/generator_test.go
+.aurumcode/prompts/documentation/welcome-page.md
+```
+
+**Prompt Template:**
+```markdown
+<!-- .aurumcode/prompts/documentation/welcome-page.md -->
+
+You are generating a beautiful welcome page for project documentation.
+
+Input: Project README.md content
+
+Your task: Transform README into an engaging documentation home page with:
+
+1. Hero Section
+   - Project name (large, bold)
+   - Tagline (concise, compelling)
+   - Key value proposition (1-2 sentences)
+   - Call-to-action buttons (Quick Start, GitHub, etc.)
+
+2. Features Grid (3-4 features)
+   - Icon/emoji for each
+   - Feature title
+   - Short description (1 sentence)
+
+3. Quick Start
+   - Minimal example (code block)
+   - Link to full tutorial
+
+4. Navigation
+   - Links to main sections (Tutorials, API Reference, etc.)
+
+5. Status Badges (if applicable)
+   - Build status
+   - Coverage
+   - License
+
+Output Format: Markdown with Jekyll front matter
+
+---
+layout: home
+title: Home
+nav_order: 1
+---
+
+[Your generated content]
+```
+
+**Generator Implementation:**
+```go
+// internal/documentation/welcome/generator.go
+
+package welcome
+
+import (
+    "context"
+    "fmt"
+    "os"
+    "path/filepath"
+
+    "aurumcode/internal/llm"
+    "aurumcode/pkg/types"
+)
+
+// Generator generates welcome pages using LLM
+type Generator struct {
+    llmOrch      *llm.Orchestrator
+    promptPath   string
+}
+
+// NewGenerator creates a new welcome page generator
+func NewGenerator(llmOrch *llm.Orchestrator) *Generator {
+    return &Generator{
+        llmOrch:    llmOrch,
+        promptPath: ".aurumcode/prompts/documentation/welcome-page.md",
+    }
+}
+
+// Generate generates welcome page from README
+func (g *Generator) Generate(ctx context.Context, readmePath, outputPath string) error {
+    // Read README
+    readme, err := os.ReadFile(readmePath)
+    if err != nil {
+        return fmt.Errorf("read README: %w", err)
+    }
+
+    // Read prompt template
+    promptTemplate, err := os.ReadFile(g.promptPath)
+    if err != nil {
+        return fmt.Errorf("read prompt: %w", err)
+    }
+
+    // Build full prompt
+    fullPrompt := fmt.Sprintf("%s\n\n---\n\nREADME Content:\n\n%s", promptTemplate, readme)
+
+    // Call LLM
+    result, err := g.llmOrch.Complete(ctx, fullPrompt, types.CompletionOptions{
+        MaxTokens:   2000,
+        Temperature: 0.7,
+    })
+    if err != nil {
+        return fmt.Errorf("LLM completion: %w", err)
+    }
+
+    // Write to output
+    os.MkdirAll(filepath.Dir(outputPath), 0755)
+    if err := os.WriteFile(outputPath, []byte(result.Text), 0644); err != nil {
+        return fmt.Errorf("write output: %w", err)
+    }
+
+    return nil
+}
+```
+
+**Unit Tests:**
+```go
+// internal/documentation/welcome/generator_test.go
+
+package welcome
+
+import (
+    "context"
+    "os"
+    "path/filepath"
+    "testing"
+
+    "aurumcode/internal/llm"
+    "aurumcode/pkg/types"
+)
+
+type mockLLM struct{}
+
+func (m *mockLLM) Complete(ctx context.Context, prompt string, opts types.CompletionOptions) (*types.CompletionResult, error) {
+    return &types.CompletionResult{
+        Text: "---\nlayout: home\n---\n\n# Welcome\n\nGenerated content",
+    }, nil
+}
+
+func TestGenerator_Generate(t *testing.T) {
+    tmpDir := t.TempDir()
+
+    // Create mock README
+    readmePath := filepath.Join(tmpDir, "README.md")
+    os.WriteFile(readmePath, []byte("# Project\n\nDescription"), 0644)
+
+    // Create mock prompt
+    promptPath := filepath.Join(tmpDir, "prompt.md")
+    os.WriteFile(promptPath, []byte("Generate welcome page"), 0644)
+
+    // Create generator with mock LLM
+    mockLLMOrch := &llm.Orchestrator{/* with mock provider */}
+    generator := NewGenerator(mockLLMOrch)
+    generator.promptPath = promptPath
+
+    // Generate
+    outputPath := filepath.Join(tmpDir, "index.md")
+    err := generator.Generate(context.Background(), readmePath, outputPath)
+
+    if err != nil {
+        t.Fatalf("Generate failed: %v", err)
+    }
+
+    // Verify output
+    content, _ := os.ReadFile(outputPath)
+    if len(content) == 0 {
+        t.Error("Output file is empty")
+    }
+}
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/llm-welcome-page
+# Create generator, prompt template, tests
+go test ./internal/documentation/welcome/... -v
+git add -A
+git commit -m "feat(docs): add LLM-powered welcome page generator
+
+- Generates beautiful docs/index.md from README.md
+- Uses prompt template in .aurumcode/prompts/
+- Creates hero section, features grid, quick start
+- Unit tests with mock LLM"
+git push origin feat/llm-welcome-page
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Unit tests pass
+- ✅ Manual test: Generate welcome page from real README
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-14: Incremental Documentation Support
+
+**Goal:** Only regenerate documentation for changed files
+
+**Files:**
+```
+internal/documentation/incremental/detector.go
+internal/documentation/incremental/cache.go
+internal/documentation/incremental/detector_test.go
+internal/documentation/incremental/cache_test.go
+```
+
+**Implementation:**
+```go
+// internal/documentation/incremental/detector.go
+
+package incremental
+
+import (
+    "context"
+    "fmt"
+    "os/exec"
+    "strings"
+)
+
+// ChangeDetector detects changed files using git
+type ChangeDetector struct {
+    repoPath string
+}
+
+// NewChangeDetector creates a new change detector
+func NewChangeDetector(repoPath string) *ChangeDetector {
+    return &ChangeDetector{repoPath: repoPath}
+}
+
+// DetectChanges returns files changed since given commit/ref
+func (d *ChangeDetector) DetectChanges(ctx context.Context, since string) ([]string, error) {
+    cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", since, "HEAD")
+    cmd.Dir = d.repoPath
+
+    output, err := cmd.Output()
+    if err != nil {
+        return nil, fmt.Errorf("git diff failed: %w", err)
+    }
+
+    files := strings.Split(strings.TrimSpace(string(output)), "\n")
+    return files, nil
+}
+
+// DetectChangesSinceLast returns files changed since last doc generation
+func (d *ChangeDetector) DetectChangesSinceLast(ctx context.Context, cache *Cache) ([]string, error) {
+    if cache.LastCommit == "" {
+        // First run - return all files
+        return d.getAllSourceFiles(ctx)
+    }
+
+    return d.DetectChanges(ctx, cache.LastCommit)
+}
+
+// getAllSourceFiles returns all source files in repo
+func (d *ChangeDetector) getAllSourceFiles(ctx context.Context) ([]string, error) {
+    cmd := exec.CommandContext(ctx, "git", "ls-files")
+    cmd.Dir = d.repoPath
+
+    output, err := cmd.Output()
+    if err != nil {
+        return nil, fmt.Errorf("git ls-files failed: %w", err)
+    }
+
+    files := strings.Split(strings.TrimSpace(string(output)), "\n")
+    return files, nil
+}
+```
+
+**Cache Implementation:**
+```go
+// internal/documentation/incremental/cache.go
+
+package incremental
+
+import (
+    "encoding/json"
+    "os"
+    "time"
+)
+
+// Cache stores incremental documentation state
+type Cache struct {
+    LastCommit string                `json:"last_commit"`
+    LastRun    time.Time             `json:"last_run"`
+    Mappings   map[string][]string   `json:"mappings"` // source file → doc files
+}
+
+// NewCache creates a new cache
+func NewCache() *Cache {
+    return &Cache{
+        Mappings: make(map[string][]string),
+    }
+}
+
+// Load loads cache from file
+func (c *Cache) Load(path string) error {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        if os.IsNotExist(err) {
+            return nil // Cache doesn't exist yet
+        }
+        return err
+    }
+
+    return json.Unmarshal(data, c)
+}
+
+// Save saves cache to file
+func (c *Cache) Save(path string) error {
+    data, err := json.Marshal(c)
+    if err != nil {
+        return err
+    }
+
+    return os.WriteFile(path, data, 0644)
+}
+
+// GetAffectedDocs returns doc files affected by changed source files
+func (c *Cache) GetAffectedDocs(changedFiles []string) []string {
+    affected := make(map[string]bool)
+
+    for _, srcFile := range changedFiles {
+        if docFiles, ok := c.Mappings[srcFile]; ok {
+            for _, docFile := range docFiles {
+                affected[docFile] = true
+            }
+        }
+    }
+
+    result := make([]string, 0, len(affected))
+    for doc := range affected {
+        result = append(result, doc)
+    }
+    return result
+}
+
+// UpdateMapping updates source → doc file mapping
+func (c *Cache) UpdateMapping(srcFile string, docFiles []string) {
+    c.Mappings[srcFile] = docFiles
+}
+```
+
+**Unit Tests:** Test with mock git repository, test cache serialization
+
+**Git Workflow:**
+```bash
+git checkout -b feat/incremental-docs
+# Implement detector + cache with tests
+go test ./internal/documentation/incremental/... -v
+git add -A
+git commit -m "feat(docs): add incremental documentation support
+
+- ChangeDetector uses git diff to find changed files
+- Cache stores source → doc file mappings
+- GetAffectedDocs returns docs needing regeneration
+- Unit tests with mock git repo
+- Test coverage: 85%+"
+git push origin feat/incremental-docs
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Unit tests pass with 80%+ coverage
+- ✅ Test with mock git repository
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-15: Documentation Pipeline Implementation
+
+**Goal:** Implement `internal/pipeline/docs_pipeline.go` (currently stub)
+
+**File:** `internal/pipeline/docs_pipeline.go` (enhance existing)
+
+**Implementation:**
+```go
+// internal/pipeline/docs_pipeline.go
+
+package pipeline
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "path/filepath"
+
+    "aurumcode/internal/documentation/extractors"
+    "aurumcode/internal/documentation/incremental"
+    "aurumcode/internal/documentation/normalizer"
+    "aurumcode/internal/documentation/site"
+    "aurumcode/internal/documentation/welcome"
+    "aurumcode/internal/git/githubclient"
+    "aurumcode/internal/llm"
+    "aurumcode/pkg/types"
+)
+
+// DocsPipeline handles documentation generation
+type DocsPipeline struct {
+    cfg          *types.Config
+    githubClient *githubclient.Client
+    llmOrch      *llm.Orchestrator
+    registry     *extractors.Registry
+    normalizer   *normalizer.Normalizer
+    siteBuilder  *site.SiteBuilder
+    welcomeGen   *welcome.Generator
+}
+
+// NewDocsPipeline creates a new documentation pipeline
+func NewDocsPipeline(
+    cfg *types.Config,
+    githubClient *githubclient.Client,
+    llmOrch *llm.Orchestrator,
+) *DocsPipeline {
+    // Create registry and register all extractors
+    registry := extractors.NewRegistry()
+    // TODO: Register extractors (will be done when extractors are created)
+
+    return &DocsPipeline{
+        cfg:          cfg,
+        githubClient: githubClient,
+        llmOrch:      llmOrch,
+        registry:     registry,
+        normalizer:   normalizer.NewNormalizer(),
+        siteBuilder:  site.NewSiteBuilder(site.NewDefaultRunner()),
+        welcomeGen:   welcome.NewGenerator(llmOrch),
+    }
+}
+
+// Run executes the documentation pipeline
+func (p *DocsPipeline) Run(ctx context.Context, event *types.Event) error {
+    log.Printf("[DocsPipeline] Starting documentation generation for %s", event.Repo)
+
+    // Determine mode: full or incremental
+    mode := p.determineMode(event)
+    log.Printf("[DocsPipeline] Mode: %s", mode)
+
+    // Step 1: Detect languages
+    detector := extractors.NewDetector()
+    languages, err := detector.Detect(ctx, ".")
+    if err != nil {
+        return fmt.Errorf("detect languages: %w", err)
+    }
+    log.Printf("[DocsPipeline] Detected %d languages", len(languages))
+
+    // Step 2: Determine files to process
+    var filesToProcess []string
+    if mode == "incremental" {
+        filesToProcess, err = p.getChangedFiles(ctx, event)
+        if err != nil {
+            log.Printf("[DocsPipeline] Incremental detection failed, falling back to full: %v", err)
+            mode = "full"
+        }
+    }
+
+    // Step 3: Extract documentation for each language
+    for _, langStats := range languages {
+        extractor, ok := p.registry.Get(langStats.Language)
+        if !ok {
+            log.Printf("[DocsPipeline] No extractor for language %s, skipping", langStats.Language)
+            continue
+        }
+
+        log.Printf("[DocsPipeline] Extracting docs for %s (%d files)", langStats.Language, langStats.FileCount)
+
+        // Determine which files to extract
+        var files []string
+        if mode == "full" {
+            files = langStats.Files
+        } else {
+            // Filter to only changed files
+            files = p.filterFiles(langStats.Files, filesToProcess)
+        }
+
+        if len(files) == 0 {
+            log.Printf("[DocsPipeline] No changed files for %s, skipping", langStats.Language)
+            continue
+        }
+
+        // Extract
+        outputDir := filepath.Join("docs", "api", string(langStats.Language))
+        req := extractors.ExtractRequest{
+            ProjectRoot: ".",
+            Files:       files,
+            OutputDir:   outputDir,
+        }
+
+        result, err := extractor.Extract(ctx, req)
+        if err != nil {
+            log.Printf("[DocsPipeline] Extraction failed for %s: %v", langStats.Language, err)
+            continue
+        }
+
+        log.Printf("[DocsPipeline] Extracted %d doc files for %s in %s",
+            len(result.Files), langStats.Language, result.Duration)
+
+        // Step 4: Normalize markdown files
+        if err := p.normalizer.NormalizeDir(outputDir, string(langStats.Language)); err != nil {
+            log.Printf("[DocsPipeline] Normalization failed for %s: %v", langStats.Language, err)
+        }
+    }
+
+    // Step 5: Generate welcome page from README
+    if mode == "full" || p.shouldRegenerateWelcome(event) {
+        log.Printf("[DocsPipeline] Generating welcome page")
+        if err := p.welcomeGen.Generate(ctx, "README.md", "docs/index.md"); err != nil {
+            log.Printf("[DocsPipeline] Welcome page generation failed: %v", err)
+        }
+    }
+
+    // Step 6: Validate Jekyll structure
+    log.Printf("[DocsPipeline] Validating Jekyll site")
+    if err := p.siteBuilder.Validate(ctx); err != nil {
+        return fmt.Errorf("Jekyll validation failed: %w", err)
+    }
+
+    // Step 7: Commit to gh-pages branch (GitHub Pages will build automatically)
+    if p.cfg.Documentation.Deploy {
+        log.Printf("[DocsPipeline] Committing to gh-pages branch")
+        if err := p.deployToGitHubPages(ctx, event); err != nil {
+            return fmt.Errorf("deploy failed: %w", err)
+        }
+    }
+
+    log.Printf("[DocsPipeline] Documentation generation complete")
+    return nil
+}
+
+// determineMode determines if full or incremental generation
+func (p *DocsPipeline) determineMode(event *types.Event) string {
+    if event.EventType == "push" && event.Branch == "main" && !event.Merged {
+        return "incremental"
+    }
+    return "full"
+}
+
+// getChangedFiles returns changed files for incremental mode
+func (p *DocsPipeline) getChangedFiles(ctx context.Context, event *types.Event) ([]string, error) {
+    detector := incremental.NewChangeDetector(".")
+    cache := incremental.NewCache()
+    cache.Load(".aurumcode/cache/docs-cache.json")
+
+    files, err := detector.DetectChangesSinceLast(ctx, cache)
+    if err != nil {
+        return nil, err
+    }
+
+    // Update cache
+    cache.LastCommit = event.CommitSHA
+    cache.Save(".aurumcode/cache/docs-cache.json")
+
+    return files, nil
+}
+
+// filterFiles filters langFiles to only include filesToProcess
+func (p *DocsPipeline) filterFiles(langFiles, filesToProcess []string) []string {
+    processMap := make(map[string]bool)
+    for _, f := range filesToProcess {
+        processMap[f] = true
+    }
+
+    result := []string{}
+    for _, f := range langFiles {
+        if processMap[f] {
+            result = append(result, f)
+        }
+    }
+    return result
+}
+
+// shouldRegenerateWelcome determines if welcome page needs regeneration
+func (p *DocsPipeline) shouldRegenerateWelcome(event *types.Event) bool {
+    // Regenerate if README.md changed
+    // Implementation: check if README.md is in changed files
+    return false // Placeholder
+}
+
+// deployToGitHubPages commits docs/ to gh-pages branch
+func (p *DocsPipeline) deployToGitHubPages(ctx context.Context, event *types.Event) error {
+    // Implementation:
+    // 1. Checkout gh-pages branch (create if doesn't exist)
+    // 2. Copy docs/ to root
+    // 3. Commit and push
+    // 4. GitHub Pages will automatically build Jekyll
+    return nil // Placeholder
+}
+```
+
+**Integration Test:**
+```go
+// internal/pipeline/docs_pipeline_test.go
+
+package pipeline
+
+import (
+    "context"
+    "testing"
+
+    "aurumcode/pkg/types"
+)
+
+func TestDocsPipeline_Run(t *testing.T) {
+    // Create test project with multiple languages
+    // Run pipeline
+    // Verify docs generated
+    // Verify Jekyll structure valid
+}
+
+func TestDocsPipeline_determineMode(t *testing.T) {
+    tests := []struct {
+        event *types.Event
+        want  string
+    }{
+        {
+            event: &types.Event{EventType: "push", Branch: "main"},
+            want:  "incremental",
+        },
+        {
+            event: &types.Event{EventType: "pull_request"},
+            want:  "full",
+        },
+    }
+
+    pipeline := &DocsPipeline{}
+    for _, tt := range tests {
+        got := pipeline.determineMode(tt.event)
+        if got != tt.want {
+            t.Errorf("determineMode() = %v, want %v", got, tt.want)
+        }
+    }
+}
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/docs-pipeline-implementation
+# Implement pipeline with integration tests
+go test ./internal/pipeline/... -v
+go build ./cmd/...
+git add -A
+git commit -m "feat(docs): implement documentation pipeline
+
+- Orchestrates full documentation generation workflow
+- Detects languages, runs extractors, normalizes output
+- Supports full and incremental modes
+- Generates LLM-powered welcome page
+- Deploys to gh-pages branch for GitHub Pages
+- Integration tests with multi-language project"
+git push origin feat/docs-pipeline-implementation
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Integration test passes
+- ✅ End-to-end test: commit → docs generated
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-16: GitHub Actions Workflow
+
+**Goal:** Automate documentation generation on push/PR
+
+**Files:**
+```
+.github/workflows/documentation.yml
+.docker/docs.Dockerfile
+```
+
+**Dockerfile:**
+```dockerfile
+# .docker/docs.Dockerfile
+
+FROM ubuntu:22.04
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    build-essential \
+    doxygen \
+    graphviz \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go
+RUN curl -L https://go.dev/dl/go1.21.5.linux-amd64.tar.gz | tar -xz -C /usr/local
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
+
+# Install Python
+RUN apt-get update && apt-get install -y python3 python3-pip
+
+# Install .NET SDK
+RUN curl -L https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 8.0
+ENV PATH="/root/.dotnet:${PATH}"
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install documentation tools
+RUN go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
+RUN npm install -g typedoc typedoc-plugin-markdown
+RUN pip3 install pydoc-markdown
+RUN dotnet tool install -g xmldocmd
+RUN cargo install shdoc
+
+# Install doxybook2
+RUN curl -L https://github.com/matusnovak/doxybook2/releases/download/v1.4.0/doxybook2-linux-amd64-v1.4.0.zip -o doxybook2.zip \
+    && unzip doxybook2.zip \
+    && mv doxybook2 /usr/local/bin/ \
+    && rm doxybook2.zip
+
+# Install Ruby and Jekyll (for local testing)
+RUN apt-get update && apt-get install -y ruby-full build-essential zlib1g-dev
+RUN gem install jekyll bundler
+
+WORKDIR /workspace
+
+CMD ["/bin/bash"]
+```
+
+**GitHub Actions Workflow:**
+```yaml
+# .github/workflows/documentation.yml
+
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.go'
+      - '**.js'
+      - '**.ts'
+      - '**.py'
+      - '**.cs'
+      - '**.cpp'
+      - '**.rs'
+      - '**.sh'
+      - '**.ps1'
+      - 'README.md'
+      - '.aurumcode/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.go'
+      - '**.js'
+      - '**.ts'
+      - '**.py'
+      - '**.cs'
+      - '**.cpp'
+      - '**.rs'
+      - '**.sh'
+      - '**.ps1'
+      - 'README.md'
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git diff
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build docs Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: .docker/docs.Dockerfile
+          tags: aurumcode-docs:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate documentation
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            aurumcode-docs:latest \
+            bash -c "go run ./cmd/cli docs generate"
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
+          commit_message: "docs: update documentation [skip ci]"
+```
+
+**Git Workflow:**
+```bash
+git checkout -b ci/documentation-workflow
+# Create Dockerfile and workflow
+# Test workflow on test repository
+git add -A
+git commit -m "ci: add GitHub Actions workflow for documentation
+
+- Created .docker/docs.Dockerfile with all doc tools
+- Installs: Go, Node.js, Python, .NET, Rust
+- Installs doc tools: gomarkdoc, typedoc, pydoc-markdown, xmldocmd, doxygen, doxybook2, shdoc
+- Workflow triggers on push/PR with source code changes
+- Generates docs in Docker container
+- Deploys to gh-pages branch via peaceiris/actions-gh-pages
+- Tested on sample repository"
+git push origin ci/documentation-workflow
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Dockerfile builds successfully
+- ✅ Workflow runs on test push
+- ✅ Documentation generated correctly
+- ✅ Deployed to GitHub Pages
+- ✅ Site accessible at https://username.github.io/repo/
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-17: Configuration Support
+
+**Goal:** Allow users to configure documentation generation
+
+**Files:**
+```
+pkg/types/config.go (enhance)
+configs/.aurumcode/config.example.yml (update)
+```
+
+**Configuration Addition:**
+```go
+// pkg/types/config.go
+
+// DocumentationConfig configures documentation generation
+type DocumentationConfig struct {
+    Enabled   bool     `yaml:"enabled"`
+    Mode      string   `yaml:"mode"` // "full" or "incremental"
+    Languages []string `yaml:"languages,omitempty"` // Empty = auto-detect
+
+    Output OutputConfig `yaml:"output"`
+    Site   SiteConfig   `yaml:"site"`
+
+    Categories CategoriesConfig `yaml:"categories"`
+
+    Deploy bool `yaml:"deploy"` // Deploy to GitHub Pages
+}
+
+type OutputConfig struct {
+    SiteGenerator string `yaml:"site_generator"` // "jekyll"
+    OutputDir     string `yaml:"output_dir"`
+    APIDir        string `yaml:"api_dir"`
+}
+
+type SiteConfig struct {
+    Title   string `yaml:"title"`
+    Logo    string `yaml:"logo,omitempty"`
+    Theme   string `yaml:"theme"`
+    BaseURL string `yaml:"base_url"`
+}
+
+type CategoriesConfig struct {
+    Architecture bool `yaml:"architecture"` // Show architecture section
+    Roadmap      bool `yaml:"roadmap"`      // Show roadmap section
+    Custom       bool `yaml:"custom"`       // Allow custom markdown files
+}
+```
+
+**Example Config:**
+```yaml
+# configs/.aurumcode/config.example.yml
+
+documentation:
+  enabled: true
+  mode: "incremental"  # "full" or "incremental"
+
+  # Languages to document (empty = auto-detect all)
+  languages: []
+  # languages:
+  #   - go
+  #   - javascript
+  #   - python
+
+  # Output configuration
+  output:
+    site_generator: "jekyll"
+    output_dir: "docs/"
+    api_dir: "docs/api/"
+
+  # Site configuration
+  site:
+    title: "Project Documentation"
+    logo: "assets/logo.png"
+    theme: "just-the-docs"
+    base_url: "https://username.github.io/repo/"
+
+  # Category visibility
+  categories:
+    architecture: true   # Show/hide architecture section
+    roadmap: true        # Show/hide roadmap section
+    custom: true         # Allow custom markdown files in docs/custom/
+
+  # Deploy to GitHub Pages
+  deploy: true
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/documentation-config
+# Add configuration structures
+# Update example config
+# Add config parsing tests
+go test ./pkg/types/... -v
+git add -A
+git commit -m "feat(docs): add documentation configuration options
+
+- Added DocumentationConfig to config.go
+- Supports site generator selection (jekyll)
+- Language filtering
+- Category visibility toggles
+- Deploy option for GitHub Pages
+- Updated config.example.yml with documentation section"
+git push origin feat/documentation-config
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Config parsing tests pass
+- ✅ Example config is valid
+- ✅ Documentation added for config options
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+### PR-18: Code Review Integration
+
+**Goal:** Suggest documentation during code review
+
+**Files:**
+```
+internal/review/doc_suggester.go
+internal/review/doc_suggester_test.go
+internal/pipeline/review_pipeline.go (enhance)
+```
+
+**Implementation:**
+```go
+// internal/review/doc_suggester.go
+
+package review
+
+import (
+    "context"
+    "fmt"
+    "strings"
+
+    "aurumcode/internal/analyzer"
+    "aurumcode/internal/llm"
+    "aurumcode/pkg/types"
+)
+
+// DocSuggester suggests documentation for undocumented code
+type DocSuggester struct {
+    llmOrch *llm.Orchestrator
+}
+
+// NewDocSuggester creates a new documentation suggester
+func NewDocSuggester(llmOrch *llm.Orchestrator) *DocSuggester {
+    return &DocSuggester{llmOrch: llmOrch}
+}
+
+// Suggest generates documentation suggestions for code
+func (s *DocSuggester) Suggest(ctx context.Context, code string, language string) (string, error) {
+    prompt := fmt.Sprintf(`Generate documentation comment for this %s code.
+
+Follow the language's documentation standards:
+- Go: // Comment above function/type
+- JavaScript/TypeScript: /** JSDoc */
+- Python: """Docstring"""
+- C#: /// <summary>...</summary>
+- C++: /// @brief ...
+- Rust: /// Documentation
+
+Code:
+%s
+
+Output ONLY the documentation comment, nothing else.`, language, code)
+
+    result, err := s.llmOrch.Complete(ctx, prompt, types.CompletionOptions{
+        MaxTokens:   500,
+        Temperature: 0.3,
+    })
+    if err != nil {
+        return "", fmt.Errorf("LLM completion: %w", err)
+    }
+
+    return result.Text, nil
+}
+
+// DetectUndocumented detects undocumented functions/classes in diff
+func (s *DocSuggester) DetectUndocumented(diff *types.Diff) []UndocumentedItem {
+    // Parse diff to find new functions/classes without docs
+    // Implementation depends on language
+    items := []UndocumentedItem{}
+
+    for _, file := range diff.Files {
+        lang := analyzer.DetectLanguage(file.Path)
+
+        // Simple heuristic: look for function definitions without preceding comments
+        lines := strings.Split(file.Content, "\n")
+        for i, line := range lines {
+            if s.isFunctionDefinition(line, lang) {
+                // Check if previous line is a comment
+                if i > 0 && !s.isComment(lines[i-1], lang) {
+                    items = append(items, UndocumentedItem{
+                        File:     file.Path,
+                        Line:     i + 1,
+                        Function: s.extractFunctionName(line, lang),
+                        Language: lang,
+                        Code:     line,
+                    })
+                }
+            }
+        }
+    }
+
+    return items
+}
+
+type UndocumentedItem struct {
+    File     string
+    Line     int
+    Function string
+    Language string
+    Code     string
+}
+
+// Helper functions
+func (s *DocSuggester) isFunctionDefinition(line, lang string) bool {
+    line = strings.TrimSpace(line)
+    switch lang {
+    case "go":
+        return strings.HasPrefix(line, "func ")
+    case "python":
+        return strings.HasPrefix(line, "def ")
+    case "javascript", "typescript":
+        return strings.Contains(line, "function ") || strings.Contains(line, "=> ")
+    default:
+        return false
+    }
+}
+
+func (s *DocSuggester) isComment(line, lang string) bool {
+    line = strings.TrimSpace(line)
+    switch lang {
+    case "go":
+        return strings.HasPrefix(line, "//")
+    case "python":
+        return strings.HasPrefix(line, "#") || strings.HasPrefix(line, "\"\"\"")
+    case "javascript", "typescript":
+        return strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*")
+    default:
+        return false
+    }
+}
+
+func (s *DocSuggester) extractFunctionName(line, lang string) string {
+    // Simple extraction - can be improved
+    words := strings.Fields(line)
+    for i, word := range words {
+        if word == "func" || word == "def" || word == "function" {
+            if i+1 < len(words) {
+                name := words[i+1]
+                return strings.TrimSuffix(strings.TrimSuffix(name, "("), ":")
+            }
+        }
+    }
+    return "unknown"
+}
+```
+
+**Enhance Review Pipeline:**
+```go
+// internal/pipeline/review_pipeline.go (add to existing)
+
+func (p *ReviewPipeline) Run(ctx context.Context, event *types.Event) error {
+    // ... existing code review logic ...
+
+    // NEW: Check for undocumented code
+    docSuggester := review.NewDocSuggester(p.llmOrch)
+    undocumented := docSuggester.DetectUndocumented(diff)
+
+    if len(undocumented) > 0 {
+        log.Printf("[ReviewPipeline] Found %d undocumented functions", len(undocumented))
+
+        for _, item := range undocumented {
+            // Generate documentation suggestion
+            suggestion, err := docSuggester.Suggest(ctx, item.Code, item.Language)
+            if err != nil {
+                log.Printf("[ReviewPipeline] Doc suggestion failed: %v", err)
+                continue
+            }
+
+            // Post as review comment
+            comment := types.ReviewComment{
+                Path:     item.File,
+                Line:     item.Line,
+                Body:     formatDocSuggestion(item, suggestion),
+                CommitID: event.CommitSHA,
+            }
+
+            p.githubClient.PostReviewComment(ctx, event.Repo, event.RepoOwner, event.PRNumber, comment)
+        }
+    }
+
+    // ... rest of existing logic ...
+}
+
+func formatDocSuggestion(item review.UndocumentedItem, suggestion string) string {
+    return fmt.Sprintf(`**Missing Documentation**
+
+The function \`%s\` lacks documentation. Consider adding:
+
+\`\`\`%s
+%s
+\`\`\`
+
+This will help future developers understand the function's purpose and usage.`,
+        item.Function, item.Language, suggestion)
+}
+```
+
+**Unit Tests:**
+```go
+// internal/review/doc_suggester_test.go
+
+package review
+
+import (
+    "context"
+    "testing"
+)
+
+func TestDocSuggester_DetectUndocumented(t *testing.T) {
+    // Test with Go code
+    // Test with Python code
+    // Test with JavaScript code
+}
+
+func TestDocSuggester_Suggest(t *testing.T) {
+    // Test with mock LLM
+    // Verify output format matches language standards
+}
+```
+
+**Git Workflow:**
+```bash
+git checkout -b feat/code-review-doc-suggestions
+# Implement doc suggester
+# Enhance review pipeline
+# Add unit tests
+go test ./internal/review/... -v
+git add -A
+git commit -m "feat(review): add documentation suggestions during code review
+
+- DocSuggester detects undocumented functions/classes
+- Generates language-appropriate doc comments via LLM
+- Supports: Go, Python, JavaScript/TypeScript, C#, C++, Rust
+- Posts suggestions as review comments
+- Unit tests with mock LLM"
+git push origin feat/code-review-doc-suggestions
+# Create PR, merge after review
+```
+
+**QA Gate:**
+- ✅ Unit tests pass
+- ✅ Integration test: Review suggests docs for undocumented code
+- ✅ Code review approved
+- ✅ CI passes
+- ✅ Merged to main
+
+---
+
+## Success Criteria
+
+### MVP Success (Must Have)
+- ✅ All orphaned code removed (internal/testing/*)
+- ✅ Hugo migrated to Jekyll
+- ✅ 8+ languages supported (Go, JS/TS, Python, C#, C/C++, Rust, Bash, PowerShell)
+- ✅ Extractor architecture implemented with registry
+- ✅ Full and incremental generation working
+- ✅ Jekyll site builds and deploys to GitHub Pages
+- ✅ LLM-generated welcome page
+- ✅ GitHub Actions workflow functional
+- ✅ End-to-end test passes with real project
+- ✅ All QA gates passed (commit + review + tests per PR)
+
+### Post-MVP (Nice to Have)
+- Code review integration suggests documentation
+- Multi-repo documentation aggregation
+- Version-based documentation (v1.0, v2.0 docs)
+- Custom extractor plugin system
+- API for programmatic access
+
+---
+
+## QA Strategy
+
+### QA Gates Per PR (MANDATORY)
+
+**Every PR MUST:**
+1. ✅ Have unit tests with 80%+ coverage (if applicable)
+2. ✅ Have integration tests (if applicable)
+3. ✅ Pass `go build ./cmd/...`
+4. ✅ Pass `go test ./...`
+5. ✅ Be code reviewed and approved
+6. ✅ Pass CI/CD checks
+7. ✅ Be committed with descriptive message
+8. ✅ Be merged to main
+
+**No exceptions!**
+
+### Test Strategy
+
+**Unit Tests:**
+- Every package in extractors/, normalizer/, incremental/
+- Mock external dependencies (LLM, git, file system)
+- Test edge cases and error handling
+
+**Integration Tests:**
+- Each extractor with real sample project in tests/fixtures/
+- Full pipeline with multi-language project
+- Jekyll site build
+
+**End-to-End Tests:**
+- Real repository with multiple languages
+- GitHub Actions workflow execution
+- Deploy to GitHub Pages
+- Verify site accessibility
+
+---
+
+## Risks & Mitigations
+
+### Risk 1: Tool Installation Complexity
+**Mitigation:** Docker container with all tools pre-installed in .docker/docs.Dockerfile
+
+### Risk 2: Tool Version Incompatibility
+**Mitigation:** Pin versions in Dockerfile, document supported versions
+
+### Risk 3: Large Repository Performance
+**Mitigation:** Incremental generation by default, parallel extractor execution
+
+### Risk 4: LLM Cost for Welcome Page
+**Mitigation:** Cache generated welcome page, only regenerate when README changes
+
+### Risk 5: Jekyll Theme Customization
+**Mitigation:** just-the-docs is highly customizable, document customization options
+
+---
+
+## Dependencies
+
+### External Tools Required
+- **gomarkdoc** - Go documentation
+- **typedoc** + **typedoc-plugin-markdown** - JavaScript/TypeScript
+- **pydoc-markdown** - Python
+- **xmldocmd** - C#
+- **doxygen** + **doxybook2** - C/C++
+- **rustdoc** (cargo) - Rust
+- **shdoc** - Bash
+- **platyPS** - PowerShell
+- **jekyll** - Site generator (optional local, GitHub Pages builds it)
+- **pagefind** - Search indexing (optional)
+
+### Internal Dependencies
+- `internal/llm/` - LLM orchestrator (for welcome page and doc suggestions)
+- `internal/git/githubclient/` - GitHub API (for deployment)
+- `internal/pipeline/orchestrator.go` - Pipeline coordinator
+
+---
+
+## Conclusion
+
+This PRD defines a complete, production-ready, multi-language documentation system that:
+
+1. ✅ **Cleans up orphaned code** safely
+2. ✅ **Migrates Hugo to Jekyll** for GitHub Pages compatibility
+3. ✅ **Supports 8+ languages** from day 1 (Go, JS/TS, Python, C#, C/C++, Rust, Bash, PowerShell)
+4. ✅ **Uses adapter pattern** for extensibility
+5. ✅ **Generates beautiful welcome page** via LLM
+6. ✅ **Supports incremental generation** for performance
+7. ✅ **Deploys to GitHub Pages** automatically
+8. ✅ **Includes rigorous QA gates** (commit + review + tests per PR)
+9. ✅ **No timelines** - AI will implement efficiently
+
+**Ready for TaskMaster parsing and task generation.**
