@@ -1556,7 +1556,7 @@
         "dependencies": [
           "20"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1608,7 +1608,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide Go extractor implementation into: 1) Create extractor struct implementing the interface with gomarkdoc integration, 2) Implement tool installation checking and command execution, 3) Add incremental generation logic for changed packages only, 4) Create integration tests with real Go packages and unit tests with mocks",
-        "updatedAt": "2025-11-03T19:31:37.910Z"
+        "updatedAt": "2025-11-03T19:53:55.627Z"
       },
       {
         "id": "22",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:50:36.342Z",
+      "lastModified": "2025-11-03T19:53:55.629Z",
       "taskCount": 32,
-      "completedCount": 21,
+      "completedCount": 22,
       "tags": [
         "master"
       ]
