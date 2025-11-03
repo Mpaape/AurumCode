@@ -1949,7 +1949,7 @@
         "dependencies": [
           "26"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1989,7 +1989,7 @@
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Divide normalizer implementation into: 1) Create front matter generation logic based on file paths and language context, 2) Implement single file and directory processing with existing front matter merging, 3) Develop comprehensive unit tests with temporary files and directory processing scenarios",
-        "updatedAt": "2025-11-03T20:58:46.932Z"
+        "updatedAt": "2025-11-03T21:01:13.912Z"
       },
       {
         "id": "28",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T20:58:46.934Z",
+      "lastModified": "2025-11-03T21:01:13.914Z",
       "taskCount": 32,
-      "completedCount": 27,
+      "completedCount": 28,
       "tags": [
         "master"
       ]
