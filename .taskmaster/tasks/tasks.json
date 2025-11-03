@@ -1435,7 +1435,7 @@
         "dependencies": [
           "18"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1483,16 +1483,16 @@
               3
             ],
             "details": "Create extractors_test.go with mock extractor implementations for testing. Implement MockExtractor struct that satisfies Extractor interface with configurable success/failure scenarios. Create test cases for Registry operations: successful registration, duplicate registration errors, concurrent access patterns, retrieval of registered/unregistered extractors. Add integration tests combining all components. Include table-driven tests for language validation and error scenarios.",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "Unit tests covering 100% of registry functionality, mock extractor behavior verification, race condition testing with go test -race, error path validation",
             "parentId": "undefined",
-            "updatedAt": "2025-11-03T19:45:54.000Z"
+            "updatedAt": "2025-11-03T19:46:10.991Z"
           }
         ],
         "complexity": 5,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide the extractor architecture into: 1) Define core interfaces (Extractor) and types (Language enum, ExtractRequest/Result structs), 2) Implement thread-safe Registry with registration and retrieval methods, 3) Create language constants and validation for 10 supported languages, 4) Develop comprehensive unit tests with mock extractors",
-        "updatedAt": "2025-11-03T19:45:54.000Z"
+        "updatedAt": "2025-11-03T19:46:10.991Z"
       },
       {
         "id": "20",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:45:54.001Z",
+      "lastModified": "2025-11-03T19:46:10.993Z",
       "taskCount": 32,
-      "completedCount": 19,
+      "completedCount": 20,
       "tags": [
         "master"
       ]
