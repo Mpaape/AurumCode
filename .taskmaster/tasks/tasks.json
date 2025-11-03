@@ -2001,7 +2001,7 @@
         "dependencies": [
           "27"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -2053,7 +2053,7 @@
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split welcome page generator into: 1) Create prompt template for transforming README.md into documentation homepage, 2) Implement LLM orchestrator integration for content generation, 3) Add Jekyll front matter generation with layout configuration, 4) Develop unit tests with mock LLM responses and README processing",
-        "updatedAt": "2025-11-03T21:01:43.323Z"
+        "updatedAt": "2025-11-03T21:04:36.723Z"
       },
       {
         "id": "29",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T21:01:43.325Z",
+      "lastModified": "2025-11-03T21:04:36.725Z",
       "taskCount": 32,
-      "completedCount": 28,
+      "completedCount": 29,
       "tags": [
         "master"
       ]
