@@ -6,7 +6,6 @@ import (
 	"aurumcode/internal/git/githubclient"
 	"aurumcode/internal/llm"
 	"aurumcode/internal/testgen"
-	"aurumcode/internal/testing/executor"
 	"aurumcode/pkg/types"
 	"context"
 	"fmt"
@@ -16,6 +15,31 @@ import (
 	"strings"
 )
 
+// TODO: Phase 7 - Replace with Docker-based test execution
+// Temporary stubs to maintain compilation
+type Language string
+type Executor interface {
+	Run(dir string) (*TestResult, error)
+	ParseCoverage(path string) (*Coverage, error)
+}
+type TestResult struct {
+	Passed, Failed, Skipped int
+	Duration                int64
+	CoveragePath            string
+	Output                  string
+}
+type Coverage struct {
+	LinePercent, BranchPercent         float64
+	TotalLines, CoveredLines           int
+	TotalBranches, CoveredBranches     int
+}
+
+const (
+	LanguageGo         Language = "go"
+	LanguagePython     Language = "python"
+	LanguageJavaScript Language = "javascript"
+)
+
 // QATestingPipeline handles the QA testing use case
 type QATestingPipeline struct {
 	config       *config.Config
@@ -23,7 +47,7 @@ type QATestingPipeline struct {
 	llmOrch      *llm.Orchestrator
 	testGen      *testgen.Generator
 	diffAnalyzer *analyzer.DiffAnalyzer
-	executors    map[executor.Language]executor.Executor
+	executors    map[Language]Executor // TODO: Phase 7 - Docker-based executors
 }
 
 // NewQATestingPipeline creates a new QA testing pipeline
@@ -38,11 +62,7 @@ func NewQATestingPipeline(
 		llmOrch:      llmOrch,
 		testGen:      testgen.NewGenerator(llmOrch),
 		diffAnalyzer: analyzer.NewDiffAnalyzer(),
-		executors: map[executor.Language]executor.Executor{
-			executor.LanguageGo:         executor.NewGoExecutor(),
-			executor.LanguagePython:     executor.NewPythonExecutor(),
-			executor.LanguageJavaScript: executor.NewJSExecutor(),
-		},
+		executors:    make(map[Language]Executor), // TODO: Phase 7 - Initialize Docker executors
 	}
 }
 
@@ -81,7 +101,7 @@ func (p *QATestingPipeline) Run(ctx context.Context, event *types.Event) error {
 
 	// Step 3: Run baseline tests (on base branch) to establish what was already failing
 	log.Printf("[QA] Running BASELINE tests (before PR changes)...")
-	baselineResults := make(map[executor.Language]*executor.TestResult)
+	baselineResults := make(map[Language]*TestResult)
 
 	// TODO: Checkout base branch, run tests, then checkout back
 	// For now, we'll run tests on current state and compare
@@ -105,7 +125,7 @@ func (p *QATestingPipeline) Run(ctx context.Context, event *types.Event) error {
 
 	// Step 4: Run tests for each language (current PR state)
 	log.Printf("[QA] Running PR tests (after PR changes)...")
-	allResults := make(map[executor.Language]*executor.TestResult)
+	allResults := make(map[Language]*TestResult)
 	var totalPassed, totalFailed, totalSkipped int
 
 	for _, lang := range languages {
@@ -136,7 +156,7 @@ func (p *QATestingPipeline) Run(ctx context.Context, event *types.Event) error {
 	preExistingFailures := p.detectPreExistingFailures(baselineResults, allResults)
 
 	// Step 4: Parse coverage if enabled
-	var coverageMap map[executor.Language]*executor.Coverage
+	var coverageMap map[Language]*Coverage
 	if p.config.Outputs.GenerateTests {
 		log.Printf("[QA] Parsing coverage reports...")
 		coverageMap = p.parseCoverage(allResults)
@@ -184,20 +204,20 @@ func (p *QATestingPipeline) Run(ctx context.Context, event *types.Event) error {
 }
 
 // detectLanguages detects languages from changed files
-func (p *QATestingPipeline) detectLanguages(diff *types.Diff) []executor.Language {
-	langSet := make(map[executor.Language]bool)
+func (p *QATestingPipeline) detectLanguages(diff *types.Diff) []Language {
+	langSet := make(map[Language]bool)
 
 	for _, file := range diff.Files {
 		// Map file language to executor language
-		var execLang executor.Language
+		var execLang Language
 
 		switch strings.ToLower(file.Lang) {
 		case "go":
-			execLang = executor.LanguageGo
+			execLang = LanguageGo
 		case "python":
-			execLang = executor.LanguagePython
+			execLang = LanguagePython
 		case "javascript", "typescript":
-			execLang = executor.LanguageJavaScript
+			execLang = LanguageJavaScript
 		default:
 			continue
 		}
@@ -205,7 +225,7 @@ func (p *QATestingPipeline) detectLanguages(diff *types.Diff) []executor.Languag
 		langSet[execLang] = true
 	}
 
-	languages := make([]executor.Language, 0, len(langSet))
+	languages := make([]Language, 0, len(langSet))
 	for lang := range langSet {
 		languages = append(languages, lang)
 	}
@@ -214,8 +234,8 @@ func (p *QATestingPipeline) detectLanguages(diff *types.Diff) []executor.Languag
 }
 
 // parseCoverage parses coverage reports for all languages
-func (p *QATestingPipeline) parseCoverage(results map[executor.Language]*executor.TestResult) map[executor.Language]*executor.Coverage {
-	coverageMap := make(map[executor.Language]*executor.Coverage)
+func (p *QATestingPipeline) parseCoverage(results map[Language]*TestResult) map[Language]*Coverage {
+	coverageMap := make(map[Language]*Coverage)
 
 	for lang, result := range results {
 		if result.CoveragePath == "" {
@@ -244,7 +264,7 @@ func (p *QATestingPipeline) parseCoverage(results map[executor.Language]*executo
 }
 
 // checkCoverageGates checks if coverage meets configured thresholds
-func (p *QATestingPipeline) checkCoverageGates(coverageMap map[executor.Language]*executor.Coverage) bool {
+func (p *QATestingPipeline) checkCoverageGates(coverageMap map[Language]*Coverage) bool {
 	// Default threshold: 80%
 	threshold := 80.0
 
@@ -264,7 +284,7 @@ func (p *QATestingPipeline) checkCoverageGates(coverageMap map[executor.Language
 }
 
 // aggregateCoverage aggregates coverage from all languages
-func (p *QATestingPipeline) aggregateCoverage(coverageMap map[executor.Language]*executor.Coverage) *types.CoverageReport {
+func (p *QATestingPipeline) aggregateCoverage(coverageMap map[Language]*Coverage) *types.CoverageReport {
 	if len(coverageMap) == 0 {
 		return nil
 	}
@@ -301,7 +321,7 @@ func (p *QATestingPipeline) aggregateCoverage(coverageMap map[executor.Language]
 func (p *QATestingPipeline) postQAReport(
 	ctx context.Context,
 	event *types.Event,
-	results map[executor.Language]*executor.TestResult,
+	results map[Language]*TestResult,
 	artifacts *types.QAArtifacts,
 	gatesPassed bool,
 ) error {
@@ -391,7 +411,7 @@ func (p *QATestingPipeline) postQAReport(
 }
 
 // detectRegressions finds tests that were passing in baseline but are now failing
-func (p *QATestingPipeline) detectRegressions(baseline, current map[executor.Language]*executor.TestResult) []string {
+func (p *QATestingPipeline) detectRegressions(baseline, current map[Language]*TestResult) []string {
 	regressions := []string{}
 
 	for lang, currResult := range current {
@@ -416,7 +436,7 @@ func (p *QATestingPipeline) detectRegressions(baseline, current map[executor.Lan
 }
 
 // detectPreExistingFailures finds tests that were already failing before this PR
-func (p *QATestingPipeline) detectPreExistingFailures(baseline, current map[executor.Language]*executor.TestResult) []string {
+func (p *QATestingPipeline) detectPreExistingFailures(baseline, current map[Language]*TestResult) []string {
 	preExisting := []string{}
 
 	for lang, currResult := range current {
@@ -446,8 +466,8 @@ func (p *QATestingPipeline) detectPreExistingFailures(baseline, current map[exec
 func (p *QATestingPipeline) postQAReportWithBaseline(
 	ctx context.Context,
 	event *types.Event,
-	baselineResults map[executor.Language]*executor.TestResult,
-	currentResults map[executor.Language]*executor.TestResult,
+	baselineResults map[Language]*TestResult,
+	currentResults map[Language]*TestResult,
 	regressions []string,
 	preExistingFailures []string,
 	artifacts *types.QAArtifacts,
