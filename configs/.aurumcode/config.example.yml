@@ -1,115 +1,156 @@
+# AurumCode Configuration Example
+# This file demonstrates all available configuration options
+# Copy to .aurumcode/config.yml in your project root to use
+
+# Configuration version
 version: "2.0"
 
-# LLM Configuration
+# LLM Provider Configuration
 llm:
-  provider: "openai"        # openai, anthropic, ollama, litellm
-  model: "gpt-4"
+  # Provider: "auto", "litellm", "openai", "anthropic", "ollama"
+  # "auto" will detect from available API keys
+  provider: "auto"
+  
+  # Model name or alias (e.g., "gpt-4", "claude-3-5-sonnet", "sonnet-like")
+  model: "sonnet-like"
+  
+  # Temperature for LLM responses (0.0 = deterministic, 1.0 = creative)
   temperature: 0.3
+  
+  # Maximum tokens for LLM responses
   max_tokens: 4000
-  budgets:
-    daily_usd: 50.0
-    per_review_tokens: 8000
 
-# Caso de Uso #1: Code Review Automático
-code_review:
-  enabled: true
-  triggers:
-    - pull_request
-    - push                  # opcional: review em push também
-  rules:
-    - code-standards.yml    # regras customizadas
-    - security-rules.yml
-  prompts:
-    default: prompts/code-review/general.md
-    security_focus: prompts/code-review/security-focus.md
-  iso_scoring:
-    enabled: true
-    weights:
-      functionality: 1.5
-      reliability: 2.0
-      security: 2.5          # peso maior para segurança
-      maintainability: 1.0
-      usability: 1.0
-      efficiency: 1.0
-      portability: 1.0
-      compatibility: 1.0
+# Custom prompts for different features
+prompts:
+  code_review: "prompts/code-review/general.md"
+  # Add more custom prompt paths as needed
 
-# Caso de Uso #2: Geração de Documentação
-documentation:
-  enabled: true
-  mode: auto                # auto, investigation, manual
-  triggers:
-    - push:main             # após merge para main
-    - pull_request:merged   # PR mergeado
-  outputs:
-    inline: true            # docs inline no código
-    changelog: true         # CHANGELOG.md
-    readme: true            # README.md
-    api_docs: true          # API.md (se OpenAPI detectado)
-    static_site: false      # Hugo + Pagefind (opcional)
-  prompts:
-    inline: prompts/documentation/inline.md
-    changelog: prompts/documentation/changelog.md
-    readme: prompts/documentation/readme.md
-    api: prompts/documentation/api.md
-  investigation_mode:
-    enabled: true           # modo investigação (geração completa)
-    use_rag: true           # usa RAG para contexto profundo
-    depth: full             # full, incremental
+# Rules and standards files
+rules:
+  code_standards: "rules/code-standards.yml"
+  iso_compliance: "rules/iso-compliance.yml"
+  security: "rules/security-rules.yml"
+  # Add more rule files as needed
 
-# Caso de Uso #3: QA Testing Automático
-qa_testing:
-  enabled: true
-  triggers:
-    - pull_request          # em todo PR
-  environments_config: qa/environments.yml
-  test_strategy_config: qa/test-strategy.yml
-  docker:
-    auto_generate_dockerfile: true  # gera Dockerfile via LLM se não existir
-    build_timeout: 600              # 10 minutos
-    container_timeout: 1800         # 30 minutos
-    cleanup_on_success: true
-    cleanup_on_failure: false       # mantém para debug
-  test_types:
-    unit: true
-    integration: true
-    api: true
-    e2e: true
-  reporting:
-    post_to_pr: true
-    coverage_threshold: 80
-    fail_on_threshold: false
+# Output configuration
+outputs:
+  # Post review comments on pull requests
+  comment_on_pr: true
+  
+  # Update documentation after changes
+  update_docs: true
+  
+  # Generate tests for new code
+  generate_tests: true
+  
+  # Deploy documentation site
+  deploy_site: true
 
-# RAG System (opcional - para modo investigação)
-rag:
-  enabled: false
-  provider: qdrant          # qdrant, local
-  collection: aurumcode-docs
-  embedding_model: text-embedding-ada-002
-  chunk_size: 1000
-  chunk_overlap: 200
-
-# GitHub Integration
-github:
-  post_comments: true
-  set_status: true
-  create_issues: false      # criar issues para problemas críticos (opcional)
-  labels:
-    review_approved: "✅ reviewed"
-    review_failed: "❌ review-failed"
-    needs_docs: "📚 needs-docs"
-    tests_passing: "🧪 tests-passing"
-
-# Cost Control
-cost_control:
-  daily_limit_usd: 50.0
-  per_run_limit_usd: 5.0
-  alert_threshold: 0.8      # alerta em 80% do budget
-  alert_webhook: ""         # webhook para alertas (opcional)
-
-# Features (enable/disable)
+# Feature toggles
 features:
+  # Enable code review functionality
   code_review: true
+  
+  # Run code review on push (vs. PR only)
   code_review_on_push: false
+  
+  # Enable documentation generation
   documentation: true
+  
+  # Enable QA testing features
   qa_testing: true
+
+# Documentation Configuration
+documentation:
+  # Enable documentation generation
+  enabled: true
+  
+  # Generation mode: "full" or "incremental"
+  # "incremental" only regenerates changed files (faster)
+  # "full" regenerates all documentation
+  mode: "incremental"
+  
+  # Output directory for generated documentation
+  output_directory: "docs"
+  
+  # Languages to document (empty array = detect and document all)
+  # Supported: go, javascript, typescript, python, csharp, rust, cpp, bash, powershell
+  languages: []
+  # Example: limit to specific languages
+  # languages: ["go", "typescript", "python"]
+  
+  # Static site generator to use
+  site_generator: "jekyll"
+  
+  # Theme for documentation site
+  theme: "just-the-docs"
+  
+  # Deployment configuration
+  deploy:
+    # Enable automatic deployment
+    enabled: true
+    
+    # Deployment target: "github-pages", "netlify", "vercel"
+    target: "github-pages"
+    
+    # Git branch for deployment (GitHub Pages)
+    branch: "gh-pages"
+    
+    # Base URL for site (leave empty for GitHub Pages auto-detection)
+    base_url: ""
+    # Example for custom domain: base_url: "https://docs.example.com"
+  
+  # Documentation features
+  features:
+    # Generate AI-powered welcome page from README
+    welcome_page: true
+    
+    # Generate API reference documentation
+    api_reference: true
+    
+    # Include tutorials section
+    tutorials: true
+    
+    # Include architecture documentation
+    architecture: true
+    
+    # Generate changelog from git history
+    changelog: true
+    
+    # Enable site search functionality
+    search: true
+  
+  # Documentation categories (control visibility)
+  categories:
+    # API documentation category
+    api: true
+    
+    # Tutorials category
+    tutorials: true
+    
+    # Architecture documentation category
+    architecture: true
+    
+    # How-to guides category
+    guides: true
+    
+    # Reference documentation category
+    reference: true
+    
+    # Roadmap and changelog category
+    roadmap: true
+  
+  # Cache configuration for incremental builds
+  cache:
+    # Enable caching for faster incremental builds
+    enabled: true
+    
+    # Cache storage directory
+    directory: ".aurumcode/cache"
+    
+    # Maximum cache age in hours (0 = no limit)
+    # After this time, cache is invalidated and full rebuild occurs
+    max_age: 168  # 1 week
+
+# Environment-specific configurations can be added here
+# For example, different settings for dev/staging/production
