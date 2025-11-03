@@ -1805,7 +1805,7 @@
         "dependencies": [
           "24"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1884,7 +1884,7 @@
         "complexity": 8,
         "recommendedSubtasks": 6,
         "expansionPrompt": "Break multi-language extractors into: 1) Implement C/C++ extractor using doxygen + doxybook2 pipeline, 2) Create Rust extractor using rustdoc/cargo doc with HTML output handling, 3) Implement Bash extractor using shdoc for comment parsing, 4) Create PowerShell extractor using platyPS module, 5) Establish common patterns across all extractors, 6) Develop comprehensive integration tests for each language",
-        "updatedAt": "2025-11-03T19:31:37.924Z"
+        "updatedAt": "2025-11-03T20:51:03.802Z"
       },
       {
         "id": "26",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T20:47:50.294Z",
+      "lastModified": "2025-11-03T20:51:03.804Z",
       "taskCount": 32,
-      "completedCount": 25,
+      "completedCount": 26,
       "tags": [
         "master"
       ]
