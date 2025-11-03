@@ -1687,7 +1687,7 @@
         "dependencies": [
           "22"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1728,7 +1728,7 @@
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break Python extractor into: 1) Implement pydoc-markdown integration with installation checking, 2) Create module and package discovery logic for Python projects, 3) Develop integration tests with Python sample containing docstrings and comprehensive unit tests",
-        "updatedAt": "2025-11-03T19:31:37.917Z"
+        "updatedAt": "2025-11-03T20:45:12.585Z"
       },
       {
         "id": "24",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T19:56:37.844Z",
+      "lastModified": "2025-11-03T20:45:12.587Z",
       "taskCount": 32,
-      "completedCount": 23,
+      "completedCount": 24,
       "tags": [
         "master"
       ]
