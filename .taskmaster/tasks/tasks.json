@@ -1512,9 +1512,10 @@
             "description": "Create the core file scanning functionality that traverses project directories while excluding common build and dependency folders",
             "dependencies": [],
             "details": "Implement recursive directory traversal in detector.go that skips excluded directories (vendor/, node_modules/, .git/, bin/, obj/, _site/, .taskmaster/). Create efficient path filtering logic using filepath.Walk or similar. Handle symlinks appropriately and avoid infinite loops. Implement configurable exclusion patterns for flexibility.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with temporary directory structure containing excluded directories, verify skipping behavior, test symlink handling, validate path filtering accuracy",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:26.917Z"
           },
           {
             "id": 2,
@@ -1524,9 +1525,10 @@
               1
             ],
             "details": "Create comprehensive file extension to language mapping (e.g., .go->Go, .js/.ts->JavaScript/TypeScript, .py->Python, .cs->C#). Implement LanguageStats struct with file counts and file lists per language. Build efficient data structures for statistics aggregation. Support configurable language definitions and handle edge cases like multiple extensions per language.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with sample files of various languages, verify extension mapping accuracy, test statistics collection, validate edge cases like unknown extensions",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:26.923Z"
           },
           {
             "id": 3,
@@ -1536,15 +1538,16 @@
               2
             ],
             "details": "Add context.Context parameter to all scanning functions and check for cancellation at regular intervals during traversal. Implement graceful shutdown that returns partial results. Create mock filesystem interface for testing using afero or similar. Build comprehensive test suite covering normal operation, cancellation scenarios, error conditions, and performance with large directory structures.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with mock filesystem covering various scenarios, integration tests with context cancellation timing, performance tests with large mock directory structures, error handling verification",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:26.928Z"
           }
         ],
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break language detection into: 1) Implement file system scanning with directory exclusion logic (vendor/, node_modules/, etc.), 2) Create language detection by file extension mapping and statistics collection, 3) Add context cancellation support and comprehensive testing with mock filesystem",
-        "updatedAt": "2025-11-03T19:50:36.340Z"
+        "updatedAt": "2025-11-03T21:21:26.928Z"
       },
       {
         "id": "21",
@@ -1564,9 +1567,10 @@
             "description": "Implement the core Go documentation extractor struct that implements the Extractor interface with gomarkdoc tool integration",
             "dependencies": [],
             "details": "Create internal/documentation/extractors/go/extractor.go with struct implementing Extractor interface. Add fields for gomarkdoc path, output directory configuration, and package discovery logic. Implement basic Extract method signature and struct initialization with proper dependency injection for external tools.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with mock interfaces for tool execution, verify struct implements Extractor interface correctly",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:35.728Z"
           },
           {
             "id": 2,
@@ -1576,9 +1580,10 @@
               1
             ],
             "details": "Implement CheckInstallation method using 'which gomarkdoc' command, provide install instructions via error messages ('go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest'). Add executeGomarkdoc method to run 'gomarkdoc -o docs/api/go/package.md ./path/to/package' with proper error handling, output capture, and timeout management.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with command execution mocks, integration tests verifying actual gomarkdoc installation and execution",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:35.733Z"
           },
           {
             "id": 3,
@@ -1588,9 +1593,10 @@
               2
             ],
             "details": "Add change detection logic using file modification times and git status to identify modified Go packages. Implement package dependency tracking to regenerate dependent packages when imports change. Store generation metadata in .docgen cache file with package paths and timestamps. Support force regeneration flag to bypass incremental logic.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for change detection logic with mock filesystem, integration tests with real Go packages and git repository",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:35.739Z"
           },
           {
             "id": 4,
@@ -1600,15 +1606,16 @@
               3
             ],
             "details": "Create tests/fixtures/go-sample/ directory with sample Go package containing exported functions, structs, and proper documentation comments. Implement integration tests verifying end-to-end markdown generation, installation checking, and incremental processing. Add unit tests with mocked command execution and filesystem operations covering error scenarios and edge cases.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests with sample Go project, unit tests achieving >90% code coverage, benchmark tests for performance validation",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:35.742Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide Go extractor implementation into: 1) Create extractor struct implementing the interface with gomarkdoc integration, 2) Implement tool installation checking and command execution, 3) Add incremental generation logic for changed packages only, 4) Create integration tests with real Go packages and unit tests with mocks",
-        "updatedAt": "2025-11-03T19:53:55.627Z"
+        "updatedAt": "2025-11-03T21:21:35.742Z"
       },
       {
         "id": "22",
@@ -1628,9 +1635,10 @@
             "description": "Create detection logic to differentiate between TypeScript and JavaScript projects by examining configuration files",
             "dependencies": [],
             "details": "Implement project type detection by checking for tsconfig.json (TypeScript) or package.json with appropriate fields (JavaScript). Create utility functions to scan project directories and determine the primary language type. Handle edge cases where both files exist and prioritize TypeScript detection. Return project type enum (TypeScript/JavaScript) for downstream processing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for detection logic with mock file systems, integration tests with sample projects containing tsconfig.json and package.json configurations",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:39.056Z"
           },
           {
             "id": 2,
@@ -1640,9 +1648,10 @@
               1
             ],
             "details": "Integrate TypeDoc with typedoc-plugin-markdown plugin for markdown output generation. Implement installation detection with 'typedoc --version' command. Provide installation instructions for 'npm install -g typedoc typedoc-plugin-markdown'. Create command execution wrapper for 'typedoc --plugin typedoc-plugin-markdown --out docs/api/javascript src/' with error handling and output parsing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Mock TypeDoc command execution, test installation detection, verify markdown output generation with sample TypeScript project",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:39.061Z"
           },
           {
             "id": 3,
@@ -1653,9 +1662,10 @@
               2
             ],
             "details": "Create project type-specific command generation logic. For TypeScript projects, use standard TypeDoc with tsconfig.json discovery. For JavaScript projects, adapt commands to handle JSDoc comments and appropriate source file patterns. Implement configuration parameter adjustment based on detected project type and ensure proper source directory scanning for both languages.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests with both JavaScript and TypeScript sample projects, verify command generation differences, test documentation extraction quality for both project types",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:39.065Z"
           },
           {
             "id": 4,
@@ -1667,15 +1677,16 @@
               3
             ],
             "details": "Develop integration test suite with tests/fixtures/js-sample/ and tests/fixtures/ts-sample/ containing realistic project structures. Test complete extraction pipeline from project detection through markdown generation. Verify TypeDoc installation detection, markdown output quality, project type detection accuracy, and error handling for missing dependencies or malformed projects.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "End-to-end integration tests with sample projects, verify generated markdown content quality, test error scenarios with missing tools or invalid project structures",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:21:39.070Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split JS/TS extractor into: 1) Implement project type detection (TypeScript vs JavaScript via tsconfig.json/package.json), 2) Create TypeDoc integration with markdown plugin for documentation generation, 3) Handle both project types with appropriate command variations, 4) Develop integration tests for both JS and TS sample projects",
-        "updatedAt": "2025-11-03T19:56:37.842Z"
+        "updatedAt": "2025-11-03T21:21:39.070Z"
       },
       {
         "id": "23",
@@ -1695,9 +1706,10 @@
             "description": "Create the core Python extractor package with pydoc-markdown tool integration, including installation detection and automated installation capabilities",
             "dependencies": [],
             "details": "Create internal/documentation/extractors/python/extractor.go implementing the Extractor interface. Add installation check using 'pydoc-markdown --version' command execution. Implement automated installation via 'pip install pydoc-markdown' with proper error handling. Create utility functions for running pydoc-markdown commands and parsing output. Include configuration options for custom pydoc-markdown installation paths.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for installation detection logic, mock command execution for pydoc-markdown version check, test error handling for missing pip/python, verify installation command execution",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:30.164Z"
           },
           {
             "id": 2,
@@ -1707,9 +1719,10 @@
               1
             ],
             "details": "Implement Python project detection by scanning for __init__.py files, setup.py, pyproject.toml, or requirements.txt. Create module discovery logic that identifies individual .py files and package directories. Handle nested package structures and relative imports. Build file tree representation of Python modules for systematic documentation extraction. Support filtering of test files and private modules (starting with underscore).",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests with sample Python project structure containing packages, modules, and nested directories. Verify correct identification of Python files vs other file types. Test filtering logic for excluding test and private modules.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:30.169Z"
           },
           {
             "id": 3,
@@ -1720,15 +1733,16 @@
               2
             ],
             "details": "Create tests/fixtures/python-sample/ directory with realistic Python project containing modules with docstrings, classes with method documentation, and package structure. Implement integration tests that verify end-to-end documentation extraction from Python source to markdown output. Add unit tests covering module discovery, pydoc-markdown command execution, error handling, and output parsing. Include tests for edge cases like missing docstrings, malformed Python files, and installation failures.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration test executes full extraction pipeline on Python sample project and validates generated markdown structure and content. Unit tests achieve high code coverage with mocked dependencies. Performance tests for large Python projects with many modules.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:30.177Z"
           }
         ],
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break Python extractor into: 1) Implement pydoc-markdown integration with installation checking, 2) Create module and package discovery logic for Python projects, 3) Develop integration tests with Python sample containing docstrings and comprehensive unit tests",
-        "updatedAt": "2025-11-03T20:45:12.585Z"
+        "updatedAt": "2025-11-03T21:22:30.177Z"
       },
       {
         "id": "24",
@@ -1748,9 +1762,10 @@
             "description": "Create functionality to detect C# projects by scanning for .csproj files and configure build settings for XML documentation generation",
             "dependencies": [],
             "details": "Implement project discovery logic to find .csproj files in the target directory. Add functionality to modify or validate build configuration to ensure XML documentation is enabled during compilation. Handle different .NET framework versions and project structures. Validate that GenerateDocumentationFile property is set to true in the project configuration.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for .csproj file detection, integration tests with sample C# projects of different .NET versions, verify build configuration detection and modification",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:33.926Z"
           },
           {
             "id": 2,
@@ -1760,9 +1775,10 @@
               1
             ],
             "details": "Create xmldocmd tool integration that checks for installation using 'xmldocmd --version', provides installation instructions using 'dotnet tool install -g xmldocmd', and executes documentation extraction commands. Handle different command-line argument formats and error scenarios. Implement proper subprocess execution with timeout handling and output capture.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for tool detection and command building, mock tests for subprocess execution, integration tests with actual xmldocmd installation",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:33.934Z"
           },
           {
             "id": 3,
@@ -1772,9 +1788,10 @@
               1
             ],
             "details": "Execute 'dotnet build /p:GenerateDocumentationFile=true' commands to build C# projects with XML documentation enabled. Handle different .NET framework versions (netX.0) and locate generated XML files in bin/Debug/ directories. Implement error handling for build failures and missing dependencies. Support both single projects and solution files.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests with sample C# projects, verify XML documentation file generation, test build error handling, validate output file location detection",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:33.938Z"
           },
           {
             "id": 4,
@@ -1785,15 +1802,16 @@
               3
             ],
             "details": "Create tests/fixtures/csharp-sample/ directory with a complete C# project containing XML documentation comments. Implement integration tests that verify the entire workflow: project detection, build with documentation, xmldocmd extraction, and markdown output validation. Test various XML documentation comment types including summaries, parameters, returns, and examples.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "End-to-end integration tests with fixture project, verify complete documentation extraction pipeline, validate markdown output quality and completeness",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:33.944Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Divide C# extractor into: 1) Implement .csproj project detection and XML documentation build configuration, 2) Create xmldocmd tool integration with proper command execution, 3) Handle .NET build process with documentation generation flags, 4) Develop integration tests with sample C# project containing XML docs",
-        "updatedAt": "2025-11-03T20:47:50.292Z"
+        "updatedAt": "2025-11-03T21:22:33.944Z"
       },
       {
         "id": "25",
@@ -1813,9 +1831,10 @@
             "description": "Create C/C++ documentation extractor that uses doxygen to generate XML documentation and doxybook2 to convert XML to markdown format",
             "dependencies": [],
             "details": "Create internal/documentation/extractors/cpp/ package implementing Extractor interface. Check for doxygen installation with 'doxygen --version' and doxybook2 with 'doxybook2 --version'. Provide installation instructions for both tools. Generate Doxyfile configuration, run 'doxygen Doxyfile' to create XML output, then use 'doxybook2 --input xml/ --output docs/api/cpp/' to convert to markdown. Handle both C and C++ projects by detecting header files and source files.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration test with tests/fixtures/cpp-sample/ containing C/C++ source files with doxygen comments, verify tool installation detection, test XML generation and markdown conversion pipeline",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:37.731Z"
           },
           {
             "id": 2,
@@ -1825,9 +1844,10 @@
               1
             ],
             "details": "Create internal/documentation/extractors/rust/ package for Rust projects. Check for rustc and cargo installation with 'rustc --version' and 'cargo --version'. Detect Rust projects by presence of Cargo.toml. Generate documentation using 'cargo doc --no-deps' which produces HTML output. Either accept HTML output as-is or implement HTML to markdown conversion using a tool like pandoc. Handle both library and binary crate types appropriately.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration test with tests/fixtures/rust-sample/ containing Cargo.toml and Rust source files with doc comments, verify cargo doc execution, test HTML output handling and optional markdown conversion",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:37.738Z"
           },
           {
             "id": 3,
@@ -1837,9 +1857,10 @@
               2
             ],
             "details": "Create internal/documentation/extractors/bash/ package implementing Bash documentation extraction. Check for shdoc installation with 'shdoc --version', provide installation instructions (typically 'curl -s https://raw.githubusercontent.com/reconquest/shdoc/master/shdoc > /usr/local/bin/shdoc && chmod +x /usr/local/bin/shdoc'). Parse .sh and .bash files, extract documentation comments above functions using 'shdoc input.sh > docs/api/bash/input.md'. Handle multiple script files in a project.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration test with tests/fixtures/bash-sample/ containing bash scripts with shdoc-formatted comments above functions, verify shdoc installation check, test markdown generation from comment parsing",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:37.747Z"
           },
           {
             "id": 4,
@@ -1849,9 +1870,10 @@
               3
             ],
             "details": "Create internal/documentation/extractors/powershell/ package for PowerShell script documentation. Check for PowerShell installation with 'pwsh --version' or 'powershell --version'. Verify platyPS module with 'pwsh -c \"Get-Module -ListAvailable platyPS\"'. Install with 'pwsh -c \"Install-Module -Name platyPS -Scope CurrentUser\"'. Extract documentation from .ps1 and .psm1 files using platyPS commands like 'New-MarkdownHelp' to generate markdown from PowerShell help comments.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration test with tests/fixtures/powershell-sample/ containing PowerShell scripts with comment-based help, verify PowerShell and platyPS module detection, test markdown help generation",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:37.751Z"
           },
           {
             "id": 5,
@@ -1864,9 +1886,10 @@
               4
             ],
             "details": "Refactor common functionality into shared utilities in internal/documentation/extractors/common/ package. Establish consistent error handling, tool installation checking, project detection, and output formatting patterns. Create base extractor interface methods that all language extractors implement. Ensure consistent directory structure, naming conventions, and configuration handling across all four new extractors. Document extractor development guidelines.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for shared utilities, integration tests verifying consistent behavior across all four extractors, validate common interface compliance and error handling patterns",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:37.755Z"
           },
           {
             "id": 6,
@@ -1876,15 +1899,16 @@
               5
             ],
             "details": "Expand tests/fixtures/ with comprehensive sample projects: cpp-sample/ with doxygen comments, rust-sample/ with doc comments and Cargo.toml, bash-sample/ with shdoc-formatted scripts, and powershell-sample/ with comment-based help. Create integration tests in internal/documentation/extractors/*_test.go files that verify tool detection, installation checking, documentation generation, and error handling for each language. Include end-to-end pipeline tests.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration test suite covering successful documentation generation, tool missing scenarios, invalid project structures, and error recovery for all four language extractors",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:37.760Z"
           }
         ],
         "complexity": 8,
         "recommendedSubtasks": 6,
         "expansionPrompt": "Break multi-language extractors into: 1) Implement C/C++ extractor using doxygen + doxybook2 pipeline, 2) Create Rust extractor using rustdoc/cargo doc with HTML output handling, 3) Implement Bash extractor using shdoc for comment parsing, 4) Create PowerShell extractor using platyPS module, 5) Establish common patterns across all extractors, 6) Develop comprehensive integration tests for each language",
-        "updatedAt": "2025-11-03T20:51:03.802Z"
+        "updatedAt": "2025-11-03T21:22:37.760Z"
       },
       {
         "id": "26",
@@ -1904,9 +1928,10 @@
             "description": "Set up the core Jekyll configuration files including _config.yml with just-the-docs remote theme and Gemfile with Jekyll dependencies",
             "dependencies": [],
             "details": "Create docs/_config.yml with just-the-docs remote theme configuration, title, description, baseurl, url, GitHub repository links, search_enabled: true, navigation sorting settings, and proper theme configuration. Create docs/Gemfile with Jekyll gem, just-the-docs theme, and any required plugins. Configure proper Jekyll settings for GitHub Pages compatibility.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Validate configuration with 'cd docs/ && bundle install' to ensure dependencies resolve correctly, check _config.yml syntax with Jekyll --config-check if available",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:41.438Z"
           },
           {
             "id": 2,
@@ -1916,9 +1941,10 @@
               1
             ],
             "details": "Create docs/ directory structure with folders for Stack/, Architecture/, Tutorials/, API/, Roadmap/, and Custom/ sections. Each section should have proper navigation hierarchy supporting the just-the-docs theme. Create any necessary subdirectories and ensure proper organization for multi-level navigation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify all directories are created with proper structure, ensure directory names follow Jekyll conventions and are compatible with just-the-docs navigation",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:41.445Z"
           },
           {
             "id": 3,
@@ -1929,15 +1955,16 @@
               2
             ],
             "details": "Create docs/index.md as main landing page with proper front matter (layout, title, nav_order). Create index.md files for each section (Stack, Architecture, Tutorials, API, Roadmap, Custom) with appropriate front matter including title, layout, nav_order, and has_children if applicable. Ensure all files follow Jekyll front matter conventions and just-the-docs theme requirements.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run 'cd docs/ && bundle exec jekyll build' to verify site builds without errors, check _site/ directory creation, test local server with 'bundle exec jekyll serve' and verify navigation works correctly",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:22:41.453Z"
           }
         ],
         "complexity": 4,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Break Jekyll setup into: 1) Create complete Jekyll configuration (_config.yml, Gemfile) with just-the-docs theme, 2) Establish directory structure for all documentation sections (Stack, Architecture, Tutorials, API, Roadmap, Custom), 3) Create placeholder content and validate Jekyll build process",
-        "updatedAt": "2025-11-03T20:58:10.732Z"
+        "updatedAt": "2025-11-03T21:22:41.453Z"
       },
       {
         "id": "27",
@@ -1957,9 +1984,10 @@
             "description": "Implement core front matter generation functionality that analyzes file paths and language context to create appropriate Jekyll YAML front matter",
             "dependencies": [],
             "details": "Create internal/documentation/normalizer/frontmatter.go with functions to generate Jekyll front matter based on file path analysis. Implement logic to determine title from filename, layout from file type, parent/grand_parent from directory structure, and nav_order from file position. Support language-specific context inference for generating appropriate metadata fields like category, tags, and custom Jekyll variables.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for front matter generation with various file paths, verify correct title extraction from filenames, test parent/child relationship detection from directory structures, validate nav_order assignment logic",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:40.399Z"
           },
           {
             "id": 2,
@@ -1969,9 +1997,10 @@
               1
             ],
             "details": "Implement NormalizeFile() function to process single markdown files by reading existing content, parsing any existing YAML front matter, merging with generated front matter, and writing back to file. Create NormalizeDir() function for recursive directory processing. Handle YAML parsing errors gracefully, preserve existing front matter values when conflicts occur, and support dry-run mode for validation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with temporary files containing existing front matter, verify merging logic preserves user values, test directory traversal with nested structures, validate error handling for malformed YAML",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:40.408Z"
           },
           {
             "id": 3,
@@ -1981,15 +2010,16 @@
               2
             ],
             "details": "Implement comprehensive unit tests using temporary directories and files to test all normalizer functionality. Create test scenarios for files without front matter, files with existing front matter, empty files, malformed YAML, nested directory structures, and various file types. Include integration tests that verify end-to-end processing of sample markdown files and validate generated Jekyll front matter compatibility.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Create temporary test directories with sample markdown files, verify front matter addition and merging scenarios, test error conditions with malformed files, validate Jekyll compatibility of generated front matter",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:40.414Z"
           }
         ],
         "complexity": 5,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Divide normalizer implementation into: 1) Create front matter generation logic based on file paths and language context, 2) Implement single file and directory processing with existing front matter merging, 3) Develop comprehensive unit tests with temporary files and directory processing scenarios",
-        "updatedAt": "2025-11-03T21:01:13.912Z"
+        "updatedAt": "2025-11-03T21:23:40.414Z"
       },
       {
         "id": "28",
@@ -2009,9 +2039,10 @@
             "description": "Create the prompt template file that will guide the LLM in transforming README.md content into a structured documentation homepage",
             "dependencies": [],
             "details": "Create .aurumcode/prompts/documentation/welcome-page.md template file with structured prompts for generating hero section, features grid, quick start guide, and navigation from README.md content. Template should include clear instructions for LLM on output format, sections to extract, and Jekyll front matter requirements. Include examples of expected input/output transformations.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests to verify template file creation, validate template structure and content format, test template loading and parsing",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:44.886Z"
           },
           {
             "id": 2,
@@ -2021,9 +2052,10 @@
               1
             ],
             "details": "Create generator.go in internal/documentation/welcome/ package that integrates with the LLM orchestrator. Implement ReadmeProcessor that loads README.md, applies the welcome page prompt template, and generates structured content. Handle LLM API calls, response parsing, and error handling for failed generations. Include retry logic and timeout handling.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with mock LLM orchestrator responses, test README.md loading and processing, verify error handling and retry logic",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:44.898Z"
           },
           {
             "id": 3,
@@ -2033,9 +2065,10 @@
               2
             ],
             "details": "Extend the generator to create proper Jekyll front matter with layout: home configuration. Generate YAML front matter with title, description, permalink, and other Jekyll-specific metadata. Ensure output format is compatible with Jekyll site generation and includes proper formatting for the documentation homepage.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests to verify Jekyll front matter generation, validate YAML format and required fields, test integration with generated content",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:44.905Z"
           },
           {
             "id": 4,
@@ -2045,15 +2078,16 @@
               3
             ],
             "details": "Implement comprehensive unit test suite covering all components: mock LLM orchestrator with predefined responses, test README.md processing with various content formats, validate prompt template application, verify Jekyll front matter generation, and ensure complete end-to-end pipeline functionality. Include edge cases like empty README, malformed content, and LLM API failures.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Comprehensive unit test suite with mock LLM responses, integration tests with sample README files, error scenario testing",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:44.909Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Split welcome page generator into: 1) Create prompt template for transforming README.md into documentation homepage, 2) Implement LLM orchestrator integration for content generation, 3) Add Jekyll front matter generation with layout configuration, 4) Develop unit tests with mock LLM responses and README processing",
-        "updatedAt": "2025-11-03T21:04:36.723Z"
+        "updatedAt": "2025-11-03T21:23:44.909Z"
       },
       {
         "id": "29",
@@ -2073,9 +2107,10 @@
             "description": "Create ChangeDetector in detector.go that uses git diff commands to identify changed files",
             "dependencies": [],
             "details": "Implement ChangeDetector struct with DetectChanges() method using 'git diff --name-only' command, DetectChangesSinceLast() for incremental builds tracking last processed commit, and proper error handling for git command execution. Include validation for git repository existence and handling edge cases like initial commits.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests with mock git repository, test change detection between commits, verify git command execution and error handling",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:49.607Z"
           },
           {
             "id": 2,
@@ -2085,9 +2120,10 @@
               1
             ],
             "details": "Create Cache struct with methods for storing and retrieving source→doc file mappings, implement JSON serialization/deserialization for persistence, add cache invalidation logic, and support for cache file management. Include thread-safe operations and proper error handling for file I/O operations.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for cache serialization/deserialization, verify file persistence, test cache invalidation and concurrent access scenarios",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:49.615Z"
           },
           {
             "id": 3,
@@ -2098,9 +2134,10 @@
               2
             ],
             "details": "Create logic in ChangeDetector to analyze changed source files against cached mappings and determine affected documentation files. Support dependency graph analysis for cascading changes, handle new files without existing mappings, and provide efficient algorithms for large codebases with complex file relationships.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests validating affected doc file mapping, test dependency graph scenarios, verify handling of new and deleted files",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:49.624Z"
           },
           {
             "id": 4,
@@ -2112,15 +2149,16 @@
               3
             ],
             "details": "Create comprehensive unit tests covering ChangeDetector and Cache functionality, implement mock git repository for testing different change scenarios, test first-run vs incremental build scenarios, validate error handling and edge cases, and ensure proper test coverage for all public methods and interfaces.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Full test suite with mock git repository, test change detection scenarios, cache persistence tests, integration tests for complete incremental workflow",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:49.629Z"
           }
         ],
         "complexity": 7,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Break incremental support into: 1) Implement git-based change detection using git diff commands, 2) Create cache system for source-to-documentation file mappings with JSON persistence, 3) Develop affected documentation determination logic, 4) Create comprehensive unit tests with mock git repository and cache scenarios",
-        "updatedAt": "2025-11-03T21:07:24.021Z"
+        "updatedAt": "2025-11-03T21:23:49.629Z"
       },
       {
         "id": "30",
@@ -2140,9 +2178,10 @@
             "description": "Enhance docs_pipeline.go to integrate with language detection system and extractor registry for processing multiple programming languages",
             "dependencies": [],
             "details": "Import and integrate the language detection package to identify programming languages in the project. Connect with the extractor registry to dynamically load appropriate extractors for detected languages. Implement configuration-driven language filtering to allow users to specify which languages to process. Add proper error handling for unsupported languages and graceful fallback mechanisms.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for language detection integration, mock extractor registry tests, verify configuration filtering works correctly",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:54.412Z"
           },
           {
             "id": 2,
@@ -2152,9 +2191,10 @@
               1
             ],
             "details": "Implement git-based change detection to identify modified files since last documentation generation. Create incremental mode that processes only changed files and their dependencies. Add full generation mode for complete rebuilds. Store generation metadata and timestamps for change tracking. Integrate with existing file system utilities for efficient file monitoring.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests with git repositories, verify incremental processing only updates changed files, test full mode processes entire project",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:54.417Z"
           },
           {
             "id": 3,
@@ -2164,9 +2204,10 @@
               2
             ],
             "details": "Create markdown normalization engine to standardize formatting, fix common issues, and ensure consistent structure across generated documentation. Integrate with existing LLM orchestrator to generate contextual welcome pages that summarize project structure and key documentation sections. Add configuration options for markdown formatting preferences and LLM prompt customization.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for markdown normalization functions, integration tests with LLM orchestrator, verify welcome page generation quality",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:54.422Z"
           },
           {
             "id": 4,
@@ -2176,9 +2217,10 @@
               3
             ],
             "details": "Add Jekyll site structure creation with proper _config.yml, navigation, and theme integration. Implement Jekyll build validation to catch configuration errors and broken links. Create gh-pages branch deployment logic using existing GitHub client. Add rollback mechanisms for failed deployments and validation checks before publishing. Support both manual and automated deployment modes.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests with Jekyll build process, verify gh-pages deployment functionality, test validation catches common Jekyll errors",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:54.429Z"
           },
           {
             "id": 5,
@@ -2188,15 +2230,16 @@
               4
             ],
             "details": "Implement comprehensive error handling throughout the pipeline with graceful degradation for missing tools or failed operations. Create detailed logging and progress reporting. Add recovery mechanisms for partial failures. Develop integration test suite covering multi-language projects, incremental processing, Jekyll deployment, and error scenarios. Include performance benchmarks and validation of end-to-end pipeline execution.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "End-to-end integration tests with complete multi-language project, error injection tests, performance benchmarks, verify graceful degradation works correctly",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-11-03T21:23:54.432Z"
           }
         ],
         "complexity": 8,
         "recommendedSubtasks": 5,
         "expansionPrompt": "Divide complete pipeline into: 1) Integrate language detection and extractor registry for multi-language processing, 2) Implement incremental vs full generation modes with change detection, 3) Add markdown normalization and LLM welcome page generation, 4) Create Jekyll site validation and gh-pages deployment logic, 5) Develop comprehensive integration tests and error handling with graceful degradation",
-        "updatedAt": "2025-11-03T21:10:28.395Z"
+        "updatedAt": "2025-11-03T21:23:54.432Z"
       },
       {
         "id": "31",
@@ -2325,7 +2368,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T21:12:53.310Z",
+      "lastModified": "2025-11-03T21:23:54.433Z",
       "taskCount": 32,
       "completedCount": 32,
       "tags": [
