@@ -2065,7 +2065,7 @@
         "dependencies": [
           "28"
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -2120,7 +2120,7 @@
         "complexity": 7,
         "recommendedSubtasks": 4,
         "expansionPrompt": "Break incremental support into: 1) Implement git-based change detection using git diff commands, 2) Create cache system for source-to-documentation file mappings with JSON persistence, 3) Develop affected documentation determination logic, 4) Create comprehensive unit tests with mock git repository and cache scenarios",
-        "updatedAt": "2025-11-03T21:05:08.090Z"
+        "updatedAt": "2025-11-03T21:07:24.021Z"
       },
       {
         "id": "30",
@@ -2325,9 +2325,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-11-03T21:05:08.092Z",
+      "lastModified": "2025-11-03T21:07:24.022Z",
       "taskCount": 32,
-      "completedCount": 29,
+      "completedCount": 30,
       "tags": [
         "master"
       ]
