@@ -4,7 +4,8 @@
       "mcp__task-master-ai__parse_prd",
       "mcp__task-master-ai__models",
       "mcp__task-master-ai__get_tasks",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(task-master show:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
