@@ -3,6 +3,7 @@ package goextractor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -215,7 +216,7 @@ func TestGoExtractor_Extract_ContextCancellation(t *testing.T) {
 
 	// Create multiple test packages
 	for i := 0; i < 10; i++ {
-		pkgDir := filepath.Join(tmpDir, "pkg"+string(rune(i)))
+		pkgDir := filepath.Join(tmpDir, fmt.Sprintf("pkg_%d", i))
 		if err := os.MkdirAll(pkgDir, 0755); err != nil {
 			t.Fatalf("failed to create package directory: %v", err)
 		}
@@ -257,11 +258,11 @@ func TestGoExtractor_findGoPackages(t *testing.T) {
 		{"pkg1", true, "main.go"},
 		{"pkg2", true, "utils.go"},
 		{"pkg3/subpkg", true, "helper.go"},
-		{"vendor/external", true, "vendor.go"},      // Should be excluded
-		{"node_modules/lib", true, "lib.go"},       // Should be excluded
-		{".git/hooks", true, "hook.go"},            // Should be excluded
-		{"nogofiles", false, ""},                   // No Go files, should be excluded
-		{"testdata", true, "test.go"},              // Should be excluded
+		{"vendor/external", true, "vendor.go"}, // Should be excluded
+		{"node_modules/lib", true, "lib.go"},   // Should be excluded
+		{".git/hooks", true, "hook.go"},        // Should be excluded
+		{"nogofiles", false, ""},               // No Go files, should be excluded
+		{"testdata", true, "test.go"},          // Should be excluded
 	}
 
 	for _, td := range testDirs {

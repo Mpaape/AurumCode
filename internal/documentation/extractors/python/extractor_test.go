@@ -3,6 +3,7 @@ package python
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -226,12 +227,12 @@ func TestPythonExtractor_findPythonModules(t *testing.T) {
 		{"module1", true, "main.py"},
 		{"module2", true, "utils.py"},
 		{"module3/submodule", true, "helper.py"},
-		{"venv/lib", true, "package.py"},           // Should be excluded
-		{".venv/lib", true, "package.py"},          // Should be excluded
-		{"__pycache__", true, "cache.py"},          // Should be excluded
-		{".git/hooks", true, "hook.py"},            // Should be excluded
-		{"tests", true, "test_utils.py"},           // Should be excluded (test file)
-		{"module4", true, "app_test.py"},           // Should be excluded (test file)
+		{"venv/lib", true, "package.py"},  // Should be excluded
+		{".venv/lib", true, "package.py"}, // Should be excluded
+		{"__pycache__", true, "cache.py"}, // Should be excluded
+		{".git/hooks", true, "hook.py"},   // Should be excluded
+		{"tests", true, "test_utils.py"},  // Should be excluded (test file)
+		{"module4", true, "app_test.py"},  // Should be excluded (test file)
 	}
 
 	for _, td := range testDirs {
@@ -442,7 +443,7 @@ func TestPythonExtractor_Extract_ContextCancellation(t *testing.T) {
 
 	// Create multiple test modules
 	for i := 0; i < 10; i++ {
-		moduleDir := filepath.Join(tmpDir, "module"+string(rune(i)))
+		moduleDir := filepath.Join(tmpDir, "module"+fmt.Sprintf("_%d", i))
 		if err := os.MkdirAll(moduleDir, 0755); err != nil {
 			t.Fatalf("failed to create module directory: %v", err)
 		}

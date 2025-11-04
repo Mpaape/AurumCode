@@ -362,23 +362,31 @@ func detectLanguageFromFile(file string) extractors.Language {
 
 // shouldSkipPath checks if path should be skipped during file discovery
 func shouldSkipPath(path string) bool {
-	skipDirs := []string{
-		"node_modules",
-		".git",
-		".github",
-		"vendor",
-		"target",
-		"dist",
-		"build",
-		"_site",
-		".taskmaster",
-		".aurumcode",
+	skipDirs := map[string]struct{}{
+		"node_modules": {},
+		".git":         {},
+		".github":      {},
+		"vendor":       {},
+		"target":       {},
+		"dist":         {},
+		"build":        {},
+		"_site":        {},
+		".taskmaster":  {},
+		".aurumcode":   {},
 	}
 
-	for _, skip := range skipDirs {
-		if filepath.Base(path) == skip || filepath.Base(filepath.Dir(path)) == skip {
+	clean := filepath.Clean(path)
+	for {
+		base := filepath.Base(clean)
+		if _, skip := skipDirs[base]; skip {
 			return true
 		}
+
+		parent := filepath.Dir(clean)
+		if parent == clean || parent == "." || parent == string(filepath.Separator) {
+			break
+		}
+		clean = parent
 	}
 
 	return false

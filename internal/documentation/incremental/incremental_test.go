@@ -277,6 +277,7 @@ func TestManager_IsFirstRun(t *testing.T) {
 		t.Error("New manager should be first run")
 	}
 
+	manager.cache.AddMapping("file.go", "docs/file.md")
 	manager.cache.UpdateCommit("abc123")
 
 	if manager.IsFirstRun() {

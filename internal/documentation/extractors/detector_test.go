@@ -2,6 +2,7 @@ package extractors
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,16 +63,16 @@ func TestDetector_Detect(t *testing.T) {
 
 	// Create test files
 	testFiles := map[string]string{
-		"main.go":              "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n",
-		"utils.go":             "package main\n\nfunc helper() {}\n",
-		"app.js":               "console.log('hello');\n",
-		"script.py":            "print('hello')\n",
-		"component.tsx":        "export default function Component() {}\n",
-		"README.md":            "# README\n",
-		"subdir/nested.go":     "package subdir\n",
-		"subdir/nested.py":     "def foo(): pass\n",
-		"vendor/external.go":   "package vendor\n", // Should be excluded
-		"node_modules/lib.js":  "module.exports = {};\n", // Should be excluded
+		"main.go":             "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n",
+		"utils.go":            "package main\n\nfunc helper() {}\n",
+		"app.js":              "console.log('hello');\n",
+		"script.py":           "print('hello')\n",
+		"component.tsx":       "export default function Component() {}\n",
+		"README.md":           "# README\n",
+		"subdir/nested.go":    "package subdir\n",
+		"subdir/nested.py":    "def foo(): pass\n",
+		"vendor/external.go":  "package vendor\n",       // Should be excluded
+		"node_modules/lib.js": "module.exports = {};\n", // Should be excluded
 	}
 
 	for path, content := range testFiles {
@@ -189,7 +190,7 @@ func TestDetector_Detect_ContextCancellation(t *testing.T) {
 
 	// Create many files to increase detection time
 	for i := 0; i < 100; i++ {
-		path := filepath.Join(tmpDir, "file"+string(rune(i))+".go")
+		path := filepath.Join(tmpDir, fmt.Sprintf("file_%d.go", i))
 		if err := os.WriteFile(path, []byte("package main\n"), 0644); err != nil {
 			t.Fatalf("failed to create file: %v", err)
 		}

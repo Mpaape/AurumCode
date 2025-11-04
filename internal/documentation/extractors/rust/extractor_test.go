@@ -3,8 +3,6 @@ package rust
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"

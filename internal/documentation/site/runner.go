@@ -122,14 +122,45 @@ func (m *MockRunner) Run(ctx context.Context, cmd string, args []string, workdir
 		key = fmt.Sprintf("%s %s", cmd, strings.Join(args, " "))
 	}
 
-	// Check for error
+	// Check for exact error
 	if err, ok := m.errors[key]; ok {
+		return "", err
+	}
+
+	shortKey := key
+	if len(args) > 0 {
+		shortKey = fmt.Sprintf("%s %s", cmd, args[0])
+	}
+
+	// Fallback to less specific errors
+	if err, ok := m.errors[shortKey]; ok {
+		return "", err
+	}
+	if err, ok := m.errors[cmd]; ok {
 		return "", err
 	}
 
 	// Return output
 	if output, ok := m.outputs[key]; ok {
 		return output, nil
+	}
+	if output, ok := m.outputs[shortKey]; ok {
+		return output, nil
+	}
+	if output, ok := m.outputs[cmd]; ok {
+		return output, nil
+	}
+
+	for storedKey, err := range m.errors {
+		if strings.HasPrefix(key, storedKey) {
+			return "", err
+		}
+	}
+
+	for storedKey, output := range m.outputs {
+		if strings.HasPrefix(key, storedKey) {
+			return output, nil
+		}
 	}
 
 	// Default success
