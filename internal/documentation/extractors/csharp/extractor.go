@@ -169,7 +169,8 @@ func (c *CSharpExtractor) findCSharpProjects(rootDir string) ([]string, error) {
 
 // getProjectName extracts project name from .csproj path
 func (c *CSharpExtractor) getProjectName(projectPath string) string {
-	base := filepath.Base(projectPath)
+	normalized := strings.ReplaceAll(projectPath, "\\", "/")
+	base := filepath.Base(normalized)
 	return strings.TrimSuffix(base, ".csproj")
 }
 

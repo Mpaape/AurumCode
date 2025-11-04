@@ -136,45 +136,57 @@ func (j *JSExtractor) detectProjectType(rootDir string) (ProjectType, error) {
 
 // hasTypeScriptFiles checks if directory contains .ts or .tsx files
 func (j *JSExtractor) hasTypeScriptFiles(dir string) (bool, error) {
-	entries, err := os.ReadDir(dir)
+	found := false
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		name := d.Name()
+		if strings.HasSuffix(name, ".ts") || strings.HasSuffix(name, ".tsx") {
+			found = true
+			return filepath.SkipDir
+		}
+
+		return nil
+	})
 	if err != nil {
 		return false, err
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		if strings.HasSuffix(name, ".ts") || strings.HasSuffix(name, ".tsx") {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return found, nil
 }
 
 // hasJavaScriptFiles checks if directory contains .js or .jsx files
 func (j *JSExtractor) hasJavaScriptFiles(dir string) (bool, error) {
-	entries, err := os.ReadDir(dir)
+	found := false
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		name := d.Name()
+		if strings.HasSuffix(name, ".js") || strings.HasSuffix(name, ".jsx") ||
+			strings.HasSuffix(name, ".mjs") || strings.HasSuffix(name, ".cjs") {
+			found = true
+			return filepath.SkipDir
+		}
+
+		return nil
+	})
 	if err != nil {
 		return false, err
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		if strings.HasSuffix(name, ".js") || strings.HasSuffix(name, ".jsx") ||
-			strings.HasSuffix(name, ".mjs") || strings.HasSuffix(name, ".cjs") {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return found, nil
 }
 
 // findEntryPoint finds the entry point for TypeDoc
@@ -221,7 +233,7 @@ func (j *JSExtractor) extractDocs(ctx context.Context, entryPoint, outputDir str
 
 	// Additional flags for better output
 	args = append(args, "--readme", "none") // Don't include README in output
-	args = append(args, "--hideGenerator")   // Hide TypeDoc generator info
+	args = append(args, "--hideGenerator")  // Hide TypeDoc generator info
 
 	_, err := j.runner.Run(ctx, "typedoc", args, ".", nil)
 	if err != nil {

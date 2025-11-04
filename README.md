@@ -53,7 +53,14 @@ jobs:
 
 **See [ACTION_USAGE.md](ACTION_USAGE.md) for complete documentation.**
 
-### Local Usage
+#
+## LLM Providers
+
+- **LiteLLM / PROVEDOR**: set `PROVEDOR_API_KEY` and `PROVEDOR_BASE_URL` (optional `PROVEDOR_MODEL`, default `gpt-4o-mini`).
+- **OpenAI fallback**: if the PROVEDOR variables are unset, `OPENAI_API_KEY` is used when available.
+- Without credentials the pipeline still runs, but skips AI welcome page generation.
+
+## Local Usage
 
 ```bash
 # Clone the repository
@@ -63,6 +70,8 @@ cd AurumCode
 # Set API keys (optional - for AI features)
 export PROVEDOR_API_KEY=your_key_here
 export PROVEDOR_BASE_URL=https://your-endpoint
+export PROVEDOR_MODEL=gpt-4o-mini  # optional
+# Also accepted: OPENAI_API_KEY as fallback
 
 # Generate documentation
 go run cmd/regenerate-docs/main.go

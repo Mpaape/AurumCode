@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 // Normalizer handles adding Jekyll front matter to markdown files
@@ -138,29 +139,72 @@ func detectSection(path string) string {
 
 // detectLanguage attempts to identify programming language from path
 func detectLanguage(path string) string {
-	// Common language patterns in paths
-	languagePatterns := map[string][]string{
-		"go":         {"go", "golang"},
-		"python":     {"python", "py"},
-		"javascript": {"javascript", "js", "node"},
-		"typescript": {"typescript", "ts"},
-		"java":       {"java"},
-		"csharp":     {"csharp", "cs", "dotnet"},
-		"cpp":        {"cpp", "c++", "cxx"},
-		"rust":       {"rust", "rs"},
-		"ruby":       {"ruby", "rb"},
-		"php":        {"php"},
-		"bash":       {"bash", "sh", "shell"},
-		"powershell": {"powershell", "ps1"},
-	}
-
 	lowerPath := strings.ToLower(path)
 
-	for lang, patterns := range languagePatterns {
-		for _, pattern := range patterns {
-			if strings.Contains(lowerPath, pattern) {
-				return lang
-			}
+	ext := strings.TrimPrefix(filepath.Ext(lowerPath), ".")
+	extToLang := map[string]string{
+		"go":   "go",
+		"py":   "python",
+		"js":   "javascript",
+		"mjs":  "javascript",
+		"cjs":  "javascript",
+		"ts":   "typescript",
+		"tsx":  "typescript",
+		"cs":   "csharp",
+		"java": "java",
+		"cpp":  "cpp",
+		"cc":   "cpp",
+		"cxx":  "cpp",
+		"h":    "cpp",
+		"hpp":  "cpp",
+		"rs":   "rust",
+		"rb":   "ruby",
+		"php":  "php",
+		"sh":   "bash",
+		"bash": "bash",
+		"ps1":  "powershell",
+		"psm1": "powershell",
+	}
+
+	if lang, ok := extToLang[ext]; ok {
+		return lang
+	}
+
+	tokens := strings.FieldsFunc(lowerPath, func(r rune) bool {
+		return !(unicode.IsLetter(r) || unicode.IsNumber(r))
+	})
+
+	patterns := map[string]string{
+		"go":         "go",
+		"golang":     "go",
+		"python":     "python",
+		"py":         "python",
+		"javascript": "javascript",
+		"js":         "javascript",
+		"node":       "javascript",
+		"typescript": "typescript",
+		"ts":         "typescript",
+		"java":       "java",
+		"csharp":     "csharp",
+		"cs":         "csharp",
+		"dotnet":     "csharp",
+		"cpp":        "cpp",
+		"cxx":        "cpp",
+		"rust":       "rust",
+		"rs":         "rust",
+		"ruby":       "ruby",
+		"rb":         "ruby",
+		"php":        "php",
+		"bash":       "bash",
+		"shell":      "bash",
+		"sh":         "bash",
+		"powershell": "powershell",
+		"ps1":        "powershell",
+	}
+
+	for _, token := range tokens {
+		if lang, ok := patterns[token]; ok {
+			return lang
 		}
 	}
 

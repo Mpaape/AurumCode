@@ -201,7 +201,6 @@ func (p *PythonExtractor) extractDocstrings(code string) string {
 
 	inDocstring := false
 	docstringDelimiter := ""
-	currentIndent := 0
 
 	doc.WriteString("# Python Module Documentation\n\n")
 
@@ -213,7 +212,6 @@ func (p *PythonExtractor) extractDocstrings(code string) string {
 			if strings.HasPrefix(trimmed, `"""`) || strings.HasPrefix(trimmed, "'''") {
 				inDocstring = true
 				docstringDelimiter = trimmed[:3]
-				currentIndent = len(line) - len(strings.TrimLeft(line, " \t"))
 
 				// Check if docstring ends on same line
 				if strings.HasSuffix(trimmed, docstringDelimiter) && len(trimmed) > 6 {

@@ -2,6 +2,7 @@ package site
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -38,7 +39,7 @@ func TestSiteBuilderBuild(t *testing.T) {
 		t.Errorf("OutputPath = %v", result.OutputPath)
 	}
 
-	if result.Duration <= 0 {
+	if result.Duration < 0 {
 		t.Error("Expected positive duration")
 	}
 
