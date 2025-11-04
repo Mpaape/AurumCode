@@ -7,18 +7,18 @@ import (
 	"strings"
 	"testing"
 
-	"aurumcode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm"
 )
 
 // MockProvider implements llm.Provider for testing
 type MockProvider struct {
-	response     string
-	err          error
-	tokens       int
-	tokenErr     error
-	callCount    int
-	lastPrompt   string
-	lastOptions  llm.Options
+	response    string
+	err         error
+	tokens      int
+	tokenErr    error
+	callCount   int
+	lastPrompt  string
+	lastOptions llm.Options
 }
 
 func (m *MockProvider) Complete(prompt string, opts llm.Options) (llm.Response, error) {

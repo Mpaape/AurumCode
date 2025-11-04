@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"aurumcode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm"
 )
 
 const (

@@ -1,8 +1,8 @@
 package litellm
 
 import (
-	"aurumcode/internal/llm"
 	"encoding/json"
+	"github.com/Mpaape/AurumCode/internal/llm"
 	"net/http"
 	"net/http/httptest"
 	"testing"

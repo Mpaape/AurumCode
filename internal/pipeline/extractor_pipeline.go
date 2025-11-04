@@ -17,14 +17,14 @@ import (
 
 // ExtractorPipelineConfig configures the documentation extraction pipeline
 type ExtractorPipelineConfig struct {
-	SourceDir      string   // Root directory of source code
-	OutputDir      string   // Output directory for documentation
-	DocsDir        string   // Jekyll docs directory (e.g., "docs/")
-	Languages      []string // Languages to extract (empty = all)
-	Incremental    bool     // Enable incremental mode
-	GenerateWelcome bool    // Generate LLM-powered welcome page
-	ValidateJekyll bool     // Validate Jekyll site after generation
-	DeployGHPages  bool     // Deploy to gh-pages branch
+	SourceDir       string   // Root directory of source code
+	OutputDir       string   // Output directory for documentation
+	DocsDir         string   // Jekyll docs directory (e.g., "docs/")
+	Languages       []string // Languages to extract (empty = all)
+	Incremental     bool     // Enable incremental mode
+	GenerateWelcome bool     // Generate LLM-powered welcome page
+	ValidateJekyll  bool     // Validate Jekyll site after generation
+	DeployGHPages   bool     // Deploy to gh-pages branch
 }
 
 // ExtractorPipeline orchestrates complete documentation extraction and site generation
@@ -58,6 +58,11 @@ func NewExtractorPipeline(
 		welcomeGen:     welcome.NewGenerator(llmOrch),
 		llmOrch:        llmOrch,
 	}
+}
+
+// RegisterExtractor registers a language extractor with the pipeline registry.
+func (p *ExtractorPipeline) RegisterExtractor(extractor extractors.Extractor) error {
+	return p.registry.Register(extractor)
 }
 
 // Run executes the complete documentation pipeline

@@ -1,9 +1,9 @@
 package llm
 
 import (
-	"aurumcode/internal/llm/cost"
 	"context"
 	"errors"
+	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"strings"
 	"testing"
 	"time"
