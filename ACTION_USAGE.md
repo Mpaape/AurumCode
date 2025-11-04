@@ -25,14 +25,14 @@ jobs:
         uses: Mpaape/AurumCode@main
         with:
           source-dir: '.'
-          output-dir: 'docs'
+          output-dir: '.aurumcode'
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/_site
+          publish_dir: ./.aurumcode/_site
 ```
 
 ## Supported Languages
@@ -53,7 +53,7 @@ AurumCode automatically detects and generates documentation for:
 | Input | Description | Default | Required |
 |-------|-------------|---------|----------|
 | `source-dir` | Source code directory to scan | `.` | No |
-| `output-dir` | Output directory for documentation | `docs` | No |
+| `output-dir` | Output directory for auto-generated docs | `.aurumcode` | No |
 | `languages` | Comma-separated list of languages | `` (all) | No |
 | `incremental` | Only process changed files | `false` | No |
 | `generate-welcome` | Generate AI-powered welcome page | `false` | No |
@@ -134,7 +134,7 @@ jobs:
         uses: Mpaape/AurumCode@main
         with:
           source-dir: '.'
-          output-dir: 'docs'
+          output-dir: '.aurumcode'
           generate-welcome: 'true'
           llm-api-key: ${{ secrets.OPENAI_API_KEY }}
           build-jekyll: 'true'
@@ -149,7 +149,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/_site
+          publish_dir: ./.aurumcode/_site
           enable_jekyll: false
 ```
 

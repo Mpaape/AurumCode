@@ -42,13 +42,13 @@ jobs:
         uses: Mpaape/AurumCode@main
         with:
           source-dir: '.'
-          output-dir: 'docs'
+          output-dir: '.aurumcode'
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/_site
+          publish_dir: ./.aurumcode/_site
 ```
 
 **See [ACTION_USAGE.md](ACTION_USAGE.md) for complete documentation.**
@@ -118,7 +118,7 @@ AurumCode/
 - uses: Mpaape/AurumCode@main
   with:
     source-dir: '.'              # Source code directory
-    output-dir: 'docs'           # Output directory
+    output-dir: '.aurumcode'     # Output directory (auto-generated docs)
     languages: ''                # Comma-separated list (empty = all)
     incremental: 'false'         # Enable incremental mode
     generate-welcome: 'false'    # AI-powered welcome page

@@ -5,7 +5,8 @@
       "mcp__task-master-ai__models",
       "mcp__task-master-ai__get_tasks",
       "Bash(find:*)",
-      "Bash(task-master show:*)"
+      "Bash(task-master show:*)",
+      "WebSearch"
     ]
   },
   "enableAllProjectMcpServers": true,

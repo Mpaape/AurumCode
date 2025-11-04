@@ -12,9 +12,9 @@ inputs:
     required: false
     default: '.'
   output-dir:
-    description: 'Output directory for generated documentation'
+    description: 'Output directory for generated documentation (auto-generated API docs)'
     required: false
-    default: 'docs'
+    default: '.aurumcode'
   languages:
     description: 'Comma-separated list of languages to extract (empty = all)'
     required: false
