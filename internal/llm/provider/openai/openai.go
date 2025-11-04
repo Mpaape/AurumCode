@@ -1,10 +1,10 @@
 package openai
 
 import (
-	"aurumcode/internal/llm"
-	"aurumcode/internal/llm/httpbase"
 	"context"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm/httpbase"
 	"net/http"
 )
 
@@ -35,7 +35,7 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 	if model == "" {
 		model = "gpt-4"
 	}
-	
+
 	req := &httpbase.Request{
 		Method: http.MethodPost,
 		Path:   "/chat/completions",
@@ -49,13 +49,13 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 			"max_tokens":  opts.MaxTokens,
 		},
 	}
-	
+
 	ctx := context.Background()
 	resp, err := p.client.Do(ctx, req)
 	if err != nil {
 		return llm.Response{}, fmt.Errorf("openai request failed: %w", err)
 	}
-	
+
 	var openaiResp struct {
 		ID      string `json:"id"`
 		Choices []struct {
@@ -69,21 +69,21 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 			CompletionTokens int `json:"completion_tokens"`
 		} `json:"usage"`
 	}
-	
+
 	err = httpbase.DecodeJSON(resp, &openaiResp)
 	if err != nil {
 		return llm.Response{}, fmt.Errorf("failed to decode openai response: %w", err)
 	}
-	
+
 	if len(openaiResp.Choices) == 0 {
 		return llm.Response{}, fmt.Errorf("no choices in openai response")
 	}
-	
+
 	return llm.Response{
-		Text:        openaiResp.Choices[0].Message.Content,
-		TokensIn:    openaiResp.Usage.PromptTokens,
-		TokensOut:   openaiResp.Usage.CompletionTokens,
-		Model:       model,
+		Text:         openaiResp.Choices[0].Message.Content,
+		TokensIn:     openaiResp.Usage.PromptTokens,
+		TokensOut:    openaiResp.Usage.CompletionTokens,
+		Model:        model,
 		FinishReason: openaiResp.Choices[0].FinishReason,
 	}, nil
 }
@@ -94,4 +94,3 @@ func (p *Provider) Tokens(input string) (int, error) {
 	// OpenAI's tiktoken library uses roughly 4 chars per token for English text
 	return len(input) / 4, nil
 }
-

@@ -1,10 +1,10 @@
 package llm
 
 import (
-	"aurumcode/internal/llm/cost"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"time"
 )
 
@@ -21,9 +21,9 @@ var (
 
 // Orchestrator manages LLM provider chains with fallback and budget enforcement
 type Orchestrator struct {
-	primary  Provider
+	primary   Provider
 	fallbacks []Provider
-	tracker  *cost.Tracker
+	tracker   *cost.Tracker
 	estimator *Estimator
 }
 

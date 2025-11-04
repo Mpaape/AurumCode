@@ -1,10 +1,10 @@
 package ollama
 
 import (
-	"aurumcode/internal/llm"
-	"aurumcode/internal/llm/httpbase"
 	"context"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm/httpbase"
 	"net/http"
 )
 
@@ -36,7 +36,7 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 	if model == "" {
 		model = "llama3"
 	}
-	
+
 	req := &httpbase.Request{
 		Method: http.MethodPost,
 		Path:   "/api/generate",
@@ -47,24 +47,24 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 			"num_predict": opts.MaxTokens,
 		},
 	}
-	
+
 	ctx := context.Background()
 	resp, err := p.client.Do(ctx, req)
 	if err != nil {
 		return llm.Response{}, fmt.Errorf("ollama request failed: %w", err)
 	}
-	
+
 	var ollamaResp struct {
-		Response           string `json:"response"`
-		PromptEvalCount    int    `json:"prompt_eval_count"`
-		EvalCount          int    `json:"eval_count"`
+		Response        string `json:"response"`
+		PromptEvalCount int    `json:"prompt_eval_count"`
+		EvalCount       int    `json:"eval_count"`
 	}
-	
+
 	err = httpbase.DecodeJSON(resp, &ollamaResp)
 	if err != nil {
 		return llm.Response{}, fmt.Errorf("failed to decode ollama response: %w", err)
 	}
-	
+
 	return llm.Response{
 		Text:      ollamaResp.Response,
 		TokensIn:  ollamaResp.PromptEvalCount,
@@ -78,4 +78,3 @@ func (p *Provider) Tokens(input string) (int, error) {
 	// Ollama models use roughly 4 chars per token
 	return len(input) / 4, nil
 }
-

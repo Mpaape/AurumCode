@@ -1,10 +1,10 @@
 package litellm
 
 import (
-	"aurumcode/internal/llm"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/llm"
 	"io"
 	"net/http"
 	"time"
@@ -135,7 +135,7 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 
 // Tokens estimates token count (approximate)
 func (p *Provider) Tokens(input string) (int, error) {
-	// Rough approximation: 1 token ≈ 4 characters
+	// Rough approximation: 1 token â‰ˆ 4 characters
 	return len(input) / 4, nil
 }
 

@@ -2,80 +2,106 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
-	"aurumcode/internal/documentation/extractors"
-	"aurumcode/internal/documentation/site"
-	"aurumcode/internal/llm"
-	"aurumcode/internal/llm/cost"
-	"aurumcode/internal/llm/provider/openai"
-	"aurumcode/internal/pipeline"
+	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
+	bashExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/bash"
+	cppExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/cpp"
+	csharpExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/csharp"
+	goExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/go"
+	javascriptExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/javascript"
+	powershellExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/powershell"
+	pythonExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/python"
+	rustExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/rust"
+	"github.com/Mpaape/AurumCode/internal/documentation/site"
+	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm/cost"
+	litellmProvider "github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
+	openaiProvider "github.com/Mpaape/AurumCode/internal/llm/provider/openai"
+	"github.com/Mpaape/AurumCode/internal/pipeline"
 )
+
+type extractorAlias struct {
+	base extractors.Extractor
+	lang extractors.Language
+}
+
+func (a *extractorAlias) Extract(ctx context.Context, req *extractors.ExtractRequest) (*extractors.ExtractResult, error) {
+	reqCopy := *req
+	reqCopy.Language = a.lang
+	return a.base.Extract(ctx, &reqCopy)
+}
+
+func (a *extractorAlias) Validate(ctx context.Context) error {
+	return a.base.Validate(ctx)
+}
+
+func (a *extractorAlias) Language() extractors.Language {
+	return a.lang
+}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("🚀 AurumCode - Regenerating Complete Documentation")
 	log.Println("================================================")
 
-	// Load environment variables
 	totvsAPIKey := os.Getenv("TOTVS_DTA_API_KEY")
 	totvsBaseURL := os.Getenv("TOTVS_DTA_BASE_URL")
+	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
 
-	if totvsAPIKey == "" {
-		log.Println("⚠️  TOTVS_DTA_API_KEY not set - LLM features will be disabled")
-	} else {
-		log.Printf("✓ Using TOTVS DTA: %s", totvsBaseURL)
-	}
-
-	// Create LLM orchestrator if API key is available
 	var llmOrch *llm.Orchestrator
-	if totvsAPIKey != "" {
-		provider := openai.NewProvider(totvsAPIKey, "gpt-4")
-		if customProvider, ok := provider.(interface{ SetBaseURL(string) }); ok && totvsBaseURL != "" {
-			customProvider.SetBaseURL(totvsBaseURL)
-			log.Println("✓ Configured TOTVS DTA endpoint")
+
+	switch {
+	case totvsAPIKey != "" && totvsBaseURL != "":
+		model := os.Getenv("TOTVS_DTA_MODEL")
+		if model == "" {
+			model = "gpt-4o-mini"
 		}
-
-		priceMap := cost.NewPriceMap()
-		tracker := cost.NewTracker(1000.0, 10000.0, priceMap)
+		provider := litellmProvider.NewProvider(totvsAPIKey, totvsBaseURL, model)
+		tracker := cost.NewTracker(1000.0, 10000.0, map[string]cost.PriceMap{})
 		llmOrch = llm.NewOrchestrator(provider, nil, tracker)
-		log.Println("✓ LLM Orchestrator created")
+		log.Printf("✓ LiteLLM configured via TOTVS DTA (%s)", totvsBaseURL)
+	case totvsAPIKey != "" && totvsBaseURL == "":
+		log.Println("⚠️  TOTVS_DTA_BASE_URL not set - skipping LiteLLM provider")
+	default:
+		log.Println("⚠️  TOTVS_DTA_API_KEY not set - LLM features will be disabled")
 	}
 
-	// Register all extractors
-	jsExtractor := extractors.NewJSExtractor(site.NewRealRunner())
+	if llmOrch == nil && openaiAPIKey != "" {
+		provider := openaiProvider.NewProvider(openaiAPIKey)
+		tracker := cost.NewTracker(1000.0, 10000.0, map[string]cost.PriceMap{
+			"gpt-4": {InputPer1K: 0.03, OutputPer1K: 0.06},
+		})
+		llmOrch = llm.NewOrchestrator(provider, nil, tracker)
+		log.Println("✓ OpenAI provider configured")
+	}
 
-	registry := extractors.NewRegistry()
-	registry.Register(extractors.LanguageGo, extractors.NewGoExtractor(site.NewRealRunner()))
-	registry.Register(extractors.LanguageJavaScript, jsExtractor) // Same extractor for JS & TS
-	registry.Register(extractors.LanguageTypeScript, jsExtractor)
-	registry.Register(extractors.LanguagePython, extractors.NewPythonExtractor(site.NewRealRunner()))
-	registry.Register(extractors.LanguageCSharp, extractors.NewCSharpExtractor(site.NewRealRunner()))
-	registry.Register(extractors.LanguageCPP, extractors.NewCPPExtractor(site.NewRealRunner()))
-	registry.Register(extractors.LanguageRust, extractors.NewRustExtractor(site.NewRealRunner()))
-	registry.Register(extractors.LanguageBash, extractors.NewBashExtractor(site.NewRealRunner()))
-	registry.Register(extractors.LanguagePowerShell, extractors.NewPowerShellExtractor(site.NewRealRunner()))
-	log.Println("✓ Registered 8 language extractors (9 with JS/TS)")
+	if llmOrch != nil {
+		log.Printf("✓ LLM Orchestrator created (providers: %v)", llmOrch.GetProviderChain())
+	} else {
+		log.Println("⚠️  No LLM provider configured - welcome page generation disabled")
+	}
 
-	// Configure pipeline
+	runner := site.NewDefaultRunner()
+
 	config := &pipeline.ExtractorPipelineConfig{
-		SourceDir:       ".",               // Current directory
-		OutputDir:       ".aurumcode",      // Output to .aurumcode/ (auto-generated)
-		DocsDir:         ".aurumcode",      // Jekyll docs directory
-		Languages:       []string{},        // Empty = all languages
-		Incremental:     false,             // Full regeneration
-		GenerateWelcome: llmOrch != nil,    // Only if LLM available
-		ValidateJekyll:  false,             // Skip validation for now
-		DeployGHPages:   false,             // No deployment
+		SourceDir:       ".",
+		OutputDir:       ".aurumcode",
+		DocsDir:         ".aurumcode",
+		Languages:       []string{},
+		Incremental:     false,
+		GenerateWelcome: llmOrch != nil,
+		ValidateJekyll:  false,
+		DeployGHPages:   false,
 	}
 
-	// Create pipeline
-	runner := site.NewRealRunner()
 	extractorPipeline := pipeline.NewExtractorPipeline(config, runner, llmOrch)
-	log.Println("✓ Extractor Pipeline created")
+	if err := registerLanguageExtractors(extractorPipeline, runner); err != nil {
+		log.Fatalf("❌ Failed to register language extractors: %v", err)
+	}
 
-	// Run the pipeline
 	log.Println("\n📝 Running Documentation Extraction...")
 	log.Println("────────────────────────────────────────")
 
@@ -97,11 +123,56 @@ func main() {
 	log.Println("   cd .aurumcode && bundle install && bundle exec jekyll build")
 	log.Println("\n🎉 Done!")
 
-	// Show token usage if LLM was used
 	if llmOrch != nil {
-		usage := llmOrch.GetTracker().GetUsage()
-		log.Printf("\n💰 LLM Token Usage:")
-		log.Printf("   - Total Tokens: %d", usage.TotalTokens)
-		log.Printf("   - Estimated Cost: $%.4f", usage.TotalCost)
+		perRun, daily := llmOrch.RemainingBudget()
+		log.Printf("\n💰 Remaining LLM budget: per-run $%.2f | daily $%.2f", perRun, daily)
 	}
+}
+
+func registerLanguageExtractors(p *pipeline.ExtractorPipeline, runner site.CommandRunner) error {
+	register := func(ext extractors.Extractor) error {
+		if err := p.RegisterExtractor(ext); err != nil {
+			return fmt.Errorf("register %s extractor: %w", ext.Language(), err)
+		}
+		return nil
+	}
+
+	if err := register(goExtractor.NewGoExtractor(runner)); err != nil {
+		return err
+	}
+
+	jsExtractor := javascriptExtractor.NewJSExtractor(runner)
+	if err := register(jsExtractor); err != nil {
+		return err
+	}
+
+	if err := register(&extractorAlias{base: jsExtractor, lang: extractors.LanguageTypeScript}); err != nil {
+		return err
+	}
+
+	if err := register(pythonExtractor.NewPythonExtractor(runner)); err != nil {
+		return err
+	}
+
+	if err := register(csharpExtractor.NewCSharpExtractor(runner)); err != nil {
+		return err
+	}
+
+	if err := register(cppExtractor.NewCPPExtractor(runner)); err != nil {
+		return err
+	}
+
+	if err := register(rustExtractor.NewRustExtractor(runner)); err != nil {
+		return err
+	}
+
+	if err := register(bashExtractor.NewBashExtractor(runner)); err != nil {
+		return err
+	}
+
+	if err := register(powershellExtractor.NewPowerShellExtractor(runner)); err != nil {
+		return err
+	}
+
+	return nil
 }

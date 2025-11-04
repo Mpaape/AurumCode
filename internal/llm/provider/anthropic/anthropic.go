@@ -1,10 +1,10 @@
 package anthropic
 
 import (
-	"aurumcode/internal/llm"
-	"aurumcode/internal/llm/httpbase"
 	"context"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm/httpbase"
 	"net/http"
 )
 
@@ -35,12 +35,12 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 	if model == "" {
 		model = "claude-3-5-sonnet-20241022"
 	}
-	
+
 	req := &httpbase.Request{
 		Method: http.MethodPost,
 		Path:   "/messages",
 		Headers: map[string]string{
-			"x-api-key":      p.apiKey,
+			"x-api-key":         p.apiKey,
 			"anthropic-version": "2023-06-01",
 		},
 		Body: map[string]interface{}{
@@ -50,16 +50,16 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 			"temperature": opts.Temperature,
 		},
 	}
-	
+
 	ctx := context.Background()
 	resp, err := p.client.Do(ctx, req)
 	if err != nil {
 		return llm.Response{}, fmt.Errorf("anthropic request failed: %w", err)
 	}
-	
+
 	var anthropicResp struct {
-		ID    string `json:"id"`
-		Model string `json:"model"`
+		ID      string `json:"id"`
+		Model   string `json:"model"`
 		Content []struct {
 			Type string `json:"type"`
 			Text string `json:"text"`
@@ -69,16 +69,16 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
 	}
-	
+
 	err = httpbase.DecodeJSON(resp, &anthropicResp)
 	if err != nil {
 		return llm.Response{}, fmt.Errorf("failed to decode anthropic response: %w", err)
 	}
-	
+
 	if len(anthropicResp.Content) == 0 {
 		return llm.Response{}, fmt.Errorf("no content in anthropic response")
 	}
-	
+
 	return llm.Response{
 		Text:      anthropicResp.Content[0].Text,
 		TokensIn:  anthropicResp.Usage.InputTokens,
@@ -92,4 +92,3 @@ func (p *Provider) Tokens(input string) (int, error) {
 	// Claude uses roughly 4 chars per token for English
 	return len(input) / 4, nil
 }
-
