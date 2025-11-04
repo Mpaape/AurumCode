@@ -60,14 +60,14 @@ func main() {
 
 	// Configure pipeline
 	config := &pipeline.ExtractorPipelineConfig{
-		SourceDir:       ".",           // Current directory
-		OutputDir:       "docs",        // Output to docs/
-		DocsDir:         "docs",        // Jekyll docs directory
-		Languages:       []string{},    // Empty = all languages
-		Incremental:     false,         // Full regeneration
-		GenerateWelcome: llmOrch != nil, // Only if LLM available
-		ValidateJekyll:  false,         // Skip validation for now
-		DeployGHPages:   false,         // No deployment
+		SourceDir:       ".",               // Current directory
+		OutputDir:       ".aurumcode",      // Output to .aurumcode/ (auto-generated)
+		DocsDir:         ".aurumcode",      // Jekyll docs directory
+		Languages:       []string{},        // Empty = all languages
+		Incremental:     false,             // Full regeneration
+		GenerateWelcome: llmOrch != nil,    // Only if LLM available
+		ValidateJekyll:  false,             // Skip validation for now
+		DeployGHPages:   false,             // No deployment
 	}
 
 	// Create pipeline
@@ -87,12 +87,14 @@ func main() {
 	log.Println("────────────────────────────────────────")
 	log.Println("✅ Documentation regeneration completed!")
 	log.Println("\n📊 Generated documentation in:")
-	log.Println("   - docs/go/")
-	log.Println("   - docs/javascript/")
-	log.Println("   - docs/python/")
-	log.Println("   - docs/ (other languages)")
+	log.Println("   - .aurumcode/go/")
+	log.Println("   - .aurumcode/javascript/")
+	log.Println("   - .aurumcode/python/")
+	log.Println("   - .aurumcode/ (other languages)")
+	log.Println("\n📝 Custom pages location:")
+	log.Println("   - docs/ (your guides, tutorials, etc.)")
 	log.Println("\n🌐 Build Jekyll site with:")
-	log.Println("   cd docs && bundle install && bundle exec jekyll build")
+	log.Println("   cd .aurumcode && bundle install && bundle exec jekyll build")
 	log.Println("\n🎉 Done!")
 
 	// Show token usage if LLM was used

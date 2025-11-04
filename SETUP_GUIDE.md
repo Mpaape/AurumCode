@@ -121,7 +121,7 @@ Outros projetos podem usar AurumCode adicionando ao workflow:
 - uses: Mpaape/AurumCode@main
   with:
     source-dir: '.'
-    output-dir: 'docs'
+    output-dir: '.aurumcode'
 ```
 
 Ver `ACTION_USAGE.md` para mais detalhes.

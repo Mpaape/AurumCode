@@ -65,3 +65,16 @@ secrets.yml
 # CI/CD artifacts
 .artifacts/
 reports/
+
+# AurumCode generated documentation
+.aurumcode/_site/
+.aurumcode/.jekyll-cache/
+.aurumcode/.sass-cache/
+.aurumcode/vendor/
+.aurumcode/node_modules/
+.aurumcode/Gemfile.lock
+# Keep .aurumcode/ directory structure and config files
+!.aurumcode/
+!.aurumcode/_config.yml
+!.aurumcode/Gemfile
+!.aurumcode/.gitignore

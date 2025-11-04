@@ -1,10 +1,19 @@
 # AurumCode Documentation Site Configuration
 # Jekyll configuration for GitHub Pages with just-the-docs theme
+#
+# HYBRID STRUCTURE:
+# - .aurumcode/ (this folder)  = Auto-generated API docs (don't edit manually!)
+# - ../docs/                   = Custom user pages (guides, tutorials, etc.)
+# Both are merged into the final site
 
 title: AurumCode Documentation
 description: Comprehensive documentation system for multi-language codebases
 baseurl: "/AurumCode"
 url: "https://mpaape.github.io"
+
+# Include custom pages from docs/ directory
+include:
+  - "../docs"
 
 # Theme Configuration
 theme: just-the-docs
