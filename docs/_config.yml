@@ -8,7 +8,6 @@ url: "https://mpaape.github.io"
 
 # Theme Configuration
 theme: just-the-docs
-remote_theme: just-the-docs/just-the-docs@v0.10.0
 
 # Color scheme
 color_scheme: dark
@@ -123,8 +122,8 @@ defaults:
 # Plugins
 plugins:
   - jekyll-seo-tag
-  - jekyll-github-metadata
-  - jekyll-include-cache
+  - jekyll-feed
+  - jekyll-sitemap
 
 # Exclude from processing
 exclude:
