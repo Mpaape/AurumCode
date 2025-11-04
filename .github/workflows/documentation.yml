@@ -76,20 +76,21 @@ jobs:
       - name: Install Jekyll dependencies
         working-directory: docs
         run: |
-          if [ -f "Gemfile" ]; then
-            bundle install
-          else
-            echo "No Gemfile found, skipping bundle install"
-          fi
+          echo "Installing Jekyll and dependencies..."
+          bundle config set --local path 'vendor/bundle'
+          bundle install --jobs 4 --retry 3
 
       - name: Build Jekyll site
         working-directory: docs
+        env:
+          JEKYLL_ENV: production
         run: |
-          if [ -f "_config.yml" ]; then
-            bundle exec jekyll build
-          else
-            echo "No Jekyll _config.yml found, skipping build"
-          fi
+          echo "Building Jekyll site..."
+          bundle exec jekyll build --verbose
+
+          echo "✅ Jekyll build complete!"
+          echo "Checking generated files..."
+          ls -la _site/ || echo "No _site directory created"
 
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v4
