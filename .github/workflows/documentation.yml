@@ -24,7 +24,7 @@ on:
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
-  contents: write  # Required for gh-pages deployment
+  contents: read
   pages: write
   id-token: write
 
