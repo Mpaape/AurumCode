@@ -241,13 +241,17 @@ func (p *ExtractorPipeline) extractDocumentation(
 
 		extractor, err := p.registry.Get(lang)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Errorf("no extractor for %s: %w", lang, err))
+			errMsg := fmt.Errorf("no extractor for %s: %w", lang, err)
+			log.Printf("[Pipeline] ⚠️  ERROR: %v", errMsg)
+			allErrors = append(allErrors, errMsg)
 			continue
 		}
 
 		// Validate extractor is available
 		if err := extractor.Validate(ctx); err != nil {
-			allErrors = append(allErrors, fmt.Errorf("%s tools not available: %w", lang, err))
+			errMsg := fmt.Errorf("%s tools not available: %w", lang, err)
+			log.Printf("[Pipeline] ⚠️  ERROR: %v", errMsg)
+			allErrors = append(allErrors, errMsg)
 			continue
 		}
 
@@ -260,7 +264,9 @@ func (p *ExtractorPipeline) extractDocumentation(
 
 		result, err := extractor.Extract(ctx, request)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Errorf("%s extraction failed: %w", lang, err))
+			errMsg := fmt.Errorf("%s extraction failed: %w", lang, err)
+			log.Printf("[Pipeline] ⚠️  ERROR: %v", errMsg)
+			allErrors = append(allErrors, errMsg)
 			continue
 		}
 
