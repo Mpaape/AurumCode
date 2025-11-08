@@ -1,3 +1,9 @@
+---
+title: Review
+layout: default
+permalink: /prompts/review/
+---
+
 # Code Review Prompt - Detailed Line-by-Line Analysis
 
 You are an expert code reviewer. Analyze the following code changes and provide an extremely detailed, thorough review.

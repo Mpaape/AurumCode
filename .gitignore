@@ -40,10 +40,6 @@ vendor/
 go.work
 go.work.sum
 
-# Task files
-# tasks.json
-# tasks/
-
 # Build and test artifacts
 *.cover
 *.test.exe
@@ -78,3 +74,7 @@ reports/
 !.aurumcode/_config.yml
 !.aurumcode/Gemfile
 !.aurumcode/.gitignore
+
+# Task files
+# tasks.json
+# tasks/ 

@@ -1,3 +1,9 @@
+---
+title: Summary
+layout: default
+permalink: /prompts/summary/
+---
+
 # Summary Generation Prompt
 
 Summarize the following code changes in 2-3 sentences.

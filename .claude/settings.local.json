@@ -6,7 +6,11 @@
       "mcp__task-master-ai__get_tasks",
       "Bash(find:*)",
       "Bash(task-master show:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git checkout:*)",
+      "Bash(git ls-tree:*)",
+      "WebFetch(domain:mpaape.github.io)",
+      "Bash(go run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
