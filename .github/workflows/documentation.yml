@@ -120,9 +120,9 @@ jobs:
         run: |
           echo "Copying custom documentation from docs/ to .aurumcode/..."
           if [ -d "docs" ]; then
-            cp -r docs/* .aurumcode/ || echo "No docs to copy"
+            cp -r docs/* .aurumcode/ 2>/dev/null || true
             echo "✅ Custom docs copied"
-            ls -la .aurumcode/*.md || echo "No markdown files in .aurumcode root"
+            ls -la .aurumcode/*.md 2>/dev/null || echo "No markdown files in .aurumcode root"
           else
             echo "⚠️ No docs/ directory found"
           fi
