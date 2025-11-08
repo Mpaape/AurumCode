@@ -52,6 +52,9 @@ jobs:
         run: |
           echo '=== Installing Documentation Extractors ==='
 
+          # Ensure Go bin is in PATH
+          export PATH="$HOME/go/bin:$PATH"
+
           # Go documentation tool
           go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
 
@@ -62,6 +65,7 @@ jobs:
           pip install pydoc-markdown
 
           # Verify installations
+          echo "✓ gomarkdoc location:" && which gomarkdoc || echo "⚠ gomarkdoc not in PATH"
           echo "✓ gomarkdoc version:" && gomarkdoc --version || echo "⚠ gomarkdoc not found"
           echo "✓ typedoc version:" && typedoc --version || echo "⚠ typedoc not found"
           echo "✓ pydoc-markdown version:" && pydoc-markdown --version || echo "⚠ pydoc-markdown not found"
@@ -71,12 +75,18 @@ jobs:
         env:
           TOTVS_DTA_API_KEY: ${{ secrets.TOTVS_DTA_API_KEY }}
           TOTVS_DTA_BASE_URL: ${{ secrets.TOTVS_DTA_BASE_URL }}
+          PATH: ${{ env.PATH }}:$HOME/go/bin
         run: |
           echo '=== Running AurumCode Documentation Generator ==='
           echo 'Source Directory: .'
           echo 'Output Directory: .aurumcode (auto-generated)'
           echo 'Custom Pages: docs/ (user-written)'
           echo 'Mode: Full Generation'
+
+          # Verify tools are accessible
+          echo "Checking tool availability..."
+          which gomarkdoc || echo "⚠ gomarkdoc not found in PATH"
+          which typedoc || echo "⚠ typedoc not found in PATH"
 
           # Build and run the documentation generator
           go run cmd/regenerate-docs/main.go
