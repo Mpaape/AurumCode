@@ -1,3 +1,9 @@
+---
+title: Documentation
+layout: default
+permalink: /prompts/documentation/
+---
+
 # Documentation Generation Prompt
 
 You are a technical documentation expert. Generate documentation for the following code changes.

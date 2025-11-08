@@ -1,3 +1,9 @@
+---
+title: Changelog Generation
+layout: default
+permalink: /prompts/changelog-generation/
+---
+
 # Changelog Generation Prompt
 
 You are a technical writer creating a changelog entry from conventional commits.

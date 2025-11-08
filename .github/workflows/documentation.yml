@@ -124,24 +124,22 @@ jobs:
           echo "Checking generated files..."
           ls -la _site/ || echo "No _site directory created"
 
+      - name: Setup GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .aurumcode/_site/
+
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v4
         with:
           name: documentation
           path: .aurumcode/_site/
           retention-days: 30
-
-      - name: Deploy to GitHub Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./.aurumcode/_site
-          publish_branch: gh-pages
-          enable_jekyll: false
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs: update documentation from ${{ github.sha }}'
 
       - name: Comment PR with documentation link
         if: github.event_name == 'pull_request'
@@ -195,6 +193,25 @@ jobs:
         if: false  # Disabled for now, can be enabled with link checker tool
         run: |
           echo "Link checking would run here"
+
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   summary:
     name: Documentation Summary

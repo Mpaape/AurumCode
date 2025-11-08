@@ -1,3 +1,9 @@
+---
+title: Welcome Page
+layout: default
+permalink: /prompts/documentation/welcome-page/
+---
+
 # Welcome Page Generation Prompt
 
 You are an expert technical writer tasked with transforming a README.md file into an engaging, well-structured documentation welcome page for a Jekyll site using the Just the Docs theme.

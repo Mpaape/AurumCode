@@ -1,3 +1,9 @@
+---
+title: Test
+layout: default
+permalink: /prompts/test/
+---
+
 # Test Generation Prompt
 
 You are an expert test engineer. Generate comprehensive tests for the following code changes.

@@ -1,4 +1,11 @@
 ---
+title: Index
+layout: default
+has_children: true
+permalink: /./
+---
+
+---
 layout: default
 title: Home
 nav_order: 1
