@@ -140,3 +140,6 @@ exclude:
   - vendor/
   - README.md
   - LICENSE
+  - prompts/           # Internal prompt templates, not public documentation
+  - bash/              # Build scripts, not API documentation
+  - iso25010-weights.yml

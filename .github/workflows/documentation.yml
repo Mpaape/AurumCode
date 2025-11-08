@@ -48,6 +48,24 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Install documentation tools
+        run: |
+          echo '=== Installing Documentation Extractors ==='
+
+          # Go documentation tool
+          go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
+
+          # JavaScript/TypeScript documentation tool
+          npm install -g typedoc
+
+          # Python documentation tool
+          pip install pydoc-markdown
+
+          # Verify installations
+          echo "✓ gomarkdoc version:" && gomarkdoc --version || echo "⚠ gomarkdoc not found"
+          echo "✓ typedoc version:" && typedoc --version || echo "⚠ typedoc not found"
+          echo "✓ pydoc-markdown version:" && pydoc-markdown --version || echo "⚠ pydoc-markdown not found"
+
       - name: Extract documentation (Full Mode)
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         env:
