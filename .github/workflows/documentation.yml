@@ -73,8 +73,8 @@ jobs:
       - name: Extract documentation (Full Mode)
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         env:
-          TOTVS_DTA_API_KEY: ${{ secrets.TOTVS_DTA_API_KEY }}
-          TOTVS_DTA_BASE_URL: ${{ secrets.TOTVS_DTA_BASE_URL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           PATH: ${{ env.PATH }}:$HOME/go/bin
         run: |
           echo '=== Running AurumCode Documentation Generator ==='
@@ -84,16 +84,37 @@ jobs:
           echo 'Mode: Full Generation'
 
           # Verify tools are accessible
-          echo "Checking tool availability..."
-          which gomarkdoc || echo "⚠ gomarkdoc not found in PATH"
-          which typedoc || echo "⚠ typedoc not found in PATH"
+          echo "=== Verifying Documentation Tools ==="
+          echo "PATH: $PATH"
+          echo ""
+          echo "Go binary location:"
+          which go
+          echo ""
+          echo "gomarkdoc location:"
+          which gomarkdoc || echo "❌ gomarkdoc not found in PATH"
+          echo ""
+          echo "gomarkdoc version:"
+          gomarkdoc --version 2>&1 || echo "❌ Cannot execute gomarkdoc"
+          echo ""
 
           # Build and run the documentation generator
+          echo "=== Running Documentation Generator ==="
           go run cmd/regenerate-docs/main.go
 
-          echo '=== Pipeline Complete ==='
-          echo 'Generated documentation files:'
-          find .aurumcode -name '*.md' -type f || echo 'No markdown files generated'
+          echo ""
+          echo "=== Pipeline Complete ==="
+          echo ""
+          echo "📂 Directory structure:"
+          ls -la .aurumcode/
+          echo ""
+          echo "📄 Generated files by type:"
+          echo "  Go docs:"
+          find .aurumcode -path "*/go/*.md" -type f 2>/dev/null || echo "    ❌ No Go docs found"
+          echo "  Bash docs:"
+          find .aurumcode -path "*/bash/*.md" -type f 2>/dev/null | wc -l | xargs echo "   "
+          echo ""
+          echo "📝 All markdown files:"
+          find .aurumcode -name '*.md' -type f | head -20 || echo 'No markdown files'
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1

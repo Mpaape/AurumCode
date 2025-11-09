@@ -47,26 +47,26 @@ func main() {
 	log.Println("🚀 AurumCode - Regenerating Complete Documentation")
 	log.Println("================================================")
 
-	totvsAPIKey := os.Getenv("TOTVS_DTA_API_KEY")
-	totvsBaseURL := os.Getenv("TOTVS_DTA_BASE_URL")
+	llmAPIKey := os.Getenv("LLM_API_KEY")
+	llmBaseURL := os.Getenv("LLM_BASE_URL")
 	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
 
 	var llmOrch *llm.Orchestrator
 
 	switch {
-	case totvsAPIKey != "" && totvsBaseURL != "":
-		model := os.Getenv("TOTVS_DTA_MODEL")
+	case llmAPIKey != "" && llmBaseURL != "":
+		model := os.Getenv("LLM_MODEL")
 		if model == "" {
 			model = "gpt-4o-mini"
 		}
-		provider := litellmProvider.NewProvider(totvsAPIKey, totvsBaseURL, model)
+		provider := litellmProvider.NewProvider(llmAPIKey, llmBaseURL, model)
 		tracker := cost.NewTracker(1000.0, 10000.0, map[string]cost.PriceMap{})
 		llmOrch = llm.NewOrchestrator(provider, nil, tracker)
-		log.Printf("✓ LiteLLM configured via TOTVS DTA (%s)", totvsBaseURL)
-	case totvsAPIKey != "" && totvsBaseURL == "":
-		log.Println("⚠️  TOTVS_DTA_BASE_URL not set - skipping LiteLLM provider")
+		log.Printf("✓ LiteLLM configured (%s)", llmBaseURL)
+	case llmAPIKey != "" && llmBaseURL == "":
+		log.Println("⚠️  LLM_BASE_URL not set - skipping LiteLLM provider")
 	default:
-		log.Println("⚠️  TOTVS_DTA_API_KEY not set - LLM features will be disabled")
+		log.Println("ℹ️  LLM_API_KEY not set - LLM features will be disabled (docs generation will still work)")
 	}
 
 	if llmOrch == nil && openaiAPIKey != "" {
