@@ -47,26 +47,26 @@ func main() {
 	log.Println("🚀 AurumCode - Regenerating Complete Documentation")
 	log.Println("================================================")
 
-	provedorAPIKey := os.Getenv("PROVEDOR_API_KEY")
-	provedorBaseURL := os.Getenv("PROVEDOR_BASE_URL")
+	llmAPIKey := os.Getenv("LLM_API_KEY")
+	llmBaseURL := os.Getenv("LLM_BASE_URL")
 	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
 
 	var llmOrch *llm.Orchestrator
 
 	switch {
-	case provedorAPIKey != "" && provedorBaseURL != "":
-		model := os.Getenv("PROVEDOR_MODEL")
+	case llmAPIKey != "" && llmBaseURL != "":
+		model := os.Getenv("LLM_MODEL")
 		if model == "" {
 			model = "gpt-4o-mini"
 		}
-		provider := litellmProvider.NewProvider(provedorAPIKey, provedorBaseURL, model)
+		provider := litellmProvider.NewProvider(llmAPIKey, llmBaseURL, model)
 		tracker := cost.NewTracker(1000.0, 10000.0, map[string]cost.PriceMap{})
 		llmOrch = llm.NewOrchestrator(provider, nil, tracker)
-		log.Printf("✓ LiteLLM configured via PROVEDOR DTA (%s)", provedorBaseURL)
-	case provedorAPIKey != "" && provedorBaseURL == "":
-		log.Println("⚠️  PROVEDOR_BASE_URL not set - skipping LiteLLM provider")
+		log.Printf("✓ LiteLLM configured (%s)", llmBaseURL)
+	case llmAPIKey != "" && llmBaseURL == "":
+		log.Println("⚠️  LLM_BASE_URL not set - skipping LiteLLM provider")
 	default:
-		log.Println("⚠️  PROVEDOR_API_KEY not set - LLM features will be disabled")
+		log.Println("ℹ️  LLM_API_KEY not set - LLM features will be disabled (docs generation will still work)")
 	}
 
 	if llmOrch == nil && openaiAPIKey != "" {
