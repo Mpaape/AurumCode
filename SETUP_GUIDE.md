@@ -30,12 +30,12 @@ Este guia te ajudará a configurar o repositório para produção e regenerar to
 
 **Secret 1:**
 - Name: `TOTVS_DTA_API_KEY`
-- Value: `sk-XPoBopNFOW3yfGbz9dhavg`
+- Value: `sk-123123213`
 - Clique em **"Add secret"**
 
 **Secret 2:**
 - Name: `TOTVS_DTA_BASE_URL`
-- Value: `https://proxy.dta.totvs.ai`
+- Value: `https://proxy.com`
 - Clique em **"Add secret"**
 
 ### 3️⃣ Configurar GitHub Pages
