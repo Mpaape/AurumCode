@@ -83,8 +83,8 @@ Se quiser testar localmente antes:
 
 ```bash
 # 1. Configurar variáveis de ambiente (opcional - para IA)
-export TOTVS_DTA_API_KEY=sk-XPoBopNFOW3yfGbz9dhavg
-export TOTVS_DTA_BASE_URL=https://proxy.dta.totvs.ai
+export TOTVS_DTA_API_KEY=sk-123
+export TOTVS_DTA_BASE_URL=https://proxy.com
 
 # 2. Regenerar documentação
 go run cmd/regenerate-docs/main.go
