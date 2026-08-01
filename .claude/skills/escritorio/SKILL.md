@@ -169,9 +169,11 @@ frota dorme. Fatie em leque: um cético por patch, com lente própria no prompt.
 
 Meça, não estime — rode `.claude/skills/escritorio/frota.sh` no início de cada tique.
 
-Teto por workflow: `min(16, cpus-2)`. Nesta máquina são 16 CPUs → **teto 14**.
-Com a fila cheia, 10 a 12 por onda é o normal: 4–5 builders em worktree, 2–3
-revisores read-only, um cético por patch, o decisor.
+**Regra permanente do dono: sempre o máximo de agentes.** Slot ocioso é desperdício,
+não prudência. Teto por workflow: `min(16, cpus-2)` — nesta máquina 16 CPUs → **teto 14**.
+Com a fila cheia, encha o teto: 4–5 builders em worktree, 2–3 revisores read-only, um
+cético por patch, o decisor. Se você despachou menos de 10 com o board cheio, está
+subutilizando o escritório.
 
 **Custo não é uniforme.** Builder = worktree + container OCI de aceite (CPU no
 build da imagem derivada). Revisor read-only = quase nada. **Quando a folga for
@@ -182,7 +184,8 @@ Se há 8 cards em `ready` e você despachou 2 agentes, está subutilizando o esc
 ## Metas (o que o escritório persegue entre ondas)
 
 Meta não é card: é o critério que decide **quais** cards entram na próxima onda.
-Mantenha no máximo três vivas e revise a cada sprint review.
+Mantenha no máximo três vivas e revise a cada sprint review. A meta do monitor e a
+meta desta skill são a mesma — se divergirem, a skill está desatualizada.
 
 1. **Portão antes de volume.** Um portão que aceita mutante invalida todo card que
    ele já aprovou. Card de governança e de validador tem precedência sobre feature.
@@ -193,23 +196,50 @@ Mantenha no máximo três vivas e revise a cada sprint review.
    integra depois (`ADR-0001`). Não deixe o caminho de review herdar dependência de
    índice persistente.
 
+### Blockers abertos (meta 1 e 2 em forma concreta)
+
+Auditados com evidência de arquivo e declarados no PR #1. Nenhum está resolvido:
+
+- Nenhum card define um `HumanApprovalPort` autenticado. `validate.sh:722-725`
+  fecha o board corretamente (`done` permanece desabilitado), mas o card que
+  resolveria não existe — precisa entrar no closure de `AUR-209`.
+- Três perfis usados em `container_profile` não têm card dono:
+  `bootstrap-readonly-v1` (45 cards), `release-build-offline-v1` (16, inclusive o
+  gate terminal) e `trust-root-docker-v1` (1).
+- 124 cards declaram em `read_paths` o registry OCI e os locks, que não existem no
+  disco; `validate.sh` não detecta `read_paths` sem dono.
+- `AUR-394` usa `fake-scm-offline-v1` sem `AUR-409` no closure transitivo.
+- `AUR-413..AUR-421` estão fora do closure do gate terminal.
+- `validate.sh` assere o formato de `role_nonce` mas não a unicidade: reuso puro de
+  nonce ainda passa.
+- A credencial removida de `RUN_DOCS_PIPELINE.md` continua no histórico alcançável.
+  Rotação é ação do dono; o histórico não foi reescrito de propósito.
+
 ## Monitor — o loop de sprint review
 
 `CronCreate` é **session-only**: o job morre com a sessão e não volta sozinho. Toda
 sessão nova precisa rearmar, ou o escritório vira trabalho manual.
 
 1. `CronList` → se já houver um SPRINT REVIEW, **pare aqui, não duplique**.
-2. Senão, `CronCreate` com `cron: "11,41 * * * *"`, `recurring: true`, e este prompt:
+2. Senão, `CronCreate` com `cron: "7,27,47 * * * *"` (20 min, fora dos :00/:30 para não
+   colidir com a frota do resto do mundo), `recurring: true`, e este prompt:
 
 ```
-SPRINT REVIEW (30 min). Feche o ciclo do escritório, nesta ordem:
+SPRINT REVIEW (20 min). Feche o ciclo do escritório, nesta ordem:
 
-1) ESTADO E FROTA. Rode .claude/skills/escritorio/frota.sh. Ele responde quem
-travou e quantos agentes ainda cabem. Silêncio de quem já entregou é conclusão,
-não morte — só é candidato a travamento quem NÃO aparece com agentId no journal.
-Morto por limite de sessão ou 5xx: retome com resumeFromRunId SEM editar o prompt
-(a memoização é por hash). Progredindo: não interrompa. Se houver folga, GASTE-A
-em revisores read-only.
+0) META. Reafirme a meta vigente antes de escolher trabalho — é ela que decide
+quais cards entram na onda, não a ordem do INDEX.
+
+1) ESTADO E FROTA. Rode .claude/skills/escritorio/frota.sh. Ele conta ondas de
+Workflow E subagentes avulsos, e responde quem travou e quantos ainda cabem.
+Silêncio de quem já entregou é conclusão, não morte — só é candidato a travamento
+quem NÃO aparece com agentId no journal. Morto por limite de sessão ou 5xx:
+retome com resumeFromRunId SEM editar o prompt (a memoização é por hash).
+Progredindo: não interrompa.
+
+1b) SEMPRE O MÁXIMO DE AGENTES. Folga >= 3, despache até encher o teto 14. Slot
+ocioso é desperdício. Folga incerta por fase em voo vai para revisores read-only,
+que não precisam de worktree nem container.
 
 2) INTEGRAR. Aplique SÓ patch APROVADO: dois pareceres cegos selados (Reviewer A
 e B) mais o aprovador cético OK, todos ligados à mesma CandidateIdentityV1.
