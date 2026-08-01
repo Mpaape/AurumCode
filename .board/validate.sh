@@ -35,11 +35,29 @@ declare -A card_risks=()
 declare -A card_titles=()
 declare -A card_base_shas=()
 declare -A card_spec_digests=()
+# Recomputable card facts the `done` evidence gate re-derives instead of
+# trusting: the exact locked acceptance command, the artifact path the card
+# promises, the acceptance scenarios that must be observed, and how many
+# skeptical mutations exist to choose from.
+declare -A card_accept_commands=()
+declare -A card_expected_artifacts=()
+declare -A card_scenario_ids=()
+declare -A card_mutation_counts=()
 declare -A visit_state=()
 declare -A path_owners=()
 declare -A reachability=()
 declare -A referenced_requirements=()
 declare -A referenced_controls=()
+# `read_paths` widens a card's read surface beyond what it owns. Each declared
+# entry is recorded as a (card, path) claim during the card pass and adjudicated
+# after the loop, when every owned path in the board is finally known.
+declare -a read_path_claim_cards=()
+declare -a read_path_claim_paths=()
+declare -A owned_path_ancestors=()
+declare -A read_path_resolution=()
+# Role nonces are compared inside a single evidence bundle: a nonce repeated
+# across reviewer-a, reviewer-b or the skeptic is one sealed run relabelled.
+declare -A bundle_role_nonces=()
 # Specification-by-slogan detectors. A card that reuses another card's Given,
 # When, Then, Green or Non-goal verbatim cannot distinguish its own promised
 # behavior from its neighbour's, so the acceptance proof stops being falsifiable.
@@ -540,9 +558,12 @@ validate_evidence_artifact() {
   local expected_context="$7"
   local expected_backend="$8"
   local expected_independence="${9:-}"
+  local expected_profile="${10:-}"
   local evidence_root="$board_dir/evidence/$card"
-  local artifact_file flattened actual_sha resolved verdict dimension_id dimension_status dimension_index
+  local artifact_file flattened actual_sha resolved verdict dimension_id dimension_status dimension_index role_nonce
+  local expected_command_digest mutation_id mutation_index mutation_count scenario_index
   local -a dimension_ids=(contract design compatibility tests security concurrency errors-operations documentation scope-simplicity hunks)
+  local -a expected_scenarios=()
 
   safe_repo_path "$artifact_path" || {
     fail "$evidence_root/manifest.json: unsafe evidence path $artifact_path"
@@ -578,6 +599,18 @@ validate_evidence_artifact() {
   require_json_value "$artifact_file" "$flattened" role "$expected_role"
   require_json_value "$artifact_file" "$flattened" sealed true
   require_json_pattern "$artifact_file" "$flattened" role_nonce '^[A-Za-z0-9._:-]{16,128}$'
+  # The nonce is the per-role draw that makes a seal unforgeable by its peers.
+  # A well-formed nonce that another role in the same bundle already sealed
+  # proves a single run was replayed under two role labels, so reviewer-a,
+  # reviewer-b and the skeptic stop being independent observers of the change.
+  role_nonce="$(json_get "$flattened" role_nonce 2>/dev/null || true)"
+  if [[ -n "$role_nonce" ]]; then
+    if [[ -n "${bundle_role_nonces[$role_nonce]+x}" ]]; then
+      fail "$artifact_file: role_nonce is already sealed by ${bundle_role_nonces[$role_nonce]} in this bundle; $expected_role must seal an independent nonce"
+    else
+      bundle_role_nonces[$role_nonce]="$expected_role"
+    fi
+  fi
   require_json_value "$artifact_file" "$flattened" context_digest "$expected_context"
   require_json_value "$artifact_file" "$flattened" backend_family_digest "$expected_backend"
 
@@ -605,6 +638,43 @@ validate_evidence_artifact() {
       fi
     done
     [[ -z "$(json_type "$flattened" "coverage.dimensions[${#dimension_ids[@]}]" 2>/dev/null || true)" ]] || fail "$artifact_file: coverage.dimensions must contain exactly ten entries"
+  elif [[ "$expected_schema" == "aurum.acceptance-observation" ]]; then
+    # This artifact is the run itself, not an opinion about it. It carries the
+    # exit code the card's locked command actually produced: non-zero before the
+    # change, zero after it, non-zero again under the skeptical mutation, and
+    # zero on the restored clean replay. The command it claims to have run is
+    # recomputed from the card, so a bundle cannot observe a different command.
+    expected_command_digest="sha256:$(printf '%s' "${card_accept_commands[$card]:-}" | sha256sum | awk '{print $1}')"
+    require_json_value "$artifact_file" "$flattened" verdict pass
+    require_json_value "$artifact_file" "$flattened" command_digest "$expected_command_digest"
+    [[ "$expected_profile" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "$artifact_file: the manifest declares no container profile digest to bind"
+    require_json_value "$artifact_file" "$flattened" container_profile_digest "$expected_profile"
+    require_json_pattern "$artifact_file" "$flattened" red.exit_code '^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$'
+    require_json_value "$artifact_file" "$flattened" green.exit_code 0
+    require_json_value "$artifact_file" "$flattened" mutation.detected true
+    require_json_pattern "$artifact_file" "$flattened" mutation.exit_code '^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$'
+    require_json_value "$artifact_file" "$flattened" mutation.restored_exit_code 0
+    require_json_value "$artifact_file" "$flattened" clean_replay.exit_code 0
+    require_json_value "$artifact_file" "$flattened" secret_canaries.pass true
+    require_json_value "$artifact_file" "$flattened" secret_canaries.leaked 0
+    mutation_count="${card_mutation_counts[$card]:-0}"
+    mutation_id="$(json_get "$flattened" mutation.mutation_id 2>/dev/null || true)"
+    if [[ "$mutation_id" =~ ^MUT-([0-9]{3})$ ]]; then
+      mutation_index="$((10#${BASH_REMATCH[1]}))"
+      (( mutation_index >= 1 && mutation_index <= mutation_count )) ||
+        fail "$artifact_file: mutation.mutation_id is not a mutation the card declares"
+    else
+      fail "$artifact_file: mutation.mutation_id must name one MUT-NNN hypothesis from the card"
+    fi
+    read -ra expected_scenarios <<< "${card_scenario_ids[$card]:-}"
+    (( ${#expected_scenarios[@]} > 0 )) || fail "$artifact_file: the card declares no acceptance scenario to observe"
+    [[ "$(json_type "$flattened" scenarios 2>/dev/null || true)" == "array" ]] || fail "$artifact_file: scenarios must be an array"
+    for (( scenario_index = 0; scenario_index < ${#expected_scenarios[@]}; scenario_index++ )); do
+      require_json_value "$artifact_file" "$flattened" "scenarios[$scenario_index].id" "${expected_scenarios[$scenario_index]}"
+      require_json_value "$artifact_file" "$flattened" "scenarios[$scenario_index].exit_code" 0
+    done
+    [[ -z "$(json_type "$flattened" "scenarios[${#expected_scenarios[@]}]" 2>/dev/null || true)" ]] ||
+      fail "$artifact_file: scenarios must observe exactly the acceptance scenarios the card declares"
   else
     require_json_value "$artifact_file" "$flattened" verdict pass
     require_json_value "$artifact_file" "$flattened" challenge_plan.sealed_before_reviews true
@@ -699,6 +769,10 @@ validate_evidence_hashes() {
   if [[ -n "$path" && -z "${hashed_paths[$path]+x}" ]]; then
     fail "$manifest: human_approval.path is absent from evidence_hashes"
   fi
+  path="$(json_get "$flattened" acceptance.path 2>/dev/null || true)"
+  if [[ -n "$path" && -z "${hashed_paths[$path]+x}" ]]; then
+    fail "$manifest: acceptance.path is absent from evidence_hashes"
+  fi
 
   identity="$(json_get "$flattened" candidate_identity_digest 2>/dev/null || true)"
   declared_chain="$(json_get "$flattened" evidence_chain_digest 2>/dev/null || true)"
@@ -712,18 +786,16 @@ validate_manifest() {
   local state="$2"
   local manifest="$board_dir/evidence/$card/manifest.json"
   local flattened identity candidate_path value report_path report_sha report_identity
-  local candidate_digest_input computed_identity
+  local candidate_digest_input computed_identity manifest_field
   local review_a_context review_b_context skeptic_context
   local review_a_session review_b_session skeptic_session
   local review_a_backend review_b_backend skeptic_backend independence_level
-
-  # `authenticated: true` inside a repository JSON file is a claim, not
-  # authentication. Until a separately implemented verifier validates a
-  # trusted SCM/service event, no card can cross the human `done` boundary.
-  if [[ "$state" == "done" ]]; then
-    fail "${files[$card]}: done is disabled until an authenticated human-approval verifier is bootstrapped"
-    return
-  fi
+  local acceptance_context acceptance_session acceptance_backend expected_command_digest
+  local -a allowed_manifest_fields=(
+    schema version card_id clean_tree candidate_identity_digest candidate_identity
+    provenance gates tdd reviews skeptic acceptance approval
+    evidence_hashes_complete evidence_chain_digest evidence_hashes
+  )
 
   [[ -f "$manifest" && ! -L "$manifest" ]] || {
     fail "${files[$card]}: $state card lacks a regular evidence/$card/manifest.json"
@@ -739,6 +811,29 @@ validate_manifest() {
     fail "$manifest: invalid JSON or duplicate key"
     return
   fi
+
+  # A human gate is not part of this board. Every card is proved by agent-driven
+  # functional validation plus a skeptical mutation, and `done` is judged on the
+  # recomputable evidence bundle alone. Only account creation and budget go to a
+  # human, and those never travel as a manifest field — they belong in
+  # `cards/blocked-on-owner`. A `human_approval` object is therefore an
+  # unverifiable claim wherever it appears.
+  if [[ -n "$(json_type "$flattened" human_approval 2>/dev/null || true)" ]]; then
+    fail "$manifest: human_approval is not an accepted gate; prove the behavior and its skeptical mutation instead"
+  fi
+  # Every manifest field is recomputed or cross-checked below. An unrecognized
+  # top-level field is a self-declared claim with no verifier behind it, so it
+  # is refused instead of silently ignored.
+  while IFS= read -r manifest_field; do
+    [[ -n "$manifest_field" ]] || continue
+    # `human_approval` is adjudicated by the dedicated check above, which states
+    # the missing verifier instead of the missing recomputation.
+    case " ${allowed_manifest_fields[*]} human_approval " in
+      *" $manifest_field "*) ;;
+      *) fail "$manifest: $manifest_field is a self-declared field the coordinator cannot recompute" ;;
+    esac
+  done < <(awk -F '\t' '$1 != "" && $1 !~ /\./ && $1 !~ /\[/ { print $1 }' <<< "$flattened" | sort -u)
+
   require_json_value "$manifest" "$flattened" schema aurum.evidence-manifest
   require_json_value "$manifest" "$flattened" version 1
   require_json_value "$manifest" "$flattened" card_id "$card"
@@ -787,6 +882,10 @@ validate_manifest() {
   computed_identity="sha256:$(printf '%s\n' "$candidate_digest_input" | sha256sum | awk '{print $1}')"
   [[ "$identity" == "$computed_identity" ]] || fail "$manifest: candidate_identity_digest does not match canonical CandidateIdentity/v1"
 
+  # Nonce independence is scoped to one bundle, so the map is emptied before the
+  # three roles of this card are read and a collision is always reported against
+  # the manifest that contains it.
+  bundle_role_nonces=()
   for role in a b; do
     report_path="$(json_get "$flattened" "reviews.$role.path" 2>/dev/null || true)"
     report_sha="$(json_get "$flattened" "reviews.$role.sha256" 2>/dev/null || true)"
@@ -811,7 +910,9 @@ validate_manifest() {
   if [[ "$independence_level" =~ ^I[23]$ && "$review_a_backend" == "$review_b_backend" ]]; then
     fail "$manifest: I2/I3 claimed with the same backend family"
   fi
-  if [[ "$state" == "review" && "$independence_level" == "I3" ]]; then
+  # I3 is the level whose independence comes from an authenticated human. No
+  # verifier for that exists, so the level stays unclaimable in every state.
+  if [[ "$independence_level" == "I3" ]]; then
     fail "$manifest: I3 cannot be claimed before authenticated human approval"
   fi
   report_path="$(json_get "$flattened" skeptic.path 2>/dev/null || true)"
@@ -830,8 +931,36 @@ validate_manifest() {
   [[ "$skeptic_session" != "$review_a_session" && "$skeptic_session" != "$review_b_session" ]] || fail "$manifest: skeptic reuses a reviewer session"
   validate_evidence_artifact "$card" "$report_path" "$report_sha" "$identity" aurum.skeptic-report skeptic "$skeptic_context" "$skeptic_backend"
 
-  if [[ -n "$(json_type "$flattened" human_approval 2>/dev/null || true)" ]]; then
-    fail "$manifest: human approval must not be attached before the done transition"
+  # The `done` boundary is crossed on evidence, never on a declaration. On top
+  # of everything a `review` bundle already proves, the bundle must contain the
+  # acceptance run itself: the observed exit codes of the exact command the card
+  # locks, that command failing under the skeptical mutation, and a restored
+  # clean replay, sealed under the same CandidateIdentityV1 as the three reports
+  # and under a fourth role and nonce that none of them used.
+  if [[ "$state" == "done" ]]; then
+    expected_command_digest="sha256:$(printf '%s' "${card_accept_commands[$card]:-}" | sha256sum | awk '{print $1}')"
+    report_path="$(json_get "$flattened" acceptance.path 2>/dev/null || true)"
+    report_sha="$(json_get "$flattened" acceptance.sha256 2>/dev/null || true)"
+    report_identity="$(json_get "$flattened" acceptance.candidate_identity_digest 2>/dev/null || true)"
+    acceptance_context="$(json_get "$flattened" acceptance.context_digest 2>/dev/null || true)"
+    acceptance_session="$(json_get "$flattened" acceptance.session_digest 2>/dev/null || true)"
+    acceptance_backend="$(json_get "$flattened" acceptance.backend_family_digest 2>/dev/null || true)"
+    [[ "$report_sha" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "$manifest: acceptance.sha256 is missing or malformed"
+    [[ "$report_identity" == "$identity" ]] || fail "$manifest: acceptance is bound to a different CandidateIdentity"
+    [[ -n "${card_expected_artifacts[$card]:-}" && "$report_path" == "${card_expected_artifacts[$card]}" ]] ||
+      fail "$manifest: acceptance.path is not the expected artifact the card locks"
+    require_json_value "$manifest" "$flattened" acceptance.sealed true
+    require_json_value "$manifest" "$flattened" acceptance.command_digest "$expected_command_digest"
+    require_json_pattern "$manifest" "$flattened" acceptance.context_digest '^sha256:[0-9a-f]{64}$'
+    require_json_pattern "$manifest" "$flattened" acceptance.session_digest '^sha256:[0-9a-f]{64}$'
+    require_json_pattern "$manifest" "$flattened" acceptance.backend_family_digest '^sha256:[0-9a-f]{64}$'
+    [[ "$acceptance_context" != "$review_a_context" && "$acceptance_context" != "$review_b_context" && "$acceptance_context" != "$skeptic_context" ]] ||
+      fail "$manifest: the acceptance run reuses a review context"
+    [[ "$acceptance_session" != "$review_a_session" && "$acceptance_session" != "$review_b_session" && "$acceptance_session" != "$skeptic_session" ]] ||
+      fail "$manifest: the acceptance run reuses a review session"
+    validate_evidence_artifact "$card" "$report_path" "$report_sha" "$identity" \
+      aurum.acceptance-observation acceptance "$acceptance_context" "$acceptance_backend" '' \
+      "$(json_get "$flattened" gates.container_profile_digest 2>/dev/null || true)"
   fi
 }
 
@@ -1007,6 +1136,8 @@ while IFS= read -r -d '' card; do
       fail "$card: unsafe or non-repository-relative read path: $readable_path"
       continue
     }
+    read_path_claim_cards+=("$id")
+    read_path_claim_paths+=("$readable_path")
     for denied_path in "${denied_paths[@]}"; do
       paths_overlap "$readable_path" "$denied_path" && fail "$card: readable and forbidden paths overlap: $readable_path <> $denied_path"
     done
@@ -1147,6 +1278,20 @@ while IFS= read -r -d '' card; do
 
   validate_acceptance "$card" "$id"
   grep -Eq '^Expected artifact: .+' "$card" || fail "$card: acceptance lacks a concrete expected artifact"
+  # Recorded, not trusted: the `done` gate rebuilds the acceptance command
+  # digest and the expected artifact path from the locked card itself, so an
+  # evidence bundle cannot observe a command or write an artifact the card
+  # never promised.
+  accept_line="$(grep -E '^accept: `[^`]+`$' "$card" | head -n 1 || true)"
+  accept_command="${accept_line#accept: \`}"
+  card_accept_commands[$id]="${accept_command%\`}"
+  expected_artifact_line="$(grep -E '^Expected artifact: .+' "$card" | head -n 1 || true)"
+  if [[ "$expected_artifact_line" =~ \`(\.board/evidence/$id/[A-Za-z0-9._/-]+)\` ]]; then
+    card_expected_artifacts[$id]="${BASH_REMATCH[1]}"
+  else
+    card_expected_artifacts[$id]=""
+  fi
+  card_scenario_ids[$id]="${acceptance_ids[*]}"
   acceptance_body="$(section_body "$card" "## Acceptance")"
   for scenario_id in "${acceptance_ids[@]}"; do
     grep -Fq "$scenario_id" <<< "$acceptance_body" || fail "$card: Acceptance evidence does not bind $scenario_id"
@@ -1156,6 +1301,7 @@ while IFS= read -r -d '' card; do
   (( ${#mutation_headings[@]} > 0 )) || fail "$card: skeptical mutation lacks a named MUT-NNN hypothesis mapped to AC and trust boundary"
   all_mutation_heading_count="$(grep -Ec '^### MUT-' <<< "$skeptical" || true)"
   [[ "$all_mutation_heading_count" -eq "${#mutation_headings[@]}" ]] || fail "$card: malformed skeptical mutation heading"
+  card_mutation_counts[$id]="${#mutation_headings[@]}"
   unset covered_scenarios covered_boundaries
   declare -A covered_scenarios=()
   declare -A covered_boundaries=()
@@ -1345,6 +1491,60 @@ for (( path_left = 0; path_left < ${#owned_path_list[@]}; path_left++ )); do
       done
     done
   done
+done
+
+# A read path is only reviewable material if some card produces it or the tree
+# already carries it. Ownership is checked in both directions: a read path may
+# be an owned path, sit under one, or be the directory that contains one.
+for (( ancestor_index = 0; ancestor_index < ${#owned_path_list[@]}; ancestor_index++ )); do
+  ancestor_path="${owned_path_list[$ancestor_index]}"
+  while [[ "$ancestor_path" == */* ]]; do
+    ancestor_path="${ancestor_path%/*}"
+    owned_path_ancestors[$ancestor_path]=1
+  done
+done
+
+read_path_has_producer() {
+  local path="$1"
+  local prefix="$path"
+  [[ -z "${path_owners[$path]+x}" ]] || return 0
+  [[ -z "${owned_path_ancestors[$path]+x}" ]] || return 0
+  while [[ "$prefix" == */* ]]; do
+    prefix="${prefix%/*}"
+    if [[ -n "${path_owners[$prefix]+x}" ]]; then
+      # An owned ancestor only produces this path if it can hold children. A
+      # prefix the tree already carries as a non-directory never will, so the
+      # read path is fabricated rather than pending creation, and claiming it
+      # would let any invented path ride in under an owned regular file.
+      [[ ! -e "$repo_root/$prefix" || -d "$repo_root/$prefix" ]] || return 1
+      return 0
+    fi
+  done
+  return 1
+}
+
+for (( claim_index = 0; claim_index < ${#read_path_claim_paths[@]}; claim_index++ )); do
+  claimed_path="${read_path_claim_paths[$claim_index]}"
+  claim_card="${read_path_claim_cards[$claim_index]}"
+  if [[ -z "${read_path_resolution[$claimed_path]+x}" ]]; then
+    if read_path_has_producer "$claimed_path"; then
+      read_path_resolution[$claimed_path]=owned
+    elif [[ -L "$repo_root/$claimed_path" ]]; then
+      read_path_resolution[$claimed_path]=symlink
+    elif [[ -f "$repo_root/$claimed_path" || -d "$repo_root/$claimed_path" ]]; then
+      read_path_resolution[$claimed_path]=present
+    else
+      read_path_resolution[$claimed_path]=absent
+    fi
+  fi
+  case "${read_path_resolution[$claimed_path]}" in
+    absent)
+      fail "${files[$claim_card]}: read path is owned by no card and absent from the tree: $claimed_path"
+      ;;
+    symlink)
+      fail "${files[$claim_card]}: read path is owned by no card and resolves through a symlink: $claimed_path"
+      ;;
+  esac
 done
 
 report_spec_collisions scenario_given_owners "acceptance Given"

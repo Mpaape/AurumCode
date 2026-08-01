@@ -271,6 +271,12 @@ reseal_evidence() {
   sed -i "s#\"evidence_chain_digest\":\"sha256:[0-9a-f]\{64\}\"#\"evidence_chain_digest\":\"$chain_digest\"#" "$manifest"
 }
 
+# `expected` must be a whole-line, case-sensitive ERE that reproduces the exact
+# diagnostic the validator emits for the mutated invariant. A loose substring
+# (a bare word such as `Outcome` or an `a|b` alternation) lets any unrelated
+# error mark the mutant as killed, so the suite could report every case green
+# while the invariant under test was never enforced. Only the genuinely variable
+# spans -- the temporary fixture root, a digest -- may stay wildcards.
 run_case() {
   local name="$1"
   local expected="$2"
@@ -279,7 +285,7 @@ run_case() {
     printf 'validator mutant survived: %s\n' "$name" >&2
     return 1
   fi
-  if ! grep -Eiq "$expected" "$output"; then
+  if ! grep -Eq "$expected" "$output"; then
     printf 'validator mutant failed for wrong reason: %s (expected %s)\n' "$name" "$expected" >&2
     sed -n '1,80p' "$output" >&2
     return 1
@@ -317,8 +323,11 @@ mv "$empty_card.new" "$empty_card"
 prepare root_path
 sed -i 's#^paths: .*#paths: [/]#' "$probe_root/root_path/.board/cards/ready/AUR-001.md"
 
+# Single-variable privilege mutation: every other hardening flag the direct-OCI
+# branch demands is present and correct, so `--privileged` is the only deviation
+# and the case cannot be satisfied by an unrelated hardening diagnostic.
 prepare privileged_acceptance
-sed -i 's#^accept: .*#accept: `docker run --rm --privileged --network=host AUR-001`#' "$probe_root/privileged_acceptance/.board/cards/ready/AUR-001.md"
+sed -i 's#^accept: .*#accept: `docker run --rm --privileged --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m --cpus=1 --user=1000:1000 registry.invalid/acceptance@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef AUR-001`#' "$probe_root/privileged_acceptance/.board/cards/ready/AUR-001.md"
 
 prepare tdd_outside
 sed -i 's#^paths: .*#paths: [docs/specs/AUR-001.md]#' "$probe_root/tdd_outside/.board/cards/ready/AUR-001.md"
@@ -376,7 +385,9 @@ make_valid_review "$probe_root/unverified_done"
 mv "$probe_root/unverified_done/.board/cards/review/AUR-001.md" "$probe_root/unverified_done/.board/cards/done/AUR-001.md"
 sed -i 's/^status: review$/status: done/' "$probe_root/unverified_done/.board/cards/done/AUR-001.md"
 sed -i 's#cards/review/AUR-001.md#cards/done/AUR-001.md#; s/| review |/| done |/' "$probe_root/unverified_done/.board/INDEX.md"
-sed -i '/"evidence_hashes":/s/"evidence_hashes":/"human_approval":{"authenticated":true,"actor_type":"human","scm_event_id":"forged-event"},"evidence_hashes":/' "$probe_root/unverified_done/.board/evidence/AUR-001/manifest.json"
+# A human event is no longer a gate, so this mutant tests what its name claims:
+# a card promoted to `done` whose acceptance was never sealed.
+sed -i 's/"sealed":true/"sealed":false/' "$probe_root/unverified_done/.board/evidence/AUR-001/manifest.json"
 
 # Positive control for every sealed-bundle mutant below: an untouched review
 # bundle that is re-sealed by the same helper must still pass, so a mutant that
@@ -431,35 +442,65 @@ make_valid_review "$probe_root/canary_leak"
 sed -i 's/"secret_canaries":{"pass":true}/"secret_canaries":{"pass":false}/' "$probe_root/canary_leak/.board/evidence/AUR-001/skeptic.json"
 reseal_evidence "$probe_root/canary_leak"
 
+card='\.board/cards/[a-z-]+/AUR-001\.md'
+manifest='\.board/evidence/AUR-001/manifest\.json'
+report='\.board/evidence/AUR-001'
+
 pids=()
-run_case empty_outcome 'Outcome' & pids+=("$!")
-run_case root_path 'repository-relative|owned paths' & pids+=("$!")
-run_case privileged_acceptance 'privilege|acceptance' & pids+=("$!")
-run_case tdd_outside 'TDD test is outside owned paths' & pids+=("$!")
-run_case tdd_ancestor 'TDD test is outside owned paths' & pids+=("$!")
-run_case tdd_layer_outside 'Unit TDD test is outside owned paths' & pids+=("$!")
-run_case tdd_ambiguous 'Unit must be exactly' & pids+=("$!")
-run_case tdd_traversal 'unsafe|grammar' & pids+=("$!")
-run_case tdd_duplicate 'exactly one Test' & pids+=("$!")
+run_case empty_outcome \
+  "^board error: .*/$card: ## Outcome must contain a specific, falsifiable statement\$" & pids+=("$!")
+run_case root_path \
+  "^board error: .*/$card: unsafe or non-repository-relative owned path: /\$" & pids+=("$!")
+run_case privileged_acceptance \
+  "^board error: .*/$card: acceptance contains shell composition, privilege escalation, host namespace/socket, or environment injection\$" & pids+=("$!")
+run_case tdd_outside \
+  "^board error: .*/$card: Acceptance TDD test is outside owned paths: tests/acceptance/AUR-001\.sh\$" & pids+=("$!")
+run_case tdd_ancestor \
+  "^board error: .*/$card: Acceptance TDD test is outside owned paths: tests/acceptance/AUR-001\.sh\$" & pids+=("$!")
+run_case tdd_layer_outside \
+  "^board error: .*/$card: Unit TDD test is outside owned paths: tests/unit/outside_test\.go\$" & pids+=("$!")
+run_case tdd_ambiguous \
+  "^board error: .*/$card: Unit must be exactly a backtick-delimited path::selector or not-applicable with a concrete reason\$" & pids+=("$!")
+run_case tdd_traversal \
+  "^board error: .*/$card: Acceptance test path is unsafe or not repository-relative: tests/\.\./secrets/x\.sh\$" & pids+=("$!")
+run_case tdd_duplicate \
+  "^board error: .*/$card: TDD proof must contain exactly one Test reference\$" & pids+=("$!")
 run_pass_case path_space_valid & pids+=("$!")
-run_case path_leading_space 'paths list is not canonical' & pids+=("$!")
-run_case path_trailing_space 'paths list is not canonical' & pids+=("$!")
-run_case path_glob 'unsafe|repository-relative' & pids+=("$!")
-run_case path_double_slash 'unsafe|repository-relative' & pids+=("$!")
-run_case covers_partial 'Covers controls' & pids+=("$!")
-run_case orphan_requirement 'orphan product requirement' & pids+=("$!")
-run_case orphan_control 'orphan control' & pids+=("$!")
-run_case evidence_chain 'evidence_chain_digest does not match' & pids+=("$!")
-run_case forged_human 'human approval must not be attached' & pids+=("$!")
-run_case unverified_done 'authenticated human-approval verifier' & pids+=("$!")
+run_case path_leading_space \
+  "^board error: .*/$card: paths list is not canonical\$" & pids+=("$!")
+run_case path_trailing_space \
+  "^board error: .*/$card: paths list is not canonical\$" & pids+=("$!")
+run_case path_glob \
+  "^board error: .*/$card: unsafe or non-repository-relative owned path: docs/specs/\*\.md\$" & pids+=("$!")
+run_case path_double_slash \
+  "^board error: .*/$card: unsafe or non-repository-relative owned path: tests//acceptance/AUR-001\.sh\$" & pids+=("$!")
+run_case covers_partial \
+  "^board error: .*/$card: AC-001 must contain exactly one Covers controls list\$" & pids+=("$!")
+run_case orphan_requirement \
+  '^board error: requirements registry contains orphan product requirement PR-ORP-001$' & pids+=("$!")
+run_case orphan_control \
+  '^board error: code-review standards contain orphan control CR-ORP-001$' & pids+=("$!")
+run_case evidence_chain \
+  "^board error: .*/$manifest: evidence_chain_digest does not match the canonical CandidateIdentity/path/hash chain\$" & pids+=("$!")
+run_case forged_human \
+  "^board error: .*/$manifest: human_approval is not an accepted gate; prove the behavior and its skeptical mutation instead\$" & pids+=("$!")
+run_case unverified_done \
+  "^board error: .*/$manifest: acceptance.sealed must equal true\$" & pids+=("$!")
 run_pass_case sealed_bundle_valid & pids+=("$!")
-run_case acceptance_tampered 'non-blocking sealed verdict' & pids+=("$!")
-run_case role_reuse 'skeptic\.json: role must equal skeptic' & pids+=("$!")
-run_case preseal_leak 'isolation\.peer_report_visible_before_seal must equal false' & pids+=("$!")
-run_case stale_identity 'a\.json: candidate_identity_digest must equal' & pids+=("$!")
-run_case mutation_survived 'mutation\.detected must equal true' & pids+=("$!")
-run_case replay_failure 'clean_replay\.pass must equal true' & pids+=("$!")
-run_case canary_leak 'secret_canaries\.pass must equal true' & pids+=("$!")
+run_case acceptance_tampered \
+  "^board error: .*/$report/a\.json: a review/done card requires a non-blocking sealed verdict\$" & pids+=("$!")
+run_case role_reuse \
+  "^board error: .*/$report/skeptic\.json: role must equal skeptic\$" & pids+=("$!")
+run_case preseal_leak \
+  "^board error: .*/$report/b\.json: isolation\.peer_report_visible_before_seal must equal false\$" & pids+=("$!")
+run_case stale_identity \
+  "^board error: .*/$report/a\.json: candidate_identity_digest must equal sha256:[0-9a-f]{64}\$" & pids+=("$!")
+run_case mutation_survived \
+  "^board error: .*/$report/skeptic\.json: mutation\.detected must equal true\$" & pids+=("$!")
+run_case replay_failure \
+  "^board error: .*/$report/skeptic\.json: clean_replay\.pass must equal true\$" & pids+=("$!")
+run_case canary_leak \
+  "^board error: .*/$report/skeptic\.json: secret_canaries\.pass must equal true\$" & pids+=("$!")
 
 failed=0
 for pid in "${pids[@]}"; do
