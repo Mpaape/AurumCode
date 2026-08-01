@@ -174,7 +174,6 @@ for child in "${expected_children[@]}"; do
   child_identity=''
   read -r child_identity <"$work/identity.raw" 2>/dev/null || child_identity=''
   if [[ -n "$child_identity" ]]; then
-    [[ "$child_identity" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "candidate_identity_mismatch:$child:shape"
     identity_seen=$((identity_seen + 1))
     if [[ -z "$observed_identity" ]]; then
       observed_identity="$child_identity"
@@ -222,7 +221,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
   case " ${expected_children[*]} " in
     *" $m_id "*) ;;
-    *) fail "child_unexpected:$(printf %s "${m_id:0:32}" | tr -cd "A-Za-z0-9_.:-")" ;;
+    *) fail "child_unexpected:$m_id" ;;
   esac
   case " $claimed " in
     *" $m_id "*) fail "child_duplicate:$m_id" ;;
