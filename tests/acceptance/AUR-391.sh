@@ -7,7 +7,7 @@ umask 077
 readonly card='AUR-391'
 selector="${1:-AC-001}"
 case "$selector" in
-  AC-001|ContractAUR413|IntegrationAUR413|E2EAUR413) ;;
+  AC-001|ContractAUR391|IntegrationAUR391|E2EAUR391) ;;
   *) printf '%s/AC-001/unknown-selector\n' "$card" >&2; exit 64 ;;
 esac
 
