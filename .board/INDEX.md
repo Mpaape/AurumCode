@@ -4,7 +4,7 @@ This is the readable registry for the executable TaskSpec files. State,
 dependency, schema, path ownership, evidence, and safety validity are enforced
 by [validate.sh](validate.sh).
 
-- Total: **421 atomic cards**
+- Total: **423 atomic cards**
 - Execution order: dependency DAG, never a human calendar
 - Common proof: locked TDD red/green/refactor, OCI acceptance, two sealed full reviews, skeptical mutation
 - Requirements: [canonical product registry](requirements/REQUIREMENTS.md)
@@ -221,7 +221,7 @@ by [validate.sh](validate.sh).
 | [AUR-206](cards/backlog/AUR-206.md) | backlog | O00-security | critical | `[AUR-204, AUR-197, AUR-412]` | Auditar segurança e privacidade independentemente |
 | [AUR-207](cards/backlog/AUR-207.md) | backlog | O00-governance | critical | `[AUR-205, AUR-206, AUR-412]` | Reproduzir todos os gates em checkout frio |
 | [AUR-208](cards/backlog/AUR-208.md) | backlog | O00-governance | critical | `[AUR-186, AUR-190, AUR-207, AUR-299, AUR-300, AUR-301, AUR-412]` | Comprovar todos os objetivos funcionais |
-| [AUR-209](cards/backlog/AUR-209.md) | backlog | O00-governance | critical | `[AUR-208, AUR-319, AUR-412]` | Emitir aceite final somente pelo skeptic |
+| [AUR-209](cards/backlog/AUR-209.md) | backlog | O00-governance | critical | `[AUR-208, AUR-319, AUR-412, AUR-413, AUR-414, AUR-415, AUR-416, AUR-417, AUR-418, AUR-419, AUR-420, AUR-421, AUR-422, AUR-423]` | Emitir aceite final somente pelo skeptic |
 | [AUR-210](cards/backlog/AUR-210.md) | backlog | O02-index | critical | `[AUR-039, AUR-042, AUR-222, AUR-404]` | Resolver contexto vivo sem store persistente |
 | [AUR-211](cards/backlog/AUR-211.md) | backlog | O10-memory | critical | `[AUR-030, AUR-161, AUR-166, AUR-210, AUR-403]` | Retornar augmentation opcional com status tipado |
 | [AUR-212](cards/backlog/AUR-212.md) | backlog | O05-review | critical | `[AUR-025, AUR-042, AUR-403]` | Exigir CoverageManifest completo por pass |
@@ -406,7 +406,7 @@ by [validate.sh](validate.sh).
 | [AUR-391](cards/backlog/AUR-391.md) | backlog | O14-legacy | high | `[AUR-001, AUR-233, AUR-404]` | Caracterizar dockerignore da raiz |
 | [AUR-392](cards/backlog/AUR-392.md) | backlog | O05-review | critical | `[AUR-026, AUR-035]` | Definir suppression stateless escopada e expirável |
 | [AUR-393](cards/backlog/AUR-393.md) | backlog | O05-review | critical | `[AUR-035, AUR-082, AUR-392]` | Aplicar matching de suppression stale-safe |
-| [AUR-394](cards/backlog/AUR-394.md) | backlog | O05-review | critical | `[AUR-035, AUR-036, AUR-392, AUR-393]` | Exigir autorização humana para suppression |
+| [AUR-394](cards/backlog/AUR-394.md) | backlog | O05-review | critical | `[AUR-035, AUR-036, AUR-392, AUR-393, AUR-409]` | Exigir autorização humana para suppression |
 | [AUR-395](cards/backlog/AUR-395.md) | backlog | O08-runtime | high | `[AUR-099, AUR-101, AUR-034, AUR-403]` | Expor readiness dependente sanitizada |
 | [AUR-396](cards/backlog/AUR-396.md) | backlog | O08-runtime | high | `[AUR-099, AUR-101, AUR-034, AUR-403]` | Emitir métricas runtime por allowlist |
 | [AUR-397](cards/backlog/AUR-397.md) | backlog | O08-testqa | critical | `[AUR-027, AUR-090, AUR-129, AUR-403]` | Definir FileEdit seguro |
@@ -434,3 +434,5 @@ by [validate.sh](validate.sh).
 | [AUR-419](cards/backlog/AUR-419.md) | backlog | O08-testqa | high | `[AUR-133, AUR-140, AUR-141, AUR-142, AUR-143, AUR-251, AUR-258, AUR-411]` | Verificar proposta de unit test PowerShell |
 | [AUR-420](cards/backlog/AUR-420.md) | backlog | O03-providers | critical | `[AUR-009, AUR-236, AUR-405]` | Sanitizar resposta HTTP antes de persistir |
 | [AUR-421](cards/backlog/AUR-421.md) | backlog | O13-delivery | critical | `[AUR-200, AUR-226, AUR-412]` | Provar release OCI reproduzível |
+| [AUR-422](cards/backlog/AUR-422.md) | backlog | O00-governance | critical | `[AUR-006, AUR-402]` | Definir perfil OCI bootstrap read-only |
+| [AUR-423](cards/backlog/AUR-423.md) | backlog | O08-testqa | critical | `[AUR-005, AUR-007, AUR-147]` | Provar funcionamento da feature por navegador |

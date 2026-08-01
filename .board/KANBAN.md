@@ -9,7 +9,7 @@ tests are satisfied.
 | State | Meaning | Cards |
 |---|---|---:|
 | Ready | Dependencies complete; isolated test designer may establish red | 8 |
-| Backlog | Fully specified, dependency-blocked work | 413 |
+| Backlog | Fully specified, dependency-blocked work | 415 |
 | Doing | Builder currently owns the patch | 0 |
 | Review | Candidate is immutable and under review | 0 |
 | Done | Evidence-bound double review and skeptical approval complete | 0 |
@@ -57,6 +57,6 @@ The validator rejects duplicated IDs, mismatched path/status, missing TDD,
 container acceptance, mutation, or review sections, and dependencies that do
 not resolve to another card.
 
-The complete readable registry is [`INDEX.md`](INDEX.md). It lists all 421
+The complete readable registry is [`INDEX.md`](INDEX.md). It lists all 423
 cards with state, office, risk, dependencies, and outcome; individual card files
 remain authoritative.
