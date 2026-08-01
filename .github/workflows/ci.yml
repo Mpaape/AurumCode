@@ -1,0 +1,132 @@
+name: CI
+
+# Nothing else in this repository compiles or tests the Go code on a pull
+# request: documentation.yml only regenerates markdown. Without this workflow a
+# green check means "the docs job did not crash", not "the code builds and its
+# tests pass". Every step below runs unconditionally - there is no `if:` in the
+# job - so a green run cannot be the result of a skipped step.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Read-only is all a build-and-test job needs; it publishes nothing.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned, never `@latest`: an unpinned tool silently changes the output the
+  # e2e smoke asserts on, turning an upstream release into a red build here or,
+  # worse, into a green build that no longer matches what users install.
+  GOMARKDOC_VERSION: v1.1.0
+  # Kept in sync with the `go` directive in go.mod; the step below fails the
+  # job when the two drift apart.
+  GO_VERSION: '1.21'
+
+jobs:
+  build-test-smoke:
+    name: Build, test and e2e smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Verify the toolchain matches go.mod
+        run: |
+          set -euo pipefail
+          want="$(awk '/^go [0-9]/ { print $2; exit }' go.mod)"
+          have="$(go env GOVERSION)"
+          echo "go.mod requires go ${want}; toolchain reports ${have}"
+          if [ -z "${want}" ]; then
+            echo "::error::go.mod has no go directive"
+            exit 1
+          fi
+          case "${have}" in
+            "go${want}" | "go${want}."*) ;;
+            *)
+              echo "::error::toolchain ${have} does not satisfy go.mod ${want}"
+              exit 1
+              ;;
+          esac
+
+      - name: Build every package
+        run: |
+          set -euo pipefail
+          go build ./...
+
+      - name: Install gomarkdoc ${{ env.GOMARKDOC_VERSION }}
+        run: |
+          set -euo pipefail
+          # No `|| true`, no `continue-on-error`: if the pinned tool cannot be
+          # installed the job stops here instead of running a suite that would
+          # quietly substitute the testdata stand-in for the real tool.
+          go install "github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
+
+      - name: Verify gomarkdoc is on PATH
+        run: |
+          set -euo pipefail
+          # `go install` can succeed while the binary lands somewhere that is
+          # not on PATH, which is exactly how the e2e smoke would fall back to
+          # its stand-in without anyone noticing.
+          command -v gomarkdoc
+          # Assert the pin, not just the name: a pre-existing gomarkdoc on the
+          # runner also satisfies `command -v` and the smoke would certify it.
+          have="$(gomarkdoc --version)"
+          if [ "${have}" != "${GOMARKDOC_VERSION}" ]; then
+            echo "::error::gomarkdoc ${have} on PATH, expected ${GOMARKDOC_VERSION}"
+            exit 1
+          fi
+
+      - name: Run the full Go test suite
+        run: |
+          set -euo pipefail
+          go test ./... -count=1 2>&1 | tee test.log
+          # A suite that matched no package also prints nothing and exits 0.
+          # Measured floor at the time of writing: 22 packages report `ok`.
+          packages="$(grep -c '^ok  ' test.log || true)"
+          echo "packages reporting ok: ${packages}"
+          if [ "${packages}" -lt 20 ]; then
+            echo "::error::only ${packages} packages reported ok; the suite did not run"
+            exit 1
+          fi
+
+      - name: Run the e2e smoke against the real gomarkdoc
+        run: |
+          set -euo pipefail
+          go test ./tests/e2e/... -count=1 -v -run TestSmoke 2>&1 | tee smoke.log
+          # tests/e2e builds a stand-in named `gomarkdoc` when the real tool is
+          # absent, so a passing smoke proves nothing on its own. These two
+          # assertions are what makes the step meaningful.
+          if ! grep -qF 'documentation tool: gomarkdoc (real)' smoke.log; then
+            echo "::error::the e2e smoke did not use the real gomarkdoc"
+            exit 1
+          fi
+          if grep -qF 'docgen stand-in' smoke.log; then
+            echo "::error::the e2e smoke fell back to the testdata stand-in"
+            exit 1
+          fi
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs
+          path: |
+            test.log
+            smoke.log
+          if-no-files-found: warn
+          retention-days: 7
