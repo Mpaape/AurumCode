@@ -41,11 +41,18 @@ artifact hashes, reviewer verdicts, and the skeptical mutation result under
 `.board/evidence/<card-id>/`.
 
 Acceptance programs emit observations only. They cannot write evidence, issue
-a verdict, or assert human approval. The coordinator captures bounded output,
+a verdict, or assert approval. The coordinator captures bounded output,
 recomputes the canonical evidence hash chain, and materializes a candidate-
-bound bundle. A repository JSON value such as `authenticated: true` is
-untrusted data; `done` remains disabled until a separate trusted verifier can
-authenticate the referenced human SCM/service event.
+bound bundle. A repository JSON value such as `authenticated: true` or
+`"proved": true` is untrusted data: a claim is never a proof.
+
+There is no human gate. Every card is proved by agent-driven validation —
+including a headless-browser observation of the promised effect where the
+feature reaches a user (AUR-423) — plus a skeptical mutation that must make the
+acceptance proof fail. `done` is judged on the recomputable evidence bundle
+alone. The owner is consulted for exactly two things, and they are never a
+manifest field: creating an account with a third party in the owner's name, and
+spending money. Both live in `cards/blocked-on-owner`.
 
 ## State directories
 
@@ -54,7 +61,10 @@ authenticate the referenced human SCM/service event.
 - `cards/doing`: red evidence confirmed and exactly one active builder.
 - `cards/review`: immutable candidate awaiting independent review.
 - `cards/done`: fully accepted work.
-- `cards/blocked-on-owner`: work requiring authority or a product decision.
+- `cards/blocked-on-owner`: work the owner alone can unblock, and nothing else.
+  It is reserved for **account creation** (registering with a third party in the
+  owner's name) and **budget** (spending money). A card does not land here
+  because it is risky, architectural, or far-reaching.
 - `evidence`: generated proof bundles; secrets and raw prompts are forbidden.
 - `decisions`: architecture and arbitration records.
 - `research`: normative sources and dated technical research.
