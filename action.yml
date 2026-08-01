@@ -8,45 +8,25 @@ branding:
 
 inputs:
   source-dir:
-    description: 'Source code directory to scan'
+    description: 'Directory inside the calling repository to scan (relative to the workspace root)'
     required: false
     default: '.'
-  output-dir:
-    description: 'Output directory for generated documentation (auto-generated API docs)'
-    required: false
-    default: '.aurumcode'
-  languages:
-    description: 'Comma-separated list of languages to extract (empty = all)'
-    required: false
-    default: ''
-  incremental:
-    description: 'Enable incremental mode (only process changed files)'
-    required: false
-    default: 'false'
-  generate-welcome:
-    description: 'Generate AI-powered welcome page from README'
-    required: false
-    default: 'false'
   llm-api-key:
-    description: 'API key for LLM provider (required if generate-welcome=true)'
+    description: 'API key for the LLM provider (enables AI-generated welcome page)'
     required: false
     default: ''
   llm-base-url:
-    description: 'Base URL for LLM API (for custom endpoints)'
+    description: 'Base URL of the OpenAI-compatible LLM endpoint (required together with llm-api-key)'
     required: false
     default: ''
-  build-jekyll:
-    description: 'Build Jekyll site after documentation generation'
-    required: false
-    default: 'true'
 
 outputs:
   docs-generated:
-    description: 'Number of documentation files generated'
-    value: \${{ steps.generate.outputs.docs-generated }}
+    description: 'Number of markdown files present under .aurumcode/ after the run'
+    value: ${{ steps.generate.outputs.docs-generated }}
   languages-detected:
-    description: 'Languages detected in the repository'
-    value: \${{ steps.generate.outputs.languages-detected }}
+    description: 'Comma-separated languages the extraction pipeline detected in the scanned tree'
+    value: ${{ steps.generate.outputs.languages-detected }}
 
 runs:
   using: 'composite'
@@ -56,20 +36,68 @@ runs:
       with:
         go-version: '1.21'
 
+    - name: Install extractor toolchains
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Every extractor shells out to an external documentation tool and
+        # aborts its language with "<lang> tools not available" when the tool is
+        # missing. Without this step the action reaches the pipeline and then
+        # generates nothing for Go, Python or JavaScript. Failure to install an
+        # optional toolchain only disables its language, so it is a warning; Go
+        # is guaranteed by the setup-go step above, so its install is fatal.
+        go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
+        echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
+
+        # A dedicated venv, rather than "pip install --user", because the system
+        # Python on current runner images is PEP 668 externally-managed and
+        # rejects user installs.
+        venv="${RUNNER_TEMP}/aurumcode-venv"
+        if python3 -m venv "${venv}" >/dev/null 2>&1 \
+          && "${venv}/bin/pip" install --quiet pydoc-markdown; then
+          echo "${venv}/bin" >> "${GITHUB_PATH}"
+        else
+          echo "::warning::pydoc-markdown unavailable - Python documentation will be skipped"
+        fi
+
+        if ! { command -v npm >/dev/null 2>&1 \
+          && npm install --global --no-fund --no-audit typedoc typedoc-plugin-markdown; }; then
+          echo "::warning::typedoc unavailable - JavaScript/TypeScript documentation will be skipped"
+        fi
+
     - name: Generate documentation
       id: generate
       shell: bash
       env:
-        TOTVS_DTA_API_KEY: \${{ inputs.llm-api-key }}
-        TOTVS_DTA_BASE_URL: \${{ inputs.llm-base-url }}
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+        LLM_BASE_URL: ${{ inputs.llm-base-url }}
+        SOURCE_DIR: ${{ inputs.source-dir }}
       run: |
-        echo "🚀 Generating documentation with AurumCode..."
-        
-        # Build and run
-        cd \$GITHUB_ACTION_PATH
-        go run cmd/regenerate-docs/main.go
-        
-        # Output stats
-        docs_count=\$(find \${{ inputs.output-dir }} -name "*.md" | wc -l)
-        echo "docs-generated=\$docs_count" >> \$GITHUB_OUTPUT
-        echo "✅ Generated \$docs_count documentation files"
+        set -euo pipefail
+
+        # The generator resolves its source tree and its .aurumcode output from
+        # the process working directory, so it is built from the action
+        # checkout but run from the caller's workspace.
+        binary="${RUNNER_TEMP}/aurumcode-docs"
+        (cd "${GITHUB_ACTION_PATH}" && go build -o "${binary}" ./cmd/regenerate-docs)
+
+        cd "${GITHUB_WORKSPACE}/${SOURCE_DIR}"
+
+        log_file="${RUNNER_TEMP}/aurumcode-docs.log"
+        "${binary}" 2>&1 | tee "${log_file}"
+
+        docs_count=0
+        if [ -d .aurumcode ]; then
+          docs_count=$(find .aurumcode -type f -name '*.md' | wc -l | tr -d ' ')
+        fi
+
+        languages=$( { grep -oE '\[Pipeline\] Extracting [a-z]+ documentation' "${log_file}" || true; } \
+          | awk '{print $3}' | sort -u | paste -sd, - )
+
+        {
+          echo "docs-generated=${docs_count}"
+          echo "languages-detected=${languages}"
+        } >> "${GITHUB_OUTPUT}"
+
+        echo "Generated ${docs_count} documentation files (languages: ${languages:-none})"

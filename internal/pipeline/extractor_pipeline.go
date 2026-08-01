@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	"github.com/Mpaape/AurumCode/internal/documentation/incremental"
@@ -14,6 +15,41 @@ import (
 	"github.com/Mpaape/AurumCode/internal/documentation/welcome"
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
+
+// ExtractionError reports an extraction run that did not fully succeed. Partial is
+// false when no documentation at all was produced and true when documentation was
+// produced but at least one extractor failed.
+type ExtractionError struct {
+	Partial        bool
+	SourceFiles    int
+	FilesProcessed int
+	DocsGenerated  int
+	Errors         []error
+}
+
+func (e *ExtractionError) Error() string {
+	outcome := "produced no documentation"
+	if e.Partial {
+		outcome = "was partial"
+	}
+
+	msg := fmt.Sprintf("documentation extraction %s: %d source files, %d processed, %d docs generated, %d error(s)",
+		outcome, e.SourceFiles, e.FilesProcessed, e.DocsGenerated, len(e.Errors))
+
+	if len(e.Errors) == 0 {
+		return msg
+	}
+
+	causes := make([]string, 0, len(e.Errors))
+	for _, err := range e.Errors {
+		causes = append(causes, err.Error())
+	}
+
+	return msg + ": " + strings.Join(causes, "; ")
+}
+
+// Unwrap exposes the individual extractor failures to errors.Is and errors.As.
+func (e *ExtractionError) Unwrap() []error { return e.Errors }
 
 // ExtractorPipelineConfig configures the documentation extraction pipeline
 type ExtractorPipelineConfig struct {
@@ -81,19 +117,33 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("[Pipeline] Found %d files to process", len(filesToProcess))
+	sourceFiles := 0
+	for _, files := range filesToProcess {
+		sourceFiles += len(files)
+	}
+
+	log.Printf("[Pipeline] Found %d files to process", sourceFiles)
 
 	// Step 2: Extract documentation for each language
-	stats, errors := p.extractDocumentation(ctx, filesToProcess)
+	stats, extractionErrors := p.extractDocumentation(ctx, filesToProcess)
 
 	// Log statistics
 	log.Printf("[Pipeline] Extraction complete: %d files processed, %d docs generated",
 		stats.FilesProcessed, stats.DocsGenerated)
 
-	if len(errors) > 0 {
-		log.Printf("[Pipeline] %d extraction errors occurred", len(errors))
-		for _, err := range errors {
+	if len(extractionErrors) > 0 {
+		log.Printf("[Pipeline] %d extraction errors occurred", len(extractionErrors))
+		for _, err := range extractionErrors {
 			log.Printf("[Pipeline] Error: %v", err)
+		}
+	}
+
+	if stats.DocsGenerated == 0 {
+		return &ExtractionError{
+			SourceFiles:    sourceFiles,
+			FilesProcessed: stats.FilesProcessed,
+			DocsGenerated:  stats.DocsGenerated,
+			Errors:         extractionErrors,
 		}
 	}
 
@@ -145,6 +195,17 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		}
 		if err := p.incrementalMgr.SaveCache(); err != nil {
 			log.Printf("[Pipeline] Warning: Failed to save cache: %v", err)
+		}
+	}
+
+	if len(extractionErrors) > 0 {
+		log.Printf("[Pipeline] Documentation pipeline completed with %d extraction errors", len(extractionErrors))
+		return &ExtractionError{
+			Partial:        true,
+			SourceFiles:    sourceFiles,
+			FilesProcessed: stats.FilesProcessed,
+			DocsGenerated:  stats.DocsGenerated,
+			Errors:         extractionErrors,
 		}
 	}
 
