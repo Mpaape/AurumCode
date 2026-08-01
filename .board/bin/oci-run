@@ -4,12 +4,53 @@ set -euo pipefail
 export LC_ALL=C
 umask 077
 
-readonly image='bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831'
-readonly stdout_limit=65536
-readonly stderr_limit=65536
-readonly timeout_seconds=120
-readonly max_input_files=10000
-readonly max_input_bytes=67108864
+# `bootstrap-readonly-v1` is the frozen bootstrap plan. It is served from the constants
+# below only while the profile registry does not exist on disk yet; that is the single
+# fallback path and it answers to no other profile name. Every other profile is resolved
+# from `.board/oci/profiles/<name>.json`, and its image digest may come only from the
+# matching `.board/locks/oci/<name>.lock.json`. The hardening in assert_hardened_plan is
+# re-checked for every resolved plan, fallback included, before any engine is invoked.
+readonly bootstrap_profile='bootstrap-readonly-v1'
+readonly bootstrap_image='bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831'
+readonly bootstrap_user='65534:65534'
+readonly bootstrap_cpus='1'
+readonly bootstrap_cpu_millis=1000
+readonly bootstrap_memory='256m'
+readonly bootstrap_memory_mb=256
+readonly bootstrap_pids_limit=128
+readonly bootstrap_tmpfs='/tmp:rw,noexec,nosuid,nodev,size=32m'
+readonly bootstrap_stdout_limit=65536
+readonly bootstrap_stderr_limit=65536
+readonly bootstrap_timeout_seconds=120
+readonly bootstrap_max_input_files=10000
+readonly bootstrap_max_input_bytes=67108864
+
+# Hard ceilings and floors. A registered profile declares its own bounds, but it can
+# never cross these and can never declare a resource unbounded.
+readonly ceiling_timeout_seconds=900
+readonly ceiling_memory_mb=4096
+readonly ceiling_cpu_millis=4000
+readonly ceiling_pids_limit=4096
+readonly ceiling_tmpfs_mb=1024
+readonly ceiling_output_limit=1048576
+readonly ceiling_input_files=100000
+readonly ceiling_input_bytes=268435456
+readonly floor_timeout_seconds=1
+readonly floor_memory_mb=64
+readonly floor_cpu_millis=100
+readonly floor_pids_limit=16
+readonly floor_tmpfs_mb=8
+readonly floor_output_limit=4096
+readonly max_registry_document_bytes=65536
+readonly required_tmpfs_options='rw,noexec,nosuid,nodev'
+readonly digest_pinned_image_pattern='^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$'
+readonly non_root_user_pattern='^[1-9][0-9]{2,6}:[1-9][0-9]{2,6}$'
+# Single source of truth for the credential shape gate. The same expression seals the
+# image inputs before execution and screens the untrusted worker output afterwards.
+readonly credential_pattern='(-----BEGIN[[:space:]][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})'
+# Every tmpfs this runner itself requests on the hardened worker. Any other mount
+# destination, and every non-tmpfs mount type, denies execution.
+declared_tmpfs_destinations=('/tmp')
 
 profile=''
 card=''
@@ -18,6 +59,28 @@ container_id=''
 materializer_id=''
 derived_image=''
 run_root=''
+
+# Execution plan. Every field is filled in by resolve_profile and then re-validated by
+# assert_hardened_plan; none of them has a usable default.
+image=''
+profile_source=''
+profile_digest='none'
+lock_digest='none'
+run_user=''
+run_cpus=''
+run_cpu_millis=0
+run_memory=''
+run_memory_mb=0
+run_pids_limit=0
+run_tmpfs=''
+stdout_limit=0
+stderr_limit=0
+timeout_seconds=0
+max_input_files=0
+max_input_bytes=0
+
+declare -A profile_doc=()
+declare -A lock_doc=()
 
 die() {
   local status="$1"
@@ -168,6 +231,288 @@ emit_untrusted_output() {
     sed "s/^/oci-run: untrusted $label: /" >&2
 }
 
+# Registry documents are untrusted repository data, so they are read by a deliberately
+# tiny reader instead of a general JSON parser: one flat ASCII object, one `"key": value`
+# pair per line, no nesting, no arrays, no escapes, no duplicate keys. Anything richer is
+# rejected rather than guessed at, because a value this runner misreads becomes a
+# container flag. Output is one `key<TAB>type<TAB>value` line per pair.
+readonly flat_json_reader='
+{
+  if ($0 ~ /[^\t -~]/) exit 11
+  if ($0 ~ /\\/) exit 11
+  line = $0
+  sub(/^[ \t]+/, "", line)
+  sub(/[ \t]+$/, "", line)
+  if (line == "") next
+  if (state == 2) exit 12
+  if (state == 0) {
+    if (line != "{") exit 13
+    state = 1
+    next
+  }
+  if (line == "}") { state = 2; next }
+  if (pending_close) exit 14
+  if (line ~ /,$/) sub(/,$/, "", line); else pending_close = 1
+  if (line !~ /^"[a-z][a-z0-9_]*": ("[^"]*"|true|false|(0|[1-9][0-9]*))$/) exit 15
+  key = line
+  sub(/": .*$/, "", key)
+  sub(/^"/, "", key)
+  if (seen[key]++) exit 16
+  value = line
+  sub(/^"[a-z][a-z0-9_]*": /, "", value)
+  if (value ~ /^"/) {
+    type = "s"
+    value = substr(value, 2, length(value) - 2)
+  } else if (value == "true" || value == "false") {
+    type = "b"
+  } else {
+    type = "n"
+  }
+  printf "%s\t%s\t%s\n", key, type, value
+}
+END { if (state != 2) exit 17 }
+'
+
+load_flat_json() {
+  local -n _json_doc="$1"
+  local file="$2"
+  local parsed bytes key type value
+  _json_doc=()
+  [[ -f "$file" && ! -L "$file" ]] || return 1
+  bytes="$(stat -c '%s' -- "$file")"
+  (( bytes > 0 && bytes <= max_registry_document_bytes )) || return 1
+  parsed="$(awk "$flat_json_reader" "$file")" || return 1
+  [[ -n "$parsed" ]] || return 1
+  while IFS=$'\t' read -r key type value; do
+    [[ -n "$key" ]] || return 1
+    _json_doc["$key"]="$type:$value"
+  done <<< "$parsed"
+  return 0
+}
+
+# Exactly this key set: a missing key is an unenforced guarantee and an unknown key is a
+# smuggled option, so both deny.
+require_exact_keys() {
+  local -n _keyset_doc="$1"
+  local label="$2"
+  shift 2
+  local allowed=" $* "
+  local key
+  for key in "${!_keyset_doc[@]}"; do
+    [[ "$allowed" == *" $key "* ]] || die 65 "$label declares an unknown key: $key"
+  done
+  for key in "$@"; do
+    [[ -n "${_keyset_doc[$key]-}" ]] || die 65 "$label is missing the required key: $key"
+  done
+}
+
+require_literal() {
+  local -n _literal_doc="$1"
+  local label="$2"
+  local key="$3"
+  local want_type="$4"
+  local want_value="$5"
+  local entry="${_literal_doc[$key]-}"
+  [[ "$entry" == "$want_type:$want_value" ]] ||
+    die 65 "$label must declare $key as $want_value"
+}
+
+require_string() {
+  local -n _string_doc="$1"
+  local label="$2"
+  local key="$3"
+  local entry="${_string_doc[$key]-}"
+  [[ "$entry" == s:?* ]] || die 65 "$label must declare $key as a non-empty string"
+  printf '%s' "${entry#s:}"
+}
+
+require_bounded_number() {
+  local -n _number_doc="$1"
+  local label="$2"
+  local key="$3"
+  local floor="$4"
+  local ceiling="$5"
+  local entry="${_number_doc[$key]-}"
+  local value
+  [[ "$entry" == n:* ]] || die 65 "$label must declare $key as a bounded integer"
+  value="${entry#n:}"
+  [[ "$value" =~ ^(0|[1-9][0-9]{0,9})$ ]] || die 65 "$label declares an out-of-range $key"
+  (( value >= floor && value <= ceiling )) ||
+    die 65 "$label declares $key outside [$floor, $ceiling]: $value"
+  printf '%s' "$value"
+}
+
+file_digest() {
+  printf 'sha256:%s' "$(sha256sum "$1" | awk '{print $1}')"
+}
+
+apply_bootstrap_profile() {
+  image="$bootstrap_image"
+  profile_source='bootstrap-fallback'
+  profile_digest='none'
+  lock_digest='none'
+  run_user="$bootstrap_user"
+  run_cpus="$bootstrap_cpus"
+  run_cpu_millis="$bootstrap_cpu_millis"
+  run_memory="$bootstrap_memory"
+  run_memory_mb="$bootstrap_memory_mb"
+  run_pids_limit="$bootstrap_pids_limit"
+  run_tmpfs="$bootstrap_tmpfs"
+  stdout_limit="$bootstrap_stdout_limit"
+  stderr_limit="$bootstrap_stderr_limit"
+  timeout_seconds="$bootstrap_timeout_seconds"
+  max_input_files="$bootstrap_max_input_files"
+  max_input_bytes="$bootstrap_max_input_bytes"
+}
+
+resolve_profile() {
+  local name="$1"
+  local registry_dir="$repo_root/.board/oci/profiles"
+  local profile_file="$registry_dir/$name.json"
+  local lock_file="$repo_root/.board/locks/oci/$name.lock.json"
+  local profile_label="profile $name"
+  local lock_label="lock for $name"
+  local declared_lock declared_lock_digest tmpfs_options tmpfs_mb memory_mb cpu_millis
+  local lock_dir real_root
+
+  [[ "$name" =~ ^[a-z0-9][a-z0-9.-]{2,63}$ ]] || die 64 "invalid profile name: $name"
+
+  # Refusing a symlinked profile or lock *file* is not enough: a symlinked parent
+  # (`.board/oci` or `.board/locks` pointing elsewhere) redirects the whole trust registry
+  # to attacker-chosen documents while every per-file check still passes. Both directory
+  # chains must resolve to their literal location inside this repository.
+  lock_dir="$repo_root/.board/locks/oci"
+  real_root="$(realpath -- "$repo_root")" || die 69 'repository root is unresolvable'
+  [[ "$(realpath -m -- "$registry_dir")" == "$real_root/.board/oci/profiles" ]] ||
+    die 65 'profile registry path escapes .board/oci/profiles in this repository'
+  [[ "$(realpath -m -- "$lock_dir")" == "$real_root/.board/locks/oci" ]] ||
+    die 65 'lock registry path escapes .board/locks/oci in this repository'
+
+  if [[ ! -e "$profile_file" && ! -L "$profile_file" ]]; then
+    # The only fallback path. It exists so the bootstrap keeps running before the
+    # registry lands, and it serves no other name.
+    [[ ! -d "$registry_dir" ]] ||
+      die 78 "profile is not registered: .board/oci/profiles/$name.json is missing"
+    [[ "$name" == "$bootstrap_profile" ]] ||
+      die 78 "profile registry is absent; only $bootstrap_profile is bootstrapped, not $name"
+    apply_bootstrap_profile
+    return 0
+  fi
+
+  [[ -f "$profile_file" && ! -L "$profile_file" ]] ||
+    die 65 "$profile_label document is not a regular file"
+  [[ -f "$lock_file" && ! -L "$lock_file" ]] ||
+    die 78 "$profile_label has no lock at .board/locks/oci/$name.lock.json"
+
+  load_flat_json profile_doc "$profile_file" ||
+    die 65 "$profile_label document is not a canonical flat JSON object"
+  load_flat_json lock_doc "$lock_file" ||
+    die 65 "$lock_label is not a canonical flat JSON object"
+
+  require_exact_keys lock_doc "$lock_label" schema version profile image
+  require_literal lock_doc "$lock_label" schema s 'aurum.oci-image-lock'
+  require_literal lock_doc "$lock_label" version n 1
+  require_literal lock_doc "$lock_label" profile s "$name"
+  # The image is read here and nowhere else: a mutable tag, a bare name, or a digest
+  # supplied by the profile document instead of the lock all deny.
+  image="$(require_string lock_doc "$lock_label" image)" || exit 65
+  [[ "$image" =~ $digest_pinned_image_pattern ]] ||
+    die 65 "$lock_label does not pin the image by immutable digest: $image"
+
+  require_exact_keys profile_doc "$profile_label" \
+    schema version profile lock lock_digest network user cap_drop cap_add mounts \
+    devices pull tmpfs read_only_rootfs no_new_privileges privileged timeout_seconds \
+    memory_mb cpu_millis pids_limit tmpfs_mb stdout_limit_bytes stderr_limit_bytes \
+    max_input_files max_input_bytes
+  require_literal profile_doc "$profile_label" schema s 'aurum.container-profile'
+  require_literal profile_doc "$profile_label" version n 1
+  require_literal profile_doc "$profile_label" profile s "$name"
+
+  declared_lock="$(require_string profile_doc "$profile_label" lock)" || exit 65
+  [[ "$declared_lock" == ".board/locks/oci/$name.lock.json" ]] ||
+    die 65 "$profile_label points at a foreign lock: $declared_lock"
+  declared_lock_digest="$(require_string profile_doc "$profile_label" lock_digest)" || exit 65
+  [[ "$declared_lock_digest" == "$(file_digest "$lock_file")" ]] ||
+    die 65 "$profile_label is bound to a different lock content digest"
+
+  require_literal profile_doc "$profile_label" network s 'none'
+  require_literal profile_doc "$profile_label" cap_drop s 'ALL'
+  require_literal profile_doc "$profile_label" cap_add s 'none'
+  require_literal profile_doc "$profile_label" mounts s 'none'
+  require_literal profile_doc "$profile_label" devices s 'none'
+  require_literal profile_doc "$profile_label" pull s 'never'
+  require_literal profile_doc "$profile_label" read_only_rootfs b true
+  require_literal profile_doc "$profile_label" no_new_privileges b true
+  require_literal profile_doc "$profile_label" privileged b false
+
+  run_user="$(require_string profile_doc "$profile_label" user)" || exit 65
+  tmpfs_options="$(require_string profile_doc "$profile_label" tmpfs)" || exit 65
+  [[ "$tmpfs_options" == "$required_tmpfs_options" ]] ||
+    die 65 "$profile_label must declare tmpfs as $required_tmpfs_options"
+
+  timeout_seconds="$(require_bounded_number profile_doc "$profile_label" \
+    timeout_seconds "$floor_timeout_seconds" "$ceiling_timeout_seconds")" || exit 65
+  memory_mb="$(require_bounded_number profile_doc "$profile_label" \
+    memory_mb "$floor_memory_mb" "$ceiling_memory_mb")" || exit 65
+  cpu_millis="$(require_bounded_number profile_doc "$profile_label" \
+    cpu_millis "$floor_cpu_millis" "$ceiling_cpu_millis")" || exit 65
+  run_pids_limit="$(require_bounded_number profile_doc "$profile_label" \
+    pids_limit "$floor_pids_limit" "$ceiling_pids_limit")" || exit 65
+  tmpfs_mb="$(require_bounded_number profile_doc "$profile_label" \
+    tmpfs_mb "$floor_tmpfs_mb" "$ceiling_tmpfs_mb")" || exit 65
+  stdout_limit="$(require_bounded_number profile_doc "$profile_label" \
+    stdout_limit_bytes "$floor_output_limit" "$ceiling_output_limit")" || exit 65
+  stderr_limit="$(require_bounded_number profile_doc "$profile_label" \
+    stderr_limit_bytes "$floor_output_limit" "$ceiling_output_limit")" || exit 65
+  max_input_files="$(require_bounded_number profile_doc "$profile_label" \
+    max_input_files 1 "$ceiling_input_files")" || exit 65
+  max_input_bytes="$(require_bounded_number profile_doc "$profile_label" \
+    max_input_bytes 1 "$ceiling_input_bytes")" || exit 65
+
+  run_memory_mb="$memory_mb"
+  run_memory="${memory_mb}m"
+  run_cpu_millis="$cpu_millis"
+  run_cpus="$(printf '%d.%03d' "$((cpu_millis / 1000))" "$((cpu_millis % 1000))")"
+  # The tmpfs destination stays /tmp so it matches declared_tmpfs_destinations; a
+  # profile chooses its size, never a new mount point.
+  run_tmpfs="/tmp:${tmpfs_options},size=${tmpfs_mb}m"
+  profile_source='registry'
+  profile_digest="$(file_digest "$profile_file")"
+  lock_digest="$declared_lock_digest"
+}
+
+# Last gate before any engine call. It re-derives the hardening from the resolved plan
+# itself, so a registry profile and the bootstrap fallback are held to the same floor.
+assert_hardened_plan() {
+  [[ "$image" =~ $digest_pinned_image_pattern ]] ||
+    die 65 'resolved plan does not pin the image by immutable digest'
+  [[ "$run_user" =~ $non_root_user_pattern ]] ||
+    die 65 'resolved plan does not select a non-root numeric user'
+  [[ "$run_tmpfs" == "/tmp:${required_tmpfs_options},size="*'m' ]] ||
+    die 65 'resolved plan does not mount /tmp noexec, nosuid and nodev'
+  [[ "$run_memory" =~ ^[1-9][0-9]*m$ ]] || die 65 'resolved plan does not bound memory'
+  [[ "$run_cpus" =~ ^(0|[1-9][0-9]*)(\.[0-9]{1,3})?$ ]] ||
+    die 65 'resolved plan does not bound CPU'
+  (( run_memory_mb >= floor_memory_mb && run_memory_mb <= ceiling_memory_mb )) ||
+    die 65 'resolved plan exceeds the memory ceiling'
+  (( run_cpu_millis >= floor_cpu_millis && run_cpu_millis <= ceiling_cpu_millis )) ||
+    die 65 'resolved plan exceeds the CPU ceiling'
+  (( run_pids_limit >= floor_pids_limit && run_pids_limit <= ceiling_pids_limit )) ||
+    die 65 'resolved plan exceeds the PID ceiling'
+  (( timeout_seconds >= floor_timeout_seconds && timeout_seconds <= ceiling_timeout_seconds )) ||
+    die 65 'resolved plan exceeds the wall-clock ceiling'
+  (( stdout_limit >= floor_output_limit && stdout_limit <= ceiling_output_limit )) ||
+    die 65 'resolved plan exceeds the stdout ceiling'
+  (( stderr_limit >= floor_output_limit && stderr_limit <= ceiling_output_limit )) ||
+    die 65 'resolved plan exceeds the stderr ceiling'
+  (( max_input_files >= 1 && max_input_files <= ceiling_input_files )) ||
+    die 65 'resolved plan exceeds the input file ceiling'
+  (( max_input_bytes >= 1 && max_input_bytes <= ceiling_input_bytes )) ||
+    die 65 'resolved plan exceeds the input byte ceiling'
+  [[ "$profile_source" == 'registry' || "$profile_source" == 'bootstrap-fallback' ]] ||
+    die 65 'resolved plan has no recognized provenance'
+}
+
 for required_tool in awk cat chmod cp dirname find git grep head ln mkdir mkfifo mktemp mv readlink realpath rm sed sha256sum sort stat timeout tr wc; do
   command -v "$required_tool" >/dev/null 2>&1 ||
     die 69 "bootstrap dependency unavailable: $required_tool; its lock requires a dedicated AUR-233 child card"
@@ -191,11 +536,16 @@ while (( $# > 0 )); do
   esac
 done
 
-[[ "$profile" == 'bootstrap-readonly-v1' ]] || die 78 "profile is not bootstrapped yet: $profile"
+[[ -n "$profile" ]] || die 64 '--profile is required'
 [[ "$card" =~ ^AUR-[0-9]{3}$ ]] || die 64 'invalid card id'
 
 repo_root="$(git rev-parse --show-toplevel)"
 [[ -n "$repo_root" && -d "$repo_root/.board/cards" ]] || die 69 'repository board is unavailable'
+
+# The profile is resolved from the on-disk registry before anything else is read, and the
+# resolved plan is re-asserted independently. No engine runs until both pass.
+resolve_profile "$profile"
+assert_hardened_plan
 
 mapfile -d '' -t card_files < <(
   find "$repo_root/.board/cards" -mindepth 2 -maxdepth 2 -type f -name "$card.md" -print0 | sort -z
@@ -268,9 +618,20 @@ for allowed_root in "${allowed_roots[@]}"; do
     path_is_within "$selected_path" "$allowed_root" ||
       die 65 "Git path escaped its allowlisted root: $selected_path"
     selected_paths[$selected_path]=1
-  done < <(git -C "$repo_root" ls-files -z --cached --others --exclude-standard -- "$allowed_root")
+  # Only tracked paths are materialized. `--others` would carry any untracked,
+  # non-ignored file that happens to sit inside an allowlisted path into the derived
+  # image, so a local scratch file could reach the sealed acceptance environment.
+  # This selects the file list, not the file content: a tracked path is still staged
+  # from the worktree, so uncommitted edits to it do reach the image and are caught by
+  # the credential gate below, not here.
+  done < <(git -C "$repo_root" ls-files -z --cached -- "$allowed_root")
 done
 [[ -n "${selected_paths[$test_path]+x}" ]] || die 66 "missing, ignored, or unallowlisted acceptance: $test_path"
+# The acceptance program is handed to `bash` inside the worker. A symlink there lets the
+# card point execution at another file, so the runner refuses it on its own, without
+# depending on the caller having run validate.sh first.
+[[ ! -L "$repo_root/$test_path" ]] ||
+  die 65 "acceptance program must be a regular file, not a symlink: $test_path"
 
 mapfile -t selected_list < <(printf '%s\n' "${!selected_paths[@]}" | sort)
 (( ${#selected_list[@]} <= max_input_files )) || die 65 "input allowlist exceeds $max_input_files files"
@@ -280,6 +641,10 @@ for selected_path in "${selected_list[@]}"; do
   source_path="$repo_root/$selected_path"
   destination_path="$stage/$selected_path"
   mkdir -p "$(dirname "$destination_path")"
+  # An index entry whose worktree file was deleted must stop the run instead of
+  # failing an unguarded stat halfway through materialization.
+  [[ -e "$source_path" || -L "$source_path" ]] ||
+    die 65 "allowlisted input is indexed but missing from the worktree: $selected_path"
   original_mode="$(stat -c '%a' -- "$source_path")"
   if [[ -L "$source_path" ]]; then
     link_target="$(readlink -- "$source_path")"
@@ -296,6 +661,12 @@ for selected_path in "${selected_list[@]}"; do
     (( total_bytes <= max_input_bytes )) || die 65 "input allowlist exceeds $max_input_bytes bytes"
     if [[ -n "${AURUM_SECRET_CANARY:-}" ]] && grep -Fq -- "$AURUM_SECRET_CANARY" "$source_path"; then
       die 70 "secret canary detected in materialized input: $selected_path"
+    fi
+    # Unconditional: the optional canary only covers an injected marker, so the shape
+    # gate runs on every staged file before the image is sealed. The offending value is
+    # never echoed, only the path that carries it.
+    if grep -Eiq -- "$credential_pattern" "$source_path"; then
+      die 70 "credential pattern detected in materialized input: $selected_path"
     fi
     cp --no-preserve=mode,ownership,timestamps -- "$source_path" "$destination_path"
     if [[ -x "$source_path" ]]; then
@@ -323,14 +694,15 @@ find "$stage" -type d -exec chmod 0555 {} +
 materializer_stderr="$run_root/materializer.stderr"
 if ! materializer_id="$(
   "$engine" create --pull=never \
+    --entrypoint= \
     --network=none \
-    --user=65534:65534 \
+    --user="$run_user" \
     --cap-drop=ALL \
     --security-opt=no-new-privileges \
-    --pids-limit=128 \
-    --memory=256m \
-    --cpus=1 \
-    --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m \
+    --pids-limit="$run_pids_limit" \
+    --memory="$run_memory" \
+    --cpus="$run_cpus" \
+    --tmpfs "$run_tmpfs" \
     --workdir=/workspace \
     --log-driver=none \
     "$image" true 2>"$materializer_stderr"
@@ -365,15 +737,16 @@ materializer_id=''
 create_stderr="$run_root/create.stderr"
 if ! container_id="$(
   "$engine" create --pull=never \
+    --entrypoint= \
     --network=none \
     --read-only \
-    --user=65534:65534 \
+    --user="$run_user" \
     --cap-drop=ALL \
     --security-opt=no-new-privileges \
-    --pids-limit=128 \
-    --memory=256m \
-    --cpus=1 \
-    --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m \
+    --pids-limit="$run_pids_limit" \
+    --memory="$run_memory" \
+    --cpus="$run_cpus" \
+    --tmpfs "$run_tmpfs" \
     --workdir=/workspace \
     --log-driver=none \
     "$derived_image" bash "$test_path" 2>"$create_stderr"
@@ -383,13 +756,55 @@ if ! container_id="$(
 fi
 [[ "$container_id" =~ ^[A-Za-z0-9._-]{8,128}$ ]] || die 69 "$engine returned an invalid container id"
 
+# The image is now chosen by the lock, so its baked-in ENTRYPOINT is untrusted input.
+# An ENTRYPOINT that ignores its arguments swallows `bash <acceptance>` whole and lets the
+# image decide the exit code, which forges a green for a test that never ran. `--entrypoint=`
+# above clears it; this re-reads the created container and refuses to start anything whose
+# resolved argv is not exactly the acceptance program. A flag an engine silently ignored is
+# caught here rather than trusted.
+entrypoint_stderr="$run_root/entrypoint-inspect.stderr"
+if ! worker_argv="$(
+  $engine inspect \
+    --format '{{range .Config.Entrypoint}}E:{{.}}{{"\n"}}{{end}}{{range .Config.Cmd}}C:{{.}}{{"\n"}}{{end}}' \
+    "$container_id" 2>"$entrypoint_stderr"
+)"; then
+  emit_untrusted_output engine "$entrypoint_stderr"
+  die 69 "$engine could not verify the worker entrypoint"
+fi
+expected_argv="$(printf 'C:bash\nC:%s\n' "$test_path")"
+[[ "$worker_argv" == "$expected_argv" ]] ||
+  die 65 "$engine resolved a worker argv other than the acceptance program; execution is denied"
+
 inspect_stderr="$run_root/prestart-inspect.stderr"
-if ! runtime_mounts="$($engine inspect --format '{{json .Mounts}}' "$container_id" 2>"$inspect_stderr")"; then
+if ! runtime_mounts="$(
+  $engine inspect --format '{{range .Mounts}}{{.Type}}|{{.Destination}}{{"\n"}}{{end}}' \
+    "$container_id" 2>"$inspect_stderr"
+)"; then
   emit_untrusted_output engine "$inspect_stderr"
   die 69 "$engine could not verify the worker mount set"
 fi
-[[ "$runtime_mounts" == '[]' || "$runtime_mounts" == 'null' ]] ||
-  die 65 "$engine reported an unexpected runtime mount; repository execution is denied"
+# Podman reports the runner's own --tmpfs in .Mounts while Docker keeps it in
+# HostConfig, so demanding an empty list makes a supported engine inconclusive.
+# What must stay impossible is host state reaching the worker: every bind, volume,
+# device, image and socket mount is denied by type, and a tmpfs is tolerated only at a
+# destination this runner declared itself. A record the runner cannot parse also denies.
+while IFS= read -r mount_record; do
+  [[ -n "$mount_record" ]] || continue
+  [[ "$mount_record" =~ ^([a-z]+)\|(/[A-Za-z0-9._@+:/-]*)$ ]] ||
+    die 69 "$engine returned an uninterpretable runtime mount record; repository execution is denied"
+  mount_type="${BASH_REMATCH[1]}"
+  mount_destination="${BASH_REMATCH[2]}"
+  [[ "$mount_type" == 'tmpfs' ]] ||
+    die 65 "$engine reported a forbidden $mount_type mount at $mount_destination; repository execution is denied"
+  mount_declared=0
+  for declared_tmpfs in "${declared_tmpfs_destinations[@]}"; do
+    if [[ "$mount_destination" == "$declared_tmpfs" ]]; then
+      mount_declared=1
+    fi
+  done
+  (( mount_declared == 1 )) ||
+    die 65 "$engine reported an undeclared tmpfs mount at $mount_destination; repository execution is denied"
+done <<< "$runtime_mounts"
 
 stdout_fifo="$run_root/stdout.fifo"
 stderr_fifo="$run_root/stderr.fifo"
@@ -420,11 +835,22 @@ if [[ "$start_status" -eq 124 ]]; then
   timed_out=true
   runner_status=124
 else
+  # An engine-level failure (125 cannot-run, 126 not-executable, 127 not-found, or any
+  # refusal of a hardening flag) never produced a test result. Trusting .State.ExitCode
+  # here would report 0 for a container that was created but never started.
+  [[ "$start_status" -lt 125 ]] ||
+    die 69 "$engine refused to run the worker (start status $start_status)"
+
   inspect_stderr="$run_root/inspect.stderr"
-  if ! test_status="$($engine inspect --format '{{.State.ExitCode}}' "$container_id" 2>"$inspect_stderr")"; then
+  if ! worker_state="$($engine inspect --format '{{.State.Status}} {{.State.Running}} {{.State.ExitCode}}' "$container_id" 2>"$inspect_stderr")"; then
     emit_untrusted_output engine "$inspect_stderr"
     die 69 "$engine could not report the worker exit code"
   fi
+  read -r worker_phase worker_running test_status <<< "$worker_state"
+  # Only a worker that actually ran to completion has a meaningful exit code. `created`
+  # (never started) and `running` (still alive, or detached early) both report 0.
+  [[ "$worker_phase" == 'exited' && "$worker_running" == 'false' ]] ||
+    die 69 "$engine worker did not run to completion (state $worker_phase, running $worker_running)"
   [[ "$test_status" =~ ^[0-9]+$ && "$test_status" -le 255 ]] || die 69 "$engine returned an invalid worker exit code"
   runner_status="$test_status"
 fi
@@ -444,7 +870,7 @@ fi
 secret_detected=false
 if {
   [[ -n "${AURUM_SECRET_CANARY:-}" ]] && grep -Fq -- "$AURUM_SECRET_CANARY" "$stdout_file" "$stderr_file"
-} || grep -Eiq -- '(-----BEGIN[[:space:]][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})' "$stdout_file" "$stderr_file"; then
+} || grep -Eiq -- "$credential_pattern" "$stdout_file" "$stderr_file"; then
   secret_detected=true
   runner_status=70
 fi
@@ -459,8 +885,9 @@ if [[ "$secret_detected" == false && "$forbidden_assertion" == false ]]; then
   emit_untrusted_output stderr "$stderr_file"
 fi
 
-printf '{"schema":"aurum.acceptance-execution","version":1,"card_id":"%s","profile":"%s","engine":"%s","image":"%s","input_manifest_digest":"%s","exit_code":%d,"stdout_sha256":"%s","stderr_sha256":"%s","stdout_bytes":%d,"stderr_bytes":%d,"output_truncated":%s,"timed_out":%s,"secret_detected":%s,"forbidden_authority_assertion":%s,"observation_trusted":false}\n' \
-  "$card" "$profile" "$engine" "$image" "$input_manifest_digest" "$runner_status" \
+printf '{"schema":"aurum.acceptance-execution","version":1,"card_id":"%s","profile":"%s","profile_source":"%s","profile_digest":"%s","lock_digest":"%s","engine":"%s","image":"%s","input_manifest_digest":"%s","exit_code":%d,"stdout_sha256":"%s","stderr_sha256":"%s","stdout_bytes":%d,"stderr_bytes":%d,"output_truncated":%s,"timed_out":%s,"secret_detected":%s,"forbidden_authority_assertion":%s,"observation_trusted":false}\n' \
+  "$card" "$profile" "$profile_source" "$profile_digest" "$lock_digest" \
+  "$engine" "$image" "$input_manifest_digest" "$runner_status" \
   "$stdout_digest" "$stderr_digest" "$stdout_bytes" "$stderr_bytes" \
   "$output_truncated" "$timed_out" "$secret_detected" "$forbidden_assertion"
 
