@@ -167,7 +167,7 @@ The test program uses your TOTVS DTA credentials:
 ```go
 // From .env file
 TOTVS_DTA_BASE_URL=https://proxy.dta.totvs.ai
-TOTVS_DTA_API_KEY=sk-your-totvs-dta-api-key-here
+TOTVS_DTA_API_KEY=${OPENAI_API_KEY}
 ```
 
 Configured as OpenAI-compatible provider:
