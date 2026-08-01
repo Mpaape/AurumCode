@@ -49,14 +49,16 @@ for wf in "$SESS"/*/; do
 
   echo "onda $(basename "$wf" | cut -c1-16): $agentes agentes · $concl concluídos"
   # `agentId` no journal diz quem JÁ ENTREGOU. Só quem não está nessa lista pode travar.
-  entregues=$(python3 -c "
-import json
+  # O path vai por argv, nunca interpolado no fonte: um diretório com aspas simples
+  # injetaria Python aqui.
+  entregues=$(python3 -c '
+import json,sys
 ids=set()
-for l in open('$wf/journal.jsonl'):
+for l in open(sys.argv[1]):
     try: o=json.loads(l)
     except Exception: continue
-    if o.get('type')=='result' and o.get('agentId'): ids.add(o['agentId'])
-print(' '.join(ids))" 2>/dev/null)
+    if o.get("type")=="result" and o.get("agentId"): ids.add(o["agentId"])
+print(" ".join(ids))' "$wf/journal.jsonl" 2>/dev/null)
   # Cadáver superado por resume: morreu, a onda foi retomada e outro entregou depois.
   ultima_entrega=0
   for a in "$wf"agent-*.jsonl; do
@@ -106,12 +108,14 @@ for s in $(ls -dt "${TMPDIR:-/tmp}"/aurum-oci.* 2>/dev/null | head -5); do
   printf '   %s  (%dm)\n' "$(basename "$s")" "$(( (now - $(stat -c %Y "$s")) / 60 ))"
 done
 # Staging de pé há horas é órfão: o runner morreu antes do cleanup.
-orfaos=$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'aurum-oci.*' -type d -mmin +180 2>/dev/null)
-if [ -n "$orfaos" ]; then
+# Sem aspas, um diretório chamado `aurum-oci.$(cmd)` viraria comando na linha que o
+# usuário copia. Nomes vão por NUL e são impressos com %q.
+orfaos_n=$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'aurum-oci.*' -type d -mmin +180 -printf . 2>/dev/null | wc -c)
+if [ "${orfaos_n:-0}" -gt 0 ]; then
   echo
   echo "  ⚠️ STAGINGS ÓRFÃOS (>3h — nenhum runner vivo precisa deles):"
-  printf '     %s\n' $orfaos
-  echo "     libere:  rm -rf $(echo $orfaos | tr '\n' ' ')"
+  find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'aurum-oci.*' -type d -mmin +180 -printf '     %p\n' 2>/dev/null
+  echo "     libere:  find \"\${TMPDIR:-/tmp}\" -maxdepth 1 -name 'aurum-oci.*' -type d -mmin +180 -exec rm -rf {} +"
 fi
 # O oci-run sela a imagem derivada com `$engine commit`, não com buildx/buildkit — procurar
 # por buildkit aqui seria ramo morto. O sinal real é container efêmero do runner de pé.
