@@ -36,6 +36,12 @@ jobs:
   build-docs:
     name: Generate Documentation
     runs-on: ubuntu-latest
+    # The top-level grant is read-only, so the preview comment below fails with
+    # "Resource not accessible by integration". Widen it here, on the one job
+    # that writes, instead of at the workflow root.
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout repository
