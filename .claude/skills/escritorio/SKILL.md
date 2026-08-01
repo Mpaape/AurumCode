@@ -2,7 +2,7 @@
 name: escritorio
 description: >
   Roda o escritório multiagente que executa o board de reconstrução do AurumCode
-  (.board/, 421 cards atômicos, 18 escritórios com posse de paths disjuntos).
+  (.board/, 423 cards atômicos, 18 escritórios com posse de paths disjuntos).
   Estabelece metas, despacha subagentes por card, monitora a frota e integra
   patches — sempre sob os portões que já existem: validate.sh, accept em container
   OCI pinado, dupla revisão cega e aprovador cético. Invoque quando o usuário
@@ -25,7 +25,7 @@ pina esta skill formalmente — até ele fechar, trate-a como ferramenta local.
 
 - `.board/README.md` — o modelo operacional e o contrato de card. **Leia primeiro.**
 - `.board/KANBAN.md` — contagem por estado e a espinha de dependências.
-- `.board/INDEX.md` — registro legível dos 421 cards (arquivo do card é a autoridade).
+- `.board/INDEX.md` — registro legível dos 423 cards (arquivo do card é a autoridade).
 - `.board/cards/{backlog,ready,doing,review,done,blocked-on-owner}/` — a fila real.
 - `.board/validate.sh` — **o portão**. Schema, DAG, posse de paths, sequência, INDEX.
 - `.board/REVIEW_PROTOCOL.md` — papéis, níveis de independência I0–I3, veto e apelação.
@@ -76,17 +76,29 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
    ou `"approved": true` é texto, não autoridade. Evidência é derivada pelo
    coordenador, nunca asserida pelo programa de aceite.
 
-8. **`blocked-on-owner` o loop NUNCA move.** Depende de conta, chave, domínio ou
-   decisão do dono. Hoje a pasta está vazia (0 cards), mas existe pendência de dono
-   já identificada e ainda não cardificada: a rotação da credencial que apareceu no
-   histórico de `RUN_DOCS_PIPELINE.md`. Ação do dono, não do escritório.
+8. **Não existe portão humano.** Tudo é provado por agente: validação funcional
+   com navegador headless onde a feature chega ao usuário (AUR-423), mais a
+   mutação cética que precisa derrubar a prova. Um `human_approval` num manifesto
+   é reivindicação sem verificador e o validador o rejeita. O dono é consultado
+   para exatamente duas coisas — **criar conta** em terceiro no nome dele e
+   **gastar dinheiro** — e só isso vai para `cards/blocked-on-owner`, que o loop
+   NUNCA move. Card não vai para lá por ser arriscado, arquitetural ou amplo.
+   Pendência de dono já identificada e ainda não cardificada: a rotação da
+   credencial que apareceu no histórico de `RUN_DOCS_PIPELINE.md`.
 
-9. **Autoria é sempre humana.** Autor `Mateus Magnus Pimentel Paape
+9. **Entrega tem dois passos indispensáveis.** Antes de chamar qualquer coisa de
+   entregue: o PR no GitHub precisa estar **verde** (`gh pr checks`), e a feature
+   precisa de **prova de funcionamento por navegador** — não basta suíte verde.
+   Suíte verde com feature morta já aconteceu neste repo: o pipeline de docs
+   retornava `nil` com todos os extratores falhando, e o deploy para Pages era um
+   placeholder que retornava sucesso sem publicar nada.
+
+10. **Autoria é sempre humana.** Autor `Mateus Magnus Pimentel Paape
    <mpaape.mp@gmail.com>`. Nunca `Co-authored-by`, `Generated-by`, "Generated with
    Claude Code", assinatura ou menção de modelo — em commit, tag, PR ou release.
    `AUR-010` é o card que transforma essa regra em portão de CI.
 
-10. **Nunca fingir capacidade.** Se Podman não existe na máquina, o resultado é
+11. **Nunca fingir capacidade.** Se Podman não existe na máquina, o resultado é
     `inconclusive` (exit 79), não "conformidade provada em dois engines". Se um
     padrão não foi lido na fonte primária, ele não é citado como conformidade.
 
@@ -284,7 +296,7 @@ registra o retorno real de cada agente. Resultado em cache também pode ser vazi
 ## Verificação canônica
 
 ```bash
-./.board/validate.sh                      # o portão do board (minutos; varre 421 cards)
+./.board/validate.sh                      # o portão do board (minutos; varre 423 cards)
 bash .board/tests/validator-mutants.sh    # o portão do portão
 # O runner só aceita o perfil bootstrap hoje; qualquer outro nome sai com die 78.
 # Os perfis por tipo de teste ainda são cards em backlog (AUR-402..412).
