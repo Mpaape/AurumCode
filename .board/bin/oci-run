@@ -1,0 +1,467 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export LC_ALL=C
+umask 077
+
+readonly image='bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831'
+readonly stdout_limit=65536
+readonly stderr_limit=65536
+readonly timeout_seconds=120
+readonly max_input_files=10000
+readonly max_input_bytes=67108864
+
+profile=''
+card=''
+engine=''
+container_id=''
+materializer_id=''
+derived_image=''
+run_root=''
+
+die() {
+  local status="$1"
+  shift
+  printf 'oci-run: %s\n' "$*" >&2
+  exit "$status"
+}
+
+cleanup() {
+  local cleanup_root="${run_root:-}"
+  set +e
+  if [[ -n "${container_id:-}" && -n "${engine:-}" ]]; then
+    "$engine" rm --force "$container_id" >/dev/null 2>&1
+  fi
+  if [[ -n "${materializer_id:-}" && -n "${engine:-}" ]]; then
+    "$engine" rm --force "$materializer_id" >/dev/null 2>&1
+  fi
+  if [[ -n "${derived_image:-}" && -n "${engine:-}" ]]; then
+    "$engine" image rm --force "$derived_image" >/dev/null 2>&1
+  fi
+  if [[ -n "$cleanup_root" && "$cleanup_root" == "${TMPDIR:-/tmp}/aurum-oci."* && -d "$cleanup_root" && ! -L "$cleanup_root" ]]; then
+    chmod -R u+w "$cleanup_root" >/dev/null 2>&1
+    rm -rf -- "$cleanup_root"
+  fi
+}
+
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+frontmatter_count() {
+  local file="$1"
+  local key="$2"
+  awk -v key="$key" '
+    NR == 1 { if ($0 != "---") exit 2; in_frontmatter=1; next }
+    in_frontmatter && $0 == "---" { print count + 0; exit }
+    in_frontmatter && index($0, key ":") == 1 { count++ }
+  ' "$file"
+}
+
+frontmatter_value() {
+  local file="$1"
+  local key="$2"
+  awk -v key="$key" '
+    NR == 1 { if ($0 != "---") exit 2; in_frontmatter=1; next }
+    in_frontmatter && $0 == "---" { exit }
+    in_frontmatter && index($0, key ":") == 1 {
+      count++
+      value=substr($0, length(key) + 2)
+      sub(/^[[:space:]]+/, "", value)
+      print value
+    }
+    END { if (count != 1) exit 3 }
+  ' "$file"
+}
+
+parse_list() {
+  local value="$1"
+  local old_ifs item
+  [[ "$value" =~ ^\[(.*)\]$ ]] || return 1
+  value="${BASH_REMATCH[1]}"
+  [[ -n "$value" ]] || return 0
+  old_ifs="$IFS"
+  IFS=','
+  read -ra items <<< "$value"
+  IFS="$old_ifs"
+  for item in "${items[@]}"; do
+    item="$(trim "$item")"
+    [[ -n "$item" ]] || return 1
+    printf '%s\n' "$item"
+  done
+}
+
+safe_repo_path() {
+  local path="$1"
+  local without_spaces
+  [[ -n "$path" && "$path" != "." && "$path" != "/" ]] || return 1
+  [[ "$path" != ' '* && "$path" != *' ' ]] || return 1
+  [[ "$path" != *$'\t'* && "$path" != *$'\r'* && "$path" != *$'\n'* ]] || return 1
+  [[ "$path" != /* && "$path" != ~* && "$path" != *\\* ]] || return 1
+  without_spaces="${path// /}"
+  [[ "$without_spaces" =~ ^[A-Za-z0-9._][A-Za-z0-9._/-]*$ ]] || return 1
+  [[ "$path" != */ && "$path" != *//* ]] || return 1
+  [[ "/$path/" != */../* && "/$path/" != */./* ]] || return 1
+  [[ "$path" != *'$'* && "$path" != *'`'* && "$path" != *'*'* && "$path" != *'?'* && "$path" != *'['* ]] || return 1
+}
+
+canonical_repo_path_list() {
+  local value="$1"
+  local allow_empty="${2:-false}"
+  local body remainder
+  [[ "$value" =~ ^\[(.*)\]$ ]] || return 1
+  body="${BASH_REMATCH[1]}"
+  if [[ -z "$body" ]]; then
+    [[ "$allow_empty" == true ]]
+    return
+  fi
+  [[ "$body" != ' '* && "$body" != *' ' ]] || return 1
+  [[ "$body" != *' ,'* && "$body" != *',  '* ]] || return 1
+  remainder="$body"
+  while [[ "$remainder" == *,* ]]; do
+    remainder="${remainder#*,}"
+    [[ "$remainder" == ' '* && "$remainder" != '  '* ]] || return 1
+    remainder="${remainder# }"
+  done
+  [[ "$body" != *$'\t'* && "$body" != *$'\r'* && "$body" != *$'\n'* ]]
+}
+
+path_is_within() {
+  local child="$1"
+  local root="$2"
+  [[ "$child" == "$root" || "$child" == "$root/"* ]]
+}
+
+paths_overlap() {
+  local first="$1"
+  local second="$2"
+  path_is_within "$first" "$second" || path_is_within "$second" "$first"
+}
+
+drain_bounded() {
+  local fifo="$1"
+  local destination="$2"
+  local limit="$3"
+  local exceeded_flag="$4"
+  local scratch="$destination.first"
+  local bytes
+
+  { head -c "$((limit + 1))" >"$scratch"; cat >/dev/null; } <"$fifo"
+  bytes="$(wc -c <"$scratch" | tr -d ' ')"
+  if (( bytes > limit )); then
+    head -c "$limit" "$scratch" >"$destination"
+    : >"$exceeded_flag"
+    rm -f -- "$scratch"
+  else
+    mv -- "$scratch" "$destination"
+  fi
+}
+
+emit_untrusted_output() {
+  local label="$1"
+  local file="$2"
+  [[ -s "$file" ]] || return 0
+  tr -d '\000-\010\013\014\016-\037\177' <"$file" |
+    sed "s/^/oci-run: untrusted $label: /" >&2
+}
+
+for required_tool in awk cat chmod cp dirname find git grep head ln mkdir mkfifo mktemp mv readlink realpath rm sed sha256sum sort stat timeout tr wc; do
+  command -v "$required_tool" >/dev/null 2>&1 ||
+    die 69 "bootstrap dependency unavailable: $required_tool; its lock requires a dedicated AUR-233 child card"
+done
+
+while (( $# > 0 )); do
+  case "$1" in
+    --profile)
+      [[ $# -ge 2 ]] || die 64 '--profile requires a value'
+      profile="$2"
+      shift 2
+      ;;
+    --card)
+      [[ $# -ge 2 ]] || die 64 '--card requires a value'
+      card="$2"
+      shift 2
+      ;;
+    *)
+      die 64 "unknown argument: $1"
+      ;;
+  esac
+done
+
+[[ "$profile" == 'bootstrap-readonly-v1' ]] || die 78 "profile is not bootstrapped yet: $profile"
+[[ "$card" =~ ^AUR-[0-9]{3}$ ]] || die 64 'invalid card id'
+
+repo_root="$(git rev-parse --show-toplevel)"
+[[ -n "$repo_root" && -d "$repo_root/.board/cards" ]] || die 69 'repository board is unavailable'
+
+mapfile -d '' -t card_files < <(
+  find "$repo_root/.board/cards" -mindepth 2 -maxdepth 2 -type f -name "$card.md" -print0 | sort -z
+)
+[[ "${#card_files[@]}" -eq 1 ]] || die 66 "expected exactly one card spec for $card"
+card_file="${card_files[0]}"
+
+paths_value="$(frontmatter_value "$card_file" paths 2>/dev/null || true)"
+forbidden_value="$(frontmatter_value "$card_file" forbidden_paths 2>/dev/null || true)"
+canonical_repo_path_list "$paths_value" false || die 65 "$card has malformed paths"
+canonical_repo_path_list "$forbidden_value" false || die 65 "$card has malformed forbidden_paths"
+mapfile -t owned_paths < <(parse_list "$paths_value") || die 65 "$card has malformed paths"
+mapfile -t forbidden_paths < <(parse_list "$forbidden_value") || die 65 "$card has malformed forbidden_paths"
+read_paths_count="$(frontmatter_count "$card_file" read_paths 2>/dev/null || true)"
+[[ "$read_paths_count" -le 1 ]] || die 65 "$card contains duplicate read_paths"
+if [[ "$read_paths_count" -eq 1 ]]; then
+  read_paths_value="$(frontmatter_value "$card_file" read_paths 2>/dev/null || true)"
+  canonical_repo_path_list "$read_paths_value" true || die 65 "$card has malformed read_paths"
+  mapfile -t read_paths < <(parse_list "$read_paths_value") || die 65 "$card has malformed read_paths"
+else
+  read_paths=()
+fi
+
+test_path="tests/acceptance/$card.sh"
+test_owned=0
+for owned_path in "${owned_paths[@]}"; do
+  safe_repo_path "$owned_path" || die 65 "$card owns an unsafe path: $owned_path"
+  if path_is_within "$test_path" "$owned_path"; then
+    test_owned=1
+  fi
+done
+(( test_owned == 1 )) || die 65 "$card acceptance test is outside owned paths"
+
+allowed_roots=("${owned_paths[@]}" "${read_paths[@]}")
+for allowed_root in "${allowed_roots[@]}"; do
+  safe_repo_path "$allowed_root" || die 65 "$card allowlist contains an unsafe path: $allowed_root"
+  for forbidden_path in "${forbidden_paths[@]}"; do
+    safe_repo_path "$forbidden_path" || die 65 "$card contains an unsafe forbidden path: $forbidden_path"
+    paths_overlap "$allowed_root" "$forbidden_path" &&
+      die 65 "$card allowlist overlaps forbidden path: $allowed_root <> $forbidden_path"
+  done
+done
+
+requested_engine="${AURUM_OCI_ENGINE:-}"
+if [[ -n "$requested_engine" ]]; then
+  [[ "$requested_engine" == docker || "$requested_engine" == podman ]] || die 64 'engine must be docker or podman'
+  command -v "$requested_engine" >/dev/null 2>&1 ||
+    die 79 "inconclusive: requested OCI engine is unavailable: $requested_engine"
+  engine="$requested_engine"
+elif command -v podman >/dev/null 2>&1; then
+  engine='podman'
+elif command -v docker >/dev/null 2>&1; then
+  engine='docker'
+else
+  die 79 'inconclusive: neither Podman nor Docker is available'
+fi
+
+run_root="$(mktemp -d "${TMPDIR:-/tmp}/aurum-oci.XXXXXX")"
+[[ "$run_root" == "${TMPDIR:-/tmp}/aurum-oci."* && -d "$run_root" && ! -L "$run_root" ]] ||
+  die 69 'mktemp returned an unsafe staging directory'
+trap cleanup EXIT INT TERM HUP
+stage="$run_root/stage"
+mkdir -p "$stage"
+
+declare -A selected_paths=()
+for allowed_root in "${allowed_roots[@]}"; do
+  [[ -e "$repo_root/$allowed_root" || -L "$repo_root/$allowed_root" ]] || continue
+  while IFS= read -r -d '' selected_path; do
+    safe_repo_path "$selected_path" || die 65 "Git returned an unsupported path for bootstrap materialization"
+    path_is_within "$selected_path" "$allowed_root" ||
+      die 65 "Git path escaped its allowlisted root: $selected_path"
+    selected_paths[$selected_path]=1
+  done < <(git -C "$repo_root" ls-files -z --cached --others --exclude-standard -- "$allowed_root")
+done
+[[ -n "${selected_paths[$test_path]+x}" ]] || die 66 "missing, ignored, or unallowlisted acceptance: $test_path"
+
+mapfile -t selected_list < <(printf '%s\n' "${!selected_paths[@]}" | sort)
+(( ${#selected_list[@]} <= max_input_files )) || die 65 "input allowlist exceeds $max_input_files files"
+manifest="$run_root/input-manifest.tsv"
+total_bytes=0
+for selected_path in "${selected_list[@]}"; do
+  source_path="$repo_root/$selected_path"
+  destination_path="$stage/$selected_path"
+  mkdir -p "$(dirname "$destination_path")"
+  original_mode="$(stat -c '%a' -- "$source_path")"
+  if [[ -L "$source_path" ]]; then
+    link_target="$(readlink -- "$source_path")"
+    [[ "$link_target" != /* ]] || die 65 "absolute symlink target is forbidden: $selected_path"
+    normalized_target="$(realpath -m -- "$(dirname "$source_path")/$link_target")"
+    [[ "$normalized_target" == "$repo_root/"* ]] || die 65 "symlink escapes repository: $selected_path"
+    target_relative="${normalized_target#"$repo_root/"}"
+    [[ -n "${selected_paths[$target_relative]+x}" ]] || die 65 "symlink target is outside materialized allowlist: $selected_path"
+    ln -s -- "$link_target" "$destination_path"
+    printf '%s\tsymlink\t%s\t-\t%s\n' "$selected_path" "$original_mode" "$link_target" >>"$manifest"
+  elif [[ -f "$source_path" ]]; then
+    file_bytes="$(stat -c '%s' -- "$source_path")"
+    total_bytes=$((total_bytes + file_bytes))
+    (( total_bytes <= max_input_bytes )) || die 65 "input allowlist exceeds $max_input_bytes bytes"
+    if [[ -n "${AURUM_SECRET_CANARY:-}" ]] && grep -Fq -- "$AURUM_SECRET_CANARY" "$source_path"; then
+      die 70 "secret canary detected in materialized input: $selected_path"
+    fi
+    cp --no-preserve=mode,ownership,timestamps -- "$source_path" "$destination_path"
+    if [[ -x "$source_path" ]]; then
+      chmod 0555 "$destination_path"
+    else
+      chmod 0444 "$destination_path"
+    fi
+    content_digest="sha256:$(sha256sum "$source_path" | awk '{print $1}')"
+    printf '%s\tfile\t%s\t%s\t-\n' "$selected_path" "$original_mode" "$content_digest" >>"$manifest"
+  else
+    die 65 "special or missing allowlisted input is forbidden: $selected_path"
+  fi
+done
+
+input_manifest_digest="sha256:$(sha256sum "$manifest" | awk '{print $1}')"
+mkdir -p "$stage/.aurum-bootstrap"
+cp --no-preserve=mode,ownership,timestamps -- "$manifest" "$stage/.aurum-bootstrap/input-manifest.tsv"
+chmod 0444 "$stage/.aurum-bootstrap/input-manifest.tsv"
+printf '{"schema":"aurum.bootstrap-context","version":1,"card_id":"%s","profile":"%s","input_manifest_digest":"%s","observation_trusted":false}\n' \
+  "$card" "$profile" "$input_manifest_digest" >"$run_root/context.json"
+cp --no-preserve=mode,ownership,timestamps -- "$run_root/context.json" "$stage/.aurum-bootstrap/context.json"
+chmod 0444 "$stage/.aurum-bootstrap/context.json"
+find "$stage" -type d -exec chmod 0555 {} +
+
+materializer_stderr="$run_root/materializer.stderr"
+if ! materializer_id="$(
+  "$engine" create --pull=never \
+    --network=none \
+    --user=65534:65534 \
+    --cap-drop=ALL \
+    --security-opt=no-new-privileges \
+    --pids-limit=128 \
+    --memory=256m \
+    --cpus=1 \
+    --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m \
+    --workdir=/workspace \
+    --log-driver=none \
+    "$image" true 2>"$materializer_stderr"
+)"; then
+  emit_untrusted_output engine "$materializer_stderr"
+  die 69 "$engine could not create the non-executed materializer"
+fi
+[[ "$materializer_id" =~ ^[A-Za-z0-9._-]{8,128}$ ]] || die 69 "$engine returned an invalid materializer id"
+
+copy_stderr="$run_root/copy.stderr"
+if ! "$engine" cp "$stage/." "$materializer_id:/workspace" 2>"$copy_stderr"; then
+  emit_untrusted_output engine "$copy_stderr"
+  die 69 "$engine could not copy the allowlisted staging tree"
+fi
+
+# Docker and Podman reject `cp` into a container whose rootfs is already
+# marked read-only. The first container is never started: it is only a bounded
+# image materializer. Untrusted code runs exclusively in the second, hardened
+# read-only container. No host path is mounted in either lifecycle.
+commit_stderr="$run_root/commit.stderr"
+if ! commit_output="$($engine commit --pause=false "$materializer_id" 2>"$commit_stderr")"; then
+  emit_untrusted_output engine "$commit_stderr"
+  die 69 "$engine could not seal the allowlisted staging image"
+fi
+derived_image="$(awk 'NF { value=$0 } END { print value }' <<< "$commit_output")"
+[[ "$derived_image" =~ ^(sha256:)?[0-9a-f]{64}$ ]] || die 69 "$engine returned an invalid derived image id"
+if ! "$engine" rm --force "$materializer_id" >/dev/null 2>&1; then
+  die 69 "$engine could not remove the non-executed materializer"
+fi
+materializer_id=''
+
+create_stderr="$run_root/create.stderr"
+if ! container_id="$(
+  "$engine" create --pull=never \
+    --network=none \
+    --read-only \
+    --user=65534:65534 \
+    --cap-drop=ALL \
+    --security-opt=no-new-privileges \
+    --pids-limit=128 \
+    --memory=256m \
+    --cpus=1 \
+    --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m \
+    --workdir=/workspace \
+    --log-driver=none \
+    "$derived_image" bash "$test_path" 2>"$create_stderr"
+)"; then
+  emit_untrusted_output engine "$create_stderr"
+  die 69 "$engine could not create the hardened worker"
+fi
+[[ "$container_id" =~ ^[A-Za-z0-9._-]{8,128}$ ]] || die 69 "$engine returned an invalid container id"
+
+inspect_stderr="$run_root/prestart-inspect.stderr"
+if ! runtime_mounts="$($engine inspect --format '{{json .Mounts}}' "$container_id" 2>"$inspect_stderr")"; then
+  emit_untrusted_output engine "$inspect_stderr"
+  die 69 "$engine could not verify the worker mount set"
+fi
+[[ "$runtime_mounts" == '[]' || "$runtime_mounts" == 'null' ]] ||
+  die 65 "$engine reported an unexpected runtime mount; repository execution is denied"
+
+stdout_fifo="$run_root/stdout.fifo"
+stderr_fifo="$run_root/stderr.fifo"
+stdout_file="$run_root/stdout"
+stderr_file="$run_root/stderr"
+stdout_exceeded="$run_root/stdout.exceeded"
+stderr_exceeded="$run_root/stderr.exceeded"
+mkfifo "$stdout_fifo" "$stderr_fifo"
+drain_bounded "$stdout_fifo" "$stdout_file" "$stdout_limit" "$stdout_exceeded" &
+stdout_drain_pid=$!
+drain_bounded "$stderr_fifo" "$stderr_file" "$stderr_limit" "$stderr_exceeded" &
+stderr_drain_pid=$!
+
+set +e
+timeout --foreground --signal=TERM --kill-after=5s "${timeout_seconds}s" \
+  "$engine" start --attach "$container_id" >"$stdout_fifo" 2>"$stderr_fifo"
+start_status=$?
+wait "$stdout_drain_pid"
+stdout_drain_status=$?
+wait "$stderr_drain_pid"
+stderr_drain_status=$?
+set -e
+(( stdout_drain_status == 0 && stderr_drain_status == 0 )) || die 69 'bounded output drain failed'
+
+timed_out=false
+runner_status="$start_status"
+if [[ "$start_status" -eq 124 ]]; then
+  timed_out=true
+  runner_status=124
+else
+  inspect_stderr="$run_root/inspect.stderr"
+  if ! test_status="$($engine inspect --format '{{.State.ExitCode}}' "$container_id" 2>"$inspect_stderr")"; then
+    emit_untrusted_output engine "$inspect_stderr"
+    die 69 "$engine could not report the worker exit code"
+  fi
+  [[ "$test_status" =~ ^[0-9]+$ && "$test_status" -le 255 ]] || die 69 "$engine returned an invalid worker exit code"
+  runner_status="$test_status"
+fi
+
+output_truncated=false
+if [[ -f "$stdout_exceeded" || -f "$stderr_exceeded" ]]; then
+  output_truncated=true
+  runner_status=74
+fi
+
+forbidden_assertion=false
+if grep -Eiq '"(approval|human_approval|verdict|authenticated|candidate_approved|evidence|evidence_chain_digest)"[[:space:]]*:' "$stdout_file" "$stderr_file"; then
+  forbidden_assertion=true
+  runner_status=65
+fi
+
+secret_detected=false
+if {
+  [[ -n "${AURUM_SECRET_CANARY:-}" ]] && grep -Fq -- "$AURUM_SECRET_CANARY" "$stdout_file" "$stderr_file"
+} || grep -Eiq -- '(-----BEGIN[[:space:]][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})' "$stdout_file" "$stderr_file"; then
+  secret_detected=true
+  runner_status=70
+fi
+
+stdout_bytes="$(wc -c <"$stdout_file" | tr -d ' ')"
+stderr_bytes="$(wc -c <"$stderr_file" | tr -d ' ')"
+stdout_digest="sha256:$(sha256sum "$stdout_file" | awk '{print $1}')"
+stderr_digest="sha256:$(sha256sum "$stderr_file" | awk '{print $1}')"
+
+if [[ "$secret_detected" == false && "$forbidden_assertion" == false ]]; then
+  emit_untrusted_output stdout "$stdout_file"
+  emit_untrusted_output stderr "$stderr_file"
+fi
+
+printf '{"schema":"aurum.acceptance-execution","version":1,"card_id":"%s","profile":"%s","engine":"%s","image":"%s","input_manifest_digest":"%s","exit_code":%d,"stdout_sha256":"%s","stderr_sha256":"%s","stdout_bytes":%d,"stderr_bytes":%d,"output_truncated":%s,"timed_out":%s,"secret_detected":%s,"forbidden_authority_assertion":%s,"observation_trusted":false}\n' \
+  "$card" "$profile" "$engine" "$image" "$input_manifest_digest" "$runner_status" \
+  "$stdout_digest" "$stderr_digest" "$stdout_bytes" "$stderr_bytes" \
+  "$output_truncated" "$timed_out" "$secret_detected" "$forbidden_assertion"
+
+exit "$runner_status"
