@@ -83,8 +83,10 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
    para exatamente duas coisas — **criar conta** em terceiro no nome dele e
    **gastar dinheiro** — e só isso vai para `cards/blocked-on-owner`, que o loop
    NUNCA move. Card não vai para lá por ser arriscado, arquitetural ou amplo.
-   Pendência de dono já identificada e ainda não cardificada: a rotação da
-   credencial que apareceu no histórico de `RUN_DOCS_PIPELINE.md`.
+   Hoje `blocked-on-owner` está legitimamente vazio: **não há pendência de dono**.
+   A credencial que aparece no histórico de `RUN_DOCS_PIPELINE.md` **não será
+   rotacionada** — decisão do dono, risco aceito e registrado. Não reabra o assunto
+   nem o reporte como bloqueio a cada ciclo.
 
 9. **Entrega tem dois passos indispensáveis.** Antes de chamar qualquer coisa de
    entregue: o PR no GitHub precisa estar **verde** (`gh pr checks`), e a feature
@@ -141,11 +143,17 @@ tocarem.** `validate.sh` já reprova posse concorrente sem dependência que seri
   varredura de nomes, checagem de sequência.
 - **sonnet** — implementação bem especificada, card com AC fechado.
 - **opus** — domínio, hexágono, fronteira de confiança, segurança.
-- **fable** — revisão e decisão. **Modelo diferente dos autores de propósito:**
-  juiz correlacionado herda o ponto cego do autor. O `REVIEW_PROTOCOL.md` exige
-  que R1 e R2 usem modelos ou estratégias distintas; duas personas no mesmo
-  request **não** contam como independência (isso é `context-independent`, e tem
-  que ser declarado assim).
+- **adversarial-reviewer** — o revisor cético, constituído como agente próprio em
+  `.claude/agents/adversarial-reviewer.md`, com system prompt e modelo dele.
+  Despache com `agentType: 'adversarial-reviewer'`. **Modelo diferente dos autores
+  de propósito:** juiz correlacionado herda o ponto cego do autor.
+
+Sobre independência, seja exato. O Codex saiu da rotação por limite de assinatura, então
+não existe mais um segundo *provider*. O que resta é família de modelo distinta dentro de
+um provider só: isso é `I2`, e o manifesto tem que registrar a correlação em vez de
+apresentá-la como independência de provider. `I3` foi retirado do protocolo — ele exigia
+aprovação humana organizacionalmente independente, e não há portão humano aqui. Duas
+personas no mesmo request continuam sendo `I0` e são inválidas.
 
 ## O ciclo de uma onda
 

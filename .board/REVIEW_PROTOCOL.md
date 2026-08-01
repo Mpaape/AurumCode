@@ -30,11 +30,21 @@ Independence MUST be reported honestly:
 - `I0`: same session or trace; invalid.
 - `I1`: isolated contexts, nonces, and prompts.
 - `I2`: `I1` plus different model families or providers.
-- `I3`: `I2` plus an organizationally independent human approval.
+- `I3`: withdrawn. It required an organizationally independent human approval,
+  and this board has no human gate: every card is proved by agent-driven
+  validation plus a skeptical mutation that must make the acceptance proof
+  fail. `I2` is the attainable ceiling and no report may claim `I3`.
 
 Offline fake agents prove orchestration at `I1`, not semantic review quality.
 If distinct providers are unavailable, the report says `context-independent`;
-it MUST NOT claim model independence.
+it MUST NOT claim model independence. Different model families behind one
+provider reach `I2`, and the manifest MUST record the correlation explicitly
+rather than presenting it as provider independence.
+
+The adversarial role is constituted as a named agent with its own definition,
+system prompt and model — `.claude/agents/adversarial-reviewer.md` — so the
+reviewer is not a persona of the author. Two personas inside one request remain
+`I0` and are invalid.
 
 Both reviewers cover all ten reviewer-contract dimensions and every
 human-authored hunk. Their named lenses are priorities for adversarial depth,
