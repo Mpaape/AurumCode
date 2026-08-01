@@ -78,3 +78,7 @@ reports/
 # Task files
 # tasks.json
 # tasks/ 
+
+# ai-memory install-instructions backups
+CLAUDE.md.bak-*
+AGENTS.md.bak-*
