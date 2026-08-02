@@ -370,3 +370,47 @@ func TestParseSelectorRefusesASelectorWithNothingInIt(t *testing.T) {
 		}
 	}
 }
+
+// TestArtifactDigestNamesWhatARootReachedThroughALinkContains is the root-level
+// half of the link attack: the server resolves the artifact root through its
+// links and serves the files behind it, so a digest that stopped at the link
+// would give every artifact the same identity and tie a verdict to nothing.
+func TestArtifactDigestNamesWhatARootReachedThroughALinkContains(t *testing.T) {
+	requireSymlinks(t)
+
+	real := t.TempDir()
+	page := filepath.Join(real, "index.html")
+	if err := os.WriteFile(page, []byte("<html><body>one</body></html>"), 0o600); err != nil {
+		t.Fatalf("write page: %v", err)
+	}
+
+	link := filepath.Join(t.TempDir(), "artifact")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	direct, err := artifactDigest(real)
+	if err != nil {
+		t.Fatalf("digest the root itself: %v", err)
+	}
+	throughLink, err := artifactDigest(link)
+	if err != nil {
+		t.Fatalf("digest the root through a link: %v", err)
+	}
+	if throughLink != direct {
+		t.Fatalf("the same artifact got two identities: %s through a link, %s directly",
+			throughLink, direct)
+	}
+
+	if err := os.WriteFile(page, []byte("<html><body>two</body></html>"), 0o600); err != nil {
+		t.Fatalf("rewrite page: %v", err)
+	}
+	after, err := artifactDigest(link)
+	if err != nil {
+		t.Fatalf("digest the changed root through a link: %v", err)
+	}
+	if after == throughLink {
+		t.Fatal("changing what the artifact contains left its digest untouched, " +
+			"so the digest names the link and not the bytes that get served")
+	}
+}

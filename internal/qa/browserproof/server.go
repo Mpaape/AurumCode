@@ -290,13 +290,28 @@ func contentType(name string) string {
 // artifactDigest fingerprints the built site so a verdict is tied to the exact
 // bytes that were served.
 func artifactDigest(root string) (string, error) {
-	info, err := os.Stat(root)
+	// The root is resolved through its own links first, exactly as the server
+	// resolves it before serving anything. Walking an unresolved root would meet
+	// the link itself, mark it unread and stop: every artifact reached through a
+	// link would then carry the same content-free identity while the server
+	// served the real files behind it.
+	absolute, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("browserproof: artifact directory: %w", err)
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", fmt.Errorf("browserproof: artifact directory: %w", err)
+	}
+
+	info, err := os.Stat(resolved)
 	if err != nil {
 		return "", fmt.Errorf("browserproof: artifact directory: %w", err)
 	}
 	if !info.IsDir() {
 		return "", fmt.Errorf("browserproof: artifact path %q is not a directory", root)
 	}
+	root = resolved
 
 	var lines []string
 	err = filepath.WalkDir(root, func(current string, entry fs.DirEntry, walkErr error) error {
