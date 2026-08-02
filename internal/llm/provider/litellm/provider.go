@@ -63,11 +63,21 @@ type usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
+// ResolveModel reports the model this provider will actually send, before the
+// call is made, so the cost tracker can cap and charge on the same key.
+// Implements llm.ModelResolver.
+//
+// This provider deliberately ignores opts.ModelKey: the model is fixed at
+// construction time and that is what goes upstream, so that is what gets billed.
+func (p *Provider) ResolveModel(opts llm.Options) string {
+	return p.model
+}
+
 // Complete sends a completion request to LiteLLM
 func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
 	// Build request
 	reqBody := completionRequest{
-		Model: p.model,
+		Model: p.ResolveModel(opts),
 		Messages: []message{
 			{Role: "user", Content: prompt},
 		},
