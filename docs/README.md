@@ -1,66 +1,64 @@
-# Custom Documentation
+# Hand-written documentation
 
-This folder is for **custom user-written documentation** (guides, tutorials, examples).
+This folder holds pages written by hand, as opposed to `.aurumcode/`, which the
+generator rewrites.
 
-## Structure
+## The two trees
 
+| Tree | Written by | Regenerated |
+|------|-----------|-------------|
+| `.aurumcode/` | `cmd/regenerate-docs` | yes, on every run |
+| `docs/` | people | never touched by the generator |
+
+The generator writes markdown, `_config.yml` and `index.md` under its output
+directory. It does not read `docs/`, does not copy it anywhere, and does not
+build a Jekyll site.
+
+## Getting a hand-written page into the generated site
+
+The landing page lists every `.md` file found under the output directory, at any
+depth, except `index.md` itself. So a page placed under the output directory is
+picked up by the next run:
+
+```bash
+cp docs/my-guide.md .aurumcode/my-guide.md
+go run ./cmd/regenerate-docs
 ```
-docs/
-├── README.md           # This file
-├── guides/             # How-to guides
-├── tutorials/          # Step-by-step tutorials
-└── examples/           # Example projects
-```
 
-## How It Works
+Alternatively, point `AURUMCODE_DOCS_DIR` at a different directory: `index.md`
+and `_config.yml` are written there instead, while the extracted pages stay
+under `AURUMCODE_OUTPUT_DIR`.
 
-**AurumCode uses a hybrid approach:**
+Nothing deletes files under the output directory, but `index.md` is rewritten on
+every run, so it is not a place to keep hand-written content.
 
-1. **`.aurumcode/`** = Auto-generated API docs (extracted from code)
-   - ⚠️ Don't edit manually - regenerated automatically
-   - Contains: API reference, function docs, etc.
+## Front matter
 
-2. **`docs/`** = Custom pages (this folder)
-   - ✅ Your guides, tutorials, examples
-   - ✅ Safe from regeneration
-   - ✅ Committed to git
-
-3. **Jekyll Build** merges both:
-   ```
-   .aurumcode/ (auto) + docs/ (custom) = .aurumcode/_site/ (final)
-   ```
-
-## Adding Custom Pages
-
-Create markdown files in this folder:
+The generated `_config.yml` declares `theme: jekyll-theme-primer` and applies
+`layout: default` to every page, so a page needs no front matter at all. When
+present, `title` is used as the page title in the index listing.
 
 ```markdown
 ---
 layout: default
 title: My Guide
-nav_order: 2
 ---
 
 # My Custom Guide
-
-Your content here...
 ```
 
-The site will automatically include your custom pages in the navigation.
+## Building the site locally
 
-## Viewing the Site
+The generator does not produce a `Gemfile`, so a local Jekyll build needs one
+supplied by you:
 
-**Production:** https://mpaape.github.io/AurumCode/
-
-**Local Development:**
 ```bash
-# Generate docs from code
-go run cmd/regenerate-docs/main.go
-
-# Build and serve Jekyll site
+go run ./cmd/regenerate-docs
 cd .aurumcode
-bundle install
+bundle install          # requires a Gemfile in this directory
 bundle exec jekyll serve
-
-# Open http://localhost:4000/AurumCode/
 ```
+
+Not verified in this environment: no Ruby or Bundler run was executed here.
+Through the GitHub Action the build is done by `actions/jekyll-build-pages`,
+which needs no Gemfile, and only when the `publish` input is set.
