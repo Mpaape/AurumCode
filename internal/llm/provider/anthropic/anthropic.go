@@ -30,11 +30,21 @@ func (p *Provider) Name() string {
 }
 
 // Complete sends a completion request to Anthropic
-func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
-	model := opts.ModelKey
-	if model == "" {
-		model = "claude-3-5-sonnet-20241022"
+// defaultModel is what this provider bills against when the caller names none.
+const defaultModel = "claude-3-5-sonnet-20241022"
+
+// ResolveModel reports the model this provider will actually send, before the
+// call is made, so the cost tracker can cap and charge on the same key.
+// Implements llm.ModelResolver.
+func (p *Provider) ResolveModel(opts llm.Options) string {
+	if opts.ModelKey != "" {
+		return opts.ModelKey
 	}
+	return defaultModel
+}
+
+func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
+	model := p.ResolveModel(opts)
 
 	req := &httpbase.Request{
 		Method: http.MethodPost,

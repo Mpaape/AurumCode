@@ -42,9 +42,14 @@ func TestCostTrackerSpend(t *testing.T) {
 	}
 
 	// Calculate expected cost: (1000/1000)*0.03 + (500/1000)*0.06 = 0.03 + 0.03 = 0.06
+	//
+	// The bound is a window, not `> x && < x`: no float can satisfy that, so the
+	// assertion never fires and the branch is dead. Any spend at all - or none -
+	// passed it.
+	const want = 9.94
 	remaining, _ := tracker.Remaining()
-	if remaining > 9.94 && remaining < 9.94 {
-		t.Errorf("Expected remaining around 9.94, got %f", remaining)
+	if remaining < want-0.0001 || remaining > want+0.0001 {
+		t.Errorf("Expected remaining around %f, got %f", want, remaining)
 	}
 }
 
