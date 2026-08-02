@@ -130,3 +130,43 @@ jobs:
             smoke.log
           if-no-files-found: warn
           retention-days: 7
+
+  test-race:
+    name: Test with the race detector
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run the full Go test suite with the race detector
+        run: |
+          set -euo pipefail
+          # CGO_ENABLED=1 is required: -race is a no-op build failure without
+          # cgo, and ubuntu-latest ships a C toolchain so this does not need
+          # the project's own (cgo-less, Alpine) dev image.
+          CGO_ENABLED=1 go test ./... -race -count=1 2>&1 | tee test-race.log
+          # Same floor as the non-race suite: a suite that matched no package
+          # also prints nothing and exits 0, which would make this job
+          # incapable of ever turning red.
+          packages="$(grep -c '^ok  ' test-race.log || true)"
+          echo "packages reporting ok under -race: ${packages}"
+          if [ "${packages}" -lt 20 ]; then
+            echo "::error::only ${packages} packages reported ok under -race; the suite did not run"
+            exit 1
+          fi
+
+      - name: Upload race test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-race-log
+          path: test-race.log
+          if-no-files-found: warn
+          retention-days: 7
