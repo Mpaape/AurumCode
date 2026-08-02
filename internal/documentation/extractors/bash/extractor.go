@@ -2,8 +2,10 @@ package bash
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -72,11 +74,17 @@ func (b *BashExtractor) Extract(ctx context.Context, req *extractors.ExtractRequ
 	return result, nil
 }
 
-// Validate checks if Bash is available
+// Validate checks if Bash is available.
+//
+// Only a genuine lookup failure means bash is unavailable; a bash that is
+// installed and exits non-zero is an extraction error, not a skip.
 func (b *BashExtractor) Validate(ctx context.Context) error {
 	_, err := b.runner.Run(ctx, "bash", []string{"--version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("bash not found")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("bash", "", err)
+		}
+		return fmt.Errorf("bash is installed but failed: %w", err)
 	}
 	return nil
 }
@@ -128,5 +136,10 @@ func (b *BashExtractor) extractScriptDocs(scriptPath, outputPath string) error {
 		}
 	}
 
-	return os.WriteFile(outputPath, []byte(doc.String()), 0644)
+	if err := os.WriteFile(outputPath, []byte(doc.String()), 0644); err != nil {
+		return err
+	}
+
+	// Confirm on disk before the caller counts this script as documented.
+	return extractors.ConfirmOutputFile("bash comment extraction", outputPath)
 }

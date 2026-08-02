@@ -2,8 +2,10 @@ package csharp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -11,12 +13,45 @@ import (
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 )
 
-// CSharpExtractor extracts documentation from C# source code using xmldocmd
+// ExecutesRepositoryCode states the constraint the code cannot show on its own:
+// this extractor cannot document a project without executing code that the
+// documented repository controls.
+//
+// The XML documentation file xmldocmd consumes is a compiler output, so it only
+// exists after `dotnet build`, and `dotnet build` is MSBuild. MSBuild executes
+// what the project file tells it to execute:
+//   - <Exec Command="..."> tasks in the .csproj and in any target it imports;
+//   - <UsingTask> tasks, which are arbitrary .NET assemblies loaded into the
+//     MSBuild process (including inline task source compiled on the spot);
+//   - .props/.targets imported by the project or contributed by restored NuGet
+//     packages, plus Directory.Build.props/targets picked up from the tree;
+//   - source generators and analyzers referenced by the project, which run
+//     inside the compiler.
+//
+// xmldocmd then loads the assembly the build produced and reflects over it,
+// which runs its module initializers and static constructors.
+//
+// There is no MSBuild-free path to the same artifact, so the decision is
+// fail-closed and lives at the composition root: cmd/regenerate-docs does not
+// register this extractor unless the consumer names C# in
+// AURUMCODE_ALLOW_REPO_CODE_EXECUTION. Constructing it directly is the caller
+// asserting the tree is trusted.
+const ExecutesRepositoryCode = "dotnet build runs MSBuild, so it executes <Exec> tasks, <UsingTask> assemblies and imported .targets/.props from the repository, and xmldocmd afterwards loads the assembly the build produced"
+
+// CSharpExtractor extracts documentation from C# source code using xmldocmd.
+//
+// See ExecutesRepositoryCode: every Extract call builds the projects it finds,
+// which runs code from the tree being documented.
 type CSharpExtractor struct {
 	runner site.CommandRunner
 }
 
-// NewCSharpExtractor creates a new C# documentation extractor
+// NewCSharpExtractor creates a new C# documentation extractor.
+//
+// The returned extractor executes repository-controlled code when it runs (see
+// ExecutesRepositoryCode). It is intentionally absent from the default
+// registration in cmd/regenerate-docs; a caller that builds one directly is
+// accepting that the tree it documents may run arbitrary code as this process.
 func NewCSharpExtractor(runner site.CommandRunner) *CSharpExtractor {
 	return &CSharpExtractor{
 		runner: runner,
@@ -80,8 +115,12 @@ func (c *CSharpExtractor) Extract(ctx context.Context, req *extractors.ExtractRe
 			continue
 		}
 
-		// Skip if no XML documentation was generated
+		// dotnet build exiting 0 is not evidence: without the XML file on disk
+		// there is nothing to convert, and that is a failure for this project.
 		if xmlPath == "" {
+			result.Errors = append(result.Errors, fmt.Errorf(
+				"project %s: dotnet build exited successfully but wrote no XML documentation file: %w",
+				project, extractors.ErrNoOutputProduced))
 			continue
 		}
 
@@ -95,17 +134,25 @@ func (c *CSharpExtractor) Extract(ctx context.Context, req *extractors.ExtractRe
 			continue
 		}
 
-		// Count generated files
+		// Count generated files. Only what xmldocmd actually wrote counts.
 		files, err := c.countGeneratedFiles(outputPath)
-		if err == nil {
-			result.Files = append(result.Files, files...)
-			result.Stats.DocsGenerated += len(files)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to inspect %s: %w", outputPath, err))
+			continue
+		}
 
-			// Count total lines
-			for _, file := range files {
-				lines, _ := c.countLines(file)
-				result.Stats.LinesProcessed += lines
-			}
+		if confirmErr := extractors.ConfirmOutputFiles("xmldocmd", outputPath, files); confirmErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("project %s: %w", project, confirmErr))
+			continue
+		}
+
+		result.Files = append(result.Files, files...)
+		result.Stats.DocsGenerated += len(files)
+
+		// Count total lines
+		for _, file := range files {
+			lines, _ := c.countLines(file)
+			result.Stats.LinesProcessed += lines
 		}
 
 		result.Stats.FilesProcessed++
@@ -114,18 +161,28 @@ func (c *CSharpExtractor) Extract(ctx context.Context, req *extractors.ExtractRe
 	return result, nil
 }
 
-// Validate checks if dotnet and xmldocmd are available
+// Validate checks if dotnet and xmldocmd are available.
+//
+// Only a genuine lookup failure means a tool is unavailable; a tool that is
+// installed and exits non-zero is an extraction error, not a skip.
 func (c *CSharpExtractor) Validate(ctx context.Context) error {
 	// Check for dotnet
 	_, err := c.runner.Run(ctx, "dotnet", []string{"--version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("dotnet not found: please install .NET SDK from https://dot.net")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("dotnet", "please install .NET SDK from https://dot.net", err)
+		}
+		return fmt.Errorf("dotnet is installed but failed: %w", err)
 	}
 
 	// Check for xmldocmd
 	_, err = c.runner.Run(ctx, "xmldocmd", []string{"--version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("xmldocmd not found: please install with 'dotnet tool install -g xmldocmd'")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("xmldocmd",
+				"please install with 'dotnet tool install -g xmldocmd'", err)
+		}
+		return fmt.Errorf("xmldocmd is installed but failed: %w", err)
 	}
 
 	return nil
@@ -187,6 +244,9 @@ func (c *CSharpExtractor) buildProjectWithDocs(ctx context.Context, projectPath 
 		"/p:GenerateDocumentationFile=true",
 	}
 
+	// This line executes consumer code: MSBuild runs the tasks and imports the
+	// .csproj declares, with the working directory inside the project's own
+	// directory. See ExecutesRepositoryCode.
 	_, err := c.runner.Run(ctx, "dotnet", args, projectDir, nil)
 	if err != nil {
 		return "", fmt.Errorf("dotnet build failed: %w", err)

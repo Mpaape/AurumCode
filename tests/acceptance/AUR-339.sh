@@ -23,7 +23,16 @@
 #     identity column can no longer be "valid" merely by agreeing with itself;
 #   * the gate proves its own sensitivity: it builds hostile variants of the suite it
 #     just accepted (missing child, duplicate, tampered digest, divergent identity,
-#     non-pass verdict, fully hand-written "pass") and fails if any of them survives.
+#     non-pass verdict, fully hand-written "pass") and fails if any of them survives;
+#   * each child is probed for sensitivity as well. A child that passes once has proven
+#     nothing -- a child reduced to `exit 0` also passes. So the child is re-run in a
+#     private shadow tree against inputs this gate deliberately corrupted, and a child
+#     that still reports pass is not a check: the suite is refused. The tree under test
+#     is never written to.
+#
+# An input this card never materializes -- a child's own acceptance program, a settings
+# source outside `paths`/`read_paths` -- is an environment gap, so it exits 79. Turning a
+# missing file into exit 1 would be indistinguishable from a real divergence.
 #
 # Exit codes, deliberately disjoint:
 #   0   the promised behavior was observed;
@@ -40,7 +49,12 @@ readonly card='AUR-339'
 readonly scenario='AC-001'
 readonly max_rows=128
 readonly max_bytes=$((4 * 1024 * 1024))
-readonly child_deadline=20
+readonly child_deadline=5
+# The card bounds the whole gate at 20 s and the probe multiplies child runs, so the
+# elapsed budget is checked between children. Running out of time is an environment
+# condition, never a verdict.
+readonly time_budget=18
+readonly zero_digest='0000000000000000000000000000000000000000000000000000000000000000'
 
 selector="${1:-AC-001}"
 case "$selector" in
@@ -70,6 +84,7 @@ repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/../.." 2>/dev/null && pwd -P)" \
 work=''
 cleanup() { [[ -z "$work" ]] || rm -rf -- "$work"; }
 trap cleanup EXIT INT TERM HUP
+work="$(mktemp -d 2>/dev/null)" || inconclusive 'mktemp-failed'
 
 # ---------------------------------------------------------------------------------
 # Embedded child set. This is the gate's own copy of what AUR-339 governs; it does
@@ -108,6 +123,50 @@ bounded_file() {
   (( bytes > 0 && bytes <= max_bytes ))
 }
 
+# No pipe and no command substitution around the child: `$?` is read directly, because a
+# filter's exit status would silently replace the producer's.
+child_rc=0
+run_child() {
+  child_rc=0
+  timeout -- "$child_deadline" bash -- "$1" AC-001 >/dev/null 2>&1 || child_rc=$?
+}
+
+# A shadow tree holding exactly the three inputs a settings child consumes. The probe
+# corrupts these copies, never the tree under test. Copies are made writable because the
+# materialized inputs are staged read-only.
+shadow_build() {
+  local child="$1" root="$2" rel="${child_source[$child]}"
+  local prog="$root/tests/acceptance/$child.sh"
+  local man="$root/tests/characterization/legacy/agent-settings/$child/manifest.tsv"
+  rm -rf -- "$root" || return 1
+  mkdir -p -- "$root/tests/acceptance" "$root/$(dirname -- "$rel")" \
+    "$root/tests/characterization/legacy/agent-settings/$child" || return 1
+  cp -- "$repo_root/tests/acceptance/$child.sh" "$prog" || return 1
+  cp -- "$repo_root/$rel" "$root/$rel" || return 1
+  cp -- "$repo_root/tests/characterization/legacy/agent-settings/$child/manifest.tsv" \
+    "$man" || return 1
+  chmod 0700 -- "$prog" || return 1
+  chmod 0600 -- "$root/$rel" "$man" || return 1
+}
+
+# Copies the manifest with the digest column of the <rel> row replaced by a digest that
+# describes nothing, so a child that really re-hashes its source must reject it.
+mutate_manifest_digest() {
+  local src="$1" dst="$2" rel="$3" line f1 f2 rest
+  : >"$dst" || return 1
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    IFS=$'\t' read -r f1 f2 rest <<<"$line"
+    if [[ "$f1" == "$rel" ]]; then
+      if [[ -n "$rest" ]]; then
+        line="$f1"$'\t'"$zero_digest"$'\t'"$rest"
+      else
+        line="$f1"$'\t'"$zero_digest"
+      fi
+    fi
+    printf '%s\n' "$line" >>"$dst" || return 1
+  done <"$src"
+}
+
 # ---------------------------------------------------------------------------------
 # Re-derive each child from content, then re-execute the child's own program.
 # ---------------------------------------------------------------------------------
@@ -119,7 +178,9 @@ for child in "${children[@]}"; do
   source_rel="${child_source[$child]}"
   source_abs="$repo_root/$source_rel"
 
-  regular_file "$program" || fail "setting_manifest_missing:$child:acceptance-program"
+  # The child's program is outside this card's `paths`/`read_paths`, so it is absent from
+  # a correctly materialized container. Absence is an environment gap, not a red verdict.
+  regular_file "$program" || inconclusive "child-program-unmaterialized:$child"
   regular_file "$manifest" || fail "setting_manifest_missing:$child:manifest"
   bounded_file "$manifest" || fail "setting_manifest_missing:$child:manifest-bounds"
 
@@ -156,13 +217,45 @@ for child in "${children[@]}"; do
   (( digest_ok == 1 )) || fail "child_digest_mismatch:$child:source"
 
   # Re-execution: the child's exit code is observed raw, with no pipe in between.
-  rc=0
-  timeout -- "$child_deadline" bash -- "$program" AC-001 >/dev/null 2>&1 || rc=$?
+  run_child "$program"
+  rc="$child_rc"
   case "$rc" in
     0) ;;
     64|69|79|124|125|126|127) inconclusive "child-unobservable:$child:rc$rc" ;;
     *) fail "child_not_pass:$child:rc$rc" ;;
   esac
+
+  # Sensitivity of the child itself. A green run only means the child did not object; a
+  # child that objects to nothing is decoration. Both bytes the child claims to compare
+  # are corrupted in turn, and the child must refuse each time.
+  probe="$work/probe/$child"
+  shadow_build "$child" "$probe" || inconclusive "probe-setup:$child"
+  probe_program="$probe/tests/acceptance/$child.sh"
+  probe_manifest="$probe/tests/characterization/legacy/agent-settings/$child/manifest.tsv"
+
+  # Baseline in the shadow: if the child cannot pass on faithful copies, the probe is not
+  # a valid instrument and its later red would not be attributable to the mutation.
+  run_child "$probe_program"
+  (( child_rc == 0 )) || inconclusive "probe-baseline:$child:rc$child_rc"
+
+  printf 'x' >>"$probe/$source_rel" || inconclusive "probe-setup:$child"
+  run_child "$probe_program"
+  case "$child_rc" in
+    0) fail "child_insensitive:$child:source" ;;
+    124|125|126|127) inconclusive "probe-unobservable:$child:rc$child_rc" ;;
+  esac
+  cp -- "$source_abs" "$probe/$source_rel" || inconclusive "probe-setup:$child"
+  chmod 0600 -- "$probe/$source_rel" || inconclusive "probe-setup:$child"
+
+  mutate_manifest_digest "$manifest" "$probe_manifest" "$source_rel" \
+    || inconclusive "probe-setup:$child"
+  run_child "$probe_program"
+  case "$child_rc" in
+    0) fail "child_insensitive:$child:manifest" ;;
+    124|125|126|127) inconclusive "probe-unobservable:$child:rc$child_rc" ;;
+  esac
+
+  (( SECONDS <= time_budget )) || inconclusive "time-budget-exceeded:${SECONDS}s"
 
   obs_spec[$child]="sha256:$(digest_of "$program")"
   obs_artifact[$child]="sha256:$(digest_of "$manifest")"
@@ -232,8 +325,6 @@ reason="$(verify_suite "$suite" || true)"
 # Sensitivity. A gate that accepts a mutant has approved nothing, so the accepted
 # suite is mutated here and every variant must be rejected with its own code.
 # ---------------------------------------------------------------------------------
-work="$(mktemp -d 2>/dev/null)" || inconclusive 'mktemp-failed'
-
 readonly mutants=(
   'child_missing:setting_manifest_missing'
   'child_duplicate:child_duplicate'

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
@@ -16,15 +17,49 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
 
+// SkipReason classifies why a detected language produced no documentation without
+// that counting as an extraction failure.
+type SkipReason string
+
+// Skip reasons reported by the pipeline.
+const (
+	SkipNoExtractor      SkipReason = "no extractor registered"
+	SkipToolUnavailable  SkipReason = "required tool not in PATH"
+	SkipValidationFailed SkipReason = "extractor validation failed"
+)
+
+// LanguageSkip records a language the pipeline deliberately did not extract, along
+// with the reason and how many source files went undocumented because of it.
+type LanguageSkip struct {
+	Language extractors.Language
+	Reason   SkipReason
+	Tool     string
+	Detail   string
+	Files    int
+}
+
+func (s LanguageSkip) String() string {
+	msg := fmt.Sprintf("%s: %s", s.Language, s.Reason)
+	// Detail carries external tool output. It is redacted and bounded here as
+	// well as at the assignment site: every path that renders a skip is a path
+	// into the public Action log.
+	if s.Detail != "" {
+		msg += " (" + site.Redact(s.Detail) + ")"
+	}
+
+	return fmt.Sprintf("%s [%d file(s)]", msg, s.Files)
+}
+
 // ExtractionError reports an extraction run that did not fully succeed. Partial is
 // false when no documentation at all was produced and true when documentation was
-// produced but at least one extractor failed.
+// produced but at least one language failed or was skipped.
 type ExtractionError struct {
 	Partial        bool
 	SourceFiles    int
 	FilesProcessed int
 	DocsGenerated  int
 	Errors         []error
+	Skipped        []LanguageSkip
 }
 
 func (e *ExtractionError) Error() string {
@@ -33,8 +68,16 @@ func (e *ExtractionError) Error() string {
 		outcome = "was partial"
 	}
 
-	msg := fmt.Sprintf("documentation extraction %s: %d source files, %d processed, %d docs generated, %d error(s)",
-		outcome, e.SourceFiles, e.FilesProcessed, e.DocsGenerated, len(e.Errors))
+	msg := fmt.Sprintf("documentation extraction %s: %d source files, %d processed, %d docs generated, %d error(s), %d language(s) skipped",
+		outcome, e.SourceFiles, e.FilesProcessed, e.DocsGenerated, len(e.Errors), len(e.Skipped))
+
+	if len(e.Skipped) > 0 {
+		skips := make([]string, 0, len(e.Skipped))
+		for _, skip := range e.Skipped {
+			skips = append(skips, skip.String())
+		}
+		msg += " {skipped: " + strings.Join(skips, "; ") + "}"
+	}
 
 	if len(e.Errors) == 0 {
 		return msg
@@ -42,7 +85,8 @@ func (e *ExtractionError) Error() string {
 
 	causes := make([]string, 0, len(e.Errors))
 	for _, err := range e.Errors {
-		causes = append(causes, err.Error())
+		// Causes wrap extractor errors that embed tool stderr.
+		causes = append(causes, site.Redact(err.Error()))
 	}
 
 	return msg + ": " + strings.Join(causes, "; ")
@@ -114,6 +158,11 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 
 	if len(filesToProcess) == 0 {
 		log.Printf("[Pipeline] No files to process")
+		// A run with nothing to document must still leave a servable root:
+		// returning here without a scaffold publishes a 404.
+		if _, err := p.writeSiteScaffold(); err != nil {
+			return fmt.Errorf("site scaffold generation failed: %w", err)
+		}
 		return nil
 	}
 
@@ -125,16 +174,16 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 	log.Printf("[Pipeline] Found %d files to process", sourceFiles)
 
 	// Step 2: Extract documentation for each language
-	stats, extractionErrors := p.extractDocumentation(ctx, filesToProcess)
+	stats, extractionErrors, skipped := p.extractDocumentation(ctx, filesToProcess)
 
 	// Log statistics
-	log.Printf("[Pipeline] Extraction complete: %d files processed, %d docs generated",
-		stats.FilesProcessed, stats.DocsGenerated)
+	log.Printf("[Pipeline] Extraction complete: %d files processed, %d docs generated, %d language(s) skipped",
+		stats.FilesProcessed, stats.DocsGenerated, len(skipped))
 
 	if len(extractionErrors) > 0 {
 		log.Printf("[Pipeline] %d extraction errors occurred", len(extractionErrors))
 		for _, err := range extractionErrors {
-			log.Printf("[Pipeline] Error: %v", err)
+			log.Printf("[Pipeline] Error: %s", site.Redact(err.Error()))
 		}
 	}
 
@@ -144,6 +193,7 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 			FilesProcessed: stats.FilesProcessed,
 			DocsGenerated:  stats.DocsGenerated,
 			Errors:         extractionErrors,
+			Skipped:        skipped,
 		}
 	}
 
@@ -168,7 +218,24 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		}
 	}
 
-	// Step 5: Validate Jekyll site if enabled
+	// Step 5: Write the deterministic site scaffold.
+	//
+	// This is what makes the run's artifact publishable: extraction leaves
+	// markdown files behind, and markdown files alone are not a site. Without an
+	// index.md the published root is a 404, and without a _config.yml the host
+	// has no reason to render the pages. Both are derived from what is on disk,
+	// so they exist whether or not an LLM provider was configured. It runs after
+	// the welcome page on purpose: an LLM-written introduction is then kept as
+	// the index intro instead of being overwritten by it.
+	log.Printf("[Pipeline] Writing site scaffold...")
+	scaffoldResult, err := p.writeSiteScaffold()
+	if err != nil {
+		return fmt.Errorf("site scaffold generation failed: %w", err)
+	}
+	log.Printf("[Pipeline] Site scaffold: %s (%d page(s) listed), %s",
+		scaffoldResult.IndexPath, len(scaffoldResult.Pages), scaffoldResult.ConfigPath)
+
+	// Step 6: Validate Jekyll site if enabled
 	if p.config.ValidateJekyll {
 		log.Printf("[Pipeline] Validating Jekyll site...")
 		if err := p.validateJekyllSite(ctx); err != nil {
@@ -178,7 +245,7 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		}
 	}
 
-	// Step 6: Deploy to gh-pages if enabled
+	// Step 7: Deploy to gh-pages if enabled
 	if p.config.DeployGHPages {
 		log.Printf("[Pipeline] Deploying to gh-pages...")
 		if err := p.deployToGHPages(ctx); err != nil {
@@ -187,7 +254,7 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		log.Printf("[Pipeline] Deployed to gh-pages successfully")
 	}
 
-	// Step 7: Update incremental cache
+	// Step 8: Update incremental cache
 	if p.config.Incremental {
 		log.Printf("[Pipeline] Updating incremental cache...")
 		if err := p.incrementalMgr.UpdateCommit(ctx); err != nil {
@@ -198,14 +265,16 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		}
 	}
 
-	if len(extractionErrors) > 0 {
-		log.Printf("[Pipeline] Documentation pipeline completed with %d extraction errors", len(extractionErrors))
+	if len(extractionErrors) > 0 || len(skipped) > 0 {
+		log.Printf("[Pipeline] Documentation pipeline completed PARTIALLY: %d extraction error(s), %d language(s) skipped",
+			len(extractionErrors), len(skipped))
 		return &ExtractionError{
 			Partial:        true,
 			SourceFiles:    sourceFiles,
 			FilesProcessed: stats.FilesProcessed,
 			DocsGenerated:  stats.DocsGenerated,
 			Errors:         extractionErrors,
+			Skipped:        skipped,
 		}
 	}
 
@@ -288,31 +357,46 @@ func (p *ExtractorPipeline) groupFilesByLanguage(files []string) map[extractors.
 	return grouped
 }
 
-// extractDocumentation extracts documentation for all files
+// extractDocumentation extracts documentation for all files. Languages the pipeline
+// cannot handle here and now - no extractor, or an extractor whose external tool is
+// missing - are reported as skips rather than errors, so one uncovered language in a
+// mixed repository cannot fail the languages that are covered.
 func (p *ExtractorPipeline) extractDocumentation(
 	ctx context.Context,
 	filesByLanguage map[extractors.Language][]string,
-) (extractors.ExtractionStats, []error) {
+) (extractors.ExtractionStats, []error, []LanguageSkip) {
 
 	totalStats := extractors.ExtractionStats{}
 	var allErrors []error
+	var allSkips []LanguageSkip
 
-	for lang, files := range filesByLanguage {
+	for _, lang := range sortedLanguages(filesByLanguage) {
+		files := filesByLanguage[lang]
+
 		log.Printf("[Pipeline] Extracting %s documentation (%d files)...", lang, len(files))
+
+		skip := LanguageSkip{Language: lang, Files: len(files)}
 
 		extractor, err := p.registry.Get(lang)
 		if err != nil {
-			errMsg := fmt.Errorf("no extractor for %s: %w", lang, err)
-			log.Printf("[Pipeline] ⚠️  ERROR: %v", errMsg)
-			allErrors = append(allErrors, errMsg)
+			skip.Reason = SkipNoExtractor
+			log.Printf("[Pipeline] SKIP %s", skip)
+			allSkips = append(allSkips, skip)
 			continue
 		}
 
-		// Validate extractor is available
+		// Validate reports whether the extractor's external dependencies are present.
 		if err := extractor.Validate(ctx); err != nil {
-			errMsg := fmt.Errorf("%s tools not available: %w", lang, err)
-			log.Printf("[Pipeline] ⚠️  ERROR: %v", errMsg)
-			allErrors = append(allErrors, errMsg)
+			skip.Detail = site.Redact(err.Error())
+			if tool, missing := extractors.MissingTool(err); missing {
+				skip.Reason = SkipToolUnavailable
+				skip.Tool = tool
+			} else {
+				skip.Reason = SkipValidationFailed
+			}
+
+			log.Printf("[Pipeline] SKIP %s", skip)
+			allSkips = append(allSkips, skip)
 			continue
 		}
 
@@ -326,7 +410,7 @@ func (p *ExtractorPipeline) extractDocumentation(
 		result, err := extractor.Extract(ctx, request)
 		if err != nil {
 			errMsg := fmt.Errorf("%s extraction failed: %w", lang, err)
-			log.Printf("[Pipeline] ⚠️  ERROR: %v", errMsg)
+			log.Printf("[Pipeline] ⚠️  ERROR: %s", site.Redact(errMsg.Error()))
 			allErrors = append(allErrors, errMsg)
 			continue
 		}
@@ -350,7 +434,19 @@ func (p *ExtractorPipeline) extractDocumentation(
 			lang, result.Stats.FilesProcessed, result.Stats.DocsGenerated)
 	}
 
-	return totalStats, allErrors
+	return totalStats, allErrors, allSkips
+}
+
+// sortedLanguages orders the languages so diagnostics are stable across runs.
+func sortedLanguages(filesByLanguage map[extractors.Language][]string) []extractors.Language {
+	langs := make([]extractors.Language, 0, len(filesByLanguage))
+	for lang := range filesByLanguage {
+		langs = append(langs, lang)
+	}
+
+	sort.Slice(langs, func(i, j int) bool { return langs[i] < langs[j] })
+
+	return langs
 }
 
 // generateWelcomePage generates LLM-powered welcome page from README
@@ -370,6 +466,30 @@ func (p *ExtractorPipeline) generateWelcomePage(ctx context.Context) error {
 
 	_, err := p.welcomeGen.Generate(ctx, opts)
 	return err
+}
+
+// writeSiteScaffold emits the index page and the Jekyll configuration that turn
+// the generated markdown into a servable site. It needs no LLM provider: the
+// listing is derived from the pages that really exist under OutputDir.
+func (p *ExtractorPipeline) writeSiteScaffold() (*site.ScaffoldResult, error) {
+	docsDir := p.config.DocsDir
+	if docsDir == "" {
+		docsDir = p.config.OutputDir
+	}
+
+	title := "Documentation"
+	if base := filepath.Base(p.config.SourceDir); base != "." && base != string(filepath.Separator) && base != "" {
+		title = base + " documentation"
+	}
+
+	scaffold := site.NewScaffold(site.ScaffoldConfig{
+		DocsDir:     docsDir,
+		OutputDir:   p.config.OutputDir,
+		Title:       title,
+		Description: "API documentation generated by AurumCode.",
+	})
+
+	return scaffold.Generate()
 }
 
 // validateJekyllSite validates the Jekyll site can be built

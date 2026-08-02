@@ -2,8 +2,10 @@ package python
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -100,12 +102,19 @@ func (p *PythonExtractor) Extract(ctx context.Context, req *extractors.ExtractRe
 	return result, nil
 }
 
-// Validate checks if pydoc-markdown is available
+// Validate checks if pydoc-markdown is available.
+//
+// Only a genuine lookup failure means the tool is unavailable; an installed
+// pydoc-markdown that exits non-zero is an extraction error, not a skip.
 func (p *PythonExtractor) Validate(ctx context.Context) error {
 	// Try to get pydoc-markdown version
 	_, err := p.runner.Run(ctx, "pydoc-markdown", []string{"--version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("pydoc-markdown not found: please install with 'pip install pydoc-markdown'")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("pydoc-markdown",
+				"please install with 'pip install pydoc-markdown'", err)
+		}
+		return fmt.Errorf("pydoc-markdown is installed but failed: %w", err)
 	}
 	return nil
 }
@@ -191,7 +200,8 @@ func (p *PythonExtractor) extractModule(ctx context.Context, modulePath, outputP
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
-	return nil
+	// Confirm on disk before the caller counts this module as documented.
+	return extractors.ConfirmOutputFile("python docstring extraction", outputPath)
 }
 
 // extractDocstrings extracts docstrings from Python code (simplified)

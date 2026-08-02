@@ -6,8 +6,9 @@
 #
 #   `LegacyScriptSuiteV1` closes over exactly the twelve legacy script children
 #   [AUR-365 .. AUR-376]. The suite verdict is produced HERE, by re-running each
-#   child acceptance program and reading its raw exit status, and by recomputing
-#   every digest over file CONTENT with sha256sum.
+#   child acceptance program and reading its raw exit status, by re-deriving the
+#   characterization of each child's OWN legacy file from that file's bytes, and
+#   by proving each child can still go red before its green is counted.
 #
 # WHAT THIS DELIBERATELY REFUSES TO TRUST
 #
@@ -81,6 +82,29 @@ readonly -a children=(
   'AUR-371' 'AUR-372' 'AUR-373' 'AUR-374' 'AUR-375' 'AUR-376'
 )
 
+# Which legacy file each child is responsible for characterizing. This is a
+# literal here for the same reason the id set is: an earlier revision took the
+# characterized path from field 1 of the child's own manifest, so twelve
+# manifests all naming one trivial tracked file (plus twelve `exit 0` stub
+# children) closed this gate while none of the twelve legacy scripts was
+# characterized at all -- and while all twelve were deleted from the tree.
+# A manifest is a claim about a specific file; the file it is a claim about is
+# not the manifest's to choose.
+declare -Ar child_source=(
+  [AUR-365]='scripts/action-entrypoint.sh'
+  [AUR-366]='scripts/build-docs-site.sh'
+  [AUR-367]='scripts/bulk-enable-repos.sh'
+  [AUR-368]='scripts/generate-code-docs.sh'
+  [AUR-369]='scripts/generate-demo-page.go'
+  [AUR-370]='scripts/generate-enhanced-docs.sh'
+  [AUR-371]='scripts/run-live-demo.sh'
+  [AUR-372]='scripts/setup-github-app.sh'
+  [AUR-373]='generate-docs-simple.sh'
+  [AUR-374]='run-docs-pipeline.sh'
+  [AUR-375]='run-docs-pipeline.bat'
+  [AUR-376]='test-jekyll.sh'
+)
+
 deliberate_exit=0
 work_dir=''
 
@@ -121,7 +145,7 @@ trap on_unexpected ERR
 
 (( ${BASH_VERSINFO[0]:-0} >= 4 )) || env_error "bash >= 4 required, found ${BASH_VERSION:-unknown}"
 
-for tool in sha256sum awk wc mktemp; do
+for tool in sha256sum awk wc mktemp cp mkdir dirname rm; do
   command -v -- "$tool" >/dev/null 2>&1 || env_error "required tool unavailable: $tool"
 done
 have_timeout=0
@@ -147,6 +171,21 @@ for child in "${children[@]}"; do
   [[ "$child" =~ ^AUR-[0-9]{3}$ ]] || env_error "malformed embedded child id: $child"
   [[ -z "${embedded_seen[$child]:-}" ]] || env_error "duplicate id in embedded child list: $child"
   embedded_seen["$child"]=1
+done
+
+# The map must cover the set exactly, and two children may never claim the same
+# file: one file cannot discharge twelve characterizations.
+(( ${#child_source[@]} == expected_count )) \
+  || env_error "embedded source map holds ${#child_source[@]} entries, expected $expected_count"
+declare -A source_seen=()
+for child in "${children[@]}"; do
+  src="${child_source[$child]:-}"
+  [[ -n "$src" ]] || env_error "embedded source map has no entry for $child"
+  [[ "$src" == [A-Za-z0-9_]* && "$src" != *..* && "$src" != /* ]] \
+    || env_error "embedded source map holds an unusable path for $child"
+  [[ -z "${source_seen[$src]:-}" ]] \
+    || env_error "embedded source map reuses $src for more than one child"
+  source_seen["$src"]=1
 done
 
 # --------------------------------------------------------------------------
@@ -211,6 +250,42 @@ run_child() {
   return "$status"
 }
 
+# A child program is evidence only if it can fail. This rebuilds the child's
+# world in a scratch tree where the single difference is a corrupted copy of the
+# file it characterizes, and re-runs it there. Any child that hashes its source
+# and compares it against the manifest must exit non-zero on that tree; a stub
+# that exits 0 without reading anything cannot, and is unmasked here. The real
+# tree is never written to: only $work_dir is.
+probe_child_is_sensitive() {
+  local child="$1" program="$2" src_rel="$3" manifest="$4"
+  local mirror="$work_dir/mirror" status=0 before after
+
+  rm -rf -- "$mirror" || env_error "cannot reset probe mirror for $child"
+  mkdir -p -- "$mirror/tests/acceptance" \
+    "$mirror/tests/characterization/legacy/script-files/$child" \
+    "$mirror/$(dirname -- "$src_rel")" || env_error "cannot build probe mirror for $child"
+  cp -- "$program" "$mirror/tests/acceptance/$child.sh" || env_error "cannot mirror child program for $child"
+  cp -- "$manifest" "$mirror/tests/characterization/legacy/script-files/$child/manifest.tsv" \
+    || env_error "cannot mirror manifest for $child"
+  cp -- "$repo_root/$src_rel" "$mirror/$src_rel" || env_error "cannot mirror source for $child"
+
+  before="$(digest_of "$mirror/$src_rel")" || env_error "cannot hash probe mirror source for $child"
+  printf '\n# aurum-probe-%s\n' "$child" >>"$mirror/$src_rel" \
+    || env_error "cannot corrupt probe mirror source for $child"
+  after="$(digest_of "$mirror/$src_rel")" || env_error "cannot hash corrupted probe source for $child"
+  [[ "$before" != "$after" ]] || env_error "probe corruption did not change the digest for $child"
+
+  run_child "$mirror/tests/acceptance/$child.sh" "$work_dir/probe.out" || status=$?
+  : >"$work_dir/probe.out"
+  rm -rf -- "$mirror" || true
+  case "$status" in
+    0) return 1 ;;
+    3) env_error "child $child reported its own environment error inside the probe (exit 3)" ;;
+    124|137) env_error "child $child exceeded ${child_timeout_seconds}s inside the probe (exit $status)" ;;
+  esac
+  return 0
+}
+
 declare -A artifact_digest=()
 declare -A spec_digest=()
 declare -A observed_verdict=()
@@ -219,8 +294,11 @@ characterization_root="$repo_root/tests/characterization/legacy/script-files"
 
 for child in "${children[@]}"; do
   program="$repo_root/tests/acceptance/$child.sh"
+  # tests/acceptance/<child>.sh is outside this card's paths/read_paths, so a
+  # container that does not materialize it produces absence, not authorship.
+  # Absence is therefore inconclusive (3) and never behavioral red (1).
   [[ -e "$program" ]] \
-    || red script_manifest_missing "child acceptance program absent: tests/acceptance/$child.sh"
+    || env_error "child acceptance program not present here: tests/acceptance/$child.sh (card read_paths must cover the child programs this gate re-executes)"
   [[ ! -L "$program" ]] \
     || red script_manifest_missing "child acceptance program is a symlink: tests/acceptance/$child.sh"
   [[ -f "$program" && -s "$program" ]] \
@@ -242,12 +320,6 @@ for child in "${children[@]}"; do
 
   # A child program is not evidence about itself: bind the manifest to real
   # content this program hashes, so a stub child plus a junk manifest cannot pass.
-  src_rel="$(awk -F '\t' 'NR==1 { print $1 }' "$manifest")"
-  [[ "$src_rel" == [A-Za-z0-9_]* && "$src_rel" != *..* ]] || red child_digest_mismatch "manifest for $child names an unusable source path"
-  [[ -f "$repo_root/$src_rel" && ! -L "$repo_root/$src_rel" ]] || env_error "characterized source unavailable here: $src_rel"
-  want_src="$(digest_of "$repo_root/$src_rel")" || env_error "cannot hash $src_rel"
-  [[ "sha256:$(awk -F '\t' 'NR==1 { print $2 }' "$manifest")" == "$want_src" ]] || red child_digest_mismatch "manifest for $child declares a digest that is not sha256 of $src_rel"
-
   # MUT-002: characterization must observe the legacy source, never run it.
   if ! awk '
       {
@@ -264,6 +336,23 @@ for child in "${children[@]}"; do
     red source_executed "manifest for $child does not record commands_executed=0 on every row"
   fi
 
+  src_rel="${child_source[$child]}"
+  [[ -e "$repo_root/$src_rel" ]] \
+    || env_error "characterized source not present here: $src_rel (outside this card's read_paths; inconclusive, never red)"
+  [[ -f "$repo_root/$src_rel" && ! -L "$repo_root/$src_rel" ]] \
+    || red child_digest_mismatch "characterized source for $child is not a regular file: $src_rel"
+  want_src_hex="$(sha256sum -- "$repo_root/$src_rel")" || env_error "cannot hash $src_rel"
+  want_src_hex="${want_src_hex%% *}"
+  # The manifest must carry a row that names exactly this child's file, with
+  # exactly the digest computed here from that file's bytes, on a row that also
+  # records commands_executed=0. Nothing in the manifest selects what is checked.
+  if ! awk -F '\t' -v target="$src_rel" -v digest="$want_src_hex" '
+      $1 == target && $2 == digest && $0 ~ /commands_executed=0/ { found = 1 }
+      END { exit(found ? 0 : 1) }
+    ' "$manifest"; then
+    red child_digest_mismatch "manifest for $child has no row characterizing $src_rel at its real sha256"
+  fi
+
   # THE verdict: the child's own raw exit status, observed here. Nothing else.
   child_status=0
   run_child "$program" "$work_dir/child.out" || child_status=$?
@@ -274,6 +363,10 @@ for child in "${children[@]}"; do
     *) red child_not_pass "child $child re-execution exited $child_status (expected 0)" ;;
   esac
   : >"$work_dir/child.out"
+
+  # A green from a child that cannot go red is not evidence.
+  probe_child_is_sensitive "$child" "$program" "$src_rel" "$manifest" \
+    || red child_digest_mismatch "child $child returned 0 against a corrupted copy of $src_rel; it does not verify what it claims to verify"
 done
 
 # Set divergence on the tree itself: the characterization root may hold the

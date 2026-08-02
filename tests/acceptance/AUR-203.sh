@@ -43,6 +43,12 @@ readonly scenario='AC-001'
 readonly max_suite_bytes=$((4 * 1024 * 1024))
 readonly max_children=128
 readonly max_child_bytes=$((1024 * 1024))
+# Shape floor for a child acceptance program. The smallest real one in this
+# tree is 325 bytes; `exit 0` is thirty.
+readonly min_child_bytes=128
+# A selector no scenario of any card defines. Used below to check that a child
+# that answered pass can answer anything else at all.
+readonly indiscriminate_selector='__aurum_closure_probe_no_such_selector__'
 readonly child_timeout_s=20
 readonly closure_deadline_s=300
 
@@ -66,7 +72,7 @@ inconclusive() {
 }
 
 (( ${BASH_VERSINFO[0]:-0} >= 4 )) || infra 'bash 4 or newer required'
-for tool in awk sha256sum wc sort mktemp; do
+for tool in awk grep sha256sum wc sort mktemp; do
   command -v "$tool" >/dev/null 2>&1 || infra "missing tool: $tool"
 done
 
@@ -175,6 +181,20 @@ for id in "${expected_ids[@]}"; do
   [[ ! -L "$child" && -f "$child" ]] \
     || fail required_manifest_missing "child acceptance program $child is not a regular file"
   [[ -s "$child" ]] || fail required_manifest_missing "child acceptance program $child is empty"
+
+  # Every digest below is recomputed over the child as it exists on disk, so a
+  # tree whose 98 children have been replaced by `exit 0` stubs and re-sealed
+  # around those stubs satisfies each one of them: the forgery moves one level
+  # down, into the children. There is no root of trust available inside this
+  # file to settle that -- only the child's own sealed base_sha, held by the
+  # coordinator, is one -- but a file too small to be an acceptance program, or
+  # one that never names the card it claims to accept, is refused here before a
+  # single child is executed.
+  child_bytes="$(wc -c <"$child")"
+  (( child_bytes >= min_child_bytes )) \
+    || fail child_not_pass "$id acceptance program is $child_bytes bytes, too small to be one"
+  grep -q -F -e "$id" -- "$child" \
+    || fail child_not_pass "$id acceptance program never names $id"
 done
 
 work="$(mktemp -d 2>/dev/null)" || infra 'no writable temporary directory'
@@ -209,6 +229,18 @@ for id in "${expected_ids[@]}"; do
     1) fail child_not_pass "$id exited 1" ;;
     *) inconclusive child-inconclusive "$id exited $child_rc, which is neither pass nor typed red" ;;
   esac
+
+  # A pass only carries information if the child was able to answer something
+  # else. The child is re-run with a selector no scenario defines: all 63
+  # acceptance programs in this tree answer that with a non-zero status, so a
+  # zero here means this child's exit code does not depend on what it was
+  # asked -- a mock that always agrees -- and its pass proves nothing about the
+  # release candidate. Its transcript is discarded and never hashed.
+  probe_rc=0
+  "${runner[@]}" bash "$child" "$indiscriminate_selector" \
+    >/dev/null 2>/dev/null || probe_rc=$?
+  (( probe_rc != 0 )) \
+    || fail child_not_pass "$id exits 0 for the undefined selector $indiscriminate_selector; its verdict is indiscriminate"
 
   out_bytes="$(wc -c <"$out")"
   (( out_bytes <= max_child_bytes )) \
