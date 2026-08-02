@@ -171,6 +171,12 @@ func isRegularFile(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// fatalf is the process-terminating log call used by report. It is a variable so
+// a test can observe the message and the branch that produced it without killing
+// the test binary; the released build always resolves to log.Fatalf, and the exit
+// status it produces is covered separately by a subprocess test.
+var fatalf = log.Fatalf
+
 // report turns the pipeline outcome into an exit status that matches what is
 // actually on disk. A run only claims success for markdown files that exist,
 // and a partially extracted run is reported as such instead of being flattened
@@ -185,11 +191,11 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 		log.Printf("❌ FAILED - no documentation was produced")
 		logDiagnostics(extractionErr)
 		log.Print(summaryLine("failed", docs, siteInfo, extractionErr, config))
-		log.Fatalf("❌ Pipeline failed: %v", runErr)
+		fatalf("❌ Pipeline failed: %v", runErr)
 
 	case partial && len(docs) == 0:
 		log.Print(summaryLine("failed", docs, siteInfo, extractionErr, config))
-		log.Fatalf("❌ Pipeline reported partial extraction but no markdown file exists under %s: %v",
+		fatalf("❌ Pipeline reported partial extraction but no markdown file exists under %s: %v",
 			config.OutputDir, runErr)
 
 	case partial:
