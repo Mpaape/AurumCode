@@ -125,6 +125,7 @@ Read by `cmd/regenerate-docs`:
 | `AURUMCODE_LANGUAGES` | comma-separated allow-list, empty means every registered language |
 | `AURUMCODE_INCREMENTAL` | `true` documents only files changed since the last run |
 | `AURUMCODE_VALIDATE_JEKYLL` | `true` runs `bundle exec jekyll build` in the docs directory after generation |
+| `AURUMCODE_DEPLOY_GH_PAGES` | `true` makes the run fail: `resolveConfig` (main.go:353-357) returns an error because gh-pages deploy is not implemented in this build; publish the output directory with a dedicated step instead |
 | `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` | opt-in list for `rust`, `csharp` |
 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | OpenAI-compatible endpoint for the landing page; the key and the base URL are both required |
 | `OPENAI_API_KEY` | used only when `LLM_API_KEY`/`LLM_BASE_URL` are unset |
