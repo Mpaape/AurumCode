@@ -283,13 +283,13 @@ func TestNormalizer_NormalizeDir(t *testing.T) {
 
 	// Create test directory structure
 	files := map[string]string{
-		"index.md":           "# Index",
-		"page1.md":           "# Page 1",
-		"subdir/page2.md":    "# Page 2",
-		"_api/api_doc.md":    "# API Doc",
-		"_site/ignore.md":    "# Should be ignored",
-		"README.txt":         "Not markdown",
-		"_stack/index.md":    "# Stack",
+		"index.md":        "# Index",
+		"page1.md":        "# Page 1",
+		"subdir/page2.md": "# Page 2",
+		"_api/api_doc.md": "# API Doc",
+		"_site/ignore.md": "# Should be ignored",
+		"README.txt":      "Not markdown",
+		"_stack/index.md": "# Stack",
 	}
 
 	for path, content := range files {
@@ -372,6 +372,11 @@ func TestDetectLanguage(t *testing.T) {
 		{"cpp/class.md", "cpp"},
 		{"rust/crate.md", "rust"},
 		{"generic/file.md", ""},
+		// Documentation generated for a source file keeps the source
+		// extension in its name; that token carries the language.
+		{"_api/build.sh.md", "bash"},
+		{"_api/server.go.md", "go"},
+		{"_api/app.py.md", "python"},
 	}
 
 	for _, tt := range tests {
