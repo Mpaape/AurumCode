@@ -29,12 +29,22 @@ func (p *Provider) Name() string {
 	return "openai"
 }
 
+// defaultModel is what this provider bills against when the caller names none.
+const defaultModel = "gpt-4"
+
+// ResolveModel reports the model this provider will actually send, before the
+// call is made, so the cost tracker can cap and charge on the same key.
+// Implements llm.ModelResolver.
+func (p *Provider) ResolveModel(opts llm.Options) string {
+	if opts.ModelKey != "" {
+		return opts.ModelKey
+	}
+	return defaultModel
+}
+
 // Complete sends a completion request to OpenAI
 func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
-	model := opts.ModelKey
-	if model == "" {
-		model = "gpt-4"
-	}
+	model := p.ResolveModel(opts)
 
 	req := &httpbase.Request{
 		Method: http.MethodPost,

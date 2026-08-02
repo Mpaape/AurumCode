@@ -67,16 +67,35 @@ func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options
 	var lastErr error
 
 	for i, provider := range o.providers {
-		tokensIn := o.estimator.Estimate(provider, prompt, opts.ModelKey)
+		// Resolve ONE model key for this attempt. The ceiling below and the
+		// charge further down must both be accounted against this exact key: if
+		// they diverge, the ledger the ceiling reads never moves and the cap is
+		// silently inert. Each provider gets its own key, because each one bills
+		// a different model.
+		modelKey := ResolveModelKey(provider, opts)
 
-		// The budget is checked and charged against the same key, so a request
-		// can never be admitted under one price and billed under another.
-		if o.tracker != nil && !o.tracker.Allow(tokensIn, tokensOut, opts.ModelKey) {
-			return Response{}, fmt.Errorf("%w: insufficient budget for %s", ErrBudgetExceeded, provider.Name())
+		tokensIn := o.estimator.Estimate(provider, prompt, modelKey)
+
+		// Reserve books the estimate up front. A bare check-then-charge pair
+		// lets every concurrent request clear a ceiling only one of them fits
+		// under, because none of them has written to the ledger the others read.
+		var reservation *cost.Reservation
+		if o.tracker != nil {
+			res, ok := o.tracker.Reserve(tokensIn, tokensOut, modelKey)
+			if !ok {
+				return Response{}, fmt.Errorf("%w: insufficient budget for %s (model %q)",
+					ErrBudgetExceeded, provider.Name(), modelKey)
+			}
+			reservation = res
 		}
 
 		resp, err := o.executeWithTimeout(ctx, provider, prompt, opts)
 		if err != nil {
+			// Nothing billable happened: hand the hold back before falling
+			// through to the next provider, otherwise a failed attempt keeps
+			// consuming the budget its successor needs.
+			reservation.Release()
+
 			lastErr = fmt.Errorf("provider %s failed: %w", provider.Name(), err)
 
 			if i < len(o.providers)-1 {
@@ -86,8 +105,10 @@ func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options
 			return Response{}, fmt.Errorf("%w: %w", ErrAllProvidersFailed, lastErr)
 		}
 
-		if o.tracker != nil {
-			if err := o.tracker.Spend(resp.TokensIn, resp.TokensOut, opts.ModelKey); err != nil {
+		if reservation != nil {
+			// Swap the reserved estimate for the actual cost, on the same key
+			// the ceiling was enforced against.
+			if err := reservation.Commit(resp.TokensIn, resp.TokensOut, modelKey); err != nil {
 				// The request already succeeded and the money is already spent;
 				// failing here would discard a paid response. Record instead,
 				// so a run with no cost control is observable.
