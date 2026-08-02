@@ -3,7 +3,7 @@
 # This demonstrates all 3 use cases: Code Review, Documentation, QA Testing
 # With baseline testing to prevent blocking on pre-existing failures
 
-set -e
+set -euo pipefail
 
 echo "🎬 AurumCode Live Demo - All 3 Use Cases"
 echo "========================================"
@@ -23,7 +23,7 @@ if ! command -v gh &> /dev/null; then
 fi
 
 # Check for demo repo
-read -p "Enter your demo repository (owner/repo): " DEMO_REPO
+read -r -p "Enter your demo repository (owner/repo): " DEMO_REPO
 
 if [ -z "$DEMO_REPO" ]; then
     echo "❌ Error: Demo repository required"
@@ -125,7 +125,7 @@ echo "  - Reliability: 5/10"
 echo "  - Performance: 4/10"
 echo ""
 
-read -p "Press Enter to continue to Phase 2 (fixing the code)..."
+read -r -p "Press Enter to continue to Phase 2 (fixing the code)..."
 
 echo ""
 echo "============================================"
@@ -234,7 +234,7 @@ echo "  - Reliability: 9/10 ✅"
 echo "  - Performance: 8/10 ✅"
 echo ""
 
-read -p "Press Enter to continue to Phase 3 (merging and documentation)..."
+read -r -p "Press Enter to continue to Phase 3 (merging and documentation)..."
 
 echo ""
 echo "============================================"
@@ -273,7 +273,7 @@ if [ -f "CHANGELOG.md" ]; then
     echo ""
 fi
 
-read -p "Press Enter to continue to Phase 4 (QA Testing with baseline)..."
+read -r -p "Press Enter to continue to Phase 4 (QA Testing with baseline)..."
 
 echo ""
 echo "============================================"

@@ -1,7 +1,13 @@
-# Example: AurumCode QA Testing
-# Copy this file to your repo: .github/workflows/aurumcode-qa.yml
+# Example: AurumCode documentation QA thresholds
+# Copy this file to your repository as .github/workflows/aurumcode-qa.yml
+#
+# AurumCode reports docs-generated and languages-detected. It does not measure
+# test coverage, so the threshold enforced here is over the outputs the action
+# really publishes. The thresholds are evaluated in the job, not passed to the
+# action: action.yml declares no coverage input, and an input the action does
+# not declare is dropped by the runner with a warning the job still passes.
 
-name: AurumCode - QA Testing
+name: AurumCode - Documentation QA
 
 on:
   pull_request:
@@ -9,35 +15,88 @@ on:
   push:
     branches: [main, master]
 
+# pull_request, never pull_request_target: the fork's head is checked out and
+# executed, so no writable token and no secrets reach this job. Without this
+# block the workflow inherits the repository default, which can be read/write
+# on every scope.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  qa-testing:
+  documentation-qa:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
+
+    env:
+      # Minimum number of markdown files the generator must produce.
+      MINIMUM_DOCS: '1'
+      # Comma-separated languages the run must detect. Leave empty to skip.
+      REQUIRED_LANGUAGES: 'go'
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run AurumCode QA Pipeline
-        uses: Mpaape/AurumCode@main
+        # Pinned to an immutable commit; the tag beside it is only a reading aid.
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          mode: 'qa'
-          llm_provider: 'openai'
-          llm_model: 'gpt-4'
-          llm_api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          coverage_threshold: '80'
+          fetch-depth: 0
 
-      - name: QA Summary
-        run: |
-          echo "✅ QA testing completed"
-          echo "📊 Coverage: ${{ steps.qa.outputs.coverage_percentage }}%"
-          echo "🎯 Threshold: 80%"
+      - name: Generate documentation
+        # The id is what makes steps.aurumcode.outputs.* resolve below.
+        id: aurumcode
+        # Pin the action to the commit you reviewed, never to a mutable branch.
+        uses: Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8 # reviewed head of PR #1
+        with:
+          source-dir: '.'
+          output-dir: '.aurumcode'
+          # Unknown entries stop the run instead of degrading to a warning.
+          extra-toolchains: ''
+          publish: 'none'
 
-      - name: Fail if coverage below threshold
-        if: steps.qa.outputs.coverage_percentage < 80
+      - name: Enforce documentation thresholds
+        # Outputs travel through env, never through ${{ }} inside the script.
+        env:
+          DOCS_GENERATED: ${{ steps.aurumcode.outputs.docs-generated }}
+          LANGUAGES: ${{ steps.aurumcode.outputs.languages-detected }}
+          DOCS_PATH: ${{ steps.aurumcode.outputs.docs-path }}
         run: |
-          echo "❌ Coverage below threshold"
-          exit 1
+          set -euo pipefail
+
+          # An absent or non-numeric output is a failed run. Coercing it to zero
+          # and comparing it against the threshold would let a broken action
+          # decide the verdict.
+          case "${DOCS_GENERATED}" in
+            ''|*[!0-9]*)
+              echo "::error::docs-generated='${DOCS_GENERATED}' is not a number - the action reported no result"
+              exit 1
+              ;;
+          esac
+
+          if [ "${DOCS_GENERATED}" -lt "${MINIMUM_DOCS}" ]; then
+            echo "::error::${DOCS_GENERATED} markdown files under '${DOCS_PATH}' is below the minimum of ${MINIMUM_DOCS}"
+            exit 1
+          fi
+
+          detected=",${LANGUAGES},"
+          missing=''
+          # -f while the unquoted split runs, so a '*' in the list is not
+          # expanded against the workspace.
+          set -f
+          for lang in $(echo "${REQUIRED_LANGUAGES}" | tr ',' ' '); do
+            case "${detected}" in
+              *",${lang},"*) ;;
+              *) missing="${missing} ${lang}" ;;
+            esac
+          done
+          set +f
+
+          if [ -n "${missing}" ]; then
+            echo "::error::required languages missing from the run:${missing} (detected: ${LANGUAGES:-none})"
+            exit 1
+          fi
+
+          echo "${DOCS_GENERATED} markdown files under ${DOCS_PATH} (languages: ${LANGUAGES:-none})"
