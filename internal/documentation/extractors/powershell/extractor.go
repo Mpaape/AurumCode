@@ -2,8 +2,10 @@ package powershell
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -72,11 +74,17 @@ func (p *PowerShellExtractor) Extract(ctx context.Context, req *extractors.Extra
 	return result, nil
 }
 
-// Validate checks if PowerShell is available
+// Validate checks if PowerShell is available.
+//
+// Only a genuine lookup failure means pwsh is unavailable; a pwsh that is
+// installed and exits non-zero is an extraction error, not a skip.
 func (p *PowerShellExtractor) Validate(ctx context.Context) error {
 	_, err := p.runner.Run(ctx, "pwsh", []string{"-Version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("pwsh not found: please install from https://aka.ms/powershell")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("pwsh", "please install from https://aka.ms/powershell", err)
+		}
+		return fmt.Errorf("pwsh is installed but failed: %w", err)
 	}
 	return nil
 }
@@ -149,5 +157,10 @@ func (p *PowerShellExtractor) extractScriptDocs(scriptPath, outputPath string) e
 		}
 	}
 
-	return os.WriteFile(outputPath, []byte(doc.String()), 0644)
+	if err := os.WriteFile(outputPath, []byte(doc.String()), 0644); err != nil {
+		return err
+	}
+
+	// Confirm on disk before the caller counts this script as documented.
+	return extractors.ConfirmOutputFile("powershell comment extraction", outputPath)
 }

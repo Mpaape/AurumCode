@@ -2,25 +2,40 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	bashExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/bash"
 	cppExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/cpp"
-	csharpExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/csharp"
 	goExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/go"
 	javascriptExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/javascript"
 	powershellExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/powershell"
 	pythonExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/python"
-	rustExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/rust"
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	litellmProvider "github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	openaiProvider "github.com/Mpaape/AurumCode/internal/llm/provider/openai"
 	"github.com/Mpaape/AurumCode/internal/pipeline"
+)
+
+// Pipeline knobs are read from AURUMCODE_-prefixed variables on purpose. The
+// composite action already resolves its own `source-dir` input by changing the
+// working directory before launching this binary, so honouring a bare
+// SOURCE_DIR here would apply the same relative path twice.
+const (
+	envSourceDir      = "AURUMCODE_SOURCE_DIR"
+	envOutputDir      = "AURUMCODE_OUTPUT_DIR"
+	envDocsDir        = "AURUMCODE_DOCS_DIR"
+	envLanguages      = "AURUMCODE_LANGUAGES"
+	envIncremental    = "AURUMCODE_INCREMENTAL"
+	envValidateJekyll = "AURUMCODE_VALIDATE_JEKYLL"
+	envDeployGHPages  = "AURUMCODE_DEPLOY_GH_PAGES"
 )
 
 type extractorAlias struct {
@@ -86,16 +101,11 @@ func main() {
 
 	runner := site.NewDefaultRunner()
 
-	config := &pipeline.ExtractorPipelineConfig{
-		SourceDir:       ".",
-		OutputDir:       ".aurumcode",
-		DocsDir:         ".aurumcode",
-		Languages:       []string{},
-		Incremental:     false,
-		GenerateWelcome: llmOrch != nil,
-		ValidateJekyll:  false,
-		DeployGHPages:   false,
+	config, err := resolveConfig(llmOrch != nil)
+	if err != nil {
+		log.Fatalf("❌ Invalid configuration: %v", err)
 	}
+	log.Printf("✓ Source: %s | Output: %s | Docs: %s", config.SourceDir, config.OutputDir, config.DocsDir)
 
 	extractorPipeline := pipeline.NewExtractorPipeline(config, runner, llmOrch)
 	if err := registerLanguageExtractors(extractorPipeline, runner); err != nil {
@@ -106,27 +116,278 @@ func main() {
 	log.Println("────────────────────────────────────────")
 
 	ctx := context.Background()
-	if err := extractorPipeline.Run(ctx); err != nil {
-		log.Fatalf("❌ Pipeline failed: %v", err)
+	runErr := extractorPipeline.Run(ctx)
+
+	docs, err := collectMarkdown(config)
+	if err != nil {
+		log.Fatalf("❌ Failed to inspect generated documentation in %s: %v", config.OutputDir, err)
 	}
 
 	log.Println("────────────────────────────────────────")
-	log.Println("✅ Documentation regeneration completed!")
-	log.Println("\n📊 Generated documentation in:")
-	log.Println("   - .aurumcode/go/")
-	log.Println("   - .aurumcode/javascript/")
-	log.Println("   - .aurumcode/python/")
-	log.Println("   - .aurumcode/ (other languages)")
-	log.Println("\n📝 Custom pages location:")
-	log.Println("   - docs/ (your guides, tutorials, etc.)")
-	log.Println("\n🌐 Build Jekyll site with:")
-	log.Println("   cd .aurumcode && bundle install && bundle exec jekyll build")
-	log.Println("\n🎉 Done!")
+	report(runErr, docs, inspectSite(config), config)
+
+	log.Printf("\n📝 Custom pages location:\n   - %s (your guides, tutorials, etc.)", config.DocsDir)
+	log.Printf("\n🌐 Build Jekyll site with:\n   cd %s && bundle install && bundle exec jekyll build", config.DocsDir)
 
 	if llmOrch != nil {
 		perRun, daily := llmOrch.RemainingBudget()
 		log.Printf("\n💰 Remaining LLM budget: per-run $%.2f | daily $%.2f", perRun, daily)
 	}
+}
+
+// siteStatus records whether the run left behind the two files that turn the
+// generated markdown into something a static host can serve. Markdown alone is
+// not a site: with no index.md the published root is a 404, and with no
+// _config.yml the host has no reason to render the pages.
+type siteStatus struct {
+	IndexPath  string
+	ConfigPath string
+	HasIndex   bool
+	HasConfig  bool
+}
+
+// Servable reports whether the artifact can be published as a site.
+func (s siteStatus) Servable() bool { return s.HasIndex && s.HasConfig }
+
+func inspectSite(config *pipeline.ExtractorPipelineConfig) siteStatus {
+	docsDir := config.DocsDir
+	if docsDir == "" {
+		docsDir = config.OutputDir
+	}
+
+	status := siteStatus{
+		IndexPath:  filepath.ToSlash(filepath.Join(docsDir, "index.md")),
+		ConfigPath: filepath.ToSlash(filepath.Join(docsDir, "_config.yml")),
+	}
+
+	status.HasIndex = isRegularFile(status.IndexPath)
+	status.HasConfig = isRegularFile(status.ConfigPath)
+
+	return status
+}
+
+func isRegularFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// report turns the pipeline outcome into an exit status that matches what is
+// actually on disk. A run only claims success for markdown files that exist,
+// and a partially extracted run is reported as such instead of being flattened
+// into either a clean success or a total failure.
+func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.ExtractorPipelineConfig) {
+	var extractionErr *pipeline.ExtractionError
+	structured := errors.As(runErr, &extractionErr)
+	partial := structured && extractionErr.Partial
+
+	switch {
+	case runErr != nil && !partial:
+		log.Printf("❌ FAILED - no documentation was produced")
+		logDiagnostics(extractionErr)
+		log.Print(summaryLine("failed", docs, siteInfo, extractionErr, config))
+		log.Fatalf("❌ Pipeline failed: %v", runErr)
+
+	case partial && len(docs) == 0:
+		log.Print(summaryLine("failed", docs, siteInfo, extractionErr, config))
+		log.Fatalf("❌ Pipeline reported partial extraction but no markdown file exists under %s: %v",
+			config.OutputDir, runErr)
+
+	case partial:
+		log.Printf("⚠️  PARTIAL SUCCESS - %d language(s) skipped, %d extraction error(s)",
+			len(extractionErr.Skipped), len(extractionErr.Errors))
+		logDiagnostics(extractionErr)
+		logDocs(docs, config.OutputDir)
+		logSite(siteInfo)
+		log.Print(summaryLine("partial", docs, siteInfo, extractionErr, config))
+
+	case len(docs) == 0:
+		log.Printf("⚠️  NO DOCUMENTATION PRODUCED - no supported source file was documented under %s", config.SourceDir)
+		log.Print(summaryLine("empty", docs, siteInfo, nil, config))
+
+	default:
+		log.Println("✅ Documentation regeneration completed!")
+		logDocs(docs, config.OutputDir)
+		logSite(siteInfo)
+		log.Print(summaryLine("ok", docs, siteInfo, nil, config))
+	}
+}
+
+// logSite makes an unpublishable artifact visible in the run log instead of
+// letting a green exit status imply a working site.
+func logSite(siteInfo siteStatus) {
+	if siteInfo.Servable() {
+		log.Printf("\n🌐 Site scaffold:\n   - %s\n   - %s", siteInfo.IndexPath, siteInfo.ConfigPath)
+		return
+	}
+
+	if !siteInfo.HasIndex {
+		log.Printf("⚠️  %s is missing - a published site would answer 404 at its root", siteInfo.IndexPath)
+	}
+	if !siteInfo.HasConfig {
+		log.Printf("⚠️  %s is missing - the published pages would be served as raw markdown", siteInfo.ConfigPath)
+	}
+}
+
+func logDiagnostics(extractionErr *pipeline.ExtractionError) {
+	if extractionErr == nil {
+		return
+	}
+
+	for _, skip := range extractionErr.Skipped {
+		log.Printf("   - skipped: %s", skip)
+	}
+	for _, cause := range extractionErr.Errors {
+		log.Printf("   - failed: %v", cause)
+	}
+}
+
+// summaryLine is the machine-readable verdict of the run. It is the single line
+// a caller can grep to tell a complete run from a degraded one.
+func summaryLine(result string, docs []string, siteInfo siteStatus, extractionErr *pipeline.ExtractionError, config *pipeline.ExtractorPipelineConfig) string {
+	skippedCount, failedCount := 0, 0
+	languages := "none"
+
+	if extractionErr != nil {
+		skippedCount = len(extractionErr.Skipped)
+		failedCount = len(extractionErr.Errors)
+
+		if skippedCount > 0 {
+			names := make([]string, 0, skippedCount)
+			for _, skip := range extractionErr.Skipped {
+				names = append(names, string(skip.Language))
+			}
+			languages = strings.Join(names, ",")
+		}
+	}
+
+	return fmt.Sprintf("aurumcode: result=%s docs=%d skipped=%d failed=%d languages_skipped=%s output=%s index=%t config=%t",
+		result, len(docs), skippedCount, failedCount, languages, config.OutputDir,
+		siteInfo.HasIndex, siteInfo.HasConfig)
+}
+
+func logDocs(docs []string, outputDir string) {
+	log.Printf("\n📊 Generated %d markdown file(s) in %s:", len(docs), outputDir)
+	for _, doc := range docs {
+		log.Printf("   - %s", doc)
+	}
+}
+
+// collectMarkdown lists the markdown files that really exist under the output
+// directory. A missing directory is not an error: it simply means nothing was
+// generated. The site landing page is excluded on purpose - it is scaffolding
+// the pipeline writes for every run, so counting it would let an empty run
+// claim it documented something.
+func collectMarkdown(config *pipeline.ExtractorPipelineConfig) ([]string, error) {
+	docsDir := config.DocsDir
+	if docsDir == "" {
+		docsDir = config.OutputDir
+	}
+	landingPage := filepath.Clean(filepath.Join(docsDir, "index.md"))
+
+	var docs []string
+
+	err := filepath.Walk(config.OutputDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || !strings.EqualFold(filepath.Ext(path), ".md") {
+			return nil
+		}
+		if filepath.Clean(path) == landingPage {
+			return nil
+		}
+
+		docs = append(docs, filepath.ToSlash(path))
+		return nil
+	})
+
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return docs, nil
+}
+
+func resolveConfig(generateWelcome bool) (*pipeline.ExtractorPipelineConfig, error) {
+	// The source tree is resolved to an absolute path before it reaches the
+	// pipeline: the Go extractor skips every directory whose base name starts
+	// with a dot, so a literal "." would skip the whole tree, and gomarkdoc
+	// rejects a bare relative package argument as an import path.
+	sourceDir, err := filepath.Abs(envOrDefault(envSourceDir, "."))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", envSourceDir, err)
+	}
+
+	info, err := os.Stat(sourceDir)
+	if err != nil {
+		return nil, fmt.Errorf("source directory %s: %w", sourceDir, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("source directory %s is not a directory", sourceDir)
+	}
+
+	outputDir := envOrDefault(envOutputDir, ".aurumcode")
+
+	incremental, err := envBool(envIncremental)
+	if err != nil {
+		return nil, err
+	}
+
+	validateJekyll, err := envBool(envValidateJekyll)
+	if err != nil {
+		return nil, err
+	}
+
+	deployGHPages, err := envBool(envDeployGHPages)
+	if err != nil {
+		return nil, err
+	}
+	if deployGHPages {
+		return nil, fmt.Errorf("%s is set but gh-pages deployment is not implemented in this build; "+
+			"publish the contents of the output directory with a dedicated step instead", envDeployGHPages)
+	}
+
+	return &pipeline.ExtractorPipelineConfig{
+		SourceDir:       sourceDir,
+		OutputDir:       outputDir,
+		DocsDir:         envOrDefault(envDocsDir, outputDir),
+		Languages:       splitLanguages(os.Getenv(envLanguages)),
+		Incremental:     incremental,
+		GenerateWelcome: generateWelcome,
+		ValidateJekyll:  validateJekyll,
+		DeployGHPages:   false,
+	}, nil
+}
+
+func envOrDefault(name, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func envBool(name string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "", "0", "false", "no":
+		return false, nil
+	case "1", "true", "yes":
+		return true, nil
+	default:
+		return false, fmt.Errorf("%s must be one of true/false (got %q)", name, os.Getenv(name))
+	}
+}
+
+func splitLanguages(raw string) []string {
+	languages := []string{}
+	for _, part := range strings.Split(raw, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			languages = append(languages, trimmed)
+		}
+	}
+	return languages
 }
 
 func registerLanguageExtractors(p *pipeline.ExtractorPipeline, runner site.CommandRunner) error {
@@ -154,15 +415,15 @@ func registerLanguageExtractors(p *pipeline.ExtractorPipeline, runner site.Comma
 		return err
 	}
 
-	if err := register(csharpExtractor.NewCSharpExtractor(runner)); err != nil {
-		return err
-	}
-
 	if err := register(cppExtractor.NewCPPExtractor(runner)); err != nil {
 		return err
 	}
 
-	if err := register(rustExtractor.NewRustExtractor(runner)); err != nil {
+	// Rust and C# are NOT registered here. Their toolchains execute code that
+	// lives in the documented repository, so they are opt-in per language; see
+	// repo_code_execution.go for what each one runs and why there is no safe
+	// mode to fall back to.
+	if err := registerRepoCodeExecutingExtractors(register, runner, os.Getenv(envAllowRepoCodeExecution)); err != nil {
 		return err
 	}
 

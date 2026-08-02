@@ -2,8 +2,10 @@ package goextractor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -21,11 +23,13 @@ type GoExtractor struct {
 func NewGoExtractor(runner site.CommandRunner) *GoExtractor {
 	return &GoExtractor{
 		runner:          runner,
-		incrementalMode: true,
+		incrementalMode: false,
 	}
 }
 
-// WithIncrementalMode enables or disables incremental generation
+// WithIncrementalMode enables or disables incremental generation. It is off by
+// default: with it on, a consumer that commits its generated docs directory gets an
+// empty run, because every package looks up to date.
 func (g *GoExtractor) WithIncrementalMode(enabled bool) *GoExtractor {
 	g.incrementalMode = enabled
 	return g
@@ -119,12 +123,19 @@ func (g *GoExtractor) Extract(ctx context.Context, req *extractors.ExtractReques
 	return result, nil
 }
 
-// Validate checks if gomarkdoc is available
+// Validate checks if gomarkdoc is available.
+//
+// Only a genuine lookup failure means the tool is unavailable. gomarkdoc that is
+// installed and exits non-zero is an extraction error for Go, not a skip.
 func (g *GoExtractor) Validate(ctx context.Context) error {
 	// Try to get gomarkdoc version
 	_, err := g.runner.Run(ctx, "gomarkdoc", []string{"--version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("gomarkdoc not found: please install with 'go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest'")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("gomarkdoc",
+				"please install with 'go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest'", err)
+		}
+		return fmt.Errorf("gomarkdoc is installed but failed: %w", err)
 	}
 	return nil
 }
@@ -247,7 +258,9 @@ func (g *GoExtractor) extractPackage(ctx context.Context, pkgPath, outputPath st
 		return fmt.Errorf("gomarkdoc failed: %w", err)
 	}
 
-	return nil
+	// A zero exit status is not evidence: confirm the document on disk before the
+	// caller is allowed to count it as generated.
+	return extractors.ConfirmOutputFile("gomarkdoc", outputPath)
 }
 
 // countLines counts lines in a file

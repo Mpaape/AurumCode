@@ -13,6 +13,14 @@
 #     acceptance program and observing its raw exit code -- never by reading
 #     the string `pass` out of a manifest. The lockset index is forbidden from
 #     even carrying a verdict token;
+#   * re-execution alone is not enough: a program whose whole body is `exit 0`
+#     also exits 0. So each child is first PROBED with an unknown selector and
+#     must refuse it with 64, and the stdout of the accepted run must be a
+#     record the child OWNS (`"card":"<child>"`). The exit code stays the
+#     verdict; the probe and the record only prove the thing that exited 0 was
+#     that child's acceptance program and not a stub;
+#   * the artifact path of every child is the EMBEDDED one. The index cannot
+#     rebind a child to another file, and six children cannot alias one file;
 #   * every digest in the index is RECOMPUTED here over the CONTENT of the
 #     referenced artifact. A digest a file declares about itself is not
 #     evidence, and is rejected because the recomputation will not match it;
@@ -78,6 +86,8 @@ readonly expected_count=6
 readonly max_index_bytes=65536
 readonly max_artifact_bytes=4194304
 readonly max_index_lines=512
+readonly child_deadline_seconds=30
+readonly max_child_stdout_bytes=65536
 
 fail() { printf '%s/%s/%s\n' "$card" "$scenario" "$1" >&2; exit 1; }
 infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$scenario" "$1" >&2; exit 69; }
@@ -163,8 +173,10 @@ VerifyBootstrapLocksetV1() {
       if [[ -z "$id" || -z "$rel" || -z "$declared" || -n "$extra" ]]; then
         printf 'lock_domain_missing malformed child entry at line %s\n' "$lineno"; return 1
       fi
-      local known=0 candidate
-      for candidate in "${children[@]}"; do [[ "$candidate" != "$id" ]] || known=1; done
+      local known=0 ci expected_rel=''
+      for ci in "${!children[@]}"; do
+        if [[ "${children[ci]}" == "$id" ]]; then known=1; expected_rel="${child_locks[ci]}"; fi
+      done
       if (( known == 0 )); then
         printf 'lock_domain_missing child %s is not in the embedded set (line %s)\n' "$id" "$lineno"; return 1
       fi
@@ -176,6 +188,11 @@ VerifyBootstrapLocksetV1() {
       done
       if [[ ! "$rel" =~ ^locks/[A-Za-z0-9][A-Za-z0-9._-]*\.yml$ ]]; then
         printf 'lock_domain_missing child %s has an unusable artifact path\n' "$id"; return 1
+      fi
+      # The path is embedded, not negotiated: the index may not rebind a child
+      # to another artifact, and it may not alias several children onto one.
+      if [[ "$rel" != "$expected_rel" ]]; then
+        printf 'lock_domain_missing child %s must bind %s but the index binds %s\n' "$id" "$expected_rel" "$rel"; return 1
       fi
       if [[ ! "$declared" =~ ^sha256:[0-9a-f]{64}$ ]]; then
         printf 'child_digest_mismatch child %s declares a malformed digest\n' "$id"; return 1
@@ -231,6 +248,69 @@ VerifyBootstrapLocksetV1() {
     printf 'candidate_identity_mismatch index declares %s but the lockset recomputes to %s\n' "$ident" "$computed"; return 1
   fi
   printf 'ok %s\n' "$computed"
+  return 0
+}
+
+# ObserveChildVerdictV1 <child_id> <program> <scratch_dir>
+#   0 -> prints `ok`; 1 -> prints `<typed_code> <detail>`; 2 -> `infra <detail>`.
+# The child's raw exit code is the verdict. Nothing is read out of a file, and
+# the two extra assertions exist only to refuse a program that answers 0 to
+# everything. A program the container never materialized is INCONCLUSIVE (2),
+# never behavioral RED: the card may read only `.board/bootstrap/locks`, so an
+# absent sibling program is a materialization fact, not a divergence.
+ObserveChildVerdictV1() {
+  local child="$1" prog="$2" dir="$3"
+  local out="$dir/$child.out" err="$dir/$child.err" rc probe_rc bytes
+
+  if [[ -L "$prog" || ! -f "$prog" || ! -r "$prog" ]]; then
+    printf 'infra child-program-unavailable/%s\n' "$child"; return 2
+  fi
+  if [[ ! -s "$prog" ]]; then
+    printf 'infra child-program-empty/%s\n' "$child"; return 2
+  fi
+
+  # Sensitivity probe. Every acceptance program on this board refuses an
+  # unknown selector with 64; `exit 0` answers 0 to that too, and that is the
+  # exact forgery this probe is here to catch.
+  set +e
+  timeout -k 5 "$child_deadline_seconds" bash -- "$prog" __AUR233_probe__ \
+    >"$dir/$child.probe.out" 2>"$dir/$child.probe.err"
+  probe_rc=$?
+  set -e
+  case "$probe_rc" in
+    64) ;;
+    0) printf 'child_not_pass %s answered 0 to an unknown selector; it does not discriminate\n' "$child"; return 1 ;;
+    69) printf 'infra child-infrastructure/%s/probe\n' "$child"; return 2 ;;
+    124|137) printf 'infra child-timeout/%s/probe\n' "$child"; return 2 ;;
+    *) printf 'child_not_pass %s must refuse an unknown selector with 64, it exited %s\n' "$child" "$probe_rc"; return 1 ;;
+  esac
+
+  # Raw status inside the `if`-free straight line: no pipe, no filter, nothing
+  # that could swallow the producer's exit code.
+  set +e
+  timeout -k 5 "$child_deadline_seconds" bash -- "$prog" AC-001 >"$out" 2>"$err"
+  rc=$?
+  set -e
+  case "$rc" in
+    0) ;;
+    1|3) printf 'child_not_pass %s was re-executed and exited %s\n' "$child" "$rc"; return 1 ;;
+    64) printf 'infra child-selector-rejected/%s\n' "$child"; return 2 ;;
+    69) printf 'infra child-infrastructure/%s\n' "$child"; return 2 ;;
+    124|137) printf 'infra child-timeout/%s\n' "$child"; return 2 ;;
+    *) printf 'infra child-inconclusive/%s/exit-%s\n' "$child" "$rc"; return 2 ;;
+  esac
+
+  bytes="$(wc -c < "$out" 2>/dev/null)" || { printf 'infra cannot size child stdout for %s\n' "$child"; return 2; }
+  if (( bytes == 0 || bytes > max_child_stdout_bytes )); then
+    printf 'child_not_pass %s exited 0 but its record is out of bounds (%s bytes)\n' "$child" "$bytes"; return 1
+  fi
+  if ! grep -qF -- "\"card\":\"$child\"" "$out"; then
+    printf 'child_not_pass %s exited 0 without owning the record it printed\n' "$child"; return 1
+  fi
+  if ! grep -qF -- '"result":"pass"' "$out"; then
+    printf 'child_not_pass %s exited 0 without emitting its own pass record\n' "$child"; return 1
+  fi
+  printf 'ok\n'
   return 0
 }
 
@@ -321,6 +401,22 @@ done
 write_index "$mut/handwritten/locks.yml" "sha256:$(printf '%064d' 0)" "${rows_hand[@]}" \
   || infra 'cannot-build-fixture'
 
+# MUT: the index rebinds every child onto ONE artifact, at a path the embedded
+# set does not assign to them. Digests and identity are internally consistent,
+# so only the embedded path binding can refuse it.
+mkdir -p "$mut/aliased/locks" || infra 'cannot-build-fixture'
+cp -a "$mut/nominal/${child_locks[0]}" "$mut/aliased/${child_locks[0]}" || infra 'cannot-build-fixture'
+alias_canon="$mut/alias-canon"
+: > "$alias_canon" || infra 'cannot-build-fixture'
+declare -a rows_alias=()
+for i in "${!children[@]}"; do
+  rows_alias+=("${children[i]} ${child_locks[0]} ${digs[0]}")
+  printf '%s %s\n' "${children[i]}" "${digs[0]}" >> "$alias_canon" || infra 'cannot-build-fixture'
+done
+sort "$alias_canon" > "$alias_canon.sorted" || infra 'cannot-build-fixture'
+alias_identity="$(digest_of "$alias_canon.sorted")" || infra 'cannot-hash-fixture'
+write_index "$mut/aliased/locks.yml" "$alias_identity" "${rows_alias[@]}" || infra 'cannot-build-fixture'
+
 matrix='nominal:ok'
 matrix+=' missing:lock_domain_missing'
 matrix+=' duplicate:child_duplicate'
@@ -328,6 +424,7 @@ matrix+=' tampered:child_digest_mismatch'
 matrix+=' identity:candidate_identity_mismatch'
 matrix+=' selfref:child_digest_mismatch'
 matrix+=' handwritten:lock_domain_missing'
+matrix+=' aliased:lock_domain_missing'
 for entry in $matrix; do
   name="${entry%%:*}"
   expect="${entry##*:}"
@@ -343,6 +440,76 @@ for entry in $matrix; do
   else
     { (( rc == 1 )) && [[ "$got" == "$expect" ]]; } || \
       fail "gate_insensitive: mutant '$name' must be refused with $expect, got rc=$rc code=$got"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# Phase 1b -- prove the child observer refuses a program that exits 0 without
+# doing anything. Synthetic children only; the real tree is never touched here.
+# ---------------------------------------------------------------------------
+cmut="$work/childmut"
+mkdir -p "$cmut/run" || infra 'cannot-build-fixture'
+probe_child="${children[0]}"
+
+emit_child() { # emit_child <dir> <body...>
+  local d="$cmut/$1"; shift
+  mkdir -p "$d" || infra 'cannot-build-fixture'
+  { printf '#!/usr/bin/env bash\n'; printf '%s\n' "$@"; } > "$d/$probe_child.sh" \
+    || infra 'cannot-build-fixture'
+}
+
+# A faithful stand-in: refuses an unknown selector with 64 and owns its record.
+emit_child honest \
+  "case \"\${1:-AC-001}\" in AC-001) ;; *) exit 64 ;; esac" \
+  "printf '{\"card\":\"$probe_child\",\"result\":\"pass\"}\\n'"
+# The forgery this phase exists for: the whole body is `exit 0`.
+emit_child stub "exit 0"
+# The subtler forgery: it prints a perfectly shaped record it does not earn and
+# answers 0 to every selector. Only the probe can tell this one apart.
+emit_child promiscuous \
+  "printf '{\"card\":\"$probe_child\",\"result\":\"pass\"}\\n'"
+# Exits 0, refuses the selector correctly, but prints nothing at all.
+emit_child silent \
+  "case \"\${1:-AC-001}\" in AC-001) ;; *) exit 64 ;; esac" \
+  "exit 0"
+# Exits 0 printing a record that belongs to another card.
+emit_child foreign \
+  "case \"\${1:-AC-001}\" in AC-001) ;; *) exit 64 ;; esac" \
+  "printf '{\"card\":\"AUR-000\",\"result\":\"pass\"}\\n'"
+# Exits 0 owning the record but never claiming a pass result.
+emit_child unresolved \
+  "case \"\${1:-AC-001}\" in AC-001) ;; *) exit 64 ;; esac" \
+  "printf '{\"card\":\"$probe_child\",\"result\":\"skip\"}\\n'"
+# An honest RED child.
+emit_child red \
+  "case \"\${1:-AC-001}\" in AC-001) ;; *) exit 64 ;; esac" \
+  "exit 1"
+# An honest INCONCLUSIVE child: must never be rendered as behavioral RED.
+emit_child inconclusive \
+  "case \"\${1:-AC-001}\" in AC-001) ;; *) exit 64 ;; esac" \
+  "exit 69"
+
+child_matrix='honest:0:ok'
+child_matrix+=' stub:1:child_not_pass'
+child_matrix+=' promiscuous:1:child_not_pass'
+child_matrix+=' silent:1:child_not_pass'
+child_matrix+=' foreign:1:child_not_pass'
+child_matrix+=' unresolved:1:child_not_pass'
+child_matrix+=' red:1:child_not_pass'
+child_matrix+=' inconclusive:2:infra'
+child_matrix+=' absent:2:infra'
+for entry in $child_matrix; do
+  name="${entry%%:*}"
+  rest="${entry#*:}"
+  want_rc="${rest%%:*}"
+  want_code="${rest##*:}"
+  set +e
+  cout="$(ObserveChildVerdictV1 "$probe_child" "$cmut/$name/$probe_child.sh" "$cmut/run")"
+  crc=$?
+  set -e
+  cgot="${cout%% *}"
+  if (( crc != want_rc )) || [[ "$cgot" != "$want_code" ]]; then
+    fail "gate_insensitive: child mutant '$name' must yield rc=$want_rc/$want_code, got rc=$crc/$cgot"
   fi
 done
 
@@ -367,19 +534,16 @@ lockset_identity="${domain_out#ok }"
 # exit code of the child program is the only verdict this gate accepts.
 # ---------------------------------------------------------------------------
 observed=0
+mkdir -p "$work/children" || infra 'cannot-build-scratch'
 for child in "${children[@]}"; do
-  prog="$repo_root/tests/acceptance/$child.sh"
-  if [[ -L "$prog" || ! -f "$prog" ]]; then
-    fail "lock_domain_missing: acceptance program for $child absent at tests/acceptance/$child.sh"
-  fi
   set +e
-  timeout -k 5 30 bash -- "$prog" AC-001 >/dev/null 2>&1
+  child_out="$(ObserveChildVerdictV1 "$child" "$repo_root/tests/acceptance/$child.sh" "$work/children")"
   child_rc=$?
   set -e
   case "$child_rc" in
     0) observed=$(( observed + 1 )) ;;
-    1|3) fail "child_not_pass: $child was re-executed and exited $child_rc" ;;
-    *) infra "child-inconclusive/$child/exit-$child_rc" ;;
+    2) infra "${child_out#infra }" ;;
+    *) fail "${child_out%% *}: ${child_out#* }" ;;
   esac
 done
 if (( observed != expected_count )); then
