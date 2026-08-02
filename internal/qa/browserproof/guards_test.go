@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -367,6 +368,181 @@ func TestCrawlBudgetKeepsAFarPageUnreachable(t *testing.T) {
 
 	result, err := browserproof.New(browserproof.NewScriptedDriver()).Run(context.Background(), req)
 	mustRefuse(t, result, err, browserproof.OutcomeRefused, browserproof.CodeUnreachableRoute)
+}
+
+// TestEntryRouteNeedsNoInboundLink is the published half of the reachability
+// rule: an artifact whose asserted page is the page the run enters through is
+// delivered, even though nothing in the build links to it.
+func TestEntryRouteNeedsNoInboundLink(t *testing.T) {
+	site := writeSite(t, map[string]string{
+		"solo.html": `<!doctype html><html><body><h1 id="symbol-name">` + symbolText + `</h1></body></html>`,
+	})
+
+	result, err := browserproof.New(browserproof.NewScriptedDriver()).Run(
+		context.Background(), singleRouteRequest(site, "/solo.html", symbolSelector, symbolText))
+	if err != nil {
+		t.Fatalf("the route the run enters through was reported as undelivered: %v", err)
+	}
+	if !result.Routes[0].Reachable {
+		t.Fatal("the entry route was not recorded as reachable")
+	}
+}
+
+// TestUnreachableRouteIsARefusalAboutTheArtifact is the other half: a page the
+// build serves but no navigation reaches is a refusal of the feature, not an
+// environment diagnosis, and the verdict still has to record that the page
+// answered 200 with bytes on it — the artifact published a page nobody can get
+// to, which is a different defect from a page that is missing.
+func TestUnreachableRouteIsARefusalAboutTheArtifact(t *testing.T) {
+	site := writeSite(t, map[string]string{
+		"index.html": `<!doctype html><html><body><p>no navigation here</p></body></html>`,
+		"symbols/extractorpipeline.html": `<!doctype html><html><body><h1 id="symbol-name">` +
+			symbolText + `</h1></body></html>`,
+	})
+
+	result, err := browserproof.New(browserproof.NewScriptedDriver()).Run(
+		context.Background(), scriptedRequest(site))
+	mustRefuse(t, result, err, browserproof.OutcomeRefused, browserproof.CodeUnreachableRoute)
+
+	row := result.Routes[0]
+	if row.Assertion != browserproof.AssertionFail {
+		t.Fatalf("assertion = %q, want %q", row.Assertion, browserproof.AssertionFail)
+	}
+	if row.Reachable {
+		t.Fatal("a page nothing links to was recorded as reachable")
+	}
+	if row.Status != http.StatusOK || row.ServedBytes == 0 {
+		t.Fatalf("the unreachable page was served with status %d and %d bytes", row.Status, row.ServedBytes)
+	}
+}
+
+// TestLinksClaimedOnAPageTheBuildLacksNeverMakeARouteReachable closes the
+// reachability hole a missing page opens. The harness corroborates nothing on a
+// non-200 — there are no bytes to check a claim against — so a driver that
+// answers a 404 with a navigation menu would otherwise make an orphan page look
+// delivered. Only the crawl's refusal to harvest links from a page that was not
+// served stops it.
+func TestLinksClaimedOnAPageTheBuildLacksNeverMakeARouteReachable(t *testing.T) {
+	site := writeSite(t, map[string]string{
+		"index.html": `<!doctype html><html><body><nav><a href="/gone.html">catalogue</a></nav></body></html>`,
+		"symbols/extractorpipeline.html": `<!doctype html><html><body><h1 id="symbol-name">` +
+			symbolText + `</h1></body></html>`,
+	})
+
+	driver := tweaked(func(route string, observation *browserproof.PageObservation) {
+		if route == "/gone.html" {
+			observation.Links = []string{symbolRoute}
+		}
+	})
+
+	result, err := browserproof.New(driver).Run(context.Background(), scriptedRequest(site))
+	mustRefuse(t, result, err, browserproof.OutcomeRefused, browserproof.CodeUnreachableRoute)
+}
+
+// countingDriver records how many times the harness navigated to each route.
+type countingDriver struct {
+	inner *browserproof.ScriptedDriver
+
+	mu     sync.Mutex
+	visits map[string]int
+}
+
+func (d *countingDriver) Fingerprint(ctx context.Context) (browserproof.DriverFingerprint, error) {
+	return d.inner.Fingerprint(ctx)
+}
+
+func (d *countingDriver) Navigate(ctx context.Context, rawURL, selector string) (browserproof.PageObservation, error) {
+	d.mu.Lock()
+	d.visits[routeOf(rawURL)]++
+	d.mu.Unlock()
+
+	return d.inner.Navigate(ctx, rawURL, selector)
+}
+
+func (d *countingDriver) visitsTo(route string) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return d.visits[route]
+}
+
+// TestTheCrawlNavigatesToEachPageOnce pins the visited set. Two pages of the
+// build link to the same third one, and the harness walks it once: the budget
+// that keeps a hostile build from being crawled forever counts pages, so a walk
+// that revisits what it already saw spends the budget on nothing and reports
+// pages further out as unreachable.
+func TestTheCrawlNavigatesToEachPageOnce(t *testing.T) {
+	site := writeSite(t, map[string]string{
+		"index.html": `<!doctype html><html><body><h1 id="symbol-name">` + symbolText + `</h1>` +
+			`<a href="/a.html">a</a><a href="/b.html">b</a></body></html>`,
+		"a.html":      `<!doctype html><html><body><a href="/shared.html">shared</a></body></html>`,
+		"b.html":      `<!doctype html><html><body><a href="/shared.html">shared</a></body></html>`,
+		"shared.html": `<!doctype html><html><body><p>reached from two pages</p></body></html>`,
+	})
+
+	driver := &countingDriver{inner: browserproof.NewScriptedDriver(), visits: map[string]int{}}
+
+	if _, err := browserproof.New(driver).Run(
+		context.Background(), singleRouteRequest(site, "/index.html", symbolSelector, symbolText)); err != nil {
+		t.Fatalf("a nominal artifact was refused: %v", err)
+	}
+
+	if got := driver.visitsTo("/shared.html"); got != 1 {
+		t.Fatalf("the crawl navigated to /shared.html %d times, want 1", got)
+	}
+}
+
+// vanishingDriver reports its identity and then is gone, which is what a browser
+// killed between the lock check and the first navigation looks like from here.
+type vanishingDriver struct {
+	inner *browserproof.ScriptedDriver
+}
+
+func (d *vanishingDriver) Fingerprint(ctx context.Context) (browserproof.DriverFingerprint, error) {
+	return d.inner.Fingerprint(ctx)
+}
+
+func (d *vanishingDriver) Navigate(context.Context, string, string) (browserproof.PageObservation, error) {
+	return browserproof.PageObservation{}, fmt.Errorf(
+		"%w: the browser was gone by the first navigation", browserproof.ErrDriverAbsent)
+}
+
+// TestDriverThatDisappearsMidRunIsAnAbsenceNotAFault keeps the two environment
+// diagnoses apart past the fingerprint too. Both are inconclusive, so a suite
+// that only checks the outcome never sees the difference — and someone reading
+// BROWSERPROOF_DRIVER_FAULT goes looking for a bug in a browser that is simply
+// not installed any more.
+func TestDriverThatDisappearsMidRunIsAnAbsenceNotAFault(t *testing.T) {
+	result, err := browserproof.New(&vanishingDriver{inner: browserproof.NewScriptedDriver()}).Run(
+		context.Background(), scriptedRequest(fixtureDir(t, "nominal")))
+	mustRefuse(t, result, err, browserproof.OutcomeInconclusive, browserproof.CodeDriverAbsent)
+}
+
+// TestIncompleteSelectorIsARequestFaultNotAnAbsentSelector keeps a half-written
+// assertion from being answered with a claim about the artifact: "#" names no
+// element, and reporting it as a selector the page lacks reads as the build
+// having lost its anchor.
+func TestIncompleteSelectorIsARequestFaultNotAnAbsentSelector(t *testing.T) {
+	site := writeSite(t, map[string]string{
+		"page.html": `<!doctype html><html><body><h1 id="symbol-name">` + symbolText + `</h1></body></html>`,
+	})
+
+	for _, selector := range []string{"#", ".", "h1#", "h1."} {
+		selector := selector
+		t.Run(selector, func(t *testing.T) {
+			// The double never parses the selector, so the refusal can only come
+			// from the harness's own corroboration step.
+			driver := &rawFetchDriver{tweak: func(_ string, observation *browserproof.PageObservation) {
+				observation.SelectorFound = true
+				observation.Text = symbolText
+				observation.BodyTextLength = len(symbolText)
+			}}
+
+			result, err := browserproof.New(driver).Run(
+				context.Background(), singleRouteRequest(site, "/page.html", selector, symbolText))
+			mustRefuse(t, result, err, browserproof.OutcomeInconclusive, browserproof.CodeRequestInvalid)
+		})
+	}
 }
 
 // TestRequestGuardsRefuseAnUnrunnableRun keeps a malformed request from being

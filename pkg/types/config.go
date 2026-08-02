@@ -1,14 +1,22 @@
 package types
 
+import (
+	"errors"
+	"fmt"
+	"net/url"
+	"path/filepath"
+	"strings"
+)
+
 // Config represents the complete AurumCode configuration
 type Config struct {
-	Version       string                 `json:"version" yaml:"version"`
-	LLM           LLMConfig              `json:"llm" yaml:"llm"`
-	Prompts       map[string]string      `json:"prompts,omitempty" yaml:"prompts,omitempty"`
-	Rules         map[string]string      `json:"rules,omitempty" yaml:"rules,omitempty"`
-	Outputs       OutputConfig           `json:"outputs" yaml:"outputs"`
-	Features      FeaturesConfig         `json:"features" yaml:"features"`
-	Documentation DocumentationConfig    `json:"documentation,omitempty" yaml:"documentation,omitempty"`
+	Version       string              `json:"version" yaml:"version"`
+	LLM           LLMConfig           `json:"llm" yaml:"llm"`
+	Prompts       map[string]string   `json:"prompts,omitempty" yaml:"prompts,omitempty"`
+	Rules         map[string]string   `json:"rules,omitempty" yaml:"rules,omitempty"`
+	Outputs       OutputConfig        `json:"outputs" yaml:"outputs"`
+	Features      FeaturesConfig      `json:"features" yaml:"features"`
+	Documentation DocumentationConfig `json:"documentation,omitempty" yaml:"documentation,omitempty"`
 }
 
 // LLMConfig configures the LLM provider and parameters
@@ -205,3 +213,97 @@ func NewDefaultConfig() *Config {
 	}
 }
 
+// Validate reports every inconsistency that would make the configuration
+// unusable. Decoding YAML never rejects an out-of-range number or a path that
+// climbs out of the repository, so a Config the caller did not build itself is
+// only trustworthy after this returns nil.
+func (c *Config) Validate() error {
+	if c == nil {
+		return errors.New("config is nil")
+	}
+
+	var problems []error
+
+	if strings.TrimSpace(c.Version) == "" {
+		problems = append(problems, errors.New("version is required"))
+	}
+	if strings.TrimSpace(c.LLM.Provider) == "" {
+		problems = append(problems, errors.New("llm.provider is required"))
+	}
+	if c.LLM.Temperature < 0 || c.LLM.Temperature > 2 {
+		problems = append(problems, fmt.Errorf("llm.temperature must be between 0 and 2, got %v", c.LLM.Temperature))
+	}
+	if c.LLM.MaxTokens <= 0 {
+		problems = append(problems, fmt.Errorf("llm.max_tokens must be greater than zero, got %d", c.LLM.MaxTokens))
+	}
+
+	problems = append(problems, c.Documentation.validate()...)
+
+	return errors.Join(problems...)
+}
+
+// validate checks the documentation section. A disabled section is not held to
+// rules that only apply while it runs.
+func (d DocumentationConfig) validate() []error {
+	if !d.Enabled {
+		return nil
+	}
+
+	var problems []error
+
+	switch d.Mode {
+	case "full", "incremental":
+	default:
+		problems = append(problems, fmt.Errorf("documentation.mode must be \"full\" or \"incremental\", got %q", d.Mode))
+	}
+
+	if err := validateContainedDir("documentation.output_directory", d.OutputDirectory); err != nil {
+		problems = append(problems, err)
+	}
+
+	if d.Cache.Enabled {
+		if err := validateContainedDir("documentation.cache.directory", d.Cache.Directory); err != nil {
+			problems = append(problems, err)
+		}
+		if d.Cache.MaxAge < 0 {
+			problems = append(problems, fmt.Errorf("documentation.cache.max_age must not be negative, got %d", d.Cache.MaxAge))
+		}
+	}
+
+	if d.Deploy.Enabled {
+		if strings.TrimSpace(d.Deploy.Target) == "" {
+			problems = append(problems, errors.New("documentation.deploy.target is required when deploy is enabled"))
+		}
+		if strings.TrimSpace(d.Deploy.Branch) == "" {
+			problems = append(problems, errors.New("documentation.deploy.branch is required when deploy is enabled"))
+		}
+		if d.Deploy.BaseURL != "" {
+			parsed, err := url.Parse(d.Deploy.BaseURL)
+			switch {
+			case err != nil:
+				problems = append(problems, fmt.Errorf("documentation.deploy.base_url is not a valid URL: %w", err))
+			case parsed.Scheme == "" || parsed.Host == "":
+				problems = append(problems, fmt.Errorf("documentation.deploy.base_url must be absolute, got %q", d.Deploy.BaseURL))
+			}
+		}
+	}
+
+	return problems
+}
+
+// validateContainedDir rejects a directory that is absolute or that climbs out
+// of the repository root. These directories are walked and rewritten, so an
+// escaping value would let a configuration file reach the rest of the machine.
+func validateContainedDir(field, dir string) error {
+	if strings.TrimSpace(dir) == "" {
+		return fmt.Errorf("%s is required", field)
+	}
+	if filepath.IsAbs(dir) {
+		return fmt.Errorf("%s must be relative to the repository root, got %q", field, dir)
+	}
+	cleaned := filepath.Clean(dir)
+	if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%s must stay inside the repository root, got %q", field, dir)
+	}
+	return nil
+}

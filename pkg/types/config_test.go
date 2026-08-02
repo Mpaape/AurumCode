@@ -309,4 +309,3 @@ func TestDocumentationConfigRoundTrip(t *testing.T) {
 			unmarshaled.Documentation.Cache.MaxAge, original.Documentation.Cache.MaxAge)
 	}
 }
-

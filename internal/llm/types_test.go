@@ -7,9 +7,9 @@ import (
 
 // fakeProvider is a simple mock Provider for testing
 type fakeProvider struct {
-	name      string
+	name       string
 	returnText string
-	returnErr error
+	returnErr  error
 }
 
 func (f *fakeProvider) Complete(prompt string, opts Options) (Response, error) {
@@ -33,11 +33,11 @@ func (f *fakeProvider) Name() string {
 
 func TestDefaultOptions(t *testing.T) {
 	opts := DefaultOptions()
-	
+
 	if opts.Temperature != 0.3 {
 		t.Errorf("Expected default temperature 0.3, got %f", opts.Temperature)
 	}
-	
+
 	if opts.MaxTokens != 4000 {
 		t.Errorf("Expected default max_tokens 4000, got %d", opts.MaxTokens)
 	}
@@ -45,19 +45,19 @@ func TestDefaultOptions(t *testing.T) {
 
 func TestProviderInterface(t *testing.T) {
 	var p Provider = &fakeProvider{
-		name:      "test-provider",
+		name:       "test-provider",
 		returnText: "test response",
 	}
-	
+
 	if p.Name() != "test-provider" {
 		t.Errorf("Expected name 'test-provider', got %s", p.Name())
 	}
-	
+
 	resp, err := p.Complete("test prompt", DefaultOptions())
 	if err != nil {
 		t.Fatalf("Complete failed: %v", err)
 	}
-	
+
 	if resp.Text != "test response" {
 		t.Errorf("Expected response 'test response', got %s", resp.Text)
 	}
@@ -65,26 +65,25 @@ func TestProviderInterface(t *testing.T) {
 
 func TestResponseJSONMarshal(t *testing.T) {
 	resp := Response{
-		Text:       "test",
-		TokensIn:   100,
-		TokensOut:  200,
-		Model:      "gpt-4",
+		Text:         "test",
+		TokensIn:     100,
+		TokensOut:    200,
+		Model:        "gpt-4",
 		FinishReason: "stop",
 	}
-	
+
 	// Marshal to JSON to ensure determinism
 	data, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("Failed to marshal response: %v", err)
 	}
-	
+
 	data2, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("Failed to marshal response second time: %v", err)
 	}
-	
+
 	if string(data) != string(data2) {
 		t.Errorf("Non-deterministic JSON marshaling")
 	}
 }
-
