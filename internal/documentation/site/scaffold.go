@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // The generated page listing is delimited so a second run replaces it instead of
@@ -217,12 +219,25 @@ func (s *Scaffold) describePage(path, rel, content string) ScaffoldPage {
 	// A permalink is what the site actually serves, so it is preferred over a
 	// guessed file path. The normalizer writes one onto every generated page.
 	if permalink := frontMatterValue(frontMatter, "permalink"); permalink != "" {
-		page.Link = permalink
+		page.Link = s.applyBaseURL(permalink)
 	} else {
 		page.Link = s.relativeLink(path)
 	}
 
 	return page
+}
+
+// applyBaseURL prefixes a root-absolute link with the configured base path. A
+// site published under a base path serves "/x" as "<base>/x", so an unprefixed
+// absolute permalink would answer 404. Relative links resolve against the page
+// that carries them and are left alone.
+func (s *Scaffold) applyBaseURL(link string) string {
+	base := strings.TrimSuffix(s.config.BaseURL, "/")
+	if base == "" || !strings.HasPrefix(link, "/") {
+		return link
+	}
+
+	return base + link
 }
 
 // relativeLink builds a link from the site root to a page that carries no
@@ -332,7 +347,7 @@ func renderPageBlock(pages []ScaffoldPage) string {
 			b.WriteString("### " + languageDisplayName(page.Language) + "\n\n")
 		}
 
-		b.WriteString(fmt.Sprintf("- [%s](%s)\n", page.Title, page.Link))
+		b.WriteString(fmt.Sprintf("- [%s](%s)\n", markdownLabel(page.Title), markdownDestination(page.Link)))
 
 		symbols := page.Symbols
 		truncated := 0
@@ -489,9 +504,39 @@ func cleanHeadingText(text string) string {
 	return strings.TrimSpace(text)
 }
 
+// markdownLabel makes text safe to sit inside a link label: brackets would end
+// the label early and any line break would end the list item entirely.
+func markdownLabel(text string) string {
+	folded := strings.Join(strings.Fields(text), " ")
+	return strings.NewReplacer(`\`, `\\`, `[`, `\[`, `]`, `\]`).Replace(folded)
+}
+
+// markdownDestination percent-encodes the bytes that would terminate a "(...)"
+// link destination. A file name may legally contain spaces, parentheses and
+// even newlines, and any of them silently turns the entry into plain text.
+// "%" is left intact so an already-encoded permalink is not encoded twice.
+func markdownDestination(link string) string {
+	var b strings.Builder
+
+	for i := 0; i < len(link); i++ {
+		c := link[i]
+		switch {
+		case c <= 0x20, c >= 0x7f, c == '(', c == ')', c == '<', c == '>',
+			c == '"', c == '\'', c == '`', c == '\\', c == '[', c == ']':
+			fmt.Fprintf(&b, "%%%02X", c)
+		default:
+			b.WriteByte(c)
+		}
+	}
+
+	return b.String()
+}
+
 // languageDisplayName renders a language directory name the way its community
 // writes it.
 func languageDisplayName(language string) string {
+	language = strings.Join(strings.Fields(language), " ")
+
 	switch strings.ToLower(language) {
 	case "":
 		return "General"
@@ -516,7 +561,13 @@ func languageDisplayName(language string) string {
 	case "java":
 		return "Java"
 	default:
-		return strings.ToUpper(language[:1]) + language[1:]
+		// Slicing the first byte would split a multi-byte rune and emit
+		// mojibake for any non-ASCII directory name.
+		first, size := utf8.DecodeRuneInString(language)
+		if first == utf8.RuneError {
+			return language
+		}
+		return string(unicode.ToUpper(first)) + language[size:]
 	}
 }
 
@@ -531,8 +582,38 @@ func skipScaffoldDir(name string) bool {
 	return false
 }
 
-// yamlScalar quotes a value so a title containing a colon cannot break the
-// generated configuration.
+// yamlScalar renders a value as a YAML double-quoted scalar. The title comes
+// from a repository directory name, which may legally hold quotes, backslashes,
+// line breaks and control characters; an unescaped line break in particular ends
+// the scalar at a column the parser rejects or silently folds away.
 func yamlScalar(value string) string {
-	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value) + `"`
+	var b strings.Builder
+	b.WriteByte('"')
+
+	for _, r := range value {
+		switch r {
+		case '\\':
+			b.WriteString(`\\`)
+		case '"':
+			b.WriteString(`\"`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			switch {
+			case r < 0x20, r >= 0x7f && r <= 0x9f:
+				fmt.Fprintf(&b, `\x%02x`, r)
+			case r == 0x2028, r == 0x2029, r == 0xfeff:
+				fmt.Fprintf(&b, `\u%04x`, r)
+			default:
+				b.WriteRune(r)
+			}
+		}
+	}
+
+	b.WriteByte('"')
+	return b.String()
 }
