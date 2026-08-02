@@ -137,38 +137,11 @@ func detectSection(path string) string {
 	return ""
 }
 
-// detectLanguage attempts to identify programming language from path
+// detectLanguage identifies the documented language from the path. Only
+// markdown files reach this package, so the language is carried by a
+// directory or by a name like "build.sh.md", never by the file extension.
 func detectLanguage(path string) string {
 	lowerPath := strings.ToLower(path)
-
-	ext := strings.TrimPrefix(filepath.Ext(lowerPath), ".")
-	extToLang := map[string]string{
-		"go":   "go",
-		"py":   "python",
-		"js":   "javascript",
-		"mjs":  "javascript",
-		"cjs":  "javascript",
-		"ts":   "typescript",
-		"tsx":  "typescript",
-		"cs":   "csharp",
-		"java": "java",
-		"cpp":  "cpp",
-		"cc":   "cpp",
-		"cxx":  "cpp",
-		"h":    "cpp",
-		"hpp":  "cpp",
-		"rs":   "rust",
-		"rb":   "ruby",
-		"php":  "php",
-		"sh":   "bash",
-		"bash": "bash",
-		"ps1":  "powershell",
-		"psm1": "powershell",
-	}
-
-	if lang, ok := extToLang[ext]; ok {
-		return lang
-	}
 
 	tokens := strings.FieldsFunc(lowerPath, func(r rune) bool {
 		return !(unicode.IsLetter(r) || unicode.IsNumber(r))
@@ -217,19 +190,13 @@ func isMarkdownFile(path string) bool {
 	return ext == ".md" || ext == ".markdown"
 }
 
-// shouldSkip checks if path should be skipped during normalization
+// shouldSkip reports whether a path lies inside a generated or vendored
+// directory. Matching is per path segment: a substring match also skipped
+// documents whose own name merely contained one of these words.
 func shouldSkip(path string) bool {
-	skipDirs := []string{
-		"_site",
-		".sass-cache",
-		".jekyll-cache",
-		"node_modules",
-		".git",
-		"vendor",
-	}
-
-	for _, skip := range skipDirs {
-		if strings.Contains(path, skip) {
+	for _, segment := range strings.Split(filepath.ToSlash(path), "/") {
+		switch segment {
+		case "_site", ".sass-cache", ".jekyll-cache", "node_modules", ".git", "vendor":
 			return true
 		}
 	}
