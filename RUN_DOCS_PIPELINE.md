@@ -1,296 +1,169 @@
-# Run Documentation Pipeline
+# Run the Documentation Pipeline
 
-This guide shows how to actually RUN the AurumCode Documentation Pipeline (not manually create docs).
+How to run the AurumCode documentation generator yourself, outside of GitHub
+Actions.
 
-## What This Does
+The generator is `cmd/regenerate-docs`. It is the only command in this
+repository, it is the binary the Docker image builds
+(`Dockerfile` line 15: `-o regenerate-docs ./cmd/regenerate-docs`), and it is
+the binary the composite action runs. Everything below is stated in terms of
+that program; nothing here describes a feature it does not have.
 
-The Documentation Pipeline (`internal/pipeline/docs_pipeline.go`) will:
+## What it does
 
-1. **Fetch git commits** using `git log`
-2. **Parse conventional commits** (feat, fix, docs, etc.)
-3. **Generate CHANGELOG.md** automatically
-4. **Update README.md** sections automatically
-5. **Detect OpenAPI specs** and generate API docs
-6. **Build Hugo static site** (if configured)
+`cmd/regenerate-docs` builds the extractor pipeline in
+`internal/pipeline/extractor_pipeline.go` and:
 
-**No manual work - AurumCode does everything!**
+1. Registers one extractor per supported language.
+2. Runs each language's external documentation tool over the source tree.
+3. Writes the resulting markdown into the output directory.
+4. Scaffolds a Jekyll site next to it (`index.md` and `_config.yml`).
+5. Generates an AI welcome page **only** when an LLM provider is configured.
 
-## Quick Start
+It does not generate a CHANGELOG, does not rewrite README sections, does not
+read webhook events, and does not deploy anything.
 
-### Step 1: Load Environment Variables
+## Provider configuration
 
-```bash
-# Load from .env file
-export $(cat .env | grep -v '^#' | xargs)
+The generator talks to any OpenAI-compatible HTTP endpoint. There is no
+built-in provider, no default endpoint, and no vendor-specific variable: you
+supply the base URL.
 
-# Verify
-echo $TOTVS_DTA_API_KEY
-echo $TOTVS_DTA_BASE_URL
-```
+| Variable | Read at | Effect |
+|---|---|---|
+| `LLM_API_KEY` | `cmd/regenerate-docs/main.go:65` | API key for the OpenAI-compatible endpoint. |
+| `LLM_BASE_URL` | `cmd/regenerate-docs/main.go:66` | Base URL of that endpoint. Required together with `LLM_API_KEY`. |
+| `LLM_MODEL` | `cmd/regenerate-docs/main.go:73` | Model id. Defaults to `gpt-4o-mini`. |
+| `OPENAI_API_KEY` | `cmd/regenerate-docs/main.go:67` | Fallback provider, used only when the pair above is not set. |
 
-### Step 2: Build and Run
+Behaviour that follows from those lines:
 
-```bash
-# Build the test program
-go build -o test-docs-pipeline.exe ./cmd/test-docs-pipeline
-
-# Run it!
-./test-docs-pipeline.exe
-```
-
-### Step 3: Check Generated Files
-
-The pipeline will create:
-- `CHANGELOG.md` - Generated from git commits
-- `README.md` - Updated with current status
-- (API docs if OpenAPI specs found)
-- (Hugo site in `public/` if configured)
-
-## What the Pipeline Does (Automatically)
-
-### 1. Fetch Recent Commits
-```go
-// Uses git log internally
-git log --pretty=format:"%H|%an|%ae|%at|%s|%b" -n 50
-```
-
-Parses:
-- Commit hash
-- Author name & email
-- Timestamp
-- Subject line
-- Body
-
-### 2. Parse Conventional Commits
-
-Recognizes types:
-- `feat:` - New features
-- `fix:` - Bug fixes
-- `docs:` - Documentation
-- `style:` - Code style
-- `refactor:` - Refactoring
-- `perf:` - Performance
-- `test:` - Tests
-- `build:` - Build system
-- `ci:` - CI/CD
-- `chore:` - Maintenance
-
-### 3. Generate CHANGELOG.md
-
-Groups commits by type and creates keep-a-changelog format:
-
-```markdown
-# Changelog
-
-## [1.0.0] - 2025-11-02
-
-### Features
-- feat: Add user authentication
-- feat: Add rate limiting
-
-### Bug Fixes
-- fix: Resolve memory leak
-
-### Documentation
-- docs: Update README
-```
-
-### 4. Update README Sections
-
-Looks for markers like:
-```markdown
-<!-- BEGIN STATUS -->
-Current info here
-<!-- END STATUS -->
-```
-
-Updates content between markers without destroying other sections.
-
-### 5. API Documentation
-
-If OpenAPI/Swagger specs found (`.yaml`, `.yml`, `.json`):
-- Parses spec
-- Generates markdown documentation
-- Creates `.md` file next to spec
-
-### 6. Hugo Static Site
-
-If `config.Outputs.DeploySite = true`:
-- Runs `hugo --minify`
-- Builds to `public/` directory
-- Runs `pagefind` for search indexing
-
-## Configuration
-
-Edit `.aurumcode/config.yml`:
-
-```yaml
-outputs:
-  update_docs: true      # Enable CHANGELOG + README updates
-  deploy_site: false     # Enable Hugo site build (optional)
-```
-
-## Prompt Files
-
-The pipeline uses these prompts (loaded from files):
-
-- `.aurumcode/prompts/documentation-generation.md` - For LLM-based doc generation
-- `.aurumcode/prompts/changelog-generation.md` - For changelog formatting
-
-These are **actual files** loaded at runtime, not hardcoded strings!
-
-## Testing Without Webhooks
-
-The test program simulates a webhook event:
-
-```go
-event := &types.Event{
-    EventType:  "push",
-    Branch:     "main",
-    Repo:       "AurumCode",
-    RepoOwner:  "Mpaape",
-    CommitSHA:  "HEAD",
-}
-```
-
-Then runs:
-```go
-docsPipeline.Run(ctx, event)
-```
-
-This is exactly what the real webhook handler does!
-
-## LLM Provider (TOTVS DTA)
-
-The test program uses your TOTVS DTA credentials:
-
-```go
-// From .env file
-TOTVS_DTA_BASE_URL=https://proxy.dta.totvs.ai
-TOTVS_DTA_API_KEY=${OPENAI_API_KEY}
-```
-
-Configured as OpenAI-compatible provider:
-```go
-provider := openai.NewProvider(apiKey, "gpt-4")
-provider.SetBaseURL(baseURL) // Point to TOTVS
-```
-
-## Expected Output
-
-When you run the pipeline:
-
-```
-🚀 Testing AurumCode Documentation Pipeline
-✓ Using TOTVS DTA: https://proxy.dta.totvs.ai
-✓ Configured to use TOTVS DTA endpoint
-✓ LLM Orchestrator created
-✓ Configuration loaded
-✓ Documentation Pipeline created
-✓ Simulated event: push to main
-
-📝 Running Documentation Pipeline...
-─────────────────────────────────────────
-[Docs] Starting documentation generation for AurumCode
-[Docs] Fetching commits for changelog generation...
-[Docs] Generating changelog from 6 commits...
-[Docs] Changelog updated successfully
-[Docs] Updating README sections...
-[Docs] README updated successfully
-[Docs] Checking for API specifications...
-[Docs] Documentation pipeline completed successfully
-─────────────────────────────────────────
-✅ Documentation Pipeline completed successfully!
-
-📊 Check the following files:
-   - CHANGELOG.md
-   - README.md (updated sections)
-
-💰 Token Usage:
-   - Total Tokens: 1234
-   - Estimated Cost: $0.0234
-
-🎉 Done! Check the generated files.
-```
-
-## Verification
-
-After running, check:
+- `LLM_API_KEY` **and** `LLM_BASE_URL` set → the OpenAI-compatible provider is
+  used (`main.go:71-79`).
+- `LLM_API_KEY` set without `LLM_BASE_URL` → the provider is skipped with a
+  warning (`main.go:80-81`).
+- Neither set → `OPENAI_API_KEY` is used if present (`main.go:86-94`).
+- Nothing set → documentation is still generated; only the welcome page is
+  disabled (`main.go:84`, `main.go:99`).
 
 ```bash
-# CHANGELOG was created
-cat CHANGELOG.md
-
-# README was updated
-git diff README.md
-
-# Verify it's real git changes
-git status
+export LLM_API_KEY=your_key_here
+export LLM_BASE_URL=https://llm.example.com/v1   # your own OpenAI-compatible endpoint
+export LLM_MODEL=gpt-4o-mini                     # optional
 ```
 
-You should see:
-- `CHANGELOG.md` - new file
-- `README.md` - modified file
+The GitHub Action exposes the same three values as the `llm-api-key`,
+`llm-base-url` and `llm-model` inputs (`action.yml:283-285`).
 
-These were generated by **AurumCode**, not manually!
+## Pipeline configuration
 
-## Commit the Results
+| Variable | Declared at | Default | Effect |
+|---|---|---|---|
+| `AURUMCODE_SOURCE_DIR` | `main.go:32` | `.` | Tree to document. Resolved to an absolute path. |
+| `AURUMCODE_OUTPUT_DIR` | `main.go:33` | `.aurumcode` | Where generated markdown is written. |
+| `AURUMCODE_DOCS_DIR` | `main.go:34` | output dir | Where your hand-written pages live. |
+| `AURUMCODE_LANGUAGES` | `main.go:35` | all | Comma-separated allow-list. |
+| `AURUMCODE_INCREMENTAL` | `main.go:36` | `false` | `true`/`false` only; anything else is a startup error. |
+| `AURUMCODE_VALIDATE_JEKYLL` | `main.go:37` | `false` | Validate the generated site. |
+| `AURUMCODE_DEPLOY_GH_PAGES` | `main.go:38` | `false` | Setting it to `true` **aborts**: deployment is not implemented in this build (`main.go:348-351`). |
+| `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` | `repo_code_execution.go:43` | unset | Opt-in list (`csharp`, `rust`) whose toolchains execute code from the documented repository. |
 
-Only commit what AurumCode generated:
+The prefix is not decorative: the composite action already applies its own
+`source-dir` input by changing directory, so a bare `SOURCE_DIR` would be
+applied twice (`main.go:27-30`).
+
+## Run it in a container
+
+Go does not need to be installed on the host. The generator shells out to each
+language's documentation tool, so only the languages whose tool is present get
+documented — for Go that tool is `gomarkdoc`.
 
 ```bash
-git add CHANGELOG.md README.md
-git commit -m "docs: Generate documentation using AurumCode pipeline
+docker run --rm \
+  -v "$PWD":/w:ro -w /w -v "$PWD/out":/out \
+  golang:1.21-alpine sh -c '
+    apk add --no-cache git &&
+    go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest &&
+    export PATH=$PATH:/root/go/bin &&
+    AURUMCODE_LANGUAGES=go AURUMCODE_OUTPUT_DIR=/out go run ./cmd/regenerate-docs'
+```
 
-Generated by running: ./test-docs-pipeline.exe
+The full multi-language toolchain image is `.docker/docs.Dockerfile`.
 
-The Documentation Pipeline automatically:
-- Parsed 6 conventional commits from git log
-- Generated CHANGELOG.md in keep-a-changelog format
-- Updated README.md sections
+## Run it with Compose
 
-This is the ACTUAL pipeline output, not manually created.
+`docker-compose.test.yml` builds the image and runs the same binary against the
+mounted working tree:
 
-🤖 Generated by AurumCode Documentation Pipeline"
+```bash
+docker compose -f docker-compose.test.yml build
+docker compose -f docker-compose.test.yml run --rm test-docs-pipeline
+```
 
-git push origin main
+`run-docs-pipeline.sh` (or `run-docs-pipeline.bat` on Windows) wraps those two
+commands. Compose substitutes `.env` from this directory on its own.
+
+The service sets `entrypoint` because the image's own `ENTRYPOINT` is the
+GitHub Action wrapper script; a bare `command:` would be passed to that wrapper
+as arguments instead of running the generator.
+
+**Known limitation.** `Dockerfile`'s runtime stage installs only
+`ca-certificates`, `git`, `bash`, `curl`, `jq` and `wget` (lines 21-27). It
+ships no documentation toolchain, so every language is skipped for a missing
+tool and the run ends with:
+
+```
+[Pipeline] SKIP go: required tool not in PATH (gomarkdoc not found: ...)
+❌ FAILED - no documentation was produced
+aurumcode: result=failed docs=0 skipped=1 failed=0 languages_skipped=go output=/tmp/out index=false config=false
+```
+
+exit code `1`. Until the image carries the toolchains, use the `docker run`
+recipe above or `.docker/docs.Dockerfile`; the Compose service is usable for
+wiring and configuration checks.
+
+## Reading the result
+
+The run ends with a machine-readable summary line (`main.go:201`):
+
+```
+aurumcode: result=partial docs=25 skipped=0 failed=1 languages_skipped=none output=/out index=true config=true
+```
+
+`result` is one of:
+
+| `result` | Meaning | Exit code |
+|---|---|---|
+| `ok` | Every registered extractor succeeded and markdown exists. | 0 |
+| `partial` | Some extractors failed or were skipped, but markdown exists. | 0 |
+| `empty` | Nothing was documented; no supported source file was found. | 0 |
+| `failed` | The pipeline failed, or claimed partial success with no file on disk. | 1 |
+
+`index=` and `config=` report whether `index.md` and `_config.yml` exist. Both
+must be `true` for the output to be publishable as a site: without `index.md` a
+published root answers 404, and without `_config.yml` the pages are served as
+raw markdown (`main.go:138-141`, `main.go:150`).
+
+## Build the site
+
+```bash
+cd <output-dir> && bundle install && bundle exec jekyll build
 ```
 
 ## Troubleshooting
 
-### "TOTVS_DTA_API_KEY not set"
-```bash
-# Load environment
-source .env
-# or
-export $(cat .env | grep -v '^#' | xargs)
-```
+**`LLM_API_KEY not set`** — informational, not an error. Documentation is still
+generated; only the welcome page is skipped.
 
-### "go: command not found"
-```bash
-# Install Go 1.21+
-# https://go.dev/dl/
-```
+**`llm-api-key was given without llm-base-url`** — this product ships no
+default endpoint. Set `LLM_BASE_URL` to your own OpenAI-compatible URL.
 
-### "Pipeline failed"
-Check logs - pipeline has detailed error messages:
-- Git errors: Check you're in a git repository
-- Config errors: Create `.aurumcode/config.yml`
-- LLM errors: Check TOTVS DTA credentials
+**`gomarkdoc: invalid package in directory ...`** — the directory is not a
+valid Go package. The run continues and reports `result=partial`.
 
-### No CHANGELOG created
-Check:
-1. Are there git commits? `git log`
-2. Are they conventional commits? (feat:, fix:, etc.)
-3. Is `update_docs: true` in config?
+**`AURUMCODE_INCREMENTAL must be one of true/false`** — the boolean variables
+accept only `true`/`false`/`1`/`0`/`yes`/`no` (`main.go:372-381`).
 
-## Next Steps
-
-1. **Run the pipeline**: `./test-docs-pipeline.exe`
-2. **Verify output**: Check CHANGELOG.md and README.md
-3. **Commit results**: Only commit what AurumCode generated
-4. **Enable webhook**: For automatic runs on every push
-
----
-
-**The key difference**: This actually RUNS the AurumCode code, rather than manually doing what the code is supposed to do!
+**`csharp/rust extractors are disabled`** — deliberate. Their toolchains
+execute code from the tree being documented, so they are opt-in through
+`AURUMCODE_ALLOW_REPO_CODE_EXECUTION`.

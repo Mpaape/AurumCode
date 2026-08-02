@@ -33,23 +33,48 @@ The run above only generates: it writes markdown plus the site files
 (`index.md`, `_config.yml`) under `output-dir` and uploads nothing. Publishing
 is opt-in through the `publish` input, described below.
 
+## What the action writes
+
+Under `output-dir` (`.aurumcode` by default), relative to `source-dir`:
+
+```
+.aurumcode/
+├── _config.yml            # minimal Jekyll config; created only when absent
+├── index.md               # landing page, links every generated page
+└── <language>/<name>.md   # one markdown page per documented unit
+```
+
 ## Supported Languages
 
 Go is the action's own stack and its toolchain (`gomarkdoc`) is always
 installed. Every other language needs its toolchain requested through
-`extra-toolchains`, except the ones already present on the runner image. A
+`extra-toolchains`, except Bash and PowerShell, which are parsed in process. A
 missing optional toolchain is logged as a warning and that language is skipped.
 
-| Language | Tool | How it is provided |
-|----------|------|--------------------|
-| Go | gomarkdoc | always installed |
-| JavaScript/TypeScript | TypeDoc | `extra-toolchains: javascript` |
-| Python | pydoc-markdown | `extra-toolchains: python` |
-| C# | xmldocmd | `extra-toolchains: csharp` |
-| C/C++ | Doxygen | `extra-toolchains: cpp` |
-| Rust | rustdoc | runner image |
-| Bash | shdoc | runner image |
-| PowerShell | platyPS | runner image |
+| Language | Needs on `PATH` | How it is provided |
+|----------|-----------------|--------------------|
+| Go | `gomarkdoc` | always installed |
+| JavaScript/TypeScript | `typedoc` | `extra-toolchains: javascript` |
+| Python | `pydoc-markdown` | `extra-toolchains: python` |
+| C/C++ | `doxygen` | `extra-toolchains: cpp` |
+| Bash | `bash` | runner image |
+| PowerShell | `pwsh` | runner image |
+
+Bash and PowerShell pages come from an in-process comment parser; only the
+interpreter's presence is checked, and no external documentation tool is run for
+them.
+
+### Rust and C# are not reachable through this action
+
+The generator refuses to register the Rust and C# extractors unless
+`AURUMCODE_ALLOW_REPO_CODE_EXECUTION` names them: both toolchains compile the
+documented repository, which executes code from it (`build.rs`, proc-macros,
+MSBuild tasks and the assembly's module initializers). This action never sets
+that variable, so neither language can be documented through it.
+
+`extra-toolchains: csharp` still installs `xmldocmd`, but nothing consumes it;
+the C# pages are not produced. Use the binary directly, on a repository whose
+every branch you trust, if you need those two languages.
 
 ## Inputs
 
@@ -217,7 +242,10 @@ go run ./cmd/regenerate-docs
 
 - Check that source files exist under `source-dir`
 - Check the workflow log for the `[Pipeline] Extracting ... documentation` lines
+  (`internal/pipeline/extractor_pipeline.go`); `languages-detected` is derived
+  from exactly those lines, so an empty value means no language was extracted
 - Languages other than Go need their toolchain in `extra-toolchains`
+- Rust and C# are never extracted through this action; see the section above
 
 ### Publish stops with "missing index.md/_config.yml"
 
@@ -233,4 +261,5 @@ go run ./cmd/regenerate-docs
 
 ## License
 
-MIT License - See LICENSE file for details
+No `LICENSE` file is present in this repository, so no license is granted here
+yet.

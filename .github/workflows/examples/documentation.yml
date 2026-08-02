@@ -1,5 +1,14 @@
-# Example: AurumCode Documentation Generation
-# Copy this file to your repo: .github/workflows/aurumcode-docs.yml
+# Example: AurumCode documentation generation and GitHub Pages deploy
+# Copy this file to your repository as .github/workflows/aurumcode-docs.yml
+#
+# Requires Settings > Pages > Source = "GitHub Actions". With publish: pages the
+# action performs the upload and the deploy itself, so the job below needs
+# pages: write and id-token: write and nothing else.
+#
+# There is deliberately no third-party Pages action here. peaceiris/actions-gh-pages
+# would need contents: write to force-push a gh-pages branch and pins to a
+# mutable major tag; the official actions/deploy-pages the action already calls
+# is pinned to a commit and needs no write access to the repository contents.
 
 name: AurumCode - Documentation
 
@@ -11,67 +20,112 @@ on:
       - '**.py'
       - '**.js'
       - '**.ts'
+      - '**.cs'
+      - '**.rs'
       - 'docs/**'
 
   workflow_dispatch:
     inputs:
-      mode:
-        description: 'Generation mode'
-        required: true
-        default: 'incremental'
-        type: choice
-        options:
-          - incremental
-          - full
+      extra-toolchains:
+        description: >-
+          Comma-separated extra toolchains to install (javascript, python,
+          csharp, cpp). Empty keeps a Go-only run cheap; an unknown value stops
+          the run rather than silently skipping a language.
+        required: false
+        default: ''
+        type: string
 
+# Minimum for this workflow. contents: read is enough to check the repository
+# out; the generated site is deployed to Pages, so nothing is committed back and
+# contents: write is never needed. Without this block the workflow inherits the
+# repository default, which can be read/write on every scope.
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
+
+concurrency:
+  # A Pages deployment must not be cancelled halfway: the site would be left
+  # serving a partially replaced tree. Queue instead of cancelling.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  generate-docs:
+  generate-and-deploy:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.aurumcode.outputs.page-url }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        # Pinned to an immutable commit; the tag beside it is only a reading aid.
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0  # Full history for change detection
+          fetch-depth: 0
 
-      - name: Run AurumCode Documentation
-        uses: Mpaape/AurumCode@main
+      - name: Generate and publish documentation
+        # The id is what makes steps.aurumcode.outputs.* resolve, including the
+        # page-url the environment above links to.
+        id: aurumcode
+        # Pin the action to the commit you reviewed, never to a mutable branch:
+        # @main lets a later upstream push change what executes in your repo.
+        uses: Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8 # reviewed head of PR #1
         with:
-          mode: 'documentation'
-          llm_provider: 'openai'
-          llm_model: 'gpt-4'
-          llm_api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          documentation_mode: ${{ github.event.inputs.mode || 'incremental' }}
+          source-dir: '.'
+          output-dir: '.aurumcode'
+          extra-toolchains: ${{ inputs.extra-toolchains }}
+          # pages = generate, build the Jekyll site, upload and deploy from this
+          # job. The action refuses to publish an empty or unrendered tree, so a
+          # failed generation fails the deploy instead of shipping a 404 root.
+          publish: 'pages'
+          # AI welcome page: both of these are required together, and the action
+          # warns when only one is set. Uncomment to enable.
+          # llm-api-key: ${{ secrets.LLM_API_KEY }}
+          # llm-base-url: ${{ secrets.LLM_BASE_URL }}
+          # llm-model: 'gpt-4o-mini'
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/public
-          publish_branch: gh-pages
-          force_orphan: true
-
-      - name: Commit generated docs
+      - name: Documentation summary
+        # Outputs travel through env, never through ${{ }} inside the script.
+        env:
+          DOCS_GENERATED: ${{ steps.aurumcode.outputs.docs-generated }}
+          LANGUAGES: ${{ steps.aurumcode.outputs.languages-detected }}
+          DOCS_PATH: ${{ steps.aurumcode.outputs.docs-path }}
+          PAGE_URL: ${{ steps.aurumcode.outputs.page-url }}
         run: |
-          git config user.name "AurumCode Bot"
-          git config user.email "bot@aurumcode.dev"
+          set -euo pipefail
 
-          git add docs/ CHANGELOG.md README.md
+          # Same fail-closed assert as the other examples: an absent or
+          # non-numeric output means the action reported no result, and a zero
+          # count means nothing was generated. Neither is a summary line.
+          case "${DOCS_GENERATED}" in
+            ''|*[!0-9]*)
+              echo "::error::docs-generated='${DOCS_GENERATED}' is not a number - the action reported no result"
+              exit 1
+              ;;
+          esac
 
-          if git diff --staged --quiet; then
-            echo "No documentation changes"
-          else
-            git commit -m "docs: Auto-generate documentation [skip ci]"
-            git push
+          if [ "${DOCS_GENERATED}" -eq 0 ]; then
+            echo "::error::the generator wrote 0 markdown files under '${DOCS_PATH}' - refusing to report a green documentation run"
+            exit 1
           fi
 
-      - name: Documentation Summary
-        run: |
-          echo "✅ Documentation generated"
-          echo "📚 View at: ${{ steps.docs.outputs.documentation_url }}"
+          # publish: pages must yield a deployed URL. An empty one means the
+          # deploy did not happen, which is a failure, not a summary line.
+          if [ -z "${PAGE_URL}" ]; then
+            echo "::error::publish was 'pages' but page-url is empty - the site was not deployed"
+            exit 1
+          fi
+
+          {
+            echo "### AurumCode documentation"
+            echo ""
+            echo "- files: ${DOCS_GENERATED}"
+            echo "- languages: ${LANGUAGES:-none}"
+            echo "- source: ${DOCS_PATH}"
+            echo "- site: ${PAGE_URL}"
+          } >> "${GITHUB_STEP_SUMMARY}"

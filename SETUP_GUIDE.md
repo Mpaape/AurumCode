@@ -1,190 +1,129 @@
-# 🚀 AurumCode - Guia de Configuração Final
+# Guia de configuração
 
-Este guia te ajudará a configurar o repositório para produção e regenerar toda a documentação.
+Como preparar um repositório para gerar e publicar a documentação com a Action
+do AurumCode.
 
-## ✅ Já Completado
+## 1. Configurar o GitHub Pages
 
-- ✅ 35 arquivos de documentação desatualizada removidos
-- ✅ Pasta `_docs/` antiga limpa
-- ✅ Hugo removido (migrado para Jekyll)
-- ✅ Script de regeneração criado (`cmd/regenerate-docs/main.go`)
-- ✅ GitHub Action reusável criada (`action.yml`)
-- ✅ Workflow de documentação corrigido (sem Docker)
+A Action publica pelo fluxo de deploy do próprio GitHub Actions, não por um
+branch `gh-pages`.
 
-## 📋 Passos Restantes
+1. Abra Settings > Pages do repositório.
+2. Em "Build and deployment", defina **Source** como **GitHub Actions**.
 
-### 1️⃣ Tornar o Repositório Público
+Sem esse ajuste, `publish: 'pages'` falha no passo de deploy. Detalhes em
+[PAGES_SETUP.md](PAGES_SETUP.md).
 
-1. Acesse: https://github.com/Mpaape/AurumCode/settings
-2. Role até **"Danger Zone"** no final da página
-3. Clique em **"Change visibility"**
-4. Selecione **"Make public"**
-5. Digite o nome do repositório para confirmar: `Mpaape/AurumCode`
-6. Clique em **"I understand, change repository visibility"**
+## 2. Secrets do endpoint LLM (opcional)
 
-### 2️⃣ Adicionar Secrets da API (Para Features de IA)
+A geração de documentação funciona sem nenhuma credencial: a chave só muda o
+texto da página inicial (`index.md`). Se quiser a página escrita por LLM,
+cadastre em Settings > Secrets and variables > Actions:
 
-1. Acesse: https://github.com/Mpaape/AurumCode/settings/secrets/actions
-2. Clique em **"New repository secret"**
-3. Adicione os seguintes secrets:
+| Secret sugerido | Conteúdo |
+|-----------------|----------|
+| `LLM_API_KEY` | chave de um endpoint compatível com a API da OpenAI |
+| `LLM_BASE_URL` | URL base desse endpoint |
 
-**Secret 1:**
-- Name: `TOTVS_DTA_API_KEY`
-- Value: `sk-123123213`
-- Clique em **"Add secret"**
+Os nomes dos secrets são livres; o que importa é para quais inputs eles são
+passados (`llm-api-key` e `llm-base-url`). Ambos são obrigatórios juntos: com
+apenas um deles a Action registra um aviso e segue sem a página escrita por LLM.
 
-**Secret 2:**
-- Name: `TOTVS_DTA_BASE_URL`
-- Value: `https://proxy.com`
-- Clique em **"Add secret"**
-
-### 3️⃣ Configurar GitHub Pages
-
-1. Acesse: https://github.com/Mpaape/AurumCode/settings/pages
-2. Em **"Source"**, selecione:
-   - **Branch:** `gh-pages`
-   - **Folder:** `/ (root)`
-3. Clique em **"Save"**
-
-**Nota:** O branch `gh-pages` será criado automaticamente pelo workflow quando você rodar pela primeira vez.
-
-### 4️⃣ Executar o Workflow de Documentação
-
-1. Acesse: https://github.com/Mpaape/AurumCode/actions/workflows/documentation.yml
-2. Clique em **"Run workflow"** (botão azul no canto direito)
-3. Selecione **branch: main**
-4. Clique em **"Run workflow"** (verde)
-5. Aguarde a execução (5-10 minutos)
-
-O workflow irá:
-- ✅ Configurar Go 1.21
-- ✅ Executar `go run cmd/regenerate-docs/main.go`
-- ✅ Gerar documentação para todas as linguagens detectadas
-- ✅ Configurar Ruby e Jekyll
-- ✅ Compilar o site Jekyll
-- ✅ Fazer deploy para `gh-pages`
-
-### 5️⃣ Verificar o Site
-
-Após o workflow completar:
-
-1. Acesse: **https://mpaape.github.io/AurumCode/**
-2. Verifique se a documentação foi gerada corretamente
-3. Navegue pelas seções:
-   - Home (Welcome page)
-   - Stack
-   - Architecture
-   - Tutorials
-   - API Reference
-
-## 🔧 Testando Localmente (Opcional)
-
-Se quiser testar localmente antes:
-
-```bash
-# 1. Configurar variáveis de ambiente (opcional - para IA)
-export TOTVS_DTA_API_KEY=sk-123
-export TOTVS_DTA_BASE_URL=https://proxy.com
-
-# 2. Regenerar documentação
-go run cmd/regenerate-docs/main.go
-
-# 3. Build Jekyll
-cd docs
-bundle install
-bundle exec jekyll serve
-
-# 4. Abrir no navegador
-# http://localhost:4000
-```
-
-## 📊 Documentação Gerada
-
-O script gerará documentação para:
-
-| Linguagem | Ferramenta | Pasta de Saída |
-|-----------|-----------|----------------|
-| Go | gomarkdoc | `docs/go/` |
-| JavaScript/TypeScript | TypeDoc | `docs/javascript/` |
-| Python | pydoc-markdown | `docs/python/` |
-| C# | xmldocmd | `docs/csharp/` |
-| C/C++ | Doxygen + doxybook2 | `docs/cpp/` |
-| Rust | rustdoc | `docs/rust/` |
-| Bash | shdoc | `docs/bash/` |
-| PowerShell | platyPS | `docs/powershell/` |
-
-## 🎯 Usando AurumCode em Outros Repositórios
-
-Outros projetos podem usar AurumCode adicionando ao workflow:
+## 3. Workflow
 
 ```yaml
-- uses: Mpaape/AurumCode@main
-  with:
-    source-dir: '.'
-    output-dir: '.aurumcode'
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.docs.outputs.page-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: docs
+        uses: Mpaape/AurumCode@main
+        with:
+          source-dir: '.'
+          output-dir: '.aurumcode'
+          publish: 'pages'
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+          llm-base-url: ${{ secrets.LLM_BASE_URL }}
 ```
 
-Ver `ACTION_USAGE.md` para mais detalhes.
+As permissões precisam ficar no job: uma composite action não declara
+`permissions`. A lista completa de inputs está em
+[ACTION_USAGE.md](ACTION_USAGE.md).
 
-## ❓ Troubleshooting
+## 4. O que é gerado
 
-### Workflow falhou no step "Extract documentation"
+Para `output-dir: '.aurumcode'`:
 
-**Problema:** Go não encontrou módulos ou dependências
+| Caminho | Conteúdo |
+|---------|----------|
+| `.aurumcode/_config.yml` | configuração mínima do Jekyll; criada só se ainda não existir |
+| `.aurumcode/index.md` | página inicial, com link para cada página gerada |
+| `.aurumcode/<linguagem>/<nome>.md` | uma página por unidade documentada |
 
-**Solução:**
-1. Verifique se `go.mod` e `go.sum` estão commitados
-2. Execute localmente: `go mod tidy`
-3. Commit e push
+As linguagens efetivamente extraídas dependem das ferramentas presentes no
+runner e do input `extra-toolchains`. Rust e C# não são extraídos pela Action;
+o motivo está em [ACTION_USAGE.md](ACTION_USAGE.md).
 
-### Jekyll build falhou
+## 5. Testar localmente (opcional)
 
-**Problema:** Dependências Ruby não encontradas
+```bash
+go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
 
-**Solução:**
-1. Verifique `docs/Gemfile` e `docs/_config.yml`
-2. Execute localmente:
-   ```bash
-   cd docs
-   bundle install
-   bundle exec jekyll build
-   ```
+# Opcional, só para a página inicial escrita por LLM
+export LLM_API_KEY=sua_chave
+export LLM_BASE_URL=https://seu-endpoint/v1
 
-### Documentação não aparece no site
+go run ./cmd/regenerate-docs
+```
 
-**Problema:** Branch `gh-pages` não foi criado
+O argumento precisa ser o diretório (`./cmd/regenerate-docs`): o `package main`
+do comando está dividido em mais de um arquivo, então apontar para um arquivo
+isolado não compila.
 
-**Solução:**
-1. Rode o workflow novamente
-2. Verifique se o branch `gh-pages` existe
-3. Configure GitHub Pages para usar branch `gh-pages`
+## Solução de problemas
 
-### API de IA não funciona
+### O passo de geração falha ao resolver dependências
 
-**Problema:** Secrets não configurados corretamente
+Confirme que `go.mod` e `go.sum` estão commitados e rode `go mod tidy`.
 
-**Solução:**
-1. Verifique se os secrets estão na aba Actions (não Codespaces ou Dependabot)
-2. Confirme que os nomes estão exatos: `TOTVS_DTA_API_KEY` e `TOTVS_DTA_BASE_URL`
-3. Rode o workflow novamente
+### A publicação para com "missing index.md/_config.yml"
 
-## 📝 Checklist Final
+A Action se recusa a publicar uma árvore que não é um site. Isso significa que a
+geração não produziu nada: confira o output `docs-generated` e as linhas
+`[Pipeline] Extracting ... documentation` no log.
 
-- [ ] Repositório público
-- [ ] Secrets adicionados (`TOTVS_DTA_API_KEY`, `TOTVS_DTA_BASE_URL`)
-- [ ] GitHub Pages configurado (branch `gh-pages`)
-- [ ] Workflow executado com sucesso
-- [ ] Site acessível em https://mpaape.github.io/AurumCode/
-- [ ] Documentação gerada para todas as linguagens
+### A página inicial não usa o LLM
 
-## 🎉 Pronto!
+`llm-api-key` e `llm-base-url` precisam estar os dois preenchidos. Com apenas um
+deles, o provider é ignorado e o log registra um aviso; `llm-model` é ignorado
+quando qualquer um dos dois falta.
 
-Após completar todos os passos, o AurumCode estará:
-- ✅ Público e acessível
-- ✅ Com documentação atualizada
-- ✅ Pronto para ser usado por outros repositórios
-- ✅ Com CI/CD automatizado
+### O deploy falha em Settings > Pages
 
----
+O Source precisa ser "GitHub Actions". Um repositório ainda apontando para um
+branch recusa o artefato publicado pela Action.
 
-**Dúvidas?** Abra uma issue em: https://github.com/Mpaape/AurumCode/issues
+## Checklist
+
+- [ ] Pages com Source = "GitHub Actions"
+- [ ] Job com `permissions` de `pages: write` e `id-token: write`
+- [ ] Secrets do endpoint LLM cadastrados (apenas se quiser a página por LLM)
+- [ ] Workflow executado e `docs-generated` maior que zero
+
+Dúvidas: https://github.com/Mpaape/AurumCode/issues

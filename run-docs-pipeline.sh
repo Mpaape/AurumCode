@@ -1,45 +1,40 @@
 #!/bin/bash
+# Run the AurumCode documentation generator in a container.
+#
+# Credentials are not exported here: Compose reads .env from this directory by
+# itself and substitutes it into docker-compose.test.yml. They are optional
+# anyway - without them cmd/regenerate-docs still generates documentation and
+# only skips the AI welcome page (main.go:84, main.go:99).
 
-# Run AurumCode Documentation Pipeline in Docker
+set -euo pipefail
 
-set -e
+cd -- "$(dirname -- "$0")"
 
-echo "🚀 Running AurumCode Documentation Pipeline in Docker"
-echo ""
-
-# Check if .env exists
-if [ ! -f .env ]; then
-    echo "❌ .env file not found!"
-    echo "Please create .env with:"
-    echo "  TOTVS_DTA_API_KEY=your_key"
-    echo "  TOTVS_DTA_BASE_URL=your_url"
-    exit 1
+if [ -f .env ]; then
+    echo "✓ .env found - Compose will substitute it"
+else
+    echo "ℹ️  No .env found - running without LLM credentials"
+    echo "   Optional: LLM_API_KEY, LLM_BASE_URL, LLM_MODEL (or OPENAI_API_KEY)"
 fi
 
-# Load environment variables
-export $(cat .env | grep -v '^#' | xargs)
-
-echo "✓ Environment variables loaded"
-echo "✓ TOTVS DTA URL: $TOTVS_DTA_BASE_URL"
-echo ""
-
-# Build and run
-echo "📦 Building Docker image..."
-docker-compose -f docker-compose.test.yml build
+if docker compose version >/dev/null 2>&1; then
+    compose=(docker compose)
+else
+    compose=(docker-compose)
+fi
 
 echo ""
-echo "🏃 Running Documentation Pipeline..."
+echo "📦 Building image..."
+"${compose[@]}" -f docker-compose.test.yml build
+
+echo ""
+echo "🏃 Running documentation generator..."
 echo "─────────────────────────────────────────"
-docker-compose -f docker-compose.test.yml run --rm test-docs-pipeline
+"${compose[@]}" -f docker-compose.test.yml run --rm test-docs-pipeline
 echo "─────────────────────────────────────────"
 
 echo ""
-echo "✅ Pipeline completed!"
-echo ""
-echo "📊 Check generated files:"
-echo "  - CHANGELOG.md"
-echo "  - README.md (updated)"
+echo "✅ Generator finished. Check the output directory it reported above."
 echo ""
 echo "Verify with:"
 echo "  git status"
-echo "  git diff README.md"
