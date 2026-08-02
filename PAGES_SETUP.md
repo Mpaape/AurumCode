@@ -1,32 +1,27 @@
-# GitHub Pages Setup Required
+# GitHub Pages source configuration
 
-## ⚠️ Action Required
+The AurumCode action publishes through the GitHub Actions deployment flow
+(`actions/upload-pages-artifact` and `actions/deploy-pages`), not by pushing a
+branch. A repository whose Pages source is still a branch rejects that artifact.
 
-To complete the deployment migration, you must configure GitHub Pages to use GitHub Actions:
+## Required setting
 
-### Steps:
+1. Open Settings > Pages of the repository that runs the action.
+2. Under "Build and deployment", set **Source** to **GitHub Actions**.
 
-1. Go to: https://github.com/Mpaape/AurumCode/settings/pages
+## When this is needed
 
-2. Under "Build and deployment":
-   - **Source**: Change from "Deploy from a branch" → **"GitHub Actions"**
-   - Click "Save"
+| `publish` input | Pages source must be "GitHub Actions" |
+|-----------------|---------------------------------------|
+| `none` (default) | no, nothing is uploaded |
+| `artifact` | no for this job; yes for the job that later runs `actions/deploy-pages` |
+| `pages` | yes |
 
-3. The next workflow run will automatically deploy to Pages
+The publishing job also has to grant `pages: write` and `id-token: write`, since
+a composite action cannot declare permissions itself. The full workflow is in
+[ACTION_USAGE.md](ACTION_USAGE.md).
 
-### Why This Is Needed:
+## Checking it worked
 
-- We deleted the legacy `gh-pages` branch
-- The new workflow uses modern GitHub Actions deployment
-- Pages needs to be configured to accept Actions-based deployments
-
-### After Configuration:
-
-The documentation workflow will automatically:
-- Generate docs from Go/JS/Python/Bash code
-- Build Jekyll site
-- Deploy to https://mpaape.github.io/AurumCode/
-
----
-
-**This file can be deleted after Pages is configured.**
+The action's `page-url` output carries the published URL and is empty unless
+`publish` was set to `pages`.

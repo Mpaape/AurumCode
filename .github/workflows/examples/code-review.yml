@@ -1,38 +1,78 @@
-# Example: AurumCode Code Review
-# Copy this file to your repo: .github/workflows/aurumcode-review.yml
+# Example: AurumCode documentation gate on pull requests
+# Copy this file to your repository as .github/workflows/aurumcode-review.yml
+#
+# AurumCode is a documentation generator. It does not review source code, does
+# not post pull request comments and does not score a diff, so this example
+# passes only inputs that action.yml actually declares. An input the action does
+# not declare is not an error on GitHub: the runner logs "Unexpected input(s)"
+# and carries on, which produces a green check for work that never ran.
 
-name: AurumCode - Code Review
+name: AurumCode - Documentation Gate
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+# pull_request, never pull_request_target: this job checks out and executes the
+# fork's head, so it must not hold a writable token or the repository secrets.
+# Without this block the workflow inherits the repository default, which can be
+# read/write on every scope.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  code-review:
+  documentation-gate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        # Pinned to an immutable commit; the tag beside it is only a reading aid.
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0  # Full history for diff analysis
+          fetch-depth: 0
 
-      - name: Run AurumCode Review
-        uses: Mpaape/AurumCode@main
+      - name: Generate documentation
+        # The id is what makes steps.aurumcode.outputs.* resolve below. Without
+        # it every such expression expands to the empty string and the gate ends
+        # up comparing nothing against nothing.
+        id: aurumcode
+        # Pin the action to the commit you reviewed, never to a mutable branch:
+        # @main lets a later upstream push change what executes in your repo.
+        uses: Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8 # reviewed head of PR #1
         with:
-          mode: 'review'
-          llm_provider: 'openai'
-          llm_model: 'gpt-4'
-          llm_api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          post_pr_comments: 'true'
+          source-dir: '.'
+          output-dir: '.aurumcode'
+          publish: 'none'
 
-      - name: Review Summary
+      - name: Fail when the generator produced nothing
+        # Step outputs are read through env, never interpolated into the script
+        # body: a ${{ }} inside a run: block is substituted before bash parses
+        # the line, so a value carrying a quote or a semicolon would execute.
+        env:
+          DOCS_GENERATED: ${{ steps.aurumcode.outputs.docs-generated }}
+          LANGUAGES: ${{ steps.aurumcode.outputs.languages-detected }}
+          DOCS_PATH: ${{ steps.aurumcode.outputs.docs-path }}
         run: |
-          echo "✅ AurumCode review completed"
-          echo "Issues found: ${{ steps.review.outputs.issues_found }}"
-          echo "Review result: ${{ steps.review.outputs.review_result }}"
+          set -euo pipefail
+
+          # A missing output means the action reported no result. That is a
+          # broken run, not an empty repository, so it fails here.
+          case "${DOCS_GENERATED}" in
+            ''|*[!0-9]*)
+              echo "::error::docs-generated='${DOCS_GENERATED}' is not a number - the action reported no result"
+              exit 1
+              ;;
+          esac
+
+          if [ "${DOCS_GENERATED}" -eq 0 ]; then
+            echo "::error::the generator wrote 0 markdown files under '${DOCS_PATH}' - failing instead of reporting a green documentation check"
+            exit 1
+          fi
+
+          echo "${DOCS_GENERATED} markdown files under ${DOCS_PATH} (languages: ${LANGUAGES:-none})"

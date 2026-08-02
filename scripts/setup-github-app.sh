@@ -2,7 +2,7 @@
 # Enterprise GitHub App Setup Script
 # This script helps you set up AurumCode as a GitHub App for your organization
 
-set -e
+set -euo pipefail
 
 echo "🏢 AurumCode - Enterprise GitHub App Setup"
 echo ""
@@ -19,13 +19,13 @@ fi
 prompt() {
     local var_name=$1
     local prompt_text=$2
-    local default_value=$3
+    local default_value=${3:-}
 
     if [ -n "$default_value" ]; then
-        read -p "$prompt_text [$default_value]: " value
+        read -r -p "$prompt_text [$default_value]: " value
         value=${value:-$default_value}
     else
-        read -p "$prompt_text: " value
+        read -r -p "$prompt_text: " value
     fi
 
     eval "$var_name='$value'"
@@ -36,7 +36,7 @@ prompt_secret() {
     local var_name=$1
     local prompt_text=$2
 
-    read -sp "$prompt_text: " value
+    read -r -sp "$prompt_text: " value
     echo ""
     eval "$var_name='$value'"
 }

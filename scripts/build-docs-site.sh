@@ -3,7 +3,7 @@
 # Build complete documentation website
 # Combines: static godoc + LLM-enhanced docs + CHANGELOG + existing docs/
 
-set -e
+set -euo pipefail
 
 echo "🏗️  Building Documentation Website"
 echo ""
@@ -187,19 +187,27 @@ cat > "$OUTPUT_DIR/index.html" <<'EOF'
 </html>
 EOF
 
-# Copy static godoc
-if [ -d "docs/static/godoc" ]; then
-    echo "📦 Copying static documentation..."
-    mkdir -p "$OUTPUT_DIR/godoc"
-    cp -r docs/static/godoc/* "$OUTPUT_DIR/godoc/"
-fi
+# copy_tree <source> <destination> <label>
+# Uses `src/.` rather than `src/*`: an existing but empty directory made the
+# glob expand to a literal and aborted the build under `set -e`.
+copy_tree() {
+    local src="$1" dest="$2" label="$3"
 
-# Copy enhanced docs
-if [ -d "docs/enhanced" ]; then
-    echo "✨ Copying enhanced documentation..."
-    mkdir -p "$OUTPUT_DIR/enhanced"
-    cp -r docs/enhanced/* "$OUTPUT_DIR/enhanced/"
-fi
+    if [ ! -d "$src" ]; then
+        return 0
+    fi
+    if [ -z "$(find "$src" -mindepth 1 -print -quit)" ]; then
+        echo "  (no $label to copy: '$src' is empty)"
+        return 0
+    fi
+
+    echo "$label..."
+    mkdir -p "$dest"
+    cp -R "$src/." "$dest/"
+}
+
+copy_tree "docs/static/godoc" "$OUTPUT_DIR/godoc" "📦 Copying static documentation"
+copy_tree "docs/enhanced" "$OUTPUT_DIR/enhanced" "✨ Copying enhanced documentation"
 
 # Convert markdown files to HTML
 echo "📄 Converting markdown to HTML..."
@@ -221,5 +229,6 @@ echo "📊 Site Statistics:"
 echo "  Total files: $(find "$OUTPUT_DIR" -type f | wc -l)"
 echo "  Size: $(du -sh "$OUTPUT_DIR" | cut -f1)"
 echo ""
-echo "🌐 Site will be available at:"
-echo "   https://mpaape.github.io/AurumCode/"
+echo "This step only built the site locally into '$OUTPUT_DIR'."
+echo "It did not publish anything. The public URL is known only to the"
+echo "publishing step, which reports it as its own output."

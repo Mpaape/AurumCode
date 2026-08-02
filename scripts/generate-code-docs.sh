@@ -2,7 +2,7 @@
 # Generate searchable Go code documentation using pkgsite (Google's tool)
 # This script is designed to scale to 100+ repositories
 
-set -e
+set -euo pipefail
 
 echo "📦 Generating Go Code Documentation with pkgsite"
 echo ""
@@ -39,8 +39,10 @@ echo "🔨 Generating package documentation..."
 PACKAGES=$(go list ./... 2>/dev/null | grep -v "/vendor/" | grep -v "/test" || true)
 
 for PKG in $PACKAGES; do
-    PKG_NAME=$(echo "$PKG" | sed "s|$MODULE/||" | sed "s|/|.|g")
-    PKG_PATH=$(echo "$PKG" | sed "s|$MODULE/||")
+    # Prefix strip via parameter expansion: $MODULE contains dots and slashes
+    # that sed would have treated as regex metacharacters.
+    PKG_PATH="${PKG#"$MODULE"/}"
+    PKG_NAME="${PKG_PATH//\//.}"
 
     echo "  - $PKG_PATH"
 

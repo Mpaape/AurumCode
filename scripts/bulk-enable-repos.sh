@@ -2,7 +2,7 @@
 # Bulk enable AurumCode across multiple repositories
 # This script adds the AurumCode workflow to all repos in your organization
 
-set -e
+set -euo pipefail
 
 echo "🚀 Bulk Enable AurumCode for Multiple Repositories"
 echo ""
@@ -22,12 +22,12 @@ if ! gh auth status &> /dev/null; then
 fi
 
 # Get organization
-read -p "Enter your GitHub organization name: " ORG_NAME
+read -r -p "Enter your GitHub organization name: " ORG_NAME
 
 # Confirm
 echo ""
 echo "This will enable AurumCode for ALL repositories in: $ORG_NAME"
-read -p "Continue? (yes/no): " CONFIRM
+read -r -p "Continue? (yes/no): " CONFIRM
 
 if [ "$CONFIRM" != "yes" ]; then
     echo "Aborted."

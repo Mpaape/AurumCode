@@ -1,4 +1,4 @@
-.PHONY: build test lint cover clean docker-build docker-run docker-shell
+.PHONY: build test lint cover clean tidy docker-build docker-run docker-shell
 
 # Docker commands
 docker-build:
@@ -17,8 +17,15 @@ build:
 test:
 	go test ./... -v
 
+# `gofmt -l` is used instead of `gofmt -d` because gofmt exits 0 even when it
+# reports formatting differences, which would make this target incapable of
+# failing.
 lint:
-	gofmt -d .
+	@unformatted="$$(gofmt -l .)"; \
+	if [ -n "$$unformatted" ]; then \
+		printf 'gofmt needed:\n%s\n' "$$unformatted" >&2; \
+		exit 1; \
+	fi
 	go vet ./...
 
 cover:
@@ -29,10 +36,5 @@ clean:
 	go clean ./...
 	rm -f coverage.out
 
-# Development workflow
-init:
-	go mod init aurumcode
-
 tidy:
 	go mod tidy
-

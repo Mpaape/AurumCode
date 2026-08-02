@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   test-docs-pipeline:
     build:
@@ -9,7 +7,24 @@ services:
     volumes:
       - ./:/app/workspace
     working_dir: /app/workspace
+    # The image ENTRYPOINT is the GitHub Action wrapper, so `command:` alone would
+    # be handed to that wrapper instead of running the generator.
+    #
+    # The runtime stage of Dockerfile ships no documentation toolchain, so every
+    # language is skipped for a missing tool and the run exits 1. See the "Known
+    # limitation" section of RUN_DOCS_PIPELINE.md.
+    entrypoint: ["/app/regenerate-docs"]
     environment:
-      - TOTVS_DTA_API_KEY=${TOTVS_DTA_API_KEY}
-      - TOTVS_DTA_BASE_URL=${TOTVS_DTA_BASE_URL}
-    command: /app/test-docs-pipeline
+      # Read by cmd/regenerate-docs/main.go: LLM_API_KEY (line 65), LLM_BASE_URL
+      # (line 66), OPENAI_API_KEY (line 67), LLM_MODEL (line 73). The LiteLLM
+      # provider is only built when LLM_API_KEY and LLM_BASE_URL are both set;
+      # otherwise OPENAI_API_KEY is the fallback, and an unset pair only disables
+      # the AI welcome page.
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Declared in cmd/regenerate-docs/main.go lines 32-38.
+      AURUMCODE_SOURCE_DIR: ${AURUMCODE_SOURCE_DIR:-.}
+      AURUMCODE_OUTPUT_DIR: ${AURUMCODE_OUTPUT_DIR:-.aurumcode}
+      AURUMCODE_LANGUAGES: ${AURUMCODE_LANGUAGES:-}
