@@ -1547,6 +1547,135 @@ for (( claim_index = 0; claim_index < ${#read_path_claim_paths[@]}; claim_index+
   esac
 done
 
+# `paths` and `read_paths` are claims over the source tree, and the board's
+# entire disjoint-ownership guarantee is written in their vocabulary. A claim on
+# a path the tree does not carry is legitimate in exactly one situation: the
+# card has not been executed yet and that artifact is the work still to be done.
+# A `backlog` or `ready` card naming a file that does not exist yet is normal and
+# must stay silent here.
+#
+# Two situations are never legitimate, and neither was visible to this gate:
+#
+#   1. the repository still tracks the path while the working tree no longer
+#      carries it. The tree lost an artifact a card owns, which is one lane
+#      silently deleting another card's property, and nothing else in this file
+#      notices;
+#   2. the card sits in `review` or `done`. README.md defines those states as
+#      "immutable candidate awaiting independent review" and "fully accepted
+#      work", so the artifact the card claims must already be materialized. A
+#      review of an absent file reviews nothing.
+#
+# `doing` is deliberately excluded from case 2. README.md admits a card to
+# `doing` once its acceptance test demonstrably fails, and only then does "one
+# builder own the card and may change its declared paths": in `doing` the
+# declared artifacts are by definition the work that does not exist yet, so
+# demanding their presence would paint the gate red for the whole duration of
+# every card. The one artifact the ready->doing transition does guarantee is the
+# acceptance `Test:` path, and that single path is already required to exist in
+# `doing` by the rule above.
+#
+# Case 1 needs a ground truth for "this path existed", and the only one that is
+# not self-declared prose is what Git records as tracked. Two records answer
+# that question and each alone is blind to a real deletion: the index forgets
+# the path on `git rm`, which drops it from the index and the working tree in
+# one step and is exactly how a lane that produces a patch removes a file; the
+# commit at `HEAD` never saw a path that was added but not committed yet. A path
+# either record still names is property the repository is accountable for, so
+# the two are unioned. Git is consulted, never trusted. When a declared path is
+# absent and neither record can be read, planned work and a deleted artifact are
+# indistinguishable, so the gate reports exactly that and fails instead of
+# choosing the friendly reading.
+#
+# Presence means the tree carries an entry at the path, a symlink entry
+# included: this repository tracks legitimate symlinks (`AGENTS.md`), and
+# judging a link target is a different rule that needs different evidence.
+#
+# `forbidden_paths` is deliberately excluded. It denies authority over a path
+# instead of claiming authorship of one, and a denied path such as `.env` or
+# `secrets` is expected not to exist; demanding its existence would invert the
+# field's meaning.
+declare -A declared_path_presence=()
+declare -A absent_path_claimants=()
+declare -A tracked_entries=()
+declare -a absent_declared_paths=()
+
+mapfile -t materialization_claim_rows < <(
+  {
+    for declared_path in "${!path_owners[@]}"; do
+      read -ra path_claimants <<< "${path_owners[$declared_path]}"
+      for claim_card in "${path_claimants[@]}"; do
+        printf '%s\t%s\towned\n' "$declared_path" "$claim_card"
+      done
+    done
+    for (( claim_index = 0; claim_index < ${#read_path_claim_paths[@]}; claim_index++ )); do
+      printf '%s\t%s\tread\n' "${read_path_claim_paths[$claim_index]}" "${read_path_claim_cards[$claim_index]}"
+    done
+  } | sort -u
+)
+
+for claim_row in "${materialization_claim_rows[@]}"; do
+  IFS=$'\t' read -r claimed_path claim_card claim_kind <<< "$claim_row"
+  if [[ -z "${declared_path_presence[$claimed_path]+x}" ]]; then
+    if [[ -e "$repo_root/$claimed_path" || -L "$repo_root/$claimed_path" ]]; then
+      declared_path_presence[$claimed_path]=present
+    else
+      declared_path_presence[$claimed_path]=absent
+      absent_declared_paths+=("$claimed_path")
+    fi
+  fi
+  [[ "${declared_path_presence[$claimed_path]}" == absent ]] || continue
+  absent_path_claimants[$claimed_path]="${absent_path_claimants[$claimed_path]:-}${absent_path_claimants[$claimed_path]:+, }$claim_card"
+  [[ "${card_states[$claim_card]:-}" =~ ^(review|done)$ ]] || continue
+  fail "${files[$claim_card]}: ${card_states[$claim_card]} card declares $claim_kind path $claimed_path, which is absent from the tree"
+done
+
+# A tracked entry makes every directory above it tracked too, because a card may
+# declare a directory and the records only ever name files inside it.
+record_tracked_entry() {
+  local tracked_entry="$1"
+  tracked_entries[$tracked_entry]=1
+  while [[ "$tracked_entry" == */* ]]; do
+    tracked_entry="${tracked_entry%/*}"
+    tracked_entries[$tracked_entry]=1
+  done
+}
+
+if (( ${#absent_declared_paths[@]} > 0 )); then
+  if ! git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1; then
+    fail "declared-path materialization is unverifiable: ${#absent_declared_paths[@]} declared path(s) are absent and $repo_root exposes no readable Git index to separate planned work from a deleted artifact"
+  else
+    index_entry_count=0
+    while IFS= read -r -d '' tracked_entry; do
+      index_entry_count=$(( index_entry_count + 1 ))
+      record_tracked_entry "$tracked_entry"
+    done < <(git -C "$repo_root" ls-files -z 2>/dev/null)
+    if (( index_entry_count == 0 )); then
+      fail "declared-path materialization is unverifiable: the Git index at $repo_root lists no tracked path"
+    fi
+    # A repository whose `HEAD` is unborn has no committed record to union in,
+    # and nothing can have been removed from a commit that does not exist, so
+    # the index is then the whole truth. Once `HEAD` resolves to a commit, its
+    # tree must be readable: an empty listing there means the record that sees
+    # `git rm` is unavailable, which is the same blindness as an unreadable
+    # index and is reported rather than assumed away.
+    if git -C "$repo_root" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+      head_tree_entry_count=0
+      while IFS= read -r -d '' tracked_entry; do
+        head_tree_entry_count=$(( head_tree_entry_count + 1 ))
+        record_tracked_entry "$tracked_entry"
+      done < <(git -C "$repo_root" ls-tree -r -z --name-only HEAD 2>/dev/null)
+      if (( head_tree_entry_count == 0 )); then
+        fail "declared-path materialization is unverifiable: the commit at HEAD in $repo_root lists no tracked path"
+      fi
+    fi
+    for declared_path in "${absent_declared_paths[@]}"; do
+      [[ -n "${tracked_entries[$declared_path]+x}" ]] || continue
+      claim_card="${absent_path_claimants[$declared_path]%%,*}"
+      fail "${files[$claim_card]}: declared path is tracked by the repository but missing from the tree: $declared_path (claimed by ${absent_path_claimants[$declared_path]})"
+    done
+  fi
+fi
+
 report_spec_collisions scenario_given_owners "acceptance Given"
 report_spec_collisions scenario_when_owners "acceptance When"
 report_spec_collisions scenario_then_owners "acceptance Then"

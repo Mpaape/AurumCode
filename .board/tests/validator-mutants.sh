@@ -145,6 +145,22 @@ EOF
 |---|---|---|---|---|---|
 | [AUR-001](cards/ready/AUR-001.md) | ready | O00-governance | low | `[]` | Validate one bounded parser result |
 EOF
+  # The declared-path materialization gate separates "this artifact is the work
+  # still to be done" from "the tree lost an artifact a card owns" by asking Git
+  # what the repository tracks, so the fixture carries a real repository. Both
+  # records the gate consults must exist here: the index, and one commit, because
+  # `git rm` erases a path from the index and the working tree together and only
+  # the committed tree still remembers it. This repository lives inside the
+  # `mktemp -d` probe root, is deleted by the harness EXIT trap, and is never a
+  # remote, a branch, or a publication of this project; the commit identity is
+  # passed per invocation with `-c` and is never written to any configuration.
+  git -C "$root" -c init.defaultBranch=main init -q
+  git -C "$root" add --force --all -- .
+  git -C "$root" \
+    -c user.name='board validator fixture' \
+    -c user.email='board-validator-fixture@invalid' \
+    -c commit.gpgsign=false \
+    commit -q --no-verify -m 'validator fixture baseline'
 }
 
 prepare() {
@@ -363,6 +379,43 @@ sed -i 's#^paths: .*#paths: [tests/acceptance/AUR-001.sh, docs/specs/*.md]#' "$p
 prepare path_double_slash
 sed -i 's#^paths: .*#paths: [tests//acceptance/AUR-001.sh, docs/specs/AUR-001.md]#' "$probe_root/path_double_slash/.board/cards/ready/AUR-001.md"
 
+# The tree loses a file a card owns: `docs/specs/AUR-001.md` is declared in the
+# card's `paths`, the repository still tracks it, and the working tree no longer
+# carries it. The card is in `ready`, so no state rule applies and only the
+# deletion rule can catch it. This is the class the board's disjoint ownership
+# depends on: one lane must not be able to delete another card's property while
+# the gate reports success.
+prepare path_deleted_from_tree
+rm "$probe_root/path_deleted_from_tree/docs/specs/AUR-001.md"
+
+# The same loss, committed the way a lane that produces a patch actually causes
+# it: `git rm` drops the path from the index and from the working tree in one
+# step, so the index no longer names it and an index-only gate sees planned work.
+# Only the committed tree still remembers the file, which is why the tracked set
+# is the union of both records.
+prepare path_git_rm_from_index
+git -C "$probe_root/path_git_rm_from_index" rm -q -- docs/specs/AUR-001.md
+
+# The other half of the rule, isolated: a path that was never tracked and is
+# absent, on a card in a state that requires the artifact to be materialized.
+# Nothing was deleted, so the deletion rule cannot fire here.
+prepare active_path_missing
+sed -i 's#^paths: .*#paths: [tests/acceptance/AUR-001.sh, docs/specs/AUR-001.md, docs/specs/AUR-001-absent.md]#' "$probe_root/active_path_missing/.board/cards/ready/AUR-001.md"
+make_valid_review "$probe_root/active_path_missing"
+
+# Fail-closed control: without a readable index, planned work and a deleted
+# artifact are indistinguishable, and the gate must say so rather than assume
+# the friendly reading.
+prepare path_index_unavailable
+sed -i 's#^paths: .*#paths: [tests/acceptance/AUR-001.sh, docs/specs/AUR-001.md, docs/specs/AUR-001-absent.md]#' "$probe_root/path_index_unavailable/.board/cards/ready/AUR-001.md"
+rm -rf "$probe_root/path_index_unavailable/.git"
+
+# Positive control against a false red: a card that has not been executed yet
+# may declare the artifact it is supposed to create. Absent plus untracked is
+# exactly what planned work looks like, and it must stay green.
+prepare path_future_valid
+sed -i 's#^paths: .*#paths: [tests/acceptance/AUR-001.sh, docs/specs/AUR-001.md, docs/specs/AUR-001-future.md]#' "$probe_root/path_future_valid/.board/cards/ready/AUR-001.md"
+
 prepare covers_partial
 sed -i '/^- Then:/a - Covers requirements: [PR-TST-001]' "$probe_root/covers_partial/.board/cards/ready/AUR-001.md"
 
@@ -474,6 +527,15 @@ run_case path_glob \
   "^board error: .*/$card: unsafe or non-repository-relative owned path: docs/specs/\*\.md\$" & pids+=("$!")
 run_case path_double_slash \
   "^board error: .*/$card: unsafe or non-repository-relative owned path: tests//acceptance/AUR-001\.sh\$" & pids+=("$!")
+run_case path_deleted_from_tree \
+  "^board error: .*/$card: declared path is tracked by the repository but missing from the tree: docs/specs/AUR-001\.md \(claimed by AUR-001\)\$" & pids+=("$!")
+run_case path_git_rm_from_index \
+  "^board error: .*/$card: declared path is tracked by the repository but missing from the tree: docs/specs/AUR-001\.md \(claimed by AUR-001\)\$" & pids+=("$!")
+run_case active_path_missing \
+  "^board error: .*/$card: review card declares owned path docs/specs/AUR-001-absent\.md, which is absent from the tree\$" & pids+=("$!")
+run_case path_index_unavailable \
+  "^board error: declared-path materialization is unverifiable: 1 declared path\(s\) are absent and .+ exposes no readable Git index to separate planned work from a deleted artifact\$" & pids+=("$!")
+run_pass_case path_future_valid & pids+=("$!")
 run_case covers_partial \
   "^board error: .*/$card: AC-001 must contain exactly one Covers controls list\$" & pids+=("$!")
 run_case orphan_requirement \
