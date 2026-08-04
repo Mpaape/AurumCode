@@ -20,23 +20,25 @@ func TestClientRetryOn500(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	
+
 	client := NewClient(server.URL)
+	client.backoffBase = time.Millisecond
 	req := &Request{
 		Method: "GET",
 		Path:   "/test",
 	}
-	
+
 	ctx := context.Background()
 	resp, err := client.Do(ctx, req)
 	if err != nil {
 		t.Fatalf("Request should succeed after retries: %v", err)
 	}
-	
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
 	}
-	
+
 	if attempts != 3 {
 		t.Errorf("Expected 3 attempts, got %d", attempts)
 	}
@@ -54,19 +56,21 @@ func TestClientRateLimitRetry(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	
+
 	client := NewClient(server.URL)
+	client.backoffBase = time.Millisecond
 	req := &Request{
 		Method: "GET",
 		Path:   "/test",
 	}
-	
+
 	ctx := context.Background()
 	resp, err := client.Do(ctx, req)
 	if err != nil {
 		t.Fatalf("Request should succeed after retries: %v", err)
 	}
-	
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
 	}
@@ -82,7 +86,7 @@ func TestRedactSecret(t *testing.T) {
 		{"X-API-Key: secret", "X-API-Key:***REDACTED***"},
 		{"normal string", "normal string"},
 	}
-	
+
 	for _, tt := range tests {
 		result := RedactSecret(tt.input)
 		if result != tt.expected {
@@ -97,22 +101,22 @@ func TestDecodeJSON(t *testing.T) {
 		w.Write([]byte(`{"message": "hello", "count": 42}`))
 	}))
 	defer server.Close()
-	
+
 	resp, err := http.Get(server.URL)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
-	
+
 	var result map[string]interface{}
 	err = DecodeJSON(resp, &result)
 	if err != nil {
 		t.Fatalf("Failed to decode JSON: %v", err)
 	}
-	
+
 	if result["message"] != "hello" {
 		t.Errorf("Expected message 'hello', got %v", result["message"])
 	}
-	
+
 	if result["count"] != float64(42) {
 		t.Errorf("Expected count 42, got %v", result["count"])
 	}
@@ -124,22 +128,21 @@ func TestTimeout(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	client := NewClient(server.URL)
-	client.timeout = 100 * time.Millisecond
-	client.httpClient.Timeout = client.timeout
-	
+	client.httpClient.Timeout = 100 * time.Millisecond
+	client.backoffBase = time.Millisecond
+
 	req := &Request{
 		Method: "GET",
 		Path:   "/test",
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	
+
 	_, err := client.Do(ctx, req)
 	if err == nil {
 		t.Error("Expected timeout error")
 	}
 }
-

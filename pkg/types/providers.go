@@ -2,18 +2,18 @@ package types
 
 // Options represents LLM request options
 type Options struct {
-	Temperature float64            `json:"temperature"`
-	MaxTokens   int                `json:"max_tokens"`
-	Model       string             `json:"model,omitempty"`
-	Metadata    map[string]string  `json:"metadata,omitempty"`
+	Temperature float64           `json:"temperature"`
+	MaxTokens   int               `json:"max_tokens"`
+	Model       string            `json:"model,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 // Response represents an LLM response
 type Response struct {
-	Content     string `json:"content"`
-	TokensUsed  int    `json:"tokens_used"`
-	Model       string `json:"model"`
-	Provider    string `json:"provider"`
+	Content    string `json:"content"`
+	TokensUsed int    `json:"tokens_used"`
+	Model      string `json:"model"`
+	Provider   string `json:"provider"`
 }
 
 // Provider defines the interface for LLM providers
@@ -30,8 +30,6 @@ type GitClient interface {
 	PostReviewComment(repo, owner string, prNumber int, comment ReviewComment) error
 	SetStatus(repo, owner, sha, status, context, description string) error
 }
-
-// ReviewComment is defined in types.go
 
 // CostTracker defines the interface for budget management
 type CostTracker interface {
@@ -51,4 +49,3 @@ type ResponseParser interface {
 	ParseJSON(content string, schema interface{}) error
 	ParseMarkdown(content string) (string, error)
 }
-

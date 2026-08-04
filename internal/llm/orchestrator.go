@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/llm/cost"
+	"sync/atomic"
 	"time"
+
+	"github.com/Mpaape/AurumCode/internal/llm/cost"
 )
 
 var (
@@ -19,19 +21,33 @@ var (
 	ErrAllProvidersFailed = errors.New("all providers failed")
 )
 
+// defaultProviderTimeout bounds a single provider call when the caller's
+// context carries no deadline of its own.
+const defaultProviderTimeout = 60 * time.Second
+
+// defaultMaxTokens is the output estimate used for the budget check when the
+// caller does not cap the response.
+const defaultMaxTokens = 1000
+
 // Orchestrator manages LLM provider chains with fallback and budget enforcement
 type Orchestrator struct {
-	primary   Provider
-	fallbacks []Provider
+	providers []Provider
 	tracker   *cost.Tracker
 	estimator *Estimator
+	untracked atomic.Int64
 }
 
 // NewOrchestrator creates a new orchestrator with a primary provider and optional fallbacks
 func NewOrchestrator(primary Provider, fallbacks []Provider, tracker *cost.Tracker) *Orchestrator {
+	providers := make([]Provider, 0, len(fallbacks)+1)
+	for _, p := range append([]Provider{primary}, fallbacks...) {
+		if p != nil {
+			providers = append(providers, p)
+		}
+	}
+
 	return &Orchestrator{
-		primary:   primary,
-		fallbacks: fallbacks,
+		providers: providers,
 		tracker:   tracker,
 		estimator: NewEstimator(),
 	}
@@ -39,87 +55,88 @@ func NewOrchestrator(primary Provider, fallbacks []Provider, tracker *cost.Track
 
 // Complete executes a completion request with fallback chain and budget enforcement
 func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options) (Response, error) {
-	if o.primary == nil && len(o.fallbacks) == 0 {
+	if len(o.providers) == 0 {
 		return Response{}, ErrNoProviders
-	}
-
-	// Build provider chain: primary + fallbacks
-	providers := []Provider{o.primary}
-	providers = append(providers, o.fallbacks...)
-
-	// Estimate tokens
-	tokensIn, err := o.estimator.EstimateTokens(prompt)
-	if err != nil {
-		// Use heuristic if estimation fails
-		tokensIn = len(prompt) / 4
 	}
 
 	tokensOut := opts.MaxTokens
 	if tokensOut == 0 {
-		tokensOut = 1000 // reasonable default estimate
+		tokensOut = defaultMaxTokens
 	}
 
 	var lastErr error
 
-	// Try each provider in order
-	for i, provider := range providers {
-		if provider == nil {
-			continue
+	for i, provider := range o.providers {
+		// Resolve ONE model key for this attempt. The ceiling below and the
+		// charge further down must both be accounted against this exact key: if
+		// they diverge, the ledger the ceiling reads never moves and the cap is
+		// silently inert. Each provider gets its own key, because each one bills
+		// a different model.
+		modelKey := ResolveModelKey(provider, opts)
+
+		tokensIn := o.estimator.Estimate(provider, prompt, modelKey)
+
+		// Reserve books the estimate up front. A bare check-then-charge pair
+		// lets every concurrent request clear a ceiling only one of them fits
+		// under, because none of them has written to the ledger the others read.
+		var reservation *cost.Reservation
+		if o.tracker != nil {
+			res, ok := o.tracker.Reserve(tokensIn, tokensOut, modelKey)
+			if !ok {
+				return Response{}, fmt.Errorf("%w: insufficient budget for %s (model %q)",
+					ErrBudgetExceeded, provider.Name(), modelKey)
+			}
+			reservation = res
 		}
 
-		// Check budget before attempting
-		model := opts.ModelKey
-		if model == "" {
-			model = "default"
-		}
-
-		if o.tracker != nil && !o.tracker.Allow(tokensIn, tokensOut, model) {
-			return Response{}, fmt.Errorf("%w: insufficient budget for %s", ErrBudgetExceeded, provider.Name())
-		}
-
-		// Execute with timeout
 		resp, err := o.executeWithTimeout(ctx, provider, prompt, opts)
 		if err != nil {
+			// Nothing billable happened: hand the hold back before falling
+			// through to the next provider, otherwise a failed attempt keeps
+			// consuming the budget its successor needs.
+			reservation.Release()
+
 			lastErr = fmt.Errorf("provider %s failed: %w", provider.Name(), err)
 
-			// If this is not the last provider, continue to next
-			if i < len(providers)-1 {
+			if i < len(o.providers)-1 {
 				continue
 			}
 
-			// All providers failed
-			return Response{}, fmt.Errorf("%w: %v", ErrAllProvidersFailed, lastErr)
+			return Response{}, fmt.Errorf("%w: %w", ErrAllProvidersFailed, lastErr)
 		}
 
-		// Success - record spending
-		if o.tracker != nil {
-			if err := o.tracker.Spend(resp.TokensIn, resp.TokensOut, resp.Model); err != nil {
-				// Log but don't fail on tracking error
-				fmt.Printf("warning: failed to record spending: %v\n", err)
+		if reservation != nil {
+			// Swap the reserved estimate for the actual cost, on the same key
+			// the ceiling was enforced against.
+			if err := reservation.Commit(resp.TokensIn, resp.TokensOut, modelKey); err != nil {
+				// The request already succeeded and the money is already spent;
+				// failing here would discard a paid response. Record instead,
+				// so a run with no cost control is observable.
+				o.untracked.Add(1)
 			}
 		}
 
 		return resp, nil
 	}
 
-	return Response{}, fmt.Errorf("%w: %v", ErrAllProvidersFailed, lastErr)
+	return Response{}, fmt.Errorf("%w: %w", ErrAllProvidersFailed, lastErr)
 }
 
 // executeWithTimeout wraps provider execution with context timeout
 func (o *Orchestrator) executeWithTimeout(ctx context.Context, provider Provider, prompt string, opts Options) (Response, error) {
-	// Create timeout context if not already set
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, defaultProviderTimeout)
 		defer cancel()
 	}
 
-	// Execute in goroutine to respect context
 	type result struct {
 		resp Response
 		err  error
 	}
 
+	// Buffered so the provider goroutine can finish and exit after a timeout
+	// instead of blocking forever on an abandoned send.
 	resultCh := make(chan result, 1)
 
 	go func() {
@@ -137,18 +154,10 @@ func (o *Orchestrator) executeWithTimeout(ctx context.Context, provider Provider
 
 // GetProviderChain returns the current provider chain (primary + fallbacks)
 func (o *Orchestrator) GetProviderChain() []string {
-	names := []string{}
-
-	if o.primary != nil {
-		names = append(names, o.primary.Name())
+	names := make([]string, 0, len(o.providers))
+	for _, p := range o.providers {
+		names = append(names, p.Name())
 	}
-
-	for _, p := range o.fallbacks {
-		if p != nil {
-			names = append(names, p.Name())
-		}
-	}
-
 	return names
 }
 
@@ -158,6 +167,12 @@ func (o *Orchestrator) RemainingBudget() (float64, float64) {
 		return 0, 0
 	}
 	return o.tracker.Remaining()
+}
+
+// UntrackedSpends returns how many completions were paid for but charged to no
+// budget, because the model key has no price entry.
+func (o *Orchestrator) UntrackedSpends() int {
+	return int(o.untracked.Load())
 }
 
 // ResetPerRunBudget resets the per-run budget counter

@@ -175,8 +175,15 @@ func TestIrregularArtifactEntriesAreRefusedNotRead(t *testing.T) {
 // TestCorroborationRefusesARouteTheHarnessKeptNoCopyOf covers the nil-body
 // refusal on its own terms: with no copy to check against, the harness reports
 // that it could not judge instead of blaming the artifact for what it did not
-// see. Deleting the guard turns this into a functional refusal of a page that
-// was served whole.
+// see.
+//
+// The first case is the one that pins the guard rather than its neighbours. Its
+// observation is shaped so that every later check in corroborateContent would
+// wave it through — no reported text, no links, no selector claim — so nothing
+// but the nil-body refusal can answer it. Delete the guard and that case is
+// corroborated, and Run then reads a page the server delivered whole as
+// BROWSERPROOF_EMPTY_RENDER: a functional refusal of the artifact for something
+// only the harness's own ledger budget caused.
 func TestCorroborationRefusesARouteTheHarnessKeptNoCopyOf(t *testing.T) {
 	served := ledgerEntry{
 		Route:  "/p5.html",
@@ -186,25 +193,109 @@ func TestCorroborationRefusesARouteTheHarnessKeptNoCopyOf(t *testing.T) {
 		Body:   nil, // past the ledger budget the server keeps nothing
 	}
 
-	// The driver reports a page that renders nothing, which is the one shape
-	// that every later corroboration check waves through.
-	observation := PageObservation{
-		Status:         http.StatusOK,
-		Bytes:          served.Bytes,
-		SelectorFound:  true,
-		Text:           "ExtractorPipeline",
-		BodyTextLength: 0,
+	cases := map[string]PageObservation{
+		"an observation no later check objects to": {
+			Status:         http.StatusOK,
+			Bytes:          served.Bytes,
+			SelectorFound:  false,
+			BodyTextLength: 0,
+		},
+		"an observation that claims the selector and its text": {
+			Status:         http.StatusOK,
+			Bytes:          served.Bytes,
+			SelectorFound:  true,
+			Text:           "ExtractorPipeline",
+			BodyTextLength: 0,
+		},
 	}
 
-	step := corroborateContent(observation, served, "#symbol-name", false)
-	if step == nil {
-		t.Fatal("an observation with nothing to check it against was corroborated")
+	for name, observation := range cases {
+		observation := observation
+		t.Run(name, func(t *testing.T) {
+			step := corroborateContent(observation, served, "#symbol-name", false)
+			if step == nil {
+				t.Fatal("an observation with nothing to check it against was corroborated")
+			}
+			if step.code != CodeObservationUnsupported {
+				t.Fatalf("code = %q, want %s", step.code, CodeObservationUnsupported)
+			}
+			// Another check reaching the same code is not this guard acting: the
+			// refusal has to be the missing copy, or the case proves nothing
+			// about the guard it is named after.
+			if !strings.Contains(step.detail, "kept no copy") {
+				t.Fatalf("the refusal must name the missing copy, got %q", step.detail)
+			}
+			if outcomeOfCode(step.code) != OutcomeInconclusive {
+				t.Fatalf("a route the harness kept no copy of was reported as %q", outcomeOfCode(step.code))
+			}
+		})
 	}
-	if step.code != CodeObservationUnsupported {
-		t.Fatalf("code = %q, want %s", step.code, CodeObservationUnsupported)
+
+	// The counterweight: the same route with a copy kept is corroborated, so the
+	// refusals above are about the missing bytes and not about the shape of an
+	// observation the harness dislikes.
+	whole := served
+	whole.Body = []byte(`<!doctype html><html><body><h1 id="symbol-name">ExtractorPipeline</h1></body></html>`)
+	whole.Bytes = int64(len(whole.Body))
+
+	honest := PageObservation{
+		Status:         http.StatusOK,
+		Bytes:          whole.Bytes,
+		SelectorFound:  true,
+		Text:           "ExtractorPipeline",
+		BodyTextLength: len("ExtractorPipeline"),
 	}
-	if outcomeOfCode(step.code) != OutcomeInconclusive {
-		t.Fatalf("a route the harness kept no copy of was reported as %q", outcomeOfCode(step.code))
+	if step := corroborateContent(honest, whole, "#symbol-name", false); step != nil {
+		t.Fatalf("an honest observation of a page the harness kept was refused: %v", step)
+	}
+}
+
+// TestSiteServerRefusesASiblingThatOnlySharesTheRootsName reads the containment
+// check literally: "under the root" ends at a path separator. A sibling
+// directory whose name merely starts with the artifact's own name is not part of
+// the artifact, and a directory link inside the build reaches it without any
+// route ever spelling an escape — the final path component is a plain file, so
+// the Lstat refusal never sees it and only the prefix check decides.
+func TestSiteServerRefusesASiblingThatOnlySharesTheRootsName(t *testing.T) {
+	requireSymlinks(t)
+
+	parent := t.TempDir()
+	root := filepath.Join(parent, "site")
+	sibling := filepath.Join(parent, "site-next-door")
+
+	for _, dir := range []string{root, sibling} {
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "index.html"),
+		[]byte(`<!doctype html><html><body><p>index</p></body></html>`), 0o644); err != nil {
+		t.Fatalf("write page: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sibling, "bait.html"),
+		[]byte(`<!doctype html><html><body><p>`+baitMarker+`</p></body></html>`), 0o600); err != nil {
+		t.Fatalf("write bait: %v", err)
+	}
+	if err := os.Symlink(sibling, filepath.Join(root, "next")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	server, err := startSiteServer(root)
+	if err != nil {
+		t.Fatalf("start server: %v", err)
+	}
+	defer server.Close()
+
+	status, body := get(t, server.URL("/next/bait.html"))
+	if status != http.StatusNotFound {
+		t.Fatalf("a directory beside the artifact answered %d, want %d", status, http.StatusNotFound)
+	}
+	if strings.Contains(body, baitMarker) {
+		t.Fatal("a directory that only shares the artifact's name prefix was served as part of it")
+	}
+
+	if status, _ := get(t, server.URL("/index.html")); status != http.StatusOK {
+		t.Fatalf("the artifact's own page answered %d, want %d", status, http.StatusOK)
 	}
 }
 
