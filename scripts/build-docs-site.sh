@@ -2,15 +2,149 @@
 
 # Build complete documentation website
 # Combines: static godoc + LLM-enhanced docs + CHANGELOG + existing docs/
+#
+# WHAT COUNTS AS A BUILT SITE
+#
+#   Only an artifact DERIVED FROM THE SOURCE TREE by a documentation generator
+#   does. The homepage below is a hardcoded template: writing it needs no source
+#   tree, no generator and no work at all, so its presence proves nothing. The
+#   `<pre>`-wrapped copies of README.md / CHANGELOG.md / docs/*.md are likewise
+#   transcriptions of hand-written files, not generated documentation.
+#
+#   The previous revision wrote the template unconditionally and exited 0, which
+#   satisfied the caller's "did the build produce a site" check with a directory
+#   that contained no generated documentation whatsoever. This revision collects
+#   the derived artifacts FIRST, refuses to build at all when there are none,
+#   and records what it absorbed in a manifest the caller can re-check against
+#   disk.
+#
+# EXIT CODES are disjoint on purpose, mirroring tests/acceptance/*.sh:
+#   0  a site containing at least one source-derived artifact was written
+#   1  behavioral failure: nothing derived from the source was available, so
+#      the only thing this script could have produced is the static template
+#   3  environment failure: a required tool is absent
 
-set -e
+set -euo pipefail
+
+EXIT_BEHAVIOR=1
+EXIT_ENVIRONMENT=3
+readonly EXIT_BEHAVIOR EXIT_ENVIRONMENT
 
 echo "🏗️  Building Documentation Website"
 echo ""
 
 OUTPUT_DIR="docs/public"
+
+# Directory the source-reading generator (regenerate-docs) writes into. Kept in
+# sync with the caller through the environment so both agree on one path.
+AURUMCODE_OUTPUT_DIR="${AURUMCODE_OUTPUT_DIR:-.aurumcode}"
+
+# Name of the manifest, relative to OUTPUT_DIR. The caller reads it to tell a
+# generated site from a static template.
+DERIVED_MANIFEST_NAME=".aurumcode-derived.manifest"
+
+for tool in find cp mkdir; do
+    command -v "$tool" >/dev/null 2>&1 || {
+        echo "ERROR: required tool '$tool' is not available in this image." >&2
+        exit "$EXIT_ENVIRONMENT"
+    }
+done
+
+# Staging area, so a build that turns out to have nothing derived to publish
+# never leaves a homepage behind that looks like a finished site.
+STAGE="$(mktemp -d "${TMPDIR:-/tmp}/aurumcode-site.XXXXXX")" || {
+    echo "ERROR: cannot create a staging directory under '${TMPDIR:-/tmp}'." >&2
+    exit "$EXIT_ENVIRONMENT"
+}
+trap 'rm -rf "$STAGE"' EXIT
+
+# absorb <source-root> <destination-subdir> <label>
+# Copies a tree of generator output into the staging site and records every
+# file it took in DERIVED_ROWS. Returns without recording anything when the
+# root is absent or empty; that is not an error here, it is simply one source
+# of derived documentation that this run does not have.
+DERIVED_ROWS="$STAGE/.rows"
+: >"$DERIVED_ROWS"
+
+# The fourth argument says WHICH of the copied files may be recorded as derived
+# documentation:
+#
+#   documentation  only markdown, and never the `index.md` landing page at the
+#                  root of the tree. The generator writes that page, plus
+#                  `_config.yml` and its incremental cache, on every run
+#                  regardless of whether it documented anything; recording them
+#                  would let scaffolding and a cache file satisfy the caller's
+#                  "is there anything derived here" check all by themselves.
+#   any            every file, for trees that only exist because a tool
+#                  produced them.
+absorb() {
+    local src="$1" destsub="$2" label="$3" record="$4"
+    local staged rel
+
+    [ -d "$src" ] || return 0
+    if [ -z "$(find "$src" -type f -print -quit)" ]; then
+        echo "  (no $label to absorb: '$src' holds no file)"
+        return 0
+    fi
+
+    echo "$label..."
+    mkdir -p "$STAGE/$destsub"
+    # `src/.` rather than `src/*`: an existing but empty directory made the
+    # glob expand to a literal and aborted the build under `set -e`.
+    cp -R "$src/." "$STAGE/$destsub/"
+
+    # Record what actually landed, re-read from the staged copy rather than
+    # from the copy instruction, so the manifest describes the site on disk.
+    #
+    # NUL-separated: these names come from the consumer's repository and may
+    # contain a newline or a tab. Either one would forge extra rows in a
+    # tab-separated, line-oriented manifest, so such a name is reported and
+    # dropped instead of being written out.
+    while IFS= read -r -d '' staged; do
+        rel="${staged#"$STAGE/$destsub"/}"
+
+        case "$record" in
+            documentation)
+                case "$rel" in
+                    index.md) continue ;;
+                    *.md) ;;
+                    *) continue ;;
+                esac
+                ;;
+        esac
+
+        case "$rel" in
+            *[[:cntrl:]]*)
+                echo "  WARNING: not recording a file whose name contains a control character; it stays in the site but is not counted as derived documentation." >&2
+                continue
+                ;;
+        esac
+
+        printf '%s\t%s\n' "$src" "${destsub}/${rel}" >>"$DERIVED_ROWS"
+    done < <(find "$STAGE/$destsub" -type f -print0)
+}
+
+absorb "$AURUMCODE_OUTPUT_DIR" "generated" "📦 Absorbing generated documentation" documentation
+absorb "docs/static/godoc" "godoc" "📦 Absorbing static godoc documentation" any
+absorb "docs/enhanced" "enhanced" "✨ Absorbing enhanced documentation" any
+
+derived_count=$(wc -l <"$DERIVED_ROWS" | tr -d ' ')
+
+if [ "${derived_count:-0}" -eq 0 ]; then
+    echo "" >&2
+    echo "ERROR: refusing to build a documentation site: nothing derived from the source tree is available." >&2
+    echo "       Looked in: '${AURUMCODE_OUTPUT_DIR}' (generator output), 'docs/static/godoc', 'docs/enhanced'." >&2
+    echo "       The only thing this script could still write is its hardcoded homepage template," >&2
+    echo "       which requires no source tree and no generator run, so it is not a built site." >&2
+    echo "       Run the documentation generator first." >&2
+    exit "$EXIT_BEHAVIOR"
+fi
+
+# Only now is there something worth publishing, so the site is materialised.
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
+cp -R "$STAGE/." "$OUTPUT_DIR/"
+rm -f "$OUTPUT_DIR/.rows"
 
 # Create homepage
 echo "📄 Creating homepage..."
@@ -187,21 +321,8 @@ cat > "$OUTPUT_DIR/index.html" <<'EOF'
 </html>
 EOF
 
-# Copy static godoc
-if [ -d "docs/static/godoc" ]; then
-    echo "📦 Copying static documentation..."
-    mkdir -p "$OUTPUT_DIR/godoc"
-    cp -r docs/static/godoc/* "$OUTPUT_DIR/godoc/"
-fi
-
-# Copy enhanced docs
-if [ -d "docs/enhanced" ]; then
-    echo "✨ Copying enhanced documentation..."
-    mkdir -p "$OUTPUT_DIR/enhanced"
-    cp -r docs/enhanced/* "$OUTPUT_DIR/enhanced/"
-fi
-
-# Convert markdown files to HTML
+# Convert markdown files to HTML. These are transcriptions of hand-written
+# repository files, so they are deliberately NOT recorded as derived artifacts.
 echo "📄 Converting markdown to HTML..."
 
 for md in docs/*.md CHANGELOG.md README.md; do
@@ -214,12 +335,26 @@ for md in docs/*.md CHANGELOG.md README.md; do
     fi
 done
 
+# Record the derived artifacts. Every row names the generator output root it
+# came from and the site-relative path it now occupies, so a caller can check
+# each claim against the file system instead of believing the count.
+{
+    echo "# AurumCode documentation site: source-derived artifact manifest"
+    echo "# Rows: <generator-output-root><TAB><site-relative-path>"
+    echo "# The homepage template and the markdown transcriptions are not listed:"
+    echo "# neither requires a source tree or a generator run."
+    cat "$DERIVED_ROWS"
+    echo "derived_files=${derived_count}"
+} > "$OUTPUT_DIR/$DERIVED_MANIFEST_NAME"
+
 echo ""
 echo "✅ Documentation site built successfully"
 echo ""
 echo "📊 Site Statistics:"
 echo "  Total files: $(find "$OUTPUT_DIR" -type f | wc -l)"
+echo "  Source-derived files: ${derived_count}"
 echo "  Size: $(du -sh "$OUTPUT_DIR" | cut -f1)"
 echo ""
-echo "🌐 Site will be available at:"
-echo "   https://mpaape.github.io/AurumCode/"
+echo "This step only built the site locally into '$OUTPUT_DIR'."
+echo "It did not publish anything. The public URL is known only to the"
+echo "publishing step, which reports it as its own output."

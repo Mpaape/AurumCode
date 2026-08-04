@@ -29,6 +29,8 @@ bin/
 # The board runner is source, not Go build output — `bin/` above would swallow it.
 !.board/bin/
 dist/
+# `go build` with no -o drops the binary at the repo root under the package name.
+/regenerate-docs
 *.exe
 *.exe~
 *.dll
