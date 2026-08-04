@@ -140,6 +140,5 @@ exclude:
   - vendor/
   - README.md
   - LICENSE
-  - prompts/           # Internal prompt templates, not public documentation
-  - bash/              # Build scripts, not API documentation
+  - prompts/           # Internal prompt templates (Go placeholders break Liquid), not public documentation
   - iso25010-weights.yml
