@@ -18,7 +18,11 @@
 #   and records what it absorbed in a manifest the caller can re-check against
 #   disk.
 #
-# EXIT CODES are disjoint on purpose, mirroring tests/acceptance/*.sh:
+# EXIT CODES are disjoint on purpose. This is action-entrypoint.sh's own
+# convention (see that file): this script is dispatched by it, and its exit
+# status is read there via a case block, by literal value. tests/acceptance/*.sh
+# keeps a separate, independently documented convention of its own, in
+# tests/acceptance/EXIT_CODE_CONVENTION.md:
 #   0  a site containing at least one source-derived artifact was written
 #   1  behavioral failure: nothing derived from the source was available, so
 #      the only thing this script could have produced is the static template
