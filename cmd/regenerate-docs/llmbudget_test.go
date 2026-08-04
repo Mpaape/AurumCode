@@ -161,6 +161,34 @@ func TestResolveLLMBudgetRejectsHalfAPrice(t *testing.T) {
 	}
 }
 
+// TestResolveLLMBudgetRejectsZeroPrice reproduces the exact defect that was
+// reported: AURUMCODE_LLM_INPUT_USD_PER_1K=0 and
+// AURUMCODE_LLM_OUTPUT_USD_PER_1K=0 used to produce Enforced=true and the
+// success log line, while every completion priced at exactly $0 - a ceiling
+// that can never bind, mislabelled as live. A $0 explicit price is now
+// rejected outright: it is fail-closed, not a way to declare a free model.
+// An operator who genuinely runs a free or local model has the existing,
+// honest opt-out (AURUMCODE_LLM_ALLOW_UNPRICED=true), which reports
+// Enforced=false instead of lying about a cap that cannot fire.
+func TestResolveLLMBudgetRejectsZeroPrice(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv(envLLMInputPer1K, "0")
+	t.Setenv(envLLMOutputPer1K, "0")
+
+	budget, err := resolveLLMBudget(defaultLLMModel)
+	if err == nil {
+		t.Fatalf("a $0/$0 price was accepted instead of rejected: %+v", budget)
+	}
+	if budget.Enforced {
+		t.Fatal("a rejected configuration must not come back with Enforced=true")
+	}
+	for _, want := range []string{envLLMInputPer1K, envLLMOutputPer1K, envLLMAllowUnpriced} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %s, so the operator has no path forward: %v", want, err)
+		}
+	}
+}
+
 func TestResolveLLMBudgetExplicitUnpricedOptOut(t *testing.T) {
 	clearLLMEnv(t)
 	t.Setenv(envLLMAllowUnpriced, "true")
@@ -202,6 +230,9 @@ func TestResolveLLMBudgetRejectsBadNumbers(t *testing.T) {
 		{name: "daily below per-run", env: map[string]string{envLLMPerRunUSD: "100", envLLMDailyUSD: "10"}},
 		{name: "price not a number", env: map[string]string{envLLMInputPer1K: "cheap", envLLMOutputPer1K: "0.1"}},
 		{name: "price negative", env: map[string]string{envLLMInputPer1K: "-0.1", envLLMOutputPer1K: "0.1"}},
+		{name: "price zero, both sides", env: map[string]string{envLLMInputPer1K: "0", envLLMOutputPer1K: "0"}},
+		{name: "price zero, input side only", env: map[string]string{envLLMInputPer1K: "0", envLLMOutputPer1K: "0.1"}},
+		{name: "price zero, output side only", env: map[string]string{envLLMInputPer1K: "0.1", envLLMOutputPer1K: "0"}},
 		{name: "opt-out garbage", env: map[string]string{envLLMAllowUnpriced: "maybe"}},
 	}
 
