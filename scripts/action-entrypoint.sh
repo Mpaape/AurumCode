@@ -16,7 +16,15 @@
 #     Its hardcoded homepage template is not evidence of anything: writing it
 #     requires no source tree and no generator run.
 #
-# EXIT CODES are disjoint on purpose, mirroring tests/acceptance/*.sh:
+# EXIT CODES are disjoint on purpose. This is this script's own convention,
+# self-contained to this file and the two helper scripts it dispatches to
+# (build-docs-site.sh, generate-enhanced-docs.sh), whose statuses the case
+# blocks below read by literal value. tests/acceptance/*.sh keeps a
+# separate, independently documented convention of its own, in
+# tests/acceptance/EXIT_CODE_CONVENTION.md, using 79 where this family uses
+# 3 for the "environment failure" concept. The two never share a process -
+# no acceptance program runs a scripts/ file - so neither number is ever
+# read against the other's table:
 #   0   the requested mode ran and produced what it promises
 #   1   behavioral failure: the pipeline ran and the result is wrong or absent
 #   3   environment failure: a binary, script or workspace this image cannot
