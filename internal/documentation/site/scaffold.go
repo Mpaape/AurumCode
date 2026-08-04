@@ -53,6 +53,16 @@ type ScaffoldConfig struct {
 
 	// BaseURL is the Jekyll baseurl, e.g. "/my-repo" for a project Pages site.
 	BaseURL string
+
+	// GeneratedPages lists the markdown files this run actually produced. When
+	// it is set it is authoritative and the output directory is not walked.
+	//
+	// Walking is a guess: it cannot tell a page this run generated from a file
+	// that merely shares the directory, and the default OutputDir (.aurumcode)
+	// also holds the product's own prompt templates and rule files. Passing the
+	// list removes the guess entirely. Paths may be absolute or relative to
+	// OutputDir.
+	GeneratedPages []string
 }
 
 // ScaffoldPage is one generated documentation page as the index sees it.
@@ -61,6 +71,11 @@ type ScaffoldPage struct {
 	Title    string
 	Link     string
 	Symbols  []string
+
+	// Source is the page's path relative to DocsDir, in slash form. It is what
+	// the site config's exclude list is matched against, since Jekyll excludes
+	// source paths rather than the permalinks they publish under.
+	Source string
 }
 
 // ScaffoldResult reports what the scaffold left on disk.
@@ -69,6 +84,16 @@ type ScaffoldResult struct {
 	ConfigPath    string
 	Pages         []ScaffoldPage
 	ConfigCreated bool
+
+	// ExcludePatterns holds the exclude entries read from a pre-existing
+	// _config.yml. It is empty when the scaffold wrote the config itself.
+	ExcludePatterns []string
+
+	// ExcludedPages names the pages that were listed on the index but that the
+	// consumer's own exclude list keeps out of the build. Each one is published
+	// as a 404. The scaffold never rewrites a consumer's config, so reporting
+	// is the only honest thing it can do about the contradiction.
+	ExcludedPages []string
 }
 
 // Scaffold turns a directory of generated markdown into something a static site
@@ -119,11 +144,19 @@ func (s *Scaffold) Generate() (*ScaffoldResult, error) {
 		Pages:      pages,
 	}
 
-	created, err := s.writeConfig(result.ConfigPath)
+	created, excludes, err := s.writeConfig(result.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
 	result.ConfigCreated = created
+
+	// A config the scaffold wrote itself never contradicts the index: it has no
+	// exclude entries for the directories the index just listed. Reporting is
+	// only meaningful - and only honest - against a consumer's own file.
+	if !created {
+		result.ExcludePatterns = excludes
+		result.ExcludedPages = excludedPages(excludes, pages)
+	}
 
 	if err := s.writeIndex(result.IndexPath, pages); err != nil {
 		return nil, err
@@ -132,15 +165,84 @@ func (s *Scaffold) Generate() (*ScaffoldResult, error) {
 	return result, nil
 }
 
-// collectPages reads every generated markdown page under OutputDir and records
-// how the index should link to it. Only files that really exist are listed: the
-// index never advertises a page that was not written.
+// collectPages records how the index should link to the pages this run
+// produced. When the caller passed GeneratedPages, that list is authoritative
+// and is the only thing read: it names exactly the files this run wrote, so
+// nothing else under OutputDir is even opened.
+//
+// Without that list, collectPages falls back to walking OutputDir and treating
+// every ".md" file it finds as a generated page. That fallback is a guess: it
+// cannot distinguish a page this run wrote from a file that merely shares the
+// directory, and the default OutputDir (.aurumcode) also holds the product's
+// own prompt templates and rule files, which are input, not output.
+// skipScaffoldDir excludes the directories known to hold such input so the
+// walk does not index them, but a caller that wants a precise answer should
+// pass GeneratedPages instead of relying on that fallback.
 func (s *Scaffold) collectPages() ([]ScaffoldPage, error) {
 	root := s.config.OutputDir
 	if root == "" {
 		root = s.config.DocsDir
 	}
 
+	var pages []ScaffoldPage
+	var err error
+
+	if len(s.config.GeneratedPages) > 0 {
+		pages, err = s.collectListedPages(root)
+	} else {
+		pages, err = s.collectWalkedPages(root)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(pages, func(i, j int) bool {
+		if pages[i].Language != pages[j].Language {
+			return pages[i].Language < pages[j].Language
+		}
+		return pages[i].Link < pages[j].Link
+	})
+
+	return pages, nil
+}
+
+// collectListedPages reads exactly the files GeneratedPages names. A path may
+// be absolute or relative to root; either way it is read directly, with no
+// directory walk and no guessing about what else lives alongside it.
+func (s *Scaffold) collectListedPages(root string) ([]ScaffoldPage, error) {
+	var pages []ScaffoldPage
+
+	for _, listed := range s.config.GeneratedPages {
+		path := listed
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(root, path)
+		}
+
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return nil, fmt.Errorf("scaffold: read %s: %w", path, readErr)
+		}
+
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			rel = filepath.Base(path)
+		}
+		rel = filepath.ToSlash(rel)
+
+		if rel == "index.md" {
+			continue
+		}
+
+		pages = append(pages, s.describePage(path, rel, string(content)))
+	}
+
+	return pages, nil
+}
+
+// collectWalkedPages reads every generated markdown page under root by
+// walking the directory tree. It is the fallback used when the caller did not
+// state which files this run wrote; see collectPages for why that is a guess.
+func (s *Scaffold) collectWalkedPages(root string) ([]ScaffoldPage, error) {
 	var pages []ScaffoldPage
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -186,13 +288,6 @@ func (s *Scaffold) collectPages() ([]ScaffoldPage, error) {
 		return nil, err
 	}
 
-	sort.Slice(pages, func(i, j int) bool {
-		if pages[i].Language != pages[j].Language {
-			return pages[i].Language < pages[j].Language
-		}
-		return pages[i].Link < pages[j].Link
-	})
-
 	return pages, nil
 }
 
@@ -203,6 +298,7 @@ func (s *Scaffold) describePage(path, rel, content string) ScaffoldPage {
 		Language: "",
 		Title:    frontMatterValue(frontMatter, "title"),
 		Symbols:  extractSymbols(body),
+		Source:   s.sourceRel(path),
 	}
 
 	if parts := strings.SplitN(rel, "/", 2); len(parts) == 2 {
@@ -252,12 +348,28 @@ func (s *Scaffold) relativeLink(path string) string {
 	return strings.TrimSuffix(rel, filepath.Ext(rel)) + ".html"
 }
 
-func (s *Scaffold) writeConfig(path string) (bool, error) {
-	if _, err := os.Stat(path); err == nil {
-		// A consumer-owned config is never clobbered.
-		return false, nil
+// sourceRel resolves a page's path relative to DocsDir, in slash form. Jekyll
+// matches its exclude list against source paths - the ones on disk under the
+// site root - not against the permalinks those files publish under, so this is
+// the value ExcludedPages must compare exclude patterns against.
+func (s *Scaffold) sourceRel(path string) string {
+	rel, err := filepath.Rel(s.config.DocsDir, path)
+	if err != nil {
+		rel = filepath.Base(path)
+	}
+
+	return filepath.ToSlash(rel)
+}
+
+// writeConfig writes _config.yml when it is absent. When it already exists it
+// is left untouched - a consumer-owned config is never clobbered - but its
+// exclude list is read and returned so the caller can report any contradiction
+// between what it hides and what the index just listed.
+func (s *Scaffold) writeConfig(path string) (bool, []string, error) {
+	if existing, err := os.ReadFile(path); err == nil {
+		return false, parseExcludeList(string(existing)), nil
 	} else if !os.IsNotExist(err) {
-		return false, fmt.Errorf("scaffold: stat %s: %w", path, err)
+		return false, nil, fmt.Errorf("scaffold: stat %s: %w", path, err)
 	}
 
 	var b strings.Builder
@@ -281,10 +393,10 @@ func (s *Scaffold) writeConfig(path string) (bool, error) {
 	b.WriteString("  - vendor\n")
 
 	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
-		return false, fmt.Errorf("scaffold: write %s: %w", path, err)
+		return false, nil, fmt.Errorf("scaffold: write %s: %w", path, err)
 	}
 
-	return true, nil
+	return true, nil, nil
 }
 
 // writeIndex writes the landing page. Front matter is owned by the scaffold so
@@ -571,11 +683,105 @@ func languageDisplayName(language string) string {
 	}
 }
 
-// skipScaffoldDir skips build output and tooling directories that hold copies of
-// the generated pages.
+// parseExcludeList reads the top-level "exclude:" sequence from a Jekyll site
+// config. It is a purpose-built reader, not a YAML parser: it only needs to
+// find the block-sequence items under a top-level "exclude:" key, strip their
+// inline "# ..." comments and surrounding quotes, and stop at the next
+// top-level key. That is the exact shape both this repository's own
+// .aurumcode/_config.yml and Jekyll's own documentation use.
+func parseExcludeList(config string) []string {
+	var excludes []string
+	inExclude := false
+
+	for _, line := range strings.Split(strings.ReplaceAll(config, "\r\n", "\n"), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		topLevel := line[0] != ' ' && line[0] != '\t'
+
+		if !inExclude {
+			if topLevel && strings.HasPrefix(strings.TrimSpace(line), "exclude:") {
+				inExclude = true
+			}
+			continue
+		}
+
+		if topLevel {
+			// A new top-level key ends the exclude block.
+			inExclude = false
+			continue
+		}
+
+		item := strings.TrimSpace(line)
+		if !strings.HasPrefix(item, "-") {
+			continue
+		}
+		item = strings.TrimSpace(strings.TrimPrefix(item, "-"))
+
+		if idx := strings.Index(item, "#"); idx >= 0 {
+			item = strings.TrimSpace(item[:idx])
+		}
+		item = strings.Trim(item, `"'`)
+
+		if item != "" {
+			excludes = append(excludes, item)
+		}
+	}
+
+	return excludes
+}
+
+// excludeHidesPage reports whether any exclude entry keeps a page's source
+// path out of the build, and which entry does it. Jekyll's exclude matches a
+// path either exactly or as a directory prefix, so "bash/" (or "bash") hides
+// "bash/deploy.sh.md" but not "bash-utils/deploy.sh.md".
+func excludeHidesPage(excludes []string, source string) (bool, string) {
+	source = filepath.ToSlash(source)
+
+	for _, pattern := range excludes {
+		dir := strings.TrimSuffix(strings.TrimSpace(pattern), "/")
+		if dir == "" {
+			continue
+		}
+		if source == dir || strings.HasPrefix(source, dir+"/") {
+			return true, pattern
+		}
+	}
+
+	return false, ""
+}
+
+// excludedPages names, in listing order, the pages whose Source a consumer's
+// own exclude list keeps out of the build. The scaffold never rewrites that
+// config, so surfacing the contradiction is the only honest response to it.
+func excludedPages(excludes []string, pages []ScaffoldPage) []string {
+	var hidden []string
+
+	for _, page := range pages {
+		if ok, _ := excludeHidesPage(excludes, page.Source); ok {
+			hidden = append(hidden, page.Source)
+		}
+	}
+
+	return hidden
+}
+
+// skipScaffoldDir skips build output, tooling directories, and the product's
+// own input directories that happen to live under the default OutputDir.
+//
+// This is the minimum fix for the ghost-index defect, not the ideal one: it is
+// a fixed list of names, so it only protects against the input directories
+// known today (.aurumcode/prompts, read by internal/documentation/welcome, and
+// .aurumcode/rules) and says nothing about a directory added later. The ideal
+// fix is the caller passing ScaffoldConfig.GeneratedPages, which removes the
+// walk - and the guessing - entirely. Wiring that from the pipeline that calls
+// NewScaffold is outside this package; until it happens, this fallback is what
+// actually runs in production.
 func skipScaffoldDir(name string) bool {
 	switch name {
-	case "_site", ".jekyll-cache", ".sass-cache", "node_modules", ".git", "vendor":
+	case "_site", ".jekyll-cache", ".sass-cache", "node_modules", ".git", "vendor",
+		"prompts", "rules":
 		return true
 	}
 
