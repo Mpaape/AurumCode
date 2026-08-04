@@ -9,7 +9,11 @@
 # can stand in for it, so a run of this script is never on its own evidence
 # that documentation was generated.
 #
-# EXIT CODES are disjoint on purpose, mirroring tests/acceptance/*.sh:
+# EXIT CODES are disjoint on purpose. This is action-entrypoint.sh's own
+# convention (see that file): this script is dispatched by it, and its exit
+# status is read there via a case block, by literal value. tests/acceptance/*.sh
+# keeps a separate, independently documented convention of its own, in
+# tests/acceptance/EXIT_CODE_CONVENTION.md:
 #   0   enhancement work was performed
 #   1   behavioral failure: the run was expected to enhance something and did
 #       not (for example a full run over a godoc tree that holds no HTML)
