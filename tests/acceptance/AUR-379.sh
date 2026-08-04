@@ -19,9 +19,14 @@ fail() {
   exit 1
 }
 
+infra() {
+  printf '%s/AC-001/infrastructure: %s\n' "$card" "$1" >&2
+  exit 79
+}
+
 [[ -f "$source_file" && ! -L "$source_file" ]] || fail claim_without_disposition
 bytes="$(wc -c <"$source_file" | tr -d ' ')"
-(( bytes <= 2097152 )) || fail input_limit_exceeded
+(( bytes <= 2097152 )) || infra input_limit_exceeded
 claims="$repo_root/tests/migration/legacy/public-docs/AUR-379/claims.tsv"
 [[ -s "$claims" && ! -L "$claims" ]] || fail claim_without_disposition
 source_sha="$(sha256sum "$source_file" | awk '{print $1}')"

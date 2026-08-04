@@ -19,9 +19,14 @@ fail() {
   exit 1
 }
 
+infra() {
+  printf '%s/AC-001/infrastructure: %s\n' "$card" "$1" >&2
+  exit 79
+}
+
 [[ -f "$source_file" && ! -L "$source_file" ]] || fail guide_claim_unmapped
 bytes="$(wc -c <"$source_file" | tr -d ' ')"
-(( bytes <= 2097152 )) || fail input_limit_exceeded
+(( bytes <= 2097152 )) || infra input_limit_exceeded
 claims="$repo_root/tests/characterization/legacy/guide-claims/AUR-385/claims.tsv"
 [[ -s "$claims" && ! -L "$claims" ]] || fail guide_claim_unmapped
 source_sha="$(sha256sum "$source_file" | awk '{print $1}')"

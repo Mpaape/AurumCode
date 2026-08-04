@@ -19,6 +19,11 @@ fail() {
   exit 1
 }
 
+infra() {
+  printf '%s/AC-001/infrastructure: %s\n' "$card" "$1" >&2
+  exit 79
+}
+
 [[ -f "$source_file" && ! -L "$source_file" ]] || fail ignore_semantics_incomplete
 manifest="$repo_root/tests/characterization/legacy/root-ignores/AUR-390/manifest.tsv"
 [[ -s "$manifest" && ! -L "$manifest" ]] || fail ignore_semantics_incomplete
