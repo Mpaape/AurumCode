@@ -3,7 +3,9 @@ package csharp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,6 +27,12 @@ func TestNewCSharpExtractor(t *testing.T) {
 	}
 }
 
+// errLookupFailed reproduces the error a runner returns when the executable is
+// absent from PATH, wrapped the way site.DefaultRunner wraps it.
+func errLookupFailed(tool string) error {
+	return fmt.Errorf("command failed: %w", &exec.Error{Name: tool, Err: exec.ErrNotFound})
+}
+
 func TestCSharpExtractor_Validate(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -44,9 +52,10 @@ func TestCSharpExtractor_Validate(t *testing.T) {
 			wantError:      false,
 		},
 		{
+			// A genuine lookup failure: the executable is absent from PATH.
 			name:          "dotnet not found",
 			dotnetOutput:  "",
-			dotnetErr:     errors.New("command not found"),
+			dotnetErr:     errLookupFailed("dotnet"),
 			wantError:     true,
 			errorContains: "dotnet not found",
 		},
@@ -55,9 +64,18 @@ func TestCSharpExtractor_Validate(t *testing.T) {
 			dotnetOutput:   "8.0.100",
 			dotnetErr:      nil,
 			xmldocmdOutput: "",
-			xmldocmdErr:    errors.New("command not found"),
+			xmldocmdErr:    errLookupFailed("xmldocmd"),
 			wantError:      true,
 			errorContains:  "xmldocmd not found",
+		},
+		{
+			// Installed but broken: this must not be reported as "not found",
+			// because the pipeline turns "not found" into a silent skip.
+			name:          "dotnet installed but failing",
+			dotnetOutput:  "",
+			dotnetErr:     errors.New("command failed: exit status 1"),
+			wantError:     true,
+			errorContains: "dotnet is installed but failed",
 		},
 	}
 

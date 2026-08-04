@@ -8,10 +8,41 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 )
+
+// writingRunner is a faithful stand-in for gomarkdoc: it honours "-o <path>" by
+// writing the document there, so a test that expects generated documentation is
+// backed by a file that really exists. A runner that only returns a zero exit
+// status proves nothing, because the extractor now confirms output on disk.
+type writingRunner struct {
+	*site.MockRunner
+}
+
+func newWritingRunner() *writingRunner {
+	return &writingRunner{MockRunner: site.NewMockRunner()}
+}
+
+func (w *writingRunner) Run(ctx context.Context, cmd string, args []string, workdir string, env map[string]string) (string, error) {
+	out, err := w.MockRunner.Run(ctx, cmd, args, workdir, env)
+	if err != nil {
+		return out, err
+	}
+
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] != "-o" {
+			continue
+		}
+		if writeErr := os.WriteFile(args[i+1], []byte("# Package docs\n"), 0o644); writeErr != nil {
+			return "", writeErr
+		}
+	}
+
+	return out, nil
+}
 
 func TestNewGoExtractor(t *testing.T) {
 	runner := site.NewMockRunner()
@@ -25,8 +56,60 @@ func TestNewGoExtractor(t *testing.T) {
 		t.Errorf("expected language %s, got %s", extractors.LanguageGo, extractor.Language())
 	}
 
-	if !extractor.incrementalMode {
-		t.Error("expected incremental mode to be enabled by default")
+	if extractor.incrementalMode {
+		t.Error("expected incremental mode to be disabled by default")
+	}
+}
+
+// TestGoExtractor_DefaultExtractionRegeneratesExistingDocs pins that the default
+// extractor regenerates documentation even when up-to-date output already exists.
+// A consumer that commits its generated docs directory must not get an empty run.
+func TestGoExtractor_DefaultExtractionRegeneratesExistingDocs(t *testing.T) {
+	srcDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(srcDir, "main.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("failed to create Go file: %v", err)
+	}
+
+	stalePath := filepath.Join(outputDir, "root.md")
+	if err := os.WriteFile(stalePath, []byte("# committed output\n"), 0644); err != nil {
+		t.Fatalf("failed to create existing doc: %v", err)
+	}
+
+	future := time.Now().Add(time.Hour)
+	if err := os.Chtimes(stalePath, future, future); err != nil {
+		t.Fatalf("failed to age existing doc: %v", err)
+	}
+
+	runner := site.NewMockRunner()
+	runner.WithOutput("gomarkdoc", "Documentation generated")
+
+	extractor := NewGoExtractor(runner)
+
+	result, err := extractor.Extract(context.Background(), &extractors.ExtractRequest{
+		Language:  extractors.LanguageGo,
+		SourceDir: srcDir,
+		OutputDir: outputDir,
+	})
+	if err != nil {
+		t.Fatalf("Extract failed: %v", err)
+	}
+
+	if result.Stats.DocsGenerated == 0 {
+		t.Fatalf("default extraction generated no documentation: %d files processed, %d docs generated",
+			result.Stats.FilesProcessed, result.Stats.DocsGenerated)
+	}
+
+	foundGomarkdoc := false
+	for _, call := range runner.GetCalls() {
+		if call.Cmd == "gomarkdoc" && len(call.Args) >= 2 {
+			foundGomarkdoc = true
+			break
+		}
+	}
+	if !foundGomarkdoc {
+		t.Error("expected gomarkdoc to be invoked for the existing package")
 	}
 }
 
@@ -108,8 +191,8 @@ func Add(a, b int) int {
 	// Create output directory
 	outputDir := filepath.Join(tmpDir, "docs")
 
-	// Setup mock runner
-	runner := site.NewMockRunner()
+	// Setup mock runner that writes the document it claims to generate
+	runner := newWritingRunner()
 	runner.WithOutput("gomarkdoc --version", "gomarkdoc 1.1.0")
 	runner.WithOutput("gomarkdoc", "Documentation generated")
 
@@ -135,6 +218,16 @@ func Add(a, b int) int {
 
 	if result.Stats.FilesProcessed == 0 {
 		t.Error("expected at least 1 file to be processed")
+	}
+
+	// Every document reported as generated must exist on disk.
+	if len(result.Files) != result.Stats.DocsGenerated {
+		t.Errorf("DocsGenerated=%d but %d files reported", result.Stats.DocsGenerated, len(result.Files))
+	}
+	for _, file := range result.Files {
+		if _, statErr := os.Stat(file); statErr != nil {
+			t.Errorf("reported file %s does not exist: %v", file, statErr)
+		}
 	}
 
 	// Verify gomarkdoc was called
