@@ -40,9 +40,17 @@ const (
 	// indexHeading is written by the site scaffold, not by this test.
 	indexHeading = "Generated API documentation"
 
-	// symbolSelector is the element a reader's eye lands on: the heading of the
-	// documented symbol on its own page.
-	symbolSelector = "h2"
+	// indexSelector pins the index page's heading, which the site scaffold
+	// writes and therefore stays stable across documentation tools.
+	indexSelector = "h2"
+
+	// symbolSelector deliberately reads the whole rendered body. Which heading
+	// level carries the documented symbol is a choice the documentation tool
+	// makes — the docgen stand-in emits it as an h2 while real gomarkdoc puts
+	// an "Index" section h2 first — so pinning a heading level asserts the
+	// tool, not the site. What a reader must find on the symbol's page is the
+	// symbol itself, anywhere in the rendered text.
+	symbolSelector = "body"
 
 	proofCard         = "tests/e2e/browser-chain"
 	proofNavDeadline  = 15 * time.Second
@@ -264,7 +272,7 @@ func runProof(
 		SiteDir:    site.root,
 		EntryRoute: indexRoute,
 		Assertions: []browserproof.RouteAssertion{
-			{Route: indexRoute, Selector: symbolSelector, ExpectedText: indexHeading},
+			{Route: indexRoute, Selector: indexSelector, ExpectedText: indexHeading},
 			{Route: symbolRoute, Selector: symbolSelector, ExpectedText: documentedSymbol},
 		},
 		DriverLock:         lock,
@@ -492,6 +500,13 @@ var (
 	markdownListItem = regexp.MustCompile(`^(\s*)-\s+(.*)$`)
 	markdownLink     = regexp.MustCompile(`\[([^\]]*)\]\(([^)\s]*)\)`)
 	markdownCode     = regexp.MustCompile("`([^`]*)`")
+
+	// rawAnchorLine is the standalone `<a name="..."></a>` line gomarkdoc
+	// emits before each symbol heading. Markdown renderers pass raw inline
+	// HTML through as markup, so a faithful publisher must too; escaping it
+	// would put literal angle brackets into the page text a reader sees,
+	// which browserproof rightly refuses as markup-in-text.
+	rawAnchorLine = regexp.MustCompile(`^<a\s+(?:name|id)="[^"]*"\s*>\s*</a>$`)
 )
 
 // renderMarkdown turns the generated markdown into HTML. It only ever maps a
@@ -541,6 +556,16 @@ func renderMarkdown(body string) string {
 		if trimmed == "" {
 			flushParagraph()
 			closeLists()
+			continue
+		}
+
+		// gomarkdoc precedes each symbol heading with a raw anchor line. It is
+		// markup, not text: pass it through like a renderer would, instead of
+		// escaping it into literal angle brackets a reader would see.
+		if rawAnchorLine.MatchString(trimmed) {
+			flushParagraph()
+			closeLists()
+			b.WriteString(trimmed + "\n")
 			continue
 		}
 
