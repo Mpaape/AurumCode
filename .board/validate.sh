@@ -67,6 +67,10 @@ declare -A scenario_when_owners=()
 declare -A scenario_then_owners=()
 declare -A tdd_green_owners=()
 declare -A non_goal_owners=()
+# Ratcheted (ratio: ok to already collide, never ok to collide *more*): the
+# `And` bullet of each scenario, and Non-goal bullets beyond the first.
+declare -A scenario_and_owners=()
+declare -A non_goal_extra_owners=()
 
 fail() {
   failed=1
@@ -141,22 +145,49 @@ subsection_body() {
   ' "$card"
 }
 
+# $2 (self_id, optional) is the AUR-NNN id of the card the text came from.
+# When given, only occurrences of THAT card's own id are folded to CARDREF --
+# e.g. `tests/specs/AUR-015/cases.yaml` in AUR-015's own Given -- so that two
+# cards which differ only by mechanically citing themselves still collide.
+# A card's text citing a *different* card's id (a dependency manifest, a
+# sibling path) is real distinguishing content and must not be blanked: doing
+# that indiscriminately for every `AUR-[0-9]{3}` in the text, regardless of
+# whose id it is, folds genuinely different preconditions (different
+# dependency sets) into a false collision across unrelated cards.
 normalize_spec_text() {
-  printf '%s' "$1" \
+  local text="$1"
+  local self_id="${2:-}"
+  # The self-id substitution must run while the id is still upper-case (the
+  # only case it ever appears in card prose), *before* the lowercasing pass
+  # below. Reordering these silently turns the substitution into dead code:
+  # the pattern can never match already-lowered text, so a card whose only
+  # textual delta from a sibling is its own cited id stops colliding --
+  # exactly the failure this substitution exists to catch.
+  if [[ -n "$self_id" ]]; then
+    text="$(printf '%s' "$text" | sed -E "s/${self_id}/CARDREF/g")"
+  fi
+  printf '%s' "$text" \
     | tr '[:upper:]' '[:lower:]' \
     | tr -d '`*_' \
-    | sed -E 's/AUR-[0-9]{3}/CARDREF/g; s/[[:space:]]+/ /g; s/^ //; s/ $//; s/[.;,]+$//'
+    | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//; s/[.;,]+$//'
 }
 
+# $4 (key_prefix, optional) scopes the collision bucket -- e.g. by bullet
+# position -- without affecting the length gate below, which is judged on the
+# actual content, not on a synthetic prefix. $5 (self_id, optional) is passed
+# through to normalize_spec_text unchanged.
 record_spec_owner() {
   local -n owners="$1"
   local value="$2"
   local id="$3"
+  local key_prefix="${4:-}"
+  local self_id="${5:-}"
   local key
   [[ -n "$value" ]] || return 0
-  key="$(normalize_spec_text "$value")"
+  key="$(normalize_spec_text "$value" "$self_id")"
   # Too short to carry a card-specific claim; length is already policed elsewhere.
   (( ${#key} >= 16 )) || return 0
+  key="${key_prefix}${key}"
   if [[ -n "${owners[$key]+x}" ]]; then
     owners[$key]="${owners[$key]} $id"
   else
@@ -164,16 +195,87 @@ record_spec_owner() {
   fi
 }
 
-report_spec_collisions() {
+# --- Spec-collision ratchet -------------------------------------------------
+# Every checked field (Given, When, Then, Green, Non-goal bullet 1, And,
+# Non-goal bullets 2+) is judged the same way: a pairwise verbatim collision,
+# after normalize_spec_text (self-id folded to CARDREF, case/markup/whitespace
+# collapsed), against a committed baseline of already-known collisions.
+#
+# For Given/When/Then/Green/Non-goal#1 that baseline is currently EMPTY, so in
+# practice they stay zero-tolerance exactly as before: any collision at all is
+# a NEW collision and fails. Fixing the normalize_spec_text ordering bug (the
+# self-id substitution was dead code -- it ran after lowercasing, so it could
+# never match) makes the Given check live for the first time, and that
+# surfaces real pre-existing debt: several card families whose Given differs
+# from a sibling's only by each card mechanically citing its own id in a file
+# path (e.g. `tests/characterization/legacy/script-files/AUR-365/cases.tsv`
+# vs the identical path for AUR-366..376). That debt is recorded in the
+# baseline exactly like the And/Non-goal debt below, not hard-coded around.
+#
+# `And` and Non-goal bullets 2+ were never checked at all before this patch --
+# 204 and 266 pre-existing collisions respectively (see
+# .board/tests/spec-collision-baseline.txt for the measured set, and BUG 2 in
+# /tmp/aurum-reviews/GATE-SPEC-COLLISION.md for how they were found). Turning
+# those on as hard failures today would redden the whole board, so they enter
+# through the same ratchet as pre-existing debt.
+#
+# In every field the ratchet only shrinks: a NEW collision not already in the
+# baseline fails the build, and a baseline entry that no longer collides
+# (because a card's text changed) also fails the build, forcing the stale
+# entry to be removed rather than left to rot. The baseline can never grow by
+# editing it forward; it only shrinks as collisions get resolved. Regenerate
+# it with `BOARD_SPEC_BASELINE_DUMP=1 ./.board/validate.sh` after resolving or
+# introducing debt -- never by hand-editing the file.
+spec_collision_baseline="$board_dir/tests/spec-collision-baseline.txt"
+
+# Emits one `id1 id2` line (id1 < id2 byte-wise) per pairwise collision found
+# in the given owners map, decomposing any >2-way collision into all its pairs.
+compute_ratchet_pairs() {
   local -n owners="$1"
-  local label="$2"
-  local key list count
+  local key list
+  local -a members
+  local i j a b
   for key in "${!owners[@]}"; do
     list="${owners[$key]}"
-    count="$(wc -w <<< "$list")"
-    (( count > 1 )) || continue
-    fail "$label is shared verbatim by $count cards ($(tr ' ' ',' <<< "$list" | sed 's/,$//')): \"${key:0:72}\""
+    read -ra members <<< "$list"
+    (( ${#members[@]} > 1 )) || continue
+    for (( i = 0; i < ${#members[@]}; i++ )); do
+      for (( j = i + 1; j < ${#members[@]}; j++ )); do
+        a="${members[$i]}"
+        b="${members[$j]}"
+        if [[ "$a" < "$b" ]]; then
+          printf '%s %s\n' "$a" "$b"
+        else
+          printf '%s %s\n' "$b" "$a"
+        fi
+      done
+    done
   done
+}
+
+check_ratcheted_collisions() {
+  local owners_name="$1"
+  local field_label="$2"
+  local baseline_file="$3"
+  local current_pairs baseline_pairs line
+  current_pairs="$(compute_ratchet_pairs "$owners_name" | sort -u)"
+  if [[ -f "$baseline_file" ]]; then
+    baseline_pairs="$(awk -v f="$field_label" '$1 == f { print $2, $3 }' "$baseline_file" | sort -u)"
+  else
+    baseline_pairs=""
+  fi
+  # Both streams are already sorted -u under the script-wide LC_ALL=C, so a
+  # linear comm merge replaces what would otherwise be an O(current *
+  # baseline) grep-per-line scan -- material at the baseline's current size
+  # (13k+ tolerated pairs and growing with every ratcheted field).
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    fail "spec-collision ratchet: new $field_label collision not recorded in the committed baseline ($spec_collision_baseline): $line"
+  done < <(comm -23 <(printf '%s\n' "$current_pairs") <(printf '%s\n' "$baseline_pairs"))
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    fail "spec-collision ratchet: baseline entry for $field_label no longer collides; the ratchet only shrinks, remove the stale entry: $line"
+  done < <(comm -13 <(printf '%s\n' "$current_pairs") <(printf '%s\n' "$baseline_pairs"))
 }
 
 is_generic_text() {
@@ -1167,7 +1269,16 @@ while IFS= read -r -d '' card; do
 
   non_goals="$(section_body "$card" "## Non-goals")"
   grep -Eq '^- .+' <<< "$non_goals" || fail "$card: Non-goals must list an explicit exclusion"
-  record_spec_owner non_goal_owners "$(sed -n 's/^- \(.*\)$/\1/p' <<< "$non_goals" | head -1)" "$id"
+  mapfile -t non_goal_bullets < <(sed -n 's/^- \(.*\)$/\1/p' <<< "$non_goals")
+  if (( ${#non_goal_bullets[@]} > 0 )); then
+    # Bullet 1 is held to zero tolerance (matches current board reality).
+    record_spec_owner non_goal_owners "${non_goal_bullets[0]}" "$id" "" "$id"
+    # Bullets 2+ were never checked at all; they carry pre-existing debt, so
+    # they ratchet against the committed baseline instead of hard-failing.
+    for (( ng_index = 1; ng_index < ${#non_goal_bullets[@]}; ng_index++ )); do
+      record_spec_owner non_goal_extra_owners "${non_goal_bullets[$ng_index]}" "$id" "ng$((ng_index + 1)):" "$id"
+    done
+  fi
   scenarios="$(section_body "$card" "## Acceptance scenarios")"
   mapfile -t acceptance_ids < <(sed -n 's/^### \(AC-[0-9]\{3\}\): .\+$/\1/p' <<< "$scenarios")
   (( ${#acceptance_ids[@]} > 0 )) || fail "$card: missing named AC-NNN Given/When/Then scenario"
@@ -1196,9 +1307,18 @@ while IFS= read -r -d '' card; do
        [[ "$(normalize_spec_text "$scenario_then_text")" == "$(normalize_spec_text "$(section_body "$card" '## Outcome')")" ]]; then
       fail "$card: $scenario_id Then restates the Outcome instead of naming an observable result"
     fi
-    record_spec_owner scenario_given_owners "$scenario_given_text" "$id/$scenario_id"
-    record_spec_owner scenario_when_owners "$scenario_when_text" "$id/$scenario_id"
-    record_spec_owner scenario_then_owners "$scenario_then_text" "$id/$scenario_id"
+    record_spec_owner scenario_given_owners "$scenario_given_text" "$id/$scenario_id" "" "$id"
+    record_spec_owner scenario_when_owners "$scenario_when_text" "$id/$scenario_id" "" "$id"
+    record_spec_owner scenario_then_owners "$scenario_then_text" "$id/$scenario_id" "" "$id"
+    # `And` was never checked at all; it carries pre-existing debt (the field
+    # a `Green` collision migrates to once `Green` itself gets fixed), so it
+    # ratchets against the committed baseline instead of hard-failing. The
+    # bullet position is folded into the key so And#1 only ever collides with
+    # another card's And#1, not with a differently-positioned And.
+    mapfile -t scenario_and_texts < <(sed -n 's/^- And: \(.*\)$/\1/p' <<< "$scenario_block")
+    for (( and_index = 0; and_index < ${#scenario_and_texts[@]}; and_index++ )); do
+      record_spec_owner scenario_and_owners "${scenario_and_texts[$and_index]}" "$id/$scenario_id" "and$((and_index + 1)):" "$id"
+    done
     if (( covers_enabled == 1 )); then
       requirement_covers_count="$(grep -Ec '^- Covers requirements: .+' <<< "$scenario_block" || true)"
       control_covers_count="$(grep -Ec '^- Covers controls: .+' <<< "$scenario_block" || true)"
@@ -1243,7 +1363,7 @@ while IFS= read -r -d '' card; do
   [[ "$test_count" -eq 1 ]] || fail "$card: TDD proof must contain exactly one Test reference"
   is_generic_text "$red" && fail "$card: Red proof is generic rather than a behavioral failure"
   is_generic_text "$green" && fail "$card: Green proof is generic rather than minimum observable behavior"
-  record_spec_owner tdd_green_owners "${green#- Green: }" "$id"
+  record_spec_owner tdd_green_owners "${green#- Green: }" "$id" "" "$id"
   is_generic_text "$refactor" && fail "$card: Refactor proof is generic rather than an invariant"
   if [[ "$test_line" =~ ^-[[:space:]]Test:[[:space:]]\`(.+)::(AC-[0-9]{3}(,AC-[0-9]{3})*)\`\.$ ]]; then
     test_path="${BASH_REMATCH[1]}"
@@ -1676,11 +1796,30 @@ if (( ${#absent_declared_paths[@]} > 0 )); then
   fi
 fi
 
-report_spec_collisions scenario_given_owners "acceptance Given"
-report_spec_collisions scenario_when_owners "acceptance When"
-report_spec_collisions scenario_then_owners "acceptance Then"
-report_spec_collisions tdd_green_owners "TDD Green"
-report_spec_collisions non_goal_owners "first Non-goal"
+# BOARD_SPEC_BASELINE_DUMP=1 regenerates the ratchet baseline from the current
+# tree instead of enforcing it: maintenance-only, never run as part of the
+# normal gate. It intentionally exits before the rest of validate.sh so the
+# emitted set is exactly the current pairwise collisions in every field,
+# nothing else.
+if [[ "${BOARD_SPEC_BASELINE_DUMP:-0}" == "1" ]]; then
+  {
+    compute_ratchet_pairs scenario_given_owners | sed 's/^/given /'
+    compute_ratchet_pairs scenario_when_owners | sed 's/^/when /'
+    compute_ratchet_pairs scenario_then_owners | sed 's/^/then /'
+    compute_ratchet_pairs tdd_green_owners | sed 's/^/green /'
+    compute_ratchet_pairs non_goal_owners | sed 's/^/non_goal /'
+    compute_ratchet_pairs scenario_and_owners | sed 's/^/and /'
+    compute_ratchet_pairs non_goal_extra_owners | sed 's/^/non_goal_extra /'
+  } | sort -u
+  exit 0
+fi
+check_ratcheted_collisions scenario_given_owners "given" "$spec_collision_baseline"
+check_ratcheted_collisions scenario_when_owners "when" "$spec_collision_baseline"
+check_ratcheted_collisions scenario_then_owners "then" "$spec_collision_baseline"
+check_ratcheted_collisions tdd_green_owners "green" "$spec_collision_baseline"
+check_ratcheted_collisions non_goal_owners "non_goal" "$spec_collision_baseline"
+check_ratcheted_collisions scenario_and_owners "and" "$spec_collision_baseline"
+check_ratcheted_collisions non_goal_extra_owners "non_goal_extra" "$spec_collision_baseline"
 
 card_count="${#ids[@]}"
 for (( sequence = 1; sequence <= card_count; sequence++ )); do
