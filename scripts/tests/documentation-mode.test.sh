@@ -24,7 +24,11 @@
 #   template is explicitly treated as NOT evidence of a generator run, because
 #   producing it requires no source tree, no generator and no work.
 #
-# EXIT CODES (disjoint, mirroring tests/acceptance/*.sh):
+# EXIT CODES (disjoint). This mirrors the scripts/ family under test
+# (action-entrypoint.sh, build-docs-site.sh, generate-enhanced-docs.sh), NOT
+# tests/acceptance/*.sh: that directory has its own, separately documented
+# convention (tests/acceptance/EXIT_CODE_CONVENTION.md) that uses 79, not 3,
+# for the same "environment failure" concept.
 #   0  every selected case ran AND held; the count is printed and can be checked
 #   1  behavioral RED: at least one case ran and failed
 #   3  harness or environment error - missing git, unwritable TMPDIR, or a
