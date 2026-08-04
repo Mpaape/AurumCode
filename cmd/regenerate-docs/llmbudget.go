@@ -165,13 +165,24 @@ func resolveModelPrice(model string) (cost.PriceMap, string, error) {
 		model, envLLMInputPer1K, envLLMOutputPer1K, envLLMAllowUnpriced)
 }
 
+// parsePrice fails closed on a non-positive price. $0 is not a legitimate way
+// to state "this model is free": a $0 entry still marks the budget Enforced
+// and still populates the price table, so the tracker computes every spend as
+// exactly $0 and no ceiling it is given can ever bind - the run looks metered
+// in the log while it is actually uncapped. An operator who genuinely runs a
+// free or local model has an honest opt-out that says so instead of
+// pretending to price it: leave both AURUMCODE_LLM_*_USD_PER_1K variables
+// unset and set AURUMCODE_LLM_ALLOW_UNPRICED=true, which correctly reports
+// Enforced=false rather than a live cap that can never fire.
 func parsePrice(name, raw string) (float64, error) {
 	value, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
 		return 0, fmt.Errorf("%s must be a number in US dollars per 1000 tokens (got %q)", name, raw)
 	}
-	if value < 0 {
-		return 0, fmt.Errorf("%s must not be negative (got %q)", name, raw)
+	if value <= 0 {
+		return 0, fmt.Errorf("%s must be greater than zero (got %q); a $0 price would silently disable "+
+			"the budget it claims to enforce - for a genuinely free or local model, leave %s and %s unset "+
+			"and set %s=true instead", name, raw, envLLMInputPer1K, envLLMOutputPer1K, envLLMAllowUnpriced)
 	}
 	return value, nil
 }
