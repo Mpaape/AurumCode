@@ -2,12 +2,16 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	"github.com/Mpaape/AurumCode/internal/documentation/incremental"
@@ -105,6 +109,140 @@ type ExtractorPipelineConfig struct {
 	GenerateWelcome bool     // Generate LLM-powered welcome page
 	ValidateJekyll  bool     // Validate Jekyll site after generation
 	DeployGHPages   bool     // Deploy to gh-pages branch
+
+	// BaseURL is the path a project Pages site is published under, e.g.
+	// "/my-repo" for owner.github.io/my-repo/. It is normalized before use.
+	BaseURL string
+
+	// BaseURLDeclared records whether the caller supplied BaseURL at all.
+	//
+	// It exists because "" is a meaningful value: a site on a custom domain
+	// publishes at the root, and nothing in the CI environment says so, so the
+	// caller must be able to declare the root and outrank the derivation below.
+	// Without this flag, "publish at the root" and "decide for me" are the same
+	// bytes and the custom-domain case is unreachable.
+	BaseURLDeclared bool
+}
+
+// ErrBasePathConflict reports that the caller and the on-disk _config.yml
+// disagree about where the site is published.
+var ErrBasePathConflict = errors.New("base path conflict")
+
+// normalizeBasePath reduces whatever a caller supplied to either "" (root) or
+// "/segment[/segment...]".
+//
+// site.Scaffold.applyBaseURL only trims one trailing slash, so every other shape
+// has to be resolved here. The normalization deliberately does NOT live in the
+// scaffold: that package round-trips hostile values on purpose to prove its YAML
+// escaping, and sanitizing its input would delete that coverage.
+//
+// The absolute-URL case matters because actions/configure-pages emits a full
+// "https://owner.github.io/repo" as its base_url output, and a consumer will
+// wire that output straight into this input. The protocol-relative case matters
+// because "//host" is not a path at all: a browser reads it as another origin
+// and leaves the site entirely. Both are reduced to a path on this site.
+func normalizeBasePath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+
+	if u, err := url.Parse(trimmed); err == nil && u.Scheme != "" && u.Host != "" {
+		trimmed = u.Path
+	}
+
+	// One Trim handles "", "/", "//", "/x/", "//x//" and a bare "x" alike.
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" {
+		return ""
+	}
+
+	return "/" + trimmed
+}
+
+// deriveBasePathFromRepository guesses the base path from GITHUB_REPOSITORY.
+//
+// It is a guess, which is why it is the lowest-priority source: correct for a
+// project site (owner.github.io/repo/), correct for a user or organisation site
+// (owner.github.io/, no prefix), and wrong for a custom domain, about which the
+// environment says nothing at all.
+func deriveBasePathFromRepository(repository string) string {
+	owner, name, found := strings.Cut(strings.TrimSpace(repository), "/")
+	if !found || owner == "" || name == "" {
+		return ""
+	}
+
+	// A user/org site is served from the domain root, so it takes no prefix.
+	if strings.EqualFold(name, owner+".github.io") {
+		return ""
+	}
+
+	return normalizeBasePath(name)
+}
+
+// configuredBaseURL reads the baseurl key out of an existing _config.yml.
+//
+// A missing key and a key set to "" are different answers: the latter is a
+// consumer stating that the site is published at the root, which is the only
+// signal a custom-domain deployment can give from disk.
+func configuredBaseURL(configPath string) (value string, declared bool) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", false
+	}
+
+	var parsed struct {
+		BaseURL *string `yaml:"baseurl"`
+	}
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		// An unparseable consumer config is not this pipeline's to reject; it
+		// simply carries no usable answer.
+		return "", false
+	}
+
+	if parsed.BaseURL == nil {
+		return "", false
+	}
+
+	return *parsed.BaseURL, true
+}
+
+// resolveBasePath applies the precedence ladder that decides where the site is
+// published:
+//
+//  1. what the caller declared (AURUMCODE_BASE_URL / the action's base-path
+//     input) - the operator's intent, and the only channel that can say "root"
+//     on a custom domain;
+//  2. a baseurl already present in the consumer's _config.yml - that file is
+//     what Jekyll actually reads, and writeConfig never overwrites it, so it is
+//     a fact rather than a guess;
+//  3. a derivation from GITHUB_REPOSITORY - a guess, right for the default
+//     GitHub Pages project-site case that used to 404 on every link;
+//  4. "" - the root, which is also what a local run with no CI environment gets,
+//     so behaviour off CI is unchanged.
+//
+// Rung 3 losing to rung 2 is silent by design: disk is fact, derivation is
+// guess. Rungs 1 and 2 disagreeing is not silent - the two are both assertions
+// of intent, and publishing under one while the theme resolves assets through
+// the other yields a broken site with a green run.
+func (p *ExtractorPipeline) resolveBasePath(docsDir string) (string, error) {
+	onDisk, onDiskDeclared := configuredBaseURL(filepath.Join(docsDir, "_config.yml"))
+
+	if p.config.BaseURLDeclared {
+		declared := normalizeBasePath(p.config.BaseURL)
+
+		if onDiskDeclared && normalizeBasePath(onDisk) != declared {
+			return "", fmt.Errorf("%w: caller declared base path %q but %s already declares %q; "+
+				"reconcile them, or drop the caller's value to keep the one on disk",
+				ErrBasePathConflict, p.config.BaseURL,
+				filepath.ToSlash(filepath.Join(docsDir, "_config.yml")), onDisk)
+		}
+
+		return declared, nil
+	}
+
+	if onDiskDeclared {
+		return normalizeBasePath(onDisk), nil
+	}
+
+	return deriveBasePathFromRepository(os.Getenv("GITHUB_REPOSITORY")), nil
 }
 
 // ExtractorPipeline orchestrates complete documentation extraction and site generation
@@ -482,14 +620,56 @@ func (p *ExtractorPipeline) writeSiteScaffold() (*site.ScaffoldResult, error) {
 		title = base + " documentation"
 	}
 
+	// Without this the generated index links every page at "/go/pkg/", which is
+	// a 404 on any site published under a base path - the default for a GitHub
+	// Pages project site. kramdown copies a markdown destination into the href
+	// verbatim, so Jekyll's baseurl cannot rescue it after the fact: the prefix
+	// has to be in the markdown this pipeline writes.
+	basePath, err := p.resolveBasePath(docsDir)
+	if err != nil {
+		return nil, err
+	}
+	if basePath != "" {
+		log.Printf("[Pipeline] Publishing under base path %s", basePath)
+	}
+
 	scaffold := site.NewScaffold(site.ScaffoldConfig{
 		DocsDir:     docsDir,
 		OutputDir:   p.config.OutputDir,
 		Title:       title,
 		Description: "API documentation generated by AurumCode.",
+		BaseURL:     basePath,
 	})
 
-	return scaffold.Generate()
+	result, err := scaffold.Generate()
+	if err != nil {
+		return nil, err
+	}
+
+	p.warnIfConfigMissesBaseURL(result, basePath)
+
+	return result, nil
+}
+
+// warnIfConfigMissesBaseURL covers the one case the scaffold deliberately cannot
+// fix. writeConfig never overwrites a consumer-owned _config.yml, so a repository
+// that already ships one gets its links prefixed but not its baseurl key, and the
+// theme's own assets - which resolve through relative_url - would still be
+// requested off the base path. Silently publishing a half-configured site is
+// worse than saying which line to add.
+func (p *ExtractorPipeline) warnIfConfigMissesBaseURL(result *site.ScaffoldResult, basePath string) {
+	if basePath == "" || result == nil || result.ConfigCreated {
+		return
+	}
+
+	if _, declared := configuredBaseURL(result.ConfigPath); declared {
+		return
+	}
+
+	log.Printf("[Pipeline] Warning: %s already exists and declares no baseurl; "+
+		"the generated links use %s but the theme's assets will not. "+
+		"Add this line to it: baseurl: %q",
+		filepath.ToSlash(result.ConfigPath), basePath, basePath)
 }
 
 // validateJekyllSite validates the Jekyll site can be built
