@@ -665,7 +665,28 @@ reseal_evidence "$probe_root/canary_leak"
 # isolation. `old_validate` is the exact pre-patch script (git HEAD); the copy
 # under test everywhere else in this file is already the patched one.
 old_validate="$probe_root/validate.sh.pre-patch"
-git -C "$repo_root" show HEAD:.board/validate.sh >"$old_validate"
+# The "unfixed" validator is derived from the CURRENT file by re-breaking
+# normalize_spec_text the way the original bug did: the self-id substitution
+# is moved after the lowercasing pass, where its upper-case pattern can never
+# match. Deriving it from HEAD via git show self-expires the moment the fix
+# is committed -- HEAD then IS the fixed validator -- which is how this
+# fixture broke once before.
+cp "$repo_root/.board/validate.sh" "$old_validate"
+python3 - "$old_validate" <<'PYEOF'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+sub_block = """  if [[ -n \"$self_id\" ]]; then
+    text=\"$(printf '%s' \"$text\" | sed -E \"s/${self_id}/CARDREF/g\")\"
+  fi
+"""
+assert sub_block in s, "self-id substitution block not found; fixture needs updating"
+s = s.replace(sub_block, "", 1)
+lower_line = "    | tr '[:upper:]' '[:lower:]' \\\n"
+assert lower_line in s, "lowercase pipeline line not found; fixture needs updating"
+s = s.replace(lower_line, lower_line + "    | sed -E \"s/${self_id:-ZZNEVERMATCHZZ}/CARDREF/g\" \\\n", 1)
+open(p, "w").write(s)
+PYEOF
 chmod 0755 "$old_validate"
 
 write_ratchet_skeleton "$probe_root/bug1_fixed"
