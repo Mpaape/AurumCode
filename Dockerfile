@@ -2,20 +2,17 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 
-# Install git and build dependencies
-RUN apk add --no-cache git make
+RUN apk add --no-cache git
 
 # Copy go mod files first
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN go build -o aurumcode ./cmd/server
-RUN go build -o aurumcode-cli ./cmd/cli
-RUN go build -o test-docs-pipeline ./cmd/test-docs-pipeline
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o regenerate-docs ./cmd/regenerate-docs
 
 # Final stage
 FROM alpine:latest
@@ -32,17 +29,11 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 # Copy binaries from builder
-COPY --from=builder /build/aurumcode /app/server
-COPY --from=builder /build/aurumcode-cli /app/cli
-COPY --from=builder /build/test-docs-pipeline /app/test-docs-pipeline
+COPY --from=builder /build/regenerate-docs /app/regenerate-docs
 
 # Copy scripts for GitHub Action
 COPY scripts/ /app/scripts/
 RUN chmod +x /app/scripts/*.sh
 
-# Default command for server mode
-CMD ["./server"]
-
 # When used as GitHub Action, this will be overridden by action.yml
 ENTRYPOINT ["/bin/bash", "/app/scripts/action-entrypoint.sh"]
-

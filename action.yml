@@ -6,70 +6,416 @@ branding:
   icon: 'book-open'
   color: 'blue'
 
+# A composite action cannot declare `permissions`; they only exist at job level.
+# A caller that sets publish: pages must therefore grant them itself:
+#
+#   permissions:
+#     contents: read
+#     pages: write
+#     id-token: write
+#   environment:
+#     name: github-pages
+#     url: ${{ steps.<step-id>.outputs.page-url }}
+#
+# and the repository Settings > Pages source must be "GitHub Actions".
+# With publish: artifact only `contents: read` is needed here, and the caller
+# runs actions/deploy-pages in a separate job that has the permissions above.
+
 inputs:
   source-dir:
-    description: 'Source code directory to scan'
+    description: 'Directory inside the calling repository to scan (relative to the workspace root)'
     required: false
     default: '.'
   output-dir:
-    description: 'Output directory for generated documentation (auto-generated API docs)'
+    description: >-
+      Directory, relative to source-dir, where the generator writes markdown
+      and the site files (index.md, _config.yml). Exported to the generator as
+      AURUMCODE_OUTPUT_DIR, so any relative path inside the workspace works.
     required: false
     default: '.aurumcode'
-  languages:
-    description: 'Comma-separated list of languages to extract (empty = all)'
-    required: false
-    default: ''
-  incremental:
-    description: 'Enable incremental mode (only process changed files)'
-    required: false
-    default: 'false'
-  generate-welcome:
-    description: 'Generate AI-powered welcome page from README'
-    required: false
-    default: 'false'
   llm-api-key:
-    description: 'API key for LLM provider (required if generate-welcome=true)'
+    description: 'API key for the LLM provider (enables AI-generated welcome page)'
     required: false
     default: ''
   llm-base-url:
-    description: 'Base URL for LLM API (for custom endpoints)'
+    description: 'Base URL of the OpenAI-compatible LLM endpoint (required together with llm-api-key)'
     required: false
     default: ''
-  build-jekyll:
-    description: 'Build Jekyll site after documentation generation'
+  llm-model:
+    description: >-
+      Model id for the LiteLLM provider. Only read when llm-api-key and
+      llm-base-url are both set; the generator falls back to gpt-4o-mini.
     required: false
-    default: 'true'
+    default: ''
+  extra-toolchains:
+    description: >-
+      Comma-separated extra documentation toolchains to install:
+      javascript, python, csharp, cpp. Empty by default so a Go-only repository
+      does not pay for them. Unknown values fail the run. rust, bash and
+      powershell use the binaries already present on the runner image.
+    required: false
+    default: ''
+  publish:
+    description: >-
+      none (default) generates only; artifact uploads the docs as a GitHub
+      Pages artifact for a later deploy job; pages uploads and deploys from
+      this job.
+    required: false
+    default: 'none'
 
 outputs:
   docs-generated:
-    description: 'Number of documentation files generated'
-    value: \${{ steps.generate.outputs.docs-generated }}
+    description: 'Number of markdown files present under the output directory after the run'
+    value: ${{ steps.generate.outputs.docs-generated }}
   languages-detected:
-    description: 'Languages detected in the repository'
-    value: \${{ steps.generate.outputs.languages-detected }}
+    description: 'Comma-separated languages the extraction pipeline detected in the scanned tree'
+    value: ${{ steps.generate.outputs.languages-detected }}
+  docs-path:
+    description: 'Workspace-relative path of the generated documentation tree'
+    value: ${{ steps.generate.outputs.docs-path }}
+  page-url:
+    description: 'GitHub Pages URL, empty unless publish was set to pages'
+    value: ${{ steps.deploy.outputs.page_url }}
 
 runs:
   using: 'composite'
   steps:
+    # First step on purpose: a mask registered here applies to every later log
+    # line of the job, including the generator output that is tee'd to
+    # ${RUNNER_TEMP}/aurumcode-docs.log. A caller that forwards the key through
+    # `with:` instead of `secrets.*` gets no automatic redaction, so the action
+    # registers it itself before any step can echo it.
+    - name: Mask LLM credentials
+      shell: bash
+      env:
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+      run: |
+        set -euo pipefail
+        # printf, never echo of a composed string, and no `set -x` in this
+        # step: the value is passed only as the argument of the workflow
+        # command the runner consumes, so the mask command itself never leaks
+        # the key into the log.
+        if [ -n "${LLM_API_KEY}" ]; then
+          printf '::add-mask::%s\n' "${LLM_API_KEY}"
+          echo 'llm-api-key registered with the log masker'
+        fi
+
+    - name: Validate inputs
+      shell: bash
+      env:
+        PUBLISH: ${{ inputs.publish }}
+        EXTRA_TOOLCHAINS: ${{ inputs.extra-toolchains }}
+        AURUMCODE_OUTPUT_DIR: ${{ inputs.output-dir }}
+        SOURCE_DIR: ${{ inputs.source-dir }}
+      run: |
+        set -euo pipefail
+
+        # source-dir is the directory the generator is run from and the prefix
+        # of docs-path, which Prepare Pages payload, the Jekyll build and
+        # upload-pages-artifact all consume. An absolute or escaping value
+        # would publish a tree from outside the workspace, so it gets the same
+        # containment check as output-dir below.
+        case "${SOURCE_DIR}" in
+          '')
+            echo "::error::source-dir must not be empty (use '.' for the workspace root)"
+            exit 1
+            ;;
+          /*)
+            echo "::error::source-dir='${SOURCE_DIR}' must be relative to the workspace root"
+            exit 1
+            ;;
+          ..|../*|*/..|*/../*)
+            echo "::error::source-dir='${SOURCE_DIR}' must not escape the workspace"
+            exit 1
+            ;;
+        esac
+
+        # output-dir is handed to the generator and reused by every later step
+        # to count, build and upload; a value that is empty or that leaves the
+        # scanned tree would make those steps disagree about the same path.
+        case "${AURUMCODE_OUTPUT_DIR}" in
+          '')
+            echo "::error::output-dir must not be empty"
+            exit 1
+            ;;
+          /*)
+            echo "::error::output-dir='${AURUMCODE_OUTPUT_DIR}' must be relative to source-dir"
+            exit 1
+            ;;
+          ..|../*|*/..|*/../*)
+            echo "::error::output-dir='${AURUMCODE_OUTPUT_DIR}' must not escape source-dir"
+            exit 1
+            ;;
+        esac
+
+        case "${PUBLISH}" in
+          none|artifact|pages) ;;
+          *)
+            echo "::error::publish='${PUBLISH}' is not a valid value (expected none, artifact or pages)"
+            exit 1
+            ;;
+        esac
+
+        # -f while the unquoted split runs: without it the shell also expands
+        # the words as globs, so extra-toolchains='*' would report workspace
+        # file names instead of the value the caller actually wrote.
+        set -f
+        for tc in $(echo "${EXTRA_TOOLCHAINS}" | tr ',' ' '); do
+          case "${tc}" in
+            javascript|python|csharp|cpp) ;;
+            *)
+              echo "::error::extra-toolchains contains unknown entry '${tc}' (expected javascript, python, csharp or cpp)"
+              exit 1
+              ;;
+          esac
+        done
+        set +f
+
     - name: Set up Go
-      uses: actions/setup-go@v5
+      # Pinned to an immutable commit; the tag beside it is only a reading aid.
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.21'
+
+    - name: Install extractor toolchains
+      shell: bash
+      env:
+        EXTRA_TOOLCHAINS: ${{ inputs.extra-toolchains }}
+      run: |
+        set -euo pipefail
+
+        # Every extractor shells out to an external documentation tool and
+        # aborts its language when the tool is missing. Go is the action's own
+        # stack, so a gomarkdoc failure is fatal; every opt-in toolchain
+        # degrades to a logged warning and its language is skipped.
+        GOMARKDOC_VERSION='v1.1.0'
+        TYPEDOC_VERSION='0.25.13'
+        TYPEDOC_PLUGIN_MARKDOWN_VERSION='3.17.1'
+        PYDOC_MARKDOWN_VERSION='4.8.2'
+        XMLDOCMD_VERSION='2.9.0'
+        DOXYGEN_VERSION='1.9.8'
+        # sha256 of doxygen-1.9.8.linux.bin.tar.gz, confirmed byte-identical on
+        # www.doxygen.nl and on the github.com/doxygen/doxygen release asset.
+        # Refresh this constant together with DOXYGEN_VERSION.
+        DOXYGEN_SHA256='dda773bdc62384b7d796fe8b6c5029daad72483e4c8ad4abf6ee9fb98b649388'
+
+        go install "github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}"
+        echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
+
+        wanted=" $(echo "${EXTRA_TOOLCHAINS}" | tr ',' ' ') "
+
+        if [ "${wanted}" != "  " ]; then
+          echo "Requested extra toolchains:${wanted}"
+        fi
+
+        case "${wanted}" in
+          *" javascript "*)
+            if ! { command -v npm >/dev/null 2>&1 \
+              && npm install --global --no-fund --no-audit \
+                "typedoc@${TYPEDOC_VERSION}" \
+                "typedoc-plugin-markdown@${TYPEDOC_PLUGIN_MARKDOWN_VERSION}"; }; then
+              echo "::warning::typedoc ${TYPEDOC_VERSION} unavailable - JavaScript/TypeScript documentation will be skipped"
+            fi
+            ;;
+        esac
+
+        case "${wanted}" in
+          *" python "*)
+            # A dedicated venv, rather than "pip install --user", because the
+            # system Python on current runner images is PEP 668
+            # externally-managed and rejects user installs.
+            venv="${RUNNER_TEMP}/aurumcode-venv"
+            if python3 -m venv "${venv}" >/dev/null 2>&1 \
+              && "${venv}/bin/pip" install --quiet "pydoc-markdown==${PYDOC_MARKDOWN_VERSION}"; then
+              echo "${venv}/bin" >> "${GITHUB_PATH}"
+            else
+              echo "::warning::pydoc-markdown ${PYDOC_MARKDOWN_VERSION} unavailable - Python documentation will be skipped"
+            fi
+            ;;
+        esac
+
+        case "${wanted}" in
+          *" csharp "*)
+            if command -v dotnet >/dev/null 2>&1 \
+              && dotnet tool install --global xmldocmd --version "${XMLDOCMD_VERSION}"; then
+              echo "${HOME}/.dotnet/tools" >> "${GITHUB_PATH}"
+            else
+              echo "::warning::dotnet or xmldocmd ${XMLDOCMD_VERSION} unavailable - C# documentation will be skipped"
+            fi
+            ;;
+        esac
+
+        case "${wanted}" in
+          *" cpp "*)
+            # Pinned upstream tarball instead of apt, whose doxygen version
+            # floats with the runner image. The archive is downloaded to disk
+            # and its sha256 verified against the pinned digest BEFORE tar ever
+            # opens it: piping curl straight into tar would let a compromised
+            # mirror write arbitrary files onto the runner and land them on
+            # PATH. A digest mismatch is an integrity failure, not a missing
+            # optional tool, so it stops the run instead of degrading.
+            doxygen_dir="${RUNNER_TEMP}/doxygen"
+            doxygen_tar="${RUNNER_TEMP}/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"
+            mkdir -p "${doxygen_dir}"
+            rm -f "${doxygen_tar}"
+            if ! curl -fsSL -o "${doxygen_tar}" \
+              "https://www.doxygen.nl/files/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"; then
+              rm -f "${doxygen_tar}"
+              echo "::warning::doxygen ${DOXYGEN_VERSION} could not be downloaded - C/C++ documentation will be skipped"
+            elif ! printf '%s  %s\n' "${DOXYGEN_SHA256}" "${doxygen_tar}" | sha256sum -c - >/dev/null 2>&1; then
+              rm -f "${doxygen_tar}"
+              echo "::error::doxygen ${DOXYGEN_VERSION} tarball does not match its pinned sha256 ${DOXYGEN_SHA256} - refusing to extract it"
+              exit 1
+            elif tar -xzf "${doxygen_tar}" -C "${doxygen_dir}" --strip-components=1; then
+              rm -f "${doxygen_tar}"
+              echo "${doxygen_dir}/bin" >> "${GITHUB_PATH}"
+            else
+              rm -f "${doxygen_tar}"
+              echo "::warning::doxygen ${DOXYGEN_VERSION} could not be extracted - C/C++ documentation will be skipped"
+            fi
+            ;;
+        esac
 
     - name: Generate documentation
       id: generate
       shell: bash
       env:
-        TOTVS_DTA_API_KEY: \${{ inputs.llm-api-key }}
-        TOTVS_DTA_BASE_URL: \${{ inputs.llm-base-url }}
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+        LLM_BASE_URL: ${{ inputs.llm-base-url }}
+        LLM_MODEL: ${{ inputs.llm-model }}
+        SOURCE_DIR: ${{ inputs.source-dir }}
+        # The generator reads its own knobs from AURUMCODE_-prefixed variables
+        # (cmd/regenerate-docs/main.go: envOutputDir), so the input is exported
+        # under that name and reused verbatim by the steps below.
+        AURUMCODE_OUTPUT_DIR: ${{ inputs.output-dir }}
       run: |
-        echo "🚀 Generating documentation with AurumCode..."
-        
-        # Build and run
-        cd \$GITHUB_ACTION_PATH
-        go run cmd/regenerate-docs/main.go
-        
-        # Output stats
-        docs_count=\$(find \${{ inputs.output-dir }} -name "*.md" | wc -l)
-        echo "docs-generated=\$docs_count" >> \$GITHUB_OUTPUT
-        echo "✅ Generated \$docs_count documentation files"
+        set -euo pipefail
+
+        if [ -n "${LLM_API_KEY}" ] && [ -z "${LLM_BASE_URL}" ]; then
+          echo "::warning::llm-api-key was given without llm-base-url - the generator skips the LiteLLM provider and produces no welcome page"
+        fi
+        if [ -n "${LLM_MODEL}" ] && { [ -z "${LLM_API_KEY}" ] || [ -z "${LLM_BASE_URL}" ]; }; then
+          echo "::warning::llm-model='${LLM_MODEL}' is ignored unless both llm-api-key and llm-base-url are set"
+        fi
+
+        # The generator resolves its source tree and its output directory from
+        # the process working directory, so it is built from the action
+        # checkout but run from the caller's workspace.
+        binary="${RUNNER_TEMP}/aurumcode-docs"
+        (cd "${GITHUB_ACTION_PATH}" && go build -o "${binary}" ./cmd/regenerate-docs)
+
+        # Second gate behind the string check in Validate inputs: that one
+        # cannot see through a symlink, so the directory is resolved and
+        # required to stay under the workspace before it is scanned, and the
+        # verified path itself is what the generator runs from.
+        workspace_real=$(cd "${GITHUB_WORKSPACE}" && pwd -P)
+        resolved_source=$( { cd "${GITHUB_WORKSPACE}/${SOURCE_DIR}" && pwd -P; } 2>/dev/null ) || resolved_source=''
+        case "${resolved_source}" in
+          '')
+            echo "::error::source-dir='${SOURCE_DIR}' is not a directory inside the workspace"
+            exit 1
+            ;;
+          "${workspace_real}"|"${workspace_real}"/*) ;;
+          *)
+            echo "::error::source-dir='${SOURCE_DIR}' resolves outside ${workspace_real} - refusing to scan it"
+            exit 1
+            ;;
+        esac
+
+        cd "${resolved_source}"
+
+        log_file="${RUNNER_TEMP}/aurumcode-docs.log"
+        "${binary}" 2>&1 | tee "${log_file}"
+
+        docs_count=0
+        if [ -d "${AURUMCODE_OUTPUT_DIR}" ]; then
+          docs_count=$(find "${AURUMCODE_OUTPUT_DIR}" -type f -name '*.md' | wc -l | tr -d ' ')
+        fi
+
+        languages=$( { grep -oE '\[Pipeline\] Extracting [a-z]+ documentation' "${log_file}" || true; } \
+          | awk '{print $3}' | sort -u | paste -sd, - )
+
+        if [ "${SOURCE_DIR}" = "." ] || [ -z "${SOURCE_DIR}" ]; then
+          docs_path="${AURUMCODE_OUTPUT_DIR}"
+        else
+          docs_path="${SOURCE_DIR%/}/${AURUMCODE_OUTPUT_DIR}"
+        fi
+        docs_path="${docs_path#./}"
+
+        {
+          echo "docs-generated=${docs_count}"
+          echo "languages-detected=${languages}"
+          echo "docs-path=${docs_path}"
+        } >> "${GITHUB_OUTPUT}"
+
+        echo "Generated ${docs_count} documentation files in ${docs_path} (languages: ${languages:-none})"
+
+    - name: Prepare Pages payload
+      id: payload
+      if: inputs.publish != 'none'
+      shell: bash
+      env:
+        PUBLISH: ${{ inputs.publish }}
+        DOCS_PATH: ${{ steps.generate.outputs.docs-path }}
+        DOCS_COUNT: ${{ steps.generate.outputs.docs-generated }}
+      run: |
+        set -euo pipefail
+
+        cd "${GITHUB_WORKSPACE}"
+
+        if [ ! -d "${DOCS_PATH}" ] || [ "${DOCS_COUNT}" = "0" ]; then
+          echo "::error::publish was requested but ${DOCS_PATH} holds ${DOCS_COUNT} markdown files - refusing to publish an empty site"
+          exit 1
+        fi
+
+        # GitHub Pages serves the artifact verbatim. Without _config.yml the
+        # markdown is downloaded instead of rendered, and without index.md the
+        # site root answers 404 - both are publication failures, not warnings,
+        # so the run stops here rather than shipping a broken site.
+        missing=''
+        [ -f "${DOCS_PATH}/index.md" ] || missing="${missing} index.md"
+        [ -f "${DOCS_PATH}/_config.yml" ] || missing="${missing} _config.yml"
+
+        if [ -n "${missing}" ]; then
+          echo "::error::publish='${PUBLISH}' but ${DOCS_PATH} is missing${missing} - it holds raw markdown, not a site. Publishing it would leave the Pages root at 404, so the run stops instead."
+          exit 1
+        fi
+
+        echo "artifact-path=${DOCS_PATH}/_site" >> "${GITHUB_OUTPUT}"
+
+    # actions/jekyll-build-pages is a container action, so publishing only
+    # works on Linux runners.
+    - name: Build Jekyll site
+      if: inputs.publish != 'none'
+      uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
+      with:
+        source: ${{ steps.generate.outputs.docs-path }}
+        destination: ${{ steps.payload.outputs.artifact-path }}
+
+    - name: Verify rendered site
+      if: inputs.publish != 'none'
+      shell: bash
+      env:
+        ARTIFACT_PATH: ${{ steps.payload.outputs.artifact-path }}
+      run: |
+        set -euo pipefail
+
+        cd "${GITHUB_WORKSPACE}"
+
+        if [ ! -f "${ARTIFACT_PATH}/index.html" ]; then
+          echo "::error::${ARTIFACT_PATH}/index.html is absent after the Jekyll build - the uploaded artifact would answer 404 at the site root"
+          exit 1
+        fi
+
+        echo "Pages payload ${ARTIFACT_PATH} carries a rendered index.html"
+
+    - name: Upload Pages artifact
+      if: inputs.publish != 'none'
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+      with:
+        path: ${{ steps.payload.outputs.artifact-path }}
+
+    - name: Deploy to GitHub Pages
+      id: deploy
+      if: inputs.publish == 'pages'
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

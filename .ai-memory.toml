@@ -1,0 +1,8 @@
+# ai-memory scope marker.
+# Pins every agent (Claude Code, Codex, and any other harness) to the same
+# workspace/project regardless of which subdirectory the session was launched
+# from. An explicit project here outranks basename(cwd) and project_strategy,
+# so a handoff written by one agent is always readable by the next one.
+workspace = "default"
+project = "AurumCode"
+project_strategy = "repo-root"

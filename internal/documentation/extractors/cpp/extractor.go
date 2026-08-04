@@ -2,8 +2,10 @@ package cpp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -29,6 +31,16 @@ func (c *CPPExtractor) Extract(ctx context.Context, req *extractors.ExtractReque
 		return nil, fmt.Errorf("invalid language: expected %s, got %s", extractors.LanguageCPP, req.Language)
 	}
 
+	// Both paths are interpolated into the Doxyfile, so they are validated
+	// before anything is created on disk. A request carrying a directive
+	// injection is refused without leaving an output directory behind.
+	if err := validateDoxyfileValue("source directory", req.SourceDir); err != nil {
+		return nil, err
+	}
+	if err := validateDoxyfileValue("output directory", req.OutputDir); err != nil {
+		return nil, err
+	}
+
 	if _, err := os.Stat(req.SourceDir); err != nil {
 		return nil, fmt.Errorf("invalid source directory: %w", err)
 	}
@@ -51,12 +63,13 @@ func (c *CPPExtractor) Extract(ctx context.Context, req *extractors.ExtractReque
 		}, nil
 	}
 
-	// Create Doxyfile configuration
-	doxyfilePath := filepath.Join(os.TempDir(), "Doxyfile")
-	if err := c.createDoxyfile(doxyfilePath, req.SourceDir, req.OutputDir); err != nil {
-		return nil, fmt.Errorf("failed to create Doxyfile: %w", err)
+	// Create the Doxyfile in a private directory owned by this run, so
+	// concurrent extractions cannot share or delete each other's configuration.
+	doxyfilePath, cleanup, err := c.newDoxyfile(req.SourceDir, req.OutputDir)
+	if err != nil {
+		return nil, err
 	}
-	defer os.Remove(doxyfilePath)
+	defer cleanup()
 
 	// Run Doxygen
 	_, err = c.runner.Run(ctx, "doxygen", []string{doxyfilePath}, ".", nil)
@@ -69,8 +82,17 @@ func (c *CPPExtractor) Extract(ctx context.Context, req *extractors.ExtractReque
 		}, nil
 	}
 
-	// Count generated files
+	// Count generated files. Doxygen exiting 0 proves nothing; only the XML it
+	// actually left on disk counts as documentation.
 	genFiles, _ := c.countGeneratedFiles(req.OutputDir)
+	if err := extractors.ConfirmOutputFiles("doxygen", filepath.Join(req.OutputDir, "xml"), genFiles); err != nil {
+		return &extractors.ExtractResult{
+			Language: extractors.LanguageCPP,
+			Files:    []string{},
+			Stats:    extractors.ExtractionStats{},
+			Errors:   []error{err},
+		}, nil
+	}
 
 	result := &extractors.ExtractResult{
 		Language: extractors.LanguageCPP,
@@ -84,11 +106,17 @@ func (c *CPPExtractor) Extract(ctx context.Context, req *extractors.ExtractReque
 	return result, nil
 }
 
-// Validate checks if Doxygen is available
+// Validate checks if Doxygen is available.
+//
+// Only a genuine lookup failure means doxygen is unavailable; an installed
+// doxygen that exits non-zero is an extraction error, not a skip.
 func (c *CPPExtractor) Validate(ctx context.Context) error {
 	_, err := c.runner.Run(ctx, "doxygen", []string{"--version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("doxygen not found: please install from https://www.doxygen.nl")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("doxygen", "please install from https://www.doxygen.nl", err)
+		}
+		return fmt.Errorf("doxygen is installed but failed: %w", err)
 	}
 	return nil
 }
@@ -112,19 +140,6 @@ func (c *CPPExtractor) findCPPFiles(rootDir string) ([]string, error) {
 		return nil
 	})
 	return files, err
-}
-
-func (c *CPPExtractor) createDoxyfile(path, sourceDir, outputDir string) error {
-	config := fmt.Sprintf(`PROJECT_NAME = "Documentation"
-INPUT = %s
-OUTPUT_DIRECTORY = %s
-RECURSIVE = YES
-GENERATE_HTML = NO
-GENERATE_LATEX = NO
-GENERATE_XML = YES
-EXTRACT_ALL = YES
-`, sourceDir, outputDir)
-	return os.WriteFile(path, []byte(config), 0644)
 }
 
 func (c *CPPExtractor) countGeneratedFiles(outputDir string) ([]string, error) {

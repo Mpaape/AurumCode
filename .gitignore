@@ -26,6 +26,8 @@ node_modules/
 
 # Go specific
 bin/
+# The board runner is source, not Go build output — `bin/` above would swallow it.
+!.board/bin/
 dist/
 *.exe
 *.exe~
@@ -78,3 +80,7 @@ reports/
 # Task files
 # tasks.json
 # tasks/ 
+
+# ai-memory install-instructions backups
+CLAUDE.md.bak-*
+AGENTS.md.bak-*

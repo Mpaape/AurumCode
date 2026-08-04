@@ -2,8 +2,10 @@ package javascript
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -73,29 +75,45 @@ func (j *JSExtractor) Extract(ctx context.Context, req *extractors.ExtractReques
 		return result, fmt.Errorf("TypeDoc extraction failed: %w", err)
 	}
 
-	// Count generated files
+	// Count generated files. A zero exit status is not evidence that TypeDoc wrote
+	// anything, so the on-disk listing decides.
 	files, err := j.countGeneratedFiles(req.OutputDir)
-	if err == nil {
-		result.Files = files
-		result.Stats.DocsGenerated = len(files)
-		result.Stats.FilesProcessed = 1 // One project processed
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("failed to inspect %s: %w", req.OutputDir, err))
+		return result, fmt.Errorf("failed to inspect TypeDoc output: %w", err)
+	}
 
-		// Count total lines
-		for _, file := range files {
-			lines, _ := j.countLines(file)
-			result.Stats.LinesProcessed += lines
-		}
+	if confirmErr := extractors.ConfirmOutputFiles("typedoc", req.OutputDir, files); confirmErr != nil {
+		result.Errors = append(result.Errors, confirmErr)
+		return result, confirmErr
+	}
+
+	result.Files = files
+	result.Stats.DocsGenerated = len(files)
+	result.Stats.FilesProcessed = 1 // One project processed
+
+	// Count total lines
+	for _, file := range files {
+		lines, _ := j.countLines(file)
+		result.Stats.LinesProcessed += lines
 	}
 
 	return result, nil
 }
 
-// Validate checks if TypeDoc is available
+// Validate checks if TypeDoc is available.
+//
+// Only a genuine lookup failure means typedoc is unavailable; an installed
+// typedoc that exits non-zero is an extraction error, not a skip.
 func (j *JSExtractor) Validate(ctx context.Context) error {
 	// Try to get TypeDoc version
 	_, err := j.runner.Run(ctx, "typedoc", []string{"--version"}, ".", nil)
 	if err != nil {
-		return fmt.Errorf("typedoc not found: please install with 'npm install -g typedoc typedoc-plugin-markdown'")
+		if errors.Is(err, exec.ErrNotFound) {
+			return extractors.NewToolUnavailableError("typedoc",
+				"please install with 'npm install -g typedoc typedoc-plugin-markdown'", err)
+		}
+		return fmt.Errorf("typedoc is installed but failed: %w", err)
 	}
 	return nil
 }
