@@ -70,14 +70,24 @@ func main() {
 
 	switch {
 	case llmAPIKey != "" && llmBaseURL != "":
-		model := os.Getenv("LLM_MODEL")
-		if model == "" {
-			model = "gpt-4o-mini"
+		model := envOrDefault(envLLMModel, defaultLLMModel)
+
+		// This is the primary production path. It used to build its tracker
+		// with an empty price table, which cannot convert tokens into dollars,
+		// so neither of the ceilings handed to it could ever bind and no spend
+		// was ever booked. The budget is now resolved before the provider is
+		// built, and a model that cannot be priced stops the run instead of
+		// starting an uncapped one.
+		budget, err := resolveLLMBudget(model)
+		if err != nil {
+			log.Fatalf("❌ LLM cost control: %v", err)
 		}
+
 		provider := litellmProvider.NewProvider(llmAPIKey, llmBaseURL, model)
-		tracker := cost.NewTracker(1000.0, 10000.0, map[string]cost.PriceMap{})
+		tracker := cost.NewTracker(budget.PerRunUSD, budget.DailyUSD, budget.Prices)
 		llmOrch = llm.NewOrchestrator(provider, nil, tracker)
-		log.Printf("✓ LiteLLM configured (%s)", llmBaseURL)
+		log.Printf("✓ LiteLLM configured (%s) model=%s", llmBaseURL, model)
+		logBudget(budget)
 	case llmAPIKey != "" && llmBaseURL == "":
 		log.Println("⚠️  LLM_BASE_URL not set - skipping LiteLLM provider")
 	default:
@@ -85,12 +95,19 @@ func main() {
 	}
 
 	if llmOrch == nil && openaiAPIKey != "" {
+		// The OpenAI provider substitutes "gpt-4" when the caller names no
+		// model, and that is the key the orchestrator resolves and charges, so
+		// that is the key the price table has to carry.
+		budget, err := resolveLLMBudget(openaiDefaultModel)
+		if err != nil {
+			log.Fatalf("❌ LLM cost control: %v", err)
+		}
+
 		provider := openaiProvider.NewProvider(openaiAPIKey)
-		tracker := cost.NewTracker(1000.0, 10000.0, map[string]cost.PriceMap{
-			"gpt-4": {InputPer1K: 0.03, OutputPer1K: 0.06},
-		})
+		tracker := cost.NewTracker(budget.PerRunUSD, budget.DailyUSD, budget.Prices)
 		llmOrch = llm.NewOrchestrator(provider, nil, tracker)
-		log.Println("✓ OpenAI provider configured")
+		log.Printf("✓ OpenAI provider configured model=%s", openaiDefaultModel)
+		logBudget(budget)
 	}
 
 	if llmOrch != nil {
@@ -132,7 +149,32 @@ func main() {
 	if llmOrch != nil {
 		perRun, daily := llmOrch.RemainingBudget()
 		log.Printf("\n💰 Remaining LLM budget: per-run $%.2f | daily $%.2f", perRun, daily)
+
+		// A completion that could not be priced was paid for but booked
+		// nowhere. Reporting zero silently would make an uncapped run
+		// indistinguishable from a metered one.
+		if n := llmOrch.UntrackedSpends(); n > 0 {
+			log.Printf("⚠️  %d LLM completion(s) were paid for but charged to no budget "+
+				"(no price entry for the model in use)", n)
+		}
 	}
+}
+
+// openaiDefaultModel mirrors the model the OpenAI provider substitutes when the
+// caller names none. The budget has to be keyed on the same string, or the
+// ceiling and the charge look at different rows.
+const openaiDefaultModel = "gpt-4"
+
+// logBudget makes the enforcement status of a run explicit. A run without a
+// price table has no ceiling, and that must be stated rather than implied by
+// two large dollar figures in the log.
+func logBudget(budget llmBudget) {
+	if !budget.Enforced {
+		log.Printf("⚠️  LLM cost control DISABLED (%s) - spend is unmetered and uncapped", budget.Source)
+		return
+	}
+	log.Printf("✓ LLM budget: per-run $%.2f | daily $%.2f (prices from %s)",
+		budget.PerRunUSD, budget.DailyUSD, budget.Source)
 }
 
 // siteStatus records whether the run left behind the two files that turn the
@@ -171,6 +213,12 @@ func isRegularFile(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// fatalf is the process-terminating log call used by report. It is a variable so
+// a test can observe the message and the branch that produced it without killing
+// the test binary; the released build always resolves to log.Fatalf, and the exit
+// status it produces is covered separately by a subprocess test.
+var fatalf = log.Fatalf
+
 // report turns the pipeline outcome into an exit status that matches what is
 // actually on disk. A run only claims success for markdown files that exist,
 // and a partially extracted run is reported as such instead of being flattened
@@ -185,11 +233,11 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 		log.Printf("❌ FAILED - no documentation was produced")
 		logDiagnostics(extractionErr)
 		log.Print(summaryLine("failed", docs, siteInfo, extractionErr, config))
-		log.Fatalf("❌ Pipeline failed: %v", runErr)
+		fatalf("❌ Pipeline failed: %v", runErr)
 
 	case partial && len(docs) == 0:
 		log.Print(summaryLine("failed", docs, siteInfo, extractionErr, config))
-		log.Fatalf("❌ Pipeline reported partial extraction but no markdown file exists under %s: %v",
+		fatalf("❌ Pipeline reported partial extraction but no markdown file exists under %s: %v",
 			config.OutputDir, runErr)
 
 	case partial:
