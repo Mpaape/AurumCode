@@ -612,6 +612,14 @@ legacy_surfaces=(
   'internal/documentation' 'internal/pipeline' 'internal/llm' 'pkg/types'
   '.taskmaster' 'CLAUDE.md'
 )
+readonly legacy_surfaces_declared_count=10
+# A loop over an emptied list would silently report success without checking
+# anything, which is the exact false-green shape `.board/README.md` forbids.
+# Any edit that drops or truncates the literal above is an infrastructure
+# defect in the acceptance program itself, never a behavioral pass.
+(( ${#legacy_surfaces[@]} == legacy_surfaces_declared_count )) \
+  || inconclusive anti-shortcut-list-corrupted \
+    "legacy_surfaces is ${#legacy_surfaces[@]} entries, expected $legacy_surfaces_declared_count; the anti-shortcut check must never run over an empty or truncated list"
 AURUM_SURFACES="$(printf '%s\n' "${legacy_surfaces[@]}")"
 export AURUM_SURFACES
 verdict="$(
