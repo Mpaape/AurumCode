@@ -27,9 +27,17 @@ the bytes are duplicated.
 `79` is the code already used across the more heavily audited gates in this
 tree (`AUR-001`, `AUR-203`, `AUR-337`, `AUR-339`, `AUR-423`) for exactly this
 "inconclusive" meaning, so new and fixed programs standardize on it rather
-than inventing another number. A few older programs (`AUR-010`, `AUR-233`,
-`AUR-355`) still use `69` for the same concept; neither is touched by this
-pass and both are left as-is rather than renumbered in the dark. `AUR-001`
+than inventing another number. Some older programs still use `69` for the
+same concept. That set is not recited from memory here: it is recomputed from
+the tree by `scripts/tests/exit-code-convention.test.sh`, case `EC-6`, which
+fails whenever the delimited list below stops matching
+`grep -lE '(exit|=)[[:space:]]*69([^0-9]|$)' tests/acceptance/AUR-*.sh`.
+
+<!-- 69-USERS:BEGIN -->
+`AUR-010`, `AUR-233`, `AUR-313`, `AUR-355`
+<!-- 69-USERS:END -->
+
+Those are left as-is rather than renumbered in the dark. `AUR-001`
 also keeps a pre-existing `infra()` at `3`, reserved strictly for the
 harness/tool-availability preflight at its own top of file (missing
 `awk`/`sha256sum`/`wc`/`find`/`sort`/`readlink`) — that call predates this
@@ -95,3 +103,60 @@ deliverable, using only baseline POSIX tools (`grep`, `find`) that the
 environment-failure path for them to mismodel as behavioral red today. If a
 future revision adds a real external dependency or tool check to one of
 them, it must follow the same convention.
+
+## Scope: tests/acceptance/*.sh only
+
+This convention binds `tests/acceptance/*.sh` only — programs materialized
+alone into the ephemeral, read-only, per-card container described at the top
+of this file. `scripts/action-entrypoint.sh`, `scripts/build-docs-site.sh`,
+`scripts/generate-enhanced-docs.sh` and
+`scripts/tests/documentation-mode.test.sh` are a different family: a
+production GitHub Action entrypoint and the two helper scripts it dispatches
+to, running inside the built image against a real consumer workspace rather
+than inside a sealed per-card container.
+
+Authority: each scripts/*.sh file documents its own exit codes inline; this file governs tests/acceptance/ only.
+
+That single line is the entire scope claim this file makes about `scripts/`,
+and it is checked verbatim, byte for byte, by
+`scripts/tests/exit-code-convention.test.sh` (`EC-4`, `EC-5`) — edit the
+wording and the guard fails; it does not parse prose for intent.
+
+Two measured facts keep the families independently changeable, and neither
+of them is about which convention came first:
+
+1. The entrypoint reads its helpers' exit statuses **by literal value**.
+   `scripts/action-entrypoint.sh` matches `"$EXIT_ENVIRONMENT"` (`3`) and
+   `"$ENHANCE_NOOP"` (`20`) in the `case "$rc"` blocks that follow its
+   `bash "$generate"` and `bash "$build"` calls, and those same numbers are
+   defined independently inside `generate-enhanced-docs.sh` and
+   `build-docs-site.sh`. Renumbering one file without the others silently
+   reclassifies an environment failure as a behavioral one. Reproduce with
+   `grep -n 'EXIT_ENVIRONMENT\|ENHANCE_NOOP\|EXIT_NOOP' scripts/*.sh`.
+2. The two families never share a process. No program under
+   `tests/acceptance/*.sh` invokes a file under `scripts/` — recomputed, not
+   asserted, by `scripts/tests/exit-code-convention.test.sh`, case `EC-2`.
+   No exit status of one family is ever read against the other family's
+   table, so the same number is free to carry a different meaning in each
+   scope.
+
+The `scripts/` family keeps its own convention: `0` success, `1` behavioral
+failure, `3` environment failure, and — only in `generate-enhanced-docs.sh`,
+propagated through `action-entrypoint.sh` as `ENHANCE_NOOP` — `20` for a
+documentation generator's own legitimate no-op (nothing changed to enhance),
+a state this convention's four-code table has no slot for and is not the
+place to add one. The Authority line above, not this paragraph, is what a
+reader or a guard should cite for that split.
+
+**Limit, stated plainly:** whether this paragraph's *opinion* about the split
+is well-argued is not something `scripts/tests/exit-code-convention.test.sh`
+can or does check — five rounds of adversarial paraphrase against earlier
+revisions of `EC-5` established that free-form prose is always
+paraphrasable around a lexical detector, so that case stopped trying. What
+`EC-5` checks instead is a fact this paragraph cannot editorialize its way
+around: the digits documented above next to `EXIT_ENVIRONMENT` and
+`ENHANCE_NOOP`/`EXIT_NOOP` must equal what those names are actually assigned
+to in `scripts/action-entrypoint.sh`, `scripts/build-docs-site.sh` and
+`scripts/generate-enhanced-docs.sh`, in both directions. A real convergence
+has to edit one of those `EXIT_*=` lines to have any effect, and that edit is
+exactly what gets measured.
