@@ -31,20 +31,20 @@ supply the base URL.
 
 | Variable | Read at | Effect |
 |---|---|---|
-| `LLM_API_KEY` | `cmd/regenerate-docs/main.go:65` | API key for the OpenAI-compatible endpoint. |
-| `LLM_BASE_URL` | `cmd/regenerate-docs/main.go:66` | Base URL of that endpoint. Required together with `LLM_API_KEY`. |
-| `LLM_MODEL` | `cmd/regenerate-docs/main.go:73` | Model id. Defaults to `gpt-4o-mini`. |
-| `OPENAI_API_KEY` | `cmd/regenerate-docs/main.go:67` | Fallback provider, used only when the pair above is not set. |
+| `LLM_API_KEY` | `cmd/regenerate-docs/main.go:66` | API key for the OpenAI-compatible endpoint. |
+| `LLM_BASE_URL` | `cmd/regenerate-docs/main.go:67` | Base URL of that endpoint. Required together with `LLM_API_KEY`. |
+| `LLM_MODEL` | `cmd/regenerate-docs/main.go:74` | Model id. Defaults to `gpt-4o-mini`. |
+| `OPENAI_API_KEY` | `cmd/regenerate-docs/main.go:68` | Fallback provider, used only when the pair above is not set. |
 
 Behaviour that follows from those lines:
 
 - `LLM_API_KEY` **and** `LLM_BASE_URL` set → the OpenAI-compatible provider is
-  used (`main.go:71-79`).
+  used (`main.go:73-91`).
 - `LLM_API_KEY` set without `LLM_BASE_URL` → the provider is skipped with a
-  warning (`main.go:80-81`).
-- Neither set → `OPENAI_API_KEY` is used if present (`main.go:86-94`).
+  warning (`main.go:92-93`).
+- Neither set → `OPENAI_API_KEY` is used if present (`main.go:98-112`).
 - Nothing set → documentation is still generated; only the welcome page is
-  disabled (`main.go:84`, `main.go:99`).
+  disabled (`main.go:94-95`, `main.go:117`).
 
 ```bash
 export LLM_API_KEY=your_key_here
@@ -62,15 +62,41 @@ The GitHub Action exposes the same three values as the `llm-api-key`,
 | `AURUMCODE_SOURCE_DIR` | `main.go:32` | `.` | Tree to document. Resolved to an absolute path. |
 | `AURUMCODE_OUTPUT_DIR` | `main.go:33` | `.aurumcode` | Where generated markdown is written. |
 | `AURUMCODE_DOCS_DIR` | `main.go:34` | output dir | Where your hand-written pages live. |
+| `AURUMCODE_BASE_URL` | `main.go:39` | derived | Path the site is published under, e.g. `/my-repo`. Read with `os.LookupEnv`, so **set-to-empty means "publish at the domain root"** and is different from unset. Unset falls through to the `baseurl` in an existing `_config.yml`, then to `GITHUB_REPOSITORY`, then to the root. |
 | `AURUMCODE_LANGUAGES` | `main.go:35` | all | Comma-separated allow-list. |
 | `AURUMCODE_INCREMENTAL` | `main.go:36` | `false` | `true`/`false` only; anything else is a startup error. |
 | `AURUMCODE_VALIDATE_JEKYLL` | `main.go:37` | `false` | Validate the generated site. |
-| `AURUMCODE_DEPLOY_GH_PAGES` | `main.go:38` | `false` | Setting it to `true` **aborts**: deployment is not implemented in this build (`main.go:348-351`). |
+| `AURUMCODE_DEPLOY_GH_PAGES` | `main.go:38` | `false` | Setting it to `true` **aborts**: deployment is not implemented in this build (`main.go:397-400`). |
 | `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` | `repo_code_execution.go:43` | unset | Opt-in list (`csharp`, `rust`) whose toolchains execute code from the documented repository. |
 
 The prefix is not decorative: the composite action already applies its own
 `source-dir` input by changing directory, so a bare `SOURCE_DIR` would be
 applied twice (`main.go:27-30`).
+
+### Publishing under a base path
+
+Only `AURUMCODE_BASE_URL` is read with `os.LookupEnv` rather than `os.Getenv`,
+because for this one variable the empty string is an answer and not an absence:
+
+```bash
+# Derive it (project site owner.github.io/my-repo/ -> /my-repo)
+GITHUB_REPOSITORY=owner/my-repo go run ./cmd/regenerate-docs
+
+# Declare it
+AURUMCODE_BASE_URL=/my-repo go run ./cmd/regenerate-docs
+
+# Declare the domain root - needed on a custom domain, where nothing in the
+# environment reveals that no prefix applies
+AURUMCODE_BASE_URL= go run ./cmd/regenerate-docs
+```
+
+The resolved value does two independent things, and both are needed: it prefixes
+every generated link in `index.md` (which is what stops the 404s, since kramdown
+copies a markdown destination into the `href` verbatim) and it writes `baseurl:`
+into a freshly created `_config.yml` (which is what makes the theme's own assets
+resolve). If the output directory already contains a `_config.yml` without a
+`baseurl`, AurumCode does not overwrite it - it logs a warning naming the exact
+line to add.
 
 ## Run it in a container
 
@@ -124,7 +150,7 @@ wiring and configuration checks.
 
 ## Reading the result
 
-The run ends with a machine-readable summary line (`main.go:201`):
+The run ends with a machine-readable summary line (`main.go:295`):
 
 ```
 aurumcode: result=partial docs=25 skipped=0 failed=1 languages_skipped=none output=/out index=true config=true
@@ -142,7 +168,7 @@ aurumcode: result=partial docs=25 skipped=0 failed=1 languages_skipped=none outp
 `index=` and `config=` report whether `index.md` and `_config.yml` exist. Both
 must be `true` for the output to be publishable as a site: without `index.md` a
 published root answers 404, and without `_config.yml` the pages are served as
-raw markdown (`main.go:138-141`, `main.go:150`).
+raw markdown (`main.go:195-209`, `main.go:266-277`).
 
 ## Build the site
 
@@ -162,7 +188,7 @@ default endpoint. Set `LLM_BASE_URL` to your own OpenAI-compatible URL.
 valid Go package. The run continues and reports `result=partial`.
 
 **`AURUMCODE_INCREMENTAL must be one of true/false`** — the boolean variables
-accept only `true`/`false`/`1`/`0`/`yes`/`no` (`main.go:372-381`).
+accept only `true`/`false`/`1`/`0`/`yes`/`no` (`main.go:431-440`).
 
 **`csharp/rust extractors are disabled`** — deliberate. Their toolchains
 execute code from the tree being documented, so they are opt-in through
