@@ -19,9 +19,14 @@ fail() {
   exit 1
 }
 
+infra() {
+  printf '%s/AC-001/infrastructure: %s\n' "$card" "$1" >&2
+  exit 79
+}
+
 [[ -f "$source_file" && ! -L "$source_file" ]] || fail legacy_source_uncharacterized
 bytes="$(wc -c <"$source_file" | tr -d ' ')"
-(( bytes <= 1048576 )) || fail input_limit_exceeded
+(( bytes <= 1048576 )) || infra input_limit_exceeded
 manifest="$repo_root/tests/characterization/legacy/script-files/AUR-370/manifest.tsv"
 [[ -s "$manifest" && ! -L "$manifest" ]] || fail legacy_source_uncharacterized
 source_sha="$(sha256sum "$source_file" | awk '{print $1}')"
