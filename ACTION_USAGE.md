@@ -84,6 +84,7 @@ Every input below exists in `action.yml`; the action declares no other input.
 |-------|-------------|---------|----------|
 | `source-dir` | Directory inside the calling repository to scan, relative to the workspace root | `.` | No |
 | `output-dir` | Directory, relative to `source-dir`, where the generator writes markdown and site files. Must be relative and must not escape `source-dir` | `.aurumcode` | No |
+| `base-path` | Path the site is published under, e.g. `/my-repo`. `auto` derives it from `GITHUB_REPOSITORY`. Set it to an **empty string** to publish at a domain root — required for a custom domain | `auto` | No |
 | `llm-api-key` | API key for the LLM provider; enables the AI-written welcome page | `` | No |
 | `llm-base-url` | Base URL of the OpenAI-compatible LLM endpoint, required together with `llm-api-key` | `` | No |
 | `llm-model` | Model id for the LiteLLM provider; read only when `llm-api-key` and `llm-base-url` are both set | `` (falls back to `gpt-4o-mini`) | No |
@@ -92,6 +93,32 @@ Every input below exists in `action.yml`; the action declares no other input.
 
 The documentation is generated without any LLM key: `llm-api-key`,
 `llm-base-url` and `llm-model` only affect the wording of the welcome page.
+
+### `base-path`: leave it alone unless you use a custom domain
+
+A GitHub Pages **project** site lives at `owner.github.io/<repo>/`. Links in the
+generated index are written into the HTML verbatim, so without the `/<repo>`
+prefix every documentation link answers 404. The default `auto` derives the
+prefix from `GITHUB_REPOSITORY` and is correct for both a project site and an
+`owner.github.io` user/organisation site, so most callers never set this.
+
+Set it only when the derivation would be wrong — that is, when you publish at a
+domain root that GitHub cannot infer:
+
+```yaml
+- uses: Mpaape/AurumCode@v1
+  with:
+    # Custom domain (CNAME): the site IS the root, so no prefix.
+    base-path: ''
+```
+
+`auto` and `''` are deliberately different values. `''` means "publish at the
+root"; `auto` means "decide for me". Do not use `''` expecting the default
+behaviour — on a project site it reinstates the 404s.
+
+If the output directory already contains a `_config.yml` with a `baseurl`, that
+value wins over the derivation, and contradicting it with `base-path` fails the
+run instead of publishing a site whose links and whose theme assets disagree.
 
 ## Outputs
 
@@ -224,6 +251,11 @@ export LLM_MODEL=gpt-4o-mini
 
 # Same knobs the action exports
 export AURUMCODE_OUTPUT_DIR=.aurumcode
+
+# Reproduce what the site will look like when published under a base path.
+# Unset (the line below removed) behaves like base-path: 'auto'; exporting it
+# empty behaves like base-path: ''.
+export AURUMCODE_BASE_URL=/my-repo
 
 go run ./cmd/regenerate-docs
 ```

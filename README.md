@@ -122,16 +122,53 @@ Read by `cmd/regenerate-docs`:
 | `AURUMCODE_SOURCE_DIR` | tree to scan, default `.` |
 | `AURUMCODE_OUTPUT_DIR` | where generated markdown is written, default `.aurumcode` |
 | `AURUMCODE_DOCS_DIR` | where `index.md` and `_config.yml` are written, defaults to the output directory |
+| `AURUMCODE_BASE_URL` | path the site is published under, e.g. `/my-repo`. **Read with `os.LookupEnv`, so setting it to the empty string is meaningful**: it declares the domain root and suppresses the derivation below, which is what a custom domain needs. Unset means "derive it" |
 | `AURUMCODE_LANGUAGES` | comma-separated allow-list, empty means every registered language |
 | `AURUMCODE_INCREMENTAL` | `true` documents only files changed since the last run |
 | `AURUMCODE_VALIDATE_JEKYLL` | `true` runs `bundle exec jekyll build` in the docs directory after generation |
-| `AURUMCODE_DEPLOY_GH_PAGES` | `true` makes the run fail: `resolveConfig` (main.go:353-357) returns an error because gh-pages deploy is not implemented in this build; publish the output directory with a dedicated step instead |
+| `AURUMCODE_DEPLOY_GH_PAGES` | `true` makes the run fail: `resolveConfig` (main.go:397-400) returns an error because gh-pages deploy is not implemented in this build; publish the output directory with a dedicated step instead |
 | `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` | opt-in list for `rust`, `csharp` |
 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | OpenAI-compatible endpoint for the landing page; the key and the base URL are both required |
 | `OPENAI_API_KEY` | used only when `LLM_API_KEY`/`LLM_BASE_URL` are unset |
 
-Of these, the Action exposes only the output directory (as `output-dir`) and the
-three `LLM_*` variables (as `llm-api-key`, `llm-base-url`, `llm-model`).
+Of these, the Action exposes the output directory (as `output-dir`), the base
+path (as `base-path`) and the three `LLM_*` variables (as `llm-api-key`,
+`llm-base-url`, `llm-model`).
+
+### Where the site is published
+
+A GitHub Pages project site is served from `owner.github.io/<repo>/`, not from
+the domain root. Markdown links are copied into the generated HTML verbatim, so
+a link written as `/go/mypkg/` resolves to `owner.github.io/go/mypkg/` and
+answers 404. Setting Jekyll's `baseurl` does not fix it: `baseurl` only affects
+what the theme resolves through `relative_url`, and the links in the index do
+not go through it.
+
+The base path is therefore resolved before the index is written, from the first
+source that answers:
+
+1. `AURUMCODE_BASE_URL` / the Action's `base-path` input - the operator's
+   intent, and the only source that can declare a domain root;
+2. a `baseurl` already present in the output directory's `_config.yml` - that
+   file is what Jekyll reads, and AurumCode never overwrites it;
+3. `GITHUB_REPOSITORY` - `owner/my-repo` yields `/my-repo`; `owner/owner.github.io`
+   yields the root, because a user or organisation site has no prefix;
+4. the root, which is what a local run with no CI environment gets.
+
+Sources 1 and 2 disagreeing fails the run rather than publishing a site whose
+links and whose theme assets resolve through different prefixes. Source 3 losing
+to source 2 is silent on purpose: a file on disk is a fact, a derivation is a
+guess.
+
+If your site is on a **custom domain**, the derivation would wrongly add a
+`/repo` prefix. Declare the root explicitly with `base-path: ''` (or
+`AURUMCODE_BASE_URL=`), or commit a `_config.yml` containing `baseurl: ""`.
+
+Values are normalized: surrounding whitespace, a missing or doubled leading
+slash, a trailing slash, and a full URL such as the `base_url` output of
+`actions/configure-pages` are all reduced to `/segment` or to the empty root. A
+protocol-relative `//host` value is reduced to a path on this site rather than
+being allowed to send visitors to another origin.
 
 ## Repository layout
 

@@ -36,6 +36,7 @@ const (
 	envIncremental    = "AURUMCODE_INCREMENTAL"
 	envValidateJekyll = "AURUMCODE_VALIDATE_JEKYLL"
 	envDeployGHPages  = "AURUMCODE_DEPLOY_GH_PAGES"
+	envBaseURL        = "AURUMCODE_BASE_URL"
 )
 
 type extractorAlias struct {
@@ -398,6 +399,14 @@ func resolveConfig(generateWelcome bool) (*pipeline.ExtractorPipelineConfig, err
 			"publish the contents of the output directory with a dedicated step instead", envDeployGHPages)
 	}
 
+	// LookupEnv, never Getenv: an empty AURUMCODE_BASE_URL is the operator
+	// saying "publish at the root", which is the only way a site on a custom
+	// domain can stop the pipeline from deriving a "/repo" prefix out of
+	// GITHUB_REPOSITORY. os.Getenv would report the same "" for that as for a
+	// variable nobody set, the derivation would run anyway, and every
+	// documentation link on such a site would answer 404.
+	basePath, basePathDeclared := os.LookupEnv(envBaseURL)
+
 	return &pipeline.ExtractorPipelineConfig{
 		SourceDir:       sourceDir,
 		OutputDir:       outputDir,
@@ -407,6 +416,8 @@ func resolveConfig(generateWelcome bool) (*pipeline.ExtractorPipelineConfig, err
 		GenerateWelcome: generateWelcome,
 		ValidateJekyll:  validateJekyll,
 		DeployGHPages:   false,
+		BaseURL:         basePath,
+		BaseURLDeclared: basePathDeclared,
 	}, nil
 }
 
