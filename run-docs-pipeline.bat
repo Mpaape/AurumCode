@@ -1,43 +1,37 @@
 @echo off
-REM Run AurumCode Documentation Pipeline in Docker (Windows)
+REM Run the AurumCode documentation generator in a container (Windows).
 
-echo 🚀 Running AurumCode Documentation Pipeline in Docker
-echo.
-
-REM Check if .env exists
-if not exist .env (
-    echo ❌ .env file not found!
-    echo Please create .env with:
-    echo   TOTVS_DTA_API_KEY=your_key
-    echo   TOTVS_DTA_BASE_URL=your_url
-    exit /b 1
+REM Credentials are not exported here: Compose reads .env from this directory
+REM by itself. They are optional anyway - without them cmd/regenerate-docs
+REM still generates documentation and only skips the AI welcome page.
+if exist .env (
+    echo .env found - Compose will substitute it
+) else (
+    echo No .env found - running without LLM credentials
+    echo Optional: LLM_API_KEY, LLM_BASE_URL, LLM_MODEL ^(or OPENAI_API_KEY^)
 )
 
-echo ✓ .env file found
 echo.
-
-REM Build Docker image
-echo 📦 Building Docker image...
-docker-compose -f docker-compose.test.yml build
-
+echo Building image...
+docker compose -f docker-compose.test.yml build
 if %ERRORLEVEL% neq 0 (
-    echo ❌ Docker build failed
+    echo Docker build failed
     exit /b 1
 )
 
 echo.
-echo 🏃 Running Documentation Pipeline...
-echo ─────────────────────────────────────────
-docker-compose -f docker-compose.test.yml run --rm test-docs-pipeline
-echo ─────────────────────────────────────────
+echo Running documentation generator...
+echo ---------------------------------------------
+docker compose -f docker-compose.test.yml run --rm test-docs-pipeline
+if %ERRORLEVEL% neq 0 (
+    echo Generator failed
+    exit /b 1
+)
+echo ---------------------------------------------
 
 echo.
-echo ✅ Pipeline completed!
-echo.
-echo 📊 Check generated files:
-echo   - CHANGELOG.md
-echo   - README.md (updated)
+echo Generator finished. Markdown was written to the output directory.
 echo.
 echo Verify with:
 echo   git status
-echo   git diff README.md
+echo   dir .aurumcode

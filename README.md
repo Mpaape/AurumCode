@@ -1,29 +1,30 @@
-# AurumCode 🔮
+# AurumCode
 
-**Multi-Language Documentation Generator with AI-Powered Enhancements**
+Multi-language API documentation generator, usable as a GitHub Action or as a
+local command.
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.21%2B-00ADD8?logo=go)](https://go.dev)
-[![GitHub Action](https://img.shields.io/badge/GitHub-Action-2088FF?logo=github-actions)](action.yml)
-[![Documentation](https://img.shields.io/badge/Docs-GitHub%20Pages-success)](https://mpaape.github.io/AurumCode/)
+It scans a source tree, runs a documentation extractor per detected language,
+and writes a Jekyll-ready site next to the code.
 
-> Automatically generate beautiful, searchable documentation for your codebase in 8+ programming languages.
+## What a run produces
 
-## ✨ Features
+For an output directory of `.aurumcode` (the default), a run writes:
 
-- 🌐 **8 Language Support**: Go, JavaScript/TypeScript, Python, C#, C/C++, Rust, Bash, PowerShell
-- 🤖 **AI-Powered**: Optional LLM-enhanced welcome pages and summaries
-- 🔄 **Incremental Mode**: Only regenerate docs for changed files
-- 📚 **Jekyll Integration**: Beautiful, searchable static sites
-- 🚀 **GitHub Action**: Use as `Mpaape/AurumCode@main` in any repository
-- 🐳 **Docker Support**: Complete toolchain in one container
-- ⚡ **Fast**: Parallel processing and smart caching
+```
+.aurumcode/
+├── _config.yml            # minimal Jekyll config; created only when absent
+├── index.md               # site landing page, links every generated page
+└── <language>/<name>.md   # one markdown page per documented unit
+```
 
-## 🚀 Quick Start
+`_config.yml` declares `theme: jekyll-theme-primer` and `markdown: kramdown`.
+It is never overwritten once it exists, so it can be edited freely.
+`index.md` is regenerated on every run.
 
-### Use as GitHub Action (Recommended)
+The generator produces markdown and that site scaffold. It does not build the
+Jekyll site itself; the Action does that only when publishing is requested.
 
-Add to `.github/workflows/docs.yml`:
+## Quick start as a GitHub Action
 
 ```yaml
 name: Documentation
@@ -33,193 +34,144 @@ on:
     branches: [main]
 
 jobs:
-  generate-docs:
+  docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.docs.outputs.page-url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate Documentation
+      - name: Generate and publish documentation
+        id: docs
         uses: Mpaape/AurumCode@main
         with:
           source-dir: '.'
           output-dir: '.aurumcode'
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./.aurumcode/_site
+          publish: 'pages'
 ```
 
-**See [ACTION_USAGE.md](ACTION_USAGE.md) for complete documentation.**
+Publishing is opt-in. Without `publish`, the Action only generates files and
+uploads nothing. Repository Settings > Pages must have "GitHub Actions" as the
+source before `publish: pages` can work; see [PAGES_SETUP.md](PAGES_SETUP.md).
 
-#
-## LLM Providers
+See [ACTION_USAGE.md](ACTION_USAGE.md) for every input, output and example.
 
-- **LiteLLM / TOTVS**: set `TOTVS_DTA_API_KEY` and `TOTVS_DTA_BASE_URL` (optional `TOTVS_DTA_MODEL`, default `gpt-4o-mini`).
-- **OpenAI fallback**: if the TOTVS variables are unset, `OPENAI_API_KEY` is used when available.
-- Without credentials the pipeline still runs, but skips AI welcome page generation.
+## Languages
 
-## Local Usage
+Go is the generator's own stack and is always available. The other extractors
+depend on an external tool being on `PATH`; when it is missing, that language is
+skipped with a warning and the rest of the run continues.
+
+| Language | Requires on `PATH` | Available through the Action |
+|----------|--------------------|------------------------------|
+| Go | `gomarkdoc` | yes, installed by the Action |
+| JavaScript / TypeScript | `typedoc` | with `extra-toolchains: javascript` |
+| Python | `pydoc-markdown` | with `extra-toolchains: python` |
+| C / C++ | `doxygen` | with `extra-toolchains: cpp` |
+| Bash | `bash` | yes |
+| PowerShell | `pwsh` | yes |
+| Rust | `cargo` | no, see below |
+| C# | `dotnet`, `xmldocmd` | no, see below |
+
+Bash and PowerShell pages are produced by an in-process comment parser; only the
+interpreter's presence is checked. No external documentation tool is used for
+them.
+
+Rust and C# are held back from the default registration because their toolchains
+compile the documented repository, which executes code from it (`build.rs`,
+proc-macros, MSBuild tasks). They are enabled only by setting
+`AURUMCODE_ALLOW_REPO_CODE_EXECUTION` to a comma-separated list of `rust`,
+`csharp` when running the binary directly. The Action never sets that variable,
+so Rust and C# cannot be produced through the Action.
+
+## Local usage
 
 ```bash
-# Clone the repository
 git clone https://github.com/Mpaape/AurumCode.git
 cd AurumCode
 
-# Set API keys (optional - for AI features)
-export TOTVS_DTA_API_KEY=your_key_here
-export TOTVS_DTA_BASE_URL=https://your-endpoint
-export TOTVS_DTA_MODEL=gpt-4o-mini  # optional
-# Also accepted: OPENAI_API_KEY as fallback
+# Required for Go extraction
+go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
 
-# Generate documentation
-go run cmd/regenerate-docs/main.go
+# Optional: any OpenAI-compatible endpoint, for the AI-written landing page
+export LLM_API_KEY=your_key
+export LLM_BASE_URL=https://your-endpoint/v1
+export LLM_MODEL=gpt-4o-mini        # optional, defaults to gpt-4o-mini
 
-# Build Jekyll site
-cd docs
-bundle install
-bundle exec jekyll serve
-
-# Open http://localhost:4000
+go run ./cmd/regenerate-docs
 ```
 
-## 📖 Supported Languages & Tools
+The package argument must be the directory (`./cmd/regenerate-docs`). The
+command's `package main` spans more than one file, so naming a single file does
+not compile.
 
-| Language | Tool | Output Format |
-|----------|------|---------------|
-| **Go** | gomarkdoc | Markdown API docs |
-| **JavaScript/TypeScript** | TypeDoc | Markdown API docs |
-| **Python** | pydoc-markdown | Markdown API docs |
-| **C#** | xmldocmd | Markdown from XML docs |
-| **C/C++** | Doxygen + doxybook2 | Markdown from Doxygen |
-| **Rust** | rustdoc | HTML (convertible) |
-| **Bash** | shdoc | Markdown from comments |
-| **PowerShell** | platyPS | Markdown from help |
+Without any LLM variable the run still generates every page; only the wording of
+the landing page changes.
 
-## 🏗️ Architecture
+## Environment variables
+
+Read by `cmd/regenerate-docs`:
+
+| Variable | Effect |
+|----------|--------|
+| `AURUMCODE_SOURCE_DIR` | tree to scan, default `.` |
+| `AURUMCODE_OUTPUT_DIR` | where generated markdown is written, default `.aurumcode` |
+| `AURUMCODE_DOCS_DIR` | where `index.md` and `_config.yml` are written, defaults to the output directory |
+| `AURUMCODE_LANGUAGES` | comma-separated allow-list, empty means every registered language |
+| `AURUMCODE_INCREMENTAL` | `true` documents only files changed since the last run |
+| `AURUMCODE_VALIDATE_JEKYLL` | `true` runs `bundle exec jekyll build` in the docs directory after generation |
+| `AURUMCODE_DEPLOY_GH_PAGES` | `true` makes the run fail: `resolveConfig` (main.go:353-357) returns an error because gh-pages deploy is not implemented in this build; publish the output directory with a dedicated step instead |
+| `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` | opt-in list for `rust`, `csharp` |
+| `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | OpenAI-compatible endpoint for the landing page; the key and the base URL are both required |
+| `OPENAI_API_KEY` | used only when `LLM_API_KEY`/`LLM_BASE_URL` are unset |
+
+Of these, the Action exposes only the output directory (as `output-dir`) and the
+three `LLM_*` variables (as `llm-api-key`, `llm-base-url`, `llm-model`).
+
+## Repository layout
 
 ```
 AurumCode/
-├── cmd/
-│   ├── regenerate-docs/     # Documentation generator CLI
-│   ├── server/              # Webhook server (legacy)
-│   └── cli/                 # CLI interface (legacy)
+├── cmd/regenerate-docs/          # the generator command
 ├── internal/
 │   ├── documentation/
-│   │   ├── extractors/      # Language-specific extractors
-│   │   ├── normalizer/      # Jekyll front matter processor
-│   │   ├── welcome/         # AI welcome page generator
-│   │   ├── incremental/     # Git-based change detection
-│   │   └── site/            # Jekyll builder
-│   ├── pipeline/            # Documentation pipeline orchestrator
-│   └── llm/                 # LLM integration (optional)
-├── docs/                    # Jekyll documentation site
-├── .docker/                 # Docker toolchain container
-└── action.yml              # GitHub Action definition
+│   │   ├── extractors/           # one package per language
+│   │   ├── incremental/          # git-based change detection
+│   │   ├── normalizer/           # Jekyll front matter
+│   │   ├── site/                 # site scaffold and the command runner
+│   │   └── welcome/              # landing page generation
+│   ├── llm/                      # optional LLM providers
+│   ├── pipeline/                 # extraction orchestrator
+│   └── qa/
+├── .docker/docs.Dockerfile       # toolchain image
+└── action.yml                    # GitHub Action definition
 ```
 
-## 🔧 Configuration
-
-### GitHub Action Inputs
-
-```yaml
-- uses: Mpaape/AurumCode@main
-  with:
-    source-dir: '.'              # Source code directory
-    output-dir: '.aurumcode'     # Output directory (auto-generated docs)
-    languages: ''                # Comma-separated list (empty = all)
-    incremental: 'false'         # Enable incremental mode
-    generate-welcome: 'false'    # AI-powered welcome page
-    llm-api-key: ''              # API key for LLM
-    llm-base-url: ''             # Custom LLM endpoint
-    build-jekyll: 'true'         # Build Jekyll site
-```
-
-### Environment Variables
+## Development
 
 ```bash
-# For AI-powered features
-TOTVS_DTA_API_KEY=sk-your_key
-TOTVS_DTA_BASE_URL=https://your-endpoint
-
-# Or use OpenAI
-OPENAI_API_KEY=sk-your_key
-```
-
-## 📚 Documentation
-
-- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Complete setup instructions
-- **[ACTION_USAGE.md](ACTION_USAGE.md)** - Using AurumCode as GitHub Action
-- **[PRODUCT_VISION.md](docs/PRODUCT_VISION.md)** - Project vision and roadmap
-
-## 🐳 Docker
-
-Use the pre-configured Docker container with all tools:
-
-```bash
-# Build the container
-docker build -f .docker/docs.Dockerfile -t aurumcode-docs .
-
-# Run documentation generation
-docker run --rm \
-  -v $(pwd):/workspace \
-  -w /workspace \
-  aurumcode-docs \
-  go run cmd/regenerate-docs/main.go
-```
-
-## 🧪 Development
-
-```bash
-# Install dependencies
-go mod tidy
-
-# Run tests
+go build ./...
 go test ./...
-
-# Run linter
-golangci-lint run
-
-# Build locally
-go build -o bin/aurumcode cmd/regenerate-docs/main.go
 ```
 
-## 📊 Project Status
+Both are verified to pass in `golang:1.21-alpine` with the repository mounted at
+`/w`.
 
-- ✅ 8 language extractors implemented
-- ✅ Jekyll site builder with just-the-docs theme
-- ✅ Incremental documentation support
-- ✅ GitHub Action for external repositories
-- ✅ Docker container with all tools
-- ✅ CI/CD with GitHub Actions
-- 🚧 AI-powered welcome pages (optional)
-- 🚧 Multi-language README generation
+## Documentation
 
-## 🤝 Contributing
+- [ACTION_USAGE.md](ACTION_USAGE.md) - every Action input, output and example
+- [SETUP_GUIDE.md](SETUP_GUIDE.md) - repository setup for publishing
+- [PAGES_SETUP.md](PAGES_SETUP.md) - GitHub Pages source configuration
+- [LITELLM_QUICKSTART.md](LITELLM_QUICKSTART.md) - pointing the generator at an
+  OpenAI-compatible endpoint
 
-Contributions are welcome! Please:
+## License
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📝 License
-
-MIT License - See [LICENSE](LICENSE) for details
-
-## 🙏 Acknowledgments
-
-Built with:
-- [Go](https://go.dev) - Core language
-- [Jekyll](https://jekyllrb.com) - Static site generator
-- [Just the Docs](https://just-the-docs.github.io/just-the-docs/) - Jekyll theme
-- Various language-specific documentation tools
-
----
-
-**Made with ❤️ for developers who love good documentation**
-
-🤖 *Automated documentation, simplified*
+No `LICENSE` file is present in this repository, so no license is granted here
+yet. Open an issue at https://github.com/Mpaape/AurumCode/issues if you need one
+declared.
