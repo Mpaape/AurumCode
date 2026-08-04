@@ -168,6 +168,169 @@ prepare() {
   cp -R "$probe_root/base" "$probe_root/$name"
 }
 
+# --- Spec-collision fixture -------------------------------------------------
+# A second, independent skeleton (no AUR-001 card) that spec-collision cases
+# populate with 2-3 cloned-but-distinguished cards. Every checked field
+# (Given/When/Then/Green/Non-goal/And) is made unique per card via
+# `unique_tag` EXCEPT the one field a given case deliberately collides, so a
+# case's assertion is never contaminated by an accidental collision in an
+# unrelated field.
+write_ratchet_skeleton() {
+  local root="$1"
+  local state
+  mkdir -p "$root/.board/cards" "$root/.board/evidence" "$root/.board/requirements" \
+    "$root/.board/research" "$root/.board/tests" "$root/tests/acceptance" "$root/docs/specs"
+  for state in backlog ready doing review done blocked-on-owner; do
+    mkdir -p "$root/.board/cards/$state"
+  done
+  cp "$repo_root/.board/validate.sh" "$root/.board/validate.sh"
+  chmod 0755 "$root/.board/validate.sh"
+  cat >"$root/.board/requirements/REQUIREMENTS.md" <<'EOF'
+# Requirements
+
+| ID | Requirement |
+|---|---|
+| PR-TST-001 | The focused fixture proves one bounded behavior. |
+EOF
+  cat >"$root/.board/research/code-review-standards.md" <<'EOF'
+# Standards
+
+`CR-GATE-001` The deterministic acceptance gate fails closed.
+EOF
+  cat >"$root/.board/INDEX.md" <<'EOF'
+# Index
+
+| ID | State | Office | Risk | Dependencies | Title |
+|---|---|---|---|---|---|
+EOF
+}
+
+# $1 root, $2 id (AUR-NNN), $3 unique_tag (distinguishes every field except
+# And), $4 and_text (the AC-001 And bullet -- the deliberately shared field).
+write_ratchet_card() {
+  local root="$1" id="$2" tag="$3" and_text="$4"
+  cat >"$root/.board/cards/ready/$id.md" <<EOF
+---
+id: $id
+version: 1
+title: Validate one bounded parser result ($tag)
+status: ready
+office: O00-governance
+depends_on: []
+requirements: [PR-TST-001]
+controls: [CR-GATE-001]
+paths: [tests/acceptance/$id.sh, docs/specs/$id.md]
+forbidden_paths: [.git, .env, secrets]
+base_sha: lock-at-execution
+spec_digest: lock-at-execution
+risk: low
+data_class: internal
+trust_boundaries: [repository]
+---
+
+## Outcome
+
+The fixture emits one deterministic parser result unique to $tag with a decisive exit code.
+
+## Non-goals
+
+- It does not publish, mutate external state, or add another parser behavior for $tag.
+
+## Preconditions
+
+- The sealed fixture and pinned bootstrap execution profile are available for $tag.
+
+## Postconditions
+
+- The parser result for $tag has the expected value and unrelated bytes remain unchanged.
+
+## Acceptance scenarios
+
+### AC-001: Return the bounded parser result for $tag
+
+- Given: \`tests/specs/$id/cases.yaml\` is a deterministic local fixture unique to $tag with no credential or external input.
+- When: the acceptance parser for $tag reads that fixture exactly once.
+- Then: the parser for $tag returns the expected value and a decisive zero exit code.
+- And: $and_text
+
+## Public contract
+
+- Only the fixture result and documented exit behavior for $tag are observable.
+
+## TDD proof
+
+- Test: \`tests/acceptance/$id.sh::AC-001\`.
+- Red: the locked base for $tag reaches the parser and reports the missing expected value.
+- Green: the parser for $tag returns the exact expected value without another behavior.
+- Refactor: the same fixture for $tag preserves output ordering, exit code, and digest.
+- Unit: not-applicable: the acceptance parser is the smallest focused unit.
+- Contract: not-applicable: no port or wire protocol exists in this fixture.
+- Integration: not-applicable: no adapter boundary exists in this fixture.
+- E2E: not-applicable: this validator fixture has no consumer workflow.
+
+## Acceptance
+
+container_profile: \`bootstrap-readonly-v1\`
+
+accept: \`./.board/bin/oci-run --profile bootstrap-readonly-v1 --card $id\`
+
+Expected artifact: \`.board/evidence/$id/acceptance/AC-001.json\` is coordinator-derived.
+
+## Skeptical mutations
+
+### MUT-001: AC-001 / repository
+
+- Change: replace the exact expected value with one different deterministic byte for $tag.
+- Expected: the unchanged acceptance exits non-zero for MUT-001 and restored replay passes.
+
+## Security and privacy
+
+- Bounded fixture bytes for $tag flow to a sanitized local observation with no credential input.
+
+## Documentation
+
+- The exact fixture, result, exit behavior, and failure diagnosis for $tag are documented.
+
+## Compatibility, migration, rollback
+
+- Existing behavior remains unchanged and rollback removes only this bounded fixture ($tag).
+
+## Review
+
+- Reviewer A: every-hunk review across ten dimensions with correctness priority.
+- Reviewer B: every-hunk review across ten dimensions with adversarial priority.
+- Independence: isolated sessions, contexts, caches, memory, and sealed reports.
+- Skeptical approver: pre-sealed challenge, mutation, restore, and clean replay.
+
+## Evidence
+
+Only \`.board/evidence/$id/\` may contain sanitized coordinator-produced artifacts.
+EOF
+  cat >"$root/tests/acceptance/$id.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+printf '{"schema":"aurum.acceptance-observation","version":1,"card_id":"$id","scenario_id":"AC-001"}\n'
+EOF
+  chmod 0755 "$root/tests/acceptance/$id.sh"
+  printf 'fixture documentation with a deterministic bounded result (%s)\n' "$tag" >"$root/docs/specs/$id.md"
+  printf '| [%s](cards/ready/%s.md) | ready | O00-governance | low | `[]` | Validate one bounded parser result (%s) |\n' \
+    "$id" "$id" "$tag" >>"$root/.board/INDEX.md"
+}
+
+# Same shape as write_ratchet_card, but the Given cites ONLY the card's own
+# id -- no per-card tag -- so two such cards' Given collides purely through
+# the AUR-NNN -> CARDREF self-id substitution and through nothing else. Every
+# OTHER checked field (When/Then/Green/Non-goal/And) still carries a distinct
+# per-card tag, so this fixture cannot pass or fail for an unrelated reason:
+# the only thing that can possibly collide is Given, and only because of the
+# self-id substitution under test.
+write_bug1_card() {
+  local root="$1" id="$2" tag="$3"
+  write_ratchet_card "$root" "$id" "$tag" "the same replay is idempotent and reproduces the digest for $tag."
+  sed -i "s#is a deterministic local fixture unique to $tag with#is a deterministic local fixture with#" \
+    "$root/.board/cards/ready/$id.md"
+}
+
 write_review_report() {
   local file="$1"
   local role="$2"
@@ -495,6 +658,76 @@ make_valid_review "$probe_root/canary_leak"
 sed -i 's/"secret_canaries":{"pass":true}/"secret_canaries":{"pass":false}/' "$probe_root/canary_leak/.board/evidence/AUR-001/skeptic.json"
 reseal_evidence "$probe_root/canary_leak"
 
+# --- Spec-collision: BUG 1 (normalize_spec_text ordering) ------------------
+# Two cards whose Given differs ONLY by each citing its own id must collide
+# under the fixed validator and must NOT collide under the pre-fix one --
+# proving the dead-code claim both ways, not just asserting the fix in
+# isolation. `old_validate` is the exact pre-patch script (git HEAD); the copy
+# under test everywhere else in this file is already the patched one.
+old_validate="$probe_root/validate.sh.pre-patch"
+# The "unfixed" validator is derived from the CURRENT file by re-breaking
+# normalize_spec_text the way the original bug did: the self-id substitution
+# is moved after the lowercasing pass, where its upper-case pattern can never
+# match. Deriving it from HEAD via git show self-expires the moment the fix
+# is committed -- HEAD then IS the fixed validator -- which is how this
+# fixture broke once before.
+cp "$repo_root/.board/validate.sh" "$old_validate"
+python3 - "$old_validate" <<'PYEOF'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+sub_block = """  if [[ -n \"$self_id\" ]]; then
+    text=\"$(printf '%s' \"$text\" | sed -E \"s/${self_id}/CARDREF/g\")\"
+  fi
+"""
+assert sub_block in s, "self-id substitution block not found; fixture needs updating"
+s = s.replace(sub_block, "", 1)
+lower_line = "    | tr '[:upper:]' '[:lower:]' \\\n"
+assert lower_line in s, "lowercase pipeline line not found; fixture needs updating"
+s = s.replace(lower_line, lower_line + "    | sed -E \"s/${self_id:-ZZNEVERMATCHZZ}/CARDREF/g\" \\\n", 1)
+open(p, "w").write(s)
+PYEOF
+chmod 0755 "$old_validate"
+
+write_ratchet_skeleton "$probe_root/bug1_fixed"
+write_bug1_card "$probe_root/bug1_fixed" AUR-001 alpha
+write_bug1_card "$probe_root/bug1_fixed" AUR-002 beta
+
+cp -R "$probe_root/bug1_fixed" "$probe_root/bug1_unfixed"
+cp "$old_validate" "$probe_root/bug1_unfixed/.board/validate.sh"
+chmod 0755 "$probe_root/bug1_unfixed/.board/validate.sh"
+
+# --- Spec-collision: BUG 2 ratchet mechanism --------------------------------
+# Three cards, every field unique except AC-001's And, which AUR-alpha and
+# AUR-beta share verbatim by construction (AUR-gamma's And is distinct).
+write_ratchet_skeleton "$probe_root/ratchet_base"
+write_ratchet_card "$probe_root/ratchet_base" AUR-001 alpha 'the same replay is idempotent and reproduces the digest.'
+write_ratchet_card "$probe_root/ratchet_base" AUR-002 beta 'the same replay is idempotent and reproduces the digest.'
+write_ratchet_card "$probe_root/ratchet_base" AUR-003 gamma 'a distinct third-card assertion that shares nothing with the others.'
+
+# (c) baseline generated for exactly the current collision -> green.
+cp -R "$probe_root/ratchet_base" "$probe_root/ratchet_pass"
+cat >"$probe_root/ratchet_pass/.board/tests/spec-collision-baseline.txt" <<'EOF'
+and AUR-001/AC-001 AUR-002/AC-001
+EOF
+
+# (a) a NEW collision (AUR-003's And is changed to match) is not in the
+# baseline above -> reject. Same baseline as the green case; only the tree
+# changes underneath it.
+cp -R "$probe_root/ratchet_base" "$probe_root/ratchet_new_collision"
+cp "$probe_root/ratchet_pass/.board/tests/spec-collision-baseline.txt" \
+  "$probe_root/ratchet_new_collision/.board/tests/spec-collision-baseline.txt"
+sed -i "s#a distinct third-card assertion that shares nothing with the others\.#the same replay is idempotent and reproduces the digest.#" \
+  "$probe_root/ratchet_new_collision/.board/cards/ready/AUR-003.md"
+
+# (b) a DEAD baseline entry: the baseline still claims AUR-001/AUR-002
+# collide, but AUR-002's And was edited so it no longer does -> reject.
+cp -R "$probe_root/ratchet_base" "$probe_root/ratchet_dead_entry"
+cp "$probe_root/ratchet_pass/.board/tests/spec-collision-baseline.txt" \
+  "$probe_root/ratchet_dead_entry/.board/tests/spec-collision-baseline.txt"
+sed -i "s#the same replay is idempotent and reproduces the digest\.#a healed, no-longer-colliding assertion for beta.#" \
+  "$probe_root/ratchet_dead_entry/.board/cards/ready/AUR-002.md"
+
 card='\.board/cards/[a-z-]+/AUR-001\.md'
 manifest='\.board/evidence/AUR-001/manifest\.json'
 report='\.board/evidence/AUR-001'
@@ -563,6 +796,24 @@ run_case replay_failure \
   "^board error: .*/$report/skeptic\.json: clean_replay\.pass must equal true\$" & pids+=("$!")
 run_case canary_leak \
   "^board error: .*/$report/skeptic\.json: secret_canaries\.pass must equal true\$" & pids+=("$!")
+
+# BUG 1 (normalize_spec_text ordering): two cards whose Given differs ONLY by
+# each citing its own id. The patched validator must detect it (dead-code
+# claim disproven); the pre-patch validator (bug1_unfixed, running the exact
+# git-HEAD script) must NOT (dead-code claim proven both ways).
+run_case bug1_fixed \
+  "^board error: spec-collision ratchet: new given collision not recorded in the committed baseline \(.*\): AUR-001/AC-001 AUR-002/AC-001\$" & pids+=("$!")
+run_pass_case bug1_unfixed & pids+=("$!")
+
+# BUG 2 ratchet mechanism, the three mandated mutants:
+# (c) baseline generated for exactly the current tree's collisions -> green.
+run_pass_case ratchet_pass & pids+=("$!")
+# (a) a collision outside the baseline (AUR-003 now also collides) -> reject.
+run_case ratchet_new_collision \
+  "^board error: spec-collision ratchet: new and collision not recorded in the committed baseline \(.*\): AUR-001/AC-001 AUR-003/AC-001\$" & pids+=("$!")
+# (b) a baseline entry that no longer collides (AUR-002's And healed) -> reject.
+run_case ratchet_dead_entry \
+  "^board error: spec-collision ratchet: baseline entry for and no longer collides; the ratchet only shrinks, remove the stale entry: AUR-001/AC-001 AUR-002/AC-001\$" & pids+=("$!")
 
 failed=0
 for pid in "${pids[@]}"; do
