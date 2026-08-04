@@ -33,6 +33,26 @@ inputs:
       AURUMCODE_OUTPUT_DIR, so any relative path inside the workspace works.
     required: false
     default: '.aurumcode'
+  base-path:
+    description: >-
+      Path the site is published under, e.g. /my-repo for a project Pages site
+      at owner.github.io/my-repo/. Exported to the generator as
+      AURUMCODE_BASE_URL. Leave it at 'auto' to derive it from
+      GITHUB_REPOSITORY, which is correct for a project site and for a
+      owner.github.io user site. Set it to an EMPTY string to publish at a
+      domain root - required for a custom domain (CNAME), where nothing in the
+      environment reveals that no prefix applies. A baseurl already present in
+      the output directory's _config.yml wins over the derivation; declaring
+      one here that contradicts it fails the run rather than publishing a site
+      whose links and whose theme assets resolve through different prefixes.
+    required: false
+    # 'auto', NEVER ''. With '' the runner cannot tell "the caller said
+    # nothing" from "the caller asked for the root": both arrive as the same
+    # bytes, the generator's os.LookupEnv reports the variable as declared, the
+    # derivation never runs, and every documentation link on a project Pages
+    # site keeps answering 404. The sentinel is what keeps the two distinct,
+    # and the step below exports the variable only when it is not the sentinel.
+    default: 'auto'
   llm-api-key:
     description: 'API key for the LLM provider (enables AI-generated welcome page)'
     required: false
@@ -288,8 +308,17 @@ runs:
         # (cmd/regenerate-docs/main.go: envOutputDir), so the input is exported
         # under that name and reused verbatim by the steps below.
         AURUMCODE_OUTPUT_DIR: ${{ inputs.output-dir }}
+        BASE_PATH: ${{ inputs.base-path }}
       run: |
         set -euo pipefail
+
+        # Exported ONLY when the caller moved off the sentinel. Exporting it
+        # unconditionally would make an untouched input indistinguishable from
+        # an explicit "publish at the root", and the generator would stop
+        # deriving the base path it needs for a project Pages site.
+        if [ "${BASE_PATH}" != "auto" ]; then
+          export AURUMCODE_BASE_URL="${BASE_PATH}"
+        fi
 
         if [ -n "${LLM_API_KEY}" ] && [ -z "${LLM_BASE_URL}" ]; then
           echo "::warning::llm-api-key was given without llm-base-url - the generator skips the LiteLLM provider and produces no welcome page"

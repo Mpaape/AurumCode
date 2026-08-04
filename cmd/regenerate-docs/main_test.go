@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	"github.com/Mpaape/AurumCode/internal/pipeline"
+	"gopkg.in/yaml.v3"
 )
 
 // This file covers the functions that decide what the consumer of the Action
@@ -490,6 +492,34 @@ func TestSummaryLineSpaceInOutputDirIsAmbiguous(t *testing.T) {
 // resolveConfig / envBool / envOrDefault
 // ---------------------------------------------------------------------------
 
+// unsetEnv removes a variable for the duration of the test and restores it
+// afterwards.
+//
+// t.Setenv(name, "") is not a substitute: it SETS the variable to the empty
+// string. For every knob read with os.Getenv that is indistinguishable from
+// absent, but AURUMCODE_BASE_URL is read with os.LookupEnv precisely so that
+// "declared as the root" and "not declared" stay different, and setting it empty
+// would silently mean the former in every test below. GITHUB_REPOSITORY has the
+// same hazard from the other side: it is genuinely populated on an Actions
+// runner, so leaving it in place would make these tests exercise a different
+// code path in CI than on a laptop.
+func unsetEnv(t *testing.T, name string) {
+	t.Helper()
+
+	previous, existed := os.LookupEnv(name)
+	if err := os.Unsetenv(name); err != nil {
+		t.Fatalf("unset %s: %v", name, err)
+	}
+
+	t.Cleanup(func() {
+		if !existed {
+			_ = os.Unsetenv(name)
+			return
+		}
+		_ = os.Setenv(name, previous)
+	})
+}
+
 func clearPipelineEnv(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{
@@ -497,6 +527,60 @@ func clearPipelineEnv(t *testing.T) {
 		envIncremental, envValidateJekyll, envDeployGHPages,
 	} {
 		t.Setenv(name, "")
+	}
+
+	// These two must be UNSET rather than emptied; see unsetEnv.
+	unsetEnv(t, envBaseURL)
+	unsetEnv(t, "GITHUB_REPOSITORY")
+}
+
+// TestResolveConfigBaseURLDistinguishesUnsetFromEmpty is the guard on the one
+// distinction that decides whether a site on a custom domain is servable.
+//
+// A caller on a custom domain publishes at the root, but nothing in
+// GITHUB_REPOSITORY says so - derivation would guess "/repo" and break every
+// link. The only way out is for the caller to declare the root explicitly, which
+// requires "set to empty" and "not set" to remain two different states all the
+// way from the environment into the pipeline config. os.Getenv collapses them.
+func TestResolveConfigBaseURLDistinguishesUnsetFromEmpty(t *testing.T) {
+	testCases := []struct {
+		name         string
+		set          bool
+		value        string
+		wantValue    string
+		wantDeclared bool
+	}{
+		{name: "not set", set: false, wantDeclared: false},
+		{name: "set to empty means the root", set: true, value: "", wantValue: "", wantDeclared: true},
+		{name: "set to a path", set: true, value: "/widgetlib", wantValue: "/widgetlib", wantDeclared: true},
+		{name: "set to a bare slash", set: true, value: "/", wantValue: "/", wantDeclared: true},
+	}
+
+	if len(testCases) == 0 {
+		t.Fatal("no cases: the loop below would assert nothing")
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			clearPipelineEnv(t)
+			if tc.set {
+				t.Setenv(envBaseURL, tc.value)
+			}
+
+			config, err := resolveConfig(false)
+			if err != nil {
+				t.Fatalf("resolveConfig error = %v", err)
+			}
+
+			if config.BaseURLDeclared != tc.wantDeclared {
+				t.Errorf("BaseURLDeclared = %t, want %t (with %s set=%t value=%q)",
+					config.BaseURLDeclared, tc.wantDeclared, envBaseURL, tc.set, tc.value)
+			}
+			if config.BaseURL != tc.wantValue {
+				t.Errorf("BaseURL = %q, want %q", config.BaseURL, tc.wantValue)
+			}
+		})
 	}
 }
 
@@ -1308,5 +1392,207 @@ func TestIsRegularFile(t *testing.T) {
 	}
 	if isRegularFile(filepath.Join(dir, "absent")) {
 		t.Error("isRegularFile(missing path) = true, want false")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// the action manifest that feeds this binary
+// ---------------------------------------------------------------------------
+//
+// resolveConfig above distinguishes "AURUMCODE_BASE_URL is unset" from
+// "AURUMCODE_BASE_URL is set to the empty string" through os.LookupEnv, and the
+// whole base-path fix rests on that distinction surviving the trip through
+// action.yml. Nothing inside Go can observe that trip, so the manifest is
+// asserted directly here: it is the file whose contents decide whether a
+// consumer's documentation links resolve or 404, and it had no automated gate.
+
+// actionBasePathSentinel is the value the manifest's default and the shell step
+// must agree on. It is written once so the two assertions below cannot drift
+// apart silently: a default of 'auto' compared against "AUTO" in the shell is
+// the same defect as no sentinel at all.
+const actionBasePathSentinel = "auto"
+
+// actionInput mirrors one entry of action.yml's `inputs` map.
+//
+// Default is a *string on purpose: a missing `default:` key and `default: ”`
+// are exactly the two states this test exists to tell apart, and a plain string
+// would collapse them into the same zero value - the very confusion the sentinel
+// was introduced to prevent.
+type actionInput struct {
+	Description string  `yaml:"description"`
+	Required    bool    `yaml:"required"`
+	Default     *string `yaml:"default"`
+}
+
+type actionStep struct {
+	Name  string            `yaml:"name"`
+	ID    string            `yaml:"id"`
+	Shell string            `yaml:"shell"`
+	Env   map[string]string `yaml:"env"`
+	Run   string            `yaml:"run"`
+}
+
+type actionManifest struct {
+	Inputs map[string]actionInput `yaml:"inputs"`
+	Runs   struct {
+		Using string       `yaml:"using"`
+		Steps []actionStep `yaml:"steps"`
+	} `yaml:"runs"`
+}
+
+// loadActionManifest parses the real action.yml this binary ships inside. The
+// path is relative to the package directory, which is where `go test` runs.
+func loadActionManifest(t *testing.T) actionManifest {
+	t.Helper()
+
+	const path = "../../action.yml"
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+
+	var manifest actionManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		t.Fatalf("%s is not valid YAML (%v); GitHub would refuse to run the action", path, err)
+	}
+
+	if len(manifest.Inputs) == 0 {
+		t.Fatalf("%s declares no inputs, so the assertions below would examine nothing", path)
+	}
+	if len(manifest.Runs.Steps) == 0 {
+		t.Fatalf("%s declares no steps, so the assertions below would examine nothing", path)
+	}
+
+	return manifest
+}
+
+func actionStepByID(t *testing.T, manifest actionManifest, id string) actionStep {
+	t.Helper()
+
+	for _, step := range manifest.Runs.Steps {
+		if step.ID == id {
+			return step
+		}
+	}
+
+	ids := make([]string, 0, len(manifest.Runs.Steps))
+	for _, step := range manifest.Runs.Steps {
+		ids = append(ids, fmt.Sprintf("%q", step.ID))
+	}
+	t.Fatalf("action.yml has no step with id %q; step ids are %s", id, strings.Join(ids, ", "))
+	return actionStep{}
+}
+
+// TestActionBasePathDefaultIsTheSentinel is the regression gate for the single
+// line that decides whether every consumer's documentation links resolve.
+//
+// The generator derives the base path from GITHUB_REPOSITORY only when
+// AURUMCODE_BASE_URL is *unset*. A composite action input always carries a
+// value, so exporting it unconditionally would leave the variable always set and
+// the derivation would never run - precisely the state that made 100% of the
+// links on a project Pages site answer 404. The non-empty sentinel is what keeps
+// "the caller touched nothing" and "the caller asked for the domain root" two
+// different answers.
+//
+// Flipping this default back to ” reintroduces the defect for every consumer
+// while every other test in this repository stays green.
+func TestActionBasePathDefaultIsTheSentinel(t *testing.T) {
+	manifest := loadActionManifest(t)
+
+	input, ok := manifest.Inputs["base-path"]
+	if !ok {
+		names := make([]string, 0, len(manifest.Inputs))
+		for name := range manifest.Inputs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		t.Fatalf("action.yml declares no base-path input; inputs are %s", strings.Join(names, ", "))
+	}
+
+	if input.Default == nil {
+		t.Fatal("base-path declares no default: GitHub hands the step an empty string, " +
+			"the step exports AURUMCODE_BASE_URL='' and the generator reads that as " +
+			"\"publish at the root\", so every documentation link on a project Pages " +
+			"site answers 404")
+	}
+
+	if *input.Default != actionBasePathSentinel {
+		t.Fatalf("base-path default = %q, want %q. An empty default is indistinguishable "+
+			"from a caller who really asked for the root: os.LookupEnv reports the "+
+			"variable as declared, resolveBasePath never derives from GITHUB_REPOSITORY, "+
+			"and the 404 the fix removed comes back for every project Pages site.",
+			*input.Default, actionBasePathSentinel)
+	}
+}
+
+// TestActionExportsBaseURLOnlyOffTheSentinel pins the other half: the step has to
+// export AURUMCODE_BASE_URL *conditionally*.
+//
+// A correct default with an unconditional export is just as broken - the
+// variable would always be set, so the generator would never derive anything -
+// and the two halves live hundreds of lines apart in a file no Go test read.
+func TestActionExportsBaseURLOnlyOffTheSentinel(t *testing.T) {
+	manifest := loadActionManifest(t)
+	step := actionStepByID(t, manifest, "generate")
+
+	// The input has to reach the shell, and it has to reach it through env:.
+	// Interpolating ${{ inputs.base-path }} into the run: body would splice
+	// caller-controlled text into the script itself.
+	const wantEnvValue = "${{ inputs.base-path }}"
+	if got := step.Env["BASE_PATH"]; got != wantEnvValue {
+		t.Fatalf("generate step maps BASE_PATH = %q, want %q; the base-path input never "+
+			"reaches the generator otherwise", got, wantEnvValue)
+	}
+	if strings.Contains(step.Run, "inputs.base-path") {
+		t.Errorf("the run: body interpolates inputs.base-path directly instead of reading "+
+			"the BASE_PATH environment variable:\n%s", step.Run)
+	}
+
+	// The guard is reconstructed from the sentinel the test above pinned, so
+	// changing one side without the other fails here.
+	wantGuard := `if [ "${BASE_PATH}" != "` + actionBasePathSentinel + `" ]; then`
+	wantExport := `export ` + envBaseURL + `="${BASE_PATH}"`
+
+	lines := strings.Split(step.Run, "\n")
+
+	guardLine, closeLine := -1, -1
+	var exportLines []int
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == wantGuard && guardLine < 0 {
+			guardLine = i
+		} else if trimmed == "fi" && guardLine >= 0 && closeLine < 0 {
+			closeLine = i
+		}
+		if strings.Contains(trimmed, "export "+envBaseURL) {
+			exportLines = append(exportLines, i)
+		}
+	}
+
+	if guardLine < 0 {
+		t.Fatalf("the generate step does not guard the export with %s; without it the "+
+			"variable is always set and the generator never derives a base path from "+
+			"GITHUB_REPOSITORY:\n%s", wantGuard, step.Run)
+	}
+	if closeLine < 0 {
+		t.Fatalf("the %s guard is never closed with fi:\n%s", wantGuard, step.Run)
+	}
+
+	if len(exportLines) != 1 {
+		t.Fatalf("found %d exports of %s in the generate step, want exactly 1:\n%s",
+			len(exportLines), envBaseURL, step.Run)
+	}
+
+	if exportLines[0] <= guardLine || exportLines[0] >= closeLine {
+		t.Fatalf("%s is exported outside the sentinel guard (export on line %d, guard on "+
+			"line %d, fi on line %d): the variable would always be set and every project "+
+			"Pages site would go back to 404:\n%s",
+			envBaseURL, exportLines[0]+1, guardLine+1, closeLine+1, step.Run)
+	}
+
+	if got := strings.TrimSpace(lines[exportLines[0]]); got != wantExport {
+		t.Errorf("export line = %q, want %q; the generator reads %s and nothing else",
+			got, wantExport, envBaseURL)
 	}
 }
