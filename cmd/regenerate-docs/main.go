@@ -22,6 +22,7 @@ import (
 	litellmProvider "github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	openaiProvider "github.com/Mpaape/AurumCode/internal/llm/provider/openai"
 	"github.com/Mpaape/AurumCode/internal/pipeline"
+	"gopkg.in/yaml.v3"
 )
 
 // Pipeline knobs are read from AURUMCODE_-prefixed variables on purpose. The
@@ -142,7 +143,7 @@ func main() {
 	}
 
 	log.Println("────────────────────────────────────────")
-	report(runErr, docs, inspectSite(config), config)
+	report(runErr, docs, inspectSite(config, docs), config)
 
 	log.Printf("\n📝 Custom pages location:\n   - %s (your guides, tutorials, etc.)", config.DocsDir)
 	log.Printf("\n🌐 Build Jekyll site with:\n   cd %s && bundle install && bundle exec jekyll build", config.DocsDir)
@@ -178,21 +179,66 @@ func logBudget(budget llmBudget) {
 		budget.PerRunUSD, budget.DailyUSD, budget.Source)
 }
 
-// siteStatus records whether the run left behind the two files that turn the
-// generated markdown into something a static host can serve. Markdown alone is
-// not a site: with no index.md the published root is a 404, and with no
-// _config.yml the host has no reason to render the pages.
+// siteStatus records what this run's own generated artifacts say about
+// whether the output directory is a working, publishable site. Markdown alone
+// is not a site: with no _config.yml the host has no reason to render the
+// pages, and a file named index.md that lists zero pages is not a landing
+// page a visitor can use.
+//
+// Earlier this recorded HasIndex as "does index.md exist as a regular file".
+// That is a false green: a Jekyll build renders index.md from whatever the
+// scaffold wrote to it regardless of whether the pages it links to are
+// actually published, and a consumer's own _config.yml `exclude:` list can
+// hide every one of them without the file ever stopping existing. This
+// binary shipped 0 with index=true config=true having just written a home
+// page with 85 dead links for exactly that reason. IndexPages and
+// ExcludedPages replace the existence check with the real count.
 type siteStatus struct {
 	IndexPath  string
 	ConfigPath string
-	HasIndex   bool
 	HasConfig  bool
+
+	// IndexPages is how many documentation pages this run generated: the
+	// pages a site scaffold pointed at this output would list on its index.
+	// It comes from docs, the same list collectMarkdown produced for the
+	// docs=%d field of the summary line, because internal/pipeline's
+	// ExtractorPipeline.Run returns only an error - the ScaffoldResult it
+	// computes internally (including its own exclude-aware page count) never
+	// reaches this binary.
+	IndexPages int
+
+	// ExcludedPages is how many of those pages the consumer's own Jekyll
+	// _config.yml `exclude:` list hides from the build. Each one is a link
+	// the index carries that a published site answers with a 404.
+	ExcludedPages int
 }
 
-// Servable reports whether the artifact can be published as a site.
-func (s siteStatus) Servable() bool { return s.HasIndex && s.HasConfig }
+// Servable reports whether the artifact can be published as a site: a
+// _config.yml for the host to render pages with, and at least one page on
+// the index to render them from.
+//
+// This deliberately does not also require ExcludedPages to be zero. A site
+// with some excluded pages is still a site with working links; the case
+// where every listed page is excluded is a distinct failure mode that report
+// checks for on its own, because it demands a non-zero exit rather than a
+// downgraded "servable".
+func (s siteStatus) Servable() bool { return s.HasConfig && s.IndexPages > 0 }
 
-func inspectSite(config *pipeline.ExtractorPipelineConfig) siteStatus {
+// AllPagesExcluded reports the ghost-index defect this run's own scaffold
+// cannot see on its own: at least one page was generated and listed, and the
+// consumer's own exclude list hides every single one of them. index.md still
+// exists, _config.yml still exists, and every link the index carries answers
+// 404 anyway.
+func (s siteStatus) AllPagesExcluded() bool {
+	return s.IndexPages > 0 && s.ExcludedPages == s.IndexPages
+}
+
+// inspectSite reports what this run's own generated artifacts say about
+// publishability. docs is the list of markdown pages collectMarkdown found
+// for this run - the authoritative answer to "what did this run actually
+// produce", and the same list a site scaffold pointed at this output would
+// list on its index.
+func inspectSite(config *pipeline.ExtractorPipelineConfig, docs []string) siteStatus {
 	docsDir := config.DocsDir
 	if docsDir == "" {
 		docsDir = config.OutputDir
@@ -201,10 +247,13 @@ func inspectSite(config *pipeline.ExtractorPipelineConfig) siteStatus {
 	status := siteStatus{
 		IndexPath:  filepath.ToSlash(filepath.Join(docsDir, "index.md")),
 		ConfigPath: filepath.ToSlash(filepath.Join(docsDir, "_config.yml")),
+		IndexPages: len(docs),
 	}
 
-	status.HasIndex = isRegularFile(status.IndexPath)
 	status.HasConfig = isRegularFile(status.ConfigPath)
+	if status.HasConfig {
+		status.ExcludedPages = excludedPageCount(status.ConfigPath, docsDir, docs)
+	}
 
 	return status
 }
@@ -212,6 +261,67 @@ func inspectSite(config *pipeline.ExtractorPipelineConfig) siteStatus {
 func isRegularFile(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+// jekyllExcludeConfig reads the one key this binary cares about from a
+// consumer-owned _config.yml: the exclude list that keeps Jekyll from
+// building a source path into a page. It is deliberately narrow - the rest of
+// the file is the consumer's business, and a key this binary does not
+// recognise must not become a parse error.
+type jekyllExcludeConfig struct {
+	Exclude []string `yaml:"exclude"`
+}
+
+// excludedPageCount reports how many of docs a consumer-owned _config.yml
+// hides from the Jekyll build. A missing, unreadable, or malformed config
+// excludes nothing rather than erroring: this count is diagnostic, and the
+// run itself never depends on it to proceed.
+func excludedPageCount(configPath, docsDir string, docs []string) int {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return 0
+	}
+
+	var cfg jekyllExcludeConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return 0
+	}
+	if len(cfg.Exclude) == 0 {
+		return 0
+	}
+
+	count := 0
+	for _, doc := range docs {
+		rel, err := filepath.Rel(docsDir, filepath.FromSlash(doc))
+		if err != nil {
+			continue
+		}
+		if excludeHidesSource(cfg.Exclude, filepath.ToSlash(rel)) {
+			count++
+		}
+	}
+	return count
+}
+
+// excludeHidesSource mirrors the exclude-vs-source matching Jekyll performs,
+// which internal/documentation/site.Scaffold already computes per run in
+// ScaffoldResult.ExcludedPages. That result never reaches this binary -
+// ExtractorPipeline.Run returns only an error - so this reproduces the one
+// matching predicate rather than duplicating exclude-list parsing (done above
+// with a real YAML decoder) or page discovery (done above with docs, already
+// collected from disk by collectMarkdown). An exclude entry hides a source
+// path when the path is the entry itself or sits under it as a directory.
+func excludeHidesSource(excludes []string, source string) bool {
+	for _, pattern := range excludes {
+		dir := strings.TrimSuffix(strings.TrimSpace(pattern), "/")
+		if dir == "" {
+			continue
+		}
+		if source == dir || strings.HasPrefix(source, dir+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // fatalf is the process-terminating log call used by report. It is a variable so
@@ -241,6 +351,25 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 		fatalf("❌ Pipeline reported partial extraction but no markdown file exists under %s: %v",
 			config.OutputDir, runErr)
 
+	case len(docs) > 0 && siteInfo.AllPagesExcluded():
+		// The pipeline produced markdown and the scaffold's index lists it, but
+		// the consumer's own Jekyll exclude list hides every one of those
+		// pages: a published site would answer 404 on every link the index
+		// carries. This is the ghost-index defect - index.md exists,
+		// _config.yml exists, and the run used to exit 0 anyway - so it is a
+		// build failure, not a warning folded into an otherwise green run.
+		if partial {
+			log.Printf("⚠️  PARTIAL SUCCESS - %d language(s) skipped, %d extraction error(s)",
+				len(extractionErr.Skipped), len(extractionErr.Errors))
+			logDiagnostics(extractionErr)
+		}
+		logDocs(docs, config.OutputDir)
+		logSite(siteInfo)
+		log.Print(summaryLine("unpublishable", docs, siteInfo, extractionErr, config))
+		fatalf("❌ %s lists %d page(s) but %s excludes all %d of them: every link a "+
+			"published site would carry answers 404",
+			siteInfo.IndexPath, siteInfo.IndexPages, siteInfo.ConfigPath, siteInfo.ExcludedPages)
+
 	case partial:
 		log.Printf("⚠️  PARTIAL SUCCESS - %d language(s) skipped, %d extraction error(s)",
 			len(extractionErr.Skipped), len(extractionErr.Errors))
@@ -261,19 +390,25 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 	}
 }
 
-// logSite makes an unpublishable artifact visible in the run log instead of
-// letting a green exit status imply a working site.
+// logSite makes an unpublishable, or partially unpublishable, artifact visible
+// in the run log instead of letting a green exit status imply a fully working
+// site.
 func logSite(siteInfo siteStatus) {
-	if siteInfo.Servable() {
-		log.Printf("\n🌐 Site scaffold:\n   - %s\n   - %s", siteInfo.IndexPath, siteInfo.ConfigPath)
+	if !siteInfo.Servable() {
+		if !siteInfo.HasConfig {
+			log.Printf("⚠️  %s is missing - the published pages would be served as raw markdown", siteInfo.ConfigPath)
+		}
+		if siteInfo.IndexPages == 0 {
+			log.Printf("⚠️  %s lists no pages - a published site would answer 404 at its root", siteInfo.IndexPath)
+		}
 		return
 	}
 
-	if !siteInfo.HasIndex {
-		log.Printf("⚠️  %s is missing - a published site would answer 404 at its root", siteInfo.IndexPath)
-	}
-	if !siteInfo.HasConfig {
-		log.Printf("⚠️  %s is missing - the published pages would be served as raw markdown", siteInfo.ConfigPath)
+	log.Printf("\n🌐 Site scaffold:\n   - %s\n   - %s", siteInfo.IndexPath, siteInfo.ConfigPath)
+
+	if siteInfo.ExcludedPages > 0 {
+		log.Printf("⚠️  %s excludes %d of the %d page(s) listed in %s - those links would answer 404",
+			siteInfo.ConfigPath, siteInfo.ExcludedPages, siteInfo.IndexPages, siteInfo.IndexPath)
 	}
 }
 
@@ -309,9 +444,9 @@ func summaryLine(result string, docs []string, siteInfo siteStatus, extractionEr
 		}
 	}
 
-	return fmt.Sprintf("aurumcode: result=%s docs=%d skipped=%d failed=%d languages_skipped=%s output=%s index=%t config=%t",
+	return fmt.Sprintf("aurumcode: result=%s docs=%d skipped=%d failed=%d languages_skipped=%s output=%s index_pages=%d index_pages_excluded=%d config=%t",
 		result, len(docs), skippedCount, failedCount, languages, config.OutputDir,
-		siteInfo.HasIndex, siteInfo.HasConfig)
+		siteInfo.IndexPages, siteInfo.ExcludedPages, siteInfo.HasConfig)
 }
 
 func logDocs(docs []string, outputDir string) {

@@ -44,8 +44,8 @@ func servableSite() siteStatus {
 	return siteStatus{
 		IndexPath:  "/out/index.md",
 		ConfigPath: "/out/_config.yml",
-		HasIndex:   true,
 		HasConfig:  true,
+		IndexPages: 1,
 	}
 }
 
@@ -53,6 +53,33 @@ func unservableSite() siteStatus {
 	return siteStatus{
 		IndexPath:  "/out/index.md",
 		ConfigPath: "/out/_config.yml",
+	}
+}
+
+// ghostIndexSite is a fully formed scaffold - _config.yml exists, the index
+// lists real pages - whose consumer-owned exclude list hides every one of
+// them. Servable() alone cannot see this: it only asks for one listed page,
+// not for one reachable one.
+func ghostIndexSite() siteStatus {
+	return siteStatus{
+		IndexPath:     "/out/index.md",
+		ConfigPath:    "/out/_config.yml",
+		HasConfig:     true,
+		IndexPages:    3,
+		ExcludedPages: 3,
+	}
+}
+
+// partiallyExcludedSite is servable - at least one listed page is reachable -
+// but the consumer's exclude list hides some of the others. This is the
+// boundary AllPagesExcluded must not cross: degraded, not fatal.
+func partiallyExcludedSite() siteStatus {
+	return siteStatus{
+		IndexPath:     "/out/index.md",
+		ConfigPath:    "/out/_config.yml",
+		HasConfig:     true,
+		IndexPages:    3,
+		ExcludedPages: 1,
 	}
 }
 
@@ -131,7 +158,7 @@ func reportScenarios() map[string]reportScenario {
 			site:        unservableSite(),
 			wantFatal:   true,
 			wantExit:    1,
-			wantSummary: "aurumcode: result=failed docs=0 skipped=0 failed=1 languages_skipped=none output=/out index=false config=false",
+			wantSummary: "aurumcode: result=failed docs=0 skipped=0 failed=1 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
 			mustContain: []string{
 				"❌ FAILED - no documentation was produced",
 				"   - failed: gomarkdoc exploded",
@@ -148,7 +175,7 @@ func reportScenarios() map[string]reportScenario {
 			site:        unservableSite(),
 			wantFatal:   true,
 			wantExit:    1,
-			wantSummary: "aurumcode: result=failed docs=0 skipped=0 failed=0 languages_skipped=none output=/out index=false config=false",
+			wantSummary: "aurumcode: result=failed docs=0 skipped=0 failed=0 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
 			mustContain: []string{"❌ FAILED - no documentation was produced"},
 			mustAbsent:  []string{"✅", "result=ok", "result=partial"},
 		},
@@ -163,7 +190,7 @@ func reportScenarios() map[string]reportScenario {
 			site:        servableSite(),
 			wantFatal:   true,
 			wantExit:    1,
-			wantSummary: "aurumcode: result=failed docs=1 skipped=0 failed=1 languages_skipped=none output=/out index=true config=true",
+			wantSummary: "aurumcode: result=failed docs=1 skipped=0 failed=1 languages_skipped=none output=/out index_pages=1 index_pages_excluded=0 config=true",
 			mustAbsent:  []string{"✅", "result=ok"},
 		},
 
@@ -179,7 +206,7 @@ func reportScenarios() map[string]reportScenario {
 			site:        unservableSite(),
 			wantFatal:   true,
 			wantExit:    1,
-			wantSummary: "aurumcode: result=failed docs=0 skipped=1 failed=1 languages_skipped=rust output=/out index=false config=false",
+			wantSummary: "aurumcode: result=failed docs=0 skipped=1 failed=1 languages_skipped=rust output=/out index_pages=0 index_pages_excluded=0 config=false",
 			mustContain: []string{"no markdown file exists under /out"},
 			mustAbsent:  []string{"✅", "result=ok", "result=partial", "PARTIAL SUCCESS"},
 		},
@@ -196,7 +223,7 @@ func reportScenarios() map[string]reportScenario {
 			site:        servableSite(),
 			wantFatal:   false,
 			wantExit:    0,
-			wantSummary: "aurumcode: result=partial docs=2 skipped=2 failed=1 languages_skipped=rust,csharp output=/out index=true config=true",
+			wantSummary: "aurumcode: result=partial docs=2 skipped=2 failed=1 languages_skipped=rust,csharp output=/out index_pages=1 index_pages_excluded=0 config=true",
 			mustContain: []string{
 				"⚠️  PARTIAL SUCCESS - 2 language(s) skipped, 1 extraction error(s)",
 				"   - failed: cpp extractor failed",
@@ -214,7 +241,7 @@ func reportScenarios() map[string]reportScenario {
 			site:        unservableSite(),
 			wantFatal:   false,
 			wantExit:    0,
-			wantSummary: "aurumcode: result=empty docs=0 skipped=0 failed=0 languages_skipped=none output=/out index=false config=false",
+			wantSummary: "aurumcode: result=empty docs=0 skipped=0 failed=0 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
 			mustContain: []string{"⚠️  NO DOCUMENTATION PRODUCED - no supported source file was documented under /src"},
 			mustAbsent:  []string{"✅", "result=ok", "result=partial"},
 		},
@@ -225,7 +252,7 @@ func reportScenarios() map[string]reportScenario {
 			site:        servableSite(),
 			wantFatal:   false,
 			wantExit:    0,
-			wantSummary: "aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/out index=true config=true",
+			wantSummary: "aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/out index_pages=1 index_pages_excluded=0 config=true",
 			mustContain: []string{
 				"✅ Documentation regeneration completed!",
 				"🌐 Site scaffold:",
@@ -235,7 +262,7 @@ func reportScenarios() map[string]reportScenario {
 		},
 
 		// Markdown was produced but the artifact cannot be published. The run is
-		// still result=ok, so the index/config flags are the only warning a
+		// still result=ok, so the index/config counts are the only warning a
 		// machine consumer gets - assert they are actually there.
 		"complete-but-unpublishable": {
 			runErr:      nil,
@@ -243,13 +270,71 @@ func reportScenarios() map[string]reportScenario {
 			site:        unservableSite(),
 			wantFatal:   false,
 			wantExit:    0,
-			wantSummary: "aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/out index=false config=false",
+			wantSummary: "aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
 			mustContain: []string{
 				"✅ Documentation regeneration completed!",
-				"⚠️  /out/index.md is missing - a published site would answer 404 at its root",
+				"⚠️  /out/index.md lists no pages - a published site would answer 404 at its root",
 				"⚠️  /out/_config.yml is missing - the published pages would be served as raw markdown",
 			},
 			mustAbsent: []string{"🌐 Site scaffold:"},
+		},
+
+		// The artifact is servable - the index lists real pages - but the
+		// consumer's own exclude list hides some of them. This must stay
+		// result=ok: at least one link works, so it is a warning, not a
+		// build failure.
+		"complete-with-some-pages-excluded": {
+			runErr:      nil,
+			docs:        []string{"/out/a.md", "/out/b.md", "/out/c.md"},
+			site:        partiallyExcludedSite(),
+			wantFatal:   false,
+			wantExit:    0,
+			wantSummary: "aurumcode: result=ok docs=3 skipped=0 failed=0 languages_skipped=none output=/out index_pages=3 index_pages_excluded=1 config=true",
+			mustContain: []string{
+				"✅ Documentation regeneration completed!",
+				"🌐 Site scaffold:",
+				"⚠️  /out/_config.yml excludes 1 of the 3 page(s) listed in /out/index.md - those links would answer 404",
+			},
+			mustAbsent: []string{"result=partial", "result=unpublishable"},
+		},
+
+		// The ghost-index defect this whole guard exists for: index.md exists,
+		// _config.yml exists, every page the index lists is excluded by the
+		// consumer's own config, and the run used to exit 0 anyway. It must now
+		// fail loudly instead of reporting result=ok.
+		"unpublishable-all-pages-excluded": {
+			runErr:      nil,
+			docs:        []string{"/out/a.md", "/out/b.md", "/out/c.md"},
+			site:        ghostIndexSite(),
+			wantFatal:   true,
+			wantExit:    1,
+			wantSummary: "aurumcode: result=unpublishable docs=3 skipped=0 failed=0 languages_skipped=none output=/out index_pages=3 index_pages_excluded=3 config=true",
+			mustContain: []string{
+				"⚠️  /out/_config.yml excludes 3 of the 3 page(s) listed in /out/index.md - those links would answer 404",
+				"/out/index.md lists 3 page(s) but /out/_config.yml excludes all 3 of them",
+				"every link a published site would carry answers 404",
+			},
+			mustAbsent: []string{"✅ Documentation regeneration completed!", "result=ok", "result=partial"},
+		},
+
+		// Same defect, but reached from the partial branch: some languages were
+		// skipped AND every generated page is excluded. Both diagnostics must
+		// show, and the run must still fail rather than downgrade to partial.
+		"unpublishable-all-pages-excluded-partial": {
+			runErr: &pipeline.ExtractionError{
+				Partial: true,
+				Skipped: []pipeline.LanguageSkip{skip("rust", 1)},
+			},
+			docs:        []string{"/out/a.md", "/out/b.md", "/out/c.md"},
+			site:        ghostIndexSite(),
+			wantFatal:   true,
+			wantExit:    1,
+			wantSummary: "aurumcode: result=unpublishable docs=3 skipped=1 failed=0 languages_skipped=rust output=/out index_pages=3 index_pages_excluded=3 config=true",
+			mustContain: []string{
+				"⚠️  PARTIAL SUCCESS - 1 language(s) skipped, 0 extraction error(s)",
+				"/out/index.md lists 3 page(s) but /out/_config.yml excludes all 3 of them",
+			},
+			mustAbsent: []string{"✅", "result=ok", "result=partial"},
 		},
 	}
 }
@@ -320,10 +405,12 @@ func TestReportVerdictsAreDistinguishable(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"total-failure":     "result=failed",
-		"partial-with-docs": "result=partial",
-		"empty":             "result=empty",
-		"complete":          "result=ok",
+		"total-failure":                    "result=failed",
+		"partial-with-docs":                "result=partial",
+		"empty":                            "result=empty",
+		"complete":                         "result=ok",
+		"unpublishable-all-pages-excluded": "result=unpublishable",
+		"unpublishable-all-pages-excluded-partial": "result=unpublishable",
 	}
 	for name, expected := range want {
 		if tokens[name] != expected {
@@ -406,7 +493,7 @@ func TestSummaryLine(t *testing.T) {
 			result: "empty",
 			site:   unservableSite(),
 			output: "/out",
-			want:   "aurumcode: result=empty docs=0 skipped=0 failed=0 languages_skipped=none output=/out index=false config=false",
+			want:   "aurumcode: result=empty docs=0 skipped=0 failed=0 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
 		},
 		{
 			name:   "complete run reports servable site",
@@ -414,7 +501,7 @@ func TestSummaryLine(t *testing.T) {
 			docs:   []string{"a.md", "b.md", "c.md"},
 			site:   servableSite(),
 			output: "/out",
-			want:   "aurumcode: result=ok docs=3 skipped=0 failed=0 languages_skipped=none output=/out index=true config=true",
+			want:   "aurumcode: result=ok docs=3 skipped=0 failed=0 languages_skipped=none output=/out index_pages=1 index_pages_excluded=0 config=true",
 		},
 		{
 			name:   "skipped languages are listed in order",
@@ -426,7 +513,7 @@ func TestSummaryLine(t *testing.T) {
 				Skipped: []pipeline.LanguageSkip{skip("rust", 1), skip("csharp", 2), skip("powershell", 3)},
 			},
 			output: "/out",
-			want:   "aurumcode: result=partial docs=1 skipped=3 failed=0 languages_skipped=rust,csharp,powershell output=/out index=true config=true",
+			want:   "aurumcode: result=partial docs=1 skipped=3 failed=0 languages_skipped=rust,csharp,powershell output=/out index_pages=1 index_pages_excluded=0 config=true",
 		},
 		{
 			// Errors without skips leave languages_skipped=none: the failure count
@@ -438,7 +525,7 @@ func TestSummaryLine(t *testing.T) {
 				Errors: []error{errors.New("one"), errors.New("two")},
 			},
 			output: "/out",
-			want:   "aurumcode: result=failed docs=0 skipped=0 failed=2 languages_skipped=none output=/out index=false config=false",
+			want:   "aurumcode: result=failed docs=0 skipped=0 failed=2 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
 		},
 		{
 			// Observed behaviour, not an endorsement: the line is space separated
@@ -449,7 +536,17 @@ func TestSummaryLine(t *testing.T) {
 			docs:   []string{"a.md"},
 			site:   servableSite(),
 			output: "/my out",
-			want:   "aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/my out index=true config=true",
+			want:   "aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/my out index_pages=1 index_pages_excluded=0 config=true",
+		},
+		{
+			// The count that replaced the boolean: a scaffold whose exclude list
+			// hides some, but not all, of the pages it lists.
+			name:   "some pages excluded",
+			result: "ok",
+			docs:   []string{"a.md", "b.md", "c.md"},
+			site:   partiallyExcludedSite(),
+			output: "/out",
+			want:   "aurumcode: result=ok docs=3 skipped=0 failed=0 languages_skipped=none output=/out index_pages=3 index_pages_excluded=1 config=true",
 		},
 	}
 
@@ -1217,19 +1314,31 @@ func TestCollectMarkdownPropagatesWalkErrors(t *testing.T) {
 // inspectSite / siteStatus
 // ---------------------------------------------------------------------------
 
+// docsUnder joins each relative name onto dir and returns the slash-form
+// paths collectMarkdown would have produced, so tests can hand inspectSite
+// exactly the shape main() does.
+func docsUnder(dir string, names ...string) []string {
+	docs := make([]string, 0, len(names))
+	for _, name := range names {
+		docs = append(docs, filepath.ToSlash(filepath.Join(dir, name)))
+	}
+	return docs
+}
+
 func TestInspectSite(t *testing.T) {
 	tests := []struct {
-		name       string
-		setup      func(t *testing.T, dir string)
-		wantIndex  bool
-		wantConfig bool
+		name           string
+		setup          func(t *testing.T, dir string)
+		docs           []string
+		wantConfig     bool
+		wantIndexPages int
+		wantExcluded   int
 	}{
 		{
-			name:  "missing directory",
-			setup: func(*testing.T, string) {},
+			name: "missing directory, no docs",
 		},
 		{
-			name: "empty directory",
+			name: "empty directory, no docs",
 			setup: func(t *testing.T, dir string) {
 				if err := os.MkdirAll(dir, 0o755); err != nil {
 					t.Fatalf("mkdir: %v", err)
@@ -1237,39 +1346,103 @@ func TestInspectSite(t *testing.T) {
 			},
 		},
 		{
-			name: "index only",
-			setup: func(t *testing.T, dir string) {
-				writeFile(t, filepath.Join(dir, "index.md"), "hi")
-			},
-			wantIndex: true,
+			// docs generated with no config at all: not servable, but the page
+			// count still reflects what was actually produced.
+			name:           "docs with no config",
+			docs:           []string{"a.md", "b.md"},
+			wantIndexPages: 2,
 		},
 		{
-			name: "config only",
+			name: "config only, no docs",
 			setup: func(t *testing.T, dir string) {
 				writeFile(t, filepath.Join(dir, "_config.yml"), "title: x")
 			},
 			wantConfig: true,
 		},
 		{
-			name: "both present",
+			name: "docs and a config with no exclude list",
 			setup: func(t *testing.T, dir string) {
-				writeFile(t, filepath.Join(dir, "index.md"), "hi")
-				writeFile(t, filepath.Join(dir, "_config.yml"), "title: x")
+				writeFile(t, filepath.Join(dir, "_config.yml"), "title: x\n")
 			},
-			wantIndex:  true,
-			wantConfig: true,
+			docs:           []string{"a.md", "b.md"},
+			wantConfig:     true,
+			wantIndexPages: 2,
 		},
 		{
-			// A directory named index.md would make the site unservable, so it
-			// must not be mistaken for a landing page.
-			name: "index.md is a directory",
+			// A directory named index.md would make the site unservable if it
+			// were still checked for existence; the redesigned status no longer
+			// depends on that file's presence at all, only on what was
+			// generated and what the config excludes.
+			name: "index.md is a directory but does not affect the count",
 			setup: func(t *testing.T, dir string) {
 				if err := os.MkdirAll(filepath.Join(dir, "index.md"), 0o755); err != nil {
 					t.Fatalf("mkdir: %v", err)
 				}
 				writeFile(t, filepath.Join(dir, "_config.yml"), "title: x")
 			},
-			wantConfig: true,
+			docs:           []string{"a.md"},
+			wantConfig:     true,
+			wantIndexPages: 1,
+		},
+		{
+			// The ghost-index defect this whole redesign exists for: the
+			// consumer's own exclude list hides one of the two generated
+			// pages. The old boolean pair would have reported index=true
+			// config=true with no way to see the dead link.
+			name: "exclude list hides one of two generated pages",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, filepath.Join(dir, "_config.yml"), "exclude:\n  - go\n")
+			},
+			docs:           []string{"go/pkg.md", "python/pkg.md"},
+			wantConfig:     true,
+			wantIndexPages: 2,
+			wantExcluded:   1,
+		},
+		{
+			// Every generated page excluded: the case report() must now fail on.
+			name: "exclude list hides every generated page",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, filepath.Join(dir, "_config.yml"), "exclude:\n  - go\n  - python\n")
+			},
+			docs:           []string{"go/pkg.md", "python/pkg.md"},
+			wantConfig:     true,
+			wantIndexPages: 2,
+			wantExcluded:   2,
+		},
+		{
+			// An exclude entry matching a whole directory hides every page
+			// under it, not just a page whose path equals the entry exactly.
+			name: "exclude entry hides a page nested under it",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, filepath.Join(dir, "_config.yml"), "exclude:\n  - go\n")
+			},
+			docs:           []string{"go/nested/deep.md"},
+			wantConfig:     true,
+			wantIndexPages: 1,
+			wantExcluded:   1,
+		},
+		{
+			// A directory that merely starts with the same characters as an
+			// exclude entry must not match: "go" must not hide "gopher/x.md".
+			name: "exclude entry does not match on a bare prefix",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, filepath.Join(dir, "_config.yml"), "exclude:\n  - go\n")
+			},
+			docs:           []string{"gopher/x.md"},
+			wantConfig:     true,
+			wantIndexPages: 1,
+			wantExcluded:   0,
+		},
+		{
+			// A malformed config must not crash the run or the report; it
+			// simply cannot say anything is excluded.
+			name: "malformed config excludes nothing",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, filepath.Join(dir, "_config.yml"), "exclude: [unterminated")
+			},
+			docs:           []string{"a.md"},
+			wantConfig:     true,
+			wantIndexPages: 1,
 		},
 	}
 
@@ -1277,19 +1450,24 @@ func TestInspectSite(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			docsDir := filepath.Join(t.TempDir(), "docs")
-			tc.setup(t, docsDir)
-
-			config := &pipeline.ExtractorPipelineConfig{OutputDir: "unused", DocsDir: docsDir}
-			got := inspectSite(config)
-
-			if got.HasIndex != tc.wantIndex {
-				t.Errorf("HasIndex = %v, want %v", got.HasIndex, tc.wantIndex)
+			if tc.setup != nil {
+				tc.setup(t, docsDir)
 			}
+
+			config := &pipeline.ExtractorPipelineConfig{OutputDir: docsDir, DocsDir: docsDir}
+			got := inspectSite(config, docsUnder(docsDir, tc.docs...))
+
 			if got.HasConfig != tc.wantConfig {
 				t.Errorf("HasConfig = %v, want %v", got.HasConfig, tc.wantConfig)
 			}
+			if got.IndexPages != tc.wantIndexPages {
+				t.Errorf("IndexPages = %d, want %d", got.IndexPages, tc.wantIndexPages)
+			}
+			if got.ExcludedPages != tc.wantExcluded {
+				t.Errorf("ExcludedPages = %d, want %d", got.ExcludedPages, tc.wantExcluded)
+			}
 
-			wantServable := tc.wantIndex && tc.wantConfig
+			wantServable := tc.wantConfig && tc.wantIndexPages > 0
 			if got.Servable() != wantServable {
 				t.Errorf("Servable() = %v, want %v", got.Servable(), wantServable)
 			}
@@ -1308,20 +1486,23 @@ func TestInspectSite(t *testing.T) {
 
 func TestInspectSiteEmptyDocsDirFallsBackToOutputDir(t *testing.T) {
 	out := t.TempDir()
-	writeFile(t, filepath.Join(out, "index.md"), "hi")
 	writeFile(t, filepath.Join(out, "_config.yml"), "title: x")
 
-	got := inspectSite(&pipeline.ExtractorPipelineConfig{OutputDir: out, DocsDir: ""})
+	got := inspectSite(&pipeline.ExtractorPipelineConfig{OutputDir: out, DocsDir: ""}, docsUnder(out, "a.md"))
 
 	if got.IndexPath != filepath.ToSlash(filepath.Join(out, "index.md")) {
 		t.Errorf("IndexPath = %q, want it derived from OutputDir", got.IndexPath)
 	}
 	if !got.Servable() {
-		t.Errorf("Servable() = false, want true (index %v, config %v)", got.HasIndex, got.HasConfig)
+		t.Errorf("Servable() = false, want true (config %v, index_pages %d)", got.HasConfig, got.IndexPages)
 	}
 }
 
-func TestInspectSiteSymlinks(t *testing.T) {
+// TestInspectSiteConfigSymlinkToNothingIsNotServable pins the one piece of
+// filesystem-existence behaviour that survives the redesign: HasConfig still
+// comes from os.Stat, so a _config.yml that is a dangling symlink still
+// counts as absent even though docs were generated.
+func TestInspectSiteConfigSymlinkToNothingIsNotServable(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks require elevation on Windows")
 	}
@@ -1330,30 +1511,21 @@ func TestInspectSiteSymlinks(t *testing.T) {
 	docsDir := filepath.Join(root, "docs")
 	real := filepath.Join(root, "real")
 
-	writeFile(t, filepath.Join(real, "landing.md"), "hi")
 	if err := os.MkdirAll(docsDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
-	}
-
-	// index.md resolves through a symlink to a real file.
-	if err := os.Symlink(filepath.Join(real, "landing.md"), filepath.Join(docsDir, "index.md")); err != nil {
-		t.Fatalf("symlink: %v", err)
 	}
 	// _config.yml is a symlink to nothing.
 	if err := os.Symlink(filepath.Join(real, "absent.yml"), filepath.Join(docsDir, "_config.yml")); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
 
-	got := inspectSite(&pipeline.ExtractorPipelineConfig{OutputDir: root, DocsDir: docsDir})
+	got := inspectSite(&pipeline.ExtractorPipelineConfig{OutputDir: root, DocsDir: docsDir}, docsUnder(docsDir, "a.md"))
 
-	// os.Stat follows symlinks, so a link to a real file counts and a dangling
-	// link does not. Note this is stricter than collectMarkdown, which counts a
-	// dangling markdown symlink as a generated document.
-	if !got.HasIndex {
-		t.Error("HasIndex = false, want true for a symlink to a regular file")
-	}
 	if got.HasConfig {
 		t.Error("HasConfig = true, want false for a dangling symlink")
+	}
+	if got.IndexPages != 1 {
+		t.Errorf("IndexPages = %d, want 1 - docs were generated even though the site is not servable", got.IndexPages)
 	}
 	if got.Servable() {
 		t.Error("Servable() = true, want false while _config.yml is unresolvable")
@@ -1362,19 +1534,61 @@ func TestInspectSiteSymlinks(t *testing.T) {
 
 func TestSiteStatusServable(t *testing.T) {
 	tests := []struct {
-		index, config, want bool
+		indexPages int
+		config     bool
+		want       bool
 	}{
-		{false, false, false},
-		{true, false, false},
-		{false, true, false},
-		{true, true, true},
+		{0, false, false},
+		{1, false, false},
+		{0, true, false},
+		{1, true, true},
+		{5, true, true},
 	}
 
 	for _, tc := range tests {
-		got := siteStatus{HasIndex: tc.index, HasConfig: tc.config}.Servable()
+		got := siteStatus{IndexPages: tc.indexPages, HasConfig: tc.config}.Servable()
 		if got != tc.want {
-			t.Errorf("siteStatus{index:%v, config:%v}.Servable() = %v, want %v", tc.index, tc.config, got, tc.want)
+			t.Errorf("siteStatus{IndexPages:%d, HasConfig:%v}.Servable() = %v, want %v",
+				tc.indexPages, tc.config, got, tc.want)
 		}
+	}
+
+	// Servable() alone must not react to ExcludedPages: that split is what
+	// AllPagesExcluded is for, and report relies on the two staying separate.
+	allExcludedButServable := siteStatus{HasConfig: true, IndexPages: 3, ExcludedPages: 3}
+	if !allExcludedButServable.Servable() {
+		t.Error("Servable() = false for an all-excluded site, want true - " +
+			"AllPagesExcluded is the guard that must catch this, not Servable")
+	}
+}
+
+// TestSiteStatusAllPagesExcluded is the direct, unit-level pin on the
+// predicate report uses to fail closed on a ghost index. It exists
+// independently of the report()-level scenarios so the boundary - some
+// excluded versus every page excluded - is provable without going through
+// log capture and fatalf stubbing.
+func TestSiteStatusAllPagesExcluded(t *testing.T) {
+	tests := []struct {
+		name          string
+		indexPages    int
+		excludedPages int
+		want          bool
+	}{
+		{"no pages at all", 0, 0, false},
+		{"none excluded", 3, 0, false},
+		{"some excluded", 3, 1, false},
+		{"all excluded", 3, 3, true},
+		{"one page, excluded", 1, 1, true},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := siteStatus{IndexPages: tc.indexPages, ExcludedPages: tc.excludedPages}.AllPagesExcluded()
+			if got != tc.want {
+				t.Errorf("AllPagesExcluded() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
