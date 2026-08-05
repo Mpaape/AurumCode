@@ -1,0 +1,45 @@
+{
+  "schema": "aurum.acceptance-observation",
+  "version": 1,
+  "card_id": "AUR-362",
+  "candidate_identity_digest": "sha256:97e659b101273da8811e06cf7e9e61856f1e72419e023bcadac603336a1fa661",
+  "role": "acceptance",
+  "sealed": true,
+  "role_nonce": "aur362-r3-acceptance-seal-748dc1e5f92a",
+  "context_digest": "sha256:14d01b30e494c133362036b61a33106dd4727ccb3a4f0822fe5c1d4d6b3549ae",
+  "backend_family_digest": "sha256:a7a48629bc2e498dc6de27edb6c3a1155e7c22516662b58532ede8cfaf6aa229",
+  "verdict": "pass",
+  "command_digest": "sha256:06c38cfeb3cafe15c249856a8fd24e71ead2b740b7d6d1f4a5576a232f57380e",
+  "container_profile_digest": "sha256:36bb0c1b85fa02974fcaaef5f0dc67c7a8212eafc8a90d72342e248da00ca1f4",
+  "red": {
+    "exit_code": 1,
+    "typed_failure": "AUR-362/AC-001/scanner_lock_incomplete",
+    "cause": ".board/bootstrap/locks/scanners.yml absent from the pre-candidate tree (base_sha 7a1b930); AC-001 reaches the boundary check and fails typed. Reproduced independently by both blind reviewers."
+  },
+  "green": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:4605c2f89fe7ac76ebee271459fe6297ee340cf7f3689ea7fa885d727b01c33e"
+  },
+  "mutation": {
+    "mutation_id": "MUT-001",
+    "detected": true,
+    "exit_code": 1,
+    "typed_failure": "AUR-362/AC-001/scanner-unlocked",
+    "restored_exit_code": 0
+  },
+  "clean_replay": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:4605c2f89fe7ac76ebee271459fe6297ee340cf7f3689ea7fa885d727b01c33e",
+    "runs": 2
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "scenarios": [
+    {
+      "id": "AC-001",
+      "exit_code": 0
+    }
+  ]
+}
