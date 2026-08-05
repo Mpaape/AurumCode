@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-021",
+  "candidate_identity_digest": "sha256:dc1521a017a54037f481e6874cceb35867ea865d4230b8f21ee740ec37820a50",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur021-r6-reviewer-a-seal-3e91c07ad5f2",
+  "context_digest": "sha256:0ac2d2a3dd6f3b5c1ddb57bd7cbb02c9d21f791f9c7e3878ead58b490900d295",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:25ee3e864a880bc3f2810763eb2b91cbfc09c376a90303e043f39c944910215a",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:2b17cfc800f9f22c517c6932866dab889a91df0b63478c221c0cb51c2d15662b"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:22dad23bdd869439ad70e6a6bf5e228a7d1f876184c1686ef9fd633cab2b696d"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:9dd55f5c3e175ea5701b73e1d4d3dbd131a94459fb6277514175aa0a9ab08719"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:13c284da2e40fcd17ee7080294fac56531718be569346442f7de5101e3400f23"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:6ab16f7effbfdae36f41746bdbf21e4a1a9c4f71de0bffc9a7a08f0fb1aea8b5"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:b200ec52d485573a87179a6207293d1c5bac2945e41d34d63a6327212d6a29b9"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:9f82f07507238a511fb0854454ffc78ce006f7a28bd9a29bc54be5f97fd10347"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:77ffb02ab6714b6f6eea97da463f8b77ca44936a121946bb033b6d7d9e454077"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:3546fc828a931c68ed093a73c17a76bcecd8044f01475ae997bc3360adbc4c9a"
+      }
+    ]
+  },
+  "summary": "Round 3 blind review (persisted at /tmp/aurum-reviews/AUR-021-review-REQ.md): APROVADO. RED/GREEN/refactor re-executed from scratch; MUT-001, MUT-002 and a third invalid-vector mutation drop the real container accept and restore cleanly; the _test.go is inside the patch and green under go test ./... with no regression; scope matches paths/forbidden_paths exactly. Two non-blocking prose findings in docs/specs/AUR-021.md (stale escalation section, output example mismatch) were fixed by the r6 delta, which rewrote only that section."
+}
