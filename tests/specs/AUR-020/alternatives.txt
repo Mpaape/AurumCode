@@ -1,0 +1,5 @@
+Aider
+Karpathy
+Hermes
+Tree-sitter
+SCIP

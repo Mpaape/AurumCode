@@ -1,0 +1,23 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-020",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "Integration proof at the card's declared tests/integration/AUR-020.go path was dead code: a .go file without the _test.go suffix is invisible to go test's scanner, so the declared path could not carry a real Integration proof."
+    },
+    {
+      "round": 2,
+      "outcome": "veto",
+      "reason": "The working Integration test was delivered at a path the card did not own; the skeptic traced how oci-run silently skips a declared allowed_root absent from disk, leaving the deviation invisible to the sealed accept and to validate.sh alike. Escalated rather than silently accepted."
+    },
+    {
+      "round": 3,
+      "outcome": "approved",
+      "governance_change": "Card version bump to v2 (commit 72bb0511ec3b0a35c1ef0829a8b1da90bb9bc902) retargeted the Integration path to tests/integration/AUR-020_test.go::TestAUR020Boundary, the only path go test can discover.",
+      "candidate": "ac79f1719544176d6c341aa3c892e1fab120ac0e"
+    }
+  ],
+  "note": "This bundle only proves round 3 against the current candidate; round 1/2 artifacts were produced against the pre-v2 card and are superseded, not persisted here as live evidence for the current spec_digest."
+}

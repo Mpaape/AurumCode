@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.challenge-plan",
+  "card_id": "AUR-020",
+  "candidate_identity_digest": "sha256:5f77a756b038519cab548ce4dee00f07b6ddcc54f6889784a63eed1f995b5b5e",
+  "sealed_before_reviews": true,
+  "hypotheses": [
+    {
+      "id": "MUT-001",
+      "scenario": "AC-001",
+      "trust_boundary": "repository",
+      "hypothesis": "The lint's no-vector-database invariant is enforceable only against the literal phrase already in the ADR, not against a newly introduced mandate; injecting a 'vector database is required' clause into ADR-0001 must still be caught.",
+      "expected_typed_failure": "AUR-020/AC-001/vector-database-mandated"
+    },
+    {
+      "id": "MUT-002",
+      "scenario": "AC-001",
+      "trust_boundary": "network-source",
+      "hypothesis": "The host allowlist check can be starved by removing one already-cited host from tests/specs/AUR-020/allowed-source-domains.txt without touching the matrix row that cites it.",
+      "expected_typed_failure": "AUR-020/AC-001/undecided-criterion"
+    }
+  ]
+}
