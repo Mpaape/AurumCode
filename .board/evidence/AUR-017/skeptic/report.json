@@ -1,0 +1,48 @@
+{
+  "schema": "aurum.skeptic-report",
+  "version": 1,
+  "card_id": "AUR-017",
+  "candidate_identity_digest": "sha256:634618dd66e3561e3bd09e67f41f074c2ecc05cc16710f0fa7ce322807e60055",
+  "role": "skeptic",
+  "sealed": true,
+  "role_nonce": "aur017-r2-skeptic-seal-2b7fa4de19c6",
+  "context_digest": "sha256:a04033b0599779cecaef591b490fb6d21a387d0c481dd978e7437449b817001d",
+  "backend_family_digest": "sha256:c89836ed664141c05a4a89dec6313d4debcdd0718c251d7046a9efa9405f910a",
+  "verdict": "pass",
+  "challenge_plan": {
+    "sealed_before_reviews": true,
+    "digest": "sha256:684147556969599e406b54ec7d7c8ef4fa08e21c6537de76468e9e21fd9a8507",
+    "all_acceptance_criteria": true,
+    "all_trust_boundaries": true
+  },
+  "isolation": {
+    "reviews_visible_before_challenge_seal": false
+  },
+  "mutation": {
+    "detected": true,
+    "results": [
+      {
+        "mutation_id": "MUT-001",
+        "exit_code": 1,
+        "typed_failure": "AUR-017/AC-001/undecided-standard: standard SARIF matrix version (2.1.0) diverges from standards/contracts/versions.yaml (2.2.0)",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-002",
+        "exit_code": 1,
+        "typed_failure": "AUR-017/AC-001/undecided-standard: standard SARIF source host is not allowlisted: evil.example.net",
+        "restored_byte_identical": true
+      }
+    ]
+  },
+  "clean_replay": {
+    "pass": true,
+    "runs": 2,
+    "stdout_sha256": "sha256:d44fc78443268f071864b13b3243cfaff2f611a0db0915585d15edd9a0c2f6d8"
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "summary": "Round 2, after round 1 (VETO: interoperability.md:27 and standards/contracts/unified-diff/validator.md:6 cited the live, unpinned www.gnu.org Detailed-Unified.html as proof of Unified diff 3.10/2023-05-21; refetched cru, that URL resolved to diffutils 3.12/2025-01-12 content, not 3.10 -- a citation that does not survive its own dereferencing, which is exactly what this card exists to prevent). Round 2 replaces the Source with the archived Wayback Machine snapshot (web.archive.org/web/20230527075044/..., whose frozen body reads 'version 3.10, 2 January 2023') and removes www.gnu.org from tests/specs/AUR-017/allowed-source-domains.txt in favor of web.archive.org. Reverted the fix surgically (Source back to the live www.gnu.org URL, nothing else touched): exit 1, AUR-017/AC-001/undecided-standard: standard Unified diff source host is not allowlisted: www.gnu.org -- the round-1 defect now fails mechanically, not just in prose, if reintroduced. Fetched both URLs directly outside the container: the archived snapshot's body contains 'version 3.10, 2 January 2023' (matches the pinned row); the live URL's body contains 'version 3.12, 12 January 2025' (confirms the round-1 defect was real and structural, not a transient fetch artifact). Both card-declared mutations executed live in the bootstrap-readonly-v1 container against the round-2 candidate: MUT-001 (SARIF version bumped to 2.2.0 in versions.yaml without migrating the matrix or fixtures) fails with the typed undecided-standard divergence message; MUT-002 (SARIF Source host replaced with evil.example.net) fails with the typed not-allowlisted message. Both restore byte-identical and the clean accept replays the same stdout digest (d44fc784...c2f6d8) twice. Attempted a subdomain-suffix allowlist bypass (web.archive.org.evil.com) -- rejected, exact-string host comparison. --network=none confirmed on both oci-run container invocations; no curl/wget/eval anywhere in the patch. APROVADO."
+}

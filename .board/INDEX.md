@@ -29,7 +29,7 @@ by [validate.sh](validate.sh).
 | [AUR-014](cards/backlog/AUR-014.md) | backlog | O00-research | medium | `[AUR-233]` | Versionar standard de code review |
 | [AUR-015](cards/doing/AUR-015.md) | doing | O00-research | high | `[]` | Versionar standard de secure code review |
 | [AUR-016](cards/doing/AUR-016.md) | doing | O00-research | medium | `[]` | Definir uso evidencial de ISO 25010 |
-| [AUR-017](cards/doing/AUR-017.md) | doing | O00-research | medium | `[]` | Fixar standards de artefatos interoperáveis |
+| [AUR-017](cards/done/AUR-017.md) | done | O00-research | medium | `[]` | Fixar standards de artefatos interoperáveis |
 | [AUR-018](cards/doing/AUR-018.md) | doing | O00-research | high | `[]` | Fixar contratos SCM e CI seguros |
 | [AUR-019](cards/doing/AUR-019.md) | doing | O00-research | high | `[]` | Fixar contratos oficiais de providers |
 | [AUR-020](cards/done/AUR-020.md) | done | O00-research | high | `[]` | Escolher memória e mapa incremental mínimos |

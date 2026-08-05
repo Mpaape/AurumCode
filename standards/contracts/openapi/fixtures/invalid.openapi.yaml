@@ -1,0 +1,4 @@
+openapi: 3.2.0
+info:
+  title: AUR-017 invalid example
+  version: 0.0.0

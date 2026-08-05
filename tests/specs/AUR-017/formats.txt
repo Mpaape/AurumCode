@@ -1,0 +1,4 @@
+SARIF
+Unified diff
+JSON Schema
+OpenAPI
