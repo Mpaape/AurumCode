@@ -65,6 +65,27 @@ spending money. Both live in `cards/blocked-on-owner`.
   It is reserved for **account creation** (registering with a third party in the
   owner's name) and **budget** (spending money). A card does not land here
   because it is risky, architectural, or far-reaching.
+- `cards/cancelled`: a card is never deleted. Work that is no longer wanted
+  moves here instead, and only from evidence, never a rename. A card may sit
+  in `cards/cancelled` only when `.board/evidence/<id>/cancellation.json`
+  exists and validates: `schema: aurum.cancellation`, `version: 1`, the
+  card's own id, `approved_by_role: "manager"` (cancellation is a management
+  decision, never an agent's), a `reason` of at least 40 characters that is
+  neither generic boilerplate nor a bare filler phrase such as "not needed"
+  or "obsolete" standing alone, a `superseded_by` field naming the
+  replacement card or JSON `null`, and a `card_digest` that is the same
+  self-referential SHA-256 recomputation `spec_digest` already uses (the
+  card's own frontmatter/body with `status` and `spec_digest` normalized),
+  binding the cancellation decision to the exact cancelled text. `base_sha`
+  and `spec_digest` are locked the same way as `doing`/`review`/`done`: a
+  cancelled card is a frozen snapshot, not an unblocked placeholder. A
+  cancelled card can never carry `.board/evidence/<id>/manifest.json` --
+  cancellation is not completion, and the `done` evidence bundle asserts the
+  opposite claim. Any other card in an active state (`backlog`, `ready`,
+  `doing`, `review`, `done`) that lists a cancelled card in `depends_on` fails
+  validation unless the cancelled card declares a non-null `superseded_by`
+  **and** the dependent card also depends on that successor -- cancelling a
+  card can never silently orphan the dependency graph.
 - `evidence`: generated proof bundles; secrets and raw prompts are forbidden.
 - `decisions`: architecture and arbitration records.
 - `research`: normative sources and dated technical research.
