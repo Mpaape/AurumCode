@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.challenge-plan",
+  "card_id": "AUR-016",
+  "candidate_identity_digest": "sha256:c51df4349bba9c512433945c65cd5a2b1e95d4cc62495c28cd3d1cd1d6dd55a9",
+  "sealed_before_reviews": true,
+  "hypotheses": [
+    {
+      "id": "MUT-001",
+      "scenario": "AC-001",
+      "trust_boundary": "repository",
+      "hypothesis": "Setting a score on a measurable:false characteristic must be caught by the coherence check.",
+      "expected_typed_failure": "AUR-016/AC-001/score-without-signal"
+    },
+    {
+      "id": "MUT-002",
+      "scenario": "AC-001",
+      "trust_boundary": "network-source",
+      "hypothesis": "Substituting a cited source host for a non-allowlisted one must fail the source check.",
+      "expected_typed_failure": "AUR-016/AC-001/unversioned-source"
+    }
+  ]
+}

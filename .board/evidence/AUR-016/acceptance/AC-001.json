@@ -1,0 +1,45 @@
+{
+  "schema": "aurum.acceptance-observation",
+  "version": 1,
+  "card_id": "AUR-016",
+  "candidate_identity_digest": "sha256:c51df4349bba9c512433945c65cd5a2b1e95d4cc62495c28cd3d1cd1d6dd55a9",
+  "role": "acceptance",
+  "sealed": true,
+  "role_nonce": "aur016-r7-acceptance-seal-748dc1e5f92a",
+  "context_digest": "sha256:d8ba9ab818f25f04415c141faba38f8df6ab7e3ef246fabf14950e04775b3b64",
+  "backend_family_digest": "sha256:a7a48629bc2e498dc6de27edb6c3a1155e7c22516662b58532ede8cfaf6aa229",
+  "verdict": "pass",
+  "command_digest": "sha256:334d1cce9bb9537471b31bd9ca193cbf3d555fc54bf092af47b22c5bbc0002f9",
+  "container_profile_digest": "sha256:36bb0c1b85fa02974fcaaef5f0dc67c7a8212eafc8a90d72342e248da00ca1f4",
+  "red": {
+    "exit_code": 1,
+    "typed_failure": "AUR-016/AC-001/behavior-missing",
+    "cause": ".board/research/quality-standards.md and standards/quality absent from the pre-candidate tree (base_sha 5729803e); AC-001 reaches the boundary check and fails typed on the required artifact being absent."
+  },
+  "green": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:03cb3ff46665bc43a181daec5cbb09e18b8ea425c06d6c337795f5145d5cb4b8"
+  },
+  "mutation": {
+    "mutation_id": "MUT-001",
+    "detected": true,
+    "exit_code": 1,
+    "typed_failure": "AUR-016/AC-001/score-without-signal",
+    "restored_exit_code": 0
+  },
+  "clean_replay": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:03cb3ff46665bc43a181daec5cbb09e18b8ea425c06d6c337795f5145d5cb4b8",
+    "runs": 2
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "scenarios": [
+    {
+      "id": "AC-001",
+      "exit_code": 0
+    }
+  ]
+}
