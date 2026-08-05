@@ -1,0 +1,28 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-016",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "Early rounds (r1-r4, reports at /tmp/aurum-reviews/AUR-016-r3.md, AUR-016-r4.md and predecessors) were REQUEST_CHANGES chains over incomplete candidates, including the r4 NULL-null bypass in the measurable/score coherence check."
+    },
+    {
+      "round": 5,
+      "outcome": "veto",
+      "reason": "Skeptic veto: a literal tab inside a YAML value desynchronized the accept script's internal TSV, letting a fabricated score: 999 on a measurable:false characteristic pass with stdout byte-identical to green (03cb3ff4...) -- the anchor digest was thereby invalid as sole proof."
+    },
+    {
+      "round": 6,
+      "outcome": "mixed",
+      "reason": "The tab class was closed (typed malformed-entry in both the YAML parser and the Sources-examined table scanner, unused sort dependency removed) and re-sealed with the r5 exploit reproduced independently first. Blind Reviewer A APROVADO; blind Reviewer B vetoed a NEW real bypass: only the leftmost [label](url) per Sources cell was host-checked, so an appended non-allowlisted link passed with nominal stdout."
+    },
+    {
+      "round": 7,
+      "outcome": "approved",
+      "governance_change": "No card-spec change; version stayed at 1. The r7 delta (16 insertions, 5 deletions in tests/acceptance/AUR-016.sh) loops over every [label](url) occurrence per cell.",
+      "candidate": "r6 content (merged to main via PR #18) plus the r7 accept-script delta, applied against base_sha 5729803e; integrated by the coordinator as a staged working tree at bundle time."
+    }
+  ],
+  "note": "This bundle proves round 7 against the current candidate_identity_digest. Earlier-round reports are retained at /tmp/aurum-reviews/AUR-016-*.md as the veto record this table summarizes; the nominal stdout digest 03cb3ff4... is unchanged across r5-r7 because every fix touches only malformed paths, a fact measured and recorded rather than assumed."
+}

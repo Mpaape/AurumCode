@@ -151,12 +151,23 @@ verdict="$(
         m = split(line, c, "\t")
         if (m < 3) emit("unversioned-source", "sources row has " m " columns, want at least 3: " line)
         src = c[1]; ver = trim(c[2]); dt = trim(c[3])
-        if (match(src, /\(https?:\/\/[^)\/]+/) == 0)
+        # Every [label](url) occurrence in the cell must be checked, not
+        # just the first: a second, non-allowlisted link appended (or
+        # inserted between) allowlisted ones must still trip
+        # unversioned-source. Loop match()/substr() forward over the
+        # remaining tail instead of matching once against the whole cell.
+        link_found = 0
+        rest = src
+        while ((lstart = match(rest, /\(https?:\/\/[^)\/]+/)) > 0) {
+          link_found = 1
+          host = substr(rest, lstart, RLENGTH)
+          sub(/^\(https?:\/\//, "", host)
+          if (!(host in allowed))
+            emit("unversioned-source", "source host is not allowlisted: " host)
+          rest = substr(rest, lstart + RLENGTH)
+        }
+        if (!link_found)
           emit("unversioned-source", "source is not a [label](url) link: " src)
-        host = substr(src, RSTART, RLENGTH)
-        sub(/^\(https?:\/\//, "", host)
-        if (!(host in allowed))
-          emit("unversioned-source", "source host is not allowlisted: " host)
         if (ver !~ /^(Edition [0-9]+|v[0-9]+(\.[0-9]+){0,2}|rev ?[0-9]{4}|post [0-9]{4}-[0-9]{2}-[0-9]{2})$/)
           emit("unversioned-source", "source has no versioned citation: " ver)
         if (dt !~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)

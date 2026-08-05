@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-016",
+  "candidate_identity_digest": "sha256:c51df4349bba9c512433945c65cd5a2b1e95d4cc62495c28cd3d1cd1d6dd55a9",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur016-r7-reviewer-a-seal-90c2fe17d4a3",
+  "context_digest": "sha256:ff949cc8ed637f5e60df5101a18c00a6a111ee4f35989ab6123e99a0be075f7f",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:00b6665e97d7b0516fa694ffd865b25f7acb2c0ea367e129909df9f961acc43d",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:4b0396a5c4bb43907b15a1b8762904eb5262a09d5102a65edfceb0b52fd26a97"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:9cda3352c55eaec4419961bcb651ef6ebdd54481b79ce4057d32a4cc81418698"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:5fcd851b1829a6cad4f6e3fa47d7f4c852926a02b78f9f2b0bab2bdbf4285d14"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:d803a28bce4035c6e862d79a8bb78cd0f75847d245156d4fae4165936fb76e3e"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:4d7cc03bc5fb2c53a0e79d7d504a4f2a99b63600c21d38a1a55032d9eb0e1c33"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:6e2db3f6eda3cbd29537032553082f70c6a76d720df7ce986b554964dbd219d1"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:571c334263bb9e36c21cbb95b42f52ba4314059b1d3e505f94089533c1d25971"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:ce420808cfd279ff73c3ae4c9eac102e400ab4002f16b989ba32dceb7ad259f9"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:3ee92227d6d38d41aefb5d745c38e9166d62baa26eec1036f8cfe34b87620157"
+      }
+    ]
+  },
+  "summary": "Blind review of the r6 candidate (persisted at /tmp/aurum-reviews/AUR-016-r6-reviewA.md): APROVADO. Nominal green with stdout 03cb3ff4...; MUT-001, MUT-002 and an own missing-characteristic variant re-executed from scratch with sha256-verified restoration; sources verified live (arc42, SARM corroborate; ISO page bot-blocked, recorded inconclusive, not converted to pass). The r6->r7 delta (Sources multi-link loop) is covered by the r7 re-seal this bundle also binds."
+}
