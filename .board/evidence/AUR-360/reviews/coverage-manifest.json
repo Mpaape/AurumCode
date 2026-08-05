@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-360",
+  "candidate_identity_digest": "sha256:91115972f3539875b25427718b8a025fc28b3393db2a7d67d85b8a432d6e53e9",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "AC-001's Given/When/Then match the oracle's actual behavior: the lock is cross-checked field by field against the real go.mod and go.sum, and RED (absent lock) fails typed go_lock_mismatch."
+    ],
+    "design": [
+      "covered",
+      "verify_go_lock parses the flat lock and cross-checks go_version, module, go_mod_sha256, go_sum_sha256 and every module_<n>_path/version/checksum against the materialized sources, as a bijection in both directions; no field is accepted merely for being non-empty, proven by mutating cases.tsv to expect a wrong disposition and observing fixture_sensitivity_error."
+    ],
+    "compatibility": [
+      "covered",
+      "Scope is exactly the card's four declared paths; read_paths (go.mod, go.sum, Makefile, Dockerfile) are unmodified; the diff is strictly additive over round 1, whose four structural checks remain intact."
+    ],
+    "tests": [
+      "covered",
+      "11 cases.tsv fixtures are now actually read by a self-test loop (round 1 shipped the file but never read it); all ten non-absence fixture digests were independently recomputed and match the sealed values."
+    ],
+    "security": [
+      "covered",
+      "Pins re-derived by the reviewer: sha256sum of go.mod and go.sum reproduce go_mod_sha256/go_sum_sha256 exactly; the three module version+checksum triples match go.sum row by row; the OCI image pin matches .board/locks/oci/bootstrap-readonly-v1.lock.json and is not invented."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single-shot read-only verification in a pinned container; no concurrent or retried execution path is introduced."
+    ],
+    "errors-operations": [
+      "covered",
+      "Typed codes cover absence, drift, phantom pins, symlinks, truncation and over-limit; infrastructure conditions surface as exit 79 rather than being laundered into pass."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-360.md documents bounds, codes, fixtures and diagnostics, and discloses the residual card-text tension instead of hiding it."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "The oracle stays a read/verify pass; no dead branch found; every typed code is reachable from a documented clause."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the r2 candidate against 7a1b930 were read: the rewritten oracle, the lock, the five new fixtures and the spec."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "RED reproduced in a separate untouched worktree (typed behavioral go_lock_mismatch, not infra); GREEN reproduced raw with stdout digest b71d3f62..., and the container run agrees with the host run."
+    ],
+    "design": [
+      "covered",
+      "Duplicate-index and cross-module checksum-swap paths verified against the explicit duplicate guard and the forward-loop equality check; the oracle does not trust the container's own JSON as authority."
+    ],
+    "compatibility": [
+      "covered",
+      "git diff --stat touches only declared paths; no forbidden_paths; read_paths unmodified."
+    ],
+    "tests": [
+      "covered",
+      "Both card mutations re-derived from scratch against the REAL lock rather than only fixtures, each restored to the byte-identical digest and replayed green."
+    ],
+    "security": [
+      "covered",
+      "Nine adversarial supply-chain vectors run live, all rejected with typed codes rather than a silent pass: empty lock, empty cases.tsv (exit 79 infra, not pass), go.sum drift without lock update, real-file symlink swap, digest case-folding, truncated digest and phantom module entry. Credential-shaped-string grep over the whole patch: zero matches."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic process; no shared mutable state."
+    ],
+    "errors-operations": [
+      "covered",
+      "Failure classification never converts inconclusive into success; the empty cases.tsv case correctly surfaces as infrastructure, not as a pass."
+    ],
+    "documentation": [
+      "covered",
+      "The residual card-text contradiction is transparently documented with a named remediation path rather than concealed."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "The patch adds only what the strengthened oracle needs; round 1's checks are preserved byte for byte."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks read with adversarial priority on the cross-check loops, fixture handling and digest comparisons."
+    ]
+  }
+}

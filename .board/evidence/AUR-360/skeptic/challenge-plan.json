@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.challenge-plan",
+  "card_id": "AUR-360",
+  "candidate_identity_digest": "sha256:91115972f3539875b25427718b8a025fc28b3393db2a7d67d85b8a432d6e53e9",
+  "sealed_before_reviews": true,
+  "hypotheses": [
+    {
+      "id": "MUT-001",
+      "scenario": "AC-001",
+      "trust_boundary": "repository",
+      "hypothesis": "Altering only the module path in the lock, leaving the source hash fields intact, must be caught by cross-checking against go.mod rather than passing structurally.",
+      "expected_typed_failure": "AUR-360/AC-001/module-path-mismatch"
+    },
+    {
+      "id": "MUT-002",
+      "scenario": "AC-001",
+      "trust_boundary": "supply-chain",
+      "hypothesis": "Removing a per-module checksum while keeping its version must be caught, not masked by other sha256-shaped fields still present in the file.",
+      "expected_typed_failure": "AUR-360/AC-001/module-checksum-missing"
+    }
+  ]
+}

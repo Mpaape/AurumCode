@@ -1,0 +1,48 @@
+{
+  "schema": "aurum.skeptic-report",
+  "version": 1,
+  "card_id": "AUR-360",
+  "candidate_identity_digest": "sha256:91115972f3539875b25427718b8a025fc28b3393db2a7d67d85b8a432d6e53e9",
+  "role": "skeptic",
+  "sealed": true,
+  "role_nonce": "aur360-r2-skeptic-seal-e63f072ac8b1",
+  "context_digest": "sha256:64ec9177c6b04077f0c0c5ae0951741bcebb52107876a38a592fa6aa9d754d27",
+  "backend_family_digest": "sha256:c89836ed664141c05a4a89dec6313d4debcdd0718c251d7046a9efa9405f910a",
+  "verdict": "pass",
+  "challenge_plan": {
+    "sealed_before_reviews": true,
+    "digest": "sha256:afdf7f5154b354b4ec20e84712199b7c64eafe0bb82962ca654e1af6627fcfcc",
+    "all_acceptance_criteria": true,
+    "all_trust_boundaries": true
+  },
+  "isolation": {
+    "reviews_visible_before_challenge_seal": false
+  },
+  "mutation": {
+    "detected": true,
+    "results": [
+      {
+        "mutation_id": "MUT-001",
+        "exit_code": 1,
+        "typed_failure": "AUR-360/AC-001/module-path-mismatch",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-002",
+        "exit_code": 1,
+        "typed_failure": "AUR-360/AC-001/module-checksum-missing",
+        "restored_byte_identical": true
+      }
+    ]
+  },
+  "clean_replay": {
+    "pass": true,
+    "runs": 2,
+    "stdout_sha256": "sha256:b71d3f62636e2db6ab31638f59fd85bb07ede998c86a118dec561cd763c606ca"
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "summary": "Adversarial seal over the r2 candidate (persisted at /tmp/aurum-reviews/AUR-360-r2-review.md): APROVADO. Round 1 was vetoed because the sealed oracle held only three generic structural checks and neither card mutation produced any failure. Round 2 rewrote the oracle to cross-check the lock against go.mod and go.sum field by field; both mutations now fail with the exact codes the card names, and seven further vectors (toolchain downgrade, forged digest, truncated digest, phantom module, live symlink, zero-byte lock, minimal generic lock) fail typed. The oracle is provably not satisfiable by a stub."
+}
