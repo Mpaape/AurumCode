@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-363",
+  "candidate_identity_digest": "sha256:ea15837c0bba67d1ae19836f76b9294f6d03bbdf634c719b20497a5cad4a6828",
+  "role": "reviewer-b",
+  "sealed": true,
+  "role_nonce": "aur363-r4-reviewer-b-seal-2ab4d91e07f6",
+  "context_digest": "sha256:35cd1b366a774c9b14f86e40439dcbaea93f1eaf325f0ea02df57e169bce73da",
+  "backend_family_digest": "sha256:60b8ac52d2eb0903f155105353b209f1258f6726326126eedaea8ac0f301dd9d",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:3b47585f9c627c3e6474e9284688cddbc8df4e2e4573f0b1b82c2dbf9087d599",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:dc8a7b6f91f990ec7f7c69ad8ca34f9bb00da7d02c4e0bbf36478cc63adb2fe9"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:dd71642f8175132ffd0f9b7df9d6e356f3e77343084da82743a63bb6a63a4ff5"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:743e672ace95c612886bfb0e97506ce7a2dbc38faf48de016d785d1bd1403094"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:1fcdc6437cf0963165e39db3a3478ca8f90ebb8d8c2595954f0a5113bdffb241"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:122b24d7a16cc651e8ab9732186dfd2bb1774d52e161461cd22365c4b2b7de13"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single deterministic process, no shared mutable state."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:dae1df50ca773867785974be1f50d873f7e0d3afea5707b594c06e96d169097b"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:3aaee28b7c37bcd9d67354323095397818dc3af71bff328b64926e2a69c5ddb4"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:410b27b38944283b09e4fe4fed54145f8e8f0693a18ede5edf74f80b9b702d38"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:c963f19dee76bc3ba6ce349435bed750cda8df715eff2d0adad4d56718101b0c"
+      }
+    ]
+  },
+  "summary": "Blind review of the r4 candidate (persisted at /tmp/aurum-reviews/AUR-363-r4-reviewB.md): APROVADO. The defect that reproved r3 is fixed, causally confirmed, and the fix is minimal. The reviewer mutated the symlink guard itself to test whether the implementationsymlink fixture had become decorative after the rename and found it still discriminates, raising fixture_sensitivity_error. Five further adversarial vectors -- symlink alias bypass of the underscore prefix, path traversal through implementation_path, alternate TDD selectors, and a full r3-to-r4 assertion diff -- found no weakened check."
+}
