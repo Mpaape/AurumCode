@@ -1,0 +1,39 @@
+# AurumCode repository-local memory limits.
+#
+# These are the hard configurable bounds ADR-0001 (invariant 8) and
+# `.board/research/memory-design.md` require for `memory=local`: an index
+# size ceiling and a context-window ceiling. Reaching a bound MUST trigger a
+# deterministic GC pass or an explicit typed status
+# (`over_budget`/`partial`), never uncontrolled growth and never a silent
+# truncation. Values are defaults; a consumer repository MAY lower them
+# through trusted base configuration, never raise them past the ceiling
+# listed here without a separate authorized change to this file.
+
+index_size:
+  # Hard ceiling on the on-disk size of .git/aurumcode/memory.sqlite3,
+  # including its FTS5 shadow tables and WAL file, in bytes.
+  max_index_bytes: 268435456        # 256 MiB
+  # Hard ceiling on the number of file+entity+relation rows the local index
+  # may hold before deterministic garbage collection runs.
+  max_entities: 500000
+  # Number of prior snapshots the index retains for incremental-equivalence
+  # checks before the oldest is pruned.
+  max_retained_snapshots: 5
+  # Hard ceiling on one stored code snippet or doc summary, in bytes; larger
+  # source ranges are referenced by (blob, range) and reread from Git
+  # instead of being duplicated into the index.
+  max_snippet_bytes: 4096
+
+context_window:
+  # Hard ceiling on how many tokens of one provider call's context budget
+  # the MemoryAugmenter may spend on optional augmentation. Exceeding this
+  # returns the `over_budget` typed status instead of silently truncating.
+  max_augmentation_tokens: 2000
+  # Ceiling on the total provider context window the augmenter must plan
+  # against; the augmenter never assumes a window larger than this even if
+  # the configured provider reports one.
+  max_context_window_tokens: 200000
+  # Tokens reserved for the unaugmented baseline (ChangeSet plus live
+  # context) before any memory augmentation is added; augmentation MUST NOT
+  # be allowed to shrink this reserved baseline.
+  min_reserved_baseline_tokens: 4000
