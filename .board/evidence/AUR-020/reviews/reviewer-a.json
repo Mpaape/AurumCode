@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-020",
+  "candidate_identity_digest": "sha256:5f77a756b038519cab548ce4dee00f07b6ddcc54f6889784a63eed1f995b5b5e",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur020-r3-reviewer-a-seal-0f6c2ae19d7b",
+  "context_digest": "sha256:dadea83f53eeed09a5e633f348522c1e9e9634c8b172f76efd1f06465ff9e80a",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:286523d0505e5840bbe2e44b529ce4e13ad058d8138aa02ba56f7f12c78f8ae2",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:08ec99019a3679461ef0840cfd85341753566109ed03f81d9a862a8291eeefed"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:d3cfe69a9bf18de9968c1d45521d69d43540d800425540300d5d84bd12b50bd3"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:7f4ba7905fe50d9d866620b233c06e7d0a2ceac1aa8cc5a2c298f437271c3016"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:d539ae4ba8d7d05a51640981c59dc50f8d73bc01caf79bb958f438395dd1dce2"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:2143708d914c57de53bc6992b06141592b8bccd15e156334d237ee261444d1ed"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "The artifact is a static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:7561ba47eed6a3000b5ec452354430a431274908e8ce9218da3a39c9ce61d292"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:31fc81bd54bd5412aeeedfb8685f9ffabfa17dee57a00d573ee2d54302e01df7"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:25969e8c2a27f947b09e5fa113fabecf921662b4f236e4e152eb32f2d1d1d323"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:bfd48edcfe024d56f84baefecc75380657b4e860c014814d648d2269dda31d4c"
+      }
+    ]
+  },
+  "summary": "Round 3 review after the card's version-2 governance bump (commit 72bb0511ec3b0a35c1ef0829a8b1da90bb9bc902) moved the Integration test path to tests/integration/AUR-020_test.go, resolving the round-1/round-2 vetoes. Candidate ac79f1719544176d6c341aa3c892e1fab120ac0e delivers ADR-0001, memory-design.md, standards/memory/limits.yaml and the AC-001 lint entirely within the card's declared paths; no nit blocks approval."
+}

@@ -1,0 +1,47 @@
+{
+  "schema": "aurum.role-context-manifest",
+  "card_id": "AUR-020",
+  "round": "r3",
+  "roles": {
+    "reviewer-a": {
+      "role": "reviewer-a",
+      "round": "r3",
+      "card_id": "AUR-020",
+      "backend_family_alias": "backend-family-anthropic",
+      "process_marker": "reviewer-a-proc-9c31",
+      "thread_marker": "reviewer-a-thread-2f14",
+      "peer_report_visible_before_seal": false,
+      "shared_memory": false
+    },
+    "reviewer-b": {
+      "role": "reviewer-b",
+      "round": "r3",
+      "card_id": "AUR-020",
+      "backend_family_alias": "backend-family-openai",
+      "process_marker": "reviewer-b-proc-4d88",
+      "thread_marker": "reviewer-b-thread-a013",
+      "peer_report_visible_before_seal": false,
+      "shared_memory": false
+    },
+    "skeptic": {
+      "role": "skeptic",
+      "round": "r3",
+      "card_id": "AUR-020",
+      "backend_family_alias": "backend-family-anthropic-distinct-session",
+      "process_marker": "skeptic-proc-77e2",
+      "thread_marker": "skeptic-thread-5b9f",
+      "peer_report_visible_before_seal": false,
+      "shared_memory": false
+    },
+    "acceptance": {
+      "role": "acceptance",
+      "round": "r3",
+      "card_id": "AUR-020",
+      "backend_family_alias": "deterministic-oci-run-no-model",
+      "process_marker": "acceptance-proc-0aa1",
+      "thread_marker": "acceptance-thread-6cc4",
+      "peer_report_visible_before_seal": false,
+      "shared_memory": false
+    }
+  }
+}

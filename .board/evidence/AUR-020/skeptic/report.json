@@ -1,0 +1,48 @@
+{
+  "schema": "aurum.skeptic-report",
+  "version": 1,
+  "card_id": "AUR-020",
+  "candidate_identity_digest": "sha256:5f77a756b038519cab548ce4dee00f07b6ddcc54f6889784a63eed1f995b5b5e",
+  "role": "skeptic",
+  "sealed": true,
+  "role_nonce": "aur020-r3-skeptic-seal-b6e05f1c837a",
+  "context_digest": "sha256:3018be993e2b3df3d363def3a16e35b2fb3f78c60f6a03e52cf8381a58feec72",
+  "backend_family_digest": "sha256:c89836ed664141c05a4a89dec6313d4debcdd0718c251d7046a9efa9405f910a",
+  "verdict": "pass",
+  "challenge_plan": {
+    "sealed_before_reviews": true,
+    "digest": "sha256:de132202dafe987f9da1de98abfab2faea5f3c5f1c10989ff4e4830cd997e894",
+    "all_acceptance_criteria": true,
+    "all_trust_boundaries": true
+  },
+  "isolation": {
+    "reviews_visible_before_challenge_seal": false
+  },
+  "mutation": {
+    "detected": true,
+    "results": [
+      {
+        "mutation_id": "MUT-001",
+        "exit_code": 1,
+        "typed_failure": "AUR-020/AC-001/vector-database-mandated",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-002",
+        "exit_code": 1,
+        "typed_failure": "AUR-020/AC-001/undecided-criterion",
+        "restored_byte_identical": true
+      }
+    ]
+  },
+  "clean_replay": {
+    "pass": true,
+    "runs": 2,
+    "stdout_sha256": "sha256:aa6f2827cf4ef5645cef7f43524df3fc76fa4991a01cd27eebc0fb9d56c99d66"
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "summary": "Round 3, after round 1 (VETO: dead integration code at the card's declared tests/integration/AUR-020.go path) and round 2 (VETO: working test delivered outside the declared path, escalated). Card version 2 (72bb0511) retargets the Integration path to tests/integration/AUR-020_test.go. Both mutations executed live in the bootstrap-readonly-v1 container against candidate ac79f1719544176d6c341aa3c892e1fab120ac0e: MUT-001 (mandatory vector database inserted into ADR-0001's Decision section) fails with AUR-020/AC-001/vector-database-mandated; MUT-002 (aider.chat removed from the source-host allowlist) fails with AUR-020/AC-001/undecided-criterion. Both restore byte-identically and the clean accept replays the same stdout digest twice. APROVADO."
+}
