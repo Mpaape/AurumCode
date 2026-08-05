@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AUR-017 invalid example",
+  "type": "object",
+  "properties": {
+    "name": { "type": "text" }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.challenge-plan",
+  "card_id": "AUR-017",
+  "candidate_identity_digest": "sha256:634618dd66e3561e3bd09e67f41f074c2ecc05cc16710f0fa7ce322807e60055",
+  "sealed_before_reviews": true,
+  "hypotheses": [
+    {
+      "id": "MUT-001",
+      "scenario": "AC-001",
+      "trust_boundary": "repository",
+      "hypothesis": "The lint's SARIF-version-matches-fixture invariant is enforceable against a version raised in standards/contracts/versions.yaml without migrating the matrix/fixture; bumping sarif.version to 2.2.0 without touching interoperability.md or the fixtures must still be caught.",
+      "expected_typed_failure": "AUR-017/AC-001/MUT-001"
+    },
+    {
+      "id": "MUT-002",
+      "scenario": "AC-001",
+      "trust_boundary": "network-source",
+      "hypothesis": "The host allowlist check can be starved by replacing an already-cited Source host with one absent from tests/specs/AUR-017/allowed-source-domains.txt, without touching the matrix row's Version/Date.",
+      "expected_typed_failure": "AUR-017/AC-001/MUT-002"
+    }
+  ]
+}

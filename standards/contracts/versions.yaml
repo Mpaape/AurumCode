@@ -1,0 +1,28 @@
+# AurumCode interoperable artifact-standard version pins.
+#
+# Single source of truth for AUR-017: the exact version of SARIF, unified
+# diff, JSON Schema, and OpenAPI AurumCode's future adapters target, the
+# validator each is checked against, and (where the standard has one) the
+# exact schema/dialect URI a conforming document must declare. Raising any
+# `version` here past what `.board/research/interoperability.md`'s Standards
+# matrix and both fixtures under the matching `standards/contracts/<format>/
+# fixtures/` declare is a fixed regression; `tests/acceptance/AUR-017.sh`
+# re-derives the match instead of trusting this file alone.
+
+sarif:
+  version: "2.1.0"
+  validator: "santhosh-tekuri/jsonschema v6.0.2 against OASIS sarif-schema-2.1.0.json (JSON Schema draft-07)"
+  schema_uri: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
+
+unified-diff:
+  version: "3.10"
+  validator: "git apply --check (Git 2.43.0)"
+
+json-schema:
+  version: "2020-12"
+  validator: "santhosh-tekuri/jsonschema v6.0.2"
+  schema_uri: "https://json-schema.org/draft/2020-12/schema"
+
+openapi:
+  version: "3.2.0"
+  validator: "getkin/kin-openapi v0.142.0"
