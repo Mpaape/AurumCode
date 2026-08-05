@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Fixture stub standing in for .board/bin/oci-run in the "nominal" sealed
+# case of tests/bootstrap/locks/AUR-359/cases.tsv. Its content is irrelevant
+# except for its own bytes: the fixture's trust-root.yml pins this exact
+# file's SHA-256, and VerifyBootstrapLockV1's runner-digest check must
+# recompute and match it, exactly as it would for the real runner.
+set -euo pipefail
+exit 0
