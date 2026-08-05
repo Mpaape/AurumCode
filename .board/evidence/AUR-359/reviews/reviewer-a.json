@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-359",
+  "candidate_identity_digest": "sha256:3c2472562e9f769419d226e9dcbfcec0ef826b2fce3612fd6da0ee291825ebd5",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur359-r2-reviewer-a-seal-7d20af41c9e3",
+  "context_digest": "sha256:aca490f0a70472013601a1bd1249b6b5538227929a887170fb9845ccdb63ff46",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:aeb270b63925dcd6c2b7e101600a2a7bc3824facc9b6a83e66c951cbf801ac00",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:5af338bb33d13de1c28ade7b59e0196cf1a4ac0ab1c68b3a24ca5e0a53bbc5fa"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:4b75d6dbe68c9a53818b3b7905a207c6371cd212a3b4c588f66f16822dd20333"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:7c825aae94551ab6fffd3967ddfeedc0681aa251c04814c0fc78a46ced068894"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:9b72d4a56f85f0fc03c6378fb1016f1560fcfe84abca09198a743c20f422f384"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:5fdaf5b62ad67d332fb703305e6bc185173da9cc115497cbdc48a4000f8e579b"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single-shot read-only verification in an isolated container; no concurrent or retried execution path is introduced."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:6ed3fe44350fba464f9de6cfc9ced984d803742c3a9db2b0ecf004bf772a13ff"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:d19fbb0c014f0bb6de3ef8e95c082443dde9bbdecace31a1494ddafd260a8ccf"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:52989839dc7db8a991f37118fb4bdff9aa4647af04408e50252ba24ed33d2879"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:58a2195c30c396758aec1d81223fd336d8830448e8d92a12c9715d0770679be5"
+      }
+    ]
+  },
+  "summary": "Blind review over the corrected tree at 282d288 (persisted at /tmp/aurum-reviews/AUR-359-reviewA.md): APROVADO. Accept reproduced raw 3x with stable digest a568a5ee...; trust-chain closure probed with a self-devised binding mutation (profile lock_digest corrupted, lock untouched -> typed invalid_lock_or_manifest); MUT-001 typed runner-digest-mismatch with byte-identical restoration; RED-before-GREEN reproduced via lock removal. Process flag recorded: 348ac6e is a non-ancestor duplicate of cecf652 (identical diff); the .gitignore fix is inside cecf652 itself."
+}
