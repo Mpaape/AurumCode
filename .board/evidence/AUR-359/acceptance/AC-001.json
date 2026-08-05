@@ -1,0 +1,45 @@
+{
+  "schema": "aurum.acceptance-observation",
+  "version": 1,
+  "card_id": "AUR-359",
+  "candidate_identity_digest": "sha256:3c2472562e9f769419d226e9dcbfcec0ef826b2fce3612fd6da0ee291825ebd5",
+  "role": "acceptance",
+  "sealed": true,
+  "role_nonce": "aur359-r2-acceptance-seal-6a3f91e0d525",
+  "context_digest": "sha256:7b2d26087d432e9a1058e8147e6bf3e0d9aebfc0a1a97ab5e03689d6f7094520",
+  "backend_family_digest": "sha256:2265d8c9b2ed8c5178067ad5e5b21779062270041d3bfde64bc7cdadc9543002",
+  "verdict": "pass",
+  "command_digest": "sha256:34986878e44a46d1e189f94fc3f09ab2ff84fef9b690b923ad9a7a7c3b977d33",
+  "container_profile_digest": "sha256:e1a57dec61cc897f9e2286377d7e2f717c69550d50b8aae661ec5a8a4f3fdf50",
+  "red": {
+    "exit_code": 1,
+    "typed_failure": "AUR-359/AC-001/trust_root_mismatch",
+    "cause": "With the trust-root lock removed from the tree, the acceptance reaches the boundary check and fails typed; restoring the lock returns exit 0 at the identical stdout digest. Reproduced independently by both blind reviewers and the skeptic."
+  },
+  "green": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:a568a5eec0ceab5c76865b227578e0ca4b8cd854292167fae6d58248b350c088"
+  },
+  "mutation": {
+    "mutation_id": "MUT-001",
+    "detected": true,
+    "exit_code": 1,
+    "typed_failure": "AUR-359/AC-001/runner-digest-mismatch",
+    "restored_exit_code": 0
+  },
+  "clean_replay": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:a568a5eec0ceab5c76865b227578e0ca4b8cd854292167fae6d58248b350c088",
+    "runs": 2
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "scenarios": [
+    {
+      "id": "AC-001",
+      "exit_code": 0
+    }
+  ]
+}

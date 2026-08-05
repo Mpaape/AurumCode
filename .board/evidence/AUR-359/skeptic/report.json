@@ -1,0 +1,54 @@
+{
+  "schema": "aurum.skeptic-report",
+  "version": 1,
+  "card_id": "AUR-359",
+  "candidate_identity_digest": "sha256:3c2472562e9f769419d226e9dcbfcec0ef826b2fce3612fd6da0ee291825ebd5",
+  "role": "skeptic",
+  "sealed": true,
+  "role_nonce": "aur359-r2-skeptic-seal-b90e24c7f1a8",
+  "context_digest": "sha256:8f4959fefbdbb2cf3d5e93a74fd8a64283980cc7b156d060cac8a035fcac1efa",
+  "backend_family_digest": "sha256:c89836ed664141c05a4a89dec6313d4debcdd0718c251d7046a9efa9405f910a",
+  "verdict": "pass",
+  "challenge_plan": {
+    "sealed_before_reviews": true,
+    "digest": "sha256:78a31e9d9bfe9ed49dd68bee657452aa00f5659549e7617842958a433afae311",
+    "all_acceptance_criteria": true,
+    "all_trust_boundaries": true
+  },
+  "isolation": {
+    "reviews_visible_before_challenge_seal": false
+  },
+  "mutation": {
+    "detected": true,
+    "results": [
+      {
+        "mutation_id": "MUT-001",
+        "exit_code": 1,
+        "typed_failure": "AUR-359/AC-001/runner-digest-mismatch",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-002",
+        "exit_code": 1,
+        "typed_failure": "AUR-359/AC-001/egress-guard-missing",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-003",
+        "exit_code": 1,
+        "typed_failure": "AUR-359/AC-001/mutable-image",
+        "restored_byte_identical": true
+      }
+    ]
+  },
+  "clean_replay": {
+    "pass": true,
+    "runs": 2,
+    "stdout_sha256": "sha256:a568a5eec0ceab5c76865b227578e0ca4b8cd854292167fae6d58248b350c088"
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "summary": "Formal re-seal over the corrected tree at 282d288 (persisted at /tmp/aurum-reviews/AUR-359-skeptic-reseal.md): APROVADO. The previous blocker (.gitignore silently swallowing fixture .board/bin replicas) is fixed and proven from scratch: clean status, all fixture files tracked, git check-ignore empty, and a git rm --cached + plain git add round-trip restages without -f. All three card mutations fail typed and restore byte-identically with green replay at the identical stdout digest; an extra vector (symlink replacing the real oci-run) fails typed source_integrity_error. No mutation landed in inconclusive (exit 79)."
+}
