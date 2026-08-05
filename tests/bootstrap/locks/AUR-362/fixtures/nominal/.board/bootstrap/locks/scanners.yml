@@ -1,0 +1,52 @@
+schema: bootstrap-lock-v1
+card: AUR-362
+
+secrets_scanner_name: gitleaks
+secrets_scanner_role: secrets
+secrets_scanner_version: v8.30.1
+secrets_scanner_image: docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+secrets_rulebase_id: gitleaks-default-config-v8.30.1
+secrets_rulebase_sha256: sha256:e163e53b9e7e8a8511e77271e2b323ed057759542a6d988258afe3a1fa329caf
+secrets_finding_format_flag: --report-format
+secrets_finding_format_default: none
+secrets_finding_format_values: json,csv,junit,sarif,template
+secrets_offline_mode: fully-offline
+secrets_egress: denied
+
+vuln_scanner_name: trivy
+vuln_scanner_role: vulnerabilities
+vuln_scanner_version: 0.73.0
+vuln_scanner_image: docker.io/aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
+vuln_rulebase_id: trivy-db-schema-2
+vuln_rulebase_image: ghcr.io/aquasecurity/trivy-db@sha256:cce7b2ad966d6fe3789d65879579b8b24fce9d31052ed3ff73b1c5224f049142
+vuln_finding_format_flag: --format
+vuln_finding_format_default: table
+vuln_finding_format_values: table,json,template,sarif,cyclonedx,spdx,spdx-json,github,cosign-vuln
+vuln_offline_mode: pre-cached-db-required
+vuln_offline_flag: --offline-scan
+vuln_egress: denied
+
+sast_scanner_name: semgrep
+sast_scanner_role: sast
+sast_scanner_version: 1.172.0
+sast_scanner_image: docker.io/semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b
+sast_rulebase_id: semgrep-rules-pinned-commit
+sast_rulebase_ref: 311ca4e9ba59d700624539bf658e3d29b134ee77
+sast_finding_format_flag: --json
+sast_finding_format_default: text
+sast_finding_format_values: json,sarif,text,junit-xml,emacs,vim,gitlab-sast,gitlab-secrets
+sast_offline_mode: local-config-required
+sast_offline_flag: --config
+sast_egress: denied
+
+shell_scanner_name: shellcheck
+shell_scanner_role: shell
+shell_scanner_version: v0.11.0
+shell_scanner_image: docker.io/koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
+shell_rulebase_id: shellcheck-builtin-checks-v0.11.0
+shell_rulebase_digest: sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
+shell_finding_format_flag: --format
+shell_finding_format_default: tty
+shell_finding_format_values: checkstyle,diff,gcc,json,json1,quiet,tty
+shell_offline_mode: fully-offline
+shell_egress: denied

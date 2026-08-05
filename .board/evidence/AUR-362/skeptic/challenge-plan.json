@@ -1,0 +1,29 @@
+{
+  "schema": "aurum.challenge-plan",
+  "card_id": "AUR-362",
+  "candidate_identity_digest": "sha256:97e659b101273da8811e06cf7e9e61856f1e72419e023bcadac603336a1fa661",
+  "sealed_before_reviews": true,
+  "hypotheses": [
+    {
+      "id": "MUT-001",
+      "scenario": "AC-001",
+      "trust_boundary": "repository",
+      "hypothesis": "A scanner invoked by the real workflows but absent from the lock must be caught rather than ignored.",
+      "expected_typed_failure": "AUR-362/AC-001/scanner-unlocked"
+    },
+    {
+      "id": "MUT-002",
+      "scenario": "AC-001",
+      "trust_boundary": "supply-chain",
+      "hypothesis": "A finding-format claim that contradicts the pinned tool's real output contract must fail, and must not be able to validate itself from a copy of its own value.",
+      "expected_typed_failure": "AUR-362/AC-001/finding-schema-mismatch"
+    },
+    {
+      "id": "MUT-003",
+      "scenario": "AC-001",
+      "trust_boundary": "supply-chain",
+      "hypothesis": "A mutable scanner reference (tag instead of digest) must be rejected.",
+      "expected_typed_failure": "AUR-362/AC-001/scanner-ref-mutable"
+    }
+  ]
+}

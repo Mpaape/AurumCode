@@ -1,0 +1,40 @@
+#field	value
+#
+# Mechanical extraction of the twelve *_finding_format_* fields from
+# RAW_CAPTURE.txt in this same directory (the verbatim, live, pinned-digest
+# CLI transcripts this file is derived from — see that file for the exact
+# docker commands, raw stdout/stderr and exit codes). Extraction rule per
+# field, applied by the AUR-362 round-3 builder when this file was captured
+# (2026-08-05T14:45:36Z):
+#   *_finding_format_flag    -> the tool's own long-form flag name, verbatim
+#                                from its --help output, for the option that
+#                                selects a machine-readable finding format.
+#   *_finding_format_default -> what the tool actually emits (or fails to
+#                                emit) when that flag is omitted, established
+#                                by running the tool without it and comparing
+#                                byte-for-byte against an explicit-flag run
+#                                where the tool has one true default, or by
+#                                the flag's own Cobra-emitted "(default ...)"
+#                                annotation where present (trivy).
+#   *_finding_format_values  -> the tool's own complete enum for that flag,
+#                                copied verbatim from --help (or, for
+#                                shellcheck, cross-checked against its own
+#                                rejection message for an unsupported value).
+# tests/acceptance/AUR-362.sh reads this file into `expected[]` at run time
+# (same parse discipline as .board/bootstrap/locks/scanners.yml itself: a
+# bounded, non-symlink, `key<TAB>value` file); it no longer hand-copies
+# these twelve values into its own source as a bash literal, so a value
+# wrong in both the lock and this file at once requires tampering two
+# independently-versioned, separately-hashed artifacts, not one.
+secrets_finding_format_flag	--report-format
+secrets_finding_format_default	none
+secrets_finding_format_values	json,csv,junit,sarif,template
+vuln_finding_format_flag	--format
+vuln_finding_format_default	table
+vuln_finding_format_values	table,json,template,sarif,cyclonedx,spdx,spdx-json,github,cosign-vuln
+sast_finding_format_flag	--json
+sast_finding_format_default	text
+sast_finding_format_values	json,sarif,text,junit-xml,emacs,vim,gitlab-sast,gitlab-secrets
+shell_finding_format_flag	--format
+shell_finding_format_default	tty
+shell_finding_format_values	checkstyle,diff,gcc,json,json1,quiet,tty
