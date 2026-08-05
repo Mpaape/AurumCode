@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-020",
+  "candidate_identity_digest": "sha256:5f77a756b038519cab548ce4dee00f07b6ddcc54f6889784a63eed1f995b5b5e",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "AC-001 Given/When/Then and the Public contract section match tests/acceptance/AUR-020.sh's actual lint behavior and its typed exit codes."
+    ],
+    "design": [
+      "covered",
+      "ADR/memory-design/limits split keeps policy, data and lint decoupled; the awk table parser is isolated from the fail() typed-error surface."
+    ],
+    "compatibility": [
+      "covered",
+      "No consumer-facing port or wire contract changes; Public contract lists exactly the five owned artifacts."
+    ],
+    "tests": [
+      "covered",
+      "Acceptance script and tests/integration/AUR-020_test.go were read end to end against the locked AC-001 scenario and both MUT hypotheses."
+    ],
+    "security": [
+      "covered",
+      "Host allowlist enforced against tests/specs/AUR-020/allowed-source-domains.txt; no network call is made by the lint; secret canary absent from all owned paths."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "The artifact is a static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+    ],
+    "errors-operations": [
+      "covered",
+      "Every failure branch of tests/acceptance/AUR-020.sh emits one of the typed codes (undecided-criterion, vector-database-mandated) via a single fail() sink; infra failures are distinguished via infra()."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-020.md documents behavior, contract, limits and a diagnostic example executed by the same accept command."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "Non-goals are honored: no SQLite index or graph is built by this card; the lint stays a pure read/verify pass."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the ac79f171 candidate diff against 72bb051 were read: ADR-0001, memory-design.md, docs/specs/AUR-020.md, standards/memory/limits.yaml, tests/acceptance/AUR-020.sh, tests/integration/AUR-020_test.go, tests/specs/AUR-020/*."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "Verified the acceptance command is exactly the card-locked oci-run wrapper and that AC-001's Given/When/Then match observed exit codes under hostile fixtures."
+    ],
+    "design": [
+      "covered",
+      "Checked for injection surfaces in the awk-based table parser; no eval, no dynamic code path, bounded regex classes."
+    ],
+    "compatibility": [
+      "covered",
+      "Confirmed no other card's owned path is touched by the candidate diff; forbidden_paths (.git, .env, credentials, secrets, .board/cards) are untouched."
+    ],
+    "tests": [
+      "covered",
+      "Exercised both MUT-001 and MUT-002 live inside the pinned container and confirmed typed non-zero exits plus byte-identical restoration."
+    ],
+    "security": [
+      "covered",
+      "Confirmed the lint makes no outbound request (grep-only host check), the container runs read-only/non-root/no-new-privileges, and AURUM_SECRET_CANARY does not appear in stdout/stderr."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic process, no shared mutable state, no retries or idempotency concerns to evaluate."
+    ],
+    "errors-operations": [
+      "covered",
+      "Confirmed infra() (exit 3) is reserved for missing tools/artifacts unreadable for infrastructure reasons and is never reachable from a hostile-input path, keeping RED classification honest."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-020.md's diagnostic procedure was run and matches the actual accept command output."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "No dead code or unreachable branch found in the delivered lint; every fail() site is reachable from a documented AC-001 clause."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the ac79f171 candidate diff against 72bb051 were read, prioritizing hostile-input and fail-closed behavior on each."
+    ]
+  }
+}
