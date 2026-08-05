@@ -1,0 +1,79 @@
+{
+ "schema": "aurum.review-report",
+ "version": 1,
+ "card_id": "AUR-015",
+ "candidate_identity_digest": "sha256:cf38f66720c216b04887737ded7b17d0f7dc0ffac63b32fe0148cfe96e66384b",
+ "role": "reviewer-b",
+ "sealed": true,
+ "role_nonce": "a20a6ed4bc1d2b197254dcb3af8e390f",
+ "context_digest": "sha256:b0b1fc3821061d67e4147a43dd7b16051141073a16b054539cd1e720d649334a",
+ "backend_family_digest": "sha256:299aed11e67f5a5de836e2e8d308f0c1a45a8362e061045065a9eb55093ff43f",
+ "verdict": "pass",
+ "independence_level": "I2",
+ "isolation": {
+  "peer_report_visible_before_seal": false,
+  "builder_trace_received": false,
+  "shared_memory": false
+ },
+ "coverage": {
+  "all_hunks": true,
+  "all_dimensions": true,
+  "manifest_digest": "sha256:43fd7278b2df32d18cc522c93b491fbf926a57250f4d96e9d7b6e582b7212d43",
+  "uncovered_hunks": 0,
+  "dimensions": [
+   {
+    "id": "contract",
+    "status": "covered",
+    "evidence_digest": "sha256:5e70b9664c40c5cb88704fb8d2bf4d3cf28786eb1bc8047f023ef4d22909cb0b"
+   },
+   {
+    "id": "design",
+    "status": "covered",
+    "evidence_digest": "sha256:407803747e2ad408713fec63dfe13a934125003127c85267d7bd7a5b3029d7ba"
+   },
+   {
+    "id": "compatibility",
+    "status": "covered",
+    "evidence_digest": "sha256:c9d97af3627f38e503a1bfb5e8ee9842fa7bdf6b3abd4c3386a6e03ea26463ae"
+   },
+   {
+    "id": "tests",
+    "status": "covered",
+    "evidence_digest": "sha256:e2447e5056d607ec98a6a8a2acfc161ca8ca697519bde94a432d99b7c76bb6b1"
+   },
+   {
+    "id": "security",
+    "status": "covered",
+    "evidence_digest": "sha256:d1c6ee6c7666738bf344b3f42e46de1ccafbcccc978917deebe484ac2e563c3d"
+   },
+   {
+    "id": "concurrency",
+    "status": "not_applicable",
+    "justification": "Single deterministic process, no shared mutable state, no retries or idempotency concerns to evaluate."
+   },
+   {
+    "id": "errors-operations",
+    "status": "covered",
+    "evidence_digest": "sha256:7d802b4ccdfcc5ffe9c5313699bff2102b6c75ea66cca77f38ed5016754c9f45"
+   },
+   {
+    "id": "documentation",
+    "status": "covered",
+    "evidence_digest": "sha256:a371cc6f46ee471a2737e003f31175b8b009708d9b6284d1698cd8906e59d6d6"
+   },
+   {
+    "id": "scope-simplicity",
+    "status": "covered",
+    "evidence_digest": "sha256:e944b410f4cd2a1f607343176518b8cc53722bd2564319a5dd19fd67b6470951"
+   },
+   {
+    "id": "hunks",
+    "status": "covered",
+    "evidence_digest": "sha256:7a9a3d1cefbe92bf69fb3e735e36daab48e52bab71c963268204ee6766f87dbe"
+   }
+  ]
+ },
+ "summary": "Working tree is clean/restored (matches staged index exactly), no stray artifacts left from my testing.\n\n## Revis\u00e3o adversarial \u2014 AUR-015 r2 (I2: contexto/processo/cache/nonce isolados, fam\u00edlia de modelo distinta do autor, mesmo provider \u2014 n\u00e3o reivindico I3 nem independ\u00eancia de provider)\n\nWorktree: `/home/paape/repos/AurumCode/.claude/worktrees/wf_17e94dc0-094-1`. Card: `.board/cards/ready/AUR-015",
+ "report_digest": null,
+ "session_digest": "sha256:2bccca831210019876a4f85cfa34928e3c1875ab187d3ccbdf98934c31d41e79"
+}

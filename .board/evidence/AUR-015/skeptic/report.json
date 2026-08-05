@@ -1,0 +1,50 @@
+{
+ "schema": "aurum.skeptic-report",
+ "version": 1,
+ "card_id": "AUR-015",
+ "candidate_identity_digest": "sha256:cf38f66720c216b04887737ded7b17d0f7dc0ffac63b32fe0148cfe96e66384b",
+ "role": "skeptic",
+ "sealed": true,
+ "role_nonce": "0f67aeffe707b3f813979377c773c5aa",
+ "context_digest": "sha256:a74f502ef91950a0ba0324fa43a394d79f159a78becf3456ba361935bfcfd7a2",
+ "backend_family_digest": "sha256:2cf756e4caa2d5a56a5b5f763844ca9e5e64f1c9415969d265f426b32b1ec654",
+ "verdict": "pass",
+ "challenge_plan": {
+  "sealed_before_reviews": true,
+  "digest": "sha256:684147556969599e406b54ec7d7c8ef4fa08e21c6537de76468e9e21fd9a8507",
+  "all_acceptance_criteria": true,
+  "all_trust_boundaries": true
+ },
+ "isolation": {
+  "reviews_visible_before_challenge_seal": false
+ },
+ "mutation": {
+  "detected": true,
+  "results": [
+   {
+    "mutation_id": "MUT-001",
+    "exit_code": 1,
+    "typed_failure": "AUR-015/AC-001/undecided-standard: standard SARIF matrix version (2.1.0) diverges from standards/contracts/versions.yaml (2.2.0)",
+    "restored_byte_identical": true
+   },
+   {
+    "mutation_id": "MUT-002",
+    "exit_code": 1,
+    "typed_failure": "AUR-015/AC-001/undecided-standard: standard SARIF source host is not allowlisted: evil.example.net",
+    "restored_byte_identical": true
+   }
+  ]
+ },
+ "clean_replay": {
+  "pass": true,
+  "runs": 2,
+  "stdout_sha256": "sha256:d44fc78443268f071864b13b3243cfaff2f611a0db0915585d15edd9a0c2f6d8"
+ },
+ "secret_canaries": {
+  "pass": true,
+  "leaked": 0
+ },
+ "summary": "## Revis\u00e3o adversarial \u2014 AUR-015 r2 (segunda rodada, fun\u00e7\u00e3o APROVADOR C\u00c9TICO)\n\n**Independ\u00eancia**: contexto/processo/cache/nonce isolados em worktree descart\u00e1vel (`/tmp/.../scratchpad/aur015r2`, criada `git worktree add --detach 85cfbb4`, removida ao final), fam\u00edlia de modelo distinta do builder e dos Reviewers A/B, mesmo provider \u2014 `I2`, sem reivindicar `I3` nem independ\u00eancia de provider.\n\n### Meu",
+ "report_digest": null,
+ "session_digest": "sha256:d969a935a6b2eae4d6c567a6dfa8b77573e6690f4d8337a4115ca30abd40efc0"
+}
