@@ -27,7 +27,7 @@ by [validate.sh](validate.sh).
 | [AUR-012](cards/backlog/AUR-012.md) | backlog | O09-demo | medium | `[AUR-011]` | Bootstrapar repositório demo consumidor |
 | [AUR-013](cards/backlog/AUR-013.md) | backlog | O00-governance | high | `[AUR-003, AUR-009]` | Auditar plugin ou skill escritorio |
 | [AUR-014](cards/backlog/AUR-014.md) | backlog | O00-research | medium | `[AUR-233]` | Versionar standard de code review |
-| [AUR-015](cards/doing/AUR-015.md) | doing | O00-research | high | `[]` | Versionar standard de secure code review |
+| [AUR-015](cards/done/AUR-015.md) | done | O00-research | high | `[]` | Versionar standard de secure code review |
 | [AUR-016](cards/doing/AUR-016.md) | doing | O00-research | medium | `[]` | Definir uso evidencial de ISO 25010 |
 | [AUR-017](cards/done/AUR-017.md) | done | O00-research | medium | `[]` | Fixar standards de artefatos interoperáveis |
 | [AUR-018](cards/doing/AUR-018.md) | doing | O00-research | high | `[]` | Fixar contratos SCM e CI seguros |
