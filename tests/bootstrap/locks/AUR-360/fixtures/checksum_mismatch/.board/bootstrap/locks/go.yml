@@ -1,0 +1,16 @@
+schema: bootstrap-lock-v1
+card: AUR-360
+go_version: 1.21
+module: github.com/Mpaape/AurumCode
+go_mod_sha256: sha256:2e5f37fb9db0206e74c34a1500f9c53e11c33c9d1d0ee39d6377a553aabeafb6
+go_sum_sha256: sha256:b9142883d8f8e46998f705fbcd9964d6f386e17381ddf95a0c3173c832ce25e8
+module_count: 3
+module_1_path: github.com/gorilla/mux
+module_1_version: v1.8.1
+module_1_checksum: h1:0000000000000000000000000000000000000000000=
+module_2_path: gopkg.in/check.v1
+module_2_version: v0.0.0-20161208181325-20d25e280405
+module_2_checksum: h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
+module_3_path: gopkg.in/yaml.v3
+module_3_version: v3.0.1
+module_3_checksum: h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

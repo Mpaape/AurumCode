@@ -1,0 +1,45 @@
+{
+  "schema": "aurum.acceptance-observation",
+  "version": 1,
+  "card_id": "AUR-360",
+  "candidate_identity_digest": "sha256:91115972f3539875b25427718b8a025fc28b3393db2a7d67d85b8a432d6e53e9",
+  "role": "acceptance",
+  "sealed": true,
+  "role_nonce": "aur360-r2-acceptance-seal-748dc1e5f92a",
+  "context_digest": "sha256:4b7f4ebb4c9857a04301278814422912ce5055a44f76a5fdf3ce74cf91e53593",
+  "backend_family_digest": "sha256:a7a48629bc2e498dc6de27edb6c3a1155e7c22516662b58532ede8cfaf6aa229",
+  "verdict": "pass",
+  "command_digest": "sha256:c43895d923b493969bd9b67dd46077b16cfbae056c358417d4f26c0aa7975a0d",
+  "container_profile_digest": "sha256:36bb0c1b85fa02974fcaaef5f0dc67c7a8212eafc8a90d72342e248da00ca1f4",
+  "red": {
+    "exit_code": 1,
+    "typed_failure": "AUR-360/AC-001/go_lock_mismatch",
+    "cause": ".board/bootstrap/locks/go.yml absent from the pre-candidate tree (base_sha 7a1b930); AC-001 reaches the boundary check and fails typed. Reproduced independently by both blind reviewers in separate untouched worktrees."
+  },
+  "green": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:b71d3f62636e2db6ab31638f59fd85bb07ede998c86a118dec561cd763c606ca"
+  },
+  "mutation": {
+    "mutation_id": "MUT-001",
+    "detected": true,
+    "exit_code": 1,
+    "typed_failure": "AUR-360/AC-001/module-path-mismatch",
+    "restored_exit_code": 0
+  },
+  "clean_replay": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:b71d3f62636e2db6ab31638f59fd85bb07ede998c86a118dec561cd763c606ca",
+    "runs": 2
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "scenarios": [
+    {
+      "id": "AC-001",
+      "exit_code": 0
+    }
+  ]
+}
