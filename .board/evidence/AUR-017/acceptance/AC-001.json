@@ -1,0 +1,45 @@
+{
+  "schema": "aurum.acceptance-observation",
+  "version": 1,
+  "card_id": "AUR-017",
+  "candidate_identity_digest": "sha256:634618dd66e3561e3bd09e67f41f074c2ecc05cc16710f0fa7ce322807e60055",
+  "role": "acceptance",
+  "sealed": true,
+  "role_nonce": "aur017-r2-acceptance-seal-9c318fa5e6b2",
+  "context_digest": "sha256:fc2b4060fbc8418bea72f2aa2c88ee54e6e960c8b740dd8f487fde1ba18876a0",
+  "backend_family_digest": "sha256:a7a48629bc2e498dc6de27edb6c3a1155e7c22516662b58532ede8cfaf6aa229",
+  "verdict": "pass",
+  "command_digest": "sha256:8bdfd8ad94bbd941bc483df3d6303291f582b53fd1485defb3a741aec41dea54",
+  "container_profile_digest": "sha256:9431583e0c1e3de05eaf6f6c0390261b8ec41e09263825ee1de75470b1bbbfba",
+  "red": {
+    "exit_code": 1,
+    "typed_failure": "AUR-017/AC-001: interoperability baseline absent",
+    "cause": ".board/research/interoperability.md absent from the pre-candidate tree (efb32f62348dd8a9c9782dcf6f4be1d23566f623); AC-001 reaches the boundary call and fails on the missing baseline."
+  },
+  "green": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:d44fc78443268f071864b13b3243cfaff2f611a0db0915585d15edd9a0c2f6d8"
+  },
+  "mutation": {
+    "mutation_id": "MUT-001",
+    "detected": true,
+    "exit_code": 1,
+    "typed_failure": "AUR-017/AC-001/undecided-standard: standard SARIF matrix version (2.1.0) diverges from standards/contracts/versions.yaml (2.2.0)",
+    "restored_exit_code": 0
+  },
+  "clean_replay": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:d44fc78443268f071864b13b3243cfaff2f611a0db0915585d15edd9a0c2f6d8",
+    "runs": 2
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "scenarios": [
+    {
+      "id": "AC-001",
+      "exit_code": 0
+    }
+  ]
+}
