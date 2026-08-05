@@ -1,0 +1,5 @@
+aider.chat
+github.com
+x.com
+sqlite.org
+www.sqlite.org
