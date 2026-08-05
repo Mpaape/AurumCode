@@ -1,0 +1,28 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-021",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "Reviewer A (REQUEST_CHANGES): (1) .board/research/mcp.md:23 cited Date: 2026-07-28 for a source whose real datePublished is 2026-05-21 -- a factual error in an artifact whose whole purpose is verifiable sourcing; (2) the card v1 declared Integration at tests/integration/AUR-021.go::IntegrationAUR021, a path invisible to go test by construction -- the same defect that vetoed AUR-020 v1 twice, requiring a governance bump, not a builder fix."
+    },
+    {
+      "round": 2,
+      "outcome": "veto",
+      "reason": "Skeptic VETO after the v1->v2 governance bump (commit 85cfbb4): the reviewed patch did not create tests/integration/AUR-021_test.go; go test -list on the patched tree listed only TestAUR020Boundary. The only copy of the file lived staged-uncommitted in a foreign parallel worktree, and both other reviewers had validated against that external copy instead of the delivered artifact -- success-without-work pattern, vetoed."
+    },
+    {
+      "round": 3,
+      "outcome": "reviews_approved",
+      "reason": "Self-contained patch (test file inside the diff). Reviewer A, Reviewer B and a third reviewer all APROVADO with RED/GREEN/MUT re-executed from scratch; two non-blocking prose findings in docs/specs/AUR-021.md recorded for follow-up."
+    },
+    {
+      "round": 6,
+      "outcome": "approved",
+      "governance_change": "No card-spec change since v2 (85cfbb4). The r6 candidate differs from r3 only by rewriting docs/specs/AUR-021.md's final section, fixing the factual contradiction found in r3 review.",
+      "candidate": "r6 patch (sha256 of patch bytes = change_digest in this bundle) applied against base_sha 5729803ebcb2c3ba89da461bed43647d2c26de62; integrated by the coordinator as an uncommitted working tree at bundle time."
+    }
+  ],
+  "note": "This bundle proves round 6 against the current candidate_identity_digest. Round 1-3 reviewer and skeptic reports were produced against earlier candidates and are superseded; they are retained at /tmp/aurum-reviews/AUR-021-*.md only as the veto/approval record this table summarizes."
+}

@@ -1,0 +1,60 @@
+# AurumCode MCP tool classification (AUR-021).
+#
+# Fixes, independent of any server's own self-reported tool annotations
+# (readOnlyHint/destructiveHint are untrusted hints per the MCP
+# specification's own tool-safety rule), which tools this project's agents
+# may call without a human consent step, and which require one. This file
+# does not register a callable tool and does not start a server; it is the
+# policy a dependent O11-mcp server card must enforce.
+#
+# Rules tests/acceptance/AUR-021.sh enforces on this file:
+#   - every entry declares class: read_only or class: mutable, nothing else
+#   - every class: mutable entry MUST set requires_explicit_consent: true
+#   - the tool named in tests/specs/AUR-021/required-mutable-tools.txt
+#     (review.publish) MUST be present with class: mutable and
+#     requires_explicit_consent: true
+
+tools:
+  - name: review.analyze
+    class: read_only
+    description: >-
+      Run deterministic/semantic code review over an already-materialized
+      ChangeSet and return findings. Reads repository state; writes no
+      external system.
+
+  - name: context.query
+    class: read_only
+    description: >-
+      Query stateless Git-derived context (diff, blame, file tree) for the
+      current ChangeSet. No mutation of any store.
+
+  - name: docs.render_preview
+    class: read_only
+    description: >-
+      Render a documentation preview to an ephemeral, non-published
+      location for inspection. Does not touch the published site.
+
+  - name: review.publish
+    class: mutable
+    requires_explicit_consent: true
+    description: >-
+      Publish a review verdict/comment to an external system (e.g. a pull
+      request). State-changing and externally visible; MUST NOT be callable
+      without an explicit, per-invocation consent step regardless of what
+      any server-side tool annotation claims.
+
+  - name: scm.push
+    class: mutable
+    requires_explicit_consent: true
+    description: >-
+      Push committed changes to a remote. State-changing and externally
+      visible; requires explicit consent.
+
+  - name: qa.execute_sandboxed
+    class: mutable
+    requires_explicit_consent: true
+    description: >-
+      Execute a proposed test or command inside a sandboxed environment.
+      Even though the sandbox is isolated, execution is treated as mutable
+      because it consumes resources and can have side effects within that
+      sandbox; requires explicit consent.

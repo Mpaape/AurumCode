@@ -1,0 +1,48 @@
+{
+  "schema": "aurum.skeptic-report",
+  "version": 1,
+  "card_id": "AUR-021",
+  "candidate_identity_digest": "sha256:dc1521a017a54037f481e6874cceb35867ea865d4230b8f21ee740ec37820a50",
+  "role": "skeptic",
+  "sealed": true,
+  "role_nonce": "aur021-r6-skeptic-seal-d47a90e3b615",
+  "context_digest": "sha256:38080449732c5810f814bc122cfc930338c69391679f91e1b28b5c2250c44179",
+  "backend_family_digest": "sha256:c89836ed664141c05a4a89dec6313d4debcdd0718c251d7046a9efa9405f910a",
+  "verdict": "pass",
+  "challenge_plan": {
+    "sealed_before_reviews": true,
+    "digest": "sha256:8c7620fe367d926daa27abe3492ad1afbf3cb70075dde8c3f11124f4c9a57940",
+    "all_acceptance_criteria": true,
+    "all_trust_boundaries": true
+  },
+  "isolation": {
+    "reviews_visible_before_challenge_seal": false
+  },
+  "mutation": {
+    "detected": true,
+    "results": [
+      {
+        "mutation_id": "MUT-001",
+        "exit_code": 1,
+        "typed_failure": "AUR-021/AC-001/tool-misclassified",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-002",
+        "exit_code": 1,
+        "typed_failure": "AUR-021/AC-001/source-not-versioned",
+        "restored_byte_identical": true
+      }
+    ]
+  },
+  "clean_replay": {
+    "pass": true,
+    "runs": 2,
+    "stdout_sha256": "sha256:36df88850e1a8924c4e1be93e899fb600023059c47970c855664a85872e1ff54"
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "summary": "Round 6 final seal (persisted at /tmp/aurum-reviews/AUR-021-skeptic-seal.md): APROVADO. Independent file:// clone at base_sha 5729803e, r6 patch applied clean; scope, GREEN raw exit, observation_trusted handling, MUT-001/MUT-002 and symbol non-collision re-executed from scratch with no divergence from Reviewers A/B; six additional hostile vectors (host suffix, userinfo, symlink, file removal and two YAML flow variants) all fail closed; the only r6 delta rewrites docs/specs/AUR-021.md's final section fixing a real factual contradiction without weakening any assertion. Both mutations restore byte-identically and the clean accept replays the same digest."
+}
