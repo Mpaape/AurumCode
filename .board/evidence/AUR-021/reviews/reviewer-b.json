@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-021",
+  "candidate_identity_digest": "sha256:dc1521a017a54037f481e6874cceb35867ea865d4230b8f21ee740ec37820a50",
+  "role": "reviewer-b",
+  "sealed": true,
+  "role_nonce": "aur021-r6-reviewer-b-seal-8c25fb4a10d9",
+  "context_digest": "sha256:6e887cd2fd7d72dcb3aa3456d7e928169c1aa1499927b16c8a9a5c9535540960",
+  "backend_family_digest": "sha256:60b8ac52d2eb0903f155105353b209f1258f6726326126eedaea8ac0f301dd9d",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:25ee3e864a880bc3f2810763eb2b91cbfc09c376a90303e043f39c944910215a",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:e3d19a7f8fdc0e8e4e929268fc5c86076333eb346afffa41e7b830ed9f642278"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:69c2fdf77f8e524710b13d4d95e68b70a4bbb76d2cf160c5a9e0b1326242f3cf"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:cfbf7e9583fe76003847c7f7b98d85089b730e79c6986d22a23540976afd29c2"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:e429675861ec4a2a587c4a99ab2767df122eaf4390c7ee946fc1c3aa5cbff82a"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:98a66d754ea5a6f4e985ec67ea740e3c5e462dcad7e22a06512e52860243d37e"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single deterministic process, no shared mutable state, no retries or idempotency concerns to evaluate."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:28e1f95f81193b577089a14164989a3f76e967a1bcaba2afe0a47dff96871fa6"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:f54dda6ba3e6438374107fc6e84eafaaffd3430cd190ed4aad406388cdd68683"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:bd8cda4d27e18e246ff2c9399ef8e76036f9e887349a6e15f34f3ec077505441"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:237f27d0ba5b28c60ad11f4b14f62d4be7824680f2818c99ddcb1506ebf4beb0"
+      }
+    ]
+  },
+  "summary": "Round 3 blind review (persisted at /tmp/aurum-reviews/AUR-021-r3-review.md): APROVADO. Patch re-applied from scratch matches the staged index byte for byte; TestAUR021Boundary is in the patch and discovered by go test without a dispatcher; GREEN nominal reproduced; MUT-001 and MUT-002 drop both go test and the real oci-run with specific typed errors, bit-identical restoration in both cases; scope confined to the v2 card paths; no forbidden_paths touched; no canary leaked; no assertion weakened; full go test suite green."
+}

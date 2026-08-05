@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-021",
+  "candidate_identity_digest": "sha256:dc1521a017a54037f481e6874cceb35867ea865d4230b8f21ee740ec37820a50",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "AC-001 Given/When/Then match tests/acceptance/AUR-021.sh's actual behavior: the five required terms (stdio, read-only, OAuth, injection, capability) are enforced case-insensitively against .board/research/mcp.md and each absence exits non-zero with a typed code."
+    ],
+    "design": [
+      "covered",
+      "standards/mcp/{protocol,tools}.yaml separate protocol/SDK pinning from tool classification; review.publish is accepted only as mutable with requires_explicit_consent, verified by both the shell lint and TestAUR021Boundary."
+    ],
+    "compatibility": [
+      "covered",
+      "No consumer-facing port or wire contract changes; Public contract lists exactly the owned artifacts and the candidate diff touches only the card's declared paths."
+    ],
+    "tests": [
+      "covered",
+      "RED/GREEN/refactor re-executed from scratch, not re-read: MUT-001, MUT-002 and a third invalid-vector mutation each drop the real container accept and restore byte-identically; tests/integration/AUR-021_test.go is inside the patch and discovered by go test ./... without a dispatcher."
+    ],
+    "security": [
+      "covered",
+      "Sources matrix verified against the live network: all 7 rows resolve, the quoted MCP authorization and session-security clauses match the real spec text, go-sdk release dates match the GitHub API; no secret, no assertion weakening anywhere in the diff."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+    ],
+    "errors-operations": [
+      "covered",
+      "Every failure branch emits a typed code (behavior-missing, tool-misclassified, source-not-versioned, invalid-term cases); infrastructure failures are distinguished and never converted into behavioral RED."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-021.md documents behavior, contract, limits and diagnostics; the r6 delta rewrote its final section to fix a factual contradiction found in review, without weakening any assertion."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "Non-goals honored: no MCP server is exposed and no executable tool registered; the card versions only the conformance classification and limits."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the r6 candidate against 5729803e were read: .board/research/mcp.md, docs/specs/AUR-021.md, standards/mcp/{protocol,tools}.yaml, tests/acceptance/AUR-021.sh, tests/integration/AUR-021_test.go, tests/specs/AUR-021/*."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "Verified the acceptance command is exactly the card-locked oci-run wrapper and AC-001's exit codes match observed behavior under hostile fixtures, raw exit status read without pipes."
+    ],
+    "design": [
+      "covered",
+      "Checked injection surfaces in the lint's parsing; no eval, no dynamic code path; the tool-classification check cannot be satisfied by a read-only review.publish (MUT-001 reproduced live)."
+    ],
+    "compatibility": [
+      "covered",
+      "No other card's owned path touched; forbidden_paths (.git, .env, credentials, secrets, .board/cards) untouched, confirmed by git diff --stat against base_sha."
+    ],
+    "tests": [
+      "covered",
+      "MUT-001 and MUT-002 exercised live via container with typed non-zero exits and byte-identical restoration; hostile vectors (host suffix, userinfo, symlink, file removal) all fail closed."
+    ],
+    "security": [
+      "covered",
+      "Host allowlist enforced from tests/specs/AUR-021/allowed-source-domains.txt; no outbound request made by the lint; container read-only/non-root/no-new-privileges; AURUM_SECRET_CANARY absent from outputs."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic process, no shared mutable state, no retries or idempotency concerns to evaluate."
+    ],
+    "errors-operations": [
+      "covered",
+      "Infrastructure failure is distinguished from behavioral failure; missing-baseline RED (AUR-021/AC-001: MCP baseline absent) reaches the boundary call and is typed, never converted into pass."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-021.md's diagnostic procedure runs under the same accept command; the escalation section's factual inaccuracy found in r3 was fixed by the r6 rewrite."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "No dead code or unreachable branch in the delivered lint; every failure site is reachable from a documented AC-001 clause."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the r6 candidate diff against 5729803e were read, prioritizing hostile-input and fail-closed behavior on each."
+    ]
+  }
+}
