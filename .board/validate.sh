@@ -6,7 +6,7 @@ umask 077
 
 board_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "$board_dir/.." && pwd -P)"
-states=(backlog ready doing review done blocked-on-owner)
+states=(backlog ready doing review done blocked-on-owner cancelled)
 required_sections=(
   "## Outcome"
   "## Non-goals"
@@ -35,6 +35,11 @@ declare -A card_risks=()
 declare -A card_titles=()
 declare -A card_base_shas=()
 declare -A card_spec_digests=()
+# The dependency-on-cancelled gate needs, for every cancelled card, the
+# successor its cancellation.json declares (or the literal string "null"):
+# empty means the cancellation evidence itself failed to validate and no
+# override can be honored.
+declare -A card_superseded_by=()
 # Recomputable card facts the `done` evidence gate re-derives instead of
 # trusting: the exact locked acceptance command, the artifact path the card
 # promises, the acceptance scenarios that must be observed, and how many
@@ -1066,6 +1071,79 @@ validate_manifest() {
   fi
 }
 
+# A card moves to `cancelled` only under evidence, never a rename. The owner's
+# rule ("you don't delete a card, you send it to cancelled") is enforced here:
+# the manager's approval, a non-generic reason, an explicit supersession
+# decision, and a digest binding that decision to the exact cancelled card
+# text (the same self-referential recomputation `spec_digest` already uses)
+# must all be present under .board/evidence/<id>/cancellation.json.
+cancellation_reason_min_len=40
+
+is_generic_cancellation_reason() {
+  local reason_lower="$1"
+  [[ "$reason_lower" =~ ^(it[[:space:]]+is[[:space:]]+|this[[:space:]]+is[[:space:]]+|this[[:space:]]+card[[:space:]]+is[[:space:]]+|the[[:space:]]+card[[:space:]]+is[[:space:]]+)?(not[[:space:]]+needed|no[[:space:]]+longer[[:space:]]+needed|not[[:space:]]+necessary|unnecessary|obsolete|no[[:space:]]+longer[[:space:]]+required|deprecated|duplicate|superseded|replaced|cancell?ed|wont[[:space:]]+fix|won.t[[:space:]]+fix)([[:space:]]+(now|anymore|any[[:space:]]+longer))?$ ]]
+}
+
+validate_cancellation() {
+  local card="$1"
+  local id="$2"
+  local evidence_root="$board_dir/evidence/$id"
+  local cancellation_file="$evidence_root/cancellation.json"
+  local flattened reason reason_compact reason_lower digest_value successor successor_type
+
+  if [[ -e "$board_dir/evidence/$id/manifest.json" ]]; then
+    fail "$card: cancelled card must not carry a done evidence bundle (.board/evidence/$id/manifest.json); cancellation is not completion"
+  fi
+
+  [[ -f "$cancellation_file" && ! -L "$cancellation_file" ]] || {
+    fail "$card: cancelled card lacks a regular .board/evidence/$id/cancellation.json"
+    return
+  }
+  if grep -Eiq '"(api[_-]?key|access[_-]?token|authorization|credential|raw[_-]?prompt|model[_-]?response|chain[_-]?of[_-]?thought)"[[:space:]]*:' "$cancellation_file"; then
+    fail "$cancellation_file: forbidden sensitive/raw model field"
+  fi
+  if grep -Eiq -- '(-----BEGIN[[:space:]][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})' "$cancellation_file"; then
+    fail "$cancellation_file: contains a credential-like value"
+  fi
+  if ! flattened="$(json_flatten "$cancellation_file" 2>/dev/null)"; then
+    fail "$cancellation_file: invalid JSON or duplicate key"
+    return
+  fi
+
+  require_json_value "$cancellation_file" "$flattened" schema aurum.cancellation
+  require_json_value "$cancellation_file" "$flattened" version 1
+  require_json_value "$cancellation_file" "$flattened" card_id "$id"
+  require_json_value "$cancellation_file" "$flattened" approved_by_role manager
+  require_json_pattern "$cancellation_file" "$flattened" card_digest '^sha256:[0-9a-f]{64}$'
+  digest_value="$(json_get "$flattened" card_digest 2>/dev/null || true)"
+  [[ -n "${card_spec_digests[$id]:-}" && "$digest_value" == "${card_spec_digests[$id]}" ]] ||
+    fail "$cancellation_file: card_digest does not match the canonical recomputed digest of the cancelled card text"
+
+  reason="$(json_get "$flattened" reason 2>/dev/null || true)"
+  reason_compact="$(printf '%s' "$reason" | tr -d '[:space:]')"
+  reason_lower="$(printf '%s' "$reason" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[.;,!]+$//; s/[[:space:]]+/ /g')"
+  if (( ${#reason_compact} < cancellation_reason_min_len )); then
+    fail "$cancellation_file: reason must be a specific, non-generic explanation of at least $cancellation_reason_min_len characters"
+  elif is_generic_text "$reason"; then
+    fail "$cancellation_file: reason contains generic or placeholder language"
+  elif is_generic_cancellation_reason "$reason_lower"; then
+    fail "$cancellation_file: reason is a generic filler phrase alone, not a specific explanation"
+  fi
+
+  successor_type="$(json_type "$flattened" superseded_by 2>/dev/null || true)"
+  if [[ "$successor_type" == "null" ]]; then
+    card_superseded_by[$id]="null"
+  else
+    successor="$(json_get "$flattened" superseded_by 2>/dev/null || true)"
+    if [[ "$successor" =~ ^AUR-[0-9]{3}$ ]]; then
+      [[ "$successor" != "$id" ]] || fail "$cancellation_file: superseded_by must not name the cancelled card itself"
+      card_superseded_by[$id]="$successor"
+    else
+      fail "$cancellation_file: superseded_by must be JSON null or one AUR-NNN card id"
+    fi
+  fi
+}
+
 for state in "${states[@]}"; do
   directory="$board_dir/cards/$state"
   [[ -d "$directory" ]] || fail "missing state directory: cards/$state"
@@ -1147,12 +1225,16 @@ while IFS= read -r -d '' card; do
   card_risks[$id]="$risk"
   card_spec_digests[$id]="$spec_digest"
 
-  if [[ "$state" =~ ^(doing|review|done)$ ]]; then
+  if [[ "$state" =~ ^(doing|review|done|cancelled)$ ]]; then
     computed_spec_digest="sha256:$(sed -E 's/^status: .+$/status: STATE/; s/^spec_digest: sha256:[0-9a-f]{64}$/spec_digest: sha256:SELF/' "$card" | sha256sum | awk '{print $1}')"
     [[ "$spec_digest" == "$computed_spec_digest" ]] || fail "$card: spec_digest does not match canonical locked card content"
     card_base_shas[$id]="$base_sha"
   else
     card_base_shas[$id]=""
+  fi
+
+  if [[ "$state" == "cancelled" ]]; then
+    validate_cancellation "$card" "$id"
   fi
 
   if ! mapfile -t requirement_list < <(parse_list "$requirements"); then
@@ -1466,6 +1548,18 @@ done < <(find "$board_dir/cards" -mindepth 2 -maxdepth 2 -type f -name 'AUR-*.md
 
 (( ${#ids[@]} > 0 )) || fail "board contains no cards"
 
+# `superseded_by` is only safe to resolve once every card id on the board is
+# known, which is not true mid-way through the card pass above (state
+# directories are walked in sorted order, so `cancelled` cards can be visited
+# before a later-sorted state that holds their declared successor).
+for cancelled_id in "${!ids[@]}"; do
+  [[ "${card_states[$cancelled_id]}" == "cancelled" ]] || continue
+  successor_id="${card_superseded_by[$cancelled_id]:-}"
+  [[ -n "$successor_id" && "$successor_id" != "null" ]] || continue
+  [[ -n "${ids[$successor_id]+x}" ]] ||
+    fail "${files[$cancelled_id]}: cancellation superseded_by references unknown card $successor_id"
+done
+
 # Reverse traceability is as important as rejecting unknown references. A
 # registry row with no card is an unimplemented product/control claim.
 while IFS= read -r requirement; do
@@ -1510,7 +1604,27 @@ while IFS= read -r -d '' card; do
     dependency="${dependency// /}"
     [[ -n "${ids[$dependency]+x}" ]] || fail "$card: unknown dependency $dependency"
     [[ "$dependency" != "$id" ]] || fail "$card: self dependency"
-    if [[ "${card_states[$id]}" =~ ^(ready|doing|review|done)$ && "${card_states[$dependency]:-missing}" != "done" ]]; then
+    dependency_state="${card_states[$dependency]:-missing}"
+    # A cancelled dependency is never satisfiable by waiting -- it will never
+    # reach `done` -- so it is an error in every active state, including
+    # backlog, where an ordinary not-yet-done dependency is normal. The only
+    # escape is the cancelled card declaring a successor AND this card also
+    # depending on that successor, so the DAG is never silently orphaned.
+    if [[ "$dependency_state" == "cancelled" ]]; then
+      if [[ "${card_states[$id]}" =~ ^(backlog|ready|doing|review|done)$ ]]; then
+        successor="${card_superseded_by[$dependency]:-}"
+        if [[ -z "$successor" || "$successor" == "null" ]]; then
+          fail "$card: depends on cancelled $dependency, which declares no accepted successor"
+        else
+          successor_listed=0
+          for check_dependency in "${dependency_list[@]}"; do
+            [[ "${check_dependency// /}" != "$successor" ]] || { successor_listed=1; break; }
+          done
+          (( successor_listed == 1 )) ||
+            fail "$card: depends on cancelled $dependency but does not also depend on its declared successor $successor"
+        fi
+      fi
+    elif [[ "${card_states[$id]}" =~ ^(ready|doing|review|done)$ && "$dependency_state" != "done" ]]; then
       fail "$card: active card depends on non-done $dependency"
     fi
   done
