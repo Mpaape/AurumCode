@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-363",
+  "candidate_identity_digest": "sha256:ea15837c0bba67d1ae19836f76b9294f6d03bbdf634c719b20497a5cad4a6828",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "The round's central point is closed: each of the four codes the Then clause promises -- parser_lock_incomplete, source_integrity_error, invalid_lock_or_manifest and input_limit_exceeded -- now has a dedicated fixture whose recomputed sha256 matches cases.tsv and which resolves to exactly the promised code."
+    ],
+    "design": [
+      "covered",
+      "The two new fixtures introduced by this round, implementationtamper and implementationsymlink, are what close the source_integrity_error gap: the first carries a lock digest one byte off the real file, the second makes extractor.go a real symlink."
+    ],
+    "compatibility": [
+      "covered",
+      "Scope restricted to declared paths; no forbidden_paths touched; the four originally sealed checks are byte-for-byte intact, so the diff is strictly additive."
+    ],
+    "tests": [
+      "covered",
+      "The card's mutations were re-executed against the real tree rather than only against fixtures: MUT-001 gives parser-unlocked, MUT-002 gives corpus-digest-mismatch, each restored with an identical lock sha256 and a green replay."
+    ],
+    "security": [
+      "covered",
+      "All eight implementation_sha256 and eight fixture_corpus_sha256 values were recomputed against the real tree and match; no real extractor.go is a symlink; the grammar_pin_source citations point at lines that genuinely mention the declared tool, with Dockerfile:26 pinning gomarkdoc@v1.1.0 matching adapter_go_grammar_version."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single-shot read-only verification in a pinned container."
+    ],
+    "errors-operations": [
+      "covered",
+      "The oracle is provably not gameable: altering a fixture without updating cases.tsv yields inconclusive/fixture_digest_diverges at exit 79, never a false pass, and altering the expected column yields a real fixture_sensitivity_error."
+    ],
+    "documentation": [
+      "covered",
+      "Recorded as a non-blocking finding: docs/specs/AUR-363.md understates its own round, saying eight fixtures and showing fixture_cases:8 when the real number is ten, and its shape table omits the two new rows."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "The extension is additive and confined to closing the contract gap the previous round left open."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the r3 candidate against 7a1b930 were read."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "All four Then-clause codes independently reproduced with genuine fixture coverage; the r2 gap of zero coverage for source_integrity_error is closed by two new fixtures whose divergence the reviewer verified with sha256sum and ls."
+    ],
+    "design": [
+      "covered",
+      "RED reproduced pre-patch and GREEN reproduced post-patch both on the host and through the real container, with observation_trusted:false honestly reported rather than treated as authority."
+    ],
+    "compatibility": [
+      "covered",
+      "Only paths inside the card's declared list are touched; the four originally sealed checks are unmodified."
+    ],
+    "tests": [
+      "covered",
+      "All three Skeptical Mutations fired their exact named codes with raw unpiped exits, and every restore was verified by a recomputed sha256 of parsers.yml plus a green replay."
+    ],
+    "security": [
+      "covered",
+      "Adversarial probes that could not be broken: a phantom adapter present in the lock but absent from the tree gives source_integrity_error; path traversal in implementation_path fails closed, reading outside the root but never passing or leaking content; a wrong-length digest gives invalid_lock_or_manifest; symlinked lock and implementation are both rejected."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic process, no shared mutable state."
+    ],
+    "errors-operations": [
+      "covered",
+      "An empty corpus whose digest still matches passes, which the reviewer checked against the card and found to be explicitly inside the Non-goals rather than a defect."
+    ],
+    "documentation": [
+      "covered",
+      "The same stale-spec finding as reviewer A, independently found and classified as documentation quality only, affecting neither the oracle nor any security property."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "Strictly additive diff; no rewrite of what was already proven."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks read with adversarial priority on digest handling, symlinks and path traversal."
+    ]
+  }
+}
