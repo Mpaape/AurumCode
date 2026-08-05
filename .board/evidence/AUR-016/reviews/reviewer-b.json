@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-016",
+  "candidate_identity_digest": "sha256:c51df4349bba9c512433945c65cd5a2b1e95d4cc62495c28cd3d1cd1d6dd55a9",
+  "role": "reviewer-b",
+  "sealed": true,
+  "role_nonce": "aur016-r7-reviewer-b-seal-2ab4d91e07f6",
+  "context_digest": "sha256:bfafcc9442eba425bf2883f8612b64778801f4b1b90816e5fbb2895c6bf0b836",
+  "backend_family_digest": "sha256:60b8ac52d2eb0903f155105353b209f1258f6726326126eedaea8ac0f301dd9d",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:00b6665e97d7b0516fa694ffd865b25f7acb2c0ea367e129909df9f961acc43d",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:292e3eabf24826e3b8e75e96d846f3df355da3c3fcc97fc41dab4b2d5d909786"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:d2db4877c47836d1d28a462110aa734abc0645973e64eb564e8adb9933996724"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:3f06b386a3a0d0ad6b4544236de20233d80e9418a6d3d9d773468c25e03f8f84"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:f6685cda287faa80168d32fc9626c7342aebc310a34ae0e7addd5c7cc3a41624"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:e21bd696ca4b88d9508f4e035f04ea47ee995de2126f58e7206d3f6d87d10f92"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single deterministic process, no shared mutable state, no retries."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:712b6521a89ee16e931c48ce78e308c686597e5ba1eebb8e6d056ecf6191c458"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:38451c819448d6fb22f1d04a768b74f567f4d010199189a161513e6b4bb2fb3e"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:740a2b9b2f8ef33e9991c3b2c4f4572eb45efb2f0f0302b3e916585ea725d4f3"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:10c840ea431659d07fcd6ecc1c62ba0fa3300b42a69ccd0ba437f749d17cad6c"
+      }
+    ]
+  },
+  "summary": "Blind review of r6 vetoed on a real bypass (persisted at /tmp/aurum-reviews/AUR-016-r6-reviewB.md): only the leftmost [label](url) per Sources cell was host-checked, so an appended non-allowlisted link passed with stdout identical to nominal. r7 fixed the loop and the re-seal (persisted at /tmp/aurum-reviews/AUR-016-r7-review.md) reproduced the exact bypass now failing typed unversioned-source, plus five own variants, with sha256-verified restoration and byte-identical nominal replay; MUT-001/MUT-002/tab/missing-characteristic regressions all clean. APROVADO on r7."
+}
