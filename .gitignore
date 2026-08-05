@@ -28,6 +28,9 @@ node_modules/
 bin/
 # The board runner is source, not Go build output — `bin/` above would swallow it.
 !.board/bin/
+# Acceptance fixtures ship their own .board/bin replicas; the bin/ rule above
+# must not silently swallow them out of a normal git add -A.
+!tests/**/.board/bin/
 dist/
 # `go build` with no -o drops the binary at the repo root under the package name.
 /regenerate-docs
