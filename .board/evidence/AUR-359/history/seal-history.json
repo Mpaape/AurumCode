@@ -1,0 +1,18 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-359",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "The skeptic's from-scratch staging discovery: the repository .gitignore's bare bin/ rule silently swallowed the fixture's .board/bin runner replica, so the candidate's green depended on an undocumented git add -f -- invisible to the sealed accept and to a normal clean checkout. Escalated instead of silently accepted."
+    },
+    {
+      "round": 2,
+      "outcome": "approved",
+      "governance_change": "No card-spec change. The fix (gitignore exception !tests/**/.board/bin/) was folded into the candidate commit cecf652 itself and merged to main via PR #17 (merge 282d288). base_sha locked to 282d288 at this transition, as the card's lock-at-execution demanded.",
+      "candidate": "cecf652 as merged at 282d288. Bookkeeping note from both blind reviewers: 348ac6e is a non-ancestor duplicate of cecf652 with a byte-identical tree; only cecf652 is ancestral to the merged tree."
+    }
+  ],
+  "note": "This bundle proves round 2 against the current candidate_identity_digest, with all four seals produced over the corrected tree at 282d288: blind reviewers A and B, the formal skeptic re-seal, and the coordinator's own raw acceptance run, all reproducing stdout sha256 a568a5ee... independently."
+}

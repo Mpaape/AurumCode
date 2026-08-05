@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-359",
+  "candidate_identity_digest": "sha256:3c2472562e9f769419d226e9dcbfcec0ef826b2fce3612fd6da0ee291825ebd5",
+  "role": "reviewer-b",
+  "sealed": true,
+  "role_nonce": "aur359-r2-reviewer-b-seal-1fc583d6b204",
+  "context_digest": "sha256:11614ba2df2702fcd874c271cebf28153cc56f3154abe54996321682740f176b",
+  "backend_family_digest": "sha256:60b8ac52d2eb0903f155105353b209f1258f6726326126eedaea8ac0f301dd9d",
+  "verdict": "pass_with_nits",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:aeb270b63925dcd6c2b7e101600a2a7bc3824facc9b6a83e66c951cbf801ac00",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:dbd78fcb5cb0683a4ffeed7f4ddc5ea14be92605ca254257e355ff45596db6c8"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:4bd2c2646351f8a1f6fd24c7ac41d40e8461bd4bc85da440fedd8275035cd641"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:ac5d9eba42b7ca6dcc159d513152e98abff994ba9ec1425f2ece22c9c8d1c18d"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:5ce97fd948e6cc6c103f6b62281dfe883d913b7d212f75ae9e1ca8f188e098c4"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:2cd0c8d1828bcc7626a92136507ef74ad901567b02f6ca6951da005312e486e2"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single deterministic container run; no shared mutable state."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:9dc9feeb12ae5dfa860195fce0444a9c302515dfe195717c97374666e566bd2a"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:d48edf6ec52e2a38c1b6d97e3360a00e5c0dede5b4b53a83cd10e6912c7d37cd"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:3da066360f4c30e1864dfeb1b59b41a46d5547900677cff7f050efe12fb6d22f"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:83ac5983229d20586445dc31827b1196c3d3383dac512931be038b69200d373e"
+      }
+    ]
+  },
+  "summary": "Blind review over the corrected tree at 282d288 (persisted at /tmp/aurum-reviews/AUR-359-reviewB.md): APROVADO. Accept reproduced from scratch, 3 stable runs; MUT-001 and MUT-003 typed with byte-identical restoration and green replay; .gitignore deviation judged correctly scoped to test fixtures; no secret leaked; non-blocking finding recorded: the Contract/Integration/E2E selectors are label aliases of one code path (pre-existing sibling-card convention) and must not be counted as independent proofs."
+}

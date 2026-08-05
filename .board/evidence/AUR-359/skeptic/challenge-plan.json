@@ -1,0 +1,29 @@
+{
+  "schema": "aurum.challenge-plan",
+  "card_id": "AUR-359",
+  "candidate_identity_digest": "sha256:3c2472562e9f769419d226e9dcbfcec0ef826b2fce3612fd6da0ee291825ebd5",
+  "sealed_before_reviews": true,
+  "hypotheses": [
+    {
+      "id": "MUT-001",
+      "scenario": "AC-001",
+      "trust_boundary": "repository",
+      "hypothesis": "A single flipped byte in .board/bin/oci-run must be caught by the runner digest check, not silently executed.",
+      "expected_typed_failure": "AUR-359/AC-001/runner-digest-mismatch"
+    },
+    {
+      "id": "MUT-002",
+      "scenario": "AC-001",
+      "trust_boundary": "container-engine",
+      "hypothesis": "Removing profile_network: none from the trust-root lock must fail the egress guard, not default open.",
+      "expected_typed_failure": "AUR-359/AC-001/egress-guard-missing"
+    },
+    {
+      "id": "MUT-003",
+      "scenario": "AC-001",
+      "trust_boundary": "supply-chain",
+      "hypothesis": "Replacing the digest-pinned image with bash:latest in the OCI lock must be rejected as mutable.",
+      "expected_typed_failure": "AUR-359/AC-001/mutable-image"
+    }
+  ]
+}
