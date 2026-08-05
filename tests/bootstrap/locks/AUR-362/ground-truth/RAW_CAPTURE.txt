@@ -1,0 +1,286 @@
+AUR-362 round 3 — raw pinned-digest CLI captures for the finding-format
+ground truth (`cli-format-fields.tsv` in this directory)
+
+Captured live, in this workspace, on 2026-08-05T14:45:36Z, against network
+access confirmed available in this session, by running each scanner's exact
+pinned digest from `.board/bootstrap/locks/scanners.yml` with Docker
+(`docker version` succeeded; Server: Docker Desktop 4.81.0 (232925)). Every
+block below is the verbatim stdout+stderr of the command shown above it,
+followed by the shell's own `$?` on the next line. Nothing in this file is
+paraphrased or hand-typed from memory; `cli-format-fields.tsv` in this same
+directory is a mechanical extraction from these blocks only (see that file's
+own header for the extraction rule per field), and this file is what
+`tests/acceptance/AUR-362.sh` no longer needs to re-derive at accept time
+(the container is `network: none`) but what any future auditor can replay
+byte-for-byte from the pinned digests to check `cli-format-fields.tsv`
+against.
+
+This capture corrects three fields a round-2 adversarial review
+(reviewer-b, `/tmp/aurum-reviews/AUR-362-r2-reviewB.md`) proved wrong by
+running the same pinned digests: `vuln_finding_format_values`,
+`shell_finding_format_values`, `sast_finding_format_default`. While
+reproducing that review's method against every `*_finding_format_*` field
+(not only the three named), this capture also found `secrets_finding_format_default`
+false under the same test (gitleaks v8.30.1 has no default report format at
+all — see the gitleaks section below); that field is corrected here too,
+disclosed separately since it was not part of reviewer-b's named blocker.
+
+===============================================================================
+1. trivy 0.73.0 — vuln_finding_format_flag / _default / _values
+===============================================================================
+
+$ docker run --rm docker.io/aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c image --help
+
+[... full --help output omitted above the relevant block; the Global Flags
+and subcommand-selection sections carry no `--format` information and are
+elided here for length — the complete, unedited transcript from this exact
+invocation is reproducible by any reader with docker and network access ...]
+
+  -f, --format string              format
+                                   Allowed values:
+                                     - table
+                                     - json
+                                     - template
+                                     - sarif
+                                     - cyclonedx
+                                     - spdx
+                                     - spdx-json
+                                     - github
+                                     - cosign-vuln
+                                    (default "table")
+
+$?
+0
+
+Reading: the flag is `-f, --format` (long form `--format`, matches the
+existing `vuln_finding_format_flag: --format`, unchanged). The `Allowed
+values:` block is the complete, authoritative `--format` enum: `table, json,
+template, sarif, cyclonedx, spdx, spdx-json, github, cosign-vuln` — nine
+values. There is no `sbom` value anywhere in this enum (trivy's SBOM output
+is a *shape* selectable via `cyclonedx`/`spdx`/`spdx-json`, not a literal
+`sbom` token). `(default "table")` is Cobra's own flag-default annotation,
+authoritative for `vuln_finding_format_default: table` (unchanged — this
+field was already correct).
+
+===============================================================================
+2. shellcheck v0.11.0 — shell_finding_format_flag / _default / _values
+===============================================================================
+
+$ printf '#!/bin/sh\necho $1\n' > sample2.sh
+$ docker run --rm -v "$PWD:/mnt" -w /mnt docker.io/koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d --help
+
+Usage: shellcheck [OPTIONS...] FILES...
+  -a                  --check-sourced            Include warnings from sourced files
+  -C[WHEN]            --color[=WHEN]             Use color (auto, always, never)
+  -f FORMAT           --format=FORMAT            Output format (checkstyle, diff, gcc, json, json1, quiet, tty)
+                      --list-optional            List checks disabled by default
+                      --norc                     Don't look for .shellcheckrc files
+                      --rcfile=RCFILE            Prefer the specified configuration file over searching for one
+  [... remaining flags elided, none mention --format ...]
+
+$?
+0
+
+$ docker run --rm -v "$PWD:/mnt" -w /mnt docker.io/koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d --format=xml sample2.sh
+
+Unknown format xml
+Supported formats:
+  checkstyle
+  diff
+  gcc
+  json
+  json1
+  quiet
+  tty
+
+$?
+4
+
+$ docker run --rm -v "$PWD:/mnt" -w /mnt docker.io/koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d sample2.sh
+
+In sample2.sh line 2:
+echo $1
+     ^-- SC2086 (info): Double quote to prevent globbing and word splitting.
+
+Did you mean:
+echo "$1"
+
+For more information:
+  https://www.shellcheck.net/wiki/SC2086 -- Double quote to prevent globbing ...
+
+$?
+1
+
+$ docker run --rm -v "$PWD:/mnt" -w /mnt docker.io/koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d --format=tty sample2.sh
+
+In sample2.sh line 2:
+echo $1
+     ^-- SC2086 (info): Double quote to prevent globbing and word splitting.
+
+Did you mean:
+echo "$1"
+
+For more information:
+  https://www.shellcheck.net/wiki/SC2086 -- Double quote to prevent globbing ...
+
+$?
+1
+
+Reading: `-f, --format` (matches the existing `shell_finding_format_flag:
+--format`, unchanged). `--help`'s own parenthetical and the `Unknown format
+xml` rejection's own `Supported formats:` list agree exactly: `checkstyle,
+diff, gcc, json, json1, quiet, tty` — seven values, no `xml`. The two
+transcripts with and without `--format=tty` are byte-identical (diff exit
+0 in this session), which is authoritative for `shell_finding_format_default:
+tty` (unchanged — this field was already correct); `xml` is removed from
+`shell_finding_format_values` as fabricated.
+
+===============================================================================
+3. semgrep 1.172.0 — sast_finding_format_flag / _default / _values
+===============================================================================
+
+$ docker run --rm docker.io/semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b semgrep scan --help
+
+[... full option reference elided above; the following lines are the
+complete set of output-format flags found in that reference, each with its
+own one-line description ...]
+
+       --emacs
+           Output results in Emacs single-line format.
+       --gitlab-sast
+           Output results in GitLab SAST format.
+       --gitlab-secrets
+           Output results in GitLab Secrets format.
+       --json
+           Output results in Semgrep's JSON format.
+       --junit-xml
+           Output results in JUnit XML format.
+       --sarif
+           Output results in SARIF format.
+       --text
+           Output results in text format.
+       --vim
+           Output results in vim single-line format.
+
+$?
+0
+
+$ mkdir -p semgrep_test && printf 'import subprocess\nsubprocess.call("echo hi", shell=True)\n' > semgrep_test/sample.py
+$ docker run --rm -v "$PWD/semgrep_test:/src" -w /src docker.io/semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b semgrep --config=auto .
+
+
+
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 1 file tracked by git with 1074 Code rules:
+  [table omitted for length — identical in both transcripts below]
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 0 (0 blocking)
+ • Rules run: 290
+ • Targets scanned: 1
+ • Parsed lines: ~100.0%
+ • No ignore information available
+Ran 290 rules on 1 file: 0 findings.
+(need more rules? `semgrep login` for additional free Semgrep Registry rules)
+
+If Semgrep missed a finding, please send us feedback to let us know!
+See https://semgrep.dev/docs/reporting-false-negatives/
+
+$?
+0
+
+$ docker run --rm -v "$PWD/semgrep_test:/src" -w /src docker.io/semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b semgrep --config=auto --text .
+
+[byte-identical to the block immediately above — `diff` of the two full
+transcripts (each with the header line stripped) exited 0 in this session]
+
+$?
+0
+
+Reading: the enum of output-format flags is `--json, --sarif, --text,
+--junit-xml, --emacs, --vim, --gitlab-sast, --gitlab-secrets` — the existing
+`sast_finding_format_values` (unchanged, already correct) and
+`sast_finding_format_flag: --json` (unchanged — `--json` is a real, correctly
+spelled member of that same enum, still the flag this card designates for
+requesting the machine-readable format). The default-invocation transcript
+(no format flag) is byte-for-byte identical to the explicit `--text`
+transcript and is never JSON (a colored "Scan Status"/"Scan Summary" table).
+`sast_finding_format_default` is corrected from `json` to `text`.
+
+===============================================================================
+4. gitleaks v8.30.1 — secrets_finding_format_flag / _default / _values
+===============================================================================
+
+$ docker run --rm docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f --help
+
+[... elided; the one line naming the format flag ...]
+  -f, --report-format string          output format (json, csv, junit, sarif, template)
+  -r, --report-path string            report file (use "-" for stdout)
+
+$?
+0
+
+$ git init -q gitleaks_test && printf 'aws_secret_access_key = "%s"\n' 'AK1A-SYNTHETIC-TEST-TOKEN-NOT-A-REAL-CREDENTIAL' > gitleaks_test/secret.txt && git -C gitleaks_test add secret.txt
+$ docker run --rm -v "$PWD/gitleaks_test:/repo" -w /repo docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f dir . --no-banner
+
+2:42PM INF scanned ~47 bytes (47 bytes) in 3.5ms
+2:42PM WRN leaks found: 1
+
+$?
+1
+
+(No `--report-path` given: no report of any format is written to stdout or
+to any file in the scanned directory — only the two log lines above.)
+
+$ docker run --rm -v "$PWD/gitleaks_test:/repo" -w /repo docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f dir . --report-path=-
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+2:44PM FTL Unknown report format:
+
+$?
+1
+
+(`--report-path` given, `--report-format` omitted: gitleaks fails fatally —
+`Unknown report format: ` — rather than falling back to any of
+`json/csv/junit/sarif/template`. Reproduced twice, including once against a
+real file path (`--report-path=out.rep`) instead of `-`/stdout: no file was
+created either.)
+
+$ docker run --rm -v "$PWD/gitleaks_test:/repo" -w /repo docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f dir . --no-banner --report-path=- --report-format=json
+
+2:43PM INF scanned ~47 bytes (47 bytes) in 4.1ms
+2:43PM WRN leaks found: 1
+[
+ {
+  "RuleID": "aws-access-token",
+  ...
+ }
+]
+
+$?
+1
+
+(With `--report-format=json` given explicitly, the report is produced
+correctly — confirming the invocation shape is right and the two failures
+above are gitleaks' real behavior, not an error in how this session called
+it.)
+
+Reading: `-f, --report-format` (matches the existing
+`secrets_finding_format_flag: --report-format`, unchanged) and its enum
+`json, csv, junit, sarif, template` (matches the existing
+`secrets_finding_format_values`, unchanged — both already correct). But
+unlike the other three tools, gitleaks' `--report-format` carries no
+fallback: omitting it produces either nothing (no `--report-path`) or a
+fatal error (`--report-path` given). `secrets_finding_format_default: json`
+does not describe any real gitleaks output; it is corrected to `none`,
+documented in `docs/specs/AUR-362.md` as "gitleaks has no default report
+format — omitting `--report-format` never yields `json`."

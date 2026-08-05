@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-362",
+  "candidate_identity_digest": "sha256:97e659b101273da8811e06cf7e9e61856f1e72419e023bcadac603336a1fa661",
+  "role": "reviewer-b",
+  "sealed": true,
+  "role_nonce": "aur362-r3-reviewer-b-seal-2ab4d91e07f6",
+  "context_digest": "sha256:b3ee53c13cd0c8c1ecd63da16dfb5cf9e97b7de0376eeca5b1c0b4f02fb714c6",
+  "backend_family_digest": "sha256:60b8ac52d2eb0903f155105353b209f1258f6726326126eedaea8ac0f301dd9d",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:56672369feb177dbdc0463bda6afb220231325dd756ad239c031622e96c66ad8",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:fca51d81383c8386c3eab43a99bec6343edac89ae00a05eb6c35a78d7ad248b8"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:da9fd827dc8fe4271528e33acf744d53b09c9426c62c8efedc8f823befec3782"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:f97f5f60bc298a5cd7aa0aeb72e494e1f332c9d24b8ebc14684f07b9ad771f8a"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:1ddd58d33eabe95a555ca48dc93d75d2a33b840ab889715d57205d5153c89839"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:b48019fb92933e6b4c51a1e9b18b109c74921be562ecda6a7b9b7c06f6b744b8"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single deterministic process; no shared mutable state."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:49a1d3138c83b403fa4bf19ee08fc8aa2364be1cfafdf38cc8515da3ddfb89f5"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:663cdc7fe5d3975c8f5ab6c9c96fb0ab4db379826b5ee756741335df9f865bc4"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:d7e931e56c76cf709f36236210212e87bf0725393287759b2437b32de3744fcc"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:151f1300d339560e1c992b5d6f927efbc7e4eb197fbc2a86f2979660d50bf1d6"
+      }
+    ]
+  },
+  "summary": "Blind review of the r3 candidate (persisted at /tmp/aurum-reviews/AUR-362-r3-reviewB.md): APROVADO. Every pinned digest and CLI-contract field the reviewer could independently re-derive from the live pinned images matches the lock and the ground-truth fixture exactly; RED, GREEN, the container acceptance path and all three named mutations reproduce and restore under the reviewer's own execution; the oracle rejects absent, empty and generic ground truth and rejects every collusion attempt constructible within the scope this card grants its own author. The honest residual limit is recorded rather than hidden: an attacker who also rewrites the sealed fixture digest could defeat all in-repo layers together, which only external re-verification forecloses."
+}
