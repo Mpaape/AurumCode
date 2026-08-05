@@ -1,0 +1,11 @@
+schema: bootstrap-lock-v1
+runner_script: .board/bin/oci-run
+runner_script_sha256: sha256:140b4c280826d88bf3db5fdd92f707345d408ca9ae6d1054719d8aa1ca003ba2
+runner_image: bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831
+profile_user: 65532:65532
+profile_network: none
+profile_read_only_rootfs: true
+profile_cap_drop: ALL
+profile_no_new_privileges: true
+engine_docker: observed
+engine_podman: not-observed
