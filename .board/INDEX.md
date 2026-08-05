@@ -372,11 +372,11 @@ by [validate.sh](validate.sh).
 | [AUR-357](cards/backlog/AUR-357.md) | backlog | O14-legacy | critical | `[AUR-001, AUR-009, AUR-068, AUR-408]` | Quarentenar instruções locais GEMINI como não confiáveis |
 | [AUR-358](cards/backlog/AUR-358.md) | backlog | O14-legacy | critical | `[AUR-001, AUR-009, AUR-030, AUR-408]` | Caracterizar exemplos de ambiente sem carregar valores |
 | [AUR-359](cards/done/AUR-359.md) | done | O00-security | critical | `[]` | Fixar trust root do runner OCI |
-| [AUR-360](cards/ready/AUR-360.md) | ready | O00-security | critical | `[AUR-359]` | Fixar Go toolchain e módulos |
-| [AUR-361](cards/ready/AUR-361.md) | ready | O00-security | critical | `[AUR-359]` | Fixar referências de GitHub Actions |
-| [AUR-362](cards/ready/AUR-362.md) | ready | O00-security | critical | `[AUR-359]` | Fixar scanners de segurança |
-| [AUR-363](cards/ready/AUR-363.md) | ready | O00-security | critical | `[AUR-359]` | Fixar parsers e grammars |
-| [AUR-364](cards/ready/AUR-364.md) | ready | O00-security | critical | `[AUR-359]` | Fixar ferramentas de documentação |
+| [AUR-360](cards/doing/AUR-360.md) | doing | O00-security | critical | `[AUR-359]` | Fixar Go toolchain e módulos |
+| [AUR-361](cards/doing/AUR-361.md) | doing | O00-security | critical | `[AUR-359]` | Fixar referências de GitHub Actions |
+| [AUR-362](cards/doing/AUR-362.md) | doing | O00-security | critical | `[AUR-359]` | Fixar scanners de segurança |
+| [AUR-363](cards/doing/AUR-363.md) | doing | O00-security | critical | `[AUR-359]` | Fixar parsers e grammars |
+| [AUR-364](cards/doing/AUR-364.md) | doing | O00-security | critical | `[AUR-359]` | Fixar ferramentas de documentação |
 | [AUR-365](cards/backlog/AUR-365.md) | backlog | O14-legacy | high | `[AUR-001, AUR-233, AUR-412]` | Caracterizar action entrypoint legado |
 | [AUR-366](cards/backlog/AUR-366.md) | backlog | O14-legacy | high | `[AUR-001, AUR-233, AUR-412]` | Caracterizar build docs site legado |
 | [AUR-367](cards/backlog/AUR-367.md) | backlog | O14-legacy | critical | `[AUR-001, AUR-233, AUR-412]` | Caracterizar bulk enable repos legado |
