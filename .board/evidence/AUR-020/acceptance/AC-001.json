@@ -1,0 +1,45 @@
+{
+  "schema": "aurum.acceptance-observation",
+  "version": 1,
+  "card_id": "AUR-020",
+  "candidate_identity_digest": "sha256:5f77a756b038519cab548ce4dee00f07b6ddcc54f6889784a63eed1f995b5b5e",
+  "role": "acceptance",
+  "sealed": true,
+  "role_nonce": "aur020-r3-acceptance-seal-c2a917f04de6",
+  "context_digest": "sha256:df6e27c74827f69182c545a596c9c05fdb5df7d026cb33149fd9ad157407c523",
+  "backend_family_digest": "sha256:a7a48629bc2e498dc6de27edb6c3a1155e7c22516662b58532ede8cfaf6aa229",
+  "verdict": "pass",
+  "command_digest": "sha256:a83ff2f630ad63643ad269e3a56edc78a3fca8481611227a907821b35f160daa",
+  "container_profile_digest": "sha256:a2008444efb7a3bd8eb94244eef96034514a1f327486b7c7d836dc598d1debe9",
+  "red": {
+    "exit_code": 1,
+    "typed_failure": "AUR-020/AC-001/undecided-criterion",
+    "cause": "ADR-0001 reverted to its pre-candidate (72bb0511) content: no Rejected/Decision sections, missing required baseline terms."
+  },
+  "green": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:aa6f2827cf4ef5645cef7f43524df3fc76fa4991a01cd27eebc0fb9d56c99d66"
+  },
+  "mutation": {
+    "mutation_id": "MUT-001",
+    "detected": true,
+    "exit_code": 1,
+    "typed_failure": "AUR-020/AC-001/vector-database-mandated",
+    "restored_exit_code": 0
+  },
+  "clean_replay": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:aa6f2827cf4ef5645cef7f43524df3fc76fa4991a01cd27eebc0fb9d56c99d66",
+    "runs": 2
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "scenarios": [
+    {
+      "id": "AC-001",
+      "exit_code": 0
+    }
+  ]
+}

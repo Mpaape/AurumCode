@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-020",
+  "candidate_identity_digest": "sha256:5f77a756b038519cab548ce4dee00f07b6ddcc54f6889784a63eed1f995b5b5e",
+  "role": "reviewer-b",
+  "sealed": true,
+  "role_nonce": "aur020-r3-reviewer-b-seal-71a4de0c9b52",
+  "context_digest": "sha256:d483af10b9dafbb4a0e84e4cd563af75c66e78ebb8a4560d1d579c74174c3891",
+  "backend_family_digest": "sha256:60b8ac52d2eb0903f155105353b209f1258f6726326126eedaea8ac0f301dd9d",
+  "verdict": "pass_with_nits",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:286523d0505e5840bbe2e44b529ce4e13ad058d8138aa02ba56f7f12c78f8ae2",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:5f52f3c05f98d87abbae67127d811e079eb630ce28d1ff64f47048053e5e5caf"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:2d08c6998330ad959284d1b610ebaf14db4ccce77737728d63ee76a69251d87b"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:657d5cdb5bcad1fdf332b5716e64efe4ef89ae5030f289109fd0e2b8a0108cad"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:c14f1c441867799427e6b2a2bc84cb72b777158388fa3e662606824d108d0630"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:9c54ccaf44f3f8bcb724c6244efa19511c1d27afc72631e14c1a4db7548d1d35"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single deterministic process, no shared mutable state, no retries or idempotency concerns to evaluate."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:0a9ac678babb7c5134daaea0d979a64dc0e46f47ca3f0ad09156ddb3b0490bf7"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:a88260a063a22fae3bef359bdde914dec1fb70c824f851187d64e64a1778d0e5"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:474bac69e836f6b0925df6c2a5361b02fb676d368690502bcc3fa3ebd539ff20"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:29decfe8a0d6dad49d9cc638135a2ae3eb0d0e2242a9e3e1806f776eff7aa5bb"
+      }
+    ]
+  },
+  "summary": "Round 3 review after the card's version-2 governance bump (commit 72bb0511ec3b0a35c1ef0829a8b1da90bb9bc902) moved the Integration test path to tests/integration/AUR-020_test.go, resolving the round-1/round-2 vetoes. Candidate ac79f1719544176d6c341aa3c892e1fab120ac0e delivers ADR-0001, memory-design.md, standards/memory/limits.yaml and the AC-001 lint entirely within the card's declared paths; no nit blocks approval."
+}
