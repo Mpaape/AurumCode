@@ -1,0 +1,113 @@
+# SCM/CI capability and trust-boundary matrix.
+#
+# Normative source: ../../.board/research/scm-ci.md (dated, versioned vendor
+# citations per forge). This file is the machine-readable limits a GitHub,
+# Gitea, or GitLab adapter card must respect; it does not implement a client.
+#
+# invariant: hostile_head_read_only
+#   Any analyzer whose input includes a hostile head (a fork, an external
+#   contributor's branch, or any ref not owned by a repository maintainer)
+#   MUST be presented only a read-only credential. A publisher (the role that
+#   writes a comment, check, status, or release) MUST run in a context
+#   decoupled from that hostile-head checkout and MAY hold a write-scoped
+#   credential only there. No forge and no role may set
+#   the write-capable side of allow_write_on_hostile_head.
+#
+# canonical form: allow_write_on_hostile_head
+#   tests/acceptance/AUR-018.sh (the MUT-001 guard) does not parse this file
+#   as YAML. It requires every occurrence of the key name
+#   "allow_write_on_hostile_head" below to be written, byte-for-byte after
+#   trimming only the line's surrounding whitespace, as the single canonical
+#   line:
+#
+#     allow_write_on_hostile_head: false
+#
+#   Any other form of this key anywhere in this file is a typed acceptance
+#   failure, regardless of what it would evaluate to under a real YAML
+#   parser: a different value (true, True, TRUE, yes, on, 1, or any other
+#   spelling), a quoted key or value, different case, a flow-map form
+#   (`{allow_write_on_hostile_head: true}`), a YAML anchor or alias
+#   (`allow_write_on_hostile_head: &a false`), a block-style split
+#   (`allow_write_on_hostile_head:` with the value on the next line), or the
+#   explicit-key split (`? allow_write_on_hostile_head` / `: false`). Do not
+#   "clean up" the six lines below into any of those equivalent-looking
+#   forms; every one of them fails AC-001 by design. A future forge/role
+#   entry adds one more literal occurrence of the canonical line, not a new
+#   syntax for it.
+version: 1
+schema: aurumcode.scm-ci-capabilities/v1
+rule:
+  least_privilege: >-
+    Each role requests the narrowest scope listed below for its forge;
+    an unscoped classic personal access token or an "all"/broad-scope
+    token is never requested by an analyzer or a publisher.
+  hostile_head_read_only: >-
+    A head hostil (fork ou branch externo não pertencente a um mantenedor) só
+    é analisado com credencial somente leitura; nenhuma role escreve enquanto
+    o head hostil está em checkout, independentemente do evento de CI.
+forges:
+  github:
+    source: https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication
+    analyzer:
+      credential: GITHUB_TOKEN
+      ci_trigger_events: [pull_request]
+      forbidden_ci_trigger_events: [pull_request_target, workflow_run]
+      token_scope: {contents: read, pull-requests: read}
+      allow_write_on_hostile_head: false
+    publisher:
+      credential: GITHUB_TOKEN
+      ci_trigger_events: [workflow_run, workflow_dispatch]
+      token_scope: {pull-requests: write, checks: write, statuses: write}
+      requires_decoupled_context: true
+      allow_write_on_hostile_head: false
+    trust_boundary: >-
+      pull_request from a fork receives a read-only GITHUB_TOKEN by GitHub
+      default; pull_request_target/workflow_run receive read/write even from
+      a public fork and are documented as privileged, so they are forbidden
+      for the analyzer.
+  gitlab:
+    source: https://docs.gitlab.com/ci/pipelines/merge_request_pipelines/
+    analyzer:
+      credential: CI_JOB_TOKEN
+      ci_trigger_events: [merge_request_event]
+      token_scope: {api: default-project-only}
+      allow_write_on_hostile_head: false
+    publisher:
+      credential: CI_JOB_TOKEN
+      ci_trigger_events: [pipeline_in_target_project]
+      token_scope: {api: merge-requests-notes-releases}
+      requires_decoupled_context: true
+      allow_write_on_hostile_head: false
+    trust_boundary: >-
+      Merge request pipelines from forked projects run in the fork project
+      and cannot access protected CI/CD variables or protected runners of
+      the target project.
+  gitea:
+    source: https://docs.gitea.com/usage/actions/token-permissions
+    analyzer:
+      credential: GITEA_TOKEN
+      ci_trigger_events: [pull_request]
+      token_scope: {code: read}
+      forbidden_token_scope: {scopes: all}
+      allow_write_on_hostile_head: false
+    publisher:
+      credential: GITEA_TOKEN
+      ci_trigger_events: [workflow_run_equivalent, maintainer_triggered]
+      token_scope: {repository: write, issue: write}
+      forbidden_token_scope: {scopes: all}
+      requires_decoupled_context: true
+      allow_write_on_hostile_head: false
+    trust_boundary: >-
+      Workflows triggered by pull requests from forks are always restricted
+      to read-only permissions for repository contents, regardless of
+      configured workflow permissions.
+limits:
+  # An adapter card that widens these without a corresponding research/ADR
+  # update is out of contract.
+  max_token_scopes_per_role: 3
+  allowed_analyzer_ci_events:
+    github: [pull_request]
+    gitlab: [merge_request_event]
+    gitea: [pull_request]
+  forbidden_analyzer_ci_events:
+    github: [pull_request_target, workflow_run]
