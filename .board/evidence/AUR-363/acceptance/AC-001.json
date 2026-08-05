@@ -1,0 +1,45 @@
+{
+  "schema": "aurum.acceptance-observation",
+  "version": 1,
+  "card_id": "AUR-363",
+  "candidate_identity_digest": "sha256:ea15837c0bba67d1ae19836f76b9294f6d03bbdf634c719b20497a5cad4a6828",
+  "role": "acceptance",
+  "sealed": true,
+  "role_nonce": "aur363-r4-acceptance-seal-748dc1e5f92a",
+  "context_digest": "sha256:35d6745afc5da8c13d4becc0dbce41d55740f7cea57b56fae4b156899ebb7264",
+  "backend_family_digest": "sha256:a7a48629bc2e498dc6de27edb6c3a1155e7c22516662b58532ede8cfaf6aa229",
+  "verdict": "pass",
+  "command_digest": "sha256:b1b40a5af3fba3666af9bed951d924eaa2b6520ae67660c095944da91f54da1e",
+  "container_profile_digest": "sha256:36bb0c1b85fa02974fcaaef5f0dc67c7a8212eafc8a90d72342e248da00ca1f4",
+  "red": {
+    "exit_code": 1,
+    "typed_failure": "AUR-363/AC-001/parser_lock_incomplete",
+    "cause": ".board/bootstrap/locks/parsers.yml absent from the pre-candidate tree (base_sha 7a1b930); AC-001 reaches the boundary check and fails typed. Reproduced independently by both blind reviewers."
+  },
+  "green": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:11915df7c060156400c2b2d8fe4ed1284f6d0772723f6cfb054bcecc67fa42fd"
+  },
+  "mutation": {
+    "mutation_id": "MUT-001",
+    "detected": true,
+    "exit_code": 1,
+    "typed_failure": "AUR-363/AC-001/parser-unlocked",
+    "restored_exit_code": 0
+  },
+  "clean_replay": {
+    "exit_code": 0,
+    "stdout_sha256": "sha256:11915df7c060156400c2b2d8fe4ed1284f6d0772723f6cfb054bcecc67fa42fd",
+    "runs": 2
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "scenarios": [
+    {
+      "id": "AC-001",
+      "exit_code": 0
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-363",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "The whole five-card lock wave was vetoed for the same defect: the sealed oracle held only three generic structural checks and never parsed the lock's fields, so none of this card's Skeptical Mutations produced a failure."
+    },
+    {
+      "round": 2,
+      "outcome": "veto",
+      "reason": "The rewritten oracle passed its own mutations, but source_integrity_error -- one of the four codes the card's AC-001 Then clause explicitly promises -- had zero coverage in the very cases.tsv self-test that this round existed to add. A promised code with no fixture is a contract the oracle does not actually hold."
+    },
+    {
+      "round": 3,
+      "outcome": "veto",
+      "reason": "All three seals approved and the card was committed as done, then reverted: GitHub CI failed the whole repository's build. The implementationsymlink fixture placed a symlinked extractor.go and its target real_impl.go in the same Go package directory, so AlphaExtractor was declared twice and go build ./... failed. No reviewer had run a repo-wide build -- oci-run materializes only the card's own paths and structurally cannot see one. This became law 14 of the office skill."
+    },
+    {
+      "round": 4,
+      "outcome": "approved",
+      "governance_change": "No card-spec change. The fixture tree root was renamed from fixtures/ to _fixtures/, since Go's package discovery skips any path component beginning with an underscore, keeping all ten fixtures reachable by the acceptance script while invisible to the repo-wide build. Fixture content is byte-identical to r3, so none of the sixteen sealed digests changed. The spec was corrected from eight fixtures to ten and its shape table gained the two missing rows.",
+      "candidate": "r4 patch applied against base_sha 7a1b93024842aa889e3e9820c1b4bcb5c55a9dc3; integrated by the coordinator as a staged working tree at bundle time."
+    }
+  ],
+  "note": "This bundle proves round 4 against the current candidate_identity_digest, with three independent seals over the same candidate. Both blind reviewers proved causation rather than asserting it: each reverted only the rename inside the patched tree, reproduced the exact CI error, and restored it. Reviewer B additionally mutated the symlink guard to check the fixture had not become decorative after the rename, and it still discriminates. The repo-wide go build and go vet, which the previous round never ran, are now part of the recorded evidence."
+}

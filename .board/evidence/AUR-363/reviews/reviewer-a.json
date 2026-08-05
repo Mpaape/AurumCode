@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-363",
+  "candidate_identity_digest": "sha256:ea15837c0bba67d1ae19836f76b9294f6d03bbdf634c719b20497a5cad4a6828",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur363-r4-reviewer-a-seal-90c2fe17d4a3",
+  "context_digest": "sha256:cfab966cf14e7b799a836756c3b7c677df74223e7571b786a5c54695a96c672b",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:3b47585f9c627c3e6474e9284688cddbc8df4e2e4573f0b1b82c2dbf9087d599",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:ad6b9afbc14d848aec7ec77e17c9d21cf7337b16706787d99823fcbc8e598865"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:380465f18c94686d1096893f87365a5f0f98a83f126092df2c2aa7268800f470"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:2f9db4e925dbe0d27f87438e3b295a44e183e6f67ecc9aa25e0fe7b4ac9b730d"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:fbbaebea9844bb96782c194259df7617023c36b1d7737f5b8eac02406c48596d"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:0a725290d616129216e7564521b72313e9857edaef973b5fa3a0ac71cb28c5d2"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single-shot read-only verification in a pinned container."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:31f23b868f1da21b0a5cbb13964e4583160392bd7182b28cb13380dfb9712fa6"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:c2165289492e580394db76f155c835dcdc9209965666c64563bf3b8bc2279937"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:115c8335ce9f339e43e6bcf088a78a97183999b6102a1362a4d89ab4b466334e"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:1e9aff1ffc065bcbeeab496049ee467a4a7f714eff99074c3252b814c1591aec"
+      }
+    ]
+  },
+  "summary": "Blind review of the r4 candidate (persisted at /tmp/aurum-reviews/AUR-363-r4-reviewA.md): APROVADO. The rename from fixtures/ to _fixtures/ is the correct minimal fix for the exact defect that broke r3 in CI, verified causally rather than by assertion: the reviewer reverted only the rename inside the patched tree and reproduced the AlphaExtractor redeclared error byte for byte, then restored it and confirmed the build green again. All ten sealed fixture digests and all sixteen adapter and corpus digests recomputed and matched; the three card mutations re-executed with their exact disposition words and clean restores."
+}
