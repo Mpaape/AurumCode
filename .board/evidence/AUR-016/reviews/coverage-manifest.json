@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-016",
+  "candidate_identity_digest": "sha256:c51df4349bba9c512433945c65cd5a2b1e95d4cc62495c28cd3d1cd1d6dd55a9",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "AC-001 Given/When/Then match the lint's actual behavior: nine required characteristics enforced against characteristics.yaml, measurable/score coherence, and the Sources-examined host allowlist."
+    ],
+    "design": [
+      "covered",
+      "Policy (characteristics.yaml), research (quality-standards.md) and the lint are decoupled; the r6 tab guard isolates the TSV reserialization from the typed-failure surface."
+    ],
+    "compatibility": [
+      "covered",
+      "No consumer-facing contract changes; scope confined to the card's five owned paths; the r6->r7 delta touches only the acceptance script's Sources loop."
+    ],
+    "tests": [
+      "covered",
+      "MUT-001 (score on measurable:false -> score-without-signal), MUT-002 (host substitution -> unversioned-source), tab-injection (malformed-entry) and missing-characteristic all re-executed from scratch with byte-identical restoration."
+    ],
+    "security": [
+      "covered",
+      "Sources verified live: arc42 and SARM corroborate the three characteristic changes (Usability->Interaction capability, Portability->Flexibility, Safety added); the ISO page 403-bot-blocked, recorded as inconclusive with two independent secondary sources confirming; canary absent from outputs."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+    ],
+    "errors-operations": [
+      "covered",
+      "Every failure branch emits a typed code via the single fail() sink; symlinked research doc is rejected fail-closed (behavior-missing); set -euo pipefail with no producer-exit-masking pipe on the decision path."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-016.md documents behavior, contract, limits and diagnostics; the stale mention of a sort dependency was recorded as a non-blocking doc inconsistency after r6 removed the unused tool."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "Non-goals honored: the lint stays a pure read/verify pass; the old 5-line stub was strictly strengthened, never weakened."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the r6 candidate against 5729803e were read; the r7 delta (16 insertions, 5 deletions in the accept script) reviewed hunk by hunk in the re-seal."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "The r6 veto was the contract check working: the Sources allowlist validated only the leftmost [label](url) per cell, so an appended non-allowlisted link passed with nominal stdout; r7 loops over every occurrence and the exact bypass now fails typed unversioned-source."
+    ],
+    "design": [
+      "covered",
+      "The r7 fix walks the cell tail with match()/substr() emitting a typed failure for any non-allowlisted host anywhere in the cell; no eval, no dynamic code path."
+    ],
+    "compatibility": [
+      "covered",
+      "r7 changes only tests/acceptance/AUR-016.sh; fixtures and policy files untouched, verified by the patch's single-file diffstat."
+    ],
+    "tests": [
+      "covered",
+      "The exact r6 bypass, the 3-link variant, links on different rows, an unclosed malformed link, two bad links in one cell, inverted order and no-space adjacency all fail typed; MUT-001/MUT-002/tab-injection/missing-characteristic regressions clean."
+    ],
+    "security": [
+      "covered",
+      "Hostile-input probes: tab injection caught before the TSV join; pipe-character injection trips the link-pattern check; symlink substitution rejected; AURUM_SECRET_CANARY absent from stdout+stderr."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic process, no shared mutable state, no retries."
+    ],
+    "errors-operations": [
+      "covered",
+      "The r5 tab-class veto proved malformed input could not desynchronize silently anymore: any tab in a YAML field or Sources cell is a typed malformed-entry before any scoring logic runs."
+    ],
+    "documentation": [
+      "covered",
+      "The acceptance script's own comments name the tab vector and the multi-link rule; diagnostics reproduced live in the re-seal."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "The fix is 16 insertions/5 deletions confined to the Sources loop; every added line maps to a re-executed proof."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of r6 and the r7 delta read with adversarial priority on the parsing and allowlist paths."
+    ]
+  }
+}

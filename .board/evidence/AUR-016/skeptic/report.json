@@ -1,0 +1,48 @@
+{
+  "schema": "aurum.skeptic-report",
+  "version": 1,
+  "card_id": "AUR-016",
+  "candidate_identity_digest": "sha256:c51df4349bba9c512433945c65cd5a2b1e95d4cc62495c28cd3d1cd1d6dd55a9",
+  "role": "skeptic",
+  "sealed": true,
+  "role_nonce": "aur016-r7-skeptic-seal-e63f072ac8b1",
+  "context_digest": "sha256:de2e3468a5385ad636584eae5546290c06db4f0ddd2c6a8d892a3996f2bc4ea9",
+  "backend_family_digest": "sha256:c89836ed664141c05a4a89dec6313d4debcdd0718c251d7046a9efa9405f910a",
+  "verdict": "pass",
+  "challenge_plan": {
+    "sealed_before_reviews": true,
+    "digest": "sha256:b768d405fd02aeb9dae338c87b24a3ac180869747f89e3e302904f62f2c11266",
+    "all_acceptance_criteria": true,
+    "all_trust_boundaries": true
+  },
+  "isolation": {
+    "reviews_visible_before_challenge_seal": false
+  },
+  "mutation": {
+    "detected": true,
+    "results": [
+      {
+        "mutation_id": "MUT-001",
+        "exit_code": 1,
+        "typed_failure": "AUR-016/AC-001/score-without-signal",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-002",
+        "exit_code": 1,
+        "typed_failure": "AUR-016/AC-001/unversioned-source",
+        "restored_byte_identical": true
+      }
+    ]
+  },
+  "clean_replay": {
+    "pass": true,
+    "runs": 2,
+    "stdout_sha256": "sha256:03cb3ff46665bc43a181daec5cbb09e18b8ea425c06d6c337795f5145d5cb4b8"
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "summary": "Skeptical seal over the r6 tab-class fix (persisted at /tmp/aurum-reviews/AUR-016-r6-review.md): APROVADO. The r5 exploit was reproduced independently first (tab-desynchronized TSV letting a fabricated score: 999 pass with stdout byte-identical to green, exit 0 on r5), then the exact vector plus two own variants (tab in the metric field; tab in a Sources-examined cell) confirmed failing typed malformed-entry on r6, with sha256-recomputed restoration and identical nominal replay. The premise that the green digest would change post-fix was refuted by measurement and recorded instead of fabricated: the fix touches only malformed paths, so the nominal stdout digest 03cb3ff4... is unchanged. MUT-001/MUT-002 regressions clean. The r7 Sources-loop delta was re-sealed with the same mutate/restore/replay discipline."
+}
