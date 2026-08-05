@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-359",
+  "candidate_identity_digest": "sha256:3c2472562e9f769419d226e9dcbfcec0ef826b2fce3612fd6da0ee291825ebd5",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "AC-001's declared accept command was reproduced raw from a fresh detached worktree; stdout digest a568a5ee... stable across 3 independent runs and identical to the sealed anchor."
+    ],
+    "design": [
+      "covered",
+      "Trust-chain closure holds under attack: runner_script_sha256 independently recomputed against the real .board/bin/oci-run; the profile's lock_digest recomputed against the lock content by both the acceptance script and resolve_profile; the accept deliberately bypasses oci-run to avoid the trust root validating itself through the wrapper it authorizes."
+    ],
+    "compatibility": [
+      "covered",
+      "Every file touched by candidate cecf652 is inside the card's paths except .gitignore, judged explicitly: the pre-fix swallow of fixture .board/bin replicas was reproduced from a clean index and the fix verified working."
+    ],
+    "tests": [
+      "covered",
+      "MUT-001 (byte flip on .board/bin/oci-run) re-run from scratch fails typed runner-digest-mismatch; RED-before-GREEN reproduced (lock removed -> trust_root_mismatch); restoration byte-identical with clean git status."
+    ],
+    "security": [
+      "covered",
+      "A binding mutation devised beyond the card (corrupt profile lock_digest, lock untouched) fails typed invalid_lock_or_manifest; symlinked-parent bypass rejected by realpath canonicalization in resolve_profile."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single-shot read-only verification in an isolated container; no concurrent or retried execution path is introduced."
+    ],
+    "errors-operations": [
+      "covered",
+      "Every failure observed is typed (runner-digest-mismatch, trust_root_mismatch, invalid_lock_or_manifest); no infrastructure failure was converted into behavioral RED."
+    ],
+    "documentation": [
+      "covered",
+      "The card's precondition claims (docker version, pinned digest image) verified live; commit message digest claim matches the recomputed stdout digest."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "The accept avoids circularity by design; no dead code path found in the acceptance script; fixture cases are all exercised (fixture_cases: 5)."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of cecf652 read; 348ac6e verified to be a non-ancestor duplicate with byte-identical tree, so cecf652 alone accounts for everything merged at 282d288."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "Accept reproduced from scratch: exit 0, stdout digest identical to the commit-claimed digest, stable across 3 runs."
+    ],
+    "design": [
+      "covered",
+      "Digests are always recomputed and never trusted from the file being verified; the image reference is regex-constrained to an immutable digest in both verification paths."
+    ],
+    "compatibility": [
+      "covered",
+      "The new !tests/**/.board/bin/ gitignore rule is correctly scoped to test fixtures (today only AUR-359's directory) and does not reopen generic build bin/; no forbidden_paths touched."
+    ],
+    "tests": [
+      "covered",
+      "MUT-001 (runner byte flip -> runner-digest-mismatch) and MUT-003 (bash:latest instead of pinned digest -> mutable-image) re-run from scratch, both typed, both restored byte-identically with green replay."
+    ],
+    "security": [
+      "covered",
+      "No secret or canary leaked; symlinks resolved before reads; path traversal via the c_fixture column judged not exploitable (sealed versioned data, read-only network-none container)."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic container run; no shared mutable state."
+    ],
+    "errors-operations": [
+      "covered",
+      "RED of the real tree reproduced (lock removal -> trust_root_mismatch, exit 1) and restored; failure classification never converts inconclusive into success."
+    ],
+    "documentation": [
+      "covered",
+      "Finding recorded for the aggregator: the ContractAUR359/IntegrationAUR359/E2EAUR359 selectors are label aliases of the same code path, a pre-existing sibling-card convention, and must not be counted as independent proofs."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "Scope of cecf652 matches the card's paths with the .gitignore deviation explicitly evaluated and accepted as the documented fix."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of cecf652 read with adversarial priority on lock parsing, symlink handling and the fixture runner replica."
+    ]
+  }
+}
