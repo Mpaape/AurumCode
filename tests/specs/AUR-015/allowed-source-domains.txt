@@ -1,0 +1,3 @@
+owasp.org
+cwe.mitre.org
+csrc.nist.gov

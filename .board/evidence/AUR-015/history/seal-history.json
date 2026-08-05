@@ -1,0 +1,27 @@
+{
+ "schema": "aurum.seal-history",
+ "version": 1,
+ "card_id": "AUR-015",
+ "rounds": [
+  {
+   "round": 1,
+   "outcome": "veto",
+   "reason": "Integration proof at declared path tests/integration/AUR-015.go structurally undiscoverable by go test; both escape hatches refused"
+  },
+  {
+   "round": "governance",
+   "outcome": "card v2",
+   "reason": "commit 85cfbb4 renames integration path to AUR-015_test.go::TestAUR015Boundary (systemic AUR-020-class defect)"
+  },
+  {
+   "round": 2,
+   "outcome": "sealed",
+   "reason": "Reviewer A APROVADO, Reviewer B APPROVE, skeptic APROVADO; accept digest 73d1d64d... stable; MUT-001/002 typed failures with byte-identical restores"
+  },
+  {
+   "round": "bundle r1-r3",
+   "outcome": "delivery failures",
+   "reason": "two builders produced no patch artifact; one refused the scribe role; coordinator materialized this bundle per the board rule that evidence is coordinator-written"
+  }
+ ]
+}
