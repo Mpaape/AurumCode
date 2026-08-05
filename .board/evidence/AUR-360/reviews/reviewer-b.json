@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-360",
+  "candidate_identity_digest": "sha256:91115972f3539875b25427718b8a025fc28b3393db2a7d67d85b8a432d6e53e9",
+  "role": "reviewer-b",
+  "sealed": true,
+  "role_nonce": "aur360-r2-reviewer-b-seal-2ab4d91e07f6",
+  "context_digest": "sha256:9c7e68cd706108dadc50e62e2be345b6753c2eaffa17ca9f4b635ead627566fd",
+  "backend_family_digest": "sha256:60b8ac52d2eb0903f155105353b209f1258f6726326126eedaea8ac0f301dd9d",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:bb0c2858dbb78e7e76a217aae68e8aa1e80a26046d601cab6409373a7cd15820",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:c7c94bac460e3aaa560e57cea2f447ad9dd511969b101f3cae12c90890f4042d"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:8fe5fd7af387630f29c9a50c7eb19debb43fa505f4669fdd737f462cf41708f2"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:04259aac63c06368a24eb14ff62cf0e2f6947a5852a69e8bfd939e95784a640d"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:9acfa29b0ea0581b1835ac90e2424451c15e1bb915fd2cfabf581928083da164"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:0b3aeae3c4c4ca10c87a57c76befcdbe6a003e221ba27fe3e3133c2e6c56e814"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single deterministic process; no shared mutable state."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:cf70b49db9dde71045b9186cf243ccd94d18f260e1fbfda6bf41d1be97386e42"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:73a037a891052392ee5589cac5217ed154e583cd50b3ee71f16a654e7932afee"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:d8e004a9048c672edf567abde9b0e7fa41666b24f7120f30bd469d31e36c28bc"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:dc24e0a606fafbe9fc55d4b07804106800c946cfa24bf2f5e7f9ba000f178b29"
+      }
+    ]
+  },
+  "summary": "Blind review of the r2 candidate (persisted at /tmp/aurum-reviews/AUR-360-r2-reviewB.md): APROVADO. RED reproduced in a separate untouched worktree; GREEN raw exit 0 with stdout sha256 b71d3f62...; the real oci-run container run produced the identical digest. All pins recomputed by the reviewer. Both card mutations re-derived against the real lock, restored byte-identically and replayed green. Nine further adversarial vectors (empty lock, empty cases.tsv, go.sum drift, symlink swap, digest case-folding, truncated digest, phantom module, duplicate index, cross-module checksum swap) all fail closed with typed codes. Same non-blocking card-text finding as A, disclosed not hidden."
+}
