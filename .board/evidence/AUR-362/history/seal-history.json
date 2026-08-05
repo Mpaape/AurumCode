@@ -1,0 +1,23 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-362",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "The whole five-card lock wave was vetoed for the same defect: the sealed oracle held only three generic structural checks and never parsed the lock's fields, so none of this card's Skeptical Mutations produced a failure. The builder's lock content was real; the oracle was the defect."
+    },
+    {
+      "round": 2,
+      "outcome": "veto",
+      "reason": "Blind reviewer B vetoed on pin veracity: the oracle's 'independently carried ground-truth table' was a static copy of the same values baked into the lock, so the oracle agreed with the lock, the lock agreed with the oracle, and both disagreed with reality. Three values were factually wrong against the pinned tools -- trivy's --format enum omitted cyclonedx, spdx, spdx-json and cosign-vuln while claiming a non-existent sbom; shellcheck rejects the claimed xml outright; and semgrep's real no-flag default is its text table, not json."
+    },
+    {
+      "round": 3,
+      "outcome": "approved",
+      "governance_change": "No card-spec change. The twelve finding-format fields are now parsed at run time from tests/bootstrap/locks/AUR-362/ground-truth/, a versioned capture of the pinned tools' verbatim CLI output with commands, exit codes and capture date recorded. The four wrong values were corrected, including a fourth the builder found and disclosed on its own: gitleaks has no default report format at all -- omitting the flag fails fatally.",
+      "candidate": "r3 patch applied against base_sha 7a1b93024842aa889e3e9820c1b4bcb5c55a9dc3; integrated by the coordinator as a staged working tree at bundle time."
+    }
+  ],
+  "note": "This bundle proves round 3 against the current candidate_identity_digest, with three independent seals over the same candidate. All three reviewers executed the pinned digests themselves rather than trusting the recorded capture. The nominal stdout digest 4605c2f8... is unchanged from round 2 because only the provenance of the twelve fields changed, not the nominal behaviour -- a fact measured rather than assumed. The honest residual limit is recorded: an attacker who rewrites the sealed fixture digest as well, which lies inside this card's own paths, would defeat every in-repo layer at once; only external re-verification forecloses that, which is what the three reviews did."
+}

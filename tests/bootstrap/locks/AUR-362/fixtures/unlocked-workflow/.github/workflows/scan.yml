@@ -1,0 +1,7 @@
+name: scan
+on: [push]
+jobs:
+  bandit-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker://ghcr.io/pycqa/bandit:latest
