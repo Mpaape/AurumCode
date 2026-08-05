@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-017",
+  "candidate_identity_digest": "sha256:634618dd66e3561e3bd09e67f41f074c2ecc05cc16710f0fa7ce322807e60055",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "AC-001 Given/When/Then and the Public contract match tests/acceptance/AUR-017.sh's actual behavior: exit 0 on the four-standard matrix pass, typed AUR-017/AC-001/undecided-standard exit on any missing/mismatched/non-allowlisted citation."
+    ],
+    "design": [
+      "covered",
+      "versions.yaml / interoperability.md / per-format validator.md keep the pinned-version single source of truth decoupled from the per-format valid/invalid fixture pairs; the awk-based lint has no eval or dynamic code path."
+    ],
+    "compatibility": [
+      "covered",
+      "No consumer-facing port or wire contract changes; scope is confined to the five Public contract artifacts; no other card's owned path is touched."
+    ],
+    "tests": [
+      "covered",
+      "Read tests/acceptance/AUR-017.sh end to end plus both fixture pairs per format (valid/invalid) against the locked AC-001 scenario and both MUT hypotheses; reproduced RED and GREEN from a clean clone with byte-identical digests."
+    ],
+    "security": [
+      "covered",
+      "Host allowlist enforced against tests/specs/AUR-017/allowed-source-domains.txt; no network call is made by the lint (--network=none); AURUM_SECRET_CANARY absent from stdout/stderr."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+    ],
+    "errors-operations": [
+      "covered",
+      "Every failure branch emits AUR-017/AC-001/undecided-standard via a single typed fail sink; RED (interoperability baseline absent) is distinguished from a compile/loader/infra failure."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-017.md documents the four-standard matrix, each validator, and a diagnostic procedure executed by the same accept command."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "No emitter or parser implemented, matching Non-goals; the lint stays a pure read/verify pass over the fixed matrix."
+    ],
+    "hunks": [
+      "covered",
+      "All 20 hunks of the round-2 candidate diff read: interoperability.md matrix, the four standards/contracts/<format>/{validator.md,fixtures/*}, versions.yaml, tests/acceptance/AUR-017.sh, tests/specs/AUR-017/*, docs/specs/AUR-017.md. Round-2-specific re-check: interoperability.md's Unified diff row and standards/contracts/unified-diff/validator.md's Source line now cite the archived Wayback Machine snapshot (2023-05-27) instead of the live, unpinned gnu.org URL that at round 1 resolved to a divergent diffutils release (3.12) against the pinned 3.10/2023-05-21 — the exact defect that vetoed round 1 is gone and mechanically fails again if reintroduced."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "Verified the acceptance command is exactly the card-locked oci-run wrapper; observed exit codes match AC-001's Given/When/Then under hostile fixtures."
+    ],
+    "design": [
+      "covered",
+      "Checked for injection surfaces in the awk-based lint; no eval, no dynamic code path, bounded regex classes for host/version extraction."
+    ],
+    "compatibility": [
+      "covered",
+      "Confirmed no other card's owned path is touched by the candidate diff; forbidden_paths (.git, .env, credentials, secrets, .board/cards) untouched."
+    ],
+    "tests": [
+      "covered",
+      "Exercised MUT-001 and MUT-002 live inside the pinned container plus an own weakened-fixture mutation (SARIF invalid.sarif.json given a valid driver.name); all detected, all restored byte-identical."
+    ],
+    "security": [
+      "covered",
+      "Confirmed the lint makes no outbound request (--network=none, grep-only host check), the container runs read-only/non-root/no-new-privileges, AURUM_SECRET_CANARY absent from stdout/stderr; attempted a subdomain-suffix allowlist bypass (web.archive.org.evil.com-style host) — rejected, comparison is exact-string not substring."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic process, no shared mutable state, no retries or idempotency concerns to evaluate."
+    ],
+    "errors-operations": [
+      "covered",
+      "Confirmed every fail() site is reachable from a documented AC-001 clause; no cmd | grep pipe masks an exit status anywhere in tests/acceptance/AUR-017.sh."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-017.md's diagnostic procedure was run and matches the actual accept command output."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "No dead code or unreachable branch found in the delivered lint; the new accept is strictly stronger than the prior 3-string grep, not decorative."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the round-2 candidate diff read, prioritizing hostile-input and fail-closed behavior; the round-2 unified-diff citation fix (Wayback snapshot) does not alter any security-relevant code path — the network-source boundary handling and host allowlist logic are byte-identical to round 1."
+    ]
+  }
+}

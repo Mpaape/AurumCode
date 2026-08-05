@@ -1,0 +1,18 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-017",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "Reviewer A (REQUEST_CHANGES) found that .board/research/interoperability.md:28 and standards/contracts/unified-diff/validator.md:6 cited the live, unpinned https://www.gnu.org/software/diffutils/manual/html_node/Detailed-Unified.html as the Source proving Unified diff version 3.10 / date 2023-05-21, but that URL resolves to the current diffutils manual (3.12, 12 January 2025) rather than 3.10 -- the one source of the four-standard matrix whose Source does not corroborate the Version/Date it claims when actually dereferenced. Reviewer B independently reported APROVADO (no objection to this row). The skeptical approver re-fetched the same URL from a clean, independent clone, confirmed the divergence, traced it to a Wayback Machine snapshot from 2023-05-27 that does contain 'version 3.10, 2 January 2023', and escalated Reviewer A's finding into a VETO: RED, GREEN, MUT-001 and MUT-002 all reproduced correctly, but the card's central purpose -- fixing real, verifiable versioned sources -- had one source that fails its own verification test."
+    },
+    {
+      "round": 2,
+      "outcome": "approved",
+      "governance_change": "No card-spec change; version stayed at 1. The candidate patch was corrected in place: interoperability.md's Unified diff row and standards/contracts/unified-diff/validator.md's Source line were repointed to the archived Wayback Machine snapshot (2023-05-27), and tests/specs/AUR-017/allowed-source-domains.txt now allowlists web.archive.org in place of www.gnu.org.",
+      "candidate": "round-2 patch applied against base_sha efb32f62348dd8a9c9782dcf6f4be1d23566f623 (uncommitted working tree; not integrated by this evidence bundle)"
+    }
+  ],
+  "note": "This bundle proves round 2 against the current candidate_identity_digest. Round 1's reviewer and skeptic reports (/tmp/aurum-reviews/AUR-017-seal.md, AUR-017-skeptic.md) were produced against the pre-fix candidate and are superseded, not persisted here as live evidence bound to the current candidate identity; they are retained only as the veto record this table summarizes."
+}

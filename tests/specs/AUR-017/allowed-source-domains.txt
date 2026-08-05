@@ -1,0 +1,8 @@
+docs.oasis-open.org
+web.archive.org
+git-scm.com
+json-schema.org
+spec.openapis.org
+modelcontextprotocol.io
+x.com
+github.com
