@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-360",
+  "candidate_identity_digest": "sha256:91115972f3539875b25427718b8a025fc28b3393db2a7d67d85b8a432d6e53e9",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur360-r2-reviewer-a-seal-90c2fe17d4a3",
+  "context_digest": "sha256:b8189d97b90e465578a46a364665f9ad82f6f24788d4eb29f6daf80677d1eab7",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:bb0c2858dbb78e7e76a217aae68e8aa1e80a26046d601cab6409373a7cd15820",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:0748f259dc93159848f89d256401a1147fbaa914ed3ca5d77f43cabaa05c5330"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:2ae9c49fa0f7a6e7f5dc6a7d7d182cc40293593c0ef4a937919c3da2f3587e33"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:bc52909b1f440edb29268ed38f4e4b190771c12bd85a8eb86375ba03656e8a77"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:4c205c083409721bcf7579920a92d174af1c8b01851c9e55a627b500529d8b75"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:ea3eba89586070d80ea8e23dd31b000d18fb5cc2ab94a87cd6120cbc8986359c"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single-shot read-only verification in a pinned container; no concurrent or retried execution path is introduced."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:70f890a23332f5111e2a8cdb4672189d74a408edd9e7b673d1448a59ccf8f906"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:2b28e5bae87f447e53e39fea0a2b64f9da56d9f52f75ee63933ca1a7b22a4c95"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:7d4202feeff39253ee3b1cb19791ed7c97e582789a4471f72f03a9175a451a10"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:1972bed649385d660b80f9d35ba75430d0c4260b12fb5d9e75c4e1d5fb2a4ada"
+      }
+    ]
+  },
+  "summary": "Blind review of the r2 candidate (persisted at /tmp/aurum-reviews/AUR-360-r2-reviewA.md): APROVADO. RED typed, GREEN stable across two runs (b71d3f62...), container and host agree. Every lock field was re-derived by the reviewer against the real go.mod/go.sum; the field-by-field cross-check was proven non-decorative by three extra vectors (go.mod tamper, go.sum module added without digest update, and go.sum module added WITH digest updated, which still fails go_lock_mismatch through the bijection loop). One non-blocking finding recorded: the card's Public contract enumerates four codes while MUT-001/MUT-002 name two others literally; .board/cards is forbidden_paths for this card, so the author documents the tension instead of hiding it and a future card must reconcile the card text."
+}

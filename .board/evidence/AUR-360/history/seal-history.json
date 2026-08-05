@@ -1,0 +1,18 @@
+{
+  "schema": "aurum.seal-history",
+  "card_id": "AUR-360",
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "veto",
+      "reason": "The whole five-card lock wave was vetoed for the same defect: the sealed acceptance oracle held only three generic structural checks (a schema line, the presence of any sha256-shaped string, and the absence of a mutable-reference token) and never parsed the lock's fields. Both of this card's Skeptical Mutations passed silently at exit 0 -- mutating the module path or deleting a per-module checksum produced no failure. The builder delivered real, source-traceable lock content and disclosed the gap in docs/specs/AUR-360.md rather than hiding it; the defect was in the oracle, not the content."
+    },
+    {
+      "round": 2,
+      "outcome": "approved",
+      "governance_change": "No card-spec change. The oracle was rewritten to cross-check the lock against the real go.mod and go.sum field by field, as a bijection in both directions, and the eleven cases.tsv fixtures are now actually executed by a self-test loop instead of merely shipped.",
+      "candidate": "r2 patch applied against base_sha 7a1b93024842aa889e3e9820c1b4bcb5c55a9dc3; integrated by the coordinator as a staged working tree at bundle time."
+    }
+  ],
+  "note": "This bundle proves round 2 against the current candidate_identity_digest, with three independent seals over the same candidate: the adversarial reviewer and blind reviewers A and B, all reproducing RED, GREEN (stdout sha256 b71d3f62...) and both card mutations from scratch. A non-blocking contract tension is recorded by all three: the card's Public contract enumerates four typed codes while MUT-001/MUT-002 name two others literally, and .board/cards is forbidden_paths for this card, so the reconciliation belongs to a future governance card rather than to this candidate."
+}
