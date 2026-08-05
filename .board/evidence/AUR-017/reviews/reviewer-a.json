@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-017",
+  "candidate_identity_digest": "sha256:634618dd66e3561e3bd09e67f41f074c2ecc05cc16710f0fa7ce322807e60055",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur017-r2-reviewer-a-seal-4d9a1c7be053",
+  "context_digest": "sha256:f63950c5124ebd603945de2bb8a7ca01523389b1c368a357ae02a2b04ec72fc1",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:43fd7278b2df32d18cc522c93b491fbf926a57250f4d96e9d7b6e582b7212d43",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:f479c93d5e6b16b403fc849e16b48668e3d8f6ae5fb67f145a6f1a69e27feda5"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:633fc9b33a57c0766fcc0865e4f1c64d4085777c23cba96c6a3ad61cf1d724e4"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:274119f5c16ac234cfb0bfc3802216956605a4e0eb9457355e388b7427a14ae5"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:18760f086f5f02e6bf03062c06edb27c57977fa91c0b6eba7be924e48e39340f"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:2c90c210dbee49f80e4304b651bf86ccefc61f8fd8a39f375b1669d0a0435342"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Static policy/data lint with a single-shot read-only pass; no concurrent or retried execution path is introduced."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:539f257cd0de4e44785d9db9c2fe1f19d6a772d1fcf20ab7168d31cd89d49bf2"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:9c25df4eb8e8d70689d486c5462c95ba8b0862f053e8e63ba73bc5a8ee73bbde"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:edafd0ac34b7b8bf88abdb1d6515c5a038fa640536b1c39bb6e4f784c41f859d"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:3b85f1ebbe6a4e984d989ab06473a980674ffef03f519256eb7b8f80f8d36cd9"
+      }
+    ]
+  },
+  "summary": "Round 2 review after the round-1 REQUEST_CHANGES: interoperability.md's Unified diff row and standards/contracts/unified-diff/validator.md's Source line cited the live, unpinned https://www.gnu.org/.../Detailed-Unified.html, which at verification time resolved to diffutils 3.12 content rather than the pinned 3.10/2023-05-21 the row claims. Round 2 replaces that Source with the archived Wayback Machine snapshot (2023-05-27, whose frozen body reads 'version 3.10, 2 January 2023'), and tests/specs/AUR-017/allowed-source-domains.txt now lists web.archive.org instead of www.gnu.org, so the round-1 defect fails mechanically if reintroduced. RED, GREEN (stdout_sha256 d44fc784...c2f6d8), MUT-001 and MUT-002 reproduced independently with byte-identical restoration; scope confined to paths; no forbidden_paths touched; no nit blocks approval."
+}
