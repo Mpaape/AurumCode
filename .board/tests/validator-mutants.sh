@@ -18,7 +18,7 @@ write_base_fixture() {
   local state
   mkdir -p "$root/.board/cards" "$root/.board/evidence" "$root/.board/requirements" \
     "$root/.board/research" "$root/tests/acceptance" "$root/docs/specs"
-  for state in backlog ready doing review done blocked-on-owner; do
+  for state in backlog ready doing review done blocked-on-owner cancelled; do
     mkdir -p "$root/.board/cards/$state"
   done
   cp "$repo_root/.board/validate.sh" "$root/.board/validate.sh"
@@ -168,6 +168,235 @@ prepare() {
   cp -R "$probe_root/base" "$probe_root/$name"
 }
 
+# --- Cancelled lane fixture ---------------------------------------------------
+# The owner's rule ("you don't delete a card, you send it to cancelled") is
+# only real if a validator gate enforces it. Three cards prove the graph-level
+# consequence of cancellation: AUR-001 is cancelled and declares AUR-002 as
+# its accepted successor; AUR-002 is the successor itself; AUR-003 is an
+# ordinary card that depends on the cancelled AUR-001 *and* on its declared
+# successor AUR-002, which is the only way a dependent may cite a cancelled
+# card at all. Each mutant below breaks exactly one of the five requirements
+# and nothing else, mirroring the single-variable mutation discipline used
+# throughout this file.
+write_cancel_skeleton() {
+  local root="$1"
+  local state
+  mkdir -p "$root/.board/cards" "$root/.board/evidence" "$root/.board/requirements" \
+    "$root/.board/research" "$root/tests/acceptance" "$root/docs/specs"
+  for state in backlog ready doing review done blocked-on-owner cancelled; do
+    mkdir -p "$root/.board/cards/$state"
+  done
+  cp "$repo_root/.board/validate.sh" "$root/.board/validate.sh"
+  chmod 0755 "$root/.board/validate.sh"
+  cat >"$root/.board/requirements/REQUIREMENTS.md" <<'EOF'
+# Requirements
+
+| ID | Requirement |
+|---|---|
+| PR-TST-001 | The focused fixture proves one bounded behavior. |
+EOF
+  cat >"$root/.board/research/code-review-standards.md" <<'EOF'
+# Standards
+
+`CR-GATE-001` The deterministic acceptance gate fails closed.
+EOF
+  cat >"$root/.board/INDEX.md" <<'EOF'
+# Index
+
+| ID | State | Office | Risk | Dependencies | Title |
+|---|---|---|---|---|---|
+EOF
+}
+
+# $1 root $2 id $3 state $4 depends_on (canonical bracket list) $5 tag. The
+# tag makes every checked spec field (Given/When/Then/Green/Non-goal/And)
+# unique per card so this fresh probe board -- which carries no spec-collision
+# baseline file -- never trips that unrelated ratchet.
+write_cancel_card() {
+  local root="$1" id="$2" state="$3" depends_on="$4" tag="$5"
+  cat >"$root/.board/cards/$state/$id.md" <<EOF
+---
+id: $id
+version: 1
+title: Validate one bounded parser result ($tag)
+status: $state
+office: O00-governance
+depends_on: $depends_on
+requirements: [PR-TST-001]
+controls: [CR-GATE-001]
+paths: [tests/acceptance/$id.sh, docs/specs/$id.md]
+forbidden_paths: [.git, .env, secrets]
+base_sha: lock-at-execution
+spec_digest: lock-at-execution
+risk: low
+data_class: internal
+trust_boundaries: [repository]
+---
+
+## Outcome
+
+The fixture emits one deterministic parser result unique to $tag with a decisive exit code.
+
+## Non-goals
+
+- It does not publish, mutate external state, or add another parser behavior for $tag.
+
+## Preconditions
+
+- The sealed fixture and pinned bootstrap execution profile are available for $tag.
+
+## Postconditions
+
+- The parser result for $tag has the expected value and unrelated bytes remain unchanged.
+
+## Acceptance scenarios
+
+### AC-001: Return the bounded parser result for $tag
+
+- Given: \`tests/specs/$id/cases.yaml\` is a deterministic local fixture unique to $tag with no credential or external input.
+- When: the acceptance parser for $tag reads that fixture exactly once.
+- Then: the parser for $tag returns the expected value and a decisive zero exit code.
+- And: the same replay is idempotent and reproduces the digest for $tag.
+
+## Public contract
+
+- Only the fixture result and documented exit behavior for $tag are observable.
+
+## TDD proof
+
+- Test: \`tests/acceptance/$id.sh::AC-001\`.
+- Red: the locked base for $tag reaches the parser and reports the missing expected value.
+- Green: the parser for $tag returns the exact expected value without another behavior.
+- Refactor: the same fixture for $tag preserves output ordering, exit code, and digest.
+- Unit: not-applicable: the acceptance parser is the smallest focused unit.
+- Contract: not-applicable: no port or wire protocol exists in this fixture.
+- Integration: not-applicable: no adapter boundary exists in this fixture.
+- E2E: not-applicable: this validator fixture has no consumer workflow.
+
+## Acceptance
+
+container_profile: \`bootstrap-readonly-v1\`
+
+accept: \`./.board/bin/oci-run --profile bootstrap-readonly-v1 --card $id\`
+
+Expected artifact: \`.board/evidence/$id/acceptance/AC-001.json\` is coordinator-derived.
+
+## Skeptical mutations
+
+### MUT-001: AC-001 / repository
+
+- Change: replace the exact expected value with one different deterministic byte for $tag.
+- Expected: the unchanged acceptance exits non-zero for MUT-001 and restored replay passes.
+
+## Security and privacy
+
+- Bounded fixture bytes for $tag flow to a sanitized local observation with no credential input.
+
+## Documentation
+
+- The exact fixture, result, exit behavior, and failure diagnosis for $tag are documented.
+
+## Compatibility, migration, rollback
+
+- Existing behavior remains unchanged and rollback removes only this bounded fixture ($tag).
+
+## Review
+
+- Reviewer A: every-hunk review across ten dimensions with correctness priority.
+- Reviewer B: every-hunk review across ten dimensions with adversarial priority.
+- Independence: isolated sessions, contexts, caches, memory, and sealed reports.
+- Skeptical approver: pre-sealed challenge, mutation, restore, and clean replay.
+
+## Evidence
+
+Only \`.board/evidence/$id/\` may contain sanitized coordinator-produced artifacts.
+EOF
+  cat >"$root/tests/acceptance/$id.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+printf '{"schema":"aurum.acceptance-observation","version":1,"card_id":"$id","scenario_id":"AC-001"}\n'
+EOF
+  chmod 0755 "$root/tests/acceptance/$id.sh"
+  printf 'fixture documentation with a deterministic bounded result (%s)\n' "$tag" >"$root/docs/specs/$id.md"
+}
+
+# Locks base_sha/spec_digest exactly the way doing/review/done cards are
+# locked (cancelled is now the same kind of frozen, non-backlog state) and
+# echoes the canonical self-referential digest on stdout, so the caller can
+# also bind it into cancellation.json's card_digest.
+lock_cancel_card() {
+  local card_file="$1"
+  local base_sha="$2"
+  local digest
+  sed -i "s/^base_sha: lock-at-execution\$/base_sha: $base_sha/; s/^spec_digest: lock-at-execution\$/spec_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000/" "$card_file"
+  digest="sha256:$(sed -E 's/^status: .+$/status: STATE/; s/^spec_digest: sha256:[0-9a-f]{64}$/spec_digest: sha256:SELF/' "$card_file" | sha256sum | awk '{print $1}')"
+  sed -i "s/^spec_digest: sha256:[0-9a-f]\{64\}\$/spec_digest: $digest/" "$card_file"
+  printf '%s' "$digest"
+}
+
+write_cancellation_base() {
+  local root="$1"
+  local cancelled_digest
+  write_cancel_skeleton "$root"
+  write_cancel_card "$root" AUR-001 cancelled '[]' cancelled
+  write_cancel_card "$root" AUR-002 ready '[]' successor
+  write_cancel_card "$root" AUR-003 backlog '[AUR-001, AUR-002]' dependent
+
+  cancelled_digest="$(lock_cancel_card "$root/.board/cards/cancelled/AUR-001.md" 1111111111111111111111111111111111111111)"
+
+  mkdir -p "$root/.board/evidence/AUR-001"
+  cat >"$root/.board/evidence/AUR-001/cancellation.json" <<EOF
+{"schema":"aurum.cancellation","version":1,"card_id":"AUR-001","approved_by_role":"manager","reason":"The manager decided this capability duplicates AUR-002 and is no longer part of the reconstruction plan.","superseded_by":"AUR-002","card_digest":"$cancelled_digest"}
+EOF
+
+  cat >>"$root/.board/INDEX.md" <<'EOF'
+| [AUR-001](cards/cancelled/AUR-001.md) | cancelled | O00-governance | low | `[]` | Validate one bounded parser result (cancelled) |
+| [AUR-002](cards/ready/AUR-002.md) | ready | O00-governance | low | `[]` | Validate one bounded parser result (successor) |
+| [AUR-003](cards/backlog/AUR-003.md) | backlog | O00-governance | low | `[AUR-001, AUR-002]` | Validate one bounded parser result (dependent) |
+EOF
+}
+
+write_cancellation_base "$probe_root/cancel_valid"
+if ! bash "$probe_root/cancel_valid/.board/validate.sh" >"$probe_root/cancel_valid.baseline.output" 2>&1; then
+  printf 'cancellation fixture baseline is invalid\n' >&2
+  sed -n '1,120p' "$probe_root/cancel_valid.baseline.output" >&2
+  exit 1
+fi
+
+# Requirement 1: cancelled is locked like doing/review/done, not left
+# unlocked like backlog/ready. Reverting it to lock-at-execution must be
+# rejected the same way an unlocked backlog/ready card would be if it tried
+# to claim a locked-only state.
+cp -R "$probe_root/cancel_valid" "$probe_root/cancel_unlocked"
+sed -i "s/^base_sha: 1111111111111111111111111111111111111111\$/base_sha: lock-at-execution/; s/^spec_digest: sha256:[0-9a-f]\{64\}\$/spec_digest: lock-at-execution/" \
+  "$probe_root/cancel_unlocked/.board/cards/cancelled/AUR-001.md"
+
+# Requirement 2: cancellation.json must carry a specific, non-generic,
+# manager-approved reason -- not a bare filler phrase, regardless of who
+# approved it structurally.
+cp -R "$probe_root/cancel_valid" "$probe_root/cancel_generic_reason"
+sed -i 's/"reason":"[^"]*"/"reason":"obsolete"/' \
+  "$probe_root/cancel_generic_reason/.board/evidence/AUR-001/cancellation.json"
+
+# Requirement 3: AUR-003 depends on the cancelled AUR-001 but, in this
+# mutant, no longer also depends on AUR-001's declared successor AUR-002 --
+# exactly the silent-orphaning the dependency graph must never allow.
+cp -R "$probe_root/cancel_valid" "$probe_root/cancel_no_override"
+sed -i 's/^depends_on: \[AUR-001, AUR-002\]$/depends_on: [AUR-001]/' \
+  "$probe_root/cancel_no_override/.board/cards/backlog/AUR-003.md"
+
+# Requirement 4: INDEX.md must carry the canonical row for the cancelled
+# card in exactly the same format every other lane uses.
+cp -R "$probe_root/cancel_valid" "$probe_root/cancel_index_missing"
+sed -i '/^| \[AUR-001\](cards\/cancelled\/AUR-001\.md)/d' \
+  "$probe_root/cancel_index_missing/.board/INDEX.md"
+
+# Requirement 5: cancellation is not completion. A cancelled card must never
+# carry the `done` evidence bundle (manifest.json), even an otherwise-empty
+# one.
+cp -R "$probe_root/cancel_valid" "$probe_root/cancel_has_manifest"
+printf '{}' >"$probe_root/cancel_has_manifest/.board/evidence/AUR-001/manifest.json"
+
 # --- Spec-collision fixture -------------------------------------------------
 # A second, independent skeleton (no AUR-001 card) that spec-collision cases
 # populate with 2-3 cloned-but-distinguished cards. Every checked field
@@ -180,7 +409,7 @@ write_ratchet_skeleton() {
   local state
   mkdir -p "$root/.board/cards" "$root/.board/evidence" "$root/.board/requirements" \
     "$root/.board/research" "$root/.board/tests" "$root/tests/acceptance" "$root/docs/specs"
-  for state in backlog ready doing review done blocked-on-owner; do
+  for state in backlog ready doing review done blocked-on-owner cancelled; do
     mkdir -p "$root/.board/cards/$state"
   done
   cp "$repo_root/.board/validate.sh" "$root/.board/validate.sh"
@@ -814,6 +1043,29 @@ run_case ratchet_new_collision \
 # (b) a baseline entry that no longer collides (AUR-002's And healed) -> reject.
 run_case ratchet_dead_entry \
   "^board error: spec-collision ratchet: baseline entry for and no longer collides; the ratchet only shrinks, remove the stale entry: AUR-001/AC-001 AUR-002/AC-001\$" & pids+=("$!")
+
+# Cancelled lane: the valid three-card fixture (cancelled + successor +
+# dependent-on-both) is the positive control every mutant below is a single
+# deviation from.
+run_pass_case cancel_valid & pids+=("$!")
+# Requirement 1: cancelled must be locked like doing/review/done.
+run_case cancel_unlocked \
+  "^board error: .*/\.board/cards/cancelled/AUR-001\.md: locked base_sha must be an immutable Git object id\$" & pids+=("$!")
+# Requirement 2: cancellation.json's reason must be specific, not generic.
+run_case cancel_generic_reason \
+  "^board error: .*/\.board/evidence/AUR-001/cancellation\.json: reason must be a specific, non-generic explanation of at least 40 characters\$" & pids+=("$!")
+# Requirement 3: depending on a cancelled card without also depending on its
+# declared successor must fail -- cancellation can never silently orphan the
+# DAG.
+run_case cancel_no_override \
+  "^board error: .*/\.board/cards/backlog/AUR-003\.md: depends on cancelled AUR-001 but does not also depend on its declared successor AUR-002\$" & pids+=("$!")
+# Requirement 4: INDEX.md must carry the canonical row for the cancelled card.
+run_case cancel_index_missing \
+  '^board error: INDEX\.md lacks the canonical row for AUR-001$' & pids+=("$!")
+# Requirement 5: cancellation is not completion; a cancelled card must never
+# carry a done evidence bundle.
+run_case cancel_has_manifest \
+  "^board error: .*/\.board/cards/cancelled/AUR-001\.md: cancelled card must not carry a done evidence bundle \(\.board/evidence/AUR-001/manifest\.json\); cancellation is not completion\$" & pids+=("$!")
 
 failed=0
 for pid in "${pids[@]}"; do
