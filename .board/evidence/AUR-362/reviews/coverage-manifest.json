@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.coverage-manifest",
+  "card_id": "AUR-362",
+  "candidate_identity_digest": "sha256:97e659b101273da8811e06cf7e9e61856f1e72419e023bcadac603336a1fa661",
+  "dimensions": [
+    "contract",
+    "design",
+    "compatibility",
+    "tests",
+    "security",
+    "concurrency",
+    "errors-operations",
+    "documentation",
+    "scope-simplicity",
+    "hunks"
+  ],
+  "reviewer_a_notes": {
+    "contract": [
+      "covered",
+      "AC-001's Given/When/Then match the oracle's behavior: 46 lock fields are cross-checked, and RED (absent scanners.yml) fails typed scanner_lock_incomplete."
+    ],
+    "design": [
+      "covered",
+      "The split between 34 hand-typed fields and the 12 derived from the captured ground truth is exhaustive and non-overlapping (46 = 46 by diff, no orphans either direction) and matches exactly the class of defect that voided round 2: CLI output-contract behavior that can only be known by executing the pinned tool."
+    ],
+    "compatibility": [
+      "covered",
+      "Scope is exactly the card's four declared paths; read_paths untouched; the r2->r3 delta changes only the sourcing of the twelve format fields and the four corrected values."
+    ],
+    "tests": [
+      "covered",
+      "All eleven fixture cases pass; the three card mutations were reintroduced against the real tree rather than only against fixtures, each returning the exact typed code and restoring with a matching sha256."
+    ],
+    "security": [
+      "covered",
+      "The reviewer personally ran the four pinned digests (trivy 0.73.0, shellcheck 0.11.0, semgrep 1.172.0, gitleaks v8.30.1) and confirmed byte-for-byte agreement with all twelve ground-truth fields, including the semgrep default=text and gitleaks default=none corrections; gitleaks' default config was fetched from GitHub and sha256-verified against secrets_rulebase_sha256; the trivy-db OCI manifest and the semgrep rulebase commit were confirmed real."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single-shot read-only verification in a pinned container; no concurrent or retried execution path is introduced."
+    ],
+    "errors-operations": [
+      "covered",
+      "Absent, empty or partially-populated ground truth surfaces as exit 79 inconclusive, never as a pass; the same holds for an empty or out-of-bounds cases.tsv."
+    ],
+    "documentation": [
+      "covered",
+      "docs/specs/AUR-362.md records the capture date, the exact commands and the raw evidence for the corrected values, and discloses the bonus gitleaks fix separately from the reported blocker."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "The change is surgical: only the twelve format fields moved to derived sourcing; the other thirty-four remain as they were, since reviewer B had already confirmed them against live sources."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks of the r3 candidate against 7a1b930 were read, including the new ground-truth capture and its parser."
+    ]
+  },
+  "reviewer_b_notes": {
+    "contract": [
+      "covered",
+      "RED and GREEN reproduced raw under the reviewer's own execution, plus the sealed container acceptance path."
+    ],
+    "design": [
+      "covered",
+      "The oracle no longer hand-types the format values into its expected map; it parses them at run time from the captured ground truth with bounded size, symlink refusal, duplicate and unknown-key checks."
+    ],
+    "compatibility": [
+      "covered",
+      "No forbidden_paths touched, no scope creep, read_paths intact."
+    ],
+    "tests": [
+      "covered",
+      "All three named mutations reproduce and restore cleanly; each of the four corrected fields, flipped back to its old wrong r2 value, now fails finding-schema-mismatch -- proving the field is genuinely cross-checked rather than self-referential."
+    ],
+    "security": [
+      "covered",
+      "Every pinned digest and CLI-contract field the reviewer could independently re-derive from the live pinned images matches the lock and the ground-truth fixture exactly. A synthetic credential-shaped token in the raw capture tripped oci-run's own credential guard during the build and was replaced -- the guard rail demonstrably works."
+    ],
+    "concurrency": [
+      "not_applicable",
+      "Single deterministic process; no shared mutable state."
+    ],
+    "errors-operations": [
+      "covered",
+      "The oracle rejects absent, empty and generic ground truth as inconclusive rather than passing; failure classification is never laundered."
+    ],
+    "documentation": [
+      "covered",
+      "The disclosed limits are honest, including the one the reviewer states plainly: an attacker who also rewrites the sealed fixture digest -- in scope for this same card -- could defeat all in-repo layers together, which only external re-verification forecloses."
+    ],
+    "scope-simplicity": [
+      "covered",
+      "A coherent collusion attempt (same wrong value written to both the lock and the ground truth) is still caught by the sealed nominal fixture's digest disagreeing, so the layers are not redundant."
+    ],
+    "hunks": [
+      "covered",
+      "All hunks read with adversarial priority on the ground-truth parser and the corrected fields."
+    ]
+  }
+}

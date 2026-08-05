@@ -1,0 +1,54 @@
+{
+  "schema": "aurum.skeptic-report",
+  "version": 1,
+  "card_id": "AUR-362",
+  "candidate_identity_digest": "sha256:97e659b101273da8811e06cf7e9e61856f1e72419e023bcadac603336a1fa661",
+  "role": "skeptic",
+  "sealed": true,
+  "role_nonce": "aur362-r3-skeptic-seal-e63f072ac8b1",
+  "context_digest": "sha256:766174183b2701f63d7ee9d3c21b4368b537206ad80ce6b5580110398199c843",
+  "backend_family_digest": "sha256:c89836ed664141c05a4a89dec6313d4debcdd0718c251d7046a9efa9405f910a",
+  "verdict": "pass",
+  "challenge_plan": {
+    "sealed_before_reviews": true,
+    "digest": "sha256:f8d5b8db7605855f38afb8b276184d3e5cbe15ea59d97209eab612065eafcb94",
+    "all_acceptance_criteria": true,
+    "all_trust_boundaries": true
+  },
+  "isolation": {
+    "reviews_visible_before_challenge_seal": false
+  },
+  "mutation": {
+    "detected": true,
+    "results": [
+      {
+        "mutation_id": "MUT-001",
+        "exit_code": 1,
+        "typed_failure": "AUR-362/AC-001/scanner-unlocked",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-002",
+        "exit_code": 1,
+        "typed_failure": "AUR-362/AC-001/finding-schema-mismatch",
+        "restored_byte_identical": true
+      },
+      {
+        "mutation_id": "MUT-003",
+        "exit_code": 1,
+        "typed_failure": "AUR-362/AC-001/scanner-ref-mutable",
+        "restored_byte_identical": true
+      }
+    ]
+  },
+  "clean_replay": {
+    "pass": true,
+    "runs": 2,
+    "stdout_sha256": "sha256:4605c2f89fe7ac76ebee271459fe6297ee340cf7f3689ea7fa885d727b01c33e"
+  },
+  "secret_canaries": {
+    "pass": true,
+    "leaked": 0
+  },
+  "summary": "Adversarial seal over the r3 candidate (persisted at /tmp/aurum-reviews/AUR-362-r3-review.md): APROVADO. The reviewer re-ran the pinned digests personally rather than accepting the builder's word, and confirmed the four corrected fields against live tool output. Each corrected field, flipped back to its wrong r2 value in the real lock, now fails finding-schema-mismatch, proving the field is cross-checked against external ground truth rather than against a copy of itself. A two-file collusion attempt against lock and ground truth together was still caught by the pre-existing sealed-fixture-digest layer. Two prior medium findings remain open and non-blocking."
+}

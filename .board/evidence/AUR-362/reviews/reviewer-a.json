@@ -1,0 +1,77 @@
+{
+  "schema": "aurum.review-report",
+  "version": 1,
+  "card_id": "AUR-362",
+  "candidate_identity_digest": "sha256:97e659b101273da8811e06cf7e9e61856f1e72419e023bcadac603336a1fa661",
+  "role": "reviewer-a",
+  "sealed": true,
+  "role_nonce": "aur362-r3-reviewer-a-seal-90c2fe17d4a3",
+  "context_digest": "sha256:6e23f64f81bf1edc77b73a2f867646963b21b4bae7731d0e89c3e4a049764ba5",
+  "backend_family_digest": "sha256:6c302544401fee3f62d75aaabe6828fbaeceffebcf9023fcf99d7bf638959843",
+  "verdict": "pass",
+  "independence_level": "I2",
+  "isolation": {
+    "peer_report_visible_before_seal": false,
+    "builder_trace_received": false,
+    "shared_memory": false
+  },
+  "coverage": {
+    "all_hunks": true,
+    "all_dimensions": true,
+    "manifest_digest": "sha256:56672369feb177dbdc0463bda6afb220231325dd756ad239c031622e96c66ad8",
+    "uncovered_hunks": 0,
+    "dimensions": [
+      {
+        "id": "contract",
+        "status": "covered",
+        "evidence_digest": "sha256:3c0f5e363ac9b756961204f39ff962ca248866af95f843083ab2340cbac52619"
+      },
+      {
+        "id": "design",
+        "status": "covered",
+        "evidence_digest": "sha256:9dbd63ca034e6b731822a7f3ab43a32a1bb5951c856422c6a503c565a38fc447"
+      },
+      {
+        "id": "compatibility",
+        "status": "covered",
+        "evidence_digest": "sha256:eb6d979b80445c7738c4f01941da43ea626c05cc1419dbb7f1089e853092b0f2"
+      },
+      {
+        "id": "tests",
+        "status": "covered",
+        "evidence_digest": "sha256:0e3779a3f42c0ef3c49f8c49c54afa8b9d26802ac1c1c1e3ba2828b00b7e5742"
+      },
+      {
+        "id": "security",
+        "status": "covered",
+        "evidence_digest": "sha256:380127c1144b42af34a2684c22db20714cba09f1cb5db16ee021e22ad1a74481"
+      },
+      {
+        "id": "concurrency",
+        "status": "not_applicable",
+        "justification": "Single-shot read-only verification in a pinned container; no concurrent or retried execution path is introduced."
+      },
+      {
+        "id": "errors-operations",
+        "status": "covered",
+        "evidence_digest": "sha256:b666aa219fa07c5818031cc3dea0aa4c84745adec52ae7eea48917c71d8c680c"
+      },
+      {
+        "id": "documentation",
+        "status": "covered",
+        "evidence_digest": "sha256:5a9ab54b25cd60b9c67b6d67c47d5c48f41d60246d85b2a225bb92cce79c07c3"
+      },
+      {
+        "id": "scope-simplicity",
+        "status": "covered",
+        "evidence_digest": "sha256:5b70fd32ac8f40f6032d2d6d2825d34edb97f79cb678f0ad8a4ffea140fcf7c0"
+      },
+      {
+        "id": "hunks",
+        "status": "covered",
+        "evidence_digest": "sha256:09cf1b9782c5a5eefe4b44f45a14727f35246c04c9c98510bf73493b1fe376e5"
+      }
+    ]
+  },
+  "summary": "Blind review of the r3 candidate (persisted at /tmp/aurum-reviews/AUR-362-r3-reviewA.md): APROVADO. The reviewer personally ran the four pinned digests and confirmed byte-for-byte agreement with all twelve ground-truth fields that voided round 2, independently fetched and hashed the gitleaks default config, and confirmed the trivy-db manifest and semgrep rulebase commit are real. The 34/12 field split was proven exhaustive and non-overlapping. All three card mutations reintroduced against the real tree with exact typed codes and sha256-matched restoration. One cosmetic nit: the diagnostic JSON example in the spec omits the fixture_cases field the script actually emits."
+}
