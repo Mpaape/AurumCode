@@ -1,0 +1,80 @@
+# AurumCode ISO/IEC 25010:2023 quality-evidence vocabulary.
+#
+# See README.md for the abstention rule this file's entries must satisfy,
+# and .board/research/quality-standards.md for source provenance. This file
+# is policy/data, not a scoring engine: no entry below is wired to a real
+# computation, so every characteristic is `not_assessed` today. A dependent
+# card that wires a real, repeatable, sourced metric for one characteristic
+# changes only that characteristic's row.
+#
+# Field contract per entry (tests/acceptance/AUR-016.sh enforces this
+# structurally, not by trusting this comment):
+#   name           one of the nine names in tests/specs/AUR-016/characteristics.txt
+#   measurable     true only if a metric is both named AND wired to a real
+#                  computation in this repository today; false otherwise
+#   status         "measured" only if measurable is true; "not_assessed"
+#                  otherwise. No third value.
+#   score          null whenever status is not_assessed; a number only when
+#                  status is measured. A number here with measurable:false
+#                  is invalid evidence and MUST fail the acceptance lint.
+#   metric         nullable. An informational, human-readable candidate
+#                  metric description. Naming one is not a claim that it is
+#                  computed anywhere; measurable stays false until it is.
+#   metric_source  nullable. Required (non-null) whenever metric is non-null.
+
+schema_version: 1
+characteristics:
+  - name: Functional suitability
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: acceptance-scenario pass rate per card, i.e. Given/When/Then coverage observed by the sealed acceptance run
+    metric_source: .board/README.md card contract (project-internal, not yet wired to a computed aggregate)
+  - name: Performance efficiency
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: provider call latency (p95) and token cost per review run
+    metric_source: internal/llm/cost/costtracker.go (project-internal, not yet wired to a computed aggregate)
+  - name: Compatibility
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: SCM/provider adapter contract-test pass rate
+    metric_source: internal/scm contract test suite (project-internal, not yet wired to a computed aggregate)
+  - name: Interaction capability
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: null
+    metric_source: null
+  - name: Reliability
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: acceptance replay determinism, i.e. identical exit code and stdout digest across independent seal rounds
+    metric_source: .board/README.md evidence-bundle replay requirement (project-internal, not yet wired to a computed aggregate)
+  - name: Security
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: SARIF finding density per changed hunk and OWASP vulnerability-category coverage
+    metric_source: OASIS SARIF 2.1.0 (2020); OWASP Code Review Guide (current online edition) — not yet wired to a computed aggregate
+  - name: Maintainability
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: cyclomatic complexity per function and duplicated-hunk ratio
+    metric_source: 'McCabe, T.J., "A Complexity Measure", IEEE Trans. Software Eng. (1976) — not yet wired to a computed aggregate'
+  - name: Flexibility
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: null
+    metric_source: null
+  - name: Safety
+    measurable: false
+    status: not_assessed
+    score: null
+    metric: null
+    metric_source: null

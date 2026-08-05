@@ -1,0 +1,9 @@
+Functional suitability
+Performance efficiency
+Compatibility
+Interaction capability
+Reliability
+Security
+Maintainability
+Flexibility
+Safety

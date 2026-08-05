@@ -1,0 +1,42 @@
+# AurumCode MCP protocol and SDK pin (AUR-021).
+#
+# Fixes the exact protocol revision and Go SDK version a future O11-mcp
+# server card must implement against. Both values are cited with a
+# versioned, dated, allowlisted source in .board/research/mcp.md and are
+# re-checked by tests/acceptance/AUR-021.sh; this file carries no default
+# and no "latest" alias on purpose so the pin cannot drift silently.
+
+protocol:
+  # Model Context Protocol specification revision, as published at
+  # https://modelcontextprotocol.io/specification/2025-11-25 . This is the
+  # last stable (non release-candidate) revision at pin time.
+  version: "2025-11-25"
+  # Primary transports this baseline recognizes. `stdio` carries no OAuth
+  # authorization (credentials come from the process environment instead);
+  # `streamable-http` is the transport OAuth authorization applies to.
+  transports:
+    - stdio
+    - streamable-http
+
+go_sdk:
+  # Official Go SDK module, maintained in collaboration with Google.
+  module: "github.com/modelcontextprotocol/go-sdk"
+  # Pinned release. Published 2026-05-22; targets protocol 2025-11-25.
+  # v1.7.0 (2026-07-28) introduces a breaking, stateless rewrite tied to
+  # protocol 2026-07-28 and is intentionally not adopted by this pin yet.
+  version: "v1.6.1"
+
+security:
+  # STDIO transports retrieve credentials from the environment; they do
+  # not run the OAuth 2.1 authorization flow this pin's authorization
+  # section otherwise requires for HTTP-based transports.
+  stdio_authorization: environment-credentials
+  # HTTP-based transports authorize with OAuth 2.1 (draft-ietf-oauth-v2-1-13)
+  # plus OAuth 2.0 Protected Resource Metadata (RFC 9728) for authorization
+  # server discovery, per the MCP authorization specification pinned above.
+  http_authorization: oauth2.1
+  # Injection-class attack this baseline explicitly tracks and any future
+  # server implementation must defend: an attacker relays attacker-chosen
+  # content back to a client through a hijacked or guessed session id so
+  # the client treats it as a legitimate server response.
+  tracked_injection_class: session-hijack-prompt-injection
