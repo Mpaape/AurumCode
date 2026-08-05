@@ -33,7 +33,7 @@ by [validate.sh](validate.sh).
 | [AUR-018](cards/doing/AUR-018.md) | doing | O00-research | high | `[]` | Fixar contratos SCM e CI seguros |
 | [AUR-019](cards/doing/AUR-019.md) | doing | O00-research | high | `[]` | Fixar contratos oficiais de providers |
 | [AUR-020](cards/done/AUR-020.md) | done | O00-research | high | `[]` | Escolher memória e mapa incremental mínimos |
-| [AUR-021](cards/doing/AUR-021.md) | doing | O00-research | high | `[]` | Fixar MCP conformance e segurança |
+| [AUR-021](cards/done/AUR-021.md) | done | O00-research | high | `[]` | Fixar MCP conformance e segurança |
 | [AUR-022](cards/backlog/AUR-022.md) | backlog | O00-governance | critical | `[AUR-002, AUR-003, AUR-004, AUR-005, AUR-006, AUR-007, AUR-008, AUR-009, AUR-010, AUR-011, AUR-012, AUR-013, AUR-014, AUR-015, AUR-016, AUR-017, AUR-018, AUR-019, AUR-020, AUR-021, AUR-233]` | Aprovar foundation reproduzível |
 | [AUR-023](cards/backlog/AUR-023.md) | backlog | O01-core | high | `[AUR-003, AUR-005, AUR-014, AUR-015, AUR-016, AUR-017, AUR-233, AUR-403]` | Bloquear imports que violam arquitetura |
 | [AUR-024](cards/backlog/AUR-024.md) | backlog | O01-core | high | `[AUR-023, AUR-404]` | Definir identidade canônica de repositório e snapshot |

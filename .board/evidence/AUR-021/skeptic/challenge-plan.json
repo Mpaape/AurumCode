@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.challenge-plan",
+  "card_id": "AUR-021",
+  "candidate_identity_digest": "sha256:dc1521a017a54037f481e6874cceb35867ea865d4230b8f21ee740ec37820a50",
+  "sealed_before_reviews": true,
+  "hypotheses": [
+    {
+      "id": "MUT-001",
+      "scenario": "AC-001",
+      "trust_boundary": "repository",
+      "hypothesis": "Reclassifying review.publish as read_only (dropping requires_explicit_consent) in standards/mcp/tools.yaml must be caught by the accept, not only by the Go test.",
+      "expected_typed_failure": "AUR-021/AC-001/tool-misclassified"
+    },
+    {
+      "id": "MUT-002",
+      "scenario": "AC-001",
+      "trust_boundary": "network-source",
+      "hypothesis": "Replacing the first Sources matrix URL's host with a non-allowlisted host (evil.example.com) must fail the source-versioning check.",
+      "expected_typed_failure": "AUR-021/AC-001/source-not-versioned"
+    }
+  ]
+}
