@@ -38,10 +38,18 @@ readonly rules='standards/security-review/rules.md'
 readonly specdir='tests/specs/AUR-015'
 readonly ruleids_fixture="$specdir/rule-ids.txt"
 readonly domains_fixture="$specdir/allowed-source-domains.txt"
+readonly docs='docs/specs/AUR-015.md'
 
-# All four are this card's own declared deliverables (paths:); their
+# All five are this card's own declared deliverables (paths:); their
 # absence is the behavior under test failing to exist, never infrastructure.
-for f in "$research" "$rules" "$ruleids_fixture" "$domains_fixture"; do
+# docs/specs/AUR-015.md is included here (not just linked from prose) because
+# the Documentation section of the card claims its worked example is
+# executed by this same accept: the doc-drift check below, run after
+# record_count is known, makes that claim true by verifying the example's
+# documented output against this run's actual output, so an absent, emptied,
+# or stale doc fails this accept with a typed code instead of silently
+# drifting from the behavior it claims to describe.
+for f in "$research" "$rules" "$ruleids_fixture" "$domains_fixture" "$docs"; do
   [[ -f $f && ! -L $f ]] || fail behavior-missing "required artifact absent: $f"
   [[ -r $f ]] || fail behavior-missing "required artifact unreadable: $f"
   [[ -s $f ]] || fail behavior-missing "required artifact is empty: $f"
@@ -294,5 +302,33 @@ while IFS=$'\t' read -r id owasp_url owasp_ver owasp_date cwe_num cwe_url cwe_ve
 done <<< "$records"
 emitted "$verdict"
 
-printf '{"card":"%s","scenario":"%s","selector":"%s","rules":%d,"result":"pass"}\n' \
-  "$card" "$scenario" "$selector" "$record_count"
+expected_pass_line="$(
+  printf '{"card":"%s","scenario":"%s","selector":"%s","rules":%d,"result":"pass"}' \
+    "$card" "$scenario" "$selector" "$record_count"
+)"
+
+# ---------------------------------------------------------------------------
+# Documentation doc-drift: docs/specs/AUR-015.md's "## Example (no secret)"
+# section claims to show this same accept's real output. Extract the last
+# line of that section's first fenced ```console block (the documented
+# stdout) and require it to be byte-identical to the pass line this run is
+# about to emit, computed independently above from the live record_count.
+# A stale, hand-edited, or removed example fails here with a typed code
+# instead of silently drifting from the behavior it claims to document.
+# ---------------------------------------------------------------------------
+doc_example="$(
+  awk '
+    /^## Example/ { in_example = 1; next }
+    in_example && /^```console[[:space:]]*$/ { in_block = 1; next }
+    in_block && /^```[[:space:]]*$/ { exit }
+    in_block { last = $0 }
+    END { print last }
+  ' "$docs"
+)" || infra 'docs/specs/AUR-015.md example parse failed to run'
+
+[[ -n $doc_example ]] ||
+  fail behavior-missing "docs/specs/AUR-015.md has no fenced \`\`\`console example under '## Example'"
+[[ $doc_example == "$expected_pass_line" ]] ||
+  fail doc-drift "docs/specs/AUR-015.md example does not match this run's output: doc=[$doc_example] actual=[$expected_pass_line]"
+
+printf '%s\n' "$expected_pass_line"
