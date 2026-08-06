@@ -1,0 +1,79 @@
+{
+ "schema": "aurum.review-report",
+ "version": 1,
+ "card_id": "AUR-364",
+ "candidate_identity_digest": "sha256:273ef0896dd941af01e4867bf37a3d6a96cc81f525456c2b4edc18d45f121dd0",
+ "role": "reviewer-b",
+ "sealed": true,
+ "role_nonce": "aur364-r5-reviewer-b-27d6a74e890d",
+ "context_digest": "sha256:6e19df49fe38b120a35a4c241933a2068eac07d20ebe94b1860d587cd6c93ead",
+ "session_digest": "sha256:2541b140c01333ebd58856a6e4a1afabc3b1a13b5fb670a2df7ab8271d3ab7a5",
+ "backend_family_digest": "sha256:6d1f611b9927d46a894577d0d8e1e08cb9df6fa753d70be9bd0ee8c86666a69f",
+ "verdict": "pass",
+ "independence_level": "I2",
+ "isolation": {
+  "peer_report_visible_before_seal": false,
+  "builder_trace_received": false,
+  "shared_memory": false
+ },
+ "coverage": {
+  "all_hunks": true,
+  "all_dimensions": true,
+  "manifest_digest": "sha256:81f0db1d960fb37104be39afeb240344d035430e918b610eee03a7dd9ae53339",
+  "uncovered_hunks": 0,
+  "dimensions": [
+   {
+    "id": "contract",
+    "status": "covered",
+    "evidence_digest": "sha256:203c81a8ee81ea1fb2c2acbba342a46146aed696fa04a222f8515849394222ce"
+   },
+   {
+    "id": "design",
+    "status": "covered",
+    "evidence_digest": "sha256:1be7855d5d0ce632503f6c62adc8cb813473d60eac8a489a88ea53d82f25289d"
+   },
+   {
+    "id": "compatibility",
+    "status": "covered",
+    "evidence_digest": "sha256:6f5142b33420665157c118470bbcebe9b0936b3cbe7838c52ed226c6b7003242"
+   },
+   {
+    "id": "tests",
+    "status": "covered",
+    "evidence_digest": "sha256:04718a419213f0418da84b2ac1a5c62f25c39ebf10bc883257abe4aa99b32838"
+   },
+   {
+    "id": "security",
+    "status": "covered",
+    "evidence_digest": "sha256:e587c497b81e7f65d99599d86da6a2aadd364db60102d0bfec4c5547cad1ef36"
+   },
+   {
+    "id": "concurrency",
+    "status": "not_applicable",
+    "justification": "Processo deterministico unico."
+   },
+   {
+    "id": "errors-operations",
+    "status": "covered",
+    "evidence_digest": "sha256:2863589b0d2dce2ad1d578360ba235c34001a11964b8d01754901753bc3c4d13"
+   },
+   {
+    "id": "documentation",
+    "status": "covered",
+    "evidence_digest": "sha256:3df7188574dfefb628d8f31277ea08a7ba1d40cc01309682c652abe554591eaa"
+   },
+   {
+    "id": "scope-simplicity",
+    "status": "covered",
+    "evidence_digest": "sha256:869c4cc9e3237d5cdcd44fe76fa4dee4380dd474e7eb215bf960c58d69513824"
+   },
+   {
+    "id": "hunks",
+    "status": "covered",
+    "evidence_digest": "sha256:f07e0cc697e70679bb8a998ecde8955784728559b2ea1befe4fa06fcd001b958"
+   }
+  ]
+ },
+ "source_report": "/tmp/aurum-reviews/AUR-364-r5-cegoB.md",
+ "summary": "Parecer cego B do r5 (persistido em /tmp/aurum-reviews/AUR-364-r5-cegoB.md): APROVADO. MEDIU a hipotese do coordenador de que o resolvedor ja recusaria uma resolucao incompativel, e a REFUTOU: `bundle lock` escreve o lockfile mesmo com a versao de ruby divergente, exit 0; apenas `bundle check` reclama, exit 18. Delegar compatibilidade ao resolvedor nao fecharia a lacuna, e o card documenta exatamente isso em limits[6]. Tres bypasses proprios fora do harness do builder, os tres barrados com codigo tipado."
+}

@@ -1,0 +1,127 @@
+{
+ "schema": "aurum.skeptic-report",
+ "version": 1,
+ "card_id": "AUR-364",
+ "candidate_identity_digest": "sha256:273ef0896dd941af01e4867bf37a3d6a96cc81f525456c2b4edc18d45f121dd0",
+ "role": "skeptic",
+ "sealed": true,
+ "role_nonce": "aur364-r5-skeptic-7b20a35d77ec",
+ "context_digest": "sha256:355c93bd06df694ddbfde53b4573f4b21f6779ecf10eb02189375355eeb9686a",
+ "session_digest": "sha256:140414607af2cf5ff384709c1f92c249face5f2d1b23ab2c90c0713cdfe9ba0d",
+ "backend_family_digest": "sha256:4a5383b50855eaa336260e59ed2f76180783dc5255d38a09a1b758db6cb4f581",
+ "verdict": "pass",
+ "challenge_plan": {
+  "sealed_before_reviews": true,
+  "digest": "sha256:2e9e2629ddbf17f023667f648ef04f76479223393bafad9aba791e511818bce6",
+  "all_acceptance_criteria": true,
+  "all_trust_boundaries": true
+ },
+ "isolation": {
+  "reviews_visible_before_challenge_seal": false
+ },
+ "mutation": {
+  "detected": true,
+  "results": [
+   {
+    "mutation_id": "MUT-001",
+    "exit_code": 1,
+    "typed_failure": "AUR-364/AC-001/docs-tool-unlocked",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   },
+   {
+    "mutation_id": "MUT-002/cross-manifest",
+    "exit_code": 1,
+    "typed_failure": "AUR-364/AC-001/runtime-resolution-inconsistent",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   },
+   {
+    "mutation_id": "MUT-002/runtime-unresolved",
+    "exit_code": 1,
+    "typed_failure": "AUR-364/AC-001/runtime-resolution-inconsistent",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   },
+   {
+    "mutation_id": "MUT-003",
+    "exit_code": 1,
+    "typed_failure": "AUR-364/AC-001/docs-tool-mutable",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   }
+  ]
+ },
+ "undeclared_mutations": [
+  {
+   "description": "resolved.lock apagado por inteiro da arvore real",
+   "exit_code": 1,
+   "typed_failure": "docs_tool_lock_incomplete"
+  },
+  {
+   "description": "laco de inclusao de conjunto da Propriedade R removido cirurgicamente de generate_lock(), mais uma gem nao declarada e nao resolvida acrescentada",
+   "exit_code": 1,
+   "typed_failure": "docs_tool_lock_incomplete",
+   "note": "Esperava-se passe silencioso se o desenho tivesse ponto unico de falha. Foi pego por uma re-derivacao INDEPENDENTE da Propriedade R adiante no mesmo script, que reparseia os manifestos do zero em vez de reutilizar a lista de violacoes. Defesa em profundidade, nao decoracao."
+  }
+ ],
+ "law_20_declared_paths": [
+  {
+   "path": ".board/bootstrap/locks/docs.yml",
+   "exit_code": 1,
+   "typed_failure": "docs_tool_lock_incomplete"
+  },
+  {
+   "path": "docs/specs/AUR-364.md",
+   "exit_code": 1,
+   "typed_failure": "docs_tool_lock_incomplete"
+  },
+  {
+   "path": "docs/specs/AUR-364.md (conteudo adulterado, sem regenerar)",
+   "exit_code": 1,
+   "typed_failure": "docs-tool-unlocked"
+  },
+  {
+   "path": "tests/bootstrap/locks/AUR-364/cases.tsv",
+   "exit_code": 1,
+   "typed_failure": "docs-tool-unlocked"
+  },
+  {
+   "path": "tests/bootstrap/locks/AUR-364/mutations.sh",
+   "exit_code": 1,
+   "typed_failure": "docs-tool-unlocked"
+  },
+  {
+   "path": "tests/bootstrap/locks/AUR-364/verify-fixtures.sh",
+   "exit_code": 1,
+   "typed_failure": "docs-tool-unlocked"
+  },
+  {
+   "path": "tests/bootstrap/locks/AUR-364/read-paths.attested",
+   "exit_code": 1,
+   "typed_failure": "docs_tool_lock_incomplete"
+  }
+ ],
+ "law_20_result": "nenhum path sobreviveu a remocao; o conteudo adulterado tambem derruba",
+ "law_12_positive_control": {
+  "description": "toda declaracao de gem retirada dos dois Gemfiles, com fluxo honesto completo",
+  "exit_code": 1,
+  "typed_failure": "docs_tool_lock_incomplete"
+ },
+ "disclosed_limit_reproduced": {
+  "description": "ruby resolvido para 2.0.0 com jekyll 4.3.3 e sem conflito cruzado — o par exato que vetou a rodada 4 como promessa falsa",
+  "exit_code": 0,
+  "verdict": "pass",
+  "why_not_a_smuggled_pass": "O Outcome, os Non-goals, limits[6] e as secoes 5.1 e 6 do spec declaram de forma consistente que nenhum ramo deste card julga compatibilidade ferramenta-vs-runtime, apenas consistencia de resolucao. O experimento e nomeado e codificado como disclosed_runtime_not_compatibility_checked, com passe esperado. Cruzado com .board/requirements/REQUIREMENTS.md: PR-SUP-001 exige verificar locks antes do primeiro uso, nao julgar compatibilidade cruzada — logo o estreitamento da rodada 5 corrige um exagero anterior do texto do card, e nao evade o requisito coberto."
+ },
+ "clean_replay": {
+  "pass": true,
+  "runs": 2,
+  "stdout_sha256": "sha256:86a0eea17f9c117bd6873c2f708ba3af31e913975b43c47fbee0b91221087ee5"
+ },
+ "secret_canaries": {
+  "pass": true,
+  "leaked": 0
+ },
+ "summary": "Selo cetico do r5 (persistido em /tmp/aurum-reviews/AUR-364-r5-cetico.md): APROVADO. As quatro mutacoes declaradas foram executadas na arvore real, cada uma com o Expected do card comparado ao observado por cmp e casando byte a byte. Duas mutacoes nao declaradas: apagar o resolved.lock e remover cirurgicamente o laco da Propriedade R — a segunda foi pega por uma re-derivacao independente adiante no proprio script, o que e defesa em profundidade e nao decoracao. Lei 20 rodada nos quatro paths declarados mais os cinco arquivos de fixture, incluindo adulteracao de CONTEUDO e nao so remocao: nenhum sobreviveu."
+}

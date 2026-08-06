@@ -1,0 +1,344 @@
+schema: bootstrap-lock-v5
+card: AUR-364
+generated_without_network: true
+derivation[1]: tool identity derived from machine-readable manifest grammars, keyed on (manifest, name)
+derivation[2]: every non-manifest read_path sealed by whole-file sha256, never interpreted
+derivation[3]: every resolved version and artifact digest read from the card resolution artifact; no dependency constraint is interpreted anywhere
+trusted_registry: https://rubygems.org
+resolution.path: tests/bootstrap/locks/AUR-364/resolved.lock
+resolution.present: true
+resolution.sha256: sha256:96ae562e29f8f2d43116d7b9a9651f5f3382ae7206991b48a86ec25cbcdae028
+resolution.schema: bootstrap-resolution-v1
+resolution.digest_domain: synthetic-offline-identifier-v1
+spec.path: docs/specs/AUR-364.md
+spec.sha256: sha256:c53cc6a1d7792a589d297dd7bf6b2a38a43729e16211606b126ee0e03d06edb9
+card_artifact.dir: tests/bootstrap/locks/AUR-364
+card_artifact.count: 5
+card_artifact[1].path: tests/bootstrap/locks/AUR-364/cases.tsv
+card_artifact[1].bytes: 8118
+card_artifact[1].sha256: sha256:079a8d331ec36c9e4fa153ad353f5f2f0005d1523ed7e1ca2afb8cd8d39aa7fe
+card_artifact[2].path: tests/bootstrap/locks/AUR-364/mutations.sh
+card_artifact[2].bytes: 32571
+card_artifact[2].sha256: sha256:321bc8f570ad7329b14a3b6a830441705fceb63b895982e7649dfb72f115e16c
+card_artifact[3].path: tests/bootstrap/locks/AUR-364/read-paths.attested
+card_artifact[3].bytes: 404
+card_artifact[3].sha256: sha256:ba37c3255c2e3f2ea0309068d04691cefc78daeec260792479806a50f76aa995
+card_artifact[4].path: tests/bootstrap/locks/AUR-364/resolved.lock
+card_artifact[4].bytes: 2063
+card_artifact[4].sha256: sha256:96ae562e29f8f2d43116d7b9a9651f5f3382ae7206991b48a86ec25cbcdae028
+card_artifact[5].path: tests/bootstrap/locks/AUR-364/verify-fixtures.sh
+card_artifact[5].bytes: 17517
+card_artifact[5].sha256: sha256:5ee7a22a2982a8ac0fa69826e49b08c649aa65b8ac808b9d7bdec2898e295200
+read_path[1].path: Gemfile
+read_path[1].role: manifest
+read_path[1].format: bundler
+read_path[1].bytes: 169
+read_path[1].lines: 8
+read_path[1].sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+read_path[2].path: .aurumcode/Gemfile
+read_path[2].role: manifest
+read_path[2].format: bundler
+read_path[2].bytes: 697
+read_path[2].lines: 30
+read_path[2].sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+read_path[3].path: .docker/docs.Dockerfile
+read_path[3].role: document
+read_path[3].format: opaque
+read_path[3].bytes: 6338
+read_path[3].lines: 179
+read_path[3].sha256: sha256:48c231088bdda36cee3538f9c9fd6e8b4e8b9d2d3bdb13d61c7dc63ebf2444d7
+read_path[4].path: .github/workflows/documentation.yml
+read_path[4].role: document
+read_path[4].format: opaque
+read_path[4].bytes: 9572
+read_path[4].lines: 269
+read_path[4].sha256: sha256:bc62dd16f5926f806b7b20891cb23d13681720b81b581d37e105d8d142a7b4d9
+manifest[1].path: Gemfile
+manifest[1].format: bundler
+manifest[1].runtime: ruby
+manifest[1].source: https://rubygems.org
+manifest[1].sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+manifest[1].required_resolution: tests/bootstrap/locks/AUR-364/resolved.lock
+manifest[1].lines_total: 8
+manifest[1].lines_accounted: 8
+manifest[1].declarations: 6
+manifest[2].path: .aurumcode/Gemfile
+manifest[2].format: bundler
+manifest[2].runtime: ruby
+manifest[2].source: https://rubygems.org
+manifest[2].sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+manifest[2].required_resolution: tests/bootstrap/locks/AUR-364/resolved.lock
+manifest[2].lines_total: 30
+manifest[2].lines_accounted: 30
+manifest[2].declarations: 11
+document[1].path: .docker/docs.Dockerfile
+document[1].sha256: sha256:48c231088bdda36cee3538f9c9fd6e8b4e8b9d2d3bdb13d61c7dc63ebf2444d7
+document[1].bytes: 6338
+document[1].lines: 179
+document[1].interpreted: false
+document[1].install_instructions: uninterpreted-sealed-by-whole-file-digest
+document[2].path: .github/workflows/documentation.yml
+document[2].sha256: sha256:bc62dd16f5926f806b7b20891cb23d13681720b81b581d37e105d8d142a7b4d9
+document[2].bytes: 9572
+document[2].lines: 269
+document[2].interpreted: false
+document[2].install_instructions: uninterpreted-sealed-by-whole-file-digest
+runtime[1].family: ruby
+runtime[1].resolved_version: 3.2.2
+runtime[1].artifact_digest: sha256:d14648f63b1e8bfc6c659bae2112f8540c707703e441fd91ce8f699a6ecbc844
+runtime[1].manifests: Gemfile;.aurumcode/Gemfile
+tool[1].name: http_parser.rb
+tool[1].declared_in: .aurumcode/Gemfile
+tool[1].runtime: ruby
+tool[1].manifest_format: bundler
+tool[1].version_constraint: ~> 0.6.0
+tool[1].constraint_interpreted: false
+tool[1].resolved_version: 0.6.0
+tool[1].artifact_digest: sha256:56c926938af9ae23e5b1d982e5bc93aa6568c86d34edcad47e642b5e38e84b4d
+tool[1].runtime_version: 3.2.2
+tool[1].declaration_sha256: sha256:6f064f7d78b057d16ba96807acc0e39be0aa12a4f7e7c6b0df31a5b3ba541d5b
+tool[1].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[1].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[1].output_schema: ^http_parser\.rb \(0\.6\.0\)$
+tool[2].name: jekyll
+tool[2].declared_in: .aurumcode/Gemfile
+tool[2].runtime: ruby
+tool[2].manifest_format: bundler
+tool[2].version_constraint: ~> 4.3.3
+tool[2].constraint_interpreted: false
+tool[2].resolved_version: 4.3.3
+tool[2].artifact_digest: sha256:c7721ce51837898e2a961a28588e2ea6bde03a5170eb0b2779a3663101a23d23
+tool[2].runtime_version: 3.2.2
+tool[2].declaration_sha256: sha256:cd4af7af782e9b339cb5d7002fe397a7e654b30bd14933e471b5abf20a76713b
+tool[2].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[2].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[2].output_schema: ^jekyll \(4\.3\.3\)$
+tool[3].name: jekyll
+tool[3].declared_in: Gemfile
+tool[3].runtime: ruby
+tool[3].manifest_format: bundler
+tool[3].version_constraint: ~> 4.3
+tool[3].constraint_interpreted: false
+tool[3].resolved_version: 4.3.3
+tool[3].artifact_digest: sha256:c7721ce51837898e2a961a28588e2ea6bde03a5170eb0b2779a3663101a23d23
+tool[3].runtime_version: 3.2.2
+tool[3].declaration_sha256: sha256:04c3511a8cb33de534fa063536012070afcfd30e6eeca5a4e9cb7a5573cfc63c
+tool[3].manifest_sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+tool[3].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[3].output_schema: ^jekyll \(4\.3\.3\)$
+tool[4].name: jekyll-feed
+tool[4].declared_in: .aurumcode/Gemfile
+tool[4].runtime: ruby
+tool[4].manifest_format: bundler
+tool[4].version_constraint: ~> 0.12
+tool[4].constraint_interpreted: false
+tool[4].resolved_version: 0.17.0
+tool[4].artifact_digest: sha256:7fa762597ad85e22066234263bedf730af4f1074dcabef0033d9d2e74eaeb788
+tool[4].runtime_version: 3.2.2
+tool[4].declaration_sha256: sha256:d783c0a25e4fc76b0681ac2551994ea4366cc21f1f458fbee7cf838ca16fe485
+tool[4].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[4].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[4].output_schema: ^jekyll-feed \(0\.17\.0\)$
+tool[5].name: jekyll-seo-tag
+tool[5].declared_in: .aurumcode/Gemfile
+tool[5].runtime: ruby
+tool[5].manifest_format: bundler
+tool[5].version_constraint: ~> 2.8
+tool[5].constraint_interpreted: false
+tool[5].resolved_version: 2.8.0
+tool[5].artifact_digest: sha256:4cfde1d9bf944811c660ba79c777ac07074ef25342257de48b4c5a12b81f1268
+tool[5].runtime_version: 3.2.2
+tool[5].declaration_sha256: sha256:38e4ed9cce29f8db0716cd3555bfa5a73de55a8caffba6371778811a2fcfe9e8
+tool[5].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[5].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[5].output_schema: ^jekyll-seo-tag \(2\.8\.0\)$
+tool[6].name: jekyll-seo-tag
+tool[6].declared_in: Gemfile
+tool[6].runtime: ruby
+tool[6].manifest_format: bundler
+tool[6].version_constraint: -
+tool[6].constraint_interpreted: false
+tool[6].resolved_version: 2.8.0
+tool[6].artifact_digest: sha256:4cfde1d9bf944811c660ba79c777ac07074ef25342257de48b4c5a12b81f1268
+tool[6].runtime_version: 3.2.2
+tool[6].declaration_sha256: sha256:52f670aec9d502c181a0147e40b34e290033d6e2444b2b923cbde03ec20ce2e1
+tool[6].manifest_sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+tool[6].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[6].output_schema: ^jekyll-seo-tag \(2\.8\.0\)$
+tool[7].name: jekyll-sitemap
+tool[7].declared_in: .aurumcode/Gemfile
+tool[7].runtime: ruby
+tool[7].manifest_format: bundler
+tool[7].version_constraint: ~> 1.4
+tool[7].constraint_interpreted: false
+tool[7].resolved_version: 1.4.0
+tool[7].artifact_digest: sha256:7bbc0a11e57f8667b7422ea8da887176efa28a740df6de81317c529425b88c48
+tool[7].runtime_version: 3.2.2
+tool[7].declaration_sha256: sha256:7092b6875f23c1b2d12f48426f7a00ae506b743ddc1670536c7cb6a139a22c15
+tool[7].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[7].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[7].output_schema: ^jekyll-sitemap \(1\.4\.0\)$
+tool[8].name: jekyll-sitemap
+tool[8].declared_in: Gemfile
+tool[8].runtime: ruby
+tool[8].manifest_format: bundler
+tool[8].version_constraint: -
+tool[8].constraint_interpreted: false
+tool[8].resolved_version: 1.4.0
+tool[8].artifact_digest: sha256:7bbc0a11e57f8667b7422ea8da887176efa28a740df6de81317c529425b88c48
+tool[8].runtime_version: 3.2.2
+tool[8].declaration_sha256: sha256:5c2f4d3b29abbbcbae43cf9ba7547767e0abb273b123b06a3f947816a2960b9a
+tool[8].manifest_sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+tool[8].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[8].output_schema: ^jekyll-sitemap \(1\.4\.0\)$
+tool[9].name: just-the-docs
+tool[9].declared_in: .aurumcode/Gemfile
+tool[9].runtime: ruby
+tool[9].manifest_format: bundler
+tool[9].version_constraint: ~> 0.8.0
+tool[9].constraint_interpreted: false
+tool[9].resolved_version: 0.8.0
+tool[9].artifact_digest: sha256:ecffb4f6a153ced806ef974732b03d972cc7b7eeea4c6139337addc13bd4d8f2
+tool[9].runtime_version: 3.2.2
+tool[9].declaration_sha256: sha256:450451442a227b575744c5e658969cb1ba040c747d8ed90cf1b275caeb153beb
+tool[9].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[9].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[9].output_schema: ^just-the-docs \(0\.8\.0\)$
+tool[10].name: just-the-docs
+tool[10].declared_in: Gemfile
+tool[10].runtime: ruby
+tool[10].manifest_format: bundler
+tool[10].version_constraint: 0.8.0
+tool[10].constraint_interpreted: false
+tool[10].resolved_version: 0.8.0
+tool[10].artifact_digest: sha256:ecffb4f6a153ced806ef974732b03d972cc7b7eeea4c6139337addc13bd4d8f2
+tool[10].runtime_version: 3.2.2
+tool[10].declaration_sha256: sha256:939abd56c50e4bf379b9df1f2e11f815c2872f4a600c778cb7c72d89ae301672
+tool[10].manifest_sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+tool[10].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[10].output_schema: ^just-the-docs \(0\.8\.0\)$
+tool[11].name: sass-embedded
+tool[11].declared_in: .aurumcode/Gemfile
+tool[11].runtime: ruby
+tool[11].manifest_format: bundler
+tool[11].version_constraint: 1.69.4
+tool[11].constraint_interpreted: false
+tool[11].resolved_version: 1.69.4
+tool[11].artifact_digest: sha256:3ea56a8e0859c07318a4cef571b41956079e59ccb68e4ddfbb6c43f97ad591df
+tool[11].runtime_version: 3.2.2
+tool[11].declaration_sha256: sha256:f4d77dd9abe333409ddcacac19ee7e4e7bc3f614db272d1dc96e8445a9b117a2
+tool[11].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[11].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[11].output_schema: ^sass-embedded \(1\.69\.4\)$
+tool[12].name: sass-embedded
+tool[12].declared_in: Gemfile
+tool[12].runtime: ruby
+tool[12].manifest_format: bundler
+tool[12].version_constraint: 1.69.4
+tool[12].constraint_interpreted: false
+tool[12].resolved_version: 1.69.4
+tool[12].artifact_digest: sha256:3ea56a8e0859c07318a4cef571b41956079e59ccb68e4ddfbb6c43f97ad591df
+tool[12].runtime_version: 3.2.2
+tool[12].declaration_sha256: sha256:e189c1a3baf9befb0ccbe374211a63943923c672fd4a4a6d4347839e95c30e11
+tool[12].manifest_sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+tool[12].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[12].output_schema: ^sass-embedded \(1\.69\.4\)$
+tool[13].name: tzinfo
+tool[13].declared_in: .aurumcode/Gemfile
+tool[13].runtime: ruby
+tool[13].manifest_format: bundler
+tool[13].version_constraint: >= 1,< 3
+tool[13].constraint_interpreted: false
+tool[13].resolved_version: 2.0.6
+tool[13].artifact_digest: sha256:74ec452d9d92dab828d6118ff2ed24e7825a1b2732650994a21c7d9f916a7c27
+tool[13].runtime_version: 3.2.2
+tool[13].declaration_sha256: sha256:933ac264e069dd8f730ec13b40b74231f7ab77118742e63a002315f95fc73f39
+tool[13].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[13].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[13].output_schema: ^tzinfo \(2\.0\.6\)$
+tool[14].name: tzinfo-data
+tool[14].declared_in: .aurumcode/Gemfile
+tool[14].runtime: ruby
+tool[14].manifest_format: bundler
+tool[14].version_constraint: -
+tool[14].constraint_interpreted: false
+tool[14].resolved_version: 1.2024.1
+tool[14].artifact_digest: sha256:09a10d0dd682c4c7a7d986d06570b1df5d774589ad3384d2779134f29b9db08a
+tool[14].runtime_version: 3.2.2
+tool[14].declaration_sha256: sha256:d09b39d5982df6417c4bb239545602d367d57339cfb5e999f8f8ac5ec680154e
+tool[14].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[14].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[14].output_schema: ^tzinfo-data \(1\.2024\.1\)$
+tool[15].name: wdm
+tool[15].declared_in: .aurumcode/Gemfile
+tool[15].runtime: ruby
+tool[15].manifest_format: bundler
+tool[15].version_constraint: ~> 0.1
+tool[15].constraint_interpreted: false
+tool[15].resolved_version: 0.1.1
+tool[15].artifact_digest: sha256:dd64baa4989461ed821b9030b63b6ef1c410f6561cc93263abfcd39251c875fb
+tool[15].runtime_version: 3.2.2
+tool[15].declaration_sha256: sha256:89452b03aca269edcbee25862ac784910214c6561f93884d994732567ee828f2
+tool[15].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[15].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[15].output_schema: ^wdm \(0\.1\.1\)$
+tool[16].name: webrick
+tool[16].declared_in: .aurumcode/Gemfile
+tool[16].runtime: ruby
+tool[16].manifest_format: bundler
+tool[16].version_constraint: ~> 1.8
+tool[16].constraint_interpreted: false
+tool[16].resolved_version: 1.8.1
+tool[16].artifact_digest: sha256:9011451b5817f05bcf2b4529cece6d61751b7700b7efdf1715dddcbed3b124c2
+tool[16].runtime_version: 3.2.2
+tool[16].declaration_sha256: sha256:95e22145b4d4d223fd965695b1e73f182c92acc670babe7be77ecdd423e25580
+tool[16].manifest_sha256: sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+tool[16].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[16].output_schema: ^webrick \(1\.8\.1\)$
+tool[17].name: webrick
+tool[17].declared_in: Gemfile
+tool[17].runtime: ruby
+tool[17].manifest_format: bundler
+tool[17].version_constraint: -
+tool[17].constraint_interpreted: false
+tool[17].resolved_version: 1.8.1
+tool[17].artifact_digest: sha256:9011451b5817f05bcf2b4529cece6d61751b7700b7efdf1715dddcbed3b124c2
+tool[17].runtime_version: 3.2.2
+tool[17].declaration_sha256: sha256:67b37178277c5e847db30c7782ba1e315b804d689a23fe9d3e3054fb5c60735e
+tool[17].manifest_sha256: sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+tool[17].allowlisted_command: bundle config set --local path 'vendor/bundle' && bundle install --deployment && bundle exec <tool>
+tool[17].output_schema: ^webrick \(1\.8\.1\)$
+count.read_paths: 4
+count.manifests: 2
+count.documents: 2
+count.declarations: 17
+count.resolution_records: 17
+count.tools: 17
+violations: none
+violations_total: 0
+limits[1].scope: document read_paths are sealed by whole-file digest and are never interpreted
+limits[1].consequence: this card proves no read_path byte changed without a deliberate reseal; it does not classify what a documentation command does
+limits[2].scope: tool identity is derived only from read_paths whose basename is a registered dependency-manifest format
+limits[2].consequence: a manifest format with no registered parser stops the accept instead of being guessed at or demoted to an opaque document
+limits[3].scope: this repository ships no ecosystem-native resolved lockfile (no Gemfile.lock, no .aurumcode/Gemfile.lock) and neither is a read_path of this card
+limits[3].consequence: the required resolution source is the card-scoped artifact named in resolution.path; its absence is a typed failure, and a future Gemfile.lock must be added to the card read_paths before it can be honoured
+limits[4].scope: artifact digests come from the resolution artifact under the declared digest-domain and are NOT verified against rubygems.org, because the accept has no network
+limits[4].consequence: this card proves every tool has exactly one well-formed digest, that one artifact identity maps to one digest, that no two artifacts share a digest, and that the value is byte-stable across runs; it does NOT prove the digest equals the upstream .gem checksum
+limits[5].scope: dependency constraints are recorded verbatim and never interpreted
+limits[5].consequence: a constraint that would admit many versions is neither blessed nor rejected by its syntax; what binds is the exact resolved version, so a version-less or open-bounded declaration fails unless the resolution names one exact release for that exact (manifest, name) pair
+limits[6].scope: the resolved runtime version is checked for RESOLUTION CONSISTENCY only and is NEVER compared against any tool version; this card performs no compatibility judgement of any kind
+limits[6].consequence: this card proves that every manifest format has its runtime family resolved to exactly one exact version, that every resolved runtime is used by some manifest, and that every tool[] entry cites that same family and that same version; it does NOT prove the resolved runtime satisfies a tool required_ruby_version, and it never could offline, because that metadata lives in the upstream gemspec and appears in no read_path of this card
+limits[6].why_not_delegated: an ecosystem resolver is not a substitute either. Measured with bundler 2.4.19 under ruby 3.2.11 on 2026-08-06: a manifest declaring the runtime pin 2.4.0 together with a documentation dependency whose upstream gemspec requires runtime >= 2.5.0 produced a resolution with exit 0 and recorded the RUNNING interpreter 3.2.11p268, not the declared pin. The resolver enforces the upstream runtime requirement against the interpreter executing it (measured in the opposite direction: bundler 1.17.3 under ruby 2.4.10 refused the same dependency with exit 6), never against a declared runtime version, so the existence of a resolution is not evidence that a declared runtime pin is compatible with a resolved dependency. The names, versions and full command lines of both measurements are in section 6 of the spec sealed above, which is a document rather than executable code
+limits[6].why_not_runnable: the one bundler subcommand that does refuse a declared/running runtime mismatch is not available to this accept either. Measured on 2026-08-06: bundle check and bundle install on that same Gemfile both exited 18 with "Your Ruby version is 3.2.11, but your Gemfile specified 2.4.0" - an equality test between the declared pin and the interpreter already executing, not a tool-versus-runtime judgement - and the sealed accept image bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831 has no ruby, no bundle and no gem at all (command -v for all three exited 127), so no resolver can run inside the accept and no lockfile it produced could be trusted as evidence without also trusting the network it needed
+limits[6].error_code: the code emitted by the checks in this scope is runtime-resolution-inconsistent, named for what it verifies; it was called runtime-incompatible through round 4 and that name promised a comparison no branch of this card has ever performed
+nonderivable[1].field: trusted_registry
+nonderivable[1].justification: the single gem origin this card accepts is a trust decision, not a fact extracted from read_path bytes; it is an allowlist of one, so an unanticipated origin fails rather than passes
+nonderivable[2].field: format registry (basename -> manifest format)
+nonderivable[2].justification: which basenames name a machine-readable dependency manifest is ecosystem knowledge; every non-match falls through to the whole-file-digest path, so the registry can never create a blind spot
+nonderivable[3].field: tool[*].allowlisted_command
+nonderivable[3].justification: one template per manifest format, deliberately narrower than the raw source (no network install at accept time); instantiated identically for every tool, never looked up per name
+nonderivable[4].field: tool[*].output_schema
+nonderivable[4].justification: one regex template per manifest format with the derived name and the resolved version substituted in; not present in any read_path
+nonderivable[5].field: resolution.path and resolution.digest_domain
+nonderivable[5].justification: which artifact resolves a manifest format, and under which digest domain, are trust decisions; both are allowlists of one, so an unanticipated resolution source or digest domain fails rather than passes
+end: bootstrap-lock-v5
