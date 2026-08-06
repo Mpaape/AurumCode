@@ -1,0 +1,28 @@
+# Second-reader exemption registry -- a ratchet, never an escape hatch.
+#
+# Format: <card id> TAB <reason>.
+#
+# count: 2 entry(ies) across 2 card(s)
+#
+# `.board/validate.sh` derives that number from the entries below and requires
+# `.board/README.md` to carry the identical sentence. No other line here may
+# count anything.
+#
+# The second reader is reachable only through a concrete
+# Unit/Contract/Integration/E2E citation. A card whose four layers all read
+# `not-applicable: <reason>` therefore never touched it, and until this registry
+# existed that absence was silent: the card simply skipped the gate and nothing
+# in the board said so. Two cards sat in `done` in exactly that shape, one of
+# them justifying itself with "o comportamento e local e coberto pelo
+# acceptance" -- covered, that is, by the single engine this gate exists to
+# distrust.
+#
+# So the absence is named instead of hidden, and it is printed on every
+# validate.sh run as `board note:`. The registry only shrinks:
+# `.board/validate.sh` refuses an entry for a card that is not in `done`, for a
+# card that has since started citing a concrete layer test, and for any card
+# outside the frozen set compiled into `.board/validate.sh`. A card entering
+# `review` or `done` from now on cannot be added -- it must hand the second
+# reader something it can execute.
+AUR-016	All four TDD layers are not-applicable, so no artifact exists for either second-reader engine to run; the delivered artifact is the ISO 25010 policy table and only the acceptance program reads it, which is one engine deciding alone.
+AUR-017	All four TDD layers are not-applicable, so no artifact exists for either second-reader engine to run; the delivered artifact is the pinned SARIF/diff/JSON-Schema/OpenAPI version table and only the acceptance program reads it, which is one engine deciding alone.

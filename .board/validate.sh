@@ -76,6 +76,71 @@ declare -A non_goal_owners=()
 # `And` bullet of each scenario, and Non-goal bullets beyond the first.
 declare -A scenario_and_owners=()
 declare -A non_goal_extra_owners=()
+# --- second reader ------------------------------------------------------------
+# `.board/bin/oci-run` runs exactly one program -- the card's own acceptance
+# script -- inside a pinned Alpine/BusyBox image that has no language toolchain,
+# and it materializes only that card's `paths`/`read_paths`. A `## TDD proof`
+# line that cites `tests/integration/AUR-0NN_test.go::TestX` was therefore never
+# executed by any gate: the citation was prose. Three independent reviewers
+# reproduced the consequence on three cards. Everything below makes the cited
+# test a thing that ran, and makes the record of that run recomputable rather
+# than asserted: every fact the observation JSON states is re-derived here from
+# the raw captured bytes, and a fact that disagrees with the bytes loses.
+declare -A card_layer_specs=()
+declare -A second_reader_legacy=()
+declare -A second_reader_exempt=()
+declare -a second_reader_debt=()
+declare -a second_reader_exempt_debt=()
+declare -a second_reader_skipped=()
+second_reader_executed=0
+second_reader_matched=0
+readonly second_reader_control_selector='AURUM-SECOND-READER-CONTROL'
+readonly second_reader_legacy_file='.board/second-reader-legacy.tsv'
+readonly second_reader_exempt_file='.board/second-reader-exempt.tsv'
+readonly second_reader_legacy_dir='.board/tests/second-reader-legacy'
+readonly second_reader_log_schema='=== second-reader-log v1'
+readonly second_reader_readme='.board/README.md'
+readonly second_reader_go_lock='.board/locks/oci/second-reader-go-v1.lock.json'
+readonly second_reader_shell_lock='.board/locks/oci/second-reader-shell-v1.lock.json'
+# The cutover, frozen in the validator rather than in the data it judges. The
+# ratchet rules below refuse an entry that went stale; this list refuses an
+# entry that was never part of the migration in the first place, which is the
+# one thing a card could otherwise do in the same commit that moves it to
+# `done`. Growing either registry is a change to THIS file -- a reviewed code
+# change with its own mutant -- and can never be a data-only edit.
+readonly second_reader_legacy_frozen='
+AUR-020/Integration
+AUR-021/Integration
+AUR-359/Contract
+AUR-359/E2E
+AUR-359/Integration
+AUR-360/Contract
+AUR-360/E2E
+AUR-360/Integration
+AUR-362/Contract
+AUR-362/E2E
+AUR-362/Integration
+AUR-363/Contract
+AUR-363/E2E
+AUR-363/Integration
+'
+readonly second_reader_exempt_frozen='
+AUR-016
+AUR-017
+'
+# `recompute` is the floor and is never bypassable: the structural and raw-log
+# recomputation gates below always run. `exec` is the DEFAULT and additionally
+# re-runs the second reader through `.board/bin/second-reader --verify`.
+#
+# Law 4 and law 11 together decide what happens when `exec` cannot run: a
+# missing OCI engine is infrastructure, so it is never behavioral red -- and it
+# is never a pass either. Every layer that was not re-executed is named on
+# stderr as it is skipped, counted, and summarized, and the run ends
+# INCONCLUSIVE (exit 3). A `done` transition may only be authorized by a run
+# that exited 0, which is exactly the run in which every layer was re-executed.
+second_reader_mode="${AURUM_SECOND_READER:-exec}"
+[[ "$second_reader_mode" =~ ^(recompute|exec)$ ]] ||
+  second_reader_mode='exec'
 
 fail() {
   failed=1
@@ -387,6 +452,7 @@ validate_owned_test_path() {
   }
   [[ "$test_path" == tests/* || "$test_path" == *_test.go ]] ||
     fail "$card: $label test artifact must be under tests/ or name an owned _test.go file: $test_path"
+  # RULE:second-reader-test-owned
   for owner in "$@"; do
     if path_is_within "$test_path" "$owner"; then
       owned=1
@@ -394,14 +460,86 @@ validate_owned_test_path() {
     fi
   done
   (( owned == 1 )) || fail "$card: $label TDD test is outside owned paths: $test_path"
+  # /RULE:second-reader-test-owned
+}
+
+# The engine that can execute a citation, derived from the citation itself. A
+# `_test.go` file is a Go test binary; a `.sh` file under `tests/` is an
+# acceptance program dispatched by selector argument. Anything else names an
+# artifact no second reader can run, and a card cannot promise a test nobody
+# can execute.
+second_reader_engine() {
+  case "$1" in
+    *_test.go) printf 'go' ;;
+    *.sh) printf 'shell' ;;
+    *) printf '' ;;
+  esac
+}
+
+# A selector is card-supplied text and its charset allows `.`, `-` and `/`. Every
+# place a selector reaches a regular expression it goes through here first, so
+# `TestA.B` can never match `TestAxB`: a metacharacter that is not escaped is a
+# narrow fail-open, and fail-open is the one direction this gate may not take.
+ere_escape() {
+  printf '%s' "$1" | sed -e 's/[][\.^$*+?(){}|\/-]/\\&/g'
+}
+
+# The digest-pinned image a second-reader run of this engine must have used. The
+# lock is the authority; the `=== image:` frame the runner wrote is data, and
+# data that disagrees with the lock does not describe a run this board pins.
+second_reader_lock_image() {
+  local engine="$1" lock_rel value
+  case "$engine" in
+    go) lock_rel="$second_reader_go_lock" ;;
+    shell) lock_rel="$second_reader_shell_lock" ;;
+    *) printf ''; return 1 ;;
+  esac
+  [[ -f "$repo_root/$lock_rel" && ! -L "$repo_root/$lock_rel" ]] || { printf ''; return 1; }
+  value="$(sed -n 's/.*"image"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$repo_root/$lock_rel" | head -n 1)"
+  [[ "$value" =~ ^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]] || { printf ''; return 1; }
+  printf '%s' "$value"
+}
+
+# The canonical command for a layer citation, rebuilt here from the card alone.
+# `.board/bin/second-reader` builds the identical string, and the raw log must
+# record it byte for byte, so a recorded run can never have executed a selector
+# other than the one the card declares.
+second_reader_command() {
+  local engine="$1" test_path="$2" selector="$3"
+  case "$engine" in
+    go) printf 'go test ./%s/... -run ^%s$ -v -count=1' "$(dirname "$test_path")" "$selector" ;;
+    shell) printf 'bash %s %s' "$test_path" "$selector" ;;
+    *) printf '' ;;
+  esac
+}
+
+# Does the cited artifact itself define the cited selector? For Go the selector
+# may name a subtest (`TestX/case`), and only the top function is declared in
+# the file. For a shell acceptance program the selector is a dispatcher arm, so
+# the literal must appear in the script.
+second_reader_file_defines_selector() {
+  local engine="$1" test_path="$2" selector="$3" top
+  [[ -f "$repo_root/$test_path" && ! -L "$repo_root/$test_path" ]] || return 1
+  case "$engine" in
+    go)
+      top="$(ere_escape "${selector%%/*}")"
+      grep -Eq "^func[[:space:]]+${top}\(" "$repo_root/$test_path"
+      ;;
+    shell)
+      grep -Fq -- "$selector" "$repo_root/$test_path"
+      ;;
+    *) return 1 ;;
+  esac
 }
 
 validate_tdd_layer() {
   local card="$1"
-  local layer="$2"
-  local tdd="$3"
-  shift 3
-  local line count test_path selector reason
+  local id="$2"
+  local state="$3"
+  local layer="$4"
+  local tdd="$5"
+  shift 5
+  local line count test_path selector reason engine
 
   count="$(grep -Ec "^- $layer: .+" <<< "$tdd" || true)"
   [[ "$count" -eq 1 ]] || {
@@ -419,9 +557,242 @@ validate_tdd_layer() {
     selector="${BASH_REMATCH[2]}"
     [[ -n "$selector" ]] || fail "$card: $layer test selector is empty"
     validate_owned_test_path "$card" "$layer" "$test_path" "$@"
+    engine="$(second_reader_engine "$test_path")"
+    # RULE:second-reader-runnable-kind
+    # A citation nobody can execute is prose with backticks around it. The rule
+    # binds at the boundary a card crosses on the way to evidence, so planned
+    # `backlog` work may still describe an artifact that does not exist yet.
+    if [[ -z "$engine" && "$state" =~ ^(review|done)$ ]]; then
+      fail "$card: $layer cites an artifact no second-reader engine can execute (expected *_test.go or *.sh): $test_path"
+    fi
+    # /RULE:second-reader-runnable-kind
+    # RULE:second-reader-file-exists
+    # `doing` is exempt on purpose and the asymmetry is the TDD protocol, not an
+    # oversight: the acceptance `Test:` is sealed by an isolated test designer
+    # BEFORE a builder starts, which is why it must already exist at `doing`,
+    # while the Unit/Contract/Integration/E2E artifacts are the builder's own
+    # output. From `review` on, a cited layer test is a delivered artifact.
+    if [[ "$state" =~ ^(review|done)$ ]]; then
+      if [[ ! -e "$repo_root/$test_path" && ! -L "$repo_root/$test_path" ]]; then
+        fail "$card: $state card cites $layer test $test_path, which does not exist"
+      elif [[ ! -f "$repo_root/$test_path" || -L "$repo_root/$test_path" ]]; then
+        fail "$card: $layer test must be a regular non-symlink file: $test_path"
+      elif [[ ! -s "$repo_root/$test_path" ]]; then
+        fail "$card: $layer test exists but is empty: $test_path"
+      fi
+    fi
+    # /RULE:second-reader-file-exists
+    # RULE:second-reader-selector-defined
+    # Ownership, existence, non-emptiness and the sha256 of the cited file say
+    # nothing about whether that file DEFINES the selector. The Go command is
+    # package-scoped (`go test ./<dir>/... -run ^SEL$`), so an owned `_test.go`
+    # containing no test at all, citing a NEIGHBOURING card's selector from the
+    # same package, satisfied every other rule and produced a green log with a
+    # real `--- PASS:` line in it. The binding the log cannot supply is
+    # recomputed here, from the cited bytes: the file must define the selector.
+    if [[ "$state" =~ ^(review|done)$ && -n "$engine" && -s "$repo_root/$test_path" && ! -L "$repo_root/$test_path" ]] &&
+      ! second_reader_file_defines_selector "$engine" "$test_path" "$selector"; then
+      fail "$card: $layer cites $test_path, which does not define the selector $selector; the log would bind a test this file never carried"
+    fi
+    # /RULE:second-reader-selector-defined
+    card_layer_specs[$id]+="$layer"$'\t'"$test_path"$'\t'"$selector"$'\t'"$engine"$'\t'"$line"$'\n'
     return
   fi
   fail "$card: $layer must be exactly a backtick-delimited path::selector or not-applicable with a concrete reason"
+}
+
+# Re-derives, from the raw captured bytes alone, every fact a second-reader
+# observation claims. Nothing here reads the observation JSON: the log is the
+# record, the JSON is a summary of it, and a summary that disagrees with the
+# record loses. `second_reader_matched` carries the recomputed match count back
+# to the caller.
+#
+# The capture regions are written with a `| ` prefix on every line by
+# `.board/bin/second-reader`. That prefix is what makes the frames unforgeable:
+# a test that prints `=== exit: 0` lands inside the region as `| === exit: 0`
+# and can never become a frame line, and any unprefixed line inside a region is
+# rejected outright.
+second_reader_verify_log() {
+  local card="$1" layer="$2" test_path="$3" selector="$4" engine="$5"
+  local log_file="$6" label="$7"
+  local frame expected_command expected_file_digest region exit_line
+  local control_command control_exit_line matched expected_image selector_ere
+
+  second_reader_matched=0
+  [[ -f "$log_file" && ! -L "$log_file" ]] || {
+    fail "$label: the raw second-reader log is missing or not a regular file"
+    return 1
+  }
+  [[ "$(head -n 1 "$log_file")" == "$second_reader_log_schema" ]] || {
+    fail "$label: the raw second-reader log does not carry the canonical schema header"
+    return 1
+  }
+  expected_file_digest="sha256:$(sha256sum "$repo_root/$test_path" | awk '{print $1}')"
+  expected_command="$(second_reader_command "$engine" "$test_path" "$selector")"
+  [[ -n "$expected_command" ]] || {
+    fail "$label: no second-reader engine can execute $test_path"
+    return 1
+  }
+  # RULE:second-reader-image-pinned
+  # `=== image:` is written by the runner, so on its own it is a claim about
+  # which image ran. Recomputing it from the lock is what turns it into a
+  # binding: a record produced in some other image no longer describes a run
+  # this board pinned, whoever wrote the frame.
+  expected_image="$(second_reader_lock_image "$engine" || true)"
+  [[ -n "$expected_image" ]] || {
+    fail "$label: no digest-pinned second-reader image lock is readable for the $engine engine"
+    return 1
+  }
+  grep -Fqx -- "=== image: $expected_image" "$log_file" || {
+    fail "$label: the recorded run does not name the locked $engine image; missing frame: === image: $expected_image"
+    return 1
+  }
+  # /RULE:second-reader-image-pinned
+  # RULE:second-reader-log-binds-declaration
+  for frame in \
+    "=== card: $card" \
+    "=== layer: $layer" \
+    "=== engine: $engine" \
+    "=== test-path: $test_path" \
+    "=== selector: $selector" \
+    "=== command: $expected_command"; do
+    grep -Fqx -- "$frame" "$log_file" || {
+      fail "$label: the recorded run does not bind the card's declaration; missing frame: $frame"
+      return 1
+    }
+  done
+  # A recorded run expires when the artifact it read changes. This is what stops
+  # a pasted or stale observation from covering new bytes.
+  grep -Fqx -- "=== test-file-sha256: $expected_file_digest" "$log_file" || {
+    fail "$label: the recorded run read a different $test_path than the tree now carries"
+    return 1
+  }
+  # /RULE:second-reader-log-binds-declaration
+
+  region="$(awk '/^=== output-begin$/ { inside=1; next } /^=== output-end$/ { exit } inside { print }' "$log_file")"
+  # RULE:second-reader-frame-integrity
+  # Two halves of one property. The prefix check refuses an unprefixed line
+  # inside a region; the cardinality check refuses a SECOND region boundary or
+  # exit frame, which is how a program that prints `=== output-end` would
+  # otherwise truncate the region early and append a friendlier exit code after
+  # its own real one.
+  if [[ -n "$region" ]] && grep -qvE '^\| ' <<< "$region"; then
+    fail "$label: the captured output region contains an unprefixed line and cannot be trusted as a framed capture"
+    return 1
+  fi
+  for frame in '=== output-begin' '=== output-end' '=== exit: '; do
+    if [[ "$(grep -Fc -- "$frame" "$log_file" || true)" != 1 ]]; then
+      fail "$label: the raw second-reader log does not contain exactly one '$frame' frame; the capture boundaries are forgeable"
+      return 1
+    fi
+  done
+  if [[ "$engine" == shell ]]; then
+    for frame in '=== control-output-begin' '=== control-output-end' '=== control-exit: '; do
+      if [[ "$(grep -Fc -- "$frame" "$log_file" || true)" != 1 ]]; then
+        fail "$label: the raw second-reader log does not contain exactly one '$frame' frame; the capture boundaries are forgeable"
+        return 1
+      fi
+    done
+  fi
+  # /RULE:second-reader-frame-integrity
+  exit_line="$(awk '/^=== output-end$/ { getline value; print value; exit }' "$log_file")"
+
+  # RULE:second-reader-run-passed
+  [[ "$exit_line" == '=== exit: 0' ]] || {
+    fail "$label: the recorded second-reader run did not exit zero (${exit_line:-no exit frame})"
+    return 1
+  }
+  # /RULE:second-reader-run-passed
+
+  # The default is deliberately the permissive one: with the rule below removed
+  # the validator behaves exactly as it did before this gate existed, which is
+  # what makes the rule's mutant survive when the rule is disabled instead of
+  # being caught by a neighbouring check.
+  matched=1
+  # RULE:second-reader-selector-matches
+  # `go test -run` that matches nothing prints a warning and exits ZERO. That is
+  # the classic success-without-work and it has already vetoed a card in this
+  # office, so it is refused explicitly rather than inferred from the exit code.
+  if [[ -n "$region" ]] && grep -Eq '(no tests to run|no test files|matched no tests)' <<< "$region"; then
+    fail "$label: the declared selector $selector matched no test; a run that did no work is not a pass"
+    return 1
+  fi
+  if [[ "$engine" == go ]]; then
+    selector_ere="$(ere_escape "$selector")"
+    matched="$(grep -Ec "^\| *--- PASS: $selector_ere( |\(|/|\$)" <<< "$region" || true)"
+    if (( matched < 1 )); then
+      fail "$label: no passing test carried the declared selector $selector"
+      return 1
+    fi
+    if grep -Eq '^\| *(--- FAIL:|FAIL[[:space:]])' <<< "$region"; then
+      fail "$label: the recorded second-reader run contains a failing test"
+      return 1
+    fi
+  else
+    # A bash acceptance program selects by argument. The observable form of
+    # "this selector selects something" is that a selector the program does NOT
+    # know is refused: a dispatcher that ignores its argument answers the same
+    # way to every name, so the cited layer name proves nothing about the layer.
+    control_command="bash $test_path $second_reader_control_selector"
+    grep -Fqx -- "=== control-command: $control_command" "$log_file" || {
+      fail "$label: the recorded run carries no unknown-selector control, so the declared selector is not shown to select anything"
+      return 1
+    }
+    control_exit_line="$(awk '/^=== control-output-end$/ { getline value; print value; exit }' "$log_file")"
+    [[ "$control_exit_line" == '=== control-exit: 64' ]] || {
+      fail "$label: the acceptance program answered ${control_exit_line:-nothing} to an unknown selector; $selector selects nothing it does not already do"
+      return 1
+    }
+    matched=1
+  fi
+  # /RULE:second-reader-selector-matches
+  second_reader_matched="$matched"
+  return 0
+}
+
+second_reader_executor_available() {
+  [[ -x "$board_dir/bin/second-reader" ]] || return 1
+  command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1
+}
+
+# The gate's optional third tier: re-run the second reader now and require it to
+# agree with the record. Inconclusive is never a pass (law 11), so an `exec`
+# request that cannot run is a failure rather than a downgrade.
+second_reader_reexecute() {
+  local card="$1" layer="$2" label="$3"
+  local output status skip_reason=''
+  case "$second_reader_mode" in
+    recompute) skip_reason='AURUM_SECOND_READER=recompute was requested' ;;
+    exec)
+      second_reader_executor_available ||
+        skip_reason='no second-reader executor or OCI engine is available on this host'
+      ;;
+  esac
+  if [[ -n "$skip_reason" ]]; then
+    # RULE:second-reader-inconclusive
+    # The downgrade this replaces was invisible: the old default skipped the
+    # re-execution in silence, and the stderr of a run that proved nothing was
+    # byte-identical to the stderr of a run that proved everything. Skipping is
+    # now named per layer, counted, and escalated to a distinct terminal verdict
+    # below, so the two runs can never be confused for each other -- not by an
+    # operator reading stderr, and not by a caller reading the exit status.
+    second_reader_skipped+=("$card/$layer: $skip_reason; the cited test was NOT re-executed")
+    printf 'board note: second reader NOT re-executed for %s/%s: %s\n' "$card" "$layer" "$skip_reason" >&2
+    # /RULE:second-reader-inconclusive
+    return 0
+  fi
+  set +e
+  output="$("$board_dir/bin/second-reader" --verify --card "$card" --layer "$layer" 2>&1)"
+  status=$?
+  set -e
+  # RULE:second-reader-reexecute
+  if (( status != 0 )); then
+    fail "$label: re-executing the second reader disagreed with the record (exit $status): $(head -n 3 <<< "$output" | tr '\n' ' ')"
+    return 1
+  fi
+  # /RULE:second-reader-reexecute
+  second_reader_executed=$((second_reader_executed + 1))
+  return 0
 }
 
 validate_compose_file() {
@@ -888,6 +1259,362 @@ validate_evidence_hashes() {
     fail "$manifest: evidence_chain_digest does not match the canonical CandidateIdentity/path/hash chain"
 }
 
+manifest_lists_evidence_path() {
+  local flattened="$1" wanted="$2"
+  awk -F '\t' -v wanted="$wanted" '
+    $1 ~ /^evidence_hashes\[[0-9]+\]\.path$/ && $3 == wanted { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' <<< "$flattened"
+}
+
+# A `done` card whose evidence bundle predates this gate cannot have its bundle
+# reopened by a builder: re-sealing CandidateIdentityV1 is a coordinator act
+# performed by three independent roles. The run itself is still recorded, under
+# `.board/tests/second-reader-legacy/`, and every fact in it is recomputed here
+# exactly as it is for a bundled observation. The only thing the legacy record
+# does NOT carry is the binding to the sealed candidate identity, and the
+# registry names that missing binding per card instead of hiding it.
+validate_second_reader_legacy_proof() {
+  local card="$1" layer="$2" test_path="$3" selector="$4" engine="$5"
+  local log_rel="$second_reader_legacy_dir/$card.$layer.raw.txt"
+  local label="$repo_root/$log_rel"
+
+  [[ -f "$repo_root/$log_rel" && ! -L "$repo_root/$log_rel" ]] || {
+    fail "${files[$card]}: $card/$layer is recorded in $second_reader_legacy_file but $log_rel carries no raw second-reader run"
+    return 1
+  }
+  second_reader_verify_log "$card" "$layer" "$test_path" "$selector" "$engine" \
+    "$repo_root/$log_rel" "$label" || return 1
+  second_reader_reexecute "$card" "$layer" "$label" || return 1
+  return 0
+}
+
+# The `done` execution gate. Every concrete Unit/Contract/Integration/E2E
+# citation of a `done` card must point at a run that happened and passed, and
+# every number the observation states is re-derived here.
+validate_second_reader_bundle() {
+  local card="$1" identity="$2" flattened="$3"
+  shift 3
+  local -a peer_contexts=("$@")
+  local layer test_path selector engine declaration_line
+  local observation_rel log_rel observation_file label obs_flat
+  local declared_command declared_declaration declared_file_digest declared_log_digest
+  local nonce peer_context declared_matched
+
+  # RULE:second-reader-done-requires-execution
+  [[ -n "${card_layer_specs[$card]:-}" ]] || return 0
+  while IFS=$'\t' read -r layer test_path selector engine declaration_line; do
+    [[ -n "$layer" ]] || continue
+    observation_rel=".board/evidence/$card/second-reader/$layer.json"
+    log_rel=".board/evidence/$card/second-reader/$layer.raw.txt"
+    observation_file="$repo_root/$observation_rel"
+    label="$observation_file"
+
+    # RULE:second-reader-done-requires-execution
+    if [[ ! -e "$observation_file" && ! -L "$observation_file" ]]; then
+      if [[ -n "${second_reader_legacy[$card/$layer]+x}" ]]; then
+        validate_second_reader_legacy_proof "$card" "$layer" "$test_path" "$selector" "$engine" || true
+      else
+        fail "${files[$card]}: done card cites $layer test \`$test_path::$selector\` but no second reader ever executed it: $observation_rel is absent and $card/$layer is not recorded in $second_reader_legacy_file"
+      fi
+      continue
+    fi
+    [[ -f "$observation_file" && ! -L "$observation_file" ]] || {
+      fail "$label: the second-reader observation must be a regular non-symlink file"
+      continue
+    }
+    manifest_lists_evidence_path "$flattened" "$observation_rel" ||
+      fail "$label: the second-reader observation is absent from evidence_hashes and therefore outside the sealed chain"
+    manifest_lists_evidence_path "$flattened" "$log_rel" ||
+      fail "$label: the raw second-reader log $log_rel is absent from evidence_hashes and therefore outside the sealed chain"
+
+    if ! obs_flat="$(json_flatten "$observation_file" 2>/dev/null)"; then
+      fail "$label: invalid JSON"
+      continue
+    fi
+    require_json_value "$observation_file" "$obs_flat" schema aurum.second-reader-observation
+    require_json_value "$observation_file" "$obs_flat" version 1
+    require_json_value "$observation_file" "$obs_flat" card_id "$card"
+    require_json_value "$observation_file" "$obs_flat" candidate_identity_digest "$identity"
+    require_json_value "$observation_file" "$obs_flat" role second-reader
+    require_json_value "$observation_file" "$obs_flat" sealed true
+    # Law 7: captured program output is data. The observation says so about
+    # itself, and this validator behaves accordingly by re-deriving every fact.
+    require_json_value "$observation_file" "$obs_flat" observation_trusted false
+    require_json_value "$observation_file" "$obs_flat" verdict pass
+    require_json_value "$observation_file" "$obs_flat" layer "$layer"
+    require_json_value "$observation_file" "$obs_flat" engine "$engine"
+    require_json_value "$observation_file" "$obs_flat" test_path "$test_path"
+    require_json_value "$observation_file" "$obs_flat" selector "$selector"
+    require_json_value "$observation_file" "$obs_flat" raw_output_path "$log_rel"
+    require_json_value "$observation_file" "$obs_flat" exit_code 0
+    require_json_pattern "$observation_file" "$obs_flat" role_nonce '^[A-Za-z0-9._:-]{16,128}$'
+    require_json_pattern "$observation_file" "$obs_flat" context_digest '^sha256:[0-9a-f]{64}$'
+    require_json_pattern "$observation_file" "$obs_flat" backend_family_digest '^sha256:[0-9a-f]{64}$'
+
+    nonce="$(json_get "$obs_flat" role_nonce 2>/dev/null || true)"
+    if [[ -n "$nonce" ]]; then
+      if [[ -n "${bundle_role_nonces[$nonce]+x}" ]]; then
+        fail "$label: role_nonce is already sealed by ${bundle_role_nonces[$nonce]} in this bundle; the second reader must seal an independent nonce"
+      else
+        bundle_role_nonces[$nonce]="second-reader/$layer"
+      fi
+    fi
+    for peer_context in "${peer_contexts[@]}"; do
+      [[ -n "$peer_context" ]] || continue
+      [[ "$(json_get "$obs_flat" context_digest 2>/dev/null || true)" != "$peer_context" ]] ||
+        fail "$label: the second reader reuses a review or acceptance context and is therefore not an independent reading"
+    done
+
+    # RULE:second-reader-observation-recomputed
+    # Each of these is recomputed from the card and the tree, never read from
+    # the artifact that is being judged.
+    declared_declaration="sha256:$(printf '%s' "$declaration_line" | sha256sum | awk '{print $1}')"
+    require_json_value "$observation_file" "$obs_flat" declaration_digest "$declared_declaration"
+    declared_command="sha256:$(second_reader_command "$engine" "$test_path" "$selector" | sha256sum | awk '{print $1}')"
+    require_json_value "$observation_file" "$obs_flat" command_digest "$declared_command"
+    if [[ -f "$repo_root/$test_path" && ! -L "$repo_root/$test_path" ]]; then
+      declared_file_digest="sha256:$(sha256sum "$repo_root/$test_path" | awk '{print $1}')"
+      require_json_value "$observation_file" "$obs_flat" test_file_digest "$declared_file_digest"
+    fi
+    if [[ -f "$repo_root/$log_rel" && ! -L "$repo_root/$log_rel" ]]; then
+      declared_log_digest="sha256:$(sha256sum "$repo_root/$log_rel" | awk '{print $1}')"
+      require_json_value "$observation_file" "$obs_flat" raw_output_sha256 "$declared_log_digest"
+    fi
+    # /RULE:second-reader-observation-recomputed
+
+    if second_reader_verify_log "$card" "$layer" "$test_path" "$selector" "$engine" \
+      "$repo_root/$log_rel" "$repo_root/$log_rel"; then
+      # RULE:second-reader-matched-recomputed
+      declared_matched="$(json_get "$obs_flat" matched_tests 2>/dev/null || true)"
+      [[ "$declared_matched" == "$second_reader_matched" ]] ||
+        fail "$label: matched_tests claims $declared_matched but the raw log shows $second_reader_matched passing selector match(es)"
+      # /RULE:second-reader-matched-recomputed
+      second_reader_reexecute "$card" "$layer" "$label" || true
+    fi
+  done <<< "${card_layer_specs[$card]}"
+  # /RULE:second-reader-done-requires-execution
+  return 0
+}
+
+# The registry is a ratchet, not an escape hatch: it may only shrink. An entry
+# for a card that is not `done`, does not declare that layer, or already carries
+# a bundled observation is dead and is refused, so the list can never
+# pre-authorize future work or outlive the debt it records.
+validate_second_reader_legacy_registry() {
+  local registry="$repo_root/$second_reader_legacy_file"
+  local line_number=0 line entry_card entry_layer entry_reason previous_key=''
+  local key spec_found layer test_path selector engine declaration_line
+  local entry_count=0 card_count=0 distinct_count
+  local -A seen_cards=()
+
+  [[ -e "$registry" || -L "$registry" ]] || return 0
+  [[ -f "$registry" && ! -L "$registry" ]] || {
+    fail "$second_reader_legacy_file: the second-reader legacy registry must be a regular non-symlink file"
+    return
+  }
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    [[ -n "$line" ]] || continue
+    [[ "$line" != '#'* ]] || continue
+    IFS=$'\t' read -r entry_card entry_layer entry_reason <<< "$line"
+    [[ "$entry_card" =~ ^AUR-[0-9]{3}$ ]] || {
+      fail "$second_reader_legacy_file:$line_number: entry does not begin with a card id"
+      continue
+    }
+    [[ "$entry_layer" =~ ^(Unit|Contract|Integration|E2E)$ ]] || {
+      fail "$second_reader_legacy_file:$line_number: $entry_card names no TDD layer"
+      continue
+    }
+    key="$entry_card/$entry_layer"
+    [[ -z "$previous_key" || "$previous_key" < "$key" ]] ||
+      fail "$second_reader_legacy_file:$line_number: entries must be strictly sorted and unique ($previous_key then $key)"
+    previous_key="$key"
+    if (( ${#entry_reason} < 40 )) || is_generic_text "$entry_reason"; then
+      fail "$second_reader_legacy_file:$line_number: $key must state a specific, non-generic reason of at least 40 characters"
+      continue
+    fi
+    # RULE:second-reader-legacy-ratchet
+    [[ "${card_states[$entry_card]:-}" == done ]] || {
+      fail "$second_reader_legacy_file:$line_number: $entry_card is not in done; the legacy registry can never pre-authorize a future transition"
+      continue
+    }
+    spec_found=0
+    while IFS=$'\t' read -r layer test_path selector engine declaration_line; do
+      [[ "$layer" == "$entry_layer" ]] || continue
+      spec_found=1
+    done <<< "${card_layer_specs[$entry_card]:-}"
+    (( spec_found == 1 )) || {
+      fail "$second_reader_legacy_file:$line_number: $key no longer cites a concrete $entry_layer test; the ratchet only shrinks, remove the stale entry"
+      continue
+    }
+    if [[ -f "$repo_root/.board/evidence/$entry_card/second-reader/$entry_layer.json" ]]; then
+      fail "$second_reader_legacy_file:$line_number: $key already carries a sealed second-reader observation; the ratchet only shrinks, remove the stale entry"
+      continue
+    fi
+    # /RULE:second-reader-legacy-ratchet
+    # RULE:second-reader-legacy-frozen
+    [[ $'\n'"$second_reader_legacy_frozen"$'\n' == *$'\n'"$key"$'\n'* ]] || {
+      fail "$second_reader_legacy_file:$line_number: $key is not in the frozen cutover set compiled into .board/validate.sh; a card cannot join the legacy registry in the same commit that moves it to done"
+      continue
+    }
+    # /RULE:second-reader-legacy-frozen
+    second_reader_legacy[$key]="$entry_reason"
+    second_reader_debt+=("$key: $entry_reason")
+    entry_count=$((entry_count + 1))
+    [[ -n "${seen_cards[$entry_card]+x}" ]] || { seen_cards[$entry_card]=1; card_count=$((card_count + 1)); }
+  done < "$registry"
+
+  distinct_count="$(second_reader_distinct_programs)"
+  validate_registry_counts "$second_reader_legacy_file" "$entry_count" "$card_count" "$distinct_count"
+}
+
+# F5, stated instead of implied. `tests/acceptance/AUR-359.sh` dispatches four
+# selector names onto ONE body, so three of that card's recorded "layers" are
+# the same program three times and their captured regions differ only in the
+# selector they echo. A citation is therefore not an execution, and the number
+# this board may claim is the number of DISTINCT captured programs -- computed
+# here from the recorded bytes, declared in the registry header and the README,
+# and required to agree with both.
+second_reader_distinct_programs() {
+  local log_file selector normalized
+  local -A seen=()
+  local total=0
+  [[ -d "$repo_root/$second_reader_legacy_dir" ]] || { printf '0'; return 0; }
+  while IFS= read -r log_file; do
+    [[ -f "$log_file" && ! -L "$log_file" ]] || continue
+    selector="$(sed -n 's/^=== selector: //p' "$log_file" | head -n 1)"
+    normalized="$(
+      awk '/^=== output-begin$/ { inside=1; next } /^=== output-end$/ { exit } inside { print }' "$log_file" |
+        { [[ -n "$selector" ]] && sed -e "s/$(ere_escape "$selector")/SELECTOR/g" || cat; } |
+        sha256sum | awk '{print $1}'
+    )"
+    [[ -n "${seen[$normalized]+x}" ]] || { seen[$normalized]=1; total=$((total + 1)); }
+  done < <(find "$repo_root/$second_reader_legacy_dir" -mindepth 1 -maxdepth 1 -type f -name '*.raw.txt' | sort)
+  printf '%s' "$total"
+}
+
+# Three texts stated three different numbers for one list: the registry header
+# said sixteen, the README said fifteen, the file carried fifteen. Prose that
+# counts is prose that drifts, so the numbers are derived from the file here and
+# BOTH texts must carry the derived line verbatim. Absence of the line is a
+# failure, not a pass (law 12).
+validate_registry_counts() {
+  local registry_rel="$1" entries="$2" cards="$3" distinct="${4:-}"
+  local canonical readme_line
+  # RULE:second-reader-registry-counts
+  if [[ -n "$distinct" ]]; then
+    canonical="$entries entry(ies) across $cards card(s), $distinct distinct captured program(s)"
+  else
+    canonical="$entries entry(ies) across $cards card(s)"
+  fi
+  grep -Fqx -- "# count: $canonical" "$repo_root/$registry_rel" ||
+    fail "$registry_rel: the header must declare exactly '# count: $canonical'; a registry whose stated size disagrees with its contents counts nothing"
+  if [[ -f "$repo_root/$second_reader_readme" && ! -L "$repo_root/$second_reader_readme" ]]; then
+    readme_line="- \`$registry_rel\` records $canonical."
+    grep -Fqx -- "$readme_line" "$repo_root/$second_reader_readme" ||
+      fail "$second_reader_readme: must carry exactly the line '$readme_line'; the README and the registry may not state different sizes for the same list"
+  fi
+  # /RULE:second-reader-registry-counts
+  return 0
+}
+
+# Evidence-shaped text under the legacy directory that no entry names is
+# unpoliced: nothing recomputes it, nothing prints it, and it survives the
+# removal of the debt it once documented. It is refused instead.
+validate_second_reader_legacy_orphans() {
+  local log_file base key
+  [[ -d "$repo_root/$second_reader_legacy_dir" ]] || return 0
+  # RULE:second-reader-legacy-orphan
+  while IFS= read -r log_file; do
+    base="$(basename "$log_file")"
+    if [[ ! "$base" =~ ^(AUR-[0-9]{3})\.(Unit|Contract|Integration|E2E)\.raw\.txt$ ]]; then
+      fail "$second_reader_legacy_dir/$base: the legacy directory may only hold <card>.<layer>.raw.txt records"
+      continue
+    fi
+    key="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    [[ -n "${second_reader_legacy[$key]+x}" ]] ||
+      fail "$second_reader_legacy_dir/$base: no accepted entry in $second_reader_legacy_file names $key; an unreferenced record is evidence-shaped text nothing recomputes"
+  done < <(find "$repo_root/$second_reader_legacy_dir" -mindepth 1 -maxdepth 1 | sort)
+  # /RULE:second-reader-legacy-orphan
+  return 0
+}
+
+# The exemption registry. `validate_second_reader_bundle` is only reachable
+# through a concrete citation, so a card whose four layers all read
+# `not-applicable: <reason>` never touched the second reader at all -- and two
+# cards sat in `done` in exactly that shape, one of them justifying itself with
+# "covered by the acceptance", which is the single engine this gate exists to
+# distrust. Silence is now refused: such a card is either outside `done`, or
+# named here under the same ratchet the legacy registry carries.
+validate_second_reader_exempt_registry() {
+  local registry="$repo_root/$second_reader_exempt_file"
+  local line_number=0 line entry_card entry_reason previous_key=''
+  local entry_count=0
+
+  [[ -e "$registry" || -L "$registry" ]] || return 0
+  [[ -f "$registry" && ! -L "$registry" ]] || {
+    fail "$second_reader_exempt_file: the second-reader exemption registry must be a regular non-symlink file"
+    return
+  }
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    [[ -n "$line" ]] || continue
+    [[ "$line" != '#'* ]] || continue
+    IFS=$'\t' read -r entry_card entry_reason <<< "$line"
+    [[ "$entry_card" =~ ^AUR-[0-9]{3}$ ]] || {
+      fail "$second_reader_exempt_file:$line_number: entry does not begin with a card id"
+      continue
+    }
+    [[ -z "$previous_key" || "$previous_key" < "$entry_card" ]] ||
+      fail "$second_reader_exempt_file:$line_number: entries must be strictly sorted and unique ($previous_key then $entry_card)"
+    previous_key="$entry_card"
+    if (( ${#entry_reason} < 40 )) || is_generic_text "$entry_reason"; then
+      fail "$second_reader_exempt_file:$line_number: $entry_card must state a specific, non-generic reason of at least 40 characters"
+      continue
+    fi
+    # RULE:second-reader-exempt-ratchet
+    [[ "${card_states[$entry_card]:-}" == done ]] || {
+      fail "$second_reader_exempt_file:$line_number: $entry_card is not in done; the exemption registry can never pre-authorize a future transition"
+      continue
+    }
+    [[ -z "${card_layer_specs[$entry_card]:-}" ]] || {
+      fail "$second_reader_exempt_file:$line_number: $entry_card now cites a concrete TDD layer test; the ratchet only shrinks, remove the stale entry"
+      continue
+    }
+    # /RULE:second-reader-exempt-ratchet
+    # RULE:second-reader-exempt-frozen
+    [[ $'\n'"$second_reader_exempt_frozen"$'\n' == *$'\n'"$entry_card"$'\n'* ]] || {
+      fail "$second_reader_exempt_file:$line_number: $entry_card is not in the frozen exemption set compiled into .board/validate.sh; a card cannot join the exemption registry in the same commit that moves it to done"
+      continue
+    }
+    # /RULE:second-reader-exempt-frozen
+    second_reader_exempt[$entry_card]="$entry_reason"
+    second_reader_exempt_debt+=("$entry_card: $entry_reason")
+    entry_count=$((entry_count + 1))
+  done < "$registry"
+
+  validate_registry_counts "$second_reader_exempt_file" "$entry_count" "$entry_count"
+}
+
+# The gate used to be opt-in: it started at a concrete citation, so a card with
+# four `not-applicable` layers walked past it without leaving a trace. A card
+# crossing into `review` or `done` must therefore either hand the second reader
+# something it can execute, or be named in the exemption registry above. An
+# unrecorded exemption is an absence, and an absence never passes (law 12).
+validate_second_reader_coverage() {
+  local id
+  # RULE:second-reader-coverage-required
+  for id in "${!ids[@]}"; do
+    [[ "${card_states[$id]}" =~ ^(review|done)$ ]] || continue
+    [[ -z "${card_layer_specs[$id]:-}" ]] || continue
+    [[ -z "${second_reader_exempt[$id]+x}" ]] || continue
+    fail "${files[$id]}: ${card_states[$id]} card hands the second reader nothing to execute -- all four TDD layers are not-applicable -- and it is not recorded in $second_reader_exempt_file"
+  done
+  # /RULE:second-reader-coverage-required
+  return 0
+}
+
 validate_manifest() {
   local card="$1"
   local state="$2"
@@ -1068,6 +1795,12 @@ validate_manifest() {
     validate_evidence_artifact "$card" "$report_path" "$report_sha" "$identity" \
       aurum.acceptance-observation acceptance "$acceptance_context" "$acceptance_backend" '' \
       "$(json_get "$flattened" gates.container_profile_digest 2>/dev/null || true)"
+
+    # The acceptance observation above records ONE engine: the card's own
+    # program inside the pinned sandbox. The second reader is the other one, and
+    # without it `done` was decided by a single reading.
+    validate_second_reader_bundle "$card" "$identity" "$flattened" \
+      "$review_a_context" "$review_b_context" "$skeptic_context" "$acceptance_context"
   fi
 }
 
@@ -1475,7 +2208,7 @@ while IFS= read -r -d '' card; do
     fail "$card: Test must use the exact backtick-delimited tests/path::AC-NNN[,AC-NNN] grammar"
   fi
   for layer in Unit Contract Integration E2E; do
-    validate_tdd_layer "$card" "$layer" "$tdd" "${declared_paths[@]}"
+    validate_tdd_layer "$card" "$id" "$state" "$layer" "$tdd" "${declared_paths[@]}"
   done
 
   validate_acceptance "$card" "$id"
@@ -1953,11 +2686,49 @@ else
   fail "missing INDEX.md"
 fi
 
+validate_second_reader_legacy_registry
+validate_second_reader_legacy_orphans
+validate_second_reader_exempt_registry
+validate_second_reader_coverage
+
 for id in "${!ids[@]}"; do
   if [[ "${card_states[$id]}" =~ ^(review|done)$ ]]; then
     validate_manifest "$id" "${card_states[$id]}"
   fi
 done
 
+# The migration is never silent. Every card/layer still covered by a recorded
+# legacy run rather than a bundle-sealed one is named on every run, with the
+# reason it carries, so the debt cannot decay into an unread file.
+if (( ${#second_reader_debt[@]} > 0 )); then
+  printf 'board note: second-reader legacy debt: %d card/layer pair(s) proved by a recorded run outside the sealed bundle\n' "${#second_reader_debt[@]}" >&2
+  for debt_entry in "${second_reader_debt[@]}"; do
+    printf 'board note:   %s\n' "$debt_entry" >&2
+  done
+fi
+if (( ${#second_reader_exempt_debt[@]} > 0 )); then
+  printf 'board note: second-reader exemption debt: %d done card(s) hand the second reader nothing to execute\n' "${#second_reader_exempt_debt[@]}" >&2
+  for debt_entry in "${second_reader_exempt_debt[@]}"; do
+    printf 'board note:   %s\n' "$debt_entry" >&2
+  done
+fi
+
 finish_failures
+
+# RULE:second-reader-inconclusive
+# Law 4 and law 11: a missing engine is neither behavioral red nor a pass. It
+# gets its own terminal verdict and its own exit status, so a run that proved
+# nothing can never be mistaken -- by an operator or by a caller -- for the run
+# that proved everything. `done` is authorized only by exit 0.
+if (( ${#second_reader_skipped[@]} > 0 )); then
+  printf 'board inconclusive: %d second-reader layer(s) were NOT re-executed; %d were\n' \
+    "${#second_reader_skipped[@]}" "$second_reader_executed" >&2
+  for debt_entry in "${second_reader_skipped[@]}"; do
+    printf 'board inconclusive:   %s\n' "$debt_entry" >&2
+  done
+  printf 'board inconclusive: structure and raw-log recomputation passed on %d atomic cards, but this run does NOT authorize a transition to done\n' "${#ids[@]}" >&2
+  exit 3
+fi
+# /RULE:second-reader-inconclusive
+printf 'board note: second reader re-executed %d recorded layer(s) through .board/bin/second-reader\n' "$second_reader_executed" >&2
 printf 'board valid: %d atomic cards\n' "${#ids[@]}"
