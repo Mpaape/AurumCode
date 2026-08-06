@@ -225,6 +225,26 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
       Distinga os dois no relatório, senão o card parece estar falhando pelo mérito
       quando está falhando pelo relógio.
 
+20. **Path declarado não é path lido — e o portão só confere o primeiro.**
+    `validate.sh:1863` exige que todo path declarado **exista** na árvore. Um `grep`
+    pelo conceito de leitura no validador inteiro retorna **zero**: nada exige que o
+    aceite leia o que o card declara possuir. O resultado é a lei 12 na forma mais
+    fácil de não ver — o path está lá, o portão fica verde, e a checagem simplesmente
+    não acontece.
+
+    Medido em três cards distintos: `AUR-015` (`docs/specs/AUR-015.md` e
+    `tests/integration/AUR-015_test.go` removidos da árvore, aceite continua exit 0
+    com stdout **byte a byte idêntico** — e o card afirmava por escrito que executava
+    o exemplo), `AUR-018` e `AUR-019`.
+
+    **O teste que todo builder e todo revisor deve rodar, path a path:** remova o path
+    declarado e rode o aceite. Se ele continuar verde, ou o aceite passa a ler o path,
+    ou a afirmação sai do card e o path sai de `paths:`. Não existe terceira saída —
+    card que afirma o que não faz é a fabricação que este board existe para recusar.
+
+    A varredura é dos **seis** paths, não dos dois denunciados: o revisor que só
+    confere o que já foi nomeado devolve a mesma classe na rodada seguinte.
+
 ## Regra de prompt para builder e revisor (cole no despacho)
 
 Antes de declarar qualquer AC verde, para CADA checagem escrita ou tocada, responda
