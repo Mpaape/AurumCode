@@ -110,7 +110,11 @@ jobs:
 
           # Build and run the documentation generator
           echo "=== Running Documentation Generator ==="
-          go run cmd/regenerate-docs/main.go
+          # `go run <file>` compiles only that file. This package is three files -
+          # main.go, llmbudget.go and repo_code_execution.go - so naming main.go
+          # alone left envLLMModel, resolveLLMBudget and
+          # registerRepoCodeExecutingExtractors undefined. Name the package.
+          go run ./cmd/regenerate-docs
 
           echo ""
           echo "=== Pipeline Complete ==="
