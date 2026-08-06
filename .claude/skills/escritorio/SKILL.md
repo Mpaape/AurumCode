@@ -122,6 +122,31 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     selos. Rode, fora do sandbox, antes de qualquer promoção:
     `docker run --rm -v "$PWD":/src -v "$HOME/go/pkg/mod":/go/pkg/mod -w /src -e GOFLAGS=-mod=mod golang:1.21-alpine sh -c 'go build ./... && go vet ./...'`
 
+15. **Go só roda em container.** Não existe toolchain Go na máquina do dono. Todo
+    build, vet e test passa por
+    `docker run --rm -v "$PWD":/src -v "$HOME/go/pkg/mod":/go/pkg/mod -w /src -e GOFLAGS=-mod=mod golang:1.21-alpine sh -c '<cmd>'`,
+    e nunca `apk add git` lá dentro — quebra o buildvcs e produz vermelho falso.
+    A imagem do `accept` (`bash@sha256:ae4668c2…`, Alpine + BusyBox) **não tem Go**:
+    um accept que precise de Go está mal desenhado, não mal configurado.
+
+16. **Card travado é impedimento do escritório, não do card.** Se três sprints
+    passam sem nenhum card avançar de raia, pare de iterar: o problema deixou de
+    ser o patch. Meça a raiz comum entre os cards parados — nesta sessão, quatro
+    cards travados compartilhavam *uma* causa (o portão não executava o segundo
+    leitor) — ataque essa raiz com modelo mais capaz, e só então volte aos cards.
+    Rodada que fecha uma variante enquanto a classe sobrevive é tempo perdido.
+
+17. **O custo é o ciclo de portão, não o artefato.** 423 cards atômicos × quatro
+    selos é inviável em qualquer prazo. Consolidar cards irmãos num épico com um
+    resultado observável único troca N ciclos por um. O dono autorizou explicitamente
+    reorganizar o board e cancelar cards em favor de cards maiores. Consolidação
+    legítima usa a raia `cancelled` com `superseded_by` apontando para o épico —
+    o validador já reprova dependente que não liste o sucessor, então a história
+    não se perde. O que **não** se consolida: card de governança/portão, card
+    `risk: critical` com superfície de segurança própria, e card em reprojeto.
+    Um épico cujo accept passaria com metade do trabalho ausente é vácuo — a lei 12
+    o mata igual.
+
 ## Regra de prompt para builder e revisor (cole no despacho)
 
 Antes de declarar qualquer AC verde, para CADA checagem escrita ou tocada, responda
