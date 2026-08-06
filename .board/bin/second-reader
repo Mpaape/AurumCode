@@ -1,0 +1,449 @@
+#!/usr/bin/env bash
+# The board's second reader.
+#
+# `.board/bin/oci-run` executes ONE program -- the card's own acceptance script
+# -- inside the pinned bootstrap image, and it materializes ONLY that card's
+# `paths`/`read_paths` into the container. Two consequences were reproduced
+# live, on three different cards, before this file existed:
+#
+#   * the bootstrap image is Alpine + BusyBox with no language toolchain, so a
+#     `## TDD proof` line that cites `tests/integration/AUR-0NN_test.go` was
+#     never executed by any gate -- the citation was prose;
+#   * the sandbox cannot see a sibling card's files at all, so a check whose
+#     evidence lives outside the card's own `paths` (an unpinned third-party
+#     `uses:` in `.github/workflows`, for instance) is invisible to the only
+#     engine the gate runs.
+#
+# This runner is the second engine. It executes the concrete `Unit`, `Contract`,
+# `Integration` and `E2E` citations of a card OUTSIDE the acceptance sandbox,
+# against the WHOLE repository mounted read-only, and it emits an observation
+# plus the raw bytes it captured. It is a reader, never an approver: law 7 of
+# the office still holds, `observation_trusted` is always false, and every
+# number it writes is re-derived from the raw log by `.board/validate.sh`.
+#
+# Exit codes follow tests/acceptance/EXIT_CODE_CONVENTION.md:
+#   0   every requested layer ran and passed with a selector that matched work
+#   1   a layer failed, or its selector matched nothing (success without work)
+#   64  usage
+#   65  the card or its TDD proof cannot be read as data
+#   66  a cited artifact is missing
+#   69  the repository or board is unavailable
+#   78  a policy input (lock, image pin) is unusable
+#   79  inconclusive: no OCI engine, or the pinned image is not present locally.
+#       Never a pass, never behavioral red (law 4, law 11).
+set -euo pipefail
+
+export LC_ALL=C
+umask 077
+
+readonly control_selector='AURUM-SECOND-READER-CONTROL'
+readonly control_expected_exit=64
+readonly log_schema='=== second-reader-log v1'
+readonly output_limit_bytes=131072
+readonly go_lock_path='.board/locks/oci/second-reader-go-v1.lock.json'
+readonly shell_lock_path='.board/locks/oci/second-reader-shell-v1.lock.json'
+readonly digest_pinned_image_pattern='^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$'
+readonly credential_pattern='(-----BEGIN[[:space:]][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})'
+
+die() {
+  local code="$1"
+  shift
+  printf 'second-reader: %s\n' "$*" >&2
+  exit "$code"
+}
+
+card=''
+only_layer=''
+mode='run'
+
+while (( $# > 0 )); do
+  case "$1" in
+    --card)
+      [[ $# -ge 2 ]] || die 64 '--card requires a value'
+      card="$2"
+      shift 2
+      ;;
+    --layer)
+      [[ $# -ge 2 ]] || die 64 '--layer requires a value'
+      only_layer="$2"
+      shift 2
+      ;;
+    --verify)
+      mode='verify'
+      shift
+      ;;
+    --print-command)
+      mode='print'
+      shift
+      ;;
+    --legacy)
+      mode='legacy'
+      shift
+      ;;
+    *) die 64 "unknown argument: $1" ;;
+  esac
+done
+
+[[ "$card" =~ ^AUR-[0-9]{3}$ ]] || die 64 'invalid or missing --card'
+[[ -z "$only_layer" || "$only_layer" =~ ^(Unit|Contract|Integration|E2E)$ ]] ||
+  die 64 'invalid --layer'
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[[ -n "$repo_root" && -d "$repo_root/.board/cards" ]] || die 69 'repository board is unavailable'
+
+mapfile -d '' -t card_files < <(
+  find "$repo_root/.board/cards" -mindepth 2 -maxdepth 2 -type f -name "$card.md" -print0 | sort -z
+)
+[[ "${#card_files[@]}" -eq 1 ]] || die 66 "expected exactly one card spec for $card"
+card_file="${card_files[0]}"
+
+# --- card reading -------------------------------------------------------------
+
+section_body() {
+  awk -v section="$1" '
+    $0 == section { found=1; next }
+    found && /^##[[:space:]]/ { exit }
+    found { print }
+  ' "$card_file"
+}
+
+path_is_within() {
+  [[ "$1" == "$2" || "$1" == "$2/"* ]]
+}
+
+# The canonical command for a layer. `.board/validate.sh` rebuilds this exact
+# string from the card and compares it byte for byte with what the log says was
+# executed, so an observation can never claim a selector the card did not
+# declare.
+second_reader_command() {
+  local engine="$1" test_path="$2" selector="$3"
+  case "$engine" in
+    go) printf 'go test ./%s/... -run ^%s$ -v -count=1' "$(dirname "$test_path")" "$selector" ;;
+    shell) printf 'bash %s %s' "$test_path" "$selector" ;;
+    *) die 65 "unsupported engine: $engine" ;;
+  esac
+}
+
+second_reader_control_command() {
+  printf 'bash %s %s' "$1" "$control_selector"
+}
+
+# The selector charset allows `.`, so an unescaped selector in a regular
+# expression makes `TestA.B` match `TestAxB`. `.board/validate.sh` escapes the
+# same way before it recounts; both sides being correct is what keeps the
+# recount a check rather than a disagreement.
+ere_escape() {
+  printf '%s' "$1" | sed -e 's/[][\.^$*+?(){}|\/-]/\\&/g'
+}
+
+layer_engine() {
+  case "$1" in
+    *_test.go) printf 'go' ;;
+    *.sh) printf 'shell' ;;
+    *) printf '' ;;
+  esac
+}
+
+tdd="$(section_body '## TDD proof')"
+paths_line="$(awk 'NR==1 && $0 != "---" { exit 2 } NR>1 && $0 == "---" { exit } index($0, "paths:") == 1 { print substr($0, 8) }' "$card_file" | head -n 1)"
+[[ "$paths_line" =~ ^\[(.*)\]$ ]] || die 65 "$card has unreadable paths"
+owned_csv="${BASH_REMATCH[1]}"
+
+declare -a layers=() layer_paths=() layer_selectors=() layer_engines=() layer_lines=()
+for layer in Unit Contract Integration E2E; do
+  [[ -z "$only_layer" || "$only_layer" == "$layer" ]] || continue
+  line="$(grep -E "^- $layer: .+" <<< "$tdd" || true)"
+  [[ -n "$line" ]] || continue
+  [[ "$line" =~ ^-[[:space:]]$layer:[[:space:]]\`(.+)::([A-Za-z0-9_./:-]+)\`\.$ ]] || continue
+  test_path="${BASH_REMATCH[1]}"
+  selector="${BASH_REMATCH[2]}"
+  engine="$(layer_engine "$test_path")"
+  [[ -n "$engine" ]] ||
+    die 65 "$card $layer cites an artifact no second-reader engine can execute: $test_path"
+  owned=0
+  old_ifs="$IFS"
+  IFS=','
+  read -ra owned_list <<< "$owned_csv"
+  IFS="$old_ifs"
+  for owned_path in "${owned_list[@]}"; do
+    owned_path="${owned_path# }"
+    path_is_within "$test_path" "$owned_path" && owned=1
+  done
+  (( owned == 1 )) || die 65 "$card $layer test is outside the card's owned paths: $test_path"
+  [[ -f "$repo_root/$test_path" && ! -L "$repo_root/$test_path" ]] ||
+    die 66 "$card $layer test is cited but absent or not a regular file: $test_path"
+  layers+=("$layer")
+  layer_paths+=("$test_path")
+  layer_selectors+=("$selector")
+  layer_engines+=("$engine")
+  layer_lines+=("$line")
+done
+
+(( ${#layers[@]} > 0 )) || die 66 "$card declares no concrete ${only_layer:-Unit/Contract/Integration/E2E} citation to execute"
+
+if [[ "$mode" == print ]]; then
+  for (( i = 0; i < ${#layers[@]}; i++ )); do
+    printf '%s\t%s\n' "${layers[$i]}" "$(second_reader_command "${layer_engines[$i]}" "${layer_paths[$i]}" "${layer_selectors[$i]}")"
+  done
+  exit 0
+fi
+
+# --- engine and pinned images -------------------------------------------------
+
+lock_image() {
+  local lock_file="$repo_root/$1"
+  local value
+  [[ -f "$lock_file" && ! -L "$lock_file" ]] || die 78 "missing image lock: $1"
+  value="$(sed -n 's/.*"image"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$lock_file" | head -n 1)"
+  [[ "$value" =~ $digest_pinned_image_pattern ]] || die 78 "image lock is not digest-pinned: $1"
+  printf '%s' "$value"
+}
+
+if [[ -n "${AURUM_OCI_ENGINE:-}" ]]; then
+  [[ "${AURUM_OCI_ENGINE}" == docker || "${AURUM_OCI_ENGINE}" == podman ]] ||
+    die 64 'engine must be docker or podman'
+  command -v "${AURUM_OCI_ENGINE}" >/dev/null 2>&1 ||
+    die 79 "inconclusive: requested OCI engine is unavailable: ${AURUM_OCI_ENGINE}"
+  engine_cli="${AURUM_OCI_ENGINE}"
+elif command -v podman >/dev/null 2>&1; then
+  engine_cli='podman'
+elif command -v docker >/dev/null 2>&1; then
+  engine_cli='docker'
+else
+  die 79 'inconclusive: neither Podman nor Docker is available'
+fi
+
+module_cache="${GOMODCACHE:-${HOME:-/nonexistent}/go/pkg/mod}"
+
+# The two engines differ in exactly one hardening dimension, and the difference
+# is stated rather than hidden: a Go test is a compiled binary, so its scratch
+# filesystem must allow execution. Everything else -- no network, read-only
+# rootfs and read-only source, all capabilities dropped, no new privileges,
+# non-root, bounded pids/memory/cpu/time -- is identical for both, and neither
+# engine can write one byte into the repository.
+run_engine() {
+  local engine="$1" command_string="$2"
+  case "$engine" in
+    go)
+      "$engine_cli" run --rm --network=none --read-only --cap-drop=ALL \
+        --security-opt=no-new-privileges --pids-limit=512 --memory=1024m --cpus=2 \
+        --user=65534:65534 \
+        --tmpfs "/tmp:rw,exec,nosuid,nodev,size=512m" \
+        -v "$repo_root":/src:ro -v "$module_cache":/gomod:ro -w /src \
+        -e HOME=/tmp -e GOMODCACHE=/gomod -e GOCACHE=/tmp/gocache -e GOPATH=/tmp/gopath \
+        -e GOTMPDIR=/tmp -e GOTOOLCHAIN=local -e GOPROXY=off -e GOFLAGS=-mod=mod \
+        "$go_image" sh -c "$command_string"
+      ;;
+    shell)
+      "$engine_cli" run --rm --network=none --read-only --cap-drop=ALL \
+        --security-opt=no-new-privileges --pids-limit=128 --memory=256m --cpus=1 \
+        --user=65534:65534 \
+        --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=32m" \
+        -v "$repo_root":/src:ro -w /src -e HOME=/tmp \
+        "$shell_image" sh -c "$command_string"
+      ;;
+  esac
+}
+
+go_image=''
+shell_image=''
+for engine in "${layer_engines[@]}"; do
+  case "$engine" in
+    go) [[ -n "$go_image" ]] || go_image="$(lock_image "$go_lock_path")" ;;
+    shell) [[ -n "$shell_image" ]] || shell_image="$(lock_image "$shell_lock_path")" ;;
+  esac
+done
+for image in "$go_image" "$shell_image"; do
+  [[ -n "$image" ]] || continue
+  "$engine_cli" image inspect "$image" >/dev/null 2>&1 ||
+    die 79 "inconclusive: pinned second-reader image is not present locally: $image"
+done
+if [[ -n "$go_image" && ! -d "$module_cache" ]]; then
+  die 79 "inconclusive: the Go module cache is unavailable: $module_cache"
+fi
+
+# --- execution ----------------------------------------------------------------
+
+digest_of_string() {
+  printf 'sha256:%s' "$(printf '%s' "$1" | sha256sum | awk '{print $1}')"
+}
+
+digest_of_file() {
+  printf 'sha256:%s' "$(sha256sum "$1" | awk '{print $1}')"
+}
+
+# Every captured byte is re-emitted with a `| ` prefix. A test that prints a
+# line looking like a log frame therefore cannot forge one: the validator
+# rejects any unprefixed line inside a capture region, so the exit codes and
+# the frame boundaries stay outside the untrusted program's reach.
+emit_capture() {
+  local begin="$1" end="$2" capture_file="$3"
+  printf '%s\n' "$begin"
+  sed -e 's/^/| /' -e 's/\r$//' "$capture_file" | head -c "$output_limit_bytes"
+  printf '%s\n' "$end"
+}
+
+evidence_dir="$repo_root/.board/evidence/$card/second-reader"
+work_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-second-reader.XXXXXX")"
+trap 'rm -rf -- "$work_dir"' EXIT INT TERM HUP
+
+overall=0
+for (( i = 0; i < ${#layers[@]}; i++ )); do
+  layer="${layers[$i]}"
+  test_path="${layer_paths[$i]}"
+  selector="${layer_selectors[$i]}"
+  engine="${layer_engines[$i]}"
+  declaration_line="${layer_lines[$i]}"
+  command_string="$(second_reader_command "$engine" "$test_path" "$selector")"
+
+  capture="$work_dir/$layer.capture"
+  set +e
+  run_engine "$engine" "$command_string" >"$capture" 2>&1
+  run_exit=$?
+  set -e
+
+  control_exit=''
+  control_command=''
+  if [[ "$engine" == shell ]]; then
+    # A selector that matches nothing is the classic success-without-work. For a
+    # bash acceptance program the observable form of "this selector selects
+    # something" is that a selector the program does NOT know is rejected: a
+    # script whose dispatcher ignores its argument answers 0 to garbage, and the
+    # named selector then proves nothing about the named layer.
+    control_command="$(second_reader_control_command "$test_path")"
+    control_capture="$work_dir/$layer.control"
+    set +e
+    run_engine "$engine" "$control_command" >"$control_capture" 2>&1
+    control_exit=$?
+    set -e
+  fi
+
+  log_file="$work_dir/$layer.raw.txt"
+  {
+    printf '%s\n' "$log_schema"
+    printf '=== card: %s\n' "$card"
+    printf '=== layer: %s\n' "$layer"
+    printf '=== engine: %s\n' "$engine"
+    printf '=== test-path: %s\n' "$test_path"
+    printf '=== selector: %s\n' "$selector"
+    # The digest of the file that was actually read. It is what makes a recorded
+    # run expire: edit the test and the recorded log stops describing the tree,
+    # so a pasted or stale observation can never be re-used for new bytes.
+    printf '=== test-file-sha256: %s\n' "$(digest_of_file "$repo_root/$test_path")"
+    printf '=== image: %s\n' "$([[ "$engine" == go ]] && printf '%s' "$go_image" || printf '%s' "$shell_image")"
+    printf '=== command: %s\n' "$command_string"
+    emit_capture '=== output-begin' '=== output-end' "$capture"
+    printf '=== exit: %s\n' "$run_exit"
+    if [[ "$engine" == shell ]]; then
+      printf '=== control-command: %s\n' "$control_command"
+      emit_capture '=== control-output-begin' '=== control-output-end' "$control_capture"
+      printf '=== control-exit: %s\n' "$control_exit"
+    fi
+  } >"$log_file"
+
+  if grep -Eq -- "$credential_pattern" "$log_file"; then
+    die 78 "$card $layer captured output matches a credential shape and was not written"
+  fi
+
+  # The runner's own verdict. It is deliberately conservative and it is NOT the
+  # gate: `.board/validate.sh` re-derives every one of these facts from the raw
+  # log bytes and ignores the fields below when they disagree.
+  matched=0
+  reason=''
+  if [[ "$engine" == go ]]; then
+    matched="$(grep -Ec "^\| *--- PASS: $(ere_escape "$selector")( |\$|/)" "$log_file" || true)"
+    if grep -Eq '^\| .*(no tests to run|no test files|matched no tests)' "$log_file"; then
+      reason='selector matched no test'
+    elif (( matched < 1 )); then
+      reason='no passing test carried the declared selector'
+    elif grep -Eq '^\| *(--- FAIL:|FAIL)' "$log_file"; then
+      reason='the selector ran and failed'
+    fi
+  else
+    matched=1
+    if (( control_exit != control_expected_exit )); then
+      reason="the acceptance program answered $control_exit to an unknown selector; the declared selector selects nothing"
+    fi
+  fi
+  if (( run_exit != 0 )) && [[ -z "$reason" ]]; then
+    reason="the declared selector exited $run_exit"
+  fi
+
+  if [[ "$mode" == verify ]]; then
+    # A recorded run lives either inside the card's sealed evidence bundle or,
+    # for a card that reached `done` before this runner existed, under
+    # `.board/tests/second-reader-legacy/`. Both are the same bytes and both are
+    # re-executed the same way.
+    recorded="$evidence_dir/$layer.raw.txt"
+    if [[ ! -f "$recorded" || -L "$recorded" ]]; then
+      recorded="$repo_root/.board/tests/second-reader-legacy/$card.$layer.raw.txt"
+    fi
+    [[ -f "$recorded" && ! -L "$recorded" ]] ||
+      die 66 "$card $layer has no recorded second-reader log to verify (looked in .board/evidence/$card/second-reader/ and .board/tests/second-reader-legacy/)"
+    if [[ -n "$reason" ]]; then
+      printf 'second-reader: %s %s re-execution failed: %s\n' "$card" "$layer" "$reason" >&2
+      overall=1
+      continue
+    fi
+    # A re-execution cannot be byte-identical (timings differ), so the verified
+    # invariants are the ones that must not drift: the exact command, the exact
+    # selector, the file that was read, and the verdict.
+    for frame in "=== command: $command_string" "=== selector: $selector" "=== test-path: $test_path" '=== exit: 0'; do
+      grep -Fqx "$frame" "$recorded" || {
+        printf 'second-reader: %s %s recorded log disagrees with re-execution on: %s\n' "$card" "$layer" "$frame" >&2
+        overall=1
+      }
+    done
+    printf 'second-reader: %s %s re-executed and agrees with the recorded log\n' "$card" "$layer"
+    continue
+  fi
+
+  # `--legacy` writes the raw log outside any evidence bundle, under
+  # `.board/tests/second-reader-legacy/`. A card that reached `done` before this
+  # runner existed has a sealed CandidateIdentityV1 bundle that cannot be
+  # reopened by a builder -- re-sealing is a coordinator act with three
+  # independent roles -- but the run itself can still be recorded and the
+  # validator still recomputes every fact in it. That is a recorded proof with a
+  # named missing binding, not a waiver.
+  if [[ "$mode" == legacy ]]; then
+    legacy_dir="$repo_root/.board/tests/second-reader-legacy"
+    mkdir -p "$legacy_dir"
+    if [[ -n "$reason" ]]; then
+      printf 'second-reader: %s %s did not pass: %s\n' "$card" "$layer" "$reason" >&2
+      overall=1
+      continue
+    fi
+    install -m 0644 "$log_file" "$legacy_dir/$card.$layer.raw.txt"
+    printf 'second-reader: %s %s recorded as legacy proof (%s, %s matched)\n' "$card" "$layer" "$engine" "$matched"
+    continue
+  fi
+
+  mkdir -p "$evidence_dir"
+  chmod 0755 "$repo_root/.board/evidence/$card" "$evidence_dir" 2>/dev/null || true
+  install -m 0644 "$log_file" "$evidence_dir/$layer.raw.txt"
+
+  if [[ -n "$reason" ]]; then
+    rm -f "$evidence_dir/$layer.json"
+    printf 'second-reader: %s %s did not pass: %s\n' "$card" "$layer" "$reason" >&2
+    printf 'second-reader: raw log kept at .board/evidence/%s/second-reader/%s.raw.txt\n' "$card" "$layer" >&2
+    overall=1
+    continue
+  fi
+
+  identity="${AURUM_CANDIDATE_IDENTITY_DIGEST:-}"
+  context="${AURUM_SECOND_READER_CONTEXT_DIGEST:-}"
+  backend="${AURUM_SECOND_READER_BACKEND_DIGEST:-}"
+  nonce="${AURUM_SECOND_READER_NONCE:-}"
+  [[ -n "$identity" ]] || identity='sha256:0000000000000000000000000000000000000000000000000000000000000000'
+  [[ -n "$context" ]] || context="$(digest_of_string "second-reader-context/$card/$layer")"
+  [[ -n "$backend" ]] || backend="$(digest_of_string "second-reader-backend/$engine")"
+  [[ -n "$nonce" ]] || nonce="second-reader-$card-$layer-$(digest_of_file "$evidence_dir/$layer.raw.txt" | cut -c8-27)"
+
+  cat >"$evidence_dir/$layer.json" <<EOF
+{"schema":"aurum.second-reader-observation","version":1,"card_id":"$card","candidate_identity_digest":"$identity","role":"second-reader","sealed":true,"role_nonce":"$nonce","context_digest":"$context","backend_family_digest":"$backend","observation_trusted":false,"layer":"$layer","engine":"$engine","test_path":"$test_path","selector":"$selector","declaration_digest":"$(digest_of_string "$declaration_line")","test_file_digest":"$(digest_of_file "$repo_root/$test_path")","command_digest":"$(digest_of_string "$command_string")","raw_output_path":".board/evidence/$card/second-reader/$layer.raw.txt","raw_output_sha256":"$(digest_of_file "$evidence_dir/$layer.raw.txt")","matched_tests":$matched,"exit_code":$run_exit,"control_exit_code":${control_exit:-0},"verdict":"pass"}
+EOF
+  chmod 0644 "$evidence_dir/$layer.json"
+  printf 'second-reader: %s %s passed (%s, %s matched)\n' "$card" "$layer" "$engine" "$matched"
+done
+
+exit "$overall"

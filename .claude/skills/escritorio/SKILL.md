@@ -245,6 +245,30 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     A varredura é dos **seis** paths, não dos dois denunciados: o revisor que só
     confere o que já foi nomeado devolve a mesma classe na rodada seguinte.
 
+21. **Patch cuja imagem "before" não é alcançável não é entrega.** Um builder
+    mandado corrigir uma normalização silenciosa na camada de revisão produziu uma
+    **mutação silenciosa na camada de entrega**, e os três revisores a pegaram:
+
+    - o relatório afirmava que o defeito "não reproduz" — os três reproduziram, um
+      deles por `cmp` byte a byte (diferiam no byte 22, `0x2d` contra `0x5f`);
+    - a correção **não estava em patch nenhum**: existia só no índice *staged* de um
+      worktree órfão, como um blob **dangling no ODB**, inalcançável por qualquer
+      commit ou branch, e o patch entregue pressupunha esse estado como imagem
+      "before" — `git apply --check` e `--3way` falhavam contra o HEAD real;
+    - e o `base_sha` **regrediu** 71 commits, herdado do HEAD incidental daquele
+      worktree, violando a lei 19 na direção oposta.
+
+    **O teste, antes de qualquer revisão:** `git apply --check <patch>` contra o HEAD
+    real. Se falhar, o patch não descreve a mudança — ele descreve o disco de alguém.
+    Devolva sem gastar revisor.
+
+    **Corolário de custo:** para uma edição mecânica e verificável pelo próprio
+    validador — um caractere, um digest recomputado, um `base_sha` re-ancorado — o
+    coordenador faz e prova, em vez de gastar uma rodada de builder. O que o
+    coordenador **não** pode fazer é escrever parecer, mutação cética ou observação de
+    aceite: isso é substituir revisor, e foi o que custou um selo revogado nesta
+    mesma sessão. A linha é nítida: mecânica verificável, sim; juízo independente, não.
+
 ## Regra de prompt para builder e revisor (cole no despacho)
 
 Antes de declarar qualquer AC verde, para CADA checagem escrita ou tocada, responda
