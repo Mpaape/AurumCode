@@ -1,0 +1,5 @@
+name: cycle head
+runs:
+  using: composite
+  steps:
+    - uses: ./pkg-b

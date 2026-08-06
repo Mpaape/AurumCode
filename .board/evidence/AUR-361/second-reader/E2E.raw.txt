@@ -1,0 +1,18 @@
+=== second-reader-log v1
+=== card: AUR-361
+=== layer: E2E
+=== engine: shell
+=== test-path: tests/acceptance/AUR-361.sh
+=== selector: E2EAUR361
+=== test-file-sha256: sha256:995a5f2bfeb50b871a9ed4464eb3e135f3ba8714d649b02b026e92128ec154ea
+=== image: bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831
+=== command: bash tests/acceptance/AUR-361.sh E2EAUR361
+=== output-begin
+| {"card":"AUR-361","scenario":"AC-001","selector":"E2EAUR361","lock_digest":"sha256:01874892ed55330aea02d740980c807b2976b8d67543e781e42caea25abd5d40","seed_files":8,"closure_files":8,"active_sites":29,"origin_checks":29,"fixture_cases":37,"named_controls":24,"result":"pass"}
+=== output-end
+=== exit: 0
+=== control-command: bash tests/acceptance/AUR-361.sh AURUM-SECOND-READER-CONTROL
+=== control-output-begin
+| AUR-361/AC-001/unknown-selector
+=== control-output-end
+=== control-exit: 64

@@ -1,0 +1,101 @@
+{
+ "schema": "aurum.coverage-manifest",
+ "card_id": "AUR-361",
+ "candidate_identity_digest": "sha256:472183dcfc9236530d1277c249967a38a41d80f3b4065b4a46dfb9e06a98b7d1",
+ "dimensions": [
+  "contract",
+  "design",
+  "compatibility",
+  "tests",
+  "security",
+  "concurrency",
+  "errors-operations",
+  "documentation",
+  "scope-simplicity",
+  "hunks"
+ ],
+ "reviewer_a_notes": {
+  "contract": [
+   "covered",
+   "Tabela de codigos tipados montada por leitura do fonte, nao por comparacao mental: action_ref_mutable sai de reject() nas linhas 911 e 929; action-unlocked e action-identity-mismatch saem de classify_drift() nas linhas 1044/1051 e 1027; fail() imprime card/scenario/code. O casamento com o texto do card e byte a byte por construcao."
+  ],
+  "design": [
+   "covered",
+   "O lock passou a ser derivado por --generate e o aceite compara o arquivo inteiro; o fecho transitivo dos uses: locais vai ate o ponto fixo com deteccao de ciclo, e a allowlist de origem e aplicada a toda entrada, sem ramo por entry_kind decidindo SE checa."
+  ],
+  "compatibility": [
+   "covered",
+   "Escopo restrito aos paths declarados; nenhum forbidden_path tocado. O revisor construiu duas worktrees, uma com r4+reanchor e outra com o patch do coordenador, e diffou: a unica diferenca e .board/cards/doing/AUR-361.md. coordenador_excedeu = nao."
+  ],
+  "tests": [
+   "covered",
+   "As tres mutacoes do card reexecutadas na arvore real, nao em fixture, cada uma com restauracao provada por sha256 e retorno ao mesmo stdout_sha256 do nominal."
+  ],
+  "security": [
+   "covered",
+   "Os dois ataques que vetaram a rodada anterior saem 1 tipados: docker:// de registro nao confiavel, e acao local composta com uses: aninhado hostil dentro de .github/workflows real."
+  ],
+  "concurrency": [
+   "not_applicable",
+   "Verificacao read-only de disparo unico em container pinado."
+  ],
+  "errors-operations": [
+   "covered",
+   "Lei 20 executada nos quatro paths declarados: tres derrubam o aceite com declared-path-missing, e o quarto e o proprio script de aceite, que o runner recusa em exit 66 antes de executar (Lei 4, infraestrutura, registrado como tal e nao convertido em veredito)."
+  ],
+  "documentation": [
+   "covered",
+   "Achado menor nao bloqueante, herdado da rodada aprovada e nao tocado pelo coordenador: uma frase do card admite leitura mais natural do que a implementada. Registrado como qualidade de texto, sem efeito sobre o oraculo."
+  ],
+  "scope-simplicity": [
+   "covered",
+   "O patch do coordenador e uma edicao mecanica: um caractere na linha 82, base_sha re-ancorado para a frente e spec_digest recomputado por ultimo."
+  ],
+  "hunks": [
+   "covered",
+   "Todos os hunks lidos; base_sha 2b89020 confirmado ancestral de 8b27423, logo a re-ancoragem avancou (Lei 19)."
+  ]
+ },
+ "reviewer_b_notes": {
+  "contract": [
+   "covered",
+   "spec_digest recomputado pela receita auto-referencial e confirmado como ponto fixo; codigos tipados conferidos byte a byte contra o que o script emite."
+  ],
+  "design": [
+   "covered",
+   "RED sem os patches reproduzido: o aceite falha fechado, o que satisfaz a Lei 2 — o comando falharia se o trabalho do card nao existisse."
+  ],
+  "compatibility": [
+   "covered",
+   "Mesma construcao de duas worktrees e diff; nada alem do card mudou. Registrou com honestidade que o HEAD do momento da revisao (b9b5dfe) nao e literalmente o que o coordenador descreveu, e julgou nao material."
+  ],
+  "tests": [
+   "covered",
+   "As tres mutacoes executadas na arvore real com restauracao por sha256."
+  ],
+  "security": [
+   "covered",
+   "Tres bypasses proprios tentados alem dos nomeados, incluindo NUL byte numa linha uses: ao vivo e symlink relativo sob .github/workflows: ambos recusados com codigo tipado."
+  ],
+  "concurrency": [
+   "not_applicable",
+   "Processo deterministico unico, sem estado mutavel compartilhado."
+  ],
+  "errors-operations": [
+   "covered",
+   "Lei 20 nos quatro paths, com a mesma tabela do outro cego, obtida de forma independente."
+  ],
+  "documentation": [
+   "covered",
+   "Mesmo achado menor de texto, encontrado independentemente e classificado como nao bloqueante."
+  ],
+  "scope-simplicity": [
+   "covered",
+   "Diff minimo; nenhuma assercao enfraquecida."
+  ],
+  "hunks": [
+   "covered",
+   "Todos os hunks lidos com prioridade adversarial em origem, pinagem e fecho transitivo."
+  ]
+ }
+}

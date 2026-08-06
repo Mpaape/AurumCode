@@ -1,0 +1,7 @@
+name: fixture
+jobs:
+  build:
+    steps:
+      # uses: evil/x@main
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8
