@@ -1,0 +1,5 @@
+attest-schema: read-paths-v1
+Gemfile	sha256:a189b5f016d4f0f95395524881bb5a454d3f7812570af23f814a706aadee527d
+.aurumcode/Gemfile	sha256:768e9cc5278b0a5e6e908a34570aa3ca2b3e6460e6822514ac22d9f2bed6b969
+.docker/docs.Dockerfile	sha256:48c231088bdda36cee3538f9c9fd6e8b4e8b9d2d3bdb13d61c7dc63ebf2444d7
+.github/workflows/documentation.yml	sha256:bc62dd16f5926f806b7b20891cb23d13681720b81b581d37e105d8d142a7b4d9
