@@ -147,6 +147,36 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     Um épico cujo accept passaria com metade do trabalho ausente é vácuo — a lei 12
     o mata igual.
 
+18. **Agente fora da espinha é agente ocioso.** Três análises independentes mediram
+    o mesmo board e chegaram ao mesmo número: **99% dos cards estão atrás de ~16
+    cards de infra em 6 níveis em série**. Enquanto a espinha não abrir, encher o
+    teto de 14 agentes com cards de baixo do DAG não produz um card a mais — produz
+    patch que envelhece. Três correções permanentes que saíram dessa medição:
+
+    - **Podar aresta não encurta nada.** A redução transitiva do DAG tira
+      1862 → 959 arestas (48,5% são restatements de caminhos que já existem) **sem
+      mudar uma única camada, raiz ou o caminho crítico**. Pior: `depends_on` entra
+      na `CandidateIdentityV1`, então toda poda invalida as revisões já feitas dos
+      cards afetados. Poda de aresta é custo pago por ganho zero de profundidade.
+    - **Raiz é a métrica errada.** 384 arestas são "o filho invoca o perfil que o
+      pai define" — logo nenhum card pode ser raiz enquanto precisar de um perfil,
+      e a meta "raiz ≥ 30" é topologicamente impossível sem trocar o modelo de
+      aceite. A métrica que decide a onda é **largura pronta depois do prefixo de
+      infra**. Hoje ela é 4, não 20: é por isso que despachar mais agentes não
+      moveu o placar.
+    - **Consolidação se prova num piloto, não num documento.** O ganho de ciclos é
+      contagem de nós, não custo medido — as 7–16 rodadas observadas vieram todas de
+      cards de UM item. Escreva **um** épico, meça as rodadas dele, e só então
+      decida sobre os outros. E cancelar um card **não libera os `paths` dele**:
+      `validate.sh` registra `path_owners` para todo card sem isentar `cancelled`,
+      e o épico não pode se ordenar com o cancelado sem virar autodependência.
+      Reescreva os `paths` do cancelado para artefatos card-scoped **antes** de
+      calcular os digests — eles saem do texto final do card.
+
+    Corolário de alocação: enquanto a espinha estiver fechada, todo slot vai para a
+    espinha ou para o portão que a destrava. Card de baixo do DAG só entra na onda
+    quando a largura pronta o comporta.
+
 ## Regra de prompt para builder e revisor (cole no despacho)
 
 Antes de declarar qualquer AC verde, para CADA checagem escrita ou tocada, responda
