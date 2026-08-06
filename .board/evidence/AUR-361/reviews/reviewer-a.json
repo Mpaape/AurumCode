@@ -1,0 +1,79 @@
+{
+ "schema": "aurum.review-report",
+ "version": 1,
+ "card_id": "AUR-361",
+ "candidate_identity_digest": "sha256:472183dcfc9236530d1277c249967a38a41d80f3b4065b4a46dfb9e06a98b7d1",
+ "role": "reviewer-a",
+ "sealed": true,
+ "role_nonce": "aur361-r6-reviewer-a-39655b9c8acb",
+ "context_digest": "sha256:7c78f8622ee4ce1419e6adfdd6c77f7d35d583763b094a342a6cfd4485f1bf2b",
+ "session_digest": "sha256:04d92860f057c40244efc885497d076b296eb196f8b271205394ca798cad8d12",
+ "backend_family_digest": "sha256:b0b534e2489164950ecab7b9556401abc625800b3cd5876524b91d23c8975488",
+ "verdict": "pass",
+ "independence_level": "I2",
+ "isolation": {
+  "peer_report_visible_before_seal": false,
+  "builder_trace_received": false,
+  "shared_memory": false
+ },
+ "coverage": {
+  "all_hunks": true,
+  "all_dimensions": true,
+  "manifest_digest": "sha256:3fae7c101326c4442090f936732811515a146f1c57d249a99f5282f15c30dbae",
+  "uncovered_hunks": 0,
+  "dimensions": [
+   {
+    "id": "contract",
+    "status": "covered",
+    "evidence_digest": "sha256:3ec93e16d8cb0318c0abea9a80bd7f0ba84feba2683c87a3c8123772df6d5c73"
+   },
+   {
+    "id": "design",
+    "status": "covered",
+    "evidence_digest": "sha256:b59a844decc3070509e53bbc968f21f9d8f689b8ac67a1a81754fc4145f882ed"
+   },
+   {
+    "id": "compatibility",
+    "status": "covered",
+    "evidence_digest": "sha256:8e4c4e6e68c860bbfda1ff902d43184daab9c7b8116e071de13a516682b3b830"
+   },
+   {
+    "id": "tests",
+    "status": "covered",
+    "evidence_digest": "sha256:08fab04329e73a65b6bf7fa25969678015c7c17264f505a52f9001e371005146"
+   },
+   {
+    "id": "security",
+    "status": "covered",
+    "evidence_digest": "sha256:752906bd1d4739e880b38adfab1c2a11026f318d0673ca1e19292dbd5f5933bf"
+   },
+   {
+    "id": "concurrency",
+    "status": "not_applicable",
+    "justification": "Verificacao read-only de disparo unico em container pinado."
+   },
+   {
+    "id": "errors-operations",
+    "status": "covered",
+    "evidence_digest": "sha256:7cb17f753a50690a3ae7351602e933c205c834dcb0d3cc091085144227f9b588"
+   },
+   {
+    "id": "documentation",
+    "status": "covered",
+    "evidence_digest": "sha256:7e2b61f74dd01ed20709dcb6b2c15bd19ca18bf9c762f34c86a4f910f524072d"
+   },
+   {
+    "id": "scope-simplicity",
+    "status": "covered",
+    "evidence_digest": "sha256:254ecfc7d60aaef08eb2baa0ae3acd6faaae71521b0ca49fcfa913e1b4d27631"
+   },
+   {
+    "id": "hunks",
+    "status": "covered",
+    "evidence_digest": "sha256:06c09cc0a89c8d3c9fe879f0560bd1f2d61af4bfed7eef75d6d8ff859f614178"
+   }
+  ]
+ },
+ "source_report": "/tmp/aurum-reviews/AUR-361-r6-cegoA.md",
+ "summary": "Parecer cego A do r6 (persistido em /tmp/aurum-reviews/AUR-361-r6-cegoA.md): APROVADO. git apply --check do patch do coordenador contra o HEAD real sai 0 (Lei 21). O coordenador nao excedeu: duas worktrees construidas e diffadas mostram uma unica diferenca, o card. Os codigos tipados casam byte a byte por leitura do fonte. As tres mutacoes derrubam o aceite na arvore real e restauram ao mesmo stdout_sha256. Lei 20 executada nos quatro paths."
+}
