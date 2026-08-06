@@ -5,7 +5,7 @@ card: AUR-361
 derivation: uses-closure-derived-v2
 seed_file_count: 8
 file_count: 8
-input_bytes: 58270
+input_bytes: 58978
 origin_policy_checked: 29
 file_001_path: .github/workflows/ci.yml
 file_001_origin: seed
@@ -17,8 +17,8 @@ file_002_bytes: 5256
 file_002_digest: sha256:5e9f6be8045f2cbd4e245c7977390176764d4d06166041da0e4b9b3dd93e05a5
 file_003_path: .github/workflows/documentation.yml
 file_003_origin: seed
-file_003_bytes: 9572
-file_003_digest: sha256:bc62dd16f5926f806b7b20891cb23d13681720b81b581d37e105d8d142a7b4d9
+file_003_bytes: 10280
+file_003_digest: sha256:a2c72ca61c8b0be955e8182c0491403daa98585d112c8da492aa535f428f9111
 file_004_path: .github/workflows/examples/all-pipelines.yml
 file_004_origin: seed
 file_004_bytes: 5711
@@ -142,7 +142,7 @@ entry_010_ref_type: commit_sha
 entry_010_target: -
 entry_010_line_digest: sha256:1819076cecf53a43a8ed74814d2fcc9d445da440d74467ed7555bce1fbe97822
 entry_011_file: .github/workflows/documentation.yml
-entry_011_line: 48
+entry_011_line: 54
 entry_011_kind: remote
 entry_011_source: github-remote
 entry_011_owner: actions
@@ -152,7 +152,7 @@ entry_011_ref_type: mutable_tag
 entry_011_target: -
 entry_011_line_digest: sha256:4c4d9cd078bbc02a512758ff4ccc25e5a3cccd767c2f2e5cb586a734e27e1394
 entry_012_file: .github/workflows/documentation.yml
-entry_012_line: 53
+entry_012_line: 59
 entry_012_kind: remote
 entry_012_source: github-remote
 entry_012_owner: actions
@@ -162,7 +162,7 @@ entry_012_ref_type: mutable_tag
 entry_012_target: -
 entry_012_line_digest: sha256:b112f289dea9093a4238b4c20848ed73d066f1957b45b1d5972eea05b2d30178
 entry_013_file: .github/workflows/documentation.yml
-entry_013_line: 131
+entry_013_line: 141
 entry_013_kind: remote
 entry_013_source: github-remote
 entry_013_owner: ruby
@@ -172,7 +172,7 @@ entry_013_ref_type: mutable_tag
 entry_013_target: -
 entry_013_line_digest: sha256:b63d45f4c5c417cfb5ef7ef40176ef5e98acfd27a353a08d26b5805b64ea956d
 entry_014_file: .github/workflows/documentation.yml
-entry_014_line: 191
+entry_014_line: 201
 entry_014_kind: remote
 entry_014_source: github-remote
 entry_014_owner: actions
@@ -182,7 +182,7 @@ entry_014_ref_type: mutable_tag
 entry_014_target: -
 entry_014_line_digest: sha256:323dcec2e692868eaee2e87c63353a98f955000bb9160eb77d17e662efc2d692
 entry_015_file: .github/workflows/documentation.yml
-entry_015_line: 197
+entry_015_line: 207
 entry_015_kind: remote
 entry_015_source: github-remote
 entry_015_owner: actions
@@ -192,7 +192,7 @@ entry_015_ref_type: mutable_tag
 entry_015_target: -
 entry_015_line_digest: sha256:55efe0968915d353430ff2410027831b32408fdcc5e1320815a20be908f63a16
 entry_016_file: .github/workflows/documentation.yml
-entry_016_line: 243
+entry_016_line: 253
 entry_016_kind: remote
 entry_016_source: github-remote
 entry_016_owner: actions
@@ -332,5 +332,5 @@ entry_029_ref_type: commit_sha
 entry_029_target: -
 entry_029_line_digest: sha256:3002490259f916a4e0fd2d1544205b7d30f3e52d72ab80790bc472356b85f4f5
 inert_001_file: .github/workflows/documentation.yml
-inert_001_line: 252
+inert_001_line: 262
 inert_001_line_digest: sha256:86400a8d913e8ade81ed10ced2f93418ea24fe08051b1f86dad8bfba3d592d2e

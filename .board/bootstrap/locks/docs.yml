@@ -22,7 +22,7 @@ card_artifact[2].bytes: 32571
 card_artifact[2].sha256: sha256:321bc8f570ad7329b14a3b6a830441705fceb63b895982e7649dfb72f115e16c
 card_artifact[3].path: tests/bootstrap/locks/AUR-364/read-paths.attested
 card_artifact[3].bytes: 404
-card_artifact[3].sha256: sha256:ba37c3255c2e3f2ea0309068d04691cefc78daeec260792479806a50f76aa995
+card_artifact[3].sha256: sha256:90e2f6909f7a7234d2e4ee8b625e6b73f1eec6e85c6dd203379783e27047ee2d
 card_artifact[4].path: tests/bootstrap/locks/AUR-364/resolved.lock
 card_artifact[4].bytes: 2063
 card_artifact[4].sha256: sha256:96ae562e29f8f2d43116d7b9a9651f5f3382ae7206991b48a86ec25cbcdae028
@@ -50,9 +50,9 @@ read_path[3].sha256: sha256:48c231088bdda36cee3538f9c9fd6e8b4e8b9d2d3bdb13d61c7d
 read_path[4].path: .github/workflows/documentation.yml
 read_path[4].role: document
 read_path[4].format: opaque
-read_path[4].bytes: 9572
-read_path[4].lines: 269
-read_path[4].sha256: sha256:bc62dd16f5926f806b7b20891cb23d13681720b81b581d37e105d8d142a7b4d9
+read_path[4].bytes: 10280
+read_path[4].lines: 279
+read_path[4].sha256: sha256:a2c72ca61c8b0be955e8182c0491403daa98585d112c8da492aa535f428f9111
 manifest[1].path: Gemfile
 manifest[1].format: bundler
 manifest[1].runtime: ruby
@@ -78,9 +78,9 @@ document[1].lines: 179
 document[1].interpreted: false
 document[1].install_instructions: uninterpreted-sealed-by-whole-file-digest
 document[2].path: .github/workflows/documentation.yml
-document[2].sha256: sha256:bc62dd16f5926f806b7b20891cb23d13681720b81b581d37e105d8d142a7b4d9
-document[2].bytes: 9572
-document[2].lines: 269
+document[2].sha256: sha256:a2c72ca61c8b0be955e8182c0491403daa98585d112c8da492aa535f428f9111
+document[2].bytes: 10280
+document[2].lines: 279
 document[2].interpreted: false
 document[2].install_instructions: uninterpreted-sealed-by-whole-file-digest
 runtime[1].family: ruby
