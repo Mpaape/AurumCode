@@ -225,6 +225,24 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
       Distinga os dois no relatório, senão o card parece estar falhando pelo mérito
       quando está falhando pelo relógio.
 
+    **A lei vale para `done`, e ali ela é mais dura.** Escrevi esta lei falando de
+    `doing` e violei-a uma hora depois contra um card `done`: um conserto de CI tocou
+    `.github/workflows/documentation.yml`, que está no `read_paths` de `AUR-364`, e o
+    aceite que passara quarenta minutos antes voltou a `docs-tool-unlocked`. Em `done`
+    o portão **reexecuta** o card a cada `validate.sh`, então a superfície de leitura
+    de card selado é território congelado igual — e o conserto é assimétrico:
+
+    | estado | o que a deriva custa |
+    |---|---|
+    | `doing` | re-ancorar `base_sha` e regenerar — uma etapa do builder |
+    | `done` | **re-selo**: regenerar muda um artefato de `paths:`, logo muda o `change_digest` da `CandidateIdentityV1` e invalida o bundle inteiro |
+
+    **Antes de commitar qualquer coisa fora de um card, meça:**
+    `grep -l '<arquivo>' .board/cards/{doing,done}/*.md` sobre `paths` e `read_paths`.
+    Se casar com card `done`, o commit custa um re-selo — decida com esse preço à vista,
+    e segure a PR até o re-selo estar pronto, senão o board fica inválido em silêncio
+    (nenhum job de CI roda `validate.sh` hoje).
+
 20. **Path declarado não é path lido — e o portão só confere o primeiro.**
     `validate.sh:1863` exige que todo path declarado **exista** na árvore. Um `grep`
     pelo conceito de leitura no validador inteiro retorna **zero**: nada exige que o
