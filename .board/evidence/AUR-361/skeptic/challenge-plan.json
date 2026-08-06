@@ -1,0 +1,29 @@
+{
+ "schema": "aurum.challenge-plan",
+ "card_id": "AUR-361",
+ "candidate_identity_digest": "sha256:472183dcfc9236530d1277c249967a38a41d80f3b4065b4a46dfb9e06a98b7d1",
+ "sealed_before_reviews": true,
+ "hypotheses": [
+  {
+   "id": "MUT-001",
+   "scenario": "AC-001",
+   "trust_boundary": "repository",
+   "hypothesis": "Uma linha uses: acrescentada ao workflow sem atualizar o lock tem de ser pega.",
+   "expected_typed_failure": "AUR-361/AC-001/action-unlocked"
+  },
+  {
+   "id": "MUT-002",
+   "scenario": "AC-001",
+   "trust_boundary": "scm",
+   "hypothesis": "Um commit SHA substituido por tag flutuante tem de ser recusado.",
+   "expected_typed_failure": "AUR-361/AC-001/action_ref_mutable"
+  },
+  {
+   "id": "MUT-003",
+   "scenario": "AC-001",
+   "trust_boundary": "supply-chain",
+   "hypothesis": "Trocar owner mantendo o SHA tem de quebrar o vinculo identidade-digest.",
+   "expected_typed_failure": "AUR-361/AC-001/action-identity-mismatch"
+  }
+ ]
+}
