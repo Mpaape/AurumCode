@@ -1,0 +1,101 @@
+{
+ "schema": "aurum.coverage-manifest",
+ "card_id": "AUR-015",
+ "candidate_identity_digest": "sha256:49f9cea6853dcee9f07c6a92cc47b997486597d515f0b98d2952601724aea6ac",
+ "dimensions": [
+  "contract",
+  "design",
+  "compatibility",
+  "tests",
+  "security",
+  "concurrency",
+  "errors-operations",
+  "documentation",
+  "scope-simplicity",
+  "hunks"
+ ],
+ "reviewer_a_notes": {
+  "contract": [
+   "covered",
+   "O card parou de afirmar o que nao faz. A camada Integration, que antes era citada sem nenhum portao executando-a, agora e coberta pelo segundo leitor do board — e o card descreve isso sem exagerar: o accept SELADO continua sem Go, e isso continua verdade escrita nele."
+  ],
+  "design": [
+   "covered",
+   "docs/specs/AUR-015.md e genuinamente lido e executado pelo aceite: remove-lo derruba com falha tipada. Era decorativo ate a rodada anterior."
+  ],
+  "compatibility": [
+   "covered",
+   "Escopo restrito aos paths declarados; nenhum forbidden_path tocado."
+  ],
+  "tests": [
+   "covered",
+   "MUT-001 e MUT-002 reexecutadas, com restauracao ao mesmo stdout_sha256 do nominal."
+  ],
+  "security": [
+   "covered",
+   "Tres bypasses proprios tentados; artefato ausente ou vazio e barrado, e o canario de segredo sai 70 antes de qualquer execucao."
+  ],
+  "concurrency": [
+   "not_applicable",
+   "Verificacao read-only de disparo unico em container pinado."
+  ],
+  "errors-operations": [
+   "covered",
+   "Lei 20 executada nos SEIS paths declarados, nas DUAS formas — remocao e adulteracao de conteudo. Nenhum sobreviveu: paths_decorativos vazio."
+  ],
+  "documentation": [
+   "covered",
+   "A declaracao de honestidade sobre a lacuna vive em Preconditions, nao na linha de citacao da camada — a linha do TDD tem de ser exatamente path::selector, porque o segundo leitor faz o parse dela."
+  ],
+  "scope-simplicity": [
+   "covered",
+   "A rodada estreita o card ate o que ele prova, e depois amplia quando o portao passa a cobrir de fato."
+  ],
+  "hunks": [
+   "covered",
+   "Todos os hunks lidos."
+  ]
+ },
+ "reviewer_b_notes": {
+  "contract": [
+   "covered",
+   "O card nao exagera a cobertura nova: o segundo leitor executa a camada, o accept selado nao, e as duas coisas estao escritas."
+  ],
+  "design": [
+   "covered",
+   "Segundo leitor rodado por conta propria na camada Integration: exit 0, motor go, 1 matched."
+  ],
+  "compatibility": [
+   "covered",
+   "Nenhuma assercao enfraquecida em relacao a rodada aprovada anterior."
+  ],
+  "tests": [
+   "covered",
+   "As duas mutacoes declaradas executadas com restauracao provada."
+  ],
+  "security": [
+   "covered",
+   "Tres bypasses proprios; o aceite distingue um standard real de um arquivo com as palavras certas."
+  ],
+  "concurrency": [
+   "not_applicable",
+   "Processo deterministico unico."
+  ],
+  "errors-operations": [
+   "covered",
+   "Lei 20 nas duas formas, tabela dos seis paths."
+  ],
+  "documentation": [
+   "covered",
+   "A historia da lacuna nao foi apagada: o card diz que ela existiu e como foi fechada."
+  ],
+  "scope-simplicity": [
+   "covered",
+   "Diff minimo."
+  ],
+  "hunks": [
+   "covered",
+   "Todos os hunks lidos com prioridade adversarial."
+  ]
+ }
+}

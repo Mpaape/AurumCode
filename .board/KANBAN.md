@@ -10,9 +10,9 @@ tests are satisfied.
 |---|---|---:|
 | Ready | Dependencies complete; isolated test designer may establish red | 1 |
 | Backlog | Fully specified, dependency-blocked work | 409 |
-| Doing | Builder currently owns the patch | 3 |
+| Doing | Builder currently owns the patch | 2 |
 | Review | Candidate is immutable and under review | 0 |
-| Done | Evidence-bound double review and skeptical approval complete | 10 |
+| Done | Evidence-bound double review and skeptical approval complete | 11 |
 | Blocked on owner | Requires new authority or product choice | 0 |
 
 ## Dependency spine
