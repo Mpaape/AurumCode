@@ -1,0 +1,5 @@
+name: hidden nested composite
+runs:
+  using: composite
+  steps:
+    - uses: attacker-controlled-org/definitely-not-trusted@main

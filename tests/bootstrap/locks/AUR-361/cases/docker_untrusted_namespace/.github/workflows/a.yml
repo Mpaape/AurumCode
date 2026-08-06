@@ -1,0 +1,5 @@
+name: fixture
+jobs:
+  build:
+    steps:
+      - uses: docker://docker.io/evilns/img@sha256:1f0e2d3c4b5a69788796a5b4c3d2e1f01f0e2d3c4b5a69788796a5b4c3d2e1f0

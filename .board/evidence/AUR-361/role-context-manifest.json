@@ -1,0 +1,35 @@
+{
+ "schema": "aurum.role-context-manifest",
+ "card_id": "AUR-361",
+ "round": "r6",
+ "roles": {
+  "reviewer-a": {
+   "nonce": "aur361-r6-reviewer-a-39655b9c8acb",
+   "context_digest": "sha256:7c78f8622ee4ce1419e6adfdd6c77f7d35d583763b094a342a6cfd4485f1bf2b",
+   "session_digest": "sha256:04d92860f057c40244efc885497d076b296eb196f8b271205394ca798cad8d12",
+   "backend_family_digest": "sha256:b0b534e2489164950ecab7b9556401abc625800b3cd5876524b91d23c8975488",
+   "source_report": "/tmp/aurum-reviews/AUR-361-r6-cegoA.md"
+  },
+  "reviewer-b": {
+   "nonce": "aur361-r6-reviewer-b-f9d20bbaf3c1",
+   "context_digest": "sha256:f04be79c0957c0b3f13ba1ea8eedda0d15b8c52148d2ce4363fc16019bba5264",
+   "session_digest": "sha256:b35da15c80df08bc2cee4023c65c609499969093e1d8247db21adee2a928a96b",
+   "backend_family_digest": "sha256:6d1f611b9927d46a894577d0d8e1e08cb9df6fa753d70be9bd0ee8c86666a69f",
+   "source_report": "/tmp/aurum-reviews/AUR-361-r6-cegoB.md"
+  },
+  "skeptic": {
+   "nonce": "aur361-r6-skeptic-dcf1c5c4a249",
+   "context_digest": "sha256:67859f5e41e82a2e952eb77fa307790187d13bd2f2073bc96bcafcf56257f4fa",
+   "session_digest": "sha256:6fa9756d67759d2ba3a17bb4c34f339ad9ead966df317de5aff10e3d21bc48b3",
+   "backend_family_digest": "sha256:4a5383b50855eaa336260e59ed2f76180783dc5255d38a09a1b758db6cb4f581",
+   "source_report": "/tmp/aurum-reviews/AUR-361-r6-cetico.md"
+  },
+  "acceptance": {
+   "nonce": "aur361-r6-acceptance-229dbd944bc0",
+   "context_digest": "sha256:0485e4a5283b4739e2f1caf807eb07f61672d1854424a0d4994d4610c4a06cb7",
+   "session_digest": "sha256:0c9df43a83191a03e7cc3effde1476637f3a374813f710698fc9c525d3d2916f",
+   "backend_family_digest": "sha256:f8cbde289c4429384d66899f46eae32b9f1d2d9772f9026ddeda363537ff6c99",
+   "source_report": "coordinator oci-run, exit 0"
+  }
+ }
+}

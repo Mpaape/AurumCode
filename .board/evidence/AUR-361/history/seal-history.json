@@ -1,0 +1,33 @@
+{
+ "schema": "aurum.seal-history",
+ "version": 1,
+ "card_id": "AUR-361",
+ "rounds": [
+  {
+   "round": "r2",
+   "outcome": "veto",
+   "reason": "O aceite decidia so pelo digest da Secao 1; a Secao 3, que deveria provar que todo uses: esta registrado, era lida apenas por classify_drift() depois da decisao. Um job com uses: nao registrado passava com exit 0."
+  },
+  {
+   "round": "r3",
+   "outcome": "veto",
+   "reason": "Ramo docker sem checagem de dono e acao local composta invisivel ao fecho: os dois passavam com exit 0 no aceite selado."
+  },
+  {
+   "round": "r4",
+   "outcome": "tres selos",
+   "reason": "Dois cegos e o cetico aprovaram. O veto anterior por lock-not-derived foi classificado como DERIVA, nao merito: seis commits alheios tocaram .github/workflows desde o base_sha, tres deles consertos de CI do coordenador, e git diff confirmou zero linhas uses: alteradas."
+  },
+  {
+   "round": "r5",
+   "outcome": "veto",
+   "reason": "Rodada aberta para corrigir um Expected que prometia action-ref-mutable enquanto o portao emite action_ref_mutable. O builder devolveu relatorio materialmente falso, com a correcao existindo apenas no indice staged de um worktree orfao, num blob dangling no ODB, e com base_sha regredindo 71 commits. Vetada pelos tres papeis; originou a lei 21."
+  },
+  {
+   "round": "r6",
+   "outcome": "sealed",
+   "reason": "Edicao mecanica feita pelo coordenador sobre base alcancavel — um caractere na linha 82, base_sha re-ancorado para a frente, spec_digest recomputado por ultimo com ponto fixo provado — e congelada num patch que git apply --check aceita contra o HEAD. Os tres papeis re-selaram e os tres responderam coordenador_excedeu = nao."
+  }
+ ],
+ "law_21_note": "O coordenador editou o artefato porque a mudanca era mecanica e verificavel pelo proprio validador. Ele nao escreveu parecer, mutacao cetica nem observacao de aceite: esses vieram dos tres papeis independentes, e o campo coordenador_excedeu existe no schema deles justamente para que a excecao fosse auditada por quem nao a cometeu."
+}

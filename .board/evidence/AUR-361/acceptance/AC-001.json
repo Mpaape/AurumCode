@@ -1,0 +1,47 @@
+{
+ "schema": "aurum.acceptance-observation",
+ "version": 1,
+ "card_id": "AUR-361",
+ "candidate_identity_digest": "sha256:472183dcfc9236530d1277c249967a38a41d80f3b4065b4a46dfb9e06a98b7d1",
+ "role": "acceptance",
+ "sealed": true,
+ "role_nonce": "aur361-r6-acceptance-229dbd944bc0",
+ "context_digest": "sha256:0485e4a5283b4739e2f1caf807eb07f61672d1854424a0d4994d4610c4a06cb7",
+ "session_digest": "sha256:0c9df43a83191a03e7cc3effde1476637f3a374813f710698fc9c525d3d2916f",
+ "backend_family_digest": "sha256:f8cbde289c4429384d66899f46eae32b9f1d2d9772f9026ddeda363537ff6c99",
+ "verdict": "pass",
+ "command_digest": "sha256:c77be1615cec864bb993cd78bc1a855231fd767fda3c84e1aadfb2f2d05a2de1",
+ "container_profile_digest": "sha256:36bb0c1b85fa02974fcaaef5f0dc67c7a8212eafc8a90d72342e248da00ca1f4",
+ "red": {
+  "exit_code": 1,
+  "typed_failure": "AUR-361/AC-001/action_ref_mutable",
+  "cause": "Sem o trabalho do card, o lock derivado nao cobre os uses: reais do repositorio e o aceite falha fechado. Reproduzido de forma independente pelos dois cegos e pelo cetico no HEAD sem os patches."
+ },
+ "green": {
+  "exit_code": 0,
+  "stdout_sha256": "sha256:6e31da36eb970f395585d2347998139d651cf55936761d37a70e195e9c87b2e6"
+ },
+ "mutation": {
+  "mutation_id": "MUT-002",
+  "detected": true,
+  "exit_code": 1,
+  "typed_failure": "AUR-361/AC-001/action_ref_mutable",
+  "restored_exit_code": 0
+ },
+ "clean_replay": {
+  "exit_code": 0,
+  "stdout_sha256": "sha256:6e31da36eb970f395585d2347998139d651cf55936761d37a70e195e9c87b2e6",
+  "runs": 2
+ },
+ "secret_canaries": {
+  "pass": true,
+  "leaked": 0
+ },
+ "scenarios": [
+  {
+   "id": "AC-001",
+   "exit_code": 0
+  }
+ ],
+ "observed_by": "coordinator, executando o comando que o card trava; saida de container tratada como dado nao confiavel (Lei 7)"
+}

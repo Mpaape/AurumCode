@@ -1,0 +1,100 @@
+{
+ "schema": "aurum.skeptic-report",
+ "version": 1,
+ "card_id": "AUR-361",
+ "candidate_identity_digest": "sha256:472183dcfc9236530d1277c249967a38a41d80f3b4065b4a46dfb9e06a98b7d1",
+ "role": "skeptic",
+ "sealed": true,
+ "role_nonce": "aur361-r6-skeptic-dcf1c5c4a249",
+ "context_digest": "sha256:67859f5e41e82a2e952eb77fa307790187d13bd2f2073bc96bcafcf56257f4fa",
+ "session_digest": "sha256:6fa9756d67759d2ba3a17bb4c34f339ad9ead966df317de5aff10e3d21bc48b3",
+ "backend_family_digest": "sha256:4a5383b50855eaa336260e59ed2f76180783dc5255d38a09a1b758db6cb4f581",
+ "verdict": "pass",
+ "challenge_plan": {
+  "sealed_before_reviews": true,
+  "digest": "sha256:885487b7a7baaf812e7d07d322a001ba155bff53eb6c7df7f66771917b9626e8",
+  "all_acceptance_criteria": true,
+  "all_trust_boundaries": true
+ },
+ "isolation": {
+  "reviews_visible_before_challenge_seal": false
+ },
+ "mutation": {
+  "detected": true,
+  "results": [
+   {
+    "mutation_id": "MUT-001",
+    "exit_code": 1,
+    "typed_failure": "AUR-361/AC-001/action-unlocked",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   },
+   {
+    "mutation_id": "MUT-002",
+    "exit_code": 1,
+    "typed_failure": "AUR-361/AC-001/action_ref_mutable",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   },
+   {
+    "mutation_id": "MUT-003",
+    "exit_code": 1,
+    "typed_failure": "AUR-361/AC-001/action-identity-mismatch",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   }
+  ]
+ },
+ "undeclared_mutations": [
+  {
+   "description": "origin_is_trusted() neutralizada para return 0 incondicional",
+   "exit_code": 1,
+   "typed_failure": "invalid_lock_or_manifest",
+   "detail": "fixture-exit:untrusted_owner:want=1:got=0:code=pass"
+  },
+  {
+   "description": "continue engolindo o caso untrusted_owner no laco de fixtures",
+   "exit_code": 1,
+   "typed_failure": "invalid_lock_or_manifest",
+   "detail": "fixture-count:executed=36:declared=37"
+  }
+ ],
+ "law_20_declared_paths": [
+  {
+   "path": ".board/bootstrap/locks/actions.yml",
+   "exit_code": 1,
+   "typed_failure": "invalid_lock_or_manifest/declared-path-missing"
+  },
+  {
+   "path": "tests/bootstrap/locks/AUR-361",
+   "exit_code": 1,
+   "typed_failure": "invalid_lock_or_manifest/declared-path-missing"
+  },
+  {
+   "path": "docs/specs/AUR-361.md",
+   "exit_code": 1,
+   "typed_failure": "invalid_lock_or_manifest/declared-path-missing"
+  },
+  {
+   "path": "tests/acceptance/AUR-361.sh",
+   "exit_code": 66,
+   "typed_failure": "infrastructure/runner-refusal",
+   "inconclusive": true
+  }
+ ],
+ "law_12_positive_control": {
+  "description": "fecho com zero sites uses:",
+  "exit_code": 1,
+  "typed_failure": "invalid_lock_or_manifest/zero-uses-sites-derived"
+ },
+ "clean_replay": {
+  "pass": true,
+  "runs": 2,
+  "stdout_sha256": "sha256:6e31da36eb970f395585d2347998139d651cf55936761d37a70e195e9c87b2e6"
+ },
+ "secret_canaries": {
+  "pass": true,
+  "leaked": 0
+ },
+ "summary": "Selo cetico do r6 (persistido em /tmp/aurum-reviews/AUR-361-r6-cetico.md): APROVADO. As tres mutacoes declaradas foram executadas na arvore real, cada uma com o Expected do card colado ao lado do observado e casando byte a byte — o defeito que abriu esta sequencia de rodadas era exatamente um Expected que nao casava. Duas mutacoes nao declaradas, mirando a checagem que nao acontece, tambem foram pegas. O cetico registrou um achado processual proprio: a primeira restauracao falhou em silencio porque o arquivo ja estava staged, e ele corrigiu com git checkout HEAD -- <path> e provou por sha256."
+}
