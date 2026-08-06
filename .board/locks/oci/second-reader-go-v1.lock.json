@@ -1,0 +1,6 @@
+{
+"schema": "aurum.oci-image-lock",
+"version": 1,
+"profile": "second-reader-go-v1",
+"image": "golang@sha256:2414035b086e3c42b99654c8b26e6f5b1b1598080d65fd03c7f499552ff4dc94"
+}

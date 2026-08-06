@@ -1,0 +1,58 @@
+# Second-reader legacy registry -- a ratchet, never an escape hatch.
+#
+# Format: <card id> TAB <TDD layer> TAB <reason>.
+#
+# The line below is the ONLY place this registry states its own size, and
+# `.board/validate.sh` derives every number in it from the entries and the
+# recorded logs before comparing. `.board/README.md` must carry the identical
+# sentence. Three texts once stated three different sizes for this one list;
+# that is the drift this gate exists to refuse, so no other line here or in the
+# README may count anything.
+#
+# count: 14 entry(ies) across 6 card(s), 6 distinct captured program(s)
+#
+# "Distinct captured program(s)" is smaller than "entry(ies)" on purpose and the
+# gap is the honest measurement, not a rounding. `tests/acceptance/AUR-359.sh`
+# and its three siblings dispatch four selector names onto ONE body, so the
+# Contract/Integration/E2E records of those cards differ only in the selector
+# they echo: a citation is not an execution, and this board counts executions.
+# Closing the gap means giving each layer its own program, which is work on
+# `tests/`, not on this registry.
+#
+# Cards that reached `done` before `.board/bin/second-reader` existed cite
+# concrete Unit/Contract/Integration/E2E tests that no gate had ever executed.
+# Every citation named below HAS now been executed:
+# `.board/tests/second-reader-legacy/<card>.<layer>.raw.txt` holds the raw
+# captured bytes, and `.board/validate.sh` recomputes the same facts from that
+# log that it recomputes from a bundle-sealed observation -- the exact command,
+# the exact selector, the locked image digest, the sha256 of the file that was
+# read, the framed exit code, the match count, and the refusal of a selector
+# that matched nothing.
+#
+# The single thing a legacy record cannot carry is the binding to the card's
+# sealed CandidateIdentityV1: reopening a `done` evidence bundle is a
+# coordinator act performed by three independent roles, and a builder that
+# forged those digests would be manufacturing exactly the kind of self-declared
+# evidence this board refuses. That missing binding is the reason each line
+# below states, and it is printed on every validate.sh run as `board note:`.
+#
+# The registry only shrinks. `.board/validate.sh` refuses an entry for a card
+# that is not in `done`, for a layer the card no longer cites, for a card/layer
+# that already carries a sealed observation, and for any key outside the frozen
+# cutover set compiled into `.board/validate.sh`. That last rule is what stops a
+# card from joining this list in the same commit that moves it to `done`:
+# growing the registry is a reviewed change to the validator, never a data edit.
+AUR-020	Integration	Bundle sealed before .board/bin/second-reader existed; the recorded run is green but is not bound to this card's sealed CandidateIdentityV1, which only a coordinator re-seal can restore.
+AUR-021	Integration	Bundle sealed before .board/bin/second-reader existed; the recorded run is green but is not bound to this card's sealed CandidateIdentityV1, which only a coordinator re-seal can restore.
+AUR-359	Contract	Trust-root contract selector recorded green outside the sealed bundle; re-sealing AUR-359's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-359	E2E	Trust-root end-to-end selector recorded green outside the sealed bundle; re-sealing AUR-359's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-359	Integration	Trust-root integration selector recorded green outside the sealed bundle; re-sealing AUR-359's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-360	Contract	Go toolchain lock contract selector recorded green outside the sealed bundle; re-sealing AUR-360's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-360	E2E	Go toolchain lock end-to-end selector recorded green outside the sealed bundle; re-sealing AUR-360's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-360	Integration	Go toolchain lock integration selector recorded green outside the sealed bundle; re-sealing AUR-360's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-362	Contract	Parser/grammar lock contract selector recorded green outside the sealed bundle; re-sealing AUR-362's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-362	E2E	Parser/grammar lock end-to-end selector recorded green outside the sealed bundle; re-sealing AUR-362's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-362	Integration	Parser/grammar lock integration selector recorded green outside the sealed bundle; re-sealing AUR-362's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-363	Contract	Scanner lock contract selector recorded green outside the sealed bundle; re-sealing AUR-363's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-363	E2E	Scanner lock end-to-end selector recorded green outside the sealed bundle; re-sealing AUR-363's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
+AUR-363	Integration	Scanner lock integration selector recorded green outside the sealed bundle; re-sealing AUR-363's CandidateIdentityV1 with the observation is a coordinator act, not a builder's.
