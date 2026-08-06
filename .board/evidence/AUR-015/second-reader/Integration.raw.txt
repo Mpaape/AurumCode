@@ -1,0 +1,16 @@
+=== second-reader-log v1
+=== card: AUR-015
+=== layer: Integration
+=== engine: go
+=== test-path: tests/integration/AUR-015_test.go
+=== selector: TestAUR015Boundary
+=== test-file-sha256: sha256:64a956c3de9c97cfe4028de876e021f9d0aaf1ddc3ea5ec73db3f084c318cd62
+=== image: golang@sha256:2414035b086e3c42b99654c8b26e6f5b1b1598080d65fd03c7f499552ff4dc94
+=== command: go test ./tests/integration/... -run ^TestAUR015Boundary$ -v -count=1
+=== output-begin
+| === RUN   TestAUR015Boundary
+| --- PASS: TestAUR015Boundary (0.00s)
+| PASS
+| ok  	github.com/Mpaape/AurumCode/tests/integration	0.003s
+=== output-end
+=== exit: 0

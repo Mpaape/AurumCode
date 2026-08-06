@@ -1,0 +1,79 @@
+{
+ "schema": "aurum.review-report",
+ "version": 1,
+ "card_id": "AUR-015",
+ "candidate_identity_digest": "sha256:49f9cea6853dcee9f07c6a92cc47b997486597d515f0b98d2952601724aea6ac",
+ "role": "reviewer-b",
+ "sealed": true,
+ "role_nonce": "aur015-r4-reviewer-b-a43f53890521",
+ "context_digest": "sha256:4b79ef7151240d04d318853d3fbf6deb34e18b5085c74587b10e3e8db2bc570b",
+ "session_digest": "sha256:dcb5313189de0f2d33b1abbdda51b0b572824b107577cf1290a70b030729f11c",
+ "backend_family_digest": "sha256:6d1f611b9927d46a894577d0d8e1e08cb9df6fa753d70be9bd0ee8c86666a69f",
+ "verdict": "pass",
+ "independence_level": "I2",
+ "isolation": {
+  "peer_report_visible_before_seal": false,
+  "builder_trace_received": false,
+  "shared_memory": false
+ },
+ "coverage": {
+  "all_hunks": true,
+  "all_dimensions": true,
+  "manifest_digest": "sha256:fe9ef761df2541d8a47b3218c132ae18746e8aee11f249315f61e5e86b4516d8",
+  "uncovered_hunks": 0,
+  "dimensions": [
+   {
+    "id": "contract",
+    "status": "covered",
+    "evidence_digest": "sha256:ee530a6b03cb70083a66c893f5b5c3efdd791cab0eb375a57fcb53097fa7a921"
+   },
+   {
+    "id": "design",
+    "status": "covered",
+    "evidence_digest": "sha256:70fc4b7965a2cd2c82fc8b87d06b9f6049415fe9bc3ada658da897e6302a1cc3"
+   },
+   {
+    "id": "compatibility",
+    "status": "covered",
+    "evidence_digest": "sha256:8abeaf7d6bb2844e51dc646049b67d209b500b0ae5e78a41855fdce27395cea1"
+   },
+   {
+    "id": "tests",
+    "status": "covered",
+    "evidence_digest": "sha256:115f078fda1f9cb5cd73ed5e9398c5aeea19c9c2c1a699daf06fa9df0566c266"
+   },
+   {
+    "id": "security",
+    "status": "covered",
+    "evidence_digest": "sha256:316c6ba43c4a88c4e221e842bb171b89536e5708c9eaee5040c73731a1aa59b8"
+   },
+   {
+    "id": "concurrency",
+    "status": "not_applicable",
+    "justification": "Processo deterministico unico."
+   },
+   {
+    "id": "errors-operations",
+    "status": "covered",
+    "evidence_digest": "sha256:c8cbf1d3c5e66444591ea1b442e8d9cb1e6cd05b58565c6dcd37e8c165745d80"
+   },
+   {
+    "id": "documentation",
+    "status": "covered",
+    "evidence_digest": "sha256:d53672598c9b402108162c2040570bd4e503e95b9dc2ba35e2b66265daf6355b"
+   },
+   {
+    "id": "scope-simplicity",
+    "status": "covered",
+    "evidence_digest": "sha256:911973e6f76d8a6b2a3acd74611263859f9970cb7182719b352d9db1284b18db"
+   },
+   {
+    "id": "hunks",
+    "status": "covered",
+    "evidence_digest": "sha256:ea1e418ec10e776ac62f38fbf2f824f86e27045b3cd33bea64ec5608e9599eb3"
+   }
+  ]
+ },
+ "source_report": "/tmp/aurum-reviews/AUR-015-r4-cegoB.md",
+ "summary": "Parecer cego B do r4 (persistido em /tmp/aurum-reviews/AUR-015-r4-cegoB.md): APROVADO. Segundo leitor rodado por conta propria na camada Integration: exit 0, motor go, 1 matched. Tres bypasses proprios, nenhum passou."
+}

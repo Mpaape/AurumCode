@@ -1,0 +1,79 @@
+{
+ "schema": "aurum.review-report",
+ "version": 1,
+ "card_id": "AUR-015",
+ "candidate_identity_digest": "sha256:49f9cea6853dcee9f07c6a92cc47b997486597d515f0b98d2952601724aea6ac",
+ "role": "reviewer-a",
+ "sealed": true,
+ "role_nonce": "aur015-r4-reviewer-a-25b5fa9d2a38",
+ "context_digest": "sha256:14cbcf38e91b6fb2d3875abeaaac2ea847b01b8fe8857e2c536bbe3cfa77ec70",
+ "session_digest": "sha256:a4b030ecb056e9d7fc9d8943e271dc237f1208c43fc053b30a2a0ec794af3c3c",
+ "backend_family_digest": "sha256:b0b534e2489164950ecab7b9556401abc625800b3cd5876524b91d23c8975488",
+ "verdict": "pass",
+ "independence_level": "I2",
+ "isolation": {
+  "peer_report_visible_before_seal": false,
+  "builder_trace_received": false,
+  "shared_memory": false
+ },
+ "coverage": {
+  "all_hunks": true,
+  "all_dimensions": true,
+  "manifest_digest": "sha256:fe9ef761df2541d8a47b3218c132ae18746e8aee11f249315f61e5e86b4516d8",
+  "uncovered_hunks": 0,
+  "dimensions": [
+   {
+    "id": "contract",
+    "status": "covered",
+    "evidence_digest": "sha256:b9e7bb1c95f248044715413ff273e685d7e502ba4e160b7133385c2a372b67e1"
+   },
+   {
+    "id": "design",
+    "status": "covered",
+    "evidence_digest": "sha256:dca6262083b7e5437d7add15c452d89845865d58a97806ebea97c99192b71881"
+   },
+   {
+    "id": "compatibility",
+    "status": "covered",
+    "evidence_digest": "sha256:f63a1ad35cb8507b84dc9a08e06be387ccbb9c98134e5106a0d06b0bcd0709bc"
+   },
+   {
+    "id": "tests",
+    "status": "covered",
+    "evidence_digest": "sha256:5ba95e97077e0419743cb9d2b2389af9854246349f8d21f588287013fbeb1040"
+   },
+   {
+    "id": "security",
+    "status": "covered",
+    "evidence_digest": "sha256:98957b1808038a3bf9e510b465d5e03f0f613b43cf91dd3c3eb3928ec29d49f6"
+   },
+   {
+    "id": "concurrency",
+    "status": "not_applicable",
+    "justification": "Verificacao read-only de disparo unico em container pinado."
+   },
+   {
+    "id": "errors-operations",
+    "status": "covered",
+    "evidence_digest": "sha256:52d34c836e6052231b3e300ff27c2f7ddfdce83eb1ccbee6159cb8b5fadfaca4"
+   },
+   {
+    "id": "documentation",
+    "status": "covered",
+    "evidence_digest": "sha256:9f1da6eefe54de2df977962ef1c48d26401f31c1fd59a88fbbd733b7c4c786d6"
+   },
+   {
+    "id": "scope-simplicity",
+    "status": "covered",
+    "evidence_digest": "sha256:7cde9dc2755bb56651f6e63149952013734324cf78bc5b25830370e78c6f7443"
+   },
+   {
+    "id": "hunks",
+    "status": "covered",
+    "evidence_digest": "sha256:52aaa2aa870b319b30131eebf3d5264db463f6b53c2f14eb33e272347ca5aa7d"
+   }
+  ]
+ },
+ "source_report": "/tmp/aurum-reviews/AUR-015-r4-cegoA.md",
+ "summary": "Parecer cego A do r4 (persistido em /tmp/aurum-reviews/AUR-015-r4-cegoA.md): APROVADO. O card deixou de afirmar cobertura que nao tinha e passou a descrever a que tem, sem exagerar. Lei 20 rodada nos seis paths declarados, nas duas formas — remocao e adulteracao de conteudo — e nenhum sobreviveu."
+}
