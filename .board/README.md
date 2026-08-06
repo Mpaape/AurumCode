@@ -128,8 +128,10 @@ Every card follows [`CARD_TEMPLATE.md`](CARD_TEMPLATE.md). In particular:
 - `accept` is one decisive, containerized command that names the expected
   artifact or test and fails before implementation;
 - every concrete TDD test uses a closed `path::selector` reference located
-  directionally within `paths`; an optional `read_paths` field separately
-  allowlists read-only inputs without granting write ownership;
+  directionally within `paths`, naming an artifact one of the two second-reader
+  engines can actually execute (`*_test.go` or an acceptance `*.sh`); an
+  optional `read_paths` field separately allowlists read-only inputs without
+  granting write ownership;
 - `mutation` intentionally removes or corrupts the promised behavior and must
   make `accept` fail;
 - unit, contract, integration, and E2E requirements are explicit rather than
@@ -169,11 +171,131 @@ Supply-chain locks for the Go toolchain, modules, images, actions, parsers,
 grammars, site tools, and scanners are verified before first use, not deferred
 to a release gate.
 
+## The second reader
+
+`oci-run` executes exactly one program — the card's own acceptance script —
+inside a pinned image that carries no language toolchain, with only that card's
+`paths`/`read_paths` materialized. Two consequences were reproduced live on
+three different cards: a `## TDD proof` line citing
+`tests/integration/AUR-0NN_test.go::TestX` was never executed by any gate, and a
+defect whose evidence lives outside the card's own `paths` is invisible to the
+only engine the gate ran. Every card that claimed "two independent engines
+agree" was decided by one.
+
+[`bin/second-reader`](bin/second-reader) is the other engine. It executes the
+concrete `Unit`/`Contract`/`Integration`/`E2E` citations of a card **outside**
+the acceptance sandbox — same reason the repository build already runs outside
+it — against the **whole** repository mounted read-only, through a
+digest-pinned image chosen by the citation: `golang` for `*_test.go`, `bash` for
+an acceptance program. Both runs are network-denied, non-root, read-only
+rootfs, all capabilities dropped, no-new-privileges, and bounded; the Go engine
+additionally needs an exec-capable scratch tmpfs, because a Go test is a
+compiled binary, and that single deviation is stated rather than hidden. Neither
+engine can write one byte into the repository.
+
+The runner emits observations only. `validate.sh` re-derives every fact from the
+raw captured bytes and ignores the summary when the two disagree:
+
+- the exact command, rebuilt from the card and required to appear verbatim in
+  the log — an observation can never have run a selector the card did not
+  declare;
+- the sha256 of the test file that was read, recomputed from the tree — editing
+  the test expires the record, so a pasted or stale run cannot cover new bytes;
+- the framed exit code, the match count, and the refusal of a selector that
+  matched nothing. `go test -run` that matches no test exits **zero**; that is
+  success without work and it is refused explicitly. A shell citation is proved
+  to select something by handing the program a selector it cannot know and
+  requiring exit `64`;
+- capture regions are line-prefixed and their boundary frames must be unique, so
+  a program that prints something frame-shaped cannot forge one;
+- the image the run used, compared against
+  `locks/oci/second-reader-<engine>-v1.lock.json`. `=== image:` is written by the
+  runner, so on its own it is a claim; recomputing it from the lock is what makes
+  it a binding, and a record produced in some other image is refused;
+- that the cited file **defines** the cited selector — `^func <Test…>(` for Go,
+  the literal for a shell dispatcher. The Go command is package-scoped, so
+  without this an owned `_test.go` containing no test at all could cite a
+  neighbouring card's selector and produce a green log in which every other rule
+  held.
+
+A `done` card must carry, inside its sealed bundle and inside
+`evidence_hashes`, one `aurum.second-reader-observation` per concrete citation,
+bound to the same `CandidateIdentityV1` as the reviews and the acceptance run
+and sealed under its own role and nonce.
+
+`review` is the first state in which a cited layer test must exist, be owned,
+define its selector, and be executable by one of the two engines. `doing` is
+deliberately exempt: the acceptance `Test:` is sealed by an isolated test
+designer *before* a builder starts, while the layer tests are the builder's own
+output.
+
+### Every card, or a named exemption
+
+The gate is reachable only through a concrete citation, so a card whose four
+layers all read `not-applicable: …` used to skip it in silence. It cannot any
+more: a card entering `review` or `done` must either hand the second reader
+something it can execute, or be named — with its reason — in
+[`second-reader-exempt.tsv`](second-reader-exempt.tsv), which carries the same
+ratchet as the legacy registry below and is printed on every run as
+`board note:`. A `review` card can never be exempted, so the list can only
+shrink.
+
+- `.board/second-reader-exempt.tsv` records 2 entry(ies) across 2 card(s).
+
+### Re-execution, and the third verdict
+
+`validate.sh` re-runs the second reader through `bin/second-reader --verify` by
+default (`AURUM_SECOND_READER=exec`); `recompute` asks for the structural and
+raw-log recomputation alone. Those are the only two values; anything else falls
+back to `exec`, the stricter one.
+
+Neither mode can turn "I could not check" into "checked". Every layer that is
+not re-executed — no OCI engine on the host, or `recompute` — is named on stderr
+as it is skipped, counted, and summarized, and the run ends **`board
+inconclusive:` with exit `3`**: not `board valid`, not `board invalid`. Law 4 and
+law 11, made observable. A transition to `done` is authorized only by a run that
+exited `0`, which is exactly the run in which every recorded layer was executed
+again.
+
+### Legacy registry
+
+Cards that reached `done` before this runner existed cite concrete tests that no
+gate had executed. All of them have now been executed and their raw logs live in
+`tests/second-reader-legacy/`; `validate.sh` recomputes exactly the same facts
+from them. The one binding a legacy record cannot carry is the card's sealed
+`CandidateIdentityV1`, because reopening a `done` bundle is a coordinator act
+performed by three independent roles, and a builder forging those digests would
+be manufacturing the self-declared evidence this board exists to refuse.
+
+- `.board/second-reader-legacy.tsv` records 14 entry(ies) across 6 card(s), 6 distinct captured program(s).
+
+Those two numbers are derived from the file and the recorded logs by
+`validate.sh`, which requires this line and the registry header to say the same
+thing; three texts once stated three different sizes for this one list. The
+second number is the honest one: `tests/acceptance/AUR-359.sh` and its three
+siblings dispatch four selector names onto one body, so the
+Contract/Integration/E2E records of those cards differ only in the selector they
+echo. **A citation is not an execution.** 14 citations are 6 distinct captured
+programs, and closing that gap is work on `tests/`, not on the registry.
+
+`validate.sh` prints every entry on every run as `board note:` — the migration is
+never silent — and refuses an entry for a card that is not in `done`, for a layer
+the card no longer cites, for a card/layer that already carries a sealed
+observation, for a log under `tests/second-reader-legacy/` that no entry names,
+and for any key outside the frozen cutover set compiled into `validate.sh`. That
+last rule is what stops a card from joining the list in the same commit that
+moves it to `done`: growing either registry is a reviewed change to the
+validator, never a data edit.
+
 The temporary shell bootstrap additionally requires the host utilities it
 names explicitly (`git`, hashing/stat/path tools, bounded capture, and the OCI
 CLI). A missing utility fails closed with an infrastructure diagnosis. These
 locks must be decomposed into dedicated AUR-233 child cards; absence is never
 reported as behavioral RED or OCI conformance.
 
-Run `./.board/validate.sh` to validate board structure. The graph and work queue
-are summarized in [`KANBAN.md`](KANBAN.md).
+Run `./.board/validate.sh` to validate board structure, and
+`bash .board/tests/validator-mutants.sh` to validate the validator. Each
+second-reader rule in that suite comes in a pair: the mutant must die with the
+rule in place and the identical tree must survive with that one rule surgically
+removed, because a mutant that dies either way was proving some other check.
+The graph and work queue are summarized in [`KANBAN.md`](KANBAN.md).
