@@ -8,11 +8,11 @@ tests are satisfied.
 
 | State | Meaning | Cards |
 |---|---|---:|
-| Ready | Dependencies complete; isolated test designer may establish red | 0 |
-| Backlog | Fully specified, dependency-blocked work | 410 |
-| Doing | Builder currently owns the patch | 4 |
+| Ready | Dependencies complete; isolated test designer may establish red | 1 |
+| Backlog | Fully specified, dependency-blocked work | 409 |
+| Doing | Builder currently owns the patch | 2 |
 | Review | Candidate is immutable and under review | 0 |
-| Done | Evidence-bound double review and skeptical approval complete | 9 |
+| Done | Evidence-bound double review and skeptical approval complete | 11 |
 | Blocked on owner | Requires new authority or product choice | 0 |
 
 ## Dependency spine

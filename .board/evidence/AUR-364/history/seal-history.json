@@ -1,0 +1,29 @@
+{
+ "schema": "aurum.seal-history",
+ "version": 1,
+ "card_id": "AUR-364",
+ "rounds": [
+  {
+   "round": "r3",
+   "outcome": "veto",
+   "reason": "O aceite contava citacoes por uma lista fixa de verbos de instalacao. Qualquer verbo fora da lista ficava invisivel DOS DOIS LADOS da igualdade, e igualdade entre dois invisiveis passa — a lei 12 em estado puro."
+  },
+  {
+   "round": "r4",
+   "outcome": "veto",
+   "reason": "A lista de verbos morreu, mas a heuristica de pin era 'a constraint contem um digito', entao `gem 'x', '0'` e `>= 0` viravam pinned-lockable; o pin era calculado por nome e nao por par (nome, manifesto); e a atestacao comparava CONTAGEM em vez de CONJUNTO, deixando uma linha duplicada substituir outra."
+  },
+  {
+   "round": "r4/segunda leitura",
+   "outcome": "veto",
+   "reason": "MUTACAO DECORATIVA: o card prometia compatibilidade ferramenta-vs-runtime, o codigo de erro existia e o teste tinha o nome certo — mas o comportamento que o nome promete nunca fora escrito. O teste disparava o codigo certo por um ramo completamente diferente. Um cego resolveu ruby 2.0.0 com jekyll 4.3.3 sem conflito cruzado e obteve exit 0."
+  },
+  {
+   "round": "r5",
+   "outcome": "sealed",
+   "reason": "A verdade passou a vir do lockfile resolvido e a comparacao virou de CONJUNTO por par (manifesto, nome). E o card parou de prometer o que nao verifica: a compatibilidade saiu do Outcome, dos Postconditions e do AC-001, e virou Non-goal com limits[6] explicito. Dois cegos e o cetico aprovaram."
+  }
+ ],
+ "hypothesis_tested_and_refuted": "O coordenador levantou a hipotese de que implementar a checagem seria tautologico, porque o resolvedor ja recusaria uma resolucao incompativel, e mandou MEDIR antes de escolher. O revisor cego B mediu e REFUTOU: `bundle lock` escreve o lockfile mesmo com a versao de ruby divergente (exit 0); apenas `bundle check` reclama (exit 18). Delegar ao resolvedor nao fecharia a lacuna — e e por isso que a saida honesta foi declarar o limite, com a medicao dentro do proprio card.",
+ "law_20_note": "A auditoria da lei 20 deste board ensinou que para alguns paths a mutacao certa nao e remover o arquivo e sim mudar o CONTEUDO dele, porque ausencia pode ser indistinguivel de limpo. O cetico deste card aplicou as duas formas."
+}

@@ -27,7 +27,7 @@ by [validate.sh](validate.sh).
 | [AUR-012](cards/backlog/AUR-012.md) | backlog | O09-demo | medium | `[AUR-011]` | Bootstrapar repositório demo consumidor |
 | [AUR-013](cards/backlog/AUR-013.md) | backlog | O00-governance | high | `[AUR-003, AUR-009]` | Auditar plugin ou skill escritorio |
 | [AUR-014](cards/backlog/AUR-014.md) | backlog | O00-research | medium | `[AUR-233]` | Versionar standard de code review |
-| [AUR-015](cards/doing/AUR-015.md) | doing | O00-research | high | `[]` | Versionar standard de secure code review |
+| [AUR-015](cards/done/AUR-015.md) | done | O00-research | high | `[]` | Versionar standard de secure code review |
 | [AUR-016](cards/done/AUR-016.md) | done | O00-research | medium | `[]` | Definir uso evidencial de ISO 25010 |
 | [AUR-017](cards/done/AUR-017.md) | done | O00-research | medium | `[]` | Fixar standards de artefatos interoperáveis |
 | [AUR-018](cards/doing/AUR-018.md) | doing | O00-research | high | `[]` | Fixar contratos SCM e CI seguros |
@@ -245,7 +245,7 @@ by [validate.sh](validate.sh).
 | [AUR-230](cards/backlog/AUR-230.md) | backlog | O08-testqa | critical | `[AUR-227, AUR-410]` | Limitar privilégios e recursos do worker |
 | [AUR-231](cards/backlog/AUR-231.md) | backlog | O08-testqa | critical | `[AUR-228, AUR-229, AUR-230, AUR-410]` | Provar perfil seguro no Docker |
 | [AUR-232](cards/backlog/AUR-232.md) | backlog | O08-testqa | critical | `[AUR-228, AUR-229, AUR-230, AUR-410]` | Provar perfil seguro no Podman |
-| [AUR-233](cards/backlog/AUR-233.md) | backlog | O00-security | critical | `[AUR-359, AUR-360, AUR-361, AUR-362, AUR-363, AUR-364]` | Verificar lockset completo antes do bootstrap |
+| [AUR-233](cards/ready/AUR-233.md) | ready | O00-security | critical | `[AUR-359, AUR-360, AUR-361, AUR-362, AUR-363, AUR-364]` | Verificar lockset completo antes do bootstrap |
 | [AUR-234](cards/backlog/AUR-234.md) | backlog | O03-providers | critical | `[AUR-057, AUR-233, AUR-405]` | Validar TLS e destino HTTP |
 | [AUR-235](cards/backlog/AUR-235.md) | backlog | O03-providers | high | `[AUR-057, AUR-233, AUR-405]` | Propagar timeout e cancelamento HTTP |
 | [AUR-236](cards/backlog/AUR-236.md) | backlog | O03-providers | critical | `[AUR-057, AUR-233, AUR-405]` | Limitar resposta HTTP antes do decode |
@@ -376,7 +376,7 @@ by [validate.sh](validate.sh).
 | [AUR-361](cards/done/AUR-361.md) | done | O00-security | critical | `[AUR-359]` | Fixar referências de GitHub Actions |
 | [AUR-362](cards/done/AUR-362.md) | done | O00-security | critical | `[AUR-359]` | Fixar scanners de segurança |
 | [AUR-363](cards/done/AUR-363.md) | done | O00-security | critical | `[AUR-359]` | Fixar parsers e grammars |
-| [AUR-364](cards/doing/AUR-364.md) | doing | O00-security | critical | `[AUR-359]` | Fixar ferramentas de documentação |
+| [AUR-364](cards/done/AUR-364.md) | done | O00-security | critical | `[AUR-359]` | Fixar ferramentas de documentação |
 | [AUR-365](cards/backlog/AUR-365.md) | backlog | O14-legacy | high | `[AUR-001, AUR-233, AUR-412]` | Caracterizar action entrypoint legado |
 | [AUR-366](cards/backlog/AUR-366.md) | backlog | O14-legacy | high | `[AUR-001, AUR-233, AUR-412]` | Caracterizar build docs site legado |
 | [AUR-367](cards/backlog/AUR-367.md) | backlog | O14-legacy | critical | `[AUR-001, AUR-233, AUR-412]` | Caracterizar bulk enable repos legado |

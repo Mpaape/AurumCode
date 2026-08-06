@@ -1,0 +1,18 @@
+=== second-reader-log v1
+=== card: AUR-364
+=== layer: E2E
+=== engine: shell
+=== test-path: tests/acceptance/AUR-364.sh
+=== selector: E2EAUR364
+=== test-file-sha256: sha256:66399a7d6a329213380b39957e1ffb6d4540af53b09f568307e4bde6ea457c70
+=== image: bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831
+=== command: bash tests/acceptance/AUR-364.sh E2EAUR364
+=== output-begin
+| {"card":"AUR-364","scenario":"AC-001","selector":"E2EAUR364","result":"pass"}
+=== output-end
+=== exit: 0
+=== control-command: bash tests/acceptance/AUR-364.sh AURUM-SECOND-READER-CONTROL
+=== control-output-begin
+| AUR-364/AC-001/unknown-selector
+=== control-output-end
+=== control-exit: 64
