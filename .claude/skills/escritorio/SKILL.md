@@ -147,6 +147,34 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     Um épico cujo accept passaria com metade do trabalho ausente é vácuo — a lei 12
     o mata igual.
 
+    **MEDIDO E REPROVADO.** Um piloto real (`AUR-424` absorvendo `AUR-402` mais os
+    onze perfis OCI) foi construído até `board valid: 424 atomic cards`, exit 0, e
+    submetido a crítica adversarial. O resultado é **não consolidar**, e a razão não
+    é conserto de detalhe:
+
+    - **A consolidação apagou 24 das 36 mutações céticas — 67% da superfície
+      adversarial — sem o portão ver.** Cada card absorvido carregava `MUT-001/002/003`
+      cobrindo `repository` + `supply-chain` + `container-engine` para o seu perfil
+      (12 × 3 = 36). O épico dá uma mutação por perfil (12) e satisfaz a cobertura de
+      fronteira **globalmente**, não por perfil. `registry-v1` perde `repository` e
+      `container-engine`; `bootstrap-readonly-v1` perde `repository` e `supply-chain`.
+      Esse é o trade real da consolidação, e ele não aparece na contagem de ciclos.
+    - **A rede que pegava o encolhimento era acidental e temporária.** Encolher o
+      épico de 12 para 3 itens de forma coerente só falhava por 178 erros de
+      `read_paths` de cards a jusante — um gate de resolubilidade, não de completude.
+      Materializando os perfis (isto é, quando o épico for de fato implementado), o
+      validador volta a `exit 0` com nove doze avos do trabalho ausente.
+    - **Nada liga o `AC-NNN` ao card absorvido.** Trocar `absorbed/AUR-402` por
+      `absorbed/AUR-100` — card ativo não relacionado — mantém o board válido. E
+      derrubar um `AC` deixa o cancelado correspondente afirmando, no `reason`, que
+      é enumerado pelo épico. O mapeamento é prosa não verificada nos dois sentidos.
+
+    Consolidar continua autorizado pelo dono, mas **só sobrevive se o portão passar a
+    exigir preservação de mutação por fronteira E por item absorvido**, mais um gate
+    reverso `cancelled → superseded_by → o épico cita o id`. Sem isso, consolidação
+    troca ciclo de portão por superfície de prova, e essa troca não é a que o dono
+    autorizou.
+
 18. **Agente fora da espinha é agente ocioso.** Três análises independentes mediram
     o mesmo board e chegaram ao mesmo número: **99% dos cards estão atrás de ~16
     cards de infra em 6 níveis em série**. Enquanto a espinha não abrir, encher o
@@ -176,6 +204,46 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     Corolário de alocação: enquanto a espinha estiver fechada, todo slot vai para a
     espinha ou para o portão que a destrava. Card de baixo do DAG só entra na onda
     quando a largura pronta o comporta.
+
+19. **Card que trava o repositório expira quando o trunk anda.** `AUR-361` declara
+    `read_paths: [action.yml, .github/workflows]` e deriva um lock desses bytes.
+    Qualquer commit em `.github/workflows` — inclusive um conserto de CI do próprio
+    coordenador — invalida o lock e o aceite sai `lock-not-derived: committed != derived`.
+    Aconteceu duas vezes numa madrugada, com **seis commits** entre o `base_sha` do
+    card e o HEAD, três deles meus. Não é defeito do builder: é a superfície de
+    leitura do card cruzando com o trabalho de todo mundo.
+
+    Três consequências operacionais:
+
+    - **Enquanto um card de lock estiver em `doing`, o coordenador não comita na
+      superfície de leitura dele.** Meça antes de commitar: `read_paths` de todo card
+      em `doing` é território congelado. Se o conserto for urgente (CI vermelha),
+      comite e **avise a lane** — o builder tem de re-ancorar, e não descobrir pelo veto.
+    - **Re-ancorar `base_sha` e regenerar o lock é o ÚLTIMO passo antes de selar**,
+      não o primeiro. Lock gerado no começo da rodada morre durante a rodada.
+    - Um veto por `lock-not-derived` **não é rodada perdida por rigor**: é deriva.
+      Distinga os dois no relatório, senão o card parece estar falhando pelo mérito
+      quando está falhando pelo relógio.
+
+20. **Path declarado não é path lido — e o portão só confere o primeiro.**
+    `validate.sh:1863` exige que todo path declarado **exista** na árvore. Um `grep`
+    pelo conceito de leitura no validador inteiro retorna **zero**: nada exige que o
+    aceite leia o que o card declara possuir. O resultado é a lei 12 na forma mais
+    fácil de não ver — o path está lá, o portão fica verde, e a checagem simplesmente
+    não acontece.
+
+    Medido em três cards distintos: `AUR-015` (`docs/specs/AUR-015.md` e
+    `tests/integration/AUR-015_test.go` removidos da árvore, aceite continua exit 0
+    com stdout **byte a byte idêntico** — e o card afirmava por escrito que executava
+    o exemplo), `AUR-018` e `AUR-019`.
+
+    **O teste que todo builder e todo revisor deve rodar, path a path:** remova o path
+    declarado e rode o aceite. Se ele continuar verde, ou o aceite passa a ler o path,
+    ou a afirmação sai do card e o path sai de `paths:`. Não existe terceira saída —
+    card que afirma o que não faz é a fabricação que este board existe para recusar.
+
+    A varredura é dos **seis** paths, não dos dois denunciados: o revisor que só
+    confere o que já foi nomeado devolve a mesma classe na rodada seguinte.
 
 ## Regra de prompt para builder e revisor (cole no despacho)
 
