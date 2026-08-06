@@ -177,6 +177,26 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     espinha ou para o portão que a destrava. Card de baixo do DAG só entra na onda
     quando a largura pronta o comporta.
 
+19. **Card que trava o repositório expira quando o trunk anda.** `AUR-361` declara
+    `read_paths: [action.yml, .github/workflows]` e deriva um lock desses bytes.
+    Qualquer commit em `.github/workflows` — inclusive um conserto de CI do próprio
+    coordenador — invalida o lock e o aceite sai `lock-not-derived: committed != derived`.
+    Aconteceu duas vezes numa madrugada, com **seis commits** entre o `base_sha` do
+    card e o HEAD, três deles meus. Não é defeito do builder: é a superfície de
+    leitura do card cruzando com o trabalho de todo mundo.
+
+    Três consequências operacionais:
+
+    - **Enquanto um card de lock estiver em `doing`, o coordenador não comita na
+      superfície de leitura dele.** Meça antes de commitar: `read_paths` de todo card
+      em `doing` é território congelado. Se o conserto for urgente (CI vermelha),
+      comite e **avise a lane** — o builder tem de re-ancorar, e não descobrir pelo veto.
+    - **Re-ancorar `base_sha` e regenerar o lock é o ÚLTIMO passo antes de selar**,
+      não o primeiro. Lock gerado no começo da rodada morre durante a rodada.
+    - Um veto por `lock-not-derived` **não é rodada perdida por rigor**: é deriva.
+      Distinga os dois no relatório, senão o card parece estar falhando pelo mérito
+      quando está falhando pelo relógio.
+
 ## Regra de prompt para builder e revisor (cole no despacho)
 
 Antes de declarar qualquer AC verde, para CADA checagem escrita ou tocada, responda
