@@ -1,0 +1,6 @@
+name: fixture
+pin: &pin actions/checkout@v9
+jobs:
+  build:
+    steps:
+      - uses: *pin

@@ -1,0 +1,7 @@
+name: fixture
+tpl: &tpl
+  uses: actions/checkout@v9
+jobs:
+  build:
+    steps:
+      - <<: *tpl
