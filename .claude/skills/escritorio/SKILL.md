@@ -104,6 +104,111 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     `inconclusive` (exit 79), não "conformidade provada em dois engines". Se um
     padrão não foi lido na fonte primária, ele não é citado como conformidade.
 
+12. **Nenhuma checagem passa por ausência.** Foi a raiz de dez vetos seguidos, em
+    implementações independentes: símbolo não extraído, arquivo que some por symlink,
+    conjunto vazio igual a conjunto vazio, `continue` silencioso no loop, path
+    declarado que não existe, oráculo comparando o artefato com uma cópia dele mesmo.
+    O card nunca é cancelado nem deletado por causa disso — ele volta para `doing` e
+    a rodada seguinte fecha a **classe**, não a variante.
+
+13. **Card não se deleta.** Regra permanente do dono. Trabalho que não vai acontecer
+    vai para `cards/cancelled/`, com `cancellation.json` aprovado pelo gerente, motivo
+    específico e falsificável, e sucessor declarado se alguém depende dele. Cancelar
+    não é concluir: card cancelado não tem bundle de `done`.
+
+14. **O sandbox do card não é o repositório.** `oci-run` materializa apenas os paths
+    do card, então nenhum aceite consegue ver `go build ./...` do repo inteiro. Um card
+    já foi revertido da `main` por quebrar o build com uma fixture que passou por três
+    selos. Rode, fora do sandbox, antes de qualquer promoção:
+    `docker run --rm -v "$PWD":/src -v "$HOME/go/pkg/mod":/go/pkg/mod -w /src -e GOFLAGS=-mod=mod golang:1.21-alpine sh -c 'go build ./... && go vet ./...'`
+
+15. **Go só roda em container.** Não existe toolchain Go na máquina do dono. Todo
+    build, vet e test passa por
+    `docker run --rm -v "$PWD":/src -v "$HOME/go/pkg/mod":/go/pkg/mod -w /src -e GOFLAGS=-mod=mod golang:1.21-alpine sh -c '<cmd>'`,
+    e nunca `apk add git` lá dentro — quebra o buildvcs e produz vermelho falso.
+    A imagem do `accept` (`bash@sha256:ae4668c2…`, Alpine + BusyBox) **não tem Go**:
+    um accept que precise de Go está mal desenhado, não mal configurado.
+
+16. **Card travado é impedimento do escritório, não do card.** Se três sprints
+    passam sem nenhum card avançar de raia, pare de iterar: o problema deixou de
+    ser o patch. Meça a raiz comum entre os cards parados — nesta sessão, quatro
+    cards travados compartilhavam *uma* causa (o portão não executava o segundo
+    leitor) — ataque essa raiz com modelo mais capaz, e só então volte aos cards.
+    Rodada que fecha uma variante enquanto a classe sobrevive é tempo perdido.
+
+17. **O custo é o ciclo de portão, não o artefato.** 423 cards atômicos × quatro
+    selos é inviável em qualquer prazo. Consolidar cards irmãos num épico com um
+    resultado observável único troca N ciclos por um. O dono autorizou explicitamente
+    reorganizar o board e cancelar cards em favor de cards maiores. Consolidação
+    legítima usa a raia `cancelled` com `superseded_by` apontando para o épico —
+    o validador já reprova dependente que não liste o sucessor, então a história
+    não se perde. O que **não** se consolida: card de governança/portão, card
+    `risk: critical` com superfície de segurança própria, e card em reprojeto.
+    Um épico cujo accept passaria com metade do trabalho ausente é vácuo — a lei 12
+    o mata igual.
+
+18. **Agente fora da espinha é agente ocioso.** Três análises independentes mediram
+    o mesmo board e chegaram ao mesmo número: **99% dos cards estão atrás de ~16
+    cards de infra em 6 níveis em série**. Enquanto a espinha não abrir, encher o
+    teto de 14 agentes com cards de baixo do DAG não produz um card a mais — produz
+    patch que envelhece. Três correções permanentes que saíram dessa medição:
+
+    - **Podar aresta não encurta nada.** A redução transitiva do DAG tira
+      1862 → 959 arestas (48,5% são restatements de caminhos que já existem) **sem
+      mudar uma única camada, raiz ou o caminho crítico**. Pior: `depends_on` entra
+      na `CandidateIdentityV1`, então toda poda invalida as revisões já feitas dos
+      cards afetados. Poda de aresta é custo pago por ganho zero de profundidade.
+    - **Raiz é a métrica errada.** 384 arestas são "o filho invoca o perfil que o
+      pai define" — logo nenhum card pode ser raiz enquanto precisar de um perfil,
+      e a meta "raiz ≥ 30" é topologicamente impossível sem trocar o modelo de
+      aceite. A métrica que decide a onda é **largura pronta depois do prefixo de
+      infra**. Hoje ela é 4, não 20: é por isso que despachar mais agentes não
+      moveu o placar.
+    - **Consolidação se prova num piloto, não num documento.** O ganho de ciclos é
+      contagem de nós, não custo medido — as 7–16 rodadas observadas vieram todas de
+      cards de UM item. Escreva **um** épico, meça as rodadas dele, e só então
+      decida sobre os outros. E cancelar um card **não libera os `paths` dele**:
+      `validate.sh` registra `path_owners` para todo card sem isentar `cancelled`,
+      e o épico não pode se ordenar com o cancelado sem virar autodependência.
+      Reescreva os `paths` do cancelado para artefatos card-scoped **antes** de
+      calcular os digests — eles saem do texto final do card.
+
+    Corolário de alocação: enquanto a espinha estiver fechada, todo slot vai para a
+    espinha ou para o portão que a destrava. Card de baixo do DAG só entra na onda
+    quando a largura pronta o comporta.
+
+## Regra de prompt para builder e revisor (cole no despacho)
+
+Antes de declarar qualquer AC verde, para CADA checagem escrita ou tocada, responda
+por escrito **com evidência de execução**, nunca com promessa:
+
+1. **Extração** — se a checagem extrai algo de um texto (regex, parser, split), liste
+   as formas adversárias testadas: caixa alta/baixa, escape (`\`, `%XX`, `\uXXXX`),
+   espaço/tab/CRLF/BOM, delimitador ausente ou duplicado, campo vazio. Menos de cinco
+   formas testadas com resultado de cada = checagem não pronta.
+2. **Symlink e caminho** — toda varredura (`find`, `os.ReadFile`, equivalente) tem um
+   comportamento default com symlink. Declare se deve seguir, rejeitar ou tratar como
+   ausente, e **prove criando o symlink e rodando**. Nunca assuma sem testar.
+3. **Loop com `continue`** — todo `continue`, `break` antecipado ou `return` dentro de
+   loop de validação precisa de uma asserção irmã que conte quantos itens foram de fato
+   avaliados contra quantos existiam, falhando se divergir. "Pular o caso que não
+   reconheço" é bug até prova em contrário.
+4. **Comparação de conjuntos** — antes de comparar por igualdade dois conjuntos ou
+   strings derivados, exija que ao menos um lado seja não-vazio e registre o valor
+   comparado, não só o booleano. Igualdade que passa com os dois vazios é reprovada por
+   definição: "ambos vazios" é caso de falha explícito.
+5. **Path declarado é path presente** — todo caminho, código de erro ou comportamento
+   que o card promete precisa de `test -e`/`grep`/chamada real provando que existe e é
+   alcançado. Se o card lista `tests/specs/<ID>` em `paths:`, esse diretório tem de
+   existir e ser lido pelo `accept:` — diretório decorativo para satisfazer o validador
+   é o mesmo sucesso-sem-trabalho que o board rejeita.
+6. **Fonte de verdade não é autocópia** — tabela de valores esperados tem de vir de
+   fonte independente (CLI real, doc oficial, fixture gerado por outro processo), nunca
+   copiada dos mesmos valores que o artefato carrega. Duas cópias do mesmo número
+   concordando não é verificação.
+
+Sem evidência de execução para os seis itens, o AC não está pronto: não declare GREEN.
+
 ## Isolamento — o que torna o paralelismo real
 
 O gargalo nunca é o número de agentes: é **lane disjunta**. Aqui a lane já vem
