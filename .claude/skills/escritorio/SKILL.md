@@ -147,6 +147,34 @@ mandatory"). Ao retomar, o handoff da sessão anterior já vem no seu contexto.
     Um épico cujo accept passaria com metade do trabalho ausente é vácuo — a lei 12
     o mata igual.
 
+    **MEDIDO E REPROVADO.** Um piloto real (`AUR-424` absorvendo `AUR-402` mais os
+    onze perfis OCI) foi construído até `board valid: 424 atomic cards`, exit 0, e
+    submetido a crítica adversarial. O resultado é **não consolidar**, e a razão não
+    é conserto de detalhe:
+
+    - **A consolidação apagou 24 das 36 mutações céticas — 67% da superfície
+      adversarial — sem o portão ver.** Cada card absorvido carregava `MUT-001/002/003`
+      cobrindo `repository` + `supply-chain` + `container-engine` para o seu perfil
+      (12 × 3 = 36). O épico dá uma mutação por perfil (12) e satisfaz a cobertura de
+      fronteira **globalmente**, não por perfil. `registry-v1` perde `repository` e
+      `container-engine`; `bootstrap-readonly-v1` perde `repository` e `supply-chain`.
+      Esse é o trade real da consolidação, e ele não aparece na contagem de ciclos.
+    - **A rede que pegava o encolhimento era acidental e temporária.** Encolher o
+      épico de 12 para 3 itens de forma coerente só falhava por 178 erros de
+      `read_paths` de cards a jusante — um gate de resolubilidade, não de completude.
+      Materializando os perfis (isto é, quando o épico for de fato implementado), o
+      validador volta a `exit 0` com nove doze avos do trabalho ausente.
+    - **Nada liga o `AC-NNN` ao card absorvido.** Trocar `absorbed/AUR-402` por
+      `absorbed/AUR-100` — card ativo não relacionado — mantém o board válido. E
+      derrubar um `AC` deixa o cancelado correspondente afirmando, no `reason`, que
+      é enumerado pelo épico. O mapeamento é prosa não verificada nos dois sentidos.
+
+    Consolidar continua autorizado pelo dono, mas **só sobrevive se o portão passar a
+    exigir preservação de mutação por fronteira E por item absorvido**, mais um gate
+    reverso `cancelled → superseded_by → o épico cita o id`. Sem isso, consolidação
+    troca ciclo de portão por superfície de prova, e essa troca não é a que o dono
+    autorizou.
+
 18. **Agente fora da espinha é agente ocioso.** Três análises independentes mediram
     o mesmo board e chegaram ao mesmo número: **99% dos cards estão atrás de ~16
     cards de infra em 6 níveis em série**. Enquanto a espinha não abrir, encher o
