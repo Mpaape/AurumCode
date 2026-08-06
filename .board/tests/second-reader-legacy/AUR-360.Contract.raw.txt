@@ -1,0 +1,18 @@
+=== second-reader-log v1
+=== card: AUR-360
+=== layer: Contract
+=== engine: shell
+=== test-path: tests/acceptance/AUR-360.sh
+=== selector: ContractAUR360
+=== test-file-sha256: sha256:81653a71331295193f0e30cea43fe7459a7cb53c3d94cdb6886e5a67dba0b0b1
+=== image: bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831
+=== command: bash tests/acceptance/AUR-360.sh ContractAUR360
+=== output-begin
+| {"card":"AUR-360","scenario":"AC-001","selector":"ContractAUR360","fixture_cases":11,"result":"pass"}
+=== output-end
+=== exit: 0
+=== control-command: bash tests/acceptance/AUR-360.sh AURUM-SECOND-READER-CONTROL
+=== control-output-begin
+| AUR-360/AC-001/unknown-selector
+=== control-output-end
+=== control-exit: 64

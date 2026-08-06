@@ -1,0 +1,18 @@
+=== second-reader-log v1
+=== card: AUR-359
+=== layer: Integration
+=== engine: shell
+=== test-path: tests/acceptance/AUR-359.sh
+=== selector: IntegrationAUR359
+=== test-file-sha256: sha256:0c72df7d9a0ffe50f26692efc95fb3537a5eefb7589b85459e5082fad09c712f
+=== image: bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831
+=== command: bash tests/acceptance/AUR-359.sh IntegrationAUR359
+=== output-begin
+| {"card":"AUR-359","scenario":"AC-001","selector":"IntegrationAUR359","fixture_cases":5,"result":"pass"}
+=== output-end
+=== exit: 0
+=== control-command: bash tests/acceptance/AUR-359.sh AURUM-SECOND-READER-CONTROL
+=== control-output-begin
+| AUR-359/AC-001/unknown-selector
+=== control-output-end
+=== control-exit: 64
