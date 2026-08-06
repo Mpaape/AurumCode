@@ -71,7 +71,7 @@ jobs:
           pip install pydoc-markdown
 
           # Verify installations
-          echo "✓ gomarkdoc location:" && which gomarkdoc || echo "⚠ gomarkdoc not in PATH"
+          echo "✓ gomarkdoc location:" && command -v gomarkdoc || echo "⚠ gomarkdoc not in PATH"
           echo "✓ gomarkdoc version:" && gomarkdoc --version || echo "⚠ gomarkdoc not found"
           echo "✓ typedoc version:" && typedoc --version || echo "⚠ typedoc not found"
           echo "✓ pydoc-markdown version:" && pydoc-markdown --version || echo "⚠ pydoc-markdown not found"
@@ -94,10 +94,15 @@ jobs:
           echo "PATH: $PATH"
           echo ""
           echo "Go binary location:"
-          which go
+          # `which` is not installed on the current runner image, and this step
+          # runs under `bash -e`: the bare `which go` exited 127 and killed the
+          # job before the generator below ever ran. `command -v` is a shell
+          # builtin, so it is always present. Kept bare on purpose - a missing
+          # Go toolchain must still fail this step closed.
+          command -v go
           echo ""
           echo "gomarkdoc location:"
-          which gomarkdoc || echo "❌ gomarkdoc not found in PATH"
+          command -v gomarkdoc || echo "❌ gomarkdoc not found in PATH"
           echo ""
           echo "gomarkdoc version:"
           gomarkdoc --version 2>&1 || echo "❌ Cannot execute gomarkdoc"
