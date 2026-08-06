@@ -1,0 +1,9 @@
+name: fixture
+jobs:
+  build:
+    steps:
+      - {uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683, name: one}
+      - {name: two, uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff}
+      - {
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        }

@@ -1,0 +1,74 @@
+# AUR-361 / AC-001 fixture expectations.
+#
+# REFERENCE TRUTH. Every row below was written by hand from reading the YAML
+# under cases/<case>/, NOT produced by tests/acceptance/AUR-361.sh. Nothing in
+# this file is a copy of anything the acceptance program generates, so the
+# fixture phase compares the derivation against an independent claim instead
+# of against itself.
+#
+# Columns (tab separated):
+#   case            directory under cases/
+#   exit            expected exit of the derivation (0 pass, 1 refuse)
+#   code            expected typed code; `pass` when exit is 0
+#   active          expected active `uses:` site count  (`-` when exit is 1)
+#   inert           expected inert `uses:`-bearing line count (`-` when exit is 1)
+#   identities      expected sorted, unique identity list (`-` when exit is 1)
+#   reason          expected control that MUST be the one that refused
+#                   (`-` when exit is 0)
+#
+# WHY THE `reason` COLUMN EXISTS. Round 3 mutation-tested its own controls and
+# found that a typed code is NOT enough evidence. Several distinct controls
+# share the code `invalid_lock_or_manifest`, so deleting one of them left the
+# suite green: a second, redundant control refused with the SAME code and the
+# row could not tell the difference. That is the surviving class one level up -
+# the check stopped running and nothing observed it. `reason` names the exact
+# control, asserted as a colon-delimited field of the refusal detail, so a
+# control that stops firing is a red row even when another one masks it.
+#
+# No row contains a real or credential-shaped secret. Every commit SHA below
+# is a public GitHub Actions release commit already referenced by this repo.
+#
+# case	exit	code	active	inert	identities	reason
+nominal	0	pass	3	1	Mpaape/AurumCode,actions/checkout,actions/setup-go	-
+no_inputs	1	invalid_lock_or_manifest	-	-	-	no-input-files
+zero_uses	1	invalid_lock_or_manifest	-	-	-	zero-uses-sites-derived
+adv_quoted	0	pass	3	0	actions/checkout,actions/setup-go,actions/upload-artifact	-
+adv_comment	0	pass	1	1	actions/checkout	-
+adv_in_string	0	pass	1	1	actions/checkout	-
+adv_indent	0	pass	2	0	actions/checkout,actions/setup-go	-
+adv_nul	1	invalid_lock_or_manifest	-	-	-	nul-byte
+adv_symlink	1	source_integrity_error	-	-	-	symlink-under-workflows
+flow_mapping	0	pass	3	0	actions/checkout,actions/setup-go,actions/upload-artifact	-
+multidoc	0	pass	2	0	actions/checkout,actions/setup-go	-
+uppercase_ext	1	action_ref_mutable	-	-	-	floating-ref
+deep_subdir	1	action_ref_mutable	-	-	-	floating-ref
+mutable_tag	1	action_ref_mutable	-	-	-	floating-ref
+abbrev_sha	1	action_ref_mutable	-	-	-	abbreviated-sha
+untrusted_owner	1	source_integrity_error	-	-	-	untrusted-origin
+debt_within	0	pass	2	0	actions/checkout	-
+debt_overflow	1	action_ref_mutable	-	-	-	floating-ref
+local_ok	0	pass	1	0	./local-act	-
+local_missing	1	source_integrity_error	-	-	-	local-action-missing
+docker_digest	0	pass	1	0	docker.io/library/alpine	-
+docker_tag	1	action_ref_mutable	-	-	-	floating-ref
+alias_value	1	invalid_lock_or_manifest	-	-	-	yaml-anchor-or-alias
+anchor_merge	1	action_ref_mutable	-	-	-	floating-ref
+explicit_key	1	invalid_lock_or_manifest	-	-	-	explicit-key-indicator
+empty_value	1	invalid_lock_or_manifest	-	-	-	empty-uses-value
+crlf	1	invalid_lock_or_manifest	-	-	-	carriage-return
+garbage_ref	1	invalid_lock_or_manifest	-	-	-	unparseable-uses-value
+no_space_after_colon	0	pass	1	0	actions/checkout	-
+over_limit	1	input_limit_exceeded	-	-	-	entries
+symlinked_action_manifest	1	source_integrity_error	-	-	-	action-manifest-is-symlink
+#
+# Round 3 additions. Blocker B1 (docker origin never checked) and blocker B2
+# (nested `uses:` inside a local composite action never derived) each get a
+# fixture here, hand-written from the YAML under cases/<case>/ exactly like
+# every row above. A blocker without a fixture comes back next round.
+#
+nested_local_trusted	0	pass	2	0	./composite,actions/checkout	-
+nested_local_hostile	1	source_integrity_error	-	-	-	untrusted-origin
+nested_local_deep	1	source_integrity_error	-	-	-	untrusted-origin
+nested_local_cycle	0	pass	3	0	./pkg-a,./pkg-b	-
+docker_untrusted_registry	1	source_integrity_error	-	-	-	untrusted-origin
+docker_untrusted_namespace	1	source_integrity_error	-	-	-	untrusted-origin

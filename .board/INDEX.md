@@ -373,7 +373,7 @@ by [validate.sh](validate.sh).
 | [AUR-358](cards/backlog/AUR-358.md) | backlog | O14-legacy | critical | `[AUR-001, AUR-009, AUR-030, AUR-408]` | Caracterizar exemplos de ambiente sem carregar valores |
 | [AUR-359](cards/done/AUR-359.md) | done | O00-security | critical | `[]` | Fixar trust root do runner OCI |
 | [AUR-360](cards/done/AUR-360.md) | done | O00-security | critical | `[AUR-359]` | Fixar Go toolchain e módulos |
-| [AUR-361](cards/doing/AUR-361.md) | doing | O00-security | critical | `[AUR-359]` | Fixar referências de GitHub Actions |
+| [AUR-361](cards/done/AUR-361.md) | done | O00-security | critical | `[AUR-359]` | Fixar referências de GitHub Actions |
 | [AUR-362](cards/done/AUR-362.md) | done | O00-security | critical | `[AUR-359]` | Fixar scanners de segurança |
 | [AUR-363](cards/done/AUR-363.md) | done | O00-security | critical | `[AUR-359]` | Fixar parsers e grammars |
 | [AUR-364](cards/doing/AUR-364.md) | doing | O00-security | critical | `[AUR-359]` | Fixar ferramentas de documentação |

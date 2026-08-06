@@ -1,0 +1,5 @@
+name: fixture composite
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff

@@ -1,0 +1,79 @@
+{
+ "schema": "aurum.review-report",
+ "version": 1,
+ "card_id": "AUR-361",
+ "candidate_identity_digest": "sha256:472183dcfc9236530d1277c249967a38a41d80f3b4065b4a46dfb9e06a98b7d1",
+ "role": "reviewer-b",
+ "sealed": true,
+ "role_nonce": "aur361-r6-reviewer-b-f9d20bbaf3c1",
+ "context_digest": "sha256:f04be79c0957c0b3f13ba1ea8eedda0d15b8c52148d2ce4363fc16019bba5264",
+ "session_digest": "sha256:b35da15c80df08bc2cee4023c65c609499969093e1d8247db21adee2a928a96b",
+ "backend_family_digest": "sha256:6d1f611b9927d46a894577d0d8e1e08cb9df6fa753d70be9bd0ee8c86666a69f",
+ "verdict": "pass",
+ "independence_level": "I2",
+ "isolation": {
+  "peer_report_visible_before_seal": false,
+  "builder_trace_received": false,
+  "shared_memory": false
+ },
+ "coverage": {
+  "all_hunks": true,
+  "all_dimensions": true,
+  "manifest_digest": "sha256:3fae7c101326c4442090f936732811515a146f1c57d249a99f5282f15c30dbae",
+  "uncovered_hunks": 0,
+  "dimensions": [
+   {
+    "id": "contract",
+    "status": "covered",
+    "evidence_digest": "sha256:19419f64e8614f5286ffdb894ea645bc65d800c3d86532ba766bea237247afb1"
+   },
+   {
+    "id": "design",
+    "status": "covered",
+    "evidence_digest": "sha256:9de240ea82c91bf01b978f63aee774d9347d52b09dfc17e3d407cff165978bdc"
+   },
+   {
+    "id": "compatibility",
+    "status": "covered",
+    "evidence_digest": "sha256:7a228d513d8fbf817b55d2f27b6b83991518ed30713537ebdcf77d63f99198b0"
+   },
+   {
+    "id": "tests",
+    "status": "covered",
+    "evidence_digest": "sha256:3f155c97d242f227763701226966d9ef294397752f32c0a20dc1050ca71865a0"
+   },
+   {
+    "id": "security",
+    "status": "covered",
+    "evidence_digest": "sha256:035ada379631cd31db5a7b68201d9964169c4a970c83bfa6604086d3fe3277fc"
+   },
+   {
+    "id": "concurrency",
+    "status": "not_applicable",
+    "justification": "Processo deterministico unico, sem estado mutavel compartilhado."
+   },
+   {
+    "id": "errors-operations",
+    "status": "covered",
+    "evidence_digest": "sha256:5caa272ee7dab83c381b5f9882054cc9912f50f1beb216c2185ede7b0c763e99"
+   },
+   {
+    "id": "documentation",
+    "status": "covered",
+    "evidence_digest": "sha256:15e8221a4e5609c8d440b33c03ebfb6d7ef3a1a5a67ecd1a9b05b0fa44882050"
+   },
+   {
+    "id": "scope-simplicity",
+    "status": "covered",
+    "evidence_digest": "sha256:7c9f6bc01668b92b450f0a3ffc2400034c8a5a9e6b064fadc11676c03c9da282"
+   },
+   {
+    "id": "hunks",
+    "status": "covered",
+    "evidence_digest": "sha256:e975c2eb9cacb0a714368c22ae65e199598857213ad1f2a008e645ba12401508"
+   }
+  ]
+ },
+ "source_report": "/tmp/aurum-reviews/AUR-361-r6-cegoB.md",
+ "summary": "Parecer cego B do r6 (persistido em /tmp/aurum-reviews/AUR-361-r6-cegoB.md): APROVADO. spec_digest confirmado como ponto fixo; RED sem os patches reproduzido, satisfazendo a Lei 2. Tres bypasses proprios tentados alem dos nomeados, incluindo NUL byte ao vivo numa linha uses: e symlink relativo sob .github/workflows, ambos recusados com codigo tipado. Registrou com honestidade uma imprecisao do coordenador sobre qual commit era o HEAD, e a julgou nao material."
+}
