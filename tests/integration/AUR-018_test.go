@@ -34,10 +34,12 @@ type scmForgeCapabilities struct {
 	Forges map[string]struct {
 		Source   string `yaml:"source"`
 		Analyzer struct {
-			AllowWriteOnHostileHead bool `yaml:"allow_write_on_hostile_head"`
+			Credential              string `yaml:"credential"`
+			AllowWriteOnHostileHead bool   `yaml:"allow_write_on_hostile_head"`
 		} `yaml:"analyzer"`
 		Publisher struct {
-			AllowWriteOnHostileHead bool `yaml:"allow_write_on_hostile_head"`
+			Credential              string `yaml:"credential"`
+			AllowWriteOnHostileHead bool   `yaml:"allow_write_on_hostile_head"`
 		} `yaml:"publisher"`
 	} `yaml:"forges"`
 }
@@ -117,6 +119,12 @@ func TestAUR018Boundary(t *testing.T) {
 			}
 			if forge.Publisher.AllowWriteOnHostileHead {
 				t.Fatalf("forge %q publisher allows write on a hostile head", name)
+			}
+			if strings.TrimSpace(forge.Analyzer.Credential) == "" {
+				t.Fatalf("forge %q analyzer declares no credential", name)
+			}
+			if strings.TrimSpace(forge.Publisher.Credential) == "" {
+				t.Fatalf("forge %q publisher declares no credential", name)
 			}
 			if strings.TrimSpace(forge.Source) == "" {
 				t.Fatalf("forge %q has no source citation", name)
