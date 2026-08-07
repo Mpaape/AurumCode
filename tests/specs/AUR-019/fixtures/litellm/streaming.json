@@ -1,0 +1,62 @@
+{
+  "capability": "streaming",
+  "note": "Recorded from official documentation; no live network call, no credentials. LiteLLM passes stream=True through to the underlying provider and re-yields OpenAI-shaped chunk objects regardless of backend.",
+  "provider": "litellm",
+  "request": {
+    "call": "litellm.completion",
+    "params": {
+      "messages": [
+        {
+          "content": "count to three",
+          "role": "user"
+        }
+      ],
+      "model": "gpt-4o-mini",
+      "stream": true
+    }
+  },
+  "response": {
+    "chunks": [
+      {
+        "choices": [
+          {
+            "delta": {
+              "content": "1",
+              "role": "assistant"
+            },
+            "finish_reason": null,
+            "index": 0
+          }
+        ],
+        "id": "chatcmpl-1",
+        "object": "chat.completion.chunk"
+      },
+      {
+        "choices": [
+          {
+            "delta": {
+              "content": ", 2, 3"
+            },
+            "finish_reason": null,
+            "index": 0
+          }
+        ],
+        "id": "chatcmpl-1",
+        "object": "chat.completion.chunk"
+      },
+      {
+        "choices": [
+          {
+            "delta": {},
+            "finish_reason": "stop",
+            "index": 0
+          }
+        ],
+        "id": "chatcmpl-1",
+        "object": "chat.completion.chunk"
+      }
+    ],
+    "transport": "python-generator-of-openai-shaped-chunks"
+  },
+  "source": "[litellm v1.95.0](https://github.com/BerriAI/litellm/releases/tag/v1.95.0)"
+}

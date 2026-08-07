@@ -1,0 +1,38 @@
+# AurumCode provider contract: Anthropic.
+#
+# Flat scalar keys only (no nested mappings) so tests/acceptance/AUR-019.sh
+# and tests/integration/AUR-019_test.go can parse this file with one line-anchored
+# rule per key instead of a general YAML walk. Values that are markdown
+# links are double-quoted so this file also parses as strict YAML.
+#
+# This card fixes the contract; it implements no client and makes no network
+# call. Every "supported" capability below MUST have a matching
+# fixture_<capability> entry pointing at a recorded, non-secret fixture
+# under tests/specs/AUR-019/fixtures/anthropic/.
+
+provider: Anthropic
+source: "[anthropic-sdk-python v0.120.2](https://github.com/anthropics/anthropic-sdk-python/releases/tag/v0.120.2)"
+version: v0.120.2
+date: 2026-07-28
+
+transport: http
+
+wire_endpoint: /v1/messages
+wire_method: POST
+wire_content_type: application/json
+
+auth_scheme: api-key-header
+auth_header: x-api-key
+auth_binding: header
+auth_format: "x-api-key: <ANTHROPIC_API_KEY>; anthropic-version: 2023-06-01"
+
+error_envelope: "error.type,error.message,request_id"
+error_taxonomy: "invalid_request_error,authentication_error,billing_error,permission_error,not_found_error,conflict_error,request_too_large,rate_limit_error,api_error,timeout_error,overloaded_error"
+
+capability_streaming: supported
+capability_tool_use: supported
+capability_structured_output: supported
+
+fixture_streaming: tests/specs/AUR-019/fixtures/anthropic/streaming.json
+fixture_tool_use: tests/specs/AUR-019/fixtures/anthropic/tool_use.json
+fixture_structured_output: tests/specs/AUR-019/fixtures/anthropic/structured_output.json

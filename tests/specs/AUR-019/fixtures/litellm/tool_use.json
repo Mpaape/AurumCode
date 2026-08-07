@@ -1,0 +1,61 @@
+{
+  "capability": "tool_use",
+  "note": "Recorded from official documentation; no live network call, no credentials. The tools param is OpenAI-shaped on input and translated to the backend's native tool-call format internally.",
+  "provider": "litellm",
+  "request": {
+    "call": "litellm.completion",
+    "params": {
+      "messages": [
+        {
+          "content": "what's the weather in Recife?",
+          "role": "user"
+        }
+      ],
+      "model": "gpt-4o-mini",
+      "tools": [
+        {
+          "function": {
+            "name": "get_weather",
+            "parameters": {
+              "properties": {
+                "city": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "city"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    }
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "tool_calls",
+          "index": 0,
+          "message": {
+            "content": null,
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": "{\"city\":\"Recife\"}",
+                  "name": "get_weather"
+                },
+                "id": "call_1",
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "source": "[litellm v1.95.0](https://github.com/BerriAI/litellm/releases/tag/v1.95.0)"
+}
