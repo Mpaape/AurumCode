@@ -86,8 +86,8 @@ if [[ -n "$bad_lines" ]]; then
   exit 1
 fi
 canon_total="$(printf '%s\n' "$mut001_output" | awk -F'\t' '$1 == "TOTAL" { print $3 }')"
-if [[ -z "$canon_total" || "$canon_total" -lt 1 ]]; then
-  printf 'AUR-018/AC-001/MUT-001: no canonical allow_write_on_hostile_head line found in standards/scm\n' >&2
+if [[ -z "$canon_total" || "$canon_total" -ne 6 ]]; then
+  printf 'AUR-018/AC-001/MUT-001: canonical allow_write_on_hostile_head lines in standards/scm must be exactly 6 (one per forge and role: github/gitlab/gitea x analyzer/publisher), found %s\n' "${canon_total:-0}" >&2
   exit 1
 fi
 find "$std" -type f -print0 | xargs -0 grep -Fq 'hostile_head_read_only' 2>/dev/null || {
