@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-019",
+  "commit": "d6729d4129c1caa438a52f638a98a924680f4d30",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "bash tests/acceptance/AUR-019.sh",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-019\",\"scenario\":\"AC-001\",\"selector\":\"AC-001\",\"required_providers\":7,\"tracked_capabilities\":3,\"result\":\"pass\"}"
+  }
+}
