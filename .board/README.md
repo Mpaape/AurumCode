@@ -8,7 +8,33 @@ The pre-existing `.taskmaster/` backlog is preserved as audit input only. Its
 historical `done` values do not prove that a capability exists and never drive
 the execution queue; AUR-001 and AUR-002 characterize those claims explicitly.
 
-## Operating model
+## Operating model (lightweight delivery, 2026-08)
+
+The board runs on a simple, parallel delivery cycle:
+
+1. A card moves from `backlog` to `ready` only when every `depends_on` card is
+   in `done`. `ready` authorizes the driver, not a builder.
+2. The developer executes the card, commits to a human-authenticated commit
+   (never AI attribution), and adds a `## Delivery record` section to the card
+   body with `- commit: <40-hex sha>`.
+3. The card moves to `review`. An independent reviewer agent code-reviews the
+   named commit against the card's own outcome criteria and, on approval,
+   appends `- review: approved` to the Delivery record.
+4. If the card frontmatter declares `validation: tested` or `skeptical`, a
+   validator agent executes the card's own acceptance and appends
+   `- validation: passed` on success. Cards without a `validation:` field
+   default to `none` and skip this step.
+5. The card moves to `done` only when its Delivery record is complete for its
+   declared validation kind. The lightweight gate is `bash .board/pipeline.sh`
+   — run it and read its exit code.
+6. Only the coordinator moves cards and integrates. Commits never carry AI
+   authorship, co-authorship, signatures, or generated-by attribution.
+
+The earlier ceremony (two blind reviewers, skeptical mutation, OCI evidence
+bundles) is preserved as history below and still governs the 12 legacy `done`
+cards; new cards run the lightweight cycle above.
+
+## Legacy ceremony (pre-2026-08; governs legacy `done` cards only)
 
 1. A card moves from `backlog` to `ready` only when every `depends_on` card is
    in `done`. `ready` authorizes an isolated test designer, not a builder.
