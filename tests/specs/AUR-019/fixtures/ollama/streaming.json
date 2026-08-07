@@ -1,0 +1,28 @@
+{
+  "capability": "streaming",
+  "note": "Recorded from official documentation; no live network call, no credentials. Streaming is the default; each line is one complete JSON object (NDJSON), not an SSE frame.",
+  "provider": "ollama",
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": "count to three",
+          "role": "user"
+        }
+      ],
+      "model": "llama3.1"
+    },
+    "method": "POST",
+    "path": "/api/chat"
+  },
+  "response": {
+    "content_type": "application/x-ndjson",
+    "lines": [
+      "{\"model\":\"llama3.1\",\"message\":{\"role\":\"assistant\",\"content\":\"1\"},\"done\":false}",
+      "{\"model\":\"llama3.1\",\"message\":{\"role\":\"assistant\",\"content\":\", 2, 3\"},\"done\":false}",
+      "{\"model\":\"llama3.1\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\"}"
+    ],
+    "transport": "ndjson"
+  },
+  "source": "[ollama v0.32.5](https://github.com/ollama/ollama/releases/tag/v0.32.5)"
+}

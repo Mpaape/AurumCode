@@ -1,0 +1,32 @@
+{
+  "capability": "streaming",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": "count to three",
+          "role": "user"
+        }
+      ],
+      "stream": true
+    },
+    "headers": {
+      "api-key": "<AZURE_OPENAI_KEY>"
+    },
+    "method": "POST",
+    "path": "/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-10-21"
+  },
+  "response": {
+    "chunks": [
+      "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"1\"},\"finish_reason\":null}]}",
+      "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\", 2, 3\"},\"finish_reason\":null}]}",
+      "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "data: [DONE]"
+    ],
+    "content_type": "text/event-stream",
+    "transport": "server-sent-events"
+  },
+  "source": "[Azure OpenAI REST API reference (data-plane inference, 2024-10-21 GA)](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference?view=rest-openai-2024-10-21)"
+}

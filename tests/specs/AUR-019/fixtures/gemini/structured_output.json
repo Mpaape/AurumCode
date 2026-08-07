@@ -1,0 +1,57 @@
+{
+  "capability": "structured_output",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "gemini",
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "extract the ticket"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "generationConfig": {
+        "responseMimeType": "application/json",
+        "responseSchema": {
+          "properties": {
+            "priority": {
+              "type": "STRING"
+            },
+            "title": {
+              "type": "STRING"
+            }
+          },
+          "required": [
+            "title",
+            "priority"
+          ],
+          "type": "OBJECT"
+        }
+      }
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.6-flash:generateContent?key=$GEMINI_API_KEY"
+  },
+  "response": {
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "{\"title\":\"Fix login bug\",\"priority\":\"high\"}"
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP"
+        }
+      ]
+    }
+  },
+  "source": "[google-genai v2.16.0](https://github.com/googleapis/python-genai/releases/tag/v2.16.0)"
+}

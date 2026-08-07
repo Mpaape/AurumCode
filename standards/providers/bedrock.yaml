@@ -1,0 +1,40 @@
+# AurumCode provider contract: Bedrock (Amazon Bedrock Runtime Converse API).
+#
+# Flat scalar keys only (no nested mappings) so tests/acceptance/AUR-019.sh
+# and tests/integration/AUR-019_test.go can parse this file with one line-anchored
+# rule per key instead of a general YAML walk. Values that are markdown
+# links are double-quoted so this file also parses as strict YAML.
+#
+# This card fixes the contract; it implements no client and makes no network
+# call. Every "supported" capability below MUST have a matching
+# fixture_<capability> entry pointing at a recorded, non-secret fixture
+# under tests/specs/AUR-019/fixtures/bedrock/.
+
+provider: Bedrock
+source: "[Amazon Bedrock Runtime API Reference - Converse (2023-09-30)](https://docs.aws.amazon.com/bedrock/2023-09-30/APIReference/API_runtime_Converse.html)"
+version: 2023-09-30
+date: 2025-12-02
+
+transport: http
+
+wire_endpoint: "/model/{modelId}/converse"
+wire_method: POST
+wire_content_type: application/json
+wire_streaming_suffix: -stream
+
+auth_scheme: aws-sigv4
+auth_header: Authorization
+auth_binding: signed-request
+auth_evidence: AWS SigV4
+auth_format: "AWS SigV4 request signing with IAM credentials; no bearer token; requires the bedrock:InvokeModel action"
+
+error_envelope: "no single JSON error field; a named exception type per failure, each with its own HTTP status"
+error_taxonomy: "AccessDeniedException-403,InternalServerException-500,ModelErrorException-424,ModelNotReadyException-429,ModelTimeoutException-408,ResourceNotFoundException-404,ServiceUnavailableException-503,ThrottlingException-429,ValidationException-400"
+
+capability_streaming: supported
+capability_tool_use: supported
+capability_structured_output: supported
+
+fixture_streaming: tests/specs/AUR-019/fixtures/bedrock/streaming.json
+fixture_tool_use: tests/specs/AUR-019/fixtures/bedrock/tool_use.json
+fixture_structured_output: tests/specs/AUR-019/fixtures/bedrock/structured_output.json

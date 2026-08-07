@@ -1,0 +1,38 @@
+# AurumCode provider contract: OpenAI.
+#
+# Flat scalar keys only (no nested mappings) so tests/acceptance/AUR-019.sh
+# and tests/integration/AUR-019_test.go can parse this file with one line-anchored
+# rule per key instead of a general YAML walk. Values that are markdown
+# links are double-quoted so this file also parses as strict YAML.
+#
+# This card fixes the contract; it implements no client and makes no network
+# call. Every "supported" capability below MUST have a matching
+# fixture_<capability> entry pointing at a recorded, non-secret fixture
+# under tests/specs/AUR-019/fixtures/openai/.
+
+provider: OpenAI
+source: "[openai-python v2.53.0](https://github.com/openai/openai-python/releases/tag/v2.53.0)"
+version: v2.53.0
+date: 2026-08-03
+
+transport: http
+
+wire_endpoint: /v1/chat/completions
+wire_method: POST
+wire_content_type: application/json
+
+auth_scheme: bearer
+auth_header: Authorization
+auth_binding: header
+auth_format: "Bearer <OPENAI_API_KEY>"
+
+error_envelope: "error.message,error.type,error.param,error.code"
+error_taxonomy: "invalid_request_error,authentication_error,permission_error,not_found_error,rate_limit_error,api_error,insufficient_quota"
+
+capability_streaming: supported
+capability_tool_use: supported
+capability_structured_output: supported
+
+fixture_streaming: tests/specs/AUR-019/fixtures/openai/streaming.json
+fixture_tool_use: tests/specs/AUR-019/fixtures/openai/tool_use.json
+fixture_structured_output: tests/specs/AUR-019/fixtures/openai/structured_output.json

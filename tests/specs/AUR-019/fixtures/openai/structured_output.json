@@ -1,0 +1,59 @@
+{
+  "capability": "structured_output",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "openai",
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": "extract the ticket",
+          "role": "user"
+        }
+      ],
+      "model": "gpt-4o-2024-08-06",
+      "response_format": {
+        "json_schema": {
+          "name": "ticket",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "priority": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "priority"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "json_schema"
+      }
+    },
+    "headers": {
+      "Authorization": "Bearer <OPENAI_API_KEY>"
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "{\"title\":\"Fix login bug\",\"priority\":\"high\"}",
+            "role": "assistant"
+          }
+        }
+      ]
+    }
+  },
+  "source": "[openai-python v2.53.0](https://github.com/openai/openai-python/releases/tag/v2.53.0)"
+}

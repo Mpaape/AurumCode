@@ -1,0 +1,30 @@
+{
+  "capability": "streaming",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "gemini",
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "count to three"
+            }
+          ],
+          "role": "user"
+        }
+      ]
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key=$GEMINI_API_KEY"
+  },
+  "response": {
+    "chunks": [
+      "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"1\"}]}}]}",
+      "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\", 2, 3\"}]},\"finishReason\":\"STOP\"}]}"
+    ],
+    "content_type": "text/event-stream",
+    "transport": "server-sent-events"
+  },
+  "source": "[google-genai v2.16.0](https://github.com/googleapis/python-genai/releases/tag/v2.16.0)"
+}

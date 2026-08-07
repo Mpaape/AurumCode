@@ -1,0 +1,65 @@
+{
+  "capability": "tool_use",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "gemini",
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "what's the weather in Recife?"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "description": "Get current weather for a city",
+              "name": "get_weather",
+              "parameters": {
+                "properties": {
+                  "city": {
+                    "type": "STRING"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "OBJECT"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.6-flash:generateContent?key=$GEMINI_API_KEY"
+  },
+  "response": {
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "functionCall": {
+                  "args": {
+                    "city": "Recife"
+                  },
+                  "name": "get_weather"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "finishReason": "STOP"
+        }
+      ]
+    }
+  },
+  "source": "[google-genai v2.16.0](https://github.com/googleapis/python-genai/releases/tag/v2.16.0)"
+}
