@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-018",
+  "commit": "a033299b01f46fda35f98eb6cd26d64bc562b022",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "bash tests/acceptance/AUR-018.sh",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-018\",\"scenario\":\"AC-001\",\"result\":\"pass\"}"
+  }
+}
