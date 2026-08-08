@@ -286,7 +286,7 @@ ObserveChildVerdictV1() {
   child_timeout="$child_deadline_seconds"
   (( remaining < child_timeout )) && child_timeout="$remaining"
   set +e
-  BASH_ENV= ENV= timeout -k 0 "$child_timeout" bash --noprofile --norc -- "$prog" __AUR233_probe__ \
+  BASH_ENV= ENV= timeout --signal=KILL "$child_timeout" bash --noprofile --norc -- "$prog" __AUR233_probe__ \
     >"$dir/$child.probe.out" 2>"$dir/$child.probe.err"
   probe_rc=$?
   set -e
@@ -306,7 +306,7 @@ ObserveChildVerdictV1() {
   child_timeout="$child_deadline_seconds"
   (( remaining < child_timeout )) && child_timeout="$remaining"
   set +e
-  BASH_ENV= ENV= timeout -k 0 "$child_timeout" bash --noprofile --norc -- "$prog" AC-001 >"$out" 2>"$err"
+  BASH_ENV= ENV= timeout --signal=KILL "$child_timeout" bash --noprofile --norc -- "$prog" AC-001 >"$out" 2>"$err"
   rc=$?
   set -e
   case "$rc" in
