@@ -1,0 +1,136 @@
+rules:
+  - id: CR-EVD-001
+    source: NIST SP 800-218
+    url: https://csrc.nist.gov/pubs/sp/800/218/final
+    version: SSDF 1.1
+    date: 2022-02-03
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-EVD-001-positive.md
+        assert: the command and exit code are bound to the reviewed candidate
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-EVD-001-negative.md
+        assert: a verdict is reported without the decisive command result
+        expect: fail
+  - id: CR-EVD-002
+    source: NIST SP 800-218
+    url: https://csrc.nist.gov/pubs/sp/800/218/final
+    version: SSDF 1.1
+    date: 2022-02-03
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-EVD-002-positive.md
+        assert: changed review inputs invalidate the earlier verdict
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-EVD-002-negative.md
+        assert: a changed candidate keeps a stale approval
+        expect: fail
+  - id: CR-EVD-003
+    source: NIST SP 800-218
+    url: https://csrc.nist.gov/pubs/sp/800/218/final
+    version: SSDF 1.1
+    date: 2022-02-03
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-EVD-003-positive.md
+        assert: the implementation proves red green and reversible mutation
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-EVD-003-negative.md
+        assert: a green result is claimed without red or mutation evidence
+        expect: fail
+  - id: CR-REV-001
+    source: Google Engineering Practices
+    url: https://google.github.io/eng-practices/review/reviewer/standard.html
+    version: current online edition
+    date: 2026-08-08
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-REV-001-positive.md
+        assert: the review covers behavior design tests and documentation context
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-REV-001-negative.md
+        assert: the review samples only changed lines and ignores affected callers
+        expect: fail
+  - id: CR-REV-002
+    source: Google Engineering Practices
+    url: https://google.github.io/eng-practices/review/reviewer/looking-for.html
+    version: current online edition
+    date: 2026-08-08
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-REV-002-positive.md
+        assert: the review result is sealed until its declared inputs are fixed
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-REV-002-negative.md
+        assert: the result changes after an undeclared input is introduced
+        expect: fail
+  - id: CR-REV-003
+    source: NIST SP 800-218
+    url: https://csrc.nist.gov/pubs/sp/800/218/final
+    version: SSDF 1.1
+    date: 2022-02-03
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-REV-003-positive.md
+        assert: review inputs and tool state are isolated from unrelated state
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-REV-003-negative.md
+        assert: the review reads mutable shared state outside its declared inputs
+        expect: fail
+  - id: CR-REV-004
+    source: NIST SP 800-218
+    url: https://csrc.nist.gov/pubs/sp/800/218/final
+    version: SSDF 1.1
+    date: 2022-02-03
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-REV-004-positive.md
+        assert: a reversible mutation makes the same acceptance command fail
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-REV-004-negative.md
+        assert: a mutation is skipped and the unmutated pass is treated as proof
+        expect: fail
+  - id: CR-REV-005
+    source: Google Engineering Practices
+    url: https://google.github.io/eng-practices/review/reviewer/standard.html
+    version: current online edition
+    date: 2026-08-08
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-REV-005-positive.md
+        assert: an unresolved blocking finding prevents approval
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-REV-005-negative.md
+        assert: a blocking finding is waived without a recorded resolution
+        expect: fail
+  - id: CR-GATE-001
+    source: NIST SP 800-218
+    url: https://csrc.nist.gov/pubs/sp/800/218/final
+    version: SSDF 1.1
+    date: 2022-02-03
+    status: current
+    cases:
+      - kind: positive
+        fixture: standards/code-review/fixtures/CR-GATE-001-positive.md
+        assert: gates execute in dependency order and preserve failure states
+        expect: pass
+      - kind: negative
+        fixture: standards/code-review/fixtures/CR-GATE-001-negative.md
+        assert: a downstream pass overrides an upstream failure
+        expect: fail
