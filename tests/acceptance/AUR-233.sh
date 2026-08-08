@@ -100,7 +100,7 @@ work=''
 cleanup() { [[ -z "$work" ]] || rm -rf -- "$work"; }
 trap cleanup EXIT INT TERM HUP
 
-for tool in sha256sum mktemp sort grep wc cp mkdir ln timeout; do
+for tool in sha256sum mktemp sort grep wc cp mkdir ln timeout awk; do
   command -v "$tool" >/dev/null 2>&1 || infra "missing-utility/$tool"
 done
 work="$(mktemp -d 2>/dev/null)" || infra 'mktemp-failed'
@@ -268,7 +268,7 @@ VerifyBootstrapLocksetV1() {
 # absent sibling program is a materialization fact, not a divergence.
 ObserveChildVerdictV1() {
   local child="$1" prog="$2" dir="$3"
-  local out="$dir/$child.out" err="$dir/$child.err" rc probe_rc bytes
+  local out="$dir/$child.out" err="$dir/$child.err" rc probe_rc bytes remaining child_timeout
 
   if [[ -L "$prog" || ! -f "$prog" || ! -r "$prog" ]]; then
     printf 'infra child-program-unavailable/%s\n' "$child"; return 2
@@ -281,8 +281,12 @@ ObserveChildVerdictV1() {
   # unknown selector with 64; `exit 0` answers 0 to that too, and that is the
   # exact forgery this probe is here to catch.
   deadline_guard
+  remaining=$((aggregate_deadline_seconds - (SECONDS - run_started)))
+  (( remaining > 0 )) || { printf 'infra aggregate-timeout\n'; return 2; }
+  child_timeout="$child_deadline_seconds"
+  (( remaining < child_timeout )) && child_timeout="$remaining"
   set +e
-  BASH_ENV= ENV= timeout -k 5 "$child_deadline_seconds" bash --noprofile --norc -- "$prog" __AUR233_probe__ \
+  BASH_ENV= ENV= timeout -k 0 "$child_timeout" bash --noprofile --norc -- "$prog" __AUR233_probe__ \
     >"$dir/$child.probe.out" 2>"$dir/$child.probe.err"
   probe_rc=$?
   set -e
@@ -297,8 +301,12 @@ ObserveChildVerdictV1() {
   # Raw status inside the `if`-free straight line: no pipe, no filter, nothing
   # that could swallow the producer's exit code.
   deadline_guard
+  remaining=$((aggregate_deadline_seconds - (SECONDS - run_started)))
+  (( remaining > 0 )) || { printf 'infra aggregate-timeout\n'; return 2; }
+  child_timeout="$child_deadline_seconds"
+  (( remaining < child_timeout )) && child_timeout="$remaining"
   set +e
-  BASH_ENV= ENV= timeout -k 5 "$child_deadline_seconds" bash --noprofile --norc -- "$prog" AC-001 >"$out" 2>"$err"
+  BASH_ENV= ENV= timeout -k 0 "$child_timeout" bash --noprofile --norc -- "$prog" AC-001 >"$out" 2>"$err"
   rc=$?
   set -e
   case "$rc" in
@@ -319,6 +327,19 @@ ObserveChildVerdictV1() {
   }
   local record pattern
   record="$(< "$out")"
+  if ! awk '
+    {
+      text = $0
+      while (match(text, /"[a-z_]+":/)) {
+        key = substr(text, RSTART + 1, RLENGTH - 3)
+        count[key]++
+        if (count[key] > 1) exit 1
+        text = substr(text, RSTART + RLENGTH)
+      }
+    }
+  ' "$out"; then
+    printf 'child_not_pass %s emitted duplicate JSON keys\n' "$child"; return 1
+  fi
   pattern='^\{"card":"'"$child"'","scenario":"AC-001"(,"[a-z_]+":("[A-Za-z0-9_.:-]+"|[0-9]+))*\,"result":"pass"\}$'
   if [[ ! "$record" =~ $pattern ]]; then
     printf 'child_not_pass %s emitted a non-canonical pass record\n' "$child"; return 1
