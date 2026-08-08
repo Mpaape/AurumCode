@@ -96,7 +96,7 @@ work=''
 cleanup() { [[ -z "$work" ]] || rm -rf -- "$work"; }
 trap cleanup EXIT INT TERM HUP
 
-for tool in sha256sum mktemp sort grep wc cp mkdir timeout; do
+for tool in sha256sum mktemp sort grep wc cp mkdir ln timeout; do
   command -v "$tool" >/dev/null 2>&1 || infra "missing-utility/$tool"
 done
 work="$(mktemp -d 2>/dev/null)" || infra 'mktemp-failed'
@@ -417,6 +417,15 @@ sort "$alias_canon" > "$alias_canon.sorted" || infra 'cannot-build-fixture'
 alias_identity="$(digest_of "$alias_canon.sorted")" || infra 'cannot-hash-fixture'
 write_index "$mut/aliased/locks.yml" "$alias_identity" "${rows_alias[@]}" || infra 'cannot-build-fixture'
 
+# MUT: an otherwise well-shaped index contains an unknown line.
+derive malformed
+printf 'unexpected: value\n' >> "$mut/malformed/locks.yml" || infra 'cannot-build-fixture'
+
+# MUT: an artifact is a symlink, not a regular child-owned file.
+derive symlink
+rm "$mut/symlink/locks/trust-root.yml" || infra 'cannot-build-fixture'
+ln -s "$mut/nominal/locks/trust-root.yml" "$mut/symlink/locks/trust-root.yml" || infra 'cannot-build-fixture'
+
 matrix='nominal:ok'
 matrix+=' missing:lock_domain_missing'
 matrix+=' duplicate:child_duplicate'
@@ -425,6 +434,8 @@ matrix+=' identity:candidate_identity_mismatch'
 matrix+=' selfref:child_digest_mismatch'
 matrix+=' handwritten:lock_domain_missing'
 matrix+=' aliased:lock_domain_missing'
+matrix+=' malformed:lock_domain_missing'
+matrix+=' symlink:child_digest_mismatch'
 for entry in $matrix; do
   name="${entry%%:*}"
   expect="${entry##*:}"

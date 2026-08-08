@@ -1,9 +1,11 @@
-# case\texpected result\tmutation
-nominal\tpass\t none
-missing-child\tlock_domain_missing\t remove AUR-363 row
-duplicate-child\tchild_duplicate\t duplicate AUR-359 row
-bad-artifact-digest\tchild_digest_mismatch\t alter AUR-362 digest
-bad-identity\tcandidate_identity_mismatch\t alter aggregate identity
-self-reference\tchild_digest_mismatch\t use index digest for AUR-361
-handwritten-verdict\tlock_domain_missing\t replace artifact with verdict rows
-aliased-artifact\tlock_domain_missing\t bind every child to trust-root artifact
+# case	expected result	mutation
+nominal	pass	baseline lockset
+missing-child	lock_domain_missing	remove AUR-363 row
+duplicate-child	child_duplicate	duplicate AUR-359 row
+bad-artifact-digest	child_digest_mismatch	alter AUR-362 digest
+bad-identity	candidate_identity_mismatch	alter aggregate identity
+self-reference	child_digest_mismatch	use index digest for AUR-361
+handwritten-verdict	lock_domain_missing	replace artifact with verdict rows
+aliased-artifact	lock_domain_missing	bind every child to trust-root artifact
+malformed-index	lock_domain_missing	append an unknown index line
+symlink-artifact	child_digest_mismatch	replace a child artifact with a symlink
