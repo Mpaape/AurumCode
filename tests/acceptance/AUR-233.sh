@@ -88,7 +88,10 @@ readonly max_artifact_bytes=4194304
 readonly max_index_lines=512
 readonly child_deadline_seconds=30
 readonly max_child_stdout_bytes=65536
+readonly aggregate_deadline_seconds=360
 readonly cases_file="$repo_root/tests/gates/bootstrap/AUR-233/cases.tsv"
+case_names=(nominal missing duplicate tampered identity selfref handwritten aliased malformed symlink)
+declare -A case_expected=()
 
 fail() { printf '%s/%s/%s\n' "$card" "$scenario" "$1" >&2; exit 1; }
 infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$scenario" "$1" >&2; exit 69; }
@@ -102,6 +105,10 @@ for tool in sha256sum mktemp sort grep wc cp mkdir ln timeout; do
 done
 work="$(mktemp -d 2>/dev/null)" || infra 'mktemp-failed'
 [[ -d "$work" && -w "$work" ]] || infra 'workdir-unusable'
+run_started=$SECONDS
+deadline_guard() {
+  (( SECONDS - run_started <= aggregate_deadline_seconds )) || infra 'aggregate-timeout'
+}
 
 # digest_of <file> -> `sha256:<hex>`, recomputed over the file CONTENT.
 digest_of() {
@@ -273,8 +280,9 @@ ObserveChildVerdictV1() {
   # Sensitivity probe. Every acceptance program on this board refuses an
   # unknown selector with 64; `exit 0` answers 0 to that too, and that is the
   # exact forgery this probe is here to catch.
+  deadline_guard
   set +e
-  timeout -k 5 "$child_deadline_seconds" bash -- "$prog" __AUR233_probe__ \
+  BASH_ENV= ENV= timeout -k 5 "$child_deadline_seconds" bash --noprofile --norc -- "$prog" __AUR233_probe__ \
     >"$dir/$child.probe.out" 2>"$dir/$child.probe.err"
   probe_rc=$?
   set -e
@@ -288,8 +296,9 @@ ObserveChildVerdictV1() {
 
   # Raw status inside the `if`-free straight line: no pipe, no filter, nothing
   # that could swallow the producer's exit code.
+  deadline_guard
   set +e
-  timeout -k 5 "$child_deadline_seconds" bash -- "$prog" AC-001 >"$out" 2>"$err"
+  BASH_ENV= ENV= timeout -k 5 "$child_deadline_seconds" bash --noprofile --norc -- "$prog" AC-001 >"$out" 2>"$err"
   rc=$?
   set -e
   case "$rc" in
@@ -305,11 +314,14 @@ ObserveChildVerdictV1() {
   if (( bytes == 0 || bytes > max_child_stdout_bytes )); then
     printf 'child_not_pass %s exited 0 but its record is out of bounds (%s bytes)\n' "$child" "$bytes"; return 1
   fi
-  if ! grep -qF -- "\"card\":\"$child\"" "$out"; then
-    printf 'child_not_pass %s exited 0 without owning the record it printed\n' "$child"; return 1
-  fi
-  if ! grep -qF -- '"result":"pass"' "$out"; then
-    printf 'child_not_pass %s exited 0 without emitting its own pass record\n' "$child"; return 1
+  [[ "$(wc -l < "$out")" == 1 ]] || {
+    printf 'child_not_pass %s emitted more than one record\n' "$child"; return 1
+  }
+  local record pattern
+  record="$(< "$out")"
+  pattern='^\{"card":"'"$child"'","scenario":"AC-001"(,"[a-z_]+":("[A-Za-z0-9_.:-]+"|[0-9]+))*\,"result":"pass"\}$'
+  if [[ ! "$record" =~ $pattern ]]; then
+    printf 'child_not_pass %s emitted a non-canonical pass record\n' "$child"; return 1
   fi
   printf 'ok\n'
   return 0
@@ -317,8 +329,19 @@ ObserveChildVerdictV1() {
 
 check_case_matrix() {
   [[ -f "$cases_file" && ! -L "$cases_file" ]] || infra 'case-matrix-missing'
-  declare -a expected_cases=(nominal missing duplicate tampered identity selfref handwritten aliased malformed symlink)
   declare -A seen_cases=()
+  declare -A expected_results=(
+    [nominal]=ok
+    [missing]=lock_domain_missing
+    [duplicate]=child_duplicate
+    [tampered]=child_digest_mismatch
+    [identity]=candidate_identity_mismatch
+    [selfref]=child_digest_mismatch
+    [handwritten]=lock_domain_missing
+    [aliased]=lock_domain_missing
+    [malformed]=lock_domain_missing
+    [symlink]=child_digest_mismatch
+  )
   local line name expected mutation extra count=0
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "${line//[[:space:]]/}" || "${line:0:1}" == '#' ]] && continue
@@ -326,12 +349,15 @@ check_case_matrix() {
     IFS=$'\t' read -r name expected mutation extra <<< "$line"
     [[ -n "${name:-}" && -n "${expected:-}" && -n "${mutation:-}" && -z "${extra:-}" ]] ||
       fail 'gate_insensitive: malformed case matrix row'
+    [[ -n "${expected_results[$name]+x}" && "${expected_results[$name]}" == "$expected" ]] ||
+      fail "gate_insensitive: unexpected expected result for $name"
     [[ -z "${seen_cases[$name]+x}" ]] || fail "gate_insensitive: duplicate case matrix row $name"
     seen_cases[$name]="$expected"
+    case_expected[$name]="$expected"
     count=$((count + 1))
   done < "$cases_file"
-  (( count == ${#expected_cases[@]} )) || fail "gate_insensitive: case matrix has $count rows"
-  for name in "${expected_cases[@]}"; do
+  (( count == ${#case_names[@]} )) || fail "gate_insensitive: case matrix has $count rows"
+  for name in "${case_names[@]}"; do
     [[ -n "${seen_cases[$name]+x}" ]] || fail "gate_insensitive: case matrix misses $name"
   done
 }
@@ -449,16 +475,8 @@ derive symlink
 rm "$mut/symlink/locks/trust-root.yml" || infra 'cannot-build-fixture'
 ln -s "$mut/nominal/locks/trust-root.yml" "$mut/symlink/locks/trust-root.yml" || infra 'cannot-build-fixture'
 
-matrix='nominal:ok'
-matrix+=' missing:lock_domain_missing'
-matrix+=' duplicate:child_duplicate'
-matrix+=' tampered:child_digest_mismatch'
-matrix+=' identity:candidate_identity_mismatch'
-matrix+=' selfref:child_digest_mismatch'
-matrix+=' handwritten:lock_domain_missing'
-matrix+=' aliased:lock_domain_missing'
-matrix+=' malformed:lock_domain_missing'
-matrix+=' symlink:child_digest_mismatch'
+matrix=''
+for name in "${case_names[@]}"; do matrix+=" $name:${case_expected[$name]}"; done
 for entry in $matrix; do
   name="${entry%%:*}"
   expect="${entry##*:}"
@@ -495,7 +513,7 @@ emit_child() { # emit_child <dir> <body...>
 # A faithful stand-in: refuses an unknown selector with 64 and owns its record.
 emit_child honest \
   "case \"\${1:-AC-001}\" in AC-001) ;; *) exit 64 ;; esac" \
-  "printf '{\"card\":\"$probe_child\",\"result\":\"pass\"}\\n'"
+  "printf '{\"card\":\"$probe_child\",\"scenario\":\"AC-001\",\"result\":\"pass\"}\\n'"
 # The forgery this phase exists for: the whole body is `exit 0`.
 emit_child stub "exit 0"
 # The subtler forgery: it prints a perfectly shaped record it does not earn and

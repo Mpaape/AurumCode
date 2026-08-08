@@ -1,5 +1,5 @@
 # case	expected result	mutation
-nominal	pass	baseline lockset
+nominal	ok	baseline lockset
 missing	lock_domain_missing	remove AUR-363 row
 duplicate	child_duplicate	duplicate AUR-359 row
 tampered	child_digest_mismatch	alter AUR-362 digest
