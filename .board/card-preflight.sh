@@ -41,6 +41,13 @@ oci_accept=0
 if grep -Fq "accept: \`./.board/bin/oci-run --profile bootstrap-readonly-v1 --card $card_id\`" "$card"; then
   oci_accept=1
 fi
+if (( oci_accept == 1 )) && grep -Eq '(^|[^[:alnum:]_])go([[:space:]]|$)|go[[:space:]]+test' "$acceptance"; then
+  profile_lock="$worktree/.board/locks/oci/bootstrap-readonly-v1.lock.json"
+  if [[ -f "$profile_lock" ]] && grep -Fq '"image": "bash@' "$profile_lock"; then
+    printf 'preflight error: %s acceptance requires Go but bootstrap-readonly-v1 is Bash-only\n' "$card_id" >&2
+    exit 1
+  fi
+fi
 if [[ "$validation" != none ]]; then
   [[ -f "$acceptance" && -x "$acceptance" ]] || {
     printf 'preflight error: tested card lacks executable acceptance: %s\n' "$acceptance" >&2

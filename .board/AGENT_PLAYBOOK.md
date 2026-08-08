@@ -13,8 +13,9 @@ gate leve e `bash .board/pipeline.sh`; o preflight de um card e
   Regra: a validacao final sempre roda num worktree limpo do commit integrado;
   nunca no checkout coordenador sujo.
 - **AUR-006:** o card foi despachado com `validation: tested` sem confirmar a
-  capacidade do ambiente. O aceite terminou em exit 69 por falta de Go. Exit
-  69 e bloqueio de infraestrutura, nunca GREEN e nunca `done`.
+  capacidade do ambiente. O aceite terminou em exit 69 por falta de Go, e o
+  profile `bootstrap-readonly-v1` e Bash-only apesar de o acceptance exigir Go.
+  Exit 69 e bloqueio de infraestrutura, nunca GREEN e nunca `done`.
 - **AUR-002:** a acceptance hashava fixtures e metadata, mas nao executava o
   comportamento de `cmd/regenerate-docs`; uma mutacao real ficou verde. Uma
   acceptance que nao executa o entrypoint e um teste falso.
@@ -49,7 +50,11 @@ gate leve e `bash .board/pipeline.sh`; o preflight de um card e
 8. Compare schema e parser: cada campo obrigatorio, limite, enum, path seguro,
    erro e regra de disjointness deve existir nos dois lados. Um schema fraco nao
    e compensado por um parser forte.
-9. Verifique as ferramentas antes de despachar: Go, OCI, rede none, imagem e
+9. Compare o runtime declarado com a imagem do profile. Se a acceptance usa Go,
+   a imagem precisa conter Go; `bootstrap-readonly-v1` nao pode executar esse
+   card. Profile Bash-only + acceptance Go e erro de especificacao, nao um
+   bloqueio para empurrar ao validator.
+10. Verifique as ferramentas antes de despachar: Go, OCI, rede none, imagem e
    dependencias em cache. Falta de ferramenta vira `validating`/bloqueio de
    infraestrutura, nao `done`.
 
