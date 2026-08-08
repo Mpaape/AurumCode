@@ -1,0 +1,6 @@
+id	stdout_path	stderr_path	exit_code	effects	marker
+complete-success	complete-success.stdout	complete-success.stderr	0	docs=1,skipped=0,errors=0,writes=1	complete
+missing-extractor	missing-extractor.stdout	missing-extractor.stderr	0	docs=1,skipped=1,errors=0,writes=1	silent-failure
+extractor-error	extractor-error.stdout	extractor-error.stderr	0	docs=1,skipped=0,errors=1,writes=1	silent-failure
+invalid-input	invalid-input.stdout	invalid-input.stderr	64	docs=0,skipped=0,errors=0,writes=0	typed-error
+boundary-overflow	boundary-overflow.stdout	boundary-overflow.stderr	65	docs=0,skipped=0,errors=0,writes=0	typed-error
