@@ -34,7 +34,7 @@ emitted() {
   fail "${1%%$'\t'*}" "${1#*$'\t'}"
 }
 
-for tool in awk sha256sum wc find sort readlink; do
+for tool in awk sha256sum wc find sort readlink tr grep; do
   command -v "$tool" >/dev/null 2>&1 || infra "missing tool: $tool"
 done
 
@@ -49,10 +49,9 @@ readonly claims='tests/specs/AUR-001/claims.yaml'
 # Embedded tracked-path seal.
 #
 # The sealed container materializes only the card's own `paths` (and `read_paths`, which
-# AUR-001 declares empty), so the acceptance CANNOT discover the repository's tracked set
-# at runtime: an inventory naming nothing but the card's own artifacts would satisfy every
-# manifest-internal join. The tracked set therefore travels inside this file and the
-# inventory is required to cover it, path for path.
+# AUR-001 declares empty). The list below is retained as a consistency fixture, but it is
+# never sufficient for a pass: a host run compares it with the independent Git index, while
+# a container without that index is inconclusive.
 #
 # Scope: every tracked path except the ones under the card's `forbidden_paths`
 # (`.git`, `.env`, `credentials`, `secrets`, `.board/cards`), which this card is not
@@ -391,8 +390,29 @@ verdict="$(
 )" || infra 'inventory lint failed to run'
 emitted "$verdict"
 
-# Coverage, the check the manifest-internal joins cannot make: every sealed tracked path
-# has to appear in the inventory. This is what turns a three-row inventory into a failure.
+# The embedded list is a consistency fixture, not an authority. A host run must derive the
+# tracked set from Git; an OCI run that cannot receive that independent source is inconclusive.
+if ! command -v git >/dev/null 2>&1; then
+  inconclusive independent-tracked-source 'git is unavailable; the embedded seal cannot authorize a pass'
+fi
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  inconclusive independent-tracked-source 'the checkout has no readable Git index; the embedded seal cannot authorize a pass'
+fi
+AURUM_LIVE_TRACKED="$({
+  git ls-files -z || exit 1
+} | tr '\0' '\n' | grep -vE -- "$seal_exclusion" | sort)" ||
+  infra 'independent Git tracked-path derivation failed'
+[[ -n $AURUM_LIVE_TRACKED ]] || fail unmapped-tracked-file 'independent Git tracked-path source is empty'
+embedded_seal="${AURUM_TRACKED_SEAL%$'\n'}"
+[[ "$embedded_seal" == "$AURUM_LIVE_TRACKED" ]] ||
+  fail seal-stale 'embedded tracked-path fixture differs from the independent Git tracked set'
+AURUM_TRACKED_SEAL="$AURUM_LIVE_TRACKED"
+export AURUM_TRACKED_SEAL
+seal_source='git-index'
+
+# Coverage is bidirectional: every independently-derived tracked path must be present, and
+# every inventory row must be independently tracked. This rejects unverified extra/forbidden
+# rows as well as omissions.
 verdict="$(
   awk -F '\t' '
     function emit(code, detail) { print code "\t" detail; done = 1; exit 0 }
@@ -408,6 +428,7 @@ verdict="$(
       }
       if (total == 0) emit("seal-stale", "the embedded tracked-path seal is empty")
     }
+    FNR > 1 && !($1 in want) { emit("stale-path", "inventory contains an untracked path: " $1) }
     FNR > 1 && ($1 in want) { delete want[$1]; matched++ }
     END {
       if (done) exit 0
@@ -431,55 +452,6 @@ sealed_count="$(
     print total + 0
   }'
 )" || infra 'seal size unreadable'
-
-# When the real index is reachable (host runs, never the sealed container) the seal itself
-# is audited: a sealed path that stopped being tracked means the seal rotted, and a newly
-# tracked path still has to be inventoried.
-seal_source='embedded'
-if command -v git >/dev/null 2>&1 && command -v grep >/dev/null 2>&1 &&
-   command -v tr >/dev/null 2>&1 && [[ -d .git ]] &&
-   git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  AURUM_LIVE_TRACKED="$(git ls-files -z | tr '\0' '\n')" || infra 'git ls-files failed'
-  export AURUM_LIVE_TRACKED
-  export AURUM_SEAL_EXCLUSION="$seal_exclusion"
-  verdict="$(
-    awk -F '\t' '
-      function emit(code, detail) { print code "\t" detail; done = 1; exit 0 }
-      BEGIN {
-        exclusion = ENVIRON["AURUM_SEAL_EXCLUSION"]
-        count = split(ENVIRON["AURUM_LIVE_TRACKED"], live, "\n")
-        for (i = 1; i <= count; i++) {
-          path = live[i]
-          if (path == "" || path ~ exclusion) continue
-          tracked[path] = 1
-        }
-        count = split(ENVIRON["AURUM_TRACKED_SEAL"], sealed, "\n")
-        for (i = 1; i <= count; i++) {
-          path = sealed[i]
-          if (path == "") continue
-          if (!(path in tracked))
-            emit("seal-stale", "sealed path is no longer tracked, regenerate the seal: " path)
-          seal[path] = 1
-        }
-        for (path in tracked) if (!(path in seal)) extra[path] = 1
-      }
-      FNR > 1 && ($1 in extra) { delete extra[$1] }
-      END {
-        if (done) exit 0
-        missing = 0
-        for (path in extra) {
-          missing++
-          if (first == "" || path < first) first = path
-        }
-        if (missing > 0)
-          print "unmapped-tracked-file\t" missing \
-                " path(s) tracked since the seal was cut are absent from the inventory, first: " first
-      }
-    ' "$inventory"
-  )" || infra 'seal freshness check failed to run'
-  emitted "$verdict"
-  seal_source='embedded+git'
-fi
 
 verdict="$(
   awk -F '\t' '
@@ -541,8 +513,17 @@ verdict="$(
           emit("claim-without-proof", "claim " id " entrypoint is not a tracked file: " entrypoint)
         if (!(test in tracked))
           emit("claim-without-proof", "claim " id " test is not a tracked file: " test)
-        if (test !~ /_test\.go$/ && test !~ /^tests\//)
+        if (test !~ /_test\.go$/ && test !~ /^tests\/acceptance\/[^\/]+\.sh$/)
           emit("claim-without-proof", "claim " id " test is not an executable test: " test)
+        if (test ~ /^tests\/acceptance\/[^\/]+\.sh$/ && test_mode[test] != "100755")
+          emit("claim-without-proof", "claim " id " acceptance test is not executable: " test)
+      } else if (status == "disposition") {
+        if (disposition !~ /^(keep|migrate|replace|quarantine|characterize|delete|absent)$/)
+          emit("claims-manifest-invalid", "claim " id " has invalid disposition")
+        if (reason !~ /[^ ]/ || test != "")
+          emit("claims-manifest-invalid", "disposition " id " must have a reason and no test proof path")
+        if (entrypoint != "" && !(entrypoint in tracked))
+          emit("claim-without-proof", "disposition " id " entrypoint is not a tracked file: " entrypoint)
       } else if (status == "absent") {
         if (reason !~ /[^ ]/) emit("absent-without-reason", "claim " id " is absent without a reason")
         if (entrypoint != "" || test != "")
@@ -550,9 +531,9 @@ verdict="$(
       } else {
         emit("claims-manifest-invalid", "claim " id " has status " (status == "" ? "<none>" : status))
       }
-      id = ""; status = ""; entrypoint = ""; test = ""; reason = ""
+      id = ""; status = ""; disposition = ""; entrypoint = ""; test = ""; reason = ""
     }
-    FNR == NR { if (FNR > 1) tracked[$1] = 1; next }
+    FNR == NR { if (FNR > 1) { tracked[$1] = 1; test_mode[$1] = $3 } next }
     /^[ \t]*$/ || /^[ \t]*#/ { next }
     FNR == 1 && $0 == "claims:" { header = 1; next }
     !header { emit("claims-manifest-invalid", "manifest does not start with a claims: header") }
@@ -572,6 +553,7 @@ verdict="$(
       key = substr(line, 1, position - 1)
       value = substr(line, position + 2)
       if (key == "status") status = value
+      else if (key == "disposition") disposition = value
       else if (key == "entrypoint") entrypoint = value
       else if (key == "test") test = value
       else if (key == "reason") reason = value
@@ -655,9 +637,18 @@ if ((${#missing_surfaces[@]} > 0)); then
     "legacy surfaces were not materialized; card AUR-001 must declare read_paths: [${missing_surfaces[*]}]"
 fi
 
-# Byte-level anchoring: every sealed path that exists in this tree has its type, mode and
+# Byte-level anchoring: every independently-derived path that exists in this tree has its type, mode and
 # digest re-derived and compared to the inventory row. The inventory cannot carry its own
 # digest, so it is the single exclusion.
+root_real="$(pwd -P)" || infra 'repository root could not be canonicalized'
+symlink_digest() {
+  local path="$1"
+  local target resolved
+  target="$(readlink -- "$path")" || return 1
+  resolved="$(readlink -f -- "$path")" || return 1
+  [[ "$resolved" == "$root_real" || "$resolved" == "$root_real/"* ]] || return 1
+  printf 'sha256:%s' "$(printf '%s' "$target" | sha256sum | awk '{print $1}')"
+}
 verified=0
 unverified=()
 while IFS= read -r path; do
@@ -673,8 +664,7 @@ while IFS= read -r path; do
   row_digest="${row_rest#*$'\t'}"
   if [[ -L $path ]]; then
     [[ $row_type == symlink ]] || fail stale-path "$path is a symlink, inventory says $row_type"
-    target="$(readlink -- "$path")" || infra "symlink unreadable: $path"
-    actual="sha256:$(printf '%s' "$target" | sha256sum | awk '{print $1}')"
+    actual="$(symlink_digest "$path")" || fail unsafe-path "symlink target escapes or cannot resolve: $path"
   else
     [[ -f $path ]] || fail special-file "$path is neither a regular file nor a symlink"
     [[ $row_type == file ]] || fail stale-path "$path is a regular file, inventory says $row_type"
@@ -686,7 +676,7 @@ while IFS= read -r path; do
   [[ $row_digest == "$actual" ]] || fail stale-path "digest of $path does not match the inventory"
   verified=$((verified + 1))
 done <<<"$AURUM_TRACKED_SEAL"
-# A sealed path the runner never materialized leaves its inventory digest unproven. That is
+# A tracked path the runner never materialized leaves its inventory digest unproven. That is
 # a missing grant, never a pass: an unmaterialized row can carry any digest at all.
 ((${#unverified[@]} == 0)) ||
   inconclusive undeclared-read-path \
@@ -714,8 +704,7 @@ for path in "${anchors[@]}"; do
   row_digest="${row_rest#*$'\t'}"
   if [[ -L $path ]]; then
     [[ $row_type == symlink ]] || fail stale-path "$path is a symlink, inventory says $row_type"
-    target="$(readlink -- "$path")" || infra "symlink unreadable: $path"
-    actual="sha256:$(printf '%s' "$target" | sha256sum | awk '{print $1}')"
+    actual="$(symlink_digest "$path")" || fail unsafe-path "symlink target escapes or cannot resolve: $path"
   else
     [[ $row_type == file ]] || fail stale-path "$path is a regular file, inventory says $row_type"
     if [[ -x $path ]]; then actual_mode='100755'; else actual_mode='100644'; fi
