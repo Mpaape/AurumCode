@@ -1,0 +1,45 @@
+claims:
+  - claim: documentation-generation
+    status: disposition
+    disposition: characterize
+    entrypoint: cmd/regenerate-docs/main.go
+    reason: The entrypoint is inventoried, but this card does not execute legacy capability tests.
+  - claim: language-extraction
+    status: disposition
+    disposition: characterize
+    entrypoint: internal/documentation/extractors/registry.go
+    reason: The entrypoint is inventoried, but this card does not execute legacy capability tests.
+  - claim: incremental-documentation
+    status: disposition
+    disposition: characterize
+    entrypoint: internal/documentation/incremental/manager.go
+    reason: The entrypoint is inventoried, but this card does not execute legacy capability tests.
+  - claim: documentation-site-building
+    status: disposition
+    disposition: characterize
+    entrypoint: internal/documentation/site/runner.go
+    reason: The entrypoint is inventoried, but this card does not execute legacy capability tests.
+  - claim: extractor-pipeline
+    status: disposition
+    disposition: characterize
+    entrypoint: internal/pipeline/extractor_pipeline.go
+    reason: The entrypoint is inventoried, but this card does not execute legacy capability tests.
+  - claim: llm-orchestration
+    status: disposition
+    disposition: characterize
+    entrypoint: internal/llm/orchestrator.go
+    reason: The entrypoint is inventoried, but this card does not execute legacy capability tests.
+  - claim: openai-provider
+    status: disposition
+    disposition: characterize
+    entrypoint: internal/llm/provider/openai/openai.go
+    reason: The entrypoint is inventoried, but this card does not execute legacy capability tests.
+  - claim: shared-provider-types
+    status: disposition
+    disposition: characterize
+    entrypoint: pkg/types/providers.go
+    reason: The entrypoint is inventoried, but the named legacy test does not establish provider-type behavior.
+  - claim: public-action-runtime
+    status: disposition
+    disposition: absent
+    reason: action.yml declares a public action manifest, but this snapshot contains no executable proof of a runtime implementation.
