@@ -22,11 +22,11 @@ index_bytes="$(wc -c < "$index")" || fail 'cannot size index'
 (( index_bytes > 0 && index_bytes <= max_index_bytes )) || fail "index size out of bounds: $index_bytes"
 
 while IFS= read -r line || [[ -n "$line" ]]; do
-  [[ -z "${line//[[:space:]]/}" || "${line:0:1}" == '#' ]] && continue
   [[ "$line" != *$'\t'* ]] || fail 'tab is not allowed in the index'
   if [[ "$line" =~ (^|[^A-Za-z])(pass|passed|fail|failed|verdict|proved|authenticated|approved)([^A-Za-z]|$) ]]; then
     fail 'verdict claims are not allowed in the index'
   fi
+  [[ -z "${line//[[:space:]]/}" || "${line:0:1}" == '#' ]] && continue
 done < "$index"
 
 schema_count=0

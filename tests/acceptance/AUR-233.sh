@@ -88,6 +88,7 @@ readonly max_artifact_bytes=4194304
 readonly max_index_lines=512
 readonly child_deadline_seconds=30
 readonly max_child_stdout_bytes=65536
+readonly cases_file="$repo_root/tests/gates/bootstrap/AUR-233/cases.tsv"
 
 fail() { printf '%s/%s/%s\n' "$card" "$scenario" "$1" >&2; exit 1; }
 infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$scenario" "$1" >&2; exit 69; }
@@ -314,10 +315,32 @@ ObserveChildVerdictV1() {
   return 0
 }
 
+check_case_matrix() {
+  [[ -f "$cases_file" && ! -L "$cases_file" ]] || infra 'case-matrix-missing'
+  declare -a expected_cases=(nominal missing duplicate tampered identity selfref handwritten aliased malformed symlink)
+  declare -A seen_cases=()
+  local line name expected mutation extra count=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "${line//[[:space:]]/}" || "${line:0:1}" == '#' ]] && continue
+    [[ "$line" == *$'\t'* ]] || fail 'gate_insensitive: case matrix is not tab-separated'
+    IFS=$'\t' read -r name expected mutation extra <<< "$line"
+    [[ -n "${name:-}" && -n "${expected:-}" && -n "${mutation:-}" && -z "${extra:-}" ]] ||
+      fail 'gate_insensitive: malformed case matrix row'
+    [[ -z "${seen_cases[$name]+x}" ]] || fail "gate_insensitive: duplicate case matrix row $name"
+    seen_cases[$name]="$expected"
+    count=$((count + 1))
+  done < "$cases_file"
+  (( count == ${#expected_cases[@]} )) || fail "gate_insensitive: case matrix has $count rows"
+  for name in "${expected_cases[@]}"; do
+    [[ -n "${seen_cases[$name]+x}" ]] || fail "gate_insensitive: case matrix misses $name"
+  done
+}
+
 # ---------------------------------------------------------------------------
 # Phase 1 -- prove this gate refuses mutants before it is allowed to accept
 # anything. A gate that never refuses cannot certify the cards it approved.
 # ---------------------------------------------------------------------------
+check_case_matrix
 write_index() { # write_index <out> <identity> <row>...
   local out="$1" identity="$2" row
   shift 2
