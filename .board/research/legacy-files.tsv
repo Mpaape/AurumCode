@@ -192,7 +192,7 @@ path	type	mode	digest
 .board/research/code-review-standards.md	file	100644	sha256:c8ca76dbf626388ec129308dafe15b609b371101e34740b3df3386f0c7a1b5e0
 .board/research/interoperability.md	file	100644	sha256:152742cd5690ab54cb174177efbf5c9410137ebf554ad78a24af11ccddfd81f3
 .board/research/legacy-disposition.md	file	100644	sha256:69f0bdecb9f06554d14eae1b10269ecbb406d7a0cd65c610cdc4293eb218d714
-.board/research/legacy-files.tsv	file	100644	sha256:987a6d3eebbbccc50433b2173434ea9e2f581f690591cc4825bb8c9bf3b50ab0
+.board/research/legacy-files.tsv	file	100644	sha256:22405d418eb8dcca232ef35207b08df80412afdfd052a6f87b6e6cf6ec6af00e
 .board/research/mcp.md	file	100644	sha256:09b8d9d44717c7b6bad166f8fcc1fb9a170808912a35502f35ecb7c4deb54267
 .board/research/memory-design.md	file	100644	sha256:9ee9099e088cb85141390952e701d212292775dcd1b4f699d83cbd376c0bbdbe
 .board/research/providers.md	file	100644	sha256:7a60e47f12c70534be2e076b0e6609e0e17608379662348c98ddbea8a6ecb366
@@ -729,7 +729,7 @@ tests/fixtures/repo1/.aurumcode/config.yml	file	100644	sha256:7ae8c5c6aac8aad04a
 tests/fixtures/repo1/.aurumcode/prompts/code-review/custom.md	file	100644	sha256:42768ffbd1ef331f811135290c920188c5f8f5b21b35e3c2c9d22daf2f4b293c
 tests/fixtures/repo1/.aurumcode/rules/standards.yml	file	100644	sha256:d9815b59174e04c28a5d08ce907ce64a801afd2d904a86f21b1cd91364201c66
 tests/gates/bootstrap/AUR-233/cases.tsv	file	100644	sha256:0ea17e9528721ce0728f9e1a9f0ece2d355f5e1e9e264469d228e6facca0d716
-tests/integration/AUR-001.go	file	100644	sha256:b6af6149b7b104b1b23171095c6abdda4aec7e19f030d8e7eb3ff3ce7d14d892
+tests/integration/AUR-001.go	file	100644	sha256:4760753390404a783ab95814814645ffc40f5fb8da610afc0a5031317e93a252
 tests/integration/AUR-015_test.go	file	100644	sha256:64a956c3de9c97cfe4028de876e021f9d0aaf1ddc3ea5ec73db3f084c318cd62
 tests/integration/AUR-018_test.go	file	100644	sha256:7ae93678546e76f5ea8e1865cb9ab114e78b58e50b952dd1779be4ff66423a2d
 tests/integration/AUR-019_test.go	file	100644	sha256:00a5d30465bcf99a3d8a873b60a2f0019f56210763320670e04501bd575a0f3b
