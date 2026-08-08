@@ -57,6 +57,9 @@ gate leve e `bash .board/pipeline.sh`; o preflight de um card e
 10. Verifique as ferramentas antes de despachar: Go, OCI, rede none, imagem e
    dependencias em cache. Falta de ferramenta vira `validating`/bloqueio de
    infraestrutura, nao `done`.
+11. Nao crie um profile OCI dentro de um card de feature para contornar um
+    profile ausente. O registry tem dono proprio: AUR-402; o profile Go tem
+    dono AUR-403. Respeite o DAG e espere esses cards, ou registre o bloqueio.
 
 ## Fluxo de entrega
 
