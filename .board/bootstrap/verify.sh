@@ -7,6 +7,9 @@ index="$root/locks.yml"
 locks_dir="$root/locks"
 children=(AUR-359 AUR-360 AUR-361 AUR-362 AUR-363 AUR-364)
 paths=(locks/trust-root.yml locks/go.yml locks/actions.yml locks/scanners.yml locks/parsers.yml locks/docs.yml)
+max_index_bytes=65536
+max_index_lines=512
+max_artifact_bytes=4194304
 
 fail() {
   printf 'lockset error: %s\n' "$1" >&2
@@ -15,6 +18,8 @@ fail() {
 
 [[ -f "$index" && ! -L "$index" ]] || fail "missing regular index: $index"
 [[ -d "$locks_dir" && ! -L "$locks_dir" ]] || fail "missing regular lock directory: $locks_dir"
+index_bytes="$(wc -c < "$index")" || fail 'cannot size index'
+(( index_bytes > 0 && index_bytes <= max_index_bytes )) || fail "index size out of bounds: $index_bytes"
 
 while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "${line//[[:space:]]/}" || "${line:0:1}" == '#' ]] && continue
@@ -28,7 +33,10 @@ schema_count=0
 identity=''
 identity_count=0
 declare -a ids=() declared=() bound=()
+index_lines=0
 while IFS= read -r line || [[ -n "$line" ]]; do
+  index_lines=$((index_lines + 1))
+  (( index_lines <= max_index_lines )) || fail "index line count exceeds $max_index_lines"
   [[ -z "${line//[[:space:]]/}" || "${line:0:1}" == '#' ]] && continue
   case "$line" in
     'schema: '*)
@@ -74,6 +82,8 @@ trap 'rm -f "$tmp" "$tmp.sorted"' EXIT
 for i in "${!ids[@]}"; do
   artifact="$root/${bound[i]}"
   [[ -f "$artifact" && ! -L "$artifact" ]] || fail "missing artifact for ${ids[i]}"
+  artifact_bytes="$(wc -c < "$artifact")" || fail "cannot size artifact for ${ids[i]}"
+  (( artifact_bytes > 0 && artifact_bytes <= max_artifact_bytes )) || fail "artifact size out of bounds for ${ids[i]}: $artifact_bytes"
   actual="sha256:$(sha256sum -- "$artifact" | cut -d' ' -f1)"
   [[ "$actual" == "${declared[i]}" ]] || fail "digest mismatch for ${ids[i]}"
   printf '%s %s\n' "${ids[i]}" "$actual" >> "$tmp"
