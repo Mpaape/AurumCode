@@ -1,0 +1,28 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-233",
+  "commit": "517ee7a71d75a92bc66a2bb308ba9c2ab4d59c78",
+  "review": "approved",
+  "validation": "passed",
+  "validator_runs": [
+    {
+      "command": "bash -n .board/bootstrap/verify.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "./.board/bootstrap/verify.sh",
+      "exit_code": 0,
+      "output": "ok sha256:c290a203d0fcb728b4447764a6ac22764199882a470b73585ebe77ca3dea8d39"
+    },
+    {
+      "command": "bash tests/acceptance/AUR-233.sh",
+      "exit_code": 0,
+      "output": "{\"card\":\"AUR-233\",\"scenario\":\"AC-001\",\"selector\":\"AC-001\",\"children\":6,\"identity\":\"sha256:c290a203d0fcb728b4447764a6ac22764199882a470b73585ebe77ca3dea8d39\",\"verdict_source\":\"re-execution\",\"result\":\"pass\"}"
+    },
+    {
+      "command": "BASH_ENV=/tmp/nonexistent-command bash tests/acceptance/AUR-233.sh",
+      "exit_code": 0
+    }
+  ]
+}
