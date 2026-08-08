@@ -37,6 +37,10 @@ case "$validation" in
 esac
 
 acceptance="$worktree/tests/acceptance/$card_id.sh"
+oci_accept=0
+if grep -Fq "accept: \`./.board/bin/oci-run --profile bootstrap-readonly-v1 --card $card_id\`" "$card"; then
+  oci_accept=1
+fi
 if [[ "$validation" != none ]]; then
   [[ -f "$acceptance" && -x "$acceptance" ]] || {
     printf 'preflight error: tested card lacks executable acceptance: %s\n' "$acceptance" >&2
@@ -45,7 +49,7 @@ if [[ "$validation" != none ]]; then
   bash -n "$acceptance" || { printf 'preflight error: acceptance syntax failed\n' >&2; exit 1; }
   if grep -Eq '(^|[^[:alnum:]_])go([[:space:]]|$)|go[[:space:]]+test' "$acceptance"; then
     if ! command -v go >/dev/null 2>&1; then
-      if grep -Eiq 'oci-run|container_profile' "$acceptance"; then
+      if (( oci_accept == 1 )); then
         printf 'preflight warning: host Go unavailable; canonical OCI acceptance is required\n' >&2
       else
         printf 'preflight infrastructure: Go toolchain unavailable for %s\n' "$card_id" >&2
@@ -59,7 +63,11 @@ if [[ "$validation" != none ]]; then
   }
   if [[ "${PREFLIGHT_RUN:-0}" == 1 ]]; then
     set +e
-    bash "$acceptance" AC-001
+    if (( oci_accept == 1 )); then
+      (cd "$worktree" && ./.board/bin/oci-run --profile bootstrap-readonly-v1 --card "$card_id")
+    else
+      bash "$acceptance" AC-001
+    fi
     acceptance_rc=$?
     set -e
     case "$acceptance_rc" in
