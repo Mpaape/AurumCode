@@ -192,7 +192,7 @@ path	type	mode	digest
 .board/research/code-review-standards.md	file	100644	sha256:c8ca76dbf626388ec129308dafe15b609b371101e34740b3df3386f0c7a1b5e0
 .board/research/interoperability.md	file	100644	sha256:152742cd5690ab54cb174177efbf5c9410137ebf554ad78a24af11ccddfd81f3
 .board/research/legacy-disposition.md	file	100644	sha256:69f0bdecb9f06554d14eae1b10269ecbb406d7a0cd65c610cdc4293eb218d714
-.board/research/legacy-files.tsv	file	100644	sha256:2cf3a691636660557e68324a03deed51082404175aeee38d2492966c94558168
+.board/research/legacy-files.tsv	file	100644	sha256:987a6d3eebbbccc50433b2173434ea9e2f581f690591cc4825bb8c9bf3b50ab0
 .board/research/mcp.md	file	100644	sha256:09b8d9d44717c7b6bad166f8fcc1fb9a170808912a35502f35ecb7c4deb54267
 .board/research/memory-design.md	file	100644	sha256:9ee9099e088cb85141390952e701d212292775dcd1b4f699d83cbd376c0bbdbe
 .board/research/providers.md	file	100644	sha256:7a60e47f12c70534be2e076b0e6609e0e17608379662348c98ddbea8a6ecb366
@@ -500,7 +500,7 @@ standards/scm/capabilities.yaml	file	100644	sha256:f36b3bf5b6e787f6275c67cc00cd6
 standards/security-review/README.md	file	100644	sha256:a9c123e1773a5647fef8f24c8bedd2dd8e22af8e409c4e14976d6cd920a289e4
 standards/security-review/rules.md	file	100644	sha256:211e0c10bf0931de8501564995de210db66781f70a5fdd29600f08bce92a2d13
 test-jekyll.sh	file	100644	sha256:b7482032d9359d4df9ba6e6015937d587262c314ca028893c08a9a461642baae
-tests/acceptance/AUR-001.sh	file	100755	sha256:2639ad715454c1290d36387a9ff8bb32a1132c8e82c8a79211b431df6b5a9997
+tests/acceptance/AUR-001.sh	file	100755	sha256:b5ac120ba1aa9a9b840e49f7502c31f4a63f20be872591246bacbf5e9f00aff8
 tests/acceptance/AUR-010.sh	file	100755	sha256:5fddd95e513019cc2a71565ddc8cd6981e470d47a834e91877b101ca0f9ccfe2
 tests/acceptance/AUR-014.sh	file	100755	sha256:935d90b8b732266a1af39d8c068f186a49f1797461299a30dce0f48c5d167bc3
 tests/acceptance/AUR-015.sh	file	100755	sha256:442c79ee842de2868ea7a68223f6d1463c5cb83ebfcdbf08e01a04343f706075
