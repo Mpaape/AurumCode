@@ -328,28 +328,7 @@ func canonicalDigestBytes(path string, data []byte) []byte {
 		}
 		return []byte(strings.Join(lines, "\n"))
 	}
-	if path != "tests/acceptance/AUR-001.sh" {
-		return data
-	}
-	lines := strings.Split(string(data), "\n")
-	inSeal := false
-	out := make([]string, 0, len(lines))
-	for _, line := range lines {
-		if strings.HasPrefix(line, "IFS= read -r -d '' AURUM_TRACKED_SEAL <<'SEAL'") {
-			out = append(out, line, "__AURUM_TRACKED_SEAL_CONTENT__")
-			inSeal = true
-			continue
-		}
-		if inSeal && line == "SEAL" {
-			inSeal = false
-			out = append(out, line)
-			continue
-		}
-		if !inSeal {
-			out = append(out, line)
-		}
-	}
-	return []byte(strings.Join(out, "\n"))
+	return data
 }
 
 type dispositionRule struct {
