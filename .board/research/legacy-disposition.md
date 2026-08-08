@@ -45,6 +45,70 @@ Each row must gain a characterization test before code movement or deletion.
 | `.claude/skills/**`, `.agents/skills/**` | Five local routing skills are mirrored byte-for-byte across the two client roots. | keep as untrusted development-tool mirrors | AUR-340 records five pairs, provenance/modes and equivalence with `untrusted=true`; install/refresh remains separately authorized. |
 | `CLAUDE.md`, `AGENTS.md` | `CLAUDE.md` is canonical; `AGENTS.md` must resolve to it. | keep | Validate symlink and no-AI-attribution rule; preserve ai-memory managed markers. |
 
+## Machine-readable disposition rules
+
+The inventory is the authoritative file-level snapshot for this card. The
+rules below use the intentionally small glob syntax implemented by the card's
+acceptance test: `*` matches any byte sequence and `?` matches one byte. Rules
+are disjoint; a path must match exactly one rule. The verbs are declarative
+only. They do not authorize a move, deletion, execution, migration, or
+publication.
+
+### Top-level directories
+
+- disposition: .agents/* -> keep
+- disposition: .aurumcode/* -> characterize
+- disposition: .board/* -> keep
+- disposition: .claude/* -> keep
+- disposition: .cursor/* -> characterize
+- disposition: .docker/* -> quarantine
+- disposition: .github/* -> characterize
+- disposition: .gemini/* -> quarantine
+- disposition: .taskmaster/* -> characterize
+- disposition: _api/* -> characterize
+- disposition: cmd/* -> characterize
+- disposition: configs/* -> characterize
+- disposition: demo/* -> keep
+- disposition: docs/* -> characterize
+- disposition: internal/* -> characterize
+- disposition: pkg/* -> characterize
+- disposition: scripts/* -> quarantine
+- disposition: standards/* -> keep
+- disposition: tests/* -> keep
+
+### Top-level files
+
+- disposition: .ai-memory.toml -> keep
+- disposition: .dockerignore -> characterize
+- disposition: .env* -> quarantine
+- disposition: .gitignore -> characterize
+- disposition: .mcp.json -> quarantine
+- disposition: ACTION_USAGE.md -> characterize
+- disposition: AGENTS.md -> keep
+- disposition: CHANGELOG.md -> characterize
+- disposition: CLAUDE.md -> keep
+- disposition: Dockerfile -> replace
+- disposition: GEMINI.md -> quarantine
+- disposition: Gemfile -> characterize
+- disposition: LITELLM_QUICKSTART.md -> characterize
+- disposition: Makefile -> characterize
+- disposition: PAGES_SETUP.md -> characterize
+- disposition: README.md -> characterize
+- disposition: RUN_DOCS_PIPELINE.md -> quarantine
+- disposition: SETUP_GUIDE.md -> characterize
+- disposition: _config.yml -> characterize
+- disposition: action.yml -> migrate
+- disposition: docker-compose.test.yml -> quarantine
+- disposition: docker-compose.yml -> quarantine
+- disposition: generate-docs-simple.sh -> quarantine
+- disposition: go.mod -> keep
+- disposition: go.sum -> keep
+- disposition: index.md -> characterize
+- disposition: pages-fix.md -> characterize
+- disposition: run-docs-pipeline.bat -> quarantine
+- disposition: run-docs-pipeline.sh -> quarantine
+- disposition: test-jekyll.sh -> quarantine
+
 ## Deletion rule
 
 A deletion card owns exactly the deleted path, its characterization test, and
