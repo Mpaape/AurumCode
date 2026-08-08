@@ -34,6 +34,11 @@ The earlier ceremony (two blind reviewers, skeptical mutation, OCI evidence
 bundles) is preserved as history below and still governs the 12 legacy `done`
 cards; new cards run the lightweight cycle above.
 
+Before dispatching a card, follow [`AGENT_PLAYBOOK.md`](AGENT_PLAYBOOK.md) and
+run `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /path/to/clean-worktree`. It records
+the failure modes that previously made acceptance look green without executing
+the delivered behavior.
+
 ## Legacy ceremony (pre-2026-08; governs legacy `done` cards only)
 
 1. A card moves from `backlog` to `ready` only when every `depends_on` card is

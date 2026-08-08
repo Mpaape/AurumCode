@@ -36,6 +36,18 @@ report_failures() {
   fi
 }
 
+delivery_evidence_ok() {
+  local id="$1" commit="$2" evidence body
+  evidence="$board_dir/evidence/$id/validated.json"
+  [[ -f "$evidence" && ! -L "$evidence" ]] || return 1
+  body="$(< "$evidence")"
+  [[ "$body" == *"\"card\": \"$id\""* || "$body" == *"\"card\":\"$id\""* ]] || return 1
+  [[ "$body" == *"\"commit\": \"$commit\""* || "$body" == *"\"commit\":\"$commit\""* ]] || return 1
+  [[ "$body" == *'"review": "approved"'* || "$body" == *'"review":"approved"'* ]] || return 1
+  [[ "$body" == *'"validation": "passed"'* || "$body" == *'"validation":"passed"'* ]] || return 1
+  [[ "$body" == *'"exit_code": 0'* || "$body" == *'"exit_code":0'* ]] || return 1
+}
+
 for state in "${states[@]}"; do
   [[ -d "$board_dir/cards/$state" ]] || fail "missing state directory: cards/$state"
 done
@@ -181,29 +193,43 @@ for id in "${!ids[@]}"; do
   case "$state" in
     review)
       if (( ${card_has_record[$id]:-0} == 1 )); then
-        [[ -n "${card_commit[$id]+x}" ]] || fail "${files[$id]}: review card with delivery record lacks a 40-hex commit"
-        git -C "$repo_root" cat-file -e "${card_commit[$id]}^{commit}" 2>/dev/null ||
-          fail "${files[$id]}: review commit does not exist in the repository: ${card_commit[$id]}"
+        if [[ -z "${card_commit[$id]+x}" ]]; then
+          fail "${files[$id]}: review card with delivery record lacks a 40-hex commit"
+        else
+          git -C "$repo_root" cat-file -e "${card_commit[$id]}^{commit}" 2>/dev/null ||
+            fail "${files[$id]}: review commit does not exist in the repository: ${card_commit[$id]}"
+        fi
       fi
       ;;
     validating)
       (( ${card_has_record[$id]:-0} == 1 )) || fail "${files[$id]}: validating card lacks a delivery record"
-      [[ -n "${card_commit[$id]+x}" ]] || fail "${files[$id]}: validating card lacks a 40-hex commit"
+      if [[ -z "${card_commit[$id]+x}" ]]; then
+        fail "${files[$id]}: validating card lacks a 40-hex commit"
+      fi
       [[ -n "${card_review[$id]+x}" ]] || fail "${files[$id]}: validating card lacks an approved review"
       [[ "$validation" != "none" ]] || fail "${files[$id]}: validation: none card must not sit in validating"
-      git -C "$repo_root" cat-file -e "${card_commit[$id]}^{commit}" 2>/dev/null ||
-        fail "${files[$id]}: validating commit does not exist in the repository: ${card_commit[$id]}"
+      if [[ -n "${card_commit[$id]+x}" ]]; then
+        git -C "$repo_root" cat-file -e "${card_commit[$id]}^{commit}" 2>/dev/null ||
+          fail "${files[$id]}: validating commit does not exist in the repository: ${card_commit[$id]}"
+      fi
       ;;
     done)
       if (( ${card_has_record[$id]:-0} == 1 )); then
-        [[ -n "${card_commit[$id]+x}" ]] || fail "${files[$id]}: done card lacks a 40-hex commit"
+        if [[ -z "${card_commit[$id]+x}" ]]; then
+          fail "${files[$id]}: done card lacks a 40-hex commit"
+        fi
         [[ -n "${card_review[$id]+x}" ]] || fail "${files[$id]}: done card lacks an approved review"
         if [[ "$validation" != "none" ]]; then
           [[ -n "${card_validation_record[$id]+x}" ]] ||
             fail "${files[$id]}: done card with validation $validation lacks a passed validation"
+          if [[ -n "${card_commit[$id]+x}" ]] && ! delivery_evidence_ok "$id" "${card_commit[$id]}"; then
+            fail "${files[$id]}: done card lacks matching validated.json evidence"
+          fi
         fi
-        git -C "$repo_root" cat-file -e "${card_commit[$id]}^{commit}" 2>/dev/null ||
-          fail "${files[$id]}: done commit does not exist in the repository: ${card_commit[$id]}"
+        if [[ -n "${card_commit[$id]+x}" ]]; then
+          git -C "$repo_root" cat-file -e "${card_commit[$id]}^{commit}" 2>/dev/null ||
+            fail "${files[$id]}: done commit does not exist in the repository: ${card_commit[$id]}"
+        fi
       else
         printf 'board note: legacy done card without delivery record: %s\n' "$id" >&2
       fi
