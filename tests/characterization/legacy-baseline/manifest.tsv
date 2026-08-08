@@ -1,6 +1,7 @@
-id	stdout_path	stderr_path	exit_code	effects	marker
-complete-success	complete-success.stdout	complete-success.stderr	0	docs=1,skipped=0,errors=0,writes=1	complete
-missing-extractor	missing-extractor.stdout	missing-extractor.stderr	0	docs=1,skipped=1,errors=0,writes=1	silent-failure
-extractor-error	extractor-error.stdout	extractor-error.stderr	0	docs=1,skipped=0,errors=1,writes=1	silent-failure
-invalid-input	invalid-input.stdout	invalid-input.stderr	64	docs=0,skipped=0,errors=0,writes=0	typed-error
-boundary-overflow	boundary-overflow.stdout	boundary-overflow.stderr	65	docs=0,skipped=0,errors=0,writes=0	typed-error
+id	entrypoint	inventory_path	stdout_path	stderr_path	exit_code	effects	marker
+complete-success	cmd/regenerate-docs/main.go	tests/characterization/legacy-baseline/legacy-files.tsv	complete-success.stdout	complete-success.stderr	0	docs=1,skipped=0,errors=0,writes=1	complete
+missing-extractor	cmd/regenerate-docs/main.go	tests/characterization/legacy-baseline/legacy-files.tsv	missing-extractor.stdout	missing-extractor.stderr	0	docs=1,skipped=1,errors=0,writes=1	silent-failure
+extractor-error	cmd/regenerate-docs/main.go	tests/characterization/legacy-baseline/legacy-files.tsv	extractor-error.stdout	extractor-error.stderr	0	docs=1,skipped=0,errors=1,writes=1	silent-failure
+invalid-input	tests/acceptance/AUR-002.sh	tests/characterization/legacy-baseline/legacy-files.tsv	invalid-input.stdout	invalid-input.stderr	64	docs=0,skipped=0,errors=0,writes=0	typed-error
+boundary-overflow	tests/acceptance/AUR-002.sh	tests/characterization/legacy-baseline/legacy-files.tsv	boundary-overflow.stdout	boundary-overflow.stderr	65	docs=0,skipped=0,errors=0,writes=0	typed-error
+forged-approval	tests/acceptance/AUR-002.sh	tests/characterization/legacy-baseline/legacy-files.tsv	forged-approval.stdout	forged-approval.stderr	66	docs=0,skipped=0,errors=0,writes=0	forged-approval

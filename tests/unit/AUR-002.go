@@ -13,16 +13,18 @@ import (
 )
 
 type aur002Case struct {
-	id       string
-	kind     string
-	entry    string
-	command  string
-	input    string
-	stdout   string
-	stderr   string
-	exitCode string
-	effects  string
-	silent   string
+	id              string
+	kind            string
+	entry           string
+	command         string
+	input           string
+	inventory       string
+	sourceInventory string
+	stdout          string
+	stderr          string
+	exitCode        string
+	effects         string
+	silent          string
 }
 
 var aur002Digest = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
@@ -33,6 +35,7 @@ var aur002IDs = []string{
 	"extractor-error",
 	"invalid-input",
 	"boundary-overflow",
+	"forged-approval",
 }
 
 func TestAUR002() error {
@@ -71,8 +74,15 @@ func TestAUR002() error {
 		if c.id != wantID {
 			return fmt.Errorf("AUR-002: case %d is %q, want %q", i+1, c.id, wantID)
 		}
-		if c.entry != "cmd/regenerate-docs/main.go" || !aur002Digest.MatchString(c.stdout) || !aur002Digest.MatchString(c.stderr) {
-			return fmt.Errorf("AUR-002: %s has an invalid entrypoint or digest", c.id)
+		if c.inventory != "tests/characterization/legacy-baseline/legacy-files.tsv" || c.sourceInventory != ".board/research/legacy-files.tsv" || !aur002Digest.MatchString(c.stdout) || !aur002Digest.MatchString(c.stderr) {
+			return fmt.Errorf("AUR-002: %s has an invalid inventory binding or digest", c.id)
+		}
+		if c.id == "complete-success" || c.id == "missing-extractor" || c.id == "extractor-error" {
+			if c.entry != "cmd/regenerate-docs/main.go" || c.command != "go run ./cmd/regenerate-docs" {
+				return fmt.Errorf("AUR-002: %s has an invalid legacy command binding", c.id)
+			}
+		} else if c.entry != "tests/acceptance/AUR-002.sh" || !strings.HasPrefix(c.command, "bash tests/acceptance/AUR-002.sh ") {
+			return fmt.Errorf("AUR-002: %s has an invalid acceptance leaf binding", c.id)
 		}
 		if c.silent == "true" {
 			silent++
@@ -81,8 +91,8 @@ func TestAUR002() error {
 		if !ok {
 			return fmt.Errorf("AUR-002: manifest omits %s", c.id)
 		}
-		if row.stdoutPath != c.id+".stdout" || row.stderrPath != c.id+".stderr" {
-			return fmt.Errorf("AUR-002: %s manifest stream paths drift", c.id)
+		if row.entrypoint != c.entry || row.inventory != c.inventory || row.stdoutPath != c.id+".stdout" || row.stderrPath != c.id+".stderr" {
+			return fmt.Errorf("AUR-002: %s manifest bindings drift", c.id)
 		}
 		if row.exitCode != c.exitCode || row.effects != c.effects {
 			return fmt.Errorf("AUR-002: %s manifest outcome drifts from cases.yaml", c.id)
@@ -113,6 +123,8 @@ func TestAUR002() error {
 }
 
 type aur002ManifestRow struct {
+	entrypoint string
+	inventory  string
 	stdoutPath string
 	stderrPath string
 	exitCode   string
@@ -145,23 +157,25 @@ func readAUR002Cases(root string) ([]aur002Case, error) {
 		if err != nil {
 			return err
 		}
-		values := []string{"kind", "entrypoint", "command", "input", "expected_stdout_digest", "expected_stderr_digest", "expected_exit_code", "expected_effects", "silent_failure"}
+		values := []string{"kind", "entrypoint", "command", "input", "inventory_path", "source_inventory", "expected_stdout_digest", "expected_stderr_digest", "expected_exit_code", "expected_effects", "silent_failure"}
 		for _, key := range values {
 			if _, err := get(key); err != nil {
 				return err
 			}
 		}
 		cases = append(cases, aur002Case{
-			id:       id,
-			kind:     fields["kind"],
-			entry:    fields["entrypoint"],
-			command:  fields["command"],
-			input:    fields["input"],
-			stdout:   fields["expected_stdout_digest"],
-			stderr:   fields["expected_stderr_digest"],
-			exitCode: fields["expected_exit_code"],
-			effects:  fields["expected_effects"],
-			silent:   fields["silent_failure"],
+			id:              id,
+			kind:            fields["kind"],
+			entry:           fields["entrypoint"],
+			command:         fields["command"],
+			input:           fields["input"],
+			inventory:       fields["inventory_path"],
+			sourceInventory: fields["source_inventory"],
+			stdout:          fields["expected_stdout_digest"],
+			stderr:          fields["expected_stderr_digest"],
+			exitCode:        fields["expected_exit_code"],
+			effects:         fields["expected_effects"],
+			silent:          fields["silent_failure"],
 		})
 		fields = map[string]string{}
 		open = false
@@ -228,24 +242,26 @@ func readAUR002Manifest(path string) (map[string]aur002ManifestRow, error) {
 		return nil, fmt.Errorf("AUR-002: manifest unavailable: %w", err)
 	}
 	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
-	if len(lines) < 2 || lines[0] != "id\tstdout_path\tstderr_path\texit_code\teffects\tmarker" {
+	if len(lines) < 2 || lines[0] != "id\tentrypoint\tinventory_path\tstdout_path\tstderr_path\texit_code\teffects\tmarker" {
 		return nil, errors.New("AUR-002: invalid manifest header")
 	}
 	rows := make(map[string]aur002ManifestRow)
 	for lineNo, line := range lines[1:] {
 		parts := strings.Split(line, "\t")
-		if len(parts) != 6 || parts[0] == "" {
+		if len(parts) != 8 || parts[0] == "" {
 			return nil, fmt.Errorf("AUR-002: invalid manifest row %d", lineNo+2)
 		}
 		if _, exists := rows[parts[0]]; exists {
 			return nil, fmt.Errorf("AUR-002: duplicate manifest row %s", parts[0])
 		}
 		rows[parts[0]] = aur002ManifestRow{
-			stdoutPath: parts[1],
-			stderrPath: parts[2],
-			exitCode:   parts[3],
-			effects:    parts[4],
-			marker:     parts[5],
+			entrypoint: parts[1],
+			inventory:  parts[2],
+			stdoutPath: parts[3],
+			stderrPath: parts[4],
+			exitCode:   parts[5],
+			effects:    parts[6],
+			marker:     parts[7],
 		}
 	}
 	return rows, nil
