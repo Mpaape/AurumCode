@@ -147,6 +147,12 @@ while IFS= read -r -d '' card; do
   fi
 
   validation="${fm_title[validation]:-none}"
+  case "$state" in
+    ready|doing|review|validating)
+      [[ -n "${fm_title[validation]+x}" ]] ||
+        fail "$card: active card must declare validation explicitly"
+      ;;
+  esac
   case " ${validation_kinds[*]} " in
     *" $validation "*) ;;
     *) fail "$card: invalid validation kind: $validation" ;;

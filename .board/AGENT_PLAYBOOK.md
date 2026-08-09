@@ -44,8 +44,9 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
 ## Preflight obrigatorio
 
 1. Leia o card inteiro e confirme `paths`, `read_paths`, `forbidden_paths`,
-   `validation` e o comando de acceptance. Nao invente uma regra de validacao
-   depois do commit.
+   `validation` e o comando de acceptance. Antes de mover para `ready`, declare
+   explicitamente `validation: none|tested|skeptical`; nao invente uma regra de
+   validacao depois do commit.
 2. Confirme que todas as dependencias estao em `done` e que nenhum builder ja
    possui os mesmos paths. O card deve ser a unica posse de seus paths.
 3. Crie um worktree limpo a partir do HEAD atual. Nao use o checkout do

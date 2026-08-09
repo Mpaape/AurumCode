@@ -60,6 +60,7 @@ Antes de qualquer builder, reviewer ou validator, leia o card completo e rode o
 preflight no worktree limpo. Ele exige:
 
 - paths e read_paths canonicos; paths de candidato ativo existem e sao tracked;
+- `validation: none|tested|skeptical` declarado explicitamente antes de `ready`;
 - o write-set cobre semanticamente cada artefato que Outcome, Postconditions,
   Public contract e Green mandam criar ou alterar. Se o card promete registrar,
   publicar ou atualizar um arquivo listado apenas em `read_paths`, corrija o card,

@@ -11,6 +11,7 @@ id: AUR-000
 version: 1
 title: Imperative artifact-specific outcome
 status: backlog
+validation: tested
 office: O00-governance
 depends_on: []
 requirements: [PR-XXX-001]
