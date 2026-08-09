@@ -9,7 +9,15 @@ case "$selector" in AC-001|TestAUR402|ContractAUR402|IntegrationAUR402|E2EAUR402
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
-for p in .board/oci/profiles/registry.v1.json .board/locks/oci/registry-v1.lock.json .board/schemas/container-profile.schema.json tests/unit/AUR-402.go tests/contracts/AUR-402.go tests/integration/AUR-402.go tests/e2e/AUR-402.sh go.mod go.sum; do [[ -f "$repo_root/$p" ]] || fail "entrypoint_missing:$p"; done
+required_paths=(.board/oci/profiles/registry.v1.json .board/locks/oci/registry-v1.lock.json .board/schemas/container-profile.schema.json go.mod go.sum)
+case "$selector" in
+  TestAUR402|AC-001-MUT-001|AC-001-MUT-002|AC-001-MUT-003) required_paths+=(tests/unit/AUR-402.go) ;;
+  ContractAUR402) required_paths+=(tests/contracts/AUR-402.go) ;;
+  IntegrationAUR402) required_paths+=(tests/integration/AUR-402.go) ;;
+  E2EAUR402) required_paths+=(tests/e2e/AUR-402.sh) ;;
+  AC-001) required_paths+=(tests/unit/AUR-402.go tests/contracts/AUR-402.go tests/integration/AUR-402.go tests/e2e/AUR-402.sh) ;;
+esac
+for p in "${required_paths[@]}"; do [[ -f "$repo_root/$p" ]] || fail "entrypoint_missing:$p"; done
 run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a402.XXXXXX")" || infra mktemp
 cleanup(){ rm -rf -- "$run_dir"; }
 trap cleanup EXIT INT TERM HUP
