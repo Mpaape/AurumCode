@@ -10,6 +10,13 @@ validation_kinds=(none tested skeptical)
 
 failed=0
 failure_count=0
+directory_scan=''
+card_scan=''
+
+cleanup_scans() {
+  rm -f -- "${directory_scan:-}" "${card_scan:-}"
+}
+trap cleanup_scans EXIT INT TERM HUP
 
 declare -A ids=()
 declare -A files=()
@@ -22,6 +29,8 @@ declare -A card_commit=()
 declare -A card_review=()
 declare -A card_validation_record=()
 declare -A card_has_record=()
+declare -A card_paths=()
+declare -A card_read_paths=()
 
 fail() {
   printf 'board error: %s\n' "$1" >&2
@@ -37,28 +46,40 @@ report_failures() {
 }
 
 delivery_evidence_ok() {
-  local id="$1" commit="$2" evidence body
+  local id="$1" commit="$2" evidence
   evidence="$board_dir/evidence/$id/validated.json"
   [[ -f "$evidence" && ! -L "$evidence" ]] || return 1
-  body="$(< "$evidence")"
-  [[ "$body" == *"\"card\": \"$id\""* || "$body" == *"\"card\":\"$id\""* ]] || return 1
-  [[ "$body" == *"\"commit\": \"$commit\""* || "$body" == *"\"commit\":\"$commit\""* ]] || return 1
-  [[ "$body" == *'"review": "approved"'* || "$body" == *'"review":"approved"'* ]] || return 1
-  [[ "$body" == *'"validation": "passed"'* || "$body" == *'"validation":"passed"'* ]] || return 1
-  [[ "$body" == *'"exit_code": 0'* || "$body" == *'"exit_code":0'* ]] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 "$board_dir/bin/check-delivery-evidence.py" "$evidence" "$id" "$commit"
 }
 
 for state in "${states[@]}"; do
   [[ -d "$board_dir/cards/$state" ]] || fail "missing state directory: cards/$state"
 done
+directory_scan="$(mktemp "${TMPDIR:-/tmp}/aurum-pipeline-directories.XXXXXX")"
+if ! find "$board_dir/cards" -mindepth 1 -maxdepth 1 -type d -print0 >"$directory_scan"; then
+  rm -f -- "$directory_scan"
+  directory_scan=''
+  fail 'card state directory scan failed'
+  report_failures
+fi
 while IFS= read -r -d '' directory; do
   state="$(basename "$directory")"
   case " ${states[*]} " in
     *" $state "*) ;;
     *) fail "unknown card state directory: cards/$state" ;;
   esac
-done < <(find "$board_dir/cards" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
+done <"$directory_scan"
+rm -f -- "$directory_scan"
+directory_scan=''
 
+card_scan="$(mktemp "${TMPDIR:-/tmp}/aurum-pipeline-cards.XXXXXX")"
+if ! find "$board_dir/cards" -mindepth 2 -maxdepth 2 -type f -name 'AUR-*.md' -print0 >"$card_scan"; then
+  rm -f -- "$card_scan"
+  card_scan=''
+  fail 'card scan failed'
+  report_failures
+fi
 while IFS= read -r -d '' card; do
   filename="${card##*/}"
   state="${card%/*}"
@@ -131,10 +152,128 @@ while IFS= read -r -d '' card; do
     *) fail "$card: invalid validation kind: $validation" ;;
   esac
   card_validation[$id]="$validation"
+  card_paths[$id]="${fm_title[paths]:-}"
+  card_read_paths[$id]="${fm_title[read_paths]:-[]}"
 
-done < <(find "$board_dir/cards" -mindepth 2 -maxdepth 2 -type f -name 'AUR-*.md' -print0 | sort -z)
+done <"$card_scan"
+rm -f -- "$card_scan"
+card_scan=''
 
 report_failures
+
+path_is_within() {
+  [[ "$1" == "$2" || "$1" == "$2/"* ]]
+}
+
+tracked_path_exists() {
+  local path="$1"
+  [[ -e "$repo_root/$path" && ! -L "$repo_root/$path" ]] || return 1
+  if [[ -f "$repo_root/$path" ]]; then
+    git -C "$repo_root" ls-files --error-unmatch -- "$path" >/dev/null 2>&1
+  else
+    [[ -n "$(git -C "$repo_root" ls-files -- "$path")" ]]
+  fi
+}
+
+parse_contract_list() {
+  local value="$1" body item old_ifs
+  [[ "$value" =~ ^\[(.*)\]$ ]] || return 1
+  body="${BASH_REMATCH[1]}"
+  [[ -n "$body" ]] || return 0
+  old_ifs="$IFS"
+  IFS=','
+  read -ra items <<< "$body"
+  IFS="$old_ifs"
+  for item in "${items[@]}"; do
+    item="${item# }"
+    item="${item% }"
+    [[ -n "$item" ]] || return 1
+    printf '%s\n' "$item"
+  done
+}
+
+# A structurally valid card is not executable merely because its YAML parses.
+# Review/validation candidates must have every input materialized and must bind
+# the declared acceptance command to a registered, digest-locked profile.
+for id in "${!ids[@]}"; do
+  state="${card_states[$id]}"
+  [[ "$state" == review || "$state" == validating ]] || continue
+  owned_spec="${card_paths[$id]}"
+  read_spec="${card_read_paths[$id]}"
+  [[ "$owned_spec" =~ ^\[(|[A-Za-z0-9._/-]+(,[[:space:]]*[A-Za-z0-9._/-]+)*)\]$ ]] || {
+    fail "${files[$id]}: paths is not a canonical list"
+    continue
+  }
+  [[ "$owned_spec" != '[]' ]] || {
+    fail "${files[$id]}: paths must own at least one artifact"
+    continue
+  }
+  [[ "$read_spec" =~ ^\[(|[A-Za-z0-9._/-]+(,[[:space:]]*[A-Za-z0-9._/-]+)*)\]$ ]] || {
+    fail "${files[$id]}: read_paths is not a canonical list"
+    continue
+  }
+  mapfile -t owned_paths < <(parse_contract_list "$owned_spec")
+  mapfile -t read_paths < <(parse_contract_list "$read_spec")
+  acceptance_path="tests/acceptance/$id.sh"
+  acceptance_owned=0
+  for path in "${owned_paths[@]}"; do
+    tracked_path_exists "$path" || fail "${files[$id]}: active candidate path is missing or untracked: $path"
+    if path_is_within "$acceptance_path" "$path"; then
+      acceptance_owned=1
+    fi
+    for read_path in "${read_paths[@]}"; do
+      if path_is_within "$path" "$read_path" || path_is_within "$read_path" "$path"; then
+        fail "${files[$id]}: read_path overlaps owned path: $read_path <> $path"
+      fi
+    done
+  done
+  (( acceptance_owned == 1 )) || fail "${files[$id]}: acceptance is outside owned paths"
+  for read_path in "${read_paths[@]}"; do
+    tracked_path_exists "$read_path" || fail "${files[$id]}: read_path is missing or untracked: $read_path"
+  done
+  acceptance="$repo_root/$acceptance_path"
+  [[ -f "$acceptance" && ! -L "$acceptance" && -x "$acceptance" ]] ||
+    fail "${files[$id]}: active candidate lacks executable acceptance: $acceptance_path"
+  bash -n "$acceptance" || fail "${files[$id]}: acceptance syntax failed"
+  grep -Eiq 'MUT|mutation|mutat' "${files[$id]}" ||
+    fail "${files[$id]}: card has no declared mutation/skeptic signal"
+  profile="$(sed -n 's/^container_profile: `\([^`]*\)`$/\1/p' "${files[$id]}")"
+  accept="$(sed -n 's/^accept: `\(.*\)`$/`\1`/p' "${files[$id]}")"
+  [[ "$profile" =~ ^[a-z0-9][a-z0-9.-]{2,63}$ ]] ||
+    fail "${files[$id]}: active candidate lacks a valid container_profile"
+  expected_accept="\`./.board/bin/oci-run --profile $profile --card $id\`"
+  [[ "$accept" == "$expected_accept" ]] ||
+    fail "${files[$id]}: accept is not bound to its declared profile"
+  profile_file="$board_dir/oci/profiles/$profile.json"
+  lock_file="$board_dir/locks/oci/$profile.lock.json"
+  [[ -f "$profile_file" && ! -L "$profile_file" ]] || fail "${files[$id]}: profile is not registered: $profile"
+  [[ -f "$lock_file" && ! -L "$lock_file" ]] || fail "${files[$id]}: profile lock is missing: $profile"
+  profile_name="$(sed -n 's/^[[:space:]]*"profile"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file" 2>/dev/null || true)"
+  profile_lock="$(sed -n 's/^[[:space:]]*"lock"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file" 2>/dev/null || true)"
+  profile_lock_digest="$(sed -n 's/^[[:space:]]*"lock_digest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file" 2>/dev/null || true)"
+  lock_profile="$(sed -n 's/^[[:space:]]*"profile"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$lock_file" 2>/dev/null || true)"
+  lock_schema="$(sed -n 's/^[[:space:]]*"schema"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$lock_file" 2>/dev/null || true)"
+  lock_version="$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$lock_file" 2>/dev/null || true)"
+  [[ "$profile_name" == "$profile" && "$lock_profile" == "$profile" ]] || fail "${files[$id]}: profile and lock names do not bind"
+  [[ "$profile_lock" == ".board/locks/oci/$profile.lock.json" ]] || fail "${files[$id]}: profile points at a foreign lock"
+  [[ "$lock_schema" == 'aurum.oci-image-lock' && "$lock_version" == 1 ]] || fail "${files[$id]}: profile lock schema/version is invalid"
+  actual_lock_digest="sha256:$(sha256sum -- "$lock_file" | awk '{print $1}')"
+  [[ "$profile_lock_digest" == "$actual_lock_digest" ]] || fail "${files[$id]}: profile lock_digest does not match lock bytes"
+  image="$(sed -n 's/^[[:space:]]*"image"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$lock_file" 2>/dev/null || true)"
+  [[ "$image" =~ ^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]] ||
+    fail "${files[$id]}: profile lock does not contain a digest-pinned image"
+done
+
+report_failures
+
+legacy_done_without_delivery=(AUR-015 AUR-016 AUR-017 AUR-020 AUR-021 AUR-359 AUR-360 AUR-361 AUR-362 AUR-363 AUR-364)
+is_legacy_done_without_delivery() {
+  local wanted="$1" legacy
+  for legacy in "${legacy_done_without_delivery[@]}"; do
+    [[ "$wanted" == "$legacy" ]] && return 0
+  done
+  return 1
+}
 
 for id in "${!ids[@]}"; do
   state="${card_states[$id]}"
@@ -231,7 +370,11 @@ for id in "${!ids[@]}"; do
             fail "${files[$id]}: done commit does not exist in the repository: ${card_commit[$id]}"
         fi
       else
-        printf 'board note: legacy done card without delivery record: %s\n' "$id" >&2
+        if is_legacy_done_without_delivery "$id"; then
+          printf 'board note: allowlisted legacy done card without delivery record: %s\n' "$id" >&2
+        else
+          fail "${files[$id]}: done card lacks delivery record"
+        fi
       fi
       ;;
   esac

@@ -1,9 +1,20 @@
 # Caderno de Orientacoes do Escritorio
 
 Este caderno e o ponto de partida de qualquer agente que receba um card. O
-gate leve e `bash .board/pipeline.sh`; o preflight de um card e
-`bash .board/card-preflight.sh AUR-NNN /caminho/do/worktree`. O
-`.board/validate.sh` legado nao faz parte deste fluxo.
+monitor de 20 minutos e `.board/office-cycle.sh`; o gate estrutural e
+`bash .board/pipeline.sh`; o preflight de um card e
+`PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /caminho/do/worktree`.
+O `.board/validate.sh` e legado congelado: nao o execute neste fluxo e nao use
+seu exit code como autorizacao.
+
+## Regra de nao-reaprendizado
+
+Uma sessao curta deve conseguir falhar fechado sem conhecer este historico. O
+pipeline bloqueia candidatos `review`/`validating` com paths ausentes, acceptance
+nao executavel, profile sem lock ou accept divergente. O preflight repete essas
+checagens, exige worktree limpo e faz um smoke test real da imagem pinada. O
+`oci-run` repete o bloqueio imediatamente antes de materializar qualquer
+container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
 
 ## O que deu errado na onda anterior
 
@@ -15,7 +26,10 @@ gate leve e `bash .board/pipeline.sh`; o preflight de um card e
 - **AUR-006:** o card foi despachado com `validation: tested` sem confirmar a
   capacidade do ambiente. O aceite terminou em exit 69 por falta de Go, e o
   profile `bootstrap-readonly-v1` e Bash-only apesar de o acceptance exigir Go.
-  Exit 69 e bloqueio de infraestrutura, nunca GREEN e nunca `done`.
+  Exit 69 e bloqueio de infraestrutura, nunca GREEN e nunca `done`. Mesmo
+  depois de recuperar os paths declarados, o preflight continua bloqueando:
+  AUR-403 e o dono do profile Go e depende de AUR-006; nao criar profile local
+  nem iniciar review/validation para quebrar esse ciclo de especificacao.
 - **AUR-002:** a acceptance hashava fixtures e metadata, mas nao executava o
   comportamento de `cmd/regenerate-docs`; uma mutacao real ficou verde. Uma
   acceptance que nao executa o entrypoint e um teste falso.
@@ -38,9 +52,16 @@ gate leve e `bash .board/pipeline.sh`; o preflight de um card e
    coordenador para construir ou validar.
 4. Rode `bash .board/pipeline.sh` e
    `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /caminho/do/worktree`.
-   Se Go faltar mas o card tiver aceite OCI, o host preflight apenas avisa; o
-   aceite OCI canonico precisa ser executado e sair 0.
+   O preflight inspeciona a imagem digest-pinada e executa um smoke test dentro
+   dela. A imagem precisa conter `bash` porque o runner chama `bash`; se o
+   acceptance usa Go, a mesma imagem precisa conter `go`. Falta de runtime e
+   contrato invalido, nao um RED que possa ser empurrado ao validator.
 5. Rode a acceptance nominal antes de alterar codigo. Registre o exit real.
+   Se o candidato for preparado em clone isolado, confirme que `user.name` e
+   `user.email` existem antes do commit. Clone nao herda necessariamente a
+   configuracao local do coordenador: copie somente a identidade humana ja
+   configurada no checkout coordenador; identidade ausente e bloqueio de
+   publicacao, nunca um valor a inventar.
 6. Execute pelo menos uma mutacao que altere o comportamento prometido. A
    mutacao deve produzir RED; restaurar o arquivo deve produzir GREEN. Hash,
    grep, contagem ou leitura de metadata sem executar o entrypoint nao contam.
@@ -54,12 +75,19 @@ gate leve e `bash .board/pipeline.sh`; o preflight de um card e
    a imagem precisa conter Go; `bootstrap-readonly-v1` nao pode executar esse
    card. Profile Bash-only + acceptance Go e erro de especificacao, nao um
    bloqueio para empurrar ao validator.
-10. Verifique as ferramentas antes de despachar: Go, OCI, rede none, imagem e
-   dependencias em cache. Falta de ferramenta vira `validating`/bloqueio de
-   infraestrutura, nao `done`.
+10. Verifique as ferramentas antes de despachar: Docker ou Podman, imagem local,
+    `bash`, `go` quando exigido, rede none e dependencias em cache. Falta de
+    ferramenta no host e exit 79; runtime ausente na imagem e erro de contrato.
+    Nenhum dos dois pode virar `done`.
 11. Nao crie um profile OCI dentro de um card de feature para contornar um
-    profile ausente. O registry tem dono proprio: AUR-402; o profile Go tem
-    dono AUR-403. Respeite o DAG e espere esses cards, ou registre o bloqueio.
+     profile ausente. O registry tem dono proprio: AUR-402; o profile Go tem
+     dono AUR-403. Respeite o DAG e espere esses cards, ou registre o bloqueio.
+
+12. Ao alterar qualquer gate, runner ou skill do escritorio, rode
+    `bash .board/tests/office-process-regression.sh`, `bash -n` nos scripts
+    alterados, `python3 -B -m py_compile .board/bin/check-delivery-evidence.py`
+    e `git diff --check`. Esse teste usa uma fixture Git temporaria e prova que
+    o profile Bash-only passa para Bash, falha para Go e rejeita lock adulterado.
 
 ## Fluxo de entrega
 
@@ -68,7 +96,9 @@ gate leve e `bash .board/pipeline.sh`; o preflight de um card e
 - Reviewer: revisa o SHA imutavel, executa acceptance e procura testes falsos,
   escopo fora dos paths, schema/parser divergente e saida que engole exit code.
 - Validator: roda a acceptance e os testes contra o mesmo commit em worktree
-  limpo. Exit 0 e evidencia; exit 69 e inconclusivo; exit 1 e RED.
+  limpo. Exit 0 e evidencia; exit 69/79 e inconclusivo; exit 1 e RED somente
+  quando o programa chegou ao comportamento. Falha de loader, runtime,
+  imagem, engine ou dependencia nunca e RED.
 - Coordenador: integra o commit, grava `validated.json`, escreve no card
   `commit`, `review: approved` e `validation: passed`, e so entao move para
   `done`.
@@ -82,14 +112,16 @@ recusa `done` sem essa correspondencia.
 
 ## Regra dos 20 minutos
 
-Cada ciclo de monitoramento dura 20 minutos. Se dois ciclos nao aumentarem a
-contagem de `done`, pare a abordagem atual. Nao reenvie o mesmo prompt: classifique
-o bloqueio como especificacao, prova falsa, conflito de paths ou infraestrutura;
-corrija o processo ou troque de card.
+Cada ciclo de monitoramento dura 20 minutos. No inicio, rode
+`.board/office-cycle.sh --start`; em cada revisao, rode
+`.board/office-cycle.sh --review`. Se dois reviews nao aumentarem `done`, o
+script sai com exit 75 e a abordagem esta encerrada. Nao reenvie o mesmo prompt:
+classifique o bloqueio como especificacao, prova falsa, conflito de paths ou
+infraestrutura; corrija o processo ou troque de card.
 
-## Estado ao escrever este caderno
+## Estado ao escrever este caderno (snapshot histórico; não usar para dispatch)
 
 - `done`: AUR-001, AUR-014, AUR-018, AUR-019 e AUR-233, com evidencias leves.
-- `validating`: AUR-006, aguardando Go/OCI executavel; nao e verde.
-- `doing`: AUR-002 e AUR-003, ambos retornaram para correcao apos review.
-- `ready`: vazio.
+- Os estados acima são históricos. Para dispatch, leia os diretórios vivos e
+  rode `bash .board/pipeline.sh`; cards `ready` passam pelo preflight de
+  builder antes da criação do worktree.
