@@ -1,8 +1,10 @@
 # Atomic Card Index
 
-This is the readable registry for the executable TaskSpec files. State,
-dependency, schema, path ownership, evidence, and safety validity are enforced
-by [validate.sh](validate.sh).
+This is a historical/readable registry for the executable TaskSpec files, not
+the live queue. Individual card files are authoritative; do not use state labels
+or counts here for dispatch. Current state and safety gates
+are `bash .board/pipeline.sh`, `.board/office-cycle.sh`, and the per-card
+`card-preflight.sh`; [validate.sh](validate.sh) is frozen legacy evidence.
 
 - Total: **423 atomic cards**
 - Execution order: dependency DAG, never a human calendar
@@ -31,7 +33,7 @@ by [validate.sh](validate.sh).
 | [AUR-016](cards/done/AUR-016.md) | done | O00-research | medium | `[]` | Definir uso evidencial de ISO 25010 |
 | [AUR-017](cards/done/AUR-017.md) | done | O00-research | medium | `[]` | Fixar standards de artefatos interoperáveis |
 | [AUR-018](cards/doing/AUR-018.md) | doing | O00-research | high | `[]` | Fixar contratos SCM e CI seguros |
-| [AUR-019](cards/doing/AUR-019.md) | doing | O00-research | high | `[]` | Fixar contratos oficiais de providers |
+| [AUR-019](cards/review/AUR-019.md) | review | O00-research | high | `[]` | Fixar contratos oficiais de providers |
 | [AUR-020](cards/done/AUR-020.md) | done | O00-research | high | `[]` | Escolher memória e mapa incremental mínimos |
 | [AUR-021](cards/done/AUR-021.md) | done | O00-research | high | `[]` | Fixar MCP conformance e segurança |
 | [AUR-022](cards/backlog/AUR-022.md) | backlog | O00-governance | critical | `[AUR-002, AUR-003, AUR-004, AUR-005, AUR-006, AUR-007, AUR-008, AUR-009, AUR-010, AUR-011, AUR-012, AUR-013, AUR-014, AUR-015, AUR-016, AUR-017, AUR-018, AUR-019, AUR-020, AUR-021, AUR-233]` | Aprovar foundation reproduzível |

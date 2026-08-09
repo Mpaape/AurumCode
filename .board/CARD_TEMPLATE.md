@@ -29,6 +29,15 @@ trust_boundaries: [repository]
 
 One externally observable outcome with no independently deployable sibling.
 
+## Current lightweight delivery
+
+For cards created under the current board process, `ready` authorizes an
+isolated builder after builder preflight. The coordinator then requires an
+immutable commit, one independent review, the declared acceptance in a clean
+worktree, and matching sanitized delivery evidence before `done`. The older
+dual-review/skeptical-bundle ceremony below is legacy-only and must not be added
+to new cards unless the card explicitly opts into legacy evidence.
+
 ## Non-goals
 
 - Explicit behavior, adapter, language, migration, or optimization excluded.
@@ -137,7 +146,11 @@ prompts/responses, credentials, environment values, or chain-of-thought.
 Every concrete TDD test reference uses the closed `` `path::selector` `` form,
 must resolve directionally inside `paths`, and may not offer an alternative
 `not-applicable`. `read_paths` is a read-only input allowlist; it grants no
-write ownership and may not overlap `forbidden_paths`.
+write ownership and may not overlap `forbidden_paths` or owned `paths`. By
+`review`/`validating`, every declared path must exist as tracked input. The
+locked profile image must contain the runner's `bash` and every tool named by
+the acceptance; runtime smoke checks are mandatory before dispatch and before
+OCI materialization.
 
 `evidence_chain_digest` is not declarative. The validator recomputes it as the
 SHA-256 of `candidate_identity_digest=<digest>\n` followed by strictly
