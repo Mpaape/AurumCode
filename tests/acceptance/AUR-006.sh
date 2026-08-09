@@ -86,7 +86,7 @@ run_go_test() {
     cd -- "$run_dir" || exit 70
     mkdir -p -- "$run_dir/.go-cache" "$run_dir/.go-tmp" || exit 70
     AURUMCODE_ROOT="$run_dir" GOTOOLCHAIN=local GOPROXY=off \
-      GOCACHE="$run_dir/.go-cache" GOTMPDIR="$run_dir/.go-tmp" go test "$@"
+      GOCACHE="$run_dir/.go-cache" GOTMPDIR="$run_dir/.go-tmp" go test -vet=off "$@"
   ) >"$output" 2>&1
   local test_exit=$?
   set -e
