@@ -155,7 +155,9 @@ verdict="$({
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/aur003-accept.XXXXXX")" || infra 'temporary directory unavailable'
 trap 'rm -rf -- "$scratch"' EXIT
 runner="$scratch/aur003-unit"
-go build -o "$runner" "$unit" || infra 'TaskSpec loader compilation failed'
+mkdir -p /tmp/aur003-go-cache /tmp/aur003-go-tmp || infra 'Go workspace unavailable'
+GOCACHE=/tmp/aur003-go-cache GOTMPDIR=/tmp/aur003-go-tmp \
+  go build -o "$runner" "$unit" || infra 'TaskSpec loader compilation failed'
 observed=0
 vector_count="$(awk '/^  - id: / { count++ } END { print count + 0 }' "$vectors")" || infra 'vector count failed'
 while IFS=$'\t' read -r marker vector kind input_digest expected_exit expected_code expected_field expected_effects expected_artifact; do
