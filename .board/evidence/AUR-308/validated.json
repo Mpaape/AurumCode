@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-308",
+  "commit": "f7cdc74a641fc06d144ab39a82067527ad73e15c",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-308",
+    "exit_code": 0,
+    "raw_output": "{\"schema\":\"aurum.acceptance-execution\",\"version\":1,\"card_id\":\"AUR-308\",\"profile\":\"bootstrap-readonly-v1\",\"input_manifest_digest\":\"sha256:626cdb87f123e9052776db73b68e9f9cfdec07f07849eee143cc0d414068bb19\",\"exit_code\":0,\"stdout_bytes\":3493,\"stderr_bytes\":0,\"output_truncated\":false,\"timed_out\":false,\"secret_detected\":false}"
+  }
+}
