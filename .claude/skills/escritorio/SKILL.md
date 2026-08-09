@@ -60,6 +60,10 @@ Antes de qualquer builder, reviewer ou validator, leia o card completo e rode o
 preflight no worktree limpo. Ele exige:
 
 - paths e read_paths canonicos; paths de candidato ativo existem e sao tracked;
+- o write-set cobre semanticamente cada artefato que Outcome, Postconditions,
+  Public contract e Green mandam criar ou alterar. Se o card promete registrar,
+  publicar ou atualizar um arquivo listado apenas em `read_paths`, corrija o card,
+  rode o pipeline e reancore antes do primeiro builder;
 - acceptance executavel, `bash -n` valido e mutacao observavel;
 - `accept` exatamente igual a
   `./.board/bin/oci-run --profile <profile> --card <card>`;
@@ -86,6 +90,12 @@ que detectar somente o nome da imagem ou somente o host nao e suficiente.
 Nao crie profile dentro de feature para contornar o DAG. AUR-402 e dono do
 registry; AUR-403 e dono do profile Go. Se o owner estiver bloqueado, registre o
 bloqueio e nao fabrique um profile local.
+
+Ao adicionar uma chave a registry ou um novo tipo de profile, prove antes do
+dispatch que o write-set inclui o registry canonico e um schema que aceita o
+documento nominal sem afrouxar profiles existentes. Rode tambem o acceptance do
+owner anterior como regressao. Um profile validado apenas por loader paralelo em
+teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
 
 ### Feasibility e DAG antes do dispatch
 
@@ -116,6 +126,10 @@ bloqueio e nao fabrique um profile local.
    esse SHA e move o card para `review`/`validating`,
    cada hunk, o contrato,
    schema/parser, acceptance, paths, exits e fronteiras de seguranca.
+   Cada selector Unit, Contract, Integration e E2E declarado deve executar uma
+   assercao real. Exit 0 com `[no test files]`, zero testes, branch vazia ou
+   selector que retorna sem chamar a camada e veto, mesmo se o nominal agregado
+   estiver verde.
 4. Validator executa o acceptance e as camadas declaradas no mesmo SHA e em
    worktree limpo. Exit 0 e evidencia; exit 69/79 e inconclusivo; exit 1 so e
    RED depois que o programa realmente iniciou.
@@ -136,6 +150,11 @@ bloqueio e nao fabrique um profile local.
   checkout compartilhado. Use worktree dedicado e capture o exit bruto.
 - Docker/Podman ausente, imagem nao local, timeout ou cache Go indisponivel sao
   inconclusivos. Nao sao sucesso e nao sao falha de comportamento.
+- Antes de chamar um wrapper de travado ou reinicia-lo, inspecione uma vez o
+  processo do container dentro do timeout. Compilacao ativa nao e loop: preserve
+  o limite e elimine recompilacoes identicas reutilizando cache privado entre
+  mutacoes sequenciais. Nao repita o mesmo comando sem mudanca de hipotese,
+  candidato ou instrumentacao.
 
 ## Progresso e continuidade
 
