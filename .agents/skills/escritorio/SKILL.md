@@ -64,6 +64,9 @@ preflight no worktree limpo. Ele exige:
   Public contract e Green mandam criar ou alterar. Se o card promete registrar,
   publicar ou atualizar um arquivo listado apenas em `read_paths`, corrija o card,
   rode o pipeline e reancore antes do primeiro builder;
+- o write-set nao concede escrita sobre diretorio ou artefato que Non-goals,
+  Compatibility ou Postconditions mandam preservar. Inputs apenas observados
+  pertencem a `read_paths`, mesmo em cards de caracterizacao;
 - acceptance executavel, `bash -n` valido e mutacao observavel;
 - `accept` exatamente igual a
   `./.board/bin/oci-run --profile <profile> --card <card>`;
