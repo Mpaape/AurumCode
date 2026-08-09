@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aurumcode.local/schemas/evidence-bundle.schema.json",
+  "title": "AurumCode content-addressed evidence bundle",
+  "description": "Closed, canonical and non-authorizing digest manifest for sanitized evidence outputs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "candidate_identity",
+    "artifacts",
+    "manifest_digest"
+  ],
+  "properties": {
+    "schema": { "const": "aurum.evidence-bundle" },
+    "version": { "const": 1 },
+    "candidate_identity": { "$ref": "#/$defs/candidate-identity-v1" },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "manifest_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "candidate-identity-v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_identity",
+        "base_tree_digest",
+        "head_tree_digest",
+        "change_digest",
+        "task_spec_digest",
+        "configuration_digest",
+        "policy_digest",
+        "prompt_and_rubric_digest",
+        "skill_set_digest",
+        "provider_model_backend_identity_digest",
+        "toolchain_and_tool_set_digest",
+        "dependency_lock_digest",
+        "container_image_set_digest",
+        "test_manifest_digest",
+        "role_context_manifest_digest"
+      ],
+      "properties": {
+        "repository_identity": { "$ref": "#/$defs/digest" },
+        "base_tree_digest": { "$ref": "#/$defs/digest" },
+        "head_tree_digest": { "$ref": "#/$defs/digest" },
+        "change_digest": { "$ref": "#/$defs/digest" },
+        "task_spec_digest": { "$ref": "#/$defs/digest" },
+        "configuration_digest": { "$ref": "#/$defs/digest" },
+        "policy_digest": { "$ref": "#/$defs/digest" },
+        "prompt_and_rubric_digest": { "$ref": "#/$defs/digest" },
+        "skill_set_digest": { "$ref": "#/$defs/digest" },
+        "provider_model_backend_identity_digest": { "$ref": "#/$defs/digest" },
+        "toolchain_and_tool_set_digest": { "$ref": "#/$defs/digest" },
+        "dependency_lock_digest": { "$ref": "#/$defs/digest" },
+        "container_image_set_digest": { "$ref": "#/$defs/digest" },
+        "test_manifest_digest": { "$ref": "#/$defs/digest" },
+        "role_context_manifest_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "media_type",
+        "authority",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*\\s)(?!.*[\\u0000-\\u001f\\u007f-\\u009f])[^/]+(?:/[^/]+)*$"
+        },
+        "kind": {
+          "enum": [
+            "task-spec",
+            "container-image",
+            "acceptance-result",
+            "unit-result",
+            "integration-result",
+            "review-result",
+            "skeptic-result"
+          ]
+        },
+        "media_type": {
+          "enum": [
+            "application/json",
+            "application/octet-stream",
+            "text/plain"
+          ]
+        },
+        "authority": { "const": "none" },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4194304
+        },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    }
+  },
+  "x-aurumcode": {
+    "max_document_bytes": 4194304,
+    "max_total_artifact_bytes": 4194304,
+    "path_policy": {
+      "max_path_bytes": 512,
+      "relative_posix": true,
+      "reject_backslash": true,
+      "reject_traversal": true,
+      "reject_whitespace": true,
+      "reject_control": true,
+      "reject_empty_components": true
+    },
+    "canonicalization": {
+      "name": "aurum-evidence-json-v1",
+      "encoding": "utf-8",
+      "whitespace": "compact",
+      "object_key_order": "schema-order",
+      "artifact_order": "path-byte-ascending",
+      "unique_artifact_path": true,
+      "reject_noncanonical_input": true
+    },
+    "manifest_digest": {
+      "algorithm": "sha256",
+      "domain": "aurum.evidence-bundle.manifest.v1",
+      "preimage": "canonical-document-with-manifest_digest-omitted"
+    },
+    "authorization": {
+      "artifact_authority": "none",
+      "manifest_is_observation_only": true
+    }
+  }
+}
