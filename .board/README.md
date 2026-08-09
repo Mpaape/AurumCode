@@ -17,7 +17,8 @@ Every session starts with `.board/office-cycle.sh --start` or `--status`, and
 every 20-minute review uses `--review`.
 
 1. A card moves from `backlog` to `ready` only when every `depends_on` card is
-   in `done`. In the current lightweight flow, `ready` authorizes one isolated
+   in `done` and the coordinator has declared `validation: none|tested|skeptical`
+   explicitly. In the current lightweight flow, `ready` authorizes one isolated
    builder after builder preflight; it does not authorize review, validation or
    a state transition.
 2. The developer executes the card, commits to a human-authenticated commit
@@ -29,8 +30,8 @@ every 20-minute review uses `--review`.
    `review` (or directly to `validating` when validation is declared).
 4. If the card frontmatter declares `validation: tested` or `skeptical`, a
    validator agent executes the card's own acceptance and appends
-   `- validation: passed` on success. Cards without a `validation:` field
-   default to `none` and skip this step.
+   `- validation: passed` on success. An active card must declare the field;
+   explicit `validation: none` skips this step.
 5. Before dispatch, a clean worktree must pass
    `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /path/to/worktree`.
    The preflight checks every required input, the exact acceptance command, the
