@@ -322,14 +322,8 @@ func verifyAUR002PipelineMutation(root string) error {
 		return fmt.Errorf("AUR-002: infrastructure: MUT-001 source unavailable: %w", err)
 	}
 	overlayData, err := json.Marshal(struct {
-		Replace []struct {
-			Old string
-			New string
-		} `json:"Replace"`
-	}{Replace: []struct {
-		Old string
-		New string
-	}{{Old: sourcePath, New: mutatedPath}}})
+		Replace map[string]string `json:"Replace"`
+	}{Replace: map[string]string{sourcePath: mutatedPath}})
 	if err != nil {
 		return fmt.Errorf("AUR-002: infrastructure: MUT-001 overlay unavailable: %w", err)
 	}
