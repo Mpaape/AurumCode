@@ -64,6 +64,9 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
    Card que declara camada ou comando Go deve materializar `go.mod` e `go.sum`
    em `paths`/`read_paths`; gerar modulo substituto no acceptance nao corrige o
    contrato de leitura.
+   Um card `ready` com todos os `paths` já rastreados é tratado automaticamente
+   como candidato completo: acceptance executável, paths e exit nominal passam
+   a ser obrigatórios antes do review.
 5. Rode a acceptance nominal antes de alterar codigo. Registre o exit real.
    Se o candidato for preparado em clone isolado, confirme que `user.name` e
    `user.email` existem antes do commit. Clone nao herda necessariamente a

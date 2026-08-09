@@ -135,6 +135,22 @@ if grep -Eq '\.go([`:[:space:]]|$)|(^|[[:space:];|&])go[[:space:]]+(test|run|bui
   fi
 fi
 
+# A reviewed candidate remains in ready until approval. Once every owned path is
+# tracked, ready must no longer receive the relaxed builder checks; otherwise a
+# reviewer can miss a non-executable acceptance or an absent candidate artifact.
+if (( builder_preflight == 1 )); then
+  complete_candidate=1
+  for owned_path in "${owned_paths[@]}"; do
+    if ! tracked_path_exists "$owned_path"; then
+      complete_candidate=0
+      break
+    fi
+  done
+  if (( complete_candidate == 1 )); then
+    builder_preflight=0
+  fi
+fi
+
 acceptance_path="tests/acceptance/$card_id.sh"
 acceptance_owned=0
 for owned_path in "${owned_paths[@]}"; do
@@ -152,7 +168,7 @@ for path in "${owned_paths[@]}"; do
     printf 'preflight error: unsafe owned path: %s\n' "$path" >&2
     exit 1
   }
-  if [[ "$status" == review || "$status" == validating ]]; then
+  if (( builder_preflight == 0 )); then
     tracked_path_exists "$path" || {
       printf 'preflight error: active candidate path is missing or untracked: %s\n' "$path" >&2
       exit 1

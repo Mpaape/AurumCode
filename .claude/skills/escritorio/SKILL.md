@@ -89,6 +89,11 @@ todos os paths tracked, acceptance executavel e exit real. Essa distinção evit
 que cards novos fiquem impossíveis de despachar por ainda não terem sido
 construídos.
 
+Quando todos os `paths` de um card `ready` já estão rastreados, o preflight o
+classifica como candidato completo e aplica automaticamente os checks fortes e
+o acceptance nominal. Isso impede reviewer em `ready` de herdar o modo frouxo
+reservado ao builder inicial.
+
 Quando `PREFLIGHT_RUN=1` executa a acceptance nominal, somente exit `0` é
 verde. Exit `1` é falha do card, não RED aceitável; apenas códigos explícitos
 de infraestrutura podem ser classificados como indisponibilidade.
