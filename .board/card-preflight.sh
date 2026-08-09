@@ -2,13 +2,18 @@
 set -euo pipefail
 export LC_ALL=C
 
+# This is a dispatch gate, not a report generator. It deliberately repeats the
+# runtime checks performed by oci-run so a stale agent cannot turn an impossible
+# acceptance contract into a doing or validating card.
+
 card_id="${1:-}"
 worktree="${2:-$(pwd -P)}"
 [[ "$card_id" =~ ^AUR-[0-9]{3}$ ]] || { printf 'preflight error: use AUR-NNN\n' >&2; exit 1; }
 [[ -d "$worktree/.git" || -f "$worktree/.git" ]] || { printf 'preflight error: not a Git worktree\n' >&2; exit 1; }
 
+states=(backlog ready doing review validating done blocked-on-owner cancelled)
 card=''
-for state in backlog ready doing review validating done blocked-on-owner cancelled; do
+for state in "${states[@]}"; do
   candidate="$worktree/.board/cards/$state/$card_id.md"
   if [[ -f "$candidate" ]]; then
     [[ -z "$card" ]] || { printf 'preflight error: duplicate card state\n' >&2; exit 1; }
@@ -17,77 +22,267 @@ for state in backlog ready doing review validating done blocked-on-owner cancell
 done
 [[ -n "$card" ]] || { printf 'preflight error: card not found: %s\n' "$card_id" >&2; exit 1; }
 
-status=''
-validation='none'
-while IFS= read -r line || [[ -n "$line" ]]; do
-  case "$line" in
-    status:\ *) status="${line#status: }" ;;
-    validation:\ *) validation="${line#validation: }" ;;
-  esac
-done < <(awk '/^---$/{n++; next} n==1 {print}' "$card")
-
-[[ "$status" =~ ^(ready|doing|review|validating|done)$ ]] || {
-  printf 'preflight error: unsupported active status: %s\n' "$status" >&2
-  exit 1
+frontmatter_value() {
+  local key="$1"
+  awk -v key="$key" '
+    NR == 1 { if ($0 != "---") exit 2; in_fm=1; next }
+    in_fm && $0 == "---" { exit }
+    in_fm && index($0, key ":") == 1 {
+      count++
+      value=substr($0, length(key) + 2)
+      sub(/^[[:space:]]+/, "", value)
+    }
+    END { if (count != 1) exit 3; print value }
+  ' "$card"
 }
+
+parse_list() {
+  local value="$1" body item old_ifs
+  [[ "$value" =~ ^\[(.*)\]$ ]] || return 1
+  body="${BASH_REMATCH[1]}"
+  [[ -n "$body" ]] || return 0
+  old_ifs="$IFS"
+  IFS=','
+  read -ra items <<< "$body"
+  IFS="$old_ifs"
+  for item in "${items[@]}"; do
+    item="${item# }"
+    item="${item% }"
+    [[ -n "$item" ]] || return 1
+    printf '%s\n' "$item"
+  done
+}
+
+path_is_within() {
+  [[ "$1" == "$2" || "$1" == "$2/"* ]]
+}
+
+tracked_path_exists() {
+  local path="$1"
+  [[ -e "$worktree/$path" && ! -L "$worktree/$path" ]] || return 1
+  if [[ -f "$worktree/$path" ]]; then
+    git -C "$worktree" ls-files --error-unmatch -- "$path" >/dev/null 2>&1
+  else
+    [[ -n "$(git -C "$worktree" ls-files -- "$path")" ]]
+  fi
+}
+
+status="$(frontmatter_value status)" || { printf 'preflight error: unreadable status\n' >&2; exit 1; }
+validation="$(frontmatter_value validation 2>/dev/null || printf 'none')"
+case "$status" in
+  ready|doing|review|validating) ;;
+  *) printf 'preflight error: card is not dispatchable: status=%s\n' "$status" >&2; exit 1 ;;
+esac
 case "$validation" in
-  none) ;;
-  tested|skeptical) ;;
+  none|tested|skeptical) ;;
   *) printf 'preflight error: invalid validation kind: %s\n' "$validation" >&2; exit 1 ;;
 esac
 
-acceptance="$worktree/tests/acceptance/$card_id.sh"
-oci_accept=0
-if grep -Fq "accept: \`./.board/bin/oci-run --profile bootstrap-readonly-v1 --card $card_id\`" "$card"; then
-  oci_accept=1
+# A ready card is a builder candidate, not yet an immutable implementation.
+# Its declared paths and acceptance may legitimately be absent; requiring them
+# here makes every new card impossible to dispatch. Review/validation still
+# require the complete tracked candidate below.
+builder_preflight=0
+if [[ "$status" == ready ]]; then
+  builder_preflight=1
 fi
-if (( oci_accept == 1 )) && grep -Eq '(^|[^[:alnum:]_])go([[:space:]]|$)|go[[:space:]]+test' "$acceptance"; then
-  profile_lock="$worktree/.board/locks/oci/bootstrap-readonly-v1.lock.json"
-  if [[ -f "$profile_lock" ]] && grep -Fq '"image": "bash@' "$profile_lock"; then
-    printf 'preflight error: %s acceptance requires Go but bootstrap-readonly-v1 is Bash-only\n' "$card_id" >&2
-    exit 1
+
+[[ -z "$(git -C "$worktree" status --porcelain)" ]] || {
+  printf 'preflight error: worktree is dirty; validate an immutable candidate\n' >&2
+  exit 1
+}
+
+owned_spec="$(frontmatter_value paths)" || {
+  printf 'preflight error: malformed paths\n' >&2
+  exit 1
+}
+[[ "$owned_spec" =~ ^\[(|[A-Za-z0-9._/-]+(,[[:space:]]*[A-Za-z0-9._/-]+)*)\]$ ]] || {
+  printf 'preflight error: malformed paths\n' >&2
+  exit 1
+}
+[[ "$owned_spec" != '[]' ]] || {
+  printf 'preflight error: paths must own at least one artifact\n' >&2
+  exit 1
+}
+read_spec="$(frontmatter_value read_paths 2>/dev/null || printf '[]')"
+[[ "$read_spec" =~ ^\[(|[A-Za-z0-9._/-]+(,[[:space:]]*[A-Za-z0-9._/-]+)*)\]$ ]] || {
+  printf 'preflight error: malformed read_paths\n' >&2
+  exit 1
+}
+mapfile -t owned_paths < <(parse_list "$owned_spec")
+mapfile -t read_paths < <(parse_list "$read_spec")
+
+acceptance_path="tests/acceptance/$card_id.sh"
+acceptance_owned=0
+for owned_path in "${owned_paths[@]}"; do
+  if path_is_within "$acceptance_path" "$owned_path"; then
+    acceptance_owned=1
   fi
-fi
-if [[ "$validation" != none ]]; then
-  [[ -f "$acceptance" && -x "$acceptance" ]] || {
+done
+(( acceptance_owned == 1 )) || {
+  printf 'preflight error: acceptance is outside owned paths: %s\n' "$acceptance_path" >&2
+  exit 1
+}
+
+for path in "${owned_paths[@]}"; do
+  [[ "$path" != /* && "$path" != *..* && "$path" != *' '* ]] || {
+    printf 'preflight error: unsafe owned path: %s\n' "$path" >&2
+    exit 1
+  }
+  if [[ "$status" == review || "$status" == validating ]]; then
+    tracked_path_exists "$path" || {
+      printf 'preflight error: active candidate path is missing or untracked: %s\n' "$path" >&2
+      exit 1
+    }
+  fi
+done
+for read_path in "${read_paths[@]}"; do
+  tracked_path_exists "$read_path" || {
+    printf 'preflight error: read_path is missing or untracked: %s\n' "$read_path" >&2
+    exit 1
+  }
+  for owned_path in "${owned_paths[@]}"; do
+    if path_is_within "$read_path" "$owned_path" || path_is_within "$owned_path" "$read_path"; then
+      printf 'preflight error: read_path overlaps owned path: %s <> %s\n' "$read_path" "$owned_path" >&2
+      exit 1
+    fi
+  done
+done
+
+acceptance="$worktree/tests/acceptance/$card_id.sh"
+if (( builder_preflight == 0 )); then
+  [[ -f "$acceptance" && ! -L "$acceptance" && -x "$acceptance" ]] || {
     printf 'preflight error: tested card lacks executable acceptance: %s\n' "$acceptance" >&2
     exit 1
   }
   bash -n "$acceptance" || { printf 'preflight error: acceptance syntax failed\n' >&2; exit 1; }
-  if grep -Eq '(^|[^[:alnum:]_])go([[:space:]]|$)|go[[:space:]]+test' "$acceptance"; then
-    if ! command -v go >/dev/null 2>&1; then
-      if (( oci_accept == 1 )); then
-        printf 'preflight warning: host Go unavailable; canonical OCI acceptance is required\n' >&2
-      else
-        printf 'preflight infrastructure: Go toolchain unavailable for %s\n' "$card_id" >&2
-        exit 69
-      fi
-    fi
-  fi
-  grep -Eiq 'MUT|mutation|mutat' "$acceptance" || {
-    printf 'preflight error: validation has no mutation/skeptic signal\n' >&2
+fi
+grep -Eiq 'MUT|mutation|mutat' "$card" || {
+  printf 'preflight error: card has no declared mutation/skeptic signal\n' >&2
+  exit 1
+}
+
+profile="$(sed -n 's/^container_profile: `\([^`]*\)`$/\1/p' "$card")"
+accept_command="$(sed -n 's/^accept: `\(.*\)`$/\1/p' "$card")"
+[[ "$profile" =~ ^[a-z0-9][a-z0-9.-]{2,63}$ ]] || {
+  printf 'preflight error: missing or invalid container_profile\n' >&2
+  exit 1
+}
+expected_accept="./.board/bin/oci-run --profile $profile --card $card_id"
+[[ "$accept_command" == "$expected_accept" ]] || {
+  printf 'preflight error: accept must be exactly: %s\n' "$expected_accept" >&2
+  exit 1
+}
+
+profile_file="$worktree/.board/oci/profiles/$profile.json"
+lock_file="$worktree/.board/locks/oci/$profile.lock.json"
+[[ -f "$profile_file" && ! -L "$profile_file" ]] || {
+  printf 'preflight error: profile is not registered: %s\n' "$profile" >&2
+  exit 1
+}
+[[ -f "$lock_file" && ! -L "$lock_file" ]] || {
+  printf 'preflight error: profile lock is missing: %s\n' "$lock_file" >&2
+  exit 1
+}
+image="$(sed -n 's/^[[:space:]]*"image"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$lock_file")"
+user="$(sed -n 's/^[[:space:]]*"user"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file")"
+profile_name="$(sed -n 's/^[[:space:]]*"profile"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file")"
+profile_lock="$(sed -n 's/^[[:space:]]*"lock"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file")"
+profile_lock_digest="$(sed -n 's/^[[:space:]]*"lock_digest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file")"
+lock_profile="$(sed -n 's/^[[:space:]]*"profile"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$lock_file")"
+lock_schema="$(sed -n 's/^[[:space:]]*"schema"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$lock_file")"
+lock_version="$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$lock_file")"
+[[ "$image" =~ ^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]] || {
+  printf 'preflight error: profile image is not digest pinned\n' >&2
+  exit 1
+}
+[[ "$user" =~ ^[1-9][0-9]{2,6}:[1-9][0-9]{2,6}$ ]] || {
+  printf 'preflight error: profile user is not non-root numeric\n' >&2
+  exit 1
+}
+[[ "$profile_name" == "$profile" && "$lock_profile" == "$profile" ]] || {
+  printf 'preflight error: profile and lock names do not bind to %s\n' "$profile" >&2
+  exit 1
+}
+[[ "$profile_lock" == ".board/locks/oci/$profile.lock.json" ]] || {
+  printf 'preflight error: profile points at a foreign lock\n' >&2
+  exit 1
+}
+[[ "$lock_schema" == 'aurum.oci-image-lock' && "$lock_version" == 1 ]] || {
+  printf 'preflight error: profile lock schema/version is invalid\n' >&2
+  exit 1
+}
+actual_lock_digest="sha256:$(sha256sum -- "$lock_file" | awk '{print $1}')"
+[[ "$profile_lock_digest" == "$actual_lock_digest" ]] || {
+  printf 'preflight error: profile lock_digest does not match lock bytes\n' >&2
+  exit 1
+}
+
+if command -v podman >/dev/null 2>&1; then
+  engine=podman
+elif command -v docker >/dev/null 2>&1; then
+  engine=docker
+else
+  printf 'preflight infrastructure: neither Podman nor Docker is available\n' >&2
+  exit 79
+fi
+if [[ -n "${AURUM_OCI_ENGINE:-}" ]]; then
+  engine="$AURUM_OCI_ENGINE"
+  [[ "$engine" == docker || "$engine" == podman ]] || {
+    printf 'preflight error: AURUM_OCI_ENGINE must be docker or podman\n' >&2
     exit 1
   }
-  if [[ "${PREFLIGHT_RUN:-0}" == 1 ]]; then
-    set +e
-    if (( oci_accept == 1 )); then
-      (cd "$worktree" && ./.board/bin/oci-run --profile bootstrap-readonly-v1 --card "$card_id")
-    else
-      bash "$acceptance" AC-001
-    fi
-    acceptance_rc=$?
-    set -e
-    case "$acceptance_rc" in
-      0|1) ;;
-      3|69|79) printf 'preflight infrastructure: acceptance unavailable (exit %s)\n' "$acceptance_rc" >&2; exit 69 ;;
-      *) printf 'preflight error: acceptance setup failed (exit %s)\n' "$acceptance_rc" >&2; exit 1 ;;
-    esac
-  fi
+  command -v "$engine" >/dev/null 2>&1 || {
+    printf 'preflight infrastructure: requested OCI engine is unavailable: %s\n' "$engine" >&2
+    exit 79
+  }
 fi
 
-if [[ -n "$(git -C "$worktree" status --porcelain)" ]]; then
-  printf 'preflight error: worktree is dirty; validate an immutable candidate\n' >&2
+"$engine" image inspect "$image" >/dev/null 2>&1 || {
+  printf 'preflight infrastructure: pinned image is not present locally: %s\n' "$image" >&2
+  exit 79
+}
+
+runtime_probe='set -eu; command -v bash >/dev/null'
+required_tools='bash'
+if (( builder_preflight == 0 )) && grep -Eq 'command[[:space:]]+-v[[:space:]]+go|(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$acceptance"; then
+  runtime_probe="$runtime_probe; command -v go >/dev/null"
+  required_tools="$required_tools,go"
+fi
+set +e
+probe_output="$($engine run --rm --pull=never --network=none --read-only \
+  --user="$user" --cap-drop=ALL --security-opt=no-new-privileges \
+  --pids-limit=64 --memory=128m --cpus=0.5 \
+  --tmpfs '/tmp:rw,noexec,nosuid,nodev,size=8m' --entrypoint= \
+  "$image" bash -c "$runtime_probe" 2>&1)"
+probe_rc=$?
+set -e
+if (( probe_rc >= 125 )); then
+  printf 'preflight infrastructure: runtime probe could not start for %s: %s\n' "$image" "$probe_output" >&2
+  exit 79
+fi
+(( probe_rc == 0 )) || {
+  printf 'preflight error: profile %s lacks required runtime (%s)\n' "$profile" "$required_tools" >&2
   exit 1
+}
+
+if [[ "${PREFLIGHT_RUN:-0}" == 1 && "$builder_preflight" == 0 ]]; then
+  set +e
+  (cd "$worktree" && ./.board/bin/oci-run --profile "$profile" --card "$card_id")
+  acceptance_rc=$?
+  set -e
+  case "$acceptance_rc" in
+    0|1) ;;
+    3|69|79|124)
+      printf 'preflight infrastructure: acceptance unavailable (exit %s)\n' "$acceptance_rc" >&2
+      exit 69
+      ;;
+    *)
+      printf 'preflight error: acceptance setup failed (exit %s)\n' "$acceptance_rc" >&2
+      exit 1
+      ;;
+  esac
 fi
 
-printf 'preflight ok: %s validation=%s worktree=%s\n' "$card_id" "$validation" "$worktree"
+printf 'preflight ok: %s status=%s validation=%s profile=%s runtime=%s worktree=%s\n' \
+  "$card_id" "$status" "$validation" "$profile" "$required_tools" "$worktree"

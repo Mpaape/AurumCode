@@ -68,6 +68,13 @@ preflight no worktree limpo. Ele exige:
   smoke test real com `go` na mesma imagem;
 - worktree limpo e, com `PREFLIGHT_RUN=1`, exit real do acceptance.
 
+Para `ready`, o preflight de builder valida contrato, dependencias, posse,
+profile, lock, imagem e runtime base, mas nao exige ainda os artifacts de
+`paths` nem executa acceptance ausente. Reviewer/validator continuam exigindo
+todos os paths tracked, acceptance executavel e exit real. Essa distinção evita
+que cards novos fiquem impossíveis de despachar por ainda não terem sido
+construídos.
+
 Uma imagem Go sem `bash` nao passa: o runner executa a acceptance com `bash`.
 Uma imagem Bash sem Go nao passa para acceptance que chama Go. AUR-006 mostrou
 que detectar somente o nome da imagem ou somente o host nao e suficiente.
