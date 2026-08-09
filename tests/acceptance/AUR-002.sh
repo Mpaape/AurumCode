@@ -279,13 +279,13 @@ doc_example="$(awk '
 
 command -v go >/dev/null 2>&1 || infra 'missing tool: go; native legacy execution is unproven'
 work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a002-accept.XXXXXX")" || infra 'private acceptance directory unavailable'
-mkdir -p -- "$work/home" "$work/cache" "$work/go-cache" || infra 'writable Go workspace unavailable'
+mkdir -p -- "$work/home" "$work/cache" "$work/go-cache" "$work/go-tmp" || infra 'writable Go workspace unavailable'
 cleanup() { rm -rf -- "$work"; }
 trap cleanup EXIT INT TERM HUP
 
 integration_exit=0
 set +e
-HOME="$work/home" XDG_CACHE_HOME="$work/cache" GOCACHE="$work/go-cache" GOFLAGS=-p=1 GOMAXPROCS=1 GOTOOLCHAIN=local GOPROXY=off go run tests/integration/AUR-002.go >"$work/integration.stdout" 2>"$work/integration.stderr"
+HOME="$work/home" XDG_CACHE_HOME="$work/cache" GOCACHE="$work/go-cache" GOTMPDIR="$work/go-tmp" GOFLAGS=-p=1 GOMAXPROCS=1 GOTOOLCHAIN=local GOPROXY=off go run tests/integration/AUR-002.go >"$work/integration.stdout" 2>"$work/integration.stderr"
 integration_exit=$?
 set -e
 if (( integration_exit != 0 )); then
