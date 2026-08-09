@@ -27,9 +27,11 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
   capacidade do ambiente. O aceite terminou em exit 69 por falta de Go, e o
   profile `bootstrap-readonly-v1` e Bash-only apesar de o acceptance exigir Go.
   Exit 69 e bloqueio de infraestrutura, nunca GREEN e nunca `done`. Mesmo
-  depois de recuperar os paths declarados, o preflight continua bloqueando:
-  AUR-403 e o dono do profile Go e depende de AUR-006; nao criar profile local
-  nem iniciar review/validation para quebrar esse ciclo de especificacao.
+  depois de recuperar os paths declarados, o preflight continuou bloqueando.
+  O erro metodologico foi tratar isso como espera: o coordenador deve reparar o
+  DAG/write-set e executar o owner do profile. AUR-403 materializa de forma
+  checked-in o profile Go, seu schema, lock e registry; se nenhum owner existir,
+  crie ou corrija esse contrato antes de despachar o consumidor.
 - **AUR-002:** a acceptance hashava fixtures e metadata, mas nao executava o
   comportamento de `cmd/regenerate-docs`; uma mutacao real ficou verde. Uma
   acceptance que nao executa o entrypoint e um teste falso.
@@ -64,6 +66,9 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
    Card que declara camada ou comando Go deve materializar `go.mod` e `go.sum`
    em `paths`/`read_paths`; gerar modulo substituto no acceptance nao corrige o
    contrato de leitura.
+   Todo arquivo tracked nesses roots passa pelo mesmo scanner de credential
+   shapes do `oci-run`. Tokens sinteticos de teste devem ser montados em runtime
+   ou divididos no source; nunca afrouxe o scanner para aceitar um literal.
    Um card `ready` com todos os `paths` já rastreados é tratado automaticamente
    como candidato completo: acceptance executável, paths e exit nominal passam
    a ser obrigatórios antes do review.
@@ -90,15 +95,20 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
     `bash`, `go` quando exigido, rede none e dependencias em cache. Falta de
     ferramenta no host e exit 79; runtime ausente na imagem e erro de contrato.
     Nenhum dos dois pode virar `done`.
-11. Nao crie um profile OCI dentro de um card de feature para contornar um
-     profile ausente. O registry tem dono proprio: AUR-402; o profile Go tem
-     dono AUR-403. Respeite o DAG e espere esses cards, ou registre o bloqueio.
+11. Profile OCI ausente ou incapaz nao autoriza espera nem pedido ao usuario.
+    Localize e execute o owner de registry/schema/profile/lock; se o owner nao
+    for viavel, corrija `paths` e dependencias do card apropriado, rode o
+    pipeline e construa o profile checked-in. Nao use profile local/untracked.
+    Nesta reconstrucao, AUR-402 possui o registry e AUR-403 possui o profile Go.
 
 12. Ao alterar qualquer gate, runner ou skill do escritorio, rode
     `bash .board/tests/office-process-regression.sh`, `bash -n` nos scripts
     alterados, `python3 -B -m py_compile .board/bin/check-delivery-evidence.py`
     e `git diff --check`. Esse teste usa uma fixture Git temporaria e prova que
     o profile Bash-only passa para Bash, falha para Go e rejeita lock adulterado.
+    Acceptance que copia inputs read-only para staging deve tornar somente seu
+    `mktemp` gravavel no trap e ignorar cleanup idempotente; erro de remocao nao
+    pode sobrescrever um nominal verde.
 
 ## Fluxo de entrega
 
