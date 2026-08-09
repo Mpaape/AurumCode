@@ -80,6 +80,10 @@ preflight no worktree limpo. Ele exige:
   smoke test real com `go` na mesma imagem;
 - card com camada ou comando Go materializa `go.mod` e `go.sum` em
   `paths`/`read_paths`, sem modulo substituto criado pelo acceptance;
+- cada arquivo tracked em `paths`/`read_paths` passa pelo mesmo scanner de
+  credential shapes do `oci-run`. Fixture sintetica monta tokens em runtime ou
+  divide o literal no source; nunca desabilite ou allowliste o scanner para
+  fazer a materializacao passar;
 - worktree limpo e, com `PREFLIGHT_RUN=1`, exit real do acceptance.
 
 Para `ready`, o preflight de builder valida contrato, dependencias, posse,
@@ -102,9 +106,13 @@ Uma imagem Go sem `bash` nao passa: o runner executa a acceptance com `bash`.
 Uma imagem Bash sem Go nao passa para acceptance que chama Go. AUR-006 mostrou
 que detectar somente o nome da imagem ou somente o host nao e suficiente.
 
-Nao crie profile dentro de feature para contornar o DAG. AUR-402 e dono do
-registry; AUR-403 e dono do profile Go. Se o owner estiver bloqueado, registre o
-bloqueio e nao fabrique um profile local.
+Profile ausente ou incapaz e trabalho do coordenador, nao motivo para esperar o
+usuario. Antes do builder, localize o owner do registry/schema/profile/lock e o
+execute; se o contrato nao tiver owner viavel, repare `paths`, dependencia e
+DAG, rode o pipeline e construa os artefatos checked-in. Nunca fabrique apenas
+um profile local/untracked, mas tambem nunca deixe um consumidor parado quando
+o requisito pode ser materializado por um card owner. AUR-402 e dono do
+registry e AUR-403 e dono do profile Go nesta reconstrucao.
 
 Ao adicionar uma chave a registry ou um novo tipo de profile, prove antes do
 dispatch que o write-set inclui o registry canonico e um schema que aceita o
@@ -170,6 +178,10 @@ teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
   o limite e elimine recompilacoes identicas reutilizando cache privado entre
   mutacoes sequenciais. Nao repita o mesmo comando sem mudanca de hipotese,
   candidato ou instrumentacao.
+- Acceptance que copia inputs read-only para staging deve tornar sua propria
+  arvore temporaria gravavel no `trap` e nunca deixar erro de cleanup sobrescrever
+  um resultado nominal verde. O alvo do cleanup precisa ser o `mktemp` validado
+  e o cleanup deve ser idempotente.
 
 ## Progresso e continuidade
 

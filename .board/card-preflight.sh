@@ -2,6 +2,11 @@
 set -euo pipefail
 export LC_ALL=C
 
+# Keep this gate byte-for-byte aligned with .board/bin/oci-run. A credential-
+# shaped literal in any declared input would otherwise let a builder finish and
+# fail only when the complete candidate first reaches OCI materialization.
+readonly credential_pattern='(-----BEGIN[[:space:]][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})'
+
 # This is a dispatch gate, not a report generator. It deliberately repeats the
 # runtime checks performed by oci-run so a stale agent cannot turn an impossible
 # acceptance contract into a doing or validating card.
@@ -186,6 +191,23 @@ for read_path in "${read_paths[@]}"; do
       exit 1
     fi
   done
+done
+
+# oci-run materializes exactly the tracked files below paths/read_paths and
+# refuses credential-shaped bytes before starting the worker. Mirror that scan
+# during every dispatch so synthetic fixtures are generated at runtime (or
+# split in source) before implementation begins, while real-looking material
+# remains fail-closed.
+mapfile -d '' -t materialized_files < <(
+  git -C "$worktree" ls-files -z -- "${owned_paths[@]}" "${read_paths[@]}"
+)
+for materialized_path in "${materialized_files[@]}"; do
+  materialized_source="$worktree/$materialized_path"
+  [[ -f "$materialized_source" && ! -L "$materialized_source" ]] || continue
+  if grep -Eiq -- "$credential_pattern" "$materialized_source"; then
+    printf 'preflight error: credential pattern in declared materialized input: %s\n' "$materialized_path" >&2
+    exit 1
+  fi
 done
 
 acceptance="$worktree/tests/acceptance/$card_id.sh"

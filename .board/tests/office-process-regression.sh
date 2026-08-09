@@ -11,7 +11,7 @@ cleanup() { rm -rf -- "$fixture"; }
 trap cleanup EXIT INT TERM HUP
 
 mkdir -p "$fixture/.board/cards/doing" "$fixture/.board/cards/ready" "$fixture/.board/oci/profiles" \
-  "$fixture/.board/locks/oci" "$fixture/.board/bin" "$fixture/tests/acceptance"
+  "$fixture/.board/locks/oci" "$fixture/.board/bin" "$fixture/tests/acceptance" "$fixture/fixtures"
 cp -- "$root/.board/card-preflight.sh" "$fixture/.board/card-preflight.sh"
 cp -- "$root/.board/bin/oci-run" "$fixture/.board/bin/oci-run"
 chmod +x "$fixture/.board/card-preflight.sh" "$fixture/.board/bin/oci-run"
@@ -116,6 +116,39 @@ printf 'complete-ready-candidate\n'
 EOF
 chmod 0644 "$fixture/tests/acceptance/AUR-901.sh"
 
+cat >"$fixture/.board/cards/ready/AUR-902.md" <<'EOF'
+---
+id: AUR-902
+version: 1
+title: Materialized credential regression fixture
+status: ready
+validation: tested
+office: O00-governance
+depends_on: []
+paths: [tests/acceptance/AUR-902.sh]
+read_paths: [fixtures/AUR-902.txt]
+forbidden_paths: [.git, .env, secrets]
+---
+
+## Acceptance
+
+container_profile: `bootstrap-readonly-v1`
+accept: `./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-902`
+
+## Skeptical mutations
+
+### MUT-001
+
+- Change: remove the materialized-input credential gate.
+EOF
+cat >"$fixture/tests/acceptance/AUR-902.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'must-not-run\n'
+EOF
+chmod +x "$fixture/tests/acceptance/AUR-902.sh"
+printf '%s\n' '-----BEGIN PRIVATE KEY----- synthetic-fixture' >"$fixture/fixtures/AUR-902.txt"
+
 git -C "$fixture" init -q
 git -C "$fixture" add .
 git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
@@ -124,6 +157,16 @@ git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
 positive_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture")"
 [[ "$positive_output" == *'runtime=bash'* ]] || {
   printf 'regression error: nominal Bash profile did not pass preflight\n' >&2
+  exit 1
+}
+
+set +e
+credential_output="$(bash "$fixture/.board/card-preflight.sh" AUR-902 "$fixture" 2>&1)"
+credential_rc=$?
+set -e
+[[ "$credential_rc" == 1 && "$credential_output" == *'credential pattern in declared materialized input: fixtures/AUR-902.txt'* ]] || {
+  printf 'regression error: credential-shaped materialized input passed preflight\n' >&2
+  printf '%s\n' "$credential_output" >&2
   exit 1
 }
 
