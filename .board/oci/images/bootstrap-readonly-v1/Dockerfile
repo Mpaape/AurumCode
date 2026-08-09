@@ -12,4 +12,4 @@ ENV GOTOOLCHAIN=local \
     GOPROXY=off \
     GOSUMDB=off \
     GONOSUMDB=*
-ENTRYPOINT ["/usr/local/bin/bash"]
+ENTRYPOINT ["/bin/bash"]
