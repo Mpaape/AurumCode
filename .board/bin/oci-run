@@ -632,7 +632,7 @@ runtime_output="$($engine run --rm --pull=never --network=none --read-only \
   --tmpfs "$run_tmpfs" --entrypoint= "$image" bash -c "$runtime_probe" 2>&1)"
 runtime_status=$?
 set -e
-if (( runtime_status >= 125 )); then
+if (( runtime_status == 125 )); then
   die 69 "profile runtime probe failed to start for $image: $runtime_output"
 fi
 (( runtime_status == 0 )) ||
