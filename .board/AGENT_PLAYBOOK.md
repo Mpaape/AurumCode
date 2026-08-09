@@ -52,7 +52,9 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
 3. Crie um worktree limpo a partir do HEAD atual. Nao use o checkout do
    coordenador para construir ou validar. Todas as lanes, inclusive vazias,
    precisam existir nesse clone por arquivo rastreado; diretorio presente apenas
-   no checkout sujo nao prova que o pipeline e reproduzivel.
+   no checkout sujo nao prova que o pipeline e reproduzivel. Execute `oci-run`
+   com o cwd nesse worktree: chamar o script por path absoluto nao seleciona o
+   candidato, pois o runner resolve a raiz com `git rev-parse` no cwd.
 4. Rode `bash .board/pipeline.sh` e
    `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /caminho/do/worktree`.
    O preflight inspeciona a imagem digest-pinada e executa um smoke test dentro
