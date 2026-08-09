@@ -111,7 +111,10 @@ bloqueio e nao fabrique um profile local.
    RED. Para caracterizacao, prova GREEN, mutacao RED e restore GREEN.
 2. Builder implementa somente `paths`, executa baseline, mutacao e restore, e
    cria commit com identidade humana configurada, sem atribuicao de IA.
-3. Reviewer independente revisa o mesmo SHA imutavel, cada hunk, o contrato,
+3. Reviewer independente revisa o mesmo SHA imutavel ainda fora da fila ativa,
+   antes da integracao; depois da aprovacao o coordenador integra exatamente
+   esse SHA e move o card para `review`/`validating`,
+   cada hunk, o contrato,
    schema/parser, acceptance, paths, exits e fronteiras de seguranca.
 4. Validator executa o acceptance e as camadas declaradas no mesmo SHA e em
    worktree limpo. Exit 0 e evidencia; exit 69/79 e inconclusivo; exit 1 so e
