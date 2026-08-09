@@ -58,8 +58,7 @@ run_mutation(){
   cp "$repo_root/.board/schemas/container-profile.schema.json" "$run_dir/mutroot/.board/schemas/container-profile.schema.json"
   cp "$repo_root/tests/unit/AUR-402.go" "$run_dir/mutroot/tests/unit/AUR-402.go"; cp "$repo_root/go.mod" "$run_dir/mutroot/go.mod"; cp "$repo_root/go.sum" "$run_dir/mutroot/go.sum"
   printf 'package unit\nimport "testing"\nfunc TestAUR402Bridge(t *testing.T){TestAUR402(t)}\n' >"$run_dir/mutroot/tests/unit/bridge_test.go"
-  mkdir -p "$run_dir/mut-cache" "$run_dir/mut-tmp"
-  (cd "$run_dir/mutroot" && AURUMCODE_ROOT="$run_dir/mutroot" AURUM_A402_EXPECT_CODE="$code" GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOMAXPROCS=1 GOCACHE="$run_dir/mut-cache" GOTMPDIR="$run_dir/mut-tmp" go test -p 1 ./tests/unit -run '^TestAUR402Bridge$' -count=1) || fail "mutation:$code"
+  (cd "$run_dir/mutroot" && AURUMCODE_ROOT="$run_dir/mutroot" AURUM_A402_EXPECT_CODE="$code" GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOMAXPROCS=1 GOCACHE="$run_dir/shared-go-cache" GOTMPDIR="$run_dir/shared-go-tmp" go test -p 1 ./tests/unit -run '^TestAUR402Bridge$' -count=1) || fail "mutation:$code"
 }
 case "$selector" in
   AC-001) run_nominal; run_mutation duplicate-profile; run_mutation mutable-input; run_mutation unsafe-plan; printf '{"card":"%s","scenario":"%s","result":"valid","engine_invocations":0}\n' "$card" "$scenario" ;;
