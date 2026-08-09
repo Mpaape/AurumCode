@@ -78,6 +78,10 @@ preflight no worktree limpo. Ele exige:
 - profile registrado, lock existente, imagem digest-pinada e engine disponivel;
 - smoke test real da imagem pinada com `bash`; se o acceptance mencionar Go,
   smoke test real com `go` na mesma imagem;
+- candidato que publica profile OCI prova tambem cada imagem dos profiles que
+  possui, mesmo que seu proprio acceptance rode no bootstrap. O probe exige
+  `bash` porque `oci-run` sempre entra por Bash e exige Go quando o plano declara
+  command/cache Go; validar apenas JSON/lock nao prova profile executavel;
 - card com camada ou comando Go materializa `go.mod` e `go.sum` em
   `paths`/`read_paths`, sem modulo substituto criado pelo acceptance;
 - cada arquivo tracked em `paths`/`read_paths` passa pelo mesmo scanner de
@@ -105,6 +109,9 @@ de infraestrutura podem ser classificados como indisponibilidade.
 Uma imagem Go sem `bash` nao passa: o runner executa a acceptance com `bash`.
 Uma imagem Bash sem Go nao passa para acceptance que chama Go. AUR-006 mostrou
 que detectar somente o nome da imagem ou somente o host nao e suficiente.
+Exit 125 do engine antes do processo e infraestrutura; 126/127 por entrypoint ou
+ferramenta ausente dentro da imagem sao erro de contrato do profile, nao
+indisponibilidade para empurrar ao consumidor.
 
 Profile ausente ou incapaz e trabalho do coordenador, nao motivo para esperar o
 usuario. Antes do builder, localize o owner do registry/schema/profile/lock e o

@@ -318,7 +318,7 @@ probe_output="$($engine run --rm --pull=never --network=none --read-only \
   "$image" bash -c "$runtime_probe" 2>&1)"
 probe_rc=$?
 set -e
-if (( probe_rc >= 125 )); then
+if (( probe_rc == 125 )); then
   printf 'preflight infrastructure: runtime probe could not start for %s: %s\n' "$image" "$probe_output" >&2
   exit 79
 fi
@@ -326,6 +326,72 @@ fi
   printf 'preflight error: profile %s lacks required runtime (%s)\n' "$profile" "$required_tools" >&2
   exit 1
 }
+
+# A profile-owner card is accepted through an already-registered bootstrap
+# profile, so probing only the acceptance profile misses an unusable image in
+# the profile being published. Once the candidate is complete, probe every
+# owned profile document with the same Bash entrypoint contract used by
+# oci-run, plus Go when its plan declares a Go command/cache.
+if (( builder_preflight == 0 )); then
+  for owned_profile_path in "${materialized_files[@]}"; do
+    case "$owned_profile_path" in
+      .board/oci/profiles/*.json) ;;
+      *) continue ;;
+    esac
+    owned_profile_file="$worktree/$owned_profile_path"
+    owned_profile_name="$(sed -n 's/^[[:space:]]*"profile"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$owned_profile_file")"
+    [[ -n "$owned_profile_name" && "$owned_profile_name" != "$profile" ]] || continue
+    owned_profile_lock="$(sed -n 's/^[[:space:]]*"lock"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$owned_profile_file")"
+    owned_user="$(sed -n 's/^[[:space:]]*"user"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$owned_profile_file")"
+    owned_lock_digest="$(sed -n 's/^[[:space:]]*"lock_digest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$owned_profile_file")"
+    [[ "$owned_profile_name" =~ ^[a-z0-9][a-z0-9.-]{2,63}$ &&
+       "$owned_profile_lock" == ".board/locks/oci/$owned_profile_name.lock.json" &&
+       "$owned_user" =~ ^[1-9][0-9]{2,6}:[1-9][0-9]{2,6}$ ]] || {
+      printf 'preflight error: owned profile contract is invalid: %s\n' "$owned_profile_path" >&2
+      exit 1
+    }
+    owned_lock_file="$worktree/$owned_profile_lock"
+    [[ -f "$owned_lock_file" && ! -L "$owned_lock_file" ]] || {
+      printf 'preflight error: owned profile lock is missing: %s\n' "$owned_profile_lock" >&2
+      exit 1
+    }
+    owned_lock_profile="$(sed -n 's/^[[:space:]]*"profile"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$owned_lock_file")"
+    owned_image="$(sed -n 's/^[[:space:]]*"image"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$owned_lock_file")"
+    owned_actual_lock_digest="sha256:$(sha256sum -- "$owned_lock_file" | awk '{print $1}')"
+    [[ "$owned_lock_profile" == "$owned_profile_name" &&
+       "$owned_lock_digest" == "$owned_actual_lock_digest" &&
+       "$owned_image" =~ ^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]] || {
+      printf 'preflight error: owned profile lock binding is invalid: %s\n' "$owned_profile_name" >&2
+      exit 1
+    }
+    "$engine" image inspect "$owned_image" >/dev/null 2>&1 || {
+      printf 'preflight infrastructure: owned profile image is not present locally: %s\n' "$owned_image" >&2
+      exit 79
+    }
+    owned_runtime_probe='set -eu; command -v bash >/dev/null'
+    owned_required_tools='bash'
+    if grep -Eq '"module_cache"|"command"[[:space:]]*:[[:space:]]*\[[[:space:]]*"go"' "$owned_profile_file"; then
+      owned_runtime_probe="$owned_runtime_probe; command -v go >/dev/null"
+      owned_required_tools='bash,go'
+    fi
+    set +e
+    owned_probe_output="$($engine run --rm --pull=never --network=none --read-only \
+      --user="$owned_user" --cap-drop=ALL --security-opt=no-new-privileges \
+      --pids-limit=64 --memory=128m --cpus=0.5 \
+      --tmpfs '/tmp:rw,nosuid,nodev,size=128m' --entrypoint= \
+      "$owned_image" bash -c "$owned_runtime_probe" 2>&1)"
+    owned_probe_rc=$?
+    set -e
+    if (( owned_probe_rc == 125 )); then
+      printf 'preflight infrastructure: owned profile runtime probe could not start for %s: %s\n' "$owned_image" "$owned_probe_output" >&2
+      exit 79
+    fi
+    (( owned_probe_rc == 0 )) || {
+      printf 'preflight error: owned profile %s lacks required runtime (%s)\n' "$owned_profile_name" "$owned_required_tools" >&2
+      exit 1
+    }
+  done
+fi
 
 if [[ "${PREFLIGHT_RUN:-0}" == 1 && "$builder_preflight" == 0 ]]; then
   set +e

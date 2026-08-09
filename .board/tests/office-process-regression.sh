@@ -54,6 +54,25 @@ cat >"$fixture/.board/oci/profiles/bootstrap-readonly-v1.json" <<EOF
 "max_input_bytes": 67108864
 }
 EOF
+cat >"$fixture/.board/locks/oci/owned-go-v1.lock.json" <<'EOF'
+{
+"schema": "aurum.oci-image-lock",
+"version": 1,
+"profile": "owned-go-v1",
+"image": "bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831"
+}
+EOF
+owned_lock_digest="sha256:$(sha256sum -- "$fixture/.board/locks/oci/owned-go-v1.lock.json" | awk '{print $1}')"
+cat >"$fixture/.board/oci/profiles/owned-go-v1.json" <<EOF
+{
+"profile": "owned-go-v1",
+"lock": ".board/locks/oci/owned-go-v1.lock.json",
+"lock_digest": "$owned_lock_digest",
+"user": "65534:65534",
+"module_cache": "/go/pkg/mod",
+"command": ["go", "test", "-mod=readonly", "./..."]
+}
+EOF
 cat >"$fixture/.board/cards/doing/AUR-900.md" <<'EOF'
 ---
 id: AUR-900
@@ -149,6 +168,37 @@ EOF
 chmod +x "$fixture/tests/acceptance/AUR-902.sh"
 printf '%s\n' '-----BEGIN PRIVATE KEY----- synthetic-fixture' >"$fixture/fixtures/AUR-902.txt"
 
+cat >"$fixture/.board/cards/ready/AUR-903.md" <<'EOF'
+---
+id: AUR-903
+version: 1
+title: Owned profile runtime regression fixture
+status: ready
+validation: tested
+office: O00-governance
+depends_on: []
+paths: [.board/oci/profiles/owned-go-v1.json, .board/locks/oci/owned-go-v1.lock.json, tests/acceptance/AUR-903.sh]
+forbidden_paths: [.git, .env, secrets]
+---
+
+## Acceptance
+
+container_profile: `bootstrap-readonly-v1`
+accept: `./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-903`
+
+## Skeptical mutations
+
+### MUT-001
+
+- Change: publish an owned profile whose pinned image lacks its declared runtime.
+EOF
+cat >"$fixture/tests/acceptance/AUR-903.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'must-not-reach-acceptance\n'
+EOF
+chmod +x "$fixture/tests/acceptance/AUR-903.sh"
+
 git -C "$fixture" init -q
 git -C "$fixture" add .
 git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
@@ -167,6 +217,49 @@ set -e
 [[ "$credential_rc" == 1 && "$credential_output" == *'credential pattern in declared materialized input: fixtures/AUR-902.txt'* ]] || {
   printf 'regression error: credential-shaped materialized input passed preflight\n' >&2
   printf '%s\n' "$credential_output" >&2
+  exit 1
+}
+
+set +e
+owned_profile_output="$(bash "$fixture/.board/card-preflight.sh" AUR-903 "$fixture" 2>&1)"
+owned_profile_rc=$?
+set -e
+[[ "$owned_profile_rc" == 1 && "$owned_profile_output" == *'owned profile owned-go-v1 lacks required runtime (bash,go)'* ]] || {
+  printf 'regression error: complete profile-owner candidate did not probe its published runtime\n' >&2
+  printf '%s\n' "$owned_profile_output" >&2
+  exit 1
+}
+
+mkdir -p "$fixture/fakebin"
+cat >"$fixture/fakebin/docker" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == image && "${2:-}" == inspect ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == run ]]; then
+  printf 'exec: "bash": executable file not found in PATH\n' >&2
+  exit 127
+fi
+exit 125
+EOF
+chmod +x "$fixture/fakebin/docker"
+git -C "$fixture" add fakebin/docker
+git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
+  commit -q -m fake-engine-runtime-classification
+set +e
+missing_bash_preflight="$(PATH="$fixture/fakebin:$PATH" AURUM_OCI_ENGINE=docker bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture" 2>&1)"
+missing_bash_preflight_rc=$?
+missing_bash_runner="$(cd "$fixture" && PATH="$fixture/fakebin:$PATH" AURUM_OCI_ENGINE=docker ./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-900 2>&1)"
+missing_bash_runner_rc=$?
+set -e
+[[ "$missing_bash_preflight_rc" == 1 && "$missing_bash_preflight" == *'lacks required runtime (bash)'* ]] || {
+  printf 'regression error: missing Bash inside image was misclassified as infrastructure\n' >&2
+  printf '%s\n' "$missing_bash_preflight" >&2
+  exit 1
+}
+[[ "$missing_bash_runner_rc" == 65 && "$missing_bash_runner" == *'lacks required acceptance runtime: bash'* ]] || {
+  printf 'regression error: oci-run misclassified missing Bash as infrastructure\n' >&2
+  printf '%s\n' "$missing_bash_runner" >&2
   exit 1
 }
 

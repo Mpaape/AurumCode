@@ -63,6 +63,10 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
    dela. A imagem precisa conter `bash` porque o runner chama `bash`; se o
    acceptance usa Go, a mesma imagem precisa conter `go`. Falta de runtime e
    contrato invalido, nao um RED que possa ser empurrado ao validator.
+   Em card owner de profile, o candidato completo também prova cada profile que
+   publica, mesmo que o acceptance rode no bootstrap: Bash é sempre obrigatório
+   e Go é obrigatório quando command/cache declara Go. JSON, schema e lock
+   coerentes não substituem esse probe executável.
    Card que declara camada ou comando Go deve materializar `go.mod` e `go.sum`
    em `paths`/`read_paths`; gerar modulo substituto no acceptance nao corrige o
    contrato de leitura.
@@ -95,6 +99,8 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
     `bash`, `go` quando exigido, rede none e dependencias em cache. Falta de
     ferramenta no host e exit 79; runtime ausente na imagem e erro de contrato.
     Nenhum dos dois pode virar `done`.
+    Exit 125 antes do processo é infraestrutura; 126/127 porque o entrypoint ou
+    uma ferramenta não existe dentro da imagem são erro do contrato do profile.
 11. Profile OCI ausente ou incapaz nao autoriza espera nem pedido ao usuario.
     Localize e execute o owner de registry/schema/profile/lock; se o owner nao
     for viavel, corrija `paths` e dependencias do card apropriado, rode o
