@@ -49,6 +49,8 @@ nao permitir que uma sessao curta continue uma abordagem ja condenada.
   despachar. Nunca duplique builder ou worktree.
 - Cada builder usa worktree proprio e devolve patch mais saida bruta; nao move
   card, nao aprova o proprio trabalho e nao escreve evidencia final.
+- Toda lane vazia permanece representada por arquivo rastreado; valide o
+  pipeline em clone limpo, pois diretorio local nao e artefato Git.
 - O checkout coordenador pode permanecer sujo. Toda acceptance, review e
   validacao final rodam em worktree limpo do SHA candidato.
 - Use a maior frota segura que a fila e os recursos realmente suportam; nao
