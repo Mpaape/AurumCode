@@ -292,7 +292,7 @@ func classifySecurityViolation(fields map[string]json.RawMessage) string {
 		"memory_mb":          {1, 256},
 		"cpu_millis":         {1, 1000},
 		"pids_limit":         {1, 128},
-		"tmpfs_mb":           {1, 32},
+		"tmpfs_mb":           {1, 128},
 		"stdout_limit_bytes": {1, 65536},
 		"stderr_limit_bytes": {1, 65536},
 		"max_input_files":    {1, 10000},
@@ -366,7 +366,7 @@ func validateProfile(profile Profile) string {
 	if !digestPattern.MatchString(profile.LockDigest) || !userPattern.MatchString(profile.User) {
 		return "schema_invalid"
 	}
-	if profile.Network != "none" || profile.Pull != "never" || profile.Tmpfs != "rw,noexec,nosuid,nodev" {
+	if profile.Network != "none" || profile.Pull != "never" || profile.Tmpfs != "rw,nosuid,nodev" {
 		return "schema_invalid"
 	}
 	if profile.CapDrop != "ALL" || profile.CapAdd != "none" || profile.Mounts != "none" || profile.Devices != "none" {
@@ -450,7 +450,7 @@ func strictSchema(data []byte) bool {
 		"mounts":   "none",
 		"devices":  "none",
 		"pull":     "never",
-		"tmpfs":    "rw,noexec,nosuid,nodev",
+		"tmpfs":    "rw,nosuid,nodev",
 	} {
 		if stringValue(propertyRaw(properties, key, "const")) != expected {
 			return false
@@ -476,7 +476,7 @@ func strictSchema(data []byte) bool {
 		"memory_mb":          {1, 256},
 		"cpu_millis":         {1, 1000},
 		"pids_limit":         {1, 128},
-		"tmpfs_mb":           {1, 32},
+		"tmpfs_mb":           {1, 128},
 		"stdout_limit_bytes": {1, 65536},
 		"stderr_limit_bytes": {1, 65536},
 		"max_input_files":    {1, 10000},

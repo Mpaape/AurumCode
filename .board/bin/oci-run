@@ -18,7 +18,7 @@ readonly bootstrap_cpu_millis=1000
 readonly bootstrap_memory='256m'
 readonly bootstrap_memory_mb=256
 readonly bootstrap_pids_limit=128
-readonly bootstrap_tmpfs='/tmp:rw,noexec,nosuid,nodev,size=32m'
+readonly bootstrap_tmpfs='/tmp:rw,nosuid,nodev,size=128m'
 readonly bootstrap_stdout_limit=65536
 readonly bootstrap_stderr_limit=65536
 readonly bootstrap_timeout_seconds=120
@@ -42,7 +42,7 @@ readonly floor_pids_limit=16
 readonly floor_tmpfs_mb=8
 readonly floor_output_limit=4096
 readonly max_registry_document_bytes=65536
-readonly required_tmpfs_options='rw,noexec,nosuid,nodev'
+readonly required_tmpfs_options='rw,nosuid,nodev'
 readonly digest_pinned_image_pattern='^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$'
 readonly non_root_user_pattern='^[1-9][0-9]{2,6}:[1-9][0-9]{2,6}$'
 # Single source of truth for the credential shape gate. The same expression seals the
@@ -59,6 +59,7 @@ container_id=''
 materializer_id=''
 derived_image=''
 run_root=''
+card_scan=''
 
 # Execution plan. Every field is filled in by resolve_profile and then re-validated by
 # assert_hardened_plan; none of them has a usable default.
@@ -104,6 +105,9 @@ cleanup() {
   if [[ -n "$cleanup_root" && "$cleanup_root" == "${TMPDIR:-/tmp}/aurum-oci."* && -d "$cleanup_root" && ! -L "$cleanup_root" ]]; then
     chmod -R u+w "$cleanup_root" >/dev/null 2>&1
     rm -rf -- "$cleanup_root"
+  fi
+  if [[ -n "${card_scan:-}" && -f "$card_scan" && ! -L "$card_scan" ]]; then
+    rm -f -- "$card_scan"
   fi
 }
 
@@ -489,7 +493,7 @@ assert_hardened_plan() {
   [[ "$run_user" =~ $non_root_user_pattern ]] ||
     die 65 'resolved plan does not select a non-root numeric user'
   [[ "$run_tmpfs" == "/tmp:${required_tmpfs_options},size="*'m' ]] ||
-    die 65 'resolved plan does not mount /tmp noexec, nosuid and nodev'
+    die 65 'resolved plan does not mount bounded /tmp without host access'
   [[ "$run_memory" =~ ^[1-9][0-9]*m$ ]] || die 65 'resolved plan does not bound memory'
   [[ "$run_cpus" =~ ^(0|[1-9][0-9]*)(\.[0-9]{1,3})?$ ]] ||
     die 65 'resolved plan does not bound CPU'
@@ -547,9 +551,15 @@ repo_root="$(git rev-parse --show-toplevel)"
 resolve_profile "$profile"
 assert_hardened_plan
 
-mapfile -d '' -t card_files < <(
-  find "$repo_root/.board/cards" -mindepth 2 -maxdepth 2 -type f -name "$card.md" -print0 | sort -z
-)
+card_scan="$(mktemp "${TMPDIR:-/tmp}/aurum-oci-card.XXXXXX")"
+if ! find "$repo_root/.board/cards" -mindepth 2 -maxdepth 2 -type f -name "$card.md" -print0 >"$card_scan"; then
+  rm -f -- "$card_scan"
+  card_scan=''
+  die 69 'card scan failed'
+fi
+mapfile -d '' -t card_files <"$card_scan"
+rm -f -- "$card_scan"
+card_scan=''
 [[ "${#card_files[@]}" -eq 1 ]] || die 66 "expected exactly one card spec for $card"
 card_file="${card_files[0]}"
 
@@ -602,6 +612,31 @@ elif command -v docker >/dev/null 2>&1; then
 else
   die 79 'inconclusive: neither Podman nor Docker is available'
 fi
+
+# The runner always invokes the card acceptance through bash. A profile that can
+# be parsed but cannot execute that interpreter is not a usable profile. Go is
+# checked from the acceptance source as well; this closes the exact failure mode
+# where a Bash-only bootstrap image was assigned to a Go acceptance.
+runtime_probe='set -eu; command -v bash >/dev/null'
+runtime_tools='bash'
+if grep -Eq 'command[[:space:]]+-v[[:space:]]+go|(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$repo_root/$test_path"; then
+  runtime_probe="$runtime_probe; command -v go >/dev/null"
+  runtime_tools="$runtime_tools,go"
+fi
+"$engine" image inspect "$image" >/dev/null 2>&1 ||
+  die 79 "inconclusive: pinned profile image is not present locally: $image"
+set +e
+runtime_output="$($engine run --rm --pull=never --network=none --read-only \
+  --user="$run_user" --cap-drop=ALL --security-opt=no-new-privileges \
+  --pids-limit="$run_pids_limit" --memory="$run_memory" --cpus="$run_cpus" \
+  --tmpfs "$run_tmpfs" --entrypoint= "$image" bash -c "$runtime_probe" 2>&1)"
+runtime_status=$?
+set -e
+if (( runtime_status >= 125 )); then
+  die 69 "profile runtime probe failed to start for $image: $runtime_output"
+fi
+(( runtime_status == 0 )) ||
+  die 65 "profile $profile lacks required acceptance runtime: $runtime_tools"
 
 run_root="$(mktemp -d "${TMPDIR:-/tmp}/aurum-oci.XXXXXX")"
 [[ "$run_root" == "${TMPDIR:-/tmp}/aurum-oci."* && -d "$run_root" && ! -L "$run_root" ]] ||

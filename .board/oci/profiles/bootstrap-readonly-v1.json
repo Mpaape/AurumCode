@@ -11,7 +11,7 @@
 "mounts": "none",
 "devices": "none",
 "pull": "never",
-"tmpfs": "rw,noexec,nosuid,nodev",
+"tmpfs": "rw,nosuid,nodev",
 "read_only_rootfs": true,
 "no_new_privileges": true,
 "privileged": false,
