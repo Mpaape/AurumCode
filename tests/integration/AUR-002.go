@@ -211,13 +211,28 @@ func runAUR002Legacy(root, input, overlayPath string) (aur002Observed, error) {
 	}
 	summary := aur002Summary(stderr.String())
 	if summary == "" {
-		return observed, errors.New("AUR-002: legacy command emitted no aurumcode summary")
+		return observed, fmt.Errorf("AUR-002: legacy command emitted no aurumcode summary for input %q: %s", input, aur002Diagnostic(stderr.String()))
 	}
 	observed.stderr = strings.ReplaceAll(summary+"\n", "output="+output, "output=/tmp/aurum-a002-output")
 	if err := verifyAUR002GeneratedEffects(output); err != nil {
 		return observed, err
 	}
 	return observed, nil
+}
+
+func aur002Diagnostic(stderr string) string {
+	const limit = 1024
+	clean := strings.TrimSpace(stderr)
+	clean = strings.ReplaceAll(clean, "\n", " ")
+	clean = strings.ReplaceAll(clean, "\r", " ")
+	clean = regexp.MustCompile(`/tmp/[A-Za-z0-9._/-]+`).ReplaceAllString(clean, "<tmp>")
+	if clean == "" {
+		return "stderr empty"
+	}
+	if len(clean) > limit {
+		return clean[:limit] + "..."
+	}
+	return clean
 }
 
 func runAUR002AcceptanceLeaf(root, id string) (aur002Observed, error) {
