@@ -72,7 +72,7 @@ func ValidateRegistryAUR402(root string, document []byte) (string, string) {
 	if !decodeSingleAUR402(document, &r) {
 		return "", "schema-invalid"
 	}
-	if r.Schema != "aurum.profile-registry" || r.Version != 1 || len(r.Profiles) != 2 {
+	if r.Schema != "aurum.profile-registry" || r.Version != 1 || len(r.Profiles) < 2 {
 		return "", "schema-invalid"
 	}
 	keys := make([]string, len(r.Profiles))
@@ -89,8 +89,17 @@ func ValidateRegistryAUR402(root string, document []byte) (string, string) {
 		if i > 0 && keys[i-1] >= e.Key {
 			return "", "order-invalid"
 		}
-		if e.Key != "bootstrap-readonly-v1" && e.Key != "registry-v1" {
+		if e.Key != "bootstrap-readonly-v1" && e.Key != "registry-v1" && e.Key != "go-unit-offline-v1" {
 			return "", "profile-unregistered"
+		}
+		if e.Key == "go-unit-offline-v1" {
+			if e.Schema != ".board/schemas/go-unit-offline-profile.schema.json" || e.Lock != ".board/locks/oci/go-unit-offline-v1.lock.json" {
+				return "", "unsafe-plan"
+			}
+			if !digestAUR402.MatchString(e.SchemaDigest) || !digestAUR402.MatchString(e.LockDigest) || !digestAUR402.MatchString(e.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+			continue
 		}
 		if e.Schema != ".board/schemas/container-profile.schema.json" || strings.Contains(e.Schema, "..") || strings.Contains(e.Schema, "//") || e.Lock != ".board/locks/oci/registry-v1.lock.json" || strings.Contains(e.Lock, "..") || strings.Contains(e.Lock, "//") {
 			return "", "unsafe-plan"
