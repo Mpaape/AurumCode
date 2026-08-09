@@ -84,9 +84,9 @@ func TestAUR006RejectsUnknownAndDuplicateFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("schema unreadable: %v", err)
 	}
-	lock := []byte(`{"schema":"aurum.oci-image-lock","version":1,"profile":"bootstrap-readonly-v1","image":"bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831"}`)
+	lock := []byte(`{"schema":"aurum.oci-image-lock","version":1,"profile":"bootstrap-readonly-v1","image":"aurum-bootstrap-go-bash@sha256:ad8568bfa8be1aa49a7a72791a7d6c36214c7e86d94be9b1f6225f5e6baaccd9"}`)
 
-	profileJSON := `{"schema":"aurum.container-profile","version":1,"profile":"bootstrap-readonly-v1","lock":".board/locks/oci/bootstrap-readonly-v1.lock.json","lock_digest":"sha256:cf03c2e277e797e34c7f01db944e20e98a46cd74f1351846cb86d6d1f908e98c","network":"none","user":"65534:65534","cap_drop":"ALL","cap_add":"none","mounts":"none","devices":"none","pull":"never","tmpfs":"rw,noexec,nosuid,nodev","read_only_rootfs":true,"no_new_privileges":true,"privileged":false,"timeout_seconds":120,"memory_mb":256,"cpu_millis":1000,"pids_limit":128,"tmpfs_mb":32,"stdout_limit_bytes":65536,"stderr_limit_bytes":65536,"max_input_files":10000,"max_input_bytes":67108864}`
+	profileJSON := `{"schema":"aurum.container-profile","version":1,"profile":"bootstrap-readonly-v1","lock":".board/locks/oci/bootstrap-readonly-v1.lock.json","lock_digest":"sha256:9c4698c4be82633e0e3ff1f867488f4f28083e09eafd20ab5d23331f2eb188eb","network":"none","user":"65534:65534","cap_drop":"ALL","cap_add":"none","mounts":"none","devices":"none","pull":"never","tmpfs":"rw,noexec,nosuid,nodev","read_only_rootfs":true,"no_new_privileges":true,"privileged":false,"timeout_seconds":120,"memory_mb":256,"cpu_millis":1000,"pids_limit":128,"tmpfs_mb":32,"stdout_limit_bytes":65536,"stderr_limit_bytes":65536,"max_input_files":10000,"max_input_bytes":67108864}`
 	unknown := profile.ValidateBootstrapProfile([]byte(profileJSON[:len(profileJSON)-1]+`,"unexpected":true}`), schema, lock)
 	if unknown.Code != "schema_invalid" || unknown.EngineInvocations != 0 {
 		t.Fatalf("unknown field result=%+v", unknown)
@@ -144,10 +144,10 @@ func TestAUR006RejectsMalformedValuesAndUnsafeImages(t *testing.T) {
 	}
 
 	malformedImageLock := []byte(strings.Replace(string(defaultLock),
-		`"image": "bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831"`,
+		`"image": "aurum-bootstrap-go-bash@sha256:ad8568bfa8be1aa49a7a72791a7d6c36214c7e86d94be9b1f6225f5e6baaccd9"`,
 		`"image": null`, 1))
 	malformedImageDocument := replaceAUR006(t, profileJSON,
-		`"lock_digest":"sha256:cf03c2e277e797e34c7f01db944e20e98a46cd74f1351846cb86d6d1f908e98c"`,
+		`"lock_digest":"sha256:9c4698c4be82633e0e3ff1f867488f4f28083e09eafd20ab5d23331f2eb188eb"`,
 		`"lock_digest":"`+digestAUR006(malformedImageLock)+`"`)
 	malformedImageResult := profile.ValidateBootstrapProfile([]byte(malformedImageDocument), schema, malformedImageLock)
 	if malformedImageResult.Code != "lock_manifest_invalid" || malformedImageResult.Status != "invalid" || malformedImageResult.EngineInvocations != 0 {
@@ -164,10 +164,10 @@ func TestAUR006RejectsMalformedValuesAndUnsafeImages(t *testing.T) {
 		name = strings.ReplaceAll(name, "@", "_")
 		t.Run("unsafe image "+name, func(t *testing.T) {
 			mutatedLock := []byte(strings.Replace(string(defaultLock),
-				"bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831",
+				"aurum-bootstrap-go-bash@sha256:ad8568bfa8be1aa49a7a72791a7d6c36214c7e86d94be9b1f6225f5e6baaccd9",
 				image, 1))
 			document := replaceAUR006(t, profileJSON,
-				`"lock_digest":"sha256:cf03c2e277e797e34c7f01db944e20e98e46cd74f1351846cb86d6d1f908e98c"`,
+				`"lock_digest":"sha256:9c4698c4be82633e0e3ff1f867488f4f28083e09eafd20ab5d23331f2eb188eb"`,
 				`"lock_digest":"`+digestAUR006(mutatedLock)+`"`)
 			result := profile.ValidateBootstrapProfile([]byte(document), schema, mutatedLock)
 			if result.Code != "image_digest_required" || result.Status != "invalid" || result.EngineInvocations != 0 {
