@@ -19,7 +19,7 @@
 "memory_mb": 256,
 "cpu_millis": 1000,
 "pids_limit": 128,
-"tmpfs_mb": 32,
+"tmpfs_mb": 128,
 "stdout_limit_bytes": 65536,
 "stderr_limit_bytes": 65536,
 "max_input_files": 10000,
