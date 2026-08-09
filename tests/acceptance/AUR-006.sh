@@ -94,6 +94,7 @@ run_go_test() {
     if go_test_infrastructure "$output"; then
       infra "go_test_unavailable:${label}:${test_exit}"
     fi
+    sed -n '1,80p' "$output" >&2
     fail "go_test_failed:${label}:${test_exit}"
   fi
   rm -f -- "$output"
