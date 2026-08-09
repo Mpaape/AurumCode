@@ -189,7 +189,7 @@ func runAUR002Legacy(root, input, overlayPath string) (aur002Observed, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = root
-	cmd.Env = aur002Environment(bin, source, output)
+	cmd.Env = aur002Environment(bin, source, output, filepath.Join(tempRoot, "go-cache"))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -330,7 +330,7 @@ func verifyAUR002PipelineMutation(root string) error {
 	return nil
 }
 
-func aur002Environment(bin, source, output string) []string {
+func aur002Environment(bin, source, output, goCache string) []string {
 	keep := make([]string, 0, len(os.Environ()))
 	for _, item := range os.Environ() {
 		key, _, ok := strings.Cut(item, "=")
@@ -343,7 +343,7 @@ func aur002Environment(bin, source, output string) []string {
 		}
 		keep = append(keep, item)
 	}
-	return append(keep, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AURUMCODE_SOURCE_DIR="+source, "AURUMCODE_OUTPUT_DIR="+output, "AURUMCODE_DOCS_DIR="+output, "AURUMCODE_INCREMENTAL=0", "AURUMCODE_VALIDATE_JEKYLL=0", "AURUMCODE_DEPLOY_GH_PAGES=0", "GOTOOLCHAIN=local", "GOPROXY=off", "GOCACHE=/tmp/aurum-a002-go-cache")
+	return append(keep, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AURUMCODE_SOURCE_DIR="+source, "AURUMCODE_OUTPUT_DIR="+output, "AURUMCODE_DOCS_DIR="+output, "AURUMCODE_INCREMENTAL=0", "AURUMCODE_VALIDATE_JEKYLL=0", "AURUMCODE_DEPLOY_GH_PAGES=0", "GOTOOLCHAIN=local", "GOPROXY=off", "GOCACHE="+goCache)
 }
 
 func aur002Summary(stderr string) string {
