@@ -1,0 +1,22 @@
+{
+"schema": "aurum.profile-registry",
+"version": 1,
+"profiles": [
+  {
+    "key": "bootstrap-readonly-v1",
+    "schema": ".board/schemas/container-profile.schema.json",
+    "schema_digest": "sha256:4219444b921f34a0040cb29972c1984ee5e41a91608f3d78a9398eadded0bf62",
+    "lock": ".board/locks/oci/registry-v1.lock.json",
+    "lock_digest": "sha256:974682a3c8aff3309302864b2acf503f216882d9a6014b1d629043bfcff56967",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
+    "key": "registry-v1",
+    "schema": ".board/schemas/container-profile.schema.json",
+    "schema_digest": "sha256:4219444b921f34a0040cb29972c1984ee5e41a91608f3d78a9398eadded0bf62",
+    "lock": ".board/locks/oci/registry-v1.lock.json",
+    "lock_digest": "sha256:974682a3c8aff3309302864b2acf503f216882d9a6014b1d629043bfcff56967",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  }
+]
+}
