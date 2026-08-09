@@ -26,7 +26,7 @@ fail() {
   exit 1
 }
 
-for tool in awk grep mktemp rm sha256sum wc; do
+for tool in awk go grep mktemp rm sha256sum wc; do
   command -v "$tool" >/dev/null 2>&1 || infra "missing tool: $tool"
 done
 
@@ -152,35 +152,33 @@ verdict="$({
 
 [[ -n "$verdict" ]] || fail vectors-invalid 'no vectors were parsed'
 
-schema_has_contract() {
-  local file="$1"
-  grep -Fqx '  "additionalProperties": false,' "$file" || return 1
-  grep -Fq '"outcome": {' "$file" || return 1
-  grep -Fq '"mutation": {' "$file" || return 1
-  grep -Fq '"$ref": "#/$defs/mutation"' "$file" || return 1
-  grep -Fq '"relative_posix": true' "$file" || return 1
-  grep -Fq '"reject_whitespace": true' "$file" || return 1
-  grep -Fq '"reject_empty_components": true' "$file" || return 1
-  grep -Fq '"relation": "no-equal-or-ancestor"' "$file" || return 1
-  awk '
-    /"required": \[/ { in_required=1; next }
-    in_required && /^  \],/ { exit }
-    in_required && /"mutation"/ { found=1 }
-    END { exit(found ? 0 : 1) }
-  ' "$file"
-}
-
-schema_has_contract "$schema" || fail schema-contract-mismatch 'schema does not declare the atomic contract'
-schema_digest="sha256:$(sha256sum -- "$schema" | awk '{print $1}')" || infra 'schema digest failed'
-scratch="$(mktemp -d /tmp/aur003-accept.XXXXXX)" || infra 'temporary directory unavailable'
+scratch="$(mktemp -d "${TMPDIR:-/tmp}/aur003-accept.XXXXXX")" || infra 'temporary directory unavailable'
 trap 'rm -rf -- "$scratch"' EXIT
-mutated="$scratch/mutated-schema.json"
-awk '!removed && /^    "mutation"[,]?$/ { removed=1; next } { print }' "$schema" >"$mutated" || infra 'mutation workspace unavailable'
-if schema_has_contract "$mutated"; then
-  fail mutation-undetected 'removing mutation from the schema stayed green'
-fi
-schema_has_contract "$schema" || fail restore-failed 'schema did not return to GREEN after mutation'
+runner="$scratch/aur003-unit"
+go build -o "$runner" "$unit" || infra 'TaskSpec loader compilation failed'
+observed=0
 vector_count="$(awk '/^  - id: / { count++ } END { print count + 0 }' "$vectors")" || infra 'vector count failed'
-(( vector_count == 6 )) || fail vector-count-mismatch 'acceptance vectors are incomplete'
+while IFS=$'\t' read -r marker vector kind input_digest expected_exit expected_code expected_field expected_effects expected_artifact; do
+  [[ $marker == V ]] || fail vectors-invalid 'vector parser emitted an invalid record'
+  output_file="$scratch/$vector.out"
+  error_file="$scratch/$vector.err"
+  set +e
+  "$runner" --schema "$schema" --case "$vector" >"$output_file" 2>"$error_file"
+  actual_exit=$?
+  set -e
+  [[ $actual_exit == "$expected_exit" ]] || fail loader-exit-mismatch "vector execution returned an unexpected exit"
+  [[ ! -s "$error_file" ]] || fail loader-stderr "vector execution emitted diagnostics"
+  actual_output="$(<"$output_file")"
+  [[ $expected_field != none ]] || expected_field=''
+  expected_json="$(printf '{"card":"AUR-003","scenario":"AC-001","vector":"%s","exit_code":%s,"code":"%s","field":"%s","effects":%s,"input_digest":"%s","artifact_digest":"%s"}' \
+    "$vector" "$expected_exit" "$expected_code" "$expected_field" \
+    "$expected_effects" "$input_digest" "$expected_artifact")"
+  [[ $actual_output == "$expected_json" ]] || fail loader-observation-mismatch "vector output did not match its expected result"
+  [[ $actual_output != *AURUM_SECRET_CANARY* ]] || fail secret-leak "loader output contains the canary"
+  ((observed += 1))
+done <<<"$verdict"
+((observed == vector_count)) || fail vector-count-mismatch 'loader did not execute every vector'
+
+schema_digest="sha256:$(sha256sum -- "$schema" | awk '{print $1}')" || infra 'schema digest failed'
 printf '{"card":"%s","scenario":"%s","selector":"%s","vectors":%s,"max_vectors":%s,"max_bytes":%s,"deadline_seconds":%s,"schema_digest":"%s","effects":0,"result":"pass"}\n' \
   "$card" "$scenario" "$selector" "$vector_count" "$max_vectors" "$max_bytes" "$(awk -F': ' '/^  deadline_seconds:/ { print $2; exit }' "$vectors")" "$schema_digest"
