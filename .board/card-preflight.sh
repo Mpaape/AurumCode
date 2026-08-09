@@ -253,7 +253,7 @@ set +e
 probe_output="$($engine run --rm --pull=never --network=none --read-only \
   --user="$user" --cap-drop=ALL --security-opt=no-new-privileges \
   --pids-limit=64 --memory=128m --cpus=0.5 \
-  --tmpfs '/tmp:rw,noexec,nosuid,nodev,size=8m' --entrypoint= \
+  --tmpfs '/tmp:rw,nosuid,nodev,size=128m' --entrypoint= \
   "$image" bash -c "$runtime_probe" 2>&1)"
 probe_rc=$?
 set -e

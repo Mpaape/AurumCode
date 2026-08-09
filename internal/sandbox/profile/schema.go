@@ -380,7 +380,7 @@ func validateProfile(profile Profile) string {
 		{int64(profile.MemoryMB), 1, 256},
 		{int64(profile.CPUMillis), 1, 1000},
 		{int64(profile.PIDsLimit), 1, 128},
-		{int64(profile.TmpfsMB), 1, 32},
+		{int64(profile.TmpfsMB), 1, 128},
 		{int64(profile.StdoutLimitBytes), 1, 65536},
 		{int64(profile.StderrLimitBytes), 1, 65536},
 		{int64(profile.MaxInputFiles), 1, 10000},
