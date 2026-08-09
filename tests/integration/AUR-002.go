@@ -343,7 +343,7 @@ func aur002Environment(bin, source, output string) []string {
 		}
 		keep = append(keep, item)
 	}
-	return append(keep, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AURUMCODE_SOURCE_DIR="+source, "AURUMCODE_OUTPUT_DIR="+output, "AURUMCODE_DOCS_DIR="+output, "AURUMCODE_INCREMENTAL=0", "AURUMCODE_VALIDATE_JEKYLL=0", "AURUMCODE_DEPLOY_GH_PAGES=0", "GOTOOLCHAIN=local", "GOPROXY=off")
+	return append(keep, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AURUMCODE_SOURCE_DIR="+source, "AURUMCODE_OUTPUT_DIR="+output, "AURUMCODE_DOCS_DIR="+output, "AURUMCODE_INCREMENTAL=0", "AURUMCODE_VALIDATE_JEKYLL=0", "AURUMCODE_DEPLOY_GH_PAGES=0", "GOTOOLCHAIN=local", "GOPROXY=off", "GOCACHE=/tmp/aurum-a002-go-cache")
 }
 
 func aur002Summary(stderr string) string {
