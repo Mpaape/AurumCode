@@ -55,6 +55,8 @@ delivery_evidence_ok() {
 
 for state in "${states[@]}"; do
   [[ -d "$board_dir/cards/$state" ]] || fail "missing state directory: cards/$state"
+  [[ -n "$(git -C "$repo_root" ls-files -- ".board/cards/$state")" ]] ||
+    fail "state directory is not represented in Git: cards/$state"
 done
 directory_scan="$(mktemp "${TMPDIR:-/tmp}/aurum-pipeline-directories.XXXXXX")"
 if ! find "$board_dir/cards" -mindepth 1 -maxdepth 1 -type d -print0 >"$directory_scan"; then
