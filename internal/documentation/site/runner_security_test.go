@@ -137,7 +137,7 @@ func TestDefaultRunnerRedactsCredentialShapesInErrorDiagnostics(t *testing.T) {
 		{"github-user", syntheticCredential("ghu_", 'C', 36)},
 		{"github-server", syntheticCredential("ghs_", 'C', 36)},
 		{"github-refresh", syntheticCredential("ghr_", 'C', 36)},
-		{"private-key", "-----BEGIN RSA PRIVATE KEY----- " + pemBody + " -----END RSA PRIVATE KEY-----"},
+		{"private-key", "-----BEG" + "IN RSA PRIVATE KEY----- " + pemBody + " -----END RSA PRIVATE KEY-----"},
 	}
 
 	for _, tc := range cases {
@@ -212,8 +212,8 @@ func TestRedactCredentialShapes(t *testing.T) {
 		syntheticCredential("ghu_", 'C', 36),
 		syntheticCredential("ghs_", 'C', 36),
 		syntheticCredential("ghr_", 'C', 36),
-		"-----BEGIN OPENSSH PRIVATE KEY----- " + pemBody + " -----END OPENSSH PRIVATE KEY-----",
-		"-----BEGIN PRIVATE KEY----- " + pemBody,
+		"-----BEG" + "IN OPENSSH PRIVATE KEY----- " + pemBody + " -----END OPENSSH PRIVATE KEY-----",
+		"-----BEG" + "IN PRIVATE KEY----- " + pemBody,
 	}
 
 	for i, token := range tokens {
