@@ -57,6 +57,9 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
    dela. A imagem precisa conter `bash` porque o runner chama `bash`; se o
    acceptance usa Go, a mesma imagem precisa conter `go`. Falta de runtime e
    contrato invalido, nao um RED que possa ser empurrado ao validator.
+   Card que declara camada ou comando Go deve materializar `go.mod` e `go.sum`
+   em `paths`/`read_paths`; gerar modulo substituto no acceptance nao corrige o
+   contrato de leitura.
 5. Rode a acceptance nominal antes de alterar codigo. Registre o exit real.
    Se o candidato for preparado em clone isolado, confirme que `user.name` e
    `user.email` existem antes do commit. Clone nao herda necessariamente a

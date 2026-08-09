@@ -128,6 +128,23 @@ git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
   commit -q -m go-runtime-mismatch
 
 set +e
+missing_module_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture" 2>&1)"
+missing_module_rc=$?
+set -e
+[[ "$missing_module_rc" == 1 && "$missing_module_output" == *'does not materialize go.mod'* ]] || {
+  printf 'regression error: Go acceptance without module inputs passed preflight\n' >&2
+  printf '%s\n' "$missing_module_output" >&2
+  exit 1
+}
+
+printf 'module fixture\n' >"$fixture/go.mod"
+: >"$fixture/go.sum"
+sed -i '/^paths:/a read_paths: [go.mod, go.sum]' "$fixture/.board/cards/doing/AUR-900.md"
+git -C "$fixture" add go.mod go.sum .board/cards/doing/AUR-900.md
+git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
+  commit -q -m materialize-go-module
+
+set +e
 negative_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture" 2>&1)"
 negative_rc=$?
 runner_output="$(cd "$fixture" && ./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-900 2>&1)"

@@ -112,6 +112,29 @@ read_spec="$(frontmatter_value read_paths 2>/dev/null || printf '[]')"
 mapfile -t owned_paths < <(parse_list "$owned_spec")
 mapfile -t read_paths < <(parse_list "$read_spec")
 
+materializes_path() {
+  local target="$1" declared
+  for declared in "${owned_paths[@]}" "${read_paths[@]}"; do
+    if path_is_within "$target" "$declared"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+acceptance_surface="$worktree/tests/acceptance/$card_id.sh"
+if grep -Eq '\.go([`:[:space:]]|$)|(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$card" ||
+  { [[ -f "$acceptance_surface" ]] && grep -Eq '(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$acceptance_surface"; }; then
+  materializes_path go.mod || {
+    printf 'preflight error: Go card does not materialize go.mod in paths/read_paths\n' >&2
+    exit 1
+  }
+  if tracked_path_exists go.sum && ! materializes_path go.sum; then
+    printf 'preflight error: Go card does not materialize go.sum in paths/read_paths\n' >&2
+    exit 1
+  fi
+fi
+
 acceptance_path="tests/acceptance/$card_id.sh"
 acceptance_owned=0
 for owned_path in "${owned_paths[@]}"; do

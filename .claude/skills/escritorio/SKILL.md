@@ -74,6 +74,8 @@ preflight no worktree limpo. Ele exige:
 - profile registrado, lock existente, imagem digest-pinada e engine disponivel;
 - smoke test real da imagem pinada com `bash`; se o acceptance mencionar Go,
   smoke test real com `go` na mesma imagem;
+- card com camada ou comando Go materializa `go.mod` e `go.sum` em
+  `paths`/`read_paths`, sem modulo substituto criado pelo acceptance;
 - worktree limpo e, com `PREFLIGHT_RUN=1`, exit real do acceptance.
 
 Para `ready`, o preflight de builder valida contrato, dependencias, posse,
