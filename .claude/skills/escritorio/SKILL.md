@@ -75,6 +75,10 @@ todos os paths tracked, acceptance executavel e exit real. Essa distinção evit
 que cards novos fiquem impossíveis de despachar por ainda não terem sido
 construídos.
 
+Quando `PREFLIGHT_RUN=1` executa a acceptance nominal, somente exit `0` é
+verde. Exit `1` é falha do card, não RED aceitável; apenas códigos explícitos
+de infraestrutura podem ser classificados como indisponibilidade.
+
 Uma imagem Go sem `bash` nao passa: o runner executa a acceptance com `bash`.
 Uma imagem Bash sem Go nao passa para acceptance que chama Go. AUR-006 mostrou
 que detectar somente o nome da imagem ou somente o host nao e suficiente.

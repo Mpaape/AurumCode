@@ -272,7 +272,7 @@ if [[ "${PREFLIGHT_RUN:-0}" == 1 && "$builder_preflight" == 0 ]]; then
   acceptance_rc=$?
   set -e
   case "$acceptance_rc" in
-    0|1) ;;
+    0) ;;
     3|69|79|124)
       printf 'preflight infrastructure: acceptance unavailable (exit %s)\n' "$acceptance_rc" >&2
       exit 69
