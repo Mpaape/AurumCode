@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-002",
+  "commit": "784adb6468f4e4641936d856d514e93c4063bf5f",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-002",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-002\",\"scenario\":\"AC-001\",\"cases\":6,\"silent_failures\":2,\"result\":\"pass\"}"
+  }
+}
