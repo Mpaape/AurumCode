@@ -84,9 +84,9 @@ run_go_test() {
   set +e
   (
     cd -- "$run_dir" || exit 70
-    mkdir -p -- /dev/shm/aurum-a006-go-cache /tmp/aurum-a006-go-tmp || exit 70
+    mkdir -p -- /tmp/aurum-a006-go-cache /dev/shm/aurum-a006-go-tmp || exit 70
     AURUMCODE_ROOT="$run_dir" GOTOOLCHAIN=local GOPROXY=off \
-      GOCACHE=/dev/shm/aurum-a006-go-cache GOTMPDIR=/tmp/aurum-a006-go-tmp \
+      GOCACHE=/tmp/aurum-a006-go-cache GOTMPDIR=/dev/shm/aurum-a006-go-tmp \
         go test -vet=off "$@"
   ) >"$output" 2>&1
   local test_exit=$?
