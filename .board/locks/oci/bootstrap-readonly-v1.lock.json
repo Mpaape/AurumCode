@@ -2,5 +2,5 @@
 "schema": "aurum.oci-image-lock",
 "version": 1,
 "profile": "bootstrap-readonly-v1",
-"image": "aurum-bootstrap-go-bash@sha256:ad8568bfa8be1aa49a7a72791a7d6c36214c7e86d94be9b1f6225f5e6baaccd9"
+"image": "aurum-bootstrap-go-bash@sha256:d1a271fe9083edc0d7aeed66e10ed1d7c6e84110750b0b75f81a632197a3d43f"
 }
