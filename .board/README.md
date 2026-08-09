@@ -23,9 +23,10 @@ every 20-minute review uses `--review`.
 2. The developer executes the card, commits to a human-authenticated commit
    (never AI attribution), and adds a `## Delivery record` section to the card
    body with `- commit: <40-hex sha>`.
-3. The card moves to `review`. An independent reviewer agent code-reviews the
-   named commit against the card's own outcome criteria and, on approval,
-   appends `- review: approved` to the Delivery record.
+3. An independent reviewer agent code-reviews the builder's immutable commit
+   while the card remains `ready`. Only after approval does the coordinator
+   integrate that exact commit, add the Delivery record, and move the card to
+   `review` (or directly to `validating` when validation is declared).
 4. If the card frontmatter declares `validation: tested` or `skeptical`, a
    validator agent executes the card's own acceptance and appends
    `- validation: passed` on success. Cards without a `validation:` field
