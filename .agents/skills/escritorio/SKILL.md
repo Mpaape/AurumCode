@@ -53,6 +53,8 @@ nao permitir que uma sessao curta continue uma abordagem ja condenada.
   pipeline em clone limpo, pois diretorio local nao e artefato Git.
 - O checkout coordenador pode permanecer sujo. Toda acceptance, review e
   validacao final rodam em worktree limpo do SHA candidato.
+- Execute `oci-run` com cwd no worktree candidato. Path absoluto para o script
+  nao muda a raiz resolvida por `git rev-parse` e pode testar o checkout errado.
 - Use a maior frota segura que a fila e os recursos realmente suportam; nao
   encha slots com cards que falharam preflight ou possuem dependencia ausente.
 
