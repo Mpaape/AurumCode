@@ -10,7 +10,7 @@ fixture="$(mktemp -d "${TMPDIR:-/tmp}/aurum-office-preflight.XXXXXX")"
 cleanup() { rm -rf -- "$fixture"; }
 trap cleanup EXIT INT TERM HUP
 
-mkdir -p "$fixture/.board/cards/doing" "$fixture/.board/oci/profiles" \
+mkdir -p "$fixture/.board/cards/doing" "$fixture/.board/cards/ready" "$fixture/.board/oci/profiles" \
   "$fixture/.board/locks/oci" "$fixture/.board/bin" "$fixture/tests/acceptance"
 cp -- "$root/.board/card-preflight.sh" "$fixture/.board/card-preflight.sh"
 cp -- "$root/.board/bin/oci-run" "$fixture/.board/bin/oci-run"
@@ -85,6 +85,37 @@ printf 'nominal\n'
 EOF
 chmod +x "$fixture/tests/acceptance/AUR-900.sh"
 
+cat >"$fixture/.board/cards/ready/AUR-901.md" <<'EOF'
+---
+id: AUR-901
+version: 1
+title: Complete ready candidate regression fixture
+status: ready
+validation: tested
+office: O00-governance
+depends_on: []
+paths: [tests/acceptance/AUR-901.sh]
+forbidden_paths: [.git, .env, secrets]
+---
+
+## Acceptance
+
+container_profile: `bootstrap-readonly-v1`
+accept: `./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-901`
+
+## Skeptical mutations
+
+### MUT-001
+
+- Change: remove the candidate behavior.
+EOF
+cat >"$fixture/tests/acceptance/AUR-901.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'complete-ready-candidate\n'
+EOF
+chmod 0644 "$fixture/tests/acceptance/AUR-901.sh"
+
 git -C "$fixture" init -q
 git -C "$fixture" add .
 git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
@@ -93,6 +124,25 @@ git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
 positive_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture")"
 [[ "$positive_output" == *'runtime=bash'* ]] || {
   printf 'regression error: nominal Bash profile did not pass preflight\n' >&2
+  exit 1
+}
+
+set +e
+ready_mode_output="$(bash "$fixture/.board/card-preflight.sh" AUR-901 "$fixture" 2>&1)"
+ready_mode_rc=$?
+set -e
+[[ "$ready_mode_rc" == 1 && "$ready_mode_output" == *'tested card lacks executable acceptance'* ]] || {
+  printf 'regression error: complete ready candidate inherited relaxed builder checks\n' >&2
+  printf '%s\n' "$ready_mode_output" >&2
+  exit 1
+}
+chmod +x "$fixture/tests/acceptance/AUR-901.sh"
+git -C "$fixture" add tests/acceptance/AUR-901.sh
+git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
+  commit -q -m executable-ready-candidate
+ready_positive="$(PREFLIGHT_RUN=1 bash "$fixture/.board/card-preflight.sh" AUR-901 "$fixture")"
+[[ "$ready_positive" == *'preflight ok: AUR-901'* ]] || {
+  printf 'regression error: executable complete ready candidate did not pass\n' >&2
   exit 1
 }
 
