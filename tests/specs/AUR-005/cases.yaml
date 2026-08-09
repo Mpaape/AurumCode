@@ -1,0 +1,101 @@
+{
+  "schema": "aurum.evidence-bundle-cases",
+  "version": 1,
+  "limits": {
+    "max_vectors": 64,
+    "max_bytes": 4194304,
+    "deadline_seconds": 30
+  },
+  "vectors": [
+    {
+      "id": "nominal",
+      "kind": "nominal",
+      "input_digest": "sha256:5388ad31e563c82e0f7469a870ea9625d255439b9aa7efa29c9c43468e0070d8",
+      "expected_exit": 0,
+      "expected_code": "valid",
+      "expected_field": "none",
+      "effects": 0,
+      "artifact_digest": "sha256:748361c1132cf5b069278327f87d2659eb5d7940ca079ec2bba87b2639801807"
+    },
+    {
+      "id": "invalid",
+      "kind": "invalid",
+      "input_digest": "sha256:78dad68498aafc2c8381b61f9eb591ba52610351454d2c32baf350ad7163c85a",
+      "expected_exit": 1,
+      "expected_code": "digest_mismatch",
+      "expected_field": "manifest_digest",
+      "effects": 0,
+      "artifact_digest": "sha256:aae255b0e833002efe70d9af6e50f754adddf7cbde9a047daf9498bc645706d2"
+    },
+    {
+      "id": "tampered-image",
+      "kind": "invalid",
+      "input_digest": "sha256:eb7acff2a5dbaa6a6f31605a935fadab0ae92bdd0fe200406f90af8aaa6ce8fc",
+      "expected_exit": 1,
+      "expected_code": "digest_mismatch",
+      "expected_field": "manifest_digest",
+      "effects": 0,
+      "artifact_digest": "sha256:417336209ad4efa7eb3f316ecb4145eef8869a47967a4cb6b5ad0d09cb16aa4f"
+    },
+    {
+      "id": "tampered-output",
+      "kind": "invalid",
+      "input_digest": "sha256:e0c0d5ddad0b1c99357cd7374b0746b9f57b0e60d48f29e2eae7850b2eaeaab1",
+      "expected_exit": 1,
+      "expected_code": "digest_mismatch",
+      "expected_field": "artifacts[0].sha256",
+      "effects": 0,
+      "artifact_digest": "sha256:f2bf5c784d751efc47bd7af443049394f874f2722a8728d15ad7ae3f69ae2267"
+    },
+    {
+      "id": "forged-agent-approval",
+      "kind": "invalid",
+      "input_digest": "sha256:102c6effe80a7c12aa74bd7b8283e245b0341af8e79ce54fa54172fe5ee5de40",
+      "expected_exit": 1,
+      "expected_code": "authority_denied",
+      "expected_field": "artifacts[0].authority",
+      "effects": 0,
+      "artifact_digest": "sha256:a7fd457ad5107e87db90c5b998ca7d97dc95844bb50ceac6096afdc202948699"
+    },
+    {
+      "id": "noncanonical",
+      "kind": "invalid",
+      "input_digest": "sha256:9289d356925e4035b77212b33ff74e3693fdb99d145971f309685ac80bacf5ae",
+      "expected_exit": 1,
+      "expected_code": "non_canonical",
+      "expected_field": "document",
+      "effects": 0,
+      "artifact_digest": "sha256:c6347239035dc1e9fcf0e5aab0d97ab3dedb4110f2f6dabc4affb93afd2d23f8"
+    },
+    {
+      "id": "duplicate-field",
+      "kind": "invalid",
+      "input_digest": "sha256:597bcc38a9c10420778c90b949320bde569fdfaf5aa1b5623850f3fc86ce0bd3",
+      "expected_exit": 1,
+      "expected_code": "duplicate_field",
+      "expected_field": "document",
+      "effects": 0,
+      "artifact_digest": "sha256:9f9bb546ba30c06dbdce70540e16f7e2f2b2688d34549a152a9b8c5309c666d5"
+    },
+    {
+      "id": "boundary",
+      "kind": "boundary",
+      "input_digest": "sha256:86e3a09ca033ae53db860bdaf931ae44bac1f5f9d4dfd3c8858b0c8f009b7520",
+      "expected_exit": 0,
+      "expected_code": "valid",
+      "expected_field": "none",
+      "effects": 0,
+      "artifact_digest": "sha256:21609e96865da29ac2a08b6eff22af97acd0f995dce69f619ec19461dee2d576"
+    },
+    {
+      "id": "boundary-overflow",
+      "kind": "boundary",
+      "input_digest": "sha256:528895a00cb88869d04163f43c2e4a9c9ff0ddc34744d5a8e4029343aa619d3a",
+      "expected_exit": 1,
+      "expected_code": "limit_exceeded",
+      "expected_field": "artifacts",
+      "effects": 0,
+      "artifact_digest": "sha256:60ba9fd7324b535e28aa0fb79b47b7aabdb22f6497a2c056ff84599d7ddbfe58"
+    }
+  ]
+}
