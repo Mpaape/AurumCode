@@ -18,7 +18,7 @@ readonly bootstrap_cpu_millis=1000
 readonly bootstrap_memory='256m'
 readonly bootstrap_memory_mb=256
 readonly bootstrap_pids_limit=128
-readonly bootstrap_tmpfs='/tmp:rw,nosuid,nodev,size=128m'
+readonly bootstrap_tmpfs='/tmp:exec,rw,nosuid,nodev,size=128m'
 readonly bootstrap_stdout_limit=65536
 readonly bootstrap_stderr_limit=65536
 readonly bootstrap_timeout_seconds=120
@@ -479,7 +479,7 @@ resolve_profile() {
   run_cpus="$(printf '%d.%03d' "$((cpu_millis / 1000))" "$((cpu_millis % 1000))")"
   # The tmpfs destination stays /tmp so it matches declared_tmpfs_destinations; a
   # profile chooses its size, never a new mount point.
-  run_tmpfs="/tmp:${tmpfs_options},size=${tmpfs_mb}m"
+  run_tmpfs="/tmp:exec,${tmpfs_options},size=${tmpfs_mb}m"
   profile_source='registry'
   profile_digest="$(file_digest "$profile_file")"
   lock_digest="$declared_lock_digest"
@@ -492,7 +492,7 @@ assert_hardened_plan() {
     die 65 'resolved plan does not pin the image by immutable digest'
   [[ "$run_user" =~ $non_root_user_pattern ]] ||
     die 65 'resolved plan does not select a non-root numeric user'
-  [[ "$run_tmpfs" == "/tmp:${required_tmpfs_options},size="*'m' ]] ||
+  [[ "$run_tmpfs" == "/tmp:exec,${required_tmpfs_options},size="*'m' ]] ||
     die 65 'resolved plan does not mount bounded /tmp without host access'
   [[ "$run_memory" =~ ^[1-9][0-9]*m$ ]] || die 65 'resolved plan does not bound memory'
   [[ "$run_cpus" =~ ^(0|[1-9][0-9]*)(\.[0-9]{1,3})?$ ]] ||
