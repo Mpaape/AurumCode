@@ -356,15 +356,18 @@ func aur002Summary(stderr string) string {
 }
 
 func verifyAUR002GeneratedEffects(output string) error {
-	entries, err := os.ReadDir(output)
-	if err != nil {
-		return fmt.Errorf("AUR-002: output directory unavailable: %w", err)
-	}
 	docs := 0
-	for _, entry := range entries {
+	err := filepath.WalkDir(output, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") && entry.Name() != "index.md" {
 			docs++
 		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("AUR-002: output directory unavailable: %w", err)
 	}
 	if docs != 1 {
 		return fmt.Errorf("AUR-002: expected one generated document, got %d", docs)
