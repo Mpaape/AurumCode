@@ -279,19 +279,22 @@ doc_example="$(awk '
 
 command -v go >/dev/null 2>&1 || infra 'missing tool: go; native legacy execution is unproven'
 work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a002-accept.XXXXXX")" || infra 'private acceptance directory unavailable'
+mkdir -p -- "$work/home" "$work/cache" "$work/go-cache" "$work/go-tmp" || infra 'writable Go workspace unavailable'
 cleanup() { rm -rf -- "$work"; }
 trap cleanup EXIT INT TERM HUP
 
 integration_exit=0
 set +e
-GOTOOLCHAIN=local GOPROXY=off go run tests/integration/AUR-002.go >"$work/integration.stdout" 2>"$work/integration.stderr"
+HOME="$work/home" XDG_CACHE_HOME="$work/cache" GOCACHE="$work/go-cache" GOTMPDIR="$work/go-tmp" GOFLAGS=-p=1 GOMAXPROCS=1 GOTOOLCHAIN=local GOPROXY=off go run tests/integration/AUR-002.go >"$work/integration.stdout" 2>"$work/integration.stderr"
 integration_exit=$?
 set -e
 if (( integration_exit != 0 )); then
   if grep -Eiq 'command not found|go: downloading|module lookup disabled|missing go\.sum|no required module provides|cannot find module|toolchain.*(unavailable|not found)|infrastructure:' "$work/integration.stderr"; then
     infra "legacy integration unavailable (exit $integration_exit)"
   fi
-  fail "legacy command behavior drift (integration exit $integration_exit)"
+  integration_detail="$(grep -E '^AUR-002: ' "$work/integration.stderr" | tail -n 1 || true)"
+  [[ -n "$integration_detail" ]] || integration_detail='no bounded integration detail'
+  fail "legacy command behavior drift (integration exit $integration_exit): $integration_detail"
 fi
 
 printf '{"card":"%s","scenario":"%s","cases":%d,"silent_failures":%d,"result":"pass"}\n' \

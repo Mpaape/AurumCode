@@ -61,6 +61,11 @@ func IntegrationAUR002() error {
 	if err := verifyAUR002InventoryBinding(root, cases); err != nil {
 		return err
 	}
+	goCache := os.Getenv("GOCACHE")
+	goTmpDir := os.Getenv("GOTMPDIR")
+	if goCache == "" || goTmpDir == "" {
+		return errors.New("AUR-002: infrastructure: parent Go cache workspace is not exported")
+	}
 
 	for _, c := range cases {
 		if err := verifyAUR002CaseBinding(root, c); err != nil {
@@ -69,7 +74,7 @@ func IntegrationAUR002() error {
 		var observed aur002Observed
 		switch c.id {
 		case "complete-success", "missing-extractor", "extractor-error":
-			observed, err = runAUR002Legacy(root, c.input, "")
+			observed, err = runAUR002Legacy(root, c.input, "", goCache, goTmpDir)
 		case "invalid-input", "boundary-overflow", "forged-approval":
 			observed, err = runAUR002AcceptanceLeaf(root, c.id)
 		default:
@@ -135,7 +140,7 @@ func verifyAUR002CaseBinding(root string, c aur002IntegrationCase) error {
 	return nil
 }
 
-func runAUR002Legacy(root, input, overlayPath string) (aur002Observed, error) {
+func runAUR002Legacy(root, input, overlayPath, goCache, goTmpDir string) (aur002Observed, error) {
 	var observed aur002Observed
 	tempRoot, err := os.MkdirTemp("", "aurum-a002-")
 	if err != nil {
@@ -189,7 +194,7 @@ func runAUR002Legacy(root, input, overlayPath string) (aur002Observed, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = root
-	cmd.Env = aur002Environment(bin, source, output, filepath.Join(tempRoot, "go-cache"))
+	cmd.Env = aur002Environment(bin, source, output, goCache, goTmpDir)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -211,13 +216,28 @@ func runAUR002Legacy(root, input, overlayPath string) (aur002Observed, error) {
 	}
 	summary := aur002Summary(stderr.String())
 	if summary == "" {
-		return observed, errors.New("AUR-002: legacy command emitted no aurumcode summary")
+		return observed, fmt.Errorf("AUR-002: legacy command emitted no aurumcode summary for input %q: %s", input, aur002Diagnostic(stderr.String()))
 	}
 	observed.stderr = strings.ReplaceAll(summary+"\n", "output="+output, "output=/tmp/aurum-a002-output")
 	if err := verifyAUR002GeneratedEffects(output); err != nil {
 		return observed, err
 	}
 	return observed, nil
+}
+
+func aur002Diagnostic(stderr string) string {
+	const limit = 1024
+	clean := strings.TrimSpace(stderr)
+	clean = strings.ReplaceAll(clean, "\n", " ")
+	clean = strings.ReplaceAll(clean, "\r", " ")
+	clean = regexp.MustCompile(`/tmp/[A-Za-z0-9._/-]+`).ReplaceAllString(clean, "<tmp>")
+	if clean == "" {
+		return "stderr empty"
+	}
+	if len(clean) > limit {
+		return clean[:limit] + "..."
+	}
+	return clean
 }
 
 func runAUR002AcceptanceLeaf(root, id string) (aur002Observed, error) {
@@ -302,14 +322,8 @@ func verifyAUR002PipelineMutation(root string) error {
 		return fmt.Errorf("AUR-002: infrastructure: MUT-001 source unavailable: %w", err)
 	}
 	overlayData, err := json.Marshal(struct {
-		Replace []struct {
-			Old string
-			New string
-		} `json:"Replace"`
-	}{Replace: []struct {
-		Old string
-		New string
-	}{{Old: sourcePath, New: mutatedPath}}})
+		Replace map[string]string `json:"Replace"`
+	}{Replace: map[string]string{sourcePath: mutatedPath}})
 	if err != nil {
 		return fmt.Errorf("AUR-002: infrastructure: MUT-001 overlay unavailable: %w", err)
 	}
@@ -317,7 +331,12 @@ func verifyAUR002PipelineMutation(root string) error {
 	if err := os.WriteFile(overlayPath, overlayData, 0o600); err != nil {
 		return fmt.Errorf("AUR-002: infrastructure: MUT-001 overlay unavailable: %w", err)
 	}
-	observed, err := runAUR002Legacy(root, "source=go+java", overlayPath)
+	goCache := os.Getenv("GOCACHE")
+	goTmpDir := os.Getenv("GOTMPDIR")
+	if goCache == "" || goTmpDir == "" {
+		return errors.New("AUR-002: infrastructure: parent Go cache workspace is not exported for MUT-001")
+	}
+	observed, err := runAUR002Legacy(root, "source=go+java", overlayPath, goCache, goTmpDir)
 	if err != nil {
 		return err
 	}
@@ -330,7 +349,7 @@ func verifyAUR002PipelineMutation(root string) error {
 	return nil
 }
 
-func aur002Environment(bin, source, output, goCache string) []string {
+func aur002Environment(bin, source, output, goCache, goTmpDir string) []string {
 	keep := make([]string, 0, len(os.Environ()))
 	for _, item := range os.Environ() {
 		key, _, ok := strings.Cut(item, "=")
@@ -338,12 +357,12 @@ func aur002Environment(bin, source, output, goCache string) []string {
 			continue
 		}
 		switch key {
-		case "PATH", "AURUMCODE_SOURCE_DIR", "AURUMCODE_OUTPUT_DIR", "AURUMCODE_DOCS_DIR", "AURUMCODE_LANGUAGES", "AURUMCODE_INCREMENTAL", "AURUMCODE_VALIDATE_JEKYLL", "AURUMCODE_DEPLOY_GH_PAGES", "AURUMCODE_BASE_URL", "GITHUB_REPOSITORY", "LLM_API_KEY", "LLM_BASE_URL", "OPENAI_API_KEY", "AURUM_SECRET_CANARY", "AURUMCODE_ALLOW_REPO_CODE_EXECUTION", "BASH_ENV", "ENV":
+		case "PATH", "AURUMCODE_SOURCE_DIR", "AURUMCODE_OUTPUT_DIR", "AURUMCODE_DOCS_DIR", "AURUMCODE_LANGUAGES", "AURUMCODE_INCREMENTAL", "AURUMCODE_VALIDATE_JEKYLL", "AURUMCODE_DEPLOY_GH_PAGES", "AURUMCODE_BASE_URL", "GITHUB_REPOSITORY", "LLM_API_KEY", "LLM_BASE_URL", "OPENAI_API_KEY", "AURUM_SECRET_CANARY", "AURUMCODE_ALLOW_REPO_CODE_EXECUTION", "BASH_ENV", "ENV", "GOCACHE", "GOTMPDIR", "GOTOOLCHAIN", "GOPROXY":
 			continue
 		}
 		keep = append(keep, item)
 	}
-	return append(keep, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AURUMCODE_SOURCE_DIR="+source, "AURUMCODE_OUTPUT_DIR="+output, "AURUMCODE_DOCS_DIR="+output, "AURUMCODE_INCREMENTAL=0", "AURUMCODE_VALIDATE_JEKYLL=0", "AURUMCODE_DEPLOY_GH_PAGES=0", "GOTOOLCHAIN=local", "GOPROXY=off", "GOCACHE="+goCache)
+	return append(keep, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AURUMCODE_SOURCE_DIR="+source, "AURUMCODE_OUTPUT_DIR="+output, "AURUMCODE_DOCS_DIR="+output, "AURUMCODE_INCREMENTAL=0", "AURUMCODE_VALIDATE_JEKYLL=0", "AURUMCODE_DEPLOY_GH_PAGES=0", "GOTOOLCHAIN=local", "GOPROXY=off", "GOCACHE="+goCache, "GOTMPDIR="+goTmpDir)
 }
 
 func aur002Summary(stderr string) string {
@@ -356,15 +375,18 @@ func aur002Summary(stderr string) string {
 }
 
 func verifyAUR002GeneratedEffects(output string) error {
-	entries, err := os.ReadDir(output)
-	if err != nil {
-		return fmt.Errorf("AUR-002: output directory unavailable: %w", err)
-	}
 	docs := 0
-	for _, entry := range entries {
+	err := filepath.WalkDir(output, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") && entry.Name() != "index.md" {
 			docs++
 		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("AUR-002: output directory unavailable: %w", err)
 	}
 	if docs != 1 {
 		return fmt.Errorf("AUR-002: expected one generated document, got %d", docs)
