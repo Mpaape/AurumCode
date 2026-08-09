@@ -285,7 +285,7 @@ trap cleanup EXIT INT TERM HUP
 
 integration_exit=0
 set +e
-HOME="$work/home" XDG_CACHE_HOME="$work/cache" GOCACHE="$work/go-cache" GOTOOLCHAIN=local GOPROXY=off go run tests/integration/AUR-002.go >"$work/integration.stdout" 2>"$work/integration.stderr"
+HOME="$work/home" XDG_CACHE_HOME="$work/cache" GOCACHE="$work/go-cache" GOFLAGS=-p=1 GOMAXPROCS=1 GOTOOLCHAIN=local GOPROXY=off go run tests/integration/AUR-002.go >"$work/integration.stdout" 2>"$work/integration.stderr"
 integration_exit=$?
 set -e
 if (( integration_exit != 0 )); then
