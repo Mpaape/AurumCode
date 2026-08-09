@@ -1,0 +1,61 @@
+schema: aurum.task-spec-cases
+version: 1
+limits:
+  max_vectors: 64
+  max_bytes: 4194304
+  deadline_seconds: 30
+vectors:
+  - id: nominal
+    kind: nominal
+    input_digest: sha256:f762692f83a74f85b3fe2d2e0febc40dfffdc991e2a73339f6b822a38031374f
+    expected:
+      exit_code: 0
+      code: valid
+      field: none
+      effects: 0
+      artifact_digest: sha256:5987e8fbabba950c2fac74bb29e44d0bbac7283248234296ed324bf4a23d11db
+  - id: invalid
+    kind: invalid
+    input_digest: sha256:f3b0f7762bc1c48f5a528770dd929dc7cd2dd3bd182ff22d75795226e9648931
+    expected:
+      exit_code: 1
+      code: unknown_field
+      field: unknown:3dfe507def8d981c
+      effects: 0
+      artifact_digest: sha256:31fa2d1de5447d31397abeacd1e71a662d43a346cfee66e30855026b8aee0554
+  - id: invalid-path-whitespace
+    kind: invalid
+    input_digest: sha256:6efef25a1fe6468230ffedf467b2acabf1093b705c223ef8f5b7bd541fc10898
+    expected:
+      exit_code: 1
+      code: unsafe_path
+      field: paths[0]
+      effects: 0
+      artifact_digest: sha256:519e6f88a3af0dee9875cd6013fb55e5981596a6adb8cd7d463119d9b3a9eb22
+  - id: invalid-double-slash
+    kind: invalid
+    input_digest: sha256:1715ff38d0aa948357dfa1523d77fd17e58fa1cf609038c946a91320c7f94d19
+    expected:
+      exit_code: 1
+      code: unsafe_path
+      field: paths[0]
+      effects: 0
+      artifact_digest: sha256:0288b9a99ed03ed3b33dbaefd0312030a4daf990787324ef409b75774d868aaa
+  - id: boundary
+    kind: boundary
+    input_digest: sha256:d46b82bed348a729f1ec55e2cc09375cdb13fa5d3544bb4b44a101bb961893c0
+    expected:
+      exit_code: 0
+      code: valid
+      field: none
+      effects: 0
+      artifact_digest: sha256:3aec4825f93ff034e6ccb022c54720574e0cb28b62f658abc94298156ff9aa11
+  - id: boundary-overflow
+    kind: boundary
+    input_digest: sha256:dac4d12592383a832c4e209992b16c70b253fe09e6b8022bf5b89945b473084c
+    expected:
+      exit_code: 1
+      code: invalid_field
+      field: title
+      effects: 0
+      artifact_digest: sha256:b4975fdcc78f2286da3cc7e17402e8e5fadc100189ab2d822158b1834c0538e0
