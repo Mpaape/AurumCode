@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aurumcode.dev/schemas/container-profile.schema.json",
+  "title": "AurumCode OCI bootstrap container profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "profile",
+    "lock",
+    "lock_digest",
+    "network",
+    "user",
+    "cap_drop",
+    "cap_add",
+    "mounts",
+    "devices",
+    "pull",
+    "tmpfs",
+    "read_only_rootfs",
+    "no_new_privileges",
+    "privileged",
+    "timeout_seconds",
+    "memory_mb",
+    "cpu_millis",
+    "pids_limit",
+    "tmpfs_mb",
+    "stdout_limit_bytes",
+    "stderr_limit_bytes",
+    "max_input_files",
+    "max_input_bytes"
+  ],
+  "properties": {
+    "schema": { "const": "aurum.container-profile" },
+    "version": { "const": 1 },
+    "profile": { "const": "bootstrap-readonly-v1" },
+    "lock": { "const": ".board/locks/oci/bootstrap-readonly-v1.lock.json" },
+    "lock_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "network": { "const": "none" },
+    "user": { "type": "string", "pattern": "^[1-9][0-9]*:[1-9][0-9]*$" },
+    "cap_drop": { "const": "ALL" },
+    "cap_add": { "const": "none" },
+    "mounts": { "const": "none" },
+    "devices": { "const": "none" },
+    "pull": { "const": "never" },
+    "tmpfs": { "const": "rw,noexec,nosuid,nodev" },
+    "checkout_readonly": { "const": true },
+    "read_only_rootfs": { "const": true },
+    "no_new_privileges": { "const": true },
+    "privileged": { "const": false },
+    "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 120 },
+    "memory_mb": { "type": "integer", "minimum": 1, "maximum": 256 },
+    "cpu_millis": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "pids_limit": { "type": "integer", "minimum": 1, "maximum": 128 },
+    "tmpfs_mb": { "type": "integer", "minimum": 1, "maximum": 32 },
+    "stdout_limit_bytes": { "type": "integer", "minimum": 1, "maximum": 65536 },
+    "stderr_limit_bytes": { "type": "integer", "minimum": 1, "maximum": 65536 },
+    "max_input_files": { "type": "integer", "minimum": 1, "maximum": 10000 },
+    "max_input_bytes": { "type": "integer", "minimum": 1, "maximum": 67108864 }
+  },
+  "$defs": {
+    "ociImageLock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "version", "profile", "image"],
+      "properties": {
+        "schema": { "const": "aurum.oci-image-lock" },
+        "version": { "const": 1 },
+        "profile": { "const": "bootstrap-readonly-v1" },
+        "image": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(([._]|__|-+)[a-z0-9]+)*(/[a-z0-9]+(([._]|__|-+)[a-z0-9]+)*)*@sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

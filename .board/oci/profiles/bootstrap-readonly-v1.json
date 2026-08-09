@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "bootstrap-readonly-v1",
 "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
-"lock_digest": "sha256:cf03c2e277e797e34c7f01db944e20e98a46cd74f1351846cb86d6d1f908e98c",
+"lock_digest": "sha256:9c4698c4be82633e0e3ff1f867488f4f28083e09eafd20ab5d23331f2eb188eb",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",
