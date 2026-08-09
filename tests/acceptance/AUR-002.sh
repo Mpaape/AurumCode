@@ -292,7 +292,9 @@ if (( integration_exit != 0 )); then
   if grep -Eiq 'command not found|go: downloading|module lookup disabled|missing go\.sum|no required module provides|cannot find module|toolchain.*(unavailable|not found)|infrastructure:' "$work/integration.stderr"; then
     infra "legacy integration unavailable (exit $integration_exit)"
   fi
-  fail "legacy command behavior drift (integration exit $integration_exit)"
+  integration_detail="$(grep -E '^AUR-002: ' "$work/integration.stderr" | tail -n 1 || true)"
+  [[ -n "$integration_detail" ]] || integration_detail='no bounded integration detail'
+  fail "legacy command behavior drift (integration exit $integration_exit): $integration_detail"
 fi
 
 printf '{"card":"%s","scenario":"%s","cases":%d,"silent_failures":%d,"result":"pass"}\n' \
