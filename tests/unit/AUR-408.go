@@ -33,6 +33,8 @@ const sqliteSchemaPath408 = ".board/schemas/sqlite-offline-profile.schema.json"
 const sqliteLockPath408 = ".board/locks/oci/sqlite-offline-v1.lock.json"
 const fakeScmSchemaPath408 = ".board/schemas/fake-scm-offline-profile.schema.json"
 const fakeScmLockPath408 = ".board/locks/oci/fake-scm-offline-v1.lock.json"
+const ociConformanceSchemaPath408 = ".board/schemas/oci-conformance-profile.schema.json"
+const ociConformanceLockPath408 = ".board/locks/oci/oci-conformance-v1.lock.json"
 const profileKey408 = "docs-tool-offline-v1"
 
 type profile408 struct {
@@ -132,7 +134,7 @@ var outputRoot408 = regexp.MustCompile(`^/tmp/aurum-docs-output$`)
 // carries a literal that the runner's input gate would read as a real secret.
 var credentialShape408 = regexp.MustCompile(`(sk` + `-[A-Za-z0-9_-]{20,}|AKIA` + `[0-9A-Z]{16}|gh` + `[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)`)
 
-var registryKeys408 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "parser-worker-v1", "registry-v1", "sqlite-offline-v1"}
+var registryKeys408 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "oci-conformance-v1", "parser-worker-v1", "registry-v1", "sqlite-offline-v1"}
 var requiredProfileKeys408 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "sockets", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "generator", "generator_cgo", "generator_root", "renderer", "plugin_set", "native_site_tool", "dynamic_plugin", "remote_fetch", "snippet_execution", "snippet_languages", "fixture_source", "fixture_root", "output_mode", "output_root", "host_output", "host_filesystem", "subprocess", "max_documents", "max_document_bytes", "max_output_bytes", "render_timeout_seconds", "environment", "command"}
 var requiredEnvironmentKeys408 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN", "CGO_ENABLED", "AURUM_DOCS_GENERATOR_ROOT", "AURUM_DOCS_FIXTURE_ROOT", "AURUM_DOCS_OUTPUT_ROOT", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 var schemaDocumentKeys408 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -527,7 +529,7 @@ func ValidateProfileAUR408(root string) (profile408, lock408, string) {
 	return p, l, "valid"
 }
 
-// ValidateRegistryAUR408 resolves the canonical registry and admits exactly the nine
+// ValidateRegistryAUR408 resolves the canonical registry and admits exactly the ten
 // registered keys. It is fail-closed: an unknown key, a duplicate, an out-of-order
 // entry, or a digest that does not match the bytes on disk denies without any engine.
 func ValidateRegistryAUR408(root string) (string, string) {
@@ -655,6 +657,14 @@ func ValidateRegistryAUR408(root string) (string, string) {
 		case "fake-scm-offline-v1":
 			// Owned by AUR-409, checked under the same neighbour rule as AUR-403's key.
 			if x.Schema != fakeScmSchemaPath408 || x.Lock != fakeScmLockPath408 {
+				return "", "unsafe-plan"
+			}
+			if !digest408.MatchString(x.SchemaDigest) || !digest408.MatchString(x.LockDigest) || !digest408.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		case "oci-conformance-v1":
+			// Owned by AUR-410, checked under the same neighbour rule as AUR-403's key.
+			if x.Schema != ociConformanceSchemaPath408 || x.Lock != ociConformanceLockPath408 {
 				return "", "unsafe-plan"
 			}
 			if !digest408.MatchString(x.SchemaDigest) || !digest408.MatchString(x.LockDigest) || !digest408.MatchString(x.ImageSetDigest) {
