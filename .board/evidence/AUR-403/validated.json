@@ -1,0 +1,19 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-403",
+  "commit": "454a41b05c6c1bdcf15c21d6952a87c415538c49",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-403",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-403\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}\nmutation=duplicate-profile code=duplicate-profile\nmutation=mutable-input code=mutable-input\nmutation=unsafe-plan code=unsafe-plan\nmutation=missing-required code=schema-invalid\nmutation=split-command code=unsafe-plan\nAUR-402 regression embedded: {\"card\":\"AUR-402\",\"result\":\"valid\"}"
+  },
+  "runtime_gate_run": {
+    "command": "PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-403 <clean worktree at 454a41b>",
+    "exit_code": 0,
+    "raw_output": "preflight ok: AUR-403 status=ready validation=tested profile=bootstrap-readonly-v1 runtime=bash,go",
+    "note": "The reviewer proved the declared accept alone is insensitive to the reopened defect: AC-001 forbids engine invocations, so it exits 0 even on the previous alpine lock. The preflight owned-profile probe is the gate that distinguishes them - it exits 1 with 'owned profile go-unit-offline-v1 lacks required runtime (bash,go)' on the pre-fix lock and 0 here. Both exits are recorded for that reason."
+  }
+}
