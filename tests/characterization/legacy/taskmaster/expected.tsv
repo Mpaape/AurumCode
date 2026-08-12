@@ -1,0 +1,9 @@
+observation	value	effect
+audit_taskmaster_records	188	audit-only
+board_ready_admitted	2	selected
+promote_board_done	exit:0	board-transition
+promote_taskmaster_done	exit:1	refused
+queue_taskmaster_items	0	excluded
+snapshot_instruction_bytes	13370	audit-only
+taskmaster_bytes	identical	audit-input
+taskmaster_done_tasks	188	audit-only

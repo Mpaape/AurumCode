@@ -1,0 +1,358 @@
+# AurumCode — PRD (Final, TaskMaster‑Ready)
+
+> Automated, provider‑agnostic code review, documentation, and test generation with strict QA gates.
+
+## 1) Problem Statement
+
+Teams face inconsistent review quality, stale docs, and weak tests. Manual reviews are slow and subjective; documentation lags behind changes; tests are deprioritized. AurumCode delivers automated, reliable pipelines that review code, update docs, and generate tests with enterprise‑grade QA and cost controls.
+
+## 2) Target Users
+- Product & platform teams on Git (GitHub, Gitea, generic Git).
+- DevOps/SRE managing CI/CD and quality gates.
+- Compliance/audit stakeholders requiring traceability.
+
+## 3) Goals / Success Metrics
+- ≥ 90% of actionable issues caught automatically before human review.
+- Documentation sync in < 5 minutes after merges.
+- +20% test coverage growth on new/changed code.
+- Zero‑config for 80% of standard repos.
+- Per‑repo cost under budget, tracked by tokens/requests.
+- First releases support GitHub + Gitea + generic Git via adapters.
+
+## 4) Core Principles
+- **Provider‑agnostic LLM** (pluggable adapters: LiteLLM, OpenAI, Anthropic, local/Ollama).
+- **Hexagonal architecture** (ports/adapters), stateless app core, deterministic QA gates.
+- **Language‑agnostic** inputs/outputs (diff‑centric, normalized models).
+- **QA required per phase** (unit, integration, regression, manual sign‑off).
+- **Everything auditable**: configs in repo, docs versioned, RAG artifacts git‑tracked.
+
+---
+
+## 5) Functional Decomposition (Capabilities)
+
+- **Git Integration**: webhook receiver, API client, comment poster, status reporter.
+- **Configuration**: parser for `.aurumcode/config.yml`, prompt/rules/document loaders.
+- **LLM Integration**: provider abstraction, prompt builder, response parser, cost tracker.
+- **Analysis**: diff analyzer, language detector, compliance + security scanners.
+- **Review Generation**: AI review + ISO/IEC 25010 scoring + fix suggestions.
+- **Documentation**: changelog, README updater, API docs (OpenAPI), static site.
+- **Test Generation**: unit/API/mocks, test executor, coverage parser.
+- **Deployment**: container build, cloud deployers, GitHub Action packager.
+
+---
+
+## 6) Structural Decomposition (Repository)
+
+```
+aurumcode/
+├── cmd/
+│   ├── server/                  # HTTP webhook/API
+│   └── cli/                     # Local runs / dry‑runs
+├── internal/
+│   ├── git/ {webhook,client,comment,status}
+│   ├── config/ {parser,prompt,rules,document}
+│   ├── llm/ {provider,prompt,parser,cost}
+│   ├── analysis/ {diff,language,compliance,security}
+│   ├── review/ {reviewer,iso25010,suggestion}
+│   ├── documentation/ {changelog,readme,api,site}
+│   ├── testing/ {unit,api,mock,executor}
+│   └── deploy/ {container,cloud,action}
+├── pkg/types/                   # Shared types/interfaces
+├── docs/                        # Hugo site (built to gh‑pages)
+├── rag/                         # RAG artifacts (JSONL, Parquet, manifest)
+├── configs/default-config.yml
+├── deployments/{docker,gcp,github-action}
+└── tests/{unit,integration,fixtures}
+```
+
+---
+
+## 7) Extended Implementation Roadmap (Phases 0–12) + QA
+
+**All phases require:** Functional QA, Integration QA, Regression, Coverage ≥ 80%, Manual sign‑off.
+
+### Phase 0 — Foundation Setup
+- 0.1 Core types/interfaces (`Event`, `Diff`, `Config`, `ReviewResult`, etc.)
+- 0.2 LLM provider interface + adapters (LiteLLM, OpenAI, Anthropic, Ollama)
+- 0.3 Config parser & schema validation
+- 0.4 Unit tests and coverage
+**QA:** coverage ≥ 85%, schema round‑trip tests.
+
+### Phase 1 — Git Integration Core
+- 1.1 Webhook receiver (GitHub initially)
+- 1.2 API client: diffs/files/comments/status
+- 1.3 Comment poster (markdown, suggestions)
+- 1.4 Status reporter (pending/success/failure)
+- 1.5 Integration QA suite
+**QA:** webhook fixtures, rate‑limit retries, idempotency.
+
+### Phase 2 — Configuration System
+- 2.1 Prompt loader (`.aurumcode/prompts`)
+- 2.2 Rules engine (`.aurumcode/rules`)
+- 2.3 Document loader (PEP 8, Effective Go, custom)
+- 2.4 Config QA
+**QA:** invalid/partial configs, caching, fallbacks.
+
+### Phase 3 — Code Analysis Pipeline
+- 3.1 Diff analyzer (unified diff → structured)
+- 3.2 Language detector (ext + heuristics)
+- 3.3 Compliance checker (ISO/OWASP/custom)
+- 3.4 Security scanner (patterns, CVEs, secrets)
+- 3.5 Analysis QA
+**QA:** multi‑language diffs, large hunks, noise filtering.
+
+### Phase 4 — LLM Pipeline
+- 4.1 Prompt builder (context, token budget)
+- 4.2 Response parser (robust JSON/markdown)
+- 4.3 Cost tracker (tokens × price map, budgets)
+- 4.4 LLM QA (determinism, retries, fallbacks)
+**QA:** token accounting, malformed outputs, safety filters.
+
+### Phase 5 — Review Generation
+- 5.1 AI code review (severity, location, rule id)
+- 5.2 ISO/IEC 25010 evaluator (8 characteristics + weights)
+- 5.3 Suggestion generator (before/after, patch/diff)
+- 5.4 Review QA
+**QA:** end‑to‑end diff → comments; suggestion compiles/format‑valid.
+
+### Phase 6 — Documentation Generation
+- 6.1 Changelog from commits (conventional commits)
+- 6.2 README updater (section diffs, preserve manual edits)
+- 6.3 API doc generator (routes → OpenAPI/markdown)
+- 6.4 Static site builder (Hugo + Pagefind)
+**QA:** generated docs correctness, links, search index.
+
+### Phase 7 — Test Generation
+- 7.1 Unit test generator (table‑driven where idiomatic)
+- 7.2 API test generator (Postman/Newman or code)
+- 7.3 Mock generator (interfaces → mocks)
+- 7.4 Test executor (run, parse coverage, report)
+**QA:** compile & pass, coverage targets, flaky test detection.
+
+### Phase 8 — End‑to‑End Integration
+- 8.1 Pipeline orchestration (webhook → analysis → review → docs → tests → comments)
+- 8.2 Server (health/metrics)
+- 8.3 CLI (local diffs, dry‑runs)
+**QA:** realistic repo runs, concurrency, failure recovery.
+
+### Phase 9 — Deployment Packaging
+- 9.1 Docker image (multi‑stage, healthchecks)
+- 9.2 GCP Cloud Functions deployer
+- 9.3 GitHub Action packager (marketplace)
+**QA:** cold‑start times, env vars, secrets, perms.
+
+### Phase 10 — Extended Git Support
+- 10.1 Gitea webhook handler
+- 10.2 Gitea API client
+- 10.3 Generic Git adapter (SSH/HTTPS)
+**QA:** auth modes, payload normalization, parity.
+
+### Phase 11 — Continuous QA & Monitoring
+- 11.1 Global regression suite
+- 11.2 CI pipelines (nightly, PR gates)
+- 11.3 Perf/stress tests, SLOs
+**QA:** trends, budgets, timeouts, resilience.
+
+### Phase 12 — Continuous Learning & Model Optimization
+- 12.1 Accuracy & cost telemetry
+- 12.2 Prompt/library tuning under feature flags
+- 12.3 A/B tests across providers/models
+**QA:** guardrails, rollback, reproducibility.
+
+---
+
+## 8) LLM Provider Agnosticism
+
+**Provider Interface** (example):
+```
+type Provider interface {
+  Complete(prompt string, opts Options) (Response, error)
+  Tokens(input string) (int, error)
+  Name() string
+}
+```
+**Adapters**: `LiteLLM`, `OpenAI`, `Anthropic`, `Ollama` (local).  
+Selection via `.aurumcode/config.yml` + env (`LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`).  
+**Fallback policy**: try primary → alternate of same class (cheap/fast) → local/offline; enforce budgets via Cost Tracker.
+
+---
+
+## 9) Self‑Documentation & Knowledge System (Final Decisions)
+
+### Static Documentation on GitHub
+- **Hugo** site + **Pagefind** search → deployed by **GitHub Actions** to `gh-pages`.
+- Language‑agnostic; uses Markdown and renders OpenAPI where present.
+- **Cross‑cut catalogs** in `/docs/static/api-index/`: `pipelines.json`, `qa_tests.json`, `automations.json` (machine‑readable; also indexed by Pagefind).
+
+### RAG Storage & Evolution
+- **Primary (git‑versioned)** `rag/` artifacts:
+  - `chunks.jsonl` (chunk text + metadata)
+  - `embeddings.parquet` (vectors + metadata)
+  - `manifest.json` (schema, embedder, SHA)
+- **Optional runtime**: Qdrant for fast semantic search (collections per repo/branch).
+- **Chunking**: semantic Markdown/code fences; **800–1200 tokens**; overlap 200–300.
+- **Metadata**: `{repo, path, sha, lang, section, heading, created_at}`.
+- **Re‑embedding triggers**: embedder change, ≥10% file change, weekly compaction (cosine ≥ 0.98 dedupe).
+- **CI flow**: detect deltas → re‑chunk/embed → update artifacts → (optional) sync Qdrant → rebuild Hugo/Pagefind → deploy.
+
+---
+
+## 10) Test Strategy & QA Gates
+
+**Pyramid**
+```
+        /       /E2E\        ≈10%
+      /------     /Integration\  ≈30%
+    /------------   /  Unit Tests  \ ≈60%
+  /----------------```
+- **Coverage targets**: Line ≥ 80%, Branch ≥ 75%, Critical paths 100%.
+- **Blocking gates**: failing tests, coverage drops, budget overshoot, latency SLO breaches.
+- **Artifacts**: coverage reports, SARIF, SBOM, changelog, ISO scores.
+
+---
+
+## 11) Mock Project (Git‑Backed E2E Fixture)
+
+A fully scripted repository to validate each capability across languages and flows.
+
+### Repository Layout
+```
+aurumcode-mock/
+├── .aurumcode/
+│   ├── config.yml
+│   ├── prompts/...
+│   ├── rules/...
+│   └── documents/refs.md
+├── src/
+│   ├── go/hello.go
+│   ├── python/app.py
+│   └── js/index.js
+├── tests/fixtures/                 # Vulnerable & clean samples
+├── docs/                           # Hugo site root (pre‑seeded)
+│   └── content/{guides,reference,pipelines,qa,automations}
+├── rag/                            # Pre‑seeded small demo artifacts
+├── .github/workflows/
+│   ├── aurum-review.yml           # PR review + comments + status
+│   └── docs-deploy.yml            # Hugo + Pagefind → gh‑pages
+└── tools/
+    ├── make-fixture-commits.sh    # Generates synthetic history
+    └── simulate-webhook.json      # Example webhook payloads
+```
+
+### make-fixture-commits.sh (excerpt)
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+rm -rf .git && git init -b main
+git config user.name "Aurum Bot"; git config user.email "aurum@example.com"
+
+echo 'package main
+func main(){println("hello")}' > src/go/hello.go
+git add . && git commit -m "feat(go): initial hello world"
+
+echo 'def add(a,b): return a+b' > src/python/app.py
+git add . && git commit -m "feat(py): add simple function"
+
+echo 'const x = 1;' > src/js/index.js
+git add . && git commit -m "chore(js): baseline index"
+
+# Introduce security smell
+echo 'password="hardcoded"' >> src/python/app.py
+git add src/python/app.py && git commit -m "fix: quick patch" -m "Refs: SECURITY: hardcoded secret"
+
+# Doc update
+mkdir -p docs/content/guides && echo '# Getting Started' > docs/content/guides/start.md
+git add . && git commit -m "docs: getting started guide"
+
+git tag v0.1.0
+git checkout -b feature/iso-metrics
+echo '/* TODO: perf */' >> src/js/index.js
+git add . && git commit -m "feat(js): add TODO for perf (ISO metrics)"
+```
+
+### Simulated PR Flow
+- Open PR from `feature/iso-metrics` → webhook → AurumCode runs:
+  1. Analyze diffs (find secret smell, TODOs, complexity).
+  2. Post review comments + ISO 25010 scores.
+  3. Generate unit tests for changed functions.
+  4. Update docs (CHANGELOG/README where applicable).
+  5. Build Hugo + Pagefind; publish to `gh-pages` (for mock).
+  6. Store RAG artifacts; optionally sync Qdrant.
+
+### Example `.aurumcode/config.yml` (minimal)
+```yaml
+version: "2.0"
+
+llm:
+  provider: "auto"         # auto|litellm|openai|anthropic|ollama
+  model: "sonnet-like"     # logical model key; mapping in runtime
+  temperature: 0.3
+  max_tokens: 4000
+  budgets:
+    daily_usd: 10.0
+    per_review_tokens: 8000
+
+prompts:
+  code_review: "prompts/code-review/general.md"
+  documentation:
+    changelog: "prompts/documentation/changelog.md"
+  testing:
+    unit: "prompts/test-generation/unit-tests.md"
+
+rules:
+  code_standards: "rules/code-standards.yml"
+  iso_compliance: "rules/iso-compliance.yml"
+  security: "rules/security-rules.yml"
+
+outputs:
+  comment_on_pr: true
+  update_docs: true
+  generate_tests: true
+  deploy_site: true
+```
+
+### GitHub Actions (docs‑deploy.yml excerpt)
+```yaml
+name: Docs
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-hugo@v2
+        with: { hugo-version: "0.134.2" }
+      - run: hugo --minify
+      - run: npx pagefind --source ./public
+      - uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+```
+
+---
+
+## 12) Key Design Decisions (Final)
+- **Go** backend for performance & concurrency; static builds.
+- **Hugo + Pagefind** for portable docs & search on GitHub.
+- **RAG in Git** (JSONL/Parquet) with optional Qdrant runtime.
+- **LLM provider abstraction** with budget and fallback policy.
+- **Strict QA gates** block promotion between phases.
+
+---
+
+## 13) Risks & Mitigations
+- **LLM variability** → low temperature, schema validation, retries, small models for drafts.
+- **Rate limits** → token bucket, exponential backoff, ETags.
+- **Large diffs** → chunking, priority files first, progressive passes.
+- **Cost drift** → live budgets, per‑repo caps, model routing.
+
+---
+
+## 14) TaskMaster Parsing Notes
+- Each bullet in Phases 0–12 is a task node.
+- Dependencies are implied by phase order and named sub‑items.
+- QA gates are acceptance criteria; failure blocks downstream phases.
+
