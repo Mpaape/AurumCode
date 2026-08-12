@@ -1,0 +1,104 @@
+schema: aurum.redaction-cases
+version: 1
+limits:
+  max_vectors: 64
+  max_total_bytes: 4194304
+  deadline_seconds: 30
+cases:
+  - name: "url-query-canary"
+    kind: nominal
+    channel: url
+    expect: redacted
+    input: "GET https://api.example.test/v1/repos?access_token=${CANARY}&page=2 HTTP/1.1"
+    expected: "GET https://api.example.test/v1/repos?[REDACTED] HTTP/1.1"
+  - name: "auth-header-canary"
+    kind: nominal
+    channel: header
+    expect: redacted
+    input: "Authorization: Bearer ${CANARY}"
+    expected: "Authorization: [REDACTED]"
+  - name: "body-json-canary"
+    kind: nominal
+    channel: body
+    expect: redacted
+    input: "{'note':'deploy key ${CANARY} rotated','ok':true}"
+    expected: "{'note':'deploy key [REDACTED] rotated','ok':true}"
+  - name: "diff-added-secret"
+    kind: nominal
+    channel: diff
+    expect: redacted
+    input: "+db_password=${CANARY}"
+    expected: "+db_password=[REDACTED]"
+  - name: "error-cause-canary"
+    kind: nominal
+    channel: error
+    expect: redacted
+    input: "credential rejected for ${CANARY} on host db-primary"
+    expected: "credential rejected for [REDACTED] on host db-primary"
+  - name: "tool-result-canary"
+    kind: nominal
+    channel: tool_result
+    expect: redacted
+    input: "tool git_push result: token=${CANARY} applied to branch main"
+    expected: "tool git_push result: token=[REDACTED] applied to branch main"
+  - name: "body-json-quoted-secret"
+    kind: nominal
+    channel: body
+    expect: redacted
+    input: "{${DQ}password${DQ}:${DQ}notarealpw0123${DQ},${DQ}ok${DQ}:true}"
+    expected: "{${DQ}password${DQ}:${DQ}[REDACTED]${DQ},${DQ}ok${DQ}:true}"
+  - name: "body-yaml-quoted-api-key"
+    kind: nominal
+    channel: body
+    expect: redacted
+    input: "api_key: ${DQ}notarealtokenvalue${DQ}"
+    expected: "api_key: ${DQ}[REDACTED]${DQ}"
+  - name: "header-in-json-canary"
+    kind: nominal
+    channel: header
+    expect: redacted
+    input: "{${DQ}headers${DQ}:{${DQ}Authorization${DQ}:${DQ}Bearer notarealtoken9${DQ},${DQ}X-Api-Key${DQ}:${DQ}${CANARY}${DQ}}}"
+    expected: "{${DQ}headers${DQ}:{${DQ}Authorization${DQ}:${DQ}[REDACTED]${DQ},${DQ}X-Api-Key${DQ}:${DQ}[REDACTED]${DQ}}}"
+  - name: "private-key-block"
+    kind: nominal
+    channel: body
+    expect: redacted
+    input: "${PEM_BEGIN}${NL}MIIBOgIBAAJBnotarealkey0123456789abcdefghij${NL}wxyz0123456789notarealkeyMIIBOgIBAAJB${NL}${PEM_END}${NL}tail ok"
+    expected: "[REDACTED]${NL}tail ok"
+  - name: "url-userinfo-canary"
+    kind: nominal
+    channel: url
+    expect: redacted
+    input: "remote https://admin:${CANARY}@git.example.test/r.git mirror https://ci:notarealpw0123@mirror.example.test/r.git"
+    expected: "remote https://[REDACTED]@git.example.test/r.git mirror https://[REDACTED]@mirror.example.test/r.git"
+  - name: "tool-result-newline-sliced-canary"
+    kind: nominal
+    channel: tool_result
+    expect: redacted
+    input: "tool fs_read result: ${CANARY_HEAD}${NL}${CANARY_TAIL} done"
+    expected: "tool fs_read result: [REDACTED] done"
+  - name: "sink-unknown"
+    kind: invalid
+    channel: sink
+    expect: typed-error
+    error: sink-unauthorized
+    input: "telemetry"
+  - name: "sink-empty"
+    kind: invalid
+    channel: sink
+    expect: typed-error
+    error: sink-unauthorized
+    input: ""
+  - name: "input-at-limit"
+    kind: boundary
+    channel: limit
+    expect: identity
+    repeat_unit: "A"
+    repeat_count: 65536
+  - name: "input-beyond-limit"
+    kind: boundary
+    channel: limit
+    expect: typed-error
+    error: input-too-large
+    repeat_unit: "A"
+    repeat_count: 65537
