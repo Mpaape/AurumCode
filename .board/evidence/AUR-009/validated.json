@@ -1,0 +1,20 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-009",
+  "commit": "4b5742bb69e1f3042f3bd25bd48c8aa8f9ebb807",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-009",
+    "exit_code": 0,
+    "raw_output": "AUR-009/TestAUR009: pass\nAUR-009/IntegrationAUR009: pass\nAUR-009/E2EAUR009: pass\nvector_count=16 observed_leak_count=0 secret_outside_authorized_sink=false\nsweep_sha256=df33b4af filter_tree=1e73649b (identical across two runs)\nimage=aurum-bootstrap-go-bash@sha256:503ac356 exit_code=0 observation_trusted=false"
+  },
+  "review_notes": {
+    "first_candidate_rejected": "Candidate 435f233 was rejected by an independent reviewer who compiled a probe against the candidate's own source and proved four real leaks while the acceptance still exited 0: a quoted value in JSON, an Authorization header inside single-line JSON, the body of a PEM private key, and credentials in URL userinfo. The cause was that the sealed vectors had been shaped around the author's own regular expressions.",
+    "sensitivity_proof": "Reverting only internal/security/redaction/redaction.go to the rejected version makes the acceptance exit 1 with AUR-009/AC-001/behavior-missing, so the six added vectors are load bearing rather than decorative. Four of them deliberately carry a non-canary secret, because with the canary present the registered-secret layer would rescue the output and the vector would be born green.",
+    "mutations": "MUT-001 and MUT-002 each exit 1 with their declared code, and both restores return byte-identical observation digests.",
+    "reviewer_attacks": "Over twenty further vectors were attempted against the candidate source - unicode-escaped values, obs-fold headers, single quotes with spaces, percent-encoded userinfo with a port, CRLF and malformed PEM banners, and a canary split across three writes - and none leaked the canary. The typed limit error carries zero bytes and zero effects.",
+    "open_findings": "Four findings remain, none of them a canary leak and none producing a false green: docs/specs/AUR-009.md promises generic scheme://user@host userinfo while the expression enumerates only https, http, wss, ws, ftp, ssh and git, so postgres:// passes intact; the auth-header rules are still anchored at line start, so a header mid-line is only saved by the registered-secret rule; the double-quoted JSON rules stop at an escaped quote; and material on the same line as a PEM BEGIN banner survives. They belong to a follow-up card against the filter, not to this delivery."
+  }
+}
