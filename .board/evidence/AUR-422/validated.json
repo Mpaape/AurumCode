@@ -1,0 +1,18 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-422",
+  "commit": "3599f33e0c7965a470503b4448f8627f53d62d37",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-422",
+    "exit_code": 0,
+    "raw_output": "plan image=aurum-bootstrap-go-bash@sha256:503ac356 user=65534:65534 network=none engine_invocations=0\nok tests/unit 0.003s\nok tests/contracts 0.011s\nok tests/integration 0.002s\nintegration runner_bindings=ok engine_invocations=0\ne2e=ok profile=bootstrap-readonly-v1 lock_digest=sha256:acc7d19c engine_invocations=0\n{\"card\":\"AUR-422\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}"
+  },
+  "review_notes": {
+    "mutations": "The reviewer mutated the bytes on disk rather than the author's mutation environment variable. MUT-001 lock-digest divergence, MUT-002 mutable image tag and MUT-003 in three variants (bridge network, uid 0, engine socket mount) each made oci-run exit 65 before any engine record, and the acceptance report the declared code; every restore returned to exit 0.",
+    "drift_probe": "The declared risk of this card is that tests/unit/AUR-422.go reimplements the runner's plan resolution. Divergence is detected in both directions: raising a ceiling only in the loader, relaxing only the user pattern, and mutating the ceiling only in the runner each failed the acceptance with an explicit divergence message.",
+    "open_low_findings": "tests/unit/AUR-422.go is not gofmt clean (the acceptance runs with -vet=off and no gate checks formatting); the acceptance empty-lane guard counts lines starting with 'ok ', which also matches '[no tests to run]' for the contracts and integration lanes; and the key-set congruence in tests/contracts/AUR-422.go is a hand-copied literal rather than being re-extracted from require_exact_keys in the runner."
+  }
+}
