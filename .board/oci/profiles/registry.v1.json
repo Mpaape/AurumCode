@@ -11,6 +11,14 @@
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
+    "key": "go-git-offline-v1",
+    "schema": ".board/schemas/go-git-offline-profile.schema.json",
+    "schema_digest": "sha256:e9034cf14303a033237549fbee7886f9a67fac175a7dccb4b1e19a381a488347",
+    "lock": ".board/locks/oci/go-git-offline-v1.lock.json",
+    "lock_digest": "sha256:80f8d5e3504abfbbb9ae7e9f0ed610980ded3e1f1e93546c7123b5819eceadd8",
+    "image_set_digest": "sha256:1d2abe8df0adc89f09fdaa264a6875809f9072ae211e149d6f9a3293974f3128"
+  },
+  {
     "key": "go-unit-offline-v1",
     "schema": ".board/schemas/go-unit-offline-profile.schema.json",
     "schema_digest": "sha256:08abf5dd5653e4e40cbf45e089b10670aecde40126bcaa3346d79890437d3e85",
