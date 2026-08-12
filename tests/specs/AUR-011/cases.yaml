@@ -1,0 +1,103 @@
+schema: aurum.git-demo-fixture-cases
+version: 1
+# Sealed vectors for AUR-011 / AC-001.
+#
+# `limits` is the harness contract, enforced by tests/acceptance/AUR-011.sh:
+# more than 64 vectors, more than 4 MiB of vector input in total, or a deadline
+# above 30 s is refused before any vector runs.
+#
+# `domain` restates the bounds the fixture builder itself enforces, so the
+# boundary vectors below sit exactly on them and one step past them.
+#
+# Every `input_digest` is recomputed from the constructed input at run time and
+# every `input_bytes` is measured, so a vector cannot silently change what it
+# feeds the program under test.
+limits:
+  max_vectors: 64
+  max_total_bytes: 4194304
+  deadline_seconds: 30
+domain:
+  max_commits: 16
+  max_files_per_commit: 16
+  max_object_bytes: 65536
+cases:
+  - name: "nominal-recreate"
+    kind: nominal
+    input_digest: "sha256:754f1cbca4d0d6f01252480d3490ccb0c5d4ac15649623f578c4c5cafdf5b3e7"
+    input_bytes: 2901
+    expected_exit: 0
+    expected_code: "recreated"
+    effects: 1
+    artifact_digest: "sha256:f6c7cd8a7c12bdbb84407b42c00abb669df8d67d3f1d20ce046eae8877d7c0cc"
+  - name: "nominal-replay"
+    kind: nominal
+    input_digest: "sha256:754f1cbca4d0d6f01252480d3490ccb0c5d4ac15649623f578c4c5cafdf5b3e7"
+    input_bytes: 2901
+    expected_exit: 0
+    expected_code: "recreated"
+    effects: 1
+    artifact_digest: "sha256:f6c7cd8a7c12bdbb84407b42c00abb669df8d67d3f1d20ce046eae8877d7c0cc"
+  - name: "invalid-object-id-mismatch"
+    kind: invalid
+    input_digest: "sha256:819654e3c52d1950caa1feb60923d4a07a64c0ed06e5222b18e5059c5d40de26"
+    input_bytes: 3167
+    expected_exit: 1
+    expected_code: "object-id-mismatch"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-zlib-adler"
+    kind: invalid
+    input_digest: "sha256:71099b0dec47de153e8c1c355bb0d0930e1b1d38cbc4b24477a08467b38bd1b2"
+    input_bytes: 3167
+    expected_exit: 1
+    expected_code: "zlib-adler-mismatch"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-dangling-ref"
+    kind: invalid
+    input_digest: "sha256:89ce617b5f9dc413f900268ca371cb32cac6f7c4eb3591b29c9138f959000d2b"
+    input_bytes: 3167
+    expected_exit: 1
+    expected_code: "dangling-ref"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-non-synthetic-secret"
+    kind: invalid
+    input_digest: "sha256:84aa16c70ed71173681eaac8268ed376e7dfb7976cf1ac5077d7d6bb9cd9e16b"
+    input_bytes: 447
+    expected_exit: 1
+    expected_code: "non-synthetic-secret"
+    effects: 0
+    artifact_digest: "none"
+  - name: "boundary-max-object-bytes"
+    kind: boundary
+    input_digest: "sha256:36d7c462f33d58fb7e865d3e87dcecd5fd17741f43cb079b453f3df8fad92fdd"
+    input_bytes: 65927
+    expected_exit: 0
+    expected_code: "recreated"
+    effects: 1
+    artifact_digest: "sha256:c000d8feb3da1870c1c100005169f07526c3ccd4239da87e2e294f335c5eabd4"
+  - name: "boundary-object-too-large"
+    kind: boundary
+    input_digest: "sha256:705a33b419a7928fccac31052a20231a76d9dc031cc2dc07ad27343579724021"
+    input_bytes: 65928
+    expected_exit: 1
+    expected_code: "object-too-large"
+    effects: 0
+    artifact_digest: "none"
+  - name: "boundary-max-commits"
+    kind: boundary
+    input_digest: "sha256:7441ebccadf13526a5f792862f1c6a77878e4987577a817fe253efdb6fef6528"
+    input_bytes: 1965
+    expected_exit: 0
+    expected_code: "recreated"
+    effects: 1
+    artifact_digest: "sha256:0db7a27b89b952bee39daa1d173f6fe20f8a03bdd97fb2509e4ef79411cf914b"
+  - name: "boundary-too-many-commits"
+    kind: boundary
+    input_digest: "sha256:f76adb0a479ed4d4be4b4f189ad2ab9a63a0ff1beec2988966132c0909e565eb"
+    input_bytes: 2068
+    expected_exit: 1
+    expected_code: "too-many-commits"
+    effects: 0
+    artifact_digest: "none"
