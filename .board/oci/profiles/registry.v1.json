@@ -27,6 +27,14 @@
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
+    "key": "fake-scm-offline-v1",
+    "schema": ".board/schemas/fake-scm-offline-profile.schema.json",
+    "schema_digest": "sha256:faff6dd49dc4862d53eebf95ae413ed8087fe09707f0eff4f5b238bdf9de9077",
+    "lock": ".board/locks/oci/fake-scm-offline-v1.lock.json",
+    "lock_digest": "sha256:0899eda5d6a9435393ffa649f896af36f8de88f92b3bd4d3adca5eebfd92c761",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
     "key": "go-git-offline-v1",
     "schema": ".board/schemas/go-git-offline-profile.schema.json",
     "schema_digest": "sha256:e9034cf14303a033237549fbee7886f9a67fac175a7dccb4b1e19a381a488347",
