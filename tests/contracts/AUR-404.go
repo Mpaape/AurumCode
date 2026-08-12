@@ -67,11 +67,12 @@ func ContractAUR404(t *testing.T) {
 
 	registry := read(".board/oci/profiles/registry.v1.json")
 	entries, ok := registry["profiles"].([]any)
-	// Extended by AUR-405, which registers fake-provider-v1 as the fifth key. The
-	// arity assertion is kept, not relaxed: every rejection this check made before
-	// still fails, only the registered count moved with the registry.
-	if !ok || len(entries) != 5 {
-		t.Fatalf("registry does not publish exactly five profiles: %v", registry["profiles"])
+	// Extended by AUR-405 (fake-provider-v1, fifth key) and then by AUR-406
+	// (parser-worker-v1, sixth key). The arity assertion is kept, not relaxed: every
+	// rejection this check made before still fails, only the registered count moved
+	// with the registry.
+	if !ok || len(entries) != 6 {
+		t.Fatalf("registry does not publish exactly six profiles: %v", registry["profiles"])
 	}
 	found := false
 	for _, raw := range entries {
