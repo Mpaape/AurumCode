@@ -1,0 +1,5 @@
+service: aurum-demo
+listen: 127.0.0.1:8080
+greeting: hello
+log_level: debug
+entrypoint: src/greeter.py

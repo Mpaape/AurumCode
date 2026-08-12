@@ -1,0 +1,40 @@
+{
+  "schema": "aurum.git-demo-fixture",
+  "version": 1,
+  "branch": "main",
+  "author": "Aurum Demo Author <demo-author@aurum.invalid>",
+  "committer": "Aurum Demo Bot <demo-bot@aurum.invalid>",
+  "head": "sha1:eedb8f9dbd4e725cb8b9cc065fe7f1090f2a9024",
+  "commit_count": 3,
+  "object_count": 16,
+  "commits": [
+    {"index":1,"id":"sha1:443b29afea9469f73e609f95a3e7438763bb12f0","tree":"sha1:d6029a41598f552b95fd18a8c295566b44471107","parent":"none","timestamp":1700000000,"timezone":"+0000","message":"seed: add the demo project skeleton","operations":["add:01:README.md","add:01:NOTES.txt","add:01:config/app.yaml"]},
+    {"index":2,"id":"sha1:c7a2e5a32bb7b0af16b97e5b70fec5a38ff9d5d7","tree":"sha1:b452a2b55afa3e9cc507415ba9d32eecce3c3135","parent":"sha1:443b29afea9469f73e609f95a3e7438763bb12f0","timestamp":1700000060,"timezone":"+0000","message":"feat: add the greeter and point the config at it","operations":["add:02:src/greeter.py","modify:02:config/app.yaml"]},
+    {"index":3,"id":"sha1:eedb8f9dbd4e725cb8b9cc065fe7f1090f2a9024","tree":"sha1:b6b841ddcf0b1cb7096e0ba3a72840ada8af11cf","parent":"sha1:c7a2e5a32bb7b0af16b97e5b70fec5a38ff9d5d7","timestamp":1700000120,"timezone":"+0000","message":"chore: plant synthetic tokens and drop the scratch notes","operations":["add:03:config/demo-tokens.txt","delete:-:NOTES.txt"]}
+  ],
+  "objects": [
+    {"id":"sha1:26dd0b68420113ea2438c525d41af069f38f2d20","type":"blob","raw_bytes":525,"raw_sha256":"sha256:508396948292213c10f935821c35658b44ff19577ab312ed5cdb3288583f55ae","stored_sha256":"sha256:d6f2922d4c11b71ad0129f091a6c39623fe9823be078244a444d350e9ec9e9b2"},
+    {"id":"sha1:2bb91209e207da0bb9b2aa588f72859f97c29eb3","type":"tree","raw_bytes":87,"raw_sha256":"sha256:88784ae485a04dac8766ffc8204b54e2643b2c5f4bd5132c139c1cc1b650bd71","stored_sha256":"sha256:daa480d4b6fde704dcffe0b55d6fe6afc439f609cd8c8c9f4321844105c83b92"},
+    {"id":"sha1:2e5fb0a31dfb2a097231367257c066ae6346a156","type":"tree","raw_bytes":44,"raw_sha256":"sha256:eb0c49d70e09bdadcf604b187d13fdcff6c0cd4711b7e4d5676ac53844cbde04","stored_sha256":"sha256:8d6585dfd4d84deae052c20a359f9a08814fb685b952417ec663ab03afcafd58"},
+    {"id":"sha1:443b29afea9469f73e609f95a3e7438763bb12f0","type":"commit","raw_bytes":231,"raw_sha256":"sha256:3c35a2f958f7fd6bb1b6c51d0c1e18b7a916ddb61ec0befaa7945c1bfe15da8d","stored_sha256":"sha256:e13ece12cd7e94b28a26d6e888dbc5e8e5f367b4fec4230f499ef850209e2f0e"},
+    {"id":"sha1:747cfcab39a4624d6f2319d736a772f213d4bb83","type":"blob","raw_bytes":83,"raw_sha256":"sha256:643cd5c6499f907813c73f09057de3b3a6c7d4078b9f2fe09f6bef92ac3151cd","stored_sha256":"sha256:1508e7f557a10ed19be69536342bef6487b7eda8c89121f67d2d0c83248f0c5e"},
+    {"id":"sha1:79e5eeb8b532d34bf3078635bf37035f9436cf4a","type":"blob","raw_bytes":211,"raw_sha256":"sha256:89f2c038c86e435716f8da7ff8850013bc319b31f76babf64158966cafcfbb0a","stored_sha256":"sha256:da2d0e8a6f94effeb0b0f9a111f384d29c6914b590bbe9705f3c3f4d1c898491"},
+    {"id":"sha1:a9f27c7c9552f3e8db588ef484eb2d894f2d93a2","type":"blob","raw_bytes":334,"raw_sha256":"sha256:689859844e6824fa3cb4775a58772179142b4a479c596b841166754fe55f0d69","stored_sha256":"sha256:9c986c49576227795e28d9aaf4b3497dc377562177bc419d56e7dcda51b9c448"},
+    {"id":"sha1:b452a2b55afa3e9cc507415ba9d32eecce3c3135","type":"tree","raw_bytes":146,"raw_sha256":"sha256:61535e2479a18d6f14aab3f982b3ed7cb00cb0ce89d6fb89e117e2718b615044","stored_sha256":"sha256:3538f86304073fa8e9cee182532989cb77436b71f71753bc6f7e5e7cc13466c7"},
+    {"id":"sha1:b6b841ddcf0b1cb7096e0ba3a72840ada8af11cf","type":"tree","raw_bytes":109,"raw_sha256":"sha256:7fa801836a73d2c57258b0f345d0a8d27e40e944529c84772d03fed5f9af82c6","stored_sha256":"sha256:dd779fd72407b8796cf32e93a22497a0510024708b97412a155f136c46a39043"},
+    {"id":"sha1:c6233cf88c372f11fd7b28c983fc6a2343ab7171","type":"tree","raw_bytes":46,"raw_sha256":"sha256:6e896644f8b94c776302c4b1fde91da01ed7fb3ddf6fed69692914acce839f87","stored_sha256":"sha256:e68d0a117023c733c8310bf1b0e12e3ffc06eb0051e3229d220ca5d907ecd3f5"},
+    {"id":"sha1:c7a2e5a32bb7b0af16b97e5b70fec5a38ff9d5d7","type":"commit","raw_bytes":292,"raw_sha256":"sha256:eb22570c668931a5580d3bf2eb4e74197b84e46cb40af074549248c8cba8040c","stored_sha256":"sha256:d0b061701acaf71502b67b309f4cc60eae3c7c0645837a74d64cb9828b4385fb"},
+    {"id":"sha1:d6029a41598f552b95fd18a8c295566b44471107","type":"tree","raw_bytes":116,"raw_sha256":"sha256:499278e123e59ef296153c10c3ba7d933d5c2e75efbd779522a387d619ff8f87","stored_sha256":"sha256:d71b05586070185640e615e84ba6972eac5096680a312b7725e3e0f294189ca8"},
+    {"id":"sha1:de1703ef934ff397bfd80b9ea509b35db9d5bfc5","type":"blob","raw_bytes":112,"raw_sha256":"sha256:570152bbc36280384bd91158d4928545b990dfe462c1d1c8f77b95f02edf236e","stored_sha256":"sha256:dc663c30f9e59e14acd62dc02d7c5ca9b88b49d345cf4ab259d5d8c3efd388c0"},
+    {"id":"sha1:e597c188586e0f2e34f6792b2a5afc8cafd87188","type":"tree","raw_bytes":44,"raw_sha256":"sha256:bea5d77ac31e69021ce1629a8b010ebee1e85a302e0e6c1c6cf8d1465931d9ac","stored_sha256":"sha256:18365f2dad54f81e73c6cf462144e270c959945f89da100fc84bd678eac4c87c"},
+    {"id":"sha1:e87d6a564898444c252e1d091a183cbd22202a06","type":"blob","raw_bytes":182,"raw_sha256":"sha256:b813178b3c2447b904213c0a2110caa6b3a6cf37f85bb9b67f06cb55120f2ab8","stored_sha256":"sha256:32074b6e62ea053833883f8196c473d6130dc6a1ca915b19a78199afddc69f06"},
+    {"id":"sha1:eedb8f9dbd4e725cb8b9cc065fe7f1090f2a9024","type":"commit","raw_bytes":300,"raw_sha256":"sha256:c5cbcf65e18b005aa5ff7205a99b98e58864d4a52e39f9b23234aff51d02ed9f","stored_sha256":"sha256:47aa2ef7ec399738c07ca0938ecf0945898f1afbf9968df254cfe64fedf8d00f"}
+  ],
+  "synthetic_secrets": [
+    "AURUM-FAKE-PASSWORD-0000-0002",
+    "AURUM-FAKE-TOKEN-0000-0001",
+    "AURUM-FAKE-WEBHOOK-0000-0003"
+  ],
+  "source_digest": "sha256:754f1cbca4d0d6f01252480d3490ccb0c5d4ac15649623f578c4c5cafdf5b3e7",
+  "fixture_digest": "sha256:f6c7cd8a7c12bdbb84407b42c00abb669df8d67d3f1d20ce046eae8877d7c0cc"
+}
