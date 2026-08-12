@@ -35,6 +35,14 @@
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
+    "key": "parser-worker-v1",
+    "schema": ".board/schemas/parser-worker-profile.schema.json",
+    "schema_digest": "sha256:e7ebce2ab132c06e05d0e05967d18b935ac48197c59be321bfe5d931158c1fe0",
+    "lock": ".board/locks/oci/parser-worker-v1.lock.json",
+    "lock_digest": "sha256:8591be014f0873f3851a77e5c7a499787aff2de62ccf0fecdcf01aa3a2fa2e2b",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
     "key": "registry-v1",
     "schema": ".board/schemas/container-profile.schema.json",
     "schema_digest": "sha256:4219444b921f34a0040cb29972c1984ee5e41a91608f3d78a9398eadded0bf62",
