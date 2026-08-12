@@ -11,6 +11,14 @@
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
+    "key": "docs-tool-offline-v1",
+    "schema": ".board/schemas/docs-tool-offline-profile.schema.json",
+    "schema_digest": "sha256:cbde81bf2e86983e111021d3487be984bb7b8beff629f5d904d222cf90b54773",
+    "lock": ".board/locks/oci/docs-tool-offline-v1.lock.json",
+    "lock_digest": "sha256:cc8615e16aaa03502c3e08554ea5d60122d74d4d5abf23052649b536d37e8788",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
     "key": "fake-provider-v1",
     "schema": ".board/schemas/fake-provider-profile.schema.json",
     "schema_digest": "sha256:f5d66c44bf49891bcc73f96e20bfaefdb7bd19301b01a294ae2d26b54498512e",
