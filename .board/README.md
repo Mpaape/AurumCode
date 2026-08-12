@@ -45,8 +45,10 @@ every 20-minute review uses `--review`.
    authorship, co-authorship, signatures, or generated-by attribution.
 
 The earlier ceremony (two blind reviewers, skeptical mutation, OCI evidence
-bundles) is preserved as history below and still governs the 12 legacy `done`
-cards; new cards run the lightweight cycle above.
+bundles) is preserved as frozen history for cards already in `done`; every
+backlog or active card runs the lightweight cycle above. A legacy Review or
+Evidence paragraph left in an uncompleted card is stale text and must be
+normalized before dispatch; it never authorizes extra reviewers or roles.
 
 Before dispatching a card, follow [`AGENT_PLAYBOOK.md`](AGENT_PLAYBOOK.md) and
 run the preflight in a clean worktree. The runner repeats the runtime smoke test

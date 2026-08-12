@@ -151,11 +151,15 @@ teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
    RED. Para caracterizacao, prova GREEN, mutacao RED e restore GREEN.
 2. Builder implementa somente `paths`, executa baseline, mutacao e restore, e
    cria commit com identidade humana configurada, sem atribuicao de IA.
-3. Reviewer independente revisa o mesmo SHA imutavel ainda fora da fila ativa,
+3. **Um unico reviewer independente por card** revisa o mesmo SHA imutavel
+   ainda fora da fila ativa,
    antes da integracao; depois da aprovacao o coordenador integra exatamente
    esse SHA e move o card para `review`/`validating`,
    cada hunk, o contrato,
    schema/parser, acceptance, paths, exits e fronteiras de seguranca.
+   Nunca despache Reviewer A/B, segundo/terceiro reviewer ou aprovador cetico:
+   o pipeline rejeita essa linguagem nos cards nao concluidos. O reviewer nao
+   executa `.board/bin/second-reader` no checkout coordenador.
    Cada selector Unit, Contract, Integration e E2E declarado deve executar uma
    assercao real. Exit 0 com `[no test files]`, zero testes, branch vazia ou
    selector que retorna sem chamar a camada e veto, mesmo se o nominal agregado
