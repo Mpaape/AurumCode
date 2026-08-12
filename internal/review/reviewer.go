@@ -3,7 +3,6 @@ package review
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -113,18 +112,6 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", metrics.LinesDeleted)
 	result.Metadata["segments_used"] = promptParts.Meta["segments_used"]
 	result.Metadata["estimated_tokens"] = promptParts.Meta["estimated_tokens"]
-
-	// MUT-001 hook: AUR-430's skeptical mutation is "return an empty issue
-	// list for a diff with a known problem." Rather than have the
-	// acceptance script patch source inside a read-only container rootfs,
-	// the mutation is a source-level, env-gated no-op identical in shape to
-	// the AURUM_A402_MUTATION / AURUM_A403_MUTATION hooks already used
-	// elsewhere on this board: unset (the default, and the only thing a
-	// production build ever does), it does nothing. See
-	// tests/acceptance/AUR-430.sh's mutation_case and docs/specs/AUR-430.md.
-	if os.Getenv("AURUM_A430_MUTATION") == "empty-issues" {
-		result.Issues = nil
-	}
 
 	return result, nil
 }
