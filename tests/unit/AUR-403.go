@@ -29,6 +29,8 @@ const sqliteSchemaPath403 = ".board/schemas/sqlite-offline-profile.schema.json"
 const sqliteLockPath403 = ".board/locks/oci/sqlite-offline-v1.lock.json"
 const docsToolSchemaPath403 = ".board/schemas/docs-tool-offline-profile.schema.json"
 const docsToolLockPath403 = ".board/locks/oci/docs-tool-offline-v1.lock.json"
+const fakeScmSchemaPath403 = ".board/schemas/fake-scm-offline-profile.schema.json"
+const fakeScmLockPath403 = ".board/locks/oci/fake-scm-offline-v1.lock.json"
 
 type profile403 struct {
 	Schema              string            `json:"schema"`
@@ -374,10 +376,21 @@ func validateRegistry403(root string) (string, string) {
 		if i > 0 && keys[i-1] >= x.Key {
 			return "", "order-invalid"
 		}
-		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "parser-worker-v1" && x.Key != "registry-v1" && x.Key != "sqlite-offline-v1" && x.Key != "docs-tool-offline-v1" {
+		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "parser-worker-v1" && x.Key != "registry-v1" && x.Key != "sqlite-offline-v1" && x.Key != "docs-tool-offline-v1" && x.Key != "fake-scm-offline-v1" {
 			return "", "profile-unregistered"
 		}
-		if x.Key == "docs-tool-offline-v1" {
+		if x.Key == "fake-scm-offline-v1" {
+			// Registered by AUR-409. Its documents are not materialized for this
+			// acceptance either, so only the declared paths and digest shape are
+			// checked: registering the fake SCM can never re-point the Go unit plan
+			// validated below.
+			if x.Schema != fakeScmSchemaPath403 || x.Lock != fakeScmLockPath403 {
+				return "", "unsafe-plan"
+			}
+			if !digest403.MatchString(x.SchemaDigest) || !digest403.MatchString(x.LockDigest) || !digest403.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		} else if x.Key == "docs-tool-offline-v1" {
 			// Registered by AUR-408. Its documents are not materialized for this
 			// acceptance either, so only the declared paths and digest shape are
 			// checked: registering the documentation tool can never re-point the Go
@@ -456,13 +469,14 @@ func validateRegistry403(root string) (string, string) {
 			return "", "digest-invalid"
 		}
 	}
-	// Extended by AUR-408 (docs-tool-offline-v1, eighth key). The arity stays exact and
+	// Extended by AUR-409 (fake-scm-offline-v1, ninth key). The arity stays exact and
 	// the positional order stays complete: every key asserted before is still asserted at
 	// the single index the canonical ascending order gives it, and the new key is pinned
-	// at the only index it can occupy. `docs-` sorts after `bootstrap-` and before
-	// `fake-`, so the six keys that follow it move one index to the right; no key leaves
-	// the list, no arity becomes a minimum and no equality becomes an inequality.
-	if len(r.Profiles) != 8 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "docs-tool-offline-v1" || keys[2] != "fake-provider-v1" || keys[3] != "go-git-offline-v1" || keys[4] != "go-unit-offline-v1" || keys[5] != "parser-worker-v1" || keys[6] != "registry-v1" || keys[7] != "sqlite-offline-v1" {
+	// at the only index it can occupy. `fake-scm-` sorts after `fake-provider-` and
+	// before `go-git-`, so the five keys that follow it move one index to the right; no
+	// key leaves the list, no arity becomes a minimum and no equality becomes an
+	// inequality.
+	if len(r.Profiles) != 9 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "docs-tool-offline-v1" || keys[2] != "fake-provider-v1" || keys[3] != "fake-scm-offline-v1" || keys[4] != "go-git-offline-v1" || keys[5] != "go-unit-offline-v1" || keys[6] != "parser-worker-v1" || keys[7] != "registry-v1" || keys[8] != "sqlite-offline-v1" {
 		return "", "profile-unregistered"
 	}
 	return hash403(rb), "valid"
