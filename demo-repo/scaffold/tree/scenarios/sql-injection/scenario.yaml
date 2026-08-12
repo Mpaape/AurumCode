@@ -1,0 +1,8 @@
+schema: aurum.demo-scenario
+version: 1
+id: sql-injection
+kind: security
+title: "A query is built by string concatenation"
+reviewed:
+  - src/lookup.py
+expected_findings: 1

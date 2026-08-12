@@ -1,0 +1,28 @@
+schema: aurum.demo-scaffold-allowlist
+version: 1
+tree-root: tree
+limit: max_entries 64
+limit: max_file_bytes 65536
+limit: max_total_bytes 1048576
+limit: max_path_bytes 128
+scenario: clean-change 2
+scenario: docs-drift 2
+scenario: flaky-test 2
+scenario: null-deref 2
+scenario: secret-leak 2
+scenario: sql-injection 2
+entry: - 0644 850 b73e2bd970201b620cb0ec8afda2487720edd92bd55739fee35770bbda25ea56 CONTRIBUTING.md
+entry: - 0644 889 e51197719763ceb5b622027002042f37c3f2ea2d7b69600067dac02e97e2e33e README.md
+entry: - 0644 569 bf07463a25d9218da21436a38bdd632da3398af2b6a115660db6c93ebfe7858c scenarios/INDEX.md
+entry: clean-change 0644 159 b3b56c2a964e3ecabc5054f0258b643f4d7511d28f47a1c1247de7772110bb11 scenarios/clean-change/scenario.yaml
+entry: clean-change 0644 353 0e2d1dbb8188f0095d1f328de4a862f6c81f1996d33bf296db40ef4f857226d8 scenarios/clean-change/src/greeter.py
+entry: docs-drift 0644 349 15d35f5f214662153b3c1ab740054a028fb64e075247fd8485f069f3d13a44fa scenarios/docs-drift/docs/api.md
+entry: docs-drift 0644 170 790c57d2349dea5fb762fddedf07a2fb4f651a83639e5822fb87617760dac92a scenarios/docs-drift/scenario.yaml
+entry: flaky-test 0644 176 0d2f37078e3cf8267261e00d20ef8a559f2398b2179055b3126e969ec00ae8b4 scenarios/flaky-test/scenario.yaml
+entry: flaky-test 0644 358 2927f6b4faaabdd18c553f252926d022a2fe8ca7c89baf06a4fb9a4f6b4f0bf6 scenarios/flaky-test/tests/test_timing.py
+entry: null-deref 0644 168 1956083b7f34e6e814a533beb27f1da4dabae2bc99980b2a2121ad85e3b68205 scenarios/null-deref/scenario.yaml
+entry: null-deref 0644 378 4508fa4e1403f69117ab01a7d4ed78a56fbcd7b49c5812ab171e5cdc5e1ef29c scenarios/null-deref/src/cart.py
+entry: secret-leak 0644 247 f5a497d3627bc37b794992b6f31db8505c3f8c9513a40541af5b1e871afb9d83 scenarios/secret-leak/scenario.yaml
+entry: secret-leak 0644 525 6caab6588b1b7b2209f50d8d684b7531f03bbde2be27caa2a6674baa40b99b96 scenarios/secret-leak/src/config.py
+entry: sql-injection 0644 171 5f3ceceddcf8ca290d5b79f7df879af5c79c334f73f926a644b1fc124d4e5850 scenarios/sql-injection/scenario.yaml
+entry: sql-injection 0644 382 05c23db128e550531a5c45c060f625a59acc8b93cc907a25a41cdb51d650bec5 scenarios/sql-injection/src/lookup.py
