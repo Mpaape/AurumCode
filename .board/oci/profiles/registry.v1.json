@@ -49,6 +49,14 @@
     "lock": ".board/locks/oci/registry-v1.lock.json",
     "lock_digest": "sha256:974682a3c8aff3309302864b2acf503f216882d9a6014b1d629043bfcff56967",
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
+    "key": "sqlite-offline-v1",
+    "schema": ".board/schemas/sqlite-offline-profile.schema.json",
+    "schema_digest": "sha256:223d994bd512ae25888db1a33833251a6f38d654a2acf2ba99f16368007e0d2f",
+    "lock": ".board/locks/oci/sqlite-offline-v1.lock.json",
+    "lock_digest": "sha256:b2b57e88bfa3860724ff744554526adf0f84cdb3e1cfb81e8a5f52b7bdc720d0",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   }
 ]
 }
