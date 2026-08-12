@@ -2,7 +2,6 @@ package goextractor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,42 +10,22 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
-	"github.com/Mpaape/AurumCode/internal/documentation/site"
 )
 
-// writingRunner is a faithful stand-in for gomarkdoc: it honours "-o <path>" by
-// writing the document there, so a test that expects generated documentation is
-// backed by a file that really exists. A runner that only returns a zero exit
-// status proves nothing, because the extractor now confirms output on disk.
-type writingRunner struct {
-	*site.MockRunner
+// spyRunner records every call it receives and always fails it. It is used to
+// prove the standard-library extractor never shells out: a caller-supplied
+// runner that would blow up on first use must never actually be reached.
+type spyRunner struct {
+	calls []string
 }
 
-func newWritingRunner() *writingRunner {
-	return &writingRunner{MockRunner: site.NewMockRunner()}
-}
-
-func (w *writingRunner) Run(ctx context.Context, cmd string, args []string, workdir string, env map[string]string) (string, error) {
-	out, err := w.MockRunner.Run(ctx, cmd, args, workdir, env)
-	if err != nil {
-		return out, err
-	}
-
-	for i := 0; i < len(args)-1; i++ {
-		if args[i] != "-o" {
-			continue
-		}
-		if writeErr := os.WriteFile(args[i+1], []byte("# Package docs\n"), 0o644); writeErr != nil {
-			return "", writeErr
-		}
-	}
-
-	return out, nil
+func (r *spyRunner) Run(ctx context.Context, cmd string, args []string, workdir string, env map[string]string) (string, error) {
+	r.calls = append(r.calls, cmd)
+	return "", fmt.Errorf("spyRunner: unexpected external tool invocation: %s %v", cmd, args)
 }
 
 func TestNewGoExtractor(t *testing.T) {
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	if extractor == nil {
 		t.Fatal("NewGoExtractor returned nil")
@@ -82,10 +61,7 @@ func TestGoExtractor_DefaultExtractionRegeneratesExistingDocs(t *testing.T) {
 		t.Fatalf("failed to age existing doc: %v", err)
 	}
 
-	runner := site.NewMockRunner()
-	runner.WithOutput("gomarkdoc", "Documentation generated")
-
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	result, err := extractor.Extract(context.Background(), &extractors.ExtractRequest{
 		Language:  extractors.LanguageGo,
@@ -101,67 +77,36 @@ func TestGoExtractor_DefaultExtractionRegeneratesExistingDocs(t *testing.T) {
 			result.Stats.FilesProcessed, result.Stats.DocsGenerated)
 	}
 
-	foundGomarkdoc := false
-	for _, call := range runner.GetCalls() {
-		if call.Cmd == "gomarkdoc" && len(call.Args) >= 2 {
-			foundGomarkdoc = true
-			break
-		}
+	// The committed placeholder must actually have been overwritten with real
+	// output, not merely counted as generated.
+	regenerated, err := os.ReadFile(stalePath)
+	if err != nil {
+		t.Fatalf("failed to read regenerated doc: %v", err)
 	}
-	if !foundGomarkdoc {
-		t.Error("expected gomarkdoc to be invoked for the existing package")
+	if strings.TrimSpace(string(regenerated)) == "# committed output" {
+		t.Error("stale committed output was counted as regenerated but was never overwritten")
 	}
 }
 
 func TestGoExtractor_WithIncrementalMode(t *testing.T) {
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner).WithIncrementalMode(false)
+	extractor := NewGoExtractor(&spyRunner{}).WithIncrementalMode(false)
 
 	if extractor.incrementalMode {
 		t.Error("expected incremental mode to be disabled")
 	}
 }
 
+// TestGoExtractor_Validate pins the fix for AUR-424: the standard-library
+// extractor has no external dependency, so Validate must always succeed, even
+// when the caller-supplied runner is configured to fail everything. The old
+// gomarkdoc-backed implementation looked the tool up here and turned a
+// missing binary into a silent pipeline skip; this test is what would have
+// caught that regression.
 func TestGoExtractor_Validate(t *testing.T) {
-	tests := []struct {
-		name      string
-		output    string
-		err       error
-		wantError bool
-	}{
-		{
-			name:      "gomarkdoc installed",
-			output:    "gomarkdoc version 1.1.0",
-			err:       nil,
-			wantError: false,
-		},
-		{
-			name:      "gomarkdoc not found",
-			output:    "",
-			err:       errors.New("command not found"),
-			wantError: true,
-		},
-	}
+	extractor := NewGoExtractor(&spyRunner{})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runner := site.NewMockRunner()
-			if tt.err != nil {
-				runner.WithError("gomarkdoc --version", tt.err)
-			} else {
-				runner.WithOutput("gomarkdoc --version", tt.output)
-			}
-
-			extractor := NewGoExtractor(runner)
-			err := extractor.Validate(context.Background())
-
-			if tt.wantError && err == nil {
-				t.Error("expected error but got none")
-			}
-			if !tt.wantError && err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
+	if err := extractor.Validate(context.Background()); err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
@@ -175,11 +120,18 @@ func TestGoExtractor_Extract(t *testing.T) {
 		t.Fatalf("failed to create package directory: %v", err)
 	}
 
-	// Create a sample Go file
+	// Create a sample Go file with an exported type and an exported function,
+	// each with a real doc comment.
 	goFile := filepath.Join(pkgDir, "main.go")
 	goContent := `package testpkg
 
-// Add adds two integers
+// Widget is documented so the rendered page can be checked for real content.
+type Widget struct {
+	// Label names the widget.
+	Label string
+}
+
+// Add adds two integers and returns the sum.
 func Add(a, b int) int {
 	return a + b
 }
@@ -191,11 +143,7 @@ func Add(a, b int) int {
 	// Create output directory
 	outputDir := filepath.Join(tmpDir, "docs")
 
-	// Setup mock runner that writes the document it claims to generate
-	runner := newWritingRunner()
-	runner.WithOutput("gomarkdoc --version", "gomarkdoc 1.1.0")
-	runner.WithOutput("gomarkdoc", "Documentation generated")
-
+	runner := &spyRunner{}
 	extractor := NewGoExtractor(runner).WithIncrementalMode(false)
 
 	// Create extract request
@@ -230,24 +178,34 @@ func Add(a, b int) int {
 		}
 	}
 
-	// Verify gomarkdoc was called
-	calls := runner.GetCalls()
-	foundGomarkdoc := false
-	for _, call := range calls {
-		if call.Cmd == "gomarkdoc" && len(call.Args) >= 2 {
-			foundGomarkdoc = true
-			break
+	// The generated page must carry the real symbols and their real doc
+	// comments: this is what proves the standard-library extractor actually
+	// parsed the source instead of producing an empty placeholder.
+	generated := filepath.Join(outputDir, "testpkg.md")
+	content, err := os.ReadFile(generated)
+	if err != nil {
+		t.Fatalf("expected generated page at %s: %v", generated, err)
+	}
+	page := string(content)
+	for _, want := range []string{
+		"testpkg", "Widget", "Widget is documented",
+		"func Add", "Add adds two integers and returns the sum",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("generated page missing %q:\n%s", want, page)
 		}
 	}
-	if !foundGomarkdoc {
-		t.Error("expected gomarkdoc command to be called")
+
+	// No external tool call was made: the fix for AUR-424 is that this
+	// extractor never needs one.
+	if len(runner.calls) != 0 {
+		t.Errorf("expected no external tool invocations, got %v", runner.calls)
 	}
 }
 
 func TestGoExtractor_Extract_InvalidLanguage(t *testing.T) {
 	tmpDir := t.TempDir()
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	req := &extractors.ExtractRequest{
 		Language:  extractors.LanguagePython, // Wrong language
@@ -262,8 +220,7 @@ func TestGoExtractor_Extract_InvalidLanguage(t *testing.T) {
 }
 
 func TestGoExtractor_Extract_InvalidSourceDir(t *testing.T) {
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	req := &extractors.ExtractRequest{
 		Language:  extractors.LanguageGo,
@@ -281,8 +238,7 @@ func TestGoExtractor_Extract_EmptyDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputDir := filepath.Join(tmpDir, "docs")
 
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	req := &extractors.ExtractRequest{
 		Language:  extractors.LanguageGo,
@@ -324,8 +280,7 @@ func TestGoExtractor_Extract_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	req := &extractors.ExtractRequest{
 		Language:  extractors.LanguageGo,
@@ -372,8 +327,7 @@ func TestGoExtractor_findGoPackages(t *testing.T) {
 		}
 	}
 
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	packages, err := extractor.findGoPackages(tmpDir)
 	if err != nil {
@@ -443,8 +397,7 @@ func TestGoExtractor_hasGoFiles(t *testing.T) {
 				}
 			}
 
-			runner := site.NewMockRunner()
-			extractor := NewGoExtractor(runner)
+			extractor := NewGoExtractor(&spyRunner{})
 
 			result, err := extractor.hasGoFiles(tmpDir)
 			if err != nil {
@@ -469,8 +422,7 @@ func TestGoExtractor_shouldSkipPackage(t *testing.T) {
 
 	outputFile := filepath.Join(tmpDir, "output.md")
 
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	// Test 1: Output doesn't exist - should NOT skip
 	shouldSkip := extractor.shouldSkipPackage(tmpDir, outputFile)
@@ -533,8 +485,7 @@ func TestGoExtractor_countLines(t *testing.T) {
 				t.Fatalf("failed to create test file: %v", err)
 			}
 
-			runner := site.NewMockRunner()
-			extractor := NewGoExtractor(runner)
+			extractor := NewGoExtractor(&spyRunner{})
 
 			count, err := extractor.countLines(file)
 			if err != nil {
@@ -549,10 +500,75 @@ func TestGoExtractor_countLines(t *testing.T) {
 }
 
 func TestGoExtractor_Language(t *testing.T) {
-	runner := site.NewMockRunner()
-	extractor := NewGoExtractor(runner)
+	extractor := NewGoExtractor(&spyRunner{})
 
 	if extractor.Language() != extractors.LanguageGo {
 		t.Errorf("expected language %s, got %s", extractors.LanguageGo, extractor.Language())
+	}
+}
+
+// TestGoExtractor_Extract_TypeWithMethod pins that a method on an exported
+// type is rendered under that type, with its own doc comment - the shape a
+// consumer expects a symbol page to have.
+func TestGoExtractor_Extract_TypeWithMethod(t *testing.T) {
+	tmpDir := t.TempDir()
+	pkgDir := filepath.Join(tmpDir, "greet")
+	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+		t.Fatalf("failed to create package directory: %v", err)
+	}
+
+	goContent := `package greet
+
+// Greeter says hello.
+type Greeter struct {
+	// Name is who to greet.
+	Name string
+}
+
+// Hello returns a greeting for the receiver's Name.
+func (g *Greeter) Hello() string {
+	return "Hello, " + g.Name
+}
+`
+	if err := os.WriteFile(filepath.Join(pkgDir, "greet.go"), []byte(goContent), 0644); err != nil {
+		t.Fatalf("failed to create Go file: %v", err)
+	}
+
+	outputDir := filepath.Join(tmpDir, "docs")
+	extractor := NewGoExtractor(&spyRunner{})
+
+	_, err := extractor.Extract(context.Background(), &extractors.ExtractRequest{
+		Language:  extractors.LanguageGo,
+		SourceDir: pkgDir,
+		OutputDir: outputDir,
+	})
+	if err != nil {
+		t.Fatalf("Extract failed: %v", err)
+	}
+
+	generated := filepath.Join(outputDir, "root.md")
+	content, err := os.ReadFile(generated)
+	if err != nil {
+		t.Fatalf("expected generated page at %s: %v", generated, err)
+	}
+	page := string(content)
+	for _, want := range []string{"Greeter", "Greeter says hello", "func Hello", "Hello returns a greeting"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("generated page missing %q:\n%s", want, page)
+		}
+	}
+}
+
+// TestGoExtractor_Validate_ErrorIgnored double-checks that a runner configured
+// to error on every call still leaves Validate unaffected and is never called.
+func TestGoExtractor_Validate_ErrorIgnored(t *testing.T) {
+	runner := &spyRunner{}
+	extractor := NewGoExtractor(runner)
+
+	if err := extractor.Validate(context.Background()); err != nil {
+		t.Fatalf("Validate must not depend on the runner, got: %v", err)
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("Validate must not call the runner, got calls: %v", runner.calls)
 	}
 }
