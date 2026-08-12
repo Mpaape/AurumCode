@@ -31,6 +31,10 @@ declare -A card_validation_record=()
 declare -A card_has_record=()
 declare -A card_paths=()
 declare -A card_read_paths=()
+declare -A card_go=()
+declare -A card_profiles=()
+declare -A card_profile_owner=()
+declare -A profile_owner_map=()
 
 fail() {
   printf 'board error: %s\n' "$1" >&2
@@ -44,6 +48,23 @@ report_failures() {
     exit 1
   fi
 }
+
+profile_owners_file="$board_dir/profile-owners.tsv"
+[[ -f "$profile_owners_file" ]] || fail "missing profile owner registry: .board/profile-owners.tsv"
+if [[ -f "$profile_owners_file" ]]; then
+  while IFS=$'\t' read -r profile owner; do
+    [[ -z "$profile" || "$profile" == \#* ]] && continue
+    [[ "$profile" =~ ^[a-z0-9][a-z0-9.-]{2,63}$ && "$owner" =~ ^AUR-[0-9]{3}$ ]] || {
+      fail ".board/profile-owners.tsv: invalid profile owner row: $profile $owner"
+      continue
+    }
+    [[ -z "${profile_owner_map[$profile]+x}" ]] || {
+      fail ".board/profile-owners.tsv: duplicate profile: $profile"
+      continue
+    }
+    profile_owner_map[$profile]="$owner"
+  done <"$profile_owners_file"
+fi
 
 delivery_evidence_ok() {
   local id="$1" commit="$2" evidence
@@ -150,9 +171,15 @@ while IFS= read -r -d '' card; do
 
   validation="${fm_title[validation]:-none}"
   case "$state" in
-    ready|doing|review|validating)
+    backlog|ready|doing|review|validating)
       [[ -n "${fm_title[validation]+x}" ]] ||
-        fail "$card: active card must declare validation explicitly"
+        fail "$card: dispatchable card must declare validation explicitly"
+      [[ -n "${fm_title[paths]+x}" ]] ||
+        fail "$card: dispatchable card must declare paths explicitly"
+      [[ -n "${fm_title[read_paths]+x}" ]] ||
+        fail "$card: dispatchable card must declare read_paths explicitly (use [] when empty)"
+      [[ -n "${fm_title[profile_owner]+x}" ]] ||
+        fail "$card: dispatchable card must declare profile_owner explicitly"
       ;;
   esac
   case " ${validation_kinds[*]} " in
@@ -162,6 +189,34 @@ while IFS= read -r -d '' card; do
   card_validation[$id]="$validation"
   card_paths[$id]="${fm_title[paths]:-}"
   card_read_paths[$id]="${fm_title[read_paths]:-[]}"
+  card_go[$id]=0
+  if grep -Eiq '\.go([[:space:],\]`)]|^go[[:space:]]+(test|run|build)' "$card"; then
+    card_go[$id]=1
+  fi
+
+  if [[ "$state" =~ ^(backlog|ready|doing|review|validating)$ ]]; then
+    [[ "${card_paths[$id]}" =~ ^\[(|[A-Za-z0-9._/ -]+(,[[:space:]]*[A-Za-z0-9._/ -]+)*)\]$ ]] ||
+      fail "$card: paths is not a canonical list"
+    [[ "${card_paths[$id]}" != '[]' ]] || fail "$card: dispatchable card must own at least one path"
+    [[ "${card_read_paths[$id]}" =~ ^\[(|[A-Za-z0-9._/ -]+(,[[:space:]]*[A-Za-z0-9._/ -]+)*)\]$ ]] ||
+      fail "$card: read_paths is not a canonical list"
+    if (( card_go[$id] == 1 )); then
+      grep -Eq '(^|[ ,\[])go\.mod([,\] ]|$)' <<<"${card_read_paths[$id]}" ||
+        fail "$card: Go card must declare go.mod in read_paths"
+      grep -Eq '(^|[ ,\[])go\.sum([,\] ]|$)' <<<"${card_read_paths[$id]}" ||
+        fail "$card: Go card must declare go.sum in read_paths"
+    fi
+    profile="$(sed -n 's/^container_profile: `\([^`]*\)`$/\1/p' "$card")"
+    [[ "$profile" =~ ^[a-z0-9][a-z0-9.-]{2,63}$ ]] ||
+      fail "$card: dispatchable card lacks a valid container_profile"
+    expected_profile_owner="${profile_owner_map[$profile]:-}"
+    [[ -n "$expected_profile_owner" ]] ||
+      fail "$card: container_profile has no entry in .board/profile-owners.tsv: $profile"
+    [[ "${fm_title[profile_owner]:-}" == "$expected_profile_owner" ]] ||
+      fail "$card: profile_owner must be $expected_profile_owner for $profile"
+    card_profiles[$id]="$profile"
+    card_profile_owner[$id]="${fm_title[profile_owner]:-}"
+  fi
 
   # The dual-review/skeptical ceremony is frozen historical evidence. A
   # non-terminal card containing it would make a dispatcher recreate the old
@@ -185,6 +240,30 @@ while IFS= read -r -d '' card; do
 done <"$card_scan"
 rm -f -- "$card_scan"
 card_scan=''
+
+declare -A dependency_seen=()
+dependency_reaches() {
+  local current="$1" target="$2" dependency
+  [[ "$current" == "$target" ]] && return 0
+  [[ -n "${dependency_seen[$current]+x}" ]] && return 1
+  dependency_seen[$current]=1
+  for dependency in ${card_dependencies[$current]//,/ }; do
+    dependency="${dependency// /}"
+    [[ -n "${ids[$dependency]+x}" ]] || continue
+    dependency_reaches "$dependency" "$target" && return 0
+  done
+  return 1
+}
+
+for id in "${!ids[@]}"; do
+  state="${card_states[$id]}"
+  [[ "$state" =~ ^(backlog|ready|doing|review|validating)$ ]] || continue
+  owner="${card_profile_owner[$id]:-}"
+  [[ -n "${ids[$owner]+x}" ]] || fail "${files[$id]}: profile_owner is not a known card: $owner"
+  dependency_seen=()
+  [[ "$owner" == "$id" ]] || dependency_reaches "$id" "$owner" ||
+    fail "${files[$id]}: profile_owner $owner is not an upstream dependency"
+done
 
 report_failures
 
@@ -227,7 +306,7 @@ for id in "${!ids[@]}"; do
   [[ "$state" == review || "$state" == validating ]] || continue
   owned_spec="${card_paths[$id]}"
   read_spec="${card_read_paths[$id]}"
-  [[ "$owned_spec" =~ ^\[(|[A-Za-z0-9._/-]+(,[[:space:]]*[A-Za-z0-9._/-]+)*)\]$ ]] || {
+  [[ "$owned_spec" =~ ^\[(|[A-Za-z0-9._/ -]+(,[[:space:]]*[A-Za-z0-9._/ -]+)*)\]$ ]] || {
     fail "${files[$id]}: paths is not a canonical list"
     continue
   }
@@ -235,7 +314,7 @@ for id in "${!ids[@]}"; do
     fail "${files[$id]}: paths must own at least one artifact"
     continue
   }
-  [[ "$read_spec" =~ ^\[(|[A-Za-z0-9._/-]+(,[[:space:]]*[A-Za-z0-9._/-]+)*)\]$ ]] || {
+  [[ "$read_spec" =~ ^\[(|[A-Za-z0-9._/ -]+(,[[:space:]]*[A-Za-z0-9._/ -]+)*)\]$ ]] || {
     fail "${files[$id]}: read_paths is not a canonical list"
     continue
   }

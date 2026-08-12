@@ -64,7 +64,11 @@ Antes de qualquer builder, reviewer ou validator, leia o card completo e rode o
 preflight no worktree limpo. Ele exige:
 
 - paths e read_paths canonicos; paths de candidato ativo existem e sao tracked;
-- `validation: none|tested|skeptical` declarado explicitamente antes de `ready`;
+- `validation`, `container_profile` e `profile_owner` declarados antes de
+  `ready`; o dono deve ser upstream no DAG e estar registrado em
+  `.board/profile-owners.tsv`;
+- `read_paths: []` é obrigatório quando vazio; qualquer card Go declara
+  `go.mod` e `go.sum` em `read_paths`;
 - o write-set cobre semanticamente cada artefato que Outcome, Postconditions,
   Public contract e Green mandam criar ou alterar. Se o card promete registrar,
   publicar ou atualizar um arquivo listado apenas em `read_paths`, corrija o card,

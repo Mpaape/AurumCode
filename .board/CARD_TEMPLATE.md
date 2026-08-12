@@ -12,6 +12,7 @@ version: 1
 title: Imperative artifact-specific outcome
 status: backlog
 validation: tested
+profile_owner: AUR-000
 office: O00-governance
 depends_on: []
 requirements: [PR-XXX-001]
@@ -29,6 +30,15 @@ trust_boundaries: [repository]
 ## Outcome
 
 One externally observable outcome with no independently deployable sibling.
+
+## Dispatch prerequisites
+
+- `container_profile` is registered in `.board/profile-owners.tsv` and
+  `profile_owner` is an upstream dependency (or this card is the owner).
+- `read_paths` is explicit; use `[]` when there are no read-only inputs. A Go
+  card always lists `go.mod` and `go.sum` there.
+- `validation` is explicit before `ready`; no runtime or module prerequisite
+  may be invented after a builder starts.
 
 ## Current lightweight delivery
 

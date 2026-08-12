@@ -1,0 +1,13 @@
+# container_profile<TAB>card that publishes and proves the profile
+bootstrap-readonly-v1	AUR-006
+go-unit-offline-v1	AUR-403
+go-git-offline-v1	AUR-404
+fake-provider-v1	AUR-405
+parser-worker-v1	AUR-406
+sqlite-offline-v1	AUR-407
+docs-tool-offline-v1	AUR-408
+fake-scm-offline-v1	AUR-409
+oci-conformance-v1	AUR-410
+polyglot-toolchain-v1	AUR-411
+release-build-v1	AUR-412
+trust-root-docker-v1	AUR-233
