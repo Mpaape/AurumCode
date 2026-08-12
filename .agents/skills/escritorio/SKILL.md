@@ -31,6 +31,33 @@ reviewer, aprovador cetico, segundo leitor e test designer separado. Se o texto
 de um card ainda pedir esses papeis, o texto e legado stale: normalize o card
 antes de despachar, nunca obedeca a ele.
 
+## Escopo do briefing (limite duro)
+
+O que o coordenador pede a um builder ou a um reviewer e limitado pelo card:
+Outcome, Non-goals, Acceptance scenarios, Public contract e `paths`. Um briefing
+nao amplia contrato. Antes de despachar, releia os Non-goals: eles dizem o que o
+card explicitamente NAO faz, e sao a fronteira que o briefing nao atravessa.
+
+Reaproveitar entre cards o ataque que funcionou no card anterior acelera a
+revisao e e recomendado, mas cada ataque herdado so entra no briefing depois de
+mapeado para uma clausula deste card. Escreva o mapeamento junto do ataque. Se
+voce nao consegue nomear a clausula que o ataque testa, o ataque esta fora de
+escopo e nao vai no briefing.
+
+Reconheca a classe do card antes de escolher ataque. Um card que publica
+documento, schema, lock ou entrada de registry e validado por loader com zero
+engine call: ataque-o pela validacao, pela cadeia de digests, pela aridade e
+pela ordem. Ataca-lo pela execucao do que o documento descreve testa
+comportamento que o card nao realiza, e produz finding contra algo que o card
+declarou como nao-objetivo.
+
+Um finding fora de contrato custa caro duas vezes: gasta o revisor e pode fazer
+o coordenador mandar um builder consertar o que o card nunca prometeu, que e
+trabalho inventado. Em 2026-08-12 o briefing do AUR-411 pediu que o revisor
+tentasse instalar runtime por gerenciador de pacote e por download, sendo que o
+card diz em Non-goals que apenas pina particao ja materializada e que o profile
+nem chega a ser executado. O briefing foi corrigido durante a revisao.
+
 ## Autoridade e parada
 
 - Leia `AGENTS.md`, `.board/README.md`, `.board/AGENT_PLAYBOOK.md` e o card antes
