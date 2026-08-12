@@ -23,6 +23,8 @@ const containerSchemaPath404 = ".board/schemas/container-profile.schema.json"
 const registryLockPath404 = ".board/locks/oci/registry-v1.lock.json"
 const goUnitSchemaPath404 = ".board/schemas/go-unit-offline-profile.schema.json"
 const goUnitLockPath404 = ".board/locks/oci/go-unit-offline-v1.lock.json"
+const fakeProviderSchemaPath404 = ".board/schemas/fake-provider-profile.schema.json"
+const fakeProviderLockPath404 = ".board/locks/oci/fake-provider-v1.lock.json"
 const profileKey404 = "go-git-offline-v1"
 
 type profile404 struct {
@@ -92,7 +94,7 @@ var digest404 = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 // A mutable tag, a bare name, or any other repository denies before the plan is used.
 var image404 = regexp.MustCompile(`^golang@sha256:[0-9a-f]{64}$`)
 
-var registryKeys404 = []string{"bootstrap-readonly-v1", "go-git-offline-v1", "go-unit-offline-v1", "registry-v1"}
+var registryKeys404 = []string{"bootstrap-readonly-v1", "fake-provider-v1", "go-git-offline-v1", "go-unit-offline-v1", "registry-v1"}
 var requiredProfileKeys404 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "git_fixture", "git_fixture_root", "host_checkout", "credential_helpers", "hooks", "signing", "environment", "command"}
 var requiredEnvironmentKeys404 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_TERMINAL_PROMPT", "GIT_ASKPASS", "GIT_ALLOW_PROTOCOL", "GIT_CEILING_DIRECTORIES"}
 var schemaDocumentKeys404 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -511,6 +513,16 @@ func ValidateRegistryAUR404(root string) (string, string) {
 			// keeps its declared paths and digest shape; its bytes are not read here
 			// so registering Git cannot silently re-point the Go unit plan.
 			if x.Schema != goUnitSchemaPath404 || x.Lock != goUnitLockPath404 {
+				return "", "unsafe-plan"
+			}
+			if !digest404.MatchString(x.SchemaDigest) || !digest404.MatchString(x.LockDigest) || !digest404.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		case "fake-provider-v1":
+			// Owned by AUR-405, held to the same neighbour rule as AUR-403's key: its
+			// bytes are not read here, so registering the fake provider cannot
+			// silently re-point the Git plan validated above.
+			if x.Schema != fakeProviderSchemaPath404 || x.Lock != fakeProviderLockPath404 {
 				return "", "unsafe-plan"
 			}
 			if !digest404.MatchString(x.SchemaDigest) || !digest404.MatchString(x.LockDigest) || !digest404.MatchString(x.ImageSetDigest) {
