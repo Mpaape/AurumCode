@@ -1,0 +1,20 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-406",
+  "commit": "794926091032b026f189e528a940e1aa65f94c63",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-406",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-406\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}\n24 lanes: unit, contract, integration, e2e, AUR-402 compat and 19 mutants, all --- PASS\nregressions re-run by the reviewer: AUR-402=0 AUR-403=0 AUR-404=0 AUR-405=0\nimage=aurum-bootstrap-go-bash@sha256:503ac356 exit_code=0 secret_detected=false observation_trusted=false"
+  },
+  "review_notes": {
+    "inherited_loaders": "The card owns five already delivered test files because the sixth profile key breaks them. The reviewer audited every removed line and found only replacements: arity moved five to six and stayed exact, the positional order gained a slot without losing one, and each allowlist only gained a key. The edit was proved load bearing by reverting the contracts arity back to five, which drops AUR-404 to exit 1.",
+    "mutations": "The three declared mutations were redone against the bytes on disk, including a mutable image tag with the lock digest recomputed in both the profile and the registry so the chain closed, and each exited 1 with its declared code. Zero engine calls is structural rather than asserted: the acceptance image carries no container tooling and runs with no network.",
+    "reviewer_attacks": "Six attacks were blocked: an ordered seventh key with valid digests, an inverted canonical order, a relaxed schema whose digest was recomputed in the registry (the constants are pinned in Go), an empty test lane that returned ok with no tests to run, an unbounded blob allocation ceiling, and a worker root using path traversal to escape the tmpfs.",
+    "preexisting_debt": "go build ./tests/... already fails at HEAD because six files under tests/unit and tests/integration declare package main. The reviewer confirmed the candidate does not touch them and that both prior commits already carried the breakage. No lane compiles the registry loaders together, so a symbol collision between them would stay invisible until that debt is repaired.",
+    "open_nits": "The engine_invocations field in the acceptance output is a literal written by the author rather than a measured count, and the AUR-402 compatibility lane reads AUR-402 documents transitively beyond the declared read_paths, read-only and inside the card's public contract."
+  }
+}
