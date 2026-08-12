@@ -35,6 +35,8 @@ const docsToolSchemaPath409 = ".board/schemas/docs-tool-offline-profile.schema.j
 const docsToolLockPath409 = ".board/locks/oci/docs-tool-offline-v1.lock.json"
 const ociConformanceSchemaPath409 = ".board/schemas/oci-conformance-profile.schema.json"
 const ociConformanceLockPath409 = ".board/locks/oci/oci-conformance-v1.lock.json"
+const polyglotSchemaPath409 = ".board/schemas/polyglot-toolchain-profile.schema.json"
+const polyglotLockPath409 = ".board/locks/oci/polyglot-toolchain-v1.lock.json"
 const profileKey409 = "fake-scm-offline-v1"
 
 type profile409 struct {
@@ -152,7 +154,7 @@ var remoteOrigin409 = regexp.MustCompile(`^absent$`)
 // carries a literal that the runner's input gate would read as a real secret.
 var credentialShape409 = regexp.MustCompile(`(sk` + `-[A-Za-z0-9_-]{20,}|AKIA` + `[0-9A-Z]{16}|gh` + `[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)`)
 
-var registryKeys409 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "oci-conformance-v1", "parser-worker-v1", "registry-v1", "sqlite-offline-v1"}
+var registryKeys409 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "oci-conformance-v1", "parser-worker-v1", "polyglot-toolchain-v1", "registry-v1", "sqlite-offline-v1"}
 var requiredProfileKeys409 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "sockets", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "scm_backend", "real_scm_binary", "fake_scm", "fake_scm_cgo", "fake_scm_root", "event_set", "event_root", "response_set", "repository_mode", "repository_root", "remote_origin", "remote_protocols", "custom_transport", "credential_helper", "askpass", "hooks", "submodules", "url_rewriting", "publication", "external_destination", "token", "credential_sources", "host_checkout", "host_filesystem", "subprocess", "max_events", "max_event_bytes", "max_responses", "max_response_bytes", "max_repository_bytes", "scm_timeout_seconds", "environment", "command"}
 var requiredEnvironmentKeys409 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN", "CGO_ENABLED", "AURUM_FAKE_SCM_ROOT", "AURUM_FAKE_SCM_EVENT_ROOT", "AURUM_FAKE_SCM_REPOSITORY_ROOT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_TERMINAL_PROMPT", "GIT_ASKPASS", "GIT_ALLOW_PROTOCOL", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 var schemaDocumentKeys409 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -590,7 +592,7 @@ func ValidateProfileAUR409(root string) (profile409, lock409, string) {
 	return p, l, "valid"
 }
 
-// ValidateRegistryAUR409 resolves the canonical registry and admits exactly the ten
+// ValidateRegistryAUR409 resolves the canonical registry and admits exactly the eleven
 // registered keys. It is fail-closed: an unknown key, a duplicate, an out-of-order
 // entry, or a digest that does not match the bytes on disk denies without any engine.
 func ValidateRegistryAUR409(root string) (string, string) {
@@ -728,6 +730,14 @@ func ValidateRegistryAUR409(root string) (string, string) {
 		case "oci-conformance-v1":
 			// Owned by AUR-410, checked under the same neighbour rule as AUR-403's key.
 			if x.Schema != ociConformanceSchemaPath409 || x.Lock != ociConformanceLockPath409 {
+				return "", "unsafe-plan"
+			}
+			if !digest409.MatchString(x.SchemaDigest) || !digest409.MatchString(x.LockDigest) || !digest409.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		case "polyglot-toolchain-v1":
+			// Owned by AUR-411, checked under the same neighbour rule as AUR-403's key.
+			if x.Schema != polyglotSchemaPath409 || x.Lock != polyglotLockPath409 {
 				return "", "unsafe-plan"
 			}
 			if !digest409.MatchString(x.SchemaDigest) || !digest409.MatchString(x.LockDigest) || !digest409.MatchString(x.ImageSetDigest) {

@@ -70,11 +70,12 @@ func ContractAUR404(t *testing.T) {
 	// Extended by AUR-405 (fake-provider-v1, fifth key), then by AUR-406
 	// (parser-worker-v1, sixth key), then by AUR-407 (sqlite-offline-v1, seventh key),
 	// then by AUR-408 (docs-tool-offline-v1, eighth key), then by AUR-409
-	// (fake-scm-offline-v1, ninth key), then by AUR-410 (oci-conformance-v1, tenth key).
-	// The arity assertion is kept exact, not relaxed to a minimum: every rejection this
-	// check made before still fails, only the registered count moved with the registry.
-	if !ok || len(entries) != 10 {
-		t.Fatalf("registry does not publish exactly ten profiles: %v", registry["profiles"])
+	// (fake-scm-offline-v1, ninth key), then by AUR-410 (oci-conformance-v1, tenth key),
+	// then by AUR-411 (polyglot-toolchain-v1, eleventh key). The arity assertion is kept
+	// exact, not relaxed to a minimum: every rejection this check made before still fails,
+	// only the registered count moved with the registry.
+	if !ok || len(entries) != 11 {
+		t.Fatalf("registry does not publish exactly eleven profiles: %v", registry["profiles"])
 	}
 	found := false
 	for _, raw := range entries {
