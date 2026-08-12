@@ -17,10 +17,11 @@ Every session starts with `.board/office-cycle.sh --start` or `--status`, and
 every 20-minute review uses `--review`.
 
 1. A card moves from `backlog` to `ready` only when every `depends_on` card is
-   in `done` and the coordinator has declared `validation: none|tested|skeptical`
-   explicitly. In the current lightweight flow, `ready` authorizes one isolated
-   builder after builder preflight; it does not authorize review, validation or
-   a state transition.
+   in `done`, its `validation`, `paths`, `read_paths`, `container_profile` and
+   `profile_owner` are explicit, and the profile owner is upstream. Go cards
+   must list `go.mod` and `go.sum` in `read_paths`. In the current lightweight
+   flow, `ready` authorizes one isolated builder after builder preflight; it
+   does not authorize review, validation or a state transition.
 2. The developer executes the card, commits to a human-authenticated commit
    (never AI attribution), and adds a `## Delivery record` section to the card
    body with `- commit: <40-hex sha>`.
@@ -179,6 +180,13 @@ Every card follows [`CARD_TEMPLATE.md`](CARD_TEMPLATE.md). In particular:
   locked image must contain `bash` (the runner's execution shell) and every
   runtime command named by the acceptance, such as `go`; preflight probes this
   before dispatch and `oci-run` probes it again before materialization;
+- `profile_owner` must match the canonical owner in
+  [`profile-owners.tsv`](profile-owners.tsv) and be reachable through
+  `depends_on`; this makes missing runtime capability a graph error before a
+  worktree or agent is created;
+- `validation`, `paths` and `read_paths` are mandatory on every non-terminal
+  card. `read_paths: []` is the explicit empty set, and Go cards must include
+  both `go.mod` and `go.sum`;
 - every concrete TDD test uses a closed `path::selector` reference located
   directionally within `paths`, naming an artifact one of the two second-reader
   engines can actually execute (`*_test.go` or an acceptance `*.sh`); an
