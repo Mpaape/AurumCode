@@ -718,11 +718,18 @@ func ValidateProfileAUR411(root string) (profile411, lock411, string) {
 		!exactStringList411(p.Command, expectedCommand411) {
 		return p, lock411{}, "unsafe-plan"
 	}
-	// The partition set has to exist and be closed. Independently of the exact list above,
-	// every declared language must be one this profile registers, no language may be named
-	// twice, the published order must be canonically ascending, and the `languages` array
-	// and the `toolchains` object must describe the same set: a language listed in one and
-	// missing from the other is a partition nobody validates.
+	// The partition set has to exist and be closed: every declared language must be one
+	// this profile registers, no language may be named twice, the published order must be
+	// canonically ascending, and the `languages` array and the `toolchains` object must
+	// describe the same set -- a language listed in one and missing from the other is a
+	// partition nobody validates.
+	//
+	// These checks are defence in depth, not the defence. The pinned equality
+	// `exactStringList411(p.Languages, expectedLanguages411)` above fixes the array to the
+	// same eight names in the same order, and the exact `toolchains` key set required when
+	// the document was decoded fixes the object to those same eight, so no document that
+	// reaches here can fail them and no current mutant isolates them. They stand for a
+	// dependent card that builds either side from something other than the pinned table.
 	if len(p.Languages) == 0 || len(p.Languages) != len(p.Toolchains) || len(p.Languages) > p.MaxLanguages {
 		return p, lock411{}, "unsafe-plan"
 	}
@@ -744,10 +751,20 @@ func ValidateProfileAUR411(root string) (profile411, lock411, string) {
 			return p, lock411{}, "unsafe-plan"
 		}
 	}
-	// Each partition is isolated from every other. Independently of the exact constants,
-	// two partitions may never share a cache root and may never share a runtime: either
-	// collision would silently merge two languages that the plan promises to keep apart.
-	// No cache root may be, or contain, the polyglot root itself.
+	// Each partition is isolated from every other: two partitions may never share a cache
+	// root and may never share a runtime -- either collision would silently merge two
+	// languages the plan promises to keep apart -- and no cache root may be, or contain,
+	// the polyglot root itself.
+	//
+	// What actually refuses a collision is the pair of pinned equalities below,
+	// `part.Runtime != expectedRuntimes411[language]` and
+	// `part.CacheRoot != p.PolyglotRoot+"/"+language`: expectedRuntimes411 is injective
+	// over the eight languages and each cache root is derived from its own language, so a
+	// document that clears them cannot collide. The distinctness and containment rules
+	// below are therefore defence in depth -- evaluated on every partition, never the
+	// reason a document is refused, and isolated by no current mutant. This was checked by
+	// deletion: with the distinctness block removed, shared-runtime and shared-cache-root
+	// stay rejected and the acceptance stays at exit 0.
 	seenRoots := map[string]bool{}
 	seenRuntimes := map[string]bool{}
 	for _, language := range p.Languages {
@@ -784,10 +801,15 @@ func ValidateProfileAUR411(root string) (profile411, lock411, string) {
 			}
 		}
 	}
-	// Independently of the exact constants above, the caches of every declared partition
-	// coexist inside the one bounded tmpfs, so their combined ceiling has to fit it. A
-	// per-partition ceiling that fits alone but not eight times over would have to spill
-	// somewhere the plan never bounded.
+	// The caches of every declared partition coexist inside the one bounded tmpfs, so their
+	// combined ceiling has to fit it. A per-partition ceiling that fits alone but not eight
+	// times over would have to spill somewhere the plan never bounded.
+	//
+	// Defence in depth again: `p.MaxCacheBytes != 8388608` above is a pinned equality that
+	// refuses unbounded-cache, oversized-cache and aggregate-cache-overflow before either
+	// relation below is reached, so no current mutant isolates them. Checked by deletion:
+	// with both relations removed, all three stay rejected and the acceptance stays at
+	// exit 0.
 	if p.MaxCacheBytes <= 0 || p.TmpfsMB <= 0 || p.MaxCacheBytes > p.TmpfsMB*1024*1024 {
 		return p, lock411{}, "unsafe-plan"
 	}
@@ -795,7 +817,9 @@ func ValidateProfileAUR411(root string) (profile411, lock411, string) {
 		return p, lock411{}, "unsafe-plan"
 	}
 	// And the package corpus has to fit inside the declared input bound, because every
-	// cached package is a materialized input.
+	// cached package is a materialized input. Same standing: `p.MaxPackages != 4096` above
+	// refuses oversized-package-set first, so this relation is verified and never the
+	// reason for a rejection any current mutant produces.
 	if p.MaxPackages <= 0 || p.MaxPackageBytes <= 0 ||
 		p.MaxPackages > p.MaxInputFiles || p.MaxPackages*p.MaxPackageBytes > p.MaxInputBytes {
 		return p, lock411{}, "unsafe-plan"
@@ -1441,14 +1465,16 @@ func TestAUR411(t *testing.T) {
 	case "shared-runtime":
 		expected = "unsafe-plan"
 		// Two partitions collapse onto one runtime. The anchored expression admits
-		// `node` for both; only the distinctness rule refuses it.
+		// `node` for both; the pinned runtime equality is what refuses it, and the
+		// distinctness rule behind it never gets the chance.
 		if err := replaceOnce411(root, profilePath411, `"typescript": {"runtime": "tsc"`, `"typescript": {"runtime": "node"`); err != nil {
 			t.Fatalf("mutate runtime: %v", err)
 		}
 	case "shared-cache-root":
 		expected = "unsafe-plan"
 		// Two partitions collapse onto one cache directory. The anchored expression
-		// admits the value for both; only the distinctness rule refuses it.
+		// admits the value for both; the pinned cache-root equality is what refuses it,
+		// and the distinctness rule behind it never gets the chance.
 		if err := replaceOnce411(root, profilePath411, `"cache_root": "/tmp/aurum-polyglot/typescript"`, `"cache_root": "/tmp/aurum-polyglot/javascript"`); err != nil {
 			t.Fatalf("mutate cache root: %v", err)
 		}
@@ -1585,8 +1611,9 @@ func TestAUR411(t *testing.T) {
 		}
 	case "aggregate-cache-overflow":
 		expected = "unsafe-plan"
-		// 32 MiB fits the 128 MiB tmpfs on its own, and eight of them do not. Only the
-		// aggregate rule refuses this one.
+		// 32 MiB fits the 128 MiB tmpfs on its own, and eight of them do not. The pinned
+		// `max_cache_bytes` equality is what refuses it; the aggregate relation behind it
+		// never gets the chance.
 		if err := replaceOnce411(root, profilePath411, `"max_cache_bytes": 8388608`, `"max_cache_bytes": 33554432`); err != nil {
 			t.Fatalf("mutate cache bound: %v", err)
 		}
