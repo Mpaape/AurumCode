@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-409",
+  "commit": "6599202fd232efebc288d228c72e07b1566f4b95",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-409",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-409\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}\n57 --- PASS lines: unit, contract, integration and 54 mutations, plus the embedded AUR-402 regression\nregressions re-run by the reviewer: 402=0 403=0 404=0 405=0 406=0 407=0 408=0\nimage=aurum-bootstrap-go-bash@sha256:503ac356 exit_code=0 secret_detected=false observation_trusted=false"
+  },
+  "review_notes": {
+    "canonical_index": "The coordinator's briefing said the new key lands at index two; the builder corrected it to index three and the reviewer confirmed independently with LC_ALL=C sort. Five keys shift, not six, and all of them remain asserted at their new indexes with an exact arity.",
+    "no_orphan_branch": "The reviewer re-pointed the schema and lock of each of the nine keys one at a time; all eight loaders returned unsafe-plan in all nine cases, so moving the if-chain head orphaned nothing.",
+    "load_bearing": "Reverting the arity from nine to eight drops AUR-403 and AUR-404 to exit 1, and both restore byte-identically.",
+    "independent_mutation": "Eight of the fifty-four mutations were redone against the bytes on disk with the reviewer's own bridge calling all eight validators in a container, outside the builder's harness: an ext transport remote, a credential helper, insteadOf rewriting, a real SCM binary, a look-alike repository root, a submodule, a custom transport and a runtime-assembled credential.",
+    "reviewer_attacks": "Twenty further vectors were blocked, including remote_origin as a leading space, uppercase, an embedded newline and a Cyrillic homoglyph (the pattern anchors with \\z rather than multiline), duplicated and uppercased protocol lists, plausible new protocols, extra GIT_ environment variables, a tenth key, an inverted order, duplicated JSON keys and swapping the lock to the image that does carry git with both digests recomputed.",
+    "probe": "Confirmed independently under the real runner flags: the pinned image has no git, upload-pack, receive-pack, ssh, scp, curl, hg, svn, git-lfs or gh, while the go-git image has git 2.39.2 and the network tools. Pinning the bootstrap image makes the denial structural rather than conventional.",
+    "open_info_findings": "The pinned image does carry the busybox wget and nc applets, so the claim of unreachability rests on the denied network and the loopback-only interface rather than on the absence of every network tool; the documented probe should say so. AUR-402 still has no arity or positional assertion, which is pre-existing. The contracts lane of this card deliberately omits registry arity, which is documented and covered three times elsewhere, each proved load bearing."
+  }
+}
