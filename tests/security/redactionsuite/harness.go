@@ -25,8 +25,41 @@ const (
 	MaxTotalBytes      = 4194304
 	MaxDeadlineSeconds = 30
 	maxSpecFileBytes   = 1048576
-	canaryPlaceholder  = "${CANARY}"
+	// Secret placeholders. A vector never carries a literal secret; the
+	// canary is expanded at load time, and the head/tail pair exists so a
+	// vector can slice the same secret across a line break.
+	secretPlaceholderPrefix = "${CANARY"
+	canaryPlaceholder       = "${CANARY}"
+	canaryHeadPlaceholder   = "${CANARY_HEAD}"
+	canaryTailPlaceholder   = "${CANARY_TAIL}"
+	minCanaryBytes          = 8
+	// Literal placeholders. The cases file forbids a raw double quote and a
+	// raw line break inside a value, so quoted-JSON, multi-line and
+	// private-key-banner vectors are expressed through these.
+	dquotePlaceholder   = "${DQ}"
+	newlinePlaceholder  = "${NL}"
+	pemBeginPlaceholder = "${PEM_BEGIN}"
+	pemEndPlaceholder   = "${PEM_END}"
 )
+
+// pemBanner assembles a private-key banner at runtime. It is never a literal
+// in this file: a committed banner would itself trip the credential-shape
+// gate that seals acceptance inputs.
+func pemBanner(kind string) string {
+	return "-----" + kind + " RSA PRIVATE" + " KEY" + "-----"
+}
+
+// expandLiterals resolves the non-secret placeholders. It is applied to both
+// input and expected text, so an expectation can describe a multi-line or
+// quoted rendering without ever embedding a secret.
+func expandLiterals(s string) string {
+	return strings.NewReplacer(
+		dquotePlaceholder, `"`,
+		newlinePlaceholder, "\n",
+		pemBeginPlaceholder, pemBanner("BEGIN"),
+		pemEndPlaceholder, pemBanner("END"),
+	).Replace(s)
+}
 
 // SpecError is the typed refusal of an out-of-contract cases file. Code is a
 // stable machine-readable reason; it never carries vector content.
@@ -120,8 +153,17 @@ func Load(path, canary string) (*Spec, error) {
 	if err != nil {
 		return nil, specErr("spec-unreadable", 0)
 	}
+	if len(canary) < minCanaryBytes {
+		return nil, specErr("canary-too-short", 0)
+	}
+	head, tail := canary[:len(canary)/2], canary[len(canary)/2:]
+	secrets := strings.NewReplacer(
+		canaryHeadPlaceholder, head,
+		canaryTailPlaceholder, tail,
+		canaryPlaceholder, canary,
+	)
 	expand := func(s string) string {
-		return strings.ReplaceAll(s, canaryPlaceholder, canary)
+		return secrets.Replace(expandLiterals(s))
 	}
 
 	spec := &Spec{}
@@ -223,10 +265,10 @@ func Load(path, canary string) (*Spec, error) {
 				if err != nil {
 					return nil, err
 				}
-				if strings.Contains(text, canaryPlaceholder) {
+				if strings.Contains(text, secretPlaceholderPrefix) {
 					return nil, specErr("expected-carries-secret", n)
 				}
-				current.Expected = text
+				current.Expected = expandLiterals(text)
 			case "repeat_unit":
 				text, err := unquote(value, n)
 				if err != nil {

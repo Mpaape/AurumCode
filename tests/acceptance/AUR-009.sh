@@ -177,7 +177,7 @@ classify_integration_failure() {
 }
 
 run_integration() {
-  local log_file="$run_dir/integration.log" observed
+  local log_file="$run_dir/integration.log" observed observed_leaks
   run_go_layer integration "$integration_rel" IntegrationAUR009 tests/integration integration
   if [[ "$layer_rc" -ne 0 ]]; then
     classify_integration_failure "$log_file"
@@ -190,6 +190,11 @@ run_integration() {
     "$log_file" >"$run_dir/observations.tsv"
   [[ "$(wc -l <"$run_dir/observations.tsv")" == "$vector_count" ]] || fail observation_count
   awk -F '\t' '$1 == "AUR009_DIGEST" { print $2 }' "$log_file" | head -n 1 >"$run_dir/sweep.digest"
+  # Observed leak count, not an assumption: the sweep reports one AUR009_LEAK
+  # line per vector whose sink output still carried the canary.
+  observed_leaks="$(grep -c '^AUR009_LEAK' "$log_file" || true)"
+  [[ "$observed_leaks" =~ ^[0-9]+$ ]] || fail leak_count
+  printf '%s\n' "$observed_leaks" >"$run_dir/leaks.count"
   printf '%s/IntegrationAUR009: pass\n' "$card"
 }
 
@@ -223,8 +228,33 @@ tree_digest() {
   ) | sha256sum | awk '{print $1}'
 }
 
+# measure_leaks sums every observed appearance of the canary outside an
+# authorized sink: the sweep's own leak observations plus any line of a
+# captured layer log carrying the canary. It reports a count; it never assumes
+# one.
+measure_leaks() {
+  local total log extra
+  total="$(head -n 1 "$run_dir/leaks.count")" || return 1
+  [[ "$total" =~ ^[0-9]+$ ]] || return 1
+  for log in "$run_dir"/*.log; do
+    [[ -f "$log" ]] || continue
+    extra="$(grep -Fc -- "$AURUM_SECRET_CANARY" "$log" || true)"
+    [[ "$extra" =~ ^[0-9]+$ ]] || return 1
+    total=$(( total + extra ))
+  done
+  printf '%s\n' "$total"
+}
+
 emit_observation() {
   local filter_digest tests_digest materialized_digest sweep_digest vectors
+  local leak_total outside
+  leak_total="$(measure_leaks)" || fail leak_count
+  if (( leak_total > 0 )); then
+    outside=true
+  else
+    outside=false
+  fi
+  [[ "$outside" == false ]] || fail secret_outside_authorized_sink
   filter_digest="$(tree_digest internal/security/redaction)" || infra filter_digest
   tests_digest="$(tree_digest tests/security/redactionsuite "$cases_rel" "$unit_rel" \
     "$integration_rel" "$e2e_rel" tests/acceptance/AUR-009.sh)" || infra tests_digest
@@ -241,9 +271,9 @@ emit_observation() {
     }
     END { printf "]" }
   ' "$run_dir/observations.tsv")" || infra vectors_json
-  printf '{"schema":"aurum.redaction-acceptance","version":1,"card":"%s","scenario":"%s","candidate_identity_v1":{"materialized_tree_sha256":"sha256:%s","filter_tree_sha256":"sha256:%s","tests_tree_sha256":"sha256:%s"},"sweep_sha256":"sha256:%s","vector_count":%d,"vectors":%s,"secret_outside_authorized_sink":false,"result":"pass"}\n' \
+  printf '{"schema":"aurum.redaction-acceptance","version":1,"card":"%s","scenario":"%s","candidate_identity_v1":{"materialized_tree_sha256":"sha256:%s","filter_tree_sha256":"sha256:%s","tests_tree_sha256":"sha256:%s"},"sweep_sha256":"sha256:%s","vector_count":%d,"vectors":%s,"observed_leak_count":%d,"secret_outside_authorized_sink":%s,"result":"pass"}\n' \
     "$card" "$scenario" "$materialized_digest" "$filter_digest" "$tests_digest" \
-    "$sweep_digest" "$vector_count" "$vectors"
+    "$sweep_digest" "$vector_count" "$vectors" "$leak_total" "$outside"
 }
 
 case "$selector" in
