@@ -12,6 +12,25 @@ evidencia, nao move cards sozinha e nunca e dependencia do runtime da aplicacao.
 O card e a autoridade do trabalho; o arquivo desta skill e apenas o procedimento
 para operar o card.
 
+Arquivo canonico: `.agents/skills/escritorio/SKILL.md`.
+`.claude/skills/escritorio/SKILL.md` e um symlink para ele. Nunca crie uma
+segunda copia nem edite uma das duas isoladamente: em 2026-08-12 uma copia
+desatualizada fez o coordenador despachar a cerimonia proibida de Reviewer A/B
+por tres dias de board.
+
+## Orcamento de papeis por card (limite duro)
+
+Um card consome no maximo tres papeis: builder, **um** reviewer e um validator.
+O coordenador nao ocupa nenhum deles e nao os substitui. Um unico agente pode
+acumular reviewer e validator sobre o mesmo SHA imutavel, e essa e a forma
+preferida.
+
+Sao papeis proibidos, e `.board/pipeline.sh` rejeita a linguagem deles em
+qualquer card nao concluido: Reviewer A, Reviewer B, segundo reviewer, terceiro
+reviewer, aprovador cetico, segundo leitor e test designer separado. Se o texto
+de um card ainda pedir esses papeis, o texto e legado stale: normalize o card
+antes de despachar, nunca obedeca a ele.
+
 ## Autoridade e parada
 
 - Leia `AGENTS.md`, `.board/README.md`, `.board/AGENT_PLAYBOOK.md` e o card antes
@@ -151,10 +170,12 @@ teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
 
 ## Entrega por card
 
-1. Test designer prova RED pelo comportamento esperado. Falha de ambiente nao e
-   RED. Para caracterizacao, prova GREEN, mutacao RED e restore GREEN.
-2. Builder implementa somente `paths`, executa baseline, mutacao e restore, e
-   cria commit com identidade humana configurada, sem atribuicao de IA.
+1. O proprio builder prova RED pelo comportamento esperado antes do GREEN; nao
+   existe test designer separado. Falha de ambiente nao e RED. Para
+   caracterizacao, prova GREEN, mutacao RED e restore GREEN.
+2. O mesmo builder implementa somente `paths`, executa baseline, mutacao e
+   restore, e cria commit com identidade humana configurada, sem atribuicao de
+   IA.
 3. **Um unico reviewer independente por card** revisa o mesmo SHA imutavel
    ainda fora da fila ativa,
    antes da integracao; depois da aprovacao o coordenador integra exatamente
