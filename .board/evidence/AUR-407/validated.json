@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-407",
+  "commit": "5de35685dc86d60e4efa639b2373c94065eb0a7f",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-407",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-407\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}\n26 === RUN TestAUR407Bridge and 26 --- PASS, 23 distinct mutation lines\nregressions re-run by the reviewer: 402=0 403=0 404=0 405=0 406=0, no empty lane in any of them\npreflight exit 0\nimage=aurum-bootstrap-go-bash@sha256:503ac356 exit_code=0 secret_detected=false observation_trusted=false"
+  },
+  "review_notes": {
+    "independent_mutation": "The reviewer re-ran the six required mutations outside the builder's harness, driving the loader directly in a container from a private copy, so none of the codes depend on the candidate's own mutation machinery. Extension loading, remote URIs, a traversing database root, a cgo driver, an oversized database ceiling and a runtime-assembled credential each exited 1 with the declared code.",
+    "load_bearing": "Reverting only the arity - seven back to six in the unit and contracts lanes - drops AUR-403 and AUR-404 to exit 1. The reviewer also removed the new key from the AUR-402 allowlist and from the AUR-406 switch and both failed, then restored byte-identically.",
+    "inherited_attack": "The schema was relaxed and its digest recomputed in the registry so the chain genuinely closed; it still failed as schema-invalid, because the security constants are pinned in Go as a third copy that does not move with the two files. A control run with a wrong recompute produced schema-digest-mismatch, proving the two gates are distinct.",
+    "domain_attacks": "Four URI shapes that look local were rejected by the anchored root: a traversing file URI, a shared in-memory URI, a vfs override and a trailing slash. An unpinned pure-Go driver was rejected as digest-invalid, and environment overrides pointing the database root or the temporary directory at the workspace were rejected as unsafe-plan.",
+    "infrastructure": "Probed independently under the real runner flags: the pinned image has bash 5.2.26 and go1.21.13 but no sqlite3 binary, no libsqlite3 anywhere, and no C compiler, with CGO_ENABLED already 0. Pinning a pure-Go driver and rejecting cgo as unsafe-plan is the only coherent decision.",
+    "fail_closed": "Running the runner against the new profile still exits 65 as a non-canonical document, so registering the seventh key does not turn it into an executable plan.",
+    "open_info_findings": "The mutation lane does not repeat the === RUN guard the Go lane has, though an empty lane still fails its literal grep; and the neighbour loaders check the new key by path and digest shape rather than against the bytes, which matches the existing rule for the other keys."
+  }
+}
