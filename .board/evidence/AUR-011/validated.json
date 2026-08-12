@@ -1,0 +1,20 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-011",
+  "commit": "ae9b4ae09b197c8087837245e50f5bac83108e4d",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-011",
+    "exit_code": 0,
+    "raw_output": "head=sha1:eedb8f9d commit_count=3 object_count=16 synthetic_secret_count=3\nvector_count=10 sweep_sha256=sha256:88cbbd91 result=pass\ndeterminism first_run=sha256:f6c7cd8a second_run=sha256:f6c7cd8a identical=true\nimage=aurum-bootstrap-go-bash@sha256:503ac356 exit_code=0 stdout_sha256=sha256:54f2ac47\nsecret_detected=false observation_trusted=false"
+  },
+  "review_notes": {
+    "constraint": "The pinned image has no git, so nothing executes git. The fixture is written as real loose objects using stored DEFLATE blocks, and the acceptance decodes them itself: it re-frames each stream, recomputes SHA-1, walks HEAD to ref to the parent chain to trees and blobs, enforces Git tree-entry ordering and proves the object store equals the reachable set.",
+    "decisive_test": "The reviewer performed a coherent tamper: a blob payload was rewritten, re-framed as valid stored DEFLATE with a correct Adler-32, the content copy was updated to match and every manifest digest was recomputed to agree. It still failed with object-id-mismatch, which proves SHA-1 is recomputed rather than echoed from the filename. A byte flip, a self-consistent tree misordering with cascaded ids, a deleted reachable blob and an injected orphan were all caught with distinct codes.",
+    "mutation": "The card's MUT-001 is the commit body swap with indexes and timestamps left in place. It exits 1 reporting both source-digest-divergence and MUT-001, with no vector-exit finding, so the detection is behavioural reordering rather than a missing tool. The restore is byte-identical and reproduces the same stdout digest.",
+    "determinism": "Two container runs produce an identical stdout digest, host runs under two different TMPDIRs are byte-identical, and the in-run replay uses a third. build-fixture.sh never reads the sealed repo.git, so the reproduction regenerates rather than copies.",
+    "open_info_finding": "The acceptance parses per-object type and digests from the manifest and shape-validates them without cross-checking against the decoded objects; forging one still fails through the byte-for-byte manifest regeneration comparison, so it is dead assertion surface rather than a hole."
+  }
+}
