@@ -1,0 +1,1 @@
+{"card":"AUR-019","scenario":"AC-001","selector":"AC-001","required_providers":7,"tracked_capabilities":3,"result":"pass"}
