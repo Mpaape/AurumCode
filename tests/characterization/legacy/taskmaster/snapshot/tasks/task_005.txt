@@ -1,0 +1,62 @@
+# Task ID: 5
+# Title: GitHub API Client: Diffs, Comments, Status
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Implement minimal GitHub client to fetch PR diffs/files, post review comments, and set commit status/checks with retry and rate-limit handling.
+# Details:
+- Package: `internal/git/githubclient` implements `types.GitClient` port.
+- Auth: token from `GITHUB_TOKEN`; set `User-Agent: AurumCode`.
+- Methods:
+  - `GetPullRequestDiff(owner,repo,number) (types.Diff, error)` using `Accept: application/vnd.github.v3.diff`.
+  - `ListChangedFiles(owner,repo,number)` for metadata/lang hints.
+  - `PostReviewComment(owner,repo,number, comment)` supporting file+line and markdown body.
+  - `SetStatus(sha, state, context, description, targetURL)` pending/success/failure.
+- Resilience: retry on 429 with `Retry-After`, ETag caching for diff fetch, exponential backoff.
+- Pseudocode:
+  - func GetPRDiff(..){ req:=newReq("/pulls/{n}"); req.Header[Accept]="...diff"; body:=do(req); return analysis.ParseUnifiedDiff(body) }
+  - func PostComment(..){ payload := { body, path, line }; doPOST("/pulls/{n}/comments", payload) }
+
+# Test Strategy:
+- Unit: mock HTTP server returning fixture diff, verify parsed `types.Diff` structure.
+- Unit: 429 + Retry-After honored by client.
+- Integration: golden tests for comment payload formatting and status transitions.
+- Idempotency: posting same comment with dedupe key results in at-most-once behavior (store hash per PR session).
+
+# Subtasks:
+## 1. Scaffold authenticated GitHub HTTP client with UA, retries, and backoff [pending]
+### Dependencies: None
+### Description: Create package `internal/git/githubclient` and an HTTP wrapper that injects auth and headers, and handles retries.
+### Details:
+Build a reusable client: read `GITHUB_TOKEN`, set `Authorization: token ...` and `User-Agent: AurumCode`. Provide `baseURL` override for tests, context-aware timeouts, exponential backoff with jitter, and 429 handling using `Retry-After` (fallback to `X-RateLimit-Reset`). Centralize request/response, JSON decode helpers, and error types.
+
+## 2. Implement GetPullRequestDiff with Accept header and ETag caching [pending]
+### Dependencies: 5.1
+### Description: Fetch PR unified diff and return `types.Diff`, honoring caching to reduce calls.
+### Details:
+Add `GetPullRequestDiff(owner, repo, number)` that calls `/repos/{owner}/{repo}/pulls/{number}` with `Accept: application/vnd.github.v3.diff`. Store and use ETag: send `If-None-Match`, on 304 return cached parsed `types.Diff`. Parse body via existing parser hook (e.g., `analysis.ParseUnifiedDiff`) and adapt errors cleanly.
+
+## 3. Implement ListChangedFiles for PR file metadata with pagination and language hints [pending]
+### Dependencies: 5.1
+### Description: List all changed files for a PR, aggregating pages and enriching with language hints.
+### Details:
+Add `ListChangedFiles(owner, repo, number)` calling `/repos/{o}/{r}/pulls/{n}/files` with pagination. Parse JSON fields (filename, status, sha, additions, deletions, changes, patch?). Derive simple language hints from filename extensions to aid downstream analysis. Return stable, typed results.
+
+## 4. Implement PostReviewComment supporting path+line, markdown body, and idempotency [pending]
+### Dependencies: 5.1
+### Description: Post a review comment on a PR with file and line context; avoid duplicates when a dedupe key is supplied.
+### Details:
+Add `PostReviewComment(owner, repo, number, comment)` that POSTs to `/repos/{o}/{r}/pulls/{n}/comments` with `{body,path,line}`. Support markdown body. If a `DedupeKey` is provided, first list existing review comments to skip posting an identical one (at-most-once). Handle 422 for outdated positions with a clear error.
+
+## 5. Implement SetStatus for commit SHA with pending/success/failure and resilient posting [pending]
+### Dependencies: 5.1
+### Description: Set commit status on a SHA with context, description, and optional target URL using robust retries.
+### Details:
+Expose `SetStatus(sha, state, context, description, targetURL)`. Post to `/repos/{owner}/{repo}/statuses/{sha}` using owner/repo from client config. Validate and map states (pending/success/failure). Reuse retry/backoff for 429/5xx, and surface non-retryable errors with details. Optionally gate length of description per GitHub limits.
+
+## 6. End-to-end tests with mock server and golden fixtures for diff and JSON payloads [pending]
+### Dependencies: 5.1, 5.2, 5.3, 5.4, 5.5
+### Description: Add comprehensive tests and fixtures covering diffs, comments, statuses, caching, and rate-limit behavior.
+### Details:
+Create `httptest` server serving fixture diff and JSON files. Add golden fixtures for unified diff, comment payloads, and status bodies. Verify ETag cache hit path, pagination, idempotent comments, and exponential backoff timing within bounds. Include concurrency-safe tests and CI-friendly deterministic timings via injected clock.
+
