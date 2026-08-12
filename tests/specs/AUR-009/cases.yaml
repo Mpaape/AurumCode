@@ -41,6 +41,42 @@ cases:
     expect: redacted
     input: "tool git_push result: token=${CANARY} applied to branch main"
     expected: "tool git_push result: token=[REDACTED] applied to branch main"
+  - name: "body-json-quoted-secret"
+    kind: nominal
+    channel: body
+    expect: redacted
+    input: "{${DQ}password${DQ}:${DQ}notarealpw0123${DQ},${DQ}ok${DQ}:true}"
+    expected: "{${DQ}password${DQ}:${DQ}[REDACTED]${DQ},${DQ}ok${DQ}:true}"
+  - name: "body-yaml-quoted-api-key"
+    kind: nominal
+    channel: body
+    expect: redacted
+    input: "api_key: ${DQ}notarealtokenvalue${DQ}"
+    expected: "api_key: ${DQ}[REDACTED]${DQ}"
+  - name: "header-in-json-canary"
+    kind: nominal
+    channel: header
+    expect: redacted
+    input: "{${DQ}headers${DQ}:{${DQ}Authorization${DQ}:${DQ}Bearer notarealtoken9${DQ},${DQ}X-Api-Key${DQ}:${DQ}${CANARY}${DQ}}}"
+    expected: "{${DQ}headers${DQ}:{${DQ}Authorization${DQ}:${DQ}[REDACTED]${DQ},${DQ}X-Api-Key${DQ}:${DQ}[REDACTED]${DQ}}}"
+  - name: "private-key-block"
+    kind: nominal
+    channel: body
+    expect: redacted
+    input: "${PEM_BEGIN}${NL}MIIBOgIBAAJBnotarealkey0123456789abcdefghij${NL}wxyz0123456789notarealkeyMIIBOgIBAAJB${NL}${PEM_END}${NL}tail ok"
+    expected: "[REDACTED]${NL}tail ok"
+  - name: "url-userinfo-canary"
+    kind: nominal
+    channel: url
+    expect: redacted
+    input: "remote https://admin:${CANARY}@git.example.test/r.git mirror https://ci:notarealpw0123@mirror.example.test/r.git"
+    expected: "remote https://[REDACTED]@git.example.test/r.git mirror https://[REDACTED]@mirror.example.test/r.git"
+  - name: "tool-result-newline-sliced-canary"
+    kind: nominal
+    channel: tool_result
+    expect: redacted
+    input: "tool fs_read result: ${CANARY_HEAD}${NL}${CANARY_TAIL} done"
+    expected: "tool fs_read result: [REDACTED] done"
   - name: "sink-unknown"
     kind: invalid
     channel: sink
