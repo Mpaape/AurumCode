@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -19,32 +20,67 @@ import (
 // This file is new. AurumCode's original engine only ever received an
 // already-computed diff from a GitHub pull request payload (see the
 // deleted internal/git/githubclient tree); it never needed to read a git
-// repository directly. cmd/aurumcode does need that, and the sandbox
-// profile this card's acceptance runs under (bootstrap-readonly-v1) carries
-// Go but not a `git` binary, so shelling out with os/exec is not viable
-// inside that profile even though it is the more obvious design. Reading
-// git's on-disk object format directly is a deliberate, documented choice
-// (see docs/specs/AUR-430.md): it keeps the reviewed-repository boundary a
-// plain filesystem read, needs no subprocess and no network, and matches
-// the tests/fixtures/repos/git-demo fixture exactly, since that fixture is
-// itself a set of loose objects (see build-fixture.sh).
+// repository directly.
 //
-// Scope: this reader supports loose objects only (the format every fresh
-// commit and every un-gc'd repository -- including the fixture -- uses). A
-// repository whose objects have been packed by `git gc` is out of scope and
-// returns a clear error rather than silently reporting an empty diff;
-// packfile support is future work, not a silent degradation.
+// Reading a repository has two implementations, selected once in OpenRepo:
+//
+//   - When a `git` binary is on PATH, every read goes through it (`git
+//     rev-parse`, `git cat-file`) with the reviewed repository's own
+//     directory as cwd, exactly the os/exec approach this card's own text
+//     calls out ("use os/exec para chamar git do host/imagem"). Letting git
+//     itself discover the repository is what makes this correct on a linked
+//     worktree (".git" is a *file* there, `gitdir: ...`, which the naive
+//     bare/non-bare check below does not understand) and on any repository
+//     whose objects have been packed by `git gc` -- both are the normal
+//     shape of a real, lived-in checkout, this one included.
+//   - When no `git` binary is present, a pure-Go reader inflates loose
+//     objects directly from the object database (zlib + the standard
+//     "type size\0content" header) and resolves refs by reading the loose
+//     ref files. This is the path this card's own sealed acceptance profile
+//     (bootstrap-readonly-v1: Go and bash, no git, no network) exercises,
+//     and the only one tests/fixtures/repos/git-demo (a set of loose
+//     objects, see build-fixture.sh) needs to prove.
+//
+// Both paths return the same information through the same Repo methods, so
+// everything past OpenRepo (ResolveRef, Diff, the tree walk, the line diff
+// in textdiff.go) is written once and is exercised by both: AUR-430's own
+// test suite runs entirely on the pure-Go path (this repository's sandbox
+// has no git), and gitrepo_gitbinary_test.go runs the git-binary path
+// whenever a `git` binary is available to run it with (skipped, never
+// silently passed, when one is not).
 
-// Repo is a read-only handle onto a local git repository's object database,
-// resolved to either a bare repository root or a working tree's ".git" dir.
+// Repo is a read-only handle onto a local git repository.
 type Repo struct {
+	// gitBinary is the resolved path to `git`, non-empty when useGitBinary
+	// is true. workDir is the directory git commands run from; git's own
+	// discovery (walking up for ".git", following a worktree's ".git" file,
+	// or recognizing a bare repository) does the rest.
+	useGitBinary bool
+	gitBinary    string
+	workDir      string
+
+	// gitDir is the resolved git directory used by the pure-Go loose-object
+	// reader only.
 	gitDir string
 }
 
-// OpenRepo resolves root as a git repository: root/.git if it exists (a
-// normal working tree), otherwise root itself if it looks like a bare
-// repository (it has HEAD, objects and refs directly).
+// OpenRepo resolves root as a git repository. It prefers a `git` binary on
+// PATH when one is available (see the package doc above for why); when none
+// is available it falls back to treating root/.git as a normal working
+// tree's git dir, or root itself as a bare repository (it has HEAD, objects
+// and refs directly).
 func OpenRepo(root string) (*Repo, error) {
+	if gitBin, err := exec.LookPath("git"); err == nil {
+		cmd := exec.Command(gitBin, "rev-parse", "--git-dir")
+		cmd.Dir = root
+		if cmd.Run() == nil {
+			return &Repo{useGitBinary: true, gitBinary: gitBin, workDir: root}, nil
+		}
+		// git is present but root is not a repository it recognizes; fall
+		// through to the pure-Go detection below rather than assume, since
+		// the two checks agree on every case this reader actually supports.
+	}
+
 	candidate := filepath.Join(root, ".git")
 	if info, err := os.Stat(candidate); err == nil && info.IsDir() {
 		return &Repo{gitDir: candidate}, nil
@@ -73,11 +109,25 @@ var refWithParent = regexp.MustCompile(`^(.*?)~([0-9]*)$`)
 // raw 40-character hex SHA, "HEAD" (following one level of symbolic
 // indirection to refs/heads/<branch>), a bare branch name under
 // refs/heads/, and a "<ref>~N" (or "<ref>~", meaning N=1) parent-walk
-// suffix applied to any of the above.
+// suffix applied to any of the above. When a `git` binary is in use, the
+// full range of git's own revision syntax is accepted instead, since `git
+// rev-parse` does the resolving.
 func (r *Repo) ResolveRef(ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return "", fmt.Errorf("empty ref")
+	}
+
+	if r.useGitBinary {
+		out, err := r.git("rev-parse", "--verify", ref+"^{commit}")
+		if err != nil {
+			return "", fmt.Errorf("resolving ref %q: %w", ref, err)
+		}
+		sha := strings.ToLower(strings.TrimSpace(out))
+		if !hexSHA.MatchString(sha) {
+			return "", fmt.Errorf("resolving ref %q: unexpected rev-parse output %q", ref, out)
+		}
+		return sha, nil
 	}
 
 	if m := refWithParent.FindStringSubmatch(ref); m != nil {
@@ -161,13 +211,69 @@ func (r *Repo) lookupPackedRef(refPath string) (string, bool) {
 	return "", false
 }
 
-// readObject reads and inflates a loose object by its 40-hex SHA, returning
-// its git object type ("commit", "tree" or "blob") and content.
+// git runs `git <args...>` with workDir as its working directory and
+// returns trimmed stdout. Used only on the git-binary path.
+func (r *Repo) git(args ...string) (string, error) {
+	cmd := exec.Command(r.gitBinary, args...)
+	cmd.Dir = r.workDir
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), msg)
+	}
+	return stdout.String(), nil
+}
+
+// readObject returns an object's git type ("commit", "tree" or "blob") and
+// raw content (the inflated payload with the "type size\0" header already
+// stripped), via whichever backend OpenRepo selected.
 func (r *Repo) readObject(sha string) (string, []byte, error) {
 	sha = strings.ToLower(sha)
 	if !hexSHA.MatchString(sha) {
 		return "", nil, fmt.Errorf("invalid object id %q", sha)
 	}
+	if r.useGitBinary {
+		return r.readObjectViaGit(sha)
+	}
+	return r.readLooseObject(sha)
+}
+
+// readObjectViaGit reads an object of any kind -- loose or packed -- through
+// `git cat-file`, which is exactly why the git-binary path has no packfile
+// limitation: git itself resolves that, this reader never touches a .pack
+// file's format.
+func (r *Repo) readObjectViaGit(sha string) (string, []byte, error) {
+	typeOut, err := r.git("cat-file", "-t", sha)
+	if err != nil {
+		return "", nil, fmt.Errorf("object %s: %w", sha, err)
+	}
+	objType := strings.TrimSpace(typeOut)
+
+	cmd := exec.Command(r.gitBinary, "cat-file", objType, sha)
+	cmd.Dir = r.workDir
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", nil, fmt.Errorf("object %s: git cat-file %s: %s", sha, objType, msg)
+	}
+	return objType, stdout.Bytes(), nil
+}
+
+// readLooseObject reads and inflates a loose object by its 40-hex SHA,
+// returning its git object type ("commit", "tree" or "blob") and content.
+// Packed objects are out of scope for this path (see the package doc): a
+// clear, typed error is returned rather than a silently empty diff.
+func (r *Repo) readLooseObject(sha string) (string, []byte, error) {
 	path := filepath.Join(r.gitDir, "objects", sha[:2], sha[2:])
 	raw, err := os.ReadFile(path)
 	if err != nil {

@@ -10,13 +10,15 @@
 #   prints that finding with file, line and severity, deterministically,
 #   with no file the user has to prepare beforehand.
 #
-# WHY NO `git` IS INVOKED
+# WHY THIS SANDBOX EXERCISES THE PURE-GO GIT READER
 #
 #   The card's sealed profile is bootstrap-readonly-v1: bash and a Go
 #   toolchain, no `git` binary, no network (see AUR-011's acceptance
 #   program for the same, independently-confirmed fact). cmd/aurumcode
-#   therefore reads the git object database directly in pure Go (see
-#   internal/analyzer/gitrepo.go) instead of shelling out to `git diff`.
+#   supports both a `git`-binary backend and a pure-Go loose-object reader
+#   (see internal/analyzer/gitrepo.go's package doc); with no `git` on
+#   PATH here, this run exercises the pure-Go path, which is exactly what
+#   the loose-object tests/fixtures/repos/git-demo fixture needs.
 #
 # WHY THE LLM CALL IS A FIXTURE
 #
@@ -93,6 +95,13 @@ stage_source() {
   copy "$root" cmd/aurumcode internal/analyzer internal/prompt internal/review
   copy "$root" pkg/types internal/llm
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
+  # `cp -R` preserves the source tree's mode bits, and the materialized
+  # `paths`/`read_paths` input this copies from is read-only -- including
+  # the directories themselves, not just the files. Force the whole staged
+  # copy writable so later steps in this script (mutation_case's `sed -i`,
+  # any case's own cleanup_root) can actually modify or remove it; this
+  # copy is scratch from here on, never the materialized input.
+  chmod -R u+w -- "$root"
 }
 
 # build_shared builds the binary exactly once per acceptance run and
@@ -140,25 +149,47 @@ nominal_case() {
   fi
 }
 
-# mutation_case is MUT-001: with the review engine's declared behavior
-# replaced by "return an empty issue list" (see reviewer.go's
-# AURUM_A430_MUTATION hook), the same known-problem diff must come back
-# with no finding -- proving the nominal case above is actually exercising
-# the promised behavior, not a coincidental pass. The mutation is an
-# environment toggle read at runtime (not a rebuild), so it reuses the
-# exact same binary nominal_case just proved GREEN.
+# mutation_case is MUT-001: it edits a *writable staged copy* of
+# reviewer.go so GenerateReview discards every issue it found, rebuilds
+# from that mutated copy, and proves the known-problem diff then comes
+# back empty -- i.e. that nominal_case's finding is actually produced by
+# the declared behavior, not a coincidence. The committed source
+# (shared_root, and everywhere outside this function's own $root) is never
+# touched, so this is reversible by construction: nothing here needs to be
+# "restored" afterward. A production binary contains no mutation hook at
+# all -- see reviewer.go and docs/specs/AUR-430.md's "MUT-001" note.
 mutation_case() {
-  build_shared
-  local repo_dir="$shared_root/tests/fixtures/repos/git-demo/repo.git"
-  local fixture="$shared_root/tests/fixtures/review/known-problem-response.json"
+  build_shared # warm GOCACHE; only internal/review differs below, so the
+               # rebuild recompiles one small package, not the world.
+
+  local root="$run_dir/root-mut"
+  stage_source "$root"
+
+  local target="$root/internal/review/reviewer.go"
+  local anchor
+  anchor="$(printf '\treturn result, nil')"
+  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
+  sed -i "s/^${anchor}\$/\tresult.Issues = nil\n${anchor}/" "$target"
+  grep -Fq 'result.Issues = nil' "$target" || fail 'MUT-001/mutation-not-applied'
+
+  local bin="$run_dir/aurumcode-mut"
+  local log="$root/build-mut.log"
+  if ! (cd "$root" && go build -o "$bin" ./cmd/aurumcode) >"$log" 2>&1; then
+    cat "$log" >&2
+    fail 'MUT-001/build-failed'
+  fi
+
+  local repo_dir="$root/tests/fixtures/repos/git-demo/repo.git"
+  local fixture="$root/tests/fixtures/review/known-problem-response.json"
 
   local out
-  out="$(cd "$repo_dir" && AURUMCODE_LLM_FIXTURE="$fixture" AURUM_A430_MUTATION=empty-issues "$shared_bin" review --base HEAD~1)" || fail mutation-run-failed
+  out="$(cd "$repo_dir" && AURUMCODE_LLM_FIXTURE="$fixture" "$bin" review --base HEAD~1)" || fail mutation-run-failed
   if grep -Fq 'config/demo-tokens.txt' <<<"$out"; then
     fail 'MUT-001/not-rejected'
   fi
   grep -Fq 'No issues found.' <<<"$out" || fail 'MUT-001/unexpected-output'
 
+  cleanup_root "$root"
   printf '%s/%s/MUT-001/rejected\n' "$card" "$scenario"
 }
 
@@ -178,7 +209,7 @@ EOF
   out="$(cd "$root" && AURUMCODE_ROOT="$root" GOMAXPROCS=1 go test -v -mod=mod -p 1 ./tests/unit -run '^TestAUR430UnitBridge$' -count=1 2>&1)"
   rc=$?
   set -e
-  printf '%s\n' "$out"
+  printf '%s\n' "$out" | sed -E 's#\([0-9]+\.[0-9]+s\)#(TIMEs)#g; s#[0-9]+\.[0-9]+s$#TIMEs#g'
   ((rc == 0)) || fail "selector:TestAUR430:exit:$rc"
   grep -Eq '(^|[[:space:]])ok[[:space:]]' <<<"$out" || fail selector:TestAUR430:zero-tests
   cleanup_root "$root"
@@ -200,7 +231,7 @@ EOF
   out="$(cd "$root" && AURUMCODE_ROOT="$root" GOMAXPROCS=1 go test -v -mod=mod -p 1 ./tests/integration -run '^TestAUR430IntegrationBridge$' -count=1 2>&1)"
   rc=$?
   set -e
-  printf '%s\n' "$out"
+  printf '%s\n' "$out" | sed -E 's#\([0-9]+\.[0-9]+s\)#(TIMEs)#g; s#[0-9]+\.[0-9]+s$#TIMEs#g'
   ((rc == 0)) || fail "selector:IntegrationAUR430:exit:$rc"
   grep -Eq '(^|[[:space:]])ok[[:space:]]' <<<"$out" || fail selector:IntegrationAUR430:zero-tests
   cleanup_root "$root"

@@ -2,7 +2,6 @@ package review
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
@@ -82,40 +81,5 @@ func TestGenerateReview_Deterministic(t *testing.T) {
 		if first.Issues[i] != second.Issues[i] {
 			t.Fatalf("non-deterministic issue at %d: %+v vs %+v", i, first.Issues[i], second.Issues[i])
 		}
-	}
-}
-
-// TestGenerateReview_MUT001Hook proves MUT-001 both ways in the same
-// process: with the env hook set, a diff with a known problem must come
-// back with zero issues (RED); with it unset (the only state a real build
-// ever runs in), the same diff and the same fake response must come back
-// with the issue restored byte-for-byte (GREEN). See reviewer.go's
-// AURUM_A430_MUTATION hook and tests/acceptance/AUR-430.sh's
-// mutation_case for the containerized equivalent of this same proof.
-func TestGenerateReview_MUT001Hook(t *testing.T) {
-	diff := newFixtureDiff(t)
-
-	t.Setenv("AURUM_A430_MUTATION", "empty-issues")
-	orch := llm.NewOrchestrator(&FakeProvider{Response: knownProblemResponse}, nil, nil)
-	reviewer := NewReviewer(orch, DefaultConfig())
-	red, err := reviewer.GenerateReview(context.Background(), diff)
-	if err != nil {
-		t.Fatalf("GenerateReview (mutated) failed: %v", err)
-	}
-	if len(red.Issues) != 0 {
-		t.Fatalf("MUT-001 RED: expected zero issues with the mutation active, got %d", len(red.Issues))
-	}
-
-	if err := os.Unsetenv("AURUM_A430_MUTATION"); err != nil {
-		t.Fatalf("unsetenv: %v", err)
-	}
-	orch2 := llm.NewOrchestrator(&FakeProvider{Response: knownProblemResponse}, nil, nil)
-	reviewer2 := NewReviewer(orch2, DefaultConfig())
-	green, err := reviewer2.GenerateReview(context.Background(), diff)
-	if err != nil {
-		t.Fatalf("GenerateReview (restored) failed: %v", err)
-	}
-	if len(green.Issues) != 1 || green.Issues[0].File != "config/demo-tokens.txt" {
-		t.Fatalf("MUT-001 GREEN: expected the known-problem issue restored, got %+v", green.Issues)
 	}
 }
