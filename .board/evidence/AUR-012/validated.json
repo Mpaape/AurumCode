@@ -1,0 +1,20 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-012",
+  "commit": "f5a03efaf8151d5efef8288391567682a4b80e5f",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-012",
+    "exit_code": 0,
+    "raw_output": "planted_private_vectors=6 planted_private_detected=6 entry_count=15 scenario_count=6 vector_count=15\nreplay identical=true result=pass\nimage=aurum-bootstrap-go-bash@sha256:503ac356 exit_code=0 secret_detected=false observation_trusted=false\nstdout_sha256 identical across two runs, before and after the reviewer's mutations"
+  },
+  "review_notes": {
+    "falsifiability": "Six of the fifteen sealed vectors plant private material and each must produce its own typed refusal with a measured effect count of zero, while the nominal vector is a positive control whose synthetic token must survive. The reviewer neutralised the screen and the acceptance exited 1 with planted-undetected; making the screen refuse everything also exited 1, because the positive control fails.",
+    "effects_are_measured": "Effect counts come from counting files in the target before and after, not from a literal. The reviewer forced the same vector to 0 to 15, 15 to 16 and 15 to 0 without touching the sealed vectors.",
+    "acceptance_is_independent": "The bootstrap was made to print a hardcoded healthy report while the copier leaked the manifest; the acceptance still exited 1, recomputing the tree itself and reporting the divergence. It re-derives the allowlist and the path policy and greps the produced checkout.",
+    "known_limit": "The payload screen matches literal markers and credential shapes, so base64-encoded markers, markers split across lines and unmarked private content pass it - proved four times out of four. The acceptance re-derives the same patterns, so what escapes the bootstrap escapes the check. The guarantee that carries the outcome is path closure over a digest-sealed tree: the reviewer read all fifteen delivered files and found only synthetic content, and any byte change to that tree fails the input seal. This limit should be stated in the card documentation.",
+    "nit": "The bootstrap guard greps case-insensitively while the auditor greps case-sensitively; the guard is stricter so it cannot produce a false negative, but the asymmetry is undocumented."
+  }
+}
