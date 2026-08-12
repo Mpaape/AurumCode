@@ -51,6 +51,14 @@
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
+    "key": "oci-conformance-v1",
+    "schema": ".board/schemas/oci-conformance-profile.schema.json",
+    "schema_digest": "sha256:2fc262b7913604495f0945b2f1efc392fdb04f548e6ac2d887ae668a581b5425",
+    "lock": ".board/locks/oci/oci-conformance-v1.lock.json",
+    "lock_digest": "sha256:1049a2b97a9ceae3e49bbaefee29450e75d5bc310d2c882c45227e83112198ac",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
     "key": "parser-worker-v1",
     "schema": ".board/schemas/parser-worker-profile.schema.json",
     "schema_digest": "sha256:e7ebce2ab132c06e05d0e05967d18b935ac48197c59be321bfe5d931158c1fe0",
