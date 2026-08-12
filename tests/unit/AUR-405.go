@@ -35,6 +35,8 @@ const fakeScmSchemaPath405 = ".board/schemas/fake-scm-offline-profile.schema.jso
 const fakeScmLockPath405 = ".board/locks/oci/fake-scm-offline-v1.lock.json"
 const ociConformanceSchemaPath405 = ".board/schemas/oci-conformance-profile.schema.json"
 const ociConformanceLockPath405 = ".board/locks/oci/oci-conformance-v1.lock.json"
+const polyglotSchemaPath405 = ".board/schemas/polyglot-toolchain-profile.schema.json"
+const polyglotLockPath405 = ".board/locks/oci/polyglot-toolchain-v1.lock.json"
 const profileKey405 = "fake-provider-v1"
 
 type profile405 struct {
@@ -118,7 +120,7 @@ var endpoint405 = regexp.MustCompile(`^http://127\.0\.0\.1:8080/v1$`)
 // carries a literal that the runner's input gate would read as a real secret.
 var credentialShape405 = regexp.MustCompile(`(sk` + `-[A-Za-z0-9_-]{20,}|AKIA` + `[0-9A-Z]{16}|gh` + `[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)`)
 
-var registryKeys405 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "oci-conformance-v1", "parser-worker-v1", "registry-v1", "sqlite-offline-v1"}
+var registryKeys405 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "oci-conformance-v1", "parser-worker-v1", "polyglot-toolchain-v1", "registry-v1", "sqlite-offline-v1"}
 var requiredProfileKeys405 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "provider_endpoint", "dns", "egress", "api_key", "credential_sources", "response_scripts", "response_scripts_root", "request_timeout_seconds", "max_response_bytes", "max_responses", "environment", "command"}
 var requiredEnvironmentKeys405 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN", "OPENAI_API_KEY", "OPENAI_BASE_URL", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 var schemaDocumentKeys405 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -470,7 +472,7 @@ func ValidateProfileAUR405(root string) (profile405, lock405, string) {
 	return p, l, "valid"
 }
 
-// ValidateRegistryAUR405 resolves the canonical registry and admits exactly the ten
+// ValidateRegistryAUR405 resolves the canonical registry and admits exactly the eleven
 // registered keys. It is fail-closed: an unknown key, a duplicate, an out-of-order
 // entry, or a digest that does not match the bytes on disk denies without any engine.
 func ValidateRegistryAUR405(root string) (string, string) {
@@ -606,6 +608,14 @@ func ValidateRegistryAUR405(root string) (string, string) {
 		case "oci-conformance-v1":
 			// Owned by AUR-410, checked under the same neighbour rule as AUR-403's key.
 			if x.Schema != ociConformanceSchemaPath405 || x.Lock != ociConformanceLockPath405 {
+				return "", "unsafe-plan"
+			}
+			if !digest405.MatchString(x.SchemaDigest) || !digest405.MatchString(x.LockDigest) || !digest405.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		case "polyglot-toolchain-v1":
+			// Owned by AUR-411, checked under the same neighbour rule as AUR-403's key.
+			if x.Schema != polyglotSchemaPath405 || x.Lock != polyglotLockPath405 {
 				return "", "unsafe-plan"
 			}
 			if !digest405.MatchString(x.SchemaDigest) || !digest405.MatchString(x.LockDigest) || !digest405.MatchString(x.ImageSetDigest) {

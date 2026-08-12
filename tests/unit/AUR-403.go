@@ -33,6 +33,8 @@ const fakeScmSchemaPath403 = ".board/schemas/fake-scm-offline-profile.schema.jso
 const fakeScmLockPath403 = ".board/locks/oci/fake-scm-offline-v1.lock.json"
 const ociConformanceSchemaPath403 = ".board/schemas/oci-conformance-profile.schema.json"
 const ociConformanceLockPath403 = ".board/locks/oci/oci-conformance-v1.lock.json"
+const polyglotSchemaPath403 = ".board/schemas/polyglot-toolchain-profile.schema.json"
+const polyglotLockPath403 = ".board/locks/oci/polyglot-toolchain-v1.lock.json"
 
 type profile403 struct {
 	Schema              string            `json:"schema"`
@@ -378,10 +380,21 @@ func validateRegistry403(root string) (string, string) {
 		if i > 0 && keys[i-1] >= x.Key {
 			return "", "order-invalid"
 		}
-		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "parser-worker-v1" && x.Key != "registry-v1" && x.Key != "sqlite-offline-v1" && x.Key != "docs-tool-offline-v1" && x.Key != "fake-scm-offline-v1" && x.Key != "oci-conformance-v1" {
+		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "parser-worker-v1" && x.Key != "registry-v1" && x.Key != "sqlite-offline-v1" && x.Key != "docs-tool-offline-v1" && x.Key != "fake-scm-offline-v1" && x.Key != "oci-conformance-v1" && x.Key != "polyglot-toolchain-v1" {
 			return "", "profile-unregistered"
 		}
-		if x.Key == "oci-conformance-v1" {
+		if x.Key == "polyglot-toolchain-v1" {
+			// Registered by AUR-411. Its documents are not materialized for this
+			// acceptance either, so only the declared paths and digest shape are
+			// checked: registering the polyglot profile can never re-point the Go
+			// unit plan validated below.
+			if x.Schema != polyglotSchemaPath403 || x.Lock != polyglotLockPath403 {
+				return "", "unsafe-plan"
+			}
+			if !digest403.MatchString(x.SchemaDigest) || !digest403.MatchString(x.LockDigest) || !digest403.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		} else if x.Key == "oci-conformance-v1" {
 			// Registered by AUR-410. Its documents are not materialized for this
 			// acceptance either, so only the declared paths and digest shape are
 			// checked: registering the conformance profile can never re-point the Go
@@ -482,13 +495,14 @@ func validateRegistry403(root string) (string, string) {
 			return "", "digest-invalid"
 		}
 	}
-	// Extended by AUR-410 (oci-conformance-v1, tenth key). The arity stays exact and
+	// Extended by AUR-411 (polyglot-toolchain-v1, eleventh key). The arity stays exact and
 	// the positional order stays complete: every key asserted before is still asserted at
 	// the single index the canonical ascending order gives it, and the new key is pinned
-	// at the only index it can occupy. `oci-` sorts after `go-unit-` and before
-	// `parser-`, so the three keys that follow it move one index to the right; no key
-	// leaves the list, no arity becomes a minimum and no equality becomes an inequality.
-	if len(r.Profiles) != 10 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "docs-tool-offline-v1" || keys[2] != "fake-provider-v1" || keys[3] != "fake-scm-offline-v1" || keys[4] != "go-git-offline-v1" || keys[5] != "go-unit-offline-v1" || keys[6] != "oci-conformance-v1" || keys[7] != "parser-worker-v1" || keys[8] != "registry-v1" || keys[9] != "sqlite-offline-v1" {
+	// at the only index it can occupy. `polyglot-` sorts after `parser-` -- `a` precedes
+	// `o` in the first byte that differs -- and before `registry-`, so the two keys that
+	// follow it move one index to the right; no key leaves the list, no arity becomes a
+	// minimum and no equality becomes an inequality.
+	if len(r.Profiles) != 11 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "docs-tool-offline-v1" || keys[2] != "fake-provider-v1" || keys[3] != "fake-scm-offline-v1" || keys[4] != "go-git-offline-v1" || keys[5] != "go-unit-offline-v1" || keys[6] != "oci-conformance-v1" || keys[7] != "parser-worker-v1" || keys[8] != "polyglot-toolchain-v1" || keys[9] != "registry-v1" || keys[10] != "sqlite-offline-v1" {
 		return "", "profile-unregistered"
 	}
 	return hash403(rb), "valid"
