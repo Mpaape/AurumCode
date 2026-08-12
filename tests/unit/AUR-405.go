@@ -25,6 +25,8 @@ const goUnitSchemaPath405 = ".board/schemas/go-unit-offline-profile.schema.json"
 const goUnitLockPath405 = ".board/locks/oci/go-unit-offline-v1.lock.json"
 const goGitSchemaPath405 = ".board/schemas/go-git-offline-profile.schema.json"
 const goGitLockPath405 = ".board/locks/oci/go-git-offline-v1.lock.json"
+const parserWorkerSchemaPath405 = ".board/schemas/parser-worker-profile.schema.json"
+const parserWorkerLockPath405 = ".board/locks/oci/parser-worker-v1.lock.json"
 const profileKey405 = "fake-provider-v1"
 
 type profile405 struct {
@@ -108,7 +110,7 @@ var endpoint405 = regexp.MustCompile(`^http://127\.0\.0\.1:8080/v1$`)
 // carries a literal that the runner's input gate would read as a real secret.
 var credentialShape405 = regexp.MustCompile(`(sk` + `-[A-Za-z0-9_-]{20,}|AKIA` + `[0-9A-Z]{16}|gh` + `[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)`)
 
-var registryKeys405 = []string{"bootstrap-readonly-v1", "fake-provider-v1", "go-git-offline-v1", "go-unit-offline-v1", "registry-v1"}
+var registryKeys405 = []string{"bootstrap-readonly-v1", "fake-provider-v1", "go-git-offline-v1", "go-unit-offline-v1", "parser-worker-v1", "registry-v1"}
 var requiredProfileKeys405 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "provider_endpoint", "dns", "egress", "api_key", "credential_sources", "response_scripts", "response_scripts_root", "request_timeout_seconds", "max_response_bytes", "max_responses", "environment", "command"}
 var requiredEnvironmentKeys405 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN", "OPENAI_API_KEY", "OPENAI_BASE_URL", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 var schemaDocumentKeys405 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -556,6 +558,14 @@ func ValidateRegistryAUR405(root string) (string, string) {
 		case "go-git-offline-v1":
 			// Owned by AUR-404, checked under the same neighbour rule as AUR-403's key.
 			if x.Schema != goGitSchemaPath405 || x.Lock != goGitLockPath405 {
+				return "", "unsafe-plan"
+			}
+			if !digest405.MatchString(x.SchemaDigest) || !digest405.MatchString(x.LockDigest) || !digest405.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		case "parser-worker-v1":
+			// Owned by AUR-406, checked under the same neighbour rule as AUR-403's key.
+			if x.Schema != parserWorkerSchemaPath405 || x.Lock != parserWorkerLockPath405 {
 				return "", "unsafe-plan"
 			}
 			if !digest405.MatchString(x.SchemaDigest) || !digest405.MatchString(x.LockDigest) || !digest405.MatchString(x.ImageSetDigest) {

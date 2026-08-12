@@ -23,6 +23,8 @@ const gitSchemaPath403 = ".board/schemas/go-git-offline-profile.schema.json"
 const gitLockPath403 = ".board/locks/oci/go-git-offline-v1.lock.json"
 const fakeProviderSchemaPath403 = ".board/schemas/fake-provider-profile.schema.json"
 const fakeProviderLockPath403 = ".board/locks/oci/fake-provider-v1.lock.json"
+const parserWorkerSchemaPath403 = ".board/schemas/parser-worker-profile.schema.json"
+const parserWorkerLockPath403 = ".board/locks/oci/parser-worker-v1.lock.json"
 
 type profile403 struct {
 	Schema              string            `json:"schema"`
@@ -368,10 +370,21 @@ func validateRegistry403(root string) (string, string) {
 		if i > 0 && keys[i-1] >= x.Key {
 			return "", "order-invalid"
 		}
-		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "registry-v1" {
+		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "parser-worker-v1" && x.Key != "registry-v1" {
 			return "", "profile-unregistered"
 		}
-		if x.Key == "fake-provider-v1" {
+		if x.Key == "parser-worker-v1" {
+			// Registered by AUR-406. Its documents are not materialized for this
+			// acceptance either, so only the declared paths and digest shape are
+			// checked: registering the parser worker can never re-point the Go unit
+			// plan validated below.
+			if x.Schema != parserWorkerSchemaPath403 || x.Lock != parserWorkerLockPath403 {
+				return "", "unsafe-plan"
+			}
+			if !digest403.MatchString(x.SchemaDigest) || !digest403.MatchString(x.LockDigest) || !digest403.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		} else if x.Key == "fake-provider-v1" {
 			// Registered by AUR-405. Its documents are not materialized for this
 			// acceptance either, so only the declared paths and digest shape are
 			// checked: registering the fake provider can never re-point the Go unit
@@ -417,7 +430,7 @@ func validateRegistry403(root string) (string, string) {
 			return "", "digest-invalid"
 		}
 	}
-	if len(r.Profiles) != 5 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "fake-provider-v1" || keys[2] != "go-git-offline-v1" || keys[3] != "go-unit-offline-v1" || keys[4] != "registry-v1" {
+	if len(r.Profiles) != 6 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "fake-provider-v1" || keys[2] != "go-git-offline-v1" || keys[3] != "go-unit-offline-v1" || keys[4] != "parser-worker-v1" || keys[5] != "registry-v1" {
 		return "", "profile-unregistered"
 	}
 	return hash403(rb), "valid"
