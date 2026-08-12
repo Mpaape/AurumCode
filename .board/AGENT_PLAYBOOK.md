@@ -120,8 +120,12 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
 
 - Builder: implementa somente paths do card, executa baseline/mutacao e cria
   um commit humano completo.
-- Reviewer: revisa o SHA imutavel, executa acceptance e procura testes falsos,
-  escopo fora dos paths, schema/parser divergente e saida que engole exit code.
+- Reviewer: **exatamente um por card**. Revisa o SHA imutavel em worktree
+  proprio e procura testes falsos, escopo fora dos paths, schema/parser
+  divergente e saida que engole exit code. Nao despachar Reviewer A/B, segundo
+  revisor, terceiro revisor ou aprovador cetico; o pipeline rejeita esses
+  papeis em qualquer card nao concluido. A revisao nao executa a cerimonia do
+  segundo leitor nem escreve no checkout coordenador.
 - Validator: roda a acceptance e os testes contra o mesmo commit em worktree
   limpo. Exit 0 e evidencia; exit 69/79 e inconclusivo; exit 1 e RED somente
   quando o programa chegou ao comportamento. Falha de loader, runtime,

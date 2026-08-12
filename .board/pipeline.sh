@@ -163,6 +163,25 @@ while IFS= read -r -d '' card; do
   card_paths[$id]="${fm_title[paths]:-}"
   card_read_paths[$id]="${fm_title[read_paths]:-[]}"
 
+  # The dual-review/skeptical ceremony is frozen historical evidence. A
+  # non-terminal card containing it would make a dispatcher recreate the old
+  # slow process even though the live board is lightweight. Fail here rather
+  # than relying on an agent to interpret prose correctly.
+  if [[ "$state" != done && "$state" != cancelled && "$state" != blocked-on-owner ]]; then
+    review_section="$(awk '
+      /^## Review$/ { inside=1; next }
+      inside && /^## / { exit }
+      inside { print }
+    ' "$card")"
+    legacy_review_pattern='reviewer[[:space:]]+[ab]([^[:alnum:]]|$)|skeptical[[:space:]]+approver|two[[:space:]]+(blind|isolated)[[:space:]]+reviewers|dual[-[:space:]]review|second[[:space:]]+reviewer|third[[:space:]]+reviewer'
+    if grep -Eiq "$legacy_review_pattern" <<<"$review_section"; then
+      fail "$card: legacy multi-review ceremony is forbidden for non-done cards; use exactly one Reviewer"
+    fi
+    reviewer_lines="$(grep -Eic '^[[:space:]]*-[[:space:]]+Reviewer:' <<<"$review_section" || true)"
+    [[ "$reviewer_lines" == 1 ]] ||
+      fail "$card: non-done card must declare exactly one Reviewer line"
+  fi
+
 done <"$card_scan"
 rm -f -- "$card_scan"
 card_scan=''

@@ -36,8 +36,8 @@ For cards created under the current board process, `ready` authorizes an
 isolated builder after builder preflight. The coordinator then requires an
 immutable commit, one independent review, the declared acceptance in a clean
 worktree, and matching sanitized delivery evidence before `done`. The older
-dual-review/skeptical-bundle ceremony below is legacy-only and must not be added
-to new cards unless the card explicitly opts into legacy evidence.
+dual-review/skeptical-bundle ceremony is frozen historical evidence for cards
+already in `done`; it is not an option for backlog or active cards.
 
 ## Non-goals
 
@@ -122,25 +122,26 @@ failure is not a skeptical mutation.
 
 ## Review
 
-- Reviewer A: full ten-dimension and every-hunk review, prioritizing
-  correctness, SOLID boundaries, compatibility, and test sensitivity.
-- Reviewer B: full ten-dimension and every-hunk review, prioritizing hostile
-  input, secrets, permissions, supply chain, resilience, and fail-closed paths.
-- Independence: sealed same `CandidateIdentityV1`; fresh process/session and
-  provider conversation; isolated caches/memory; manifest reports I0/I1/I2/I3
-  honestly and treats backend aliases as one family.
-- Skeptical approver: pre-seal hypotheses, run every mutation in a clean OCI
-  worker, restore, replay, and veto on failure or inconclusive evidence.
+- Reviewer: one independent reviewer reads the exact immutable candidate in a
+  clean detached worktree and checks every changed hunk, the public contract,
+  paths/read_paths, acceptance, declared selectors, mutations, profile/runtime
+  compatibility, security boundaries, and exit-code handling.
+- Independence: the reviewer is separate from the builder and does not edit
+  the candidate or write evidence in the coordinator checkout. A second
+  reviewer, skeptical approver, or duplicated role is not required.
+- Verdict: approve only on raw exit `0` with real assertions. Runtime,
+  loader, image, dependency, or other infrastructure failures are blocked or
+  inconclusive, never approval. The validator reruns the declared acceptance
+  on the same SHA when `validation` is not `none`.
 
 ## Evidence
 
 Only the coordinator writes sanitized artifacts under
 `.board/evidence/AUR-000/`; tests and builders emit untrusted observations and
-never approval. The manifest
-MUST bind the canonical candidate identity, locked spec, red/green/refactor,
-deterministic gates, clean tree, full Review A and B coverage maps, pre-sealed
-challenge, mutations, restored replay, hashes, and verdicts. `done` additionally
-requires an authenticated human integration event. Never store secrets, raw
+never approval. The evidence binds the exact candidate SHA, review verdict,
+acceptance/validation exits, mutation result when declared, clean tree, and
+artifact hashes. `done` additionally requires the delivery record and the
+validated evidence required by the board gate. Never store secrets, raw
 prompts/responses, credentials, environment values, or chain-of-thought.
 ```
 
