@@ -11,6 +11,14 @@
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
+    "key": "fake-provider-v1",
+    "schema": ".board/schemas/fake-provider-profile.schema.json",
+    "schema_digest": "sha256:f5d66c44bf49891bcc73f96e20bfaefdb7bd19301b01a294ae2d26b54498512e",
+    "lock": ".board/locks/oci/fake-provider-v1.lock.json",
+    "lock_digest": "sha256:6e72faa215f698e1ad0739e30ef10799e09ff66677d9b3fd154e831ab445f561",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
     "key": "go-git-offline-v1",
     "schema": ".board/schemas/go-git-offline-profile.schema.json",
     "schema_digest": "sha256:e9034cf14303a033237549fbee7886f9a67fac175a7dccb4b1e19a381a488347",
