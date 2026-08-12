@@ -1,0 +1,8 @@
+schema: aurum.demo-scenario
+version: 1
+id: null-deref
+kind: correctness
+title: "An absent lookup result is dereferenced"
+reviewed:
+  - src/cart.py
+expected_findings: 1

@@ -1,0 +1,150 @@
+schema: aurum.demo-consumer-bootstrap-cases
+version: 1
+# Sealed vectors for AUR-012 / AC-001.
+#
+# `limits` is the harness contract, enforced by tests/acceptance/AUR-012.sh:
+# more than 64 vectors, more than 4 MiB of vector input in total, or a deadline
+# above 30 s is refused before any vector runs.
+#
+# `domain` restates the bounds the consumer bootstrap itself enforces, so the
+# boundary vectors below sit exactly on them and one step past them.
+#
+# Every `input_digest` is recomputed from the constructed scaffold at run time
+# and every `input_bytes` is measured, so a vector cannot silently change what
+# it feeds the program under test. `effects` is the measured number of files the
+# run added to the target checkout: every refusal must be typed AND leave the
+# empty checkout empty.
+#
+# Six vectors plant something a consumer repository must never receive:
+# invalid-unlisted-path, invalid-private-path, invalid-path-escape,
+# invalid-private-marker, invalid-credential-shape and invalid-symlink-denied.
+# The two resealed ones carry a correct digest, so only a program that reads the
+# bytes can refuse them.
+limits:
+  max_vectors: 64
+  max_total_bytes: 4194304
+  deadline_seconds: 30
+domain:
+  max_entries: 64
+  max_file_bytes: 65536
+cases:
+  - name: "nominal-bootstrap"
+    kind: nominal
+    input_digest: "sha256:c7b1832092b391d7437481ab0129380ad3d12e6ae27cc1db73035029812e92b1"
+    input_bytes: 7906
+    expected_exit: 0
+    expected_code: "bootstrapped"
+    effects: 15
+    artifact_digest: "sha256:ab5a1b68eed1799a6838406959142eefae0828e05c008a08459d9809dc7c3b59"
+  - name: "nominal-replay"
+    kind: nominal
+    input_digest: "sha256:c7b1832092b391d7437481ab0129380ad3d12e6ae27cc1db73035029812e92b1"
+    input_bytes: 7906
+    expected_exit: 0
+    expected_code: "bootstrapped"
+    effects: 15
+    artifact_digest: "sha256:ab5a1b68eed1799a6838406959142eefae0828e05c008a08459d9809dc7c3b59"
+  - name: "invalid-unlisted-path"
+    kind: invalid
+    input_digest: "sha256:40798433c353c40e0d6a898f7f358c1464ff77260caf18928dcd0b247706469c"
+    input_bytes: 7925
+    expected_exit: 1
+    expected_code: "path-not-allowlisted"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-private-path"
+    kind: invalid
+    input_digest: "sha256:9040570f1fd18c43a5e70c5262d4b05b69e15a247b778d606865ad0c286df5a8"
+    input_bytes: 8065
+    expected_exit: 1
+    expected_code: "private-path-denied"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-path-escape"
+    kind: invalid
+    input_digest: "sha256:d39e1bb0898eabf9db71924b9e07d9effba56f419c8dd7ab3888c36e08b2a1ef"
+    input_bytes: 8009
+    expected_exit: 1
+    expected_code: "path-shape-denied"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-private-marker"
+    kind: invalid
+    input_digest: "sha256:9a0f5cad27f36df0f44862a09ac2b7a034f1bfb16c78becc043bec42fb8dfd15"
+    input_bytes: 7438
+    expected_exit: 1
+    expected_code: "private-marker-detected"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-credential-shape"
+    kind: invalid
+    input_digest: "sha256:2a0e7426a143aac4fc0546d2b8fe4b8ab7806051c06abb625ed3a19e0f4e3825"
+    input_bytes: 7409
+    expected_exit: 1
+    expected_code: "credential-shape-detected"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-symlink-denied"
+    kind: invalid
+    input_digest: "sha256:3d34c24fb08b0e4a09f3826ecb20d3ba5a50829c0477de57d53a88713d60a153"
+    input_bytes: 7610
+    expected_exit: 1
+    expected_code: "symlink-denied"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-digest-mismatch"
+    kind: invalid
+    input_digest: "sha256:4b93716c8c15798690fb558b18a71cf572c145b364cfa3faa79c7e243b510ca2"
+    input_bytes: 7906
+    expected_exit: 1
+    expected_code: "content-digest-mismatch"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-scenario-incomplete"
+    kind: invalid
+    input_digest: "sha256:a50f95d5ffaeca94bb549e3a7d496cb468d7310640240dee2b88302b9263570f"
+    input_bytes: 7432
+    expected_exit: 1
+    expected_code: "scenario-incomplete"
+    effects: 0
+    artifact_digest: "none"
+  - name: "invalid-target-not-empty"
+    kind: invalid
+    input_digest: "sha256:c7b1832092b391d7437481ab0129380ad3d12e6ae27cc1db73035029812e92b1"
+    input_bytes: 7906
+    expected_exit: 1
+    expected_code: "target-not-empty"
+    effects: 0
+    artifact_digest: "none"
+  - name: "boundary-max-entries"
+    kind: boundary
+    input_digest: "sha256:c262973c9727e77e86bd176cbf3e7e064e4a7a86249b791d9369f865e0f801ea"
+    input_bytes: 9859
+    expected_exit: 0
+    expected_code: "bootstrapped"
+    effects: 64
+    artifact_digest: "sha256:3123db1cefcc4ffebc77d844425d7ed29d86243d99c3bff4f0ffb3426f544070"
+  - name: "boundary-too-many-entries"
+    kind: boundary
+    input_digest: "sha256:01b42702ebe05985968cec623652474ae9158e703ee88313d17f9038207e3224"
+    input_bytes: 10010
+    expected_exit: 1
+    expected_code: "too-many-entries"
+    effects: 0
+    artifact_digest: "none"
+  - name: "boundary-max-file-bytes"
+    kind: boundary
+    input_digest: "sha256:0d61e7465d26a3733b0fedcc18179a9b3ef992cacb8eb027c627021ee006e188"
+    input_bytes: 66306
+    expected_exit: 0
+    expected_code: "bootstrapped"
+    effects: 4
+    artifact_digest: "sha256:19fde427f9d43e0a978bccb9f980274538d189c7ede037e9022f2d184f59c6c9"
+  - name: "boundary-file-too-large"
+    kind: boundary
+    input_digest: "sha256:06d92bf6c95e54016b58d46193dd633375856fa52635a85d24ad93297464bcf2"
+    input_bytes: 66307
+    expected_exit: 1
+    expected_code: "file-too-large"
+    effects: 0
+    artifact_digest: "none"
