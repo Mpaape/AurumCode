@@ -15,8 +15,8 @@
     "schema": ".board/schemas/go-unit-offline-profile.schema.json",
     "schema_digest": "sha256:08abf5dd5653e4e40cbf45e089b10670aecde40126bcaa3346d79890437d3e85",
     "lock": ".board/locks/oci/go-unit-offline-v1.lock.json",
-    "lock_digest": "sha256:24464014aa1d14c00197520a90a73266bb3b231c39f67558c83aedf8f7ebdad0",
-    "image_set_digest": "sha256:6f7bfbcb52abf0a1d16950cf90e79d3f6fae463e8e4c773e423b718a7f040993"
+    "lock_digest": "sha256:8bc3a099e9dad0458943a315bd8f9138bebfe8c2771d73aa4515d47774c3828d",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
     "key": "registry-v1",
