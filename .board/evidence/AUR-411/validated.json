@@ -1,0 +1,22 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-411",
+  "commit": "52ae3b9cc90217ea3b2296db259362fed90553ee",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-411",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-411\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"package_installs\":0,\"package_installs_measured\":0,\"toolchain_install\":\"denied\",\"languages\":8}\n89 mutation lines, 89 distinct codes, identical to the previous SHA\nregressions re-run by the reviewer: AUR-402..410 all exit 0\nexit_code=0 secret_detected=false observation_trusted=false"
+  },
+  "review_notes": {
+    "mechanism": "Reviewed exhaustively at 96b94e1 with about sixty vectors: thirty-five reviewer mutations on the anchored roots, schema and lock re-pointed for each of the eleven keys, three relaxed-schema variants with the digest recomputed, a twelfth key, an inverted order and three empty-lane shapes. Partition isolation was attacked on six axes and the plans of the other seven languages stayed byte-identical.",
+    "measurement": "The availability probe was proved non-circular in both directions: reordering it after the shims left the absent runtimes absent, and planting real binaries turned all eight present. Absence of evidence is a hard failure in nine of nine shapes, and an unmeasured runtime returns its own code rather than a silent zero.",
+    "toolchains": "Probed independently: of the eight declared runtimes the pinned image carries only bash, and node, tsc, dotnet, cargo and pwsh exist in neither local image. An absent runtime resolves as unavailable rather than being pretended present.",
+    "retraction": "The first candidate credited four loader rules with rejections they do not produce; the reviewer proved it by deletion, since removing the distinctness, containment and aggregate relations leaves every mutant refused. The builder rewrote the text rather than making a rule reachable, because reaching it would require unpinning or reordering the constant equalities - weakening the plan to make a sentence true. The same claim was then swept from the loader comments.",
+    "comment_only_proof": "The final change was proved comment-only by two independent methods: stripping comment lines makes both files byte-identical, and an AST comparator rendering the code without comments produces the same digest. The comparator was itself tested against circularity - changing one constant changes the digest, changing comment text does not.",
+    "coordinator_scope_error": "The comment sweep was accepted as a blocker by the coordinator even though code comments are not a deliverable of any clause of this card. The card contracts the profile document, the lock, the registry entry, the test lanes and docs/specs. The work is harmless and is integrated, but the round was out of contract.",
+    "open_nit": "docs/specs/AUR-411.md says the relations are executed on every validation, which is slightly too strong: a document refused earlier by a pinned equality never reaches them. It errs conservatively and does not reintroduce the retracted claim."
+  }
+}
