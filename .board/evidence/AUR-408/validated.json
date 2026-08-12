@@ -1,0 +1,21 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-408",
+  "commit": "c7beff1e5813e56cd67deaa3d86a22fa9c33107d",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-408",
+    "exit_code": 0,
+    "raw_output": "34 mutation lines with distinct codes\n{\"card\":\"AUR-408\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}\nregressions re-run by the reviewer: 402=0 403=0 404=0 405=0 406=0 407=0\nimage=aurum-bootstrap-go-bash@sha256:503ac356 exit_code=0 secret_detected=false observation_trusted=false"
+  },
+  "review_notes": {
+    "positional_shift": "The new key enters at index one and shifts six positional keys at once. The reviewer confirmed all six are still asserted at their new indexes, the arity stayed an exact equality rather than becoming a minimum, and no branch was orphaned when the if-chain head moved: re-pointing the schema of sqlite, parser, fake and go-git one at a time each produced unsafe-plan.",
+    "load_bearing": "Reverting the arity from eight to seven drops AUR-403 and AUR-404 to exit 1, and both files restore byte-identically.",
+    "independent_mutation": "Six mutations were redone against the bytes on disk from a private copy with the reviewer's own bridge calling the validators directly in the container, outside the builder's harness: dynamic plugins, remote fetch, snippet execution, a look-alike output root, a cgo generator and CGO_ENABLED one. Four credential shapes assembled at runtime were all caught before any other plan rule.",
+    "dynamic_execution_attacks": "Eleven disguised dynamic-execution vectors were rejected as unsafe plans, including go generate directives, an exec flag, a widened snippet language set, a remote include source, a traversal that begins inside the fixture root, a generator root pointing at the host tree, allowlisted subprocesses, read-only host filesystem, a native site tool and persistent output.",
+    "image_decision": "Probed independently: neither candidate image carries pandoc, mkdocs, jekyll, hugo, asciidoctor, gomarkdoc or sphinx. The local Jekyll image was rejected for a hard reason independent of the plugin argument - it has no Go at all, so it cannot satisfy the declared command - and its plugin model is exactly what the profile denies.",
+    "open_info_findings": "The e2e lane asserts fixed whole lines the author wrote and carries the least probative weight, though the mutations do move the bytes it anchors on. Separately, AUR-402 uses a minimum rather than an exact arity; the reviewer confirmed this is pre-existing and was neither introduced nor loosened here."
+  }
+}
