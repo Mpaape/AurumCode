@@ -29,6 +29,8 @@ const fakeProviderSchemaPath407 = ".board/schemas/fake-provider-profile.schema.j
 const fakeProviderLockPath407 = ".board/locks/oci/fake-provider-v1.lock.json"
 const parserWorkerSchemaPath407 = ".board/schemas/parser-worker-profile.schema.json"
 const parserWorkerLockPath407 = ".board/locks/oci/parser-worker-v1.lock.json"
+const docsToolSchemaPath407 = ".board/schemas/docs-tool-offline-profile.schema.json"
+const docsToolLockPath407 = ".board/locks/oci/docs-tool-offline-v1.lock.json"
 const profileKey407 = "sqlite-offline-v1"
 
 type profile407 struct {
@@ -118,7 +120,7 @@ var databaseRoot407 = regexp.MustCompile(`^/tmp/aurum-sqlite-state$`)
 // carries a literal that the runner's input gate would read as a real secret.
 var credentialShape407 = regexp.MustCompile(`(sk` + `-[A-Za-z0-9_-]{20,}|AKIA` + `[0-9A-Z]{16}|gh` + `[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)`)
 
-var registryKeys407 = []string{"bootstrap-readonly-v1", "fake-provider-v1", "go-git-offline-v1", "go-unit-offline-v1", "parser-worker-v1", "registry-v1", "sqlite-offline-v1"}
+var registryKeys407 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "go-git-offline-v1", "go-unit-offline-v1", "parser-worker-v1", "registry-v1", "sqlite-offline-v1"}
 var requiredProfileKeys407 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "sockets", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "sqlite_driver", "sqlite_driver_cgo", "database_mode", "database_root", "host_database", "extension_loading", "remote_uri", "implicit_persistence", "attach_database", "journal_mode", "max_database_bytes", "max_open_connections", "busy_timeout_ms", "query_timeout_seconds", "environment", "command"}
 var requiredEnvironmentKeys407 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN", "CGO_ENABLED", "AURUM_SQLITE_DATABASE_ROOT", "SQLITE_TMPDIR", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 var schemaDocumentKeys407 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -489,7 +491,7 @@ func ValidateProfileAUR407(root string) (profile407, lock407, string) {
 	return p, l, "valid"
 }
 
-// ValidateRegistryAUR407 resolves the canonical registry and admits exactly the seven
+// ValidateRegistryAUR407 resolves the canonical registry and admits exactly the eight
 // registered keys. It is fail-closed: an unknown key, a duplicate, an out-of-order
 // entry, or a digest that does not match the bytes on disk denies without any engine.
 func ValidateRegistryAUR407(root string) (string, string) {
@@ -601,6 +603,14 @@ func ValidateRegistryAUR407(root string) (string, string) {
 		case "parser-worker-v1":
 			// Owned by AUR-406, checked under the same neighbour rule as AUR-403's key.
 			if x.Schema != parserWorkerSchemaPath407 || x.Lock != parserWorkerLockPath407 {
+				return "", "unsafe-plan"
+			}
+			if !digest407.MatchString(x.SchemaDigest) || !digest407.MatchString(x.LockDigest) || !digest407.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		case "docs-tool-offline-v1":
+			// Owned by AUR-408, checked under the same neighbour rule as AUR-403's key.
+			if x.Schema != docsToolSchemaPath407 || x.Lock != docsToolLockPath407 {
 				return "", "unsafe-plan"
 			}
 			if !digest407.MatchString(x.SchemaDigest) || !digest407.MatchString(x.LockDigest) || !digest407.MatchString(x.ImageSetDigest) {
