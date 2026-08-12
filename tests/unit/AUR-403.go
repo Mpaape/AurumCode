@@ -73,7 +73,7 @@ type registry403 struct {
 }
 
 var digest403 = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-var image403 = regexp.MustCompile(`^golang@sha256:[0-9a-f]{64}$`)
+var image403 = regexp.MustCompile(`^aurum-bootstrap-go-bash@sha256:[0-9a-f]{64}$`)
 var requiredProfileKeys403 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "environment", "command"}
 var requiredEnvironmentKeys403 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN"}
 var schemaDocumentKeys403 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -413,7 +413,7 @@ func TestAUR403(t *testing.T) {
 	mutation := os.Getenv("AURUM_A403_MUTATION")
 	if mutation == "mutable-input" {
 		lb, _ := read403(root, lockPath403)
-		lb = bytes.Replace(lb, []byte("golang@sha256:2414035b086e3c42b99654c8b26e6f5b1b1598080d65fd03c7f499552ff4dc94"), []byte("golang:latest"), 1)
+		lb = bytes.Replace(lb, []byte("aurum-bootstrap-go-bash@sha256:503ac356fa6bca4bad56fade87b5479ff371bd446ffb9c7db91f211323c7c73e"), []byte("aurum-bootstrap-go-bash:latest"), 1)
 		if err := writeMutation403(root, lockPath403, lb); err != nil {
 			t.Fatalf("mutate lock: %v", err)
 		}
