@@ -89,8 +89,20 @@ func ValidateRegistryAUR402(root string, document []byte) (string, string) {
 		if i > 0 && keys[i-1] >= e.Key {
 			return "", "order-invalid"
 		}
-		if e.Key != "bootstrap-readonly-v1" && e.Key != "registry-v1" && e.Key != "go-unit-offline-v1" {
+		if e.Key != "bootstrap-readonly-v1" && e.Key != "registry-v1" && e.Key != "go-unit-offline-v1" && e.Key != "go-git-offline-v1" {
 			return "", "profile-unregistered"
+		}
+		// Registered by AUR-404. The Git plan's own documents are validated by that
+		// card's loader; here only the declared paths and digest shape are checked, so
+		// this loader never depends on files outside its own materialized allowlist.
+		if e.Key == "go-git-offline-v1" {
+			if e.Schema != ".board/schemas/go-git-offline-profile.schema.json" || e.Lock != ".board/locks/oci/go-git-offline-v1.lock.json" {
+				return "", "unsafe-plan"
+			}
+			if !digestAUR402.MatchString(e.SchemaDigest) || !digestAUR402.MatchString(e.LockDigest) || !digestAUR402.MatchString(e.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+			continue
 		}
 		if e.Key == "go-unit-offline-v1" {
 			if e.Schema != ".board/schemas/go-unit-offline-profile.schema.json" || e.Lock != ".board/locks/oci/go-unit-offline-v1.lock.json" {
