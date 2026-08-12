@@ -25,6 +25,8 @@ const fakeProviderSchemaPath403 = ".board/schemas/fake-provider-profile.schema.j
 const fakeProviderLockPath403 = ".board/locks/oci/fake-provider-v1.lock.json"
 const parserWorkerSchemaPath403 = ".board/schemas/parser-worker-profile.schema.json"
 const parserWorkerLockPath403 = ".board/locks/oci/parser-worker-v1.lock.json"
+const sqliteSchemaPath403 = ".board/schemas/sqlite-offline-profile.schema.json"
+const sqliteLockPath403 = ".board/locks/oci/sqlite-offline-v1.lock.json"
 
 type profile403 struct {
 	Schema              string            `json:"schema"`
@@ -370,10 +372,21 @@ func validateRegistry403(root string) (string, string) {
 		if i > 0 && keys[i-1] >= x.Key {
 			return "", "order-invalid"
 		}
-		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "parser-worker-v1" && x.Key != "registry-v1" {
+		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "parser-worker-v1" && x.Key != "registry-v1" && x.Key != "sqlite-offline-v1" {
 			return "", "profile-unregistered"
 		}
-		if x.Key == "parser-worker-v1" {
+		if x.Key == "sqlite-offline-v1" {
+			// Registered by AUR-407. Its documents are not materialized for this
+			// acceptance either, so only the declared paths and digest shape are
+			// checked: registering the state store can never re-point the Go unit
+			// plan validated below.
+			if x.Schema != sqliteSchemaPath403 || x.Lock != sqliteLockPath403 {
+				return "", "unsafe-plan"
+			}
+			if !digest403.MatchString(x.SchemaDigest) || !digest403.MatchString(x.LockDigest) || !digest403.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		} else if x.Key == "parser-worker-v1" {
 			// Registered by AUR-406. Its documents are not materialized for this
 			// acceptance either, so only the declared paths and digest shape are
 			// checked: registering the parser worker can never re-point the Go unit
@@ -430,7 +443,10 @@ func validateRegistry403(root string) (string, string) {
 			return "", "digest-invalid"
 		}
 	}
-	if len(r.Profiles) != 6 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "fake-provider-v1" || keys[2] != "go-git-offline-v1" || keys[3] != "go-unit-offline-v1" || keys[4] != "parser-worker-v1" || keys[5] != "registry-v1" {
+	// Extended by AUR-407 (sqlite-offline-v1, seventh key). The arity stays exact and the
+	// positional order stays complete: every position asserted before is still asserted
+	// at the same index, and the new key is pinned at the only index it can occupy.
+	if len(r.Profiles) != 7 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "fake-provider-v1" || keys[2] != "go-git-offline-v1" || keys[3] != "go-unit-offline-v1" || keys[4] != "parser-worker-v1" || keys[5] != "registry-v1" || keys[6] != "sqlite-offline-v1" {
 		return "", "profile-unregistered"
 	}
 	return hash403(rb), "valid"
