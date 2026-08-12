@@ -1,0 +1,59 @@
+# Task ID: 9
+# Title: Documentation Generation Pipeline (Changelog, README, API, Site)
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Generate conventional-commit changelog, safely update README sections, produce API docs where applicable, and integrate Hugo + Pagefind static site build artifacts.
+# Details:
+- Package: `internal/documentation/{changelog,readme,api,site}`.
+- Changelog: parse git history (on push to main) using conventional commits → `docs/CHANGELOG.md` with versions/tags.
+- README updater: update marked sections between `<!-- aurum:start -->` and `<!-- aurum:end -->`, preserving manual content elsewhere.
+- API docs: language-agnostic mode—if OpenAPI is detected (`openapi.yaml/json`), render/transform to Markdown summary; else skip.
+- Site builder: invoke Hugo (version per PRD 0.134.2) and Pagefind; write output under `docs/public` or CI workspace.
+- Pseudocode:
+  - func UpdateChangelog(repoPath) error { commits := git.Log(...); entries := parseConv(commits); writeMarkdown(entries) }
+  - func BuildSite(dir) error { run("hugo --minify"); run("npx pagefind --source ./public") }
+
+# Test Strategy:
+- Unit: parse conventional commits into sections (feat/fix/chore/docs/refactor/breaking) with fixtures.
+- Unit: README updater preserves text outside markers and idempotently updates within markers.
+- Integration: simulate repo with existing docs; run builder in a temp dir and assert output structure; mock Hugo/Pagefind commands behind an interface.
+- Links QA: validate internal links and anchors in generated Markdown.
+
+# Subtasks:
+## 1. Implement Conventional Commit Parser and Changelog Writer [pending]
+### Dependencies: None
+### Description: Build a parser for conventional commits and write a Markdown changelog.
+### Details:
+Create `internal/documentation/changelog` with functions to read git history (on push to main), parse conventional commits (feat/fix/chore/docs/refactor/breaking), group by version/tag, and emit `docs/CHANGELOG.md` with sections and dates. Include tag detection and fallback to Unreleased when no tag. Ensure idempotent writes and stable ordering.
+
+## 2. Implement Idempotent README Section Updater with Markers [pending]
+### Dependencies: None
+### Description: Write updater that safely replaces only marked README regions.
+### Details:
+Create `internal/documentation/readme` to find markers `<!-- aurum:start -->` and `<!-- aurum:end -->` and replace content in-between while preserving everything else. Support multiple distinct named sections via optional keys, handle missing markers gracefully, and ensure repeated runs are idempotent. Provide dry-run mode and diff output.
+
+## 3. Implement OpenAPI Detector and Markdown Summary Generator [pending]
+### Dependencies: None
+### Description: Detect OpenAPI specs and render a concise Markdown summary.
+### Details:
+Create `internal/documentation/api` to discover `openapi.yaml`/`openapi.json` in repo root or `api/`. Parse using a language-agnostic approach, extract title/version, servers, tags, and top endpoints grouped by tag and method, then render `docs/API.md`. If no spec is found, no-op with clear return codes. Avoid external network calls.
+
+## 4. Implement Site Builder Interfaces for Hugo and Pagefind with Mocks [pending]
+### Dependencies: None
+### Description: Design interfaces to run Hugo and Pagefind and produce static site artifacts.
+### Details:
+Create `internal/documentation/site` with a `Builder` interface and concrete executors for `hugo --minify` (version 0.134.2) and `npx pagefind --source ./public`. Support configurable workdir and output to `docs/public`. Provide mockable runners for tests (command exec abstraction), environment probing, and meaningful errors. No network during tests.
+
+## 5. Create End-to-End Integration Tests on Sample Repository [pending]
+### Dependencies: 9.1, 9.2, 9.3, 9.4
+### Description: Add integration tests that run the full documentation pipeline on a temp repo.
+### Details:
+Assemble a temporary git repo with sample commits, README with markers, and an OpenAPI file. Execute changelog, README updater, API generator, and site builder in sequence, writing artifacts into `docs/` and `docs/public`. Assert expected files, directory structure, and stable outputs on repeated runs.
+
+## 6. Implement Link Validation for Generated Docs and Site [pending]
+### Dependencies: 9.4, 9.5
+### Description: Validate internal and external links across generated Markdown and site output.
+### Details:
+Create a link checker that scans `docs/` Markdown and `docs/public` HTML for broken internal links (anchors, relative paths) and optionally pings external links with a timeout. Provide report with locations and severities; allow ignore list. Integrate as a final step returning non-zero on hard failures.
+

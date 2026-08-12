@@ -1,0 +1,71 @@
+# Task ID: 10
+# Title: Test Generation and Executor with Coverage Parsing
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Generate unit/API tests for changed code via LLM where configured, create mocks for interfaces, execute tests per language, and parse coverage to enforce QA gates.
+# Details:
+- Package: `internal/testing/{unit,api,mock,executor}`.
+- Generators: build prompts for changed functions/classes; suggest table-driven tests where idiomatic (Go), pytest style (Python), jest/vitest (JS/TS). Output files under language-specific test dirs.
+- Mock generator: infer interfaces and create minimal mocks/stubs; for Go, use simple hand-written fakes to avoid external deps.
+- Executor: per-language runners—Go: `go test -coverprofile`; Python: `pytest --cov`; JS: `npm test -- --coverage`. Parse coverage into unified `QAArtifacts`.
+- Gates: configurable thresholds (line ≥80%, branch ≥75%); fail the phase if thresholds not met.
+- Pseudocode:
+  - func GenerateUnitTests(diff, cfg) ([]FileEdit, error) { cases := llm.Complete(prompts.Unit(...)); return writeEdits(cases) }
+  - func RunCoverage(langSet) (Coverage, error) { for lang in langSet { runTool(lang); parse; aggregate } }
+
+# Test Strategy:
+- Unit: ensure generator writes tests only for changed targets and is idempotent (hash markers in files).
+- Integration: run executors against small polyglot fixture repo from PRD; parse coverage reports into unified struct.
+- Flakiness: rerun generated tests N times; flag flaky if intermittent failures (>0 but <N).
+- Gate tests: verify enforcement blocks when below thresholds and passes when above.
+
+# Subtasks:
+## 1. Build per-language unit test generator (Go, Python, JS/TS) with LLM prompts [pending]
+### Dependencies: None
+### Description: Create a generator that targets changed functions/classes and emits idiomatic unit tests per language.
+### Details:
+Implement in `internal/testing/unit`. Detect changed symbols from diff, build prompts via `internal/llm/prompt`, and generate tests idempotently using file hash markers. Emit Go table-driven `_test.go` in same package, pytest files under `tests/test_*.py`, and Jest/Vitest under `__tests__/*.test.ts|js`. Respect config toggles to disable LLM or limit targets; fall back to skeletons when LLM off.
+
+## 2. Implement API test generator using OpenAPI/routes heuristics [pending]
+### Dependencies: 10.1
+### Description: Generate API tests for HTTP handlers/endpoints using OpenAPI when available or code heuristics.
+### Details:
+Implement in `internal/testing/api`. If `openapi.yaml/json` found, derive request/response cases; otherwise infer from router/handler signatures. Build LLM prompts with examples, auth/header handling hints, and write pytest/Jest request tests and Go `httptest` cases. Place files under language-appropriate API test dirs. Ensure idempotent updates with markers.
+
+## 3. Create minimal mock/fake generator for interfaces and dependencies [pending]
+### Dependencies: 10.1, 10.2
+### Description: Infer interfaces and produce simple language-idiomatic fakes/mocks to unblock generated tests.
+### Details:
+Implement in `internal/testing/mock`. For Go, emit hand-written fakes (no external deps); for Python, simple stub classes; for JS/TS, inline jest.fn() or lightweight stubs. Detect constructor injection and function params; place mocks near tests or in `/testutils`. Avoid overwriting manual mocks; support regeneration via markers.
+
+## 4. Add per-language test executors with coverage capture [pending]
+### Dependencies: 10.1, 10.2, 10.3
+### Description: Implement runners for Go, Python, and JS/TS that execute tests and collect coverage artifacts.
+### Details:
+Implement in `internal/testing/executor`. Commands: Go `go test ./... -coverprofile=coverage.out`, Python `pytest --cov --cov-report=xml`, JS `npm test -- --coverage`. Stream logs, capture exit codes, handle timeouts, and collect paths to coverage outputs. Normalize working dirs and env settings per language.
+
+## 5. Parse coverage outputs and aggregate into unified Coverage model [pending]
+### Dependencies: 10.4
+### Description: Normalize Go, pytest, and Jest coverage formats into a single structure and compute totals.
+### Details:
+Extend `internal/testing/executor` with parsers: Go coverprofile, Python coverage XML, and JS lcov.info. Map to files/functions/lines, compute line and branch percentages, and aggregate across languages. Expose `RunCoverage(langSet)` that runs, parses, and returns aggregated coverage.
+
+## 6. Enforce QA gates with configurable line/branch thresholds and failure signaling [pending]
+### Dependencies: 10.5
+### Description: Add configurable coverage thresholds and fail the phase if metrics do not meet gates.
+### Details:
+In `internal/testing/executor`, compare aggregated coverage against config (default line ≥80%, branch ≥75%). Produce a verdict with reasons, mark phase failure, and propagate a non-zero status for pipelines when enforced. Support per-language overrides and allow soft-fail mode.
+
+## 7. Implement flakiness detection and automatic re-runs for generated tests [pending]
+### Dependencies: 10.4, 10.5, 10.6
+### Description: Detect intermittent test failures by re-running selected suites N times and classifying flaky tests.
+### Details:
+Add to `internal/testing/executor`: configurable re-run count/backoff, only for generated tests or failed tests. Track pass/fail across attempts, mark tests as flaky with rate and stabilize if later passes. Optionally quarantine flaky tests from gating, controlled by config.
+
+## 8. Produce QAArtifacts reporting (coverage, gates, flakiness) and concise console summaries [pending]
+### Dependencies: 10.5, 10.6, 10.7
+### Description: Serialize results into a stable artifact and print human-friendly summaries.
+### Details:
+Implement `QAArtifacts` struct carrying per-language coverage, aggregated totals, gate verdicts, flaky test list, and logs. Persist as JSON under `artifacts/qa.json` (path configurable) and print concise console tables/summaries. Ensure fields are stable for downstream tooling.
+
