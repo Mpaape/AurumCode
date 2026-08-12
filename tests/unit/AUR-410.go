@@ -35,6 +35,8 @@ const docsToolSchemaPath410 = ".board/schemas/docs-tool-offline-profile.schema.j
 const docsToolLockPath410 = ".board/locks/oci/docs-tool-offline-v1.lock.json"
 const fakeScmSchemaPath410 = ".board/schemas/fake-scm-offline-profile.schema.json"
 const fakeScmLockPath410 = ".board/locks/oci/fake-scm-offline-v1.lock.json"
+const polyglotSchemaPath410 = ".board/schemas/polyglot-toolchain-profile.schema.json"
+const polyglotLockPath410 = ".board/locks/oci/polyglot-toolchain-v1.lock.json"
 const profileKey410 = "oci-conformance-v1"
 
 // The bounded size of one untrusted probe observation. It is the same value the plan
@@ -158,7 +160,7 @@ var supportedEngine410 = regexp.MustCompile(`\A(docker|podman)\z`)
 // carries a literal that the runner's input gate would read as a real secret.
 var credentialShape410 = regexp.MustCompile(`(sk` + `-[A-Za-z0-9_-]{20,}|AKIA` + `[0-9A-Z]{16}|gh` + `[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)`)
 
-var registryKeys410 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "oci-conformance-v1", "parser-worker-v1", "registry-v1", "sqlite-offline-v1"}
+var registryKeys410 = []string{"bootstrap-readonly-v1", "docs-tool-offline-v1", "fake-provider-v1", "fake-scm-offline-v1", "go-git-offline-v1", "go-unit-offline-v1", "oci-conformance-v1", "parser-worker-v1", "polyglot-toolchain-v1", "registry-v1", "sqlite-offline-v1"}
 var requiredProfileKeys410 = []string{"schema", "version", "profile", "lock", "lock_digest", "network", "user", "cap_drop", "cap_add", "mounts", "devices", "sockets", "pull", "tmpfs", "checkout_readonly", "read_only_rootfs", "no_new_privileges", "privileged", "timeout_seconds", "memory_mb", "cpu_millis", "pids_limit", "tmpfs_mb", "stdout_limit_bytes", "stderr_limit_bytes", "max_input_files", "max_input_bytes", "module_cache", "module_cache_read_only", "orchestrator", "orchestrator_root", "probe", "probe_root", "probe_image_set", "probe_cgo", "probe_output", "probe_verdict_authority", "probe_writable_roots", "verdict_authority", "report_mode", "report_root", "supported_engines", "unsupported_engine", "engine_invocations", "engine_socket", "engine_api", "host_engine", "egress", "host_checkout", "host_filesystem", "subprocess", "max_probes", "max_probe_bytes", "max_report_bytes", "probe_timeout_seconds", "environment", "command"}
 var requiredEnvironmentKeys410 = []string{"GOPROXY", "GOSUMDB", "GONOSUMDB", "GOTOOLCHAIN", "CGO_ENABLED", "AURUM_OCI_ORCHESTRATOR_ROOT", "AURUM_OCI_PROBE_ROOT", "AURUM_OCI_REPORT_ROOT", "DOCKER_HOST", "CONTAINER_HOST", "DOCKER_CONFIG", "DOCKER_API_VERSION", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 var schemaDocumentKeys410 = []string{"$schema", "$id", "title", "type", "additionalProperties", "required", "properties"}
@@ -652,7 +654,7 @@ func ValidateProfileAUR410(root string) (profile410, lock410, string) {
 	return p, l, "valid"
 }
 
-// ValidateRegistryAUR410 resolves the canonical registry and admits exactly the ten
+// ValidateRegistryAUR410 resolves the canonical registry and admits exactly the eleven
 // registered keys. It is fail-closed: an unknown key, a duplicate, an out-of-order
 // entry, or a digest that does not match the bytes on disk denies without any engine.
 func ValidateRegistryAUR410(root string) (string, string) {
@@ -788,6 +790,14 @@ func ValidateRegistryAUR410(root string) (string, string) {
 		case "fake-scm-offline-v1":
 			// Owned by AUR-409, checked under the same neighbour rule as AUR-403's key.
 			if x.Schema != fakeScmSchemaPath410 || x.Lock != fakeScmLockPath410 {
+				return "", "unsafe-plan"
+			}
+			if !digest410.MatchString(x.SchemaDigest) || !digest410.MatchString(x.LockDigest) || !digest410.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		case "polyglot-toolchain-v1":
+			// Owned by AUR-411, checked under the same neighbour rule as AUR-403's key.
+			if x.Schema != polyglotSchemaPath410 || x.Lock != polyglotLockPath410 {
 				return "", "unsafe-plan"
 			}
 			if !digest410.MatchString(x.SchemaDigest) || !digest410.MatchString(x.LockDigest) || !digest410.MatchString(x.ImageSetDigest) {

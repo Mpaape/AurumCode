@@ -67,6 +67,14 @@
     "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
   },
   {
+    "key": "polyglot-toolchain-v1",
+    "schema": ".board/schemas/polyglot-toolchain-profile.schema.json",
+    "schema_digest": "sha256:ee5209986be0f2363d4ea08d6e29eed65d656d3a0bd71a4c7652120309d21e6e",
+    "lock": ".board/locks/oci/polyglot-toolchain-v1.lock.json",
+    "lock_digest": "sha256:e24d1cba3a53655abc9d5facf290faf98e665bd147b71935041462ea8770985a",
+    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+  },
+  {
     "key": "registry-v1",
     "schema": ".board/schemas/container-profile.schema.json",
     "schema_digest": "sha256:4219444b921f34a0040cb29972c1984ee5e41a91608f3d78a9398eadded0bf62",
