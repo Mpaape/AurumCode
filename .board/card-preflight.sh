@@ -279,6 +279,49 @@ actual_lock_digest="sha256:$(sha256sum -- "$lock_file" | awk '{print $1}')"
   exit 1
 }
 
+# Per-key extraction above cannot tell whether the runner will accept the
+# document at all. AUR-023 burned a builder proving that: preflight and the
+# pipeline both exited 0 for a profile whose first contact with oci-run was
+# `die 65 ... is not a canonical flat JSON object`. The runner's contract is
+# read out of the runner itself rather than restated here, so the two cannot
+# drift apart.
+runner_profile_schema="$(sed -n "s/^[[:space:]]*require_literal profile_doc \"\$profile_label\" schema s '\([^']*\)'.*/\1/p" "$worktree/.board/bin/oci-run" | head -1)"
+[[ -n "$runner_profile_schema" ]] || {
+  printf 'preflight error: cannot read the runner profile schema contract from .board/bin/oci-run\n' >&2
+  exit 1
+}
+runner_profile_keys="$(awk '
+  /^[[:space:]]*require_exact_keys profile_doc/ { collecting = 1 }
+  collecting {
+    line = $0
+    sub(/^[[:space:]]*require_exact_keys profile_doc[^\\]*\\?[[:space:]]*$/, "", line)
+    gsub(/\\$/, "", line)
+    printf "%s ", line
+    if ($0 !~ /\\[[:space:]]*$/) { exit }
+  }
+' "$worktree/.board/bin/oci-run" | tr -s ' \t' '\n' | grep -Ev '^(require_exact_keys|profile_doc|"\$profile_label"|)$' | sort -u)"
+[[ -n "$runner_profile_keys" ]] || {
+  printf 'preflight error: cannot read the runner profile key set from .board/bin/oci-run\n' >&2
+  exit 1
+}
+profile_schema="$(sed -n 's/^[[:space:]]*"schema"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$profile_file" | head -1)"
+[[ "$profile_schema" == "$runner_profile_schema" ]] || {
+  printf 'preflight error: profile %s declares schema %s but the runner only loads %s; the acceptance would die 65 before any container\n' \
+    "$profile" "$profile_schema" "$runner_profile_schema" >&2
+  exit 1
+}
+profile_keys="$(sed -n 's/^[[:space:]]*"\([A-Za-z_][A-Za-z0-9_]*\)"[[:space:]]*:.*/\1/p' "$profile_file" | sort -u)"
+unknown_keys="$(comm -23 <(printf '%s\n' "$profile_keys") <(printf '%s\n' "$runner_profile_keys") | tr '\n' ' ')"
+[[ -z "${unknown_keys// /}" ]] || {
+  printf 'preflight error: profile %s carries keys the runner rejects as unknown: %s\n' \
+    "$profile" "${unknown_keys% }" >&2
+  exit 1
+}
+grep -Eq '^[[:space:]]*"[A-Za-z_][A-Za-z0-9_]*"[[:space:]]*:[[:space:]]*[[{]' "$profile_file" && {
+  printf 'preflight error: profile %s is not a canonical flat JSON object; the runner refuses nested values\n' "$profile" >&2
+  exit 1
+}
+
 if command -v podman >/dev/null 2>&1; then
   engine=podman
 elif command -v docker >/dev/null 2>&1; then
