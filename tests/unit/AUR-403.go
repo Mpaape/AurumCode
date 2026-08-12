@@ -21,6 +21,8 @@ const lockPath403 = ".board/locks/oci/go-unit-offline-v1.lock.json"
 const registryPath403 = ".board/oci/profiles/registry.v1.json"
 const gitSchemaPath403 = ".board/schemas/go-git-offline-profile.schema.json"
 const gitLockPath403 = ".board/locks/oci/go-git-offline-v1.lock.json"
+const fakeProviderSchemaPath403 = ".board/schemas/fake-provider-profile.schema.json"
+const fakeProviderLockPath403 = ".board/locks/oci/fake-provider-v1.lock.json"
 
 type profile403 struct {
 	Schema              string            `json:"schema"`
@@ -366,10 +368,21 @@ func validateRegistry403(root string) (string, string) {
 		if i > 0 && keys[i-1] >= x.Key {
 			return "", "order-invalid"
 		}
-		if x.Key != "bootstrap-readonly-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "registry-v1" {
+		if x.Key != "bootstrap-readonly-v1" && x.Key != "fake-provider-v1" && x.Key != "go-unit-offline-v1" && x.Key != "go-git-offline-v1" && x.Key != "registry-v1" {
 			return "", "profile-unregistered"
 		}
-		if x.Key == "go-git-offline-v1" {
+		if x.Key == "fake-provider-v1" {
+			// Registered by AUR-405. Its documents are not materialized for this
+			// acceptance either, so only the declared paths and digest shape are
+			// checked: registering the fake provider can never re-point the Go unit
+			// plan validated below.
+			if x.Schema != fakeProviderSchemaPath403 || x.Lock != fakeProviderLockPath403 {
+				return "", "unsafe-plan"
+			}
+			if !digest403.MatchString(x.SchemaDigest) || !digest403.MatchString(x.LockDigest) || !digest403.MatchString(x.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+		} else if x.Key == "go-git-offline-v1" {
 			// Registered by AUR-404. Its documents are not materialized for this
 			// acceptance, so only the declared paths and digest shape are checked:
 			// registering Git can never re-point the Go unit plan validated below.
@@ -404,7 +417,7 @@ func validateRegistry403(root string) (string, string) {
 			return "", "digest-invalid"
 		}
 	}
-	if len(r.Profiles) != 4 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "go-git-offline-v1" || keys[2] != "go-unit-offline-v1" || keys[3] != "registry-v1" {
+	if len(r.Profiles) != 5 || !sort.StringsAreSorted(keys) || keys[0] != "bootstrap-readonly-v1" || keys[1] != "fake-provider-v1" || keys[2] != "go-git-offline-v1" || keys[3] != "go-unit-offline-v1" || keys[4] != "registry-v1" {
 		return "", "profile-unregistered"
 	}
 	return hash403(rb), "valid"

@@ -67,8 +67,11 @@ func ContractAUR404(t *testing.T) {
 
 	registry := read(".board/oci/profiles/registry.v1.json")
 	entries, ok := registry["profiles"].([]any)
-	if !ok || len(entries) != 4 {
-		t.Fatalf("registry does not publish exactly four profiles: %v", registry["profiles"])
+	// Extended by AUR-405, which registers fake-provider-v1 as the fifth key. The
+	// arity assertion is kept, not relaxed: every rejection this check made before
+	// still fails, only the registered count moved with the registry.
+	if !ok || len(entries) != 5 {
+		t.Fatalf("registry does not publish exactly five profiles: %v", registry["profiles"])
 	}
 	found := false
 	for _, raw := range entries {
