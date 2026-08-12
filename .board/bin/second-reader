@@ -91,9 +91,13 @@ done
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 [[ -n "$repo_root" && -d "$repo_root/.board/cards" ]] || die 69 'repository board is unavailable'
 
-mapfile -d '' -t card_files < <(
-  find "$repo_root/.board/cards" -mindepth 2 -maxdepth 2 -type f -name "$card.md" -print0 | sort -z
-)
+card_scan="$(mktemp "${TMPDIR:-/tmp}/aurum-second-reader-card.XXXXXX")"
+if ! find "$repo_root/.board/cards" -mindepth 2 -maxdepth 2 -type f -name "$card.md" -print0 >"$card_scan"; then
+  rm -f -- "$card_scan"
+  die 69 'card scan failed'
+fi
+mapfile -d '' -t card_files <"$card_scan"
+rm -f -- "$card_scan"
 [[ "${#card_files[@]}" -eq 1 ]] || die 66 "expected exactly one card spec for $card"
 card_file="${card_files[0]}"
 

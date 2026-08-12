@@ -1,0 +1,39 @@
+{
+  "schema": "aurum.pipeline-characterization",
+  "version": 1,
+  "card": "AUR-309",
+  "scenario": "AC-001",
+  "candidate_commit": "8daa297f09e4d249f0fc6649265c1014f989f773",
+  "candidate_identity_v1": {
+    "materialized_tree_sha256": "sha256:433dc74c7df09813d1ac423fa04ac59b7df4a0b049cbc8aefa5dbebb7344ece1",
+    "pipeline_tree_sha256": "sha256:53a05eb741162835d91780627aa9a04ec1a85e3e3bdaf078d54eda5ea1c9af34",
+    "tests_tree_sha256": "sha256:886d0d45ae3b576040aba7eec711efd0e6f17940c40faab6bd21d878ab0d207e"
+  },
+  "report_sha256": "sha256:21cd5d57a132c4cd46b5183b5b71c301d5bd1e743862aed6443eec7aee40d269",
+  "acceptance": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-309",
+    "profile": "bootstrap-readonly-v1",
+    "engine": "docker",
+    "image": "aurum-bootstrap-go-bash@sha256:503ac356fa6bca4bad56fade87b5479ff371bd446ffb9c7db91f211323c7c73e",
+    "exit_code": 0,
+    "observation_trusted": false
+  },
+  "entrypoints": [
+    {"entrypoint": "ExtractionError.Error", "classification": "reachable", "effect": "typed_error_rendered"},
+    {"entrypoint": "ExtractionError.Unwrap", "classification": "reachable", "effect": "nested_cause_observed"},
+    {"entrypoint": "ExtractorPipeline.Run", "classification": "reachable", "effect": "document_written"},
+    {"entrypoint": "LanguageSkip.String", "classification": "reachable", "effect": "bounded_skip_rendered"},
+    {"entrypoint": "NewExtractorPipeline", "classification": "reachable", "effect": "pipeline_constructed"},
+    {"entrypoint": "RegisterExtractor", "classification": "reachable", "effect": "registered_extractor_invoked"},
+    {"entrypoint": "deployToGHPages", "classification": "stub/unreachable", "effect": "placeholder_log_without_deploy_call"},
+    {"entrypoint": "determineFilesToProcess", "classification": "reachable", "effect": "full_walk_and_incremental_query"},
+    {"entrypoint": "extractDocumentation", "classification": "reachable", "effect": "extractor_validate_and_extract"},
+    {"entrypoint": "generateWelcomePage", "classification": "reachable", "effect": "welcome_generator_called"},
+    {"entrypoint": "incrementalCache", "classification": "reachable", "effect": "load_get_register_update_save"},
+    {"entrypoint": "validateJekyllSite", "classification": "reachable", "effect": "bundle_probe_and_build"},
+    {"entrypoint": "writeSiteScaffold", "classification": "reachable", "effect": "index_and_config_written"}
+  ],
+  "external_indexing": false,
+  "external_deploy": false,
+  "result": "pass"
+}
