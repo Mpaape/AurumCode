@@ -89,8 +89,21 @@ func ValidateRegistryAUR402(root string, document []byte) (string, string) {
 		if i > 0 && keys[i-1] >= e.Key {
 			return "", "order-invalid"
 		}
-		if e.Key != "bootstrap-readonly-v1" && e.Key != "registry-v1" && e.Key != "go-unit-offline-v1" && e.Key != "go-git-offline-v1" && e.Key != "fake-provider-v1" && e.Key != "parser-worker-v1" && e.Key != "sqlite-offline-v1" && e.Key != "docs-tool-offline-v1" {
+		if e.Key != "bootstrap-readonly-v1" && e.Key != "registry-v1" && e.Key != "go-unit-offline-v1" && e.Key != "go-git-offline-v1" && e.Key != "fake-provider-v1" && e.Key != "parser-worker-v1" && e.Key != "sqlite-offline-v1" && e.Key != "docs-tool-offline-v1" && e.Key != "fake-scm-offline-v1" {
 			return "", "profile-unregistered"
+		}
+		// Registered by AUR-409, under the same neighbour rule as the documentation tool
+		// below: the fake SCM's own documents are validated by that card's loader, so
+		// this loader checks only the declared paths and digest shape and never reads a
+		// file outside its own materialized allowlist.
+		if e.Key == "fake-scm-offline-v1" {
+			if e.Schema != ".board/schemas/fake-scm-offline-profile.schema.json" || e.Lock != ".board/locks/oci/fake-scm-offline-v1.lock.json" {
+				return "", "unsafe-plan"
+			}
+			if !digestAUR402.MatchString(e.SchemaDigest) || !digestAUR402.MatchString(e.LockDigest) || !digestAUR402.MatchString(e.ImageSetDigest) {
+				return "", "digest-invalid"
+			}
+			continue
 		}
 		// Registered by AUR-408, under the same neighbour rule as the state store
 		// below: the documentation tool's own documents are validated by that card's
