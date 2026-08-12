@@ -216,6 +216,16 @@ teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
    assercao real. Exit 0 com `[no test files]`, zero testes, branch vazia ou
    selector que retorna sem chamar a camada e veto, mesmo se o nominal agregado
    estiver verde.
+   Alem do `accept` declarado, o reviewer roda `go test` sobre TODO pacote em
+   `paths` (nao so os arquivos que o diff tocou), porque um `accept` estreito
+   pode ficar cego a regressao em teste pre-existente que o diff nunca
+   modificou. Em 2026-08-12 o candidato `a838436` do AUR-424 quebrou 5 testes
+   pre-existentes fora do diff (tool_unavailable_test.go, tool_failure_test.go,
+   output_confirmed_test.go, characterization.go, smoke_test.go); o
+   `tests/acceptance/AUR-424.sh` do card so rodava `./tests/unit` e
+   `./tests/integration` e aprovaria isso com `{"result":"pass"}`. Achado por
+   `/code-review` como segunda lente do coordenador, nao pelo reviewer do
+   processo.
 4. Validator executa o acceptance e as camadas declaradas no mesmo SHA e em
    worktree limpo. Exit 0 e evidencia; exit 69/79 e inconclusivo; exit 1 so e
    RED depois que o programa realmente iniciou.
