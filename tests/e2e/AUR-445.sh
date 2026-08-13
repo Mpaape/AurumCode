@@ -29,6 +29,15 @@
 #   to point the same, unmodified script at a scratch copy with the banned
 #   LICENSE sentence reintroduced, proving the mutation is caught without
 #   ever touching the tracked README.md.
+#
+# AUR445_MUTATION
+#   Set to "MUT-001" ONLY by the acceptance's MUT-001 case, alongside
+#   AURUMCODE_ROOT pointing at its mutated scratch copy. It exists because
+#   the reintroduced LICENSE-absent sentence reads byte-identical to this
+#   card's own pre-fix RED -- content alone cannot tell them apart. Without
+#   this marker set, a banned LICENSE claim always reads as behavior-missing,
+#   including on the untouched pre-fix tree; only the deliberate MUT-001 run
+#   sees the MUT-001 label.
 set -euo pipefail
 export LC_ALL=C
 readonly card=AUR-445 scenario=AC-001
@@ -86,7 +95,13 @@ for entry in "${banned[@]}"; do
   fi
   for d in "${targets[@]}"; do
     if [[ "${norm[$d]}" == *"$phrase"* ]]; then
-      if [[ "$label" == "no-license-file" ]]; then
+      # Content alone cannot tell this card's own pre-fix RED apart from a
+      # deliberately reintroduced MUT-001 mutation -- the banned sentence
+      # reads identically either way. Only the run can: the acceptance's
+      # MUT-001 case exports AUR445_MUTATION=MUT-001 when, and only when, it
+      # is the one that injected the sentence. Every other run, pre-fix tree
+      # included, must read as behavior-missing.
+      if [[ "$label" == "no-license-file" && "${AUR445_MUTATION:-}" == "MUT-001" ]]; then
         fail "MUT-001: $d still contains the banned LICENSE-absent claim"
       fi
       fail "behavior-missing:$d still contains banned family $label"

@@ -45,11 +45,14 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-# Inputs the lanes cannot run without. docs/specs/AUR-445.md and the six
-# documentation files are NOT excluded here -- their absence or their
-# pre-fix content is the card's RED (a behavior gap the lanes report as
-# behavior-missing), never a missing entrypoint, so they are still staged
-# when present rather than gating entry.
+# Inputs the lanes cannot run without. Unlike some sibling cards, the six
+# documentation files and docs/specs/AUR-445.md ARE required entrypoints
+# here (this loop gates entry on their presence) rather than
+# behavior-checked artifacts staged only when present: every one of them
+# already existed in the repository before this card's fix, so their
+# absence would be a real infrastructure gap, never the card's RED. The
+# RED this card proves is about their CONTENT (the audited false
+# statements), which the lanes below check and report as behavior-missing.
 inputs=(
   go.mod go.sum
   LICENSE
@@ -99,17 +102,23 @@ printf 'package integration\nimport "testing"\nfunc TestAUR445Bridge(t *testing.
 go_lane() {
   # One offline, bounded invocation compiles and executes the requested
   # package's real assertions against the staged artifacts. root_override
-  # lets MUT-001 point the same lane at a different, mutated staging area.
-  local pkg="$1" root_override="${2:-$root}" out rc
+  # lets MUT-001 point the same lane at a different, mutated staging area;
+  # mutation_marker, set only by the MUT-001 case, is forwarded as
+  # AUR445_MUTATION so the LICENSE check can tell a deliberate mutation
+  # apart from this card's own pre-fix RED (see tests/unit/AUR-445.go).
+  # aur445_last_output (intentionally not `local`) lets the MUT-001 case
+  # inspect the captured text after this function returns.
+  local pkg="$1" root_override="${2:-$root}" mutation_marker="${3:-}" out rc
   set +e
   out="$( ulimit -v 8388608
-    cd "$root_override" && AURUMCODE_ROOT="$root_override" \
+    cd "$root_override" && AURUMCODE_ROOT="$root_override" AUR445_MUTATION="$mutation_marker" \
     HOME="$run_dir/home" GOPROXY=off GOSUMDB=off GOFLAGS=-mod=mod \
     GOTOOLCHAIN=local GOMAXPROCS=1 GOMEMLIMIT=2GiB \
     GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" \
     go test -timeout 300s -v -vet=off -p 1 -count=1 "$pkg" -run '^TestAUR445Bridge$' 2>&1)"
   rc=$?
   set -e
+  aur445_last_output="$out"
   printf '%s\n' "$out"
   if (( rc != 0 )); then
     detail="$(grep -om1 "$card/$scenario/[A-Za-z0-9/_:-]*" <<<"$out" | head -n1 || true)"
@@ -125,11 +134,16 @@ go_lane() {
 }
 
 e2e_case() {
-  local root_override="${1:-$root}" rc
+  # mutation_marker mirrors go_lane's: forwarded as AUR445_MUTATION so
+  # tests/e2e/AUR-445.sh's own, independent LICENSE check applies the same
+  # RED-vs-MUT-001 distinction.
+  local root_override="${1:-$root}" mutation_marker="${2:-}" out rc
   set +e
-  AURUMCODE_ROOT="$root_override" bash "$repo_root/tests/e2e/AUR-445.sh" E2EAUR445
+  out="$(AURUMCODE_ROOT="$root_override" AUR445_MUTATION="$mutation_marker" bash "$repo_root/tests/e2e/AUR-445.sh" E2EAUR445 2>&1)"
   rc=$?
   set -e
+  aur445_last_output="$out"
+  printf '%s\n' "$out"
   return "$rc"
 }
 
@@ -181,11 +195,18 @@ case "$selector" in
     printf 'package integration\nimport "testing"\nfunc TestAUR445Bridge(t *testing.T){ IntegrationAUR445(t) }\n' \
       >"$mut_root/tests/integration/aur445_bridge_test.go"
 
-    unit_rc=0; go_lane ./tests/unit "$mut_root" || unit_rc=$?
+    unit_rc=0; go_lane ./tests/unit "$mut_root" MUT-001 || unit_rc=$?
     (( unit_rc != 0 )) || fail 'MUT-001:unit lane passed on mutated input, expected failure'
+    # A nonzero exit alone is not proof of a detected mutation -- an
+    # infrastructure failure (build error, missing go) is also nonzero. The
+    # captured output must carry the card's own MUT-001 label.
+    grep -Fq "$card/$scenario/MUT-001" <<<"$aur445_last_output" \
+      || fail 'MUT-001:unit lane failed but never reported the MUT-001 label'
 
-    e2e_rc=0; e2e_case "$mut_root" || e2e_rc=$?
+    e2e_rc=0; e2e_case "$mut_root" MUT-001 || e2e_rc=$?
     (( e2e_rc != 0 )) || fail 'MUT-001:e2e lane passed on mutated input, expected failure'
+    grep -Fq "$card/$scenario/MUT-001" <<<"$aur445_last_output" \
+      || fail 'MUT-001:e2e lane failed but never reported the MUT-001 label'
 
     printf '%s/%s/MUT-001 confirmed: unit_rc=%d e2e_rc=%d, tracked README.md untouched\n' "$card" "$scenario" "$unit_rc" "$e2e_rc"
     printf '{"card":"%s","scenario":"%s","mutation":"MUT-001","result":"detected"}\n' "$card" "$scenario"

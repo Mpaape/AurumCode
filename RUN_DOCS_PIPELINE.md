@@ -135,22 +135,15 @@ GitHub Action wrapper script; a bare `command:` would be passed to that wrapper
 as arguments instead of running the generator.
 
 **Known limitation.** `Dockerfile`'s runtime stage installs only
-`ca-certificates`, `git`, `bash`, `curl`, `jq` and `wget` (lines 21-27). It
-ships no external documentation toolchain. Go's own extraction needs none (see
-above), so Go is never skipped here for a missing tool; every other language
-whose tool is still missing (`typedoc`, `pydoc-markdown`, `doxygen`) is
-skipped instead, e.g.:
-
-```
-[Pipeline] SKIP javascript: required tool not in PATH (typedoc not found: ...)
-[Pipeline] SKIP python: required tool not in PATH (pydoc-markdown not found: ...)
-[Pipeline] SKIP cpp: required tool not in PATH (doxygen not found: ...)
-aurumcode: result=partial docs=<n> skipped=0 failed=0 languages_skipped=cpp,javascript,python output=/tmp/out index=true config=true
-```
-
-exit code `0` (`partial` — see the `result` table above), as long as the
-documented tree has at least one Go package. Until the image carries the
-other toolchains, use the `docker run` recipe above or
+`ca-certificates`, `git`, `bash`, `curl`, `jq` and `wget` (lines 21-27); it
+ships no toolchain for JavaScript/TypeScript (`typedoc`), Python
+(`pydoc-markdown`), C/C++ (`doxygen`) or PowerShell (`pwsh`). Go's own
+extraction needs none of that (see above): its `Validate()` always succeeds,
+so — unlike every run before AUR-424 — Go is never skipped here for a missing
+tool. Each of the four languages named above is still skipped with a
+`[Pipeline] SKIP <language>: required tool not in PATH` warning when its own
+tool is absent, exactly as described in "What it does" above. Until the image
+carries those toolchains, use the `docker run` recipe above or
 `.docker/docs.Dockerfile` to get every language; the Compose service is usable
 for wiring and configuration checks.
 

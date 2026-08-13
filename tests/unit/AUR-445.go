@@ -202,11 +202,16 @@ func TestAUR445(t *testing.T) {
 				t.Fatalf("AUR-445/AC-001/infrastructure: %s not loaded", rel)
 			}
 			if strings.Contains(content, banned.normalized) {
+				// The banned LICENSE-absent phrase reads identically whether
+				// it is this card's own pre-fix RED or a deliberately
+				// reintroduced MUT-001 mutation -- content alone cannot
+				// distinguish them. Only the run can: the acceptance's
+				// MUT-001 case exports AUR445_MUTATION=MUT-001 when, and
+				// only when, it is the one that injected the sentence. Any
+				// other run -- including the untouched pre-fix tree -- must
+				// read as behavior-missing, never as a false MUT-001 report.
 				label := "behavior-missing"
-				if banned.label == "no-license-file" {
-					// This is the card's declared MUT-001 falsifier: the
-					// license claim reappearing is the one mutation the
-					// card names explicitly.
+				if banned.label == "no-license-file" && os.Getenv("AUR445_MUTATION") == "MUT-001" {
 					label = "MUT-001"
 				}
 				t.Fatalf("AUR-445/AC-001/%s: %s still contains the banned %q family (%s)", label, rel, banned.normalized, banned.label)
