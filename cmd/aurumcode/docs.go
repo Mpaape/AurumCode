@@ -1,4 +1,4 @@
-// Command aurumcode's docs subcommand (AUR-426):
+// Command aurumcode's docs subcommand (AUR-426, extended by AUR-447):
 //
 //	aurumcode docs [--source <dir>] [--output <dir>] [--languages <list>]
 //
@@ -15,18 +15,46 @@
 // card and keeps working exactly as published; this file only adds a second,
 // flag-driven caller of the same packages.
 //
-// Rust and C# are deliberately not registered here, for the same reason
-// cmd/regenerate-docs itself gates them: their toolchains execute code that
-// lives in the documented repository (see
-// cmd/regenerate-docs/repo_code_execution.go), and wiring that opt-in path a
-// second time is outside what this card's --help promises. Welcome-page LLM
-// generation and Jekyll-build validation are likewise out of scope: nothing
-// `aurumcode docs --help` documents depends on a model call, so the sealed,
-// network-denied acceptance profile always exercises the real code path
-// end to end, deterministically.
+// Rust and C# (AUR-427/AUR-447): registerDocsExtractors below registers the
+// same native, tool-free extractors (internal/documentation/extractors/rust
+// and .../csharp's NewNativeExtractor) cmd/regenerate-docs registers BY
+// DEFAULT. Neither starts a subprocess or reads a repository-controlled
+// build script, so there is nothing to gate behind an opt-in here. Before
+// this card, this file kept its own separate registration list that predated
+// AUR-427 and never grew the two native extractors cmd/regenerate-docs
+// gained -- a real defect a reviewer reproduced: running this command
+// against a Rust-only source tree returned exit 1, "no extractor
+// registered", zero pages, while cmd/regenerate-docs documented the same
+// tree correctly. What stays unwired on purpose is cmd/regenerate-docs's
+// SECOND, opt-in path for these two languages: the cargo/dotnet-backed
+// RustExtractor/CSharpExtractor behind AURUMCODE_ALLOW_REPO_CODE_EXECUTION
+// (cmd/regenerate-docs/repo_code_execution.go), which executes code that
+// lives in the documented repository. That logic is defined inside
+// cmd/regenerate-docs's own `main` package -- unimportable (Go does not
+// allow importing a `main` package) and outside this card's paths -- so it
+// necessarily stays a cmd/regenerate-docs-only capability; this file's
+// registered set is exactly cmd/regenerate-docs's DEFAULT set (the opt-in
+// toolchain off), never a superset of what cmd/regenerate-docs can do.
 //
-// See docs/specs/AUR-426.md for the full flag reference, exit codes and an
-// offline, secret-free example.
+// A genuinely single, shared registration function both binaries call would
+// need to live in an importable package (internal/pipeline or
+// internal/documentation) AND cmd/regenerate-docs/main.go would need to be
+// rewritten to call it instead of keeping its own inline list -- both
+// outside this card's paths, and the latter is exactly the "reescrever
+// pacote existente que ja cumpre a funcao" this card's Non-goals forbids.
+// Absent that, this file's own registerDocsExtractors is kept in exact,
+// visible correspondence with cmd/regenerate-docs's registerLanguageExtractors
+// default branch instead: the residual risk is that a future language added
+// to one list is not mirrored in the other, same as this card's own root
+// cause. See docs/specs/AUR-447.md's "Achado e desenho" section.
+//
+// Welcome-page LLM generation and Jekyll-build validation are likewise out
+// of scope: nothing `aurumcode docs --help` documents depends on a model
+// call, so the sealed, network-denied acceptance profile always exercises
+// the real code path end to end, deterministically.
+//
+// See docs/specs/AUR-426.md and docs/specs/AUR-447.md for the full flag
+// reference, exit codes and offline, secret-free examples.
 package main
 
 import (
@@ -45,10 +73,12 @@ import (
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	bashExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/bash"
 	cppExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/cpp"
+	csharpExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/csharp"
 	goExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/go"
 	javascriptExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/javascript"
 	powershellExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/powershell"
 	pythonExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/python"
+	rustExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/rust"
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 	"github.com/Mpaape/AurumCode/internal/pipeline"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -272,11 +302,16 @@ func (a *docsExtractorAlias) Language() extractors.Language {
 }
 
 // registerDocsExtractors registers the same language extractors
-// cmd/regenerate-docs registers by default, EXCEPT Rust and C#: those two
-// execute code that lives in the documented repository
-// (cmd/regenerate-docs/repo_code_execution.go), opt-in behind
-// AURUMCODE_ALLOW_REPO_CODE_EXECUTION, and wiring that second opt-in path is
-// outside what this card's --help promises (see the package doc above).
+// cmd/regenerate-docs registers BY DEFAULT (its opt-in
+// AURUMCODE_ALLOW_REPO_CODE_EXECUTION toolchain off): every extractor that
+// starts no subprocess against repository-controlled input outside its own
+// declared tool, plus (AUR-427/AUR-447) the native, tool-free Rust and C#
+// doc-comment parsers. It deliberately does NOT register
+// cmd/regenerate-docs's second, opt-in cargo/dotnet-backed
+// RustExtractor/CSharpExtractor path: that logic lives inside a separate
+// `main` package this card cannot import and must not modify (see the
+// package doc above), and wiring a second, repository-code-executing path
+// here is outside what this card's --help promises.
 func registerDocsExtractors(p *pipeline.ExtractorPipeline, runner site.CommandRunner) error {
 	register := func(ext extractors.Extractor) error {
 		if err := p.RegisterExtractor(ext); err != nil {
@@ -303,6 +338,23 @@ func registerDocsExtractors(p *pipeline.ExtractorPipeline, runner site.CommandRu
 
 	if err := register(cppExtractor.NewCPPExtractor(runner)); err != nil {
 		return err
+	}
+
+	// AUR-447: this constant is the MUT-001 target. It is a bare constant,
+	// not an environment opt-in like cmd/regenerate-docs/
+	// repo_code_execution.go's AURUMCODE_ALLOW_REPO_CODE_EXECUTION, because
+	// there is no repository-code-executing alternative wired here for it to
+	// gate -- flipping it to false only proves this registration is load
+	// bearing, the same way turning off cmd/regenerate-docs's own default
+	// registration does for AUR-427's MUT-001.
+	const registerNativeRustAndCSharp = true
+	if registerNativeRustAndCSharp {
+		if err := register(rustExtractor.NewNativeExtractor()); err != nil {
+			return err
+		}
+		if err := register(csharpExtractor.NewNativeExtractor()); err != nil {
+			return err
+		}
 	}
 
 	if err := register(bashExtractor.NewBashExtractor(runner)); err != nil {
