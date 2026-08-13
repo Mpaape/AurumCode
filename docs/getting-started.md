@@ -50,8 +50,8 @@ cd AurumCode
 
 go build -o aurumcode ./cmd/regenerate-docs
 
-# Go extraction requires gomarkdoc on PATH
-go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
+# Go extraction needs no external tool: it uses go/parser and go/doc
+# in-process (since AUR-424).
 
 ./aurumcode
 ```
@@ -72,7 +72,7 @@ pip install pydoc-markdown    # Python
 
 | Language | Needs on `PATH` | Output |
 |----------|-----------------|--------|
-| Go | `gomarkdoc` | `.aurumcode/go/` |
+| Go | none, built in (`go/parser` + `go/doc`) | `.aurumcode/go/` |
 | JavaScript/TypeScript | `typedoc` | `.aurumcode/javascript/`, `.aurumcode/typescript/` |
 | Python | `pydoc-markdown` | `.aurumcode/python/` |
 | C/C++ | `doxygen` | `.aurumcode/cpp/` |
@@ -101,7 +101,12 @@ when `publish` is set.
 
 ## Configuration
 
-There is no configuration file. Every knob is an environment variable:
+This page describes `cmd/regenerate-docs`, the documentation generator: it
+reads no configuration file, and every one of its knobs is an environment
+variable. The repository also builds a second binary, `cmd/aurumcode`
+(`aurumcode review`, local code review), whose options are command-line flags
+instead — see [ACTION_USAGE.md](../ACTION_USAGE.md) and
+[docs/specs/AUR-430.md](specs/AUR-430.md).
 
 | Variable | Effect |
 |----------|--------|

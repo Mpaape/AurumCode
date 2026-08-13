@@ -3,11 +3,14 @@
 How to run the AurumCode documentation generator yourself, outside of GitHub
 Actions.
 
-The generator is `cmd/regenerate-docs`. It is the only command in this
-repository, it is the binary the Docker image builds
-(`Dockerfile` line 15: `-o regenerate-docs ./cmd/regenerate-docs`), and it is
-the binary the composite action runs. Everything below is stated in terms of
-that program; nothing here describes a feature it does not have.
+The generator is `cmd/regenerate-docs`. It is one of two `package main`
+commands in this repository — the other is `cmd/aurumcode` (`aurumcode
+review`, local code review; see [docs/specs/AUR-430.md](docs/specs/AUR-430.md)
+and unrelated to this document). `cmd/regenerate-docs` is the binary the
+Docker image builds (`Dockerfile` line 15: `-o regenerate-docs
+./cmd/regenerate-docs`), and it is the binary the composite action runs.
+Everything below is stated in terms of that program; nothing here describes a
+feature it does not have.
 
 ## What it does
 
@@ -100,17 +103,15 @@ line to add.
 
 ## Run it in a container
 
-Go does not need to be installed on the host. The generator shells out to each
-language's documentation tool, so only the languages whose tool is present get
-documented — for Go that tool is `gomarkdoc`.
+Go does not need to be installed on the host. Go's own extraction is built in
+(`go/parser` + `go/doc`, no external tool, since AUR-424); every other
+language's extractor still shells out to that language's own documentation
+tool, so only those other languages whose tool is present get documented.
 
 ```bash
 docker run --rm \
   -v "$PWD":/w:ro -w /w -v "$PWD/out":/out \
   golang:1.21-alpine sh -c '
-    apk add --no-cache git &&
-    go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest &&
-    export PATH=$PATH:/root/go/bin &&
     AURUMCODE_LANGUAGES=go AURUMCODE_OUTPUT_DIR=/out go run ./cmd/regenerate-docs'
 ```
 
@@ -134,19 +135,17 @@ GitHub Action wrapper script; a bare `command:` would be passed to that wrapper
 as arguments instead of running the generator.
 
 **Known limitation.** `Dockerfile`'s runtime stage installs only
-`ca-certificates`, `git`, `bash`, `curl`, `jq` and `wget` (lines 21-27). It
-ships no documentation toolchain, so every language is skipped for a missing
-tool and the run ends with:
-
-```
-[Pipeline] SKIP go: required tool not in PATH (gomarkdoc not found: ...)
-❌ FAILED - no documentation was produced
-aurumcode: result=failed docs=0 skipped=1 failed=0 languages_skipped=go output=/tmp/out index=false config=false
-```
-
-exit code `1`. Until the image carries the toolchains, use the `docker run`
-recipe above or `.docker/docs.Dockerfile`; the Compose service is usable for
-wiring and configuration checks.
+`ca-certificates`, `git`, `bash`, `curl`, `jq` and `wget` (lines 21-27); it
+ships no toolchain for JavaScript/TypeScript (`typedoc`), Python
+(`pydoc-markdown`), C/C++ (`doxygen`) or PowerShell (`pwsh`). Go's own
+extraction needs none of that (see above): its `Validate()` always succeeds,
+so — unlike every run before AUR-424 — Go is never skipped here for a missing
+tool. Each of the four languages named above is still skipped with a
+`[Pipeline] SKIP <language>: required tool not in PATH` warning when its own
+tool is absent, exactly as described in "What it does" above. Until the image
+carries those toolchains, use the `docker run` recipe above or
+`.docker/docs.Dockerfile` to get every language; the Compose service is usable
+for wiring and configuration checks.
 
 ## Reading the result
 
@@ -184,8 +183,10 @@ generated; only the welcome page is skipped.
 **`llm-api-key was given without llm-base-url`** — this product ships no
 default endpoint. Set `LLM_BASE_URL` to your own OpenAI-compatible URL.
 
-**`gomarkdoc: invalid package in directory ...`** — the directory is not a
-valid Go package. The run continues and reports `result=partial`.
+**`no documentable Go package found in ...`** — Go's own extractor
+(`go/parser` + `go/doc`, no external tool) found no buildable, non-test source
+for the pinned target (`linux/amd64`) in that directory. The run continues and
+reports `result=partial`.
 
 **`AURUMCODE_INCREMENTAL must be one of true/false`** — the boolean variables
 accept only `true`/`false`/`1`/`0`/`yes`/`no` (`main.go:431-440`).

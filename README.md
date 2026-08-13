@@ -63,13 +63,15 @@ See [ACTION_USAGE.md](ACTION_USAGE.md) for every input, output and example.
 
 ## Languages
 
-Go is the generator's own stack and is always available. The other extractors
-depend on an external tool being on `PATH`; when it is missing, that language is
-skipped with a warning and the rest of the run continues.
+Go is the generator's own stack: its extractor parses source with `go/parser`
+and `go/doc` in-process (since AUR-424) and needs no external tool on `PATH`.
+The other extractors each depend on an external tool being on `PATH`; when it
+is missing, that language is skipped with a warning and the rest of the run
+continues.
 
 | Language | Requires on `PATH` | Available through the Action |
 |----------|--------------------|------------------------------|
-| Go | `gomarkdoc` | yes, installed by the Action |
+| Go | none, built in (`go/parser` + `go/doc`) | yes |
 | JavaScript / TypeScript | `typedoc` | with `extra-toolchains: javascript` |
 | Python | `pydoc-markdown` | with `extra-toolchains: python` |
 | C / C++ | `doxygen` | with `extra-toolchains: cpp` |
@@ -95,8 +97,8 @@ so Rust and C# cannot be produced through the Action.
 git clone https://github.com/Mpaape/AurumCode.git
 cd AurumCode
 
-# Required for Go extraction
-go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
+# Go extraction needs no external tool: it uses go/parser and go/doc
+# in-process (since AUR-424).
 
 # Optional: any OpenAI-compatible endpoint, for the AI-written landing page
 export LLM_API_KEY=your_key
@@ -209,6 +211,4 @@ Both are verified to pass in `golang:1.21-alpine` with the repository mounted at
 
 ## License
 
-No `LICENSE` file is present in this repository, so no license is granted here
-yet. Open an issue at https://github.com/Mpaape/AurumCode/issues if you need one
-declared.
+[MIT](LICENSE), Copyright (c) 2026 Mateus Magnus Pimentel Paape.
