@@ -64,12 +64,22 @@
 // as already published: no budget is enforced. Like the other --base-path
 // flags, --limite is inert when --pr is given.
 //
+// With the --base path (AUR-441), the command does not pay twice for the
+// same file: before calling the review engine, it checks
+// internal/review/cache for each changed file's content, under the exact
+// model and prompt version this run would use. A file whose cached entry
+// matches is never resent; a run where every file matches skips the model
+// call entirely. Reused files, when any, are reported on stderr -- stdout
+// is byte-identical whether or not caching engaged. The cache lives at
+// AURUMCODE_CACHE_DIR when set, or at .aurumcode-cache under the reviewed
+// repository otherwise. --pr's review path is unaffected.
+//
 // See docs/specs/AUR-430.md for the base command reference,
 // docs/specs/AUR-431.md for the --fail-on gate,
 // docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
 // --seguranca, docs/specs/AUR-438.md for --pr, docs/specs/AUR-433.md for
-// --limite, and docs/specs/AUR-439.md for --check, each with an offline,
-// secret-free example.
+// --limite, docs/specs/AUR-439.md for --check, and docs/specs/AUR-441.md
+// for the review cache, each with an offline, secret-free example.
 package main
 
 import (
@@ -89,6 +99,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -297,32 +308,83 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 
-	result, err := reviewer.GenerateReview(context.Background(), diff)
-	if err != nil {
-		// --limite (AUR-433): the tracker refused before the model was
-		// called, so nothing was spent. This is checked first because it is
-		// a distinct, more specific outcome than "the provider chain could
-		// not complete" below. Not gated on limiteSet: without --limite,
-		// tracker is nil and the orchestrator cannot produce this error, so
-		// the check is a no-op then and unconditionally correct whenever it
-		// does fire (limiteUSD is 0 only in the case where it cannot).
-		if errors.Is(err, llm.ErrBudgetExceeded) {
-			return reportBudgetExceeded(stderr, limiteUSD, err)
-		}
-		var parseErr *prompt.ParseError
-		if errors.As(err, &parseErr) {
-			fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+	// AUR-441: do not resend a file whose content, under this exact model
+	// and prompt version, a previous run already reviewed. GenerateReview
+	// sends whatever diff it is given as one prompt in one call (see
+	// cmd/aurumcode/review_cache.go's package doc), so the filtering has to
+	// happen here, before the call: toSend keeps only the cache misses, and
+	// a cache directory that cannot be opened (cacheErr != nil) degrades to
+	// AUR-430's original behavior -- every file sent, every run, exactly as
+	// before. Caching is a performance optimization, never a correctness
+	// gate. Composed with --limite: printCostEstimate above already priced
+	// the FULL diff, unchanged, before this filtering ever runs -- the
+	// published --limite estimate and refusal decision are exactly AUR-433's
+	// contract, oblivious to caching. A full cache hit means Complete is
+	// never called, so the tracker records nothing and printRealCost below
+	// correctly reports $0.0000 spent.
+	revCache, cacheErr := cache.Open(cache.ResolveDir(cwd))
+	toSend := diff
+	var cacheStatuses []fileCacheStatus
+	if cacheErr == nil {
+		var missFiles []types.DiffFile
+		missFiles, cacheStatuses = partitionByCache(revCache, diff, modelCacheKey(provider))
+		toSend = &types.Diff{Files: missFiles}
+	}
+
+	var result *types.ReviewResult
+	// A diff with no files at all is the pre-existing "nothing changed"
+	// edge case (e.g. --base HEAD): the published contract has always sent
+	// that empty diff to the model like any other (the deterministic
+	// offline fixture answers regardless of prompt content), and that must
+	// keep happening here even though "zero files to send" would otherwise
+	// look identical to "every file was a cache hit". Only a genuine full
+	// cache hit -- diff.Files was non-empty and every one of them hit --
+	// skips the call.
+	if cacheErr != nil || len(toSend.Files) > 0 || len(diff.Files) == 0 {
+		result, err = reviewer.GenerateReview(context.Background(), toSend)
+		if err != nil {
+			// --limite (AUR-433): the tracker refused before the model was
+			// called, so nothing was spent. This is checked first because it is
+			// a distinct, more specific outcome than "the provider chain could
+			// not complete" below. Not gated on limiteSet: without --limite,
+			// tracker is nil and the orchestrator cannot produce this error, so
+			// the check is a no-op then and unconditionally correct whenever it
+			// does fire (limiteUSD is 0 only in the case where it cannot).
+			if errors.Is(err, llm.ErrBudgetExceeded) {
+				return reportBudgetExceeded(stderr, limiteUSD, err)
+			}
+			var parseErr *prompt.ParseError
+			if errors.As(err, &parseErr) {
+				fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+				return 1
+			}
+			// With --modelo, a provider chain that could not complete means the
+			// chosen model is unavailable (endpoint down, wrong URL, model not
+			// served): name the model and say how to fix it, instead of only
+			// surfacing the transport error.
+			if *modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
+				return reportModelUnavailable(stderr, *modelo, err)
+			}
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 			return 1
 		}
-		// With --modelo, a provider chain that could not complete means the
-		// chosen model is unavailable (endpoint down, wrong URL, model not
-		// served): name the model and say how to fix it, instead of only
-		// surfacing the transport error.
-		if *modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
-			return reportModelUnavailable(stderr, *modelo, err)
+		if cacheErr == nil {
+			persistFreshResults(revCache, cacheStatuses, result.Issues, filter)
 		}
-		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-		return 1
+	} else {
+		result = &types.ReviewResult{}
+	}
+
+	reused := 0
+	if cacheErr == nil {
+		reused = mergeCacheHits(result, cacheStatuses, filter)
+	}
+	if reused > 0 {
+		// stdout stays byte-identical with and without cache reuse, exactly
+		// like --fail-on's and --modelo's stderr notes above: this line
+		// only ever appears on stderr, and only when a file was actually
+		// reused.
+		fmt.Fprintf(stderr, "aurumcode review: reused %d file(s) from cache (not resent to the model)\n", reused)
 	}
 
 	if limiteSet {

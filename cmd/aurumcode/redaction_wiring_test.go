@@ -74,6 +74,8 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		// published "failure"/"success" state itself goes to stdout (see
 		// runPRReview), not through this stderr writer.
 		"aurumcode review: publishing check status: HTTP 500: synthetic transport failure",
+		// AUR-441's review cache reuse note.
+		"aurumcode review: reused 2 file(s) from cache (not resent to the model)",
 	}
 	for _, line := range lines {
 		if got := filter.Redact(line); got != line {
