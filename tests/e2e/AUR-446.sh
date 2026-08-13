@@ -4,7 +4,7 @@
 # corrected spec files on disk, end to end, inside the offline sandbox.
 #
 # WHAT IT DOES
-#   For each of the five specs this card corrects, greps the real file for
+#   For each of the six specs this card corrects, greps the real file for
 #   (a) the corrected, present-tense anchor that must be there and (b) the
 #   stale, pre-correction anchor that must NOT be there. Every anchor is
 #   checked after collapsing whitespace (tabs/newlines/spaces all become one
@@ -14,13 +14,6 @@
 #   docs/specs/AUR-437.md gets only a positive check: the original defect-4
 #   description was incomplete, not false, so there is no stale claim to
 #   forbid.
-#
-# WHAT IT HONESTLY CANNOT DO, PER THE CARD'S PRECONDITIONS
-#   docs/specs/AUR-428.md also needed a correction (the "demais exemplos ...
-#   continuam pinados por SHA" claim, false for code-review.yml since
-#   AUR-440), but AUR-428.md is in neither this card's `paths` nor its
-#   `read_paths` (see docs/specs/AUR-446.md, "Gap medido"). This script does
-#   not read or assert on it.
 #
 # MUT-001 FALSIFIER
 #   Reintroducing the stale "No `aurumcode docs` subcommand exists:" claim
@@ -42,11 +35,12 @@ command -v grep >/dev/null 2>&1 || infra missing_grep
 command -v tr   >/dev/null 2>&1 || infra missing_tr
 command -v sha256sum >/dev/null 2>&1 || infra missing_sha256sum
 
-# The five specs this card corrects (its own declared deliverables, per
+# The six specs this card corrects (its own declared deliverables, per
 # `paths`): absence is behavior-missing, never infrastructure.
 specs=(
   docs/specs/AUR-424.md
   docs/specs/AUR-425.md
+  docs/specs/AUR-428.md
   docs/specs/AUR-429.md
   docs/specs/AUR-437.md
   docs/specs/AUR-440.md
@@ -92,6 +86,9 @@ run_checks() {
 
   check_absent  docs/specs/AUR-425.md 'No `aurumcode docs` subcommand exists:'
   check_present docs/specs/AUR-425.md 'delivered by AUR-426 (`cmd/aurumcode/docs.go`'
+
+  check_absent  docs/specs/AUR-428.md 'Os demais exemplos em `.github/workflows/examples/` (code-review, qa-testing, all-pipelines) continuam pinados por SHA'
+  check_present docs/specs/AUR-428.md 'code-review.yml` **não** está mais nesse grupo: o AUR-440 o repinou para a tag `v1`'
 
   check_absent  docs/specs/AUR-429.md 'No `aurumcode docs` subcommand exists:'
   check_present docs/specs/AUR-429.md 'docs` subcommand from AUR-426 (`cmd/aurumcode/docs.go`)'
@@ -147,5 +144,5 @@ transcript_2="$(run_checks)"
 digest_2="$(printf '%s' "$transcript_2" | sha256sum | cut -d' ' -f1)"
 [[ "$digest_1" == "$digest_2" ]] || fail "nondeterministic-output:$digest_1:$digest_2"
 
-printf '{"card":"AUR-446","scenario":"E2EAUR446","result":"pass","specs_checked":%d,"anchors_verified":9,"repeat_digest":"%s"}\n' \
+printf '{"card":"AUR-446","scenario":"E2EAUR446","result":"pass","specs_checked":%d,"anchors_verified":11,"repeat_digest":"%s"}\n' \
   "${#specs[@]}" "$digest_1"
