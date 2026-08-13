@@ -1,14 +1,20 @@
 // Command aurumcode is the entrypoint for this reconstruction's local code
 // review engine (AUR-430). It currently supports one subcommand:
 //
-//	aurumcode review --base <ref>
+//	aurumcode review --base <ref> [--fail-on <level>]
 //
 // which diffs <ref> against HEAD in the git repository rooted at the
 // current working directory, sends that diff to an LLM through
 // internal/llm.Orchestrator, and prints the findings the model reports.
 //
-// See docs/specs/AUR-430.md for the full command reference, exit codes and
-// an offline, secret-free example.
+// With --fail-on (AUR-431), the command additionally acts as a CI gate: it
+// exits with the distinct code 3 when any finding sits at the chosen
+// severity or above, and 0 otherwise. Without --fail-on, behavior is
+// exactly AUR-430's: findings never change the exit code.
+//
+// See docs/specs/AUR-430.md for the base command reference and
+// docs/specs/AUR-431.md for the --fail-on gate, its levels and exit codes,
+// each with an offline, secret-free example.
 package main
 
 import (
@@ -18,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -50,12 +57,26 @@ func runReview(args []string, stdout, stderr *os.File) int {
 	fs := flag.NewFlagSet("review", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	base := fs.String("base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
+	failOn := fs.String("fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *base == "" {
 		fmt.Fprintln(stderr, "aurumcode review: --base is required")
 		return 2
+	}
+
+	// Validate --fail-on before doing any work: an unknown level is a
+	// usage error (exit 2), never a silently-open gate.
+	threshold := 0
+	thresholdName := ""
+	if *failOn != "" {
+		var err error
+		threshold, thresholdName, err = parseFailOnLevel(*failOn)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
 	}
 
 	cwd, err := os.Getwd()
@@ -92,7 +113,83 @@ func runReview(args []string, stdout, stderr *os.File) int {
 
 	printNotices(stdout, notices)
 	printFindings(stdout, result)
+
+	// The --fail-on CI gate (AUR-431): after the findings have printed
+	// exactly as they always do, exit with the distinct, documented code 3
+	// when any finding sits at the chosen severity or above. The note goes
+	// to stderr so stdout stays byte-identical with and without the flag.
+	if threshold > 0 {
+		if n := countAtOrAbove(result.Issues, threshold); n > 0 {
+			fmt.Fprintf(stderr, "aurumcode review: %d finding(s) at severity %s or above (--fail-on %s)\n", n, thresholdName, thresholdName)
+			return exitFindings
+		}
+	}
 	return 0
+}
+
+// exitFindings is the exit code for "the review ran fine and found at least
+// one issue at or above the --fail-on threshold". It is distinct from 0
+// (clean run), 1 (the review itself failed) and 2 (usage error) so a CI
+// pipeline can tell "gate closed" apart from "tool broke". Documented in
+// docs/specs/AUR-431.md.
+const exitFindings = 3
+
+// parseFailOnLevel maps a --fail-on level to the internal severity rank it
+// gates on, returning the canonical engine severity name alongside. The
+// accepted spellings are the engine's own severity vocabulary -- error,
+// warning, info, exactly the three values internal/prompt.ResponseParser
+// admits -- plus the CI-conventional aliases high, medium and low.
+// Matching is case-insensitive; anything else is an error.
+func parseFailOnLevel(level string) (int, string, error) {
+	switch strings.ToLower(level) {
+	case "high", "error":
+		return rankError, "error", nil
+	case "medium", "warning":
+		return rankWarning, "warning", nil
+	case "low", "info":
+		return rankInfo, "info", nil
+	default:
+		return 0, "", fmt.Errorf("--fail-on: unknown level %q (accepted: high|error, medium|warning, low|info)", level)
+	}
+}
+
+// Severity ranks, ordered so that "at the chosen severity or above" is a
+// plain >= comparison. 0 is reserved for "no gate configured".
+const (
+	rankInfo    = 1
+	rankWarning = 2
+	rankError   = 3
+)
+
+// severityRank ranks a finding's severity. The parser guarantees every
+// issue carries one of error/warning/info (in any letter case, see
+// internal/prompt/parser.go's validation), so the default arm is
+// unreachable in practice; it still ranks unknown values as error so the
+// gate fails closed rather than silently waving a finding through.
+func severityRank(severity string) int {
+	switch strings.ToLower(severity) {
+	case "info":
+		return rankInfo
+	case "warning":
+		return rankWarning
+	case "error":
+		return rankError
+	default:
+		return rankError
+	}
+}
+
+// countAtOrAbove counts the findings whose severity sits at threshold or
+// above. The count -- not just a boolean -- feeds the gate's stderr note so
+// the user sees how many findings closed the gate.
+func countAtOrAbove(issues []types.ReviewIssue, threshold int) int {
+	count := 0
+	for _, issue := range issues {
+		if severityRank(issue.Severity) >= threshold {
+			count++
+		}
+	}
+	return count
 }
 
 // computeDiff reads the diff between base and HEAD directly from the git
