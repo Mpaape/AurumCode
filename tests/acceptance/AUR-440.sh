@@ -130,9 +130,14 @@ e2e_case() {
 spec_case() {
   # The card's Documentation clause: the spec that records the copy, the
   # permissions, the exit codes and -- critically -- that publishing the real
-  # `v1` tag is a human action outside this hermetic acceptance.
+  # `v1` tag is a human action outside this hermetic acceptance. The anchors
+  # are exact: a bare 'v1' would be satisfied by "bootstrap-readonly-v1",
+  # so the tag is checked as the literal `ref: v1` reference the workflow
+  # carries, and the --publish divergence must name AUR-438, the card that
+  # owns publication through the binary.
   [[ -s "$repo_root/docs/specs/AUR-440.md" ]] || fail 'behavior-missing:docs/specs/AUR-440.md absent or empty'
-  grep -Fq 'v1' "$repo_root/docs/specs/AUR-440.md" || fail 'behavior-missing:spec never names the v1 tag'
+  grep -Fq 'ref: v1' "$repo_root/docs/specs/AUR-440.md" || fail 'behavior-missing:spec never names the ref: v1 tag reference'
+  grep -Fq 'AUR-438' "$repo_root/docs/specs/AUR-440.md" || fail 'behavior-missing:spec never records the --publish divergence owned by AUR-438'
   grep -Fq 'pull-requests: write' "$repo_root/docs/specs/AUR-440.md" || fail 'behavior-missing:spec never documents the pull-requests: write permission'
 }
 

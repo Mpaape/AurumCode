@@ -159,6 +159,81 @@ func aur440iSteps(t *testing.T, workflow *yaml.Node) []*yaml.Node {
 	return all
 }
 
+// aur440iReviewInvocation mirrors the Unit-layer scanner: the line invoking
+// the review binary (a token containing "aurumcode" immediately followed by
+// the token "review") and the `--` flags it passes, stopping at the first
+// shell connective. Substring checks are not enough: they stay green when
+// the workflow passes a flag the binary does not accept.
+func aur440iReviewInvocation(script string) (flags []string, found bool) {
+	for _, line := range strings.Split(script, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		for i := 0; i+1 < len(fields); i++ {
+			if !strings.Contains(fields[i], "aurumcode") || fields[i+1] != "review" {
+				continue
+			}
+			found = true
+			for _, tok := range fields[i+2:] {
+				if tok == "|" || tok == "||" || tok == "&&" || tok == ";" {
+					break
+				}
+				if !strings.HasPrefix(tok, "--") {
+					continue
+				}
+				name := tok
+				if eq := strings.Index(tok, "="); eq >= 0 {
+					name = tok[:eq]
+				}
+				flags = append(flags, name)
+			}
+		}
+	}
+	return flags, found
+}
+
+// aur440iReviewFlags is the exact flag set the v1 review binary accepts
+// (cmd/aurumcode: --base and --fail-on, AUR-430/AUR-431). Publication
+// through the binary is AUR-438 and does not exist at v1.
+var aur440iReviewFlags = map[string]bool{"--base": true, "--fail-on": true}
+
+// aur440iForbiddenExec mirrors the Unit-layer lockdown (PR-SEC-001): no run
+// script may build, test or execute the pull request's own code; the only
+// compilation allowed is `go build -C <toolDir>` over the release tree.
+func aur440iForbiddenExec(script, toolDir string) string {
+	for _, line := range strings.Split(script, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		if strings.HasPrefix(fields[0], "./") {
+			return "executes a workspace file: " + strings.TrimSpace(line)
+		}
+		for i, field := range fields {
+			switch field {
+			case "go":
+				if i+1 >= len(fields) {
+					continue
+				}
+				switch fields[i+1] {
+				case "build":
+					if i+3 >= len(fields) || fields[i+2] != "-C" || fields[i+3] != toolDir {
+						return "go build outside the release tree: " + strings.TrimSpace(line)
+					}
+				case "test", "run", "generate", "install", "vet", "tool", "get", "mod":
+					return "go " + fields[i+1] + " over the pull request tree: " + strings.TrimSpace(line)
+				}
+			case "make", "npm", "npx", "yarn", "pnpm", "pip", "pip3", "python", "python3",
+				"node", "cargo", "mvn", "gradle", "dotnet", "bundle", "rake",
+				"sh", "bash", "eval", "source":
+				return field + " can execute the pull request's own code: " + strings.TrimSpace(line)
+			}
+		}
+	}
+	return ""
+}
+
 // IntegrationAUR440 is AUR-440's Integration-layer selector.
 //
 // RED before the fix: the example was still the documentation gate -- it
@@ -298,22 +373,44 @@ func IntegrationAUR440(t *testing.T) {
 		t.Fatalf("AUR-440/AC-001/behavior-missing: no run step builds the review binary with go build")
 	}
 
-	// -- secrets through the secrets context, token from the Action --------
+	// -- the scripts: PR-code lockdown, exact flag set, env contracts ------
 	var reviewEnv, publishEnv *yaml.Node
+	var reviewFlags []string
+	var reviewSeen bool
 	for _, step := range steps {
 		runNode := aur440iGet(step, "run")
 		if runNode == nil {
 			continue
 		}
-		if strings.Contains(runNode.Value, "review") && strings.Contains(runNode.Value, "--base") {
+		if offense := aur440iForbiddenExec(runNode.Value, toolPath.Value); offense != "" {
+			t.Fatalf("AUR-440/AC-001/behavior-missing: a run step %s -- a job holding pull-requests: write must never run the pull request's own code", offense)
+		}
+		if flags, found := aur440iReviewInvocation(runNode.Value); found {
+			if reviewSeen {
+				t.Fatalf("AUR-440/AC-001/behavior-missing: more than one step invokes the review binary")
+			}
+			reviewSeen = true
+			reviewFlags = flags
 			reviewEnv = aur440iGet(step, "env")
 		}
 		if strings.Contains(runNode.Value, "gh pr comment") {
 			publishEnv = aur440iGet(step, "env")
 		}
 	}
-	if reviewEnv == nil {
-		t.Fatalf("AUR-440/AC-001/behavior-missing: no review step with an env block invokes the binary with --base")
+	if !reviewSeen || reviewEnv == nil {
+		t.Fatalf("AUR-440/AC-001/behavior-missing: no review step with an env block invokes the binary")
+	}
+	var baseSeen bool
+	for _, flagName := range reviewFlags {
+		if !aur440iReviewFlags[flagName] {
+			t.Fatalf("AUR-440/AC-001/behavior-missing: review invocation passes %q, a flag the v1 binary does not accept (its flag set is --base and --fail-on; publication through the binary is AUR-438)", flagName)
+		}
+		if flagName == "--base" {
+			baseSeen = true
+		}
+	}
+	if !baseSeen {
+		t.Fatalf("AUR-440/AC-001/behavior-missing: review invocation never passes --base")
 	}
 	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL"} {
 		node := aur440iGet(reviewEnv, key)

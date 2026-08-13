@@ -161,6 +161,88 @@ func aur440FindToolCheckout(t *testing.T, steps []*yaml.Node) (step *yaml.Node, 
 	return nil, "", ""
 }
 
+// aur440ReviewInvocation scans a run script for the line that invokes the
+// review binary (a token containing "aurumcode" immediately followed by the
+// token "review") and returns the `--` flags that invocation passes, stopping
+// at the first shell connective so a downstream `tee` is never misread as a
+// flag carrier. Substring checks over the whole script are not enough: they
+// stay green when the workflow passes a flag the binary does not accept.
+func aur440ReviewInvocation(script string) (flags []string, found bool) {
+	for _, line := range strings.Split(script, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		for i := 0; i+1 < len(fields); i++ {
+			if !strings.Contains(fields[i], "aurumcode") || fields[i+1] != "review" {
+				continue
+			}
+			found = true
+			for _, tok := range fields[i+2:] {
+				if tok == "|" || tok == "||" || tok == "&&" || tok == ";" {
+					break
+				}
+				if !strings.HasPrefix(tok, "--") {
+					continue
+				}
+				name := tok
+				if eq := strings.Index(tok, "="); eq >= 0 {
+					name = tok[:eq]
+				}
+				flags = append(flags, name)
+			}
+		}
+	}
+	return flags, found
+}
+
+// aur440ReviewFlags is the exact flag set the v1 review binary accepts
+// (cmd/aurumcode: `aurumcode review --base <ref> [--fail-on <level>]`,
+// AUR-430/AUR-431). `--publish` is NOT here on purpose: publication through
+// the binary belongs to AUR-438 and does not exist at v1 -- a workflow
+// passing it would exit 2 on every user run. This example publishes through
+// `gh pr comment` instead, and docs/specs/AUR-440.md records the divergence.
+var aur440ReviewFlags = map[string]bool{"--base": true, "--fail-on": true}
+
+// aur440ForbiddenExec walks a run script line by line and reports the first
+// command that could build, test or execute the pull request's own code --
+// the attack PR-SEC-001 exists to stop: a malicious PR must never get its
+// code run by a job holding a writable token. `go build` is allowed only as
+// `go build -C <toolDir> ...`, compiling the release checkout and nothing
+// else. Returns "" when the script is clean.
+func aur440ForbiddenExec(script, toolDir string) string {
+	for _, line := range strings.Split(script, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		if strings.HasPrefix(fields[0], "./") {
+			return "executes a workspace file: " + strings.TrimSpace(line)
+		}
+		for i, field := range fields {
+			switch field {
+			case "go":
+				if i+1 >= len(fields) {
+					continue
+				}
+				switch fields[i+1] {
+				case "build":
+					if i+3 >= len(fields) || fields[i+2] != "-C" || fields[i+3] != toolDir {
+						return "go build outside the release tree: " + strings.TrimSpace(line)
+					}
+				case "test", "run", "generate", "install", "vet", "tool", "get", "mod":
+					return "go " + fields[i+1] + " over the pull request tree: " + strings.TrimSpace(line)
+				}
+			case "make", "npm", "npx", "yarn", "pnpm", "pip", "pip3", "python", "python3",
+				"node", "cargo", "mvn", "gradle", "dotnet", "bundle", "rake",
+				"sh", "bash", "eval", "source":
+				return field + " can execute the pull request's own code: " + strings.TrimSpace(line)
+			}
+		}
+	}
+	return ""
+}
+
 // TestAUR440 is AUR-440's Unit-layer selector: the example workflow document,
 // parsed for real, declares everything the card's outcome depends on.
 //
@@ -290,11 +372,14 @@ func TestAUR440(t *testing.T) {
 		t.Fatalf("AUR-440/AC-001/MUT-001: publishing job does not declare pull-requests: write, so posting the review comment would be refused")
 	}
 
-	// -- the scripts: injection guard, review run, publication -------------
+	// -- the scripts: injection guard, PR-code lockdown, review, publication
 	// Runtime data reaches every script through env, never through ${{ }}
 	// interpolation inside a run: body -- a substituted value carrying a
-	// quote or semicolon would execute as shell.
+	// quote or semicolon would execute as shell. And no script may build,
+	// test or execute the pull request's own code (PR-SEC-001): the only
+	// compilation allowed is `go build -C <tool dir>` over the release tree.
 	var reviewStep, publishStep *yaml.Node
+	var reviewFlags []string
 	for _, step := range steps {
 		runNode := aur440Get(step, "run")
 		if runNode == nil {
@@ -303,15 +388,39 @@ func TestAUR440(t *testing.T) {
 		if strings.Contains(runNode.Value, "${{") {
 			t.Fatalf("AUR-440/AC-001/behavior-missing: a run script interpolates ${{ }} into its body; runtime data must travel through env")
 		}
-		if strings.Contains(runNode.Value, "review") && strings.Contains(runNode.Value, "--base") {
+		if offense := aur440ForbiddenExec(runNode.Value, toolPath.Value); offense != "" {
+			t.Fatalf("AUR-440/AC-001/behavior-missing: a run step %s -- a job holding pull-requests: write must never run the pull request's own code", offense)
+		}
+		if flags, found := aur440ReviewInvocation(runNode.Value); found {
+			if reviewStep != nil {
+				t.Fatalf("AUR-440/AC-001/behavior-missing: more than one step invokes the review binary")
+			}
 			reviewStep = step
+			reviewFlags = flags
 		}
 		if strings.Contains(runNode.Value, "gh pr comment") {
 			publishStep = step
 		}
 	}
 	if reviewStep == nil {
-		t.Fatalf("AUR-440/AC-001/behavior-missing: no run step invokes the review binary with --base, so the diff is never reviewed")
+		t.Fatalf("AUR-440/AC-001/behavior-missing: no run step invokes the review binary, so the diff is never reviewed")
+	}
+
+	// The flags the invocation passes must be exactly ones the v1 binary
+	// accepts, and --base must be among them. A flag outside the set --
+	// `--publish` included, which belongs to AUR-438 and does not exist at
+	// v1 -- would make every user run exit 2 instead of reviewing anything.
+	var baseSeen bool
+	for _, flagName := range reviewFlags {
+		if !aur440ReviewFlags[flagName] {
+			t.Fatalf("AUR-440/AC-001/behavior-missing: review invocation passes %q, a flag the v1 binary does not accept (its flag set is --base and --fail-on; publication through the binary is AUR-438)", flagName)
+		}
+		if flagName == "--base" {
+			baseSeen = true
+		}
+	}
+	if !baseSeen {
+		t.Fatalf("AUR-440/AC-001/behavior-missing: review invocation never passes --base, so the diff has no base to be computed against")
 	}
 	reviewEnv := aur440Get(reviewStep, "env")
 	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL", "BASE_SHA"} {
