@@ -92,7 +92,7 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/prompt internal/review
+  copy "$root" cmd/aurumcode internal/analyzer internal/prompt internal/review internal/security
   copy "$root" pkg/types internal/llm
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # `cp -R` preserves the source tree's mode bits, and the materialized
