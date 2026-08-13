@@ -54,6 +54,21 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		"aurumcode docs: source directory /abs/file.txt is not a directory",
 		"aurumcode docs: no documentation page was generated",
 		"aurumcode docs: partial run: 1 extraction error(s), 1 language(s) skipped",
+		// AUR-438's --pr review-and-publish path.
+		"aurumcode review: --repo is required with --pr",
+		"aurumcode review: --na-linha is required with --pr",
+		"aurumcode review: --publicar is required with --pr",
+		"aurumcode review: --pr must be a positive pull request number",
+		"aurumcode review: refusing to publish: an inline comment requires a commit SHA and none is available; set GITHUB_SHA",
+		// AUR-433 (--limite): the two cost lines and the refusal message,
+		// all newly written to this same redacted stderr writer.
+		"aurumcode review: estimated cost $0.0914, diff-only pre-flight (--limite $0.5000)",
+		"aurumcode review: actual cost $0.0181 (--limite $0.5000)",
+		`aurumcode review: refusing to call the model: the request's cost would exceed --limite $0.1000; nothing was spent (LLM request failed: budget exceeded: insufficient budget for default (model "default"))`,
+		"aurumcode review: --limite: value must not be empty",
+		`aurumcode review: --limite: must be a number of US dollars (got "abc")`,
+		`aurumcode review: --limite: must be greater than zero (got "0")`,
+		"aurumcode review: AURUMCODE_LLM_INPUT_USD_PER_1K is set but AURUMCODE_LLM_OUTPUT_USD_PER_1K is not; set both or neither, because a missing side prices those tokens at $0",
 	}
 	for _, line := range lines {
 		if got := filter.Redact(line); got != line {
