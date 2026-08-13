@@ -107,13 +107,15 @@ func run(args []string, stdout, stderr *os.File) int {
 	defer errW.Flush()
 
 	if len(args) == 0 {
-		fmt.Fprintln(errW, "usage: aurumcode <review> [flags]")
+		fmt.Fprintln(errW, "usage: aurumcode <review|docs> [flags]")
 		return 2
 	}
 
 	switch args[0] {
 	case "review":
 		return runReview(args[1:], stdout, errW, filter)
+	case "docs":
+		return runDocs(args[1:], stdout, errW, filter)
 	default:
 		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2
