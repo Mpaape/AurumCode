@@ -3,6 +3,8 @@ package review
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"sync"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -11,17 +13,20 @@ import (
 )
 
 // Reviewer orchestrates the code review process: given -> analyze -> prompt
-// -> llm -> parse -> findings. This is the restored c12d7ab reviewer.go,
-// deliberately narrowed to that path.
+// -> llm -> parse -> rule gate -> findings. The pipeline up to the parse is
+// the restored c12d7ab reviewer.go, deliberately narrowed to that path by
+// AUR-430.
 //
-// The restored version also loaded a RulesLoader (internal/review/rules.go)
-// and an iso25010.Scorer to enrich issues with rule metadata and compute
-// ISO/IEC 25010 quality scores. AUR-430's own card explicitly puts both out
-// of scope ("Não ligue rules.go nem iso25010 aqui" -- they belong to
-// dependent cards even though they would compile together), so this
-// Reviewer has no RulesLoader or iso25010 dependency at all: GenerateReview
-// returns exactly what the model reported, parsed and validated, nothing
-// enriched or scored.
+// AUR-434 wires the restored RulesLoader (internal/review/rules.go) back in
+// and adds the gate the historical code never had: the c12d7ab
+// mapRulesToIssues only ENRICHED issues (filling an empty Message or
+// Severity from the rule), it never rejected an issue whose RuleID was
+// missing or unknown. enforceRuleCitations below keeps that enrichment and
+// adds the rejection: every issue GenerateReview returns cites a rule of
+// the project review standard that sustains it, and an issue that cannot
+// never reaches the caller. iso25010 scoring remains out of scope here (it
+// belongs to another card), so this Reviewer still has no iso25010
+// dependency.
 type Reviewer struct {
 	orchestrator  *llm.Orchestrator
 	diffAnalyzer  *analyzer.DiffAnalyzer
@@ -103,10 +108,20 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 		return nil, fmt.Errorf("parse failed: %w", err)
 	}
 
+	// Rule gate (AUR-434): every issue must cite a rule of the project
+	// review standard. A broken or empty embedded catalog is a loud
+	// error here, never a silent zero-rule review.
+	rules, err := sharedRules()
+	if err != nil {
+		return nil, fmt.Errorf("review rules unavailable: %w", err)
+	}
+	rejected := enforceRuleCitations(rules, result)
+
 	// Add metadata
 	if result.Metadata == nil {
 		result.Metadata = make(map[string]string)
 	}
+	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", rejected)
 	result.Metadata["total_files"] = fmt.Sprintf("%d", metrics.TotalFiles)
 	result.Metadata["lines_added"] = fmt.Sprintf("%d", metrics.LinesAdded)
 	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", metrics.LinesDeleted)
@@ -114,4 +129,50 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	result.Metadata["estimated_tokens"] = promptParts.Meta["estimated_tokens"]
 
 	return result, nil
+}
+
+// sharedRules loads the embedded rules catalog exactly once per process.
+// The load can only fail if the embedded catalog itself is broken, so a
+// failure is permanent for the binary and cached as such.
+var sharedRules = sync.OnceValues(func() (*RulesLoader, error) {
+	loader := NewRulesLoader()
+	if err := loader.Load(); err != nil {
+		return nil, err
+	}
+	return loader, nil
+})
+
+// enforceRuleCitations applies AUR-434's rule gate to result, in place,
+// and returns how many issues it rejected.
+//
+// For each issue, the cited rule is resolved against the embedded project
+// review standard. An issue whose RuleID is missing or unknown is
+// discarded: a finding that cannot cite the rule that sustains it never
+// reaches the user. A surviving issue keeps the c12d7ab mapRulesToIssues
+// enrichment (empty Message/Severity filled from the rule, file path
+// cleaned) and gains the citation itself, appended to the message the
+// user sees as " (rule <id>: <title>)".
+func enforceRuleCitations(rules *RulesLoader, result *types.ReviewResult) int {
+	kept := make([]types.ReviewIssue, 0, len(result.Issues))
+	rejected := 0
+	for _, issue := range result.Issues {
+		rule, ok := rules.Get(issue.RuleID)
+		if !ok {
+			rejected++
+			continue
+		}
+		if issue.Message == "" {
+			issue.Message = rule.Description
+		}
+		if issue.Severity == "" {
+			issue.Severity = rule.Severity
+		}
+		if issue.File != "" {
+			issue.File = filepath.Clean(issue.File)
+		}
+		issue.Message = fmt.Sprintf("%s (rule %s: %s)", issue.Message, rule.ID, rule.Title)
+		kept = append(kept, issue)
+	}
+	result.Issues = kept
+	return rejected
 }
