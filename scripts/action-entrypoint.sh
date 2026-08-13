@@ -11,10 +11,10 @@
 #   * documentation_url is emitted only when a publishing step confirmed the
 #     URL. Building a site locally is not a publication.
 #   * The documentation mode runs the generator that actually reads the source
-#     tree (regenerate-docs, the one binary this image ships) and succeeds only
-#     when that generator left documentation derived from the source on disk.
-#     Its hardcoded homepage template is not evidence of anything: writing it
-#     requires no source tree and no generator run.
+#     tree (regenerate-docs, one of the two binaries this image ships) and
+#     succeeds only when that generator left documentation derived from the
+#     source on disk. Its hardcoded homepage template is not evidence of
+#     anything: writing it requires no source tree and no generator run.
 #
 # EXIT CODES are disjoint on purpose. This is this script's own convention,
 # self-contained to this file and the two helper scripts it dispatches to
@@ -30,7 +30,9 @@
 #   3   environment failure: a binary, script or workspace this image cannot
 #       supply itself is missing. Nothing about the code under test was
 #       measured, so this is never valid evidence of a behavioral defect
-#   64  usage error: no mode, or a mode this entrypoint does not implement
+#   64  usage error: no mode, a mode this entrypoint does not implement, or a
+#       mode invoked without the configuration it requires (e.g. review
+#       without AURUMCODE_BASE_REF)
 
 set -euo pipefail
 
@@ -48,15 +50,19 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # Directory holding the AurumCode binaries inside the image.
 AURUMCODE_BIN_DIR="${AURUMCODE_BIN_DIR:-/app}"
 
-# CLI implementing the review and qa pipelines. The image built from this
-# repository's Dockerfile does NOT ship it: there is no cmd/cli in the source
-# tree, only cmd/regenerate-docs. Requesting those modes therefore fails with
-# an explicit message instead of reporting a successful no-op.
-AURUMCODE_CLI="${AURUMCODE_CLI:-${AURUMCODE_BIN_DIR}/cli}"
+# CLI implementing the review pipeline (cmd/aurumcode; AUR-430/AUR-438). The
+# image built from this repository's Dockerfile DOES ship it, compiled from
+# this same source tree (Dockerfile: `go build -o aurumcode ./cmd/aurumcode`).
+# It publishes exactly two subcommands, review and docs
+# (cmd/aurumcode/main.go); it has no qa subcommand, so the qa mode below
+# still fails with an explicit message instead of reporting a successful
+# no-op.
+AURUMCODE_CLI="${AURUMCODE_CLI:-${AURUMCODE_BIN_DIR}/aurumcode}"
 
-# The generator that reads the source tree. This is the ONE binary the image
-# built from this repository's Dockerfile installs, and it is what makes the
-# documentation mode a real mode rather than a template writer.
+# The generator that reads the source tree. This is one of the two binaries
+# the image built from this repository's Dockerfile installs (the other is
+# AURUMCODE_CLI above), and it is what makes the documentation mode a real
+# mode rather than a template writer.
 AURUMCODE_GENERATOR="${AURUMCODE_GENERATOR:-${AURUMCODE_BIN_DIR}/regenerate-docs}"
 
 # Directory the generator writes its markdown into, relative to the workspace.
@@ -73,10 +79,6 @@ AURUMCODE_SITE_MANIFEST="${AURUMCODE_SITE_MANIFEST:-.aurumcode-derived.manifest}
 
 # Optional machine-readable review report used to measure issues_found.
 AURUMCODE_REVIEW_REPORT="${AURUMCODE_REVIEW_REPORT:-aurumcode-review.json}"
-
-# Optional coverage summary (output of `go tool cover -func`) used to measure
-# coverage_percentage.
-AURUMCODE_COVERAGE_FILE="${AURUMCODE_COVERAGE_FILE:-coverage.txt}"
 
 # Set by the publishing step (for example the page_url output of
 # actions/deploy-pages). Empty means "nothing was published".
@@ -103,7 +105,8 @@ die_env() {
     exit "$EXIT_ENVIRONMENT"
 }
 
-# die_usage: the entrypoint was invoked with a mode it does not implement.
+# die_usage: the entrypoint was invoked with a mode it does not implement, or
+# with a mode that lacks the configuration it requires to run at all.
 die_usage() {
     echo "ERROR (usage): $*" >&2
     exit "$EXIT_USAGE"
@@ -117,7 +120,7 @@ require_binary() {
     local mode="$2"
 
     if [ ! -x "$binary" ]; then
-        die_env "mode '${mode}' requires the executable '${binary}', which is not present in this image. The image built from this repository's Dockerfile installs exactly one binary, '${AURUMCODE_BIN_DIR}/regenerate-docs' (built from cmd/regenerate-docs); there is no cmd/cli in the source tree. Build and install '${binary}', or select a mode this image supports (${SUPPORTED_MODES})."
+        die_env "mode '${mode}' requires the executable '${binary}', which is not present in this image. The image built from this repository's Dockerfile installs two binaries, '${AURUMCODE_BIN_DIR}/regenerate-docs' (built from cmd/regenerate-docs) and '${AURUMCODE_BIN_DIR}/aurumcode' (built from cmd/aurumcode, publishing review and docs). Build and install '${binary}', or select a mode this image supports (${SUPPORTED_MODES})."
     fi
 }
 
@@ -168,12 +171,31 @@ run_review() {
     echo "Running Code Review Pipeline..."
     require_binary "$AURUMCODE_CLI" "review"
 
-    if "$AURUMCODE_CLI" review \
-        --provider="${LLM_PROVIDER:-}" \
-        --model="${LLM_MODEL:-}" \
-        --api-key="${LLM_API_KEY:-}" \
-        --github-token="${GITHUB_TOKEN:-}" \
-        --post-comments="${POST_PR_COMMENTS:-false}"; then
+    # cmd/aurumcode's review command (cmd/aurumcode/main.go) has exactly one
+    # required flag, --base: the ref this run diffs against HEAD.
+    # AURUMCODE_BASE_REF is this entrypoint's own input for it -- a caller
+    # sets it to, for example, the pull request's base commit SHA
+    # (github.event.pull_request.base.sha), the same value
+    # .github/workflows/examples/code-review.yml already wires into --base.
+    # Unset is a usage error, not a silent skip: reviewing nothing and
+    # reporting success would be worse than failing loudly.
+    if [ -z "${AURUMCODE_BASE_REF:-}" ]; then
+        die_usage "mode 'review' requires AURUMCODE_BASE_REF (the ref '--base' diffs against HEAD, e.g. the pull request's base commit SHA)."
+    fi
+
+    # LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, AURUMCODE_LLM_FIXTURE and
+    # GITHUB_TOKEN are read straight from the process environment by
+    # cmd/aurumcode itself (main.go selectProvider, pr.go newGitHubClient) --
+    # none of them is a flag. This entrypoint inherits them from the
+    # container's own environment and passes nothing extra for them.
+    #
+    # cmd/aurumcode review's other real flags -- --fail-on, --modelo,
+    # --seguranca, --limite, and the --pr/--repo/--publicar/--na-linha
+    # family -- are not wired into this mode: this card fixes the flags this
+    # entrypoint already sends and does not add capability nobody can
+    # observe by running the declared command (see docs/specs/AUR-444.md,
+    # Non-goals).
+    if "$AURUMCODE_CLI" review --base="${AURUMCODE_BASE_REF}"; then
         REVIEW_RESULT="passed"
     else
         REVIEW_RESULT="failed"
@@ -523,32 +545,19 @@ run_documentation() {
 # Run the QA testing pipeline.
 run_qa() {
     echo "Running QA Testing Pipeline..."
-    require_binary "$AURUMCODE_CLI" "qa"
 
-    "$AURUMCODE_CLI" qa \
-        --coverage-threshold="${COVERAGE_THRESHOLD:-}" \
-        --github-token="${GITHUB_TOKEN:-}"
-
-    # Parse coverage from `go tool cover -func` output when present. Uses awk
-    # rather than `grep -oP`: the runtime image is Alpine, whose busybox grep
-    # has no -P and would have failed here.
-    if [ -f "$AURUMCODE_COVERAGE_FILE" ]; then
-        local parsed
-        parsed="$(awk '/^total:/ { v = $NF; sub(/%$/, "", v); print v }' "$AURUMCODE_COVERAGE_FILE" | tail -n 1)"
-        if [ -n "$parsed" ]; then
-            COVERAGE_PERCENTAGE="$parsed"
-        fi
-    fi
-
-    if [ "$COVERAGE_PERCENTAGE" = "$UNKNOWN" ]; then
-        # An unmeasured coverage value must not satisfy a configured gate.
-        if [ -n "${COVERAGE_THRESHOLD:-}" ]; then
-            die "COVERAGE_THRESHOLD='${COVERAGE_THRESHOLD}' was requested but coverage could not be measured from '${AURUMCODE_COVERAGE_FILE}'."
-        fi
-        echo "NOTE: no coverage data in '${AURUMCODE_COVERAGE_FILE}'; coverage_percentage reported as '${UNKNOWN}'."
-    fi
-
-    echo ""
+    # cmd/aurumcode (AURUMCODE_CLI, the binary this image ships) publishes
+    # exactly two subcommands, review and docs (cmd/aurumcode/main.go); it
+    # has no qa subcommand. Failing here, before the binary is ever invoked,
+    # keeps this the documented EXIT_ENVIRONMENT this file's own contract
+    # promises for "a binary this image cannot supply itself is missing" --
+    # the closest existing category, since no binary this image could build
+    # from this source tree serves this mode -- instead of letting the
+    # binary's own usage-error exit code (2, a value this file's exit-code
+    # table never documents) kill the script under `set -e` once the binary
+    # exists and require_binary's file-existence check alone stops catching
+    # this.
+    die_env "mode 'qa' requires a 'qa' subcommand that '${AURUMCODE_CLI}' does not publish (it implements only review and docs; see cmd/aurumcode/main.go). Select a mode this image supports (${SUPPORTED_MODES})."
 }
 
 # Run pipelines based on mode. An unrecognized mode is an error: it must not
