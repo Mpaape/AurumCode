@@ -97,6 +97,74 @@ func aur443BaseEnv(extra ...string) []string {
 	return append(env, extra...)
 }
 
+// aur443EnvWithPath is aur443BaseEnv but with PATH replaced instead of
+// duplicated: os/exec does not dedupe a repeated key, so which PATH entry
+// ultimately wins would be implementation-defined if it were merely
+// appended.
+func aur443EnvWithPath(path string, extra ...string) []string {
+	drop := map[string]bool{
+		"AURUM_SECRET_CANARY":   true,
+		"AURUMCODE_LLM_FIXTURE": true,
+		"LLM_API_KEY":           true,
+		"LLM_BASE_URL":          true,
+		"PATH":                  true,
+	}
+	env := make([]string, 0, len(os.Environ())+len(extra)+1)
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if !drop[name] {
+			env = append(env, kv)
+		}
+	}
+	env = append(env, "PATH="+path)
+	return append(env, extra...)
+}
+
+// aur443NoGitPath builds a PATH entry that exposes go/bash/sh (whatever
+// os/exec itself needs to keep functioning) but never `git`, so
+// exec.LookPath("git") inside internal/analyzer.OpenRepo fails and the
+// pure-Go backend is selected -- the shape of this card's own sealed
+// acceptance profile (bootstrap-readonly-v1: Go and bash, no git,
+// documented in internal/analyzer/gitrepo.go's package doc).
+func aur443NoGitPath(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, name := range []string{"go", "bash", "sh"} {
+		src, err := exec.LookPath(name)
+		if err != nil {
+			continue
+		}
+		if err := os.Symlink(src, filepath.Join(dir, name)); err != nil {
+			t.Fatalf("linking %s into the git-less PATH: %v", name, err)
+		}
+	}
+	return dir
+}
+
+// aur443UnreadableRefFixture copies tests/fixtures/repos/git-demo/repo.git
+// into a writable temp directory and revokes read permission on its
+// refs/heads/main file, reproducing the exact EACCES the reviewer found on
+// AUR-443's first cut: a ref that exists but this process cannot read.
+func aur443UnreadableRefFixture(t *testing.T, root string) string {
+	t.Helper()
+	src := filepath.Join(root, "tests/fixtures/repos/git-demo/repo.git")
+	dst := filepath.Join(t.TempDir(), "repo.git")
+	if out, err := exec.Command("cp", "-R", src, dst).CombinedOutput(); err != nil {
+		t.Fatalf("staging a writable fixture copy: %v\n%s", err, out)
+	}
+	refFile := filepath.Join(dst, "refs", "heads", "main")
+	if err := os.Chmod(refFile, 0o000); err != nil {
+		t.Fatalf("chmod 000 %s: %v", refFile, err)
+	}
+	// Restore read permission before the temp directory's own removal:
+	// removing a directory entry only depends on the parent directory's
+	// permissions, not the file's own mode, so this is not required for
+	// cleanup to succeed -- it just leaves the fixture inspectable if a
+	// failure leaves it behind.
+	t.Cleanup(func() { os.Chmod(refFile, 0o644) })
+	return dst
+}
+
 // TestAUR443 proves, through the real binary, that a first-time user
 // discovers what aurumcode does and can run a first review without reading
 // source. See docs/specs/AUR-443.md for the full rationale behind each
@@ -315,6 +383,55 @@ func TestAUR443(t *testing.T) {
 				t.Fatalf("expected no leaked internal detail (%q), got:\n%s", leak, stderr)
 			}
 		}
+		if strings.Contains(stderr, "permission denied") {
+			t.Fatalf("a genuinely missing ref must not be misreported as a permission problem, got:\n%s", stderr)
+		}
+	})
+
+	// This is the reviewer's blocker (cmd/aurumcode/main.go's cleanRefError):
+	// the pre-fix code matched ANY *fs.PathError as "ref not found",
+	// including EACCES, so a ref that exists but cannot be read produced a
+	// confidently wrong "not found" diagnosis instead of naming the real
+	// cause. Reproduced with root excluded (chmod 000 does not block root)
+	// and covering both analyzer backends, since a real `git rev-parse`
+	// prints the byte-identical "fatal: Needed a single revision" for
+	// ENOENT and EACCES -- string-matching git's own output could never
+	// tell them apart either.
+	t.Run("a ref that exists but is unreadable: permission message, never ref-not-found", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("running as root: chmod 000 does not deny root read access, so this case cannot be reproduced here")
+		}
+		unreadable := aur443UnreadableRefFixture(t, root)
+
+		t.Run("pure-Go backend (no git on PATH)", func(t *testing.T) {
+			env := aur443EnvWithPath(aur443NoGitPath(t))
+			code, _, stderr := aur443Run(t, bin, unreadable, env, "review", "--base", "main")
+			if code != 1 {
+				t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+			}
+			if !strings.Contains(stderr, "permission denied") {
+				t.Fatalf("expected a permission-denied diagnosis, got:\n%s", stderr)
+			}
+			if strings.Contains(stderr, "not found") {
+				t.Fatalf("a permission problem must not be reported as \"not found\", got:\n%s", stderr)
+			}
+		})
+
+		if _, err := exec.LookPath("git"); err != nil {
+			t.Skip("no git binary on PATH in this environment: skipping the git-binary-backend half (the pure-Go backend above is what bootstrap-readonly-v1 exercises)")
+		}
+		t.Run("git-binary backend", func(t *testing.T) {
+			code, _, stderr := aur443Run(t, bin, unreadable, aur443BaseEnv(), "review", "--base", "main")
+			if code != 1 {
+				t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+			}
+			if !strings.Contains(stderr, "permission denied") {
+				t.Fatalf("expected a permission-denied diagnosis, got:\n%s", stderr)
+			}
+			if strings.Contains(stderr, "not found") {
+				t.Fatalf("a permission problem must not be reported as \"not found\" (git's own stderr for EACCES and ENOENT is identical, so this is exactly the case the probe exists for), got:\n%s", stderr)
+			}
+		})
 	})
 
 	// --- 7. review --base's published findings output is byte-for-byte unchanged. ---
