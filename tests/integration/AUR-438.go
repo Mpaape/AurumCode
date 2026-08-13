@@ -80,10 +80,28 @@ type aur438Request struct {
 // card's fixtures. scenario selects the permissions fixture ("write" or
 // "readonly"); every request is recorded, in order, for the caller to
 // assert on.
+//
+// It is deliberately not a mock that "always agrees": a POST to the inline
+// review-comment endpoint with an empty (or missing) commit_id is answered
+// 422, exactly like the real GitHub API -- an inline comment cannot be
+// anchored to no commit at all. A prior version of this fixture accepted
+// any commit_id, which is why the missing pre-POST SHA gate in
+// cmd/aurumcode/pr.go went unnoticed: nothing in the test double could ever
+// fail the way the real API does. FailNthPost/FailStatus additionally let a
+// test make one specific POST in a sequence fail (for any reason) without
+// touching the commit_id rule, to prove a single failed POST does not stop
+// the rest of the publish loop from being attempted.
 type aur438FakeGitHub struct {
 	*httptest.Server
 	mu       sync.Mutex
 	requests []aur438Request
+	postSeen int
+
+	// FailNthPost, when non-zero, makes the Nth POST this server receives
+	// (1-indexed, across both endpoints) fail with FailStatus instead of
+	// succeeding. Set before the server receives its first request.
+	FailNthPost int
+	FailStatus  int
 }
 
 func aur438NewFakeGitHub(t *testing.T, scenario string) *aur438FakeGitHub {
@@ -105,9 +123,32 @@ func aur438NewFakeGitHub(t *testing.T, scenario string) *aur438FakeGitHub {
 		}
 		f.mu.Lock()
 		f.requests = append(f.requests, aur438Request{Method: r.Method, Path: r.URL.Path, Body: body})
+		var postN int
+		if r.Method == http.MethodPost {
+			f.postSeen++
+			postN = f.postSeen
+		}
+		failNth, failStatus := f.FailNthPost, f.FailStatus
 		f.mu.Unlock()
 
 		if r.Method == http.MethodPost {
+			// Real GitHub: an inline review comment with no commit_id is a
+			// validation failure, not a success.
+			if r.URL.Path == "/repos/dono/projeto/pulls/42/comments" {
+				commitID, _ := body["commit_id"].(string)
+				if commitID == "" {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					_, _ = w.Write([]byte(`{"message":"Validation Failed","errors":[{"field":"commit_id","code":"missing_field"}]}`))
+					return
+				}
+			}
+			if failNth != 0 && postN == failNth {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(failStatus)
+				_, _ = w.Write([]byte(`{"message":"synthetic failure injected for AUR-438's own test"}`))
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write(created)
@@ -193,13 +234,20 @@ func IntegrationAUR438(t *testing.T) {
 	fixture := aur438ResponseFixture(t)
 	workDir := t.TempDir()
 
-	run := func(baseURL, token string) (int, string, string) {
+	// run drives the binary once. sha == "" means GITHUB_SHA is left
+	// genuinely absent from the child's environment (aur438IntegrationScrubEnv
+	// already strips any inherited copy), not merely empty -- the two are
+	// indistinguishable to os.Getenv, but this keeps the intent explicit at
+	// each call site.
+	run := func(baseURL, token, sha string) (int, string, string) {
 		env := append(aur438IntegrationScrubEnv(),
 			"AURUMCODE_LLM_FIXTURE="+fixture,
 			"AURUMCODE_GITHUB_API_URL="+baseURL,
 			"GITHUB_TOKEN="+token,
-			"GITHUB_SHA=integration-synthetic-sha",
 		)
+		if sha != "" {
+			env = append(env, "GITHUB_SHA="+sha)
+		}
 		cmd := exec.Command(binPath, "review", "--pr", "42", "--repo", "dono/projeto", "--publicar", "--na-linha")
 		cmd.Dir = workDir
 		cmd.Env = env
@@ -222,7 +270,7 @@ func IntegrationAUR438(t *testing.T) {
 		fake := aur438NewFakeGitHub(t, "write")
 		defer fake.Close()
 
-		code, stdout, stderr := run(fake.URL, "token-sintetico-write")
+		code, stdout, stderr := run(fake.URL, "token-sintetico-write", "integration-synthetic-sha")
 		if code != 0 {
 			t.Fatalf("expected exit 0, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
@@ -260,11 +308,11 @@ func IntegrationAUR438(t *testing.T) {
 	t.Run("determinism: same input, same output, same publish sequence", func(t *testing.T) {
 		fakeA := aur438NewFakeGitHub(t, "write")
 		defer fakeA.Close()
-		_, stdoutA, _ := run(fakeA.URL, "token-sintetico-write")
+		_, stdoutA, _ := run(fakeA.URL, "token-sintetico-write", "integration-synthetic-sha")
 
 		fakeB := aur438NewFakeGitHub(t, "write")
 		defer fakeB.Close()
-		codeB, stdoutB, _ := run(fakeB.URL, "token-sintetico-write")
+		codeB, stdoutB, _ := run(fakeB.URL, "token-sintetico-write", "integration-synthetic-sha")
 
 		if codeB != 0 {
 			t.Fatalf("expected exit 0 on rerun, got %d", codeB)
@@ -286,7 +334,7 @@ func IntegrationAUR438(t *testing.T) {
 		fake := aur438NewFakeGitHub(t, "readonly")
 		defer fake.Close()
 
-		code, _, stderr := run(fake.URL, "token-sintetico-readonly")
+		code, _, stderr := run(fake.URL, "token-sintetico-readonly", "integration-synthetic-sha")
 		if code != 1 {
 			t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
 		}
@@ -295,6 +343,77 @@ func IntegrationAUR438(t *testing.T) {
 		}
 		if posts := fake.posts(); len(posts) != 0 {
 			t.Fatalf("expected zero POSTs with a read-only token, got %d: %+v", len(posts), posts)
+		}
+	})
+
+	t.Run("no GITHUB_SHA: refused before any POST, never a POST with an empty commit_id", func(t *testing.T) {
+		// The exact gap the reviewer found: AC-001's declared command sets
+		// no GITHUB_SHA in Preconditions. Without the pre-POST gate in
+		// cmd/aurumcode/pr.go, the first (inline) POST would carry
+		// commit_id:"" and this fake -- unlike the old, always-agreeing one
+		// -- would answer 422, exactly like the real GitHub API. The
+		// assertion below is stronger than "the 422 happened": it checks
+		// that ZERO POSTs were attempted at all, proving the refusal is a
+		// pre-POST gate in this card's own code, not a response the fake
+		// server had to reject after the fact.
+		fake := aur438NewFakeGitHub(t, "write")
+		defer fake.Close()
+
+		code, stdout, stderr := run(fake.URL, "token-sintetico-write", "")
+		if code != 1 {
+			t.Fatalf("expected exit 1, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
+		}
+		if !strings.Contains(stderr, "commit SHA") {
+			t.Fatalf("expected a clear commit-SHA refusal message, got:\n%s", stderr)
+		}
+		if posts := fake.posts(); len(posts) != 0 {
+			t.Fatalf("expected zero POSTs with no GITHUB_SHA, got %d: %+v", len(posts), posts)
+		}
+	})
+
+	t.Run("one failed POST does not swallow the other finding", func(t *testing.T) {
+		// The other half of the same reviewer finding: cmd/aurumcode/pr.go
+		// used to `return 1` the instant any single POST failed, which
+		// meant the sorted publish order (cmdb/settings.go:3 before
+		// docs/notas.md:99) made an inline failure silently cost the
+		// general comment too. FailNthPost fails the first POST this
+		// server receives with a plain 400 -- not the 422/commit_id rule
+		// above, and deliberately not a 5xx or 429/403-rate-limit shape:
+		// internal/git/githubclient's own client already retries those
+		// transparently (see its doRequest), which would silently recover
+		// from the injected failure on the next attempt and prove
+		// nothing. A 400 is returned immediately, no retry, so it reaches
+		// runPRReview as a real, single failed publish. GITHUB_SHA is set,
+		// so the fake's commit_id check is satisfied and would not itself
+		// reject anything.
+		fake := aur438NewFakeGitHub(t, "write")
+		fake.FailNthPost = 1
+		fake.FailStatus = http.StatusBadRequest
+		defer fake.Close()
+
+		code, stdout, stderr := run(fake.URL, "token-sintetico-write", "integration-synthetic-sha")
+		if code != 1 {
+			t.Fatalf("expected exit 1 (one publish failed), got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
+		}
+
+		posts := fake.posts()
+		if len(posts) != 2 {
+			t.Fatalf("expected both POSTs to still be attempted, got %d: %+v", len(posts), posts)
+		}
+		if posts[0].Path != "/repos/dono/projeto/pulls/42/comments" {
+			t.Fatalf("expected the first (failing) POST to be the inline endpoint, got %s", posts[0].Path)
+		}
+		if posts[1].Path != "/repos/dono/projeto/issues/42/comments" {
+			t.Fatalf("expected the second POST to still be the general endpoint, got %s", posts[1].Path)
+		}
+		if !strings.Contains(stdout, "docs/notas.md:99") || !strings.Contains(stdout, "publicado como comentario geral") {
+			t.Fatalf("expected the second finding to still be published despite the first POST failing, got:\n%s", stdout)
+		}
+		if strings.Contains(stdout, "cmdb/settings.go:3") && strings.Contains(stdout, "publicado na linha") {
+			t.Fatalf("the failed inline POST must not be reported as published, got:\n%s", stdout)
+		}
+		if !strings.Contains(stderr, "1 comentario(s) falharam") {
+			t.Fatalf("expected the aggregated-failure summary on stderr, got:\n%s", stderr)
 		}
 	})
 }
