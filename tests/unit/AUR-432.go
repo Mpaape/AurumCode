@@ -146,6 +146,70 @@ func TestAUR432(t *testing.T) {
 		}
 	})
 
+	t.Run("header-lines-redaction", func(t *testing.T) {
+		// Diff lines carry a +/-/space marker, and the filter's header rule
+		// is anchored at line start: composing "+" + "Authorization: ..."
+		// defeats the anchor unless the marker is stripped before the
+		// filter runs. These three cover the anchored family the reviewer
+		// proved leaking: authorization, proxy-authorization, cookie
+		// (set-cookie shares the mechanics via the same rule).
+		bearer := "AURUM-UNIT-BEARER-" + "9917"
+		basic := "AURUM-UNIT-BASIC-" + "9918"
+		cookie := "AURUM-UNIT-COOKIE-" + "9919"
+		headerDiff := &types.Diff{Files: []types.DiffFile{{
+			Path: "config/client.http",
+			Lang: "text",
+			Hunks: []types.DiffHunk{{
+				OldStart: 1, OldLines: 1, NewStart: 1, NewLines: 3,
+				Lines: []string{
+					"+Authorization: Bearer " + bearer,
+					"+Proxy-Authorization: Basic " + basic,
+					"-Set-Cookie: session=" + cookie,
+				},
+			}},
+		}}}
+		provider, _ := aur432Review(t, headerDiff,
+			aur432Response("config/client.http", 1, "An authentication header is committed in plain text.", ""))
+		prompt := provider.prompts[0]
+		for name, secret := range map[string]string{
+			"bearer": bearer, "basic": basic, "cookie": cookie,
+		} {
+			if strings.Contains(prompt, secret) {
+				t.Errorf("the %s header credential reached the provider prompt", name)
+			}
+		}
+		// The header names survive: the model still sees THAT an auth
+		// header is committed on those lines.
+		for _, context := range []string{"Authorization:", "Proxy-Authorization:"} {
+			if !strings.Contains(prompt, context) {
+				t.Errorf("redaction destroyed review context %q", context)
+			}
+		}
+	})
+
+	t.Run("echoed-header-line-on-output", func(t *testing.T) {
+		// A model quoting the offending diff line echoes it marker and
+		// all; the output boundary must strip the marker before the
+		// anchored rule can see the header line.
+		bearer := "AURUM-UNIT-BEARER-" + "9920"
+		message := "The change adds this header line:\n+Authorization: Bearer " + bearer + "\nRotate the credential."
+		_, result := aur432Review(t, cleanDiff,
+			aur432Response("src/greeter.py", 1, message, ""))
+		if len(result.Issues) != 1 {
+			t.Fatalf("expected 1 issue, got %d", len(result.Issues))
+		}
+		issue := result.Issues[0]
+		if strings.Contains(issue.Message, bearer) {
+			t.Error("a model-echoed header credential survived into the report")
+		}
+		if !strings.Contains(issue.Message, redaction.Marker) {
+			t.Error("the echoed header line was not replaced with the redaction marker")
+		}
+		if !strings.HasSuffix(issue.Message, "(rule security/hardcoded-secret: Hardcoded Secrets)") {
+			t.Errorf("the rule citation suffix was damaged: %q", redactionSafe(issue.Message))
+		}
+	})
+
 	t.Run("private-key-block", func(t *testing.T) {
 		// The banners are assembled at runtime so no tracked file carries a
 		// private-key shape.

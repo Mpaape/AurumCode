@@ -37,3 +37,17 @@ tracked input matching a real credential shape (`sk-…`, `AKIA…`,
 The reviewed repository these responses cite is
 `tests/fixtures/repos/git-demo/repo.git`, whose HEAD commit plants the
 synthetic `AURUM-FAKE-*` values in `config/demo-tokens.txt`.
+
+Two families of values are exercised only at runtime, never from a
+tracked file here:
+
+- credential shapes (`sk-…`, private-key banners), because both the
+  sealed runner and the fixture builder refuse them in tracked or built
+  content — `tests/unit/AUR-432.go` assembles them in process and
+  `tests/e2e/AUR-432.sh` proves the builder's refusal;
+- anchored header credentials (`Authorization: Bearer <value>`,
+  `Proxy-Authorization`, `Cookie`/`Set-Cookie`), planted by
+  `tests/e2e/AUR-432.sh` into its runtime-built repository and echoed
+  back marker-and-all by its runtime response, because the diff marker
+  (`+`) defeats line-anchored rules unless the composition strips it —
+  the exact vector the AUR-432 review proved leaking.
