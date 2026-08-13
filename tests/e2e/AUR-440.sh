@@ -154,53 +154,130 @@ func main() {
 	shaRe := regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 	semverRe := regexp.MustCompile(`^v[0-9]+(\.[0-9]+){0,2}$`)
 
-	var repository, ref string
+	// Pass 1: every uses stays in the pinned actions/ namespace, never the
+	// root composite, and the single release checkout yields repo/ref/path.
+	var repository, ref, toolDir string
 	found := 0
-	var reviewSeen, publishSeen bool
 	for _, s := range steps.Content {
-		if u := get(s, "uses"); u != nil {
-			ownerRepo := u.Value
-			if at := strings.LastIndex(u.Value, "@"); at > 0 {
-				ownerRepo = u.Value[:at]
-			}
-			if ownerRepo == expectedRepo || strings.HasPrefix(ownerRepo, expectedRepo+"/") {
-				missing("step uses %q delegates to the root composite action, which cannot review a pull request", u.Value)
-			}
-			if !strings.HasPrefix(u.Value, "actions/") {
-				missing("step uses %q outside the pinned actions/ namespace", u.Value)
-			}
-			if strings.HasPrefix(u.Value, "actions/checkout@") {
-				with := get(s, "with")
-				if repoNode := get(with, "repository"); repoNode != nil {
-					found++
-					repository = repoNode.Value
-					if refNode := get(with, "ref"); refNode != nil {
-						ref = refNode.Value
-					}
-				}
-			}
+		u := get(s, "uses")
+		if u == nil {
+			continue
 		}
-		if r := get(s, "run"); r != nil {
-			if strings.Contains(r.Value, "${{") {
-				missing("a run script interpolates ${{ }} into its body; runtime data must travel through env")
-			}
-			if strings.Contains(r.Value, "review") && strings.Contains(r.Value, "--base") {
-				env := get(s, "env")
-				if get(env, "LLM_API_KEY") == nil || get(env, "LLM_BASE_URL") == nil || get(env, "BASE_SHA") == nil {
-					missing("review step env misses LLM_API_KEY, LLM_BASE_URL or BASE_SHA")
+		ownerRepo := u.Value
+		if at := strings.LastIndex(u.Value, "@"); at > 0 {
+			ownerRepo = u.Value[:at]
+		}
+		if ownerRepo == expectedRepo || strings.HasPrefix(ownerRepo, expectedRepo+"/") {
+			missing("step uses %q delegates to the root composite action, which cannot review a pull request", u.Value)
+		}
+		if !strings.HasPrefix(u.Value, "actions/") {
+			missing("step uses %q outside the pinned actions/ namespace", u.Value)
+		}
+		if strings.HasPrefix(u.Value, "actions/checkout@") {
+			with := get(s, "with")
+			if repoNode := get(with, "repository"); repoNode != nil {
+				found++
+				repository = repoNode.Value
+				if refNode := get(with, "ref"); refNode != nil {
+					ref = refNode.Value
 				}
-				reviewSeen = true
-			}
-			if strings.Contains(r.Value, "gh pr comment") {
-				if env := get(s, "env"); get(env, "GH_TOKEN") == nil {
-					missing("publish step env declares no GH_TOKEN")
+				if pathNode := get(with, "path"); pathNode != nil {
+					toolDir = pathNode.Value
 				}
-				publishSeen = true
 			}
 		}
 	}
 	if found != 1 {
 		missing("expected exactly one AurumCode release checkout, found %d", found)
+	}
+	if toolDir == "" {
+		missing("release checkout declares no path")
+	}
+
+	// Pass 2: the scripts. No ${{ }} in a body, no command that could build,
+	// test or execute the pull request's own code (PR-SEC-001; go build only
+	// as `go build -C <toolDir>`), the review invocation passes exactly
+	// flags the v1 binary accepts (--base, --fail-on; --publish is AUR-438
+	// and does not exist at v1), and the publish step authenticates gh.
+	allowedFlags := map[string]bool{"--base": true, "--fail-on": true}
+	var reviewSeen, publishSeen, baseSeen bool
+	for _, s := range steps.Content {
+		r := get(s, "run")
+		if r == nil {
+			continue
+		}
+		if strings.Contains(r.Value, "${{") {
+			missing("a run script interpolates ${{ }} into its body; runtime data must travel through env")
+		}
+		for _, line := range strings.Split(r.Value, "\n") {
+			fields := strings.Fields(line)
+			if len(fields) == 0 || strings.HasPrefix(fields[0], "#") {
+				continue
+			}
+			if strings.HasPrefix(fields[0], "./") {
+				missing("a run step executes a workspace file: %s", strings.TrimSpace(line))
+			}
+			for i, field := range fields {
+				switch field {
+				case "go":
+					if i+1 >= len(fields) {
+						continue
+					}
+					switch fields[i+1] {
+					case "build":
+						if i+3 >= len(fields) || fields[i+2] != "-C" || fields[i+3] != toolDir {
+							missing("a run step compiles outside the release tree: %s", strings.TrimSpace(line))
+						}
+					case "test", "run", "generate", "install", "vet", "tool", "get", "mod":
+						missing("a run step executes go %s over the pull request tree: %s", fields[i+1], strings.TrimSpace(line))
+					}
+				case "make", "npm", "npx", "yarn", "pnpm", "pip", "pip3", "python", "python3",
+					"node", "cargo", "mvn", "gradle", "dotnet", "bundle", "rake",
+					"sh", "bash", "eval", "source":
+					missing("a run step runs %s, which can execute the pull request's own code: %s", field, strings.TrimSpace(line))
+				}
+			}
+			for i := 0; i+1 < len(fields); i++ {
+				if !strings.Contains(fields[i], "aurumcode") || fields[i+1] != "review" {
+					continue
+				}
+				if reviewSeen {
+					missing("more than one step invokes the review binary")
+				}
+				reviewSeen = true
+				for _, tok := range fields[i+2:] {
+					if tok == "|" || tok == "||" || tok == "&&" || tok == ";" {
+						break
+					}
+					if !strings.HasPrefix(tok, "--") {
+						continue
+					}
+					name := tok
+					if eq := strings.Index(tok, "="); eq >= 0 {
+						name = tok[:eq]
+					}
+					if !allowedFlags[name] {
+						missing("review invocation passes %q, a flag the v1 binary does not accept (--base and --fail-on only; publication through the binary is AUR-438)", name)
+					}
+					if name == "--base" {
+						baseSeen = true
+					}
+				}
+				env := get(s, "env")
+				if get(env, "LLM_API_KEY") == nil || get(env, "LLM_BASE_URL") == nil || get(env, "BASE_SHA") == nil {
+					missing("review step env misses LLM_API_KEY, LLM_BASE_URL or BASE_SHA")
+				}
+			}
+		}
+		if strings.Contains(r.Value, "gh pr comment") {
+			if env := get(s, "env"); get(env, "GH_TOKEN") == nil {
+				missing("publish step env declares no GH_TOKEN")
+			}
+			publishSeen = true
+		}
+	}
+	if reviewSeen && !baseSeen {
+		missing("review invocation never passes --base")
 	}
 	if repository != expectedRepo {
 		missing("release checkout references %q, not this repository %q", repository, expectedRepo)
