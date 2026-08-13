@@ -62,6 +62,10 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		// across the git-binary and pure-Go backends.
 		"aurumcode review: /tmp is not a git repository (no .git directory here, and this path is not itself a bare repository)",
 		`aurumcode review: ref "does-not-exist" not found in this repository: expected a branch name, HEAD, a 40-character commit SHA, or a "<ref>~N" parent expression`,
+		// AUR-443 (post-review fix): a ref that exists but is unreadable
+		// (EACCES) is a distinct message from "not found" (ENOENT) -- see
+		// cleanRefError/refPathPermissionDenied in cmd/aurumcode/main.go.
+		`aurumcode review: permission denied resolving ref "main" in this repository: this process cannot read the ref's storage under .git (or the bare repository root) -- check its file permissions`,
 		// AUR-426's docs subcommand.
 		"aurumcode docs: source directory /abs/missing: stat /abs/missing: no such file or directory",
 		"aurumcode docs: source directory /abs/file.txt is not a directory",

@@ -90,6 +90,24 @@ func aur443NoGitPath(t *testing.T) string {
 	return dir
 }
 
+// aur443UnreadableRefFixture copies srcRepoDir into a writable temp
+// directory and revokes read permission on its refs/heads/main file,
+// reproducing the exact EACCES the reviewer found on AUR-443's first cut:
+// a ref that exists but this process cannot read.
+func aur443UnreadableRefFixture(t *testing.T, srcRepoDir string) string {
+	t.Helper()
+	dst := filepath.Join(t.TempDir(), "repo.git")
+	if out, err := exec.Command("cp", "-R", srcRepoDir, dst).CombinedOutput(); err != nil {
+		t.Fatalf("staging a writable fixture copy: %v\n%s", err, out)
+	}
+	refFile := filepath.Join(dst, "refs", "heads", "main")
+	if err := os.Chmod(refFile, 0o000); err != nil {
+		t.Fatalf("chmod 000 %s: %v", refFile, err)
+	}
+	t.Cleanup(func() { os.Chmod(refFile, 0o644) })
+	return dst
+}
+
 // IntegrationAUR443 proves, through the real binary, that
 // internal/analyzer's two ref-resolution backends now report the identical
 // clean message for the same unresolvable ref, and that a real git binary
@@ -127,9 +145,54 @@ func IntegrationAUR443(t *testing.T) {
 		}
 	})
 
+	// This is the reviewer's blocker on AUR-443's first cut
+	// (cmd/aurumcode/main.go's cleanRefError): matching ANY *fs.PathError
+	// as "ref not found" also matched EACCES, so a ref that exists but
+	// cannot be read produced a confidently wrong "not found" diagnosis.
+	// Root is excluded because chmod 000 does not deny root read access.
+	t.Run("pure-Go backend: a ref that exists but is unreadable is a permission message, not ref-not-found", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("running as root: chmod 000 does not deny root read access, so this case cannot be reproduced here")
+		}
+		unreadable := aur443UnreadableRefFixture(t, repoDir)
+		code, _, stderr := aur443IntegrationRun(t, bin, unreadable, noGitPath, "review", "--base", "main")
+		if code != 1 {
+			t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+		}
+		if !strings.Contains(stderr, "permission denied") {
+			t.Fatalf("expected a permission-denied diagnosis, got:\n%s", stderr)
+		}
+		if strings.Contains(stderr, "not found") {
+			t.Fatalf("a permission problem must not be reported as \"not found\", got:\n%s", stderr)
+		}
+	})
+
 	if !hasRealGit {
 		t.Skip("no git binary on PATH in this environment: skipping the git-binary-backend comparison (the pure-Go backend above is what bootstrap-readonly-v1 exercises and is not skipped)")
 	}
+
+	// git's own `rev-parse --verify` stderr ("fatal: Needed a single
+	// revision") is byte-identical for ENOENT and EACCES -- it never
+	// exposes the underlying errno -- so string-matching git's output
+	// alone could never tell a missing ref from an unreadable one. This is
+	// exactly why cleanRefError's permission probe is checked on both
+	// backends instead of only patching the pure-Go one.
+	t.Run("git-binary backend: the same unreadable ref is also a permission message, not ref-not-found", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("running as root: chmod 000 does not deny root read access, so this case cannot be reproduced here")
+		}
+		unreadable := aur443UnreadableRefFixture(t, repoDir)
+		code, _, stderr := aur443IntegrationRun(t, bin, unreadable, realGitOnPath, "review", "--base", "main")
+		if code != 1 {
+			t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+		}
+		if !strings.Contains(stderr, "permission denied") {
+			t.Fatalf("expected a permission-denied diagnosis, got:\n%s", stderr)
+		}
+		if strings.Contains(stderr, "not found") {
+			t.Fatalf("got \"not found\" for a permission problem -- git's own stderr for EACCES and ENOENT is identical, so this is exactly the case the probe exists for:\n%s", stderr)
+		}
+	})
 
 	t.Run("git-binary backend and pure-Go backend report the identical message", func(t *testing.T) {
 		_, _, pureGoStderr := aur443IntegrationRun(t, bin, repoDir, noGitPath, "review", "--base", badRef)

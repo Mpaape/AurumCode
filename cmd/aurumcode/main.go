@@ -126,6 +126,7 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -630,7 +631,7 @@ func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, err
 	}
 	diff, notices, err := repo.Diff(base, "HEAD")
 	if err != nil {
-		return nil, nil, cleanRefError(base, err)
+		return nil, nil, cleanRefError(repoRoot, base, err)
 	}
 	return diff, notices, nil
 }
@@ -661,7 +662,22 @@ func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, err
 // not concretely measured by this card's dogfooding and keeps its
 // pre-existing wrapped message unchanged, so a genuinely new failure is
 // never silently hidden behind a guessed diagnosis.
-func cleanRefError(base string, err error) error {
+//
+// A permission problem (the ref file exists but this process cannot read
+// it -- exactly the shape a locked-down runtime like this card's own
+// bootstrap-readonly-v1 profile, or any non-root uid, can hit) is
+// deliberately NOT folded into "not found": refPathPermissionDenied below
+// probes the concrete resource independently and is checked first, so a
+// permission failure is reported as what it is instead of a confident,
+// wrong "ref not found" -- a review found this card's first cut treated
+// every *fs.PathError as "not found" regardless of cause (fixed: the
+// pure-Go path now also requires errors.Is(err, fs.ErrNotExist)), and,
+// separately, that `git rev-parse`'s own stderr text
+// ("fatal: Needed a single revision") is byte-identical for ENOENT and
+// EACCES on the git-binary path -- string-matching git's output alone can
+// never tell the two apart, which is why the probe exists and is checked
+// on both backends rather than only patching the pure-Go one.
+func cleanRefError(repoRoot, base string, err error) error {
 	msg := err.Error()
 	ref := ""
 	switch {
@@ -673,8 +689,12 @@ func cleanRefError(base string, err error) error {
 		return fmt.Errorf("computing diff %s..HEAD: %w", base, err)
 	}
 
+	if refPathPermissionDenied(repoRoot, ref) {
+		return fmt.Errorf("permission denied resolving ref %q in this repository: this process cannot read the ref's storage under .git (or the bare repository root) -- check its file permissions", ref)
+	}
+
 	var pathErr *fs.PathError
-	looksLikeNoSuchRef := errors.As(err, &pathErr) ||
+	looksLikeNoSuchRef := (errors.As(err, &pathErr) && errors.Is(err, fs.ErrNotExist)) ||
 		strings.Contains(msg, "Needed a single revision") ||
 		strings.Contains(msg, "unknown revision or path")
 	if !looksLikeNoSuchRef {
@@ -682,6 +702,64 @@ func cleanRefError(base string, err error) error {
 	}
 
 	return fmt.Errorf("ref %q not found in this repository: expected a branch name, HEAD, a 40-character commit SHA, or a \"<ref>~N\" parent expression", ref)
+}
+
+// refPathPermissionDenied independently probes whether ref's own loose-ref
+// storage under repoRoot is unreadable for a permission reason (EACCES), as
+// opposed to genuinely absent (ENOENT) -- the one distinction neither
+// backend's own error text reliably carries (see cleanRefError's doc
+// above). It reads the exact physical location either backend would have
+// consulted for a bare branch name or HEAD, directly, from cmd/aurumcode,
+// independent of which backend actually produced the original error: this
+// is the one thing this card can do about the ambiguity without editing
+// internal/analyzer (a read_path for this card).
+//
+// It is deliberately conservative: a raw 40-character SHA has no loose-ref
+// file to probe, an ambiguous or empty ref name is left alone, and any
+// outcome other than a confirmed permission error (the file does not
+// exist, or the open succeeds) returns false and lets the existing
+// "not found" heuristic answer instead -- a probe that cannot say anything
+// useful must never manufacture a diagnosis of its own.
+func refPathPermissionDenied(repoRoot, ref string) bool {
+	if ref == "" || looksLikeCommitSHA(ref) {
+		return false
+	}
+
+	gitDir := filepath.Join(repoRoot, ".git")
+	if info, err := os.Stat(gitDir); err != nil || !info.IsDir() {
+		// No ".git" subdirectory: repoRoot is itself the bare repository
+		// (see analyzer.OpenRepo's own fallback, gitrepo.go).
+		gitDir = repoRoot
+	}
+
+	var candidate string
+	if ref == "HEAD" {
+		candidate = filepath.Join(gitDir, "HEAD")
+	} else {
+		candidate = filepath.Join(gitDir, "refs", "heads", filepath.FromSlash(ref))
+	}
+
+	f, err := os.Open(candidate)
+	if err == nil {
+		f.Close()
+		return false
+	}
+	return errors.Is(err, fs.ErrPermission)
+}
+
+// looksLikeCommitSHA reports whether ref is exactly 40 hex characters --
+// the one ref shape that resolves without ever touching a loose-ref file,
+// so refPathPermissionDenied has nothing to probe for it.
+func looksLikeCommitSHA(ref string) bool {
+	if len(ref) != 40 {
+		return false
+	}
+	for _, c := range ref {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 // printNotices reports the changed files that were deliberately not
