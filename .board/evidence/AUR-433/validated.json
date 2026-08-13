@@ -1,0 +1,18 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-433",
+ "commit": "8c95bc0760a13c16ba747665a527d3689be12b87",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-433",
+  "exit_code": 0,
+  "raw_output": "sealed 0 for 433, 438 and 426 in the same tree (shared cmd/aurumcode package coexistence)"
+ },
+ "review_notes": {
+  "documented_divergence": "the pre-flight estimate and the enforced ceiling can disagree at the margin (--limite 0.10 refuses at an estimate of 0.0914; passes from 0.11); reviewer swept 0.09..0.30 and reproduced the crossover, which the spec documents with the same numbers",
+  "canary": "only unit-level in the card's own suite; reviewer spot-checked live by planting the canary in LLM_BASE_URL and saw [REDACTED] via the AUR-432 stderr writer",
+  "reapplied": "the original candidate conflicted on main.go and redaction_wiring_test.go with AUR-426/AUR-438; the builder re-applied on the integrated tip keeping all three surfaces"
+ }
+}
