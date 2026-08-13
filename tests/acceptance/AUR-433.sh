@@ -66,9 +66,25 @@ cleanup_root() {
 }
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
-export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS=-mod=mod
+
+# REGRAS INEGOCIAVEIS: bounded memory, GOFLAGS carries -mod=mod (offline,
+# read-only module list) and -p=1 (single build/test process) for every go
+# invocation in this file -- the shared cmd/aurumcode closure this card now
+# stages (internal/documentation/*, internal/pipeline, cmd/regenerate-docs)
+# is large enough that unbounded build parallelism gets the compiler
+# OOM-killed under the sealed profile's memory ceiling; -p=1 plus the
+# GOMEMLIMIT/ulimit pair in run_go keeps peak memory bounded instead.
+export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
 export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
+
+# run_go <dir> <go-args...> runs `go` inside dir with the memory ceiling and
+# GOMEMLIMIT the card requires, isolated to a subshell so the ulimit does not
+# leak into the rest of this script (e.g. the `cp -R` staging below).
+run_go() {
+  local dir="$1"; shift
+  ( cd "$dir" && ulimit -v 8388608 && GOMEMLIMIT=2GiB go "$@" )
+}
 
 # copy materializes one repo path into a staged root. Every path it copies
 # is either owned by this card (paths) or read by it (read_paths); a
@@ -144,7 +160,7 @@ build_shared() {
   ((shared_built == 0)) || return 0
   stage_source "$shared_root"
   local log="$shared_root/build.log"
-  if ! (cd "$shared_root" && go build -o "$shared_bin" ./cmd/aurumcode) >"$log" 2>&1; then
+  if ! run_go "$shared_root" build -o "$shared_bin" ./cmd/aurumcode >"$log" 2>&1; then
     cat "$log" >&2
     fail build_failed
   fi
@@ -332,7 +348,7 @@ mutation_case() {
 
   local bin="$run_dir/aurumcode-mut"
   local log="$root/build-mut.log"
-  if ! (cd "$root" && go build -o "$bin" ./cmd/aurumcode) >"$log" 2>&1; then
+  if ! run_go "$root" build -o "$bin" ./cmd/aurumcode >"$log" 2>&1; then
     cat "$log" >&2
     fail 'MUT-001/build-failed'
   fi
@@ -380,7 +396,7 @@ func TestAUR433UnitBridge(t *testing.T) { TestAUR433(t) }
 EOF
   local out rc
   set +e
-  out="$(cd "$root" && AURUMCODE_ROOT="$root" GOMAXPROCS=1 go test -v -mod=mod -p 1 -timeout 300s ./tests/unit -run '^TestAUR433UnitBridge$' -count=1 2>&1)"
+  out="$(cd "$root" && ulimit -v 8388608 && AURUMCODE_ROOT="$root" GOMAXPROCS=1 GOMEMLIMIT=2GiB go test -v -mod=mod -p 1 -timeout 300s ./tests/unit -run '^TestAUR433UnitBridge$' -count=1 2>&1)"
   rc=$?
   set -e
   printf '%s\n' "$out" | sed -E 's#\([0-9]+\.[0-9]+s\)#(TIMEs)#g; s#[0-9]+\.[0-9]+s$#TIMEs#g'
@@ -402,7 +418,7 @@ func TestAUR433IntegrationBridge(t *testing.T) { IntegrationAUR433(t) }
 EOF
   local out rc
   set +e
-  out="$(cd "$root" && AURUMCODE_ROOT="$root" GOMAXPROCS=1 go test -v -mod=mod -p 1 -timeout 300s ./tests/integration -run '^TestAUR433IntegrationBridge$' -count=1 2>&1)"
+  out="$(cd "$root" && ulimit -v 8388608 && AURUMCODE_ROOT="$root" GOMAXPROCS=1 GOMEMLIMIT=2GiB go test -v -mod=mod -p 1 -timeout 300s ./tests/integration -run '^TestAUR433IntegrationBridge$' -count=1 2>&1)"
   rc=$?
   set -e
   printf '%s\n' "$out" | sed -E 's#\([0-9]+\.[0-9]+s\)#(TIMEs)#g; s#[0-9]+\.[0-9]+s$#TIMEs#g'
