@@ -1,7 +1,7 @@
 // Command aurumcode is the entrypoint for this reconstruction's local code
 // review engine (AUR-430). It currently supports one subcommand:
 //
-//	aurumcode review --base <ref> [--fail-on <level>]
+//	aurumcode review --base <ref> [--fail-on <level>] [--modelo <nome>]
 //
 // which diffs <ref> against HEAD in the git repository rooted at the
 // current working directory, sends that diff to an LLM through
@@ -12,9 +12,17 @@
 // severity or above, and 0 otherwise. Without --fail-on, behavior is
 // exactly AUR-430's: findings never change the exit code.
 //
-// See docs/specs/AUR-430.md for the base command reference and
-// docs/specs/AUR-431.md for the --fail-on gate, its levels and exit codes,
-// each with an offline, secret-free example.
+// With --modelo (AUR-436), the user chooses which model reviews --
+// including a local one, by pointing LLM_BASE_URL at a local
+// OpenAI-compatible endpoint -- and when nothing is configured to serve
+// the chosen model the command fails with a clear, actionable error on
+// stderr and exit 1, never an empty review with exit 0. Without --modelo,
+// provider selection is exactly AUR-430's.
+//
+// See docs/specs/AUR-430.md for the base command reference,
+// docs/specs/AUR-431.md for the --fail-on gate and
+// docs/specs/AUR-436.md for --modelo, each with an offline, secret-free
+// example.
 package main
 
 import (
@@ -58,6 +66,7 @@ func runReview(args []string, stdout, stderr *os.File) int {
 	fs.SetOutput(stderr)
 	base := fs.String("base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
 	failOn := fs.String("fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
+	modelo := fs.String("modelo", "", "model that reviews, e.g. local, llama3 or gpt-4; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: AUR-430's selection, unchanged)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -73,9 +82,13 @@ func runReview(args []string, stdout, stderr *os.File) int {
 	// distinguished from an absent flag and rejected the same way any
 	// other unknown level is, instead of silently disabling the gate.
 	failOnSet := false
+	modeloSet := false
 	fs.Visit(func(f *flag.Flag) {
 		if f.Name == "fail-on" {
 			failOnSet = true
+		}
+		if f.Name == "modelo" {
+			modeloSet = true
 		}
 	})
 	threshold := 0
@@ -87,6 +100,15 @@ func runReview(args []string, stdout, stderr *os.File) int {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 			return 2
 		}
+	}
+
+	// A present-but-empty model name (`--modelo "$VAR"` with VAR unset) is
+	// a usage error, mirroring --fail-on's treatment above: the flag was
+	// given, so silently falling back to the default selection would review
+	// with a model the user never chose.
+	if modeloSet && *modelo == "" {
+		fmt.Fprintln(stderr, "aurumcode review: --modelo: model name must not be empty")
+		return 2
 	}
 
 	cwd, err := os.Getwd()
@@ -101,10 +123,28 @@ func runReview(args []string, stdout, stderr *os.File) int {
 		return 1
 	}
 
-	provider, providerErr := selectProvider()
+	// Provider selection. With --modelo the flag commands which model
+	// reviews (AUR-436); without it, selectProvider keeps AUR-430's
+	// published behavior verbatim.
+	var provider llm.Provider
+	var providerErr error
+	providerVia := ""
+	if *modelo != "" {
+		provider, providerVia, providerErr = selectProviderForModel(*modelo)
+	} else {
+		provider, providerErr = selectProvider()
+	}
 	if providerErr != nil {
+		if *modelo != "" {
+			return reportModelUnavailable(stderr, *modelo, providerErr)
+		}
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", providerErr)
 		return 1
+	}
+	if *modelo != "" {
+		// The note goes to stderr so stdout stays byte-identical with and
+		// without the flag, exactly like --fail-on's gate note.
+		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", *modelo, providerVia)
 	}
 
 	orchestrator := llm.NewOrchestrator(provider, nil, nil)
@@ -116,6 +156,13 @@ func runReview(args []string, stdout, stderr *os.File) int {
 		if errors.As(err, &parseErr) {
 			fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
 			return 1
+		}
+		// With --modelo, a provider chain that could not complete means the
+		// chosen model is unavailable (endpoint down, wrong URL, model not
+		// served): name the model and say how to fix it, instead of only
+		// surfacing the transport error.
+		if *modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
+			return reportModelUnavailable(stderr, *modelo, err)
 		}
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
@@ -267,6 +314,56 @@ func selectProvider() (llm.Provider, error) {
 	}
 
 	return nil, errors.New("no LLM provider configured: set AURUMCODE_LLM_FIXTURE for offline use, or LLM_API_KEY and LLM_BASE_URL for a live provider")
+}
+
+// selectProviderForModel serves the model the user chose with --modelo
+// (AUR-436), reusing the exact provider mechanisms selectProvider already
+// documents -- nothing here adds a vendor:
+//
+//   - AURUMCODE_LLM_FIXTURE=<path>: the deterministic offline provider
+//     (review.FakeProvider) answers for the chosen model. This is how the
+//     sealed, network-denied acceptance exercises `--modelo local`.
+//   - LLM_API_KEY and LLM_BASE_URL: the chosen model rides the existing
+//     OpenAI-compatible litellm provider, overriding LLM_MODEL: the flag,
+//     not the environment, decides. A local model is chosen by pointing
+//     LLM_BASE_URL at a local endpoint (an ollama or llama.cpp server's
+//     OpenAI-compatible API, or a litellm proxy in front of any local
+//     model).
+//
+// Neither set: the chosen model is unavailable. That is an error the
+// caller must surface loudly (see reportModelUnavailable) -- never an
+// empty review with exit 0.
+//
+// The second return value says which mechanism serves the model, for the
+// stderr selection note.
+func selectProviderForModel(model string) (llm.Provider, string, error) {
+	if fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE"); fixturePath != "" {
+		content, err := os.ReadFile(fixturePath)
+		if err != nil {
+			return nil, "", fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
+		}
+		return &review.FakeProvider{Response: string(content), NameStr: model}, "offline fixture provider", nil
+	}
+
+	apiKey := os.Getenv("LLM_API_KEY")
+	baseURL := os.Getenv("LLM_BASE_URL")
+	if apiKey != "" && baseURL != "" {
+		return litellm.NewProvider(apiKey, baseURL, model), "litellm endpoint " + baseURL, nil
+	}
+
+	return nil, "", errors.New("no LLM provider is configured to serve it")
+}
+
+// reportModelUnavailable prints the clear, actionable error the card
+// promises when the model chosen with --modelo cannot review: which model,
+// why it is unavailable, and how to configure a provider that serves it --
+// including a local one. It returns the command's exit code, 1, the same
+// "the review itself failed" code AUR-430 already documents; the one thing
+// this path must never do is report an empty review with exit 0.
+func reportModelUnavailable(stderr *os.File, model string, reason error) int {
+	fmt.Fprintf(stderr, "aurumcode review: model %q is unavailable: %v\n", model, reason)
+	fmt.Fprintf(stderr, "aurumcode review: to serve model %q: set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run, or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo %s\n", model, model)
+	return 1
 }
 
 // printFindings prints one line per issue: "<file>:<line>: [<severity>]
