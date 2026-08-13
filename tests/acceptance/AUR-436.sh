@@ -88,7 +88,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
-  copy "$root" internal/analyzer internal/prompt internal/review internal/llm pkg/types
+  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm pkg/types
   copy "$root" tests/fixtures/repos/git-demo
   # cp -R preserves the read-only mode bits of the materialized input; the
   # staged copy is scratch from here on, so force it writable for the

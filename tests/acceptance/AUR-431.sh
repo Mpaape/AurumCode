@@ -66,7 +66,7 @@ cleanup_root() {
 }
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
-export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS=-mod=mod
+export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
 export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 
@@ -92,7 +92,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
-  copy "$root" internal/analyzer internal/prompt internal/review internal/llm pkg/types
+  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm pkg/types
   copy "$root" tests/fixtures/repos/git-demo
   # cp -R preserves the read-only mode bits of the materialized input; the
   # staged copy is scratch from here on, so force it writable for the
@@ -112,6 +112,7 @@ cat >"$fixture_error" <<'EOF'
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "rule_id": "security/hardcoded-secret",
       "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN)."
     }
   ],
