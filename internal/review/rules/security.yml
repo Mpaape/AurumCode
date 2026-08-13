@@ -1,0 +1,66 @@
+# Security Review Rules
+#
+# Restored by AUR-434 from commit c12d7ab's .aurumcode/rules/security.yml
+# and embedded into the binary via go:embed (see ../rules.go) so the
+# catalog travels with the binary instead of depending on a directory at
+# the caller's cwd. One id is normalized against the original file:
+# `security/hardcoded-secrets` is now `security/hardcoded-secret`, the
+# singular form the engine's own prompt contract and fixtures emit (see
+# tests/fixtures/review/known-problem-response.json).
+
+rules:
+  - id: security/sql-injection
+    title: SQL Injection Vulnerability
+    description: Potential SQL injection vulnerability detected
+    severity: error
+    category: security
+    tags: [sql, injection, database]
+
+  - id: security/xss
+    title: Cross-Site Scripting (XSS)
+    description: Potential XSS vulnerability detected
+    severity: error
+    category: security
+    tags: [xss, web, injection]
+
+  - id: security/command-injection
+    title: Command Injection
+    description: Potential command injection vulnerability
+    severity: error
+    category: security
+    tags: [command, injection, shell]
+
+  - id: security/path-traversal
+    title: Path Traversal
+    description: Potential path traversal vulnerability
+    severity: error
+    category: security
+    tags: [path, filesystem, traversal]
+
+  - id: security/hardcoded-secret
+    title: Hardcoded Secrets
+    description: Hardcoded credentials or API keys detected
+    severity: error
+    category: security
+    tags: [secrets, credentials, keys]
+
+  - id: security/weak-crypto
+    title: Weak Cryptography
+    description: Use of weak or deprecated cryptographic algorithms
+    severity: warning
+    category: security
+    tags: [crypto, encryption, hash]
+
+  - id: security/insecure-random
+    title: Insecure Random Number Generation
+    description: Use of insecure random number generator
+    severity: warning
+    category: security
+    tags: [random, crypto, security]
+
+  - id: security/missing-auth
+    title: Missing Authentication
+    description: Endpoint or function lacks proper authentication
+    severity: error
+    category: security
+    tags: [auth, authentication, access]
