@@ -75,7 +75,7 @@ func TestOpenRepo_GitBinary_LinkedWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenRepo(linked worktree): %v", err)
 	}
-	diff, err := repo.Diff("HEAD~1", "HEAD")
+	diff, _, err := repo.Diff("HEAD~1", "HEAD")
 	if err != nil {
 		t.Fatalf("Diff over a linked worktree: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestOpenRepo_GitBinary_PackedObjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenRepo: %v", err)
 	}
-	diff, err := repo.Diff("HEAD~1", "HEAD")
+	diff, _, err := repo.Diff("HEAD~1", "HEAD")
 	if err != nil {
 		t.Fatalf("Diff over packed objects: %v", err)
 	}

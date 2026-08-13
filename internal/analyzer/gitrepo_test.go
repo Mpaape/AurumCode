@@ -78,7 +78,7 @@ func TestDiff_HeadAgainstParent(t *testing.T) {
 		t.Fatalf("OpenRepo: %v", err)
 	}
 
-	diff, err := repo.Diff("HEAD~1", "HEAD")
+	diff, _, err := repo.Diff("HEAD~1", "HEAD")
 	if err != nil {
 		t.Fatalf("Diff: %v", err)
 	}
@@ -124,11 +124,11 @@ func TestDiff_Deterministic(t *testing.T) {
 		t.Fatalf("OpenRepo: %v", err)
 	}
 
-	first, err := repo.Diff("HEAD~2", "HEAD")
+	first, _, err := repo.Diff("HEAD~2", "HEAD")
 	if err != nil {
 		t.Fatalf("Diff: %v", err)
 	}
-	second, err := repo.Diff("HEAD~2", "HEAD")
+	second, _, err := repo.Diff("HEAD~2", "HEAD")
 	if err != nil {
 		t.Fatalf("Diff: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestDiff_NoChanges(t *testing.T) {
 		t.Fatalf("OpenRepo: %v", err)
 	}
 
-	diff, err := repo.Diff("HEAD", "HEAD")
+	diff, _, err := repo.Diff("HEAD", "HEAD")
 	if err != nil {
 		t.Fatalf("Diff: %v", err)
 	}

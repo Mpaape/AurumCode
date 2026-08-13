@@ -38,7 +38,7 @@ func TestAUR430(t *testing.T) {
 		t.Fatalf("OpenRepo(%s): %v", repoPath, err)
 	}
 
-	diff, err := repo.Diff("HEAD~1", "HEAD")
+	diff, _, err := repo.Diff("HEAD~1", "HEAD")
 	if err != nil {
 		t.Fatalf("Diff(HEAD~1, HEAD): %v", err)
 	}

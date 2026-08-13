@@ -64,7 +64,7 @@ func runReview(args []string, stdout, stderr *os.File) int {
 		return 1
 	}
 
-	diff, err := computeDiff(cwd, *base)
+	diff, notices, err := computeDiff(cwd, *base)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
@@ -90,6 +90,7 @@ func runReview(args []string, stdout, stderr *os.File) int {
 		return 1
 	}
 
+	printNotices(stdout, notices)
 	printFindings(stdout, result)
 	return 0
 }
@@ -98,16 +99,28 @@ func runReview(args []string, stdout, stderr *os.File) int {
 // object database at repoRoot. See internal/analyzer/gitrepo.go for why
 // this reads git's on-disk format in pure Go instead of shelling out to a
 // `git` binary.
-func computeDiff(repoRoot, base string) (*types.Diff, error) {
+func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, error) {
 	repo, err := analyzer.OpenRepo(repoRoot)
 	if err != nil {
-		return nil, fmt.Errorf("%s is not a git repository: %w", repoRoot, err)
+		return nil, nil, fmt.Errorf("%s is not a git repository: %w", repoRoot, err)
 	}
-	diff, err := repo.Diff(base, "HEAD")
+	diff, notices, err := repo.Diff(base, "HEAD")
 	if err != nil {
-		return nil, fmt.Errorf("computing diff %s..HEAD: %w", base, err)
+		return nil, nil, fmt.Errorf("computing diff %s..HEAD: %w", base, err)
 	}
-	return diff, nil
+	return diff, notices, nil
+}
+
+// printNotices reports the changed files that were deliberately not
+// reviewed -- binary blobs and files past the size limits documented in
+// docs/specs/AUR-430.md. They print before the findings, on stdout, in the
+// diff's own sorted path order, and they do not change the exit code: a
+// skipped file is a normal, reportable outcome, not a failure. A run with
+// nothing to skip prints nothing here, so ordinary output is unaffected.
+func printNotices(stdout *os.File, notices []analyzer.DiffNotice) {
+	for _, n := range notices {
+		fmt.Fprintln(stdout, n.Message)
+	}
 }
 
 // selectProvider is the one place cmd/aurumcode names a specific LLM

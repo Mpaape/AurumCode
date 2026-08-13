@@ -412,15 +412,19 @@ func (r *Repo) flattenTree(sha, prefix string, out map[string]blobAt) error {
 	return nil
 }
 
-func (r *Repo) blobContent(sha string) (string, error) {
+// blobBytes returns a blob's raw content. It deliberately does not convert
+// to string: the caller classifies the raw bytes first (see classifyBlob),
+// so a binary or oversized blob is rejected before anything makes a second,
+// line-split copy of it.
+func (r *Repo) blobBytes(sha string) ([]byte, error) {
 	objType, content, err := r.readObject(sha)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if objType != "blob" {
-		return "", fmt.Errorf("object %s is a %s, not a blob", sha, objType)
+		return nil, fmt.Errorf("object %s is a %s, not a blob", sha, objType)
 	}
-	return string(content), nil
+	return content, nil
 }
 
 // Diff computes the changed-file diff between baseRef and headRef as a
@@ -429,32 +433,38 @@ func (r *Repo) blobContent(sha string) (string, error) {
 // matching how `git diff` itself only reports files that changed. Files are
 // returned sorted by path so the same two commits always produce
 // byte-identical output.
-func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, error) {
+//
+// A changed file that is binary, or larger than the limits in textdiff.go,
+// is not diffed at all: it is left out of the returned types.Diff -- so no
+// model call is ever made for it -- and reported through the returned
+// notices instead, in the same sorted path order. That is not an error
+// condition; callers print the notices and carry on.
+func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) {
 	baseSHA, err := r.ResolveRef(baseRef)
 	if err != nil {
-		return nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
+		return nil, nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
 	}
 	headSHA, err := r.ResolveRef(headRef)
 	if err != nil {
-		return nil, fmt.Errorf("resolving head ref %q: %w", headRef, err)
+		return nil, nil, fmt.Errorf("resolving head ref %q: %w", headRef, err)
 	}
 
 	baseTree, _, err := r.readCommit(baseSHA)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	headTree, _, err := r.readCommit(headSHA)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	before := map[string]blobAt{}
 	after := map[string]blobAt{}
 	if err := r.flattenTree(baseTree, "", before); err != nil {
-		return nil, fmt.Errorf("reading base tree: %w", err)
+		return nil, nil, fmt.Errorf("reading base tree: %w", err)
 	}
 	if err := r.flattenTree(headTree, "", after); err != nil {
-		return nil, fmt.Errorf("reading head tree: %w", err)
+		return nil, nil, fmt.Errorf("reading head tree: %w", err)
 	}
 
 	paths := map[string]bool{}
@@ -471,6 +481,7 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, error) {
 	sort.Strings(sorted)
 
 	diff := &types.Diff{}
+	var notices []DiffNotice
 	for _, p := range sorted {
 		oldBlob, hadOld := before[p]
 		newBlob, hasNew := after[p]
@@ -478,22 +489,34 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, error) {
 			continue // unchanged
 		}
 
-		var oldContent, newContent string
+		var oldContent, newContent []byte
 		if hadOld {
-			oldContent, err = r.blobContent(oldBlob.sha)
+			oldContent, err = r.blobBytes(oldBlob.sha)
 			if err != nil {
-				return nil, fmt.Errorf("reading old content of %s: %w", p, err)
+				return nil, nil, fmt.Errorf("reading old content of %s: %w", p, err)
 			}
 		}
 		if hasNew {
-			newContent, err = r.blobContent(newBlob.sha)
+			newContent, err = r.blobBytes(newBlob.sha)
 			if err != nil {
-				return nil, fmt.Errorf("reading new content of %s: %w", p, err)
+				return nil, nil, fmt.Errorf("reading new content of %s: %w", p, err)
 			}
 		}
 
-		diff.Files = append(diff.Files, BuildDiffFile(p, oldContent, newContent))
+		// Classify before splitting into lines. Both sides must be
+		// diffable: a file that turned binary, or that grew past the
+		// limit, is skipped whichever side triggers it.
+		skip := classifyBlob(p, newContent)
+		if skip == "" {
+			skip = classifyBlob(p, oldContent)
+		}
+		if skip != "" {
+			notices = append(notices, DiffNotice{Path: p, Message: skip})
+			continue
+		}
+
+		diff.Files = append(diff.Files, BuildDiffFile(p, string(oldContent), string(newContent)))
 	}
 
-	return diff, nil
+	return diff, notices, nil
 }
