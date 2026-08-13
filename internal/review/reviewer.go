@@ -9,6 +9,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -32,6 +33,7 @@ type Reviewer struct {
 	diffAnalyzer  *analyzer.DiffAnalyzer
 	promptBuilder *prompt.PromptBuilder
 	parser        *prompt.ResponseParser
+	filter        *redaction.Filter
 	cfg           Config
 }
 
@@ -66,7 +68,11 @@ func NewReviewer(orchestrator *llm.Orchestrator, cfg Config) *Reviewer {
 		diffAnalyzer:  analyzer.NewDiffAnalyzer(),
 		promptBuilder: prompt.NewPromptBuilder(),
 		parser:        prompt.NewResponseParser(),
-		cfg:           cfg,
+		// The single AUR-009 redaction filter (AUR-432). FromEnv registers
+		// the AURUM_SECRET_CANARY value when present, so the filter is
+		// built at construction, after the caller's environment is final.
+		filter: redaction.FromEnv(),
+		cfg:    cfg,
 	}
 }
 
@@ -93,6 +99,16 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	// Combine system and user prompts
 	fullPrompt := promptParts.System + "\n\n" + promptParts.User
 
+	// The assembled prompt is the material that leaves this process toward
+	// a model, and it carries the raw diff, so it passes the single
+	// AUR-009 redaction filter before any provider can see it (AUR-432).
+	// The filter replaces secret values with the stable marker while the
+	// surrounding context -- key names, file paths, line structure --
+	// survives, so the model still sees THAT a credential sits on a line
+	// without ever seeing the credential. MUT-001 disables exactly the
+	// next line.
+	fullPrompt = r.filter.Redact(fullPrompt)
+
 	// Call LLM
 	resp, err := r.orchestrator.Complete(ctx, fullPrompt, llm.Options{
 		MaxTokens:   cfg.MaxTokens - cfg.ReserveReply,
@@ -107,6 +123,16 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	if err != nil {
 		return nil, fmt.Errorf("parse failed: %w", err)
 	}
+
+	// Model output is untrusted input: a model may echo a secret from the
+	// diff back in a finding. Every string of the parsed result that can
+	// reach a sink (report, stdout, cache, evidence) is redacted here, at
+	// the boundary where it enters the process, and deliberately BEFORE
+	// enforceRuleCitations appends the trusted rule-citation suffix from
+	// the embedded catalog -- redacting after would also rewrite the
+	// catalog's own "...-secret: <title>" spelling and change the
+	// published output format for a secret-free review (AUR-432).
+	redactReviewResult(r.filter, result)
 
 	// Rule gate (AUR-434): every issue must cite a rule of the project
 	// review standard. A broken or empty embedded catalog is a loud
@@ -141,6 +167,33 @@ var sharedRules = sync.OnceValues(func() (*RulesLoader, error) {
 	}
 	return loader, nil
 })
+
+// redactReviewResult applies the AUR-009 redaction filter, in place, to
+// every model-authored string of result that can reach a sink. Severity is
+// left alone (the parser admits only error/warning/info) and line numbers
+// are integers. A RuleID that carried a secret-shaped value stops matching
+// the embedded catalog after redaction and is then rejected by the rule
+// gate: fail closed, never a leak.
+func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
+	result.Summary = f.Redact(result.Summary)
+	result.CommitComment = f.Redact(result.CommitComment)
+	for i := range result.Issues {
+		issue := &result.Issues[i]
+		issue.ID = f.Redact(issue.ID)
+		issue.File = f.Redact(issue.File)
+		issue.RuleID = f.Redact(issue.RuleID)
+		issue.Message = f.Redact(issue.Message)
+		issue.Suggestion = f.Redact(issue.Suggestion)
+	}
+	for i := range result.LineComments {
+		result.LineComments[i].Path = f.Redact(result.LineComments[i].Path)
+		result.LineComments[i].Body = f.Redact(result.LineComments[i].Body)
+	}
+	for i := range result.FileComments {
+		result.FileComments[i].Path = f.Redact(result.FileComments[i].Path)
+		result.FileComments[i].Body = f.Redact(result.FileComments[i].Body)
+	}
+}
 
 // enforceRuleCitations applies AUR-434's rule gate to result, in place,
 // and returns how many issues it rejected.
