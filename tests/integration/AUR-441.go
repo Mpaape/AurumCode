@@ -266,8 +266,19 @@ func IntegrationAUR441(t *testing.T) {
 		t.Fatalf("the cache-hit file's finding must appear exactly once, not duplicated by a stale fresh answer for that same file, got %d occurrences:\n%s", occurrences, p2.stdout)
 	}
 
-	// --- The default cache directory (AURUMCODE_CACHE_DIR unset) must
-	// still work, scoped under the reviewed repository. ---
+	// --- The default cache directory (AURUMCODE_CACHE_DIR unset) is
+	// process-scoped, not repository-scoped: two separate invocations
+	// against the identical repository must NOT share cache state by
+	// default -- each independently sends the full diff to the model. A
+	// repo-scoped default was this card's first design; it was reverted
+	// because it collided with AUR-433's already-published --limite
+	// contract, whose own acceptance program runs this binary several
+	// times in a row against one repository and asserts every invocation
+	// independently reaches the model (see
+	// internal/review/cache.ResolveDir's doc for the full account). This
+	// is the regression test for that reversal: without it, a future
+	// change that made the default shared again would silently break
+	// AUR-433 exactly as it did once already. ---
 	defaultRepo := filepath.Join(t.TempDir(), "default-repo.git")
 	if out, err := exec.Command("cp", "-R", demoRepoSrc, defaultRepo).CombinedOutput(); err != nil {
 		t.Fatalf("copying fixture repo: %v\n%s", err, out)
@@ -278,18 +289,47 @@ func IntegrationAUR441(t *testing.T) {
 	if d1.code != 0 || d1.captureSections != 2 {
 		t.Fatalf("default-dir first run: code=%d sections=%d stderr=%s", d1.code, d1.captureSections, d1.stderr)
 	}
-	if _, err := os.Stat(filepath.Join(defaultRepo, ".aurumcode-cache")); err != nil {
-		t.Fatalf("expected the default cache directory .aurumcode-cache under the reviewed repository, stat err: %v", err)
-	}
 	d2 := run(defaultRepo, "", fixture, capture6, "review", "--base", "HEAD~1")
 	if d2.code != 0 {
 		t.Fatalf("default-dir second run must exit 0, got %d, stderr=%s", d2.code, d2.stderr)
 	}
-	if d2.captureSections != -1 {
-		t.Fatalf("default-dir second run must be a full cache hit (no model call), got %d sections", d2.captureSections)
+	if d2.captureSections != 2 {
+		t.Fatalf("default-dir second run must NOT be served from a cache shared with the first (separate processes never share the default): expected both files sent again, got %d sections", d2.captureSections)
 	}
 	if d2.stdout != d1.stdout {
-		t.Fatalf("default-dir cache hit must reproduce the exact prior output:\nfirst=%q\nsecond=%q", d1.stdout, d2.stdout)
+		t.Fatalf("both independent runs must still agree on the finding (same content, same fixture), got:\nfirst=%q\nsecond=%q", d1.stdout, d2.stdout)
+	}
+	if strings.Contains(d2.stderr, "reused") {
+		t.Fatalf("an isolated default run must never claim reuse, got stderr=%s", d2.stderr)
+	}
+
+	// --- A metered (--limite) and an unmetered run against the SAME
+	// repository, under a cache dir the caller explicitly shares, must
+	// NOT collide: fixedModelProvider (cmd/aurumcode/cost.go) wraps the
+	// provider without changing Name(), so modelCacheKey folds in the
+	// resolved model key (llm.ModelResolver) precisely so these two
+	// requests -- one budget-guarded, one not -- key differently and each
+	// independently reaches the model. ---
+	limiteRepo := filepath.Join(t.TempDir(), "limite-repo.git")
+	if out, err := exec.Command("cp", "-R", demoRepoSrc, limiteRepo).CombinedOutput(); err != nil {
+		t.Fatalf("copying fixture repo: %v\n%s", err, out)
+	}
+	limiteCacheDir := filepath.Join(t.TempDir(), "cache-limite")
+	captureUnmetered := filepath.Join(t.TempDir(), "capture-unmetered.txt")
+	captureMetered := filepath.Join(t.TempDir(), "capture-metered.txt")
+	unmetered := run(limiteRepo, limiteCacheDir, fixture, captureUnmetered, "review", "--base", "HEAD~1")
+	if unmetered.code != 0 || unmetered.captureSections != 2 {
+		t.Fatalf("unmetered run: code=%d sections=%d stderr=%s", unmetered.code, unmetered.captureSections, unmetered.stderr)
+	}
+	metered := run(limiteRepo, limiteCacheDir, fixture, captureMetered, "review", "--base", "HEAD~1", "--limite", "0.50")
+	if metered.code != 0 {
+		t.Fatalf("metered run must exit 0, got %d, stderr=%s", metered.code, metered.stderr)
+	}
+	if metered.captureSections != 2 {
+		t.Fatalf("a metered run sharing the unmetered run's cache dir must still independently reach the model (different resolved model key), got %d sections", metered.captureSections)
+	}
+	if !strings.Contains(metered.stderr, "actual cost $") {
+		t.Fatalf("the metered run must report a real, freshly-computed cost -- it must not have been served from the unmetered run's cache entry, got stderr=%s", metered.stderr)
 	}
 
 	// --- The pre-existing "nothing changed" contract is unaffected: the

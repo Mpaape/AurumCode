@@ -41,37 +41,61 @@ type fileCacheStatus struct {
 }
 
 // modelCacheKey identifies, for the cache, which "model" is answering this
-// run -- not simply provider.Name(). The offline fixture provider
-// (AURUMCODE_LLM_FIXTURE; see selectProvider and selectProviderForModel
-// above) always reports the same Name() ("fixture", or the chosen
-// --modelo value) no matter which fixture file is configured, because
-// Name() distinguishes vendors/models, not canned responses -- but two
-// different fixture files ARE, for caching purposes, two different
-// "models": each answers deterministically, but a different way, so an
-// entry cached under one must never be served under the other (this is
-// exactly what tests/acceptance/AUR-432.sh's nominal_case exercises,
-// reviewing the same repository under three different fixtures in a row).
-// When AURUMCODE_LLM_FIXTURE is set, its content digest is folded into the
-// key; when it is not (a live provider, selected by LLM_API_KEY and
-// LLM_BASE_URL), provider.Name() is what actually determines the answer,
-// so it is used verbatim.
+// run -- not simply provider.Name(). Two things can make Name() alone
+// under-identify the answering entity:
+//
+//   - The offline fixture provider (AURUMCODE_LLM_FIXTURE; see
+//     selectProvider and selectProviderForModel above) always reports the
+//     same Name() ("fixture", or the chosen --modelo value) no matter which
+//     canned response file is configured, because Name() distinguishes
+//     vendors/models, not responses -- but two different fixture files ARE,
+//     for caching purposes, two different "models": each answers
+//     deterministically, but a different way, so an entry cached under one
+//     must never be served under the other (this is exactly what
+//     tests/acceptance/AUR-432.sh's nominal_case exercises, reviewing the
+//     same repository under three different fixtures in a row). Its content
+//     digest is folded into the key whenever AURUMCODE_LLM_FIXTURE is set.
+//   - --limite (AUR-433) wraps the selected provider in a
+//     fixedModelProvider (cmd/aurumcode/cost.go) that pins the cost
+//     tracker's accounting key via llm.ModelResolver -- but Name() is
+//     promoted through that wrapper's embedded llm.Provider unchanged, so a
+//     metered (--limite) run and an unmetered run against the identical
+//     fixture would otherwise share a cache key even though a metered call
+//     is guarded by a budget check an unmetered one never has (this is
+//     exactly what tests/acceptance/AUR-433.sh's nominal_case exercises: a
+//     baseline run with no --limite, immediately followed by --limite runs
+//     against the same repository, each expected to still reach the
+//     model). When the provider implements llm.ModelResolver, the resolved
+//     key is folded in too -- harmless when it merely repeats what Name()
+//     already said, decisive when it does not. Two different --limite
+//     ceilings on the same resolved model still correctly share one entry:
+//     the ceiling changes whether a call is ALLOWED, never what the model
+//     would answer.
 func modelCacheKey(provider llm.Provider) string {
 	name := provider.Name()
-	fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE")
-	if fixturePath == "" {
-		return name
+
+	if fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE"); fixturePath != "" {
+		data, err := os.ReadFile(fixturePath)
+		if err != nil {
+			// Provider selection already read this exact file successfully
+			// (selectProvider / selectProviderForModel, moments earlier); a
+			// failure here would be a race against the filesystem in
+			// between. Fail toward "this run never serves, and never
+			// becomes, a cache hit" rather than a stale or colliding key.
+			name += ":fixture:unreadable"
+		} else {
+			sum := sha256.Sum256(data)
+			name = fmt.Sprintf("%s:fixture:%x", name, sum)
+		}
 	}
-	data, err := os.ReadFile(fixturePath)
-	if err != nil {
-		// Provider selection already read this exact file successfully
-		// (selectProvider / selectProviderForModel, moments earlier); a
-		// failure here would be a race against the filesystem in between.
-		// Fail toward "this run never serves, and never becomes, a cache
-		// hit" rather than a stale or colliding key.
-		return name + ":fixture:unreadable"
+
+	if resolver, ok := provider.(llm.ModelResolver); ok {
+		if key := resolver.ResolveModel(llm.Options{}); key != "" {
+			name += ":resolved:" + key
+		}
 	}
-	sum := sha256.Sum256(data)
-	return fmt.Sprintf("%s:fixture:%x", name, sum)
+
+	return name
 }
 
 // partitionByCache resolves, for every file in diff.Files, whether c

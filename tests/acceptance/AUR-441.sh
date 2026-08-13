@@ -249,9 +249,16 @@ nominal_case() {
     AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-noop.txt" "$shared_bin" review --base HEAD >/dev/null) || fail noop-run-failed
   [[ "$(count_sections "$run_dir/capture-noop.txt")" != "-1" ]] || fail zero-file-diff-must-still-call-model
 
-  # The default cache directory (AURUMCODE_CACHE_DIR unset) works too,
-  # scoped under the reviewed repository -- never the tracked fixture tree,
-  # which this case never operates on directly.
+  # The default cache directory (AURUMCODE_CACHE_DIR unset) is
+  # process-scoped, not shared: two separate invocations against the
+  # identical repository must NOT reuse each other's cache by default --
+  # each independently sends both files. A repo-scoped default was this
+  # card's first design; it collided with AUR-433's already-published
+  # --limite contract, whose own acceptance program runs this binary
+  # several times in a row against one repository and expects every
+  # invocation to independently reach the model (see
+  # internal/review/cache.ResolveDir's doc for the full account). This is
+  # the regression test for that reversal.
   local default_repo="$run_dir/repo-default.git"
   cp -R "$shared_root/tests/fixtures/repos/git-demo/repo.git" "$default_repo"
   chmod -R u+w -- "$default_repo"
@@ -259,12 +266,28 @@ nominal_case() {
   d1="$(cd "$default_repo" && AURUMCODE_LLM_FIXTURE="$fixture" \
     AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-d1.txt" "$shared_bin" review --base HEAD~1)" || fail default-first-run-failed
   [[ "$(count_sections "$run_dir/capture-d1.txt")" == "2" ]] || fail default-cold-run-must-send-both-files
-  [[ -d "$default_repo/.aurumcode-cache" ]] || fail default-cache-dir-not-created
-  local d2
+  local d2 err_d2
   d2="$(cd "$default_repo" && AURUMCODE_LLM_FIXTURE="$fixture" \
-    AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-d2.txt" "$shared_bin" review --base HEAD~1)" || fail default-second-run-failed
-  [[ "$d2" == "$d1" ]] || fail default-non-deterministic
-  [[ "$(count_sections "$run_dir/capture-d2.txt")" == "-1" ]] || fail default-warm-run-must-never-call-the-model
+    AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-d2.txt" "$shared_bin" review --base HEAD~1 2>"$run_dir/err-d2.txt")" || fail default-second-run-failed
+  err_d2="$(cat "$run_dir/err-d2.txt")"
+  [[ "$d2" == "$d1" ]] || fail default-runs-disagree-on-the-finding
+  [[ "$(count_sections "$run_dir/capture-d2.txt")" == "2" ]] || fail default-second-run-must-not-share-the-first-run-s-cache
+  if grep -Fq 'reused' <<<"$err_d2"; then fail default-isolated-run-must-not-claim-reuse; fi
+
+  # A metered (--limite) and an unmetered run against the SAME repository,
+  # under a cache dir the caller explicitly shares, must NOT collide: the
+  # cache key folds in the resolved cost-tracker model key
+  # (llm.ModelResolver) precisely so these two differently-guarded
+  # requests never serve one another's cached answer.
+  local limite_dir="$run_dir/cache-limite"
+  local out_unmetered out_metered
+  out_unmetered="$(cd "$demo_repo" && AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_CACHE_DIR="$limite_dir" \
+    AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-unmetered.txt" "$shared_bin" review --base HEAD~1)" || fail limite-collision-unmetered-run-failed
+  [[ "$(count_sections "$run_dir/capture-unmetered.txt")" == "2" ]] || fail limite-collision-unmetered-must-call-model
+  out_metered="$(cd "$demo_repo" && AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_CACHE_DIR="$limite_dir" \
+    AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-metered.txt" "$shared_bin" review --base HEAD~1 --limite 0.50 2>"$run_dir/metered.err")" || fail limite-collision-metered-run-failed
+  [[ "$(count_sections "$run_dir/capture-metered.txt")" == "2" ]] || fail limite-metered-run-must-not-be-served-the-unmetered-cache
+  grep -Fq 'actual cost $' "$run_dir/metered.err" || fail limite-metered-run-missing-real-cost
 
   # Security: the planted canary must never reach the cache directory.
   local canary="aurum-canary-441-$$"

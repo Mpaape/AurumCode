@@ -1,6 +1,7 @@
 package unit
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,9 +16,10 @@ import (
 // model, or the prompt version changes and stays stable otherwise, a
 // Put/Get roundtrip returns exactly what was stored, a miss reports
 // (nil, false, nil) rather than an error, ResolveDir honors
-// AURUMCODE_CACHE_DIR when set and otherwise scopes the default under the
-// given repository root, and nothing recoverable -- in particular a
-// planted secret canary -- ever reaches a byte written to disk.
+// AURUMCODE_CACHE_DIR when set and otherwise defaults to a location unique
+// to this process (never shared with a separate invocation unless asked),
+// and nothing recoverable -- in particular a planted secret canary -- ever
+// reaches a byte written to disk.
 func TestAUR441(t *testing.T) {
 	t.Run("KeyIsDeterministic", testAUR441KeyIsDeterministic)
 	t.Run("KeyChangesWithFileContent", testAUR441KeyChangesWithFileContent)
@@ -27,7 +29,7 @@ func TestAUR441(t *testing.T) {
 	t.Run("GetMissIsNotAnError", testAUR441GetMissIsNotAnError)
 	t.Run("PutReplacesPreviousEntry", testAUR441PutReplacesPreviousEntry)
 	t.Run("ResolveDirHonorsEnv", testAUR441ResolveDirHonorsEnv)
-	t.Run("ResolveDirDefaultsUnderRepoRoot", testAUR441ResolveDirDefaultsUnderRepoRoot)
+	t.Run("ResolveDirDefaultsAreProcessScoped", testAUR441ResolveDirDefaultsAreProcessScoped)
 	t.Run("OpenCreatesTheDirectory", testAUR441OpenCreatesTheDirectory)
 	t.Run("CanaryNeverReachesDisk", testAUR441CanaryNeverReachesDisk)
 	t.Run("EmptyIssuesStillRoundtrip", testAUR441EmptyIssuesStillRoundtrip)
@@ -163,19 +165,33 @@ func testAUR441PutReplacesPreviousEntry(t *testing.T) {
 func testAUR441ResolveDirHonorsEnv(t *testing.T) {
 	pinned := filepath.Join(t.TempDir(), "pinned-cache-dir")
 	t.Setenv(cache.EnvDir, pinned)
-	got := cache.ResolveDir("/some/repo/root")
+	got := cache.ResolveDir()
 	if got != pinned {
 		t.Fatalf("ResolveDir must return AURUMCODE_CACHE_DIR verbatim when set, got %q, want %q", got, pinned)
 	}
 }
 
-func testAUR441ResolveDirDefaultsUnderRepoRoot(t *testing.T) {
+// testAUR441ResolveDirDefaultsAreProcessScoped proves the default (no
+// AURUMCODE_CACHE_DIR) is unique to this process: it names a directory
+// under the OS temp dir keyed by os.Getpid(), never a location a SEPARATE
+// `aurumcode` invocation -- even against the identical repository -- could
+// land on by coincidence. This is what keeps a bare, unconfigured run from
+// silently sharing state with another process; see cache.ResolveDir's own
+// doc for why a repo-scoped default was rejected (it collided with
+// AUR-433's already-published --limite contract).
+func testAUR441ResolveDirDefaultsAreProcessScoped(t *testing.T) {
 	t.Setenv(cache.EnvDir, "")
-	repoRoot := "/some/repo/root"
-	got := cache.ResolveDir(repoRoot)
-	want := filepath.Join(repoRoot, ".aurumcode-cache")
+	got := cache.ResolveDir()
+	want := filepath.Join(os.TempDir(), fmt.Sprintf("aurumcode-review-cache-%d", os.Getpid()))
 	if got != want {
-		t.Fatalf("ResolveDir's default must live under the reviewed repository's own root, got %q, want %q", got, want)
+		t.Fatalf("ResolveDir's default must be process-scoped under the OS temp dir, got %q, want %q", got, want)
+	}
+	// Calling it again within the same process (hence the same PID) must be
+	// stable, not re-randomized on every call -- the whole point is that
+	// repeated calls from the same process agree on one location.
+	again := cache.ResolveDir()
+	if again != got {
+		t.Fatalf("ResolveDir's default must be stable within one process, got %q then %q", got, again)
 	}
 }
 

@@ -71,8 +71,12 @@
 // matches is never resent; a run where every file matches skips the model
 // call entirely. Reused files, when any, are reported on stderr -- stdout
 // is byte-identical whether or not caching engaged. The cache lives at
-// AURUMCODE_CACHE_DIR when set, or at .aurumcode-cache under the reviewed
-// repository otherwise. --pr's review path is unaffected.
+// AURUMCODE_CACHE_DIR when the caller sets it, so two invocations that
+// name the same directory reuse each other's entries; without it, each
+// invocation gets its own process-scoped cache and behaves exactly as if
+// caching were off, so nothing shares state across separate `aurumcode`
+// runs unless asked to (see internal/review/cache.ResolveDir). --pr's
+// review path is unaffected.
 //
 // See docs/specs/AUR-430.md for the base command reference,
 // docs/specs/AUR-431.md for the --fail-on gate,
@@ -322,7 +326,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// contract, oblivious to caching. A full cache hit means Complete is
 	// never called, so the tracker records nothing and printRealCost below
 	// correctly reports $0.0000 spent.
-	revCache, cacheErr := cache.Open(cache.ResolveDir(cwd))
+	revCache, cacheErr := cache.Open(cache.ResolveDir())
 	toSend := diff
 	var cacheStatuses []fileCacheStatus
 	if cacheErr == nil {
