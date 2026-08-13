@@ -44,6 +44,13 @@ const aur435QualityFixture = `{
 const aur435SecurityHeader = "Security findings (standards/security-review):"
 const aur435SecurityCitation = "(rule security/sql-injection: SQL Injection Vulnerability)"
 
+// aur435HardcodedSecretCitation is AUR-442's addition: security/hardcoded-
+// secret got a matcher (internal/review/rules/security.yml), so git-demo's
+// planted plaintext secret -- three lines, config/demo-tokens.txt:4-6 --
+// is now found instead of the honest-looking absence this test originally
+// measured. See docs/specs/AUR-442.md.
+const aur435HardcodedSecretCitation = "(rule security/hardcoded-secret: Hardcoded Secrets)"
+
 // IntegrationAUR435 builds the real aurumcode binary and proves AUR-435's
 // outcome at the CLI boundary: `review --base HEAD~1 --seguranca` runs a
 // security pass that reports the planted synthetic SQL injection in a
@@ -144,16 +151,36 @@ func IntegrationAUR435(t *testing.T) {
 		t.Fatalf("review --seguranca is not deterministic (exit %d):\nfirst=%q\nsecond=%q", code, sec, again)
 	}
 
-	// A diff without a matching vulnerability reports the honest absence.
+	// git-demo plants a plaintext secret specifically to be found (three
+	// lines: config/demo-tokens.txt:4-6). AUR-442 gave security/hardcoded-
+	// secret a matcher, so the deterministic pass now reports exactly that
+	// planted secret -- never the SQL-injection rule this repository has
+	// nothing to trigger, and never the honest-looking absence this test
+	// measured before that matcher existed.
 	demo, _, code := run(demoRepo, "review", "--base", "HEAD~1", "--seguranca")
 	if code != 0 {
 		t.Fatalf("review --seguranca on git-demo must exit 0, got %d", code)
 	}
-	if !strings.Contains(demo, aur435SecurityHeader) || !strings.Contains(demo, "No security findings.") {
-		t.Fatalf("expected an honest empty security section on git-demo, got:\n%s", demo)
+	if !strings.Contains(demo, aur435SecurityHeader) {
+		t.Fatalf("expected the security section header on git-demo, got:\n%s", demo)
 	}
 	if strings.Contains(demo, aur435SecurityCitation) {
 		t.Fatalf("git-demo has no SQL injection; nothing may be invented:\n%s", demo)
+	}
+	if strings.Contains(demo, "No security findings.") {
+		t.Fatalf("git-demo plants a plaintext secret; \"No security findings.\" is exactly the defect AUR-442 fixes:\n%s", demo)
+	}
+	if !strings.Contains(demo, aur435HardcodedSecretCitation) {
+		t.Fatalf("expected the hardcoded-secret rule citation on git-demo, got:\n%s", demo)
+	}
+	if !strings.Contains(demo, "standards/security-review SCR-003") {
+		t.Fatalf("the hardcoded-secret finding must cite the project security standard, got:\n%s", demo)
+	}
+	for _, line := range []string{"4", "5", "6"} {
+		want := "config/demo-tokens.txt:" + line + ": [error]"
+		if !strings.Contains(demo, want) {
+			t.Fatalf("expected a finding at %s on git-demo, got:\n%s", want, demo)
+		}
 	}
 
 	// Composed with --fail-on: the security finding (severity error) closes
