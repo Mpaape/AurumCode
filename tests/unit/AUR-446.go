@@ -59,6 +59,13 @@ func specAnchors() []specAnchor {
 			},
 		},
 		{
+			label:       "docs/specs/AUR-428.md",
+			mustContain: []string{"code-review.yml` **não** está mais nesse grupo: o AUR-440 o repinou para a tag `v1`"},
+			mustNotContain: []string{
+				"Os demais exemplos em `.github/workflows/examples/` (code-review, qa-testing, all-pipelines) continuam pinados por SHA",
+			},
+		},
+		{
 			label:       "docs/specs/AUR-429.md",
 			mustContain: []string{"docs` subcommand from AUR-426 (`cmd/aurumcode/docs.go`)"},
 			mustNotContain: []string{
@@ -107,6 +114,23 @@ func checkAnchor(content string, a specAnchor) []string {
 	return violations
 }
 
+// anchorFor looks a specAnchor up by label instead of a positional index
+// into specAnchors(): an earlier revision of this file indexed AUR-437's
+// entry as specAnchors()[3], and inserting docs/specs/AUR-428.md earlier in
+// the table silently shifted that index onto AUR-429's entry -- caught only
+// because re-running the full suite after the insertion failed with the
+// wrong anchor's violation. A label lookup cannot go stale that way.
+func anchorFor(t *testing.T, label string) specAnchor {
+	t.Helper()
+	for _, a := range specAnchors() {
+		if a.label == label {
+			return a
+		}
+	}
+	t.Fatalf("AUR-446/AC-001/test-defect: no specAnchor registered for %s", label)
+	return specAnchor{}
+}
+
 // TestAUR446 proves the checker itself, both directions:
 //   - fed the exact corrected excerpt, it reports zero violations (GREEN);
 //   - fed the exact pre-correction excerpt (the card's RED, and the shape
@@ -139,6 +163,18 @@ func TestAUR446(t *testing.T) {
 			stale: "`internal/qa/browserproof/docsverify` binary. No `aurumcode docs` subcommand\n" +
 				"exists: `cmd/aurumcode` publishes `review` and `--fail-on` (AUR-430/431) and\n" +
 				"is outside this card's `paths`.",
+		},
+		"docs/specs/AUR-428.md": {
+			corrected: "Dos demais exemplos em `.github/workflows/examples/`, `qa-testing.yml` e\n" +
+				"`all-pipelines.yml` continuam pinados por SHA\n" +
+				"(`Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8`); este card\n" +
+				"cobre apenas `documentation.yml`, o único citado pelo seu Outcome.\n" +
+				"`code-review.yml` **não** está mais nesse grupo: o AUR-440 o repinou para a\n" +
+				"tag `v1` (`ref: v1` no passo \"Checkout the AurumCode release\" de\n" +
+				"`.github/workflows/examples/code-review.yml`) — ver docs/specs/AUR-440.md.",
+			stale: "- Os demais exemplos em `.github/workflows/examples/` (code-review,\n" +
+				"  qa-testing, all-pipelines) continuam pinados por SHA; este card cobre apenas\n" +
+				"  `documentation.yml`, o único citado pelo seu Outcome.",
 		},
 		"docs/specs/AUR-440.md": {
 			corrected: "restaurado pelo AUR-437. AUR-438 esta done: `cmd/aurumcode` ja publica\n" +
@@ -183,7 +219,7 @@ func TestAUR446(t *testing.T) {
 	}
 
 	t.Run("docs/specs/AUR-437.md/corrected content carries the residual-case anchor", func(t *testing.T) {
-		a := specAnchors()[3]
+		a := anchorFor(t, "docs/specs/AUR-437.md")
 		corrected := "Reproduzido em `internal/git/githubclient/client.go:795-802`: a linha\n" +
 			"`diff --git a/foo b/bar.go b/foo b/bar.go` retorna `bar.go` em vez de\n" +
 			"`foo b/bar.go`."

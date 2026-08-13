@@ -5,7 +5,7 @@
 # SCOPE, PER THE CARD'S PRECONDITIONS
 #   This acceptance runs inside `bootstrap-readonly-v1`: no network, no model
 #   call. What THIS card accepts is STATIC verification -- literal `grep`
-#   (whitespace-normalized) over the five corrected specs, plus two Go lanes
+#   (whitespace-normalized) over the six corrected specs, plus two Go lanes
 #   that prove the same anchors against real content and corroborate the
 #   underlying facts against real read_paths sources
 #   (cmd/aurumcode, internal/git/githubclient,
@@ -32,11 +32,13 @@
 #   fail non-zero, surfacing AUR-446/AC-001/MUT-001 on stderr; restoring the
 #   correction reproduces the exact GREEN.
 #
-# KNOWN GAP, REPORTED RATHER THAN WORKED AROUND
-#   docs/specs/AUR-428.md also needed a correction (the auditoria's fifth
-#   finding) but is in neither this card's `paths` nor `read_paths`
-#   (.board/cards/ready/AUR-446.md); see docs/specs/AUR-446.md, "Gap
-#   medido". Nothing in this script reads or asserts on it.
+# SIXTH FINDING: docs/specs/AUR-428.md
+#   The auditoria's fifth finding (docs/specs/AUR-428.md:123-125) was
+#   originally out of scope: the card's `paths` duplicated
+#   `docs/specs/AUR-446.md` instead of listing `docs/specs/AUR-428.md`. The
+#   coordinator amended the frontmatter after that gap was reported (see
+#   docs/specs/AUR-446.md, "Sexto achado"); this script now checks it like
+#   every other corrected spec.
 set -euo pipefail
 export LC_ALL=C
 readonly card=AUR-446 scenario=AC-001
@@ -65,6 +67,7 @@ own_inputs=(
   go.mod go.sum
   docs/specs/AUR-424.md
   docs/specs/AUR-425.md
+  docs/specs/AUR-428.md
   docs/specs/AUR-429.md
   docs/specs/AUR-437.md
   docs/specs/AUR-440.md
@@ -154,7 +157,7 @@ case "$selector" in
     go_lane ./tests/unit
     go_lane ./tests/integration
     e2e_case
-    printf '{"card":"%s","scenario":"%s","result":"pass","specs_checked":5,"anchors_verified":9}\n' "$card" "$scenario"
+    printf '{"card":"%s","scenario":"%s","result":"pass","specs_checked":6,"anchors_verified":11}\n' "$card" "$scenario"
     ;;
   TestAUR446|TestAUR428) go_lane ./tests/unit ;;
   IntegrationAUR446|IntegrationAUR428) go_lane ./tests/integration ;;

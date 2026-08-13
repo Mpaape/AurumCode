@@ -6,11 +6,11 @@
 // (cmd/aurumcode, .github/workflows/examples/code-review.yml) -- not just
 // that the prose says something, but that the thing it says is grounded.
 //
-// docs/specs/AUR-428.md is deliberately absent from every check here: it is
-// not in this card's paths nor read_paths (see docs/specs/AUR-446.md, "Gap
-// medido"), so it is never materialized when this file is staged into a
-// sealed acceptance container, and asserting on it would misreport an
-// environment gap as a behavioural failure.
+// docs/specs/AUR-428.md is checked like every other corrected spec below.
+// It was originally out of scope (the card's paths duplicated
+// docs/specs/AUR-446.md instead of listing AUR-428.md); the coordinator
+// amended the frontmatter (see docs/specs/AUR-446.md, "Sexto achado"), so it
+// is now a declared deliverable of this card like the other five.
 //
 // Not named "_test.go" on purpose (same technique as every sibling card):
 // tests/acceptance/AUR-446.sh stages a private copy and bridges this
@@ -44,6 +44,13 @@ func specAnchors() []specAnchor {
 			mustContain: []string{"delivered by AUR-426 (`cmd/aurumcode/docs.go`"},
 			mustNotContain: []string{
 				"No `aurumcode docs` subcommand exists:",
+			},
+		},
+		{
+			label:       "docs/specs/AUR-428.md",
+			mustContain: []string{"code-review.yml` **não** está mais nesse grupo: o AUR-440 o repinou para a tag `v1`"},
+			mustNotContain: []string{
+				"Os demais exemplos em `.github/workflows/examples/` (code-review, qa-testing, all-pipelines) continuam pinados por SHA",
 			},
 		},
 		{
@@ -191,6 +198,20 @@ func IntegrationAUR446(t *testing.T) {
 		window := strings.Join(lines[794:802], "\n") // 1-indexed 795..802
 		if !strings.Contains(window, "func extractFilePath") || !strings.Contains(window, "LastIndex") {
 			t.Fatalf("AUR-446/AC-001/behavior-missing: client.go:795-802 no longer matches extractFilePath's LastIndex heuristic; AUR-437.md's line reference is stale:\n%s", window)
+		}
+	})
+
+	// Corroboration: the fact AUR-428.md now states (AUR-440 repinned
+	// code-review.yml to the v1 tag) is grounded in the real workflow file
+	// this card's read_paths materializes, not asserted on faith.
+	t.Run("code-review.yml really uses ref: v1, not a SHA (corroborates AUR-428)", func(t *testing.T) {
+		raw, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "examples", "code-review.yml"))
+		if err != nil {
+			t.Fatalf("AUR-446/AC-001/infrastructure: .github/workflows/examples/code-review.yml unreadable: %v", err)
+		}
+		if !strings.Contains(string(raw), "ref: v1") {
+			t.Fatalf("AUR-446/AC-001/behavior-missing: code-review.yml has no `ref: v1`; " +
+				"the AUR-428 correction would be unsupported by the real workflow file")
 		}
 	})
 }
