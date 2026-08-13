@@ -254,49 +254,75 @@ nominal_case() {
   assert_no_secret "$run_dir/out.stderr" secret-on-stderr
 }
 
-# mutation_case is MUT-001: disable the redaction on the send path (the
-# exact line internal/review/reviewer.go documents as MUT-001's target) in
-# a writable staged copy, rebuild, and prove the planted secret then
-# reaches the provider prompt -- the exact leak nominal_case rejects, so
-# the same accept can never pass with this defect in place. The committed
-# source is never touched: restoration is by construction, and the
-# unmutated shared binary reproduces the GREEN exactly.
+# mutation_case is MUT-001, exercised at both redaction points: disable
+# the send-path diff redaction and prove the planted secret then reaches
+# the provider prompt; separately disable the output-boundary redaction
+# and prove the model-echoed secret then reaches stdout. Each is the exact
+# leak nominal_case rejects, so the same accept can never pass with either
+# defect in place. The committed source is never touched: restoration is
+# by construction, and the unmutated shared binary reproduces the GREEN
+# exactly after each variant.
 mutation_case() {
-  build_shared # warm GOCACHE; the rebuild below recompiles only what changed.
+  build_shared # warm GOCACHE; the rebuilds below recompile only what changed.
+  local repo_dir echo_fixture rc
 
+  # Variant A: send path. reviewer.go documents this line as MUT-001's
+  # target.
   local root="$run_dir/root-mut"
   stage_source "$root"
-
   local target="$root/internal/review/reviewer.go"
-  local anchor='fullPrompt = r.filter.Redact(fullPrompt)'
+  local anchor='diff = redactDiff(r.filter, diff)'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
-  sed -i 's|fullPrompt = r\.filter\.Redact(fullPrompt)|_ = r.filter // MUT-001: send-path redaction disabled|' "$target"
+  sed -i 's|diff = redactDiff(r\.filter, diff)|_ = redactDiff // MUT-001: send-path redaction disabled|' "$target"
   grep -Fq 'MUT-001: send-path redaction disabled' "$target" || fail 'MUT-001/mutation-not-applied'
-
   local bin="$run_dir/aurumcode-mut"
   local log="$root/build-mut.log"
   if ! (cd "$root" && go build -o "$bin" ./cmd/aurumcode) >"$log" 2>&1; then
     cat "$log" >&2
     fail 'MUT-001/build-failed'
   fi
-
-  local repo_dir="$root/tests/fixtures/repos/git-demo/repo.git"
-  local echo_fixture="$root/tests/fixtures/review/secret/response-echoes-secret.json"
-  local rc
+  repo_dir="$root/tests/fixtures/repos/git-demo/repo.git"
+  echo_fixture="$root/tests/fixtures/review/secret/response-echoes-secret.json"
   run_review "$bin" "$repo_dir" "$echo_fixture" --base HEAD~1
   [[ "$rc" -eq 0 ]] || fail 'MUT-001/mutant-run-failed'
   test -s "$run_dir/prompt.txt" || fail 'MUT-001/mutant-capture-missing'
   # Under the mutant the planted secret reaches the provider prompt -- the
   # exact condition nominal_case's behavior-missing assertions reject.
   grep -Fq -- "$planted_token" "$run_dir/prompt.txt" || fail 'MUT-001/not-rejected'
-
-  # Restoration: the unmutated binary keeps the secret out -- the GREEN
-  # reproduces.
+  # Restoration: the unmutated binary keeps the secret out of the prompt.
   run_review "$shared_bin" "$repo_dir" "$echo_fixture" --base HEAD~1
   [[ "$rc" -eq 0 ]] || fail 'MUT-001/restoration-broken'
   assert_no_secret "$run_dir/prompt.txt" 'MUT-001/restoration-broken'
-
   cleanup_root "$root"
+
+  # Variant B: output boundary. Disabling redactReviewResult lets the
+  # model-echoed secret through to stdout.
+  local root_b="$run_dir/root-mut-b"
+  stage_source "$root_b"
+  local target_b="$root_b/internal/review/reviewer.go"
+  local anchor_b='redactReviewResult(r.filter, result)'
+  [[ "$(grep -Fc "$anchor_b" "$target_b")" == 1 ]] || fail 'MUT-001/output-anchor-not-unique'
+  sed -i 's|redactReviewResult(r\.filter, result)|_ = result // MUT-001: output-boundary redaction disabled|' "$target_b"
+  grep -Fq 'MUT-001: output-boundary redaction disabled' "$target_b" || fail 'MUT-001/output-mutation-not-applied'
+  local bin_b="$run_dir/aurumcode-mut-b"
+  local log_b="$root_b/build-mut-b.log"
+  if ! (cd "$root_b" && go build -o "$bin_b" ./cmd/aurumcode) >"$log_b" 2>&1; then
+    cat "$log_b" >&2
+    fail 'MUT-001/output-build-failed'
+  fi
+  repo_dir="$root_b/tests/fixtures/repos/git-demo/repo.git"
+  echo_fixture="$root_b/tests/fixtures/review/secret/response-echoes-secret.json"
+  run_review "$bin_b" "$repo_dir" "$echo_fixture" --base HEAD~1
+  [[ "$rc" -eq 0 ]] || fail 'MUT-001/output-mutant-run-failed'
+  # Under this mutant the echoed webhook value reaches stdout -- the exact
+  # condition nominal_case's behavior-missing assertions reject.
+  grep -Fq -- "$planted_webhook" "$run_dir/out.stdout" || fail 'MUT-001/output-not-rejected'
+  # Restoration: the unmutated binary keeps stdout clean.
+  run_review "$shared_bin" "$repo_dir" "$echo_fixture" --base HEAD~1
+  [[ "$rc" -eq 0 ]] || fail 'MUT-001/output-restoration-broken'
+  assert_no_secret "$run_dir/out.stdout" 'MUT-001/output-restoration-broken'
+  cleanup_root "$root_b"
+
   printf '%s/%s/MUT-001/rejected\n' "$card" "$scenario"
 }
 

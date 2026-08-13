@@ -63,6 +63,11 @@ cred="$(bash "$repo_root/tests/fixtures/review/secret/assemble-credential.sh")" 
 [[ -n "$cred" ]] || infra assemble_credential_empty
 planted_kv='AURUM-E2E-KV-VALUE-0117'
 canary='AURUM-E2E-REGISTERED-0424'
+# The anchored-header vector the AUR-432 review proved leaking: a diff
+# line "+Authorization: Bearer <value>" defeats the filter's line-anchored
+# header rule unless the composition strips the diff marker first. The
+# value is assembled at runtime; it exists in no tracked file.
+bearer="AURUM-E2E-BEARER-$(printf '%s' '3117')"
 
 stage_src="$run_dir/fixture-src"
 mkdir -p "$stage_src"
@@ -107,6 +112,7 @@ grep -Fq 'non-synthetic-secret' "$run_dir/fixture-refused.log" || fail credentia
   printf '# runtime-planted synthetic credentials (AUR-432 e2e); never real\n'
   printf 'service_password=%s\n' "$planted_kv"
   printf 'incident marker %s\n' "$canary"
+  printf 'Authorization: Bearer %s\n' "$bearer"
 } >"$stage_src/content/03/config/secrets.env"
 fixture_out="$run_dir/fixture-out"
 build_fixture_log="$run_dir/fixture-build.log"
@@ -120,10 +126,12 @@ fi
 repo_dir="$fixture_out/repo.git"
 test -d "$repo_dir" || fail fixture_build_no_repo
 
-# Deterministic offline model response citing the planted line without
-# repeating its value.
+# Deterministic offline model response citing the planted line. Its
+# message deliberately quotes the offending header diff line, marker and
+# all, exactly the way a model echoes what it saw -- the output boundary
+# must redact it before it can reach stdout.
 response="$run_dir/response.json"
-cat >"$response" <<'EOF'
+cat >"$response" <<EOF
 {
   "issues": [
     {
@@ -131,13 +139,14 @@ cat >"$response" <<'EOF'
       "line": 2,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "A hardcoded credential is committed in plain text at this line.",
+      "message": "A hardcoded credential is committed in plain text at this line, together with:\n+Authorization: Bearer ${bearer}\nRotate both.",
       "suggestion": "Remove the value, rotate it, and load it from the environment."
     }
   ],
   "summary": "The change commits a plaintext credential in config/secrets.env."
 }
 EOF
+grep -Fq -- "$bearer" "$response" || infra response_interpolation_failed
 
 capture="$run_dir/prompt.txt"
 run_review() {
@@ -162,13 +171,17 @@ test -s "$capture" || fail prompt_capture_missing
 for sink in "$capture" "$run_dir/out.stdout" "$run_dir/out.stderr"; do
   if grep -Fq -- "$planted_kv" "$sink"; then fail "secret_leaked:${sink##*/}"; fi
   if grep -Fq -- "$canary" "$sink"; then fail "canary_leaked:${sink##*/}"; fi
+  if grep -Fq -- "$bearer" "$sink"; then fail "header_credential_leaked:${sink##*/}"; fi
 done
 
 # The redaction replaced values, not context: the model still saw the
-# file, the key, and the marker where each secret was.
+# file, the keys, the header name, and the marker where each secret was,
+# and the echoed header line reached stdout redacted the same way.
 grep -Fq '[REDACTED]' "$capture" || fail redaction_marker_missing
 grep -Fq 'config/secrets.env' "$capture" || fail review_context_destroyed
 grep -Fq 'service_password=' "$capture" || fail review_context_destroyed
+grep -Fq 'Authorization: [REDACTED]' "$capture" || fail header_not_redacted_in_prompt
+grep -Fq 'Authorization: [REDACTED]' "$run_dir/out.stdout" || fail header_not_redacted_on_stdout
 
 # The finding citing the planted line still reaches the user.
 grep -Fq 'config/secrets.env:2: [error]' "$run_dir/out.stdout" || fail finding_lost
