@@ -126,6 +126,7 @@ cat >"$fixture_info" <<'EOF'
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "info",
+      "rule_id": "quality/magic-numbers",
       "message": "Consider documenting where this demo value comes from."
     }
   ],

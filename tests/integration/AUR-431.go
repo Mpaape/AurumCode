@@ -51,6 +51,7 @@ func IntegrationAUR431(t *testing.T) {
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": %q,
+      "rule_id": "security/hardcoded-secret",
       "message": "A planted, synthetic problem used to exercise the severity gate."
     }
   ],
