@@ -1,6 +1,9 @@
 package review
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
 
@@ -25,10 +28,26 @@ type FakeProvider struct {
 	// NameStr, if set, is returned by Name(); otherwise Name() returns
 	// "fake".
 	NameStr string
+	// CapturePath, when non-empty, names a file this provider writes the
+	// exact prompt it received to (mode 0600, truncating) before
+	// answering. It exists so an offline, deterministic run can OBSERVE
+	// what would have left the process toward a real model:
+	// tests/acceptance/AUR-432.sh proves the AUR-432 redaction guarantee
+	// against this capture, and MUT-001 proves the leak through it. The
+	// live providers under internal/llm/provider/* have no equivalent --
+	// this is a diagnostic property of the offline fixture provider only,
+	// and with the AUR-432 wiring in place the captured prompt is already
+	// redacted, so the capture file never holds a secret either.
+	CapturePath string
 }
 
 // Complete implements llm.Provider.
 func (f *FakeProvider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
+	if f.CapturePath != "" {
+		if err := os.WriteFile(f.CapturePath, []byte(prompt), 0o600); err != nil {
+			return llm.Response{}, fmt.Errorf("writing prompt capture %s: %w", f.CapturePath, err)
+		}
+	}
 	return llm.Response{
 		Text:      f.Response,
 		TokensIn:  heuristicTokenCount(prompt),

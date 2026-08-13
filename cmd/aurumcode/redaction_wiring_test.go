@@ -1,0 +1,69 @@
+package main
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
+)
+
+// TestRedactedEndpoint pins the AUR-432 origin fix for the --modelo
+// endpoint note: a password carried in LLM_BASE_URL userinfo is masked at
+// the source with url.Redacted, the host and path survive, and values
+// without userinfo pass through byte for byte.
+func TestRedactedEndpoint(t *testing.T) {
+	// Synthetic, runtime-assembled; accepted by nothing.
+	password := "fake-" + "origin-pass-0517"
+
+	got := redactedEndpoint("http://aurum:" + password + "@127.0.0.1:11434/v1")
+	if strings.Contains(got, password) {
+		t.Fatal("the endpoint password survived redactedEndpoint")
+	}
+	if !strings.Contains(got, "127.0.0.1:11434") || !strings.Contains(got, "/v1") {
+		t.Fatalf("redactedEndpoint destroyed the endpoint identity: %q", got)
+	}
+
+	for _, plain := range []string{
+		"http://localhost:11434/v1",
+		"https://api.example.invalid",
+		"not a url at all",
+		"",
+	} {
+		if got := redactedEndpoint(plain); got != plain {
+			t.Errorf("redactedEndpoint(%q) = %q, want the input unchanged", plain, got)
+		}
+	}
+}
+
+// TestStderrLinesSurviveTheRedactionWriter pins that every canonical
+// stderr line this command publishes is identity under the AUR-009
+// redaction filter, which is what makes wrapping stderr with
+// redaction.NewWriter (AUR-432) free on the published contract.
+func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
+	filter := redaction.NewFilter()
+	lines := []string{
+		"usage: aurumcode <review> [flags]",
+		"aurumcode review: --base is required",
+		`aurumcode review: reviewing with model "local" (offline fixture provider)`,
+		"aurumcode review: 1 finding(s) at severity error or above (--fail-on error)",
+		`aurumcode review: model "local" is unavailable: no LLM provider is configured to serve it`,
+		"aurumcode review: to serve model \"local\": set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run, or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo local",
+		"aurumcode review: --modelo: model name must not be empty",
+	}
+	for _, line := range lines {
+		if got := filter.Redact(line); got != line {
+			t.Errorf("a canonical stderr line is not filter-identity:\n  in:  %q\n  out: %q", line, got)
+		}
+	}
+
+	// And the one stderr line that must NOT be identity: an endpoint note
+	// whose URL still carried userinfo is fully masked by the writer.
+	leaky := `aurumcode review: reviewing with model "m" (litellm endpoint http://user:xxxxx@127.0.0.1:1234/v1)`
+	got := filter.Redact(leaky)
+	if strings.Contains(got, "user:xxxxx@") {
+		t.Fatalf("the stderr filter left URL userinfo in place: %q", got)
+	}
+	if !strings.Contains(got, redaction.Marker+"@127.0.0.1:1234") {
+		t.Fatalf("the stderr filter destroyed the endpoint host: %q", got)
+	}
+}

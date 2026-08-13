@@ -30,6 +30,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -39,6 +41,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -46,22 +49,51 @@ func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
+// run wires this process's sinks through the single AUR-009 redaction
+// filter before any subcommand can write to them (AUR-432).
+//
+// stderr is wrapped with redaction.NewWriter: every canonical stderr line
+// this command emits is filter-identity (pinned by TestStderrLinesSurvive
+// TheRedactionWriter), so the wrapper costs nothing on the published
+// contract while screening everything else -- transport errors that echo
+// response bodies, provider errors, an endpoint URL that still carried
+// credentials.
+//
+// stdout deliberately uses the same filter at field level instead of the
+// line writer: the published finding line ends with the AUR-434 rule
+// citation "(rule security/hardcoded-secret: <title>)", whose "-secret:
+// <title>" spelling the line filter would itself rewrite, changing the
+// byte-stable AUR-430 output for secret-free reviews. So every
+// model-authored field is redacted at the model boundary
+// (internal/review.redactReviewResult) before the trusted citation is
+// appended, and the diff-derived notices are redacted here in
+// printNotices; a secret-free review keeps its exact published bytes.
 func run(args []string, stdout, stderr *os.File) int {
+	filter := redaction.FromEnv()
+	errW, err := filter.NewWriter(redaction.SinkStderr, stderr)
+	if err != nil {
+		// Fail closed: without a redacted writer nothing may be written to
+		// the sink. The message below is a static literal.
+		fmt.Fprintln(stderr, "aurumcode: stderr redaction writer unavailable")
+		return 1
+	}
+	defer errW.Flush()
+
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: aurumcode <review> [flags]")
+		fmt.Fprintln(errW, "usage: aurumcode <review> [flags]")
 		return 2
 	}
 
 	switch args[0] {
 	case "review":
-		return runReview(args[1:], stdout, stderr)
+		return runReview(args[1:], stdout, errW, filter)
 	default:
-		fmt.Fprintf(stderr, "aurumcode: unknown command %q\n", args[0])
+		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2
 	}
 }
 
-func runReview(args []string, stdout, stderr *os.File) int {
+func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int {
 	fs := flag.NewFlagSet("review", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	base := fs.String("base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
@@ -168,7 +200,7 @@ func runReview(args []string, stdout, stderr *os.File) int {
 		return 1
 	}
 
-	printNotices(stdout, notices)
+	printNotices(stdout, filter, notices)
 	printFindings(stdout, result)
 
 	// The --fail-on CI gate (AUR-431): after the findings have printed
@@ -271,9 +303,12 @@ func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, err
 // diff's own sorted path order, and they do not change the exit code: a
 // skipped file is a normal, reportable outcome, not a failure. A run with
 // nothing to skip prints nothing here, so ordinary output is unaffected.
-func printNotices(stdout *os.File, notices []analyzer.DiffNotice) {
+// Notice text derives from diff paths -- repository-controlled input -- so
+// it passes the redaction filter before reaching the sink (AUR-432); an
+// ordinary path is filter-identity.
+func printNotices(stdout io.Writer, filter *redaction.Filter, notices []analyzer.DiffNotice) {
 	for _, n := range notices {
-		fmt.Fprintln(stdout, n.Message)
+		fmt.Fprintln(stdout, filter.Redact(n.Message))
 	}
 }
 
@@ -300,7 +335,11 @@ func selectProvider() (llm.Provider, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return &review.FakeProvider{Response: string(content), NameStr: "fixture"}, nil
+		return &review.FakeProvider{
+			Response:    string(content),
+			NameStr:     "fixture",
+			CapturePath: os.Getenv("AURUMCODE_PROMPT_CAPTURE"),
+		}, nil
 	}
 
 	apiKey := os.Getenv("LLM_API_KEY")
@@ -342,16 +381,37 @@ func selectProviderForModel(model string) (llm.Provider, string, error) {
 		if err != nil {
 			return nil, "", fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return &review.FakeProvider{Response: string(content), NameStr: model}, "offline fixture provider", nil
+		return &review.FakeProvider{
+			Response:    string(content),
+			NameStr:     model,
+			CapturePath: os.Getenv("AURUMCODE_PROMPT_CAPTURE"),
+		}, "offline fixture provider", nil
 	}
 
 	apiKey := os.Getenv("LLM_API_KEY")
 	baseURL := os.Getenv("LLM_BASE_URL")
 	if apiKey != "" && baseURL != "" {
-		return litellm.NewProvider(apiKey, baseURL, model), "litellm endpoint " + baseURL, nil
+		return litellm.NewProvider(apiKey, baseURL, model), "litellm endpoint " + redactedEndpoint(baseURL), nil
 	}
 
 	return nil, "", errors.New("no LLM provider is configured to serve it")
+}
+
+// redactedEndpoint renders a configured endpoint URL for the stderr
+// selection note with any userinfo password already masked at the origin
+// (url.Redacted, AUR-432): LLM_BASE_URL=http://user:PASS@host must never
+// echo PASS back on the success path. The stderr redaction writer
+// additionally replaces the entire userinfo component with the stable
+// marker, so not even the username reaches the terminal; this origin fix
+// exists so no call path -- present or future -- starts from a string
+// that still carries the password. An unparseable value is returned as
+// given and left to the writer's structural rules.
+func redactedEndpoint(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	return u.Redacted()
 }
 
 // reportModelUnavailable prints the clear, actionable error the card
@@ -360,7 +420,7 @@ func selectProviderForModel(model string) (llm.Provider, string, error) {
 // including a local one. It returns the command's exit code, 1, the same
 // "the review itself failed" code AUR-430 already documents; the one thing
 // this path must never do is report an empty review with exit 0.
-func reportModelUnavailable(stderr *os.File, model string, reason error) int {
+func reportModelUnavailable(stderr io.Writer, model string, reason error) int {
 	fmt.Fprintf(stderr, "aurumcode review: model %q is unavailable: %v\n", model, reason)
 	fmt.Fprintf(stderr, "aurumcode review: to serve model %q: set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run, or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo %s\n", model, model)
 	return 1
@@ -370,7 +430,11 @@ func reportModelUnavailable(stderr *os.File, model string, reason error) int {
 // <message>", sorted by (file, line) so the same review result always
 // prints in the same order regardless of the order the model listed
 // findings in.
-func printFindings(stdout *os.File, result *types.ReviewResult) {
+// Every model-authored field printed here was already redacted at the
+// model boundary (internal/review.redactReviewResult, AUR-432), before the
+// trusted rule citation was appended, so the published byte-stable format
+// survives while no echoed secret can reach this sink.
+func printFindings(stdout io.Writer, result *types.ReviewResult) {
 	issues := make([]types.ReviewIssue, len(result.Issues))
 	copy(issues, result.Issues)
 	sort.SliceStable(issues, func(i, j int) bool {
