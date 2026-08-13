@@ -94,6 +94,21 @@ stage_source() {
   copy "$root" cmd/aurumcode
   copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git pkg/types
   copy "$root" tests/fixtures/scm/github tests/fixtures/repos/git-demo tests/fixtures/review
+
+  # cmd/aurumcode is one package: if another card (AUR-426, docs.go) has
+  # added a file there that imports the documentation pipeline, `go build
+  # ./cmd/aurumcode` needs those packages too, or the sealed build fails on
+  # a missing package that has nothing to do with this card's own PR
+  # review path. Detected, not assumed -- a tree without AUR-426
+  # integrated stages exactly what it always staged, no extra copy
+  # attempted (and so no extra requirement on read_paths) until the two
+  # cards actually coexist.
+  if grep -Elq 'AurumCode/internal/(documentation|pipeline)"' "$root"/cmd/aurumcode/*.go 2>/dev/null; then
+    copy "$root" internal/documentation/extractors internal/documentation/incremental \
+      internal/documentation/normalizer internal/documentation/site \
+      internal/documentation/welcome internal/pipeline cmd/regenerate-docs
+  fi
+
   # See the note above copy(): the staged copy is scratch from here on, so
   # force it writable for the mutation case's sed and for cleanup_root.
   chmod -R u+w -- "$root"
