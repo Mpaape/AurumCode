@@ -1,0 +1,21 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-432",
+ "commit": "6de8e0dcd76995b284a9b4c13c84a2eba9167a1e",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-432",
+  "exit_code": 0,
+  "raw_output": "AC-001/ok sealed raw exit 0; reviewer probes: +Authorization/+Proxy-Authorization/+Cookie/+Set-Cookie all [REDACTED] in prompt and stdout"
+ },
+ "review_notes": {
+  "rounds": "Round 1 REQUEST_CHANGES: diff '+' prefix defeated the ^-anchored header rule end-to-end while the prefix-immune fixture kept the accept green. Round 2 APPROVE with the reviewer's own vectors.",
+  "residuals": [
+   "content lines whose own text starts with +/- before a header name still pass the bare filter (anchor limitation inside internal/security/redaction, AUR-009 surface, out of this card's scope)",
+   "httpbase log.Printf bypasses the wrapped stderr writer (names only, no payload today)",
+   "AURUMCODE_PROMPT_CAPTURE is an env-gated truncating write in shipped code, documented in the spec"
+  ]
+ }
+}
