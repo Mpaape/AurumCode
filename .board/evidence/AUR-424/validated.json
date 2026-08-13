@@ -1,0 +1,21 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-424",
+ "commit": "936f42d5d0aa2b298b0130841a3d0e471394f5cb",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-424",
+  "exit_code": 0,
+  "raw_output": "{\"card\":\"AUR-424\",\"scenario\":\"AC-001\",\"result\":\"pass\",\"external_tool_calls\":0} e2e=ok runs=3 empty_path_run=1 digest=ca37ef06 17 ok lines across internal/documentation, internal/pipeline, cmd/regenerate-docs, tests/e2e, tests/characterization"
+ },
+ "review_notes": {
+  "rounds": "Round 1 (independent /code-review on a838436): 15 defects, 5 blocking. Fix commit 4afc026. Board single reviewer on integrated 936f42d: APPROVE.",
+  "mutations": "MUT-001 reproduced by reviewer in staged copy: Validate back to gomarkdoc lookup makes accept exit 1 (behavior-missing) and e2e lane exit 1 (SKIP go); restore returns exit 0.",
+  "nonblocking_findings": [
+   "MUT-001 records behavior-missing rather than the literal AUR-424/AC-001/MUT-001 marker because the unit lane short-circuits first",
+   "docs/specs/AUR-424.md still describes the pre-repair accept exiting 69 in the sandbox; stale prose after the coordinator widened read_paths"
+  ]
+ }
+}
