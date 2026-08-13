@@ -204,11 +204,17 @@ runs:
       run: |
         set -euo pipefail
 
-        # Every extractor shells out to an external documentation tool and
-        # aborts its language when the tool is missing. Go is the action's own
-        # stack, so a gomarkdoc failure is fatal; every opt-in toolchain
-        # degrades to a logged warning and its language is skipped.
-        GOMARKDOC_VERSION='v1.1.0'
+        # Seven of the eight extractors shell out to an external
+        # documentation tool and abort their language when it is missing:
+        # python/pydoc-markdown, javascript/typedoc, csharp/dotnet+xmldocmd,
+        # cpp/doxygen, rust/cargo, bash/bash and powershell/pwsh (rust, bash
+        # and powershell use the binaries already on the runner image, so
+        # only javascript/python/csharp/cpp are installed below, gated by
+        # extra-toolchains). Go is the one exception: AUR-424 replaced its
+        # gomarkdoc subprocess with go/parser + go/doc + go/printer, so
+        # nothing for Go installs in this step, unconditionally or
+        # otherwise. Every opt-in toolchain below still only degrades to a
+        # logged warning; its language is skipped, never fatal.
         TYPEDOC_VERSION='0.25.13'
         TYPEDOC_PLUGIN_MARKDOWN_VERSION='3.17.1'
         PYDOC_MARKDOWN_VERSION='4.8.2'
@@ -218,9 +224,6 @@ runs:
         # www.doxygen.nl and on the github.com/doxygen/doxygen release asset.
         # Refresh this constant together with DOXYGEN_VERSION.
         DOXYGEN_SHA256='dda773bdc62384b7d796fe8b6c5029daad72483e4c8ad4abf6ee9fb98b649388'
-
-        go install "github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}"
-        echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
 
         wanted=" $(echo "${EXTRA_TOOLCHAINS}" | tr ',' ' ') "
 
