@@ -28,7 +28,9 @@ func aur436Root(t *testing.T) string {
 
 // aur436Fixture writes a deterministic offline model response with one
 // finding of the given severity and returns its path. The shape matches
-// what internal/prompt.ResponseParser validates.
+// what internal/prompt.ResponseParser validates, and the finding cites an
+// embedded rule so it survives the AUR-434 rule-citation gate
+// (internal/review, enforceRuleCitations).
 func aur436Fixture(t *testing.T, severity string) string {
 	t.Helper()
 	content := fmt.Sprintf(`{
@@ -37,6 +39,7 @@ func aur436Fixture(t *testing.T, severity string) string {
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": %q,
+      "rule_id": "security/hardcoded-secret",
       "message": "A planted, synthetic problem used to exercise model selection."
     }
   ],

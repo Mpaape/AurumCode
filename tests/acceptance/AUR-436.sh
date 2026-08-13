@@ -110,6 +110,7 @@ cat >"$fixture_error" <<'EOF'
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "rule_id": "security/hardcoded-secret",
       "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN)."
     }
   ],
