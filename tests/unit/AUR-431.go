@@ -156,4 +156,22 @@ func TestAUR431(t *testing.T) {
 			t.Fatalf("expected usage exit 2 for an unknown level, got %d\nstderr=%s", code, stderr)
 		}
 	})
+
+	t.Run("explicitly empty level is a usage error, never an open gate", func(t *testing.T) {
+		// The real CI vector: `--fail-on "$VAR"` with VAR unset/empty. The
+		// flag is present but valueless; that must fail closed with the
+		// usage exit 2, not silently disable the gate and exit 0 despite
+		// an error-severity finding.
+		fixture := aur431Fixture(t, "error")
+		for _, args := range [][]string{
+			{"--fail-on="},
+			{"--fail-on", ""},
+		} {
+			code, stdout, stderr := run(fixture, args...)
+			if code != 2 {
+				t.Fatalf("args=%q: expected usage exit 2 for an empty level, got %d\nstdout=%s\nstderr=%s",
+					args, code, stdout, stderr)
+			}
+		}
+	})
 }

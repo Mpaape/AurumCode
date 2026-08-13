@@ -203,6 +203,14 @@ nominal_case() {
   # An unknown level is a usage error (2), never a silent pass or gate.
   run_review "$shared_bin" "$repo_dir" "$fixture_error" --base HEAD~1 --fail-on catastrophic
   [[ "$rc" -eq 2 ]] || fail invalid-level-not-rejected
+
+  # A present-but-empty level (`--fail-on "$VAR"` with VAR empty in CI) is
+  # the same usage error, never a silently-open gate that exits 0 despite
+  # the error finding.
+  run_review "$shared_bin" "$repo_dir" "$fixture_error" --base HEAD~1 --fail-on ''
+  [[ "$rc" -eq 2 ]] || fail empty-level-not-rejected
+  run_review "$shared_bin" "$repo_dir" "$fixture_error" --base HEAD~1 --fail-on=
+  [[ "$rc" -eq 2 ]] || fail empty-level-not-rejected
 }
 
 # mutation_case is MUT-001: downgrade the severity of every finding in the
@@ -298,8 +306,17 @@ e2e_case() {
   stage_source "$root"
   copy "$root" tests/e2e/AUR-431.sh
   # Reuse the already-built binary and the warm GOCACHE (exported above)
-  # instead of letting the nested script cold-build its own copy.
-  (cd "$root" && AURUMCODE_BIN="$shared_bin" bash tests/e2e/AUR-431.sh E2EAUR431) || fail e2e-failed
+  # instead of letting the nested script cold-build its own copy. The
+  # nested script's own exit-code vocabulary is preserved: its 79 is an
+  # environment gap and must be re-emitted as infra here, never collapsed
+  # into behavioral RED (see EXIT_CODE_CONVENTION.md).
+  local rc
+  set +e
+  (cd "$root" && AURUMCODE_BIN="$shared_bin" bash tests/e2e/AUR-431.sh E2EAUR431)
+  rc=$?
+  set -e
+  ((rc != 79)) || infra "e2e-inconclusive:$rc"
+  ((rc == 0)) || fail "e2e-failed:exit:$rc"
   cleanup_root "$root"
 }
 
