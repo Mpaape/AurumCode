@@ -1,0 +1,10 @@
+I reviewed the change. It is not valid JSON on purpose: this fixture exists
+to prove that a model which cannot follow the JSON schema still produces a
+usable review through internal/prompt.ResponseParser's degraded fallback
+(see docs/specs/AUR-430.md, "Parser fallback").
+
+Findings:
+- config/demo-tokens.txt:4: error: a plaintext credential was committed (DEMO_API_TOKEN)
+- config/demo-tokens.txt:5: error: a plaintext credential was committed (DEMO_DB_PASSWORD)
+
+That's everything worth flagging in this change.
