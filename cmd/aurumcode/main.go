@@ -67,10 +67,20 @@ func runReview(args []string, stdout, stderr *os.File) int {
 	}
 
 	// Validate --fail-on before doing any work: an unknown level is a
-	// usage error (exit 2), never a silently-open gate.
+	// usage error (exit 2), never a silently-open gate. fs.Visit only
+	// visits flags that were actually set, so an explicitly empty value
+	// (`--fail-on=`, or `--fail-on "$VAR"` with VAR unset in CI) is
+	// distinguished from an absent flag and rejected the same way any
+	// other unknown level is, instead of silently disabling the gate.
+	failOnSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "fail-on" {
+			failOnSet = true
+		}
+	})
 	threshold := 0
 	thresholdName := ""
-	if *failOn != "" {
+	if failOnSet {
 		var err error
 		threshold, thresholdName, err = parseFailOnLevel(*failOn)
 		if err != nil {
