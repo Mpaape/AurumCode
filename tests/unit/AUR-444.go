@@ -10,41 +10,32 @@
 // HOW THIS IS PROVED, AND WHY NOT BY grep-ING A HAND LIST
 //
 //	The card explicitly forbids a hand-written list of "the real flags":
-//	that is exactly the kind of claim this card exists to correct (the
-//	card's own "Achado medido" names a --check flag that a `go build` +
-//	`review --help` against this repository's actual tip does NOT show --
-//	see docs/specs/AUR-444.md). So the real, registered flag set is derived
-//	here by parsing cmd/aurumcode's OWN source with go/parser: it walks the
+//	that is exactly the kind of claim this card exists to correct. Measured
+//	independently against this repository's actual tip (`go build` +
+//	`review --help`): --check DOES exist (AUR-439's code is integrated as of
+//	this tip -- an earlier measurement against a stale board state found it
+//	absent; see docs/specs/AUR-444.md for why --check is still not wired
+//	into this entrypoint mode, and why that is a deliberate scope decision,
+//	not another missed flag). The real, registered flag set is derived here
+//	by parsing cmd/aurumcode's OWN source with go/parser: it walks the
 //	function that calls flag.NewFlagSet("review", ...) and collects every
-//	flag name registered on that flag.FlagSet (.String/.Bool/.Int/...).
+//	flag name registered on that flag.FlagSet (.String/.Bool/.Int/...) --
+//	dynamically, so this proof cannot go stale the way a hand list already
+//	has once.
 //
-//	go/parser only needs syntax, not type-checked imports, so this works
-//	even when cmd/aurumcode's own internal/... dependencies are not
-//	materialized on disk -- which is exactly the situation inside the sealed
-//	`bootstrap-readonly-v1` acceptance sandbox: AUR-444's read_paths lists
-//	cmd/aurumcode but not internal/analyzer, internal/llm, internal/review,
-//	internal/security, internal/git, internal/prompt or pkg/types, so a
-//	literal `go build ./cmd/aurumcode` cannot succeed there (confirmed by
-//	staging only the declared read_paths and running the build: it fails on
-//	"finding module for package .../internal/analyzer" et al., offline,
-//	because GOPROXY is off and those packages simply are not on disk). This
-//	card cannot repair read_paths -- .board/cards is a forbidden_path -- so
-//	this Unit layer is deliberately import-free of cmd/aurumcode's own
-//	package, proving the property from source text alone. tests/integration
-//	and tests/e2e add build-based proof whenever that closure IS present
-//	(a normal working tree, unlike the sealed sandbox).
+//	go/parser only needs syntax, not type-checked imports, so this Unit
+//	layer needs none of cmd/aurumcode's internal/... dependencies to be
+//	materialized on disk -- unlike tests/integration/AUR-444.go, which now
+//	also builds and runs the REAL binary (AUR-444's read_paths carries the
+//	full compile closure as of this tip) for an independent, build-based
+//	confirmation of the same property. The two do not depend on each other;
+//	either alone would already catch the defect this card fixes.
 //
 // This file is not named "_test.go" on purpose, mirroring every sibling card
 // in this office: tests/acceptance/AUR-444.sh stages a private writable copy
-// and writes a tiny bridge "_test.go" file that calls TestAUR428, so this
+// and writes a tiny bridge "_test.go" file that calls TestAUR444, so this
 // assertion runs inside the sandboxed acceptance instead of being swept into
 // an unrelated top-level `go test ./...`.
-//
-// SELECTOR NAME: the card's own TDD proof section names this function
-// TestAUR428 -- inherited verbatim from the AUR-428 card template it was
-// copied from (a numbering mismatch the acceptance program also notes). It
-// is kept exactly as the card declares so a reviewer running the literal
-// selector the card names gets a real, executing test.
 package unit
 
 import (
@@ -275,12 +266,12 @@ func aur444SortedKeys(m map[string]bool) []string {
 	return out
 }
 
-// TestAUR428 proves criterion (a) of AUR-444's acceptance: every flag token
+// TestAUR444 proves criterion (a) of AUR-444's acceptance: every flag token
 // the entrypoint sends to `"$AURUMCODE_CLI" review` is a flag cmd/aurumcode
 // actually registers, dynamically derived from cmd/aurumcode's own source --
 // never a hand-written list -- and at least --base (the one required real
 // flag) is among them.
-func TestAUR428(t *testing.T) {
+func TestAUR444(t *testing.T) {
 	root := aur444RepoRoot(t)
 	cliDir := filepath.Join(root, "cmd", "aurumcode")
 	entrypoint := filepath.Join(root, "scripts", "action-entrypoint.sh")

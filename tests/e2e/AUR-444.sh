@@ -2,38 +2,38 @@
 # AUR-444 E2E: run the REAL scripts/action-entrypoint.sh, as a process, and
 # prove its control flow end to end -- not just that its text looks right.
 #
-# WHY A STAND-IN BINARY, NOT A GIT FIXTURE
-#   AUR-444's read_paths lists cmd/aurumcode but none of the internal/...
-#   packages it imports (internal/analyzer, internal/llm, internal/review,
-#   internal/security, internal/git, internal/prompt, pkg/types). Confirmed
-#   empirically: staging only the declared read_paths and running
-#   `go build ./cmd/aurumcode` fails offline on "finding module for package
-#   .../internal/analyzer" et al. -- those packages are simply not on disk
-#   inside the sealed `bootstrap-readonly-v1` acceptance container. This card
-#   cannot repair read_paths (.board/cards is a forbidden_path), so the real
-#   binary cannot be relied on to exist for the required assertions below.
+# WHY A STAND-IN BINARY IS STILL USED FOR SCENARIOS 1-7, EVEN THOUGH THE REAL
+# BINARY IS NOW BUILDABLE HERE
+#   AUR-444's read_paths now carries cmd/aurumcode's full compile closure
+#   (internal/analyzer, internal/prompt, internal/review, internal/llm,
+#   internal/security/redaction, internal/git/githubclient, pkg/types, and
+#   the internal/documentation/... + internal/pipeline packages the docs
+#   subcommand reuses), so `go build ./cmd/aurumcode` succeeds inside the
+#   sealed `bootstrap-readonly-v1` acceptance container -- this was NOT true
+#   of an earlier revision of this card, whose read_paths listed only
+#   cmd/aurumcode itself; a plain `go build` failed there on "finding module
+#   for package .../internal/analyzer" et al., confirmed empirically before
+#   read_paths was corrected.
 #
-#   Instead, AURUMCODE_CLI (which the entrypoint already lets a caller
-#   override -- Dockerfile sets AURUMCODE_BIN_DIR, not AURUMCODE_CLI itself)
-#   is pointed at a tiny stand-in script that records exactly the argv it
-#   was invoked with and exits 0. This proves the ENTRYPOINT'S OWN control
-#   flow for real: require_binary, the AURUMCODE_BASE_REF gate, the exact
-#   argv it builds, GITHUB_OUTPUT writing, determinism, and the qa
-#   regression fix -- all without needing cmd/aurumcode's dependency
-#   closure. tests/unit/AUR-444.go proves the OTHER half (that argv only
-#   ever contains flags cmd/aurumcode truly registers) from source, which
-#   needs no import resolution either. Together the two cover the card's
-#   Outcome without ever depending on the missing closure.
-#
-#   A later section attempts the REAL binary too, best-effort, whenever the
-#   closure happens to be present (e.g. a normal working tree copy, not the
-#   sealed sandbox) -- never required for a pass.
+#   Scenarios 1-7 below still use a tiny stand-in script (recording exactly
+#   the argv it was invoked with, exiting 0) rather than the real binary, on
+#   purpose: they test the ENTRYPOINT'S OWN control flow -- require_binary,
+#   the AURUMCODE_BASE_REF gate, the exact argv it builds, GITHUB_OUTPUT
+#   writing, determinism, the qa regression fix -- which is a property of
+#   the shell script, not of cmd/aurumcode's flag parsing. Conflating the two
+#   under one binary would leave a real review's provider/git/network
+#   behavior able to mask a shell-script regression, or vice versa. Section 8
+#   below, and tests/integration/AUR-444.go, use the REAL binary to prove the
+#   other half: that every flag the entrypoint sends is one cmd/aurumcode
+#   actually registers -- now REQUIRED, not best-effort, exactly because the
+#   closure is now a materialized precondition rather than an occasional
+#   convenience.
 #
 # EXIT CODES (tests/acceptance/EXIT_CODE_CONVENTION.md): 0 pass, 1 behavioral
 # RED, 64 unknown selector, 79 inconclusive/infrastructure.
 set -euo pipefail
 export LC_ALL=C
-[[ "${1:-E2EAUR428}" == E2EAUR428 ]] || { printf 'AUR-444/AC-001/unknown-selector\n' >&2; exit 64; }
+[[ "${1:-E2EAUR444}" == E2EAUR444 ]] || { printf 'AUR-444/AC-001/unknown-selector\n' >&2; exit 64; }
 
 fail() { printf 'AUR-444/AC-001/%s\n' "$1" >&2; exit 1; }
 infra() { printf 'AUR-444/AC-001/infrastructure/%s\n' "$1" >&2; exit 79; }
@@ -154,37 +154,39 @@ for f in "$run_dir"/log-* "$out1" "$out2"; do
   fi
 done
 
-# --- 8. Bonus, best-effort: when cmd/aurumcode's dependency closure DOES
-# happen to be on disk (a normal working tree, never guaranteed inside the
-# sealed sandbox -- see this file's header), build and invoke the REAL
-# binary too. This can never fail the run: an unavailable closure or
-# toolchain is exactly the environment gap this card cannot repair, so it is
-# reported and skipped, never treated as red. The one thing it DOES assert,
-# when the build succeeds, is that the real binary does not reject the
-# entrypoint's flags as unrecognized -- the exact failure mode this card
-# fixes.
-if command -v go >/dev/null 2>&1 && [[ -d "$repo_root/internal/analyzer" ]]; then
-  real_bin="$run_dir/aurumcode-real"
-  build_log="$run_dir/build-real.log"
-  build_ok=1
-  ( cd "$repo_root" && ulimit -v 8388608 2>/dev/null
+# --- 8. REQUIRED, against the REAL binary: AUR-444's read_paths now carries
+# cmd/aurumcode's full compile closure (internal/analyzer, internal/prompt,
+# internal/review, internal/llm, internal/security/redaction,
+# internal/git/githubclient, pkg/types, and the internal/documentation/...
+# + internal/pipeline packages the docs subcommand reuses), so `go build
+# ./cmd/aurumcode` is expected to succeed here too, inside the sealed
+# acceptance sandbox -- this is no longer a "when available" bonus. Its
+# absence is reported as an infrastructure gap (this closure is a
+# precondition this card's own read_paths declares, not something this
+# script can repair), but the one behavioral assertion once it builds --
+# that the real binary does not reject the entrypoint's flags as
+# unrecognized, the exact failure mode this card fixes -- is a hard
+# requirement.
+command -v go >/dev/null 2>&1 || infra missing_go_for_real_binary
+[[ -d "$repo_root/internal/analyzer" ]] || infra "closure_not_materialized:internal/analyzer"
+
+real_bin="$run_dir/aurumcode-real"
+build_log="$run_dir/build-real.log"
+if ! ( cd "$repo_root" && ulimit -v 8388608 2>/dev/null
     GOFLAGS='-mod=mod -p=1' GOMEMLIMIT=2GiB GOMAXPROCS=1 GOTOOLCHAIN=local \
-      go build -o "$real_bin" ./cmd/aurumcode ) >"$build_log" 2>&1 || build_ok=0
-  if [[ "$build_ok" -eq 1 ]]; then
-    reallog="$run_dir/log-real"
-    realout="$run_dir/gh-output-real"
-    : >"$realout"
-    run_entrypoint "$reallog" AURUMCODE_MODE=review AURUMCODE_BASE_REF=HEAD \
-      AURUMCODE_CLI="$real_bin" GITHUB_WORKSPACE="$repo_root" GITHUB_OUTPUT="$realout" >/dev/null
-    if grep -Eq 'flag provided but not defined|flag needs an argument' "$reallog"; then
-      fail "real-binary-rejected-flag:$(tr '\n' ' ' <"$reallog")"
-    fi
-    printf 'AUR-444/AC-001/bonus:real-binary-accepted-flags\n'
-  else
-    printf 'AUR-444/AC-001/bonus-skipped:real-build-unavailable\n'
-  fi
-else
-  printf 'AUR-444/AC-001/bonus-skipped:closure-not-materialized\n'
+      go build -o "$real_bin" ./cmd/aurumcode ) >"$build_log" 2>&1; then
+  cat "$build_log" >&2
+  infra "real_build_failed"
 fi
+
+reallog="$run_dir/log-real"
+realout="$run_dir/gh-output-real"
+: >"$realout"
+run_entrypoint "$reallog" AURUMCODE_MODE=review AURUMCODE_BASE_REF=HEAD \
+  AURUMCODE_CLI="$real_bin" GITHUB_WORKSPACE="$repo_root" GITHUB_OUTPUT="$realout" >/dev/null
+if grep -Eq 'flag provided but not defined|flag needs an argument' "$reallog"; then
+  fail "real-binary-rejected-flag:$(tr '\n' ' ' <"$reallog")"
+fi
+printf 'AUR-444/AC-001/real-binary-accepted-flags\n'
 
 printf 'AUR-444/AC-001/ok\n'

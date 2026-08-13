@@ -22,12 +22,23 @@
 // Anchors are long, specific literal substrings on purpose -- the AUR-440
 // lesson (a bare 'v1' matches inside "bootstrap-readonly-v1") applies here
 // exactly as much as it did there.
+//
+// Criterion (a), against the REAL binary: AUR-444's read_paths now carries
+// cmd/aurumcode's full compile closure, so this layer also builds
+// cmd/aurumcode for real (`go build ./cmd/aurumcode`) and confronts the
+// entrypoint's actual argv against that binary's own `review --help`
+// output -- see aur444RequireRealBinaryAcceptsEntrypointFlags below. This is
+// independent of, and does not replace, tests/unit/AUR-444.go's go/parser
+// proof of the same criterion from source text.
 package integration
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -72,10 +83,10 @@ var aur444DockerfileCopyRE = regexp.MustCompile(`(?m)^COPY --from=builder /build
 // back to when the caller does not override it.
 var aur444EntrypointCLIDefaultRE = regexp.MustCompile(`AURUMCODE_CLI="\$\{AURUMCODE_CLI:-\$\{AURUMCODE_BIN_DIR\}/([A-Za-z0-9_.-]+)\}"`)
 
-// IntegrationAUR428 is AUR-444's Integration-layer proof (selector name
+// IntegrationAUR444 is AUR-444's Integration-layer proof (selector name
 // inherited verbatim from the card's own TDD proof section; see
 // tests/unit/AUR-444.go's header for why it is kept as declared).
-func IntegrationAUR428(t *testing.T) {
+func IntegrationAUR444(t *testing.T) {
 	root := aur444IntegrationRoot(t)
 	dockerfile := aur444ReadFile(t, filepath.Join(root, "Dockerfile"))
 	actionYML := aur444ReadFile(t, filepath.Join(root, "action.yml"))
@@ -171,6 +182,122 @@ func IntegrationAUR428(t *testing.T) {
 			t.Fatalf("AUR-444/AC-001/behavior-missing: action.yml's corrected prose stopped naming external tool %q that a non-Go extractor still needs", tool)
 		}
 	}
+
+	// --- Criterion (a), proved against the REAL binary, not source text.
+	// AUR-444's read_paths now carries cmd/aurumcode's full compile closure
+	// (internal/analyzer, internal/prompt, internal/review, internal/llm,
+	// internal/security/redaction, internal/git/githubclient, pkg/types),
+	// so `go build ./cmd/aurumcode` succeeds here, inside the sealed
+	// acceptance sandbox, and this confronts the entrypoint's actual argv
+	// against the binary's own `--help` output -- the same criterion (a)
+	// tests/unit/AUR-444.go proves from source with go/parser, now also
+	// proved by running the artifact itself. Neither replaces the other:
+	// go/parser needs no build and stays a fast, independent cross-check;
+	// this needs the build but is unimpeachable -- if the entrypoint's
+	// flags did not parse, `--help`'s own exit code would already say so
+	// (Go's flag package still emits full usage on -h/--help, exit 2).
+	aur444RequireRealBinaryAcceptsEntrypointFlags(t, root, entrypoint)
+}
+
+// aur444RealReviewFlags builds cmd/aurumcode from root and parses the real
+// `review --help` usage output (Go's flag package format: "  -name\n
+// \tdescription") into the set of flag names it actually registers.
+func aur444RealReviewFlags(t *testing.T, root string) map[string]bool {
+	t.Helper()
+	binPath := filepath.Join(t.TempDir(), "aurumcode-aur444-real")
+	build := exec.Command("go", "build", "-o", binPath, "./cmd/aurumcode")
+	build.Dir = root
+	var buildOut bytes.Buffer
+	build.Stdout = &buildOut
+	build.Stderr = &buildOut
+	if err := build.Run(); err != nil {
+		t.Fatalf("AUR-444/AC-001/infrastructure: go build ./cmd/aurumcode failed: %v\n%s", err, buildOut.String())
+	}
+
+	help := exec.Command(binPath, "review", "--help")
+	var helpOut bytes.Buffer
+	help.Stdout = &helpOut
+	help.Stderr = &helpOut
+	// --help makes Go's flag package return flag.ErrHelp, which
+	// cmd/aurumcode's fs.Parse (flag.ContinueOnError) reports as exit 2
+	// after printing full usage -- expected here, not an infrastructure
+	// failure; only a build/exec failure (binary absent or unrunnable) is.
+	_ = help.Run()
+
+	flagLineRE := regexp.MustCompile(`^\s{2}-([A-Za-z][A-Za-z0-9-]*)\b`)
+	flags := map[string]bool{}
+	for _, line := range strings.Split(helpOut.String(), "\n") {
+		if m := flagLineRE.FindStringSubmatch(line); m != nil {
+			flags[m[1]] = true
+		}
+	}
+	if len(flags) == 0 {
+		t.Fatalf("AUR-444/AC-001/infrastructure: `%s review --help` printed zero recognizable flag lines:\n%s", binPath, helpOut.String())
+	}
+	return flags
+}
+
+// aur444EntrypointReviewFlagTokens extracts the long-flag tokens (without
+// --) the entrypoint's review invocation sends, following backslash line
+// continuations, skipping commented-out lines. Independent re-derivation
+// from tests/unit/AUR-444.go's aur444EntrypointFlagUses (different
+// package -- test packages in this office are proved standalone, see
+// tests/acceptance/AUR-444.sh's per-selector staging), but the same method.
+func aur444EntrypointReviewFlagTokens(entrypoint string) map[string]bool {
+	invocationRE := regexp.MustCompile(`\$(?:\{AURUMCODE_CLI\}|AURUMCODE_CLI)"?\s+review\b`)
+	flagTokenRE := regexp.MustCompile(`--([A-Za-z][A-Za-z0-9-]*)`)
+	lines := strings.Split(entrypoint, "\n")
+	tokens := map[string]bool{}
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		if !invocationRE.MatchString(line) {
+			continue
+		}
+		block := line
+		for strings.HasSuffix(block, `\`) && i+1 < len(lines) {
+			i++
+			block = strings.TrimSuffix(block, `\`) + "\n" + lines[i]
+		}
+		for _, m := range flagTokenRE.FindAllStringSubmatch(block, -1) {
+			tokens[m[1]] = true
+		}
+	}
+	return tokens
+}
+
+func aur444RequireRealBinaryAcceptsEntrypointFlags(t *testing.T, root, entrypoint string) {
+	t.Helper()
+	realFlags := aur444RealReviewFlags(t, root)
+	sent := aur444EntrypointReviewFlagTokens(entrypoint)
+	if len(sent) == 0 {
+		t.Fatalf("AUR-444/AC-001/behavior-missing: no review flag tokens found in the entrypoint to confront against the real binary")
+	}
+	if !sent["base"] {
+		t.Fatalf("AUR-444/AC-001/behavior-missing: entrypoint never sends --base (real binary flags: %v)", aur444SortedSet(realFlags))
+	}
+	var unknown []string
+	for flagName := range sent {
+		if !realFlags[flagName] {
+			unknown = append(unknown, flagName)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		t.Fatalf("AUR-444/AC-001/behavior-missing: the REAL binary (go build ./cmd/aurumcode; review --help) does not register flag(s) the entrypoint sends: --%s (registered: %s)",
+			strings.Join(unknown, ", --"), strings.Join(aur444SortedSet(realFlags), ", "))
+	}
+}
+
+func aur444SortedSet(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func aur444SortedNames(m map[string]bool) []string {
