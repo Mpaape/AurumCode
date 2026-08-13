@@ -407,26 +407,43 @@ func probeCSharp() (ProbeResult, error) {
 	return result, nil
 }
 
+// probeGo records the Go extractor's behaviour as AUR-424 intentionally
+// changed it. The legacy observation was "invokes gomarkdoc and counts only a
+// nonempty output observed on disk": the extractor shelled out to the
+// third-party gomarkdoc binary, which does not exist in the offline sandbox,
+// and the lookup failure became a silent language skip. The extractor now
+// parses with go/parser and documents with go/doc, so the observable fact to
+// characterize is that it reaches no external tool at all and still confirms
+// real output on disk.
+//
+// This is a deliberate re-characterization of one package, not a relaxation of
+// the matrix: the runner below still fails every call it receives, so any
+// reintroduced subprocess is caught here exactly as before. The other seven
+// language probes are untouched and still assert their external-tool boundary.
 func probeGo() (ProbeResult, error) {
-	result := ProbeResult{Package: "internal/documentation/extractors/go", Test: "TestGoExtractorWritesConfirmedOutput", Observation: "invokes gomarkdoc and counts only a nonempty output observed on disk"}
+	result := ProbeResult{Package: "internal/documentation/extractors/go", Test: "TestGoExtractorWritesConfirmedOutput", Observation: "documents with the Go standard library, reaching no external tool, and counts only a nonempty output observed on disk"}
 	dir, cleanup, err := newProbeDir()
 	if err != nil {
 		return result, err
 	}
 	defer cleanup()
 	source, output := filepath.Join(dir, "source"), filepath.Join(dir, "output")
-	if err := writeFile(filepath.Join(source, "api.go"), "package api\nfunc Answer() int { return 42 }\n"); err != nil {
+	if err := writeFile(filepath.Join(source, "api.go"), "// Package api is a probe fixture.\npackage api\n\n// Answer returns the answer.\nfunc Answer() int { return 42 }\n"); err != nil {
 		return result, err
 	}
 	runner := &scriptedRunner{hook: func(command string, args []string, _ string) error {
-		if command != "gomarkdoc" || len(args) != 3 || args[0] != "-o" {
-			return errors.New("gomarkdoc boundary was not reached")
-		}
-		return writeFile(args[1], "# Package api\n")
+		return errors.New("no external tool may be reached: " + command)
 	}}
 	got, err := goextractor.NewGoExtractor(runner).Extract(context.Background(), &extractors.ExtractRequest{Language: extractors.LanguageGo, SourceDir: source, OutputDir: output})
-	if err != nil || len(runner.calls) != 1 || got.Stats.DocsGenerated != 1 || len(got.Errors) != 0 {
-		return result, fmt.Errorf("Go extractor did not confirm gomarkdoc output: %v", err)
+	if err != nil || len(runner.calls) != 0 || got.Stats.DocsGenerated != 1 || len(got.Errors) != 0 {
+		return result, fmt.Errorf("Go extractor did not document without an external tool: external_calls=%d generated=%d errors=%v: %v",
+			len(runner.calls), got.Stats.DocsGenerated, got.Errors, err)
+	}
+	// The counted page must really be on disk with the real symbol in it: a
+	// confirmed count is the half of the legacy observation that survives.
+	page, err := os.ReadFile(got.Files[0])
+	if err != nil || !strings.Contains(string(page), "Answer") {
+		return result, fmt.Errorf("Go extractor counted a page it cannot show: %v", err)
 	}
 	return result, nil
 }
