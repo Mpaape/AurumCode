@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "go-unit-offline-v1",
 "lock": ".board/locks/oci/go-unit-offline-v1.lock.json",
-"lock_digest": "sha256:8bc3a099e9dad0458943a315bd8f9138bebfe8c2771d73aa4515d47774c3828d",
+"lock_digest": "sha256:ff9ce19abd15f388c0bd11bda170d8362acaab25ecef742a3ccff86795b4c740",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",

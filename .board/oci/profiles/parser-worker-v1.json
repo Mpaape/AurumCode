@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "parser-worker-v1",
 "lock": ".board/locks/oci/parser-worker-v1.lock.json",
-"lock_digest": "sha256:8591be014f0873f3851a77e5c7a499787aff2de62ccf0fecdcf01aa3a2fa2e2b",
+"lock_digest": "sha256:93fb2948355669ee056e75811c5dec9308b2adc3c8b2e586d4ef292653355481",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",
