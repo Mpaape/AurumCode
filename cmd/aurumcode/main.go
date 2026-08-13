@@ -45,11 +45,19 @@
 // --modelo, --seguranca) and its published behavior is unchanged when
 // --pr is absent.
 //
+// With --limite (AUR-433), the command caps what one run may spend calling
+// the model: it estimates the cost before the model is ever invoked and
+// refuses to call it -- spending nothing -- when the estimate exceeds the
+// USD ceiling given, reporting both the estimated and, on success, the
+// real cost on stderr. Without --limite, behavior and output are exactly
+// as already published: no budget is enforced. Like the other --base-path
+// flags, --limite is inert when --pr is given.
+//
 // See docs/specs/AUR-430.md for the base command reference,
 // docs/specs/AUR-431.md for the --fail-on gate,
 // docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
-// --seguranca, and docs/specs/AUR-438.md for --pr, each with an offline,
-// secret-free example.
+// --seguranca, docs/specs/AUR-438.md for --pr, and docs/specs/AUR-433.md
+// for --limite, each with an offline, secret-free example.
 package main
 
 import (
@@ -65,6 +73,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -133,6 +142,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	repoFlag := fs.String("repo", "", "owner/repo of the pull request; required with --pr")
 	publicar := fs.Bool("publicar", false, "publish findings as comments on the pull request; required with --pr (default: off)")
 	naLinha := fs.Bool("na-linha", false, "comment at the file's exact changed line, falling back to a general comment for a finding outside the changed lines; required with --pr (default: off)")
+	limite := fs.String("limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -169,12 +179,16 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// other unknown level is, instead of silently disabling the gate.
 	failOnSet := false
 	modeloSet := false
+	limiteSet := false
 	fs.Visit(func(f *flag.Flag) {
 		if f.Name == "fail-on" {
 			failOnSet = true
 		}
 		if f.Name == "modelo" {
 			modeloSet = true
+		}
+		if f.Name == "limite" {
+			limiteSet = true
 		}
 	})
 	threshold := 0
@@ -195,6 +209,22 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	if modeloSet && *modelo == "" {
 		fmt.Fprintln(stderr, "aurumcode review: --modelo: model name must not be empty")
 		return 2
+	}
+
+	// --limite (AUR-433) is validated the same way: an explicitly empty or
+	// unparsable value is a usage error, never a silently-disabled limit.
+	limiteUSD := 0.0
+	if limiteSet {
+		if *limite == "" {
+			fmt.Fprintln(stderr, "aurumcode review: --limite: value must not be empty")
+			return 2
+		}
+		var err error
+		limiteUSD, err = parseLimiteUSD(*limite)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
 	}
 
 	cwd, err := os.Getwd()
@@ -233,11 +263,39 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", *modelo, providerVia)
 	}
 
-	orchestrator := llm.NewOrchestrator(provider, nil, nil)
+	// --limite (AUR-433): wire internal/llm/cost.Tracker into the
+	// orchestrator so it is the one place that estimates the cost and
+	// refuses -- before the model is ever called -- when it exceeds the
+	// ceiling (see cost.go). Without the flag, tracker stays nil and
+	// llm.NewOrchestrator behaves exactly as already published: unmetered.
+	var tracker *cost.Tracker
+	if limiteSet {
+		price, err := costPrice()
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
+		modelKey := costModelKey(*modelo)
+		provider = &fixedModelProvider{Provider: provider, model: modelKey}
+		tracker = buildCostTracker(limiteUSD, modelKey, price)
+		printCostEstimate(stderr, estimateCostUSD(diff, price), limiteUSD)
+	}
+
+	orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 
 	result, err := reviewer.GenerateReview(context.Background(), diff)
 	if err != nil {
+		// --limite (AUR-433): the tracker refused before the model was
+		// called, so nothing was spent. This is checked first because it is
+		// a distinct, more specific outcome than "the provider chain could
+		// not complete" below. Not gated on limiteSet: without --limite,
+		// tracker is nil and the orchestrator cannot produce this error, so
+		// the check is a no-op then and unconditionally correct whenever it
+		// does fire (limiteUSD is 0 only in the case where it cannot).
+		if errors.Is(err, llm.ErrBudgetExceeded) {
+			return reportBudgetExceeded(stderr, limiteUSD, err)
+		}
 		var parseErr *prompt.ParseError
 		if errors.As(err, &parseErr) {
 			fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
@@ -252,6 +310,10 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		}
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
+	}
+
+	if limiteSet {
+		printRealCost(stderr, realCostUSD(tracker, limiteUSD), limiteUSD)
 	}
 
 	// The security pass (AUR-435) runs before anything prints, so a broken
