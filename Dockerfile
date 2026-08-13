@@ -71,12 +71,16 @@ RUN test -x /app/regenerate-docs \
     && bash -n /app/scripts/build-docs-site.sh \
     && bash -n /app/scripts/generate-enhanced-docs.sh
 
-# `documentation` is the only mode this image can actually serve, so the image
-# does not ship until that mode's behavioral suite passes INSIDE it, against
-# this image's own busybox userland. The suite builds its own git workspaces
-# and stand-in generators under /tmp and proves, among other things, that a run
-# which generates nothing fails closed instead of reporting a complete
-# pipeline. A syntax check alone would not have caught that.
+# `documentation` is the one mode gated by an in-image BEHAVIORAL suite (both
+# `review` and `documentation` are servable now that /app/aurumcode exists --
+# see the aurumcode build above -- but review needs a real git workspace and
+# an LLM provider this build cannot fabricate, where documentation's own
+# fixture generator can). The image does not ship until that suite passes
+# INSIDE it, against this image's own busybox userland. The suite builds its
+# own git workspaces and stand-in generators under /tmp and proves, among
+# other things, that a run which generates nothing fails closed instead of
+# reporting a complete pipeline. A syntax check alone would not have caught
+# that.
 #
 # The exit status alone is NOT the gate. A suite whose cases all die in a
 # subshell can still exit 0, which is the same class of defect this image is

@@ -127,6 +127,20 @@ func IntegrationAUR428(t *testing.T) {
 		t.Fatalf("AUR-444/AC-001/behavior-missing: scripts/action-entrypoint.sh never mentions cmd/aurumcode as the source of the binary it invokes")
 	}
 
+	// Same false "only one binary" shape, in a second, easy-to-miss spot: an
+	// exclusivity claim about the OTHER binary (regenerate-docs) or the
+	// OTHER mode (documentation) that a fix could correct in one place and
+	// leave standing in another -- exactly the internal-contradiction risk
+	// this card exists to close.
+	const falseOneGeneratorClaim = "ONE binary the image"
+	if strings.Contains(entrypoint, falseOneGeneratorClaim) {
+		t.Fatalf("AUR-444/AC-001/behavior-missing: scripts/action-entrypoint.sh still claims %q, contradicted by the two-binary image this card ships", falseOneGeneratorClaim)
+	}
+	const falseOnlyModeClaim = "is the only mode this image can actually serve"
+	if strings.Contains(dockerfile, falseOnlyModeClaim) {
+		t.Fatalf("AUR-444/AC-001/behavior-missing: Dockerfile still claims %q, false now that review is servable too", falseOnlyModeClaim)
+	}
+
 	// --- Criterion (c), defect 3's false claim: gomarkdoc required for Go,
 	// in BOTH files it appeared in, not only the one the card cites a line
 	// number for. ---
