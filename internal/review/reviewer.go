@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -32,6 +34,7 @@ type Reviewer struct {
 	diffAnalyzer  *analyzer.DiffAnalyzer
 	promptBuilder *prompt.PromptBuilder
 	parser        *prompt.ResponseParser
+	filter        *redaction.Filter
 	cfg           Config
 }
 
@@ -66,7 +69,11 @@ func NewReviewer(orchestrator *llm.Orchestrator, cfg Config) *Reviewer {
 		diffAnalyzer:  analyzer.NewDiffAnalyzer(),
 		promptBuilder: prompt.NewPromptBuilder(),
 		parser:        prompt.NewResponseParser(),
-		cfg:           cfg,
+		// The single AUR-009 redaction filter (AUR-432). FromEnv registers
+		// the AURUM_SECRET_CANARY value when present, so the filter is
+		// built at construction, after the caller's environment is final.
+		filter: redaction.FromEnv(),
+		cfg:    cfg,
 	}
 }
 
@@ -74,8 +81,22 @@ func NewReviewer(orchestrator *llm.Orchestrator, cfg Config) *Reviewer {
 func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types.ReviewResult, error) {
 	cfg := r.cfg
 
-	// Analyze diff
+	// Analyze diff (counts only; metrics carry no content into the prompt)
 	metrics := r.diffAnalyzer.AnalyzeDiff(diff)
+
+	// The diff is the untrusted material that will leave this process
+	// toward a model, so it passes the single AUR-009 redaction filter
+	// BEFORE the prompt is assembled (AUR-432). Composition matters, not
+	// just coverage: a diff line carries a +/-/space marker, and the
+	// filter's header rule is anchored at line start, so redacting the
+	// assembled prompt would let "+Authorization: Bearer x" through
+	// verbatim. redactDiff strips each line's marker, redacts the bodies
+	// as the filter would see them on their own, and re-prefixes -- values
+	// become the stable marker while key names, header names, file paths
+	// and line structure survive, so the model still sees THAT a
+	// credential sits on a line without ever seeing it. MUT-001 disables
+	// exactly the next line.
+	diff = redactDiff(r.filter, diff)
 
 	// Build prompt with token budgeting
 	opts := prompt.BuildOptions{
@@ -90,7 +111,9 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 		return nil, fmt.Errorf("failed to build prompt: %w", err)
 	}
 
-	// Combine system and user prompts
+	// Combine system and user prompts. The System half is the trusted
+	// embedded template plus numeric metrics; everything untrusted in the
+	// User half derives from the diff redacted above.
 	fullPrompt := promptParts.System + "\n\n" + promptParts.User
 
 	// Call LLM
@@ -107,6 +130,16 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	if err != nil {
 		return nil, fmt.Errorf("parse failed: %w", err)
 	}
+
+	// Model output is untrusted input: a model may echo a secret from the
+	// diff back in a finding. Every string of the parsed result that can
+	// reach a sink (report, stdout, cache, evidence) is redacted here, at
+	// the boundary where it enters the process, and deliberately BEFORE
+	// enforceRuleCitations appends the trusted rule-citation suffix from
+	// the embedded catalog -- redacting after would also rewrite the
+	// catalog's own "...-secret: <title>" spelling and change the
+	// published output format for a secret-free review (AUR-432).
+	redactReviewResult(r.filter, result)
 
 	// Rule gate (AUR-434): every issue must cite a rule of the project
 	// review standard. A broken or empty embedded catalog is a loud
@@ -141,6 +174,95 @@ var sharedRules = sync.OnceValues(func() (*RulesLoader, error) {
 	}
 	return loader, nil
 })
+
+// splitDiffMarker splits a diff line into its one-character +/-/space
+// marker and the line body the redaction filter should see. A line without
+// a marker is all body.
+func splitDiffMarker(line string) (marker, body string) {
+	if line == "" {
+		return "", ""
+	}
+	switch line[0] {
+	case '+', '-', ' ':
+		return line[:1], line[1:]
+	}
+	return "", line
+}
+
+// redactLinesKeepingMarkers redacts text the way the redaction filter
+// would see it without diff markers: each line's +/-/space marker is
+// stripped, the bodies are redacted together (so the line-anchored header
+// rules and the multi-line private-key rule both apply), and the markers
+// are re-attached positionally. When a multi-line secret collapsed the
+// line count, positional markers no longer map, so it fails closed and
+// returns the redacted bodies without markers rather than guessing.
+func redactLinesKeepingMarkers(f *redaction.Filter, text string) string {
+	lines := strings.Split(text, "\n")
+	markers := make([]string, len(lines))
+	bodies := make([]string, len(lines))
+	for i, line := range lines {
+		markers[i], bodies[i] = splitDiffMarker(line)
+	}
+	out := strings.Split(f.Redact(strings.Join(bodies, "\n")), "\n")
+	if len(out) != len(markers) {
+		return strings.Join(out, "\n")
+	}
+	for i := range out {
+		out[i] = markers[i] + out[i]
+	}
+	return strings.Join(out, "\n")
+}
+
+// redactDiff returns a copy of diff with every hunk line and file path
+// passed through the AUR-009 redaction filter, markers preserved. The
+// original diff is left untouched: it never leaves the process, and the
+// metrics were already computed from it.
+func redactDiff(f *redaction.Filter, diff *types.Diff) *types.Diff {
+	out := &types.Diff{Files: make([]types.DiffFile, len(diff.Files))}
+	for i, file := range diff.Files {
+		redactedFile := file
+		redactedFile.Path = f.Redact(file.Path)
+		redactedFile.Hunks = make([]types.DiffHunk, len(file.Hunks))
+		for j, hunk := range file.Hunks {
+			redactedHunk := hunk
+			redactedHunk.Lines = strings.Split(
+				redactLinesKeepingMarkers(f, strings.Join(hunk.Lines, "\n")), "\n")
+			redactedFile.Hunks[j] = redactedHunk
+		}
+		out.Files[i] = redactedFile
+	}
+	return out
+}
+
+// redactReviewResult applies the AUR-009 redaction filter, in place, to
+// every model-authored string of result that can reach a sink. Prose
+// fields go through redactLinesKeepingMarkers because a model quoting the
+// offending diff line echoes it marker and all, and the marker would
+// otherwise defeat the filter's line-anchored header rules. Severity is
+// left alone (the parser admits only error/warning/info) and line numbers
+// are integers. A RuleID that carried a secret-shaped value stops matching
+// the embedded catalog after redaction and is then rejected by the rule
+// gate: fail closed, never a leak.
+func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
+	result.Summary = redactLinesKeepingMarkers(f, result.Summary)
+	result.CommitComment = redactLinesKeepingMarkers(f, result.CommitComment)
+	for i := range result.Issues {
+		issue := &result.Issues[i]
+		issue.ID = f.Redact(issue.ID)
+		issue.File = f.Redact(issue.File)
+		issue.RuleID = f.Redact(issue.RuleID)
+		issue.Message = redactLinesKeepingMarkers(f, issue.Message)
+		issue.Suggestion = redactLinesKeepingMarkers(f, issue.Suggestion)
+	}
+	for i := range result.LineComments {
+		result.LineComments[i].Path = f.Redact(result.LineComments[i].Path)
+		result.LineComments[i].Body = redactLinesKeepingMarkers(f, result.LineComments[i].Body)
+	}
+	for i := range result.FileComments {
+		result.FileComments[i].Path = f.Redact(result.FileComments[i].Path)
+		result.FileComments[i].Body = redactLinesKeepingMarkers(f, result.FileComments[i].Body)
+	}
+}
 
 // enforceRuleCitations applies AUR-434's rule gate to result, in place,
 // and returns how many issues it rejected.
