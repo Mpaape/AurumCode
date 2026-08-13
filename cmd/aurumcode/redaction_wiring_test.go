@@ -69,6 +69,11 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		`aurumcode review: --limite: must be a number of US dollars (got "abc")`,
 		`aurumcode review: --limite: must be greater than zero (got "0")`,
 		"aurumcode review: AURUMCODE_LLM_INPUT_USD_PER_1K is set but AURUMCODE_LLM_OUTPUT_USD_PER_1K is not; set both or neither, because a missing side prices those tokens at $0",
+		// AUR-439 (--check): the one new stderr line this card writes --
+		// publishCheckStatus's SetStatus transport/API failure. The
+		// published "failure"/"success" state itself goes to stdout (see
+		// runPRReview), not through this stderr writer.
+		"aurumcode review: publishing check status: HTTP 500: synthetic transport failure",
 	}
 	for _, line := range lines {
 		if got := filter.Redact(line); got != line {
