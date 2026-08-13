@@ -42,13 +42,18 @@ func TestRedactedEndpoint(t *testing.T) {
 func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 	filter := redaction.NewFilter()
 	lines := []string{
-		"usage: aurumcode <review> [flags]",
+		"usage: aurumcode <review|docs> [flags]",
 		"aurumcode review: --base is required",
 		`aurumcode review: reviewing with model "local" (offline fixture provider)`,
 		"aurumcode review: 1 finding(s) at severity error or above (--fail-on error)",
 		`aurumcode review: model "local" is unavailable: no LLM provider is configured to serve it`,
 		"aurumcode review: to serve model \"local\": set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run, or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo local",
 		"aurumcode review: --modelo: model name must not be empty",
+		// AUR-426's docs subcommand.
+		"aurumcode docs: source directory /abs/missing: stat /abs/missing: no such file or directory",
+		"aurumcode docs: source directory /abs/file.txt is not a directory",
+		"aurumcode docs: no documentation page was generated",
+		"aurumcode docs: partial run: 1 extraction error(s), 1 language(s) skipped",
 	}
 	for _, line := range lines {
 		if got := filter.Redact(line); got != line {
