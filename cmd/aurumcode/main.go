@@ -40,10 +40,21 @@
 // diff added that line, or as a general pull request comment when the
 // finding sits outside the changed lines, so it is never silently dropped.
 // Publishing refuses, before anything is posted, when the token lacks
-// write permission on the repository. --repo, --publicar and --na-linha
-// are all required with --pr; every other flag (--base, --fail-on,
-// --modelo, --seguranca) and its published behavior is unchanged when
-// --pr is absent.
+// write permission on the repository. --repo and --publicar are always
+// required with --pr; --na-linha is required too, UNLESS --check (below)
+// is given -- every other flag (--base, --fail-on, --modelo, --seguranca)
+// and its published behavior is unchanged when --pr is absent.
+//
+// With --check (AUR-439), the command additionally publishes a commit
+// status (internal/git/githubclient.SetStatus, restored by AUR-437) on the
+// pull request's head commit: "failure" when at least one finding is grave
+// (error severity, the same rank --fail-on high|error already names),
+// "success" otherwise -- so a branch protection rule that requires this
+// check blocks the merge until the grave finding is fixed. --check needs a
+// commit SHA exactly like an inline comment already does (GITHUB_SHA), and
+// folds into the very same fail-closed gate instead of a second one.
+//
+//	aurumcode review --pr 42 --repo dono/projeto --publicar --check
 //
 // With --limite (AUR-433), the command caps what one run may spend calling
 // the model: it estimates the cost before the model is ever invoked and
@@ -56,8 +67,9 @@
 // See docs/specs/AUR-430.md for the base command reference,
 // docs/specs/AUR-431.md for the --fail-on gate,
 // docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
-// --seguranca, docs/specs/AUR-438.md for --pr, and docs/specs/AUR-433.md
-// for --limite, each with an offline, secret-free example.
+// --seguranca, docs/specs/AUR-438.md for --pr, docs/specs/AUR-433.md for
+// --limite, and docs/specs/AUR-439.md for --check, each with an offline,
+// secret-free example.
 package main
 
 import (
@@ -143,6 +155,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	publicar := fs.Bool("publicar", false, "publish findings as comments on the pull request; required with --pr (default: off)")
 	naLinha := fs.Bool("na-linha", false, "comment at the file's exact changed line, falling back to a general comment for a finding outside the changed lines; required with --pr (default: off)")
 	limite := fs.String("limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
+	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge; with --pr, satisfies the --na-linha requirement on its own (default: off)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -163,7 +176,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		}
 	})
 	if prGiven {
-		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha)
+		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check)
 	}
 
 	if *base == "" {

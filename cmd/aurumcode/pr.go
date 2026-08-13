@@ -26,6 +26,15 @@
 // internal/git/githubclient/diff.go), the changed/unchanged-line
 // classification, and the publish loop. It reuses the client and the
 // engine exactly as they already exist; see docs/specs/AUR-438.md.
+//
+// AUR-439 adds --check: after the comment publish loop above, when --check
+// was given, it publishes one commit status via the same restored client's
+// SetStatus (internal/git/githubclient, already proved and already
+// fail-closed on write permission -- see requireWritePermission in that
+// package) -- "failure" when at least one finding is grave (error
+// severity), "success" otherwise -- so a branch protection rule that
+// requires this check blocks the pull request's merge until the grave
+// finding is fixed. See publishCheckStatus below and docs/specs/AUR-439.md.
 package main
 
 import (
@@ -48,18 +57,28 @@ import (
 // fs.Visit dispatch in runReview); every other flag's published behavior
 // is therefore untouched by this function's existence.
 //
-// --repo, --publicar and --na-linha are all required here, mirroring how
-// --base is already required on the base-diff path: this card builds and
-// tests exactly the one command the card declares
+// --repo and --publicar are always required here, mirroring how --base is
+// already required on the base-diff path: this card builds and tests
+// exactly the one command the card declares
 // (`review --pr N --repo o/r --publicar --na-linha`), and Non-goals rules
 // out inventing an alternate, unobserved behavior for what any of these
-// three flags would mean if omitted.
-func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha bool) int {
+// flags would mean if omitted.
+//
+// --na-linha is required too, UNLESS --check is given: AUR-439 declares
+// its own command surface, `review --pr N --repo o/r --publicar --check`,
+// with no --na-linha at all -- --check names its own behavior (a commit
+// status) just as clearly as --na-linha names its own (an inline
+// comment), so requiring the user to also spell out --na-linha would be
+// asking for an opt-in this card's own declared command never gives. This
+// changes nothing about the pre-existing, byte-pinned contract: without
+// --check, an absent --na-linha still refuses exactly as it always has
+// (see cmd/aurumcode/pr_test.go and docs/specs/AUR-438.md).
+func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha, check bool) int {
 	if repoFlag == "" {
 		fmt.Fprintln(stderr, "aurumcode review: --repo is required with --pr")
 		return 2
 	}
-	if !naLinha {
+	if !naLinha && !check {
 		fmt.Fprintln(stderr, "aurumcode review: --na-linha is required with --pr")
 		return 2
 	}
@@ -128,11 +147,6 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		return 1
 	}
 
-	if len(result.Issues) == 0 {
-		fmt.Fprintln(stdout, "No issues found.")
-		return 0
-	}
-
 	// The engine already redacted every model-authored field on result
 	// (internal/review.redactReviewResult, called inside GenerateReview
 	// before it returns -- AUR-432). The comment bodies below are built
@@ -140,6 +154,11 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// "[severity]" tag, "publicado..." suffixes), exactly like
 	// printFindings' own comment explains for stdout, so nothing here
 	// needs a second pass through the filter.
+	//
+	// Sorted (and computed) before the zero-issues check below on purpose:
+	// AUR-439's --check needs this same, already-sorted slice (empty or
+	// not) to decide its commit status, so both branches share one
+	// definition instead of two.
 	issues := sortedIssues(result.Issues)
 
 	// GITHUB_SHA is the standard GitHub Actions convention for "the commit
@@ -158,8 +177,18 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// findings are all general (nothing anchors to a specific added line)
 	// does not need a commit SHA at all -- PostIssueComment carries no
 	// commit_id -- so it is not blocked by this gate.
+	//
+	// AUR-439: SetStatus needs a commit SHA just as unconditionally as an
+	// inline comment does (the statuses endpoint is
+	// /repos/{owner}/{repo}/statuses/{sha} -- there is no shape of that
+	// call without one), so --check folds into this exact gate --
+	// needsCommitID starts at check's value instead of only being set
+	// true by the loop below -- rather than growing a second, parallel
+	// fail-closed check. This is true even when there will turn out to be
+	// zero findings: --check must still be able to publish a "success"
+	// status on an all-clear commit, and doing so needs the same SHA.
 	commitID := os.Getenv("GITHUB_SHA")
-	needsCommitID := false
+	needsCommitID := check
 	for _, issue := range issues {
 		if isInlineEligible(diff, issue) {
 			needsCommitID = true
@@ -169,6 +198,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if needsCommitID && commitID == "" {
 		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: an inline comment requires a commit SHA and none is available; set GITHUB_SHA")
 		return 1
+	}
+
+	if len(issues) == 0 {
+		fmt.Fprintln(stdout, "No issues found.")
+		if check {
+			return publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber)
+		}
+		return 0
 	}
 
 	// The publish loop never lets one finding's POST failure swallow the
@@ -215,12 +252,73 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	fmt.Fprintf(stdout, "%d comentario(s) publicado(s) no pull request #%d (%d na linha, %d geral).\n",
 		inlineCount+generalCount, prNumber, inlineCount, generalCount)
 
+	// The check status is published before the comment-failure return
+	// below, not after: a grave finding must still get its failing check
+	// even when a separate, unrelated comment POST failed to publish (and
+	// symmetrically, a comment failure must not silently cost the check
+	// too). The two outcomes are independent, so neither is allowed to
+	// swallow the other.
+	checkExit := 0
+	if check {
+		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber)
+	}
+
 	if len(failures) > 0 {
 		fmt.Fprintf(stderr, "aurumcode review: %d comentario(s) falharam ao publicar:\n", len(failures))
 		for _, f := range failures {
 			fmt.Fprintf(stderr, "  %s\n", f)
 		}
 		return 1
+	}
+	if check {
+		return checkExit
+	}
+	return 0
+}
+
+// checkContext is the commit status "context" AUR-439's --check publishes.
+// Branch protection keys on this exact string to decide which status
+// checks are required before a merge is allowed -- a silent rename here
+// would make every existing branch protection rule that requires it stop
+// seeing it, which un-blocks every merge instead of gating it. Treat it as
+// part of this card's public contract (see docs/specs/AUR-439.md).
+const checkContext = "aurumcode/review"
+
+// publishCheckStatus is AUR-439: it classifies issues as grave — rank
+// rankError, the exact severity --fail-on high|error already names (see
+// severityRank/countAtOrAbove in cmd/aurumcode/main.go, reused here rather
+// than a second severity ladder) — and publishes exactly one commit status
+// through the restored AUR-437 client's SetStatus: "failure" when at least
+// one grave finding is present, "success" otherwise. issues may be empty
+// (the "No issues found." path still needs a "success" status to clear an
+// earlier failing check on the same commit once it is fixed).
+//
+// The returned int is this function's contribution to runPRReview's own
+// exit code: exitFindings (3, the same code --fail-on already uses for
+// "the review ran fine and found something that matters") when the
+// published status is "failure", 0 when it is "success", 1 when SetStatus
+// itself could not be published (a transport/API failure, not a finding).
+// MUT-001 is exactly the defect of this function reporting success (either
+// the exit code or the published state) while a grave finding is present.
+func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int) int {
+	grave := countAtOrAbove(issues, rankError)
+	status := githubclient.CommitStatus{Context: checkContext}
+	if grave > 0 {
+		status.State = "failure"
+		status.Description = fmt.Sprintf("%d achado(s) grave(s) no pull request #%d", grave, prNumber)
+	} else {
+		status.State = "success"
+		status.Description = fmt.Sprintf("nenhum achado grave no pull request #%d", prNumber)
+	}
+
+	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: publishing check status: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", checkContext, commitID, status.State, status.Description)
+
+	if grave > 0 {
+		return exitFindings
 	}
 	return 0
 }
