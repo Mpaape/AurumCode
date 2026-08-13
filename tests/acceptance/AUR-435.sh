@@ -152,6 +152,11 @@ EOF
 
 readonly sec_header='Security findings (standards/security-review):'
 readonly sec_citation='(rule security/sql-injection: SQL Injection Vulnerability)'
+# AUR-442 gave security/hardcoded-secret a matcher (internal/review/rules/
+# security.yml), so the git-demo assertion below no longer measures an
+# honest absence: git-demo plants a plaintext secret specifically to be
+# found, and it now is. See docs/specs/AUR-442.md.
+readonly hardcoded_secret_citation='(rule security/hardcoded-secret: Hardcoded Secrets)'
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its
@@ -219,12 +224,22 @@ nominal_case() {
   out_again="$(cd "$vuln_repo" && AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1 --seguranca)" || fail rerun-failed
   [[ "$out_sec" == "$out_again" ]] || fail non-deterministic
 
-  # A diff without a matching vulnerability reports the honest absence,
-  # never an invented finding.
-  local out_demo
+  # git-demo plants a plaintext secret specifically to be found (three
+  # lines: config/demo-tokens.txt:4-6). AUR-442 gave security/hardcoded-
+  # secret a matcher, so the deterministic pass now reports exactly that
+  # planted secret -- not the SQL-injection rule this repository has
+  # nothing to trigger, and not an invented finding beyond the three
+  # planted lines.
+  local out_demo demo_line
   out_demo="$(cd "$demo_repo" && AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1 --seguranca)" || fail demo-run-failed
-  grep -Fq 'No security findings.' <<<"$out_demo" || fail absence-not-reported
+  grep -Fq "$sec_header" <<<"$out_demo" || fail demo-security-section-missing
   if grep -Fq "$sec_citation" <<<"$out_demo"; then fail invented-finding; fi
+  grep -Fq "$hardcoded_secret_citation" <<<"$out_demo" || fail demo-secret-not-found
+  grep -Fq 'standards/security-review SCR-003' <<<"$out_demo" || fail demo-standard-citation-missing
+  for demo_line in 4 5 6; do
+    grep -Fq "config/demo-tokens.txt:${demo_line}: [error]" <<<"$out_demo" || fail "demo-secret-not-found:line-$demo_line"
+  done
+  if grep -Fq 'No security findings.' <<<"$out_demo"; then fail demo-still-reports-absence; fi
 
   # The secret canary never reaches a sink. The value is synthetic and
   # assembled at runtime; accepted by nothing.
