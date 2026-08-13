@@ -234,6 +234,19 @@ teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
 6. So entao move para `done`. Nenhum agente pode substituir review, mutacao ou
    evidencia por prosa.
 
+## Execucao no host tem teto de memoria (limite duro)
+
+Nenhum binario candidato, `go test` ou `go run` de codigo em revisao executa
+no host sem teto de memoria. Prefixe sempre com `ulimit -v` (ex.: 2 GiB) e
+exporte `GOMEMLIMIT` (ex.: 1GiB); `go test` leva `-timeout` explicito. O
+sandbox `oci-run` ja impoe 256 MB por cgroup e conteve um estouro em
+2026-08-12 19:30; a mesma classe de estouro executada no host as 20:02
+(`aurumcode-bin`, morto pelo OOM global com ~31 GB de RSS) derrubou a maquina
+inteira com todos os agentes juntos. Rodar "localmente porque o profile nao
+tem a ferramenta" nunca remove o teto: se o comando nao sobrevive dentro de
+um limite razoavel, isso e um achado contra o candidato, nao motivo para
+soltar o limite.
+
 ## OCI e segundo leitor
 
 - `oci-run` materializa somente paths allowlisted e executa em rede none, rootfs
