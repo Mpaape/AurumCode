@@ -1,7 +1,7 @@
 // Command aurumcode is the entrypoint for this reconstruction's local code
 // review engine (AUR-430). It currently supports one subcommand:
 //
-//	aurumcode review --base <ref> [--fail-on <level>] [--modelo <nome>]
+//	aurumcode review --base <ref> [--fail-on <level>] [--modelo <nome>] [--seguranca]
 //
 // which diffs <ref> against HEAD in the git repository rooted at the
 // current working directory, sends that diff to an LLM through
@@ -19,10 +19,19 @@
 // stderr and exit 1, never an empty review with exit 0. Without --modelo,
 // provider selection is exactly AUR-430's.
 //
+// With --seguranca (AUR-435), the command additionally runs the project's
+// deterministic security pass over the diff: the ADDED lines are matched
+// against the patterns carried by the security-category rules of the
+// embedded catalog (internal/review/rules/security.yml, scoped by
+// standards/security-review), and the findings print in their own section
+// AFTER the unchanged quality output, each citing its sustaining rule and
+// the standard rule that scopes it. Without --seguranca, stdout is
+// byte-identical to the published contract.
+//
 // See docs/specs/AUR-430.md for the base command reference,
-// docs/specs/AUR-431.md for the --fail-on gate and
-// docs/specs/AUR-436.md for --modelo, each with an offline, secret-free
-// example.
+// docs/specs/AUR-431.md for the --fail-on gate,
+// docs/specs/AUR-436.md for --modelo and docs/specs/AUR-435.md for
+// --seguranca, each with an offline, secret-free example.
 package main
 
 import (
@@ -99,6 +108,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	base := fs.String("base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
 	failOn := fs.String("fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
 	modelo := fs.String("modelo", "", "model that reviews, e.g. local, llama3 or gpt-4; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: AUR-430's selection, unchanged)")
+	seguranca := fs.Bool("seguranca", false, "additionally run the project's security pass: match the diff's added lines against the security rules of the embedded catalog (standards/security-review) and print the findings in their own section (default: off, output unchanged)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -200,15 +210,39 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		return 1
 	}
 
+	// The security pass (AUR-435) runs before anything prints, so a broken
+	// rules catalog fails loudly with nothing on stdout instead of after a
+	// partial report. It is deterministic and calls no model.
+	var securityFindings []types.ReviewIssue
+	if *seguranca {
+		securityFindings, err = review.SecurityScan(diff)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
+	}
+
 	printNotices(stdout, filter, notices)
 	printFindings(stdout, result)
+	if *seguranca {
+		printSecurityFindings(stdout, filter, securityFindings)
+	}
 
 	// The --fail-on CI gate (AUR-431): after the findings have printed
 	// exactly as they always do, exit with the distinct, documented code 3
 	// when any finding sits at the chosen severity or above. The note goes
 	// to stderr so stdout stays byte-identical with and without the flag.
+	// With --seguranca the security findings count toward the gate too: a
+	// gate that fails a review over style but waves through a matched
+	// vulnerability would be open exactly when it must be closed.
 	if threshold > 0 {
-		if n := countAtOrAbove(result.Issues, threshold); n > 0 {
+		gated := result.Issues
+		if len(securityFindings) > 0 {
+			gated = make([]types.ReviewIssue, 0, len(result.Issues)+len(securityFindings))
+			gated = append(gated, result.Issues...)
+			gated = append(gated, securityFindings...)
+		}
+		if n := countAtOrAbove(gated, threshold); n > 0 {
 			fmt.Fprintf(stderr, "aurumcode review: %d finding(s) at severity %s or above (--fail-on %s)\n", n, thresholdName, thresholdName)
 			return exitFindings
 		}
@@ -451,5 +485,44 @@ func printFindings(stdout io.Writer, result *types.ReviewResult) {
 
 	for _, issue := range issues {
 		fmt.Fprintf(stdout, "%s:%d: [%s] %s\n", issue.File, issue.Line, issue.Severity, issue.Message)
+	}
+}
+
+// printSecurityFindings prints the AUR-435 security pass section: a blank
+// separator line, a header naming the project security standard, then one
+// line per finding in the quality block's own "<file>:<line>: [<severity>]
+// <message>" format, sorted by (file, line, rule) for determinism -- or the
+// honest "No security findings." when the pass matched nothing. The section
+// only exists when --seguranca was given, so the published no-flag output
+// keeps its exact bytes.
+//
+// The file path derives from the reviewed diff -- repository-controlled
+// input -- so it passes the redaction filter before reaching the sink
+// (AUR-432); an ordinary path is filter-identity. The message is trusted
+// catalog text (rule description, standard citation, rule citation) and is
+// deliberately NOT re-filtered, for the same reason printFindings gives:
+// the filter would rewrite catalog spellings like "-secret:" and change the
+// published format of a secret-free review.
+func printSecurityFindings(stdout io.Writer, filter *redaction.Filter, issues []types.ReviewIssue) {
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, "Security findings (standards/security-review):")
+	if len(issues) == 0 {
+		fmt.Fprintln(stdout, "No security findings.")
+		return
+	}
+
+	sorted := make([]types.ReviewIssue, len(issues))
+	copy(sorted, issues)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].File != sorted[j].File {
+			return sorted[i].File < sorted[j].File
+		}
+		if sorted[i].Line != sorted[j].Line {
+			return sorted[i].Line < sorted[j].Line
+		}
+		return sorted[i].RuleID < sorted[j].RuleID
+	})
+	for _, issue := range sorted {
+		fmt.Fprintf(stdout, "%s:%d: [%s] %s\n", filter.Redact(issue.File), issue.Line, issue.Severity, issue.Message)
 	}
 }

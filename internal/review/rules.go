@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"sort"
 
 	"gopkg.in/yaml.v3"
@@ -31,6 +32,19 @@ type Rule struct {
 	Severity    string   `yaml:"severity"`
 	Category    string   `yaml:"category"`
 	Tags        []string `yaml:"tags"`
+	// Pattern, when non-empty, is the rule's matcher: a Go regular
+	// expression the AUR-435 security pass applies to each ADDED line of
+	// the reviewed diff (see securitypass.go). This is the piece the
+	// c12d7ab restoration measured as missing -- the historical rules were
+	// metadata without a matcher. A rule without a Pattern stays
+	// metadata-only: it can be cited by a model finding (AUR-434) but the
+	// security pass never matches it.
+	Pattern string `yaml:"pattern"`
+	// Standard, when non-empty, names the rule of the enforced project
+	// security standard (standards/security-review/rules.md) that scopes
+	// this catalog rule, e.g. SCR-001. Security-pass findings cite it as
+	// "standards/security-review <id>".
+	Standard string `yaml:"standard"`
 }
 
 // RulesFile represents a YAML file containing rules
@@ -40,13 +54,15 @@ type RulesFile struct {
 
 // RulesLoader loads review rules from the embedded catalog
 type RulesLoader struct {
-	rules map[string]Rule // indexed by ID
+	rules    map[string]Rule           // indexed by ID
+	patterns map[string]*regexp.Regexp // compiled matchers, indexed by rule ID
 }
 
 // NewRulesLoader creates a new rules loader over the embedded catalog.
 func NewRulesLoader() *RulesLoader {
 	return &RulesLoader{
-		rules: make(map[string]Rule),
+		rules:    make(map[string]Rule),
+		patterns: make(map[string]*regexp.Regexp),
 	}
 }
 
@@ -109,6 +125,16 @@ func (l *RulesLoader) loadFile(fsys fs.FS, path string) error {
 		if _, dup := l.rules[rule.ID]; dup {
 			return fmt.Errorf("duplicate rule id %q", rule.ID)
 		}
+		// A rule's matcher is compiled at load, so a broken pattern is a
+		// loud catalog error at startup -- never a silently unmatchable
+		// rule discovered only when a vulnerability slips through.
+		if rule.Pattern != "" {
+			re, err := regexp.Compile(rule.Pattern)
+			if err != nil {
+				return fmt.Errorf("rule %s has an invalid pattern: %w", rule.ID, err)
+			}
+			l.patterns[rule.ID] = re
+		}
 		l.rules[rule.ID] = rule
 	}
 
@@ -119,6 +145,15 @@ func (l *RulesLoader) loadFile(fsys fs.FS, path string) error {
 func (l *RulesLoader) Get(id string) (Rule, bool) {
 	rule, ok := l.rules[id]
 	return rule, ok
+}
+
+// PatternFor returns the compiled matcher of the rule with the given id,
+// when that rule declared one. Rules without a pattern -- every quality
+// rule, and any security rule that has no line-level shape -- return
+// (nil, false) and are never matched by the security pass.
+func (l *RulesLoader) PatternFor(id string) (*regexp.Regexp, bool) {
+	re, ok := l.patterns[id]
+	return re, ok
 }
 
 // GetAll returns all loaded rules, sorted by ID for determinism.
