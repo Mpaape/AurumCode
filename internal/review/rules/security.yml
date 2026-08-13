@@ -16,6 +16,21 @@
 # standards/security-review/rules.md, that scopes it). Rules without a
 # pattern stay metadata-only: citable by a model finding (AUR-434), never
 # matched by the security pass.
+#
+# AUR-442's 2026-08-13 dogfooding measured that only 2 of these 8 rules
+# ever matched anything (sql-injection, command-injection), both requiring
+# the narrow `"..." + var` concatenation shape -- so the project's own
+# demo fixture (tests/fixtures/repos/git-demo), whose only purpose is to
+# plant a plaintext secret, reported "No security findings." AUR-442
+# restores the matcher for `security/hardcoded-secret` specifically
+# (below), the rule that fixture depends on and the card's named priority,
+# proven against both a dedicated fixture
+# (tests/fixtures/review/vuln/hardcoded-secret) and git-demo itself. The
+# remaining five patternless rules below (xss, path-traversal, weak-crypto,
+# insecure-random, missing-auth) are a deliberate, documented scope
+# decision, not an oversight: see docs/specs/AUR-442.md's "The decision"
+# section for why they stay metadata-only rather than ship a rushed,
+# unvalidated matcher under this card's own no-false-promise rule.
 
 rules:
   - id: security/sql-injection
@@ -35,6 +50,12 @@ rules:
     severity: error
     category: security
     tags: [xss, web, injection]
+    # AUR-442 (2026-08-13): no `pattern`, on purpose. XSS is a sink/taint
+    # question (does untrusted input reach an unescaped render?), not a
+    # single-line shape a regexp can decide without an unacceptable false
+    # positive/negative rate. Metadata-only: citable by a model finding
+    # (AUR-434), never matched by the deterministic --seguranca pass. See
+    # docs/specs/AUR-442.md.
 
   - id: security/command-injection
     title: Command Injection
@@ -53,6 +74,11 @@ rules:
     severity: error
     category: security
     tags: [path, filesystem, traversal]
+    # AUR-442 (2026-08-13): no `pattern`, on purpose. Path traversal turns
+    # on whether a path built from user input is validated before an I/O
+    # call reads/writes it -- data-flow the added line alone cannot show.
+    # Metadata-only: citable by a model finding (AUR-434), never matched
+    # by the deterministic --seguranca pass. See docs/specs/AUR-442.md.
 
   - id: security/hardcoded-secret
     title: Hardcoded Secrets
@@ -60,6 +86,25 @@ rules:
     severity: error
     category: security
     tags: [secrets, credentials, keys]
+    standard: SCR-003
+    # AUR-442 (2026-08-13): the priority restoration this card names --
+    # tests/fixtures/repos/git-demo plants a plaintext secret specifically
+    # to prove this rule fires. Two shapes, both requiring a
+    # credential-named identifier (api key/secret/password/passwd/token/
+    # credential/access key) assigned a value that mixes a letter with a
+    # digit or hyphen, so a plain function call (`token := getToken()`) or
+    # a plain numeric constant (`TOKEN_MAX_AGE_SECONDS = 31536000`) does
+    # not match:
+    #   1. `<keyword> (:=|:|=) "<value>"` -- a quoted assignment, the
+    #      common application-source shape.
+    #   2. `UPPER_SNAKE_KEYWORD = <value>` unquoted -- the env/config-file
+    #      shape tests/fixtures/repos/git-demo's config/demo-tokens.txt
+    #      and this rule's own fixture (tests/fixtures/review/vuln/
+    #      hardcoded-secret) use.
+    # Never matches the matched VALUE into a finding message: the security
+    # pass always prints rule.Description, a trusted catalog string (see
+    # securitypass.go), so the secret itself never reaches stdout.
+    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z][A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})'
 
   - id: security/weak-crypto
     title: Weak Cryptography
@@ -67,6 +112,14 @@ rules:
     severity: warning
     category: security
     tags: [crypto, encryption, hash]
+    # AUR-442 (2026-08-13): no `pattern`, on purpose. A precise matcher
+    # needs an enumerated, tested set of weak-primitive call idioms across
+    # languages (hashlib.md5(, crypto/rc4, Cipher.getInstance("DES"), ...);
+    # this card scoped its one new matcher to the named priority
+    # (hardcoded-secret) rather than ship a second, unvalidated pattern
+    # under the same deadline. Metadata-only: citable by a model finding
+    # (AUR-434), never matched by the deterministic --seguranca pass. See
+    # docs/specs/AUR-442.md.
 
   - id: security/insecure-random
     title: Insecure Random Number Generation
@@ -74,6 +127,13 @@ rules:
     severity: warning
     category: security
     tags: [random, crypto, security]
+    # AUR-442 (2026-08-13): no `pattern`, on purpose. Whether math/rand or
+    # Python's random module is a real defect depends on the call's
+    # security context (a session token vs. a UI shuffle), which a
+    # line-level regexp cannot tell apart without an unacceptable
+    # false-positive rate. Metadata-only: citable by a model finding
+    # (AUR-434), never matched by the deterministic --seguranca pass. See
+    # docs/specs/AUR-442.md.
 
   - id: security/missing-auth
     title: Missing Authentication
@@ -81,3 +141,10 @@ rules:
     severity: error
     category: security
     tags: [auth, authentication, access]
+    # AUR-442 (2026-08-13): no `pattern`, on purpose. Missing
+    # authentication is an absence -- a route or handler that should
+    # require a check and does not -- which cannot be decided by matching
+    # the added lines of a diff; it needs the surrounding handler's
+    # control flow. Metadata-only: citable by a model finding (AUR-434),
+    # never matched by the deterministic --seguranca pass. See
+    # docs/specs/AUR-442.md.
