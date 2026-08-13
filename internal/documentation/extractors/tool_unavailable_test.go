@@ -44,12 +44,12 @@ func TestExtractorValidate_ReportsMissingToolStructurally(t *testing.T) {
 		wantTool  string
 		build     func(site.CommandRunner) extractors.Extractor
 	}{
-		{
-			name:     "go/gomarkdoc",
-			failing:  "gomarkdoc",
-			wantTool: "gomarkdoc",
-			build:    func(r site.CommandRunner) extractors.Extractor { return goextractor.NewGoExtractor(r) },
-		},
+		// Go is deliberately absent from this table. AUR-424 replaced the
+		// gomarkdoc subprocess with go/parser + go/doc + go/printer, so the Go
+		// extractor has no external tool that can be missing and therefore no
+		// missing-tool contract to honour. Its replacement contract is pinned
+		// by TestGoExtractorValidate_HasNoExternalTool below; the seven
+		// extractors that still shell out keep every assertion they had.
 		{
 			name:     "python/pydoc-markdown",
 			failing:  "pydoc-markdown",
@@ -129,6 +129,40 @@ func TestExtractorValidate_ReportsMissingToolStructurally(t *testing.T) {
 				t.Errorf("Validate error must wrap the underlying lookup failure, got %v", err)
 			}
 		})
+	}
+}
+
+// TestGoExtractorValidate_HasNoExternalTool is the Go extractor's replacement
+// for the missing-tool row removed from the table above, and it is a stricter
+// contract, not a weaker one.
+//
+// Before AUR-424, Go's Validate looked up the gomarkdoc binary. In the offline
+// acceptance sandbox that binary does not exist, the lookup failure was
+// reported as a classifiable ToolUnavailableError, and the pipeline treats
+// that as "skip this language": a whole Go project documented with zero pages
+// and exit 0. The fix removes the dependency rather than the diagnostic, so
+// the honest assertion is that no runner failure -- not a missing binary, not
+// a failing one -- can make Go unavailable.
+//
+// This says nothing about the other seven extractors: python, javascript,
+// csharp, cpp, rust, bash and powershell all still invoke external tools and
+// are still covered by the table above.
+func TestGoExtractorValidate_HasNoExternalTool(t *testing.T) {
+	// A runner whose every command fails the way a completely tool-less host
+	// fails. If Validate consulted anything external at all, it would see this.
+	runner := site.NewMockRunner()
+	for _, cmd := range []string{"gomarkdoc", "go", "gofmt"} {
+		runner.WithError(cmd, errNotInstalled)
+	}
+
+	if err := goextractor.NewGoExtractor(runner).Validate(context.Background()); err != nil {
+		t.Fatalf("Go Validate must not depend on any external tool, got: %v", err)
+	}
+
+	// And the skip path must be unreachable for Go: a nil error can never be
+	// classified as a missing tool, so the pipeline can no longer skip Go.
+	if tool, missing := extractors.MissingTool(nil); missing {
+		t.Fatalf("a nil Validate error was classified as missing tool %q", tool)
 	}
 }
 

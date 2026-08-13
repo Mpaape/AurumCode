@@ -3,7 +3,7 @@ internal/documentation/extractors	migrate	TestExtractorCoreRegistryAndDetector	d
 internal/documentation/extractors/bash	migrate	TestBashExtractorComments	renders script comments into a confirmed markdown output
 internal/documentation/extractors/cpp	migrate	TestCPPExtractorDoxygenOutput	invokes doxygen with a private configuration and counts only observed XML output
 internal/documentation/extractors/csharp	replace	TestCSharpExtractorExecutesBuild	invokes dotnet build and xmldocmd so repository controlled build code is reachable
-internal/documentation/extractors/go	migrate	TestGoExtractorWritesConfirmedOutput	invokes gomarkdoc and counts only a nonempty output observed on disk
+internal/documentation/extractors/go	migrate	TestGoExtractorWritesConfirmedOutput	documents with the Go standard library, reaching no external tool, and counts only a nonempty output observed on disk
 internal/documentation/extractors/javascript	migrate	TestJavaScriptExtractorTypeDocOutput	invokes typedoc for a TypeScript project and counts observed markdown output
 internal/documentation/extractors/powershell	migrate	TestPowerShellExtractorComments	renders line and block comments into a confirmed markdown output
 internal/documentation/extractors/python	replace	TestPythonExtractorCapturesNonDocstringLiteral	captures an assigned triple quoted string that is not a Python docstring

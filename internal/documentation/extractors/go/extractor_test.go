@@ -572,3 +572,223 @@ func TestGoExtractor_Validate_ErrorIgnored(t *testing.T) {
 		t.Fatalf("Validate must not call the runner, got calls: %v", runner.calls)
 	}
 }
+
+// TestGoExtractor_BuildConstraintsPickOneTarget is the regression proof for
+// the determinism defect AC-001 forbids. A directory holding two mutually
+// exclusive platform files used to have both parsed into one package, so the
+// rendered page advertised an API surface no build of that package ever has.
+//
+// The falsifiable assertion is content, not repetition: with every file merged
+// the page carries BOTH platform symbols, which is what fails here. The
+// repeat-the-run digest check below is kept as the AC-001 clause it proves,
+// but it is deliberately not the only assertion, because a merged page is
+// merged the same way every time and a digest check alone would pass over the
+// defect.
+func TestGoExtractor_BuildConstraintsPickOneTarget(t *testing.T) {
+	srcDir := t.TempDir()
+
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(srcDir, name), []byte(body), 0644); err != nil {
+			t.Fatalf("failed to write %s: %v", name, err)
+		}
+	}
+
+	write("doc.go", "// Package plat documents a platform-split package.\npackage plat\n")
+	// Two ways of expressing the same exclusion, both of which have to be
+	// honoured: an explicit //go:build line and the _GOOS file-name suffix.
+	write("impl_linux.go",
+		"//go:build linux\n\npackage plat\n\n// LinuxOnly exists only on linux.\nfunc LinuxOnly() int { return 1 }\n")
+	write("impl_windows.go",
+		"//go:build windows\n\npackage plat\n\n// WindowsOnly exists only on windows.\nfunc WindowsOnly() int { return 2 }\n")
+	write("tagged_darwin.go",
+		"package plat\n\n// DarwinOnly exists only on darwin, by file-name suffix alone.\nfunc DarwinOnly() int { return 3 }\n")
+
+	extractor := NewGoExtractor(&spyRunner{})
+
+	pages := make([]string, 0, 2)
+	for run := 0; run < 2; run++ {
+		outputDir := t.TempDir()
+		result, err := extractor.Extract(context.Background(), &extractors.ExtractRequest{
+			Language:  extractors.LanguageGo,
+			SourceDir: srcDir,
+			OutputDir: outputDir,
+		})
+		if err != nil {
+			t.Fatalf("run %d: Extract failed: %v", run, err)
+		}
+		if len(result.Files) != 1 {
+			t.Fatalf("run %d: expected exactly one page, got %v (errors: %v)", run, result.Files, result.Errors)
+		}
+
+		content, readErr := os.ReadFile(result.Files[0])
+		if readErr != nil {
+			t.Fatalf("run %d: read generated page: %v", run, readErr)
+		}
+		pages = append(pages, string(content))
+	}
+
+	page := pages[0]
+
+	// The pinned target's symbol is documented...
+	if !strings.Contains(page, "LinuxOnly") {
+		t.Errorf("page does not document the %s/%s symbol LinuxOnly:\n%s",
+			documentedGOOS, documentedGOARCH, page)
+	}
+
+	// ...and no other target's symbol is, because it is not part of the
+	// package that gets built for the documented target.
+	for _, excluded := range []string{"WindowsOnly", "DarwinOnly"} {
+		if strings.Contains(page, excluded) {
+			t.Errorf("page documents %s, which is excluded from the %s/%s build:\n%s",
+				excluded, documentedGOOS, documentedGOARCH, page)
+		}
+	}
+
+	// AC-001: repeating the run over the same input produces the same output.
+	if pages[0] != pages[1] {
+		t.Errorf("two runs over the same input produced different pages:\n--- run 0 ---\n%s\n--- run 1 ---\n%s",
+			pages[0], pages[1])
+	}
+}
+
+// TestGoExtractor_PlatformOnlyDirectoryIsNotAPackage pins the other side of
+// the build-constraint filter: a directory whose only Go files are excluded by
+// their constraints contributes nothing for the documented target, and must
+// not be reported as a failed package.
+func TestGoExtractor_PlatformOnlyDirectoryIsNotAPackage(t *testing.T) {
+	srcDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(srcDir, "only_windows.go"),
+		[]byte("package winonly\n\n// WinThing is windows-only.\nfunc WinThing() {}\n"), 0644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	result, err := NewGoExtractor(&spyRunner{}).Extract(context.Background(), &extractors.ExtractRequest{
+		Language:  extractors.LanguageGo,
+		SourceDir: srcDir,
+		OutputDir: outputDir,
+	})
+	if err != nil {
+		t.Fatalf("Extract failed: %v", err)
+	}
+	if len(result.Errors) != 0 {
+		t.Errorf("a directory with no file for the documented target must not error: %v", result.Errors)
+	}
+	if result.Stats.DocsGenerated != 0 || len(result.Files) != 0 {
+		t.Errorf("nothing may be reported for a directory with no documentable file: %+v %v",
+			result.Stats, result.Files)
+	}
+}
+
+// TestOutputBaseName_IsInjective is the regression proof for the silent
+// overwrite: "a/b" and "a_b" used to be given the same file name, so whichever
+// package was written second destroyed the first one's page with no error
+// reported anywhere.
+func TestOutputBaseName_IsInjective(t *testing.T) {
+	// Every distinct relative path must produce a distinct base name. The
+	// list deliberately includes the pairs that used to collide.
+	paths := []string{
+		".", "",
+		"a/b", "a_b", "a__b", "a/_b", "a_/b", "a_u_b",
+		"ledger", "root", "root/x", "x/root",
+		"deep/nested/pkg", "deep_nested_pkg",
+	}
+
+	seen := make(map[string]string)
+	for _, path := range paths {
+		name := outputBaseName(path)
+
+		if name == "" {
+			t.Errorf("outputBaseName(%q) produced an empty file name", path)
+		}
+		if strings.ContainsAny(name, "/\\") {
+			t.Errorf("outputBaseName(%q) = %q still carries a path separator", path, name)
+		}
+
+		// "." and "" are the same package (the source root), so they are
+		// allowed -- and required -- to share a name.
+		canonical := path
+		if canonical == "" {
+			canonical = "."
+		}
+		if previous, clash := seen[name]; clash && previous != canonical {
+			t.Errorf("outputBaseName is not injective: %q and %q both map to %q",
+				previous, canonical, name)
+			continue
+		}
+		seen[name] = canonical
+	}
+
+	// The common case must stay readable: a plain package directory keeps its
+	// own name, which is what the published site links to.
+	if got := outputBaseName("ledger"); got != "ledger" {
+		t.Errorf("outputBaseName(%q) = %q, want %q", "ledger", got, "ledger")
+	}
+	if got := outputBaseName("."); got != "root" {
+		t.Errorf("outputBaseName(%q) = %q, want %q", ".", got, "root")
+	}
+}
+
+// TestGoExtractor_CollidingPackageNamesBothSurvive drives the injective
+// encoding through the real Extract path: two sibling packages whose paths
+// used to flatten onto one file name must each get their own page, with their
+// own symbols.
+func TestGoExtractor_CollidingPackageNamesBothSurvive(t *testing.T) {
+	srcDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	// "a/b" and "a_b" both used to become "a_b.md".
+	nested := filepath.Join(srcDir, "a", "b")
+	flat := filepath.Join(srcDir, "a_b")
+	for _, dir := range []string{nested, flat} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("failed to create %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(nested, "nested.go"),
+		[]byte("package b\n\n// NestedSymbol lives in a/b.\nfunc NestedSymbol() {}\n"), 0644); err != nil {
+		t.Fatalf("failed to write nested fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(flat, "flat.go"),
+		[]byte("package ab\n\n// FlatSymbol lives in a_b.\nfunc FlatSymbol() {}\n"), 0644); err != nil {
+		t.Fatalf("failed to write flat fixture: %v", err)
+	}
+
+	result, err := NewGoExtractor(&spyRunner{}).Extract(context.Background(), &extractors.ExtractRequest{
+		Language:  extractors.LanguageGo,
+		SourceDir: srcDir,
+		OutputDir: outputDir,
+	})
+	if err != nil {
+		t.Fatalf("Extract failed: %v", err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("Extract reported errors: %v", result.Errors)
+	}
+
+	if result.Stats.DocsGenerated != 2 {
+		t.Errorf("DocsGenerated = %d, want 2 (one page per package)", result.Stats.DocsGenerated)
+	}
+
+	// Both symbols must be readable somewhere in the output: if one page
+	// overwrote the other, one of them is gone.
+	found := map[string]bool{}
+	for _, file := range result.Files {
+		content, readErr := os.ReadFile(file)
+		if readErr != nil {
+			t.Fatalf("read %s: %v", file, readErr)
+		}
+		for _, symbol := range []string{"NestedSymbol", "FlatSymbol"} {
+			if strings.Contains(string(content), symbol) {
+				found[symbol] = true
+			}
+		}
+	}
+	for _, symbol := range []string{"NestedSymbol", "FlatSymbol"} {
+		if !found[symbol] {
+			t.Errorf("%s was silently overwritten: it appears in no generated page (%v)", symbol, result.Files)
+		}
+	}
+}

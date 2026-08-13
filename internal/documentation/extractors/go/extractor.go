@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/doc"
 	"go/parser"
 	"go/printer"
@@ -15,6 +16,79 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 )
+
+// documentedGOOS and documentedGOARCH pin the build target this extractor
+// documents. They are deliberately constants rather than runtime.GOOS and
+// runtime.GOARCH: AC-001 requires that repeating the run over the same input
+// produces the same output, and a host-derived target would make the page for
+// any package holding platform-specific files depend on the machine that
+// generated it. A reader on arm64 Darwin and a reader on amd64 Linux must be
+// looking at the same documented API surface.
+const (
+	documentedGOOS   = "linux"
+	documentedGOARCH = "amd64"
+)
+
+// documentBuildContext returns the pinned go/build context used to decide
+// which files of a directory belong to the documented package.
+//
+// Without this filter, a directory holding mutually exclusive platform files
+// (say impl_linux.go and impl_windows.go, or two files guarded by opposing
+// //go:build lines) has every one of them parsed into a single package, and
+// the rendered page then advertises symbols that no single build of the
+// package ever contains -- an API surface that does not exist. Selecting one
+// fixed target instead means the page describes a real, buildable
+// configuration.
+//
+// CgoEnabled is off and BuildTags is empty for the same reason the target is
+// pinned: both otherwise come from the host environment (CGO_ENABLED, -tags),
+// so leaving them at their inherited values would let the machine, not the
+// source, decide what the documentation says.
+func documentBuildContext() build.Context {
+	buildContext := build.Default
+	buildContext.GOOS = documentedGOOS
+	buildContext.GOARCH = documentedGOARCH
+	buildContext.CgoEnabled = false
+	buildContext.BuildTags = nil
+	buildContext.UseAllFiles = false
+	return buildContext
+}
+
+// matchedGoFiles returns the names of the .go files in dir that both belong to
+// the documented build target and carry documentable (non-test) source, sorted
+// by name so every later step sees one fixed order.
+func matchedGoFiles(buildContext *build.Context, dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	matched := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+
+		// MatchFile applies both halves of Go's own file-selection rule: the
+		// //go:build (and legacy // +build) constraints inside the file, and
+		// the _GOOS/_GOARCH suffix convention in its name.
+		ok, matchErr := buildContext.MatchFile(dir, name)
+		if matchErr != nil {
+			return nil, fmt.Errorf("build constraints for %s: %w", filepath.Join(dir, name), matchErr)
+		}
+		if ok {
+			matched = append(matched, name)
+		}
+	}
+
+	sort.Strings(matched)
+	return matched, nil
+}
 
 // commandRunner is a minimal, structural stand-in for
 // internal/documentation/site.CommandRunner's single method. This package
@@ -122,12 +196,8 @@ func (g *GoExtractor) Extract(ctx context.Context, req *extractors.ExtractReques
 			relPath = filepath.Base(pkg)
 		}
 
-		// Clean up the relative path for output filename
-		outputName := strings.ReplaceAll(relPath, string(filepath.Separator), "_")
-		if outputName == "." || outputName == "" {
-			outputName = "root"
-		}
-		outputPath := filepath.Join(req.OutputDir, outputName+".md")
+		// Flatten the package's relative path into one output file name.
+		outputPath := filepath.Join(req.OutputDir, outputBaseName(relPath)+".md")
 
 		// Check if we should skip this package (incremental mode)
 		if g.incrementalMode && g.shouldSkipPackage(pkg, outputPath) {
@@ -170,6 +240,51 @@ func (g *GoExtractor) Language() extractors.Language {
 	return extractors.LanguageGo
 }
 
+// rootOutputBaseName is the file name given to the package that sits at the
+// source root, which has no path segments of its own to name it after.
+const rootOutputBaseName = "root"
+
+// outputBaseName flattens a package's path relative to the source root into a
+// single output file name, injectively: two different packages can never be
+// given the same name, so one page can never silently overwrite another.
+//
+// The previous encoding replaced every separator with "_" and stopped there,
+// which is not injective: the directories "a/b" and "a_b" both became
+// "a_b.md", and whichever package was written second destroyed the first
+// package's page with no error and no warning anywhere in the result.
+//
+// The encoding below reserves "_" as an escape introducer, so every "_" in
+// the output is the first byte of a two-byte sequence:
+//
+//	"_u" is one literal underscore inside a path segment
+//	"__" is one path separator
+//
+// Because "u" and "_" differ, that mapping is decodable left to right, hence
+// injective. Names with neither separator nor underscore -- the overwhelmingly
+// common case, e.g. "ledger" -- pass through untouched.
+//
+// The root package is the one path with no segments, so it needs a name of
+// its own. "root" would collide with a real top-level directory called
+// "root", so the encoder bumps that one real path by appending "__": an empty
+// trailing segment, which filepath.Rel never produces, so nothing else can
+// encode to it.
+func outputBaseName(relPath string) string {
+	if relPath == "." || relPath == "" {
+		return rootOutputBaseName
+	}
+
+	segments := strings.Split(filepath.ToSlash(relPath), "/")
+	for i, segment := range segments {
+		segments[i] = strings.ReplaceAll(segment, "_", "_u")
+	}
+
+	encoded := strings.Join(segments, "__")
+	if encoded == rootOutputBaseName {
+		encoded += "__"
+	}
+	return encoded
+}
+
 // findGoPackages finds all Go packages in the source directory
 func (g *GoExtractor) findGoPackages(rootDir string) ([]string, error) {
 	packages := []string{}
@@ -209,26 +324,20 @@ func (g *GoExtractor) findGoPackages(rootDir string) ([]string, error) {
 	return packages, err
 }
 
-// hasGoFiles checks if a directory contains any .go files (excluding tests)
+// hasGoFiles reports whether a directory holds documentable Go source: at
+// least one non-test .go file that belongs to the documented build target. A
+// directory whose only Go files are excluded by their build constraints (a
+// Windows-only helper directory documented on the pinned Linux target, say)
+// contributes no package for this target and is therefore not one, which is
+// what keeps extractPackage from having to fail on it later.
 func (g *GoExtractor) hasGoFiles(dir string) (bool, error) {
-	entries, err := os.ReadDir(dir)
+	buildContext := documentBuildContext()
+	matched, err := matchedGoFiles(&buildContext, dir)
 	if err != nil {
 		return false, err
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		// Check for .go files but exclude test files
-		if strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go") {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return len(matched) > 0, nil
 }
 
 // shouldSkipPackage determines if a package should be skipped in incremental mode
@@ -270,35 +379,28 @@ func (g *GoExtractor) shouldSkipPackage(pkgPath, outputPath string) bool {
 	return true
 }
 
-// nonTestGoFile is the parser.ParseDir filter: every .go file except _test.go
-// ones. Test files document nothing a consumer of the package can call.
-func nonTestGoFile(info os.FileInfo) bool {
-	name := info.Name()
-	return strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")
-}
-
-// selectPackage picks the package to document out of everything go/parser
-// found in a directory. A well-formed Go directory holds exactly one
-// non-"_test" package; parser.ParseDir legitimately returns a second entry
-// named "<pkg>_test" for files that declare an external test package, and
-// that entry documents nothing a caller of the real package can use, so it is
-// always skipped. Ties are broken by name for a deterministic result.
-func selectPackage(pkgs map[string]*ast.Package, pkgPath string) (*ast.Package, string, error) {
+// selectPackage picks the package to document out of the files parsed from a
+// directory, grouped by the package clause each file declares. A well-formed
+// Go directory holds exactly one non-"_test" package; an entry named
+// "<pkg>_test" documents nothing a caller of the real package can use, so it
+// is always skipped. Files are visited in sorted name order, so the result
+// does not depend on map iteration.
+func selectPackage(pkgs map[string][]*ast.File, pkgPath string) ([]*ast.File, string, error) {
 	names := make([]string, 0, len(pkgs))
 	for name := range pkgs {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
-	var best *ast.Package
+	var best []*ast.File
 	var bestName string
 	for _, name := range names {
 		if strings.HasSuffix(name, "_test") {
 			continue
 		}
-		pkg := pkgs[name]
-		if best == nil || len(pkg.Files) > len(best.Files) {
-			best = pkg
+		files := pkgs[name]
+		if best == nil || len(files) > len(best) {
+			best = files
 			bestName = name
 		}
 	}
@@ -310,26 +412,49 @@ func selectPackage(pkgs map[string]*ast.Package, pkgPath string) (*ast.Package, 
 	return best, bestName, nil
 }
 
-// extractPackage parses every non-test .go file in pkgPath, builds a go/doc
-// package view of it, renders that view as Markdown, and writes it to
-// outputPath. No external process is started and no network call is made.
+// extractPackage parses the non-test .go files in pkgPath that belong to the
+// documented build target, builds a go/doc package view of them, renders that
+// view as Markdown, and writes it to outputPath. No external process is
+// started and no network call is made.
+//
+// Files are selected through documentBuildContext rather than handed wholesale
+// to the parser: see that function for why a page assembled from every file on
+// disk describes a package that cannot be built.
 func (g *GoExtractor) extractPackage(pkgPath, outputPath string) error {
-	fset := token.NewFileSet()
-
-	astPkgs, err := parser.ParseDir(fset, pkgPath, nonTestGoFile, parser.ParseComments)
+	buildContext := documentBuildContext()
+	names, err := matchedGoFiles(&buildContext, pkgPath)
 	if err != nil {
-		return fmt.Errorf("parse %s: %w", pkgPath, err)
+		return fmt.Errorf("select files in %s: %w", pkgPath, err)
+	}
+	if len(names) == 0 {
+		return fmt.Errorf("no Go file in %s builds for %s/%s",
+			pkgPath, buildContext.GOOS, buildContext.GOARCH)
 	}
 
-	astPkg, pkgName, err := selectPackage(astPkgs, pkgPath)
+	fset := token.NewFileSet()
+	byPackage := make(map[string][]*ast.File)
+	for _, name := range names {
+		path := filepath.Join(pkgPath, name)
+		file, parseErr := parser.ParseFile(fset, path, nil, parser.ParseComments)
+		if parseErr != nil {
+			return fmt.Errorf("parse %s: %w", path, parseErr)
+		}
+		pkgName := file.Name.Name
+		byPackage[pkgName] = append(byPackage[pkgName], file)
+	}
+
+	files, pkgName, err := selectPackage(byPackage, pkgPath)
 	if err != nil {
 		return err
 	}
 
-	// Mode 0 documents exported declarations only, matching the conventional
-	// "go doc" surface and the exported-API focus a rendered documentation
-	// page is for.
-	docPkg := doc.New(astPkg, pkgPath, 0)
+	// The default mode documents exported declarations only, matching the
+	// conventional "go doc" surface and the exported-API focus a rendered
+	// documentation page is for.
+	docPkg, err := doc.NewFromFiles(fset, files, pkgPath)
+	if err != nil {
+		return fmt.Errorf("document %s: %w", pkgPath, err)
+	}
 
 	markdown := renderMarkdown(pkgName, docPkg, fset)
 

@@ -30,12 +30,12 @@ type realToolCase struct {
 
 func realToolCases() []realToolCase {
 	return []realToolCase{
-		{
-			name:      "go/gomarkdoc",
-			tools:     []string{"gomarkdoc"},
-			firstTool: "gomarkdoc",
-			build:     func(r site.CommandRunner) extractors.Extractor { return goextractor.NewGoExtractor(r) },
-		},
+		// Go is deliberately absent: since AUR-424 the Go extractor documents
+		// with go/parser + go/doc + go/printer and starts no subprocess, so it
+		// has no external tool that can be installed-but-failing or absent.
+		// TestGoExtractorValidate_RealPATHIsIrrelevant below pins that
+		// directly against a real, empty PATH. The other seven extractors here
+		// still shell out and keep both halves of the contract.
 		{
 			name:      "python/pydoc-markdown",
 			tools:     []string{"pydoc-markdown"},
@@ -157,4 +157,34 @@ func TestExtractorValidate_ToolAbsentIsSkippable(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGoExtractorValidate_RealPATHIsIrrelevant is the Go extractor's
+// replacement for the two rows removed from realToolCases, exercised against a
+// real process environment rather than a mock.
+//
+// Both halves of the removed contract are re-asserted as their negation, which
+// is the whole point of AUR-424: with a genuinely empty PATH, and with a PATH
+// whose gomarkdoc exits non-zero, Go documentation must still be available,
+// because nothing on the host participates in producing it any more.
+//
+// The seven extractors that still invoke external tools keep the original
+// contract in realToolCases above; nothing here relaxes it for them.
+func TestGoExtractorValidate_RealPATHIsIrrelevant(t *testing.T) {
+	t.Run("empty PATH", func(t *testing.T) {
+		t.Setenv("PATH", t.TempDir())
+
+		if err := goextractor.NewGoExtractor(site.NewDefaultRunner()).Validate(context.Background()); err != nil {
+			t.Fatalf("Go Validate failed with an empty PATH: %v", err)
+		}
+	})
+
+	t.Run("gomarkdoc present but broken", func(t *testing.T) {
+		binDir := installStubs(t, []string{"gomarkdoc"}, "#!/bin/sh\necho 'boom' >&2\nexit 1\n")
+		t.Setenv("PATH", binDir)
+
+		if err := goextractor.NewGoExtractor(site.NewDefaultRunner()).Validate(context.Background()); err != nil {
+			t.Fatalf("Go Validate consulted the broken gomarkdoc stub: %v", err)
+		}
+	})
 }
