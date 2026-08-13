@@ -12,10 +12,12 @@ import (
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	bashExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/bash"
 	cppExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/cpp"
+	csharpExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/csharp"
 	goExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/go"
 	javascriptExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/javascript"
 	powershellExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/powershell"
 	pythonExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/python"
+	rustExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/rust"
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
@@ -643,10 +645,33 @@ func registerLanguageExtractors(p *pipeline.ExtractorPipeline, runner site.Comma
 		return err
 	}
 
-	// Rust and C# are NOT registered here. Their toolchains execute code that
-	// lives in the documented repository, so they are opt-in per language; see
+	// Rust and C# default to the native, tool-free doc-comment parser
+	// (AUR-427): no cargo, no dotnet/xmldocmd, no execution of
+	// repository-controlled code, so both register unconditionally UNLESS the
+	// operator has explicitly opted that language into the repository-code-
+	// executing toolchain below via AURUMCODE_ALLOW_REPO_CODE_EXECUTION (see
 	// repo_code_execution.go for what each one runs and why there is no safe
-	// mode to fall back to.
+	// mode to fall back to). The two paths are mutually exclusive per
+	// language: the registry rejects a second extractor for a language that
+	// already has one, so the native extractor must not be registered for a
+	// language this run is about to also register the code-executing
+	// extractor for.
+	repoCodeOptIn, err := parseRepoCodeExecutionOptIn(os.Getenv(envAllowRepoCodeExecution))
+	if err != nil {
+		return err
+	}
+
+	if !repoCodeOptIn["rust"] {
+		if err := register(rustExtractor.NewNativeExtractor()); err != nil {
+			return err
+		}
+	}
+	if !repoCodeOptIn["csharp"] {
+		if err := register(csharpExtractor.NewNativeExtractor()); err != nil {
+			return err
+		}
+	}
+
 	if err := registerRepoCodeExecutingExtractors(register, runner, os.Getenv(envAllowRepoCodeExecution)); err != nil {
 		return err
 	}
