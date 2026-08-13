@@ -379,8 +379,16 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 		log.Print(summaryLine("partial", docs, siteInfo, extractionErr, config))
 
 	case len(docs) == 0:
-		log.Printf("⚠️  NO DOCUMENTATION PRODUCED - no supported source file was documented under %s", config.SourceDir)
+		// AUR-425: this branch used to log a warning and let main return,
+		// so a run that documented nothing exited 0 and a consumer had no
+		// pages and no failure. Zero pages is the outcome this binary exists
+		// to prevent; it now states the reason and terminates non-zero. The
+		// summary keeps its distinct result=empty token so a machine
+		// consumer can still tell "nothing was documentable" from "the
+		// pipeline broke" (result=failed).
+		log.Printf("❌ NO DOCUMENTATION PRODUCED - %s", emptyRunReason(config))
 		log.Print(summaryLine("empty", docs, siteInfo, nil, config))
+		fatalf("❌ no documentation page was produced: %s", emptyRunReason(config))
 
 	default:
 		log.Println("✅ Documentation regeneration completed!")
@@ -388,6 +396,28 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 		logSite(siteInfo)
 		log.Print(summaryLine("ok", docs, siteInfo, nil, config))
 	}
+}
+
+// emptyRunReason states why a run that reported no pipeline error still left
+// zero documentation pages on disk. This branch is only reachable when file
+// discovery matched nothing - a detected-but-unsupported language ends as a
+// skip inside a pipeline error, never here - so the reason is built from the
+// run's own configuration: the tree that was scanned, plus the two knobs
+// that can empty a scan of a documentable tree (the language filter and
+// incremental mode). Each condition is stated only when it was actually in
+// force, so the operator reads causes that apply to their run, not a generic
+// list.
+func emptyRunReason(config *pipeline.ExtractorPipelineConfig) string {
+	reason := fmt.Sprintf("no supported source file was documented under %s", config.SourceDir)
+	if len(config.Languages) > 0 {
+		reason += fmt.Sprintf("; the language filter %s=%s may exclude every supported file",
+			envLanguages, strings.Join(config.Languages, ","))
+	}
+	if config.Incremental {
+		reason += fmt.Sprintf("; incremental mode (%s=true) documents only files changed since the last documented commit",
+			envIncremental)
+	}
+	return reason
 }
 
 // logSite makes an unpublishable, or partially unpublishable, artifact visible

@@ -139,11 +139,22 @@ type reportScenario struct {
 	runErr      error
 	docs        []string
 	site        siteStatus
+	config      *pipeline.ExtractorPipelineConfig // nil means testConfig()
 	wantFatal   bool
 	wantExit    int
 	wantSummary string
 	mustContain []string
 	mustAbsent  []string
+}
+
+// reportConfig returns the configuration report is invoked with. Most
+// scenarios share testConfig(); the AUR-425 empty-run variants carry their
+// own, because the stated reason must reflect the knobs that were in force.
+func (sc reportScenario) reportConfig() *pipeline.ExtractorPipelineConfig {
+	if sc.config != nil {
+		return sc.config
+	}
+	return testConfig()
 }
 
 func reportScenarios() map[string]reportScenario {
@@ -234,16 +245,68 @@ func reportScenarios() map[string]reportScenario {
 			},
 		},
 
-		// No error and no output: not a success, and not a failure either.
+		// No error and no output. Until AUR-425 this was the silent escape:
+		// the run warned and exited 0, indistinguishable from success for
+		// any caller that only checks the exit status. It is now a stated,
+		// non-zero failure that keeps its distinct result=empty token.
 		"empty": {
 			runErr:      nil,
 			docs:        nil,
 			site:        unservableSite(),
-			wantFatal:   false,
-			wantExit:    0,
+			wantFatal:   true,
+			wantExit:    1,
 			wantSummary: "aurumcode: result=empty docs=0 skipped=0 failed=0 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
-			mustContain: []string{"⚠️  NO DOCUMENTATION PRODUCED - no supported source file was documented under /src"},
-			mustAbsent:  []string{"✅", "result=ok", "result=partial"},
+			mustContain: []string{
+				"❌ NO DOCUMENTATION PRODUCED - no supported source file was documented under /src",
+				"no documentation page was produced: no supported source file was documented under /src",
+			},
+			mustAbsent: []string{"✅", "result=ok", "result=partial", "AURUMCODE_LANGUAGES", "AURUMCODE_INCREMENTAL"},
+		},
+
+		// The same zero-page failure with a language filter in force: the
+		// reason must name the filter, because a documentable tree can be
+		// emptied by AURUMCODE_LANGUAGES alone and the operator needs to see
+		// which knob did it.
+		"empty-under-language-filter": {
+			runErr: nil,
+			docs:   nil,
+			site:   unservableSite(),
+			config: &pipeline.ExtractorPipelineConfig{
+				SourceDir: "/src",
+				OutputDir: "/out",
+				DocsDir:   "/out",
+				Languages: []string{"python", "rust"},
+			},
+			wantFatal:   true,
+			wantExit:    1,
+			wantSummary: "aurumcode: result=empty docs=0 skipped=0 failed=0 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
+			mustContain: []string{
+				"no documentation page was produced: no supported source file was documented under /src",
+				"the language filter AURUMCODE_LANGUAGES=python,rust may exclude every supported file",
+			},
+			mustAbsent: []string{"✅", "result=ok", "AURUMCODE_INCREMENTAL"},
+		},
+
+		// Zero pages under incremental mode: with no prior pages on disk and
+		// no changed files, the honest reason is the mode itself.
+		"empty-incremental": {
+			runErr: nil,
+			docs:   nil,
+			site:   unservableSite(),
+			config: &pipeline.ExtractorPipelineConfig{
+				SourceDir:   "/src",
+				OutputDir:   "/out",
+				DocsDir:     "/out",
+				Incremental: true,
+			},
+			wantFatal:   true,
+			wantExit:    1,
+			wantSummary: "aurumcode: result=empty docs=0 skipped=0 failed=0 languages_skipped=none output=/out index_pages=0 index_pages_excluded=0 config=false",
+			mustContain: []string{
+				"no documentation page was produced: no supported source file was documented under /src",
+				"incremental mode (AURUMCODE_INCREMENTAL=true) documents only files changed since the last documented commit",
+			},
+			mustAbsent: []string{"✅", "result=ok", "AURUMCODE_LANGUAGES"},
 		},
 
 		"complete": {
@@ -346,7 +409,7 @@ func TestReportVerdict(t *testing.T) {
 			recorded := stubFatal(t)
 
 			out := captureLog(t, func() {
-				report(sc.runErr, sc.docs, sc.site, testConfig())
+				report(sc.runErr, sc.docs, sc.site, sc.reportConfig())
 			})
 
 			if got := *recorded != ""; got != sc.wantFatal {
@@ -383,7 +446,7 @@ func TestReportVerdictsAreDistinguishable(t *testing.T) {
 
 	for name, sc := range reportScenarios() {
 		out := captureLog(t, func() {
-			report(sc.runErr, sc.docs, sc.site, testConfig())
+			report(sc.runErr, sc.docs, sc.site, sc.reportConfig())
 		})
 
 		idx := strings.Index(out, "aurumcode: result=")
@@ -435,7 +498,7 @@ func TestReportRawExitCode(t *testing.T) {
 			fmt.Fprintf(os.Stderr, "unknown report scenario %q\n", name)
 			os.Exit(97)
 		}
-		report(sc.runErr, sc.docs, sc.site, testConfig())
+		report(sc.runErr, sc.docs, sc.site, sc.reportConfig())
 		// Only reached when report did not terminate the process.
 		fmt.Println("report-returned")
 		return
@@ -1047,7 +1110,9 @@ func TestSplitLanguages(t *testing.T) {
 		// Observed behaviour worth pinning: the function neither de-duplicates
 		// nor validates nor canonicalises case. The pipeline matches language
 		// names exactly against lowercase constants, so "Go" and "golang" filter
-		// every file out and the run ends as result=empty with exit 0.
+		// every file out and the run ends as result=empty - which, since
+		// AUR-425, exits 1 with the filter named in the reason instead of
+		// passing silently.
 		{"duplicates are preserved", "go,go", []string{"go", "go"}},
 		{"case is preserved verbatim", "Go", []string{"Go"}},
 		{"unknown names are accepted", "cobol", []string{"cobol"}},
