@@ -55,13 +55,24 @@ func TestExtract_ReportedDocsExistOnDisk(t *testing.T) {
 		toolWritesOutput bool
 	}{
 		{
+			// Since AUR-424 the Go extractor writes its own page from
+			// go/parser + go/doc output, so it is a self-writing extractor
+			// like bash and powershell, not a tool-driven one: there is no
+			// external tool left that could exit 0 and write nothing.
+			//
+			// The invariant this file exists for is unchanged and still
+			// enforced on this row: every file in result.Files must exist and
+			// be non-empty on disk, and DocsGenerated may not exceed what is
+			// actually there. What moves is only who is expected to have
+			// written it.
 			name:     "go",
 			language: extractors.LanguageGo,
 			fixture: func(t *testing.T, srcDir string) {
-				writeFixture(t, filepath.Join(srcDir, "main.go"), "package main\n")
+				writeFixture(t, filepath.Join(srcDir, "main.go"),
+					"// Package main is the fixture.\npackage main\n\n// Exported is documentable.\nfunc Exported() {}\n")
 			},
 			build:            func(r site.CommandRunner) extractors.Extractor { return goextractor.NewGoExtractor(r) },
-			toolWritesOutput: true,
+			toolWritesOutput: false,
 		},
 		{
 			name:     "javascript",

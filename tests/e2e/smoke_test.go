@@ -103,8 +103,28 @@ func TestSmokeCleanRunReportsFullSuccess(t *testing.T) {
 // TestSmokeMissingToolchainFailsLoudly pins the degradation floor: when no
 // language can be documented at all, the run must fail instead of reporting an
 // empty success.
+//
+// The fixture is adjusted rather than the expectation. Until AUR-424 the
+// tool-less language driving this case was Go, whose extractor shelled out to
+// gomarkdoc; Go now documents with the standard library and can no longer be
+// made undocumentable by emptying PATH, so it would turn this run into a
+// partial success and delete the floor. Python takes its place: python is
+// registered in registerLanguageExtractors and still invokes pydoc-markdown,
+// so with an empty PATH nothing in this repository can be documented and the
+// original diagnostic -- "required tool not in PATH" -- is still the reason.
+// The seven extractors that still depend on an external tool remain covered.
 func TestSmokeMissingToolchainFailsLoudly(t *testing.T) {
 	repo := copyFixture(t)
+
+	// Go would document successfully with no PATH at all, so it is removed
+	// from this copy: the case is about a repository whose every language
+	// needs a tool that is not there.
+	if err := os.RemoveAll(filepath.Join(repo, "ledger")); err != nil {
+		t.Fatalf("remove go package: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "mod.py"), []byte("\"\"\"Fixture module.\"\"\"\n"), 0o644); err != nil {
+		t.Fatalf("write python file: %v", err)
+	}
 
 	// The PATH is replaced instead of extended: the point of the case is that
 	// no documentation tool is reachable at all.
@@ -114,14 +134,57 @@ func TestSmokeMissingToolchainFailsLoudly(t *testing.T) {
 		t.Fatalf("run without a documentation tool must fail, got exit 0\n%s", result.output)
 	}
 
-	assertContains(t, result.output, "skipped: go: required tool not in PATH")
-	assertContains(t, result.output, "gomarkdoc")
+	assertContains(t, result.output, "skipped: python: required tool not in PATH")
+	assertContains(t, result.output, "pydoc-markdown")
 	assertContains(t, result.output, "produced no documentation")
 	assertContains(t, result.output,
-		"aurumcode: result=failed docs=0 skipped=2 failed=0 languages_skipped=go,java")
+		"aurumcode: result=failed docs=0 skipped=2 failed=0 languages_skipped=java,python")
 
-	if _, err := os.Stat(filepath.Join(repo, ".aurumcode", "go", "ledger.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(repo, ".aurumcode", "python")); !os.IsNotExist(err) {
 		t.Errorf("no markdown may exist after a failed run, stat error was %v", err)
+	}
+}
+
+// TestSmokeGoDocumentsWithoutAnyToolOnPATH is the end-to-end fact AUR-424
+// delivers, and the reason the case above had to change fixture.
+//
+// Before the fix, this exact run -- the real binary, a real Go package, an
+// empty PATH -- produced zero pages and exit 0: gomarkdoc could not be found,
+// the pipeline classified that as a skip, and a consumer got no documentation
+// and no failure. The Go extractor now parses with go/parser and documents
+// with go/doc, so the run must produce the real page with the real doc
+// comment, with nothing but the binary itself on the machine.
+func TestSmokeGoDocumentsWithoutAnyToolOnPATH(t *testing.T) {
+	repo := copyFixture(t)
+
+	// Only the Go package is left, so the verdict is about Go alone.
+	if err := os.Remove(filepath.Join(repo, "Manifest.java")); err != nil {
+		t.Fatalf("remove java file: %v", err)
+	}
+
+	// An empty directory as the entire PATH: gomarkdoc, and every other
+	// documentation tool, is unreachable.
+	result := runGenerator(t, repo, nil, t.TempDir())
+
+	if result.exitCode != 0 {
+		t.Fatalf("Go must document with an empty PATH, got exit %d\n%s", result.exitCode, result.output)
+	}
+
+	assertContains(t, result.output,
+		"aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none")
+
+	content := readFile(t, filepath.Join(repo, ".aurumcode", "go", "ledger.md"))
+	if !strings.Contains(content, documentedSymbol) {
+		t.Errorf("page does not document %s\n%s", documentedSymbol, content)
+	}
+	if !strings.Contains(content, documentedText) {
+		t.Errorf("page lost the doc comment %q\n%s", documentedText, content)
+	}
+
+	// The old failure mode was a silent skip, so its absence is part of the
+	// contract: nothing may report Go as unavailable.
+	if strings.Contains(result.output, "skipped: go") {
+		t.Errorf("Go was skipped although it needs no external tool\n%s", result.output)
 	}
 }
 

@@ -64,6 +64,13 @@ for p in "${inputs[@]}"; do
   [[ -f "$repo_root/$p" ]] || fail "entrypoint_missing:$p"
 done
 
+# The regression lane compiles cmd/regenerate-docs and its dependencies, which
+# need gopkg.in/yaml.v3 from an already-populated module cache: GOPROXY stays
+# off because this acceptance is offline. Resolved before HOME is redirected,
+# since HOME is what the default location derives from.
+host_modcache="$(go env GOMODCACHE 2>/dev/null || true)"
+[[ -n "$host_modcache" && -d "$host_modcache" ]] || infra gomodcache_absent
+
 run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a424.XXXXXX")" || infra mktemp
 trap 'rm -rf -- "$run_dir"' EXIT INT TERM HUP
 root="$run_dir/root"
@@ -86,10 +93,12 @@ go_lane() {
   # assertion against the materialized documents.
   local pkg="$1" out rc
   set +e
-  out="$(cd "$root" && AURUMCODE_ROOT="$root" \
+  out="$( ulimit -v 8388608
+    cd "$root" && AURUMCODE_ROOT="$root" \
     HOME="$run_dir/home" GOPROXY=off GOSUMDB=off GOFLAGS=-mod=mod \
-    GOTOOLCHAIN=local GOMAXPROCS=1 GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" \
-    go test -v -vet=off -p 1 -count=1 "$pkg" -run '^TestAUR424Bridge$' 2>&1)"
+    GOTOOLCHAIN=local GOMAXPROCS=1 GOMEMLIMIT=2GiB \
+    GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" \
+    go test -timeout 300s -v -vet=off -p 1 -count=1 "$pkg" -run '^TestAUR424Bridge$' 2>&1)"
   rc=$?
   set -e
   printf '%s\n' "$out"
@@ -106,7 +115,80 @@ go_lane() {
 }
 
 e2e_case() {
-  (cd "$root" && bash tests/e2e/AUR-424.sh E2EAUR424) || fail selector:E2EAUR424
+  # Run against the repository itself, not the staged copy: since this card's
+  # E2E executes `go run ./cmd/regenerate-docs` for real, it needs the whole
+  # binary, not the handful of files staged above.
+  #
+  # The E2E's own exit status is propagated rather than flattened. It exits 69
+  # when the binary's dependencies are not materialized, and the card's Review
+  # clause requires that to read as blocked/inconclusive; collapsing it into
+  # this script's `fail` (exit 1) would report missing inputs as a failed
+  # behaviour, which is the opposite verdict.
+  local rc
+  set +e
+  (cd "$repo_root" && bash tests/e2e/AUR-424.sh E2EAUR424)
+  rc=$?
+  set -e
+  (( rc == 0 )) && return 0
+  (( rc == 69 || rc == 64 )) && exit "$rc"
+  fail "selector:E2EAUR424:$rc"
+}
+
+# regression_lane is the answer to how the first version of this file reported
+# {"result":"pass"} over a repository whose test suite was red.
+#
+# This card's fix changes a contract that pre-existing tests outside its own
+# `paths` assert: the Go extractor's Validate no longer reports a missing tool,
+# it writes its own output instead of a subprocess doing it, and the smoke test
+# that pinned "no tool on PATH means no documentation" no longer describes Go.
+# Five such tests broke, in three packages the two lanes above never compile.
+# An acceptance that only runs the card's own selectors cannot see any of it.
+#
+# SCOPE, AND WHY IT IS NOT `./internal/...`
+#   `go test ./internal/...` cannot be used as written: `internal/evidence`'s
+#   test imports tests/integration, which holds `package main` files
+#   (tests/integration/AUR-001.go, AUR-002.go, AUR-004.go) alongside `package
+#   integration` ones, so that package fails to build. This is pre-existing and
+#   unrelated to AUR-424 -- it reproduces identically at ec0495c, this card's
+#   parent commit -- and is recorded in docs/specs/AUR-424.md rather than
+#   silently swallowed here. The package list below is where every changed
+#   contract lives: internal/documentation holds the extractors, internal/
+#   pipeline owns the skip classification this card changed the meaning of
+#   (SkipToolUnavailable, "produced no documentation"), cmd/regenerate-docs is
+#   the call site that constructs the Go extractor, and tests/e2e plus
+#   tests/characterization hold the pre-existing contracts it broke.
+regression_lane() {
+  # The lane's inputs are the whole tree, which is far more than this card's
+  # paths/read_paths materialize; when they are absent the honest answer is a
+  # missing input, never a pass.
+  local probe
+  for probe in \
+    internal/documentation/extractors/tool_unavailable_test.go \
+    internal/documentation/extractors/tool_failure_test.go \
+    internal/documentation/extractors/output_confirmed_test.go \
+    tests/e2e/smoke_test.go \
+    tests/characterization/legacy/documentation/characterization.go
+  do
+    [[ -f "$repo_root/$probe" ]] || infra "regression_lane_not_materialized:$probe"
+  done
+
+  local out rc
+  set +e
+  out="$( ulimit -v 8388608
+    cd "$repo_root" && \
+    HOME="$run_dir/home" GOPROXY=off GOSUMDB=off GOFLAGS=-mod=mod \
+    GOTOOLCHAIN=local GOMAXPROCS=1 GOMEMLIMIT=2GiB \
+    GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" GOMODCACHE="$host_modcache" \
+    go test -timeout 300s -count=1 -p 1 \
+      ./internal/documentation/... ./internal/pipeline/... ./cmd/... \
+      ./tests/e2e/... ./tests/characterization/... 2>&1)"
+  rc=$?
+  set -e
+  printf '%s\n' "$out"
+  (( rc == 0 )) || fail "regression:$rc"
+
+  # A lane that compiled nothing proves nothing.
+  grep -q '^ok ' <<<"$out" || fail 'regression:zero-packages'
 }
 
 case "$selector" in
@@ -114,7 +196,8 @@ case "$selector" in
     go_lane ./tests/unit
     go_lane ./tests/integration
     e2e_case
-    printf '{"card":"%s","scenario":"%s","result":"pass","external_tool_calls":0}\n' "$card" "$scenario"
+    regression_lane
+    printf '{"card":"%s","scenario":"%s","result":"pass","external_tool_calls":0,"regression_lane":"internal/documentation,internal/pipeline,cmd,tests/e2e,tests/characterization"}\n' "$card" "$scenario"
     ;;
   TestAUR424) go_lane ./tests/unit ;;
   IntegrationAUR424) go_lane ./tests/integration ;;
