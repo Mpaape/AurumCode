@@ -47,8 +47,21 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		`aurumcode review: reviewing with model "local" (offline fixture provider)`,
 		"aurumcode review: 1 finding(s) at severity error or above (--fail-on error)",
 		`aurumcode review: model "local" is unavailable: no LLM provider is configured to serve it`,
-		"aurumcode review: to serve model \"local\": set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run, or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo local",
+		// AUR-443: extended with the fixture's shape and a pointer to a
+		// worked, versioned example, so a first run does not require
+		// reading source to build a valid AURUMCODE_LLM_FIXTURE payload.
+		`aurumcode review: to serve model "local": set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run -- <response-file> is a JSON file shaped like tests/fixtures/review/known-problem-response.json (an "issues" array of file/line/severity/message) -- or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo local`,
 		"aurumcode review: --modelo: model name must not be empty",
+		// AUR-443: the plain (no --modelo) provider-missing message, same
+		// idea as reportModelUnavailable's line above.
+		`aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","message":"<text>"}]} for offline use (see tests/fixtures/review/known-problem-response.json for a worked example), or set LLM_API_KEY and LLM_BASE_URL for a live provider`,
+		// AUR-443: computeDiff's cleaned-up git-repository and
+		// ref-resolution errors (cmd/aurumcode/main.go's computeDiff /
+		// cleanRefError) -- one clean sentence each, no duplicated phrase,
+		// no leaked filesystem path or foreign tool wording, identical
+		// across the git-binary and pure-Go backends.
+		"aurumcode review: /tmp is not a git repository (no .git directory here, and this path is not itself a bare repository)",
+		`aurumcode review: ref "does-not-exist" not found in this repository: expected a branch name, HEAD, a 40-character commit SHA, or a "<ref>~N" parent expression`,
 		// AUR-426's docs subcommand.
 		"aurumcode docs: source directory /abs/missing: stat /abs/missing: no such file or directory",
 		"aurumcode docs: source directory /abs/file.txt is not a directory",
