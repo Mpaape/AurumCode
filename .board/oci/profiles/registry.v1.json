@@ -7,32 +7,32 @@
     "schema": ".board/schemas/container-profile.schema.json",
     "schema_digest": "sha256:4219444b921f34a0040cb29972c1984ee5e41a91608f3d78a9398eadded0bf62",
     "lock": ".board/locks/oci/registry-v1.lock.json",
-    "lock_digest": "sha256:974682a3c8aff3309302864b2acf503f216882d9a6014b1d629043bfcff56967",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:b13f884d3149740982e032722fc543370200ef5ca632e24f5afa4935a28203c3",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "docs-tool-offline-v1",
     "schema": ".board/schemas/docs-tool-offline-profile.schema.json",
     "schema_digest": "sha256:cbde81bf2e86983e111021d3487be984bb7b8beff629f5d904d222cf90b54773",
     "lock": ".board/locks/oci/docs-tool-offline-v1.lock.json",
-    "lock_digest": "sha256:cc8615e16aaa03502c3e08554ea5d60122d74d4d5abf23052649b536d37e8788",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:7af15055f8976b67e6a2ede099e6de8fef17d207b791d91d04f3917bd289298a",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "fake-provider-v1",
     "schema": ".board/schemas/fake-provider-profile.schema.json",
     "schema_digest": "sha256:f5d66c44bf49891bcc73f96e20bfaefdb7bd19301b01a294ae2d26b54498512e",
     "lock": ".board/locks/oci/fake-provider-v1.lock.json",
-    "lock_digest": "sha256:6e72faa215f698e1ad0739e30ef10799e09ff66677d9b3fd154e831ab445f561",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:fadd71b013f3855177797e44cd21caed4ee29372bcf47bfd13feeff5e2ce3447",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "fake-scm-offline-v1",
     "schema": ".board/schemas/fake-scm-offline-profile.schema.json",
     "schema_digest": "sha256:faff6dd49dc4862d53eebf95ae413ed8087fe09707f0eff4f5b238bdf9de9077",
     "lock": ".board/locks/oci/fake-scm-offline-v1.lock.json",
-    "lock_digest": "sha256:0899eda5d6a9435393ffa649f896af36f8de88f92b3bd4d3adca5eebfd92c761",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:b85272e5395f2dfe862ead6a20373c36a60ffeccae6270903e8bd669cea643be",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "go-git-offline-v1",
@@ -47,48 +47,48 @@
     "schema": ".board/schemas/go-unit-offline-profile.schema.json",
     "schema_digest": "sha256:08abf5dd5653e4e40cbf45e089b10670aecde40126bcaa3346d79890437d3e85",
     "lock": ".board/locks/oci/go-unit-offline-v1.lock.json",
-    "lock_digest": "sha256:8bc3a099e9dad0458943a315bd8f9138bebfe8c2771d73aa4515d47774c3828d",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:ff9ce19abd15f388c0bd11bda170d8362acaab25ecef742a3ccff86795b4c740",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "oci-conformance-v1",
     "schema": ".board/schemas/oci-conformance-profile.schema.json",
     "schema_digest": "sha256:2fc262b7913604495f0945b2f1efc392fdb04f548e6ac2d887ae668a581b5425",
     "lock": ".board/locks/oci/oci-conformance-v1.lock.json",
-    "lock_digest": "sha256:1049a2b97a9ceae3e49bbaefee29450e75d5bc310d2c882c45227e83112198ac",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:42426a0756934af353734e195b3b0e5bb49238cd8139bddf5fbec2c59cacf7e9",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "parser-worker-v1",
     "schema": ".board/schemas/parser-worker-profile.schema.json",
     "schema_digest": "sha256:e7ebce2ab132c06e05d0e05967d18b935ac48197c59be321bfe5d931158c1fe0",
     "lock": ".board/locks/oci/parser-worker-v1.lock.json",
-    "lock_digest": "sha256:8591be014f0873f3851a77e5c7a499787aff2de62ccf0fecdcf01aa3a2fa2e2b",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:93fb2948355669ee056e75811c5dec9308b2adc3c8b2e586d4ef292653355481",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "polyglot-toolchain-v1",
     "schema": ".board/schemas/polyglot-toolchain-profile.schema.json",
     "schema_digest": "sha256:ee5209986be0f2363d4ea08d6e29eed65d656d3a0bd71a4c7652120309d21e6e",
     "lock": ".board/locks/oci/polyglot-toolchain-v1.lock.json",
-    "lock_digest": "sha256:e24d1cba3a53655abc9d5facf290faf98e665bd147b71935041462ea8770985a",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:d0a196467884073a3477b5e181e42eef28e9c0aee45cf10d748a32516d45b99c",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "registry-v1",
     "schema": ".board/schemas/container-profile.schema.json",
     "schema_digest": "sha256:4219444b921f34a0040cb29972c1984ee5e41a91608f3d78a9398eadded0bf62",
     "lock": ".board/locks/oci/registry-v1.lock.json",
-    "lock_digest": "sha256:974682a3c8aff3309302864b2acf503f216882d9a6014b1d629043bfcff56967",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:b13f884d3149740982e032722fc543370200ef5ca632e24f5afa4935a28203c3",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   },
   {
     "key": "sqlite-offline-v1",
     "schema": ".board/schemas/sqlite-offline-profile.schema.json",
     "schema_digest": "sha256:223d994bd512ae25888db1a33833251a6f38d654a2acf2ba99f16368007e0d2f",
     "lock": ".board/locks/oci/sqlite-offline-v1.lock.json",
-    "lock_digest": "sha256:b2b57e88bfa3860724ff744554526adf0f84cdb3e1cfb81e8a5f52b7bdc720d0",
-    "image_set_digest": "sha256:318d0c8c47887d08a92cbbb9621d4adabf439bbebc962b28785dc5e039932ec8"
+    "lock_digest": "sha256:9e56bde45dbec4eec994e1586e6dbbdee52a6783ce6060cb1ed9fc31a31f57c8",
+    "image_set_digest": "sha256:c12ef435b103f77df5f9e2ed1cf8b6801aa7cde716baae1bdf04a31aad9e934a"
   }
 ]
 }
