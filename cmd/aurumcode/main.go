@@ -28,10 +28,28 @@
 // the standard rule that scopes it. Without --seguranca, stdout is
 // byte-identical to the published contract.
 //
+// With --pr (AUR-438), the command reviews a GitHub pull request instead of
+// a local ref:
+//
+//	aurumcode review --pr <numero> --repo <dono>/<projeto> --publicar --na-linha
+//
+// It reads the pull request's diff through the restored GitHub client
+// (AUR-437, internal/git/githubclient), reviews it through the same engine
+// and provider selection as the --base path, and publishes every finding
+// as a pull request comment: at the file's exact changed line when the
+// diff added that line, or as a general pull request comment when the
+// finding sits outside the changed lines, so it is never silently dropped.
+// Publishing refuses, before anything is posted, when the token lacks
+// write permission on the repository. --repo, --publicar and --na-linha
+// are all required with --pr; every other flag (--base, --fail-on,
+// --modelo, --seguranca) and its published behavior is unchanged when
+// --pr is absent.
+//
 // See docs/specs/AUR-430.md for the base command reference,
 // docs/specs/AUR-431.md for the --fail-on gate,
-// docs/specs/AUR-436.md for --modelo and docs/specs/AUR-435.md for
-// --seguranca, each with an offline, secret-free example.
+// docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
+// --seguranca, and docs/specs/AUR-438.md for --pr, each with an offline,
+// secret-free example.
 package main
 
 import (
@@ -109,9 +127,33 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	failOn := fs.String("fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
 	modelo := fs.String("modelo", "", "model that reviews, e.g. local, llama3 or gpt-4; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: AUR-430's selection, unchanged)")
 	seguranca := fs.Bool("seguranca", false, "additionally run the project's security pass: match the diff's added lines against the security rules of the embedded catalog (standards/security-review) and print the findings in their own section (default: off, output unchanged)")
+	pr := fs.Int("pr", 0, "pull request number to review (AUR-438); activates the PR path and requires --repo, --publicar and --na-linha (default: off, --base path unchanged)")
+	repoFlag := fs.String("repo", "", "owner/repo of the pull request; required with --pr")
+	publicar := fs.Bool("publicar", false, "publish findings as comments on the pull request; required with --pr (default: off)")
+	naLinha := fs.Bool("na-linha", false, "comment at the file's exact changed line, falling back to a general comment for a finding outside the changed lines; required with --pr (default: off)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+
+	// --pr (AUR-438) activates the PR review path and is checked before
+	// anything below: every other flag's published behavior must stay
+	// byte-identical when --pr is absent, so this dispatch has to happen
+	// before the --base requirement (and everything after it) ever runs.
+	// Detected via fs.Visit, which reports flags by their canonical name
+	// after parsing -- never by scanning args for a "--" prefix, since
+	// Go's flag package treats "-pr" and "--pr" identically and a
+	// prefix-only guard would silently miss the single-dash spelling (see
+	// docs/specs/AUR-438.md's inherited-finding note).
+	prGiven := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "pr" {
+			prGiven = true
+		}
+	})
+	if prGiven {
+		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha)
+	}
+
 	if *base == "" {
 		fmt.Fprintln(stderr, "aurumcode review: --base is required")
 		return 2
