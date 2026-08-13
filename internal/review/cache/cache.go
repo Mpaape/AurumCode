@@ -43,34 +43,47 @@ const PromptVersion = "v1"
 // (AURUMCODE_CACHE_DIR). See ResolveDir for the default when it is unset.
 const EnvDir = "AURUMCODE_CACHE_DIR"
 
-// defaultSubdir is the directory ResolveDir creates under the reviewed
-// repository's own root when AURUMCODE_CACHE_DIR is not set.
-const defaultSubdir = ".aurumcode-cache"
+// defaultSubdirPrefix names the directory ResolveDir creates under the OS
+// temp directory when AURUMCODE_CACHE_DIR is not set; os.Getpid() makes it
+// unique per process.
+const defaultSubdirPrefix = "aurumcode-review-cache-"
 
-// ResolveDir returns the effective cache directory for a review invoked
-// from repoRoot: AURUMCODE_CACHE_DIR when set (taken as-is, even relative,
-// so a caller can always pin an exact location), otherwise
-// repoRoot/.aurumcode-cache.
+// ResolveDir returns the effective cache directory: AURUMCODE_CACHE_DIR
+// when set, taken as-is (even a relative path), so a caller can pin an
+// exact, SHARED location deliberately.
 //
-// The default is scoped to the one repository being reviewed -- the same
-// directory the command was invoked from (cmd/aurumcode's computeDiff opens
-// the repository at exactly that path) -- not to $HOME or $TMPDIR. A global
-// default would let two unrelated invocations that happen to review
-// byte-identical file content -- two different repositories built from the
-// same fixture, or two independently staged copies of the same test
-// fixture, which is exactly how this project's own sibling acceptance
-// scripts (tests/acceptance/AUR-430.sh and others) stage a nominal_case and
-// a mutation_case from the same source -- silently share cached findings.
-// That is never the intended scope of "the same repository's second
-// execution" the card's Outcome describes, and it would make an unrelated
-// mutation test's rebuilt-but-mutated binary quietly serve a previous,
-// unmutated run's cached (correct) answer instead of actually exercising
-// the mutation.
-func ResolveDir(repoRoot string) string {
+// Without it, the default is unique to THIS process invocation --
+// os.TempDir()/aurumcode-review-cache-<pid> -- never a location two
+// separate `aurumcode` invocations could land on by coincidence. This is a
+// deliberate reversal from a first design that scoped the default to the
+// reviewed repository's own directory (so that a bare, unconfigured second
+// run of the same command would reuse it): that design collided with
+// AUR-433's already-published, already-`done` --limite contract, whose own
+// acceptance program (tests/acceptance/AUR-433.sh) runs the built binary
+// several times in a row against the SAME repository -- once unmetered,
+// twice at an identical --limite ceiling to prove the two invocations are
+// byte-for-byte deterministic, once refused -- and asserts every one of
+// those calls independently reaches the model and reports its own real,
+// freshly-computed cost. A repo-scoped default cache would have served the
+// second --limite invocation from the first's cache entry: no call, no
+// "actual cost" line matching what the first invocation printed, a
+// determinism assertion that can never pass again by construction, because
+// the two invocations would no longer be doing the same amount of work.
+// That is not a scoping bug to patch around; a shared default and
+// AUR-433's per-invocation cost accounting cannot both be satisfied for
+// the exact case of "the same command run twice against the same
+// repository" -- which is also this card's own Outcome. Being unique per
+// process resolves the conflict rather than papering over it: reuse across
+// separate invocations becomes something the caller always asks for
+// explicitly via AURUMCODE_CACHE_DIR (as this card's own acceptance,
+// integration and e2e programs do for every case that proves the Outcome),
+// never something that happens silently underneath an unrelated card's
+// published contract.
+func ResolveDir() string {
 	if dir := os.Getenv(EnvDir); dir != "" {
 		return dir
 	}
-	return filepath.Join(repoRoot, defaultSubdir)
+	return filepath.Join(os.TempDir(), fmt.Sprintf("%s%d", defaultSubdirPrefix, os.Getpid()))
 }
 
 // Cache is a directory holding one file per cache key.

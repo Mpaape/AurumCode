@@ -104,21 +104,26 @@ sections2="$(count_sections "$run_dir/capture2.txt")"
 [[ "$sections2" == "-1" ]] || fail "warm-run-must-never-call-the-model:got:$sections2"
 grep -Fq 'reused 2 file' "$run_dir/err2.txt" || fail reuse-count-not-reported
 
-# --- Default cache directory (AURUMCODE_CACHE_DIR unset): must still
-# work, scoped under the reviewed repository, never touching the tracked
-# fixture tree (this program only ever operates on its own writable
-# copy). ---
+# --- Default cache directory (AURUMCODE_CACHE_DIR unset) is process-
+# scoped, not shared: two separate invocations against the identical
+# repository must NOT reuse each other's cache by default -- each
+# independently sends both files. A repo-scoped default was this card's
+# first design; it collided with AUR-433's already-published --limite
+# contract, whose own acceptance program runs this binary several times in
+# a row against one repository and expects every invocation to
+# independently reach the model (see internal/review/cache.ResolveDir's
+# doc). This is the regression test for that reversal. ---
 default_repo="$run_dir/repo-default.git"
 cp -R "$demo_src" "$default_repo"
 chmod -R u+w -- "$default_repo"
 
 d1="$(cd "$default_repo" && AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-d1.txt" "$bin" review --base HEAD~1)" || fail default-first-run-failed
 [[ "$(count_sections "$run_dir/capture-d1.txt")" == "2" ]] || fail default-cold-run-must-send-both-files
-[[ -d "$default_repo/.aurumcode-cache" ]] || fail default-cache-dir-not-created
 
-d2="$(cd "$default_repo" && AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-d2.txt" "$bin" review --base HEAD~1)" || fail default-second-run-failed
-[[ "$d2" == "$d1" ]] || fail default-stdout-not-byte-identical
-[[ "$(count_sections "$run_dir/capture-d2.txt")" == "-1" ]] || fail default-warm-run-must-never-call-the-model
+d2="$(cd "$default_repo" && AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_PROMPT_CAPTURE="$run_dir/capture-d2.txt" "$bin" review --base HEAD~1 2>"$run_dir/err-d2.txt")" || fail default-second-run-failed
+[[ "$d2" == "$d1" ]] || fail default-runs-disagree-on-the-finding
+[[ "$(count_sections "$run_dir/capture-d2.txt")" == "2" ]] || fail default-second-run-must-not-share-the-first-run-s-cache
+grep -Fq 'reused' "$run_dir/err-d2.txt" && fail default-isolated-run-must-not-claim-reuse
 
 # --- Partial cache hit must not duplicate a cache-hit file's finding.
 # The offline fixture provider is a fixed canned response that ignores
