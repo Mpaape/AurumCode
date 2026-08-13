@@ -78,20 +78,52 @@
 // runs unless asked to (see internal/review/cache.ResolveDir). --pr's
 // review path is unaffected.
 //
+// With AUR-443, a user who has never read the source can discover what
+// this binary does and run a first review without reading code: top-level
+// `aurumcode --help` / `-h` (also `help`) lists every subcommand with a
+// one-line summary and a runnable example, on stdout, exit 0; `aurumcode
+// --version` (also `version`) prints a build-stamped version, on stdout,
+// exit 0 -- see the version var below for how to inject a real value at
+// build time. `review --help` now follows the exact convention `docs
+// --help` already established (AUR-426): an explicitly requested --help is
+// a fulfilled request (stdout, exit 0), and a genuine usage error is a
+// refusal (stderr, exit 2) -- the same channel and exit code for both
+// subcommands, where before this card `review --help` printed usage to
+// stderr with exit 2 and `docs --help` printed to stdout with exit 0.
+// Provider-missing errors (selectProvider, reportModelUnavailable) now
+// point at a concrete, versioned fixture example
+// (tests/fixtures/review/known-problem-response.json) instead of only
+// naming the environment variable to set. computeDiff's git-repository and
+// ref-resolution errors no longer wrap internal/analyzer's own message
+// verbatim: OpenRepo's single error case used to produce a literally
+// duplicated "not a git repository: not a git repository (...)" phrase,
+// and a ref that does not resolve used to leak a raw filesystem path (the
+// pure-Go path, e.g. "open <repo>/.git/refs/heads/<ref>: no such file or
+// directory") or git's own "fatal: ..." wording (the git-binary path);
+// both are now one clean, actionable sentence, and the two backends report
+// the identical text for the same user mistake. See docs/specs/AUR-443.md
+// for the --limite exit code and the model response's unused `summary`
+// field, both of which this card investigated and deliberately left
+// unchanged: docs/specs/AUR-443.md records why.
+//
 // See docs/specs/AUR-430.md for the base command reference,
 // docs/specs/AUR-431.md for the --fail-on gate,
 // docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
 // --seguranca, docs/specs/AUR-438.md for --pr, docs/specs/AUR-433.md for
-// --limite, docs/specs/AUR-439.md for --check, and docs/specs/AUR-441.md
-// for the review cache, each with an offline, secret-free example.
+// --limite, docs/specs/AUR-439.md for --check, docs/specs/AUR-441.md for
+// the review cache, and docs/specs/AUR-443.md for the top-level help,
+// version and error-message cleanups, each with an offline, secret-free
+// example.
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"sort"
@@ -107,6 +139,16 @@ import (
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
+
+// version is aurumcode's build-time version string. This reconstruction
+// publishes no numbered release yet, so it defaults to "dev"; a future
+// release pipeline stamps a real value with no other code change via:
+//
+//	go build -ldflags "-X main.version=1.2.3" ./cmd/aurumcode
+//
+// `aurumcode --version` (or `aurumcode version`) prints it. See
+// docs/specs/AUR-443.md.
+var version = "dev"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -148,6 +190,19 @@ func run(args []string, stdout, stderr *os.File) int {
 	}
 
 	switch args[0] {
+	case "--help", "-h", "help":
+		// An explicitly requested top-level --help is a fulfilled request,
+		// not a failure: stdout, exit 0, the same convention `review
+		// --help` and `docs --help` both follow after this card (see the
+		// package doc above). Static text, no repository- or
+		// operator-controlled input, so it deliberately bypasses the
+		// redaction writer -- exactly like `docs --help`'s own usage text
+		// already does (runDocs, cmd/aurumcode/docs.go).
+		printTopLevelHelp(stdout)
+		return 0
+	case "--version", "version":
+		printVersion(stdout)
+		return 0
 	case "review":
 		return runReview(args[1:], stdout, errW, filter)
 	case "docs":
@@ -158,9 +213,45 @@ func run(args []string, stdout, stderr *os.File) int {
 	}
 }
 
+// printTopLevelHelp is what makes `aurumcode --help` (or `-h`, or `help`)
+// answer "what does this command do" without the reader ever opening
+// source: every subcommand, one line each, plus one runnable example.
+// MUT-001 (docs/specs/AUR-443.md, tests/acceptance/AUR-443.sh) removes the
+// "--help", "-h", "help" case above so this function becomes unreachable
+// dead code -- `aurumcode --help` then falls through to the `default` arm
+// and reports "unknown command", exit 2, which is exactly the discoverability
+// regression this card's Outcome exists to fix.
+func printTopLevelHelp(stdout io.Writer) {
+	fmt.Fprintln(stdout, "usage: aurumcode <command> [flags]")
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, "Commands:")
+	fmt.Fprintln(stdout, "  review   Review a git diff with an LLM (or the project's deterministic security rules) and print, gate on, or publish the findings.")
+	fmt.Fprintln(stdout, "  docs     Generate project documentation from source code.")
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, `Run "aurumcode <command> --help" for that command's own flags.`)
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, "Example:")
+	fmt.Fprintln(stdout, "  aurumcode review --base HEAD~1")
+}
+
+// printVersion answers `aurumcode --version` / `aurumcode version`.
+func printVersion(stdout io.Writer) {
+	fmt.Fprintf(stdout, "aurumcode %s\n", version)
+}
+
 func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int {
+	// Buffered, then dispatched by errors.Is(err, flag.ErrHelp) below: the
+	// exact pattern `docs --help` already established (runDocs,
+	// cmd/aurumcode/docs.go). Before this card, fs.SetOutput(stderr) sent
+	// --help's usage text straight to stderr with exit 2 -- the opposite
+	// convention from `docs --help` (stdout, exit 0) in the same binary.
+	// An explicitly requested --help is a fulfilled request, not a usage
+	// error; a genuine usage error (an unknown flag, a value that does not
+	// parse) still goes to stderr, exit 2, unchanged. See
+	// docs/specs/AUR-443.md.
+	var helpBuf bytes.Buffer
 	fs := flag.NewFlagSet("review", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(&helpBuf)
 	base := fs.String("base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
 	failOn := fs.String("fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
 	modelo := fs.String("modelo", "", "model that reviews, e.g. local, llama3 or gpt-4; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: AUR-430's selection, unchanged)")
@@ -172,6 +263,11 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	limite := fs.String("limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
 	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge; with --pr, satisfies the --na-linha requirement on its own (default: off)")
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
+			return 0
+		}
+		io.Copy(stderr, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
 		return 2
 	}
 
@@ -407,6 +503,21 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		}
 	}
 
+	// result.Summary (pkg/types.ReviewResult, parsed by
+	// internal/prompt.ResponseParser) is deliberately never printed here.
+	// AUR-443 investigated printing it and found the change is blocked, not
+	// merely undesired: tests/acceptance/AUR-426.sh's review-contract-broken
+	// check and tests/unit/AUR-426.go's byte-for-byte assertion both run
+	// this exact command against a fixture whose "summary" field IS
+	// non-empty ({"issues":[],"summary":"Nothing to report."}) and require
+	// stdout to be exactly "No issues found.\n" -- so printing Summary here
+	// would break a published, done card's contract on the very next run of
+	// its own acceptance. The parser that produces this field
+	// (internal/prompt) is also a read_path this card cannot edit, so
+	// removing it from the parse is equally out of reach. See
+	// docs/specs/AUR-443.md's "summary field" section for the full
+	// evidence trail; this is a recorded, deliberate no-op, not an
+	// oversight.
 	printNotices(stdout, filter, notices)
 	printFindings(stdout, result)
 	if *seguranca {
@@ -507,13 +618,70 @@ func countAtOrAbove(issues []types.ReviewIssue, threshold int) int {
 func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, error) {
 	repo, err := analyzer.OpenRepo(repoRoot)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s is not a git repository: %w", repoRoot, err)
+		// analyzer.OpenRepo has exactly one error case (gitrepo.go), and its
+		// own message already says "not a git repository (...)"; wrapping
+		// it with another "is not a git repository" prefix used to print a
+		// literally duplicated phrase ("... is not a git repository: not a
+		// git repository (no .git dir ...)"). That message is fully known
+		// (see the package doc above), so this replaces it outright with
+		// one clean, actionable sentence instead of restating the same
+		// fact twice.
+		return nil, nil, fmt.Errorf("%s is not a git repository (no .git directory here, and this path is not itself a bare repository)", repoRoot)
 	}
 	diff, notices, err := repo.Diff(base, "HEAD")
 	if err != nil {
-		return nil, nil, fmt.Errorf("computing diff %s..HEAD: %w", base, err)
+		return nil, nil, cleanRefError(base, err)
 	}
 	return diff, notices, nil
+}
+
+// cleanRefError turns internal/analyzer's ref-resolution error into one
+// clean, actionable line instead of the raw internal detail
+// analyzer.Repo.Diff's error chain otherwise surfaces to the user:
+//
+//   - the pure-Go path (gitrepo.go's resolveSymbolic), the one this card's
+//     own sealed acceptance profile exercises (bootstrap-readonly-v1: Go
+//     and bash, no git binary), wraps a raw *fs.PathError, e.g. "open
+//     <repo>/.git/refs/heads/<ref>: no such file or directory";
+//   - the git-binary path (gitrepo.go's ResolveRef, when a `git` binary is
+//     on PATH) wraps git's own "fatal: Needed a single revision" or
+//     "fatal: ... unknown revision or path ..." stderr text.
+//
+// Both leak implementation detail (a filesystem path under .git, or a
+// foreign tool's own wording) that means nothing to a user who has never
+// read the source, and the two backends previously disagreed on what that
+// detail even looked like. Both are recognized here and replaced by the
+// identical clean sentence, naming the ref that failed and how a valid one
+// is spelled, so a real repository behaves the same way regardless of
+// which backend OpenRepo selected. Only the two prefixes
+// analyzer.Repo.Diff itself always wraps with ("resolving base ref %q: " /
+// "resolving head ref %q: ", gitrepo.go) are recognized, and only when the
+// wrapped cause looks like "no such ref" specifically: any other Diff
+// failure (a corrupted tree, an ambiguous parent count, and the like) is
+// not concretely measured by this card's dogfooding and keeps its
+// pre-existing wrapped message unchanged, so a genuinely new failure is
+// never silently hidden behind a guessed diagnosis.
+func cleanRefError(base string, err error) error {
+	msg := err.Error()
+	ref := ""
+	switch {
+	case strings.HasPrefix(msg, "resolving base ref "):
+		ref = base
+	case strings.HasPrefix(msg, "resolving head ref "):
+		ref = "HEAD"
+	default:
+		return fmt.Errorf("computing diff %s..HEAD: %w", base, err)
+	}
+
+	var pathErr *fs.PathError
+	looksLikeNoSuchRef := errors.As(err, &pathErr) ||
+		strings.Contains(msg, "Needed a single revision") ||
+		strings.Contains(msg, "unknown revision or path")
+	if !looksLikeNoSuchRef {
+		return fmt.Errorf("computing diff %s..HEAD: %w", base, err)
+	}
+
+	return fmt.Errorf("ref %q not found in this repository: expected a branch name, HEAD, a 40-character commit SHA, or a \"<ref>~N\" parent expression", ref)
 }
 
 // printNotices reports the changed files that were deliberately not
@@ -571,7 +739,13 @@ func selectProvider() (llm.Provider, error) {
 		return litellm.NewProvider(apiKey, baseURL, model), nil
 	}
 
-	return nil, errors.New("no LLM provider configured: set AURUMCODE_LLM_FIXTURE for offline use, or LLM_API_KEY and LLM_BASE_URL for a live provider")
+	// The first-run message names the FORM of a fixture file, not only the
+	// environment variable: a user who has never read the source cannot
+	// build a valid AURUMCODE_LLM_FIXTURE payload from the variable name
+	// alone. tests/fixtures/review/known-problem-response.json is a real,
+	// versioned example already shaped exactly like this -- pointing at it
+	// lets an offline first run succeed without reading any Go source.
+	return nil, errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","message":"<text>"}]} for offline use (see tests/fixtures/review/known-problem-response.json for a worked example), or set LLM_API_KEY and LLM_BASE_URL for a live provider`)
 }
 
 // selectProviderForModel serves the model the user chose with --modelo
@@ -641,7 +815,7 @@ func redactedEndpoint(raw string) string {
 // this path must never do is report an empty review with exit 0.
 func reportModelUnavailable(stderr io.Writer, model string, reason error) int {
 	fmt.Fprintf(stderr, "aurumcode review: model %q is unavailable: %v\n", model, reason)
-	fmt.Fprintf(stderr, "aurumcode review: to serve model %q: set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run, or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo %s\n", model, model)
+	fmt.Fprintf(stderr, "aurumcode review: to serve model %q: set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run -- <response-file> is a JSON file shaped like tests/fixtures/review/known-problem-response.json (an \"issues\" array of file/line/severity/message) -- or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo %s\n", model, model)
 	return 1
 }
 
