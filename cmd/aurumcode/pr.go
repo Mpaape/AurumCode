@@ -10,10 +10,15 @@
 // diff actually added that line, or as a general pull request comment when
 // the finding sits outside the changed lines -- so a real finding is never
 // silently dropped just because it cannot be anchored to a line the diff
-// touched (see MUT-001). Publishing refuses, before any comment is posted,
-// when the token lacks write permission on the repository -- the same
-// fail-closed guarantee AUR-437 already proved for the client itself
-// (internal/git/githubclient.HasWritePermission).
+// touched (see MUT-001), and one finding's failure to post never costs
+// another finding its own comment (the publish loop aggregates failures
+// instead of aborting on the first one). Publishing refuses, before any
+// comment is posted, when the token lacks write permission on the
+// repository -- the same fail-closed guarantee AUR-437 already proved for
+// the client itself (internal/git/githubclient.HasWritePermission) -- and
+// refuses just as fail-closed when an inline comment would need a commit
+// SHA that is not available (GITHUB_SHA unset): never a POST built with an
+// empty commit_id.
 //
 // This file owns only the wiring: flag handling, the diff-shape conversion
 // from the client's package-local types to pkg/types (the client
@@ -75,6 +80,24 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	ctx := context.Background()
 	client := newGitHubClient()
 
+	// Publishing gate, checked first -- before the diff fetch and before
+	// any LLM call -- so a read-only token is refused without spending
+	// either. Refuse fail-closed, exactly as
+	// internal/git/githubclient.PostReviewComment and PostIssueComment
+	// already refuse internally, but as a single clear message instead of
+	// one failed POST per finding. Moved here (was: checked only after
+	// GenerateReview) because a token that cannot publish must not still
+	// pay for a model call it can never use the result of.
+	ok, err := client.HasWritePermission(ctx, owner, repoName)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: checking write permission on %s/%s: %v\n", owner, repoName, err)
+		return 1
+	}
+	if !ok {
+		fmt.Fprintf(stderr, "aurumcode review: refusing to publish to %s/%s: %v\n", owner, repoName, githubclient.ErrNoWritePermission)
+		return 1
+	}
+
 	ghDiff, err := client.GetPullRequestDiff(ctx, owner, repoName, prNumber)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: fetching pull request diff: %v\n", err)
@@ -119,30 +142,43 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// needs a second pass through the filter.
 	issues := sortedIssues(result.Issues)
 
-	// Publishing gate, checked once before any comment is built: refuse
-	// fail-closed, exactly as internal/git/githubclient.PostReviewComment
-	// and PostIssueComment already refuse internally, but as a single
-	// clear message instead of one failed POST per finding.
-	ok, err := client.HasWritePermission(ctx, owner, repoName)
-	if err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: checking write permission on %s/%s: %v\n", owner, repoName, err)
-		return 1
-	}
-	if !ok {
-		fmt.Fprintf(stderr, "aurumcode review: refusing to publish to %s/%s: %v\n", owner, repoName, githubclient.ErrNoWritePermission)
-		return 1
-	}
-
 	// GITHUB_SHA is the standard GitHub Actions convention for "the commit
 	// under review" (see docs/specs/AUR-438.md's Compatibility note): the
 	// restored client's GetPullRequestDiff reads the unified diff format,
 	// which carries no commit SHA, and this card does not extend the
 	// client (internal/git/githubclient is a read_path here) to add an
-	// endpoint that would fetch one. An empty value still produces a
-	// well-formed request; the fixture server this card's own tests run
-	// against does not depend on it.
+	// endpoint that would fetch one.
+	//
+	// A real GitHub review-comment POST with an empty commit_id is
+	// rejected (422): an inline comment cannot be anchored to no commit at
+	// all. So when at least one finding needs an inline comment and no SHA
+	// is available, this refuses before any comment -- inline or general
+	// -- is posted, the same fail-closed shape as the permission check
+	// above, never a POST built with an empty commit_id. A run whose
+	// findings are all general (nothing anchors to a specific added line)
+	// does not need a commit SHA at all -- PostIssueComment carries no
+	// commit_id -- so it is not blocked by this gate.
 	commitID := os.Getenv("GITHUB_SHA")
+	needsCommitID := false
+	for _, issue := range issues {
+		if isInlineEligible(diff, issue) {
+			needsCommitID = true
+			break
+		}
+	}
+	if needsCommitID && commitID == "" {
+		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: an inline comment requires a commit SHA and none is available; set GITHUB_SHA")
+		return 1
+	}
 
+	// The publish loop never lets one finding's POST failure swallow the
+	// rest: a failure is recorded and the loop continues, so an inline
+	// comment that fails to post does not also cost the general comment
+	// for a different, unrelated finding (or vice versa). Every recorded
+	// failure is reported after the loop, and the command exits non-zero
+	// if any occurred -- but every finding that COULD be published still
+	// was.
+	var failures []string
 	inlineCount, generalCount := 0, 0
 	for _, issue := range issues {
 		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
@@ -156,7 +192,8 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			key := fmt.Sprintf("aurumcode/%d/%s/%d/%s", prNumber, issue.File, issue.Line, issue.RuleID)
 			if err := client.PostReviewComment(ctx, owner, repoName, prNumber, comment, key); err != nil {
 				fmt.Fprintf(stderr, "aurumcode review: publishing inline comment on %s:%d: %v\n", issue.File, issue.Line, err)
-				return 1
+				failures = append(failures, fmt.Sprintf("%s:%d (na linha): %v", issue.File, issue.Line, err))
+				continue
 			}
 			fmt.Fprintf(stdout, "%s -- publicado na linha\n", line)
 			inlineCount++
@@ -168,7 +205,8 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		// branch.
 		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, line); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
-			return 1
+			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
+			continue
 		}
 		fmt.Fprintf(stdout, "%s -- publicado como comentario geral (fora das linhas alteradas)\n", line)
 		generalCount++
@@ -176,6 +214,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 
 	fmt.Fprintf(stdout, "%d comentario(s) publicado(s) no pull request #%d (%d na linha, %d geral).\n",
 		inlineCount+generalCount, prNumber, inlineCount, generalCount)
+
+	if len(failures) > 0 {
+		fmt.Fprintf(stderr, "aurumcode review: %d comentario(s) falharam ao publicar:\n", len(failures))
+		for _, f := range failures {
+			fmt.Fprintf(stderr, "  %s\n", f)
+		}
+		return 1
+	}
 	return 0
 }
 
