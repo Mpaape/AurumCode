@@ -77,6 +77,16 @@ func TestRulesLoaderFailsLoud(t *testing.T) {
 			},
 			want: "failed to load",
 		},
+		{
+			// AUR-435: a rule's matcher compiles at load, so a broken
+			// pattern is a loud catalog error, never a silently
+			// unmatchable rule.
+			name: "invalid matcher pattern",
+			fsys: fstest.MapFS{
+				"rules/bad.yml": {Data: []byte("rules:\n  - id: security/x\n    title: X\n    pattern: '('\n")},
+			},
+			want: "invalid pattern",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

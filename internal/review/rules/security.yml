@@ -7,6 +7,15 @@
 # `security/hardcoded-secrets` is now `security/hardcoded-secret`, the
 # singular form the engine's own prompt contract and fixtures emit (see
 # tests/fixtures/review/known-problem-response.json).
+#
+# AUR-435 restores the piece the c12d7ab measurement named as missing: the
+# rules were metadata without a matcher. A rule may now carry `pattern` (a
+# Go regexp the security pass applies to each ADDED diff line; compiled at
+# load, a broken pattern fails the whole catalog loudly) and `standard`
+# (the rule of the enforced project security standard,
+# standards/security-review/rules.md, that scopes it). Rules without a
+# pattern stay metadata-only: citable by a model finding (AUR-434), never
+# matched by the security pass.
 
 rules:
   - id: security/sql-injection
@@ -15,6 +24,10 @@ rules:
     severity: error
     category: security
     tags: [sql, injection, database]
+    standard: SCR-001
+    # A string literal carrying a SQL verb, concatenated with `+` right
+    # after a quote: the classic query-built-by-concatenation shape.
+    pattern: '(?i)\b(select|insert|update|delete)\b.*["'']\s*\+'
 
   - id: security/xss
     title: Cross-Site Scripting (XSS)
@@ -29,6 +42,10 @@ rules:
     severity: error
     category: security
     tags: [command, injection, shell]
+    standard: SCR-001
+    # A shell/exec call whose argument is assembled by string
+    # concatenation right after a quote.
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+'
 
   - id: security/path-traversal
     title: Path Traversal
