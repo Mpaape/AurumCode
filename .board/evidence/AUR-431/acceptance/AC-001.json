@@ -1,0 +1,13 @@
+{
+ "schema": "aurum.acceptance-execution",
+ "version": 1,
+ "card_id": "AUR-431",
+ "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-431",
+ "candidate": "1872d5dde44338d5f49e2c7c8bff8ef6495c5eb3",
+ "profile": "bootstrap-readonly-v1",
+ "image": "aurum-bootstrap-go-bash@sha256:e8521445a6c1bc7c017258e9c71caf8eb78ee254862582c5d57d8a79d9413084",
+ "exit_code": 0,
+ "stdout_sha256": "sha256:6f2accdb (reviewer re-run on the integrated tip)",
+ "behavior": "--fail-on high with an error finding exits 3; without the flag exits 0 with byte-identical review stdout (sha256 88c53138c2b1e276 across rounds); --fail-on= and empty-var exit 2 usage error",
+ "mutation": "MUT-001 rejected in accept; reviewer mutations: severity downgrade red via behavior-missing, weak-guard reintroduction red via the new CLI test"
+}
