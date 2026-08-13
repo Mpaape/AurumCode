@@ -104,6 +104,13 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
+  # cmd/aurumcode is one Go package shared with concurrently-dispatched
+  # cards; AUR-438 (integrated) added cmd/aurumcode/pr.go, which imports
+  # internal/git/githubclient. That import has to resolve for `go build
+  # ./cmd/aurumcode` to succeed against the integrated tree, even though
+  # this card owns none of pr.go's behavior -- mirroring how AUR-438's own
+  # acceptance stages the same directory.
+  copy "$root" internal/git
   copy "$root" cmd/regenerate-docs
   copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
   copy "$root" internal/pipeline
