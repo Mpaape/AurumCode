@@ -59,9 +59,10 @@ AURUMCODE_BIN_DIR="${AURUMCODE_BIN_DIR:-/app}"
 # no-op.
 AURUMCODE_CLI="${AURUMCODE_CLI:-${AURUMCODE_BIN_DIR}/aurumcode}"
 
-# The generator that reads the source tree. This is the ONE binary the image
-# built from this repository's Dockerfile installs, and it is what makes the
-# documentation mode a real mode rather than a template writer.
+# The generator that reads the source tree. This is one of the two binaries
+# the image built from this repository's Dockerfile installs (the other is
+# AURUMCODE_CLI above), and it is what makes the documentation mode a real
+# mode rather than a template writer.
 AURUMCODE_GENERATOR="${AURUMCODE_GENERATOR:-${AURUMCODE_BIN_DIR}/regenerate-docs}"
 
 # Directory the generator writes its markdown into, relative to the workspace.
