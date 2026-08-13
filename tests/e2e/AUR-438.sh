@@ -72,6 +72,7 @@ cat >"$fakegithub_src" <<'EOF'
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -88,10 +89,32 @@ func mustRead(path string) []byte {
 	return b
 }
 
+// bytesContainsCommitID reports whether a POST body carries a non-empty
+// "commit_id" field, the same check the real GitHub API makes before
+// accepting an inline review comment.
+func bytesContainsCommitID(body []byte) bool {
+	var v struct {
+		CommitID string `json:"commit_id"`
+	}
+	if err := json.Unmarshal(body, &v); err != nil {
+		return false
+	}
+	return v.CommitID != ""
+}
+
 func main() {
 	fixturesDir := os.Args[1]
 	scenario := os.Args[2]
 	logPath := os.Args[3]
+	// failMode, when "first-post-400", fails the first POST this process
+	// receives with a plain 400 (never retried by the client -- see the
+	// commit_id check below for why a 5xx would be the wrong choice) so a
+	// test can prove one failed publish does not swallow the others.
+	// Default "none" changes nothing.
+	failMode := "none"
+	if len(os.Args) > 4 {
+		failMode = os.Args[4]
+	}
 
 	diffBody := mustRead(fixturesDir + "/pr-42.diff")
 	created := mustRead(fixturesDir + "/comment-created.json")
@@ -108,10 +131,32 @@ func main() {
 		os.Exit(1)
 	}
 
+	postSeen := 0
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			body, _ := io.ReadAll(r.Body)
 			fmt.Fprintf(logFile, "POST %s %s\n", r.URL.Path, body)
+			postSeen++
+
+			// Real GitHub rejects an inline review comment with no
+			// commit_id: 422, not success. A fake that always answers 201
+			// regardless of commit_id cannot catch a missing SHA gate --
+			// see the no-GITHUB_SHA scenario below.
+			if r.URL.Path == "/repos/dono/projeto/pulls/42/comments" &&
+				!bytesContainsCommitID(body) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				_, _ = w.Write([]byte(`{"message":"Validation Failed","errors":[{"field":"commit_id","code":"missing_field"}]}`))
+				return
+			}
+
+			if failMode == "first-post-400" && postSeen == 1 {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"message":"synthetic failure injected for AUR-438's own e2e test"}`))
+				return
+			}
+
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write(created)
@@ -159,8 +204,8 @@ fi
 # infrastructure gap, not a RED.
 FAKE_URL=""
 start_fake() {
-  local scenario="$1" log="$2" url_file="$3"
-  "$fakegithub_bin" "$fixtures_dir" "$scenario" "$log" >"$url_file" 2>>"$run_dir/fakegithub.stderr" &
+  local scenario="$1" log="$2" url_file="$3" failmode="${4:-none}"
+  "$fakegithub_bin" "$fixtures_dir" "$scenario" "$log" "$failmode" >"$url_file" 2>>"$run_dir/fakegithub.stderr" &
   pids+=("$!")
   local waited=0
   while [[ ! -s "$url_file" ]]; do
@@ -208,6 +253,20 @@ run_pr() {
   set +e
   AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_GITHUB_API_URL="$base_url" \
     GITHUB_TOKEN="$token" GITHUB_SHA="e2e-synthetic-sha" \
+    "$bin" review --pr 42 --repo dono/projeto --publicar --na-linha \
+    >"$run_dir/out.stdout" 2>"$run_dir/out.stderr"
+  rc=$?
+  set -e
+}
+
+# run_pr_no_sha is run_pr with GITHUB_SHA left genuinely unset (not merely
+# empty) in the child's environment, for the no-commit-SHA refusal proof.
+run_pr_no_sha() {
+  local base_url="$1" token="$2"
+  set +e
+  env -u GITHUB_SHA \
+    AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_GITHUB_API_URL="$base_url" \
+    GITHUB_TOKEN="$token" \
     "$bin" review --pr 42 --repo dono/projeto --publicar --na-linha \
     >"$run_dir/out.stdout" 2>"$run_dir/out.stderr"
   rc=$?
@@ -267,5 +326,38 @@ grep -Fq 'write permission' "$run_dir/out.stderr" || fail readonly_not_refused
 if grep -q '^POST ' "$log3"; then
   fail readonly_post_leaked
 fi
+
+## Scenario 3: a write-permission token but no GITHUB_SHA. The fixture
+## still has an inline-eligible finding (cmdb/settings.go:3), and the fake
+## server now answers 422 to an inline comment with no commit_id -- exactly
+## like the real GitHub API -- instead of always agreeing. The command
+## must refuse before attempting ANY post, not rely on the fake's 422 to
+## catch it after the fact: zero POST lines in the log proves the refusal
+## is this command's own pre-publish gate.
+log4="$run_dir/nosha.log"
+start_fake write "$log4" "$run_dir/nosha.url"
+url4="$FAKE_URL"
+run_pr_no_sha "$url4" "token-sintetico-write"
+[[ "$rc" -eq 1 ]] || fail "nosha_wrong_exit:$rc"
+grep -Fq 'commit SHA' "$run_dir/out.stderr" || fail nosha_not_refused
+if grep -q '^POST ' "$log4"; then
+  fail nosha_post_leaked
+fi
+
+## Scenario 4: a write-permission token and GITHUB_SHA set, but the fake
+## server fails the first POST it receives (a plain 400, not the
+## commit_id rule above, and not a 5xx the client would silently retry).
+## The second finding must still be published: one failed publish does not
+## abort the rest.
+log5="$run_dir/onefail.log"
+start_fake write "$log5" "$run_dir/onefail.url" first-post-400
+url5="$FAKE_URL"
+run_pr "$url5" "token-sintetico-write"
+[[ "$rc" -eq 1 ]] || fail "onefail_wrong_exit:$rc"
+grep -Fq 'docs/notas.md:99: [info] Achado sintetico fora das linhas alteradas.' "$run_dir/out.stdout" \
+  || fail onefail_swallowed_other_finding
+grep -Fq -- '-- publicado como comentario geral' "$run_dir/out.stdout" || fail onefail_swallowed_other_finding
+grep -Fq '1 comentario(s) falharam ao publicar' "$run_dir/out.stderr" || fail onefail_missing_failure_summary
+[[ "$(grep -c '^POST ' "$log5")" -eq 2 ]] || fail onefail_second_post_not_attempted
 
 printf '%s/AC-001/E2EAUR438/ok\n' "$card"
