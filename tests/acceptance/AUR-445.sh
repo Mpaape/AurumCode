@@ -55,7 +55,6 @@ inputs=(
   LICENSE
   cmd/aurumcode/main.go
   cmd/regenerate-docs/main.go
-  internal/review/rules/security.yml
   README.md
   CHANGELOG.md
   ACTION_USAGE.md
