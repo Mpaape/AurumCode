@@ -75,6 +75,7 @@ required_inputs=(
   cmd/regenerate-docs
   pkg/types
   tests/fixtures/repos/git-demo/repo.git
+  tests/unit/AUR-459.go
 )
 for input in "${required_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
@@ -264,8 +265,34 @@ mutation_case() {
   fi
 }
 
+# unit_case runs the card's declared unit program. tests/unit/*.go are
+# plain .go files, so `go test` alone would report "no test files" and pass
+# vacuously; the bridge _test.go below is the repo's convention (see
+# tests/acceptance/AUR-448.sh) for making the file actually execute, and
+# the "ok" line is checked so a zero-test run cannot read as green.
+unit_case() {
+  build_shared
+  local root="$shared_root" out rc
+  copy "$root" tests/unit/AUR-459.go
+  chmod -R u+w -- "$root/tests/unit"
+  cat >"$root/tests/unit/aur459_bridge_test.go" <<'EOF'
+package unit
+
+import "testing"
+
+func TestAUR459UnitBridge(t *testing.T) { TestAUR459(t) }
+EOF
+  set +e
+  out="$(cd "$root" && ulimit -v 8388608 && AURUMCODE_ROOT="$root" GOMAXPROCS=1 GOMEMLIMIT=2GiB go test -v -mod=mod -p 1 -timeout 300s ./tests/unit -run '^TestAUR459UnitBridge$' -count=1 2>&1)"
+  rc=$?
+  set -e
+  ((rc == 0)) || { printf '%s\n' "$out" >&2; fail "selector:TestAUR459:exit:$rc"; }
+  grep -Eq '(^|[[:space:]])ok[[:space:]]' <<<"$out" || fail selector:TestAUR459:zero-tests
+}
+
 case "$selector" in
   AC-001-MUT-001) mutation_case ;;
+  TestAUR459) unit_case ;;
   *) nominal_case ;;
 esac
 exit 0
