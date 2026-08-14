@@ -24,6 +24,63 @@ It is never overwritten once it exists, so it can be edited freely.
 The generator produces markdown and that site scaffold. It does not build the
 Jekyll site itself; the Action does that only when publishing is requested.
 
+## Try it now
+
+```bash
+git clone https://github.com/Mpaape/AurumCode.git
+cd AurumCode
+bash demo.sh
+```
+
+`demo.sh` builds the two binaries below and runs all three features offline,
+with no LLM key: it generates documentation, reviews a diff with the
+deterministic security pass, reviews the same diff through a fixture model
+response, and prints the Jekyll publish command. It exits `0` when the
+repository does what this README says.
+
+## Features
+
+AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
+(documentation). Each feature below has a real command you can run.
+
+- **Review a local diff** - the best first command in the product, because it
+  needs no configuration at all:
+
+  ```bash
+  aurumcode review --base HEAD~1 --seguranca
+  ```
+
+  `--seguranca` runs the project's own deterministic security rules (a regex
+  match over the diff, no model call). It is a *named subset* of the full
+  catalog, not everything in it - the command itself reports the count, e.g.
+  `security pass applied 3 of 8 security rules`. Drop `--seguranca` and set
+  `AURUMCODE_LLM_FIXTURE=<path>` (offline, deterministic) or
+  `LLM_API_KEY`+`LLM_BASE_URL` for a model-driven review of the same diff.
+
+- **Review a pull request and publish a comment**:
+
+  ```bash
+  aurumcode review --pr 42 --repo owner/project --publicar --na-linha
+  ```
+
+  Needs `GITHUB_TOKEN` (write permission on the pull request) and an LLM
+  provider. [.github/workflows/examples/code-review.yml](.github/workflows/examples/code-review.yml)
+  is a ready-to-copy workflow that runs this on every pull request; it builds
+  from this repository's `v1` release tag, which **is not published yet** -
+  publishing it is a step the maintainer still has to do, not something this
+  repository does for you.
+
+- **Generate documentation**:
+
+  ```bash
+  go run ./cmd/regenerate-docs
+  ```
+
+  See "Local usage" below for details, or
+  [.github/workflows/examples/documentation.yml](.github/workflows/examples/documentation.yml)
+  to publish it to GitHub Pages on every push to `main` (same unpublished
+  `v1` tag as above).
+
 ## Quick start as a GitHub Action
 
 ```yaml
@@ -193,13 +250,18 @@ AurumCode/
 
 ## Development
 
+`go build ./...` and `go test ./...` currently FAIL with a package collision:
+`tests/unit` and `tests/integration` each hold more than one `package main`
+fixture file alongside the real `unit`/`integration` package the acceptance
+harness expects (a known, tracked issue, not a broken checkout). Build the
+product code by naming its three real roots instead:
+
 ```bash
-go build ./...
-go test ./...
+go build ./cmd/... ./internal/... ./pkg/...
 ```
 
-Both are verified to pass in `golang:1.21-alpine` with the repository mounted at
-`/w`.
+`demo.sh` (see "Try it now" above) builds and runs both binaries this way and
+exits `0`, so it doubles as a smoke test for this command.
 
 ## Documentation
 
