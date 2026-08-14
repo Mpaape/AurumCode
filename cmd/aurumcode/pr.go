@@ -35,6 +35,26 @@
 // severity), "success" otherwise -- so a branch protection rule that
 // requires this check blocks the pull request's merge until the grave
 // finding is fixed. See publishCheckStatus below and docs/specs/AUR-439.md.
+//
+// AUR-451 closes the gap its own measurement named: before this card,
+// --seguranca/--fail-on/--limite/--modelo were parsed but never reached
+// this path at all, so the security pass, the severity gate, the cost
+// ceiling and the model choice only ever worked on --base -- the product's
+// main use case, reviewing a pull request, ran none of them. This card
+// wires all four into prReviewOptions below by calling the EXACT functions
+// the --base path already uses (review.SecurityScanWithCoverage,
+// severityRank/countAtOrAbove/exitFindings, printSecurityCoverage,
+// costPrice/buildCostTracker/fixedModelProvider/printCostEstimate/
+// printRealCost/reportBudgetExceeded, selectProviderForModel/
+// reportModelUnavailable -- all in cmd/aurumcode/main.go and
+// cmd/aurumcode/cost.go), never a second implementation. A security
+// finding becomes its own published comment exactly like a quality
+// finding does -- inline when the diff added that line, general
+// otherwise -- because its Message already carries its rule citation
+// (review.enforceRuleCitations), so no separate PR-comment section is
+// needed the way the --base path's stdout report has one. Without any of
+// the four flags, prReviewOptions is its zero value and this path's
+// behavior is exactly AUR-438's/AUR-439's, unchanged.
 package main
 
 import (
@@ -48,10 +68,26 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
+
+// prReviewOptions carries the AUR-451 capabilities onto the PR path: the
+// same four things the --base path already offers, reused here rather than
+// reimplemented (see the package doc above). The zero value means none of
+// the four flags was given, so a caller that never sets a field gets
+// exactly the pre-AUR-451 --pr behavior.
+type prReviewOptions struct {
+	seguranca bool
+	failOnSet bool
+	failOn    string
+	modeloSet bool
+	modelo    string
+	limiteSet bool
+	limite    string
+}
 
 // runPRReview is reached only when --pr was explicitly given (see the
 // fs.Visit dispatch in runReview); every other flag's published behavior
@@ -73,7 +109,7 @@ import (
 // changes nothing about the pre-existing, byte-pinned contract: without
 // --check, an absent --na-linha still refuses exactly as it always has
 // (see cmd/aurumcode/pr_test.go and docs/specs/AUR-438.md).
-func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha, check bool) int {
+func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha, check bool, opts prReviewOptions) int {
 	if repoFlag == "" {
 		fmt.Fprintln(stderr, "aurumcode review: --repo is required with --pr")
 		return 2
@@ -94,6 +130,41 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: --repo: %v\n", err)
 		return 2
+	}
+
+	// AUR-451: --fail-on/--modelo/--limite are validated here exactly as
+	// the --base path validates them (runReview, cmd/aurumcode/main.go) --
+	// same functions (parseFailOnLevel, parseLimiteUSD), same "explicitly
+	// empty is a usage error, never a silently-disabled flag" rule -- so an
+	// unknown --fail-on level, an empty --modelo, or an empty/unparsable
+	// --limite is refused before any write-permission check, diff fetch or
+	// model call, exactly like every other --pr usage error already is.
+	threshold := 0
+	thresholdName := ""
+	if opts.failOnSet {
+		var err error
+		threshold, thresholdName, err = parseFailOnLevel(opts.failOn)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
+	}
+	if opts.modeloSet && opts.modelo == "" {
+		fmt.Fprintln(stderr, "aurumcode review: --modelo: model name must not be empty")
+		return 2
+	}
+	limiteUSD := 0.0
+	if opts.limiteSet {
+		if opts.limite == "" {
+			fmt.Fprintln(stderr, "aurumcode review: --limite: value must not be empty")
+			return 2
+		}
+		var err error
+		limiteUSD, err = parseLimiteUSD(opts.limite)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
 	}
 
 	ctx := context.Background()
@@ -124,27 +195,98 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	}
 	diff := convertDiff(ghDiff)
 
-	// Provider selection is exactly the --base path's selectProvider: no
-	// --modelo/--fail-on/--seguranca composition is declared for the PR
-	// path by this card, so none is wired here (Non-goals).
-	provider, err := selectProvider()
+	// Provider selection (AUR-451): --modelo picks which model reviews,
+	// exactly the --base path's selectProviderForModel; without it,
+	// selectProvider keeps the pre-AUR-451 selection verbatim. Neither
+	// function is redefined here.
+	var provider llm.Provider
+	var providerVia string
+	if opts.modelo != "" {
+		provider, providerVia, err = selectProviderForModel(opts.modelo)
+	} else {
+		provider, err = selectProvider()
+	}
 	if err != nil {
+		if opts.modelo != "" {
+			return reportModelUnavailable(stderr, opts.modelo, err)
+		}
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
 	}
+	if opts.modelo != "" {
+		// stdout stays unaffected; this mirrors the --base path's own
+		// --modelo selection note (runReview, cmd/aurumcode/main.go).
+		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", opts.modelo, providerVia)
+	}
 
-	orchestrator := llm.NewOrchestrator(provider, nil, nil)
+	// --limite (AUR-451): wire internal/llm/cost.Tracker into the
+	// orchestrator exactly as the --base path does (buildCostTracker,
+	// cmd/aurumcode/cost.go) -- the one place that estimates the cost and
+	// refuses, before the model is ever called, when it exceeds the
+	// ceiling. Without the flag, tracker stays nil and behavior is exactly
+	// AUR-438's/AUR-439's: unmetered.
+	var tracker *cost.Tracker
+	if opts.limiteSet {
+		price, err := costPrice()
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
+		modelKey := costModelKey(opts.modelo)
+		provider = &fixedModelProvider{Provider: provider, model: modelKey}
+		tracker = buildCostTracker(limiteUSD, modelKey, price)
+		printCostEstimate(stderr, estimateCostUSD(diff, price), limiteUSD)
+	}
+
+	orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 
 	result, err := reviewer.GenerateReview(ctx, diff)
 	if err != nil {
+		// --limite: the tracker refused before the model was called, so
+		// nothing was spent -- checked first, exactly like the --base
+		// path's own ordering (runReview).
+		if errors.Is(err, llm.ErrBudgetExceeded) {
+			return reportBudgetExceeded(stderr, limiteUSD, err)
+		}
 		var parseErr *prompt.ParseError
 		if errors.As(err, &parseErr) {
 			fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
 			return 1
 		}
+		if opts.modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
+			return reportModelUnavailable(stderr, opts.modelo, err)
+		}
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
+	}
+	if opts.limiteSet {
+		printRealCost(stderr, realCostUSD(tracker, limiteUSD), limiteUSD)
+	}
+
+	// --seguranca (AUR-451): the exact deterministic pass the --base path
+	// runs (review.SecurityScanWithCoverage) over the exact same diff this
+	// function already fetched -- no second scan, no second catalog. A
+	// security finding is published as its own pull request comment below,
+	// exactly like a quality finding: its Message already carries its rule
+	// citation (review.enforceRuleCitations), so no separate section is
+	// needed the way the --base path's stdout report has one.
+	var securityFindings []types.ReviewIssue
+	if opts.seguranca {
+		var coverageApplied []string
+		var coverageTotal int
+		securityFindings, coverageApplied, coverageTotal, err = review.SecurityScanWithCoverage(diff)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
+		printSecurityCoverage(stderr, coverageApplied, coverageTotal)
+	}
+	if len(securityFindings) > 0 {
+		combined := make([]types.ReviewIssue, 0, len(result.Issues)+len(securityFindings))
+		combined = append(combined, result.Issues...)
+		combined = append(combined, securityFindings...)
+		result.Issues = combined
 	}
 
 	// The engine already redacted every model-authored field on result
@@ -269,6 +411,24 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			fmt.Fprintf(stderr, "  %s\n", f)
 		}
 		return 1
+	}
+
+	// --fail-on (AUR-451): after publishing, exit the same distinct code
+	// exitFindings the --base path already uses (countAtOrAbove/
+	// severityRank, cmd/aurumcode/main.go) when a published finding --
+	// quality or security -- sits at the chosen severity or above.
+	// Independent of --check's own grave-only gate above: either alone can
+	// close the gate. checkExit == 1 (SetStatus itself could not be
+	// published, a transport failure rather than a finding) still takes
+	// priority, exactly as it already did before this card.
+	if checkExit == 1 {
+		return checkExit
+	}
+	if threshold > 0 {
+		if n := countAtOrAbove(issues, threshold); n > 0 {
+			fmt.Fprintf(stderr, "aurumcode review: %d finding(s) at severity %s or above (--fail-on %s)\n", n, thresholdName, thresholdName)
+			return exitFindings
+		}
 	}
 	if check {
 		return checkExit
