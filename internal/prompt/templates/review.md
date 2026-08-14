@@ -36,7 +36,7 @@ Review **EVERY significant changed line** and provide specific, actionable feedb
 Be thorough but focus on lines that genuinely need improvement or have noteworthy qualities.
 
 ### Level 2: File-Level Summaries
-For **EACH changed file**, provide:
+For **EACH changed file**, assess in the `summary` field:
 - Overall assessment of changes in that file
 - Patterns or themes in the changes
 - File-specific concerns or recommendations
@@ -44,7 +44,7 @@ For **EACH changed file**, provide:
 - Testing recommendations for that file
 
 ### Level 3: Commit-Level Summary
-Provide an **overall PR/commit assessment** including:
+Close the `summary` field with an **overall PR/commit assessment** including:
 - High-level summary of all changes
 - Overall quality score and rationale
 - Critical issues that must be addressed
@@ -52,32 +52,25 @@ Provide an **overall PR/commit assessment** including:
 - Positive aspects worth mentioning
 - Recommendation: APPROVE, REQUEST_CHANGES, or COMMENT
 
+Score the change against the ISO/IEC 25010 quality characteristics in the
+`iso_scores` field, 1-10 each.
+
 ## Response Format
 
-Format your response as JSON with this structure:
+Format your response as JSON with **exactly** this structure. There is one
+array of findings and it is called `issues`: every line-by-line observation
+from Level 1 goes in it, whatever its category. Do not invent another
+findings array (`line_comments`, `file_comments`, `comments`, ...) — a
+finding reported outside `issues` is a finding the reviewer may never see.
+
+Every entry of `issues` **must** carry a `rule_id` naming a rule of the
+project review standard (for example `security/hardcoded-secret` or
+`security/sql-injection`). A finding whose `rule_id` is missing or does not
+resolve against that standard is discarded and never shown to the user, so
+`rule_id` is not optional.
 
 ```json
 {
-  "line_comments": [
-    {
-      "path": "path/to/file.go",
-      "line": 42,
-      "body": "🔍 **Code Quality**: This variable name `x` is not descriptive. Consider renaming to `userCount` for clarity.\n\n**Suggestion**:\n```go\nuserCount := len(users)\n```\n\n**Impact**: Improves code readability and maintainability."
-    },
-    {
-      "path": "path/to/file.go",
-      "line": 58,
-      "body": "⚠️ **Security**: Potential SQL injection vulnerability. User input is concatenated directly into query.\n\n**Suggestion**:\n```go\nquery := \"SELECT * FROM users WHERE id = ?\"\nrows, err := db.Query(query, userID)\n```\n\n**Severity**: HIGH - Must be fixed before merge."
-    }
-  ],
-  "file_comments": [
-    {
-      "path": "path/to/file.go",
-      "line": 0,
-      "body": "## File Summary: path/to/file.go\n\n**Changes**: Added user authentication logic\n\n**Assessment**: Generally good implementation with strong error handling. However, there are 2 security concerns and 3 opportunities for optimization.\n\n**Key Issues**:\n- Line 58: SQL injection risk (HIGH priority)\n- Line 112: Missing input validation\n\n**Recommendations**:\n- Add unit tests for authentication flow\n- Consider extracting database logic to repository pattern\n- Add logging for security events"
-    }
-  ],
-  "commit_comment": "# 📝 Code Review Summary\n\n## Overview\nThis PR adds user authentication and profile management features. The implementation is mostly solid but requires attention to security concerns before merge.\n\n## 🎯 Quality Score: 7.5/10\n\n### ✅ Strengths\n- Clear code structure and organization\n- Good error handling throughout\n- Consistent naming conventions\n\n### ⚠️ Issues Found\n- **2 HIGH severity** security issues (SQL injection, missing auth check)\n- **5 MEDIUM severity** code quality issues\n- **8 LOW severity** suggestions for improvement\n\n### 🔧 Required Changes (Must Fix)\n1. **Security**: Fix SQL injection in user query (file.go:58)\n2. **Security**: Add authentication check in admin endpoint (api.go:124)\n\n### 💡 Recommended Improvements\n1. Extract database queries to repository pattern\n2. Add input validation middleware\n3. Improve test coverage (current: 65%, target: 80%)\n\n### 📊 ISO/IEC 25010 Scores\n- Functionality: 8/10\n- Reliability: 7/10\n- Security: 5/10 ⚠️\n- Maintainability: 8/10\n- Performance: 7/10\n\n## Recommendation: 🔄 REQUEST CHANGES\n\nThe security issues must be addressed before this can be merged. Once fixed, the code will be ready for production.",
   "issues": [
     {
       "file": "path/to/file.go",
@@ -86,6 +79,14 @@ Format your response as JSON with this structure:
       "rule_id": "security/sql-injection",
       "message": "SQL injection vulnerability - user input concatenated directly",
       "suggestion": "Use parameterized queries with placeholders"
+    },
+    {
+      "file": "path/to/file.go",
+      "line": 42,
+      "severity": "info",
+      "rule_id": "quality/naming",
+      "message": "Variable name `x` is not descriptive; `userCount` states what it holds",
+      "suggestion": "userCount := len(users)"
     }
   ],
   "iso_scores": {
