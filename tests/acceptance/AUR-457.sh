@@ -54,7 +54,7 @@ fail() {
 
 selector="${1:-AC-001}"
 case "$selector" in
-  AC-001) ;;
+  AC-001|TestAUR457|IntegrationAUR457|E2EAUR457) ;;
   invalid-input)
     printf '%s/%s/invalid-input\n' "$card" "$scenario" >&2
     exit 64
@@ -83,6 +83,79 @@ readable() {
   # absence is a real finding, never a shrug.
   [[ -f "$1" && ! -L "$1" && -r "$1" && -s "$1" ]]
 }
+
+# ---------------------------------------------------------------------------
+# Go lanes.
+#
+# tests/unit/AUR-457.go and tests/integration/AUR-457.go are not `_test.go`
+# files, so `go test ./...` never registers them -- a selector Go never runs is
+# worse than one that runs without asserting. This stages both packages plus a
+# generated bridge `_test.go` into a scratch module under TMPDIR (the sealed
+# profile makes only this card's `paths` writable, so the packages cannot be
+# written in place) and points them back at the real checkout via
+# AURUMCODE_ROOT. Both layers use only the standard library, so the scratch
+# module needs no network and no go.sum.
+#
+# The lane refuses to accept a green that executed nothing: it requires exactly
+# one `ok`, no `[no test files]`, and an explicit `--- PASS` for the bridge.
+# ---------------------------------------------------------------------------
+go_lane() {
+  local pkg="$1" fn="$2" out rc stage
+  command -v go >/dev/null 2>&1 || infra 'missing tool: go; the Go lanes are unproven'
+  stage="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a457.XXXXXX")" || infra 'scratch module directory unavailable'
+  # shellcheck disable=SC2064
+  trap "rm -rf -- '$stage'" RETURN
+  mkdir -p -- "$stage/$pkg" "$stage/home" "$stage/cache" "$stage/gotmp" ||
+    infra 'scratch module tree unavailable'
+  cp -- "$repo_root/$pkg/AUR-457.go" "$stage/$pkg/AUR-457.go" ||
+    fail "selector-unstageable:$pkg" "$pkg/AUR-457.go could not be staged"
+  printf 'module aurum457scratch\n\ngo 1.21\n' >"$stage/go.mod" ||
+    infra 'scratch go.mod unwritable'
+  printf 'package %s\n\nimport "testing"\n\nfunc TestAUR457Bridge(t *testing.T) { %s(t) }\n' \
+    "$(basename -- "$pkg")" "$fn" >"$stage/$pkg/aur457_bridge_test.go" ||
+    infra 'bridge test unwritable'
+
+  set +e
+  out="$( ulimit -v 8388608
+    cd "$stage" && AURUMCODE_ROOT="$repo_root" HOME="$stage/home" AUR457_NESTED=1 \
+    GOPROXY=off GOSUMDB=off GOFLAGS=-mod=mod GOTOOLCHAIN=local \
+    GOMAXPROCS=1 GOMEMLIMIT=2GiB GOCACHE="$stage/cache" GOTMPDIR="$stage/gotmp" \
+    go test -timeout 300s -v -vet=off -p 1 -count=1 "./$pkg" -run '^TestAUR457Bridge$' 2>&1)"
+  rc=$?
+  set -e
+
+  if (( rc != 0 )); then
+    if grep -Eiq 'command not found|go: downloading|module lookup disabled|no required module provides|cannot find module|toolchain.*(unavailable|not found)' <<<"$out"; then
+      infra "Go lane unavailable for $pkg (exit $rc)"
+    fi
+    detail="$(grep -om1 'AUR-457: [^"]*' <<<"$out" | head -n1 || true)"
+    [[ -n "$detail" ]] || detail="no bounded detail (exit $rc)"
+    fail "selector-exit:${pkg##*/}" "$detail"
+  fi
+  # A lane that compiled but executed nothing is not a pass.
+  (( $(grep -c '^ok ' <<<"$out") == 1 )) || fail "zero-tests:${pkg##*/}" 'lane reported no ok line'
+  ! grep -Fq '[no test files]' <<<"$out" || fail "no-test-files:${pkg##*/}" 'Go registered no test in the lane'
+  grep -Fq -- '--- PASS: TestAUR457Bridge' <<<"$out" || fail "selector-did-not-run:${pkg##*/}" 'the bridge selector never executed'
+}
+
+e2e_lane() {
+  local out rc
+  set +e
+  out="$(bash "$repo_root/tests/e2e/AUR-457.sh" E2EAUR457 2>&1)"
+  rc=$?
+  set -e
+  if (( rc != 0 )); then
+    (( rc == 79 )) && infra "E2E lane unavailable: $(tail -n1 <<<"$out")"
+    fail 'selector-exit:e2e' "$(grep -om1 'AUR-457/E2EAUR457/[A-Za-z0-9/_:-]*' <<<"$out" | head -n1 || echo "exit $rc")"
+  fi
+  grep -Fq '"result":"pass"' <<<"$out" || fail 'selector-did-not-run:e2e' 'E2E emitted no pass receipt'
+}
+
+case "$selector" in
+  TestAUR457) go_lane tests/unit TestAUR457; exit 0 ;;
+  IntegrationAUR457) go_lane tests/integration IntegrationAUR457; exit 0 ;;
+  E2EAUR457) e2e_lane; exit 0 ;;
+esac
 
 claims=0
 
@@ -123,8 +196,11 @@ declare -A baseline_line=(
 for id in complete-success missing-extractor extractor-error; do
   replay="$baseline/$id.stderr"
   readable "$replay" || fail characterization-intact "baseline replay absent: $replay"
+  # The card's MUT-001 is exactly this mutation -- "deixar uma caracterizacao
+  # fixando comportamento que o codigo nao tem mais" -- and its Expected clause
+  # requires the marker to carry MUT-001, so the token is part of the path.
   grep -Fqx -- "${baseline_line[$id]}" "$replay" ||
-    fail characterization-intact "baseline replay $id no longer carries its summary line"
+    fail MUT-001/characterization-intact "baseline replay $id no longer carries its summary line"
 done
 claims=$((claims + 1))
 
@@ -174,6 +250,20 @@ grep -Fq -- 'forbidden_paths' "$spec" ||
 grep -Fq -- 'bootstrap-readonly-v1' "$spec" ||
   fail spec-declares-unreachable "$spec does not name the profile blocker"
 claims=$((claims + 1))
+
+# ---------------------------------------------------------------------------
+# The three declared proof layers, executed for real.
+#
+# AUR457_NESTED breaks one cycle: tests/integration/AUR-457.go asserts this
+# script's AC-001 exit code and receipt, so a nested AC-001 must not re-enter
+# the lanes. Nested runs execute the six static claims only -- which is exactly
+# what the Integration layer is asserting about.
+# ---------------------------------------------------------------------------
+if [[ -z "${AUR457_NESTED:-}" ]]; then
+  go_lane tests/unit TestAUR457
+  go_lane tests/integration IntegrationAUR457
+  e2e_lane
+fi
 
 printf '{"card":"%s","scenario":"%s","claims":%d,"result":"pass"}\n' \
   "$card" "$scenario" "$claims"
