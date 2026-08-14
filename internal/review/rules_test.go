@@ -121,9 +121,17 @@ func TestEnforceRuleCitations(t *testing.T) {
 		},
 	}
 
-	rejected := enforceRuleCitations(loader, result)
+	rejected, discarded := enforceRuleCitations(loader, result)
 	if rejected != 2 {
 		t.Fatalf("expected 2 rejected issues, got %d: %+v", rejected, result.Issues)
+	}
+	// AUR-448: the gate also names WHY it rejected each issue -- one with no
+	// rule_id at all (d.go), one citing an unknown rule_id (e.go).
+	if discarded.Missing != 1 {
+		t.Errorf("expected 1 issue discarded for a missing rule_id, got %d", discarded.Missing)
+	}
+	if discarded.Unknown != 1 || len(discarded.UnknownIDs) != 1 || discarded.UnknownIDs[0] != "no/such-rule" {
+		t.Errorf("expected 1 issue discarded for the unknown rule_id %q, got %+v", "no/such-rule", discarded)
 	}
 	if len(result.Issues) != 2 {
 		t.Fatalf("expected 2 surviving issues, got %+v", result.Issues)
