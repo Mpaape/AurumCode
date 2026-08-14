@@ -1,0 +1,17 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-455",
+ "commit": "70aec9739ddb6ee363ce81fd32a7d080aae96218",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-455",
+  "exit_code": 0,
+  "raw_output": "0 for 455, 456 and 451; both README build claims verified literally (go build ./... fails as documented, the scoped command exits 0); the 3-of-8 security count matches the binary byte for byte"
+ },
+ "review_notes": {
+  "verdict_sentence": "a developer who has never seen this repository can today build, run a real security review, run a fixture-driven review and generate documentation in about a minute by running bash demo.sh as the README instructs",
+  "preexisting_followups": "README and getting-started claim Rust and C# stay unregistered without an opt-in env var, which is false since the native extractors register unconditionally; and the documented live-provider usage hangs because the LLM client has no HTTP timeout"
+ }
+}
