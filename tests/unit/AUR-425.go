@@ -79,10 +79,10 @@ type runResult struct {
 	output   string
 }
 
-// repoRoot resolves the tree holding cmd/regenerate-docs. AURUMCODE_ROOT wins
+// aur425RepoRoot resolves the tree holding cmd/regenerate-docs. AURUMCODE_ROOT wins
 // because the acceptance stages this file into a scratch module, where the
 // caller-derived path no longer points at the repository.
-func repoRoot(t *testing.T) string {
+func aur425RepoRoot(t *testing.T) string {
 	t.Helper()
 
 	if root := os.Getenv("AURUMCODE_ROOT"); root != "" {
@@ -101,7 +101,7 @@ func repoRoot(t *testing.T) string {
 func buildRegenerateDocs(t *testing.T) string {
 	t.Helper()
 
-	root := repoRoot(t)
+	root := aur425RepoRoot(t)
 	if _, err := os.Stat(filepath.Join(root, "cmd", "regenerate-docs", "main.go")); err != nil {
 		t.Fatalf("AUR-425/AC-001/infrastructure/closure: cmd/regenerate-docs not materialized under %s: %v", root, err)
 	}

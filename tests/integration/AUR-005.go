@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -49,14 +50,30 @@ type vectorResultAUR005 struct {
 	ArtifactDigest string
 }
 
+// aur005IntegrationRoot resolves the tree holding tests/specs. AURUMCODE_ROOT
+// wins because the acceptance stages this file into a scratch module, where the
+// caller-derived path no longer points at the repository. Falling back to the
+// caller instead of aborting is what lets a plain `go test ./...` -- CI's own
+// build and race jobs -- execute these assertions rather than fail on a missing
+// environment variable it has no reason to set.
+func aur005IntegrationRoot(t *testing.T) string {
+	t.Helper()
+
+	if root := os.Getenv("AURUMCODE_ROOT"); root != "" {
+		return root
+	}
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("AUR-005: cannot locate the test source file")
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..")
+}
+
 // IntegrationAUR005 is the card's declared integration selector. It executes
 // every sealed vector through the production parser and verifier.
 func IntegrationAUR005(t *testing.T) {
 	t.Helper()
-	root := os.Getenv("AURUMCODE_ROOT")
-	if root == "" {
-		t.Fatal("AURUMCODE_ROOT is required")
-	}
+	root := aur005IntegrationRoot(t)
 	path := filepath.Join(root, "tests/specs/AUR-005/cases.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {

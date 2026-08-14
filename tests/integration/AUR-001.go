@@ -1,3 +1,12 @@
+// This harness is a standalone program invoked by its acceptance script as
+// `go run tests/integration/AUR-001.go`, while every sibling in this directory belongs to the
+// shared test package. Go allows one package per directory, so without this
+// constraint the two clauses collide and `go build ./...` -- the whole CI
+// build and the race suite -- fails before compiling a single line. The
+// constraint excludes the file from package resolution; naming it explicitly
+// on the command line still runs it.
+//go:build ignore
+
 package main
 
 import (
