@@ -100,11 +100,22 @@ rules:
     #   2. `UPPER_SNAKE_KEYWORD = <value>` unquoted -- the env/config-file
     #      shape tests/fixtures/repos/git-demo's config/demo-tokens.txt
     #      and this rule's own fixture (tests/fixtures/review/vuln/
-    #      hardcoded-secret) use.
+    #      hardcoded-secret) use. The keyword itself may be the whole
+    #      identifier with no prefix (`TOKEN=...`, `SECRET=...`,
+    #      `API_KEY=...`, `PASSWORD=...`), or prefixed
+    #      (`DEMO_API_TOKEN=...`). Review fix: the leading `[A-Z0-9_]*`
+    #      is zero-or-more, not a mandatory `[A-Z]` -- a mandatory leading
+    #      uppercase letter would consume the keyword's own first
+    #      character whenever the identifier has no prefix, so bare
+    #      `TOKEN=`/`SECRET=`/`API_KEY=`/`PASSWORD=` would silently never
+    #      match despite this exact comment (and docs/specs/AUR-442.md)
+    #      promising them. The `\b` still requires a real identifier
+    #      boundary, so `xTOKEN=...` (no boundary between `x` and `T`)
+    #      stays out of scope.
     # Never matches the matched VALUE into a finding message: the security
     # pass always prints rule.Description, a trusted catalog string (see
     # securitypass.go), so the secret itself never reaches stdout.
-    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z][A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})'
+    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})'
 
   - id: security/weak-crypto
     title: Weak Cryptography
