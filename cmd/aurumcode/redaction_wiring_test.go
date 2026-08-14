@@ -106,6 +106,10 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		"aurumcode review: publishing check status: HTTP 500: synthetic transport failure",
 		// AUR-441's review cache reuse note.
 		"aurumcode review: reused 2 file(s) from cache (not resent to the model)",
+		// AUR-450's --seguranca coverage note: which security-category
+		// rules of the embedded catalog actually applied, against how many
+		// the category declares in total.
+		"aurumcode review: security pass applied 3 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection); see internal/review/rules/security.yml for the full catalog",
 	}
 	for _, line := range lines {
 		if got := filter.Redact(line); got != line {
