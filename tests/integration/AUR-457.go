@@ -21,8 +21,16 @@ import (
 	"testing"
 )
 
+// aur457Root mirrors the Unit layer's resolver; see tests/unit/AUR-457.go for
+// why AURUMCODE_ROOT exists.
 func aur457Root(t *testing.T) string {
 	t.Helper()
+	if override := os.Getenv("AURUMCODE_ROOT"); override != "" {
+		if info, err := os.Stat(filepath.Join(override, "go.mod")); err == nil && info.Mode().IsRegular() {
+			return override
+		}
+		t.Fatalf("AUR-457: AURUMCODE_ROOT=%s is not a Go module root", override)
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("AUR-457: working directory unresolved: %v", err)
@@ -113,5 +121,3 @@ func IntegrationAUR457(t *testing.T) {
 		}
 	}
 }
-
-func TestIntegrationAUR457(t *testing.T) { IntegrationAUR457(t) }

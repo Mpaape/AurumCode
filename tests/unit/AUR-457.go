@@ -33,8 +33,20 @@ import (
 // NewNativeExtractor must not satisfy this test.
 var aur457NativeCtor = regexp.MustCompile(`(?m)^func NewNativeExtractor\(\) \*NativeExtractor \{`)
 
+// aur457RepoRoot resolves the tree the assertions read. AURUMCODE_ROOT exists
+// because the sealed profile makes only this card's `paths` writable: the
+// acceptance stages these packages plus a bridge `_test.go` into a scratch
+// module under TMPDIR and points them back at the real, read-only checkout.
+// Without the override the walk would stop at the scratch module's go.mod and
+// assert against an empty tree.
 func aur457RepoRoot(t *testing.T) string {
 	t.Helper()
+	if override := os.Getenv("AURUMCODE_ROOT"); override != "" {
+		if info, err := os.Stat(filepath.Join(override, "go.mod")); err == nil && info.Mode().IsRegular() {
+			return override
+		}
+		t.Fatalf("AUR-457: AURUMCODE_ROOT=%s is not a Go module root", override)
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("AUR-457: working directory unresolved: %v", err)
