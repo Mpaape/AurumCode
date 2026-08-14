@@ -48,13 +48,20 @@ jobs:
 git clone https://github.com/Mpaape/AurumCode.git
 cd AurumCode
 
-go build -o aurumcode ./cmd/regenerate-docs
+go build -o regenerate-docs ./cmd/regenerate-docs
 
 # Go extraction needs no external tool: it uses go/parser and go/doc
 # in-process (since AUR-424).
 
-./aurumcode
+./regenerate-docs
 ```
+
+The output name matters: `./cmd/regenerate-docs` is the documentation
+generator, and this repository also builds a second, unrelated binary from
+`./cmd/aurumcode` (`aurumcode review`, local code review - see the root
+[README.md](../README.md#features)). Naming this build's output `aurumcode`
+would shadow that binary in the current directory, so it is named
+`regenerate-docs` here instead, matching the package it is built from.
 
 The build argument is the directory, not a file: the command's `package main`
 spans several files.
