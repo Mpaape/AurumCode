@@ -48,8 +48,10 @@ jobs:
       - name: Generate documentation
         # The id is what makes steps.aurumcode.outputs.* resolve below.
         id: aurumcode
-        # Pin the action to the commit you reviewed, never to a mutable branch.
-        uses: Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8 # reviewed head of PR #1
+        # v1 is the published release tag and the supported contract. Never a
+        # mutable branch: @main lets a later upstream push change what executes
+        # in your repo. To pin immutably, use the commit SHA v1 resolves to.
+        uses: Mpaape/AurumCode@v1
         with:
           source-dir: '.'
           output-dir: '.aurumcode'
