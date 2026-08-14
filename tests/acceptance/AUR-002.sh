@@ -181,9 +181,18 @@ while IFS=$'\t' read -r id kind entrypoint command input inventory source_inv st
       silent_count=$((silent_count + 1))
       ;;
     extractor-error)
+      # Rebased by AUR-457. This case installs a gomarkdoc stub that exits 7 to
+      # simulate an external tool crash. Until AUR-424 that sank Go extraction
+      # and the run recorded a silent failure: result=partial, failed=1, exit 0.
+      # AUR-424 replaced the gomarkdoc subprocess with the standard library's
+      # go/doc, so Go extraction shells out to nothing and the stub has nothing
+      # left to break. The Go document is produced alongside the Python one, the
+      # run reports result=ok, and there is no failure left to swallow -- so the
+      # silent-failure marker is gone because the failure was ELIMINATED, not
+      # because it was inconvenient. missing-extractor still silently skips
+      # Java, and keeps its marker; it was checked case by case, not swept.
       [[ "$kind" == nominal && "$entrypoint" == 'cmd/regenerate-docs/main.go' && "$command" == 'go run ./cmd/regenerate-docs' && "$exit_code" == 0 ]] || fail "$id command binding drift"
-      [[ "$input" == source=go+python+gomarkdoc-error && "$silent" == true && "$marker" == silent-failure && "$effects" == docs=1,skipped=0,errors=1,writes=1 ]] || fail "$id semantic contract drift"
-      silent_count=$((silent_count + 1))
+      [[ "$input" == source=go+python+gomarkdoc-error && "$silent" == false && "$marker" == complete && "$effects" == docs=2,skipped=0,errors=0,writes=1 ]] || fail "$id semantic contract drift"
       ;;
     invalid-input)
       [[ "$kind" == invalid && "$entrypoint" == 'tests/acceptance/AUR-002.sh' && "$command" == 'bash tests/acceptance/AUR-002.sh invalid-input' && "$input" == invalid && "$exit_code" == 64 && "$marker" == typed-error && "$effects" == docs=0,skipped=0,errors=0,writes=0 ]] || fail "$id semantic contract drift"
@@ -198,7 +207,9 @@ while IFS=$'\t' read -r id kind entrypoint command input inventory source_inv st
 done <<< "$case_rows"
 
 (( case_count == expected_count )) || fail "cases.yaml declares $case_count vectors, want $expected_count"
-(( silent_count == 2 )) || fail "cases.yaml declares $silent_count silent failures, want exactly 2"
+# One, not two: missing-extractor still silently skips Java; extractor-error's
+# silent failure was eliminated by AUR-424 (see the extractor-error case above).
+(( silent_count == 1 )) || fail "cases.yaml declares $silent_count silent failures, want exactly 1"
 
 inventory_header='path	type	mode	digest'
 [[ "$(awk 'NR == 1 { print; exit }' "$inventory_projection")" == "$inventory_header" ]] || fail 'inventory projection header drift'
@@ -245,7 +256,7 @@ for id in "${expected_ids[@]}"; do
     missing-extractor)
       grep -Fqx 'aurumcode: result=partial docs=1 skipped=1 failed=0 languages_skipped=java output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true' "$stderr_file" || fail "$id replay content drift" ;;
     extractor-error)
-      grep -Fqx 'aurumcode: result=partial docs=1 skipped=0 failed=1 languages_skipped=none output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true' "$stderr_file" || fail "$id replay content drift" ;;
+      grep -Fqx 'aurumcode: result=ok docs=2 skipped=0 failed=0 languages_skipped=none output=/tmp/aurum-a002-output index_pages=2 index_pages_excluded=0 config=true' "$stderr_file" || fail "$id replay content drift" ;;
     invalid-input)
       grep -Fqx 'AUR-002/AC-001/invalid-input' "$stderr_file" || fail "$id typed error drift" ;;
     boundary-overflow)
@@ -268,7 +279,7 @@ for id in "${expected_ids[@]}"; do
     fail "research digest row drift: $id"
 done
 
-expected_example='{"card":"AUR-002","scenario":"AC-001","cases":6,"silent_failures":2,"result":"pass"}'
+expected_example='{"card":"AUR-002","scenario":"AC-001","cases":6,"silent_failures":1,"result":"pass"}'
 doc_example="$(awk '
   /^## Example/ { in_example = 1; next }
   in_example && /^```console[[:space:]]*$/ { in_block = 1; next }
