@@ -178,3 +178,22 @@ func (l *RulesLoader) GetByCategory(category string) []Rule {
 	sort.Slice(rules, func(i, j int) bool { return rules[i].ID < rules[j].ID })
 	return rules
 }
+
+// AppliedInCategory reports which rules of the given category the embedded
+// catalog can actually match -- the ones that carry a compiled matcher, see
+// PatternFor -- sorted by ID for determinism (GetByCategory already sorts,
+// so filtering it preserves the order), together with how many rules the
+// category declares in total. AUR-450 uses this so a caller can tell an
+// operator which rules a scan actually applied instead of leaving that as
+// an internal detail the empty-result case hides completely: "No security
+// findings." on its own does not say whether the catalog was searched in
+// full or in part.
+func (l *RulesLoader) AppliedInCategory(category string) (applied []string, total int) {
+	for _, rule := range l.GetByCategory(category) {
+		total++
+		if _, ok := l.PatternFor(rule.ID); ok {
+			applied = append(applied, rule.ID)
+		}
+	}
+	return applied, total
+}
