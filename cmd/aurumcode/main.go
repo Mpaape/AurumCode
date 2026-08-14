@@ -301,14 +301,41 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// Go's flag package treats "-pr" and "--pr" identically and a
 	// prefix-only guard would silently miss the single-dash spelling (see
 	// docs/specs/AUR-438.md's inherited-finding note).
+	// AUR-451: the PR path did not read --seguranca/--fail-on/--limite/
+	// --modelo at all before this card, so whether each was actually given
+	// (as opposed to left at its zero value) has to be known here too --
+	// same fs.Visit technique as --pr itself, just extended to the other
+	// three string-valued flags the PR path now also validates
+	// (prReviewOptions, cmd/aurumcode/pr.go). *seguranca needs no such
+	// detection: it is a bool flag with no distinct "set but empty" state,
+	// so its zero value already means "not given", exactly like the --base
+	// path treats it.
 	prGiven := false
+	prFailOnGiven := false
+	prModeloGiven := false
+	prLimiteGiven := false
 	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "pr" {
+		switch f.Name {
+		case "pr":
 			prGiven = true
+		case "fail-on":
+			prFailOnGiven = true
+		case "modelo":
+			prModeloGiven = true
+		case "limite":
+			prLimiteGiven = true
 		}
 	})
 	if prGiven {
-		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check)
+		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check, prReviewOptions{
+			seguranca: *seguranca,
+			failOnSet: prFailOnGiven,
+			failOn:    *failOn,
+			modeloSet: prModeloGiven,
+			modelo:    *modelo,
+			limiteSet: prLimiteGiven,
+			limite:    *limite,
+		})
 	}
 
 	if *base == "" {
