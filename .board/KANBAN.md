@@ -1,18 +1,20 @@
 # Reconstruction Kanban
 
 The board is a dependency-driven execution graph. It contains no human
-schedule. Cards enter parallel execution as soon as their dependencies and red
-tests are satisfied.
+schedule. Cards enter parallel execution as soon as their dependencies and
+builder preflight are satisfied. The table below is informational; use the
+card directories and `bash .board/pipeline.sh` for live state.
 
 ## State summary
 
 | State | Meaning | Cards |
 |---|---|---:|
-| Ready | Dependencies complete; isolated test designer may establish red | 0 |
-| Backlog | Fully specified, dependency-blocked work | 410 |
-| Doing | Builder currently owns the patch | 4 |
+| Ready | Dependencies complete; isolated builder passed builder preflight | 2 |
+| Backlog | Fully specified, dependency-blocked work | 403 |
+| Doing | Builder currently owns the patch | 1 |
 | Review | Candidate is immutable and under review | 0 |
-| Done | Evidence-bound double review and skeptical approval complete | 9 |
+| Validating | Approved candidate awaiting same-SHA validation | 1 |
+| Done | Evidence-bound delivery record complete | 16 |
 | Blocked on owner | Requires new authority or product choice | 0 |
 
 ## Dependency spine
@@ -46,16 +48,19 @@ review barrier.
 
 ## Work queues
 
-The authoritative queue is the set of card files. Run:
+The authoritative queue is the set of card files. Run the lightweight process
+gates, never the frozen legacy validator:
 
 ```bash
-./.board/validate.sh
+bash .board/office-cycle.sh --status
+bash .board/pipeline.sh
 find .board/cards/ready -maxdepth 1 -name 'AUR-*.md' -print | sort
 ```
 
-The validator rejects duplicated IDs, mismatched path/status, missing TDD,
-container acceptance, mutation, or review sections, and dependencies that do
-not resolve to another card.
+The pipeline rejects duplicated IDs, mismatched path/status, missing delivery
+evidence, impossible active candidates, and dependencies that do not resolve to
+another card. The per-card preflight adds the clean-worktree and image-runtime
+checks before dispatch.
 
 The complete readable registry is [`INDEX.md`](INDEX.md). It lists all 423
 cards with state, office, risk, dependencies, and outcome; individual card files

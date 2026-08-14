@@ -1,0 +1,58 @@
+{
+  "capability": "tool_use",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "anthropic",
+  "request": {
+    "body": {
+      "max_tokens": 256,
+      "messages": [
+        {
+          "content": "what's the weather in Recife?",
+          "role": "user"
+        }
+      ],
+      "model": "claude-sonnet-5",
+      "tools": [
+        {
+          "description": "Get current weather for a city",
+          "input_schema": {
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "type": "object"
+          },
+          "name": "get_weather"
+        }
+      ]
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "<ANTHROPIC_API_KEY>"
+    },
+    "method": "POST",
+    "path": "/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "id": "toolu_1",
+          "input": {
+            "city": "Recife"
+          },
+          "name": "get_weather",
+          "type": "tool_use"
+        }
+      ],
+      "id": "msg_1",
+      "role": "assistant",
+      "stop_reason": "tool_use"
+    }
+  },
+  "source": "[anthropic-sdk-python v0.120.2](https://github.com/anthropics/anthropic-sdk-python/releases/tag/v0.120.2)"
+}

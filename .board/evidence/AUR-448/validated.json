@@ -1,0 +1,17 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-448",
+ "commit": "4f06daa5fd519c310962daa20891848b0bc3cf60",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-448",
+  "exit_code": 0,
+  "raw_output": "0 for 448, 434, 442, 443, 441 and 426; composition with AUR-449 re-checked by hand and unregressed"
+ },
+ "review_notes": {
+  "canary": "the reviewer planted the canary as a rule_id to attack the new stderr channel; it came out [REDACTED] because the writer is wrapped at the I/O boundary, so the redact-then-gate ordering that looked like a hole is not one",
+  "scope": "zero mentions of AUR-449 in the commit despite the cross-worktree contamination the builder detected and cleaned mid-task"
+ }
+}

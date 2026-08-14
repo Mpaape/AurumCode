@@ -1,0 +1,8 @@
+schema: aurum.demo-scenario
+version: 1
+id: flaky-test
+kind: test-quality
+title: "The test depends on wall-clock timing"
+reviewed:
+  - tests/test_timing.py
+expected_findings: 1

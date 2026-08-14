@@ -1,0 +1,8 @@
+schema: aurum.demo-scenario
+version: 1
+id: docs-drift
+kind: documentation
+title: "The document no longer matches the code"
+reviewed:
+  - docs/api.md
+expected_findings: 1

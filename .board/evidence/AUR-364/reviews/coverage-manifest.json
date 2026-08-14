@@ -1,0 +1,101 @@
+{
+ "schema": "aurum.coverage-manifest",
+ "card_id": "AUR-364",
+ "candidate_identity_digest": "sha256:273ef0896dd941af01e4867bf37a3d6a96cc81f525456c2b4edc18d45f121dd0",
+ "dimensions": [
+  "contract",
+  "design",
+  "compatibility",
+  "tests",
+  "security",
+  "concurrency",
+  "errors-operations",
+  "documentation",
+  "scope-simplicity",
+  "hunks"
+ ],
+ "reviewer_a_notes": {
+  "contract": [
+   "covered",
+   "Pergunta central respondida por grep, nao por leitura: nenhuma promessa de compatibilidade de runtime sobrevive no card, no spec, no lock ou no script. O que restou fala de resolucao CONSISTENTE, e um Non-goal explicito recusa o julgamento de compatibilidade."
+  ],
+  "design": [
+   "covered",
+   "A enumeracao morreu: a verdade vem do lockfile resolvido, e a comparacao e de CONJUNTO por par (manifesto, nome), nao de cardinalidade."
+  ],
+  "compatibility": [
+   "covered",
+   "Escopo restrito aos quatro paths declarados mais o card re-ancorado, entregue em patch separado porque .board/cards e forbidden_path do proprio card."
+  ],
+  "tests": [
+   "covered",
+   "Determinismo reexecutado do zero, nao copiado do relatorio do builder."
+  ],
+  "security": [
+   "covered",
+   "Tres bypasses proprios: conjunto vazio dos dois lados barrado por manifest-declares-nothing; chave forjada com espaco a mais no nome pega como docs-tool-mutable; e um terceiro vetor, todos com exit cru."
+  ],
+  "concurrency": [
+   "not_applicable",
+   "Verificacao read-only de disparo unico em container pinado."
+  ],
+  "errors-operations": [
+   "covered",
+   "Lei 20 conferida por spot-check independente, explicitamente nao copiado do relatorio do builder."
+  ],
+  "documentation": [
+   "covered",
+   "As unicas ocorrencias de compatibilidade no card e no spec sao negacoes explicitas: Non-goals, limits[6] e as secoes 5.1 e 6."
+  ],
+  "scope-simplicity": [
+   "covered",
+   "A rodada estreita o que o card promete ate o que ele verifica, em vez de acrescentar verificacao para sustentar a promessa antiga."
+  ],
+  "hunks": [
+   "covered",
+   "Todos os hunks lidos; Lei 19 conferida, base_sha contra HEAD real."
+  ]
+ },
+ "reviewer_b_notes": {
+  "contract": [
+   "covered",
+   "Confirmou que nenhuma promessa sem verificacao sobrevive, e que a MUT-002 deixou de ser decorativa: os dois ramos internos sao exercitados cada um pelo ramo que seu nome descreve."
+  ],
+  "design": [
+   "covered",
+   "MEDIU a hipotese do coordenador em vez de aceita-la, e a REFUTOU: `bundle lock` ESCREVE o lockfile mesmo com a versao de ruby divergente (exit 0); so `bundle check` reclama (exit 18). Logo delegar compatibilidade ao resolvedor NAO fecharia a lacuna, e limits[6] documenta isso com a medicao."
+  ],
+  "compatibility": [
+   "covered",
+   "Nenhum forbidden_path nem read_path tocado; zero arquivos .go no diff."
+  ],
+  "tests": [
+   "covered",
+   "Determinismo reexecutado; aceite nominal real via oci-run."
+  ],
+  "security": [
+   "covered",
+   "Tres bypasses proprios, fora do harness do builder: registro de resolucao para nome nao declarado em nenhum Gemfile, os cinco arquivos de fixture removidos com fluxo honesto completo, e registro duplicado identico para o mesmo par — os tres barrados com codigo tipado, nenhum passou."
+  ],
+  "concurrency": [
+   "not_applicable",
+   "Processo deterministico unico."
+  ],
+  "errors-operations": [
+   "covered",
+   "Lei 20 verificada em subconjunto proprio dos paths declarados."
+  ],
+  "documentation": [
+   "covered",
+   "limits[6] do lock e a secao 6 do spec dizem a mesma coisa, com a medicao de por que delegar ao resolvedor nao fecharia a lacuna."
+  ],
+  "scope-simplicity": [
+   "covered",
+   "Diff minimo, nenhuma assercao enfraquecida."
+  ],
+  "hunks": [
+   "covered",
+   "Todos os hunks lidos; classificou a questao de base_sha como DERIVA, nao merito."
+  ]
+ }
+}

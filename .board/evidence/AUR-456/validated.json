@@ -1,0 +1,17 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-456",
+ "commit": "643a12e5246de7ef1890cbf483376888a3e7936b",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-456",
+  "exit_code": 0,
+  "raw_output": "0 for 456, 424, 442, 444 and 451; AUR-001 at 79 and AUR-002 at 1 are byte-identical on the parent, so the cleanup made nothing worse"
+ },
+ "review_notes": {
+  "importer_sweep": "the reviewer swept go, sh, yml, workflows, Dockerfile, Makefile, Gemfile, md and every card's acceptance script; the only hit is a hardcoded seal in AUR-001's script that the script itself replaces with a live git listing",
+  "followups": "the .board/research/legacy-files.tsv inventory now has 21 stale lines, and .aurumcode/bash/test-jekyll.sh.md was orphaned by the deletion"
+ }
+}

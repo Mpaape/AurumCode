@@ -1,0 +1,347 @@
+schema_path: .board/schemas/container-profile.schema.json
+lock: |
+  {
+  "schema": "aurum.oci-image-lock",
+  "version": 1,
+  "profile": "bootstrap-readonly-v1",
+  "image": "aurum-bootstrap-go-bash@sha256:d1a271fe9083edc0d7aeed66e10ed1d7c6e84110750b0b75f81a632197a3d43f"
+  }
+cases:
+  - name: nominal
+    expected: valid
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: root_user
+    expected: root_forbidden
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "0:0",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: privileged
+    expected: privileged_forbidden
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": true,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: host_mount
+    expected: host_mount_forbidden
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "/:/host:ro",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: engine_socket_mount
+    expected: engine_socket_forbidden
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "/var/run/docker.sock:/var/run/docker.sock:ro",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: device_mount
+    expected: device_forbidden
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "/dev/kvm",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: added_capability
+    expected: capability_forbidden
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "SYS_ADMIN",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: writable_checkout
+    expected: checkout_must_be_readonly
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "checkout_readonly": false,
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: external_egress
+    expected: egress_forbidden
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "bridge",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: unbounded_resources
+    expected: resources_must_be_bounded
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 0,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }
+  - name: mutable_image
+    expected: image_digest_required
+    lock: |
+      {
+        "schema": "aurum.oci-image-lock",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "image": "bash:latest"
+      }
+    profile: |
+      {
+        "schema": "aurum.container-profile",
+        "version": 1,
+        "profile": "bootstrap-readonly-v1",
+        "lock": ".board/locks/oci/bootstrap-readonly-v1.lock.json",
+        "lock_digest": "sha256:66ed25d5da49de78cfdb89fa7801e91724e754d9d5ff991cd1b678401004b749",
+        "network": "none",
+        "user": "65534:65534",
+        "cap_drop": "ALL",
+        "cap_add": "none",
+        "mounts": "none",
+        "devices": "none",
+        "pull": "never",
+        "tmpfs": "rw,nosuid,nodev",
+        "read_only_rootfs": true,
+        "no_new_privileges": true,
+        "privileged": false,
+        "timeout_seconds": 120,
+        "memory_mb": 256,
+        "cpu_millis": 1000,
+        "pids_limit": 128,
+        "tmpfs_mb": 128,
+        "stdout_limit_bytes": 65536,
+        "stderr_limit_bytes": 65536,
+        "max_input_files": 10000,
+        "max_input_bytes": 67108864
+      }

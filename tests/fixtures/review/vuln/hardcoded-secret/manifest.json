@@ -1,0 +1,30 @@
+{
+  "schema": "aurum.git-demo-fixture",
+  "version": 1,
+  "branch": "main",
+  "author": "Aurum Demo Author <demo-author@aurum.invalid>",
+  "committer": "Aurum Demo Bot <demo-bot@aurum.invalid>",
+  "head": "sha1:73a8aa19776607d947b54b622ae938662b6688ab",
+  "commit_count": 2,
+  "object_count": 11,
+  "commits": [
+    {"index":1,"id":"sha1:b62e68963e532c3293c3ade4947ea2bb13d749ba","tree":"sha1:e925240244f7c204878ec2ffadcd785b4671d527","parent":"none","timestamp":1700000000,"timezone":"+0000","message":"seed: add the hardcoded-secret fixture skeleton","operations":["add:01:README.md","add:01:src/app.py"]},
+    {"index":2,"id":"sha1:73a8aa19776607d947b54b622ae938662b6688ab","tree":"sha1:607092b8987634629fe21008726927cd9523f288","parent":"sha1:b62e68963e532c3293c3ade4947ea2bb13d749ba","timestamp":1700000060,"timezone":"+0000","message":"chore: plant two synthetic hardcoded secrets","operations":["add:02:config/secrets.env","add:02:src/config.py"]}
+  ],
+  "objects": [
+    {"id":"sha1:0989f6f4e40a6de33e52dea0bd9a187f2b9a167e","type":"blob","raw_bytes":563,"raw_sha256":"sha256:782658dcca91d714fc91ea3fc933ab047010682821992bd96b3579ecdbfcc171","stored_sha256":"sha256:0855ae445fd84d0be153aca7e97ea0f5e4e151f0e238f58f4d3eb9745b237391"},
+    {"id":"sha1:1612dc6e9762a1e08b39139cf4cf030a93841287","type":"tree","raw_bytes":79,"raw_sha256":"sha256:9263098c9b0f5bf3709c3c67e4b03420ac57787870e4ee094dad5e00e08639df","stored_sha256":"sha256:2e217d98140b3b38ee2dd85a8ea720d8ec0f1328c58a8f1aba708c763fab2d2c"},
+    {"id":"sha1:54c293330ffd3c2bb23d90af081b9a9763b522c5","type":"blob","raw_bytes":130,"raw_sha256":"sha256:ba8c799a8228af424fdc2748ef6429d70f7a48c9398df7139dd19d94c269498e","stored_sha256":"sha256:9ef4b8a08ddd8a6444c7ccfb6f5ca715e8364ca5d0e63475133a07c6654189eb"},
+    {"id":"sha1:607092b8987634629fe21008726927cd9523f288","type":"tree","raw_bytes":109,"raw_sha256":"sha256:30a6b7442a3c3fbf05c8a9b71d9a9c470644ba43a8c1341ad8cc7f17cec5f03a","stored_sha256":"sha256:ccce91ff455deb5975bf3c90cab1f95d71036bd28d22a0ae3908131e3e0d4b86"},
+    {"id":"sha1:65dd4c447620a52e18a3517345a23d30faffa398","type":"tree","raw_bytes":42,"raw_sha256":"sha256:3c240bc08a631a39b14ba5b8e5409e2b80f47cc2565cd08064d551a6bf453b3a","stored_sha256":"sha256:2f58a6e841b7ff4add53c1d56e40891d4ae3804c9bf93967c7af6f3e83ba0f97"},
+    {"id":"sha1:678903439e1914c02977951356f0c2dc6537424e","type":"tree","raw_bytes":47,"raw_sha256":"sha256:05c7aa61c51857956168f193d9d7051003b2707cfa41ad2d25bfa314ee5859d6","stored_sha256":"sha256:69984374815a12745e8b5d5fb8c8b6109c8824e26ec331504ee0cd0de2bfb2b7"},
+    {"id":"sha1:73a8aa19776607d947b54b622ae938662b6688ab","type":"commit","raw_bytes":288,"raw_sha256":"sha256:37aa49182cc06ee5668b4d1c1b473da61dab3d5838b2e32efb26c25426956d9a","stored_sha256":"sha256:b003b7c29f3fd9483680f5db8a2c3240b97cd585efc6097c4c0ae31e802d8018"},
+    {"id":"sha1:95bb060917d76d1990e00946dc87ccd6a1b36e52","type":"blob","raw_bytes":177,"raw_sha256":"sha256:9202b9b4f38c10dbd033164fc45fd9a82c12a41581edc94d0bd4e6c6f08244e1","stored_sha256":"sha256:dfb324589333d384d0c1643eb790afbdf593c5b46632d3e089c2bc4e85e632df"},
+    {"id":"sha1:b62e68963e532c3293c3ade4947ea2bb13d749ba","type":"commit","raw_bytes":243,"raw_sha256":"sha256:39e6bd9f8d09d78a7dad1474fcb38eb55056fba60d850569265117e209d9c976","stored_sha256":"sha256:96ae32428169020852fd7bf89e14b9d534b19c551e80de74920942ec6036145f"},
+    {"id":"sha1:e925240244f7c204878ec2ffadcd785b4671d527","type":"tree","raw_bytes":75,"raw_sha256":"sha256:f7bd7bef0f097cd147e82c3650121ec40a17926755c706f40e161edd25f14dfd","stored_sha256":"sha256:a232c05aa5c4241f70a416185688a07eab09cd8fe02bcebdede818ada1ceecb1"},
+    {"id":"sha1:ffdb13bd4608fddaaeb4d010d083f22b69276910","type":"blob","raw_bytes":220,"raw_sha256":"sha256:ae24b74afc763426cf2755520f5bb01f238e94fa444b60d14a3e676f2e2f6806","stored_sha256":"sha256:2e2bc8c4e0eec8ce1021eaa1012135fdcf27837af18f0bf6416d1eaf6382151c"}
+  ],
+  "synthetic_secrets": [],
+  "source_digest": "sha256:bf9af9425a2c1062180b622eeb81e95c2b2a7272d17c181008295c228ab3680a",
+  "fixture_digest": "sha256:acd884340d92cfa32b55378b5cd1d880699ead881e05fd462985eeed45ac8f95"
+}

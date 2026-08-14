@@ -1,0 +1,31 @@
+{
+  "capability": "streaming",
+  "note": "Recorded from official documentation; no live network call, no credentials. Uses the sibling ConverseStream operation.",
+  "provider": "bedrock",
+  "request": {
+    "auth": "AWS SigV4",
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "count to three"
+            }
+          ],
+          "role": "user"
+        }
+      ]
+    },
+    "method": "POST",
+    "path": "/model/anthropic.claude-sonnet-5/converse-stream"
+  },
+  "response": {
+    "events": [
+      "{\"contentBlockDelta\":{\"delta\":{\"text\":\"1\"},\"contentBlockIndex\":0}}",
+      "{\"contentBlockDelta\":{\"delta\":{\"text\":\", 2, 3\"},\"contentBlockIndex\":0}}",
+      "{\"messageStop\":{\"stopReason\":\"end_turn\"}}"
+    ],
+    "transport": "event-stream"
+  },
+  "source": "[Amazon Bedrock Runtime API Reference - Converse (2023-09-30)](https://docs.aws.amazon.com/bedrock/2023-09-30/APIReference/API_runtime_Converse.html)"
+}

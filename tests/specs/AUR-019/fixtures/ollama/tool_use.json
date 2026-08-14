@@ -1,0 +1,60 @@
+{
+  "capability": "tool_use",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "ollama",
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": "what's the weather in Recife?",
+          "role": "user"
+        }
+      ],
+      "model": "llama3.1",
+      "stream": false,
+      "tools": [
+        {
+          "function": {
+            "description": "Get current weather for a city",
+            "name": "get_weather",
+            "parameters": {
+              "properties": {
+                "city": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "city"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    "method": "POST",
+    "path": "/api/chat"
+  },
+  "response": {
+    "body": {
+      "done": true,
+      "message": {
+        "content": "",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": {
+                "city": "Recife"
+              },
+              "name": "get_weather"
+            }
+          }
+        ]
+      },
+      "model": "llama3.1"
+    }
+  },
+  "source": "[ollama v0.32.5](https://github.com/ollama/ollama/releases/tag/v0.32.5)"
+}

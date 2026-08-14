@@ -1,0 +1,66 @@
+# Task ID: 3
+# Title: LLM Provider Abstraction, Cost Tracker, Adapters
+# Status: in-progress
+# Dependencies: None
+# Priority: medium
+# Description: Implement provider-agnostic LLM interface, request options, response model, cost tracking, and adapters for OpenAI, Anthropic, LiteLLM proxy, and Ollama with budget enforcement and fallbacks.
+# Details:
+- Package: `internal/llm` with subpackages `{provider,cost}`.
+- Define `Options{System,Temperature,MaxTokens,Stop,Metadata,ModelKey}` and `Response{Text,TokensIn,TokensOut,Raw}`.
+- CostTracker: price map by logical model → {in,out $/1k tokens}; track per-run and daily budgets; expose `Allow(tokensIn, tokensOut) bool` and `Spend()`.
+- Fallback policy: try primary; on error/budget breach → alternate of same class; final → local (Ollama) if configured.
+- Adapters use `net/http` with timeouts, retries (exp backoff), request/response logging (redact secrets).
+- Token counting: call provider endpoint if available or approximate via model heuristics; cache counts for prompts.
+- Pseudocode:
+  - func Complete(p Provider, pb PromptBuilder, ctxCtx, budget *CostTracker) (Response, error) { pr := pb.Build(); if !budget.Allow(estIn, estOut) return ErrBudget; r, err := p.Complete(pr.Text, opts); if err!=nil { p=Fallback(p); r, err=p.Complete(...)}; budget.Spend(r.TokensIn,r.TokensOut); return r }
+  - type Provider interface { Complete(prompt string, opts Options)(Response,error); Tokens(input string)(int,error); Name() string }
+
+# Test Strategy:
+- Unit: mock providers to simulate tokens, failures, and verify fallback order and budget blocks.
+- Unit: cost math correctness for various price maps.
+- Integration: hit LiteLLM-compatible mock server (local HTTP test handler) to validate request/response schemas.
+- Determinism: ensure temperature default is 0.3 and can be set to 0.0 in tests to compare outputs.
+
+# Subtasks:
+## 1. Define core LLM interfaces, types, and package layout [done]
+### Dependencies: None
+### Description: Create provider-agnostic interfaces and shared types for options and responses under internal/llm.
+### Details:
+Introduce packages internal/llm, internal/llm/provider, and internal/llm/cost. Define Options{System,Temperature,MaxTokens,Stop,Metadata,ModelKey} and Response{Text,TokensIn,TokensOut,Raw}. Specify Provider interface with Complete(prompt, opts) (Response, error), Tokens(input) (int, error), and Name() string. Add basic input validation and sane defaults for options.
+
+## 2. Implement CostTracker with price map, per-run and daily budgets [done]
+### Dependencies: 3.1
+### Description: Track token pricing and enforce budgets with Allow and Spend methods.
+### Details:
+Build internal/llm/cost.CostTracker with thread-safe counters. Maintain price map of logical model keys to {in,out $/1k tokens}. Implement Allow(tokensIn, tokensOut) bool using estimated costs against per-run and daily budgets. Implement Spend(tokensIn, tokensOut) to record actual usage. Include reset-at-midnight daily window handling and hooks for metrics.
+
+## 3. Token counting heuristics and LRU cache [pending]
+### Dependencies: 3.1, 3.2
+### Description: Provide token estimation via provider endpoints or heuristic fallbacks with caching.
+### Details:
+Add token.CountEstimator that first calls Provider.Tokens, else uses model-specific heuristics (e.g., GPT, Claude, Llama families) to approximate counts. Implement an LRU cache keyed by prompt hash and model key to avoid recomputation. Expose EstimateIn/EstimateOut helpers for preflight budget checks, with pluggable heuristics to update per model family.
+
+## 4. HTTP client base: timeouts, retries, backoff, and redacted logging [pending]
+### Dependencies: 3.1
+### Description: Centralize HTTP concerns for all adapters including resilient retries and safe logs.
+### Details:
+Create httpbase client in internal/llm/provider/httpbase with configurable timeouts, exponential backoff with jitter, and retry-on-transient error policy (5xx, 429 with Retry-After). Implement request/response logging with redaction of Authorization and API keys in headers and payloads. Provide helpers for building requests, decoding JSON, and attaching context deadlines.
+
+## 5. OpenAI adapter implementing Provider interface [pending]
+### Dependencies: 3.1, 3.3, 3.4, 3.2
+### Description: Add OpenAI provider with Complete and Tokens using shared HTTP base.
+### Details:
+Implement internal/llm/provider/openai using net/http base. Support base URL, API key, model mapping via Options.ModelKey, temperature, max tokens, stop sequences, and system content. Parse responses into Response with token counts from usage fields where available; fall back to estimator otherwise. Include error normalization and request/response schemas for chat completions.
+
+## 6. Anthropic, LiteLLM proxy, and Ollama adapters [pending]
+### Dependencies: 3.1, 3.3, 3.4, 3.2
+### Description: Implement remaining adapters aligned to Provider interface using HTTP base.
+### Details:
+Add internal/llm/provider/anthropic for Messages API, internal/llm/provider/litellm for proxy-compatible routes, and internal/llm/provider/ollama for local completions. Normalize options to each API schema, handle streaming off, parse outputs to Response, and compute tokens via provider endpoints when available or heuristics otherwise. Ensure robust error handling and consistent naming via Name().
+
+## 7. Fallback chain, budget enforcement, and end-to-end tests [pending]
+### Dependencies: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+### Description: Wire Complete orchestration with budget checks, fallbacks, and mocks.
+### Details:
+Implement orchestrator Complete(p, pb, ctx, budget) that estimates tokens, calls budget.Allow, executes primary provider, on error or budget breach selects configured alternate of same class, and finally local Ollama if present. After success, call budget.Spend with actual usage. Add configuration-driven fallback ordering and pluggable policy. Provide comprehensive mocks and integration tests spanning success, retries, fallbacks, and budget blocks.
+

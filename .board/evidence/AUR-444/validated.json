@@ -1,0 +1,18 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-444",
+ "commit": "2e65aa974eda8504c9f0f75d4ebbfa480ab73623",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-444",
+  "exit_code": 0,
+  "raw_output": "0 for 444, 441 and 427 in one tree; real review --help lists exactly base, check, fail-on, limite, modelo, na-linha, pr, publicar, repo, seguranca"
+ },
+ "review_notes": {
+  "not_proven_offline": "that the published image actually contains a working binary - no docker build is possible in the sealed sandbox, so Dockerfile coherence is static only",
+  "check_scope": "leaving --check unwired is legitimate: it is reachable only through --pr, and no published document advertises merge blocking through this Action",
+  "proof_reach": "the unit and integration flag extractors only match double-dash spellings; a single-dash -provider would evade them, but the e2e layer runs the real binary and greps for the parse error, closing it"
+ }
+}

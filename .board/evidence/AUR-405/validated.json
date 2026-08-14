@@ -1,0 +1,19 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-405",
+  "commit": "b6f257a770e052948bd0e954e72c18f65d0cb92f",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-405",
+    "exit_code": 0,
+    "raw_output": "--- PASS: TestAUR405Bridge (0.00s)\nok github.com/Mpaape/AurumCode/tests/unit 0.007s\n{\"card\":\"AUR-405\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}\nregression AUR-402 exit 0, AUR-403 exit 0, AUR-404 exit 0 (re-run by the reviewer)\nexit_code=0 secret_detected=false observation_trusted=false"
+  },
+  "review_notes": {
+    "inherited_loaders": "The card owns four already delivered test files because registering a fifth profile key breaks them. The reviewer audited all seven removed lines: arity moved from four to five and stayed exact, no != became >=, no rejection case disappeared, no allowlist lost a key, and the positional order still checks all five canonical keys.",
+    "mutations": "Five mutations were redone against the bytes on disk: egress allowed, a runtime-assembled api key, host network, a mutable image tag and a duplicated registry entry. The credential one exited 70 at the runner's input scanner with zero engine calls and no vector leak; the others exited 1 with their declared codes. Every restore returned to exit 0.",
+    "reviewer_attacks": "Seven attacks were blocked: an unknown sixth key, an inverted canonical order, an endpoint disguised as localhost, a credential shape the runner scanner does not match (stopped later by the pinned environment constants), a duplicated JSON key resolved last-wins, a relaxed schema with its digest recomputed in the registry (caught because the constants are pinned in Go rather than in the bytes), and an empty test lane that printed 'ok ... [no tests to run]' and was caught by the === RUN guard.",
+    "open_info_findings": "The credential shape in tests/unit/AUR-405.go is assembled from split literals so it does not trip the runner input gate, which is legitimate and commented but shows the gate does not protect against a literal assembled that way inside a test file. The mutation lane asserts on a printf from the author and does not require === RUN like the Go lane; the reviewer corroborated five of those codes through an independent path."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "capability": "structured_output",
+  "note": "Recorded from official documentation; no live network call, no credentials. response_format is passed through and gated per model via get_supported_openai_params(model, custom_llm_provider).",
+  "provider": "litellm",
+  "request": {
+    "call": "litellm.completion",
+    "params": {
+      "messages": [
+        {
+          "content": "extract the ticket",
+          "role": "user"
+        }
+      ],
+      "model": "gpt-4o-mini",
+      "response_format": {
+        "json_schema": {
+          "name": "ticket",
+          "schema": {
+            "properties": {
+              "priority": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "priority"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "json_schema"
+      }
+    }
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "{\"title\":\"Fix login bug\",\"priority\":\"high\"}",
+            "role": "assistant"
+          }
+        }
+      ]
+    }
+  },
+  "source": "[litellm v1.95.0](https://github.com/BerriAI/litellm/releases/tag/v1.95.0)"
+}

@@ -1,0 +1,53 @@
+# Task ID: 4
+# Title: HTTP Server & GitHub Webhook Receiver
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Create server in `cmd/server` with health/metrics and GitHub webhook receiver validating signatures, parsing PR and push events, and persisting minimal event context.
+# Details:
+- Use `net/http` with middleware for request ID, logging, panic recovery.
+- Endpoints: `GET /healthz`, `GET /metrics` (placeholder), `POST /webhook/github`.
+- Signature: `X-Hub-Signature-256` HMAC SHA-256 over body using `GITHUB_WEBHOOK_SECRET`.
+- Idempotency: dedupe by `X-GitHub-Delivery` via in-memory LRU cache (e.g., `golang-lru`) or map with TTL.
+- Parse events: `pull_request` (opened, synchronize), `push` (to main) → produce `types.Event`.
+- Emit internal `Event` to orchestrator channel (future step) or log for now.
+- Pseudocode:
+  - func webhook(w,r){ if !validSig(r) {w.WriteHeader(401);return}; ev := parseGitHub(r); if seen(ev.DeliveryID) {return}; save(ev); processAsync(ev) }
+
+# Test Strategy:
+- Unit: signature validation with known secret and example payload (fixture `.taskmaster/tools/simulate-webhook.json` equivalent).
+- Unit: idempotency cache behavior under duplicate deliveries.
+- Integration: end-to-end HTTP test using httptest server, posting PR event JSON and asserting 200 + event capture.
+- Negative: invalid signature returns 401; unknown event returns 204.
+
+# Subtasks:
+## 1. Scaffold HTTP server with middleware and core endpoints [pending]
+### Dependencies: None
+### Description: Create `cmd/server` with `net/http` server, middleware stack, and routes.
+### Details:
+Implement server using `net/http` with middleware for request ID, structured logging, and panic recovery. Add routes: `GET /healthz`, `GET /metrics` (placeholder), and `POST /webhook/github`. Provide graceful shutdown and basic env-driven config (e.g., `GITHUB_WEBHOOK_SECRET`). Wire the webhook handler but leave validation/parsing stubs for later subtasks.
+
+## 2. Add HMAC SHA-256 GitHub signature validation utility [pending]
+### Dependencies: 4.1
+### Description: Validate `X-Hub-Signature-256` against request body using secret.
+### Details:
+Implement a function to compute HMAC SHA-256 of the raw body using `GITHUB_WEBHOOK_SECRET` and compare to the `sha256=` prefixed header using constant-time comparison. Handle missing/invalid headers and malformed hex safely. Integrate into webhook handler early-returning 401 on failure.
+
+## 3. Parse GitHub pull_request and push events into types.Event [pending]
+### Dependencies: 4.1, 4.2
+### Description: Map PR (opened, synchronize) and push-to-main payloads to `types.Event`.
+### Details:
+Read `X-GitHub-Event` and `X-GitHub-Delivery` headers, unmarshal JSON payloads for `pull_request` and `push`. Extract minimal context (repo, ref/branch, PR number, commit SHA, action) and build `pkg/types.Event` including delivery ID, provider, signature, and raw payload for traceability. Log or emit the event (stub channel for now).
+
+## 4. Implement idempotency dedupe cache for delivery IDs with TTL [pending]
+### Dependencies: 4.1, 4.2, 4.3
+### Description: Prevent duplicate processing via in-memory cache keyed by delivery ID.
+### Details:
+Introduce a concurrency-safe in-memory cache (LRU or map+TTL) to track seen `X-GitHub-Delivery` IDs. Expose `SeenOrAdd(id)` to short-circuit duplicates. Make capacity/TTL configurable. Integrate into webhook flow after signature validation and before parsing/persisting.
+
+## 5. End-to-end webhook tests with httptest and negative cases [pending]
+### Dependencies: 4.1, 4.2, 4.3, 4.4
+### Description: Exercise the full HTTP path with real handlers and fixtures.
+### Details:
+Use `httptest` to spin up the server and POST webhook fixtures with correct headers and signatures. Assert 200 on valid PR and push-to-main, 401 on invalid signature, and no reprocessing on duplicate delivery IDs. Include checks for `GET /healthz` and placeholder `/metrics`. Capture logs to ensure event emission is invoked.
+

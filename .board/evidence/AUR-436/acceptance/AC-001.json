@@ -1,0 +1,12 @@
+{
+ "schema": "aurum.acceptance-execution",
+ "version": 1,
+ "card_id": "AUR-436",
+ "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-436",
+ "candidate": "38ba1c8b1738a8b654edc90cd548c3ecc0666422",
+ "profile": "bootstrap-readonly-v1",
+ "image": "aurum-bootstrap-go-bash@sha256:e8521445a6c1bc7c017258e9c71caf8eb78ee254862582c5d57d8a79d9413084",
+ "exit_code": 0,
+ "behavior": "--modelo selects the provider (0 with findings citing rules; 1 with two actionable stderr lines when unavailable, never empty-review-exit-0; 2 on present-but-empty; composes with --fail-on for 3); without the flag stdout is byte-identical to the pre-candidate baseline (996b2556...)",
+ "mutation": "MUT-001 rejected; reviewer reproduced red plus two sharper mutants (env-model bypass, ErrAllProvidersFailed branch removal), all red"
+}

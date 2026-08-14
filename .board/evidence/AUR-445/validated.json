@@ -1,0 +1,18 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-445",
+ "commit": "9ae6d9f6eb4259ef88814ee482f15ddc514ed7ce",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-445",
+  "exit_code": 0,
+  "raw_output": "three independent sealed runs at exit 0; reviewer counted the security rules itself and confirmed 2 of 8 carry a matcher"
+ },
+ "review_notes": {
+  "followup": "the lane no longer re-reads internal/review/rules/security.yml (outside this card's read-set), so a future edit there would not invalidate the documented 2-of-8 count; add that read-path in a later card",
+  "reviewer_caught": "the third commit removed a fabricated pipeline transcript the reviewer was about to flag independently",
+  "nondeterminism": "stdout digests vary across runs because go test -v prints elapsed time; systemic to every card in this office, not a defect here"
+ }
+}

@@ -1,0 +1,21 @@
+resolution-schema: bootstrap-resolution-v1
+digest-domain: synthetic-offline-identifier-v1
+runtime	ruby	3.2.2	sha256:d14648f63b1e8bfc6c659bae2112f8540c707703e441fd91ce8f699a6ecbc844
+gem	Gemfile	jekyll	4.3.3	sha256:c7721ce51837898e2a961a28588e2ea6bde03a5170eb0b2779a3663101a23d23
+gem	Gemfile	jekyll-seo-tag	2.8.0	sha256:4cfde1d9bf944811c660ba79c777ac07074ef25342257de48b4c5a12b81f1268
+gem	Gemfile	jekyll-sitemap	1.4.0	sha256:7bbc0a11e57f8667b7422ea8da887176efa28a740df6de81317c529425b88c48
+gem	Gemfile	just-the-docs	0.8.0	sha256:ecffb4f6a153ced806ef974732b03d972cc7b7eeea4c6139337addc13bd4d8f2
+gem	Gemfile	sass-embedded	1.69.4	sha256:3ea56a8e0859c07318a4cef571b41956079e59ccb68e4ddfbb6c43f97ad591df
+gem	Gemfile	webrick	1.8.1	sha256:9011451b5817f05bcf2b4529cece6d61751b7700b7efdf1715dddcbed3b124c2
+gem	.aurumcode/Gemfile	http_parser.rb	0.6.0	sha256:56c926938af9ae23e5b1d982e5bc93aa6568c86d34edcad47e642b5e38e84b4d
+gem	.aurumcode/Gemfile	jekyll	4.3.3	sha256:c7721ce51837898e2a961a28588e2ea6bde03a5170eb0b2779a3663101a23d23
+gem	.aurumcode/Gemfile	jekyll-feed	0.17.0	sha256:7fa762597ad85e22066234263bedf730af4f1074dcabef0033d9d2e74eaeb788
+gem	.aurumcode/Gemfile	jekyll-seo-tag	2.8.0	sha256:4cfde1d9bf944811c660ba79c777ac07074ef25342257de48b4c5a12b81f1268
+gem	.aurumcode/Gemfile	jekyll-sitemap	1.4.0	sha256:7bbc0a11e57f8667b7422ea8da887176efa28a740df6de81317c529425b88c48
+gem	.aurumcode/Gemfile	just-the-docs	0.8.0	sha256:ecffb4f6a153ced806ef974732b03d972cc7b7eeea4c6139337addc13bd4d8f2
+gem	.aurumcode/Gemfile	sass-embedded	1.69.4	sha256:3ea56a8e0859c07318a4cef571b41956079e59ccb68e4ddfbb6c43f97ad591df
+gem	.aurumcode/Gemfile	tzinfo	2.0.6	sha256:74ec452d9d92dab828d6118ff2ed24e7825a1b2732650994a21c7d9f916a7c27
+gem	.aurumcode/Gemfile	tzinfo-data	1.2024.1	sha256:09a10d0dd682c4c7a7d986d06570b1df5d774589ad3384d2779134f29b9db08a
+gem	.aurumcode/Gemfile	wdm	0.1.1	sha256:dd64baa4989461ed821b9030b63b6ef1c410f6561cc93263abfcd39251c875fb
+gem	.aurumcode/Gemfile	webrick	1.8.1	sha256:9011451b5817f05bcf2b4529cece6d61751b7700b7efdf1715dddcbed3b124c2
+end: bootstrap-resolution-v1

@@ -1,0 +1,3 @@
+Scratch notes kept only so the demo history has a file that is later deleted.
+The third commit removes this file; a reviewer that reads the fixture at HEAD
+must not see it.

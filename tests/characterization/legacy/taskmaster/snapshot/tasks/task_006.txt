@@ -1,0 +1,52 @@
+# Task ID: 6
+# Title: Diff Analyzer and Language Detector
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Parse unified diffs into structured hunks, detect languages by extension and heuristics, and filter noise/large hunks for efficient prompts.
+# Details:
+- Package: `internal/analysis/{diff,language}`.
+- Diff parser: support file headers, chunk headers (`@@ -a,b +c,d @@`), added/removed/context lines, binary file detection; produce `types.Diff`.
+- Language detection: extension map {go,py,js,ts,java,rb,rs,cs,cpp,sh,yml,json,md}; fallback by shebang/keywords; per-file `Lang` on Diff.
+- Filtering: collapse large hunks (e.g., >500 lines) with summarization markers, ignore vendor/build files; prioritize source over lockfiles.
+- Pseudocode:
+  - func ParseUnifiedDiff(s string) (types.Diff, error) { scan lines; on new file: cur=File{Path}; on hunk header: push Hunk; classify lines by prefix; }
+  - func DetectLang(path, content) string { switch ext {...}; if shebang contains python -> py }
+
+# Test Strategy:
+- Unit: table-driven tests over multi-file diff fixture including renames, binary, large hunks.
+- Unit: language detection for edge cases (.mjs, .tsx, Makefile, Dockerfile).
+- Performance: benchmark parser on large diff strings.
+- Regression: ensure noise filters exclude `package-lock.json`, `yarn.lock`, `vendor/` by default.
+
+# Subtasks:
+## 1. Scaffold analysis packages and public APIs for diff parsing and language detection [pending]
+### Dependencies: None
+### Description: Create package structure and define clear, documented function signatures and types.
+### Details:
+Add `internal/analysis/diff` and `internal/analysis/language` with exported APIs: `ParseUnifiedDiff(s string) (types.Diff, error)`, `DetectLang(path string, content []byte) types.Lang`, and `FilterAndSummarize(d types.Diff, opts Options) types.Diff`. Ensure alignment with `pkg/types` and prepare options/config structs.
+
+## 2. Implement unified diff parser with headers, hunks, and binary detection [pending]
+### Dependencies: 6.1
+### Description: Parse unified diffs into structured files and hunks with line classifications.
+### Details:
+Implement a streaming/state-machine parser handling file headers (`diff --git`, `---`, `+++`), hunk headers (`@@ -a,b +c,d @@`), and line prefixes (`+`, `-`, space). Detect `Binary files differ` and `GIT binary patch`. Populate `types.Diff` with files, hunks (oldStart, oldLines, newStart, newLines), and line kinds.
+
+## 3. Add language detection by extension with shebang and keyword fallbacks [pending]
+### Dependencies: 6.2
+### Description: Map common extensions to languages and provide heuristics for ambiguous cases.
+### Details:
+Implement extension map {go,py,js,ts,java,rb,rs,cs,cpp,sh,yml,json,md} and handle special names (Makefile, Dockerfile). Add shebang parsing for python/node/bash and lightweight keyword heuristics reading first KB of content or added lines. Annotate each parsed file in the Diff with `Lang`.
+
+## 4. Implement noise filtering and large-hunk collapsing with summarization markers [pending]
+### Dependencies: 6.2, 6.3
+### Description: Filter vendor/build and lockfiles; collapse overly large hunks with markers.
+### Details:
+Provide `ShouldIncludeFile(path)` and rules to ignore vendor/build paths and lockfiles (e.g., package-lock.json, yarn.lock). Implement hunk collapsing for >500 lines by inserting summarization markers and preserving hunk metadata. Add prioritization to favor source files over generated/minified assets.
+
+## 5. Add fixtures, table-driven tests, and benchmarks for parser, language, and filters [pending]
+### Dependencies: 6.2, 6.3, 6.4
+### Description: Create comprehensive tests and measure performance on large diffs.
+### Details:
+Add fixtures with multi-file diffs including renames, binary files, and large hunks under `tests/fixtures`. Write table-driven tests for parser correctness, language detection edge cases, and filter/collapse rules. Add `testing.B` benchmarks to assess allocations and throughput on large diff strings.
+

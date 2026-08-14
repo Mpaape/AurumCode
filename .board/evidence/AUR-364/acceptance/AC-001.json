@@ -1,0 +1,47 @@
+{
+ "schema": "aurum.acceptance-observation",
+ "version": 1,
+ "card_id": "AUR-364",
+ "candidate_identity_digest": "sha256:273ef0896dd941af01e4867bf37a3d6a96cc81f525456c2b4edc18d45f121dd0",
+ "role": "acceptance",
+ "sealed": true,
+ "role_nonce": "aur364-r5-acceptance-a7cdc499f3e8",
+ "context_digest": "sha256:cac10e504ede2c81a869c3711d2466da1c64f9822af06968048166c77cfac42b",
+ "session_digest": "sha256:27bdfc2ccf44bfe1701d3bc4bb41b95b4f352b2d6e28f04ae2b77892135f9164",
+ "backend_family_digest": "sha256:f8cbde289c4429384d66899f46eae32b9f1d2d9772f9026ddeda363537ff6c99",
+ "verdict": "pass",
+ "command_digest": "sha256:50c26b6f3d304b8d4d55763484563a953e70a149583f77d22c7707e879b9c3d5",
+ "container_profile_digest": "sha256:36bb0c1b85fa02974fcaaef5f0dc67c7a8212eafc8a90d72342e248da00ca1f4",
+ "red": {
+  "exit_code": 1,
+  "typed_failure": "AUR-364/AC-001/docs_tool_lock_incomplete",
+  "cause": "No HEAD real sem o patch do card, com o script stub de 30 linhas pre-existente, o aceite falha fechado. Reproduzido pelo cetico em worktree limpo."
+ },
+ "green": {
+  "exit_code": 0,
+  "stdout_sha256": "sha256:86a0eea17f9c117bd6873c2f708ba3af31e913975b43c47fbee0b91221087ee5"
+ },
+ "mutation": {
+  "mutation_id": "MUT-003",
+  "detected": true,
+  "exit_code": 1,
+  "typed_failure": "AUR-364/AC-001/docs-tool-mutable",
+  "restored_exit_code": 0
+ },
+ "clean_replay": {
+  "exit_code": 0,
+  "stdout_sha256": "sha256:86a0eea17f9c117bd6873c2f708ba3af31e913975b43c47fbee0b91221087ee5",
+  "runs": 2
+ },
+ "secret_canaries": {
+  "pass": true,
+  "leaked": 0
+ },
+ "scenarios": [
+  {
+   "id": "AC-001",
+   "exit_code": 0
+  }
+ ],
+ "observed_by": "coordinator, executando o comando que o card trava; saida de container tratada como dado nao confiavel (Lei 7)"
+}

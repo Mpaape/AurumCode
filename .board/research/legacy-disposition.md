@@ -16,7 +16,7 @@ Each row must gain a characterization test before code movement or deletion.
 | `internal/documentation/extractors/**` | Multiple in-process language extractors and tests exist. | reuse only after contract characterization | Verify output ownership, parser safety, determinism and per-language behavior; wrap behind a port; replace unsafe execution. |
 | `internal/documentation/incremental/**` | Cache/detector/manager exist. | reuse concepts, replace persistence | Characterize invalidation and manual-file behavior; integrate with optional derived index without making docs depend on durable memory. |
 | `internal/documentation/normalizer/**` | Markdown/frontmatter normalizer exists. | reuse after golden tests | Prove idempotence, safe frontmatter and preservation. |
-| `internal/documentation/site/**` | Generic builder plus Jekyll/Pagefind implementations exist; historical docs conflict on Hugo/Jekyll. | adapters remain optional | Define a site-builder port; baseline docs emit Markdown without either; characterize Jekyll/Pagefind before keeping; do not restore Hugo by default. |
+| `internal/documentation/site/**` | Site runner, scaffold and tests exist; builder/Jekyll/Pagefind implementation files are absent from this checkout. | characterize current files; adapters remain optional | Define a site-builder port; baseline docs emit Markdown without absent adapters; characterize any future site adapter before keeping; do not restore Hugo by default. |
 | `internal/pipeline/**` | Extractor pipeline exists; historical PRD calls other pipeline code functional without checkout evidence. | characterize then replace with application use case | Freeze current observable behavior; port one vertical docs flow; remove unreachable/stub code explicitly. |
 | `internal/llm/**` | Cost, HTTP, orchestrator and some providers exist. | characterize then migrate behind provider-neutral ports | Run current tests; record wire shapes; remove vendor leakage and secret-bearing objects; retain compatible config where safe. |
 | `pkg/types/**` | Shared legacy config/provider/types. | characterize then retire or narrow | Map public consumers; move domain types inward; keep compatibility aliases only with deprecation tests. |
@@ -44,6 +44,70 @@ Each row must gain a characterization test before code movement or deletion.
 | `.taskmaster/**` | Historical plans and state; many claims do not match checkout. | retain read-only audit input | Never drive execution state from it; supersede via this board and record claim disposition. |
 | `.claude/skills/**`, `.agents/skills/**` | Five local routing skills are mirrored byte-for-byte across the two client roots. | keep as untrusted development-tool mirrors | AUR-340 records five pairs, provenance/modes and equivalence with `untrusted=true`; install/refresh remains separately authorized. |
 | `CLAUDE.md`, `AGENTS.md` | `CLAUDE.md` is canonical; `AGENTS.md` must resolve to it. | keep | Validate symlink and no-AI-attribution rule; preserve ai-memory managed markers. |
+
+## Machine-readable disposition rules
+
+The inventory is the authoritative file-level snapshot for this card. The
+rules below use the intentionally small glob syntax implemented by the card's
+acceptance test: `*` matches any byte sequence and `?` matches one byte. Rules
+are disjoint; a path must match exactly one rule. The verbs are declarative
+only. They do not authorize a move, deletion, execution, migration, or
+publication.
+
+### Top-level directories
+
+- disposition: .agents/* -> keep
+- disposition: .aurumcode/* -> characterize
+- disposition: .board/* -> keep
+- disposition: .claude/* -> keep
+- disposition: .cursor/* -> characterize
+- disposition: .docker/* -> quarantine
+- disposition: .github/* -> characterize
+- disposition: .gemini/* -> quarantine
+- disposition: .taskmaster/* -> characterize
+- disposition: _api/* -> characterize
+- disposition: cmd/* -> characterize
+- disposition: configs/* -> characterize
+- disposition: demo/* -> keep
+- disposition: docs/* -> characterize
+- disposition: internal/* -> characterize
+- disposition: pkg/* -> characterize
+- disposition: scripts/* -> quarantine
+- disposition: standards/* -> keep
+- disposition: tests/* -> keep
+
+### Top-level files
+
+- disposition: .ai-memory.toml -> keep
+- disposition: .dockerignore -> characterize
+- disposition: .env* -> quarantine
+- disposition: .gitignore -> characterize
+- disposition: .mcp.json -> quarantine
+- disposition: ACTION_USAGE.md -> characterize
+- disposition: AGENTS.md -> keep
+- disposition: CHANGELOG.md -> characterize
+- disposition: CLAUDE.md -> keep
+- disposition: Dockerfile -> replace
+- disposition: GEMINI.md -> quarantine
+- disposition: Gemfile -> characterize
+- disposition: LITELLM_QUICKSTART.md -> characterize
+- disposition: Makefile -> characterize
+- disposition: PAGES_SETUP.md -> characterize
+- disposition: README.md -> characterize
+- disposition: RUN_DOCS_PIPELINE.md -> quarantine
+- disposition: SETUP_GUIDE.md -> characterize
+- disposition: _config.yml -> characterize
+- disposition: action.yml -> migrate
+- disposition: docker-compose.test.yml -> quarantine
+- disposition: docker-compose.yml -> quarantine
+- disposition: generate-docs-simple.sh -> quarantine
+- disposition: go.mod -> keep
+- disposition: go.sum -> keep
+- disposition: index.md -> characterize
+- disposition: pages-fix.md -> characterize
+- disposition: run-docs-pipeline.bat -> quarantine
+- disposition: run-docs-pipeline.sh -> quarantine
+- disposition: test-jekyll.sh -> quarantine
 
 ## Deletion rule
 

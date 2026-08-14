@@ -1,0 +1,8 @@
+schema: aurum.demo-scenario
+version: 1
+id: clean-change
+kind: clean
+title: "A change with nothing to report"
+reviewed:
+  - src/greeter.py
+expected_findings: 0

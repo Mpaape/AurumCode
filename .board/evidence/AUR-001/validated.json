@@ -1,0 +1,14 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-001",
+  "commit": "472c6920a04cd092508653332abe8805aa7f563f",
+  "review": "approved",
+  "validation": "passed",
+  "validator_context": "clean immutable worktree /tmp/aur001-final",
+  "validator_run": {
+    "command": "bash tests/acceptance/AUR-001.sh",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-001\",\"scenario\":\"AC-001\",\"selector\":\"AC-001\",\"tracked_files\":799,\"claims\":9,\"anchored\":7,\"sealed_paths\":799,\"seal_verified\":798,\"seal_source\":\"git-index\",\"result\":\"pass\"}"
+  }
+}

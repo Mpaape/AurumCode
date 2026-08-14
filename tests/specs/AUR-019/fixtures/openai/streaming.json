@@ -1,0 +1,33 @@
+{
+  "capability": "streaming",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "openai",
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": "count to three",
+          "role": "user"
+        }
+      ],
+      "model": "gpt-4o-mini",
+      "stream": true
+    },
+    "headers": {
+      "Authorization": "Bearer <OPENAI_API_KEY>"
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions"
+  },
+  "response": {
+    "chunks": [
+      "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"1\"},\"finish_reason\":null}]}",
+      "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\", 2, 3\"},\"finish_reason\":null}]}",
+      "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "data: [DONE]"
+    ],
+    "content_type": "text/event-stream",
+    "transport": "server-sent-events"
+  },
+  "source": "[openai-python v2.53.0](https://github.com/openai/openai-python/releases/tag/v2.53.0)"
+}

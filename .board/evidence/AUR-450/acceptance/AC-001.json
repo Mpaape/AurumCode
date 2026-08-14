@@ -1,0 +1,12 @@
+{
+ "schema": "aurum.acceptance-execution",
+ "version": 1,
+ "card_id": "AUR-450",
+ "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-450",
+ "candidate": "d235704026dccacfe6fb8565dcacb7b58d0d833c",
+ "profile": "bootstrap-readonly-v1",
+ "image": "aurum-bootstrap-go-bash@sha256:e8521445a6c1bc7c017258e9c71caf8eb78ee254862582c5d57d8a79d9413084",
+ "exit_code": 0,
+ "behavior": "the security pass states how many of the catalogue's rules actually ran, on stderr, identically whether it found something or not; the count and the id list are derived at runtime from the same predicate the scan uses, so note and scan cannot diverge",
+ "mutation": "MUT-001 rejected; the reviewer replaced the rule list with generic text in the real candidate and the accept went red with coverage-note-missing"
+}

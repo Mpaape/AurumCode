@@ -1,0 +1,45 @@
+{
+  "capability": "structured_output",
+  "note": "Recorded from official documentation; no live network call, no credentials. format accepts either the literal string \"json\" or a full JSON Schema object.",
+  "provider": "ollama",
+  "request": {
+    "body": {
+      "format": {
+        "properties": {
+          "priority": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "priority"
+        ],
+        "type": "object"
+      },
+      "messages": [
+        {
+          "content": "extract the ticket",
+          "role": "user"
+        }
+      ],
+      "model": "llama3.1",
+      "stream": false
+    },
+    "method": "POST",
+    "path": "/api/chat"
+  },
+  "response": {
+    "body": {
+      "done": true,
+      "message": {
+        "content": "{\"title\":\"Fix login bug\",\"priority\":\"high\"}",
+        "role": "assistant"
+      },
+      "model": "llama3.1"
+    }
+  },
+  "source": "[ollama v0.32.5](https://github.com/ollama/ollama/releases/tag/v0.32.5)"
+}

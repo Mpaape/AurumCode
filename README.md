@@ -24,6 +24,63 @@ It is never overwritten once it exists, so it can be edited freely.
 The generator produces markdown and that site scaffold. It does not build the
 Jekyll site itself; the Action does that only when publishing is requested.
 
+## Try it now
+
+```bash
+git clone https://github.com/Mpaape/AurumCode.git
+cd AurumCode
+bash demo.sh
+```
+
+`demo.sh` builds the two binaries below and runs all three features offline,
+with no LLM key: it generates documentation, reviews a diff with the
+deterministic security pass, reviews the same diff through a fixture model
+response, and prints the Jekyll publish command. It exits `0` when the
+repository does what this README says.
+
+## Features
+
+AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
+(documentation). Each feature below has a real command you can run.
+
+- **Review a local diff** - the best first command in the product, because it
+  needs no configuration at all:
+
+  ```bash
+  aurumcode review --base HEAD~1 --seguranca
+  ```
+
+  `--seguranca` runs the project's own deterministic security rules (a regex
+  match over the diff, no model call). It is a *named subset* of the full
+  catalog, not everything in it - the command itself reports the count, e.g.
+  `security pass applied 3 of 8 security rules`. Drop `--seguranca` and set
+  `AURUMCODE_LLM_FIXTURE=<path>` (offline, deterministic) or
+  `LLM_API_KEY`+`LLM_BASE_URL` for a model-driven review of the same diff.
+
+- **Review a pull request and publish a comment**:
+
+  ```bash
+  aurumcode review --pr 42 --repo owner/project --publicar --na-linha
+  ```
+
+  Needs `GITHUB_TOKEN` (write permission on the pull request) and an LLM
+  provider. [.github/workflows/examples/code-review.yml](.github/workflows/examples/code-review.yml)
+  is a ready-to-copy workflow that runs this on every pull request; it builds
+  from this repository's `v1` release tag, which **is not published yet** -
+  publishing it is a step the maintainer still has to do, not something this
+  repository does for you.
+
+- **Generate documentation**:
+
+  ```bash
+  go run ./cmd/regenerate-docs
+  ```
+
+  See "Local usage" below for details, or
+  [.github/workflows/examples/documentation.yml](.github/workflows/examples/documentation.yml)
+  to publish it to GitHub Pages on every push to `main` (same unpublished
+  `v1` tag as above).
+
 ## Quick start as a GitHub Action
 
 ```yaml
@@ -63,13 +120,15 @@ See [ACTION_USAGE.md](ACTION_USAGE.md) for every input, output and example.
 
 ## Languages
 
-Go is the generator's own stack and is always available. The other extractors
-depend on an external tool being on `PATH`; when it is missing, that language is
-skipped with a warning and the rest of the run continues.
+Go is the generator's own stack: its extractor parses source with `go/parser`
+and `go/doc` in-process (since AUR-424) and needs no external tool on `PATH`.
+The other extractors each depend on an external tool being on `PATH`; when it
+is missing, that language is skipped with a warning and the rest of the run
+continues.
 
 | Language | Requires on `PATH` | Available through the Action |
 |----------|--------------------|------------------------------|
-| Go | `gomarkdoc` | yes, installed by the Action |
+| Go | none, built in (`go/parser` + `go/doc`) | yes |
 | JavaScript / TypeScript | `typedoc` | with `extra-toolchains: javascript` |
 | Python | `pydoc-markdown` | with `extra-toolchains: python` |
 | C / C++ | `doxygen` | with `extra-toolchains: cpp` |
@@ -95,8 +154,8 @@ so Rust and C# cannot be produced through the Action.
 git clone https://github.com/Mpaape/AurumCode.git
 cd AurumCode
 
-# Required for Go extraction
-go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
+# Go extraction needs no external tool: it uses go/parser and go/doc
+# in-process (since AUR-424).
 
 # Optional: any OpenAI-compatible endpoint, for the AI-written landing page
 export LLM_API_KEY=your_key
@@ -191,13 +250,18 @@ AurumCode/
 
 ## Development
 
+`go build ./...` and `go test ./...` currently FAIL with a package collision:
+`tests/unit` and `tests/integration` each hold more than one `package main`
+fixture file alongside the real `unit`/`integration` package the acceptance
+harness expects (a known, tracked issue, not a broken checkout). Build the
+product code by naming its three real roots instead:
+
 ```bash
-go build ./...
-go test ./...
+go build ./cmd/... ./internal/... ./pkg/...
 ```
 
-Both are verified to pass in `golang:1.21-alpine` with the repository mounted at
-`/w`.
+`demo.sh` (see "Try it now" above) builds and runs both binaries this way and
+exits `0`, so it doubles as a smoke test for this command.
 
 ## Documentation
 
@@ -209,6 +273,4 @@ Both are verified to pass in `golang:1.21-alpine` with the repository mounted at
 
 ## License
 
-No `LICENSE` file is present in this repository, so no license is granted here
-yet. Open an issue at https://github.com/Mpaape/AurumCode/issues if you need one
-declared.
+[MIT](LICENSE), Copyright (c) 2026 Mateus Magnus Pimentel Paape.

@@ -1,0 +1,29 @@
+{
+ "schema": "aurum.challenge-plan",
+ "card_id": "AUR-364",
+ "candidate_identity_digest": "sha256:273ef0896dd941af01e4867bf37a3d6a96cc81f525456c2b4edc18d45f121dd0",
+ "sealed_before_reviews": true,
+ "hypotheses": [
+  {
+   "id": "MUT-001",
+   "scenario": "AC-001",
+   "trust_boundary": "repository",
+   "hypothesis": "Um passo de ferramenta acrescentado a documentacao sem atualizar o lock tem de ser pego.",
+   "expected_typed_failure": "AUR-364/AC-001/docs-tool-unlocked"
+  },
+  {
+   "id": "MUT-002",
+   "scenario": "AC-001",
+   "trust_boundary": "documentation-tool",
+   "hypothesis": "Resolucao inconsistente entre manifestos, ou runtime nao resolvido, tem de ser pega. Os dois ramos sao exercitados separadamente.",
+   "expected_typed_failure": "AUR-364/AC-001/runtime-resolution-inconsistent"
+  },
+  {
+   "id": "MUT-003",
+   "scenario": "AC-001",
+   "trust_boundary": "supply-chain",
+   "hypothesis": "Uma ferramenta sem versao exata e sem digest tem de ser recusada como mutavel.",
+   "expected_typed_failure": "AUR-364/AC-001/docs-tool-mutable"
+  }
+ ]
+}

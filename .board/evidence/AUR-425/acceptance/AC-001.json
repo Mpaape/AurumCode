@@ -1,0 +1,13 @@
+{
+ "schema": "aurum.acceptance-execution",
+ "version": 1,
+ "card_id": "AUR-425",
+ "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-425",
+ "candidate": "eca6d431a95c02fd2e58532a76eddde5f94ba145",
+ "profile": "bootstrap-readonly-v1",
+ "image": "aurum-bootstrap-go-bash@sha256:e8521445a6c1bc7c017258e9c71caf8eb78ee254862582c5d57d8a79d9413084",
+ "exit_code": 0,
+ "input_manifest_digest": "sha256:019fb76b58c5d94cb997eecd2ca74986a567ba4730eee8f2eaa25f598bfbe99b",
+ "behavior": "empty run exits 1 with reason and result=empty; goproject control exits 0 with real pages; invalid config and tool failure keep their own exits (no collapse)",
+ "mutation": "MUT-001 red (fatalf removed, manifest digest proves sealed mutation), restore green bit-identical; reviewer's extra always-fail mutation red via overshoot guard"
+}

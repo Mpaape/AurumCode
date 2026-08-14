@@ -1,0 +1,9 @@
+schema: aurum.demo-scenario
+version: 1
+id: secret-leak
+kind: security
+title: "A placeholder credential sits in source"
+reviewed:
+  - src/config.py
+expected_findings: 1
+notes: "The planted value is the synthetic placeholder AURUM-FAKE-DEMO-TOKEN."

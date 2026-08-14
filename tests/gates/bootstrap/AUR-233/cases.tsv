@@ -1,0 +1,11 @@
+# case	expected result	mutation
+nominal	ok	baseline lockset
+missing	lock_domain_missing	remove AUR-363 row
+duplicate	child_duplicate	duplicate AUR-359 row
+tampered	child_digest_mismatch	alter AUR-362 digest
+identity	candidate_identity_mismatch	alter aggregate identity
+selfref	child_digest_mismatch	use index digest for AUR-361
+handwritten	lock_domain_missing	replace artifact with verdict rows
+aliased	lock_domain_missing	bind every child to trust-root artifact
+malformed	lock_domain_missing	append an unknown index line
+symlink	child_digest_mismatch	replace a child artifact with a symlink

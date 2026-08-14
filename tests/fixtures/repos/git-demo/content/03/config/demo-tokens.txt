@@ -1,0 +1,6 @@
+# Synthetic tokens. Every value below is fake, is accepted by nothing, and
+# exists so a review demo has a planted finding to report. Never replace one
+# of these with a real credential.
+DEMO_API_TOKEN=AURUM-FAKE-TOKEN-0000-0001
+DEMO_DB_PASSWORD=AURUM-FAKE-PASSWORD-0000-0002
+DEMO_WEBHOOK_SECRET=AURUM-FAKE-WEBHOOK-0000-0003

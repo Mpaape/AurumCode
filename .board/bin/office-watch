@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# office-watch -- report agent worktrees that stopped producing.
+#
+# The coordinator dispatches builders and reviewers into worktrees under
+# /tmp/claude-1000/office-wt/<CARD>. An agent that is thinking writes nothing;
+# an agent that is stuck also writes nothing. The two are indistinguishable
+# from the outside, so the only honest signal is elapsed time without a new
+# file write, a new commit, or a running container.
+#
+# This prints ONE line per stalled worktree per invocation and exits 0 when
+# nothing is stalled, so it can drive a monitor loop without spamming: the
+# caller decides how often to ask. It never kills anything and never writes
+# to a worktree -- the decision to chase, re-dispatch or take over is the
+# coordinator's, and requires reading the worktree first.
+#
+# Usage:
+#   office-watch [stall_minutes]        # default 6
+#
+# Exit codes:
+#   0  nothing stalled (or no active worktrees)
+#   3  at least one worktree stalled past the threshold
+set -euo pipefail
+
+readonly wt_root="${AURUM_OFFICE_WT_ROOT:-/tmp/claude-1000/office-wt}"
+stall_minutes="${1:-6}"
+
+[[ "$stall_minutes" =~ ^[0-9]+$ ]] || {
+  printf 'office-watch: stall_minutes must be a whole number of minutes\n' >&2
+  exit 64
+}
+[[ -d "$wt_root" ]] || exit 0
+
+# Integration and review worktrees are driven by the coordinator's own
+# synchronous commands, so idleness there is expected and not a stall.
+is_agent_worktree() {
+  case "${1##*/}" in
+    *-int|*-rev|*-rev[0-9]|sweep|maint-proof|dogfood*|preclean|inv|A[0-9]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+now=$(date +%s)
+stalled=0
+
+for wt in "$wt_root"/*/; do
+  [[ -d "$wt" ]] || continue
+  card="${wt%/}"; card="${card##*/}"
+  is_agent_worktree "$card" || continue
+
+  # A worktree whose HEAD carries a card commit has already delivered; the
+  # coordinator integrates it, so silence there is not a stall.
+  head_subject=$(git -C "$wt" log -1 --format=%s 2>/dev/null || true)
+  [[ "$head_subject" == "$card:"* ]] && continue
+
+  newest=$(find "$wt" -type f -not -path '*/.git/*' -printf '%T@\n' 2>/dev/null |
+             sort -rn | head -1 | cut -d. -f1)
+  [[ -n "$newest" ]] || continue
+
+  idle_min=$(( (now - newest) / 60 ))
+  (( idle_min >= stall_minutes )) || continue
+
+  dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+  stalled=1
+  printf 'STALL %s: %dmin sem escrita, %d arquivo(s) modificado(s) -- leia o worktree antes de decidir: cobrar prazo, redespachar ou assumir\n' \
+    "$card" "$idle_min" "$dirty"
+done
+
+(( stalled == 0 )) && exit 0
+exit 3

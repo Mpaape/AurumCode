@@ -1,0 +1,17 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-431",
+ "commit": "1872d5dde44338d5f49e2c7c8bff8ef6495c5eb3",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-431",
+  "exit_code": 0,
+  "raw_output": "AUR-431/AC-001/ok with MUT-001/rejected; reviewer re-ran sealed accept RAW_EXIT_V2=0"
+ },
+ "review_notes": {
+  "rounds": "Round 1 on 8526fd5: REQUEST_CHANGES, present-but-empty --fail-on left the gate silently open. Round 2 on 1872d5d: APPROVE, fixed at the root via fs.Visit; no assertion weakened (all six removed lines audited).",
+  "environmental": "pkg/types test setup failure (yaml.v3 under GOPROXY=off) identical on parent, not attributable; TestOpenRepo_NotAGitDir never reproduced"
+ }
+}

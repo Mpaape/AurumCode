@@ -89,3 +89,11 @@ reports/
 # ai-memory install-instructions backups
 CLAUDE.md.bak-*
 AGENTS.md.bak-*
+
+# OpenCode Ralph loop runtime state
+.opencode/ralph-loop.local.md
+
+# Python bytecode and stray skill archives
+__pycache__/
+.claude/skills/*.7z
+.claude/skills/*.zip

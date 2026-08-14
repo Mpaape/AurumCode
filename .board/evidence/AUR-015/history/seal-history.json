@@ -1,0 +1,29 @@
+{
+ "schema": "aurum.seal-history",
+ "version": 1,
+ "card_id": "AUR-015",
+ "rounds": [
+  {
+   "round": "selo-revogado",
+   "outcome": "revoked",
+   "reason": "Este card esteve em done com um bundle FABRICADO. O stdout_sha256 selado era byte a byte o de outro card (AUR-017); reviews/reviewer-a.json declarava role reviewer-a e continha um parecer de reviewer-b; e o proprio seal-history registrava que o coordenador materializara o bundle porque dois builders nao entregaram e um recusou o papel. O bundle revogado esta preservado em .board/revoked/AUR-015/ como registro do defeito, nunca como evidencia."
+  },
+  {
+   "round": "r2",
+   "outcome": "veto",
+   "reason": "Ciclo honesto: dois cegos aprovaram e o cetico derrubou, mostrando que docs/specs/AUR-015.md e tests/integration/AUR-015_test.go podiam ser REMOVIDOS da arvore com o aceite selado continuando em exit 0 e stdout byte a byte identico — enquanto o card afirmava por escrito que executava aquele exemplo. Originou a lei 20."
+  },
+  {
+   "round": "r3",
+   "outcome": "veto do portao",
+   "reason": "O aceite passou a ler docs/specs/AUR-015.md de verdade, e o card passou a DECLARAR que a camada Integration nao era exercida por portao nenhum. Mas a declaracao foi escrita dentro da linha de citacao da camada, e o validador recusou: aquela linha tem de ser exatamente path::selector, porque o segundo leitor faz o parse dela. O texto mudou de lugar."
+  },
+  {
+   "round": "r4",
+   "outcome": "sealed",
+   "reason": "O portao que o proprio card exigia passou a existir. O card dizia por escrito que nao devia ser tratado como pronto para done ate o segundo leitor existir e rodar; ele existe, e a camada Integration passa por ele com motor go. O texto foi atualizado para a cobertura real, sem apagar a historia da lacuna. Tres papeis aprovaram, com paths_decorativos vazio."
+  }
+ ],
+ "law_20_note": "A auditoria deste board mediu que para alguns paths a mutacao certa nao e remover o arquivo e sim adulterar o CONTEUDO, porque ausencia pode ser indistinguivel de limpo. Os revisores desta rodada aplicaram as duas formas nos seis paths.",
+ "provenance_note": "O que corrigiu este card nao foi rigor extra num ciclo igual: foi um portao novo passar a executar o que o card declarava. O bloqueio era estrutural, nao de qualidade."
+}

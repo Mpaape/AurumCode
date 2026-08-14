@@ -11,19 +11,26 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the applications. cmd/regenerate-docs drives the documentation
+# pipeline end to end from environment variables -- the one mode this image
+# self-tests below -- and cmd/aurumcode is the review CLI the entrypoint's
+# `review` mode invokes (AUR-430/AUR-438); it publishes exactly two
+# subcommands, review and docs (cmd/aurumcode/main.go), and has no qa
+# subcommand, so the entrypoint's `qa` mode still fails closed instead of
+# reporting a skipped success (scripts/action-entrypoint.sh: run_qa).
+#
+# Neither binary needs a separate tools stage. The Go documentation extractor
+# used to shell out to the third-party `gomarkdoc` binary
+# (internal/documentation/extractors/go/extractor.go), but AUR-424 replaced
+# that subprocess with go/parser + go/doc + go/printer, so nothing installs
+# gomarkdoc here any more; the other seven language extractors this
+# repository ships (python/pydoc-markdown, javascript/typedoc,
+# csharp/dotnet+xmldocmd, cpp/doxygen, rust/cargo, bash/bash,
+# powershell/pwsh) still need their own external tool, none of which this
+# image installs -- a caller documenting one of those languages with this
+# image extends it with the tool it needs.
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o regenerate-docs ./cmd/regenerate-docs
-
-# The Go extractor shells out to `gomarkdoc` (internal/documentation/extractors/
-# go/extractor.go: extractPackage). Without it on PATH the generator does not
-# fail - it SKIPS the language and reports `result=partial languages_skipped=go`
-# with a zero exit status, so the image quietly produced no Go documentation at
-# all for a Go repository. Pinned rather than @latest so the image is
-# reproducible; `go install pkg@version` resolves in its own module and does not
-# touch this repository's go.mod or go.sum.
-FROM golang:1.21-alpine AS tools
-RUN apk add --no-cache git
-RUN CGO_ENABLED=0 go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o aurumcode ./cmd/aurumcode
 
 # Final stage
 FROM alpine:latest
@@ -41,15 +48,14 @@ WORKDIR /app
 
 # Copy binaries from builder.
 #
-# This image ships exactly one binary: regenerate-docs, built above from
-# cmd/regenerate-docs. That is the only main package in the source tree.
-# The entrypoint's `review` and `qa` modes need an additional `cli` binary
-# that does not exist here; they therefore fail with an explicit message
-# naming the missing executable rather than reporting a skipped success.
-# If cmd/cli is ever added, build it above and copy it to /app/cli and those
-# modes start working with no change to the entrypoint.
+# This image ships two binaries, both built above from this exact source
+# tree: regenerate-docs (cmd/regenerate-docs) and aurumcode (cmd/aurumcode).
+# aurumcode publishes exactly two subcommands, review and docs
+# (cmd/aurumcode/main.go); it has no qa subcommand, so the entrypoint's `qa`
+# mode still fails with an explicit message instead of reporting a skipped
+# success.
 COPY --from=builder /build/regenerate-docs /app/regenerate-docs
-COPY --from=tools /go/bin/gomarkdoc /usr/local/bin/gomarkdoc
+COPY --from=builder /build/aurumcode /app/aurumcode
 
 # Copy scripts for GitHub Action
 COPY scripts/ /app/scripts/
@@ -59,18 +65,22 @@ RUN chmod +x /app/scripts/*.sh
 # contain what the entrypoint documents, so the image and the script cannot
 # drift apart silently.
 RUN test -x /app/regenerate-docs \
-    && test -x /usr/local/bin/gomarkdoc \
+    && test -x /app/aurumcode \
     && test -x /app/scripts/action-entrypoint.sh \
     && bash -n /app/scripts/action-entrypoint.sh \
     && bash -n /app/scripts/build-docs-site.sh \
     && bash -n /app/scripts/generate-enhanced-docs.sh
 
-# `documentation` is the only mode this image can actually serve, so the image
-# does not ship until that mode's behavioral suite passes INSIDE it, against
-# this image's own busybox userland. The suite builds its own git workspaces
-# and stand-in generators under /tmp and proves, among other things, that a run
-# which generates nothing fails closed instead of reporting a complete
-# pipeline. A syntax check alone would not have caught that.
+# `documentation` is the one mode gated by an in-image BEHAVIORAL suite (both
+# `review` and `documentation` are servable now that /app/aurumcode exists --
+# see the aurumcode build above -- but review needs a real git workspace and
+# an LLM provider this build cannot fabricate, where documentation's own
+# fixture generator can). The image does not ship until that suite passes
+# INSIDE it, against this image's own busybox userland. The suite builds its
+# own git workspaces and stand-in generators under /tmp and proves, among
+# other things, that a run which generates nothing fails closed instead of
+# reporting a complete pipeline. A syntax check alone would not have caught
+# that.
 #
 # The exit status alone is NOT the gate. A suite whose cases all die in a
 # subshell can still exit 0, which is the same class of defect this image is

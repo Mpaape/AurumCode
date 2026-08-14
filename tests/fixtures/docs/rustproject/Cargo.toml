@@ -1,0 +1,8 @@
+[package]
+name = "rustproject"
+version = "0.1.0"
+edition = "2021"
+
+# This manifest exists so the fixture looks like a real crate to a human
+# reader; AUR-427's native extractor (internal/documentation/extractors/rust)
+# never reads this file and never invokes `cargo`. See docs/specs/AUR-427.md.

@@ -46,14 +46,15 @@ Under `output-dir` (`.aurumcode` by default), relative to `source-dir`:
 
 ## Supported Languages
 
-Go is the action's own stack and its toolchain (`gomarkdoc`) is always
-installed. Every other language needs its toolchain requested through
+Go is the action's own stack: its extractor uses the standard library
+(`go/parser` + `go/doc`) in-process and needs no external tool on `PATH`
+(since AUR-424). Every other language needs its toolchain requested through
 `extra-toolchains`, except Bash and PowerShell, which are parsed in process. A
 missing optional toolchain is logged as a warning and that language is skipped.
 
 | Language | Needs on `PATH` | How it is provided |
 |----------|-----------------|--------------------|
-| Go | `gomarkdoc` | always installed |
+| Go | none, built in (`go/parser` + `go/doc`) | always available |
 | JavaScript/TypeScript | `typedoc` | `extra-toolchains: javascript` |
 | Python | `pydoc-markdown` | `extra-toolchains: python` |
 | C/C++ | `doxygen` | `extra-toolchains: cpp` |
@@ -262,7 +263,8 @@ go run ./cmd/regenerate-docs
 
 ## Requirements
 
-- `gomarkdoc` is installed by the action; local runs need it on `PATH`
+- Go needs no external tool, on the action or for a local run: the extractor
+  uses `go/parser` and `go/doc` in-process (since AUR-424)
 - A `README.md` in `source-dir` for the welcome page
 - For `publish`, a Linux runner: the Jekyll build is a container action
 - For the AI-written welcome page, a valid key and base URL for an
@@ -293,5 +295,4 @@ go run ./cmd/regenerate-docs
 
 ## License
 
-No `LICENSE` file is present in this repository, so no license is granted here
-yet.
+[MIT](LICENSE), Copyright (c) 2026 Mateus Magnus Pimentel Paape.

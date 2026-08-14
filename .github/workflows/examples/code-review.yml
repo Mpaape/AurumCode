@@ -1,78 +1,151 @@
-# Example: AurumCode documentation gate on pull requests
-# Copy this file to your repository as .github/workflows/aurumcode-review.yml
+# Example: AurumCode automatic code review on pull requests
+# Copy this file to your repository as .github/workflows/code-review.yml and
+# add two repository secrets: LLM_API_KEY and LLM_BASE_URL (optionally a
+# repository variable LLM_MODEL). From then on every pull request opened in
+# your repository is reviewed by AurumCode and receives the review as a
+# comment, with nobody running a command.
 #
-# AurumCode is a documentation generator. It does not review source code, does
-# not post pull request comments and does not score a diff, so this example
-# passes only inputs that action.yml actually declares. An input the action does
-# not declare is not an error on GitHub: the runner logs "Unexpected input(s)"
-# and carries on, which produces a green check for work that never ran.
+# ARCHITECTURE, ON PURPOSE
+# GitHub Actions triggers natively on the pull_request event and the job
+# authenticates with the Action's own installation token (github.token).
+# There is NO self-hosted webhook server to deploy and NO HMAC signature to
+# validate: GitHub delivers the event to this workflow itself. The review
+# binary is built from the AurumCode release tag below -- trusted, pinned
+# code -- and the pull request's own code is only DATA to this job: it is
+# read as a git diff, never built and never executed.
 
-name: AurumCode - Documentation Gate
+name: AurumCode - Code Review
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-# pull_request, never pull_request_target: this job checks out and executes the
-# fork's head, so it must not hold a writable token or the repository secrets.
-# Without this block the workflow inherits the repository default, which can be
-# read/write on every scope.
+# pull_request, never pull_request_target: the writable token stays scoped to
+# same-repository pull requests, where GitHub grants it. On a pull request
+# from a fork GitHub withholds secrets and downgrades the token to read-only,
+# so the review step below fails loudly instead of silently green-checking a
+# review that could not be published.
+#
+# The default token stays read-only at the workflow level; the single write
+# grant lives on the one job that publishes the comment. Without this block
+# the workflow inherits the repository default, which can be read/write on
+# every scope.
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # One review run per pull request: a push that supersedes the reviewed
+  # commit cancels the stale run instead of racing it to the comment box.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  documentation-gate:
+  review:
     runs-on: ubuntu-latest
+
+    # Minimum for this job. contents: read checks out both trees;
+    # pull-requests: write is what lets `gh pr comment` publish the review.
+    # Remove it and GitHub refuses the publication -- and this repository's
+    # manifest validation (tests/unit/AUR-440.go) fails the same way.
     permissions:
       contents: read
+      pull-requests: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout pull request code
         # Pinned to an immutable commit; the tag beside it is only a reading aid.
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          # Full history so the review binary can resolve the pull request's
+          # base commit locally: it reads git's object database in pure Go
+          # and never shells out to fetch missing objects.
           fetch-depth: 0
 
-      - name: Generate documentation
-        # The id is what makes steps.aurumcode.outputs.* resolve below. Without
-        # it every such expression expands to the empty string and the gate ends
-        # up comparing nothing against nothing.
-        id: aurumcode
-        # Pin the action to the commit you reviewed, never to a mutable branch:
-        # @main lets a later upstream push change what executes in your repo.
-        uses: Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8 # reviewed head of PR #1
+      - name: Checkout the AurumCode release
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          source-dir: '.'
-          output-dir: '.aurumcode'
-          publish: 'none'
+          repository: Mpaape/AurumCode
+          # v1 is the published semver release tag: the contract a copied
+          # workflow relies on without editing anything. It resolves once the
+          # maintainer publishes the tag (a human act outside any CI run; see
+          # docs/specs/AUR-440.md in the AurumCode repository). Never point
+          # this at a mutable branch: @main lets a later upstream push change
+          # what executes in your repo. If your policy requires immutable
+          # pins, replace the tag with the commit SHA it resolves to at
+          # review time.
+          ref: v1
+          # A separate directory, so the tool tree never mixes with -- or
+          # overwrites -- the pull request tree it is about to review.
+          path: .aurumcode-tool
 
-      - name: Fail when the generator produced nothing
-        # Step outputs are read through env, never interpolated into the script
-        # body: a ${{ }} inside a run: block is substituted before bash parses
-        # the line, so a value carrying a quote or a semicolon would execute.
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.21'
+
+      - name: Build the review binary from the pinned release
+        # Built from the v1 tree checked out above and nothing else. The pull
+        # request's own code is never compiled: a malicious PR must not get
+        # its build scripts executed by a job that holds a writable token.
+        run: |
+          set -euo pipefail
+          go build -C .aurumcode-tool -o "${RUNNER_TEMP}/aurumcode" ./cmd/aurumcode
+
+      - name: Review the pull request diff
+        # Credentials reach the binary only through env from the secrets
+        # context, which GitHub masks in every log line. Event data reaches
+        # the script through env too, never interpolated into the script
+        # body: a ${{ }} inside a run: block is substituted before bash
+        # parses the line, so a value carrying a quote or a semicolon would
+        # execute.
         env:
-          DOCS_GENERATED: ${{ steps.aurumcode.outputs.docs-generated }}
-          LANGUAGES: ${{ steps.aurumcode.outputs.languages-detected }}
-          DOCS_PATH: ${{ steps.aurumcode.outputs.docs-path }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
 
-          # A missing output means the action reported no result. That is a
-          # broken run, not an empty repository, so it fails here.
-          case "${DOCS_GENERATED}" in
-            ''|*[!0-9]*)
-              echo "::error::docs-generated='${DOCS_GENERATED}' is not a number - the action reported no result"
-              exit 1
-              ;;
-          esac
-
-          if [ "${DOCS_GENERATED}" -eq 0 ]; then
-            echo "::error::the generator wrote 0 markdown files under '${DOCS_PATH}' - failing instead of reporting a green documentation check"
+          # A missing credential must fail loudly here. Letting the binary
+          # error later -- or worse, skipping the review -- would leave a
+          # green check on a pull request nobody reviewed.
+          if [ -z "${LLM_API_KEY}" ] || [ -z "${LLM_BASE_URL}" ]; then
+            echo "::error::LLM_API_KEY and LLM_BASE_URL must be configured as repository secrets - refusing to green-check a review that never ran"
             exit 1
           fi
 
-          echo "${DOCS_GENERATED} markdown files under ${DOCS_PATH} (languages: ${LANGUAGES:-none})"
+          # --base is the pull request's base commit: the review covers
+          # exactly what this pull request changes. The binary exits 0 with
+          # findings or with none; a non-zero exit means the review itself
+          # broke and must fail this job, not be papered over.
+          "${RUNNER_TEMP}/aurumcode" review --base "${BASE_SHA}" | tee "${RUNNER_TEMP}/review.txt"
+
+          if [ ! -s "${RUNNER_TEMP}/review.txt" ]; then
+            echo "::error::the review binary produced no output - refusing to post an empty comment"
+            exit 1
+          fi
+
+      - name: Publish the review as a pull request comment
+        # gh ships preinstalled on the ubuntu-latest runner image and
+        # authenticates from GH_TOKEN: the Action's own token, whose
+        # pull-requests: write grant above is exactly what this step needs.
+        # The review text travels through a file (--body-file), never through
+        # shell interpolation of model output.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          body="${RUNNER_TEMP}/review-comment.md"
+          {
+            printf '### AurumCode code review\n\n'
+            printf 'Reviewed commit %s.\n\n' "${HEAD_SHA}"
+            printf '```\n'
+            cat "${RUNNER_TEMP}/review.txt"
+            printf '```\n'
+          } >"${body}"
+
+          gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file "${body}"

@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aurumcode.local/schemas/task-spec.schema.json",
+  "title": "AurumCode atomic TaskSpec",
+  "description": "Strict, single-outcome contract for one atomic board card.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "id",
+    "title",
+    "status",
+    "validation",
+    "office",
+    "depends_on",
+    "requirements",
+    "controls",
+    "paths",
+    "forbidden_paths",
+    "base_sha",
+    "spec_digest",
+    "risk",
+    "data_class",
+    "trust_boundaries",
+    "outcome",
+    "mutation"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aurum.task-spec"
+    },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "$ref": "#/$defs/card-id"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S"
+    },
+    "status": {
+      "enum": [
+        "backlog",
+        "ready",
+        "doing",
+        "review",
+        "done",
+        "blocked-on-owner",
+        "cancelled"
+      ]
+    },
+    "validation": {
+      "enum": [
+        "none",
+        "tested",
+        "skeptical"
+      ]
+    },
+    "office": {
+      "type": "string",
+      "pattern": "^O[0-9]{2}-[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "depends_on": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/card-id"
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^PR-[A-Z0-9]+-[0-9]{3}$"
+      }
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^CR-[A-Z0-9]+-[0-9]{3}$"
+      }
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "read_paths": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "forbidden_paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "base_sha": {
+      "type": "string",
+      "pattern": "^(lock-at-execution|[0-9a-f]{40})$"
+    },
+    "spec_digest": {
+      "type": "string",
+      "pattern": "^(lock-at-execution|sha256:[0-9a-f]{64})$"
+    },
+    "risk": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "data_class": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "trust_boundaries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "repository",
+          "authorization-source",
+          "network-source",
+          "network-endpoint",
+          "container-engine",
+          "supply-chain",
+          "scm",
+          "documentation-tool",
+          "parser-runtime",
+          "parser-worker",
+          "model-provider",
+          "review-isolation",
+          "filesystem",
+          "secret-channel",
+          "labelled-corpus",
+          "policy-input",
+          "candidate-identity",
+          "state-store",
+          "git-metadata",
+          "process-runtime",
+          "skill-runtime",
+          "skill-policy",
+          "mcp",
+          "mcp-client",
+          "database",
+          "security-scanner"
+        ]
+      }
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "\\S"
+    },
+    "mutation": {
+      "$ref": "#/$defs/mutation"
+    }
+  },
+  "allOf": [
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"repository"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"repository"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"authorization-source"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"authorization-source"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"network-source"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"network-source"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"network-endpoint"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"network-endpoint"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"container-engine"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"container-engine"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"supply-chain"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"supply-chain"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"scm"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"scm"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"documentation-tool"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"documentation-tool"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"parser-runtime"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"parser-runtime"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"parser-worker"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"parser-worker"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"model-provider"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"model-provider"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"review-isolation"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"review-isolation"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"filesystem"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"filesystem"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"secret-channel"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"secret-channel"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"labelled-corpus"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"labelled-corpus"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"policy-input"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"policy-input"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"candidate-identity"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"candidate-identity"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"state-store"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"state-store"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"git-metadata"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"git-metadata"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"process-runtime"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"process-runtime"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"skill-runtime"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"skill-runtime"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"skill-policy"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"skill-policy"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"mcp"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"mcp"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"mcp-client"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"mcp-client"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"database"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"database"}}}}},
+    {"if":{"properties":{"mutation":{"properties":{"boundary":{"const":"security-scanner"}}}}},"then":{"properties":{"trust_boundaries":{"contains":{"const":"security-scanner"}}}}}
+  ],
+  "x-aurumcode": {
+    "path_policy": {
+      "relative_posix": true,
+      "reject_whitespace": true,
+      "reject_control": true,
+      "reject_empty_components": true
+    },
+    "scope_disjointness": {
+      "fields": ["paths", "read_paths", "forbidden_paths"],
+      "relation": "no-equal-or-ancestor"
+    }
+  },
+  "$defs": {
+    "card-id": {
+      "type": "string",
+      "pattern": "^AUR-[0-9]{3}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*\\s)(?!.*[\\u0000-\\u001f\\u007f-\\u009f])[^/]+(?:/[^/]+)*$"
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "boundary",
+        "change",
+        "expected"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^MUT-[0-9]{3}$"
+        },
+        "boundary": {
+          "enum": [
+            "repository",
+            "authorization-source",
+            "network-source",
+            "network-endpoint",
+            "container-engine",
+            "supply-chain",
+            "scm",
+            "documentation-tool",
+            "parser-runtime",
+            "parser-worker",
+            "model-provider",
+            "review-isolation",
+            "filesystem",
+            "secret-channel",
+            "labelled-corpus",
+            "policy-input",
+            "candidate-identity",
+            "state-store",
+            "git-metadata",
+            "process-runtime",
+            "skill-runtime",
+            "skill-policy",
+            "mcp",
+            "mcp-client",
+            "database",
+            "security-scanner"
+          ]
+        },
+        "change": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "expected": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        }
+      }
+    }
+  }
+}
