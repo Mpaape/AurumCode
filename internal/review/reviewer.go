@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -148,13 +149,20 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	if err != nil {
 		return nil, fmt.Errorf("review rules unavailable: %w", err)
 	}
-	rejected := enforceRuleCitations(rules, result)
+	rejected, discarded := enforceRuleCitations(rules, result)
 
 	// Add metadata
 	if result.Metadata == nil {
 		result.Metadata = make(map[string]string)
 	}
 	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", rejected)
+	// AUR-448: a discard the rule gate makes is never silent. The caller
+	// (cmd/aurumcode) prints discardWarning verbatim to stderr when it is
+	// non-empty; it is deliberately "" on the happy path (rejected == 0) so
+	// a caller that prints unconditionally on a non-empty string never
+	// writes a byte to stderr for a review where every finding cites a
+	// resolvable rule -- see formatDiscardWarning.
+	result.Metadata["discard_warning"] = formatDiscardWarning(discarded)
 	result.Metadata["total_files"] = fmt.Sprintf("%d", metrics.TotalFiles)
 	result.Metadata["lines_added"] = fmt.Sprintf("%d", metrics.LinesAdded)
 	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", metrics.LinesDeleted)
@@ -264,8 +272,21 @@ func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
 	}
 }
 
+// discardSummary tallies WHY enforceRuleCitations rejected findings, not
+// only how many: Missing counts issues whose RuleID was empty (the model
+// cited no rule at all), Unknown counts issues whose RuleID was non-empty
+// but did not resolve against the embedded catalog, and UnknownIDs is the
+// distinct set of unknown ids cited, sorted for a deterministic message
+// (AUR-448 -- a discard must be nameable, never only a count).
+type discardSummary struct {
+	Missing    int
+	Unknown    int
+	UnknownIDs []string
+}
+
 // enforceRuleCitations applies AUR-434's rule gate to result, in place,
-// and returns how many issues it rejected.
+// and returns how many issues it rejected plus the discardSummary a caller
+// uses to explain the rejection (AUR-448).
 //
 // For each issue, the cited rule is resolved against the embedded project
 // review standard. An issue whose RuleID is missing or unknown is
@@ -274,13 +295,22 @@ func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
 // enrichment (empty Message/Severity filled from the rule, file path
 // cleaned) and gains the citation itself, appended to the message the
 // user sees as " (rule <id>: <title>)".
-func enforceRuleCitations(rules *RulesLoader, result *types.ReviewResult) int {
+func enforceRuleCitations(rules *RulesLoader, result *types.ReviewResult) (int, discardSummary) {
 	kept := make([]types.ReviewIssue, 0, len(result.Issues))
-	rejected := 0
+	var discarded discardSummary
+	seenUnknown := make(map[string]bool)
 	for _, issue := range result.Issues {
 		rule, ok := rules.Get(issue.RuleID)
 		if !ok {
-			rejected++
+			if issue.RuleID == "" {
+				discarded.Missing++
+			} else {
+				discarded.Unknown++
+				if !seenUnknown[issue.RuleID] {
+					seenUnknown[issue.RuleID] = true
+					discarded.UnknownIDs = append(discarded.UnknownIDs, issue.RuleID)
+				}
+			}
 			continue
 		}
 		if issue.Message == "" {
@@ -296,5 +326,28 @@ func enforceRuleCitations(rules *RulesLoader, result *types.ReviewResult) int {
 		kept = append(kept, issue)
 	}
 	result.Issues = kept
-	return rejected
+	sort.Strings(discarded.UnknownIDs)
+	return discarded.Missing + discarded.Unknown, discarded
+}
+
+// formatDiscardWarning renders discarded as the one-line explanation
+// GenerateReview's caller prints to stderr: how many findings the rule gate
+// discarded and why (a missing rule_id, an unknown rule_id, or both) --
+// never a silent "No issues found." when the model actually reported
+// something the gate then hid (AUR-448). Returns "" when nothing was
+// discarded, so the happy path (every finding cites a resolvable rule)
+// never receives a byte on stderr.
+func formatDiscardWarning(discarded discardSummary) string {
+	total := discarded.Missing + discarded.Unknown
+	if total == 0 {
+		return ""
+	}
+	var reasons []string
+	if discarded.Missing > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d with no rule_id", discarded.Missing))
+	}
+	if discarded.Unknown > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d citing an unknown rule_id (%s)", discarded.Unknown, strings.Join(discarded.UnknownIDs, ", ")))
+	}
+	return fmt.Sprintf("%d finding(s) discarded: %s", total, strings.Join(reasons, ", "))
 }

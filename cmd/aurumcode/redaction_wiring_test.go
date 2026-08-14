@@ -54,7 +54,16 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		"aurumcode review: --modelo: model name must not be empty",
 		// AUR-443: the plain (no --modelo) provider-missing message, same
 		// idea as reportModelUnavailable's line above.
-		`aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","message":"<text>"}]} for offline use (see tests/fixtures/review/known-problem-response.json for a worked example), or set LLM_API_KEY and LLM_BASE_URL for a live provider`,
+		// AUR-448: extended with rule_id (a real embedded-catalog id as the
+		// example) and the discard explanation, and the fixture pointer is
+		// now explicitly conditional on having the AurumCode source
+		// checked out -- see selectProvider's own comment for why.
+		`aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider`,
+		// AUR-448: the rule gate's discard is never silent. This is an
+		// instantiated example of internal/review.formatDiscardWarning's
+		// output, printed verbatim to stderr with the "aurumcode review: "
+		// prefix every other canonical line here uses.
+		`aurumcode review: 2 finding(s) discarded: 1 with no rule_id, 1 citing an unknown rule_id (security/definitely-not-a-rule)`,
 		// AUR-443: computeDiff's cleaned-up git-repository and
 		// ref-resolution errors (cmd/aurumcode/main.go's computeDiff /
 		// cleanRefError) -- one clean sentence each, no duplicated phrase,
