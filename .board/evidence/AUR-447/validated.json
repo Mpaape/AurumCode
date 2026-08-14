@@ -1,0 +1,17 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-447",
+ "commit": "bcf240b6d0a56617ef42c0f85d45e6a09799e272",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-447",
+  "exit_code": 0,
+  "raw_output": "0 for 447, 426, 427 and 425; regenerate-docs binary sha256 identical between parent and candidate; review stdout, stderr and exit codes unchanged"
+ },
+ "review_notes": {
+  "declared_debt": "two hand-maintained extractor registries; they agree today, verified item by item and empirically on a ten-language fixture. The only real difference is that the CLI never reads AURUMCODE_ALLOW_REPO_CODE_EXECUTION, so it is strictly less privileged and never executes repository code",
+  "preexisting": "go build ./... fails on mixed package main/unit/integration under tests/, reproduced identically on the parent"
+ }
+}
