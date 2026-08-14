@@ -1,0 +1,61 @@
+# Task ID: 7
+# Title: Prompt Builder, Robust Response Parser, Deterministic LLM Calls
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Create prompt construction with token budgeting and a response parser that extracts JSON from markdown/code fences and repairs minor malformations; add retry/backoff and safety filters.
+# Details:
+- Package: `internal/llm/{prompt,parser}`.
+- PromptBuilder inputs: Config, Diff (selected hunks), language rules, documents; outputs a structured prompt with instructions for strict JSON schema responses for reviews/tests/docs.
+- Token budgeting: estimate tokens of system+user; trim context by priority (changed functions > headers > comments) until within `max_tokens` budget.
+- ResponseParser:
+  - Extract first JSON code fence if present; fallback to bracket matching.
+  - Attempt repair: remove trailing commas, fix quotes, ensure required fields present; if irreparable, return error.
+- Determinism: default `temperature=0.3`; allow `0.0` for QA; set `top_p=1`, `frequency_penalty=0` where applicable.
+- Pseudocode:
+  - func BuildReviewPrompt(diff, rules) Prompt { return Prompt{System: sys, User: fmt.Sprintf(template, diffSummary, rules)} }
+  - func ParseJSONFromMarkdown(s string) (map[string]any, error) { if codeFenceJSON(s) ok; else if findFirstBracePair ok; else err }
+
+# Test Strategy:
+- Unit: prompts include required sections and fit budget given token estimator stub.
+- Unit: response parser over fixtures: valid JSON, JSON-in-markdown, malformed variants; verify repair outcomes or errors.
+- Integration: simulate provider returning markdown; ensure parser extracts canonical JSON map.
+- Negative: ensure unsafe content (secrets) triggers filter or redaction path.
+
+# Subtasks:
+## 1. Scaffold prompt/parser packages and core types/interfaces [pending]
+### Dependencies: None
+### Description: Create initial package layout and define the fundamental types and contracts.
+### Details:
+Create `internal/llm/prompt` and `internal/llm/parser`. Define `PromptParts{System string, User string, Meta map[string]string}`, `BuildOptions{MaxTokens int, SchemaKind string, Role string, ReserveReply int}`, `LanguageRules`, and `Document`. Add `TokenEstimator` interface with `Estimate(text string) int`. Define context segment model with `PriorityTier` and stable sort keys.
+
+## 2. Implement token budgeting and priority-based trimming in PromptBuilder [pending]
+### Dependencies: 7.1
+### Description: Add budgeting logic that estimates tokens and trims context by priority until within limits.
+### Details:
+In `internal/llm/prompt`, implement `BuildPrompt(diff, rules, docs, cfg, opts) (PromptParts, error)`. Use `TokenEstimator` to measure system+user+schema, maintain `ReserveReply` headroom. Slice context into segments (changed functions, headers, comments, docs) with priorities, deterministically trim lowest-priority segments first, then least-recent hunks. Ensure stable ordering and idempotent results.
+
+## 3. Add JSON schema templates and structured prompt assembly [pending]
+### Dependencies: 7.1, 7.2
+### Description: Provide schema-driven templates for reviews/tests/docs with strict JSON code-fence instructions.
+### Details:
+Create templates in `internal/llm/prompt/templates.go` for schema kinds (review, tests, docs). Embed explicit instructions: respond with a single ```json fenced block matching the provided schema. Include fields, types, and required arrays. Inject diff summaries, language rules, and redaction notes. Compose final `System` and `User` strings from parts with consistent section headers.
+
+## 4. Build ResponseParser to extract and repair JSON from markdown [pending]
+### Dependencies: 7.1, 7.3
+### Description: Implement robust extraction from code fences, fallback bracket matching, and light repairs.
+### Details:
+In `internal/llm/parser`, implement `ParseJSONFromMarkdown(s string) (map[string]any, error)`. Steps: (1) regex for first ```json fence, (2) fallback to first balanced brace pair scan, (3) repair pass: strip trailing commas, normalize quotes (smart→standard, single→double when safe), close missing brackets, and inject missing required fields with null defaults when specified. Canonicalize keys for deterministic output; return clear errors on irreparable input.
+
+## 5. Add safety filters/redaction and deterministic retry/backoff wrapper [pending]
+### Dependencies: 7.1, 7.2, 7.3, 7.4
+### Description: Introduce secret/PII redaction, enforce deterministic options, and add retry with backoff around parseable responses.
+### Details:
+Implement pre-flight filter that scans context (diff, docs) for secrets/PII (e.g., keys, tokens, emails) and replaces with `[REDACTED]`. Provide deterministic defaults: `temperature=0.3` (QA override to `0.0`), `top_p=1`, `frequency_penalty=0`. Add a wrapper `CallWithRetry(ctx, doCall, opts)` using exponential backoff with jitter and max attempts; on each attempt, ensure prompt fits budget and parser can extract JSON or trigger retry on transient/parsing errors. Keep provider coupling via a small interface to align with Task 3.
+
+## 6. Create fixtures and golden tests for edge cases and regression [pending]
+### Dependencies: 7.2, 7.3, 7.4, 7.5
+### Description: Add comprehensive fixtures and golden files to validate trimming, parsing, repairs, and determinism.
+### Details:
+Add `tests/fixtures`: large diffs with headers/comments, language-rule variants, and multiple malformed JSON samples. Add golden prompts per schema kind and budgets. Write table-driven tests asserting stable prompt outputs across runs, correct trimming order under tight budgets, successful parser repairs, and unchanged outputs with identical inputs to prove determinism.
+

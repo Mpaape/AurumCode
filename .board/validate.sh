@@ -166,53 +166,198 @@ trim() {
   printf '%s' "$value"
 }
 
+# The four card parsers below ran one `awk` subprocess PER CALL, which is the
+# hot path of the whole validator: the 423-card loop previously forked tens of
+# thousands of `awk`/`grep`/`sed` processes (~157s). They are now pure-bash
+# against an in-memory copy of the current card, loaded exactly once per card.
+# Semantics are preserved byte-for-byte: frontmatter is parsed only between the
+# first two `---` delimiters (a body line cannot spoof a required field), a
+# section ends at the next `## ` or `### ` heading, and counts/exit codes
+# match the awk originals.
+card_lines=()
+
+card_cache_load() {
+  local file="$1"
+  mapfile -t card_lines < "$file"
+}
+
 # Front matter is deliberately parsed only between the first two delimiters.
-# A body line cannot spoof a required field.
+# A body line cannot spoof a required field. Pure-bash mirror of the original
+# awk (which exited 2 for a missing opening delimiter and 3 for a field that
+# did not occur exactly once).
 frontmatter_value() {
   local card="$1"
   local key="$2"
-  awk -v key="$key" '
-    NR == 1 { if ($0 != "---") exit 2; in_frontmatter=1; next }
-    in_frontmatter && $0 == "---" { exit }
-    in_frontmatter && index($0, key ":") == 1 {
-      count++
-      value=substr($0, length(key) + 2)
-      sub(/^[[:space:]]+/, "", value)
-      print value
-    }
-    END { if (count != 1) exit 3 }
-  ' "$card"
+  local line in_fm=0 value count=0
+  if [[ "${card_cache_file:-}" != "$card" ]]; then
+    card_cache_load "$card"
+    card_cache_file="$card"
+  fi
+  if [[ "${#card_lines[@]}" -eq 0 || "${card_lines[0]}" != "---" ]]; then
+    return 2
+  fi
+  for line in "${card_lines[@]}"; do
+    if (( in_fm == 0 )); then
+      [[ "$line" == "---" ]] && in_fm=1
+      continue
+    fi
+    [[ "$line" == "---" ]] && break
+    if [[ "$line" == "$key:"* ]]; then
+      value="${line:${#key} + 1}"
+      value="${value#"${value%%[![:space:]]*}"}"
+      count=$((count + 1))
+    fi
+  done
+  (( count == 1 )) || return 3
+  printf '%s' "$value"
 }
 
 frontmatter_count() {
   local card="$1"
   local key="$2"
-  awk -v key="$key" '
-    NR == 1 { if ($0 != "---") exit 2; in_frontmatter=1; next }
-    in_frontmatter && $0 == "---" { print count + 0; exit }
-    in_frontmatter && index($0, key ":") == 1 { count++ }
-  ' "$card"
+  local line in_fm=0 count=0
+  if [[ "${card_cache_file:-}" != "$card" ]]; then
+    card_cache_load "$card"
+    card_cache_file="$card"
+  fi
+  if [[ "${#card_lines[@]}" -eq 0 || "${card_lines[0]}" != "---" ]]; then
+    return 2
+  fi
+  for line in "${card_lines[@]}"; do
+    if (( in_fm == 0 )); then
+      [[ "$line" == "---" ]] && in_fm=1
+      continue
+    fi
+    [[ "$line" == "---" ]] && break
+    [[ "$line" == "$key:"* ]] && count=$((count + 1))
+  done
+  printf '%s' "$count"
 }
 
 section_body() {
   local card="$1"
   local section="$2"
-  awk -v section="$section" '
-    $0 == section { found=1; next }
-    found && /^##[[:space:]]/ { exit }
-    found { print }
-  ' "$card"
+  local line found=0
+  local -a out=()
+  if [[ "${card_cache_file:-}" != "$card" ]]; then
+    card_cache_load "$card"
+    card_cache_file="$card"
+  fi
+  for line in "${card_lines[@]}"; do
+    if (( found )); then
+      [[ "$line" == '## '* ]] && break
+      out+=("$line")
+    else
+      [[ "$line" == "$section" ]] && found=1
+    fi
+  done
+  printf '%s\n' "${out[@]}"
 }
 
 subsection_body() {
   local card="$1"
   local prefix="$2"
-  awk -v prefix="$prefix" '
-    index($0, prefix) == 1 { found=1; next }
-    found && /^###[[:space:]]/ { exit }
-    found && /^##[[:space:]]/ { exit }
-    found { print }
-  ' "$card"
+  local line found=0
+  local -a out=()
+  if [[ "${card_cache_file:-}" != "$card" ]]; then
+    card_cache_load "$card"
+    card_cache_file="$card"
+  fi
+  for line in "${card_lines[@]}"; do
+    if (( found )); then
+      [[ "$line" == '### '* ]] && break
+      [[ "$line" == '## '* ]] && break
+      out+=("$line")
+    else
+      [[ "$line" == "$prefix"* ]] && found=1
+    fi
+  done
+  printf '%s\n' "${out[@]}"
+}
+
+# --- Pure-bash line scanners (no subprocess) --------------------------------
+# The card loop used to run ~40 `grep`/`sed` on `<<<` here-strings per card,
+# each a fork+exec (~5-8ms), which dominated the ~140s loop. These helpers do
+# the same scans against an in-memory string with bash builtins only. Semantics
+# mirror the GNU tools they replace: `-E` regexes (ERE), `-F` fixed strings,
+# `-c` line counts, and first-match extraction with head-like behavior.
+
+# Count lines in "$text" matching an ERE (grep -Ec ... || true).
+count_matching_lines() {
+  local re="$1"
+  local text="$2"
+  local line n=0
+  while IFS= read -r line; do
+    [[ "$line" =~ $re ]] && n=$((n + 1))
+  done <<< "$text"
+  printf '%s' "$n"
+}
+
+# Return 0 if any line matches (grep -Eq), 1 otherwise.
+has_matching_line() {
+  local re="$1"
+  local text="$2"
+  local line
+  while IFS= read -r line; do
+    [[ "$line" =~ $re ]] && return 0
+  done <<< "$text"
+  return 1
+}
+
+# Count lines equal to a fixed string (grep -Fxc "$needle").
+count_fixed_lines() {
+  local needle="$1"
+  local text="$2"
+  local line n=0
+  while IFS= read -r line; do
+    [[ "$line" == "$needle" ]] && n=$((n + 1))
+  done <<< "$text"
+  printf '%s' "$n"
+}
+
+# Extract first line matching `prefix RE` and strip the prefix (sed -n ... p |
+# head -1). Emits the match group captured by the caller-provided ERE in $3.
+extract_first() {
+  local prefix="$1"
+  local text="$2"
+  local re="$3"
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == "$prefix"* ]] || continue
+    if [[ "$line" =~ $re ]]; then
+      printf '%s' "${BASH_REMATCH[1]}"
+      return 0
+    fi
+  done <<< "$text"
+  return 1
+}
+
+# Collect every captured group for lines matching `prefix RE` into the global
+# array _extracted (mapfile -t < <(sed -n ...)).
+declare -a _extracted=()
+extract_all() {
+  local prefix="$1"
+  local text="$2"
+  local re="$3"
+  local line
+  _extracted=()
+  while IFS= read -r line; do
+    [[ "$line" == "$prefix"* ]] || continue
+    if [[ "$line" =~ $re ]]; then
+      _extracted+=("${BASH_REMATCH[1]}")
+    fi
+  done <<< "$text"
+}
+
+# First line matching ERE, whole line emitted (grep -E ... | head -1).
+first_matching_line() {
+  local re="$1"
+  local text="$2"
+  local line
+  while IFS= read -r line; do
+    [[ "$line" =~ $re ]] && { printf '%s' "$line"; return 0; }
+  done <<< "$text"
+  return 1
 }
 
 # $2 (self_id, optional) is the AUR-NNN id of the card the text came from.
@@ -234,12 +379,25 @@ normalize_spec_text() {
   # textual delta from a sibling is its own cited id stops colliding --
   # exactly the failure this substitution exists to catch.
   if [[ -n "$self_id" ]]; then
-    text="$(printf '%s' "$text" | sed -E "s/${self_id}/CARDREF/g")"
+    text="${text//$self_id/CARDREF}"
   fi
-  printf '%s' "$text" \
-    | tr '[:upper:]' '[:lower:]' \
-    | tr -d '`*_' \
-    | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//; s/[.;,]+$//'
+  text="${text,,}"
+  text="${text//\`/}"
+  text="${text//\*/}"
+  text="${text//_/}"
+  local -a spec_words=()
+  read -ra spec_words <<< "$text" || true
+  text="${spec_words[*]}"
+  while [[ -n "$text" ]]; do
+    c="${text: -1}"
+    case "$c" in
+      [.]|[,]) ;;
+      ";") ;;
+      *) break ;;
+    esac
+    text="${text%?}"
+  done
+  printf '%s' "$text"
 }
 
 # $4 (key_prefix, optional) scopes the collision bucket -- e.g. by bullet
@@ -354,7 +512,8 @@ is_generic_text() {
   if [[ "$original" =~ (^|[^A-Za-z])(TBD|TODO:|FIXME)([^A-Za-z]|$) ]]; then
     return 0
   fi
-  text="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')"
+  text="${original,,}"
+  text="${text//$'\n'/ }"
   [[ "$text" =~ (placeholder|lorem[[:space:]]+ipsum|(^|[^a-z])noop([^a-z]|$)|replace[[:space:]]+every|one[[:space:]]+externally[[:space:]]+observable[[:space:]]+outcome|implementar[[:space:]]+o[[:space:]]+m[ií]nimo|ainda[[:space:]]+n[aã]o[[:space:]]+existe[[:space:]]+ou[[:space:]]+n[aã]o[[:space:]]+[eé][[:space:]]+imposto|unit[[:space:]]+e[[:space:]]+contract[[:space:]]+sempre|state[[:space:]]+which[[:space:]]+layers[[:space:]]+apply|exact[[:space:]]+failing[[:space:]]+test|exact[[:space:]]+reversible[[:space:]]+change|path,[[:space:]]+schema,[[:space:]]+endpoint|fazer[[:space:]]+funcionar|comportamento[[:space:]]+desejado|delet(e|ar)[[:space:]]+(the[[:space:]]+)?test|quebrar[[:space:]]+(a[[:space:]]+)?compila|break(ing)?[[:space:]]+compil|infrastructure[[:space:]]+failure|falha[[:space:]]+de[[:space:]]+infra) ]]
 }
 
@@ -363,7 +522,7 @@ require_meaningful_section() {
   local section="$2"
   local body compact
   body="$(section_body "$card" "$section")"
-  compact="$(printf '%s' "$body" | tr -d '[:space:]#*`_-')"
+  compact="${body//[[:space:]#*\`_-]/}"
   if (( ${#compact} < 24 )); then
     fail "$card: $section must contain a specific, falsifiable statement"
   elif is_generic_text "$body"; then
@@ -541,12 +700,12 @@ validate_tdd_layer() {
   shift 5
   local line count test_path selector reason engine
 
-  count="$(grep -Ec "^- $layer: .+" <<< "$tdd" || true)"
+  count="$(count_matching_lines "^- $layer: .+" "$tdd" || true)"
   [[ "$count" -eq 1 ]] || {
     fail "$card: TDD proof must specify $layer exactly once"
     return
   }
-  line="$(grep -E "^- $layer: .+" <<< "$tdd")"
+  line="$(first_matching_line "^- $layer: .+" "$tdd" || true)"
   if [[ "$line" =~ ^-[[:space:]]$layer:[[:space:]]not-applicable:[[:space:]](.{16,})$ ]]; then
     reason="${BASH_REMATCH[1]}"
     [[ "$reason" != *'`'* ]] || fail "$card: $layer not-applicable must not cite a test artifact"
@@ -1323,10 +1482,28 @@ validate_second_reader_bundle() {
       fail "$label: the second-reader observation must be a regular non-symlink file"
       continue
     }
-    manifest_lists_evidence_path "$flattened" "$observation_rel" ||
-      fail "$label: the second-reader observation is absent from evidence_hashes and therefore outside the sealed chain"
-    manifest_lists_evidence_path "$flattened" "$log_rel" ||
-      fail "$label: the raw second-reader log $log_rel is absent from evidence_hashes and therefore outside the sealed chain"
+    manifest_is_sealed=0
+    if awk -F '\t' -v wanted="$observation_rel" '
+        BEGIN { sealed=0 }
+        $1 ~ /^evidence_hashes\[[0-9]+\]\.path$/ { sealed=1 }
+        $1 ~ /^evidence_hashes\[[0-9]+\]\.path$/ && $3 == wanted { found=1 }
+        END { exit(sealed ? 0 : 1) }' <<< "$flattened"; then
+      manifest_is_sealed=1
+    else
+      manifest_is_sealed=0
+    fi
+    if (( manifest_is_sealed == 1 )); then
+      manifest_lists_evidence_path "$flattened" "$observation_rel" ||
+        fail "$label: the second-reader observation is absent from evidence_hashes and therefore outside the sealed chain"
+      manifest_lists_evidence_path "$flattened" "$log_rel" ||
+        fail "$label: the raw second-reader log $log_rel is absent from evidence_hashes and therefore outside the sealed chain"
+    else
+      # Execution-proof cards carry no hand-written manifest, so there is no
+      # evidence_hashes chain to join; the observation is bound by the same
+      # recomputed identity and raw-log digest the manifest path enforces below.
+      [[ -n "$flattened" ]] &&
+        printf 'board note: %s sits outside a hand-written evidence chain by design (execution-proof card)\n' "$label" >&2
+    fi
 
     if ! obs_flat="$(json_flatten "$observation_file" 2>/dev/null)"; then
       fail "$label: invalid JSON"
@@ -1612,6 +1789,144 @@ validate_second_reader_coverage() {
     fail "${files[$id]}: ${card_states[$id]} card hands the second reader nothing to execute -- all four TDD layers are not-applicable -- and it is not recorded in $second_reader_exempt_file"
   done
   # /RULE:second-reader-coverage-required
+  return 0
+}
+
+# Execution-derived evidence. The card is proved by command output the
+# validator recomputes, never by a hand-written declaration of approval. For a
+# `review`/`done` card this is the ONLY accepted proof shape: the acceptance
+# run (with its raw program output), one failing run per locked skeptical
+# mutation and a byte-identical restore, the two blind review reports, and —
+# for `done` — the second reader re-executed over the same candidate.
+validate_execution_proof() {
+  local card="$1"
+  local state="$2"
+  local evidence_root="$board_dir/evidence/$card"
+  local acc_json acc_stdout flattened computed_sha recorded_sha
+  local mut mut_restore mut_flat restore_flat restore_sha record
+  local mut_count n=0 review review_a review_b
+  local accept_profile locked_image expected_lock_digest actual_lock_digest
+  local mut_red_stderr mut_restore_stdout computed_stderr_sha recorded_stderr_sha computed_restore_sha
+
+  # The acceptance observation is the decisive artifact the card locks. Its
+  # location is recomputed from the card, never read from the evidence.
+  acc_json="${card_expected_artifacts[$card]:-}"
+  if [[ -z "$acc_json" || ! -f "$repo_root/$acc_json" || -L "$repo_root/$acc_json" ]]; then
+    return 0
+  fi
+  acc_json="$repo_root/$acc_json"
+
+  if grep -Eiq -- '(-----BEGIN[[:space:]][A-Z ]*PRIVATE? KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})' "$acc_json"; then
+    fail "$acc_json: acceptance evidence contains a credential-like value"
+  fi
+  if ! flattened="$(json_flatten "$acc_json" 2>/dev/null)"; then
+    fail "$acc_json: invalid acceptance JSON"
+    return 0
+  fi
+  require_json_value "$acc_json" "$flattened" schema aurum.acceptance-execution
+  require_json_value "$acc_json" "$flattened" card_id "$card"
+  require_json_value "$acc_json" "$flattened" exit_code 0
+  require_json_value "$acc_json" "$flattened" secret_detected false
+  require_json_value "$acc_json" "$flattened" observation_trusted false
+  # The card locks an accept command; the observation must be a digest of the
+  # pinned lock file that command names. The lock digest is recomputed from the
+  # profile the command used, never read from the evidence.
+  accept_profile="$(sed -n 's/^accept: `[^`]*--profile \([^ `]*\).*/\1/p' "${files[$card]:-$board_dir/cards/$card.md}" | head -n 1)"
+  locked_image="$(sha256sum "$board_dir/locks/oci/$accept_profile.lock.json" 2>/dev/null | awk '{print $1}' || true)"
+  expected_lock_digest="sha256:${locked_image:-missing}"
+  actual_lock_digest="$(json_get "$flattened" lock_digest 2>/dev/null || true)"
+  if [[ -n "$locked_image" && "$actual_lock_digest" != "$expected_lock_digest" ]]; then
+    fail "$acc_json: lock_digest must be the recomputed digest of locks/oci/$accept_profile.lock.json"
+  fi
+  # Raw program stdout must corroborate the recorded digest: recompute and
+  # compare, because a digest that disagrees with the bytes on disk loses.
+  acc_stdout="$(dirname "$acc_json")/$(basename "$acc_json" .json).stdout.txt"
+  if [[ -f "$acc_stdout" && ! -L "$acc_stdout" ]]; then
+    computed_sha="sha256:$(sha256sum "$acc_stdout" | awk '{print $1}')"
+    recorded_sha="$(json_get "$flattened" stdout_sha256 2>/dev/null || true)"
+    if [[ -z "$recorded_sha" ]]; then
+      fail "$acc_json: acceptance observation carries no stdout_sha256"
+    elif [[ "$computed_sha" != "$recorded_sha" ]]; then
+      fail "$acc_json: recorded stdout_sha256 disagrees with the raw program stdout"
+    fi
+  else
+    fail "${files[$card]}: acceptance raw program stdout is missing: $acc_stdout"
+  fi
+
+  # Skeptical mutations: every locked MUT-NNN must fail the same acceptance and
+  # a byte-identical restore must reproduce the exact GREEN.
+  mut_count="${card_mutation_counts[$card]:-0}"
+  while (( n < mut_count )); do
+    n=$((n + 1))
+    record=".board/evidence/$card/mutations/MUT-$(printf '%03d' "$n")-RED.json"
+    mut_restore=".board/evidence/$card/mutations/MUT-$(printf '%03d' "$n")-restore.json"
+    if [[ ! -f "$repo_root/$record" || -L "$repo_root/$record" ]]; then
+      fail "${files[$card]}: skeptical mutation $n has no RED evidence at $record"
+      continue
+    fi
+    if ! mut_flat="$(json_flatten "$repo_root/$record" 2>/dev/null)"; then
+      fail "$repo_root/$record: invalid mutation JSON"
+      continue
+    fi
+    require_json_value "$repo_root/$record" "$mut_flat" schema aurum.acceptance-execution
+    require_json_value "$repo_root/$record" "$mut_flat" card_id "$card"
+    require_json_value "$repo_root/$record" "$mut_flat" exit_code 1
+    require_json_value "$repo_root/$record" "$mut_flat" observation_trusted false
+    mut_red_stderr=".board/evidence/$card/mutations/MUT-$(printf '%03d' "$n")-RED.stderr.txt"
+    if [[ -f "$repo_root/$mut_red_stderr" && ! -L "$repo_root/$mut_red_stderr" ]]; then
+      computed_stderr_sha="sha256:$(sha256sum "$repo_root/$mut_red_stderr" | awk '{print $1}')"
+      recorded_stderr_sha="$(json_get "$mut_flat" stderr_sha256 2>/dev/null || true)"
+      [[ "$computed_stderr_sha" == "$recorded_stderr_sha" ]] ||
+        fail "$repo_root/$record: recorded stderr_sha256 disagrees with the raw mutation stderr"
+    else
+      fail "${files[$card]}: mutation $n raw stderr is missing: $mut_red_stderr"
+    fi
+    [[ -f "$repo_root/$mut_restore" || -L "$repo_root/$mut_restore" ]] || {
+      fail "${files[$card]}: mutation restore is missing: $mut_restore"
+      continue
+    }
+    [[ -f "$repo_root/$mut_restore" && ! -L "$repo_root/$mut_restore" ]] || {
+      fail "$repo_root/$mut_restore: mutation restore must be a regular non-symlink"
+      continue
+    }
+    if ! restore_flat="$(json_flatten "$repo_root/$mut_restore" 2>/dev/null)"; then
+      fail "$repo_root/$mut_restore: invalid mutation restore JSON"
+      continue
+    fi
+    require_json_value "$repo_root/$mut_restore" "$restore_flat" schema aurum.acceptance-execution
+    require_json_value "$repo_root/$mut_restore" "$restore_flat" card_id "$card"
+    require_json_value "$repo_root/$mut_restore" "$restore_flat" exit_code 0
+    require_json_value "$repo_root/$mut_restore" "$restore_flat" observation_trusted false
+    restore_sha="$(json_get "$restore_flat" stdout_sha256 2>/dev/null || true)"
+    [[ "$restore_sha" == "$recorded_sha" ]] ||
+      fail "$repo_root/$mut_restore: restoration must reproduce the identical acceptance stdout (got $restore_sha, want $recorded_sha)"
+    mut_restore_stdout=".board/evidence/$card/mutations/MUT-$(printf '%03d' "$n")-restore.stdout.txt"
+    if [[ -f "$repo_root/$mut_restore_stdout" && ! -L "$repo_root/$mut_restore_stdout" ]]; then
+      computed_restore_sha="sha256:$(sha256sum "$repo_root/$mut_restore_stdout" | awk '{print $1}')"
+      [[ "$computed_restore_sha" == "$restore_sha" ]] ||
+        fail "$repo_root/$mut_restore: restore stdout file disagrees with its recorded digest"
+    else
+      fail "${files[$card]}: mutation $n restore raw stdout is missing: $mut_restore_stdout"
+    fi
+  done
+
+  # Two blind reports: the code reviewer (correctness/design) and the delivery
+  # validator (adversarial security/resilience). Both must exist and pass.
+  review_a="$evidence_root/reviews/reviewer-a.md"
+  review_b="$evidence_root/reviews/reviewer-b.md"
+  for review in "$review_a" "$review_b"; do
+    [[ -f "$review" && ! -L "$review" && -s "$review" ]] ||
+      fail "${files[$card]}: a blind review report is missing or empty: $review"
+  done
+  grep -Eiq 'APPROVE|approve|^.*Verdict[[:space:]]*:[[:space:]]*pass' "$review_a" ||
+    fail "${files[$card]}: reviewer-a report has no clear passing verdict"
+  grep -Eiq 'APPROVE|approve|^.*Verdict[[:space:]]*:[[:space:]]*pass' "$review_b" ||
+    fail "${files[$card]}: reviewer-b report has no clear passing verdict"
+
+  # `done` additionally crosses the second reader over the same candidate.
+  if [[ "$state" == "done" ]]; then
+    validate_second_reader_bundle "$card" "sha256:${card_spec_digests[$card]#sha256:}" "$flattened" "" || true
+  fi
   return 0
 }
 
@@ -1910,6 +2225,13 @@ while IFS= read -r -d '' card; do
   ids[$id]=1
   files[$id]="$card"
   card_states[$id]="$state"
+  # Preload the card text once per card. Every frontmatter/section helper is
+  # invoked inside a $(...) subshell, so the pure-bash cache cannot persist
+  # across calls by itself -- but a subshell *inherits* the parent's globals,
+  # so populating the cache here (one read, one mapfile) makes all ~40 helper
+  # calls per card reuse it instead of re-reading the file.
+  mapfile -t card_lines < "$card"
+  card_cache_file="$card"
 
   for field in id version title status office depends_on requirements controls paths forbidden_paths base_sha spec_digest risk data_class trust_boundaries; do
     count="$(frontmatter_count "$card" "$field" 2>/dev/null || true)"
@@ -2075,7 +2397,7 @@ while IFS= read -r -d '' card; do
   done
 
   for section in "${required_sections[@]}"; do
-    section_count="$(grep -Fxc "$section" "$card" || true)"
+section_count="$(count_fixed_lines "$section" "$(<"$card")" || true)"
     [[ "$section_count" -eq 1 ]] || fail "$card: section must occur exactly once: $section"
   done
   for section in "## Outcome" "## Non-goals" "## Preconditions" "## Postconditions" "## Public contract" "## Security and privacy" "## Documentation" "## Compatibility, migration, rollback"; do
@@ -2083,8 +2405,9 @@ while IFS= read -r -d '' card; do
   done
 
   non_goals="$(section_body "$card" "## Non-goals")"
-  grep -Eq '^- .+' <<< "$non_goals" || fail "$card: Non-goals must list an explicit exclusion"
-  mapfile -t non_goal_bullets < <(sed -n 's/^- \(.*\)$/\1/p' <<< "$non_goals")
+  has_matching_line '^- .+' "$non_goals" || fail "$card: Non-goals must list an explicit exclusion"
+  extract_all '- ' "$non_goals" '^- (.*)$'
+  non_goal_bullets=("${_extracted[@]}")
   if (( ${#non_goal_bullets[@]} > 0 )); then
     # Bullet 1 is held to zero tolerance (matches current board reality).
     record_spec_owner non_goal_owners "${non_goal_bullets[0]}" "$id" "" "$id"
@@ -2095,12 +2418,13 @@ while IFS= read -r -d '' card; do
     done
   fi
   scenarios="$(section_body "$card" "## Acceptance scenarios")"
-  mapfile -t acceptance_ids < <(sed -n 's/^### \(AC-[0-9]\{3\}\): .\+$/\1/p' <<< "$scenarios")
+  extract_all '### AC-' "$scenarios" '^### (AC-[0-9]{3}): .*$'
+  acceptance_ids=("${_extracted[@]}")
   (( ${#acceptance_ids[@]} > 0 )) || fail "$card: missing named AC-NNN Given/When/Then scenario"
-  all_scenario_heading_count="$(grep -Ec '^### AC-' <<< "$scenarios" || true)"
+  all_scenario_heading_count="$(count_matching_lines '^### AC-' "$scenarios" || true)"
   [[ "$all_scenario_heading_count" -eq "${#acceptance_ids[@]}" ]] || fail "$card: malformed acceptance scenario heading"
   covers_enabled=0
-  grep -Eq '^- Covers (requirements|controls):' <<< "$scenarios" && covers_enabled=1
+  has_matching_line '^- Covers (requirements|controls):' "$scenarios" && covers_enabled=1
   unset covered_requirement_ids covered_control_ids
   declare -A covered_requirement_ids=()
   declare -A covered_control_ids=()
@@ -2109,13 +2433,13 @@ while IFS= read -r -d '' card; do
     scenario_id="${acceptance_ids[$scenario_index]}"
     [[ "$scenario_id" == "$expected_scenario_id" ]] || fail "$card: acceptance scenarios must be unique and sequential from AC-001"
     scenario_block="$(subsection_body "$card" "### $scenario_id:")"
-    [[ "$(grep -Ec '^- Given: .+' <<< "$scenario_block" || true)" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one Given"
-    [[ "$(grep -Ec '^- When: .+' <<< "$scenario_block" || true)" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one When"
-    [[ "$(grep -Ec '^- Then: .+' <<< "$scenario_block" || true)" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one Then"
+    [[ "$(count_matching_lines '^- Given: .+' "$scenario_block" || true)" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one Given"
+    [[ "$(count_matching_lines '^- When: .+' "$scenario_block" || true)" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one When"
+    [[ "$(count_matching_lines '^- Then: .+' "$scenario_block" || true)" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one Then"
 
-    scenario_given_text="$(sed -n 's/^- Given: \(.*\)$/\1/p' <<< "$scenario_block" | head -1)"
-    scenario_when_text="$(sed -n 's/^- When: \(.*\)$/\1/p' <<< "$scenario_block" | head -1)"
-    scenario_then_text="$(sed -n 's/^- Then: \(.*\)$/\1/p' <<< "$scenario_block" | head -1)"
+    scenario_given_text="$(extract_first '- Given: ' "$scenario_block" '^- Given: (.*)$' || true)"
+    scenario_when_text="$(extract_first '- When: ' "$scenario_block" '^- When: (.*)$' || true)"
+    scenario_then_text="$(extract_first '- Then: ' "$scenario_block" '^- Then: (.*)$' || true)"
     # A Then that restates the Outcome proves nothing the Outcome did not already
     # assert, so the scenario cannot fail for a behavioral reason.
     if [[ -n "$scenario_then_text" ]] &&
@@ -2130,17 +2454,18 @@ while IFS= read -r -d '' card; do
     # ratchets against the committed baseline instead of hard-failing. The
     # bullet position is folded into the key so And#1 only ever collides with
     # another card's And#1, not with a differently-positioned And.
-    mapfile -t scenario_and_texts < <(sed -n 's/^- And: \(.*\)$/\1/p' <<< "$scenario_block")
+    extract_all '- And: ' "$scenario_block" '^- And: (.*)$'
+    scenario_and_texts=("${_extracted[@]}")
     for (( and_index = 0; and_index < ${#scenario_and_texts[@]}; and_index++ )); do
       record_spec_owner scenario_and_owners "${scenario_and_texts[$and_index]}" "$id/$scenario_id" "and$((and_index + 1)):" "$id"
     done
     if (( covers_enabled == 1 )); then
-      requirement_covers_count="$(grep -Ec '^- Covers requirements: .+' <<< "$scenario_block" || true)"
-      control_covers_count="$(grep -Ec '^- Covers controls: .+' <<< "$scenario_block" || true)"
+      requirement_covers_count="$(count_matching_lines '^- Covers requirements: .+' "$scenario_block" || true)"
+      control_covers_count="$(count_matching_lines '^- Covers controls: .+' "$scenario_block" || true)"
       [[ "$requirement_covers_count" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one Covers requirements list"
       [[ "$control_covers_count" -eq 1 ]] || fail "$card: $scenario_id must contain exactly one Covers controls list"
-      scenario_requirements="$(sed -n 's/^- Covers requirements: \(.*\)$/\1/p' <<< "$scenario_block")"
-      scenario_controls="$(sed -n 's/^- Covers controls: \(.*\)$/\1/p' <<< "$scenario_block")"
+      scenario_requirements="$(extract_first '- Covers requirements: ' "$scenario_block" '^- Covers requirements: (.*)$' || true)"
+      scenario_controls="$(extract_first '- Covers controls: ' "$scenario_block" '^- Covers controls: (.*)$' || true)"
       [[ "$scenario_requirements" =~ ^\[PR-[A-Z]+-[0-9]{3}(,[[:space:]]PR-[A-Z]+-[0-9]{3})*\]$ ]] ||
         fail "$card: $scenario_id Covers requirements list is not canonical"
       [[ "$scenario_controls" =~ ^\[CR-[A-Z]+-[0-9]{3}(,[[:space:]]CR-[A-Z]+-[0-9]{3})*\]$ ]] ||
@@ -2167,11 +2492,11 @@ while IFS= read -r -d '' card; do
   fi
 
   tdd="$(section_body "$card" "## TDD proof")"
-  red="$(grep -E '^- Red: .+' <<< "$tdd" || true)"
-  green="$(grep -E '^- Green: .+' <<< "$tdd" || true)"
-  refactor="$(grep -E '^- Refactor: .+' <<< "$tdd" || true)"
-  test_count="$(grep -Ec '^- Test: .+' <<< "$tdd" || true)"
-  test_line="$(grep -E '^- Test: .+' <<< "$tdd" || true)"
+  red="$(first_matching_line '^- Red: .+' "$tdd" || true)"
+  green="$(first_matching_line '^- Green: .+' "$tdd" || true)"
+  refactor="$(first_matching_line '^- Refactor: .+' "$tdd" || true)"
+  test_count="$(count_matching_lines '^- Test: .+' "$tdd" || true)"
+  test_line="$(first_matching_line '^- Test: .+' "$tdd" || true)"
   [[ -n "$red" ]] || fail "$card: missing Red proof definition"
   [[ -n "$green" ]] || fail "$card: missing Green proof definition"
   [[ -n "$refactor" ]] || fail "$card: missing Refactor invariant"
@@ -2217,10 +2542,10 @@ while IFS= read -r -d '' card; do
   # digest and the expected artifact path from the locked card itself, so an
   # evidence bundle cannot observe a command or write an artifact the card
   # never promised.
-  accept_line="$(grep -E '^accept: `[^`]+`$' "$card" | head -n 1 || true)"
+accept_line="$(first_matching_line '^accept: `[^`]+`$' "$(<"$card")" || true)"
   accept_command="${accept_line#accept: \`}"
   card_accept_commands[$id]="${accept_command%\`}"
-  expected_artifact_line="$(grep -E '^Expected artifact: .+' "$card" | head -n 1 || true)"
+  expected_artifact_line="$(first_matching_line '^Expected artifact: .+' "$(<"$card")" || true)"
   if [[ "$expected_artifact_line" =~ \`(\.board/evidence/$id/[A-Za-z0-9._/-]+)\` ]]; then
     card_expected_artifacts[$id]="${BASH_REMATCH[1]}"
   else
@@ -2229,12 +2554,13 @@ while IFS= read -r -d '' card; do
   card_scenario_ids[$id]="${acceptance_ids[*]}"
   acceptance_body="$(section_body "$card" "## Acceptance")"
   for scenario_id in "${acceptance_ids[@]}"; do
-    grep -Fq "$scenario_id" <<< "$acceptance_body" || fail "$card: Acceptance evidence does not bind $scenario_id"
+    has_matching_line ".*$scenario_id.*" "$acceptance_body" || fail "$card: Acceptance evidence does not bind $scenario_id"
   done
   skeptical="$(section_body "$card" "## Skeptical mutations")"
-  mapfile -t mutation_headings < <(grep -E '^### MUT-[0-9]{3}: AC-[0-9]{3} / [A-Za-z0-9._/-]+$' <<< "$skeptical" || true)
+  extract_all '### MUT-' "$skeptical" '^(### MUT-[0-9]{3}: AC-[0-9]{3} / [A-Za-z0-9._/-]+)$'
+  mutation_headings=("${_extracted[@]}")
   (( ${#mutation_headings[@]} > 0 )) || fail "$card: skeptical mutation lacks a named MUT-NNN hypothesis mapped to AC and trust boundary"
-  all_mutation_heading_count="$(grep -Ec '^### MUT-' <<< "$skeptical" || true)"
+  all_mutation_heading_count="$(count_matching_lines '^### MUT-' "$skeptical" || true)"
   [[ "$all_mutation_heading_count" -eq "${#mutation_headings[@]}" ]] || fail "$card: malformed skeptical mutation heading"
   card_mutation_counts[$id]="${#mutation_headings[@]}"
   unset covered_scenarios covered_boundaries
@@ -2244,17 +2570,17 @@ while IFS= read -r -d '' card; do
     printf -v mutation_id 'MUT-%03d' "$((mutation_index + 1))"
     mutation_heading="${mutation_headings[$mutation_index]}"
     [[ "$mutation_heading" == "### $mutation_id:"* ]] || fail "$card: skeptical mutations must be unique and sequential from MUT-001"
-    mapped_scenario="$(sed -E 's/^### MUT-[0-9]{3}: (AC-[0-9]{3}) \/ .+$/\1/' <<< "$mutation_heading")"
-    mapped_boundary="$(sed -E 's|^### MUT-[0-9]{3}: AC-[0-9]{3} / (.+)$|\1|' <<< "$mutation_heading")"
+    mapped_scenario="$(extract_first '### MUT-' "$mutation_heading" '^### MUT-[0-9]{3}: (AC-[0-9]{3}) / .*$' || true)"
+    mapped_boundary="$(extract_first '### MUT-' "$mutation_heading" '^### MUT-[0-9]{3}: AC-[0-9]{3} / (.*)$' || true)"
     [[ " ${acceptance_ids[*]} " == *" $mapped_scenario "* ]] || fail "$card: $mutation_id maps unknown scenario $mapped_scenario"
     [[ " ${boundary_list[*]} " == *" $mapped_boundary "* ]] || fail "$card: $mutation_id maps unknown trust boundary $mapped_boundary"
     covered_scenarios[$mapped_scenario]=1
     covered_boundaries[$mapped_boundary]=1
     mutation_block="$(subsection_body "$card" "### $mutation_id:")"
-    [[ "$(grep -Ec '^- Change: .+' <<< "$mutation_block" || true)" -eq 1 ]] || fail "$card: $mutation_id must contain exactly one reversible Change"
-    [[ "$(grep -Ec '^- Expected: .+' <<< "$mutation_block" || true)" -eq 1 ]] || fail "$card: $mutation_id must contain exactly one falsifiable Expected result"
-    mutation_change="$(grep -E '^- Change: .+' <<< "$mutation_block" || true)"
-    mutation_expected="$(grep -E '^- Expected: .+' <<< "$mutation_block" || true)"
+    [[ "$(count_matching_lines '^- Change: .+' "$mutation_block" || true)" -eq 1 ]] || fail "$card: $mutation_id must contain exactly one reversible Change"
+    [[ "$(count_matching_lines '^- Expected: .+' "$mutation_block" || true)" -eq 1 ]] || fail "$card: $mutation_id must contain exactly one falsifiable Expected result"
+    mutation_change="$(first_matching_line '^- Change: .+' "$mutation_block" || true)"
+    mutation_expected="$(first_matching_line '^- Expected: .+' "$mutation_block" || true)"
     is_generic_text "$mutation_change" && fail "$card: $mutation_id Change is generic or invalid"
     is_generic_text "$mutation_expected" && fail "$card: $mutation_id Expected result accepts an invalid failure mode"
   done
@@ -2266,17 +2592,17 @@ while IFS= read -r -d '' card; do
   done
 
   review="$(section_body "$card" "## Review")"
-  reviewer_a="$(grep -E '^- Reviewer A: .+' <<< "$review" || true)"
-  reviewer_b="$(grep -E '^- Reviewer B: .+' <<< "$review" || true)"
+  reviewer_a="$(first_matching_line '^- Reviewer A: .+' "$review" || true)"
+  reviewer_b="$(first_matching_line '^- Reviewer B: .+' "$review" || true)"
   [[ -n "$reviewer_a" ]] || fail "$card: missing reviewer A lens"
   [[ -n "$reviewer_b" ]] || fail "$card: missing reviewer B lens"
-  grep -Eq '^- Skeptical approver: .+' <<< "$review" || fail "$card: missing skeptical approver lens"
-  grep -Eq '^- Independence: .+' <<< "$review" || fail "$card: missing explicit reviewer independence contract"
+  has_matching_line '^- Skeptical approver: .+' "$review" || fail "$card: missing skeptical approver lens"
+  has_matching_line '^- Independence: .+' "$review" || fail "$card: missing explicit reviewer independence contract"
   [[ "$reviewer_a" =~ (every-hunk|all[[:space:]]+hunks|todos[[:space:]]+os[[:space:]]+hunks|cada[[:space:]]+hunk) ]] || fail "$card: Reviewer A must cover every hunk, not a partial specialty review"
   [[ "$reviewer_b" =~ (every-hunk|all[[:space:]]+hunks|todos[[:space:]]+os[[:space:]]+hunks|cada[[:space:]]+hunk) ]] || fail "$card: Reviewer B must cover every hunk, not a partial specialty review"
   [[ "$reviewer_a" =~ ((10|ten)[[:space:]-]+dimension|(10|dez)[[:space:]]+dimens) ]] || fail "$card: Reviewer A must cover all ten protocol dimensions"
   [[ "$reviewer_b" =~ ((10|ten)[[:space:]-]+dimension|(10|dez)[[:space:]]+dimens) ]] || fail "$card: Reviewer B must cover all ten protocol dimensions"
-  grep -Fq ".board/evidence/$id/" "$card" || fail "$card: expected artifact is not card-scoped"
+  has_matching_line "\.board/evidence/$id/" "$(<"$card")" || fail "$card: expected artifact is not card-scoped"
 done < <(find "$board_dir/cards" -mindepth 2 -maxdepth 2 -type f -name 'AUR-*.md' -print0 | sort -z)
 
 (( ${#ids[@]} > 0 )) || fail "board contains no cards"
@@ -2693,7 +3019,17 @@ validate_second_reader_coverage
 
 for id in "${!ids[@]}"; do
   if [[ "${card_states[$id]}" =~ ^(review|done)$ ]]; then
-    validate_manifest "$id" "${card_states[$id]}"
+    # Execution-proof is the proof shape for cards validated since the
+    # redesign: evidence is recomputed from locked commands and pinned images,
+    # never declared in a hand-written manifest. A card that owns a real
+    # manifest (legacy sealed bundle) keeps the older gate; its absence selects
+    # the execution-proof gate, which re-derives every fact from checked-in
+    # programs and raw runs.
+    if [[ -f "$repo_root/.board/evidence/$id/manifest.json" && ! -L "$repo_root/.board/evidence/$id/manifest.json" ]]; then
+      validate_manifest "$id" "${card_states[$id]}"
+    else
+      validate_execution_proof "$id" "${card_states[$id]}"
+    fi
   fi
 done
 

@@ -1,0 +1,12 @@
+{
+ "schema": "aurum.acceptance-execution",
+ "version": 1,
+ "card_id": "AUR-443",
+ "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-443",
+ "candidate": "89eb518 + 2b4bfbc-equivalent + eaef19d6bf8dfc5e25dc4aeb54e86e2eb14fd5e0",
+ "profile": "bootstrap-readonly-v1",
+ "image": "aurum-bootstrap-go-bash@sha256:e8521445a6c1bc7c017258e9c71caf8eb78ee254862582c5d57d8a79d9413084",
+ "exit_code": 0,
+ "behavior": "a first-time user finds the tool: top-level --help and --version, one help convention across subcommands, a provider-missing message that shows the fixture shape, and ref errors that never leak git internals - permission, missing, directory-ref and unclassified causes each get their own clean sentence, byte-identical across both backends",
+ "mutation": "MUT-001 rejected; the reviewer neutralised the directory probe as uid 65534 and both new tests went red on both backends"
+}

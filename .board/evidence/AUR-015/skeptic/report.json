@@ -1,0 +1,90 @@
+{
+ "schema": "aurum.skeptic-report",
+ "version": 1,
+ "card_id": "AUR-015",
+ "candidate_identity_digest": "sha256:49f9cea6853dcee9f07c6a92cc47b997486597d515f0b98d2952601724aea6ac",
+ "role": "skeptic",
+ "sealed": true,
+ "role_nonce": "aur015-r4-skeptic-1358fdcaae53",
+ "context_digest": "sha256:84b4c346fea0b153403049f3a979a854ed2017b7de9759b81cf476954223ce33",
+ "session_digest": "sha256:6d3c1fbe8a519dba2d7ed1558ac5137de76e05d5ee24620051c247b3cdc811fc",
+ "backend_family_digest": "sha256:4a5383b50855eaa336260e59ed2f76180783dc5255d38a09a1b758db6cb4f581",
+ "verdict": "pass",
+ "challenge_plan": {
+  "sealed_before_reviews": true,
+  "digest": "sha256:c2691020b090efbae44a112b6150c3066544ecda1cd7b1c02f3bfbc6e0697931",
+  "all_acceptance_criteria": true,
+  "all_trust_boundaries": true
+ },
+ "isolation": {
+  "reviews_visible_before_challenge_seal": false
+ },
+ "mutation": {
+  "detected": true,
+  "results": [
+   {
+    "mutation_id": "MUT-001",
+    "exit_code": 1,
+    "typed_failure": "AUR-015/AC-001/undecided-rule (SCR-001: CWE has no numeric CWE-<n> identifier)",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   },
+   {
+    "mutation_id": "MUT-002",
+    "exit_code": 1,
+    "typed_failure": "AUR-015/AC-001/undecided-rule (OWASP source host is not allowlisted)",
+    "expected_matches_observed_byte_for_byte": true,
+    "restored_byte_identical": true
+   }
+  ]
+ },
+ "undeclared_mutations": [
+  {
+   "description": ".board/research/secure-code-review.md esvaziado",
+   "exit_code": 1,
+   "typed_failure": "required artifact is empty"
+  },
+  {
+   "description": "standards/security-review/rules.md removido",
+   "exit_code": 1,
+   "typed_failure": "required artifact absent"
+  },
+  {
+   "description": "tests/specs/AUR-015/rule-ids.txt esvaziado (sonda de passe vacuo, Lei 12)",
+   "exit_code": 1,
+   "typed_failure": "required artifact is empty"
+  },
+  {
+   "description": "canario de segredo injetado no artefato de pesquisa",
+   "exit_code": 70,
+   "typed_failure": "secret canary detected in materialized input",
+   "note": "Barrado ANTES de qualquer execucao."
+  }
+ ],
+ "law_20_declared_paths": [
+  {
+   "paths_tested": 6,
+   "forms": [
+    "remocao",
+    "adulteracao de conteudo"
+   ],
+   "survivors": 0,
+   "note": "Os seis paths declarados foram testados nas DUAS formas que a auditoria deste board ensinou. Nenhum sobreviveu: paths_decorativos veio vazio dos tres papeis. Na rodada anterior, DOIS destes paths sobreviviam a remocao com stdout byte a byte identico."
+  }
+ ],
+ "law_12_positive_control": {
+  "description": "rule-ids.txt vazio: zero regras exigidas nao pode passar",
+  "exit_code": 1,
+  "typed_failure": "required artifact is empty"
+ },
+ "clean_replay": {
+  "pass": true,
+  "runs": 2,
+  "stdout_sha256": "sha256:73d1d64dc62370255bb36fb88b492ae6db46fdcbce10e38f6ab653015772cca2"
+ },
+ "secret_canaries": {
+  "pass": true,
+  "leaked": 0
+ },
+ "summary": "Selo cetico do r6 (persistido em /tmp/aurum-reviews/AUR-015-r6-cetico.md): APROVADO. As tres mutacoes declaradas foram executadas na arvore real, cada uma com o Expected do card colado ao lado do observado e casando byte a byte — o defeito que abriu esta sequencia de rodadas era exatamente um Expected que nao casava. Duas mutacoes nao declaradas, mirando a checagem que nao acontece, tambem foram pegas. O cetico registrou um achado processual proprio: a primeira restauracao falhou em silencio porque o arquivo ja estava staged, e ele corrigiu com git checkout HEAD -- <path> e provou por sha256."
+}

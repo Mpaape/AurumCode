@@ -1,0 +1,13 @@
+package	disposition	test	observation
+internal/documentation/extractors	migrate	TestExtractorCoreRegistryAndDetector	detects supported source while excluding vendored source and refuses duplicate registration
+internal/documentation/extractors/bash	migrate	TestBashExtractorComments	renders script comments into a confirmed markdown output
+internal/documentation/extractors/cpp	migrate	TestCPPExtractorDoxygenOutput	invokes doxygen with a private configuration and counts only observed XML output
+internal/documentation/extractors/csharp	replace	TestCSharpExtractorExecutesBuild	invokes dotnet build and xmldocmd so repository controlled build code is reachable
+internal/documentation/extractors/go	migrate	TestGoExtractorWritesConfirmedOutput	documents with the Go standard library, reaching no external tool, and counts only a nonempty output observed on disk
+internal/documentation/extractors/javascript	migrate	TestJavaScriptExtractorTypeDocOutput	invokes typedoc for a TypeScript project and counts observed markdown output
+internal/documentation/extractors/powershell	migrate	TestPowerShellExtractorComments	renders line and block comments into a confirmed markdown output
+internal/documentation/extractors/python	replace	TestPythonExtractorCapturesNonDocstringLiteral	captures an assigned triple quoted string that is not a Python docstring
+internal/documentation/extractors/rust	replace	TestRustExtractorExecutesCargoDoc	invokes cargo doc so repository build scripts and proc macros are reachable
+internal/documentation/incremental	replace	TestIncrementalCacheFollowsOutputSymlink	cache save follows a preexisting output symlink and overwrites its target
+internal/documentation/normalizer	migrate	TestNormalizerPreservesFrontMatter	preserves unknown front matter and converges to byte stable markdown
+internal/documentation/site	migrate	TestSiteScaffoldPreservesConfig	preserves consumer config reports hidden pages and emits a stable redacted scaffold

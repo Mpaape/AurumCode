@@ -1,0 +1,22 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-428",
+ "commit": "af55492a5f0c5c42781d7e8a9fda110d79e4c60e",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-428",
+  "exit_code": 0,
+  "raw_output": "pass; unit/integration/e2e lanes real; workflow uses Mpaape/AurumCode@v1; pages+id-token only on deploy job"
+ },
+ "review_notes": {
+  "mutations": "reviewer reproduced MUT-001 red via four distinct staged mutations and restored green",
+  "nonblocking_findings": [
+   "F1 acceptance stdout not byte-reproducible (go test timing); evidence digests the summary line instead",
+   "F2 spec grep for v1 satisfiable by bootstrap-readonly-v1 string",
+   "F3 unit lane asserts contents:read but not absence of top-level pages/id-token"
+  ],
+  "residuals": "static verification only: unpublished tag (e.g. @v999) passes offline per the card's Restricao medida; live coverage is AUR-429; publishing tag v1 is a human action documented in the spec"
+ }
+}

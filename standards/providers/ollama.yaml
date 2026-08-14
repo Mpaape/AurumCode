@@ -1,0 +1,38 @@
+# AurumCode provider contract: Ollama.
+#
+# Flat scalar keys only (no nested mappings) so tests/acceptance/AUR-019.sh
+# and tests/integration/AUR-019_test.go can parse this file with one line-anchored
+# rule per key instead of a general YAML walk. Values that are markdown
+# links are double-quoted so this file also parses as strict YAML.
+#
+# This card fixes the contract; it implements no client and makes no network
+# call. Every "supported" capability below MUST have a matching
+# fixture_<capability> entry pointing at a recorded, non-secret fixture
+# under tests/specs/AUR-019/fixtures/ollama/.
+
+provider: Ollama
+source: "[ollama v0.32.5](https://github.com/ollama/ollama/releases/tag/v0.32.5)"
+version: v0.32.5
+date: 2026-07-27
+
+transport: http
+
+wire_endpoint: /api/chat
+wire_method: POST
+wire_content_type: application/json
+
+auth_scheme: none
+auth_header: "not-applicable"
+auth_binding: none
+auth_format: "none for the local daemon (default http://localhost:11434); Authorization: Bearer <OLLAMA_API_KEY> for Ollama Cloud/turbo mode"
+
+error_envelope: "error (single string field), carried on a non-200 HTTP status"
+error_taxonomy: "400-invalid-request,404-model-not-pulled,500-internal"
+
+capability_streaming: supported
+capability_tool_use: supported
+capability_structured_output: supported
+
+fixture_streaming: tests/specs/AUR-019/fixtures/ollama/streaming.json
+fixture_tool_use: tests/specs/AUR-019/fixtures/ollama/tool_use.json
+fixture_structured_output: tests/specs/AUR-019/fixtures/ollama/structured_output.json

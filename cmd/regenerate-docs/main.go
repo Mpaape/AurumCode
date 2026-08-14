@@ -12,10 +12,12 @@ import (
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	bashExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/bash"
 	cppExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/cpp"
+	csharpExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/csharp"
 	goExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/go"
 	javascriptExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/javascript"
 	powershellExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/powershell"
 	pythonExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/python"
+	rustExtractor "github.com/Mpaape/AurumCode/internal/documentation/extractors/rust"
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
@@ -379,8 +381,16 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 		log.Print(summaryLine("partial", docs, siteInfo, extractionErr, config))
 
 	case len(docs) == 0:
-		log.Printf("⚠️  NO DOCUMENTATION PRODUCED - no supported source file was documented under %s", config.SourceDir)
+		// AUR-425: this branch used to log a warning and let main return,
+		// so a run that documented nothing exited 0 and a consumer had no
+		// pages and no failure. Zero pages is the outcome this binary exists
+		// to prevent; it now states the reason and terminates non-zero. The
+		// summary keeps its distinct result=empty token so a machine
+		// consumer can still tell "nothing was documentable" from "the
+		// pipeline broke" (result=failed).
+		log.Printf("❌ NO DOCUMENTATION PRODUCED - %s", emptyRunReason(config))
 		log.Print(summaryLine("empty", docs, siteInfo, nil, config))
+		fatalf("❌ no documentation page was produced: %s", emptyRunReason(config))
 
 	default:
 		log.Println("✅ Documentation regeneration completed!")
@@ -388,6 +398,28 @@ func report(runErr error, docs []string, siteInfo siteStatus, config *pipeline.E
 		logSite(siteInfo)
 		log.Print(summaryLine("ok", docs, siteInfo, nil, config))
 	}
+}
+
+// emptyRunReason states why a run that reported no pipeline error still left
+// zero documentation pages on disk. This branch is only reachable when file
+// discovery matched nothing - a detected-but-unsupported language ends as a
+// skip inside a pipeline error, never here - so the reason is built from the
+// run's own configuration: the tree that was scanned, plus the two knobs
+// that can empty a scan of a documentable tree (the language filter and
+// incremental mode). Each condition is stated only when it was actually in
+// force, so the operator reads causes that apply to their run, not a generic
+// list.
+func emptyRunReason(config *pipeline.ExtractorPipelineConfig) string {
+	reason := fmt.Sprintf("no supported source file was documented under %s", config.SourceDir)
+	if len(config.Languages) > 0 {
+		reason += fmt.Sprintf("; the language filter %s=%s may exclude every supported file",
+			envLanguages, strings.Join(config.Languages, ","))
+	}
+	if config.Incremental {
+		reason += fmt.Sprintf("; incremental mode (%s=true) documents only files changed since the last documented commit",
+			envIncremental)
+	}
+	return reason
 }
 
 // logSite makes an unpublishable, or partially unpublishable, artifact visible
@@ -613,10 +645,33 @@ func registerLanguageExtractors(p *pipeline.ExtractorPipeline, runner site.Comma
 		return err
 	}
 
-	// Rust and C# are NOT registered here. Their toolchains execute code that
-	// lives in the documented repository, so they are opt-in per language; see
+	// Rust and C# default to the native, tool-free doc-comment parser
+	// (AUR-427): no cargo, no dotnet/xmldocmd, no execution of
+	// repository-controlled code, so both register unconditionally UNLESS the
+	// operator has explicitly opted that language into the repository-code-
+	// executing toolchain below via AURUMCODE_ALLOW_REPO_CODE_EXECUTION (see
 	// repo_code_execution.go for what each one runs and why there is no safe
-	// mode to fall back to.
+	// mode to fall back to). The two paths are mutually exclusive per
+	// language: the registry rejects a second extractor for a language that
+	// already has one, so the native extractor must not be registered for a
+	// language this run is about to also register the code-executing
+	// extractor for.
+	repoCodeOptIn, err := parseRepoCodeExecutionOptIn(os.Getenv(envAllowRepoCodeExecution))
+	if err != nil {
+		return err
+	}
+
+	if !repoCodeOptIn["rust"] {
+		if err := register(rustExtractor.NewNativeExtractor()); err != nil {
+			return err
+		}
+	}
+	if !repoCodeOptIn["csharp"] {
+		if err := register(csharpExtractor.NewNativeExtractor()); err != nil {
+			return err
+		}
+	}
+
 	if err := registerRepoCodeExecutingExtractors(register, runner, os.Getenv(envAllowRepoCodeExecution)); err != nil {
 		return err
 	}

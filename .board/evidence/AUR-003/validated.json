@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-003",
+  "commit": "b2ee31c4cbc8c34327e17d6327318c0ef681905f",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-003",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-003\",\"scenario\":\"AC-001\",\"selector\":\"AC-001\",\"vectors\":6,\"max_vectors\":64,\"max_bytes\":4194304,\"deadline_seconds\":30,\"effects\":0,\"result\":\"pass\"}"
+  }
+}

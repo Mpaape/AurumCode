@@ -67,12 +67,14 @@ shipped version.
 
 - `cmd/regenerate-docs`: documentation generator. Writes `<output-dir>/_config.yml`,
   `<output-dir>/index.md` and `<output-dir>/<language>/<name>.md`.
-- Extractors registered by default: Go (`gomarkdoc`), JavaScript/TypeScript
-  (`typedoc`), Python (`pydoc-markdown`), C/C++ (`doxygen`), Bash and PowerShell
-  (in-process comment parsers).
+- Extractors registered by default: Go (built in, `go/parser` + `go/doc`, no
+  external tool since AUR-424), JavaScript/TypeScript (`typedoc`), Python
+  (`pydoc-markdown`), C/C++ (`doxygen`), Bash and PowerShell (in-process
+  comment parsers).
 - Rust (`cargo doc`) and C# (`dotnet` + `xmldocmd`) are registered only when
   `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` names them, because both compile the
-  documented repository and so execute code from it.
+  documented repository and so execute code from it. Neither is supported by
+  default; both remain under construction.
 - `action.yml`: composite GitHub Action with the inputs `source-dir`,
   `output-dir`, `base-path`, `llm-api-key`, `llm-base-url`, `llm-model`,
   `extra-toolchains` and `publish`, and the outputs `docs-generated`,
@@ -82,19 +84,38 @@ shipped version.
   fallback.
 - Incremental extraction via git change detection, reachable through
   `AURUMCODE_INCREMENTAL` when running the binary directly.
+- A second binary, `cmd/aurumcode`, provides local code review:
+  `aurumcode review --base <ref>`, with `--fail-on` to gate CI on findings,
+  `--modelo` to choose the reviewing model, `--seguranca` to additionally run
+  the deterministic security pass (see below), `--limite` to cap USD spend,
+  and `--pr`/`--repo`/`--publicar`/`--na-linha` to review and publish comments
+  on a GitHub pull request instead of a local ref. See
+  [docs/specs/AUR-430.md](docs/specs/AUR-430.md) and the sibling specs it
+  links for each flag.
 
 ### Not present
 
 - No webhook server, HTTP endpoint or long-running service.
-- No code-review or test-generation output; the binary generates documentation.
+- `cmd/regenerate-docs` itself only generates documentation; it produces no
+  review comments and writes no tests. Code review lives in the separate
+  binary `cmd/aurumcode` (`aurumcode review`), documented above.
 - No gh-pages branch deployment inside the generator: publishing is done by the
   Action's `publish` input, and `AURUMCODE_DEPLOY_GH_PAGES` is rejected with an
   error if set.
-- No configuration file is read. Every knob is an environment variable or an
-  Action input.
+- `cmd/regenerate-docs` reads no configuration file; every one of its knobs is
+  an environment variable or an Action input. `cmd/aurumcode` is different: its
+  options are command-line flags (`--base`, `--fail-on`, `--modelo`,
+  `--seguranca`, `--limite`, `--pr`, `--repo`, `--publicar`, `--na-linha`), not
+  environment variables.
+- `--seguranca`'s deterministic security pass currently matches only a subset
+  of its own rule catalog: 2 of the 8 rules in
+  `internal/review/rules/security.yml` carry a `pattern` the pass applies to
+  added diff lines (`security/sql-injection`, `security/command-injection`);
+  the other 6 are metadata a model finding can cite but the pass itself does
+  not match.
 
 ## Project information
 
 - Repository: https://github.com/Mpaape/AurumCode
 - Documentation: [README.md](README.md), [ACTION_USAGE.md](ACTION_USAGE.md)
-- License: no `LICENSE` file is present in this repository
+- License: [MIT](LICENSE)

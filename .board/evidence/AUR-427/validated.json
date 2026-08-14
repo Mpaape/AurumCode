@@ -1,0 +1,17 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-427",
+ "commit": "9ef5273177e1c4d2cefdd1d75047cb99a8dc2964",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-427",
+  "exit_code": 0,
+  "raw_output": "0 for 427, 424, 425 and 426 in the same tree; old cargo/dotnet extractors byte-untouched so their tool-unavailable contracts still hold"
+ },
+ "review_notes": {
+  "contract_repair": "round 1 was REQUEST_CHANGES with no code defect: the card promised , which fails on this SHA because cmd/aurumcode keeps its own extractor registry. The card now names the proven command and AUR-447 carries the CLI wiring; the reviewer confirmed the same SHA passes with the repaired text",
+  "nit": "native.go:317 duplicates 'fn' in a heading, cosmetic"
+ }
+}

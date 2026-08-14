@@ -1,0 +1,12 @@
+{
+  "id": 437001,
+  "full_name": "dono/projeto",
+  "private": true,
+  "permissions": {
+    "admin": false,
+    "maintain": false,
+    "push": false,
+    "triage": false,
+    "pull": true
+  }
+}

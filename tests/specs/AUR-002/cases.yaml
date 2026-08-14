@@ -1,0 +1,80 @@
+version: 1
+cases:
+  - id: complete-success
+    kind: nominal
+    entrypoint: cmd/regenerate-docs/main.go
+    command: go run ./cmd/regenerate-docs
+    input: source=go
+    inventory_path: tests/characterization/legacy-baseline/legacy-files.tsv
+    source_inventory: .board/research/legacy-files.tsv
+    expected_stdout_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    expected_stderr_digest: sha256:0d3c81dc3202298737838af627a1fa23ecd2f005ae93673be43ce07bd58c424b
+    expected_exit_code: 0
+    expected_effects: docs=1,skipped=0,errors=0,writes=1
+    silent_failure: false
+    expected_marker: complete
+  - id: missing-extractor
+    kind: nominal
+    entrypoint: cmd/regenerate-docs/main.go
+    command: go run ./cmd/regenerate-docs
+    input: source=go+java
+    inventory_path: tests/characterization/legacy-baseline/legacy-files.tsv
+    source_inventory: .board/research/legacy-files.tsv
+    expected_stdout_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    expected_stderr_digest: sha256:5b11752f026312754545c2c5c9eb88deacfdd408845fcec0243b376d9c5fed40
+    expected_exit_code: 0
+    expected_effects: docs=1,skipped=1,errors=0,writes=1
+    silent_failure: true
+    expected_marker: silent-failure
+  - id: extractor-error
+    kind: nominal
+    entrypoint: cmd/regenerate-docs/main.go
+    command: go run ./cmd/regenerate-docs
+    input: source=go+python+gomarkdoc-error
+    inventory_path: tests/characterization/legacy-baseline/legacy-files.tsv
+    source_inventory: .board/research/legacy-files.tsv
+    expected_stdout_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    expected_stderr_digest: sha256:3bb1894de939e61716c04b80a55c56e62d8cb662400b813b796436441b1e8c26
+    expected_exit_code: 0
+    expected_effects: docs=1,skipped=0,errors=1,writes=1
+    silent_failure: true
+    expected_marker: silent-failure
+  - id: invalid-input
+    kind: invalid
+    entrypoint: tests/acceptance/AUR-002.sh
+    command: bash tests/acceptance/AUR-002.sh invalid-input
+    input: invalid
+    inventory_path: tests/characterization/legacy-baseline/legacy-files.tsv
+    source_inventory: .board/research/legacy-files.tsv
+    expected_stdout_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    expected_stderr_digest: sha256:a0cf216c5a5d51be36e9d428c5ae0949e7e99c152b5b813a169b2902530bdcb5
+    expected_exit_code: 64
+    expected_effects: docs=0,skipped=0,errors=0,writes=0
+    silent_failure: false
+    expected_marker: typed-error
+  - id: boundary-overflow
+    kind: boundary
+    entrypoint: tests/acceptance/AUR-002.sh
+    command: bash tests/acceptance/AUR-002.sh boundary-overflow
+    input: boundary+1
+    inventory_path: tests/characterization/legacy-baseline/legacy-files.tsv
+    source_inventory: .board/research/legacy-files.tsv
+    expected_stdout_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    expected_stderr_digest: sha256:51f3b16c42cdfb37710b004879d24e85bfb90246ddf5b7502fb1bec3383206d8
+    expected_exit_code: 65
+    expected_effects: docs=0,skipped=0,errors=0,writes=0
+    silent_failure: false
+    expected_marker: typed-error
+  - id: forged-approval
+    kind: authorization-source
+    entrypoint: tests/acceptance/AUR-002.sh
+    command: bash tests/acceptance/AUR-002.sh MUT-002-forged-approval
+    input: identity=agent;approval=forged
+    inventory_path: tests/characterization/legacy-baseline/legacy-files.tsv
+    source_inventory: .board/research/legacy-files.tsv
+    expected_stdout_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    expected_stderr_digest: sha256:2feb5c8afe4a91ebcd16689c6d6fe12d224bab98da58de8b4fbd2f1ae0c74f8a
+    expected_exit_code: 66
+    expected_effects: docs=0,skipped=0,errors=0,writes=0
+    silent_failure: false
+    expected_marker: forged-approval

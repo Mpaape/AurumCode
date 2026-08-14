@@ -1,0 +1,204 @@
+package main
+
+import (
+	"flag"
+	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/pkg/types"
+)
+
+// TestParseOwnerRepo pins --repo's accepted and rejected shapes.
+func TestParseOwnerRepo(t *testing.T) {
+	owner, repo, err := parseOwnerRepo("dono/projeto")
+	if err != nil {
+		t.Fatalf("parseOwnerRepo(%q): unexpected error %v", "dono/projeto", err)
+	}
+	if owner != "dono" || repo != "projeto" {
+		t.Fatalf("parseOwnerRepo(%q) = (%q, %q), want (%q, %q)", "dono/projeto", owner, repo, "dono", "projeto")
+	}
+
+	for _, bad := range []string{"", "dono", "/projeto", "dono/", "dono/projeto/extra", "/"} {
+		if _, _, err := parseOwnerRepo(bad); err == nil {
+			t.Errorf("parseOwnerRepo(%q): expected an error, got none", bad)
+		}
+	}
+}
+
+// TestConvertDiff pins the field-by-field mirror from
+// internal/git/githubclient's package-local diff shape to pkg/types.Diff
+// this card owns (the AUR-437 reviewer's documented finding: the client's
+// types are a deliberate mirror of pkg/types, and the conversion belongs
+// here). Nothing is dropped, reordered or renamed.
+func TestConvertDiff(t *testing.T) {
+	in := &githubclient.Diff{
+		Files: []githubclient.DiffFile{
+			{
+				Path: "cmdb/settings.go",
+				Lang: "go",
+				Hunks: []githubclient.DiffHunk{
+					{
+						OldStart: 1, OldLines: 3, NewStart: 1, NewLines: 4,
+						Lines: []string{" package cmdb", "", "+// nova linha", " const RetryLimit = 3"},
+					},
+				},
+			},
+		},
+	}
+
+	out := convertDiff(in)
+	if len(out.Files) != 1 {
+		t.Fatalf("expected 1 file, got %d", len(out.Files))
+	}
+	gotFile := out.Files[0]
+	wantFile := in.Files[0]
+	if gotFile.Path != wantFile.Path || gotFile.Lang != wantFile.Lang {
+		t.Fatalf("file fields diverged: got %+v, want path=%q lang=%q", gotFile, wantFile.Path, wantFile.Lang)
+	}
+	if len(gotFile.Hunks) != 1 {
+		t.Fatalf("expected 1 hunk, got %d", len(gotFile.Hunks))
+	}
+	gotHunk, wantHunk := gotFile.Hunks[0], wantFile.Hunks[0]
+	if gotHunk.OldStart != wantHunk.OldStart || gotHunk.OldLines != wantHunk.OldLines ||
+		gotHunk.NewStart != wantHunk.NewStart || gotHunk.NewLines != wantHunk.NewLines {
+		t.Fatalf("hunk range diverged: got %+v, want %+v", gotHunk, wantHunk)
+	}
+	if len(gotHunk.Lines) != len(wantHunk.Lines) {
+		t.Fatalf("expected %d lines, got %d", len(wantHunk.Lines), len(gotHunk.Lines))
+	}
+	for i := range wantHunk.Lines {
+		if gotHunk.Lines[i] != wantHunk.Lines[i] {
+			t.Errorf("line %d: got %q, want %q", i, gotHunk.Lines[i], wantHunk.Lines[i])
+		}
+	}
+
+	// The conversion must copy, not alias: mutating the source must not
+	// reach the converted diff.
+	in.Files[0].Hunks[0].Lines[0] = "MUTATED"
+	if out.Files[0].Hunks[0].Lines[0] == "MUTATED" {
+		t.Fatal("convertDiff aliased the source hunk's Lines slice")
+	}
+}
+
+// TestIsInlineEligible pins the classification AC-001 depends on: a finding
+// on a line the diff added is inline-eligible; a finding on a file the
+// diff never touched, or on a line that file's hunks never added
+// (including a context line and a line number past every hunk), is not --
+// and must still be published, as a general comment (see runPRReview).
+func TestIsInlineEligible(t *testing.T) {
+	diff := &types.Diff{
+		Files: []types.DiffFile{
+			{
+				Path: "cmdb/settings.go",
+				Hunks: []types.DiffHunk{
+					{
+						OldStart: 1, OldLines: 3, NewStart: 1, NewLines: 4,
+						Lines: []string{" package cmdb", " ", "+// limite de retentativas elevado para espelhos lentos", " const RetryLimit = 3"},
+					},
+				},
+			},
+			{
+				Path: "docs/notas.md",
+				Hunks: []types.DiffHunk{
+					{OldStart: 1, OldLines: 1, NewStart: 1, NewLines: 2, Lines: []string{" # Notas", "+Nova linha de documentacao."}},
+				},
+			},
+		},
+	}
+
+	cases := []struct {
+		name   string
+		issue  types.ReviewIssue
+		inline bool
+	}{
+		{"added line", types.ReviewIssue{File: "cmdb/settings.go", Line: 3}, true},
+		{"added line, second file", types.ReviewIssue{File: "docs/notas.md", Line: 2}, true},
+		{"context line in a touched file", types.ReviewIssue{File: "cmdb/settings.go", Line: 1}, false},
+		{"line past every hunk", types.ReviewIssue{File: "docs/notas.md", Line: 99}, false},
+		{"file the diff never touched", types.ReviewIssue{File: "config/demo-tokens.txt", Line: 4}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isInlineEligible(diff, tc.issue); got != tc.inline {
+				t.Errorf("isInlineEligible(%+v) = %v, want %v", tc.issue, got, tc.inline)
+			}
+		})
+	}
+}
+
+// TestSortedIssuesDeterministic pins the (file, line) publish order AC-001
+// needs: "repetir a execucao sobre a mesma entrada produz a mesma saida"
+// covers the sequence of PostReviewComment/PostIssueComment calls, not
+// only stdout, so the order the model happened to list issues in must not
+// leak into the order they are published.
+func TestSortedIssuesDeterministic(t *testing.T) {
+	in := []types.ReviewIssue{
+		{File: "docs/notas.md", Line: 99},
+		{File: "cmdb/settings.go", Line: 3},
+		{File: "cmdb/settings.go", Line: 1},
+	}
+	got := sortedIssues(in)
+	want := []struct {
+		file string
+		line int
+	}{
+		{"cmdb/settings.go", 1},
+		{"cmdb/settings.go", 3},
+		{"docs/notas.md", 99},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d issues, got %d", len(want), len(got))
+	}
+	for i, w := range want {
+		if got[i].File != w.file || got[i].Line != w.line {
+			t.Errorf("position %d: got %s:%d, want %s:%d", i, got[i].File, got[i].Line, w.file, w.line)
+		}
+	}
+	// sortedIssues must not mutate its input's order.
+	if in[0].File != "docs/notas.md" || in[0].Line != 99 {
+		t.Fatal("sortedIssues mutated the caller's slice order")
+	}
+}
+
+// TestReviewFlagsAcceptSingleOrDoubleDash pins that every flag `review`
+// registers -- --base and the AUR-438 additions (--pr, --repo, --publicar,
+// --na-linha) -- parses identically whether spelled with one leading dash
+// or two, per Go's documented flag.FlagSet behavior ("a single dash and
+// double dash are equivalent"). AUR-440's own lane guard had a gap here: it
+// only recognized "--"-prefixed tokens, so the equally valid "-publish"
+// spelling slipped through undetected. This card does not repeat that
+// mistake by writing a bespoke "--"-prefix guard at all; flag registration
+// and fs.Visit (see runReview's --pr dispatch) go through Go's own
+// flag.FlagSet, which already treats both spellings alike for every flag
+// below, including the pre-existing --base -- this test is the proof.
+func TestReviewFlagsAcceptSingleOrDoubleDash(t *testing.T) {
+	newFlagSet := func() *flag.FlagSet {
+		fs := flag.NewFlagSet("review", flag.ContinueOnError)
+		fs.String("base", "", "")
+		fs.String("repo", "", "")
+		fs.Int("pr", 0, "")
+		fs.Bool("publicar", false, "")
+		fs.Bool("na-linha", false, "")
+		return fs
+	}
+
+	oneDash := []string{"-base", "HEAD~1", "-pr", "42", "-repo", "dono/projeto", "-publicar", "-na-linha"}
+	twoDash := []string{"--base", "HEAD~1", "--pr", "42", "--repo", "dono/projeto", "--publicar", "--na-linha"}
+
+	fsOne := newFlagSet()
+	if err := fsOne.Parse(oneDash); err != nil {
+		t.Fatalf("single-dash parse failed: %v", err)
+	}
+	fsTwo := newFlagSet()
+	if err := fsTwo.Parse(twoDash); err != nil {
+		t.Fatalf("double-dash parse failed: %v", err)
+	}
+
+	for _, name := range []string{"base", "pr", "repo", "publicar", "na-linha"} {
+		one := fsOne.Lookup(name).Value.String()
+		two := fsTwo.Lookup(name).Value.String()
+		if one != two {
+			t.Errorf("flag %q: single-dash parse gave %q, double-dash gave %q", name, one, two)
+		}
+	}
+}

@@ -1,0 +1,79 @@
+{
+ "schema": "aurum.review-report",
+ "version": 1,
+ "card_id": "AUR-364",
+ "candidate_identity_digest": "sha256:273ef0896dd941af01e4867bf37a3d6a96cc81f525456c2b4edc18d45f121dd0",
+ "role": "reviewer-a",
+ "sealed": true,
+ "role_nonce": "aur364-r5-reviewer-a-5d76470596a4",
+ "context_digest": "sha256:40b149aaafa9420bf984ae00abfd2d29896c00543ee715c7467ad8f4bf561570",
+ "session_digest": "sha256:d4a8f285a4cb91124b46a75742db963ae20971f1023f8f2570b43cb76dae3f6f",
+ "backend_family_digest": "sha256:b0b534e2489164950ecab7b9556401abc625800b3cd5876524b91d23c8975488",
+ "verdict": "pass",
+ "independence_level": "I2",
+ "isolation": {
+  "peer_report_visible_before_seal": false,
+  "builder_trace_received": false,
+  "shared_memory": false
+ },
+ "coverage": {
+  "all_hunks": true,
+  "all_dimensions": true,
+  "manifest_digest": "sha256:81f0db1d960fb37104be39afeb240344d035430e918b610eee03a7dd9ae53339",
+  "uncovered_hunks": 0,
+  "dimensions": [
+   {
+    "id": "contract",
+    "status": "covered",
+    "evidence_digest": "sha256:74dcecc6a8ef846fd20b7046babd277bccecbe8e4895e36f375540807ca329e7"
+   },
+   {
+    "id": "design",
+    "status": "covered",
+    "evidence_digest": "sha256:1afdfd4050785ee3046494bc77364102539eb2853fd0465b192a6525b68ab75e"
+   },
+   {
+    "id": "compatibility",
+    "status": "covered",
+    "evidence_digest": "sha256:fb8d62bbc63d8e2886e3dfa57862a894565355c72cacd5ab4ab6fa4b39ae81e8"
+   },
+   {
+    "id": "tests",
+    "status": "covered",
+    "evidence_digest": "sha256:769d21c2b0c863b10585977bb72ae542a05f855ce8769d4bef1b0e95c1a0d98f"
+   },
+   {
+    "id": "security",
+    "status": "covered",
+    "evidence_digest": "sha256:acaf42f745c2fe3b1de0e3e10c9e58b70cf916b6de2b043839fac71667737212"
+   },
+   {
+    "id": "concurrency",
+    "status": "not_applicable",
+    "justification": "Verificacao read-only de disparo unico em container pinado."
+   },
+   {
+    "id": "errors-operations",
+    "status": "covered",
+    "evidence_digest": "sha256:653021e14f04502b481b30a61709a33b7be15b4f25cd63d760e44cfba570aa4a"
+   },
+   {
+    "id": "documentation",
+    "status": "covered",
+    "evidence_digest": "sha256:857a67b6b9143f3017e21576eba809c057d0e05b6a15b6245f52717768bef1f7"
+   },
+   {
+    "id": "scope-simplicity",
+    "status": "covered",
+    "evidence_digest": "sha256:d75aec2243ab614d8e8fe9d8abe38b2e39b43bd62a9d00a2a500f74aa4fc6266"
+   },
+   {
+    "id": "hunks",
+    "status": "covered",
+    "evidence_digest": "sha256:4b76261592e3b0e52d25fe5022fa3119a1ad70c4640b0a454485db2077637ec6"
+   }
+  ]
+ },
+ "source_report": "/tmp/aurum-reviews/AUR-364-r5-cegoA.md",
+ "summary": "Parecer cego A do r5 (persistido em /tmp/aurum-reviews/AUR-364-r5-cegoA.md): APROVADO. A pergunta central — existe promessa que nenhum codigo verifica? — foi respondida por grep: nenhuma promessa de compatibilidade de runtime sobrevive no card, no spec, no lock ou no script. Tres bypasses proprios da classe conjunto-vazio e cardinalidade, todos barrados. Lei 20 conferida por spot-check independente, explicitamente nao copiado do relatorio do builder."
+}

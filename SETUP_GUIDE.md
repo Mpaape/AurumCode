@@ -83,7 +83,8 @@ o motivo está em [ACTION_USAGE.md](ACTION_USAGE.md).
 ## 5. Testar localmente (opcional)
 
 ```bash
-go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
+# A extração de Go não precisa de ferramenta externa: usa go/parser e
+# go/doc da própria stdlib (desde o AUR-424).
 
 # Opcional, só para a página inicial escrita por LLM
 export LLM_API_KEY=sua_chave

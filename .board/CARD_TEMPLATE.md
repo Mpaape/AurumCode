@@ -11,6 +11,8 @@ id: AUR-000
 version: 1
 title: Imperative artifact-specific outcome
 status: backlog
+validation: tested
+profile_owner: AUR-000
 office: O00-governance
 depends_on: []
 requirements: [PR-XXX-001]
@@ -28,6 +30,24 @@ trust_boundaries: [repository]
 ## Outcome
 
 One externally observable outcome with no independently deployable sibling.
+
+## Dispatch prerequisites
+
+- `container_profile` is registered in `.board/profile-owners.tsv` and
+  `profile_owner` is an upstream dependency (or this card is the owner).
+- `read_paths` is explicit; use `[]` when there are no read-only inputs. A Go
+  card always lists `go.mod` and `go.sum` there.
+- `validation` is explicit before `ready`; no runtime or module prerequisite
+  may be invented after a builder starts.
+
+## Current lightweight delivery
+
+For cards created under the current board process, `ready` authorizes an
+isolated builder after builder preflight. The coordinator then requires an
+immutable commit, one independent review, the declared acceptance in a clean
+worktree, and matching sanitized delivery evidence before `done`. The older
+dual-review/skeptical-bundle ceremony is frozen historical evidence for cards
+already in `done`; it is not an option for backlog or active cards.
 
 ## Non-goals
 
@@ -112,32 +132,37 @@ failure is not a skeptical mutation.
 
 ## Review
 
-- Reviewer A: full ten-dimension and every-hunk review, prioritizing
-  correctness, SOLID boundaries, compatibility, and test sensitivity.
-- Reviewer B: full ten-dimension and every-hunk review, prioritizing hostile
-  input, secrets, permissions, supply chain, resilience, and fail-closed paths.
-- Independence: sealed same `CandidateIdentityV1`; fresh process/session and
-  provider conversation; isolated caches/memory; manifest reports I0/I1/I2/I3
-  honestly and treats backend aliases as one family.
-- Skeptical approver: pre-seal hypotheses, run every mutation in a clean OCI
-  worker, restore, replay, and veto on failure or inconclusive evidence.
+- Reviewer: one independent reviewer reads the exact immutable candidate in a
+  clean detached worktree and checks every changed hunk, the public contract,
+  paths/read_paths, acceptance, declared selectors, mutations, profile/runtime
+  compatibility, security boundaries, and exit-code handling.
+- Independence: the reviewer is separate from the builder and does not edit
+  the candidate or write evidence in the coordinator checkout. A second
+  reviewer, skeptical approver, or duplicated role is not required.
+- Verdict: approve only on raw exit `0` with real assertions. Runtime,
+  loader, image, dependency, or other infrastructure failures are blocked or
+  inconclusive, never approval. The validator reruns the declared acceptance
+  on the same SHA when `validation` is not `none`.
 
 ## Evidence
 
 Only the coordinator writes sanitized artifacts under
 `.board/evidence/AUR-000/`; tests and builders emit untrusted observations and
-never approval. The manifest
-MUST bind the canonical candidate identity, locked spec, red/green/refactor,
-deterministic gates, clean tree, full Review A and B coverage maps, pre-sealed
-challenge, mutations, restored replay, hashes, and verdicts. `done` additionally
-requires an authenticated human integration event. Never store secrets, raw
+never approval. The evidence binds the exact candidate SHA, review verdict,
+acceptance/validation exits, mutation result when declared, clean tree, and
+artifact hashes. `done` additionally requires the delivery record and the
+validated evidence required by the board gate. Never store secrets, raw
 prompts/responses, credentials, environment values, or chain-of-thought.
 ```
 
 Every concrete TDD test reference uses the closed `` `path::selector` `` form,
 must resolve directionally inside `paths`, and may not offer an alternative
 `not-applicable`. `read_paths` is a read-only input allowlist; it grants no
-write ownership and may not overlap `forbidden_paths`.
+write ownership and may not overlap `forbidden_paths` or owned `paths`. By
+`review`/`validating`, every declared path must exist as tracked input. The
+locked profile image must contain the runner's `bash` and every tool named by
+the acceptance; runtime smoke checks are mandatory before dispatch and before
+OCI materialization.
 
 `evidence_chain_digest` is not declarative. The validator recomputes it as the
 SHA-256 of `candidate_identity_digest=<digest>\n` followed by strictly

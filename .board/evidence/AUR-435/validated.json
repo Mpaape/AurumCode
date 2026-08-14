@@ -1,0 +1,20 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-435",
+ "commit": "fd99d3a44d47598fe22705e95c2343bbcbfb4e2d",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-435",
+  "exit_code": 0,
+  "raw_output": "sealed 0; siblings 432/434/436 re-run 0; 430 flaked twice on cgroup compile OOM then passed (reproduced on the parent too, environmental)"
+ },
+ "review_notes": {
+  "nonblocking": [
+   "security.yml SQL pattern is broad: a benign string concat with a query-like prefix can report as error and close --fail-on high (opt-in flag, no precision contract declared; candidate for rule tuning)",
+   "securitypass.go:96 discards enforceRuleCitations' return (unreachable branch)",
+   "nominal_case asserts no exit code itself (covered by integration and the reviewer's own runs)"
+  ]
+ }
+}

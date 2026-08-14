@@ -1,0 +1,12 @@
+{
+ "schema": "aurum.acceptance-execution",
+ "version": 1,
+ "card_id": "AUR-451",
+ "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-451",
+ "candidate": "4df5df69aba5058be594947d0d5f6639360a67ea",
+ "profile": "bootstrap-readonly-v1",
+ "image": "aurum-bootstrap-go-bash@sha256:e8521445a6c1bc7c017258e9c71caf8eb78ee254862582c5d57d8a79d9413084",
+ "exit_code": 0,
+ "behavior": "--seguranca, --fail-on, --limite and --modelo now work with --pr by reusing the exact --base functions: a planted secret is published inline citing rule and standard, the severity ladder distinguishes high from medium, a low budget refuses with zero model calls and zero POSTs, and the chosen model reaches the wire",
+ "mutation": "MUT-001 rejected; the reviewer reverted pr.go and main.go entirely to the parent - the original regression - and the accept went red with behavior-missing"
+}

@@ -1,0 +1,64 @@
+# Task ID: 8
+# Title: Automated Review Generation and ISO/IEC 25010 Scoring
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Implement AI-assisted code review flow that maps findings to files/lines, assigns severity and rule IDs, and computes ISO/IEC 25010 characteristic scores with weights.
+# Details:
+- Package: `internal/review/{reviewer,iso25010,suggestion}`.
+- Reviewer orchestrates: build prompt → call provider → parse → map to `ReviewIssue[]`; include rule mapping from `.aurumcode/rules`.
+- ISO/IEC 25010: define weights configurable in config; compute 0–100 scores for 8 characteristics from LLM output + static signals (e.g., cyclomatic complexity change, TODOs, smells).
+- Suggestions: before/after patches as unified diff snippets for each issue; validate formatting.
+- Output: `ReviewResult` with issues, isoScores, summary, and cost.
+- Pseudocode:
+  - func GenerateReview(ctx, diff, cfg) (types.ReviewResult, error) { pr := prompts.BuildReviewPrompt(...); resp := llm.Complete(...); parsed := parser.ParseReview(resp.Text); scores := iso.Score(parsed, metrics); return types.ReviewResult{Issues: parsed.Issues, Iso: scores} }
+
+# Test Strategy:
+- Unit: scoring function deterministically maps inputs to expected scores given weights.
+- Unit: suggestion generator outputs valid unified diff blocks.
+- Integration: golden tests from diff fixture → synthetic provider stub returns known findings → expected `ReviewResult` JSON.
+- Validation: ensure each issue has file+line and ruleID; severity within enum.
+
+# Subtasks:
+## 1. Implement reviewer orchestration pipeline in `internal/review/reviewer` [pending]
+### Dependencies: 8.6
+### Description: Create the end-to-end flow to build prompts, call the LLM, parse, and assemble a `ReviewResult`.
+### Details:
+Implement `GenerateReview(ctx, diff, cfg)` orchestrating: prompts.BuildReviewPrompt → provider.Complete → parser.ParseReview → assemble `types.ReviewResult` with issues, isoScores placeholder, summary, and cost placeholder. Wire logging, timeouts, and error handling.
+
+## 2. Map LLM findings to `ReviewIssue[]` with rule IDs and locations [pending]
+### Dependencies: 8.1
+### Description: Transform parsed findings into typed issues with severity, rule mapping, and file/line anchors.
+### Details:
+Implement mapper to resolve `.aurumcode/rules` → rule ID/metadata, attach to issues; locate file and line from diff hunks; handle multiple occurrences; normalize severities; include fallback when path not found and mark as repository-level.
+
+## 3. ISO/IEC 25010 scoring with configurable weights and static signals [pending]
+### Dependencies: 8.2
+### Description: Compute 0–100 scores for the 8 characteristics using weights and metrics.
+### Details:
+Create `internal/review/iso25010` with `Score(parsed, metrics, weights)`; load weights from config; blend LLM-derived ratings with static signals (complexity deltas, TODO counts, smells); validate weights and clamp outputs to 0–100; return per-characteristic and overall.
+
+## 4. Generate suggestion unified diff snippets and validate formatting [pending]
+### Dependencies: 8.2
+### Description: Produce before/after patch snippets per issue and ensure unified diff validity.
+### Details:
+Implement `internal/review/suggestion` with helpers to extract context from original diff and render minimal unified diff blocks; validate headers/hunks format; support multiple hunks per issue; gracefully skip when context not available.
+
+## 5. Capture token usage and monetary cost into `ReviewResult` [pending]
+### Dependencies: 8.1
+### Description: Record usage metrics from provider calls and compute estimated cost.
+### Details:
+Augment orchestration to read token usage from provider response; compute cost using provider pricing in config (prompt/completion rates); include currency, totals, and per-step breakdown in `ReviewResult`.
+
+## 6. Integrate provider and parser contracts with a deterministic stub [pending]
+### Dependencies: None
+### Description: Define interfaces for LLM provider and parser and implement a stub for tests.
+### Details:
+Create `Provider` interface (`Complete(ctx, req) -> {Text,Usage}`) and `Parser` that converts LLM text into structured findings; add a stub provider returning canned text and usage; support provider selection via config but default to stub in tests.
+
+## 7. Golden end-to-end tests with fixtures for `ReviewResult` JSON [pending]
+### Dependencies: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6
+### Description: Assert full pipeline output from diff fixture through stubbed LLM to stable JSON.
+### Details:
+Create fixtures: input diff, rules, config weights, and stub LLM output; run `GenerateReview` and compare the resulting `ReviewResult` JSON to golden files; include update flag for intentional changes.
+

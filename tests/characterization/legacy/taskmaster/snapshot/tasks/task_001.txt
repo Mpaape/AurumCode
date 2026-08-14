@@ -1,0 +1,73 @@
+# Task ID: 1
+# Title: Bootstrap Go Monorepo, Hexagonal Layout, Core Types
+# Status: done
+# Dependencies: None
+# Priority: medium
+# Description: Initialize the Go module and repository layout per PRD, define shared domain types and ports (interfaces) to support provider-agnostic, language-agnostic pipelines.
+# Details:
+- Create module `aurumcode` with Go ≥1.21.
+- Scaffold folders: `cmd/{server,cli}`, `internal/{git,config,llm,analysis,review,documentation,testing,deploy}`, `pkg/types`, `docs`, `rag`, `configs`, `deployments`, `tests/{unit,integration,fixtures}`.
+- Add `pkg/types` with domain models:
+  - Event: repo, provider, eventType, deliveryID, payload, signature.
+  - Diff: files[], each with path, lang, hunks[] (oldStart, oldLines, newStart, newLines, lines).
+  - Config: llm (provider, model, temps, budgets), prompts, rules, outputs flags.
+  - ReviewIssue: id, file, line, severity, ruleID, message, suggestion.
+  - ReviewResult: issues[], isoScores{functionality,reliability,usability,efficiency,maintainability,portability,security,compatibility}, summary, cost.
+  - QAArtifacts: coverage, sarif, sbom, changelog path.
+  - Ports: Provider, GitClient, CostTracker, PromptBuilder, ResponseParser.
+- Pseudocode (Go):
+  - type Event struct{ Repo string; Provider string; EventType string; DeliveryID string; Payload []byte; Signature string }
+  - type DiffHunk struct{ OldStart, OldLines, NewStart, NewLines int; Lines []string }
+  - type Provider interface{ Complete(prompt string, opts Options) (Response, error); Tokens(input string) (int, error); Name() string }
+- Add Makefile tasks: build, test, lint, cover.
+- Seed `.aurumcode/config.yml` in `configs/default-config.yml` mirroring PRD minimal config.
+
+# Test Strategy:
+- Unit: Validate JSON/YAML round-trip for `Config` (marshal/unmarshal), equality on defaults merge.
+- Unit: Ensure `Diff` and `ReviewResult` marshal to JSON deterministically.
+- Lint/Fmt: `go vet`, `gofmt -s`, `golangci-lint` if available.
+- Coverage: add `go test ./... -coverprofile=coverage.out` target and assert ≥85% for types utils.
+
+# Subtasks:
+## 1. Initialize Go module `aurumcode` with Go ≥1.21 [done]
+### Dependencies: None
+### Description: Create a new Go module and set the toolchain/version constraints for Go 1.21 or newer.
+### Details:
+Run `go mod init aurumcode`, set `go 1.21` in `go.mod`, add a minimal `cmd/server` and `cmd/cli` main placeholder to ensure the module builds, and include a `.gitignore` suited for Go and coverage artifacts.
+
+## 2. Scaffold hexagonal monorepo directory layout [done]
+### Dependencies: 1.1
+### Description: Create the prescribed hexagonal directories and placeholders to establish structure.
+### Details:
+Create `cmd/{server,cli}`, `internal/{git,config,llm,analysis,review,documentation,testing,deploy}`, `pkg/types`, `docs`, `rag`, `configs`, `deployments`, `tests/{unit,integration,fixtures}`. Add `.keep` or minimal files so packages compile and paths are tracked.
+
+## 3. Define core domain models and ports in `pkg/types` [done]
+### Dependencies: 1.1, 1.2
+### Description: Add Go types for events, diffs, config, review results/artifacts, and provider ports.
+### Details:
+Implement `Event`, `DiffFile`, `DiffHunk`, `Config` (llm provider/model/temp/budgets, prompts/rules/outputs flags), `ReviewIssue`, `ReviewResult` (issues, isoScores, summary, cost), `QAArtifacts`, and ports `Provider`, `GitClient`, `CostTracker`, `PromptBuilder`, `ResponseParser`. Include JSON/YAML tags and sensible zero-values.
+
+## 4. Seed `configs/default-config.yml` and `.aurumcode/` skeleton [done]
+### Dependencies: 1.2
+### Description: Provide a minimal default config and a repo-local `.aurumcode/config.yml` example.
+### Details:
+Create `configs/default-config.yml` mirroring PRD minimal fields (llm provider/model/temp/budgets, prompts/rules paths, output flags). Add `.aurumcode/` with `config.yml` example and placeholder subfolders for prompts/rules if referenced.
+
+## 5. Add Makefile with build, test, lint, and cover targets [done]
+### Dependencies: 1.1, 1.2
+### Description: Create developer-friendly commands to build, test, lint, and generate coverage.
+### Details:
+Implement `make build` (`go build ./...`), `make test` (`go test ./...`), `make lint` (`gofmt -s -l . && go vet ./...` and optionally `golangci-lint run` if present), and `make cover` (`go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out`). Mark targets `.PHONY`.
+
+## 6. Unit tests for JSON/YAML round-trip and determinism [done]
+### Dependencies: 1.1, 1.2, 1.3, 1.4, 1.5
+### Description: Write tests for Config round-trip and deterministic JSON for Diff/ReviewResult.
+### Details:
+Under `tests/unit` (or package-local `_test.go`), add table-driven tests: Config marshal→unmarshal equality (including defaults merge), Diff and ReviewResult deterministic JSON (stable field order, stable slices where applicable), and coverage reporting. Use fixtures in `tests/fixtures`.
+
+## 7. Bootstrap repo documentation and README [done]
+### Dependencies: 1.1, 1.2, 1.3, 1.4, 1.5
+### Description: Add initial README and docs describing goals, layout, and workflows.
+### Details:
+Create `README.md` with project overview, Go version, layout description, Makefile usage, and contribution basics. Add `docs/` stubs (e.g., architecture/hexagonal overview, types and ports summary). Link to `configs/default-config.yml` and `.aurumcode/config.yml` example.
+

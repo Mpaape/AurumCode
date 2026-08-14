@@ -8,10 +8,59 @@ The pre-existing `.taskmaster/` backlog is preserved as audit input only. Its
 historical `done` values do not prove that a capability exists and never drive
 the execution queue; AUR-001 and AUR-002 characterize those claims explicitly.
 
-## Operating model
+## Operating model (lightweight delivery, 2026-08)
+
+The board runs on a simple, parallel delivery cycle with executable fail-closed
+gates. The current process never invokes `.board/validate.sh`; that script and
+its second-reader ceremony are frozen legacy evidence, not a session gate.
+Every session starts with `.board/office-cycle.sh --start` or `--status`, and
+every 20-minute review uses `--review`.
 
 1. A card moves from `backlog` to `ready` only when every `depends_on` card is
-   in `done`. `ready` authorizes an isolated test designer, not a builder.
+   in `done`, its `validation`, `paths`, `read_paths`, `container_profile` and
+   `profile_owner` are explicit, and the profile owner is upstream. Go cards
+   must list `go.mod` and `go.sum` in `read_paths`. In the current lightweight
+   flow, `ready` authorizes one isolated builder after builder preflight; it
+   does not authorize review, validation or a state transition.
+2. The developer executes the card, commits to a human-authenticated commit
+   (never AI attribution), and adds a `## Delivery record` section to the card
+   body with `- commit: <40-hex sha>`.
+3. An independent reviewer agent code-reviews the builder's immutable commit
+   while the card remains `ready`. Only after approval does the coordinator
+   integrate that exact commit, add the Delivery record, and move the card to
+   `review` (or directly to `validating` when validation is declared).
+4. If the card frontmatter declares `validation: tested` or `skeptical`, a
+   validator agent executes the card's own acceptance and appends
+   `- validation: passed` on success. An active card must declare the field;
+   explicit `validation: none` skips this step.
+5. Before dispatch, a clean worktree must pass
+   `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /path/to/worktree`.
+   The preflight checks every required input, the exact acceptance command, the
+   profile lock, the local image, and the runtime commands the acceptance uses.
+6. The card moves to `done` only when its Delivery record is complete for its
+   declared validation kind. The lightweight gate is `bash .board/pipeline.sh`
+   — run it and read its exit code. For `review`/`validating`, it also rejects
+   missing paths, missing acceptance files, unregistered profiles and divergent
+   accept commands.
+7. Only the coordinator moves cards and integrates. Commits never carry AI
+   authorship, co-authorship, signatures, or generated-by attribution.
+
+The earlier ceremony (two blind reviewers, skeptical mutation, OCI evidence
+bundles) is preserved as frozen history for cards already in `done`; every
+backlog or active card runs the lightweight cycle above. A legacy Review or
+Evidence paragraph left in an uncompleted card is stale text and must be
+normalized before dispatch; it never authorizes extra reviewers or roles.
+
+Before dispatching a card, follow [`AGENT_PLAYBOOK.md`](AGENT_PLAYBOOK.md) and
+run the preflight in a clean worktree. The runner repeats the runtime smoke test
+immediately before container creation, so a stale or shortened session cannot
+silently dispatch a Bash-only image to a Go acceptance.
+
+## Legacy ceremony (pre-2026-08; governs legacy `done` cards only)
+
+1. Legacy ceremony only: a card moves from `backlog` to `ready` only when every
+   `depends_on` card is in `done`; the legacy test-designer/RED step applies only
+   to the explicitly listed legacy `done` evidence, not to current cards.
 2. A feature or defect card moves to `doing` only after its acceptance test
    demonstrably fails for the intended behavioral reason. A characterization,
    policy-data, or behavior-preserving refactor instead records an initial
@@ -127,6 +176,17 @@ Every card follows [`CARD_TEMPLATE.md`](CARD_TEMPLATE.md). In particular:
 
 - `accept` is one decisive, containerized command that names the expected
   artifact or test and fails before implementation;
+- `container_profile` must resolve to a checked-in profile and digest lock. The
+  locked image must contain `bash` (the runner's execution shell) and every
+  runtime command named by the acceptance, such as `go`; preflight probes this
+  before dispatch and `oci-run` probes it again before materialization;
+- `profile_owner` must match the canonical owner in
+  [`profile-owners.tsv`](profile-owners.tsv) and be reachable through
+  `depends_on`; this makes missing runtime capability a graph error before a
+  worktree or agent is created;
+- `validation`, `paths` and `read_paths` are mandatory on every non-terminal
+  card. `read_paths: []` is the explicit empty set, and Go cards must include
+  both `go.mod` and `go.sum`;
 - every concrete TDD test uses a closed `path::selector` reference located
   directionally within `paths`, naming an artifact one of the two second-reader
   engines can actually execute (`*_test.go` or an acceptance `*.sh`); an
@@ -138,6 +198,8 @@ Every card follows [`CARD_TEMPLATE.md`](CARD_TEMPLATE.md). In particular:
   inferred;
 - outputs are proposals unless a separately authorized publisher card applies
   them;
+- by `review`/`validating`, every declared `paths` and `read_paths` entry must
+  exist as tracked input, and `read_paths` may not overlap owned `paths`;
 - credentials arrive only through environment variables or mounted secret
   files and may never enter logs, prompts, fixtures, evidence, or git history.
 
@@ -293,9 +355,9 @@ CLI). A missing utility fails closed with an infrastructure diagnosis. These
 locks must be decomposed into dedicated AUR-233 child cards; absence is never
 reported as behavioral RED or OCI conformance.
 
-Run `./.board/validate.sh` to validate board structure, and
-`bash .board/tests/validator-mutants.sh` to validate the validator. Each
-second-reader rule in that suite comes in a pair: the mutant must die with the
-rule in place and the identical tree must survive with that one rule surgically
-removed, because a mutant that dies either way was proving some other check.
+The current session gate is `bash .board/pipeline.sh`, preceded by
+`bash .board/office-cycle.sh --status` and the per-card preflight. The
+`validate.sh` and `validator-mutants.sh` commands above are retained only as
+historical legacy evidence; they are not a current dispatch or completion
+command. The graph and work queue are summarized in [`KANBAN.md`](KANBAN.md).
 The graph and work queue are summarized in [`KANBAN.md`](KANBAN.md).

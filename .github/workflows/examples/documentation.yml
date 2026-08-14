@@ -1,5 +1,7 @@
 # Example: AurumCode documentation generation and GitHub Pages deploy
-# Copy this file to your repository as .github/workflows/aurumcode-docs.yml
+# Copy this file to your repository as .github/workflows/documentation.yml --
+# keeping the filename means `gh workflow run documentation.yml` works exactly
+# as documented, with nothing edited.
 #
 # Requires Settings > Pages > Source = "GitHub Actions". With publish: pages the
 # action performs the upload and the deploy itself, so the job below needs
@@ -72,9 +74,14 @@ jobs:
         # The id is what makes steps.aurumcode.outputs.* resolve, including the
         # page-url the environment above links to.
         id: aurumcode
-        # Pin the action to the commit you reviewed, never to a mutable branch:
-        # @main lets a later upstream push change what executes in your repo.
-        uses: Mpaape/AurumCode@6f584b5987c12399bc7a85571dad4a81e28005c8 # reviewed head of PR #1
+        # v1 is the action's published semver release tag: the contract a
+        # copied workflow relies on without editing anything. It resolves once
+        # the maintainer publishes the tag (a human act outside any CI run; see
+        # docs/specs/AUR-428.md in the action repository). Never point this at
+        # a mutable branch: @main lets a later upstream push change what
+        # executes in your repo. If your policy requires immutable pins,
+        # replace the tag with the commit SHA it resolves to at review time.
+        uses: Mpaape/AurumCode@v1
         with:
           source-dir: '.'
           output-dir: '.aurumcode'

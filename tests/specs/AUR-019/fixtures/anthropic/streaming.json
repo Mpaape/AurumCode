@@ -1,0 +1,34 @@
+{
+  "capability": "streaming",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "anthropic",
+  "request": {
+    "body": {
+      "max_tokens": 128,
+      "messages": [
+        {
+          "content": "count to three",
+          "role": "user"
+        }
+      ],
+      "model": "claude-sonnet-5",
+      "stream": true
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "<ANTHROPIC_API_KEY>"
+    },
+    "method": "POST",
+    "path": "/v1/messages"
+  },
+  "response": {
+    "content_type": "text/event-stream",
+    "events": [
+      "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"role\":\"assistant\",\"content\":[]}}",
+      "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"1, 2, 3\"}}",
+      "event: message_stop\ndata: {\"type\":\"message_stop\"}"
+    ],
+    "transport": "server-sent-events"
+  },
+  "source": "[anthropic-sdk-python v0.120.2](https://github.com/anthropics/anthropic-sdk-python/releases/tag/v0.120.2)"
+}

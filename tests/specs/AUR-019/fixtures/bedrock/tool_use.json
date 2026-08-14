@@ -1,0 +1,67 @@
+{
+  "capability": "tool_use",
+  "note": "Recorded from official documentation; no live network call, no credentials.",
+  "provider": "bedrock",
+  "request": {
+    "auth": "AWS SigV4",
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "what's the weather in Recife?"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "toolConfig": {
+        "tools": [
+          {
+            "toolSpec": {
+              "description": "Get current weather for a city",
+              "inputSchema": {
+                "json": {
+                  "properties": {
+                    "city": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "name": "get_weather"
+            }
+          }
+        ]
+      }
+    },
+    "method": "POST",
+    "path": "/model/anthropic.claude-sonnet-5/converse"
+  },
+  "response": {
+    "body": {
+      "output": {
+        "message": {
+          "content": [
+            {
+              "toolUse": {
+                "input": {
+                  "city": "Recife"
+                },
+                "name": "get_weather",
+                "toolUseId": "tu_1"
+              }
+            }
+          ],
+          "role": "assistant"
+        }
+      },
+      "stopReason": "tool_use"
+    }
+  },
+  "source": "[Amazon Bedrock Runtime API Reference - Converse (2023-09-30)](https://docs.aws.amazon.com/bedrock/2023-09-30/APIReference/API_runtime_Converse.html)"
+}

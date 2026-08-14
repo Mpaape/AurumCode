@@ -1,0 +1,1 @@
+AUR-019/AC-001/undecided-provider: matrix capabilities for OpenAI do not match standards/providers/openai.yaml

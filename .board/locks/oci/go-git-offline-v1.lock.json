@@ -1,0 +1,6 @@
+{
+"schema": "aurum.oci-image-lock",
+"version": 1,
+"profile": "go-git-offline-v1",
+"image": "golang@sha256:4746d26432a9117a5f58e95cb9f954ddf0de128e9d5816886514199316e4a2fb"
+}

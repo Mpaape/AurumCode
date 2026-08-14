@@ -1,0 +1,20 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-404",
+  "commit": "dba400048e33b1985e7450ba40862b9a0afd6483",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-404",
+    "exit_code": 0,
+    "raw_output": "{\"card\":\"AUR-404\",\"scenario\":\"AC-001\",\"result\":\"valid\",\"engine_invocations\":0}\n14 lanes executed: unit, contract, integration, e2e, AUR-402 regression, AUR-403 regression and 8 in-copy mutants\neach lane shows === RUN TestAUR404Bridge and ok github.com/Mpaape/AurumCode/tests/...\nexit_code=0 secret_detected=false observation_trusted=false\nAUR-402 regression exit 0 (run separately by the reviewer)\nAUR-403 regression exit 0 (run separately by the reviewer)"
+  },
+  "review_notes": {
+    "contract_repair": "This card owns tests/unit/AUR-402.go and tests/unit/AUR-403.go because registering a fourth profile key breaks both already delivered loaders from outside its write-set. The reviewer confirmed the loaders were extended and not weakened: the allowlists gained the git key, the new branch mirrors the existing go-unit branch, AUR-403 hardened from len != 3 to len != 4 with the canonical order preserved, and no rejection case was removed.",
+    "mutations": "MUT-001 duplicate-profile, MUT-002 mutable-input and MUT-003 unsafe-plan were redone against the bytes on disk rather than a mutation switch; MUT-002 recomputed the whole digest chain so it could not stop earlier on a digest mismatch. Every restore returned to exit 0 with an identical input manifest digest.",
+    "reviewer_attacks": "A fifth unknown registry key and an inverted canonical order were both rejected with their own codes, the digest chain was recomputed independently on the host, and the pinned image was probed under the real runner flags: bash, go1.21.13 and git 2.39.2.",
+    "deferred_by_design": "go-git-offline-v1.json declares its own schema with nested values, which the runner cannot load. That is deferred by design, exactly as AUR-403 declared: this card defines the profile and its own acceptance runs on bootstrap-readonly-v1. No gate was loosened to work around it.",
+    "open_low_findings": "The empty-lane guard in tests/acceptance/AUR-404.sh matches 'ok ... [no tests to run]' and only the following === RUN check actually holds the line; the e2e lane asserts JSON with exact indentation via grep -Fqx."
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "schema": "aurum.dag-release-cases",
+  "version": 1,
+  "limits": {
+    "max_vectors": 64,
+    "max_bytes": 4194304,
+    "deadline_seconds": 30
+  },
+  "vectors": [
+    {
+      "id": "nominal",
+      "kind": "nominal",
+      "input_digest": "sha256:ab5c22a009791bee5b3d8f41795cd3c21ebe9ed5f036ff7aac374147127a50f5",
+      "expected": {
+        "exit_code": 0,
+        "code": "valid",
+        "field": "",
+        "card_id": "",
+        "effects": 0,
+        "topological_order": ["AUR-001", "AUR-002", "AUR-003", "AUR-004"],
+        "releasable": ["AUR-002", "AUR-004"],
+        "artifact_digest": "sha256:3a213dadec75fcce5216b6d2cdcc951abc13115b31aefe3292b928c26a59642a"
+      }
+    },
+    {
+      "id": "invalid-missing-dependency",
+      "kind": "invalid",
+      "input_digest": "sha256:2c06c4028b7ab88820d59d046ac0b1a06c8dccbc64aeda803a308cfbfba3db7c",
+      "expected": {
+        "exit_code": 1,
+        "code": "missing_dependency",
+        "field": "cards[0].depends_on[0]",
+        "card_id": "AUR-001",
+        "effects": 0,
+        "topological_order": [],
+        "releasable": [],
+        "artifact_digest": "sha256:4c55bc76f348a9b69ac1075eb3083c8333e1b69ec0f388d08aac24feae26fd07"
+      }
+    },
+    {
+      "id": "invalid-cycle",
+      "kind": "invalid",
+      "input_digest": "sha256:da819f765aefd81ccf444afac49f7b9079aa2b1b1797517b77765aff9f039058",
+      "expected": {
+        "exit_code": 1,
+        "code": "cycle",
+        "field": "cards",
+        "card_id": "",
+        "effects": 0,
+        "topological_order": [],
+        "releasable": [],
+        "artifact_digest": "sha256:d86fc9d2e1456f6a197ffdddb85350b9fe4557afacb59dd6fb4ae850b6af8006"
+      }
+    },
+    {
+      "id": "invalid-transition",
+      "kind": "invalid",
+      "input_digest": "sha256:f959aa9172756dd5e200afbe917ce30fbbd292f3c75907c3acacb7fb8949eef6",
+      "expected": {
+        "exit_code": 1,
+        "code": "illegal_transition",
+        "field": "cards[0].status",
+        "card_id": "AUR-001",
+        "effects": 0,
+        "topological_order": [],
+        "releasable": [],
+        "artifact_digest": "sha256:687f0899f85422ef0c9f9470993753cdeaef78a7fcdb33352654b4dc405273ac"
+      }
+    },
+    {
+      "id": "invalid-agent-approval",
+      "kind": "invalid",
+      "input_digest": "sha256:0dcc3056ff3a1f43c8781326e8b3591064cbd908f7a516f65ef1f97e15834093",
+      "expected": {
+        "exit_code": 1,
+        "code": "agent_identity_forbidden",
+        "field": "authorization_events[0].actor_type",
+        "card_id": "AUR-001",
+        "effects": 0,
+        "topological_order": [],
+        "releasable": [],
+        "artifact_digest": "sha256:4eb3041c5440961f30395e8ad7d554fa915a23b5656a11c6f00f2537d37cccf4"
+      }
+    },
+    {
+      "id": "boundary",
+      "kind": "boundary",
+      "input_digest": "sha256:14c4995375258e10c1a80b2a6c0f502624a2cda9023267c85e20b7d46a10f2cb",
+      "expected": {
+        "exit_code": 0,
+        "code": "valid",
+        "field": "",
+        "card_id": "",
+        "effects": 0,
+        "topological_order": ["AUR-100", "AUR-101", "AUR-102", "AUR-103", "AUR-104", "AUR-105", "AUR-106", "AUR-107", "AUR-108", "AUR-109", "AUR-110", "AUR-111", "AUR-112", "AUR-113", "AUR-114", "AUR-115", "AUR-116", "AUR-117", "AUR-118", "AUR-119", "AUR-120", "AUR-121", "AUR-122", "AUR-123", "AUR-124", "AUR-125", "AUR-126", "AUR-127", "AUR-128", "AUR-129", "AUR-130", "AUR-131", "AUR-132", "AUR-133", "AUR-134", "AUR-135", "AUR-136", "AUR-137", "AUR-138", "AUR-139", "AUR-140", "AUR-141", "AUR-142", "AUR-143", "AUR-144", "AUR-145", "AUR-146", "AUR-147", "AUR-148", "AUR-149", "AUR-150", "AUR-151", "AUR-152", "AUR-153", "AUR-154", "AUR-155", "AUR-156", "AUR-157", "AUR-158", "AUR-159", "AUR-160", "AUR-161", "AUR-162", "AUR-163"],
+        "releasable": ["AUR-100", "AUR-101", "AUR-102", "AUR-103", "AUR-104", "AUR-105", "AUR-106", "AUR-107", "AUR-108", "AUR-109", "AUR-110", "AUR-111", "AUR-112", "AUR-113", "AUR-114", "AUR-115", "AUR-116", "AUR-117", "AUR-118", "AUR-119", "AUR-120", "AUR-121", "AUR-122", "AUR-123", "AUR-124", "AUR-125", "AUR-126", "AUR-127", "AUR-128", "AUR-129", "AUR-130", "AUR-131", "AUR-132", "AUR-133", "AUR-134", "AUR-135", "AUR-136", "AUR-137", "AUR-138", "AUR-139", "AUR-140", "AUR-141", "AUR-142", "AUR-143", "AUR-144", "AUR-145", "AUR-146", "AUR-147", "AUR-148", "AUR-149", "AUR-150", "AUR-151", "AUR-152", "AUR-153", "AUR-154", "AUR-155", "AUR-156", "AUR-157", "AUR-158", "AUR-159", "AUR-160", "AUR-161", "AUR-162", "AUR-163"],
+        "artifact_digest": "sha256:06345168c3e4f6cc788cec3a43d38147eb3e3cbac789e8449e899c621d7cca19"
+      }
+    },
+    {
+      "id": "boundary-overflow",
+      "kind": "boundary",
+      "input_digest": "sha256:46e106a0e0bf3b48a14241cd7ba2233f0f445300ee67cebaff2e0e65ddee1145",
+      "expected": {
+        "exit_code": 1,
+        "code": "limit_exceeded",
+        "field": "cards",
+        "card_id": "",
+        "effects": 0,
+        "topological_order": [],
+        "releasable": [],
+        "artifact_digest": "sha256:0975823647a421eda34a025ae369984e675813cc4bbe0feb62fb8ef3b18f0648"
+      }
+    }
+  ]
+}

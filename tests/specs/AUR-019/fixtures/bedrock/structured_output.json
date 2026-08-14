@@ -1,0 +1,58 @@
+{
+  "capability": "structured_output",
+  "note": "Recorded from official documentation; no live network call, no credentials. outputConfig.textFormat carries the OutputFormat structured-text shape.",
+  "provider": "bedrock",
+  "request": {
+    "auth": "AWS SigV4",
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "extract the ticket"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "outputConfig": {
+        "textFormat": {
+          "structure": {
+            "properties": {
+              "priority": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "priority"
+            ],
+            "type": "object"
+          },
+          "type": "json_schema"
+        }
+      }
+    },
+    "method": "POST",
+    "path": "/model/anthropic.claude-sonnet-5/converse"
+  },
+  "response": {
+    "body": {
+      "output": {
+        "message": {
+          "content": [
+            {
+              "text": "{\"title\":\"Fix login bug\",\"priority\":\"high\"}"
+            }
+          ],
+          "role": "assistant"
+        }
+      },
+      "stopReason": "end_turn"
+    }
+  },
+  "source": "[Amazon Bedrock Runtime API Reference - Converse (2023-09-30)](https://docs.aws.amazon.com/bedrock/2023-09-30/APIReference/API_runtime_Converse.html)"
+}

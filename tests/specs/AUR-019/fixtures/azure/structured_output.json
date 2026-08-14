@@ -1,0 +1,57 @@
+{
+  "capability": "structured_output",
+  "note": "Recorded from official documentation; no live network call, no credentials. Requires api-version 2024-08-01-preview or later.",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": "extract the ticket",
+          "role": "user"
+        }
+      ],
+      "response_format": {
+        "json_schema": {
+          "name": "ticket",
+          "schema": {
+            "properties": {
+              "priority": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "priority"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "json_schema"
+      }
+    },
+    "headers": {
+      "api-key": "<AZURE_OPENAI_KEY>"
+    },
+    "method": "POST",
+    "path": "/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-10-21"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "{\"title\":\"Fix login bug\",\"priority\":\"high\"}",
+            "role": "assistant"
+          }
+        }
+      ]
+    }
+  },
+  "source": "[Azure OpenAI REST API reference (data-plane inference, 2024-10-21 GA)](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference?view=rest-openai-2024-10-21)"
+}
