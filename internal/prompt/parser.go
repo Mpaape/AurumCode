@@ -85,6 +85,53 @@ func (e *ParseError) Unwrap() error { return e.Err }
 // describe and easy for a small local model to produce.
 var findingLinePattern = regexp.MustCompile(`^(?:[-*]\s+)?([\w./-]+\.\w+):(\d+):\s*(?:(error|warning|info):\s*)?(.+)$`)
 
+// canonicalReviewFields is the ONE findings schema the review prompt
+// template (templates/review.md) is allowed to show the model: exactly the
+// top-level JSON fields this parser turns into a types.ReviewResult a user
+// can see. AUR-459 exists because the template used to show two findings
+// schemas -- "line_comments" first, "issues" second -- while this parser
+// read only "issues": the model picked the first one it was shown and a
+// diff with three planted secrets printed "No issues found." with exit 0.
+//
+// TestReviewTemplateMatchesParser extracts the REAL top-level keys of the
+// template's JSON example and requires this exact set, so a future edit
+// that teaches the model a field nobody reads breaks the build instead of
+// turning back into silence.
+var canonicalReviewFields = []string{"issues", "iso_scores", "summary"}
+
+// acceptedReviewFields is what this parser consumes: the canonical set
+// plus "line_comments", kept as a tolerated alias rather than a taught
+// schema. The template no longer shows it, but a model that saw an older
+// prompt, a user-supplied .aurumcode/prompts/review.md, or a model that
+// simply drifts to the PR-comment vocabulary still gets its findings read
+// instead of dropped (see adoptLineComments). Every name here is proven to
+// change the parse result by TestAcceptedReviewFieldsAreConsumed -- the
+// list is a claim, that test is the fact.
+var acceptedReviewFields = []string{"issues", "iso_scores", "line_comments", "summary"}
+
+// lineComment is the shape of one entry of a "line_comments" array as a
+// model actually emits it. It is deliberately NOT types.ReviewComment:
+// that type carries no severity and no rule_id, and both are needed to
+// turn a comment into a finding the rest of the pipeline can handle. Both
+// spellings of the location and the text are accepted because a model that
+// mixes the two vocabularies is exactly the case this path exists for.
+type lineComment struct {
+	Path       string `json:"path"`
+	File       string `json:"file"`
+	Line       int    `json:"line"`
+	Body       string `json:"body"`
+	Message    string `json:"message"`
+	Severity   string `json:"severity"`
+	RuleID     string `json:"rule_id"`
+	Suggestion string `json:"suggestion"`
+}
+
+// reviewEnvelope reads only the alias fields types.ReviewResult cannot
+// carry losslessly, from the same repaired JSON the main decode used.
+type reviewEnvelope struct {
+	LineComments []lineComment `json:"line_comments"`
+}
+
 // ParseReviewResponse parses a review response from LLM
 func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResult, error) {
 	// Extract JSON from response (handle markdown code blocks)
@@ -100,12 +147,118 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 		return p.degradedOrError(response, ParseErrorInvalidJSON, err)
 	}
 
+	// A finding the model reported under "line_comments" is a finding: it
+	// becomes an issue here, before validation, so it travels the same
+	// path as one the model reported under "issues".
+	p.adoptLineComments(jsonContent, &result)
+
 	// Validate
 	if err := p.validateReviewResult(&result); err != nil {
 		return p.degradedOrError(response, ParseErrorValidation, err)
 	}
 
 	return &result, nil
+}
+
+// adoptLineComments folds a "line_comments" array into result.Issues and
+// reports how many entries it converted.
+//
+// Mapping: path (or file) -> File, line -> Line, body (or message) ->
+// Message, and rule_id/severity/suggestion straight through when the model
+// supplied them.
+//
+// Merge, not replace: a comment is adopted unless result.Issues already
+// holds a finding for the same (file, line). The template shows one
+// findings array and a model answers with one, so in practice exactly one
+// of the two is populated; when both are, the (file, line) already
+// reported under "issues" wins -- it is the richer record, carrying the
+// rule citation -- and everything the model said only in "line_comments"
+// is still added rather than dropped.
+//
+// ABOUT THE RULE GATE (AUR-434, internal/review.enforceRuleCitations): a
+// converted comment usually carries no rule_id, and a finding without a
+// resolvable rule_id is discarded before it reaches stdout. That discard
+// is deliberately NOT silent: enforceRuleCitations counts it and
+// formatDiscardWarning (AUR-448) renders the count and the reason, which
+// cmd/aurumcode prints verbatim to stderr. So the user is told "N
+// finding(s) discarded: N with no rule_id" instead of being told "No
+// issues found." while the model actually reported something. Requiring
+// rule_id inside line_comments instead was rejected: the template does not
+// show line_comments at all any more (it shows one schema, "issues",
+// where rule_id IS required and explained), so teaching a required field
+// inside a shape the prompt never asks for would document a contract
+// nobody is offered. Announcing the discard is the honest half of the
+// pair, and it already exists.
+//
+// Robustness: a malformed or partial line_comments block must never turn
+// a usable response into a hard parse failure. A block that does not
+// decode is ignored, and an entry without a path or without a body is
+// skipped rather than passed to validateReviewResult, which would reject
+// the whole response over one junk entry.
+func (p *ResponseParser) adoptLineComments(jsonContent string, result *types.ReviewResult) int {
+	var envelope reviewEnvelope
+	if err := json.Unmarshal([]byte(jsonContent), &envelope); err != nil {
+		return 0
+	}
+	if len(envelope.LineComments) == 0 {
+		return 0
+	}
+
+	type location struct {
+		file string
+		line int
+	}
+	seen := make(map[location]bool, len(result.Issues))
+	for _, issue := range result.Issues {
+		seen[location{file: issue.File, line: issue.Line}] = true
+	}
+
+	converted := 0
+	for _, c := range envelope.LineComments {
+		file := c.Path
+		if file == "" {
+			file = c.File
+		}
+		message := c.Body
+		if message == "" {
+			message = c.Message
+		}
+		if file == "" || strings.TrimSpace(message) == "" {
+			continue
+		}
+		key := location{file: file, line: c.Line}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		severity := strings.ToLower(strings.TrimSpace(c.Severity))
+		if severity != "error" && severity != "warning" && severity != "info" {
+			// A comment carries no severity of its own in the shape a
+			// model emits. "warning" is the same default degradedExtract
+			// already uses for a finding whose severity is unstated: it is
+			// reported, never invented as an error.
+			severity = "warning"
+		}
+
+		result.Issues = append(result.Issues, types.ReviewIssue{
+			File:       file,
+			Line:       c.Line,
+			Severity:   severity,
+			RuleID:     c.RuleID,
+			Message:    strings.TrimSpace(message),
+			Suggestion: c.Suggestion,
+		})
+		converted++
+	}
+
+	if converted > 0 {
+		if result.Metadata == nil {
+			result.Metadata = make(map[string]string)
+		}
+		result.Metadata["line_comments_converted"] = fmt.Sprintf("%d", converted)
+	}
+	return converted
 }
 
 // degradedOrError is the fallback path for a response the strict JSON
