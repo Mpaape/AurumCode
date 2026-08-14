@@ -22,6 +22,7 @@
 set -euo pipefail
 
 readonly wt_root="${AURUM_OFFICE_WT_ROOT:-/tmp/claude-1000/office-wt}"
+readonly board_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 stall_minutes="${1:-6}"
 
 [[ "$stall_minutes" =~ ^[0-9]+$ ]] || {
@@ -47,19 +48,40 @@ for wt in "$wt_root"/*/; do
   card="${wt%/}"; card="${card##*/}"
   is_agent_worktree "$card" || continue
 
+  # Only a card still in flight can stall. A worktree left behind by a card
+  # that reached done or cancelled is garbage to collect, not an agent to
+  # chase, and reporting it trains the reader to ignore this output.
+  # A worktree is named for its card, sometimes with a suffix (AUR-433-mut).
+  # ${card%%-*} would cut "AUR-459" down to "AUR" and match nothing, so take
+  # the AUR-NNN prefix explicitly.
+  [[ "$card" =~ ^(AUR-[0-9]+) ]] || continue
+  # One [[ -f ]] per lane, not one `ls` over all four: ls exits non-zero when
+  # ANY listed path is missing, so the card that DOES exist in ready still
+  # failed the test and every worktree was skipped -- a watchdog that reports
+  # nothing looks exactly like a quiet office.
+  in_flight=0
+  for lane in ready doing review validating; do
+    [[ -f "$board_root/cards/$lane/${BASH_REMATCH[1]}.md" ]] && { in_flight=1; break; }
+  done
+  (( in_flight == 1 )) || continue
+
   # A worktree whose HEAD carries a card commit has already delivered; the
   # coordinator integrates it, so silence there is not a stall.
   head_subject=$(git -C "$wt" log -1 --format=%s 2>/dev/null || true)
   [[ "$head_subject" == "$card:"* ]] && continue
 
+  # `| head -1` closes the pipe on the first line, so sort dies of SIGPIPE and
+  # pipefail propagates 141 -- which under set -e killed this watchdog silently,
+  # the exact failure it exists to catch. Let awk keep the maximum instead: it
+  # reads to EOF, so no stage is ever handed a closed pipe.
   newest=$(find "$wt" -type f -not -path '*/.git/*' -printf '%T@\n' 2>/dev/null |
-             sort -rn | head -1 | cut -d. -f1)
+             awk 'BEGIN{m=0} {if ($1+0 > m) m=$1+0} END{if (m>0) printf "%d\n", m}')
   [[ -n "$newest" ]] || continue
 
   idle_min=$(( (now - newest) / 60 ))
   (( idle_min >= stall_minutes )) || continue
 
-  dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+  dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l || true)
   stalled=1
   printf 'STALL %s: %dmin sem escrita, %d arquivo(s) modificado(s) -- leia o worktree antes de decidir: cobrar prazo, redespachar ou assumir\n' \
     "$card" "$idle_min" "$dirty"
