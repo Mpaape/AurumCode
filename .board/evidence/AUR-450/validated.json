@@ -1,0 +1,18 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-450",
+ "commit": "d235704026dccacfe6fb8565dcacb7b58d0d833c",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-450",
+  "exit_code": 0,
+  "raw_output": "0 for all eleven cards whose tests invoke --seguranca, found by grep rather than assumed"
+ },
+ "review_notes": {
+  "dynamic_proof": "the reviewer mutated the catalogue twice: removing a matcher recomputed the note to 2 of 8, and adding one to xss recomputed to 3 of 8 AND made the scan report an xss finding, confirming note and scan share one predicate",
+  "honest_note": "the card's own internal mutation case is near-tautological; the real mutation proof is the reviewer's independent vector",
+  "followup": "docs/specs/AUR-449.md still says stderr is empty on both sides, now false; prose only, no broken pin, needs its own docs card"
+ }
+}
