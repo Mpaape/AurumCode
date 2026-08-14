@@ -426,11 +426,19 @@ func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.Dif
 				"Languages":   b.formatLanguages(metrics),
 				"DiffContent": "(see the Code Changes section that follows this prompt)",
 				"RuleCatalog": catalog,
-			}); err == nil {
-				return buf.String(), nil
+			}); err != nil {
+				return "", fmt.Errorf("rendering the review prompt template: %w", err)
 			}
+			return buf.String(), nil
 		}
-		return "You are an expert code reviewer. Analyze the following code changes and provide a thorough review.", nil
+		// No silent one-line fallback for a review. The old fallback
+		// returned "You are an expert code reviewer..." with a nil error:
+		// no response schema, no rule_id instruction and no catalog, which
+		// is a stronger form of the very defect this card fixes -- the
+		// model would have to invent both the shape and the ids. A missing
+		// or unparseable template (see loadTemplates) is an assembly
+		// failure, announced.
+		return "", fmt.Errorf("the review prompt template is unavailable: refusing to send a review request without the response schema and the rule catalog")
 	case "test":
 		return "You are an expert test engineer. Generate comprehensive tests for the following code changes.", nil
 	case "docs":
