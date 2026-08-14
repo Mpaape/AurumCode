@@ -22,10 +22,10 @@ import (
 )
 
 const (
-	legacyInventory = ".board/research/legacy-files.tsv"
-	legacyLedger    = ".board/research/legacy-disposition.md"
-	legacyClaims    = "tests/specs/AUR-001/claims.yaml"
-	maxInventoryRows = 10000
+	legacyInventory   = ".board/research/legacy-files.tsv"
+	legacyLedger      = ".board/research/legacy-disposition.md"
+	legacyClaims      = "tests/specs/AUR-001/claims.yaml"
+	maxInventoryRows  = 10000
 	maxInventoryBytes = 64 * 1024 * 1024
 )
 
@@ -37,12 +37,12 @@ type inventoryRow struct {
 }
 
 type claimRecord struct {
-	id         string
-	status     string
+	id          string
+	status      string
 	disposition string
-	entrypoint string
-	test       string
-	reason     string
+	entrypoint  string
+	test        string
+	reason      string
 }
 
 var sha256DigestRE = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
@@ -227,14 +227,14 @@ func forbiddenPath(path string) bool {
 func readRegular(root, path string) ([]byte, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
-		return nil, fmt.Errorf("AUR-001: artifact unavailable: %s: %w", filepath.Rel(root, path), err)
+		return nil, fmt.Errorf("AUR-001: artifact unavailable: %s: %w", relForMessage(root, path), err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("AUR-001: artifact is not a regular file: %s", filepath.Rel(root, path))
+		return nil, fmt.Errorf("AUR-001: artifact is not a regular file: %s", relForMessage(root, path))
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("AUR-001: artifact unreadable: %s: %w", filepath.Rel(root, path), err)
+		return nil, fmt.Errorf("AUR-001: artifact unreadable: %s: %w", relForMessage(root, path), err)
 	}
 	return data, nil
 }
@@ -242,22 +242,22 @@ func readRegular(root, path string) ([]byte, error) {
 func readRegularBounded(root, path string, maxBytes int64) ([]byte, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
-		return nil, fmt.Errorf("AUR-001: artifact unavailable: %s: %w", filepath.Rel(root, path), err)
+		return nil, fmt.Errorf("AUR-001: artifact unavailable: %s: %w", relForMessage(root, path), err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("AUR-001: artifact is not a regular file: %s", filepath.Rel(root, path))
+		return nil, fmt.Errorf("AUR-001: artifact is not a regular file: %s", relForMessage(root, path))
 	}
 	if info.Size() > maxBytes {
 		return nil, fmt.Errorf("AUR-001: inventory exceeds 64 MiB: %d bytes", info.Size())
 	}
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("AUR-001: artifact unreadable: %s: %w", filepath.Rel(root, path), err)
+		return nil, fmt.Errorf("AUR-001: artifact unreadable: %s: %w", relForMessage(root, path), err)
 	}
 	defer file.Close()
 	data, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("AUR-001: artifact unreadable: %s: %w", filepath.Rel(root, path), err)
+		return nil, fmt.Errorf("AUR-001: artifact unreadable: %s: %w", relForMessage(root, path), err)
 	}
 	if int64(len(data)) > maxBytes {
 		return nil, fmt.Errorf("AUR-001: inventory exceeds 64 MiB: more than %d bytes", maxBytes)
@@ -318,6 +318,19 @@ func verifyFiles(root string, rows []inventoryRow) error {
 		}
 	}
 	return nil
+}
+
+// relForMessage renders path relative to root for an error message. Rel returns
+// (string, error); passing that call straight into Errorf as one argument is
+// what kept this harness from compiling, and the package collision in this
+// directory hid the failure because `go build ./...` died earlier. A path that
+// cannot be made relative is reported absolute rather than swallowed.
+func relForMessage(root, path string) string {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return path
+	}
+	return rel
 }
 
 func withinRoot(root, path string) bool {
