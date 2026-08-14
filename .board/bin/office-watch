@@ -35,7 +35,7 @@ stall_minutes="${1:-6}"
 # synchronous commands, so idleness there is expected and not a stall.
 is_agent_worktree() {
   case "${1##*/}" in
-    *-int|*-rev|*-rev[0-9]|sweep|maint-proof|dogfood*|preclean|inv|A[0-9]*) return 1 ;;
+    *-int|*-rev|*-rev[0-9]|*-live|*-mut|*-mut[0-9]|sweep|maint-proof|dogfood*|preclean|inv|A[0-9]*) return 1 ;;
     *) return 0 ;;
   esac
 }

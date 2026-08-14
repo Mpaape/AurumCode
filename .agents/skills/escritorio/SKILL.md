@@ -299,3 +299,21 @@ confiar no handoff.
 
 Nao emita promessa de conclusao enquanto houver backlog, ready, doing, review,
 validating ou blocker de especificacao/infraestrutura.
+
+## read_paths nomeia pacote, nao arquivo (limite duro)
+
+`read_paths` que enumera arquivo por arquivo apodrece em silencio. O pacote e a
+unidade de compilacao: nomear `pkg/extractor.go` materializa um pacote
+incompleto assim que alguem adicionar `pkg/native.go`, e o aceite selado quebra
+com `undefined: <simbolo>` enquanto o mesmo fonte compila no host. Foi assim que
+o AUR-002 carregou um exit 1 por dias lido como deriva de caracterizacao: o
+AUR-427 adicionou `native.go` a `extractors/rust` e `extractors/csharp`, e o
+`read_paths` do AUR-002 citava so `extractor.go` de cada um.
+
+Use forma de diretorio para dependencia de codigo. `undefined:` num aceite
+selado que passa no host e sintoma desta classe, nao de comportamento: procure o
+`read_paths` antes de suspeitar do produto.
+
+E quando um builder falsificar o diagnostico do coordenador com execucao,
+acredite nele e verifique voce mesmo. O relatorio honesto de "o que voce me
+mandou nao reproduz" vale mais que um conserto que fecha o card.
