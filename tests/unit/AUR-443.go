@@ -165,6 +165,35 @@ func aur443UnreadableRefFixture(t *testing.T, root string) string {
 	return dst
 }
 
+// aur443HierarchicalRefFixture copies tests/fixtures/repos/git-demo/repo.git
+// into a writable temp directory and adds refs/heads/feature/sub (with
+// main's own content, so it is a coherent, resolvable ref), while leaving
+// refs/heads/main in place. This reproduces the exact shape review's
+// vector 3 found: "--base feature" against a repository whose only branch
+// under that name is the hierarchical "feature/sub" resolves
+// refs/heads/feature to a DIRECTORY, not a ref file.
+func aur443HierarchicalRefFixture(t *testing.T, root string) string {
+	t.Helper()
+	src := filepath.Join(root, "tests/fixtures/repos/git-demo/repo.git")
+	dst := filepath.Join(t.TempDir(), "repo.git")
+	if out, err := exec.Command("cp", "-R", src, dst).CombinedOutput(); err != nil {
+		t.Fatalf("staging a writable fixture copy: %v\n%s", err, out)
+	}
+	mainRef := filepath.Join(dst, "refs", "heads", "main")
+	content, err := os.ReadFile(mainRef)
+	if err != nil {
+		t.Fatalf("reading %s: %v", mainRef, err)
+	}
+	hierDir := filepath.Join(dst, "refs", "heads", "feature")
+	if err := os.MkdirAll(hierDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", hierDir, err)
+	}
+	if err := os.WriteFile(filepath.Join(hierDir, "sub"), content, 0o644); err != nil {
+		t.Fatalf("writing refs/heads/feature/sub: %v", err)
+	}
+	return dst
+}
+
 // TestAUR443 proves, through the real binary, that a first-time user
 // discovers what aurumcode does and can run a first review without reading
 // source. See docs/specs/AUR-443.md for the full rationale behind each
@@ -430,6 +459,56 @@ func TestAUR443(t *testing.T) {
 			}
 			if strings.Contains(stderr, "not found") {
 				t.Fatalf("a permission problem must not be reported as \"not found\" (git's own stderr for EACCES and ENOENT is identical, so this is exactly the case the probe exists for), got:\n%s", stderr)
+			}
+		})
+	})
+
+	// This is the second review-found blocker (cmd/aurumcode/main.go's
+	// cleanRefError): once the "resolving base/head ref" prefix matched,
+	// the prior fix still fell through to a raw %w wrap for any cause it
+	// did not recognize -- and a ref that resolves to a DIRECTORY (a
+	// hierarchical branch namespace, e.g. only "feature/sub" exists, never
+	// a literal "feature") is exactly such a cause: EISDIR is neither
+	// fs.ErrNotExist nor fs.ErrPermission. The leaked message contained
+	// the literal "refs/heads/" path this card's own leak checks elsewhere
+	// already treat as a defect.
+	t.Run("a ref that resolves to a directory: clean message, never the raw leaked path", func(t *testing.T) {
+		hier := aur443HierarchicalRefFixture(t, root)
+
+		t.Run("pure-Go backend (no git on PATH)", func(t *testing.T) {
+			env := aur443EnvWithPath(aur443NoGitPath(t))
+			code, _, stderr := aur443Run(t, bin, hier, env, "review", "--base", "feature")
+			if code != 1 {
+				t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+			}
+			if !strings.Contains(stderr, `ref "feature" is not a branch`) {
+				t.Fatalf("expected a clean \"is not a branch\" diagnosis, got:\n%s", stderr)
+			}
+			for _, leak := range []string{"no such file or directory", "refs/heads/", ".git/", "is a directory"} {
+				if strings.Contains(stderr, leak) {
+					t.Fatalf("expected no leaked internal detail (%q), got:\n%s", leak, stderr)
+				}
+			}
+		})
+
+		if _, err := exec.LookPath("git"); err != nil {
+			t.Skip("no git binary on PATH in this environment: skipping the git-binary-backend half (the pure-Go backend above is what bootstrap-readonly-v1 exercises)")
+		}
+		t.Run("git-binary backend produces the identical message", func(t *testing.T) {
+			_, _, pureGoStderr := aur443Run(t, bin, hier, aur443EnvWithPath(aur443NoGitPath(t)), "review", "--base", "feature")
+
+			code, _, stderr := aur443Run(t, bin, hier, aur443BaseEnv(), "review", "--base", "feature")
+			if code != 1 {
+				t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+			}
+			if !strings.Contains(stderr, `ref "feature" is not a branch`) {
+				t.Fatalf("expected a clean \"is not a branch\" diagnosis, got:\n%s", stderr)
+			}
+			if strings.Contains(stderr, "fatal:") {
+				t.Fatalf("git-binary backend leaked git's own wording:\n%s", stderr)
+			}
+			if stderr != pureGoStderr {
+				t.Fatalf("the two backends disagree on the same user mistake:\ngit-binary: %q\npure-Go:    %q", stderr, pureGoStderr)
 			}
 		})
 	})
