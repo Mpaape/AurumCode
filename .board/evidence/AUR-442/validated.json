@@ -1,0 +1,18 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-442",
+ "commit": "dcb66701a29ed217b6cfd0e1f68b772eee95ecce",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-442",
+  "exit_code": 0,
+  "raw_output": "0 for 442, 435, 434, 433 and 441 in one tree"
+ },
+ "review_notes": {
+  "rounds": "Round 1 REQUEST_CHANGES on two honesty findings: the uppercase branch required a leading character that ate the keyword's own first letter, so bare env-var names never matched despite the documented promise; and a stale spec paragraph claimed the AUR-435 files were outside paths after they had been added and rebased. Round 2 APPROVE, both re-verified through the reviewer's own vectors.",
+  "false_positive_evidence": "15 benign cases written by the reviewer stayed clean before and after the fix, re-confirmed through the production SecurityScan path; new adversarials 9TOKEN= and MY-TOKEN= now match but are not valid identifiers in any real language or format",
+  "scope_choice": "only hardcoded-secret was given a matcher; the other five rules are declared metadata-only in the YAML and the spec rather than given weak patterns"
+ }
+}
