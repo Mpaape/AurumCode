@@ -29,7 +29,7 @@ Create prompt
 
 ## Documentation
 
-Call TOTVS DTA API (OpenAI-compatible)
+Call the configured OpenAI-compatible endpoint
 
 ## Documentation
 

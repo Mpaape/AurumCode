@@ -61,10 +61,9 @@ echo ""
 echo "Choose your LLM provider:"
 echo "  1. OpenAI"
 echo "  2. Anthropic"
-echo "  3. TOTVS DTA"
-echo "  4. Other (Custom)"
+echo "  3. Other (any OpenAI-compatible endpoint)"
 
-prompt LLM_CHOICE "Enter choice [1-4]" "1"
+prompt LLM_CHOICE "Enter choice [1-3]" "1"
 
 case $LLM_CHOICE in
     1)
@@ -77,15 +76,15 @@ case $LLM_CHOICE in
         prompt_secret ANTHROPIC_API_KEY "Enter Anthropic API key"
         LLM_API_KEY=$ANTHROPIC_API_KEY
         ;;
-    3)
-        LLM_PROVIDER="totvs"
-        prompt_secret TOTVS_DTA_API_KEY "Enter TOTVS DTA API key"
-        prompt TOTVS_DTA_BASE_URL "Enter TOTVS DTA base URL" "https://proxy.dta.totvs.ai"
-        LLM_API_KEY=$TOTVS_DTA_API_KEY
-        ;;
     *)
-        prompt LLM_PROVIDER "Enter LLM provider name"
+        # Any OpenAI-compatible endpoint: a hosted gateway, a company's internal
+        # proxy, or a model served on this machine. No endpoint is named here on
+        # purpose -- AurumCode is provider agnostic, and baking one vendor's
+        # host into the installer both privileges that vendor and publishes an
+        # address that may not be the reader's to know.
+        prompt LLM_PROVIDER "Enter provider name (used to name the API key variable)"
         prompt_secret LLM_API_KEY "Enter API key"
+        prompt LLM_BASE_URL "Enter the endpoint base URL, e.g. http://localhost:11434/v1"
         ;;
 esac
 
@@ -125,12 +124,10 @@ case $LLM_CHOICE in
     2)
         echo "ANTHROPIC_API_KEY=$LLM_API_KEY" >> .env
         ;;
-    3)
-        echo "TOTVS_DTA_API_KEY=$LLM_API_KEY" >> .env
-        echo "TOTVS_DTA_BASE_URL=$TOTVS_DTA_BASE_URL" >> .env
-        ;;
     *)
         echo "${LLM_PROVIDER}_API_KEY=$LLM_API_KEY" >> .env
+        echo "LLM_API_KEY=$LLM_API_KEY" >> .env
+        echo "LLM_BASE_URL=$LLM_BASE_URL" >> .env
         ;;
 esac
 

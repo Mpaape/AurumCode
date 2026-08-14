@@ -48,12 +48,14 @@ AURUMCODE_OUTPUT_DIR="${AURUMCODE_OUTPUT_DIR:-.aurumcode}"
 echo "🤖 Generating Enhanced Documentation (Mode: $MODE)"
 echo ""
 
-# Check for API keys
-if [ -z "${TOTVS_DTA_API_KEY:-}" ]; then
-    echo "⚠️  TOTVS_DTA_API_KEY not set - skipping LLM enhancement"
+# Any OpenAI-compatible endpoint drives this: a hosted service, a company
+# gateway, or a model served locally. The variables are named for the role,
+# not for a vendor, so no single provider is privileged here.
+if [ -z "${LLM_API_KEY:-}" ]; then
+    echo "⚠️  LLM_API_KEY not set - skipping LLM enhancement"
     LLM_ENABLED=false
 else
-    echo "✓ TOTVS DTA configured"
+    echo "✓ LLM provider configured"
     LLM_ENABLED=true
 fi
 
@@ -88,10 +90,10 @@ $content
 
 Provide enhanced documentation in HTML format."
 
-    # Call TOTVS DTA API (OpenAI-compatible)
-    response=$(curl -s -X POST "${TOTVS_DTA_BASE_URL:?TOTVS_DTA_BASE_URL must be set when LLM enhancement is enabled}/v1/chat/completions" \
+    # Call the configured OpenAI-compatible endpoint
+    response=$(curl -s -X POST "${LLM_BASE_URL:?LLM_BASE_URL must be set when LLM enhancement is enabled}/v1/chat/completions" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $TOTVS_DTA_API_KEY" \
+        -H "Authorization: Bearer $LLM_API_KEY" \
         -d "{
             \"model\": \"gpt-4\",
             \"messages\": [{\"role\": \"user\", \"content\": $(echo "$prompt" | jq -Rs .)}],
