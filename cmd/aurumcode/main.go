@@ -567,6 +567,21 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
 		}
 
+		// AUR-459: the rule gate is not the only place a finding can be
+		// dropped. The parser adopts findings the model reported under
+		// "line_comments" (internal/prompt.adoptLineComments) and does not
+		// adopt a comment that repeats a finding already reported, carries
+		// no path, or carries a blank body. Those are announced on the
+		// same channel and in the same shape as the rule gate's, because
+		// this card's answer to "a finding must never vanish quietly" has
+		// to hold for its own conversion too. "" whenever the response
+		// carried no line_comments at all, which is every response the
+		// current prompt asks for -- so the published stdout AND stderr
+		// bytes are untouched on that path.
+		if warning := result.Metadata["parse_discard_warning"]; warning != "" {
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
+		}
+
 		reused := 0
 		if cacheErr == nil {
 			reused = mergeCacheHits(result, cacheStatuses, filter)

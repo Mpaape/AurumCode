@@ -76,6 +76,8 @@ required_inputs=(
   pkg/types
   tests/fixtures/repos/git-demo/repo.git
   tests/unit/AUR-459.go
+  tests/integration/AUR-459.go
+  tests/e2e/AUR-459.sh
 )
 for input in "${required_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
@@ -290,9 +292,51 @@ EOF
   grep -Eq '(^|[[:space:]])ok[[:space:]]' <<<"$out" || fail selector:TestAUR459:zero-tests
 }
 
+# integration_case runs the card's declared integration program, at the
+# seam the unit program cannot see (parser + rule gate through the real
+# GenerateReview). Same bridge convention as unit_case.
+integration_case() {
+  build_shared
+  local root="$shared_root" out rc
+  copy "$root" tests/integration/AUR-459.go
+  chmod -R u+w -- "$root/tests/integration"
+  cat >"$root/tests/integration/aur459_bridge_test.go" <<'EOF'
+package integration
+
+import "testing"
+
+func TestAUR459IntegrationBridge(t *testing.T) { IntegrationAUR459(t) }
+EOF
+  set +e
+  out="$(cd "$root" && ulimit -v 8388608 && AURUMCODE_ROOT="$root" GOMAXPROCS=1 GOMEMLIMIT=2GiB go test -v -mod=mod -p 1 -timeout 300s ./tests/integration -run '^TestAUR459IntegrationBridge$' -count=1 2>&1)"
+  rc=$?
+  set -e
+  ((rc == 0)) || { printf '%s\n' "$out" >&2; fail "selector:IntegrationAUR459:exit:$rc"; }
+  grep -Eq '(^|[[:space:]])ok[[:space:]]' <<<"$out" || fail selector:IntegrationAUR459:zero-tests
+}
+
+# e2e_case delegates to the card's own E2E program, which asserts the CI
+# decision (--fail-on) rather than the review output AC-001 asserts.
+e2e_case() {
+  [[ -x "$repo_root/tests/e2e/AUR-459.sh" || -f "$repo_root/tests/e2e/AUR-459.sh" ]] || infra "missing-input:tests/e2e/AUR-459.sh"
+  set +e
+  bash "$repo_root/tests/e2e/AUR-459.sh" E2EAUR459
+  local rc=$?
+  set -e
+  ((rc == 0)) || exit "$rc"
+}
+
+# Each declared selector runs its OWN program. A selector whose program
+# does not exist must never fall through to AC-001's assertions: three
+# greens harvested from one execution is the anti-pattern this board names
+# explicitly, so an unknown or unimplemented selector exits 64 (absence
+# reads as absence) rather than passing on someone else's work.
 case "$selector" in
   AC-001-MUT-001) mutation_case ;;
   TestAUR459) unit_case ;;
-  *) nominal_case ;;
+  IntegrationAUR459) integration_case ;;
+  E2EAUR459) e2e_case ;;
+  AC-001) nominal_case ;;
+  *) printf '%s/%s/unknown-selector\n' "$card" "$scenario" >&2; exit 64 ;;
 esac
 exit 0
