@@ -269,6 +269,26 @@ soltar o limite.
   um resultado nominal verde. O alvo do cleanup precisa ser o `mktemp` validado
   e o cleanup deve ser idempotente.
 
+## Todo despacho carrega prazo (limite duro)
+
+Nenhum builder ou revisor sai sem prazo explicito no briefing. O briefing termina
+com: "PRAZO DURO: N minutos. Ao vencer, commite o que existir e reporte, mesmo
+incompleto, declarando o que ficou de fora. Nao investigue alem disso." Um agente
+sem prazo trata o problema como aberto e reescreve o diagnostico do zero em vez de
+entregar; um agente com prazo devolve trabalho parcial util, que e integravel.
+
+Um agente pensando e um agente travado escrevem a mesma coisa: nada. Do lado de
+fora nao ha como distinguir, entao a unica evidencia honesta e tempo sem escrita
+em disco. `bash .board/bin/office-watch [minutos]` lista os worktrees parados
+(exit 3 se houver algum) e serve de fonte para um monitor de fundo. Cobrar o
+agente e trabalho do coordenador: se o usuario precisa avisar que um agente esta
+parado, o processo falhou, nao o usuario.
+
+Ao vencer o prazo, leia o worktree antes de decidir — `git status --porcelain` e
+`git log -1` dizem se ha trabalho a salvar. So entao escolha: cobrar entrega
+parcial com sequencia numerada minima, redespachar do zero, ou assumir o card.
+Nunca deixe a decisao para a proxima vez que o usuario perguntar.
+
 ## Progresso e continuidade
 
 Ao final de cada ciclo relate somente: `done_delta`, cards fechados, blocker
