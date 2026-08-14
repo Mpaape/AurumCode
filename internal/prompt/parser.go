@@ -167,13 +167,22 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 // Message, and rule_id/severity/suggestion straight through when the model
 // supplied them.
 //
-// Merge, not replace: a comment is adopted unless result.Issues already
-// holds a finding for the same (file, line). The template shows one
-// findings array and a model answers with one, so in practice exactly one
-// of the two is populated; when both are, the (file, line) already
-// reported under "issues" wins -- it is the richer record, carrying the
-// rule citation -- and everything the model said only in "line_comments"
-// is still added rather than dropped.
+// Merge, not replace, and the merge key is (file, line, normalized
+// message) -- NOT (file, line). Keying on the location alone was this
+// card's own first answer and it was wrong in a way only execution shows:
+// a style nit reported under "issues" at a.go:42 swallowed a SECRET LEAK
+// reported under "line_comments" at the same line, and two distinct
+// comments on one line collapsed into one. Several findings share a line
+// routinely; only the SAME finding restated in the other vocabulary may
+// collapse, which is exactly what the message-aware key collapses (case
+// and whitespace are normalized so a restatement is still recognized).
+//
+// Every path that does NOT adopt a comment is counted and named -- a
+// repeat of a finding already reported, a comment with no path, a comment
+// with a blank body -- and rendered into
+// Metadata["parse_discard_warning"], which cmd/aurumcode prints to stderr
+// beside the AUR-448 rule-gate warning. A card whose chosen answer is
+// "announce the discard" cannot itself discard in silence.
 //
 // ABOUT THE RULE GATE (AUR-434, internal/review.enforceRuleCitations): a
 // converted comment usually carries no rule_id, and a finding without a
@@ -204,16 +213,18 @@ func (p *ResponseParser) adoptLineComments(jsonContent string, result *types.Rev
 		return 0
 	}
 
-	type location struct {
-		file string
-		line int
+	type finding struct {
+		file    string
+		line    int
+		message string
 	}
-	seen := make(map[location]bool, len(result.Issues))
+	seen := make(map[finding]bool, len(result.Issues))
 	for _, issue := range result.Issues {
-		seen[location{file: issue.File, line: issue.Line}] = true
+		seen[finding{file: issue.File, line: issue.Line, message: normalizeFindingMessage(issue.Message)}] = true
 	}
 
 	converted := 0
+	var repeated, noPath, emptyBody int
 	for _, c := range envelope.LineComments {
 		file := c.Path
 		if file == "" {
@@ -223,11 +234,17 @@ func (p *ResponseParser) adoptLineComments(jsonContent string, result *types.Rev
 		if message == "" {
 			message = c.Message
 		}
-		if file == "" || strings.TrimSpace(message) == "" {
+		if file == "" {
+			noPath++
 			continue
 		}
-		key := location{file: file, line: c.Line}
+		if strings.TrimSpace(message) == "" {
+			emptyBody++
+			continue
+		}
+		key := finding{file: file, line: c.Line, message: normalizeFindingMessage(message)}
 		if seen[key] {
+			repeated++
 			continue
 		}
 		seen[key] = true
@@ -252,13 +269,49 @@ func (p *ResponseParser) adoptLineComments(jsonContent string, result *types.Rev
 		converted++
 	}
 
-	if converted > 0 {
+	discarded := repeated + noPath + emptyBody
+	if converted > 0 || discarded > 0 {
 		if result.Metadata == nil {
 			result.Metadata = make(map[string]string)
 		}
 		result.Metadata["line_comments_converted"] = fmt.Sprintf("%d", converted)
+		result.Metadata["line_comments_discarded"] = fmt.Sprintf("%d", discarded)
+		if warning := formatLineCommentDiscards(repeated, noPath, emptyBody); warning != "" {
+			result.Metadata["parse_discard_warning"] = warning
+		}
 	}
 	return converted
+}
+
+// normalizeFindingMessage folds the accidental differences between the
+// same finding restated in the other vocabulary -- letter case and
+// whitespace/newline layout -- so a restatement collapses while two
+// genuinely different findings at one line both survive.
+func normalizeFindingMessage(message string) string {
+	return strings.ToLower(strings.Join(strings.Fields(message), " "))
+}
+
+// formatLineCommentDiscards renders the one-line explanation of every
+// comment adoptLineComments did not turn into a finding, in the shape of
+// AUR-448's rule-gate warning (count first, then the reasons), for
+// cmd/aurumcode to print verbatim on stderr. Returns "" when nothing was
+// discarded, so the ordinary run never receives a byte.
+func formatLineCommentDiscards(repeated, noPath, emptyBody int) string {
+	total := repeated + noPath + emptyBody
+	if total == 0 {
+		return ""
+	}
+	var reasons []string
+	if repeated > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d already reported as an issue", repeated))
+	}
+	if noPath > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d with no path", noPath))
+	}
+	if emptyBody > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d with an empty body", emptyBody))
+	}
+	return fmt.Sprintf("%d line comment(s) not converted: %s", total, strings.Join(reasons, ", "))
 }
 
 // degradedOrError is the fallback path for a response the strict JSON
