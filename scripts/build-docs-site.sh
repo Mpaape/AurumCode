@@ -303,7 +303,7 @@ cat > "$OUTPUT_DIR/index.html" <<'EOF'
             <p>This documentation is automatically generated and deployed on every commit using:</p>
             <ul>
                 <li><strong>godoc</strong> - Static Go documentation</li>
-                <li><strong>TOTVS DTA LLM</strong> - Enhanced explanations</li>
+                <li><strong>Your configured LLM</strong> - Enhanced explanations</li>
                 <li><strong>GitHub Actions</strong> - Automated deployment</li>
             </ul>
 
