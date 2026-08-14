@@ -106,15 +106,34 @@
 // field, both of which this card investigated and deliberately left
 // unchanged: docs/specs/AUR-443.md records why.
 //
+// With AUR-449, `--seguranca` alone no longer needs a provider: the
+// security pass it runs (restored by AUR-442) is a deterministic regex
+// matcher over the diff's added lines and calls no model, so requiring a
+// provider for it was an artificial lock -- the product's only free,
+// offline, deterministic path sat behind the one thing that needs a
+// credential. When --seguranca is given, --modelo is NOT (an explicit
+// model choice is a specific request that must still fail loudly when it
+// cannot be served -- reportModelUnavailable, unchanged), and no provider
+// is configured at all (selectProvider's errNoProviderConfigured, not some
+// other provider failure such as an unreadable fixture path), the command
+// now skips the quality review and runs the security pass alone,
+// reporting its findings -- and says so plainly on stderr before anything
+// prints, never silently. With a provider configured, or with --modelo, or
+// without --seguranca, behavior and output are byte-identical to what was
+// already published: this card does not touch that path. See
+// docs/specs/AUR-449.md.
+//
 // See docs/specs/AUR-430.md for the base command reference,
 // docs/specs/AUR-431.md for the --fail-on gate,
 // docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
 // --seguranca, docs/specs/AUR-438.md for --pr, docs/specs/AUR-433.md for
 // --limite, docs/specs/AUR-439.md for --check, docs/specs/AUR-441.md for
 // the review cache, docs/specs/AUR-443.md for the top-level help, version
-// and error-message cleanups, and docs/specs/AUR-448.md for the complete
+// and error-message cleanups, docs/specs/AUR-448.md for the complete
 // no-provider fixture shape (rule_id included) and the stderr warning a
-// discarded finding now gets, each with an offline, secret-free example.
+// discarded finding now gets, and docs/specs/AUR-449.md for running
+// --seguranca without a provider, each with an offline, secret-free
+// example.
 package main
 
 import (
@@ -376,7 +395,27 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	} else {
 		provider, providerErr = selectProvider()
 	}
-	if providerErr != nil {
+
+	// AUR-449: the security pass below is deterministic and calls no
+	// model (see the package doc above). When --seguranca was given,
+	// --modelo was NOT (an explicit model choice is a specific request
+	// that must still fail loudly -- reportModelUnavailable below,
+	// unchanged), and selectProvider's failure is specifically "nothing is
+	// configured" (errNoProviderConfigured, not some other provider
+	// failure such as an unreadable fixture path or a broken endpoint),
+	// skip the quality review instead of failing the whole command: only
+	// the security pass runs, and stderr says plainly, before anything
+	// prints, that quality review was skipped and why -- never silence. A
+	// caller who attempted configuration and got it wrong is still told
+	// the review failed (the else-if below), never silently downgraded.
+	// --seguranca combined with a configured provider is unaffected:
+	// providerErr is nil then, so this branch is never taken and every
+	// line below it runs exactly as already published.
+	qualitySkipped := false
+	if providerErr != nil && *modelo == "" && *seguranca && errors.Is(providerErr, errNoProviderConfigured) {
+		qualitySkipped = true
+		fmt.Fprintf(stderr, "aurumcode review: no LLM provider configured: quality review skipped, running --seguranca only (%v)\n", providerErr)
+	} else if providerErr != nil {
 		if *modelo != "" {
 			return reportModelUnavailable(stderr, *modelo, providerErr)
 		}
@@ -389,120 +428,133 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", *modelo, providerVia)
 	}
 
-	// --limite (AUR-433): wire internal/llm/cost.Tracker into the
-	// orchestrator so it is the one place that estimates the cost and
-	// refuses -- before the model is ever called -- when it exceeds the
-	// ceiling (see cost.go). Without the flag, tracker stays nil and
-	// llm.NewOrchestrator behaves exactly as already published: unmetered.
+	// AUR-449: everything from here to the security pass talks to a
+	// model -- cost tracking, the review cache, GenerateReview itself --
+	// so none of it has anything to do when qualitySkipped (no provider,
+	// running --seguranca alone). result stays the zero ReviewResult: no
+	// quality issues, nothing to gate or print for that section.
 	var tracker *cost.Tracker
-	if limiteSet {
-		price, err := costPrice()
-		if err != nil {
-			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-			return 2
-		}
-		modelKey := costModelKey(*modelo)
-		provider = &fixedModelProvider{Provider: provider, model: modelKey}
-		tracker = buildCostTracker(limiteUSD, modelKey, price)
-		printCostEstimate(stderr, estimateCostUSD(diff, price), limiteUSD)
-	}
-
-	orchestrator := llm.NewOrchestrator(provider, nil, tracker)
-	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
-
-	// AUR-441: do not resend a file whose content, under this exact model
-	// and prompt version, a previous run already reviewed. GenerateReview
-	// sends whatever diff it is given as one prompt in one call (see
-	// cmd/aurumcode/review_cache.go's package doc), so the filtering has to
-	// happen here, before the call: toSend keeps only the cache misses, and
-	// a cache directory that cannot be opened (cacheErr != nil) degrades to
-	// AUR-430's original behavior -- every file sent, every run, exactly as
-	// before. Caching is a performance optimization, never a correctness
-	// gate. Composed with --limite: printCostEstimate above already priced
-	// the FULL diff, unchanged, before this filtering ever runs -- the
-	// published --limite estimate and refusal decision are exactly AUR-433's
-	// contract, oblivious to caching. A full cache hit means Complete is
-	// never called, so the tracker records nothing and printRealCost below
-	// correctly reports $0.0000 spent.
-	revCache, cacheErr := cache.Open(cache.ResolveDir())
-	toSend := diff
-	var cacheStatuses []fileCacheStatus
-	if cacheErr == nil {
-		var missFiles []types.DiffFile
-		missFiles, cacheStatuses = partitionByCache(revCache, diff, modelCacheKey(provider))
-		toSend = &types.Diff{Files: missFiles}
-	}
-
 	var result *types.ReviewResult
-	// A diff with no files at all is the pre-existing "nothing changed"
-	// edge case (e.g. --base HEAD): the published contract has always sent
-	// that empty diff to the model like any other (the deterministic
-	// offline fixture answers regardless of prompt content), and that must
-	// keep happening here even though "zero files to send" would otherwise
-	// look identical to "every file was a cache hit". Only a genuine full
-	// cache hit -- diff.Files was non-empty and every one of them hit --
-	// skips the call.
-	if cacheErr != nil || len(toSend.Files) > 0 || len(diff.Files) == 0 {
-		result, err = reviewer.GenerateReview(context.Background(), toSend)
-		if err != nil {
-			// --limite (AUR-433): the tracker refused before the model was
-			// called, so nothing was spent. This is checked first because it is
-			// a distinct, more specific outcome than "the provider chain could
-			// not complete" below. Not gated on limiteSet: without --limite,
-			// tracker is nil and the orchestrator cannot produce this error, so
-			// the check is a no-op then and unconditionally correct whenever it
-			// does fire (limiteUSD is 0 only in the case where it cannot).
-			if errors.Is(err, llm.ErrBudgetExceeded) {
-				return reportBudgetExceeded(stderr, limiteUSD, err)
+	if qualitySkipped {
+		result = &types.ReviewResult{}
+	} else {
+		// --limite (AUR-433): wire internal/llm/cost.Tracker into the
+		// orchestrator so it is the one place that estimates the cost and
+		// refuses -- before the model is ever called -- when it exceeds the
+		// ceiling (see cost.go). Without the flag, tracker stays nil and
+		// llm.NewOrchestrator behaves exactly as already published: unmetered.
+		if limiteSet {
+			price, err := costPrice()
+			if err != nil {
+				fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+				return 2
 			}
-			var parseErr *prompt.ParseError
-			if errors.As(err, &parseErr) {
-				fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+			modelKey := costModelKey(*modelo)
+			provider = &fixedModelProvider{Provider: provider, model: modelKey}
+			tracker = buildCostTracker(limiteUSD, modelKey, price)
+			printCostEstimate(stderr, estimateCostUSD(diff, price), limiteUSD)
+		}
+
+		orchestrator := llm.NewOrchestrator(provider, nil, tracker)
+		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+
+		// AUR-441: do not resend a file whose content, under this exact model
+		// and prompt version, a previous run already reviewed. GenerateReview
+		// sends whatever diff it is given as one prompt in one call (see
+		// cmd/aurumcode/review_cache.go's package doc), so the filtering has to
+		// happen here, before the call: toSend keeps only the cache misses, and
+		// a cache directory that cannot be opened (cacheErr != nil) degrades to
+		// AUR-430's original behavior -- every file sent, every run, exactly as
+		// before. Caching is a performance optimization, never a correctness
+		// gate. Composed with --limite: printCostEstimate above already priced
+		// the FULL diff, unchanged, before this filtering ever runs -- the
+		// published --limite estimate and refusal decision are exactly AUR-433's
+		// contract, oblivious to caching. A full cache hit means Complete is
+		// never called, so the tracker records nothing and printRealCost below
+		// correctly reports $0.0000 spent.
+		revCache, cacheErr := cache.Open(cache.ResolveDir())
+		toSend := diff
+		var cacheStatuses []fileCacheStatus
+		if cacheErr == nil {
+			var missFiles []types.DiffFile
+			missFiles, cacheStatuses = partitionByCache(revCache, diff, modelCacheKey(provider))
+			toSend = &types.Diff{Files: missFiles}
+		}
+
+		// A diff with no files at all is the pre-existing "nothing changed"
+		// edge case (e.g. --base HEAD): the published contract has always sent
+		// that empty diff to the model like any other (the deterministic
+		// offline fixture answers regardless of prompt content), and that must
+		// keep happening here even though "zero files to send" would otherwise
+		// look identical to "every file was a cache hit". Only a genuine full
+		// cache hit -- diff.Files was non-empty and every one of them hit --
+		// skips the call.
+		if cacheErr != nil || len(toSend.Files) > 0 || len(diff.Files) == 0 {
+			result, err = reviewer.GenerateReview(context.Background(), toSend)
+			if err != nil {
+				// --limite (AUR-433): the tracker refused before the model was
+				// called, so nothing was spent. This is checked first because it is
+				// a distinct, more specific outcome than "the provider chain could
+				// not complete" below. Not gated on limiteSet: without --limite,
+				// tracker is nil and the orchestrator cannot produce this error, so
+				// the check is a no-op then and unconditionally correct whenever it
+				// does fire (limiteUSD is 0 only in the case where it cannot).
+				if errors.Is(err, llm.ErrBudgetExceeded) {
+					return reportBudgetExceeded(stderr, limiteUSD, err)
+				}
+				var parseErr *prompt.ParseError
+				if errors.As(err, &parseErr) {
+					fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+					return 1
+				}
+				// With --modelo, a provider chain that could not complete means the
+				// chosen model is unavailable (endpoint down, wrong URL, model not
+				// served): name the model and say how to fix it, instead of only
+				// surfacing the transport error.
+				if *modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
+					return reportModelUnavailable(stderr, *modelo, err)
+				}
+				fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 				return 1
 			}
-			// With --modelo, a provider chain that could not complete means the
-			// chosen model is unavailable (endpoint down, wrong URL, model not
-			// served): name the model and say how to fix it, instead of only
-			// surfacing the transport error.
-			if *modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
-				return reportModelUnavailable(stderr, *modelo, err)
+			if cacheErr == nil {
+				persistFreshResults(revCache, cacheStatuses, result.Issues, filter)
 			}
-			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-			return 1
+		} else {
+			result = &types.ReviewResult{}
 		}
+
+		// AUR-448: a discard the rule gate (AUR-434) makes is never silent.
+		// GenerateReview already names how many findings it discarded and why
+		// in result.Metadata["discard_warning"] (internal/review/reviewer.go);
+		// this is just the I/O boundary, printing it verbatim to stderr like
+		// the cache-reuse note below. It is "" whenever nothing was discarded,
+		// so stdout AND stderr stay byte-identical to the published contract
+		// on that path. MUT-001 (tests/acceptance/AUR-448.sh) removes exactly
+		// this Fprintf while leaving the gate itself untouched. Reached only
+		// inside this else branch: result.Metadata is populated by
+		// GenerateReview, so there is nothing to warn about on the AUR-449
+		// skip path (qualitySkipped's result is the zero ReviewResult, and
+		// map access on its nil Metadata is a safe zero-value read).
+		if warning := result.Metadata["discard_warning"]; warning != "" {
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
+		}
+
+		reused := 0
 		if cacheErr == nil {
-			persistFreshResults(revCache, cacheStatuses, result.Issues, filter)
+			reused = mergeCacheHits(result, cacheStatuses, filter)
 		}
-	} else {
-		result = &types.ReviewResult{}
-	}
+		if reused > 0 {
+			// stdout stays byte-identical with and without cache reuse, exactly
+			// like --fail-on's and --modelo's stderr notes above: this line
+			// only ever appears on stderr, and only when a file was actually
+			// reused.
+			fmt.Fprintf(stderr, "aurumcode review: reused %d file(s) from cache (not resent to the model)\n", reused)
+		}
 
-	// AUR-448: a discard the rule gate (AUR-434) makes is never silent.
-	// GenerateReview already names how many findings it discarded and why
-	// in result.Metadata["discard_warning"] (internal/review/reviewer.go);
-	// this is just the I/O boundary, printing it verbatim to stderr like
-	// the cache-reuse note below. It is "" whenever nothing was discarded,
-	// so stdout AND stderr stay byte-identical to the published contract
-	// on that path. MUT-001 (tests/acceptance/AUR-448.sh) removes exactly
-	// this Fprintf while leaving the gate itself untouched.
-	if warning := result.Metadata["discard_warning"]; warning != "" {
-		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
-	}
-
-	reused := 0
-	if cacheErr == nil {
-		reused = mergeCacheHits(result, cacheStatuses, filter)
-	}
-	if reused > 0 {
-		// stdout stays byte-identical with and without cache reuse, exactly
-		// like --fail-on's and --modelo's stderr notes above: this line
-		// only ever appears on stderr, and only when a file was actually
-		// reused.
-		fmt.Fprintf(stderr, "aurumcode review: reused %d file(s) from cache (not resent to the model)\n", reused)
-	}
-
-	if limiteSet {
-		printRealCost(stderr, realCostUSD(tracker, limiteUSD), limiteUSD)
+		if limiteSet {
+			printRealCost(stderr, realCostUSD(tracker, limiteUSD), limiteUSD)
+		}
 	}
 
 	// The security pass (AUR-435) runs before anything prints, so a broken
@@ -533,7 +585,16 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// evidence trail; this is a recorded, deliberate no-op, not an
 	// oversight.
 	printNotices(stdout, filter, notices)
-	printFindings(stdout, result)
+	// AUR-449: when quality review was skipped, result carries no issues
+	// because no call was ever made -- printing "No issues found." here
+	// would assert something the tool never checked. Silently omitting the
+	// quality block, with the skip already explained on stderr above, is
+	// the honest shape for a section that never ran; result.Issues is
+	// otherwise always exactly what the model (or the cache) answered, so
+	// this is a no-op whenever a provider was configured.
+	if !qualitySkipped {
+		printFindings(stdout, result)
+	}
 	if *seguranca {
 		printSecurityFindings(stdout, filter, securityFindings)
 	}
@@ -867,6 +928,22 @@ func printNotices(stdout io.Writer, filter *redaction.Filter, notices []analyzer
 //
 // Neither set: a clear, typed-by-message error, not a panic or a silent
 // no-op provider.
+// errNoProviderConfigured is selectProvider's error when neither an
+// offline fixture (AURUMCODE_LLM_FIXTURE) nor a live endpoint
+// (LLM_API_KEY + LLM_BASE_URL) is configured -- as opposed to any other
+// provider failure (an AURUMCODE_LLM_FIXTURE path that does not exist, a
+// malformed endpoint). AUR-449's --seguranca-only skip (runReview above)
+// tests for this exact sentinel with errors.Is: "the caller configured
+// nothing at all" is eligible to fall back to the deterministic security
+// pass alone, but a caller who attempted configuration and got it wrong is
+// still told the review failed, never silently downgraded.
+// The message text is AUR-448's: the COMPLETE fixture shape the engine
+// accepts, rule_id included, because enforceRuleCitations (AUR-434)
+// silently discards a finding whose rule_id is missing, and the
+// pre-AUR-448 shape omitted it. See selectProvider's own comment below and
+// docs/specs/AUR-448.md.
+var errNoProviderConfigured = errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider`)
+
 func selectProvider() (llm.Provider, error) {
 	if fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE"); fixturePath != "" {
 		content, err := os.ReadFile(fixturePath)
@@ -902,7 +979,10 @@ func selectProvider() (llm.Provider, error) {
 	// (internal/review/rules/security.yml), not a placeholder. The example
 	// file pointer is phrased conditionally because it does not exist
 	// outside this repository's own checkout; see docs/specs/AUR-448.md.
-	return nil, errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider`)
+	// AUR-449 turned this literal into the errNoProviderConfigured sentinel
+	// above (identity preserved via errors.Is, text unchanged) so the
+	// --seguranca-only skip can recognize "nothing configured" specifically.
+	return nil, errNoProviderConfigured
 }
 
 // selectProviderForModel serves the model the user chose with --modelo
