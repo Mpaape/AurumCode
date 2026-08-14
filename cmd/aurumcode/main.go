@@ -111,9 +111,10 @@
 // docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
 // --seguranca, docs/specs/AUR-438.md for --pr, docs/specs/AUR-433.md for
 // --limite, docs/specs/AUR-439.md for --check, docs/specs/AUR-441.md for
-// the review cache, and docs/specs/AUR-443.md for the top-level help,
-// version and error-message cleanups, each with an offline, secret-free
-// example.
+// the review cache, docs/specs/AUR-443.md for the top-level help, version
+// and error-message cleanups, and docs/specs/AUR-448.md for the complete
+// no-provider fixture shape (rule_id included) and the stderr warning a
+// discarded finding now gets, each with an offline, secret-free example.
 package main
 
 import (
@@ -474,6 +475,18 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		}
 	} else {
 		result = &types.ReviewResult{}
+	}
+
+	// AUR-448: a discard the rule gate (AUR-434) makes is never silent.
+	// GenerateReview already names how many findings it discarded and why
+	// in result.Metadata["discard_warning"] (internal/review/reviewer.go);
+	// this is just the I/O boundary, printing it verbatim to stderr like
+	// the cache-reuse note below. It is "" whenever nothing was discarded,
+	// so stdout AND stderr stay byte-identical to the published contract
+	// on that path. MUT-001 (tests/acceptance/AUR-448.sh) removes exactly
+	// this Fprintf while leaving the gate itself untouched.
+	if warning := result.Metadata["discard_warning"]; warning != "" {
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
 	}
 
 	reused := 0
@@ -880,10 +893,16 @@ func selectProvider() (llm.Provider, error) {
 	// The first-run message names the FORM of a fixture file, not only the
 	// environment variable: a user who has never read the source cannot
 	// build a valid AURUMCODE_LLM_FIXTURE payload from the variable name
-	// alone. tests/fixtures/review/known-problem-response.json is a real,
-	// versioned example already shaped exactly like this -- pointing at it
-	// lets an offline first run succeed without reading any Go source.
-	return nil, errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","message":"<text>"}]} for offline use (see tests/fixtures/review/known-problem-response.json for a worked example), or set LLM_API_KEY and LLM_BASE_URL for a live provider`)
+	// alone. AUR-448: the shape shown must be the COMPLETE one the engine
+	// accepts -- rule_id included -- because enforceRuleCitations (AUR-434)
+	// silently discards a finding whose rule_id is missing, and the
+	// pre-AUR-448 shape omitted it: a user who followed it literally got
+	// "No issues found." for a fixture that actually planted a finding.
+	// security/hardcoded-secret is a real id of the embedded catalog
+	// (internal/review/rules/security.yml), not a placeholder. The example
+	// file pointer is phrased conditionally because it does not exist
+	// outside this repository's own checkout; see docs/specs/AUR-448.md.
+	return nil, errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider`)
 }
 
 // selectProviderForModel serves the model the user chose with --modelo
