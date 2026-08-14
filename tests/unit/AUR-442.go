@@ -32,6 +32,7 @@ func TestAUR442(t *testing.T) {
 	t.Run("OtherSecurityRulesUnaffected", testAUR442OtherSecurityRulesUnaffected)
 	t.Run("ScanFindsTheQuotedCodeShape", testAUR442ScanFindsTheQuotedCodeShape)
 	t.Run("ScanFindsTheUnquotedEnvShape", testAUR442ScanFindsTheUnquotedEnvShape)
+	t.Run("ScanFindsTheBareUnquotedEnvShape", testAUR442ScanFindsTheBareUnquotedEnvShape)
 	t.Run("ScanIgnoresRemovedAndContextLines", testAUR442ScanIgnoresRemovedAndContextLines)
 	t.Run("ScanRejectsBenignAssignments", testAUR442ScanRejectsBenignAssignments)
 	t.Run("ScanNeverEchoesTheMatchedValue", testAUR442ScanNeverEchoesTheMatchedValue)
@@ -179,6 +180,51 @@ func testAUR442ScanFindsTheUnquotedEnvShape(t *testing.T) {
 	}
 	if f.RuleID != "security/hardcoded-secret" {
 		t.Fatalf("expected rule security/hardcoded-secret, got %q", f.RuleID)
+	}
+}
+
+// testAUR442ScanFindsTheBareUnquotedEnvShape is a review fix (independent
+// reviewer, 2026-08-13): the unquoted branch originally required a
+// mandatory leading `[A-Z]` before the keyword alternation, which consumed
+// the keyword's own first letter whenever the identifier had no prefix --
+// so bare `TOKEN=`, `SECRET=`, `API_KEY=`, `PASSWORD=` (the keyword is the
+// entire identifier) silently never matched, despite the rule comment and
+// docs/specs/AUR-442.md promising the unquoted shape without that
+// exclusion. The leading class is now `[A-Z0-9_]*` (zero-or-more), so the
+// keyword itself can start the match; `\b` still requires a real
+// identifier boundary, so a keyword glued onto a lowercase prefix
+// (`xTOKEN=...`) stays out of scope.
+func testAUR442ScanFindsTheBareUnquotedEnvShape(t *testing.T) {
+	bare := []string{
+		"TOKEN=AURUM-FAKE-TOKEN-0000-0001",
+		"SECRET=AURUM-FAKE-SECRET-9000-1111",
+		"API_KEY=AURUM-FAKE-KEY-9000-2222",
+		"PASSWORD=AURUM-FAKE-PASSWORD-9000-3333",
+	}
+	for _, line := range bare {
+		diff := aur442Diff("config/bare.env", 1, "+"+line)
+		findings, err := review.SecurityScan(diff)
+		if err != nil {
+			t.Fatalf("SecurityScan(%q): %v", line, err)
+		}
+		if len(findings) != 1 {
+			t.Fatalf("bare unquoted keyword must be found: %q, got %d findings: %+v", line, len(findings), findings)
+		}
+		if findings[0].RuleID != "security/hardcoded-secret" {
+			t.Fatalf("expected rule security/hardcoded-secret for %q, got %q", line, findings[0].RuleID)
+		}
+	}
+
+	// The adversarial case the review fix must keep excluded: a keyword
+	// glued onto a lowercase prefix has no `\b` identifier boundary before
+	// the keyword's uppercase run, so it is not an env-style variable.
+	diff := aur442Diff("config/bare.env", 1, "+xTOKEN=abc123xyz")
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("xTOKEN=... must not match (no identifier boundary before the keyword), got %+v", findings)
 	}
 }
 
