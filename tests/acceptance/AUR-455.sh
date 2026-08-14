@@ -110,7 +110,21 @@ for d in "${required_dirs[@]}"; do
 done
 
 run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a455.XXXXXX")" || infra mktemp
-trap 'rm -rf -- "$run_dir"' EXIT INT TERM HUP
+cleanup() {
+  # Directories this script recursively cp -r'd from the materialized,
+  # read-only stage (oci-run chmods every staged directory 0555) keep that
+  # read-only mode when cp creates them fresh in $run_dir, even though
+  # $run_dir itself is on the writable tmpfs. `rm -rf` cannot unlink a file
+  # whose PARENT directory lacks write permission, so without the chmod
+  # below cleanup fails on those subtrees -- and a failing EXIT trap
+  # replaces this script's own (successful) exit status with the trap
+  # command's, silently turning a real PASS into a reported failure. This
+  # is cosmetic cleanup on ephemeral tmpfs the container discards anyway,
+  # so it must never affect the exit code either way.
+  chmod -R u+w -- "$run_dir" 2>/dev/null || true
+  rm -rf -- "$run_dir" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM HUP
 mkdir -p "$run_dir/cache" "$run_dir/gotmp" "$run_dir/home"
 
 # stage DEST: copies every input this card's build/run needs into DEST,
@@ -135,6 +149,16 @@ stage() {
     mkdir -p "$dest/$d"
     cp -r "$repo_root/$d/." "$dest/$d/"
   done
+  # `cp -r` preserves the source's mode bits, including on any subdirectory
+  # it creates fresh (every level $repo_root/$d itself has beneath it).
+  # When $repo_root is itself a read-only materialized stage (oci-run
+  # chmods every path 0555/0444 before sealing it), those subdirectories
+  # come out read-only here too, even though $dest sits on writable tmpfs.
+  # Force the whole staged copy writable once, right after staging, so
+  # nothing later in this script -- MUT-001's sed, a Go tool's temp files,
+  # or this script's own cleanup trap -- can fail on a directory that
+  # merely inherited a permission bit meant for a different filesystem.
+  chmod -R u+w -- "$dest"
   chmod +x "$dest/demo.sh"
 }
 
