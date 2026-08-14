@@ -108,6 +108,34 @@ func aur443UnreadableRefFixture(t *testing.T, srcRepoDir string) string {
 	return dst
 }
 
+// aur443HierarchicalRefFixture copies srcRepoDir into a writable temp
+// directory and adds refs/heads/feature/sub (with main's own content, so
+// it is a coherent, resolvable ref), leaving refs/heads/main in place.
+// This reproduces review's vector 3: "--base feature" against a
+// repository whose only branch under that name is the hierarchical
+// "feature/sub" resolves refs/heads/feature to a DIRECTORY, not a ref
+// file.
+func aur443HierarchicalRefFixture(t *testing.T, srcRepoDir string) string {
+	t.Helper()
+	dst := filepath.Join(t.TempDir(), "repo.git")
+	if out, err := exec.Command("cp", "-R", srcRepoDir, dst).CombinedOutput(); err != nil {
+		t.Fatalf("staging a writable fixture copy: %v\n%s", err, out)
+	}
+	mainRef := filepath.Join(dst, "refs", "heads", "main")
+	content, err := os.ReadFile(mainRef)
+	if err != nil {
+		t.Fatalf("reading %s: %v", mainRef, err)
+	}
+	hierDir := filepath.Join(dst, "refs", "heads", "feature")
+	if err := os.MkdirAll(hierDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", hierDir, err)
+	}
+	if err := os.WriteFile(filepath.Join(hierDir, "sub"), content, 0o644); err != nil {
+		t.Fatalf("writing refs/heads/feature/sub: %v", err)
+	}
+	return dst
+}
+
 // IntegrationAUR443 proves, through the real binary, that
 // internal/analyzer's two ref-resolution backends now report the identical
 // clean message for the same unresolvable ref, and that a real git binary
@@ -167,9 +195,50 @@ func IntegrationAUR443(t *testing.T) {
 		}
 	})
 
+	// This is the second review-found blocker (cmd/aurumcode/main.go's
+	// cleanRefError): once the "resolving base/head ref" prefix matched,
+	// the prior fix still fell through to a raw %w wrap for any cause it
+	// did not recognize -- and a ref that resolves to a DIRECTORY (a
+	// hierarchical branch namespace) is exactly such a cause: EISDIR is
+	// neither fs.ErrNotExist nor fs.ErrPermission.
+	t.Run("pure-Go backend: a ref that resolves to a directory is a clean message, never the raw leaked path", func(t *testing.T) {
+		hier := aur443HierarchicalRefFixture(t, repoDir)
+		code, _, stderr := aur443IntegrationRun(t, bin, hier, noGitPath, "review", "--base", "feature")
+		if code != 1 {
+			t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+		}
+		if !strings.Contains(stderr, `ref "feature" is not a branch`) {
+			t.Fatalf("expected a clean \"is not a branch\" diagnosis, got:\n%s", stderr)
+		}
+		for _, leak := range []string{"no such file or directory", "refs/heads/", "is a directory"} {
+			if strings.Contains(stderr, leak) {
+				t.Fatalf("expected no leaked internal detail (%q), got:\n%s", leak, stderr)
+			}
+		}
+	})
+
 	if !hasRealGit {
 		t.Skip("no git binary on PATH in this environment: skipping the git-binary-backend comparison (the pure-Go backend above is what bootstrap-readonly-v1 exercises and is not skipped)")
 	}
+
+	t.Run("git-binary backend: the same directory ref is also a clean message, identical to the pure-Go backend", func(t *testing.T) {
+		hier := aur443HierarchicalRefFixture(t, repoDir)
+		_, _, pureGoStderr := aur443IntegrationRun(t, bin, hier, noGitPath, "review", "--base", "feature")
+
+		code, _, stderr := aur443IntegrationRun(t, bin, hier, realGitOnPath, "review", "--base", "feature")
+		if code != 1 {
+			t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
+		}
+		if !strings.Contains(stderr, `ref "feature" is not a branch`) {
+			t.Fatalf("expected a clean \"is not a branch\" diagnosis, got:\n%s", stderr)
+		}
+		if strings.Contains(stderr, "fatal:") {
+			t.Fatalf("git-binary backend leaked git's own wording:\n%s", stderr)
+		}
+		if stderr != pureGoStderr {
+			t.Fatalf("the two backends disagree on the same user mistake:\ngit-binary: %q\npure-Go:    %q", stderr, pureGoStderr)
+		}
+	})
 
 	// git's own `rev-parse --verify` stderr ("fatal: Needed a single
 	// revision") is byte-identical for ENOENT and EACCES -- it never
