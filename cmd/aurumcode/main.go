@@ -560,13 +560,32 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// The security pass (AUR-435) runs before anything prints, so a broken
 	// rules catalog fails loudly with nothing on stdout instead of after a
 	// partial report. It is deterministic and calls no model.
+	//
+	// AUR-450: alongside the findings, the pass now also reports its own
+	// coverage on stderr -- how many and which security-category rules of
+	// the embedded catalog actually carry a matcher, against how many the
+	// category declares in total. Five of the eight security rules are
+	// metadata only (internal/review/rules/security.yml, AUR-442's
+	// documented, scoped decision); before this card nothing told the
+	// caller that, so an empty "No security findings." read exactly like
+	// "the code was scanned by the full catalog" when only three of eight
+	// rules ever ran. The note goes to stderr, not stdout: it is additive,
+	// catalog-derived information, and tests/acceptance/AUR-449.sh pins an
+	// exact sha256 of this exact command's stdout with a provider
+	// configured -- a byte-for-byte guarantee this card does not own and
+	// must not disturb (see docs/specs/AUR-450.md's "Why stderr" section
+	// and the "aurumcode review: " stderr notes AUR-433/AUR-441/AUR-448/
+	// AUR-449 already established for exactly this situation).
 	var securityFindings []types.ReviewIssue
 	if *seguranca {
-		securityFindings, err = review.SecurityScan(diff)
+		var coverageApplied []string
+		var coverageTotal int
+		securityFindings, coverageApplied, coverageTotal, err = review.SecurityScanWithCoverage(diff)
 		if err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 			return 1
 		}
+		printSecurityCoverage(stderr, coverageApplied, coverageTotal)
 	}
 
 	// result.Summary (pkg/types.ReviewResult, parsed by
@@ -1121,4 +1140,33 @@ func printSecurityFindings(stdout io.Writer, filter *redaction.Filter, issues []
 	for _, issue := range sorted {
 		fmt.Fprintf(stdout, "%s:%d: [%s] %s\n", filter.Redact(issue.File), issue.Line, issue.Severity, issue.Message)
 	}
+}
+
+// printSecurityCoverage is the AUR-450 note: how many and which
+// security-category rules of the embedded catalog the --seguranca pass
+// actually applied (carry a matcher, internal/review.RulesLoader.
+// PatternFor), against how many the category declares in total. It always
+// prints when --seguranca runs -- before printSecurityFindings, and before
+// the findings are even known -- so the found and the empty-result cases
+// get the byte-identical coverage line: the figures are catalog-derived,
+// never diff-derived, which is exactly why they cannot lie about "No
+// security findings." meaning "the whole catalog ran."
+//
+// It goes to stderr, the same sink and "aurumcode review: " prefix every
+// other --seguranca-adjacent note already uses (AUR-433's cost lines,
+// AUR-441's cache-reuse note, AUR-448's discard warning, AUR-449's skip
+// explanation) -- never stdout, because tests/acceptance/AUR-449.sh pins
+// an exact sha256 of stdout for this exact command with a provider
+// configured, a byte-for-byte guarantee this card does not own and must
+// not disturb. See docs/specs/AUR-450.md's "Why stderr" section.
+//
+// applied is already sorted by rule id (RulesLoader.AppliedInCategory);
+// the message names every one of them, never truncated, because the whole
+// point is telling the caller exactly what ran.
+func printSecurityCoverage(stderr io.Writer, applied []string, total int) {
+	list := "none"
+	if len(applied) > 0 {
+		list = strings.Join(applied, ", ")
+	}
+	fmt.Fprintf(stderr, "aurumcode review: security pass applied %d of %d security rules (%s); see internal/review/rules/security.yml for the full catalog\n", len(applied), total, list)
 }

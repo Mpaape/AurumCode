@@ -42,6 +42,28 @@ func SecurityScan(diff *types.Diff) ([]types.ReviewIssue, error) {
 	return securityScanWithRules(rules, diff), nil
 }
 
+// SecurityScanWithCoverage is SecurityScan (see its own doc, unchanged and
+// still the entry point tests/unit/AUR-435.go and tests/unit/AUR-442.go
+// use) plus the AUR-450 coverage: which security-category rules of the
+// embedded catalog carry a matcher (applied, sorted by id) and how many
+// the category declares in total (total). Both are derived from the same
+// RulesLoader the scan itself uses, loaded once, so a caller can never
+// observe the findings and the coverage figures disagreeing because of a
+// catalog reload between two separate calls. cmd/aurumcode's --seguranca
+// path calls this instead of SecurityScan so it can report, on every run,
+// how much of the catalog the pass actually covers -- identically whether
+// the pass found something or found nothing, because the coverage figures
+// are catalog-derived, never diff-derived.
+func SecurityScanWithCoverage(diff *types.Diff) (findings []types.ReviewIssue, applied []string, total int, err error) {
+	rules, err := sharedRules()
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("review rules unavailable: %w", err)
+	}
+	findings = securityScanWithRules(rules, diff)
+	applied, total = rules.AppliedInCategory("security")
+	return findings, applied, total, nil
+}
+
 // securityScanWithRules is SecurityScan over an explicit catalog.
 func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewIssue {
 	// The security rubric: the security-category rules of the embedded
