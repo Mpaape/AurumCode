@@ -82,7 +82,6 @@ required_inputs=(
   internal/review
   internal/security/redaction
   pkg/types
-  standards/security-review/rules.md
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
 )
