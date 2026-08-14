@@ -1,0 +1,18 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-451",
+ "commit": "4df5df69aba5058be594947d0d5f6639360a67ea",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-451",
+  "exit_code": 0,
+  "raw_output": "0 for 451, 438, 439, 442, 449 and 450; byte-identity holds on stdout and stderr separately, including an error path"
+ },
+ "review_notes": {
+  "inherited_security_intact": "no write permission and no commit SHA both yield zero POSTs and a refusal; a planted canary comes out [REDACTED] in the published comment",
+  "no_duplication": "parseFailOnLevel, countAtOrAbove, selectProviderForModel, SecurityScanWithCoverage and buildCostTracker each have a single definition shared by both paths",
+  "nonblocking": "the --pr path does not treat errNoProviderConfigured with errors.Is the way --base does, so --pr --seguranca without a provider exits 1 instead of running security-only; asymmetry recorded, outside the declared command"
+ }
+}
