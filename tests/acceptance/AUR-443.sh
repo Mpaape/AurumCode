@@ -242,6 +242,29 @@ nominal_case() {
   grep -Fq 'no such file or directory' "$run_dir/out.stderr" && fail bad-ref-leaked-filesystem-path
   grep -Fq 'refs/heads/' "$run_dir/out.stderr" && fail bad-ref-leaked-internal-path
 
+  # A third leak shape, distinct from ENOENT and EACCES: a ref that
+  # resolves to a DIRECTORY, not a file -- a hierarchical branch namespace
+  # where only "feature/sub" exists and no literal "feature" ref does. The
+  # pure-Go backend's os.ReadFile fails with EISDIR, which is neither
+  # fs.ErrNotExist nor fs.ErrPermission, so review found it fell through
+  # cleanRefError's classification into the raw internal chain. Built here
+  # against the already-staged, already-writable git-demo copy (stage_source
+  # already ran chmod -R u+w) rather than a shipped fixture, and removed
+  # afterward so it does not affect any later scenario that also uses
+  # repo_dir. The SAME two leak greps above are re-run against this case,
+  # per the review's own instruction, so a regression here cannot pass
+  # unnoticed.
+  local hier_ref_dir="$repo_dir/refs/heads/feature"
+  mkdir -p "$hier_ref_dir"
+  cp "$repo_dir/refs/heads/main" "$hier_ref_dir/sub"
+  run_bin "$shared_bin" "$repo_dir" review --base feature
+  [[ "$rc" -eq 1 ]] || fail dir-ref-wrong-exit
+  grep -Fq 'ref "feature" is not a branch' "$run_dir/out.stderr" || fail dir-ref-message-missing
+  grep -Fq 'no such file or directory' "$run_dir/out.stderr" && fail dir-ref-leaked-filesystem-path
+  grep -Fq 'refs/heads/' "$run_dir/out.stderr" && fail dir-ref-leaked-internal-path
+  grep -Fq 'is a directory' "$run_dir/out.stderr" && fail dir-ref-leaked-raw-cause
+  rm -rf "$hier_ref_dir"
+
   # --- 7. review --base's and docs's published contracts: byte-for-byte unchanged. ---
   local clean_fixture="$run_dir/response-clean.json"
   printf '{"issues":[],"summary":"Nothing to report."}' >"$clean_fixture"

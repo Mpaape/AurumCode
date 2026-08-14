@@ -66,6 +66,10 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		// (EACCES) is a distinct message from "not found" (ENOENT) -- see
 		// cleanRefError/refPathPermissionDenied in cmd/aurumcode/main.go.
 		`aurumcode review: permission denied resolving ref "main" in this repository: this process cannot read the ref's storage under .git (or the bare repository root) -- check its file permissions`,
+		// AUR-443 (second post-review fix): a ref that resolves to a
+		// DIRECTORY (a hierarchical branch namespace) is a third distinct
+		// message, never the raw leaked "refs/heads/..." chain.
+		`aurumcode review: ref "feature" is not a branch: a directory of refs by that name exists (a hierarchical branch namespace, e.g. "feature/...") -- name the exact branch, not a namespace prefix`,
 		// AUR-426's docs subcommand.
 		"aurumcode docs: source directory /abs/missing: stat /abs/missing: no such file or directory",
 		"aurumcode docs: source directory /abs/file.txt is not a directory",
