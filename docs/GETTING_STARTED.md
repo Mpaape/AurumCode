@@ -1,3 +1,8 @@
+---
+layout: default
+title: Getting Started em 10 minutos
+---
+
 # AurumCode em 10 minutos por feature
 
 Este guia leva alguém que nunca viu o AurumCode a rodar as três features do
@@ -20,7 +25,12 @@ git 2.43.0. Nenhuma chave de LLM, nenhum serviço, nenhuma rede.
 git clone https://github.com/Mpaape/AurumCode.git
 cd AurumCode
 go build -o aurumcode ./cmd/aurumcode
+export PATH="$PWD:$PATH"
 ```
+
+O `export PATH` não é decoração: o resto deste guia roda os comandos de dentro
+de um repositório de teste em `/tmp`, e sem ele o shell não acha o binário.
+Se preferir, use o caminho absoluto do binário em cada invocação.
 
 O build leva menos de um segundo depois do primeiro download de dependências.
 O binário resultante embute o catálogo de regras de segurança, então ele
@@ -230,7 +240,21 @@ app/store.go:8: [error] FindUser concatena o parametro id direto na query. (rule
 ```
 
 Note o formato: sem a seção `Security findings`, porque `--seguranca` não foi
-passada. As duas passagens são independentes e podem ser combinadas.
+passada. As duas passagens são independentes e podem ser combinadas na mesma
+invocação — os achados do modelo saem primeiro, a seção determinística depois:
+
+```
+$ AURUMCODE_LLM_FIXTURE=$PWD/fixture.json aurumcode review --base HEAD~1 --seguranca
+app/store.go:8: [error] FindUser concatena o parametro id direto na query. (rule security/sql-injection: SQL Injection Vulnerability)
+
+Security findings (standards/security-review):
+app/backup.py:4: [error] Potential command injection vulnerability [standards/security-review SCR-001] (rule security/command-injection: Command Injection)
+app/store.go:5: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+app/store.go:8: [error] Potential SQL injection vulnerability detected [standards/security-review SCR-001] (rule security/sql-injection: SQL Injection Vulnerability)
+```
+
+O mesmo defeito aparece duas vezes quando as duas passagens o encontram: o
+AurumCode não deduplica entre elas.
 
 O campo `rule_id` **não é opcional**: um achado cujo `rule_id` está ausente ou
 não existe no catálogo embutido é descartado silenciosamente e nunca aparece.
@@ -411,6 +435,10 @@ variável `LLM_MODEL`. Pontos que valem entender antes de copiar:
 - O binário é construído a partir de um checkout separado do AurumCode fixado
   na tag `v1`. O código do pull request é tratado só como dado: é lido como
   diff, nunca compilado nem executado por um job que carrega token de escrita.
+  **Atenção:** na data em que este guia foi escrito, `git ls-remote --tags
+  origin` mostra que a tag `v1` ainda não foi publicada. Copiado sem edição, o
+  workflow morre no passo de checkout. Troque `ref: v1` por um commit SHA do
+  AurumCode (ou por um branch, aceitando que ele é mutável) até a tag existir.
 - `--base` recebe o commit base do pull request, então a review cobre
   exatamente o que aquele PR muda.
 
@@ -453,6 +481,9 @@ Reunidas aqui para você não descobri-las na hora errada:
 - **Documentação de linguagens além de Go exige ferramenta externa.** Python
   precisa de `pydoc-markdown` no PATH; sem ela, os arquivos são pulados (o
   comando diz qual ferramenta falta).
+- **A tag `v1` referenciada pelos workflows de exemplo ainda não existe.**
+  Copiar `code-review.yml` sem trocar o `ref: v1` produz um job que falha no
+  checkout.
 - **A publicação depende de configuração do repositório no GitHub.** Sem
   **Settings > Pages > Source = GitHub Actions** e sem as permissões
   `pages: write` / `id-token: write` no job, o deploy é rejeitado.
