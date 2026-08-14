@@ -29,7 +29,7 @@ Create prompt
 
 ## Documentation
 
-Call PROVEDOR DTA API (OpenAI-compatible)
+Call the configured OpenAI-compatible endpoint
 
 ## Documentation
 
