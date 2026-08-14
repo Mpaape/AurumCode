@@ -27,8 +27,16 @@ func TestOpenRepo_Bare(t *testing.T) {
 }
 
 func TestOpenRepo_NotAGitDir(t *testing.T) {
-	if _, err := OpenRepo("."); err == nil {
-		t.Fatal("expected an error opening a plain directory as a git repo")
+	// Not "." -- the package directory sits inside this repository, so git's
+	// upward discovery finds the checkout's .git and OpenRepo correctly
+	// succeeds. Asserting an error there passes only where the source tree
+	// happens not to be a git checkout (the sealed acceptance sandbox stages
+	// files via git ls-files, so .git never reaches it) and fails in any real
+	// clone: the assertion described the harness, not the behaviour.
+	dir := t.TempDir()
+
+	if _, err := OpenRepo(dir); err == nil {
+		t.Fatalf("expected an error opening a plain directory as a git repo: %s", dir)
 	}
 }
 

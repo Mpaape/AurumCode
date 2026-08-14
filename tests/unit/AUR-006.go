@@ -20,7 +20,7 @@ type unitFixtureAUR006 struct {
 
 // TestAUR006 is the unit-level contract probe named by AUR-006.
 func TestAUR006(t *testing.T) {
-	root := repoRoot(t)
+	root := aur006RepoRoot(t)
 	fixtureBytes, err := os.ReadFile(filepath.Join(root, "tests/specs/AUR-006/cases.yaml"))
 	if err != nil {
 		t.Fatalf("fixture unreadable: %v", err)
@@ -42,7 +42,7 @@ func TestAUR006(t *testing.T) {
 	}
 }
 
-func repoRoot(t *testing.T) string {
+func aur006RepoRoot(t *testing.T) string {
 	t.Helper()
 	if root := os.Getenv("AURUMCODE_ROOT"); root != "" {
 		return root

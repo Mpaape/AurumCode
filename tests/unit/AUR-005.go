@@ -4,20 +4,37 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/evidence"
 )
 
+// aur005UnitRoot resolves the tree holding .board/schemas. AURUMCODE_ROOT wins
+// because the acceptance stages this file into a scratch module, where the
+// caller-derived path no longer points at the repository. Falling back to the
+// caller instead of aborting is what lets a plain `go test ./...` -- CI's own
+// build and race jobs -- execute these assertions rather than fail on a
+// missing environment variable it has no reason to set.
+func aur005UnitRoot(t *testing.T) string {
+	t.Helper()
+
+	if root := os.Getenv("AURUMCODE_ROOT"); root != "" {
+		return root
+	}
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("AUR-005: cannot locate the test source file")
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..")
+}
+
 // TestAUR005 is the card's declared unit selector. It executes schema
 // validation, sealing, canonical replay and byte-level output verification.
 func TestAUR005(t *testing.T) {
 	t.Helper()
-	root := os.Getenv("AURUMCODE_ROOT")
-	if root == "" {
-		t.Fatal("AURUMCODE_ROOT is required")
-	}
+	root := aur005UnitRoot(t)
 	schema, err := os.ReadFile(filepath.Join(root, ".board/schemas/evidence-bundle.schema.json"))
 	if err != nil {
 		t.Fatalf("schema unreadable: %v", err)
