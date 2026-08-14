@@ -34,11 +34,11 @@ cases:
     inventory_path: tests/characterization/legacy-baseline/legacy-files.tsv
     source_inventory: .board/research/legacy-files.tsv
     expected_stdout_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-    expected_stderr_digest: sha256:3bb1894de939e61716c04b80a55c56e62d8cb662400b813b796436441b1e8c26
+    expected_stderr_digest: sha256:7b995be72c9248e08444b82627085875225a39172ca4434cd5f7867e10348d58
     expected_exit_code: 0
-    expected_effects: docs=1,skipped=0,errors=1,writes=1
-    silent_failure: true
-    expected_marker: silent-failure
+    expected_effects: docs=2,skipped=0,errors=0,writes=1
+    silent_failure: false
+    expected_marker: complete
   - id: invalid-input
     kind: invalid
     entrypoint: tests/acceptance/AUR-002.sh

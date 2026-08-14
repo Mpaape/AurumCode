@@ -102,7 +102,24 @@ func IntegrationAUR002() error {
 		return err
 	}
 
-	fmt.Println(`{"card":"AUR-002","scenario":"AC-001","cases":6,"replayed":6,"silent_failures":2,"result":"pass"}`)
+	// The silent-failure count is DERIVED from the parsed cases, never a
+	// literal. It used to be hard-coded as 2 and would have kept reporting 2
+	// after AUR-457 rebased extractor-error to a complete run -- a receipt that
+	// cannot go red is not evidence. Exactly one silent failure survives:
+	// missing-extractor still skips Java without saying so and still exits 0.
+	// extractor-error's silent failure was eliminated by AUR-424, which removed
+	// the external tool whose crash produced it.
+	silent := 0
+	for _, c := range cases {
+		if c.silentFailure == "true" {
+			silent++
+		}
+	}
+	if silent != 1 {
+		return fmt.Errorf("AUR-002: cases.yaml declares %d silent failures, want exactly 1", silent)
+	}
+	fmt.Printf("{\"card\":\"AUR-002\",\"scenario\":\"AC-001\",\"cases\":%d,\"replayed\":%d,\"silent_failures\":%d,\"result\":\"pass\"}\n",
+		len(cases), len(cases), silent)
 	return nil
 }
 
