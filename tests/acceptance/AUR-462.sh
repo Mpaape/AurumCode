@@ -22,17 +22,28 @@
 #   and the Python fixture that already produced a finding still produces
 #   exactly that finding, unchanged (AC-003).
 #
-# WHY THIS RUNS AGAINST AN EPHEMERAL REPOSITORY, NOT A COMMITTED FIXTURE
+# WHY THIS READS A COMMITTED FIXTURE, NOT AN EPHEMERAL REPOSITORY
 #
-#   This card's `paths` own internal/review/rules and its own
-#   unit/integration/e2e/acceptance programs -- no fixtures directory
-#   (unlike AUR-442, which owned tests/fixtures/review/vuln/hardcoded-secret
-#   in its own `paths`). So nothing Node-shaped is committed to the
-#   repository tree: nominal_case, mutation_case and e2e_case each
-#   materialize the same 27-line Node source (via `git init`/`git commit`
-#   in a throwaway directory) that tests/unit/AUR-462.go's
-#   aur462NodeFixtureLines also embeds as a synthetic diff, so all three
-#   layers agree on line numbers.
+#   The sealed acceptance profile (bootstrap-readonly-v1) carries bash and
+#   a Go toolchain but no `git` binary -- measured directly: `oci-run
+#   --profile bootstrap-readonly-v1 --card AUR-462` exited 79,
+#   `missing_git`. This program's first cut built the Node fixture at run
+#   time with `git init`/`git commit`, which is unprovable in the only
+#   environment that gates this card -- the identical reasoning
+#   tests/fixtures/repos/git-demo/build-fixture.sh's own doc header
+#   states for why IT never calls `git` either. This card's `paths` now
+#   own tests/fixtures/review/vuln/node-xss-command-injection: a bare,
+#   loose-object repository built by that same git-less, deterministic
+#   builder -- the one that already produced every sibling fixture this
+#   card's own AC-003 regresses against
+#   (tests/fixtures/review/vuln/repo.git,
+#   tests/fixtures/review/vuln/hardcoded-secret/repo.git,
+#   tests/fixtures/repos/git-demo/repo.git). Its HEAD~1..HEAD diff adds
+#   the identical 39-line Node source tests/unit/AUR-462.go's
+#   aur462NodeFixtureLines embeds as a synthetic diff, so every selector
+#   agrees on line numbers. nominal_case, mutation_case_1/2, and e2e_case
+#   all read this one committed repository; none of them shell out to
+#   `git`, at build time or run time.
 #
 # WHY NO LLM FIXTURE IS NEEDED
 #
@@ -91,8 +102,6 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$scenario" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
-command -v git >/dev/null 2>&1 || infra missing_git
-command -v python3 >/dev/null 2>&1 || infra missing_python3
 
 # Input preflight. Deliverables this card owns fail behavioral (their
 # absence IS the missing behavior); everything else is an environment gap.
@@ -101,6 +110,7 @@ owned_inputs=(
   tests/unit/AUR-462.go
   tests/integration/AUR-462.go
   tests/e2e/AUR-462.sh
+  tests/fixtures/review/vuln/node-xss-command-injection/repo.git
 )
 for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
@@ -161,69 +171,11 @@ stage_source() {
   chmod -R u+w -- "$root"
 }
 
-# make_node_repo materializes the ephemeral Node fixture under $1/node-repo
-# and echoes its path: the exact 27-line source tests/unit/AUR-462.go's
-# aur462NodeFixtureLines and tests/integration/AUR-462.go's mirror embed,
-# so line numbers agree everywhere.
-make_node_repo() {
-  local base="$1"
-  local repo="$base/node-repo"
-  mkdir -p "$repo/src"
-  (
-    export GIT_AUTHOR_NAME='Aurum Test' GIT_AUTHOR_EMAIL='aurum-test@aurum.invalid'
-    export GIT_COMMITTER_NAME='Aurum Test' GIT_COMMITTER_EMAIL='aurum-test@aurum.invalid'
-    git -C "$repo" init -q -b main
-    git -C "$repo" config user.email aurum-test@aurum.invalid
-    git -C "$repo" config user.name 'Aurum Test'
-    printf 'Ephemeral AUR-462 Node fixture. Nothing here is a real application.\n' >"$repo/README.md"
-    git -C "$repo" add README.md
-    git -C "$repo" commit -q -m 'seed: add the fixture skeleton'
-    cat >"$repo/src/app.js" <<'NODEJS'
-"use strict";
-const { exec, execSync, spawn } = require("child_process");
-
-function pingConcat(host) {
-  exec("ping -c 1 " + host);
-}
-
-function pingSyncConcat(host) {
-  execSync("ping -c 1 " + host);
-}
-
-function pingArgv(host) {
-  exec(["ping", host]);
-}
-
-function pingShell(host) {
-  spawn("ping -c 1 " + host, { shell: true });
-}
-
-// exec is dangerous when combined with string concatenation.
-function renderUser(userInput) {
-  document.getElementById("out").innerHTML = userInput;
-}
-
-function renderStatic() {
-  document.getElementById("out").innerHTML = "<b>Static content</b>";
-}
-
-function renderSanitized(userInput) {
-  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);
-}
-
-function renderTrustedTemplate() {
-  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;
-}
-
-function renderEscaped(x) {
-  document.getElementById("out").innerHTML = escapeHtml(x);
-}
-NODEJS
-    git -C "$repo" add src/app.js
-    git -C "$repo" commit -q -m 'add: node source with planted command-injection and xss shapes'
-  ) >"$base/git.log" 2>&1 || { cat "$base/git.log" >&2; infra git_fixture_failed; }
-  printf '%s' "$repo"
-}
+# node_repo is the committed Node fixture: a single, real, on-disk
+# repository every case below reads (read-only -- `review` never writes to
+# it), so there is exactly one copy of the fixture bytes to keep in sync,
+# not one per case.
+readonly node_repo="$repo_root/tests/fixtures/review/vuln/node-xss-command-injection/repo.git"
 
 readonly header='Security findings (standards/security-review):'
 readonly cmd_citation='(rule security/command-injection: Command Injection)'
@@ -249,7 +201,6 @@ build_shared() {
 # regression fixture.
 nominal_case() {
   build_shared
-  local node_repo; node_repo="$(make_node_repo "$run_dir/nominal")"
 
   local out_sec
   out_sec="$(cd "$node_repo" && "$shared_bin" review --base HEAD~1 --seguranca)" || fail behavior-missing
@@ -311,13 +262,18 @@ mutation_case_1() {
   local anchor="pattern: '(?i)\\b(system|popen|exec[lv]p?e?|subprocess\\.(run|call|Popen))\\s*\\(.*[\"'']\\s*\\+|\\bexec(Sync)?\\s*\\(.*[\"'']\\s*\\+|\\bspawn\\s*\\(.*shell\\s*:\\s*true\\b'"
   local replacement="pattern: '(?i)\\b(system|popen|exec[lv]p?e?|subprocess\\.(run|call|Popen))\\s*\\(.*[\"'']\\s*\\+'"
   grep -Fq "$anchor" "$target" || fail 'MUT-001/anchor-not-found'
-  python3 - "$target" "$anchor" "$replacement" <<'PYEOF' || fail 'MUT-001/rewrite-failed'
-import sys
-path, anchor, replacement = sys.argv[1:4]
-s = open(path).read()
-assert s.count(anchor) == 1
-open(path, "w").write(s.replace(anchor, replacement))
-PYEOF
+  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
+  ANCHOR="$anchor" REPL="$replacement" awk '
+    BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
+    {
+      idx = index($0, anchor)
+      if (idx > 0) {
+        print substr($0, 1, idx - 1) repl substr($0, idx + length(anchor))
+      } else {
+        print $0
+      }
+    }
+  ' "$target" >"$target.mut" && mv "$target.mut" "$target" || fail 'MUT-001/rewrite-failed'
   grep -Fq "$anchor" "$target" && fail 'MUT-001/mutation-not-applied'
 
   local bin="$run_dir/aurumcode-mut1"
@@ -327,7 +283,6 @@ PYEOF
     fail 'MUT-001/build-failed'
   fi
 
-  local node_repo; node_repo="$(make_node_repo "$run_dir/mut1")"
   local out
   out="$(cd "$node_repo" && "$bin" review --base HEAD~1 --seguranca)" || fail 'MUT-001/mutation-run-failed'
   grep -Fq "$header" <<<"$out" || fail 'MUT-001/pass-did-not-run'
@@ -356,13 +311,18 @@ mutation_case_2() {
   local anchor="pattern: '\\b(?i:innerHTML|outerHTML)\\s*=\\s*[a-z_\$][\\w\$.]*\\s*(?:;|\$)|(?i:document\\.write)\\s*\\(\\s*[a-z_\$][\\w\$.]*\\s*\\)|(?i:dangerouslySetInnerHTML)\\s*=\\s*\\{\\{\\s*__html\\s*:\\s*[a-z_\$][\\w\$.]*\\s*\\}\\}'"
   local replacement="pattern: '(?i)\\b(innerHTML|outerHTML)\\s*='"
   grep -Fq "$anchor" "$target" || fail 'MUT-002/anchor-not-found'
-  python3 - "$target" "$anchor" "$replacement" <<'PYEOF' || fail 'MUT-002/rewrite-failed'
-import sys
-path, anchor, replacement = sys.argv[1:4]
-s = open(path).read()
-assert s.count(anchor) == 1
-open(path, "w").write(s.replace(anchor, replacement))
-PYEOF
+  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-002/anchor-not-unique'
+  ANCHOR="$anchor" REPL="$replacement" awk '
+    BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
+    {
+      idx = index($0, anchor)
+      if (idx > 0) {
+        print substr($0, 1, idx - 1) repl substr($0, idx + length(anchor))
+      } else {
+        print $0
+      }
+    }
+  ' "$target" >"$target.mut" && mv "$target.mut" "$target" || fail 'MUT-002/rewrite-failed'
   grep -Fq "$anchor" "$target" && fail 'MUT-002/mutation-not-applied'
 
   local bin="$run_dir/aurumcode-mut2"
@@ -372,7 +332,6 @@ PYEOF
     fail 'MUT-002/build-failed'
   fi
 
-  local node_repo; node_repo="$(make_node_repo "$run_dir/mut2")"
   local out
   out="$(cd "$node_repo" && "$bin" review --base HEAD~1 --seguranca)" || fail 'MUT-002/mutation-run-failed'
   grep -Fq "$header" <<<"$out" || fail 'MUT-002/pass-did-not-run'
