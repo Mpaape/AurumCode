@@ -92,15 +92,21 @@ func integrationAUR467ArithmeticConsistency(t *testing.T) {
 	}
 	diff := &types.Diff{Files: files}
 
-	for _, mt := range []int{1500, 2000, 8000} {
+	for _, mt := range []int{1700, 2200, 8000} {
 		parts := integrationAUR467Build(t, diff, mt, 40)
-		total, reviewed, omitted := parts.Meta["code_files_total"], parts.Meta["code_files_reviewed"], parts.Meta["code_files_omitted"]
-		var t1, r1, o1 int
+		total := parts.Meta["code_files_total"]
+		complete := parts.Meta["code_files_complete"]
+		partial := parts.Meta["code_files_partial"]
+		omitted := parts.Meta["code_files_omitted"]
+		var t1, c1, p1, o1 int
 		if _, err := fmt.Sscanf(total, "%d", &t1); err != nil {
 			t.Fatalf("MaxTokens=%d: code_files_total %q not numeric: %v", mt, total, err)
 		}
-		if _, err := fmt.Sscanf(reviewed, "%d", &r1); err != nil {
-			t.Fatalf("MaxTokens=%d: code_files_reviewed %q not numeric: %v", mt, reviewed, err)
+		if _, err := fmt.Sscanf(complete, "%d", &c1); err != nil {
+			t.Fatalf("MaxTokens=%d: code_files_complete %q not numeric: %v", mt, complete, err)
+		}
+		if _, err := fmt.Sscanf(partial, "%d", &p1); err != nil {
+			t.Fatalf("MaxTokens=%d: code_files_partial %q not numeric: %v", mt, partial, err)
 		}
 		if _, err := fmt.Sscanf(omitted, "%d", &o1); err != nil {
 			t.Fatalf("MaxTokens=%d: code_files_omitted %q not numeric: %v", mt, omitted, err)
@@ -108,11 +114,18 @@ func integrationAUR467ArithmeticConsistency(t *testing.T) {
 		if t1 != 12 {
 			t.Fatalf("MaxTokens=%d: code_files_total = %d, want 12 (README.md must not count as code)", mt, t1)
 		}
-		if r1+o1 != t1 {
-			t.Fatalf("MaxTokens=%d: reviewed(%d) + omitted(%d) != total(%d)", mt, r1, o1, t1)
+		if c1+p1+o1 != t1 {
+			t.Fatalf("MaxTokens=%d: complete(%d) + partial(%d) + omitted(%d) != total(%d)", mt, c1, p1, o1, t1)
 		}
-		if o1 > 0 && !strings.Contains(parts.User, fmt.Sprintf("NOT covered by this review (token budget): %d", o1)) {
+		if o1 > 0 && !strings.Contains(parts.User, fmt.Sprintf("NOT reviewed by this review (token budget): %d", o1)) {
 			t.Fatalf("MaxTokens=%d: declared omitted count does not match Meta (o1=%d):\n%s", mt, o1, parts.User)
+		}
+
+		// The full assembled prompt must never exceed MaxTokens (blocker
+		// 1 regression): the coverage declaration is content too.
+		full := prompt.NewHeuristicEstimator().Estimate(parts.System + parts.User)
+		if full > mt {
+			t.Fatalf("MaxTokens=%d: assembled prompt is %d estimated tokens, over budget", mt, full)
 		}
 	}
 }

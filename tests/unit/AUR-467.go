@@ -38,6 +38,8 @@ func TestAUR467(t *testing.T) {
 	t.Run("AC002_CodeFilesStillCovered", testAUR467CodeFilesStillCovered)
 	t.Run("AC003_PartialCoverageDeclared", testAUR467PartialCoverageDeclared)
 	t.Run("MeasuredCauseOfMJSOmission", testAUR467MeasuredOrderingStarvation)
+	t.Run("Blocker1_CoverageDeclarationNeverOverflowsBudget", testAUR467CoverageDeclarationNeverOverflowsBudget)
+	t.Run("Blocker2_PartialHunkNeverSilentlyComplete", testAUR467PartialHunkNeverSilentlyComplete)
 }
 
 func aur467BuildPrompt(t *testing.T, diff *types.Diff, maxTokens, reserve int) prompt.PromptParts {
@@ -123,8 +125,11 @@ func testAUR467CodeFilesStillCovered(t *testing.T) {
 	if got := parts.Meta["code_files_total"]; got != fmt.Sprintf("%d", codeFileCount) {
 		t.Fatalf("Meta[code_files_total] = %q, want %d", got, codeFileCount)
 	}
-	if got := parts.Meta["code_files_reviewed"]; got != fmt.Sprintf("%d", codeFileCount) {
-		t.Fatalf("Meta[code_files_reviewed] = %q, want %d (AC-002: coverage must not drop)", got, codeFileCount)
+	if got := parts.Meta["code_files_complete"]; got != fmt.Sprintf("%d", codeFileCount) {
+		t.Fatalf("Meta[code_files_complete] = %q, want %d (AC-002: coverage must not drop)", got, codeFileCount)
+	}
+	if got := parts.Meta["code_files_partial"]; got != "0" {
+		t.Fatalf("Meta[code_files_partial] = %q, want \"0\" at a budget with room", got)
 	}
 	if got := parts.Meta["code_files_omitted"]; got != "0" {
 		t.Fatalf("Meta[code_files_omitted] = %q, want \"0\" at a budget with room", got)
@@ -143,25 +148,105 @@ func testAUR467PartialCoverageDeclared(t *testing.T) {
 	}
 	diff := &types.Diff{Files: files}
 
-	// A budget deliberately too small to fit every file's ~100-token hunk:
-	// the base review prompt (instructions + rule catalog) alone costs
-	// ~1303 tokens, leaving only ~157 for code content here.
-	parts := aur467BuildPrompt(t, diff, 1500, 40)
+	// A budget deliberately too small to fit every file's ~100-token hunk.
+	// The base review prompt (~1305 tokens) plus this diff's worst-case
+	// coverage-declaration reservation (~186 tokens for 8 files) already
+	// consume most of a 1700-token budget, leaving room for exactly one
+	// file's hunk.
+	parts := aur467BuildPrompt(t, diff, 1700, 40)
 
 	total := parts.Meta["code_files_total"]
-	reviewed := parts.Meta["code_files_reviewed"]
+	complete := parts.Meta["code_files_complete"]
+	partial := parts.Meta["code_files_partial"]
 	omitted := parts.Meta["code_files_omitted"]
 	if total != fmt.Sprintf("%d", codeFileCount) {
 		t.Fatalf("Meta[code_files_total] = %q, want %d", total, codeFileCount)
 	}
 	if omitted == "0" {
-		t.Fatalf("test setup did not actually exceed the budget: code_files_omitted = 0 (reviewed=%s)", reviewed)
+		t.Fatalf("test setup did not actually exceed the budget: code_files_omitted = 0 (complete=%s partial=%s)", complete, partial)
 	}
-	if !strings.Contains(parts.User, "Code files NOT covered by this review") {
+	if !strings.Contains(parts.User, "Code files NOT reviewed by this review (token budget)") {
 		t.Fatalf("assembled prompt does not declare partial coverage at all:\n%s", parts.User)
 	}
-	if !strings.Contains(parts.User, "- Code files NOT covered by this review (token budget): "+omitted) {
+	if !strings.Contains(parts.User, "- Code files NOT reviewed by this review (token budget): "+omitted) {
 		t.Fatalf("declared omitted count in the prompt does not match Meta[code_files_omitted]=%s:\n%s", omitted, parts.User)
+	}
+
+	// The full assembled prompt -- including the coverage declaration
+	// itself -- must never exceed MaxTokens, and Meta[estimated_tokens]
+	// must equal what was actually estimated for it (blocker 1: the
+	// declaration used to be appended after the budget was already
+	// closed, and Meta undercounted it).
+	full := prompt.NewHeuristicEstimator().Estimate(parts.System + parts.User)
+	if full > 1700 {
+		t.Fatalf("assembled prompt is %d estimated tokens, over the 1700-token budget (blocker 1 regression)", full)
+	}
+	if got := parts.Meta["estimated_tokens"]; got != fmt.Sprintf("%d", full) {
+		t.Fatalf("Meta[estimated_tokens] = %q, want %d (must count the full assembled prompt, not a partial sum)", got, full)
+	}
+}
+
+// testAUR467CoverageDeclarationNeverOverflowsBudget is the regression for
+// adversarial-review blocker 1: the declaration renderCoverageDeclaration
+// appends is itself prompt content, and its size grows with the number of
+// omitted files -- exactly the case where the budget was already
+// tightest. Before the fix, an 8-omitted-file diff assembled to an
+// estimated size over MaxTokens while Meta[estimated_tokens] silently
+// undercounted it by omitting the declaration from the sum.
+func testAUR467CoverageDeclarationNeverOverflowsBudget(t *testing.T) {
+	files := []types.DiffFile{aur467CodeFile("README.md", "+prose")}
+	for i := 0; i < 8; i++ {
+		files = append(files, aur467CodeFile(fmt.Sprintf("src/big%02d.mjs", i), "+"+strings.Repeat("x", 400)))
+	}
+	diff := &types.Diff{Files: files}
+
+	const maxTokens = 1700
+	parts := aur467BuildPrompt(t, diff, maxTokens, 40)
+
+	full := prompt.NewHeuristicEstimator().Estimate(parts.System + parts.User)
+	if full > maxTokens {
+		t.Fatalf("assembled prompt is %d estimated tokens, over the %d-token budget", full, maxTokens)
+	}
+	if got := parts.Meta["estimated_tokens"]; got != fmt.Sprintf("%d", full) {
+		t.Fatalf("Meta[estimated_tokens] = %q, want %d (the actual assembled prompt size)", got, full)
+	}
+}
+
+// testAUR467PartialHunkNeverSilentlyComplete is the regression for
+// adversarial-review blocker 2: a code file whose hunks only PARTLY
+// survive TrimToFit's budget cut must be classified "partial", carrying
+// its hunk fraction, never folded into complete or omitted.
+func testAUR467PartialHunkNeverSilentlyComplete(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path: "src/two.mjs",
+		Hunks: []types.DiffHunk{
+			{Lines: []string{"+hunk0 " + strings.Repeat("a", 100)}},
+			{Lines: []string{"+hunk1 " + strings.Repeat("b", 100)}},
+		},
+	}}}
+
+	// Sized so hunk0 fits and hunk1 does not: base prompt (~1305) plus
+	// this single-file diff's coverage reservation (~130) leaves room for
+	// exactly one ~30-token hunk out of two.
+	parts := aur467BuildPrompt(t, diff, 1470, 20)
+
+	if !strings.Contains(parts.User, "hunk0") {
+		t.Fatalf("test setup invalid: hunk0 did not survive the budget at all:\n%s", parts.User)
+	}
+	if strings.Contains(parts.User, "hunk1") {
+		t.Fatalf("test setup invalid: both hunks survived; nothing to classify as partial")
+	}
+	if got := parts.Meta["code_files_omitted"]; got != "0" {
+		t.Fatalf("Meta[code_files_omitted] = %q, want \"0\": the file is not fully omitted, it has one hunk present", got)
+	}
+	if got := parts.Meta["code_files_complete"]; got != "0" {
+		t.Fatalf("Meta[code_files_complete] = %q, want \"0\": a file missing a hunk is not complete (blocker 2 regression)", got)
+	}
+	if got := parts.Meta["code_files_partial"]; got != "1" {
+		t.Fatalf("Meta[code_files_partial] = %q, want \"1\"", got)
+	}
+	if !strings.Contains(parts.User, "src/two.mjs (1/2 hunks)") {
+		t.Fatalf("assembled prompt does not name the partial file with its hunk fraction:\n%s", parts.User)
 	}
 }
 
