@@ -332,3 +332,20 @@ NAO significa conta esgotada: teste um modelo menor antes de concluir que nao ha
 agente disponivel. Em 2026-08-14 eu declarei o escritorio parado e passei a
 revisar sozinho por essa conclusao apressada; Sonnet estava disponivel o tempo
 todo, e foi o usuario que teve de perguntar onde estavam os subagentes.
+
+## `strings.Contains` num portao e quase sempre defeito
+
+Dois revisores independentes acharam a mesma classe de bug em cards diferentes
+no mesmo dia. Em `tests/integration/AUR-002.go:430` o oraculo de conteudo usava
+`Contains`, entao ACRESCENTAR sufixo a um permalink passava verde --
+`permalink: /go/root/` e prefixo de `permalink: /go/root/qualquer/`, e so
+substituicao falhava. Em `internal/documentation/welcome/sanitize.go:80` a
+sanitizacao de link usava `Contains`, entao
+`notes/docs/getting-started.md-old.md` e
+`evil/docs/getting-started.md/../../etc/passwd` escapavam intactos.
+
+Quando um portao decide se algo e permitido, `Contains`, `HasPrefix` e
+`HasSuffix` cada um deixa passar uma forma diferente. Normalize primeiro
+(remova ancora, prefixo `./`, espaco) e compare por IGUALDADE, ou case a linha
+inteira. Ao revisar, ataque todo comparador de string de portao com quatro
+formas: prefixo, sufixo, no meio, e com travessia de caminho.
