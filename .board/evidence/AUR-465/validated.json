@@ -1,0 +1,20 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-465",
+ "commit": "11034630a3cd22c2f331d43aea42eb917c02f087",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-465",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 after two coordinator contract repairs: read_paths widened to the welcome package's build closure (go list -deps), and the acceptance cleanup made the staged read-only tree writable before rm, so a cleanup error could not overwrite a green nominal result"
+ },
+ "review_notes": {
+  "round_1": "REJECT. SanitizeInternalLinks compared with strings.Contains, so notes/docs/getting-started.md-old.md and evil/docs/getting-started.md/../../etc/passwd survived untouched -- confirmed by the reviewer running a Go program against the tracked file, not by mutation.",
+  "round_2": "APPROVE. The repair compares the normalised target by equality. The builder proved red first with the reviewer's two cases plus a HasPrefix escape and a HasSuffix escape; the reviewer then failed to break it with eleven further vectors -- double slash, leading and trailing space, repeated ./, uppercase, backslash, %2F, and # in the middle -- and confirmed both legitimate variants still survive.",
+  "diagnosis_changed_and_held": "The defect is not in the scaffold: it is the model-written welcome prose echoing the consumer's README. Confirmed by grep and by reading scaffold.go, which never emits @main and never declares a logo.",
+  "declared_policy_not_a_defect": "Relative links to LICENSE or CONTRIBUTING.md are flattened on purpose -- the index is not a guide.",
+  "followup": "pinnedTagPattern accepts any semver-shaped ref without checking the published tag set; carded as AUR-472."
+ }
+}

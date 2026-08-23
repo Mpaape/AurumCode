@@ -64,7 +64,14 @@ for p in "${inputs[@]}"; do
 done
 
 run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a465.XXXXXX")" || infra mktemp
-trap 'rm -rf -- "$run_dir"' EXIT INT TERM HUP
+# Staged inputs are copied read-only, so rm alone cannot remove them and the
+# cleanup error would overwrite a green nominal result. Make the tree writable
+# first, and never let cleanup decide the exit code (AUR-318, AUR-426).
+cleanup() {
+  chmod -R u+w -- "$run_dir" >/dev/null 2>&1 || true
+  rm -rf -- "$run_dir" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM HUP
 root="$run_dir/root"
 mkdir -p "$run_dir/cache" "$run_dir/gotmp" "$run_dir/home"
 
