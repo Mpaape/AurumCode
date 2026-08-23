@@ -36,11 +36,20 @@ Transform the README content into a beautiful, engaging welcome page with the fo
 - Include installation command if available
 - Show a minimal working example
 - Keep it under 5 steps
+- If the example uses this project as a GitHub Action (`uses: Mpaape/AurumCode@...`),
+  pin the ref to the published major-version tag `v1`, never to a branch such
+  as `main`: a branch is mutable, and a later upstream push would silently
+  change what runs in a copied workflow. Consumers with a stricter policy can
+  replace the tag with the commit SHA it resolves to at review time.
 
 ### 5. Documentation Sections
-- List the main documentation sections with brief descriptions
-- Include links to each section
-- Make it easy to navigate
+- Do not invent section links: the only in-repo documentation link this page
+  may include is the getting-started guide (`docs/getting-started.md`). Do
+  not link to any other local path -- this page does not know which other
+  pages exist on the generated site, and a link to a page that was never
+  generated is a broken link.
+- External links (the project's GitHub repository, issue tracker, etc.) are
+  fine wherever they are accurate.
 
 ### 6. Getting Help / Community
 - Include links to GitHub, issues, discussions
@@ -83,9 +92,7 @@ Clear explanation in 2-3 paragraphs...
 
 ## Documentation
 
-Explore the documentation:
-- [**Section 1**](link/) - Description
-- [**Section 2**](link/) - Description
+- [Getting Started](docs/getting-started.md) - the full guide
 
 ## Getting Help
 
