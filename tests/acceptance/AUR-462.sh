@@ -42,20 +42,22 @@
 #   model-free security pass runs, exit 0. This program unsets all three so
 #   every run takes that path regardless of the ambient environment.
 #
-# KNOWN, EXPECTED CONSEQUENCE OUTSIDE THIS CARD'S paths
+# SIBLING REGRESSIONS THIS CARD'S COVERAGE CHANGE CAUSED, AND THEIR FIX
 #
-#   Giving security/xss a pattern makes
-#   tests/unit/AUR-442.go::testAUR442DeclaredOnlyRulesStayPatternless RED
-#   (it asserts xss stays patternless) and therefore
-#   tests/acceptance/AUR-442.sh AC-001 RED too (its unit_case runs that
-#   assertion). The coverage line moving from "3 of 8" to "4 of 8" also
-#   turns tests/unit/AUR-450.go, tests/e2e/AUR-450.sh,
-#   tests/acceptance/AUR-450.sh and tests/integration/AUR-450.go RED: all
-#   four pin the literal live-binary string "applied 3 of 8 security rules
-#   (". None of those five files are in this card's `paths`, so this card
-#   cannot update them -- see docs/specs/AUR-462.md's own section of this
-#   name for detail and the required follow-up, the same precedent
-#   AUR-442 itself set against AUR-435's git-demo assertions.
+#   Giving security/xss a pattern moved it out of
+#   tests/unit/AUR-442.go::testAUR442DeclaredOnlyRulesStayPatternless's
+#   declaredOnly list and into a new positive assertion beside it -- the
+#   guard against an undelivered pattern still applies to the four rules
+#   that remain patternless, unchanged. The coverage line moving from "3
+#   of 8" to "4 of 8" (the real count, derived from
+#   internal/review/rules/*.yml, not assumed) is now the literal
+#   tests/unit/AUR-450.go, tests/integration/AUR-450.go,
+#   tests/e2e/AUR-450.sh and tests/acceptance/AUR-450.sh pin. Both are now
+#   in this card's `paths` and both are fixed here, not merely disclosed
+#   -- see docs/specs/AUR-462.md's own section of this name for detail,
+#   including the unrelated pre-existing AUR-458 conflict
+#   tests/acceptance/AUR-450.sh AC-001 still hits (out of this card's
+#   contract; reported there, not patched).
 #
 # EXIT CODES (tests/acceptance/EXIT_CODE_CONVENTION.md):
 #   0  = the promised property holds
