@@ -16,6 +16,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -24,6 +25,12 @@ import (
 	"github.com/Mpaape/AurumCode/internal/documentation/normalizer"
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 )
+
+// anchorNonWordAUR464 mirrors the Markdown-heading-to-anchor slug rule the
+// site's Jekyll/kramdown renderer applies: used here only to verify, at the
+// Integration layer, that the anchors this card's renderer produces are
+// genuinely unique after that same normalization.
+var anchorNonWordAUR464 = regexp.MustCompile(`[^a-z0-9_-]+`)
 
 const bashScriptA = `#!/bin/bash
 # Builds the project.
@@ -45,6 +52,38 @@ deploy() {
 
 restart_service() {
   systemctl restart svc
+}
+`
+
+// bashScriptC is the second review round's Blocker 1 fixture at the
+// Integration layer: real code ("set -euo pipefail") runs before the one
+// documented function, so that function's real doc must survive as ITS
+// doc through the full Extract()-writes-to-disk path, not just the
+// in-memory scanner the Unit layer already covers.
+const bashScriptC = `#!/bin/bash
+set -euo pipefail
+
+# Restarts the whole stack.
+restart_all() {
+  systemctl restart svc
+}
+`
+
+// bashScriptD is the second review round's Blocker 2 fixture at the
+// Integration layer: the exact "foo"/"Foo"/"foo-2" trio that collides twice
+// over (once on the base anchor, once on the first disambiguated suffix),
+// proved through the real Extract()-writes-to-disk path.
+const bashScriptD = `#!/bin/bash
+foo() {
+  echo "1"
+}
+
+Foo() {
+  echo "2"
+}
+
+foo-2() {
+  echo "3"
 }
 `
 
@@ -75,6 +114,8 @@ func IntegrationAUR464(t *testing.T) {
 	outDir := t.TempDir()
 	writeFileAUR464Int(t, filepath.Join(srcDir, "a.sh"), bashScriptA)
 	writeFileAUR464Int(t, filepath.Join(srcDir, "b.sh"), bashScriptB)
+	writeFileAUR464Int(t, filepath.Join(srcDir, "c.sh"), bashScriptC)
+	writeFileAUR464Int(t, filepath.Join(srcDir, "d.sh"), bashScriptD)
 
 	ext := bashextractor.NewBashExtractor(site.NewMockRunner())
 	result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
@@ -85,8 +126,48 @@ func IntegrationAUR464(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AUR-464/AC-001/behavior-missing: Extract failed: %v", err)
 	}
-	if len(result.Files) != 2 {
-		t.Fatalf("AUR-464/AC-001/behavior-missing: expected 2 generated pages, got %d (%v)", len(result.Files), result.Files)
+	if len(result.Files) != 4 {
+		t.Fatalf("AUR-464/AC-001/behavior-missing: expected 4 generated pages, got %d (%v)", len(result.Files), result.Files)
+	}
+
+	// Second review round's Blocker 1, through the real Extract()-to-disk
+	// path: real code before the function's doc comment must not sweep
+	// that doc into Notes.
+	cPage, err := os.ReadFile(filepath.Join(outDir, "c.sh.md"))
+	if err != nil {
+		t.Fatalf("AUR-464/AC-001/behavior-missing: c.sh.md missing on disk: %v", err)
+	}
+	if idx := strings.Index(string(cPage), "### function restart_all"); idx < 0 {
+		t.Fatalf("AUR-464/AC-001/behavior-missing: c.sh.md missing restart_all heading:\n%s", cPage)
+	} else if fence := strings.Index(string(cPage)[idx:], "```"); fence < 0 ||
+		!strings.Contains(string(cPage)[idx:idx+fence], "Restarts the whole stack.") {
+		t.Fatalf("AUR-464/AC-001/behavior-missing: restart_all's real doc was lost (code preceded it, so it must NOT be swept into Notes):\n%s", cPage)
+	}
+
+	// Second review round's Blocker 2, through the real Extract()-to-disk
+	// path: the foo/Foo/foo-2 trio must end up on three distinct anchors,
+	// not just three distinct heading TEXTS.
+	dPage, err := os.ReadFile(filepath.Join(outDir, "d.sh.md"))
+	if err != nil {
+		t.Fatalf("AUR-464/AC-002/behavior-missing: d.sh.md missing on disk: %v", err)
+	}
+	dAnchors := map[string]string{}
+	for _, line := range strings.Split(string(dPage), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "###") {
+			continue
+		}
+		text := strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+		anchor := strings.ToLower(text)
+		anchor = strings.ReplaceAll(anchor, " ", "-")
+		anchor = anchorNonWordAUR464.ReplaceAllString(anchor, "")
+		if other, exists := dAnchors[anchor]; exists && other != text {
+			t.Fatalf("AUR-464/AC-002/false-claim: %q and %q both normalize to anchor %q in d.sh.md:\n%s", other, text, anchor, dPage)
+		}
+		dAnchors[anchor] = text
+	}
+	if len(dAnchors) != 3 {
+		t.Fatalf("AUR-464/AC-002/behavior-missing: expected 3 distinct anchors for the foo/Foo/foo-2 trio in d.sh.md, got %v", dAnchors)
 	}
 
 	wantSymbols := map[string][]string{
@@ -134,8 +215,8 @@ func IntegrationAUR464(t *testing.T) {
 	if len(errs) > 0 {
 		t.Fatalf("AUR-464/behavior-missing: normalizer errors: %v", errs)
 	}
-	if processed != 2 {
-		t.Fatalf("AUR-464/behavior-missing: expected normalizer to process 2 pages, got %d", processed)
+	if processed != 4 {
+		t.Fatalf("AUR-464/behavior-missing: expected normalizer to process 4 pages, got %d", processed)
 	}
 
 	for path, symbols := range wantSymbols {
@@ -157,5 +238,5 @@ func IntegrationAUR464(t *testing.T) {
 		}
 	}
 
-	t.Logf("AUR-464/AC-001/pass integration bash-pages=2 normalized=%d", processed)
+	t.Logf("AUR-464/AC-001/pass integration bash-pages=4 normalized=%d", processed)
 }
