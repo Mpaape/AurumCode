@@ -120,8 +120,14 @@ func (g *Generator) Generate(ctx context.Context, opts GenerateOptions) (string,
 		return "", fmt.Errorf("LLM generation failed: %w", err)
 	}
 
+	// Deterministic safety net around free-form LLM output (AUR-465): the
+	// model is not trusted to reliably avoid a mutable Action ref or an
+	// invented internal link just because the prompt asked nicely.
+	generated, _ := SanitizeActionRef(resp.Text)
+	generated, _ = SanitizeInternalLinks(generated)
+
 	// Add Jekyll front matter
-	content := g.addFrontMatter(resp.Text, opts)
+	content := g.addFrontMatter(generated, opts)
 
 	// Write to output file if specified
 	if opts.OutputPath != "" {
