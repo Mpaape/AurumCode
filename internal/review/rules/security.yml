@@ -50,8 +50,42 @@ rules:
     tags: [sql, injection, database]
     standard: SCR-001
     # A string literal carrying a SQL verb, concatenated with `+` right
-    # after a quote: the classic query-built-by-concatenation shape.
-    pattern: '(?i)\b(select|insert|update|delete)\b.*["'']\s*\+'
+    # after a quote, where what follows that `+` is a bare identifier (a
+    # variable) rather than another string literal: the classic
+    # query-built-by-concatenation-of-a-VALUE shape.
+    #
+    # AUR-466 (2026-08-23): the 2026-08-14 measurement on a real Node
+    # repository found this pattern matching
+    # `'SELECT * FROM daily_rollups' + (where.length ? ' WHERE ' +
+    # where.join(' AND ') : '')` -- a query built entirely from string
+    # CONSTANTS, whose actual values are bound later via `params.push(...)`
+    # placeholders, not concatenated in. The old pattern only checked that
+    # A quote-then-`+` existed anywhere after the verb; it never looked at
+    # what came after the `+`. Two changes fix this without weakening the
+    # true-positive shape (`"SELECT ... = '" + name + "'"`,
+    # tests/fixtures/review/vuln/content/02/src/db.py:8 and
+    # tests/unit/AUR-435.go's aur435SQLInjectionLine, both still match
+    # byte-for-byte -- see docs/specs/AUR-466.md):
+    #   1. `.*` (unbounded, can skip past any `+`) becomes `[^+]*`, which
+    #      cannot cross a `+` character. Go's RE2 has no lookahead, so this
+    #      is what pins the match to the FIRST `+` after the verb instead
+    #      of letting the search jump to a later, unrelated `+` deeper in
+    #      the line (the measured false positive has a SECOND `+` later in
+    #      the line, `' WHERE ' + where.join(...)`, that an unanchored scan
+    #      would otherwise also try).
+    #   2. The suffix gains `\s*[A-Za-z_$][\w$.]*` -- the `+` must be
+    #      immediately followed (whitespace only) by a bare identifier or
+    #      dotted access, the same "does the RHS start with a real
+    #      identifier character, not `(` or `"`/`'`" shape AUR-462 already
+    #      uses for XSS. The measured false-positive's first `+` is
+    #      followed by `(`, which this excludes structurally.
+    # Known limitation, accepted deliberately: a query built as `"SELECT "
+    # + "FROM " + userInput` (verb literal concatenated with another
+    # literal FIRST, tainted value arriving on a later `+`) is missed,
+    # because the pattern only inspects the first `+` after the verb. The
+    # project's own SQL fixtures never take that shape; widening past the
+    # first `+` reintroduces the false positive this card exists to kill.
+    pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*'
 
   - id: security/xss
     title: Cross-Site Scripting (XSS)
@@ -180,7 +214,64 @@ rules:
     # Never matches the matched VALUE into a finding message: the security
     # pass always prints rule.Description, a trusted catalog string (see
     # securitypass.go), so the secret itself never reaches stdout.
-    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9\-][A-Za-z0-9_./\-]{4,})'
+    #
+    # AUR-466 (2026-08-23): the 2026-08-14 measurement on a real Node
+    # repository found this rule matching four placeholder/fixture values
+    # verbatim: `sua-chave` (a documentation placeholder --
+    # `export GEMINI_API_KEY=sua-chave`), `ttm-smoke-key` (a test fixture),
+    # and `sk-body-ULTRA-SECRET` (a synthetic value a redaction test
+    # asserts ON, so the test intentionally shapes it like a key prefix).
+    # None of the three contains a digit -- the value-shape class was
+    # `[0-9\-]`, which let a HYPHEN stand in for "the digit half" of the
+    # required letter+digit mix, so any hyphenated multi-word phrase
+    # ("sua-chave", "ttm-smoke-key", "ULTRA-SECRET") satisfied it with no
+    # actual randomness. The fix is that one class, `[0-9\-]` -> `[0-9]`
+    # (both occurrences, both alternation branches): the value must now
+    # contain a real digit. This is the "low entropy / dictionary word"
+    # placeholder signal from this card's own design notes, made concrete
+    # the only way a line-level regexp can check it without a dictionary:
+    # base64/hex/vendor-token secrets are, statistically, never digit-free
+    # (tests/fixtures/review/vuln/hardcoded-secret's
+    # `AURUM-FAKE-KEY-9000-2222`/`AURUM-FAKE-PASSWORD-9000-1111` and
+    # git-demo's `AURUM-FAKE-TOKEN-0000-0001`/`AURUM-FAKE-WEBHOOK-0000-0003`
+    # all still match, unchanged), while hand-typed placeholder words
+    # overwhelmingly are. Deliberately NOT used: the `EXAMPLE|SAMPLE|
+    # DUMMY|FAKE|TEST|SMOKE` marker-word idea from this card's own design
+    # notes -- every existing true-positive fixture value in this
+    # repository is itself named `AURUM-FAKE-...`, so that denylist would
+    # silence the rule's own regression fixtures (AC-003 would break).
+    # Adversarial review (2026-08-23) found the fix above BLOCKED: requiring
+    # a digit still required, structurally, a specific ORDER -- digit then
+    # a letter (or letter then digit) with >= 4 MORE characters after the
+    # second pivot. tests/unit/AUR-442.go:307's own fixture value,
+    # `AURUM-FAKE-CANARY-VALUE-7777`, has all four digits clustered at the
+    # very end, so no choice of pivot ever leaves 4 characters trailing --
+    # the value has a real digit and a real letter, just not in a position
+    # the suffix-only requirement could see. That is a distinct defect from
+    # "digit-free real secret" (the accepted limitation below): this one
+    # is digit-BEARING and was still missed, and it broke AUR-442's own
+    # regression (tests/acceptance/AUR-442.sh AC-001 went from exit 0 to
+    # exit 1). RE2 has no lookahead, so "contains a digit somewhere"
+    # cannot be expressed as a single order- and position-free check; the
+    # fix widens each of the two pivot orders (digit-then-letter,
+    # letter-then-digit) from one branch (padding required strictly AFTER
+    # the second pivot) to two (padding required BEFORE the first pivot,
+    # OR after the second) -- four branches total. This is not a full
+    # solution (padding split across BOTH sides in amounts each under 4 is
+    # still theoretically missable; no such value exists in this
+    # repository's fixtures or in the measurement that opened this card),
+    # but it resolves every concrete shape measured: digits clustered at
+    # the end (`AURUM-FAKE-CANARY-VALUE-7777`), digits clustered at the
+    # start, and a single digit sitting close to one edge with little
+    # trailing room. Known residue, measured and accepted rather than
+    # chased under this deadline: `ttm-0000000000000000000000` (digits
+    # present, zero entropy) still matches -- entropy/repetition is a
+    # separate axis this card's digit check was never meant to cover. See
+    # docs/specs/AUR-466.md.
+    # Known limitation, accepted deliberately: a digit-free real secret
+    # (some base64 alphabets can produce one, e.g. a purely-alphabetic
+    # 32-byte key) is now missed. See docs/specs/AUR-466.md.
+    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})'
 
   - id: security/weak-crypto
     title: Weak Cryptography
