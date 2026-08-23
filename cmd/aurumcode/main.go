@@ -283,6 +283,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	naLinha := fs.Bool("na-linha", false, "comment at the file's exact changed line, falling back to a general comment for a finding outside the changed lines; required with --pr (default: off)")
 	limite := fs.String("limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
 	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge; with --pr, satisfies the --na-linha requirement on its own (default: off)")
+	exigirQualidade := fs.Bool("exigir-qualidade", false, "treat a quality review that did not happen as a failure: exit 1 even when the deterministic --seguranca pass ran and reported, so a CI job cannot read \"security-only\" as \"fully reviewed\" (default: off -- the published --seguranca-without-a-provider path keeps exit 0)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
@@ -314,6 +315,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	prFailOnGiven := false
 	prModeloGiven := false
 	prLimiteGiven := false
+	exigirGiven := false
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "pr":
@@ -324,9 +326,26 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			prModeloGiven = true
 		case "limite":
 			prLimiteGiven = true
+		case "exigir-qualidade":
+			exigirGiven = true
 		}
 	})
 	if prGiven {
+		// AUR-458: --exigir-qualidade is a --base-path guarantee and this
+		// card neither implements nor proves it on the PR path, whose
+		// quality-failure handling (runPRReview, cmd/aurumcode/pr.go) is a
+		// separate published contract. Silently accepting and dropping the
+		// flag is the exact defect class this card exists to kill -- a
+		// caller asking "fail if you did not review" and getting a green
+		// exit anyway -- and AUR-451 exists precisely because the PR path
+		// used to ignore flags it did not read. So it is refused loudly as
+		// a usage error (exit 2) instead of being honored halfway. Without
+		// the flag, exigirGiven is false and this path is byte-identical
+		// to AUR-451's.
+		if exigirGiven {
+			fmt.Fprintln(stderr, "aurumcode review: --exigir-qualidade is not supported with --pr (it guards the --base review path only)")
+			return 2
+		}
 		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check, prReviewOptions{
 			seguranca: *seguranca,
 			failOnSet: prFailOnGiven,
@@ -438,18 +457,64 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// --seguranca combined with a configured provider is unaffected:
 	// providerErr is nil then, so this branch is never taken and every
 	// line below it runs exactly as already published.
+	// AUR-458: qualityFailed records "the user asked for a quality review
+	// and did not get one". It is the single mechanism behind this card's
+	// exit-code guarantee, and it has exactly two triggers:
+	//
+	//   - the AUR-449 skip (nothing configured at all + --seguranca) WHEN
+	//     the caller opted in with --exigir-qualidade;
+	//   - any other quality-review failure -- a provider that was
+	//     configured and failed, a response that does not parse, a
+	//     --limite refusal -- WHEN --seguranca is given and there is
+	//     therefore still deterministic work to deliver.
+	//
+	// It is deliberately NOT the same thing as qualitySkipped: the skip is
+	// an honest, published, opt-in-free outcome (exit 0, the demo and
+	// self-review path), while qualityFailed means the command must not
+	// report success. See docs/specs/AUR-458.md.
 	qualitySkipped := false
+	qualityFailed := false
 	if providerErr != nil && *modelo == "" && *seguranca && errors.Is(providerErr, errNoProviderConfigured) {
 		qualitySkipped = true
 		fmt.Fprintf(stderr, "aurumcode review: no LLM provider configured: quality review skipped, running --seguranca only (%v)\n", providerErr)
-	} else if providerErr != nil {
-		if *modelo != "" {
-			return reportModelUnavailable(stderr, *modelo, providerErr)
+		// AUR-458: without --exigir-qualidade this stays exit 0, exactly
+		// as AUR-449 published it -- `review --base X --seguranca` with no
+		// credential at all is the product's free, offline, deterministic
+		// path, the one the public demo and the self-review action use,
+		// and making it non-zero unasked would break them. The flag is how
+		// a CI job that MEANT to get a quality review says so.
+		if *exigirQualidade {
+			qualityFailed = true
+			fmt.Fprintln(stderr, "aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review")
 		}
-		fmt.Fprintf(stderr, "aurumcode review: %v\n", providerErr)
-		return 1
+	} else if providerErr != nil {
+		// The message is byte-identical to what this path already printed;
+		// only what happens AFTER it differs, and only when --seguranca is
+		// given. Without --seguranca there is nothing to fall through to
+		// -- the security pass is the only remaining work -- so the
+		// published refusal (stdout empty, exit 1) is returned unchanged,
+		// which is what keeps AUR-430's, AUR-436's and AUR-443's pinned
+		// acceptance bytes intact.
+		rc := 1
+		if *modelo != "" {
+			rc = reportModelUnavailable(stderr, *modelo, providerErr)
+		} else {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", providerErr)
+		}
+		if !*seguranca {
+			return rc
+		}
+		// AUR-458's requisito explícito: the security pass is a
+		// deterministic regex matcher over the diff's added lines and
+		// calls no model, so a provider that FAILED must not take it down
+		// with it. AUR-449 already established this for a provider that
+		// was never configured; this extends it to one that was configured
+		// and broke. The findings still print; the exit code still says
+		// the quality half never happened.
+		qualityFailed = true
+		fmt.Fprintln(stderr, "aurumcode review: quality review failed; running --seguranca only -- this run reviewed HALF of what was asked")
 	}
-	if *modelo != "" {
+	if *modelo != "" && !qualityFailed {
 		// The note goes to stderr so stdout stays byte-identical with and
 		// without the flag, exactly like --fail-on's gate note.
 		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", *modelo, providerVia)
@@ -462,7 +527,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// quality issues, nothing to gate or print for that section.
 	var tracker *cost.Tracker
 	var result *types.ReviewResult
-	if qualitySkipped {
+	if qualitySkipped || qualityFailed {
 		result = &types.ReviewResult{}
 	} else {
 		// --limite (AUR-433): wire internal/llm/cost.Tracker into the
@@ -518,33 +583,28 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// skips the call.
 		if cacheErr != nil || len(toSend.Files) > 0 || len(diff.Files) == 0 {
 			result, err = reviewer.GenerateReview(context.Background(), toSend)
-			if err != nil {
-				// --limite (AUR-433): the tracker refused before the model was
-				// called, so nothing was spent. This is checked first because it is
-				// a distinct, more specific outcome than "the provider chain could
-				// not complete" below. Not gated on limiteSet: without --limite,
-				// tracker is nil and the orchestrator cannot produce this error, so
-				// the check is a no-op then and unconditionally correct whenever it
-				// does fire (limiteUSD is 0 only in the case where it cannot).
-				if errors.Is(err, llm.ErrBudgetExceeded) {
-					return reportBudgetExceeded(stderr, limiteUSD, err)
-				}
-				var parseErr *prompt.ParseError
-				if errors.As(err, &parseErr) {
-					fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
-					return 1
-				}
-				// With --modelo, a provider chain that could not complete means the
-				// chosen model is unavailable (endpoint down, wrong URL, model not
-				// served): name the model and say how to fix it, instead of only
-				// surfacing the transport error.
-				if *modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
-					return reportModelUnavailable(stderr, *modelo, err)
-				}
-				fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-				return 1
+			if err != nil && *seguranca {
+				// AUR-458: same conditional diversion as the provider-error
+				// branch above, for the three remaining ways a quality
+				// review can fail after the provider was successfully
+				// selected: the call itself failed (network, 4xx, 5xx,
+				// timeout -- llm.ErrAllProvidersFailed), the response did
+				// not parse (prompt.ParseError), or --limite refused before
+				// the model was ever called (llm.ErrBudgetExceeded). The
+				// diagnosis printed is byte-identical to the one this path
+				// already printed; reportQualityFailure below is that same
+				// cascade, extracted verbatim so the two exits cannot
+				// drift. Guarded on *seguranca because without it there is
+				// no deterministic work left to deliver and the published
+				// exit-1 refusal must stay exactly as it is.
+				reportQualityFailure(stderr, err, *modelo, limiteUSD)
+				fmt.Fprintln(stderr, "aurumcode review: quality review failed; running --seguranca only -- this run reviewed HALF of what was asked")
+				qualityFailed = true
+				result = &types.ReviewResult{}
+			} else if err != nil {
+				return reportQualityFailure(stderr, err, *modelo, limiteUSD)
 			}
-			if cacheErr == nil {
+			if cacheErr == nil && !qualityFailed {
 				persistFreshResults(revCache, cacheStatuses, result.Issues, filter)
 			}
 		} else {
@@ -582,8 +642,13 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
 		}
 
+		// AUR-458: when the quality review failed, result is the zero
+		// ReviewResult and there is no answer to merge cache hits into --
+		// reporting "reused N file(s)" for a review that never completed
+		// would describe work that did not happen. Same reasoning as the
+		// suppressed printFindings below.
 		reused := 0
-		if cacheErr == nil {
+		if cacheErr == nil && !qualityFailed {
 			reused = mergeCacheHits(result, cacheStatuses, filter)
 		}
 		if reused > 0 {
@@ -594,7 +659,10 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			fmt.Fprintf(stderr, "aurumcode review: reused %d file(s) from cache (not resent to the model)\n", reused)
 		}
 
-		if limiteSet {
+		// AUR-458: a failed run has no actual cost to report -- on the
+		// --limite refusal path nothing was spent at all, and
+		// reportQualityFailure already said so.
+		if limiteSet && !qualityFailed {
 			printRealCost(stderr, realCostUSD(tracker, limiteUSD), limiteUSD)
 		}
 	}
@@ -653,7 +721,13 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// the honest shape for a section that never ran; result.Issues is
 	// otherwise always exactly what the model (or the cache) answered, so
 	// this is a no-op whenever a provider was configured.
-	if !qualitySkipped {
+	// AUR-458 extends AUR-449's reasoning to the failure path: printing
+	// "No issues found." after the model was never reached, answered
+	// unintelligibly, or was refused by --limite asserts a clean bill of
+	// health the tool never checked -- the single worst defect class this
+	// product has. The security section below still prints, because that
+	// pass really did run.
+	if !qualitySkipped && !qualityFailed {
 		printFindings(stdout, result)
 	}
 	if *seguranca {
@@ -667,6 +741,19 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// With --seguranca the security findings count toward the gate too: a
 	// gate that fails a review over style but waves through a matched
 	// vulnerability would be open exactly when it must be closed.
+	// AUR-458: "did not review" outranks "reviewed and found things".
+	// Checked BEFORE the --fail-on gate on purpose: exit 3 is a claim that
+	// the review ran and its findings reached the threshold, and half a
+	// review cannot make that claim. Exit 1 -- the taxonomy's existing
+	// "behavioral failure", the same code every other could-not-review
+	// path in this command already returns -- is what a CI job reads as
+	// "do not merge". The security findings have already printed above, so
+	// the user loses no information by the exit code being 1 instead of 3.
+	// No new exit code is minted for this: see docs/specs/AUR-458.md.
+	if qualityFailed {
+		return exitQualityNotReviewed
+	}
+
 	if threshold > 0 {
 		gated := result.Issues
 		if len(securityFindings) > 0 {
@@ -688,6 +775,52 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 // pipeline can tell "gate closed" apart from "tool broke". Documented in
 // docs/specs/AUR-431.md.
 const exitFindings = 3
+
+// exitQualityNotReviewed is AUR-458's exit code for "the user asked for a
+// quality review and this run did not produce one". It is deliberately 1
+// -- the existing taxonomy's "behavioral failure" -- and NOT a new code:
+// every other could-not-review path in this command (no provider,
+// unavailable --modelo, unparseable response, --limite refusal) already
+// returns 1, so a CI job that already treats 1 as "do not merge" needs no
+// change to be protected. What changes is that this code now also covers
+// the runs where the security pass DID deliver findings, which previously
+// reported 0 (nothing configured) or lost the security pass entirely (a
+// provider that failed). See docs/specs/AUR-458.md for the full table.
+const exitQualityNotReviewed = 1
+
+// reportQualityFailure prints the diagnosis for a quality review that
+// could not complete after a provider was successfully selected, and
+// returns the exit code for the no---seguranca path. It is the exact
+// cascade runReview used to inline, extracted verbatim (AUR-458) so the
+// two callers -- the published "return 1 immediately" path and the new
+// "keep the security pass alive, then exit 1" path -- can never drift
+// into printing different diagnoses for the same failure.
+func reportQualityFailure(stderr io.Writer, err error, modelo string, limiteUSD float64) int {
+	// --limite (AUR-433): the tracker refused before the model was
+	// called, so nothing was spent. This is checked first because it is
+	// a distinct, more specific outcome than "the provider chain could
+	// not complete" below. Not gated on limiteSet: without --limite,
+	// tracker is nil and the orchestrator cannot produce this error, so
+	// the check is a no-op then and unconditionally correct whenever it
+	// does fire (limiteUSD is 0 only in the case where it cannot).
+	if errors.Is(err, llm.ErrBudgetExceeded) {
+		return reportBudgetExceeded(stderr, limiteUSD, err)
+	}
+	var parseErr *prompt.ParseError
+	if errors.As(err, &parseErr) {
+		fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+		return 1
+	}
+	// With --modelo, a provider chain that could not complete means the
+	// chosen model is unavailable (endpoint down, wrong URL, model not
+	// served): name the model and say how to fix it, instead of only
+	// surfacing the transport error.
+	if modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
+		return reportModelUnavailable(stderr, modelo, err)
+	}
+	fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+	return 1
+}
 
 // parseFailOnLevel maps a --fail-on level to the internal severity rank it
 // gates on, returning the canonical engine severity name alongside. The
