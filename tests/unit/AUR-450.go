@@ -64,7 +64,7 @@ const (
 	// constants -- and the sibling ones in tests/integration/AUR-450.go and
 	// tests/e2e/AUR-450.sh -- must be re-derived from the catalog, not
 	// patched blindly to make an assertion pass.
-	aur450CoveragePrefix = "aurumcode review: security pass applied 3 of 8 security rules ("
+	aur450CoveragePrefix = "aurumcode review: security pass applied 4 of 8 security rules ("
 	aur450CoveragePtr    = "internal/review/rules/security.yml"
 )
 
