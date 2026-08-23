@@ -194,6 +194,16 @@ func scanPowerShellFile(path string) (powerShellPage, error) {
 		}
 	}
 
+	// sawCode becomes true the first time this scan resolves a REAL,
+	// executable line of the script -- a function declaration, or any other
+	// statement. It never resets. This is the structural signal that
+	// distinguishes a file-level header from a function's own doc comment:
+	// a file header, by definition, appears before any code has run; a
+	// function's own doc comment appears after whatever code (if any)
+	// preceded it in the script. Comment lines and comment-based help
+	// blocks are never code for this purpose.
+	var sawCode bool
+
 	lines := strings.Split(string(content), "\n")
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -236,29 +246,44 @@ func scanPowerShellFile(path string) (powerShellPage, error) {
 			// Without this, a file-level overview separated from the next
 			// function only by whitespace would be misattributed as that
 			// function's own doc instead of becoming a script-level note.
+			// A blank line is not code either: it must not flip sawCode.
 			flushStray()
 			continue
 		}
 
+		// Every line reaching this point is a real, executable line of the
+		// script (a function declaration or any other statement). Capture
+		// whether code had ALREADY run before this specific line -- the
+		// question that decides whether pendingDoc, if this line turns out
+		// to be a function, is that function's own doc or an ambiguous
+		// leading header -- before marking sawCode true for what follows.
+		hadCodeBefore := sawCode
+		sawCode = true
+
 		if m := powerShellFunctionPattern.FindStringSubmatch(line); m != nil {
 			doc := strings.Join(pendingDoc, "\n")
-			if len(pendingDoc) > 0 && len(page.Symbols) == 0 && len(strayNotes) == 0 {
-				// This comment block is the very FIRST content the scan has
-				// resolved in the whole file. Structurally that is
-				// indistinguishable from a file-level header (a license
+			if len(pendingDoc) > 0 && !hadCodeBefore {
+				// pendingDoc precedes the first executable line this scan
+				// has seen anywhere in the file: nothing but comments and
+				// comment-based help (already handled above) came before
+				// it. That is structurally a file-level header (a license
 				// notice, a copyright banner, comment-based help meant for
 				// the whole script) glued directly to the first function
-				// with no blank line separating them, from that same first
-				// function simply carrying its own doc comment: both shapes
-				// are "comment, then immediately the first symbol," with
-				// nothing else in the file yet to tell them apart. Per the
-				// card, a comment attached to the wrong symbol documents a
-				// lie, which is strictly worse than a symbol carrying no
-				// prose, so this ambiguous leading block is always treated
-				// as a script-level note, never attached here. Every block
-				// that follows is unambiguous: it necessarily comes after
-				// something (a prior symbol or a prior note) already
-				// resolved the file's own header.
+				// with no blank line separating them -- indistinguishable
+				// by position from that same first function simply
+				// carrying its own doc comment. Per the card, a comment
+				// attached to the wrong symbol documents a lie, which is
+				// strictly worse than a symbol carrying no prose, so this
+				// ambiguous leading block is always treated as a
+				// script-level note instead. The measured cost (declared
+				// in docs/specs/AUR-464.md): a script whose very FIRST
+				// executable line is a documented function, with no other
+				// code above it, loses that function's real doc into
+				// Notes too -- the two shapes are genuinely
+				// indistinguishable by position and syntax alone. Once ANY
+				// code has run first (hadCodeBefore == true, this commit's
+				// fix), the ambiguity is gone and the doc attaches
+				// normally.
 				strayNotes = append(strayNotes, doc)
 				doc = ""
 			}
@@ -297,24 +322,27 @@ func renderPowerShellMarkdown(scriptName string, page powerShellPage) string {
 		fmt.Fprintf(&b, "## Script Notes\n\n%s\n\n", page.Notes)
 	}
 
-	baseAnchorCount := map[string]int{}
+	// usedAnchors holds every FINAL anchor already written to this page --
+	// after disambiguation, not the pre-suffix base -- because a suffixed
+	// anchor can itself collide with either a later symbol's own plain name
+	// or with another symbol's own suffixed anchor (e.g. the trio "foo",
+	// "Foo", "foo-2": "Foo" disambiguates to anchor "function-foo-2", which
+	// then collides with plain "foo-2"'s own anchor "function-foo-2"
+	// outright). Checking only a per-base occurrence COUNT, instead of the
+	// actual set of anchors already on the page, would miss exactly that
+	// case. So for each symbol: try its own anchor; if taken, try
+	// increasing "(N)" suffixes -- checked against usedAnchors, not
+	// recomputed from a count -- until one is free, then reserve it.
+	usedAnchors := map[string]bool{}
 	for _, sym := range page.Symbols {
-		heading := "function " + sym.Name
-		// AC-002 requires distinct ANCHORS, not just distinct heading text:
-		// the site's renderer slugs a heading to lowercase before turning
-		// it into an anchor, so e.g. "function Get-Thing" and
-		// "function get-thing" carry different text but collide on the
-		// same anchor -- which would send a link for one to the other's
-		// page. baseAnchorCount is keyed by each heading's OWN
-		// (undisambiguated) anchor, so every symbol that would collide on
-		// it -- not just the second one -- gets counted and, past the
-		// first, a distinguishing suffix that changes ITS anchor too.
-		// Checking the raw heading text alone would have missed this.
-		base := headingAnchor(heading)
-		baseAnchorCount[base]++
-		if n := baseAnchorCount[base]; n > 1 {
-			heading = fmt.Sprintf("%s (%d)", heading, n)
+		base := "function " + sym.Name
+		heading := base
+		anchor := headingAnchor(heading)
+		for suffix := 2; usedAnchors[anchor]; suffix++ {
+			heading = fmt.Sprintf("%s (%d)", base, suffix)
+			anchor = headingAnchor(heading)
 		}
+		usedAnchors[anchor] = true
 		fmt.Fprintf(&b, "### %s\n\n", heading)
 		if sym.Doc != "" {
 			fmt.Fprintf(&b, "%s\n\n", sym.Doc)

@@ -71,6 +71,33 @@ function Undocumented-Task {
 }
 PS1
 
+# Second review round's fixtures: code before a documented function must not
+# sweep its doc into Notes (Blocker 1), and a same-name-different-case trio
+# must end up on three distinct anchors, not just three distinct heading
+# texts (Blocker 2).
+cat >"$run_dir/srcbash/round3.sh" <<'SH2'
+#!/bin/bash
+set -euo pipefail
+
+# Restarts the whole stack.
+restart_all() {
+  systemctl restart svc
+}
+
+foo() {
+  echo "1"
+}
+
+Foo() {
+  echo "2"
+}
+
+foo-2() {
+  echo "3"
+}
+SH2
+
+
 # The driver must physically live inside this module's own tree (not under
 # /tmp) because it imports internal/... packages: Go's internal-import rule
 # is a property of the FILE's own path relative to the module root, not of
@@ -178,5 +205,29 @@ for p in "$synthetic_page" "$ps_page"; do
   dup="$(grep -E '^#' "$p" | sort | uniq -d)"
   [[ -z "$dup" ]] || fail "behavior-missing: repeated heading in $p: $dup"
 done
+
+# Second review round's Blocker 1, end to end: real code before the doc
+# comment must not sweep it into Notes.
+round3_page="$run_dir/outbash/round3.sh.md"
+[[ -s "$round3_page" ]] || fail 'behavior-missing: round3 page not generated'
+awk '/^### function restart_all/{f=1;next} /^```/{if(f){print "FENCE"; exit}} f{print}' "$round3_page" \
+  | grep -Fq 'Restarts the whole stack.' \
+  || fail 'behavior-missing: restart_all real doc lost even though real code preceded it'
+
+# Second review round's Blocker 2, end to end: foo/Foo/foo-2 must slug to
+# three distinct anchors under the same normalization the site applies
+# (lowercase, spaces to hyphens, strip anything else).
+round3_anchor_count="$(
+  grep -E '^###' "$round3_page" \
+    | sed -E 's/^###[[:space:]]*//' \
+    | tr '[:upper:]' '[:lower:]' \
+    | tr ' ' '-' \
+    | sed -E 's/[^a-z0-9_-]+//g' \
+    | sort -u | wc -l
+)"
+# round3.sh has 4 functions: restart_all, plus the foo/Foo/foo-2 trio. All
+# four must land on distinct anchors after the same slug normalization the
+# site applies.
+[[ "$round3_anchor_count" -eq 4 ]] || fail "behavior-missing: expected 4 distinct anchors (restart_all + foo/Foo/foo-2 trio), got $round3_anchor_count"
 
 printf 'AUR-464/AC-001/pass\n'

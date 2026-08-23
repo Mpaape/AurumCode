@@ -178,6 +178,30 @@ func TestAUR464(t *testing.T) {
 	t.Logf("AUR-464/AC-001/pass bash=ok powershell=ok")
 }
 
+// assertOwnDocText requires that wantText appears specifically inside the
+// section that starts at headingLine (up to that section's first code
+// fence) -- not merely anywhere on the page. A weaker "page contains
+// wantText" check cannot tell a real comment attached to its own symbol
+// apart from that same text having been swept into "## Script Notes"
+// instead: both make the substring true.
+func assertOwnDocText(t *testing.T, page, headingLine, wantText string) {
+	t.Helper()
+	idx := strings.Index(page, headingLine)
+	if idx < 0 {
+		t.Fatalf("AUR-464/AC-001/behavior-missing: heading %q not found:\n%s", headingLine, page)
+	}
+	rest := page[idx+len(headingLine):]
+	fenceIdx := strings.Index(rest, "```")
+	if fenceIdx < 0 {
+		t.Fatalf("AUR-464/AC-001/behavior-missing: no code fence after %q", headingLine)
+	}
+	section := rest[:fenceIdx]
+	if !strings.Contains(section, wantText) {
+		t.Fatalf("AUR-464/AC-001/behavior-missing: %q's own section carries no real doc (real comment %q lost, likely swept into Notes as if it were an ambiguous file header) even though real code preceded it:\n%s",
+			headingLine, wantText, page)
+	}
+}
+
 // checkAUR464Page runs the AC-001/AC-002/AC-003 assertions shared by both
 // languages against one generated page. thirdFn, when non-empty, is a third
 // documented-or-not symbol name asserted present alongside docFn/undocFn
@@ -397,5 +421,214 @@ func TestAUR464AnchorUniqueAfterNormalization(t *testing.T) {
 	}
 	if len(anchors) != 2 {
 		t.Fatalf("AUR-464/AC-002/behavior-missing: expected 2 distinct post-normalization anchors, got %v", anchors)
+	}
+}
+
+// bashCodeBeforeDocFixture and powershellCodeBeforeDocFixture are the
+// adversarial reviewer's Blocker 1 fixture from the second review round:
+// real code (a bare statement, no function) runs BEFORE the first
+// documented function. That is the ordinary, common shape of a small
+// script -- shebang, a setup statement, then the one documented function --
+// and must NOT be swept into Notes the way an ambiguous leading header is.
+const bashCodeBeforeDocFixture = `#!/bin/bash
+set -euo pipefail
+
+# Greets a name.
+greet() {
+  echo "hi"
+}
+`
+
+const powershellCodeBeforeDocFixture = `Set-StrictMode -Version Latest
+
+# Greets a name.
+function Get-Greeting {
+    Write-Output "hi"
+}
+`
+
+// TestAUR464CodeBeforeDocPreserved is the reviewer's second-round Blocker 1
+// fixture: a real statement precedes the first documented function, so that
+// function's own doc comment must survive as ITS doc, not be misfiled as an
+// ambiguous file header the way a header glued straight to the first
+// function (with no code at all before it) still correctly is.
+func TestAUR464CodeBeforeDocPreserved(t *testing.T) {
+	t.Run("bash", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "setup.sh"), bashCodeBeforeDocFixture)
+
+		ext := bashextractor.NewBashExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguageBash, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: Extract failed: %v", err)
+		}
+		page := readFileAUR464(t, result.Files[0])
+		assertOwnDocText(t, page, "### function greet", "Greets a name.")
+	})
+
+	t.Run("powershell", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "setup.ps1"), powershellCodeBeforeDocFixture)
+
+		ext := powershellextractor.NewPowerShellExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguagePowerShell, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: Extract failed: %v", err)
+		}
+		page := readFileAUR464(t, result.Files[0])
+		assertOwnDocText(t, page, "### function Get-Greeting", "Greets a name.")
+	})
+}
+
+// powershellAnchorTrioFixture is the adversarial reviewer's Blocker 2 fixture
+// from the second review round: three symbols "foo", "Foo", "foo-2" in
+// exactly this order. "Foo" collides with "foo" on the base anchor
+// "function-foo" and disambiguates to "function-foo (2)" -- but THAT
+// disambiguated heading's own anchor, "function-foo-2", is the same anchor
+// the plain third symbol "foo-2" produces on its own. A disambiguator that
+// only tracks a per-BASE occurrence count (instead of the actual set of
+// anchors already written) misses this second collision entirely.
+const powershellAnchorTrioFixture = `function foo {
+    Write-Output "1"
+}
+
+function Foo {
+    Write-Output "2"
+}
+
+function foo-2 {
+    Write-Output "3"
+}
+`
+
+const bashAnchorTrioFixture = `#!/bin/bash
+foo() {
+  echo "1"
+}
+
+Foo() {
+  echo "2"
+}
+
+foo-2() {
+  echo "3"
+}
+`
+
+// TestAUR464AnchorTrioUnique is the reviewer's second-round Blocker 2
+// fixture, proved for both languages: after the SAME slug normalization a
+// real Markdown renderer applies, all three of "foo"/"Foo"/"foo-2" must end
+// up on distinct anchors.
+func TestAUR464AnchorTrioUnique(t *testing.T) {
+	check := func(t *testing.T, page string) {
+		t.Helper()
+		anchors := map[string]string{}
+		for _, h := range headingsAUR464(page) {
+			if !strings.HasPrefix(h, "###") {
+				continue
+			}
+			text := strings.TrimSpace(strings.TrimLeft(h, "#"))
+			anchor := githubSlugAUR464(text)
+			if other, exists := anchors[anchor]; exists && other != text {
+				t.Fatalf("AUR-464/AC-002/false-claim: headings %q and %q both normalize to anchor %q, so a link to one lands on the other:\n%s",
+					other, text, anchor, page)
+			}
+			anchors[anchor] = text
+		}
+		if len(anchors) != 3 {
+			t.Fatalf("AUR-464/AC-002/behavior-missing: expected 3 distinct post-normalization anchors for the foo/Foo/foo-2 trio, got %v", anchors)
+		}
+	}
+
+	t.Run("bash", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "trio.sh"), bashAnchorTrioFixture)
+		ext := bashextractor.NewBashExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguageBash, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-002/behavior-missing: Extract failed: %v", err)
+		}
+		check(t, readFileAUR464(t, result.Files[0]))
+	})
+
+	t.Run("powershell", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "trio.ps1"), powershellAnchorTrioFixture)
+		ext := powershellextractor.NewPowerShellExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguagePowerShell, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-002/behavior-missing: Extract failed: %v", err)
+		}
+		check(t, readFileAUR464(t, result.Files[0]))
+	})
+}
+
+// bashRegressionGuardFixture locks in two behaviors the adversarial review
+// confirmed correct and required to survive this round's fix: the 3-way
+// case-only trio "Foo"/"foo"/"FOO" still disambiguates to three distinct
+// anchors, and "run_docs" (underscore) never collides with "run-docs"
+// (hyphen) -- the slug rule keeps both characters distinct on purpose.
+const bashRegressionGuardFixture = `#!/bin/bash
+Foo() {
+  echo "1"
+}
+
+foo() {
+  echo "2"
+}
+
+FOO() {
+  echo "3"
+}
+
+run_docs() {
+  echo "4"
+}
+
+run-docs() {
+  echo "5"
+}
+`
+
+func TestAUR464RegressionGuard(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	writeFileAUR464(t, filepath.Join(srcDir, "guard.sh"), bashRegressionGuardFixture)
+
+	ext := bashextractor.NewBashExtractor(site.NewMockRunner())
+	result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+		Language: extractors.LanguageBash, SourceDir: srcDir, OutputDir: outDir,
+	})
+	if err != nil || len(result.Files) == 0 {
+		t.Fatalf("AUR-464/AC-002/behavior-missing: Extract failed: %v", err)
+	}
+	page := readFileAUR464(t, result.Files[0])
+
+	anchors := map[string]string{}
+	for _, h := range headingsAUR464(page) {
+		if !strings.HasPrefix(h, "###") {
+			continue
+		}
+		text := strings.TrimSpace(strings.TrimLeft(h, "#"))
+		anchor := githubSlugAUR464(text)
+		if other, exists := anchors[anchor]; exists && other != text {
+			t.Fatalf("AUR-464/AC-002/false-claim: headings %q and %q both normalize to anchor %q:\n%s", other, text, anchor, page)
+		}
+		anchors[anchor] = text
+	}
+	if len(anchors) != 5 {
+		t.Fatalf("AUR-464/AC-002/behavior-missing: expected 5 distinct anchors (Foo/foo/FOO trio + run_docs/run-docs), got %v", anchors)
 	}
 }

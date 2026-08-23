@@ -105,6 +105,9 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464(t)
 	TestAUR464FileHeaderNotMisattributed(t)
 	TestAUR464AnchorUniqueAfterNormalization(t)
+	TestAUR464CodeBeforeDocPreserved(t)
+	TestAUR464AnchorTrioUnique(t)
+	TestAUR464RegressionGuard(t)
 }
 EOF
   local out rc
@@ -200,6 +203,9 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464(t)
 	TestAUR464FileHeaderNotMisattributed(t)
 	TestAUR464AnchorUniqueAfterNormalization(t)
+	TestAUR464CodeBeforeDocPreserved(t)
+	TestAUR464AnchorTrioUnique(t)
+	TestAUR464RegressionGuard(t)
 }
 EOF
   local rc
@@ -226,6 +232,9 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464(t)
 	TestAUR464FileHeaderNotMisattributed(t)
 	TestAUR464AnchorUniqueAfterNormalization(t)
+	TestAUR464CodeBeforeDocPreserved(t)
+	TestAUR464AnchorTrioUnique(t)
+	TestAUR464RegressionGuard(t)
 }
 EOF
   run_go "$restore_root" test -timeout 300s ./tests/unit -run '^TestAUR464UnitBridge$' -count=1 >/dev/null 2>&1 \
@@ -257,6 +266,9 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464(t)
 	TestAUR464FileHeaderNotMisattributed(t)
 	TestAUR464AnchorUniqueAfterNormalization(t)
+	TestAUR464CodeBeforeDocPreserved(t)
+	TestAUR464AnchorTrioUnique(t)
+	TestAUR464RegressionGuard(t)
 }
 EOF
   local rc
@@ -282,6 +294,9 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464(t)
 	TestAUR464FileHeaderNotMisattributed(t)
 	TestAUR464AnchorUniqueAfterNormalization(t)
+	TestAUR464CodeBeforeDocPreserved(t)
+	TestAUR464AnchorTrioUnique(t)
+	TestAUR464RegressionGuard(t)
 }
 EOF
   run_go "$restore_root" test -timeout 300s ./tests/unit -run '^TestAUR464UnitBridge$' -count=1 >/dev/null 2>&1 \
