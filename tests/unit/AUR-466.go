@@ -42,6 +42,9 @@ func TestAUR466(t *testing.T) {
 	t.Run("AC002ShellVariableConcatIsFound", testAUR466AC002ShellVariableConcatIsFound)
 	t.Run("AC003PythonSQLInjectionUnaffected", testAUR466AC003PythonSQLInjectionUnaffected)
 	t.Run("AC003HardcodedSecretValuesUnaffected", testAUR466AC003HardcodedSecretValuesUnaffected)
+	t.Run("BlockerDigitsClusteredAtEndAreFound", testAUR466BlockerDigitsClusteredAtEndAreFound)
+	t.Run("BlockerDigitsClusteredAtStartAreFound", testAUR466BlockerDigitsClusteredAtStartAreFound)
+	t.Run("BlockerSingleDigitInMiddleTightTrailingIsFound", testAUR466BlockerSingleDigitInMiddleTightTrailingIsFound)
 	t.Run("FixtureEndToEnd", testAUR466FixtureEndToEnd)
 	t.Run("ScanIsDeterministic", testAUR466ScanIsDeterministic)
 }
@@ -138,6 +141,43 @@ func testAUR466AC002ShellVariableConcatIsFound(t *testing.T) {
 	f := aur466Scan(t, diff)
 	if len(f) != 1 || f[0].RuleID != "security/command-injection" {
 		t.Fatalf("expected one security/command-injection finding for a shell command concatenating a variable, got %+v", f)
+	}
+}
+
+// --- Reviewer-caught blocker: digits clustered at one edge of the value --
+//
+// tests/unit/AUR-442.go:307's own fixture value,
+// `AURUM-FAKE-CANARY-VALUE-7777`, has all four digits clustered at the very
+// end. The first cut of this card's digit requirement structurally needed
+// a letter to follow (or precede) the digit with >= 4 MORE characters
+// after the SECOND pivot; when every digit sits in the last four bytes of
+// the value, no pivot choice ever leaves four trailing characters, so the
+// rule silently stopped matching this real, digit-bearing secret and
+// broke tests/acceptance/AUR-442.sh AC-001. These three cases are the
+// concrete shapes the fix (four pivot-order/padding-side branches instead
+// of two) must cover.
+
+func testAUR466BlockerDigitsClusteredAtEndAreFound(t *testing.T) {
+	diff := aur466Diff("config/secrets.env", 1, `+API_TOKEN=AURUM-FAKE-CANARY-VALUE-7777`)
+	f := aur466Scan(t, diff)
+	if len(f) != 1 || f[0].RuleID != "security/hardcoded-secret" {
+		t.Fatalf("expected one security/hardcoded-secret finding for digits clustered at the end of the value, got %+v", f)
+	}
+}
+
+func testAUR466BlockerDigitsClusteredAtStartAreFound(t *testing.T) {
+	diff := aur466Diff("config/secrets.env", 1, `+API_TOKEN=7777-AURUM-FAKE-CANARY`)
+	f := aur466Scan(t, diff)
+	if len(f) != 1 || f[0].RuleID != "security/hardcoded-secret" {
+		t.Fatalf("expected one security/hardcoded-secret finding for digits clustered at the start of the value, got %+v", f)
+	}
+}
+
+func testAUR466BlockerSingleDigitInMiddleTightTrailingIsFound(t *testing.T) {
+	diff := aur466Diff("config/secrets.env", 1, `+API_TOKEN=AURUM-FAKE-CANARY-7B`)
+	f := aur466Scan(t, diff)
+	if len(f) != 1 || f[0].RuleID != "security/hardcoded-secret" {
+		t.Fatalf("expected one security/hardcoded-secret finding for a single digit with tight trailing room, got %+v", f)
 	}
 }
 
