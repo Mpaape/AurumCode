@@ -145,7 +145,7 @@ func main() {
 			files = append(files, codeFile(fmt.Sprintf("src/big%02d.mjs", i), "+"+repeat("x", 400)))
 		}
 		diff = &types.Diff{Files: files}
-		maxTokens, reserve = 1500, 40
+		maxTokens, reserve = 1700, 40
 	default:
 		fmt.Fprintf(os.Stderr, "unknown mode %q\n", mode)
 		os.Exit(2)
@@ -204,7 +204,7 @@ assert_nominal() {
   ((missing == 0)) || return 1
   grep -Fq 'META prose_files_excluded=1' "$out" || return 1
   grep -Fq 'META code_files_total=15' "$out" || return 1
-  grep -Fq 'META code_files_reviewed=15' "$out" || return 1
+  grep -Fq 'META code_files_complete=15' "$out" || return 1
   return 0
 }
 
@@ -222,7 +222,7 @@ assert_tight() {
   local omitted; omitted="$(grep -oE 'META code_files_omitted=[0-9]+' "$out" | grep -oE '[0-9]+$')" || true
   [[ -n "$omitted" ]] || return 1
   ((omitted > 0)) || infra tight_budget_did_not_omit_anything
-  grep -Fq "Code files NOT covered by this review (token budget): $omitted" "$out" || return 1
+  grep -Fq "Code files NOT reviewed by this review (token budget): $omitted" "$out" || return 1
   return 0
 }
 
@@ -263,7 +263,7 @@ mutation_case_002() {
   write_dumper "$root"
 
   local target="$root/internal/prompt/coverage.go"
-  local anchor='sb.WriteString(fmt.Sprintf("- Code files NOT covered by this review (token budget): %d\n", len(omitted)))'
+  local anchor='sb.WriteString(fmt.Sprintf("- Code files NOT reviewed by this review (token budget): %d\n", len(omitted)))'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra 'MUT-002/anchor-not-unique'
   local replacement='// MUT-002: coverage line suppressed'
   local tmp="$root/coverage.mutated"

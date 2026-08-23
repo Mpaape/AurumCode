@@ -367,6 +367,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 		}
 	}
 	codePaths, prosePaths := splitFilesByProse(diff, b.languageDetector)
+	totals := hunkTotals(diff)
 
 	// Estimate base prompt tokens (system message + instructions,
 	// including the rule catalog for a review)
@@ -376,34 +377,54 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	}
 	baseTokens := b.estimator.Estimate(basePrompt)
 
-	// AC-002: the instructions plus the reply reservation must leave room
-	// for at least some code. When they do not, this fails loudly instead
-	// of letting TrimToFit drop every diff segment and shipping a review
-	// prompt with no diff in it -- a request the model can only answer by
-	// inventing findings.
-	if opts.MaxTokens > 0 && baseTokens+opts.ReserveReply >= opts.MaxTokens {
+	// AUR-467 blocker 1 (post-ff64e18 adversarial review): the coverage
+	// declaration appended below is CONTENT of the assembled prompt, so
+	// its worst-case size must be reserved out of the content budget
+	// BEFORE TrimToFit runs -- otherwise the declaration itself can push
+	// the assembled prompt over MaxTokens, and worse as the budget gets
+	// tighter, since a tighter budget omits more files and so grows the
+	// declaration that reports the omissions. See coverage.go's
+	// maxCoverageDeclarationTokens for why this reservation is a proven
+	// upper bound, not a guess.
+	coverageReserve := maxCoverageDeclarationTokens(codePaths, prosePaths, totals, b.estimator)
+
+	// AC-002: the instructions, the coverage declaration's worst case, and
+	// the reply reservation must leave room for at least some code. When
+	// they do not, this fails loudly instead of letting TrimToFit drop
+	// every diff segment and shipping a review prompt with no diff in it
+	// -- a request the model can only answer by inventing findings.
+	if opts.MaxTokens > 0 && baseTokens+coverageReserve+opts.ReserveReply >= opts.MaxTokens {
 		return PromptParts{}, fmt.Errorf(
-			"prompt instructions need %d tokens and the reply reserves %d, which does not fit the %d-token budget: refusing to assemble a %s prompt with no room for the code changes",
-			baseTokens, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
+			"prompt instructions need %d tokens, the coverage declaration reserves %d, and the reply reserves %d, which does not fit the %d-token budget: refusing to assemble a %s prompt with no room for the code changes",
+			baseTokens, coverageReserve, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
 	}
 
-	// Trim segments to fit budget -- code segments only; prose never ate
-	// into this budget in the first place, which is also the fix for the
-	// measured ordering starvation (see filetype.go).
-	trimmedSegments := budget.TrimToFit(codeSegments, baseTokens)
+	// Trim segments to fit budget -- code segments only, budgeted against
+	// baseTokens PLUS the reserved coverage declaration size; prose never
+	// ate into this budget in the first place, which is also the fix for
+	// the measured ordering starvation (see filetype.go).
+	trimmedSegments := budget.TrimToFit(codeSegments, baseTokens+coverageReserve)
 
 	// Build user content from trimmed segments, plus AC-003's coverage
-	// declaration (coverage.go): how many code files made it in, how many
-	// were cut by the budget, and which documentation files were excluded
-	// from the code rule catalog.
+	// declaration (coverage.go): every code file classified complete,
+	// partial (named, with its hunk fraction -- AUR-467 blocker 2: a file
+	// missing even one hunk to the budget is never silently "reviewed"),
+	// or omitted, and which documentation files were excluded from the
+	// code rule catalog.
 	userContent := b.buildUserContent(trimmedSegments, metrics)
-	coveredCode := coveredFiles(trimmedSegments)
-	userContent += "\n" + renderCoverageDeclaration(codePaths, prosePaths, coveredCode)
+	covered := coveredHunkCounts(trimmedSegments)
+	coverages := classifyCodeCoverage(codePaths, totals, covered)
+	userContent += "\n" + renderCoverageDeclaration(coverages, prosePaths)
 
-	codeFilesReviewed := 0
-	for _, p := range codePaths {
-		if coveredCode[p] {
-			codeFilesReviewed++
+	var completeCount, partialCount, omittedCount int
+	for _, c := range coverages {
+		switch c.state() {
+		case "complete":
+			completeCount++
+		case "partial":
+			partialCount++
+		default:
+			omittedCount++
 		}
 	}
 
@@ -411,14 +432,18 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 		System: basePrompt,
 		User:   userContent,
 		Meta: map[string]string{
-			"schema_kind":          opts.SchemaKind,
-			"role":                 opts.Role,
-			"segments_total":       fmt.Sprintf("%d", len(segments)),
-			"segments_used":        fmt.Sprintf("%d", len(trimmedSegments)),
-			"estimated_tokens":     fmt.Sprintf("%d", baseTokens+budget.EstimateTotal(trimmedSegments)),
+			"schema_kind":    opts.SchemaKind,
+			"role":           opts.Role,
+			"segments_total": fmt.Sprintf("%d", len(segments)),
+			"segments_used":  fmt.Sprintf("%d", len(trimmedSegments)),
+			// AUR-467 blocker 1: estimated from the ACTUAL final System+User
+			// text this function returns, not a partial sum of its pieces --
+			// so it can never undercount what the declaration itself added.
+			"estimated_tokens":     fmt.Sprintf("%d", b.estimator.Estimate(basePrompt+userContent)),
 			"code_files_total":     fmt.Sprintf("%d", len(codePaths)),
-			"code_files_reviewed":  fmt.Sprintf("%d", codeFilesReviewed),
-			"code_files_omitted":   fmt.Sprintf("%d", len(codePaths)-codeFilesReviewed),
+			"code_files_complete":  fmt.Sprintf("%d", completeCount),
+			"code_files_partial":   fmt.Sprintf("%d", partialCount),
+			"code_files_omitted":   fmt.Sprintf("%d", omittedCount),
 			"prose_files_excluded": fmt.Sprintf("%d", len(prosePaths)),
 		},
 	}
