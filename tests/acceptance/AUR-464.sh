@@ -108,6 +108,8 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464CodeBeforeDocPreserved(t)
 	TestAUR464AnchorTrioUnique(t)
 	TestAUR464RegressionGuard(t)
+	TestAUR464OverviewThenDocPreserved(t)
+	TestAUR464LeadingCommentFourCases(t)
 }
 EOF
   local out rc
@@ -206,6 +208,8 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464CodeBeforeDocPreserved(t)
 	TestAUR464AnchorTrioUnique(t)
 	TestAUR464RegressionGuard(t)
+	TestAUR464OverviewThenDocPreserved(t)
+	TestAUR464LeadingCommentFourCases(t)
 }
 EOF
   local rc
@@ -235,6 +239,8 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464CodeBeforeDocPreserved(t)
 	TestAUR464AnchorTrioUnique(t)
 	TestAUR464RegressionGuard(t)
+	TestAUR464OverviewThenDocPreserved(t)
+	TestAUR464LeadingCommentFourCases(t)
 }
 EOF
   run_go "$restore_root" test -timeout 300s ./tests/unit -run '^TestAUR464UnitBridge$' -count=1 >/dev/null 2>&1 \
@@ -269,6 +275,8 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464CodeBeforeDocPreserved(t)
 	TestAUR464AnchorTrioUnique(t)
 	TestAUR464RegressionGuard(t)
+	TestAUR464OverviewThenDocPreserved(t)
+	TestAUR464LeadingCommentFourCases(t)
 }
 EOF
   local rc
@@ -297,6 +305,8 @@ func TestAUR464UnitBridge(t *testing.T) {
 	TestAUR464CodeBeforeDocPreserved(t)
 	TestAUR464AnchorTrioUnique(t)
 	TestAUR464RegressionGuard(t)
+	TestAUR464OverviewThenDocPreserved(t)
+	TestAUR464LeadingCommentFourCases(t)
 }
 EOF
   run_go "$restore_root" test -timeout 300s ./tests/unit -run '^TestAUR464UnitBridge$' -count=1 >/dev/null 2>&1 \

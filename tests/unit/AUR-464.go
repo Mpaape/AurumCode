@@ -632,3 +632,171 @@ func TestAUR464RegressionGuard(t *testing.T) {
 		t.Fatalf("AUR-464/AC-002/behavior-missing: expected 5 distinct anchors (Foo/foo/FOO trio + run_docs/run-docs), got %v", anchors)
 	}
 }
+
+// bashOverviewThenDocFixture and powershellOverviewThenDocFixture are the
+// adversarial reviewer's exact Blocker fixture from the third review round:
+// a file overview, a blank line (which already resolves that overview into
+// its own Notes block), THEN a real doc comment glued directly to the first
+// function with no code anywhere in the file. sawCode alone is false here
+// (nothing executable ever ran), but the overview's own resolution into
+// strayNotes already proves the file has no lingering ambiguity: nothing
+// after an already-resolved note can still be an ambiguous file header.
+const bashOverviewThenDocFixture = `#!/bin/bash
+# Overview of this helper script.
+# It has nothing to do with any one function below.
+
+# Greets a name.
+greet() {
+  echo "hello $1"
+}
+`
+
+const powershellOverviewThenDocFixture = `# Overview of this helper script.
+# It has nothing to do with any one function below.
+
+# Greets a name.
+function Get-Greeting {
+    Write-Output "hi"
+}
+`
+
+// TestAUR464OverviewThenDocPreserved is the reviewer's third-round fixture,
+// proved for both languages: greet's/Get-Greeting's own doc must survive
+// even though no code ever ran, because an earlier stray note already
+// resolved the file's own ambiguity.
+func TestAUR464OverviewThenDocPreserved(t *testing.T) {
+	t.Run("bash", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "overview.sh"), bashOverviewThenDocFixture)
+		ext := bashextractor.NewBashExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguageBash, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: Extract failed: %v", err)
+		}
+		page := readFileAUR464(t, result.Files[0])
+		assertOwnDocText(t, page, "### function greet", "Greets a name.")
+		if !strings.Contains(page, "Overview of this helper script.") {
+			t.Fatalf("AUR-464/behavior-missing: the overview note itself vanished:\n%s", page)
+		}
+	})
+
+	t.Run("powershell", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "overview.ps1"), powershellOverviewThenDocFixture)
+		ext := powershellextractor.NewPowerShellExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguagePowerShell, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: Extract failed: %v", err)
+		}
+		page := readFileAUR464(t, result.Files[0])
+		assertOwnDocText(t, page, "### function Get-Greeting", "Greets a name.")
+		if !strings.Contains(page, "Overview of this helper script.") {
+			t.Fatalf("AUR-464/behavior-missing: the overview note itself vanished:\n%s", page)
+		}
+	})
+}
+
+// TestAUR464LeadingCommentFourCases is the table this card's own review
+// history asked for: the four leading-comment shapes that decide whether a
+// comment attaches to the first function or is swept into Notes, so the
+// NEXT change to this signal breaks the build here instead of silently
+// swapping one cost for another.
+//
+//	shebang + license, nothing else            -> Notes   (ambiguous: no symbol, no note, no code yet)
+//	set -euo pipefail, then the doc            -> attaches (code already ran)
+//	overview, blank line, then the doc         -> attaches (an earlier note already resolved the ambiguity)
+//	first executable line IS the documented fn -> Notes   (declared residual cost)
+func TestAUR464LeadingCommentFourCases(t *testing.T) {
+	cases := []struct {
+		name       string
+		script     string
+		fn         string
+		wantAttach bool
+	}{
+		{
+			name: "shebang_plus_license_glued",
+			script: `#!/bin/bash
+# Copyright 2026 Example Corp.
+# All rights reserved. Licensed under MIT.
+license_holder() {
+  echo "ok"
+}
+`,
+			fn:         "license_holder",
+			wantAttach: false,
+		},
+		{
+			name: "code_before_doc",
+			script: `#!/bin/bash
+set -euo pipefail
+
+# Greets a name.
+greet() {
+  echo "hi"
+}
+`,
+			fn:         "greet",
+			wantAttach: true,
+		},
+		{
+			name: "overview_blank_then_doc",
+			script: `#!/bin/bash
+# Overview of this helper script.
+
+# Greets a name.
+greet() {
+  echo "hi"
+}
+`,
+			fn:         "greet",
+			wantAttach: true,
+		},
+		{
+			name: "first_line_is_the_documented_function",
+			script: `#!/bin/bash
+# Greets a name.
+greet() {
+  echo "hi"
+}
+`,
+			fn:         "greet",
+			wantAttach: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srcDir := t.TempDir()
+			outDir := t.TempDir()
+			writeFileAUR464(t, filepath.Join(srcDir, "case.sh"), tc.script)
+			ext := bashextractor.NewBashExtractor(site.NewMockRunner())
+			result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+				Language: extractors.LanguageBash, SourceDir: srcDir, OutputDir: outDir,
+			})
+			if err != nil || len(result.Files) == 0 {
+				t.Fatalf("AUR-464/behavior-missing: Extract failed: %v", err)
+			}
+			page := readFileAUR464(t, result.Files[0])
+			heading := "### function " + tc.fn
+			idx := strings.Index(page, heading)
+			if idx < 0 {
+				t.Fatalf("AUR-464/behavior-missing: heading %q not found:\n%s", heading, page)
+			}
+			rest := page[idx+len(heading):]
+			fenceIdx := strings.Index(rest, "```")
+			if fenceIdx < 0 {
+				t.Fatalf("AUR-464/behavior-missing: no code fence after %q", heading)
+			}
+			hasOwnDoc := strings.TrimSpace(rest[:fenceIdx]) != ""
+			if hasOwnDoc != tc.wantAttach {
+				t.Fatalf("AUR-464/behavior-missing[%s]: wantAttach=%v but hasOwnDoc=%v:\n%s", tc.name, tc.wantAttach, hasOwnDoc, page)
+			}
+		})
+	}
+}
