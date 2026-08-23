@@ -91,10 +91,18 @@ var jsSourceExt = map[string]bool{
 	".js": true, ".jsx": true, ".mjs": true, ".cjs": true,
 }
 
-// Extract generates documentation from JavaScript source code.
+// Extract generates documentation from JavaScript source code. It also
+// accepts extractors.LanguageTypeScript: cmd/regenerate-docs and
+// cmd/aurumcode both register this extractor for TypeScript too via a thin
+// alias that rewrites the request's Language field (mirroring JSExtractor's
+// own two-language tolerance below), so this parser has to accept that
+// relabeled request rather than reject it -- the alias exists so a
+// TypeScript project keeps getting SOME extractor registered when typedoc
+// is absent, instead of "no extractor registered" for TypeScript alone.
 func (n *NativeExtractor) Extract(ctx context.Context, req *extractors.ExtractRequest) (*extractors.ExtractResult, error) {
-	if req.Language != extractors.LanguageJavaScript {
-		return nil, fmt.Errorf("invalid language: expected %s, got %s", extractors.LanguageJavaScript, req.Language)
+	if req.Language != extractors.LanguageJavaScript && req.Language != extractors.LanguageTypeScript {
+		return nil, fmt.Errorf("invalid language: expected %s or %s, got %s",
+			extractors.LanguageJavaScript, extractors.LanguageTypeScript, req.Language)
 	}
 
 	if _, err := os.Stat(req.SourceDir); err != nil {
@@ -111,7 +119,7 @@ func (n *NativeExtractor) Extract(ctx context.Context, req *extractors.ExtractRe
 	}
 
 	result := &extractors.ExtractResult{
-		Language: extractors.LanguageJavaScript,
+		Language: req.Language,
 		Files:    []string{},
 		Errors:   []error{},
 	}
