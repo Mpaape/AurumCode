@@ -2,19 +2,29 @@
 // outcome at the CLI boundary, distinct from tests/unit/AUR-462.go's
 // package-boundary proof over synthetic types.Diff values.
 //
-// This card's `paths` do not include a fixtures directory (unlike AUR-442,
-// which owned tests/fixtures/review/vuln/hardcoded-secret), so this program
-// never commits a Node fixture to the repository tree. Instead it
-// materializes one at runtime: an ephemeral, non-bare git repository (a
-// second temp-dir commit adding a 27-line Node source file, the exact same
-// content and line numbers as tests/unit/AUR-462.go's
-// aur462NodeFixtureLines) built with `git init`/`git commit` inside
-// t.TempDir(), diffed with `--base HEAD~1` exactly as a user would. No
-// LLM provider is configured for these runs (LLM_API_KEY, LLM_BASE_URL,
+// The sealed acceptance profile (bootstrap-readonly-v1) carries bash and a
+// Go toolchain but no `git` binary (measured: `oci-run --card AUR-462`
+// exited 79, `missing_git`). Building the Node fixture at run time with
+// `git init`/`git commit`, this program's first cut, is therefore
+// unprovable in the only environment that gates this card. So the fixture
+// is committed instead:
+// tests/fixtures/review/vuln/node-xss-command-injection/repo.git, a bare,
+// loose-object repository built by
+// tests/fixtures/repos/git-demo/build-fixture.sh -- the same git-less,
+// deterministic builder that produced every sibling fixture
+// (tests/fixtures/review/vuln/repo.git, .../hardcoded-secret/repo.git,
+// tests/fixtures/repos/git-demo/repo.git) this card's own AC-003 already
+// regresses against, and whose own doc header names exactly this
+// constraint as the reason it never calls `git`. This program only reads
+// it, exactly like tests/integration/AUR-442.go reads its own fixture: no
+// git binary anywhere in this file, at build time or run time.
+//
+// `--base HEAD~1` is diffed exactly as a user would. No LLM provider is
+// configured for these runs (LLM_API_KEY, LLM_BASE_URL,
 // AURUMCODE_LLM_FIXTURE are all stripped from the child environment): the
 // engine's own AUR-449 behavior then runs `--seguranca` alone, which is
 // deterministic and needs no model, so this program depends on nothing
-// outside the process it starts.
+// outside the process it starts and the committed fixture bytes.
 //
 // It also proves AC-003 (regression) against the project's own already
 // committed, already read-only fixture
@@ -46,52 +56,23 @@ func aur462Root(t *testing.T) string {
 	return root
 }
 
-// aur462NodeFixtureLines mirrors tests/unit/AUR-462.go's
-// aur462NodeFixtureLines byte for byte: four planted defects (line 5 exec
-// concat, line 9 execSync concat, line 17 spawn shell:true, line 22
-// innerHTML direct write) and four deliberately benign neighbors (an argv
-// exec call, a shell-less spawn -- implicit, via the argv exec reuse --
-// a comment mentioning "exec", and an innerHTML literal).
-var aur462NodeFixtureLines = []string{
-	`"use strict";`,
-	`const { exec, execSync, spawn } = require("child_process");`,
-	``,
-	`function pingConcat(host) {`,
-	`  exec("ping -c 1 " + host);`,
-	`}`,
-	``,
-	`function pingSyncConcat(host) {`,
-	`  execSync("ping -c 1 " + host);`,
-	`}`,
-	``,
-	`function pingArgv(host) {`,
-	`  exec(["ping", host]);`,
-	`}`,
-	``,
-	`function pingShell(host) {`,
-	`  spawn("ping -c 1 " + host, { shell: true });`,
-	`}`,
-	``,
-	`// exec is dangerous when combined with string concatenation.`,
-	`function renderUser(userInput) {`,
-	`  document.getElementById("out").innerHTML = userInput;`,
-	`}`,
-	``,
-	`function renderStatic() {`,
-	`  document.getElementById("out").innerHTML = "<b>Static content</b>";`,
-	`}`,
-	``,
-	`function renderSanitized(userInput) {`,
-	`  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);`,
-	`}`,
-	``,
-	`function renderTrustedTemplate() {`,
-	`  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;`,
-	`}`,
-	``,
-	`function renderEscaped(x) {`,
-	`  document.getElementById("out").innerHTML = escapeHtml(x);`,
-	`}`,
+// aur462NodeFixtureRepo is the committed, git-less bare repository this
+// program reads: tests/fixtures/review/vuln/node-xss-command-injection/repo.git.
+// Its HEAD~1..HEAD diff adds src/app.js, the exact same 39-line content
+// tests/unit/AUR-462.go's aur462NodeFixtureLines embeds as a synthetic
+// diff, so all layers agree on line numbers: line 5 exec concat, line 9
+// execSync concat, line 17 spawn shell:true, line 22 innerHTML direct
+// write (all four must be found); line 13 argv exec, line 20 a comment
+// mentioning "exec", line 26 an innerHTML literal, line 30 a sanitizer
+// call, line 34 an uppercase module constant, line 38 an escaping-helper
+// call (none of the six must be found).
+func aur462NodeFixtureRepo(t *testing.T, root string) string {
+	t.Helper()
+	repo := filepath.Join(root, "tests/fixtures/review/vuln/node-xss-command-injection/repo.git")
+	if _, err := os.Stat(repo); err != nil {
+		t.Fatalf("required input missing: %s: %v", repo, err)
+	}
+	return repo
 }
 
 // filteredEnv strips the three environment variables selectProvider (see
@@ -110,57 +91,6 @@ func filteredEnv() []string {
 		out = append(out, kv)
 	}
 	return out
-}
-
-func aur462Git(t *testing.T, dir string, env []string, args ...string) string {
-	t.Helper()
-	cmd := exec.Command("git", args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("git %v failed: %v\n%s", args, err, out.String())
-	}
-	return out.String()
-}
-
-// buildAUR462NodeRepo materializes the ephemeral Node fixture repository
-// described in the package doc above and returns its path.
-func buildAUR462NodeRepo(t *testing.T) string {
-	t.Helper()
-	repoDir := filepath.Join(t.TempDir(), "node-repo")
-	if err := os.MkdirAll(repoDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	gitEnv := append(filteredEnv(),
-		"GIT_AUTHOR_NAME=Aurum Test", "GIT_AUTHOR_EMAIL=aurum-test@aurum.invalid",
-		"GIT_COMMITTER_NAME=Aurum Test", "GIT_COMMITTER_EMAIL=aurum-test@aurum.invalid",
-	)
-	aur462Git(t, repoDir, gitEnv, "init", "-q", "-b", "main")
-	aur462Git(t, repoDir, gitEnv, "config", "user.email", "aurum-test@aurum.invalid")
-	aur462Git(t, repoDir, gitEnv, "config", "user.name", "Aurum Test")
-
-	readme := filepath.Join(repoDir, "README.md")
-	if err := os.WriteFile(readme, []byte("Ephemeral AUR-462 Node fixture. Nothing here is a real application.\n"), 0o644); err != nil {
-		t.Fatalf("write README: %v", err)
-	}
-	aur462Git(t, repoDir, gitEnv, "add", "README.md")
-	aur462Git(t, repoDir, gitEnv, "commit", "-q", "-m", "seed: add the fixture skeleton")
-
-	src := filepath.Join(repoDir, "src")
-	if err := os.MkdirAll(src, 0o755); err != nil {
-		t.Fatalf("mkdir src: %v", err)
-	}
-	content := strings.Join(aur462NodeFixtureLines, "\n") + "\n"
-	if err := os.WriteFile(filepath.Join(src, "app.js"), []byte(content), 0o644); err != nil {
-		t.Fatalf("write app.js: %v", err)
-	}
-	aur462Git(t, repoDir, gitEnv, "add", "src/app.js")
-	aur462Git(t, repoDir, gitEnv, "commit", "-q", "-m", "add: node source with planted command-injection and xss shapes")
-
-	return repoDir
 }
 
 const aur462SecurityHeader = "Security findings (standards/security-review):"
@@ -199,7 +129,7 @@ func IntegrationAUR462(t *testing.T) {
 		t.Fatalf("go build ./cmd/aurumcode failed: %v\n%s", err, buildOut.String())
 	}
 
-	nodeRepo := buildAUR462NodeRepo(t)
+	nodeRepo := aur462NodeFixtureRepo(t, root)
 
 	// Without --seguranca: no security section, regardless of exit code --
 	// this card only touches the security pass's patterns, so it does not

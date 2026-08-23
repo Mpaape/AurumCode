@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # E2E check for AUR-462: build (or reuse) the real aurumcode binary and run
-# it, as a user would, against an EPHEMERAL Node git repository this script
-# creates on the fly with `git init`/`git commit` (this card's `paths` own
-# no fixtures directory, unlike AUR-442's committed hardcoded-secret
-# fixture, so nothing Node-shaped is committed to the tree at all).
+# it, as a user would, against the committed Node fixture repository
+# tests/fixtures/review/vuln/node-xss-command-injection/repo.git. The
+# sealed acceptance profile (bootstrap-readonly-v1) carries bash and a Go
+# toolchain but no `git` binary (measured: `oci-run --card AUR-462` exited
+# 79, `missing_git`); this script's first cut built the fixture at run
+# time with `git init`/`git commit`, which is unprovable in the only
+# environment that gates this card. The fixture is committed instead,
+# built by tests/fixtures/repos/git-demo/build-fixture.sh -- the same
+# git-less, deterministic, loose-object builder that produced every
+# sibling fixture this card's own AC-003 regresses against. Nothing in
+# this script shells out to `git`, at build time or run time.
 #
 # WHAT THIS PROVES, DISTINCT FROM tests/unit/AUR-462.go (package-boundary,
 # synthetic types.Diff) AND tests/integration/AUR-462.go (CLI-boundary,
@@ -41,7 +48,6 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 
 command -v go >/dev/null 2>&1 || infra missing_go
-command -v git >/dev/null 2>&1 || infra missing_git
 
 run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-e2e-a462.XXXXXX")" || infra mktemp
 trap 'chmod -R u+w -- "$run_dir" >/dev/null 2>&1 || true; rm -rf -- "$run_dir" >/dev/null 2>&1 || true' EXIT INT TERM HUP
@@ -69,64 +75,12 @@ else
   fi
 fi
 
-# Materialize the ephemeral Node fixture: same 27-line content and line
-# numbers as tests/unit/AUR-462.go's aur462NodeFixtureLines and
-# tests/integration/AUR-462.go's aur462NodeFixtureLines, so all three
-# selectors agree on what "line 5", "line 9", "line 17", "line 22" mean.
-node_repo="$run_dir/node-repo"
-mkdir -p "$node_repo/src"
-export GIT_AUTHOR_NAME='Aurum Test' GIT_AUTHOR_EMAIL='aurum-test@aurum.invalid'
-export GIT_COMMITTER_NAME='Aurum Test' GIT_COMMITTER_EMAIL='aurum-test@aurum.invalid'
-git -C "$node_repo" init -q -b main || infra git_init_failed
-git -C "$node_repo" config user.email aurum-test@aurum.invalid
-git -C "$node_repo" config user.name 'Aurum Test'
-printf 'Ephemeral AUR-462 Node fixture. Nothing here is a real application.\n' >"$node_repo/README.md"
-git -C "$node_repo" add README.md
-git -C "$node_repo" commit -q -m 'seed: add the fixture skeleton'
-
-cat >"$node_repo/src/app.js" <<'NODEJS'
-"use strict";
-const { exec, execSync, spawn } = require("child_process");
-
-function pingConcat(host) {
-  exec("ping -c 1 " + host);
-}
-
-function pingSyncConcat(host) {
-  execSync("ping -c 1 " + host);
-}
-
-function pingArgv(host) {
-  exec(["ping", host]);
-}
-
-function pingShell(host) {
-  spawn("ping -c 1 " + host, { shell: true });
-}
-
-// exec is dangerous when combined with string concatenation.
-function renderUser(userInput) {
-  document.getElementById("out").innerHTML = userInput;
-}
-
-function renderStatic() {
-  document.getElementById("out").innerHTML = "<b>Static content</b>";
-}
-
-function renderSanitized(userInput) {
-  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);
-}
-
-function renderTrustedTemplate() {
-  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;
-}
-
-function renderEscaped(x) {
-  document.getElementById("out").innerHTML = escapeHtml(x);
-}
-NODEJS
-git -C "$node_repo" add src/app.js
-git -C "$node_repo" commit -q -m 'add: node source with planted command-injection and xss shapes'
+# The committed Node fixture: tests/unit/AUR-462.go's
+# aur462NodeFixtureLines embeds the identical 39-line content as a
+# synthetic diff, so all selectors agree on what "line 5", "line 9",
+# "line 17", "line 22", "line 30", "line 34", "line 38" mean.
+node_repo="$repo_root/tests/fixtures/review/vuln/node-xss-command-injection/repo.git"
+test -d "$node_repo" || fail missing-node-fixture
 
 header='Security findings (standards/security-review):'
 cmd_citation='(rule security/command-injection: Command Injection)'
