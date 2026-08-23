@@ -42,6 +42,21 @@
 #   model-free security pass runs, exit 0. This program unsets all three so
 #   every run takes that path regardless of the ambient environment.
 #
+# KNOWN, EXPECTED CONSEQUENCE OUTSIDE THIS CARD'S paths
+#
+#   Giving security/xss a pattern makes
+#   tests/unit/AUR-442.go::testAUR442DeclaredOnlyRulesStayPatternless RED
+#   (it asserts xss stays patternless) and therefore
+#   tests/acceptance/AUR-442.sh AC-001 RED too (its unit_case runs that
+#   assertion). The coverage line moving from "3 of 8" to "4 of 8" also
+#   turns tests/unit/AUR-450.go, tests/e2e/AUR-450.sh,
+#   tests/acceptance/AUR-450.sh and tests/integration/AUR-450.go RED: all
+#   four pin the literal live-binary string "applied 3 of 8 security rules
+#   (". None of those five files are in this card's `paths`, so this card
+#   cannot update them -- see docs/specs/AUR-462.md's own section of this
+#   name for detail and the required follow-up, the same precedent
+#   AUR-442 itself set against AUR-435's git-demo assertions.
+#
 # EXIT CODES (tests/acceptance/EXIT_CODE_CONVENTION.md):
 #   0  = the promised property holds
 #   1  = behavioral RED (including a surviving MUT-001/MUT-002 mutant)
@@ -75,6 +90,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 command -v git >/dev/null 2>&1 || infra missing_git
+command -v python3 >/dev/null 2>&1 || infra missing_python3
 
 # Input preflight. Deliverables this card owns fail behavioral (their
 # absence IS the missing behavior); everything else is an environment gap.
