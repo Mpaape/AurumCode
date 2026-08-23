@@ -39,7 +39,7 @@ const (
 	// See tests/unit/AUR-450.go's own constant comment: catalog-wide, not
 	// diff-derived, so it is proved identical whether the pass matched
 	// something or nothing.
-	aur450CoveragePrefix = "aurumcode review: security pass applied 3 of 8 security rules ("
+	aur450CoveragePrefix = "aurumcode review: security pass applied 4 of 8 security rules ("
 	aur450CoveragePtr    = "internal/review/rules/security.yml"
 )
 

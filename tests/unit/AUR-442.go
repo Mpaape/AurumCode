@@ -78,13 +78,21 @@ func testAUR442HardcodedSecretNowCarriesAMatcher(t *testing.T) {
 // resolve (citable by a model finding, AUR-434) but never carry a pattern
 // -- so it can never be silently claimed as active by a future change
 // without also adding a fixture that proves it.
+//
+// AUR-462 (2026-08-23) moved security/xss OUT of this list, not out of the
+// guard: it gave the rule a real matcher (Node's innerHTML/outerHTML/
+// document.write/dangerouslySetInnerHTML shapes, proven against its own
+// fixtures) and this test now asserts that positively, right below, the
+// same way testAUR442HardcodedSecretNowCarriesAMatcher already does for
+// hardcoded-secret. The guard itself -- a declared rule with no pattern
+// must never silently claim coverage -- is untouched and still applies to
+// the four rules that remain patternless.
 func testAUR442DeclaredOnlyRulesStayPatternless(t *testing.T) {
 	loader := review.NewRulesLoader()
 	if err := loader.Load(); err != nil {
 		t.Fatalf("Load(): %v", err)
 	}
 	declaredOnly := []string{
-		"security/xss",
 		"security/path-traversal",
 		"security/weak-crypto",
 		"security/insecure-random",
@@ -101,6 +109,21 @@ func testAUR442DeclaredOnlyRulesStayPatternless(t *testing.T) {
 		if _, ok := loader.PatternFor(id); ok {
 			t.Fatalf("%s must stay metadata-only (no fixture proves a matcher for it): AUR-442 declares it honestly instead of promising undelivered detection", id)
 		}
+	}
+
+	// security/xss: AUR-462 gave it a real matcher. Resolves, stays
+	// category security, and now DOES carry a pattern -- the mirror image
+	// of the loop above, proving the move was to the right list, not a
+	// deletion of the guard.
+	xss, ok := loader.Get("security/xss")
+	if !ok {
+		t.Fatal("security/xss must still resolve in the catalog")
+	}
+	if xss.Category != "security" {
+		t.Fatalf("security/xss must stay category security, got %q", xss.Category)
+	}
+	if _, ok := loader.PatternFor("security/xss"); !ok {
+		t.Fatal("security/xss must now carry a compiled matcher pattern (AUR-462's restoration)")
 	}
 }
 
