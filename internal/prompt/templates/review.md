@@ -69,6 +69,10 @@ project review standard (for example `security/hardcoded-secret` or
 resolve against that standard is discarded and never shown to the user, so
 `rule_id` is not optional.
 
+### Rule catalog (closed list)
+
+{{.RuleCatalog}}
+
 ```json
 {
   "issues": [
@@ -84,7 +88,7 @@ resolve against that standard is discarded and never shown to the user, so
       "file": "path/to/file.go",
       "line": 42,
       "severity": "info",
-      "rule_id": "quality/naming",
+      "rule_id": "quality/poor-naming",
       "message": "Variable name `x` is not descriptive; `userCount` states what it holds",
       "suggestion": "userCount := len(users)"
     }
