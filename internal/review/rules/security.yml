@@ -240,10 +240,38 @@ rules:
     # notes -- every existing true-positive fixture value in this
     # repository is itself named `AURUM-FAKE-...`, so that denylist would
     # silence the rule's own regression fixtures (AC-003 would break).
+    # Adversarial review (2026-08-23) found the fix above BLOCKED: requiring
+    # a digit still required, structurally, a specific ORDER -- digit then
+    # a letter (or letter then digit) with >= 4 MORE characters after the
+    # second pivot. tests/unit/AUR-442.go:307's own fixture value,
+    # `AURUM-FAKE-CANARY-VALUE-7777`, has all four digits clustered at the
+    # very end, so no choice of pivot ever leaves 4 characters trailing --
+    # the value has a real digit and a real letter, just not in a position
+    # the suffix-only requirement could see. That is a distinct defect from
+    # "digit-free real secret" (the accepted limitation below): this one
+    # is digit-BEARING and was still missed, and it broke AUR-442's own
+    # regression (tests/acceptance/AUR-442.sh AC-001 went from exit 0 to
+    # exit 1). RE2 has no lookahead, so "contains a digit somewhere"
+    # cannot be expressed as a single order- and position-free check; the
+    # fix widens each of the two pivot orders (digit-then-letter,
+    # letter-then-digit) from one branch (padding required strictly AFTER
+    # the second pivot) to two (padding required BEFORE the first pivot,
+    # OR after the second) -- four branches total. This is not a full
+    # solution (padding split across BOTH sides in amounts each under 4 is
+    # still theoretically missable; no such value exists in this
+    # repository's fixtures or in the measurement that opened this card),
+    # but it resolves every concrete shape measured: digits clustered at
+    # the end (`AURUM-FAKE-CANARY-VALUE-7777`), digits clustered at the
+    # start, and a single digit sitting close to one edge with little
+    # trailing room. Known residue, measured and accepted rather than
+    # chased under this deadline: `ttm-0000000000000000000000` (digits
+    # present, zero entropy) still matches -- entropy/repetition is a
+    # separate axis this card's digit check was never meant to cover. See
+    # docs/specs/AUR-466.md.
     # Known limitation, accepted deliberately: a digit-free real secret
     # (some base64 alphabets can produce one, e.g. a purely-alphabetic
     # 32-byte key) is now missed. See docs/specs/AUR-466.md.
-    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})'
+    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})'
 
   - id: security/weak-crypto
     title: Weak Cryptography
