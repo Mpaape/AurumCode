@@ -64,8 +64,11 @@ jobs:
         run: |
           echo '=== Installing Documentation Extractors ==='
 
-          # Ensure Go bin is in PATH
+          # Ensure Go bin is in PATH for this step AND every later one.
+          # export alone dies with the step; $GITHUB_PATH is what carries a
+          # directory forward, and it is the only mechanism that does.
           export PATH="$HOME/go/bin:$PATH"
+          echo "$HOME/go/bin" >>"$GITHUB_PATH"
 
           # Go documentation tool
           go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
@@ -87,7 +90,13 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          PATH: ${{ env.PATH }}:$HOME/go/bin
+          # No PATH override here. `${{ env.PATH }}` reads the workflow's own
+          # env: context -- empty -- not the runner's PATH, and `$HOME` is not
+          # expanded inside an env: block, so this step used to run with
+          # PATH=":$HOME/go/bin" literally: ls(1) was not found and the job died
+          # at exit 127 after the generator had already succeeded. The install
+          # step above appends to $GITHUB_PATH instead, which is what actually
+          # carries a directory into later steps.
         run: |
           echo '=== Running AurumCode Documentation Generator ==='
           echo 'Source Directory: .'
