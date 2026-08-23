@@ -64,20 +64,48 @@ rules:
     # the documented grounds that XSS is a sink/taint question a
     # single-line regexp cannot decide without an unacceptable
     # false-positive rate. AUR-462's measurement narrowed the scope: a
-    # write of a bare, unescaped identifier into `innerHTML`/`outerHTML`,
-    # `document.write(...)`, or React's `dangerouslySetInnerHTML`'s
-    # `__html` key is the concrete, common shape the outcome names, and it
-    # IS a line-level shape -- the sink call itself, RHS not a string/
-    # template literal. A literal constant on the right (the AC-002
-    # false-positive case: `innerHTML = "<b>Static content</b>"`) is
-    # excluded structurally, not by a lookahead (Go's RE2 has none): each
-    # alternative requires the value to START with an identifier
-    # character (`[A-Za-z_$]`), so a value opening with `"`, `'`, or a
-    # backtick never matches. This stays narrower than a general sink/
-    # taint rule -- concatenation and template-interpolation shapes are
-    # deliberately left out of scope, matching this card's Non-goal
-    # against loosening a pattern to chase coverage.
-    pattern: '(?i)\b(innerHTML|outerHTML)\s*=\s*[A-Za-z_$][\w$]*|document\.write\s*\(\s*[A-Za-z_$][\w$]*|dangerouslySetInnerHTML\s*=\s*\{\{\s*__html\s*:\s*[A-Za-z_$][\w$]*'
+    # write of a bare identifier or member-access chain (no call) into
+    # `innerHTML`/`outerHTML`, `document.write(...)`, or React's
+    # `dangerouslySetInnerHTML`'s `__html` key is the concrete, common
+    # shape the outcome names.
+    #
+    # Adversarial review (2026-08-23) found the first cut over-matched: an
+    # alternative anchored only the START of the RHS
+    # (`[A-Za-z_$][\w$]*`), so it matched any call whose callee name
+    # begins with an identifier character too -- including the canonical
+    # XSS mitigation itself, `innerHTML = DOMPurify.sanitize(userInput)`,
+    # and any other escaping helper (`escapeHtml(x)`). That is a false
+    # positive that fires exactly on the developer who followed best
+    # practice, which is worse than not having the rule (this card's own
+    # principle). The pattern below anchors BOTH ends: the RHS (or
+    # document.write's argument, or __html's value) must be a bare
+    # identifier or dotted member-access chain (`[a-z_$][\w$.]*`)
+    # immediately followed by its statement's own closing token (`;`/
+    # end-of-line for the assignment forms, `)` for document.write,
+    # `}}` for dangerouslySetInnerHTML) and NOTHING else -- so a `(` any
+    # where in that span (a call) breaks the match structurally, since
+    # Go's RE2 has no lookahead to exclude it any other way. A literal
+    # constant (`"..."`, `'...'`, a backtick) is excluded the same way:
+    # it does not start with an identifier character at all.
+    #
+    # The chosen trade-off, accepted deliberately: this now also misses
+    # `innerHTML = getUserInput()` (a bare call returning untrusted data,
+    # genuinely dangerous) -- the cost of excluding every call, sanitizer
+    # and vulnerability alike, is losing that one shape, in exchange for
+    # never flagging a sanitizer call again. See docs/specs/AUR-462.md's
+    # "Known limitation" section for the full trade-off and the
+    # SCREAMING_SNAKE_CASE decision (`TRUSTED_TEMPLATE` and similar
+    # module-level constants are also excluded: the identifier class
+    # requires a LOWERCASE start, `[a-z_$]`, not `[A-Za-z_$]`, on the
+    # premise that untrusted runtime values are conventionally
+    # camelCase/lowercase-led in JS, while an UPPERCASE- or
+    # PascalCase-led identifier conventionally names a constant, class,
+    # or component -- not a place user input flows through unescaped).
+    # The keyword names themselves stay case-insensitive
+    # (`(?i:innerHTML|outerHTML)` etc., scoped with `(?i:...)` rather than
+    # a pattern-wide `(?i)`, so the new lowercase-start requirement on the
+    # identifier itself is NOT also folded case-insensitive by accident).
+    pattern: '\b(?i:innerHTML|outerHTML)\s*=\s*[a-z_$][\w$.]*\s*(?:;|$)|(?i:document\.write)\s*\(\s*[a-z_$][\w$.]*\s*\)|(?i:dangerouslySetInnerHTML)\s*=\s*\{\{\s*__html\s*:\s*[a-z_$][\w$.]*\s*\}\}'
 
   - id: security/command-injection
     title: Command Injection

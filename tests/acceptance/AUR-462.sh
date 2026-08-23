@@ -206,6 +206,18 @@ function renderUser(userInput) {
 function renderStatic() {
   document.getElementById("out").innerHTML = "<b>Static content</b>";
 }
+
+function renderSanitized(userInput) {
+  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);
+}
+
+function renderTrustedTemplate() {
+  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;
+}
+
+function renderEscaped(x) {
+  document.getElementById("out").innerHTML = escapeHtml(x);
+}
 NODEJS
     git -C "$repo" add src/app.js
     git -C "$repo" commit -q -m 'add: node source with planted command-injection and xss shapes'
@@ -251,6 +263,12 @@ nominal_case() {
   if grep -Fq 'src/app.js:13: [error]' <<<"$out_sec"; then fail false-positive:argv-exec; fi
   if grep -Fq 'src/app.js:20: [error]' <<<"$out_sec"; then fail false-positive:comment-exec; fi
   if grep -Fq 'src/app.js:26: [error]' <<<"$out_sec"; then fail false-positive:innerhtml-literal; fi
+
+  # Adversarial-review proof (2026-08-23): a sanitizer call, an uppercase
+  # module constant, and an escaping helper call must never appear either.
+  if grep -Fq 'src/app.js:30: [error]' <<<"$out_sec"; then fail false-positive:sanitizer-call; fi
+  if grep -Fq 'src/app.js:34: [error]' <<<"$out_sec"; then fail false-positive:uppercase-constant; fi
+  if grep -Fq 'src/app.js:38: [error]' <<<"$out_sec"; then fail false-positive:escape-helper-call; fi
 
   local after_header cmd_count xss_count
   after_header="${out_sec#*"$header"}"
@@ -335,7 +353,7 @@ mutation_case_2() {
 
   local target="$root/internal/review/rules/security.yml"
   [[ -f "$target" ]] || fail 'MUT-002/target-missing'
-  local anchor="pattern: '(?i)\\b(innerHTML|outerHTML)\\s*=\\s*[A-Za-z_\$][\\w\$]*|document\\.write\\s*\\(\\s*[A-Za-z_\$][\\w\$]*|dangerouslySetInnerHTML\\s*=\\s*\\{\\{\\s*__html\\s*:\\s*[A-Za-z_\$][\\w\$]*'"
+  local anchor="pattern: '\\b(?i:innerHTML|outerHTML)\\s*=\\s*[a-z_\$][\\w\$.]*\\s*(?:;|\$)|(?i:document\\.write)\\s*\\(\\s*[a-z_\$][\\w\$.]*\\s*\\)|(?i:dangerouslySetInnerHTML)\\s*=\\s*\\{\\{\\s*__html\\s*:\\s*[a-z_\$][\\w\$.]*\\s*\\}\\}'"
   local replacement="pattern: '(?i)\\b(innerHTML|outerHTML)\\s*='"
   grep -Fq "$anchor" "$target" || fail 'MUT-002/anchor-not-found'
   python3 - "$target" "$anchor" "$replacement" <<'PYEOF' || fail 'MUT-002/rewrite-failed'
