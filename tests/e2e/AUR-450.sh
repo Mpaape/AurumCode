@@ -66,7 +66,7 @@ citation='(rule security/hardcoded-secret: Hardcoded Secrets)'
 # The AUR-450 coverage note: catalog-wide, so it is identical no matter
 # what the diff contains -- proved below on both the findings case and the
 # empty case.
-coverage_prefix='aurumcode review: security pass applied 3 of 8 security rules ('
+coverage_prefix='aurumcode review: security pass applied 4 of 8 security rules ('
 coverage_rules=(security/command-injection security/hardcoded-secret security/sql-injection)
 coverage_pointer='internal/review/rules/security.yml'
 

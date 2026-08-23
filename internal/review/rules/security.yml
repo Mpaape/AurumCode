@@ -26,11 +26,20 @@
 # (below), the rule that fixture depends on and the card's named priority,
 # proven against both a dedicated fixture
 # (tests/fixtures/review/vuln/hardcoded-secret) and git-demo itself. The
-# remaining five patternless rules below (xss, path-traversal, weak-crypto,
+# remaining four patternless rules below (path-traversal, weak-crypto,
 # insecure-random, missing-auth) are a deliberate, documented scope
 # decision, not an oversight: see docs/specs/AUR-442.md's "The decision"
 # section for why they stay metadata-only rather than ship a rushed,
 # unvalidated matcher under this card's own no-false-promise rule.
+#
+# AUR-462's 2026-08-14 measurement found the same gap one layer over, in
+# Node: `command-injection`'s pattern required an `l`/`v` right after
+# `exec`, matching only C/Python's `execl`/`execv`/`execve` and never
+# Node's canonical `child_process.exec`/`execSync`/`spawn(...,
+# {shell:true})`; and `xss` was still patternless, so the equally common
+# Node defect (`innerHTML = userInput`) went unmatched too. Both rules now
+# carry the additional coverage (see each rule's own comment below); the
+# other three patternless rules are unaffected.
 
 rules:
   - id: security/sql-injection
@@ -50,12 +59,53 @@ rules:
     severity: error
     category: security
     tags: [xss, web, injection]
-    # AUR-442 (2026-08-13): no `pattern`, on purpose. XSS is a sink/taint
-    # question (does untrusted input reach an unescaped render?), not a
-    # single-line shape a regexp can decide without an unacceptable false
-    # positive/negative rate. Metadata-only: citable by a model finding
-    # (AUR-434), never matched by the deterministic --seguranca pass. See
-    # docs/specs/AUR-442.md.
+    # AUR-462 (2026-08-23): this rule shipped patternless from AUR-442
+    # through AUR-461 -- one of five deliberately metadata-only rules, on
+    # the documented grounds that XSS is a sink/taint question a
+    # single-line regexp cannot decide without an unacceptable
+    # false-positive rate. AUR-462's measurement narrowed the scope: a
+    # write of a bare identifier or member-access chain (no call) into
+    # `innerHTML`/`outerHTML`, `document.write(...)`, or React's
+    # `dangerouslySetInnerHTML`'s `__html` key is the concrete, common
+    # shape the outcome names.
+    #
+    # Adversarial review (2026-08-23) found the first cut over-matched: an
+    # alternative anchored only the START of the RHS
+    # (`[A-Za-z_$][\w$]*`), so it matched any call whose callee name
+    # begins with an identifier character too -- including the canonical
+    # XSS mitigation itself, `innerHTML = DOMPurify.sanitize(userInput)`,
+    # and any other escaping helper (`escapeHtml(x)`). That is a false
+    # positive that fires exactly on the developer who followed best
+    # practice, which is worse than not having the rule (this card's own
+    # principle). The pattern below anchors BOTH ends: the RHS (or
+    # document.write's argument, or __html's value) must be a bare
+    # identifier or dotted member-access chain (`[a-z_$][\w$.]*`)
+    # immediately followed by its statement's own closing token (`;`/
+    # end-of-line for the assignment forms, `)` for document.write,
+    # `}}` for dangerouslySetInnerHTML) and NOTHING else -- so a `(` any
+    # where in that span (a call) breaks the match structurally, since
+    # Go's RE2 has no lookahead to exclude it any other way. A literal
+    # constant (`"..."`, `'...'`, a backtick) is excluded the same way:
+    # it does not start with an identifier character at all.
+    #
+    # The chosen trade-off, accepted deliberately: this now also misses
+    # `innerHTML = getUserInput()` (a bare call returning untrusted data,
+    # genuinely dangerous) -- the cost of excluding every call, sanitizer
+    # and vulnerability alike, is losing that one shape, in exchange for
+    # never flagging a sanitizer call again. See docs/specs/AUR-462.md's
+    # "Known limitation" section for the full trade-off and the
+    # SCREAMING_SNAKE_CASE decision (`TRUSTED_TEMPLATE` and similar
+    # module-level constants are also excluded: the identifier class
+    # requires a LOWERCASE start, `[a-z_$]`, not `[A-Za-z_$]`, on the
+    # premise that untrusted runtime values are conventionally
+    # camelCase/lowercase-led in JS, while an UPPERCASE- or
+    # PascalCase-led identifier conventionally names a constant, class,
+    # or component -- not a place user input flows through unescaped).
+    # The keyword names themselves stay case-insensitive
+    # (`(?i:innerHTML|outerHTML)` etc., scoped with `(?i:...)` rather than
+    # a pattern-wide `(?i)`, so the new lowercase-start requirement on the
+    # identifier itself is NOT also folded case-insensitive by accident).
+    pattern: '\b(?i:innerHTML|outerHTML)\s*=\s*[a-z_$][\w$.]*\s*(?:;|$)|(?i:document\.write)\s*\(\s*[a-z_$][\w$.]*\s*\)|(?i:dangerouslySetInnerHTML)\s*=\s*\{\{\s*__html\s*:\s*[a-z_$][\w$.]*\s*\}\}'
 
   - id: security/command-injection
     title: Command Injection
@@ -65,8 +115,23 @@ rules:
     tags: [command, injection, shell]
     standard: SCR-001
     # A shell/exec call whose argument is assembled by string
-    # concatenation right after a quote.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+'
+    # concatenation right after a quote. AUR-462 (2026-08-23) measured
+    # that `exec[lv]p?e?` requires an `l` or `v` right after `exec`, so it
+    # matches C/Python's `execl`/`execv`/`execve` and never Node's
+    # `child_process.exec`/`execSync` -- the canonical Node shape --
+    # because `execSync` and the bare `exec(` have no `l`/`v` there. Two
+    # alternatives restore that coverage without touching the original
+    # branch (so C/Python/subprocess matching is unchanged, byte for
+    # byte): a bare `exec(`/`execSync(` call carrying the same
+    # quote-then-`+` concatenation shape as every other branch here, and a
+    # `spawn(...)` call whose options carry `shell: true` -- the shape
+    # that hands the whole argument list to a shell regardless of whether
+    # the command itself is concatenated, so it is flagged on the
+    # `shell: true` option alone. The Node argv form (`exec(["ping",
+    # host])`, no shell, no concatenation) has no quote-then-`+` anywhere
+    # in the call and so is excluded structurally, matching this card's
+    # AC-002.
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b'
 
   - id: security/path-traversal
     title: Path Traversal

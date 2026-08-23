@@ -161,7 +161,7 @@ readonly standard_citation='standards/security-review SCR-003'
 # card changes that count, this constant (and the sibling ones in
 # tests/unit/AUR-450.go, tests/integration/AUR-450.go and
 # tests/e2e/AUR-450.sh) must be re-derived, not patched blindly.
-readonly coverage_prefix='aurumcode review: security pass applied 3 of 8 security rules ('
+readonly coverage_prefix='aurumcode review: security pass applied 4 of 8 security rules ('
 readonly coverage_pointer='internal/review/rules/security.yml'
 coverage_rules=(security/command-injection security/hardcoded-secret security/sql-injection)
 
