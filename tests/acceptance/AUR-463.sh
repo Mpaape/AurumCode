@@ -9,24 +9,19 @@
 #   source text and renders real Markdown pages from them, without any
 #   external tool (no `typedoc`, no `npm`, no network), never synthesizing
 #   prose for a symbol that carries no JSDoc, and without touching the
-#   existing typedoc-backed JSExtractor (extractor.go) at all.
-#
-#   SCOPE NOTE (see docs/specs/AUR-463.md "Limitacao de escopo medida"): this
-#   card's `paths` grant only internal/documentation/extractors/javascript
-#   and this card's own test/spec files. cmd/regenerate-docs is read_paths
-#   (read-only) and cmd/aurumcode is outside read_paths entirely, so this
-#   card cannot register NativeExtractor at either composition root the way
-#   AUR-427 registered rust/csharp's NativeExtractor in both binaries.
-#   Consequently `aurumcode docs` and `regenerate-docs` still route
-#   JavaScript exclusively through JSExtractor, and internal/pipeline still
-#   skips JavaScript on ToolUnavailableError before Extract is ever called --
-#   a defect the outside-of-paths tests
-#   internal/documentation/extractors/tool_unavailable_test.go and
-#   tool_failure_test.go additionally PIN by requiring
-#   javascript.NewJSExtractor(r).Validate() to keep returning a classifiable
-#   ToolUnavailableError for missing typedoc. This acceptance program
-#   therefore proves NativeExtractor's own correctness directly against the
-#   package's public API, not through the `aurumcode docs` CLI end to end.
+#   existing typedoc-backed JSExtractor (extractor.go) at all -- AND that
+#   javascript.SelectExtractor (select.go) wires it end to end:
+#   cmd/regenerate-docs/main.go and cmd/aurumcode/docs.go both register
+#   SelectExtractor's choice instead of an unconditional JSExtractor, so the
+#   real `aurumcode docs` / `regenerate-docs` CLIs now produce real
+#   documentation for a .mjs project with no typedoc on PATH, and still
+#   invoke typedoc (byte-identical output, AC-003) when it is present. See
+#   docs/specs/AUR-463.md "Ligacao ponta a ponta" for the composition-root
+#   design and why internal/documentation/extractors/tool_unavailable_test.go
+#   / tool_failure_test.go (also owned by this card) keep their existing
+#   "javascript/typedoc" row unchanged: JSExtractor.Validate itself still
+#   correctly reports a missing typedoc, and now those two files pin
+#   SelectExtractor's own, additional contract on top.
 #
 # EXIT CODES (tests/acceptance/EXIT_CODE_CONVENTION.md):
 #   0  = the promised property holds
@@ -47,7 +42,7 @@ readonly scenario='AC-001'
 selector="${1:-AC-001}"
 
 case "$selector" in
-  AC-001|AC-002|AC-003|TestAUR463|IntegrationAUR463|E2EAUR463|AC-001-MUT-001|AC-001-MUT-002) ;;
+  AC-001|AC-002|AC-003|TestAUR463|IntegrationAUR463|E2EAUR463|NominalCLI|AC-001-MUT-001|AC-001-MUT-002|AC-001-MUT-003) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$scenario" >&2; exit 64 ;;
 esac
 
@@ -93,12 +88,10 @@ copy() {
   done
 }
 
-# stage_source materializes exactly what building and testing the javascript
-# package needs: the extractor types/errors it imports, the site package
-# extractor.go (untouched) depends on, this package itself, and this card's
-# own test/spec files. No registry, detector, pipeline, or cmd package: this
-# card never registers anything at a composition root (see the scope note
-# above), so those are not needed to prove NativeExtractor's own contract.
+# stage_source materializes what building cmd/regenerate-docs and testing the
+# javascript package (plus the now-owned tool_unavailable_test.go/
+# tool_failure_test.go) needs: the full extractor set that binary registers,
+# internal/pipeline, internal/llm, and this card's own test/spec files.
 stage_source() {
   local root="$1"
   mkdir -p "$root"
@@ -106,8 +99,28 @@ stage_source() {
   copy "$root" \
     internal/documentation/extractors/types.go \
     internal/documentation/extractors/errors.go \
+    internal/documentation/extractors/registry.go \
+    internal/documentation/extractors/detector.go \
+    internal/documentation/extractors/tool_unavailable_test.go \
+    internal/documentation/extractors/tool_failure_test.go \
+    internal/documentation/extractors/output_confirmed_test.go \
+    internal/documentation/extractors/registry_test.go \
+    internal/documentation/extractors/detector_test.go \
+    internal/documentation/extractors/go \
+    internal/documentation/extractors/python \
     internal/documentation/extractors/javascript \
+    internal/documentation/extractors/cpp \
+    internal/documentation/extractors/bash \
+    internal/documentation/extractors/powershell \
+    internal/documentation/extractors/rust \
+    internal/documentation/extractors/csharp \
+    internal/documentation/incremental \
+    internal/documentation/normalizer \
     internal/documentation/site \
+    internal/documentation/welcome \
+    internal/pipeline \
+    internal/llm \
+    cmd/regenerate-docs \
     docs/specs/AUR-463.md
   chmod -R u+w -- "$root"
 }
@@ -190,6 +203,92 @@ ac003_case() {
   ! grep -Fq 'exec.Command' "$ext" || fail 'AC-003/unexpected-direct-exec-in-typedoc-path'
 }
 
+# nominal_cli_case is the coordinator's literal, mensuravel target: build the
+# real cmd/regenerate-docs binary (the same registration
+# cmd/aurumcode/docs.go mirrors -- verified separately, by hand, against the
+# actual `aurumcode docs -source -output` CLI; see docs/specs/AUR-463.md) and
+# run it against a real, ephemeral .mjs fixture twice: once with typedoc
+# genuinely absent from PATH (must produce a real page, not the old
+# "required tool not in PATH" / zero-documents defect), and once with a
+# typedoc STUB installed on PATH (must invoke it -- AC-003's mechanism: the
+# tool, when present, is still the one that runs).
+nominal_cli_case() {
+  local root="$run_dir/root-cli-$$-$RANDOM"
+  stage_source "$root"
+
+  local bin="$run_dir/regenerate-docs-nominal"
+  local log="$root/build.log"
+  if ! run_go "$root" build -o "$bin" ./cmd/regenerate-docs >"$log" 2>&1; then
+    cat "$log" >&2
+    fail 'nominal-cli/build-failed'
+  fi
+
+  local fixture="$run_dir/mjsproject"
+  mkdir -p "$fixture"
+  cat >"$fixture/index.mjs" <<'FIXEOF'
+/**
+ * Adds two numbers together.
+ */
+export function add(a, b) {
+  return a + b;
+}
+
+export function undocumented(x) {
+  return x;
+}
+FIXEOF
+
+  # No typedoc on PATH at all: the empty-PATH-equivalent case.
+  local out_native="$run_dir/cli-out-native"
+  local rc
+  set +e
+  ( export PATH="/usr/bin:/bin"; ulimit -v 8388608
+    AURUMCODE_SOURCE_DIR="$fixture" AURUMCODE_OUTPUT_DIR="$out_native" GOMEMLIMIT=2GiB "$bin"
+  ) >"$run_dir/cli-native.out" 2>"$run_dir/cli-native.err"
+  rc=$?
+  set -e
+  local page="$out_native/javascript/index.md"
+  [[ -s "$page" ]] || fail 'nominal-cli/no-typedoc-produced-zero-documents'
+  grep -Fq 'add(a, b)' "$page" || fail 'nominal-cli/missing-documented-signature'
+  grep -Fq 'Adds two numbers together.' "$page" || fail 'nominal-cli/missing-jsdoc-prose'
+  grep -Fq 'undocumented(x)' "$page" || fail 'nominal-cli/missing-undocumented-signature'
+
+  # typedoc present (a stub, since the sealed sandbox has no npm toolchain):
+  # SelectExtractor must invoke it rather than the native reader.
+  local stub_dir="$run_dir/fakebin"
+  mkdir -p "$stub_dir"
+  cat >"$stub_dir/typedoc" <<'STUBEOF'
+#!/bin/sh
+if [ "$1" = "--version" ]; then echo "1.0.0"; exit 0; fi
+out=""
+prev=""
+for a in "$@"; do
+  if [ "$prev" = "--out" ]; then out="$a"; fi
+  prev="$a"
+done
+mkdir -p "$out"
+echo "FAKE TYPEDOC MARKER" > "$out/marker.md"
+exit 0
+STUBEOF
+  chmod +x "$stub_dir/typedoc"
+
+  local out_typedoc="$run_dir/cli-out-typedoc"
+  set +e
+  ( export PATH="$stub_dir:/usr/bin:/bin"; ulimit -v 8388608
+    AURUMCODE_SOURCE_DIR="$fixture" AURUMCODE_OUTPUT_DIR="$out_typedoc" GOMEMLIMIT=2GiB "$bin"
+  ) >"$run_dir/cli-typedoc.out" 2>"$run_dir/cli-typedoc.err"
+  rc=$?
+  set -e
+  ((rc == 0)) || fail 'nominal-cli/typedoc-stub-run-failed'
+  [[ -s "$out_typedoc/javascript/marker.md" ]] || fail 'nominal-cli/typedoc-path-not-taken'
+  grep -Fq 'FAKE TYPEDOC MARKER' "$out_typedoc/javascript/marker.md" || fail 'nominal-cli/typedoc-marker-missing'
+  # And the native reader must NOT have run when typedoc is present: no page
+  # carries the native reader's own generated symbol names.
+  ! grep -Rq 'add(a, b)' "$out_typedoc" || fail 'nominal-cli/native-ran-despite-typedoc-present'
+
+  cleanup_root "$root"
+}
+
 mutate_line() {
   local file="$1" anchor="$2" replacement="$3" n
   n="$(grep -Fxn "$anchor" "$file" | cut -d: -f1)"
@@ -267,12 +366,70 @@ EOF
   printf '%s/%s/MUT-002/rejected\n' "$card" "$scenario"
 }
 
+# mutation_mut003 is the PROVA OBRIGATORIA the coordinator asked for on this
+# pass: revert cmd/regenerate-docs/main.go's registration from
+# javascriptExtractor.SelectExtractor(...) back to the old, unconditional
+# javascriptExtractor.NewJSExtractor(runner) -- "o registro volta a ignorar o
+# nativo" -- rebuild, and prove the ORIGINAL defect reproduces exactly: with
+# typedoc absent, zero JavaScript documents. Then prove the clean stage
+# reproduces GREEN again.
+mutation_mut003() {
+  local root="$run_dir/root-mut003-$$-$RANDOM"
+  stage_source "$root"
+  local target="$root/cmd/regenerate-docs/main.go"
+
+  local anchor=$'\tjsExtractor := javascriptExtractor.SelectExtractor(context.Background(), runner)'
+  local replacement=$'\tjsExtractor := javascriptExtractor.NewJSExtractor(runner)'
+  mutate_line "$target" "$anchor" "$replacement" || fail 'MUT-003/anchor-not-unique'
+  grep -Fxq "$replacement" "$target" || fail 'MUT-003/mutation-not-applied'
+
+  local bin="$run_dir/regenerate-docs-mut003"
+  local log="$root/build-mut.log"
+  if ! run_go "$root" build -o "$bin" ./cmd/regenerate-docs >"$log" 2>&1; then
+    cat "$log" >&2
+    fail 'MUT-003/build-failed'
+  fi
+
+  local fixture="$run_dir/mut003-fixture"
+  mkdir -p "$fixture"
+  cat >"$fixture/index.mjs" <<'FIXEOF'
+/**
+ * Adds two numbers together.
+ */
+export function add(a, b) {
+  return a + b;
+}
+FIXEOF
+
+  local mut_out="$run_dir/mut003-out"
+  set +e
+  ( export PATH="/usr/bin:/bin"; ulimit -v 8388608
+    AURUMCODE_SOURCE_DIR="$fixture" AURUMCODE_OUTPUT_DIR="$mut_out" GOMEMLIMIT=2GiB "$bin"
+  ) >"$run_dir/mut003.out" 2>"$run_dir/mut003.err"
+  set -e
+
+  if [[ -s "$mut_out/javascript/index.md" ]]; then
+    fail 'MUT-003/mutation-had-no-observable-effect'
+  fi
+  grep -Fq 'required tool not in PATH' "$run_dir/mut003.out" "$run_dir/mut003.err" \
+    || fail 'MUT-003/defect-signature-not-reproduced'
+
+  cleanup_root "$root"
+
+  # Restoration: the clean stage (unmutated SelectExtractor wiring) still
+  # produces the real page -- the GREEN reproduces exactly.
+  nominal_cli_case
+  printf '%s/%s/MUT-003/rejected\n' "$card" "$scenario"
+}
+
 run_all() {
   unit_case || fail 'selector:TestAUR463'
   integration_case || fail 'selector:IntegrationAUR463'
   ac003_case
+  nominal_cli_case
   mutation_mut001
   mutation_mut002
+  mutation_mut003
   printf '%s/%s/ok\n' "$card" "$scenario"
 }
 
@@ -283,6 +440,8 @@ case "$selector" in
   TestAUR463) unit_case || fail 'selector:TestAUR463' ;;
   IntegrationAUR463) integration_case || fail 'selector:IntegrationAUR463' ;;
   E2EAUR463) e2e_case || fail 'selector:E2EAUR463' ;;
+  NominalCLI) nominal_cli_case; printf '%s/%s/NominalCLI/ok\n' "$card" "$scenario" ;;
   AC-001-MUT-001) mutation_mut001 ;;
   AC-001-MUT-002) mutation_mut002 ;;
+  AC-001-MUT-003) mutation_mut003 ;;
 esac

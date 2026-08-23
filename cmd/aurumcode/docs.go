@@ -324,7 +324,13 @@ func registerDocsExtractors(p *pipeline.ExtractorPipeline, runner site.CommandRu
 		return err
 	}
 
-	jsExtractor := javascriptExtractor.NewJSExtractor(runner)
+	// AUR-463: mirrors cmd/regenerate-docs/main.go's own registration exactly
+	// (see that file's comment): SelectExtractor probes for typedoc once and
+	// registers the typedoc-backed JSExtractor when present (byte-identical
+	// output when the tool is installed, AC-003) or the native, tool-free
+	// JSDoc reader when it is not (real documentation instead of
+	// internal/pipeline's unconditional "required tool not in PATH" skip).
+	jsExtractor := javascriptExtractor.SelectExtractor(context.Background(), runner)
 	if err := register(jsExtractor); err != nil {
 		return err
 	}

@@ -197,3 +197,44 @@ func TestExtractorValidate_SucceedsWhenToolsPresent(t *testing.T) {
 		}
 	}
 }
+
+// TestJSSelectExtractor_FallsBackToNativeWhenTypedocIsAbsent pins AUR-463's
+// registration-time choice (javascript.SelectExtractor): with typedoc
+// genuinely absent, it must return the native, tool-free reader instead of
+// JSExtractor, so a composition root that calls it stops registering an
+// extractor whose Validate always fails when typedoc is missing -- the exact
+// defect the "javascript/typedoc" row above still, correctly, pins for
+// javascript.NewJSExtractor itself. That row is unchanged and still true: it
+// describes JSExtractor, a thin wrapper around the typedoc subprocess.
+// SelectExtractor is a new decision a composition root makes BEFORE
+// registering anything, not a change to JSExtractor's own behavior.
+func TestJSSelectExtractor_FallsBackToNativeWhenTypedocIsAbsent(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	ext := javascript.SelectExtractor(context.Background(), site.NewDefaultRunner())
+	if _, ok := ext.(*javascript.NativeExtractor); !ok {
+		t.Fatalf("SelectExtractor = %T with typedoc absent, want *javascript.NativeExtractor", ext)
+	}
+
+	if err := ext.Validate(context.Background()); err != nil {
+		t.Fatalf("native fallback's Validate must always succeed, got: %v", err)
+	}
+	if ext.Language() != extractors.LanguageJavaScript {
+		t.Fatalf("Language() = %q, want %q", ext.Language(), extractors.LanguageJavaScript)
+	}
+}
+
+// TestJSSelectExtractor_KeepsJSExtractorWhenTypedocIsPresent pins the other
+// half: with typedoc genuinely present and working, SelectExtractor must
+// keep returning JSExtractor, so a host with the npm toolchain installed
+// keeps getting typedoc's exact output (AC-003), never the native reader.
+func TestJSSelectExtractor_KeepsJSExtractorWhenTypedocIsPresent(t *testing.T) {
+	binDir := installStubs(t, []string{"typedoc"},
+		"#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1.0.0; exit 0; fi\nexit 0\n")
+	t.Setenv("PATH", binDir)
+
+	ext := javascript.SelectExtractor(context.Background(), site.NewDefaultRunner())
+	if _, ok := ext.(*javascript.JSExtractor); !ok {
+		t.Fatalf("SelectExtractor = %T with typedoc present, want *javascript.JSExtractor", ext)
+	}
+}

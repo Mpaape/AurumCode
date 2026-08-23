@@ -628,7 +628,16 @@ func registerLanguageExtractors(p *pipeline.ExtractorPipeline, runner site.Comma
 		return err
 	}
 
-	jsExtractor := javascriptExtractor.NewJSExtractor(runner)
+	// AUR-463: SelectExtractor probes for typedoc once and returns the
+	// typedoc-backed JSExtractor when it is present (so a host with typedoc
+	// installed keeps getting typedoc's exact output, byte for byte -- see
+	// docs/specs/AUR-463.md's AC-003) or the native, tool-free JSDoc reader
+	// when it is not (so a host without the npm toolchain gets real
+	// documentation instead of internal/pipeline's unconditional "required
+	// tool not in PATH" skip). See javascript.SelectExtractor's doc comment
+	// for why this choice has to be made here, at registration time, rather
+	// than inside Validate.
+	jsExtractor := javascriptExtractor.SelectExtractor(context.Background(), runner)
 	if err := register(jsExtractor); err != nil {
 		return err
 	}
