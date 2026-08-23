@@ -38,6 +38,13 @@ func TestAUR462(t *testing.T) {
 	t.Run("AC002CommentMentioningExecIsNotFound", testAUR462AC002CommentMentioningExecIsNotFound)
 	t.Run("AC002SpawnWithoutShellTrueIsNotFound", testAUR462AC002SpawnWithoutShellTrueIsNotFound)
 	t.Run("AC002OuterHTMLTemplateLiteralIsNotFound", testAUR462AC002OuterHTMLTemplateLiteralIsNotFound)
+	t.Run("AC002SanitizerCallIsNotFound", testAUR462AC002SanitizerCallIsNotFound)
+	t.Run("AC002UppercaseConstantIsNotFound", testAUR462AC002UppercaseConstantIsNotFound)
+	t.Run("AC002EscapeHelperCallIsNotFound", testAUR462AC002EscapeHelperCallIsNotFound)
+	t.Run("AC002DocumentWriteSanitizerCallIsNotFound", testAUR462AC002DocumentWriteSanitizerCallIsNotFound)
+	t.Run("AC002DangerouslySetInnerHTMLSanitizerCallIsNotFound", testAUR462AC002DangerouslySetInnerHTMLSanitizerCallIsNotFound)
+	t.Run("MemberAccessChainWithoutCallIsStillFound", testAUR462MemberAccessChainWithoutCallIsStillFound)
+	t.Run("AcceptedLossBareFunctionCallIsNotFound", testAUR462AcceptedLossBareFunctionCallIsNotFound)
 	t.Run("AC003PythonSQLInjectionUnaffected", testAUR462AC003PythonSQLInjectionUnaffected)
 	t.Run("AC003ExistingCommandInjectionShapesUnaffected", testAUR462AC003ExistingCommandInjectionShapesUnaffected)
 	t.Run("AC003HardcodedSecretUnaffected", testAUR462AC003HardcodedSecretUnaffected)
@@ -169,6 +176,18 @@ var aur462NodeFixtureLines = []string{
 	`function renderStatic() {`,
 	`  document.getElementById("out").innerHTML = "<b>Static content</b>";`,
 	`}`,
+	``,
+	`function renderSanitized(userInput) {`,
+	`  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);`,
+	`}`,
+	``,
+	`function renderTrustedTemplate() {`,
+	`  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;`,
+	`}`,
+	``,
+	`function renderEscaped(x) {`,
+	`  document.getElementById("out").innerHTML = escapeHtml(x);`,
+	`}`,
 }
 
 func aur462NodeFixtureAddedLines() []string {
@@ -201,6 +220,10 @@ func testAUR462ACNodeFixtureEndToEnd(t *testing.T) {
 		{17, "security/command-injection"},
 		{22, "security/xss"},
 	}
+	// The exact-count check below is also the adversarial-review proof for
+	// lines 30 (DOMPurify.sanitize), 34 (TRUSTED_TEMPLATE), 38
+	// (escapeHtml): if any of them produced a finding, len(findings) would
+	// exceed len(wants) and this would fail.
 	if len(findings) != len(wants) {
 		t.Fatalf("expected exactly %d findings, got %d: %+v", len(wants), len(findings), findings)
 	}
@@ -267,6 +290,115 @@ func testAUR462AC002OuterHTMLTemplateLiteralIsNotFound(t *testing.T) {
 	}
 	if len(findings) != 0 {
 		t.Fatalf("outerHTML receiving a template-literal constant (no interpolation) must not be found, got %+v", findings)
+	}
+}
+
+// testAUR462AC002SanitizerCallIsNotFound is the adversarial-review
+// blocker (2026-08-23, reproduced against the compiled candidate, not a
+// fixture): the first cut of the xss pattern anchored only the START of
+// the RHS, so it matched ANY call whose callee name begins with an
+// identifier character -- including the canonical XSS mitigation itself.
+// The fixed pattern anchors both ends (identifier/member-access chain,
+// no call, up to the statement's own closing token), so a sanitizer call
+// must never be found.
+func testAUR462AC002SanitizerCallIsNotFound(t *testing.T) {
+	diff := aur462Diff("src/app.js", 1, `+  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);`)
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("DOMPurify.sanitize(userInput) is the canonical safe innerHTML write and must never be found, got %+v", findings)
+	}
+}
+
+// testAUR462AC002UppercaseConstantIsNotFound is the reviewer's named edge
+// case: TRUSTED_TEMPLATE is a bare identifier with no call, so the
+// "identifier or member-access, no parens" rule alone would still match
+// it. The chosen, documented trade-off (see internal/review/rules/security.yml
+// and docs/specs/AUR-462.md) excludes it on a naming-convention signal:
+// the identifier class requires a LOWERCASE start; an UPPERCASE- or
+// PascalCase-led identifier conventionally names a constant, class, or
+// component in JS, not a place untrusted runtime input flows through.
+func testAUR462AC002UppercaseConstantIsNotFound(t *testing.T) {
+	diff := aur462Diff("src/app.js", 1, `+  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;`)
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("a SCREAMING_SNAKE_CASE constant must not be found, got %+v", findings)
+	}
+}
+
+func testAUR462AC002EscapeHelperCallIsNotFound(t *testing.T) {
+	diff := aur462Diff("src/app.js", 1, `+  document.getElementById("out").innerHTML = escapeHtml(x);`)
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("an escaping helper call must not be found, got %+v", findings)
+	}
+}
+
+// testAUR462AC002DocumentWriteSanitizerCallIsNotFound and
+// testAUR462AC002DangerouslySetInnerHTMLSanitizerCallIsNotFound prove the
+// same anchoring fix was applied uniformly to the other two xss
+// alternatives, not only the one the reviewer's report named: the
+// unfixed anchoring bug would have reproduced identically in both.
+func testAUR462AC002DocumentWriteSanitizerCallIsNotFound(t *testing.T) {
+	diff := aur462Diff("src/app.js", 1, `+  document.write(DOMPurify.sanitize(userInput));`)
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("document.write(DOMPurify.sanitize(...)) must not be found, got %+v", findings)
+	}
+}
+
+func testAUR462AC002DangerouslySetInnerHTMLSanitizerCallIsNotFound(t *testing.T) {
+	diff := aur462Diff("src/app.js", 1, `+  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(raw) }} />`)
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("dangerouslySetInnerHTML's __html carrying a sanitizer call must not be found, got %+v", findings)
+	}
+}
+
+// testAUR462MemberAccessChainWithoutCallIsStillFound proves the fix did
+// not overcorrect into requiring a single bare identifier: a
+// lowercase-led dotted member-access chain with no call anywhere in it
+// (e.g. reading a field off a request object) still counts as untrusted
+// and is still found.
+func testAUR462MemberAccessChainWithoutCallIsStillFound(t *testing.T) {
+	diff := aur462Diff("src/app.js", 1, `+  el.innerHTML = req.body.rawHtml;`)
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 1 || findings[0].RuleID != "security/xss" {
+		t.Fatalf("a lowercase-led member-access chain with no call must still be found, got %+v", findings)
+	}
+}
+
+// testAUR462AcceptedLossBareFunctionCallIsNotFound documents the accepted
+// cost of the fix, in code: a bare call returning untrusted data
+// (genuinely dangerous) is no longer found, because the fix excludes
+// every call -- sanitizer and vulnerability alike -- structurally, with
+// no lookahead available to tell them apart. See docs/specs/AUR-462.md's
+// "Known limitation" section.
+func testAUR462AcceptedLossBareFunctionCallIsNotFound(t *testing.T) {
+	diff := aur462Diff("src/app.js", 1, `+  el.innerHTML = getUserInput();`)
+	findings, err := review.SecurityScan(diff)
+	if err != nil {
+		t.Fatalf("SecurityScan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("accepted loss: a bare function call, dangerous or not, must not be found post-fix, got %+v (if this now fails, the accepted trade-off changed and docs/specs/AUR-462.md must be updated to match)", findings)
 	}
 }
 

@@ -112,6 +112,18 @@ function renderUser(userInput) {
 function renderStatic() {
   document.getElementById("out").innerHTML = "<b>Static content</b>";
 }
+
+function renderSanitized(userInput) {
+  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);
+}
+
+function renderTrustedTemplate() {
+  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;
+}
+
+function renderEscaped(x) {
+  document.getElementById("out").innerHTML = escapeHtml(x);
+}
 NODEJS
 git -C "$node_repo" add src/app.js
 git -C "$node_repo" commit -q -m 'add: node source with planted command-injection and xss shapes'
@@ -134,6 +146,16 @@ grep -Fq 'src/app.js:22: [error]' <<<"$out_sec" || fail innerhtml-direct-write-n
 grep -Fq 'src/app.js:13: [error]' <<<"$out_sec" && fail argv-exec-false-positive
 grep -Fq 'src/app.js:20: [error]' <<<"$out_sec" && fail comment-exec-false-positive
 grep -Fq 'src/app.js:26: [error]' <<<"$out_sec" && fail innerhtml-literal-false-positive
+
+# Adversarial-review proof (2026-08-23): the first cut of the xss pattern
+# anchored only the START of the RHS, so it matched any call whose callee
+# name begins with an identifier character -- including the canonical XSS
+# mitigation itself. A sanitizer call (line 30, DOMPurify.sanitize), an
+# uppercase module constant (line 34, TRUSTED_TEMPLATE), and an escaping
+# helper call (line 38, escapeHtml) must never appear.
+grep -Fq 'src/app.js:30: [error]' <<<"$out_sec" && fail sanitizer-call-false-positive
+grep -Fq 'src/app.js:34: [error]' <<<"$out_sec" && fail uppercase-constant-false-positive
+grep -Fq 'src/app.js:38: [error]' <<<"$out_sec" && fail escape-helper-call-false-positive
 
 # Exact citation counts: three command-injection findings (lines 5, 9,
 # 17), one xss finding (line 22). A pattern that over-matches would

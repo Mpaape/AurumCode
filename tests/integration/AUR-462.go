@@ -80,6 +80,18 @@ var aur462NodeFixtureLines = []string{
 	`function renderStatic() {`,
 	`  document.getElementById("out").innerHTML = "<b>Static content</b>";`,
 	`}`,
+	``,
+	`function renderSanitized(userInput) {`,
+	`  document.getElementById("out").innerHTML = DOMPurify.sanitize(userInput);`,
+	`}`,
+	``,
+	`function renderTrustedTemplate() {`,
+	`  document.getElementById("out").innerHTML = TRUSTED_TEMPLATE;`,
+	`}`,
+	``,
+	`function renderEscaped(x) {`,
+	`  document.getElementById("out").innerHTML = escapeHtml(x);`,
+	`}`,
 }
 
 // filteredEnv strips the three environment variables selectProvider (see
@@ -231,6 +243,21 @@ func IntegrationAUR462(t *testing.T) {
 	}
 	if got := strings.Count(section, "src/app.js:"); got != len(wantFindings) {
 		t.Fatalf("expected exactly %d findings in the security section (the fixture's benign neighbors must produce none), got %d:\n%s", len(wantFindings), got, section)
+	}
+	// Adversarial-review proof (2026-08-23): a sanitizer call
+	// (DOMPurify.sanitize), an uppercase module constant
+	// (TRUSTED_TEMPLATE), and an escaping helper call (escapeHtml) must
+	// never be found, even though the count check above would already
+	// catch it -- named explicitly here so a future reader sees exactly
+	// which lines these are.
+	for _, mustNotAppear := range []string{
+		"src/app.js:30: [error]",
+		"src/app.js:34: [error]",
+		"src/app.js:38: [error]",
+	} {
+		if strings.Contains(section, mustNotAppear) {
+			t.Fatalf("false positive: %q must never appear, got:\n%s", mustNotAppear, section)
+		}
 	}
 	if !strings.Contains(section, "rule security/command-injection") {
 		t.Fatalf("expected a command-injection citation, got:\n%s", section)
