@@ -39,6 +39,8 @@ type ContextSegment struct {
 	Priority PriorityTier // Priority level for trimming
 	SortKey  string       // Stable sort key for deterministic ordering
 	Tokens   int          // Estimated token count
+	FilePath string       // Path of the diff file this segment came from (AUR-467)
+	IsProse  bool         // True when FilePath classified as documentation, not code (AUR-467)
 }
 
 // LanguageRules contains language-specific review rules

@@ -42,11 +42,15 @@ func (b *TokenBudget) BuildContextSegments(diff *types.Diff, detector *analyzer.
 			content := b.formatHunk(&file, &hunk)
 			tokens := b.estimator.Estimate(content)
 
+			_, isProse := classifyFile(file.Path, detector)
+
 			segment := ContextSegment{
 				Content:  content,
 				Priority: filePriority,
 				SortKey:  fmt.Sprintf("%s:%d", file.Path, hunkIdx),
 				Tokens:   tokens,
+				FilePath: file.Path,
+				IsProse:  isProse,
 			}
 
 			segments = append(segments, segment)
