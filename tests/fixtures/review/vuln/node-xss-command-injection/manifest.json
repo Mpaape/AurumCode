@@ -1,0 +1,26 @@
+{
+  "schema": "aurum.git-demo-fixture",
+  "version": 1,
+  "branch": "main",
+  "author": "Aurum Demo Author <demo-author@aurum.invalid>",
+  "committer": "Aurum Demo Bot <demo-bot@aurum.invalid>",
+  "head": "sha1:fb09996c0adcb422be460d64ee2c57420f893eff",
+  "commit_count": 2,
+  "object_count": 7,
+  "commits": [
+    {"index":1,"id":"sha1:53851e138f458003d414c651541946836f40e44c","tree":"sha1:5d303a08bf7be68c2baca8f0f7f4285a676a57f9","parent":"none","timestamp":1700000000,"timezone":"+0000","message":"seed: add the node fixture skeleton","operations":["add:01:README.md"]},
+    {"index":2,"id":"sha1:fb09996c0adcb422be460d64ee2c57420f893eff","tree":"sha1:a584db928f54dfd343976964582a080e13b16394","parent":"sha1:53851e138f458003d414c651541946836f40e44c","timestamp":1700000060,"timezone":"+0000","message":"chore: plant node exec and innerHTML shapes, safe unsafe","operations":["add:02:src/app.js"]}
+  ],
+  "objects": [
+    {"id":"sha1:0ef6b88d54dd2112ca4bbfa4ae11d05b4a6b5a0e","type":"tree","raw_bytes":42,"raw_sha256":"sha256:25a087cfc06002d8295b947a6a62eb0e4cafb3102a5eeaa8236a72d5e8328fbe","stored_sha256":"sha256:8b50a70ead8bf18558c439d9687a6a2ddf873b8ebb061be682f4f6d868293b93"},
+    {"id":"sha1:53851e138f458003d414c651541946836f40e44c","type":"commit","raw_bytes":231,"raw_sha256":"sha256:3216486dc47d743f1d742313cb61b65ec7a0bdcbf736df8dcac3a3d596494330","stored_sha256":"sha256:8656dbd0e0a86d9e44f1ae0c99137712936bfdca365c3a7010fcfe0ea63fdb40"},
+    {"id":"sha1:5d303a08bf7be68c2baca8f0f7f4285a676a57f9","type":"tree","raw_bytes":45,"raw_sha256":"sha256:ace4b9bb074d8d432fd013ead60a579acd479b1c5aba658a9057ef6778712b67","stored_sha256":"sha256:16a44b0eb516d80caff9f6693233b21e4d4752a7917daf7882bf3a7974ea0b7b"},
+    {"id":"sha1:906ab217f613a69528d9e12128177cace4f5b772","type":"blob","raw_bytes":76,"raw_sha256":"sha256:2e9cd082c0c03b2efeb999af81e515c4023aa9684cf0113981f82a62a0b78016","stored_sha256":"sha256:73006928f5d1b6e593fe970f459623e2fcd48e0df81986c3e0c2aa9a0fc79735"},
+    {"id":"sha1:a584db928f54dfd343976964582a080e13b16394","type":"tree","raw_bytes":75,"raw_sha256":"sha256:270ad36610593644088ce736d2aaa988e5a79c758ed72ccab630c482b485b5b8","stored_sha256":"sha256:024d2396daeb7a9ea21b77a58fabe4e382e924198cabd0ac0609b9b94d08e888"},
+    {"id":"sha1:e4deb42db35983cefa3898edc60f83103bb2f363","type":"blob","raw_bytes":903,"raw_sha256":"sha256:abecd97c13ecf2b96b6c0a754003518c2d20a3d870887c1527309b1570124f40","stored_sha256":"sha256:38a0dd804c48fa53532c438728eebad0bcf93550f39b89a0d64f80aa82653bac"},
+    {"id":"sha1:fb09996c0adcb422be460d64ee2c57420f893eff","type":"commit","raw_bytes":300,"raw_sha256":"sha256:8c8a247f7cd795c254cff7a85a01ba7cc2ebfa12091a12fdd99b092ae2485fa6","stored_sha256":"sha256:0de1b6d69be5f2b25a00385a8e62eb522327ea458c257f15df3668ff2a07bf88"}
+  ],
+  "synthetic_secrets": [],
+  "source_digest": "sha256:0b9c4986e1a38b30ea77b3ee644a54e2d46148d995b85b06a03bb4ffae492a04",
+  "fixture_digest": "sha256:47a7e95274b02d225af7d68ff6866d062f9f2ef639e3b146fcc833edc63fd13a"
+}
