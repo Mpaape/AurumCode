@@ -53,12 +53,32 @@ func SanitizeActionRef(content string) (string, bool) {
 
 // gettingStartedGuidePath is the one internal documentation link the welcome
 // content is allowed to point to: the actual guide the card's Non-goals
-// clause names. The generated index stays a landing page; it does not
-// become a guide itself, it points to one.
-const gettingStartedGuidePath = "getting-started.md"
+// clause names, addressed the exact way the generated site links to it.
+// Matching is EXACT EQUALITY against the normalized target
+// (normalizeLinkTarget), never Contains/HasPrefix/HasSuffix: each of those
+// lets a different disguised path escape sanitization -- Contains lets
+// "evil/docs/getting-started.md/../../etc/passwd" and
+// "notes/docs/getting-started.md-old.md" both survive untouched even though
+// neither is a file the generator ever produced (AUR-465 adversarial
+// review). AC-003 requires every internal link to point to a file the
+// generator itself produced; only the literal guide path qualifies.
+const gettingStartedGuidePath = "docs/getting-started.md"
 
 // internalLinkPattern matches a markdown link: [label](target).
 var internalLinkPattern = regexp.MustCompile(`\[([^\]]*)\]\(([^)]+)\)`)
+
+// normalizeLinkTarget strips the parts of a link target that do not change
+// which file it names: a leading "./" and a trailing "#fragment" anchor.
+// Nothing else is stripped -- in particular this performs no path cleaning
+// (no ".." resolution), so a target that merely CONTAINS the guide path
+// inside a longer, different path is never normalized into equalling it.
+func normalizeLinkTarget(target string) string {
+	target = strings.TrimPrefix(target, "./")
+	if hash := strings.IndexByte(target, '#'); hash >= 0 {
+		target = target[:hash]
+	}
+	return target
+}
 
 // SanitizeInternalLinks neutralizes any markdown link whose target is a
 // relative, local path that is not the getting-started guide. AC-003
@@ -77,7 +97,7 @@ func SanitizeInternalLinks(content string) (string, bool) {
 		groups := internalLinkPattern.FindStringSubmatch(match)
 		label, target := groups[1], groups[2]
 
-		if isExternalOrAnchor(target) || strings.Contains(target, gettingStartedGuidePath) {
+		if isExternalOrAnchor(target) || normalizeLinkTarget(target) == gettingStartedGuidePath {
 			return match
 		}
 
