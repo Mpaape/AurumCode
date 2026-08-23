@@ -19,6 +19,11 @@ type PromptBuilder struct {
 	languageDetector *analyzer.LanguageDetector
 	templates        map[string]*template.Template
 	estimator        TokenEstimator
+	// ruleCatalog is the closed list of rule_id values rendered into the
+	// review prompt, so the model chooses from the catalog instead of
+	// inventing an id the AUR-434 gate discards. See rulecatalog.go for
+	// why it is mirrored here rather than imported from internal/review.
+	ruleCatalog []string
 }
 
 // NewPromptBuilder creates a new prompt builder
@@ -27,6 +32,7 @@ func NewPromptBuilder() *PromptBuilder {
 		languageDetector: analyzer.NewLanguageDetector(),
 		templates:        make(map[string]*template.Template),
 		estimator:        NewHeuristicEstimator(), // Default estimator
+		ruleCatalog:      DefaultRuleCatalog,
 	}
 	pb.loadTemplates()
 	return pb
@@ -38,6 +44,7 @@ func NewPromptBuilderWithEstimator(estimator TokenEstimator) *PromptBuilder {
 		languageDetector: analyzer.NewLanguageDetector(),
 		templates:        make(map[string]*template.Template),
 		estimator:        estimator,
+		ruleCatalog:      DefaultRuleCatalog,
 	}
 	pb.loadTemplates()
 	return pb
@@ -67,10 +74,17 @@ func (b *PromptBuilder) loadTemplates() {
 func (b *PromptBuilder) BuildReviewPrompt(diff *types.Diff, metrics *analyzer.DiffMetrics) string {
 	// Try to use template first
 	if tmpl, ok := b.templates["review.md"]; ok {
+		// The catalog is rendered unconditionally here. This entry point
+		// carries no token budget of its own (it takes no MaxTokens), and
+		// the built-in catalog is complete compile-time data, so there is
+		// no partial-list case to signal; AC-002's budget check lives in
+		// BuildPrompt and ValidateRuleCatalog. Leaving the key out would
+		// render the literal "<no value>" where the rule list belongs.
 		data := map[string]interface{}{
 			"Metrics":     b.formatMetrics(metrics),
 			"Languages":   b.formatLanguages(metrics),
 			"DiffContent": b.formatDiffContent(diff),
+			"RuleCatalog": RenderRuleCatalog(b.ruleCatalog),
 		}
 
 		var buf bytes.Buffer
@@ -341,9 +355,24 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	// Build context segments
 	segments := budget.BuildContextSegments(diff, b.languageDetector)
 
-	// Estimate base prompt tokens (system message + instructions)
-	basePrompt := b.buildBasePrompt(opts.SchemaKind, metrics)
+	// Estimate base prompt tokens (system message + instructions,
+	// including the rule catalog for a review)
+	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics)
+	if err != nil {
+		return PromptParts{}, err
+	}
 	baseTokens := b.estimator.Estimate(basePrompt)
+
+	// AC-002: the instructions plus the reply reservation must leave room
+	// for at least some code. When they do not, this fails loudly instead
+	// of letting TrimToFit drop every diff segment and shipping a review
+	// prompt with no diff in it -- a request the model can only answer by
+	// inventing findings.
+	if opts.MaxTokens > 0 && baseTokens+opts.ReserveReply >= opts.MaxTokens {
+		return PromptParts{}, fmt.Errorf(
+			"prompt instructions need %d tokens and the reply reserves %d, which does not fit the %d-token budget: refusing to assemble a %s prompt with no room for the code changes",
+			baseTokens, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
+	}
 
 	// Trim segments to fit budget
 	trimmedSegments := budget.TrimToFit(segments, baseTokens)
@@ -377,28 +406,47 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 // buildUserContent) -- rendering the whole diff into both halves would
 // double the token cost for nothing. The other schema kinds keep the
 // original engine's short inline instructions, unchanged.
-func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics) string {
+func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics) (string, error) {
 	switch schemaKind {
 	case "review":
 		if tmpl, ok := b.templates["review.md"]; ok {
+			// The rule catalog is assembled BEFORE the template runs and
+			// its error is returned, never swallowed: a review prompt
+			// that reached the model without the closed list is this
+			// card's defect, and one that reached it with a truncated
+			// list would be the same defect wearing a catalog id the gate
+			// still discards.
+			catalog, err := b.ruleCatalogSection()
+			if err != nil {
+				return "", err
+			}
 			var buf bytes.Buffer
 			if err := tmpl.Execute(&buf, map[string]interface{}{
 				"Metrics":     b.formatMetrics(metrics),
 				"Languages":   b.formatLanguages(metrics),
 				"DiffContent": "(see the Code Changes section that follows this prompt)",
-			}); err == nil {
-				return buf.String()
+				"RuleCatalog": catalog,
+			}); err != nil {
+				return "", fmt.Errorf("rendering the review prompt template: %w", err)
 			}
+			return buf.String(), nil
 		}
-		return "You are an expert code reviewer. Analyze the following code changes and provide a thorough review."
+		// No silent one-line fallback for a review. The old fallback
+		// returned "You are an expert code reviewer..." with a nil error:
+		// no response schema, no rule_id instruction and no catalog, which
+		// is a stronger form of the very defect this card fixes -- the
+		// model would have to invent both the shape and the ids. A missing
+		// or unparseable template (see loadTemplates) is an assembly
+		// failure, announced.
+		return "", fmt.Errorf("the review prompt template is unavailable: refusing to send a review request without the response schema and the rule catalog")
 	case "test":
-		return "You are an expert test engineer. Generate comprehensive tests for the following code changes."
+		return "You are an expert test engineer. Generate comprehensive tests for the following code changes.", nil
 	case "docs":
-		return "You are a technical documentation expert. Generate documentation for the following code changes."
+		return "You are a technical documentation expert. Generate documentation for the following code changes.", nil
 	case "summary":
-		return "Summarize the following code changes in 2-3 sentences."
+		return "Summarize the following code changes in 2-3 sentences.", nil
 	default:
-		return "You are a helpful code analysis assistant."
+		return "You are a helpful code analysis assistant.", nil
 	}
 }
 
