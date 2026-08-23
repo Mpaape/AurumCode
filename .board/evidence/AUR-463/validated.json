@@ -1,0 +1,21 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-463",
+ "commit": "41f1c4120b89c42b21b0d4022c9dcfeedc103794",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-463",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 on the integrated SHA after read_paths was widened to both binaries' build closure plus every file of the shared extractors package"
+ },
+ "review_notes": {
+  "three_toolchain_states": "The reviewer rebuilt the probe themselves rather than trusting the pinned tests: no typedoc on PATH gives NativeExtractor; a working stub gives JSExtractor; a stub exiting 3 still gives JSExtractor with the real error surfaced, never a silent swap to native.",
+  "no_invented_prose": "Their own fixture covered no-JSDoc, empty /** */, // line comments and a JSDoc separated by a blank line. Every symbol got the correct attribution, none gained synthetic prose, none inherited a neighbour's doc.",
+  "pinned_tests_intact": "git diff shows both pinned test files only gained lines at the end; no existing assertion touched, no t.Skip added.",
+  "own_mutation": "They reintroduced prose synthesis directly in native.go and TestAUR463 went red showing the placeholder leaking, then green on restore.",
+  "measured_on_the_real_target": "Built from this tree with PATH=/usr/bin:/bin, aurumcode docs produced 22 pages with exit 0 from a real 31-file .mjs repository -- each exported symbol named with its signature, and silence where the source has no JSDoc.",
+  "declared_gap": "TypeScript only gained language tolerance, with no coverage of its own; jsSourceExt does not include .ts, so there is no regression, only a gap."
+ }
+}
