@@ -262,28 +262,42 @@ func scanPowerShellFile(path string) (powerShellPage, error) {
 
 		if m := powerShellFunctionPattern.FindStringSubmatch(line); m != nil {
 			doc := strings.Join(pendingDoc, "\n")
-			if len(pendingDoc) > 0 && !hadCodeBefore {
-				// pendingDoc precedes the first executable line this scan
-				// has seen anywhere in the file: nothing but comments and
-				// comment-based help (already handled above) came before
-				// it. That is structurally a file-level header (a license
-				// notice, a copyright banner, comment-based help meant for
-				// the whole script) glued directly to the first function
-				// with no blank line separating them -- indistinguishable
-				// by position from that same first function simply
-				// carrying its own doc comment. Per the card, a comment
-				// attached to the wrong symbol documents a lie, which is
-				// strictly worse than a symbol carrying no prose, so this
-				// ambiguous leading block is always treated as a
-				// script-level note instead. The measured cost (declared
-				// in docs/specs/AUR-464.md): a script whose very FIRST
-				// executable line is a documented function, with no other
-				// code above it, loses that function's real doc into
-				// Notes too -- the two shapes are genuinely
-				// indistinguishable by position and syntax alone. Once ANY
-				// code has run first (hadCodeBefore == true, this commit's
-				// fix), the ambiguity is gone and the doc attaches
-				// normally.
+			// The two prior signals are COMPLEMENTARY, not substitutes for
+			// one another: this comment is an ambiguous file-level header
+			// only when ALL THREE hold -- it precedes the very first
+			// symbol (len(page.Symbols)==0), no earlier comment block has
+			// already been resolved as a note (len(strayNotes)==0, which
+			// alone proves this script has no lingering ambiguity: an
+			// overview already separated into its own Notes block cannot
+			// also BE this function's doc), and no code has run yet
+			// (!hadCodeBefore). Dropping any one of the three re-creates a
+			// defect this card already fixed once: strayNotes alone missed
+			// "code before the doc" (round 2); hadCodeBefore alone missed
+			// "overview, blank line, then the doc" (round 3, this fix) --
+			// a resolved stray note already proves the file header was
+			// already found and filed, so nothing after it can still be
+			// file-level-ambiguous, even if no code ever ran.
+			if len(pendingDoc) > 0 && len(page.Symbols) == 0 && len(strayNotes) == 0 && !hadCodeBefore {
+				// pendingDoc precedes the first executable line AND the
+				// first symbol AND the first resolved note this scan has
+				// seen anywhere in the file: nothing but comments and
+				// comment-based help (already handled above), all within
+				// THIS SAME block, came before it. That is structurally a
+				// file-level header (a license notice, a copyright banner,
+				// comment-based help meant for the whole script) glued
+				// directly to the first function with no blank line
+				// separating them -- indistinguishable by position from
+				// that same first function simply carrying its own doc
+				// comment. Per the card, a comment attached to the wrong
+				// symbol documents a lie, which is strictly worse than a
+				// symbol carrying no prose, so this ambiguous leading
+				// block is always treated as a script-level note instead.
+				// The measured cost (declared in docs/specs/AUR-464.md): a
+				// script whose very FIRST executable line is a documented
+				// function, with NOTHING above it at all -- no code, no
+				// earlier note -- loses that function's real doc into
+				// Notes too. Any one of the three conditions failing
+				// removes the ambiguity and the doc attaches normally.
 				strayNotes = append(strayNotes, doc)
 				doc = ""
 			}

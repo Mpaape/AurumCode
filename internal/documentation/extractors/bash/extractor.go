@@ -260,11 +260,27 @@ func scanBashFile(path string) (bashPage, error) {
 
 		if name, signature, ok := matchBashFunction(line); ok {
 			doc := strings.Join(pendingDoc, "\n")
-			if len(pendingDoc) > 0 && !hadCodeBefore {
-				// pendingDoc precedes the first executable line this scan
-				// has seen anywhere in the file: nothing but the shebang
-				// (never code) and possibly other comments/blanks (already
-				// handled above) came before it. That is structurally a
+			// The two prior signals are COMPLEMENTARY, not substitutes for
+			// one another: this comment is an ambiguous file-level header
+			// only when ALL THREE hold -- it precedes the very first
+			// symbol (len(page.Symbols)==0), no earlier comment block has
+			// already been resolved as a note (len(strayNotes)==0, which
+			// alone proves this script has no lingering ambiguity: an
+			// overview already separated into its own Notes block cannot
+			// also BE this function's doc), and no code has run yet
+			// (!hadCodeBefore). Dropping any one of the three re-creates a
+			// defect this card already fixed once: strayNotes alone missed
+			// "set -euo pipefail before the doc" (round 2); hadCodeBefore
+			// alone missed "overview, blank line, then the doc" (round 3,
+			// this fix) -- a resolved stray note already proves the file
+			// header was already found and filed, so nothing after it can
+			// still be file-level-ambiguous, even if no code ever ran.
+			if len(pendingDoc) > 0 && len(page.Symbols) == 0 && len(strayNotes) == 0 && !hadCodeBefore {
+				// pendingDoc precedes the first executable line AND the
+				// first symbol AND the first resolved note this scan has
+				// seen anywhere in the file: nothing but the shebang
+				// (never code) and possibly more comment lines within THIS
+				// SAME block came before it. That is structurally a
 				// file-level header (a license notice, a copyright banner)
 				// glued directly to the first function with no blank line
 				// separating them -- a common Bash style -- indistinguishable
@@ -275,13 +291,14 @@ func scanBashFile(path string) (bashPage, error) {
 				// block is always treated as a script-level note instead.
 				// The measured cost (declared in docs/specs/AUR-464.md): a
 				// script whose very FIRST executable line is a documented
-				// function, with no other code above it, loses that
-				// function's real doc into Notes too -- the two shapes are
-				// genuinely indistinguishable by position and syntax alone.
-				// Once ANY code has run first (hadCodeBefore == true, this
-				// commit's fix), the ambiguity is gone and the doc attaches
-				// normally -- this is the common case: a shebang, a `set
-				// -euo pipefail`, then the first documented function.
+				// function, with NOTHING above it at all -- no code, no
+				// earlier note -- loses that function's real doc into
+				// Notes too. The two shapes are genuinely indistinguishable
+				// by position and syntax alone. Any one of the three
+				// conditions failing (code already ran, a symbol already
+				// exists, or an earlier note already resolved the file's
+				// own header) removes the ambiguity and the doc attaches
+				// normally.
 				strayNotes = append(strayNotes, doc)
 				doc = ""
 			}
