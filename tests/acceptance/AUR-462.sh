@@ -120,9 +120,13 @@ required_inputs=(
   go.sum
   cmd/aurumcode
   internal/analyzer
+  internal/documentation
+  internal/git
   internal/llm
+  internal/pipeline
   internal/prompt
   internal/review
+  internal/review/cache
   internal/security/redaction
   pkg/types
   tests/fixtures/review/vuln/repo.git
@@ -164,8 +168,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode internal/analyzer internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/pipeline
-  copy "$root" cmd/regenerate-docs
+  copy "$root" internal/git internal/documentation internal/pipeline
   copy "$root" pkg/types internal/llm
   copy "$root" tests/fixtures/review/vuln
   chmod -R u+w -- "$root"
