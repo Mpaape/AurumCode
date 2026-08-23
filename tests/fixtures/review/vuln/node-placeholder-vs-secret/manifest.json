@@ -1,0 +1,27 @@
+{
+  "schema": "aurum.git-demo-fixture",
+  "version": 1,
+  "branch": "main",
+  "author": "Aurum Demo Author <demo-author@aurum.invalid>",
+  "committer": "Aurum Demo Bot <demo-bot@aurum.invalid>",
+  "head": "sha1:714c8802a5afa211bfd532cb4ae210fade187a50",
+  "commit_count": 2,
+  "object_count": 8,
+  "commits": [
+    {"index":1,"id":"sha1:e5b5fd66a62ba79b6f55452076cb185441c084fd","tree":"sha1:e90304d0128cdc2fb62ebafd9aad5b43572e70f0","parent":"none","timestamp":1700000000,"timezone":"+0000","message":"seed: add the placeholder-vs-secret fixture skeleton","operations":["add:01:NOTES.md"]},
+    {"index":2,"id":"sha1:714c8802a5afa211bfd532cb4ae210fade187a50","tree":"sha1:a8cea52fcd486b57d54edd3f0c4203bd9cea5908","parent":"sha1:e5b5fd66a62ba79b6f55452076cb185441c084fd","timestamp":1700000060,"timezone":"+0000","message":"chore: plant placeholder shapes beside real secret and variable concats","operations":["add:02:README.md","add:02:src/app.js"]}
+  ],
+  "objects": [
+    {"id":"sha1:1ca38ba9ea49bd76cae109d88b8c1b75d0f7fdb4","type":"tree","raw_bytes":42,"raw_sha256":"sha256:89e4651482b0eae56ce60a8029213cffabaaea130658ec6ab01b5b87f4ab8b8c","stored_sha256":"sha256:96e05d9e4ed422bec1d13f5d7bbf27d460a0e887b2319319805d2729905443ca"},
+    {"id":"sha1:714c8802a5afa211bfd532cb4ae210fade187a50","type":"commit","raw_bytes":315,"raw_sha256":"sha256:ee3ed8cc711c2ca05dd750d222e793b39614694094f2e7e9a0baca0d32272c6f","stored_sha256":"sha256:b5e211d47f0ca451b27fb29aa5382ec7786b971ac1aef62decbe037e9e6c06e9"},
+    {"id":"sha1:a19f9b1b80fbc3e29b9d07a13330590851d8c09e","type":"blob","raw_bytes":101,"raw_sha256":"sha256:59d9d0c6fe8f9b5765d9d9206c2aba30cec0907d3bb705e65da07a776a209ea0","stored_sha256":"sha256:11cd1e7043d04afdbb7fbaf04046df93befef4e256d016b2e3ba8644a845d749"},
+    {"id":"sha1:a8cea52fcd486b57d54edd3f0c4203bd9cea5908","type":"tree","raw_bytes":112,"raw_sha256":"sha256:08b34c3434f6e933cd07dde1a0978d3be06d5d9845373ec1155b29a852453241","stored_sha256":"sha256:fd2c1104bfa27bb0f5e7214af099eddd3dd368ee20311a44ee46fd28948c955a"},
+    {"id":"sha1:b0fc0520cd601625e5ba6cc97484df6c7b283a97","type":"blob","raw_bytes":101,"raw_sha256":"sha256:f0a56171a8409eb9717809e4257316b690dd3cfc22d64c3fdb855d93d3a850c4","stored_sha256":"sha256:799a55cf309e98ac45cc867c2414378eda9143d4cc4b311e8cf2d17909f45a7a"},
+    {"id":"sha1:dd01842656cc57bf97d8f1d2d4ae52ef0333bf01","type":"blob","raw_bytes":1152,"raw_sha256":"sha256:171a7661137e7bb5adee394088b9be06d7366d29587a28810708a2c7296b158f","stored_sha256":"sha256:8957a349312ea98bea80f2efe3680f5a4fae1b4f80746bde48491db37dd6bfc3"},
+    {"id":"sha1:e5b5fd66a62ba79b6f55452076cb185441c084fd","type":"commit","raw_bytes":248,"raw_sha256":"sha256:5fa0312eabb022ca55d3d917569ca3e7cacb0f7c345d6230478921ee482f28c5","stored_sha256":"sha256:fdbbc8fb55e0288135ff19aea0f72833f37b617cdeb4876e909c081039ea085b"},
+    {"id":"sha1:e90304d0128cdc2fb62ebafd9aad5b43572e70f0","type":"tree","raw_bytes":44,"raw_sha256":"sha256:c910182aa2660059b0deb7190c2e6d984b6c90eb294902105fde8a4a8180afc4","stored_sha256":"sha256:c19589ade2761023e6925c76c5e1e4a071a6e6c6a9db47063ed40126a2b6b05c"}
+  ],
+  "synthetic_secrets": [],
+  "source_digest": "sha256:2b7125895635f36eca7a73154dab1ba9e4f8fde96754dedeabc60e2c23fb9f46",
+  "fixture_digest": "sha256:aac1dddb7fb0a5fc84eaa0fffd2451aff82313e793b22c96cdc597d25e99ce9a"
+}
