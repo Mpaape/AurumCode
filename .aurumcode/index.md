@@ -14,7 +14,7 @@ Welcome to AurumCode's automatically generated API documentation.
 **Using AurumCode as a GitHub Action:**
 
 ```yaml
-- uses: Mpaape/AurumCode@main
+- uses: Mpaape/AurumCode@v1
   with:
     source-dir: '.'
     output-dir: '.aurumcode'

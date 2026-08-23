@@ -17,7 +17,8 @@ theme: just-the-docs
 color_scheme: dark
 
 # Logo and branding
-logo: "/assets/images/logo.png"
+# No logo is declared: a declared asset that does not exist renders broken.
+# Add the file first, then declare it.
 
 # Search Configuration
 search_enabled: true
