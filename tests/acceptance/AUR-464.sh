@@ -101,7 +101,11 @@ package unit
 
 import "testing"
 
-func TestAUR464UnitBridge(t *testing.T) { TestAUR464(t) }
+func TestAUR464UnitBridge(t *testing.T) {
+	TestAUR464(t)
+	TestAUR464FileHeaderNotMisattributed(t)
+	TestAUR464AnchorUniqueAfterNormalization(t)
+}
 EOF
   local out rc
   set +e
@@ -182,7 +186,7 @@ mutation_case_001() {
   stage_source "$root"
   local target="$root/internal/documentation/extractors/bash/extractor.go"
 
-  local anchor=$'\t\tfmt.Fprintf(&b, "### function %s\\n\\n", sym.Name)'
+  local anchor=$'\t\tfmt.Fprintf(&b, "### %s\\n\\n", heading)'
   local replacement=$'\t\tb.WriteString("## Documentation\\n\\n")'
   mutate_line "$target" "$anchor" "$replacement" || fail 'MUT-001/anchor-not-unique'
   grep -Fxq "$replacement" "$target" || fail 'MUT-001/mutation-not-applied'
@@ -192,7 +196,11 @@ package unit
 
 import "testing"
 
-func TestAUR464UnitBridge(t *testing.T) { TestAUR464(t) }
+func TestAUR464UnitBridge(t *testing.T) {
+	TestAUR464(t)
+	TestAUR464FileHeaderNotMisattributed(t)
+	TestAUR464AnchorUniqueAfterNormalization(t)
+}
 EOF
   local rc
   set +e
@@ -214,7 +222,11 @@ package unit
 
 import "testing"
 
-func TestAUR464UnitBridge(t *testing.T) { TestAUR464(t) }
+func TestAUR464UnitBridge(t *testing.T) {
+	TestAUR464(t)
+	TestAUR464FileHeaderNotMisattributed(t)
+	TestAUR464AnchorUniqueAfterNormalization(t)
+}
 EOF
   run_go "$restore_root" test -timeout 300s ./tests/unit -run '^TestAUR464UnitBridge$' -count=1 >/dev/null 2>&1 \
     || fail 'MUT-001/restoration-broken'
@@ -231,7 +243,7 @@ mutation_case_002() {
   stage_source "$root"
   local target="$root/internal/documentation/extractors/bash/extractor.go"
 
-  local anchor=$'\t\tfmt.Fprintf(&b, "### function %s\\n\\n", sym.Name)'
+  local anchor=$'\t\tfmt.Fprintf(&b, "### %s\\n\\n", heading)'
   local replacement=$'\t\tb.WriteString("### function symbol\\n\\n")'
   mutate_line "$target" "$anchor" "$replacement" || fail 'MUT-002/anchor-not-unique'
   grep -Fxq "$replacement" "$target" || fail 'MUT-002/mutation-not-applied'
@@ -241,7 +253,11 @@ package unit
 
 import "testing"
 
-func TestAUR464UnitBridge(t *testing.T) { TestAUR464(t) }
+func TestAUR464UnitBridge(t *testing.T) {
+	TestAUR464(t)
+	TestAUR464FileHeaderNotMisattributed(t)
+	TestAUR464AnchorUniqueAfterNormalization(t)
+}
 EOF
   local rc
   set +e
@@ -262,7 +278,11 @@ package unit
 
 import "testing"
 
-func TestAUR464UnitBridge(t *testing.T) { TestAUR464(t) }
+func TestAUR464UnitBridge(t *testing.T) {
+	TestAUR464(t)
+	TestAUR464FileHeaderNotMisattributed(t)
+	TestAUR464AnchorUniqueAfterNormalization(t)
+}
 EOF
   run_go "$restore_root" test -timeout 300s ./tests/unit -run '^TestAUR464UnitBridge$' -count=1 >/dev/null 2>&1 \
     || fail 'MUT-002/restoration-broken'

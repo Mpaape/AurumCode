@@ -259,3 +259,143 @@ func checkAUR464Page(t *testing.T, page, lang, docFn, undocFn, thirdFn, docText 
 		t.Fatalf("AUR-464/behavior-missing[%s]: stray mid-script comment vanished instead of being collected under a named section:\n%s", lang, page)
 	}
 }
+
+// bashLicenseGluedToFunction and powershellLicenseGluedToFunction are the
+// adversarial reviewer's fixtures for the review's Blocker 1: a file-level
+// header comment (here, a license notice -- but nothing in the fix below
+// may key off that word or any other one) with NO blank line separating it
+// from either the shebang above or the first function below. This is
+// indistinguishable, by position and syntax alone, from that same first
+// function simply carrying its own doc comment -- so scanBashFile must
+// never attach it as that function's Doc: per the card, a comment
+// attributed to the wrong symbol documents a lie, which is worse than a
+// symbol carrying no prose.
+const bashLicenseGluedToFunction = `#!/bin/bash
+# Copyright 2026 Example Corp.
+# All rights reserved. Licensed under MIT.
+license_holder() {
+  echo "ok"
+}
+`
+
+const powershellLicenseGluedToFunction = `# Copyright 2026 Example Corp.
+# All rights reserved. Licensed under MIT.
+function License-Holder {
+    Write-Output "ok"
+}
+`
+
+// TestAUR464FileHeaderNotMisattributed is the reviewer's Blocker 1 fixture,
+// proved for both languages: a leading file-level comment with no blank
+// line before the first function must never become that function's Doc.
+func TestAUR464FileHeaderNotMisattributed(t *testing.T) {
+	t.Run("bash", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "licensed.sh"), bashLicenseGluedToFunction)
+
+		ext := bashextractor.NewBashExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguageBash, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: Extract failed: %v", err)
+		}
+		page := readFileAUR464(t, result.Files[0])
+
+		idx := strings.Index(page, "### function license_holder")
+		if idx < 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: heading for license_holder not found:\n%s", page)
+		}
+		rest := page[idx+len("### function license_holder"):]
+		fenceIdx := strings.Index(rest, "```")
+		if fenceIdx < 0 {
+			t.Fatalf("AUR-464/AC-003/behavior-missing: no code fence after license_holder")
+		}
+		between := strings.TrimSpace(rest[:fenceIdx])
+		if between != "" {
+			t.Fatalf("AUR-464/AC-003/false-claim: license_holder's own section carries the file header as if it were its doc: %q", between)
+		}
+	})
+
+	t.Run("powershell", func(t *testing.T) {
+		srcDir := t.TempDir()
+		outDir := t.TempDir()
+		writeFileAUR464(t, filepath.Join(srcDir, "licensed.ps1"), powershellLicenseGluedToFunction)
+
+		ext := powershellextractor.NewPowerShellExtractor(site.NewMockRunner())
+		result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+			Language: extractors.LanguagePowerShell, SourceDir: srcDir, OutputDir: outDir,
+		})
+		if err != nil || len(result.Files) == 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: Extract failed: %v", err)
+		}
+		page := readFileAUR464(t, result.Files[0])
+
+		idx := strings.Index(page, "### function License-Holder")
+		if idx < 0 {
+			t.Fatalf("AUR-464/AC-001/behavior-missing: heading for License-Holder not found:\n%s", page)
+		}
+		rest := page[idx+len("### function License-Holder"):]
+		fenceIdx := strings.Index(rest, "```")
+		if fenceIdx < 0 {
+			t.Fatalf("AUR-464/AC-003/behavior-missing: no code fence after License-Holder")
+		}
+		between := strings.TrimSpace(rest[:fenceIdx])
+		if between != "" {
+			t.Fatalf("AUR-464/AC-003/false-claim: License-Holder's own section carries the file header as if it were its doc: %q", between)
+		}
+	})
+}
+
+// bashCaseCollisionFixture is the adversarial reviewer's Blocker 2 fixture:
+// two symbols whose names differ only in case. Their heading TEXT differs
+// ("Foo" vs "foo"), but the standard Markdown-heading-to-anchor slug rule
+// (lowercase, then strip) collapses them to the identical anchor
+// "function-foo" -- so a link to one lands on the other unless the renderer
+// itself disambiguates post-normalization.
+const bashCaseCollisionFixture = `#!/bin/bash
+Foo() {
+  echo "upper"
+}
+
+foo() {
+  echo "lower"
+}
+`
+
+// TestAUR464AnchorUniqueAfterNormalization is the reviewer's Blocker 2
+// fixture: it slugs every generated heading with the SAME normalization a
+// real Markdown renderer applies (lowercase, non-word stripped) and
+// requires the RESULT to still be unique, not just the raw heading text.
+func TestAUR464AnchorUniqueAfterNormalization(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	writeFileAUR464(t, filepath.Join(srcDir, "collide.sh"), bashCaseCollisionFixture)
+
+	ext := bashextractor.NewBashExtractor(site.NewMockRunner())
+	result, err := ext.Extract(context.Background(), &extractors.ExtractRequest{
+		Language: extractors.LanguageBash, SourceDir: srcDir, OutputDir: outDir,
+	})
+	if err != nil || len(result.Files) == 0 {
+		t.Fatalf("AUR-464/AC-002/behavior-missing: Extract failed: %v", err)
+	}
+	page := readFileAUR464(t, result.Files[0])
+
+	anchors := map[string]string{}
+	for _, h := range headingsAUR464(page) {
+		if !strings.HasPrefix(h, "###") {
+			continue
+		}
+		text := strings.TrimSpace(strings.TrimLeft(h, "#"))
+		anchor := githubSlugAUR464(text)
+		if other, exists := anchors[anchor]; exists && other != text {
+			t.Fatalf("AUR-464/AC-002/false-claim: headings %q and %q both normalize to anchor %q, so a link to one lands on the other:\n%s",
+				other, text, anchor, page)
+		}
+		anchors[anchor] = text
+	}
+	if len(anchors) != 2 {
+		t.Fatalf("AUR-464/AC-002/behavior-missing: expected 2 distinct post-normalization anchors, got %v", anchors)
+	}
+}
