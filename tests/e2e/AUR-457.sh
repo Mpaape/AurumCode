@@ -63,16 +63,22 @@ if [[ -f $aur002_card && ! -L $aur002_card && -r $aur002_card ]]; then
   read_paths_line="$(awk '/^read_paths: / { print; exit }' "$aur002_card")" ||
     infra 'AUR-002 read_paths unreadable'
   [[ -n $read_paths_line ]] || fail aur002-contract 'AUR-002 declares no read_paths'
-  # The extractor packages are enumerated file by file -- that is the shape of
-  # the defect. If AUR-002 ever lists the directory instead, this claim falls
-  # and docs/specs/AUR-457.md is stale.
-  printf '%s\n' "$read_paths_line" | grep -Fq 'internal/documentation/extractors/rust/extractor.go' ||
-    fail aur002-contract 'AUR-002 no longer enumerates rust/extractor.go; the finding is stale'
-  for src in "${natives[@]}"; do
-    if printf '%s\n' "$read_paths_line" | grep -Fq "$src"; then
-      fail aur002-contract "AUR-002 read_paths now includes $src; the finding is repaired and docs/specs/AUR-457.md is stale"
-    fi
-  done
+  # Rebased by AUR-457 (docs/specs/AUR-457.md Achado 1b, coordinator commit
+  # 479827a): read_paths was repaired from file-by-file enumeration to the
+  # package directory form, so the two native.go files AUR-427 added are
+  # granted without being named individually. If it ever regresses to naming
+  # rust/extractor.go or csharp/extractor.go by file again -- the shape the
+  # original defect had -- this falls and docs/specs/AUR-457.md is stale.
+  printf '%s\n' "$read_paths_line" | grep -Fq 'internal/documentation/extractors/rust,' ||
+    fail aur002-contract 'AUR-002 no longer grants the rust extractors directory; the repair is stale'
+  printf '%s\n' "$read_paths_line" | grep -Fq 'internal/documentation/extractors/csharp,' ||
+    fail aur002-contract 'AUR-002 no longer grants the csharp extractors directory; the repair is stale'
+  if printf '%s\n' "$read_paths_line" | grep -Fq 'internal/documentation/extractors/rust/extractor.go'; then
+    fail aur002-contract 'AUR-002 read_paths reverted to file-by-file enumeration for rust; the native.go gap is back'
+  fi
+  if printf '%s\n' "$read_paths_line" | grep -Fq 'internal/documentation/extractors/csharp/extractor.go'; then
+    fail aur002-contract 'AUR-002 read_paths reverted to file-by-file enumeration for csharp; the native.go gap is back'
+  fi
   read_paths_checked=true
 else
   note read-paths-unavailable "$aur002_card is outside this profile; step 3 asserted only on a host run"
@@ -81,6 +87,10 @@ fi
 # --- 4. the characterization baseline is unchanged --------------------------
 readonly baseline='tests/characterization/legacy-baseline'
 [[ -d $baseline && ! -L $baseline ]] || fail baseline-absent "$baseline"
+# extractor-error rebased by AUR-457: AUR-424 removed the gomarkdoc subprocess
+# this case's stub simulated crashing, so the run now completes with both
+# documents instead of silently losing the Go one. complete-success and
+# missing-extractor are unchanged.
 while IFS='|' read -r replay want; do
   [[ -n $replay ]] || continue
   file="$baseline/$replay"
@@ -89,7 +99,7 @@ while IFS='|' read -r replay want; do
 done <<'REPLAYS'
 complete-success.stderr|aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true
 missing-extractor.stderr|aurumcode: result=partial docs=1 skipped=1 failed=0 languages_skipped=java output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true
-extractor-error.stderr|aurumcode: result=partial docs=1 skipped=0 failed=1 languages_skipped=none output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true
+extractor-error.stderr|aurumcode: result=ok docs=2 skipped=0 failed=0 languages_skipped=none output=/tmp/aurum-a002-output index_pages=2 index_pages_excluded=0 config=true
 REPLAYS
 
 printf '{"card":"%s","scenario":"%s","read_paths_checked":%s,"result":"pass"}\n' \
