@@ -188,3 +188,34 @@ func TestGoExtractorValidate_RealPATHIsIrrelevant(t *testing.T) {
 		}
 	})
 }
+
+// TestJSSelectExtractor_DoesNotSwapToNativeWhenTypedocIsInstalledButFailing
+// pins AUR-463's registration-time choice (javascript.SelectExtractor) on
+// the same axis this file already pins for every extractor's own Validate:
+// an installed-but-failing typedoc must still be reported as a genuine
+// extraction error, never silently swapped for the native fallback. Without
+// this, a broken typedoc install would look identical to a clean native run
+// instead of surfacing the broken toolchain.
+//
+// This does not alter what TestExtractorValidate_ToolPresentButFailingIsAnError
+// above already asserts about javascript.NewJSExtractor's own Validate (still
+// true, still pinned): it adds a second, composition-level assertion about
+// the new SelectExtractor entry point AUR-463 introduces.
+func TestJSSelectExtractor_DoesNotSwapToNativeWhenTypedocIsInstalledButFailing(t *testing.T) {
+	binDir := installStubs(t, []string{"typedoc"}, "#!/bin/sh\necho 'boom' >&2\nexit 1\n")
+	t.Setenv("PATH", binDir)
+
+	ext := javascript.SelectExtractor(context.Background(), site.NewDefaultRunner())
+	if _, ok := ext.(*javascript.JSExtractor); !ok {
+		t.Fatalf("SelectExtractor swapped to %T although typedoc is installed (just failing); "+
+			"a broken install must still surface through JSExtractor.Validate, not a silent native fallback", ext)
+	}
+
+	err := ext.Validate(context.Background())
+	if err == nil {
+		t.Fatal("Validate returned nil although typedoc exits 1")
+	}
+	if _, missing := extractors.MissingTool(err); missing {
+		t.Fatalf("installed-but-failing typedoc was classified as missing: %v", err)
+	}
+}
