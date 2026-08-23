@@ -95,6 +95,64 @@ func TestAUR465(t *testing.T) {
 		t.Fatalf("AUR-465/AC-003/behavior-missing: an in-page anchor must survive untouched, got %q", linkOut)
 	}
 
+	// AC-003 adversarial cases: SanitizeInternalLinks must compare the
+	// normalized target against the guide path by EXACT EQUALITY, never
+	// Contains/HasPrefix/HasSuffix. Each of those lets a differently
+	// disguised path escape sanitization even though none of them names a
+	// file the generator ever produced.
+	disguises := []struct {
+		name   string
+		target string
+	}{
+		// Reviewer-supplied: a Contains check matches because the guide
+		// path substring appears mid-string, even though the real target
+		// walks out of the site via "..".
+		{"contains: path traversal after the guide substring", "evil/docs/getting-started.md/../../etc/passwd"},
+		// Reviewer-supplied: a Contains check matches because the guide
+		// path substring appears mid-string, even though the real file is
+		// a different, unrelated one.
+		{"contains: unrelated file whose name embeds the guide substring", "notes/docs/getting-started.md-old.md"},
+		// A HasPrefix check would wrongly accept this: the target starts
+		// with the guide path but names a different file (a backup, here).
+		{"prefix escape: guide path with a trailing suffix", "docs/getting-started.md.bak"},
+		// A HasSuffix check would wrongly accept this: the target ends with
+		// the guide path but lives under a different, attacker-chosen
+		// directory.
+		{"suffix escape: guide path with a foreign leading directory", "internal/attacker/docs/getting-started.md"},
+	}
+	for _, tc := range disguises {
+		t.Run("SanitizeInternalLinks/"+tc.name, func(t *testing.T) {
+			in := "[Disguised](" + tc.target + ")"
+			out, changed := welcome.SanitizeInternalLinks(in)
+			if !changed {
+				t.Fatalf("AUR-465/AC-003/behavior-missing: disguised target %q survived sanitization untouched (changed=false); it does not name a file the generator produced", tc.target)
+			}
+			if strings.Contains(out, "]("+tc.target+")") {
+				t.Fatalf("AUR-465/AC-003/behavior-missing: disguised target %q still appears as a live link in output %q", tc.target, out)
+			}
+			if !strings.Contains(out, "Disguised") {
+				t.Fatalf("AUR-465/AC-003/behavior-missing: neutralizing %q must keep its label text, got %q", tc.target, out)
+			}
+		})
+	}
+
+	// The legitimate variants normalizeLinkTarget exists to keep working: a
+	// leading "./" and a trailing "#fragment" anchor on the real guide path
+	// must NOT cause the link to be neutralized.
+	legitVariants := []string{
+		"./docs/getting-started.md",
+		"docs/getting-started.md#quick-start",
+	}
+	for _, target := range legitVariants {
+		t.Run("SanitizeInternalLinks/legit-variant/"+target, func(t *testing.T) {
+			in := "[Guide](" + target + ")"
+			out, changed := welcome.SanitizeInternalLinks(in)
+			if changed || !strings.Contains(out, "[Guide]("+target+")") {
+				t.Fatalf("AUR-465/AC-003/behavior-missing: legitimate guide variant %q was wrongly neutralized, got %q (changed=%v)", target, out, changed)
+			}
+		})
+	}
+
 	// -- AC-002: DeclaredAssetPath + AssetExists ----------------------------
 	if path, declared := welcome.DeclaredAssetPath("title: Docs\ndescription: x\n"); declared {
 		t.Fatalf("AUR-465/AC-002/behavior-missing: DeclaredAssetPath found a logo in a config that declares none: %q", path)
