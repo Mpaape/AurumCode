@@ -317,3 +317,18 @@ selado que passa no host e sintoma desta classe, nao de comportamento: procure o
 E quando um builder falsificar o diagnostico do coordenador com execucao,
 acredite nele e verifique voce mesmo. O relatorio honesto de "o que voce me
 mandou nao reproduz" vale mais que um conserto que fecha o card.
+
+## Modelo por papel (limite duro)
+
+Builder e revisor rodam em Sonnet. Opus fica reservado para especificacao,
+planejamento e coordenacao -- escrever card, derivar acceptance, decidir
+sequencia, integrar e julgar evidencia. Nao promova um builder para Opus porque
+o card parece dificil: se o briefing precisa de Opus para ser executado, o
+briefing esta incompleto, e a correcao e escrever o diagnostico medido dentro
+dele, nao trocar o modelo.
+
+Quando o Opus atinge limite de uso, os agentes morrem com "weekly limit". Isso
+NAO significa conta esgotada: teste um modelo menor antes de concluir que nao ha
+agente disponivel. Em 2026-08-14 eu declarei o escritorio parado e passei a
+revisar sozinho por essa conclusao apressada; Sonnet estava disponivel o tempo
+todo, e foi o usuario que teve de perguntar onde estavam os subagentes.
