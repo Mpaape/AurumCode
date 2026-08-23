@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -101,7 +102,24 @@ func IntegrationAUR002() error {
 		return err
 	}
 
-	fmt.Println(`{"card":"AUR-002","scenario":"AC-001","cases":6,"replayed":6,"silent_failures":2,"result":"pass"}`)
+	// The silent-failure count is DERIVED from the parsed cases, never a
+	// literal. It used to be hard-coded as 2 and would have kept reporting 2
+	// after AUR-457 rebased extractor-error to a complete run -- a receipt that
+	// cannot go red is not evidence. Exactly one silent failure survives:
+	// missing-extractor still skips Java without saying so and still exits 0.
+	// extractor-error's silent failure was eliminated by AUR-424, which removed
+	// the external tool whose crash produced it.
+	silent := 0
+	for _, c := range cases {
+		if c.silentFailure == "true" {
+			silent++
+		}
+	}
+	if silent != 1 {
+		return fmt.Errorf("AUR-002: cases.yaml declares %d silent failures, want exactly 1", silent)
+	}
+	fmt.Printf("{\"card\":\"AUR-002\",\"scenario\":\"AC-001\",\"cases\":%d,\"replayed\":%d,\"silent_failures\":%d,\"result\":\"pass\"}\n",
+		len(cases), len(cases), silent)
 	return nil
 }
 
@@ -228,7 +246,7 @@ func runAUR002Legacy(root, input, overlayPath, goCache, goTmpDir string) (aur002
 		return observed, fmt.Errorf("AUR-002: legacy command emitted no aurumcode summary for input %q: %s", input, aur002Diagnostic(stderr.String()))
 	}
 	observed.stderr = strings.ReplaceAll(summary+"\n", "output="+output, "output=/tmp/aurum-a002-output")
-	if err := verifyAUR002GeneratedEffects(output); err != nil {
+	if err := verifyAUR002GeneratedEffects(output, input); err != nil {
 		return observed, err
 	}
 	return observed, nil
@@ -383,24 +401,97 @@ func aur002Summary(stderr string) string {
 	return ""
 }
 
-func verifyAUR002GeneratedEffects(output string) error {
-	docs := 0
+// aur002ExpectedDocs is the rebased oracle for the generated-document effect.
+//
+// It replaces a bare `docs != 1` count. The count was fixed when Go
+// documentation was produced by shelling out to `gomarkdoc`; AUR-424 replaced
+// that subprocess with the standard library's go/doc. The fixture's gomarkdoc
+// stub exits 7 to simulate an external tool crash, so under the old design the
+// `source=go+python+gomarkdoc-error` case lost its Go document and recorded a
+// silent failure (`result=partial ... failed=1`, exit 0). Go extraction now
+// calls no external tool at all, so that stub has nothing left to break: the
+// Go document is produced, and the case yields two documents rather than one.
+// The second document is not a duplicate or an accident -- it is real Go API
+// documentation for the fixture's own `func Main()`, in a different language
+// directory from the Python one, and the silent failure it replaced was
+// eliminated rather than hidden.
+//
+// The oracle is therefore rebased to the CURRENT behavior, and deliberately
+// pinned to the document SET and its CONTENT, never to a count. A count would
+// pass again for the wrong two files; these substrings come from the fixture's
+// own `func Main()` and `"""Fixture module."""`, so a renamed permalink, a lost
+// signature, an empty page, a missing language or an unexpected extra page all
+// fail. If the gomarkdoc-era behavior ever returns, this goes red.
+var aur002ExpectedDocs = map[string][]struct {
+	path     string
+	contains []string
+}{
+	"source=go": {
+		{"go/root.md", []string{"title: Root - Go", "permalink: /go/root/", "# Package main", "func Main()"}},
+	},
+	"source=go+java": {
+		{"go/root.md", []string{"title: Root - Go", "permalink: /go/root/", "# Package main", "func Main()"}},
+	},
+	"source=go+python+gomarkdoc-error": {
+		{"go/root.md", []string{"title: Root - Go", "permalink: /go/root/", "# Package main", "func Main()"}},
+		{"python/module.md", []string{"title: Module - Python", "permalink: /python/module/", "Fixture module."}},
+	},
+}
+
+func verifyAUR002GeneratedEffects(output, input string) error {
+	expected, ok := aur002ExpectedDocs[input]
+	if !ok {
+		return fmt.Errorf("AUR-002: no generated-document oracle for input %q", input)
+	}
+	found := map[string]bool{}
 	err := filepath.WalkDir(output, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") && entry.Name() != "index.md" {
-			docs++
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") || entry.Name() == "index.md" {
+			return nil
 		}
+		rel, relErr := filepath.Rel(output, path)
+		if relErr != nil {
+			return relErr
+		}
+		found[filepath.ToSlash(rel)] = true
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("AUR-002: output directory unavailable: %w", err)
 	}
-	if docs != 1 {
-		return fmt.Errorf("AUR-002: expected one generated document, got %d", docs)
+	for _, want := range expected {
+		if !found[want.path] {
+			return fmt.Errorf("AUR-002: input %q generated no %s (got %s)", input, want.path, aur002SortedKeys(found))
+		}
+		delete(found, want.path)
+		body, readErr := os.ReadFile(filepath.Join(output, filepath.FromSlash(want.path)))
+		if readErr != nil {
+			return fmt.Errorf("AUR-002: generated document unreadable: %s: %w", want.path, readErr)
+		}
+		for _, needle := range want.contains {
+			if !strings.Contains(string(body), needle) {
+				return fmt.Errorf("AUR-002: generated document %s lost required content %q", want.path, needle)
+			}
+		}
+	}
+	if len(found) != 0 {
+		return fmt.Errorf("AUR-002: input %q generated unexpected documents: %s", input, aur002SortedKeys(found))
 	}
 	return nil
+}
+
+func aur002SortedKeys(set map[string]bool) string {
+	keys := make([]string, 0, len(set))
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	if len(keys) == 0 {
+		return "none"
+	}
+	return strings.Join(keys, ", ")
 }
 
 func readAUR002IntegrationCases(root string) ([]aur002IntegrationCase, error) {
