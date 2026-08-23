@@ -119,7 +119,10 @@ func TestAUR457(t *testing.T) {
 	for replay, want := range map[string]string{
 		"complete-success.stderr":  "aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true",
 		"missing-extractor.stderr": "aurumcode: result=partial docs=1 skipped=1 failed=0 languages_skipped=java output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true",
-		"extractor-error.stderr":   "aurumcode: result=partial docs=1 skipped=0 failed=1 languages_skipped=none output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true",
+		// Rebased by AUR-457: AUR-424 removed the gomarkdoc subprocess this
+		// case's stub simulated crashing, so the run now completes with both
+		// documents instead of silently losing the Go one.
+		"extractor-error.stderr":   "aurumcode: result=ok docs=2 skipped=0 failed=0 languages_skipped=none output=/tmp/aurum-a002-output index_pages=2 index_pages_excluded=0 config=true",
 	} {
 		got := aur457Read(t, root, filepath.Join("tests/characterization/legacy-baseline", replay))
 		found := false

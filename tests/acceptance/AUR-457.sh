@@ -189,7 +189,12 @@ claims=$((claims + 1))
 declare -A baseline_line=(
   [complete-success]='aurumcode: result=ok docs=1 skipped=0 failed=0 languages_skipped=none output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true'
   [missing-extractor]='aurumcode: result=partial docs=1 skipped=1 failed=0 languages_skipped=java output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true'
-  [extractor-error]='aurumcode: result=partial docs=1 skipped=0 failed=1 languages_skipped=none output=/tmp/aurum-a002-output index_pages=1 index_pages_excluded=0 config=true'
+  # Rebased by AUR-457: AUR-424 removed the gomarkdoc subprocess this stub
+  # simulated crashing, so the exit-7 stub now breaks nothing and both
+  # documents are produced. This is the one line in this table that this
+  # card's own rebase changed -- complete-success and missing-extractor are
+  # unchanged because their behavior did not change.
+  [extractor-error]='aurumcode: result=ok docs=2 skipped=0 failed=0 languages_skipped=none output=/tmp/aurum-a002-output index_pages=2 index_pages_excluded=0 config=true'
 )
 [[ -d "$baseline" && ! -L "$baseline" ]] ||
   fail characterization-intact "baseline root is not a directory: $baseline"
