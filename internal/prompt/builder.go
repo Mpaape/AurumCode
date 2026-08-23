@@ -355,6 +355,19 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	// Build context segments
 	segments := budget.BuildContextSegments(diff, b.languageDetector)
 
+	// AUR-467: prose (documentation-classified) segments never compete
+	// for the code token budget and never reach the code rule-catalog
+	// content -- see filetype.go for why, and coverage.go for how their
+	// exclusion is declared rather than silent. codeSegments preserves
+	// every other behavior (priority, ordering, truncation) unchanged.
+	codeSegments := make([]ContextSegment, 0, len(segments))
+	for _, s := range segments {
+		if !s.IsProse {
+			codeSegments = append(codeSegments, s)
+		}
+	}
+	codePaths, prosePaths := splitFilesByProse(diff, b.languageDetector)
+
 	// Estimate base prompt tokens (system message + instructions,
 	// including the rule catalog for a review)
 	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics)
@@ -374,21 +387,39 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 			baseTokens, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
 	}
 
-	// Trim segments to fit budget
-	trimmedSegments := budget.TrimToFit(segments, baseTokens)
+	// Trim segments to fit budget -- code segments only; prose never ate
+	// into this budget in the first place, which is also the fix for the
+	// measured ordering starvation (see filetype.go).
+	trimmedSegments := budget.TrimToFit(codeSegments, baseTokens)
 
-	// Build user content from trimmed segments
+	// Build user content from trimmed segments, plus AC-003's coverage
+	// declaration (coverage.go): how many code files made it in, how many
+	// were cut by the budget, and which documentation files were excluded
+	// from the code rule catalog.
 	userContent := b.buildUserContent(trimmedSegments, metrics)
+	coveredCode := coveredFiles(trimmedSegments)
+	userContent += "\n" + renderCoverageDeclaration(codePaths, prosePaths, coveredCode)
+
+	codeFilesReviewed := 0
+	for _, p := range codePaths {
+		if coveredCode[p] {
+			codeFilesReviewed++
+		}
+	}
 
 	parts := PromptParts{
 		System: basePrompt,
 		User:   userContent,
 		Meta: map[string]string{
-			"schema_kind":      opts.SchemaKind,
-			"role":             opts.Role,
-			"segments_total":   fmt.Sprintf("%d", len(segments)),
-			"segments_used":    fmt.Sprintf("%d", len(trimmedSegments)),
-			"estimated_tokens": fmt.Sprintf("%d", baseTokens+budget.EstimateTotal(trimmedSegments)),
+			"schema_kind":          opts.SchemaKind,
+			"role":                 opts.Role,
+			"segments_total":       fmt.Sprintf("%d", len(segments)),
+			"segments_used":        fmt.Sprintf("%d", len(trimmedSegments)),
+			"estimated_tokens":     fmt.Sprintf("%d", baseTokens+budget.EstimateTotal(trimmedSegments)),
+			"code_files_total":     fmt.Sprintf("%d", len(codePaths)),
+			"code_files_reviewed":  fmt.Sprintf("%d", codeFilesReviewed),
+			"code_files_omitted":   fmt.Sprintf("%d", len(codePaths)-codeFilesReviewed),
+			"prose_files_excluded": fmt.Sprintf("%d", len(prosePaths)),
 		},
 	}
 
