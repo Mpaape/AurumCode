@@ -287,6 +287,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		result.Issues = combined
 	}
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
+	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
 
 	// The engine already redacted every model-authored field on result
 	// (internal/review.redactReviewResult, called inside GenerateReview
@@ -670,6 +671,30 @@ func sortedIssues(issues []types.ReviewIssue) []types.ReviewIssue {
 	return out
 }
 
+// filterSuggestionsToChangedLines keeps the published review actionable. A
+// non-blocking suggestion may be general, but once it claims a file and line
+// it must point at an actually added line in this pull request. Models often
+// emit line zero or cite nearby context files; publishing those locations
+// makes the review look authoritative while giving the author nowhere useful
+// to act. Suggestions without a location remain valid general advice.
+func filterSuggestionsToChangedLines(diff *types.Diff, suggestions []types.ReviewSuggestion) []types.ReviewSuggestion {
+	filtered := make([]types.ReviewSuggestion, 0, len(suggestions))
+	for _, suggestion := range suggestions {
+		if strings.TrimSpace(suggestion.File) == "" && suggestion.Line <= 0 {
+			filtered = append(filtered, suggestion)
+			continue
+		}
+		if suggestion.Line <= 0 || !isInlineEligible(diff, types.ReviewIssue{
+			File: suggestion.File,
+			Line: suggestion.Line,
+		}) {
+			continue
+		}
+		filtered = append(filtered, suggestion)
+	}
+	return filtered
+}
+
 const maxCIContextBytes = 16000
 
 // readCIContext reads only the optional, workflow-produced check summary. It
@@ -762,7 +787,7 @@ func formatReviewSummaryForLanguage(result *types.ReviewResult, language string)
 			if suggestion.Description != "" {
 				fmt.Fprintf(&b, " — %s", strings.TrimSpace(suggestion.Description))
 			}
-			if suggestion.File != "" {
+			if suggestion.File != "" && suggestion.Line > 0 {
 				fmt.Fprintf(&b, " (`%s:%d`)", suggestion.File, suggestion.Line)
 			}
 			b.WriteByte('\n')
