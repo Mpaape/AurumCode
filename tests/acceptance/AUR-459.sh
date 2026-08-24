@@ -117,13 +117,15 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode cmd/regenerate-docs
-  # This list is enumerated by hand and rots: cmd/aurumcode gained an import
-  # of internal/config (AUR-452) and the build then failed under GOPROXY=off
-  # with a confusing gorilla/mux message, because the resolver reaches for the
-  # whole module graph before it can say which local package is missing.
-  # Whoever adds a package under internal/ that cmd/aurumcode imports must add
-  # it here too. Derive it with: go list -deps ./cmd/aurumcode
-  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline internal/config
+  # This list is enumerated by hand and rots: when cmd/aurumcode gains an
+  # import under internal/, the build fails here under GOPROXY=off with a
+  # confusing third-party message, because the resolver reaches for the whole
+  # module graph before it can name the local package that is missing. Add the
+  # package here IN THE SAME CHANGE that introduces the import, never before it
+  # exists -- naming a package that is not tracked yet breaks this acceptance
+  # the other way, at copy()'s own existence check.
+  # Derive the set with: go list -deps ./cmd/aurumcode
+  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline
   copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
   copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review

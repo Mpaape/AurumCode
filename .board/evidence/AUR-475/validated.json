@@ -1,0 +1,20 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-475",
+ "commit": "ebc0962ff44d7c198fbafcb702ae4d74c5325705",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-475",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 on the integrated SHA"
+ },
+ "review_notes": {
+  "foreign_fixture_is_a_repair": "The card had to touch AUR-467's partial-hunk fixture. The reviewer did not accept the number: they instrumented internal/prompt, measured baseTokens=1305, coverageReserve=130 and Available()=max-20, and swept the token window. At 1470 only 15 tokens remained for a 35-token hunk, so hunk0 could never fit whole -- it survived only through the truncation this card removes. They then read the old budgeting.go and confirmed the truncated fragment happened to contain the substring the assertion looked for: the test passed by accident of the bug.",
+  "stable_window_not_a_lucky_point": "They swept 1460-1471 and 1495-1520 rather than checking one value, confirming 1510 sits inside a real window where hunk0 fits and hunk0+hunk1 does not.",
+  "no_assertion_weakened": "git diff shows only MaxTokens and a comment; all six t.Fatalf assertions of the subtest intact, no t.Skip.",
+  "budgeting_test_untouched_and_justified": "Its fixtures place the non-fitting segment last, so break and continue agree there. The real scenario -- a middle file that does not fit with a smaller one behind it -- is covered by this card's own programs and killed by MUT-001.",
+  "no_regression_against_AUR477": "With 50 and 200 files the reserve stays well under budget; continue does not enlarge the reserve, it only lets more files in under the same one."
+ }
+}
