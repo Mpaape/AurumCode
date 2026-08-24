@@ -68,3 +68,22 @@ func TestSuppressWorkflowReferenceFindingsDropsWorkflowLineOutsideDiff(t *testin
 		t.Fatalf("a workflow secret finding outside the reviewed hunk must not block this diff: %+v", got)
 	}
 }
+
+func TestSuppressWorkflowReferenceSuggestions(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path: ".github/workflows/ci.yml",
+		Hunks: []types.DiffHunk{{
+			NewStart: 4,
+			Lines:    []string{" name: CI", " permissions:", "+  contents: read"},
+		}},
+	}}}
+	suggestions := []types.ReviewSuggestion{
+		{Title: "Safe permission", Description: "The read scope is fine.", File: ".github/workflows/ci.yml", Line: 6},
+		{Title: "Untouched workflow line", File: ".github/workflows/ci.yml", Line: 2},
+		{Title: "Keep this change", File: "internal/app.go", Line: 8},
+	}
+	got := suppressWorkflowReferenceSuggestions(diff, suggestions)
+	if len(got) != 1 || got[0].Title != "Keep this change" {
+		t.Fatalf("got suggestions %+v, want only the non-workflow suggestion", got)
+	}
+}

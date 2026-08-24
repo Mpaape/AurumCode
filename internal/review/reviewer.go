@@ -167,6 +167,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// types cannot become a blocking issue while literal values remain visible
 	// to the deterministic security pass.
 	result.Issues = suppressWorkflowReferenceFindings(diff, result.Issues)
+	result.Suggestions = suppressWorkflowReferenceSuggestions(diff, result.Suggestions)
 
 	// Rule gate (AUR-434): every issue must cite a rule of the project
 	// review standard. A broken or empty embedded catalog is a loud

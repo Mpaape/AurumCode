@@ -25,6 +25,24 @@ func suppressWorkflowReferenceFindings(diff *types.Diff, issues []types.ReviewIs
 	return kept
 }
 
+// suppressWorkflowReferenceSuggestions applies the same source-aware rule to
+// non-blocking model suggestions. A suggestion about a workflow line that is
+// not in the reviewed patch, or that is only a GitHub Actions reference, is
+// not useful evidence for this review and must not survive into the published
+// comment.
+func suppressWorkflowReferenceSuggestions(diff *types.Diff, suggestions []types.ReviewSuggestion) []types.ReviewSuggestion {
+	kept := make([]types.ReviewSuggestion, 0, len(suggestions))
+	for _, suggestion := range suggestions {
+		line, found := workflowDiffLine(diff, suggestion.File, suggestion.Line)
+		if strings.HasPrefix(suggestion.File, ".github/workflows/") &&
+			(!found || safeWorkflowReference(suggestion.File, line)) {
+			continue
+		}
+		kept = append(kept, suggestion)
+	}
+	return kept
+}
+
 func workflowDiffLine(diff *types.Diff, path string, wanted int) (string, bool) {
 	if diff == nil || wanted <= 0 {
 		return "", false
