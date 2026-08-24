@@ -1,0 +1,21 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-460",
+ "commit": "470bfedc931c5f2bc923540f8ef1025d50d8d084",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-460",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 on the integrated SHA"
+ },
+ "review_notes": {
+  "measured_live": "Against the real gateway after the fix, --modelo gpt-5.6-luna reviews and catches the command injection with a concrete exploitation example. Before, the same call returned 400.",
+  "stronger_than_omitempty": "The Temperature field is gone from the litellm request struct entirely, so it cannot be serialised by accident. Sending 0 is refused by those models too; only omission works.",
+  "pinned_test_updated_not_weakened": "internal/llm/types_test.go had its expected value changed from 0.3 to 0 with a comment explaining the behaviour change. The reviewer checked the diff: the assertion is still there and still asserts.",
+  "unreachability_verified_twice": "The claim that openai, anthropic and ollama do not matter was confirmed independently by go list -deps ./cmd/aurumcode and by reading main.go -- only litellm.NewProvider is instantiated. Those three still forward temperature but are unreachable from this binary.",
+  "real_mutation": "The reviewer reintroduced the field in the actual worktree file, not in the script's sandbox copy, and all four subtests fell leaking the JSON with temperature in the body.",
+  "declared_tradeoff": "A user who needs an explicit temperature on litellm no longer has one. The card authorises always-omit and says so."
+ }
+}
