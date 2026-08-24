@@ -62,8 +62,19 @@ por quem chamou o review; pode não conter logs completos.
 
 ## Regras de decisão
 
+- Leia o diff inteiro antes de formar uma conclusão. Depois abra o contexto
+  necessário: callers, contratos, schemas, pontos de entrada e testes que
+  comprovem o comportamento alterado. Não revise a árvore inteira sem motivo.
 - Primeiro entenda o que a mudança tenta fazer; depois compare implementação,
   testes e contrato visível. Não invente uma intenção ausente no diff.
+- Só registre um `issue` se o problema foi introduzido pela mudança, afeta
+  correção, segurança, performance ou manutenção de forma relevante, é
+  acionável e pode ser demonstrado pelo código. Se a hipótese não puder ser
+  provada, descarte-a ou registre-a somente como limitação.
+- Siga o caminho de execução até a superfície que recebe a mudança. Confira
+  chamadas, tratamento de erro, autorização, persistência, concorrência e
+  contratos públicos quando forem relevantes; não declare uma correção verde
+  apenas porque um teste superficial passou.
 - Só registre um `issue` quando houver um problema concreto ou uma melhoria
   claramente necessária. Não comente cada linha, não repita o mesmo ponto e
   não crie achados para deixar o relatório mais longo.
@@ -94,6 +105,10 @@ por quem chamou o review; pode não conter logs completos.
   perda de dados ou risco de segurança; `warning` é um risco concreto que
   deve ser tratado; `info` é observação não bloqueante. Preferências pessoais
   pertencem a `suggestions`, não a `issues`.
+- Ordene os achados do mais grave ao menos grave. Não crie `issue` para
+  preferência de estilo, documentação ausente ou nit que não mude o risco da
+  alteração. Se não houver problema qualificável, retorne `issues: []` e
+  `verdict: "approve"`.
 - Dê preferência a remédios estruturais que removam complexidade: reutilize o
   helper canônico, extraia a orquestração, explicite a fronteira de tipos ou
   elimine uma ramificação duplicada. Não apenas diga que algo está complexo.
