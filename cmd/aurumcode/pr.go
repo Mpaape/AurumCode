@@ -241,7 +241,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 
-	result, err := reviewer.GenerateReview(ctx, diff)
+	result, err := reviewer.GenerateReviewWithContext(ctx, diff, review.ReviewContext{
+		CI: readCIContext(),
+	})
 	if err != nil {
 		// --limite: the tracker refused before the model was called, so
 		// nothing was spent -- checked first, exactly like the --base
@@ -342,14 +344,6 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		return 1
 	}
 
-	if len(issues) == 0 {
-		fmt.Fprintln(stdout, "No issues found.")
-		if check {
-			return publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber)
-		}
-		return 0
-	}
-
 	// The publish loop never lets one finding's POST failure swallow the
 	// rest: a failure is recorded and the loop continues, so an inline
 	// comment that fails to post does not also cost the general comment
@@ -363,7 +357,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
 		if isInlineEligible(diff, issue) {
 			comment := githubclient.ReviewComment{
-				Body:     fmt.Sprintf("[%s] %s", issue.Severity, issue.Message),
+				Body:     formatInlineIssue(issue),
 				CommitID: commitID,
 				Path:     issue.File,
 				Line:     issue.Line,
@@ -382,13 +376,21 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		// Outside the changed lines: still published, as a general pull
 		// request comment, never dropped. MUT-001 mutates exactly this
 		// branch.
-		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, line); err != nil {
+		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatInlineIssue(issue)); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
 			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
 			continue
 		}
 		fmt.Fprintf(stdout, "%s -- publicado como comentario geral (fora das linhas alteradas)\n", line)
 		generalCount++
+	}
+
+	// One summary comment is the human-facing review. Operational progress,
+	// provider details and publish failures stay in the Action log; the PR gets
+	// only the structured review itself.
+	if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatReviewSummary(result)); err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
+		failures = append(failures, "summary: "+err.Error())
 	}
 
 	fmt.Fprintf(stdout, "%d comentario(s) publicado(s) no pull request #%d (%d na linha, %d geral).\n",
@@ -604,4 +606,157 @@ func sortedIssues(issues []types.ReviewIssue) []types.ReviewIssue {
 		return out[i].Line < out[j].Line
 	})
 	return out
+}
+
+const maxCIContextBytes = 16000
+
+// readCIContext reads only the optional, workflow-produced check summary. It
+// is intentionally not a required user setting: a review still runs when CI
+// has not reported anything yet. The bound keeps a large provider response
+// from consuming the whole review prompt.
+func readCIContext() string {
+	path := strings.TrimSpace(os.Getenv("AURUMCODE_CI_CONTEXT_FILE"))
+	if path == "" {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	if len(data) > maxCIContextBytes {
+		data = data[:maxCIContextBytes]
+	}
+	return string(data)
+}
+
+func formatInlineIssue(issue types.ReviewIssue) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "**[%s] %s**", issue.Severity, issue.Message)
+	writeReviewField(&b, "Impact", issue.Impact)
+	writeReviewField(&b, "Evidence", issue.Evidence)
+	writeReviewField(&b, "Suggested fix", issue.Suggestion)
+	writeReviewField(&b, "Verify", issue.Verification)
+	return b.String()
+}
+
+func writeReviewField(b *strings.Builder, label, value string) {
+	if value == "" {
+		return
+	}
+	fmt.Fprintf(b, "\n\n**%s:** %s", label, strings.TrimSpace(value))
+}
+
+func formatReviewSummary(result *types.ReviewResult) string {
+	var b strings.Builder
+	b.WriteString("<!-- aurumcode-review -->\n")
+	b.WriteString("## AurumCode code review\n\n")
+	fmt.Fprintf(&b, "**Verdict:** %s\n\n", reviewVerdict(result))
+
+	if text := strings.TrimSpace(result.Summary); text != "" {
+		b.WriteString(text)
+		b.WriteString("\n\n")
+	}
+
+	if len(result.Strengths) > 0 {
+		b.WriteString("### Strengths\n\n")
+		writeReviewBullets(&b, result.Strengths)
+		b.WriteString("\n")
+	}
+
+	if issues := sortedIssues(result.Issues); len(issues) > 0 {
+		b.WriteString("### Findings\n\n")
+		for _, issue := range issues {
+			fmt.Fprintf(&b, "- **[%s] %s:%d** — %s\n", issue.Severity, issue.File, issue.Line, issue.Message)
+			if issue.Impact != "" {
+				fmt.Fprintf(&b, "  - Impact: %s\n", issue.Impact)
+			}
+			if issue.Suggestion != "" {
+				fmt.Fprintf(&b, "  - Suggested fix: %s\n", issue.Suggestion)
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	if len(result.Suggestions) > 0 {
+		b.WriteString("### Suggestions\n\n")
+		for _, suggestion := range result.Suggestions {
+			if strings.TrimSpace(suggestion.Title) == "" && strings.TrimSpace(suggestion.Description) == "" {
+				continue
+			}
+			fmt.Fprintf(&b, "- **%s**", strings.TrimSpace(suggestion.Title))
+			if suggestion.Description != "" {
+				fmt.Fprintf(&b, " — %s", strings.TrimSpace(suggestion.Description))
+			}
+			if suggestion.File != "" {
+				fmt.Fprintf(&b, " (`%s:%d`)", suggestion.File, suggestion.Line)
+			}
+			b.WriteByte('\n')
+		}
+		b.WriteString("\n")
+	}
+
+	if len(result.CIAnalysis) > 0 {
+		b.WriteString("### CI status\n\n")
+		for _, analysis := range result.CIAnalysis {
+			fmt.Fprintf(&b, "- **%s — %s**\n", analysis.Check, analysis.Status)
+			writeSummaryField(&b, "Cause", analysis.Cause)
+			writeSummaryField(&b, "Evidence", analysis.Evidence)
+			writeSummaryField(&b, "Fix", analysis.Fix)
+			writeSummaryField(&b, "Next verification", analysis.NextVerification)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(result.TestPlan) > 0 {
+		b.WriteString("### Tests\n\n")
+		writeReviewBullets(&b, result.TestPlan)
+		b.WriteString("\n")
+	}
+
+	if len(result.Limitations) > 0 {
+		b.WriteString("### Review limits\n\n")
+		writeReviewBullets(&b, result.Limitations)
+	}
+
+	return strings.TrimSpace(b.String()) + "\n"
+}
+
+func reviewVerdict(result *types.ReviewResult) string {
+	for _, issue := range result.Issues {
+		switch strings.ToLower(issue.Severity) {
+		case "error", "warning":
+			return "Changes requested"
+		}
+	}
+	switch strings.ToLower(strings.TrimSpace(result.Verdict)) {
+	case "approve":
+		return "Approve"
+	case "changes_requested":
+		return "Changes requested"
+	case "comment":
+		return "Comment"
+	}
+	if len(result.Issues) > 0 {
+		for _, issue := range result.Issues {
+			if strings.EqualFold(issue.Severity, "info") {
+				return "Comment"
+			}
+		}
+		return "Changes requested"
+	}
+	return "Approve"
+}
+
+func writeReviewBullets(b *strings.Builder, values []string) {
+	for _, value := range values {
+		if text := strings.TrimSpace(value); text != "" {
+			fmt.Fprintf(b, "- %s\n", text)
+		}
+	}
+}
+
+func writeSummaryField(b *strings.Builder, label, value string) {
+	if strings.TrimSpace(value) != "" {
+		fmt.Fprintf(b, "  - **%s:** %s\n", label, strings.TrimSpace(value))
+	}
 }

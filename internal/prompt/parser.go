@@ -97,7 +97,17 @@ var findingLinePattern = regexp.MustCompile(`^(?:[-*]\s+)?([\w./-]+\.\w+):(\d+):
 // template's JSON example and requires this exact set, so a future edit
 // that teaches the model a field nobody reads breaks the build instead of
 // turning back into silence.
-var canonicalReviewFields = []string{"issues", "iso_scores", "summary"}
+var canonicalReviewFields = []string{
+	"ci_analysis",
+	"issues",
+	"iso_scores",
+	"limitations",
+	"strengths",
+	"suggestions",
+	"summary",
+	"test_plan",
+	"verdict",
+}
 
 // acceptedReviewFields is what this parser consumes: the canonical set
 // plus "line_comments", kept as a tolerated alias rather than a taught
@@ -107,7 +117,18 @@ var canonicalReviewFields = []string{"issues", "iso_scores", "summary"}
 // instead of dropped (see adoptLineComments). Every name here is proven to
 // change the parse result by TestAcceptedReviewFieldsAreConsumed -- the
 // list is a claim, that test is the fact.
-var acceptedReviewFields = []string{"issues", "iso_scores", "line_comments", "summary"}
+var acceptedReviewFields = []string{
+	"ci_analysis",
+	"issues",
+	"iso_scores",
+	"limitations",
+	"line_comments",
+	"strengths",
+	"suggestions",
+	"summary",
+	"test_plan",
+	"verdict",
+}
 
 // lineComment is the shape of one entry of a "line_comments" array as a
 // model actually emits it. It is deliberately NOT types.ReviewComment:
@@ -501,6 +522,25 @@ func (p *ResponseParser) validateReviewResult(result *types.ReviewResult) error 
 	// Check if issues is nil (create empty slice if needed)
 	if result.Issues == nil {
 		result.Issues = []types.ReviewIssue{}
+	}
+	if result.Strengths == nil {
+		result.Strengths = []string{}
+	}
+	if result.Suggestions == nil {
+		result.Suggestions = []types.ReviewSuggestion{}
+	}
+	if result.CIAnalysis == nil {
+		result.CIAnalysis = []types.CIAnalysis{}
+	}
+	if result.TestPlan == nil {
+		result.TestPlan = []string{}
+	}
+	if result.Limitations == nil {
+		result.Limitations = []string{}
+	}
+
+	if result.Verdict != "" && result.Verdict != "approve" && result.Verdict != "changes_requested" && result.Verdict != "comment" {
+		return fmt.Errorf("invalid verdict %q (must be approve, changes_requested, or comment)", result.Verdict)
 	}
 
 	// Validate each issue

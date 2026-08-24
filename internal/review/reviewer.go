@@ -46,6 +46,13 @@ type Config struct {
 	ReserveReply int
 }
 
+// ReviewContext contains optional evidence available beside the diff. It is
+// kept separate from the diff so a caller can add CI status without changing
+// the code-review input shape or requiring repository-specific prompt files.
+type ReviewContext struct {
+	CI string
+}
+
 // DefaultConfig returns sensible defaults for Config.
 //
 // Temperature stays at its zero value, deliberately (AUR-460): the litellm
@@ -86,6 +93,12 @@ func NewReviewer(orchestrator *llm.Orchestrator, cfg Config) *Reviewer {
 
 // GenerateReview generates a code review for diff.
 func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types.ReviewResult, error) {
+	return r.GenerateReviewWithContext(ctx, diff, ReviewContext{})
+}
+
+// GenerateReviewWithContext generates a review using the diff and optional
+// external evidence such as completed CI check statuses.
+func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
 	cfg := r.cfg
 
 	// Analyze diff (counts only; metrics carry no content into the prompt)
@@ -111,6 +124,7 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 		SchemaKind:   "review",
 		Role:         "reviewer",
 		ReserveReply: cfg.ReserveReply,
+		CIContext:    r.filter.Redact(reviewContext.CI),
 	}
 
 	promptParts, err := r.promptBuilder.BuildPrompt(diff, metrics, opts)
@@ -258,15 +272,43 @@ func redactDiff(f *redaction.Filter, diff *types.Diff) *types.Diff {
 // the embedded catalog after redaction and is then rejected by the rule
 // gate: fail closed, never a leak.
 func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
+	result.Verdict = f.Redact(result.Verdict)
 	result.Summary = redactLinesKeepingMarkers(f, result.Summary)
 	result.CommitComment = redactLinesKeepingMarkers(f, result.CommitComment)
+	for i := range result.Strengths {
+		result.Strengths[i] = redactLinesKeepingMarkers(f, result.Strengths[i])
+	}
 	for i := range result.Issues {
 		issue := &result.Issues[i]
 		issue.ID = f.Redact(issue.ID)
 		issue.File = f.Redact(issue.File)
 		issue.RuleID = f.Redact(issue.RuleID)
 		issue.Message = redactLinesKeepingMarkers(f, issue.Message)
+		issue.Impact = redactLinesKeepingMarkers(f, issue.Impact)
+		issue.Evidence = redactLinesKeepingMarkers(f, issue.Evidence)
 		issue.Suggestion = redactLinesKeepingMarkers(f, issue.Suggestion)
+		issue.Verification = redactLinesKeepingMarkers(f, issue.Verification)
+	}
+	for i := range result.Suggestions {
+		result.Suggestions[i].Title = redactLinesKeepingMarkers(f, result.Suggestions[i].Title)
+		result.Suggestions[i].Description = redactLinesKeepingMarkers(f, result.Suggestions[i].Description)
+		result.Suggestions[i].File = f.Redact(result.Suggestions[i].File)
+		result.Suggestions[i].Verification = redactLinesKeepingMarkers(f, result.Suggestions[i].Verification)
+	}
+	for i := range result.CIAnalysis {
+		result.CIAnalysis[i].Check = f.Redact(result.CIAnalysis[i].Check)
+		result.CIAnalysis[i].Status = f.Redact(result.CIAnalysis[i].Status)
+		result.CIAnalysis[i].Cause = redactLinesKeepingMarkers(f, result.CIAnalysis[i].Cause)
+		result.CIAnalysis[i].Evidence = redactLinesKeepingMarkers(f, result.CIAnalysis[i].Evidence)
+		result.CIAnalysis[i].Fix = redactLinesKeepingMarkers(f, result.CIAnalysis[i].Fix)
+		result.CIAnalysis[i].NextVerification = redactLinesKeepingMarkers(f, result.CIAnalysis[i].NextVerification)
+		result.CIAnalysis[i].Confidence = f.Redact(result.CIAnalysis[i].Confidence)
+	}
+	for i := range result.TestPlan {
+		result.TestPlan[i] = redactLinesKeepingMarkers(f, result.TestPlan[i])
+	}
+	for i := range result.Limitations {
+		result.Limitations[i] = redactLinesKeepingMarkers(f, result.Limitations[i])
 	}
 	for i := range result.LineComments {
 		result.LineComments[i].Path = f.Redact(result.LineComments[i].Path)

@@ -13,6 +13,7 @@ type BuildOptions struct {
 	SchemaKind   string // Type of schema: "review", "test", "docs", "summary"
 	Role         string // Role context: "reviewer", "tester", "documenter"
 	ReserveReply int    // Tokens to reserve for the reply
+	CIContext    string // Existing CI/check context, when the caller has it
 }
 
 // TokenEstimator estimates token counts for text

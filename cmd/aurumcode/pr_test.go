@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"strings"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
@@ -157,6 +158,66 @@ func TestSortedIssuesDeterministic(t *testing.T) {
 	// sortedIssues must not mutate its input's order.
 	if in[0].File != "docs/notas.md" || in[0].Line != 99 {
 		t.Fatal("sortedIssues mutated the caller's slice order")
+	}
+}
+
+func TestFormatReviewSummaryIsAReviewNotAnExecutionTranscript(t *testing.T) {
+	result := &types.ReviewResult{
+		Verdict:   "changes_requested",
+		Strengths: []string{"The change keeps the public API stable."},
+		Issues: []types.ReviewIssue{{
+			File:         "internal/example.go",
+			Line:         12,
+			Severity:     "error",
+			Message:      "The new branch can return a nil dependency.",
+			Impact:       "The next call panics instead of returning an error.",
+			Evidence:     "The changed branch returns nil without checking the constructor result.",
+			Suggestion:   "Propagate the constructor error.",
+			Verification: "Run the focused package test.",
+		}},
+		Suggestions: []types.ReviewSuggestion{{
+			Title:       "Add a regression test",
+			Description: "Cover the nil dependency branch.",
+		}},
+		CIAnalysis: []types.CIAnalysis{{
+			Check:            "unit-tests",
+			Status:           "failure",
+			Cause:            "The status alone is insufficient to establish a root cause.",
+			Evidence:         "Only the check status was available.",
+			Fix:              "Open the failed check details.",
+			NextVerification: "Rerun unit-tests after the confirmed fix.",
+		}},
+		TestPlan:    []string{"Run the focused package test."},
+		Limitations: []string{"The failed CI log was unavailable."},
+		Summary:     "The change is close, but one correctness issue must be fixed.",
+	}
+
+	comment := formatReviewSummary(result)
+	t.Logf("generated review comment:\n%s", comment)
+	for _, want := range []string{
+		"## AurumCode code review",
+		"**Verdict:** Changes requested",
+		"### Strengths",
+		"### Findings",
+		"### Suggestions",
+		"### CI status",
+		"Cause:",
+		"### Tests",
+		"### Review limits",
+	} {
+		if !strings.Contains(comment, want) {
+			t.Errorf("summary missing %q:\n%s", want, comment)
+		}
+	}
+	for _, forbidden := range []string{
+		"go test ./...",
+		"stderr",
+		"exit code",
+		"/tmp/",
+	} {
+		if strings.Contains(comment, forbidden) {
+			t.Errorf("summary contains execution detail %q:\n%s", forbidden, comment)
+		}
 	}
 }
 

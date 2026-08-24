@@ -39,13 +39,40 @@ type Diff struct {
 
 // ReviewIssue represents a single finding in a code review
 type ReviewIssue struct {
-	ID         string `json:"id" yaml:"id"`
-	File       string `json:"file" yaml:"file"`
-	Line       int    `json:"line" yaml:"line"`
-	Severity   string `json:"severity" yaml:"severity"` // "error", "warning", "info"
-	RuleID     string `json:"rule_id" yaml:"rule_id"`
-	Message    string `json:"message" yaml:"message"`
-	Suggestion string `json:"suggestion,omitempty" yaml:"suggestion,omitempty"`
+	ID           string `json:"id" yaml:"id"`
+	File         string `json:"file" yaml:"file"`
+	Line         int    `json:"line" yaml:"line"`
+	Severity     string `json:"severity" yaml:"severity"` // "error", "warning", "info"
+	RuleID       string `json:"rule_id" yaml:"rule_id"`
+	Message      string `json:"message" yaml:"message"`
+	Impact       string `json:"impact,omitempty" yaml:"impact,omitempty"`
+	Evidence     string `json:"evidence,omitempty" yaml:"evidence,omitempty"`
+	Suggestion   string `json:"suggestion,omitempty" yaml:"suggestion,omitempty"`
+	Verification string `json:"verification,omitempty" yaml:"verification,omitempty"`
+}
+
+// ReviewSuggestion is a non-blocking improvement proposed by the reviewer.
+// Suggestions are deliberately separate from Issues so the published report
+// can distinguish required changes from useful follow-ups.
+type ReviewSuggestion struct {
+	Title        string `json:"title" yaml:"title"`
+	Description  string `json:"description" yaml:"description"`
+	File         string `json:"file,omitempty" yaml:"file,omitempty"`
+	Line         int    `json:"line,omitempty" yaml:"line,omitempty"`
+	Verification string `json:"verification,omitempty" yaml:"verification,omitempty"`
+}
+
+// CIAnalysis records what the reviewer can and cannot conclude about a
+// check. The model must not invent a failure cause when the supplied context
+// contains only a check name or status.
+type CIAnalysis struct {
+	Check            string `json:"check" yaml:"check"`
+	Status           string `json:"status" yaml:"status"`
+	Cause            string `json:"cause" yaml:"cause"`
+	Evidence         string `json:"evidence" yaml:"evidence"`
+	Fix              string `json:"fix" yaml:"fix"`
+	NextVerification string `json:"next_verification" yaml:"next_verification"`
+	Confidence       string `json:"confidence" yaml:"confidence"`
 }
 
 // ISOScores represents ISO/IEC 25010 quality characteristics
@@ -62,14 +89,20 @@ type ISOScores struct {
 
 // ReviewResult represents the complete output of a code review
 type ReviewResult struct {
-	Issues        []ReviewIssue     `json:"issues" yaml:"issues"`
-	ISOScores     *ISOScores        `json:"iso_scores,omitempty" yaml:"iso_scores,omitempty"`
-	Summary       string            `json:"summary" yaml:"summary"`
-	OverallScore  float64           `json:"overall_score" yaml:"overall_score"`
-	LineComments  []ReviewComment   `json:"line_comments" yaml:"line_comments"`   // Line-by-line comments
-	FileComments  []ReviewComment   `json:"file_comments" yaml:"file_comments"`   // File-level summaries
-	CommitComment string            `json:"commit_comment" yaml:"commit_comment"` // Overall PR/commit summary
-	Metadata      map[string]string `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Verdict       string             `json:"verdict" yaml:"verdict"`
+	Strengths     []string           `json:"strengths" yaml:"strengths"`
+	Issues        []ReviewIssue      `json:"issues" yaml:"issues"`
+	Suggestions   []ReviewSuggestion `json:"suggestions" yaml:"suggestions"`
+	CIAnalysis    []CIAnalysis       `json:"ci_analysis" yaml:"ci_analysis"`
+	TestPlan      []string           `json:"test_plan" yaml:"test_plan"`
+	Limitations   []string           `json:"limitations" yaml:"limitations"`
+	ISOScores     *ISOScores         `json:"iso_scores,omitempty" yaml:"iso_scores,omitempty"`
+	Summary       string             `json:"summary" yaml:"summary"`
+	OverallScore  float64            `json:"overall_score" yaml:"overall_score"`
+	LineComments  []ReviewComment    `json:"line_comments" yaml:"line_comments"`   // Legacy input compatibility
+	FileComments  []ReviewComment    `json:"file_comments" yaml:"file_comments"`   // Legacy input compatibility
+	CommitComment string             `json:"commit_comment" yaml:"commit_comment"` // Legacy input compatibility
+	Metadata      map[string]string  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 // ReviewComment represents a comment to post on a PR
