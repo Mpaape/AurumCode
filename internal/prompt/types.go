@@ -15,6 +15,7 @@ type BuildOptions struct {
 	ReserveReply int    // Tokens to reserve for the reply
 	CIContext    string // Existing CI/check context, when the caller has it
 	Language     string // Human-facing review language, e.g. "pt-BR"
+	ChangeScope  string // Deterministic scope classification for the review
 }
 
 // TokenEstimator estimates token counts for text

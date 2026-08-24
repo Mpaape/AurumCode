@@ -288,6 +288,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	}
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
+	suppressOperationalStrengths(diff, result)
 
 	// The engine already redacted every model-authored field on result
 	// (internal/review.redactReviewResult, called inside GenerateReview
@@ -669,6 +670,16 @@ func sortedIssues(issues []types.ReviewIssue) []types.ReviewIssue {
 		return out[i].Line < out[j].Line
 	})
 	return out
+}
+
+// suppressOperationalStrengths prevents a model from presenting repository
+// wiring as a code-quality achievement. A PR that changes only configuration,
+// workflows, documentation or comments may still have real findings, but its
+// published review should not praise the integration setup as product code.
+func suppressOperationalStrengths(diff *types.Diff, result *types.ReviewResult) {
+	if result != nil && !prompt.HasSubstantiveCodeChange(diff) {
+		result.Strengths = nil
+	}
 }
 
 // filterSuggestionsToChangedLines keeps the published review actionable. A

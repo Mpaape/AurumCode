@@ -87,6 +87,7 @@ func (b *PromptBuilder) BuildReviewPrompt(diff *types.Diff, metrics *analyzer.Di
 			"CIContext":      "No CI failure context was supplied.",
 			"RuleCatalog":    RenderRuleCatalog(b.ruleCatalog),
 			"ReviewLanguage": "en-US",
+			"ChangeScope":    ReviewChangeScope(diff),
 		}
 
 		var buf bytes.Buffer
@@ -378,7 +379,11 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 
 	// Estimate base prompt tokens (system message + instructions,
 	// including the rule catalog for a review)
-	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics, opts.CIContext, reviewLanguage)
+	changeScope := opts.ChangeScope
+	if strings.TrimSpace(changeScope) == "" {
+		changeScope = ReviewChangeScope(diff)
+	}
+	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics, opts.CIContext, reviewLanguage, changeScope)
 	if err != nil {
 		return PromptParts{}, err
 	}
@@ -469,7 +474,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 // buildUserContent) -- rendering the whole diff into both halves would
 // double the token cost for nothing. The other schema kinds keep the
 // original engine's short inline instructions, unchanged.
-func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics, ciContext, reviewLanguage string) (string, error) {
+func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics, ciContext, reviewLanguage, changeScope string) (string, error) {
 	switch schemaKind {
 	case "review":
 		if tmpl, ok := b.templates["review.md"]; ok {
@@ -491,6 +496,7 @@ func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.Dif
 				"CIContext":      reviewCIContext(ciContext),
 				"RuleCatalog":    catalog,
 				"ReviewLanguage": reviewLanguage,
+				"ChangeScope":    changeScope,
 			}); err != nil {
 				return "", fmt.Errorf("rendering the review prompt template: %w", err)
 			}
