@@ -673,26 +673,54 @@ func sortedIssues(issues []types.ReviewIssue) []types.ReviewIssue {
 
 // filterSuggestionsToChangedLines keeps the published review actionable. A
 // non-blocking suggestion may be general, but once it claims a file and line
-// it must point at an actually added line in this pull request. Models often
-// emit line zero or cite nearby context files; publishing those locations
-// makes the review look authoritative while giving the author nowhere useful
-// to act. Suggestions without a location remain valid general advice.
+// it must point at actually added lines in this pull request. A code proposal
+// may cover a range, but every line in that range must be added; this gives a
+// future apply operation an exact, reviewable replacement boundary. Models
+// often emit line zero or cite nearby context files; publishing those
+// locations makes the review look authoritative while giving the author
+// nowhere useful to act. Suggestions without a location remain valid general
+// advice.
 func filterSuggestionsToChangedLines(diff *types.Diff, suggestions []types.ReviewSuggestion) []types.ReviewSuggestion {
 	filtered := make([]types.ReviewSuggestion, 0, len(suggestions))
 	for _, suggestion := range suggestions {
-		if strings.TrimSpace(suggestion.File) == "" && suggestion.Line <= 0 {
+		start, end := suggestionRange(suggestion)
+		if strings.TrimSpace(suggestion.File) == "" && start <= 0 && end <= 0 {
 			filtered = append(filtered, suggestion)
 			continue
 		}
-		if suggestion.Line <= 0 || !isInlineEligible(diff, types.ReviewIssue{
-			File: suggestion.File,
-			Line: suggestion.Line,
-		}) {
+		if strings.TrimSpace(suggestion.File) == "" || start <= 0 || end < start || end-start > 1000 {
+			continue
+		}
+		valid := true
+		for line := start; ; line++ {
+			if !isInlineEligible(diff, types.ReviewIssue{File: suggestion.File, Line: line}) {
+				valid = false
+				break
+			}
+			if line == end {
+				break
+			}
+		}
+		if !valid {
 			continue
 		}
 		filtered = append(filtered, suggestion)
 	}
 	return filtered
+}
+
+// suggestionRange keeps the old single-line field compatible while allowing
+// newer model responses to describe a complete replacement range.
+func suggestionRange(suggestion types.ReviewSuggestion) (start, end int) {
+	start = suggestion.StartLine
+	if start <= 0 {
+		start = suggestion.Line
+	}
+	end = suggestion.EndLine
+	if end <= 0 {
+		end = start
+	}
+	return start, end
 }
 
 const maxCIContextBytes = 16000
@@ -787,10 +815,22 @@ func formatReviewSummaryForLanguage(result *types.ReviewResult, language string)
 			if suggestion.Description != "" {
 				fmt.Fprintf(&b, " — %s", strings.TrimSpace(suggestion.Description))
 			}
-			if suggestion.File != "" && suggestion.Line > 0 {
-				fmt.Fprintf(&b, " (`%s:%d`)", suggestion.File, suggestion.Line)
+			if suggestion.File != "" {
+				start, end := suggestionRange(suggestion)
+				if start > 0 && end > 0 {
+					if start == end {
+						fmt.Fprintf(&b, " (`%s:%d`)", suggestion.File, start)
+					} else {
+						fmt.Fprintf(&b, " (`%s:%d-%d`)", suggestion.File, start, end)
+					}
+				}
 			}
 			b.WriteByte('\n')
+			if strings.TrimSpace(suggestion.ProposedCode) != "" {
+				fmt.Fprintf(&b, "  - **%s:**\n\n    ```\n%s\n    ```\n", copy.proposedImplementation, strings.TrimSpace(suggestion.ProposedCode))
+			}
+			writeSummaryField(&b, copy.rationale, suggestion.Rationale)
+			writeSummaryField(&b, copy.verify, suggestion.Verification)
 		}
 		b.WriteString("\n")
 	}
@@ -875,7 +915,8 @@ func reviewSummaryTextForLanguage(result *types.ReviewResult, copy reviewCopy) s
 
 type reviewCopy struct {
 	title, verdict, strengths, findings, suggestions, ciStatus, tests, limits      string
-	impact, evidence, suggestedFix, verify, cause, fix, nextVerification           string
+	impact, evidence, suggestedFix, verify, rationale, proposedImplementation      string
+	cause, fix, nextVerification                                                   string
 	changesRequested, comment, approve                                             string
 	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings string
 }
@@ -884,7 +925,7 @@ func reviewCopyFor(language string) reviewCopy {
 	if strings.EqualFold(strings.TrimSpace(language), "pt-BR") || strings.EqualFold(strings.TrimSpace(language), "pt") {
 		return reviewCopy{
 			title: "revisão de código", verdict: "Veredito", strengths: "Pontos fortes", findings: "Achados", suggestions: "Sugestões", ciStatus: "Status do CI", tests: "Testes", limits: "Limitações da revisão",
-			impact: "Impacto", evidence: "Evidência", suggestedFix: "Correção sugerida", verify: "Verificação", cause: "Causa", fix: "Correção", nextVerification: "Próxima verificação",
+			impact: "Impacto", evidence: "Evidência", suggestedFix: "Correção sugerida", verify: "Verificação", rationale: "Motivação", proposedImplementation: "Implementação sugerida", cause: "Causa", fix: "Correção", nextVerification: "Próxima verificação",
 			changesRequested: "Alterações solicitadas", comment: "Comentário", approve: "Aprovado",
 			blockingFindings:    "A revisão encontrou %d achado(s) bloqueante(s) que devem ser tratados antes do merge.",
 			nonBlockingFindings: "A revisão encontrou observações, mas nenhum achado bloqueante permanece na mudança revisada.",
@@ -894,7 +935,7 @@ func reviewCopyFor(language string) reviewCopy {
 	}
 	return reviewCopy{
 		title: "code review", verdict: "Verdict", strengths: "Strengths", findings: "Findings", suggestions: "Suggestions", ciStatus: "CI status", tests: "Tests", limits: "Review limits",
-		impact: "Impact", evidence: "Evidence", suggestedFix: "Suggested fix", verify: "Verify", cause: "Cause", fix: "Fix", nextVerification: "Next verification",
+		impact: "Impact", evidence: "Evidence", suggestedFix: "Suggested fix", verify: "Verify", rationale: "Rationale", proposedImplementation: "Proposed implementation", cause: "Cause", fix: "Fix", nextVerification: "Next verification",
 		changesRequested: "Changes requested", comment: "Comment", approve: "Approve",
 		blockingFindings:    "The review found %d blocking finding(s) that should be addressed before merge.",
 		nonBlockingFindings: "The review found observations, but no blocking finding remains in the reviewed change.",

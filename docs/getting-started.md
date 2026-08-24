@@ -433,7 +433,7 @@ comentário.
 Configure apenas os secrets do provedor no repositório que hospeda o código, em
 **Settings > Secrets and variables > Actions**: `LLM_API_KEY` e `LLM_BASE_URL`.
 Eles são encaminhados explicitamente para o workflow reutilizável; não ficam
-armazenados no AurumCode. O modelo padrão é `gpt-4o-mini`; só configure outro
+armazenados no AurumCode. O modelo padrão do code review é `gpt-4.1-mini`; só configure outro
 se precisar. Sem esses secrets o job falha claramente e não publica um falso
 review verde. O workflow
 usa `pull_request`, nunca `pull_request_target`, e não compila nem executa o
