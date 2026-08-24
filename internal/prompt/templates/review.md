@@ -50,6 +50,12 @@ to the caller; it may not contain full logs.
 - For every failed CI check, explain the cause and fix only when the supplied
   evidence supports that conclusion. If the evidence is insufficient, say so
   explicitly and give the next diagnostic step instead of guessing.
+- Treat CI/workflow syntax as configuration, not as a credential: GitHub
+  expressions that reference `secrets.NAME` or `github.*`, environment-variable
+  references, and permission scopes such as `contents: read`,
+  `pull-requests: write`, or `statuses: write` are not hardcoded secrets.
+  Never report a finding merely because a secret name or a safe reference
+  appears; report only an actual credential value committed in the change.
 - Never copy raw logs, command transcripts, stack traces, temporary paths,
   secrets, or provider output into any field. Summarize relevant evidence.
 - `verdict` must be `approve` when no blocking issue remains,

@@ -353,6 +353,17 @@ func TestBuildPrompt_SourcedFromAurumcodePromptsReviewMD(t *testing.T) {
 		}
 	}
 
+	for _, marker := range []string{
+		"Treat CI/workflow syntax as configuration, not as a credential",
+		"contents: read",
+		"Never report a finding merely because a secret name or a",
+		"safe reference",
+	} {
+		if !strings.Contains(parts.System, marker) {
+			t.Errorf("expected the review prompt to distinguish workflow references from committed credentials; missing %q", marker)
+		}
+	}
+
 	if !strings.Contains(parts.User, "func main") {
 		t.Errorf("expected User prompt to carry the actual diff content, got:\n%s", parts.User)
 	}
