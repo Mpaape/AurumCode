@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
+	"encoding/base64"
 	"flag"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -23,6 +28,63 @@ func TestParseOwnerRepo(t *testing.T) {
 		if _, _, err := parseOwnerRepo(bad); err == nil {
 			t.Errorf("parseOwnerRepo(%q): expected an error, got none", bad)
 		}
+	}
+}
+
+func TestLoadPullRequestConfigReadsHeadRefWithoutCheckout(t *testing.T) {
+	content := base64.StdEncoding.EncodeToString([]byte("review:\n  language: pt-BR\n"))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/owner/repo/contents/.aurumcode/config.yml" {
+			t.Fatalf("path = %q, want repository config path", r.URL.Path)
+		}
+		if r.URL.Query().Get("ref") != "head-sha" {
+			t.Fatalf("ref = %q, want head-sha", r.URL.Query().Get("ref"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, content)
+	}))
+	defer server.Close()
+
+	cfg, language, err := loadPullRequestConfig(
+		context.Background(),
+		githubclient.NewClientWithBaseURL("", server.URL),
+		"owner", "repo", "head-sha", "",
+	)
+	if err != nil {
+		t.Fatalf("loadPullRequestConfig: %v", err)
+	}
+	if cfg == nil || language != "pt-BR" {
+		t.Fatalf("config/language = %+v/%q, want config/pt-BR", cfg, language)
+	}
+}
+
+func TestLoadPullRequestConfigKeepsGateSettingsOnBase(t *testing.T) {
+	base := base64.StdEncoding.EncodeToString([]byte("rules:\n  security/hardcoded-secret:\n    severity: error\nreview:\n  language: en-US\n"))
+	head := base64.StdEncoding.EncodeToString([]byte("rules:\n  security/hardcoded-secret:\n    enabled: false\nreview:\n  language: pt-BR\n"))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		content := base
+		if r.URL.Query().Get("ref") == "head-sha" {
+			content = head
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, content)
+	}))
+	defer server.Close()
+
+	cfg, language, err := loadPullRequestConfig(
+		context.Background(),
+		githubclient.NewClientWithBaseURL("", server.URL),
+		"owner", "repo", "head-sha", "base-sha",
+	)
+	if err != nil {
+		t.Fatalf("loadPullRequestConfig: %v", err)
+	}
+	if language != "pt-BR" {
+		t.Fatalf("language = %q, want pt-BR from the head preference", language)
+	}
+	rule := cfg.Rules["security/hardcoded-secret"]
+	if rule.Enabled != nil || rule.Severity != "error" {
+		t.Fatalf("gate settings = %+v, want base severity and no head disable", rule)
 	}
 }
 
@@ -233,6 +295,49 @@ func TestFormatReviewSummaryUsesFilteredResult(t *testing.T) {
 	}
 	if strings.Contains(comment, result.Summary) {
 		t.Fatalf("published comment copied the untrusted model summary:\n%s", comment)
+	}
+}
+
+func TestFormatReviewSummaryUsesConfiguredLanguage(t *testing.T) {
+	result := &types.ReviewResult{
+		Issues: []types.ReviewIssue{{
+			File:         "internal/exemplo.go",
+			Line:         12,
+			Severity:     "error",
+			Message:      "A dependência pode ser nula.",
+			Impact:       "A chamada seguinte pode falhar.",
+			Evidence:     "O ramo alterado retorna sem validar o resultado.",
+			Suggestion:   "Propague o erro da construção.",
+			Verification: "Execute o teste focado.",
+		}},
+		CIAnalysis: []types.CIAnalysis{{
+			Check: "testes", Status: "failure", Cause: "A causa não está no contexto fornecido.",
+		}},
+	}
+
+	comment := formatReviewSummaryForLanguage(result, "pt-BR")
+	for _, want := range []string{
+		"## AurumCode revisão de código",
+		"**Veredito:** Alterações solicitadas",
+		"### Achados",
+		"Impacto:",
+		"Evidência:",
+		"Correção sugerida:",
+		"Verificação:",
+		"### Status do CI",
+		"Causa:",
+	} {
+		if !strings.Contains(comment, want) {
+			t.Errorf("Portuguese summary missing %q:\n%s", want, comment)
+		}
+	}
+	if strings.Contains(comment, "### Findings") || strings.Contains(comment, "**Verdict:**") {
+		t.Fatalf("Portuguese summary retained English headings:\n%s", comment)
+	}
+
+	inline := formatInlineIssueForLanguage(result.Issues[0], "pt-BR")
+	if strings.Contains(inline, "Impact:") || !strings.Contains(inline, "Impacto:") {
+		t.Fatalf("inline comment language =\n%s", inline)
 	}
 }
 

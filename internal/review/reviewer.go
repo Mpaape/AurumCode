@@ -50,7 +50,8 @@ type Config struct {
 // kept separate from the diff so a caller can add CI status without changing
 // the code-review input shape or requiring repository-specific prompt files.
 type ReviewContext struct {
-	CI string
+	CI       string
+	Language string
 }
 
 // DefaultConfig returns sensible defaults for Config.
@@ -125,6 +126,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 		Role:         "reviewer",
 		ReserveReply: cfg.ReserveReply,
 		CIContext:    r.filter.Redact(reviewContext.CI),
+		Language:     reviewContext.Language,
 	}
 
 	promptParts, err := r.promptBuilder.BuildPrompt(diff, metrics, opts)

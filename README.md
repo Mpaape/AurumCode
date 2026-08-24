@@ -73,6 +73,18 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   `gpt-4o-mini` by default; override it only when needed with the reusable
   workflow's optional `model` input.
 
+  To choose the language once for this repository, add
+  `.aurumcode/config.yml`:
+
+  ```yaml
+  review:
+    language: pt-BR
+  ```
+
+  The caller workflow does not change. Without this file, reviews use
+  `en-US`; supported values include `pt-BR`, `en-US`, `es-ES`, `fr-FR`,
+  `de-DE`, `it-IT` and `ja-JP`.
+
 - **Generate documentation**:
 
   ```bash

@@ -11,7 +11,7 @@
 // background -- which is exactly what ContextProvider (provider.go)
 // captures.
 //
-// THE SECURITY BOUNDARY THAT EVERY LATER CARD INHERITS
+// # THE SECURITY BOUNDARY THAT EVERY LATER CARD INHERITS
 //
 // Content that arrives through a ContextProvider -- a repository prompt
 // file, a skill, an MCP tool result, a RAG chunk -- is DATA, never an
@@ -51,11 +51,21 @@ type RuleConfig struct {
 	Severity string `yaml:"severity"`
 }
 
+// ReviewConfig contains the small set of presentation preferences that are
+// safe to keep with a repository. It deliberately does not expose rule gates,
+// redaction, cost ceilings, or permissions through this section.
+type ReviewConfig struct {
+	Language string `yaml:"language"`
+}
+
 // Config is the versioned, human-authored settings file this card reads
 // from .aurumcode/config.yml at the repository root. Every field here is
 // explicit configuration, never provider-contributed text -- see the
 // package doc's security boundary.
 type Config struct {
+	// Review contains non-authoritative presentation preferences for the
+	// published code review. An empty section keeps the product default.
+	Review ReviewConfig `yaml:"review"`
 	// Rules maps a rule_id (e.g. "security/hardcoded-secret") to the
 	// explicit override this repository wants for it. A rule_id absent
 	// from this map keeps the engine's built-in behavior untouched.
@@ -79,7 +89,12 @@ const DefaultConfigPath = ".aurumcode/config.yml"
 // that this program could not read must not be read as "the user
 // configured nothing".
 func Load(root string) (*Config, error) {
-	path := filepath.Join(root, DefaultConfigPath)
+	return LoadPath(filepath.Join(root, DefaultConfigPath))
+}
+
+// LoadPath reads one explicit configuration path. A missing path is the
+// zero-config case; a path that exists but cannot be parsed is a loud error.
+func LoadPath(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -87,12 +102,25 @@ func Load(root string) (*Config, error) {
 		}
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
+	return Parse(data, path)
+}
+
+// Parse decodes configuration bytes fetched from a repository API or read
+// from disk. The source is included in errors so a remote PR failure remains
+// actionable without printing the file contents.
+func Parse(data []byte, source string) (*Config, error) {
+	if source == "" {
+		source = DefaultConfigPath
+	}
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", path, err)
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if cfg.Rules == nil {
 		cfg.Rules = map[string]RuleConfig{}
+	}
+	if _, err := cfg.ReviewLanguage(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil
 }

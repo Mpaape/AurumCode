@@ -2,6 +2,7 @@ package githubclient
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -373,6 +375,63 @@ func (c *Client) GetPullRequestDiff(ctx context.Context, owner, repo string, num
 	}
 
 	return diff, nil
+}
+
+// GetRepositoryFile reads a small text file from a repository ref without
+// checking out or executing repository code. The contents endpoint returns
+// base64 JSON, which keeps this path usable for a pull request workflow whose
+// workspace contains only the trusted AurumCode checkout. A missing file is a
+// normal zero-config result (found=false); malformed or oversized content is a
+// loud error.
+func (c *Client) GetRepositoryFile(ctx context.Context, owner, repo, path, ref string) ([]byte, bool, error) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	escaped := make([]string, 0, len(parts))
+	for _, part := range parts {
+		escaped = append(escaped, url.PathEscape(part))
+	}
+	endpoint := fmt.Sprintf("%s/repos/%s/%s/contents/%s", c.baseURL, owner, repo, strings.Join(escaped, "/"))
+	if ref != "" {
+		endpoint += "?ref=" + url.QueryEscape(ref)
+	}
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create repository file request: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, req)
+	if err != nil {
+		return nil, false, err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
+		return nil, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, false, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Content  string `json:"content"`
+		Encoding string `json:"encoding"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		resp.Body.Close()
+		return nil, false, fmt.Errorf("decoding repository file response: %w", err)
+	}
+	resp.Body.Close()
+	if payload.Encoding != "base64" {
+		return nil, false, fmt.Errorf("repository file %s used unsupported encoding %q", path, payload.Encoding)
+	}
+	data, err := base64.StdEncoding.DecodeString(strings.ReplaceAll(payload.Content, "\n", ""))
+	if err != nil {
+		return nil, false, fmt.Errorf("decoding repository file %s: %w", path, err)
+	}
+	if len(data) > 128*1024 {
+		return nil, false, fmt.Errorf("repository file %s is too large (%d bytes; maximum is 131072)", path, len(data))
+	}
+	return data, true, nil
 }
 
 // ListChangedFiles retrieves the list of changed files in a pull request with pagination

@@ -41,13 +41,13 @@ func TestBuildReviewPrompt(t *testing.T) {
 
 	// Check that prompt contains key elements
 	expectedElements := []string{
-		"code reviewer",
+		"code review",
 		"Total files: 1",
 		"Lines added: 3",
 		"File: main.go",
 		"Language: go",
-		"Code Quality",
-		"Security",
+		"Correção",
+		"Segurança",
 		"Performance",
 		"JSON",
 	}
@@ -276,7 +276,7 @@ func TestBuildReviewPrompt_EmptyDiff(t *testing.T) {
 	prompt := builder.BuildReviewPrompt(diff, metrics)
 
 	// Should still contain instructions
-	if !strings.Contains(prompt, "code reviewer") {
+	if !strings.Contains(prompt, "code review") {
 		t.Error("empty diff should still generate valid prompt")
 	}
 }
@@ -354,10 +354,10 @@ func TestBuildPrompt_SourcedFromAurumcodePromptsReviewMD(t *testing.T) {
 	}
 
 	for _, marker := range []string{
-		"Treat CI/workflow syntax as configuration, not as a credential",
+		"Trate sintaxe de workflow como configuração, não como credencial",
 		"contents: read",
-		"Never report a finding merely because a secret name or a",
-		"safe reference",
+		"secrets.NAME",
+		"valor de credencial efetivamente",
 	} {
 		if !strings.Contains(parts.System, marker) {
 			t.Errorf("expected the review prompt to distinguish workflow references from committed credentials; missing %q", marker)
@@ -366,5 +366,27 @@ func TestBuildPrompt_SourcedFromAurumcodePromptsReviewMD(t *testing.T) {
 
 	if !strings.Contains(parts.User, "func main") {
 		t.Errorf("expected User prompt to carry the actual diff content, got:\n%s", parts.User)
+	}
+}
+
+func TestBuildPromptUsesConfiguredReviewLanguage(t *testing.T) {
+	builder := NewPromptBuilder()
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  "main.go",
+		Hunks: []types.DiffHunk{{Lines: []string{"+func main() {}"}}},
+	}}}
+	metrics := &analyzer.DiffMetrics{TotalFiles: 1, LanguageBreakdown: map[string]int{"go": 1}}
+	parts, err := builder.BuildPrompt(diff, metrics, BuildOptions{
+		MaxTokens:    4000,
+		SchemaKind:   "review",
+		Role:         "reviewer",
+		ReserveReply: 1000,
+		Language:     "pt-BR",
+	})
+	if err != nil {
+		t.Fatalf("BuildPrompt: %v", err)
+	}
+	if !strings.Contains(parts.System, "pt-BR") || !strings.Contains(parts.System, "Escreva todo texto") {
+		t.Fatalf("configured review language was not included in the prompt:\n%s", parts.System)
 	}
 }

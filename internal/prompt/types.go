@@ -14,6 +14,7 @@ type BuildOptions struct {
 	Role         string // Role context: "reviewer", "tester", "documenter"
 	ReserveReply int    // Tokens to reserve for the reply
 	CIContext    string // Existing CI/check context, when the caller has it
+	Language     string // Human-facing review language, e.g. "pt-BR"
 }
 
 // TokenEstimator estimates token counts for text
