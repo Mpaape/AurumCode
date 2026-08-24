@@ -281,6 +281,27 @@ func TestBuildReviewPrompt_EmptyDiff(t *testing.T) {
 	}
 }
 
+func TestReviewChangeScopeRejectsOperationalPraise(t *testing.T) {
+	operational := &types.Diff{Files: []types.DiffFile{
+		{Path: ".github/workflows/review.yml", Hunks: []types.DiffHunk{{Lines: []string{"+permissions:", "+  contents: read"}}}},
+		{Path: "README.md", Hunks: []types.DiffHunk{{Lines: []string{"+document the setup"}}}},
+	}}
+	if HasSubstantiveCodeChange(operational) {
+		t.Fatal("configuration and documentation changes were classified as substantive code")
+	}
+	if scope := ReviewChangeScope(operational); !strings.Contains(scope, "leave strengths empty") {
+		t.Fatalf("operational scope = %q, want explicit no-praise instruction", scope)
+	}
+
+	code := &types.Diff{Files: []types.DiffFile{{
+		Path:  "internal/review.go",
+		Hunks: []types.DiffHunk{{Lines: []string{"+return err"}}},
+	}}}
+	if !HasSubstantiveCodeChange(code) {
+		t.Fatal("source code change was not classified as substantive")
+	}
+}
+
 func TestBuildReviewPrompt_MultipleLanguages(t *testing.T) {
 	builder := NewPromptBuilder()
 

@@ -1,6 +1,12 @@
 package prompt
 
-import "github.com/Mpaape/AurumCode/internal/analyzer"
+import (
+	"path/filepath"
+	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/analyzer"
+	"github.com/Mpaape/AurumCode/pkg/types"
+)
 
 // AUR-467: the review sends every changed line through the same CODE rule
 // catalog (rulecatalog.go), regardless of what kind of file it came from.
@@ -58,4 +64,67 @@ func isProseLanguage(language string, detector *analyzer.LanguageDetector) bool 
 func classifyFile(path string, detector *analyzer.LanguageDetector) (language string, isProse bool) {
 	language = detector.DetectLanguage(path)
 	return language, isProseLanguage(language, detector)
+}
+
+// HasSubstantiveCodeChange distinguishes a code-bearing change from a
+// repository-operation change. Config, workflow, documentation and
+// comment-only edits may still be reviewed for their direct effect, but they
+// must not receive fabricated praise about code quality in the published
+// review. Unknown extensions remain code by default so a new source language
+// is never silently excluded.
+func HasSubstantiveCodeChange(diff *types.Diff) bool {
+	if diff == nil {
+		return false
+	}
+	detector := analyzer.NewLanguageDetector()
+	for _, file := range diff.Files {
+		language, prose := classifyFile(file.Path, detector)
+		if prose || detector.IsConfigFile(file.Path) || isNonCodeName(file.Path) {
+			continue
+		}
+		for _, hunk := range file.Hunks {
+			for _, line := range hunk.Lines {
+				if len(line) < 2 || (line[0] != '+' && line[0] != '-') {
+					continue
+				}
+				body := strings.TrimSpace(line[1:])
+				if body != "" && !isCommentLine(body, language) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// ReviewChangeScope is safe to place in the model prompt because it is
+// derived from the diff, not authored by repository content.
+func ReviewChangeScope(diff *types.Diff) string {
+	if HasSubstantiveCodeChange(diff) {
+		return "The diff contains substantive source or test code. Prioritize behavior, correctness, tests, and maintainability of that code."
+	}
+	return "The diff contains only configuration, workflow, documentation, or comment-level changes. Do not manufacture code-quality praise; leave strengths empty unless a concrete behavioral benefit is directly evidenced."
+}
+
+func isNonCodeName(path string) bool {
+	base := strings.ToUpper(filepath.Base(path))
+	switch base {
+	case "LICENSE", "NOTICE", "COPYING", "CHANGELOG", "HANDOFF":
+		return true
+	default:
+		return false
+	}
+}
+
+func isCommentLine(line, language string) bool {
+	switch language {
+	case "python", "shell", "ruby":
+		return strings.HasPrefix(line, "#")
+	case "html":
+		return strings.HasPrefix(line, "<!--")
+	case "sql":
+		return strings.HasPrefix(line, "--") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*")
+	default:
+		return strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*/")
+	}
 }

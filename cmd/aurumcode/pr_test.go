@@ -379,6 +379,29 @@ func TestFilterSuggestionsToChangedLines(t *testing.T) {
 	}
 }
 
+func TestSuppressOperationalStrengths(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  ".aurumcode/config.yml",
+		Hunks: []types.DiffHunk{{Lines: []string{"+review:", "+  language: pt-BR"}}},
+	}}}
+	result := &types.ReviewResult{Strengths: []string{"The repository is now configured clearly."}}
+
+	suppressOperationalStrengths(diff, result)
+	if len(result.Strengths) != 0 {
+		t.Fatalf("operational strengths = %+v, want empty", result.Strengths)
+	}
+
+	codeDiff := &types.Diff{Files: []types.DiffFile{{
+		Path:  "internal/review.go",
+		Hunks: []types.DiffHunk{{Lines: []string{"+return err"}}},
+	}}}
+	result = &types.ReviewResult{Strengths: []string{"The error path is explicit."}}
+	suppressOperationalStrengths(codeDiff, result)
+	if len(result.Strengths) != 1 {
+		t.Fatalf("code strengths = %+v, want preserved", result.Strengths)
+	}
+}
+
 // TestReviewFlagsAcceptSingleOrDoubleDash pins that every flag `review`
 // registers -- --base and the AUR-438 additions (--pr, --repo, --publicar,
 // --na-linha) -- parses identically whether spelled with one leading dash

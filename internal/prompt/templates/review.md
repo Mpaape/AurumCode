@@ -41,6 +41,10 @@ claros.
 
 {{.Metrics}}
 
+## Review scope
+
+{{.ChangeScope}}
+
 ## Languages
 
 {{.Languages}}
@@ -63,8 +67,11 @@ por quem chamou o review; pode não conter logs completos.
 - Só registre um `issue` quando houver um problema concreto ou uma melhoria
   claramente necessária. Não comente cada linha, não repita o mesmo ponto e
   não crie achados para deixar o relatório mais longo.
-- Comece com 1–3 `strengths` concretos, citando o que realmente está bom na
-  mudança. Não use elogio genérico como substituto de análise.
+- Só preencha `strengths` quando houver um benefício concreto e diretamente
+  evidenciado no código ou nos testes alterados. Para mudanças apenas de
+  configuração, workflow, documentação ou comentários, use `"strengths": []`.
+  Não transforme idioma configurado, permissões, gatilho de CI, organização de
+  arquivos ou existência deste próprio review em mérito técnico do produto.
 - Coloque em `issues` os problemas que devem ser corrigidos. Cada um precisa
   de arquivo e linha alterados quando disponíveis, regra do catálogo fechado,
   impacto, evidência, correção prática e verificação.
