@@ -15,8 +15,8 @@ import (
 func suppressWorkflowReferenceFindings(diff *types.Diff, issues []types.ReviewIssue) []types.ReviewIssue {
 	kept := make([]types.ReviewIssue, 0, len(issues))
 	for _, issue := range issues {
-		line := workflowDiffLine(diff, issue.File, issue.Line)
-		if issue.RuleID == "security/hardcoded-secret" && safeWorkflowReference(issue.File, line) {
+		line, found := workflowDiffLine(diff, issue.File, issue.Line)
+		if issue.RuleID == "security/hardcoded-secret" && found && safeWorkflowReference(issue.File, line) {
 			continue
 		}
 		kept = append(kept, issue)
@@ -24,9 +24,9 @@ func suppressWorkflowReferenceFindings(diff *types.Diff, issues []types.ReviewIs
 	return kept
 }
 
-func workflowDiffLine(diff *types.Diff, path string, wanted int) string {
+func workflowDiffLine(diff *types.Diff, path string, wanted int) (string, bool) {
 	if diff == nil || wanted <= 0 {
-		return ""
+		return "", false
 	}
 	for _, file := range diff.Files {
 		if file.Path != path {
@@ -43,13 +43,13 @@ func workflowDiffLine(diff *types.Diff, path string, wanted int) string {
 					continue
 				}
 				if lineNumber == wanted {
-					return body
+					return body, true
 				}
 				lineNumber++
 			}
 		}
 	}
-	return ""
+	return "", false
 }
 
 func safeWorkflowReference(path, line string) bool {
@@ -57,8 +57,11 @@ func safeWorkflowReference(path, line string) bool {
 		return false
 	}
 	line = strings.TrimSpace(line)
+	// A blank line cannot contain a credential. Keep this exception scoped to
+	// workflow files and only call it after the line was proven to exist in
+	// the diff, so an invalid model location does not suppress a real finding.
 	if line == "" {
-		return false
+		return true
 	}
 
 	// These are references resolved by GitHub Actions, never credential
