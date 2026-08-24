@@ -135,7 +135,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode cmd/regenerate-docs
-  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline
+  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline
   copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
   copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
