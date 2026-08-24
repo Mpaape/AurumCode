@@ -56,3 +56,15 @@ func TestSuppressWorkflowReferenceFindingsDropsBlankWorkflowLine(t *testing.T) {
 		t.Fatalf("a model finding on a blank workflow line must be suppressed: %+v", got)
 	}
 }
+
+func TestSuppressWorkflowReferenceFindingsDropsWorkflowLineOutsideDiff(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  ".github/workflows/review.yml",
+		Hunks: []types.DiffHunk{{NewStart: 7, Lines: []string{" permissions:", "+  statuses: write"}}},
+	}}}
+	issues := []types.ReviewIssue{{File: ".github/workflows/review.yml", Line: 5, RuleID: "security/hardcoded-secret"}}
+
+	if got := suppressWorkflowReferenceFindings(diff, issues); len(got) != 0 {
+		t.Fatalf("a workflow secret finding outside the reviewed hunk must not block this diff: %+v", got)
+	}
+}
