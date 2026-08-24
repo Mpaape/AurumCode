@@ -225,10 +225,18 @@ func testAUR467PartialHunkNeverSilentlyComplete(t *testing.T) {
 		},
 	}}}
 
-	// Sized so hunk0 fits and hunk1 does not: base prompt (~1305) plus
-	// this single-file diff's coverage reservation (~130) leaves room for
-	// exactly one ~30-token hunk out of two.
-	parts := aur467BuildPrompt(t, diff, 1470, 20)
+	// AUR-475 (2026-08-23): re-sized from MaxTokens=1470. At 1470 the
+	// coverage-reservation math left only ~17 tokens for content -- less than
+	// hunk0's own 35 tokens -- so hunk0 never fit whole either; it only
+	// "survived" under the old TrimToFit, which truncated the first
+	// non-fitting segment instead of skipping it. AUR-475 removed that
+	// truncation branch (a segment fits whole or is skipped whole, never
+	// truncated), so this fixture must actually leave room for hunk0's
+	// real 35 tokens. At MaxTokens=1510, hunk0 (35 tokens) fits and hunk1
+	// (35 tokens) does not (measured: hunk0 present, hunk1 absent,
+	// code_files_partial=1, code_files_omitted=0) -- the partial case this
+	// test exists to exercise is still exercised, for real this time.
+	parts := aur467BuildPrompt(t, diff, 1510, 20)
 
 	if !strings.Contains(parts.User, "hunk0") {
 		t.Fatalf("test setup invalid: hunk0 did not survive the budget at all:\n%s", parts.User)
