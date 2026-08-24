@@ -12,13 +12,13 @@
 // silently dropped just because it cannot be anchored to a line the diff
 // touched (see MUT-001), and one finding's failure to post never costs
 // another finding its own comment (the publish loop aggregates failures
-// instead of aborting on the first one). Publishing refuses, before any
-// comment is posted, when the token lacks write permission on the
-// repository -- the same fail-closed guarantee AUR-437 already proved for
-// the client itself (internal/git/githubclient.HasWritePermission) -- and
-// refuses just as fail-closed when an inline comment would need a commit
-// SHA that is not available (GITHUB_SHA unset): never a POST built with an
-// empty commit_id.
+// instead of aborting on the first one). Publishing delegates authorization
+// to the GitHub write endpoints: a workflow token may have
+// pull-requests:write or statuses:write while the repository role reports
+// push=false, so GET /repos/{owner}/{repo} is not a valid preflight here.
+// The client still fails closed on an actual API denial and refuses when an
+// inline comment would need a commit SHA that is not available (GITHUB_SHA
+// unset): never a POST is built with an empty commit_id.
 //
 // This file owns only the wiring: flag handling, the diff-shape conversion
 // from the client's package-local types to pkg/types (the client
@@ -29,9 +29,8 @@
 //
 // AUR-439 adds --check: after the comment publish loop above, when --check
 // was given, it publishes one commit status via the same restored client's
-// SetStatus (internal/git/githubclient, already proved and already
-// fail-closed on write permission -- see requireWritePermission in that
-// package) -- "failure" when at least one finding is grave (error
+// SetStatus (internal/git/githubclient; the API response is authoritative in
+// the reusable workflow) -- "failure" when at least one finding is grave (error
 // severity), "success" otherwise -- so a branch protection rule that
 // requires this check blocks the pull request's merge until the grave
 // finding is fixed. See publishCheckStatus below and docs/specs/AUR-439.md.
@@ -169,23 +168,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 
 	ctx := context.Background()
 	client := newGitHubClient()
-
-	// Publishing gate, checked first -- before the diff fetch and before
-	// any LLM call -- so a read-only token is refused without spending
-	// either. Refuse fail-closed, exactly as
-	// internal/git/githubclient.PostReviewComment and PostIssueComment
-	// already refuse internally, but as a single clear message instead of
-	// one failed POST per finding. Moved here (was: checked only after
-	// GenerateReview) because a token that cannot publish must not still
-	// pay for a model call it can never use the result of.
-	ok, err := client.HasWritePermission(ctx, owner, repoName)
-	if err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: checking write permission on %s/%s: %v\n", owner, repoName, err)
-		return 1
-	}
-	if !ok {
-		fmt.Fprintf(stderr, "aurumcode review: refusing to publish to %s/%s: %v\n", owner, repoName, githubclient.ErrNoWritePermission)
-		return 1
+	// The reusable GitHub workflow opts into endpoint-scoped authorization.
+	// Keep the direct CLI's historical repository-role preflight unless the
+	// service explicitly selects this mode; that preserves its fail-closed
+	// behavior for personal-token usage while fixing Actions' narrower token.
+	if os.Getenv("AURUMCODE_PR_PERMISSION_MODE") == "endpoint" {
+		client.AllowPullRequestWrites()
 	}
 
 	ghDiff, err := client.GetPullRequestDiff(ctx, owner, repoName, prNumber)
@@ -492,8 +480,9 @@ func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout
 // githubclient.DefaultBaseURL. GITHUB_TOKEN follows the same convention
 // GitHub Actions already exposes to a step (see docs/specs/AUR-440.md); an
 // empty token still builds a working client -- reading a public repository
-// needs no auth -- and every publish call still refuses fail-closed without
-// write permission regardless of whether a token was supplied at all.
+// needs no auth. Direct CLI publishing retains the repository-role preflight;
+// the reusable workflow sets AURUMCODE_PR_PERMISSION_MODE=endpoint so GitHub
+// itself enforces pull-requests:write and statuses:write on the actual POST.
 func newGitHubClient() *githubclient.Client {
 	token := os.Getenv("GITHUB_TOKEN")
 	if base := os.Getenv("AURUMCODE_GITHUB_API_URL"); base != "" {

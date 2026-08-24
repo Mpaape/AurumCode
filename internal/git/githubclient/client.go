@@ -16,9 +16,9 @@ import (
 )
 
 // ErrNoWritePermission is returned by the publishing methods
-// (PostIssueComment, PostReviewComment, SetStatus) when the authenticated
-// token does not carry write permission on the target repository. The client
-// refuses before any POST leaves the process.
+// (PostIssueComment, PostReviewComment, SetStatus) when the client is using
+// its repository-role preflight and the authenticated token does not carry
+// write permission on the target repository.
 var ErrNoWritePermission = errors.New("token lacks write permission on repository")
 
 const (
@@ -60,6 +60,13 @@ type Client struct {
 	// many comments checks the repository once, not once per comment.
 	permCache map[string]bool
 	permMu    sync.RWMutex
+
+	// allowAPIWrite is used by the pull-request workflow. GitHub Actions
+	// tokens can have pull-requests:write or statuses:write while the
+	// repository permissions object still reports push=false. In that mode
+	// the write endpoint is the authority: a real 403 is returned by GitHub
+	// without requiring contents:write or a broader repository role.
+	allowAPIWrite bool
 }
 
 // NewClient creates a new GitHub API client
@@ -88,6 +95,16 @@ func NewClientWithBaseURL(token, baseURL string) *Client {
 		etagCache:    make(map[string]*etagCacheEntry),
 		permCache:    make(map[string]bool),
 	}
+}
+
+// AllowPullRequestWrites selects the permission model used by the PR review
+// path. The GitHub API enforces the actual pull-request/status scope on the
+// POST; the repository-role preflight is intentionally skipped because it
+// describes push/maintain/admin access, not a workflow token's endpoint
+// scope. This keeps comments limited to pull-requests:write and statuses
+// limited to statuses:write.
+func (c *Client) AllowPullRequestWrites() {
+	c.allowAPIWrite = true
 }
 
 // doRequest performs an HTTP request with retry logic
@@ -454,10 +471,14 @@ func (c *Client) HasWritePermission(ctx context.Context, owner, repo string) (bo
 }
 
 // requireWritePermission is the gate every publishing method passes before
-// building its POST: it refuses with ErrNoWritePermission when the token
-// cannot write to the repository, so nothing is ever published with a
-// read-only token.
+// building its POST. The default repository-role mode remains fail-closed
+// for callers that use the client directly. The PR workflow opts into the
+// narrower endpoint-scope mode, where the API's actual POST response is the
+// permission check.
 func (c *Client) requireWritePermission(ctx context.Context, owner, repo string) error {
+	if c.allowAPIWrite {
+		return nil
+	}
 	ok, err := c.HasWritePermission(ctx, owner, repo)
 	if err != nil {
 		return fmt.Errorf("checking write permission on %s/%s: %w", owner, repo, err)
@@ -562,10 +583,10 @@ func (c *Client) PostIssueComment(ctx context.Context, owner, repo string, numbe
 
 // CommitStatus represents a commit status update
 type CommitStatus struct {
-	State       string `json:"state"`                  // "pending", "success", "error", or "failure"
-	TargetURL   string `json:"target_url,omitempty"`   // Optional URL
-	Description string `json:"description,omitempty"`  // Short description
-	Context     string `json:"context"`                // Label to differentiate this status
+	State       string `json:"state"`                 // "pending", "success", "error", or "failure"
+	TargetURL   string `json:"target_url,omitempty"`  // Optional URL
+	Description string `json:"description,omitempty"` // Short description
+	Context     string `json:"context"`               // Label to differentiate this status
 }
 
 // SetStatus sets the commit status for a specific SHA

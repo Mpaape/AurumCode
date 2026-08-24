@@ -1027,6 +1027,62 @@ func TestPublish_RefusedWithReadOnlyToken(t *testing.T) {
 	}
 }
 
+func TestPullRequestWritesUseEndpointPermission(t *testing.T) {
+	// A GitHub Actions token can have pull-requests:write while the
+	// repository-role response reports push=false. PR publishing must use the
+	// actual endpoint instead of requiring contents:write.
+	var repoPermissionProbe bool
+	var posts int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo" {
+			repoPermissionProbe = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"permissions":{"admin":false,"maintain":false,"push":false,"pull":true}}`))
+			return
+		}
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/issues/42/comments" {
+			posts++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	client := newTestClient("actions-token", server.URL)
+	client.AllowPullRequestWrites()
+	if err := client.PostIssueComment(context.Background(), "owner", "repo", 42, "review summary"); err != nil {
+		t.Fatalf("PostIssueComment: %v", err)
+	}
+	if repoPermissionProbe {
+		t.Fatal("PR publishing performed the repository push-permission preflight")
+	}
+	if posts != 1 {
+		t.Fatalf("expected one comment POST, got %d", posts)
+	}
+}
+
+func TestPullRequestWritesSurfaceEndpointDenial(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/issues/42/comments" {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"message":"Resource not accessible by integration"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	client := newTestClient("actions-token", server.URL)
+	client.AllowPullRequestWrites()
+	err := client.PostIssueComment(context.Background(), "owner", "repo", 42, "review summary")
+	if err == nil || !strings.Contains(err.Error(), "403") {
+		t.Fatalf("expected the endpoint denial, got %v", err)
+	}
+}
+
 func TestSetStatus_Success(t *testing.T) {
 	handler := writableRepoRoute(func(w http.ResponseWriter, r *http.Request) {
 		// Verify method
