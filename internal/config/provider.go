@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -47,6 +48,23 @@ type ContextProvider interface {
 	// request) frees its own resources instead of leaking a goroutine
 	// past the timeout.
 	Provide(ctx context.Context, changedPaths []string) (string, error)
+}
+
+// ProviderWarning is a sanitized, user-facing notice that one optional
+// context source was unavailable. The review remains valid without that
+// source; callers must surface every warning instead of silently dropping it.
+type ProviderWarning struct {
+	Provider string
+	Reason   string
+}
+
+type contributionLimitError struct {
+	provider string
+	size     int
+}
+
+func (e contributionLimitError) Error() string {
+	return fmt.Sprintf("context provider %q contributed %d bytes, over the %d-byte ceiling: refusing rather than silently truncating", e.provider, e.size, MaxProviderContributionBytes)
 }
 
 // ProviderTimeout bounds a single ContextProvider.Provide call.
@@ -106,9 +124,7 @@ func callProviderBounded(ctx context.Context, p ContextProvider, changedPaths []
 			return "", fmt.Errorf("context provider %q: %w", p.Name(), r.err)
 		}
 		if len(r.text) > MaxProviderContributionBytes {
-			return "", fmt.Errorf(
-				"context provider %q contributed %d bytes, over the %d-byte ceiling: refusing rather than silently truncating",
-				p.Name(), len(r.text), MaxProviderContributionBytes)
+			return "", contributionLimitError{provider: p.Name(), size: len(r.text)}
 		}
 		return r.text, nil
 	case <-cctx.Done():
@@ -118,40 +134,72 @@ func callProviderBounded(ctx context.Context, p ContextProvider, changedPaths []
 
 // BuildContextBlock queries every provider in order (each bounded by
 // callProviderBounded) and renders their non-empty contributions into one
-// block, each under its own "### <Name>" heading, in provider order
-// (deterministic, since callers pass a fixed slice).
+// block. Provider failures are returned as warnings and do not discard the
+// rest of the review; contribution-size violations remain hard errors.
 //
-// Every non-empty contribution is passed through filter.Redact BEFORE it
-// is placed in the block -- the SAME AUR-009 redaction filter
-// internal/review.Reviewer applies to the diff, so a secret-shaped string
-// in a repository prompt, an MCP tool result or a RAG chunk is redacted
-// exactly like a secret-shaped string in the diff, before either one ever
-// reaches the outbound prompt. filter may be nil (a caller with no filter
-// configured); the block is then built unredacted -- callers in this
-// codebase always pass redaction.FromEnv(), which is never nil, so this
-// only matters to a test that deliberately omits one.
+// All contributions are redacted once more after concatenation. This second
+// pass is essential: a registered secret split across two providers is not
+// visible to either per-provider pass, but is visible in the assembled block.
+// The source names are listed separately so the redaction input can preserve
+// a plain newline boundary between contributions.
 //
 // Returns "" when no provider had anything to contribute -- the exact
 // zero-config signal WrapProvider uses to leave the base LLM provider
 // completely unwrapped.
 func BuildContextBlock(ctx context.Context, providers []ContextProvider, changedPaths []string, filter *redaction.Filter) (string, error) {
-	var sections []string
+	block, _, err := BuildContextBlockWithWarnings(ctx, providers, changedPaths, filter)
+	return block, err
+}
+
+// BuildContextBlockWithWarnings is the warning-aware form used by the CLI.
+// Provider failures are recoverable because context is advisory; malformed
+// repository configuration is still caught earlier by config.Load.
+func BuildContextBlockWithWarnings(ctx context.Context, providers []ContextProvider, changedPaths []string, filter *redaction.Filter) (string, []ProviderWarning, error) {
+	var contributions []string
+	var names []string
+	var warnings []ProviderWarning
 	for _, p := range providers {
 		text, err := callProviderBounded(ctx, p, changedPaths)
 		if err != nil {
-			return "", err
+			if isContributionLimitError(err) {
+				return "", warnings, err
+			}
+			warning := ProviderWarning{Provider: p.Name(), Reason: err.Error()}
+			if filter != nil {
+				warning.Provider = filter.Redact(warning.Provider)
+				warning.Reason = filter.Redact(warning.Reason)
+			}
+			warnings = append(warnings, warning)
+			continue
 		}
 		text = strings.TrimSpace(text)
 		if text == "" {
 			continue
 		}
-		if filter != nil {
-			text = filter.Redact(text)
-		}
-		sections = append(sections, fmt.Sprintf("### %s\n%s", p.Name(), text))
+		contributions = append(contributions, text)
+		names = append(names, p.Name())
 	}
-	if len(sections) == 0 {
-		return "", nil
+	if len(contributions) == 0 {
+		return "", warnings, nil
 	}
-	return contextBlockHeader + strings.Join(sections, "\n\n"), nil
+
+	assembled := strings.Join(contributions, "\n")
+	if filter != nil {
+		assembled = filter.Redact(assembled)
+	}
+
+	var sourceList strings.Builder
+	sourceList.WriteString("### Context sources\n")
+	for _, name := range names {
+		sourceList.WriteString("- ")
+		sourceList.WriteString(name)
+		sourceList.WriteByte('\n')
+	}
+	sections := []string{sourceList.String(), "### Contributions\n" + assembled}
+	return contextBlockHeader + strings.Join(sections, "\n"), warnings, nil
+}
+
+func isContributionLimitError(err error) bool {
+	var limitErr contributionLimitError
+	return errors.As(err, &limitErr)
 }

@@ -475,10 +475,13 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// provider file exists, so the wrapped variable is byte-identical to
 	// the unwrapped one on that path.
 	if providerErr == nil {
-		wrapped, wrapErr := config.WrapProvider(context.Background(), provider, config.DefaultProviders(cwd), diffPaths(diff), filter)
+		wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), provider, config.DefaultProviders(cwd), diffPaths(diff), filter)
 		if wrapErr != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
 			return 1
+		}
+		for _, warning := range warnings {
+			fmt.Fprintf(stderr, "aurumcode review: context provider %q unavailable: %s; continuing without that context\n", warning.Provider, warning.Reason)
 		}
 		provider = wrapped
 	}
