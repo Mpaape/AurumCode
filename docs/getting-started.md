@@ -430,9 +430,12 @@ somente o gatilho, as permissões e a chamada do workflow oficial. Ele não pede
 PR number, SHA, checkout, Go, token, comandos internos ou montagem manual de
 comentário.
 
-Configure apenas os secrets do provedor em **Settings > Secrets and variables >
-Actions**: `LLM_API_KEY` e `LLM_BASE_URL`. `LLM_MODEL` é opcional. Sem esses
-secrets o job falha claramente e não publica um falso review verde. O workflow
+Configure apenas os secrets do provedor no repositório que hospeda o código, em
+**Settings > Secrets and variables > Actions**: `LLM_API_KEY` e `LLM_BASE_URL`.
+Eles são encaminhados explicitamente para o workflow reutilizável; não ficam
+armazenados no AurumCode. O modelo padrão é `gpt-4o-mini`; só configure outro
+se precisar. Sem esses secrets o job falha claramente e não publica um falso
+review verde. O workflow
 usa `pull_request`, nunca `pull_request_target`, e não compila nem executa o
 código do pull request; ele lê a mudança pelo diff do GitHub.
 
@@ -446,14 +449,11 @@ Há também [`.github/workflows/examples/all-pipelines.yml`](../.github/workflow
 e [`.github/workflows/examples/qa-testing.yml`](../.github/workflows/examples/qa-testing.yml)
 no mesmo diretório.
 
-Para bloquear o merge em vez de só comentar, o caminho verificado é
-`--fail-on error`: o job falha com exit 3, exatamente como mostrado acima, e o
-pull request não passa. O comando também expõe `--check`, que segundo
-`aurumcode review --help` publica um commit status que falha na presença de um
-achado de severidade `error`; como ele precisa de um repositório no GitHub, não
-foi exercitado localmente para este guia. O mesmo vale para o conjunto
-`--pr`/`--repo`/`--publicar`/`--na-linha`, que ativa o caminho de comentar
-direto no pull request.
+Para bloquear o merge em vez de só comentar, o workflow oficial publica também
+o status `aurumcode/review`; configure esse status como required check nas
+regras de branch. O job precisa somente de `pull-requests: write` para os
+comentários e `statuses: write` para esse status — não precisa de
+`contents: write`.
 
 ### Exemplo ao vivo
 

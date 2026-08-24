@@ -2,6 +2,19 @@ name: AurumCode reusable code review
 
 on:
   workflow_call:
+    inputs:
+      model:
+        description: Optional model id for the configured OpenAI-compatible service
+        required: false
+        type: string
+        default: gpt-4o-mini
+    secrets:
+      LLM_API_KEY:
+        description: API key for the configured OpenAI-compatible service
+        required: true
+      LLM_BASE_URL:
+        description: Base URL for the configured OpenAI-compatible service
+        required: true
 
 jobs:
   review:
@@ -10,6 +23,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      statuses: write
       checks: read
     concurrency:
       group: aurumcode-review-${{ github.event.pull_request.number }}
@@ -63,11 +77,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
           AURUMCODE_CI_CONTEXT_FILE: ${{ runner.temp }}/aurumcode-ci.json
+          AURUMCODE_PR_PERMISSION_MODE: endpoint
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_MODEL: ${{ inputs.model }}
         run: |
           set -euo pipefail
           "${RUNNER_TEMP}/aurumcode" review \
