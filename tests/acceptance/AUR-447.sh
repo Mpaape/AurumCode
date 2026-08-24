@@ -109,7 +109,7 @@ stage_source() {
   copy "$root" cmd/regenerate-docs
   copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
   copy "$root" internal/pipeline
-  copy "$root" internal/analyzer internal/prompt internal/review internal/llm internal/security/redaction pkg/types
+  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm internal/security/redaction pkg/types
   copy "$root" tests/fixtures/docs/goproject tests/fixtures/docs/rustproject tests/fixtures/repos/git-demo tests/fixtures/review
   copy "$root" action.yml
   copy "$root" docs/specs/AUR-447.md

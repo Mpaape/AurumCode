@@ -120,7 +120,7 @@ stage_source() {
   copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
   copy "$root" internal/pipeline
   copy "$root" action.yml
-  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm pkg/types
+  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/docs/goproject tests/fixtures/scm/github
   # cp -R preserves the read-only mode bits of the materialized input; the
   # staged copy is scratch from here on, so force it writable for the

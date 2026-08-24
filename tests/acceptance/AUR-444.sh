@@ -139,7 +139,7 @@ stage_static() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
-  copy "$root" internal/analyzer internal/prompt internal/review internal/llm \
+  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm \
     internal/security/redaction internal/git/githubclient pkg/types
   copy "$root" internal/documentation/extractors internal/documentation/incremental \
     internal/documentation/normalizer internal/documentation/site \

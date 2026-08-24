@@ -92,7 +92,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
-  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git pkg/types
+  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm internal/git pkg/types
   copy "$root" tests/fixtures/scm/github tests/fixtures/repos/git-demo tests/fixtures/review
 
   # cmd/aurumcode is one package: if another card (AUR-426, docs.go) has
