@@ -140,6 +140,58 @@ if grep -Eq '\.go([`:[:space:]]|$)|(^|[[:space:];|&])go[[:space:]]+(test|run|bui
   fi
 fi
 
+# The sealed run materializes exactly what paths/read_paths name, so an
+# acceptance that BUILDS a binary needs every package that binary imports --
+# not only the packages the card edits. Getting this wrong costs a full
+# container run that dies at missing_input or at a module-resolution error
+# naming some unrelated third-party package, because the resolver reaches for
+# the whole graph before it can say which local package is absent. On
+# 2026-08-14 that happened five times in one session, ten minutes each, always
+# discovered one package at a time. Derive the closure here instead.
+mapfile -t built_commands < <(
+  grep -Eo '\./cmd/[A-Za-z0-9_-]+' "$card" "$acceptance_surface" 2>/dev/null |
+    sed 's/^[^:]*://' | sort -u
+)
+if ((${#built_commands[@]} > 0)); then
+  if ! command -v go >/dev/null 2>&1; then
+    printf 'preflight note: go is unavailable, build-closure check skipped for %s\n' \
+      "${built_commands[*]}" >&2
+  else
+    # A package counts as materialized when its directory is declared OR when
+    # every tracked non-test .go file in it is declared one by one -- the
+    # file-by-file form the overlap rule FORCES whenever a card owns a
+    # subpackage, since read_paths may not name the parent of an owned path.
+    package_is_materialized() {
+      local pkg="$1" f
+      materializes_path "$pkg" && return 0
+      local files
+      mapfile -t files < <(git -C "$worktree" ls-files -- "$pkg/*.go" 2>/dev/null |
+        grep -v '_test\.go$' | grep -v "^$pkg/.*/")
+      ((${#files[@]} > 0)) || return 1
+      for f in "${files[@]}"; do
+        materializes_path "$f" || return 1
+      done
+      return 0
+    }
+    closure_missing=()
+    while IFS= read -r pkg; do
+      [[ -n "$pkg" ]] || continue
+      package_is_materialized "$pkg" || closure_missing+=("$pkg")
+    done < <(
+      ( cd "$worktree" && ulimit -v 8388608 && GOMEMLIMIT=2GiB \
+        go list -deps "${built_commands[@]}" 2>/dev/null ) |
+        sed -n 's|^github.com/Mpaape/AurumCode/||p' | sort -u
+    )
+    if ((${#closure_missing[@]} > 0)); then
+      printf 'preflight error: acceptance builds %s but these imported packages are in neither paths nor read_paths:\n' \
+        "${built_commands[*]}" >&2
+      printf '  %s\n' "${closure_missing[@]}" >&2
+      printf 'preflight hint: derive the set with: go list -deps %s\n' "${built_commands[*]}" >&2
+      exit 1
+    fi
+  fi
+fi
+
 # A reviewed candidate remains in ready until approval. Once every owned path is
 # tracked, ready must no longer receive the relaxed builder checks; otherwise a
 # reviewer can miss a non-executable acceptance or an absent candidate artifact.
