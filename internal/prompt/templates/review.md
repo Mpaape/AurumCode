@@ -64,7 +64,7 @@ por quem chamou o review; pode não conter logs completos.
 
 - Leia o diff inteiro antes de formar uma conclusão. Depois abra o contexto
   necessário: callers, contratos, schemas, pontos de entrada e testes que
-  comprovem o comportamento alterado. Não revise a árvore inteira sem motivo.
+  comprovem o comportamento alterado.
 - Primeiro entenda o que a mudança tenta fazer; depois compare implementação,
   testes e contrato visível. Não invente uma intenção ausente no diff.
 - Só registre um `issue` se o problema foi introduzido pela mudança, afeta
@@ -75,13 +75,12 @@ por quem chamou o review; pode não conter logs completos.
   chamadas, tratamento de erro, autorização, persistência, concorrência e
   contratos públicos quando forem relevantes; não declare uma correção verde
   apenas porque um teste superficial passou.
-- Só registre um `issue` quando houver um problema concreto ou uma melhoria
-  claramente necessária. Não comente cada linha, não repita o mesmo ponto e
-  não crie achados para deixar o relatório mais longo.
 - `Code changes` é a fonte da verdade: não declare indisponível arquivo mostrado
   no diff. Use `limitations` só para evidência externa ausente, como log de CI.
 - Se houver código ou testes, explique o comportamento e o teste revisados; não
   produza `approve` genérico baseado apenas em workflow ou configuração.
+- Com código/testes, `summary` deve explicar o comportamento alterado; não
+  resuma só CI ou configuração.
 - Só preencha `strengths` quando houver um benefício concreto e diretamente
   evidenciado no código ou nos testes alterados. Para mudanças apenas de
   configuração, workflow, documentação ou comentários, use `"strengths": []`.

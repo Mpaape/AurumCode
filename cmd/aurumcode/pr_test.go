@@ -307,6 +307,28 @@ func TestFormatReviewSummaryUsesFilteredResult(t *testing.T) {
 	}
 }
 
+func TestFormatReviewSummaryWithDiffIncludesCodeSummary(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  "internal/review.go",
+		Hunks: []types.DiffHunk{{Lines: []string{"+return err"}}},
+	}}}
+	result := &types.ReviewResult{Summary: "The changed branch now propagates the constructor error."}
+
+	comment := formatReviewSummaryForLanguageAndDiff(result, diff, "en-US")
+	if !strings.Contains(comment, "### Summary") || !strings.Contains(comment, result.Summary) {
+		t.Fatalf("code summary missing from PR review:\n%s", comment)
+	}
+
+	operational := &types.Diff{Files: []types.DiffFile{{
+		Path:  ".github/workflows/review.yml",
+		Hunks: []types.DiffHunk{{Lines: []string{"+permissions:"}}},
+	}}}
+	comment = formatReviewSummaryForLanguageAndDiff(result, operational, "en-US")
+	if strings.Contains(comment, result.Summary) {
+		t.Fatalf("operational review published code summary:\n%s", comment)
+	}
+}
+
 func TestFormatReviewSummaryUsesConfiguredLanguage(t *testing.T) {
 	result := &types.ReviewResult{
 		Issues: []types.ReviewIssue{{

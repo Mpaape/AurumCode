@@ -388,7 +388,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// One summary comment is the human-facing review. Operational progress,
 	// provider details and publish failures stay in the Action log; the PR gets
 	// only the structured review itself.
-	if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatReviewSummaryForLanguage(result, reviewLanguage)); err != nil {
+	if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatReviewSummaryForLanguageAndDiff(result, diff, reviewLanguage)); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 		failures = append(failures, "summary: "+err.Error())
 	}
@@ -828,11 +828,18 @@ func formatReviewSummary(result *types.ReviewResult) string {
 }
 
 func formatReviewSummaryForLanguage(result *types.ReviewResult, language string) string {
+	return formatReviewSummaryForLanguageAndDiff(result, nil, language)
+}
+
+func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *types.Diff, language string) string {
 	copy := reviewCopyFor(language)
 	var b strings.Builder
 	b.WriteString("<!-- aurumcode-review -->\n")
 	fmt.Fprintf(&b, "## AurumCode %s\n\n", copy.title)
 	fmt.Fprintf(&b, "**%s:** %s\n\n", copy.verdict, reviewVerdictForLanguage(result, copy))
+	if diff != nil && prompt.HasSubstantiveCodeChange(diff) && strings.TrimSpace(result.Summary) != "" {
+		fmt.Fprintf(&b, "### %s\n\n%s\n\n", copy.summary, strings.TrimSpace(result.Summary))
+	}
 	b.WriteString(reviewSummaryTextForLanguage(result, copy))
 	b.WriteString("\n\n")
 
@@ -971,17 +978,17 @@ func reviewSummaryTextForLanguage(result *types.ReviewResult, copy reviewCopy) s
 }
 
 type reviewCopy struct {
-	title, verdict, strengths, findings, suggestions, ciStatus, tests, limits      string
-	impact, evidence, suggestedFix, verify, rationale, proposedImplementation      string
-	cause, fix, nextVerification                                                   string
-	changesRequested, comment, approve                                             string
-	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings string
+	title, verdict, summary, strengths, findings, suggestions, ciStatus, tests, limits string
+	impact, evidence, suggestedFix, verify, rationale, proposedImplementation          string
+	cause, fix, nextVerification                                                       string
+	changesRequested, comment, approve                                                 string
+	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings     string
 }
 
 func reviewCopyFor(language string) reviewCopy {
 	if strings.EqualFold(strings.TrimSpace(language), "pt-BR") || strings.EqualFold(strings.TrimSpace(language), "pt") {
 		return reviewCopy{
-			title: "revisão de código", verdict: "Veredito", strengths: "Pontos fortes", findings: "Achados", suggestions: "Sugestões", ciStatus: "Status do CI", tests: "Testes", limits: "Limitações da revisão",
+			title: "revisão de código", verdict: "Veredito", summary: "Resumo", strengths: "Pontos fortes", findings: "Achados", suggestions: "Sugestões", ciStatus: "Status do CI", tests: "Testes", limits: "Limitações da revisão",
 			impact: "Impacto", evidence: "Evidência", suggestedFix: "Correção sugerida", verify: "Verificação", rationale: "Motivação", proposedImplementation: "Implementação sugerida", cause: "Causa", fix: "Correção", nextVerification: "Próxima verificação",
 			changesRequested: "Alterações solicitadas", comment: "Comentário", approve: "Aprovado",
 			blockingFindings:    "A revisão encontrou %d achado(s) bloqueante(s) que devem ser tratados antes do merge.",
@@ -991,7 +998,7 @@ func reviewCopyFor(language string) reviewCopy {
 		}
 	}
 	return reviewCopy{
-		title: "code review", verdict: "Verdict", strengths: "Strengths", findings: "Findings", suggestions: "Suggestions", ciStatus: "CI status", tests: "Tests", limits: "Review limits",
+		title: "code review", verdict: "Verdict", summary: "Summary", strengths: "Strengths", findings: "Findings", suggestions: "Suggestions", ciStatus: "CI status", tests: "Tests", limits: "Review limits",
 		impact: "Impact", evidence: "Evidence", suggestedFix: "Suggested fix", verify: "Verify", rationale: "Rationale", proposedImplementation: "Proposed implementation", cause: "Cause", fix: "Fix", nextVerification: "Next verification",
 		changesRequested: "Changes requested", comment: "Comment", approve: "Approve",
 		blockingFindings:    "The review found %d blocking finding(s) that should be addressed before merge.",
