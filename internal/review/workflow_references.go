@@ -16,7 +16,8 @@ func suppressWorkflowReferenceFindings(diff *types.Diff, issues []types.ReviewIs
 	kept := make([]types.ReviewIssue, 0, len(issues))
 	for _, issue := range issues {
 		line, found := workflowDiffLine(diff, issue.File, issue.Line)
-		if issue.RuleID == "security/hardcoded-secret" && found && safeWorkflowReference(issue.File, line) {
+		if issue.RuleID == "security/hardcoded-secret" && strings.HasPrefix(issue.File, ".github/workflows/") &&
+			(!found || safeWorkflowReference(issue.File, line)) {
 			continue
 		}
 		kept = append(kept, issue)
