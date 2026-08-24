@@ -81,11 +81,12 @@ func (b *PromptBuilder) BuildReviewPrompt(diff *types.Diff, metrics *analyzer.Di
 		// BuildPrompt and ValidateRuleCatalog. Leaving the key out would
 		// render the literal "<no value>" where the rule list belongs.
 		data := map[string]interface{}{
-			"Metrics":     b.formatMetrics(metrics),
-			"Languages":   b.formatLanguages(metrics),
-			"DiffContent": b.formatDiffContent(diff),
-			"CIContext":   "No CI failure context was supplied.",
-			"RuleCatalog": RenderRuleCatalog(b.ruleCatalog),
+			"Metrics":        b.formatMetrics(metrics),
+			"Languages":      b.formatLanguages(metrics),
+			"DiffContent":    b.formatDiffContent(diff),
+			"CIContext":      "No CI failure context was supplied.",
+			"RuleCatalog":    RenderRuleCatalog(b.ruleCatalog),
+			"ReviewLanguage": "en-US",
 		}
 
 		var buf bytes.Buffer
@@ -350,6 +351,11 @@ func (b *PromptBuilder) TruncatePrompt(prompt string, maxTokens int) string {
 
 // BuildPrompt builds a complete prompt with token budgeting
 func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetrics, opts BuildOptions) (PromptParts, error) {
+	reviewLanguage := strings.TrimSpace(opts.Language)
+	if reviewLanguage == "" {
+		reviewLanguage = "en-US"
+	}
+
 	// Create token budget
 	budget := NewTokenBudget(b.estimator, opts.MaxTokens, opts.ReserveReply)
 
@@ -372,7 +378,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 
 	// Estimate base prompt tokens (system message + instructions,
 	// including the rule catalog for a review)
-	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics, opts.CIContext)
+	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics, opts.CIContext, reviewLanguage)
 	if err != nil {
 		return PromptParts{}, err
 	}
@@ -463,7 +469,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 // buildUserContent) -- rendering the whole diff into both halves would
 // double the token cost for nothing. The other schema kinds keep the
 // original engine's short inline instructions, unchanged.
-func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics, ciContext string) (string, error) {
+func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics, ciContext, reviewLanguage string) (string, error) {
 	switch schemaKind {
 	case "review":
 		if tmpl, ok := b.templates["review.md"]; ok {
@@ -479,11 +485,12 @@ func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.Dif
 			}
 			var buf bytes.Buffer
 			if err := tmpl.Execute(&buf, map[string]interface{}{
-				"Metrics":     b.formatMetrics(metrics),
-				"Languages":   b.formatLanguages(metrics),
-				"DiffContent": "(see the Code Changes section that follows this prompt)",
-				"CIContext":   reviewCIContext(ciContext),
-				"RuleCatalog": catalog,
+				"Metrics":        b.formatMetrics(metrics),
+				"Languages":      b.formatLanguages(metrics),
+				"DiffContent":    "(see the Code Changes section that follows this prompt)",
+				"CIContext":      reviewCIContext(ciContext),
+				"RuleCatalog":    catalog,
+				"ReviewLanguage": reviewLanguage,
 			}); err != nil {
 				return "", fmt.Errorf("rendering the review prompt template: %w", err)
 			}

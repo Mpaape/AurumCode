@@ -439,6 +439,17 @@ review verde. O workflow
 usa `pull_request`, nunca `pull_request_target`, e não compila nem executa o
 código do pull request; ele lê a mudança pelo diff do GitHub.
 
+Para definir o idioma do comentário sem tocar no workflow, crie
+`.aurumcode/config.yml` no repositório:
+
+```yaml
+review:
+  language: pt-BR
+```
+
+Sem esse arquivo, o padrão é `en-US`. A configuração é apenas de apresentação;
+não pode desligar regras, alterar gates, remover redação ou ampliar permissões.
+
 O comentário publicado é um code review único, com veredito, pontos fortes,
 achados acionáveis, sugestões não bloqueantes, plano de testes, limitações e
 o diagnóstico de CI disponível. Logs e transcript ficam apenas no log da

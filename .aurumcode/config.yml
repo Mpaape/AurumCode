@@ -1,0 +1,4 @@
+# Repository review preferences. Security rules, redaction, gates and cost
+# limits remain controlled by AurumCode and are not configurable here.
+review:
+  language: pt-BR

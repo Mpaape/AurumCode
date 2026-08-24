@@ -444,6 +444,11 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
 	}
+	reviewLanguage, err := repoCfg.ReviewLanguage()
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+		return 1
+	}
 	// AUR-452's ignored-path filter: applied to the ONE diff variable that
 	// both the LLM quality pass (via toSend, below) and the deterministic
 	// --seguranca pass (via SecurityScanWithCoverage(diff), further down)
@@ -626,7 +631,9 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// cache hit -- diff.Files was non-empty and every one of them hit --
 		// skips the call.
 		if cacheErr != nil || len(toSend.Files) > 0 || len(diff.Files) == 0 {
-			result, err = reviewer.GenerateReview(context.Background(), toSend)
+			result, err = reviewer.GenerateReviewWithContext(context.Background(), toSend, review.ReviewContext{
+				Language: reviewLanguage,
+			})
 			if err != nil && *seguranca {
 				// AUR-458: same conditional diversion as the provider-error
 				// branch above, for the three remaining ways a quality

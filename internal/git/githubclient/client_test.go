@@ -15,6 +15,7 @@ package githubclient
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -1213,5 +1214,42 @@ func TestSetStatus_WithoutOptionalFields(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestGetRepositoryFileDecodesConfigFromRef(t *testing.T) {
+	configText := "review:\n  language: pt-BR\n"
+	encoded := base64.StdEncoding.EncodeToString([]byte(configText))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/owner/repo/contents/.aurumcode/config.yml" {
+			t.Fatalf("path = %q, want repository config path", r.URL.Path)
+		}
+		if r.URL.Query().Get("ref") != "head-sha" {
+			t.Fatalf("ref = %q, want head-sha", r.URL.Query().Get("ref"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, encoded)
+	}))
+	defer server.Close()
+
+	data, found, err := newTestClient("token", server.URL).GetRepositoryFile(context.Background(), "owner", "repo", ".aurumcode/config.yml", "head-sha")
+	if err != nil {
+		t.Fatalf("GetRepositoryFile: %v", err)
+	}
+	if !found || string(data) != configText {
+		t.Fatalf("GetRepositoryFile = (%q, %v), want (%q, true)", data, found, configText)
+	}
+}
+
+func TestGetRepositoryFileMissingIsZeroConfig(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+
+	data, found, err := newTestClient("token", server.URL).GetRepositoryFile(context.Background(), "owner", "repo", ".aurumcode/config.yml", "head-sha")
+	if err != nil {
+		t.Fatalf("GetRepositoryFile missing: %v", err)
+	}
+	if found || data != nil {
+		t.Fatalf("missing config = (%q, %v), want (nil, false)", data, found)
 	}
 }

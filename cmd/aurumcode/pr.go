@@ -65,6 +65,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
@@ -182,6 +183,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		return 1
 	}
 	diff := convertDiff(ghDiff)
+	reviewConfig, reviewLanguage, err := loadPullRequestConfig(ctx, client, owner, repoName, os.Getenv("GITHUB_SHA"), os.Getenv("AURUMCODE_BASE_SHA"))
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: loading repository review config: %v\n", err)
+		return 1
+	}
+	diff = config.FilterIgnoredPaths(diff, reviewConfig)
 
 	// Provider selection (AUR-451): --modelo picks which model reviews,
 	// exactly the --base path's selectProviderForModel; without it,
@@ -230,7 +237,8 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 
 	result, err := reviewer.GenerateReviewWithContext(ctx, diff, review.ReviewContext{
-		CI: readCIContext(),
+		CI:       readCIContext(),
+		Language: reviewLanguage,
 	})
 	if err != nil {
 		// --limite: the tracker refused before the model was called, so
@@ -278,6 +286,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		combined = append(combined, securityFindings...)
 		result.Issues = combined
 	}
+	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
 
 	// The engine already redacted every model-authored field on result
 	// (internal/review.redactReviewResult, called inside GenerateReview
@@ -345,7 +354,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
 		if isInlineEligible(diff, issue) {
 			comment := githubclient.ReviewComment{
-				Body:     formatInlineIssue(issue),
+				Body:     formatInlineIssueForLanguage(issue, reviewLanguage),
 				CommitID: commitID,
 				Path:     issue.File,
 				Line:     issue.Line,
@@ -364,7 +373,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		// Outside the changed lines: still published, as a general pull
 		// request comment, never dropped. MUT-001 mutates exactly this
 		// branch.
-		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatInlineIssue(issue)); err != nil {
+		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatInlineIssueForLanguage(issue, reviewLanguage)); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
 			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
 			continue
@@ -376,7 +385,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// One summary comment is the human-facing review. Operational progress,
 	// provider details and publish failures stay in the Action log; the PR gets
 	// only the structured review itself.
-	if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatReviewSummary(result)); err != nil {
+	if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatReviewSummaryForLanguage(result, reviewLanguage)); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 		failures = append(failures, "summary: "+err.Error())
 	}
@@ -489,6 +498,70 @@ func newGitHubClient() *githubclient.Client {
 		return githubclient.NewClientWithBaseURL(token, base)
 	}
 	return githubclient.NewClient(token)
+}
+
+// loadPullRequestConfig reads the explicit repository config without
+// checking out pull-request code. GitHub Actions supplies the PR head SHA,
+// so a config added by the change is available to that review; a direct local
+// invocation falls back to the current working tree. A missing file is the
+// zero-config contract and selects the stable English default.
+func loadPullRequestConfig(ctx context.Context, client *githubclient.Client, owner, repo, headRef, baseRef string) (*config.Config, string, error) {
+	var cfg *config.Config
+	var err error
+	if strings.TrimSpace(headRef) == "" {
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil {
+			return nil, "", cwdErr
+		}
+		cfg, err = config.Load(cwd)
+	} else if strings.TrimSpace(baseRef) == "" {
+		data, found, fetchErr := client.GetRepositoryFile(ctx, owner, repo, config.DefaultConfigPath, headRef)
+		if fetchErr != nil {
+			return nil, "", fetchErr
+		}
+		if !found {
+			cfg = &config.Config{}
+		} else {
+			cfg, err = config.Parse(data, config.DefaultConfigPath)
+		}
+	} else {
+		// Gate-affecting settings come from the base branch. A PR may
+		// propose a language change, but it cannot weaken its own review by
+		// changing rules or ignored paths in the same diff.
+		baseData, baseFound, fetchErr := client.GetRepositoryFile(ctx, owner, repo, config.DefaultConfigPath, baseRef)
+		if fetchErr != nil {
+			return nil, "", fetchErr
+		}
+		if baseFound {
+			cfg, err = config.Parse(baseData, config.DefaultConfigPath)
+		} else {
+			cfg = &config.Config{}
+		}
+		if err != nil {
+			return nil, "", err
+		}
+		headData, headFound, fetchErr := client.GetRepositoryFile(ctx, owner, repo, config.DefaultConfigPath, headRef)
+		if fetchErr != nil {
+			return nil, "", fetchErr
+		}
+		if headFound {
+			headCfg, parseErr := config.Parse(headData, config.DefaultConfigPath)
+			if parseErr != nil {
+				return nil, "", parseErr
+			}
+			if strings.TrimSpace(headCfg.Review.Language) != "" {
+				cfg.Review.Language = headCfg.Review.Language
+			}
+		}
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	language, err := cfg.ReviewLanguage()
+	if err != nil {
+		return nil, "", err
+	}
+	return cfg, language, nil
 }
 
 // parseOwnerRepo splits the --repo flag's "owner/repo" form. Anything else
@@ -619,12 +692,17 @@ func readCIContext() string {
 }
 
 func formatInlineIssue(issue types.ReviewIssue) string {
+	return formatInlineIssueForLanguage(issue, "en-US")
+}
+
+func formatInlineIssueForLanguage(issue types.ReviewIssue, language string) string {
+	copy := reviewCopyFor(language)
 	var b strings.Builder
 	fmt.Fprintf(&b, "**[%s] %s**", issue.Severity, issue.Message)
-	writeReviewField(&b, "Impact", issue.Impact)
-	writeReviewField(&b, "Evidence", issue.Evidence)
-	writeReviewField(&b, "Suggested fix", issue.Suggestion)
-	writeReviewField(&b, "Verify", issue.Verification)
+	writeReviewField(&b, copy.impact, issue.Impact)
+	writeReviewField(&b, copy.evidence, issue.Evidence)
+	writeReviewField(&b, copy.suggestedFix, issue.Suggestion)
+	writeReviewField(&b, copy.verify, issue.Verification)
 	return b.String()
 }
 
@@ -636,35 +714,46 @@ func writeReviewField(b *strings.Builder, label, value string) {
 }
 
 func formatReviewSummary(result *types.ReviewResult) string {
+	return formatReviewSummaryForLanguage(result, "en-US")
+}
+
+func formatReviewSummaryForLanguage(result *types.ReviewResult, language string) string {
+	copy := reviewCopyFor(language)
 	var b strings.Builder
 	b.WriteString("<!-- aurumcode-review -->\n")
-	b.WriteString("## AurumCode code review\n\n")
-	fmt.Fprintf(&b, "**Verdict:** %s\n\n", reviewVerdict(result))
-	b.WriteString(reviewSummaryText(result))
+	fmt.Fprintf(&b, "## AurumCode %s\n\n", copy.title)
+	fmt.Fprintf(&b, "**%s:** %s\n\n", copy.verdict, reviewVerdictForLanguage(result, copy))
+	b.WriteString(reviewSummaryTextForLanguage(result, copy))
 	b.WriteString("\n\n")
 
 	if len(result.Strengths) > 0 {
-		b.WriteString("### Strengths\n\n")
+		fmt.Fprintf(&b, "### %s\n\n", copy.strengths)
 		writeReviewBullets(&b, result.Strengths)
 		b.WriteString("\n")
 	}
 
 	if issues := sortedIssues(result.Issues); len(issues) > 0 {
-		b.WriteString("### Findings\n\n")
+		fmt.Fprintf(&b, "### %s\n\n", copy.findings)
 		for _, issue := range issues {
 			fmt.Fprintf(&b, "- **[%s] %s:%d** — %s\n", issue.Severity, issue.File, issue.Line, issue.Message)
 			if issue.Impact != "" {
-				fmt.Fprintf(&b, "  - Impact: %s\n", issue.Impact)
+				fmt.Fprintf(&b, "  - %s: %s\n", copy.impact, issue.Impact)
+			}
+			if issue.Evidence != "" {
+				fmt.Fprintf(&b, "  - %s: %s\n", copy.evidence, issue.Evidence)
 			}
 			if issue.Suggestion != "" {
-				fmt.Fprintf(&b, "  - Suggested fix: %s\n", issue.Suggestion)
+				fmt.Fprintf(&b, "  - %s: %s\n", copy.suggestedFix, issue.Suggestion)
+			}
+			if issue.Verification != "" {
+				fmt.Fprintf(&b, "  - %s: %s\n", copy.verify, issue.Verification)
 			}
 		}
 		b.WriteString("\n")
 	}
 
 	if len(result.Suggestions) > 0 {
-		b.WriteString("### Suggestions\n\n")
+		fmt.Fprintf(&b, "### %s\n\n", copy.suggestions)
 		for _, suggestion := range result.Suggestions {
 			if strings.TrimSpace(suggestion.Title) == "" && strings.TrimSpace(suggestion.Description) == "" {
 				continue
@@ -682,25 +771,25 @@ func formatReviewSummary(result *types.ReviewResult) string {
 	}
 
 	if len(result.CIAnalysis) > 0 {
-		b.WriteString("### CI status\n\n")
+		fmt.Fprintf(&b, "### %s\n\n", copy.ciStatus)
 		for _, analysis := range result.CIAnalysis {
 			fmt.Fprintf(&b, "- **%s — %s**\n", analysis.Check, analysis.Status)
-			writeSummaryField(&b, "Cause", analysis.Cause)
-			writeSummaryField(&b, "Evidence", analysis.Evidence)
-			writeSummaryField(&b, "Fix", analysis.Fix)
-			writeSummaryField(&b, "Next verification", analysis.NextVerification)
+			writeSummaryField(&b, copy.cause, analysis.Cause)
+			writeSummaryField(&b, copy.evidence, analysis.Evidence)
+			writeSummaryField(&b, copy.fix, analysis.Fix)
+			writeSummaryField(&b, copy.nextVerification, analysis.NextVerification)
 		}
 		b.WriteString("\n")
 	}
 
 	if len(result.TestPlan) > 0 {
-		b.WriteString("### Tests\n\n")
+		fmt.Fprintf(&b, "### %s\n\n", copy.tests)
 		writeReviewBullets(&b, result.TestPlan)
 		b.WriteString("\n")
 	}
 
 	if len(result.Limitations) > 0 {
-		b.WriteString("### Review limits\n\n")
+		fmt.Fprintf(&b, "### %s\n\n", copy.limits)
 		writeReviewBullets(&b, result.Limitations)
 	}
 
@@ -708,21 +797,25 @@ func formatReviewSummary(result *types.ReviewResult) string {
 }
 
 func reviewVerdict(result *types.ReviewResult) string {
+	return reviewVerdictForLanguage(result, reviewCopyFor("en-US"))
+}
+
+func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) string {
 	for _, issue := range result.Issues {
 		switch strings.ToLower(issue.Severity) {
 		case "error", "warning":
-			return "Changes requested"
+			return copy.changesRequested
 		}
 	}
 	if len(result.Issues) > 0 {
-		return "Comment"
+		return copy.comment
 	}
 	for _, suggestion := range result.Suggestions {
 		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
-			return "Comment"
+			return copy.comment
 		}
 	}
-	return "Approve"
+	return copy.approve
 }
 
 // reviewSummaryText is deliberately derived from the filtered result rather
@@ -730,6 +823,10 @@ func reviewVerdict(result *types.ReviewResult) string {
 // source-aware gate removes a false positive; publishing it would produce a
 // contradictory verdict and review comment.
 func reviewSummaryText(result *types.ReviewResult) string {
+	return reviewSummaryTextForLanguage(result, reviewCopyFor("en-US"))
+}
+
+func reviewSummaryTextForLanguage(result *types.ReviewResult, copy reviewCopy) string {
 	blocking := 0
 	for _, issue := range result.Issues {
 		switch strings.ToLower(issue.Severity) {
@@ -738,17 +835,47 @@ func reviewSummaryText(result *types.ReviewResult) string {
 		}
 	}
 	if blocking > 0 {
-		return fmt.Sprintf("The review found %d blocking finding(s) that should be addressed before merge.", blocking)
+		return fmt.Sprintf(copy.blockingFindings, blocking)
 	}
 	if len(result.Issues) > 0 {
-		return "The review found observations, but no blocking finding remains in the reviewed change."
+		return copy.nonBlockingFindings
 	}
 	for _, suggestion := range result.Suggestions {
 		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
-			return "No blocking finding was identified; the suggestions below are optional improvements."
+			return copy.optionalSuggestions
 		}
 	}
-	return "No blocking finding was identified in the reviewed change."
+	return copy.noBlockingFindings
+}
+
+type reviewCopy struct {
+	title, verdict, strengths, findings, suggestions, ciStatus, tests, limits      string
+	impact, evidence, suggestedFix, verify, cause, fix, nextVerification           string
+	changesRequested, comment, approve                                             string
+	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings string
+}
+
+func reviewCopyFor(language string) reviewCopy {
+	if strings.EqualFold(strings.TrimSpace(language), "pt-BR") || strings.EqualFold(strings.TrimSpace(language), "pt") {
+		return reviewCopy{
+			title: "revisão de código", verdict: "Veredito", strengths: "Pontos fortes", findings: "Achados", suggestions: "Sugestões", ciStatus: "Status do CI", tests: "Testes", limits: "Limitações da revisão",
+			impact: "Impacto", evidence: "Evidência", suggestedFix: "Correção sugerida", verify: "Verificação", cause: "Causa", fix: "Correção", nextVerification: "Próxima verificação",
+			changesRequested: "Alterações solicitadas", comment: "Comentário", approve: "Aprovado",
+			blockingFindings:    "A revisão encontrou %d achado(s) bloqueante(s) que devem ser tratados antes do merge.",
+			nonBlockingFindings: "A revisão encontrou observações, mas nenhum achado bloqueante permanece na mudança revisada.",
+			optionalSuggestions: "Nenhum achado bloqueante foi identificado; as sugestões abaixo são melhorias opcionais.",
+			noBlockingFindings:  "Nenhum achado bloqueante foi identificado na mudança revisada.",
+		}
+	}
+	return reviewCopy{
+		title: "code review", verdict: "Verdict", strengths: "Strengths", findings: "Findings", suggestions: "Suggestions", ciStatus: "CI status", tests: "Tests", limits: "Review limits",
+		impact: "Impact", evidence: "Evidence", suggestedFix: "Suggested fix", verify: "Verify", cause: "Cause", fix: "Fix", nextVerification: "Next verification",
+		changesRequested: "Changes requested", comment: "Comment", approve: "Approve",
+		blockingFindings:    "The review found %d blocking finding(s) that should be addressed before merge.",
+		nonBlockingFindings: "The review found observations, but no blocking finding remains in the reviewed change.",
+		optionalSuggestions: "No blocking finding was identified; the suggestions below are optional improvements.",
+		noBlockingFindings:  "No blocking finding was identified in the reviewed change.",
+	}
 }
 
 func writeReviewBullets(b *strings.Builder, values []string) {
