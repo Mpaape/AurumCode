@@ -123,8 +123,13 @@ func (g *Generator) Generate(ctx context.Context, opts GenerateOptions) (string,
 	// Deterministic safety net around free-form LLM output (AUR-465): the
 	// model is not trusted to reliably avoid a mutable Action ref or an
 	// invented internal link just because the prompt asked nicely.
-	generated, _ := SanitizeActionRef(resp.Text)
-	generated, _ = SanitizeInternalLinks(generated)
+	// AUR-472: the ref is validated against the tags that actually exist,
+	// not merely against semver shape, and every rewrite is announced.
+	refResult := SanitizeActionRefTags(resp.Text, PublishedTags())
+	for _, notice := range refResult.Notices {
+		log.Printf("[Welcome] %s", notice)
+	}
+	generated, _ := SanitizeInternalLinks(refResult.Content)
 
 	// Add Jekyll front matter
 	content := g.addFrontMatter(generated, opts)
