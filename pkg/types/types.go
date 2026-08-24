@@ -55,10 +55,19 @@ type ReviewIssue struct {
 // Suggestions are deliberately separate from Issues so the published report
 // can distinguish required changes from useful follow-ups.
 type ReviewSuggestion struct {
-	Title        string `json:"title" yaml:"title"`
-	Description  string `json:"description" yaml:"description"`
+	Title       string `json:"title" yaml:"title"`
+	Description string `json:"description" yaml:"description"`
+	// Kind is "code" for an implementation-ready replacement and "general"
+	// for advice that does not have a safe, concrete patch shape. It is
+	// optional for backward compatibility with older model responses.
+	Kind         string `json:"kind,omitempty" yaml:"kind,omitempty"`
 	File         string `json:"file,omitempty" yaml:"file,omitempty"`
 	Line         int    `json:"line,omitempty" yaml:"line,omitempty"`
+	StartLine    int    `json:"start_line,omitempty" yaml:"start_line,omitempty"`
+	EndLine      int    `json:"end_line,omitempty" yaml:"end_line,omitempty"`
+	CurrentCode  string `json:"current_code,omitempty" yaml:"current_code,omitempty"`
+	ProposedCode string `json:"proposed_code,omitempty" yaml:"proposed_code,omitempty"`
+	Rationale    string `json:"rationale,omitempty" yaml:"rationale,omitempty"`
 	Verification string `json:"verification,omitempty" yaml:"verification,omitempty"`
 }
 

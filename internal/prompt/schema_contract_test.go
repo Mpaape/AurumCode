@@ -193,10 +193,14 @@ func TestAcceptedReviewFieldsAreConsumed(t *testing.T) {
 			},
 		},
 		"suggestions": {
-			response: `{"issues":[],"suggestions":[{"title":"Add a test","description":"cover the branch"}]}`,
+			response: `{"issues":[],"suggestions":[{"title":"Add a test","description":"cover the branch","kind":"code","file":"internal/example_test.go","start_line":22,"end_line":24,"current_code":"old","proposed_code":"new","rationale":"keep the behavior explicit","verification":"run the focused test"}]}`,
 			verify: func(t *testing.T, got parsedProbe) {
 				if len(got.Suggestions) != 1 || got.Suggestions[0].Title != "Add a test" {
 					t.Fatalf("suggestions were not carried through: %+v", got.Suggestions)
+				}
+				suggestion := got.Suggestions[0]
+				if suggestion.Kind != "code" || suggestion.StartLine != 22 || suggestion.EndLine != 24 || suggestion.CurrentCode != "old" || suggestion.ProposedCode != "new" || suggestion.Rationale == "" {
+					t.Fatalf("implementation-ready suggestion fields were not carried through: %+v", suggestion)
 				}
 			},
 		},

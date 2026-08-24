@@ -299,10 +299,15 @@ func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
 		issue.Verification = redactLinesKeepingMarkers(f, issue.Verification)
 	}
 	for i := range result.Suggestions {
-		result.Suggestions[i].Title = redactLinesKeepingMarkers(f, result.Suggestions[i].Title)
-		result.Suggestions[i].Description = redactLinesKeepingMarkers(f, result.Suggestions[i].Description)
-		result.Suggestions[i].File = f.Redact(result.Suggestions[i].File)
-		result.Suggestions[i].Verification = redactLinesKeepingMarkers(f, result.Suggestions[i].Verification)
+		suggestion := &result.Suggestions[i]
+		suggestion.Title = redactLinesKeepingMarkers(f, suggestion.Title)
+		suggestion.Description = redactLinesKeepingMarkers(f, suggestion.Description)
+		suggestion.Kind = f.Redact(suggestion.Kind)
+		suggestion.File = f.Redact(suggestion.File)
+		suggestion.CurrentCode = redactLinesKeepingMarkers(f, suggestion.CurrentCode)
+		suggestion.ProposedCode = redactLinesKeepingMarkers(f, suggestion.ProposedCode)
+		suggestion.Rationale = redactLinesKeepingMarkers(f, suggestion.Rationale)
+		suggestion.Verification = redactLinesKeepingMarkers(f, suggestion.Verification)
 	}
 	for i := range result.CIAnalysis {
 		result.CIAnalysis[i].Check = f.Redact(result.CIAnalysis[i].Check)

@@ -7,7 +7,7 @@ on:
         description: Optional model id for the configured OpenAI-compatible service
         required: false
         type: string
-        default: gpt-4o-mini
+        default: gpt-4.1-mini
     secrets:
       LLM_API_KEY:
         description: API key for the configured OpenAI-compatible service

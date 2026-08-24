@@ -70,7 +70,7 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   SHA, Go setup, token plumbing, or comment formatting is needed in the
   consumer repository. Configure `LLM_API_KEY` and `LLM_BASE_URL` once under
   repository Settings > Secrets and variables > Actions. The workflow uses
-  `gpt-4o-mini` by default; override it only when needed with the reusable
+  `gpt-4.1-mini` by default; override it only when needed with the reusable
   workflow's optional `model` input.
 
   To choose the language once for this repository, add

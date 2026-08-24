@@ -71,6 +71,18 @@ por quem chamou o review; pode não conter logs completos.
 - Use `suggestions` apenas para melhorias não bloqueantes, priorizadas e
   específicas. Sugestões devem apontar para linhas alteradas quando houver
   localização; não proponha mudanças em código que não aparece no diff.
+- Quando houver uma melhoria de código concreta, prefira uma sugestão do tipo
+  `code`: informe `file`, `start_line` e `end_line` somente para linhas
+  adicionadas no diff, copie o trecho atual exatamente em `current_code` e
+  escreva a substituição completa em `proposed_code`, sem fences Markdown.
+  Inclua `rationale` e `verification`. Isso torna a sugestão revisável e
+  preparada para uma futura aplicação segura, mas nesta execução ela é apenas
+  uma proposta: nunca presuma que o código será alterado automaticamente.
+- Use `kind: "general"` quando a melhoria não tiver uma substituição concreta
+  e segura. Não invente linhas, arquivos ou conteúdo que não estejam visíveis
+  no diff e não produza uma proposta de código genérica só para preencher o
+  campo. Se não for possível copiar o trecho atual com precisão, publique
+  apenas a recomendação textual.
 - Diferencie severidade: `error` bloqueia por defeito grave, regressão,
   perda de dados ou risco de segurança; `warning` é um risco concreto que
   deve ser tratado; `info` é observação não bloqueante. Preferências pessoais
@@ -134,8 +146,13 @@ there is enough evidence to score them.
     {
       "title": "Add a regression test",
       "description": "Cover the empty-input branch so the behavior stays explicit.",
+      "kind": "code",
       "file": "internal/example_test.go",
-      "line": 22,
+      "start_line": 22,
+      "end_line": 24,
+      "current_code": "func TestEmptyInput(t *testing.T) {\n\t// existing assertion\n}",
+      "proposed_code": "func TestEmptyInput(t *testing.T) {\n\tgot := Parse(\"\")\n\tif got != nil { t.Fatal(\"expected nil\") }\n}",
+      "rationale": "The test locks the empty-input behavior at the change site.",
       "verification": "Run the focused package test."
     }
   ],

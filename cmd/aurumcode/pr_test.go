@@ -238,8 +238,15 @@ func TestFormatReviewSummaryIsAReviewNotAnExecutionTranscript(t *testing.T) {
 			Verification: "Run the focused package test.",
 		}},
 		Suggestions: []types.ReviewSuggestion{{
-			Title:       "Add a regression test",
-			Description: "Cover the nil dependency branch.",
+			Title:        "Add a regression test",
+			Description:  "Cover the nil dependency branch.",
+			Kind:         "code",
+			File:         "internal/example_test.go",
+			StartLine:    20,
+			EndLine:      22,
+			ProposedCode: "func TestNilDependency(t *testing.T) {\n\t// assert the error\n}",
+			Rationale:    "The test locks the failure mode at the change site.",
+			Verification: "Run the focused package test.",
 		}},
 		CIAnalysis: []types.CIAnalysis{{
 			Check:            "unit-tests",
@@ -264,6 +271,8 @@ func TestFormatReviewSummaryIsAReviewNotAnExecutionTranscript(t *testing.T) {
 		"### Suggestions",
 		"### CI status",
 		"Cause:",
+		"Proposed implementation:",
+		"Rationale:",
 		"### Tests",
 		"### Review limits",
 	} {
@@ -353,15 +362,16 @@ func TestFilterSuggestionsToChangedLines(t *testing.T) {
 	suggestions := []types.ReviewSuggestion{
 		{Title: "General advice", Description: "Keep the configuration documented."},
 		{Title: "Changed line", File: "config.yml", Line: 5},
+		{Title: "Changed range", Kind: "code", File: "config.yml", StartLine: 5, EndLine: 5, ProposedCode: "language: pt-BR"},
 		{Title: "Outside file", File: "HANDOFF.md", Line: 0},
 		{Title: "Context line", File: "config.yml", Line: 4},
 	}
 
 	got := filterSuggestionsToChangedLines(diff, suggestions)
-	if len(got) != 2 {
-		t.Fatalf("filtered suggestions = %+v, want general advice and changed line", got)
+	if len(got) != 3 {
+		t.Fatalf("filtered suggestions = %+v, want general advice and changed lines", got)
 	}
-	if got[0].Title != "General advice" || got[1].Title != "Changed line" {
+	if got[0].Title != "General advice" || got[1].Title != "Changed line" || got[2].Title != "Changed range" {
 		t.Fatalf("filtered suggestions = %+v, want stable order and valid locations", got)
 	}
 	if strings.Contains(formatReviewSummaryForLanguage(&types.ReviewResult{Suggestions: suggestions}, "pt-BR"), "HANDOFF.md:0") {
