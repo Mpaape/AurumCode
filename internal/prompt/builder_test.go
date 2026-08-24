@@ -379,6 +379,9 @@ func TestBuildPrompt_SourcedFromAurumcodePromptsReviewMD(t *testing.T) {
 		"contents: read",
 		"secrets.NAME",
 		"valor de credencial efetivamente",
+		"Leia o diff inteiro antes de formar uma conclusão",
+		"foi introduzido pela mudança",
+		"issues: []",
 	} {
 		if !strings.Contains(parts.System, marker) {
 			t.Errorf("expected the review prompt to distinguish workflow references from committed credentials; missing %q", marker)
