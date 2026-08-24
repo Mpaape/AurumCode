@@ -87,7 +87,18 @@ func (b *TokenBudget) formatHunk(file *types.DiffFile, hunk *types.DiffHunk) str
 	return result
 }
 
-// TrimToFit trims segments to fit within available tokens
+// TrimToFit trims segments to fit within available tokens.
+//
+// AUR-475: a segment that does not fit whole is SKIPPED, never truncated
+// (AC-002 forbids partial files -- half a hunk produces a finding about
+// code the reviewer never actually saw), and the loop always CONTINUES to
+// the next, possibly smaller, segment instead of stopping at the first one
+// that doesn't fit. Before this fix the loop `break`d there: one large
+// file at the front of the priority order (e.g. the AGENTS.md hunk AUR-467
+// measured) consumed the budget and every segment behind it -- fifteen
+// `.mjs` files in the measured case -- was dropped whole, not because it
+// didn't fit but because nothing after the first miss was ever offered a
+// chance. Coverage was a lottery on ordering, not a fact about size.
 func (b *TokenBudget) TrimToFit(segments []ContextSegment, baseTokens int) []ContextSegment {
 	available := b.Available() - baseTokens
 	if available <= 0 {
@@ -105,23 +116,19 @@ func (b *TokenBudget) TrimToFit(segments []ContextSegment, baseTokens int) []Con
 		return sorted[i].SortKey < sorted[j].SortKey
 	})
 
-	// Accumulate segments until budget exhausted
+	// Accumulate segments until budget exhausted. A segment that would
+	// overflow the remaining budget is skipped whole and the search keeps
+	// going -- it is never truncated, and it is never a reason to stop
+	// looking at what comes after it.
 	result := []ContextSegment{}
 	currentTokens := 0
 
 	for _, segment := range sorted {
-		if currentTokens+segment.Tokens <= available {
-			result = append(result, segment)
-			currentTokens += segment.Tokens
-		} else if len(result) == 0 {
-			// If even the first high-priority segment doesn't fit, truncate it
-			truncated := b.truncateSegment(segment, available)
-			result = append(result, truncated)
-			break
-		} else {
-			// Stop adding segments
-			break
+		if currentTokens+segment.Tokens > available {
+			continue // AUR-475: skip whole segment, never truncate, never stop
 		}
+		result = append(result, segment)
+		currentTokens += segment.Tokens
 	}
 
 	return result
