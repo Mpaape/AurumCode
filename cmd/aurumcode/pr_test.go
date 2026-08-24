@@ -221,6 +221,21 @@ func TestFormatReviewSummaryIsAReviewNotAnExecutionTranscript(t *testing.T) {
 	}
 }
 
+func TestFormatReviewSummaryUsesFilteredResult(t *testing.T) {
+	result := &types.ReviewResult{
+		Verdict:     "changes_requested",
+		Summary:     "A stale model summary claims a credential is hardcoded.",
+		Suggestions: []types.ReviewSuggestion{{Title: ""}},
+	}
+	comment := formatReviewSummary(result)
+	if !strings.Contains(comment, "**Verdict:** Approve") {
+		t.Fatalf("expected an all-clear result to approve, got:\n%s", comment)
+	}
+	if strings.Contains(comment, result.Summary) {
+		t.Fatalf("published comment copied the untrusted model summary:\n%s", comment)
+	}
+}
+
 // TestReviewFlagsAcceptSingleOrDoubleDash pins that every flag `review`
 // registers -- --base and the AUR-438 additions (--pr, --repo, --publicar,
 // --na-linha) -- parses identically whether spelled with one leading dash

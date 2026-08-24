@@ -640,11 +640,8 @@ func formatReviewSummary(result *types.ReviewResult) string {
 	b.WriteString("<!-- aurumcode-review -->\n")
 	b.WriteString("## AurumCode code review\n\n")
 	fmt.Fprintf(&b, "**Verdict:** %s\n\n", reviewVerdict(result))
-
-	if text := strings.TrimSpace(result.Summary); text != "" {
-		b.WriteString(text)
-		b.WriteString("\n\n")
-	}
+	b.WriteString(reviewSummaryText(result))
+	b.WriteString("\n\n")
 
 	if len(result.Strengths) > 0 {
 		b.WriteString("### Strengths\n\n")
@@ -717,23 +714,41 @@ func reviewVerdict(result *types.ReviewResult) string {
 			return "Changes requested"
 		}
 	}
-	switch strings.ToLower(strings.TrimSpace(result.Verdict)) {
-	case "approve":
-		return "Approve"
-	case "changes_requested":
-		return "Changes requested"
-	case "comment":
+	if len(result.Issues) > 0 {
 		return "Comment"
 	}
-	if len(result.Issues) > 0 {
-		for _, issue := range result.Issues {
-			if strings.EqualFold(issue.Severity, "info") {
-				return "Comment"
-			}
+	for _, suggestion := range result.Suggestions {
+		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
+			return "Comment"
 		}
-		return "Changes requested"
 	}
 	return "Approve"
+}
+
+// reviewSummaryText is deliberately derived from the filtered result rather
+// than copied from result.Summary. The model summary can become stale when a
+// source-aware gate removes a false positive; publishing it would produce a
+// contradictory verdict and review comment.
+func reviewSummaryText(result *types.ReviewResult) string {
+	blocking := 0
+	for _, issue := range result.Issues {
+		switch strings.ToLower(issue.Severity) {
+		case "error", "warning":
+			blocking++
+		}
+	}
+	if blocking > 0 {
+		return fmt.Sprintf("The review found %d blocking finding(s) that should be addressed before merge.", blocking)
+	}
+	if len(result.Issues) > 0 {
+		return "The review found observations, but no blocking finding remains in the reviewed change."
+	}
+	for _, suggestion := range result.Suggestions {
+		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
+			return "No blocking finding was identified; the suggestions below are optional improvements."
+		}
+	}
+	return "No blocking finding was identified in the reviewed change."
 }
 
 func writeReviewBullets(b *strings.Builder, values []string) {
