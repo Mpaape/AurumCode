@@ -30,11 +30,23 @@ func NewProvider(apiKey, baseURL, model string) *Provider {
 	}
 }
 
+// completionRequest carries no temperature field, deliberately (AUR-460).
+// The gateway this provider talks to fans out to whatever models the
+// operator has configured behind it, and a growing family of them (the
+// measured case: gpt-5.6-luna/sol/terra) rejects ANY explicit
+// "temperature" -- including the provider's own advertised default and
+// including 0 -- with a 400: "Unsupported value: 'temperature' does not
+// support <n> with this model. Only the default (1) value is supported."
+// There is no per-model compatibility table here on purpose (the card
+// forbids inventing one): the only value guaranteed to work across the
+// whole fleet is the key being absent from the JSON entirely, so the
+// upstream provider applies whatever default it wants. If a model still
+// rejects the call for some other reason, that is surfaced verbatim as the
+// provider's own error message, not papered over here.
 type completionRequest struct {
-	Model       string    `json:"model"`
-	Messages    []message `json:"messages"`
-	Temperature float64   `json:"temperature"`
-	MaxTokens   int       `json:"max_tokens,omitempty"`
+	Model     string    `json:"model"`
+	Messages  []message `json:"messages"`
+	MaxTokens int       `json:"max_tokens,omitempty"`
 }
 
 type message struct {
@@ -76,13 +88,13 @@ func (p *Provider) ResolveModel(opts llm.Options) string {
 // Complete sends a completion request to LiteLLM
 func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
 	// Build request
+	// opts.Temperature is deliberately not read here: see completionRequest.
 	reqBody := completionRequest{
 		Model: p.ResolveModel(opts),
 		Messages: []message{
 			{Role: "user", Content: prompt},
 		},
-		Temperature: opts.Temperature,
-		MaxTokens:   opts.MaxTokens,
+		MaxTokens: opts.MaxTokens,
 	}
 
 	// Add system message if provided
