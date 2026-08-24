@@ -161,6 +161,12 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// catalog's own "...-secret: <title>" spelling and change the
 	// published output format for a secret-free review (AUR-432).
 	redactReviewResult(r.filter, result)
+	// Model output is also allowed to propose a hardcoded-secret finding on a
+	// safe workflow reference. Apply the narrow, source-aware filter before
+	// the rule gate so `${{ secrets.NAME }}`, permission scopes, and event
+	// types cannot become a blocking issue while literal values remain visible
+	// to the deterministic security pass.
+	result.Issues = suppressWorkflowReferenceFindings(diff, result.Issues)
 
 	// Rule gate (AUR-434): every issue must cite a rule of the project
 	// review standard. A broken or empty embedded catalog is a loud
