@@ -44,3 +44,15 @@ func TestSuppressWorkflowReferenceFindingsDoesNotBroadenToOtherFiles(t *testing.
 		t.Fatalf("non-workflow findings must remain visible: %+v", got)
 	}
 }
+
+func TestSuppressWorkflowReferenceFindingsDropsBlankWorkflowLine(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  ".github/workflows/review.yml",
+		Hunks: []types.DiffHunk{{NewStart: 5, Lines: []string{"+types: [opened]", "+", "+permissions:"}}},
+	}}}
+	issues := []types.ReviewIssue{{File: ".github/workflows/review.yml", Line: 6, RuleID: "security/hardcoded-secret"}}
+
+	if got := suppressWorkflowReferenceFindings(diff, issues); len(got) != 0 {
+		t.Fatalf("a model finding on a blank workflow line must be suppressed: %+v", got)
+	}
+}
