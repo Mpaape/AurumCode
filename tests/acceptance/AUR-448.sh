@@ -326,8 +326,16 @@ mutation_case() {
 
   local target="$root/cmd/aurumcode/main.go"
   local anchor
+  # AUR-467 added a second print with the same shape for its own
+  # parse_discard_warning, so the bare Fprintf line is no longer unique. The
+  # print is still what must be replaced -- swapping the guard instead would
+  # unbalance the braces -- so a second string selects WHICH print: awk arms on
+  # the guard carrying this card's metadata key and rewrites only the next
+  # matching line.
   anchor='fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)'
-  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
+  local guard='if warning := result.Metadata["discard_warning"]; warning != "" {'
+  [[ "$(grep -Fc "$guard" "$target")" == 1 ]] || fail 'MUT-001/guard-not-unique'
+  [[ "$(grep -Fc "$anchor" "$target")" -ge 1 ]] || fail 'MUT-001/anchor-absent'
   # A literal (not regex) substring replace via awk's index/substr, so the
   # anchor's own regex metacharacters (the parentheses, the quotes) never
   # need escaping -- bash and awk are the only tools this profile
@@ -342,16 +350,22 @@ mutation_case() {
   # anchor's literal `\n` (two bytes, matching the Go source's own
   # "%s\n") into an actual newline and break the match. ENVIRON reads the
   # raw environment value instead.
-  ANCHOR="$anchor" REPL="$replacement" awk '
-    BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
+  ANCHOR="$anchor" REPL="$replacement" GUARD="$guard" awk '
+    BEGIN {
+      anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"]; guard = ENVIRON["GUARD"]
+      armed = 0; done = 0
+    }
     {
+      if (!done && index($0, guard) > 0) { armed = 1; print $0; next }
       idx = index($0, anchor)
-      if (idx > 0) {
+      if (armed && !done && idx > 0) {
         print substr($0, 1, idx - 1) repl substr($0, idx + length(anchor))
+        done = 1
       } else {
         print $0
       }
     }
+    END { if (!done) exit 1 }
   ' "$target" > "$target.mut" && mv "$target.mut" "$target"
   grep -Fq 'MUT-001: suppress the discard warning silently' "$target" || fail 'MUT-001/mutation-not-applied'
 
