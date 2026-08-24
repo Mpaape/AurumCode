@@ -1,0 +1,20 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-452",
+ "commit": "f942e2a2f98eb89e1d8f7328894a2c1b7fde4c07",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-452",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 on the integrated SHA; AUR-459's acceptance also back to 0 after its staging list, required_inputs and read_paths gained internal/config in the same change"
+ },
+ "review_notes": {
+  "round_1": "REQUEST_CHANGES with two structural defects the four dependent cards would have inherited. The cost cap was measured on the un-expanded prompt: the reviewer built a provider contributing 210k tokens, set a $0.02 ceiling, and the run was APPROVED, ending at -$210.118 -- a ten-thousandfold miss needing no hostile text, only size. And the context block never passed through the redaction filter the rest of the pipeline applies to the diff.",
+  "round_2": "APPROVE, verified by the reviewer rather than read: the 210k case is now refused in two independent layers, and isolating only the Tokens fix they confirmed Reserve refuses with the tracker balance intact at $0.02, zero spent. They grepped for a path that reaches Complete without passing the wrapper's Tokens and found none.",
+  "size_ceiling_is_hard": "65536 bytes accepted whole, 65537 refused with a message. No truncation anywhere.",
+  "followup_split_secret": "Redaction runs per contribution, before concatenation, so a secret split across two providers is reconstituted verbatim in the assembled block. Reachable today with this card's own two file providers, and worse under RAG where chunking can split a secret by accident. Carded as AUR-479 -- must land before AUR-470.",
+  "followup_timeout_aborts": "A provider that blocks returns in exactly 10s with exit 1 and a clear stderr naming it -- it does not hang and does not panic. But the whole command fails rather than degrading with a warning and a partial review. Consistent with the rest of runReview's fail-closed handling; a decision to make before AUR-469, where an MCP call will fail far more often than a local file. Carded as AUR-480."
+ }
+}
