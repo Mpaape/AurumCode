@@ -157,16 +157,43 @@ type bashPage struct {
 	Symbols []bashFunctionSymbol
 }
 
+// bashBodyTail is shared by bashKeywordPattern and bashParenPattern: what is
+// allowed to follow the declaration's own name (and, for the paren form,
+// its "()") on the SAME physical line. Three shapes, and only these three:
+//
+//  1. nothing at all -- the opening "{" itself is on a later line ("corpo
+//     abre em linha propria", the form this extractor already recognized);
+//  2. a bare "{" with nothing after it but whitespace -- same case, "{"
+//     just happens to share the declaration's own line;
+//  3. "{", a one-line body, and a closing "}" that ends the line (trailing
+//     whitespace allowed) -- AUR-474's target: `name() { body; }` with the
+//     ENTIRE declaration on one physical line.
+//
+// This is deliberately not brace-counting: per the card, the target is the
+// one-line FORM, not a Bash parser. A line whose body itself contains an
+// unmatched "{"/"}" pair (nested braces, a brace inside a string) is out of
+// scope; ".*" greedily consumes up to the LAST "}" on the line, which is
+// enough for the common one-liner shape without attempting real balancing.
+const bashBodyTail = `(?:\{\s*.*\}\s*|\{\s*)?$`
+
 // bashKeywordPattern recognizes `function name` and `function name()`
-// declarations (with or without a trailing "{" on the same line). The name
+// declarations, whether the body opens on its own line or -- see
+// bashBodyTail -- the whole declaration is one physical line. The name
 // class includes "-": Bash function names are not restricted the way shell
 // variable names are, and a hyphenated name (e.g. "my-func") is valid and
 // common; PowerShell's own function-name pattern already allows it.
-var bashKeywordPattern = regexp.MustCompile(`^\s*function\s+([A-Za-z_][A-Za-z0-9_-]*)\s*(?:\(\s*\))?\s*\{?\s*$`)
+var bashKeywordPattern = regexp.MustCompile(`^\s*function\s+([A-Za-z_][A-Za-z0-9_-]*)\s*(?:\(\s*\))?\s*` + bashBodyTail)
 
-// bashParenPattern recognizes the POSIX `name()` function declaration form.
-// See bashKeywordPattern for why "-" is part of the name class.
-var bashParenPattern = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*\(\s*\)\s*\{?\s*$`)
+// bashParenPattern recognizes the POSIX `name()` function declaration form,
+// whether the body opens on its own line or -- see bashBodyTail -- the
+// whole declaration is one physical line. See bashKeywordPattern for why
+// "-" is part of the name class.
+//
+// The name is anchored directly to "(" (only whitespace allowed between):
+// this is what keeps `my-array=()`, `x=$(cmd)`, and similar non-function
+// lines from matching, one-line body or not -- the char immediately after
+// the name-class run is never "=" for those, so the match never starts.
+var bashParenPattern = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*\(\s*\)\s*` + bashBodyTail)
 
 // matchBashFunction reports the function name and cleaned signature if line
 // is a recognized function declaration.
