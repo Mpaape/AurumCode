@@ -151,6 +151,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
@@ -430,6 +431,26 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		return 1
 	}
 
+	// AUR-452: repoCfg is the repository's own, EXPLICIT, versioned
+	// .aurumcode/config.yml -- the one thing in this card's design that
+	// has authority over a rule's enabled state and severity (see
+	// internal/config's package doc). A missing file is the zero-config
+	// path: Load returns an empty, non-nil *Config, and every function
+	// below that reads it (FilterIgnoredPaths, WrapProvider,
+	// ApplyRuleConfig) is a documented no-op against it, so nothing past
+	// this point changes a single byte of the published review contract.
+	repoCfg, err := config.Load(cwd)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+		return 1
+	}
+	// AUR-452's ignored-path filter: applied to the ONE diff variable that
+	// both the LLM quality pass (via toSend, below) and the deterministic
+	// --seguranca pass (via SecurityScanWithCoverage(diff), further down)
+	// read, so an ignored file is invisible to both passes identically.
+	// Zero-config: returns diff, the same pointer, unchanged.
+	diff = config.FilterIgnoredPaths(diff, repoCfg)
+
 	// Provider selection. With --modelo the flag commands which model
 	// reviews (AUR-436); without it, selectProvider keeps AUR-430's
 	// published behavior verbatim.
@@ -440,6 +461,26 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		provider, providerVia, providerErr = selectProviderForModel(*modelo)
 	} else {
 		provider, providerErr = selectProvider()
+	}
+
+	// AUR-452: wrap the selected provider so every outbound review prompt
+	// also carries this repository's context-provider contributions
+	// (Camada 1: the repo-wide prompt file and path-scoped instructions;
+	// AUR-468/469/470/471 add further providers to the same list). This
+	// only ever runs when a provider was actually selected -- there is
+	// nothing to wrap otherwise, and the --seguranca-only skip path below
+	// calls no model at all, so it is untouched by this wrap either way.
+	// Zero-config: config.WrapProvider returns provider completely
+	// unchanged (the same value, not a no-op decorator) whenever no
+	// provider file exists, so the wrapped variable is byte-identical to
+	// the unwrapped one on that path.
+	if providerErr == nil {
+		wrapped, wrapErr := config.WrapProvider(context.Background(), provider, config.DefaultProviders(cwd), diffPaths(diff), filter)
+		if wrapErr != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
+			return 1
+		}
+		provider = wrapped
 	}
 
 	// AUR-449: the security pass below is deterministic and calls no
@@ -698,6 +739,21 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		printSecurityCoverage(stderr, coverageApplied, coverageTotal)
 	}
 
+	// AUR-452: the repository's EXPLICIT rule configuration (rules.<id>.
+	// enabled / .severity in .aurumcode/config.yml) is applied here, after
+	// both passes produced their findings and before anything prints or
+	// gates on them -- the LLM quality findings (result.Issues) and the
+	// deterministic --seguranca findings (securityFindings) alike, so a
+	// rule disabled or given a severity override in config behaves the
+	// which pass found it. config.ApplyRuleConfig reads ONLY repoCfg: no
+	// text from any context provider (the repo prompt, path-scoped
+	// instructions, or any later card's skill/MCP/RAG provider) can reach
+	// this call, so none of it can turn a rule on or off or change a
+	// severity -- see internal/config's package doc. Zero-config: both
+	// calls return their input slices unchanged.
+	result.Issues = config.ApplyRuleConfig(result.Issues, repoCfg)
+	securityFindings = config.ApplyRuleConfig(securityFindings, repoCfg)
+
 	// result.Summary (pkg/types.ReviewResult, parsed by
 	// internal/prompt.ResponseParser) is deliberately never printed here.
 	// AUR-443 investigated printing it and found the change is blocked, not
@@ -884,6 +940,21 @@ func countAtOrAbove(issues []types.ReviewIssue, threshold int) int {
 // object database at repoRoot. See internal/analyzer/gitrepo.go for why
 // this reads git's on-disk format in pure Go instead of shelling out to a
 // `git` binary.
+// diffPaths returns the changed file paths of diff, in file order, for
+// config.WrapProvider and PathInstructionsProvider's applyTo matching. A
+// nil diff (never actually produced by computeDiff, but kept defensive
+// for callers) yields nil.
+func diffPaths(diff *types.Diff) []string {
+	if diff == nil {
+		return nil
+	}
+	paths := make([]string, 0, len(diff.Files))
+	for _, f := range diff.Files {
+		paths = append(paths, f.Path)
+	}
+	return paths
+}
+
 func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, error) {
 	repo, err := analyzer.OpenRepo(repoRoot)
 	if err != nil {
