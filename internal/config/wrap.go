@@ -43,9 +43,9 @@ func (p *contextInjectingProvider) Tokens(input string) (int, error) {
 }
 
 // WrapProvider composes providers' contributions for changedPaths into
-// one redacted block (BuildContextBlock, which applies filter -- the same
-// AUR-009 filter internal/review.Reviewer runs over the diff -- to every
-// contribution before it is rendered) and returns an llm.Provider that
+// one redacted block (BuildContextBlock, which applies the same AUR-009
+// filter internal/review.Reviewer runs over the diff -- including a second
+// pass after contributions are assembled) and returns an llm.Provider that
 // appends that block to every outbound prompt before forwarding to base,
 // with its Tokens accounting adjusted to match (see the type doc above).
 //
@@ -60,12 +60,21 @@ func (p *contextInjectingProvider) Tokens(input string) (int, error) {
 // included -- is provably identical to what runs with no config package
 // involved at all.
 func WrapProvider(ctx context.Context, base llm.Provider, providers []ContextProvider, changedPaths []string, filter *redaction.Filter) (llm.Provider, error) {
-	block, err := BuildContextBlock(ctx, providers, changedPaths, filter)
+	wrapped, _, err := WrapProviderWithWarnings(ctx, base, providers, changedPaths, filter)
+	return wrapped, err
+}
+
+// WrapProviderWithWarnings composes optional context and returns the
+// recoverable provider failures that the caller must announce. A failed
+// provider is omitted from the block; a hard contribution-limit error still
+// returns an error because silently sending a truncated context is unsafe.
+func WrapProviderWithWarnings(ctx context.Context, base llm.Provider, providers []ContextProvider, changedPaths []string, filter *redaction.Filter) (llm.Provider, []ProviderWarning, error) {
+	block, warnings, err := BuildContextBlockWithWarnings(ctx, providers, changedPaths, filter)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
 	if block == "" {
-		return base, nil
+		return base, warnings, nil
 	}
-	return &contextInjectingProvider{Provider: base, block: block}, nil
+	return &contextInjectingProvider{Provider: base, block: block}, warnings, nil
 }
