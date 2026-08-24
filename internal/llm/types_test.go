@@ -34,8 +34,11 @@ func (f *fakeProvider) Name() string {
 func TestDefaultOptions(t *testing.T) {
 	opts := DefaultOptions()
 
-	if opts.Temperature != 0.3 {
-		t.Errorf("Expected default temperature 0.3, got %f", opts.Temperature)
+	// AUR-460: Temperature is deliberately left at its zero value, not a
+	// fixed 0.3, so a provider that forwards it (or omits it, per
+	// provider) never sends a sampling parameter a caller never asked for.
+	if opts.Temperature != 0 {
+		t.Errorf("Expected default temperature 0 (omitted), got %f", opts.Temperature)
 	}
 
 	if opts.MaxTokens != 4000 {

@@ -60,10 +60,19 @@ func ResolveModelKey(provider Provider, opts Options) string {
 	return opts.ModelKey
 }
 
-// DefaultOptions returns sensible defaults for LLM options
+// DefaultOptions returns sensible defaults for LLM options.
+//
+// Temperature is left at its zero value, deliberately (AUR-460): a fixed
+// 0.3 default meant every request carried an explicit sampling parameter,
+// and a growing family of gateway-served models (measured: gpt-5.6-luna,
+// -sol, -terra) 400s on ANY explicit "temperature" value, including 0 and
+// including that model's own advertised default. A caller that wants a
+// specific temperature still sets Options.Temperature itself; the field
+// stays on the struct for that. What no longer happens is this package
+// picking a non-zero value nobody asked for and every provider dutifully
+// forwarding it upstream.
 func DefaultOptions() Options {
 	return Options{
-		Temperature: 0.3,
-		MaxTokens:   4000,
+		MaxTokens: 4000,
 	}
 }
