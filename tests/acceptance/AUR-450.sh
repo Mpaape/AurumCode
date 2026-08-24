@@ -94,6 +94,7 @@ required_inputs=(
   go.sum
   cmd/aurumcode
   internal/analyzer
+  internal/config
   internal/llm
   internal/prompt
   internal/review

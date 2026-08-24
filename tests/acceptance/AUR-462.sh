@@ -120,6 +120,7 @@ required_inputs=(
   go.sum
   cmd/aurumcode
   internal/analyzer
+  internal/config
   internal/documentation
   internal/git
   internal/llm

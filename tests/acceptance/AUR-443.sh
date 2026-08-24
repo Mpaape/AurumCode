@@ -111,7 +111,7 @@ stage_source() {
   copy "$root" cmd/regenerate-docs
   copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
   copy "$root" internal/pipeline
-  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm pkg/types
+  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review tests/fixtures/docs/goproject
   copy "$root" action.yml
   # cp -R preserves the read-only mode bits of the materialized input; the

@@ -89,6 +89,7 @@ required_dirs=(
   cmd/aurumcode
   cmd/regenerate-docs
   internal/analyzer
+  internal/config
   internal/prompt
   internal/review
   internal/llm

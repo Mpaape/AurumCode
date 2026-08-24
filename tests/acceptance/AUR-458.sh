@@ -62,7 +62,7 @@ for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
 done
 required_inputs=(
-  go.mod go.sum cmd/aurumcode internal/analyzer internal/llm internal/prompt
+  go.mod go.sum cmd/aurumcode internal/analyzer internal/config internal/llm internal/prompt
   internal/review internal/security/redaction pkg/types
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
