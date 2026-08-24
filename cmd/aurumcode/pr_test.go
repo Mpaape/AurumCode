@@ -341,6 +341,34 @@ func TestFormatReviewSummaryUsesConfiguredLanguage(t *testing.T) {
 	}
 }
 
+func TestFilterSuggestionsToChangedLines(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path: "config.yml",
+		Hunks: []types.DiffHunk{{
+			NewStart: 4,
+			NewLines: 1,
+			Lines:    []string{" review:", "+  language: pt-BR"},
+		}},
+	}}}
+	suggestions := []types.ReviewSuggestion{
+		{Title: "General advice", Description: "Keep the configuration documented."},
+		{Title: "Changed line", File: "config.yml", Line: 5},
+		{Title: "Outside file", File: "HANDOFF.md", Line: 0},
+		{Title: "Context line", File: "config.yml", Line: 4},
+	}
+
+	got := filterSuggestionsToChangedLines(diff, suggestions)
+	if len(got) != 2 {
+		t.Fatalf("filtered suggestions = %+v, want general advice and changed line", got)
+	}
+	if got[0].Title != "General advice" || got[1].Title != "Changed line" {
+		t.Fatalf("filtered suggestions = %+v, want stable order and valid locations", got)
+	}
+	if strings.Contains(formatReviewSummaryForLanguage(&types.ReviewResult{Suggestions: suggestions}, "pt-BR"), "HANDOFF.md:0") {
+		t.Fatal("summary rendered invalid line zero")
+	}
+}
+
 // TestReviewFlagsAcceptSingleOrDoubleDash pins that every flag `review`
 // registers -- --base and the AUR-438 additions (--pr, --repo, --publicar,
 // --na-linha) -- parses identically whether spelled with one leading dash
