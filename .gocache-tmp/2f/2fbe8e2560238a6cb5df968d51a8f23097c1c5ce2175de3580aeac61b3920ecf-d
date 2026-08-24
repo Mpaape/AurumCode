@@ -1,7 +1,0 @@
-./browserproof.go
-./driver.go
-./htmltext.go
-./result.go
-./scripted_driver.go
-./server.go
-./verify.go
