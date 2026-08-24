@@ -72,6 +72,7 @@ required_inputs=(
   internal/documentation/site
   internal/documentation/welcome
   internal/pipeline
+  internal/config
   cmd/regenerate-docs
   pkg/types
   tests/fixtures/repos/git-demo/repo.git
@@ -125,7 +126,7 @@ stage_source() {
   # exists -- naming a package that is not tracked yet breaks this acceptance
   # the other way, at copy()'s own existence check.
   # Derive the set with: go list -deps ./cmd/aurumcode
-  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline
+  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline internal/config
   copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
   copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
