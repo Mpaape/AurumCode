@@ -136,7 +136,7 @@ stage_source() {
     internal/documentation/normalizer internal/documentation/site \
     internal/documentation/welcome
   copy "$root" internal/pipeline
-  copy "$root" internal/analyzer internal/prompt internal/review internal/llm \
+  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm \
     internal/security pkg/types
   copy "$root" tests/fixtures/repos/git-demo
   # The materialized input tree can be read-only, directories included;
