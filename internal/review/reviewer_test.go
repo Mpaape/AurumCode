@@ -2,10 +2,12 @@ package review
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -80,6 +82,29 @@ func TestGenerateReview_Deterministic(t *testing.T) {
 	for i := range first.Issues {
 		if first.Issues[i] != second.Issues[i] {
 			t.Fatalf("non-deterministic issue at %d: %+v vs %+v", i, first.Issues[i], second.Issues[i])
+		}
+	}
+}
+
+func TestDefaultConfigKeepsMixedCodeDiffInPrompt(t *testing.T) {
+	cfg := DefaultConfig()
+	builder := prompt.NewPromptBuilder()
+	diff := &types.Diff{Files: []types.DiffFile{
+		{Path: ".github/workflows/review.yml", Hunks: []types.DiffHunk{{Lines: []string{"+permissions:"}}}},
+		{Path: "lib/pricing.mjs", Hunks: []types.DiffHunk{{Lines: []string{"+'gpt-5.6-terra': { input: 2.0, output: 12.0 }"}}}},
+		{Path: "test/unit.mjs", Hunks: []types.DiffHunk{{Lines: []string{"+ok('pricing', true)"}}}},
+	}}
+	metrics := &analyzer.DiffMetrics{TotalFiles: 3, LanguageBreakdown: map[string]int{"javascript": 2, "yaml": 1}}
+
+	parts, err := builder.BuildPrompt(diff, metrics, prompt.BuildOptions{
+		MaxTokens: cfg.MaxTokens, SchemaKind: "review", Role: "reviewer", ReserveReply: cfg.ReserveReply,
+	})
+	if err != nil {
+		t.Fatalf("BuildPrompt: %v", err)
+	}
+	for _, marker := range []string{"gpt-5.6-terra", "ok('pricing', true)"} {
+		if !strings.Contains(parts.User, marker) {
+			t.Fatalf("mixed code diff lost %q from prompt:\n%s", marker, parts.User)
 		}
 	}
 }
