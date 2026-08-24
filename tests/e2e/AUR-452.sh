@@ -39,7 +39,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-for input in go.mod go.sum internal/config pkg/types internal/llm; do
+for input in go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction internal/llm/cost; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -54,10 +54,12 @@ export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 root="$run_dir/root"
 mkdir -p "$root"
 cp "$repo_root/go.mod" "$repo_root/go.sum" "$root/"
-mkdir -p "$root/internal/config" "$root/pkg/types" "$root/internal/llm"
+mkdir -p "$root/internal/config" "$root/pkg/types" "$root/internal/llm" "$root/internal/security/redaction" "$root/internal/llm/cost"
 cp -R "$repo_root/internal/config/." "$root/internal/config/"
 cp -R "$repo_root/pkg/types/." "$root/pkg/types/"
 cp -R "$repo_root/internal/llm/." "$root/internal/llm/"
+cp -R "$repo_root/internal/security/redaction/." "$root/internal/security/redaction/"
+cp -R "$repo_root/internal/llm/cost/." "$root/internal/llm/cost/"
 chmod -R u+w -- "$root"
 
 # The repository under review: config.yml disables one rule; prompt.md
@@ -82,6 +84,8 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"context"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -116,7 +120,7 @@ func main() {
 	}
 
 	base := &capture{}
-	wrapped, err := config.WrapProvider(base, config.DefaultProviders(root), []string{"config/demo-tokens.txt"})
+	wrapped, err := config.WrapProvider(context.Background(), base, config.DefaultProviders(root), []string{"config/demo-tokens.txt"}, nil)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "wrap:", err)
 		os.Exit(2)

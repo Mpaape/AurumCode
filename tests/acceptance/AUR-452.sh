@@ -43,7 +43,7 @@ owned_inputs=(tests/unit/AUR-452.go tests/integration/AUR-452.go tests/e2e/AUR-4
 for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
 done
-required_inputs=(go.mod go.sum internal/config pkg/types internal/llm)
+required_inputs=(go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction)
 for input in "${required_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
@@ -70,7 +70,7 @@ copy() {
 stage_source() {
   local root="$1"
   mkdir -p "$root"
-  copy "$root" go.mod go.sum internal/config pkg/types internal/llm
+  copy "$root" go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction
   chmod -R u+w -- "$root"
 }
 
@@ -82,6 +82,7 @@ package main
 
 import (
 	"fmt"
+	"context"
 	"os"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -114,7 +115,7 @@ func main() {
 		must(err)
 		kept := config.ApplyRuleConfig(baseIssues(), cfg)
 		base := &capture{}
-		wrapped, err := config.WrapProvider(base, config.DefaultProviders(root), []string{"config/demo-tokens.txt", "svc.go"})
+		wrapped, err := config.WrapProvider(context.Background(), base, config.DefaultProviders(root), []string{"config/demo-tokens.txt", "svc.go"}, nil)
 		must(err)
 		_, err = wrapped.Complete("BASE PROMPT", llm.Options{})
 		must(err)
@@ -132,7 +133,7 @@ func main() {
 		must(err)
 		kept := config.ApplyRuleConfig(baseIssues(), cfg)
 		base := &capture{}
-		wrapped, err := config.WrapProvider(base, config.DefaultProviders(root), []string{"config/demo-tokens.txt", "svc.go"})
+		wrapped, err := config.WrapProvider(context.Background(), base, config.DefaultProviders(root), []string{"config/demo-tokens.txt", "svc.go"}, nil)
 		must(err)
 		_, err = wrapped.Complete("BASE PROMPT", llm.Options{})
 		must(err)

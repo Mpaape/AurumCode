@@ -11,6 +11,7 @@ package integration
 // real changed paths -- the exact directory layout AUR-468/469/470/471
 // build their own providers next to.
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +34,7 @@ func testAUR452ZeroConfigDefaultProviders(t *testing.T) {
 	if len(providers) != 2 {
 		t.Fatalf("Camada 1 ships exactly two file providers, got %d", len(providers))
 	}
-	block, err := config.BuildContextBlock(providers, []string{"a.go", "docs/readme.md"})
+	block, err := config.BuildContextBlock(context.Background(), providers, []string{"a.go", "docs/readme.md"}, nil)
 	if err != nil {
 		t.Fatalf("BuildContextBlock over an empty repo must not error: %v", err)
 	}
@@ -48,7 +49,7 @@ func testAUR452RepoPromptProviderReadsRealFile(t *testing.T) {
 		"Prefer table-driven tests in this repository.\n")
 
 	p := config.NewRepoPromptProvider(root)
-	got, err := p.Provide([]string{"any/path.go"})
+	got, err := p.Provide(context.Background(), []string{"any/path.go"})
 	if err != nil {
 		t.Fatalf("Provide must not error: %v", err)
 	}
@@ -67,7 +68,7 @@ func testAUR452PathInstructionsScopedByApplyTo(t *testing.T) {
 	p := config.NewPathInstructionsProvider(root)
 
 	// A changed Go file matches only the Go-scoped instructions.
-	got, err := p.Provide([]string{"internal/foo/bar.go"})
+	got, err := p.Provide(context.Background(), []string{"internal/foo/bar.go"})
 	if err != nil {
 		t.Fatalf("Provide must not error: %v", err)
 	}
@@ -79,7 +80,7 @@ func testAUR452PathInstructionsScopedByApplyTo(t *testing.T) {
 	}
 
 	// A changed doc file matches only the docs-scoped instructions.
-	got2, err := p.Provide([]string{"docs/spec.md"})
+	got2, err := p.Provide(context.Background(), []string{"docs/spec.md"})
 	if err != nil {
 		t.Fatalf("Provide must not error: %v", err)
 	}
@@ -88,7 +89,7 @@ func testAUR452PathInstructionsScopedByApplyTo(t *testing.T) {
 	}
 
 	// A path matching neither glob contributes nothing.
-	got3, err := p.Provide([]string{"README.md"})
+	got3, err := p.Provide(context.Background(), []string{"README.md"})
 	if err != nil {
 		t.Fatalf("Provide must not error: %v", err)
 	}

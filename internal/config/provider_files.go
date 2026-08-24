@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,7 +25,7 @@ func NewRepoPromptProvider(root string) *RepoPromptProvider {
 
 func (p *RepoPromptProvider) Name() string { return "repository prompt (.aurumcode/prompt.md)" }
 
-func (p *RepoPromptProvider) Provide(_ []string) (string, error) {
+func (p *RepoPromptProvider) Provide(_ context.Context, _ []string) (string, error) {
 	data, err := os.ReadFile(p.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -55,7 +56,7 @@ func (p *PathInstructionsProvider) Name() string {
 	return "path-scoped instructions (.aurumcode/instructions/*.md)"
 }
 
-func (p *PathInstructionsProvider) Provide(changedPaths []string) (string, error) {
+func (p *PathInstructionsProvider) Provide(_ context.Context, changedPaths []string) (string, error) {
 	entries, err := os.ReadDir(p.Dir)
 	if err != nil {
 		if os.IsNotExist(err) {
