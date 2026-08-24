@@ -78,6 +78,10 @@ por quem chamou o review; pode não conter logs completos.
 - Só registre um `issue` quando houver um problema concreto ou uma melhoria
   claramente necessária. Não comente cada linha, não repita o mesmo ponto e
   não crie achados para deixar o relatório mais longo.
+- `Code changes` é a fonte da verdade: não declare indisponível arquivo mostrado
+  no diff. Use `limitations` só para evidência externa ausente, como log de CI.
+- Se houver código ou testes, explique o comportamento e o teste revisados; não
+  produza `approve` genérico baseado apenas em workflow ou configuração.
 - Só preencha `strengths` quando houver um benefício concreto e diretamente
   evidenciado no código ou nos testes alterados. Para mudanças apenas de
   configuração, workflow, documentação ou comentários, use `"strengths": []`.

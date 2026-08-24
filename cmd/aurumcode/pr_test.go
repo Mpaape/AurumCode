@@ -402,6 +402,27 @@ func TestSuppressOperationalStrengths(t *testing.T) {
 	}
 }
 
+func TestFilterLimitationsAgainstDiff(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{
+		{Path: "lib/pricing.mjs"},
+		{Path: "test/unit.mjs"},
+	}}
+	limitations := []string{
+		"The review could not assess lib/pricing.mjs because it was not available.",
+		"The test/unit.mjs changes were unavailable for review.",
+		"The failed CI log was unavailable.",
+		"Repository history was not provided.",
+	}
+
+	got := filterLimitationsAgainstDiff(diff, limitations)
+	if len(got) != 2 {
+		t.Fatalf("filtered limitations = %+v, want only evidence outside the diff", got)
+	}
+	if got[0] != "The failed CI log was unavailable." || got[1] != "Repository history was not provided." {
+		t.Fatalf("filtered limitations = %+v, want stable order", got)
+	}
+}
+
 // TestReviewFlagsAcceptSingleOrDoubleDash pins that every flag `review`
 // registers -- --base and the AUR-438 additions (--pr, --repo, --publicar,
 // --na-linha) -- parses identically whether spelled with one leading dash

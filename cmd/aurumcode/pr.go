@@ -289,6 +289,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
 	suppressOperationalStrengths(diff, result)
+	result.Limitations = filterLimitationsAgainstDiff(diff, result.Limitations)
 
 	// The engine already redacted every model-authored field on result
 	// (internal/review.redactReviewResult, called inside GenerateReview
@@ -680,6 +681,51 @@ func suppressOperationalStrengths(diff *types.Diff, result *types.ReviewResult) 
 	if result != nil && !prompt.HasSubstantiveCodeChange(diff) {
 		result.Strengths = nil
 	}
+}
+
+// filterLimitationsAgainstDiff removes a model limitation that contradicts
+// the review input itself. A file printed in the Code changes block was
+// available to the model, so publishing that file as "unavailable" makes an
+// otherwise valid review factually misleading. Limitations about evidence
+// outside the diff, such as missing CI logs, remain untouched.
+func filterLimitationsAgainstDiff(diff *types.Diff, limitations []string) []string {
+	if len(limitations) == 0 {
+		return limitations
+	}
+	paths := make([]string, 0, len(diff.Files))
+	for _, file := range diff.Files {
+		if path := strings.TrimSpace(file.Path); path != "" {
+			paths = append(paths, path)
+		}
+	}
+	if len(paths) == 0 {
+		return limitations
+	}
+
+	filtered := make([]string, 0, len(limitations))
+	for _, limitation := range limitations {
+		lower := strings.ToLower(limitation)
+		claimsUnavailable := strings.Contains(lower, "not available") ||
+			strings.Contains(lower, "unavailable") ||
+			strings.Contains(lower, "não disponível") ||
+			strings.Contains(lower, "nao disponivel") ||
+			strings.Contains(lower, "não estavam disponíveis") ||
+			strings.Contains(lower, "nao estavam disponiveis")
+		if claimsUnavailable && limitationMentionsChangedPath(lower, paths) {
+			continue
+		}
+		filtered = append(filtered, limitation)
+	}
+	return filtered
+}
+
+func limitationMentionsChangedPath(lowerLimitation string, paths []string) bool {
+	for _, path := range paths {
+		if strings.Contains(lowerLimitation, strings.ToLower(path)) {
+			return true
+		}
+	}
+	return false
 }
 
 // filterSuggestionsToChangedLines keeps the published review actionable. A
