@@ -1,0 +1,20 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-472",
+ "commit": "ff7df55a44f38a2b1d6fd9ee211b21cd9e9dc243",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-472",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 on the integrated SHA"
+ },
+ "review_notes": {
+  "cross_repo_corruption_impossible": "The worst case -- rewriting OutroDono/OutroRepo@v3 to this project's v1 -- cannot happen: actionRefPattern is anchored to the literal Mpaape/AurumCode@, so it is structurally out of reach rather than merely absent from a list.",
+  "sha_handling": "A 40-hex SHA passes untouched with and without a list; a 7-character one is rewritten, which is right because it is not an immutable pin.",
+  "neighbour_intact": "AUR-465's exact-equality link sanitiser is byte-unchanged, and its own mutations still detect -- the reviewer checked that AUR-465's e2e sed still matches SanitizeActionRef's signature line, so that card's mutation did not quietly become decoration.",
+  "no_list_path_is_not_dead_code": "PublishedTags() never returns empty at the single production call site today, but SanitizeActionRefTags is an exported contract the card's own AC-003 requires, with direct coverage. Declared defensive design, not false coverage.",
+  "followup": "The published-tag literal is maintained by hand with no guard. The reviewer confirmed experimentally that an unlisted v1.0.2 IS rewritten to v1, violating the function's own contract -- the same class of defect this card fixes, applied recursively to its own list. Carded as AUR-478."
+ }
+}
