@@ -47,10 +47,16 @@ type Config struct {
 }
 
 // DefaultConfig returns sensible defaults for Config.
+//
+// Temperature stays at its zero value, deliberately (AUR-460): the litellm
+// provider this reviewer's orchestrator sends requests through never
+// serializes an explicit temperature at all now, so a non-zero default
+// here would only be misleading -- it would look load-bearing while
+// actually going nowhere. See internal/llm/provider/litellm/provider.go
+// and internal/llm.DefaultOptions.
 func DefaultConfig() Config {
 	return Config{
 		MaxTokens:    4000,
-		Temperature:  0.3,
 		ReserveReply: 1000,
 	}
 }
