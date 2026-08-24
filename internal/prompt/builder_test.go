@@ -316,7 +316,7 @@ func TestBuildReviewPrompt_MultipleLanguages(t *testing.T) {
 // built from the content copied from .aurumcode/prompts/review.md (see
 // templates/review.md and docs/specs/AUR-430.md), not a generic inline
 // string. It checks for text that only exists in that richer prompt
-// (the three-level review structure and the ISO/IEC 25010 section), so a
+// (the structured report sections and the ISO/IEC 25010 section), so a
 // regression back to the old one-line system message would fail this test.
 func TestBuildPrompt_SourcedFromAurumcodePromptsReviewMD(t *testing.T) {
 	builder := NewPromptBuilder()
@@ -344,8 +344,8 @@ func TestBuildPrompt_SourcedFromAurumcodePromptsReviewMD(t *testing.T) {
 	}
 
 	for _, marker := range []string{
-		"Level 1: Line-by-Line Comments",
-		"Level 3: Commit-Level Summary",
+		"Response format",
+		"CI context",
 		"ISO/IEC 25010",
 	} {
 		if !strings.Contains(parts.System, marker) {

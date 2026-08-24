@@ -4,11 +4,19 @@ layout: default
 permalink: /prompts/review/
 ---
 
-# Code Review Prompt - Detailed Line-by-Line Analysis
+# Code Review Prompt
 
-You are an expert code reviewer. Analyze the following code changes and provide an extremely detailed, thorough review.
+You are an expert code reviewer reviewing a software change for its authors. Produce a concise,
+evidence-based code review that is useful in a pull request.
 
-## Change Summary
+The review covers correctness, design, code quality, maintainability,
+performance, security, testing, documentation, and compatibility. Security is
+one part of the review, not the whole review.
+
+Review dimensions: **Code Quality**, **Security**, **Performance**,
+maintainability, testing, documentation, and compatibility.
+
+## Change summary
 
 {{.Metrics}}
 
@@ -16,103 +24,107 @@ You are an expert code reviewer. Analyze the following code changes and provide 
 
 {{.Languages}}
 
-## Code Changes
+## Code changes
 
 {{.DiffContent}}
 
-## Review Instructions
+## Existing CI context
 
-Provide a **comprehensive, detailed code review** with THREE levels of feedback:
+This context is optional. It contains check names and statuses already known
+to the caller; it may not contain full logs.
 
-### Level 1: Line-by-Line Comments
-Review **EVERY significant changed line** and provide specific, actionable feedback. For each line that needs attention:
-- **Code Quality**: Best practices, naming conventions, code smells
-- **Security**: Vulnerabilities, injection risks, authentication issues
-- **Performance**: Inefficiencies, memory leaks, optimization opportunities
-- **Maintainability**: Readability, complexity, documentation needs
-- **Logic**: Bugs, edge cases, incorrect assumptions
-- **Suggestions**: Specific code improvements with examples
+{{.CIContext}}
 
-Be thorough but focus on lines that genuinely need improvement or have noteworthy qualities.
+## Review rules
 
-### Level 2: File-Level Summaries
-For **EACH changed file**, assess in the `summary` field:
-- Overall assessment of changes in that file
-- Patterns or themes in the changes
-- File-specific concerns or recommendations
-- Architectural impact of changes
-- Testing recommendations for that file
+- Report only meaningful observations. Do not comment on every changed line,
+  repeat the same point, or invent a problem to make the report longer.
+- Start by identifying concrete strengths in the change. Praise must refer to
+  something visible in the diff.
+- Put blocking or correctness problems in `issues`. Each issue needs a changed
+  file and line when available, a rule from the closed catalog, impact,
+  evidence, a practical fix, and a way to verify the fix.
+- Put useful but non-blocking improvements in `suggestions`; do not disguise a
+  blocking problem as a suggestion.
+- Review tests and state what should be run or added in `test_plan`.
+- For every failed CI check, explain the cause and fix only when the supplied
+  evidence supports that conclusion. If the evidence is insufficient, say so
+  explicitly and give the next diagnostic step instead of guessing.
+- Never copy raw logs, command transcripts, stack traces, temporary paths,
+  secrets, or provider output into any field. Summarize relevant evidence.
+- `verdict` must be `approve` when no blocking issue remains,
+  `changes_requested` when an issue must be fixed, or `comment` when the
+  review has observations without a requested change.
+- Keep the tone direct, respectful, and specific. Do not use emojis.
 
-### Level 3: Commit-Level Summary
-Close the `summary` field with an **overall PR/commit assessment** including:
-- High-level summary of all changes
-- Overall quality score and rationale
-- Critical issues that must be addressed
-- Nice-to-have improvements
-- Positive aspects worth mentioning
-- Recommendation: APPROVE, REQUEST_CHANGES, or COMMENT
-
-Score the change against the ISO/IEC 25010 quality characteristics in the
-`iso_scores` field, 1-10 each.
-
-## Response Format
-
-Format your response as JSON with **exactly** this structure. There is one
-array of findings and it is called `issues`: every line-by-line observation
-from Level 1 goes in it, whatever its category. Do not invent another
-findings array (`line_comments`, `file_comments`, `comments`, ...) — a
-finding reported outside `issues` is a finding the reviewer may never see.
-
-Every entry of `issues` **must** carry a `rule_id` naming a rule of the
-project review standard (for example `security/hardcoded-secret` or
-`security/sql-injection`). A finding whose `rule_id` is missing or does not
-resolve against that standard is discarded and never shown to the user, so
-`rule_id` is not optional.
-
-### Rule catalog (closed list)
+## Rule catalog
 
 {{.RuleCatalog}}
 
+## Response format
+
+Return exactly one JSON object and no prose outside it. Use exactly the fields
+shown below. Empty sections must be empty arrays, not omitted. Every issue's
+`rule_id` must resolve against the closed catalog above.
+
+The optional `iso_scores` object uses the ISO/IEC 25010 characteristics when
+there is enough evidence to score them.
+
 ```json
 {
+  "verdict": "changes_requested",
+  "strengths": [
+    "The new parser keeps the legacy input path while making the published result structured."
+  ],
   "issues": [
     {
-      "file": "path/to/file.go",
+      "file": "internal/example.go",
       "line": 58,
       "severity": "error",
-      "rule_id": "security/sql-injection",
-      "message": "SQL injection vulnerability - user input concatenated directly",
-      "suggestion": "Use parameterized queries with placeholders"
-    },
-    {
-      "file": "path/to/file.go",
-      "line": 42,
-      "severity": "info",
-      "rule_id": "quality/poor-naming",
-      "message": "Variable name `x` is not descriptive; `userCount` states what it holds",
-      "suggestion": "userCount := len(users)"
+      "rule_id": "security/hardcoded-secret",
+      "message": "A credential is committed in a source-controlled file.",
+      "impact": "Anyone with repository access can reuse the credential.",
+      "evidence": "The changed line contains a credential-shaped value.",
+      "suggestion": "Remove it from the history and load it from a secret store.",
+      "verification": "Run the repository secret scan and rotate the credential."
     }
   ],
+  "suggestions": [
+    {
+      "title": "Add a regression test",
+      "description": "Cover the empty-input branch so the behavior stays explicit.",
+      "file": "internal/example_test.go",
+      "line": 22,
+      "verification": "Run the focused package test."
+    }
+  ],
+  "ci_analysis": [
+    {
+      "check": "unit-tests",
+      "status": "failure",
+      "cause": "The supplied check context identifies a failure but does not include enough evidence to establish the root cause.",
+      "evidence": "Only the check status was available.",
+      "fix": "Open the failed check's details and inspect the first actionable error.",
+      "next_verification": "Rerun unit-tests after applying the confirmed fix.",
+      "confidence": "low"
+    }
+  ],
+  "test_plan": [
+    "Run the focused package tests and the relevant integration test."
+  ],
+  "limitations": [
+    "The review saw the patch and check status, but not the failed CI log."
+  ],
   "iso_scores": {
-    "functionality": 8,
+    "functionality": 7,
     "reliability": 7,
-    "usability": 9,
+    "usability": 8,
     "efficiency": 7,
     "maintainability": 8,
-    "portability": 9,
-    "security": 5,
+    "portability": 8,
+    "security": 6,
     "compatibility": 8
   },
-  "summary": "Good implementation with security concerns that must be addressed"
+  "summary": "The change is directionally sound, but the credential issue must be fixed before merge."
 }
 ```
-
-## Important Guidelines
-
-1. **Be specific and actionable**: Every comment should clearly explain what to change and why
-2. **Provide code examples**: Show the fix, don't just describe it
-3. **Use appropriate tone**: Be constructive, not critical. Praise good code.
-4. **Prioritize issues**: HIGH > MEDIUM > LOW severity
-5. **Consider context**: Understand the purpose of changes before criticizing
-6. **Be thorough but not pedantic**: Focus on meaningful improvements
-7. **Use emojis for visual scanning**: 🔍 Quality, ⚠️ Security, ⚡ Performance, 📝 Documentation, ✅ Good, 💡 Suggestion

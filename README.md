@@ -64,11 +64,13 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   ```
 
   Needs `GITHUB_TOKEN` (write permission on the pull request) and an LLM
-  provider. [.github/workflows/examples/code-review.yml](.github/workflows/examples/code-review.yml)
-  is a ready-to-copy workflow that runs this on every pull request; it builds
-  from this repository's `v1` release tag, which **is not published yet** -
-  publishing it is a step the maintainer still has to do, not something this
-  repository does for you.
+  provider. For GitHub Actions, copy
+  [.github/workflows/examples/code-review.yml](.github/workflows/examples/code-review.yml)
+  as-is. It is only a caller for the official reusable workflow: no PR number,
+  SHA, Go setup, token plumbing, or comment formatting is needed in the
+  consumer repository. Configure `LLM_API_KEY` and `LLM_BASE_URL` once under
+  repository Settings > Secrets and variables > Actions; `LLM_MODEL` is
+  optional.
 
 - **Generate documentation**:
 
@@ -78,8 +80,7 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
 
   See "Local usage" below for details, or
   [.github/workflows/examples/documentation.yml](.github/workflows/examples/documentation.yml)
-  to publish it to GitHub Pages on every push to `main` (same unpublished
-  `v1` tag as above).
+  to publish it to GitHub Pages on every push to `main`.
 
 ## Quick start as a GitHub Action
 

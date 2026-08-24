@@ -84,6 +84,7 @@ func (b *PromptBuilder) BuildReviewPrompt(diff *types.Diff, metrics *analyzer.Di
 			"Metrics":     b.formatMetrics(metrics),
 			"Languages":   b.formatLanguages(metrics),
 			"DiffContent": b.formatDiffContent(diff),
+			"CIContext":   "No CI failure context was supplied.",
 			"RuleCatalog": RenderRuleCatalog(b.ruleCatalog),
 		}
 
@@ -371,7 +372,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 
 	// Estimate base prompt tokens (system message + instructions,
 	// including the rule catalog for a review)
-	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics)
+	basePrompt, err := b.buildBasePrompt(opts.SchemaKind, metrics, opts.CIContext)
 	if err != nil {
 		return PromptParts{}, err
 	}
@@ -411,7 +412,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	// missing even one hunk to the budget is never silently "reviewed"),
 	// or omitted, and which documentation files were excluded from the
 	// code rule catalog.
-	userContent := b.buildUserContent(trimmedSegments, metrics)
+	userContent := b.buildUserContent(trimmedSegments, metrics, opts.CIContext)
 	covered := coveredHunkCounts(trimmedSegments)
 	coverages := classifyCodeCoverage(codePaths, totals, covered)
 	userContent += "\n" + renderCoverageDeclaration(coverages, prosePaths)
@@ -462,7 +463,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 // buildUserContent) -- rendering the whole diff into both halves would
 // double the token cost for nothing. The other schema kinds keep the
 // original engine's short inline instructions, unchanged.
-func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics) (string, error) {
+func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.DiffMetrics, ciContext string) (string, error) {
 	switch schemaKind {
 	case "review":
 		if tmpl, ok := b.templates["review.md"]; ok {
@@ -481,6 +482,7 @@ func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.Dif
 				"Metrics":     b.formatMetrics(metrics),
 				"Languages":   b.formatLanguages(metrics),
 				"DiffContent": "(see the Code Changes section that follows this prompt)",
+				"CIContext":   reviewCIContext(ciContext),
 				"RuleCatalog": catalog,
 			}); err != nil {
 				return "", fmt.Errorf("rendering the review prompt template: %w", err)
@@ -507,7 +509,7 @@ func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.Dif
 }
 
 // buildUserContent assembles user content from segments
-func (b *PromptBuilder) buildUserContent(segments []ContextSegment, metrics *analyzer.DiffMetrics) string {
+func (b *PromptBuilder) buildUserContent(segments []ContextSegment, metrics *analyzer.DiffMetrics, ciContext string) string {
 	var result strings.Builder
 
 	// Add metrics summary
@@ -515,6 +517,9 @@ func (b *PromptBuilder) buildUserContent(segments []ContextSegment, metrics *ana
 	result.WriteString(fmt.Sprintf("- Total files: %d\n", metrics.TotalFiles))
 	result.WriteString(fmt.Sprintf("- Lines added: %d\n", metrics.LinesAdded))
 	result.WriteString(fmt.Sprintf("- Lines deleted: %d\n\n", metrics.LinesDeleted))
+	result.WriteString("## Existing CI Context\n")
+	result.WriteString(reviewCIContext(ciContext))
+	result.WriteString("\n\n")
 
 	// Add code changes
 	result.WriteString("## Code Changes\n\n")
@@ -524,4 +529,11 @@ func (b *PromptBuilder) buildUserContent(segments []ContextSegment, metrics *ana
 	}
 
 	return result.String()
+}
+
+func reviewCIContext(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "No CI failure context was supplied. Do not invent CI failures or claim that checks passed."
+	}
+	return value
 }

@@ -117,6 +117,14 @@ func TestAcceptedReviewFieldsAreConsumed(t *testing.T) {
 	}
 
 	table := map[string]probe{
+		"ci_analysis": {
+			response: `{"issues":[],"ci_analysis":[{"check":"unit","status":"failure","cause":"cause","evidence":"evidence","fix":"fix","next_verification":"rerun","confidence":"high"}]}`,
+			verify: func(t *testing.T, got parsedProbe) {
+				if len(got.CIAnalysis) != 1 || got.CIAnalysis[0].Cause != "cause" {
+					t.Fatalf("ci_analysis was not carried through: %+v", got.CIAnalysis)
+				}
+			},
+		},
 		"issues": {
 			response: `{"issues":[{"file":"src/a.go","line":7,"severity":"error","rule_id":"security/hardcoded-secret","message":"secret committed"}]}`,
 			verify: func(t *testing.T, got parsedProbe) {
@@ -160,11 +168,51 @@ func TestAcceptedReviewFieldsAreConsumed(t *testing.T) {
 				}
 			},
 		},
+		"limitations": {
+			response: `{"issues":[],"limitations":["the check log was unavailable"]}`,
+			verify: func(t *testing.T, got parsedProbe) {
+				if len(got.Limitations) != 1 || got.Limitations[0] == "" {
+					t.Fatalf("limitations were not carried through: %+v", got.Limitations)
+				}
+			},
+		},
 		"summary": {
 			response: `{"issues":[],"summary":"three secrets added"}`,
 			verify: func(t *testing.T, got parsedProbe) {
 				if got.Summary != "three secrets added" {
 					t.Errorf("summary not carried through, got %q", got.Summary)
+				}
+			},
+		},
+		"strengths": {
+			response: `{"issues":[],"strengths":["clear separation of concerns"]}`,
+			verify: func(t *testing.T, got parsedProbe) {
+				if len(got.Strengths) != 1 || got.Strengths[0] == "" {
+					t.Fatalf("strengths were not carried through: %+v", got.Strengths)
+				}
+			},
+		},
+		"suggestions": {
+			response: `{"issues":[],"suggestions":[{"title":"Add a test","description":"cover the branch"}]}`,
+			verify: func(t *testing.T, got parsedProbe) {
+				if len(got.Suggestions) != 1 || got.Suggestions[0].Title != "Add a test" {
+					t.Fatalf("suggestions were not carried through: %+v", got.Suggestions)
+				}
+			},
+		},
+		"test_plan": {
+			response: `{"issues":[],"test_plan":["run the focused package test"]}`,
+			verify: func(t *testing.T, got parsedProbe) {
+				if len(got.TestPlan) != 1 || got.TestPlan[0] == "" {
+					t.Fatalf("test_plan was not carried through: %+v", got.TestPlan)
+				}
+			},
+		},
+		"verdict": {
+			response: `{"issues":[],"verdict":"approve"}`,
+			verify: func(t *testing.T, got parsedProbe) {
+				if got.Verdict != "approve" {
+					t.Fatalf("verdict was not carried through: %q", got.Verdict)
 				}
 			},
 		},
@@ -187,9 +235,15 @@ func TestAcceptedReviewFieldsAreConsumed(t *testing.T) {
 				t.Fatalf("parsing a response containing %q failed: %v", name, err)
 			}
 			p.verify(t, parsedProbe{
-				Issues:    result.Issues,
-				ISOScores: result.ISOScores,
-				Summary:   result.Summary,
+				Issues:      result.Issues,
+				ISOScores:   result.ISOScores,
+				Summary:     result.Summary,
+				Verdict:     result.Verdict,
+				Strengths:   result.Strengths,
+				Suggestions: result.Suggestions,
+				CIAnalysis:  result.CIAnalysis,
+				TestPlan:    result.TestPlan,
+				Limitations: result.Limitations,
 			})
 		})
 	}
@@ -336,7 +390,13 @@ func TestLineCommentsJunkIsSkippedNotFatal(t *testing.T) {
 
 // parsedProbe is the slice of a parse result the field probes assert on.
 type parsedProbe struct {
-	Issues    []types.ReviewIssue
-	ISOScores *types.ISOScores
-	Summary   string
+	Issues      []types.ReviewIssue
+	ISOScores   *types.ISOScores
+	Summary     string
+	Verdict     string
+	Strengths   []string
+	Suggestions []types.ReviewSuggestion
+	CIAnalysis  []types.CIAnalysis
+	TestPlan    []string
+	Limitations []string
 }

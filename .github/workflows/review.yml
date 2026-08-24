@@ -1,0 +1,76 @@
+name: AurumCode reusable code review
+
+on:
+  workflow_call:
+
+jobs:
+  review:
+    name: Review pull request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: read
+    concurrency:
+      group: aurumcode-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Check provider configuration
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LLM_API_KEY}" ] || [ -z "${LLM_BASE_URL}" ]; then
+            echo "::error::AurumCode needs LLM_API_KEY and LLM_BASE_URL repository secrets; the review was not run"
+            exit 1
+          fi
+
+      - name: Checkout AurumCode
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: Mpaape/AurumCode
+          ref: v1
+          path: .aurumcode-tool
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.21'
+
+      - name: Build AurumCode
+        working-directory: .aurumcode-tool
+        run: go build -o "${RUNNER_TEMP}/aurumcode" ./cmd/aurumcode
+
+      - name: Collect available CI context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          gh pr checks "${PR_NUMBER}" --repo "${REPOSITORY}" --json name,state,workflow,link > "${RUNNER_TEMP}/aurumcode-ci.json"
+          status=$?
+          set -e
+          if [ "${status}" -ne 0 ] || [ ! -s "${RUNNER_TEMP}/aurumcode-ci.json" ]; then
+            printf '%s\n' '[]' > "${RUNNER_TEMP}/aurumcode-ci.json"
+          fi
+
+      - name: Run and publish code review
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+          AURUMCODE_CI_CONTEXT_FILE: ${{ runner.temp }}/aurumcode-ci.json
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+        run: |
+          set -euo pipefail
+          "${RUNNER_TEMP}/aurumcode" review \
+            --pr "${PR_NUMBER}" \
+            --repo "${REPOSITORY}" \
+            --publicar --na-linha --check --seguranca

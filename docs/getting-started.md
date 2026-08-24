@@ -423,24 +423,24 @@ Copie para `.github/workflows/documentation.yml` no seu repositório.
 
 ## Juntando tudo: review automática em cada pull request
 
-O caminho de CI para a feature 1 é o mesmo padrão de cópia:
+Copie
 [`.github/workflows/examples/code-review.yml`](../.github/workflows/examples/code-review.yml)
-gera a review de cada pull request e publica como comentário. Ele espera dois
-secrets no repositório, `LLM_API_KEY` e `LLM_BASE_URL`, e opcionalmente uma
-variável `LLM_MODEL`. Pontos que valem entender antes de copiar:
+para `.github/workflows/aurumcode.yml` no seu repositório. O arquivo contém
+somente o gatilho, as permissões e a chamada do workflow oficial. Ele não pede
+PR number, SHA, checkout, Go, token, comandos internos ou montagem manual de
+comentário.
 
-- O gatilho é `pull_request`, nunca `pull_request_target`. Em um pull request
-  vindo de fork o GitHub retém os secrets, e o job falha em vez de deixar um
-  check verde sobre uma review que nunca rodou.
-- O binário é construído a partir de um checkout separado do AurumCode fixado
-  na tag `v1`. O código do pull request é tratado só como dado: é lido como
-  diff, nunca compilado nem executado por um job que carrega token de escrita.
-  **Atenção:** na data em que este guia foi escrito, `git ls-remote --tags
-  origin` mostra que a tag `v1` ainda não foi publicada. Copiado sem edição, o
-  workflow morre no passo de checkout. Troque `ref: v1` por um commit SHA do
-  AurumCode (ou por um branch, aceitando que ele é mutável) até a tag existir.
-- `--base` recebe o commit base do pull request, então a review cobre
-  exatamente o que aquele PR muda.
+Configure apenas os secrets do provedor em **Settings > Secrets and variables >
+Actions**: `LLM_API_KEY` e `LLM_BASE_URL`. `LLM_MODEL` é opcional. Sem esses
+secrets o job falha claramente e não publica um falso review verde. O workflow
+usa `pull_request`, nunca `pull_request_target`, e não compila nem executa o
+código do pull request; ele lê a mudança pelo diff do GitHub.
+
+O comentário publicado é um code review único, com veredito, pontos fortes,
+achados acionáveis, sugestões não bloqueantes, plano de testes, limitações e
+o diagnóstico de CI disponível. Logs e transcript ficam apenas no log da
+Action. Quando o GitHub ainda não expôs evidência suficiente para uma falha de
+CI, o comentário declara essa limitação em vez de inventar uma causa.
 
 Há também [`.github/workflows/examples/all-pipelines.yml`](../.github/workflows/examples/all-pipelines.yml)
 e [`.github/workflows/examples/qa-testing.yml`](../.github/workflows/examples/qa-testing.yml)
@@ -466,9 +466,9 @@ está funcionando.
 
 Reunidas aqui para você não descobri-las na hora errada:
 
-- **Sem provider de LLM, só a passagem de segurança roda.** O comando avisa no
-  stderr, mas se você automatizar a saída sem ler o stderr, é fácil confundir
-  "review de segurança limpa" com "review completa limpa".
+- **Sem provider de LLM, a review completa não roda.** O workflow falha de
+  forma explícita; a passagem determinística `--seguranca` continua disponível
+  quando executada localmente como uma verificação separada.
 - **A passagem determinística aplica 3 de 8 regras.** XSS, path traversal,
   criptografia fraca, aleatoriedade insegura e autenticação ausente são
   metadados: nunca disparam sozinhos. Um diff limpo aos olhos de `--seguranca`
@@ -481,9 +481,6 @@ Reunidas aqui para você não descobri-las na hora errada:
 - **Documentação de linguagens além de Go exige ferramenta externa.** Python
   precisa de `pydoc-markdown` no PATH; sem ela, os arquivos são pulados (o
   comando diz qual ferramenta falta).
-- **A tag `v1` referenciada pelos workflows de exemplo ainda não existe.**
-  Copiar `code-review.yml` sem trocar o `ref: v1` produz um job que falha no
-  checkout.
 - **A publicação depende de configuração do repositório no GitHub.** Sem
   **Settings > Pages > Source = GitHub Actions** e sem as permissões
   `pages: write` / `id-token: write` no job, o deploy é rejeitado.
