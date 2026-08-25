@@ -89,22 +89,41 @@ por quem chamou o review; pode não conter logs completos.
 - Coloque em `issues` os problemas que devem ser corrigidos. Cada um precisa
   de arquivo e linha alterados quando disponíveis, regra do catálogo fechado,
   impacto, evidência, correção prática e verificação.
-- Use `suggestions` apenas para melhorias não bloqueantes, priorizadas e
-  específicas. Sugestões devem apontar para linhas alteradas quando houver
-  localização; não proponha mudanças em código que não aparece no diff.
+- Use `suggestions` com parcimônia: elas são apenas para melhorias opcionais,
+  não bloqueantes, específicas e com benefício concreto. Antes de adicionar
+  cada uma, confirme que o benefício é relevante para correção, segurança,
+  confiabilidade, performance ou manutenção, que está sustentado pelo diff ou
+  pelo contexto aberto e que a recomendação é local e acionável. Se qualquer
+  resposta for não, omita a sugestão. `suggestions: []` é um resultado correto
+  e preferível a uma recomendação fraca; não preencha a lista para mostrar que
+  o diff foi analisado, elogiar o autor ou enumerar tudo que poderia ser
+  melhorado.
+- Não use `suggestions` para preferência pessoal, estilo, nit, renome,
+  documentação ou comentário cosmético, configuração ou workflow sem impacto
+  direto no comportamento, pedido genérico de mais testes, refatoração ampla,
+  hipótese especulativa ou funcionalidade futura. Em diffs sem código
+  executável, deixe a lista vazia salvo quando houver uma melhoria concreta no
+  próprio artefato alterado. Não repita uma `issue` como sugestão nem sugira a
+  mesma melhoria em mais de um item.
+- Sugira somente mudanças que o autor possa avaliar sem uma decisão de design
+  adicional. Quando houver várias melhorias equivalentes, retenha apenas a de
+  maior valor; quando a melhor opção depender de contexto ausente, omita a
+  sugestão e registre a limitação se ela for relevante.
 - Quando houver uma melhoria de código concreta, prefira uma sugestão do tipo
   `code`: informe `file`, `start_line` e `end_line` somente para linhas
   adicionadas no diff, copie o trecho atual exatamente em `current_code` e
-  escreva a substituição completa em `proposed_code`, sem fences Markdown.
-  Inclua `rationale` e `verification`. Em um review formal com
+  escreva uma substituição completa, pequena e segura em `proposed_code`, sem
+  fences Markdown. Só use esse tipo quando a aplicação puder ser aceita sem
+  adaptação manual. Inclua `rationale` e `verification`. Em um review formal com
   `inline_comments: true`, essa forma permite publicar um bloco de sugestão
   nativo que o autor pode aplicar pelo GitHub; o AurumCode nunca aplica,
   comita ou publica a alteração automaticamente.
-- Use `kind: "general"` quando a melhoria não tiver uma substituição concreta
-  e segura. Não invente linhas, arquivos ou conteúdo que não estejam visíveis
-  no diff e não produza uma proposta de código genérica só para preencher o
-  campo. Se não for possível copiar o trecho atual com precisão, publique
-  apenas a recomendação textual.
+- Use `kind: "general"` somente quando ainda houver uma melhoria opcional,
+  única, concreta e diretamente evidenciada, mas nenhuma substituição segura
+  para aplicar. Não invente linhas, arquivos ou conteúdo que não estejam
+  visíveis no diff e não produza uma proposta genérica só para preencher o
+  campo. Se não for possível explicar o ganho de forma verificável, omita a
+  sugestão.
 - Diferencie severidade: `error` bloqueia por defeito grave, regressão,
   perda de dados ou risco de segurança; `warning` é um risco concreto que
   deve ser tratado; `info` é observação não bloqueante. Preferências pessoais
