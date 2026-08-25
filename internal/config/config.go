@@ -37,6 +37,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -55,7 +56,36 @@ type RuleConfig struct {
 // safe to keep with a repository. It deliberately does not expose rule gates,
 // redaction, cost ceilings, or permissions through this section.
 type ReviewConfig struct {
-	Language string `yaml:"language"`
+	Language       string `yaml:"language"`
+	Publication    string `yaml:"publication"`
+	InlineComments bool   `yaml:"inline_comments"`
+}
+
+// DefaultReviewPublication preserves the original PR behavior for callers
+// that do not opt into the formal GitHub review endpoint. The reusable
+// workflow selects "review" explicitly; this keeps direct CLI consumers
+// backwards-compatible while making the newer mode available without extra
+// plumbing.
+const DefaultReviewPublication = "comments"
+
+// ReviewPublication returns the canonical publication mode. Empty config is
+// the zero-configuration, backwards-compatible comments mode.
+func (c *Config) ReviewPublication() (string, error) {
+	return NormalizeReviewPublication(c.Review.Publication)
+}
+
+// NormalizeReviewPublication accepts the public mode names and a Portuguese
+// spelling useful in repository configuration. The returned values are
+// stable internal names used by the PR publisher.
+func NormalizeReviewPublication(raw string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "comments", "comment", "comentarios", "comentários":
+		return DefaultReviewPublication, nil
+	case "review", "reviews", "formal":
+		return "review", nil
+	default:
+		return "", fmt.Errorf("unsupported review publication %q (use review or comments)", raw)
+	}
 }
 
 // Config is the versioned, human-authored settings file this card reads
@@ -120,6 +150,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		cfg.Rules = map[string]RuleConfig{}
 	}
 	if _, err := cfg.ReviewLanguage(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if _, err := cfg.ReviewPublication(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil

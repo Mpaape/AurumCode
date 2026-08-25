@@ -57,14 +57,15 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   `AURUMCODE_LLM_FIXTURE=<path>` (offline, deterministic) or
   `LLM_API_KEY`+`LLM_BASE_URL` for a model-driven review of the same diff.
 
-- **Review a pull request and publish a comment**:
+- **Review a pull request and publish a formal review**:
 
   ```bash
-  aurumcode review --pr 42 --repo owner/project --publicar --na-linha
+  aurumcode review --pr 42 --repo owner/project --publicar --modo-publicacao review
   ```
 
-  Needs `GITHUB_TOKEN` (write permission on the pull request) and an LLM
-  provider. For GitHub Actions, copy
+  This submits one GitHub review with `APPROVE`, `COMMENT` or
+  `REQUEST_CHANGES`. It needs `GITHUB_TOKEN` (write permission on the pull
+  request) and an LLM provider. For GitHub Actions, copy
   [.github/workflows/examples/code-review.yml](.github/workflows/examples/code-review.yml)
   as-is. It is only a caller for the official reusable workflow: no PR number,
   SHA, Go setup, token plumbing, or comment formatting is needed in the
@@ -79,7 +80,17 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   ```yaml
   review:
     language: pt-BR
+    publication: review
+    inline_comments: true
   ```
+
+  `inline_comments` is optional and adds eligible findings to exact added
+  lines inside the formal review. Without it, the review stays as one clean
+  summary in the PR.
+
+  To keep the legacy publication format with separate timeline/line comments,
+  use `--modo-publicacao comments --na-linha`. The command-line mode overrides
+  the repository setting; accepted modes are `review` and `comments`.
 
   The caller workflow does not change. Without this file, reviews use
   `en-US`; supported values include `pt-BR`, `en-US`, `es-ES`, `fr-FR`,

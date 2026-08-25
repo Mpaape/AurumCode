@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -186,6 +188,79 @@ func TestIsInlineEligible(t *testing.T) {
 				t.Errorf("isInlineEligible(%+v) = %v, want %v", tc.issue, got, tc.inline)
 			}
 		})
+	}
+}
+
+func TestFormalReviewEventMapsFindingsToGitHubEvents(t *testing.T) {
+	cases := []struct {
+		name   string
+		result types.ReviewResult
+		want   string
+	}{
+		{name: "blocking finding requests changes", result: types.ReviewResult{Issues: []types.ReviewIssue{{Severity: "warning"}}}, want: "REQUEST_CHANGES"},
+		{name: "informational finding comments", result: types.ReviewResult{Issues: []types.ReviewIssue{{Severity: "info"}}}, want: "COMMENT"},
+		{name: "optional suggestion comments", result: types.ReviewResult{Suggestions: []types.ReviewSuggestion{{Title: "Improve naming"}}}, want: "COMMENT"},
+		{name: "clean review approves", result: types.ReviewResult{}, want: "APPROVE"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formalReviewEvent(&tc.result); got != tc.want {
+				t.Fatalf("formalReviewEvent() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing.T) {
+	fixturePath := t.TempDir() + "/review.json"
+	fixture := `{"issues":[{"file":"main.go","line":2,"severity":"warning","rule_id":"quality/long-function","message":"O corpo precisa ser dividido."}],"summary":"A mudança precisa de uma correção."}`
+	if err := os.WriteFile(fixturePath, []byte(fixture), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	var posted githubclient.PullRequestReview
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/42":
+			w.Header().Set("ETag", `"formal-review-test"`)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("diff --git a/main.go b/main.go\n@@ -1,1 +1,2 @@\n package main\n+func main() {}\n"))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/"):
+			w.WriteHeader(http.StatusNotFound)
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/pulls/42/reviews":
+			if err := json.NewDecoder(r.Body).Decode(&posted); err != nil {
+				t.Fatalf("decoding formal review: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":1}`))
+		default:
+			t.Fatalf("unexpected GitHub request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixturePath)
+	t.Setenv("AURUMCODE_GITHUB_API_URL", server.URL)
+	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_SHA", "head-sha")
+
+	var stdout, stderr strings.Builder
+	code := runPRReview(&stdout, &stderr, 42, "owner/repo", true, true, false, prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	if code != 0 {
+		t.Fatalf("runPRReview exit = %d\nstdout=%s\nstderr=%s", code, stdout.String(), stderr.String())
+	}
+	if posted.Event != "REQUEST_CHANGES" || posted.CommitID != "head-sha" {
+		t.Fatalf("formal review metadata = %+v, want REQUEST_CHANGES at head-sha", posted)
+	}
+	if len(posted.Comments) != 1 || posted.Comments[0].Path != "main.go" || posted.Comments[0].Line != 2 || posted.Comments[0].Side != "RIGHT" {
+		t.Fatalf("formal inline comments = %+v, want main.go:2 on RIGHT", posted.Comments)
+	}
+	if !strings.Contains(stdout.String(), `review formal "REQUEST_CHANGES" publicado`) {
+		t.Fatalf("stdout did not report formal publication: %s", stdout.String())
 	}
 }
 

@@ -31,19 +31,21 @@
 // With --pr (AUR-438), the command reviews a GitHub pull request instead of
 // a local ref:
 //
-//	aurumcode review --pr <numero> --repo <dono>/<projeto> --publicar --na-linha
+//	aurumcode review --pr <numero> --repo <dono>/<projeto> --publicar --modo-publicacao review
 //
 // It reads the pull request's diff through the restored GitHub client
 // (AUR-437, internal/git/githubclient), reviews it through the same engine
 // and provider selection as the --base path, and publishes every finding
-// as a pull request comment: at the file's exact changed line when the
-// diff added that line, or as a general pull request comment when the
-// finding sits outside the changed lines, so it is never silently dropped.
+// either one formal GitHub review or the backwards-compatible set of
+// separate comments. --na-linha is optional and enables inline findings;
+// findings outside changed lines remain in the review body or as general
+// comments, so they are never silently dropped.
 // Publishing refuses, before anything is posted, when the token lacks
 // write permission on the repository. --repo and --publicar are always
-// required with --pr; --na-linha is required too, UNLESS --check (below)
-// is given -- every other flag (--base, --fail-on, --modelo, --seguranca)
-// and its published behavior is unchanged when --pr is absent.
+// required with --pr; --modo-publicacao selects the publication style and
+// --na-linha only enables inline findings. Every other flag (--base,
+// --fail-on, --modelo, --seguranca) and its published behavior is unchanged
+// when --pr is absent.
 //
 // With --check (AUR-439), the command additionally publishes a commit
 // status (internal/git/githubclient.SetStatus, restored by AUR-437) on the
@@ -278,12 +280,13 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	failOn := fs.String("fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
 	modelo := fs.String("modelo", "", "model that reviews, e.g. local, llama3 or gpt-4; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: AUR-430's selection, unchanged)")
 	seguranca := fs.Bool("seguranca", false, "additionally run the project's security pass: match the diff's added lines against the security rules of the embedded catalog (standards/security-review) and print the findings in their own section (default: off, output unchanged)")
-	pr := fs.Int("pr", 0, "pull request number to review (AUR-438); activates the PR path and requires --repo, --publicar and --na-linha (default: off, --base path unchanged)")
+	pr := fs.Int("pr", 0, "pull request number to review (AUR-438); activates the PR path and requires --repo and --publicar (default: off, --base path unchanged)")
 	repoFlag := fs.String("repo", "", "owner/repo of the pull request; required with --pr")
-	publicar := fs.Bool("publicar", false, "publish findings as comments on the pull request; required with --pr (default: off)")
-	naLinha := fs.Bool("na-linha", false, "comment at the file's exact changed line, falling back to a general comment for a finding outside the changed lines; required with --pr (default: off)")
+	publicar := fs.Bool("publicar", false, "publish the review on the pull request; required with --pr (default: off)")
+	naLinha := fs.Bool("na-linha", false, "include eligible findings as comments on exact changed lines; optional in both publication modes (default: off)")
+	modoPublicacao := fs.String("modo-publicacao", "", "PR publication mode: review (formal GitHub review) or comments (separate comments; default: repository config, otherwise comments)")
 	limite := fs.String("limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
-	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge; with --pr, satisfies the --na-linha requirement on its own (default: off)")
+	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge (default: off)")
 	exigirQualidade := fs.Bool("exigir-qualidade", false, "treat a quality review that did not happen as a failure: exit 1 even when the deterministic --seguranca pass ran and reported, so a CI job cannot read \"security-only\" as \"fully reviewed\" (default: off -- the published --seguranca-without-a-provider path keeps exit 0)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -316,6 +319,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	prFailOnGiven := false
 	prModeloGiven := false
 	prLimiteGiven := false
+	prPublicationGiven := false
 	exigirGiven := false
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -327,6 +331,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			prModeloGiven = true
 		case "limite":
 			prLimiteGiven = true
+		case "modo-publicacao":
+			prPublicationGiven = true
 		case "exigir-qualidade":
 			exigirGiven = true
 		}
@@ -348,13 +354,15 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			return 2
 		}
 		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check, prReviewOptions{
-			seguranca: *seguranca,
-			failOnSet: prFailOnGiven,
-			failOn:    *failOn,
-			modeloSet: prModeloGiven,
-			modelo:    *modelo,
-			limiteSet: prLimiteGiven,
-			limite:    *limite,
+			seguranca:      *seguranca,
+			failOnSet:      prFailOnGiven,
+			failOn:         *failOn,
+			modeloSet:      prModeloGiven,
+			modelo:         *modelo,
+			limiteSet:      prLimiteGiven,
+			limite:         *limite,
+			publicationSet: prPublicationGiven,
+			publication:    *modoPublicacao,
 		})
 	}
 

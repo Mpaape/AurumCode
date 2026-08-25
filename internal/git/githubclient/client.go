@@ -18,7 +18,7 @@ import (
 )
 
 // ErrNoWritePermission is returned by the publishing methods
-// (PostIssueComment, PostReviewComment, SetStatus) when the client is using
+// (PostIssueComment, PostReviewComment, PostPullRequestReview, SetStatus) when the client is using
 // its repository-role preflight and the authenticated token does not carry
 // write permission on the target repository.
 var ErrNoWritePermission = errors.New("token lacks write permission on repository")
@@ -557,6 +557,25 @@ type ReviewComment struct {
 	Position int    `json:"position,omitempty"` // Alternative to Line (deprecated by GitHub)
 }
 
+// ReviewLineComment is an optional inline comment included in a formal pull
+// request review. Its commit is supplied once by PullRequestReview.CommitID,
+// as required by GitHub's create-review API.
+type ReviewLineComment struct {
+	Body string `json:"body"`
+	Path string `json:"path"`
+	Line int    `json:"line,omitempty"`
+	Side string `json:"side,omitempty"`
+}
+
+// PullRequestReview is the formal review submitted to GitHub's pull request
+// review endpoint. Event is one of COMMENT, APPROVE, or REQUEST_CHANGES.
+type PullRequestReview struct {
+	Body     string              `json:"body"`
+	Event    string              `json:"event"`
+	CommitID string              `json:"commit_id,omitempty"`
+	Comments []ReviewLineComment `json:"comments,omitempty"`
+}
+
 // PostReviewComment posts a review comment on a pull request with idempotency.
 // It refuses with ErrNoWritePermission when the token cannot write to the
 // repository.
@@ -597,6 +616,41 @@ func (c *Client) PostReviewComment(ctx context.Context, owner, repo string, numb
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
+	return nil
+}
+
+// PostPullRequestReview submits one formal review to a pull request. The
+// review may contain zero or more inline comments and is shown by GitHub as a
+// single COMMENT, APPROVE, or REQUEST_CHANGES review in the PR's review UI.
+func (c *Client) PostPullRequestReview(ctx context.Context, owner, repo string, number int, review PullRequestReview, idempotencyKey string) error {
+	if err := c.requireWritePermission(ctx, owner, repo); err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/pulls/%d/reviews", c.baseURL, owner, repo, number)
+	jsonData, err := json.Marshal(review)
+	if err != nil {
+		return fmt.Errorf("failed to marshal pull request review: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return fmt.Errorf("failed to create review request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		req.Header.Set("X-GitHub-Idempotency-Key", idempotencyKey)
+	}
+
+	resp, err := c.doRequest(ctx, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 	return nil
 }
 
