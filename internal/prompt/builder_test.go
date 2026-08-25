@@ -381,6 +381,12 @@ func TestBuildPrompt_SourcedFromAurumcodePromptsReviewMD(t *testing.T) {
 		"valor de credencial efetivamente",
 		"Leia o diff inteiro antes de formar uma conclusão",
 		"foi introduzido pela mudança",
+		"Use `suggestions` com parcimônia",
+		"`suggestions: []` é um resultado correto",
+		"Não use `suggestions` para preferência pessoal",
+		"quando a melhor opção depender de contexto ausente",
+		"Só use esse tipo quando",
+		"adaptação manual",
 		"issues: []",
 	} {
 		if !strings.Contains(parts.System, marker) {
