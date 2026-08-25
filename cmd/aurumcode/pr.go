@@ -352,6 +352,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 				break
 			}
 		}
+		if publication == "review" && !needsCommitID {
+			for _, suggestion := range result.Suggestions {
+				if isNativeSuggestion(diff, suggestion) {
+					needsCommitID = true
+					break
+				}
+			}
+		}
 	}
 	if needsCommitID && commitID == "" {
 		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: inline comments or --check require a commit SHA; set GITHUB_SHA")
@@ -369,6 +377,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	inlineCount, generalCount := 0, 0
 	summaryBody := formatReviewSummaryForLanguageAndDiff(result, diff, reviewLanguage)
 	if publication == "review" {
+		if inlineComments {
+			summaryBody = formatFormalReviewSummary(result, diff, reviewLanguage)
+		}
 		formalComments := make([]githubclient.ReviewLineComment, 0)
 		if inlineComments {
 			for _, issue := range issues {
@@ -381,6 +392,11 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 					Line: issue.Line,
 					Side: "RIGHT",
 				})
+			}
+			for _, suggestion := range result.Suggestions {
+				if comment, ok := nativeSuggestionComment(diff, suggestion, reviewLanguage); ok {
+					formalComments = append(formalComments, comment)
+				}
 			}
 		}
 		formal := githubclient.PullRequestReview{
@@ -861,6 +877,85 @@ func writeReviewField(b *strings.Builder, label, value string) {
 		return
 	}
 	fmt.Fprintf(b, "\n\n**%s:** %s", label, strings.TrimSpace(value))
+}
+
+// nativeSuggestionComment converts an implementation-ready model suggestion
+// into GitHub's inline suggestion format. The range has already passed the
+// changed-line filter, but this helper repeats the location check at the
+// publication boundary so a malformed response can never create an
+// actionable suggestion against an unchanged line.
+func nativeSuggestionComment(diff *types.Diff, suggestion types.ReviewSuggestion, language string) (githubclient.ReviewLineComment, bool) {
+	if strings.TrimSpace(suggestion.ProposedCode) == "" || !isNativeSuggestion(diff, suggestion) {
+		return githubclient.ReviewLineComment{}, false
+	}
+	start, end := suggestionRange(suggestion)
+	comment := githubclient.ReviewLineComment{
+		Body: formatNativeSuggestionBody(suggestion, language),
+		Path: suggestion.File,
+		Line: end,
+		Side: "RIGHT",
+	}
+	if start != end {
+		comment.StartLine = start
+		comment.StartSide = "RIGHT"
+	}
+	return comment, true
+}
+
+func isNativeSuggestion(diff *types.Diff, suggestion types.ReviewSuggestion) bool {
+	if strings.TrimSpace(suggestion.ProposedCode) == "" || strings.TrimSpace(suggestion.File) == "" {
+		return false
+	}
+	start, end := suggestionRange(suggestion)
+	if start <= 0 || end < start || end-start > 1000 {
+		return false
+	}
+	for line := start; ; line++ {
+		if !isInlineEligible(diff, types.ReviewIssue{File: suggestion.File, Line: line}) {
+			return false
+		}
+		if line == end {
+			return true
+		}
+	}
+}
+
+func formatNativeSuggestionBody(suggestion types.ReviewSuggestion, language string) string {
+	copy := reviewCopyFor(language)
+	var b strings.Builder
+	if title := strings.TrimSpace(suggestion.Title); title != "" {
+		fmt.Fprintf(&b, "**%s**", title)
+	}
+	if description := strings.TrimSpace(suggestion.Description); description != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(description)
+	}
+	writeReviewField(&b, copy.rationale, suggestion.Rationale)
+	writeReviewField(&b, copy.verify, suggestion.Verification)
+	if b.Len() > 0 {
+		b.WriteString("\n\n")
+	}
+	b.WriteString("```suggestion\n")
+	b.WriteString(strings.Trim(suggestion.ProposedCode, "\n"))
+	b.WriteString("\n```")
+	return b.String()
+}
+
+// formatFormalReviewSummary keeps an actionable native suggestion from being
+// duplicated as a second code block in the review summary. The title,
+// description and location remain in the summary while the replacement itself
+// is attached to the exact changed lines by nativeSuggestionComment.
+func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, language string) string {
+	copy := *result
+	copy.Suggestions = append([]types.ReviewSuggestion(nil), result.Suggestions...)
+	for i := range copy.Suggestions {
+		if isNativeSuggestion(diff, copy.Suggestions[i]) {
+			copy.Suggestions[i].ProposedCode = ""
+		}
+	}
+	return formatReviewSummaryForLanguageAndDiff(&copy, diff, language)
 }
 
 func formatReviewSummary(result *types.ReviewResult) string {

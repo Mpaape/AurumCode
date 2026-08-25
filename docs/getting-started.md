@@ -454,9 +454,11 @@ não pode desligar regras, alterar gates, remover redação ou ampliar permissõ
 
 O comentário publicado é um code review único, com veredito, pontos fortes,
 achados acionáveis, sugestões não bloqueantes, plano de testes, limitações e
-o diagnóstico de CI disponível. Logs e transcript ficam apenas no log da
-Action. Quando o GitHub ainda não expôs evidência suficiente para uma falha de
-CI, o comentário declara essa limitação em vez de inventar uma causa.
+o diagnóstico de CI disponível. Sugestões de código localizadas podem aparecer
+como blocos nativos aplicáveis diretamente no GitHub. Logs e transcript ficam
+apenas no log da Action. Quando o GitHub ainda não expôs evidência suficiente
+para uma falha de CI, o comentário declara essa limitação em vez de inventar
+uma causa.
 
 Há também [`.github/workflows/examples/all-pipelines.yml`](../.github/workflows/examples/all-pipelines.yml)
 e [`.github/workflows/examples/qa-testing.yml`](../.github/workflows/examples/qa-testing.yml)

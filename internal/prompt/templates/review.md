@@ -96,9 +96,10 @@ por quem chamou o review; pode não conter logs completos.
   `code`: informe `file`, `start_line` e `end_line` somente para linhas
   adicionadas no diff, copie o trecho atual exatamente em `current_code` e
   escreva a substituição completa em `proposed_code`, sem fences Markdown.
-  Inclua `rationale` e `verification`. Isso torna a sugestão revisável e
-  preparada para uma futura aplicação segura, mas nesta execução ela é apenas
-  uma proposta: nunca presuma que o código será alterado automaticamente.
+  Inclua `rationale` e `verification`. Em um review formal com
+  `inline_comments: true`, essa forma permite publicar um bloco de sugestão
+  nativo que o autor pode aplicar pelo GitHub; o AurumCode nunca aplica,
+  comita ou publica a alteração automaticamente.
 - Use `kind: "general"` quando a melhoria não tiver uma substituição concreta
   e segura. Não invente linhas, arquivos ou conteúdo que não estejam visíveis
   no diff e não produza uma proposta de código genérica só para preencher o
