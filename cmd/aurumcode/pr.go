@@ -1,18 +1,17 @@
 // AUR-438: the PR review path for `aurumcode review`.
 //
-//	aurumcode review --pr <numero> --repo <dono>/<projeto> --publicar --na-linha
+//	aurumcode review --pr <numero> --repo <dono>/<projeto> --publicar --modo-publicacao review
 //
 // reads a pull request's changes through the restored GitHub client
 // (AUR-437, internal/git/githubclient), runs them through the exact same
 // review engine and provider selection the --base path already uses
 // (internal/review.Reviewer, selectProvider), and publishes every finding
-// as a pull request comment: at the file's exact changed line when the
-// diff actually added that line, or as a general pull request comment when
-// the finding sits outside the changed lines -- so a real finding is never
-// silently dropped just because it cannot be anchored to a line the diff
-// touched (see MUT-001), and one finding's failure to post never costs
-// another finding its own comment (the publish loop aggregates failures
-// instead of aborting on the first one). Publishing delegates authorization
+// as either one formal GitHub review or the backwards-compatible set of
+// separate comments. In both modes, --na-linha is optional: when enabled it
+// anchors eligible findings to exact added lines, while findings outside the
+// diff remain in the review body or become general comments. A real finding
+// is never silently dropped just because it cannot be anchored to a line the
+// diff touched (see MUT-001). Publishing delegates authorization
 // to the GitHub write endpoints: a workflow token may have
 // pull-requests:write or statuses:write while the repository role reports
 // push=false, so GET /repos/{owner}/{repo} is not a valid preflight here.
@@ -27,7 +26,7 @@
 // classification, and the publish loop. It reuses the client and the
 // engine exactly as they already exist; see docs/specs/AUR-438.md.
 //
-// AUR-439 adds --check: after the comment publish loop above, when --check
+// AUR-439 adds --check: after the publication above, when --check
 // was given, it publishes one commit status via the same restored client's
 // SetStatus (internal/git/githubclient; the API response is authoritative in
 // the reusable workflow) -- "failure" when at least one finding is grave (error
@@ -80,42 +79,36 @@ import (
 // the four flags was given, so a caller that never sets a field gets
 // exactly the pre-AUR-451 --pr behavior.
 type prReviewOptions struct {
-	seguranca bool
-	failOnSet bool
-	failOn    string
-	modeloSet bool
-	modelo    string
-	limiteSet bool
-	limite    string
+	seguranca      bool
+	failOnSet      bool
+	failOn         string
+	modeloSet      bool
+	modelo         string
+	limiteSet      bool
+	limite         string
+	publicationSet bool
+	publication    string
 }
 
 // runPRReview is reached only when --pr was explicitly given (see the
 // fs.Visit dispatch in runReview); every other flag's published behavior
 // is therefore untouched by this function's existence.
 //
-// --repo and --publicar are always required here, mirroring how --base is
-// already required on the base-diff path: this card builds and tests
-// exactly the one command the card declares
-// (`review --pr N --repo o/r --publicar --na-linha`), and Non-goals rules
-// out inventing an alternate, unobserved behavior for what any of these
-// flags would mean if omitted.
-//
-// --na-linha is required too, UNLESS --check is given: AUR-439 declares
-// its own command surface, `review --pr N --repo o/r --publicar --check`,
-// with no --na-linha at all -- --check names its own behavior (a commit
-// status) just as clearly as --na-linha names its own (an inline
-// comment), so requiring the user to also spell out --na-linha would be
-// asking for an opt-in this card's own declared command never gives. This
-// changes nothing about the pre-existing, byte-pinned contract: without
-// --check, an absent --na-linha still refuses exactly as it always has
-// (see cmd/aurumcode/pr_test.go and docs/specs/AUR-438.md).
+// --repo and --publicar are always required here. Publication mode and inline
+// comments are optional: the repository config or the command line selects
+// them, and the zero-value mode keeps the historical separate-comment path.
 func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha, check bool, opts prReviewOptions) int {
 	if repoFlag == "" {
 		fmt.Fprintln(stderr, "aurumcode review: --repo is required with --pr")
 		return 2
 	}
-	if !naLinha && !check {
-		fmt.Fprintln(stderr, "aurumcode review: --na-linha is required with --pr")
+	// Keep the legacy command spelling stable. A caller that wants the new
+	// formal mode explicitly selects it with --modo-publicacao review; the
+	// historical comments command still requires --na-linha unless --check
+	// is the requested publication. This avoids silently changing existing
+	// scripts while making the new mode free of the old ceremony.
+	if !naLinha && !check && !opts.publicationSet {
+		fmt.Fprintln(stderr, "aurumcode review: --na-linha is required with --pr in the legacy comments mode; use --modo-publicacao review for a formal review")
 		return 2
 	}
 	if !publicar {
@@ -166,6 +159,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			return 2
 		}
 	}
+	if opts.publicationSet {
+		if _, err := config.NormalizeReviewPublication(opts.publication); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: --modo-publicacao: %v\n", err)
+			return 2
+		}
+	}
 
 	ctx := context.Background()
 	client := newGitHubClient()
@@ -188,6 +187,19 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintf(stderr, "aurumcode review: loading repository review config: %v\n", err)
 		return 1
 	}
+	publication, err := reviewConfig.ReviewPublication()
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: loading repository review publication: %v\n", err)
+		return 1
+	}
+	if opts.publicationSet {
+		publication, err = config.NormalizeReviewPublication(opts.publication)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: --modo-publicacao: %v\n", err)
+			return 2
+		}
+	}
+	inlineComments := reviewConfig.Review.InlineComments || naLinha
 	diff = config.FilterIgnoredPaths(diff, reviewConfig)
 
 	// Provider selection (AUR-451): --modelo picks which model reviews,
@@ -333,14 +345,16 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// status on an all-clear commit, and doing so needs the same SHA.
 	commitID := os.Getenv("GITHUB_SHA")
 	needsCommitID := check
-	for _, issue := range issues {
-		if isInlineEligible(diff, issue) {
-			needsCommitID = true
-			break
+	if inlineComments {
+		for _, issue := range issues {
+			if isInlineEligible(diff, issue) {
+				needsCommitID = true
+				break
+			}
 		}
 	}
 	if needsCommitID && commitID == "" {
-		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: an inline comment requires a commit SHA and none is available; set GITHUB_SHA")
+		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: inline comments or --check require a commit SHA; set GITHUB_SHA")
 		return 1
 	}
 
@@ -353,48 +367,74 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// was.
 	var failures []string
 	inlineCount, generalCount := 0, 0
-	for _, issue := range issues {
-		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
-		if isInlineEligible(diff, issue) {
-			comment := githubclient.ReviewComment{
-				Body:     formatInlineIssueForLanguage(issue, reviewLanguage),
-				CommitID: commitID,
-				Path:     issue.File,
-				Line:     issue.Line,
+	summaryBody := formatReviewSummaryForLanguageAndDiff(result, diff, reviewLanguage)
+	if publication == "review" {
+		formalComments := make([]githubclient.ReviewLineComment, 0)
+		if inlineComments {
+			for _, issue := range issues {
+				if !isInlineEligible(diff, issue) {
+					continue
+				}
+				formalComments = append(formalComments, githubclient.ReviewLineComment{
+					Body: formatInlineIssueForLanguage(issue, reviewLanguage),
+					Path: issue.File,
+					Line: issue.Line,
+					Side: "RIGHT",
+				})
 			}
-			key := fmt.Sprintf("aurumcode/%d/%s/%d/%s", prNumber, issue.File, issue.Line, issue.RuleID)
-			if err := client.PostReviewComment(ctx, owner, repoName, prNumber, comment, key); err != nil {
-				fmt.Fprintf(stderr, "aurumcode review: publishing inline comment on %s:%d: %v\n", issue.File, issue.Line, err)
-				failures = append(failures, fmt.Sprintf("%s:%d (na linha): %v", issue.File, issue.Line, err))
+		}
+		formal := githubclient.PullRequestReview{
+			Body:     summaryBody,
+			Event:    formalReviewEvent(result),
+			CommitID: commitID,
+			Comments: formalComments,
+		}
+		key := fmt.Sprintf("aurumcode/review/%d/%s", prNumber, commitID)
+		if err := client.PostPullRequestReview(ctx, owner, repoName, prNumber, formal, key); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: publishing formal review: %v\n", err)
+			failures = append(failures, "formal review: "+err.Error())
+		} else {
+			inlineCount = len(formalComments)
+			fmt.Fprintf(stdout, "review formal %q publicado no pull request #%d (%d comentário(s) na linha).\n", formal.Event, prNumber, inlineCount)
+		}
+	} else {
+		for _, issue := range issues {
+			line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
+			if inlineComments && isInlineEligible(diff, issue) {
+				comment := githubclient.ReviewComment{
+					Body:     formatInlineIssueForLanguage(issue, reviewLanguage),
+					CommitID: commitID,
+					Path:     issue.File,
+					Line:     issue.Line,
+				}
+				key := fmt.Sprintf("aurumcode/%d/%s/%d/%s", prNumber, issue.File, issue.Line, issue.RuleID)
+				if err := client.PostReviewComment(ctx, owner, repoName, prNumber, comment, key); err != nil {
+					fmt.Fprintf(stderr, "aurumcode review: publishing inline comment on %s:%d: %v\n", issue.File, issue.Line, err)
+					failures = append(failures, fmt.Sprintf("%s:%d (na linha): %v", issue.File, issue.Line, err))
+					continue
+				}
+				fmt.Fprintf(stdout, "%s -- publicado na linha\n", line)
+				inlineCount++
 				continue
 			}
-			fmt.Fprintf(stdout, "%s -- publicado na linha\n", line)
-			inlineCount++
-			continue
+
+			if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatInlineIssueForLanguage(issue, reviewLanguage)); err != nil {
+				fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
+				failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
+				continue
+			}
+			fmt.Fprintf(stdout, "%s -- publicado como comentario geral\n", line)
+			generalCount++
 		}
 
-		// Outside the changed lines: still published, as a general pull
-		// request comment, never dropped. MUT-001 mutates exactly this
-		// branch.
-		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatInlineIssueForLanguage(issue, reviewLanguage)); err != nil {
-			fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
-			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
-			continue
+		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, summaryBody); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
+			failures = append(failures, "summary: "+err.Error())
 		}
-		fmt.Fprintf(stdout, "%s -- publicado como comentario geral (fora das linhas alteradas)\n", line)
-		generalCount++
-	}
 
-	// One summary comment is the human-facing review. Operational progress,
-	// provider details and publish failures stay in the Action log; the PR gets
-	// only the structured review itself.
-	if err := client.PostIssueComment(ctx, owner, repoName, prNumber, formatReviewSummaryForLanguageAndDiff(result, diff, reviewLanguage)); err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
-		failures = append(failures, "summary: "+err.Error())
+		fmt.Fprintf(stdout, "%d comentario(s) publicado(s) no pull request #%d (%d na linha, %d geral).\n",
+			inlineCount+generalCount, prNumber, inlineCount, generalCount)
 	}
-
-	fmt.Fprintf(stdout, "%d comentario(s) publicado(s) no pull request #%d (%d na linha, %d geral).\n",
-		inlineCount+generalCount, prNumber, inlineCount, generalCount)
 
 	// The check status is published before the comment-failure return
 	// below, not after: a grave finding must still get its failing check
@@ -945,6 +985,27 @@ func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) strin
 		}
 	}
 	return copy.approve
+}
+
+// formalReviewEvent maps AurumCode's review result to GitHub's formal review
+// events. Blocking findings request changes; non-blocking observations stay
+// a neutral review comment; a clean review can approve the pull request.
+func formalReviewEvent(result *types.ReviewResult) string {
+	for _, issue := range result.Issues {
+		switch strings.ToLower(strings.TrimSpace(issue.Severity)) {
+		case "error", "warning":
+			return "REQUEST_CHANGES"
+		}
+	}
+	if len(result.Issues) > 0 {
+		return "COMMENT"
+	}
+	for _, suggestion := range result.Suggestions {
+		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
+			return "COMMENT"
+		}
+	}
+	return "APPROVE"
 }
 
 // reviewSummaryText is deliberately derived from the filtered result rather

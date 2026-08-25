@@ -889,6 +889,51 @@ func TestPostReviewComment_Success(t *testing.T) {
 	}
 }
 
+func TestPostPullRequestReview_Success(t *testing.T) {
+	handler := writableRepoRoute(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+		if r.URL.Path != "/repos/owner/repo/pulls/100/reviews" {
+			t.Errorf("path = %q, want formal review endpoint", r.URL.Path)
+		}
+		if key := r.Header.Get("X-GitHub-Idempotency-Key"); key != "formal-review-key" {
+			t.Errorf("idempotency key = %q, want formal-review-key", key)
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("reading request body: %v", err)
+		}
+		payload := string(body)
+		for _, want := range []string{
+			`"event":"REQUEST_CHANGES"`,
+			`"commit_id":"abc123"`,
+			`"path":"file.go"`,
+			`"line":42`,
+			`"side":"RIGHT"`,
+		} {
+			if !strings.Contains(payload, want) {
+				t.Errorf("formal review payload missing %q: %s", want, payload)
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":12345}`))
+	})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	client := newTestClient("test-token", server.URL)
+	err := client.PostPullRequestReview(context.Background(), "owner", "repo", 100, PullRequestReview{
+		Body:     "Formal review",
+		Event:    "REQUEST_CHANGES",
+		CommitID: "abc123",
+		Comments: []ReviewLineComment{{Body: "Fix this", Path: "file.go", Line: 42, Side: "RIGHT"}},
+	}, "formal-review-key")
+	if err != nil {
+		t.Fatalf("PostPullRequestReview: %v", err)
+	}
+}
+
 func TestPostReviewComment_WithoutIdempotencyKey(t *testing.T) {
 	handler := writableRepoRoute(func(w http.ResponseWriter, r *http.Request) {
 		// Verify no idempotency key

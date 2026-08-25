@@ -445,6 +445,8 @@ Para definir o idioma do comentário sem tocar no workflow, crie
 ```yaml
 review:
   language: pt-BR
+  publication: review
+  inline_comments: false
 ```
 
 Sem esse arquivo, o padrão é `en-US`. A configuração é apenas de apresentação;
