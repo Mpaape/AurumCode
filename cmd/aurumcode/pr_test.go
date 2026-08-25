@@ -211,9 +211,33 @@ func TestFormalReviewEventMapsFindingsToGitHubEvents(t *testing.T) {
 	}
 }
 
+func TestNativeSuggestionCommentSupportsAddedLineRanges(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  "main.go",
+		Hunks: []types.DiffHunk{{NewStart: 1, NewLines: 3, Lines: []string{" package main", "+func main() {", "+  run()"}}},
+	}}}
+	suggestion := types.ReviewSuggestion{
+		Title:        "Simplificar entrada",
+		File:         "main.go",
+		StartLine:    2,
+		EndLine:      3,
+		ProposedCode: "func main() { run() }",
+	}
+	comment, ok := nativeSuggestionComment(diff, suggestion, "pt-BR")
+	if !ok {
+		t.Fatal("expected a valid added-line suggestion")
+	}
+	if comment.Path != "main.go" || comment.StartLine != 2 || comment.StartSide != "RIGHT" || comment.Line != 3 || comment.Side != "RIGHT" {
+		t.Fatalf("native suggestion range = %+v", comment)
+	}
+	if !strings.Contains(comment.Body, "```suggestion\nfunc main() { run() }\n```") {
+		t.Fatalf("native suggestion body = %q", comment.Body)
+	}
+}
+
 func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing.T) {
 	fixturePath := t.TempDir() + "/review.json"
-	fixture := `{"issues":[{"file":"main.go","line":2,"severity":"warning","rule_id":"quality/long-function","message":"O corpo precisa ser dividido."}],"summary":"A mudança precisa de uma correção."}`
+	fixture := `{"issues":[{"file":"main.go","line":2,"severity":"warning","rule_id":"quality/long-function","message":"O corpo precisa ser dividido."}],"suggestions":[{"title":"Simplificar a entrada","description":"Extraia a execução para uma função menor.","kind":"code","file":"main.go","line":2,"proposed_code":"func main() { run() }","rationale":"A mudança reduz a responsabilidade do ponto de entrada."}],"summary":"A mudança precisa de uma correção."}`
 	if err := os.WriteFile(fixturePath, []byte(fixture), 0o600); err != nil {
 		t.Fatalf("writing fixture: %v", err)
 	}
@@ -256,8 +280,14 @@ func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing
 	if posted.Event != "REQUEST_CHANGES" || posted.CommitID != "head-sha" {
 		t.Fatalf("formal review metadata = %+v, want REQUEST_CHANGES at head-sha", posted)
 	}
-	if len(posted.Comments) != 1 || posted.Comments[0].Path != "main.go" || posted.Comments[0].Line != 2 || posted.Comments[0].Side != "RIGHT" {
-		t.Fatalf("formal inline comments = %+v, want main.go:2 on RIGHT", posted.Comments)
+	if len(posted.Comments) != 2 || posted.Comments[0].Path != "main.go" || posted.Comments[0].Line != 2 || posted.Comments[0].Side != "RIGHT" {
+		t.Fatalf("formal inline comments = %+v, want finding and suggestion at main.go:2 on RIGHT", posted.Comments)
+	}
+	if !strings.Contains(posted.Comments[1].Body, "```suggestion\nfunc main() { run() }\n```") {
+		t.Fatalf("formal review did not contain a native GitHub suggestion: %+v", posted.Comments[1])
+	}
+	if strings.Contains(posted.Body, "func main() { run() }") {
+		t.Fatalf("native suggestion was duplicated as a summary code block: %s", posted.Body)
 	}
 	if !strings.Contains(stdout.String(), `review formal "REQUEST_CHANGES" publicado`) {
 		t.Fatalf("stdout did not report formal publication: %s", stdout.String())

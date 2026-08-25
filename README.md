@@ -85,8 +85,10 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   ```
 
   `inline_comments` is optional and adds eligible findings to exact added
-  lines inside the formal review. Without it, the review stays as one clean
-  summary in the PR.
+  lines inside the formal review. Code suggestions with `proposed_code` become
+  native GitHub suggestions that the author can apply; without it, the review
+  stays as one clean summary in the PR. The AurumCode process never applies or
+  commits a suggestion on its own.
 
   To keep the legacy publication format with separate timeline/line comments,
   use `--modo-publicacao comments --na-linha`. The command-line mode overrides

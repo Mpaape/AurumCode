@@ -911,6 +911,8 @@ func TestPostPullRequestReview_Success(t *testing.T) {
 			`"path":"file.go"`,
 			`"line":42`,
 			`"side":"RIGHT"`,
+			`"start_line":40`,
+			`"start_side":"RIGHT"`,
 		} {
 			if !strings.Contains(payload, want) {
 				t.Errorf("formal review payload missing %q: %s", want, payload)
@@ -927,7 +929,7 @@ func TestPostPullRequestReview_Success(t *testing.T) {
 		Body:     "Formal review",
 		Event:    "REQUEST_CHANGES",
 		CommitID: "abc123",
-		Comments: []ReviewLineComment{{Body: "Fix this", Path: "file.go", Line: 42, Side: "RIGHT"}},
+		Comments: []ReviewLineComment{{Body: "Fix this", Path: "file.go", Line: 42, Side: "RIGHT", StartLine: 40, StartSide: "RIGHT"}},
 	}, "formal-review-key")
 	if err != nil {
 		t.Fatalf("PostPullRequestReview: %v", err)

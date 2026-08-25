@@ -561,10 +561,12 @@ type ReviewComment struct {
 // request review. Its commit is supplied once by PullRequestReview.CommitID,
 // as required by GitHub's create-review API.
 type ReviewLineComment struct {
-	Body string `json:"body"`
-	Path string `json:"path"`
-	Line int    `json:"line,omitempty"`
-	Side string `json:"side,omitempty"`
+	Body      string `json:"body"`
+	Path      string `json:"path"`
+	Line      int    `json:"line,omitempty"`
+	Side      string `json:"side,omitempty"`
+	StartLine int    `json:"start_line,omitempty"`
+	StartSide string `json:"start_side,omitempty"`
 }
 
 // PullRequestReview is the formal review submitted to GitHub's pull request
