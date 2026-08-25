@@ -64,11 +64,7 @@ type ReviewContext struct {
 // and internal/llm.DefaultOptions.
 func DefaultConfig() Config {
 	return Config{
-		// The review template and closed rule catalog consume most of the
-		// original 4000-token context budget. Keep enough headroom for the
-		// changed source and tests; otherwise a mixed PR can reach the model
-		// with only its coverage declaration and no code hunks.
-		MaxTokens:    5000,
+		MaxTokens:    4000,
 		ReserveReply: 1000,
 	}
 }

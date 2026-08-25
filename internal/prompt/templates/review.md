@@ -145,69 +145,14 @@ Return exactly one JSON object and no prose outside it. Use exactly the fields
 shown below. Empty sections must be empty arrays, not omitted. Every issue's
 `rule_id` must resolve against the closed catalog above.
 
-The optional `iso_scores` object uses the ISO/IEC 25010 characteristics when
-there is enough evidence to score them.
+The object fields are: `verdict`, `strengths`, `issues`, `suggestions`,
+`ci_analysis`, `test_plan`, `limitations`, and `summary`. An `issue` has
+`file`, `line`, `severity`, `rule_id`, `message`, `impact`, `evidence`,
+`suggestion`, and `verification`. A `suggestion` may also have `kind`, a
+changed-line location, `current_code`, `proposed_code`, `rationale`, and
+`verification`. Use empty arrays when a section has no entries. Add optional
+`iso_scores` for ISO/IEC 25010 only when the diff supplies enough evidence.
 
 ```json
-{
-  "verdict": "changes_requested",
-  "strengths": [
-    "The new parser keeps the legacy input path while making the published result structured."
-  ],
-  "issues": [
-    {
-      "file": "internal/example.go",
-      "line": 58,
-      "severity": "error",
-      "rule_id": "security/hardcoded-secret",
-      "message": "A credential is committed in a source-controlled file.",
-      "impact": "Anyone with repository access can reuse the credential.",
-      "evidence": "The changed line contains a credential-shaped value.",
-      "suggestion": "Remove it from the history and load it from a secret store.",
-      "verification": "Run the repository secret scan and rotate the credential."
-    }
-  ],
-  "suggestions": [
-    {
-      "title": "Add a regression test",
-      "description": "Cover the empty-input branch so the behavior stays explicit.",
-      "kind": "code",
-      "file": "internal/example_test.go",
-      "start_line": 22,
-      "end_line": 24,
-      "current_code": "func TestEmptyInput(t *testing.T) {\n\t// existing assertion\n}",
-      "proposed_code": "func TestEmptyInput(t *testing.T) {\n\tgot := Parse(\"\")\n\tif got != nil { t.Fatal(\"expected nil\") }\n}",
-      "rationale": "The test locks the empty-input behavior at the change site.",
-      "verification": "Run the focused package test."
-    }
-  ],
-  "ci_analysis": [
-    {
-      "check": "unit-tests",
-      "status": "failure",
-      "cause": "The supplied check context identifies a failure but does not include enough evidence to establish the root cause.",
-      "evidence": "Only the check status was available.",
-      "fix": "Open the failed check's details and inspect the first actionable error.",
-      "next_verification": "Rerun unit-tests after applying the confirmed fix.",
-      "confidence": "low"
-    }
-  ],
-  "test_plan": [
-    "Run the focused package tests and the relevant integration test."
-  ],
-  "limitations": [
-    "The review saw the patch and check status, but not the failed CI log."
-  ],
-  "iso_scores": {
-    "functionality": 7,
-    "reliability": 7,
-    "usability": 8,
-    "efficiency": 7,
-    "maintainability": 8,
-    "portability": 8,
-    "security": 6,
-    "compatibility": 8
-  },
-  "summary": "The change is directionally sound, but the credential issue must be fixed before merge."
-}
+{"verdict":"approve","strengths":[],"issues":[],"suggestions":[],"ci_analysis":[],"test_plan":[],"limitations":[],"iso_scores":{},"summary":""}
 ```
