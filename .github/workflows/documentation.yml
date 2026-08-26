@@ -1,288 +1,137 @@
-name: Documentation Generation
+name: Documentation site
 
 on:
+  # Documentation must follow every change that can affect the product or its
+  # explanation. There is intentionally no paths filter: a prompt, skill,
+  # guide or site setting is also a published change.
   push:
-    branches:
-      - main
-    paths:
-      - '**.go'
-      - '**.js'
-      - '**.ts'
-      - '**.py'
-      - '**.cs'
-      - '**.java'
-      - '**.cpp'
-      - '**.h'
-      - '**.rs'
-      - '**.sh'
-      - '**.ps1'
-      - 'docs/**'
-      - '.github/workflows/documentation.yml'
+    branches: [main]
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:  # Allow manual triggering
+    branches: [main]
+  workflow_dispatch:
 
-# Root grants nothing: every job below declares its own minimal
-# `permissions:` block, so there is no implicit inheritance left to
-# guard against a job that forgets one.
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: documentation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-docs:
-    name: Generate and Validate Documentation
+  build:
+    name: Generate and validate site
     runs-on: ubuntu-latest
-    # Three consecutive runs of this job vanished at exactly 15m01s with the log
-    # unavailable, which is what a cancelled job looks like from outside. An
-    # explicit ceiling turns that into a legible failure with a reason instead of
-    # a disappearance. The generator reads LLM_API_KEY and LLM_BASE_URL, so a
-    # network wait with empty credentials is the first thing to rule out.
     timeout-minutes: 20
-    # The top-level grant is read-only, so the preview comment below fails with
-    # "Resource not accessible by integration". Widen it here, on the one job
-    # that writes, instead of at the workflow root.
     permissions:
       contents: read
-      pull-requests: write
+    env:
+      SITE_ROOT: ${{ runner.temp }}/aurumcode-site
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for incremental detection
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.21'
 
-      - name: Install documentation tools
+      - name: Prepare clean site tree
+        shell: bash
         run: |
-          echo '=== Installing Documentation Extractors ==='
+          set -euo pipefail
+          rm -rf "${SITE_ROOT}"
+          mkdir -p "${SITE_ROOT}/_api" "${SITE_ROOT}/guides"
+          cp .aurumcode/_config.yml "${SITE_ROOT}/_config.yml"
+          cp .aurumcode/Gemfile "${SITE_ROOT}/Gemfile"
+          cp .aurumcode/index.md "${SITE_ROOT}/index.md"
+          # Public guides live at docs/*.md. Internal acceptance specs under
+          # docs/specs/ stay in the repository and are deliberately not part
+          # of the public site or of the editorial review corpus.
+          find docs -maxdepth 1 -type f -name '*.md' -exec cp {} "${SITE_ROOT}/guides/" \;
 
-          # Ensure Go bin is in PATH for this step AND every later one.
-          # export alone dies with the step; $GITHUB_PATH is what carries a
-          # directory forward, and it is the only mechanism that does.
-          export PATH="$HOME/go/bin:$PATH"
-          echo "$HOME/go/bin" >>"$GITHUB_PATH"
-
-          # Go documentation tool
-          go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
-
-          # JavaScript/TypeScript documentation tool
-          npm install -g typedoc
-
-          # Python documentation tool
-          pip install pydoc-markdown
-
-          # Verify installations
-          echo "✓ gomarkdoc location:" && command -v gomarkdoc || echo "⚠ gomarkdoc not in PATH"
-          echo "✓ gomarkdoc version:" && gomarkdoc --version || echo "⚠ gomarkdoc not found"
-          echo "✓ typedoc version:" && typedoc --version || echo "⚠ typedoc not found"
-          echo "✓ pydoc-markdown version:" && pydoc-markdown --version || echo "⚠ pydoc-markdown not found"
-
-      - name: Extract documentation (Full Mode)
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      - name: Generate API pages and editorial review
+        shell: bash
         env:
+          AURUMCODE_OUTPUT_DIR: ${{ runner.temp }}/aurumcode-site/_api
+          AURUMCODE_DOCS_DIR: ${{ runner.temp }}/aurumcode-site
+          AURUMCODE_DOCS_REVIEW: ${{ github.event_name == 'pull_request' && 'auto' || 'required' }}
+          AURUMCODE_DOCS_LANGUAGE: pt-BR
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          # No PATH override here. `${{ env.PATH }}` reads the workflow's own
-          # env: context -- empty -- not the runner's PATH, and `$HOME` is not
-          # expanded inside an env: block, so this step used to run with
-          # PATH=":$HOME/go/bin" literally: ls(1) was not found and the job died
-          # at exit 127 after the generator had already succeeded. The install
-          # step above appends to $GITHUB_PATH instead, which is what actually
-          # carries a directory into later steps.
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
         run: |
-          echo '=== Running AurumCode Documentation Generator ==='
-          echo 'Source Directory: .'
-          echo 'Output Directory: .aurumcode (auto-generated)'
-          echo 'Custom Pages: docs/ (user-written)'
-          echo 'Mode: Full Generation'
-
-          # Verify tools are accessible
-          echo "=== Verifying Documentation Tools ==="
-          echo "PATH: $PATH"
-          echo ""
-          echo "Go binary location:"
-          # `which` is not installed on the current runner image, and this step
-          # runs under `bash -e`: the bare `which go` exited 127 and killed the
-          # job before the generator below ever ran. `command -v` is a shell
-          # builtin, so it is always present. Kept bare on purpose - a missing
-          # Go toolchain must still fail this step closed.
-          command -v go
-          echo ""
-          echo "gomarkdoc location:"
-          command -v gomarkdoc || echo "❌ gomarkdoc not found in PATH"
-          echo ""
-          echo "gomarkdoc version:"
-          gomarkdoc --version 2>&1 || echo "❌ Cannot execute gomarkdoc"
-          echo ""
-
-          # Build and run the documentation generator
-          echo "=== Running Documentation Generator ==="
-          # `go run <file>` compiles only that file. This package is three files -
-          # main.go, llmbudget.go and repo_code_execution.go - so naming main.go
-          # alone left envLLMModel, resolveLLMBudget and
-          # registerRepoCodeExecutingExtractors undefined. Name the package.
+          set -euo pipefail
           go run ./cmd/regenerate-docs
 
-          echo ""
-          echo "=== Pipeline Complete ==="
-          echo ""
-          echo "📂 Directory structure:"
-          ls -la .aurumcode/
-          echo ""
-          echo "📄 Generated files by type:"
-          echo "  Go docs:"
-          find .aurumcode -path "*/go/*.md" -type f 2>/dev/null || echo "    ❌ No Go docs found"
-          echo "  Bash docs:"
-          find .aurumcode -path "*/bash/*.md" -type f 2>/dev/null | wc -l | xargs echo "   "
-          echo ""
-          echo "📝 All markdown files:"
-          find .aurumcode -name '*.md' -type f | head -20 || echo 'No markdown files'
+      - name: Validate site payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "${SITE_ROOT}/index.md"
+          test -s "${SITE_ROOT}/_config.yml"
+          api_pages=$(find "${SITE_ROOT}/_api" -type f -name '*.md' | wc -l | tr -d ' ')
+          if [ "${api_pages}" -eq 0 ]; then
+            echo "::error::the deterministic API stage produced no Markdown pages"
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ ! -s "${SITE_ROOT}/reviews/docs-review.md" ]; then
+            echo "::error::the main-branch build requires reviews/docs-review.md"
+            exit 1
+          fi
+          echo "API pages: ${api_pages}" >> "${GITHUB_STEP_SUMMARY}"
+          if [ -s "${SITE_ROOT}/reviews/docs-review.md" ]; then
+            echo "Editorial review: generated" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "Editorial review: not requested for this pull request" >> "${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
           bundler-cache: true
-          working-directory: .aurumcode
+          working-directory: ${{ runner.temp }}/aurumcode-site
 
-      - name: Copy custom docs to Jekyll source
+      - name: Install site dependencies
+        working-directory: ${{ runner.temp }}/aurumcode-site
+        shell: bash
         run: |
-          echo "Copying custom documentation from docs/ to .aurumcode/..."
-          test -d docs && cp -r docs/* .aurumcode/ && echo "✅ Docs copied" || echo "⚠️ No docs/ found"
-
-      - name: Install Jekyll dependencies
-        working-directory: .aurumcode
-        run: |
-          echo "Installing Jekyll and dependencies..."
-          bundle config set --local path 'vendor/bundle'
+          set -euo pipefail
+          bundle config set --local path vendor/bundle
           bundle install --jobs 4 --retry 3
 
       - name: Build Jekyll site
-        working-directory: .aurumcode
+        working-directory: ${{ runner.temp }}/aurumcode-site
         env:
           JEKYLL_ENV: production
-        run: |
-          echo "Building Jekyll site..."
-          echo "Merging:"
-          echo "  - .aurumcode/ (auto-generated API docs)"
-          echo "  - ../docs/    (custom user pages)"
-          bundle exec jekyll build --verbose
+        run: bundle exec jekyll build --destination _site
 
-          echo "✅ Jekyll build complete!"
-          echo "Checking generated files..."
-          ls -la _site/ || echo "No _site directory created"
-
-      - name: Check for generated files
+      - name: Verify rendered root
+        shell: bash
         run: |
-          if [ -z "$(ls -A .aurumcode/_site 2>/dev/null)" ]; then
-            echo "❌ No documentation files generated"
-            exit 1
-          else
-            echo "✅ Documentation files found:"
-            find .aurumcode/_site -type f | head -20
-            total=$(find .aurumcode/_site -type f | wc -l)
-            echo "Total files: $total"
-          fi
-
-      - name: Validate HTML
-        run: |
-          if [ -f ".aurumcode/_site/index.html" ]; then
-            echo "✅ Index page exists"
-          else
-            echo "⚠️ No index.html found"
-          fi
-
-      - name: Check for broken links
-        if: false  # Disabled for now, can be enabled with link checker tool
-        run: |
-          echo "Link checking would run here"
+          set -euo pipefail
+          test -s "${SITE_ROOT}/_site/index.html"
+          echo "Rendered site: ${SITE_ROOT}/_site/index.html" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
-          path: .aurumcode/_site/
-
-      - name: Comment PR with documentation link
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        env:
-          # Built here, outside the script string, so nothing from the PR
-          # (title, branch name, etc.) is ever interpolated into JS source by
-          # the Actions expression engine before github-script runs it.
-          COMMENT_BODY: |
-            ## 📚 Documentation Build
-
-            Documentation built successfully for this pull request.
-
-            **Published site:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-
-            That link is the current production site, not a rendered preview of
-            this PR's changes — GitHub Pages only deploys from `main`, and
-            per-PR preview deployments are still an internal GitHub alpha
-            (actions/deploy-pages#61). Your changes will appear at that URL
-            once this PR merges to `main`.
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const pr_number = context.payload.pull_request.number;
-
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: pr_number,
-              body: process.env.COMMENT_BODY
-            });
+          path: ${{ runner.temp }}/aurumcode-site/_site
 
   deploy:
-    name: Deploy to GitHub Pages
+    name: Deploy GitHub Pages
     runs-on: ubuntu-latest
-    needs: build-docs
+    needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     permissions:
       pages: write
       id-token: write
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
-
-  summary:
-    name: Documentation Summary
-    runs-on: ubuntu-latest
-    needs: [build-docs, deploy]
-    if: always()
-    # Only step is a `run:` writing to $GITHUB_STEP_SUMMARY from the
-    # `needs.*.result` and `github.*` contexts already available — no
-    # `uses:` step, no checkout, no GITHUB_TOKEN API call. Nothing here
-    # reads or writes the repo, so no permission is required.
-    permissions: {}
-
-    steps:
-      - name: Create summary
-        run: |
-          echo "# Documentation Generation Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Status" >> $GITHUB_STEP_SUMMARY
-          echo "- Build & Validation: ${{ needs.build-docs.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Deploy: ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "## Deployment" >> $GITHUB_STEP_SUMMARY
-            echo "🚀 Documentation deployed to: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> $GITHUB_STEP_SUMMARY
-          fi
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

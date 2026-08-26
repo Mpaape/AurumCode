@@ -16,6 +16,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/documentation/extractors"
 	"github.com/Mpaape/AurumCode/internal/documentation/incremental"
 	"github.com/Mpaape/AurumCode/internal/documentation/normalizer"
+	docsreview "github.com/Mpaape/AurumCode/internal/documentation/review"
 	"github.com/Mpaape/AurumCode/internal/documentation/site"
 	"github.com/Mpaape/AurumCode/internal/documentation/welcome"
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -107,8 +108,15 @@ type ExtractorPipelineConfig struct {
 	Languages       []string // Languages to extract (empty = all)
 	Incremental     bool     // Enable incremental mode
 	GenerateWelcome bool     // Generate LLM-powered welcome page
-	ValidateJekyll  bool     // Validate Jekyll site after generation
-	DeployGHPages   bool     // Deploy to gh-pages branch
+	// GenerateDocsReview runs the bounded editorial pass after the deterministic
+	// site scaffold. It never rewrites API pages.
+	GenerateDocsReview bool
+	// DocsReviewRequired turns a missing provider or failed editorial pass into
+	// a failed run. Automatic mode leaves deterministic docs available.
+	DocsReviewRequired bool
+	DocsReviewLanguage string
+	ValidateJekyll     bool // Validate Jekyll site after generation
+	DeployGHPages      bool // Deploy to gh-pages branch
 
 	// BaseURL is the path a project Pages site is published under, e.g.
 	// "/my-repo" for owner.github.io/my-repo/. It is normalized before use.
@@ -253,6 +261,7 @@ type ExtractorPipeline struct {
 	incrementalMgr *incremental.Manager
 	normalizer     *normalizer.Normalizer
 	welcomeGen     *welcome.Generator
+	docsReviewer   *docsreview.Reviewer
 	llmOrch        *llm.Orchestrator
 }
 
@@ -274,6 +283,7 @@ func NewExtractorPipeline(
 		incrementalMgr: incremental.NewManager(runner, config.SourceDir),
 		normalizer:     normalizer.NewNormalizer(config.DocsDir),
 		welcomeGen:     welcome.NewGenerator(llmOrch),
+		docsReviewer:   docsreview.NewReviewer(llmOrch),
 		llmOrch:        llmOrch,
 	}
 }
@@ -373,7 +383,22 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 	log.Printf("[Pipeline] Site scaffold: %s (%d page(s) listed), %s",
 		scaffoldResult.IndexPath, len(scaffoldResult.Pages), scaffoldResult.ConfigPath)
 
-	// Step 6: Validate Jekyll site if enabled
+	// Step 6: Run the optional editorial review only after the deterministic
+	// scaffold exists. The report lives under reviews/, outside the API listing,
+	// and is the only site content the model may write.
+	if p.config.GenerateDocsReview || p.config.DocsReviewRequired {
+		log.Printf("[Pipeline] Reviewing published documentation...")
+		if err := p.generateDocsReview(ctx); err != nil {
+			if p.config.DocsReviewRequired {
+				return fmt.Errorf("documentation review required: %w", err)
+			}
+			log.Printf("[Pipeline] Warning: documentation review skipped: %v", err)
+		} else {
+			log.Printf("[Pipeline] Documentation review written")
+		}
+	}
+
+	// Step 7: Validate Jekyll site if enabled
 	if p.config.ValidateJekyll {
 		log.Printf("[Pipeline] Validating Jekyll site...")
 		if err := p.validateJekyllSite(ctx); err != nil {
@@ -383,7 +408,7 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		}
 	}
 
-	// Step 7: Deploy to gh-pages if enabled
+	// Step 8: Deploy to gh-pages if enabled
 	if p.config.DeployGHPages {
 		log.Printf("[Pipeline] Deploying to gh-pages...")
 		if err := p.deployToGHPages(ctx); err != nil {
@@ -392,7 +417,7 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 		log.Printf("[Pipeline] Deployed to gh-pages successfully")
 	}
 
-	// Step 8: Update incremental cache
+	// Step 9: Update incremental cache
 	if p.config.Incremental {
 		log.Printf("[Pipeline] Updating incremental cache...")
 		if err := p.incrementalMgr.UpdateCommit(ctx); err != nil {
@@ -603,6 +628,27 @@ func (p *ExtractorPipeline) generateWelcomePage(ctx context.Context) error {
 	}
 
 	_, err := p.welcomeGen.Generate(ctx, opts)
+	return err
+}
+
+// generateDocsReview writes only the editorial report. Generated API pages are
+// never sent back to disk through the model's response.
+func (p *ExtractorPipeline) generateDocsReview(ctx context.Context) error {
+	docsDir := p.config.DocsDir
+	if docsDir == "" {
+		docsDir = p.config.OutputDir
+	}
+	language := p.config.DocsReviewLanguage
+	if language == "" {
+		language = "pt-BR"
+	}
+	_, err := p.docsReviewer.Generate(ctx, docsreview.GenerateOptions{
+		ProjectDir:   p.config.SourceDir,
+		SiteDir:      docsDir,
+		GeneratedDir: p.config.OutputDir,
+		OutputPath:   filepath.Join(docsDir, "reviews", "docs-review.md"),
+		Language:     language,
+	})
 	return err
 }
 

@@ -149,7 +149,7 @@ jobs:
 
       - name: Generate and publish documentation
         id: docs
-        uses: Mpaape/AurumCode@main
+        uses: Mpaape/AurumCode@v1
         with:
           source-dir: '.'
           output-dir: '.aurumcode'
@@ -201,10 +201,11 @@ cd AurumCode
 # Go extraction needs no external tool: it uses go/parser and go/doc
 # in-process (since AUR-424).
 
-# Optional: any OpenAI-compatible endpoint, for the AI-written landing page
+# Optional: any OpenAI-compatible endpoint, for the AI landing page and review
 export LLM_API_KEY=your_key
 export LLM_BASE_URL=https://your-endpoint/v1
-export LLM_MODEL=gpt-4o-mini        # optional, defaults to gpt-4o-mini
+export LLM_MODEL=claude-3-5-haiku-20241022 # optional; use the model configured by your provider
+export AURUMCODE_DOCS_REVIEW=auto   # auto, required or off
 
 go run ./cmd/regenerate-docs
 ```
@@ -213,8 +214,9 @@ The package argument must be the directory (`./cmd/regenerate-docs`). The
 command's `package main` spans more than one file, so naming a single file does
 not compile.
 
-Without any LLM variable the run still generates every page; only the wording of
-the landing page changes.
+Without any LLM variable the run still generates every deterministic page. With
+the provider configured, the LLM may write the landing page and a bounded
+`reviews/docs-review.md` editorial report; it never rewrites API pages.
 
 ## Environment variables
 
@@ -229,9 +231,11 @@ Read by `cmd/regenerate-docs`:
 | `AURUMCODE_LANGUAGES` | comma-separated allow-list, empty means every registered language |
 | `AURUMCODE_INCREMENTAL` | `true` documents only files changed since the last run |
 | `AURUMCODE_VALIDATE_JEKYLL` | `true` runs `bundle exec jekyll build` in the docs directory after generation |
+| `AURUMCODE_DOCS_REVIEW` | `auto` (review when an LLM exists), `required` (fail without a review) or `off` |
+| `AURUMCODE_DOCS_LANGUAGE` | language used by the editorial review, default `pt-BR` |
 | `AURUMCODE_DEPLOY_GH_PAGES` | `true` makes the run fail: `resolveConfig` (main.go:397-400) returns an error because gh-pages deploy is not implemented in this build; publish the output directory with a dedicated step instead |
 | `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` | opt-in list for `rust`, `csharp` |
-| `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | OpenAI-compatible endpoint for the landing page; the key and the base URL are both required |
+| `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | OpenAI-compatible endpoint for the landing page and editorial review; the key and base URL are both required |
 | `OPENAI_API_KEY` | used only when `LLM_API_KEY`/`LLM_BASE_URL` are unset |
 
 Of these, the Action exposes the output directory (as `output-dir`), the base

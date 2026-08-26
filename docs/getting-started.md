@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Getting Started em 10 minutos
+nav_order: 2
 ---
 
 # AurumCode em 10 minutos por feature
@@ -372,7 +373,7 @@ ao vivo abaixo é a evidência de que funcionam.
 Em **Settings > Pages** do seu repositório, mude **Source** para
 **GitHub Actions**. A action publica via `actions/upload-pages-artifact` e
 `actions/deploy-pages`; um repositório cuja fonte do Pages ainda é um branch
-rejeita esse artefato. Detalhes em [PAGES_SETUP.md](../PAGES_SETUP.md).
+rejeita esse artefato. Detalhes em [PAGES_SETUP.md](https://github.com/Mpaape/AurumCode/blob/main/PAGES_SETUP.md).
 
 ### O workflow
 
@@ -399,11 +400,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: docs
-        uses: Mpaape/AurumCode@main
+        uses: Mpaape/AurumCode@v1
         with:
           source-dir: '.'
           output-dir: '.aurumcode'
           publish: 'pages'
+          # Optional: add the two secrets to generate an editorial review page.
+          docs-review: 'auto'
 ```
 
 `publish` é o que faz a action construir e subir o site; o padrão, `none`, só
@@ -418,13 +421,18 @@ publicação realmente aconteceu.
 
 Uma versão completa e comentada, com actions fixadas por commit imutável e
 `concurrency` configurada para não cancelar um deploy pela metade, está em
-[`.github/workflows/examples/documentation.yml`](../.github/workflows/examples/documentation.yml).
+[workflow de documentação de exemplo](https://github.com/Mpaape/AurumCode/blob/main/.github/workflows/examples/documentation.yml).
 Copie para `.github/workflows/documentation.yml` no seu repositório.
+
+Quando `LLM_API_KEY` e `LLM_BASE_URL` estão configurados como secrets, o mesmo
+build também cria `reviews/docs-review.md`. Para tornar a revisão obrigatória,
+troque `docs-review: 'auto'` por `docs-review: 'required'`; sem credenciais ou
+sem resposta válida, o Pages não é publicado.
 
 ## Juntando tudo: review automática em cada pull request
 
 Copie
-[`.github/workflows/examples/code-review.yml`](../.github/workflows/examples/code-review.yml)
+[workflow de code review de exemplo](https://github.com/Mpaape/AurumCode/blob/main/.github/workflows/examples/code-review.yml)
 para `.github/workflows/aurumcode.yml` no seu repositório. O arquivo contém
 somente o gatilho, as permissões e a chamada do workflow oficial. Ele não pede
 PR number, SHA, checkout, Go, token, comandos internos ou montagem manual de
@@ -473,8 +481,8 @@ aplicáveis diretamente no GitHub. Logs e transcript ficam apenas no log da
 Action. Quando o GitHub ainda não expôs evidência suficiente para uma falha de
 CI, o comentário declara essa limitação em vez de inventar uma causa.
 
-Há também [`.github/workflows/examples/all-pipelines.yml`](../.github/workflows/examples/all-pipelines.yml)
-e [`.github/workflows/examples/qa-testing.yml`](../.github/workflows/examples/qa-testing.yml)
+Há também [o workflow completo](https://github.com/Mpaape/AurumCode/blob/main/.github/workflows/examples/all-pipelines.yml)
+e [o workflow de QA](https://github.com/Mpaape/AurumCode/blob/main/.github/workflows/examples/qa-testing.yml)
 no mesmo diretório.
 
 Para bloquear o merge em vez de só comentar, o workflow oficial publica também
@@ -517,7 +525,7 @@ Reunidas aqui para você não descobri-las na hora errada:
 
 Estas variaveis configuram o gerador quando ele roda pela action; a
 documentacao completa de entradas e saidas fica em
-[ACTION_USAGE.md](../ACTION_USAGE.md).
+[ACTION_USAGE.md](https://github.com/Mpaape/AurumCode/blob/main/ACTION_USAGE.md).
 
 | Variable | Effect |
 |----------|--------|
@@ -529,13 +537,13 @@ documentacao completa de entradas e saidas fica em
 | `AURUMCODE_VALIDATE_JEKYLL` | `true` runs `bundle exec jekyll build` after generation |
 | `AURUMCODE_ALLOW_REPO_CODE_EXECUTION` | opt-in list for `rust`, `csharp` |
 | `LLM_API_KEY` + `LLM_BASE_URL` | OpenAI-compatible endpoint for the landing page |
-| `LLM_MODEL` | model id, defaults to `gpt-4o-mini` |
+| `LLM_MODEL` | model id, defaults to Claude Haiku |
 
 ## Referências no repositório
 
-- [README.md](../README.md) — visão geral
-- [ACTION_USAGE.md](../ACTION_USAGE.md) — todas as entradas e saídas da action
-- [PAGES_SETUP.md](../PAGES_SETUP.md) — configuração do GitHub Pages
+- [README.md](https://github.com/Mpaape/AurumCode/blob/main/README.md) — visão geral
+- [ACTION_USAGE.md](https://github.com/Mpaape/AurumCode/blob/main/ACTION_USAGE.md) — todas as entradas e saídas da action
+- [PAGES_SETUP.md](https://github.com/Mpaape/AurumCode/blob/main/PAGES_SETUP.md) — configuração do GitHub Pages
 - `internal/review/rules/security.yml` — o catálogo embutido, com o porquê de
   cada regra sem matcher
 - `demo.sh` — as três features rodando offline em quatro passos

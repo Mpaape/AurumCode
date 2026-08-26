@@ -54,7 +54,7 @@ inputs:
     # and the step below exports the variable only when it is not the sentinel.
     default: 'auto'
   llm-api-key:
-    description: 'API key for the LLM provider (enables AI-generated welcome page)'
+    description: 'API key for the LLM provider (enables the AI landing page and documentation review)'
     required: false
     default: ''
   llm-base-url:
@@ -64,9 +64,16 @@ inputs:
   llm-model:
     description: >-
       Model id for the LiteLLM provider. Only read when llm-api-key and
-      llm-base-url are both set; the generator falls back to gpt-4o-mini.
+      llm-base-url are both set; the generator falls back to Claude Haiku.
     required: false
     default: ''
+  docs-review:
+    description: >-
+      Editorial review mode for the published documentation. auto (default)
+      reviews whenever an LLM is configured; required fails the run when the
+      review cannot be produced; off keeps deterministic generation only.
+    required: false
+    default: 'auto'
   extra-toolchains:
     description: >-
       Comma-separated extra documentation toolchains to install:
@@ -125,6 +132,7 @@ runs:
       env:
         PUBLISH: ${{ inputs.publish }}
         EXTRA_TOOLCHAINS: ${{ inputs.extra-toolchains }}
+        DOCS_REVIEW: ${{ inputs.docs-review }}
         AURUMCODE_OUTPUT_DIR: ${{ inputs.output-dir }}
         SOURCE_DIR: ${{ inputs.source-dir }}
       run: |
@@ -172,6 +180,14 @@ runs:
           none|artifact|pages) ;;
           *)
             echo "::error::publish='${PUBLISH}' is not a valid value (expected none, artifact or pages)"
+            exit 1
+            ;;
+        esac
+
+        case "${DOCS_REVIEW}" in
+          auto|required|off) ;;
+          *)
+            echo "::error::docs-review='${DOCS_REVIEW}' is not valid (expected auto, required or off)"
             exit 1
             ;;
         esac
@@ -306,6 +322,7 @@ runs:
         LLM_API_KEY: ${{ inputs.llm-api-key }}
         LLM_BASE_URL: ${{ inputs.llm-base-url }}
         LLM_MODEL: ${{ inputs.llm-model }}
+        AURUMCODE_DOCS_REVIEW: ${{ inputs.docs-review }}
         SOURCE_DIR: ${{ inputs.source-dir }}
         # The generator reads its own knobs from AURUMCODE_-prefixed variables
         # (cmd/regenerate-docs/main.go: envOutputDir), so the input is exported
@@ -381,6 +398,22 @@ runs:
         } >> "${GITHUB_OUTPUT}"
 
         echo "Generated ${docs_count} documentation files in ${docs_path} (languages: ${languages:-none})"
+
+    - name: Add repository guides to Pages site
+      if: inputs.publish != 'none'
+      shell: bash
+      env:
+        SOURCE_DIR: ${{ inputs.source-dir }}
+        DOCS_PATH: ${{ steps.generate.outputs.docs-path }}
+      run: |
+        set -euo pipefail
+        cd "${GITHUB_WORKSPACE}"
+        source_root="${GITHUB_WORKSPACE}/${SOURCE_DIR}"
+        if [ -d "${source_root}/docs" ]; then
+          mkdir -p "${DOCS_PATH}/guides"
+          cp -R "${source_root}/docs/." "${DOCS_PATH}/guides/"
+          echo "Repository guides staged under ${DOCS_PATH}/guides"
+        fi
 
     - name: Prepare Pages payload
       id: payload

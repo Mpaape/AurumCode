@@ -71,7 +71,7 @@ jobs:
           # only one is set. Uncomment to enable.
           # llm-api-key: ${{ secrets.LLM_API_KEY }}
           # llm-base-url: ${{ secrets.LLM_BASE_URL }}
-          # llm-model: 'gpt-4o-mini'
+          # llm-model: 'claude-3-5-haiku-20241022'
 
       - name: Fail when the generator produced nothing
         # Outputs travel through env, never through ${{ }} inside the script.

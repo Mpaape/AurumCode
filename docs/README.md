@@ -1,64 +1,89 @@
-# Hand-written documentation
+---
+layout: default
+title: Como escrever a documentação
+nav_order: 4
+---
 
-This folder holds pages written by hand, as opposed to `.aurumcode/`, which the
-generator rewrites.
+# Como escrever a documentação
 
-## The two trees
+`docs/` é a fonte dos guias escritos por pessoas. O gerador não altera esses
+arquivos. No build do GitHub Pages, eles entram no site em `guides/`; a API
+extraída fica separada e é reconstruída a cada commit.
 
-| Tree | Written by | Regenerated |
-|------|-----------|-------------|
-| `.aurumcode/` | `cmd/regenerate-docs` | yes, on every run |
-| `docs/` | people | never touched by the generator |
+No site oficial do AurumCode, entram os guias públicos em `docs/*.md`. As
+especificações internas em `docs/specs/` continuam disponíveis no repositório
+para manutenção do projeto, mas não são exibidas para quem está usando a
+ferramenta.
 
-The generator writes markdown, `_config.yml` and `index.md` under its output
-directory. It does not read `docs/`, does not copy it anywhere, and does not
-build a Jekyll site.
+## O que é automático
 
-## Getting a hand-written page into the generated site
+| Parte do site | Fonte | Pode ser editada diretamente? |
+| --- | --- | --- |
+| API | código-fonte + extratores | não; corrija o código ou o extrator |
+| Guias | `docs/**/*.md` | sim |
+| Landing page | `.aurumcode/index.md` + scaffold | apenas o texto fora do bloco marcado |
+| Revisão editorial | README + páginas publicadas + skills | não; ela é regenerada pelo LLM |
 
-The landing page lists every `.md` file found under the output directory, at any
-depth, except `index.md` itself. So a page placed under the output directory is
-picked up by the next run:
+## Criando um guia
 
-```bash
-cp docs/my-guide.md .aurumcode/my-guide.md
-go run ./cmd/regenerate-docs
-```
-
-Alternatively, point `AURUMCODE_DOCS_DIR` at a different directory: `index.md`
-and `_config.yml` are written there instead, while the extracted pages stay
-under `AURUMCODE_OUTPUT_DIR`.
-
-Nothing deletes files under the output directory, but `index.md` is rewritten on
-every run, so it is not a place to keep hand-written content.
-
-## Front matter
-
-The generated `_config.yml` declares `theme: jekyll-theme-primer` and applies
-`layout: default` to every page, so a page needs no front matter at all. When
-present, `title` is used as the page title in the index listing.
+Adicione um Markdown em `docs/`. Use front matter para controlar o título e a
+posição na navegação:
 
 ```markdown
 ---
 layout: default
-title: My Guide
+title: Meu guia
+nav_order: 5
 ---
 
-# My Custom Guide
+# Meu guia
+
+Explique o caminho que o leitor precisa concluir.
 ```
 
-## Building the site locally
+Links entre guias devem apontar para a rota publicada, por exemplo
+`guides/getting-started.html`, e não para um caminho do checkout como
+`docs/getting-started.md`.
 
-The generator does not produce a `Gemfile`, so a local Jekyll build needs one
-supplied by you:
+## Revisão com LLM
+
+O modo padrão é `auto`: se `llm-api-key` e `llm-base-url` estiverem presentes,
+o build cria `reviews/docs-review.md`. O relatório avalia somente o conteúdo do
+site e não modifica as páginas de API.
+
+Para personalizar sem preencher um arquivo grande:
+
+- edite `.aurumcode/prompts/documentation/docs-review.md`;
+- adicione skills curtas em `.aurumcode/skills/documentation/*.md`;
+- selecione `docs-review: required` no workflow quando a revisão for obrigatória.
+
+O prompt e as skills são contexto adicional. Eles não podem autorizar links,
+comandos ou fatos que não estejam no material enviado ao modelo.
+
+## Teste local
+
+Para gerar apenas a documentação determinística:
 
 ```bash
 go run ./cmd/regenerate-docs
+```
+
+Para gerar e revisar com um provider OpenAI-compatible:
+
+```bash
+LLM_API_KEY=... \
+LLM_BASE_URL=https://seu-endpoint/v1 \
+AURUMCODE_DOCS_REVIEW=required \
+go run ./cmd/regenerate-docs
+```
+
+Depois, construa o site:
+
+```bash
 cd .aurumcode
-bundle install          # requires a Gemfile in this directory
+bundle install
 bundle exec jekyll serve
 ```
 
-Not verified in this environment: no Ruby or Bundler run was executed here.
-Through the GitHub Action the build is done by `actions/jekyll-build-pages`,
-which needs no Gemfile, and only when the `publish` input is set.
+O workflow oficial usa um diretório temporário para publicar API, guias e
+revisão sem sujar o checkout com `_site` ou cópias intermediárias.

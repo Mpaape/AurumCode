@@ -40,6 +40,8 @@ const (
 	envValidateJekyll = "AURUMCODE_VALIDATE_JEKYLL"
 	envDeployGHPages  = "AURUMCODE_DEPLOY_GH_PAGES"
 	envBaseURL        = "AURUMCODE_BASE_URL"
+	envDocsReview     = "AURUMCODE_DOCS_REVIEW"
+	envDocsLanguage   = "AURUMCODE_DOCS_LANGUAGE"
 )
 
 type extractorAlias struct {
@@ -566,6 +568,11 @@ func resolveConfig(generateWelcome bool) (*pipeline.ExtractorPipelineConfig, err
 			"publish the contents of the output directory with a dedicated step instead", envDeployGHPages)
 	}
 
+	reviewMode, err := docsReviewMode()
+	if err != nil {
+		return nil, err
+	}
+
 	// LookupEnv, never Getenv: an empty AURUMCODE_BASE_URL is the operator
 	// saying "publish at the root", which is the only way a site on a custom
 	// domain can stop the pipeline from deriving a "/repo" prefix out of
@@ -575,17 +582,36 @@ func resolveConfig(generateWelcome bool) (*pipeline.ExtractorPipelineConfig, err
 	basePath, basePathDeclared := os.LookupEnv(envBaseURL)
 
 	return &pipeline.ExtractorPipelineConfig{
-		SourceDir:       sourceDir,
-		OutputDir:       outputDir,
-		DocsDir:         envOrDefault(envDocsDir, outputDir),
-		Languages:       splitLanguages(os.Getenv(envLanguages)),
-		Incremental:     incremental,
-		GenerateWelcome: generateWelcome,
-		ValidateJekyll:  validateJekyll,
-		DeployGHPages:   false,
-		BaseURL:         basePath,
-		BaseURLDeclared: basePathDeclared,
+		SourceDir:          sourceDir,
+		OutputDir:          outputDir,
+		DocsDir:            envOrDefault(envDocsDir, outputDir),
+		Languages:          splitLanguages(os.Getenv(envLanguages)),
+		Incremental:        incremental,
+		GenerateWelcome:    generateWelcome,
+		GenerateDocsReview: generateWelcome && reviewMode != "off",
+		DocsReviewRequired: reviewMode == "required",
+		DocsReviewLanguage: envOrDefault(envDocsLanguage, "pt-BR"),
+		ValidateJekyll:     validateJekyll,
+		DeployGHPages:      false,
+		BaseURL:            basePath,
+		BaseURLDeclared:    basePathDeclared,
 	}, nil
+}
+
+// docsReviewMode keeps the common path simple: auto reviews whenever an LLM is
+// already configured, required fails closed without one, and off disables only
+// the editorial page (deterministic extraction still runs).
+func docsReviewMode() (string, error) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(envDocsReview))) {
+	case "", "auto":
+		return "auto", nil
+	case "required", "on", "true":
+		return "required", nil
+	case "off", "none", "false":
+		return "off", nil
+	default:
+		return "", fmt.Errorf("%s must be auto, required or off (got %q)", envDocsReview, os.Getenv(envDocsReview))
+	}
 }
 
 func envOrDefault(name, fallback string) string {

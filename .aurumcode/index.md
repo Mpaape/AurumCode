@@ -1,59 +1,45 @@
 ---
-title: Index
+title: AurumCode
 layout: default
-has_children: true
+nav_order: 1
 permalink: /
+description: Code review, documentação e publicação no GitHub Pages.
 ---
 
-# AurumCode API Documentation
+# AurumCode
 
-Welcome to AurumCode's automatically generated API documentation.
+> Code review e documentação de código que chegam ao seu repositório como uma
+> ferramenta simples de GitHub Actions.
 
-## 🚀 Quick Start
+{: .fs-6 .fw-300 }
 
-**Using AurumCode as a GitHub Action:**
+[Começar em 10 minutos](guides/getting-started.html){: .btn .btn-primary }
+[Ver o projeto no GitHub](https://github.com/Mpaape/AurumCode){: .btn }
 
-```yaml
-- uses: Mpaape/AurumCode@v1
-  with:
-    source-dir: '.'
-    output-dir: '.aurumcode'
-```
+## O que você encontra aqui
 
-**See:** [ACTION_USAGE.md](https://github.com/Mpaape/AurumCode/blob/main/ACTION_USAGE.md)
+Esta página é a entrada para a documentação publicada. Os guias explicam o uso
+da ferramenta; a referência abaixo é reconstruída diretamente do código a cada
+build.
 
-## 📚 Documentation Sections
+| Área | Para quem é | O que resolve |
+| --- | --- | --- |
+| Code review | Quem quer revisar pull requests | Achados priorizados, comentários e sugestões aplicáveis |
+| Documentação | Quem mantém um projeto de código | Páginas de API e guias navegáveis no Pages |
+| Revisão editorial | Quem publica documentação | Checagem de clareza, lacunas e exemplos com contexto do próprio repositório |
 
-This site contains auto-generated API documentation extracted from the AurumCode source code:
+## Comece pelo caminho principal
 
-- **Go Packages** - Core Go packages and their APIs
-- **Internal Packages** - Internal implementation details
-- **Pipeline** - Documentation pipeline components
-- **LLM Integration** - Language model providers
+1. [Guia de início rápido](guides/getting-started.html) — compile, rode o review e publique o site.
+2. [Uso da Action](https://github.com/Mpaape/AurumCode/blob/main/ACTION_USAGE.md) — entradas, saídas e permissões.
+3. [Configuração do GitHub Pages](https://github.com/Mpaape/AurumCode/blob/main/PAGES_SETUP.md) — a única configuração do Pages necessária.
 
-## 🔧 Supported Languages
+## Como esta página é mantida
 
-AurumCode automatically generates documentation for:
+O bloco de referência abaixo é determinístico: ele lista somente páginas que o
+extrator realmente produziu. Quando um provider LLM está configurado, a página
+[Revisão da documentação](reviews/docs-review.html) é regenerada no mesmo ciclo
+e avalia apenas o conteúdo publicado, nunca a configuração do gerador.
 
-- **Go** (gomarkdoc)
-- **JavaScript/TypeScript** (TypeDoc)
-- **Python** (pydoc-markdown)
-- **C#** (xmldocmd)
-- **C/C++** (Doxygen + doxybook2)
-- **Rust** (rustdoc)
-- **Bash** (shdoc)
-- **PowerShell** (platyPS)
-
-## 📖 Navigation
-
-Use the navigation menu on the left to browse the auto-generated API documentation.
-
----
-
-**Note:** This documentation is automatically generated. To regenerate:
-
-```bash
-go run cmd/regenerate-docs/main.go
-```
-
-Or trigger the GitHub Actions workflow.
+<!-- aurumcode:pages:start -->
+<!-- aurumcode:pages:end -->

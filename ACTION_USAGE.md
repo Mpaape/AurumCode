@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate Documentation
-        uses: Mpaape/AurumCode@main
+        uses: Mpaape/AurumCode@v1
         with:
           source-dir: '.'
           output-dir: '.aurumcode'
@@ -86,14 +86,19 @@ Every input below exists in `action.yml`; the action declares no other input.
 | `source-dir` | Directory inside the calling repository to scan, relative to the workspace root | `.` | No |
 | `output-dir` | Directory, relative to `source-dir`, where the generator writes markdown and site files. Must be relative and must not escape `source-dir` | `.aurumcode` | No |
 | `base-path` | Path the site is published under, e.g. `/my-repo`. `auto` derives it from `GITHUB_REPOSITORY`. Set it to an **empty string** to publish at a domain root — required for a custom domain | `auto` | No |
-| `llm-api-key` | API key for the LLM provider; enables the AI-written welcome page | `` | No |
+| `llm-api-key` | API key for the LLM provider; enables the AI landing page and the documentation review | `` | No |
 | `llm-base-url` | Base URL of the OpenAI-compatible LLM endpoint, required together with `llm-api-key` | `` | No |
-| `llm-model` | Model id for the LiteLLM provider; read only when `llm-api-key` and `llm-base-url` are both set | `` (falls back to `gpt-4o-mini`) | No |
+| `llm-model` | Model id for the LiteLLM provider; read only when `llm-api-key` and `llm-base-url` are both set | `` (provider default) | No |
+| `docs-review` | `auto` reviews when an LLM is configured; `required` fails without a review; `off` disables only the editorial page | `auto` | No |
 | `extra-toolchains` | Comma-separated extra toolchains to install: `javascript`, `python`, `csharp`, `cpp`. Unknown values fail the run | `` | No |
 | `publish` | `none` generates only; `artifact` uploads the built site as a Pages artifact for a later deploy job; `pages` uploads and deploys from this job | `none` | No |
 
-The documentation is generated without any LLM key: `llm-api-key`,
-`llm-base-url` and `llm-model` only affect the wording of the welcome page.
+The deterministic documentation is generated without any LLM key. When the
+three LLM inputs are present, `auto` also writes
+`reviews/docs-review.md`. That page evaluates the published content only; it
+does not rewrite API pages. The repository can customize the prompt at
+`.aurumcode/prompts/documentation/docs-review.md` and add short editorial
+skills under `.aurumcode/skills/documentation/`.
 
 ### `base-path`: leave it alone unless you use a custom domain
 
@@ -155,7 +160,7 @@ jobs:
 
       - name: Generate and publish documentation
         id: docs
-        uses: Mpaape/AurumCode@main
+        uses: Mpaape/AurumCode@v1
         with:
           publish: 'pages'
 ```
@@ -169,13 +174,13 @@ job with the permissions above runs `actions/deploy-pages`.
 ### Basic Usage
 
 ```yaml
-- uses: Mpaape/AurumCode@main
+- uses: Mpaape/AurumCode@v1
 ```
 
 ### Documentation into a different directory
 
 ```yaml
-- uses: Mpaape/AurumCode@main
+- uses: Mpaape/AurumCode@v1
   with:
     output-dir: 'docs'
 ```
@@ -183,7 +188,7 @@ job with the permissions above runs `actions/deploy-pages`.
 ### Extra language toolchains
 
 ```yaml
-- uses: Mpaape/AurumCode@main
+- uses: Mpaape/AurumCode@v1
   with:
     extra-toolchains: 'python,javascript'
 ```
@@ -191,11 +196,11 @@ job with the permissions above runs `actions/deploy-pages`.
 ### With an AI-written welcome page
 
 ```yaml
-- uses: Mpaape/AurumCode@main
+- uses: Mpaape/AurumCode@v1
   with:
     llm-api-key: ${{ secrets.LLM_API_KEY }}
     llm-base-url: ${{ secrets.LLM_BASE_URL }}
-    llm-model: 'gpt-4o-mini'
+    llm-model: 'claude-3-5-haiku-20241022'
 ```
 
 ## Complete Example with Deployment
@@ -223,7 +228,7 @@ jobs:
 
       - name: Generate Documentation
         id: docs
-        uses: Mpaape/AurumCode@main
+        uses: Mpaape/AurumCode@v1
         with:
           source-dir: '.'
           output-dir: '.aurumcode'
@@ -248,7 +253,7 @@ cd AurumCode
 # Optional, only for the AI-written welcome page
 export LLM_API_KEY=your_key_here
 export LLM_BASE_URL=https://your-endpoint
-export LLM_MODEL=gpt-4o-mini
+export LLM_MODEL=claude-3-5-haiku-20241022
 
 # Same knobs the action exports
 export AURUMCODE_OUTPUT_DIR=.aurumcode
