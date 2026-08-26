@@ -55,7 +55,10 @@ jobs:
         env:
           AURUMCODE_OUTPUT_DIR: ${{ runner.temp }}/aurumcode-site/_api
           AURUMCODE_DOCS_DIR: ${{ runner.temp }}/aurumcode-site
-          AURUMCODE_DOCS_REVIEW: ${{ github.event_name == 'pull_request' && 'auto' || 'required' }}
+          # The site must remain publishable before an LLM secret is added.
+          # auto generates the review whenever both credentials exist and keeps
+          # deterministic API/guides publication available otherwise.
+          AURUMCODE_DOCS_REVIEW: auto
           AURUMCODE_DOCS_LANGUAGE: pt-BR
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
@@ -77,13 +80,11 @@ jobs:
             echo "::error::the deterministic API stage produced no Markdown pages"
             exit 1
           fi
-          if [ "${{ github.event_name }}" = "push" ] && [ ! -s "${SITE_ROOT}/reviews/docs-review.md" ]; then
-            echo "::error::the main-branch build requires reviews/docs-review.md"
-            exit 1
-          fi
           echo "API pages: ${api_pages}" >> "${GITHUB_STEP_SUMMARY}"
           if [ -s "${SITE_ROOT}/reviews/docs-review.md" ]; then
             echo "Editorial review: generated" >> "${GITHUB_STEP_SUMMARY}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "Editorial review: skipped (configure LLM_API_KEY and LLM_BASE_URL to enable it)" >> "${GITHUB_STEP_SUMMARY}"
           else
             echo "Editorial review: not requested for this pull request" >> "${GITHUB_STEP_SUMMARY}"
           fi
