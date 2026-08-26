@@ -391,6 +391,7 @@ func (s *Scaffold) writeConfig(path string) (bool, []string, error) {
 	b.WriteString("  - Gemfile\n")
 	b.WriteString("  - Gemfile.lock\n")
 	b.WriteString("  - vendor\n")
+	b.WriteString("  - skills\n")
 
 	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
 		return false, nil, fmt.Errorf("scaffold: write %s: %w", path, err)
@@ -451,6 +452,8 @@ func renderPageBlock(pages []ScaffoldPage) string {
 		b.WriteString("\n")
 		return b.String()
 	}
+
+	b.WriteString(fmt.Sprintf("> %d page(s) generated from the source tree. Use the navigation or choose a language below.\n\n", len(pages)))
 
 	currentLanguage := "\x00"
 	for _, page := range pages {
@@ -781,7 +784,7 @@ func excludedPages(excludes []string, pages []ScaffoldPage) []string {
 func skipScaffoldDir(name string) bool {
 	switch name {
 	case "_site", ".jekyll-cache", ".sass-cache", "node_modules", ".git", "vendor",
-		"prompts", "rules":
+		"prompts", "rules", "skills", "reviews":
 		return true
 	}
 

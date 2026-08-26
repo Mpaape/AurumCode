@@ -23,7 +23,9 @@ const (
 )
 
 // defaultLLMModel is the model the LiteLLM branch calls when none is named.
-const defaultLLMModel = "gpt-4o-mini"
+// Haiku keeps the editorial pass responsive and inexpensive; callers can
+// select a stronger model explicitly through LLM_MODEL.
+const defaultLLMModel = "claude-3-5-haiku-20241022"
 
 const (
 	defaultPerRunUSD = 1000.0

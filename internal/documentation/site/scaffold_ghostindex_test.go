@@ -43,6 +43,8 @@ func TestScaffoldDoesNotIndexProductInputDirectories(t *testing.T) {
 		"---\ntitle: Welcome Page\n---\n\n# Welcome Page Prompt\n\n## Input\n")
 	writeFile(t, filepath.Join(dir, "rules", "quality.md"),
 		"---\ntitle: Quality\n---\n\n# Quality rules\n\n## Threshold\n")
+	writeFile(t, filepath.Join(dir, "skills", "documentation", "quality.md"),
+		"# Editorial skill\n\n## Prefer evidence\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir, Title: "tinyrepo"}).Generate()
 	if err != nil {
@@ -67,7 +69,7 @@ func TestScaffoldDoesNotIndexProductInputDirectories(t *testing.T) {
 			t.Errorf("index.md leaks the template placeholder %q:\n%s", leak, index)
 		}
 	}
-	if strings.Contains(index, "Welcome Page") || strings.Contains(index, "Quality") {
+	if strings.Contains(index, "Welcome Page") || strings.Contains(index, "Quality") || strings.Contains(index, "Editorial skill") {
 		t.Errorf("index.md advertises a product input page:\n%s", index)
 	}
 }

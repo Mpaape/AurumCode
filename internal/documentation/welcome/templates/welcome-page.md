@@ -1,107 +1,34 @@
----
-title: Welcome Page
-layout: default
-permalink: /prompts/documentation/welcome-page/
----
+<!-- Welcome Page Generation Prompt -->
 
-# Welcome Page Generation Prompt
+Você é o editor da página inicial da documentação de um projeto de software.
+Responda no idioma predominante do README e use somente fatos presentes no README recebido.
 
-You are an expert technical writer tasked with transforming a README.md file into an engaging, well-structured documentation welcome page for a Jekyll site using the Just the Docs theme.
+Escreva uma landing page curta, clara e útil para um usuário novo. Fale do
+produto e do caminho principal de uso; não faça propaganda do gerador, do CI,
+do workflow ou de detalhes de configuração que não sejam necessários para o
+leitor usar o projeto. Não invente recursos, comandos, métricas ou links.
 
-## Input
+Retorne somente Markdown, sem front matter. Use esta estrutura:
 
-You will receive the content of a README.md file that describes a software project.
+# Nome do projeto
+> Uma frase que explica o valor principal.
 
-## Your Task
+## O que é
+Uma explicação objetiva em até dois parágrafos.
 
-Transform the README content into a beautiful, engaging welcome page with the following structure:
+## Principais capacidades
+Três a cinco itens sustentados pelo README.
 
-### 1. Hero Section
-- Create a compelling tagline/subtitle (1-2 sentences) that captures the essence of the project
-- Keep the main title from the README
+## Comece agora
+O menor exemplo executável que o README comprovar.
 
-### 2. What is [Project Name]?
-- Write a clear, concise 2-3 paragraph overview
-- Explain what the project does and why it matters
-- Highlight the key value proposition
+## Próximos passos
+Inclua somente links que aparecem no README ou que são claramente externos e
+verificáveis. Não invente rotas para páginas geradas.
 
-### 3. Key Features
-- Extract and present the main features as a bulleted list
-- Each feature should have a title and brief description
-- Aim for 4-8 features
-- Use clear, benefit-focused language
+## Ajuda
+Use apenas canais de suporte presentes no README.
 
-### 4. Quick Start
-- Provide essential getting started information
-- Include installation command if available
-- Show a minimal working example
-- Keep it under 5 steps
-- If the example uses this project as a GitHub Action (`uses: Mpaape/AurumCode@...`),
-  pin the ref to the published major-version tag `v1`, never to a branch such
-  as `main`: a branch is mutable, and a later upstream push would silently
-  change what runs in a copied workflow. Consumers with a stricter policy can
-  replace the tag with the commit SHA it resolves to at review time.
-
-### 5. Documentation Sections
-- Do not invent section links: the only in-repo documentation link this page
-  may include is the getting-started guide (`docs/getting-started.md`). Do
-  not link to any other local path -- this page does not know which other
-  pages exist on the generated site, and a link to a page that was never
-  generated is a broken link.
-- External links (the project's GitHub repository, issue tracker, etc.) are
-  fine wherever they are accurate.
-
-### 6. Getting Help / Community
-- Include links to GitHub, issues, discussions
-- Mention any other community resources
-
-## Output Format
-
-Return ONLY the markdown content (without front matter).  Do NOT include the YAML front matter delimiters (---).
-
-## Guidelines
-
-- **Be concise**: Every sentence should add value
-- **Be engaging**: Use active voice and clear language
-- **Be organized**: Use proper markdown hierarchy (##, ###, etc.)
-- **Be visual**: Include code blocks, lists, and formatting for readability
-- **Be helpful**: Focus on what users need to get started quickly
-
-## Example Structure
-
-```markdown
-# Project Name
-
-> Compelling one-line tagline that captures the essence
-
-## What is Project Name?
-
-Clear explanation in 2-3 paragraphs...
-
-## Key Features
-
-- **Feature 1** - Brief description
-- **Feature 2** - Brief description
-- **Feature 3** - Brief description
-
-## Quick Start
-
-\`\`\`bash
-# Installation command
-\`\`\`
-
-## Documentation
-
-- [Getting Started](docs/getting-started.md) - the full guide
-
-## Getting Help
-
-- [GitHub Repository](link)
-- [Report an Issue](link)
-```
-
-Now, transform the following README content:
-
----
+Material de entrada:
 
 {{README_CONTENT}}

@@ -17,14 +17,6 @@ name: AurumCode - Documentation
 on:
   push:
     branches: [main, master]
-    paths:
-      - '**.go'
-      - '**.py'
-      - '**.js'
-      - '**.ts'
-      - '**.cs'
-      - '**.rs'
-      - 'docs/**'
 
   workflow_dispatch:
     inputs:
@@ -90,11 +82,15 @@ jobs:
           # job. The action refuses to publish an empty or unrendered tree, so a
           # failed generation fails the deploy instead of shipping a 404 root.
           publish: 'pages'
+          # auto (the default) creates reviews/docs-review.md when the two
+          # LLM credentials below are supplied; required makes missing review
+          # evidence fail the deployment.
+          docs-review: 'auto'
           # AI welcome page: both of these are required together, and the action
           # warns when only one is set. Uncomment to enable.
           # llm-api-key: ${{ secrets.LLM_API_KEY }}
           # llm-base-url: ${{ secrets.LLM_BASE_URL }}
-          # llm-model: 'gpt-4o-mini'
+          # llm-model: 'claude-3-5-haiku-20241022'
 
       - name: Documentation summary
         # Outputs travel through env, never through ${{ }} inside the script.

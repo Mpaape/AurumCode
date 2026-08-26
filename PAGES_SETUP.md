@@ -25,3 +25,15 @@ a composite action cannot declare permissions itself. The full workflow is in
 
 The action's `page-url` output carries the published URL and is empty unless
 `publish` was set to `pages`.
+
+## Editorial review on every main commit
+
+The official AurumCode Pages workflow regenerates the API and the hand-written
+guides on every push to `main`. When `LLM_API_KEY` and `LLM_BASE_URL` are
+configured as repository secrets, it also requires
+`reviews/docs-review.md`; a missing or failed review blocks publication instead
+of silently deploying an unreviewed site.
+
+The model receives the README, the pages that will be published and the short
+files under `.aurumcode/skills/documentation/`. It may write only the editorial
+report. The API pages remain deterministic.
