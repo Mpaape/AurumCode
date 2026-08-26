@@ -1,0 +1,12 @@
+# Copie este arquivo para .aurumcode/config.yml e ajuste somente o necessário.
+review:
+  language: pt-BR
+  publication: review       # review formal ou comments legado
+  inline_comments: true     # comentários nas linhas e sugestões aplicáveis
+  context:
+    # O prompt embutido sempre continua ativo. Este arquivo é adicional.
+    # prompt: .aurumcode/prompt.md
+    # skills:
+    #   - .aurumcode/skills/code-review.md
+    # docs:
+    #   - docs/architecture.md

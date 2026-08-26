@@ -66,3 +66,46 @@ func TestReviewPublicationRejectsUnknownMode(t *testing.T) {
 		t.Fatal("expected an unsupported publication mode to fail closed")
 	}
 }
+
+func TestReviewContextIsSmallAndOrdered(t *testing.T) {
+	cfg, err := Parse([]byte(`review:
+  context:
+    prompt: .aurumcode/prompts/review.md
+    skills:
+      - .aurumcode/skills/code-review.md
+      - .aurumcode/skills/go.md
+    docs:
+      - docs/architecture.md
+`), ".aurumcode/config.yml")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	files := cfg.Review.ContextFiles()
+	if len(files) != 4 {
+		t.Fatalf("ContextFiles() returned %d files, want 4: %+v", len(files), files)
+	}
+	want := []ContextFile{
+		{Kind: "prompt", Path: ".aurumcode/prompts/review.md"},
+		{Kind: "skill", Path: ".aurumcode/skills/code-review.md"},
+		{Kind: "skill", Path: ".aurumcode/skills/go.md"},
+		{Kind: "documentation", Path: "docs/architecture.md"},
+	}
+	for i := range want {
+		if files[i] != want[i] {
+			t.Errorf("ContextFiles()[%d] = %+v, want %+v", i, files[i], want[i])
+		}
+	}
+}
+
+func TestReviewContextRejectsRepositoryEscape(t *testing.T) {
+	for _, path := range []string{"../outside.md", "/tmp/outside.md", ""} {
+		value := path
+		if value == "" {
+			value = `""`
+		}
+		_, err := Parse([]byte("review:\n  context:\n    docs:\n      - "+value+"\n"), ".aurumcode/config.yml")
+		if err == nil {
+			t.Errorf("expected context path %q to be rejected", path)
+		}
+	}
+}

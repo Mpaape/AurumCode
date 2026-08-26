@@ -12,7 +12,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -87,6 +89,58 @@ func TestLoadPullRequestConfigKeepsGateSettingsOnBase(t *testing.T) {
 	rule := cfg.Rules["security/hardcoded-secret"]
 	if rule.Enabled != nil || rule.Severity != "error" {
 		t.Fatalf("gate settings = %+v, want base severity and no head disable", rule)
+	}
+}
+
+func TestLoadPullRequestContextFetchesConfiguredFilesFromRef(t *testing.T) {
+	contents := map[string]string{
+		".aurumcode/prompt.md":        "repo prompt",
+		".aurumcode/skills/review.md": "review skill",
+		"docs/architecture.md":        "architecture context",
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const prefix = "/repos/owner/repo/contents/"
+		if !strings.HasPrefix(r.URL.Path, prefix) {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		name := strings.TrimPrefix(r.URL.Path, prefix)
+		text, ok := contents[name]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if got := r.URL.Query().Get("ref"); got != "base-sha" {
+			t.Fatalf("ref = %q, want base-sha", got)
+		}
+		encoded := base64.StdEncoding.EncodeToString([]byte(text))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, encoded)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{Review: config.ReviewConfig{Context: config.ReviewContextConfig{
+		Prompt: ".aurumcode/prompt.md",
+		Skills: []string{".aurumcode/skills/review.md"},
+		Docs:   []string{"docs/architecture.md"},
+	}}}
+	providers, err := loadPullRequestContext(context.Background(), githubclient.NewClientWithBaseURL("", server.URL), "owner", "repo", cfg, "base-sha")
+	if err != nil {
+		t.Fatalf("loadPullRequestContext: %v", err)
+	}
+	if len(providers) != 3 {
+		t.Fatalf("loaded %d providers, want 3", len(providers))
+	}
+	for _, want := range []string{"prompt (.aurumcode/prompt.md)", "skill (.aurumcode/skills/review.md)", "documentation (docs/architecture.md)"} {
+		found := false
+		for _, provider := range providers {
+			if strings.Contains(provider.Name(), want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("providers missing %q", want)
+		}
 	}
 }
 
@@ -270,7 +324,7 @@ func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing
 	t.Setenv("GITHUB_SHA", "head-sha")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 42, "owner/repo", true, true, false, prReviewOptions{
+	code := runPRReview(&stdout, &stderr, 42, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
 		publicationSet: true,
 		publication:    "review",
 	})

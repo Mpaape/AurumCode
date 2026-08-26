@@ -36,6 +36,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -52,20 +53,45 @@ type RuleConfig struct {
 	Severity string `yaml:"severity"`
 }
 
-// ReviewConfig contains the small set of presentation preferences that are
-// safe to keep with a repository. It deliberately does not expose rule gates,
-// redaction, cost ceilings, or permissions through this section.
+// ReviewContextConfig is the small, repository-owned list of optional context
+// files that can enrich a review. All three entries are Markdown or plain-text
+// guidance: they never replace the built-in review prompt and never control
+// rules, gates, redaction, cost, or permissions.
+//
+// Prompt is one repository-wide instruction file. Skills and Docs are curated
+// lists so a repository can add focused review knowledge without injecting an
+// entire documentation tree into every request.
+type ReviewContextConfig struct {
+	Prompt string   `yaml:"prompt"`
+	Skills []string `yaml:"skills"`
+	Docs   []string `yaml:"docs"`
+}
+
+// ContextFile describes one configured context contribution in deterministic
+// order. The default prompt is optional for backwards compatibility; every
+// path explicitly written by the repository is required and produces an
+// actionable configuration error if it cannot be loaded.
+type ContextFile struct {
+	Kind     string
+	Path     string
+	Optional bool
+}
+
+// ReviewConfig contains the small set of presentation and context
+// preferences that are safe to keep with a repository. It deliberately does
+// not expose rule gates, redaction, cost ceilings, or permissions through
+// this section.
 type ReviewConfig struct {
-	Language       string `yaml:"language"`
-	Publication    string `yaml:"publication"`
-	InlineComments bool   `yaml:"inline_comments"`
+	Language       string              `yaml:"language"`
+	Publication    string              `yaml:"publication"`
+	InlineComments bool                `yaml:"inline_comments"`
+	Context        ReviewContextConfig `yaml:"context"`
 }
 
 // DefaultReviewPublication preserves the original PR behavior for callers
-// that do not opt into the formal GitHub review endpoint. The reusable
-// workflow selects "review" explicitly; this keeps direct CLI consumers
-// backwards-compatible while making the newer mode available without extra
-// plumbing.
+// that do not opt into the formal GitHub review endpoint. Empty configuration
+// keeps direct CLI consumers backwards-compatible while making the newer mode
+// available without extra plumbing.
 const DefaultReviewPublication = "comments"
 
 // ReviewPublication returns the canonical publication mode. Empty config is
@@ -88,13 +114,61 @@ func NormalizeReviewPublication(raw string) (string, error) {
 	}
 }
 
+const DefaultReviewPromptPath = ".aurumcode/prompt.md"
+
+// ContextFiles returns the configured context in the order rendered to the
+// model: repository prompt, skills, then documentation. An omitted prompt
+// keeps the historical optional .aurumcode/prompt.md convention.
+func (c ReviewConfig) ContextFiles() []ContextFile {
+	promptPath := strings.TrimSpace(c.Context.Prompt)
+	files := []ContextFile{{Kind: "prompt", Path: DefaultReviewPromptPath, Optional: true}}
+	if promptPath != "" {
+		files[0] = ContextFile{Kind: "prompt", Path: promptPath}
+	}
+	for _, item := range c.Context.Skills {
+		files = append(files, ContextFile{Kind: "skill", Path: strings.TrimSpace(item)})
+	}
+	for _, item := range c.Context.Docs {
+		files = append(files, ContextFile{Kind: "documentation", Path: strings.TrimSpace(item)})
+	}
+	return files
+}
+
+// ValidateContext rejects paths that could escape the repository in local
+// mode. Context files are advisory model input, but local execution must not
+// turn a repository-authored YAML value into an arbitrary filesystem read.
+func (c ReviewConfig) ValidateContext() error {
+	for _, file := range c.ContextFiles() {
+		if err := validateContextPath(file.Path); err != nil {
+			return fmt.Errorf("review.context.%s path %q: %w", file.Kind, file.Path, err)
+		}
+	}
+	return nil
+}
+
+func validateContextPath(raw string) error {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return fmt.Errorf("path must not be empty")
+	}
+	if strings.ContainsRune(value, '\x00') {
+		return fmt.Errorf("path contains a NUL byte")
+	}
+	clean := path.Clean(strings.ReplaceAll(value, "\\", "/"))
+	if path.IsAbs(clean) || clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return fmt.Errorf("path must stay inside the repository")
+	}
+	return nil
+}
+
 // Config is the versioned, human-authored settings file this card reads
 // from .aurumcode/config.yml at the repository root. Every field here is
 // explicit configuration, never provider-contributed text -- see the
 // package doc's security boundary.
 type Config struct {
-	// Review contains non-authoritative presentation preferences for the
-	// published code review. An empty section keeps the product default.
+	// Review contains non-authoritative presentation preferences and curated
+	// context paths for the published code review. An empty section keeps the
+	// product default.
 	Review ReviewConfig `yaml:"review"`
 	// Rules maps a rule_id (e.g. "security/hardcoded-secret") to the
 	// explicit override this repository wants for it. A rule_id absent
@@ -153,6 +227,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if _, err := cfg.ReviewPublication(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Review.ValidateContext(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil

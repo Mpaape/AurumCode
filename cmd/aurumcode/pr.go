@@ -70,6 +70,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -97,7 +98,7 @@ type prReviewOptions struct {
 // --repo and --publicar are always required here. Publication mode and inline
 // comments are optional: the repository config or the command line selects
 // them, and the zero-value mode keeps the historical separate-comment path.
-func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha, check bool, opts prReviewOptions) int {
+func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha, check bool, filter *redaction.Filter, opts prReviewOptions) int {
 	if repoFlag == "" {
 		fmt.Fprintln(stderr, "aurumcode review: --repo is required with --pr")
 		return 2
@@ -225,6 +226,31 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		// --modelo selection note (runReview, cmd/aurumcode/main.go).
 		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", opts.modelo, providerVia)
 	}
+
+	// Repository context is read from the trusted base ref when the workflow
+	// supplies one. A pull request may still choose its language from its head
+	// config, but it cannot change the prompt, skills or documentation used to
+	// judge that same change. The contents are untrusted model background and
+	// pass through the same redaction, warning and token-accounting wrapper as
+	// the local review path.
+	contextRef := os.Getenv("AURUMCODE_BASE_SHA")
+	if strings.TrimSpace(contextRef) == "" {
+		contextRef = os.Getenv("GITHUB_SHA")
+	}
+	contextProviders, contextErr := loadPullRequestContext(ctx, client, owner, repoName, reviewConfig, contextRef)
+	if contextErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: loading repository review context: %v\n", contextErr)
+		return 1
+	}
+	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(ctx, provider, contextProviders, diffPaths(diff), filter)
+	if wrapErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
+		return 1
+	}
+	for _, warning := range warnings {
+		fmt.Fprintf(stderr, "aurumcode review: context provider %q unavailable: %s; continuing without that context\n", warning.Provider, warning.Reason)
+	}
+	provider = wrapped
 
 	// --limite (AUR-451): wire internal/llm/cost.Tracker into the
 	// orchestrator exactly as the --base path does (buildCostTracker,
@@ -621,6 +647,33 @@ func loadPullRequestConfig(ctx context.Context, client *githubclient.Client, own
 		return nil, "", err
 	}
 	return cfg, language, nil
+}
+
+// loadPullRequestContext fetches the curated prompt, skills and documentation
+// declared by review.context. The base ref is selected by the caller so a PR
+// cannot add or alter review guidance for its own evaluation. The historical
+// default prompt remains optional; explicitly listed files are required and
+// fail with their path when missing.
+func loadPullRequestContext(ctx context.Context, client *githubclient.Client, owner, repo string, cfg *config.Config, ref string) ([]config.ContextProvider, error) {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	files := cfg.Review.ContextFiles()
+	providers := make([]config.ContextProvider, 0, len(files))
+	for _, file := range files {
+		data, found, err := client.GetRepositoryFile(ctx, owner, repo, file.Path, ref)
+		if err != nil {
+			return nil, fmt.Errorf("reading review %s %q: %w", file.Kind, file.Path, err)
+		}
+		if !found {
+			if file.Optional {
+				continue
+			}
+			return nil, fmt.Errorf("review %s %q was configured but not found", file.Kind, file.Path)
+		}
+		providers = append(providers, config.NewTextContextProvider(file, string(data)))
+	}
+	return providers, nil
 }
 
 // parseOwnerRepo splits the --repo flag's "owner/repo" form. Anything else

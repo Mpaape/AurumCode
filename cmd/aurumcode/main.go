@@ -353,7 +353,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			fmt.Fprintln(stderr, "aurumcode review: --exigir-qualidade is not supported with --pr (it guards the --base review path only)")
 			return 2
 		}
-		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check, prReviewOptions{
+		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check, filter, prReviewOptions{
 			seguranca:      *seguranca,
 			failOnSet:      prFailOnGiven,
 			failOn:         *failOn,
@@ -488,7 +488,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// provider file exists, so the wrapped variable is byte-identical to
 	// the unwrapped one on that path.
 	if providerErr == nil {
-		wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), provider, config.DefaultProviders(cwd), diffPaths(diff), filter)
+		wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), provider, config.ConfiguredProviders(cwd, repoCfg), diffPaths(diff), filter)
 		if wrapErr != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
 			return 1

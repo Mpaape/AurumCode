@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -34,6 +35,57 @@ func (p *RepoPromptProvider) Provide(_ context.Context, _ []string) (string, err
 		return "", fmt.Errorf("reading %s: %w", p.Path, err)
 	}
 	return string(data), nil
+}
+
+// FileContextProvider reads one explicitly configured prompt, skill or
+// documentation file from the local repository. Unlike the historical
+// repository prompt, a configured file is intentional: a missing path is an
+// error that the caller surfaces as a provider warning with the exact path.
+type FileContextProvider struct {
+	Root string
+	File ContextFile
+}
+
+func NewFileContextProvider(root string, file ContextFile) *FileContextProvider {
+	return &FileContextProvider{Root: root, File: file}
+}
+
+func (p *FileContextProvider) Name() string {
+	return fmt.Sprintf("review %s (%s)", p.File.Kind, p.File.Path)
+}
+
+func (p *FileContextProvider) Provide(_ context.Context, _ []string) (string, error) {
+	if err := validateContextPath(p.File.Path); err != nil {
+		return "", err
+	}
+	clean := path.Clean(strings.ReplaceAll(p.File.Path, "\\", "/"))
+	data, err := os.ReadFile(filepath.Join(p.Root, filepath.FromSlash(clean)))
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", p.File.Path, err)
+	}
+	return string(data), nil
+}
+
+// TextContextProvider is the remote equivalent of FileContextProvider. The
+// pull-request path reads configured files through GitHub's contents API and
+// then uses this provider so local and PR reviews share the same rendering,
+// redaction and token accounting.
+type TextContextProvider struct {
+	Kind string
+	Path string
+	Text string
+}
+
+func NewTextContextProvider(file ContextFile, text string) *TextContextProvider {
+	return &TextContextProvider{Kind: file.Kind, Path: file.Path, Text: text}
+}
+
+func (p *TextContextProvider) Name() string {
+	return fmt.Sprintf("review %s (%s)", p.Kind, p.Path)
+}
+
+func (p *TextContextProvider) Provide(_ context.Context, _ []string) (string, error) {
+	return p.Text, nil
 }
 
 // PathInstructionsProvider reads every *.md file directly under
@@ -144,8 +196,27 @@ func parseApplyToFrontMatter(content string) (applyTo, body string, err error) {
 // (ContextProvider) and this ordering convention are the contract they
 // build against.
 func DefaultProviders(root string) []ContextProvider {
-	return []ContextProvider{
-		NewRepoPromptProvider(root),
-		NewPathInstructionsProvider(root),
+	return ConfiguredProviders(root, &Config{})
+}
+
+// ConfiguredProviders preserves the zero-config providers and adds the
+// explicit context lists from review.context. The built-in review prompt is
+// always assembled separately; these files are additive background only.
+func ConfiguredProviders(root string, cfg *Config) []ContextProvider {
+	if cfg == nil {
+		cfg = &Config{}
 	}
+	files := cfg.Review.ContextFiles()
+	providers := make([]ContextProvider, 0, len(files)+1)
+	for _, file := range files {
+		if file.Path == DefaultReviewPromptPath && file.Optional {
+			providers = append(providers, NewRepoPromptProvider(root))
+			continue
+		}
+		providers = append(providers, NewFileContextProvider(root, file))
+	}
+	// Keep the established Copilot-style path instructions convention for
+	// existing local users. Explicit skills/docs come after it in stable order.
+	providers = append(providers, NewPathInstructionsProvider(root))
+	return providers
 }

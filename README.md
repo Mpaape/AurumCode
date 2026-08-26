@@ -82,6 +82,13 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
     language: pt-BR
     publication: review
     inline_comments: true
+    context:
+      # O prompt embutido continua ativo; estes arquivos são adicionais.
+      # prompt: .aurumcode/prompt.md
+      # skills:
+      #   - .aurumcode/skills/code-review.md
+      # docs:
+      #   - docs/architecture.md
   ```
 
   `inline_comments` is optional and adds eligible findings to exact added
@@ -89,6 +96,16 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   native GitHub suggestions that the author can apply; without it, the review
   stays as one clean summary in the PR. The AurumCode process never applies or
   commits a suggestion on its own.
+
+  `review.context` is the only place needed to expand the review with team
+  knowledge. `prompt` accepts one repository-wide Markdown file; `skills` and
+  `docs` accept short, curated Markdown/text files. They are additive context,
+  not replacements for the built-in review prompt. A skill here is simply a
+  readable Markdown guidance file; it does not need a runtime or another
+  installation. Keep the lists focused so the model receives the guidance
+  relevant to this repository. The official workflow now respects
+  `publication` from this file; the configured context is read from the base
+  branch of the pull request.
 
   To keep the legacy publication format with separate timeline/line comments,
   use `--modo-publicacao comments --na-linha`. The command-line mode overrides
