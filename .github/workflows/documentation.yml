@@ -24,8 +24,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    env:
-      SITE_ROOT: ${{ runner.temp }}/aurumcode-site
 
     steps:
       - name: Checkout
@@ -38,6 +36,8 @@ jobs:
 
       - name: Prepare clean site tree
         shell: bash
+        env:
+          SITE_ROOT: ${{ runner.temp }}/aurumcode-site
         run: |
           set -euo pipefail
           rm -rf "${SITE_ROOT}"
@@ -66,6 +66,8 @@ jobs:
 
       - name: Validate site payload
         shell: bash
+        env:
+          SITE_ROOT: ${{ runner.temp }}/aurumcode-site
         run: |
           set -euo pipefail
           test -s "${SITE_ROOT}/index.md"
@@ -109,6 +111,8 @@ jobs:
 
       - name: Verify rendered root
         shell: bash
+        env:
+          SITE_ROOT: ${{ runner.temp }}/aurumcode-site
         run: |
           set -euo pipefail
           test -s "${SITE_ROOT}/_site/index.html"
