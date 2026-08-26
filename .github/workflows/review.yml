@@ -89,4 +89,4 @@ jobs:
           "${RUNNER_TEMP}/aurumcode" review \
             --pr "${PR_NUMBER}" \
             --repo "${REPOSITORY}" \
-            --publicar --modo-publicacao review --check --seguranca
+            --publicar --check --seguranca

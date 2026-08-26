@@ -3,6 +3,8 @@ package config
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -73,5 +75,46 @@ func TestAUR480ProviderFailureWarnsAndContinues(t *testing.T) {
 	}
 	if !strings.Contains(base.prompt, "safe background") {
 		t.Fatalf("healthy context must survive a different provider failure: %q", base.prompt)
+	}
+}
+
+func TestConfiguredProvidersLoadPromptSkillAndDocs(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".aurumcode", "skills"), 0o755); err != nil {
+		t.Fatalf("mkdir skills: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "docs"), 0o755); err != nil {
+		t.Fatalf("mkdir docs: %v", err)
+	}
+	files := map[string]string{
+		".aurumcode/prompt.md":             "Repository review context",
+		".aurumcode/skills/code-review.md": "Prefer behavior-focused findings",
+		"docs/architecture.md":             "The service boundary is explicit",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(name)), []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	cfg := &Config{Review: ReviewConfig{Context: ReviewContextConfig{
+		Skills: []string{".aurumcode/skills/code-review.md"},
+		Docs:   []string{"docs/architecture.md"},
+	}}}
+	base := &pendingCaptureProvider{}
+	wrapped, warnings, err := WrapProviderWithWarnings(context.Background(), base, ConfiguredProviders(root, cfg), []string{"service.go"}, redaction.NewFilter())
+	if err != nil {
+		t.Fatalf("ConfiguredProviders: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected provider warnings: %+v", warnings)
+	}
+	if _, err := wrapped.Complete("base", llm.Options{}); err != nil {
+		t.Fatalf("wrapped provider: %v", err)
+	}
+	for _, want := range []string{"Repository review context", "Prefer behavior-focused findings", "The service boundary is explicit"} {
+		if !strings.Contains(base.prompt, want) {
+			t.Errorf("prompt missing configured context %q:\n%s", want, base.prompt)
+		}
 	}
 }

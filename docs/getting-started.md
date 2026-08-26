@@ -446,19 +446,32 @@ Para definir o idioma do comentário sem tocar no workflow, crie
 review:
   language: pt-BR
   publication: review
-  inline_comments: false
+  inline_comments: true
+  context:
+    # O prompt embutido continua ativo; adicione apenas contexto relevante.
+    # prompt: .aurumcode/prompt.md
+    # skills:
+    #   - .aurumcode/skills/code-review.md
+    # docs:
+    #   - docs/architecture.md
 ```
 
-Sem esse arquivo, o padrão é `en-US`. A configuração é apenas de apresentação;
-não pode desligar regras, alterar gates, remover redação ou ampliar permissões.
+Sem esse arquivo, o padrão é `en-US`, `comments` e sem comentários inline. Os
+campos de publicação e idioma são preferências de apresentação; não podem
+desligar regras, alterar gates, remover redação ou ampliar permissões. O bloco
+`review.context` é opcional: `prompt` define um arquivo adicional,
+`skills` lista orientações focadas e `docs` lista documentação de apoio. Esses
+arquivos apenas enriquecem o contexto do modelo; o prompt de code review do
+AurumCode continua sendo aplicado. No workflow oficial, `publication` e
+`inline_comments` são lidos deste arquivo, e o contexto vem da branch base do
+pull request.
 
-O comentário publicado é um code review único, com veredito, pontos fortes,
-achados acionáveis, sugestões não bloqueantes, plano de testes, limitações e
-o diagnóstico de CI disponível. Sugestões de código localizadas podem aparecer
-como blocos nativos aplicáveis diretamente no GitHub. Logs e transcript ficam
-apenas no log da Action. Quando o GitHub ainda não expôs evidência suficiente
-para uma falha de CI, o comentário declara essa limitação em vez de inventar
-uma causa.
+O review formal publicado contém veredito, pontos fortes, achados acionáveis,
+sugestões não bloqueantes, plano de testes, limitações e o diagnóstico de CI
+disponível. Sugestões de código localizadas podem aparecer como blocos nativos
+aplicáveis diretamente no GitHub. Logs e transcript ficam apenas no log da
+Action. Quando o GitHub ainda não expôs evidência suficiente para uma falha de
+CI, o comentário declara essa limitação em vez de inventar uma causa.
 
 Há também [`.github/workflows/examples/all-pipelines.yml`](../.github/workflows/examples/all-pipelines.yml)
 e [`.github/workflows/examples/qa-testing.yml`](../.github/workflows/examples/qa-testing.yml)
