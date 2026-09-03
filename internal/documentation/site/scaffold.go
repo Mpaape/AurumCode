@@ -17,6 +17,15 @@ import (
 const (
 	scaffoldBlockStart = "<!-- aurumcode:pages:start -->"
 	scaffoldBlockEnd   = "<!-- aurumcode:pages:end -->"
+
+	// AUR-484: the landing page used to BE the generated listing - roughly 80%
+	// of the page was an enumeration of pages, with no runnable command, no
+	// per-feature example and no stated limitation above it. quickstart block
+	// markers delimit a second scaffold-owned region, written immediately
+	// before the pages block, so a rerun replaces it instead of duplicating it
+	// - the same contract the pages block already had.
+	scaffoldQuickstartStart = "<!-- aurumcode:quickstart:start -->"
+	scaffoldQuickstartEnd   = "<!-- aurumcode:quickstart:end -->"
 )
 
 // scaffoldMaxSymbols bounds how many symbols a single page contributes to the
@@ -82,6 +91,7 @@ type ScaffoldPage struct {
 type ScaffoldResult struct {
 	IndexPath     string
 	ConfigPath    string
+	ReferencePath string
 	Pages         []ScaffoldPage
 	ConfigCreated bool
 
@@ -162,6 +172,11 @@ func (s *Scaffold) Generate() (*ScaffoldResult, error) {
 		return nil, err
 	}
 
+	result.ReferencePath = filepath.Join(s.config.DocsDir, "reference.md")
+	if err := s.writeReference(result.ReferencePath, pages); err != nil {
+		return nil, err
+	}
+
 	return result, nil
 }
 
@@ -229,7 +244,7 @@ func (s *Scaffold) collectListedPages(root string) ([]ScaffoldPage, error) {
 		}
 		rel = filepath.ToSlash(rel)
 
-		if rel == "index.md" {
+		if rel == "index.md" || rel == "reference.md" {
 			continue
 		}
 
@@ -267,8 +282,11 @@ func (s *Scaffold) collectWalkedPages(root string) ([]ScaffoldPage, error) {
 			return nil
 		}
 
-		// The scaffold's own landing page is not a documentation page.
-		if rel == "index.md" {
+		// The scaffold's own landing page, and the reference page AUR-484
+		// writes alongside it, are not documentation pages themselves - without
+		// this, a rerun whose OutputDir equals DocsDir would index reference.md
+		// as a generated page and duplicate itself on every subsequent run.
+		if rel == "index.md" || rel == "reference.md" {
 			return nil
 		}
 
@@ -430,6 +448,31 @@ func (s *Scaffold) writeIndex(path string, pages []ScaffoldPage) error {
 	b.WriteString("---\n\n")
 	b.WriteString(intro)
 	b.WriteString("\n\n")
+	b.WriteString(renderQuickstartBlock())
+	b.WriteString("\n")
+	b.WriteString(renderPageSummaryBlock(pages))
+
+	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+		return fmt.Errorf("scaffold: write %s: %w", path, err)
+	}
+
+	return nil
+}
+
+// writeReference writes the full generated-page listing to its own page. It is
+// always rewritten in full: unlike index.md, nothing hand-written is ever
+// preserved here, because this file exists only to hold what AC-002 (AUR-484)
+// took out of the landing page - the enumeration itself, not the reader's
+// first impression of the product.
+func (s *Scaffold) writeReference(path string, pages []ScaffoldPage) error {
+	var b strings.Builder
+	b.WriteString("---\n")
+	b.WriteString("layout: default\n")
+	b.WriteString("title: Reference\n")
+	b.WriteString("nav_order: 2\n")
+	b.WriteString("---\n\n")
+	b.WriteString("# Reference\n\n")
+	b.WriteString("Generated API documentation, by language and symbol.\n\n")
 	b.WriteString(renderPageBlock(pages))
 
 	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
@@ -439,7 +482,83 @@ func (s *Scaffold) writeIndex(path string, pages []ScaffoldPage) error {
 	return nil
 }
 
-// renderPageBlock renders the delimited listing of generated pages.
+// renderQuickstartBlock renders the deterministic content AUR-484 requires
+// above the generated listing: a copy-pasteable command that runs with no
+// credential, one example per product feature, and the limitations the
+// product's own specs already measure. None of this is model-written - it has
+// to exist whether or not an LLM provider is configured, because the site
+// publishes without one (see internal/documentation/welcome for the separate,
+// optional LLM enrichment path). Every command and every claim below is the
+// exact form verified in docs/getting-started.md and internal/review/rules/security.yml.
+func renderQuickstartBlock() string {
+	var b strings.Builder
+	b.WriteString(scaffoldQuickstartStart)
+	b.WriteString("\n\n")
+
+	b.WriteString("## Comece sem nenhuma credencial\n\n")
+	b.WriteString("A passagem de seguranca do AurumCode e deterministica e roda inteiramente offline: sem chave de LLM, sem rede, sem custo. E o melhor primeiro comando do produto.\n\n")
+	b.WriteString("```bash\n")
+	b.WriteString("git clone https://github.com/Mpaape/AurumCode.git && cd AurumCode\n")
+	b.WriteString("go build -o aurumcode ./cmd/aurumcode\n")
+	b.WriteString("./aurumcode review --base HEAD~1 --seguranca\n")
+	b.WriteString("```\n\n")
+
+	b.WriteString("## Um exemplo por feature\n\n")
+	b.WriteString("**Code review** - a mesma passagem de seguranca acima, sem provider nenhum:\n\n")
+	b.WriteString("```bash\n./aurumcode review --base HEAD~1 --seguranca\n```\n\n")
+	b.WriteString("**Documentacao** - varre a arvore de codigo e escreve markdown pronto para Jekyll:\n\n")
+	b.WriteString("```bash\n./aurumcode docs --source . --output ./site\n```\n\n")
+	b.WriteString("**Paginas** - publica o site gerado, via GitHub Actions:\n\n")
+	b.WriteString("```yaml\n- uses: Mpaape/AurumCode@v1\n  with:\n    source-dir: '.'\n    output-dir: '.aurumcode'\n    publish: 'pages'\n```\n\n")
+
+	b.WriteString("## O que a ferramenta nao cobre hoje\n\n")
+	b.WriteString("- **A passagem deterministica de seguranca cobre 4 das 8 regras do catalogo.** " +
+		"`security/sql-injection`, `security/command-injection`, `security/hardcoded-secret` e " +
+		"`security/xss` tem matcher; `security/path-traversal`, `security/weak-crypto`, " +
+		"`security/insecure-random` e `security/missing-auth` existem so como metadado, citavel por " +
+		"um modelo com provider configurado, e nunca disparam sozinhas na passagem `--seguranca`.\n")
+	b.WriteString("- **A cobertura por linguagem e desigual.** Os matchers foram calibrados primeiro na " +
+		"grafia idiomatica de C, Python e JavaScript. Go, C#, PowerShell, Bash e Rust tem lacunas " +
+		"medidas na regra de command injection (e Bash e Rust tambem na de SQL injection); por " +
+		"exemplo, `exec.Command(...)` do Go e `Process.Start(...)` do C# nao sao reconhecidos pela " +
+		"passagem deterministica hoje.\n")
+	b.WriteString("- **Sem provider de LLM configurado, a review de qualidade nao roda.** So a passagem " +
+		"de seguranca deterministica executa; o comando avisa isso no stderr em vez de fingir que " +
+		"revisou o que nao revisou.\n\n")
+
+	b.WriteString(scaffoldQuickstartEnd)
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+// renderPageSummaryBlock renders the short, delimited reference that replaces
+// the full listing on the landing page (AUR-484 AC-002): a count and a link,
+// not the enumeration itself. The full listing lives at reference.md, written
+// by writeReference.
+func renderPageSummaryBlock(pages []ScaffoldPage) string {
+	var b strings.Builder
+	b.WriteString(scaffoldBlockStart)
+	b.WriteString("\n\n## Generated API documentation\n\n")
+
+	if len(pages) == 0 {
+		b.WriteString("No documentation pages were generated for this run.\n")
+		b.WriteString("\n")
+		b.WriteString(scaffoldBlockEnd)
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	b.WriteString(fmt.Sprintf("> %d page(s) generated from the source tree. See the [full reference](reference.html) for the list by language and symbol.\n\n", len(pages)))
+	b.WriteString(scaffoldBlockEnd)
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+// renderPageBlock renders the full, delimited listing of generated pages. It
+// is now written to reference.md (writeReference) rather than to the landing
+// page; see renderPageSummaryBlock for what index.md gets instead.
 func renderPageBlock(pages []ScaffoldPage) string {
 	var b strings.Builder
 	b.WriteString(scaffoldBlockStart)
@@ -487,15 +606,22 @@ func renderPageBlock(pages []ScaffoldPage) string {
 	return b.String()
 }
 
-// stripGeneratedBlock removes a previously generated listing so it can be
-// replaced rather than duplicated.
+// stripGeneratedBlock removes a previously generated quickstart+listing region
+// so a rerun replaces it rather than duplicating it. The quickstart block
+// (AUR-484) is always written immediately before the pages block, so the
+// region to remove runs from whichever marker starts it - quickstart if
+// present, otherwise the older pages-only marker, for back-compat with an
+// index.md written before AUR-484 - through the pages block's own end marker.
 func stripGeneratedBlock(body string) string {
-	start := strings.Index(body, scaffoldBlockStart)
+	start := strings.Index(body, scaffoldQuickstartStart)
+	if start < 0 {
+		start = strings.Index(body, scaffoldBlockStart)
+	}
 	if start < 0 {
 		return body
 	}
 
-	end := strings.Index(body, scaffoldBlockEnd)
+	end := strings.LastIndex(body, scaffoldBlockEnd)
 	if end < 0 || end < start {
 		return body[:start]
 	}
