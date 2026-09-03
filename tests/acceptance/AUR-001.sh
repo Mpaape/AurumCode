@@ -228,18 +228,18 @@ internal/documentation/incremental/manager.go
 internal/documentation/normalizer/frontmatter.go
 internal/documentation/normalizer/normalizer.go
 internal/documentation/normalizer/normalizer_test.go
-internal/documentation/site/builder.go
-internal/documentation/site/builder_test.go
-internal/documentation/site/jekyll.go
-internal/documentation/site/jekyll_test.go
-internal/documentation/site/pagefind.go
-internal/documentation/site/pagefind_test.go
-internal/documentation/site/runner.go
-internal/documentation/site/runner_test.go
-internal/documentation/site/test_helpers_test.go
-internal/documentation/site/types.go
-internal/documentation/welcome/generator.go
-internal/documentation/welcome/generator_test.go
+internal/documentation/site internal/documentation/review/builder.go
+internal/documentation/site internal/documentation/review/builder_test.go
+internal/documentation/site internal/documentation/review/jekyll.go
+internal/documentation/site internal/documentation/review/jekyll_test.go
+internal/documentation/site internal/documentation/review/pagefind.go
+internal/documentation/site internal/documentation/review/pagefind_test.go
+internal/documentation/site internal/documentation/review/runner.go
+internal/documentation/site internal/documentation/review/runner_test.go
+internal/documentation/site internal/documentation/review/test_helpers_test.go
+internal/documentation/site internal/documentation/review/types.go
+internal/documentation/welcome internal/documentation/review/generator.go
+internal/documentation/welcome internal/documentation/review/generator_test.go
 internal/llm/cost/costtracker.go
 internal/llm/cost/costtracker_test.go
 internal/llm/estimator.go

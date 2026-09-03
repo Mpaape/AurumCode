@@ -69,8 +69,8 @@ required_inputs=(
   internal/documentation/extractors
   internal/documentation/incremental
   internal/documentation/normalizer
-  internal/documentation/site
-  internal/documentation/welcome
+  internal/documentation/site internal/documentation/review
+  internal/documentation/welcome internal/documentation/review
   internal/pipeline
   internal/config
   cmd/regenerate-docs
@@ -127,7 +127,7 @@ stage_source() {
   # the other way, at copy()'s own existence check.
   # Derive the set with: go list -deps ./cmd/aurumcode
   copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline internal/config
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
+  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
   copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   chmod -R u+w -- "$root"

@@ -102,7 +102,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode internal/review
-  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/pipeline
+  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review internal/pipeline
   copy "$root" cmd/regenerate-docs
   copy "$root" internal/analyzer internal/config internal/prompt internal/llm pkg/types
   copy "$root" internal/security/redaction

@@ -109,7 +109,7 @@ stage_source() {
   copy "$root" cmd/aurumcode
   copy "$root" internal/git
   copy "$root" cmd/regenerate-docs
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
+  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
   copy "$root" internal/pipeline
   copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review tests/fixtures/docs/goproject

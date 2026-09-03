@@ -75,8 +75,8 @@ required_inputs=(
   internal/documentation/extractors
   internal/documentation/incremental
   internal/documentation/normalizer
-  internal/documentation/site
-  internal/documentation/welcome
+  internal/documentation/site internal/documentation/review
+  internal/documentation/welcome internal/documentation/review
   internal/pipeline
   cmd/regenerate-docs
   pkg/types
@@ -136,7 +136,7 @@ stage_source() {
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode cmd/regenerate-docs
   copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
+  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
   copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input this copies from can be read-only, directories

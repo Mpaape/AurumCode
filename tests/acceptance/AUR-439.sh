@@ -102,8 +102,8 @@ stage_source() {
   copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm \
     internal/git/githubclient internal/security/redaction pkg/types
   copy "$root" internal/documentation/extractors internal/documentation/incremental \
-    internal/documentation/normalizer internal/documentation/site \
-    internal/documentation/welcome internal/pipeline
+    internal/documentation/normalizer internal/documentation/site internal/documentation/review \
+    internal/documentation/welcome internal/documentation/review internal/pipeline
   copy "$root" tests/fixtures/scm/github tests/fixtures/repos/git-demo tests/fixtures/review
 
   # See the note above copy(): the staged copy is scratch from here on, so
