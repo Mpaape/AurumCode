@@ -18,13 +18,14 @@
 #   written to the C/Python/Node spelling of each defect and Rust's own
 #   idiomatic spelling (a typed const/static declaration, a
 #   String::from-wrapped literal, .to_owned()/.to_string() concatenation,
-#   a format! macro query) never matched. This script proves, at the
-#   full-process boundary: the four Rust true-positive shapes this card
-#   restores all appear with exact citation counts (AC-001); none of the
-#   card-named safe forms (a numeric constant, a digit-free constant, a
-#   $1-parametrized query) appear (AC-002); the run is deterministic; and
-#   that a repository carrying only these four real findings closes the
-#   `--fail-on high` gate with exit 3.
+#   a format! macro query, and Command::new("sh").arg("-c")) never
+#   matched. This script proves, at the full-process boundary: the six
+#   Rust true-positive shapes this card restores all appear with exact
+#   citation counts (AC-001); none of the card-named safe forms (a
+#   numeric constant, a digit-free constant, a $1-parametrized query, an
+#   argv-form Command with no shell) appear (AC-002); the run is
+#   deterministic; and that a repository carrying only these six real
+#   findings closes the `--fail-on high` gate with exit 3.
 set -euo pipefail
 export LC_ALL=C
 
@@ -71,21 +72,23 @@ test -d "$rust_repo" || fail missing-rust-fixture
 header='Security findings (standards/security-review):'
 secret_citation='(rule security/hardcoded-secret: Hardcoded Secrets)'
 sql_citation='(rule security/sql-injection: SQL Injection Vulnerability)'
+cmd_citation='(rule security/command-injection: Command Injection)'
 
 out_sec="$(cd "$rust_repo" && "$bin" review --base HEAD~1 --seguranca)" || fail behavior-missing
 grep -Fq "$header" <<<"$out_sec" || fail security-section-missing
 
-# AC-001: the four Rust true-positive shapes all appear.
-for ln in 1 6 11 15; do
+# AC-001: the six Rust true-positive shapes all appear.
+for ln in 1 6 11 15 24 28; do
   grep -Fq "src/main.rs:$ln: [error]" <<<"$out_sec" || fail "true-positive-line-$ln-not-found"
 done
 
 # AC-002: no other line in src/main.rs produces a finding (the fixture
-# carries exactly 4 unsafe and 3 safe lines).
+# carries exactly 6 unsafe and 4 safe lines).
 after_header="${out_sec#*"$header"}"
 [[ "$(grep -Fo "$secret_citation" <<<"$after_header" | wc -l)" -eq 2 ]] || fail unexpected-secret-count
 [[ "$(grep -Fo "$sql_citation" <<<"$after_header" | wc -l)" -eq 2 ]] || fail unexpected-sql-count
-[[ "$(grep -Fo '[error]' <<<"$after_header" | wc -l)" -eq 4 ]] || fail unexpected-total-count
+[[ "$(grep -Fo "$cmd_citation" <<<"$after_header" | wc -l)" -eq 2 ]] || fail unexpected-cmd-count
+[[ "$(grep -Fo '[error]' <<<"$after_header" | wc -l)" -eq 6 ]] || fail unexpected-total-count
 
 # Determinism.
 out_again="$(cd "$rust_repo" && "$bin" review --base HEAD~1 --seguranca)" || fail rerun-failed

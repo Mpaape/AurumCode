@@ -10,20 +10,27 @@
 //     because Rust's idiomatic concatenation puts a method call between
 //     the closing quote and the `+`, and `format!("... {}", name)` --
 //     Rust's more common shape -- has no `+` at all.
+//   - security/command-injection: `Command::new("sh").arg("-c").arg(...)`
+//     never matched any branch (no `exec`/`spawn`/`system`/`popen`
+//     spelling, no `shell: true` option).
 //
 // This file proves the fix (internal/review/rules/security.yml): the
 // typed-const and String::from secret shapes, the .to_owned()/.to_string()
-// and format! SQL shapes are all found (AC-001); the safe forms named by
-// this card -- a numeric constant, a digit-free string constant, and a
-// $1-parametrized query -- are not (AC-002); and the pre-existing
+// and format! SQL shapes, and the Command::new("sh").arg("-c") shape
+// (with either a .to_owned() or a format! argument) are all found
+// (AC-001); the safe forms named by this card -- a numeric constant, a
+// digit-free string constant, a $1-parametrized query, and an argv-form
+// Command with no shell -- are not (AC-002); and the pre-existing
 // Python/Node/Go regression shapes this catalog already matched keep
 // matching, unchanged (AC-003).
 //
-// Rust command-injection (`Command::new("sh").arg("-c")...`) is a
-// declared, documented gap, not an oversight: extending
-// security/command-injection's pattern breaks tests/acceptance/AUR-462.sh's
-// own MUT-001, which hardcodes that pattern's bytes as a literal mutation
-// anchor in a file this card does not own. See docs/specs/AUR-481.md.
+// Rust command-injection coverage was first written, then reverted (it
+// broke tests/acceptance/AUR-462.sh's own MUT-001, which at the time
+// hardcoded security/command-injection's pattern bytes as a literal
+// mutation anchor), and is now restored: AUR-462.sh's MUT-001 was
+// reanchored (2026-09-03) on the rule's `- id:` line plus a
+// content-independent rewrite of the following `pattern:` line, so it no
+// longer depends on this pattern's exact bytes. See docs/specs/AUR-481.md.
 package unit
 
 import (
@@ -41,6 +48,8 @@ func TestAUR481(t *testing.T) {
 	t.Run("AC001ToOwnedSQLConcatIsFound", testAUR481AC001ToOwnedSQLConcatIsFound)
 	t.Run("AC001ToStringSQLConcatIsFound", testAUR481AC001ToStringSQLConcatIsFound)
 	t.Run("AC001FormatMacroSQLIsFound", testAUR481AC001FormatMacroSQLIsFound)
+	t.Run("AC001CommandToOwnedIsFound", testAUR481AC001CommandToOwnedIsFound)
+	t.Run("AC001CommandFormatMacroIsFound", testAUR481AC001CommandFormatMacroIsFound)
 	t.Run("AC002NumericConstIsNotFound", testAUR481AC002NumericConstIsNotFound)
 	t.Run("AC002DigitFreeConstIsNotFound", testAUR481AC002DigitFreeConstIsNotFound)
 	t.Run("AC002ParametrizedQueryIsNotFound", testAUR481AC002ParametrizedQueryIsNotFound)
@@ -125,6 +134,24 @@ func testAUR481AC001FormatMacroSQLIsFound(t *testing.T) {
 	f := aur481Scan(t, diff)
 	if len(f) != 1 || f[0].RuleID != "security/sql-injection" {
 		t.Fatalf("expected one security/sql-injection finding for a format! SQL query, got %+v", f)
+	}
+}
+
+func testAUR481AC001CommandToOwnedIsFound(t *testing.T) {
+	diff := aur481Diff("src/main.rs", 1,
+		`+    Command::new("sh").arg("-c").arg("ping ".to_owned() + &h).spawn().unwrap();`)
+	f := aur481Scan(t, diff)
+	if len(f) != 1 || f[0].RuleID != "security/command-injection" {
+		t.Fatalf("expected one security/command-injection finding for Command::new(\"sh\").arg(\"-c\") with .to_owned() concatenation, got %+v", f)
+	}
+}
+
+func testAUR481AC001CommandFormatMacroIsFound(t *testing.T) {
+	diff := aur481Diff("src/main.rs", 1,
+		`+    Command::new("sh").arg("-c").arg(format!("ping {}", h)).spawn().unwrap();`)
+	f := aur481Scan(t, diff)
+	if len(f) != 1 || f[0].RuleID != "security/command-injection" {
+		t.Fatalf("expected one security/command-injection finding for Command::new(\"sh\").arg(\"-c\") with a format! arg, got %+v", f)
 	}
 }
 
@@ -226,13 +253,25 @@ var aur481FixtureLines = []string{
 	`+fn query_user_safe(conn: &mut Connection, name: &str) {`,
 	`+    conn.query("SELECT * FROM t WHERE n = $1", &[&name]);`,
 	`+}`,
+	`+`,
+	`+fn ping_unsafe(h: String) {`,
+	`+    Command::new("sh").arg("-c").arg("ping ".to_owned() + &h).spawn().unwrap();`,
+	`+}`,
+	`+`,
+	`+fn ping_unsafe_fmt(h: String) {`,
+	`+    Command::new("sh").arg("-c").arg(format!("ping {}", h)).spawn().unwrap();`,
+	`+}`,
+	`+`,
+	`+fn ping_safe(host: &str) {`,
+	`+    Command::new("ping").arg(host).spawn().unwrap();`,
+	`+}`,
 }
 
 func testAUR481FixtureEndToEnd(t *testing.T) {
 	diff := aur481Diff("src/main.rs", 1, aur481FixtureLines...)
 	f := aur481Scan(t, diff)
-	if len(f) != 4 {
-		t.Fatalf("expected exactly 4 findings (lines 1, 6, 11, 15), got %d: %+v", len(f), f)
+	if len(f) != 6 {
+		t.Fatalf("expected exactly 6 findings (lines 1, 6, 11, 15, 24, 28), got %d: %+v", len(f), f)
 	}
 	byLine := map[int]string{}
 	for _, issue := range f {
@@ -243,6 +282,8 @@ func testAUR481FixtureEndToEnd(t *testing.T) {
 		6:  "security/hardcoded-secret",
 		11: "security/sql-injection",
 		15: "security/sql-injection",
+		24: "security/command-injection",
+		28: "security/command-injection",
 	}
 	for line, ruleID := range want {
 		if got, ok := byLine[line]; !ok || got != ruleID {

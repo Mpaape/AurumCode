@@ -120,12 +120,14 @@ func IntegrationAUR481(t *testing.T) {
 		t.Fatalf("expected the security section header, got:\n%s", out)
 	}
 
-	// AC-001: the four Rust shapes this card restores are all found.
+	// AC-001: the six Rust shapes this card restores are all found.
 	wantFindings := []string{
 		"src/main.rs:1: [error]",
 		"src/main.rs:6: [error]",
 		"src/main.rs:11: [error]",
 		"src/main.rs:15: [error]",
+		"src/main.rs:24: [error]",
+		"src/main.rs:28: [error]",
 	}
 	for _, want := range wantFindings {
 		if !strings.Contains(section, want) {
@@ -138,15 +140,16 @@ func IntegrationAUR481(t *testing.T) {
 	for _, citation := range []string{
 		"rule security/hardcoded-secret",
 		"rule security/sql-injection",
+		"rule security/command-injection",
 	} {
 		if !strings.Contains(section, citation) {
 			t.Fatalf("expected citation %q, got:\n%s", citation, section)
 		}
 	}
 
-	// AC-002: none of the four safe forms (lines 2, 3, 19) produce a
-	// finding -- confirmed above by the exact-4 count, since the fixture
-	// carries exactly 4 unsafe and 3 safe lines in src/main.rs.
+	// AC-002: none of the four safe forms (lines 2, 3, 19, 32) produce a
+	// finding -- confirmed above by the exact-6 count, since the fixture
+	// carries exactly 6 unsafe and 4 safe lines in src/main.rs.
 
 	// Determinism.
 	again, _, code := aur481Run(t, binPath, rustRepo, "review", "--base", "HEAD~1", "--seguranca")

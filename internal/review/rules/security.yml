@@ -181,21 +181,21 @@ rules:
     # `Command::new("sh").arg("-c").arg(...)` -- none of the branches
     # above match it (`Command::new` has no `exec`/`spawn`/`system`/`popen`
     # spelling, and there is no `shell: true` option). A branch analogous
-    # to the `spawn(...shell:true)` one above (`Command::new("sh"|"bash")`
-    # plus a `.arg("-c")` call, flagged on that combination alone) was
-    # written and proven to match the vulnerable form and exclude the
-    # safe argv form (`Command::new("ping").arg(host)`), but is NOT
-    # shipped here: tests/acceptance/AUR-462.sh's own MUT-001 hardcodes
-    # this exact pattern string, byte for byte, as a literal anchor it
-    # greps for and rewrites (`local anchor="pattern: '...true\b'"`,
-    # AUR-462.sh:266) -- a file this card does not own (not in AUR-481's
-    # `paths`). Any change to this pattern's bytes, in any position,
-    # makes that anchor unfindable and AUR-462.sh AC-001 fail
-    # (measured: MUT-001/anchor-not-found, exit 1), which the dispatcher's
-    # regression gate for this card forbids. Rust command-injection
-    # coverage is left OUT of this card for that reason -- a real
-    # cross-card conflict, not a time cut. See docs/specs/AUR-481.md.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b'
+    # to the `spawn(...shell:true)` one above -- `Command::new("sh"|"bash")`
+    # plus a `.arg("-c")` call, flagged on that combination alone,
+    # regardless of what a later `.arg(...)` on the same line carries
+    # (`.to_owned() + h` concatenation or a `format!(...)` call, both) --
+    # was first written, then reverted (this exact catalog change broke
+    # tests/acceptance/AUR-462.sh's own MUT-001, which at the time
+    # hardcoded security/command-injection's full pattern string as a
+    # literal byte-for-byte anchor), and is now shipped: AUR-462.sh's
+    # MUT-001 was reanchored (2026-09-03) on the rule's `- id:` line plus
+    # a content-independent rewrite of the following `pattern:` line, so
+    # it no longer depends on this pattern's exact bytes. The safe argv
+    # form (`Command::new("ping").arg(host)`, no shell) has neither
+    # "sh"/"bash" nor a `-c` arg and is excluded structurally, matching
+    # this card's AC-002.
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)'
 
   - id: security/path-traversal
     title: Path Traversal
