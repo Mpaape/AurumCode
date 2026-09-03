@@ -368,3 +368,24 @@ Antes de podar objetos ou apagar branch de candidato, rode a auditoria barata:
 para todo card `done`, `git cat-file -t <sha>` e
 `git merge-base --is-ancestor <sha> main`. Um card que falha em qualquer um dos
 dois afirma entrega sem lastro inspecionavel.
+
+## Mutacao nao ancora nos bytes que outro card vai mudar
+
+Uma mutacao de aceite precisa achar seu alvo por uma ancora ESTAVEL -- o
+identificador da regra, o nome da funcao, a chave de metadado -- e nunca pelo
+conteudo literal que ela reescreve. Ancorar nos bytes do proprio conteudo faz o
+aceite quebrar no dia em que outro card evoluir aquele conteudo, e o sintoma
+(`anchor-not-found`, `anchor-not-unique`) nao aponta para a causa.
+
+Aconteceu duas vezes em 2026-08-26. O `MUT-001` do AUR-448 ancorava numa linha
+`fmt.Fprintf` que deixou de ser unica quando o AUR-467 acrescentou outro print
+de forma igual. O `MUT-001` do AUR-462 ancora na LINHA INTEIRA do pattern de
+`security/command-injection`, entao qualquer card que estenda aquela regra --
+como o AUR-481, que precisa acrescentar a grafia de Rust -- invalida o aceite
+alheio.
+
+Ao escrever mutacao: ancore no identificador estavel e reescreva a linha
+seguinte. E faca a reescrita sair diferente de zero quando nao disparar, para
+que uma mudanca futura quebre alto em vez de transformar o mutante em no-op
+silencioso -- um mutante que nao muda nada deixa o aceite verde sem provar coisa
+alguma.
