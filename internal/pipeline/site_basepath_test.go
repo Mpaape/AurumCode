@@ -89,7 +89,7 @@ func rootAbsoluteDestinations(t *testing.T, index string) []string {
 // returns what production code left on disk. Only the external extractor is a
 // double; discovery, normalization (which writes the permalink) and the scaffold
 // all run for real.
-func runScaffoldPipeline(t *testing.T, config *ExtractorPipelineConfig) (index, siteConfig string) {
+func runScaffoldPipeline(t *testing.T, config *ExtractorPipelineConfig) (index, reference, siteConfig string) {
 	t.Helper()
 
 	configPath := filepath.Join(config.DocsDir, "_config.yml")
@@ -115,6 +115,7 @@ func runScaffoldPipeline(t *testing.T, config *ExtractorPipelineConfig) (index, 
 	}
 
 	return readGenerated(t, filepath.Join(config.DocsDir, "index.md")),
+		readGenerated(t, filepath.Join(config.DocsDir, "reference.md")),
 		readGenerated(t, configPath)
 }
 
@@ -159,18 +160,20 @@ func TestExtractorPipeline_Run_UnderBasePath_LinksResolve(t *testing.T) {
 	config.BaseURL = "/widgetlib"
 	config.BaseURLDeclared = true
 
-	index, siteConfig := runScaffoldPipeline(t, config)
+	_, reference, siteConfig := runScaffoldPipeline(t, config)
 
+	// AUR-484: the root-absolute page link now lives on reference.md, not
+	// index.md - index.md only summarizes and links to it.
 	// Effect 1: the link the browser follows.
-	if !strings.Contains(index, "](/widgetlib/go/ledger/)") {
-		t.Errorf("index.md does not link to /widgetlib/go/ledger/: every documentation "+
-			"link would answer 404 under the base path:\n%s", index)
+	if !strings.Contains(reference, "](/widgetlib/go/ledger/)") {
+		t.Errorf("reference.md does not link to /widgetlib/go/ledger/: every documentation "+
+			"link would answer 404 under the base path:\n%s", reference)
 	}
-	if strings.Contains(index, "](/go/ledger/)") {
-		t.Errorf("index.md still carries the unprefixed destination /go/ledger/:\n%s", index)
+	if strings.Contains(reference, "](/go/ledger/)") {
+		t.Errorf("reference.md still carries the unprefixed destination /go/ledger/:\n%s", reference)
 	}
 
-	destinations := rootAbsoluteDestinations(t, index)
+	destinations := rootAbsoluteDestinations(t, reference)
 	for _, destination := range destinations {
 		if !strings.HasPrefix(destination, "/widgetlib/") {
 			t.Errorf("root-absolute destination %q is not under the base path /widgetlib/; "+
@@ -215,14 +218,15 @@ func TestExtractorPipeline_Run_DefaultProjectPagesSite(t *testing.T) {
 		t.Fatal("fixture must not declare a base path; this case is about deriving one")
 	}
 
-	index, siteConfig := runScaffoldPipeline(t, config)
+	_, reference, siteConfig := runScaffoldPipeline(t, config)
 
-	if !strings.Contains(index, "](/widgetlib/go/ledger/)") {
-		t.Errorf("index.md does not link to /widgetlib/go/ledger/ although GITHUB_REPOSITORY "+
-			"is owner/widgetlib: this is the 404 the browser proof recorded:\n%s", index)
+	// AUR-484: the root-absolute page link now lives on reference.md.
+	if !strings.Contains(reference, "](/widgetlib/go/ledger/)") {
+		t.Errorf("reference.md does not link to /widgetlib/go/ledger/ although GITHUB_REPOSITORY "+
+			"is owner/widgetlib: this is the 404 the browser proof recorded:\n%s", reference)
 	}
 
-	for _, destination := range rootAbsoluteDestinations(t, index) {
+	for _, destination := range rootAbsoluteDestinations(t, reference) {
 		if !strings.HasPrefix(destination, "/widgetlib/") {
 			t.Errorf("destination %q would answer 404 on owner.github.io/widgetlib/", destination)
 		}
@@ -274,7 +278,7 @@ func TestExtractorPipeline_Run_PublishedAtRoot_IsUnchanged(t *testing.T) {
 			config.BaseURL = tc.baseURL
 			config.BaseURLDeclared = tc.declared
 
-			var index string
+			var index, reference string
 			if tc.seedConfig != "" {
 				if err := os.MkdirAll(config.DocsDir, 0o755); err != nil {
 					t.Fatalf("create docs dir: %v", err)
@@ -295,9 +299,10 @@ func TestExtractorPipeline_Run_PublishedAtRoot_IsUnchanged(t *testing.T) {
 					t.Fatalf("Run failed: %v", err)
 				}
 				index = readGenerated(t, filepath.Join(config.DocsDir, "index.md"))
+				reference = readGenerated(t, filepath.Join(config.DocsDir, "reference.md"))
 			} else {
 				var siteConfig string
-				index, siteConfig = runScaffoldPipeline(t, config)
+				index, reference, siteConfig = runScaffoldPipeline(t, config)
 
 				// A greenfield root publisher must get no baseurl key at all.
 				// An empty-but-present key is the shape that a normalizer
@@ -310,10 +315,11 @@ func TestExtractorPipeline_Run_PublishedAtRoot_IsUnchanged(t *testing.T) {
 				}
 			}
 
-			if !strings.Contains(index, "](/go/ledger/)") {
-				t.Errorf("index.md lost the root-published destination /go/ledger/:\n%s", index)
+			_ = index
+			if !strings.Contains(reference, "](/go/ledger/)") {
+				t.Errorf("reference.md lost the root-published destination /go/ledger/:\n%s", reference)
 			}
-			for _, destination := range rootAbsoluteDestinations(t, index) {
+			for _, destination := range rootAbsoluteDestinations(t, reference) {
 				if strings.HasPrefix(destination, "//") {
 					t.Errorf("destination %q starts with a double slash: a browser reads "+
 						"that as a protocol-relative URL and leaves the site", destination)
@@ -336,7 +342,7 @@ const missingBaseURLWarningMarker = "declares no baseurl"
 // _config.yml, which is the only situation the warning exists for: writeConfig
 // refuses to overwrite that file, so the run prefixes the links but cannot add
 // the baseurl key the theme's assets resolve through.
-func runPipelineCapturingLog(t *testing.T, config *ExtractorPipelineConfig, seedConfig string) (logged, index, siteConfig string) {
+func runPipelineCapturingLog(t *testing.T, config *ExtractorPipelineConfig, seedConfig string) (logged, index, reference, siteConfig string) {
 	t.Helper()
 
 	configPath := filepath.Join(config.DocsDir, "_config.yml")
@@ -382,6 +388,7 @@ func runPipelineCapturingLog(t *testing.T, config *ExtractorPipelineConfig, seed
 	}
 
 	return logged, readGenerated(t, filepath.Join(config.DocsDir, "index.md")),
+		readGenerated(t, filepath.Join(config.DocsDir, "reference.md")),
 		readGenerated(t, configPath)
 }
 
@@ -404,7 +411,7 @@ func TestExtractorPipeline_ConsumerConfigWithoutBaseURL_IsWarned(t *testing.T) {
 	config.BaseURL = "/widgetlib"
 	config.BaseURLDeclared = true
 
-	logged, index, siteConfig := runPipelineCapturingLog(t, config, seed)
+	logged, _, reference, siteConfig := runPipelineCapturingLog(t, config, seed)
 
 	// Precondition, asserted rather than assumed: this is genuinely the
 	// half-configured site. If production had overwritten the consumer's file,
@@ -417,9 +424,10 @@ func TestExtractorPipeline_ConsumerConfigWithoutBaseURL_IsWarned(t *testing.T) {
 	if _, declared := configuredBaseURL(filepath.Join(config.DocsDir, "_config.yml")); declared {
 		t.Fatalf("the seeded _config.yml declares a baseurl after all:\n%s", siteConfig)
 	}
-	if !strings.Contains(index, "](/widgetlib/go/ledger/)") {
+	// AUR-484: the root-absolute page link now lives on reference.md.
+	if !strings.Contains(reference, "](/widgetlib/go/ledger/)") {
 		t.Fatalf("links were not prefixed, so this is not the links-work-assets-404 "+
-			"case the warning describes:\n%s", index)
+			"case the warning describes:\n%s", reference)
 	}
 
 	if !strings.Contains(logged, missingBaseURLWarningMarker) {
@@ -492,7 +500,7 @@ func TestExtractorPipeline_ConsumerConfigBaseURLWarning_StaysSilent(t *testing.T
 			config.BaseURL = tc.baseURL
 			config.BaseURLDeclared = tc.declared
 
-			logged, _, siteConfig := runPipelineCapturingLog(t, config, tc.seedConfig)
+			logged, _, _, siteConfig := runPipelineCapturingLog(t, config, tc.seedConfig)
 
 			if strings.Contains(logged, missingBaseURLWarningMarker) {
 				t.Errorf("warned about a missing baseurl although %s.\n_config.yml:\n%s\nlogged:\n%s",
