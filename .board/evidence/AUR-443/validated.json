@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-443",
- "commit": "eaef19d6bf8dfc5e25dc4aeb54e86e2eb14fd5e0",
+ "commit": "e56d0f0419e6aacd561c4a75e5b0f4dcf3a18ea1",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -13,6 +13,7 @@
  "review_notes": {
   "rounds": "Three rounds. Round 1 blocked a false diagnosis: any path error was reported as a missing ref, so a permission failure claimed the ref did not exist. Round 2 confirmed that fix and found the next layer: a ref resolving to a directory fell through to a raw wrap that leaked the absolute path and refs/heads/. Round 3 APPROVE.",
   "structural_note": "after the ref prefix matches, all four returns build a fresh error from the user's ref string alone and never re-wrap the original cause, so no future cause can leak through this path",
-  "declined_by_design": "a dedicated exit code for budget refusal and printing the model's summary field were both left undone because they would break AUR-433's and AUR-426's delivered contracts; the round-1 reviewer verified both pins line by line and accepted the refusals"
+  "declined_by_design": "a dedicated exit code for budget refusal and printing the model's summary field were both left undone because they would break AUR-433's and AUR-426's delivered contracts; the round-1 reviewer verified both pins line by line and accepted the refusals",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate eaef19d6bf8dfc5e25dc4aeb54e86e2eb14fd5e0, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to e56d0f0419e6aacd561c4a75e5b0f4dcf3a18ea1, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

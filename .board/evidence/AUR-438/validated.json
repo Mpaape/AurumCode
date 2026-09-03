@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-438",
- "commit": "fc73d1d4ea1dc6b8bfd140289de100e5f629bae6",
+ "commit": "dd7225649dbeb6bb82bdb2d173f6d0666c5417ef",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -14,6 +14,7 @@
   "rounds": "Round 1 REQUEST_CHANGES: without GITHUB_SHA the real GitHub answers 422 to an empty commit_id and the loop aborted on the first error, publishing zero findings; every test injected the variable and every fake agreed unconditionally. Round 2 APPROVE with the reviewer's own fakes, diffs and drivers.",
   "ordering_proof": "HasWritePermission moving ahead of the diff fetch confirmed behaviourally by request order against the fake, not by reading code",
   "canary": "reviewer injected AURUM_SECRET_CANARY into a finding message: [REDACTED] in stdout AND in the POST body, though the card's own suite does not test this (pre-existing coverage gap)",
-  "nonblocking": "PostIssueComment has no idempotency key (client signature, read_path), so a retry after partial publication can duplicate the general comment"
+  "nonblocking": "PostIssueComment has no idempotency key (client signature, read_path), so a retry after partial publication can duplicate the general comment",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate fc73d1d4ea1dc6b8bfd140289de100e5f629bae6, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to dd7225649dbeb6bb82bdb2d173f6d0666c5417ef, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-446",
- "commit": "8df204c794b0d7ecb81dfcd0daa2777b3d45c633",
+ "commit": "e0c5ee2dcbdc0ab28628bfa4882c7d0ad1376825",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -13,6 +13,7 @@
  "review_notes": {
   "builder_self_reports_confirmed": "the false-GREEN subshell bug is empirically dead (mutated and restored runs disagree as they must) and the hardcoded anchor index is now a label lookup",
   "residual_disclosed": "AUR-437's spec now states the b/ truncation is not fixed by that card, reproduced by the reviewer through a real GetPullRequestDiff call",
-  "coordinator_nit": "card prose cites AUR-446.md:123-125 where it means AUR-428.md"
+  "coordinator_nit": "card prose cites AUR-446.md:123-125 where it means AUR-428.md",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate 8df204c794b0d7ecb81dfcd0daa2777b3d45c633, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to e0c5ee2dcbdc0ab28628bfa4882c7d0ad1376825, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

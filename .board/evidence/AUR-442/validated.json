@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-442",
- "commit": "dcb66701a29ed217b6cfd0e1f68b772eee95ecce",
+ "commit": "faaf8af3d4b02859117077102f1ca29cbf4d9557",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -13,6 +13,7 @@
  "review_notes": {
   "rounds": "Round 1 REQUEST_CHANGES on two honesty findings: the uppercase branch required a leading character that ate the keyword's own first letter, so bare env-var names never matched despite the documented promise; and a stale spec paragraph claimed the AUR-435 files were outside paths after they had been added and rebased. Round 2 APPROVE, both re-verified through the reviewer's own vectors.",
   "false_positive_evidence": "15 benign cases written by the reviewer stayed clean before and after the fix, re-confirmed through the production SecurityScan path; new adversarials 9TOKEN= and MY-TOKEN= now match but are not valid identifiers in any real language or format",
-  "scope_choice": "only hardcoded-secret was given a matcher; the other five rules are declared metadata-only in the YAML and the spec rather than given weak patterns"
+  "scope_choice": "only hardcoded-secret was given a matcher; the other five rules are declared metadata-only in the YAML and the spec rather than given weak patterns",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate dcb66701a29ed217b6cfd0e1f68b772eee95ecce, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to faaf8af3d4b02859117077102f1ca29cbf4d9557, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

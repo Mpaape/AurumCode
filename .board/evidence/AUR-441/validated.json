@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-441",
- "commit": "aae32318b637847e830c04cb67996e65754f5628",
+ "commit": "96c7facb2bea8f5e501f368749701cb247ae7d76",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -13,6 +13,7 @@
  "review_notes": {
   "regression_history": "a repo-scoped cache default had made AUR-433's determinism assertion unpassable by construction; the process-scoped default fixed it and the reviewer re-verified every card in that risk class",
   "secret_safety": "reviewer planted a non-credential-shaped canary in both message and suggestion fields and grepped the raw cache files on disk: both already redacted",
-  "isolation": "independent runs do not share cache by default; an explicit AURUMCODE_CACHE_DIR does; metered and unmetered runs do not collide"
+  "isolation": "independent runs do not share cache by default; an explicit AURUMCODE_CACHE_DIR does; metered and unmetered runs do not collide",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate aae32318b637847e830c04cb67996e65754f5628, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to 96c7facb2bea8f5e501f368749701cb247ae7d76, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-450",
- "commit": "d235704026dccacfe6fb8565dcacb7b58d0d833c",
+ "commit": "3634e8c9cc936e6b7d92102322ca9fe53509ff40",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -13,6 +13,7 @@
  "review_notes": {
   "dynamic_proof": "the reviewer mutated the catalogue twice: removing a matcher recomputed the note to 2 of 8, and adding one to xss recomputed to 3 of 8 AND made the scan report an xss finding, confirming note and scan share one predicate",
   "honest_note": "the card's own internal mutation case is near-tautological; the real mutation proof is the reviewer's independent vector",
-  "followup": "docs/specs/AUR-449.md still says stderr is empty on both sides, now false; prose only, no broken pin, needs its own docs card"
+  "followup": "docs/specs/AUR-449.md still says stderr is empty on both sides, now false; prose only, no broken pin, needs its own docs card",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate d235704026dccacfe6fb8565dcacb7b58d0d833c, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to 3634e8c9cc936e6b7d92102322ca9fe53509ff40, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

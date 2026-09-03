@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-451",
- "commit": "4df5df69aba5058be594947d0d5f6639360a67ea",
+ "commit": "0e00d50d1a55639abb873a11ab4d147569a41407",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -13,6 +13,7 @@
  "review_notes": {
   "inherited_security_intact": "no write permission and no commit SHA both yield zero POSTs and a refusal; a planted canary comes out [REDACTED] in the published comment",
   "no_duplication": "parseFailOnLevel, countAtOrAbove, selectProviderForModel, SecurityScanWithCoverage and buildCostTracker each have a single definition shared by both paths",
-  "nonblocking": "the --pr path does not treat errNoProviderConfigured with errors.Is the way --base does, so --pr --seguranca without a provider exits 1 instead of running security-only; asymmetry recorded, outside the declared command"
+  "nonblocking": "the --pr path does not treat errNoProviderConfigured with errors.Is the way --base does, so --pr --seguranca without a provider exits 1 instead of running security-only; asymmetry recorded, outside the declared command",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate 4df5df69aba5058be594947d0d5f6639360a67ea, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to 0e00d50d1a55639abb873a11ab4d147569a41407, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

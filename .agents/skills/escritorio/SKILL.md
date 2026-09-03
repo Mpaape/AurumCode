@@ -349,3 +349,22 @@ Quando um portao decide se algo e permitido, `Contains`, `HasPrefix` e
 (remova ancora, prefixo `./`, espaco) e compare por IGUALDADE, ou case a linha
 inteira. Ao revisar, ataque todo comparador de string de portao com quatro
 formas: prefixo, sufixo, no meio, e com travessia de caminho.
+
+## O card registra o SHA integrado, nunca o do candidato (limite duro)
+
+Registre em `- commit:` e em `validated.json` o SHA que existe em `main` depois
+da integracao, nao o tip da branch de candidato. O candidato e efemero por
+construcao: ele so existe enquanto `refs/candidates/AUR-NNN` e a branch
+`card/AUR-NNN` o seguram, e some no primeiro `gc --prune=now`.
+
+Em 2026-08-26, ao consolidar o repositorio numa branch so -- apagando branches
+mergeadas, refs de candidato e podando -- doze cards `done` passaram a apontar
+para objetos coletados, e `pipeline.sh` recusou o board. Os objetos nao estavam
+no `origin`, porque as branches remotas de candidato foram apagadas na mesma
+operacao. A recuperacao foi impossivel; o conserto foi reapontar cada card para
+o commit que de fato entrega seus `paths` em `main`.
+
+Antes de podar objetos ou apagar branch de candidato, rode a auditoria barata:
+para todo card `done`, `git cat-file -t <sha>` e
+`git merge-base --is-ancestor <sha> main`. Um card que falha em qualquer um dos
+dois afirma entrega sem lastro inspecionavel.

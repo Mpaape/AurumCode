@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-455",
- "commit": "70aec9739ddb6ee363ce81fd32a7d080aae96218",
+ "commit": "f545a12a7102f4eb9dc49eb9043e273bef4b2560",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -12,6 +12,7 @@
  },
  "review_notes": {
   "verdict_sentence": "a developer who has never seen this repository can today build, run a real security review, run a fixture-driven review and generate documentation in about a minute by running bash demo.sh as the README instructs",
-  "preexisting_followups": "README and getting-started claim Rust and C# stay unregistered without an opt-in env var, which is false since the native extractors register unconditionally; and the documented live-provider usage hangs because the LLM client has no HTTP timeout"
+  "preexisting_followups": "README and getting-started claim Rust and C# stay unregistered without an opt-in env var, which is false since the native extractors register unconditionally; and the documented live-provider usage hangs because the LLM client has no HTTP timeout",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate 70aec9739ddb6ee363ce81fd32a7d080aae96218, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to f545a12a7102f4eb9dc49eb9043e273bef4b2560, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }
