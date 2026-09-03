@@ -172,9 +172,24 @@ func (s *Scaffold) Generate() (*ScaffoldResult, error) {
 		return nil, err
 	}
 
-	result.ReferencePath = filepath.Join(s.config.DocsDir, "reference.md")
-	if err := s.writeReference(result.ReferencePath, pages); err != nil {
-		return nil, err
+	// AUR-484 design decision (option b, measured): reference.md is written
+	// only when there is more than one page to index. cmd/regenerate-docs
+	// (outside this card's paths) runs its own independent collectMarkdown
+	// walk over OutputDir that excludes only index.md by name - it has no
+	// way to learn about a second scaffold-owned file, so a reference.md
+	// written for a single-page run gets silently counted as a SECOND
+	// generated documentation page in the CLI's own "docs=N" summary
+	// (measured: tests/e2e/smoke_test.go against this exact fixture printed
+	// "docs=2" for one real page before this change). Never emitting the
+	// file for that case is correct on the merits, not only a workaround: a
+	// reference page whose only job is to index multiple pages by language
+	// has nothing to add when there is exactly one - renderPageSummaryBlock
+	// links straight to that one page instead.
+	if len(pages) > 1 {
+		result.ReferencePath = filepath.Join(s.config.DocsDir, "reference.md")
+		if err := s.writeReference(result.ReferencePath, pages); err != nil {
+			return nil, err
+		}
 	}
 
 	return result, nil
@@ -535,21 +550,25 @@ func renderQuickstartBlock() string {
 // renderPageSummaryBlock renders the short, delimited reference that replaces
 // the full listing on the landing page (AUR-484 AC-002): a count and a link,
 // not the enumeration itself. The full listing lives at reference.md, written
-// by writeReference.
+// by writeReference, for the 2-or-more-page case. A single page links
+// directly instead - see Generate's own comment on why reference.md is not
+// written at all when there is only one page to index.
 func renderPageSummaryBlock(pages []ScaffoldPage) string {
 	var b strings.Builder
 	b.WriteString(scaffoldBlockStart)
 	b.WriteString("\n\n## Generated API documentation\n\n")
 
-	if len(pages) == 0 {
+	switch len(pages) {
+	case 0:
 		b.WriteString("No documentation pages were generated for this run.\n")
 		b.WriteString("\n")
-		b.WriteString(scaffoldBlockEnd)
-		b.WriteString("\n")
-		return b.String()
+	case 1:
+		b.WriteString(fmt.Sprintf("> 1 page(s) generated from the source tree: [%s](%s).\n\n",
+			markdownLabel(pages[0].Title), markdownDestination(pages[0].Link)))
+	default:
+		b.WriteString(fmt.Sprintf("> %d page(s) generated from the source tree. See the [full reference](reference.html) for the list by language and symbol.\n\n", len(pages)))
 	}
 
-	b.WriteString(fmt.Sprintf("> %d page(s) generated from the source tree. See the [full reference](reference.html) for the list by language and symbol.\n\n", len(pages)))
 	b.WriteString(scaffoldBlockEnd)
 	b.WriteString("\n")
 
