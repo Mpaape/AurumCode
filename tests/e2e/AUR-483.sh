@@ -93,7 +93,11 @@ done
 for page in tests.md testdata.md fixtures.md; do
   [[ -f "$default_out/go/$page" ]] && fail "default-run-must-exclude-test-page:$page"
 done
-page_count="$(find "$default_out" -name '*.md' ! -name 'index.md' | wc -l | tr -d ' ')"
+# index.md and reference.md are scaffold pages, not content extracted from
+# source: reference.md carries the API enumeration AUR-484 moved out of
+# index.md's body, and appears only with two or more pages. Counting either
+# would measure the scaffold, not the scope filter this asserts.
+page_count="$(find "$default_out" -name '*.md' ! -name 'index.md' ! -name 'reference.md' | wc -l | tr -d ' ')"
 [[ "$page_count" -eq 3 ]] || fail "default-run-page-count:$page_count"
 
 # AC-001: the run DECLARES how many files it excluded by scope, on stderr.
