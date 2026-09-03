@@ -97,19 +97,52 @@ func TestAUR484(t *testing.T) {
 		t.Fatalf("AUR-484/AC-001/behavior-missing: index.md pins the Action to a mutable ref (@main):\n%s", index)
 	}
 
-	// -- AC-002: the enumeration is not the body of index.md -----------------
+	// -- AC-002: the enumeration is never the body of index.md ---------------
+	//
+	// Two declared behaviours, and this asserts both. With ONE page there is
+	// nothing to index, so no reference.md is written and index.md links
+	// straight to the page: cmd/regenerate-docs walks OutputDir excluding only
+	// index.md by name, so a reference.md written for a single-page run would
+	// be counted as a second generated page in the CLI's own docs=N summary
+	// (measured: docs=2 for one real page). With TWO OR MORE the enumeration
+	// moves to reference.md and index.md merely points at it.
 	if strings.Contains(index, "### Go") || strings.Contains(index, "func AddMoney") {
 		t.Fatalf("AUR-484/AC-002/behavior-missing: index.md still embeds the per-page enumeration:\n%s", index)
 	}
-	if !strings.Contains(index, "reference.html") {
-		t.Fatalf("AUR-484/AC-002/behavior-missing: index.md does not reference the standalone reference page:\n%s", index)
+	if result.ReferencePath != "" {
+		t.Fatalf("AUR-484/AC-002/behavior-missing: a single page needs no reference page, got %q", result.ReferencePath)
 	}
-	if result.ReferencePath == "" {
-		t.Fatal("AUR-484/AC-002/behavior-missing: Generate() reported no ReferencePath")
+	if !strings.Contains(index, "go/ledger") {
+		t.Fatalf("AUR-484/AC-002/behavior-missing: with one page, index.md must link straight to it:\n%s", index)
 	}
-	reference := readFileAUR484(t, result.ReferencePath)
+
+	// The two-or-more case, which is what reference.md exists for.
+	multi := t.TempDir()
+	writeFileAUR484(t, filepath.Join(multi, "go", "ledger.md"),
+		"---\ntitle: Ledger\npermalink: /go/ledger/\n---\n\n# ledger\n\n## func AddMoney\n")
+	writeFileAUR484(t, filepath.Join(multi, "go", "vault.md"),
+		"---\ntitle: Vault\npermalink: /go/vault/\n---\n\n# vault\n\n## func Seal\n")
+
+	multiResult, err := site.NewScaffold(site.ScaffoldConfig{DocsDir: multi, OutputDir: multi, Title: "tinyrepo"}).Generate()
+	if err != nil {
+		t.Fatalf("AUR-484/AC-002/infrastructure: Generate failed for the multi-page case: %v", err)
+	}
+	multiIndex := readFileAUR484(t, multiResult.IndexPath)
+	if strings.Contains(multiIndex, "### Go") || strings.Contains(multiIndex, "func AddMoney") {
+		t.Fatalf("AUR-484/AC-002/behavior-missing: index.md still embeds the enumeration with two pages:\n%s", multiIndex)
+	}
+	if !strings.Contains(multiIndex, "reference.html") {
+		t.Fatalf("AUR-484/AC-002/behavior-missing: index.md does not reference the standalone reference page:\n%s", multiIndex)
+	}
+	if multiResult.ReferencePath == "" {
+		t.Fatal("AUR-484/AC-002/behavior-missing: Generate() reported no ReferencePath with two pages")
+	}
+	reference := readFileAUR484(t, multiResult.ReferencePath)
 	if !strings.Contains(reference, "### Go") || !strings.Contains(reference, "func AddMoney") {
 		t.Fatalf("AUR-484/AC-002/behavior-missing: reference.md does not carry the enumeration it was supposed to receive:\n%s", reference)
+	}
+	if !strings.Contains(reference, "func Seal") {
+		t.Fatalf("AUR-484/AC-002/behavior-missing: reference.md is missing the second page's symbol:\n%s", reference)
 	}
 
 	// -- AC-003: declared, verifiable limitations ----------------------------
