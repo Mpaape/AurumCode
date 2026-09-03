@@ -12,26 +12,31 @@
 #   identifier and `=`); security/sql-injection never matched
 #   `"...".to_owned() + name` (Rust's concatenation puts a method call
 #   between the closing quote and the `+`) nor `format!("...{}", name)`
-#   (Rust's more common shape, no `+` at all). This program proves the fix
-#   (internal/review/rules/security.yml): the four Rust true-positive
-#   shapes this card restores are all found (AC-001); the safe forms this
-#   card names -- a numeric constant, a digit-free string constant, a
-#   $1-parametrized query, and a format! call with no SQL verb -- are not
+#   (Rust's more common shape, no `+` at all); security/command-injection
+#   never matched `Command::new("sh").arg("-c").arg(...)` (no
+#   `exec`/`spawn`/`system`/`popen` spelling, no `shell: true` option).
+#   This program proves the fix (internal/review/rules/security.yml): the
+#   six Rust true-positive shapes this card restores are all found
+#   (AC-001); the safe forms this card names -- a numeric constant, a
+#   digit-free string constant, a $1-parametrized query, a format! call
+#   with no SQL verb, and an argv-form Command with no shell -- are not
 #   (AC-002); and the pre-existing Python, Node, and hardcoded-secret
 #   regression fixtures still produce exactly the same findings, unchanged
 #   (AC-003).
 #
-# DECLARED OUT OF SCOPE
+# RUST COMMAND-INJECTION: FIRST REVERTED, NOW RESTORED
 #
-#   Rust command-injection (`Command::new("sh").arg("-c").arg(...)`) is
-#   NOT covered. Extending security/command-injection's pattern breaks
-#   tests/acceptance/AUR-462.sh's own MUT-001, which hardcodes that
-#   pattern's exact bytes as a literal grep/rewrite anchor in a file this
-#   card does not own (not in AUR-481's `paths`) -- confirmed by measurement
-#   (MUT-001/anchor-not-found, exit 1) while building this card. Go, C#,
-#   PowerShell and bash command-injection coverage (also named by this
-#   card's outcome) are out for the same reason this program only proves
-#   Rust: time. See docs/specs/AUR-481.md.
+#   Extending security/command-injection's pattern was first reverted
+#   because it broke tests/acceptance/AUR-462.sh's own MUT-001, which
+#   hardcoded that pattern's exact bytes as a literal grep/rewrite anchor
+#   (confirmed by measurement: MUT-001/anchor-not-found, exit 1). AUR-462.sh
+#   is now in this card's `paths`, and its MUT-001 was reanchored
+#   (2026-09-03) on the rule's `- id:` line plus a content-independent
+#   rewrite of the following `pattern:` line -- so it no longer depends on
+#   this pattern's exact bytes, and the Rust command-injection branch is
+#   restored. Go, C#, PowerShell and bash command-injection coverage (also
+#   named by this card's outcome) remain out for the ordinary reason: time.
+#   See docs/specs/AUR-481.md.
 #
 # WHY THIS READS A COMMITTED FIXTURE, NOT AN EPHEMERAL REPOSITORY
 #
@@ -179,20 +184,21 @@ nominal_case() {
   out_sec="$(cd "$rust_repo" && "$shared_bin" review --base HEAD~1 --seguranca)" || fail behavior-missing
   grep -Fq "$header" <<<"$out_sec" || fail behavior-missing
 
-  # AC-001: the four Rust true-positive shapes this card restores.
-  for ln in 1 6 11 15; do
+  # AC-001: the six Rust true-positive shapes this card restores.
+  for ln in 1 6 11 15 24 28; do
     grep -Fq "src/main.rs:$ln: [error]" <<<"$out_sec" || fail "behavior-missing:line-$ln"
   done
   grep -Fq "$secret_citation" <<<"$out_sec" || fail behavior-missing:secret-citation
   grep -Fq "$sql_citation" <<<"$out_sec" || fail behavior-missing:sql-citation
+  grep -Fq "$cmd_citation" <<<"$out_sec" || fail behavior-missing:cmd-citation
 
-  # AC-002: exactly 4 findings total -- no other line in the fixture
-  # (the numeric const, the digit-free const, the parametrized query)
-  # ever appears.
+  # AC-002: exactly 6 findings total -- no other line in the fixture
+  # (the numeric const, the digit-free const, the parametrized query, the
+  # argv-form Command) ever appears.
   local after_header count
   after_header="${out_sec#*"$header"}"
   count="$(grep -Fo '[error]' <<<"$after_header" | wc -l)"
-  [[ "$count" -eq 4 ]] || fail "unexpected-finding-count:$count"
+  [[ "$count" -eq 6 ]] || fail "unexpected-finding-count:$count"
 
   # Determinism.
   local out_again

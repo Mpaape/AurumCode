@@ -19,3 +19,15 @@ fn query_user_fmt(conn: &mut Connection, name: &str) {
 fn query_user_safe(conn: &mut Connection, name: &str) {
     conn.query("SELECT * FROM t WHERE n = $1", &[&name]);
 }
+
+fn ping_unsafe(h: String) {
+    Command::new("sh").arg("-c").arg("ping ".to_owned() + &h).spawn().unwrap();
+}
+
+fn ping_unsafe_fmt(h: String) {
+    Command::new("sh").arg("-c").arg(format!("ping {}", h)).spawn().unwrap();
+}
+
+fn ping_safe(host: &str) {
+    Command::new("ping").arg(host).spawn().unwrap();
+}
