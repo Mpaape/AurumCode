@@ -99,8 +99,8 @@ required_dirs=(
   internal/documentation/extractors
   internal/documentation/incremental
   internal/documentation/normalizer
-  internal/documentation/site
-  internal/documentation/welcome
+  internal/documentation/site internal/documentation/review
+  internal/documentation/welcome internal/documentation/review
   internal/pipeline
   tests/fixtures/repos/git-demo
   tests/fixtures/review
