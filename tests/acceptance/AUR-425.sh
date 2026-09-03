@@ -74,8 +74,8 @@ closure=(
   internal/documentation/extractors/rust
   internal/documentation/incremental
   internal/documentation/normalizer
-  internal/documentation/site
-  internal/documentation/welcome
+  internal/documentation/site internal/documentation/review
+  internal/documentation/welcome internal/documentation/review
   internal/llm
   internal/llm/cost
   internal/llm/httpbase

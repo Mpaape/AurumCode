@@ -85,7 +85,18 @@ rules:
     # because the pattern only inspects the first `+` after the verb. The
     # project's own SQL fixtures never take that shape; widening past the
     # first `+` reintroduces the false positive this card exists to kill.
-    pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*'
+    # AUR-481 (2026-09-03): Rust's idiomatic concatenation puts a method
+    # call (`.to_owned()`/`.to_string()`) between the closing quote and the
+    # `+`, e.g. `"SELECT ... '".to_owned() + name`, which the branch above
+    # cannot see (nothing sits between quote and `+` there). Rust's more
+    # common shape still is `format!("SELECT ... '{}'", name)`, no `+` at
+    # all -- a fresh branch matches a `format!(...)` call whose format
+    # string carries a SQL verb and a `{}` placeholder, followed by a
+    # comma-separated identifier argument. Parametrized Rust queries
+    # (`conn.query("SELECT ... $1", &[&name])`) have neither a `+` nor a
+    # `format!` call and are excluded structurally, matching this card's
+    # AC-002.
+    pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b[^+]*["'']\s*\.\s*(?:to_owned|to_string)\s*\(\s*\)\s*\+\s*[A-Za-z_$][\w$.]*|\bformat!\s*\(\s*"[^"]*\b(?:select|insert|update|delete)\b[^"]*\{\}[^"]*"\s*,\s*[A-Za-z_$][\w$.]*'
 
   - id: security/xss
     title: Cross-Site Scripting (XSS)
@@ -165,7 +176,26 @@ rules:
     # host])`, no shell, no concatenation) has no quote-then-`+` anywhere
     # in the call and so is excluded structurally, matching this card's
     # AC-002.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b'
+    #
+    # AUR-481 (2026-09-03): Rust's idiomatic shell invocation is
+    # `Command::new("sh").arg("-c").arg(...)` -- none of the branches
+    # above match it (`Command::new` has no `exec`/`spawn`/`system`/`popen`
+    # spelling, and there is no `shell: true` option). A branch analogous
+    # to the `spawn(...shell:true)` one above -- `Command::new("sh"|"bash")`
+    # plus a `.arg("-c")` call, flagged on that combination alone,
+    # regardless of what a later `.arg(...)` on the same line carries
+    # (`.to_owned() + h` concatenation or a `format!(...)` call, both) --
+    # was first written, then reverted (this exact catalog change broke
+    # tests/acceptance/AUR-462.sh's own MUT-001, which at the time
+    # hardcoded security/command-injection's full pattern string as a
+    # literal byte-for-byte anchor), and is now shipped: AUR-462.sh's
+    # MUT-001 was reanchored (2026-09-03) on the rule's `- id:` line plus
+    # a content-independent rewrite of the following `pattern:` line, so
+    # it no longer depends on this pattern's exact bytes. The safe argv
+    # form (`Command::new("ping").arg(host)`, no shell) has neither
+    # "sh"/"bash" nor a `-c` arg and is excluded structurally, matching
+    # this card's AC-002.
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)'
 
   - id: security/path-traversal
     title: Path Traversal
@@ -271,7 +301,20 @@ rules:
     # Known limitation, accepted deliberately: a digit-free real secret
     # (some base64 alphabets can produce one, e.g. a purely-alphabetic
     # 32-byte key) is now missed. See docs/specs/AUR-466.md.
-    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})'
+    #
+    # AUR-481 (2026-09-03): Rust puts a TYPE between the identifier and
+    # `=` (`const ACCESS_KEY: &str = "..."`), so neither branch above ever
+    # sees a quote right after `:=`/`:`/`=`. Two new branches, each reusing
+    # the same case-insensitive keyword group and the same digit+letter
+    # VALUE class as branch one (no weakening): a typed declaration
+    # (`const`/`static`/`let`, `: &str`/`: String`) assigned a quoted
+    # literal directly, and the `String::from("...")` wrapper (type
+    # annotation optional there, since `let token = String::from("...")`
+    # carries none). `const MAX_RETRIES: u32 = 5` and
+    # `const GREETING: &str = "hello world"` stay excluded: no
+    # secret-shaped keyword in the identifier, and the digit-free greeting
+    # also fails the VALUE class -- matching this card's AC-002.
+    pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})|(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*:\s*(?:&''?(?:static\s+)?str|String)\s*=\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?:\:\s*(?:&''?(?:static\s+)?str|String)\s*)?=\s*String::from\(\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["'']\s*\))'
 
   - id: security/weak-crypto
     title: Weak Cryptography

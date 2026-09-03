@@ -142,8 +142,8 @@ stage_static() {
   copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm \
     internal/security/redaction internal/git/githubclient pkg/types
   copy "$root" internal/documentation/extractors internal/documentation/incremental \
-    internal/documentation/normalizer internal/documentation/site \
-    internal/documentation/welcome internal/pipeline
+    internal/documentation/normalizer internal/documentation/site internal/documentation/review \
+    internal/documentation/welcome internal/documentation/review internal/pipeline
   copy "$root" scripts/action-entrypoint.sh Dockerfile action.yml
   chmod -R u+w -- "$root"
 }

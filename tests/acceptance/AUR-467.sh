@@ -5,7 +5,7 @@
 # WHAT THIS PROVES
 #
 #   The review prompt assembled by internal/prompt.PromptBuilder.BuildPrompt
-#   -- the exact function internal/review/reviewer.go calls for the real
+#   -- the exact function internal/review/reviewer.go internal/review/fakeprovider.go internal/review/rules.go internal/review/securitypass.go internal/review/workflow_references.go calls for the real
 #   gateway -- never carries a documentation file's diff content into the
 #   code-rule-catalog section (AC-001), still carries every code file's
 #   content at a budget with room (AC-002), and declares, by name and count,

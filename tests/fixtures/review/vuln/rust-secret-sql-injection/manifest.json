@@ -1,0 +1,26 @@
+{
+  "schema": "aurum.git-demo-fixture",
+  "version": 1,
+  "branch": "main",
+  "author": "Aurum Demo Author <demo-author@aurum.invalid>",
+  "committer": "Aurum Demo Bot <demo-bot@aurum.invalid>",
+  "head": "sha1:5359cb1e449144efc25aa97130c5475478ccd2e4",
+  "commit_count": 2,
+  "object_count": 7,
+  "commits": [
+    {"index":1,"id":"sha1:aaa2222c4ee0c51f218b241cc58f7c9f3f1ea500","tree":"sha1:646ba308d478fb20fda990e35435e40c8610dd50","parent":"none","timestamp":1700000000,"timezone":"+0000","message":"seed: add the rust fixture skeleton","operations":["add:01:README.md"]},
+    {"index":2,"id":"sha1:5359cb1e449144efc25aa97130c5475478ccd2e4","tree":"sha1:9c3918d7c68cdce80c5932c977a725a20ab13db6","parent":"sha1:aaa2222c4ee0c51f218b241cc58f7c9f3f1ea500","timestamp":1700000060,"timezone":"+0000","message":"chore: plant rust secret, sql and command shapes","operations":["add:02:src/main.rs"]}
+  ],
+  "objects": [
+    {"id":"sha1:5359cb1e449144efc25aa97130c5475478ccd2e4","type":"commit","raw_bytes":292,"raw_sha256":"sha256:0826b78a29b275614d994936abbca2bff346c8e42d3e44aba402cd605a342860","stored_sha256":"sha256:ec4ce838004d294b8ed604a5ebe76e3ce74526b05a425b49ee08d64bff47c969"},
+    {"id":"sha1:646ba308d478fb20fda990e35435e40c8610dd50","type":"tree","raw_bytes":45,"raw_sha256":"sha256:1b37f9369f0454c889c39307855a7cefee49083116f135d44c326e07d33dea16","stored_sha256":"sha256:97bffb93d0ee19632148124c0eee8e6da06c970d69d7c2ebad05660d8354b3e1"},
+    {"id":"sha1:70f7ebf6b438cd71fc1210f3345474e034a01aff","type":"tree","raw_bytes":43,"raw_sha256":"sha256:f6b7291aaf6f30a5af20d7f6e494bef263357bdfe92b0be65f985d85097bf5b5","stored_sha256":"sha256:e57d138f537e9d6f87b7e163d03db95349abb5f4b5768b0bf6770d660b4f9f77"},
+    {"id":"sha1:9c3918d7c68cdce80c5932c977a725a20ab13db6","type":"tree","raw_bytes":75,"raw_sha256":"sha256:1f1868c9bfc8eb5cb795d92e205c80014e2e2a6c5be80f3c811abe96a1fef158","stored_sha256":"sha256:7dae832e9d8ae5b0511b7454be17e7f02b04535825fb9203f07597e8ecf86613"},
+    {"id":"sha1:aaa2222c4ee0c51f218b241cc58f7c9f3f1ea500","type":"commit","raw_bytes":231,"raw_sha256":"sha256:477edf2fdc3de0513c31adbcededfba8a734e7bb3c420d54b8bcc8688fcb3449","stored_sha256":"sha256:fc552f3467bf358a6d06ea8b9dacdd367106925c579aa150dbf8e92d0d30d79a"},
+    {"id":"sha1:d0f2538565008d6765cff7892a64114c69de2a1c","type":"blob","raw_bytes":934,"raw_sha256":"sha256:0504ba39648b1f650631f0263fb2cd84a656783fd8210390f6b2948b5b22e959","stored_sha256":"sha256:ada18a5165fd59908e214d1e9f7825cf024b915a7c9de2d547b94631b62ec0a4"},
+    {"id":"sha1:d0fd95e2600a077135462ad3f1428017eaf51447","type":"blob","raw_bytes":105,"raw_sha256":"sha256:b7f58ef100e220410e216b9fc70432dc5fa1dfdc90af4a57b6aab0bdd66d2f34","stored_sha256":"sha256:fd1d97f70ffda6b50a10dd7974bb4e8874f4351ea9984f0d86b316650873271c"}
+  ],
+  "synthetic_secrets": [],
+  "source_digest": "sha256:e5614ab09725d20f2547f9aa82a72e0008588cdbf495a324213137ccde814668",
+  "fixture_digest": "sha256:982724b935cd79ee5f70fcf3ec491636a435c515d90df02baac461ea2f6c0462"
+}

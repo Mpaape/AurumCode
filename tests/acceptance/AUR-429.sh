@@ -75,8 +75,8 @@ closure=(
   internal/documentation/extractors
   internal/documentation/incremental
   internal/documentation/normalizer
-  internal/documentation/site
-  internal/documentation/welcome
+  internal/documentation/site internal/documentation/review
+  internal/documentation/welcome internal/documentation/review
   internal/llm
   internal/pipeline
   tests/fixtures/docs/goproject
