@@ -115,7 +115,7 @@ Saída real, em duas partes. Primeiro, no **stderr**, dois avisos:
 
 ```
 aurumcode review: no LLM provider configured: quality review skipped, running --seguranca only (...)
-aurumcode review: security pass applied 3 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection); see internal/review/rules/security.yml for the full catalog
+aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
 ```
 
 O primeiro aviso é importante e honesto: **sem provider de LLM, a review de
@@ -161,7 +161,7 @@ de fora, porque não são linhas adicionadas neste diff. Isso é intencional: a
 ferramenta revisa a mudança, não o repositório. Se você quer ver um achado
 antigo, aponte `--base` para antes de ele ter entrado.
 
-**Só 3 das 8 regras do catálogo têm matcher hoje.** O binário embute oito
+**Só 4 das 8 regras do catálogo têm matcher hoje.** O binário embute oito
 regras de segurança, mas apenas três carregam um padrão que a passagem
 determinística consegue aplicar:
 
@@ -180,7 +180,7 @@ As cinco restantes existem como metadados: um modelo pode citá-las num achado
 de review de qualidade, mas a passagem `--seguranca` nunca as dispara sozinha.
 Essa é uma decisão registrada, não um bug — XSS, path traversal e autenticação
 ausente dependem de fluxo de dados que uma linha isolada do diff não mostra.
-O próprio comando imprime `applied 3 of 8` justamente para você não achar que
+O próprio comando imprime `applied 4 of 8` justamente para você não achar que
 teve cobertura de oito regras.
 
 Os três matchers também são estreitos. `sql-injection` e `command-injection`

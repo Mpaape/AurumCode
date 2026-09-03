@@ -1,0 +1,22 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-483",
+ "commit": "f6391b958ce69af78f29a88286637280e9a39bfd",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-483",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 on the integrated SHA"
+ },
+ "review_notes": {
+  "measured_independently": "The reviewer did not accept the builder's number: they built both binaries, the parent and the candidate, and ran them against the identical source tree. 231 pages before, 57 after. The builder had reported 236 before, which the reviewer attributed to repo drift since the dated measurement rather than fabrication -- the 57 side matched exactly across three independent paths.",
+  "substring_trap_held": "AC-003 is the trap: matching by substring would swallow product code whose path contains the word test. The reviewer built the generator themselves and checked by name against a committed fixture -- internal/attestation, cmd/latest and contest.go all keep full documentation.",
+  "capability_not_removed": "AURUMCODE_INCLUDE_TEST_DOCS=true restores test documentation, with the single declared caveat that the Go extractor's own pre-existing testdata skip is unconditional and lives outside this card.",
+  "scoped_copy_clean": "The new scoped copy leaks no /tmp paths into generated pages and leaves no temp directories after repeated runs.",
+  "own_mutation": "Forcing IsTestScopePath to return false turned TestAUR483 red with correct messages, so the test is not decorative.",
+  "declared_gap": "test/ in the singular is not matched -- the card enumerates tests, testdata and fixtures only, and this repository has no top-level test/ directory.",
+  "found_in_passing": "aurumcode docs ignores AURUMCODE_OUTPUT_DIR and AURUMCODE_DOCS_DIR and writes into .aurumcode/ in the working directory unconditionally. Pre-existing behaviour in cmd/aurumcode, outside this card; carded separately."
+ }
+}
