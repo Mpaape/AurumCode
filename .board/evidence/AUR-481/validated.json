@@ -1,0 +1,19 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-481",
+ "commit": "645e7af6ca87835cfcdf3c27aeec988127036312",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-481",
+  "exit_code": 0,
+  "raw_output": "raw exit 0 on the integrated SHA; AUR-462 and AUR-466 also 0 after the by-file lists were regenerated from disk"
+ },
+ "review_notes": {
+  "scope_narrowed_before_done": "The reviewer caught that the card promised all eight languages while the commit delivers Rust, and that treating a green accept as proof of the AC-001 as written would be a false positive at the card level. The acceptance text was rewritten to the delivered scope and the rest became AUR-486, rather than closing on a promise nobody kept.",
+  "reanchoring_preserved_force": "AUR-462's MUT-001 anchored on the whole pattern line, so any card extending the rule invalidated it. It now anchors on the stable - id: guard. The reviewer verified the Node assertion kept its force -- the three shapes are still pinned by file and line -- and that inverting the guard makes awk exit 1 rather than silently no-op.",
+  "no_false_positive": "Eight legitimate Rust forms were driven through the real loaded rules, not pasted regexes: argv Command, sh without -c, bash with a script argument, an integer const, a greeting const, format! without a SQL verb, a parameterised query, and the word select in prose. None matched.",
+  "declared_gap": "Command::new(\"sh\").args([\"-c\", cmd]) in the plural is not covered; the card only ever promised the singular .arg(\"-c\")."
+ }
+}
