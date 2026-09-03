@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-447",
- "commit": "bcf240b6d0a56617ef42c0f85d45e6a09799e272",
+ "commit": "2eb2d867017bc3e60ce61d8d3cb93e25e960bb0f",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -12,6 +12,7 @@
  },
  "review_notes": {
   "declared_debt": "two hand-maintained extractor registries; they agree today, verified item by item and empirically on a ten-language fixture. The only real difference is that the CLI never reads AURUMCODE_ALLOW_REPO_CODE_EXECUTION, so it is strictly less privileged and never executes repository code",
-  "preexisting": "go build ./... fails on mixed package main/unit/integration under tests/, reproduced identically on the parent"
+  "preexisting": "go build ./... fails on mixed package main/unit/integration under tests/, reproduced identically on the parent",
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate bcf240b6d0a56617ef42c0f85d45e6a09799e272, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to 2eb2d867017bc3e60ce61d8d3cb93e25e960bb0f, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }
