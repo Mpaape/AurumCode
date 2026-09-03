@@ -37,6 +37,7 @@ func TestScaffoldGeneratesIndexAndConfig(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "go", "ledger.md"), "---\n"+
 		"title: Ledger\npermalink: /go/ledger/\n---\n\n"+
 		"# ledger\n\n## Index\n\n## func AddMoney\n\nAdds money.\n")
+	writeFile(t, filepath.Join(dir, "python", "extra.md"), "# extra\n\n## def helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir, Title: "tinyrepo"}).Generate()
 	if err != nil {
@@ -46,8 +47,8 @@ func TestScaffoldGeneratesIndexAndConfig(t *testing.T) {
 	if !result.ConfigCreated {
 		t.Error("_config.yml should have been created")
 	}
-	if len(result.Pages) != 1 {
-		t.Fatalf("Pages = %+v, want the single generated page", result.Pages)
+	if len(result.Pages) != 2 {
+		t.Fatalf("Pages = %+v, want the two generated pages (forces the reference.md path)", result.Pages)
 	}
 
 	index := readGeneratedFile(t, result.IndexPath)
@@ -138,6 +139,7 @@ func TestScaffoldPreservesIntroAndReplacesListing(t *testing.T) {
 func TestScaffoldLinksPagesWithoutPermalink(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "python", "app.md"), "# app\n\n## class Ledger\n")
+	writeFile(t, filepath.Join(dir, "go", "extra.md"), "# extra\n\n## func Helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir}).Generate()
 	if err != nil {

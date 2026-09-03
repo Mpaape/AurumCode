@@ -87,6 +87,7 @@ func TestScaffoldConfigIsValidYAMLUnderHostileMetadata(t *testing.T) {
 func TestScaffoldIndexFrontMatterIsValidYAML(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "go", "ledger.md"), "# ledger\n\n## func AddMoney\n")
+	writeFile(t, filepath.Join(dir, "python", "extra.md"), "# extra\n\n## def helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir}).Generate()
 	if err != nil {
@@ -122,6 +123,7 @@ func TestScaffoldEmitsResolvableLinksForHostilePaths(t *testing.T) {
 	base := "od d(1).md"
 	title := "Ledger [beta] (v2)"
 	writeFile(t, filepath.Join(dir, "go", base), "---\ntitle: "+title+"\n---\n\n# x\n\n## func A\n")
+	writeFile(t, filepath.Join(dir, "python", "extra.md"), "# extra\n\n## def helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir}).Generate()
 	if err != nil {
@@ -166,6 +168,7 @@ func TestScaffoldEmitsResolvableLinksForHostilePaths(t *testing.T) {
 func TestScaffoldSectionHeadingCannotEscapeItsLine(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "go\n# Injected", "page.md"), "# page\n\n## func A\n")
+	writeFile(t, filepath.Join(dir, "python", "extra.md"), "# extra\n\n## def helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir}).Generate()
 	if err != nil {
