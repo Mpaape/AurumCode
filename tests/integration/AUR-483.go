@@ -82,7 +82,12 @@ func runPipeline(t *testing.T, sourceDir, outputDir string, includeTests bool) [
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		if filepath.Ext(path) == ".md" && info.Name() != "index.md" {
+		// index.md and reference.md are scaffold pages, not content extracted
+		// from source: reference.md carries the API enumeration AUR-484 moved
+		// out of index.md's body, and appears only with two or more pages.
+		// Counting either would measure the scaffold, not the scope filter
+		// this test exists to prove.
+		if filepath.Ext(path) == ".md" && info.Name() != "index.md" && info.Name() != "reference.md" {
 			pages = append(pages, info.Name())
 		}
 		return nil

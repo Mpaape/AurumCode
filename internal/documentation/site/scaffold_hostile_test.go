@@ -87,13 +87,14 @@ func TestScaffoldConfigIsValidYAMLUnderHostileMetadata(t *testing.T) {
 func TestScaffoldIndexFrontMatterIsValidYAML(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "go", "ledger.md"), "# ledger\n\n## func AddMoney\n")
+	writeFile(t, filepath.Join(dir, "python", "extra.md"), "# extra\n\n## def helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir}).Generate()
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
 
-	frontMatter, body := splitFrontMatter(readGeneratedFile(t, result.IndexPath))
+	frontMatter, _ := splitFrontMatter(readGeneratedFile(t, result.IndexPath))
 	if frontMatter == "" {
 		t.Fatal("index.md has no front matter, the site generator will not render it as a page")
 	}
@@ -105,8 +106,10 @@ func TestScaffoldIndexFrontMatterIsValidYAML(t *testing.T) {
 	if parsed["permalink"] != "/" {
 		t.Errorf("permalink = %v, want / so the site root is not a 404", parsed["permalink"])
 	}
-	if !strings.Contains(body, "func AddMoney") {
-		t.Errorf("index body does not list the generated symbol:\n%s", body)
+	// AUR-484: the generated symbol is listed on reference.md now, not on the
+	// landing page itself.
+	if !strings.Contains(readGeneratedFile(t, result.ReferencePath), "func AddMoney") {
+		t.Errorf("reference.md does not list the generated symbol")
 	}
 }
 
@@ -120,23 +123,24 @@ func TestScaffoldEmitsResolvableLinksForHostilePaths(t *testing.T) {
 	base := "od d(1).md"
 	title := "Ledger [beta] (v2)"
 	writeFile(t, filepath.Join(dir, "go", base), "---\ntitle: "+title+"\n---\n\n# x\n\n## func A\n")
+	writeFile(t, filepath.Join(dir, "python", "extra.md"), "# extra\n\n## def helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir}).Generate()
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
 
-	index := readGeneratedFile(t, result.IndexPath)
+	reference := readGeneratedFile(t, result.ReferencePath)
 
 	var line string
-	for _, candidate := range strings.Split(index, "\n") {
+	for _, candidate := range strings.Split(reference, "\n") {
 		if strings.HasPrefix(candidate, "- [") {
 			line = candidate
 			break
 		}
 	}
 	if line == "" {
-		t.Fatalf("no page entry in index.md:\n%s", index)
+		t.Fatalf("no page entry in reference.md:\n%s", reference)
 	}
 
 	matches := markdownLinkRE.FindAllStringSubmatch(line, -1)
@@ -164,20 +168,21 @@ func TestScaffoldEmitsResolvableLinksForHostilePaths(t *testing.T) {
 func TestScaffoldSectionHeadingCannotEscapeItsLine(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "go\n# Injected", "page.md"), "# page\n\n## func A\n")
+	writeFile(t, filepath.Join(dir, "python", "extra.md"), "# extra\n\n## def helper\n")
 
 	result, err := NewScaffold(ScaffoldConfig{DocsDir: dir, OutputDir: dir}).Generate()
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
 
-	index := readGeneratedFile(t, result.IndexPath)
+	reference := readGeneratedFile(t, result.ReferencePath)
 
-	start := strings.Index(index, scaffoldBlockStart)
-	end := strings.Index(index, scaffoldBlockEnd)
+	start := strings.Index(reference, scaffoldBlockStart)
+	end := strings.Index(reference, scaffoldBlockEnd)
 	if start < 0 || end < start {
-		t.Fatalf("generated block is missing from index.md:\n%s", index)
+		t.Fatalf("generated block is missing from reference.md:\n%s", reference)
 	}
-	block := index[start:end]
+	block := reference[start:end]
 
 	for _, line := range strings.Split(block, "\n") {
 		if strings.HasPrefix(line, "# ") {
@@ -220,13 +225,13 @@ func TestScaffoldHonoursBaseURLInAbsoluteLinks(t *testing.T) {
 		t.Fatalf("Generate failed: %v", err)
 	}
 
-	index := readGeneratedFile(t, result.IndexPath)
-	if !strings.Contains(index, "(/my-repo/go/ledger/)") {
-		t.Errorf("an absolute permalink ignores baseurl, so it 404s on a project site:\n%s", index)
+	reference := readGeneratedFile(t, result.ReferencePath)
+	if !strings.Contains(reference, "(/my-repo/go/ledger/)") {
+		t.Errorf("an absolute permalink ignores baseurl, so it 404s on a project site:\n%s", reference)
 	}
 	// A relative link resolves against the page that contains it and must stay
 	// untouched, otherwise it would pick up the base path twice.
-	if !strings.Contains(index, "(python/app.html)") {
-		t.Errorf("a relative link must not be rewritten:\n%s", index)
+	if !strings.Contains(reference, "(python/app.html)") {
+		t.Errorf("a relative link must not be rewritten:\n%s", reference)
 	}
 }

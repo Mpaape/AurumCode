@@ -37,8 +37,10 @@ import (
 )
 
 const (
-	// indexHeading is written by the site scaffold, not by this test.
-	indexHeading = "Generated API documentation"
+	// indexHeading is written by the site scaffold, not by this test. AUR-484
+	// puts a quickstart block above the generated-page section, so this is now
+	// the first heading on the page - the scaffold's own renderQuickstartBlock.
+	indexHeading = "Comece sem nenhuma credencial"
 
 	// indexSelector pins the index page's heading, which the site scaffold
 	// writes and therefore stays stable across documentation tools.
@@ -386,7 +388,11 @@ func removeIndexLink(t *testing.T, docsDir string) {
 	var kept []string
 	removed := 0
 	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "- [") {
+		trimmed := strings.TrimSpace(line)
+		// AUR-484 option (b): a single-page run inlines the link into the
+		// blockquote summary line ("> 1 page(s) ... [Title](link)."), not a
+		// bullet - so removal recognizes both shapes.
+		if strings.HasPrefix(trimmed, "- [") || (strings.HasPrefix(trimmed, ">") && strings.Contains(trimmed, "](")) {
 			removed++
 			continue
 		}

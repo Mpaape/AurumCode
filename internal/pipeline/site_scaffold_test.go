@@ -117,6 +117,19 @@ func readGenerated(t *testing.T, path string) string {
 	return string(data)
 }
 
+// readGeneratedOptional is readGenerated without the fatal: AUR-484 option (b)
+// means reference.md legitimately does not exist for a single-page run, and a
+// caller that never reads its "reference" return value must not fail on that.
+func readGeneratedOptional(t *testing.T, path string) string {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 // TestExtractorPipeline_Run_WithoutLLMProducesServableSite pins the promise the
 // action makes: a run with no LLM provider at all still has to leave behind
 // something GitHub Pages can serve. Markdown alone is not a site - without
@@ -151,11 +164,11 @@ func TestExtractorPipeline_Run_WithoutLLMProducesServableSite(t *testing.T) {
 
 	index := readGenerated(t, indexPath)
 
+	// AUR-484 option (b): a single-page run writes no reference.md - the
+	// page's own link is inlined directly into index.md instead (see
+	// renderPageSummaryBlock's len(pages)==1 case).
 	if !strings.HasPrefix(index, "---\n") || !strings.Contains(index, "layout: default") {
 		t.Errorf("index.md has no Jekyll front matter:\n%s", index)
-	}
-	if !strings.Contains(index, "AddMoney") {
-		t.Errorf("index.md does not list the documented symbol AddMoney:\n%s", index)
 	}
 	if !strings.Contains(index, "/go/ledger/") {
 		t.Errorf("index.md does not link to the generated go/ledger page:\n%s", index)
@@ -233,11 +246,13 @@ func TestExtractorPipeline_Run_WithLLMKeepsWelcomeAndPageIndex(t *testing.T) {
 
 	index := readGenerated(t, filepath.Join(config.DocsDir, "index.md"))
 
+	// AUR-484 option (b): single page, so its link is inlined into index.md,
+	// no reference.md is written.
 	if !strings.Contains(index, welcomeProse) {
 		t.Errorf("the LLM welcome prose was dropped from index.md:\n%s", index)
 	}
-	if !strings.Contains(index, "AddMoney") {
-		t.Errorf("the deterministic page listing was dropped from index.md:\n%s", index)
+	if !strings.Contains(index, "/go/ledger/") {
+		t.Errorf("the deterministic page link was dropped from index.md:\n%s", index)
 	}
 	if _, err := os.Stat(filepath.Join(config.DocsDir, "_config.yml")); err != nil {
 		t.Errorf("_config.yml must exist regardless of the welcome page: %v", err)
@@ -268,9 +283,10 @@ func TestExtractorPipeline_Run_WelcomeFailureKeepsDeterministicIndex(t *testing.
 		t.Fatalf("a failed welcome page must not fail the run: %v", err)
 	}
 
+	// AUR-484 option (b): single page, so its link is inlined into index.md.
 	index := readGenerated(t, filepath.Join(config.DocsDir, "index.md"))
-	if !strings.Contains(index, "AddMoney") {
-		t.Errorf("index.md must still list the documented symbol after a welcome failure:\n%s", index)
+	if !strings.Contains(index, "/go/ledger/") {
+		t.Errorf("index.md must still link the documented page after a welcome failure:\n%s", index)
 	}
 }
 
