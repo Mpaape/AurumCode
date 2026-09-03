@@ -52,15 +52,24 @@ func TestScaffoldGeneratesIndexAndConfig(t *testing.T) {
 
 	index := readGeneratedFile(t, result.IndexPath)
 
-	for _, want := range []string{"layout: default", "permalink: /", "[Ledger](/go/ledger/)", "func AddMoney", "### Go"} {
+	for _, want := range []string{"layout: default", "permalink: /"} {
 		if !strings.Contains(index, want) {
 			t.Errorf("index.md is missing %q:\n%s", want, index)
 		}
 	}
 
+	// AUR-484: the full listing lives on its own page now, referenced from
+	// index.md rather than embedded in it.
+	reference := readGeneratedFile(t, result.ReferencePath)
+	for _, want := range []string{"[Ledger](/go/ledger/)", "func AddMoney", "### Go"} {
+		if !strings.Contains(reference, want) {
+			t.Errorf("reference.md is missing %q:\n%s", want, reference)
+		}
+	}
+
 	// "Index" is gomarkdoc's table-of-contents heading, not a documented symbol.
-	if strings.Contains(index, "- `Index`") {
-		t.Errorf("index.md lists the table-of-contents heading as a symbol:\n%s", index)
+	if strings.Contains(reference, "- `Index`") {
+		t.Errorf("reference.md lists the table-of-contents heading as a symbol:\n%s", reference)
 	}
 
 	siteConfig := readGeneratedFile(t, result.ConfigPath)
@@ -135,12 +144,12 @@ func TestScaffoldLinksPagesWithoutPermalink(t *testing.T) {
 		t.Fatalf("Generate failed: %v", err)
 	}
 
-	index := readGeneratedFile(t, result.IndexPath)
-	if !strings.Contains(index, "(python/app.html)") {
-		t.Errorf("index.md does not link to python/app.html:\n%s", index)
+	reference := readGeneratedFile(t, result.ReferencePath)
+	if !strings.Contains(reference, "(python/app.html)") {
+		t.Errorf("reference.md does not link to python/app.html:\n%s", reference)
 	}
-	if !strings.Contains(index, "### Python") {
-		t.Errorf("index.md does not group the page under Python:\n%s", index)
+	if !strings.Contains(reference, "### Python") {
+		t.Errorf("reference.md does not group the page under Python:\n%s", reference)
 	}
 }
 
