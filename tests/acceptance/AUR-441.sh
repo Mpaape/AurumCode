@@ -8,7 +8,7 @@
 #   UNCHANGED repository, no file is resent to the model, and the command
 #   reports how many files were reused. The engine sends its whole reviewed
 #   diff to the model in one prompt, one Complete call per invocation
-#   (internal/review/reviewer.go, internal/prompt/builder.go) -- there is no
+#   (internal/review/reviewer.go internal/review/rules.go internal/review/securitypass.go internal/review/workflow_references.go, internal/prompt/builder.go) -- there is no
 #   per-file send for a cache to intercept -- so cmd/aurumcode filters
 #   diff.Files down to the internal/review/cache misses BEFORE calling
 #   GenerateReview (zero misses skips the call to the model entirely),

@@ -167,7 +167,7 @@ mutation_case() {
   local root="$run_dir/root-mut"
   stage_source "$root"
 
-  local target="$root/internal/review/reviewer.go"
+  local target="$root/internal/review/reviewer.go internal/review/fakeprovider.go internal/review/rules.go internal/review/securitypass.go internal/review/workflow_references.go"
   local anchor
   anchor="$(printf '\treturn result, nil')"
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
