@@ -252,10 +252,27 @@ nominal_case() {
 }
 
 # mutation_case_1 is MUT-001: neutralizing the Node command-injection
-# addition (reverting security/command-injection's pattern to its
-# pre-AUR-462 form) must make the three Node exec findings vanish -- the
-# same behavior a real regression would show, and exactly what nominal_case
-# would have to catch to keep AC-001 honest.
+# addition (disabling security/command-injection's matcher entirely) must
+# make the three Node exec findings vanish -- the same behavior a real
+# regression would show, and exactly what nominal_case would have to catch
+# to keep AC-001 honest.
+#
+# The mutation is anchored on the rule's `- id:` line, a structurally
+# stable marker that does not depend on the pattern's own content, and
+# then rewrites the NEXT `pattern:` line wholesale (to an always-empty,
+# always-non-matching pattern) rather than string-replacing inside it.
+# This is what makes the mutation immune to any future card widening the
+# pattern's text: AUR-481 (2026-09-03) measured the previous version of
+# this mutation break exactly that way (a literal, full-pattern-string
+# anchor stopped matching the instant a sibling card's own regex grew a
+# byte), the same failure mode AUR-448 hit today when AUR-467 added a
+# second print of the same shape it anchored on. The `END` block makes a
+# mutation that silently fails to find its target impossible to pass
+# unnoticed: if the anchor is never armed-and-matched, awk exits 1, the
+# `&&` chain never reaches `mv`, the source file is left untouched, and
+# the immediate `grep -Fq ... || fail` below catches it loudly instead of
+# the mutation quietly becoming a no-op that would let a future silent
+# drift of this test go undetected.
 mutation_case_1() {
   build_shared
   local root="$run_dir/root-mut1"
@@ -263,22 +280,27 @@ mutation_case_1() {
 
   local target="$root/internal/review/rules/security.yml"
   [[ -f "$target" ]] || fail 'MUT-001/target-missing'
-  local anchor="pattern: '(?i)\\b(system|popen|exec[lv]p?e?|subprocess\\.(run|call|Popen))\\s*\\(.*[\"'']\\s*\\+|\\bexec(Sync)?\\s*\\(.*[\"'']\\s*\\+|\\bspawn\\s*\\(.*shell\\s*:\\s*true\\b'"
-  local replacement="pattern: '(?i)\\b(system|popen|exec[lv]p?e?|subprocess\\.(run|call|Popen))\\s*\\(.*[\"'']\\s*\\+'"
-  grep -Fq "$anchor" "$target" || fail 'MUT-001/anchor-not-found'
-  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
-  ANCHOR="$anchor" REPL="$replacement" awk '
-    BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
+  local guard='  - id: security/command-injection'
+  [[ "$(grep -Fc "$guard" "$target")" == 1 ]] || fail 'MUT-001/guard-not-unique'
+  local empty_pattern_line="    pattern: ''"
+  GUARD="$guard" REPL="$empty_pattern_line" awk '
+    BEGIN { guard = ENVIRON["GUARD"]; repl = ENVIRON["REPL"]; armed = 0; done = 0 }
     {
-      idx = index($0, anchor)
-      if (idx > 0) {
-        print substr($0, 1, idx - 1) repl substr($0, idx + length(anchor))
-      } else {
-        print $0
+      if (!done && index($0, guard) > 0) { armed = 1; print $0; next }
+      if (armed && !done && index($0, "    pattern:") == 1) {
+        print repl
+        done = 1
+        next
       }
+      print $0
     }
-  ' "$target" >"$target.mut" && mv "$target.mut" "$target" || fail 'MUT-001/rewrite-failed'
-  grep -Fq "$anchor" "$target" && fail 'MUT-001/mutation-not-applied'
+    END { if (!done) exit 1 }
+  ' "$target" >"$target.mut" && mv "$target.mut" "$target"
+  # A rule whose Pattern is the empty string is metadata-only (see
+  # rules.go: `if rule.Pattern != ""`) -- the security pass never matches
+  # it, which is the maximal, content-independent way to neutralize this
+  # rule's coverage.
+  grep -Fq "    pattern: ''" "$target" || fail 'MUT-001/mutation-not-applied'
 
   local bin="$run_dir/aurumcode-mut1"
   local log="$root/build-mut1.log"
