@@ -53,7 +53,7 @@ AurumCode is two binaries, `aurumcode` (code review) and `regenerate-docs`
   `--seguranca` runs the project's own deterministic security rules (a regex
   match over the diff, no model call). It is a *named subset* of the full
   catalog, not everything in it - the command itself reports the count, e.g.
-  `security pass applied 3 of 8 security rules`. Drop `--seguranca` and set
+  `security pass applied 4 of 8 security rules`. Drop `--seguranca` and set
   `AURUMCODE_LLM_FIXTURE=<path>` (offline, deterministic) or
   `LLM_API_KEY`+`LLM_BASE_URL` for a model-driven review of the same diff.
 
