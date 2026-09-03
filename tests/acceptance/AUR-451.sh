@@ -120,8 +120,8 @@ stage_source() {
   # and tests/acceptance/AUR-450.sh already use).
   if grep -Elq 'AurumCode/internal/(documentation|pipeline)"' "$root"/cmd/aurumcode/*.go 2>/dev/null; then
     copy "$root" internal/documentation/extractors internal/documentation/incremental \
-      internal/documentation/normalizer internal/documentation/site \
-      internal/documentation/welcome internal/pipeline cmd/regenerate-docs
+      internal/documentation/normalizer internal/documentation/site internal/documentation/review \
+      internal/documentation/welcome internal/documentation/review internal/pipeline cmd/regenerate-docs
   fi
 
   chmod -R u+w -- "$root"

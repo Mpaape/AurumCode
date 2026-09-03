@@ -112,7 +112,7 @@ stage_source() {
   # acceptance stages the same directory.
   copy "$root" internal/git
   copy "$root" cmd/regenerate-docs
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
+  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
   copy "$root" internal/pipeline
   copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm internal/security/redaction pkg/types
   copy "$root" tests/fixtures/docs/goproject tests/fixtures/repos/git-demo tests/fixtures/review
