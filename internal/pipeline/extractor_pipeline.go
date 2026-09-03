@@ -130,6 +130,159 @@ type ExtractorPipelineConfig struct {
 	// Without this flag, "publish at the root" and "decide for me" are the same
 	// bytes and the custom-domain case is unreachable.
 	BaseURLDeclared bool
+
+	// IncludeTests, when true, disables the default exclusion of test and
+	// fixture files (see IsTestScopePath) from documentation scope: the
+	// pipeline documents the repository's own test code the same as it
+	// always did before AUR-483.
+	//
+	// The default (false) is deliberate: on an unconfigured repository the
+	// generated site should describe the product, not enumerate its test
+	// scaffolding (AUR-483). A caller that explicitly wants test files
+	// documented sets this field to true, or sets the environment variable
+	// named by envIncludeTestDocs -- read directly by this package so the
+	// capability reaches every entrypoint that runs this pipeline without
+	// each one having to wire a new flag.
+	IncludeTests bool
+}
+
+// envIncludeTestDocs is the AURUMCODE_-prefixed override that restores the
+// pre-AUR-483 behaviour of documenting test and fixture files. It is read
+// directly by this package (see IncludeTests) rather than plumbed through
+// every caller, so the opt-in reaches cmd/regenerate-docs and `aurumcode
+// docs` alike without either needing a code change of its own.
+const envIncludeTestDocs = "AURUMCODE_INCLUDE_TEST_DOCS"
+
+// IncludeTests reports whether test/fixture files should be documented:
+// either the caller set config.IncludeTests explicitly, or the operator set
+// envIncludeTestDocs in the process environment.
+func (p *ExtractorPipeline) IncludeTests() bool {
+	if p.config.IncludeTests {
+		return true
+	}
+	return envFlagEnabled(os.Getenv(envIncludeTestDocs))
+}
+
+// envFlagEnabled parses an AURUMCODE_-style boolean environment variable.
+// Unset or unrecognized values are "false" -- the exclusion this card adds
+// stays the default until an operator opts out in a form this recognizes.
+func envFlagEnabled(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+// testScopeComponents lists path components that mark a file as test or
+// fixture scope for AUR-483's default exclusion.
+//
+// Matching happens on a WHOLE path component (see IsTestScopePath), never on
+// a substring of the path: internal/attestation and cmd/latest each contain
+// the letters "test" but neither has a path component that equals one of
+// these names, so neither is scope-excluded. A substring match would swallow
+// legitimate product code; this repository's own internal/attestation and
+// cmd/latest are exactly that trap (AUR-483 AC-003).
+var testScopeComponents = map[string]struct{}{
+	"tests":    {},
+	"testdata": {},
+	"fixtures": {},
+}
+
+// IsTestScopePath reports whether path is test or fixture scope: some
+// directory component of path is exactly "tests", "testdata" or "fixtures",
+// or the file's own name (stem, extension stripped) ends in "_test".
+//
+// Both checks compare a whole path component/stem, never a substring, so
+// contest.go, internal/attestation and cmd/latest are never caught: their
+// names merely contain the letters "test", they do not equal or end in it as
+// a distinct component.
+func IsTestScopePath(path string) bool {
+	clean := filepath.ToSlash(filepath.Clean(path))
+	dir, base := filepath.Split(clean)
+
+	stem := strings.TrimSuffix(base, filepath.Ext(base))
+	if strings.HasSuffix(stem, "_test") {
+		return true
+	}
+
+	for _, component := range strings.Split(dir, "/") {
+		if _, skip := testScopeComponents[component]; skip {
+			return true
+		}
+	}
+
+	return false
+}
+
+// buildScopedSourceView copies sourceDir into a fresh temporary directory,
+// excluding shouldSkipPath's existing directories and AUR-483's test/fixture
+// scope (IsTestScopePath), and returns the copy's root plus a cleanup func
+// that removes it.
+//
+// A copy, not a symlink tree: some extractors' own directory walks (e.g.
+// go/build's package matcher) may not treat a symlink DirEntry as a regular
+// file, which would silently under-document the mirror. A real copy makes
+// the mirror behave identically to a real checkout for every extractor,
+// with no per-extractor code to touch or trust.
+//
+// Only the file CONTENT and its path relative to sourceDir matter to a
+// caller here: every extractor computes relative paths via
+// filepath.Rel(req.SourceDir, ...) for its own output naming, so a
+// same-shaped mirror produces byte-identical output filenames to the real
+// tree it stands in for.
+func buildScopedSourceView(sourceDir string) (root string, cleanup func(), err error) {
+	mirror, err := os.MkdirTemp("", "aurumcode-docscope-*")
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup = func() { _ = os.RemoveAll(mirror) }
+
+	walkErr := filepath.Walk(sourceDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil || path == sourceDir {
+			return nil
+		}
+
+		if shouldSkipPath(path) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(sourceDir, path)
+		if relErr != nil {
+			return nil
+		}
+
+		if info.IsDir() {
+			if _, skip := testScopeComponents[info.Name()]; skip {
+				return filepath.SkipDir
+			}
+			return os.MkdirAll(filepath.Join(mirror, rel), 0o755)
+		}
+
+		if IsTestScopePath(rel) {
+			return nil
+		}
+
+		dest := filepath.Join(mirror, rel)
+		if mkErr := os.MkdirAll(filepath.Dir(dest), 0o755); mkErr != nil {
+			return mkErr
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		return os.WriteFile(dest, data, 0o644)
+	})
+	if walkErr != nil {
+		cleanup()
+		return "", func() {}, walkErr
+	}
+
+	return mirror, cleanup, nil
 }
 
 // ErrBasePathConflict reports that the caller and the on-disk _config.yml
@@ -263,6 +416,27 @@ type ExtractorPipeline struct {
 	welcomeGen     *welcome.Generator
 	docsReviewer   *docsreview.Reviewer
 	llmOrch        *llm.Orchestrator
+
+	// extractionSourceDir, when set, is what each language extractor is
+	// actually pointed at (see sourceDirForExtraction), instead of
+	// config.SourceDir. AUR-483 sets it to a scoped mirror of SourceDir --
+	// same tree, minus test/fixture scope -- because every extractor
+	// discovers its own files by walking its given SourceDir directly
+	// (ExtractRequest carries no file list), so excluding test/fixture
+	// files earlier, only from determineFilesToProcess's own accounting,
+	// would never change what an extractor actually reads.
+	extractionSourceDir string
+}
+
+// sourceDirForExtraction is what gets handed to every extractor as
+// ExtractRequest.SourceDir: extractionSourceDir when AUR-483's scope filter
+// built one, config.SourceDir (unchanged, pre-AUR-483 behavior) otherwise --
+// in particular whenever IncludeTests() is true.
+func (p *ExtractorPipeline) sourceDirForExtraction() string {
+	if p.extractionSourceDir != "" {
+		return p.extractionSourceDir
+	}
+	return p.config.SourceDir
 }
 
 // NewExtractorPipeline creates a new documentation extraction pipeline
@@ -302,6 +476,22 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 	filesToProcess, err := p.determineFilesToProcess(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to determine files to process: %w", err)
+	}
+
+	// AUR-483: build a scoped mirror of SourceDir -- same tree, minus
+	// test/fixture scope -- for every extractor to read from instead of the
+	// real SourceDir. Skipped entirely (extractionSourceDir stays "", so
+	// sourceDirForExtraction falls back to config.SourceDir, byte-for-byte
+	// the pre-AUR-483 path) when the operator opted back into documenting
+	// tests, or in incremental mode, whose change-detection already
+	// operates on a caller-supplied file list rather than a directory walk.
+	if !p.IncludeTests() && !p.config.Incremental {
+		mirror, cleanup, mirrorErr := buildScopedSourceView(p.config.SourceDir)
+		if mirrorErr != nil {
+			return fmt.Errorf("building scoped source view: %w", mirrorErr)
+		}
+		defer cleanup()
+		p.extractionSourceDir = mirror
 	}
 
 	if len(filesToProcess) == 0 {
@@ -448,6 +638,8 @@ func (p *ExtractorPipeline) Run(ctx context.Context) error {
 // determineFilesToProcess determines which files need documentation extraction
 func (p *ExtractorPipeline) determineFilesToProcess(ctx context.Context) (map[extractors.Language][]string, error) {
 	files := make(map[extractors.Language][]string)
+	includeTests := p.IncludeTests()
+	scopeExcluded := 0
 
 	if p.config.Incremental {
 		// Load existing cache
@@ -462,6 +654,18 @@ func (p *ExtractorPipeline) determineFilesToProcess(ctx context.Context) (map[ex
 		}
 
 		log.Printf("[Pipeline] Incremental mode: %d changed files detected", len(changedFiles))
+
+		if !includeTests {
+			kept := make([]string, 0, len(changedFiles))
+			for _, path := range changedFiles {
+				if IsTestScopePath(path) {
+					scopeExcluded++
+					continue
+				}
+				kept = append(kept, path)
+			}
+			changedFiles = kept
+		}
 
 		// Group by language
 		files = p.groupFilesByLanguage(changedFiles)
@@ -480,6 +684,27 @@ func (p *ExtractorPipeline) determineFilesToProcess(ctx context.Context) (map[ex
 				return nil
 			}
 
+			// Skip test and fixture scope by default (AUR-483): a
+			// generated site should describe the product, not enumerate
+			// its own test scaffolding. IsTestScopePath matches whole
+			// path components, never a substring, so internal/attestation
+			// and cmd/latest are never caught by this.
+			//
+			// The check runs against the path RELATIVE to SourceDir, not
+			// the raw walked path: SourceDir itself can sit under a
+			// directory that happens to be named tests/testdata/fixtures
+			// (this card's own fixture tree does, deliberately, at
+			// tests/fixtures/docs/AUR-483), and that parent name must
+			// never decide the scope of files inside it.
+			scopeCheckPath := path
+			if rel, relErr := filepath.Rel(p.config.SourceDir, path); relErr == nil {
+				scopeCheckPath = rel
+			}
+			if !includeTests && IsTestScopePath(scopeCheckPath) {
+				scopeExcluded++
+				return nil
+			}
+
 			allFiles = append(allFiles, path)
 			return nil
 		})
@@ -489,6 +714,14 @@ func (p *ExtractorPipeline) determineFilesToProcess(ctx context.Context) (map[ex
 		}
 
 		files = p.groupFilesByLanguage(allFiles)
+	}
+
+	// AUR-483 AC-001: the run declares how many files it excluded by scope,
+	// rather than silently narrowing what gets documented.
+	if includeTests {
+		log.Printf("[Pipeline] scope: test/fixture exclusion disabled by config (%s=true) - documenting test and fixture files", envIncludeTestDocs)
+	} else {
+		log.Printf("[Pipeline] scope: excluded %d file(s) as test or fixture scope (tests/, testdata/, fixtures/ directories and *_test files); set %s=true to include them", scopeExcluded, envIncludeTestDocs)
 	}
 
 	// Filter by configured languages if specified
@@ -566,7 +799,7 @@ func (p *ExtractorPipeline) extractDocumentation(
 		// Extract documentation
 		request := &extractors.ExtractRequest{
 			Language:  lang,
-			SourceDir: p.config.SourceDir,
+			SourceDir: p.sourceDirForExtraction(),
 			OutputDir: filepath.Join(p.config.OutputDir, string(lang)),
 		}
 
