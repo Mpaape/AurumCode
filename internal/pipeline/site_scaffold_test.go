@@ -150,15 +150,18 @@ func TestExtractorPipeline_Run_WithoutLLMProducesServableSite(t *testing.T) {
 	}
 
 	index := readGenerated(t, indexPath)
+	// AUR-484: the per-page enumeration now lives on reference.md, referenced
+	// from index.md rather than embedded in it.
+	reference := readGenerated(t, filepath.Join(config.DocsDir, "reference.md"))
 
 	if !strings.HasPrefix(index, "---\n") || !strings.Contains(index, "layout: default") {
 		t.Errorf("index.md has no Jekyll front matter:\n%s", index)
 	}
-	if !strings.Contains(index, "AddMoney") {
-		t.Errorf("index.md does not list the documented symbol AddMoney:\n%s", index)
+	if !strings.Contains(reference, "AddMoney") {
+		t.Errorf("index.md does not list the documented symbol AddMoney:\n%s", reference)
 	}
-	if !strings.Contains(index, "/go/ledger/") {
-		t.Errorf("index.md does not link to the generated go/ledger page:\n%s", index)
+	if !strings.Contains(reference, "/go/ledger/") {
+		t.Errorf("index.md does not link to the generated go/ledger page:\n%s", reference)
 	}
 	if strings.Contains(index, "no documentation") {
 		t.Errorf("index.md claims nothing was documented although go/ledger.md exists:\n%s", index)
@@ -232,12 +235,14 @@ func TestExtractorPipeline_Run_WithLLMKeepsWelcomeAndPageIndex(t *testing.T) {
 	}
 
 	index := readGenerated(t, filepath.Join(config.DocsDir, "index.md"))
+	// AUR-484: the per-page enumeration now lives on reference.md.
+	reference := readGenerated(t, filepath.Join(config.DocsDir, "reference.md"))
 
 	if !strings.Contains(index, welcomeProse) {
 		t.Errorf("the LLM welcome prose was dropped from index.md:\n%s", index)
 	}
-	if !strings.Contains(index, "AddMoney") {
-		t.Errorf("the deterministic page listing was dropped from index.md:\n%s", index)
+	if !strings.Contains(reference, "AddMoney") {
+		t.Errorf("the deterministic page listing was dropped from index.md:\n%s", reference)
 	}
 	if _, err := os.Stat(filepath.Join(config.DocsDir, "_config.yml")); err != nil {
 		t.Errorf("_config.yml must exist regardless of the welcome page: %v", err)
@@ -268,9 +273,10 @@ func TestExtractorPipeline_Run_WelcomeFailureKeepsDeterministicIndex(t *testing.
 		t.Fatalf("a failed welcome page must not fail the run: %v", err)
 	}
 
-	index := readGenerated(t, filepath.Join(config.DocsDir, "index.md"))
-	if !strings.Contains(index, "AddMoney") {
-		t.Errorf("index.md must still list the documented symbol after a welcome failure:\n%s", index)
+	// AUR-484: the per-page enumeration now lives on reference.md.
+	reference := readGenerated(t, filepath.Join(config.DocsDir, "reference.md"))
+	if !strings.Contains(reference, "AddMoney") {
+		t.Errorf("index.md must still list the documented symbol after a welcome failure:\n%s", reference)
 	}
 }
 
