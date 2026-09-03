@@ -9,9 +9,9 @@
 #   cmd/regenerate-docs end to end (internal/documentation/site internal/documentation/review, the package
 #   that writes _config.yml and the deterministic page listing, is a
 #   read_path here, not owned by this card). What this card owns and proves
-#   is the deterministic guardrail internal/documentation/welcome internal/documentation/review/sanitize.go
+#   is the deterministic guardrail internal/documentation/welcome/sanitize.go
 #   adds around the LLM-generated welcome content that becomes the top of
-#   the published index (internal/documentation/site internal/documentation/review/scaffold.go's own
+#   the published index (internal/documentation/site/scaffold.go's own
 #   comment: "prose already in the file ... is preserved above the generated
 #   listing"), wired into Generator.Generate() -- the entry point
 #   cmd/regenerate-docs actually calls.
@@ -51,9 +51,9 @@ command -v go >/dev/null 2>&1 || infra missing_go
 
 inputs=(
   go.mod go.sum
-  internal/documentation/welcome internal/documentation/review/generator.go
-  internal/documentation/welcome internal/documentation/review/sanitize.go
-  internal/documentation/welcome internal/documentation/review/templates/welcome-page.md
+  internal/documentation/welcome/generator.go
+  internal/documentation/welcome/sanitize.go
+  internal/documentation/welcome/templates/welcome-page.md
   tests/unit/AUR-465.go
   tests/integration/AUR-465.go
   tests/e2e/AUR-465.sh
@@ -172,8 +172,8 @@ case "$selector" in
     # becomes an identity function, as if a future edit reintroduced @main
     # capability by breaking the guard.
     sed -i.bak 's/^func SanitizeActionRef(content string) (string, bool) {$/func SanitizeActionRef(content string) (string, bool) { return content, false; _ = actionRefPattern; _ = pinnedTagPattern; _ = fullSHAPattern/' \
-      "$mut_root/internal/documentation/welcome internal/documentation/review/sanitize.go"
-    rm -f "$mut_root/internal/documentation/welcome internal/documentation/review/sanitize.go.bak"
+      "$mut_root/internal/documentation/welcome/sanitize.go"
+    rm -f "$mut_root/internal/documentation/welcome/sanitize.go.bak"
     printf 'package unit\nimport "testing"\nfunc TestAUR465Bridge(t *testing.T){ TestAUR465(t) }\n' \
       >"$mut_root/tests/unit/aur465_bridge_test.go"
 
