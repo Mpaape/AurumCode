@@ -188,7 +188,12 @@ nominal_case() {
     [[ -f "$out_default/go/$page" ]] && fail "nominal-default-must-exclude:$page"
   done
   local count
-  count="$(find "$out_default" -name '*.md' ! -name 'index.md' | wc -l | tr -d ' ')"
+  # index.md and reference.md are scaffold pages, not content extracted from
+  # source: reference.md carries the API enumeration that AUR-484 moved out of
+  # index.md's body, and it appears only when there are two or more pages to
+  # index. Counting either would measure the scaffold, not the scope filter
+  # this assertion exists to prove.
+  count="$(find "$out_default" -name '*.md' ! -name 'index.md' ! -name 'reference.md' | wc -l | tr -d ' ')"
   [[ "$count" -eq 3 ]] || fail "nominal-default-page-count:$count"
 
   # AC-001: the run DECLARES how many files it excluded by scope.

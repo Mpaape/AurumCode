@@ -98,6 +98,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "AUR-484/AC-001/infrastructure: mkdir: %v\n", err)
 		os.Exit(69)
 	}
+	// Two pages, deliberately: reference.md exists to index MULTIPLE pages, so
+	// a single-page fixture would never reach the behaviour this asserts. With
+	// one page the scaffold writes no reference.md at all and index.md links
+	// straight to the page -- that half is pinned by the Unit selector.
+	vault := "---\ntitle: Vault\npermalink: /go/vault/\n---\n\n# vault\n\n## func Seal\n"
+	if err := os.WriteFile(filepath.Join(dir, "go", "vault.md"), []byte(vault), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "AUR-484/AC-001/infrastructure: write vault page: %v\n", err)
+		os.Exit(2)
+	}
 	page := "---\ntitle: Ledger\npermalink: /go/ledger/\n---\n\n# ledger\n\n## func AddMoney\n"
 	if err := os.WriteFile(filepath.Join(dir, "go", "ledger.md"), []byte(page), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "AUR-484/AC-001/infrastructure: write fixture: %v\n", err)
