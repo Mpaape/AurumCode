@@ -226,7 +226,7 @@ nominal_case() {
 
 # mutation_case is MUT-001: accepting a finding without a cited rule must
 # make the acceptance fail. It edits a writable staged copy of
-# internal/review/reviewer.go so the rule gate stops discarding ungrounded
+# internal/review/reviewer.go internal/review/fakeprovider.go internal/review/rules.go internal/review/securitypass.go internal/review/workflow_references.go so the rule gate stops discarding ungrounded
 # findings (the exact `continue` that rejects them), rebuilds, and proves
 # the planted ungrounded finding then DOES reach the user -- i.e. that
 # nominal_case's absence assertion is load-bearing. The committed source is
