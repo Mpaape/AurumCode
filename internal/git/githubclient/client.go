@@ -554,6 +554,7 @@ type ReviewComment struct {
 	CommitID string `json:"commit_id"`
 	Path     string `json:"path"`
 	Line     int    `json:"line,omitempty"`     // For single-line comments
+	Side     string `json:"side,omitempty"`     // LEFT deletion, RIGHT addition
 	Position int    `json:"position,omitempty"` // Alternative to Line (deprecated by GitHub)
 }
 

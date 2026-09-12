@@ -33,12 +33,13 @@ podem ser acrescentados em `review.context`; consulte a
 O núcleo em Go lê o diff, detecta linguagens, monta o prompt, chama um serviço
 compatível com OpenAI e publica o parecer. O review cobre correção, contratos,
 manutenção, performance e segurança, com sugestões opcionais de implementação.
-Um filtro exige linha adicionada, regra reconhecida e campos de evidência,
+Um filtro exige linha adicionada ou removida, regra reconhecida e campos de evidência,
 impacto e verificação; não verifica automaticamente a veracidade do raciocínio.
 
-O contexto atual é o diff, os arquivos configurados e o CI fornecido. Ainda
-não há navegação autônoma, busca web nem memória persistente de discussões entre
-rodadas. O resultado depende do modelo; não há garantia de repetibilidade.
+No PR, o contexto inclui o diff, os arquivos configurados, o CI fornecido e as
+reviews, comentários e respostas já publicados no GitHub. Não é necessário
+configurar armazenamento. Ainda não há navegação autônoma, busca web, cálculo
+incremental entre rodadas ou deduplicação garantida. O resultado depende do modelo.
 
 ## Executar e desenvolver
 

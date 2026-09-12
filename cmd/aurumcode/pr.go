@@ -273,10 +273,17 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 
 	orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+	history, historyErr := pullRequestHistoryContext(ctx, client, owner, repoName, prNumber,
+		os.Getenv("GITHUB_SHA"), os.Getenv("AURUMCODE_BASE_SHA"), filter)
+	if historyErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: PR history unavailable: %s; reviewing the current diff without conversation history\n", filter.Redact(historyErr.Error()))
+		history = historyUnavailableNotice(reviewLanguage)
+	}
 
 	result, err := reviewer.GenerateReviewWithContext(ctx, diff, review.ReviewContext{
 		CI:       readCIContext(),
 		Language: reviewLanguage,
+		History:  history,
 	})
 	if err != nil {
 		// --limite: the tracker refused before the model was called, so
@@ -295,6 +302,10 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		}
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
+	}
+	if historyErr != nil {
+		// The caller's coverage notice survives even if the model omits it.
+		result.Limitations = append(result.Limitations, historyUnavailableNotice(reviewLanguage))
 	}
 	if warning := result.Metadata["discard_warning"]; warning != "" {
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
@@ -422,7 +433,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 					Body: formatInlineIssueForLanguage(issue, reviewLanguage),
 					Path: issue.File,
 					Line: issue.Line,
-					Side: "RIGHT",
+					Side: review.FindingSide(issue),
 				})
 			}
 			for _, suggestion := range result.Suggestions {
@@ -448,14 +459,18 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	} else {
 		for _, issue := range issues {
 			line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
+			if issue.Side == "LEFT" {
+				line += " [LEFT/base]"
+			}
 			if inlineComments && isInlineEligible(diff, issue) {
 				comment := githubclient.ReviewComment{
 					Body:     formatInlineIssueForLanguage(issue, reviewLanguage),
 					CommitID: commitID,
 					Path:     issue.File,
 					Line:     issue.Line,
+					Side:     review.FindingSide(issue),
 				}
-				key := fmt.Sprintf("aurumcode/%d/%s/%d/%s", prNumber, issue.File, issue.Line, issue.RuleID)
+				key := fmt.Sprintf("aurumcode/%d/%s/%s/%d/%s/%s", prNumber, commitID, issue.File, issue.Line, review.FindingSide(issue), issue.RuleID)
 				if err := client.PostReviewComment(ctx, owner, repoName, prNumber, comment, key); err != nil {
 					fmt.Fprintf(stderr, "aurumcode review: publishing inline comment on %s:%d: %v\n", issue.File, issue.Line, err)
 					failures = append(failures, fmt.Sprintf("%s:%d (na linha): %v", issue.File, issue.Line, err))
@@ -750,24 +765,10 @@ func addedLineNumbers(h types.DiffHunk) map[int]bool {
 	return added
 }
 
-// isInlineEligible reports whether issue names a file and line this diff
-// actually added. Only an added line can carry an exact-line pull request
-// review comment (AC-001's "na linha exata"); a finding on any other line
-// -- a file the diff never touched, a context/unchanged line, or a line
-// number past every hunk -- is not dropped, it is published as a general
-// comment instead (see runPRReview and MUT-001).
+// isInlineEligible requires a changed line in the declared coordinate space.
+// Additions use RIGHT and deletions LEFT; context cannot anchor a finding.
 func isInlineEligible(diff *types.Diff, issue types.ReviewIssue) bool {
-	for _, f := range diff.Files {
-		if f.Path != issue.File {
-			continue
-		}
-		for _, h := range f.Hunks {
-			if addedLineNumbers(h)[issue.Line] {
-				return true
-			}
-		}
-	}
-	return false
+	return review.IsChangedLine(diff, issue)
 }
 
 // sortedIssues returns a copy of issues ordered by (file, line) -- the same
@@ -920,6 +921,13 @@ func formatInlineIssueForLanguage(issue types.ReviewIssue, language string) stri
 	copy := reviewCopyFor(language)
 	var b strings.Builder
 	fmt.Fprintf(&b, "**[%s] %s**", issue.Severity, issue.Message)
+	if issue.Side == "LEFT" {
+		label := "Removed line (base)"
+		if strings.HasPrefix(language, "pt") {
+			label = "Linha removida (base)"
+		}
+		fmt.Fprintf(&b, "\n\n%s: `%s:%d`", label, issue.File, issue.Line)
+	}
 	writeReviewField(&b, copy.impact, issue.Impact)
 	writeReviewField(&b, copy.evidence, issue.Evidence)
 	writeReviewField(&b, copy.suggestedFix, issue.Suggestion)
@@ -1043,6 +1051,9 @@ func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *typ
 		fmt.Fprintf(&b, "### %s\n\n", copy.findings)
 		for _, issue := range issues {
 			fmt.Fprintf(&b, "- **[%s] %s:%d** — %s\n", issue.Severity, issue.File, issue.Line, issue.Message)
+			if issue.Side == "LEFT" {
+				fmt.Fprintln(&b, "  - `LEFT`: base / −")
+			}
 			if issue.Impact != "" {
 				fmt.Fprintf(&b, "  - %s: %s\n", copy.impact, issue.Impact)
 			}

@@ -1355,6 +1355,9 @@ func printFindings(stdout io.Writer, result *types.ReviewResult) {
 
 	for _, issue := range issues {
 		fmt.Fprintf(stdout, "%s:%d: [%s] %s\n", issue.File, issue.Line, issue.Severity, issue.Message)
+		if issue.Side == "LEFT" {
+			fmt.Fprintln(stdout, "  Location: LEFT (removed line in base)")
+		}
 	}
 }
 
