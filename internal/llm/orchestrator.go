@@ -29,6 +29,11 @@ const defaultProviderTimeout = 60 * time.Second
 // caller does not cap the response.
 const defaultMaxTokens = 1000
 
+// DefaultOutputTokenEstimate is used only by optional cost pre-flight when a
+// provider owns the actual response limit. It is not sent as max_tokens and
+// never truncates a model response.
+func DefaultOutputTokenEstimate() int { return defaultMaxTokens }
+
 // Orchestrator manages LLM provider chains with fallback and budget enforcement
 type Orchestrator struct {
 	providers []Provider

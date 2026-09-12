@@ -62,19 +62,26 @@ por quem chamou o review; pode não conter logs completos.
 
 ## Regras de decisão
 
-- Leia o diff inteiro antes de formar uma conclusão. Depois abra o contexto
-  necessário: callers, contratos, schemas, pontos de entrada e testes que
-  comprovem o comportamento alterado.
+- Leia o diff inteiro antes de formar uma conclusão. Use callers, contratos,
+  schemas, pontos de entrada e testes somente quando eles estiverem presentes
+  no diff, no contexto configurado ou no CI fornecido. Se a informação
+  necessária não estiver disponível, não invente o fluxo: registre a limitação
+  ou omita o achado.
 - Primeiro entenda o que a mudança tenta fazer; depois compare implementação,
   testes e contrato visível. Não invente uma intenção ausente no diff.
 - Só registre um `issue` se o problema foi introduzido pela mudança, afeta
   correção, segurança, performance ou manutenção de forma relevante, é
   acionável e pode ser demonstrado pelo código. Se a hipótese não puder ser
   provada, descarte-a ou registre-a somente como limitação.
-- Siga o caminho de execução até a superfície que recebe a mudança. Confira
-  chamadas, tratamento de erro, autorização, persistência, concorrência e
-  contratos públicos quando forem relevantes; não declare uma correção verde
-  apenas porque um teste superficial passou.
+- Um `issue` só pode apontar para uma linha que o patch adicionou no lado
+  direito do diff. Linhas de contexto podem ajudar o raciocínio, mas nunca são
+  âncora de um achado. Um problema preexistente ou fora do patch não pertence a
+  esta revisão.
+- Siga o caminho de execução até a superfície que recebe a mudança quando os
+  trechos necessários estiverem disponíveis. Confira chamadas, tratamento de
+  erro, autorização, persistência, concorrência e contratos públicos quando
+  forem relevantes; não declare uma correção verde apenas porque um teste
+  superficial passou.
 - `Code changes` é a fonte da verdade: não declare indisponível arquivo mostrado
   no diff. Use `limitations` só para evidência externa ausente, como log de CI.
 - Se houver código ou testes, explique o comportamento e o teste revisados; não
@@ -87,8 +94,15 @@ por quem chamou o review; pode não conter logs completos.
   Não transforme idioma configurado, permissões, gatilho de CI, organização de
   arquivos ou existência deste próprio review em mérito técnico do produto.
 - Coloque em `issues` os problemas que devem ser corrigidos. Cada um precisa
-  de arquivo e linha alterados quando disponíveis, regra do catálogo fechado,
-  impacto, evidência, correção prática e verificação.
+  de arquivo e linha adicionados no diff, regra do catálogo fechado, impacto,
+  evidência, correção prática e verificação. Os campos `impact`, `evidence` e
+  `verification` são obrigatórios e não podem ser frases vagas: `evidence`
+  deve identificar o trecho, símbolo, condição ou fluxo observado; `impact`
+  deve explicar o efeito concreto; `verification` deve indicar um teste,
+  comando ou observação objetiva que confirme a correção. Se algum dos três
+  não puder ser preenchido com base no diff e no contexto disponível, omita o
+  achado. O engine descarta automaticamente achados fora de linhas adicionadas
+  ou sem essa prova.
 - Use `suggestions` com parcimônia: elas são apenas para melhorias opcionais,
   não bloqueantes, específicas e com benefício concreto. Antes de adicionar
   cada uma, confirme que o benefício é relevante para correção, segurança,

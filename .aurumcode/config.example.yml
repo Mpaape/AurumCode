@@ -1,12 +1,15 @@
-# Copie este arquivo para .aurumcode/config.yml e ajuste somente o necessário.
+# Copie este arquivo para .aurumcode/config.yml e altere somente o que o time
+# realmente precisa. Sem este arquivo, os defaults já executam o review.
 review:
-  language: pt-BR
-  publication: review       # review formal ou comments legado
-  inline_comments: true     # comentários nas linhas e sugestões aplicáveis
+  language: pt-BR            # opcional: en-US é o default
+  publication: review        # opcional: review formal ou comments
+  inline_comments: true      # opcional: âncoras nas linhas adicionadas
   context:
-    # O prompt embutido sempre continua ativo. Este arquivo é adicional.
+    # O prompt embutido sempre continua ativo. Este arquivo é opcional e
+    # aditivo; basta editar .aurumcode/prompt.md para o caso mais simples.
     # prompt: .aurumcode/prompt.md
+    # Contexto adicional só quando agrega conhecimento de domínio.
     # skills:
-    #   - .aurumcode/skills/code-review.md
+    #   - .aurumcode/skills/backend.md
     # docs:
     #   - docs/architecture.md

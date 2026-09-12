@@ -71,7 +71,7 @@ type Repo struct {
 // and refs directly).
 func OpenRepo(root string) (*Repo, error) {
 	if gitBin, err := exec.LookPath("git"); err == nil {
-		cmd := exec.Command(gitBin, "rev-parse", "--git-dir")
+		cmd := exec.Command(gitBin, "-c", "safe.directory="+root, "rev-parse", "--git-dir")
 		cmd.Dir = root
 		if cmd.Run() == nil {
 			return &Repo{useGitBinary: true, gitBinary: gitBin, workDir: root}, nil
@@ -214,7 +214,8 @@ func (r *Repo) lookupPackedRef(refPath string) (string, bool) {
 // git runs `git <args...>` with workDir as its working directory and
 // returns trimmed stdout. Used only on the git-binary path.
 func (r *Repo) git(args ...string) (string, error) {
-	cmd := exec.Command(r.gitBinary, args...)
+	gitArgs := append([]string{"-c", "safe.directory=" + r.workDir}, args...)
+	cmd := exec.Command(r.gitBinary, gitArgs...)
 	cmd.Dir = r.workDir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -254,7 +255,7 @@ func (r *Repo) readObjectViaGit(sha string) (string, []byte, error) {
 	}
 	objType := strings.TrimSpace(typeOut)
 
-	cmd := exec.Command(r.gitBinary, "cat-file", objType, sha)
+	cmd := exec.Command(r.gitBinary, "-c", "safe.directory="+r.workDir, "cat-file", objType, sha)
 	cmd.Dir = r.workDir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

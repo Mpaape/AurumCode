@@ -44,7 +44,7 @@ func NewProvider(apiKey, baseURL, model string) *Provider {
 // rejects the call for some other reason, that is surfaced verbatim as the
 // provider's own error message, not papered over here.
 type completionRequest struct {
-	Model     string    `json:"model"`
+	Model     string    `json:"model,omitempty"`
 	Messages  []message `json:"messages"`
 	MaxTokens int       `json:"max_tokens,omitempty"`
 }

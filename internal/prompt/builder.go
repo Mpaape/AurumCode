@@ -52,7 +52,7 @@ func NewPromptBuilderWithEstimator(estimator TokenEstimator) *PromptBuilder {
 
 // loadTemplates loads prompt templates from embedded files
 func (b *PromptBuilder) loadTemplates() {
-	templateNames := []string{"review.md", "documentation.md", "test.md", "summary.md"}
+	templateNames := []string{"review.md"}
 
 	for _, name := range templateNames {
 		content, err := templateFS.ReadFile("templates/" + name)
@@ -181,162 +181,6 @@ func (b *PromptBuilder) buildReviewPromptFallback(diff *types.Diff, metrics *ana
 	return sb.String()
 }
 
-// BuildDocumentationPrompt builds a prompt for generating documentation
-func (b *PromptBuilder) BuildDocumentationPrompt(diff *types.Diff, language string) string {
-	// Try to use template first
-	if tmpl, ok := b.templates["documentation.md"]; ok {
-		data := map[string]interface{}{
-			"Language":    language,
-			"DiffContent": b.formatDiffContent(diff),
-		}
-
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, data); err == nil {
-			return buf.String()
-		}
-	}
-
-	// Fallback to original implementation
-	return b.buildDocumentationPromptFallback(diff, language)
-}
-
-// buildDocumentationPromptFallback provides fallback when template is not available
-func (b *PromptBuilder) buildDocumentationPromptFallback(diff *types.Diff, language string) string {
-	var sb strings.Builder
-	sb.WriteString("You are a technical documentation expert. Generate documentation for the following code changes.\n\n")
-	sb.WriteString(fmt.Sprintf("## Language: %s\n\n", language))
-	sb.WriteString("## Code Changes\n\n")
-	sb.WriteString(b.formatDiffContent(diff))
-	sb.WriteString("## Documentation Requirements\n\n")
-	sb.WriteString("Generate:\n")
-	sb.WriteString("1. **API Documentation**: Document any new or modified APIs\n")
-	sb.WriteString("2. **Usage Examples**: Provide clear usage examples\n")
-	sb.WriteString("3. **Configuration**: Document any new configuration options\n")
-	sb.WriteString("4. **Breaking Changes**: Highlight any breaking changes\n")
-	sb.WriteString("5. **Migration Guide**: If applicable, provide migration steps\n\n")
-	sb.WriteString("Format the documentation in Markdown.\n")
-	return sb.String()
-}
-
-// BuildTestPrompt builds a prompt for generating tests
-func (b *PromptBuilder) BuildTestPrompt(diff *types.Diff, language string) string {
-	// Try to use template first
-	if tmpl, ok := b.templates["test.md"]; ok {
-		// Filter out test files
-		filteredDiff := b.filterTestFiles(diff)
-
-		data := map[string]interface{}{
-			"Language":    language,
-			"DiffContent": b.formatDiffContent(filteredDiff),
-		}
-
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, data); err == nil {
-			return buf.String()
-		}
-	}
-
-	// Fallback to original implementation
-	return b.buildTestPromptFallback(diff, language)
-}
-
-// filterTestFiles filters out test files from diff.
-//
-// The restored c12d7ab version of this function also copied
-// diff.Repository/BaseSHA/HeadSHA onto the filtered copy. Those fields do
-// not exist on pkg/types.Diff today (see AUR-430's restoration audit) --
-// types.Diff only ever carries Files -- so there is nothing left to carry
-// over besides the filtered file list.
-func (b *PromptBuilder) filterTestFiles(diff *types.Diff) *types.Diff {
-	filtered := &types.Diff{
-		Files: []types.DiffFile{},
-	}
-
-	for _, file := range diff.Files {
-		if !b.languageDetector.IsTestFile(file.Path) {
-			filtered.Files = append(filtered.Files, file)
-		}
-	}
-
-	return filtered
-}
-
-// buildTestPromptFallback provides fallback when template is not available
-func (b *PromptBuilder) buildTestPromptFallback(diff *types.Diff, language string) string {
-	var sb strings.Builder
-	sb.WriteString("You are an expert test engineer. Generate comprehensive tests for the following code changes.\n\n")
-	sb.WriteString(fmt.Sprintf("## Language: %s\n\n", language))
-	sb.WriteString("## Code to Test\n\n")
-
-	filteredDiff := b.filterTestFiles(diff)
-	sb.WriteString(b.formatDiffContent(filteredDiff))
-
-	sb.WriteString("## Test Requirements\n\n")
-	sb.WriteString("Generate tests that cover:\n")
-	sb.WriteString("1. **Happy Path**: Test normal, expected behavior\n")
-	sb.WriteString("2. **Edge Cases**: Test boundary conditions and edge cases\n")
-	sb.WriteString("3. **Error Handling**: Test error conditions and exceptions\n")
-	sb.WriteString("4. **Integration**: Test interactions with other components\n\n")
-	sb.WriteString(fmt.Sprintf("Use the testing framework appropriate for %s.\n", language))
-	sb.WriteString("Include setup, test cases, and assertions.\n")
-	return sb.String()
-}
-
-// BuildSummaryPrompt builds a prompt for generating a summary
-func (b *PromptBuilder) BuildSummaryPrompt(diff *types.Diff, metrics *analyzer.DiffMetrics) string {
-	// Try to use template first
-	if tmpl, ok := b.templates["summary.md"]; ok {
-		data := map[string]interface{}{
-			"Metrics":   b.formatSummaryMetrics(metrics),
-			"FilesList": b.formatFilesList(diff),
-		}
-
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, data); err == nil {
-			return buf.String()
-		}
-	}
-
-	// Fallback to original implementation
-	return b.buildSummaryPromptFallback(diff, metrics)
-}
-
-// formatSummaryMetrics formats metrics for summary
-func (b *PromptBuilder) formatSummaryMetrics(metrics *analyzer.DiffMetrics) string {
-	return fmt.Sprintf("- Files changed: %d\n- Lines: +%d -%d\n- Languages: %v",
-		metrics.TotalFiles, metrics.LinesAdded, metrics.LinesDeleted, b.getLanguageList(metrics))
-}
-
-// formatFilesList formats files list for template
-func (b *PromptBuilder) formatFilesList(diff *types.Diff) string {
-	var sb strings.Builder
-	for _, file := range diff.Files {
-		sb.WriteString(fmt.Sprintf("- %s\n", file.Path))
-	}
-	return sb.String()
-}
-
-// buildSummaryPromptFallback provides fallback when template is not available
-func (b *PromptBuilder) buildSummaryPromptFallback(diff *types.Diff, metrics *analyzer.DiffMetrics) string {
-	var sb strings.Builder
-	sb.WriteString("Summarize the following code changes in 2-3 sentences.\n\n")
-	sb.WriteString("## Metrics\n")
-	sb.WriteString(b.formatSummaryMetrics(metrics))
-	sb.WriteString("\n\n## Files Changed\n")
-	sb.WriteString(b.formatFilesList(diff))
-	sb.WriteString("\nProvide a concise summary highlighting the main purpose and impact of these changes.\n")
-	return sb.String()
-}
-
-// getLanguageList returns a list of languages from metrics
-func (b *PromptBuilder) getLanguageList(metrics *analyzer.DiffMetrics) []string {
-	var languages []string
-	for lang := range metrics.LanguageBreakdown {
-		languages = append(languages, lang)
-	}
-	return languages
-}
-
 // TruncatePrompt truncates a prompt to fit within token limits
 func (b *PromptBuilder) TruncatePrompt(prompt string, maxTokens int) string {
 	// Rough estimation: 1 token ≈ 4 characters
@@ -415,7 +259,15 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	// baseTokens PLUS the reserved coverage declaration size; prose never
 	// ate into this budget in the first place, which is also the fix for
 	// the measured ordering starvation (see filetype.go).
-	trimmedSegments := budget.TrimToFit(codeSegments, baseTokens+coverageReserve)
+	var trimmedSegments []ContextSegment
+	if opts.MaxTokens <= 0 {
+		// No client-side cap: keep every code hunk. The provider/model
+		// remains responsible for its supported response window, while the
+		// review never invents a smaller repository-specific budget.
+		trimmedSegments = append([]ContextSegment(nil), codeSegments...)
+	} else {
+		trimmedSegments = budget.TrimToFit(codeSegments, baseTokens+coverageReserve)
+	}
 
 	// Build user content from trimmed segments, plus AC-003's coverage
 	// declaration (coverage.go): every code file classified complete,
@@ -510,12 +362,6 @@ func (b *PromptBuilder) buildBasePrompt(schemaKind string, metrics *analyzer.Dif
 		// or unparseable template (see loadTemplates) is an assembly
 		// failure, announced.
 		return "", fmt.Errorf("the review prompt template is unavailable: refusing to send a review request without the response schema and the rule catalog")
-	case "test":
-		return "You are an expert test engineer. Generate comprehensive tests for the following code changes.", nil
-	case "docs":
-		return "You are a technical documentation expert. Generate documentation for the following code changes.", nil
-	case "summary":
-		return "Summarize the following code changes in 2-3 sentences.", nil
 	default:
 		return "You are a helpful code analysis assistant.", nil
 	}

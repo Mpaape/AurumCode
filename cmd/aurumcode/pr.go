@@ -296,6 +296,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
 	}
+	if warning := result.Metadata["discard_warning"]; warning != "" {
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
+	}
+	if warning := result.Metadata["scope_discard_warning"]; warning != "" {
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
+	}
 	if opts.limiteSet {
 		printRealCost(stderr, realCostUSD(tracker, limiteUSD), limiteUSD)
 	}
@@ -889,12 +895,11 @@ func suggestionRange(suggestion types.ReviewSuggestion) (start, end int) {
 	return start, end
 }
 
-const maxCIContextBytes = 16000
-
-// readCIContext reads only the optional, workflow-produced check summary. It
-// is intentionally not a required user setting: a review still runs when CI
-// has not reported anything yet. The bound keeps a large provider response
-// from consuming the whole review prompt.
+// readCIContext reads the optional, workflow-produced check summary. It is
+// intentionally not a required user setting: a review still runs when CI has
+// not reported anything yet. No client-side truncation is applied; the
+// configured model/provider owns its context window and an explicit prompt
+// budget, when used, remains the only review-content budget.
 func readCIContext() string {
 	path := strings.TrimSpace(os.Getenv("AURUMCODE_CI_CONTEXT_FILE"))
 	if path == "" {
@@ -903,9 +908,6 @@ func readCIContext() string {
 	data, err := os.ReadFile(path)
 	if err != nil || len(data) == 0 {
 		return ""
-	}
-	if len(data) > maxCIContextBytes {
-		data = data[:maxCIContextBytes]
 	}
 	return string(data)
 }

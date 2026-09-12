@@ -12,9 +12,10 @@ is unavailable, stop the publication and report the blocker. Technical
 references to AI behavior in source code and documentation remain allowed when
 relevant.
 
-## Task Master AI Instructions
-**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
-@./.taskmaster/CLAUDE.md
+## Historical planning
+
+The Task Master files are historical evidence only. Current development and
+usage documentation starts at docs/README.md; task state is owned by .board/.
 
 ## Reconstruction workflow source of truth
 
