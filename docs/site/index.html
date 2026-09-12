@@ -73,7 +73,7 @@ Se faltar contexto para demonstrar um problema, indique a limitação.</code></p
     docs:
       - docs/architecture.md</code></pre></div>
 <p>O prompt padrão continua ativo. Para usar outro caminho, adicione <code>context.prompt</code>. Skills são orientações textuais: elas não instalam ferramentas nem executam scripts.</p></details>
-<div class="callout"><h3>O contexto acompanha o código, não amplia a cobrança.</h3><p>Contratos e testes ajudam o raciocínio. Achados precisam apontar para linhas adicionadas e explicar evidência, impacto e verificação. O conteúdo desses campos é uma avaliação do modelo; sua presença não prova automaticamente que a conclusão está certa.</p></div>
+<div class="callout"><h3>O contexto acompanha o código, não amplia a cobrança.</h3><p>Contratos e testes ajudam o raciocínio. Achados apontam para a adição ou remoção que causa o problema, com evidência, impacto e verificação. A presença desses campos não prova automaticamente que a conclusão está certa.</p><p>No PR, o agente também recebe as reviews, comentários e respostas anteriores do GitHub, sem configuração extra. Esse conteúdo é enviado ao endpoint LLM configurado, após remoção de segredos reconhecidos. O histórico ajuda a considerar correções e contestações; ainda não há revisão incremental, resolução de threads ou garantia de não repetir apontamentos.</p></div>
 </section>
 <section id="resultado"><p class="eyebrow">NA CONVERSA DO TIME</p><h2>Um parecer que dá para usar.</h2>
 <div class="feature-grid">
@@ -101,8 +101,8 @@ docker run --rm \
 <details><summary>Meus prompts conseguem desligar regras?</summary><p>Prompts, skills e docs orientam a análise, mas não mudam permissões nem desativam a proteção de segredos. Ignorar caminhos ou alterar regras exige configuração explícita; veja a referência no repositório.</p></details>
 </section>
 <section id="limites"><p class="eyebrow">ESCOPO ATUAL DO PRODUTO</p><h2>O que está disponível hoje.</h2>
-<div class="capabilities"><div><h3>Disponível</h3><ul><li>Revisão por LLM do diff e contexto fornecido.</li><li>Idioma, prompts, skills e docs configuráveis.</li><li>Comentários, reviews formais e sugestões inline.</li><li>CLI e núcleo de revisão escritos em Go.</li><li>Execução via Docker e GitHub Actions.</li></ul></div>
-<div><h3>Ainda não implementado</h3><ul><li>Memória persistente de discussões entre rodadas.</li><li>Navegação autônoma por todo o repositório.</li><li>Busca web ou execução de ferramentas pelo modelo.</li><li>Verificação automática da veracidade de cada achado.</li><li>Garantia de parecer idêntico ao repetir o review.</li></ul></div></div>
+<div class="capabilities"><div><h3>Disponível</h3><ul><li>Revisão por LLM do diff e contexto fornecido.</li><li>Histórico de reviews e respostas do próprio PR.</li><li>Idioma, prompts, skills e docs configuráveis.</li><li>Comentários, reviews formais e sugestões inline.</li><li>CLI e núcleo de revisão escritos em Go.</li><li>Execução via Docker e GitHub Actions.</li></ul></div>
+<div><h3>Ainda não implementado</h3><ul><li>Revisão incremental e gestão de pendências entre rodadas.</li><li>Navegação autônoma por todo o repositório.</li><li>Busca web ou execução de ferramentas pelo modelo.</li><li>Verificação automática da veracidade de cada achado.</li><li>Garantia de parecer idêntico ao repetir o review.</li></ul></div></div>
 <p class="note">O limite de resposta fica a cargo do modelo e do serviço. Isso não significa contexto infinito: há restrições de arquivos e contribuições, e erros ou omissões precisam ser conferidos nos diagnósticos do job.</p></section>
 <footer><a class="brand" href="#inicio">◆ AurumCode</a><p>Um contexto melhor. Uma conversa melhor sobre código.</p><a href="https://github.com/Mpaape/AurumCode/tree/main/docs">Referência e contribuição ↗</a></footer>
 </main></div><div id="copy-status" class="toast" role="status" aria-live="polite"></div>

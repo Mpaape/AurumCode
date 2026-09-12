@@ -305,6 +305,8 @@ func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing
 			_, _ = w.Write([]byte("diff --git a/main.go b/main.go\n@@ -1,1 +1,2 @@\n package main\n+func main() {}\n"))
 		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/"):
 			w.WriteHeader(http.StatusNotFound)
+		case r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/reviews") || strings.HasSuffix(r.URL.Path, "/comments")):
+			_, _ = w.Write([]byte(`[]`))
 		case r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/pulls/42/reviews":
 			if err := json.NewDecoder(r.Body).Decode(&posted); err != nil {
 				t.Fatalf("decoding formal review: %v", err)

@@ -14,11 +14,12 @@ import (
 // the model remains responsible for understanding the code, while this small
 // boundary prevents a response from acquiring authority over untouched code.
 type findingScope struct {
-	added map[string]map[int]struct{}
+	added   map[string]map[int]struct{}
+	removed map[string]map[int]struct{}
 }
 
 func newFindingScope(diff *types.Diff) findingScope {
-	scope := findingScope{added: make(map[string]map[int]struct{})}
+	scope := findingScope{added: make(map[string]map[int]struct{}), removed: make(map[string]map[int]struct{})}
 	if diff == nil {
 		return scope
 	}
@@ -33,9 +34,15 @@ func newFindingScope(diff *types.Diff) findingScope {
 			lines = make(map[int]struct{})
 			scope.added[filePath] = lines
 		}
+		removed := scope.removed[filePath]
+		if removed == nil {
+			removed = make(map[int]struct{})
+			scope.removed[filePath] = removed
+		}
 
 		for _, hunk := range file.Hunks {
 			lineNumber := hunk.NewStart
+			oldLine := hunk.OldStart
 			for _, raw := range hunk.Lines {
 				if raw == "" {
 					continue
@@ -49,8 +56,12 @@ func newFindingScope(diff *types.Diff) findingScope {
 					lineNumber++
 				case " ":
 					lineNumber++
+					oldLine++
 				case "-":
-					// Deletions have no current-side line to annotate.
+					if oldLine > 0 {
+						removed[oldLine] = struct{}{}
+					}
+					oldLine++
 				default:
 					// A malformed hunk line cannot establish a safe location.
 				}
@@ -73,12 +84,38 @@ func normalizeDiffPath(value string) string {
 }
 
 func (s findingScope) contains(file string, line int) bool {
+	return s.containsSide(file, line, "RIGHT")
+}
+
+func (s findingScope) containsSide(file string, line int, side string) bool {
 	if line <= 0 {
 		return false
 	}
 	lines := s.added[normalizeDiffPath(file)]
+	switch side {
+	case "", "RIGHT":
+	case "LEFT":
+		lines = s.removed[normalizeDiffPath(file)]
+	default:
+		return false
+	}
 	_, ok := lines[line]
 	return ok
+}
+
+// IsChangedLine validates a publication anchor in its own coordinate space.
+// Reading context is unrestricted by this check; only additions and deletions
+// can anchor a finding. It does not establish whether the allegation is true.
+func IsChangedLine(diff *types.Diff, issue types.ReviewIssue) bool {
+	return newFindingScope(diff).containsSide(issue.File, issue.Line, issue.Side)
+}
+
+// FindingSide preserves compatibility with responses that predate LEFT support.
+func FindingSide(issue types.ReviewIssue) string {
+	if issue.Side == "" {
+		return "RIGHT"
+	}
+	return issue.Side
 }
 
 type scopeDiscardSummary struct {
@@ -98,7 +135,7 @@ func (s scopeDiscardSummary) warning() string {
 	}
 	reasons := make([]string, 0, 4)
 	if s.OutsideAddedLines > 0 {
-		reasons = append(reasons, fmt.Sprintf("%d fora de linhas adicionadas no diff", s.OutsideAddedLines))
+		reasons = append(reasons, fmt.Sprintf("%d fora de linhas alteradas no diff", s.OutsideAddedLines))
 	}
 	if s.MissingEvidence > 0 {
 		reasons = append(reasons, fmt.Sprintf("%d sem evidencia concreta", s.MissingEvidence))
@@ -114,15 +151,15 @@ func (s scopeDiscardSummary) warning() string {
 
 // filterModelIssues enforces the review's precision contract after parsing
 // and redaction, before rule citations or publication. A finding is useful
-// only when it points to an added line and explains what in that line proves
-// the problem, why it matters, and how the author can verify the correction.
-// Empty proof is rejected instead of being promoted into a warning by prose.
+// structurally publishable when it points to an addition or deletion and
+// supplies evidence, impact and a verification proposal. Nonempty fields are
+// not proof of correctness; semantic qualification remains the reviewer's job.
 func filterModelIssues(diff *types.Diff, issues []types.ReviewIssue) ([]types.ReviewIssue, scopeDiscardSummary) {
 	scope := newFindingScope(diff)
 	kept := make([]types.ReviewIssue, 0, len(issues))
 	var discarded scopeDiscardSummary
 	for _, issue := range issues {
-		if !scope.contains(issue.File, issue.Line) {
+		if !scope.containsSide(issue.File, issue.Line, issue.Side) {
 			discarded.OutsideAddedLines++
 			continue
 		}
@@ -138,6 +175,7 @@ func filterModelIssues(diff *types.Diff, issues []types.ReviewIssue) ([]types.Re
 			discarded.MissingVerification++
 			continue
 		}
+		issue.File = normalizeDiffPath(issue.File)
 		kept = append(kept, issue)
 	}
 	return kept, discarded

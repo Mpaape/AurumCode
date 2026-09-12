@@ -39,5 +39,22 @@ publicação com respostas controladas. Fixtures validam integração; não mede
 precisão de um modelo real. A avaliação com LLM exige PRs de código e análise dos
 resultados entre rodadas.
 
+`TestPRJourneyCarriesConversationAndPublishesDeletionAtBase` percorre três
+rodadas pela CLI de review: remoção de proteção, correção com resposta do autor
+e mudança em outro arquivo. Exercita os modos `comments` e `review`, captura o
+prompt real e os requests de publicação, verifica `LEFT`/numeração antiga e
+remoção de um segredo do histórico. O modelo é controlado: o teste prova o
+transporte da conversa e da resposta, **não** que um LLM sempre julgará corretamente.
+
+Os testes do cliente verificam paginação, atribuição, cancelamento e falhas sem
+histórico parcial apresentado como completo. Links de paginação e redirects
+não podem encaminhar o token para outro destino. Os testes de escopo rejeitam
+linhas intactas, arquivo alheio e confusão entre numeração antiga e nova.
+
+A próxima avaliação semântica deve repetir PRs rotulados com um modelo real e
+registrar falsos positivos, defeitos perdidos, repetição de cobranças e rodadas
+até encerramento. Ainda não há resultado medido que justifique afirmar redução
+de ruído do modelo em produção.
+
 O histórico de aceitação da reconstrução permanece no board e em `docs/specs`.
 Não confunda scripts históricos com a suíte atual de produto.

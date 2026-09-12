@@ -4,7 +4,8 @@ O modelo recebe o diff, as linguagens detectadas e o contexto fornecido. Deve
 avaliar correção, compatibilidade, legibilidade, arquitetura, performance e
 segurança, reportando problemas introduzidos pela mudança.
 
-O filtro atual exige uma linha adicionada no lado direito, uma regra do catálogo
+O filtro atual exige uma linha adicionada (`RIGHT`, numeração nova) ou removida
+(`LEFT`, numeração antiga), uma regra do catálogo
 e campos não vazios de evidência, impacto e verificação. Isso valida localização
 e estrutura, **não demonstra automaticamente que o problema existe**.
 Hipóteses plausíveis ainda dependem da qualidade do modelo e do prompt.
@@ -19,9 +20,33 @@ Prompts, skills, documentação e contexto de CI são fornecidos em cada chamada
 A implementação atual não navega autonomamente por todo o repositório, não
 executa ferramentas pelo modelo e não busca documentação na web.
 
-Não há memória persistente dos achados ou decisões entre rodadas. Repetir uma
-revisão pode produzir novos resultados. O cache local legado é por processo e
-não deve ser confundido com continuidade de discussão.
+Em `review --pr`, o Aurum consulta as reviews, comentários inline, respostas e
+comentários gerais do próprio PR, com paginação. Preserva autor, IDs, commits,
+datas e a localização original quando o GitHub a fornece. Esse histórico entra
+no prompt como observações não confiáveis, após remoção de segredos reconhecidos.
+Não cria banco, arquivo de memória, secret ou configuração adicional.
+
+O prompt orienta a conferir correções e contestações no código atual, evitar
+cobranças repetidas e explicar nova evidência antes de reabrir uma questão.
+Uma aprovação ou um comentário dizendo "corrigido" não altera os filtros nem
+autoriza a publicação. Exceções de um PR não viram regras globais.
+
+Se qualquer fonte do histórico falhar, a revisão continua sobre o diff atual
+com aviso no diagnóstico e no parecer publicado. A leitura compartilha o prazo
+de fontes de contexto (`ProviderTimeout`); não aplica um teto próprio de linhas,
+itens ou tokens. Um orçamento explícito de prompt inclui o histórico completo e
+recusa quando ele não cabe, em vez de truncar a resposta do autor silenciosamente.
+
+Isso ainda **não é revisão incremental nem um gerenciador de pendências**: o
+diff continua sendo o PR completo. O Aurum não resolve threads, não atualiza
+comentários anteriores e não garante deduplicação. A decisão semântica permanece
+com o modelo; repetir uma revisão pode produzir novos resultados. A leitura das
+três fontes não é um snapshot transacional do GitHub. O uso local `--base` e seu
+cache legado não recebem esse histórico remoto.
+
+O histórico aumenta o contexto enviado ao endpoint LLM já configurado: inclui
+também discussões de pessoas e outros bots. Considere a política de dados do
+time para esse endpoint; a remoção de segredos reconhecidos não é anonimização.
 
 ## Cobertura e falhas
 

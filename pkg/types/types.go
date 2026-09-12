@@ -39,9 +39,12 @@ type Diff struct {
 
 // ReviewIssue represents a single finding in a code review
 type ReviewIssue struct {
-	ID           string `json:"id" yaml:"id"`
-	File         string `json:"file" yaml:"file"`
-	Line         int    `json:"line" yaml:"line"`
+	ID   string `json:"id" yaml:"id"`
+	File string `json:"file" yaml:"file"`
+	Line int    `json:"line" yaml:"line"`
+	// Side identifies the changed line: LEFT for a deletion, RIGHT for an
+	// addition. Empty retains the historical RIGHT default.
+	Side         string `json:"side,omitempty" yaml:"side,omitempty"`
 	Severity     string `json:"severity" yaml:"severity"` // "error", "warning", "info"
 	RuleID       string `json:"rule_id" yaml:"rule_id"`
 	Message      string `json:"message" yaml:"message"`

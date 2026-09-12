@@ -52,6 +52,7 @@ type Config struct {
 type ReviewContext struct {
 	CI       string
 	Language string
+	History  string // Attributed PR observations, not review instructions
 }
 
 // DefaultConfig returns sensible defaults for Config.
@@ -125,12 +126,13 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 
 	// Build prompt with token budgeting
 	opts := prompt.BuildOptions{
-		MaxTokens:    cfg.MaxTokens,
-		SchemaKind:   "review",
-		Role:         "reviewer",
-		ReserveReply: cfg.ReserveReply,
-		CIContext:    r.filter.Redact(reviewContext.CI),
-		Language:     reviewContext.Language,
+		MaxTokens:     cfg.MaxTokens,
+		SchemaKind:    "review",
+		Role:          "reviewer",
+		ReserveReply:  cfg.ReserveReply,
+		CIContext:     r.filter.Redact(reviewContext.CI),
+		ReviewHistory: r.filter.Redact(reviewContext.History),
+		Language:      reviewContext.Language,
 	}
 
 	promptParts, err := r.promptBuilder.BuildPrompt(diff, metrics, opts)
@@ -310,6 +312,7 @@ func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
 		issue := &result.Issues[i]
 		issue.ID = f.Redact(issue.ID)
 		issue.File = f.Redact(issue.File)
+		issue.Side = f.Redact(issue.Side)
 		issue.RuleID = f.Redact(issue.RuleID)
 		issue.Message = redactLinesKeepingMarkers(f, issue.Message)
 		issue.Impact = redactLinesKeepingMarkers(f, issue.Impact)
