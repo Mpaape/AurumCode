@@ -100,6 +100,11 @@ func (b *TokenBudget) formatHunk(file *types.DiffFile, hunk *types.DiffHunk) str
 // didn't fit but because nothing after the first miss was ever offered a
 // chance. Coverage was a lottery on ordering, not a fact about size.
 func (b *TokenBudget) TrimToFit(segments []ContextSegment, baseTokens int) []ContextSegment {
+	if b.maxTokens <= 0 {
+		out := make([]ContextSegment, len(segments))
+		copy(out, segments)
+		return out
+	}
 	available := b.Available() - baseTokens
 	if available <= 0 {
 		return []ContextSegment{}

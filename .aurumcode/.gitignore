@@ -1,23 +1,10 @@
-# Jekyll build artifacts
-_site/
-.sass-cache/
-.jekyll-cache/
-.jekyll-metadata
+# Arquivos locais do review
+cache/
+reports/
+*.log
 
-# Bundler
-.bundle/
-vendor/
-
-# Ruby
-Gemfile.lock
-
-# OS files
+# Arquivos do sistema/editor
 .DS_Store
 Thumbs.db
-
-# Editor files
 *.swp
 *.swo
-*~
-.vscode/
-.idea/

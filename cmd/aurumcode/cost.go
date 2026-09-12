@@ -32,9 +32,8 @@ import (
 const (
 	// envCostInputPer1K / envCostOutputPer1K override the flat per-1000-token
 	// price this command converts tokens into dollars with. The names mirror
-	// the convention cmd/regenerate-docs already established
-	// (AURUMCODE_LLM_*_USD_PER_1K), so an operator prices a model the same
-	// way for both binaries.
+	// (AURUMCODE_LLM_*_USD_PER_1K), so an operator can price the configured
+	// model without coupling this command to a vendor.
 	envCostInputPer1K  = "AURUMCODE_LLM_INPUT_USD_PER_1K"
 	envCostOutputPer1K = "AURUMCODE_LLM_OUTPUT_USD_PER_1K"
 )
@@ -174,10 +173,9 @@ func realCostUSD(tracker *cost.Tracker, limiteUSD float64) float64 {
 //     heuristic every provider in this engine falls back to
 //     (internal/llm/estimator.go, internal/review/fakeprovider.go,
 //     internal/llm/provider/litellm).
-//   - tokensOut: the same output cap reviewer.GenerateReview will use
-//     (review.DefaultConfig().MaxTokens - ReserveReply), which dominates
-//     the estimate and is identical to what internal/llm.Orchestrator.
-//     Complete reserves against internally.
+//   - tokensOut: the orchestrator's bounded planning estimate when the
+//     provider owns the actual response limit. This is an estimate for the
+//     optional financial gate, never a client-side truncation.
 //
 // It is NOT the number the budget decision is made against -- that check
 // happens inside internal/llm.Orchestrator.Complete, against the actual
@@ -203,6 +201,9 @@ func estimateCostUSD(diff *types.Diff, price cost.PriceMap) float64 {
 
 	cfg := review.DefaultConfig()
 	tokensOut := cfg.MaxTokens - cfg.ReserveReply
+	if tokensOut <= 0 {
+		tokensOut = llm.DefaultOutputTokenEstimate()
+	}
 
 	return priceUSD(tokensIn, tokensOut, price)
 }

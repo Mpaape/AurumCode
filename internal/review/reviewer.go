@@ -64,8 +64,12 @@ type ReviewContext struct {
 // and internal/llm.DefaultOptions.
 func DefaultConfig() Config {
 	return Config{
-		MaxTokens:    4000,
-		ReserveReply: 1000,
+		// Zero means no client-side output cap. The selected provider/model
+		// owns its supported response limit; the prompt builder keeps the
+		// complete diff instead of silently dropping context for an arbitrary
+		// ceiling.
+		MaxTokens:    0,
+		ReserveReply: 0,
 	}
 }
 
@@ -140,8 +144,12 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	fullPrompt := promptParts.System + "\n\n" + promptParts.User
 
 	// Call LLM
+	maxReplyTokens := 0
+	if cfg.MaxTokens > cfg.ReserveReply {
+		maxReplyTokens = cfg.MaxTokens - cfg.ReserveReply
+	}
 	resp, err := r.orchestrator.Complete(ctx, fullPrompt, llm.Options{
-		MaxTokens:   cfg.MaxTokens - cfg.ReserveReply,
+		MaxTokens:   maxReplyTokens,
 		Temperature: cfg.Temperature,
 	})
 	if err != nil {
@@ -171,6 +179,15 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	result.Issues = suppressWorkflowReferenceFindings(diff, result.Issues)
 	result.Suggestions = suppressWorkflowReferenceSuggestions(diff, result.Suggestions)
 
+	// Precision gate: the model may use repository context, language knowledge
+	// and configured prompts to reason about a change, but it cannot promote a
+	// concern about untouched code into a finding for this patch. The finding
+	// also has to carry the three pieces of proof the prompt requests. This is
+	// deliberately applied before rule citation and publication so every caller
+	// (local, comments and formal PR review) receives the same bounded result.
+	var scopeDiscarded scopeDiscardSummary
+	result.Issues, scopeDiscarded = filterModelIssues(diff, result.Issues)
+
 	// Rule gate (AUR-434): every issue must cite a rule of the project
 	// review standard. A broken or empty embedded catalog is a loud
 	// error here, never a silent zero-rule review.
@@ -185,6 +202,8 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 		result.Metadata = make(map[string]string)
 	}
 	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", rejected)
+	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", scopeDiscarded.total())
+	result.Metadata["scope_discard_warning"] = scopeDiscarded.warning()
 	// AUR-448: a discard the rule gate makes is never silent. The caller
 	// (cmd/aurumcode) prints discardWarning verbatim to stderr when it is
 	// non-empty; it is deliberately "" on the happy path (rejected == 0) so

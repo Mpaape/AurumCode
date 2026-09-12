@@ -91,7 +91,7 @@
 // a fulfilled request (stdout, exit 0), and a genuine usage error is a
 // refusal (stderr, exit 2) -- the same channel and exit code for both
 // subcommands, where before this card `review --help` printed usage to
-// stderr with exit 2 and `docs --help` printed to stdout with exit 0.
+// stderr with exit 2.
 // Provider-missing errors (selectProvider, reportModelUnavailable) now
 // point at a concrete, versioned fixture example
 // (tests/fixtures/review/known-problem-response.json) instead of only
@@ -209,7 +209,7 @@ func run(args []string, stdout, stderr *os.File) int {
 	defer errW.Flush()
 
 	if len(args) == 0 {
-		fmt.Fprintln(errW, "usage: aurumcode <review|docs> [flags]")
+		fmt.Fprintln(errW, "usage: aurumcode review [flags]")
 		return 2
 	}
 
@@ -217,11 +217,8 @@ func run(args []string, stdout, stderr *os.File) int {
 	case "--help", "-h", "help":
 		// An explicitly requested top-level --help is a fulfilled request,
 		// not a failure: stdout, exit 0, the same convention `review
-		// --help` and `docs --help` both follow after this card (see the
-		// package doc above). Static text, no repository- or
-		// operator-controlled input, so it deliberately bypasses the
-		// redaction writer -- exactly like `docs --help`'s own usage text
-		// already does (runDocs, cmd/aurumcode/docs.go).
+		// --help` is a fulfilled request. This is static text, so it
+		// deliberately bypasses the redaction writer.
 		printTopLevelHelp(stdout)
 		return 0
 	case "--version", "version":
@@ -229,8 +226,6 @@ func run(args []string, stdout, stderr *os.File) int {
 		return 0
 	case "review":
 		return runReview(args[1:], stdout, errW, filter)
-	case "docs":
-		return runDocs(args[1:], stdout, errW, filter)
 	default:
 		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2
@@ -239,7 +234,7 @@ func run(args []string, stdout, stderr *os.File) int {
 
 // printTopLevelHelp is what makes `aurumcode --help` (or `-h`, or `help`)
 // answer "what does this command do" without the reader ever opening
-// source: every subcommand, one line each, plus one runnable example.
+// source: the review command and one runnable example.
 // MUT-001 (docs/specs/AUR-443.md, tests/acceptance/AUR-443.sh) removes the
 // "--help", "-h", "help" case above so this function becomes unreachable
 // dead code -- `aurumcode --help` then falls through to the `default` arm
@@ -249,8 +244,7 @@ func printTopLevelHelp(stdout io.Writer) {
 	fmt.Fprintln(stdout, "usage: aurumcode <command> [flags]")
 	fmt.Fprintln(stdout)
 	fmt.Fprintln(stdout, "Commands:")
-	fmt.Fprintln(stdout, "  review   Review a git diff with an LLM (or the project's deterministic security rules) and print, gate on, or publish the findings.")
-	fmt.Fprintln(stdout, "  docs     Generate project documentation from source code.")
+	fmt.Fprintln(stdout, "  review   Review a git diff with the configured model and publish or gate the findings.")
 	fmt.Fprintln(stdout)
 	fmt.Fprintln(stdout, `Run "aurumcode <command> --help" for that command's own flags.`)
 	fmt.Fprintln(stdout)
@@ -264,11 +258,8 @@ func printVersion(stdout io.Writer) {
 }
 
 func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int {
-	// Buffered, then dispatched by errors.Is(err, flag.ErrHelp) below: the
-	// exact pattern `docs --help` already established (runDocs,
-	// cmd/aurumcode/docs.go). Before this card, fs.SetOutput(stderr) sent
-	// --help's usage text straight to stderr with exit 2 -- the opposite
-	// convention from `docs --help` (stdout, exit 0) in the same binary.
+	// Buffer help so an explicit request can go to stdout while genuine usage
+	// errors go to stderr.
 	// An explicitly requested --help is a fulfilled request, not a usage
 	// error; a genuine usage error (an unknown flag, a value that does not
 	// parse) still goes to stderr, exit 2, unchanged. See
@@ -278,7 +269,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	fs.SetOutput(&helpBuf)
 	base := fs.String("base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
 	failOn := fs.String("fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
-	modelo := fs.String("modelo", "", "model that reviews, e.g. local, llama3 or gpt-4; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: AUR-430's selection, unchanged)")
+	modelo := fs.String("modelo", "", "model id that reviews; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: the endpoint's configured model)")
 	seguranca := fs.Bool("seguranca", false, "additionally run the project's security pass: match the diff's added lines against the security rules of the embedded catalog (standards/security-review) and print the findings in their own section (default: off, output unchanged)")
 	pr := fs.Int("pr", 0, "pull request number to review (AUR-438); activates the PR path and requires --repo and --publicar (default: off, --base path unchanged)")
 	repoFlag := fs.String("repo", "", "owner/repo of the pull request; required with --pr")
@@ -683,6 +674,9 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// skip path (qualitySkipped's result is the zero ReviewResult, and
 		// map access on its nil Metadata is a safe zero-value read).
 		if warning := result.Metadata["discard_warning"]; warning != "" {
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
+		}
+		if warning := result.Metadata["scope_discard_warning"]; warning != "" {
 			fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
 		}
 
@@ -1205,9 +1199,9 @@ func printNotices(stdout io.Writer, filter *redaction.Filter, notices []analyzer
 //     and deterministically (the sandbox this card's acceptance runs under
 //     denies network access entirely).
 //   - LLM_API_KEY and LLM_BASE_URL: use the existing, already-vendor-neutral
-//     internal/llm/provider/litellm.Provider (the same OpenAI-compatible
-//     proxy path cmd/regenerate-docs already uses), naming a model via
-//     LLM_MODEL (defaulting to "gpt-4").
+//     internal/llm/provider/litellm.Provider (an OpenAI-compatible endpoint).
+//     LLM_MODEL is forwarded when present; when omitted, the endpoint may
+//     choose its own configured default.
 //
 // Neither set: a clear, typed-by-message error, not a panic or a silent
 // no-op provider.
@@ -1243,10 +1237,7 @@ func selectProvider() (llm.Provider, error) {
 	apiKey := os.Getenv("LLM_API_KEY")
 	baseURL := os.Getenv("LLM_BASE_URL")
 	if apiKey != "" && baseURL != "" {
-		model := os.Getenv("LLM_MODEL")
-		if model == "" {
-			model = "gpt-4"
-		}
+		model := strings.TrimSpace(os.Getenv("LLM_MODEL"))
 		return litellm.NewProvider(apiKey, baseURL, model), nil
 	}
 

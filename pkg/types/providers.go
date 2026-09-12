@@ -38,12 +38,6 @@ type CostTracker interface {
 	Remaining() float64
 }
 
-// PromptBuilder defines the interface for constructing LLM prompts
-type PromptBuilder interface {
-	Build(diff *Diff, config *Config) (string, error)
-	EstimateTokens(prompt string) int
-}
-
 // ResponseParser defines the interface for parsing LLM responses
 type ResponseParser interface {
 	ParseJSON(content string, schema interface{}) error

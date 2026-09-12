@@ -19,7 +19,10 @@ const knownProblemResponse = `{
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
       "message": "A credential-shaped value was committed in plain text.",
+      "impact": "The credential can be used by anyone who obtains the repository contents.",
+      "evidence": "The added config line contains a credential-shaped assignment.",
       "suggestion": "Remove the secret and rotate it; load it from the environment instead."
+      ,"verification": "Remove the value and run the focused review fixture again."
     }
   ],
   "summary": "One planted credential was found in the change."

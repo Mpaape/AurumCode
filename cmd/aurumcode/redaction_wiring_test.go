@@ -42,7 +42,7 @@ func TestRedactedEndpoint(t *testing.T) {
 func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 	filter := redaction.NewFilter()
 	lines := []string{
-		"usage: aurumcode <review|docs> [flags]",
+		"usage: aurumcode review [flags]",
 		"aurumcode review: --base is required",
 		`aurumcode review: reviewing with model "local" (offline fixture provider)`,
 		"aurumcode review: 1 finding(s) at severity error or above (--fail-on error)",

@@ -291,7 +291,7 @@ func TestNativeSuggestionCommentSupportsAddedLineRanges(t *testing.T) {
 
 func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing.T) {
 	fixturePath := t.TempDir() + "/review.json"
-	fixture := `{"issues":[{"file":"main.go","line":2,"severity":"warning","rule_id":"quality/long-function","message":"O corpo precisa ser dividido."}],"suggestions":[{"title":"Simplificar a entrada","description":"Extraia a execução para uma função menor.","kind":"code","file":"main.go","line":2,"proposed_code":"func main() { run() }","rationale":"A mudança reduz a responsabilidade do ponto de entrada."}],"summary":"A mudança precisa de uma correção."}`
+	fixture := `{"issues":[{"file":"main.go","line":2,"severity":"warning","rule_id":"quality/long-function","message":"O corpo precisa ser dividido.","impact":"A função concentra responsabilidades e dificulta a manutenção.","evidence":"A nova função de entrada contém toda a execução no mesmo bloco.","verification":"Execute o teste da entrada após extrair a execução."}],"suggestions":[{"title":"Simplificar a entrada","description":"Extraia a execução para uma função menor.","kind":"code","file":"main.go","line":2,"proposed_code":"func main() { run() }","rationale":"A mudança reduz a responsabilidade do ponto de entrada."}],"summary":"A mudança precisa de uma correção."}`
 	if err := os.WriteFile(fixturePath, []byte(fixture), 0o600); err != nil {
 		t.Fatalf("writing fixture: %v", err)
 	}

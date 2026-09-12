@@ -33,9 +33,9 @@ type Provider interface {
 //
 // This exists because Options.ModelKey is routinely empty - DefaultOptions
 // never sets it - while every provider here substitutes a model of its own
-// ("gpt-4", "llama3", a configured LiteLLM model). Without a pre-call answer
-// the ceiling is checked against a key no price table contains while the charge
-// lands on a different one, so the ceiling reads a ledger that never moves.
+// (a configured LiteLLM model). Without a pre-call answer the ceiling is
+// checked against a key no price table contains while the charge lands on a
+// different one, so the ceiling reads a ledger that never moves.
 type ModelResolver interface {
 	ResolveModel(opts Options) string
 }
@@ -73,6 +73,9 @@ func ResolveModelKey(provider Provider, opts Options) string {
 // forwarding it upstream.
 func DefaultOptions() Options {
 	return Options{
-		MaxTokens: 4000,
+		// Zero leaves the response limit to the selected provider/model. A
+		// caller may still set MaxTokens explicitly when it has a real
+		// provider-specific reason to do so.
+		MaxTokens: 0,
 	}
 }

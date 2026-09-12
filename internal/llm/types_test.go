@@ -41,8 +41,8 @@ func TestDefaultOptions(t *testing.T) {
 		t.Errorf("Expected default temperature 0 (omitted), got %f", opts.Temperature)
 	}
 
-	if opts.MaxTokens != 4000 {
-		t.Errorf("Expected default max_tokens 4000, got %d", opts.MaxTokens)
+	if opts.MaxTokens != 0 {
+		t.Errorf("Expected default max_tokens 0 (provider default), got %d", opts.MaxTokens)
 	}
 }
 

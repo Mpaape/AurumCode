@@ -6,7 +6,10 @@
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
       "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
+      "impact": "Anyone with repository access can reuse the committed credential-shaped value.",
+      "evidence": "The added line assigns DEMO_API_TOKEN to a literal value in config/demo-tokens.txt.",
       "suggestion": "Remove the secret from version control and load it from the environment instead."
+      ,"verification": "Remove the literal and rerun the review fixture; the finding should disappear."
     }
   ],
   "summary": "The change adds config/demo-tokens.txt, which commits plaintext credential-shaped values."
