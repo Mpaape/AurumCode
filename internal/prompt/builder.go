@@ -254,40 +254,61 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 		baseTokens += b.estimator.Estimate(memoryNotes)
 	}
 
-	// AUR-467 blocker 1 (post-ff64e18 adversarial review): the coverage
-	// declaration appended below is CONTENT of the assembled prompt, so
-	// its worst-case size must be reserved out of the content budget
-	// BEFORE TrimToFit runs -- otherwise the declaration itself can push
-	// the assembled prompt over MaxTokens, and worse as the budget gets
-	// tighter, since a tighter budget omits more files and so grows the
-	// declaration that reports the omissions. See coverage.go's
-	// maxCoverageDeclarationTokens for why this reservation is a proven
-	// upper bound, not a guess.
-	coverageReserve := maxCoverageDeclarationTokens(codePaths, prosePaths, totals, b.estimator)
+	// AUR-477 AC-002: the change summary, CI context and the "Code Changes"
+	// header are rendered into the user content regardless of how many hunks
+	// fit, so they must be counted against the budget alongside the base
+	// prompt -- otherwise the assembled prompt quietly overshoots MaxTokens
+	// by exactly this fixed overhead.
+	userFixed := b.estimator.Estimate(b.buildUserContent(nil, metrics, opts.CIContext))
+	fixedTokens := baseTokens + userFixed
 
-	// AC-002: the instructions, the coverage declaration's worst case, and
-	// the reply reservation must leave room for at least some code. When
-	// they do not, this fails loudly instead of letting TrimToFit drop
-	// every diff segment and shipping a review prompt with no diff in it
-	// -- a request the model can only answer by inventing findings.
-	if opts.MaxTokens > 0 && baseTokens+coverageReserve+opts.ReserveReply >= opts.MaxTokens {
-		return PromptParts{}, fmt.Errorf(
-			"prompt instructions need %d tokens, the coverage declaration reserves %d, and the reply reserves %d, which does not fit the %d-token budget: refusing to assemble a %s prompt with no room for the code changes",
-			baseTokens, coverageReserve, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
+	// AUR-477: the coverage-declaration reservation must track what will
+	// ACTUALLY be declared, not the worst case of every code file omitted.
+	// The AUR-467 worst-case reserve is proportional to the TOTAL code-file
+	// count, so a large diff refused even when nearly every file fit -- a
+	// complete file contributes a count line, never a bullet, so reserving
+	// it as an "omitted" bullet overstates the declaration by the number of
+	// files that actually got reviewed. Converge: reserve the fixed part
+	// (header + prose bullets), trim, measure the real declaration, and grow
+	// the reserve to match, repeating until the reservation covers the
+	// declaration. The reserve is monotonic and bounded by the old worst
+	// case, so the loop terminates; once reserve >= actual the assembled
+	// prompt fits by construction.
+	fixedReserve := coverageDeclarationFixedTokens(prosePaths, b.estimator)
+	reserve := fixedReserve
+	var trimmedSegments []ContextSegment
+	var coverages []fileCoverage
+	for {
+		trimmedSegments = budget.TrimToFit(codeSegments, fixedTokens+reserve)
+		coverages = classifyCodeCoverage(codePaths, totals, coveredHunkCounts(trimmedSegments))
+		if opts.MaxTokens <= 0 {
+			break
+		}
+		// Measure the ACTUAL assembled text, not the per-part estimate sum:
+		// the estimator floors each part, so summing parts undercounts the
+		// concatenation by up to one token per part. Converge on the whole.
+		userText := b.buildUserContent(trimmedSegments, metrics, opts.CIContext) + history + codebase + memoryNotes + "\n" + renderCoverageDeclaration(coverages, prosePaths)
+		total := b.estimator.Estimate(basePrompt + userText)
+		if total <= opts.MaxTokens {
+			break
+		}
+		if len(trimmedSegments) == 0 {
+			break
+		}
+		// The assembled prompt overshoots by the estimator's per-part rounding;
+		// reserve that overshoot so the next trim leaves room for it. Monotonic
+		// (reserve only grows) and bounded by the declaration's own cap.
+		reserve += total - opts.MaxTokens
 	}
 
-	// Trim segments to fit budget -- code segments only, budgeted against
-	// baseTokens PLUS the reserved coverage declaration size; prose never
-	// ate into this budget in the first place, which is also the fix for
-	// the measured ordering starvation (see filetype.go).
-	var trimmedSegments []ContextSegment
-	if opts.MaxTokens <= 0 {
-		// No client-side cap: keep every code hunk. The provider/model
-		// remains responsible for its supported response window, while the
-		// review never invents a smaller repository-specific budget.
-		trimmedSegments = append([]ContextSegment(nil), codeSegments...)
-	} else {
-		trimmedSegments = budget.TrimToFit(codeSegments, baseTokens+coverageReserve)
+	// AC-003: after the minimal reservation (header + prose), not even one
+	// code hunk fit. Refuse loudly instead of shipping a review prompt with
+	// no diff in it -- a request the model can only answer by inventing
+	// findings.
+	if opts.MaxTokens > 0 && len(codeSegments) > 0 && len(trimmedSegments) == 0 {
+		return PromptParts{}, fmt.Errorf(
+			"prompt instructions and fixed content need %d tokens and the reply reserves %d, which leaves no room for a single code change in the %d-token budget: refusing to assemble a %s prompt with no diff in it",
+			fixedTokens, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
 	}
 
 	// Build user content from trimmed segments, plus AC-003's coverage
@@ -300,8 +321,6 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	userContent += history
 	userContent += codebase
 	userContent += memoryNotes
-	covered := coveredHunkCounts(trimmedSegments)
-	coverages := classifyCodeCoverage(codePaths, totals, covered)
 	userContent += "\n" + renderCoverageDeclaration(coverages, prosePaths)
 
 	var completeCount, partialCount, omittedCount int
