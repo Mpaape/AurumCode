@@ -56,6 +56,12 @@ async function main() {
     assert.match(tutorials, /--limite/);
     assert.match(tutorials, /LLM_BASE_URL/);
 
+    // The public page must not leak local model values, ports or personal endpoints.
+    const site = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    for (const leak of ["claude-qwen38", "qwen-local", "11435"]) {
+      assert.ok(!site.includes(leak), "leaked in docs/site/index.html: " + leak);
+    }
+
     // Copy-to-clipboard still works for the workflow snippet.
     await page.locator('[data-copy="workflow-code"]').click();
     assert.equal((await page.evaluate(() => navigator.clipboard.readText())).trim(), workflow.trim());
