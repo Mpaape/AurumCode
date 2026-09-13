@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-487",
+  "commit": "bd053bc772aadb119977dd12920677ac3a6c0320",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "bash tests/acceptance/AUR-487.sh AC-001..AC-006",
+    "exit_code": 0,
+    "raw_output": "PASS AUR-487 AC-001\nPASS AUR-487 AC-002\nPASS AUR-487 AC-003\nPASS AUR-487 AC-004\nPASS AUR-487 AC-005\nPASS AUR-487 AC-006"
+  }
+}
