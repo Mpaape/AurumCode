@@ -490,7 +490,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		summaryBody = tldr + "\n\n---\n\n" + summaryBody
 	}
 	if diagram, merr := render.Mermaid(diff); merr == nil && strings.TrimSpace(diagram) != "" {
-		summaryBody += "\n\n" + diagram
+		summaryBody += "\n\n<details><summary>Fluxo alterado (diagrama)</summary>\n\n```mermaid\n" + diagram + "\n```\n</details>\n"
 	}
 	if publication == "review" {
 		if inlineComments {
