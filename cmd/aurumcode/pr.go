@@ -226,7 +226,13 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// loaded as untrusted observations and saved back after publication.
 	// Memory is observation, never instruction: it cannot change a rule, a
 	// severity, redaction, cost, or the verdict.
-	memoryStore, memoryErr := memory.New(reviewConfig.Review.Memory, "")
+	//
+	// AUR-489: dir is ALWAYS derived from this repository (memoryDirFor),
+	// never "" -- an empty dir collapses onto memory.go's single
+	// process-wide fallback file, so a note saved while reviewing one
+	// repository is loaded, as an "observation", into every other
+	// repository's prompt. See memorydir.go.
+	memoryStore, memoryErr := newRepoMemory(reviewConfig.Review.Memory, owner, repoName)
 	if memoryErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: review memory unavailable: %s; continuing without it\n", filter.Redact(memoryErr.Error()))
 		memoryStore, _ = memory.New("off", "")
