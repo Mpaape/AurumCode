@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# go-shared up|exec|status|down
+#
+# ONE shared Go container for every agent in every session -- builder, reviewer,
+# coordinator -- so nothing is compiled twice and nothing is left behind.
+#
+#   up      create aurum-go if it is not running (idempotent; reuses the
+#           canonical cache volume aurumcode-gocache and the host module cache)
+#   exec    run a command inside it: go-shared exec [-w DIR] cmd args...
+#   status  print whether it is up and what it mounts
+#   down    stop and remove it (the cache volume stays, on purpose)
+#
+# Rules this encodes (owner's, 2026-09-13): Go never runs on the host; no agent
+# creates an image, container or volume of its own; the environment the builder
+# compiled in is the one the reviewer executes in, with the same build cache,
+# so a review never rebuilds the module from scratch; the sealed oci-run accept
+# is the coordinator's integration gate, once per card, not a per-round tool.
+set -euo pipefail
+
+name='aurum-go'
+image="${GO_SHARED_IMAGE:-aurumcode-test-img:1.21}"
+cache_volume='aurumcode-gocache'
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+wt_root="${GO_SHARED_WORKTREES:-/tmp/claude-1000/office-wt}"
+
+engine=''
+if command -v podman >/dev/null 2>&1; then engine=podman
+elif command -v docker >/dev/null 2>&1; then engine=docker
+else printf 'go-shared: no container engine; Go does not run on the host\n' >&2; exit 69; fi
+
+running() { [[ "$($engine inspect -f '{{.State.Running}}' "$name" 2>/dev/null || true)" == "true" ]]; }
+
+case "${1:-}" in
+  up)
+    if running; then printf 'go-shared: %s already up\n' "$name"; exit 0; fi
+    "$engine" image inspect "$image" >/dev/null 2>&1 ||
+      { printf 'go-shared: image %s missing; not building one -- ask the owner\n' "$image" >&2; exit 69; }
+    "$engine" volume inspect "$cache_volume" >/dev/null 2>&1 || "$engine" volume create "$cache_volume" >/dev/null
+    "$engine" rm -f "$name" >/dev/null 2>&1 || true
+    mkdir -p "$wt_root"
+    "$engine" run -d --name "$name" --label aurum.role=shared-go \
+      --network=none --memory="${GO_SHARED_MEMORY:-3g}" --memory-swap="${GO_SHARED_MEMORY:-3g}" \
+      --cpus="${GO_SHARED_CPUS:-4}" --pids-limit=1024 \
+      -v "$repo:$repo" -v "$wt_root:$wt_root" \
+      -v "$HOME/go/pkg/mod:/go/pkg/mod:ro" -v "$cache_volume:/gocache" \
+      -w "$repo" \
+      -e GOFLAGS='-mod=mod -buildvcs=false' -e GOPROXY=off -e GOMEMLIMIT=2GiB \
+      -e GOCACHE=/gocache -e HOME=/tmp \
+      "$image" sleep infinity >/dev/null
+    "$engine" exec "$name" git config --global --add safe.directory '*' >/dev/null
+    printf 'go-shared: %s up (cache volume %s, worktrees under %s)\n' "$name" "$cache_volume" "$wt_root"
+    ;;
+  exec)
+    shift
+    running || { printf 'go-shared: %s is not up; run: go-shared up\n' "$name" >&2; exit 69; }
+    workdir="$repo"
+    if [[ "${1:-}" == "-w" ]]; then workdir="$2"; shift 2; fi
+    exec "$engine" exec -w "$workdir" "$name" "$@"
+    ;;
+  status)
+    if running; then
+      printf 'up: %s\n' "$name"; "$engine" inspect -f '{{range .Mounts}}  {{.Source}} -> {{.Destination}}{{"\n"}}{{end}}' "$name"
+    else printf 'down: %s\n' "$name"; exit 1; fi
+    ;;
+  down)
+    "$engine" rm -f "$name" >/dev/null 2>&1 && printf 'go-shared: %s removed (cache volume kept)\n' "$name" || printf 'go-shared: nothing to remove\n'
+    ;;
+  *) printf 'usage: go-shared up|exec [-w DIR] cmd...|status|down\n' >&2; exit 2 ;;
+esac
