@@ -102,4 +102,25 @@ func TestAUR477(t *testing.T) {
 			t.Fatalf("refusal should name the reason, got: %v", err)
 		}
 	})
+
+	t.Run("AC-002-prose-only", func(t *testing.T) {
+		// A diff with only documentation files has an unbounded prose list in
+		// the declaration. A capped budget must refuse, never exceed MaxTokens
+		// silently (the prose list is not trimmed by the code budget).
+		files := make([]types.DiffFile, 0, 200)
+		for i := 0; i < 200; i++ {
+			files = append(files, types.DiffFile{
+				Path:  fmt.Sprintf("docs/very/deeply/nested/manual-%d.md", i),
+				Hunks: []types.DiffHunk{{Lines: []string{fmt.Sprintf("+documentation line %d", i)}}},
+			})
+		}
+		diff := &types.Diff{Files: files}
+		metrics := &analyzer.DiffMetrics{TotalFiles: 200}
+		_, err := builder.BuildPrompt(diff, metrics, prompt.BuildOptions{
+			MaxTokens: 1500, SchemaKind: "summary", Role: "reviewer",
+		})
+		if err == nil {
+			t.Fatal("expected refusal when a prose-only diff exceeds the budget")
+		}
+	})
 }
