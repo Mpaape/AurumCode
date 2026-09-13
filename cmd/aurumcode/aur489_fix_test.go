@@ -23,7 +23,7 @@ func TestAUR489FixApplies(t *testing.T) {
 	}
 	dir := t.TempDir()
 	writeWorkingTreeFile(t, dir, "store.go", 5, "store.Save(order)")
-	for _, args := range [][]string{{"init", "-q"}, {"add", "."}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base"}} {
+	for _, args := range [][]string{{"init", "-q"}, {"add", "."}} {
 		cmd := exec.Command(gitPath, args...)
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {

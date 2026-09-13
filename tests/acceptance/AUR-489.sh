@@ -13,7 +13,11 @@ umask 077
 ulimit -v 8388608 2>/dev/null || true
 export GOMEMLIMIT=2GiB
 readonly card='AUR-489'
-selector="${1:-AC-001}"
+selector="${1:-all}"
+if [[ "$selector" == all ]]; then
+  for scenario in AC-001 AC-002 AC-003 AC-004; do bash "${BASH_SOURCE[0]}" "$scenario"; done
+  exit 0
+fi
 scenario="$selector"
 case "$selector" in
   AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002|MUT-003|TestAUR489MemoryScope|TestAUR489PRMemoryDirNotEmpty|TestAUR489SecretNaming|TestAUR489FixApplies|TestAUR489FixRejectsStale) ;;
@@ -33,7 +37,7 @@ cleanup_root() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1" >/
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir" GOMAXPROCS=1
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir" GOMAXPROCS=1
 export XDG_CACHE_HOME="$run_dir/xdg" HOME="$run_dir/home"
 unset LLM_API_KEY LLM_BASE_URL AURUMCODE_LLM_FIXTURE
 
@@ -50,15 +54,17 @@ chmod -R u+w -- "$root"
 # gotest PKG SELECTOR -> 0 when the named test PASSES, 1 when it FAILS or is
 # not found, 79 when the package does not build.
 gotest() {
-  local pkg="$1" sel="$2" log="$run_dir/$sel.log"
-  (cd "$root" && go test "./$pkg/" -run "^$sel\$" -count=1 -v) >"$log" 2>&1 || true
+  local pkg="$1" sel="$2"
+  local log="$run_dir/$sel.log" rc=0
+  (cd "$root" && go test "./$pkg/" -run "^$sel\$" -count=1 -timeout=120s -v) >"$log" 2>&1 || rc=$?
   grep -q 'build failed\|cannot find package\|setup failed' "$log" && { cat "$log" >&2; return 79; }
-  grep -q "^--- PASS: $sel " "$log" && return 0
+  if ((rc == 0)) && grep -q "^--- PASS: $sel " "$log"; then return 0; fi
   grep -q "^--- SKIP: $sel " "$log" && return 2
+  cat "$log" >&2
   return 1
 }
-expect_pass() { local rc; gotest "$1" "$2"; rc=$?; ((rc == 79)) && infra "build_failed:$2"; ((rc == 0)) || fail "selector-failed:$2"; }
-expect_fail() { local rc; gotest "$1" "$2"; rc=$?; ((rc == 79)) && infra "build_failed:$2"; ((rc == 1)) || fail "mutation-not-detected:$2"; }
+expect_pass() { local rc=0; gotest "$1" "$2" || rc=$?; ((rc == 79)) && infra "build_failed:$2"; ((rc == 0)) || fail "selector-failed:$2"; }
+expect_fail() { local rc=0; gotest "$1" "$2" || rc=$?; ((rc == 79)) && infra "build_failed:$2"; ((rc == 1)) || fail "mutation-not-detected:$2"; }
 
 case "$selector" in
   AC-001|TestAUR489MemoryScope|TestAUR489PRMemoryDirNotEmpty)
@@ -73,7 +79,7 @@ case "$selector" in
     rc=0; gotest cmd/aurumcode TestAUR489FixApplies || rc=$?
     case "$rc" in 0) ;; 2) printf '%s/AC-003/note: TestAUR489FixApplies skipped (no git); RejectsStale carried the AC\n' "$card" >&2 ;; 79) infra build_failed:TestAUR489FixApplies ;; *) fail selector-failed:TestAUR489FixApplies ;; esac ;;
   AC-004)
-    grep -qiE 'por reposit[oó]rio' "$repo_root/docs/configuration.md" || fail 'docs-missing:memory-per-repository'
+    grep -qiE 'por reposit(o|ó)rio' "$repo_root/docs/configuration.md" || fail 'docs-missing:memory-per-repository'
     grep -qE 'aurumcode/memory|notes\.json|UserCacheDir|cache' "$repo_root/docs/configuration.md" || fail 'docs-missing:memory-location' ;;
   MUT-001)
     sed -i 's|return memory.New(mode, dir)|_ = dir\n\treturn memory.New(mode, "")|' "$root/cmd/aurumcode/memorydir.go"

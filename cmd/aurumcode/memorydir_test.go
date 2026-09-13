@@ -102,6 +102,16 @@ func TestAUR489MemoryDirFallsBackWithoutOwnerRepo(t *testing.T) {
 	}
 }
 
+func TestMemoryOffDoesNotRequireCacheDirectory(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+	for _, mode := range []string{"", "off", "ephemeral"} {
+		if _, err := newRepoMemory(mode, "owner", "repo"); err != nil {
+			t.Fatalf("mode %q unexpectedly required disk cache: %v", mode, err)
+		}
+	}
+}
+
 // chdir switches the process working directory to dir for the duration of
 // the test and returns a func that restores it. No t.Parallel may run in
 // this package's tests while a chdir is in effect (none do today).
