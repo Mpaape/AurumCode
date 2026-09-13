@@ -98,6 +98,14 @@ type fileCoverage struct {
 	total   int
 }
 
+// maxOmittedBullets caps how many "omitted" file paths the coverage
+// declaration lists before switching to an explicit count. See
+// renderCoverageDeclaration (AUR-477) for why this bound exists: it keeps
+// the declaration a fixed, budgetable size regardless of how large the diff
+// is, so a large pull request still receives a review instead of refusing
+// because naming every omitted path would overflow the budget.
+const maxOmittedBullets = 20
+
 // state classifies a file into exactly one of three states. omitted takes
 // priority over partial when total is 0 (defensive; every real diff file
 // has at least one hunk).
@@ -129,6 +137,16 @@ func classifyCodeCoverage(codePaths []string, totals, covered map[string]int) []
 // excluded from the code rule catalog and why. Emitted unconditionally,
 // even when every count is zero, so MUT-002 has one unique anchor and
 // AC-003 cannot be satisfied by an empty-string special case.
+//
+// AUR-477: the per-file bullet list for the "omitted" state is bounded by
+// maxOmittedBullets. Listing every omitted path is what made the AUR-467
+// worst-case reservation proportional to the TOTAL file count and forced a
+// large diff to refuse even when code could fit; the exact count line above
+// the list is never bounded, so the "quantos ficaram de fora" that AC-001
+// requires stays truthful while the list that names each one stays a fixed,
+// budgetable size. Partial files are listed in full: partial coverage is
+// the specific silence AUR-467 exists to kill, and partial files are few by
+// construction (a file is partial only when a budget cut fell mid-file).
 func renderCoverageDeclaration(coverages []fileCoverage, prosePaths []string) string {
 	var complete, partial, omitted []fileCoverage
 	for _, c := range coverages {
@@ -151,8 +169,14 @@ func renderCoverageDeclaration(coverages []fileCoverage, prosePaths []string) st
 		sb.WriteString(fmt.Sprintf("  - %s (%d/%d hunks)\n", c.path, c.covered, c.total))
 	}
 	sb.WriteString(fmt.Sprintf("- Code files NOT reviewed by this review (token budget): %d\n", len(omitted)))
+	listed := 0
 	for _, c := range omitted {
+		if listed >= maxOmittedBullets {
+			sb.WriteString(fmt.Sprintf("  - ... and %d more code files not reviewed (see the count above)\n", len(omitted)-listed))
+			break
+		}
 		sb.WriteString(fmt.Sprintf("  - %s (0/%d hunks)\n", c.path, c.total))
+		listed++
 	}
 	sb.WriteString(fmt.Sprintf("- Documentation files excluded from the code rule catalog (no prose rule catalog exists yet -- see AUR-467 Non-goals): %d\n", len(prosePaths)))
 	for _, p := range prosePaths {
@@ -161,23 +185,13 @@ func renderCoverageDeclaration(coverages []fileCoverage, prosePaths []string) st
 	return sb.String()
 }
 
-// maxCoverageDeclarationTokens estimates the WORST CASE rendered size of
-// renderCoverageDeclaration for this diff's file set: every code file
-// classified "omitted" (the state that puts every single code path on its
-// own bullet line -- the maximum bullet count the renderer can ever emit,
-// since a "complete" file contributes zero bullet lines in any real run,
-// and "partial"/"omitted" bullet lines differ only by a digit or two).
-// AUR-467 blocker 1: this is computed and reserved out of the content
-// budget BEFORE TrimToFit runs, so the ACTUAL declaration built afterward
-// -- built from whatever mix of complete/partial/omitted TrimToFit
-// actually produced -- can never be longer than what was reserved for it.
-// A small fixed margin absorbs the digit-count variance between "0/N" and
-// "k/N" bullets.
-func maxCoverageDeclarationTokens(codePaths, prosePaths []string, totals map[string]int, est TokenEstimator) int {
-	worst := make([]fileCoverage, 0, len(codePaths))
-	for _, p := range codePaths {
-		worst = append(worst, fileCoverage{path: p, covered: 0, total: totals[p]})
-	}
-	rendered := renderCoverageDeclaration(worst, prosePaths)
-	return est.Estimate(rendered) + 24
+// coverageDeclarationFixedTokens estimates the part of the coverage
+// declaration that is rendered regardless of how many code files fit: the
+// header (count lines) plus the prose-file bullets. Code-file bullets only
+// exist for files that end up omitted or partial, which is exactly what the
+// AUR-477 convergence loop measures per-iteration instead of reserving the
+// all-omitted worst case up front. A small fixed margin absorbs digit-count
+// variance between the "0" here and the real totals.
+func coverageDeclarationFixedTokens(prosePaths []string, est TokenEstimator) int {
+	return est.Estimate(renderCoverageDeclaration(nil, prosePaths)) + 24
 }
