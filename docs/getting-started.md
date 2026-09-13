@@ -36,7 +36,42 @@ docker run --rm \
 ```
 
 A comparação é entre a base e o commit HEAD: mudanças não commitadas ficam fora.
-A saída local é uma lista de achados. O relatório completo é publicado no PR.
+A saída local inclui resumo, achados e um diagrama Mermaid dos arquivos alterados.
+O contexto do checkout e a memória opcional usam os mesmos passes do review de PR.
+O diagrama representa referências inferidas, não uma prova do fluxo em runtime.
+
+Sem configurar um provedor, execute apenas a análise determinística:
+
+```bash
+docker run --rm -v "$PWD:/workspace:ro" -w /workspace \
+  aurumcode:local review --base HEAD~1 --fail-on error
+```
+
+A saída declara que o review por LLM não aconteceu, seguida de um relatório como:
+
+```text
+LLM quality review did not run. The following report covers deterministic analysis only.
+## Code Review Summary
+...
+app.go:3: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+```
+
+`--fail-on error` retorna 3 quando há achados graves. Para um CI que exige revisão
+por modelo, acrescente `--exigir-qualidade`: modelo ausente ou falhando retorna 1.
+Uma configuração de provedor inválida nunca é convertida em sucesso offline.
+
+Para persistir observações entre reviews locais, configure `review.memory: local`
+e monte um cache gravável, separado do código somente leitura:
+
+```bash
+docker run --rm -v "$PWD:/workspace:ro" -w /workspace \
+  -v aurumcode-cache:/review-cache -e XDG_CACHE_HOME=/review-cache \
+  -e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL \
+  aurumcode:local review --base HEAD~1
+```
+
+O cache de memória é separado por repositório. Falhas ao ler ou gravar observações
+aparecem no diagnóstico; memória não autoriza mudanças de regras ou aprovação.
 
 ## Diagnóstico
 
@@ -49,8 +84,9 @@ A saída local é uma lista de achados. O relatório completo é publicado no PR
 - Achado descartado: o job informa o motivo. Leia os diagnósticos antes de
   interpretar uma lista vazia como garantia de qualidade.
 
-O review por LLM que falha encerra com código 1. A exceção local legada é
-`--seguranca` sem provider, que pode executar somente a análise determinística.
+O review por LLM que falha encerra com código 1. Sem provedor configurado, o
+caminho local pode executar somente a análise determinística, declarando que
+o review por modelo foi omitido.
 Use `--exigir-qualidade` com `--base` para exigir também o modelo.
 `--fail-on error` encerra com código 3 quando há achados graves.
 
