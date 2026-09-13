@@ -617,6 +617,16 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// an honest, published, opt-in-free outcome (exit 0, the demo and
 	// self-review path), while qualityFailed means the command must not
 	// report success. See docs/specs/AUR-458.md.
+	// AUR-490 drops this guard's old "&& *seguranca" requirement. AUR-443's
+	// exit-code table pinned "no provider configured" to exit 1
+	// unconditionally for review --base; AC-001 of this card requires the
+	// opposite -- deterministic analysis (and now, unconditionally, the
+	// summary/diagram below) must run even without --seguranca, with the
+	// final exit code decided by --fail-on/--check/--exigir-qualidade
+	// against what that analysis found, not by the absence of a provider
+	// on its own. This is scoped to review --base (this function,
+	// runReview); the PR path (runPRReview, cmd/aurumcode/pr.go) is
+	// unaffected. See docs/specs/AUR-443.md's dated postscript.
 	qualitySkipped := false
 	qualityFailed := false
 	if providerErr != nil && *modelo == "" && errors.Is(providerErr, errNoProviderConfigured) {
@@ -866,6 +876,24 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	result.Issues = config.ApplyRuleConfig(result.Issues, repoCfg)
 	securityFindings = config.ApplyRuleConfig(securityFindings, repoCfg)
 
+	// AUR-490 supersedes AUR-443's "summary field" decision (see
+	// docs/specs/AUR-443.md section 7's dated postscript): that section
+	// investigated printing result.Summary here and found it blocked by a
+	// byte-exact stdout contract (tests/acceptance/AUR-426.sh's
+	// review-contract-broken check) that required a zero-issue --base
+	// review to print EXACTLY "No issues found.". This card's own AC-002
+	// requires the opposite: --base must carry the same summary and
+	// Mermaid diagram --pr already does, "sem configuração", so that
+	// review-contract-broken's assumption can no longer hold -- printing
+	// renderLocalReport() below (which includes the summary) on every
+	// --base run, not only when there are issues, is not a side effect,
+	// it is this card's entire point. This is not a live regression to
+	// guard against: tests/acceptance/AUR-426.sh already could not run
+	// against this baseline before this card touched anything -- it
+	// stages cmd/regenerate-docs and tests/unit/AUR-426.go, both removed
+	// by the earlier review-only pivot (670c7f6) -- so no executable gate
+	// anywhere still asserts the old byte-exact shape; only the prose in
+	// AUR-443's spec did, and that prose is now updated to match.
 	printNotices(stdout, filter, notices)
 	// AUR-449: when quality review was skipped, result carries no issues
 	// because no call was ever made -- printing "No issues found." here
