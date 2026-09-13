@@ -13,6 +13,7 @@
   <nav class="topnav" aria-label="Seções da página">
     <a href="#como-funciona">Como funciona</a>
     <a href="#capacidades">Capacidades</a>
+    <a href="#tutoriais">Tutoriais</a>
     <a href="#exemplo">Exemplo real</a>
     <a href="#limites">Limites</a>
     <a href="#instalar">Instalar</a>
@@ -180,6 +181,69 @@
     </div>
   </div>
   <p class="note">Em um runner efêmero do GitHub Actions, <code>review.memory: local</code> não sobrevive sozinho entre execuções — persistir exige cachear o diretório entre jobs; <code>ephemeral</code> nunca persiste, por definição.</p>
+</section>
+
+<section id="tutoriais">
+  <p class="eyebrow">COMO USAR CADA RECURSO</p>
+  <h2>Tutoriais de um minuto</h2>
+  <p>Cada capacidade abaixo tem o comando ou o YAML exato. As que rodam sozinhas não pedem nada para funcionar — a configuração só personaliza.</p>
+
+  <div class="tutorial-grid">
+    <article>
+      <h3>Análise determinística <span class="auto">automática</span></h3>
+      <p>Segredo, SQL e command injection são checados em todo review. Para somar o catálogo completo (XSS + 8 regras):</p>
+      <pre><code>uses: Mpaape/AurumCode/.github/workflows/review.yml@v2
+with:
+  security: true</code></pre>
+    </article>
+
+    <article>
+      <h3>Resumo + diagrama <span class="auto">automático</span></h3>
+      <p>Todo PR ganha um TL;DR e um fluxograma Mermaid do diff. Nada a configurar; o diagrama abre recolhido no comentário.</p>
+    </article>
+
+    <article>
+      <h3>Contexto de codebase <span class="auto">automático</span></h3>
+      <p>O parecer aponta o que mais a mudança afeta no repositório, por heurística limitada. Sem índice, sem configuração.</p>
+    </article>
+
+    <article>
+      <h3>Sugestão de 1 clique</h3>
+      <p>Ancore os achados na linha alterada. No review formal, o GitHub oferece aplicar a substituição:</p>
+      <pre><code>uses: Mpaape/AurumCode/.github/workflows/review.yml@v2
+with:
+  inline_comments: true</code></pre>
+    </article>
+
+    <article>
+      <h3>Memória por repositório</h3>
+      <p>Notas persistem entre execuções. Opcional, desligado por padrão:</p>
+      <pre><code># .aurumcode/config.yml
+review:
+  memory: local</code></pre>
+    </article>
+
+    <article>
+      <h3>Fix por CLI</h3>
+      <p>Converta as sugestões publicadas em um patch aplicável:</p>
+      <pre><code>docker run --rm aurumcode:local fix &lt; review-response.json &gt; fix.patch
+git apply --check fix.patch</code></pre>
+    </article>
+
+    <article>
+      <h3>Custo sob controle</h3>
+      <p>Estima antes de chamar o modelo e recusa acima do teto, sem gastar:</p>
+      <pre><code>docker run --rm aurumcode:local review --base HEAD~1 --limite 0.50</code></pre>
+    </article>
+
+    <article>
+      <h3>Modelo agnóstico</h3>
+      <p>Qualquer endpoint compatível com OpenAI, inclusive local:</p>
+      <pre><code>export LLM_BASE_URL=http://127.0.0.1:11435/v1
+export LLM_API_KEY=qwen-local
+export LLM_MODEL=claude-qwen38</code></pre>
+    </article>
+  </div>
 </section>
 
 <section id="instalar">
