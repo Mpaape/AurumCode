@@ -4,11 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/memory"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/memory"
 )
 
 // memoryDirFor resolves the on-disk directory internal/memory's "local" mode
@@ -104,6 +105,9 @@ func sanitizeMemoryDirComponent(s string) string {
 // repositories through this same function and proves a note saved by one is
 // invisible to the other.
 func newRepoMemory(mode, owner, repoName string) (memory.Store, error) {
+	if strings.TrimSpace(mode) != memory.ModeLocal {
+		return memory.New(mode, "")
+	}
 	dir, err := memoryDirFor(owner, repoName)
 	if err != nil {
 		return nil, err
