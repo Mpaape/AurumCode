@@ -9,14 +9,16 @@ type PromptParts struct {
 
 // BuildOptions configures prompt building
 type BuildOptions struct {
-	MaxTokens     int    // Maximum tokens for the entire prompt
-	SchemaKind    string // Type of schema: "review", "test", "docs", "summary"
-	Role          string // Role context: "reviewer", "tester", "documenter"
-	ReserveReply  int    // Tokens to reserve for the reply
-	CIContext     string // Existing CI/check context, when the caller has it
-	ReviewHistory string // Untrusted, attributed observations from previous PR rounds
-	Language      string // Human-facing review language, e.g. "pt-BR"
-	ChangeScope   string // Deterministic scope classification for the review
+	MaxTokens       int    // Maximum tokens for the entire prompt
+	SchemaKind      string // Type of schema: "review", "test", "docs", "summary"
+	Role            string // Role context: "reviewer", "tester", "documenter"
+	ReserveReply    int    // Tokens to reserve for the reply
+	CIContext       string // Existing CI/check context, when the caller has it
+	ReviewHistory   string // Untrusted, attributed observations from previous PR rounds
+	CodebaseContext string // Untrusted, bounded, heuristic codebase dependency context
+	MemoryNotes     string // Untrusted, attributed observations from review memory
+	Language        string // Human-facing review language, e.g. "pt-BR"
+	ChangeScope     string // Deterministic scope classification for the review
 }
 
 // TokenEstimator estimates token counts for text

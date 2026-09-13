@@ -57,20 +57,27 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/Mpaape/AurumCode/internal/analysis"
 	"github.com/Mpaape/AurumCode/internal/config"
+	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
+	"github.com/Mpaape/AurumCode/internal/memory"
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/internal/testgen"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -203,6 +210,35 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	inlineComments := reviewConfig.Review.InlineComments || naLinha
 	diff = config.FilterIgnoredPaths(diff, reviewConfig)
 
+	// Codebase context (zero-config, bounded heuristic): resolved from the
+	// checkout so the model sees what else the change can affect -- the same
+	// "full repo" advantage Greptile/CodeRabbit offer, without a graph
+	// database. It is an enhancement, never a gate: any failure degrades to
+	// empty context and the review continues on the diff alone.
+	codebaseContextText := ""
+	if pack, cerr := codebaseContextPack(diffPaths(diff)); cerr == nil && pack != nil {
+		if data, merr := json.Marshal(pack); merr == nil {
+			codebaseContextText = string(data)
+		}
+	}
+
+	// Review memory (opt-in, default off): prior findings and preferences
+	// loaded as untrusted observations and saved back after publication.
+	// Memory is observation, never instruction: it cannot change a rule, a
+	// severity, redaction, cost, or the verdict.
+	memoryStore, memoryErr := memory.New(reviewConfig.Review.Memory, "")
+	if memoryErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: review memory unavailable: %s; continuing without it\n", filter.Redact(memoryErr.Error()))
+		memoryStore, _ = memory.New("off", "")
+	}
+	memoryNotesText := ""
+	memoryNotes, _ := memoryStore.Load()
+	if len(memoryNotes) > 0 {
+		if data, merr := json.Marshal(memoryNotes); merr == nil {
+			memoryNotesText = string(data)
+		}
+	}
+
 	// Provider selection (AUR-451): --modelo picks which model reviews,
 	// exactly the --base path's selectProviderForModel; without it,
 	// selectProvider keeps the pre-AUR-451 selection verbatim. Neither
@@ -281,9 +317,11 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	}
 
 	result, err := reviewer.GenerateReviewWithContext(ctx, diff, review.ReviewContext{
-		CI:       readCIContext(),
-		Language: reviewLanguage,
-		History:  history,
+		CI:              readCIContext(),
+		Language:        reviewLanguage,
+		History:         history,
+		CodebaseContext: codebaseContextText,
+		MemoryNotes:     memoryNotesText,
 	})
 	if err != nil {
 		// --limite: the tracker refused before the model was called, so
@@ -340,6 +378,31 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		combined = append(combined, result.Issues...)
 		combined = append(combined, securityFindings...)
 		result.Issues = combined
+	}
+	// Deterministic static analysis (zero-config): findings from the embedded
+	// regex catalog merge with the model findings so security/quality patterns
+	// that need no model are always reported, not only when --seguranca is
+	// given. These carry their own "analysis/*" rule ids and pass the same
+	// rule-config override below.
+	for _, f := range analysis.NewRunner().Analyze(diff) {
+		result.Issues = append(result.Issues, types.ReviewIssue{
+			File:     f.Path,
+			Line:     f.Line,
+			Side:     f.Side,
+			Severity: f.Severity,
+			RuleID:   f.RuleID,
+			Message:  fmt.Sprintf("%s (rule %s)", f.Message, f.RuleID),
+		})
+	}
+	// Deterministic test proposal (zero-config): proposed test cases join the
+	// published test plan so a reviewer gets a concrete "what to test" list.
+	if plan := testgen.Propose(diff); plan != nil {
+		for _, c := range plan.Cases {
+			if strings.TrimSpace(c.Name) == "" {
+				continue
+			}
+			result.TestPlan = append(result.TestPlan, fmt.Sprintf("%s (package %s)", c.Name, c.Package))
+		}
 	}
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
@@ -419,6 +482,16 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	var failures []string
 	inlineCount, generalCount := 0, 0
 	summaryBody := formatReviewSummaryForLanguageAndDiff(result, diff, reviewLanguage)
+	// Rendered summary and flow diagram (zero-config): a concise TL;DR opens
+	// the review and a Mermaid diagram closes it, matching the "summaries and
+	// diagrams" parity of the competing reviewers. Both are deterministic and
+	// derive only from the already-redacted result and diff.
+	if tldr := render.Summary(result, reviewLanguage); strings.TrimSpace(tldr) != "" {
+		summaryBody = tldr + "\n\n---\n\n" + summaryBody
+	}
+	if diagram, merr := render.Mermaid(diff); merr == nil && strings.TrimSpace(diagram) != "" {
+		summaryBody += "\n\n" + diagram
+	}
 	if publication == "review" {
 		if inlineComments {
 			summaryBody = formatFormalReviewSummary(result, diff, reviewLanguage)
@@ -497,6 +570,15 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 
 		fmt.Fprintf(stdout, "%d comentario(s) publicado(s) no pull request #%d (%d na linha, %d geral).\n",
 			inlineCount+generalCount, prNumber, inlineCount, generalCount)
+	}
+
+	// Review memory save (opt-in, default off): persist this round's findings
+	// as observations for the next one. Memory is observation, never
+	// instruction; a save failure is reported and never affects the verdict.
+	if strings.TrimSpace(reviewConfig.Review.Memory) != "" && strings.TrimSpace(reviewConfig.Review.Memory) != "off" {
+		if err := memoryStore.Save(notesFromIssues(memoryNotes, result.Issues)); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: saving review memory: %v\n", filter.Redact(err.Error()))
+		}
 	}
 
 	// The check status is published before the comment-failure return
@@ -1242,4 +1324,45 @@ func writeSummaryField(b *strings.Builder, label, value string) {
 	if strings.TrimSpace(value) != "" {
 		fmt.Fprintf(b, "  - **%s:** %s\n", label, strings.TrimSpace(value))
 	}
+}
+
+// codebaseContextPack resolves bounded codebase dependency context from the
+// current checkout for the changed paths. It is an enhancement, never a gate:
+// the caller degrades to empty context on any error.
+func codebaseContextPack(changed []string) (*codebasectx.Pack, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	return codebasectx.NewResolver().Resolve(cwd, changed)
+}
+
+// notesFromIssues turns this round's findings into review-memory notes,
+// merged with the existing ones and deduplicated by id. It is bounded so a
+// pathological diff cannot grow the memory file without limit.
+func notesFromIssues(existing []memory.Note, issues []types.ReviewIssue) []memory.Note {
+	notes := append([]memory.Note(nil), existing...)
+	seen := make(map[string]bool, len(notes))
+	for _, n := range notes {
+		seen[n.ID] = true
+	}
+	for _, issue := range issues {
+		id := fmt.Sprintf("%s:%s:%d", issue.RuleID, issue.File, issue.Line)
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		notes = append(notes, memory.Note{
+			ID:          id,
+			RuleID:      issue.RuleID,
+			PathPattern: issue.File,
+			Action:      "note",
+			Body:        issue.Message,
+			At:          time.Now(),
+		})
+		if len(notes) >= 500 {
+			break
+		}
+	}
+	return notes
 }
