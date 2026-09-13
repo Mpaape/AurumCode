@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# go-live DIR -- cmd args...
+#
+# Runs a command in a THROWAWAY container that can reach a local model
+# endpoint (e.g. the local Qwen server on 127.0.0.1), for one purpose only:
+# proving a real, LLM-backed capability actually works end to end. This is
+# the ONE place network is ever turned on for anything in this repo's
+# tooling -- go-sealed and go-shared, used for every build/test correctness
+# proof, both stay network=none on purpose. Never use this for build, test,
+# or anything whose correctness must not depend on what a live model says.
+#
+# A credential is read from the caller's environment (e.g. LLM_API_KEY) and
+# passed straight through to the throwaway container's environment -- it is
+# never written to a file, never baked into an image, never logged by this
+# script.
+set -euo pipefail
+usage() { printf 'usage: LLM_API_KEY=... go-live DIR -- cmd args...\n' >&2; exit 2; }
+(($# >= 1)) || usage
+dir="$1"; shift
+[[ "${1:-}" == "--" ]] && shift
+(($# >= 1)) || usage
+[[ -d "$dir" ]] || { printf 'go-live: not a directory: %s\n' "$dir" >&2; exit 2; }
+
+image="${GO_LIVE_IMAGE:-aurumcode-test-img:1.21}"
+
+engine=''
+if command -v podman >/dev/null 2>&1; then engine=podman
+elif command -v docker >/dev/null 2>&1; then engine=docker
+else printf 'go-live: no container engine\n' >&2; exit 69; fi
+
+"$engine" image inspect "$image" >/dev/null 2>&1 ||
+  { printf 'go-live: image %s is not present\n' "$image" >&2; exit 69; }
+
+env_args=()
+for v in LLM_API_KEY LLM_BASE_URL LLM_MODEL AURUMCODE_LLM_FIXTURE; do
+  [[ -n "${!v:-}" ]] && env_args+=(-e "$v")
+done
+
+exec "$engine" run --rm --pull=never --network=host \
+  --memory="${GO_LIVE_MEMORY:-1g}" --memory-swap="${GO_LIVE_MEMORY:-1g}" \
+  --cpus="${GO_LIVE_CPUS:-1}" --pids-limit=128 \
+  -v "$(cd "$dir" && pwd -P):/work:ro" -w /work \
+  "${env_args[@]}" -e HOME=/tmp \
+  "$image" "$@"

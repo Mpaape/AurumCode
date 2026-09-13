@@ -1,0 +1,20 @@
+{
+ "schema": "aurum.delivery-record",
+ "version": 1,
+ "card": "AUR-490",
+ "commit": "792efcea73c25e004b86e9f1fe0b4ff747e5025b",
+ "review": "approved",
+ "validation": "passed",
+ "validator_run": {
+  "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-490",
+  "exit_code": 0,
+  "raw_output": "exit 0 on the merge commit; input_manifest_digest sha256:40b2257af95ae70be08570b4cb9cfca68bfb61904268fa80d2b01339e4062308, stdout_sha256 sha256:2d96417bc089a1a651c40e2efd5faa8218f5b346c72bd6de3e2198b6f0bfc7a1"
+ },
+ "review_notes": {
+  "candidate": "1e03b8f (content), 10dc7f3 (approved, card/AUR-490)",
+  "round_1": "REQUEST_CHANGES. Two blockers, same root cause, reproduced against baseline and candidate binaries directly: this card deliberately reverses AUR-443's byte-exact 'No issues found.' stdout and its unconditional exit-1-with-no-provider, because AC-001/AC-002 require exactly that. The comment recording the old constraint was deleted rather than replaced with an acknowledgment of the reversal.",
+  "coordinator_fix": "Restored an updated comment at the exact site, explaining the supersession; added a dated postscript to docs/specs/AUR-443.md (section 7 and the exit-code table) recording the reversal and that tests/acceptance/AUR-426.sh -- the acceptance that owned the old contract -- was already dead before this card (stages cmd/regenerate-docs and tests/unit/AUR-426.go, both removed by the earlier review-only pivot 670c7f6).",
+  "round_2": "A third, mechanical blocker: the paths widening authorizing the AUR-443.md edit had been committed on main, not on the candidate's own branch. Cherry-picked onto card/AUR-490 (10dc7f3) so the authorization travels in the same history as what it authorizes.",
+  "round_3": "APPROVE of 10dc7f3, independently reproduced: commit chain, diffstat, path-file content, authorship, and byte-identical functional behavior to the already-exhaustively-tested 1e03b8f."
+ }
+}
