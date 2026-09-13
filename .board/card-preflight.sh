@@ -173,20 +173,28 @@ if ((${#built_commands[@]} > 0)); then
       done
       return 0
     }
+    # Go never runs on the host (owner's rule): the closure comes from a
+    # throwaway sealed container over the worktree. Its exit code is checked
+    # BEFORE the list is consumed -- an engine failure inside a process
+    # substitution would read as an empty closure and pass silently.
+    closure_file="$(mktemp)"
+    if ! "$worktree/.board/bin/go-sealed" "$worktree" list -deps "${built_commands[@]}" >"$closure_file" 2>/dev/null; then
+      printf 'preflight error: could not derive the build closure of %s in the sealed container; Go does not run on the host\n' \
+        "${built_commands[*]}" >&2
+      rm -f "$closure_file"
+      exit 69
+    fi
     closure_missing=()
     while IFS= read -r pkg; do
       [[ -n "$pkg" ]] || continue
       package_is_materialized "$pkg" || closure_missing+=("$pkg")
-    done < <(
-      ( cd "$worktree" && ulimit -v 8388608 && GOMEMLIMIT=2GiB \
-        go list -deps "${built_commands[@]}" 2>/dev/null ) |
-        sed -n 's|^github.com/Mpaape/AurumCode/||p' | sort -u
-    )
+    done < <(sed -n 's|^github.com/Mpaape/AurumCode/||p' "$closure_file" | sort -u)
+    rm -f "$closure_file"
     if ((${#closure_missing[@]} > 0)); then
       printf 'preflight error: acceptance builds %s but these imported packages are in neither paths nor read_paths:\n' \
         "${built_commands[*]}" >&2
       printf '  %s\n' "${closure_missing[@]}" >&2
-      printf 'preflight hint: derive the set with: go list -deps %s\n' "${built_commands[*]}" >&2
+      printf 'preflight hint: derive the set with: .board/bin/go-sealed . list -deps %s\n' "${built_commands[*]}" >&2
       exit 1
     fi
   fi
