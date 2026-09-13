@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# go-sealed DIR go-args...
+#
+# Runs the Go toolchain over DIR inside a throwaway sealed container: no
+# network, read-only source, memory-capped, module cache mounted read-only.
+# The owner's rule is absolute -- Go never runs on the host -- so when the
+# container engine or image is missing this exits 69 (infrastructure) rather
+# than falling back to a host toolchain.
+set -euo pipefail
+
+usage() { printf 'usage: go-sealed DIR go-args...\n' >&2; exit 2; }
+(($# >= 2)) || usage
+dir="$1"; shift
+[[ -d "$dir" ]] || { printf 'go-sealed: not a directory: %s\n' "$dir" >&2; exit 2; }
+
+image="${GO_SEALED_IMAGE:-aurumcode-test-img:1.21}"
+modcache="${GO_SEALED_MODCACHE:-$HOME/go/pkg/mod}"
+
+engine=''
+if command -v podman >/dev/null 2>&1; then engine=podman
+elif command -v docker >/dev/null 2>&1; then engine=docker
+else printf 'go-sealed: no container engine; Go does not run on the host\n' >&2; exit 69; fi
+
+"$engine" image inspect "$image" >/dev/null 2>&1 ||
+  { printf 'go-sealed: image %s is not present; Go does not run on the host\n' "$image" >&2; exit 69; }
+
+mod_mount=()
+[[ -d "$modcache" ]] && mod_mount=(-v "$modcache:/go/pkg/mod:ro")
+
+exec "$engine" run --rm --pull=never --network=none \
+  --memory="${GO_SEALED_MEMORY:-2g}" --memory-swap="${GO_SEALED_MEMORY:-2g}" \
+  --cpus="${GO_SEALED_CPUS:-2}" --pids-limit=256 \
+  -v "$(cd "$dir" && pwd -P):/src:ro" "${mod_mount[@]}" -w /src \
+  -e GOFLAGS='-mod=mod -buildvcs=false' -e GOPROXY=off -e GOMEMLIMIT=1GiB \
+  -e GOCACHE=/tmp/gocache -e HOME=/tmp \
+  "$image" go "$@"
