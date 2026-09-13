@@ -195,6 +195,58 @@ func TestConcurrentAccess(t *testing.T) {
 	}
 }
 
+// TestAUR489MemoryScope pins AC-001: "local" memory is per-repository, never
+// one process-wide file. It reproduces the exact adversarial-review scenario
+// (2026-09-13) at the internal/memory layer: a note saved under "repo A"'s
+// directory must never be visible to "repo B"'s directory. Before this card,
+// the caller (cmd/aurumcode/pr.go:229) passed memory.New(mode, "") for every
+// repository, so both "repo A" and "repo B" resolved to the SAME dir
+// (os.UserCacheDir()/aurumcode) and this test would see repo B load repo
+// A's note. See TestAUR489PRMemoryDirNotEmpty (cmd/aurumcode) for the
+// caller-side half of the same proof.
+func TestAUR489MemoryScope(t *testing.T) {
+	root := t.TempDir()
+	repoA := filepath.Join(root, "repo-a")
+	repoB := filepath.Join(root, "repo-b")
+
+	storeA, err := New(ModeLocal, repoA)
+	if err != nil {
+		t.Fatalf("New(repoA): %v", err)
+	}
+	note := Note{ID: "n1", RuleID: "r1", PathPattern: "*.go", Action: "note", Author: "alice", At: time.Now(), Body: "repo A only"}
+	if err := storeA.Save([]Note{note}); err != nil {
+		t.Fatalf("Save into repoA: %v", err)
+	}
+
+	gotA, err := storeA.Load()
+	if err != nil {
+		t.Fatalf("Load repoA: %v", err)
+	}
+	if len(gotA) != 1 {
+		t.Fatalf("repoA Load = %d notes, want 1", len(gotA))
+	}
+
+	storeB, err := New(ModeLocal, repoB)
+	if err != nil {
+		t.Fatalf("New(repoB): %v", err)
+	}
+	gotB, err := storeB.Load()
+	if err != nil {
+		t.Fatalf("Load repoB: %v", err)
+	}
+	if len(gotB) != 0 {
+		t.Fatalf("repoB leaked %d note(s) saved under repoA; memory must be scoped per repository, got %#v", len(gotB), gotB)
+	}
+
+	// The two repositories must not even share a directory on disk.
+	if repoA == repoB {
+		t.Fatal("test setup produced identical repo dirs")
+	}
+	if _, err := os.Stat(filepath.Join(repoB, localFileName)); err == nil {
+		t.Fatal("repoB has its own notes.json even though nothing was ever saved to it")
+	}
+}
+
 func roundTrip(t *testing.T, store Store, in []Note) {
 	t.Helper()
 	got, err := store.Load()

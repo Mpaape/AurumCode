@@ -269,6 +269,14 @@ func printVersion(stdout io.Writer) {
 // review-response.json` works directly), builds the patch safely
 // (internal/apply fails closed on any unsafe suggestion), and prints the
 // patch to stdout -- it never modifies the repository or a remote.
+//
+// AUR-489/AC-003: before printing a non-empty patch and exiting 0, the
+// patch is checked against the REAL working tree rooted at the current
+// directory (validateFixPatch, fixvalidate.go). Before this card, a
+// suggestion fabricated with a current_code that did not exist anywhere in
+// the named file still produced a patch and a silent exit 0 -- runFix
+// never read the file at all. A patch that does not apply now exits 1 and
+// names the offending file and line on stderr.
 func runFix(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
 	file := fs.String("file", "", "JSON file with review suggestions or a review response (default: stdin)")
@@ -291,12 +299,29 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "aurumcode fix: parsing suggestions: %v\n", err)
 		return 1
 	}
+	// BuildPlan and BuildPatch are both pure functions of the exact same
+	// suggestions slice (package apply's own doc comment), so the plan
+	// used to validate and the patch printed on success can never diverge.
+	plan, err := apply.BuildPlan(suggestions)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
+		return 1
+	}
 	patch, err := apply.BuildPatch(suggestions)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
 		return 1
 	}
 	if strings.TrimSpace(patch) != "" {
+		dir, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
+			return 1
+		}
+		if err := validateFixPatch(dir, patch, plan); err != nil {
+			fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
+			return 1
+		}
 		fmt.Fprintln(stdout, patch)
 	}
 	return 0
