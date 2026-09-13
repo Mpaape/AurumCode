@@ -56,11 +56,34 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve tool ref
+        id: resolve-tool-ref
+        run: |
+          set -euo pipefail
+          # AUR-493-EXTRACT-BEGIN
+          # The consumer pins `uses: Mpaape/AurumCode/.github/workflows/review.yml@<ref>`.
+          # github.workflow_ref carries that same pin as
+          # "<owner>/<repo>/<path-to-this-file>@<ref>"; everything after the
+          # last "@" is the ref that must be built, so the image matches
+          # whatever tag or branch the caller actually pinned. When this
+          # workflow is invoked by its local path (no "@<ref>", e.g. this
+          # repository's own ./.github/workflows/review.yml self-review),
+          # github.workflow_ref comes back empty and the ref to build is
+          # this run's own commit, github.sha.
+          workflow_ref="${{ github.workflow_ref }}"
+          if [ -z "$workflow_ref" ]; then
+            tool_ref="${{ github.sha }}"
+          else
+            tool_ref="${workflow_ref##*@}"
+          fi
+          # AUR-493-EXTRACT-END
+          printf 'ref=%s\n' "$tool_ref" >> "$GITHUB_OUTPUT"
+
       - name: Checkout AurumCode
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: Mpaape/AurumCode
-          ref: main
+          ref: ${{ steps.resolve-tool-ref.outputs.ref }}
           path: .aurumcode-tool
           fetch-depth: 1
 
