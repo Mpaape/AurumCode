@@ -278,6 +278,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	reserve := fixedReserve
 	var trimmedSegments []ContextSegment
 	var coverages []fileCoverage
+	var total int
 	for {
 		trimmedSegments = budget.TrimToFit(codeSegments, fixedTokens+reserve)
 		coverages = classifyCodeCoverage(codePaths, totals, coveredHunkCounts(trimmedSegments))
@@ -288,7 +289,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 		// the estimator floors each part, so summing parts undercounts the
 		// concatenation by up to one token per part. Converge on the whole.
 		userText := b.buildUserContent(trimmedSegments, metrics, opts.CIContext) + history + codebase + memoryNotes + "\n" + renderCoverageDeclaration(coverages, prosePaths)
-		total := b.estimator.Estimate(basePrompt + userText)
+		total = b.estimator.Estimate(basePrompt + userText)
 		if total <= opts.MaxTokens {
 			break
 		}
@@ -301,11 +302,11 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 		reserve += total - opts.MaxTokens
 	}
 
-	// AC-003: after the minimal reservation (header + prose), not even one
-	// code hunk fit. Refuse loudly instead of shipping a review prompt with
-	// no diff in it -- a request the model can only answer by inventing
-	// findings.
-	if opts.MaxTokens > 0 && len(codeSegments) > 0 && len(trimmedSegments) == 0 {
+	// AC-003: after the minimal reservation (header + prose), the assembled
+	// prompt still does not fit -- because no code hunk fits, or because the
+	// unbounded prose list alone overflows the budget. Refuse loudly instead
+	// of shipping a prompt that exceeds MaxTokens.
+	if opts.MaxTokens > 0 && len(trimmedSegments) == 0 && total > opts.MaxTokens {
 		return PromptParts{}, fmt.Errorf(
 			"prompt instructions and fixed content need %d tokens and the reply reserves %d, which leaves no room for a single code change in the %d-token budget: refusing to assemble a %s prompt with no diff in it",
 			fixedTokens, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
