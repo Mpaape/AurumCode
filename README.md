@@ -37,9 +37,16 @@ Um filtro exige linha adicionada ou removida, regra reconhecida e campos de evid
 impacto e verificação; não verifica automaticamente a veracidade do raciocínio.
 
 No PR, o contexto inclui o diff, os arquivos configurados, o CI fornecido e as
-reviews, comentários e respostas já publicados no GitHub. Não é necessário
-configurar armazenamento. Ainda não há navegação autônoma, busca web, cálculo
-incremental entre rodadas ou deduplicação garantida. O resultado depende do modelo.
+reviews, comentários e respostas já publicados no GitHub. Ainda sem configuração,
+o review também ganha: análise estática determinística (catálogo embutido de
+segurança/qualidade), contexto de codebase limitado por heurística (quem mais o
+mudança afeta), um resumo TL;DR e um diagrama Mermaid do fluxo alterado, e uma
+lista proposta de testes. `aurumcode fix` converte as sugestões em um diff
+unificado aplicável. A memória entre revisões é opt-in (`review.memory:
+local|ephemeral`), padrão desligado.
+
+Ainda não há navegação autônoma, busca web, execução automática de testes em
+sandbox ou deduplicação garantida. O resultado semântico depende do modelo.
 
 ## Executar e desenvolver
 

@@ -141,6 +141,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -153,6 +154,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
+	"github.com/Mpaape/AurumCode/internal/apply"
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
@@ -226,6 +228,8 @@ func run(args []string, stdout, stderr *os.File) int {
 		return 0
 	case "review":
 		return runReview(args[1:], stdout, errW, filter)
+	case "fix":
+		return runFix(args[1:], stdout, errW)
 	default:
 		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2
@@ -245,16 +249,65 @@ func printTopLevelHelp(stdout io.Writer) {
 	fmt.Fprintln(stdout)
 	fmt.Fprintln(stdout, "Commands:")
 	fmt.Fprintln(stdout, "  review   Review a git diff with the configured model and publish or gate the findings.")
+	fmt.Fprintln(stdout, "  fix      Turn review suggestions into an applyable unified diff (one-click fix).")
 	fmt.Fprintln(stdout)
 	fmt.Fprintln(stdout, `Run "aurumcode <command> --help" for that command's own flags.`)
 	fmt.Fprintln(stdout)
 	fmt.Fprintln(stdout, "Example:")
 	fmt.Fprintln(stdout, "  aurumcode review --base HEAD~1")
+	fmt.Fprintln(stdout, "  aurumcode fix --file suggestions.json > fix.patch")
 }
 
 // printVersion answers `aurumcode --version` / `aurumcode version`.
 func printVersion(stdout io.Writer) {
 	fmt.Fprintf(stdout, "aurumcode %s\n", version)
+}
+
+// runFix turns review suggestions into an applyable unified diff (one-click
+// fix). It reads a JSON array of ReviewSuggestion objects from --file or
+// stdin, builds the patch safely (internal/apply fails closed on any unsafe
+// suggestion), and prints the patch to stdout -- it never modifies the
+// repository or a remote. An unsafe suggestion is skipped; a patch that would
+// touch nothing prints nothing.
+func runFix(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
+	file := fs.String("file", "", "JSON file of review suggestions (default: stdin)")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprintln(stdout, "usage: aurumcode fix [--file suggestions.json]")
+			fmt.Fprintln(stdout, "Reads a JSON array of review suggestions and prints a unified diff.")
+			return 0
+		}
+		return 2
+	}
+	data, err := readFixSuggestions(*file)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
+		return 1
+	}
+	var suggestions []types.ReviewSuggestion
+	if err := json.Unmarshal(data, &suggestions); err != nil {
+		fmt.Fprintf(stderr, "aurumcode fix: parsing suggestions: %v\n", err)
+		return 1
+	}
+	patch, err := apply.BuildPatch(suggestions)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
+		return 1
+	}
+	if strings.TrimSpace(patch) != "" {
+		fmt.Fprintln(stdout, patch)
+	}
+	return 0
+}
+
+// readFixSuggestions reads the suggestions JSON from --file, or from stdin
+// when --file is empty.
+func readFixSuggestions(file string) ([]byte, error) {
+	if strings.TrimSpace(file) != "" {
+		return os.ReadFile(file)
+	}
+	return io.ReadAll(os.Stdin)
 }
 
 func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int {

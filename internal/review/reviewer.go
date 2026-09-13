@@ -50,9 +50,11 @@ type Config struct {
 // kept separate from the diff so a caller can add CI status without changing
 // the code-review input shape or requiring repository-specific prompt files.
 type ReviewContext struct {
-	CI       string
-	Language string
-	History  string // Attributed PR observations, not review instructions
+	CI              string
+	Language        string
+	History         string // Attributed PR observations, not review instructions
+	CodebaseContext string // Untrusted, bounded, heuristic codebase dependency context
+	MemoryNotes     string // Untrusted, attributed observations from review memory
 }
 
 // DefaultConfig returns sensible defaults for Config.
@@ -126,13 +128,15 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 
 	// Build prompt with token budgeting
 	opts := prompt.BuildOptions{
-		MaxTokens:     cfg.MaxTokens,
-		SchemaKind:    "review",
-		Role:          "reviewer",
-		ReserveReply:  cfg.ReserveReply,
-		CIContext:     r.filter.Redact(reviewContext.CI),
-		ReviewHistory: r.filter.Redact(reviewContext.History),
-		Language:      reviewContext.Language,
+		MaxTokens:       cfg.MaxTokens,
+		SchemaKind:      "review",
+		Role:            "reviewer",
+		ReserveReply:    cfg.ReserveReply,
+		CIContext:       r.filter.Redact(reviewContext.CI),
+		ReviewHistory:   r.filter.Redact(reviewContext.History),
+		CodebaseContext: r.filter.Redact(reviewContext.CodebaseContext),
+		MemoryNotes:     r.filter.Redact(reviewContext.MemoryNotes),
+		Language:        reviewContext.Language,
 	}
 
 	promptParts, err := r.promptBuilder.BuildPrompt(diff, metrics, opts)

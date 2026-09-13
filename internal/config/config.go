@@ -86,6 +86,9 @@ type ReviewConfig struct {
 	Publication    string              `yaml:"publication"`
 	InlineComments bool                `yaml:"inline_comments"`
 	Context        ReviewContextConfig `yaml:"context"`
+	// Memory selects the review memory mode: "off" (default, stateless),
+	// "ephemeral" (in-process) or "local" (persisted under the cache dir).
+	Memory string `yaml:"memory"`
 }
 
 // DefaultReviewPublication preserves the original PR behavior for callers

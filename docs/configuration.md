@@ -71,6 +71,10 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
 
 - `ignore`: lista de globs de caminhos a excluir antes da análise.
 - `rules`: overrides explícitos de regras reconhecidas, por identificador.
+- `review.memory`: `off` (padrão, sem estado), `ephemeral` (em processo) ou
+  `local` (persistido no diretório de cache). Memória guarda observações de
+  revisões anteriores para reduzir repetição; nunca altera regras, severidade
+  ou veredito.
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.
   Ele publica um status de commit; só bloqueia merge se exigido pela branch.
 - Action Docker direta: usa `Mpaape/AurumCode@main`, exige
@@ -79,6 +83,11 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
 - Localmente, `.aurumcode/instructions/*.md` pode usar front matter
   `applyTo` para escopo por caminho. O fluxo remoto usa os arquivos
   explicitamente listados em `review.context`.
+
+Sem configuração, o review já inclui análise estática determinística, contexto
+de codebase limitado, resumo e diagrama Mermaid; essas capacidades funcionam
+com os padrões, sem nenhum arquivo. `aurumcode fix` converte as sugestões de
+uma revisão em um diff unificado aplicável.
 
 `inline_comments: true` na configuração é cumulativo com o input do workflow;
 para desligá-lo, remova-o do arquivo ou defina false e não habilite o input.
