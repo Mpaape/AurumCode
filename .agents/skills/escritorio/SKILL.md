@@ -389,3 +389,17 @@ seguinte. E faca a reescrita sair diferente de zero quando nao disparar, para
 que uma mudanca futura quebre alto em vez de transformar o mutante em no-op
 silencioso -- um mutante que nao muda nada deixa o aceite verde sem provar coisa
 alguma.
+
+## Um ambiente para todos (limite duro, 2026-09-13)
+
+Go nunca roda no host. `./.board/bin/go-shared up` sobe ou reaproveita o UNICO
+container de trabalho (`aurum-go`: rede zero, repo e worktrees montados nos
+caminhos do host, volume canonico `aurumcode-gocache`). Builder, revisor e
+coordenador rodam tudo por `./.board/bin/go-shared exec -w <worktree> ...`.
+Nenhum agente cria imagem, container ou volume proprio -- o dono encontrou oito
+volumes de cache e duas imagens por-review deixados por sessoes anteriores.
+
+O revisor executa no ambiente em que o builder compilou, com o mesmo cache; nao
+rebuilda o modulo do zero. O aceite selado `oci-run` e o portao de integracao do
+coordenador, uma vez por card, nunca ferramenta de rodada. `./.board/bin/office-clean`
+fecha a sessao; ele so remove o que e nosso.
