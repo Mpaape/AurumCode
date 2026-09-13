@@ -72,7 +72,12 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
 - `ignore`: lista de globs de caminhos a excluir antes da análise.
 - `rules`: overrides explícitos de regras reconhecidas, por identificador.
 - `review.memory`: `off` (padrão, sem estado), `ephemeral` (em processo) ou
-  `local` (persistido no diretório de cache). Memória guarda observações de
+  `local` (persistido por repositório no diretório de cache). No review de PR,
+  o arquivo fica em `$XDG_CACHE_HOME/aurumcode/memory/repo/OWNER/REPO/notes.json`
+  (ou no cache padrão do sistema quando `XDG_CACHE_HOME` está ausente).
+  Sem coordenadas do GitHub, a identidade usa um hash do remote origin ou do
+  caminho absoluto do checkout. O antigo cache global não é importado nem apagado.
+  Memória guarda observações de
   revisões anteriores para reduzir repetição; nunca altera regras, severidade
   ou veredito.
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.

@@ -24,7 +24,7 @@ func TestPRPathMergesDeterministicCapabilities(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && r.URL.Path == "/repos/team/project/pulls/7":
-			fmt.Fprint(w, "diff --git a/config.go b/config.go\n@@ -1,1 +1,1 @@\n-foo := 1\n+password = \"hunter2\"\n")
+			fmt.Fprint(w, "diff --git a/config.go b/config.go\n@@ -1,1 +1,1 @@\n-foo := 1\n+password = \"hunter2-super-secret\"\n")
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/contents/"):
 			w.WriteHeader(404)
 		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/reviews"):
