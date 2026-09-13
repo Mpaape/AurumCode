@@ -1,4 +1,21 @@
 "use strict";
+const language = document.getElementById("language");
+const publication = document.getElementById("publication");
+const inline = document.getElementById("inline");
+function updateConfig() {
+  const lines = [];
+  if (language.value !== "en-US") lines.push("  language: " + language.value);
+  if (publication.value !== "comments") lines.push("  publication: " + publication.value);
+  if (inline.checked) lines.push("  inline_comments: true");
+  document.getElementById("config-code").textContent = lines.length
+    ? "review:\n" + lines.join("\n")
+    : "# Não é necessário criar .aurumcode.yaml para usar os padrões.";
+}
+if (language && publication && inline) {
+  document.querySelector(".config-controls").hidden = false;
+  [language, publication, inline].forEach(control => control.addEventListener("change", updateConfig));
+  updateConfig();
+}
 // Progressive enhancement only: every snippet on this page is already static,
 // inline HTML (see index.html's #workflow-code). Without this script the page
 // is fully readable and copyable by hand; with it, a click copies the code
@@ -14,6 +31,7 @@ function feedback(message) {
 }
 
 document.querySelectorAll("[data-copy]").forEach(button => {
+  button.hidden = false;
   button.addEventListener("click", async () => {
     const code = document.getElementById(button.dataset.copy);
     if (!code) return;
@@ -34,7 +52,7 @@ document.querySelectorAll("[data-copy]").forEach(button => {
 // Highlight the current section in the top nav while scrolling. Cosmetic
 // only: the nav links work as plain anchors with no script at all.
 const links = [...document.querySelectorAll(".topnav a")];
-if (links.length) {
+if (links.length && "IntersectionObserver" in window) {
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;

@@ -3,43 +3,59 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="AurumCode: code review de pull request pelo GitHub Actions. Gratuito, open source, um binário Go — sem serviço para assinar.">
-<meta name="theme-color" content="#f6f4ee"><title>AurumCode — code review no GitHub Actions</title>
+<meta name="theme-color" content="#f7f3e9"><title>AurumCode — menos ruído, mais código</title>
 <link rel="icon" href="mark.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"><script src="app.js" defer></script>
 </head>
 <body>
-<a class="skip" href="#hero">Pular para o conteúdo</a>
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
 <header class="topbar">
-  <a class="brand" href="#hero"><img src="mark.svg" width="28" height="28" alt="">Aurum<span>Code</span></a>
+  <a class="brand" href="#inicio"><img src="mark.svg" width="28" height="28" alt="">Aurum<span>Code</span></a>
   <nav class="topnav" aria-label="Seções da página">
     <a href="#como-funciona">Como funciona</a>
     <a href="#capacidades">Capacidades</a>
-    <a href="#tutoriais">Tutoriais</a>
     <a href="#exemplo">Exemplo real</a>
     <a href="#limites">Limites</a>
+    <a href="#tutoriais">Tutoriais</a>
     <a href="#instalar">Instalar</a>
   </nav>
   <a class="button ghost repo-link" href="https://github.com/Mpaape/AurumCode">GitHub ↗</a>
 </header>
 
-<main id="conteudo">
+<main id="conteudo" tabindex="-1">
 
 <section id="hero" class="hero">
-  <p class="chips">
-    <span class="chip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h6l-1 7 9-11h-6z"/></svg>GitHub Actions</span>
-    <span class="chip">gratuito</span>
-    <span class="chip">open source</span>
-  </p>
-  <h1>Code review de <em>pull request</em>,<br>publicado pelo seu próprio GitHub Actions.</h1>
-  <p class="lead">A cada PR, o AurumCode roda um code review completo: analisa segredo, SQL e command injection sem configurar nada, resume a mudança e comenta na linha certa. Gratuito e open source — o workflow roda dentro da sua própria conta, com seu modelo.</p>
+  <span id="inicio"></span>
+  <p class="eyebrow">CODE REVIEW · GITHUB ACTIONS · OPEN SOURCE</p>
+  <h1>Menos ruído.<br>Mais <em>código.</em></h1>
   <div class="actions">
-    <a class="button primary" href="#instalar">Instalar em 2 minutos →</a>
+    <a class="button primary" href="#instalar">Começar no meu repositório ↗</a>
     <a class="button ghost" href="#exemplo">Ver um comentário real ↓</a>
+  </div>
+  <p class="lead">Seu próximo pull request merece uma boa conversa. AurumCode combina revisão por IA, análise estática e contexto do PR. No seu GitHub Actions. Com o modelo que você escolher.</p>
+  <p class="hero-license">Gratuito sob licença MIT. Seu provedor de IA e o GitHub Actions podem gerar custos.</p>
+  <div class="hero-stage" aria-label="Ilustração do fluxo de revisão, não uma captura do produto">
+    <div class="stage-label"><span class="status-dot"></span> SEU CÓDIGO. SEU WORKFLOW. <span>01 / REVIEW</span></div>
+    <div class="stage-content">
+      <div class="diff-window">
+        <div class="window-head">pull request <span class="window-tag">diff ilustrativo</span></div>
+        <pre aria-label="Exemplo ilustrativo de SQL parametrizado"><code><span class="diff-context">  def find_user(user_id):</span>
+<span class="diff-remove">−   query = "SELECT * FROM users " + user_id</span>
+<span class="diff-add">+   query = "SELECT * FROM users WHERE id = ?"</span>
+<span class="diff-add">+   return db.execute(query, (user_id,))</span></code></pre>
+        <div class="diff-bottom"><span>diff + contexto do PR</span><span aria-hidden="true">→</span><span>parecer para você decidir</span></div>
+      </div>
+      <div class="stage-aside">
+        <svg class="orbit" viewBox="0 0 200 160" aria-hidden="true"><ellipse cx="100" cy="80" rx="85" ry="46"/><ellipse cx="100" cy="80" rx="85" ry="46" transform="rotate(60 100 80)"/><ellipse cx="100" cy="80" rx="85" ry="46" transform="rotate(120 100 80)"/><path d="m100 48 24 52h-13l-11-27-11 27H76z"/><circle cx="170" cy="55" r="5"/></svg>
+        <p>O review ajuda.<br><strong>A decisão é sua.</strong></p>
+      </div>
+    </div>
+    <div class="stage-foot"><span>Um binário Go</span><span>Sem servidor adicional</span><span>Sem assinatura do AurumCode</span></div>
   </div>
 </section>
 
 <section id="como-funciona">
   <p class="eyebrow">DO REPOSITÓRIO AO PRIMEIRO PARECER</p>
-  <h2>Três passos, nenhum servidor para manter</h2>
+  <h2>Do commit à conversa.<br>Sem mais um servidor.</h2>
   <ol class="steps">
     <li><span class="step-num" aria-hidden="true">1</span>
       <h3>Adicione o workflow</h3>
@@ -51,86 +67,145 @@
     </li>
     <li><span class="step-num" aria-hidden="true">3</span>
       <h3>Abra um pull request</h3>
-      <p>O job roda a cada novo commit do PR e publica comentário, resumo e diagrama na aba <strong>Conversation</strong>.</p>
+      <p>O job roda nos eventos configurados e publica o parecer no PR. Com o provedor configurado, inclui a revisão por IA.</p>
     </li>
   </ol>
 </section>
 
 <section id="capacidades">
   <p class="eyebrow">O QUE JÁ ESTÁ NO BINÁRIO</p>
-  <h2>Oito capacidades, zero serviço adicional</h2>
+  <h2>Mais contexto para revisar.<br>Mais espaço para construir.</h2>
+  <p class="section-intro">Uma alternativa aberta às ferramentas de review por assinatura. Do entendimento da mudança à sugestão de correção, com limites à vista.</p>
   <div class="capacity-grid">
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/><path d="m9 10 2.2 2.2L16 8" stroke-width="1.6"/></svg>
       <h3>Sugestão de 1 clique</h3>
-      <p>Comentários ancorados na linha alterada (<code>--na-linha</code>). Quando o GitHub reconhece a substituição, oferece aplicar — o autor decide.</p>
+      <p>Sugestões na linha alterada com <code>--na-linha</code>. Você decide o que aplicar.</p>
     </article>
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/><path d="M6.5 10v4a2 2 0 0 0 2 2H14" stroke-width="1.6"/></svg>
       <h3>Resumo e diagrama</h3>
-      <p>Todo PR recebe um TL;DR e um fluxograma Mermaid do que mudou, gerado a partir do próprio diff, sem configurar nada.</p>
+      <p>TL;DR e fluxograma Mermaid ajudam a entender a mudança do PR.</p>
     </article>
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 7.7 8 9 4.6-1.3 8-4 8-9V6z"/></svg>
       <h3>Análise determinística</h3>
-      <p>Segredo, SQL e command injection são checados em toda revisão. <code>--seguranca</code> soma XSS e o catálogo completo de 8 regras.</p>
+      <p>Checagens estáticas do diff. <code>--seguranca</code> ativa os 4 matchers do catálogo.</p>
     </article>
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m20 20-4.7-4.7" stroke-width="1.8"/></svg>
       <h3>Contexto de codebase</h3>
-      <p>O parecer aponta o que mais a mudança pode afetar no repositório, além do diff isolado — por heurística, não por índice completo.</p>
+      <p>Histórico do PR e contexto por heurística, além das linhas alteradas.</p>
     </article>
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" stroke-width="1.6"/></svg>
       <h3>Memória por repositório</h3>
-      <p>Notas de revisão persistem entre execuções (<code>review.memory: local</code>). Observação para o próximo round — nunca aprovação automática.</p>
+      <p>Notas opcionais com <code>review.memory: local</code>. No CI, exigem persistência do cache.</p>
     </article>
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4" stroke-width="1.6"/></svg>
       <h3>Fix por CLI</h3>
-      <p><code>aurumcode fix</code> converte as sugestões publicadas em um patch aplicável, sem depender da interface do GitHub.</p>
+      <p><code>aurumcode fix</code> transforma sugestões em patch para aplicar pela CLI.</p>
     </article>
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 9l4 5 3-4 4 8" stroke-width="1.6"/><path d="M4 21h16" stroke-width="1.6"/></svg>
       <h3>Custo sob controle</h3>
-      <p><code>--limite</code> estima o gasto antes de chamar o modelo e recusa a chamada acima do teto — sem gastar nada nesse caso.</p>
+      <p><code>--limite</code> recusa a chamada se a estimativa exceder o teto configurado.</p>
     </article>
     <article>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><circle cx="18" cy="18" r="2.6"/><path d="M8.3 7.3 15.7 15.7M15.7 8.3 8.3 15.7" stroke-width="1.4"/></svg>
       <h3>Modelo agnóstico</h3>
-      <p>Qualquer endpoint compatível com OpenAI. Configure <code>LLM_BASE_URL</code>, <code>LLM_API_KEY</code> e, se precisar, <code>LLM_MODEL</code>.</p>
+      <p>Conecte seu endpoint compatível com a API OpenAI. A escolha do provedor é sua.</p>
     </article>
   </div>
   <div class="actions center">
-    <a class="button primary" href="#instalar">Instalar em 2 minutos →</a>
+    <a class="button primary" href="#instalar">Levar para o meu workflow ↗</a>
   </div>
 </section>
 
 <section id="exemplo">
-  <p class="eyebrow">ACHADO REAL, SEM EDIÇÃO</p>
-  <h2>Um comentário que o próprio bot publicou</h2>
-  <p>Retirado do PR #1 do repositório de demonstração público, gerado pelo workflow reutilizável sem provedor de LLM configurado — só a análise de segurança determinística.</p>
+  <p class="eyebrow">PROVA ABERTA · PR #1</p>
+  <h2>Não precisa acreditar.<br>Pode abrir o pull request.</h2>
+  <p class="section-intro">Este trecho é de um comentário real no repositório público de demonstração. Essa execução usou apenas análise de segurança determinística, sem LLM; não demonstra a revisão de qualidade por IA.</p>
   <div class="example-card">
     <div class="example-head">
       <span class="example-file">src/admin.py:12</span>
       <span class="badge">error · security/sql-injection</span>
     </div>
-    <p class="example-body">Potential SQL injection vulnerability detected</p>
-    <p class="example-meta">[standards/security-review SCR-001] — rule security/sql-injection: SQL Injection Vulnerability</p>
+    <blockquote class="example-body" cite="https://github.com/Mpaape/aurumcode-demo/pull/1#issuecomment-5289628080">Potential SQL injection vulnerability detected</blockquote>
+    <p class="example-meta">[standards/security-review SCR-001] (rule security/sql-injection: SQL Injection Vulnerability)</p>
+    <p class="example-meta">Commit revisado: <code>26fbc62897a6b137b6dd2f37bce427a0f6d2d0f7</code> · trecho consultado via GitHub API em 13/09/2026.</p>
     <a class="example-link" href="https://github.com/Mpaape/aurumcode-demo/pull/1#issuecomment-5289628080">Ver o comentário original no PR #1 ↗</a>
   </div>
 </section>
 
 <section id="limites">
-  <p class="eyebrow">LIMITES</p>
-  <h2>Escopo objetivo</h2>
-  <p>Review do diff do PR. Com provedor, análise semântica; sem provedor, somente baseline offline. <code>review.memory: local</code> exige cache entre jobs; cada execução reavalia o PR inteiro.</p>
+  <p class="eyebrow">ESCOPO ATUAL, SEM MEIA VERDADE</p>
+  <h2>Transparência também<br>faz parte do código.</h2>
+
+  <h3>As 4 regras de segurança com matcher determinístico</h3>
+  <p>O catálogo embutido (<code>internal/review/rules/security.yml</code>) tem 8 regras nomeadas, mas só 4 comparam a linha adicionada contra uma expressão regular; as outras 4 são metadado citável pelo modelo, nunca aplicado pelo passe determinístico.</p>
+  <ul class="rule-list">
+    <li><code>security/sql-injection</code> — string com verbo SQL concatenada por <code>+</code> a um identificador (ou <code>format!</code> em Rust).</li>
+    <li><code>security/xss</code> — atribuição direta a <code>innerHTML</code>/<code>outerHTML</code>, <code>document.write(...)</code> ou <code>dangerouslySetInnerHTML</code> a partir de um identificador, sem chamada no meio.</li>
+    <li><code>security/command-injection</code> — chamada de shell (<code>system</code>, <code>exec</code>/<code>execSync</code>, <code>subprocess.*</code>, <code>spawn(...,shell:true)</code>, <code>Command::new("sh").arg("-c")</code>) com argumento concatenado.</li>
+    <li><code>security/hardcoded-secret</code> — atribuição de uma string a um nome que contém <code>key</code>/<code>secret</code>/<code>password</code>/<code>token</code>/<code>credential</code>, com mistura de letra e número.</li>
+  </ul>
+  <p class="note">As demais 4 (<code>path-traversal</code>, <code>weak-crypto</code>, <code>insecure-random</code>, <code>missing-auth</code>) ficam sem matcher por decisão deliberada: decidir sem seguir o dado exigiria análise de fluxo que uma regra por linha não sustenta.</p>
+
+  <h3>Cobertura por linguagem dos 4 matchers</h3>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Cobertura por linguagem; role horizontalmente em telas pequenas">
+  <table>
+    <caption>Padrões reconhecidos pelos matchers, não cobertura completa de vulnerabilidades.</caption>
+    <thead><tr><th scope="col">Linguagem</th><th scope="col">SQL injection</th><th scope="col">XSS</th><th scope="col">Command injection</th><th scope="col">Hardcoded secret</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Go</th><td>Sim</td><td>Não</td><td>Não<sup>†</sup></td><td>Sim</td></tr>
+      <tr><th scope="row">Python</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
+      <tr><th scope="row">JavaScript / TypeScript</th><td>Sim</td><td>Sim</td><td>Sim</td><td>Sim</td></tr>
+      <tr><th scope="row">Java</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
+      <tr><th scope="row">PHP</th><td>Não<sup>‡</sup></td><td>Não</td><td>Não<sup>‡</sup></td><td>Sim</td></tr>
+      <tr><th scope="row">C</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
+      <tr><th scope="row">Rust</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note"><sup>†</sup> <code>exec.Command(...)</code> não tem a forma que o matcher reconhece. <sup>‡</sup> PHP concatena com <code>.</code>, não com <code>+</code>; as duas regras dependem estruturalmente do <code>+</code>. XSS é específico do DOM/React: fora de JS/TS/JSX ele não se aplica.</p>
+
+  <div class="capabilities">
+    <div>
+      <h3>Disponível hoje</h3>
+      <ul>
+        <li>Revisão por LLM do diff e do contexto fornecido, quando há provedor configurado.</li>
+        <li>Análise estática determinística sempre ativa (segredo, SQL, command injection, permissão de arquivo) mais o passe opcional <code>--seguranca</code>.</li>
+        <li>Contexto de codebase limitado por heurística, não por índice completo do repositório.</li>
+        <li>Histórico de reviews e comentários do próprio PR, incluído sem configuração extra.</li>
+        <li>Resumo TL;DR e diagrama Mermaid do fluxo alterado.</li>
+        <li>Proposta determinística de casos de teste no parecer.</li>
+        <li>Memória de revisão opcional entre execuções (<code>review.memory</code>).</li>
+        <li>Comentários, review formal e sugestões inline; <code>aurumcode fix</code> para aplicar fora do GitHub.</li>
+        <li>Estimativa e teto de custo (<code>--limite</code>) antes de chamar o modelo.</li>
+        <li>Execução via Docker e via GitHub Actions; CLI e núcleo em Go.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Limites atuais</h3>
+      <ul>
+        <li>Revisão incremental: cada execução reavalia o PR inteiro, sem lembrar pendências resolvidas entre rodadas.</li>
+        <li>Execução automática, no CI, dos casos de teste propostos em sandbox.</li>
+        <li>Navegação autônoma por todo o repositório além da heurística de contexto atual.</li>
+        <li>Busca web ou execução de ferramentas externas pelo modelo.</li>
+        <li>Verificação automática da veracidade de um achado do modelo.</li>
+        <li>Garantia de parecer idêntico ao repetir a mesma revisão.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">Em um runner efêmero do GitHub Actions, <code>review.memory: local</code> não sobrevive sozinho entre execuções — persistir exige cachear o diretório entre jobs; <code>ephemeral</code> nunca persiste, por definição.</p>
 </section>
 
 <section id="tutoriais">
   <p class="eyebrow">COMO USAR CADA RECURSO</p>
   <h2>Ativa, funciona, exemplo</h2>
-  <p>Sem provedor configurado, só o baseline determinístico roda. Com provedor, cada capacidade abaixo consome tokens do seu modelo — cada card marca o que é padrão, o que é opcional e o que custa.</p>
+  <p class="section-intro">Sem provedor configurado, só o baseline determinístico roda. Com provedor, cada capacidade abaixo consome tokens do seu modelo — cada card marca o que é padrão, o que é opcional e o que custa.</p>
 
   <div class="tutorial-grid">
     <article>
@@ -193,7 +268,7 @@ review:
       <ol class="tut-flow">
         <li class="tut-step"><span class="tut-k">Ativa</span><p>Fora do GitHub, na sua máquina: o binário local lê a revisão publicada e gera o patch.</p></li>
         <li class="tut-step"><span class="tut-k">Como funciona</span><p><code>aurumcode fix</code> converte as sugestões da revisão em um diff unificado aplicável. Você inspeciona e aplica; nada é escrito no repositório sozinho.</p></li>
-        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run --rm aurumcode:local fix &lt; review-response.json &gt; fix.patch
+        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run aurumcode:local fix &lt; review-response.json &gt; fix.patch
 git apply --check fix.patch</code></pre></li>
       </ol>
     </article>
@@ -203,7 +278,7 @@ git apply --check fix.patch</code></pre></li>
       <ol class="tut-flow">
         <li class="tut-step"><span class="tut-k">Ativa</span><p>Sem teto por padrão. Defina o teto em dólar com <code>--limite</code> na execução local.</p></li>
         <li class="tut-step"><span class="tut-k">Como funciona</span><p>O comando estima o custo antes de chamar o modelo; se a estimativa passar do teto, recusa — sem gastar nada.</p></li>
-        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run --rm aurumcode:local review --base HEAD~1 --limite 0.50</code></pre></li>
+        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run aurumcode:local review --base HEAD~1 --limite 0.50</code></pre></li>
       </ol>
     </article>
 
@@ -222,11 +297,11 @@ export LLM_MODEL=your-model</code></pre></li>
 
 <section id="instalar">
   <p class="eyebrow">DO ZERO AO PRIMEIRO REVIEW</p>
-  <h2>Cole um arquivo, adicione dois secrets</h2>
-  <p>Nenhuma conta nova, nenhum serviço para assinar: o workflow abaixo roda no runner do próprio GitHub, com o binário publicado nesta tag.</p>
+  <h2>O próximo review<br>começa <em>aqui.</em></h2>
+  <p>Cole este arquivo na branch base e adicione os dois secrets do provedor. O AurumCode é software livre (MIT), sem assinatura. O uso do seu provedor de LLM e do GitHub Actions pode ter custo.</p>
   <div class="code-panel">
-    <div class="code-head"><span>.github/workflows/aurumcode.yml</span><button data-copy="workflow-code" type="button">Copiar</button></div>
-    <pre><code id="workflow-code">name: Code review
+    <div class="code-head"><span>.github/workflows/aurumcode.yml</span><button data-copy="workflow-code" type="button" hidden>Copiar YAML</button></div>
+    <pre tabindex="0" aria-label="Workflow YAML copiável"><code id="workflow-code">name: Code review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -242,8 +317,35 @@ jobs:
       model: ${{ vars.LLM_MODEL }}
     secrets:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}</code></pre>
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+</code></pre>
   </div>
+  <a class="download" href="workflow.yml" download>Baixar o workflow.yml ↓</a>
+  <h3 class="config-title">Ajuste o review ao seu time</h3>
+  <p>Opcional: salve a configuração gerada em <code>.aurumcode.yaml</code> na branch base.</p>
+  <div class="config-controls" hidden>
+    <label for="language">Idioma<select id="language"><option value="pt-BR">Português</option><option value="en-US">English</option></select></label>
+    <label for="publication">Publicação<select id="publication"><option value="review">Review formal</option><option value="comments">Comentários</option></select></label>
+    <label for="inline">Sugestões na linha<input id="inline" type="checkbox" checked></label>
+  </div>
+  <div class="code-panel">
+    <div class="code-head"><span>.aurumcode.yaml</span><button data-copy="config-code" type="button" hidden>Copiar configuração</button></div>
+    <pre tabindex="0"><code id="config-code">review:
+  language: pt-BR
+  publication: review
+  inline_comments: true</code></pre>
+  </div>
+  <details id="contexto">
+    <summary>Adicione contexto do seu repositório</summary>
+    <p>Os caminhos abaixo são exemplos: crie os arquivos ou use caminhos existentes. Contexto informa a revisão; não aprova mudanças.</p>
+    <pre tabindex="0"><code id="context-code">review:
+  context:
+    prompt: docs/review-guidance.md
+    skills:
+      - docs/review-skills.md
+    docs:
+      - docs/architecture.md</code></pre>
+  </details>
   <p class="note">Em <strong>Settings → Secrets and variables → Actions</strong>, adicione <code>LLM_API_KEY</code> e <code>LLM_BASE_URL</code> do seu endpoint compatível com OpenAI; <code>LLM_MODEL</code> é opcional, use se o serviço exigir um nome de modelo. Secrets do repositório não ficam disponíveis em PRs de fork por padrão — não execute código de fork com eles.</p>
   <div class="actions">
     <a class="button primary" href="https://github.com/Mpaape/AurumCode">Ver o repositório no GitHub ↗</a>
