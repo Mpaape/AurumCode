@@ -264,18 +264,19 @@ func printVersion(stdout io.Writer) {
 }
 
 // runFix turns review suggestions into an applyable unified diff (one-click
-// fix). It reads a JSON array of ReviewSuggestion objects from --file or
-// stdin, builds the patch safely (internal/apply fails closed on any unsafe
-// suggestion), and prints the patch to stdout -- it never modifies the
-// repository or a remote. An unsafe suggestion is skipped; a patch that would
-// touch nothing prints nothing.
+// fix). It reads either a JSON array of ReviewSuggestion objects or a full
+// review response object with a "suggestions" field (so `aurumcode fix <
+// review-response.json` works directly), builds the patch safely
+// (internal/apply fails closed on any unsafe suggestion), and prints the
+// patch to stdout -- it never modifies the repository or a remote.
 func runFix(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
-	file := fs.String("file", "", "JSON file of review suggestions (default: stdin)")
+	file := fs.String("file", "", "JSON file with review suggestions or a review response (default: stdin)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			fmt.Fprintln(stdout, "usage: aurumcode fix [--file suggestions.json]")
-			fmt.Fprintln(stdout, "Reads a JSON array of review suggestions and prints a unified diff.")
+			fmt.Fprintln(stdout, "Reads review suggestions (or a full review response) and prints a unified diff.")
+			fmt.Fprintln(stdout, "Example: aurumcode fix < review-response.json > fix.patch")
 			return 0
 		}
 		return 2
@@ -285,8 +286,8 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
 		return 1
 	}
-	var suggestions []types.ReviewSuggestion
-	if err := json.Unmarshal(data, &suggestions); err != nil {
+	suggestions, err := parseFixSuggestions(data)
+	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode fix: parsing suggestions: %v\n", err)
 		return 1
 	}
@@ -299,6 +300,22 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, patch)
 	}
 	return 0
+}
+
+// parseFixSuggestions accepts either a bare JSON array of suggestions or a
+// full review response object whose "suggestions" field holds them.
+func parseFixSuggestions(data []byte) ([]types.ReviewSuggestion, error) {
+	var suggestions []types.ReviewSuggestion
+	if err := json.Unmarshal(data, &suggestions); err == nil {
+		return suggestions, nil
+	}
+	var result struct {
+		Suggestions []types.ReviewSuggestion `json:"suggestions"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result.Suggestions, nil
 }
 
 // readFixSuggestions reads the suggestions JSON from --file, or from stdin
