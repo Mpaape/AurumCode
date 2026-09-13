@@ -98,6 +98,13 @@ func modelCacheKey(provider llm.Provider) string {
 	return name
 }
 
+// The new repository and memory context must participate in cache identity;
+// otherwise a full cache hit would hide feedback loaded for this review.
+func reviewContextCacheKey(provider llm.Provider, language, codebase, notes string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%q\n%q\n%q", language, codebase, notes)))
+	return fmt.Sprintf("%s:context:%x", modelCacheKey(provider), sum)
+}
+
 // partitionByCache resolves, for every file in diff.Files, whether c
 // already holds that file's findings under model. It returns the files
 // that still need a model call, in diff order, and the per-file status
