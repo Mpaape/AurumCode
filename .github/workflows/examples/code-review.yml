@@ -9,7 +9,7 @@ permissions:
   checks: read
 jobs:
   review:
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@main
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2
     with:
       model: ${{ vars.LLM_MODEL }}
     secrets:
