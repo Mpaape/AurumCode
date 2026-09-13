@@ -57,7 +57,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -66,7 +65,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Mpaape/AurumCode/internal/analysis"
 	"github.com/Mpaape/AurumCode/internal/config"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
@@ -74,7 +72,6 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/memory"
 	"github.com/Mpaape/AurumCode/internal/prompt"
-	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/internal/testgen"
@@ -215,12 +212,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// "full repo" advantage Greptile/CodeRabbit offer, without a graph
 	// database. It is an enhancement, never a gate: any failure degrades to
 	// empty context and the review continues on the diff alone.
-	codebaseContextText := ""
-	if pack, cerr := codebaseContextPack(diffPaths(diff)); cerr == nil && pack != nil {
-		if data, merr := json.Marshal(pack); merr == nil {
-			codebaseContextText = string(data)
-		}
-	}
+	// AUR-490: the shared codebase-context pass (resolveCodebaseContext,
+	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
+	codebaseContextText := resolveCodebaseContext(diff)
 
 	// Review memory (opt-in, default off): prior findings and preferences
 	// loaded as untrusted observations and saved back after publication.
@@ -232,18 +226,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// process-wide fallback file, so a note saved while reviewing one
 	// repository is loaded, as an "observation", into every other
 	// repository's prompt. See memorydir.go.
-	memoryStore, memoryErr := newRepoMemory(reviewConfig.Review.Memory, owner, repoName)
-	if memoryErr != nil {
-		fmt.Fprintf(stderr, "aurumcode review: review memory unavailable: %s; continuing without it\n", filter.Redact(memoryErr.Error()))
-		memoryStore, _ = memory.New("off", "")
-	}
-	memoryNotesText := ""
-	memoryNotes, _ := memoryStore.Load()
-	if len(memoryNotes) > 0 {
-		if data, merr := json.Marshal(memoryNotes); merr == nil {
-			memoryNotesText = string(data)
-		}
-	}
+	// AUR-490: the shared memory pass's open half (openReviewMemory,
+	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
+	memoryStore, memoryNotes, memoryNotesText := openReviewMemory(reviewConfig.Review.Memory, owner, repoName, stderr, filter)
 
 	// Provider selection (AUR-451): --modelo picks which model reviews,
 	// exactly the --base path's selectProviderForModel; without it,
@@ -390,16 +375,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// that need no model are always reported, not only when --seguranca is
 	// given. These carry their own "analysis/*" rule ids and pass the same
 	// rule-config override below.
-	for _, f := range analysis.NewRunner().Analyze(diff) {
-		result.Issues = append(result.Issues, types.ReviewIssue{
-			File:     f.Path,
-			Line:     f.Line,
-			Side:     f.Side,
-			Severity: f.Severity,
-			RuleID:   f.RuleID,
-			Message:  fmt.Sprintf("%s (rule %s)", f.Message, f.RuleID),
-		})
-	}
+	// AUR-490: the shared static-analysis pass (mergeStaticAnalysis,
+	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
+	mergeStaticAnalysis(diff, result)
 	// Deterministic test proposal (zero-config): proposed test cases join the
 	// published test plan so a reviewer gets a concrete "what to test" list.
 	if plan := testgen.Propose(diff); plan != nil {
@@ -492,10 +470,13 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// the review and a Mermaid diagram closes it, matching the "summaries and
 	// diagrams" parity of the competing reviewers. Both are deterministic and
 	// derive only from the already-redacted result and diff.
-	if tldr := render.Summary(result, reviewLanguage); strings.TrimSpace(tldr) != "" {
+	// AUR-490: the shared render pass (renderPass,
+	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
+	tldr, diagram := renderPass(result, diff, reviewLanguage)
+	if strings.TrimSpace(tldr) != "" {
 		summaryBody = tldr + "\n\n---\n\n" + summaryBody
 	}
-	if diagram, merr := render.Mermaid(diff); merr == nil && strings.TrimSpace(diagram) != "" {
+	if strings.TrimSpace(diagram) != "" {
 		summaryBody += "\n\n<details><summary>Fluxo alterado (diagrama)</summary>\n\n```mermaid\n" + diagram + "\n```\n</details>\n"
 	}
 	if publication == "review" {
@@ -581,11 +562,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// Review memory save (opt-in, default off): persist this round's findings
 	// as observations for the next one. Memory is observation, never
 	// instruction; a save failure is reported and never affects the verdict.
-	if strings.TrimSpace(reviewConfig.Review.Memory) != "" && strings.TrimSpace(reviewConfig.Review.Memory) != "off" {
-		if err := memoryStore.Save(notesFromIssues(memoryNotes, result.Issues)); err != nil {
-			fmt.Fprintf(stderr, "aurumcode review: saving review memory: %v\n", filter.Redact(err.Error()))
-		}
-	}
+	// AUR-490: the shared memory pass's save half (persistReviewMemory,
+	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
+	persistReviewMemory(memoryStore, reviewConfig.Review.Memory, memoryNotes, result.Issues, stderr, filter)
 
 	// The check status is published before the comment-failure return
 	// below, not after: a grave finding must still get its failing check

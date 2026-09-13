@@ -373,7 +373,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	modoPublicacao := fs.String("modo-publicacao", "", "PR publication mode: review (formal GitHub review) or comments (separate comments; default: repository config, otherwise comments)")
 	limite := fs.String("limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
 	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge (default: off)")
-	exigirQualidade := fs.Bool("exigir-qualidade", false, "treat a quality review that did not happen as a failure: exit 1 even when the deterministic --seguranca pass ran and reported, so a CI job cannot read \"security-only\" as \"fully reviewed\" (default: off -- the published --seguranca-without-a-provider path keeps exit 0)")
+	exigirQualidade := fs.Bool("exigir-qualidade", false, "treat a quality review that did not happen as a failure: exit 1 even when deterministic analysis ran and reported, so a CI job cannot read \"security-only\" as \"fully reviewed\" (default: off -- the published --seguranca-without-a-provider path keeps exit 0)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
@@ -549,6 +549,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// read, so an ignored file is invisible to both passes identically.
 	// Zero-config: returns diff, the same pointer, unchanged.
 	diff = config.FilterIgnoredPaths(diff, repoCfg)
+	codebaseContextText := resolveCodebaseContext(diff)
+	memoryStore, memoryNotes, memoryNotesText := openReviewMemory(repoCfg.Review.Memory, "", "", stderr, filter)
 
 	// Provider selection. With --modelo the flag commands which model
 	// reviews (AUR-436); without it, selectProvider keeps AUR-430's
@@ -617,9 +619,9 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// report success. See docs/specs/AUR-458.md.
 	qualitySkipped := false
 	qualityFailed := false
-	if providerErr != nil && *modelo == "" && *seguranca && errors.Is(providerErr, errNoProviderConfigured) {
+	if providerErr != nil && *modelo == "" && errors.Is(providerErr, errNoProviderConfigured) {
 		qualitySkipped = true
-		fmt.Fprintf(stderr, "aurumcode review: no LLM provider configured: quality review skipped, running --seguranca only (%v)\n", providerErr)
+		fmt.Fprintln(stderr, "aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only")
 		// AUR-458: without --exigir-qualidade this stays exit 0, exactly
 		// as AUR-449 published it -- `review --base X --seguranca` with no
 		// credential at all is the product's free, offline, deterministic
@@ -712,7 +714,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		var cacheStatuses []fileCacheStatus
 		if cacheErr == nil {
 			var missFiles []types.DiffFile
-			missFiles, cacheStatuses = partitionByCache(revCache, diff, modelCacheKey(provider))
+			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, reviewLanguage, codebaseContextText, memoryNotesText))
 			toSend = &types.Diff{Files: missFiles}
 		}
 
@@ -726,7 +728,9 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// skips the call.
 		if cacheErr != nil || len(toSend.Files) > 0 || len(diff.Files) == 0 {
 			result, err = reviewer.GenerateReviewWithContext(context.Background(), toSend, review.ReviewContext{
-				Language: reviewLanguage,
+				Language:        reviewLanguage,
+				CodebaseContext: codebaseContextText,
+				MemoryNotes:     memoryNotesText,
 			})
 			if err != nil && *seguranca {
 				// AUR-458: same conditional diversion as the provider-error
@@ -858,24 +862,10 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// this call, so none of it can turn a rule on or off or change a
 	// severity -- see internal/config's package doc. Zero-config: both
 	// calls return their input slices unchanged.
+	mergeStaticAnalysis(diff, result)
 	result.Issues = config.ApplyRuleConfig(result.Issues, repoCfg)
 	securityFindings = config.ApplyRuleConfig(securityFindings, repoCfg)
 
-	// result.Summary (pkg/types.ReviewResult, parsed by
-	// internal/prompt.ResponseParser) is deliberately never printed here.
-	// AUR-443 investigated printing it and found the change is blocked, not
-	// merely undesired: tests/acceptance/AUR-426.sh's review-contract-broken
-	// check and tests/unit/AUR-426.go's byte-for-byte assertion both run
-	// this exact command against a fixture whose "summary" field IS
-	// non-empty ({"issues":[],"summary":"Nothing to report."}) and require
-	// stdout to be exactly "No issues found.\n" -- so printing Summary here
-	// would break a published, done card's contract on the very next run of
-	// its own acceptance. The parser that produces this field
-	// (internal/prompt) is also a read_path this card cannot edit, so
-	// removing it from the parse is equally out of reach. See
-	// docs/specs/AUR-443.md's "summary field" section for the full
-	// evidence trail; this is a recorded, deliberate no-op, not an
-	// oversight.
 	printNotices(stdout, filter, notices)
 	// AUR-449: when quality review was skipped, result carries no issues
 	// because no call was ever made -- printing "No issues found." here
@@ -890,8 +880,16 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// health the tool never checked -- the single worst defect class this
 	// product has. The security section below still prints, because that
 	// pass really did run.
-	if !qualitySkipped && !qualityFailed {
+	if qualitySkipped || qualityFailed {
+		result.Verdict = "comment"
+		fmt.Fprintln(stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
+	}
+	fmt.Fprint(stdout, renderLocalReport(result, diff, reviewLanguage))
+	if (!qualitySkipped && !qualityFailed) || len(result.Issues) > 0 {
 		printFindings(stdout, result)
+	}
+	if !qualityFailed {
+		persistReviewMemory(memoryStore, repoCfg.Review.Memory, memoryNotes, result.Issues, stderr, filter)
 	}
 	if *seguranca {
 		printSecurityFindings(stdout, filter, securityFindings)
