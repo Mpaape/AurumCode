@@ -32,7 +32,7 @@ else printf 'go-live: no container engine\n' >&2; exit 69; fi
   { printf 'go-live: image %s is not present\n' "$image" >&2; exit 69; }
 
 env_args=()
-for v in LLM_API_KEY LLM_BASE_URL LLM_MODEL AURUMCODE_LLM_FIXTURE; do
+for v in LLM_API_KEY LLM_BASE_URL LLM_MODEL AURUMCODE_LLM_FIXTURE AURUMCODE_LLM_TIMEOUT_SECONDS; do
   [[ -n "${!v:-}" ]] && env_args+=(-e "$v")
 done
 

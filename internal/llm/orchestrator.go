@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -21,9 +23,22 @@ var (
 	ErrAllProvidersFailed = errors.New("all providers failed")
 )
 
-// defaultProviderTimeout bounds a single provider call when the caller's
-// context carries no deadline of its own.
+// defaultProviderTimeout is ProviderTimeout's default: unchanged unless
+// AURUMCODE_LLM_TIMEOUT_SECONDS is set.
 const defaultProviderTimeout = 60 * time.Second
+
+// ProviderTimeout bounds a single provider call. A reasoning-capable local
+// model can outlast the 60s default, so AURUMCODE_LLM_TIMEOUT_SECONDS
+// overrides it; providers construct their own HTTP client with the same
+// value (see litellm.NewProvider) so this context deadline and the client's
+// own timeout stay in agreement.
+func ProviderTimeout() time.Duration {
+	secs, err := strconv.Atoi(os.Getenv("AURUMCODE_LLM_TIMEOUT_SECONDS"))
+	if err != nil || secs <= 0 {
+		return defaultProviderTimeout
+	}
+	return time.Duration(secs) * time.Second
+}
 
 // defaultMaxTokens is the output estimate used for the budget check when the
 // caller does not cap the response.
@@ -131,7 +146,7 @@ func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options
 func (o *Orchestrator) executeWithTimeout(ctx context.Context, provider Provider, prompt string, opts Options) (Response, error) {
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultProviderTimeout)
+		ctx, cancel = context.WithTimeout(ctx, ProviderTimeout())
 		defer cancel()
 	}
 

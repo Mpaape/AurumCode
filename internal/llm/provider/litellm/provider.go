@@ -7,7 +7,6 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"io"
 	"net/http"
-	"time"
 )
 
 // Provider implements LiteLLM proxy provider (OpenAI-compatible)
@@ -18,14 +17,16 @@ type Provider struct {
 	client  *http.Client
 }
 
-// NewProvider creates a new LiteLLM provider
+// NewProvider creates a new LiteLLM provider. The client timeout comes from
+// llm.ProviderTimeout(), the single source of truth this package shares with
+// the orchestrator's own context deadline (see its doc comment).
 func NewProvider(apiKey, baseURL, model string) *Provider {
 	return &Provider{
 		apiKey:  apiKey,
 		baseURL: baseURL,
 		model:   model,
 		client: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: llm.ProviderTimeout(),
 		},
 	}
 }
