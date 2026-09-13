@@ -6,27 +6,81 @@
 # scratch dirs named aurum-*, and container artifacts carrying our label.
 # It never touches volumes, images or containers of other projects on this
 # machine -- the owner runs a lot of them here.
+#
+# Safety fix (2026-09-13, before this script's first real run): a worktree is
+# force-removed ONLY after its exact HEAD is proven reachable from main (or
+# from some other local branch). Before this fix, a worktree matching a name
+# pattern (*/pf*, */vf*, or an AUR-id whose card said done/cancelled) was
+# removed on that basis ALONE -- a card marked done does not prove the
+# worktree in front of you holds the SAME commit that got merged; a later,
+# unintegrated revision could be sitting there instead. `git worktree remove
+# --force` on a detached worktree whose commit is reachable nowhere else
+# orphans it for the next `git gc` -- the exact failure that once cost this
+# project 12 done cards' recorded commits, unrecoverable from origin. The
+# path globs are also anchored on the worktree's basename now, not matched
+# as a substring anywhere in the full path, which could catch an unrelated
+# directory that merely contains "pf" or "vf".
 set -euo pipefail
 dry=0; [[ "${1:-}" == "--dry-run" ]] && dry=1
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 run() { if ((dry)); then printf 'would: %s\n' "$*"; else "$@"; fi; }
+skip() { printf 'office-clean: SKIP (unreachable from any local branch) %s\n' "$1" >&2; }
+
+# reachable WT -- true only when WT's exact HEAD is an ancestor of some local
+# branch (main included). A detached worktree whose commit lives nowhere else
+# fails this and is left alone, printed, not guessed about.
+reachable() {
+  local wt="$1" head
+  head="$(git -C "$wt" rev-parse HEAD 2>/dev/null)" || return 1
+  local b
+  while IFS= read -r b; do
+    git -C "$repo" merge-base --is-ancestor "$head" "$b" 2>/dev/null && return 0
+  done < <(git -C "$repo" for-each-ref --format='%(refname:short)' refs/heads/)
+  return 1
+}
 
 git -C "$repo" worktree prune
 while IFS= read -r wt; do
   [[ "$wt" == "$repo" ]] && continue
-  case "$wt" in
-    */office-wt/rev-*|*/pf*|*/vf*|/tmp/aurum-*) run git -C "$repo" worktree remove --force "$wt" ;;
-    */office-wt/AUR-*)
-      id="$(basename "$wt")"
-      # a builder worktree whose card is already done or cancelled is garbage
-      if ls "$repo/.board/cards/done/$id.md" "$repo/.board/cards/cancelled/$id.md" >/dev/null 2>&1; then
-        run git -C "$repo" worktree remove --force "$wt"
-      fi ;;
+  base="$(basename "$wt")"
+  case "$base" in
+    rev-*|pf*|vf*) ;;
+    *)
+      case "$wt" in
+        */office-wt/AUR-*)
+          # a builder worktree whose card is already done or cancelled is a
+          # cleanup CANDIDATE -- reachability below is what actually decides.
+          ls "$repo/.board/cards/done/$base.md" "$repo/.board/cards/cancelled/$base.md" >/dev/null 2>&1 || continue
+          ;;
+        *) continue ;;
+      esac
+      ;;
   esac
+  if reachable "$wt"; then
+    run git -C "$repo" worktree remove --force "$wt"
+  else
+    skip "$wt"
+  fi
 done < <(git -C "$repo" worktree list --porcelain | sed -n 's/^worktree //p')
 git -C "$repo" worktree prune
 
-for d in /tmp/aurum-* /tmp/claude-1000/vf* /tmp/claude-1000/pf*; do [[ -e "$d" ]] && run rm -rf "$d"; done
+# Second bug this fix removes: these globs are the SAME paths worktrees can
+# live at (/tmp/claude-1000/pf*, vf*), so a plain `rm -rf` here used to be
+# able to blow away, unchecked, exactly the worktree the loop above had just
+# decided was unsafe to touch -- bypassing the reachability check entirely by
+# deleting the directory instead of the worktree. Anything still registered
+# with git worktree list is left to that loop; only a genuinely bare
+# directory is removed here.
+mapfile -t live_worktrees < <(git -C "$repo" worktree list --porcelain | sed -n 's/^worktree //p')
+is_worktree() { local d="$1" w; for w in "${live_worktrees[@]}"; do [[ "$d" == "$w" ]] && return 0; done; return 1; }
+for d in /tmp/aurum-* /tmp/claude-1000/vf* /tmp/claude-1000/pf*; do
+  [[ -e "$d" ]] || continue
+  if is_worktree "$d"; then
+    skip "$d (still a registered worktree; handled above, not here)"
+    continue
+  fi
+  run rm -rf "$d"
+done
 
 if command -v docker >/dev/null 2>&1; then
   # only OUR label; a throwaway sealed run already uses --rm
