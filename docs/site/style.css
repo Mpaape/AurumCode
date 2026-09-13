@@ -166,7 +166,16 @@ footer{padding:52px 5vw 40px;border-top:1px solid var(--line)}
 .tutorial-grid p{font-size:13.5px;color:var(--muted)}
 .tutorial-grid pre{margin:12px 0 0;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;max-width:100%}
 .tutorial-grid pre code{background:none;padding:0;font-size:12.5px;line-height:1.7;white-space:pre}
-.auto{font:600 10px var(--mono);color:var(--brand);border:1px solid var(--line);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle;letter-spacing:0.02em}
+.flag{font:600 10px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle;letter-spacing:0.02em;white-space:nowrap}
+.flag.on{color:var(--ok);border-color:var(--ok)}
+.flag.opt{color:var(--accent);border-color:var(--accent)}
+.flag.cli{color:var(--brand);border-color:var(--brand)}
+.tut-flow{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:12px}
+.tut-step{min-width:0;border-left:2px solid var(--line);padding-left:12px}
+.tut-k{display:block;font:700 11px/1.4 var(--mono);letter-spacing:0.05em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.tut-step p{margin:0}
+.tut-step pre{margin:10px 0 0}
+.tut-none{font-style:italic}
 
 /* --- responsive --- */
 @media (max-width:900px){
