@@ -60,6 +60,7 @@ check() {
       [[ $source == *"yaml:\"$token\""* ]] || fail "unknown YAML key $token"
     done
     ! grep -iE '(sem|não implementad[oa]).*(memória persistente|histórico do PR|resumo|mermaid|análise determinística)' docs/site/index.html || fail 'false missing capability'
+    ! grep -iE 'catálogo completo|resto do catálogo' docs/site/index.html || fail 'overclaims full deterministic catalog coverage'
     section instalar | grep -q 'GitHub Actions pode ter custo' || fail 'provider/Actions cost disclosure'
     ;;
   AC-005)

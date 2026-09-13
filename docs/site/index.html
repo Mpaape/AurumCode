@@ -211,8 +211,8 @@
     <article>
       <h3>Análise determinística <span class="flag on">ligado por padrão</span></h3>
       <ol class="tut-flow">
-        <li class="tut-step"><span class="tut-k">Ativa</span><p>Já roda em todo review, sem nenhum arquivo. No workflow reutilizável o catálogo completo já vem com <code>security: true</code> (padrão); na CLI local, adicione <code>--seguranca</code>.</p></li>
-        <li class="tut-step"><span class="tut-k">Como funciona</span><p>Cada linha adicionada passa por matchers determinísticos — segredo, SQL e command injection; com o passe completo, também XSS e o resto do catálogo. Sem modelo, sem custo de LLM.</p></li>
+        <li class="tut-step"><span class="tut-k">Ativa</span><p>A base já roda em todo review de PR, sem configurar nada: segredo, SQL, command injection e permissão de arquivo. O passe <code>--seguranca</code> soma o matcher de XSS — já ativo por padrão no workflow reutilizável (<code>security: true</code>), opcional na CLI local.</p></li>
+        <li class="tut-step"><span class="tut-k">Como funciona</span><p>Cada linha adicionada passa por matchers determinísticos. O catálogo de segurança tem 8 regras nomeadas, mas só 4 têm matcher — as outras 4 ficam como metadado citável pelo modelo, nunca aplicado pelo passe determinístico. Sem modelo, sem custo de LLM.</p></li>
         <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>aurumcode review --base HEAD~1 --seguranca</code></pre></li>
       </ol>
     </article>
