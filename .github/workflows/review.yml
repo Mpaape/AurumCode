@@ -56,11 +56,27 @@ jobs:
             exit 1
           fi
 
+      - name: Verify tool version
+        env:
+          TOOL_REPOSITORY: ${{ job.workflow_repository }}
+          TOOL_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          # job identifies this reusable workflow; github identifies its caller.
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context
+          # AUR-493-VERIFY-BEGIN
+          if [[ ! "$TOOL_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ||
+                ! "$TOOL_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Cannot identify the AurumCode workflow version. This workflow requires GitHub.com job.workflow_sha support."
+            exit 1
+          fi
+          # AUR-493-VERIFY-END
+
       - name: Checkout AurumCode
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: Mpaape/AurumCode
-          ref: main
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           path: .aurumcode-tool
           fetch-depth: 1
 
