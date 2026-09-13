@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# office-clean [--dry-run]
+#
+# Removes what an office session leaves behind, and ONLY that: worktrees whose
+# branch is gone or that live under the reviewer/preflight prefixes, /tmp
+# scratch dirs named aurum-*, and container artifacts carrying our label.
+# It never touches volumes, images or containers of other projects on this
+# machine -- the owner runs a lot of them here.
+set -euo pipefail
+dry=0; [[ "${1:-}" == "--dry-run" ]] && dry=1
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+run() { if ((dry)); then printf 'would: %s\n' "$*"; else "$@"; fi; }
+
+git -C "$repo" worktree prune
+while IFS= read -r wt; do
+  [[ "$wt" == "$repo" ]] && continue
+  case "$wt" in
+    */office-wt/rev-*|*/pf*|*/vf*|/tmp/aurum-*) run git -C "$repo" worktree remove --force "$wt" ;;
+    */office-wt/AUR-*)
+      id="$(basename "$wt")"
+      # a builder worktree whose card is already done or cancelled is garbage
+      if ls "$repo/.board/cards/done/$id.md" "$repo/.board/cards/cancelled/$id.md" >/dev/null 2>&1; then
+        run git -C "$repo" worktree remove --force "$wt"
+      fi ;;
+  esac
+done < <(git -C "$repo" worktree list --porcelain | sed -n 's/^worktree //p')
+git -C "$repo" worktree prune
+
+for d in /tmp/aurum-* /tmp/claude-1000/vf* /tmp/claude-1000/pf*; do [[ -e "$d" ]] && run rm -rf "$d"; done
+
+if command -v docker >/dev/null 2>&1; then
+  # only OUR label; a throwaway sealed run already uses --rm
+  for c in $(docker ps -aq -f label=aurum.role=sealed-run 2>/dev/null); do run docker rm -f "$c"; done
+  run docker image prune -f >/dev/null
+fi
+printf 'office-clean: done\n'
