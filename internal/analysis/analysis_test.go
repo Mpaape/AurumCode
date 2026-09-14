@@ -205,6 +205,15 @@ func TestAUR496FilePermissions(t *testing.T) {
 		{name: "0666 grants world write", line: `os.OpenFile("f", os.O_CREATE, 0666)`, want: true},
 		{name: "0777 grants world write", line: `os.MkdirAll("d", 0777)`, want: true},
 		{name: "0o777 grants world write", line: `os.Chmod("f", 0o777)`, want: true},
+		{name: "uppercase 0O777 grants world write", line: `os.Chmod("f", 0O777)`, want: true},
+		{name: "underscore-separated 0_777 grants world write", line: `os.Chmod("f", 0_777)`, want: true},
+		{name: "4-digit 07777 grants world write", line: `os.Chmod("f", 07777)`, want: true},
+		{name: "uppercase 0O666 grants world write", line: `os.Chmod("f", 0O666)`, want: true},
+		{name: "underscore 0_600 stays safe", line: `os.Chmod("f", 0_600)`, want: false},
+		{name: "uppercase 0O600 stays safe", line: `os.Chmod("f", 0O600)`, want: false},
+		{name: "setuid 04755 is not world-writable", line: `os.Chmod("f", 04755)`, want: false},
+		{name: "trailing block comment after a real mode is not missed", line: `os.Chmod("f", 0777 /* ww */)`, want: true},
+		{name: "trailing line comment after a safe mode stays safe", line: `os.Chmod("f", 0600) // private`, want: false},
 		{name: "digit in filename does not count", line: `os.Mkdir("dir0777", 0700)`, want: false},
 		{name: "non-mode octal-shaped middle argument does not count", line: `os.OpenFile("x", 0777, 0600)`, want: false},
 		{name: "octal-shaped digits inside nested call argument do not count", line: `os.WriteFile("x", []byte("data,0777"), 0600)`, want: false},
@@ -230,20 +239,58 @@ func TestAUR496FilePermissions(t *testing.T) {
 
 // TestAUR496CommentsNotCredentials pins the other half of AC-002: a
 // credential-shaped example inside a comment or documentation string is not
-// a real assignment and must not be flagged.
+// a real assignment and must not be flagged. It covers line-leading and
+// trailing "//" and "#" comments, same-line block comments, and the
+// regression edge that a real assignment carrying a trailing comment is
+// still detected.
 func TestAUR496CommentsNotCredentials(t *testing.T) {
-	tests := []string{
-		`// password := "hunter2-super-secret"`,
-		`  // token = "abcdefgh12"`,
+	tests := []struct {
+		name string
+		line string
+		want bool
+	}{
+		{name: "line-leading slash comment", line: `// password := "hunter2-super-secret"`, want: false},
+		{name: "indented slash comment", line: `  // token = "abcdefgh12"`, want: false},
+		{name: "trailing slash comment", line: `x := 1 // password = "abcdefgh12"`, want: false},
+		{name: "hash comment", line: `# password = "abcdefgh12"`, want: false},
+		{name: "trailing hash comment", line: `x := 1 # api_key = "abcdefgh12"`, want: false},
+		{name: "same-line block comment", line: `x := 1 /* secret = "abcdefgh12" */`, want: false},
+		{name: "real assignment with trailing comment still matches", line: `password := "abcdefgh12" // example`, want: true},
+		{name: "pointer dereference with trailing comment still matches", line: `*password = "abcdefgh12" // example`, want: true},
 	}
 	r := NewRunner()
-	for _, line := range tests {
-		t.Run(line, func(t *testing.T) {
-			findings := r.Analyze(singleHunk("x.go", 1, 1, "+"+line))
-			if len(findings) != 0 {
-				t.Fatalf("Analyze(%q) = %#v, want no findings", line, findings)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			findings := r.Analyze(singleHunk("x.go", 1, 1, "+"+tc.line))
+			got := len(findings) > 0
+			if got != tc.want {
+				t.Fatalf("Analyze(%q) matched=%v, want=%v (findings=%#v)", tc.line, got, tc.want, findings)
 			}
 		})
+	}
+}
+
+// TestAUR496BlockCommentStateThreads pins the AC-002 clause that a
+// block-comment body line is never a real assignment even though the
+// credential shape appears on its own line: the open "/*" on a previous
+// added line must suppress matching until "*/" closes it, and code after the
+// close must match again.
+func TestAUR496BlockCommentStateThreads(t *testing.T) {
+	r := NewRunner()
+	suppressed := singleHunk("x.go", 1, 1,
+		`+/* credentials documented here`,
+		`+password = "abcdefgh12"`,
+		`+*/`)
+	if f := r.Analyze(suppressed); len(f) != 0 {
+		t.Fatalf("block-comment body matched: %#v", f)
+	}
+	resumed := singleHunk("x.go", 1, 1,
+		`+/* credentials documented here`,
+		`+*/`,
+		`+password = "abcdefgh12"`)
+	f := r.Analyze(resumed)
+	if len(f) != 1 || f[0].RuleID != RuleHardcodedSecret || f[0].Line != 3 {
+		t.Fatalf("match after block comment close = %#v, want one secret finding on line 3", f)
 	}
 }
 

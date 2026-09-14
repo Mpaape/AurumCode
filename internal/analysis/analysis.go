@@ -120,10 +120,13 @@ var embeddedRules = []rule{
 // argument list instead of scanning the whole line for a digit.
 var filePermCallRe = regexp.MustCompile(`\bos\.(?:OpenFile|WriteFile|Chmod|Mkdir|MkdirAll)\s*\(`)
 
-// modeLiteralRe matches a full octal mode literal (0NNN or 0oNNN) and
-// nothing else, so it is only applied to an already-isolated argument, never
-// to a substring of a longer token.
-var modeLiteralRe = regexp.MustCompile(`^0o?[0-7]{3}$`)
+// modeLiteralRe matches a full octal mode literal with a leading "0"
+// (0NNN, 0oNNN, 0ONNN, or a 4-digit 0NNNN) and nothing else, so it is only
+// applied to an already-isolated argument, never to a substring of a longer
+// token. "_" digit separators are removed before the match, and the "o"/"O"
+// base prefix is optional, so the Go-valid forms 0O777, 0_777 and 07777 all
+// normalize to the same literal.
+var modeLiteralRe = regexp.MustCompile(`^0[oO]?[0-7]{3,4}$`)
 
 // matchesWorldWritablePermission reports whether body contains a call to the
 // embedded file-permission API family whose LAST argument (always the mode
@@ -147,12 +150,16 @@ func matchesWorldWritablePermission(body string) bool {
 }
 
 // isWorldWritableMode reports whether arg is exactly an octal mode literal
-// whose "other" digit (the last one) has the write bit set.
+// whose "other" digit (the last one) has the write bit set. Underscore digit
+// separators are normalized away first (0_777 == 0777), and both the gofmt
+// "0O" base prefix and the 4-digit forms (07777, 04755) are accepted, so a
+// real world-writable mode cannot hide behind a valid spelling.
 func isWorldWritableMode(arg string) bool {
-	if !modeLiteralRe.MatchString(arg) {
+	normalized := strings.ReplaceAll(strings.TrimSpace(arg), "_", "")
+	if !modeLiteralRe.MatchString(normalized) {
 		return false
 	}
-	switch arg[len(arg)-1] {
+	switch normalized[len(normalized)-1] {
 	case '2', '3', '6', '7':
 		return true
 	default:
@@ -271,6 +278,7 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 
 	var findings []Finding
 	for _, file := range diff.Files {
+		inBlockComment := false
 		for _, hunk := range file.Hunks {
 			newLine := hunk.NewStart
 			oldLine := hunk.OldStart
@@ -279,9 +287,10 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 					continue
 				}
 				marker, body := splitDiffMarker(raw)
+				code, nextBlock := stripComments(body, inBlockComment)
 				switch marker {
 				case "+":
-					findings = append(findings, r.match(file.Path, newLine, SideRight, body)...)
+					findings = append(findings, r.match(file.Path, newLine, SideRight, code)...)
 					newLine++
 				case "-":
 					oldLine++
@@ -289,6 +298,7 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 					newLine++
 					oldLine++
 				}
+				inBlockComment = nextBlock
 			}
 		}
 	}
@@ -298,15 +308,12 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 }
 
 // match returns the catalog rules whose pattern matches body, each rendered
-// as a Finding at the given path, line and side. A comment or documentation
-// line never matches (isCommentOrDocLine), and a RuleHardcodedSecret hit
-// whose keyword starts inside an already-open string or raw-string literal
-// is rejected (isInsideStringLiteral), so an example assignment quoted in
-// prose is never treated as a real one.
+// as a Finding at the given path, line and side. body is expected to have
+// had comments stripped already (stripComments), and a RuleHardcodedSecret
+// hit whose keyword starts inside an already-open string or raw-string
+// literal is rejected (isInsideStringLiteral), so an example assignment
+// quoted in prose is never treated as a real one.
 func (r *Runner) match(path string, line int, side, body string) []Finding {
-	if isCommentOrDocLine(body) {
-		return nil
-	}
 	var out []Finding
 	for _, rule := range r.rules {
 		matched := false
@@ -349,15 +356,72 @@ func splitDiffMarker(line string) (marker, body string) {
 	return "", line
 }
 
-// isCommentOrDocLine reports whether body is a Go line or block-comment
-// opener, so an example credential or permission literal in prose is never
-// treated as a real assignment. It deliberately does NOT treat a line
-// starting with "*" as a comment continuation: that would also catch a
-// pointer dereference assignment like `*password = "..."`, which is real
-// code, not a comment (AUR-496/AC-002).
-func isCommentOrDocLine(body string) bool {
-	trimmed := strings.TrimSpace(body)
-	return strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "/*")
+// stripComments removes line comments ("//" and "#") and block comments
+// ("/* ... */") from one added line and returns the code-only remainder,
+// together with the block-comment state to thread into the next line.
+// inBlock is the state entering this line (true when the previous line left
+// an open block comment); the returned bool is the state leaving it. Comment
+// markers inside a quoted or raw string literal are preserved: quote state
+// is tracked per line, honoring backslash escapes in quoted (not raw)
+// strings, so `x := "a//b"` and a "#" inside a string are never mistaken for
+// comments. A leading "*" is never a block-comment continuation, so a
+// pointer-dereference assignment like `*password = "..."` stays real code
+// (AUR-496/AC-002). A "#" starts a line comment outside a string, which is
+// how this rule treats shell/Python-style credential examples.
+func stripComments(body string, inBlock bool) (string, bool) {
+	var b strings.Builder
+	b.Grow(len(body))
+	var quote byte
+	i := 0
+	for i < len(body) {
+		c := body[i]
+		if inBlock {
+			if c == '*' && i+1 < len(body) && body[i+1] == '/' {
+				inBlock = false
+				i += 2
+				continue
+			}
+			i++
+			continue
+		}
+		if quote != 0 {
+			b.WriteByte(c)
+			if c == '\\' && quote != '`' && i+1 < len(body) {
+				i++
+				b.WriteByte(body[i])
+				i++
+				continue
+			}
+			if c == quote {
+				quote = 0
+			}
+			i++
+			continue
+		}
+		switch c {
+		case '`', '"', '\'':
+			quote = c
+			b.WriteByte(c)
+			i++
+		case '#':
+			return b.String(), false
+		case '/':
+			if i+1 < len(body) && body[i+1] == '/' {
+				return b.String(), false
+			}
+			if i+1 < len(body) && body[i+1] == '*' {
+				inBlock = true
+				i += 2
+				continue
+			}
+			b.WriteByte(c)
+			i++
+		default:
+			b.WriteByte(c)
+			i++
+		}
+	}
+	return b.String(), inBlock
 }
 
 // sortFindings orders findings deterministically by path, line, side, then
