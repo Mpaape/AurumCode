@@ -38,8 +38,7 @@ check() {
     [[ $html == *'<blockquote '* && $html == *'Potential SQL injection vulnerability detected</blockquote>'* && $html == *'pull/1#issuecomment-5289628080'* && $html == *'26fbc62897a6b137b6dd2f37bce427a0f6d2d0f7'* ]] || fail 'real cited review excerpt'
     html=$(section limites)
     for token in sql-injection command-injection hardcoded-secret xss; do [[ $html == *"security/$token"* ]] || fail "missing matcher $token"; done
-    section limites | awk '/<tbody>/{on=1} on && /<tr>/{n++; row=$0; cells=gsub(/<td>/,"&",row); if(cells!=4) bad=1} /<\/tbody>/{on=0} END{if(n!=7 || bad) exit 1}' || fail 'language coverage rows'
-    [[ $html == *'Go</th>'* && $html == *'Python</th>'* && $html == *'JavaScript / TypeScript</th>'* && $html == *'PHP</th>'* && $html == *'Rust</th>'* ]] || fail 'coverage languages'
+    ! section limites | grep -q '<table>' || fail 'limites must stay objective (no coverage table)'
     sed -n '/<footer>/,/<\/footer>/p' docs/site/index.html | awk '/<h4>/{n++} END{if(n<3) exit 1}' || fail 'footer columns'
     ;;
   AC-003)
