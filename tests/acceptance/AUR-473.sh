@@ -63,17 +63,15 @@ required_inputs=(
   go.mod
   go.sum
   cmd/aurumcode
-  internal/analysis
   internal/analyzer
-  internal/config
+  internal/git/githubclient
   internal/llm
   internal/prompt
-  internal/render
   internal/review
   internal/security/redaction
   pkg/types
-  tests/fixtures/repos/git-demo/repo.git
-  tests/fixtures/review/known-problem-response.json
+  tests/fixtures/repos/git-demo
+  tests/fixtures/review
 )
 for input in "${required_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
