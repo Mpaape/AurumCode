@@ -133,7 +133,7 @@ if [ -d .board/cards ]; then
   done
   ev=$(find .board/evidence -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
   echo "  bundles de evidência: $ev"
-  echo "  (o portão é ./.board/validate.sh — rode-o antes de mover qualquer card)"
+  echo "  (o portão é ./.board/pipeline.sh — rode-o antes de mover qualquer card)"
 fi
 
 echo
