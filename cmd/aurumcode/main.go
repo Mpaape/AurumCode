@@ -656,7 +656,16 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		} else {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", providerErr)
 		}
-		if !*seguranca {
+		// AUR-473: a --modelo the user NAMED that the gateway cannot serve is
+		// a USAGE error, the same class as a mistyped flag -- not a
+		// configured provider that broke at runtime. It must fail before any
+		// work is computed, so the deterministic security pass never runs and
+		// neither its section nor its coverage note can print. This does not
+		// contradict AUR-458: that card forbids RETAINING already-computed
+		// findings, not failing early. The non---modelo branch below (a
+		// provider that was configured and failed at runtime) keeps the
+		// AUR-458 fall-through untouched.
+		if !*seguranca || *modelo != "" {
 			return rc
 		}
 		// AUR-458's requisito explícito: the security pass is a

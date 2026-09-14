@@ -139,10 +139,13 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/config internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review internal/pipeline
-  copy "$root" cmd/regenerate-docs
-  copy "$root" pkg/types internal/llm
+  # The packages cmd/aurumcode actually imports (AUR-473 re-derived this list
+  # after 670c7f6 removed internal/documentation/*, internal/pipeline and
+  # cmd/regenerate-docs; staging a path that no longer exists aborts the
+  # whole acceptance before it asserts anything).
+  copy "$root" cmd/aurumcode
+  copy "$root" internal/analysis internal/analyzer internal/apply internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/security internal/testgen
+  copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input tree can be read-only, directories included;
   # force the staged scratch copy writable so mutation_case's rewrite and
@@ -167,12 +170,16 @@ readonly coverage_pointer='internal/review/rules/security.yml'
 coverage_rules=(security/command-injection security/hardcoded-secret security/sql-injection)
 
 # The exact sha256 of git-demo's `--seguranca` stdout with the fixture
-# provider configured (AURUMCODE_LLM_FIXTURE=known-problem-response.json) --
-# the same pin tests/acceptance/AUR-449.sh carries, re-asserted here because
-# this card's whole point is adding NEW output around this exact command
-# without disturbing this exact byte sequence. See this file's own "WHY
-# STDERR, NOT STDOUT" header note.
-readonly expected_with_provider_sha256='63c649af1c90e38b473e1bd45b4152b1f96ecad17d5d9c05c17bb94df7b8240f'
+# provider configured (AURUMCODE_LLM_FIXTURE=known-problem-response.json).
+# AUR-450 published 63c649af... for this command; AUR-490 (done, merged into
+# this card's base) deliberately made `review --base` print the same
+# deterministic summary and Mermaid diagram `--pr` already prints, which
+# moves these bytes without touching what AUR-450 owns (the security
+# findings, their order, and the stderr coverage note). The value below is
+# re-derived by running the exact command on this base and hashing its
+# stdout file -- not patched to whatever made an assertion pass. AUR-449's
+# own pin remains stale and is not this card's to repair.
+readonly expected_with_provider_sha256='905075cc86ca1dfc9239c365ae67f24894365ecde5f8ffb3ae2d3a6cb30f7371'
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its
