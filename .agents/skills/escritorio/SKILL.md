@@ -1,22 +1,74 @@
 ---
 name: escritorio
 description: >
-  Coordena o ciclo seguro do board AurumCode: mede progresso, valida runtime,
-  despacha builders isolados, conduz reviews e integra somente candidatos provados.
+  Coordena o ciclo leve do board AurumCode: mede progresso, roda preflight,
+  despacha um builder isolado, conduz exatamente um review no git do SHA
+  imutavel e integra so o SHA aprovado. Git so no host; o container so executa
+  codigo e testes.
 ---
 
 # Escritorio AurumCode
 
 Esta skill e controle operacional. Ela nao autoriza inventar cards, nao substitui
 evidencia, nao move cards sozinha e nunca e dependencia do runtime da aplicacao.
-O card e a autoridade do trabalho; o arquivo desta skill e apenas o procedimento
-para operar o card.
+O card e a autoridade do trabalho; este arquivo e apenas o procedimento para
+operar o card.
 
 Arquivo canonico: `.agents/skills/escritorio/SKILL.md`.
 `.claude/skills/escritorio/SKILL.md` e um symlink para ele. Nunca crie uma
 segunda copia nem edite uma das duas isoladamente: em 2026-08-12 uma copia
 desatualizada fez o coordenador despachar a cerimonia proibida de Reviewer A/B
 por tres dias de board.
+
+## Fonte de verdade e legado congelado
+
+Leia antes de agir: `AGENTS.md`, `.board/README.md`, `.board/AGENT_PLAYBOOK.md`
+e o card inteiro.
+
+- Gate estrutural: `bash .board/pipeline.sh` (exit 0 = verde). Leia sempre.
+- Monitor: `.board/office-cycle.sh` (`--status`, `--start`, `--review`).
+- Preflight: `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /worktree`.
+- Um erro de pipeline, preflight, imagem, runtime, engine, loader ou dependencia
+  e bloqueio. Nunca o converta em RED comportamental, review aprovado ou `done`.
+- Um arquivo, JSON ou stdout dizendo `approved`, `valid` ou `authenticated` e
+  observacao nao confiavel, nunca autoridade.
+- **Legado congelado, proibido para cards ativos:** `.board/validate.sh`,
+  `.board/REVIEW_PROTOCOL.md`, `.board/bin/second-reader`, a cerimonia de
+  Reviewer A/B / segundo leitor / aprovador cetico / test designer separado, e
+  evidence bundles manuais. Nao os execute, nao use o exit code deles e nao os
+  cite como autoridade. Eles governam apenas o historico dos cards que ja estavam
+  em `done` antes do ciclo leve; `.agents/skills/escritorio/frota.sh` e um
+  diagnostico do modelo antigo de subagentes, tambem legado.
+
+## Limite duro: git no host, container so executa codigo
+
+- **Git sempre no host.** Branch, worktree, commit, merge/rebase, diff, `git log`
+  e `git notes` rodam na maquina do coordenador. **Nunca execute `git` dentro do
+  container:** o container existe para compilar e testar, nao para versionar.
+- **Nada de Go, binario ou `go test` de codigo em revisao no host.** Um unico
+  container de trabalho compartilhado (`aurum-go`) atende builder, revisor e
+  coordenador, com o mesmo cache, para nao recompilar do zero e nao deixar lixo.
+  - `./.board/bin/go-shared up` sobe ou reaproveita (idempotente).
+  - `./.board/bin/go-shared exec -w <worktree> go test ...` executa.
+  - `./.board/bin/go-shared status` inspeciona; `down` encerra.
+- Nenhum agente cria imagem, container ou volume proprio. `./.board/bin/office-clean`
+  fecha a sessao e remove somente o que e nosso.
+- O aceite selado `oci-run` e o portao de integracao do coordenador, executado
+  uma vez por card no worktree candidato; nao e ferramenta de rodada por agente.
+
+## Review no git, no SHA imutavel
+
+- O review acontece **no git do host**: o revisor le o diff
+  `git -C <worktree> diff <base>..<sha-candidato>` e cobre cada hunk do SHA
+  imutavel, a partir do worktree limpo do candidato.
+- O card **permanece `ready` durante o review**; review nao move card. A fila
+  ativa (`doing`/`review`/`validating`) nao recebe um candidato ainda nao
+  aprovado.
+- O parecer do revisor e gravado no proprio git:
+  `git notes --ref=reviews add -f <sha-candidato> <<'EOF' ... EOF`.
+- So depois de APPROVE o coordenador integra exatamente aquele SHA em `main`.
+  Um SHA novo nunca herda aprovacao antiga; REQUEST_CHANGES exige correcao e
+  novo review do novo SHA.
 
 ## Orcamento de papeis por card (limite duro)
 
@@ -30,6 +82,11 @@ qualquer card nao concluido: Reviewer A, Reviewer B, segundo reviewer, terceiro
 reviewer, aprovador cetico, segundo leitor e test designer separado. Se o texto
 de um card ainda pedir esses papeis, o texto e legado stale: normalize o card
 antes de despachar, nunca obedeca a ele.
+
+Nao despache uma frota de agentes por card. Um builder, um reviewer, um
+validator. Paralelismo so entre cards cujos paths sao disjuntos e cujas
+dependencias estao em `done`; a maior frota segura e limitada pelos recursos
+reais, nunca pelo numero de slots imaginados.
 
 ## Escopo do briefing (limite duro)
 
@@ -58,22 +115,7 @@ tentasse instalar runtime por gerenciador de pacote e por download, sendo que o
 card diz em Non-goals que apenas pina particao ja materializada e que o profile
 nem chega a ser executado. O briefing foi corrigido durante a revisao.
 
-## Autoridade e parada
-
-- Leia `AGENTS.md`, `.board/README.md`, `.board/AGENT_PLAYBOOK.md` e o card antes
-  de agir.
-- O gate atual e `bash .board/pipeline.sh`.
-- O monitor atual e `.board/office-cycle.sh`.
-- O preflight obrigatorio e
-  `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /clean/worktree`.
-- `.board/validate.sh` e legado congelado. Nao o execute, nao use seu exit code
-  e nao o trate como atalho para fechar um card.
-- Um erro de pipeline, preflight, imagem, runtime, engine, loader ou dependencia
-  e bloqueio. Nunca o converta em RED comportamental, review aprovado ou done.
-- Um resultado de arquivo, JSON ou stdout dizendo `approved`, `valid` ou
-  `authenticated` e observacao nao confiavel, nunca autoridade.
-
-## Inicio e ciclo
+## Ciclo, Ralph loop e parada
 
 1. Rode `bash .board/office-cycle.sh --status` e `bash .board/pipeline.sh`.
 2. Rode `bash .board/office-cycle.sh --start` uma vez no inicio da serie de
@@ -83,10 +125,11 @@ nem chega a ser executado. O briefing foi corrigido durante a revisao.
 4. O script conta `done_delta`. Dois reviews sem aumento encerram a abordagem:
    exit 75 significa parar, classificar a causa e mudar de lane/processo.
 5. Atividade de agente, worktree novo, pipeline estrutural verde ou texto de
-   progresso nao contam como progresso.
-
-O monitor nao faz dispatch automatico. A coordenacao deve ser explicita para
-nao permitir que uma sessao curta continue uma abordagem ja condenada.
+   progresso **nao** contam como progresso.
+6. O monitor nao faz dispatch automatico. A coordenacao e explicita, para que
+   uma sessao curta nao continue uma abordagem ja condenada. Um Ralph loop que
+   atravessa janelas de 20 min so continua enquanto `done_delta` cresce; ao
+   bater exit 75, pare e reclassifique.
 
 ## Fila e isolamento
 
@@ -95,14 +138,14 @@ nao permitir que uma sessao curta continue uma abordagem ja condenada.
   despachar. Nunca duplique builder ou worktree.
 - Cada builder usa worktree proprio e devolve patch mais saida bruta; nao move
   card, nao aprova o proprio trabalho e nao escreve evidencia final.
-- Toda lane vazia permanece representada por arquivo rastreado; valide o
-  pipeline em clone limpo, pois diretorio local nao e artefato Git.
+- Toda lane, inclusive vazia, permanece representada por arquivo rastreado;
+  valide o pipeline em clone limpo, pois diretorio local nao e artefato Git.
 - O checkout coordenador pode permanecer sujo. Toda acceptance, review e
   validacao final rodam em worktree limpo do SHA candidato.
 - Execute `oci-run` com cwd no worktree candidato. Path absoluto para o script
   nao muda a raiz resolvida por `git rev-parse` e pode testar o checkout errado.
-- Use a maior frota segura que a fila e os recursos realmente suportam; nao
-  encha slots com cards que falharam preflight ou possuem dependencia ausente.
+- O worktree de review precisa estar limpo e no SHA exato; nao reutilize o
+  worktree do builder, que pode conter trabalho fora do commit.
 
 ## Preflight que nao pode ser pulado
 
@@ -113,7 +156,7 @@ preflight no worktree limpo. Ele exige:
 - `validation`, `container_profile` e `profile_owner` declarados antes de
   `ready`; o dono deve ser upstream no DAG e estar registrado em
   `.board/profile-owners.tsv`;
-- `read_paths: []` é obrigatório quando vazio; qualquer card Go declara
+- `read_paths: []` e obrigatorio quando vazio; qualquer card Go declara
   `go.mod` e `go.sum` em `read_paths`;
 - o write-set cobre semanticamente cada artefato que Outcome, Postconditions,
   Public contract e Green mandam criar ou alterar. Se o card promete registrar,
@@ -143,17 +186,17 @@ preflight no worktree limpo. Ele exige:
 Para `ready`, o preflight de builder valida contrato, dependencias, posse,
 profile, lock, imagem e runtime base, mas nao exige ainda os artifacts de
 `paths` nem executa acceptance ausente. Reviewer/validator continuam exigindo
-todos os paths tracked, acceptance executavel e exit real. Essa distinção evita
-que cards novos fiquem impossíveis de despachar por ainda não terem sido
-construídos.
+todos os paths tracked, acceptance executavel e exit real. Essa distincao evita
+que cards novos fiquem impossiveis de despachar por ainda nao terem sido
+construidos.
 
-Quando todos os `paths` de um card `ready` já estão rastreados, o preflight o
+Quando todos os `paths` de um card `ready` ja estao rastreados, o preflight o
 classifica como candidato completo e aplica automaticamente os checks fortes e
 o acceptance nominal. Isso impede reviewer em `ready` de herdar o modo frouxo
 reservado ao builder inicial.
 
-Quando `PREFLIGHT_RUN=1` executa a acceptance nominal, somente exit `0` é
-verde. Exit `1` é falha do card, não RED aceitável; apenas códigos explícitos
+Quando `PREFLIGHT_RUN=1` executa a acceptance nominal, somente exit `0` e
+verde. Exit `1` e falha do card, nao RED aceitavel; apenas codigos explicitos
 de infraestrutura podem ser classificados como indisponibilidade.
 
 Uma imagem Go sem `bash` nao passa: o runner executa a acceptance com `bash`.
@@ -195,79 +238,78 @@ teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
   dependencia. Depois de corrigir o DAG, executar o owner real antes de
   retomar o consumidor.
 
-## Entrega por card
+## Fluxo de entrega leve (passo a passo canonico)
 
-1. O proprio builder prova RED pelo comportamento esperado antes do GREEN; nao
-   existe test designer separado. Falha de ambiente nao e RED. Para
-   caracterizacao, prova GREEN, mutacao RED e restore GREEN.
-2. O mesmo builder implementa somente `paths`, executa baseline, mutacao e
-   restore, e cria commit com identidade humana configurada, sem atribuicao de
-   IA.
-3. **Um unico reviewer independente por card** revisa o mesmo SHA imutavel
-   ainda fora da fila ativa,
-   antes da integracao; depois da aprovacao o coordenador integra exatamente
-   esse SHA e move o card para `review`/`validating`,
-   cada hunk, o contrato,
-   schema/parser, acceptance, paths, exits e fronteiras de seguranca.
-   Nunca despache Reviewer A/B, segundo/terceiro reviewer ou aprovador cetico:
-   o pipeline rejeita essa linguagem nos cards nao concluidos. O reviewer nao
-   executa `.board/bin/second-reader` no checkout coordenador.
-   Cada selector Unit, Contract, Integration e E2E declarado deve executar uma
-   assercao real. Exit 0 com `[no test files]`, zero testes, branch vazia ou
-   selector que retorna sem chamar a camada e veto, mesmo se o nominal agregado
-   estiver verde.
-   Alem do `accept` declarado, o reviewer roda `go test` sobre TODO pacote em
-   `paths` (nao so os arquivos que o diff tocou), porque um `accept` estreito
-   pode ficar cego a regressao em teste pre-existente que o diff nunca
-   modificou. Em 2026-08-12 o candidato `a838436` do AUR-424 quebrou 5 testes
-   pre-existentes fora do diff (tool_unavailable_test.go, tool_failure_test.go,
-   output_confirmed_test.go, characterization.go, smoke_test.go); o
-   `tests/acceptance/AUR-424.sh` do card so rodava `./tests/unit` e
-   `./tests/integration` e aprovaria isso com `{"result":"pass"}`. Achado por
-   `/code-review` como segunda lente do coordenador, nao pelo reviewer do
-   processo.
-4. Validator executa o acceptance e as camadas declaradas no mesmo SHA e em
-   worktree limpo. Exit 0 e evidencia; exit 69/79 e inconclusivo; exit 1 so e
+1. `backlog -> ready` so quando toda `depends_on` esta em `done`, os campos
+   `validation`, `paths`, `read_paths`, `container_profile` e `profile_owner`
+   estao explicitos, e o owner do profile e upstream. `ready` autoriza **um**
+   builder isolado, depois do preflight de builder.
+2. O builder implementa somente `paths`, prova baseline/mutacao/restore, e cria
+   um commit com a identidade humana ja configurada, sem qualquer atribuicao de
+   IA. O card **continua `ready`**.
+3. **Exatamente um reviewer independente** revisa o commit imutavel no git do
+   host (ver "Review no git"). Cada selector Unit/Contract/Integration/E2E
+   declarado deve executar uma assercao real: exit 0 com `[no test files]`, zero
+   testes, branch vazia ou selector que retorna sem chamar a camada e veto,
+   mesmo que o nominal agregado esteja verde. Alem do `accept` declarado, o
+   reviewer roda `go test` sobre **todo** pacote em `paths`, nao so os arquivos
+   que o diff tocou, porque um `accept` estreito pode ficar cego a regressao em
+   teste pre-existente. Um unico agente pode ser reviewer e validator do mesmo
+   SHA.
+4. Apos APPROVE, o coordenador integra **exatamente aquele SHA** em `main` (por
+   exemplo fast-forward do candidato linear), adiciona ao card o
+   `## Delivery record` com `- commit: <SHA que ficou em main>`, `- review:
+   approved`, e move o card para `validating` (ou `review`).
+5. Se o card declara `validation: tested` ou `skeptical`, o validator executa o
+   acceptance do proprio card no mesmo SHA, em worktree limpo, e adiciona
+   `- validation: passed`. Exit 0 e evidencia; 69/79 e inconclusivo; exit 1 so e
    RED depois que o programa realmente iniciou.
-5. Coordenador integra apenas o candidato aprovado, grava evidencia sanitizada,
-   atualiza Delivery record e roda `bash .board/pipeline.sh`.
-6. So entao move para `done`. Nenhum agente pode substituir review, mutacao ou
-   evidencia por prosa.
+6. `done` so quando o Delivery record esta completo para o kind declarado e
+   `bash .board/pipeline.sh` passa. Apenas o coordenador integra e move cards.
 
-## Execucao no host tem teto de memoria (limite duro)
+Nenhum agente pode substituir review, mutacao ou evidencia por prosa.
 
-Nenhum binario candidato, `go test` ou `go run` de codigo em revisao executa
-no host sem teto de memoria. Prefixe sempre com `ulimit -v` (ex.: 2 GiB) e
-exporte `GOMEMLIMIT` (ex.: 1GiB); `go test` leva `-timeout` explicito. O
-sandbox `oci-run` ja impoe 256 MB por cgroup e conteve um estouro em
-2026-08-12 19:30; a mesma classe de estouro executada no host as 20:02
-(`aurumcode-bin`, morto pelo OOM global com ~31 GB de RSS) derrubou a maquina
-inteira com todos os agentes juntos. Rodar "localmente porque o profile nao
-tem a ferramenta" nunca remove o teto: se o comando nao sobrevive dentro de
-um limite razoavel, isso e um achado contra o candidato, nao motivo para
-soltar o limite.
+## Evidencia minima
 
-## OCI e segundo leitor
+Cards com `validation: tested|skeptical` em `done` precisam de
+`.board/evidence/AUR-NNN/validated.json` com o card, o SHA completo, o review
+aprovado, a validacao passada e pelo menos um `exit_code: 0`. O pipeline recusa
+`done` sem essa correspondencia. Um JSON de evidencia e dado, nao decisao: nao
+autoriza transicao por si so.
 
-- `oci-run` materializa somente paths allowlisted e executa em rede none, rootfs
-  read-only, sem socket, mount de host, device ou capability.
-- O runtime smoke do preflight e repetido pelo `oci-run` antes de criar o
-  materializer. Se os probes discordarem, para.
-- Ao alterar um gate, runner ou esta skill, rode
-  `bash .board/tests/office-process-regression.sh` e `git diff --check`.
-- `.board/bin/second-reader` escreve em `.board/evidence`; nunca o execute no
-  checkout compartilhado. Use worktree dedicado e capture o exit bruto.
-- Docker/Podman ausente, imagem nao local, timeout ou cache Go indisponivel sao
-  inconclusivos. Nao sao sucesso e nao sao falha de comportamento.
-- Antes de chamar um wrapper de travado ou reinicia-lo, inspecione uma vez o
-  processo do container dentro do timeout. Compilacao ativa nao e loop: preserve
-  o limite e elimine recompilacoes identicas reutilizando cache privado entre
-  mutacoes sequenciais. Nao repita o mesmo comando sem mudanca de hipotese,
-  candidato ou instrumentacao.
-- Acceptance que copia inputs read-only para staging deve tornar sua propria
-  arvore temporaria gravavel no `trap` e nunca deixar erro de cleanup sobrescrever
-  um resultado nominal verde. O alvo do cleanup precisa ser o `mktemp` validado
-  e o cleanup deve ser idempotente.
+## O card registra o SHA integrado, nunca o do candidato (limite duro)
+
+Registre em `- commit:` e em `validated.json` o SHA que existe em `main` depois
+da integracao, nao o tip da branch de candidato. O candidato e efemero por
+construcao: ele so existe enquanto a branch `card/AUR-NNN` o segura, e some no
+primeiro `gc --prune=now`.
+
+Em 2026-08-26, ao consolidar o repositorio numa branch so -- apagando branches
+mergeadas e podando -- doze cards `done` passaram a apontar para objetos
+coletados, e `pipeline.sh` recusou o board. Os objetos nao estavam no `origin`.
+A recuperacao foi impossivel; o conserto foi reapontar cada card para o commit
+que de fato entrega seus `paths` em `main`.
+
+Antes de podar objetos ou apagar branch de candidato, rode a auditoria barata:
+para todo card `done`, `git cat-file -t <sha>` e
+`git merge-base --is-ancestor <sha> main`. Um card que falha em qualquer um dos
+dois afirma entrega sem lastro inspecionavel.
+
+## Progresso e continuidade
+
+Ao final de cada ciclo relate somente: `done_delta`, cards fechados, blocker
+medido, cards despachados e proximo gate. Nao emita promessa de conclusao
+enquanto houver backlog, ready, doing, review, validating ou blocker de
+especificacao/infraestrutura.
+
+Se a sessao terminar, deixe handoff do ai-memory com o resultado de
+`pipeline.sh`, a fila `ready`, os cards tocados e o proximo comando
+verificavel. O agente seguinte deve rerodar `pipeline.sh` antes de confiar no
+handoff.
+
+---
+
+# Licoes historicas que continuam valendo
 
 ## Todo despacho carrega prazo (limite duro)
 
@@ -284,21 +326,10 @@ em disco. `bash .board/bin/office-watch [minutos]` lista os worktrees parados
 agente e trabalho do coordenador: se o usuario precisa avisar que um agente esta
 parado, o processo falhou, nao o usuario.
 
-Ao vencer o prazo, leia o worktree antes de decidir — `git status --porcelain` e
+Ao vencer o prazo, leia o worktree antes de decidir -- `git status --porcelain` e
 `git log -1` dizem se ha trabalho a salvar. So entao escolha: cobrar entrega
 parcial com sequencia numerada minima, redespachar do zero, ou assumir o card.
 Nunca deixe a decisao para a proxima vez que o usuario perguntar.
-
-## Progresso e continuidade
-
-Ao final de cada ciclo relate somente: `done_delta`, cards fechados, blocker
-medido, cards despachados e proximo gate. Se a sessao terminar, deixe handoff do
-ai-memory com o resultado de `pipeline.sh`, fila `ready`, cards tocados e o
-proximo comando verificavel. O agente seguinte deve rerodar o pipeline antes de
-confiar no handoff.
-
-Nao emita promessa de conclusao enquanto houver backlog, ready, doing, review,
-validating ou blocker de especificacao/infraestrutura.
 
 ## read_paths nomeia pacote, nao arquivo (limite duro)
 
@@ -318,21 +349,6 @@ E quando um builder falsificar o diagnostico do coordenador com execucao,
 acredite nele e verifique voce mesmo. O relatorio honesto de "o que voce me
 mandou nao reproduz" vale mais que um conserto que fecha o card.
 
-## Modelo por papel (limite duro)
-
-Builder e revisor rodam em Sonnet. Opus fica reservado para especificacao,
-planejamento e coordenacao -- escrever card, derivar acceptance, decidir
-sequencia, integrar e julgar evidencia. Nao promova um builder para Opus porque
-o card parece dificil: se o briefing precisa de Opus para ser executado, o
-briefing esta incompleto, e a correcao e escrever o diagnostico medido dentro
-dele, nao trocar o modelo.
-
-Quando o Opus atinge limite de uso, os agentes morrem com "weekly limit". Isso
-NAO significa conta esgotada: teste um modelo menor antes de concluir que nao ha
-agente disponivel. Em 2026-08-14 eu declarei o escritorio parado e passei a
-revisar sozinho por essa conclusao apressada; Sonnet estava disponivel o tempo
-todo, e foi o usuario que teve de perguntar onde estavam os subagentes.
-
 ## `strings.Contains` num portao e quase sempre defeito
 
 Dois revisores independentes acharam a mesma classe de bug em cards diferentes
@@ -348,26 +364,10 @@ Quando um portao decide se algo e permitido, `Contains`, `HasPrefix` e
 `HasSuffix` cada um deixa passar uma forma diferente. Normalize primeiro
 (remova ancora, prefixo `./`, espaco) e compare por IGUALDADE, ou case a linha
 inteira. Ao revisar, ataque todo comparador de string de portao com quatro
-formas: prefixo, sufixo, no meio, e com travessia de caminho.
-
-## O card registra o SHA integrado, nunca o do candidato (limite duro)
-
-Registre em `- commit:` e em `validated.json` o SHA que existe em `main` depois
-da integracao, nao o tip da branch de candidato. O candidato e efemero por
-construcao: ele so existe enquanto `refs/candidates/AUR-NNN` e a branch
-`card/AUR-NNN` o seguram, e some no primeiro `gc --prune=now`.
-
-Em 2026-08-26, ao consolidar o repositorio numa branch so -- apagando branches
-mergeadas, refs de candidato e podando -- doze cards `done` passaram a apontar
-para objetos coletados, e `pipeline.sh` recusou o board. Os objetos nao estavam
-no `origin`, porque as branches remotas de candidato foram apagadas na mesma
-operacao. A recuperacao foi impossivel; o conserto foi reapontar cada card para
-o commit que de fato entrega seus `paths` em `main`.
-
-Antes de podar objetos ou apagar branch de candidato, rode a auditoria barata:
-para todo card `done`, `git cat-file -t <sha>` e
-`git merge-base --is-ancestor <sha> main`. Um card que falha em qualquer um dos
-dois afirma entrega sem lastro inspecionavel.
+formas: prefixo, sufixo, no meio, e com travessia de caminho. Um caso vivo:
+uma aceitacao que so rejeitava `npm ci|go test|make` deixava passar
+`bash .aurumcode-target/build.sh`, provando "nao executa codigo do PR" sem
+provar nada.
 
 ## Mutacao nao ancora nos bytes que outro card vai mudar
 
@@ -390,16 +390,42 @@ que uma mudanca futura quebre alto em vez de transformar o mutante em no-op
 silencioso -- um mutante que nao muda nada deixa o aceite verde sem provar coisa
 alguma.
 
-## Um ambiente para todos (limite duro, 2026-09-13)
+## Nenhum codigo em revisao sem teto de recurso
 
-Go nunca roda no host. `./.board/bin/go-shared up` sobe ou reaproveita o UNICO
-container de trabalho (`aurum-go`: rede zero, repo e worktrees montados nos
-caminhos do host, volume canonico `aurumcode-gocache`). Builder, revisor e
-coordenador rodam tudo por `./.board/bin/go-shared exec -w <worktree> ...`.
-Nenhum agente cria imagem, container ou volume proprio -- o dono encontrou oito
-volumes de cache e duas imagens por-review deixados por sessoes anteriores.
+O sandbox `oci-run` impoe 256 MB por cgroup. Um binario candidato executado no
+host as 20:02 de 2026-08-12 (`aurumcode-bin`) estourou para ~31 GB de RSS e
+derrubou a maquina com todos os agentes. Por isso: Go nunca no host, sempre no
+`go-shared`; e qualquer outro comando pesado que precise rodar fora do container
+leva `ulimit -v` (ex.: 2 GiB), `GOMEMLIMIT` (ex.: 1GiB) e `-timeout` explicito.
+Se o comando nao sobrevive ao limite, isso e um achado contra o candidato, nao
+motivo para soltar o limite.
 
-O revisor executa no ambiente em que o builder compilou, com o mesmo cache; nao
-rebuilda o modulo do zero. O aceite selado `oci-run` e o portao de integracao do
-coordenador, uma vez por card, nunca ferramenta de rodada. `./.board/bin/office-clean`
-fecha a sessao; ele so remove o que e nosso.
+## OCI e aceite
+
+- `oci-run` materializa somente paths allowlisted e executa em rede none, rootfs
+  read-only, sem socket, mount de host, device ou capability.
+- O runtime smoke do preflight e repetido pelo `oci-run` antes de criar o
+  materializer. Se os probes discordarem, pare.
+- Docker/Podman ausente, imagem nao local, timeout ou cache Go indisponivel sao
+  inconclusivos. Nao sao sucesso e nao sao falha de comportamento.
+- Antes de chamar um wrapper de travado ou reinicia-lo, inspecione uma vez o
+  processo do container dentro do timeout. Compilacao ativa nao e loop: preserve
+  o limite e elimine recompilacoes identicas reutilizando cache privado entre
+  mutacoes sequenciais. Nao repita o mesmo comando sem mudanca de hipotese,
+  candidato ou instrumentacao.
+- Acceptance que copia inputs read-only para staging deve tornar somente seu
+  proprio `mktemp` gravavel no `trap` e nunca deixar erro de cleanup sobrescrever
+  um resultado nominal verde. O cleanup deve ser idempotente.
+
+## Modelo por papel (recomendacao)
+
+Builder e revisor rodam em modelo mais barato; o modelo mais forte fica para
+especificacao, planejamento, coordenacao e julgamento de evidencia. Nao promova
+um builder para o modelo mais forte porque o card parece dificil: se o briefing
+precisa disso para ser executado, o briefing esta incompleto, e a correcao e
+escrever o diagnostico medido dentro dele.
+
+Se um modelo atinge limite de uso e os agentes morrem, isso NAO significa conta
+esgotada: teste um modelo menor antes de concluir que nao ha agente disponivel.
+Em 2026-08-14 o escritorio foi declarado parado por essa conclusao apressada,
+quando o modelo menor estava disponivel o tempo todo.

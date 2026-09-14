@@ -6,8 +6,16 @@ description: Use for the AurumCode board office loop, sprint cycles, goal-to-zer
 # AurumCode Office Loop
 
 This is an operational loop for the reconstruction board. It never invents
-work, bypasses the board, or weakens evidence. The frozen `.board/validate.sh`
-is legacy evidence and is not part of the current session gate.
+work, bypasses the board, or weakens evidence. The canonical lightweight flow is
+in `.board/README.md` and `.board/AGENT_PLAYBOOK.md`; the frozen
+`.board/validate.sh`, `.board/REVIEW_PROTOCOL.md`, `.board/bin/second-reader`,
+and the Reviewer A/B / test-designer ceremony are legacy evidence for old `done`
+cards only and are not part of the current session gate.
+
+Hard rule: **git runs on the host, never inside the container.** The shared
+`aurum-go` container (`./.board/bin/go-shared`) exists only to compile and run
+code and tests; branches, worktrees, commits, diffs, and `git notes` stay on the
+host. Review is done on the host git diff of the immutable SHA.
 
 ## Start and 20-minute review
 
@@ -40,22 +48,29 @@ is legacy evidence and is not part of the current session gate.
 
 ## Delivery gates
 
-1. Test designer proves behavioral RED, or GREEN plus a real mutation RED for
-   characterization cards. Infrastructure failure is never RED.
-2. Builder returns a patch and raw command output, never approval or a card move.
-3. Independent reviewer checks the immutable SHA, every hunk, contract,
-   schema/parser agreement, acceptance, paths, exits, and security boundaries.
-4. Validator runs the acceptance and declared layers on the same clean SHA.
-   Exit `0` is evidence, `69/79` is inconclusive, and exit `1` is behavioral
-   RED only after the program actually started.
-5. The coordinator integrates only approved candidates, writes sanitized
-   evidence, updates the Delivery record, and runs `bash .board/pipeline.sh`.
-6. Only then may the card move to `done`.
+1. The builder proves baseline/mutation RED for the promised behavior before
+   GREEN. Infrastructure failure is never RED.
+2. The builder returns a patch plus raw output, never approval or a card move.
+   The card stays `ready` during review.
+3. Exactly one independent reviewer checks the immutable SHA on the host git
+   diff: every hunk, contract, schema/parser agreement, acceptance, paths, exits,
+   and security boundaries, plus `go test` over every package in `paths`. The
+   verdict is recorded with `git notes --ref=reviews`. Do not dispatch Reviewer
+   A/B, a second reviewer, or a skeptic.
+4. Only after approval does the coordinator integrate that exact SHA into
+   `main`, add the Delivery record (`- commit: <sha in main>`), and move the card
+   to `validating`.
+5. Validator runs the acceptance and declared layers on the same clean SHA.
+   Exit `0` is evidence, `69/79` is inconclusive, and exit `1` is behavioral RED
+   only after the program actually started.
+6. The coordinator writes sanitized evidence, updates the Delivery record, runs
+   `bash .board/pipeline.sh`, and only then moves the card to `done`.
 
 ## Safety stops
 
-- Never run `.board/bin/second-reader` in the shared checkout; it writes
-  evidence. Use a dedicated worktree and capture raw exit/output.
+- Never run the legacy `.board/bin/second-reader` or `.board/validate.sh` for an
+  active card; they are frozen and write evidence.
+- Never run `git` inside the container; git is host-only.
 - Missing engine, image, runtime, module cache, queued workflow, or timeout is
   an infrastructure blocker, not approval.
 - Never duplicate an active builder or continue a card with unmet dependencies.
