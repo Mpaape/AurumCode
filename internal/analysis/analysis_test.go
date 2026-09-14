@@ -219,6 +219,10 @@ func TestAUR496FilePermissions(t *testing.T) {
 		{name: "octal-shaped digits inside nested call argument do not count", line: `os.WriteFile("x", []byte("data,0777"), 0600)`, want: false},
 		{name: "comma inside filename string does not split arguments", line: `os.Chmod("a,0777", 0600)`, want: false},
 		{name: "last argument is the real mode and is world-writable", line: `os.WriteFile("x", []byte("data"), 0777)`, want: true},
+		{name: "os.FileMode cast around world-writable literal", line: `os.Chmod("f", os.FileMode(0777))`, want: true},
+		{name: "os.FileMode cast around a safe literal stays clear", line: `os.Chmod("f", os.FileMode(0644))`, want: false},
+		{name: "fs.FileMode cast around world-writable literal", line: `os.Chmod("f", fs.FileMode(0777))`, want: true},
+		{name: "bare variable mode stays clear", line: `os.Chmod("f", mode)`, want: false},
 	}
 	r := NewRunner()
 	for _, tc := range tests {

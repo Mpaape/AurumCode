@@ -156,6 +156,7 @@ func matchesWorldWritablePermission(body string) bool {
 // real world-writable mode cannot hide behind a valid spelling.
 func isWorldWritableMode(arg string) bool {
 	normalized := strings.ReplaceAll(strings.TrimSpace(arg), "_", "")
+	normalized = unwrapFileModeCast(normalized)
 	if !modeLiteralRe.MatchString(normalized) {
 		return false
 	}
@@ -165,6 +166,20 @@ func isWorldWritableMode(arg string) bool {
 	default:
 		return false
 	}
+}
+
+// unwrapFileModeCast strips a single explicit os.FileMode(...) / fs.FileMode(...)
+// conversion around an argument, so os.Chmod("f", os.FileMode(0777)) is
+// judged by the 0777 literal it wraps instead of being dismissed as a
+// non-literal expression. The Go-valid call with a bare variable
+// (os.Chmod("f", mode)) has no cast to unwrap and stays clear.
+func unwrapFileModeCast(s string) string {
+	for _, p := range []string{"os.FileMode(", "fs.FileMode("} {
+		if strings.HasPrefix(s, p) && strings.HasSuffix(s, ")") {
+			return strings.TrimSpace(s[len(p) : len(s)-1])
+		}
+	}
+	return s
 }
 
 // splitTopLevelArgs splits a call's argument list into its top-level

@@ -103,16 +103,16 @@ check_workflow_contract() {
   grep -Fq -- '-w /github/workspace' <<<"$run_block" || { echo "workdir-not-set"; bad=1; }
 
   # AC-003: the reviewed PR tree is mounted read-only and its code is never
-  # executed. Drop the single legitimate read-only mount line (it only names
-  # the tree as a mount source), then reject any remaining path INTO the tree
-  # or "./" execution of it, e.g. `bash .aurumcode-target/build.sh`,
-  # `./.aurumcode-target/ci.sh`, `python .aurumcode-target/f.py`. The
-  # checkout's own `path: .aurumcode-target` line has no trailing "/" and is
-  # therefore not an execution reference. The package-manager and build
-  # command patterns stay as a backstop.
+  # executed. The workflow legitimately names the tree on exactly two lines:
+  # the read-only mount source and the checkout's `path: .aurumcode-target`.
+  # Drop those two lines, then reject ANY remaining mention of the tree, so a
+  # step that cd's into it or runs it with `sh -c` / `bash "$PWD/..."` is
+  # caught, not just `./.aurumcode-target/...` and `bash .aurumcode-target/...`.
+  # The package-manager and build command patterns stay as a backstop.
   local without_mount
-  without_mount="$(grep -Fv -- '-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"' "$workflow" || true)"
-  if grep -Eq '\.aurumcode-target/|\./\.aurumcode-target' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
+  without_mount="$(grep -Fv -- '-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"' "$workflow" \
+    | grep -Fv -- 'path: .aurumcode-target' || true)"
+  if grep -Fq -- '.aurumcode-target' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
   if grep -Eq 'npm (ci|install)|go (build|test)|make ' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
 
   return "$bad"
@@ -178,6 +178,14 @@ case "$selector" in
     { cat "$workflow"; printf '      - name: Leak PR tree\n        run: bash .aurumcode-target/build.sh\n'; } > "$mut_d"
     grep -Fq 'run: bash .aurumcode-target/build.sh' "$mut_d" || infra 'mutation-anchor-missing:MUT-002d'
     if check_workflow_contract "$mut_d" >/dev/null; then fail 'pr-code-execution-not-detected'; fi
+
+    # Mutation E: reach the PR tree by cd'ing into it first. This form has no
+    # ".aurumcode-target/" slash token, so the earlier path pattern alone
+    # missed it; the any-remaining-mention check must catch it.
+    mut_e="$staged_dir/cd-pr-tree.yml"
+    { cat "$workflow"; printf '      - name: Leak\n        run: cd .aurumcode-target && bash build.sh\n'; } > "$mut_e"
+    grep -Fq 'run: cd .aurumcode-target && bash build.sh' "$mut_e" || infra 'mutation-anchor-missing:MUT-002e'
+    if check_workflow_contract "$mut_e" >/dev/null; then fail 'cd-pr-code-execution-not-detected'; fi
 
     # Restore: the unmutated file must pass again (green after red).
     reasons="$(check_workflow_contract "$workflow")" && rc=0 || rc=$?
