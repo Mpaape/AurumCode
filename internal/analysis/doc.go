@@ -4,8 +4,9 @@
 // It is model-free and zero-config: NewRunner builds a Runner over a fixed
 // catalog of hand-audited regular expressions compiled into the binary, so
 // applying it never needs a configuration file, credentials, network access,
-// or an external binary. Analyze scans the added (RIGHT) and removed (LEFT)
-// lines of a types.Diff and reports each catalog match as a Finding whose
+// or an external binary. Analyze scans only the added (RIGHT) lines of a
+// types.Diff — a removed line never produces a finding — and reports each
+// catalog match as a Finding whose
 // Message is a trusted, fixed catalog string (the matched source text is
 // never echoed).
 //

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # AUR-496 acceptance: the deterministic scanner only flags additions, file
-# permission findings require an actual write-for-others mode (not any
-# nearby digit), comments are never mistaken for credential assignments,
-# and the reusable review workflow checks out the reviewed PR into its own
-# read-only mount instead of reusing AurumCode's own checkout.
+# permission findings require an actual write-for-others mode on the call's
+# real last argument (not any nearby digit), comments and documentation
+# strings are never mistaken for credential assignments, and the reusable
+# review workflow checks out the reviewed PR into its own read-only mount
+# instead of reusing AurumCode's own checkout.
 #
 # Exit: 0 green; 1 behavioural failure; 64 unknown selector; 79 infrastructure.
 set -Eeuo pipefail
@@ -63,6 +64,48 @@ gotest() {
 expect_pass() { local rc=0; gotest "$1" "$2" || rc=$?; ((rc == 79)) && infra "build_failed:$2"; ((rc == 0)) || fail "selector-failed:$2"; }
 expect_fail() { local rc=0; gotest "$1" "$2" || rc=$?; ((rc == 79)) && infra "build_failed:$2"; ((rc == 1)) || fail "mutation-not-detected:$2"; }
 
+# workflow_step_block WORKFLOW STEP_NAME -> prints the lines of that named
+# step ("- name: STEP_NAME" up to, but excluding, the next top-level "- name:"
+# line or EOF), so a check binds to the exact step it means instead of
+# matching a substring anywhere else in the file (e.g. another step that
+# also happens to set "persist-credentials").
+workflow_step_block() {
+  local workflow="$1" step="$2"
+  awk -v step="      - name: $step" '
+    $0 == step { found=1; print; next }
+    found && /^      - name:/ { exit }
+    found { print }
+  ' "$workflow"
+}
+
+# check_workflow_contract WORKFLOW -> 0 if every AC-003 property holds on
+# that file, 1 (with reasons on stdout) otherwise. This is the single
+# reusable check: the nominal case below calls it on the real file, and
+# MUT-002 calls the SAME function on a staged, mutated copy and requires it
+# to fail. It never calls exit itself, so both callers can capture its
+# return code.
+check_workflow_contract() {
+  local workflow="$1" bad=0
+  [[ -f "$workflow" ]] || { echo "workflow-missing"; return 1; }
+
+  local checkout_block
+  checkout_block="$(workflow_step_block "$workflow" 'Checkout pull request')"
+  if [[ -z "$checkout_block" ]]; then echo "missing-checkout-step"; bad=1; fi
+  grep -Fq 'repository: ${{ github.repository }}' <<<"$checkout_block" || { echo "wrong-target-repository"; bad=1; }
+  grep -Fq 'ref: ${{ github.event.pull_request.head.sha }}' <<<"$checkout_block" || { echo "wrong-target-ref"; bad=1; }
+  grep -Fq 'path: .aurumcode-target' <<<"$checkout_block" || { echo "missing-separate-checkout-path"; bad=1; }
+  grep -Fq 'persist-credentials: false' <<<"$checkout_block" || { echo "credentials-persisted"; bad=1; }
+
+  local run_block
+  run_block="$(workflow_step_block "$workflow" 'Run and publish code review')"
+  if [[ -z "$run_block" ]]; then echo "missing-run-step"; bad=1; fi
+  grep -Fq -- '-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"' <<<"$run_block" || { echo "workspace-not-readonly"; bad=1; }
+  grep -Fq -- '-w /github/workspace' <<<"$run_block" || { echo "workdir-not-set"; bad=1; }
+  if grep -Eq 'npm (ci|install)|go (build|test)|make ' "$workflow"; then echo "runs-pr-code"; bad=1; fi
+
+  return "$bad"
+}
+
 workflow="$repo_root/.github/workflows/review.yml"
 
 case "$selector" in
@@ -72,18 +115,19 @@ case "$selector" in
   AC-002)
     expect_pass internal/analysis TestAUR496FilePermissions
     expect_pass internal/analysis TestAUR496CommentsNotCredentials
+    expect_pass internal/analysis TestAUR496DocumentationStringsNotCredentials
     expect_pass internal/analysis TestAUR489SecretNaming
     ;;
   AC-003)
-    grep -Fq 'path: .aurumcode-target' "$workflow" || fail missing-separate-checkout
-    grep -Fq 'persist-credentials: false' "$workflow" || fail credentials-persisted
-    grep -Fq '/.aurumcode-target:/github/workspace:ro' "$workflow" || fail workspace-not-readonly
-    grep -Fq -- '-w /github/workspace' "$workflow" || fail workdir-not-set
-    if grep -Eq 'npm (ci|install)|go (build|test)|make ' "$workflow"; then fail runs-pr-code; fi
+    reasons="$(check_workflow_contract "$workflow")" && rc=0 || rc=$?
+    ((rc == 0)) || fail "${reasons//$'\n'/;}"
     ;;
   AC-004)
     doc="$repo_root/docs/review-quality.md"
     grep -qi 'heur' "$doc" || fail 'docs-missing:heuristic-language'
+    grep -Fq 'https://pkg.go.dev/cmd/vet' "$doc" || fail 'docs-missing:govet-primary-source'
+    grep -Fq 'https://docs.coderabbit.ai/reference/review-commands' "$doc" || fail 'docs-missing:coderabbit-primary-source'
+    grep -Fq 'https://docs.github.com/en/copilot/concepts/agents/code-review' "$doc" || fail 'docs-missing:copilot-primary-source'
     grep -qi 'nao afirma superioridade\|não afirma superioridade' "$doc" || fail 'docs-missing:no-superiority-claim'
     ;;
   MUT-001)
@@ -93,15 +137,33 @@ case "$selector" in
     expect_fail internal/analysis TestAnalyzeTable
     ;;
   MUT-002)
-    staged="$run_dir/workflow-mutation"
-    mkdir -p "$staged/.github/workflows"
-    sed 's#/.aurumcode-target:/github/workspace:ro#/.aurumcode-target:/github/workspace#' "$workflow" > "$staged/.github/workflows/review.yml"
-    grep -Fq '/.aurumcode-target:/github/workspace:ro' "$staged/.github/workflows/review.yml" && infra 'mutation-anchor-missing:MUT-002'
-    if grep -Fq '/.aurumcode-target:/github/workspace"' "$staged/.github/workflows/review.yml"; then
-      : # mutation applied: workspace is now mounted read-write
-    else
-      infra 'mutation-not-applied:MUT-002'
-    fi
+    staged_dir="$run_dir/workflow-mutations"; mkdir -p "$staged_dir"
+
+    # Baseline: the SAME function must accept the real, unmutated file.
+    reasons="$(check_workflow_contract "$workflow")" && rc=0 || rc=$?
+    ((rc == 0)) || infra "baseline-contract-failed:${reasons//$'\n'/;}"
+
+    # Mutation A: drop the read-only mount flag.
+    mut_a="$staged_dir/readwrite.yml"
+    sed 's#-v "\${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"#-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace"#' "$workflow" > "$mut_a"
+    grep -Fq -- '-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace"' "$mut_a" || infra 'mutation-anchor-missing:MUT-002a'
+    if check_workflow_contract "$mut_a" >/dev/null; then fail 'readwrite-mount-not-detected'; fi
+
+    # Mutation B: point the target checkout at a different repository/SHA.
+    mut_b="$staged_dir/wrong-target.yml"
+    sed "s#repository: \${{ github.repository }}#repository: some-other/repo#; s#ref: \${{ github.event.pull_request.head.sha }}#ref: main#" "$workflow" > "$mut_b"
+    grep -Fq 'repository: some-other/repo' "$mut_b" || infra 'mutation-anchor-missing:MUT-002b'
+    if check_workflow_contract "$mut_b" >/dev/null; then fail 'wrong-checkout-target-not-detected'; fi
+
+    # Mutation C: persist credentials on the target checkout.
+    mut_c="$staged_dir/persist-creds.yml"
+    sed 's#persist-credentials: false#persist-credentials: true#' "$workflow" > "$mut_c"
+    grep -Fq 'persist-credentials: true' "$mut_c" || infra 'mutation-anchor-missing:MUT-002c'
+    if check_workflow_contract "$mut_c" >/dev/null; then fail 'persisted-credentials-not-detected'; fi
+
+    # Restore: the unmutated file must pass again (green after red).
+    reasons="$(check_workflow_contract "$workflow")" && rc=0 || rc=$?
+    ((rc == 0)) || fail "not-restored-green:${reasons//$'\n'/;}"
     ;;
 esac
 printf '%s/%s/pass\n' "$card" "$scenario"

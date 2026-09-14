@@ -206,6 +206,10 @@ func TestAUR496FilePermissions(t *testing.T) {
 		{name: "0777 grants world write", line: `os.MkdirAll("d", 0777)`, want: true},
 		{name: "0o777 grants world write", line: `os.Chmod("f", 0o777)`, want: true},
 		{name: "digit in filename does not count", line: `os.Mkdir("dir0777", 0700)`, want: false},
+		{name: "non-mode octal-shaped middle argument does not count", line: `os.OpenFile("x", 0777, 0600)`, want: false},
+		{name: "octal-shaped digits inside nested call argument do not count", line: `os.WriteFile("x", []byte("data,0777"), 0600)`, want: false},
+		{name: "comma inside filename string does not split arguments", line: `os.Chmod("a,0777", 0600)`, want: false},
+		{name: "last argument is the real mode and is world-writable", line: `os.WriteFile("x", []byte("data"), 0777)`, want: true},
 	}
 	r := NewRunner()
 	for _, tc := range tests {
@@ -231,7 +235,6 @@ func TestAUR496CommentsNotCredentials(t *testing.T) {
 	tests := []string{
 		`// password := "hunter2-super-secret"`,
 		`  // token = "abcdefgh12"`,
-		`* secret = "abcdefgh12"`,
 	}
 	r := NewRunner()
 	for _, line := range tests {
@@ -239,6 +242,36 @@ func TestAUR496CommentsNotCredentials(t *testing.T) {
 			findings := r.Analyze(singleHunk("x.go", 1, 1, "+"+line))
 			if len(findings) != 0 {
 				t.Fatalf("Analyze(%q) = %#v, want no findings", line, findings)
+			}
+		})
+	}
+}
+
+// TestAUR496DocumentationStringsNotCredentials pins the AC-002 case where an
+// apparent credential assignment is itself data: quoted inside a backtick
+// raw string, or inside a regular string literal, rather than a real
+// assignment in code. It also pins the two edges the naive "starts with a
+// comment marker" heuristic must not create: a genuine assignment must
+// still match, and a pointer dereference assignment (which happens to start
+// with "*") is real code, not a block-comment continuation.
+func TestAUR496DocumentationStringsNotCredentials(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want bool
+	}{
+		{name: "backtick raw string documents an example", line: "example := `password = \"abcdefgh12\"`", want: false},
+		{name: "quoted string documents an example", line: `example := "password = 'abcdefgh12'"`, want: false},
+		{name: "genuine assignment still matches", line: `password := "abcdefgh12"`, want: true},
+		{name: "pointer dereference assignment still matches", line: `*password = "abcdefgh12"`, want: true},
+	}
+	r := NewRunner()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			findings := r.Analyze(singleHunk("x.go", 1, 1, "+"+tc.line))
+			got := len(findings) > 0
+			if got != tc.want {
+				t.Fatalf("Analyze(%q) matched=%v, want=%v (findings=%#v)", tc.line, got, tc.want, findings)
 			}
 		})
 	}
