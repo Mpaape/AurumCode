@@ -140,66 +140,9 @@
 </section>
 
 <section id="limites">
-  <p class="eyebrow">ESCOPO ATUAL, SEM MEIA VERDADE</p>
-  <h2>Transparência também<br>faz parte do código.</h2>
-
-  <h3>As 4 regras de segurança com matcher determinístico</h3>
-  <p>O catálogo embutido (<code>internal/review/rules/security.yml</code>) tem 8 regras nomeadas, mas só 4 comparam a linha adicionada contra uma expressão regular; as outras 4 são metadado citável pelo modelo, nunca aplicado pelo passe determinístico.</p>
-  <ul class="rule-list">
-    <li><code>security/sql-injection</code> — string com verbo SQL concatenada por <code>+</code> a um identificador (ou <code>format!</code> em Rust).</li>
-    <li><code>security/xss</code> — atribuição direta a <code>innerHTML</code>/<code>outerHTML</code>, <code>document.write(...)</code> ou <code>dangerouslySetInnerHTML</code> a partir de um identificador, sem chamada no meio.</li>
-    <li><code>security/command-injection</code> — chamada de shell (<code>system</code>, <code>exec</code>/<code>execSync</code>, <code>subprocess.*</code>, <code>spawn(...,shell:true)</code>, <code>Command::new("sh").arg("-c")</code>) com argumento concatenado.</li>
-    <li><code>security/hardcoded-secret</code> — atribuição de uma string a um nome que contém <code>key</code>/<code>secret</code>/<code>password</code>/<code>token</code>/<code>credential</code>, com mistura de letra e número.</li>
-  </ul>
-  <p class="note">As demais 4 (<code>path-traversal</code>, <code>weak-crypto</code>, <code>insecure-random</code>, <code>missing-auth</code>) ficam sem matcher por decisão deliberada: decidir sem seguir o dado exigiria análise de fluxo que uma regra por linha não sustenta.</p>
-
-  <h3>Cobertura por linguagem dos 4 matchers</h3>
-  <div class="table-wrap" tabindex="0" role="region" aria-label="Cobertura por linguagem; role horizontalmente em telas pequenas">
-  <table>
-    <caption>Padrões reconhecidos pelos matchers, não cobertura completa de vulnerabilidades.</caption>
-    <thead><tr><th scope="col">Linguagem</th><th scope="col">SQL injection</th><th scope="col">XSS</th><th scope="col">Command injection</th><th scope="col">Hardcoded secret</th></tr></thead>
-    <tbody>
-      <tr><th scope="row">Go</th><td>Sim</td><td>Não</td><td>Não<sup>†</sup></td><td>Sim</td></tr>
-      <tr><th scope="row">Python</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
-      <tr><th scope="row">JavaScript / TypeScript</th><td>Sim</td><td>Sim</td><td>Sim</td><td>Sim</td></tr>
-      <tr><th scope="row">Java</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
-      <tr><th scope="row">PHP</th><td>Não<sup>‡</sup></td><td>Não</td><td>Não<sup>‡</sup></td><td>Sim</td></tr>
-      <tr><th scope="row">C</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
-      <tr><th scope="row">Rust</th><td>Sim</td><td>Não</td><td>Sim</td><td>Sim</td></tr>
-    </tbody>
-  </table>
-  </div>
-  <p class="note"><sup>†</sup> <code>exec.Command(...)</code> não tem a forma que o matcher reconhece. <sup>‡</sup> PHP concatena com <code>.</code>, não com <code>+</code>; as duas regras dependem estruturalmente do <code>+</code>. XSS é específico do DOM/React: fora de JS/TS/JSX ele não se aplica.</p>
-
-  <div class="capabilities">
-    <div>
-      <h3>Disponível hoje</h3>
-      <ul>
-        <li>Revisão por LLM do diff e do contexto fornecido, quando há provedor configurado.</li>
-        <li>Análise estática determinística sempre ativa (segredo, SQL, command injection, permissão de arquivo) mais o passe opcional <code>--seguranca</code>.</li>
-        <li>Contexto de codebase limitado por heurística, não por índice completo do repositório.</li>
-        <li>Histórico de reviews e comentários do próprio PR, incluído sem configuração extra.</li>
-        <li>Resumo TL;DR e diagrama Mermaid do fluxo alterado.</li>
-        <li>Proposta determinística de casos de teste no parecer.</li>
-        <li>Memória de revisão opcional entre execuções (<code>review.memory</code>).</li>
-        <li>Comentários, review formal e sugestões inline; <code>aurumcode fix</code> para aplicar fora do GitHub.</li>
-        <li>Estimativa e teto de custo (<code>--limite</code>) antes de chamar o modelo.</li>
-        <li>Execução via Docker e via GitHub Actions; CLI e núcleo em Go.</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Limites atuais</h3>
-      <ul>
-        <li>Revisão incremental: cada execução reavalia o PR inteiro, sem lembrar pendências resolvidas entre rodadas.</li>
-        <li>Execução automática, no CI, dos casos de teste propostos em sandbox.</li>
-        <li>Navegação autônoma por todo o repositório além da heurística de contexto atual.</li>
-        <li>Busca web ou execução de ferramentas externas pelo modelo.</li>
-        <li>Verificação automática da veracidade de um achado do modelo.</li>
-        <li>Garantia de parecer idêntico ao repetir a mesma revisão.</li>
-      </ul>
-    </div>
-  </div>
-  <p class="note">Em um runner efêmero do GitHub Actions, <code>review.memory: local</code> não sobrevive sozinho entre execuções — persistir exige cachear o diretório entre jobs; <code>ephemeral</code> nunca persiste, por definição.</p>
+  <p class="eyebrow">ESCOPO</p>
+  <h2>Foco no diff do PR</h2>
+  <p>O review é feito pelo modelo e cobre qualquer linguagem que o endpoint entenda. Sem provedor configurado, roda apenas o baseline determinístico (<code>security/sql-injection</code>, <code>security/command-injection</code>, <code>security/hardcoded-secret</code>, <code>security/xss</code>) para não ficar mudo sem credencial. Revisão incremental e execução de testes em sandbox ainda não existem.</p>
 </section>
 
 <section id="tutoriais">
