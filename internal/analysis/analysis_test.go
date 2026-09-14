@@ -222,6 +222,8 @@ func TestAUR496FilePermissions(t *testing.T) {
 		{name: "os.FileMode cast around world-writable literal", line: `os.Chmod("f", os.FileMode(0777))`, want: true},
 		{name: "os.FileMode cast around a safe literal stays clear", line: `os.Chmod("f", os.FileMode(0644))`, want: false},
 		{name: "fs.FileMode cast around world-writable literal", line: `os.Chmod("f", fs.FileMode(0777))`, want: true},
+		{name: "uint32-widened FileMode cast around world-writable literal", line: `os.Chmod("f", os.FileMode(uint32(0777)))`, want: true},
+		{name: "nested FileMode casts around world-writable literal", line: `os.Chmod("f", os.FileMode(os.FileMode(0777)))`, want: true},
 		{name: "bare variable mode stays clear", line: `os.Chmod("f", mode)`, want: false},
 	}
 	r := NewRunner()
@@ -295,6 +297,31 @@ func TestAUR496BlockCommentStateThreads(t *testing.T) {
 	f := r.Analyze(resumed)
 	if len(f) != 1 || f[0].RuleID != RuleHardcodedSecret || f[0].Line != 3 {
 		t.Fatalf("match after block comment close = %#v, want one secret finding on line 3", f)
+	}
+}
+
+// TestAUR496RawStringStateThreads pins the AC-002 clause that a multi-line
+// backtick raw string is threaded across added lines: the opening backtick on
+// an earlier line must make a credential-shaped continuation line
+// documentation, not an assignment, and a genuine assignment after the raw
+// string closes must match again. Same-line raw-string behavior stays pinned
+// by TestAUR496DocumentationStringsNotCredentials.
+func TestAUR496RawStringStateThreads(t *testing.T) {
+	r := NewRunner()
+	suppressed := singleHunk("x.go", 1, 1,
+		"+doc := `example:",
+		`+password = "abcdefgh12"`,
+		"+`")
+	if f := r.Analyze(suppressed); len(f) != 0 {
+		t.Fatalf("raw-string body matched: %#v", f)
+	}
+	resumed := singleHunk("x.go", 1, 1,
+		"+doc := `example:",
+		"+`",
+		`+password = "abcdefgh12"`)
+	f := r.Analyze(resumed)
+	if len(f) != 1 || f[0].RuleID != RuleHardcodedSecret || f[0].Line != 3 {
+		t.Fatalf("match after raw string close = %#v, want one secret finding on line 3", f)
 	}
 }
 

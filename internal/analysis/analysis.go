@@ -168,18 +168,27 @@ func isWorldWritableMode(arg string) bool {
 	}
 }
 
-// unwrapFileModeCast strips a single explicit os.FileMode(...) / fs.FileMode(...)
-// conversion around an argument, so os.Chmod("f", os.FileMode(0777)) is
-// judged by the 0777 literal it wraps instead of being dismissed as a
-// non-literal expression. The Go-valid call with a bare variable
+// unwrapFileModeCast repeatedly strips an explicit conversion around an
+// argument until no wrapper remains, so os.Chmod("f", os.FileMode(0777)) and
+// arbitrarily nested or integer-widened forms such as
+// os.FileMode(uint32(0777)) are judged by the octal literal they ultimately
+// wrap instead of being dismissed as a non-literal expression. It unwraps the
+// FileMode family and the integer conversions that commonly wrap a mode
+// (uint32/uint/int). The Go-valid call with a bare variable
 // (os.Chmod("f", mode)) has no cast to unwrap and stays clear.
 func unwrapFileModeCast(s string) string {
-	for _, p := range []string{"os.FileMode(", "fs.FileMode("} {
-		if strings.HasPrefix(s, p) && strings.HasSuffix(s, ")") {
-			return strings.TrimSpace(s[len(p) : len(s)-1])
+	for {
+		prev := s
+		for _, p := range []string{"os.FileMode(", "fs.FileMode(", "uint32(", "uint(", "int("} {
+			if strings.HasPrefix(s, p) && strings.HasSuffix(s, ")") {
+				s = strings.TrimSpace(s[len(p) : len(s)-1])
+				break
+			}
+		}
+		if s == prev {
+			return s
 		}
 	}
-	return s
 }
 
 // splitTopLevelArgs splits a call's argument list into its top-level
@@ -232,12 +241,15 @@ func splitTopLevelArgs(s string, start int) (args []string, ok bool) {
 // isInsideStringLiteral reports whether pos in body falls inside an already
 // open quoted or raw string literal that starts before pos, by scanning
 // body[:pos] and tracking quote/backtick state (respecting backslash
-// escapes in quoted, not raw, strings). It is used to reject a
+// escapes in quoted, not raw, strings). inRaw is the raw-string state
+// entering the line (whether an earlier added line left an open backtick),
+// so the scan starts already inside a raw string instead of falsely treating
+// a multi-line documentation block as code. It is used to reject a
 // hardcoded-secret match whose keyword itself is embedded inside a
 // documentation string or backtick literal, e.g. a line that is itself a
 // string constant showing an example assignment, rather than a real one.
-func isInsideStringLiteral(body string, pos int) bool {
-	inBacktick := false
+func isInsideStringLiteral(body string, pos int, inRaw bool) bool {
+	inBacktick := inRaw
 	var inQuote byte
 	for i := 0; i < pos && i < len(body); i++ {
 		c := body[i]
@@ -294,6 +306,7 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 	var findings []Finding
 	for _, file := range diff.Files {
 		inBlockComment := false
+		inRawString := false
 		for _, hunk := range file.Hunks {
 			newLine := hunk.NewStart
 			oldLine := hunk.OldStart
@@ -302,10 +315,10 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 					continue
 				}
 				marker, body := splitDiffMarker(raw)
-				code, nextBlock := stripComments(body, inBlockComment)
+				code, nextBlock, nextRaw := stripComments(body, inBlockComment, inRawString)
 				switch marker {
 				case "+":
-					findings = append(findings, r.match(file.Path, newLine, SideRight, code)...)
+					findings = append(findings, r.match(file.Path, newLine, SideRight, code, inRawString)...)
 					newLine++
 				case "-":
 					oldLine++
@@ -314,6 +327,7 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 					oldLine++
 				}
 				inBlockComment = nextBlock
+				inRawString = nextRaw
 			}
 		}
 	}
@@ -327,8 +341,10 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 // had comments stripped already (stripComments), and a RuleHardcodedSecret
 // hit whose keyword starts inside an already-open string or raw-string
 // literal is rejected (isInsideStringLiteral), so an example assignment
-// quoted in prose is never treated as a real one.
-func (r *Runner) match(path string, line int, side, body string) []Finding {
+// quoted in prose is never treated as a real one. inRaw carries the
+// raw-string state entering this line so a multi-line backtick block is
+// suppressed too.
+func (r *Runner) match(path string, line int, side, body string, inRaw bool) []Finding {
 	var out []Finding
 	for _, rule := range r.rules {
 		matched := false
@@ -336,7 +352,7 @@ func (r *Runner) match(path string, line int, side, body string) []Finding {
 		case rule.checkFn != nil:
 			matched = rule.checkFn(body)
 		case rule.id == RuleHardcodedSecret:
-			if loc := rule.re.FindStringIndex(body); loc != nil && !isInsideStringLiteral(body, loc[0]) {
+			if loc := rule.re.FindStringIndex(body); loc != nil && !isInsideStringLiteral(body, loc[0], inRaw) {
 				matched = true
 			}
 		case rule.re != nil:
@@ -373,20 +389,27 @@ func splitDiffMarker(line string) (marker, body string) {
 
 // stripComments removes line comments ("//" and "#") and block comments
 // ("/* ... */") from one added line and returns the code-only remainder,
-// together with the block-comment state to thread into the next line.
-// inBlock is the state entering this line (true when the previous line left
-// an open block comment); the returned bool is the state leaving it. Comment
-// markers inside a quoted or raw string literal are preserved: quote state
-// is tracked per line, honoring backslash escapes in quoted (not raw)
-// strings, so `x := "a//b"` and a "#" inside a string are never mistaken for
-// comments. A leading "*" is never a block-comment continuation, so a
-// pointer-dereference assignment like `*password = "..."` stays real code
-// (AUR-496/AC-002). A "#" starts a line comment outside a string, which is
-// how this rule treats shell/Python-style credential examples.
-func stripComments(body string, inBlock bool) (string, bool) {
+// together with the block-comment and raw-string states to thread into the
+// next line. inBlock/inRaw are the states entering this line (true when the
+// previous line left an open block comment or an open backtick raw string);
+// the returned bools are the states leaving it. Comment markers inside a
+// quoted or raw string literal are preserved: quote state is tracked per
+// line, honoring backslash escapes in quoted (not raw) strings, so
+// `x := "a//b"` and a "#" inside a string are never mistaken for comments.
+// Threading the backtick state is what keeps a multi-line raw-string
+// documentation block (an opening backtick on an earlier line) from being
+// read as code on its continuation lines (AUR-496/AC-002). A leading "*" is
+// never a block-comment continuation, so a pointer-dereference assignment
+// like `*password = "..."` stays real code. A "#" starts a line comment
+// outside a string, which is how this rule treats shell/Python-style
+// credential examples.
+func stripComments(body string, inBlock, inRaw bool) (string, bool, bool) {
 	var b strings.Builder
 	b.Grow(len(body))
 	var quote byte
+	if inRaw {
+		quote = '`'
+	}
 	i := 0
 	for i < len(body) {
 		c := body[i]
@@ -419,10 +442,10 @@ func stripComments(body string, inBlock bool) (string, bool) {
 			b.WriteByte(c)
 			i++
 		case '#':
-			return b.String(), false
+			return b.String(), false, false
 		case '/':
 			if i+1 < len(body) && body[i+1] == '/' {
-				return b.String(), false
+				return b.String(), false, false
 			}
 			if i+1 < len(body) && body[i+1] == '*' {
 				inBlock = true
@@ -436,7 +459,7 @@ func stripComments(body string, inBlock bool) (string, bool) {
 			i++
 		}
 	}
-	return b.String(), inBlock
+	return b.String(), inBlock, quote == '`'
 }
 
 // sortFindings orders findings deterministically by path, line, side, then
