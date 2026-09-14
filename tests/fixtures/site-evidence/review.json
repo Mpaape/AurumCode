@@ -1,0 +1,30 @@
+{
+  "verdict": "changes_requested",
+  "issues": [
+    {
+      "file": "app.py",
+      "line": 5,
+      "severity": "error",
+      "rule_id": "security/sql-injection",
+      "message": "SQL query built by string concatenation",
+      "impact": "An attacker controls part of the query and can read or change other rows.",
+      "evidence": "Line 5 concatenates uid into the SQL string instead of binding it.",
+      "suggestion": "Bind uid as a query parameter.",
+      "verification": "Re-run the review; the finding disappears once uid is bound."
+    }
+  ],
+  "suggestions": [
+    {
+      "title": "Parameterize the query",
+      "description": "Replace the concatenation with a bound parameter.",
+      "kind": "code",
+      "file": "app.py",
+      "line": 5,
+      "current_code": "    query = \"SELECT * FROM users WHERE id = \" + uid\n    return connect().execute(query)",
+      "proposed_code": "    query = \"SELECT * FROM users WHERE id = ?\"\n    return connect().execute(query, (uid,))",
+      "rationale": "Removes the injection path without changing the result for valid ids.",
+      "verification": "Re-run the review and confirm the SQL injection finding is gone."
+    }
+  ],
+  "summary": "The change builds a SQL query by concatenation instead of binding the id."
+}

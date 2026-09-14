@@ -1,0 +1,12 @@
+[
+  {
+    "title": "Parameterize the query",
+    "description": "Replace the concatenation with a bound parameter.",
+    "kind": "code",
+    "file": "app.py",
+    "line": 5,
+    "current_code": "    query = \"SELECT * FROM users WHERE id = \" + uid\n    return connect().execute(query)",
+    "proposed_code": "    query = \"SELECT * FROM users WHERE id = ?\"\n    return connect().execute(query, (uid,))",
+    "rationale": "Removes the injection path without changing the result for valid ids."
+  }
+]
