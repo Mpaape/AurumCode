@@ -3,6 +3,7 @@ package analysis
 import (
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -95,7 +96,7 @@ var embeddedRules = []rule{
 		id:       RuleFilePermissions,
 		severity: "warning",
 		message:  msgFilePermissions,
-		re:       regexp.MustCompile(`(?i)\bos\.(OpenFile|WriteFile|Chmod|Mkdir|MkdirAll)\s*\([^)]*\b(?:0o)?[0-7]{3,4}\b`),
+		re:       regexp.MustCompile(`(?i)\bos\.(OpenFile|WriteFile|Chmod|Mkdir|MkdirAll)\s*\([^()]*,\s*0o?[0-7]{2}[2367]\b`),
 	},
 	{
 		id:       RuleSQLInjection,
@@ -144,7 +145,6 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 					findings = append(findings, r.match(file.Path, newLine, SideRight, body)...)
 					newLine++
 				case "-":
-					findings = append(findings, r.match(file.Path, oldLine, SideLeft, body)...)
 					oldLine++
 				case " ":
 					newLine++
@@ -161,6 +161,9 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 // match returns the catalog rules whose pattern matches body, each rendered
 // as a Finding at the given path, line and side.
 func (r *Runner) match(path string, line int, side, body string) []Finding {
+	if isCommentOrDocLine(body) {
+		return nil
+	}
 	var out []Finding
 	for _, rule := range r.rules {
 		if rule.re.MatchString(body) {
@@ -190,6 +193,14 @@ func splitDiffMarker(line string) (marker, body string) {
 		return line[:1], line[1:]
 	}
 	return "", line
+}
+
+// isCommentOrDocLine reports whether body is a Go line/block comment or a
+// documentation string, so an example credential or permission literal in
+// prose is never treated as a real assignment.
+func isCommentOrDocLine(body string) bool {
+	trimmed := strings.TrimSpace(body)
+	return strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "*") || strings.HasPrefix(trimmed, "/*")
 }
 
 // sortFindings orders findings deterministically by path, line, side, then

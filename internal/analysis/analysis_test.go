@@ -57,10 +57,13 @@ func TestAnalyzeTable(t *testing.T) {
 				RuleID: RuleSQLInjection, Severity: "error", Message: msgSQLInjection}},
 		},
 		{
-			name: "removed secret is LEFT with old-file line",
+			// AUR-496/AC-001: the deterministic scanner only considers
+			// additions. Removing a secret must not produce a finding; a
+			// model pass may still flag the removed protection using LEFT
+			// evidence, but that is a different capability from this one.
+			name: "removed secret produces no finding",
 			diff: singleHunk("app.go", 5, 1, `-api_key = "abc123def456"`),
-			want: []Finding{{Path: "app.go", Line: 5, Side: SideLeft,
-				RuleID: RuleHardcodedSecret, Severity: "error", Message: msgHardcodedSecret}},
+			want: nil,
 		},
 		{
 			name: "context line never matches",
@@ -180,6 +183,62 @@ func TestAUR489SecretNaming(t *testing.T) {
 			got := len(findings) > 0
 			if got != tc.want {
 				t.Fatalf("Analyze(%q) matched=%v, want=%v (findings=%#v)", tc.line, got, tc.want, findings)
+			}
+		})
+	}
+}
+
+// TestAUR496FilePermissions pins AC-002: only a mode that grants write
+// access to "other" is a finding. 0600/0644/0700 are common, safe modes and
+// must stay clear; 0666/0777/0o777 grant world-write and must be flagged. A
+// digit that is part of a filename or of an earlier, non-mode argument must
+// never be mistaken for the mode itself.
+func TestAUR496FilePermissions(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want bool
+	}{
+		{name: "0600 is safe", line: `os.OpenFile("f", os.O_CREATE, 0600)`, want: false},
+		{name: "0644 is safe", line: `os.WriteFile("f", data, 0644)`, want: false},
+		{name: "0700 is safe", line: `os.Mkdir("d", 0700)`, want: false},
+		{name: "0666 grants world write", line: `os.OpenFile("f", os.O_CREATE, 0666)`, want: true},
+		{name: "0777 grants world write", line: `os.MkdirAll("d", 0777)`, want: true},
+		{name: "0o777 grants world write", line: `os.Chmod("f", 0o777)`, want: true},
+		{name: "digit in filename does not count", line: `os.Mkdir("dir0777", 0700)`, want: false},
+	}
+	r := NewRunner()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			findings := r.Analyze(singleHunk("x.go", 1, 1, "+"+tc.line))
+			got := false
+			for _, f := range findings {
+				if f.RuleID == RuleFilePermissions {
+					got = true
+				}
+			}
+			if got != tc.want {
+				t.Fatalf("Analyze(%q) permission-flagged=%v, want=%v (findings=%#v)", tc.line, got, tc.want, findings)
+			}
+		})
+	}
+}
+
+// TestAUR496CommentsNotCredentials pins the other half of AC-002: a
+// credential-shaped example inside a comment or documentation string is not
+// a real assignment and must not be flagged.
+func TestAUR496CommentsNotCredentials(t *testing.T) {
+	tests := []string{
+		`// password := "hunter2-super-secret"`,
+		`  // token = "abcdefgh12"`,
+		`* secret = "abcdefgh12"`,
+	}
+	r := NewRunner()
+	for _, line := range tests {
+		t.Run(line, func(t *testing.T) {
+			findings := r.Analyze(singleHunk("x.go", 1, 1, "+"+line))
+			if len(findings) != 0 {
+				t.Fatalf("Analyze(%q) = %#v, want no findings", line, findings)
 			}
 		})
 	}
