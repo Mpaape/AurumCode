@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-497",
+  "commit": "3ff4152348d7d90b85579d48c732121d9892ca8a",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "bash tests/acceptance/AUR-497.sh all",
+    "exit_code": 0,
+    "raw_output": "AUR-497/analise/pass\nAUR-497/resumo/pass\nAUR-497/contexto/pass\nAUR-497/sugestao/pass\nAUR-497/memoria/pass\nAUR-497/fix/pass\nAUR-497/custo/pass\nAUR-497/modelo/pass\nAUR-497/all/pass"
+  }
+}
