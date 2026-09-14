@@ -137,11 +137,18 @@ func callProviderBounded(ctx context.Context, p ContextProvider, changedPaths []
 // block. Provider failures are returned as warnings and do not discard the
 // rest of the review; contribution-size violations remain hard errors.
 //
-// All contributions are redacted once more after concatenation. This second
-// pass is essential: a registered secret split across two providers is not
-// visible to either per-provider pass, but is visible in the assembled block.
-// The source names are listed separately so the redaction input can preserve
-// a plain newline boundary between contributions.
+// Redaction runs twice. Each non-empty contribution is passed through the
+// same AUR-009 filter before it is placed in the block, and the concatenated
+// block is passed through the filter once more afterwards. The second pass is
+// the one that closes the split-secret hole: a registered secret cut across
+// two providers is not visible to either per-contribution pass (each half is
+// harmless alone) but is visible in the assembled block. The per-contribution
+// pass is kept on purpose, not replaced -- defense in depth, so a secret is
+// contained at its own source even if the assembled pass is ever skipped or
+// restructured. The block is redacted exactly once, not on every partial
+// concatenation, so the extra cost stays proportional to the single final
+// block. The source names are listed separately so the redaction input can
+// preserve a plain newline boundary between contributions.
 //
 // Returns "" when no provider had anything to contribute -- the exact
 // zero-config signal WrapProvider uses to leave the base LLM provider
@@ -175,6 +182,9 @@ func BuildContextBlockWithWarnings(ctx context.Context, providers []ContextProvi
 		text = strings.TrimSpace(text)
 		if text == "" {
 			continue
+		}
+		if filter != nil {
+			text = filter.Redact(text)
 		}
 		contributions = append(contributions, text)
 		names = append(names, p.Name())
