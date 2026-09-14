@@ -215,15 +215,63 @@
         <li class="tut-step"><span class="tut-k">Como funciona</span><p>Cada linha adicionada passa por matchers determinísticos. O catálogo de segurança tem 8 regras nomeadas, mas só 4 têm matcher — as outras 4 ficam como metadado citável pelo modelo, nunca aplicado pelo passe determinístico. Sem modelo, sem custo de LLM.</p></li>
         <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>aurumcode review --base HEAD~1 --seguranca</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 2
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.py
+
+
+```mermaid
+flowchart TD
+    n0["app.py"]
+    n1["db.py"]
+
+```
+app.py:5: [error] SQL query built by string concatenation (rule security/sql-injection: SQL Injection Vulnerability)
+app.py:5: [error] SQL query built by string concatenation (rule analysis/sql-injection)
+
+Security findings (standards/security-review):
+app.py:5: [error] Potential SQL injection vulnerability detected [standards/security-review SCR-001] (rule security/sql-injection: SQL Injection Vulnerability)
+db.py:1: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)</pre>
+      <p class="obs-label">Determinístico (sem provedor).</p>
+      <p class="obs-proof">Prova: <code>internal/analysis/analysis_test.go::TestAnalyzeTable</code></p>
     </article>
 
     <article>
       <h3>Resumo + diagrama <span class="flag on">ligado por padrão</span></h3>
       <ol class="tut-flow">
         <li class="tut-step"><span class="tut-k">Ativa</span><p>Já roda em todo review com provedor, sem flag e sem arquivo.</p></li>
-        <li class="tut-step"><span class="tut-k">Como funciona</span><p>O modelo resume a mudança (TL;DR) e desenha o fluxo alterado em Mermaid, direto do diff. Entra no custo de tokens do seu provedor.</p></li>
-        <li class="tut-step"><span class="tut-k">Exemplo</span><p class="tut-none">Nada para copiar — aparece no comentário do PR.</p></li>
+        <li class="tut-step"><span class="tut-k">Como funciona</span><p>O resumo (TL;DR) e o fluxo alterado em Mermaid são <strong>determinísticos</strong>: derivam do resultado e do diff, sem chamar o modelo. Não gastam tokens de LLM.</p></li>
+        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>aurumcode review --base HEAD~1</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 2
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.py
+
+
+```mermaid
+flowchart TD
+    n0["app.py"]
+    n1["db.py"]
+
+```</pre>
+      <p class="obs-label">Determinístico (sem provedor).</p>
+      <p class="obs-proof">Prova: <code>internal/render/mermaid_test.go::TestMermaidHeaderEdgesAndFiles</code></p>
     </article>
 
     <article>
@@ -239,6 +287,9 @@ review:
     docs:
       - docs/architecture.md</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">"dependents":["server.py"]</pre>
+      <p class="obs-label">Determinístico (sem provedor).</p>
+      <p class="obs-proof">Prova: <code>internal/context/resolver_test.go::TestResolvePython</code></p>
     </article>
 
     <article>
@@ -250,6 +301,15 @@ review:
 review:
   inline_comments: true</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">--- a/app.py
++++ b/app.py
+@@ -5,2 +5,2 @@
+-    query = "SELECT * FROM users WHERE id = " + uid
+-    return connect().execute(query)
++    query = "SELECT * FROM users WHERE id = ?"
++    return connect().execute(query, (uid,))</pre>
+      <p class="obs-label">Fixture offline (AURUMCODE_LLM_FIXTURE) — o mesmo diff que o GitHub oferece aplicar na linha.</p>
+      <p class="obs-proof">Prova: <code>cmd/aurumcode/fix_test.go::TestRunFixAcceptsReviewResponseShape</code></p>
     </article>
 
     <article>
@@ -261,6 +321,10 @@ review:
 review:
   memory: local</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">"id":"security/sql-injection:app.py:5"
+"id":"analysis/sql-injection:app.py:5"</pre>
+      <p class="obs-label">Fixture offline (AURUMCODE_LLM_FIXTURE) — notas gravadas na 1ª execução e relidas na 2ª.</p>
+      <p class="obs-proof">Prova: <code>internal/memory/memory_test.go::TestLocalRoundTrip</code></p>
     </article>
 
     <article>
@@ -271,6 +335,15 @@ review:
         <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run aurumcode:local fix &lt; review-response.json &gt; fix.patch
 git apply --check fix.patch</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">--- a/app.py
++++ b/app.py
+@@ -5,2 +5,2 @@
+-    query = "SELECT * FROM users WHERE id = " + uid
+-    return connect().execute(query)
++    query = "SELECT * FROM users WHERE id = ?"
++    return connect().execute(query, (uid,))</pre>
+      <p class="obs-label">Determinístico (sem provedor).</p>
+      <p class="obs-proof">Prova: <code>cmd/aurumcode/fix_test.go::TestRunFixBuildsPatchFromSuggestionsArray</code></p>
     </article>
 
     <article>
@@ -278,8 +351,12 @@ git apply --check fix.patch</code></pre></li>
       <ol class="tut-flow">
         <li class="tut-step"><span class="tut-k">Ativa</span><p>Sem teto por padrão. Defina o teto em dólar com <code>--limite</code> na execução local.</p></li>
         <li class="tut-step"><span class="tut-k">Como funciona</span><p>O comando estima o custo antes de chamar o modelo; se a estimativa passar do teto, recusa — sem gastar nada.</p></li>
-        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run aurumcode:local review --base HEAD~1 --limite 0.50</code></pre></li>
+        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run aurumcode:local review --base HEAD~1 --limite 0.01</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">aurumcode review: estimated cost $0.0309, diff-only pre-flight (--limite $0.0100)
+aurumcode review: refusing to call the model: the request's cost would exceed --limite $0.0100; nothing was spent (LLM request failed: budget exceeded: insufficient budget for fixture (model "default"))</pre>
+      <p class="obs-label">Determinístico (sem provedor) — recusa antes de chamar o modelo.</p>
+      <p class="obs-proof">Prova: <code>internal/llm/cost/costtracker_test.go::TestCostTrackerAllow</code></p>
     </article>
 
     <article>
@@ -287,10 +364,14 @@ git apply --check fix.patch</code></pre></li>
       <ol class="tut-flow">
         <li class="tut-step"><span class="tut-k">Ativa</span><p>Sem <code>LLM_MODEL</code>, o serviço escolhe o modelo dele. Defina o endpoint com variáveis de ambiente.</p></li>
         <li class="tut-step"><span class="tut-k">Como funciona</span><p>Qualquer endpoint compatível com OpenAI, inclusive local. O nome do modelo entra no cálculo de custo junto com <code>--limite</code>.</p></li>
-        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>export LLM_BASE_URL=http://127.0.0.1:8080/v1
+        <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>export LLM_BASE_URL=http://localhost:PORT/v1
 export LLM_API_KEY=your-api-key
-export LLM_MODEL=your-model</code></pre></li>
+export LLM_MODEL=your-model
+aurumcode review --base HEAD~1</code></pre></li>
       </ol>
+      <pre class="observed" aria-label="Saída real observada">aurumcode review: reviewing with model "local" (offline fixture provider)</pre>
+      <p class="obs-label">Fixture offline (AURUMCODE_LLM_FIXTURE) — qualquer endpoint compatível com OpenAI serve.</p>
+      <p class="obs-proof">Prova: <code>cmd/aurumcode/redaction_wiring_test.go::TestStderrLinesSurviveTheRedactionWriter</code></p>
     </article>
   </div>
 </section>

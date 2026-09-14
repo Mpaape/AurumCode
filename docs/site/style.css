@@ -173,6 +173,10 @@ details { margin-top: 32px; border-top: 1px solid var(--line); padding-top: 24px
 .tut-step pre { margin: 10px 0 0; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
 .tut-step pre code { font-size: 13px; }
 .tut-none { font-style: italic; color: var(--muted); }
+.observed { background: #10261f; color: #d9f7ea; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 14px 0 8px; overflow-x: auto; font: 12px/1.6 var(--mono); white-space: pre; }
+.obs-label { font: 600 11px var(--mono); color: var(--muted); margin: 0 0 4px; }
+.obs-proof { font: 11px/1.5 var(--mono); color: var(--muted); margin: 0; word-break: break-word; }
+.obs-proof code { font-size: 11px; }
 @media (max-width: 1000px) {
   .tutorial-grid { column-gap: 36px; }
 }
