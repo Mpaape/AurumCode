@@ -50,20 +50,25 @@ const (
 	msgSQLInjection     = "SQL query built by string concatenation"
 )
 
-// rule is one entry of the embedded deterministic catalog.
+// rule is one entry of the embedded deterministic catalog. Most rules are a
+// hand-audited regular expression; RuleFilePermissions instead uses checkFn,
+// a small argument-aware parser, because "is this call's last argument a
+// world-writable mode" cannot be answered by a regex without also matching
+// unrelated digits in a filename or an earlier argument.
 type rule struct {
 	id       string
 	severity string
 	message  string
 	re       *regexp.Regexp
+	checkFn  func(string) bool
 }
 
-// embeddedRules is the fixed, zero-config catalog. Every pattern is a
-// hardcoded, hand-audited regular expression; there is no way to add or
-// remove a rule without editing this source, which is what keeps the pass
-// deterministic and configuration-free. A broken pattern panics at package
-// init (MustCompile), matching the project's "fail loudly, never silently
-// empty" rule for matchers.
+// embeddedRules is the fixed, zero-config catalog. Every pattern or checkFn
+// is hardcoded and hand-audited; there is no way to add or remove a rule
+// without editing this source, which is what keeps the pass deterministic
+// and configuration-free. A broken regex panics at package init
+// (MustCompile), matching the project's "fail loudly, never silently empty"
+// rule for matchers.
 var embeddedRules = []rule{
 	{
 		id:       RuleHardcodedSecret,
@@ -83,7 +88,11 @@ var embeddedRules = []rule{
 		// keyword requires a non-word character there, and "_" is a word
 		// character, same as a letter. The value must be 8+ characters,
 		// so a placeholder like `token = "x"` or an empty `secret = ""`
-		// is not flagged.
+		// is not flagged. match() additionally rejects a hit whose
+		// keyword starts inside an already-open string or raw-string
+		// literal (AUR-496/AC-002), so a documentation example quoted or
+		// backtick-quoted around the whole assignment is not mistaken
+		// for a real one.
 		re: regexp.MustCompile(`(?i)\b(?:[a-z][a-z0-9]*)?(?:api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)s?\b\s*[:=]=?\s*["'][^"'\r\n]{8,}["']`),
 	},
 	{
@@ -96,7 +105,7 @@ var embeddedRules = []rule{
 		id:       RuleFilePermissions,
 		severity: "warning",
 		message:  msgFilePermissions,
-		re:       regexp.MustCompile(`(?i)\bos\.(OpenFile|WriteFile|Chmod|Mkdir|MkdirAll)\s*\([^()]*,\s*0o?[0-7]{2}[2367]\b`),
+		checkFn:  matchesWorldWritablePermission,
 	},
 	{
 		id:       RuleSQLInjection,
@@ -104,6 +113,132 @@ var embeddedRules = []rule{
 		message:  msgSQLInjection,
 		re:       regexp.MustCompile(`(?i)\b(select|insert|update|delete)\b[^+]*["']\s*\+\s*[A-Za-z_$][\w$]*`),
 	},
+}
+
+// filePermCallRe locates the start of a call to one of the file-permission
+// API family; matchesWorldWritablePermission then parses that call's actual
+// argument list instead of scanning the whole line for a digit.
+var filePermCallRe = regexp.MustCompile(`\bos\.(?:OpenFile|WriteFile|Chmod|Mkdir|MkdirAll)\s*\(`)
+
+// modeLiteralRe matches a full octal mode literal (0NNN or 0oNNN) and
+// nothing else, so it is only applied to an already-isolated argument, never
+// to a substring of a longer token.
+var modeLiteralRe = regexp.MustCompile(`^0o?[0-7]{3}$`)
+
+// matchesWorldWritablePermission reports whether body contains a call to the
+// embedded file-permission API family whose LAST argument (always the mode
+// in this API family) grants write access to "other" (0600/0644/0700 stay
+// clear; 0666/0777/0o777 flag). Locating the call's own argument list with
+// splitTopLevelArgs, instead of scanning the whole line for a digit, is what
+// keeps a digit inside a filename string, inside a nested call, or in an
+// earlier argument from ever being mistaken for the mode.
+func matchesWorldWritablePermission(body string) bool {
+	for _, loc := range filePermCallRe.FindAllStringIndex(body, -1) {
+		args, ok := splitTopLevelArgs(body, loc[1])
+		if !ok || len(args) == 0 {
+			continue
+		}
+		last := strings.TrimSpace(args[len(args)-1])
+		if isWorldWritableMode(last) {
+			return true
+		}
+	}
+	return false
+}
+
+// isWorldWritableMode reports whether arg is exactly an octal mode literal
+// whose "other" digit (the last one) has the write bit set.
+func isWorldWritableMode(arg string) bool {
+	if !modeLiteralRe.MatchString(arg) {
+		return false
+	}
+	switch arg[len(arg)-1] {
+	case '2', '3', '6', '7':
+		return true
+	default:
+		return false
+	}
+}
+
+// splitTopLevelArgs splits a call's argument list into its top-level
+// arguments, given the index of the first character after the call's
+// opening "(". It tracks nested (), [], {} and quoted/raw string literals
+// (respecting backslash escapes in quoted, not raw, strings) so a comma or
+// digit inside a nested call or a string value is never treated as a
+// top-level argument boundary. ok is false if the call's closing ")" is
+// never found (malformed or truncated input).
+func splitTopLevelArgs(s string, start int) (args []string, ok bool) {
+	depth := 1
+	argStart := start
+	i := start
+	for i < len(s) {
+		c := s[i]
+		switch c {
+		case '"', '\'':
+			quote := c
+			i++
+			for i < len(s) && s[i] != quote {
+				if s[i] == '\\' && i+1 < len(s) {
+					i++
+				}
+				i++
+			}
+		case '`':
+			i++
+			for i < len(s) && s[i] != '`' {
+				i++
+			}
+		case '(', '[', '{':
+			depth++
+		case ')', ']', '}':
+			depth--
+			if depth == 0 {
+				args = append(args, s[argStart:i])
+				return args, true
+			}
+		case ',':
+			if depth == 1 {
+				args = append(args, s[argStart:i])
+				argStart = i + 1
+			}
+		}
+		i++
+	}
+	return nil, false
+}
+
+// isInsideStringLiteral reports whether pos in body falls inside an already
+// open quoted or raw string literal that starts before pos, by scanning
+// body[:pos] and tracking quote/backtick state (respecting backslash
+// escapes in quoted, not raw, strings). It is used to reject a
+// hardcoded-secret match whose keyword itself is embedded inside a
+// documentation string or backtick literal, e.g. a line that is itself a
+// string constant showing an example assignment, rather than a real one.
+func isInsideStringLiteral(body string, pos int) bool {
+	inBacktick := false
+	var inQuote byte
+	for i := 0; i < pos && i < len(body); i++ {
+		c := body[i]
+		switch {
+		case inBacktick:
+			if c == '`' {
+				inBacktick = false
+			}
+		case inQuote != 0:
+			if c == '\\' {
+				i++
+				continue
+			}
+			if c == inQuote {
+				inQuote = 0
+			}
+		case c == '`':
+			inBacktick = true
+		case c == '"' || c == '\'':
+			inQuote = c
+		}
+	}
+	return inBacktick || inQuote != 0
 }
 
 // Runner applies the embedded deterministic analysis to a diff and, when
@@ -121,10 +256,14 @@ func NewRunner() *Runner {
 	return &Runner{rules: embeddedRules}
 }
 
-// Analyze scans every added (RIGHT) and removed (LEFT) line of diff against
-// the embedded catalog and returns a Finding for each match. Findings are
-// returned in a deterministic order (path, then line, then side, then rule
-// id) and every message is a fixed catalog string, never the matched source.
+// Analyze scans every added (RIGHT) line of diff against the embedded
+// catalog and returns a Finding for each match. Removed (LEFT) lines are
+// never scanned by this deterministic pass (AUR-496/AC-001): removing a
+// secret must not itself produce a finding, though a model pass may still
+// flag the removed protection using LEFT evidence, which is a different
+// capability from this one. Findings are returned in a deterministic order
+// (path, then line, then side, then rule id) and every message is a fixed
+// catalog string, never the matched source.
 func (r *Runner) Analyze(diff *types.Diff) []Finding {
 	if diff == nil {
 		return nil
@@ -159,14 +298,29 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 }
 
 // match returns the catalog rules whose pattern matches body, each rendered
-// as a Finding at the given path, line and side.
+// as a Finding at the given path, line and side. A comment or documentation
+// line never matches (isCommentOrDocLine), and a RuleHardcodedSecret hit
+// whose keyword starts inside an already-open string or raw-string literal
+// is rejected (isInsideStringLiteral), so an example assignment quoted in
+// prose is never treated as a real one.
 func (r *Runner) match(path string, line int, side, body string) []Finding {
 	if isCommentOrDocLine(body) {
 		return nil
 	}
 	var out []Finding
 	for _, rule := range r.rules {
-		if rule.re.MatchString(body) {
+		matched := false
+		switch {
+		case rule.checkFn != nil:
+			matched = rule.checkFn(body)
+		case rule.id == RuleHardcodedSecret:
+			if loc := rule.re.FindStringIndex(body); loc != nil && !isInsideStringLiteral(body, loc[0]) {
+				matched = true
+			}
+		case rule.re != nil:
+			matched = rule.re.MatchString(body)
+		}
+		if matched {
 			out = append(out, Finding{
 				Path:     path,
 				Line:     line,
@@ -195,12 +349,15 @@ func splitDiffMarker(line string) (marker, body string) {
 	return "", line
 }
 
-// isCommentOrDocLine reports whether body is a Go line/block comment or a
-// documentation string, so an example credential or permission literal in
-// prose is never treated as a real assignment.
+// isCommentOrDocLine reports whether body is a Go line or block-comment
+// opener, so an example credential or permission literal in prose is never
+// treated as a real assignment. It deliberately does NOT treat a line
+// starting with "*" as a comment continuation: that would also catch a
+// pointer dereference assignment like `*password = "..."`, which is real
+// code, not a comment (AUR-496/AC-002).
 func isCommentOrDocLine(body string) bool {
 	trimmed := strings.TrimSpace(body)
-	return strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "*") || strings.HasPrefix(trimmed, "/*")
+	return strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "/*")
 }
 
 // sortFindings orders findings deterministically by path, line, side, then

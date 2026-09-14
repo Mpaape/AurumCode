@@ -17,12 +17,27 @@ genéricos ao workflow ou à existência do AurumCode.
 ## Heurísticas versus defeitos provados
 
 Um achado do catálogo determinístico ou do modelo é uma heurística: aponta um
-padrão provável, não uma prova de execução de que o defeito existe. `go vet`
-é a exceção que carrega prova de compilação/análise estática real, e por
-isso é identificado separadamente no catálogo (`RuleGoVet`). A comparação
-funcional com ferramentas dedicadas (linters, SAST, SCA) registra apenas o
-que cada uma cobre; o AurumCode não afirma superioridade nem paridade medida
-frente a essas fontes primárias.
+padrão provável, não uma prova de execução de que o defeito existe. Isso
+inclui `go vet`: a fonte primária do próprio `go vet`
+(https://pkg.go.dev/cmd/vet) declara explicitamente que a ferramenta usa
+heurísticas e que nem todo problema relatado é um defeito genuíno; o
+AurumCode não trata `RuleGoVet` como prova de defeito, apenas como uma
+categoria própria no catálogo.
+
+## Comparação funcional com fontes primárias
+
+O Aurum hoje revisa o diff completo do PR e o histórico de discussão como
+contexto, sem garantia de deduplicação entre execuções. Isso é diferente do
+que outras ferramentas documentam: o CodeRabbit distingue explicitamente uma
+revisão incremental (`@coderabbitai review`) de uma revisão completa
+(`@coderabbitai full review`), conforme
+https://docs.coderabbit.ai/reference/review-commands; o GitHub documenta que
+o Copilot fornece feedback de revisão tanto para o PR quanto para alterações
+ainda não commitadas, conforme
+https://docs.github.com/en/copilot/concepts/agents/code-review. Este registro
+é apenas uma comparação funcional do que cada ferramenta documenta fazer; o
+AurumCode não afirma superioridade nem paridade medida frente a essas fontes
+primárias, e nenhuma métrica de acurácia é inferida ou inventada aqui.
 
 ## Contexto e continuidade
 
