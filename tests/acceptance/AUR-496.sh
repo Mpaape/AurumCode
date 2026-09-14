@@ -101,7 +101,19 @@ check_workflow_contract() {
   if [[ -z "$run_block" ]]; then echo "missing-run-step"; bad=1; fi
   grep -Fq -- '-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"' <<<"$run_block" || { echo "workspace-not-readonly"; bad=1; }
   grep -Fq -- '-w /github/workspace' <<<"$run_block" || { echo "workdir-not-set"; bad=1; }
-  if grep -Eq 'npm (ci|install)|go (build|test)|make ' "$workflow"; then echo "runs-pr-code"; bad=1; fi
+
+  # AC-003: the reviewed PR tree is mounted read-only and its code is never
+  # executed. Drop the single legitimate read-only mount line (it only names
+  # the tree as a mount source), then reject any remaining path INTO the tree
+  # or "./" execution of it, e.g. `bash .aurumcode-target/build.sh`,
+  # `./.aurumcode-target/ci.sh`, `python .aurumcode-target/f.py`. The
+  # checkout's own `path: .aurumcode-target` line has no trailing "/" and is
+  # therefore not an execution reference. The package-manager and build
+  # command patterns stay as a backstop.
+  local without_mount
+  without_mount="$(grep -Fv -- '-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"' "$workflow" || true)"
+  if grep -Eq '\.aurumcode-target/|\./\.aurumcode-target' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
+  if grep -Eq 'npm (ci|install)|go (build|test)|make ' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
 
   return "$bad"
 }
@@ -160,6 +172,12 @@ case "$selector" in
     sed 's#persist-credentials: false#persist-credentials: true#' "$workflow" > "$mut_c"
     grep -Fq 'persist-credentials: true' "$mut_c" || infra 'mutation-anchor-missing:MUT-002c'
     if check_workflow_contract "$mut_c" >/dev/null; then fail 'persisted-credentials-not-detected'; fi
+
+    # Mutation D: execute a script from the checked-out PR tree.
+    mut_d="$staged_dir/runs-pr-code.yml"
+    { cat "$workflow"; printf '      - name: Leak PR tree\n        run: bash .aurumcode-target/build.sh\n'; } > "$mut_d"
+    grep -Fq 'run: bash .aurumcode-target/build.sh' "$mut_d" || infra 'mutation-anchor-missing:MUT-002d'
+    if check_workflow_contract "$mut_d" >/dev/null; then fail 'pr-code-execution-not-detected'; fi
 
     # Restore: the unmutated file must pass again (green after red).
     reasons="$(check_workflow_contract "$workflow")" && rc=0 || rc=$?
