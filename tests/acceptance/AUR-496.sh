@@ -105,13 +105,17 @@ check_workflow_contract() {
   # AC-003: the reviewed PR tree is mounted read-only and its code is never
   # executed. The workflow legitimately names the tree on exactly two lines:
   # the read-only mount source and the checkout's `path: .aurumcode-target`.
-  # Drop those two lines, then reject ANY remaining mention of the tree, so a
-  # step that cd's into it or runs it with `sh -c` / `bash "$PWD/..."` is
-  # caught, not just `./.aurumcode-target/...` and `bash .aurumcode-target/...`.
-  # The package-manager and build command patterns stay as a backstop.
+  # Drop ONLY those two whole lines, using an anchored match, then reject ANY
+  # remaining mention of the tree. A substring-based drop would be bypassed
+  # by a run line that merely embeds either required string as a trailing
+  # comment (`run: bash "$PWD/.aurumcode-target/build.sh" # path: <tree>`),
+  # so the anchor must require the line to be exactly the legitimate line
+  # (optional surrounding whitespace and a trailing YAML line continuation).
+  # This catches a step that cd's into the tree or runs it with `sh -c` /
+  # `bash "$PWD/..."`, not just `./.aurumcode-target/...`. The
+  # package-manager and build command patterns stay as a backstop.
   local without_mount
-  without_mount="$(grep -Fv -- '-v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"' "$workflow" \
-    | grep -Fv -- 'path: .aurumcode-target' || true)"
+  without_mount="$(grep -Ev '^[[:space:]]*(-v[[:space:]]+"\$\{GITHUB_WORKSPACE\}/\.aurumcode-target:/github/workspace:ro"|path: \.aurumcode-target)[[:space:]]*\\?[[:space:]]*$' "$workflow" || true)"
   if grep -Fq -- '.aurumcode-target' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
   if grep -Eq 'npm (ci|install)|go (build|test)|make ' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
 
@@ -128,6 +132,7 @@ case "$selector" in
     expect_pass internal/analysis TestAUR496FilePermissions
     expect_pass internal/analysis TestAUR496CommentsNotCredentials
     expect_pass internal/analysis TestAUR496DocumentationStringsNotCredentials
+    expect_pass internal/analysis TestAUR496RawStringStateThreads
     expect_pass internal/analysis TestAUR489SecretNaming
     ;;
   AC-003)
@@ -144,7 +149,7 @@ case "$selector" in
     ;;
   MUT-001)
     # Restoring the LEFT match must make the removed-secret AC fail again.
-    sed -i 's|case "-":|case "-":\n\t\t\t\t\tfindings = append(findings, r.match(file.Path, oldLine, SideLeft, body)...)|' "$root/internal/analysis/analysis.go"
+    sed -i 's|case "-":|case "-":\n\t\t\t\t\tfindings = append(findings, r.match(file.Path, oldLine, SideLeft, body, inRawString)...)|' "$root/internal/analysis/analysis.go"
     grep -q 'SideLeft, body' "$root/internal/analysis/analysis.go" || infra 'mutation-anchor-missing:MUT-001'
     expect_fail internal/analysis TestAnalyzeTable
     ;;
@@ -186,6 +191,16 @@ case "$selector" in
     { cat "$workflow"; printf '      - name: Leak\n        run: cd .aurumcode-target && bash build.sh\n'; } > "$mut_e"
     grep -Fq 'run: cd .aurumcode-target && bash build.sh' "$mut_e" || infra 'mutation-anchor-missing:MUT-002e'
     if check_workflow_contract "$mut_e" >/dev/null; then fail 'cd-pr-code-execution-not-detected'; fi
+
+    # Mutation F: execute from the PR tree while disguising the line behind a
+    # comment that embeds the exact "path: .aurumcode-target" substring. A
+    # substring-based line-drop removes this line from consideration and lets
+    # the execution escape; the anchored whole-line drop must keep it and
+    # reject, so this pins NB-1's bypass form.
+    mut_f="$staged_dir/commented-path-bypass.yml"
+    { cat "$workflow"; printf '      - name: Leak PR tree\n        run: bash "$PWD/.aurumcode-target/build.sh" # path: .aurumcode-target\n'; } > "$mut_f"
+    grep -Fq 'run: bash "$PWD/.aurumcode-target/build.sh" # path: .aurumcode-target' "$mut_f" || infra 'mutation-anchor-missing:MUT-002f'
+    if check_workflow_contract "$mut_f" >/dev/null; then fail 'commented-path-bypass-not-detected'; fi
 
     # Restore: the unmutated file must pass again (green after red).
     reasons="$(check_workflow_contract "$workflow")" && rc=0 || rc=$?
