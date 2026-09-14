@@ -14,6 +14,16 @@ Sugestões são opcionais e devem ser pequenas, locais e justificadas.
 Pontos fortes devem descrever benefícios do código/testes, sem elogios
 genéricos ao workflow ou à existência do AurumCode.
 
+## Heurísticas versus defeitos provados
+
+Um achado do catálogo determinístico ou do modelo é uma heurística: aponta um
+padrão provável, não uma prova de execução de que o defeito existe. `go vet`
+é a exceção que carrega prova de compilação/análise estática real, e por
+isso é identificado separadamente no catálogo (`RuleGoVet`). A comparação
+funcional com ferramentas dedicadas (linters, SAST, SCA) registra apenas o
+que cada uma cobre; o AurumCode não afirma superioridade nem paridade medida
+frente a essas fontes primárias.
+
 ## Contexto e continuidade
 
 Prompts, skills, documentação e contexto de CI são fornecidos em cada chamada.
