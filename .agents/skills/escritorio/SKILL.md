@@ -40,6 +40,24 @@ e o card inteiro.
   em `done` antes do ciclo leve; `.agents/skills/escritorio/frota.sh` e um
   diagnostico do modelo antigo de subagentes, tambem legado.
 
+## Gitflow deste repositorio (2026-09-15)
+
+- `dev` e a branch de integracao: todo card aprovado entra nela.
+- `main` e a branch de release. Um PR `dev -> main` libera a release, sempre
+  validado pelo AurumCode e pela CI.
+- A unica passagem direta de uma branch para `main` e `hotfix/*`, e ela OBRIGA
+  atualizar `CHANGELOG.md` na mesma PR.
+- `.github/workflows/gitflow-guard.yml` rejeita qualquer PR para `main` que nao
+  venha de `dev` ou `hotfix/*`. A protecao de branch exige CI (`Build and test
+  in OCI`, `Race tests in OCI`, `Documentation browser checks`) e o status
+  `aurumcode/review` do auto-review.
+- O auto-review e `.github/workflows/code-review.yml` -> `review.yml`; exige os
+  secrets `LLM_API_KEY`/`LLM_BASE_URL` e o var `LLM_MODEL`. Sem eles o check
+  `aurumcode/review` nao e publicado e a PR fica bloqueada (admin ainda pode
+  mergear).
+- Integrar em `dev` nao muda o resto do fluxo: review no SHA imutavel, aceite
+  OCI, e `- commit:`/`validated.json` com o SHA que ficou em `dev`.
+
 ## Limite duro: git no host, container so executa codigo
 
 - **Git sempre no host.** Branch, worktree, commit, merge/rebase, diff, `git log`
@@ -66,7 +84,8 @@ e o card inteiro.
   aprovado.
 - O parecer do revisor e gravado no proprio git:
   `git notes --ref=reviews add -f <sha-candidato> <<'EOF' ... EOF`.
-- So depois de APPROVE o coordenador integra exatamente aquele SHA em `main`.
+- So depois de APPROVE o coordenador integra exatamente aquele SHA em `dev`
+  (a branch de integracao; `main` e a branch de release, ver "Gitflow" abaixo).
   Um SHA novo nunca herda aprovacao antiga; REQUEST_CHANGES exige correcao e
   novo review do novo SHA.
 
@@ -256,9 +275,9 @@ teste, mas ausente do registry canonico, nao satisfaz um contrato de registro.
    que o diff tocou, porque um `accept` estreito pode ficar cego a regressao em
    teste pre-existente. Um unico agente pode ser reviewer e validator do mesmo
    SHA.
-4. Apos APPROVE, o coordenador integra **exatamente aquele SHA** em `main` (por
+4. Apos APPROVE, o coordenador integra **exatamente aquele SHA** em `dev` (por
    exemplo fast-forward do candidato linear), adiciona ao card o
-   `## Delivery record` com `- commit: <SHA que ficou em main>`, `- review:
+   `## Delivery record` com `- commit: <SHA que ficou em dev>`, `- review:
    approved`, e move o card para `validating` (ou `review`).
 5. Se o card declara `validation: tested` ou `skeptical`, o validator executa o
    acceptance do proprio card no mesmo SHA, em worktree limpo, e adiciona
@@ -279,7 +298,7 @@ autoriza transicao por si so.
 
 ## O card registra o SHA integrado, nunca o do candidato (limite duro)
 
-Registre em `- commit:` e em `validated.json` o SHA que existe em `main` depois
+Registre em `- commit:` e em `validated.json` o SHA que existe em `dev` depois
 da integracao, nao o tip da branch de candidato. O candidato e efemero por
 construcao: ele so existe enquanto a branch `card/AUR-NNN` o segura, e some no
 primeiro `gc --prune=now`.
@@ -292,7 +311,7 @@ que de fato entrega seus `paths` em `main`.
 
 Antes de podar objetos ou apagar branch de candidato, rode a auditoria barata:
 para todo card `done`, `git cat-file -t <sha>` e
-`git merge-base --is-ancestor <sha> main`. Um card que falha em qualquer um dos
+`git merge-base --is-ancestor <sha> dev`. Um card que falha em qualquer um dos
 dois afirma entrega sem lastro inspecionavel.
 
 ## Progresso e continuidade
