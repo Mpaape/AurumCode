@@ -229,24 +229,25 @@ mutation_001() {
   grep -qx 'FLAG_PROFILE=solid' <<<"$out" || fail 'MUT-001/mutation-had-no-effect'
 }
 
-# MUT-002: let a profile disable the deterministic security pass. The refusal
-# branch for security_pass is neutralized, so Compile accepts the definition and
-# the boundary reports the pass off. AC-003 must fail.
+# MUT-002: let a profile disable the deterministic security pass. The RAW YAML
+# scan is neutralized, so Compile binds `security_pass: false` and the boundary
+# reports the pass off. AC-003 must fail. The scan is the single load-bearing
+# boundary; neutralizing it is the mutation a reviewer would try first.
 mutation_002() {
   scenario='MUT-002'
   local root="$run_dir/root-mut002"
   stage_source "$root"
   write_harness "$root"
   local target="$root/internal/reviewprofile/reviewprofile.go"
-  local anchor='if s.SecurityPass != nil && !*s.SecurityPass {'
+  local anchor='func scanRefusedClauses(n *yaml.Node, prefix string) error {'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra 'MUT-002/anchor-not-unique'
-  local replacement='if false && s.SecurityPass != nil && !*s.SecurityPass { // MUT-002: let the pass be disabled'
+  local replacement="$anchor"$'\n\treturn nil // MUT-002: neutralize the raw scan'
   ANCHOR="$anchor" REPL="$replacement" awk '
     BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
     { if (index($0, anchor) > 0) { print repl; next } print }
   ' "$target" >"$target.mut" || infra mutation_rewrite
   mv "$target.mut" "$target"
-  grep -Fq 'MUT-002: let the pass be disabled' "$target" || infra mutation_not_applied
+  grep -Fq 'MUT-002: neutralize the raw scan' "$target" || infra mutation_not_applied
 
   local bin out
   bin="$(build_harness "$root" mut002)"

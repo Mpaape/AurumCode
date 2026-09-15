@@ -30,6 +30,7 @@
 package reviewprofile
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -235,6 +236,120 @@ func refuseForbidden(s Spec) error {
 	return nil
 }
 
+// refusedClauseNames maps every normalized spelling of a forbidden clause to
+// the canonical clause the refusal names. Normalization lowercases a key and
+// strips `-`, `_` and `.`, so `fail-on`, `failOn` and `fail_on` all collapse to
+// `failon` and cannot slip past a struct tag match.
+var refusedClauseNames = map[string]string{
+	"severity":            "severity",
+	"failon":              "fail_on",
+	"costcap":             "cost_cap",
+	"redactsecrets":       "redact_secrets",
+	"secretredaction":     "secret_redaction",
+	"redaction":           "redaction",
+	"disableredaction":    "disable_redaction",
+	"noredaction":         "no_redaction",
+	"redactionenabled":    "redaction_enabled",
+	"securitypass":        "security_pass",
+	"disablesecuritypass": "disable_security_pass",
+	"securitypassenabled": "security_pass_enabled",
+}
+
+// normalizeClause lowercases a YAML key and removes `-`, `_` and `.` so every
+// alternative spelling of a clause compares equal to its canonical form.
+func normalizeClause(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	for _, r := range s {
+		if r == '-' || r == '_' || r == '.' {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// scanRefusedClauses walks the RAW YAML tree before any struct binding and
+// refuses any clause whose normalized key is a forbidden one, or whose key is
+// `security` with a disabling value. It descends mapping and sequence nodes so
+// a nested `security.pass: false` cannot hide. This is the load-bearing
+// boundary for AC-003: it sees spellings the typed Spec can never match.
+func scanRefusedClauses(n *yaml.Node, prefix string) error {
+	n = resolveAlias(n)
+	if n == nil {
+		return nil
+	}
+	switch n.Kind {
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			keyNode := resolveAlias(n.Content[i])
+			value := resolveAlias(n.Content[i+1])
+			if keyNode.Kind != yaml.ScalarNode {
+				continue
+			}
+			key := normalizeClause(keyNode.Value)
+			if clause, ok := refusedClauseNames[prefix+key]; ok {
+				return &RefusedClauseError{Clause: clause}
+			}
+			if key == "security" && prefix == "" && isDisabling(value) {
+				return &RefusedClauseError{Clause: "security_pass"}
+			}
+			if err := scanRefusedClauses(value, prefix+key); err != nil {
+				return err
+			}
+		}
+	case yaml.SequenceNode:
+		for _, item := range n.Content {
+			if err := scanRefusedClauses(item, prefix); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// resolveAlias dereferences a YAML alias node to the anchor it points at. An
+// alias is an AliasNode, not a ScalarNode, so without this a disabling value
+// spelled `security: *off` would slip past both the key and scalar checks.
+func resolveAlias(n *yaml.Node) *yaml.Node {
+	if n != nil && n.Kind == yaml.AliasNode && n.Alias != nil {
+		return n.Alias
+	}
+	return n
+}
+
+// isDisabling reports whether a scalar value switches a boundary off. The
+// spelled-out forms and null/empty all count as disabling, as does a falsy
+// bool/int/float scalar.
+func isDisabling(n *yaml.Node) bool {
+	n = resolveAlias(n)
+	if n == nil || n.Kind != yaml.ScalarNode {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(n.Value)) {
+	case "false", "off", "disabled", "disable", "no", "none", "0", "null", "~", "":
+		return true
+	}
+	switch n.Tag {
+	case "!!bool":
+		var b bool
+		if n.Decode(&b) == nil {
+			return !b
+		}
+	case "!!int":
+		var i int64
+		if n.Decode(&i) == nil {
+			return i == 0
+		}
+	case "!!float":
+		var f float64
+		if n.Decode(&f) == nil {
+			return f == 0
+		}
+	}
+	return false
+}
+
 // canonicalFamilies validates, deduplicates and canonically orders families.
 func canonicalFamilies(list []string) ([]Family, error) {
 	seen := map[Family]bool{}
@@ -322,12 +437,20 @@ func compileSpec(s Spec) (*Profile, error) {
 // a forbidden clause is refused, naming it; an unknown family is a named
 // error. No file is executed and nothing is fetched.
 func Compile(data []byte) (*Profile, error) {
-	var spec Spec
-	if err := yaml.Unmarshal(data, &spec); err != nil {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("reviewprofile: parse-error: %w", err)
 	}
-	if err := refuseForbidden(spec); err != nil {
-		return nil, err
+	if len(doc.Content) > 0 {
+		if err := scanRefusedClauses(doc.Content[0], ""); err != nil {
+			return nil, err
+		}
+	}
+	var spec Spec
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&spec); err != nil {
+		return nil, fmt.Errorf("reviewprofile: parse-error: %w", err)
 	}
 	return compileSpec(spec)
 }
@@ -394,6 +517,7 @@ func Builtin(name string) (Profile, bool) {
 		return Profile{}, false
 	}
 	cp := *p
+	cp.Effective.Families = append([]Family(nil), p.Effective.Families...)
 	return cp, true
 }
 
@@ -410,10 +534,12 @@ func Resolve(sel Selection) (*Result, error) {
 	if !ok {
 		return nil, &UnknownProfileError{Name: name}
 	}
+	eff := p.Effective
+	eff.Families = append([]Family(nil), p.Effective.Families...)
 	return &Result{
 		Applied:   true,
 		Profile:   p,
-		Effective: p.Effective,
+		Effective: eff,
 		Declared:  fmt.Sprintf("profile: %s (v%s)", p.Name, p.Version),
 	}, nil
 }

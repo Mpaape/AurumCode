@@ -28,6 +28,8 @@ func TestAUR500(t *testing.T) {
 	t.Run("BuiltinsAreVersionedAndDeterministic", testAUR500BuiltinsAreVersionedAndDeterministic)
 	t.Run("SwitchingChangesOnlyEmphasisAndFamilies", testAUR500SwitchingChangesOnlyEmphasisAndFamilies)
 	t.Run("WeakeningDefinitionIsRefusedNamingClause", testAUR500WeakeningIsRefused)
+	t.Run("AlternativeSpellingsAreRefusedNamingClause", testAUR500AlternativeSpellingsAreRefused)
+	t.Run("BuiltinFamiliesAreImmutableAfterCallerMutation", testAUR500BuiltinFamiliesAreImmutable)
 	t.Run("UnknownProfileIsNamedError", testAUR500UnknownProfileIsNamedError)
 	t.Run("AbsentProfileIsZeroConfig", testAUR500AbsentProfileIsZeroConfig)
 }
@@ -169,6 +171,87 @@ func testAUR500WeakeningIsRefused(t *testing.T) {
 	_, err = reviewprofile.Compile([]byte("name: custom\nfamilies: [bogus]\n"))
 	if !errors.Is(err, reviewprofile.ErrUnknownFamily) {
 		t.Fatalf("unknown family error = %v", err)
+	}
+}
+
+// testAUR500AlternativeSpellingsAreRefused is the fail-open regression. Each
+// spelling normalizes to a forbidden clause, so the raw YAML scan -- not the
+// typed struct's exact tag -- must refuse it and name the clause.
+func testAUR500AlternativeSpellingsAreRefused(t *testing.T) {
+	cases := []struct {
+		name   string
+		doc    string
+		clause string
+	}{
+		{"security-pass", "name: x\nemphasis: e\nsecurity-pass: false\n", "security_pass"},
+		{"Security_Pass", "name: x\nemphasis: e\nSecurity_Pass: false\n", "security_pass"},
+		{"security.pass-flat", "name: x\nemphasis: e\nsecurity.pass: false\n", "security_pass"},
+		{"security-nested", "name: x\nemphasis: e\nsecurity:\n  pass: false\n", "security_pass"},
+		{"security-false", "name: x\nemphasis: e\nsecurity: false\n", "security_pass"},
+		{"security-off", "name: x\nemphasis: e\nsecurity: off\n", "security_pass"},
+		{"disable-security-pass", "name: x\nemphasis: e\ndisable_security_pass: true\n", "disable_security_pass"},
+		{"security-pass-enabled", "name: x\nemphasis: e\nsecurity_pass_enabled: false\n", "security_pass_enabled"},
+		{"redact-secrets", "name: x\nemphasis: e\nredact-secrets: false\n", "redact_secrets"},
+		{"redaction", "name: x\nemphasis: e\nredaction: false\n", "redaction"},
+		{"no_redaction", "name: x\nemphasis: e\nno_redaction: true\n", "no_redaction"},
+		{"disable_redaction", "name: x\nemphasis: e\ndisable_redaction: true\n", "disable_redaction"},
+		{"secret-redaction", "name: x\nemphasis: e\nsecret_redaction: false\n", "secret_redaction"},
+		{"redaction-enabled", "name: x\nemphasis: e\nredaction_enabled: false\n", "redaction_enabled"},
+		{"fail-on", "name: x\nemphasis: e\nfail-on:\n", "fail_on"},
+		{"failOn", "name: x\nemphasis: e\nfailOn: error\n", "fail_on"},
+		{"cost-cap", "name: x\nemphasis: e\ncost-cap: 0\n", "cost_cap"},
+		{"Severity", "name: x\nemphasis: e\nSeverity: info\n", "severity"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := reviewprofile.Compile([]byte(tc.doc))
+			if err == nil {
+				t.Fatalf("spelling %q was accepted", tc.name)
+			}
+			if !errors.Is(err, reviewprofile.ErrRefusedClause) {
+				t.Fatalf("error %v is not a refused-clause error", err)
+			}
+			if !strings.Contains(err.Error(), tc.clause) {
+				t.Fatalf("refusal %q does not name clause %q", err.Error(), tc.clause)
+			}
+		})
+	}
+	// An unknown, non-boundary key still fails closed via KnownFields.
+	_, err := reviewprofile.Compile([]byte("name: x\nemphasis: e\nmystery: 1\n"))
+	if err == nil {
+		t.Fatal("unknown key was silently accepted")
+	}
+}
+
+// testAUR500BuiltinFamiliesAreImmutable proves a caller cannot corrupt the
+// global preset by writing through the returned slice: the built-in's backing
+// array must not be shared.
+func testAUR500BuiltinFamiliesAreImmutable(t *testing.T) {
+	before, _ := reviewprofile.Builtin("solid")
+	if len(before.Effective.Families) == 0 {
+		t.Fatal("solid has no families")
+	}
+	want := before.Signature()
+
+	got, ok := reviewprofile.Builtin("solid")
+	if !ok {
+		t.Fatal("solid is not a built-in")
+	}
+	got.Effective.Families[0] = reviewprofile.FamilyPerformance
+	got.Families()[0] = reviewprofile.FamilyPerformance
+
+	res := resolve(t, reviewprofile.Selection{Flag: "solid"})
+	res.Effective.Families[0] = reviewprofile.FamilyPerformance
+	res.Profile.Effective.Families[0] = reviewprofile.FamilyPerformance
+
+	after, _ := reviewprofile.Builtin("solid")
+	if after.Signature() != want {
+		t.Fatalf("built-in mutated: signature %q, want %q", after.Signature(), want)
+	}
+	for _, f := range after.Effective.Families {
+		if f == reviewprofile.FamilyPerformance {
+			t.Fatal("caller mutation reached the global solid preset")
+		}
 	}
 }
 
