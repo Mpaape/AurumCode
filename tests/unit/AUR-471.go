@@ -27,6 +27,8 @@ func TestAUR471(t *testing.T) {
 	t.Run("DeclaredWeightsReport", testAUR471DeclaredWeightsReport)
 	t.Run("AggregateFollowsWeights", testAUR471AggregateFollowsWeights)
 	t.Run("InvalidSumNamedError", testAUR471InvalidSumNamedError)
+	t.Run("DuplicateWeightNamedError", testAUR471DuplicateWeightNamedError)
+	t.Run("TildeSecurityPassRefused", testAUR471TildeSecurityPassRefused)
 	t.Run("NegativeWeightNamedError", testAUR471NegativeWeightNamedError)
 	t.Run("NonFiniteWeightNamedError", testAUR471NonFiniteWeightNamedError)
 	t.Run("UnknownCharacteristicNamedError", testAUR471UnknownCharacteristicNamedError)
@@ -168,6 +170,47 @@ func testAUR471InvalidSumNamedError(t *testing.T) {
 	_, err := policy.Load(root)
 	if !errors.Is(err, policy.ErrWeightsSum) {
 		t.Fatalf("want ErrWeightsSum, got %v", err)
+	}
+}
+
+func testAUR471DuplicateWeightNamedError(t *testing.T) {
+	root := t.TempDir()
+	// A repeated characteristic would have its first declaration counted in
+	// the raw sum but overwritten in the map, so a file whose effective sum
+	// is 0.5 could pass. It must be refused, naming invalid-weight, with no
+	// policy produced.
+	writePolicy(t, root, `weights:
+  functionality: 0.50
+  functionality: 0.50
+  reliability: 0.10
+  usability: 0.10
+  efficiency: 0.10
+  maintainability: 0.10
+  portability: 0.05
+  security: 0.05
+  compatibility: 0.05
+`)
+	p, err := policy.Load(root)
+	if !errors.Is(err, policy.ErrInvalidWeight) {
+		t.Fatalf("want ErrInvalidWeight for a duplicated weight, got %v", err)
+	}
+	if p != nil {
+		t.Fatalf("Load must not return a policy for a duplicated weight, got %+v", p)
+	}
+	if err == nil || !contains471(err.Error(), "functionality") {
+		t.Fatalf("refusal must name the duplicated characteristic, got %v", err)
+	}
+}
+
+func testAUR471TildeSecurityPassRefused(t *testing.T) {
+	root := t.TempDir()
+	writePolicy(t, root, fullWeights+"security_pass: ~\n")
+	_, err := policy.Load(root)
+	if !errors.Is(err, policy.ErrRefusedClause) {
+		t.Fatalf("want ErrRefusedClause for security_pass: ~, got %v", err)
+	}
+	if err == nil || !contains471(err.Error(), "security_pass") {
+		t.Fatalf("refusal must name the clause, got %v", err)
 	}
 }
 

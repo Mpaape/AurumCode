@@ -223,6 +223,9 @@ func Parse(data []byte, source string) (*Policy, error) {
 		if !knownCharacteristics[name] {
 			return nil, fmt.Errorf("%w: %q is not an ISO/IEC 25010 characteristic", ErrUnknownCharacteristic, string(name))
 		}
+		if _, dup := weights[name]; dup {
+			return nil, fmt.Errorf("%w: %q is declared more than once", ErrInvalidWeight, string(name))
+		}
 		var value float64
 		if err := weightsNode.Content[i+1].Decode(&value); err != nil {
 			return nil, fmt.Errorf("%w: %q: %v", ErrInvalidWeight, string(name), err)
@@ -399,8 +402,25 @@ func isDisabling(n *yaml.Node) bool {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(n.Value)) {
-	case "false", "off", "disabled", "disable", "no", "none", "0", "null", "":
+	case "false", "off", "disabled", "disable", "no", "none", "0", "null", "~", "":
 		return true
+	}
+	switch n.Tag {
+	case "!!bool":
+		var b bool
+		if n.Decode(&b) == nil {
+			return !b
+		}
+	case "!!int":
+		var i int64
+		if n.Decode(&i) == nil {
+			return i == 0
+		}
+	case "!!float":
+		var f float64
+		if n.Decode(&f) == nil {
+			return f == 0
+		}
 	}
 	return false
 }
