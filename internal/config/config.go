@@ -99,6 +99,42 @@ type ReviewConfig struct {
 	// an explicit repository setting; this card never reads a published tag
 	// (AUR-472/AUR-478 own that decision).
 	Version string `yaml:"version"`
+	// Profiles is the multi-agent reviewer-profile selection: every name
+	// listed here runs in the same review (AUR-502). A profile is a preset
+	// over emphasis and rule families only -- it never changes severity,
+	// --fail-on, redaction, the cost cap or the deterministic security pass.
+	// Absent/empty keeps the zero-config behavior byte for byte.
+	Profiles []string `yaml:"profiles"`
+}
+
+// ReviewProfiles returns the configured multi-agent profile selection,
+// trimmed and validated. A present-but-empty entry is refused naming it, and
+// a repeated name is refused, so a config typo fails closed before any model
+// call instead of silently running the wrong reviewer.
+func (c *Config) ReviewProfiles() ([]string, error) {
+	return NormalizeReviewProfiles(c.Review.Profiles)
+}
+
+// NormalizeReviewProfiles validates a review.profiles list. It never resolves
+// a name -- whether a name is a known profile is reviewprofile's decision,
+// made against the built-ins and the team file -- but it refuses empty and
+// duplicate entries locally so a malformed list is a config error.
+func NormalizeReviewProfiles(raw []string) ([]string, error) {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		name := strings.TrimSpace(item)
+		if name == "" {
+			return nil, fmt.Errorf("review.profiles: an empty profile name is not allowed")
+		}
+		key := strings.ToLower(name)
+		if seen[key] {
+			return nil, fmt.Errorf("review.profiles: profile %q is listed more than once", name)
+		}
+		seen[key] = true
+		out = append(out, name)
+	}
+	return out, nil
 }
 
 // NormalizeReviewChangelog accepts the public spellings of review.changelog.
@@ -265,6 +301,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Review.ValidateContext(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if _, err := cfg.ReviewProfiles(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil
