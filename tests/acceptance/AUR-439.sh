@@ -42,7 +42,7 @@ readonly scenario='AC-001'
 selector="${1:-AC-001}"
 
 case "$selector" in
-  AC-001|TestAUR439|IntegrationAUR439|E2EAUR439|AC-001-MUT-001) ;;
+  all|AC-001|TestAUR439|IntegrationAUR439|E2EAUR439|AC-001-MUT-001) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$scenario" >&2; exit 64 ;;
 esac
 
@@ -86,24 +86,21 @@ copy() {
 
 # stage_source materializes exactly what `go build ./cmd/aurumcode` needs
 # for the --check path this card adds: this card's owned cmd/aurumcode
-# plus the read-only packages `go list -deps ./cmd/aurumcode` actually
-# names (verified against this card's own read_paths, not copied on
-# faith) -- internal/git/githubclient (the AUR-437 client SetStatus lives
-# in), internal/security/redaction (not the whole internal/security tree:
-# this card's read_paths name only the redaction subpackage, and nothing
-# cmd/aurumcode imports reaches further), and the documentation/pipeline
-# closure cmd/aurumcode/docs.go (AUR-426, already integrated on this tip)
-# imports -- plus the fixtures this card's own proofs read.
+# plus every local package `go list -deps ./cmd/aurumcode` actually names on
+# this tip -- including internal/git/githubclient (the AUR-437 client
+# SetStatus lives in) and internal/security/redaction (not the whole
+# internal/security tree) -- plus the fixtures this card's own proofs read.
+# The documentation/pipeline tree this list once copied was removed by
+# commit 670c7f6; leaving it here made the acceptance die 79 on a clean tip.
 stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm \
-    internal/git/githubclient internal/security/redaction pkg/types
-  copy "$root" internal/documentation/extractors internal/documentation/incremental \
-    internal/documentation/normalizer internal/documentation/site internal/documentation/review \
-    internal/documentation/welcome internal/documentation/review internal/pipeline
+  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog \
+    internal/config internal/context internal/git/githubclient internal/llm internal/memory \
+    internal/prompt internal/render internal/review internal/security/redaction internal/testgen \
+    pkg/types
   copy "$root" tests/fixtures/scm/github tests/fixtures/repos/git-demo tests/fixtures/review
 
   # See the note above copy(): the staged copy is scratch from here on, so
@@ -308,7 +305,7 @@ run_all() {
 }
 
 case "$selector" in
-  AC-001) run_all ;;
+  all|AC-001) run_all ;;
   TestAUR439) unit_case ;;
   IntegrationAUR439) integration_case ;;
   E2EAUR439) e2e_case ;;
