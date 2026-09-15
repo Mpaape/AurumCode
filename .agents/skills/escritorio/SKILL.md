@@ -57,6 +57,15 @@ e o card inteiro.
   mergear).
 - Integrar em `dev` nao muda o resto do fluxo: review no SHA imutavel, aceite
   OCI, e `- commit:`/`validated.json` com o SHA que ficou em `dev`.
+- **O review independente do card e o proprio Aurum no CI.** Cada candidato
+  aprovado pelo aceite OCI vira um `branch card/AUR-NNN -> PR para dev`; o
+  auto-review (`.github/workflows/code-review.yml`) roda no HEAD imutavel da PR
+  e publica o veredito no job `review / Review pull request` e no status
+  `aurumcode/review`. O coordenador mergeia so com CI + Aurum verdes no mesmo
+  SHA, e registra no card o SHA do HEAD revisado como `- commit:`. O parecer e a
+  execucao do PR; nao ha um segundo reviewer manual quando o Aurum ja revisou o
+  HEAD. Se o Aurum pedir mudancas, o builder corrige no mesmo branch e a PR
+  reavalia o novo HEAD.
 
 ## Limite duro: git no host, container so executa codigo
 

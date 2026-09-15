@@ -21,6 +21,7 @@ package unit
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -185,8 +186,20 @@ func TestAUR439(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write(repoJSON)
 			case "/repos/dono/projeto/pulls/42":
+				// AUR-504: --check now resolves the reviewed head from
+				// this endpoint (Accept: application/vnd.github+json)
+				// instead of GITHUB_SHA. The diff request keeps its own
+				// Accept header (application/vnd.github.v3.diff); anything
+				// else must be a JSON pull request payload carrying
+				// head.sha, or the status anchor cannot be resolved.
+				if strings.Contains(r.Header.Get("Accept"), "diff") {
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write(diffBody)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write(diffBody)
+				_, _ = fmt.Fprint(w, `{"number":42,"title":"t","body":"b","head":{"sha":"aur439-unit-head-sha"}}`)
 			default:
 				w.WriteHeader(http.StatusNotFound)
 			}
@@ -194,6 +207,11 @@ func TestAUR439(t *testing.T) {
 		defer server.Close()
 
 		respPath := filepath.Join(t.TempDir(), "response.json")
+		// The scope+evidence gate (internal/review/scope.go) keeps a finding
+		// only when it anchors on an added/removed line AND carries evidence,
+		// impact and a verification proposal. cmdb/settings.go line 3 is the
+		// added line in pr-42.diff, so the grave finding stays publishable and
+		// the check must report failure.
 		resp := `{
   "issues": [
     {
@@ -201,7 +219,10 @@ func TestAUR439(t *testing.T) {
       "line": 3,
       "severity": "error",
       "rule_id": "quality/long-function",
-      "message": "Achado grave sintetico de unidade."
+      "message": "Achado grave sintetico de unidade.",
+      "impact": "Um limite de retentativas inadequado degrada espelhos lentos.",
+      "evidence": "A linha adicionada eleva o limite de retentativas sem justificativa.",
+      "verification": "Reduzir o limite e rodar a suite de retentativas."
     }
   ],
   "summary": "Resposta sintetica grave de unidade."
