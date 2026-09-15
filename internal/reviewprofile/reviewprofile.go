@@ -288,6 +288,9 @@ func scanRefusedClauses(n *yaml.Node, prefix string) error {
 				continue
 			}
 			key := normalizeClause(keyNode.Value)
+			if clause, ok := refusedClauseNames[key]; ok {
+				return &RefusedClauseError{Clause: clause}
+			}
 			if clause, ok := refusedClauseNames[prefix+key]; ok {
 				return &RefusedClauseError{Clause: clause}
 			}
