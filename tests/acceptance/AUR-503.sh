@@ -167,6 +167,10 @@ func main() {
 	// AC-001: textual mentions must not fire.
 	case "go-comment":
 		path, line = "main.go", "\t// exec.Command(\"sh\",\"-c\",\"ping \"+host)"
+	case "go-comment-sep":
+		// The `;` here is INSIDE the comment, which a line anchor cannot
+		// tell apart from a real statement separator.
+		path, line = "main.go", "\t// foo; exec.Command(\"sh\",\"-c\",\"ping \"+host)"
 	case "csharp-comment":
 		path, line = "App.cs", "\t// Process.Start(\"cmd.exe\", \"/c ping \" + host)"
 	case "ps-comment":
@@ -180,12 +184,33 @@ func main() {
 	// AC-002: the real invocation of each branch must fire.
 	case "go-unsafe":
 		path, line = "main.go", "\texec.Command(\"sh\", \"-c\", \"ping \"+host).Run()"
+	// Expression contexts: a line anchor that only admits line start or a
+	// `;`/`|`/`&` separator misses every one of these (the AUR-503 review
+	// blocker); they are real invocations and must fire.
+	case "go-expr":
+		path, line = "main.go", "\tx := exec.Command(\"sh\", \"-c\", cmd)"
+	case "go-if":
+		path, line = "main.go", "\tif err := exec.Command(\"sh\", \"-c\", cmd); err != nil { return }"
+	case "go-out":
+		path, line = "main.go", "\tout, err := exec.Command(\"sh\", \"-c\", cmd)"
+	case "go-return":
+		path, line = "main.go", "\treturn exec.Command(\"sh\", \"-c\", cmd)"
+	case "go-decl":
+		path, line = "main.go", "\tcmd := exec.Command(\"sh\", \"-c\", cmd)"
 	case "csharp-unsafe":
 		path, line = "App.cs", "\tProcess.Start(\"cmd.exe\", \"/c ping \" + host);"
+	case "csharp-var":
+		path, line = "App.cs", "\tvar p = Process.Start(\"cmd.exe\", \"/c ping \" + host);"
+	case "csharp-if":
+		path, line = "App.cs", "\tif (x) { Process.Start(\"cmd.exe\", \"/c ping \" + host); }"
 	case "ps-unsafe":
 		path, line = "script.ps1", "\tInvoke-Expression \"ping $host\""
+	case "ps-assign":
+		path, line = "script.ps1", "\t$r = Invoke-Expression $payload"
 	case "iex-unsafe":
 		path, line = "script.ps1", "\tiex $payload"
+	case "iex-assign":
+		path, line = "script.ps1", "\t$r = iex $payload"
 	case "shc-unsafe":
 		path, line = "deploy.sh", "\tsh -c \"ping $1\""
 	case "bashc-unsafe":
@@ -237,13 +262,22 @@ expect_findings() {
   [[ "$out" == "findings=$want" ]] || fail "$label:$mode:want=$want:got=$out"
 }
 
-# --- MUT-001: remove the statement guard from the Go branch ---------------
-# After the edit, `// exec.Command(...)` is a bare token match again, so the
-# comment mention fires. If it does not, the mutation did not take effect and
-# the acceptance would be vacuous.
-readonly go_guard='(?:^\s*|[;|&§]\s*)(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bexec\.Command'
-readonly go_noguard='(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bexec\.Command'
-readonly go_strict='^(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bexec\.Command'
+# --- MUT-001: remove the command-injection context guard ------------------
+# The AUR-503 fix keeps the four branches unanchored and drops a
+# command-injection match whose first byte sits in a comment/string
+# (codeMask, internal/review/securitypass.go). Removing that guard makes a
+# comment mention match again, so `// exec.Command(...)` and
+# `// foo; exec.Command(...)` fire. If they do not, the mutation did not
+# take effect and the acceptance would be vacuous.
+readonly mask_guard='rule.ID == "security/command-injection" && !codeMask(body)[loc[0]]'
+readonly mask_noguard='rule.ID == "security/command-injection" && false'
+
+# --- MUT-002: over-restrict the Go branch to column zero ------------------
+# Requiring the token at the very start of the line loses every indented or
+# expression-context real invocation, so the mutation proves AC-002's
+# expression coverage is load-bearing rather than a false green.
+readonly go_branch='\bexec\.Command'
+readonly go_strict='^exec\.Command'
 
 replace_once() {
   local target="$1" needle="$2" repl="$3" label="$4"
@@ -265,11 +299,12 @@ replace_once() {
 mutation_case_1() {
   local root="$run_dir/root-mut1" bin="$run_dir/probe-mut1"
   stage_source "$root"; probe_source "$root"
-  replace_once "$root/internal/review/rules/security.yml" "$go_guard" "$go_noguard" MUT-001
+  replace_once "$root/internal/review/securitypass.go" "$mask_guard" "$mask_noguard" MUT-001
   build_probe "$root" "$bin"
 
-  # The comment mention must now be accused (the mutation reintroduces the FP).
+  # The comment mentions must now be accused (the mutation reintroduces the FP).
   expect_findings "$bin" go-comment 1 'MUT-001/mutation-survived'
+  expect_findings "$bin" go-comment-sep 1 'MUT-001/mutation-survived'
   # Specificity: a sibling branch's real invocation is untouched.
   expect_findings "$bin" eval-unsafe 1 'MUT-001/unrelated-shape-lost'
   expect_findings "$bin" shc-unsafe 1 'MUT-001/unrelated-shape-lost'
@@ -280,16 +315,19 @@ mutation_case_1() {
 
 # --- MUT-002: over-restrict the Go branch to column zero ------------------
 # Requiring the token at the very start of the line loses the indented real
-# invocation. If the invocation is still found, the restriction did not take
-# effect and the acceptance would be vacuous.
+# invocation AND every expression-context invocation. If they are still
+# found, the restriction did not take effect and the acceptance would be
+# vacuous.
 mutation_case_2() {
   local root="$run_dir/root-mut2" bin="$run_dir/probe-mut2"
   stage_source "$root"; probe_source "$root"
-  replace_once "$root/internal/review/rules/security.yml" "$go_guard" "$go_strict" MUT-002
+  replace_once "$root/internal/review/rules/security.yml" "$go_branch" "$go_strict" MUT-002
   build_probe "$root" "$bin"
 
   # The real, tab-indented Go invocation must now be missed.
   expect_findings "$bin" go-unsafe 0 'MUT-002/restriction-did-not-take'
+  # And so must an expression-context invocation.
+  expect_findings "$bin" go-expr 0 'MUT-002/restriction-did-not-take'
   # Specificity: a sibling branch's real invocation is untouched.
   expect_findings "$bin" eval-unsafe 1 'MUT-002/unrelated-shape-lost'
   expect_findings "$bin" csharp-unsafe 1 'MUT-002/unrelated-shape-lost'
@@ -313,6 +351,7 @@ ac001_case() {
   baseline_bin
   local bin="$run_dir/probe-baseline"
   expect_findings "$bin" go-comment 0 'AC-001'
+  expect_findings "$bin" go-comment-sep 0 'AC-001'
   expect_findings "$bin" csharp-comment 0 'AC-001'
   expect_findings "$bin" ps-comment 0 'AC-001'
   expect_findings "$bin" iex-string 0 'AC-001'
@@ -324,9 +363,18 @@ ac002_case() {
   baseline_bin
   local bin="$run_dir/probe-baseline"
   expect_findings "$bin" go-unsafe 1 'AC-002'
+  expect_findings "$bin" go-expr 1 'AC-002'
+  expect_findings "$bin" go-if 1 'AC-002'
+  expect_findings "$bin" go-out 1 'AC-002'
+  expect_findings "$bin" go-return 1 'AC-002'
+  expect_findings "$bin" go-decl 1 'AC-002'
   expect_findings "$bin" csharp-unsafe 1 'AC-002'
+  expect_findings "$bin" csharp-var 1 'AC-002'
+  expect_findings "$bin" csharp-if 1 'AC-002'
   expect_findings "$bin" ps-unsafe 1 'AC-002'
+  expect_findings "$bin" ps-assign 1 'AC-002'
   expect_findings "$bin" iex-unsafe 1 'AC-002'
+  expect_findings "$bin" iex-assign 1 'AC-002'
   expect_findings "$bin" shc-unsafe 1 'AC-002'
   expect_findings "$bin" bashc-unsafe 1 'AC-002'
   expect_findings "$bin" sql-shell 1 'AC-002'
