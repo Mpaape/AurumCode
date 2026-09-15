@@ -275,6 +275,28 @@ nominal_case() {
   grep -Fq 'non-finite-weight' <<<"$e_nan" || fail "ac002-nan-not-named:$e_nan"
   grep -Fq 'ok' <<<"$e_nan" && fail "ac002-nan-was-accepted:$e_nan"
 
+  # A characteristic declared twice has its first weight counted in the raw
+  # sum but overwritten in the map, so a file with an effective sum of 0.5
+  # could slip through. It must be refused, naming invalid-weight, with no
+  # policy produced.
+  bad="$run_dir/bad-duplicate"
+  fixture "$bad" 'weights:
+  functionality: 0.50
+  functionality: 0.50
+  reliability: 0.10
+  usability: 0.10
+  efficiency: 0.10
+  maintainability: 0.10
+  portability: 0.05
+  security: 0.05
+  compatibility: 0.05
+'
+  local e_dup
+  e_dup="$("$harness_bin" ac002 "$bad")" || fail ac002-duplicate-run-failed
+  grep -Fq 'invalid-weight' <<<"$e_dup" || fail "ac002-duplicate-not-named:$e_dup"
+  grep -Fq 'functionality' <<<"$e_dup" || fail "ac002-duplicate-clause-unnamed:$e_dup"
+  grep -Fq 'ok' <<<"$e_dup" && fail "ac002-duplicate-was-accepted:$e_dup"
+
   # ---- AC-004: the safety boundary is refused, naming the clause ----
   local hostile out_s
   hostile="$run_dir/hostile-pass"
@@ -292,6 +314,26 @@ security_pass: false
   out_s="$("$harness_bin" ac004 "$hostile")" || fail ac004-pass-run-failed
   grep -Fq 'refused-clause' <<<"$out_s" || fail "ac004-pass-not-refused:$out_s"
   grep -Fq 'security_pass' <<<"$out_s" || fail "ac004-pass-clause-unnamed:$out_s"
+
+  # YAML null (`~`) is a disabling spelling too; it must not slip past the
+  # scalar spelling check and silently leave the pass off.
+  hostile="$run_dir/hostile-tilde"
+  fixture "$hostile" 'weights:
+  functionality: 0.15
+  reliability: 0.15
+  usability: 0.10
+  efficiency: 0.12
+  maintainability: 0.18
+  portability: 0.08
+  security: 0.17
+  compatibility: 0.05
+security_pass: ~
+'
+  local out_t
+  out_t="$("$harness_bin" ac004 "$hostile")" || fail ac004-tilde-run-failed
+  grep -Fq 'refused-clause' <<<"$out_t" || fail "ac004-tilde-not-refused:$out_t"
+  grep -Fq 'security_pass' <<<"$out_t" || fail "ac004-tilde-clause-unnamed:$out_t"
+  grep -Fq 'ok' <<<"$out_t" && fail "ac004-tilde-was-accepted:$out_t"
 
   hostile="$run_dir/hostile-redact"
   fixture "$hostile" 'weights:
