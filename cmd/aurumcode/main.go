@@ -377,6 +377,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge (default: off)")
 	exigirQualidade := fs.Bool("exigir-qualidade", false, "treat a quality review that did not happen as a failure: exit 1 even when deterministic analysis ran and reported, so a CI job cannot read \"security-only\" as \"fully reviewed\" (default: off -- the published --seguranca-without-a-provider path keeps exit 0)")
 	changelogFlag := fs.Bool("changelog", false, "publish the suggested next version and changelog entry derived from the reviewed commit messages (AUR-498 engine); the review.changelog repository setting is the default (default: off)")
+	perfis := fs.String("perfis", "", "comma-separated reviewer profiles to run in the same review (AUR-502); every finding names its source profile and duplicate findings merge once. Profiles are presets over emphasis and rule families only and never change severity, --fail-on, redaction, the cost cap or the security pass (default: review.profiles from config)")
+	perfil := fs.String("profile", "", "alias of --perfis for a single reviewer profile (AUR-502)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
@@ -410,6 +412,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	prLimiteGiven := false
 	prPublicationGiven := false
 	exigirGiven := false
+	perfisGiven := false
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "pr":
@@ -424,6 +427,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			prPublicationGiven = true
 		case "exigir-qualidade":
 			exigirGiven = true
+		case "perfis", "profile":
+			perfisGiven = true
 		}
 	})
 	if prGiven {
@@ -440,6 +445,15 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// to AUR-451's.
 		if exigirGiven {
 			fmt.Fprintln(stderr, "aurumcode review: --exigir-qualidade is not supported with --pr (it guards the --base review path only)")
+			return 2
+		}
+		// AUR-502: multi-profile review is implemented on the --base path,
+		// where the per-profile model passes and the deterministic merge run.
+		// The PR path is a separate published contract; silently accepting
+		// --perfis there would run the wrong reviewer, so it is refused loudly
+		// as a usage error (exit 2), exactly like --exigir-qualidade above.
+		if perfisGiven {
+			fmt.Fprintln(stderr, "aurumcode review: --perfis/--profile are not supported with --pr (they select the --base review passes only)")
 			return 2
 		}
 		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check, filter, prReviewOptions{
@@ -553,6 +567,37 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// read, so an ignored file is invisible to both passes identically.
 	// Zero-config: returns diff, the same pointer, unchanged.
 	diff = config.FilterIgnoredPaths(diff, repoCfg)
+
+	// AUR-502: resolve the reviewer-profile selection. The --perfis/--profile
+	// flag wins over review.profiles in config; both resolve against the
+	// built-ins plus the team file (.aurumcode/profiles.yml). An unknown,
+	// empty or duplicate name is a usage error returned before any model
+	// call; a team definition that names a boundary clause is refused by the
+	// same fail-closed scan a built-in goes through. The zero-config case
+	// (no flag, no config, no file) leaves profileRes unapplied and every
+	// line below byte-identical to the published contract.
+	var profileFlagNames []string
+	if perfisGiven {
+		raw := *perfis
+		if strings.TrimSpace(raw) == "" {
+			raw = *perfil
+		}
+		if strings.TrimSpace(raw) == "" {
+			fmt.Fprintln(stderr, "aurumcode review: --perfis: profile name must not be empty")
+			return 2
+		}
+		profileFlagNames = splitProfileNames(raw)
+	}
+	profileRes, err := resolveReviewProfiles(cwd, profileFlagNames, perfisGiven, repoCfg)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+		return 2
+	}
+	if profileRes.Applied {
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", profileRes.Declared)
+	}
+	profilesApplied := profileRes.Applied
+
 	codebaseContextText := resolveCodebaseContext(diff)
 	memoryStore, memoryNotes, memoryNotesText := openReviewMemory(repoCfg.Review.Memory, "", "", stderr, filter)
 
@@ -783,11 +828,21 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// cache hit -- diff.Files was non-empty and every one of them hit --
 		// skips the call.
 		if cacheErr != nil || len(toSend.Files) > 0 || len(diff.Files) == 0 {
-			result, err = reviewer.GenerateReviewWithContext(context.Background(), toSend, review.ReviewContext{
+			reviewCtx := review.ReviewContext{
 				Language:        reviewLanguage,
 				CodebaseContext: codebaseContextText,
 				MemoryNotes:     memoryNotesText,
-			})
+			}
+			// AUR-502: with profiles selected, every profile gets its own
+			// model pass and the findings merge deterministically. The tracker
+			// is shared, so the cost cap is a ceiling over the whole review,
+			// never per profile. Zero-config/single-profile keeps the exact
+			// single call below.
+			if profilesApplied {
+				result, err = runProfilePasses(context.Background(), provider, tracker, profileRes.Profiles, toSend, reviewCtx)
+			} else {
+				result, err = reviewer.GenerateReviewWithContext(context.Background(), toSend, reviewCtx)
+			}
 			if err != nil && *seguranca {
 				// AUR-458: same conditional diversion as the provider-error
 				// branch above, for the three remaining ways a quality

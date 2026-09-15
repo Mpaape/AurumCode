@@ -165,20 +165,42 @@ func (p Profile) Signature() string {
 	}, "|")
 }
 
-// Selection is where a profile may be named: repository config and the review
-// flag. The flag wins; an empty Selection is zero-config.
+// Selection is where a profile may be named: repository config, the review
+// flag, or -- for multi-agent review -- an explicit list of names. The flag
+// wins over config; Names is the multi-profile form and takes precedence over
+// both. An empty Selection is zero-config.
 type Selection struct {
 	Config string
 	Flag   string
+	// Names is the multi-agent selection: every profile named here runs in
+	// the same review. It is populated from --perfis or review.profiles.
+	Names []string
 }
 
-// Name resolves the effective profile name: the flag if present, else the
-// config value, trimmed. Empty means no profile selected.
+// Name resolves the effective single profile name: the flag if present, else
+// the config value, trimmed. Empty means no profile selected.
 func (s Selection) Name() string {
 	if v := strings.TrimSpace(s.Flag); v != "" {
 		return v
 	}
 	return strings.TrimSpace(s.Config)
+}
+
+// SelectedNames returns the effective multi-profile selection: the explicit
+// Names if any, else a single-element list built from Name(). Always trimmed
+// and with empty entries removed, so a comma typo is not silently a profile.
+func (s Selection) SelectedNames() []string {
+	if len(s.Names) > 0 {
+		out := make([]string, 0, len(s.Names))
+		for _, n := range s.Names {
+			out = append(out, strings.TrimSpace(n))
+		}
+		return out
+	}
+	if v := s.Name(); v != "" {
+		return []string{v}
+	}
+	return nil
 }
 
 // Result is a resolved selection. Applied is false for the zero-config case,
@@ -483,6 +505,13 @@ var builtinSpecs = []Spec{
 		Emphasis:     "performance and algorithmic cost",
 		Families:     []string{string(FamilyPerformance)},
 		Instructions: "Priorize complexidade, alocacoes, consultas N+1 e retencao de recursos.",
+	},
+	{
+		Name:         "product_owner",
+		Version:      "1",
+		Emphasis:     "product intent and user-visible behavior",
+		Families:     []string{string(FamilyQuality)},
+		Instructions: "Priorize intencao do produto, comportamento visivel ao usuario, valor entregue e riscos de regressao funcional.",
 	},
 }
 
