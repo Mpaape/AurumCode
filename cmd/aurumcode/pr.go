@@ -356,6 +356,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		history = historyUnavailableNotice(reviewLanguage)
 	}
 
+	// AUR-505: qualityDegraded records a review whose model half was
+	// inconclusive (the provider answered, but the parser could not
+	// validate the response). Unlike a provider that never answered, the
+	// deterministic half -- static analysis and the security pass -- is
+	// still valid and must be published. The model half is recorded as a
+	// limitation, never as a finding, and the final exit code is decided
+	// by the deterministic gate alone. See docs/specs/AUR-505.md.
+	qualityDegraded := false
 	result, err := reviewer.GenerateReviewWithContext(ctx, diff, review.ReviewContext{
 		CI:              readCIContext(),
 		Language:        reviewLanguage,
@@ -372,14 +380,27 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		}
 		var parseErr *prompt.ParseError
 		if errors.As(err, &parseErr) {
+			// AUR-505: an unparseable model answer degrades, it does not
+			// crash. Before this card the command printed the diagnosis
+			// and exited 1 with no deterministic finding published, so a
+			// weak model failed a CI pull request even when the
+			// deterministic analysis and security passes were clean. The
+			// fix keeps the diagnosis, records the failure as a declared
+			// limitation (never silent), publishes the deterministic
+			// findings, and lets the deterministic gate decide the exit
+			// code. NO finding is fabricated from the invalid response:
+			// result starts empty (AC-003).
 			fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+			fmt.Fprintln(stderr, "aurumcode review: degrading to deterministic analysis; the model review is inconclusive")
+			qualityDegraded = true
+			result = &types.ReviewResult{}
+			result.Limitations = append(result.Limitations, modelInvalidOutputNotice(reviewLanguage, string(parseErr.Kind)))
+		} else if opts.modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
+			return reportModelUnavailable(stderr, opts.modelo, err)
+		} else {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 			return 1
 		}
-		if opts.modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
-			return reportModelUnavailable(stderr, opts.modelo, err)
-		}
-		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-		return 1
 	}
 	if historyErr != nil {
 		// The caller's coverage notice survives even if the model omits it.
@@ -637,7 +658,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// instruction; a save failure is reported and never affects the verdict.
 	// AUR-490: the shared memory pass's save half (persistReviewMemory,
 	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
-	persistReviewMemory(memoryStore, reviewConfig.Review.Memory, memoryNotes, result.Issues, stderr, filter)
+	// AUR-505: a degraded run has no model answer to remember. The
+	// deterministic findings are not quality observations, so persisting
+	// them would teach the next review the wrong thing; the declared
+	// limitation is enough. This mirrors the --base path, which does not
+	// persist a run whose quality half failed.
+	if !qualityDegraded {
+		persistReviewMemory(memoryStore, reviewConfig.Review.Memory, memoryNotes, result.Issues, stderr, filter)
+	}
 
 	// The check status is published before the comment-failure return
 	// below, not after: a grave finding must still get its failing check
