@@ -233,7 +233,38 @@ rules:
     #
     # This card's own MUT-001 removes branch 1 (Go) and MUT-002 widens it
     # to the argv form; both are exercised by tests/acceptance/AUR-486.sh.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|^\s*eval\b|\b(?:Invoke-Expression|iex)\b'
+    #
+    # AUR-503 (2026-09-15): the four AUR-486 branches above (Go
+    # `exec.Command`, C# `Process.Start` x2, PowerShell `Invoke-Expression`/
+    # `iex`, bash `eval`) matched their token ANYWHERE on the added line, so
+    # a textual mention -- `// exec.Command("sh","-c",...)`,
+    # `// Process.Start("cmd.exe","/c ping "+host)`,
+    # `# Invoke-Expression ...`, `Write-Host "Invoke-Expression is unsafe"`,
+    # `# iex is dangerous`, `eval := compute()` -- fired the rule (the same
+    # false-positive class AUR-486's round 2 fixed only in `sh -c`/SQL).
+    # A false positive in a merge gate teaches the team to disable the gate
+    # (AUR-462), so each of those branches is now anchored to a STATEMENT
+    # CONTEXT: the beginning of the line after optional whitespace, or a
+    # shell/statement separator (`;`, `|`, `&`). The leading `^` matches the
+    # start of the per-line string the pass matches against, so a comment
+    # marker (`//`, `#`, `/*`, `--`), a `Write-Host`/`echo`/`printf`
+    # prefix, or a string-literal assignment before the token all break the
+    # anchor structurally, with no lookahead (RE2 has none). An optional
+    # dotted prefix (`(?:[A-Za-z_][A-Za-z0-9_]*\.)*`) keeps the C#
+    # `System.Diagnostics.Process.Start(...)` spelling and Go's qualified
+    # `exec.Command` reachable without re-admitting a bare mention. The two
+    # branches AUR-486's round 2 already anchored (`^\s*(?:ba)?sh\s+-c`,
+    # SQL-by-shell) are untouched. bash `eval` additionally excludes a
+    # declaration/assignment (`eval := ...`, `eval = ...`) by requiring a
+    # whitespace-separated argument that is neither `:` nor `=`, while the
+    # real `eval "ping $1"` / `eval $cmd` still match.
+    #
+    # Known limitation, accepted deliberately: a mention whose line reaches
+    # a separator before the token (`-- note; exec.Command(...)`) or a
+    # multi-line block comment continued on a line that begins with the
+    # token is still anchored; this card's AC-001 names the single-line
+    # comment and string shapes. See docs/specs/AUR-503.md.
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|(?:^\s*|[;|&§]\s*)(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|(?:^\s*|[;|&§]\s*)(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bProcess\.Start\s*\([^)]*["'']\s*\+|(?:^\s*|[;|&§]\s*)(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|(?:^\s*|[;|&§]\s*)\beval\s+[^:=\s]|(?:^\s*|[;|&§]\s*)\b(?:Invoke-Expression|iex)\b'
 
   - id: security/path-traversal
     title: Path Traversal
