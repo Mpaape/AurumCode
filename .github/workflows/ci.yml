@@ -40,7 +40,7 @@ jobs:
           -v "${GITHUB_WORKSPACE}:/src"
           -w /src
           golang:1.21-alpine
-          sh -c 'go build ./... && go test ./... -count=1'
+          sh -c 'apk add --no-cache bash >/dev/null && go build ./... && go test ./... -count=1'
 
   race:
     name: Race tests in OCI
