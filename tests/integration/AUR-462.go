@@ -221,7 +221,16 @@ func IntegrationAUR462(t *testing.T) {
 	if !strings.Contains(pyOut, "rule security/sql-injection") {
 		t.Fatalf("expected the security/sql-injection citation to survive unchanged, got:\n%s", pyOut)
 	}
-	if strings.Count(pyOut, "[error]") != 1 {
-		t.Fatalf("expected exactly one finding on the Python vuln fixture (unchanged from before this card), got:\n%s", pyOut)
+	// Scope the count to the security section: a review can also emit the
+	// separate deterministic-analysis section (analysis/sql-injection), whose
+	// finding on the same line is not a security-pass finding and must not
+	// skew this regression count. Mirrors tests/acceptance/AUR-462.sh's
+	// out_py_sec scoping and tests/integration/AUR-486.go's aur486Section.
+	_, pySection, ok := strings.Cut(pyOut, aur462SecurityHeader)
+	if !ok {
+		t.Fatalf("expected the security section header on the Python fixture, got:\n%s", pyOut)
+	}
+	if strings.Count(pySection, "[error]") != 1 {
+		t.Fatalf("expected exactly one security finding on the Python vuln fixture (unchanged from before this card), got:\n%s", pyOut)
 	}
 }
