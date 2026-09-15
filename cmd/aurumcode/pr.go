@@ -53,6 +53,17 @@
 // needed the way the --base path's stdout report has one. Without any of
 // the four flags, prReviewOptions is its zero value and this path's
 // behavior is exactly AUR-438's/AUR-439's, unchanged.
+//
+// AUR-504 fixes where --check anchors. Before it, the status was published
+// on os.Getenv("GITHUB_SHA"), which GitHub Actions reserves to the synthetic
+// merge commit on a pull_request event, so a branch protection rule that
+// requires the context never saw it on the head. With --check, the head SHA
+// now comes from the API (GetPullRequestMetadata.HeadSHA,
+// resolvePullRequestHeadSHA below) and anchors the status, the formal review
+// commit_id and every inline commit_id; when it cannot be determined the
+// command fails closed naming the reason instead of publishing on the wrong
+// commit. The verdict and severity policy are untouched, and --base never
+// reaches this path. See docs/specs/AUR-504.md.
 package main
 
 import (
@@ -449,11 +460,17 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	issues := sortedIssues(result.Issues)
 
 	// GITHUB_SHA is the standard GitHub Actions convention for "the commit
-	// under review" (see docs/specs/AUR-438.md's Compatibility note): the
-	// restored client's GetPullRequestDiff reads the unified diff format,
-	// which carries no commit SHA, and this card does not extend the
-	// client (internal/git/githubclient is a read_path here) to add an
-	// endpoint that would fetch one.
+	// under review" (see docs/specs/AUR-438.md's Compatibility note) and
+	// remains the anchor for a plain --pr run that only needs a SHA for its
+	// inline comments. It is NOT the anchor for --check, however: on a
+	// pull_request event GitHub reserves GITHUB_SHA to the synthetic merge
+	// commit, so a status published there is invisible to a branch
+	// protection rule that requires this context on the pull request head
+	// (AUR-504, docs/specs/AUR-504.md). When --check is given, the head SHA
+	// is read from the API (GetPullRequestMetadata.HeadSHA) and used for the
+	// status, the formal review commit_id and every inline comment's
+	// commit_id, so all of them anchor to the exact revision that was
+	// reviewed.
 	//
 	// A real GitHub review-comment POST with an empty commit_id is
 	// rejected (422): an inline comment cannot be anchored to no commit at
@@ -491,6 +508,19 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 				}
 			}
 		}
+	}
+	// AUR-504: --check anchors on the pull request HEAD read from the API,
+	// never on GITHUB_SHA (the synthetic merge commit on a pull_request
+	// event). AC-003: when that head cannot be determined, refuse before
+	// publishing anything and name the reason -- never fall back to the
+	// wrong SHA.
+	if check {
+		headSHA, resolveErr := resolvePullRequestHeadSHA(ctx, client, owner, repoName, prNumber)
+		if resolveErr != nil {
+			fmt.Fprintf(stderr, "aurumcode review: refusing to publish: %v\n", resolveErr)
+			return 1
+		}
+		commitID = headSHA
 	}
 	if needsCommitID && commitID == "" {
 		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: inline comments or --check require a commit SHA; set GITHUB_SHA")
@@ -735,6 +765,28 @@ func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout
 		return exitFindings
 	}
 	return 0
+}
+
+// resolvePullRequestHeadSHA reads the pull request head commit through the
+// same read-only client the review already uses (GetPullRequestMetadata,
+// AUR-499). It exists because GITHUB_SHA is reserved by GitHub Actions on a
+// pull_request event to the synthetic merge commit, so the status a branch
+// protection rule must see on the head would otherwise never be published
+// where the rule looks (AUR-504, docs/specs/AUR-504.md).
+//
+// It fails closed and names the reason: an API failure, or a successful
+// response that carries no head SHA, is an error the caller must handle by
+// refusing to publish -- never by silently using a different commit.
+func resolvePullRequestHeadSHA(ctx context.Context, client *githubclient.Client, owner, repo string, number int) (string, error) {
+	meta, err := client.GetPullRequestMetadata(ctx, owner, repo, number)
+	if err != nil {
+		return "", fmt.Errorf("determining the pull request head commit: %w", err)
+	}
+	sha := strings.TrimSpace(meta.HeadSHA)
+	if sha == "" {
+		return "", errors.New("determining the pull request head commit: the API response carried no head SHA")
+	}
+	return sha, nil
 }
 
 // newGitHubClient builds the restored AUR-437 client.

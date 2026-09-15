@@ -11,11 +11,15 @@ import (
 	"strings"
 )
 
-// PullRequestMetadata is the untrusted title and body of a pull request. The
-// caller redacts it before it reaches any prompt, report or published body.
+// PullRequestMetadata is the untrusted title and body of a pull request, plus
+// the head commit the pull request currently proposes. The caller redacts the
+// untrusted text before it reaches any prompt, report or published body;
+// HeadSHA is a commit identity, not free text, and is used to anchor a review
+// or a commit status to the exact revision that was reviewed.
 type PullRequestMetadata struct {
-	Title string
-	Body  string
+	Title   string
+	Body    string
+	HeadSHA string
 }
 
 // PullRequestCommit is one commit message attached to a pull request. SHA and
@@ -63,12 +67,15 @@ func (c *Client) GetPullRequestMetadata(ctx context.Context, owner, repo string,
 	var payload struct {
 		Title string `json:"title"`
 		Body  string `json:"body"`
+		Head  struct {
+			SHA string `json:"sha"`
+		} `json:"head"`
 	}
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 4<<20))
 	if err := decoder.Decode(&payload); err != nil {
 		return PullRequestMetadata{}, fmt.Errorf("decoding pull request metadata")
 	}
-	return PullRequestMetadata{Title: payload.Title, Body: payload.Body}, nil
+	return PullRequestMetadata{Title: payload.Title, Body: payload.Body, HeadSHA: payload.Head.SHA}, nil
 }
 
 // GetPullRequestCommits reads every page of the pull request's commit list.
