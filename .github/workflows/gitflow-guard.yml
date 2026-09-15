@@ -1,0 +1,48 @@
+name: Gitflow guard
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    name: gitflow (main only from dev or hotfix)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only dev or hotfix/* may target main
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          case "$HEAD_REF" in
+            dev)
+              echo "dev -> main is the release path"
+              ;;
+            hotfix/*)
+              echo "hotfix -> main is allowed; CHANGELOG.md is required"
+              ;;
+            *)
+              echo "::error::Only 'dev' or 'hotfix/*' may open a pull request against main; got '$HEAD_REF'. Open the pull request against 'dev' instead."
+              exit 1
+              ;;
+          esac
+
+      - name: A hotfix to main must update CHANGELOG.md
+        if: startsWith(github.head_ref, 'hotfix/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          files="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate --jq '.[].filename')"
+          if ! grep -qx 'CHANGELOG.md' <<<"$files"; then
+            echo "::error::A hotfix to main must update CHANGELOG.md with the release note for the fix."
+            exit 1
+          fi
+          echo "CHANGELOG.md is updated by the hotfix"
