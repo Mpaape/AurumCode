@@ -13,7 +13,7 @@ if [[ "${1:-}" != "action" ]]; then
     exec "$cli" "$@"
 fi
 
-if (( $# != 8 )); then
+if (( $# != 7 && $# != 8 )); then
     echo "AurumCode action: invalid internal arguments" >&2
     exit 64
 fi
@@ -24,7 +24,7 @@ security="$4"
 check="$5"
 fail_on="$6"
 model="$7"
-changelog="$8"
+changelog="${8:-false}"
 
 case "$publication" in
     config|comments|review) ;;
