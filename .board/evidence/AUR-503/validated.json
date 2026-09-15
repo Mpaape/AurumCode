@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-503",
+  "commit": "43a87e46551b2e31ee34bd5177a4e8815e1ff4c9",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-503",
+    "exit_code": 0,
+    "raw_output": "AUR-503/AC-001/ok"
+  }
+}
