@@ -29,6 +29,7 @@ func TestAUR500(t *testing.T) {
 	t.Run("SwitchingChangesOnlyEmphasisAndFamilies", testAUR500SwitchingChangesOnlyEmphasisAndFamilies)
 	t.Run("WeakeningDefinitionIsRefusedNamingClause", testAUR500WeakeningIsRefused)
 	t.Run("AlternativeSpellingsAreRefusedNamingClause", testAUR500AlternativeSpellingsAreRefused)
+	t.Run("MergeKeySpellingsAreRefusedNamingClause", testAUR500MergeKeySpellingsAreRefused)
 	t.Run("BuiltinFamiliesAreImmutableAfterCallerMutation", testAUR500BuiltinFamiliesAreImmutable)
 	t.Run("UnknownProfileIsNamedError", testAUR500UnknownProfileIsNamedError)
 	t.Run("AbsentProfileIsZeroConfig", testAUR500AbsentProfileIsZeroConfig)
@@ -220,6 +221,43 @@ func testAUR500AlternativeSpellingsAreRefused(t *testing.T) {
 	_, err := reviewprofile.Compile([]byte("name: x\nemphasis: e\nmystery: 1\n"))
 	if err == nil {
 		t.Fatal("unknown key was silently accepted")
+	}
+}
+
+// testAUR500MergeKeySpellingsAreRefused is the YAML-merge fail-open regression.
+// yaml.v3 resolves a `<<` merge key AFTER the raw scan but BEFORE decode, so a
+// clause smuggled through a merge reaches the typed Spec unless the scan
+// matches the normalized key with AND without the accumulated prefix. Each
+// vector must be REFUSED naming the clause; neutralizing the no-prefix lookup
+// is MUT-003 and turns this RED.
+func testAUR500MergeKeySpellingsAreRefused(t *testing.T) {
+	cases := []struct {
+		name   string
+		doc    string
+		clause string
+	}{
+		{"merge-inline-security-pass", "name: x\nemphasis: e\n<<: &m {security_pass: false}\n", "security_pass"},
+		{"merge-inline-redact-secrets", "name: x\nemphasis: e\n<<: &m {redact_secrets: false}\n", "redact_secrets"},
+		{"merge-inline-severity", "name: x\nemphasis: e\n<<: &m {severity: info}\n", "severity"},
+		{"merge-inline-fail-on", "name: x\nemphasis: e\n<<: &m {fail_on: error}\n", "fail_on"},
+		{"merge-inline-cost-cap", "name: x\nemphasis: e\n<<: &m {cost_cap: 0}\n", "cost_cap"},
+		{"merge-block-security-pass", "name: x\nemphasis: e\n<<:\n  security_pass: false\n", "security_pass"},
+		{"merge-bare-alias", "name: x\nemphasis: e\nbase: &m {security_pass: false}\n<<: *m\n", "security_pass"},
+		{"merge-alias-security-pass", "name: x\nemphasis: e\ndefaults: &m\n  security_pass: false\n<<: *m\n", "security_pass"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := reviewprofile.Compile([]byte(tc.doc))
+			if err == nil {
+				t.Fatalf("merge spelling %q was accepted", tc.name)
+			}
+			if !errors.Is(err, reviewprofile.ErrRefusedClause) {
+				t.Fatalf("error %v is not a refused-clause error", err)
+			}
+			if !strings.Contains(err.Error(), tc.clause) {
+				t.Fatalf("refusal %q does not name clause %q", err.Error(), tc.clause)
+			}
+		})
 	}
 }
 

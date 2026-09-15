@@ -20,10 +20,11 @@
 #   AC-004: an unknown profile is a named error before any model call; an
 #           absent profile is the zero-config no-op.
 #
-#   MUT-001 (apply one profile regardless of selection) and MUT-002 (let a
-#   profile disable the deterministic security pass) must each make this
-#   program exit non-zero registering the mutation id, and restoring the source
-#   must reproduce the exact GREEN.
+#   MUT-001 (apply one profile regardless of selection), MUT-002 (let a
+#   profile disable the deterministic security pass) and MUT-003 (neutralize
+#   the no-prefix clause lookup so a YAML merge key smuggles `security_pass`
+#   past the raw scan) must each make this program exit non-zero registering
+#   the mutation id, and restoring the source must reproduce the exact GREEN.
 #
 # EXIT CODES (tests/acceptance/EXIT_CODE_CONVENTION.md):
 #   0  = the promised property holds
@@ -39,7 +40,7 @@ scenario='AC-001'
 selector="${1:-all}"
 
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002) ;;
+  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002|MUT-003) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$scenario" >&2; exit 64 ;;
 esac
 
@@ -145,6 +146,8 @@ func main() {
 	fmt.Printf("REFUSED_CLAUSE=%t\n", secErr != nil && strings.Contains(secErr.Error(), "security_pass"))
 	_, failErr := reviewprofile.Compile([]byte("name: evil\nfail_on: error\n"))
 	fmt.Printf("REFUSED_FAILON=%t\n", failErr != nil && strings.Contains(failErr.Error(), "fail_on"))
+	_, mergeErr := reviewprofile.Compile([]byte("name: evil\n<<: &m {security_pass: false}\n"))
+	fmt.Printf("REFUSED_MERGE=%t\n", mergeErr != nil && errors.Is(mergeErr, reviewprofile.ErrRefusedClause) && strings.Contains(mergeErr.Error(), "security_pass"))
 	s, err := reviewprofile.Resolve(reviewprofile.Selection{Flag: "solid"})
 	must(err)
 	sec, err := reviewprofile.Resolve(reviewprofile.Selection{Flag: "seguranca"})
@@ -185,6 +188,7 @@ check_nominal() {
   grep -qx 'REFUSED=true' <<<"$out" || fail "AC-003/refused:$out"
   grep -qx 'REFUSED_CLAUSE=true' <<<"$out" || fail "AC-003/clause:$out"
   grep -qx 'REFUSED_FAILON=true' <<<"$out" || fail "AC-003/failon:$out"
+  grep -qx 'REFUSED_MERGE=true' <<<"$out" || fail "AC-003/merge:$out"
   grep -qx 'BOUNDARY_FIXED=true' <<<"$out" || fail "AC-003/boundary:$out"
   grep -qx 'SWITCHED=true' <<<"$out" || fail "AC-003/switched:$out"
   grep -qx 'UNKNOWN_NAMED=true' <<<"$out" || fail "AC-004/unknown:$out"
@@ -258,6 +262,36 @@ mutation_002() {
   grep -qx 'REFUSED=false' <<<"$out" || fail 'MUT-002/mutation-had-no-effect'
 }
 
+# MUT-003: neutralize the no-prefix clause lookup. yaml.v3 resolves a `<<`
+# merge key after the raw scan, so removing the no-prefix match lets
+# `<<: &m {security_pass: false}` reach the typed Spec and turn the pass off.
+# AC-003's merge vector must go RED while the flat spellings stay refused.
+mutation_003() {
+  scenario='MUT-003'
+  local root="$run_dir/root-mut003"
+  stage_source "$root"
+  write_harness "$root"
+  local target="$root/internal/reviewprofile/reviewprofile.go"
+  local anchor=$'\t\t\tif clause, ok := refusedClauseNames[key]; ok {'
+  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra 'MUT-003/anchor-not-unique'
+  local replacement=$'\t\t\tif clause, ok := refusedClauseNames["MUT-003:"+key]; ok { // MUT-003: neutralize the no-prefix lookup'
+  ANCHOR="$anchor" REPL="$replacement" awk '
+    BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
+    { if (index($0, anchor) > 0) { print repl; next } print }
+  ' "$target" >"$target.mut" || infra mutation_rewrite
+  mv "$target.mut" "$target"
+  grep -Fq 'MUT-003: neutralize the no-prefix lookup' "$target" || infra mutation_not_applied
+
+  local bin out
+  bin="$(build_harness "$root" mut003)"
+  out="$("$bin")" || infra mutant_run_failed
+  if grep -qx 'REFUSED_MERGE=true' <<<"$out"; then
+    fail 'MUT-003'
+  fi
+  grep -qx 'REFUSED_MERGE=false' <<<"$out" || fail 'MUT-003/mutation-had-no-effect'
+  grep -qx 'REFUSED=true' <<<"$out" || fail 'MUT-003/flat-still-refused'
+}
+
 bridge_run() {
   local kind="$1" fn="$2" bridge="$3" label="$4"
   local root="$run_dir/root-$kind"
@@ -296,6 +330,7 @@ e2e_case() {
 case "$selector" in
   MUT-001) mutation_001 ;;
   MUT-002) mutation_002 ;;
+  MUT-003) mutation_003 ;;
   AC-001|AC-002|AC-003|AC-004|all)
     nominal_case
     if [[ "$selector" == "all" ]]; then
@@ -304,6 +339,7 @@ case "$selector" in
       e2e_case
       mutation_001
       mutation_002
+      mutation_003
     fi
     ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$scenario" >&2; exit 64 ;;
