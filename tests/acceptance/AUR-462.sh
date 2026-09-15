@@ -121,10 +121,8 @@ required_inputs=(
   cmd/aurumcode
   internal/analyzer
   internal/config
-  internal/documentation
   internal/git
   internal/llm
-  internal/pipeline
   internal/prompt
   internal/review
   internal/review/cache
@@ -167,10 +165,11 @@ copy() {
 stage_source() {
   local root="$1"
   mkdir -p "$root"
-  copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/config internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation internal/pipeline
-  copy "$root" pkg/types internal/llm
+  # The whole build closure travels with the stage; the specific package
+  # list is not enumerated because cmd/aurumcode's import graph grows as
+  # sibling cards land, and an enumeration makes the build fail closed for
+  # the wrong reason.
+  copy "$root" go.mod go.sum cmd pkg internal
   copy "$root" tests/fixtures/review/vuln
   chmod -R u+w -- "$root"
 }
@@ -241,9 +240,13 @@ nominal_case() {
   local py_repo="$shared_root/tests/fixtures/review/vuln/repo.git"
   local out_py
   out_py="$(cd "$py_repo" && "$shared_bin" review --base HEAD~1 --seguranca)" || fail behavior-missing:python-regression
+  # Scope the count to the security section: a review can also emit the
+  # separate deterministic-analysis section (analysis/sql-injection), whose
+  # findings are not what this AC-003 regression asserts.
+  local out_py_sec="${out_py#*"$header"}"
   grep -Fq 'src/db.py:8: [error]' <<<"$out_py" || fail regression:python-sql-injection-missing
   grep -Fq '(rule security/sql-injection: SQL Injection Vulnerability)' <<<"$out_py" || fail regression:python-citation-missing
-  [[ "$(grep -Fo '[error]' <<<"$out_py" | wc -l)" -eq 1 ]] || fail regression:python-finding-count-changed
+  [[ "$(grep -Fo '[error]' <<<"$out_py_sec" | wc -l)" -eq 1 ]] || fail regression:python-finding-count-changed
 
   # Without --seguranca: no security section leaks in.
   local out_base
@@ -313,10 +316,14 @@ mutation_case_1() {
   out="$(cd "$node_repo" && "$bin" review --base HEAD~1 --seguranca)" || fail 'MUT-001/mutation-run-failed'
   grep -Fq "$header" <<<"$out" || fail 'MUT-001/pass-did-not-run'
   # The mutant must lose the three exec findings -- nominal_case's presence
-  # assertions for lines 5, 9, 17 would fail under this mutant.
-  if grep -Fq 'src/app.js:5: [error]' <<<"$out"; then fail 'MUT-001/mutation-survived:line-5'; fi
-  if grep -Fq 'src/app.js:9: [error]' <<<"$out"; then fail 'MUT-001/mutation-survived:line-9'; fi
-  if grep -Fq 'src/app.js:17: [error]' <<<"$out"; then fail 'MUT-001/mutation-survived:line-17'; fi
+  # assertions for lines 5, 9, 17 would fail under this mutant. The count is
+  # scoped to the security section, because a review can also emit a
+  # separate deterministic-analysis section that reports the same lines
+  # under a different rule; that section is not what this mutation targets.
+  local out_sec="${out#*"$header"}"
+  if grep -Fq 'src/app.js:5: [error]' <<<"$out_sec"; then fail 'MUT-001/mutation-survived:line-5'; fi
+  if grep -Fq 'src/app.js:9: [error]' <<<"$out_sec"; then fail 'MUT-001/mutation-survived:line-9'; fi
+  if grep -Fq 'src/app.js:17: [error]' <<<"$out_sec"; then fail 'MUT-001/mutation-survived:line-17'; fi
 
   cleanup_root "$root"
   printf '%s/%s/MUT-001/rejected\n' "$card" "$scenario"

@@ -96,7 +96,20 @@ rules:
     # (`conn.query("SELECT ... $1", &[&name])`) have neither a `+` nor a
     # `format!` call and are excluded structurally, matching this card's
     # AC-002.
-    pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b[^+]*["'']\s*\.\s*(?:to_owned|to_string)\s*\(\s*\)\s*\+\s*[A-Za-z_$][\w$.]*|\bformat!\s*\(\s*"[^"]*\b(?:select|insert|update|delete)\b[^"]*\{\}[^"]*"\s*,\s*[A-Za-z_$][\w$.]*'
+    # AUR-486 (2026-09-14): SQL built by SHELL INTERPOLATION has no `+` at
+    # all, so none of the branches above can see it -- the measured bash
+    # shape is `query="SELECT * FROM users WHERE name = '$1'"`, where the
+    # query is assembled by the shell expanding `$1` inside the literal.
+    # A fresh branch: a SQL verb, then somewhere later a quote IMMEDIATELY
+    # followed by a shell variable sigil (`'$1'`, `"$name"`, `'${ID}'`).
+    # The "quote immediately before `$`" requirement is what keeps this
+    # structurally distinct from a database PLACEHOLDER: the pre-existing
+    # parametrized shapes (`conn.query("... = $1", ...)` in Rust, `?` in
+    # Python) have whitespace or a `=` where this branch needs the quote,
+    # so AUR-481's own parametrized-query AC-002 stays green. Requiring the
+    # quote/`$` adjacency also keeps a prose line that merely mentions a SQL
+    # verb and a `$` from matching.
+    pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b[^+]*["'']\s*\.\s*(?:to_owned|to_string)\s*\(\s*\)\s*\+\s*[A-Za-z_$][\w$.]*|\bformat!\s*\(\s*"[^"]*\b(?:select|insert|update|delete)\b[^"]*\{\}[^"]*"\s*,\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b.*["'']\$[A-Za-z_{0-9]'
 
   - id: security/xss
     title: Cross-Site Scripting (XSS)
@@ -195,7 +208,32 @@ rules:
     # form (`Command::new("ping").arg(host)`, no shell) has neither
     # "sh"/"bash" nor a `-c` arg and is excluded structurally, matching
     # this card's AC-002.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)'
+    #
+    # AUR-486 (2026-09-14): Go, C#, PowerShell and bash reach a shell with
+    # idioms none of the branches above (all written to the C/Python/Node
+    # and Rust spellings) can see -- the 2026-08-26 measurement found the
+    # SAME planted defect missed in all four. Five fresh branches:
+    #
+    #   1. Go: `exec.Command("sh", "-c", "ping "+host)` -- the dot in
+    #      `exec.Command` breaks the `exec[lv]p?e?` run above, so the branch
+    #      keys on the SHELL INVOCATION (`sh|bash|cmd|powershell` paired
+    #      with `-c`/`/c`/`-Command`). Go's safe argv form
+    #      (`exec.Command("ping", host)`) names no shell and carries no
+    #      `-c`, so it is excluded structurally.
+    #   2. C#: `Process.Start` reaching a shell by concatenation
+    #      (`Process.Start("cmd.exe", "/c ping " + host)`) -- matched on a
+    #      quote-then-`+` inside the call, or on a literal shell file name.
+    #      `Process.Start("ping", host)` / a `ProcessStartInfo` with
+    #      separated `ArgumentList` has neither and stays out.
+    #   3. PowerShell: `Invoke-Expression`/`iex` -- the language's own
+    #      string-eval sink.
+    #   4. bash: `sh -c`/`bash -c`, and `eval` anchored at the START of the
+    #      line (`^\s*eval`) so the word inside a `#` comment or a string
+    #      literal does not fire, which is that language's AC-002.
+    #
+    # This card's own MUT-001 removes branch 1 (Go) and MUT-002 widens it
+    # to the argv form; both are exercised by tests/acceptance/AUR-486.sh.
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|\b(?:ba)?sh\s+-c\b|^\s*eval\b|\b(?:Invoke-Expression|iex)\b'
 
   - id: security/path-traversal
     title: Path Traversal
