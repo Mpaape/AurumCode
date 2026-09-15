@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-471",
+  "commit": "7752d9e4e2333a5a20edb0a095a00dd41ae2d09c",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-471",
+    "exit_code": 0,
+    "raw_output": "(acceptance prints nothing on success by design; all selectors exit 0)"
+  }
+}
