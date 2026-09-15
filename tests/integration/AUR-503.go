@@ -2,11 +2,13 @@
 // outcome at the CLI boundary, distinct from tests/unit/AUR-503.go's
 // package-boundary proof over synthetic types.Diff values.
 //
-// AUR-503 anchors the four command-injection branches AUR-486 added (Go
+// AUR-503 keeps the four command-injection branches AUR-486 added (Go
 // `exec.Command`, C# `Process.Start`, PowerShell `Invoke-Expression`/`iex`,
-// bash `eval`) to a statement context, so a textual mention in a comment or
-// a string literal produces no finding while the real invocation still
-// does. `--seguranca` alone (no LLM provider) runs the deterministic pass;
+// bash `eval`) unanchored and filters a match whose first byte sits in a
+// comment or string literal (codeMask), so a textual mention produces no
+// finding while the real invocation -- including one embedded in an
+// expression -- still does. `--seguranca` alone (no LLM provider) runs the
+// deterministic pass;
 // this program asserts the security section contains exactly the real
 // defects and none of the mentions.
 //
@@ -268,7 +270,8 @@ func IntegrationAUR503(t *testing.T) {
 
 	// Regression: the Node (AUR-462) command-injection fixture still produces
 	// exactly its three citations, and the Rust (AUR-481) fixture its finding
-	// count, so the statement anchors did not weaken the earlier coverage.
+	// count, so the unanchored branches plus the codeMask filter did not
+	// weaken the earlier coverage.
 	nodeRepo := filepath.Join(root, "tests", "fixtures", "review", "vuln", "node-xss-command-injection", "repo.git")
 	if _, err := os.Stat(nodeRepo); err != nil {
 		t.Fatalf("required input missing: %s: %v", nodeRepo, err)

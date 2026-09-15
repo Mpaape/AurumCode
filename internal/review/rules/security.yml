@@ -243,28 +243,32 @@ rules:
     # `# iex is dangerous`, `eval := compute()` -- fired the rule (the same
     # false-positive class AUR-486's round 2 fixed only in `sh -c`/SQL).
     # A false positive in a merge gate teaches the team to disable the gate
-    # (AUR-462), so each of those branches is now anchored to a STATEMENT
-    # CONTEXT: the beginning of the line after optional whitespace, or a
-    # shell/statement separator (`;`, `|`, `&`). The leading `^` matches the
-    # start of the per-line string the pass matches against, so a comment
-    # marker (`//`, `#`, `/*`, `--`), a `Write-Host`/`echo`/`printf`
-    # prefix, or a string-literal assignment before the token all break the
-    # anchor structurally, with no lookahead (RE2 has none). An optional
-    # dotted prefix (`(?:[A-Za-z_][A-Za-z0-9_]*\.)*`) keeps the C#
-    # `System.Diagnostics.Process.Start(...)` spelling and Go's qualified
-    # `exec.Command` reachable without re-admitting a bare mention. The two
-    # branches AUR-486's round 2 already anchored (`^\s*(?:ba)?sh\s+-c`,
-    # SQL-by-shell) are untouched. bash `eval` additionally excludes a
-    # declaration/assignment (`eval := ...`, `eval = ...`) by requiring a
-    # whitespace-separated argument that is neither `:` nor `=`, while the
-    # real `eval "ping $1"` / `eval $cmd` still match.
+    # (AUR-462). A line regexp alone CANNOT decide whether a token sits
+    # inside a comment or a string literal -- `// foo; exec.Command(...)`
+    # carries a `;` separator INSIDE the comment, so anchoring the branches
+    # on a statement separator both misses real invocations embedded in
+    # expressions (`x := exec.Command(...)`, `if err := exec.Command(...)`,
+    # `out, err := exec.Command(...)`, `return exec.Command(...)`,
+    # `var p = Process.Start(...)`, `$r = iex $payload`,
+    # `cmd := exec.Command(...)`) and still fires on that comment. The four
+    # branches therefore stay UNANCHORED -- the same bodies AUR-486 shipped
+    # -- and the context decision moved to the Go pass:
+    # securityScanWithRules drops a security/command-injection match whose
+    # first byte lands inside a comment/string span (codeMask in
+    # internal/review/securitypass.go). That keeps the REAL invocation
+    # reachable in every expression context above while a mention in a
+    # comment/string never fires. bash `eval` keeps the AUR-503 assignment
+    # guard (`\beval\s+[^:=\s]`: a whitespace-separated argument that is
+    # neither `:` nor `=`) so `eval :=`/`eval =` are excluded while
+    # `eval "ping $1"`/`eval $cmd` still match. The two branches AUR-486's
+    # round 2 already anchored (`^\s*(?:ba)?sh\s+-c`, SQL-by-shell) are
+    # untouched.
     #
-    # Known limitation, accepted deliberately: a mention whose line reaches
-    # a separator before the token (`-- note; exec.Command(...)`) or a
-    # multi-line block comment continued on a line that begins with the
-    # token is still anchored; this card's AC-001 names the single-line
+    # Known limitation, accepted deliberately: codeMask is line-local, so a
+    # block comment opened on an earlier line and not closed does not mask
+    # the token on this line; this card's AC-001 names the single-line
     # comment and string shapes. See docs/specs/AUR-503.md.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|(?:^\s*|[;|&§]\s*)(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|(?:^\s*|[;|&§]\s*)(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bProcess\.Start\s*\([^)]*["'']\s*\+|(?:^\s*|[;|&§]\s*)(?:[A-Za-z_][A-Za-z0-9_]*\.)*\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|(?:^\s*|[;|&§]\s*)\beval\s+[^:=\s]|(?:^\s*|[;|&§]\s*)\b(?:Invoke-Expression|iex)\b'
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|\beval\s+[^:=\s]|\b(?:Invoke-Expression|iex)\b'
 
   - id: security/path-traversal
     title: Path Traversal

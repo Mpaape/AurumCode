@@ -13,11 +13,12 @@
 // `eval := compute()` all produced a finding. The AUR-462 rule applies: a
 // false positive in a merge gate teaches the team to disable the gate.
 //
-// The fix (internal/review/rules/security.yml) anchors each of those
-// branches to a statement context -- start of line after optional
-// whitespace, or a `;`/`|`/`&` separator -- instead of a bare token match
-// anywhere, and requires bash `eval` to carry a whitespace-separated
-// argument that is neither `:` nor `=`. This file proves AC-001 (mention
+// The fix leaves the four branches unanchored (so a real invocation in any
+// expression context still matches) and moves the context decision into the
+// Go pass: `securitypass.go` drops a `security/command-injection` match
+// whose first byte sits inside a comment or string literal (`codeMask`),
+// and requires bash `eval` to carry a whitespace-separated argument that is
+// neither `:` nor `=`. This file proves AC-001 (mention
 // in a comment/literal -> no finding), AC-002 (real invocation -> finding),
 // AC-003 (`eval :=`/`eval =` -> none, `eval "..."`/`eval $cmd` -> found),
 // and that the AUR-462/AUR-481 regression shapes are unchanged.
@@ -98,6 +99,7 @@ func testAUR503AC001GoExecCommandMentionsAreNotFound(t *testing.T) {
 		`	# exec.Command("sh","-c","ping "+host)`,
 		`	/* exec.Command("sh","-c","ping "+host) */`,
 		`	-- exec.Command("sh","-c","ping "+host)`,
+		`	// foo; exec.Command("sh","-c","ping "+host)`,
 		`	fmt.Println("exec.Command(\"sh\",\"-c\",cmd) is unsafe")`,
 	} {
 		aur503ExpectNone(t, "main.go", line)
@@ -144,10 +146,20 @@ func testAUR503AC001BashEvalMentionsAreNotFound(t *testing.T) {
 // --- AC-002: the real invocation of each branch is still found ------------
 
 func testAUR503AC002GoExecCommandInvocationIsFound(t *testing.T) {
-	aur503ExpectOne(t, "main.go", "security/command-injection",
-		`	exec.Command("sh", "-c", "ping "+host).Run()`)
-	aur503ExpectOne(t, "main.go", "security/command-injection",
-		`	exec.Command("bash", "-c", "ping "+host).Run()`)
+	for _, line := range []string{
+		`	exec.Command("sh", "-c", "ping "+host).Run()`,
+		`	exec.Command("bash", "-c", "ping "+host).Run()`,
+		// Expression contexts: a real invocation is not only a bare
+		// statement. A line anchor that only admits line start / `;`/`|`/`&`
+		// misses every one of these (the AUR-503 review blocker).
+		`	x := exec.Command("sh", "-c", cmd)`,
+		`	if err := exec.Command("sh", "-c", cmd); err != nil { return }`,
+		`	out, err := exec.Command("sh", "-c", cmd)`,
+		`	return exec.Command("sh", "-c", cmd)`,
+		`	cmd := exec.Command("sh", "-c", cmd)`,
+	} {
+		aur503ExpectOne(t, "main.go", "security/command-injection", line)
+	}
 }
 
 func testAUR503AC002CSharpProcessStartInvocationIsFound(t *testing.T) {
@@ -155,13 +167,23 @@ func testAUR503AC002CSharpProcessStartInvocationIsFound(t *testing.T) {
 		`	Process.Start("cmd.exe", "/c ping " + host);`)
 	aur503ExpectOne(t, "App.cs", "security/command-injection",
 		`	Process.Start("powershell.exe");`)
+	for _, line := range []string{
+		`	var p = Process.Start("cmd.exe", "/c ping " + host);`,
+		`	if (x) { Process.Start("cmd.exe", "/c ping " + host); }`,
+	} {
+		aur503ExpectOne(t, "App.cs", "security/command-injection", line)
+	}
 }
 
 func testAUR503AC002PowerShellInvocationIsFound(t *testing.T) {
-	aur503ExpectOne(t, "script.ps1", "security/command-injection",
-		`	Invoke-Expression "ping $host"`)
-	aur503ExpectOne(t, "script.ps1", "security/command-injection",
-		`	iex $payload`)
+	for _, line := range []string{
+		`	Invoke-Expression "ping $host"`,
+		`	iex $payload`,
+		`	$r = Invoke-Expression $payload`,
+		`	$r = iex $payload`,
+	} {
+		aur503ExpectOne(t, "script.ps1", "security/command-injection", line)
+	}
 }
 
 func testAUR503AC002BashShellInvocationIsFound(t *testing.T) {
