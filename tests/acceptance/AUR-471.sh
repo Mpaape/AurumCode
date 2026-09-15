@@ -257,6 +257,24 @@ nominal_case() {
   e_unk="$("$harness_bin" ac002 "$bad")" || fail ac002-unknown-run-failed
   grep -Fq 'unknown-characteristic' <<<"$e_unk" || fail "ac002-unknown-not-named:$e_unk"
 
+  # A non-finite weight (.nan) is not negative and a NaN sum defeats every
+  # `>` comparison, so it must be rejected by an explicit finiteness check.
+  bad="$run_dir/bad-nan"
+  fixture "$bad" 'weights:
+  functionality: .nan
+  reliability: 0.15
+  usability: 0.10
+  efficiency: 0.12
+  maintainability: 0.18
+  portability: 0.08
+  security: 0.17
+  compatibility: 0.05
+'
+  local e_nan
+  e_nan="$("$harness_bin" ac002 "$bad")" || fail ac002-nan-run-failed
+  grep -Fq 'non-finite-weight' <<<"$e_nan" || fail "ac002-nan-not-named:$e_nan"
+  grep -Fq 'ok' <<<"$e_nan" && fail "ac002-nan-was-accepted:$e_nan"
+
   # ---- AC-004: the safety boundary is refused, naming the clause ----
   local hostile out_s
   hostile="$run_dir/hostile-pass"
@@ -308,6 +326,28 @@ security:
   local out_n
   out_n="$("$harness_bin" ac004 "$hostile")" || fail ac004-nested-run-failed
   grep -Fq 'security.redact_secrets' <<<"$out_n" || fail "ac004-nested-clause-unnamed:$out_n"
+
+  # An alias spelling: `redaction: *off` is an AliasNode pointing at the
+  # anchored scalar `off: &off false`. The refusal must dereference the
+  # alias and name `redaction`, not silently accept the indirection.
+  hostile="$run_dir/hostile-alias"
+  fixture "$hostile" 'weights:
+  functionality: 0.15
+  reliability: 0.15
+  usability: 0.10
+  efficiency: 0.12
+  maintainability: 0.18
+  portability: 0.08
+  security: 0.17
+  compatibility: 0.05
+off: &off false
+redaction: *off
+'
+  local out_a
+  out_a="$("$harness_bin" ac004 "$hostile")" || fail ac004-alias-run-failed
+  grep -Fq 'refused-clause' <<<"$out_a" || fail "ac004-alias-not-refused:$out_a"
+  grep -Fq 'redaction' <<<"$out_a" || fail "ac004-alias-clause-unnamed:$out_a"
+  if grep -Fq 'ok' <<<"$out_a"; then fail "ac004-alias-was-accepted:$out_a"; fi
 }
 
 # MUT-001: silently normalize weights that do not sum to 1.0. The AC-002
@@ -316,7 +356,7 @@ mutation_sum() {
   local root="$run_dir/mut001"
   build_harness "$root" "$harness_bin"
   local target="$root/internal/config/policy/policy.go"
-  local anchor='	if math.Abs(sum-1.0) > weightTolerance {'
+  local anchor='	if !(math.Abs(sum-1.0) <= weightTolerance) {'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra 'MUT-001/anchor-not-unique'
   ANCHOR="$anchor" awk '
     BEGIN { anchor = ENVIRON["ANCHOR"] }

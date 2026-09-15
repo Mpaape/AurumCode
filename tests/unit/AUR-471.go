@@ -28,9 +28,11 @@ func TestAUR471(t *testing.T) {
 	t.Run("AggregateFollowsWeights", testAUR471AggregateFollowsWeights)
 	t.Run("InvalidSumNamedError", testAUR471InvalidSumNamedError)
 	t.Run("NegativeWeightNamedError", testAUR471NegativeWeightNamedError)
+	t.Run("NonFiniteWeightNamedError", testAUR471NonFiniteWeightNamedError)
 	t.Run("UnknownCharacteristicNamedError", testAUR471UnknownCharacteristicNamedError)
 	t.Run("RefusedSecurityPassClause", testAUR471RefusedSecurityPassClause)
 	t.Run("RefusedRedactionClause", testAUR471RefusedRedactionClause)
+	t.Run("AliasedRedactionClauseRefused", testAUR471AliasedRedactionClauseRefused)
 	t.Run("ConventionParsed", testAUR471ConventionParsed)
 	t.Run("ZeroConfigByteIdentical", testAUR471ZeroConfigByteIdentical)
 }
@@ -187,6 +189,27 @@ func testAUR471NegativeWeightNamedError(t *testing.T) {
 	}
 }
 
+func testAUR471NonFiniteWeightNamedError(t *testing.T) {
+	root := t.TempDir()
+	writePolicy(t, root, `weights:
+  functionality: .nan
+  reliability: 0.15
+  usability: 0.10
+  efficiency: 0.12
+  maintainability: 0.18
+  portability: 0.08
+  security: 0.17
+  compatibility: 0.05
+`)
+	p, err := policy.Load(root)
+	if !errors.Is(err, policy.ErrNonFiniteWeight) {
+		t.Fatalf("want ErrNonFiniteWeight, got %v", err)
+	}
+	if p != nil {
+		t.Fatalf("Load must not return a policy for a non-finite weight, got %+v", p)
+	}
+}
+
 func testAUR471UnknownCharacteristicNamedError(t *testing.T) {
 	root := t.TempDir()
 	writePolicy(t, root, `weights:
@@ -227,6 +250,18 @@ func testAUR471RefusedRedactionClause(t *testing.T) {
 	}
 	if err == nil || !contains471(err.Error(), "redaction") {
 		t.Fatalf("refusal must name the clause, got %v", err)
+	}
+}
+
+func testAUR471AliasedRedactionClauseRefused(t *testing.T) {
+	root := t.TempDir()
+	writePolicy(t, root, fullWeights+"off: &off false\nredaction: *off\n")
+	_, err := policy.Load(root)
+	if !errors.Is(err, policy.ErrRefusedClause) {
+		t.Fatalf("want ErrRefusedClause for an aliased disabling value, got %v", err)
+	}
+	if err == nil || !contains471(err.Error(), "redaction") {
+		t.Fatalf("refusal must name the redaction clause, got %v", err)
 	}
 }
 
