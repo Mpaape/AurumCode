@@ -52,9 +52,11 @@ func TestAUR486(t *testing.T) {
 	t.Run("AC002EvalInCommentIsNotFound", testAUR486AC002EvalInCommentIsNotFound)
 	t.Run("AC002EvalInStringLiteralIsNotFound", testAUR486AC002EvalInStringLiteralIsNotFound)
 	t.Run("AC002ParametrizedSQLIsNotFound", testAUR486AC002ParametrizedSQLIsNotFound)
+	t.Run("AC002CppLiteralCommandIsNotFound", testAUR486AC002CppLiteralCommandIsNotFound)
 	t.Run("AC003RustSQLInjectionUnaffected", testAUR486AC003RustSQLInjectionUnaffected)
 	t.Run("AC003NodeCommandInjectionUnaffected", testAUR486AC003NodeCommandInjectionUnaffected)
 	t.Run("AC003PythonSQLInjectionUnaffected", testAUR486AC003PythonSQLInjectionUnaffected)
+	t.Run("AC003CppCommandInjectionUnaffected", testAUR486AC003CppCommandInjectionUnaffected)
 	t.Run("MessageNeverEchoesSource", testAUR486MessageNeverEchoesSource)
 	t.Run("FixtureEndToEnd", testAUR486FixtureEndToEnd)
 	t.Run("ScanIsDeterministic", testAUR486ScanIsDeterministic)
@@ -183,6 +185,13 @@ func testAUR486AC002ParametrizedSQLIsNotFound(t *testing.T) {
 	aur486ExpectNone(t, "main.go", `	db.Query("SELECT * FROM t WHERE n = $1", name)`)
 }
 
+// testAUR486AC002CppLiteralCommandIsNotFound is the C++ benign half:
+// `system("ping example.com")` names no concatenation, so the pre-existing
+// `system(`-with-quote-then-`+` branch must not fire on it.
+func testAUR486AC002CppLiteralCommandIsNotFound(t *testing.T) {
+	aur486ExpectNone(t, "src/ping.cpp", `  system("ping example.com");`)
+}
+
 // --- AC-003: pre-existing regression shapes stay unchanged ---------------
 
 func testAUR486AC003RustSQLInjectionUnaffected(t *testing.T) {
@@ -198,6 +207,14 @@ func testAUR486AC003NodeCommandInjectionUnaffected(t *testing.T) {
 func testAUR486AC003PythonSQLInjectionUnaffected(t *testing.T) {
 	aur486ExpectOne(t, "src/db.py", 1, "security/sql-injection",
 		`    query = "SELECT id, name FROM users WHERE name = '" + name + "'"`)
+}
+
+// testAUR486AC003CppCommandInjectionUnaffected is AC-003's C++ half: the
+// pre-existing `system(`-with-quote-then-`+` branch (AUR-442/AUR-461) must
+// still find the idiomatic C++ command-injection shape, unchanged.
+func testAUR486AC003CppCommandInjectionUnaffected(t *testing.T) {
+	aur486ExpectOne(t, "src/ping.cpp", 1, "security/command-injection",
+		`  system("ping " + host);`)
 }
 
 // testAUR486MessageNeverEchoesSource proves the card's trust-boundary

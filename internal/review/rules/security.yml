@@ -109,7 +109,7 @@ rules:
     # so AUR-481's own parametrized-query AC-002 stays green. Requiring the
     # quote/`$` adjacency also keeps a prose line that merely mentions a SQL
     # verb and a `$` from matching.
-    pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b[^+]*["'']\s*\.\s*(?:to_owned|to_string)\s*\(\s*\)\s*\+\s*[A-Za-z_$][\w$.]*|\bformat!\s*\(\s*"[^"]*\b(?:select|insert|update|delete)\b[^"]*\{\}[^"]*"\s*,\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b.*["'']\$[A-Za-z_{0-9]'
+    pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b[^+]*["'']\s*\.\s*(?:to_owned|to_string)\s*\(\s*\)\s*\+\s*[A-Za-z_$][\w$.]*|\bformat!\s*\(\s*"[^"]*\b(?:select|insert|update|delete)\b[^"]*\{\}[^"]*"\s*,\s*[A-Za-z_$][\w$.]*|^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*["''][^"'']*\b(select|insert|update|delete)\b[^"'']*["'']\$[A-Za-z_{0-9]'
 
   - id: security/xss
     title: Cross-Site Scripting (XSS)
@@ -233,7 +233,7 @@ rules:
     #
     # This card's own MUT-001 removes branch 1 (Go) and MUT-002 widens it
     # to the argv form; both are exercised by tests/acceptance/AUR-486.sh.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|\b(?:ba)?sh\s+-c\b|^\s*eval\b|\b(?:Invoke-Expression|iex)\b'
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|^\s*eval\b|\b(?:Invoke-Expression|iex)\b'
 
   - id: security/path-traversal
     title: Path Traversal
