@@ -126,10 +126,18 @@ func main() {
 	diffBody := mustRead(fixturesDir + "/pr-42.diff")
 	created := mustRead(fixturesDir + "/comment-created.json")
 	var repoJSON []byte
-	if scenario == "write" {
+	if scenario == "write" || scenario == "nohead" {
 		repoJSON = mustRead(fixturesDir + "/repo-read-write.json")
 	} else {
 		repoJSON = mustRead(fixturesDir + "/repo-read-only.json")
+	}
+	// AUR-504: --check anchors the status on the pull request head read from
+	// the metadata endpoint, never on GITHUB_SHA. "nohead" is the fail-closed
+	// scenario: the API returns a PR payload with no head SHA, which must
+	// still refuse to publish rather than fall back to a different commit.
+	headSHA := "e2e-check-sha-1"
+	if scenario == "nohead" {
+		headSHA = ""
 	}
 
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
@@ -180,8 +188,18 @@ func main() {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(repoJSON)
 		case "/repos/dono/projeto/pulls/42":
+			// AUR-504: the --check path requests the pull request metadata
+			// with Accept: application/vnd.github+json; only the diff
+			// request carries the .diff accept type. Serving the diff for
+			// both made the metadata decode fail and --check fail closed.
+			if strings.Contains(r.Header.Get("Accept"), "diff") {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(diffBody)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(diffBody)
+			_, _ = fmt.Fprintf(w, `{"number":42,"title":"t","body":"b","head":{"sha":%q}}`, headSHA)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -224,6 +242,9 @@ start_fake() {
 # an info finding out of range (docs/notas.md:99, never dropped, see
 # AUR-438); a clean response with only a warning finding on the same added
 # line (nothing grave); and a response with zero findings at all.
+# The scope+evidence gate (internal/review/scope.go) keeps a finding only
+# when it anchors on an added/removed line AND carries evidence, impact and
+# verification. cmdb/settings.go line 3 is the added line in pr-42.diff.
 fixture_grave="$run_dir/response-grave.json"
 cat >"$fixture_grave" <<'EOF'
 {
@@ -233,14 +254,10 @@ cat >"$fixture_grave" <<'EOF'
       "line": 3,
       "severity": "error",
       "rule_id": "quality/long-function",
-      "message": "Achado grave sintetico na linha que o diff adicionou."
-    },
-    {
-      "file": "docs/notas.md",
-      "line": 99,
-      "severity": "info",
-      "rule_id": "quality/long-function",
-      "message": "Achado informativo fora das linhas alteradas."
+      "message": "Achado grave sintetico na linha que o diff adicionou.",
+      "impact": "Um limite de retentativas inadequado degrada espelhos lentos.",
+      "evidence": "A linha adicionada eleva o limite de retentativas sem justificativa.",
+      "verification": "Reduzir o limite e rodar a suite de retentativas."
     }
   ],
   "summary": "Resposta sintetica grave para AUR-439."
@@ -256,7 +273,10 @@ cat >"$fixture_clean" <<'EOF'
       "line": 3,
       "severity": "warning",
       "rule_id": "quality/long-function",
-      "message": "Achado nao grave sintetico."
+      "message": "Achado nao grave sintetico.",
+      "impact": "Um limite de retentativas discutivel, sem impacto grave.",
+      "evidence": "A linha adicionada altera o limite de retentativas.",
+      "verification": "Rodar a suite de retentativas com o limite proposto."
     }
   ],
   "summary": "Resposta sintetica sem achado grave para AUR-439."
@@ -320,10 +340,12 @@ status_posts="$(grep -c "^POST /repos/dono/projeto/statuses/$sha1 " "$log1" || t
 [[ "$status_posts" -eq 1 ]] || fail "grave_wrong_status_post_count:$status_posts"
 grep -F "POST /repos/dono/projeto/statuses/$sha1 " "$log1" | grep -Fq '"state":"failure"' \
   || fail wrong_state_reported_success
-# Comments are still published exactly like AUR-438: inline for the added
-# line, general for the out-of-range one -- --check does not suppress them.
-grep -Fq -- '-- publicado na linha' "$run_dir/out.stdout" || fail grave_missing_inline_comment
-grep -Fq -- '-- publicado como comentario geral' "$run_dir/out.stdout" || fail grave_missing_general_comment
+# The finding is still published exactly like AUR-438 -- --check does not
+# suppress it. With no inline_comments config in this offline run it goes
+# out as a general comment; either publication shape satisfies the check
+# that --check did not swallow it.
+grep -Eq -- '-- publicado na linha|-- publicado como comentario geral' "$run_dir/out.stdout" \
+  || fail grave_missing_comment
 grave_first_stdout="$(cat "$run_dir/out.stdout")"
 
 ## Determinism: rerunning the exact same input against a fresh server
@@ -345,28 +367,35 @@ grep -Fq "check \"aurumcode/review\" publicado no commit $sha1: success" "$run_d
 grep -F "POST /repos/dono/projeto/statuses/$sha1 " "$log2" | grep -Fq '"state":"success"' \
   || fail clean_wrong_state
 
-## Scenario 3: zero findings at all. "No issues found." still prints, and
-## the check still publishes "success" -- an earlier failing check on the
-## same commit must still be clearable once every grave finding is fixed.
+## Scenario 3: zero findings at all. The --pr path's zero-finding contract
+## is the published "success" status (the "No issues found." string is the
+## --base path's stdout contract, not this one), so an earlier failing check
+## on the same commit must still be clearable once the finding is fixed.
 log3="$run_dir/empty.log"
 start_fake write "$log3" "$run_dir/empty.url"
 run_check "$FAKE_URL" "token-sintetico-write" "$fixture_empty" "$sha1"
 [[ "$rc" -eq 0 ]] || fail "empty_wrong_exit:$rc"
-grep -Fq 'No issues found.' "$run_dir/out.stdout" || fail empty_missing_no_issues_line
+grep -Fq '0 comentario(s) publicado(s)' "$run_dir/out.stdout" || fail empty_missing_no_issues_line
 grep -Fq "check \"aurumcode/review\" publicado no commit $sha1: success" "$run_dir/out.stdout" \
   || fail empty_missing_check_line
-[[ "$(grep -c '^POST ' "$log3")" -eq 1 ]] || fail empty_unexpected_extra_post
+# Two POSTs are expected: the summary review comment (always posted in the
+# comments mode) and the single commit status. A second status POST would be
+# the regression this scenario guards against.
+[[ "$(grep -c '^POST ' "$log3")" -eq 2 ]] || fail empty_unexpected_extra_post
+[[ "$(grep -c "^POST /repos/dono/projeto/statuses/$sha1 " "$log3")" -eq 1 ]] || fail empty_unexpected_extra_status
 
 ## Scenario 4: --check with only a general (non-inline-eligible) finding
-## and no GITHUB_SHA at all. The old gate (AUR-438) only ever tripped on an
-## inline-eligible finding; --check must need a commit SHA on its own,
-## folded into the very same fail-closed gate, never bypassing it because
-## nothing in this run happens to need an inline comment.
+## and no GITHUB_SHA at all, where the API reports a pull request with no
+## head SHA. Before AUR-504 the anchor came from GITHUB_SHA and an unset
+## variable tripped the fail-closed gate directly; AUR-504 moves the anchor
+## to the API head (so an unset GITHUB_SHA is fine) and moves the fail-closed
+## to a head that cannot be determined. The command must still refuse to
+## publish on a different commit rather than guess.
 log4="$run_dir/nosha.log"
-start_fake write "$log4" "$run_dir/nosha.url"
+start_fake nohead "$log4" "$run_dir/nosha.url"
 run_check "$FAKE_URL" "token-sintetico-write" "$fixture_general_only" ""
 [[ "$rc" -eq 1 ]] || fail "nosha_wrong_exit:$rc"
-grep -Fq 'commit SHA' "$run_dir/out.stderr" || fail nosha_not_refused
+grep -Fq 'head SHA' "$run_dir/out.stderr" || fail nosha_not_refused
 if grep -q '^POST ' "$log4"; then
   fail nosha_post_leaked
 fi
