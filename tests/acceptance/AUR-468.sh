@@ -68,18 +68,50 @@ run_go() { local dir="$1"; shift; ( cd "$dir" && ulimit -v 8388608 && GOMEMLIMIT
 
 copy() {
   local root="$1"; shift
-  local p
+  local p dest
   for p in "$@"; do
     [[ -e "$repo_root/$p" ]] || infra "missing_input:$p"
-    mkdir -p "$root/$(dirname "$p")"
-    cp -R "$repo_root/$p" "$root/$p"
+    dest="$root/$p"
+    if [[ -d "$repo_root/$p" ]]; then
+      # Fill the destination in place. A plain `cp -R src dest` nests the
+      # source basename when dest already exists, which fails on the read-only
+      # tree materialized under bootstrap-readonly-v1.
+      mkdir -p "$dest"
+      chmod -R u+w -- "$dest" >/dev/null 2>&1 || true
+      cp -R "$repo_root/$p/." "$dest/"
+    else
+      mkdir -p "$root/$(dirname "$p")"
+      chmod u+w -- "$root/$(dirname "$p")" >/dev/null 2>&1 || true
+      cp "$repo_root/$p" "$dest"
+    fi
   done
+}
+
+# stage_inputs stages every declared input exactly once. An input that is a
+# descendant of another input is skipped: the ancestor's recursive copy already
+# materializes it, and copying the child again would try to nest it inside its
+# own read-only parent.
+stage_inputs() {
+  local root="$1"; shift
+  local -a keep=()
+  local input other covered
+  for input in "$@"; do
+    covered=false
+    for other in "$@"; do
+      [[ "$other" == "$input" ]] && continue
+      case "$input" in
+        "$other"/*) covered=true; break ;;
+      esac
+    done
+    [[ "$covered" == true ]] || keep+=("$input")
+  done
+  copy "$root" "${keep[@]}"
 }
 
 stage_source() {
   local root="$1"
   mkdir -p "$root"
-  copy "$root" go.mod go.sum internal/config internal/context/skills pkg/types internal/llm internal/security/redaction internal/llm/cost
+  stage_inputs "$root" "${required_inputs[@]}"
   chmod -R u+w -- "$root"
 }
 
