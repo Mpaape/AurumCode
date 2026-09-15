@@ -413,6 +413,124 @@ func (r *Repo) flattenTree(sha, prefix string, out map[string]blobAt) error {
 	return nil
 }
 
+// CommitInfo is one commit message from a reviewed local range. Hash, Subject
+// and Body are raw, untrusted repository text: callers redact before rendering.
+type CommitInfo struct {
+	Hash    string
+	Subject string
+	Body    string
+}
+
+// maxCommitWalk bounds the pure-Go first-parent walk so a hostile or
+// accidental history cannot make reading commit messages unbounded.
+const maxCommitWalk = 512
+
+// Commits returns the commit messages in the range baseRef..headRef, newest
+// first. It is read-only: it never writes the repository and never executes
+// commit text. A merge commit's message is included; the walk follows the
+// first parent only when no git binary is available.
+func (r *Repo) Commits(baseRef, headRef string) ([]CommitInfo, error) {
+	baseSHA, err := r.ResolveRef(baseRef)
+	if err != nil {
+		return nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
+	}
+	headSHA, err := r.ResolveRef(headRef)
+	if err != nil {
+		return nil, fmt.Errorf("resolving head ref %q: %w", headRef, err)
+	}
+	if r.useGitBinary {
+		return r.commitsViaGit(baseSHA, headSHA)
+	}
+	return r.commitsViaObjects(baseSHA, headSHA)
+}
+
+// commitsViaGit reads the range through `git log`. The unit-separator bytes
+// (0x1f) delimit hash, subject and body; 0x1e separates records.
+func (r *Repo) commitsViaGit(baseSHA, headSHA string) ([]CommitInfo, error) {
+	out, err := r.git("log", "--no-merges", "--format=%H%x1f%s%x1f%b%x1e", baseSHA+".."+headSHA)
+	if err != nil {
+		return nil, fmt.Errorf("reading commit range: %w", err)
+	}
+	var commits []CommitInfo
+	for _, record := range strings.Split(out, "\x1e") {
+		record = strings.Trim(record, "\n")
+		if record == "" {
+			continue
+		}
+		fields := strings.SplitN(record, "\x1f", 3)
+		if len(fields) < 2 {
+			continue
+		}
+		info := CommitInfo{Hash: strings.TrimSpace(fields[0]), Subject: fields[1]}
+		if len(fields) == 3 {
+			info.Body = fields[2]
+		}
+		if info.Hash == "" {
+			continue
+		}
+		commits = append(commits, info)
+		if len(commits) >= maxCommitWalk {
+			break
+		}
+	}
+	return commits, nil
+}
+
+// commitsViaObjects walks the first-parent chain from headSHA back to
+// baseSHA, collecting each commit's message. It stops at the base commit, a
+// root commit, a repeated object, or the walk bound.
+func (r *Repo) commitsViaObjects(baseSHA, headSHA string) ([]CommitInfo, error) {
+	var commits []CommitInfo
+	seen := map[string]bool{}
+	for sha := headSHA; sha != "" && sha != baseSHA; {
+		if seen[sha] || len(commits) >= maxCommitWalk {
+			break
+		}
+		seen[sha] = true
+		_, parents, err := r.readCommit(sha)
+		if err != nil {
+			return nil, err
+		}
+		msg, err := r.readCommitMessage(sha)
+		if err != nil {
+			return nil, err
+		}
+		subject, body := splitSubjectBody(msg)
+		commits = append(commits, CommitInfo{Hash: sha, Subject: subject, Body: body})
+		if len(parents) == 0 {
+			break
+		}
+		sha = parents[0]
+	}
+	return commits, nil
+}
+
+// readCommitMessage returns the raw commit message (headers stripped) of a
+// commit object. The message is untrusted text.
+func (r *Repo) readCommitMessage(sha string) (string, error) {
+	objType, content, err := r.readObject(sha)
+	if err != nil {
+		return "", err
+	}
+	if objType != "commit" {
+		return "", fmt.Errorf("object %s is a %s, not a commit", sha, objType)
+	}
+	if i := bytes.Index(content, []byte("\n\n")); i >= 0 {
+		return strings.TrimRight(string(content[i+2:]), "\n"), nil
+	}
+	return "", nil
+}
+
+// splitSubjectBody splits a raw commit message into its first line and the
+// remaining body.
+func splitSubjectBody(msg string) (subject, body string) {
+	msg = strings.TrimRight(msg, "\r\n")
+	if i := strings.IndexByte(msg, '\n'); i >= 0 {
+		return strings.TrimRight(msg[:i], "\r"), strings.TrimRight(msg[i+1:], "\r")
+	}
+	return msg, ""
+}
+
 // blobBytes returns a blob's raw content. It deliberately does not convert
 // to string: the caller classifies the raw bytes first (see classifyBlob),
 // so a binary or oversized blob is rejected before anything makes a second,

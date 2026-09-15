@@ -65,6 +65,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mpaape/AurumCode/internal/changelog"
 	"github.com/Mpaape/AurumCode/internal/config"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
@@ -72,6 +73,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/memory"
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/internal/testgen"
@@ -93,6 +95,9 @@ type prReviewOptions struct {
 	limite         string
 	publicationSet bool
 	publication    string
+	// changelog forces the AUR-499 release section on. It is false when
+	// --changelog was absent, in which case review.changelog decides.
+	changelog bool
 }
 
 // runPRReview is reached only when --pr was explicitly given (see the
@@ -206,6 +211,39 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	}
 	inlineComments := reviewConfig.Review.InlineComments || naLinha
 	diff = config.FilterIgnoredPaths(diff, reviewConfig)
+
+	// AUR-499: the release section is opt-in (review.changelog, off by default;
+	// --changelog forces it on). --pr reads the PR title/body and the PR's
+	// commit messages through the read-only client, then renders them with the
+	// same shared AUR-498 pass the --base path uses. Commit and PR text is
+	// untrusted: buildChangelogSection redacts it through the same sink
+	// pr_history.go uses, and it never authorizes a publication on its own.
+	// A missing source omits the section with a declared limitation and never
+	// crashes the review.
+	changelogOn := opts.changelog
+	if !changelogOn {
+		on, cfgErr := reviewConfig.ReviewChangelog()
+		if cfgErr != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", cfgErr)
+			return 1
+		}
+		changelogOn = on
+	}
+	changelogText, changelogLimitation := "", ""
+	if changelogOn {
+		if commits, sourceErr := pullRequestChangelogSource(ctx, client, owner, repoName, prNumber); sourceErr != nil {
+			changelogLimitation = changelogUnavailableNotice(reviewLanguage)
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", changelogLimitation)
+		} else if section, limit := buildChangelogSection(reviewConfig.Review.Version, commits, filter); limit != "" {
+			changelogLimitation = limit
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", limit)
+		} else {
+			changelogText = render.ChangelogSection(section.Version, section.Bump, section.Entry, reviewLanguage)
+			if werr := writeChangelogOutput(os.Getenv("AURUMCODE_OUTPUT_FILE"), section); werr != nil {
+				fmt.Fprintf(stderr, "aurumcode review: writing changelog output: %v\n", werr)
+			}
+		}
+	}
 
 	// Codebase context (zero-config, bounded heuristic): resolved from the
 	// checkout so the model sees what else the change can affect -- the same
@@ -392,6 +430,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
 	suppressOperationalStrengths(diff, result)
 	result.Limitations = filterLimitationsAgainstDiff(diff, result.Limitations)
+	if changelogLimitation != "" {
+		result.Limitations = append(result.Limitations, changelogLimitation)
+	}
 
 	// The engine already redacted every model-authored field on result
 	// (internal/review.redactReviewResult, called inside GenerateReview
@@ -483,6 +524,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		if inlineComments {
 			summaryBody = formatFormalReviewSummary(result, diff, reviewLanguage)
 		}
+		summaryBody = appendChangelogSection(summaryBody, changelogText)
 		formalComments := make([]githubclient.ReviewLineComment, 0)
 		if inlineComments {
 			for _, issue := range issues {
@@ -550,6 +592,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			generalCount++
 		}
 
+		summaryBody = appendChangelogSection(summaryBody, changelogText)
 		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, summaryBody); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 			failures = append(failures, "summary: "+err.Error())
@@ -606,6 +649,45 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		return checkExit
 	}
 	return 0
+}
+
+// pullRequestChangelogSource reads the PR title/body and the PR's commit
+// messages, then folds the title/body into a synthetic first commit so the
+// engine sees the whole reviewed narrative. Any missing source is an error and
+// the caller declares a limitation; nothing here is executed.
+func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client, owner, repo string, number int) ([]changelog.Commit, error) {
+	ctx, cancel := context.WithTimeout(ctx, config.ProviderTimeout)
+	defer cancel()
+	meta, err := client.GetPullRequestMetadata(ctx, owner, repo, number)
+	if err != nil {
+		return nil, err
+	}
+	commits, err := client.GetPullRequestCommits(ctx, owner, repo, number)
+	if err != nil {
+		return nil, err
+	}
+	if len(commits) == 0 {
+		return nil, errors.New("pull request has no commit messages")
+	}
+	out := make([]changelog.Commit, 0, len(commits)+1)
+	if strings.TrimSpace(meta.Title) != "" || strings.TrimSpace(meta.Body) != "" {
+		out = append(out, changelog.Commit{Subject: meta.Title, Body: meta.Body})
+	}
+	for _, c := range commits {
+		subject, body := splitCommitMessage(c.Message)
+		out = append(out, changelog.Commit{Subject: subject, Body: body, Hash: c.SHA})
+	}
+	return out, nil
+}
+
+// splitCommitMessage splits a GitHub commit message into its first line and
+// the remaining body. Both parts are untrusted.
+func splitCommitMessage(msg string) (subject, body string) {
+	msg = strings.TrimRight(strings.ReplaceAll(msg, "\r\n", "\n"), "\n")
+	if i := strings.IndexByte(msg, '\n'); i >= 0 {
+		return msg[:i], strings.TrimLeft(msg[i+1:], "\n")
+	}
+	return msg, ""
 }
 
 // checkContext is the commit status "context" AUR-439's --check publishes.

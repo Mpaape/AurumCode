@@ -13,7 +13,7 @@ if [[ "${1:-}" != "action" ]]; then
     exec "$cli" "$@"
 fi
 
-if (( $# != 7 )); then
+if (( $# != 8 )); then
     echo "AurumCode action: invalid internal arguments" >&2
     exit 64
 fi
@@ -24,6 +24,7 @@ security="$4"
 check="$5"
 fail_on="$6"
 model="$7"
+changelog="$8"
 
 case "$publication" in
     config|comments|review) ;;
@@ -44,6 +45,10 @@ esac
 case "$fail_on" in
     none|error|warning|info) ;;
     *) echo "AurumCode action: fail-on must be none, error, warning or info" >&2; exit 64 ;;
+esac
+case "$changelog" in
+    true|false) ;;
+    *) echo "AurumCode action: changelog must be true or false" >&2; exit 64 ;;
 esac
 
 if [[ ! -d "$workspace" ]]; then
@@ -94,4 +99,24 @@ if [[ "$model" != default ]]; then
     args+=(--modelo "$model")
 fi
 
-exec "$cli" "${args[@]}"
+output_file=""
+if [[ "$changelog" == true ]]; then
+    args+=(--changelog)
+    output_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+    output_file="$(mktemp "${output_dir%/}/aurumcode-output.XXXXXX")"
+    export AURUMCODE_OUTPUT_FILE="$output_file"
+fi
+
+set +e
+"$cli" "${args[@]}"
+status=$?
+set -e
+
+# AUR-499: expose the suggested version and changelog entry to the consumer
+# workflow through the modern $GITHUB_OUTPUT file (the deprecated output
+# command is not used). The file's contents are already redacted by the CLI.
+if [[ -n "$output_file" && -s "$output_file" && -n "${GITHUB_OUTPUT:-}" ]]; then
+    cat "$output_file" >> "$GITHUB_OUTPUT"
+fi
+rm -f "$output_file" 2>/dev/null || true
+exit "$status"

@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: true
+      changelog:
+        description: Derive the suggested next version and changelog entry from the reviewed commits and expose them as outputs.
+        required: false
+        type: boolean
+        default: false
     secrets:
       LLM_API_KEY:
         description: API key for the configured OpenAI-compatible service.
@@ -35,6 +40,10 @@ jobs:
   review:
     name: Review pull request
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.review.outputs.version }}
+      changelog_bump: ${{ steps.review.outputs.changelog_bump }}
+      changelog: ${{ steps.review.outputs.changelog }}
     permissions:
       contents: read
       pull-requests: write
@@ -109,12 +118,14 @@ jobs:
           fi
 
       - name: Run and publish code review
+        id: review
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
           AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           AURUMCODE_PR_PERMISSION_MODE: endpoint
           AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
+          AURUMCODE_OUTPUT_FILE: /tmp/aurumcode-changelog-output
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -123,6 +134,7 @@ jobs:
           PUBLICATION: ${{ inputs.publication }}
           INLINE_COMMENTS: ${{ inputs.inline_comments }}
           SECURITY: ${{ inputs.security }}
+          CHANGELOG: ${{ inputs.changelog }}
         run: |
           set -euo pipefail
           args=(review --pr "${PR_NUMBER}" --repo "${REPOSITORY}" --publicar --check)
@@ -135,6 +147,10 @@ jobs:
           if [ "${SECURITY}" = true ]; then
             args+=(--seguranca)
           fi
+          if [ "${CHANGELOG}" = true ]; then
+            args+=(--changelog)
+          fi
+          : > "${RUNNER_TEMP}/aurumcode-changelog-output"
           docker run --rm \
             -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro" \
             -w /github/workspace \
@@ -146,5 +162,10 @@ jobs:
             -e LLM_BASE_URL \
             -e LLM_MODEL \
             -e AURUMCODE_CI_CONTEXT_FILE \
+            -e AURUMCODE_OUTPUT_FILE \
             -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro" \
+            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output" \
             aurumcode-review "${args[@]}"
+          if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
+            cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
+          fi
