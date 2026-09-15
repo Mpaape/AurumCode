@@ -2,3 +2,8 @@
 # limits remain controlled by AurumCode and are not configurable here.
 review:
   language: pt-BR
+# Test fixtures deliberately contain injection patterns and secret canaries;
+# the deterministic security and quality passes must not flag them. Real
+# source under cmd/, internal/ and pkg/ is still reviewed.
+ignore:
+  - "tests/**"
