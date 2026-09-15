@@ -70,26 +70,74 @@ export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
 export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir" GOMAXPROCS=1
 
-copy() {
+# The card's declared build closure: `paths` plus `read_paths`. The sealed
+# sandbox materializes exactly these tracked roots, and `.board/cards` is on
+# the card's forbidden_paths, so the list is embedded here instead of read
+# from the card at runtime. stage_root copies this same set, which keeps the
+# staged tree equal to the module closure the sealed worker can actually see
+# -- copying a bare `internal`/`pkg` would depend on the sandbox happening to
+# hold every subpackage `cmd/aurumcode` imports.
+readonly declared_roots=(
+  cmd/aurumcode
+  docs/specs/AUR-505.md
+  internal/analysis
+  internal/analyzer
+  internal/apply
+  internal/changelog
+  internal/config
+  internal/context
+  internal/evidence
+  internal/git
+  internal/llm
+  internal/memory
+  internal/prompt
+  internal/render
+  internal/review
+  internal/reviewprofile
+  internal/sandbox
+  internal/security
+  internal/testgen
+  pkg/types
+  tests/acceptance/AUR-505.sh
+  tests/unit/AUR-505.go
+  go.mod
+  go.sum
+)
+
+# stage_paths copies each declared root under $root, skipping any path already
+# covered by an already-copied parent so a parent and its child are never
+# copied twice. A directory is copied in place (`cp -R src/. dest/`) so the
+# destination keeps the path the import graph expects.
+stage_paths() {
   local root="$1"; shift
-  local p
-  for p in "$@"; do
+  local p q skip
+  local -a ordered=() covered=()
+  mapfile -t ordered < <(printf '%s\n' "$@" | LC_ALL=C sort)
+  for p in "${ordered[@]}"; do
+    skip=0
+    for q in ${covered[@]+"${covered[@]}"}; do
+      [[ "$p" == "$q/"* ]] && { skip=1; break; }
+    done
+    (( skip )) && continue
+    covered+=("$p")
     [[ -e "$repo_root/$p" ]] || infra "missing_input:$p"
-    mkdir -p "$root/$(dirname "$p")"
-    cp -R "$repo_root/$p" "$root/$p"
+    if [[ -d "$repo_root/$p" && ! -L "$repo_root/$p" ]]; then
+      mkdir -p "$root/$p"
+      cp -R "$repo_root/$p/." "$root/$p/"
+    else
+      mkdir -p "$root/$(dirname "$p")"
+      cp -R "$repo_root/$p" "$root/$p"
+    fi
   done
 }
 
 # stage_root materializes exactly what `go test ./tests/unit` and the
-# binary that test builds on demand need. The whole cmd/aurumcode,
-# internal and pkg trees are copied rather than a hand-maintained package
-# list, so a new import cannot silently turn this proof into a 79.
+# binary that test builds on demand need.
 stage_root() {
   local root="$1"
   mkdir -p "$root"
-  copy "$root" go.mod go.sum cmd/aurumcode internal pkg
+  stage_paths "$root" "${declared_roots[@]}"
   mkdir -p "$root/tests/unit"
-  cp "$repo_root/tests/unit/AUR-505.go" "$root/tests/unit/AUR-505.go"
   cat >"$root/tests/unit/aur505_bridge_test.go" <<'EOF'
 package unit
 
