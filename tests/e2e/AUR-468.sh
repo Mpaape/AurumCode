@@ -39,7 +39,8 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-for input in go.mod go.sum internal/config internal/context/skills pkg/types internal/llm internal/security/redaction internal/llm/cost; do
+readonly read_inputs=(go.mod go.sum internal/config internal/context/skills pkg/types internal/llm internal/security/redaction internal/llm/cost)
+for input in "${read_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -53,10 +54,26 @@ export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 
 root="$run_dir/root"
 mkdir -p "$root"
-cp "$repo_root/go.mod" "$repo_root/go.sum" "$root/"
-for pkg in internal/config internal/context/skills pkg/types internal/llm internal/security/redaction internal/llm/cost; do
-  mkdir -p "$root/$pkg"
-  cp -R "$repo_root/$pkg/." "$root/$pkg/"
+# Stage each declared input exactly once. A descendant already materialized by
+# an ancestor's recursive copy is skipped, so a read-only tree is never nested
+# into itself.
+for input in "${read_inputs[@]}"; do
+  skipped=false
+  for other in "${read_inputs[@]}"; do
+    [[ "$other" == "$input" ]] && continue
+    case "$input" in
+      "$other"/*) skipped=true; break ;;
+    esac
+  done
+  [[ "$skipped" == true ]] && continue
+  if [[ -d "$repo_root/$input" ]]; then
+    mkdir -p "$root/$input"
+    chmod -R u+w -- "$root/$input" >/dev/null 2>&1 || true
+    cp -R "$repo_root/$input/." "$root/$input/"
+  else
+    mkdir -p "$root/$(dirname "$input")"
+    cp "$repo_root/$input" "$root/$input"
+  fi
 done
 chmod -R u+w -- "$root"
 
