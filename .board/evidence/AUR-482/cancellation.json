@@ -1,0 +1,9 @@
+{
+  "schema": "aurum.cancellation",
+  "version": 1,
+  "card": "AUR-482",
+  "approved_by_role": "manager",
+  "reason": "O extrator Noxy e toda a arvore internal/documentation/ e cmd/regenerate-docs foram removidos pelo pivo de produto em 670c7f6; o card nao tem write-set nem aceite possivel neste produto.",
+  "superseded_by": null,
+  "card_digest": "sha256:2e6bcb407125891f91df0c01ac8b1ac1465a2993f3a6b15981c95f5478a56466"
+}

@@ -1,0 +1,9 @@
+{
+  "schema": "aurum.cancellation",
+  "version": 1,
+  "card": "AUR-478",
+  "approved_by_role": "manager",
+  "reason": "O subsistema de documentacao (internal/documentation, internal/pipeline, cmd/regenerate-docs) foi removido pelo pivo de produto em 670c7f6; o guard de tags publicado dependia de internal/documentation/welcome, que nao existe mais, entao o card nao tem write-set nem entrega observavel.",
+  "superseded_by": null,
+  "card_digest": "sha256:f0694ad2e4235671b0183a880d4b148715f61b068bd0c7ced546b1c2b0f01b22"
+}
