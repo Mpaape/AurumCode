@@ -31,6 +31,18 @@ inputs:
     description: Optional model id. Empty/default lets the configured endpoint choose.
     required: false
     default: default
+  changelog:
+    description: Compute and expose the suggested next version and changelog entry from the reviewed commits.
+    required: false
+    default: 'false'
+
+outputs:
+  version:
+    description: Suggested next semantic version derived from the reviewed commit messages, when the changelog feature is enabled.
+  changelog_bump:
+    description: Suggested bump name (major, minor, patch or none).
+  changelog:
+    description: Rendered changelog entry for the suggested version.
 
 runs:
   using: docker
@@ -43,3 +55,4 @@ runs:
     - ${{ inputs.check }}
     - ${{ inputs.fail-on }}
     - ${{ inputs.model }}
+    - ${{ inputs.changelog }}

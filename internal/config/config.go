@@ -89,6 +89,35 @@ type ReviewConfig struct {
 	// Memory selects the review memory mode: "off" (default, stateless),
 	// "ephemeral" (in-process) or "local" (persisted under the cache dir).
 	Memory string `yaml:"memory"`
+	// Changelog selects whether the review derives and publishes the
+	// suggested next version and the changelog entry from the reviewed
+	// commit messages (AUR-498's engine). "off"/absent (the default) keeps
+	// today's behavior: no changelog section and no CI output.
+	Changelog string `yaml:"changelog"`
+	// Version is the current release-line version the changelog engine
+	// bumps from, as [v]major.minor.patch. Absent/empty means 0.0.0. It is
+	// an explicit repository setting; this card never reads a published tag
+	// (AUR-472/AUR-478 own that decision).
+	Version string `yaml:"version"`
+}
+
+// NormalizeReviewChangelog accepts the public spellings of review.changelog.
+// The zero value (absent) is off, exactly like every other review default.
+func NormalizeReviewChangelog(raw string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "off", "false", "no", "nao", "não":
+		return false, nil
+	case "on", "true", "yes", "sim":
+		return true, nil
+	default:
+		return false, fmt.Errorf("unsupported review.changelog %q (use on or off)", raw)
+	}
+}
+
+// ReviewChangelog returns whether the changed review publishes the suggested
+// version and changelog entry. The zero value is off.
+func (c *Config) ReviewChangelog() (bool, error) {
+	return NormalizeReviewChangelog(c.Review.Changelog)
 }
 
 // DefaultReviewPublication preserves the original PR behavior for callers
@@ -230,6 +259,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if _, err := cfg.ReviewPublication(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if _, err := cfg.ReviewChangelog(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Review.ValidateContext(); err != nil {

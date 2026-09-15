@@ -155,11 +155,13 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/apply"
+	"github.com/Mpaape/AurumCode/internal/changelog"
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -374,6 +376,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	limite := fs.String("limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
 	check := fs.Bool("check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge (default: off)")
 	exigirQualidade := fs.Bool("exigir-qualidade", false, "treat a quality review that did not happen as a failure: exit 1 even when deterministic analysis ran and reported, so a CI job cannot read \"security-only\" as \"fully reviewed\" (default: off -- the published --seguranca-without-a-provider path keeps exit 0)")
+	changelogFlag := fs.Bool("changelog", false, "publish the suggested next version and changelog entry derived from the reviewed commit messages (AUR-498 engine); the review.changelog repository setting is the default (default: off)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
@@ -449,6 +452,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			limite:         *limite,
 			publicationSet: prPublicationGiven,
 			publication:    *modoPublicacao,
+			changelog:      *changelogFlag,
 		})
 	}
 
@@ -551,6 +555,39 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	diff = config.FilterIgnoredPaths(diff, repoCfg)
 	codebaseContextText := resolveCodebaseContext(diff)
 	memoryStore, memoryNotes, memoryNotesText := openReviewMemory(repoCfg.Review.Memory, "", "", stderr, filter)
+
+	// AUR-499: the changelog section is opt-in (review.changelog, off by
+	// default; --changelog forces it on). It reads the local range's commit
+	// messages through the read-only analyzer and renders them with the
+	// AUR-498 engine. Commit text is untrusted data: it is redacted, escaped
+	// and bounded, never executed, and never authorizes a tag or release.
+	// Missing metadata omits the section with a declared limitation and never
+	// crashes the review.
+	changelogOn := *changelogFlag
+	if !changelogOn {
+		on, cfgErr := repoCfg.ReviewChangelog()
+		if cfgErr != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", cfgErr)
+			return 1
+		}
+		changelogOn = on
+	}
+	changelogText, changelogLimitation := "", ""
+	if changelogOn {
+		commits, commitErr := localRangeCommits(cwd, *base)
+		if commitErr != nil {
+			changelogLimitation = changelogUnavailableNotice(reviewLanguage)
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", changelogLimitation)
+		} else if section, limit := buildChangelogSection(repoCfg.Review.Version, commits, filter); limit != "" {
+			changelogLimitation = limit
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", limit)
+		} else {
+			changelogText = render.ChangelogSection(section.Version, section.Bump, section.Entry, reviewLanguage)
+			if werr := writeChangelogOutput(os.Getenv("AURUMCODE_OUTPUT_FILE"), section); werr != nil {
+				fmt.Fprintf(stderr, "aurumcode review: writing changelog output: %v\n", werr)
+			}
+		}
+	}
 
 	// Provider selection. With --modelo the flag commands which model
 	// reviews (AUR-436); without it, selectProvider keeps AUR-430's
@@ -884,6 +921,9 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	mergeStaticAnalysis(diff, result)
 	result.Issues = config.ApplyRuleConfig(result.Issues, repoCfg)
 	securityFindings = config.ApplyRuleConfig(securityFindings, repoCfg)
+	if changelogLimitation != "" {
+		result.Limitations = append(result.Limitations, changelogLimitation)
+	}
 
 	// AUR-490 supersedes AUR-443's "summary field" decision (see
 	// docs/specs/AUR-443.md section 7's dated postscript): that section
@@ -922,6 +962,9 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintln(stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
 	}
 	fmt.Fprint(stdout, renderLocalReport(result, diff, reviewLanguage))
+	if changelogText != "" {
+		fmt.Fprint(stdout, "\n"+changelogText)
+	}
 	if (!qualitySkipped && !qualityFailed) || len(result.Issues) > 0 {
 		printFindings(stdout, result)
 	}
@@ -1115,6 +1158,26 @@ func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, err
 		return nil, nil, cleanRefError(repoRoot, base, err)
 	}
 	return diff, notices, nil
+}
+
+// localRangeCommits reads the commit messages of base..HEAD from the local
+// repository through the read-only analyzer (gitrepo.go's Commits). The
+// returned text is raw untrusted repository content; buildChangelogSection
+// redacts it before rendering.
+func localRangeCommits(repoRoot, base string) ([]changelog.Commit, error) {
+	repo, err := analyzer.OpenRepo(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	infos, err := repo.Commits(base, "HEAD")
+	if err != nil {
+		return nil, err
+	}
+	commits := make([]changelog.Commit, 0, len(infos))
+	for _, info := range infos {
+		commits = append(commits, changelog.Commit{Subject: info.Subject, Body: info.Body, Hash: info.Hash})
+	}
+	return commits, nil
 }
 
 // cleanRefError turns internal/analyzer's ref-resolution error into one
