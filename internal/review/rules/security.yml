@@ -233,7 +233,42 @@ rules:
     #
     # This card's own MUT-001 removes branch 1 (Go) and MUT-002 widens it
     # to the argv form; both are exercised by tests/acceptance/AUR-486.sh.
-    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|^\s*eval\b|\b(?:Invoke-Expression|iex)\b'
+    #
+    # AUR-503 (2026-09-15): the four AUR-486 branches above (Go
+    # `exec.Command`, C# `Process.Start` x2, PowerShell `Invoke-Expression`/
+    # `iex`, bash `eval`) matched their token ANYWHERE on the added line, so
+    # a textual mention -- `// exec.Command("sh","-c",...)`,
+    # `// Process.Start("cmd.exe","/c ping "+host)`,
+    # `# Invoke-Expression ...`, `Write-Host "Invoke-Expression is unsafe"`,
+    # `# iex is dangerous`, `eval := compute()` -- fired the rule (the same
+    # false-positive class AUR-486's round 2 fixed only in `sh -c`/SQL).
+    # A false positive in a merge gate teaches the team to disable the gate
+    # (AUR-462). A line regexp alone CANNOT decide whether a token sits
+    # inside a comment or a string literal -- `// foo; exec.Command(...)`
+    # carries a `;` separator INSIDE the comment, so anchoring the branches
+    # on a statement separator both misses real invocations embedded in
+    # expressions (`x := exec.Command(...)`, `if err := exec.Command(...)`,
+    # `out, err := exec.Command(...)`, `return exec.Command(...)`,
+    # `var p = Process.Start(...)`, `$r = iex $payload`,
+    # `cmd := exec.Command(...)`) and still fires on that comment. The four
+    # branches therefore stay UNANCHORED -- the same bodies AUR-486 shipped
+    # -- and the context decision moved to the Go pass:
+    # securityScanWithRules drops a security/command-injection match whose
+    # first byte lands inside a comment/string span (codeMask in
+    # internal/review/securitypass.go). That keeps the REAL invocation
+    # reachable in every expression context above while a mention in a
+    # comment/string never fires. bash `eval` keeps the AUR-503 assignment
+    # guard (`\beval\s+[^:=\s]`: a whitespace-separated argument that is
+    # neither `:` nor `=`) so `eval :=`/`eval =` are excluded while
+    # `eval "ping $1"`/`eval $cmd` still match. The two branches AUR-486's
+    # round 2 already anchored (`^\s*(?:ba)?sh\s+-c`, SQL-by-shell) are
+    # untouched.
+    #
+    # Known limitation, accepted deliberately: codeMask is line-local, so a
+    # block comment opened on an earlier line and not closed does not mask
+    # the token on this line; this card's AC-001 names the single-line
+    # comment and string shapes. See docs/specs/AUR-503.md.
+    pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|\beval\s+[^:=\s]|\b(?:Invoke-Expression|iex)\b'
 
   - id: security/path-traversal
     title: Path Traversal

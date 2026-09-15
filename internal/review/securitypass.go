@@ -91,7 +91,26 @@ func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewI
 						if !ok {
 							continue // metadata-only rule, never matched
 						}
-						if re.MatchString(body) {
+						if loc := re.FindStringIndex(body); loc != nil {
+							// AUR-503: the four command-injection branches
+							// AUR-486 added are deliberately unanchored, so a
+							// REAL invocation embedded in an expression
+							// (`x := exec.Command(...)`, `if err :=
+							// exec.Command(...)`, `return exec.Command(...)`,
+							// `var p = Process.Start(...)`, `$r = iex ...`)
+							// still matches. A line regexp cannot tell a `;`
+							// statement separator from a `;` inside a comment
+							// (`// foo; exec.Command(...)`), so the context
+							// decision is structural here: a
+							// security/command-injection match whose first
+							// byte sits inside a comment or string literal is
+							// a mention, not a defect. Scoped to this one rule
+							// so security/hardcoded-secret, whose true
+							// positives are legitimately inside string
+							// literals, is unchanged.
+							if rule.ID == "security/command-injection" && !codeMask(body)[loc[0]] {
+								continue
+							}
 							msg := rule.Description
 							if rule.Standard != "" {
 								msg = fmt.Sprintf("%s [standards/security-review %s]", msg, rule.Standard)
@@ -130,4 +149,85 @@ func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewI
 		return result.Issues[i].RuleID < result.Issues[j].RuleID
 	})
 	return result.Issues
+}
+
+// codeMask marks each byte of one added-line body as CODE (true) or as part
+// of a comment / string literal (false). It exists for the AUR-503
+// command-injection context filter: those branches are unanchored so a real
+// call in an expression context still matches, and this is what keeps a
+// textual mention inside `//`/`#`/`--`/`/* */` or a `"`/`'`/backtick span
+// from being reported. Both the opening marker byte and the whole span are
+// marked non-code, so a match starting on the marker itself is also
+// dropped.
+//
+// The scan is deliberately line-local and lexical, not a parser: it is a
+// single left-to-right state machine so a comment marker inside a string
+// (or a quote inside a comment) is handled in the right order. `--` only
+// opens a comment after whitespace or at the start of the line, so Go's
+// `x--` decrement is not treated as a SQL comment. An unterminated block
+// comment or quote masks the rest of the line, which is the conservative
+// choice for this filter (it can only suppress a mention, never invent
+// one).
+func codeMask(body string) []bool {
+	mask := make([]bool, len(body))
+	for i := range mask {
+		mask[i] = true
+	}
+	i := 0
+	for i < len(body) {
+		c := body[i]
+		switch {
+		case c == '/' && i+1 < len(body) && body[i+1] == '/':
+			for ; i < len(body); i++ {
+				mask[i] = false
+			}
+		case c == '#':
+			for ; i < len(body); i++ {
+				mask[i] = false
+			}
+		case c == '-' && i+1 < len(body) && body[i+1] == '-' && (i == 0 || body[i-1] == ' ' || body[i-1] == '\t'):
+			for ; i < len(body); i++ {
+				mask[i] = false
+			}
+		case c == '/' && i+1 < len(body) && body[i+1] == '*':
+			mask[i] = false
+			mask[i+1] = false
+			i += 2
+			for i < len(body) {
+				if body[i] == '*' && i+1 < len(body) && body[i+1] == '/' {
+					mask[i] = false
+					mask[i+1] = false
+					i += 2
+					break
+				}
+				mask[i] = false
+				i++
+			}
+		case c == '"' || c == '\'' || c == '`':
+			quote := c
+			mask[i] = false
+			i++
+			for i < len(body) {
+				if quote != '`' && body[i] == '\\' {
+					mask[i] = false
+					i++
+					if i < len(body) {
+						mask[i] = false
+						i++
+					}
+					continue
+				}
+				if body[i] == quote {
+					mask[i] = false
+					i++
+					break
+				}
+				mask[i] = false
+				i++
+			}
+		default:
+			i++
+		}
+	}
+	return mask
 }
