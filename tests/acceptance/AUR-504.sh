@@ -67,8 +67,6 @@ done
 required_inputs=(
   go.mod
   go.sum
-  tests/fixtures/repos/git-demo/repo.git
-  tests/fixtures/review/known-problem-response.json
 )
 for input in "${required_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
@@ -97,13 +95,14 @@ copy() {
   done
 }
 
-# stage_source materializes a build root for cmd/aurumcode plus the fixture
-# inputs AC-002 needs, and copies this card's unit program under tests/unit.
+# stage_source materializes a build root for cmd/aurumcode and copies this
+# card's unit program under tests/unit. The --base fixture AC-002 needs is
+# built at runtime by the unit program itself (aur504GitFixture, pure Go, no
+# git binary and no tracked fixture), so this stages no tests/fixtures path.
 stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum cmd pkg internal
-  copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   mkdir -p "$root/tests/unit"
   cp "$repo_root/tests/unit/AUR-504.go" "$root/tests/unit/AUR-504.go"
   cat >"$root/tests/unit/aur504_bridge_test.go" <<'EOF'

@@ -24,6 +24,10 @@ package unit
 // assertion executes the real entrypoint rather than a metadata read.
 
 import (
+	"bytes"
+	"compress/zlib"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -31,6 +35,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -119,6 +125,146 @@ func aur504Fixture(t *testing.T) string {
 }
 
 const aur504Diff = "diff --git a/main.go b/main.go\n@@ -1,1 +1,3 @@\n package main\n+// add returns the sum of two integers.\n+func add(a, b int) int { return a + b }\n"
+
+// ---------------------------------------------------------------------------
+// Self-contained Git fixture for AC-002 (the --base path)
+// ---------------------------------------------------------------------------
+//
+// AC-002 must run `review --base HEAD~1` against a real repository, but the
+// sealed bootstrap-readonly-v1 profile carries Bash and Go with no `git`
+// binary and materializes only the card's declared paths. A fixture under
+// tests/ would therefore never reach the container, and `git init` is not an
+// option there. Instead the two commits AC-002 needs are written directly as
+// loose objects with the Go standard library (crypto/sha1 + compress/zlib):
+// a Git loose object is `zlib(<type> <size>\0<payload>)` stored under
+// objects/<sha[0:2]>/<sha[2:]>, and both git itself and internal/analyzer's
+// pure-Go reader (used in the git-less container) inflate any valid zlib
+// stream. Nothing here reads tests/fixtures, so the acceptance passes from a
+// clean checkout with only the card's declared paths materialized.
+
+type aur504TreeEntry struct {
+	name string
+	mode string
+	sha  string
+}
+
+func aur504WriteObject(t *testing.T, objectsDir, typ string, payload []byte) string {
+	t.Helper()
+	full := append([]byte(typ+" "+strconv.Itoa(len(payload))+"\x00"), payload...)
+	sum := sha1.Sum(full)
+	id := hex.EncodeToString(sum[:])
+	dir := filepath.Join(objectsDir, id[:2])
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("creating loose-object directory: %v", err)
+	}
+	var buf bytes.Buffer
+	zw := zlib.NewWriter(&buf)
+	if _, err := zw.Write(full); err != nil {
+		t.Fatalf("compressing object %s: %v", id, err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("closing object %s stream: %v", id, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, id[2:]), buf.Bytes(), 0o644); err != nil {
+		t.Fatalf("writing loose object %s: %v", id, err)
+	}
+	return id
+}
+
+func aur504WriteBlob(t *testing.T, objectsDir string, content []byte) string {
+	t.Helper()
+	return aur504WriteObject(t, objectsDir, "blob", content)
+}
+
+func aur504WriteTree(t *testing.T, objectsDir string, entries []aur504TreeEntry) string {
+	t.Helper()
+	sorted := append([]aur504TreeEntry(nil), entries...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].name < sorted[j].name })
+	var body bytes.Buffer
+	for _, e := range sorted {
+		rawSHA, err := hex.DecodeString(e.sha)
+		if err != nil {
+			t.Fatalf("invalid object id %q in tree: %v", e.sha, err)
+		}
+		fmt.Fprintf(&body, "%s %s\x00", e.mode, e.name)
+		body.Write(rawSHA)
+	}
+	return aur504WriteObject(t, objectsDir, "tree", body.Bytes())
+}
+
+func aur504WriteCommit(t *testing.T, objectsDir, tree, parent string, when int64, message string) string {
+	t.Helper()
+	var body bytes.Buffer
+	fmt.Fprintf(&body, "tree %s\n", tree)
+	if parent != "" {
+		fmt.Fprintf(&body, "parent %s\n", parent)
+	}
+	fmt.Fprintf(&body, "author Aurum AUR-504 Test <aur504@aurum.invalid> %d +0000\n", when)
+	fmt.Fprintf(&body, "committer Aurum AUR-504 Test <aur504@aurum.invalid> %d +0000\n", when)
+	fmt.Fprintf(&body, "\n%s\n", message)
+	return aur504WriteObject(t, objectsDir, "commit", body.Bytes())
+}
+
+// aur504GitFixture writes a bare repository whose HEAD~1..HEAD change adds
+// config/demo-tokens.txt. It is deliberately tiny: two commits, loose objects
+// only, no `git` invocation.
+func aur504GitFixture(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "repo.git")
+	objectsDir := filepath.Join(dir, "objects")
+	if err := os.MkdirAll(filepath.Join(dir, "refs", "heads"), 0o755); err != nil {
+		t.Fatalf("creating fixture refs: %v", err)
+	}
+	if err := os.MkdirAll(objectsDir, 0o755); err != nil {
+		t.Fatalf("creating fixture objects: %v", err)
+	}
+
+	readme := aur504WriteBlob(t, objectsDir, []byte("# demo\n\nA tiny repository for the AUR-504 --base proof.\n"))
+	tokens := aur504WriteBlob(t, objectsDir, []byte("DEMO_API_TOKEN=AURUM-FAKE-TOKEN\n"))
+
+	configTree := aur504WriteTree(t, objectsDir, []aur504TreeEntry{
+		{name: "demo-tokens.txt", mode: "100644", sha: tokens},
+	})
+	tree1 := aur504WriteTree(t, objectsDir, []aur504TreeEntry{
+		{name: "README.md", mode: "100644", sha: readme},
+	})
+	tree2 := aur504WriteTree(t, objectsDir, []aur504TreeEntry{
+		{name: "README.md", mode: "100644", sha: readme},
+		{name: "config", mode: "40000", sha: configTree},
+	})
+
+	commit1 := aur504WriteCommit(t, objectsDir, tree1, "", 1700000000, "seed: add the demo project skeleton")
+	commit2 := aur504WriteCommit(t, objectsDir, tree2, commit1, 1700000060, "chore: plant a synthetic demo token")
+
+	for path, content := range map[string]string{
+		filepath.Join(dir, "HEAD"):                  "ref: refs/heads/main\n",
+		filepath.Join(dir, "refs", "heads", "main"): commit2 + "\n",
+		filepath.Join(dir, "config"):                "[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = true\n",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("writing fixture %s: %v", path, err)
+		}
+	}
+	return dir
+}
+
+// aur504BaseFixture writes the review response AC-002 feeds the offline model:
+// one finding on the file the fixture's second commit added, so the --base
+// path's pre-existing stdout contract is observable without any tracked
+// fixture file.
+func aur504BaseFixture(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "aur504-base-response.json")
+	body := `{"issues":[{"file":"config/demo-tokens.txt","line":1,"severity":"error",` +
+		`"rule_id":"security/hardcoded-secret","message":"A demo token was committed in plain text.",` +
+		`"impact":"Anyone with repository access can reuse it.","evidence":"The added line assigns the token.",` +
+		`"suggestion":"Load it from the environment instead.","verification":"Rerun after removing the literal."}],` +
+		`"summary":"The change adds config/demo-tokens.txt."}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("writing base review fixture: %v", err)
+	}
+	return path
+}
 
 // aur504FakeGitHub serves the minimum surface the --pr --check path needs and
 // records every status POST by target SHA.
@@ -232,16 +378,12 @@ func TestAUR504(t *testing.T) {
 	})
 
 	t.Run("AC-002 --base publishes nothing and keeps its output", func(t *testing.T) {
-		root := aur504Root(t)
-		repoDir := filepath.Join(root, "tests/fixtures/repos/git-demo/repo.git")
-		if _, err := os.Stat(repoDir); err != nil {
-			t.Fatalf("required --base fixture missing: %v", err)
-		}
+		repoDir := aur504GitFixture(t)
 		fake := &aur504FakeGitHub{headSHA: "never-used"}
 		server := httptest.NewServer(fake.handler(t))
 		defer server.Close()
 
-		fixture := filepath.Join(root, "tests/fixtures/review/known-problem-response.json")
+		fixture := aur504BaseFixture(t)
 		env := []string{
 			"AURUMCODE_LLM_FIXTURE=" + fixture,
 			"AURUMCODE_GITHUB_API_URL=" + server.URL,
