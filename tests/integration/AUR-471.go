@@ -23,6 +23,7 @@ func IntegrationAUR471(t *testing.T) {
 	t.Run("RealWeightsFileDrivesEvaluation", testAUR471RealWeightsFile)
 	t.Run("HistoricalSectionsStayCompatible", testAUR471HistoricalSections)
 	t.Run("RealFileRefusesRedactionOff", testAUR471RealFileRefusesRedaction)
+	t.Run("RealFileRefusesAliasedRedaction", testAUR471RealFileRefusesAliasedRedaction)
 	t.Run("RealZeroConfigFileAbsent", testAUR471RealZeroConfig)
 }
 
@@ -109,6 +110,17 @@ func testAUR471RealFileRefusesRedaction(t *testing.T) {
 	}
 	if !contains471(err.Error(), "redaction") || !contains471(err.Error(), "refused-clause") {
 		t.Fatalf("refusal must be named, got %v", err)
+	}
+}
+
+func testAUR471RealFileRefusesAliasedRedaction(t *testing.T) {
+	root := writeRealPolicy(t, realWeightsHeader+"off: &off false\nredaction: *off\n")
+	_, err := policy.Load(root)
+	if err == nil {
+		t.Fatal("a real policy aliasing a disabling value must be refused")
+	}
+	if !contains471(err.Error(), "redaction") || !contains471(err.Error(), "refused-clause") {
+		t.Fatalf("aliased refusal must name the clause, got %v", err)
 	}
 }
 

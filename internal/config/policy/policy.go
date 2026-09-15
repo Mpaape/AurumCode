@@ -118,6 +118,8 @@ func validSeverity(s Severity) bool {
 // matching, while the wrapped message stays actionable.
 var (
 	ErrUnknownCharacteristic = errors.New("policy: unknown-characteristic")
+	ErrInvalidWeight         = errors.New("policy: invalid-weight")
+	ErrNonFiniteWeight       = errors.New("policy: non-finite-weight")
 	ErrNegativeWeight        = errors.New("policy: negative-weight")
 	ErrWeightsSum            = errors.New("policy: weights-sum")
 	ErrInvalidSeverity       = errors.New("policy: invalid-severity")
@@ -223,7 +225,10 @@ func Parse(data []byte, source string) (*Policy, error) {
 		}
 		var value float64
 		if err := weightsNode.Content[i+1].Decode(&value); err != nil {
-			return nil, fmt.Errorf("policy: invalid-weight: %q: %v", string(name), err)
+			return nil, fmt.Errorf("%w: %q: %v", ErrInvalidWeight, string(name), err)
+		}
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return nil, fmt.Errorf("%w: %q = %v is not a finite ISO/IEC 25010 weight", ErrNonFiniteWeight, string(name), value)
 		}
 		if value < 0 {
 			return nil, fmt.Errorf("%w: %q = %v is not a valid ISO/IEC 25010 weight", ErrNegativeWeight, string(name), value)
@@ -231,7 +236,11 @@ func Parse(data []byte, source string) (*Policy, error) {
 		weights[name] = value
 		sum += value
 	}
-	if math.Abs(sum-1.0) > weightTolerance {
+	// The inverted comparison is deliberate: a NaN sum makes both
+	// `sum-1.0 < -tol` and `sum-1.0 > tol` false, so the direct `>` form
+	// would let a NaN declaration through. `!(abs <= tol)` is false only
+	// when the sum is genuinely finite and within tolerance.
+	if !(math.Abs(sum-1.0) <= weightTolerance) {
 		return nil, fmt.Errorf("%w: %s: ISO/IEC 25010 weights must sum to 1.0, got %.6f", ErrWeightsSum, source, sum)
 	}
 
@@ -340,7 +349,7 @@ func mappingValue(m *yaml.Node, key string) *yaml.Node {
 func scanRefusedClauses(m *yaml.Node, prefix string) error {
 	for i := 0; i+1 < len(m.Content); i += 2 {
 		key := strings.ToLower(strings.TrimSpace(m.Content[i].Value))
-		value := m.Content[i+1]
+		value := resolveAlias(m.Content[i+1])
 		full := key
 		if prefix != "" {
 			full = prefix + "." + key
@@ -372,8 +381,21 @@ func scanRefusedClauses(m *yaml.Node, prefix string) error {
 	return nil
 }
 
+// resolveAlias dereferences a YAML alias node to the anchor it points at.
+// A hand-written file can spell a disabling clause as `redaction: *off`
+// with `off: &off false` elsewhere; an alias is an AliasNode, not a
+// ScalarNode, so without this the disabling value would slip past both
+// the scalar spelling checks and isDisabling.
+func resolveAlias(n *yaml.Node) *yaml.Node {
+	if n != nil && n.Kind == yaml.AliasNode && n.Alias != nil {
+		return n.Alias
+	}
+	return n
+}
+
 func isDisabling(n *yaml.Node) bool {
-	if n.Kind != yaml.ScalarNode {
+	n = resolveAlias(n)
+	if n == nil || n.Kind != yaml.ScalarNode {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(n.Value)) {
