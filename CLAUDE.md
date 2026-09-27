@@ -17,6 +17,13 @@ relevant.
 The Task Master files are historical evidence only. Current development and
 usage documentation starts at docs/README.md; task state is owned by .board/.
 
+## Branches
+
+`main` is the only permanent branch. Card branches are temporary PR candidates
+and target `main` directly; remove them only after merge and after every `done`
+delivery SHA has been verified as an ancestor of `main`. Do not recreate a
+permanent `dev` release lane.
+
 ## Reconstruction workflow source of truth
 
 For the current AurumCode reconstruction, `.board/` is the sole authoritative
