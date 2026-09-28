@@ -199,12 +199,12 @@ func TestParseErrorClassifiesValidJSONWithWrongFieldType(t *testing.T) {
 }
 
 func TestMalformedOptionalStrengthsDoNotEraseValidIssues(t *testing.T) {
-	response := `{"verdict":"changes_requested","strengths":[{"title":"untrusted praise"}],"issues":[{"file":"main.go","line":3,"severity":"warning","message":"a changed branch returns no error"}]}`
+	response := `{"verdict":"changes_requested","strengths":[{"title":"untrusted praise"}],"ci_analysis":["untyped check"],"issues":[{"file":"main.go","line":3,"severity":"warning","message":"a changed branch returns no error"}]}`
 	result, err := NewResponseParser().ParseReviewResponse(response)
 	if err != nil {
 		t.Fatalf("optional praise shape discarded the review: %v", err)
 	}
-	if len(result.Strengths) != 0 || len(result.Issues) != 1 || result.Issues[0].File != "main.go" {
+	if len(result.Strengths) != 0 || len(result.CIAnalysis) != 0 || len(result.Issues) != 1 || result.Issues[0].File != "main.go" || result.Metadata["optional_sections_discarded"] != "strengths,ci_analysis" {
 		t.Fatalf("issues were lost or praise was treated as code evidence: %+v", result)
 	}
 	badIssues := `{"strengths":[{"title":"untrusted praise"}],"issues":"not-an-array"}`
