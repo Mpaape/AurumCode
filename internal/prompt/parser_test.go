@@ -198,6 +198,21 @@ func TestParseErrorClassifiesValidJSONWithWrongFieldType(t *testing.T) {
 	}
 }
 
+func TestMalformedOptionalStrengthsDoNotEraseValidIssues(t *testing.T) {
+	response := `{"verdict":"changes_requested","strengths":[{"title":"untrusted praise"}],"issues":[{"file":"main.go","line":3,"severity":"warning","message":"a changed branch returns no error"}]}`
+	result, err := NewResponseParser().ParseReviewResponse(response)
+	if err != nil {
+		t.Fatalf("optional praise shape discarded the review: %v", err)
+	}
+	if len(result.Strengths) != 0 || len(result.Issues) != 1 || result.Issues[0].File != "main.go" {
+		t.Fatalf("issues were lost or praise was treated as code evidence: %+v", result)
+	}
+	badIssues := `{"strengths":[{"title":"untrusted praise"}],"issues":"not-an-array"}`
+	if _, err := NewResponseParser().ParseReviewResponse(badIssues); err == nil {
+		t.Fatal("a malformed findings section must remain a parse failure")
+	}
+}
+
 // TestParseReviewResponse_DegradedFallback exercises the recovery path this
 // card adds: a model that ignores the JSON schema entirely but still lists
 // findings using the documented "file:line: severity: message" convention

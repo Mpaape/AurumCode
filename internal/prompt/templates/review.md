@@ -218,6 +218,8 @@ line) or `LEFT` (removed line in the base). A `suggestion` may also have `kind`,
 changed-line location, `current_code`, `proposed_code`, `rationale`, and
 `verification`. Use empty arrays when a section has no entries. Add optional
 `iso_scores` for ISO/IEC 25010 only when the diff supplies enough evidence.
+`strengths`, `test_plan` e `limitations` são arrays de textos simples, nunca
+objetos. Se não houver ponto forte comprovado, use `"strengths": []`.
 
 ```json
 {"verdict":"approve","strengths":[],"issues":[],"suggestions":[],"ci_analysis":[],"test_plan":[],"limitations":[],"iso_scores":{},"summary":""}
