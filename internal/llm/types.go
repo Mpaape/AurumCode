@@ -7,6 +7,9 @@ type Options struct {
 	Temperature float64 `json:"temperature,omitempty"`
 	MaxTokens   int     `json:"max_tokens,omitempty"`
 	ModelKey    string  `json:"model_key,omitempty"`
+	// JSONMode asks OpenAI-compatible providers for a JSON object when the
+	// caller's output contract is structured. It does not cap output tokens.
+	JSONMode bool `json:"json_mode,omitempty"`
 }
 
 // Response represents an LLM response
