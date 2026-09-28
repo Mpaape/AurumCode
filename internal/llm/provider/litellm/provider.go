@@ -157,10 +157,11 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 	}
 
 	return llm.Response{
-		Text:      completion.Choices[0].Message.Content,
-		TokensIn:  completion.Usage.PromptTokens,
-		TokensOut: completion.Usage.CompletionTokens,
-		Model:     completion.Model,
+		Text:         completion.Choices[0].Message.Content,
+		TokensIn:     completion.Usage.PromptTokens,
+		TokensOut:    completion.Usage.CompletionTokens,
+		Model:        completion.Model,
+		FinishReason: completion.Choices[0].FinishReason,
 	}, nil
 }
 

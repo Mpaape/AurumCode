@@ -2,6 +2,7 @@ package review
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -169,6 +170,10 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// Parse response
 	result, err := r.parser.ParseReviewResponse(resp.Text)
 	if err != nil {
+		var parseErr *prompt.ParseError
+		if errors.As(err, &parseErr) {
+			parseErr.FinishReason = resp.FinishReason
+		}
 		return nil, fmt.Errorf("parse failed: %w", err)
 	}
 

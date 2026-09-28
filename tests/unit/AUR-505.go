@@ -277,6 +277,9 @@ func TestAUR505(t *testing.T) {
 		if !strings.Contains(stderr, "could not understand the model's response (validation_failed)") {
 			t.Fatalf("model failure not recorded on stderr:\n%s", stderr)
 		}
+		if !strings.Contains(stderr, "response diagnostics: bytes=") || strings.Contains(stderr, "AUR505-SENTINEL-INVALID") {
+			t.Fatalf("safe response diagnostics missing or model text leaked:\n%s", stderr)
+		}
 		if strings.Contains(posts, "AUR505-SENTINEL-INVALID") {
 			t.Fatalf("invalid response bytes leaked into the published review:\n%s", posts)
 		}

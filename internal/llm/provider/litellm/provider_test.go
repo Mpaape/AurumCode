@@ -108,6 +108,9 @@ func TestProviderComplete(t *testing.T) {
 	if response.Model != "test-model" {
 		t.Errorf("expected model 'test-model', got '%s'", response.Model)
 	}
+	if response.FinishReason != "stop" {
+		t.Errorf("finish reason = %q, want stop", response.FinishReason)
+	}
 }
 
 func TestProviderRequestsJSONOnlyWhenReviewAsksForIt(t *testing.T) {

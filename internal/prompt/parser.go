@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -47,6 +48,12 @@ const (
 // every caller back to substring matching to make that distinction.
 type ParseError struct {
 	Kind ParseErrorKind
+	// Diagnostics contain no model-authored text. They distinguish truncation
+	// and malformed upstream JSON from extraction/parser defects in CI logs.
+	InputBytes   int
+	RawJSONValid bool
+	SyntaxOffset int64
+	FinishReason string
 	// Raw is the response that failed to parse, bounded to a safe preview
 	// length so a large or adversarial response cannot balloon an error
 	// message that ends up in logs.
@@ -57,10 +64,17 @@ type ParseError struct {
 const parseErrorRawPreviewLimit = 512
 
 func newParseError(kind ParseErrorKind, raw string, err error) *ParseError {
+	inputBytes := len(raw)
+	rawJSONValid := json.Valid([]byte(strings.TrimSpace(raw)))
+	var syntaxErr *json.SyntaxError
+	var syntaxOffset int64
+	if errors.As(err, &syntaxErr) {
+		syntaxOffset = syntaxErr.Offset
+	}
 	if len(raw) > parseErrorRawPreviewLimit {
 		raw = raw[:parseErrorRawPreviewLimit] + "... (truncated)"
 	}
-	return &ParseError{Kind: kind, Raw: raw, Err: err}
+	return &ParseError{Kind: kind, Raw: raw, Err: err, InputBytes: inputBytes, RawJSONValid: rawJSONValid, SyntaxOffset: syntaxOffset}
 }
 
 func (e *ParseError) Error() string {
