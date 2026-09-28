@@ -186,29 +186,43 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 		return p.degradedOrError(response, ParseErrorNoJSON, nil)
 	}
 
-	// Parse JSON. A malformed optional strengths section must not erase a
-	// review whose issues are otherwise valid. Keep the issue schema strict:
-	// only the praise section can be discarded after a type mismatch.
+	// Keep findings strict, but do not erase a review because an auxiliary
+	// narrative section has the wrong JSON shape. The discarded section is
+	// recorded in metadata so callers can diagnose the provider drift.
 	var result types.ReviewResult
-	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
+	var fields map[string]json.RawMessage
+	var discarded []string
+	for {
+		result = types.ReviewResult{}
+		err := json.Unmarshal([]byte(jsonContent), &result)
+		if err == nil {
+			break
+		}
 		var typeErr *json.UnmarshalTypeError
-		if !errors.As(err, &typeErr) || typeErr.Field != "strengths" {
+		if !errors.As(err, &typeErr) {
 			return p.degradedOrError(response, ParseErrorInvalidJSON, err)
 		}
-		var fields map[string]json.RawMessage
-		if json.Unmarshal([]byte(jsonContent), &fields) != nil {
+		section, _, _ := strings.Cut(typeErr.Field, ".")
+		switch section {
+		case "strengths", "suggestions", "ci_analysis", "test_plan", "limitations", "iso_scores", "summary":
+		default:
 			return p.degradedOrError(response, ParseErrorInvalidJSON, err)
 		}
-		delete(fields, "strengths")
-		withoutStrengths, marshalErr := json.Marshal(fields)
+		if fields == nil {
+			if json.Unmarshal([]byte(jsonContent), &fields) != nil {
+				return p.degradedOrError(response, ParseErrorInvalidJSON, err)
+			}
+		}
+		if _, exists := fields[section]; !exists {
+			return p.degradedOrError(response, ParseErrorInvalidJSON, err)
+		}
+		delete(fields, section)
+		discarded = append(discarded, section)
+		pruned, marshalErr := json.Marshal(fields)
 		if marshalErr != nil {
 			return p.degradedOrError(response, ParseErrorInvalidJSON, marshalErr)
 		}
-		result = types.ReviewResult{}
-		if decodeErr := json.Unmarshal(withoutStrengths, &result); decodeErr != nil {
-			return p.degradedOrError(response, ParseErrorInvalidJSON, decodeErr)
-		}
-		jsonContent = string(withoutStrengths)
+		jsonContent = string(pruned)
 	}
 
 	// A finding the model reported under "line_comments" is a finding: it
@@ -219,6 +233,12 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 	// Validate
 	if err := p.validateReviewResult(&result); err != nil {
 		return p.degradedOrError(response, ParseErrorValidation, err)
+	}
+	if len(discarded) > 0 {
+		if result.Metadata == nil {
+			result.Metadata = make(map[string]string)
+		}
+		result.Metadata["optional_sections_discarded"] = strings.Join(discarded, ",")
 	}
 
 	return &result, nil

@@ -220,6 +220,9 @@ changed-line location, `current_code`, `proposed_code`, `rationale`, and
 `iso_scores` for ISO/IEC 25010 only when the diff supplies enough evidence.
 `strengths`, `test_plan` e `limitations` são arrays de textos simples, nunca
 objetos. Se não houver ponto forte comprovado, use `"strengths": []`.
+`ci_analysis` é um array de objetos com `check`, `status`, `cause`, `evidence`,
+`fix`, `next_verification` e `confidence`; não use frases soltas nele. Se não
+houver falha de CI comprovada, use `"ci_analysis": []`.
 
 ```json
 {"verdict":"approve","strengths":[],"issues":[],"suggestions":[],"ci_analysis":[],"test_plan":[],"limitations":[],"iso_scores":{},"summary":""}

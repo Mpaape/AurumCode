@@ -418,6 +418,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if warning := result.Metadata["scope_discard_warning"]; warning != "" {
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
 	}
+	if sections := result.Metadata["optional_sections_discarded"]; sections != "" {
+		fmt.Fprintf(stderr, "aurumcode review: optional model sections discarded for schema mismatch: %s\n", sections)
+	}
 	if opts.limiteSet {
 		printRealCost(stderr, realCostUSD(tracker, limiteUSD), limiteUSD)
 	}
