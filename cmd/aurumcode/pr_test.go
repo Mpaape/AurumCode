@@ -490,6 +490,33 @@ func TestFormatReviewSummaryWithDiffIncludesCodeSummary(t *testing.T) {
 	}
 }
 
+func TestPublishedReviewBodyIsOneCodeReviewWithoutCLINoise(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  "main.go",
+		Hunks: []types.DiffHunk{{Lines: []string{"+return err"}}},
+	}}}
+	result := &types.ReviewResult{
+		Summary:   "A mudança propaga o erro de construção.",
+		Strengths: []string{"O novo ramo preserva a causa do erro."},
+	}
+	for _, formalWithInline := range []bool{false, true} {
+		body := formatPublishedReviewBody(result, diff, "pt-BR", formalWithInline, "### Changelog\n\n- Correção de erro")
+		for _, want := range []string{"## AurumCode revisão de código", result.Summary, "### Pontos fortes", "### Changelog"} {
+			if !strings.Contains(body, want) {
+				t.Errorf("formalWithInline=%v: missing %q in:\n%s", formalWithInline, want, body)
+			}
+		}
+		for _, unwanted := range []string{"## Resumo da Revisão de Código", "Arquivos alterados: Nenhum", "```mermaid", "Fluxo alterado (diagrama)"} {
+			if strings.Contains(body, unwanted) {
+				t.Errorf("formalWithInline=%v: unexpected %q in:\n%s", formalWithInline, unwanted, body)
+			}
+		}
+		if strings.Count(body, "## AurumCode revisão de código") != 1 || strings.Count(body, "### Changelog") != 1 {
+			t.Errorf("formalWithInline=%v: duplicated section in:\n%s", formalWithInline, body)
+		}
+	}
+}
+
 func TestFormatReviewSummaryUsesConfiguredLanguage(t *testing.T) {
 	result := &types.ReviewResult{
 		Issues: []types.ReviewIssue{{

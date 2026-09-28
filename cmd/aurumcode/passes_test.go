@@ -177,10 +177,12 @@ func TestAUR490LocalMemory(t *testing.T) {
 
 func TestAUR490SharedPasses(t *testing.T) {
 	// Inspect real call sites, not a hardcoded accessor reporting a fictional
-	// list. End-to-end tests above and parity_test.go also execute those routes.
+	// list. Both routes share context, memory and static analysis; only local
+	// output gets the optional CLI summary/diagram. End-to-end tests execute
+	// both publication routes.
 	for file, required := range map[string][]string{
 		"main.go": {"resolveCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "renderLocalReport"},
-		"pr.go":   {"resolveCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "renderPass"},
+		"pr.go":   {"resolveCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "formatPublishedReviewBody"},
 	} {
 		f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
 		if err != nil {
