@@ -84,10 +84,10 @@ aparecem no diagnóstico; memória não autoriza mudanças de regras ou aprovaç
 - Achado descartado: o job informa o motivo. Leia os diagnósticos antes de
   interpretar uma lista vazia como garantia de qualidade.
 
-O review por LLM que falha encerra com código 1. Sem provedor configurado, o
-caminho local pode executar somente a análise determinística, declarando que
-o review por modelo foi omitido.
-Use `--exigir-qualidade` com `--base` para exigir também o modelo.
+Sem provedor configurado, o caminho local pode executar somente a análise
+determinística, declarando que o review por modelo foi omitido. Use
+`--exigir-qualidade` com `--base` ou `--pr` para exigir também o modelo; o
+workflow reutilizável já usa essa opção e falha se o parecer for inconclusivo.
 `--fail-on error` encerra com código 3 quando há achados graves.
 
 Veja [configuração](configuration.md) para idioma e publicação.
