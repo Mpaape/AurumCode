@@ -223,7 +223,9 @@ objetos. Se não houver ponto forte comprovado, use `"strengths": []`.
 `ci_analysis` é um array de objetos com `check`, `status`, `cause`, `evidence`,
 `fix`, `next_verification` e `confidence`; não use frases soltas nele. Se não
 houver falha de CI comprovada, use `"ci_analysis": []`.
+Sem evidência suficiente para notas ISO/IEC 25010, use `"iso_scores": null`,
+nunca um objeto vazio.
 
 ```json
-{"verdict":"approve","strengths":[],"issues":[],"suggestions":[],"ci_analysis":[],"test_plan":[],"limitations":[],"iso_scores":{},"summary":""}
+{"verdict":"approve","strengths":[],"issues":[],"suggestions":[],"ci_analysis":[],"test_plan":[],"limitations":[],"iso_scores":null,"summary":""}
 ```
