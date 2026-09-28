@@ -6,7 +6,8 @@ segurança, reportando problemas introduzidos pela mudança.
 O review pede saída em modo JSON ao provedor compatível com OpenAI; o parser
 continua validando a estrutura e os achados antes da publicação. Isso evita
 depender apenas da instrução textual para formar JSON e não impõe teto de
-tokens à resposta.
+tokens à resposta. Respostas já válidas são analisadas como um objeto inteiro,
+mesmo quando contêm blocos de código em campos de texto.
 
 O filtro atual exige uma linha adicionada (`RIGHT`, numeração nova) ou removida
 (`LEFT`, numeração antiga), uma regra do catálogo
