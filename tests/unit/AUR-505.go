@@ -292,6 +292,9 @@ func TestAUR505(t *testing.T) {
 		if !strings.Contains(posts, "Quality review inconclusive") {
 			t.Fatalf("declared limitation missing on the clean deterministic run; POSTs:\n%s", posts)
 		}
+		if !strings.Contains(posts, "**Verdict:** Inconclusive") || strings.Contains(posts, "**Verdict:** Approve") {
+			t.Fatalf("degraded quality review falsely claimed approval; POSTs:\n%s", posts)
+		}
 	})
 
 	t.Run("AC-002", func(t *testing.T) {

@@ -254,6 +254,7 @@ func TestFormalReviewEventMapsFindingsToGitHubEvents(t *testing.T) {
 		{name: "blocking finding requests changes", result: types.ReviewResult{Issues: []types.ReviewIssue{{Severity: "warning"}}}, want: "REQUEST_CHANGES"},
 		{name: "informational finding comments", result: types.ReviewResult{Issues: []types.ReviewIssue{{Severity: "info"}}}, want: "COMMENT"},
 		{name: "optional suggestion comments", result: types.ReviewResult{Suggestions: []types.ReviewSuggestion{{Title: "Improve naming"}}}, want: "COMMENT"},
+		{name: "inconclusive model cannot approve", result: types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}, want: "COMMENT"},
 		{name: "clean review approves", result: types.ReviewResult{}, want: "APPROVE"},
 	}
 	for _, tc := range cases {
@@ -513,6 +514,24 @@ func TestPublishedReviewBodyIsOneCodeReviewWithoutCLINoise(t *testing.T) {
 		}
 		if strings.Count(body, "## AurumCode revisão de código") != 1 || strings.Count(body, "### Changelog") != 1 {
 			t.Errorf("formalWithInline=%v: duplicated section in:\n%s", formalWithInline, body)
+		}
+	}
+}
+
+func TestIncompleteQualityReviewNeverClaimsApproval(t *testing.T) {
+	result := &types.ReviewResult{
+		Metadata:    map[string]string{"quality_degraded": "true"},
+		Limitations: []string{modelInvalidOutputNotice("pt-BR", "validation_failed")},
+	}
+	body := formatPublishedReviewBody(result, &types.Diff{}, "pt-BR", false, "")
+	for _, want := range []string{"**Veredito:** Inconclusivo", "este parecer não aprova a mudança", "Revisão de qualidade inconclusiva"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+	for _, unwanted := range []string{"**Veredito:** Aprovado", "Nenhum achado bloqueante foi identificado na mudança revisada"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("false approval %q in:\n%s", unwanted, body)
 		}
 	}
 }
