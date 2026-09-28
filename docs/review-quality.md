@@ -10,6 +10,11 @@ e campos não vazios de evidência, impacto e verificação. Isso valida localiz
 e estrutura, **não demonstra automaticamente que o problema existe**.
 Hipóteses plausíveis ainda dependem da qualidade do modelo e do prompt.
 
+Se a resposta do modelo não passa na validação, o parecer do PR diz
+**Inconclusivo**, não **Aprovado**. A análise determinística ainda é publicada,
+mas seu status verde não comprova que a revisão por modelo aconteceu; confira
+a limitação registrada antes de tratar a mudança como revisada.
+
 Sugestões são opcionais e devem ser pequenas, locais e justificadas.
 Pontos fortes devem descrever benefícios do código/testes, sem elogios
 genéricos ao workflow ou à existência do AurumCode.
