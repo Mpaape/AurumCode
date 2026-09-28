@@ -94,18 +94,20 @@ import (
 // prReviewOptions carries the AUR-451 capabilities onto the PR path: the
 // same four things the --base path already offers, reused here rather than
 // reimplemented (see the package doc above). The zero value means none of
-// the four flags was given, so a caller that never sets a field gets
-// exactly the pre-AUR-451 --pr behavior.
+// the PR flags was given, so a caller that never sets a field keeps the
+// historical --pr behavior. exigirQualidade is opt-in for direct CLI callers;
+// the reusable workflow enables it by default.
 type prReviewOptions struct {
-	seguranca      bool
-	failOnSet      bool
-	failOn         string
-	modeloSet      bool
-	modelo         string
-	limiteSet      bool
-	limite         string
-	publicationSet bool
-	publication    string
+	seguranca       bool
+	exigirQualidade bool
+	failOnSet       bool
+	failOn          string
+	modeloSet       bool
+	modelo          string
+	limiteSet       bool
+	limite          string
+	publicationSet  bool
+	publication     string
 	// changelog forces the AUR-499 release section on. It is false when
 	// --changelog was absent, in which case review.changelog decides.
 	changelog bool
@@ -658,7 +660,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// swallow the other.
 	checkExit := 0
 	if check {
-		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber)
+		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber, opts.exigirQualidade && qualityDegraded)
 	}
 
 	if len(failures) > 0 {
@@ -677,6 +679,10 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// close the gate. checkExit == 1 (SetStatus itself could not be
 	// published, a transport failure rather than a finding) still takes
 	// priority, exactly as it already did before this card.
+	if opts.exigirQualidade && qualityDegraded {
+		fmt.Fprintln(stderr, "aurumcode review: --exigir-qualidade: the model review was inconclusive; the published deterministic findings do not approve this pull request")
+		return exitQualityNotReviewed
+	}
 	if checkExit == 1 {
 		return checkExit
 	}
@@ -752,13 +758,16 @@ const checkContext = "aurumcode/review"
 // exit code: exitFindings (3, the same code --fail-on already uses for
 // "the review ran fine and found something that matters") when the
 // published status is "failure", 0 when it is "success", 1 when SetStatus
-// itself could not be published (a transport/API failure, not a finding).
+// itself could not be published or a required model review was inconclusive.
 // MUT-001 is exactly the defect of this function reporting success (either
 // the exit code or the published state) while a grave finding is present.
-func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int) int {
+func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete bool) int {
 	grave := countAtOrAbove(issues, rankError)
 	status := githubclient.CommitStatus{Context: checkContext}
-	if grave > 0 {
+	if qualityRequiredButIncomplete {
+		status.State = "failure"
+		status.Description = fmt.Sprintf("revisão por modelo inconclusiva no pull request #%d", prNumber)
+	} else if grave > 0 {
 		status.State = "failure"
 		status.Description = fmt.Sprintf("%d achado(s) grave(s) no pull request #%d", grave, prNumber)
 	} else {
@@ -772,6 +781,9 @@ func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", checkContext, commitID, status.State, status.Description)
 
+	if qualityRequiredButIncomplete {
+		return exitQualityNotReviewed
+	}
 	if grave > 0 {
 		return exitFindings
 	}

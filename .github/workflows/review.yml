@@ -137,7 +137,9 @@ jobs:
           CHANGELOG: ${{ inputs.changelog }}
         run: |
           set -euo pipefail
-          args=(review --pr "${PR_NUMBER}" --repo "${REPOSITORY}" --publicar --check)
+          # A deterministic pass is not a completed code review. The CLI
+          # publishes its honest inconclusive comment, then fails this job.
+          args=(review --pr "${PR_NUMBER}" --repo "${REPOSITORY}" --publicar --check --exigir-qualidade)
           if [ -n "${PUBLICATION}" ]; then
             args+=(--modo-publicacao "${PUBLICATION}")
           fi
