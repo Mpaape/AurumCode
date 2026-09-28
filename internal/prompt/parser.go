@@ -54,6 +54,9 @@ type ParseError struct {
 	RawJSONValid bool
 	SyntaxOffset int64
 	FinishReason string
+	TypeField    string
+	ExpectedType string
+	ActualType   string
 	// Raw is the response that failed to parse, bounded to a safe preview
 	// length so a large or adversarial response cannot balloon an error
 	// message that ends up in logs.
@@ -74,7 +77,14 @@ func newParseError(kind ParseErrorKind, raw string, err error) *ParseError {
 	if len(raw) > parseErrorRawPreviewLimit {
 		raw = raw[:parseErrorRawPreviewLimit] + "... (truncated)"
 	}
-	return &ParseError{Kind: kind, Raw: raw, Err: err, InputBytes: inputBytes, RawJSONValid: rawJSONValid, SyntaxOffset: syntaxOffset}
+	parseErr := &ParseError{Kind: kind, Raw: raw, Err: err, InputBytes: inputBytes, RawJSONValid: rawJSONValid, SyntaxOffset: syntaxOffset}
+	var typeErr *json.UnmarshalTypeError
+	if errors.As(err, &typeErr) {
+		parseErr.TypeField = typeErr.Field
+		parseErr.ExpectedType = typeErr.Type.String()
+		parseErr.ActualType = typeErr.Value
+	}
+	return parseErr
 }
 
 func (e *ParseError) Error() string {
