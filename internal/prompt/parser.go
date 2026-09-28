@@ -390,6 +390,14 @@ func (p *ResponseParser) degradedExtract(response string) []types.ReviewIssue {
 
 // extractJSON extracts JSON content from response, handling markdown code blocks
 func (p *ResponseParser) extractJSON(response string) string {
+	// JSON-mode providers return the object itself. Inspect it before looking
+	// for Markdown fences: a proposed code snippet inside a JSON string may
+	// contain ``` markers, which the fence regex would otherwise extract as
+	// if they surrounded the whole response.
+	if whole := strings.TrimSpace(response); json.Valid([]byte(whole)) {
+		return whole
+	}
+
 	// Try to find JSON in markdown code blocks
 	codeBlockPattern := regexp.MustCompile("```(?:json)?\\s*\\n?([\\s\\S]*?)\\n?```")
 	matches := codeBlockPattern.FindStringSubmatch(response)

@@ -158,6 +158,17 @@ func TestParseReviewResponse_WithMarkdown(t *testing.T) {
 	}
 }
 
+func TestParseReviewResponse_ValidJSONWithCodeFenceInString(t *testing.T) {
+	response := "{\"issues\":[],\"summary\":\"Use ```\\nreturn err\\n``` as an example.\"}"
+	result, err := NewResponseParser().ParseReviewResponse(response)
+	if err != nil {
+		t.Fatalf("valid JSON with an embedded code fence was rejected: %v", err)
+	}
+	if result.Summary != "Use ```\nreturn err\n``` as an example." {
+		t.Fatalf("summary was changed: %q", result.Summary)
+	}
+}
+
 // TestParseReviewResponse_DegradedFallback exercises the recovery path this
 // card adds: a model that ignores the JSON schema entirely but still lists
 // findings using the documented "file:line: severity: message" convention
