@@ -169,6 +169,18 @@ func TestParseReviewResponse_ValidJSONWithCodeFenceInString(t *testing.T) {
 	}
 }
 
+func TestParseErrorReportsOnlySafeJSONDiagnostics(t *testing.T) {
+	response := `{"issues":[}`
+	_, err := NewResponseParser().ParseReviewResponse(response)
+	var parseErr *ParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("expected ParseError, got %v", err)
+	}
+	if parseErr.InputBytes != len(response) || parseErr.RawJSONValid || parseErr.SyntaxOffset == 0 {
+		t.Fatalf("diagnostics = %+v, want length, invalid JSON and syntax offset", parseErr)
+	}
+}
+
 // TestParseReviewResponse_DegradedFallback exercises the recovery path this
 // card adds: a model that ignores the JSON schema entirely but still lists
 // findings using the documented "file:line: severity: message" convention

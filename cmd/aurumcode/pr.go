@@ -391,6 +391,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			// code. NO finding is fabricated from the invalid response:
 			// result starts empty (AC-003).
 			fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+			fmt.Fprintf(stderr, "aurumcode review: response diagnostics: bytes=%d raw_json_valid=%t finish_reason=%q syntax_offset=%d\n", parseErr.InputBytes, parseErr.RawJSONValid, parseErr.FinishReason, parseErr.SyntaxOffset)
 			fmt.Fprintln(stderr, "aurumcode review: degrading to deterministic analysis; the model review is inconclusive")
 			qualityDegraded = true
 			result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
