@@ -73,6 +73,12 @@ por quem chamou o review; pode não conter logs completos.
   correção, segurança, performance ou manutenção de forma relevante, é
   acionável e pode ser demonstrado pelo código. Se a hipótese não puder ser
   provada, descarte-a ou registre-a somente como limitação.
+- Antes de registrar um defeito, construa mentalmente uma entrada ou estado
+  concreto que chegue à linha apontada. Siga todas as guardas, retornos
+  antecipados e validações anteriores no caminho; se algum deles rejeita o
+  cenário, o defeito proposto não ocorre e deve ser omitido. Para alegar uma
+  falha parcial, confirme também a ordem das escritas em relação à guarda.
+  Uma possibilidade abstrata sem caminho executável não é evidência.
 - Um `issue` deve apontar para a alteração que causa o problema: linha adicionada
   com `side: "RIGHT"` e numeração nova, ou linha removida com `side: "LEFT"` e
   numeração antiga. O padrão sem `side` é `RIGHT`. Ler código fora do diff pode
@@ -177,6 +183,11 @@ por quem chamou o review; pode não conter logs completos.
 - Para cada check de CI com falha, explique causa e correção somente se o
   contexto fornecido sustentar a conclusão. Caso contrário, declare a
   limitação e indique o próximo diagnóstico; nunca adivinhe.
+- Não diagnostique sintaxe de workflow como quebrada sem evidência de parser,
+  check ou execução que falhou. Um workflow mostrado no diff pode estar
+  correto mesmo que sua sintaxe pareça incomum. O `summary` e o plano de testes
+  não podem introduzir defeitos novos ou repetir hipóteses descartadas; cada
+  problema mencionado ali deve corresponder a um `issue` sustentado.
 - Trate sintaxe de workflow como configuração, não como credencial: expressões
   GitHub que referenciam `secrets.NAME` ou `github.*`, referências de ambiente
   e escopos como `contents: read`, `pull-requests: write` e `statuses: write`
