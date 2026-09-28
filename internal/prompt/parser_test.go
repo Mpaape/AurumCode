@@ -213,6 +213,19 @@ func TestMalformedOptionalStrengthsDoNotEraseValidIssues(t *testing.T) {
 	}
 }
 
+func TestEmptyISOScoresAreAbsentButExplicitInvalidScoreStillFails(t *testing.T) {
+	parser := NewResponseParser()
+	result, err := parser.ParseReviewResponse(`{"issues":[],"iso_scores":{ }}`)
+	if err != nil || result.ISOScores != nil {
+		t.Fatalf("empty optional score object should be absent: result=%+v err=%v", result, err)
+	}
+	_, err = parser.ParseReviewResponse(`{"issues":[],"iso_scores":{"security":0}}`)
+	var parseErr *ParseError
+	if !errors.As(err, &parseErr) || parseErr.Kind != ParseErrorValidation || parseErr.ValidationCode != "iso_score_out_of_range" {
+		t.Fatalf("an explicit invalid score must fail with a safe reason: %v", err)
+	}
+}
+
 // TestParseReviewResponse_DegradedFallback exercises the recovery path this
 // card adds: a model that ignores the JSON schema entirely but still lists
 // findings using the documented "file:line: severity: message" convention

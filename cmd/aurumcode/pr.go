@@ -397,6 +397,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			if parseErr.TypeField != "" {
 				fmt.Fprintf(stderr, "aurumcode review: response schema mismatch: field=%q expected=%q actual=%q\n", parseErr.TypeField, parseErr.ExpectedType, parseErr.ActualType)
 			}
+			if parseErr.ValidationCode != "" {
+				fmt.Fprintf(stderr, "aurumcode review: response validation: code=%s\n", parseErr.ValidationCode)
+			}
 			fmt.Fprintln(stderr, "aurumcode review: degrading to deterministic analysis; the model review is inconclusive")
 			qualityDegraded = true
 			result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}

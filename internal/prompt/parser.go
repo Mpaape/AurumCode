@@ -50,13 +50,14 @@ type ParseError struct {
 	Kind ParseErrorKind
 	// Diagnostics contain no model-authored text. They distinguish truncation
 	// and malformed upstream JSON from extraction/parser defects in CI logs.
-	InputBytes   int
-	RawJSONValid bool
-	SyntaxOffset int64
-	FinishReason string
-	TypeField    string
-	ExpectedType string
-	ActualType   string
+	InputBytes     int
+	RawJSONValid   bool
+	SyntaxOffset   int64
+	FinishReason   string
+	TypeField      string
+	ExpectedType   string
+	ActualType     string
+	ValidationCode string
 	// Raw is the response that failed to parse, bounded to a safe preview
 	// length so a large or adversarial response cannot balloon an error
 	// message that ends up in logs.
@@ -83,6 +84,24 @@ func newParseError(kind ParseErrorKind, raw string, err error) *ParseError {
 		parseErr.TypeField = typeErr.Field
 		parseErr.ExpectedType = typeErr.Type.String()
 		parseErr.ActualType = typeErr.Value
+	}
+	if kind == ParseErrorValidation && err != nil {
+		switch message := err.Error(); {
+		case strings.HasPrefix(message, "invalid verdict"):
+			parseErr.ValidationCode = "invalid_verdict"
+		case strings.Contains(message, "missing file path"):
+			parseErr.ValidationCode = "issue_missing_file"
+		case strings.Contains(message, "missing severity"):
+			parseErr.ValidationCode = "issue_missing_severity"
+		case strings.Contains(message, "missing message"):
+			parseErr.ValidationCode = "issue_missing_message"
+		case strings.Contains(message, "invalid severity"):
+			parseErr.ValidationCode = "issue_invalid_severity"
+		case strings.HasPrefix(message, "ISO score"):
+			parseErr.ValidationCode = "iso_score_out_of_range"
+		default:
+			parseErr.ValidationCode = "other"
+		}
 	}
 	return parseErr
 }
@@ -229,6 +248,18 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 	// becomes an issue here, before validation, so it travels the same
 	// path as one the model reported under "issues".
 	p.adoptLineComments(jsonContent, &result)
+	// The example formerly showed iso_scores:{} even though the validator
+	// treats every missing score as zero and rejects it. An empty object has
+	// no scores to validate; normalize only that exact shape to absent.
+	if result.ISOScores != nil {
+		if fields == nil {
+			_ = json.Unmarshal([]byte(jsonContent), &fields)
+		}
+		var isoFields map[string]json.RawMessage
+		if raw, ok := fields["iso_scores"]; ok && json.Unmarshal(raw, &isoFields) == nil && len(isoFields) == 0 {
+			result.ISOScores = nil
+		}
+	}
 
 	// Validate
 	if err := p.validateReviewResult(&result); err != nil {
