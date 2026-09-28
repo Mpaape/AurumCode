@@ -1,8 +1,11 @@
 # Render integration
 
-`internal/render` turns a review into PR-ready Markdown. Wire it in two spots:
+`internal/render` turns a local review into a deterministic report:
 
-1. **PR body** — call `render.Summary(result, "en")` (or `"pt-BR"`) and prepend
-   the returned Markdown before the detailed findings.
-2. **PR comment** — call `render.Mermaid(diff)` and append it inside a fenced
-   code block (```` ```mermaid ````) so the changed flow is drawn from the diff.
+1. `render.Summary(result, "en")` (or `"pt-BR"`) gives a compact CLI summary.
+2. `render.Mermaid(diff)` gives an optional local diagram inferred from changed
+   files. It is not proof of runtime flow.
+
+The GitHub PR publication uses one code-review body with findings, evidence,
+suggestions and limitations. It does not prepend the CLI summary or append the
+inferred diagram.

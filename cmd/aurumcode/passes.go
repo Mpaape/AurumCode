@@ -160,9 +160,8 @@ func resolveCodebaseContext(diff *types.Diff) string {
 
 // renderPass is the render pass: it renders the deterministic, localized
 // summary (render.Summary) and the Mermaid flow diagram (render.Mermaid) from
-// the already-redacted result and the diff. Both paths share it: the PR path
-// wraps the two strings into its published comment body, the --base path
-// prints them to stdout. Both values are "" when there is nothing to render.
+// the already-redacted result and the diff. The --base path prints them to
+// stdout; the PR path publishes a single code-review document instead.
 func renderPass(result *types.ReviewResult, diff *types.Diff, language string) (tldr string, diagram string) {
 	tldr = render.Summary(result, language)
 	if d, err := render.Mermaid(diff); err == nil {

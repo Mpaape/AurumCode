@@ -17,8 +17,9 @@ import (
 // TestPRPathMergesDeterministicCapabilities proves the zero-config parity
 // wiring: a diff containing a hardcoded secret must produce a deterministic
 // static-analysis finding merged into the published formal review, plus the
-// rendered summary and Mermaid diagram -- even when the model itself reports
-// nothing. It is a transport/publication assertion, not a model-accuracy eval.
+// a single code-review body without the CLI summary or inferred Mermaid
+// diagram -- even when the model itself reports nothing. It is a
+// transport/publication assertion, not a model-accuracy eval.
 func TestPRPathMergesDeterministicCapabilities(t *testing.T) {
 	var posted githubclient.PullRequestReview
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -61,13 +62,18 @@ func TestPRPathMergesDeterministicCapabilities(t *testing.T) {
 	}
 
 	// The deterministic pass must turn the model's silent approve into a
-	// blocking review, and the rendered summary + diagram must be present.
+	// blocking review without adding unrelated CLI output to the PR.
 	if posted.Event != "REQUEST_CHANGES" {
 		t.Fatalf("event=%q, want REQUEST_CHANGES (analysis finding is error severity)", posted.Event)
 	}
-	for _, want := range []string{"analysis/hardcoded-secret", "Code Review Summary", "mermaid", "flowchart TD"} {
+	for _, want := range []string{"analysis/hardcoded-secret", "## AurumCode code review", "### Findings"} {
 		if !strings.Contains(posted.Body, want) {
 			t.Fatalf("published review missing %q:\n%s", want, posted.Body)
+		}
+	}
+	for _, unwanted := range []string{"Code Review Summary", "mermaid", "Files touched: None"} {
+		if strings.Contains(posted.Body, unwanted) {
+			t.Fatalf("published review contains CLI noise %q:\n%s", unwanted, posted.Body)
 		}
 	}
 }

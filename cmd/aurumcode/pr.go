@@ -557,25 +557,8 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// was.
 	var failures []string
 	inlineCount, generalCount := 0, 0
-	summaryBody := formatReviewSummaryForLanguageAndDiff(result, diff, reviewLanguage)
-	// Rendered summary and flow diagram (zero-config): a concise TL;DR opens
-	// the review and a Mermaid diagram closes it, matching the "summaries and
-	// diagrams" parity of the competing reviewers. Both are deterministic and
-	// derive only from the already-redacted result and diff.
-	// AUR-490: the shared render pass (renderPass,
-	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
-	tldr, diagram := renderPass(result, diff, reviewLanguage)
-	if strings.TrimSpace(tldr) != "" {
-		summaryBody = tldr + "\n\n---\n\n" + summaryBody
-	}
-	if strings.TrimSpace(diagram) != "" {
-		summaryBody += "\n\n<details><summary>Fluxo alterado (diagrama)</summary>\n\n```mermaid\n" + diagram + "\n```\n</details>\n"
-	}
+	summaryBody := formatPublishedReviewBody(result, diff, reviewLanguage, publication == "review" && inlineComments, changelogText)
 	if publication == "review" {
-		if inlineComments {
-			summaryBody = formatFormalReviewSummary(result, diff, reviewLanguage)
-		}
-		summaryBody = appendChangelogSection(summaryBody, changelogText)
 		formalComments := make([]githubclient.ReviewLineComment, 0)
 		if inlineComments {
 			for _, issue := range issues {
@@ -643,7 +626,6 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			generalCount++
 		}
 
-		summaryBody = appendChangelogSection(summaryBody, changelogText)
 		if err := client.PostIssueComment(ctx, owner, repoName, prNumber, summaryBody); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 			failures = append(failures, "summary: "+err.Error())
@@ -1248,6 +1230,18 @@ func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, lan
 		}
 	}
 	return formatReviewSummaryForLanguageAndDiff(&copy, diff, language)
+}
+
+// A published review is one code-review document. The deterministic TL;DR
+// and Mermaid diagram remain available in local CLI output, but prepending
+// them here duplicated the verdict and mislabeled files without findings as
+// "none". A diagram inferred from imports is not evidence about runtime flow.
+func formatPublishedReviewBody(result *types.ReviewResult, diff *types.Diff, language string, formalWithInline bool, changelogText string) string {
+	body := formatReviewSummaryForLanguageAndDiff(result, diff, language)
+	if formalWithInline {
+		body = formatFormalReviewSummary(result, diff, language)
+	}
+	return appendChangelogSection(body, changelogText)
 }
 
 func formatReviewSummary(result *types.ReviewResult) string {
