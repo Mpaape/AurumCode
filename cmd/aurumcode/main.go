@@ -411,7 +411,6 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	prModeloGiven := false
 	prLimiteGiven := false
 	prPublicationGiven := false
-	exigirGiven := false
 	perfisGiven := false
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -425,28 +424,13 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			prLimiteGiven = true
 		case "modo-publicacao":
 			prPublicationGiven = true
-		case "exigir-qualidade":
-			exigirGiven = true
 		case "perfis", "profile":
 			perfisGiven = true
 		}
 	})
 	if prGiven {
-		// AUR-458: --exigir-qualidade is a --base-path guarantee and this
-		// card neither implements nor proves it on the PR path, whose
-		// quality-failure handling (runPRReview, cmd/aurumcode/pr.go) is a
-		// separate published contract. Silently accepting and dropping the
-		// flag is the exact defect class this card exists to kill -- a
-		// caller asking "fail if you did not review" and getting a green
-		// exit anyway -- and AUR-451 exists precisely because the PR path
-		// used to ignore flags it did not read. So it is refused loudly as
-		// a usage error (exit 2) instead of being honored halfway. Without
-		// the flag, exigirGiven is false and this path is byte-identical
-		// to AUR-451's.
-		if exigirGiven {
-			fmt.Fprintln(stderr, "aurumcode review: --exigir-qualidade is not supported with --pr (it guards the --base review path only)")
-			return 2
-		}
+		// The PR path uses the same explicit quality requirement as --base:
+		// an inconclusive model must not leave a green CI review gate.
 		// AUR-502: multi-profile review is implemented on the --base path,
 		// where the per-profile model passes and the deterministic merge run.
 		// The PR path is a separate published contract; silently accepting
@@ -457,16 +441,17 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			return 2
 		}
 		return runPRReview(stdout, stderr, *pr, *repoFlag, *publicar, *naLinha, *check, filter, prReviewOptions{
-			seguranca:      *seguranca,
-			failOnSet:      prFailOnGiven,
-			failOn:         *failOn,
-			modeloSet:      prModeloGiven,
-			modelo:         *modelo,
-			limiteSet:      prLimiteGiven,
-			limite:         *limite,
-			publicationSet: prPublicationGiven,
-			publication:    *modoPublicacao,
-			changelog:      *changelogFlag,
+			seguranca:       *seguranca,
+			failOnSet:       prFailOnGiven,
+			failOn:          *failOn,
+			modeloSet:       prModeloGiven,
+			modelo:          *modelo,
+			limiteSet:       prLimiteGiven,
+			limite:          *limite,
+			publicationSet:  prPublicationGiven,
+			publication:     *modoPublicacao,
+			changelog:       *changelogFlag,
+			exigirQualidade: *exigirQualidade,
 		})
 	}
 

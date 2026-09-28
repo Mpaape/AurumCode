@@ -536,6 +536,38 @@ func TestIncompleteQualityReviewNeverClaimsApproval(t *testing.T) {
 	}
 }
 
+func TestRequiredPRQualityFailurePublishesFailingStatus(t *testing.T) {
+	var published []githubclient.CommitStatus
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
+			_, _ = w.Write([]byte(`{"permissions":{"push":true}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/statuses/head":
+			var status githubclient.CommitStatus
+			if err := json.NewDecoder(r.Body).Decode(&status); err != nil {
+				t.Error(err)
+			}
+			published = append(published, status)
+			w.WriteHeader(http.StatusCreated)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	client := githubclient.NewClientWithBaseURL("test-token", server.URL)
+	var out, errOut strings.Builder
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, false); code != 0 {
+		t.Fatalf("complete review exit=%d: %s", code, errOut.String())
+	}
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, true); code != exitQualityNotReviewed {
+		t.Fatalf("inconclusive review exit=%d: %s", code, errOut.String())
+	}
+	if len(published) != 2 || published[0].State != "success" || published[1].State != "failure" || published[1].Context != checkContext || !strings.Contains(published[1].Description, "inconclusiva") {
+		t.Fatalf("status sequence=%+v", published)
+	}
+}
+
 func TestFormatReviewSummaryUsesConfiguredLanguage(t *testing.T) {
 	result := &types.ReviewResult{
 		Issues: []types.ReviewIssue{{
