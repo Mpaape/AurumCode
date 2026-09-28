@@ -186,10 +186,29 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 		return p.degradedOrError(response, ParseErrorNoJSON, nil)
 	}
 
-	// Parse JSON
+	// Parse JSON. A malformed optional strengths section must not erase a
+	// review whose issues are otherwise valid. Keep the issue schema strict:
+	// only the praise section can be discarded after a type mismatch.
 	var result types.ReviewResult
 	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
-		return p.degradedOrError(response, ParseErrorInvalidJSON, err)
+		var typeErr *json.UnmarshalTypeError
+		if !errors.As(err, &typeErr) || typeErr.Field != "strengths" {
+			return p.degradedOrError(response, ParseErrorInvalidJSON, err)
+		}
+		var fields map[string]json.RawMessage
+		if json.Unmarshal([]byte(jsonContent), &fields) != nil {
+			return p.degradedOrError(response, ParseErrorInvalidJSON, err)
+		}
+		delete(fields, "strengths")
+		withoutStrengths, marshalErr := json.Marshal(fields)
+		if marshalErr != nil {
+			return p.degradedOrError(response, ParseErrorInvalidJSON, marshalErr)
+		}
+		result = types.ReviewResult{}
+		if decodeErr := json.Unmarshal(withoutStrengths, &result); decodeErr != nil {
+			return p.degradedOrError(response, ParseErrorInvalidJSON, decodeErr)
+		}
+		jsonContent = string(withoutStrengths)
 	}
 
 	// A finding the model reported under "line_comments" is a finding: it
