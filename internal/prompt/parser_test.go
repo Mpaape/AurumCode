@@ -181,6 +181,23 @@ func TestParseErrorReportsOnlySafeJSONDiagnostics(t *testing.T) {
 	}
 }
 
+func TestParseErrorClassifiesValidJSONWithWrongFieldType(t *testing.T) {
+	response := `{"issues":"private-model-value"}`
+	_, err := NewResponseParser().ParseReviewResponse(response)
+	var parseErr *ParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("expected ParseError, got %v", err)
+	}
+	if parseErr.Kind != ParseErrorInvalidJSON || !parseErr.RawJSONValid || parseErr.TypeField == "" || parseErr.ExpectedType == "" || parseErr.ActualType != "string" {
+		t.Fatalf("wrong-type diagnostics = %+v", parseErr)
+	}
+	for _, safeField := range []string{parseErr.TypeField, parseErr.ExpectedType, parseErr.ActualType} {
+		if strings.Contains(safeField, "private-model-value") {
+			t.Fatalf("model text leaked into safe diagnostics: %q", safeField)
+		}
+	}
+}
+
 // TestParseReviewResponse_DegradedFallback exercises the recovery path this
 // card adds: a model that ignores the JSON schema entirely but still lists
 // findings using the documented "file:line: severity: message" convention
