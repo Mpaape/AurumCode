@@ -45,9 +45,14 @@ func NewProvider(apiKey, baseURL, model string) *Provider {
 // rejects the call for some other reason, that is surfaced verbatim as the
 // provider's own error message, not papered over here.
 type completionRequest struct {
-	Model     string    `json:"model,omitempty"`
-	Messages  []message `json:"messages"`
-	MaxTokens int       `json:"max_tokens,omitempty"`
+	Model          string          `json:"model,omitempty"`
+	Messages       []message       `json:"messages"`
+	MaxTokens      int             `json:"max_tokens,omitempty"`
+	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+}
+
+type responseFormat struct {
+	Type string `json:"type"`
 }
 
 type message struct {
@@ -96,6 +101,9 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 			{Role: "user", Content: prompt},
 		},
 		MaxTokens: opts.MaxTokens,
+	}
+	if opts.JSONMode {
+		reqBody.ResponseFormat = &responseFormat{Type: "json_object"}
 	}
 
 	// Add system message if provided

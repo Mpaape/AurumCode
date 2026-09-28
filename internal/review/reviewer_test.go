@@ -28,6 +28,27 @@ const knownProblemResponse = `{
   "summary": "One planted credential was found in the change."
 }`
 
+type optionsCaptureProvider struct {
+	FakeProvider
+	options llm.Options
+}
+
+func (p *optionsCaptureProvider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
+	p.options = opts
+	return p.FakeProvider.Complete(prompt, opts)
+}
+
+func TestReviewRequestsJSONWithoutOutputCap(t *testing.T) {
+	provider := &optionsCaptureProvider{FakeProvider: FakeProvider{Response: `{"issues":[],"summary":"No findings."}`}}
+	reviewer := NewReviewer(llm.NewOrchestrator(provider, nil, nil), DefaultConfig())
+	if _, err := reviewer.GenerateReview(context.Background(), newFixtureDiff(t)); err != nil {
+		t.Fatal(err)
+	}
+	if !provider.options.JSONMode || provider.options.MaxTokens != 0 {
+		t.Fatalf("review options = %+v, want JSON mode without client-side output cap", provider.options)
+	}
+}
+
 func newFixtureDiff(t *testing.T) *types.Diff {
 	t.Helper()
 	repo, err := analyzer.OpenRepo("../../tests/fixtures/repos/git-demo/repo.git")

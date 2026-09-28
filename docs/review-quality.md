@@ -3,6 +3,10 @@
 O modelo recebe o diff, as linguagens detectadas e o contexto fornecido. Deve
 avaliar correção, compatibilidade, legibilidade, arquitetura, performance e
 segurança, reportando problemas introduzidos pela mudança.
+O review pede saída em modo JSON ao provedor compatível com OpenAI; o parser
+continua validando a estrutura e os achados antes da publicação. Isso evita
+depender apenas da instrução textual para formar JSON e não impõe teto de
+tokens à resposta.
 
 O filtro atual exige uma linha adicionada (`RIGHT`, numeração nova) ou removida
 (`LEFT`, numeração antiga), uma regra do catálogo

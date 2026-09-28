@@ -154,9 +154,13 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	if cfg.MaxTokens > cfg.ReserveReply {
 		maxReplyTokens = cfg.MaxTokens - cfg.ReserveReply
 	}
+	// The parser requires JSON. Ask the provider to constrain syntax instead
+	// of relying on prompt wording alone; schema and finding evidence are
+	// still validated locally after the response arrives.
 	resp, err := r.orchestrator.Complete(ctx, fullPrompt, llm.Options{
 		MaxTokens:   maxReplyTokens,
 		Temperature: cfg.Temperature,
+		JSONMode:    true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("LLM request failed: %w", err)

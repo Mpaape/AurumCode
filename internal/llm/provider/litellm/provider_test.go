@@ -110,6 +110,37 @@ func TestProviderComplete(t *testing.T) {
 	}
 }
 
+func TestProviderRequestsJSONOnlyWhenReviewAsksForIt(t *testing.T) {
+	var formats []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req completionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		if req.ResponseFormat == nil {
+			formats = append(formats, "")
+		} else {
+			formats = append(formats, req.ResponseFormat.Type)
+		}
+		if req.MaxTokens != 0 {
+			t.Errorf("JSON mode added an output cap: %d", req.MaxTokens)
+		}
+		_ = json.NewEncoder(w).Encode(completionResponse{
+			Choices: []choice{{Message: message{Role: "assistant", Content: `{"issues":[]}`}}},
+		})
+	}))
+	defer server.Close()
+	provider := NewProvider("test-key", server.URL, "test-model")
+	for _, options := range []llm.Options{{}, {JSONMode: true}} {
+		if _, err := provider.Complete("Return JSON", options); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(formats) != 2 || formats[0] != "" || formats[1] != "json_object" {
+		t.Fatalf("response formats = %v, want omitted then json_object", formats)
+	}
+}
+
 func TestProviderComplete_WithSystem(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req completionRequest
