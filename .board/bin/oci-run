@@ -79,6 +79,7 @@ stderr_limit=0
 timeout_seconds=0
 max_input_files=0
 max_input_bytes=0
+go_profile_env=()
 
 declare -A profile_doc=()
 declare -A lock_doc=()
@@ -483,6 +484,19 @@ resolve_profile() {
   profile_source='registry'
   profile_digest="$(file_digest "$profile_file")"
   lock_digest="$declared_lock_digest"
+  if [[ "$name" == 'go-unit-offline-v1' ]]; then
+    # The module cache is baked into the pinned image. Go's writable build
+    # cache and temporary files stay on the runner's bounded /tmp tmpfs.
+    local go_parallelism=$(((cpu_millis + 999) / 1000))
+    go_profile_env=(
+      --env=GOPROXY=off --env=GOSUMDB=off --env=GOTOOLCHAIN=local
+      --env=GOWORK=off --env=GOENV=off --env=GOPATH=/go
+      --env=HOME=/tmp --env=TMPDIR=/tmp --env=GOTMPDIR=/tmp
+      --env=GOCACHE=/tmp/go-build --env=CGO_ENABLED=0
+      "--env=GOMAXPROCS=$go_parallelism"
+      "--env=GOFLAGS=-buildvcs=false -p=$go_parallelism"
+    )
+  fi
 }
 
 # Last gate before any engine call. It re-derives the hardening from the resolved plan
@@ -619,7 +633,7 @@ fi
 # where a Bash-only bootstrap image was assigned to a Go acceptance.
 runtime_probe='set -eu; command -v bash >/dev/null'
 runtime_tools='bash'
-if grep -Eq 'command[[:space:]]+-v[[:space:]]+go|(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$repo_root/$test_path"; then
+if [[ "$profile" == 'go-unit-offline-v1' ]] || grep -Eq 'command[[:space:]]+-v[[:space:]]+go|(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$repo_root/$test_path"; then
   runtime_probe="$runtime_probe; command -v go >/dev/null"
   runtime_tools="$runtime_tools,go"
 fi
@@ -782,6 +796,7 @@ if ! container_id="$(
     --memory="$run_memory" \
     --cpus="$run_cpus" \
     --tmpfs "$run_tmpfs" \
+    "${go_profile_env[@]}" \
     --workdir=/workspace \
     --log-driver=none \
     "$derived_image" bash "$test_path" 2>"$create_stderr"
