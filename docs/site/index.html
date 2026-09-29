@@ -346,14 +346,14 @@ jobs:
   </div>
   <a class="download" href="workflow.yml" download>Baixar o workflow.yml ↓</a>
   <h3 class="config-title">Ajuste o review ao seu time</h3>
-  <p>Opcional: salve a configuração gerada em <code>.aurumcode.yaml</code> na branch base.</p>
+  <p>O seletor começa com um preset de exemplo — português, review formal e sugestões inline —, não com os padrões do produto. Sem arquivo de configuração, os padrões são inglês, comentários na conversa e sem sugestões inline. Para personalizar, salve o YAML gerado em <code>.aurumcode/config.yml</code> na branch base.</p>
   <div class="config-controls" hidden>
     <label for="language">Idioma<select id="language"><option value="pt-BR">Português</option><option value="en-US">English</option></select></label>
     <label for="publication">Publicação<select id="publication"><option value="review">Review formal</option><option value="comments">Comentários</option></select></label>
     <label for="inline">Sugestões na linha<input id="inline" type="checkbox" checked></label>
   </div>
   <div class="code-panel">
-    <div class="code-head"><span>.aurumcode.yaml</span><button data-copy="config-code" type="button" hidden>Copiar configuração</button></div>
+    <div class="code-head"><span>.aurumcode/config.yml</span><button data-copy="config-code" type="button" hidden>Copiar configuração</button></div>
     <pre tabindex="0"><code id="config-code">review:
   language: pt-BR
   publication: review
