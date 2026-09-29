@@ -381,6 +381,16 @@ grep -Eq '^[[:space:]]*"[A-Za-z_][A-Za-z0-9_]*"[[:space:]]*:[[:space:]]*[[{]' "$
   printf 'preflight error: profile %s is not a canonical flat JSON object; the runner refuses nested values\n' "$profile" >&2
   exit 1
 }
+for required_field in \
+  '"network": "none"' '"cap_drop": "ALL"' '"cap_add": "none"' \
+  '"mounts": "none"' '"devices": "none"' '"pull": "never"' \
+  '"tmpfs": "rw,nosuid,nodev"' '"read_only_rootfs": true' \
+  '"no_new_privileges": true' '"privileged": false'; do
+  grep -Eq "^[[:space:]]*${required_field},?[[:space:]]*$" "$profile_file" || {
+    printf 'preflight error: profile %s violates runner hardening: %s\n' "$profile" "$required_field" >&2
+    exit 1
+  }
+done
 
 if command -v podman >/dev/null 2>&1; then
   engine=podman
@@ -409,7 +419,7 @@ fi
 
 runtime_probe='set -eu; command -v bash >/dev/null'
 required_tools='bash'
-if (( builder_preflight == 0 )) && grep -Eq 'command[[:space:]]+-v[[:space:]]+go|(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$acceptance"; then
+if [[ "$profile" == 'go-unit-offline-v1' ]] || { (( builder_preflight == 0 )) && grep -Eq 'command[[:space:]]+-v[[:space:]]+go|(^|[[:space:];|&])go[[:space:]]+(test|run|build|vet)' "$acceptance"; }; then
   runtime_probe="$runtime_probe; command -v go >/dev/null"
   required_tools="$required_tools,go"
 fi
@@ -473,7 +483,7 @@ if (( builder_preflight == 0 )); then
     }
     owned_runtime_probe='set -eu; command -v bash >/dev/null'
     owned_required_tools='bash'
-    if grep -Eq '"module_cache"|"command"[[:space:]]*:[[:space:]]*\[[[:space:]]*"go"' "$owned_profile_file"; then
+    if [[ "$owned_profile_name" == 'go-unit-offline-v1' || "$owned_profile_name" == 'go-git-offline-v1' ]] || grep -Eq '"module_cache"|"command"[[:space:]]*:[[:space:]]*\[[[:space:]]*"go"' "$owned_profile_file"; then
       owned_runtime_probe="$owned_runtime_probe; command -v go >/dev/null"
       owned_required_tools='bash,go'
     fi

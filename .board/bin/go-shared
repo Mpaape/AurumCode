@@ -47,7 +47,6 @@ case "${1:-}" in
       -e GOFLAGS='-mod=mod -buildvcs=false' -e GOPROXY=off -e GOMEMLIMIT=2GiB \
       -e GOCACHE=/gocache -e HOME=/tmp \
       "$image" sleep infinity >/dev/null
-    "$engine" exec "$name" git config --global --add safe.directory '*' >/dev/null
     printf 'go-shared: %s up (cache volume %s, worktrees under %s)\n' "$name" "$cache_volume" "$wt_root"
     ;;
   exec)
