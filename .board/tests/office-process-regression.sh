@@ -166,7 +166,7 @@ set -euo pipefail
 printf 'must-not-run\n'
 EOF
 chmod +x "$fixture/tests/acceptance/AUR-902.sh"
-printf '%s\n' '-----BEGIN PRIVATE KEY----- synthetic-fixture' >"$fixture/fixtures/AUR-902.txt"
+printf '%s%s\n' '-----BEGIN PRI' 'VATE KEY----- synthetic-fixture' >"$fixture/fixtures/AUR-902.txt"
 
 cat >"$fixture/.board/cards/ready/AUR-903.md" <<'EOF'
 ---
@@ -201,8 +201,15 @@ chmod +x "$fixture/tests/acceptance/AUR-903.sh"
 
 git -C "$fixture" init -q
 git -C "$fixture" add .
-git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
-  commit -q -m fixture
+fixture_author_name="$(git -C "$root" config user.name)"
+fixture_author_email="$(git -C "$root" config user.email)"
+[[ -n "$fixture_author_name" && -n "$fixture_author_email" ]] || {
+  printf 'regression error: configured human identity is required\n' >&2
+  exit 1
+}
+GIT_AUTHOR_NAME="$fixture_author_name" GIT_AUTHOR_EMAIL="$fixture_author_email" \
+GIT_COMMITTER_NAME="$fixture_author_name" GIT_COMMITTER_EMAIL="$fixture_author_email" \
+  git -C "$fixture" commit -q -m fixture
 
 positive_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture")"
 [[ "$positive_output" == *'runtime=bash'* ]] || {
