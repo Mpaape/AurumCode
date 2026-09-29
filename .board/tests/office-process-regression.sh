@@ -207,9 +207,12 @@ fixture_author_email="$(git -C "$root" config user.email)"
   printf 'regression error: configured human identity is required\n' >&2
   exit 1
 }
-GIT_AUTHOR_NAME="$fixture_author_name" GIT_AUTHOR_EMAIL="$fixture_author_email" \
-GIT_COMMITTER_NAME="$fixture_author_name" GIT_COMMITTER_EMAIL="$fixture_author_email" \
-  git -C "$fixture" commit -q -m fixture
+fixture_commit() {
+  GIT_AUTHOR_NAME="$fixture_author_name" GIT_AUTHOR_EMAIL="$fixture_author_email" \
+  GIT_COMMITTER_NAME="$fixture_author_name" GIT_COMMITTER_EMAIL="$fixture_author_email" \
+    git -C "$fixture" commit -q -m "$1"
+}
+fixture_commit fixture
 
 positive_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture")"
 [[ "$positive_output" == *'runtime=bash'* ]] || {
@@ -251,8 +254,7 @@ exit 125
 EOF
 chmod +x "$fixture/fakebin/docker"
 git -C "$fixture" add fakebin/docker
-git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
-  commit -q -m fake-engine-runtime-classification
+fixture_commit fake-engine-runtime-classification
 set +e
 missing_bash_preflight="$(PATH="$fixture/fakebin:$PATH" AURUM_OCI_ENGINE=docker bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture" 2>&1)"
 missing_bash_preflight_rc=$?
@@ -281,8 +283,7 @@ set -e
 }
 chmod +x "$fixture/tests/acceptance/AUR-901.sh"
 git -C "$fixture" add tests/acceptance/AUR-901.sh
-git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
-  commit -q -m executable-ready-candidate
+fixture_commit executable-ready-candidate
 ready_positive="$(PREFLIGHT_RUN=1 bash "$fixture/.board/card-preflight.sh" AUR-901 "$fixture")"
 [[ "$ready_positive" == *'preflight ok: AUR-901'* ]] || {
   printf 'regression error: executable complete ready candidate did not pass\n' >&2
@@ -292,8 +293,7 @@ ready_positive="$(PREFLIGHT_RUN=1 bash "$fixture/.board/card-preflight.sh" AUR-9
 sed -i 's/^"lock_digest":.*$/"lock_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",/' \
   "$fixture/.board/oci/profiles/bootstrap-readonly-v1.json"
 git -C "$fixture" add .board/oci/profiles/bootstrap-readonly-v1.json
-git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
-  commit -q -m bad-lock-binding
+fixture_commit bad-lock-binding
 set +e
 bad_lock_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture" 2>&1)"
 bad_lock_rc=$?
@@ -307,8 +307,7 @@ set -e
 sed -i "s|^\"lock_digest\":.*$|\"lock_digest\": \"$fixture_lock_digest\",|" \
   "$fixture/.board/oci/profiles/bootstrap-readonly-v1.json"
 git -C "$fixture" add .board/oci/profiles/bootstrap-readonly-v1.json
-git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
-  commit -q -m restore-lock-binding
+fixture_commit restore-lock-binding
 
 cat >"$fixture/tests/acceptance/AUR-900.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -317,8 +316,7 @@ go test ./...
 EOF
 chmod +x "$fixture/tests/acceptance/AUR-900.sh"
 git -C "$fixture" add tests/acceptance/AUR-900.sh
-git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
-  commit -q -m go-runtime-mismatch
+fixture_commit go-runtime-mismatch
 
 set +e
 missing_module_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture" 2>&1)"
@@ -334,8 +332,7 @@ printf 'module fixture\n' >"$fixture/go.mod"
 : >"$fixture/go.sum"
 sed -i '/^paths:/a read_paths: [go.mod, go.sum]' "$fixture/.board/cards/doing/AUR-900.md"
 git -C "$fixture" add go.mod go.sum .board/cards/doing/AUR-900.md
-git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
-  commit -q -m materialize-go-module
+fixture_commit materialize-go-module
 
 set +e
 negative_output="$(bash "$fixture/.board/card-preflight.sh" AUR-900 "$fixture" 2>&1)"
