@@ -62,9 +62,10 @@ executaveis no site. Gratuito e aberto, com custo do provedor explicitado.
 | 1 — instalacao correta | AUR-506 e AUR-507, paths disjuntos | Luna: configurador; Sol: Action | Aceites shell, navegador/CI pertinentes e um review independente por candidato |
 | 2 — execucao verificavel | AUR-508 | Sol | Profile canonico carregavel; uma assercao Go real passa e sua mutacao falha em container |
 | 3 — previsibilidade do review | AUR-513/514/515/516/517, AUR-453/476/480/494/454 | Sol, uma posse de cmd/aurumcode por vez | Cache/contexto corretos, evidencia preservada, parecer coerente, dedup e sugestoes comprovadas |
-| 4 — contrato de merge/release | AUR-509, AUR-510 | Sol | Changelog obrigatorio e release pinada que o consumidor consegue instalar |
+| 4 — contrato de merge | AUR-509 | Sol | Changelog conciso obrigatorio nos merges |
 | 5 — contexto e adapters | AUR-470, AUR-469, AUR-492, AUR-495 | Sol | Contexto relevante e fontes configuraveis; nenhuma indisponibilidade vira falso verde |
 | 6 — demonstracao e comparacao | AUR-491, AUR-501, AUR-511, AUR-512 | Luna: docs/corpus; Sol: harness/QA | Site reproduzivel, PR consumidor real e relatorio sem claims nao medidos |
+| 7 — publicacao oficial | AUR-510 | Sol | QA consumidor aprovada antes de publicar versao, tag e release pinada |
 
 Docs e pesquisa podem andar em paralelo quando nao tocam paths de um builder.
 O numero de agentes segue a independencia dos arquivos e a capacidade medida
@@ -98,6 +99,13 @@ Medir precisao/recall de defeitos por severidade, erros fora do diff, duplicacao
 repeticao depois de corrigir/rejeitar um achado, sugestoes aplicaveis, rodadas
 ate encerramento, tempo humano de triagem, latencia e custo. Rodar o mesmo PR
 original, corrigido parcialmente, corrigido completamente e sem alteracao.
+
+Comparar tambem contexto ligado/desligado e variantes versionadas de prompts e
+skills, mantendo modelo e corpus constantes. Uma sugestao so conta como
+aplicavel quando seu patch aplica, preserva os testes pertinentes e corrige o
+defeito esperado; emitir um bloco de codigo nao basta. Registrar separadamente
+tempo ativo de triagem e decisao humana (aceita, rejeitada ou inconclusiva),
+sem inferir aceitacao a partir da quantidade de comentarios.
 
 Usar Qwen local como endpoint semantico de teste, registrando o modelo realmente
 servido. Comparacao de pipelines com mesmo modelo e comparacao de produtos
