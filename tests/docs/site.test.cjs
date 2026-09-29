@@ -80,7 +80,7 @@ async function main() {
     await page.locator("#inline").uncheck();
     assert.equal((await configCode.textContent()).trim(), "# Sem personalização: padrões ativos. Para personalizar, salve em .aurumcode/config.yml.");
     await page.locator("#inline").check();
-    assert.equal((await configCode.textContent()).trim(), "review:\n  language: en-US\n  publication: comments\n  inline_comments: true");
+    assert.equal((await configCode.textContent()).trim(), "review:\n  inline_comments: true");
     await page.locator('[data-copy="config-code"]').click();
     assert.equal((await page.evaluate(() => navigator.clipboard.readText())).trim(), (await configCode.textContent()).trim());
 
