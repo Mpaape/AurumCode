@@ -79,7 +79,7 @@ if [[ -z "$repo" ]]; then
     exit 3
 fi
 
-args=(review --pr "$pr_number" --repo "$repo" --publicar)
+args=(review --pr "$pr_number" --repo "$repo" --publicar --exigir-qualidade)
 if [[ "$publication" != config ]]; then
     args+=(--modo-publicacao "$publication")
 fi
