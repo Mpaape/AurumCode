@@ -1,0 +1,26 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-507",
+  "commit": "45e8c99954cb7b76f33a070e84e19844445a5341",
+  "review": "approved",
+  "validation": "passed",
+  "reviewer": {
+    "kind": "aurum-ci-pr-review",
+    "pull_request": 48,
+    "head_sha": "45e8c99954cb7b76f33a070e84e19844445a5341",
+    "status_context": "aurumcode/review",
+    "status_state": "success",
+    "run_id": 36509630022
+  },
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-507",
+    "exit_code": 0,
+    "raw_output": "oci-run: untrusted stdout: AUR-507/all/pass (entrypoint contract stubs, not E2E)\n{\"schema\":\"aurum.acceptance-execution\",\"version\":1,\"card_id\":\"AUR-507\",\"profile\":\"bootstrap-readonly-v1\",\"profile_source\":\"registry\",\"profile_digest\":\"sha256:26bbdf2ed3ab5dd0533f5688663d1d12293eff3cbb2efa0fb4ed1c1efcb6249f\",\"lock_digest\":\"sha256:3987d22df130e7bc2dc59e028cda6c5ef08ac036d13c9eecbd3e44951b81c9b3\",\"engine\":\"docker\",\"image\":\"aurum-bootstrap-go-bash@sha256:e8521445a6c1bc7c017258e9c71caf8eb78ee254862582c5d57d8a79d9413084\",\"input_manifest_digest\":\"sha256:25a57f943b81b62da4c0cc5291f26150c99bd7b3655daefbcd621eccbfd12109\",\"exit_code\":0,\"stdout_sha256\":\"sha256:d9a7ac4c3c44dfeee3d958fc8ef152a73d84c1539716c47ea0a7ff6e2fa56cbc\",\"stderr_sha256\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"stdout_bytes\":54,\"stderr_bytes\":0,\"output_truncated\":false,\"timed_out\":false,\"secret_detected\":false,\"forbidden_authority_assertion\":false,\"observation_trusted\":false}\npreflight ok: AUR-507 status=ready validation=tested profile=bootstrap-readonly-v1 runtime=bash worktree=/tmp/aurum-product-wave.3KKjJu/candidate\n"
+  },
+  "regression_mutation": {
+    "scenario": "MUT-001",
+    "exit_code": 1,
+    "result": "expected rejection"
+  }
+}
