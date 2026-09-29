@@ -1,5 +1,5 @@
 name: AurumCode code review
-description: Review pull requests with the repository's configured model, context and prompt.
+description: Review pull requests with the configured model, context and prompt; fail if the model review is inconclusive.
 author: Mpaape
 
 branding:

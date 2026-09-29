@@ -66,6 +66,36 @@ async function main() {
     await page.locator('[data-copy="workflow-code"]').click();
     assert.equal((await page.evaluate(() => navigator.clipboard.readText())).trim(), workflow.trim());
 
+    // The initial controls are an example preset, not the engine defaults.
+    const configPath = ".aurumcode/config.yml";
+    const configCode = page.locator("#config-code");
+    assert.equal(await page.locator("#instalar .code-head").filter({ hasText: configPath }).count(), 1);
+    assert.match(await page.locator("#instalar").textContent(), /preset de exemplo[\s\S]*não com os padrões[\s\S]*inglês, comentários na conversa e sem sugestões inline/i);
+    assert.equal((await configCode.textContent()).trim(), "review:\n  language: pt-BR\n  publication: review\n  inline_comments: true");
+
+    // Each control changes the copied YAML; selecting all product defaults
+    // yields a no-file-needed note that still points to the canonical path.
+    await page.locator("#language").selectOption("en-US");
+    await page.locator("#publication").selectOption("comments");
+    await page.locator("#inline").uncheck();
+    assert.equal((await configCode.textContent()).trim(), "# Sem personalização: padrões ativos. Para personalizar, salve em .aurumcode/config.yml.");
+    await page.locator("#inline").check();
+    assert.equal((await configCode.textContent()).trim(), "review:\n  inline_comments: true");
+    await page.locator('[data-copy="config-code"]').click();
+    assert.equal((await page.evaluate(() => navigator.clipboard.readText())).trim(), (await configCode.textContent()).trim());
+
+    // With JavaScript disabled, the static preset and canonical destination
+    // remain readable; interactivity is not required to understand the example.
+    const staticContext = await browser.newContext({ javaScriptEnabled: false });
+    const staticPage = await staticContext.newPage();
+    assert.equal((await staticPage.goto(base)).status(), 200);
+    const staticInstall = staticPage.locator("#instalar");
+    assert.equal(await staticInstall.locator(".code-head").filter({ hasText: configPath }).count(), 1);
+    assert.equal((await staticInstall.locator("#config-code").textContent()).trim(), "review:\n  language: pt-BR\n  publication: review\n  inline_comments: true");
+    assert.match(await staticInstall.textContent(), /preset de exemplo[\s\S]*não com os padrões[\s\S]*inglês, comentários na conversa e sem sugestões inline/i);
+    assert.equal(await staticInstall.locator(".config-controls").isHidden(), true);
+    await staticContext.close();
+
     await page.screenshot({ path: "/tmp/aurum-docs-desktop.png", fullPage: true });
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
