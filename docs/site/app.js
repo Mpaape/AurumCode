@@ -9,7 +9,7 @@ function updateConfig() {
   if (inline.checked) lines.push("  inline_comments: true");
   document.getElementById("config-code").textContent = lines.length
     ? "review:\n" + lines.join("\n")
-    : "# Não é necessário criar .aurumcode.yaml para usar os padrões.";
+    : "# Sem personalização: padrões ativos. Para personalizar, salve em .aurumcode/config.yml.";
 }
 if (language && publication && inline) {
   document.querySelector(".config-controls").hidden = false;
