@@ -11,6 +11,13 @@ schema="$root/.board/schemas/go-unit-offline-profile.schema.json"
 registry="$root/.board/oci/profiles/registry.v1.json"
 runner="$root/.board/bin/oci-run"
 fail() { printf 'AUR-508/%s/%s\n' "$selector" "$1" >&2; exit 1; }
+scratch=''
+cleanup_scratch() {
+  if [[ -n "$scratch" && "$scratch" == "${TMPDIR:-/tmp}/aurum-a508."* && -d "$scratch" ]]; then
+    rm -rf -- "$scratch"
+  fi
+}
+trap cleanup_scratch EXIT
 registry_digest() {
   awk -v target="$1" '
     /"key": "go-unit-offline-v1"/ { found=1; next }
@@ -50,21 +57,18 @@ ac001() {
   grep -Fq 'go-unit-offline-v1' "$root/.board/profile-owners.tsv" || fail missing-owner
   grep -Fq $'go-unit-offline-v1\tAUR-403' "$root/.board/profile-owners.tsv" || fail owner-drift
 
-  local scratch
   scratch="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a508.XXXXXX")" || fail mktemp
   cp "$profile" "$scratch/profile.json"
   cp "$lock" "$scratch/lock.json"
+  chmod u+w "$scratch/profile.json" "$scratch/lock.json"
   printf '\n' >> "$scratch/lock.json"
   if check_profile_data "$scratch/profile.json" "$scratch/lock.json"; then
-    rm -rf -- "$scratch"
     fail divergent-lock-accepted
   fi
   sed 's/"privileged": false/"privileged": true/' "$profile" > "$scratch/profile.json"
   if check_profile_data "$scratch/profile.json" "$lock"; then
-    rm -rf -- "$scratch"
     fail privilege-accepted
   fi
-  rm -rf -- "$scratch"
 }
 ac003() {
   grep -Fq '"image": "aurum-bootstrap-go-bash@sha256:' "$lock" || fail wrong-runtime-lock
