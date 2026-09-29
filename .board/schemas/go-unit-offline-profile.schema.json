@@ -22,14 +22,14 @@
     "read_only_rootfs": {"const": true},
     "no_new_privileges": {"const": true},
     "privileged": {"const": false},
-    "timeout_seconds": {"const": 600},
-    "memory_mb": {"const": 2048},
-    "cpu_millis": {"const": 2000},
-    "pids_limit": {"const": 512},
-    "tmpfs_mb": {"const": 512},
-    "stdout_limit_bytes": {"const": 65536},
-    "stderr_limit_bytes": {"const": 65536},
-    "max_input_files": {"const": 10000},
-    "max_input_bytes": {"const": 67108864}
+    "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 900},
+    "memory_mb": {"type": "integer", "minimum": 64, "maximum": 4096},
+    "cpu_millis": {"type": "integer", "minimum": 100, "maximum": 4000},
+    "pids_limit": {"type": "integer", "minimum": 16, "maximum": 4096},
+    "tmpfs_mb": {"type": "integer", "minimum": 8, "maximum": 1024},
+    "stdout_limit_bytes": {"type": "integer", "minimum": 4096, "maximum": 1048576},
+    "stderr_limit_bytes": {"type": "integer", "minimum": 4096, "maximum": 1048576},
+    "max_input_files": {"type": "integer", "minimum": 1, "maximum": 100000},
+    "max_input_bytes": {"type": "integer", "minimum": 1, "maximum": 268435456}
   }
 }
