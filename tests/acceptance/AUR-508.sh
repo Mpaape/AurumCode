@@ -26,6 +26,12 @@ registry_digest() {
     }
   ' "$registry"
 }
+check_range() {
+  local file="$1" key="$2" minimum="$3" maximum="$4" value
+  value="$(awk -v sought="\"$key\":" '$1 == sought { gsub(/,/, "", $2); print $2; exit }' "$file")"
+  [[ "$value" =~ ^(0|[1-9][0-9]*)$ ]] || return 1
+  (( value >= minimum && value <= maximum ))
+}
 check_profile_data() {
   local file="$1" lock_file="$2" lock_hash
   lock_hash="sha256:$(sha256sum "$lock_file" | awk '{print $1}')"
@@ -42,11 +48,15 @@ check_profile_data() {
     grep -Fxq '"read_only_rootfs": true,' "$file" &&
     grep -Fxq '"no_new_privileges": true,' "$file" &&
     grep -Fxq '"privileged": false,' "$file" &&
-    grep -Fxq '"timeout_seconds": 600,' "$file" &&
-    grep -Fxq '"memory_mb": 2048,' "$file" &&
-    grep -Fxq '"cpu_millis": 2000,' "$file" &&
-    grep -Fxq '"pids_limit": 512,' "$file" &&
-    grep -Fxq '"tmpfs_mb": 512,' "$file"
+    check_range "$file" timeout_seconds 1 900 &&
+    check_range "$file" memory_mb 64 4096 &&
+    check_range "$file" cpu_millis 100 4000 &&
+    check_range "$file" pids_limit 16 4096 &&
+    check_range "$file" tmpfs_mb 8 1024 &&
+    check_range "$file" stdout_limit_bytes 4096 1048576 &&
+    check_range "$file" stderr_limit_bytes 4096 1048576 &&
+    check_range "$file" max_input_files 1 100000 &&
+    check_range "$file" max_input_bytes 1 268435456
 }
 ac001() {
   [[ -f "$profile" && -f "$lock" && -f "$schema" && -f "$registry" ]] || fail missing-input
@@ -68,6 +78,10 @@ ac001() {
   sed 's/"privileged": false/"privileged": true/' "$profile" > "$scratch/profile.json"
   if check_profile_data "$scratch/profile.json" "$lock"; then
     fail privilege-accepted
+  fi
+  sed 's/"cpu_millis": [0-9][0-9]*/"cpu_millis": 0/' "$profile" > "$scratch/profile.json"
+  if check_profile_data "$scratch/profile.json" "$lock"; then
+    fail out-of-range-cpu-accepted
   fi
 }
 ac003() {
