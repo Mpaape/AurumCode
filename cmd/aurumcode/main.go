@@ -1198,8 +1198,17 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// below, exactly like mergeStaticAnalysis's own findings. See
 	// aur548.go for why its gate decision (applySASTGate, below) is folded
 	// in independently of evaluateGate rather than through it.
+	// AUR-548 (review follow-up): origin is derived from whether the
+	// CENTRAL POLICY ITSELF declares quality_gates.sast (per-section
+	// precedence, config.ApplyCentralPolicy), never merely from whether a
+	// policy exists at all -- a policy that governs other sections
+	// (gate/rules/ignore/exceptions, or a sibling quality_gates section)
+	// but says nothing about SAST leaves repoCfg.QualityGates.Sast as the
+	// REPOSITORY's own value, which must be labeled "repo" and must never
+	// receive the policy-only hardening flags (applySASTGate's own
+	// --disable-nosem/--x-ignore-semgrepignore-files, aur548.go).
 	sastOrigin := gateOriginRepo
-	if centralCfg != nil {
+	if centralCfg != nil && centralCfg.QualityGates.Sast != nil {
 		sastOrigin = gateOriginPolicy
 	}
 	sastIssues, sastReason := runSASTPass(context.Background(), cwd, repoCfg.QualityGates.Sast, sastOrigin == gateOriginPolicy, filter, realSemgrepRunner)

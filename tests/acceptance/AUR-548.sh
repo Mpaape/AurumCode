@@ -157,7 +157,7 @@ check_mutation_red() {
   fi
 }
 
-ac001_pattern='^(TestAUR548SeverityBreachFailsGate|TestAUR548PolicyWinsOverRepoDisable|TestAUR548PRSeverityBreachFailsGate|TestAUR548HighSeverityFailsAtErrorThreshold|TestAUR548PolicyOriginDisablesNosem|TestAUR548PolicyOriginBypassesSemgrepignore)$'
+ac001_pattern='^(TestAUR548SeverityBreachFailsGate|TestAUR548PolicyWinsOverRepoDisable|TestAUR548PolicyOriginWithoutSastSectionIsRepo|TestAUR548PRSeverityBreachFailsGate|TestAUR548HighSeverityFailsAtErrorThreshold|TestAUR548PolicyOriginDisablesNosem)$'
 ac002_pattern='^(TestAUR548BelowThresholdDoesNotFailGate)$'
 ac003_pattern='^(TestAUR548AbsentSemgrepIsInconclusiveNeverClean|TestAUR548ExecutionFailureIsInconclusive|TestAUR548CleanScanPasses|TestAUR548PRUnverifiedCheckoutIsInconclusive|TestAUR548SemgrepReportedErrorsAreInconclusive|TestAUR548NonZeroExitCleanReportIsInconclusive)$'
 ac004_pattern='^(TestAUR548NoConfigNeverInvokesSemgrep|TestAUR548RulePacksFromConfig|TestAUR548DefaultRulePacks)$'
@@ -169,7 +169,7 @@ case "$selector" in
     run_go_test "$ac001_pattern" "$log"
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
-    for name in SeverityBreachFailsGate PolicyWinsOverRepoDisable PRSeverityBreachFailsGate HighSeverityFailsAtErrorThreshold PolicyOriginDisablesNosem PolicyOriginBypassesSemgrepignore; do
+    for name in SeverityBreachFailsGate PolicyWinsOverRepoDisable PolicyOriginWithoutSastSectionIsRepo PRSeverityBreachFailsGate HighSeverityFailsAtErrorThreshold PolicyOriginDisablesNosem; do
       grep -q "^--- PASS: TestAUR548$name " "$log" || fail "missing-pass:$name"
     done
     printf '%s/%s/pass\n' "$card" "$selector"
@@ -223,8 +223,8 @@ case "$selector" in
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
     for name in \
-      SeverityBreachFailsGate PolicyWinsOverRepoDisable PRSeverityBreachFailsGate \
-      HighSeverityFailsAtErrorThreshold PolicyOriginDisablesNosem PolicyOriginBypassesSemgrepignore \
+      SeverityBreachFailsGate PolicyWinsOverRepoDisable PolicyOriginWithoutSastSectionIsRepo PRSeverityBreachFailsGate \
+      HighSeverityFailsAtErrorThreshold PolicyOriginDisablesNosem \
       BelowThresholdDoesNotFailGate \
       AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses PRUnverifiedCheckoutIsInconclusive \
       SemgrepReportedErrorsAreInconclusive NonZeroExitCleanReportIsInconclusive \

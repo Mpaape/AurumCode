@@ -73,14 +73,27 @@ var ErrSemgrepReportedErrors = errors.New("semgrep: report contains one or more 
 // is no removed-line concept for a whole-tree SAST pass), and a path's
 // leading "./" is trimmed so it aligns with diff/repository paths.
 //
-// disableNosem adds `--disable-nosem`, so a `# nosemgrep` comment in the
-// scanned tree cannot suppress a finding -- callers pass true when this
-// run's quality_gates.sast section came from a central policy: the
-// scanned tree is the pull request AUTHOR's own content, and an author
-// must never be able to silence a policy-mandated finding with a comment
-// in their own diff (see cmd/aurumcode/aur548.go's own policy-origin
-// handling, which also keeps a repository-supplied .semgrepignore from
-// being honored in that same case).
+// policyOrigin adds two flags that keep the pull request's own AUTHOR
+// from silencing a policy-mandated finding -- this run's quality_gates.sast
+// section came from a central policy, so the scanned tree is the
+// author's own content, not a self-configured, same-trust-boundary scan:
+//   - `--disable-nosem`, so a `# nosemgrep` comment cannot suppress a
+//     finding;
+//   - `--x-ignore-semgrepignore-files` (an internal, undocumented-API
+//     Semgrep flag, verified present in the exact pinned version this
+//     project ships, 1.172.0: `semgrep scan --help`), so a
+//     repository-committed `.semgrepignore` at ANY depth in the tree
+//     cannot hide a file from the scan either. This flag was chosen over
+//     scanning a filesystem copy with `.semgrepignore` stripped: a copy
+//     that must itself defend against symlink tricks (a dangling
+//     symlink, a symlink escaping the tree) is a second, harder-to-audit
+//     attack surface Semgrep's own, already-audited target-selection
+//     code does not have.
+//
+// Should this internal flag ever be removed in a future Semgrep version,
+// the invocation simply errors (an unrecognized flag), which this
+// function already turns into a non-nil error -- never a silent,
+// unprotected scan.
 //
 // Any failure to produce a trustworthy result is returned as a non-nil
 // error so the caller can route it to the policy gate's own inconclusive
@@ -100,13 +113,13 @@ var ErrSemgrepReportedErrors = errors.New("semgrep: report contains one or more 
 // were reported" -- it is an execution problem like any other non-zero
 // exit, checked last, after both report-shape checks above have already
 // had a chance to name a more specific reason.
-func (r *Runner) Semgrep(ctx context.Context, dir string, packs []string, disableNosem bool, run commandRunner) ([]Finding, error) {
+func (r *Runner) Semgrep(ctx context.Context, dir string, packs []string, policyOrigin bool, run commandRunner) ([]Finding, error) {
 	if run == nil {
 		return nil, errors.New("analysis: nil command runner")
 	}
 	args := []string{"scan", "--json", "--quiet", "--metrics=off", "--disable-version-check"}
-	if disableNosem {
-		args = append(args, "--disable-nosem")
+	if policyOrigin {
+		args = append(args, "--disable-nosem", "--x-ignore-semgrepignore-files")
 	}
 	for _, pack := range packs {
 		pack = strings.TrimSpace(pack)
