@@ -39,7 +39,7 @@ jobs:
           docker run --rm
           -v "${GITHUB_WORKSPACE}:/src"
           -w /src
-          golang:1.21-alpine
+          golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
           sh -c 'apk add --no-cache bash >/dev/null && go build ./... && go test ./... -count=1'
 
   race:
@@ -55,5 +55,5 @@ jobs:
           docker run --rm
           -v "${GITHUB_WORKSPACE}:/src"
           -w /src
-          golang:1.21-bookworm
+          golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195
           sh -c 'CGO_ENABLED=1 go test ./... -race -count=1'

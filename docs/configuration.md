@@ -295,6 +295,53 @@ aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
 perfil selecionado aprende o mesmo catálogo dinâmico.
 
+## SAST multilinguagem com Semgrep (AUR-548)
+
+`quality_gates.sast` liga uma varredura SAST com [Semgrep](https://semgrep.dev/)
+sobre a árvore inteira do repositório revisado (não só o diff), independente
+de `gate:` estar declarado ou não:
+
+```yaml
+# .aurumcode/config.yml (ou o config.yml da política central)
+quality_gates:
+  sast:
+    engine: semgrep             # único motor aceito hoje
+    enabled: true
+    fail_on_severity: ERROR     # critical|high/error, medium/warning, low/info; padrão ERROR
+    rule_packs: [p/security-audit, p/owasp-top-ten]   # padrão do RFC quando ausente
+```
+
+Sem `enabled: true` (ou sem a seção inteira), nada muda: Semgrep nunca é
+executado (AC-004). Cada resultado do relatório `semgrep scan --json` vira um
+achado com `rule_id` igual a `semgrep:<check_id>`, severidade mapeada
+(`ERROR`→`error`, `WARNING`→`warning`, `INFO`/outros→`info`), arquivo e linha
+— produzido inteiramente por código, depois da chamada ao modelo: a resposta
+do modelo nunca é consultada para decidir se um achado do Semgrep existe ou
+qual severidade ele tem, então uma resposta que alega ter removido ou
+rebaixado o achado não tem efeito nenhum sobre o gate (AC-005).
+
+Um achado na severidade de `fail_on_severity` ou acima reprova o gate
+(nomeando o `check_id` e a linha no parecer, na auditoria e no SARIF, AC-001);
+abaixo do limiar, o achado é publicado mas não reprova (AC-002). Semgrep
+ausente do `PATH`, com erro de execução, ou com saída que não é um relatório
+Semgrep confiável (JSON inválido, ou sem a chave `results`) nunca é lido como
+"zero achados, varredura limpa": é um achado inconclusivo próprio, que segue
+`gate.inconclusive` (`block` reprova a revisão; `warn`, ou a chave ausente,
+publica o alerta inconclusivo sem bloquear) — exatamente o mesmo
+vocabulário de inconclusivo que o gate do AUR-519 já usa (AC-003).
+
+Sob política central, `quality_gates.sast` do repositório é sempre ignorado
+por completo (com o mesmo aviso nomeado que `gate`/`rules`/`ignore` já usam):
+um repositório não consegue desligar ou afrouxar um SAST que a política
+ligou, mesmo declarando sua própria `enabled: false`.
+
+Semgrep é um processo externo: a imagem do produto o traz pré-instalado, na
+versão fixada em `.board/bootstrap/locks/scanners.yml`. Os pacotes de regras
+do registro do Semgrep (`p/security-audit`, `p/owasp-top-ten` e qualquer
+outro `p/...`) são baixados a cada execução e **exigem rede em CI** — um
+runner totalmente isolado precisa apontar `rule_packs` para arquivos de regra
+locais já presentes na imagem/checkout em vez de um nome `p/...` do registro.
+
 ## Trilha de auditoria e SARIF (AUR-521)
 
 Qualquer `aurumcode review` (`--base` ou `--pr`) pode escrever, além do que já
@@ -450,6 +497,194 @@ Sob uma política central, só as exceções DA POLÍTICA valem — exatamente c
 repositório é ignorada por completo, com um aviso nomeando a regra e o
 caminho descartados (AC-004). O repositório sozinho não consegue criar uma
 exceção para uma regra da política.
+
+## SBOM CycloneDX com Trivy (AUR-549)
+
+`aurumcode sbom` gera um SBOM no formato OWASP CycloneDX com o Trivy:
+`trivy fs --format cyclonedx --output <arquivo> <repositório>` para o
+repositório, e, quando `--imagem`/`--image` é informado, também
+`trivy image --format cyclonedx --output <arquivo-da-imagem> <imagem>`. O
+arquivo gerado é validado (JSON, `bomFormat` = `CycloneDX`, `specVersion`
+AO MENOS o configurado, com a MESMA major) antes de ser escrito no caminho
+final — um SBOM inválido ou vazio nunca é aceito.
+
+`spec_version` no config é um MÍNIMO ("1.6+"), nunca um valor exato: o
+Trivy fixado por digest em `.board/bootstrap/locks/scanners.yml`
+(`vuln_scanner_image`, hoje `0.73.0`) emite CycloneDX **1.7**, e não tem
+flag para pedir uma versão de especificação mais antiga (Trivy CHANGELOG
+da versão 0.71.0, PR #10715) — uma comparação exata com `"1.6"` reprovaria
+TODO SBOM real que esse binário gera. `aurumcode sbom` aceita uma saída cuja
+`specVersion` tenha a MESMA major do configurado e minor maior ou igual
+(`internal/sbom.specVersionAtLeast`); uma major diferente (ex.: `"2.0"`
+contra um configurado `"1.6"`) é recusada mesmo sendo numericamente maior —
+"mais nova" não é o mesmo que "compatível". `spec_version` só aceita o
+formato estrito `major.minor` (ex.: `"1.6"`); qualquer outro formato
+(`"1"`, `"1.6.0"`, `"v1.6"`) já falha na carga da configuração
+(`internal/config.SBOMGeneratorConfig.Validate`), antes de qualquer
+chamada ao Trivy.
+
+Downstream: o OWASP Dependency-Track só ingere documentos CycloneDX 1.7 a
+partir da versão 5.1.0 do servidor (ou do backport 4.14.4) — quem consome
+o SBOM gerado por este card (AUR-550) precisa de um servidor nessa faixa
+de versão ou mais novo.
+
+A configuração fica em `.aurumcode/config.yml` — o MESMO arquivo que
+`review`/`rules`/`ignore`/`gate`/`exceptions` já usam, nunca um arquivo
+separado:
+
+```yaml
+quality_gates:
+  ssor_dtrack:
+    enabled: true
+    server_api_host: "https://dtrack.example.invalid"
+    api_key_secret: DTRACK_API_KEY
+    project_id_secret: DTRACK_PROJECT_ID
+    thresholds: {max_critical: 0, max_high: 0, policy_violations: 0}
+    timeout_seconds: 180
+    poll_interval_seconds: 5
+    sbom_generator:
+      tool: trivy
+      format: cyclonedx
+      spec_version: "1.6"
+      output_file: sbom_app_cyclonedx.json
+```
+
+`quality_gates` é a seção que três cards de adoção corporativa
+compartilham (`internal/config.QualityGatesConfig`, `qualitygates.go`):
+`sast` (AUR-548, Semgrep), `ssor_dtrack` (este card, `sbom_generator`, e o
+AUR-550, Dependency-Track) e `supply_chain` (reservado). Cada subseção é um
+ponteiro — ausente (`nil`) é diferente de presente-mas-vazio — exatamente
+para que `ApplyCentralPolicy` saiba distinguir "a política nunca opinou
+sobre isso" de "a política decidiu isso, mesmo sem detalhes".
+
+Sem a seção `quality_gates.ssor_dtrack.sbom_generator` (nem no repositório
+nem, quando há política central, na política), `aurumcode sbom` não faz
+nada e sai com código 0 — nada muda no comportamento atual. `tool` só aceita
+`trivy`; `format` só aceita `cyclonedx`; qualquer outro valor é erro de
+configuração antes de qualquer chamada externa. `output_file` é relativo ao
+repositório: um caminho absoluto, um `..`, OU um diretório simbólico (link)
+que resolva para fora do repositório são todos recusados
+(`internal/sbom.ResolveOutputPath` resolve o prefixo existente do caminho
+através de `EvalSymlinks` antes de decidir). O SBOM da imagem (quando
+`--imagem` é usado) é escrito ao lado do SBOM do repositório, com `-image`
+inserido antes da extensão (`sbom_app_cyclonedx.json` →
+`sbom_app_cyclonedx-image.json`).
+
+Sob uma política central (`--politica`/`--policy`, ou `AURUMCODE_POLICY`),
+cada subseção de `quality_gates` é governada INDEPENDENTEMENTE — diferente
+de `gate`/`rules`/`ignore`/`exceptions` (que a política sempre decide por
+completo, declarados ou não): uma política que só fala de `sast` não
+desliga, por acidente, o `ssor_dtrack.sbom_generator` que o repositório
+configurou por conta própria, porque a política nunca opinou sobre essa
+chave. Só quando a própria política declara `ssor_dtrack` (mesmo que vazio)
+é que ela vale sozinha, com a seção do repositório descartada e um aviso em
+stderr.
+
+Falha ou ausência do Trivy, ou uma saída que não valida, segue o
+`gate.inconclusive` da MESMA política AUR-519 que já governa a revisão —
+lido de `.aurumcode/config.yml` numa ÚNICA resolução efetiva
+(`config.Load`/`LoadCentralPolicy`/`ApplyCentralPolicy`) que também decide
+o `sbom_generator`. `gate.inconclusive: block` (ou nenhum gate declarado —
+este é um comando novo, sem comportamento legado a preservar) falha
+fechado; `warn` publica o motivo (`sbom_generation_failure`) em stderr e sai
+0, nunca bloqueando.
+
+### Trivy reprodutível (CI)
+
+`aurumcode sbom` nunca embute um binário Trivy: resolve `trivy` via `PATH`,
+ou via `--trivy-bin` apontando para outro executável (usado pelos testes
+para apontar a um script falso). Em `.github/workflows/review.yml`, a
+etapa "Generate SBOM (Trivy, AUR-549)" roda SEMPRE (nenhum grep de texto
+decide isso — `aurumcode sbom` já sabe, com a mesma precedência
+repositório/política, se há algo a gerar, e já sai 0 sem rodar o Trivy
+quando não há; um grep aqui só arriscaria discordar dessa decisão): ela
+extrai o binário `aurumcode` já compilado na imagem `aurumcode-review` (o
+mesmo `docker build` que a revisão já usa — nenhum segundo build), gera um
+wrapper que reproduz o `argv` do Trivy dentro de `docker run` contra a
+imagem fixada por digest em `.board/bootstrap/locks/scanners.yml`
+(`vuln_scanner_image`, nunca `latest`), e chama `aurumcode sbom --trivy-bin
+<wrapper>` diretamente no executor (runner) — nunca de dentro de outro
+container, para nunca precisar traduzir caminho de host através de um
+socket do Docker montado.
+
+O wrapper NUNCA monta o diretório de trabalho (`.aurumcode-target`) como
+gravável dentro do container do Trivy: a saída (`--output`) do Trivy
+dentro do container sempre aponta para um diretório descartável recém
+criado em `$RUNNER_TEMP` (montado como leitura-e-escrita, fora da árvore
+checada-out), e o próprio wrapper — rodando no runner, nunca dentro do
+container — move o arquivo pronto para o caminho que `aurumcode sbom`
+pediu, só depois que o container termina. A montagem da árvore escaneada
+(`trivy fs`) continua só leitura, como sempre foi; nenhuma montagem
+gravável do container toca o checkout da revisão.
+
+A action standalone (`action.yml`, `using: docker`) NÃO roda `aurumcode
+sbom`: seu próprio container não tem como saber o caminho, no HOST, por
+trás do seu `/github/workspace` montado, o que é exigido para montar
+volumes num `docker run` feito de dentro dela através do socket do Docker.
+Ver o comentário em `action.yml` e docs/specs/AUR-549.md.
+
+## Gate Dependency-Track: SBOM e métricas do projeto (AUR-550)
+
+`quality_gates.ssor_dtrack` (os campos acima, fora de `sbom_generator`)
+envia o SBOM já gerado pela seção acima a um servidor OWASP
+Dependency-Track v5 configurado, acompanha o processamento e reprova o
+gate quando as métricas do projeto passam dos limites. Nada aqui é
+opcional por omissão: esta parte da seção só entra em vigor com
+`enabled: true`.
+
+- `server_api_host`: URL base da API, só da configuração (política central
+  ou repositório) — nunca um literal no código. Precisa ser `https://`; o
+  único caso aceito em `http://` é um endereço IP de loopback
+  (`127.0.0.0/8` ou `::1`), e nunca o nome `localhost` — essa exceção existe
+  só para um servidor de teste local (`httptest`), nunca para produção.
+- `api_key_secret`/`project_id_secret`: não são a chave nem o id do projeto
+  — são os NOMES das variáveis de ambiente de onde a chave e o id do
+  projeto são lidos em tempo de execução (`DTRACK_API_KEY`/
+  `DTRACK_PROJECT_ID` no exemplo acima são apenas exemplos de nome; qualquer
+  nome funciona). A chave nunca é escrita neste repositório.
+- `thresholds.max_critical`/`max_high`/`policy_violations`: comparados aos
+  campos `critical`/`high`/`policyViolationsTotal` do `ProjectMetrics` do
+  Dependency-Track v5 (`GET /api/v1/metrics/project/{project}/current`).
+  Padrão de cada um: 0.
+- `timeout_seconds` (padrão 180) / `poll_interval_seconds` (padrão 5):
+  controlam o acompanhamento de `GET /api/v1/bom/token/{token}` até o
+  servidor responder `processing: false`.
+
+A versão mínima do servidor Dependency-Track para o CycloneDX 1.7 que o
+Trivy fixado emite (5.1.0, ou 4.14.4 na linha 4.x) já está documentada na
+seção do AUR-549 acima; um servidor mais antigo rejeita o upload com um
+erro 4xx, que segue o mesmo caminho de qualquer outro erro HTTP abaixo.
+
+Diretriz do RFC de origem: cada microsserviço tem seu próprio projeto no
+Dependency-Track; nunca envie SBOMs de serviços diferentes para o mesmo
+projeto sem unificá-los primeiro, porque o servidor sobrescreve o anterior.
+
+Semântica do gate: uma métrica acima do limite reprova o gate e publica os
+números (ex.: `ssor_dtrack: critical 3 > max_critical 0`) no parecer, na
+auditoria (AUR-521) e no SARIF. Um timeout de processamento, um erro HTTP ou
+um servidor inalcançável nunca reprovam nem aprovam por si só — seguem o
+`gate.inconclusive` já configurado (`block` fecha o gate; `warn` ou omitido
+só avisa), com um motivo estável (`dtrack_timeout`, `dtrack_http_error`,
+`dtrack_unreachable`, `dtrack_metrics_incomplete`, `dtrack_secret_missing`,
+`dtrack_sbom_unavailable`). Uma resposta de métricas que não traz os três
+campos é tratada como desconhecida, nunca como zero — um zero silencioso
+seria exatamente a "resposta confiantemente errada" que este gate existe
+para evitar.
+
+Sob uma política central, cada subseção de `quality_gates` (incluindo
+`ssor_dtrack`) é governada independentemente, como a seção do AUR-549
+acima já explica: só quando a própria política declara `ssor_dtrack` é que
+ela vale sozinha, com a seção do repositório descartada e um aviso
+nomeado — o repositório não consegue desligar ou redirecionar um
+`ssor_dtrack` que a política ligou.
+
+A chave de API é registrada como segredo de valor exato no filtro de
+redação no instante em que é lida, antes de qualquer escrita adicional
+(stdout, stderr, parecer, auditoria, SARIF) — nunca aparece em nenhum desses
+canais, mesmo quando o próprio servidor a devolve no corpo de um erro.
+
+Não-objetivo desta seção: gerar o SBOM (AUR-549, seção acima) e administrar
+projetos no servidor Dependency-Track.
 
 ## Opções públicas
 
