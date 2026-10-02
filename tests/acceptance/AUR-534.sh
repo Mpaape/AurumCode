@@ -150,29 +150,19 @@ check_ac001() {
 check_ac002() {
   command -v go >/dev/null 2>&1 || infra missing_go
 
-  # AC-002 promises "a suite inteira (go test ./...)". That suite reaches
-  # beyond cmd/internal/pkg: internal/analyzer and internal/review read
-  # tests/fixtures/repos/git-demo/repo.git, internal/governance/taskspec
-  # reads .board/schemas/task-spec.schema.json, and internal/evidence
-  # imports tests/integration. Card v4 widened this card's own read_paths
-  # to [cmd, internal, pkg, action.yml, scripts, .board/bin, tests, demo,
-  # standards, docs/specs, .board/schemas, .board/research,
-  # .board/decisions], which covers all three (tests/* and .board/schemas
-  # whole) -- verified independently by the reviewer: oci-run exits 0 with
-  # this set. A per-path existence guard here would just hardcode today's
-  # three known external reads and silently stop protecting the exit-code
-  # convention the moment a fourth one appears or `tests`/`.board/schemas`
-  # ever narrows again, so the generic form is relied on instead: if the
-  # suite's own non-test imports fail to resolve, that is still an
-  # environment/materialization defect (a package this card does not own
-  # is missing), not this card's behavior failing -- infra (79), never
-  # red (1). Only an actual compiled test failing is behavioral red.
+  # AC-002 promises "a suite inteira (go test ./...)". Card v4 widened this
+  # card's own read_paths to [cmd, internal, pkg, action.yml, scripts,
+  # .board/bin, tests, demo, standards, docs/specs, .board/schemas,
+  # .board/research, .board/decisions], which materializes everything the
+  # whole suite reads (tests/fixtures/repos/git-demo/repo.git,
+  # tests/integration, .board/schemas/task-spec.schema.json included) --
+  # verified independently: oci-run now runs the full tree inside the
+  # sandbox (560 PASS / 7 SKIP, identical to an unsandboxed run). A package
+  # that genuinely fails to resolve here is therefore a real compile
+  # defect, not a materialization gap: every go build/test failure is
+  # behavioral red (1), never infra.
   local build_log="$run_dir/ac002-build.log"
   if ! ( cd "$repo_root" && go build ./... ) >"$build_log" 2>&1; then
-    if grep -Eq 'cannot find package|no required module provides package|no such file or directory' "$build_log"; then
-      cat "$build_log" >&2
-      infra "ac002-build-references-unmaterialized-input (amend read_paths further)"
-    fi
     cat "$build_log" >&2
     printf 'go build ./... failed\n' >&2
     return 1
@@ -245,6 +235,16 @@ check_ac001_mut001() {
   cp -- "$repo_root/.board/bin/go-shared" "$mutant_root/.board/bin/go-shared"
   cp -- "$repo_root/.board/bin/go-sealed" "$mutant_root/.board/bin/go-sealed"
   cp -- "$repo_root/.board/bin/go-live" "$mutant_root/.board/bin/go-live"
+
+  # Control: the clean scratch copy must itself pass AC-001 before either
+  # mutation runs. Without this, a copying mistake (a stale file, a missing
+  # one) could make check_ac001 fail on the UNMUTATED tree, and the
+  # mutation "succeeding" below would prove nothing -- the function would
+  # already have been red for the wrong reason.
+  if ! check_ac001 "$mutant_root" 2>/dev/null; then
+    printf 'clean scratch copy failed check_ac001 before any mutation; the control is broken\n' >&2
+    return 1
+  fi
 
   # Scenario 1: reintroduce the retired version into ci.yml's race job base
   # image only; Makefile stays clean.
