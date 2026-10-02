@@ -33,12 +33,35 @@ func (q QualityGatesConfig) Declared() bool {
 
 // SastConfig (quality_gates.sast, AUR-548's own section) lives in sast.go.
 
-// SsorDtrackConfig is quality_gates.ssor_dtrack, shared between this card
-// (SBOMGenerator: the CycloneDX SBOM this file generates with Trivy) and
-// AUR-550 (the Dependency-Track upload/gate fields -- enabled,
-// server_api_host, api_key_secret, project_id_secret, thresholds,
-// timeout_seconds -- left for that card to add here as sibling fields).
+// SsorDtrackConfig is quality_gates.ssor_dtrack, shared between AUR-549
+// (SBOMGenerator: the CycloneDX SBOM this section's sibling generates with
+// Trivy) and AUR-550 (every other field: the Dependency-Track upload/gate
+// itself). See internal/config/dtrack.go for AUR-550's own
+// Declared/Validate/EffectiveTimeoutSeconds/EffectivePollIntervalSeconds/
+// SBOMOutputFile methods on this type -- kept in that file, not here,
+// because this file only owns the SHARED struct shape the two cards
+// converge on, never either card's own behavior.
 type SsorDtrackConfig struct {
+	// Enabled is AUR-550's own opt-in switch for the Dependency-Track
+	// upload/gate half of this section; it does not affect SBOMGenerator
+	// below at all -- AUR-549's own `aurumcode sbom` command reads
+	// SBOMGenerator.Declared() independently.
+	Enabled bool `yaml:"enabled"`
+	// ServerAPIHost is the Dependency-Track v5 API's base URL. See
+	// internal/dtrack.ValidateHost for the HTTPS-only rule AUR-550's own
+	// Validate enforces: plain http is accepted only for a loopback IP
+	// literal, so a test (or AUR-550's own acceptance script) can point
+	// it at an httptest.Server without this program ever accepting a
+	// production endpoint over plain HTTP.
+	ServerAPIHost   string `yaml:"server_api_host"`
+	APIKeySecret    string `yaml:"api_key_secret"`
+	ProjectIDSecret string `yaml:"project_id_secret"`
+
+	Thresholds SsorDtrackThresholds `yaml:"thresholds"`
+
+	TimeoutSeconds      int `yaml:"timeout_seconds"`
+	PollIntervalSeconds int `yaml:"poll_interval_seconds"`
+
 	SBOMGenerator SBOMGeneratorConfig `yaml:"sbom_generator"`
 }
 
