@@ -1,0 +1,10 @@
+== build: imagem do produto, imagens fixadas, binarios do Trivy e do Cosign
+imagem do produto: construida a partir do Dockerfile
+semgrep 1.172.0: igual a scanners.yml
+imagem fixada por digest: dtrack_apiserver ok
+imagem fixada por digest: postgres ok
+imagem fixada por digest: trivy ok
+imagem fixada por digest: semgrep ok
+imagem fixada por digest: cosign ok
+trivy e cosign extraidos das imagens fixadas
+repo-exemplo pronto: branch feature com o defeito de SAST e a dependencia plantada

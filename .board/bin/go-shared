@@ -42,7 +42,7 @@ case "${1:-}" in
       --network=none --memory="${GO_SHARED_MEMORY:-3g}" --memory-swap="${GO_SHARED_MEMORY:-3g}" \
       --cpus="${GO_SHARED_CPUS:-4}" --pids-limit=1024 \
       -v "$repo:$repo" -v "$wt_root:$wt_root" \
-      -v "$HOME/go/pkg/mod:/go/pkg/mod:ro" -v "$cache_volume:/gocache" \
+      -v "${AURUM_MODCACHE:-$HOME/go/pkg/mod-aurumcode}:/go/pkg/mod:ro" -v "$cache_volume:/gocache" \
       -w "$repo" \
       -e GOFLAGS='-mod=mod -buildvcs=false' -e GOPROXY=off -e GOMEMLIMIT=2GiB \
       -e GOCACHE=/gocache -e HOME=/tmp \

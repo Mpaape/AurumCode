@@ -4,6 +4,7 @@
 
 - [Primeiro review e uso local](getting-started.md)
 - [Configuração, prompts, skills e referência de opções](configuration.md)
+- [Gate corporativo: SAST, SBOM, inventário e assinatura (guia e demonstração)](gate-corporativo.md)
 - [Qualidade e limitações atuais](review-quality.md)
 - [Desenvolvimento e QA](qa.md)
 
