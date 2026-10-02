@@ -655,21 +655,21 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			result.Limitations = append(result.Limitations, "policy gate: "+line)
 		}
 		if gateResult.Fail || gateResult.Inconclusive {
-			// B-V: PolicyGateWithheldKey is the engine-owned signal
-			// reviewVerdictForLanguage/formalReviewEvent/canonicalVerdict
-			// check -- never result.Verdict, which the model controls and
-			// which those functions must keep ignoring. Firing on
-			// gateResult.Fail||Inconclusive alone (never conditioned on
-			// what the model's own Verdict happened to say) means a model
-			// reply of "", "changes_requested" or "approve" are all
-			// withheld alike.
+			// B-V: PolicyGateWithheldKey is the ONLY mechanism that
+			// withholds approval here -- reviewVerdictForLanguage/
+			// formalReviewEvent/canonicalVerdict check this key, never
+			// result.Verdict, which the model controls and which those
+			// functions must keep ignoring (AUR-538 removed a dead
+			// `result.Verdict = "comment"` assignment that used to sit
+			// here: nothing downstream of this function ever reads it).
+			// Firing on gateResult.Fail||Inconclusive alone (never
+			// conditioned on what the model's own Verdict happened to
+			// say) means a model reply of "", "changes_requested" or
+			// "approve" are all withheld alike.
 			if result.Metadata == nil {
 				result.Metadata = make(map[string]string)
 			}
 			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
-			if result.Verdict == "" || result.Verdict == "approve" {
-				result.Verdict = "comment"
-			}
 		}
 	}
 

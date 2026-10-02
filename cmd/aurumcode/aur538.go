@@ -57,22 +57,39 @@ func capStatusDescription(resultWord, detail string, limit int) string {
 // orderedGateReasons joins gateDecision.Lines for the capped commit-status
 // description only (never for the uncapped review body/stderr list built
 // from gateResult.Lines directly elsewhere, whose order this never
-// touches): every line that is NOT the fixed "review inconclusive (...)"
-// prefix -- an accepted/expired-exception line or a real severity-breach
-// line -- is joined first, then every inconclusive-reason line. A real
-// finding is the more actionable fact, so it gets the best chance of
-// surviving statusDescriptionLimit's cut; the inconclusive reason, which
-// is already named by the status's own State/word, is the one most
-// affordable to lose first.
+// touches), in three tiers so the most actionable fact gets the best
+// chance of surviving statusDescriptionLimit's cut:
+//
+//  1. a real severity-breach line (evaluateGate's threshold loop,
+//     policygate.go) -- the one fact that actually closes the gate;
+//  2. an accepted/expired-exception line (acceptedExceptionLine/
+//     expiredExceptionLine, aur520.go -- both contain "exceção") --
+//     context a reader may want, but never the reason the check failed;
+//  3. the fixed "review inconclusive (...)" line -- already named by the
+//     status's own State and leading result word
+//     (gateStatusWordFailure/Inconclusive), so it is the one most
+//     affordable to lose first.
+//
+// Without this ordering, a run with both a real breach AND one or more
+// accepted-exception lines could have the exception lines alone exhaust
+// the 140-character budget and push the breach itself out of the
+// description entirely -- exactly as affordable to lose as the
+// inconclusive reason, but reordering it ahead of a real breach would be
+// wrong in the same way.
 func orderedGateReasons(lines []string) string {
-	primary := make([]string, 0, len(lines))
-	secondary := make([]string, 0, len(lines))
+	breach := make([]string, 0, len(lines))
+	exception := make([]string, 0, len(lines))
+	inconclusive := make([]string, 0, len(lines))
 	for _, line := range lines {
-		if strings.HasPrefix(line, "review inconclusive (") {
-			secondary = append(secondary, line)
-			continue
+		switch {
+		case strings.HasPrefix(line, "review inconclusive ("):
+			inconclusive = append(inconclusive, line)
+		case strings.Contains(line, "exceção"):
+			exception = append(exception, line)
+		default:
+			breach = append(breach, line)
 		}
-		primary = append(primary, line)
 	}
-	return strings.Join(append(primary, secondary...), "; ")
+	ordered := append(append(breach, exception...), inconclusive...)
+	return strings.Join(ordered, "; ")
 }
