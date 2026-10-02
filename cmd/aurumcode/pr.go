@@ -111,6 +111,10 @@ type prReviewOptions struct {
 	// changelog forces the AUR-499 release section on. It is false when
 	// --changelog was absent, in which case review.changelog decides.
 	changelog bool
+	// policyDir is the central policy directory from --politica/--policy or
+	// AURUMCODE_POLICY (AUR-518); empty means no policy was declared and
+	// this path is unchanged (AC-006).
+	policyDir string
 }
 
 // runPRReview is reached only when --pr was explicitly given (see the
@@ -210,6 +214,49 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintf(stderr, "aurumcode review: loading repository review config: %v\n", err)
 		return 1
 	}
+
+	// AUR-518: fold the central policy (when declared) over reviewConfig
+	// right after it loads, before any model call -- same placement and
+	// reasoning as the --base path (runReview, cmd/aurumcode/main.go). A
+	// missing or invalid policy fails closed here (AC-005); no policy
+	// declared leaves reviewConfig and reviewLanguage untouched (AC-006).
+	var centralCfg *config.Config
+	var policyWarnings []config.ProviderWarning
+	if opts.policyDir != "" {
+		// A policy must come from outside the tree being reviewed. In this
+		// path the reviewed tree is the process's working directory (the
+		// container's -w /github/workspace, mounted read-only from the pull
+		// request's own head) -- never the PR under review itself.
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", cwdErr)
+			return 1
+		}
+		if err := config.ValidatePolicyOutsideReviewedTree(opts.policyDir, cwd); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
+		centralCfg, err = config.LoadCentralPolicy(opts.policyDir)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
+	}
+	reviewConfig, policyWarnings = config.ApplyCentralPolicy(reviewConfig, centralCfg)
+	if filter != nil {
+		for i := range policyWarnings {
+			policyWarnings[i].Provider = filter.Redact(policyWarnings[i].Provider)
+			policyWarnings[i].Reason = filter.Redact(policyWarnings[i].Reason)
+		}
+	}
+	for _, warning := range policyWarnings {
+		fmt.Fprintf(stderr, "aurumcode review: %s: %s\n", warning.Provider, warning.Reason)
+	}
+	if reviewLanguage, err = reviewConfig.ReviewLanguage(); err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+		return 1
+	}
+
 	publication, err := reviewConfig.ReviewPublication()
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: loading repository review publication: %v\n", err)
@@ -325,6 +372,11 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if contextErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: loading repository review context: %v\n", contextErr)
 		return 1
+	}
+	// AUR-518: the policy's own context files come first, then the
+	// repository's, as today (AC-004).
+	if centralCfg != nil {
+		contextProviders = append(config.ConfiguredProviders(opts.policyDir, centralCfg), contextProviders...)
 	}
 	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(ctx, provider, contextProviders, diffPaths(diff), filter)
 	if wrapErr != nil {
@@ -492,6 +544,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	}
 	if changelogLimitation != "" {
 		result.Limitations = append(result.Limitations, changelogLimitation)
+	}
+	// AUR-518: the policy warnings already printed to stderr above also join
+	// the published review body, so the PR sees the same declaration the
+	// terminal does (AC-001/AC-002/AC-003).
+	for _, warning := range policyWarnings {
+		result.Limitations = append(result.Limitations, warning.Provider+": "+warning.Reason)
 	}
 
 	// The engine already redacted every model-authored field on result
