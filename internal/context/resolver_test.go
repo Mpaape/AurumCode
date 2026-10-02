@@ -201,3 +201,109 @@ func TestResolveCrossChangedNotDependent(t *testing.T) {
 		t.Fatalf("changed files must not be listed as dependents: %v", pack.Dependents)
 	}
 }
+
+// TestEnumerateSkipsGitDirectoryAtAnyDepth covers AUR-536's B1: enumerate's
+// own filesystem walk must never descend into a ".git" directory, whether
+// it is the checkout's own top-level one or one nested under an ordinary
+// subdirectory (a copied or embedded nested clone). Before this fix, a file
+// sitting in either would be read like any other repo file and could reach
+// Pack.References/Dependents.
+func TestEnumerateSkipsGitDirectoryAtAnyDepth(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{
+		"app.go":        "package demo\n\nfunc Changed() {}\n",
+		".git/zz.go":    "package demo\n\n// Changed\nvar _ = \"Changed\"\n",
+		"sub/.git/x.go": "package demo\n\n// Changed\nvar _ = \"Changed\"\n",
+		"sub/ok.go":     "package demo\n\n// Changed\nvar _ = \"Changed\"\n",
+	})
+
+	pack, err := NewResolver().Resolve(root, []string{"app.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dep := range pack.Dependents {
+		if strings.Contains(dep, ".git") {
+			t.Fatalf("a file under .git reached Dependents: %v", pack.Dependents)
+		}
+	}
+	for _, ref := range pack.References {
+		if strings.Contains(ref.File, ".git") {
+			t.Fatalf("a file under .git reached References: %v", pack.References)
+		}
+	}
+	// sub/ok.go sits next to the nested ".git" dir, outside it, and must
+	// still be found -- proving the skip is scoped to ".git" itself, not
+	// to "sub" as a whole.
+	found := false
+	for _, dep := range pack.Dependents {
+		if dep == "sub/ok.go" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("sub/ok.go, outside the nested .git, should still be scanned: %v", pack.Dependents)
+	}
+}
+
+// TestEnumerateDroppedPathsAreRepoRelative covers AUR-536's B5: every
+// Dropped note enumerate records -- a skipped symlink included -- must name
+// a path relative to root, never WalkDir's own absolute path. A published
+// review's "Codebase context" section is exactly where Dropped ends up
+// (Pack is serialized whole), so an absolute note would leak this host's
+// own directory layout into the model prompt and the published review.
+func TestEnumerateDroppedPathsAreRepoRelative(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{"real.go": "package main\n"})
+	if err := os.Symlink(filepath.Join(root, "real.go"), filepath.Join(root, "link.go")); err != nil {
+		t.Fatal(err)
+	}
+
+	pack, err := NewResolver().Resolve(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(pack.Dropped, "\n")
+	if !strings.Contains(joined, "skipped symlink link.go") {
+		t.Fatalf("expected a repo-relative symlink note, got: %v", pack.Dropped)
+	}
+	if strings.Contains(joined, root) {
+		t.Fatalf("Dropped leaked the absolute host path %q: %v", root, pack.Dropped)
+	}
+}
+
+// TestResolveWithFilesRestrictsScanToExactSet covers AUR-536's B1: the
+// repo-wide reference scan must read exactly the files ResolveWithFiles was
+// given, never anything its own filesystem walk would otherwise also find.
+// extra exists on disk, references the changed symbol, and would appear in
+// Resolve's own Dependents (proving the fixture is not vacuous) -- but
+// ResolveWithFiles, given a files set that excludes it, must never surface
+// it, because it never reads it at all.
+func TestResolveWithFilesRestrictsScanToExactSet(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{
+		"app.go":   "package demo\n\nfunc Changed() {}\n",
+		"extra.go": "package demo\n\n// Changed\nvar _ = \"Changed\"\n",
+	})
+
+	walked, err := NewResolver().Resolve(root, []string{"app.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundExtra := false
+	for _, dep := range walked.Dependents {
+		if dep == "extra.go" {
+			foundExtra = true
+		}
+	}
+	if !foundExtra {
+		t.Fatalf("fixture is vacuous: Resolve's own walk never found extra.go: %v", walked.Dependents)
+	}
+
+	restricted, err := NewResolver().ResolveWithFiles(root, []string{"app.go"}, []string{"app.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(restricted.Dependents) != 0 {
+		t.Fatalf("ResolveWithFiles read a file outside its allowed set: %v", restricted.Dependents)
+	}
+}

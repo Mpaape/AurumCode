@@ -328,20 +328,26 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// file, or a nested clone's files all sit on disk and would otherwise
 	// reach resolveCodebaseContext unfiltered. verifiedCleanCheckoutReason
 	// (aur536.go) proves every file under the checkout matches committed
-	// content before the pass is ever allowed to run.
+	// content before the pass is ever allowed to run, and names exactly
+	// which files it proved -- resolveVerifiedCodebaseContext then reads
+	// only those, never a second, independent walk of its own.
 	var codebaseContextText, codebaseContextLimitation string
+	var verifiedDir string
+	var verifiedFiles []string
 	mismatch := codebaseContextMismatch(ctx, client, owner, repoName, prNumber)
 	if mismatch == "" {
 		if dir, wdErr := os.Getwd(); wdErr == nil {
-			if reason := verifiedCleanCheckoutReason(dir); reason != "" {
+			if reason, files := verifiedCleanCheckoutReason(dir); reason != "" {
 				mismatch = reason
+			} else {
+				verifiedDir, verifiedFiles = dir, files
 			}
 		} else {
 			mismatch = codebaseContextReasonUnverifiable
 		}
 	}
 	if mismatch == "" {
-		codebaseContextText = resolveCodebaseContext(diff)
+		codebaseContextText = resolveVerifiedCodebaseContext(diff, verifiedDir, verifiedFiles)
 	} else {
 		codebaseContextLimitation = codebaseContextOmittedNotice(reviewLanguage, mismatch)
 	}

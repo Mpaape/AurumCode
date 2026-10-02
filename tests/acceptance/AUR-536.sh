@@ -20,6 +20,11 @@
 #   AC-002-MUT-001  treat codebaseContextReasonUnverifiable as verified
 #                   (the const collapses to ""); all three AC-002 cases
 #                   must fail (RED)
+#   AC-001-MUT-002  drop the blob-id comparison from cleanAgainstTracked (a
+#                   tracked path present on disk, with matching
+#                   symlink-ness, "matches" regardless of its own content);
+#                   the modified-tracked-file, staged-change and
+#                   retargeted-symlink cases must all fail (RED)
 # Unknown selectors exit 64; infrastructure failures exit 79; behavioral
 # failures exit 1.
 set -Eeuo pipefail
@@ -30,7 +35,7 @@ readonly card='AUR-536'
 selector="${1:-all}"
 
 case "$selector" in
-  all|AC-001|AC-002|AC-002-MUT-001) ;;
+  all|AC-001|AC-002|AC-002-MUT-001|AC-001-MUT-002) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -41,9 +46,10 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 # A git binary is NOT required: verifiedCleanCheckoutReason (aur536.go)
-# falls back to a pure-Go loose-object check, the same dual-path shape
-# AUR-515's own identity check (aur515.go, via internal/analyzer) already
-# uses in a sealed, network-denied, git-less profile.
+# reads HEAD's tree through internal/analyzer.Repo.TrackedFiles, which
+# itself falls back to a pure-Go loose-object reader, the same dual-path
+# shape AUR-515's own identity check already uses in a sealed,
+# network-denied, git-less profile.
 
 for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
@@ -52,6 +58,8 @@ done
 [[ -f "$repo_root/cmd/aurumcode/aur515.go" ]] || infra missing-source
 [[ -f "$repo_root/cmd/aurumcode/aur536.go" ]] || infra missing-source
 [[ -f "$repo_root/cmd/aurumcode/aur536_test.go" ]] || infra missing-behavior-test
+[[ -f "$repo_root/internal/analyzer/gitrepo.go" ]] || infra missing-source
+[[ -f "$repo_root/internal/context/resolver.go" ]] || infra missing-source
 
 run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a536.XXXXXX")" || infra mktemp
 cleanup_root() {
@@ -88,6 +96,26 @@ apply_mutation() {
   return 0
 }
 
+# AC-001-MUT-002: "drop the blob comparison" -- cleanAgainstTracked's own
+# match condition (aur536.go) stops comparing a tracked path's recorded
+# blob id against the working file's own content, so any tracked path
+# present on disk with matching symlink-ness "matches" no matter what it
+# now contains. Anchored on the stable condition line itself, token-split
+# ("|| entry.SHA" split from the rest) so this script's own source cannot
+# match its own edit; the replacement keeps the line's other two clauses.
+apply_mutation_blob() {
+  local target="$run_dir/root/cmd/aurumcode/aur536.go"
+  local anchor='if !ok || isSymlink != (entry.Mode == "120000") '
+  anchor="${anchor}|| entry.SHA != blobSHA1(data) {"
+  local replacement='if !ok || isSymlink != (entry.Mode == "120000") {'
+  grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
+  # "|" delimiter would collide with the anchor's own "||" text; "@" never
+  # appears in either side.
+  sed -i "s@${anchor}@${replacement}@" "$target"
+  grep -Fq "$anchor" "$target" && infra mutation-not-applied
+  return 0
+}
+
 test_pattern=''
 expect_fail=''
 pkgs='./cmd/aurumcode/...'
@@ -96,6 +124,7 @@ case "$selector" in
   AC-001)         test_pattern='^TestAUR536UntrackedFileOmitsContextFromPrompt$' ;;
   AC-002)         test_pattern='^TestAUR536NoGitMetadataOmitsContext$|^TestAUR536NoOriginRemoteOmitsContext$|^TestAUR536PullRequestMetadataFailureOmitsContext$' ;;
   AC-002-MUT-001) test_pattern='^TestAUR536NoGitMetadataOmitsContext$|^TestAUR536NoOriginRemoteOmitsContext$|^TestAUR536PullRequestMetadataFailureOmitsContext$'; expect_fail=1; apply_mutation ;;
+  AC-001-MUT-002) test_pattern='^TestAUR536ModifiedTrackedFileOmitsContext$|^TestAUR536StagedButUncommittedChangeOmitsContext$|^TestAUR536RetargetedSymlinkOmitsContext$'; expect_fail=1; apply_mutation_blob ;;
 esac
 
 log="$run_dir/test.log"
@@ -107,7 +136,11 @@ set -e
 cat "$log" >&2
 
 if [[ -n "$expect_fail" ]]; then
-  for name in TestAUR536NoGitMetadataOmitsContext TestAUR536NoOriginRemoteOmitsContext TestAUR536PullRequestMetadataFailureOmitsContext; do
+  case "$selector" in
+    AC-002-MUT-001) mut_names='TestAUR536NoGitMetadataOmitsContext TestAUR536NoOriginRemoteOmitsContext TestAUR536PullRequestMetadataFailureOmitsContext' ;;
+    AC-001-MUT-002) mut_names='TestAUR536ModifiedTrackedFileOmitsContext TestAUR536StagedButUncommittedChangeOmitsContext TestAUR536RetargetedSymlinkOmitsContext' ;;
+  esac
+  for name in $mut_names; do
     grep -Eq -- "^--- FAIL: ${name} " "$log" || fail "mutation-survived:${name}"
   done
   (( status != 0 )) || fail 'mutation-survived-exit-zero'
@@ -122,7 +155,7 @@ fi
 grep -Eq -- '^--- PASS: TestAUR536' "$log" || fail 'no-test-executed'
 
 if [[ "$selector" == all ]]; then
-  for name in UntrackedFileOmitsContextFromPrompt NoGitMetadataOmitsContext NoOriginRemoteOmitsContext PullRequestMetadataFailureOmitsContext; do
+  for name in UntrackedFileOmitsContextFromPrompt NoGitMetadataOmitsContext NoOriginRemoteOmitsContext PullRequestMetadataFailureOmitsContext GitDirectoryFilesNeverReachPrompt ModifiedTrackedFileOmitsContext StagedButUncommittedChangeOmitsContext RetargetedSymlinkOmitsContext UntrackedSymlinkOmitsContext; do
     grep -q "^--- PASS: TestAUR536$name " "$log" || fail "missing-pass:$name"
   done
 fi

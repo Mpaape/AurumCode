@@ -413,6 +413,48 @@ func (r *Repo) flattenTree(sha, prefix string, out map[string]blobAt) error {
 	return nil
 }
 
+// TrackedEntry is one path's git metadata at a resolved commit: its blob
+// object id and the git file mode recorded for it. Mode is "100644" or
+// "100755" for an ordinary file, or "120000" for a symlink -- whose blob
+// content is the link target's path, not file content (see flattenTree's
+// own doc). A submodule entry (gitlink, mode "160000") never appears here:
+// it names a commit in a different repository, not an object this reader
+// -- or a caller comparing TrackedFiles against a blob id -- can check.
+type TrackedEntry struct {
+	SHA  string
+	Mode string
+}
+
+// TrackedFiles resolves ref and returns its commit's tree, flattened to a
+// path -> TrackedEntry map, through whichever backend OpenRepo selected for
+// this Repo: the git binary (which reads loose or packed objects alike via
+// `git cat-file`) or the pure-Go loose-object reader (loose objects only).
+// Any object this reader cannot find -- most commonly a loose object that
+// does not exist because the repository has been packed and no git binary
+// is available to read the pack -- is a hard error, never a partial map:
+// a caller that needs "every tracked file, or nothing at all" (AUR-536's
+// clean-checkout proof) can trust a returned map completely, and treat an
+// error as "cannot tell," never as "tracked nothing."
+func (r *Repo) TrackedFiles(ref string) (map[string]TrackedEntry, error) {
+	sha, err := r.ResolveRef(ref)
+	if err != nil {
+		return nil, fmt.Errorf("resolving ref %q: %w", ref, err)
+	}
+	tree, _, err := r.readCommit(sha)
+	if err != nil {
+		return nil, err
+	}
+	flat := make(map[string]blobAt)
+	if err := r.flattenTree(tree, "", flat); err != nil {
+		return nil, err
+	}
+	out := make(map[string]TrackedEntry, len(flat))
+	for path, b := range flat {
+		out[path] = TrackedEntry{SHA: b.sha, Mode: b.mode}
+	}
+	return out, nil
+}
+
 // CommitInfo is one commit message from a reviewed local range. Hash, Subject
 // and Body are raw, untrusted repository text: callers redact before rendering.
 type CommitInfo struct {

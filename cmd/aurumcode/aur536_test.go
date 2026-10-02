@@ -213,3 +213,220 @@ func TestAUR536PullRequestMetadataFailureOmitsContext(t *testing.T) {
 	})
 	assertContextOmittedUnverifiable(t, code, stdout.String(), stderr.String(), capturePath, posted.Body)
 }
+
+// assertDirty is the shared assertion for every scenario below that must
+// come back codebaseContextReasonDirty: exit 0, the given leakMarker never
+// reaching the captured prompt, and the published review declaring the
+// dirty-specific wording (never the generic "unverifiable" one -- so a
+// mutation collapsing the two reasons together still gets caught here).
+func assertDirty(t *testing.T, code int, stdout, stderr, capturePath, posted, leakMarker string) {
+	t.Helper()
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	captured, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("reading captured prompt: %v", err)
+	}
+	if strings.Contains(string(captured), leakMarker) {
+		t.Fatalf("marker %q must never reach the provider prompt on a dirty checkout:\n%s", leakMarker, string(captured))
+	}
+	if !strings.Contains(posted, "Repository context omitted") {
+		t.Fatalf("published review does not declare the omission:\n%s", posted)
+	}
+	if !strings.Contains(posted, "uncommitted changes, untracked files, or content that does not match the reviewed commit") {
+		t.Fatalf("published review does not use the dirty-specific wording:\n%s", posted)
+	}
+}
+
+// runAUR536Review drives the standard fixture through runPRReview, matching
+// at a verified (owner/repo, localHead) pair, and returns what was
+// captured/published.
+func runAUR536Review(t *testing.T, localHead string) (code int, stdout, stderr, capturePath string, posted string) {
+	t.Helper()
+	var postedBody struct{ Body string }
+	server := aur515Server(t, localHead, &postedBody)
+	capturePath = aur515Env(t, server.URL)
+
+	var out, errOut strings.Builder
+	code = runPRReview(&out, &errOut, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	return code, out.String(), errOut.String(), capturePath, postedBody.Body
+}
+
+// TestAUR536GitDirectoryFilesNeverReachPrompt covers B1: a verified, clean
+// checkout can still carry files sitting under a ".git" directory -- its
+// own top-level one, or one nested under an ordinary subdirectory (a
+// copied/embedded nested clone) -- that are not themselves part of any
+// committed tree. Neither verifiedCleanCheckoutReason's own clean-tree walk
+// nor the resolver it hands the verified file set to may ever read them.
+// Before AUR-536's B1 fix, internal/context's own resolver.enumerate had no
+// ".git" awareness at all and would have read these files directly; this
+// pins that it no longer does, and that a path OUTSIDE any ".git" sitting
+// right next to the nested one (sub/ok.go) is unaffected.
+func TestAUR536GitDirectoryFilesNeverReachPrompt(t *testing.T) {
+	dir, localHead := aur515Fixture(t, "https://github.com/owner/repo.git")
+
+	const topMarker = "aur536_top_dotgit_marker"
+	const nestedMarker = "aur536_nested_dotgit_marker"
+	reference := "package demo\n\n// references " + aur515LocalMarker + "\nvar _ = \"" + aur515LocalMarker + "\"\n"
+	for _, rel := range []string{
+		".git/" + topMarker + ".go",
+		"sub/.git/" + nestedMarker + ".go",
+	} {
+		full := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(reference), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	captured, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("reading captured prompt: %v", err)
+	}
+	for _, marker := range []string{topMarker, nestedMarker} {
+		if strings.Contains(string(captured), marker) {
+			t.Fatalf("a file under .git (marker %q) reached the provider prompt:\n%s", marker, string(captured))
+		}
+	}
+	if strings.Contains(posted, "Repository context omitted") {
+		t.Fatalf("files under .git must not themselves make an otherwise clean checkout dirty:\n%s", posted)
+	}
+}
+
+// aur536ModifyApp overwrites the fixture's committed app.go with new,
+// uncommitted content containing marker, and returns marker for the
+// caller's own leak assertion.
+func aur536ModifyApp(t *testing.T, dir string) (marker string) {
+	t.Helper()
+	marker = "AUR536LocallyModifiedMarker"
+	modified := []byte("package demo\n\nfunc " + aur515LocalMarker + "() {}\n\nfunc " + marker + "() {}\n")
+	if err := os.WriteFile(filepath.Join(dir, "app.go"), modified, 0600); err != nil {
+		t.Fatal(err)
+	}
+	return marker
+}
+
+// TestAUR536ModifiedTrackedFileOmitsContext covers B4's "modified tracked
+// file": app.go, tracked and verified at HEAD, is overwritten on disk with
+// an uncommitted edit. The edit's own new symbol must never reach the
+// prompt, which only a correct comparison against TrackedFiles(HEAD)'s own
+// recorded blob id can catch (app.go still exists, is still readable, and
+// is still named identically -- only its content changed).
+func TestAUR536ModifiedTrackedFileOmitsContext(t *testing.T) {
+	dir, localHead := aur515Fixture(t, "https://github.com/owner/repo.git")
+	marker := aur536ModifyApp(t, dir)
+
+	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
+	assertDirty(t, code, stdout, stderr, capturePath, posted, marker)
+}
+
+// TestAUR536StagedButUncommittedChangeOmitsContext covers B4's "staged
+// change" / B2's "dangling blob after add+reset": app.go is modified on
+// disk exactly as above, AND the modified content is also written into
+// .git/objects as its own loose blob -- exactly what `git add` (or a
+// stash, or a reset after an add) leaves behind. A check that asks "does
+// some loose object with this content's hash exist anywhere" (AUR-536's
+// first, now-replaced no-git fallback) would wrongly call this clean; only
+// comparing against the path's OWN blob id in TrackedFiles(HEAD) -- which
+// a stray object elsewhere in the ODB never changes -- catches it.
+func TestAUR536StagedButUncommittedChangeOmitsContext(t *testing.T) {
+	dir, localHead := aur515Fixture(t, "https://github.com/owner/repo.git")
+	marker := aur536ModifyApp(t, dir)
+	modified, err := os.ReadFile(filepath.Join(dir, "app.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitObject(t, dir, "blob", modified) // the dangling, staged-then-abandoned blob.
+
+	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
+	assertDirty(t, code, stdout, stderr, capturePath, posted, marker)
+}
+
+// aur536SymlinkFixture extends aur515Fixture with a tracked symlink: HEAD's
+// tree records "link.go" (mode 120000) with committedTarget as its blob
+// content, the same way git itself stores a symlink's target path as its
+// blob. onDiskTarget is what the actual filesystem symlink points at --
+// equal to committedTarget for a clean fixture, or different to simulate a
+// retargeted symlink. When onDiskTarget is "", no on-disk symlink is
+// created at all (an untracked-elsewhere test adds its own separately).
+func aur536SymlinkFixture(t *testing.T, remoteURL, committedTarget, onDiskTarget string) (dir, headSHA string) {
+	t.Helper()
+	dir = t.TempDir()
+	write := func(name string, data []byte) {
+		t.Helper()
+		p := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	appLocal := []byte("package demo\n\nfunc " + aur515LocalMarker + "() {}\n")
+	appBlob := gitObject(t, dir, "blob", appLocal)
+	linkBlob := gitObject(t, dir, "blob", []byte(committedTarget))
+	treeBody := append(treeEntry(t, "100644", "app.go", appBlob), treeEntry(t, "120000", "link.go", linkBlob)...)
+	rootTree := gitObject(t, dir, "tree", treeBody)
+	commitBody := "tree " + rootTree + "\n" +
+		"author Fixture <fixture@example.invalid> 1 +0000\ncommitter Fixture <fixture@example.invalid> 1 +0000\n\nhead\n"
+	head := gitObject(t, dir, "commit", []byte(commitBody))
+
+	write(".git/HEAD", []byte("ref: refs/heads/main\n"))
+	write(".git/refs/heads/main", []byte(head+"\n"))
+	cfg := "[core]\n\trepositoryformatversion = 0\n\tbare = false\n"
+	if remoteURL != "" {
+		cfg += "[remote \"origin\"]\n\turl = " + remoteURL + "\n"
+	}
+	write(".git/config", []byte(cfg))
+	write("app.go", appLocal)
+	if onDiskTarget != "" {
+		if err := os.Symlink(onDiskTarget, filepath.Join(dir, "link.go")); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "AURUMCODE_LLM_FIXTURE", "AURUMCODE_LLM_INPUT_USD_PER_1K", "AURUMCODE_LLM_OUTPUT_USD_PER_1K"} {
+		t.Setenv(key, "")
+	}
+	restore := chdir(t, dir)
+	t.Cleanup(restore)
+	return dir, head
+}
+
+// TestAUR536RetargetedSymlinkOmitsContext covers B5: HEAD tracks "link.go"
+// as a symlink to "app.go", but the on-disk symlink actually points
+// somewhere else. Before AUR-536's B5 fix, a symlink was invisible to the
+// clean-tree check entirely (skipped on both the tracked-map and the
+// filesystem-walk side), so a retargeted symlink passed as clean; keeping
+// the tracked entry and comparing blobSHA1(readlink target) catches it.
+func TestAUR536RetargetedSymlinkOmitsContext(t *testing.T) {
+	_, localHead := aur536SymlinkFixture(t, "https://github.com/owner/repo.git", "app.go", "retargeted-elsewhere.go")
+
+	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
+	assertDirty(t, code, stdout, stderr, capturePath, posted, aur515LocalMarker)
+}
+
+// TestAUR536UntrackedSymlinkOmitsContext covers B5: an otherwise clean,
+// verified checkout gains an extra symlink that HEAD's tree never tracked
+// at all. It must be caught exactly like an untracked ordinary file, not
+// silently skipped.
+func TestAUR536UntrackedSymlinkOmitsContext(t *testing.T) {
+	dir, localHead := aur515Fixture(t, "https://github.com/owner/repo.git")
+	if err := os.Symlink("app.go", filepath.Join(dir, "untracked_link.go")); err != nil {
+		t.Fatal(err)
+	}
+
+	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
+	assertDirty(t, code, stdout, stderr, capturePath, posted, aur515LocalMarker)
+}

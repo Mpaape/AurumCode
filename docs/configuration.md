@@ -92,7 +92,18 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   (`refs/pull/<n>/merge`), cujo commit não é o head revisado. Nesse caso o
   checkout local diverge do HEAD que a API reporta para o PR, e o contexto
   de codebase (AUR-515/AUR-536) é omitido por esse descompasso de HEAD; a
-  revisão continua apenas com o diff remoto.
+  revisão continua apenas com o diff remoto:
+
+  ```yaml
+  - uses: actions/checkout@v4
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
+  - uses: Mpaape/AurumCode@main
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+  ```
 - Localmente, `.aurumcode/instructions/*.md` pode usar front matter
   `applyTo` para escopo por caminho. O fluxo remoto usa os arquivos
   explicitamente listados em `review.context`.
