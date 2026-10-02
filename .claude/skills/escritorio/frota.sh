@@ -1,1 +1,0 @@
-../../../.agents/skills/escritorio/frota.sh
