@@ -180,9 +180,23 @@ func TestAUR490SharedPasses(t *testing.T) {
 	// list. Both routes share context, memory and static analysis; only local
 	// output gets the optional CLI summary/diagram. End-to-end tests execute
 	// both publication routes.
+	//
+	// AUR-536: pr.go's own codebase-context entrypoint is
+	// resolveVerifiedCodebaseContext, not resolveCodebaseContext itself --
+	// on --pr, the checkout is not necessarily the change under review (see
+	// aur515.go/aur536.go), so --pr additionally reads only the exact file
+	// set its own clean-checkout proof already verified, by construction,
+	// rather than resolveCodebaseContext's own, independent filesystem walk.
+	// main.go (--base) keeps calling resolveCodebaseContext directly: there
+	// the checkout IS the change under review, so no such proof applies.
+	// Both entrypoints still share codebaseContextJSON's marshal-or-empty
+	// tail (passes.go) -- asserted directly on their own source files below,
+	// since neither main.go nor pr.go calls codebaseContextJSON itself.
 	for file, required := range map[string][]string{
-		"main.go": {"resolveCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "renderLocalReport"},
-		"pr.go":   {"resolveCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "formatPublishedReviewBody"},
+		"main.go":   {"resolveCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "renderLocalReport"},
+		"pr.go":     {"resolveVerifiedCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "formatPublishedReviewBody"},
+		"passes.go": {"codebaseContextJSON"},
+		"aur536.go": {"codebaseContextJSON"},
 	} {
 		f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
 		if err != nil {
