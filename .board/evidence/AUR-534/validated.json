@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-534",
+  "commit": "f9d649561f5e8b00cf57c5e46d0c10db2c0a70cc",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-534",
+    "exit_code": 0,
+    "raw_output": "AUR-534/all/pass"
+  }
+}
