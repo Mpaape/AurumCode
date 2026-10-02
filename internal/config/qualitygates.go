@@ -137,6 +137,14 @@ func validateImageDigestRef(ref string) error {
 	if ref == "" {
 		return fmt.Errorf("image reference must not be empty")
 	}
+	// H3: a reference beginning with "-" could be read as a flag by the
+	// external cosign binary depending on argv position -- duplicated
+	// (never imported) from internal/supplychain.ValidateArtifactRef's
+	// own identical check, for the same reason the digest check below is
+	// already duplicated rather than imported.
+	if strings.HasPrefix(ref, "-") {
+		return fmt.Errorf("image reference %q must not start with \"-\"", ref)
+	}
 	idx := strings.LastIndex(ref, "@sha256:")
 	if idx < 0 {
 		return fmt.Errorf("image reference %q must be pinned by digest (@sha256:<64 hex>), not a tag", ref)

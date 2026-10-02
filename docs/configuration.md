@@ -767,6 +767,35 @@ próprio container não tem como montar volumes via o socket do Docker com
 caminhos do HOST. Até que uma futura carta resolva esse problema para a
 action standalone, assinatura só está cablada para quem chama `review.yml`.
 
+O bundle do SBOM (`<sbom>.sigstore.json`, escrito pela etapa de assinatura
+ao lado do SBOM) sai do runner como artefato do job
+(`aurumcode-sbom-bundle-<PR>`, via `actions/upload-artifact` fixado por SHA,
+`if-no-files-found: ignore` quando `sign_sbom` nunca foi ligado) — do
+contrário, "a assinatura é verificável" não teria como se cumprir fora do
+próprio job efêmero.
+
+### Verificação por terceiros (keyless, sem chave do projeto)
+
+Quem baixa o SBOM e o bundle (`aurumcode-sbom-bundle-<PR>`) verifica a
+assinatura keyless feita pela identidade OIDC do GitHub Actions sem
+precisar de nenhuma chave deste projeto — só o próprio Cosign e os dois
+arquivos:
+
+```sh
+cosign verify-blob \
+  --bundle sbom_app_cyclonedx.json.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/.*$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  sbom_app_cyclonedx.json
+```
+
+`--certificate-identity-regexp` aceita aqui qualquer identidade de workflow
+do GitHub Actions; quem quiser restringir a verificação ao próprio
+repositório/organização estreita essa regex para o `owner/repo` exato (ex.:
+`^https://github\.com/SuaOrg/SeuRepo/\.github/workflows/.+@refs/heads/.+$`).
+`--certificate-oidc-issuer` é sempre o emissor do GitHub Actions — não muda
+entre organizações. Nenhum nome de organização real entra neste exemplo.
+
 Não-objetivo desta seção: gerenciar chaves fora do mecanismo do próprio
 Cosign, e assinar artefatos de terceiros.
 

@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -75,6 +76,14 @@ func ValidateArtifactRef(ref string) error {
 	if ref == "" {
 		return fmt.Errorf("image reference must not be empty")
 	}
+	// H3: a reference beginning with "-" could be read as a cosign flag
+	// instead of a positional argument, depending on where it lands in
+	// the built argv -- refused outright, never left to "--" alone to
+	// neutralize (see signer.go's own run-argv comment for why both
+	// defenses are kept).
+	if strings.HasPrefix(ref, "-") {
+		return fmt.Errorf("image reference %q must not start with \"-\"", ref)
+	}
 	idx := strings.LastIndex(ref, "@sha256:")
 	if idx < 0 {
 		return fmt.Errorf("image reference %q must be pinned by digest (@sha256:<64 hex>), not a tag", ref)
@@ -94,7 +103,22 @@ func ValidateArtifactRef(ref string) error {
 // SignBlob signs path (the SBOM file) with `cosign sign-blob`. Any
 // failure is wrapped naming path, never a bare exec error -- AC-002's own
 // "o parecer diz qual artefato ficou sem assinatura".
+//
+// When opts.BundlePath is set, this method removes any file already
+// there BEFORE invoking cosign (so a stale bundle -- left over from a
+// previous run, or one a PR happens to carry already committed -- can
+// never be mistaken for this run's own output), and, after cosign exits
+// 0, requires the bundle to exist with a non-zero size. cosign exiting 0
+// without ever writing a bundle (a real failure mode, not merely
+// hypothetical: a broken pipe to the signing backend, or a bug in a
+// future cosign release) would otherwise read as "signed" from the exit
+// code alone.
 func (s Signer) SignBlob(ctx context.Context, opts Options, path string) error {
+	if opts.BundlePath != "" {
+		if err := removeStaleBundle(opts.BundlePath); err != nil {
+			return fmt.Errorf("supplychain: signing sbom %s: %w", path, err)
+		}
+	}
 	args := []string{"sign-blob", "--yes"}
 	if opts.KeyPath != "" {
 		args = append(args, "--key", opts.KeyPath)
@@ -105,9 +129,24 @@ func (s Signer) SignBlob(ctx context.Context, opts Options, path string) error {
 	if opts.SkipTransparencyLog {
 		args = append(args, "--tlog-upload=false", "--use-signing-config=false")
 	}
-	args = append(args, path)
+	// H3: "--" stops cosign's own (pflag-based) flag parsing before the
+	// positional blob path, confirmed against the pinned v3.1.3 binary's
+	// own --help/behavior (docs/specs/AUR-551.md): a value placed after
+	// "--" is never re-interpreted as a flag even when it starts with
+	// "--" itself. ValidateArtifactRef's own leading-"-" refusal (image
+	// refs) and this package's path check (SBOM paths, cmd/aurumcode's
+	// own aur551.go) are the PRIMARY defense -- a single-dash value was
+	// observed, in that same investigation, to still trigger cosign's
+	// legacy shorthand-flag normalization even after "--", so "--" alone
+	// is not relied upon here.
+	args = append(args, "--", path)
 	if err := s.run(ctx, args); err != nil {
 		return fmt.Errorf("supplychain: signing sbom %s: %w", path, err)
+	}
+	if opts.BundlePath != "" {
+		if err := requireNonEmptyFile(opts.BundlePath); err != nil {
+			return fmt.Errorf("supplychain: signing sbom %s: cosign exited 0 but %w", path, err)
+		}
 	}
 	return nil
 }
@@ -127,7 +166,7 @@ func (s Signer) VerifyBlob(ctx context.Context, opts Options, path string) error
 	if opts.SkipTransparencyLog {
 		args = append(args, "--insecure-ignore-tlog", "--insecure-ignore-sct")
 	}
-	args = append(args, path)
+	args = append(args, "--", path)
 	if err := s.run(ctx, args); err != nil {
 		return fmt.Errorf("supplychain: verifying sbom signature %s: %w", path, err)
 	}
@@ -138,20 +177,75 @@ func (s Signer) VerifyBlob(ctx context.Context, opts Options, path string) error
 // called here again so this method is safe even when invoked directly,
 // bypassing cmd/aurumcode's own config-time validation) with
 // `cosign sign`.
+//
+// An image has no local file of its own to check the way SignBlob checks
+// a bundle next to the signed path, but `cosign sign` accepts the exact
+// same `--bundle FILE` flag SignBlob uses ("write everything required to
+// verify the image to FILE", confirmed on the pinned v3.1.3 binary's own
+// --help). This method always asks for one -- opts.BundlePath when the
+// caller names one, otherwise a private temp file cleaned up before
+// returning -- purely to get the same "cosign exited 0 but wrote
+// nothing" detection SignBlob has; the exit code remains the primary,
+// unconditional signal (AC-002), and this check is additional, not a
+// replacement for it.
 func (s Signer) SignImage(ctx context.Context, opts Options, image string) error {
 	if err := ValidateArtifactRef(image); err != nil {
 		return fmt.Errorf("supplychain: signing image: %w", err)
 	}
-	args := []string{"sign", "--yes"}
+	bundlePath := opts.BundlePath
+	if bundlePath == "" {
+		tmp, err := os.CreateTemp("", "cosign-image-*.sigstore.json")
+		if err != nil {
+			return fmt.Errorf("supplychain: signing image %s: creating verification bundle: %w", image, err)
+		}
+		bundlePath = tmp.Name()
+		_ = tmp.Close()
+		defer os.Remove(bundlePath)
+	}
+	if err := removeStaleBundle(bundlePath); err != nil {
+		return fmt.Errorf("supplychain: signing image %s: %w", image, err)
+	}
+
+	args := []string{"sign", "--yes", "--bundle", bundlePath}
 	if opts.KeyPath != "" {
 		args = append(args, "--key", opts.KeyPath)
 	}
 	if opts.SkipTransparencyLog {
 		args = append(args, "--tlog-upload=false")
 	}
-	args = append(args, image)
+	args = append(args, "--", image)
 	if err := s.run(ctx, args); err != nil {
 		return fmt.Errorf("supplychain: signing image %s: %w", image, err)
+	}
+	if err := requireNonEmptyFile(bundlePath); err != nil {
+		return fmt.Errorf("supplychain: signing image %s: cosign exited 0 but %w", image, err)
+	}
+	return nil
+}
+
+// removeStaleBundle deletes any pre-existing file at path, so a leftover
+// bundle from a previous run (or one a pull request happens to carry
+// already committed) is never still sitting there, with a non-zero size,
+// when requireNonEmptyFile checks this run's own output afterwards. A
+// path that does not exist yet is not an error.
+func removeStaleBundle(path string) error {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing stale bundle %s: %w", path, err)
+	}
+	return nil
+}
+
+// requireNonEmptyFile is the other half of removeStaleBundle's own
+// guarantee: since any old file at this path was already deleted before
+// cosign ran, a missing or empty file here can only mean THIS cosign
+// invocation itself wrote nothing, despite exiting 0.
+func requireNonEmptyFile(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("wrote no signature bundle to %s: %w", path, err)
+	}
+	if info.Size() == 0 {
+		return fmt.Errorf("wrote an empty signature bundle to %s", path)
 	}
 	return nil
 }

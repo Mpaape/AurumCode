@@ -434,3 +434,23 @@ jobs:
         with:
           name: aurumcode-audit-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/aurumcode-audit.json
+
+      # AUR-551: the SBOM's own signature bundle (<sbom>.sigstore.json,
+      # written by the "Sign SBOM and image" step above, next to whatever
+      # quality_gates.ssor_dtrack.sbom_generator.output_file names, when
+      # sign_sbom is on) must actually leave the runner to be verifiable
+      # by anyone else -- the Outcome's own "a assinatura e verificavel"
+      # means nothing if the bundle only ever existed inside this job's
+      # ephemeral filesystem. The glob matches wherever output_file
+      # places it under .aurumcode-target; if-no-files-found: ignore
+      # keeps a run with supply_chain/sign_sbom never enabled (so no
+      # bundle was ever written) from failing on an empty match, exactly
+      # like the "Check compliance artifacts" step above does for the
+      # SARIF/audit files.
+      - name: Upload SBOM signature bundle
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aurumcode-sbom-bundle-${{ github.event.pull_request.number }}
+          path: .aurumcode-target/**/*.sigstore.json
+          if-no-files-found: ignore

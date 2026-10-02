@@ -162,6 +162,71 @@ func TestAUR551SignFailureNamesArtifactAndFailsClosed(t *testing.T) {
 	}
 }
 
+// TestAUR551ImageSignFailureNamesArtifactAndFailsClosed is AC-002's own
+// image-signing counterpart to TestAUR551SignFailureNamesArtifactAndFailsClosed
+// above: with sign_artifacts on (and sign_sbom off, so only the image
+// branch runs), a cosign failure fails the command and names the image
+// reference on stderr -- unconditionally, exactly like the SBOM case.
+// Before this test, that branch's own failure path (aur551.go's second
+// `return exitQualityNotReviewed` after a signing error) had no test of
+// its own; tests/acceptance/AUR-551.sh's mutation now covers both.
+func TestAUR551ImageSignFailureNamesArtifactAndFailsClosed(t *testing.T) {
+	root := t.TempDir()
+	image := "ghcr.io/org/app@sha256:" + strings.Repeat("a", 64)
+	writeSupplyChainConfig(t, root, "cosign", false, true, nil)
+	binDir, _ := writeFakeCosignCmd(t, true)
+
+	var stdout, stderr bytes.Buffer
+	code := runSign([]string{"--repo", root, "--cosign-bin", filepath.Join(binDir, "cosign"), "--image", image}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("exit=0, want non-zero on image signing failure; stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), image) {
+		t.Fatalf("stderr does not name the unsigned image %q: %s", image, stderr.String())
+	}
+}
+
+// TestAUR551RejectsFlagLikeSBOMPath and TestAUR551RejectsFlagLikeImageRef
+// are H3: a --sbom or --image value starting with "-" is refused before
+// any cosign call, whether it came from the CLI flag or (for images)
+// quality_gates.supply_chain.artifacts -- never left to argv position or
+// to cosign's own "--" handling alone to neutralize.
+func TestAUR551RejectsFlagLikeSBOMPath(t *testing.T) {
+	root := t.TempDir()
+	writeSupplyChainConfig(t, root, "cosign", true, false, nil)
+	binDir, logPath := writeFakeCosignCmd(t, false)
+
+	var stdout, stderr bytes.Buffer
+	code := runSign([]string{"--repo", root, "--cosign-bin", filepath.Join(binDir, "cosign"), "--sbom", "--evil-flag"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("exit=0, want non-zero for a flag-like sbom path; stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "--evil-flag") {
+		t.Fatalf("stderr does not name the rejected path: %s", stderr.String())
+	}
+	if _, err := os.Stat(logPath); err == nil {
+		t.Fatalf("cosign was invoked despite a flag-like sbom path")
+	}
+}
+
+func TestAUR551RejectsFlagLikeImageRef(t *testing.T) {
+	root := t.TempDir()
+	writeSupplyChainConfig(t, root, "cosign", false, true, nil)
+	binDir, logPath := writeFakeCosignCmd(t, false)
+
+	var stdout, stderr bytes.Buffer
+	code := runSign([]string{"--repo", root, "--cosign-bin", filepath.Join(binDir, "cosign"), "--image", "--evil-flag"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("exit=0, want non-zero for a flag-like image ref; stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "--evil-flag") {
+		t.Fatalf("stderr does not name the rejected reference: %s", stderr.String())
+	}
+	if _, err := os.Stat(logPath); err == nil {
+		t.Fatalf("cosign was invoked despite a flag-like image reference")
+	}
+}
+
 // TestAUR551EngineValidation proves the config-level engine check: a
 // declared supply_chain section with an engine other than "cosign" is a
 // loud configuration error, before any cosign call.

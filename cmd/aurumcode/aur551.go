@@ -153,6 +153,16 @@ func runSign(args []string, stdout, stderr io.Writer) int {
 
 	if scCfg.SignSBOM {
 		for _, path := range sbomTargets {
+			// H3: refused before os.Stat or any cosign call, whether path
+			// came from --sbom or from the sbom_generator.output_file
+			// fallback -- a value starting with "-" could otherwise be
+			// read as a cosign flag depending on argv position (the same
+			// reason ValidateArtifactRef refuses a leading "-" for image
+			// references below).
+			if strings.HasPrefix(path, "-") {
+				fmt.Fprintf(stderr, "aurumcode sign: sbom path %q must not start with \"-\"\n", path)
+				return exitQualityNotReviewed // AUR-551: sbom path looks like a flag
+			}
 			if _, statErr := os.Stat(path); statErr != nil {
 				fmt.Fprintf(stderr, "aurumcode sign: sbom %s: %v\n", path, statErr)
 				return exitQualityNotReviewed // AUR-551: sbom path does not exist

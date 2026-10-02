@@ -96,17 +96,18 @@ run_package_proof() {
 }
 run_package_proof
 
-# AC-002-MUT-001: cmd/aurumcode/aur551.go has exactly one place the SBOM
-# signing failure's own return statement appears (unique in the file on
-# purpose -- see aur551.go's own comment at that line). Dropping the
-# return (while still printing the error) treats "cosign failed" as
-# non-fatal, falling through to the next artifact -- or, with only one
-# target, to the function's own trailing `return 0` -- the exact defect
-# this card exists to refuse: AC-002 says a signing failure must
-# unconditionally fail the command.
-apply_mutation_swallow_failure() {
-  local target="$run_dir/root/cmd/aurumcode/aur551.go"
-  local anchor='return exitQualityNotReviewed // AUR-551 AC-002: sbom signing failure must never be swallowed'
+# AC-002-MUT-001: cmd/aurumcode/aur551.go has exactly one place EACH of
+# the SBOM and the image signing failure's own return statements appear
+# (unique in the file on purpose -- see aur551.go's own comments at those
+# lines). Dropping either return (while still printing the error) treats
+# that branch's own "cosign failed" as non-fatal -- the exact defect this
+# card exists to refuse: AC-002 says a signing failure must
+# unconditionally fail the command, for the SBOM branch AND the image
+# branch alike. mutate_one_anchor applies the same swallow to one named
+# anchor; apply_mutation_swallow_failure applies it to BOTH, in the same
+# pass, so a single mutation run exercises both of AC-002's own tests.
+mutate_one_anchor() {
+  local target="$1" anchor="$2" replacement="$3"
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
   local count
   count="$(grep -Fc "$anchor" "$target")"
@@ -117,9 +118,19 @@ apply_mutation_swallow_failure() {
   # Whole-line replacement by line number, not a pattern substitution:
   # the anchor's own slashes/quotes are plain text here, never a regex
   # this tool has to escape correctly.
-  sed -i "${line}s/.*/\t\t\t\t_ = signErr \/\/ AUR-551 MUT-001: failure swallowed/" "$target"
+  sed -i "${line}s/.*/${replacement}/" "$target"
   sed -n "${line}p" "$target" | grep -Fq "$anchor" && infra mutation-not-applied
   sed -n "${line}p" "$target" | grep -Fq 'MUT-001: failure swallowed' || infra mutation-not-applied
+}
+
+apply_mutation_swallow_failure() {
+  local target="$run_dir/root/cmd/aurumcode/aur551.go"
+  mutate_one_anchor "$target" \
+    'return exitQualityNotReviewed // AUR-551 AC-002: sbom signing failure must never be swallowed' \
+    '\t\t\t\t_ = signErr \/\/ AUR-551 MUT-001: failure swallowed'
+  mutate_one_anchor "$target" \
+    'return exitQualityNotReviewed // AUR-551 AC-002: image signing failure must never be swallowed' \
+    '\t\t\t\t_ = signErr \/\/ AUR-551 MUT-001: failure swallowed'
   return 0
 }
 
@@ -135,14 +146,15 @@ run_go_test() {
 
 check_mutation_red() {
   local log="$1"
-  grep -Eq -- '^--- FAIL: TestAUR551SignFailureNamesArtifactAndFailsClosed' "$log" || fail 'mutation-survived'
+  grep -Eq -- '^--- FAIL: TestAUR551SignFailureNamesArtifactAndFailsClosed' "$log" || fail 'mutation-survived:sbom'
+  grep -Eq -- '^--- FAIL: TestAUR551ImageSignFailureNamesArtifactAndFailsClosed' "$log" || fail 'mutation-survived:image'
   if grep -Eq 'build failed|cannot use|undefined:|syntax error' "$log"; then
     fail 'mutation-build-failure-not-behavioral'
   fi
 }
 
 ac001_pattern='^TestAUR551SignsSBOMAndImage$'
-ac002_pattern='^TestAUR551SignFailureNamesArtifactAndFailsClosed$'
+ac002_pattern='^(TestAUR551SignFailureNamesArtifactAndFailsClosed|TestAUR551ImageSignFailureNamesArtifactAndFailsClosed)$'
 ac003_pattern='^TestAUR551NoSectionIsNoOp$'
 
 case "$selector" in
@@ -160,6 +172,7 @@ case "$selector" in
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
     grep -q "^--- PASS: TestAUR551SignFailureNamesArtifactAndFailsClosed " "$log" || fail 'missing-pass:SignFailureNamesArtifactAndFailsClosed'
+    grep -q "^--- PASS: TestAUR551ImageSignFailureNamesArtifactAndFailsClosed " "$log" || fail 'missing-pass:ImageSignFailureNamesArtifactAndFailsClosed'
     printf '%s/%s/pass\n' "$card" "$selector"
     ;;
   AC-003)
@@ -183,8 +196,9 @@ case "$selector" in
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
     for name in \
-      SignsSBOMAndImage SignFailureNamesArtifactAndFailsClosed NoSectionIsNoOp \
-      EngineValidation UnpinnedArtifactRejectedAtConfigLoad SBOMFallsBackToSBOMGeneratorOutputFile; do
+      SignsSBOMAndImage SignFailureNamesArtifactAndFailsClosed ImageSignFailureNamesArtifactAndFailsClosed NoSectionIsNoOp \
+      EngineValidation UnpinnedArtifactRejectedAtConfigLoad SBOMFallsBackToSBOMGeneratorOutputFile \
+      RejectsFlagLikeSBOMPath RejectsFlagLikeImageRef; do
       grep -q "^--- PASS: TestAUR551$name " "$log" || fail "missing-pass:$name"
     done
 
