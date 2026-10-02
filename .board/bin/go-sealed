@@ -14,7 +14,7 @@ dir="$1"; shift
 [[ -d "$dir" ]] || { printf 'go-sealed: not a directory: %s\n' "$dir" >&2; exit 2; }
 
 image="${GO_SEALED_IMAGE:-aurum-bootstrap-go-bash:1.27.1-2026-10-02}"
-modcache="${GO_SEALED_MODCACHE:-$HOME/go/pkg/mod}"
+modcache="${GO_SEALED_MODCACHE:-${AURUM_MODCACHE:-$HOME/go/pkg/mod-aurumcode}}"
 
 engine=''
 if command -v podman >/dev/null 2>&1; then engine=podman
