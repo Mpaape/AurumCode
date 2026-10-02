@@ -64,25 +64,9 @@ command -v go >/dev/null 2>&1 || infra missing_go
 required_inputs=(
   go.mod
   go.sum
-  cmd/aurumcode
-  internal/analysis
-  internal/analyzer
-  internal/apply
-  internal/changelog
-  internal/config
-  internal/context
-  internal/git
-  internal/llm
-  internal/memory
-  internal/prompt
-  internal/render
-  internal/review
-  internal/reviewprofile
-  internal/security
-  internal/testgen
-  internal/dtrack
-  internal/sbom
-  pkg/types
+  cmd
+  internal
+  pkg
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
   tests/unit/AUR-448.go
@@ -109,7 +93,14 @@ mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 # read-only module list) and -p=1 (single build/test process) for every go
 # invocation in this file.
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+# AUR-547 (revisao de coordenacao, custo do selado): GOCACHE aceita um
+# valor ja exportado pelo chamador (tests/acceptance/AUR-547.sh compartilha
+# um GOCACHE entre os 18 sub-selectors que ele invoca, porque o binario
+# cmd/aurumcode e o MESMO source toda vez -- so GOTMPDIR continua por
+# execucao, nunca compartilhado).
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE
+export GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 
 run_go() {
@@ -142,9 +133,16 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/dtrack internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/sbom internal/security internal/testgen
-  copy "$root" pkg/types
+  # AUR-547 (revisao de coordenacao): copiar cmd/internal/pkg POR INTEIRO,
+  # nao mais uma lista de subpacotes a mao -- a lista enumerada ja quebrou
+  # uma vez neste card quando o merge do main trouxe internal/dtrack e
+  # internal/sbom, e quebraria outra vez quando o AUR-551 (em andamento)
+  # adicionar internal/supplychain. Os tres estao em `internal`/`cmd`/`pkg`
+  # por inteiro no read_paths deste card, entao esta copia nao amplia o
+  # que o card ja pode ler.
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input this copies from can be read-only, directories
   # included; force the staged copy writable so mutation_case's sed and
