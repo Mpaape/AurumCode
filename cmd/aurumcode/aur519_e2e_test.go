@@ -159,8 +159,24 @@ func TestAUR519GateInconclusiveProviderFailureBlocks(t *testing.T) {
 // alert is visible and the verdict is pulled off "approve" -- neither of
 // which existed before this card (a clean, 0-issue "approve" response with
 // a config-hidden file used to publish untouched).
+//
+// AUR-538 AC-003: this used coverageFixture (aur476_test.go), whose app.go
+// always embeds a hardcoded-secret line for AUR-476's own, unrelated
+// purposes. That line DID mask this test's outcome: mergeStaticAnalysis
+// (passes.go) runs unconditionally on every review -- no --seguranca
+// flag needed -- and merges analysis.NewRunner().Analyze(diff)'s own
+// deterministic hardcoded-secret finding straight into result.Issues,
+// which formalReviewEvent/canonicalVerdict read before they ever look at
+// PolicyGateWithheldKey. With the old fixture this test's "never
+// Approve" assertion passed even on a build where the gate's own
+// pull-down was removed entirely -- the deterministic finding alone was
+// already enough to keep the verdict off "approve". aur538CleanFixture
+// (aur538_test.go) is the same two-file, partial-coverage shape with no
+// secret-shaped content anywhere, so result.Issues stays genuinely empty
+// and a green run here is now explained only by the verdict/withheld
+// machinery this test names.
 func TestAUR519GatePartialCoverageInconclusiveWarns(t *testing.T) {
-	coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: warn\n")
+	aur538CleanFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: warn\n")
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)
