@@ -15,9 +15,10 @@
 # or wrong entry (N1). See docs/review-cache.md.
 #
 # Selectors:
-#   all             run every behavior test below, then run BOTH mutations
-#                   and confirm each produces RED on exactly the tests it
-#                   should break
+#   all             run every behavior test below, then run all three
+#                   mutations and confirm each produces RED on at least the
+#                   tests it should break (AC-001-MUT-002 also requires its
+#                   companion link test to stay GREEN)
 #   AC-001          editing the fixed prompt template, the built-in rule
 #                   catalog, or either ReviewChangeScope instructional
 #                   variant moves FixedContentDigest's result (unit); the
@@ -198,8 +199,8 @@ test_pattern=''
 want_pass=()
 case "$selector" in
   AC-001)
-    test_pattern='^(TestAUR543AC001FixedTextChangeMovesDigest|TestAUR543AC001CatalogChangeMovesDigest|TestAUR543AC001PromptEditForcesFreshReview|TestAUR543B1FixedContentCoversUserHalfAndChangeScope|TestAUR543B1ChangeScopeTextMovesDigest)$'
-    want_pass=(AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest AC001PromptEditForcesFreshReview B1FixedContentCoversUserHalfAndChangeScope B1ChangeScopeTextMovesDigest)
+    test_pattern='^(TestAUR543AC001FixedTextChangeMovesDigest|TestAUR543AC001CatalogChangeMovesDigest|TestAUR543AC001PromptEditForcesFreshReview|TestAUR543B1FixedContentCoversUserHalfAndChangeScope|TestAUR543B1ChangeScopeTextMovesDigest|TestAUR543B1DigestIsHashOfFixedContent)$'
+    want_pass=(AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest AC001PromptEditForcesFreshReview B1FixedContentCoversUserHalfAndChangeScope B1ChangeScopeTextMovesDigest B1DigestIsHashOfFixedContent)
     ;;
   AC-002)
     test_pattern='^TestAUR543AC002DigestStableAcrossRuns$'
@@ -216,7 +217,7 @@ case "$selector" in
   all)
     test_pattern='^TestAUR543'
     want_pass=(AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest AC001PromptEditForcesFreshReview
-               B1FixedContentCoversUserHalfAndChangeScope B1ChangeScopeTextMovesDigest
+               B1FixedContentCoversUserHalfAndChangeScope B1ChangeScopeTextMovesDigest B1DigestIsHashOfFixedContent
                AC002DigestStableAcrossRuns AC003DifferentBaseURLForcesFreshReview N1DigestErrorDegradesToNoCache)
     ;;
 esac
@@ -246,15 +247,34 @@ require_red() {
   fi
 }
 
+# require_pass asserts log shows every name in $@ PASSING. Used alongside
+# require_red for AC-001-MUT-002: that mutation edits ONLY a Go string
+# literal (builder.go's "## Code Changes"), never FixedContentDigest's own
+# hashing code, so TestAUR543B1DigestIsHashOfFixedContent (the link between
+# fixedContentForDigest's rendered text and FixedContentDigest's actual
+# hash) must stay GREEN in the SAME mutated tree the containment test goes
+# RED in. Without this check, a FixedContentDigest hardcoded to today's
+# hex value would also make the containment test "survive" by accident --
+# content changed, hash did not -- and nothing here would catch it; proving
+# the link holds in the mutated tree too is what rules that out, and is
+# the reason a containment-test RED is sound evidence that the actual cache
+# key moved (see docs/review-cache.md).
+require_pass() {
+  local log="$1"; shift
+  for name in "$@"; do
+    grep -q -- "^--- PASS: TestAUR543$name " "$log" || fail "mutation-broke-link:$name"
+  done
+}
+
 case "$selector" in
   AC-001-MUT-001)
     apply_mutation_ac001
     log="$run_dir/test-mut.log"
     mut_status=0
-    run_go_test '^TestAUR543(AC001|B1ChangeScopeTextMovesDigest)' "$log" || mut_status=$?
+    run_go_test '^TestAUR543(AC001|B1ChangeScopeTextMovesDigest|B1DigestIsHashOfFixedContent)' "$log" || mut_status=$?
     cat "$log" >&2
     (( mut_status != 0 )) || fail 'mutation-survived-exit-zero'
-    require_red "$log" AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest AC001PromptEditForcesFreshReview B1ChangeScopeTextMovesDigest
+    require_red "$log" AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest AC001PromptEditForcesFreshReview B1ChangeScopeTextMovesDigest B1DigestIsHashOfFixedContent
     printf '%s/%s/pass (mutation produced RED)\n' "$card" "$selector"
     exit 0
     ;;
@@ -273,11 +293,12 @@ case "$selector" in
     apply_mutation_ac001_mut002
     log="$run_dir/test-mut.log"
     mut_status=0
-    run_go_test '^TestAUR543B1FixedContentCoversUserHalfAndChangeScope$' "$log" || mut_status=$?
+    run_go_test '^TestAUR543B1(FixedContentCoversUserHalfAndChangeScope|DigestIsHashOfFixedContent)$' "$log" || mut_status=$?
     cat "$log" >&2
     (( mut_status != 0 )) || fail 'mutation-survived-exit-zero'
     require_red "$log" B1FixedContentCoversUserHalfAndChangeScope
-    printf '%s/%s/pass (mutation produced RED)\n' "$card" "$selector"
+    require_pass "$log" B1DigestIsHashOfFixedContent
+    printf '%s/%s/pass (mutation produced RED, digest link verified)\n' "$card" "$selector"
     exit 0
     ;;
 esac
@@ -293,34 +314,41 @@ for name in "${want_pass[@]}"; do
 done
 
 if [[ "$selector" == all ]]; then
-  # `all` also runs BOTH mutations and requires each to go RED on exactly
-  # the tests it should break, in the SAME checked-out tree, after the
-  # nominal run above already proved every test green on unmutated
-  # sources -- so "all" can never pass by skipping what the dedicated MUT
-  # selectors check.
-  apply_mutation_ac001
+  # `all` also runs every mutation and requires each to go RED (or, for
+  # MUT-002's companion link test, stay GREEN) on at least the tests it
+  # should affect, in the SAME checked-out tree, after the nominal run
+  # above already proved every test green on unmutated sources -- so "all"
+  # can never pass by skipping what the dedicated MUT selectors check.
+  #
+  # Order matters: AC-001-MUT-001 makes FixedContentDigest hash a constant,
+  # which also makes TestAUR543B1DigestIsHashOfFixedContent (the link
+  # test) go RED -- correctly, since the link no longer holds once the
+  # hash input is hardcoded. AC-001-MUT-002 runs FIRST, while that link is
+  # still intact, so its own require_pass check means what it claims.
+  apply_mutation_ac001_mut002
   mut_log1="$run_dir/test-mut1.log"
   mut_status1=0
   run_go_test '^TestAUR543' "$mut_log1" || mut_status1=$?
   cat "$mut_log1" >&2
-  (( mut_status1 != 0 )) || fail 'mutation-survived-exit-zero:AC-001-MUT-001'
-  require_red "$mut_log1" AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest AC001PromptEditForcesFreshReview B1ChangeScopeTextMovesDigest
+  (( mut_status1 != 0 )) || fail 'mutation-survived-exit-zero:AC-001-MUT-002'
+  require_red "$mut_log1" B1FixedContentCoversUserHalfAndChangeScope
+  require_pass "$mut_log1" B1DigestIsHashOfFixedContent
 
-  apply_mutation_n1
+  apply_mutation_ac001
   mut_log2="$run_dir/test-mut2.log"
   mut_status2=0
   run_go_test '^TestAUR543' "$mut_log2" || mut_status2=$?
   cat "$mut_log2" >&2
-  (( mut_status2 != 0 )) || fail 'mutation-survived-exit-zero:N1-MUT-001'
-  require_red "$mut_log2" N1DigestErrorDegradesToNoCache
+  (( mut_status2 != 0 )) || fail 'mutation-survived-exit-zero:AC-001-MUT-001'
+  require_red "$mut_log2" AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest AC001PromptEditForcesFreshReview B1ChangeScopeTextMovesDigest B1DigestIsHashOfFixedContent
 
-  apply_mutation_ac001_mut002
+  apply_mutation_n1
   mut_log3="$run_dir/test-mut3.log"
   mut_status3=0
   run_go_test '^TestAUR543' "$mut_log3" || mut_status3=$?
   cat "$mut_log3" >&2
-  (( mut_status3 != 0 )) || fail 'mutation-survived-exit-zero:AC-001-MUT-002'
-  require_red "$mut_log3" B1FixedContentCoversUserHalfAndChangeScope
+  (( mut_status3 != 0 )) || fail 'mutation-survived-exit-zero:N1-MUT-001'
+  require_red "$mut_log3" N1DigestErrorDegradesToNoCache
 fi
 
 printf '%s/%s/pass\n' "$card" "$selector"
