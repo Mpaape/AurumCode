@@ -47,6 +47,22 @@ type AuditRecord struct {
 	ExceptionsApplied []AuditException `json:"exceptions_applied"`
 
 	Coverage AuditCoverage `json:"coverage"`
+
+	// AnalysisData (AUR-533) names the analysis-data artifact this run used:
+	// present only when the artifact was declared and resolved usable.
+	AnalysisData *AnalysisDataAudit `json:"analysis_data,omitempty"`
+}
+
+// AnalysisDataAudit identifies the verified analysis-data artifact a review
+// used: the manifest's set digest, its generation date (RFC 3339, UTC) and
+// the release tag.
+type AnalysisDataAudit struct {
+	Digest      string `json:"digest"`
+	GeneratedAt string `json:"generated_at"`
+	Tag         string `json:"tag"`
+	// Source is "remote" (release listing answered) or "cache" (listing
+	// failed; a locally cached copy, re-verified, was used).
+	Source string `json:"source,omitempty"`
 }
 
 // AuditGate is the gate's own decision for this run: "pass", "fail" or
@@ -169,6 +185,15 @@ func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
 	rec.Verdict = filter.Redact(rec.Verdict)
 	rec.Gate.Decision = filter.Redact(rec.Gate.Decision)
 	rec.Gate.Reason = filter.Redact(rec.Gate.Reason)
+	if rec.AnalysisData != nil {
+		ad := AnalysisDataAudit{
+			Digest:      filter.Redact(rec.AnalysisData.Digest),
+			GeneratedAt: filter.Redact(rec.AnalysisData.GeneratedAt),
+			Tag:         filter.Redact(rec.AnalysisData.Tag),
+			Source:      filter.Redact(rec.AnalysisData.Source),
+		}
+		rec.AnalysisData = &ad
+	}
 	// New slices throughout: redaction must never mutate the caller's own
 	// rec in place (a shared backing array would otherwise silently
 	// rewrite data the caller might still hold a reference to).
