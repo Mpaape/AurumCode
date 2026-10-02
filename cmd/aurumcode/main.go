@@ -233,6 +233,10 @@ func run(args []string, stdout, stderr *os.File) int {
 		return runReview(args[1:], stdout, errW, filter)
 	case "fix":
 		return runFix(args[1:], stdout, errW)
+	case "sbom":
+		// AUR-549: standalone, config-driven SBOM generation (Trivy,
+		// CycloneDX). See aur549.go.
+		return runSBOM(args[1:], stdout, errW)
 	default:
 		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2
@@ -1194,6 +1198,38 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	rawIssuesSnapshotAUR524 := append([]types.ReviewIssue(nil), result.Issues...)
 	result.Issues = config.ApplyRuleConfig(result.Issues, repoCfg)
 	securityFindings = config.ApplyRuleConfig(securityFindings, repoCfg)
+	// AUR-548: quality_gates.sast's own Semgrep pass, over the whole
+	// reviewed tree (cwd), independent of the diff and of the model call
+	// above. sastIssues deliberately never passes through
+	// config.ApplyRuleConfig: it is deterministic evidence a human's own
+	// .aurumcode/config.yml `rules:` override was never meant to reach
+	// (the card's own AC-005 boundary, drawn here rather than only against
+	// the model), and it is appended to result.Issues directly so it is
+	// both published in the review ("parecer") and counted in gateIssues
+	// below, exactly like mergeStaticAnalysis's own findings. See
+	// aur548.go for why its gate decision (applySASTGate, below) is folded
+	// in independently of evaluateGate rather than through it.
+	// AUR-548 (review follow-up): origin is derived from whether the
+	// CENTRAL POLICY ITSELF declares quality_gates.sast (per-section
+	// precedence, config.ApplyCentralPolicy), never merely from whether a
+	// policy exists at all -- a policy that governs other sections
+	// (gate/rules/ignore/exceptions, or a sibling quality_gates section)
+	// but says nothing about SAST leaves repoCfg.QualityGates.Sast as the
+	// REPOSITORY's own value, which must be labeled "repo" and must never
+	// receive the policy-only hardening flags (applySASTGate's own
+	// --disable-nosem/--x-ignore-semgrepignore-files, aur548.go).
+	sastOrigin := gateOriginRepo
+	if centralCfg != nil && centralCfg.QualityGates.Sast != nil {
+		sastOrigin = gateOriginPolicy
+	}
+	sastIssues, sastReason := runSASTPass(context.Background(), cwd, repoCfg.QualityGates.Sast, sastOrigin == gateOriginPolicy, filter, realSemgrepRunner)
+	if sastReason != "" {
+		notice := sastInconclusiveNotice(reviewLanguage, sastReason)
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", notice)
+		result.Limitations = append(result.Limitations, notice)
+	} else if len(sastIssues) > 0 {
+		result.Issues = append(result.Issues, sastIssues...)
+	}
 	// AUR-476: the deterministic coverage pass. It runs after both passes
 	// have produced their findings and reads only the diff, the repository
 	// config and the prompt builder's own coverage metadata -- never the
@@ -1233,6 +1269,17 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		gateInconclusiveReason = "quality_skipped"
 	case prompt.IsDegradedParse(result):
 		gateInconclusiveReason = "degraded_parse"
+	case sastReason != "":
+		// AUR-548: a Semgrep execution failure also feeds this SAME
+		// top-level reason, even though applySASTGate (below) already
+		// marks gateResult.Inconclusive on its own and does not depend on
+		// this variable at all. Two independent consumers need it
+		// specifically: writeComplianceArtifacts' SARIF document reads
+		// ONLY this variable for executionSuccessful (aur521.go), never
+		// gateResult.Inconclusive, and that must read false for a run
+		// whose SAST half could not be trusted even when no `gate:`
+		// section exists to make evaluateGate itself active.
+		gateInconclusiveReason = sastReason
 	case coverageBreakdown.partial():
 		gateInconclusiveReason = "partial_coverage"
 	}
@@ -1291,6 +1338,42 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2
+	}
+	// AUR-548: quality_gates.sast's own, independent gate decision --
+	// active whenever SAST is enabled, with no dependency on whether
+	// AUR-519's `gate:` section was ever declared. Folded into the SAME
+	// gateResult evaluateGate just returned, in place, so every consumer
+	// below (the Lines/Limitations loop, publishPolicyGateStatus, the
+	// exit-code section, writeComplianceArtifacts) needs no change to
+	// also honor a SAST breach or a SAST inconclusive scan.
+	if err := applySASTGate(&gateResult, repoCfg.QualityGates.Sast, sastOrigin, sastIssues, sastReason); err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
+		return 2
+	}
+	// AUR-550: the Dependency-Track submission/metrics gate, folded into
+	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
+	// audit record and SARIF below already publish -- see
+	// applyDTrackGate/mergeDTrackGate (aur550.go). A complete no-op
+	// unless repoCfg.QualityGates.SsorDtrack.enabled: true.
+	{
+		dtrackMode, _ := repoCfg.Gate.InconclusiveMode()
+		dtrackResult, dtrackReason, nextFilter := applyDTrackGate(context.Background(), repoCfg.QualityGates.SsorDtrack, dtrackMode, filter)
+		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, dtrackResult, dtrackReason)
+		if nextFilter != filter {
+			filter = nextFilter
+			var flushers []*redaction.Writer
+			if wrapped, w := wrapWriterWithFilter(redaction.SinkStderr, stderr, filter); w != nil {
+				stderr = wrapped
+				flushers = append(flushers, w)
+			}
+			if wrapped, w := wrapWriterWithFilter(redaction.SinkStdout, stdout, filter); w != nil {
+				stdout = wrapped
+				flushers = append(flushers, w)
+			}
+			for _, w := range flushers {
+				defer w.Flush()
+			}
+		}
 	}
 	if gateResult.Active {
 		for _, line := range gateResult.Lines {

@@ -256,6 +256,13 @@ type Config struct {
 	// and ApplyCentralPolicy for why, under a central policy, only the
 	// policy's own Exceptions ever apply.
 	Exceptions []ExceptionConfig `yaml:"exceptions"`
+	// QualityGates is the shared quality_gates section the corporate
+	// adoption cards write their own subsection into (AUR-548 Sast,
+	// AUR-549 SsorDtrack.SBOMGenerator, AUR-550 the rest of SsorDtrack,
+	// and SupplyChain for a future xBOM card). See QualityGatesConfig
+	// (qualitygates.go) and ApplyCentralPolicy for why each subsection is
+	// governed independently, the same way Gate/Exceptions already are.
+	QualityGates QualityGatesConfig `yaml:"quality_gates"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -324,6 +331,9 @@ func Parse(data []byte, source string) (*Config, error) {
 	// expires date, is a config error here -- fail closed before any
 	// model call, exactly like every other section above (AC-005).
 	if err := ValidateExceptions(cfg.Exceptions); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.QualityGates.SsorDtrack.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil

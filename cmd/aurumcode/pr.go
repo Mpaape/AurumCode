@@ -675,6 +675,44 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// aur524.go.
 	rawIssuesSnapshotAUR524 := append([]types.ReviewIssue(nil), result.Issues...)
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
+	// AUR-548: quality_gates.sast's own Semgrep pass, over the EXACT same
+	// verified, clean checkout resolveVerifiedCodebaseContext already
+	// requires (verifiedDir/mismatch, computed above for AUR-515/536) --
+	// never an unverified checkout, a different repository, or a
+	// divergent HEAD. mismatch != "" here means that verification already
+	// failed: SAST is reported inconclusive with its own reason
+	// (sastReasonUnverifiedCheckout) WITHOUT ever invoking Semgrep, so a
+	// stale or unrelated local checkout can never be scanned under the
+	// reviewed pull request's name. sastIssues deliberately never passes
+	// through config.ApplyRuleConfig (called just above, on the MODEL/
+	// deterministic-analysis issues only) -- it is appended straight into
+	// result.Issues afterward, exactly like --base's own runReview, so a
+	// repository's own `rules:` override was never meant to reach it
+	// either (AC-005's boundary drawn at the same place on both paths).
+	// AUR-548 (review follow-up): origin is derived from whether the
+	// CENTRAL POLICY ITSELF declares quality_gates.sast (per-section
+	// precedence), never merely from centralCfg != nil -- see main.go's
+	// identical comment.
+	sastOrigin := gateOriginRepo
+	if centralCfg != nil && centralCfg.QualityGates.Sast != nil {
+		sastOrigin = gateOriginPolicy
+	}
+	var sastIssues []types.ReviewIssue
+	sastReason := ""
+	if reviewConfig.QualityGates.Sast.IsEnabled() {
+		if mismatch != "" {
+			sastReason = sastReasonUnverifiedCheckout
+		} else {
+			sastIssues, sastReason = runSASTPass(ctx, verifiedDir, reviewConfig.QualityGates.Sast, sastOrigin == gateOriginPolicy, filter, realSemgrepRunner)
+		}
+	}
+	if sastReason != "" {
+		notice := sastInconclusiveNotice(reviewLanguage, sastReason)
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", notice)
+		result.Limitations = append(result.Limitations, notice)
+	} else if len(sastIssues) > 0 {
+		result.Issues = append(result.Issues, sastIssues...)
+	}
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
 	suppressOperationalStrengths(diff, result)
 	result.Limitations = filterLimitationsAgainstDiff(diff, result.Limitations)
@@ -730,6 +768,13 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		gateInconclusiveReason = "model_parse_failure"
 	case prompt.IsDegradedParse(result):
 		gateInconclusiveReason = "degraded_parse"
+	case sastReason != "":
+		// AUR-548: see main.go's own identical case for why this feeds
+		// the top-level reason too, even though applySASTGate (below)
+		// already marks gateResult.Inconclusive independently of it --
+		// writeComplianceArtifacts' SARIF document reads ONLY this
+		// variable for executionSuccessful, never gateResult.Inconclusive.
+		gateInconclusiveReason = sastReason
 	case coverageBreakdown.partial():
 		gateInconclusiveReason = "partial_coverage"
 	}
@@ -774,6 +819,39 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2
+	}
+	// AUR-548: quality_gates.sast's own, independent gate decision,
+	// folded into the same gateResult evaluateGate just returned -- see
+	// aur548.go's own package doc for why this never goes through
+	// evaluateGate itself.
+	if err := applySASTGate(&gateResult, reviewConfig.QualityGates.Sast, sastOrigin, sastIssues, sastReason); err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
+		return 2
+	}
+	// AUR-550: the Dependency-Track submission/metrics gate, folded into
+	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
+	// audit record and SARIF below already publish -- see
+	// applyDTrackGate/mergeDTrackGate (aur550.go). A complete no-op
+	// unless reviewConfig.QualityGates.SsorDtrack.enabled: true.
+	{
+		dtrackMode, _ := reviewConfig.Gate.InconclusiveMode()
+		dtrackResult, dtrackReason, nextFilter := applyDTrackGate(ctx, reviewConfig.QualityGates.SsorDtrack, dtrackMode, filter)
+		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, dtrackResult, dtrackReason)
+		if nextFilter != filter {
+			filter = nextFilter
+			var flushers []*redaction.Writer
+			if wrapped, w := wrapWriterWithFilter(redaction.SinkStderr, stderr, filter); w != nil {
+				stderr = wrapped
+				flushers = append(flushers, w)
+			}
+			if wrapped, w := wrapWriterWithFilter(redaction.SinkStdout, stdout, filter); w != nil {
+				stdout = wrapped
+				flushers = append(flushers, w)
+			}
+			for _, w := range flushers {
+				defer w.Flush()
+			}
+		}
 	}
 	if gateResult.Active {
 		for _, line := range gateResult.Lines {
