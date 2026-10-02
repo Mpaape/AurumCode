@@ -223,12 +223,15 @@ Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
 avisos de `rules`/`ignore` já existentes.
 
-**Estado desta implementação:** a decisão do gate (seções dinâmicas,
-`gate.fail_on`/`inconclusive`, a precedência da política, e a detecção de
-parse degradado à prova de forja) está implementada e testada; a ligação
-dessa decisão ao código de saída e ao status do commit de
-`aurumcode review --base`/`--pr` ainda não foi feita — ver
-`docs/specs/AUR-519.md`.
+O gate está ligado em `aurumcode review --base` e `--pr`: achados de
+severidade no limiar ou acima (de origem aceita) reprovam o código de
+saída (reaproveitando os mesmos códigos de `--fail-on`/`--check`), o
+motivo de inconclusivo (falha do provedor, cobertura parcial, parse
+degradado) entra no resumo/limitações publicados, e o veredito nunca
+aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
+é publicado junto do `aurumcode/review` que `--check` já publica, só
+quando um gate foi declarado. O caminho multi-perfil (`--perfis`) ainda
+não ensina o catálogo dinâmico a cada perfil — ver `docs/specs/AUR-519.md`.
 
 ## Opções públicas
 
