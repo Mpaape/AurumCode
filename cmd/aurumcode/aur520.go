@@ -130,6 +130,23 @@ func truncateToUTCDate(t time.Time) time.Time {
 	return time.Date(u.Year(), u.Month(), u.Day(), 0, 0, 0, 0, time.UTC)
 }
 
+// acceptedExceptionMarker and expiredExceptionMarker are the fixed,
+// literal substrings of acceptedExceptionLine/expiredExceptionLine that
+// never vary with RuleID/File/Owner/Reason/Expires -- the exact text
+// between the two dynamic "%s em %s" fields and the dynamic
+// owner/reason/expires fields that follow. AUR-538's orderedGateReasons
+// (aur538.go) matches on these two constants, never on the single word
+// "exceção" alone, so a real severity-breach line (evaluateGate's own
+// "%s: %s (severidade %s, limiar %s)" format, aur519's threshold loop)
+// can never be misclassified as an exception line merely because a
+// policy/repo author's own rule.Title happens to mention "exceção" --
+// only this package's own two exception-line constructors ever produce
+// either marker.
+const (
+	acceptedExceptionMarker = ": aceito por exceção ("
+	expiredExceptionMarker  = ": exceção venceu em "
+)
+
 // acceptedExceptionLine is AC-001's own published line for a finding an
 // active exception covers: the rule and path identify which exact finding
 // (both already redacted/trusted -- RuleID is compared against a known
@@ -138,7 +155,7 @@ func truncateToUTCDate(t time.Time) time.Time {
 // declared.
 func acceptedExceptionLine(exc config.ExceptionConfig, issue types.ReviewIssue) string {
 	return fmt.Sprintf(
-		"%s em %s: aceito por exceção (dono: %s, motivo: %s, validade: %s)",
+		"%s em %s"+acceptedExceptionMarker+"dono: %s, motivo: %s, validade: %s)",
 		issue.RuleID, issue.File, exc.Owner, exc.Reason, exc.Expires,
 	)
 }
@@ -149,7 +166,7 @@ func acceptedExceptionLine(exc config.ExceptionConfig, issue types.ReviewIssue) 
 // had ever been configured for it.
 func expiredExceptionLine(exc config.ExceptionConfig, issue types.ReviewIssue) string {
 	return fmt.Sprintf(
-		"%s em %s: exceção venceu em %s e não vale mais (dono: %s, motivo: %s)",
+		"%s em %s"+expiredExceptionMarker+"%s e não vale mais (dono: %s, motivo: %s)",
 		issue.RuleID, issue.File, exc.Expires, exc.Owner, exc.Reason,
 	)
 }

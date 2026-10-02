@@ -4,7 +4,10 @@
 # .board/cards/backlog/AUR-538.md for AC-001..AC-008.
 #
 # Selectors:
-#   all             run every behavior test below
+#   all             run every behavior test below, then re-run this same
+#                   script for AC-008 and AC-001-MUT-001 (sealed oci-run
+#                   invokes this script with no argument, i.e. "all", so
+#                   those two must not be reachable only by name)
 #   AC-001          --base, a fixture with NO findings at all (no
 #                   hardcoded secret), gate.inconclusive: block, model
 #                   verdict "" or "changes_requested": the report never
@@ -95,6 +98,25 @@ if [[ "$selector" == AC-008 ]]; then
   done
   cp "$repo_root/tests/acceptance/AUR-520.sh" "$outer/tests/acceptance/AUR-520.sh"
   chmod -R u+w -- "$outer"
+
+  # Performance only, never behavior: this card's own go-unit-offline-v1
+  # profile budgets 600s/2GB for the WHOLE accept run, and "all" (below)
+  # now runs this selector too, so AC-008's twelve otherwise-independent
+  # AUR-520.sh invocations (each copying go.mod/go.sum/cmd/internal/pkg
+  # into ITS OWN fresh mktemp and building from scratch) must not each
+  # pay a full, cold rebuild. The copy's own `export GOCACHE="$run_dir/
+  # cache"` line is patched to prefer an inherited GOCACHE when the
+  # caller (this block) sets one, so all twelve share one populated
+  # build cache -- the first invocation warms it, the other eleven reuse
+  # it. AUR-520.sh's own behavior (what it tests, how it decides
+  # pass/fail) is untouched; only where its build cache lives changes.
+  grep -Fq 'export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"' "$outer/tests/acceptance/AUR-520.sh" ||
+    infra cache-share-anchor-missing
+  sed -i 's#export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"#export GOCACHE="${AUR538_SHARED_GOCACHE:-$run_dir/cache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"#' "$outer/tests/acceptance/AUR-520.sh"
+  grep -Fq 'AUR538_SHARED_GOCACHE' "$outer/tests/acceptance/AUR-520.sh" || infra cache-share-patch-failed
+  export AUR538_SHARED_GOCACHE="$outer/sharedcache"
+  mkdir -p "$AUR538_SHARED_GOCACHE"
+
   pristine="$outer/tests/acceptance/AUR-520.sh.pristine"
   cp "$outer/tests/acceptance/AUR-520.sh" "$pristine"
 
@@ -175,7 +197,8 @@ all_names='TestAUR538BaseCleanFixtureVerdictWithheldUnderBlock TestAUR538BaseCle
   TestAUR538BaseNoOriginExceptionNeverMatches TestAUR538BaseNoOriginNoExceptionsNoNotice
   TestAUR538MatchExceptionActivePreferredOverExpiredSameFinding
   TestAUR538CapStatusDescriptionRuneSafe TestAUR538PublishPolicyGateStatusDescriptionCapped
-  TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive TestAUR538PublishPolicyGateStatusWordAndStateTable'
+  TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive TestAUR538PublishPolicyGateStatusWordAndStateTable
+  TestAUR538OrderedGateReasonsExactExceptionMarkersNotBareWord'
 
 test_pattern=''
 expect_fail=''
@@ -195,8 +218,8 @@ case "$selector" in
           names='TestAUR538BaseNoOriginExceptionNeverMatches TestAUR538BaseNoOriginNoExceptionsNoNotice' ;;
   AC-006) test_pattern='^TestAUR538MatchExceptionActivePreferredOverExpiredSameFinding$'
           names='TestAUR538MatchExceptionActivePreferredOverExpiredSameFinding' ;;
-  AC-007) test_pattern='^(TestAUR538CapStatusDescriptionRuneSafe|TestAUR538PublishPolicyGateStatusDescriptionCapped|TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive|TestAUR538PublishPolicyGateStatusWordAndStateTable)$'
-          names='TestAUR538CapStatusDescriptionRuneSafe TestAUR538PublishPolicyGateStatusDescriptionCapped TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive TestAUR538PublishPolicyGateStatusWordAndStateTable' ;;
+  AC-007) test_pattern='^(TestAUR538CapStatusDescriptionRuneSafe|TestAUR538PublishPolicyGateStatusDescriptionCapped|TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive|TestAUR538PublishPolicyGateStatusWordAndStateTable|TestAUR538OrderedGateReasonsExactExceptionMarkersNotBareWord)$'
+          names='TestAUR538CapStatusDescriptionRuneSafe TestAUR538PublishPolicyGateStatusDescriptionCapped TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive TestAUR538PublishPolicyGateStatusWordAndStateTable TestAUR538OrderedGateReasonsExactExceptionMarkersNotBareWord' ;;
   AC-001-MUT-001)
           test_pattern='^(TestAUR538BaseCleanFixtureVerdictWithheldUnderBlock|TestAUR538BaseCleanFixtureApprovesWithoutGate)$'
           expect_fail=1; apply_mutation ;;
@@ -229,4 +252,26 @@ grep -Eq -- '^--- PASS: Test' "$log" || fail 'no-test-executed'
 for name in $names; do
   grep -q -- "^--- PASS: $name " "$log" || fail "missing-pass:$name"
 done
+
+# B1 (sealed-gate blocker): oci-run's go-unit-offline-v1 profile invokes
+# this script with NO argument at all (selector "all"). Before this,
+# "all" only ran the Go test pattern above, which never touches AC-008
+# or AC-001-MUT-001 -- so AUR-520.sh's own AC-008 fix, or this card's own
+# verdict-withheld mutation guard, could be reverted and the SEALED gate
+# would still read green. "all" now re-execs this same script (by its
+# own path, "$0") for each, mapping that child's own exit code back
+# through this script's own convention: 79 (infrastructure) stays 79,
+# any other non-zero is this script's own behavioral failure (1, via
+# fail()), 0 is silently fine.
+if [[ "$selector" == all ]]; then
+  for nested in AC-008 AC-001-MUT-001; do
+    nested_status=0
+    bash "$0" "$nested" || nested_status=$?
+    case "$nested_status" in
+      0) ;;
+      79) infra "nested-selector-failed:$nested" ;;
+      *) fail "nested-selector-failed:$nested" ;;
+    esac
+  done
+fi
 printf '%s/%s/pass\n' "$card" "$selector"
