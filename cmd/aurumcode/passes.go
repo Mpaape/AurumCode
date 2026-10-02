@@ -180,6 +180,12 @@ type reviewCoverageBreakdown struct {
 	// input; only their count reaches cmd through result.Metadata.
 	IgnoredPaths  []string
 	FilteredPaths []string
+	// NoStructure names the changed files for which the grammar runtime has
+	// no grammar, so no symbol or import context was produced for them. The
+	// model still read their text; this is a declaration, not a failure, and
+	// it never makes the review partial or inconclusive by itself -- only the
+	// gate's own policy decides that.
+	NoStructure []string
 }
 
 // covered counts every file that reached the model in full or in part. It is
@@ -224,7 +230,11 @@ func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNo
 			continue
 		}
 		seen[n.Path] = struct{}{}
-		filtered = append(filtered, n.Path)
+		if n.Reason != "" {
+			filtered = append(filtered, n.Path+" ("+n.Reason+")")
+		} else {
+			filtered = append(filtered, n.Path)
+		}
 	}
 	c.FilteredPaths = filtered
 	c.Filtered = len(filtered)
@@ -304,10 +314,17 @@ func atoiOrZero(s string) int {
 // it (AC-003). The paths named are repository paths from the diff/config, not
 // model output, so they carry no untrusted bytes.
 func coverageNotice(copy reviewCopy, c reviewCoverageBreakdown) string {
-	if !c.partial() {
+	if !c.partial() && len(c.NoStructure) == 0 {
 		return ""
 	}
 	var b strings.Builder
+	if !c.partial() {
+		// Complete coverage, but some files had no grammar: declare only that.
+		fmt.Fprintf(&b, "%s\n", copy.coverageHeading)
+		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageNoStructure, len(c.NoStructure)))
+		writeCoveragePaths(&b, c.NoStructure)
+		return strings.TrimRight(b.String(), "\n")
+	}
 	fmt.Fprintf(&b, "%s — %s\n", copy.coverageHeading, fmt.Sprintf(copy.coverageSummary, c.covered(), c.Total, c.uncovered()))
 	if c.Partial > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coveragePartial, c.Partial))
@@ -322,6 +339,10 @@ func coverageNotice(copy reviewCopy, c reviewCoverageBreakdown) string {
 	if c.Filtered > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageFiltered, c.Filtered))
 		writeCoveragePaths(&b, c.FilteredPaths)
+	}
+	if len(c.NoStructure) > 0 {
+		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageNoStructure, len(c.NoStructure)))
+		writeCoveragePaths(&b, c.NoStructure)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
