@@ -90,8 +90,9 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   `ref: ${{ github.event.pull_request.head.sha }}` antes da Action: o padrão
   do `actions/checkout` num evento `pull_request` é o merge ref sintético
   (`refs/pull/<n>/merge`), cujo commit não é o head revisado. Nesse caso o
-  contexto de codebase (AUR-515/AUR-536) é omitido como "não verificável" e
-  a revisão continua apenas com o diff remoto.
+  checkout local diverge do HEAD que a API reporta para o PR, e o contexto
+  de codebase (AUR-515/AUR-536) é omitido por esse descompasso de HEAD; a
+  revisão continua apenas com o diff remoto.
 - Localmente, `.aurumcode/instructions/*.md` pode usar front matter
   `applyTo` para escopo por caminho. O fluxo remoto usa os arquivos
   explicitamente listados em `review.context`.

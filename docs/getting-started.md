@@ -23,7 +23,8 @@ modelo. Quem monta a Action Docker diretamente, com o próprio passo
 `actions/checkout` (ver "Opções avançadas" em docs/configuration.md),
 precisa declarar esse mesmo `ref`: o padrão do `actions/checkout` num evento
 `pull_request` é o merge ref sintético, não o head revisado, e sem esse `ref`
-explícito o contexto de codebase é omitido como não verificável.
+explícito o HEAD do checkout diverge do commit revisado pela API, e o
+contexto de codebase é omitido por esse descompasso de HEAD.
 
 ## Uso local
 
