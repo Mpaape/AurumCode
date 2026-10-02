@@ -704,3 +704,92 @@ func TestAUR548PolicyOriginDisablesNosem(t *testing.T) {
 	// survive (per-section precedence) AND must be labeled "repo", never
 	// getting these two hardening flags.
 }
+
+// TestAUR548PRPolicyOriginFlags is pr.go's OWN proof of B3's flag wiring
+// and per-section origin derivation. TestAUR548PolicyOriginDisablesNosem/
+// TestAUR548PolicyOriginWithoutSastSectionIsRepo (above) only ever drive
+// --base (runReview, main.go); pr.go computes sastOrigin and calls
+// runSASTPass through its own, independent code path (the review that
+// found this gap: `runSASTPass(ctx, verifiedDir,
+// reviewConfig.QualityGates.Sast, sastOrigin == gateOriginPolicy, filter,
+// realSemgrepRunner)` could have hardcoded `false` there, or kept pr.go's
+// own origin condition at the old, un-per-sectioned `centralCfg != nil`,
+// and --base's own tests would never have noticed).
+func TestAUR548PRPolicyOriginFlags(t *testing.T) {
+	t.Run("PolicyDeclaresSastAddsFlags", func(t *testing.T) {
+		dir, headSHA := aur515Fixture(t, "https://github.com/owner/repo.git")
+		server, posted := aur548PRServer(t, headSHA, "")
+		aur548PREnv(t, server.URL)
+		policyDir := filepath.Join(filepath.Dir(dir), "aur548-pr-policy")
+		if err := os.MkdirAll(filepath.Join(policyDir, ".aurumcode"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(policyDir, ".aurumcode", "config.yml"), []byte("quality_gates:\n  sast:\n    enabled: true\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		argvLog := filepath.Join(t.TempDir(), "argv.log")
+		setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
+
+		var out, errOut strings.Builder
+		code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+			publicationSet: true,
+			publication:    "review",
+			policyDir:      policyDir,
+		})
+		if code != 0 {
+			t.Fatalf("exit=%d, want 0 (dir=%s); stdout=%s stderr=%s posted=%s", code, dir, out.String(), errOut.String(), posted.Body)
+		}
+		argv, err := os.ReadFile(argvLog)
+		if err != nil {
+			t.Fatalf("semgrep was never invoked: %v", err)
+		}
+		for _, flag := range []string{"--disable-nosem", "--x-ignore-semgrepignore-files"} {
+			if !strings.Contains(string(argv), flag) {
+				t.Fatalf("expected %s under a central policy on --pr:\n%s", flag, argv)
+			}
+		}
+	})
+	t.Run("PolicyWithoutSastSectionIsRepo", func(t *testing.T) {
+		dir, headSHA := aur515Fixture(t, "https://github.com/owner/repo.git")
+		server, posted := aur548PRServer(t, headSHA, "quality_gates:\n  sast:\n    enabled: true\n")
+		aur548PREnv(t, server.URL)
+		policyDir := filepath.Join(filepath.Dir(dir), "aur548-pr-no-sast-policy")
+		if err := os.MkdirAll(filepath.Join(policyDir, ".aurumcode"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		// This policy declares `gate:` but says nothing about
+		// quality_gates at all -- the repo's own quality_gates.sast
+		// (fetched above via the GitHub contents mock) must survive.
+		if err := os.WriteFile(filepath.Join(policyDir, ".aurumcode", "config.yml"), []byte("gate:\n  inconclusive: warn\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		argvLog := filepath.Join(t.TempDir(), "argv.log")
+		setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, argvLog))
+
+		var out, errOut strings.Builder
+		code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+			publicationSet: true,
+			publication:    "review",
+			policyDir:      policyDir,
+		})
+		if code != exitFindings {
+			t.Fatalf("exit=%d, want exitFindings(%d) (dir=%s); stdout=%s stderr=%s posted=%s", code, exitFindings, dir, out.String(), errOut.String(), posted.Body)
+		}
+		combined := out.String() + errOut.String() + posted.Body
+		if !strings.Contains(combined, "origem repo") {
+			t.Fatalf("expected origem repo when the policy never declares quality_gates.sast:\n%s", combined)
+		}
+		if strings.Contains(combined, "origem policy") {
+			t.Fatalf("expected origem repo, not policy, when the policy never declares quality_gates.sast:\n%s", combined)
+		}
+		argv, err := os.ReadFile(argvLog)
+		if err != nil {
+			t.Fatalf("semgrep was never invoked: %v", err)
+		}
+		for _, flag := range []string{"--disable-nosem", "--x-ignore-semgrepignore-files"} {
+			if strings.Contains(string(argv), flag) {
+				t.Fatalf("a repo-origin SAST (policy exists but never declares quality_gates.sast) must never get hardening flags: %s\n%s", flag, argv)
+			}
+		}
+	})
+}

@@ -35,6 +35,18 @@ RUN apk add --no-cache ca-certificates git bash jq python3 py3-pip
 # support, the documented fallback is switching this final stage's base
 # image to a glibc distribution (e.g. python:3.11-slim) with the same
 # package set installed via apt.
+#
+# WARNING for whoever bumps this version: `--x-ignore-semgrepignore-files`
+# (internal/analysis/semgrep.go's policyOrigin flags) is an UNDOCUMENTED,
+# internal Semgrep flag ("THIS OPTION IS NOT PART OF THE SEMGREP API AND
+# MAY CHANGE OR DISAPPEAR WITHOUT NOTICE" per `semgrep scan --help`). A
+# version bump must re-run `semgrep scan --help` and confirm the flag is
+# still there before shipping -- if it silently disappears, the
+# invocation errors on the unrecognized flag, which this project's own
+# B1 handling already turns into a fail-closed inconclusive result
+# (never a silent, unprotected scan), so a missed recheck fails safe,
+# but a human should still close the gap deliberately rather than leave
+# the SAST pass permanently inconclusive under policy.
 RUN pip3 install --no-cache-dir --break-system-packages semgrep==1.172.0
 
 WORKDIR /github/workspace
