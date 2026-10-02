@@ -336,5 +336,12 @@ func Parse(data []byte, source string) (*Config, error) {
 	if err := cfg.QualityGates.SsorDtrack.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
+	// AUR-551: a declared supply_chain section with the wrong engine, or
+	// an artifacts entry that is not pinned by a sha256 digest, is a
+	// config error here -- fail closed before `aurumcode sign` (or any
+	// other command) ever resolves it, exactly like ssor_dtrack above.
+	if err := cfg.QualityGates.SupplyChain.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
 	return &cfg, nil
 }
