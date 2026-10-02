@@ -98,8 +98,8 @@ func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 		result.Fail = blockOnInconclusive
 		reason = gateReasonDTrackSecretMissing
 		result.Lines = append(result.Lines, fmt.Sprintf(
-			"ssor_dtrack: variável de ambiente %q (api_key_secret) ou %q (project_id_secret) não definida",
-			cfg.APIKeySecret, cfg.ProjectIDSecret,
+			"ssor_dtrack: revisão inconclusiva (%s): variável de ambiente %q (api_key_secret) ou %q (project_id_secret) não definida",
+			reason, cfg.APIKeySecret, cfg.ProjectIDSecret,
 		))
 		return result, reason, newFilter
 	}
@@ -111,7 +111,7 @@ func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 		result.Fail = blockOnInconclusive
 		reason = gateReasonDTrackSBOMUnavailable
 		result.Lines = append(result.Lines, fmt.Sprintf(
-			"ssor_dtrack: SBOM em sbom_generator.output_file %q não pôde ser lido", bomPath,
+			"ssor_dtrack: revisão inconclusiva (%s): SBOM em sbom_generator.output_file %q não pôde ser lido", reason, bomPath,
 		))
 		return result, reason, newFilter
 	}
@@ -121,7 +121,7 @@ func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 		result.Inconclusive = true
 		result.Fail = blockOnInconclusive
 		reason = gateReasonDTrackInvalidHost
-		result.Lines = append(result.Lines, "ssor_dtrack: server_api_host inválido")
+		result.Lines = append(result.Lines, fmt.Sprintf("ssor_dtrack: revisão inconclusiva (%s): server_api_host inválido", reason))
 		return result, reason, newFilter
 	}
 	client = client.WithClock(dtrackClockNow, dtrackSleeper)

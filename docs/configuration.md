@@ -494,6 +494,13 @@ quality_gates:
   (seção do AUR-549, aninhada aqui) que este gate envia como está —
   gerar esse arquivo nunca é responsabilidade desta seção.
 
+**Versão mínima do servidor.** O Trivy fixado pelo AUR-549 emite CycloneDX
+**1.7** (não há opção para uma versão mais antiga). O Dependency-Track só
+ingere BOMs em CycloneDX 1.7 a partir da versão **5.1.0** (ou **4.14.4** na
+linha 4.x) — um servidor mais antigo rejeita o upload com um erro 4xx. Essa
+rejeição segue o mesmo caminho de qualquer outro erro HTTP: o gate fica
+inconclusivo (`dtrack_http_error`) per política, nunca aprovado.
+
 Diretriz do RFC de origem: cada microsserviço tem seu próprio projeto no
 Dependency-Track; nunca envie SBOMs de serviços diferentes para o mesmo
 projeto sem unificá-los primeiro, porque o servidor sobrescreve o anterior.

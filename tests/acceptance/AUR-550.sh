@@ -94,6 +94,24 @@ export GOFLAGS='-mod=mod -p=1'
 export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
+# internal/dtrack and internal/config carry their own, package-level
+# proof of this card's "never a silent zero" rule (missing/negative
+# metric fields, HTTPS/loopback host validation, no-redirect transport,
+# per-section central-policy precedence) that cmd/aurumcode's own
+# TestAUR550* names never exercise directly. Every selector below runs
+# this once, unconditionally, so a regression there can never pass this
+# script just because the cmd-level table above it still does.
+run_package_proof() {
+  local log="$run_dir/package_proof.log"
+  set +e
+  (cd "$run_dir/root" && go test -mod=mod -p 1 -count=1 -timeout 120s ./internal/dtrack/... ./internal/config/...) >"$log" 2>&1
+  local status=$?
+  set -e
+  cat "$log" >&2
+  (( status == 0 )) || fail "package-proof-exit:$status"
+}
+run_package_proof
+
 # AC-003-MUT-001: internal/dtrack.Client.PollUntilProcessed has exactly
 # one place a timeout is ever declared (unique in the file on purpose --
 # see client.go's own comment at that line). Replacing it with

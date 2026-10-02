@@ -195,3 +195,87 @@ func TestRunIncompleteMetricsIsInconclusiveNeverZero(t *testing.T) {
 		t.Fatalf("an incomplete metrics response must never read as a breach, and never as approved either: %+v", out)
 	}
 }
+
+// TestEvaluateMetricsNegativeCountIsIncompleteNeverClean: a negative count
+// is not a real Dependency-Track value. Grading it normally would be
+// dangerous (a negative can never exceed a non-negative threshold, so it
+// would always read as "clean" no matter how wrong the response actually
+// is) -- EvaluateMetrics must refuse it exactly like a missing field.
+func TestEvaluateMetricsNegativeCountIsIncompleteNeverClean(t *testing.T) {
+	neg, zero := -1, 0
+	cases := []ProjectMetrics{
+		{Critical: &neg, High: &zero, PolicyViolationsTotal: &zero},
+		{Critical: &zero, High: &neg, PolicyViolationsTotal: &zero},
+		{Critical: &zero, High: &zero, PolicyViolationsTotal: &neg},
+	}
+	for i, m := range cases {
+		eval, err := EvaluateMetrics(m, Thresholds{})
+		if err != ErrMetricsIncomplete {
+			t.Fatalf("case %d: err=%v, want ErrMetricsIncomplete", i, err)
+		}
+		if eval.Breach {
+			t.Fatalf("case %d: a negative count must never read as a breach either: %+v", i, eval)
+		}
+	}
+}
+
+// TestRunMissingProcessingFieldNeverReadsAsDone: a /bom/token/{token}
+// response with no "processing" key at all (not even "processing":false)
+// must never be read as finished -- it keeps polling until the timeout,
+// exactly like "processing":true would.
+func TestRunMissingProcessingFieldNeverReadsAsDone(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/bom":
+			_ = json.NewEncoder(w).Encode(map[string]string{"token": "tok"})
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/bom/token/"):
+			_, _ = w.Write([]byte(`{}`)) // no "processing" key at all
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	client, _ := NewClient(srv.URL, "k")
+	client = client.WithClock(fakeClock(time.Unix(0, 0)))
+
+	out := Run(context.Background(), client, "proj", []byte("{}"), Thresholds{}, time.Second, 5*time.Second)
+	if !out.Inconclusive || out.InconclusiveReason != ReasonTimeout {
+		t.Fatalf("expected timeout-inconclusive (missing processing field never reads as done), got %+v", out)
+	}
+}
+
+// TestUploadNeverForwardsAPIKeyAcrossARedirect: a server that answers the
+// upload with a 302 to a second, different server must never have that
+// second server see X-Api-Key -- Go's http.Client strips Authorization/
+// Cookie on a cross-host redirect but NOT a custom header, so the only
+// safe rule (enforced by NewClient's CheckRedirect) is to never follow a
+// redirect at all.
+func TestUploadNeverForwardsAPIKeyAcrossARedirect(t *testing.T) {
+	var redirectTargetSawKey bool
+	var redirectTargetCalled bool
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirectTargetCalled = true
+		if r.Header.Get("X-Api-Key") != "" {
+			redirectTargetSawKey = true
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"token": "tok"})
+	}))
+	defer target.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+"/api/v1/bom", http.StatusFound)
+	}))
+	defer origin.Close()
+
+	client, _ := NewClient(origin.URL, "secret-key")
+	_, err := client.Upload(context.Background(), "proj", []byte("{}"))
+	if err == nil {
+		t.Fatal("expected Upload to fail on an unfollowed redirect, got nil error")
+	}
+	if redirectTargetCalled {
+		t.Fatalf("the redirect target must never be contacted at all (no-follow policy); X-Api-Key seen=%v", redirectTargetSawKey)
+	}
+	if redirectTargetSawKey {
+		t.Fatal("the redirect target saw X-Api-Key -- the no-follow policy failed")
+	}
+}
