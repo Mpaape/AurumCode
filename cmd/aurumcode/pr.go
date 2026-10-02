@@ -115,6 +115,11 @@ type prReviewOptions struct {
 	// AURUMCODE_POLICY (AUR-518); empty means no policy was declared and
 	// this path is unchanged (AC-006).
 	policyDir string
+	// auditoriaPath/sarifPath are AUR-521's compliance artifact paths
+	// (--auditoria/--sarif); empty means neither file is written, this
+	// path's published behavior unchanged.
+	auditoriaPath string
+	sarifPath     string
 }
 
 // runPRReview is reached only when --pr was explicitly given (see the
@@ -754,6 +759,28 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: inline comments or --check require a commit SHA; set GITHUB_SHA")
 		return 1
 	}
+
+	// AUR-521: the compliance audit record and SARIF document, written once
+	// the gate's own decision above is final and the commit identity this
+	// run reviewed is resolved. A no-op unless --auditoria or --sarif was
+	// given (writeComplianceArtifacts's own guard).
+	writeComplianceArtifacts(complianceArtifactInputs{
+		auditoriaPath:          opts.auditoriaPath,
+		sarifPath:              opts.sarifPath,
+		policyDir:              opts.policyDir,
+		centralCfg:             centralCfg,
+		repo:                   owner + "/" + repoName,
+		reviewedSHA:            commitID,
+		model:                  firstNonEmpty(opts.modelo, os.Getenv("LLM_MODEL")),
+		verdict:                result.Verdict,
+		gate:                   gateResult,
+		gateInconclusiveReason: gateInconclusiveReason,
+		diff:                   diff,
+		issues:                 result.Issues,
+		dynamicRules:           dynamicRules,
+		coverageComplete:       !coverageBreakdown.partial(),
+		omittedFiles:           append(append([]string{}, coverageBreakdown.IgnoredPaths...), coverageBreakdown.FilteredPaths...),
+	}, filter, stderr)
 
 	// The publish loop never lets one finding's POST failure swallow the
 	// rest: a failure is recorded and the loop continues, so an inline

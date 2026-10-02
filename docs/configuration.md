@@ -261,6 +261,115 @@ aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
 perfil selecionado aprende o mesmo catálogo dinâmico.
 
+## Trilha de auditoria e SARIF (AUR-521)
+
+Qualquer `aurumcode review` (`--base` ou `--pr`) pode escrever, além do que já
+publica, dois arquivos adicionais para o time de segurança da organização:
+
+```
+aurumcode review --base HEAD~1 \
+  --auditoria /caminho/auditoria.json \
+  --sarif     /caminho/revisao.sarif
+```
+
+- `--auditoria <arquivo>`: um registro JSON com o digest da política, o SHA
+  do workflow (`AURUMCODE_WORKFLOW_SHA`, com `GITHUB_SHA` como alternativa), o
+  repositório, o SHA revisado, o modelo, o veredito, a decisão do gate
+  (`pass`/`fail`/`inconclusive` + motivo), os achados que efetivamente
+  reprovaram o gate, as exceções aplicadas (campo `exceptions_applied`,
+  sempre presente como lista; AUR-520 — gravada achado por achado DENTRO do
+  loop de limiar de severidade do gate, então só existe quando
+  `gate.fail_on` está declarado e o loop de fato roda) e a cobertura
+  (completa ou não, com os arquivos que ficaram de fora).
+- `--sarif <arquivo>`: um documento SARIF 2.1.0 (`tool.driver` com as regras
+  citadas, incluindo as seções dinâmicas de skill com seus títulos;
+  `results` com `ruleId`, `level` (`error`/`warning`/`note`), `message`,
+  `location` (arquivo relativo ao repositório + linha) e uma impressão
+  digital estável por achado em `partialFingerprints`). Uma revisão
+  inconclusiva ainda produz um SARIF válido, com
+  `invocations[0].executionSuccessful=false` e uma notificação nomeando o
+  motivo.
+
+Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
+`--sarif`, o comportamento de hoje é idêntico, byte a byte.
+
+O workflow reutilizável (`.github/workflows/review.yml`) escreve os dois
+sempre e envia AMBOS como artefatos do job via `actions/upload-artifact`
+(`if: always()`, para que um gate reprovado -- o caso que mais importa --
+ainda produza evidência; um arquivo vazio, de uma rodada que nunca chegou a
+escrevê-lo, nunca é enviado): `aurumcode-sarif-<PR>` e
+`aurumcode-audit-<PR>`.
+
+O workflow reutilizável **nunca** chama `github/codeql-action/upload-sarif`
+ele mesmo. Essa action exige `security-events: write`, e uma reusable
+workflow não consegue conceder a si mesma uma permissão que o CALLER não já
+tem: se este workflow declarasse esse `permissions:` sozinho, toda chamada
+cujo caller não concedesse o mesmo pararia de rodar -- não só o upload, o
+job inteiro, para todo caller existente (`code-review.yml` deste
+repositório, os exemplos, qualquer workflow de outro repositório que já
+use este). Em vez disso, quem quer o SARIF no code scanning roda um
+SEGUNDO job, no seu próprio workflow (onde conceder permissão a si mesmo é
+normal, sem cruzar fronteira de reusable workflow), que baixa o artefato e
+faz o upload:
+
+```yaml
+jobs:
+  review:
+    uses: ./.github/workflows/review.yml
+    with:
+      security: true
+    secrets: inherit
+
+  upload-sarif:
+    needs: review
+    # !cancelled() (não always()): o job de review FALHA quando o gate
+    # reprova (exit 1/3) -- exatamente o caso em que o upload mais
+    # importa -- e !cancelled() ainda roda nesse caso, só pulando um
+    # cancelamento explícito do workflow.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read            # necessário para download-artifact em repo privado
+      security-events: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: aurumcode-sarif-${{ github.event.pull_request.number }}
+          path: .
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: aurumcode-review.sarif
+          category: aurumcode-policy-gate   # categoria fixa: um upload --pr
+                                             # (ou um futuro run agendado)
+                                             # atualiza a MESMA análise no
+                                             # code scanning em vez de
+                                             # acumular um conjunto de
+                                             # alertas que nunca é limpo
+```
+
+Um PR de fork nunca recebe `security-events: write` (o GITHUB_TOKEN de um
+`pull_request` vindo de fork é somente leitura para esse escopo); o job
+`upload-sarif` acima simplesmente não roda nesse caso -- o artefato SARIF
+continua existindo e baixável, só não chega ao code scanning
+automaticamente.
+
+O `code-review.yml` deste próprio repositório ainda não tem esse segundo
+job -- está fora dos `paths` da AUR-521 e não foi criado por este card; até
+que alguém o adicione, o SARIF deste repositório fica disponível como
+artefato do job de review, mas não chega ao code scanning.
+
+A impressão digital de cada achado (`internal/render.FindingFingerprint`) é a
+identidade canônica de um achado neste projeto — a mesma que a AUR-494 deve
+reaproveitar quando existir, nunca redefinir: regra + caminho + linha +
+contexto de código normalizado, nunca o texto livre do modelo isoladamente, e
+nunca um valor por execução (hora, nonce). O mesmo achado produz sempre a
+mesma impressão digital, nesta execução ou em qualquer execução futura.
+
+Os dois arquivos passam pelo mesmo filtro de redação único (AUR-009) que
+qualquer outro destino deste processo usa: nenhum segredo (nem um valor
+registrado em `AURUM_SECRET_CANARY`) sobrevive ao texto serializado.
+
 ## Exceções aprovadas: dono e validade (AUR-520)
 
 `exceptions` é uma lista simples, no mesmo `config.yml` (do repositório ou da
@@ -350,6 +459,8 @@ consumidor.
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
 | `--politica`, `--policy` | Diretório que contém o `.aurumcode/config.yml` de uma política central, com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
+| `--auditoria` | Caminho para escrever o registro de auditoria JSON desta execução (padrão: não escreve) |
+| `--sarif` | Caminho para escrever o documento SARIF 2.1.0 desta execução (padrão: não escreve) |
 
 ### CLI `aurumcode fix`
 
