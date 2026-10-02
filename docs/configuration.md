@@ -272,6 +272,19 @@ aurumcode review --base HEAD~1 \
 Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
 `--sarif`, o comportamento de hoje é idêntico, byte a byte.
 
+O workflow reutilizável (`.github/workflows/review.yml`) escreve os dois
+sempre e envia o SARIF para o code scanning do GitHub
+(`github/codeql-action/upload-sarif`, categoria fixa `aurumcode-policy-gate`,
+`if: always()` para que um gate reprovado ainda chegue ao code scanning) e
+o registro de auditoria como artefato do job (`actions/upload-artifact`); um
+arquivo vazio (uma rodada que nunca chegou a escrevê-lo) nunca é enviado.
+**Quem chama este workflow reutilizável precisa conceder
+`security-events: write`** no `permissions:` do próprio job — a permissão de
+uma reusable workflow nunca excede o que o caller já concede. O
+`code-review.yml` deste próprio repositório ainda não concede essa
+permissão; até que seja atualizado, o upload do SARIF no self-review falha
+com 403 (o resto do review continua funcionando normalmente).
+
 A impressão digital de cada achado (`internal/render.FindingFingerprint`) é a
 identidade canônica de um achado neste projeto — a mesma que a AUR-494 deve
 reaproveitar quando existir, nunca redefinir: regra + caminho + linha +

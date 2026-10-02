@@ -290,6 +290,88 @@ func TestAUR521RedactsSecretCanaryEndToEnd(t *testing.T) {
 	}
 }
 
+// TestAUR521RedactsSecretCanaryFromDiffLine closes a declared gap from the
+// prior commit: the fingerprint/context source is now the REVIEWED DIFF
+// LINE itself (render.FindingIdentityFor), not the model's text, so this
+// proves the canary is redacted even when it appears ONLY in the diff --
+// the model's own message/evidence never mention it at all.
+func TestAUR521RedactsSecretCanaryFromDiffLine(t *testing.T) {
+	const canary = "AURUM-CANARY-DIFFLINE-f00dfeed"
+	dir := t.TempDir()
+	write := func(name string, data []byte) {
+		t.Helper()
+		p := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	baseSrc := "package demo\nfunc Change() {}\n"
+	headSrc := "package demo\nfunc Change() {\n token := \"" + canary + "\"\n _ = token\n}\n"
+	baseBlob := gitObject(t, dir, "blob", []byte(baseSrc))
+	headBlob := gitObject(t, dir, "blob", []byte(headSrc))
+	baseTree := gitObject(t, dir, "tree", treeEntry(t, "100644", "app.go", baseBlob))
+	headTree := gitObject(t, dir, "tree", treeEntry(t, "100644", "app.go", headBlob))
+	commit := func(tree, parent string) string {
+		body := "tree " + tree + "\n"
+		if parent != "" {
+			body += "parent " + parent + "\n"
+		}
+		body += "author Fixture <fixture@example.invalid> 1 +0000\ncommitter Fixture <fixture@example.invalid> 1 +0000\n\nfixture\n"
+		return gitObject(t, dir, "commit", []byte(body))
+	}
+	base := commit(baseTree, "")
+	head := commit(headTree, base)
+	write(".git/HEAD", []byte("ref: refs/heads/main\n"))
+	write(".git/refs/heads/main", []byte(head+"\n"))
+	write(".git/config", []byte("[core]\nrepositoryformatversion = 0\nbare = false\n"))
+	write("app.go", []byte(headSrc))
+
+	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "AURUMCODE_LLM_FIXTURE", "AURUMCODE_LLM_INPUT_USD_PER_1K", "AURUMCODE_LLM_OUTPUT_USD_PER_1K"} {
+		t.Setenv(key, "")
+	}
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("AURUMCODE_CACHE_DIR", t.TempDir())
+	restore := chdir(t, dir)
+	t.Cleanup(restore)
+
+	// The model's own text never mentions the canary at all -- it exists
+	// ONLY in the diff line this finding is anchored to (file app.go, the
+	// added line 3, which is exactly where the canary was placed above).
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	resp := `{"summary":"ok","verdict":"approve","issues":[{"file":"app.go","line":3,"severity":"warning","rule_id":"security/hardcoded-secret","message":"Hardcoded secret","evidence":"see line 3","impact":"Credential leak","verification":"Remove the literal secret"}]}`
+	if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+	t.Setenv(redaction.CanaryEnv, canary)
+
+	auditPath := filepath.Join(t.TempDir(), "audit.json")
+	sarifPath := filepath.Join(t.TempDir(), "out.sarif")
+	var out, errOut strings.Builder
+	runReview([]string{"--base", "HEAD~1", "--auditoria", auditPath, "--sarif", sarifPath}, &out, &errOut, redaction.FromEnv())
+
+	auditBytes, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("reading audit record: %v", err)
+	}
+	if strings.Contains(string(auditBytes), canary) {
+		t.Fatalf("canary (diff-only) leaked into the audit record:\n%s", auditBytes)
+	}
+	sarifBytes, err := os.ReadFile(sarifPath)
+	if err != nil {
+		t.Fatalf("reading SARIF: %v", err)
+	}
+	if strings.Contains(string(sarifBytes), canary) {
+		t.Fatalf("canary (diff-only) leaked into the SARIF document:\n%s", sarifBytes)
+	}
+	if !strings.Contains(string(sarifBytes), "security/hardcoded-secret") {
+		t.Fatalf("sanity check failed: the finding itself never reached the SARIF document:\n%s", sarifBytes)
+	}
+}
+
 // TestAUR521PRPathWritesComplianceArtifacts proves the --pr path
 // (runPRReview) is wired exactly like --base: the audit record is written
 // with the gate's own decision and the repo/commit this run reviewed.

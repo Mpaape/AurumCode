@@ -21,8 +21,10 @@
 #   AC-004          an inconclusive run's audit record names the
 #                   inconclusive decision and the SARIF invocation marks
 #                   executionSuccessful=false with a notification naming why
-#   AC-005          a secret canary present in a finding's own text never
-#                   reaches the written audit record or SARIF document
+#   AC-005          a secret canary present in a finding's own text, OR in
+#                   the reviewed diff line a finding is anchored to (the
+#                   fingerprint/context source), never reaches the written
+#                   audit record or SARIF document
 #   AC-002-MUT-001  fold a per-call nonce (wall-clock time) into the
 #                   fingerprint payload; AC-002's own stability test must go
 #                   RED -- this is MUT-001: a fingerprint that moves for the
@@ -121,7 +123,7 @@ case "$selector" in
     test_pattern='^(TestAUR521SARIFInconclusiveRun|TestAUR521AuditRecordInconclusiveMarksOmittedFiles|TestAUR521AuditInconclusiveListsOmittedFiles)$'
     ;;
   AC-005)
-    test_pattern='^(TestAUR521WriteAuditRecordRedactsSecretCanary|TestAUR521SARIFRedactsSecretCanary|TestAUR521RedactsSecretCanaryEndToEnd)$'
+    test_pattern='^(TestAUR521WriteAuditRecordRedactsSecretCanary|TestAUR521SARIFRedactsSecretCanary|TestAUR521RedactsSecretCanaryEndToEnd|TestAUR521RedactsSecretCanaryFromDiffLine)$'
     ;;
   AC-002-MUT-001)
     test_pattern='^TestAUR521FindingFingerprintStableAcrossRuns$'
@@ -161,6 +163,7 @@ if [[ "$selector" == all ]]; then
     SARIFOmitsRegionForLinelessFinding SARIFInconclusiveRun SARIFRedactsSecretCanary \
     AuditAndSARIFOnGateBreach AuditFingerprintStableAcrossTwoRuns \
     AuditInconclusiveListsOmittedFiles RedactsSecretCanaryEndToEnd \
+    RedactsSecretCanaryFromDiffLine \
     PRPathWritesComplianceArtifacts; do
     grep -q "^--- PASS: TestAUR521$name " "$log" || fail "missing-pass:$name"
   done
