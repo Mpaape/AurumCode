@@ -217,8 +217,12 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// the rule gate so `${{ secrets.NAME }}`, permission scopes, and event
 	// types cannot become a blocking issue while literal values remain visible
 	// to the deterministic security pass.
+	issuesBeforeWorkflowFilter := len(result.Issues)
+	suggestionsBeforeWorkflowFilter := len(result.Suggestions)
 	result.Issues = suppressWorkflowReferenceFindings(diff, result.Issues)
 	result.Suggestions = suppressWorkflowReferenceSuggestions(diff, result.Suggestions)
+	workflowSuppressed := (issuesBeforeWorkflowFilter - len(result.Issues)) +
+		(suggestionsBeforeWorkflowFilter - len(result.Suggestions))
 
 	// Precision gate: the model may use repository context, language knowledge
 	// and configured prompts to reason about a change, but it cannot promote a
@@ -238,6 +242,32 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	}
 	rejected, discarded := enforceRuleCitations(rules, r.extraRules, result)
 
+	// AUR-517: the model wrote result.Summary with knowledge of every finding
+	// it proposed, including whichever ones did not survive the gates above
+	// (out-of-scope, missing evidence, an unresolvable rule citation, or a
+	// suppressed workflow-reference false positive). A removed finding can
+	// still be named in that prose, which would publish an accusation the
+	// rest of the result no longer makes. There is no reliable way to tell,
+	// from the free text alone, which sentence belonged to which finding, so
+	// the gate is on the FACT that something was discarded, never on the
+	// summary's content: any discard withholds the summary entirely; no
+	// discard leaves it untouched (AC-002's eligible change summary).
+	//
+	// Exception: internal/prompt's degradedOrError recovers findings from a
+	// non-JSON reply with ITS OWN fixed notice (degradedParseSummary below)
+	// as result.Summary, and those recovered issues never carry evidence, so
+	// filterModelIssues always discards every one of them. Without this
+	// exception the withholding above would delete the only sentence telling
+	// a reader the model's reply was unusable, publishing a clean "Approve"
+	// instead. The exception is deliberately an exact string match against
+	// the parser's literal, never Metadata (Metadata comes from the parsed
+	// JSON body itself and a model can set any key it likes there, including
+	// a forged "parse_mode": "degraded").
+	discardedByPipeline := workflowSuppressed + scopeDiscarded.total() + rejected
+	if result.Summary != degradedParseSummary {
+		result.Summary = withholdSummaryWhenFiltered(result.Summary, discardedByPipeline)
+	}
+
 	// Add metadata
 	if result.Metadata == nil {
 		result.Metadata = make(map[string]string)
@@ -245,6 +275,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", rejected)
 	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", scopeDiscarded.total())
 	result.Metadata["scope_discard_warning"] = scopeDiscarded.warning()
+	result.Metadata["summary_discarded_findings"] = fmt.Sprintf("%d", discardedByPipeline)
 	// AUR-448: a discard the rule gate makes is never silent. The caller
 	// (cmd/aurumcode) prints discardWarning verbatim to stderr when it is
 	// non-empty; it is deliberately "" on the happy path (rejected == 0) so
@@ -473,4 +504,26 @@ func formatDiscardWarning(discarded discardSummary) string {
 		reasons = append(reasons, fmt.Sprintf("%d citing an unknown rule_id (%s)", discarded.Unknown, strings.Join(discarded.UnknownIDs, ", ")))
 	}
 	return fmt.Sprintf("%d finding(s) discarded: %s", total, strings.Join(reasons, ", "))
+}
+
+// degradedParseSummary is the LITERAL copy of internal/prompt's
+// degradedOrError fixed notice ("the model's response was not valid JSON").
+// internal/prompt is read-only for this card, so the string is duplicated
+// here rather than exported from there; reviewer_test.go pins this constant
+// equal to what ResponseParser actually produces for a free-form reply, so
+// the two cannot drift silently.
+const degradedParseSummary = "Degraded parse: recovered findings from free-form text; the model's response was not valid JSON."
+
+// withholdSummaryWhenFiltered returns summary unchanged when discardedCount
+// is zero, and "" otherwise. It is the single anchor GenerateReviewWithContext
+// uses to stop the model's free-text summary from re-presenting, as though
+// still current, a finding the scope/evidence gate, the rule gate, or the
+// workflow-reference filter already removed (AUR-517 AC-001). The decision is
+// structural -- did the pipeline discard anything at all -- never a search
+// for an accusation inside the prose itself.
+func withholdSummaryWhenFiltered(summary string, discardedCount int) string {
+	if discardedCount > 0 {
+		return ""
+	}
+	return summary
 }
