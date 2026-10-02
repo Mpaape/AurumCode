@@ -60,10 +60,11 @@ func (r *Run) Clock() time.Time {
 // returns, so redaction writers installed by a contributor drain.
 func (r *Run) OnFlush(f func()) { r.flushers = append(r.flushers, f) }
 
-// Flush runs every registered flush function once.
+// Flush runs every registered flush function once, last registered first
+// (the order deferred calls would run in).
 func (r *Run) Flush() {
-	for _, f := range r.flushers {
-		f()
+	for i := len(r.flushers) - 1; i >= 0; i-- {
+		r.flushers[i]()
 	}
 	r.flushers = nil
 }
