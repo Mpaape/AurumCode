@@ -1,0 +1,228 @@
+// AUR-521: the SARIF 2.1.0 document a policy-governed review writes
+// alongside its audit record (audit.go), for a workflow to upload to
+// GitHub's code scanning. The structs below carry only the fields AC-002
+// requires; no schema is downloaded at runtime -- TestAUR521SARIF* in
+// sarif_test.go validates the required 2.1.0 shape directly against this
+// package's own encoding.
+package render
+
+import (
+	"encoding/json"
+	"os"
+	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
+)
+
+// SARIFVersion is the single SARIF version this writer ever produces.
+const SARIFVersion = "2.1.0"
+
+// sarifSchema is the canonical schema URI named in every SARIF 2.1.0
+// document; it is descriptive metadata only -- this package never fetches
+// it.
+const sarifSchema = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
+
+// FindingFingerprintKey is the stable key this writer uses inside a SARIF
+// result's partialFingerprints object.
+const FindingFingerprintKey = "aurumcode/findingId/v1"
+
+type sarifLog struct {
+	Schema  string     `json:"$schema"`
+	Version string     `json:"version"`
+	Runs    []sarifRun `json:"runs"`
+}
+
+type sarifRun struct {
+	Tool        sarifTool         `json:"tool"`
+	Invocations []sarifInvocation `json:"invocations"`
+	Results     []sarifResult     `json:"results"`
+}
+
+type sarifTool struct {
+	Driver sarifDriver `json:"driver"`
+}
+
+type sarifDriver struct {
+	Name    string      `json:"name"`
+	Version string      `json:"version"`
+	Rules   []sarifRule `json:"rules"`
+}
+
+type sarifRule struct {
+	ID               string       `json:"id"`
+	Name             string       `json:"name,omitempty"`
+	ShortDescription sarifMessage `json:"shortDescription"`
+}
+
+type sarifMessage struct {
+	Text string `json:"text"`
+}
+
+type sarifInvocation struct {
+	ExecutionSuccessful        bool                `json:"executionSuccessful"`
+	ToolExecutionNotifications []sarifNotification `json:"toolExecutionNotifications,omitempty"`
+}
+
+type sarifNotification struct {
+	Message sarifMessage `json:"message"`
+	Level   string       `json:"level,omitempty"`
+}
+
+type sarifResult struct {
+	RuleID              string             `json:"ruleId"`
+	Level               string             `json:"level"`
+	Message             sarifMessage       `json:"message"`
+	Locations           []sarifLocation    `json:"locations"`
+	PartialFingerprints map[string]string  `json:"partialFingerprints,omitempty"`
+	Suppressions        []sarifSuppression `json:"suppressions,omitempty"`
+}
+
+type sarifLocation struct {
+	PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"`
+}
+
+type sarifPhysicalLocation struct {
+	ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
+	Region           sarifRegion           `json:"region"`
+}
+
+type sarifArtifactLocation struct {
+	URI string `json:"uri"`
+}
+
+type sarifRegion struct {
+	StartLine int `json:"startLine"`
+}
+
+// sarifSuppression's Kind is always "external": an AUR-520 exception is
+// decided by policy configuration outside the reviewed source tree, never
+// by an in-source suppression comment (SARIF's own "inSource" kind).
+type sarifSuppression struct {
+	Kind          string `json:"kind"`
+	Justification string `json:"justification,omitempty"`
+}
+
+// SARIFFinding is one finding to render into the SARIF document. Context is
+// the normalized code line/hunk content at Line -- the same material
+// FindingFingerprint hashes -- never the free-text Message alone.
+// Suppressed/Justification are AUR-520's own, synthetic until that card
+// lands: this writer already renders them into SARIF's "suppressions" shape
+// whenever a caller sets them (AC-003).
+type SARIFFinding struct {
+	RuleID        string
+	RuleTitle     string
+	Path          string
+	Line          int
+	Severity      string
+	Message       string
+	Context       string
+	Suppressed    bool
+	Justification string
+}
+
+// severityToSARIFLevel maps this system's three issue severities onto
+// SARIF's result level vocabulary (AC-002: "regra, severidade, arquivo,
+// linha"). Unrecognized input maps to "warning" rather than silently
+// dropping the result.
+func severityToSARIFLevel(sev string) string {
+	switch strings.ToLower(strings.TrimSpace(sev)) {
+	case "error":
+		return "error"
+	case "warning":
+		return "warning"
+	case "info":
+		return "note"
+	default:
+		return "warning"
+	}
+}
+
+// BuildSARIFLog assembles the complete SARIF document. executionSuccessful
+// is AC-004's own invocation flag: false marks the run inconclusive, and
+// notificationReason (non-empty exactly when executionSuccessful is false)
+// becomes the one toolExecutionNotification naming why.
+func BuildSARIFLog(toolVersion string, findings []SARIFFinding, executionSuccessful bool, notificationReason string) sarifLog {
+	rules := make([]sarifRule, 0, len(findings))
+	seenRules := map[string]bool{}
+	results := make([]sarifResult, 0, len(findings))
+
+	for _, f := range findings {
+		if f.RuleID != "" && !seenRules[f.RuleID] {
+			seenRules[f.RuleID] = true
+			title := strings.TrimSpace(f.RuleTitle)
+			if title == "" {
+				title = f.RuleID
+			}
+			rules = append(rules, sarifRule{
+				ID:               f.RuleID,
+				Name:             f.RuleID,
+				ShortDescription: sarifMessage{Text: title},
+			})
+		}
+
+		fingerprint := FindingFingerprint(FindingIdentity{
+			RuleID:  f.RuleID,
+			Path:    f.Path,
+			Line:    f.Line,
+			Context: f.Context,
+		})
+
+		result := sarifResult{
+			RuleID:  f.RuleID,
+			Level:   severityToSARIFLevel(f.Severity),
+			Message: sarifMessage{Text: f.Message},
+			Locations: []sarifLocation{{
+				PhysicalLocation: sarifPhysicalLocation{
+					ArtifactLocation: sarifArtifactLocation{URI: normalizeFindingPath(f.Path)},
+					Region:           sarifRegion{StartLine: f.Line},
+				},
+			}},
+			PartialFingerprints: map[string]string{
+				FindingFingerprintKey: fingerprint,
+			},
+		}
+		if f.Suppressed {
+			result.Suppressions = []sarifSuppression{{
+				Kind:          "external",
+				Justification: f.Justification,
+			}}
+		}
+		results = append(results, result)
+	}
+
+	invocation := sarifInvocation{ExecutionSuccessful: executionSuccessful}
+	if !executionSuccessful && strings.TrimSpace(notificationReason) != "" {
+		invocation.ToolExecutionNotifications = []sarifNotification{{
+			Message: sarifMessage{Text: notificationReason},
+			Level:   "error",
+		}}
+	}
+
+	return sarifLog{
+		Schema:  sarifSchema,
+		Version: SARIFVersion,
+		Runs: []sarifRun{{
+			Tool: sarifTool{Driver: sarifDriver{
+				Name:    "AurumCode",
+				Version: toolVersion,
+				Rules:   rules,
+			}},
+			Invocations: []sarifInvocation{invocation},
+			Results:     results,
+		}},
+	}
+}
+
+// WriteSARIF marshals the SARIF document as indented JSON, runs the
+// complete text through filter (AUR-009, AC-005 -- the single redaction
+// filter every sink in this system writes through) and writes the redacted
+// result to path.
+func WriteSARIF(path, toolVersion string, findings []SARIFFinding, executionSuccessful bool, notificationReason string, filter *redaction.Filter) error {
+	log := BuildSARIFLog(toolVersion, findings, executionSuccessful, notificationReason)
+	data, err := json.MarshalIndent(log, "", "  ")
+	if err != nil {
+		return err
+	}
+	redacted := filter.Redact(string(data))
+	return os.WriteFile(path, []byte(redacted+"\n"), 0o600)
+}

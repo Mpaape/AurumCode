@@ -242,6 +242,47 @@ aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
 perfil selecionado aprende o mesmo catálogo dinâmico.
 
+## Trilha de auditoria e SARIF (AUR-521)
+
+Qualquer `aurumcode review` (`--base` ou `--pr`) pode escrever, além do que já
+publica, dois arquivos adicionais para o time de segurança da organização:
+
+```
+aurumcode review --base HEAD~1 \
+  --auditoria /caminho/auditoria.json \
+  --sarif     /caminho/revisao.sarif
+```
+
+- `--auditoria <arquivo>`: um registro JSON com o digest da política, o SHA
+  do workflow (`GITHUB_WORKFLOW_SHA`, com `GITHUB_SHA` como alternativa), o
+  repositório, o SHA revisado, o modelo, o veredito, a decisão do gate
+  (`pass`/`fail`/`inconclusive` + motivo), os achados que efetivamente
+  reprovaram o gate, as exceções aplicadas (campo `exceptions_applied`,
+  sempre presente como lista — vazia até a AUR-520 passar a preenchê-lo) e a
+  cobertura (completa ou não, com os arquivos que ficaram de fora).
+- `--sarif <arquivo>`: um documento SARIF 2.1.0 (`tool.driver` com as regras
+  citadas, incluindo as seções dinâmicas de skill com seus títulos;
+  `results` com `ruleId`, `level` (`error`/`warning`/`note`), `message`,
+  `location` (arquivo relativo ao repositório + linha) e uma impressão
+  digital estável por achado em `partialFingerprints`). Uma revisão
+  inconclusiva ainda produz um SARIF válido, com
+  `invocations[0].executionSuccessful=false` e uma notificação nomeando o
+  motivo.
+
+Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
+`--sarif`, o comportamento de hoje é idêntico, byte a byte.
+
+A impressão digital de cada achado (`internal/render.FindingFingerprint`) é a
+identidade canônica de um achado neste projeto — a mesma que a AUR-494 deve
+reaproveitar quando existir, nunca redefinir: regra + caminho + linha +
+contexto de código normalizado, nunca o texto livre do modelo isoladamente, e
+nunca um valor por execução (hora, nonce). O mesmo achado produz sempre a
+mesma impressão digital, nesta execução ou em qualquer execução futura.
+
+Os dois arquivos passam pelo mesmo filtro de redação único (AUR-009) que
+qualquer outro destino deste processo usa: nenhum segredo (nem um valor
+registrado em `AURUM_SECRET_CANARY`) sobrevive ao texto serializado.
+
 ## Opções públicas
 
 Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI
@@ -286,6 +327,8 @@ consumidor.
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
 | `--politica`, `--policy` | Diretório que contém o `.aurumcode/config.yml` de uma política central, com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
+| `--auditoria` | Caminho para escrever o registro de auditoria JSON desta execução (padrão: não escreve) |
+| `--sarif` | Caminho para escrever o documento SARIF 2.1.0 desta execução (padrão: não escreve) |
 
 ### CLI `aurumcode fix`
 
