@@ -174,6 +174,62 @@ nada. Uma política ausente ou inválida (config.yml faltando, YAML inválido,
 skill/doc listada que não existe, ou um diretório dentro da própria árvore
 revisada) falha o comando antes de qualquer chamada ao modelo.
 
+## Gate: skills viram regra citável, e a política decide o que reprova (AUR-519)
+
+Cada seção `## ` de cada skill Markdown — as da política e as do próprio
+repositório — é lida a cada execução e vira uma regra citável, com id
+`<nome-do-arquivo-da-skill>#<slug-da-seção>` (minúsculas, qualquer sequência
+de caracteres não alfanuméricos some num único `-`, sem `-` nas pontas; ex.:
+`security.md` com `## No Hardcoded Secrets` vira
+`security#no-hardcoded-secrets`). Título = o texto do cabeçalho. Descrição =
+o corpo da seção (limitado a 400 caracteres). Severidade do próprio achado é
+`warning` por padrão; uma seção pode declarar a sua própria na primeira
+linha do corpo, exatamente `severity: error` (ou `warning`/`info`) — qualquer
+outra grafia é ignorada e o padrão vale. Acrescentar uma seção nova a uma
+skill já configurada passa a ser citável na execução seguinte, sem mudança
+de código (AC-007). Um achado que cita uma skill ou seção que não existe é
+descartado e contado como não vinculado, exatamente como hoje um `rule_id`
+desconhecido já é (o aviso de descarte do terminal/PR cobre os dois casos).
+
+A política (nunca o repositório sozinho, a menos que ele opte) declara o que
+reprova o check:
+
+```yaml
+# <diretório da política>/.aurumcode/config.yml
+gate:
+  fail_on: [critical, high]   # ou qualquer combinação de: critical, high,
+                               # error, medium, warning, low, info
+  inconclusive: block         # ou: warn (aceita também bloquear/alertar)
+```
+
+`gate.fail_on` aceita a mesma lista de severidades que `--fail-on` já aceita
+(`high`/`error`, `medium`/`warning`, `low`/`info`), mais o alias `critical`
+(mapeado no mesmo nível de `high`/`error` — este projeto não tem uma quarta
+severidade). O limiar efetivo é o mais baixo entre as severidades listadas:
+um achado do check na severidade do limiar ou acima dele reprova o check,
+nomeando a skill e a seção que o sustentam (AC-001). Só contam achados cuja
+regra é dinâmica E de origem aceita: sob política central, só as seções da
+própria política (AC-005); sem política, só as do repositório, e somente
+quando o repositório declarou seu próprio `gate` — sem isso, nada muda.
+
+`gate.inconclusive` decide o que uma revisão inconclusiva faz ao check:
+falha do provedor, cobertura parcial (AUR-476, com os arquivos nomeados) ou
+resposta do modelo que não pôde ser interpretada como JSON (parse
+degradado — hoje publicado como se a revisão tivesse funcionado). Com
+`block`, a revisão reprova o check; com `warn`, passa com um alerta visível.
+Em nenhum dos dois casos o parecer aparece como aprovado.
+
+Sob política central, `gate` do repositório é ignorado por completo — um
+aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
+avisos de `rules`/`ignore` já existentes.
+
+**Estado desta implementação:** a decisão do gate (seções dinâmicas,
+`gate.fail_on`/`inconclusive`, a precedência da política, e a detecção de
+parse degradado à prova de forja) está implementada e testada; a ligação
+dessa decisão ao código de saída e ao status do commit de
+`aurumcode review --base`/`--pr` ainda não foi feita — ver
+`docs/specs/AUR-519.md`.
+
 ## Opções públicas
 
 Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI
@@ -198,6 +254,8 @@ consumidor.
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
 | `rules.<id>.severity` | Sobrescreve a severidade de uma regra | embutido |
 | `ignore` | Globs de caminhos removidos antes da análise | vazio |
+| `gate.fail_on` | Severidades (do vocabulário de `--fail-on`, mais `critical`) que reprovam o check | vazio (sem gate) |
+| `gate.inconclusive` | `block` ou `warn` para uma revisão inconclusiva | vazio (sem gate) |
 
 ### CLI `aurumcode review`
 
