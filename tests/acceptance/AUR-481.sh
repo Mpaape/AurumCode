@@ -104,16 +104,22 @@ required_inputs=(
   go.mod
   go.sum
   cmd/aurumcode
+  internal/analysis
   internal/analyzer
+  internal/apply
+  internal/changelog
   internal/config
-  internal/prompt
-  internal/review
-  internal/security
+  internal/context
   internal/git
-  internal/documentation
-  internal/pipeline
-  pkg/types
   internal/llm
+  internal/memory
+  internal/prompt
+  internal/render
+  internal/review
+  internal/reviewprofile
+  internal/security
+  internal/testgen
+  pkg/types
   tests/fixtures/review/vuln/repo.git
   tests/fixtures/review/vuln/hardcoded-secret/repo.git
   tests/fixtures/review/vuln/node-xss-command-injection/repo.git
@@ -145,13 +151,20 @@ copy() {
   done
 }
 
+# AUR-547: internal/documentation and internal/pipeline were removed from
+# the product by commit 670c7f6 ("Focus AurumCode on code review",
+# 2026-09-12), predating this fix; AUR-490's done-card record already
+# treats the removal as settled fact. The package list below is
+# `go list -deps ./cmd/aurumcode`'s own answer (run in the go-shared
+# container against this worktree) -- the same technique and resulting
+# list AUR-542 already used for tests/e2e/AUR-459.sh.
 stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/config internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation internal/pipeline
-  copy "$root" pkg/types internal/llm
+  copy "$root" cmd/aurumcode
+  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/security internal/testgen
+  copy "$root" pkg/types
   copy "$root" tests/fixtures/review/vuln
   chmod -R u+w -- "$root"
 }
@@ -206,13 +219,22 @@ nominal_case() {
   [[ "$out_sec" == "$out_again" ]] || fail non-deterministic
 
   # AC-003: the pre-existing Python SQL-injection regression fixture is
-  # unaffected -- same finding, same count.
+  # unaffected -- same finding, same count. AUR-547/AUR-490: AUR-490 (done,
+  # integrated after this card) made review --base also run the
+  # deterministic ANALYSIS pass unconditionally, which prints its own
+  # "[error]"-shaped line for the same file ahead of the security section
+  # -- measured directly against this worktree's binary. The count is
+  # scoped to the security section alone (after the header), exactly like
+  # AC-002's own count above, so it still counts only what this card
+  # (security findings) owns.
   local py_repo="$shared_root/tests/fixtures/review/vuln/repo.git"
   local out_py
   out_py="$(cd "$py_repo" && "$shared_bin" review --base HEAD~1 --seguranca)" || fail behavior-missing:python-regression
-  grep -Fq 'src/db.py:8: [error]' <<<"$out_py" || fail regression:python-sql-injection-missing
-  grep -Fq "$sql_citation" <<<"$out_py" || fail regression:python-citation-missing
-  [[ "$(grep -Fo '[error]' <<<"$out_py" | wc -l)" -eq 1 ]] || fail regression:python-finding-count-changed
+  grep -Fq "$header" <<<"$out_py" || fail regression:python-security-header-missing
+  local py_after_header="${out_py#*"$header"}"
+  grep -Fq 'src/db.py:8: [error]' <<<"$py_after_header" || fail regression:python-sql-injection-missing
+  grep -Fq "$sql_citation" <<<"$py_after_header" || fail regression:python-citation-missing
+  [[ "$(grep -Fo '[error]' <<<"$py_after_header" | wc -l)" -eq 1 ]] || fail regression:python-finding-count-changed
 
   # AC-003: the pre-existing hardcoded-secret regression fixture is
   # unaffected -- two findings, same lines, same citation.

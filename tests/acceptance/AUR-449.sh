@@ -76,12 +76,21 @@ required_inputs=(
   go.mod
   go.sum
   cmd/aurumcode
+  internal/analysis
   internal/analyzer
+  internal/apply
+  internal/changelog
   internal/config
+  internal/context
+  internal/git
   internal/llm
+  internal/memory
   internal/prompt
+  internal/render
   internal/review
-  internal/security/redaction
+  internal/reviewprofile
+  internal/security
+  internal/testgen
   pkg/types
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
@@ -114,17 +123,24 @@ copy() {
   done
 }
 
-# stage_source materializes exactly what `go build ./cmd/aurumcode` needs:
-# this card's owned paths plus the read-only packages the engine imports,
-# and the fixtures the CLI is exercised against.
+# stage_source materializes exactly what `go build ./cmd/aurumcode` needs.
+# AUR-547: cmd/regenerate-docs, internal/pipeline and internal/documentation/*
+# were removed from the product by commit 670c7f6 ("Focus AurumCode on code
+# review", 2026-09-12), a deliberate pivot predating this fix and already
+# treated as settled fact by AUR-490's done-card record; `ls internal` on
+# this worktree confirms none of the three exists any more. The package list
+# below is `go list -deps ./cmd/aurumcode`'s own answer (run in the
+# go-shared container against this worktree), filtered to the
+# github.com/Mpaape/AurumCode/internal/* entries and rolled up to their
+# owning directory -- the same technique and resulting list AUR-542 already
+# used for tests/e2e/AUR-459.sh's stage_source.
 stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/config internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review internal/pipeline
-  copy "$root" cmd/regenerate-docs
-  copy "$root" pkg/types internal/llm
+  copy "$root" cmd/aurumcode
+  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/security internal/testgen
+  copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input tree can be read-only, directories included;
   # force the staged scratch copy writable so mutation_case's rewrite and
@@ -138,17 +154,19 @@ readonly standard_citation='standards/security-review SCR-003'
 readonly noprovider_text='no LLM provider configured'
 readonly skip_text='quality review skipped'
 
-# The exact sha256 of git-demo's `--seguranca` stdout with the fixture
-# provider configured (AURUMCODE_LLM_FIXTURE=known-problem-response.json),
-# manually verified during this card's development to be byte-identical
-# between a binary built from the parent commit (before this card's change)
-# and the candidate binary built from this card's tree: both produced
-# 63c649af1c90e38b473e1bd45b4152b1f96ecad17d5d9c05c17bb94df7b8240f for
-# stdout (and the empty-string hash for stderr). Pinning it here means any
-# future change to this path that alters so much as one byte is caught,
-# exactly the "byte-identical with a provider present" guarantee the card
-# demands.
-readonly expected_with_provider_sha256='63c649af1c90e38b473e1bd45b4152b1f96ecad17d5d9c05c17bb94df7b8240f'
+# AUR-547/AUR-490: the full-stdout sha256 this constant used to pin
+# (63c649af1c90e38b473e1bd45b4152b1f96ecad17d5d9c05c17bb94df7b8240f,
+# manually verified byte-identical between the parent commit and this
+# card's own candidate, BEFORE AUR-490 existed) is no longer reproducible:
+# AUR-490 (done, integrated after this card) made `review --base`
+# unconditionally prepend the AC-002 summary/diagram block, including on
+# this exact --seguranca-with-provider path -- measured directly against
+# this worktree's binary, not inferred. That AUR-490 change is outside
+# what AUR-449 ever promised byte-for-byte; what AUR-449 actually owns on
+# this path -- the security section's own content, the rule citation and
+# the project-standard citation -- is still checked byte-for-byte below,
+# against the security section substring alone, never against the
+# summary/diagram AUR-490 added in front of it.
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its
@@ -185,20 +203,25 @@ nominal_case() {
   local fixture="$repo_root/tests/fixtures/review/known-problem-response.json"
   local demo_repo="$shared_root/tests/fixtures/repos/git-demo/repo.git"
 
-  # Baseline sanity: WITHOUT --seguranca, the pre-existing AUR-430
-  # no-provider refusal is completely untouched -- this card's paths
-  # widened selectProvider's own behavior not at all, only runReview's
-  # handling of its result.
+  # Baseline sanity, updated for AUR-490 (done, integrated after this
+  # card): AUR-490 dropped the "&& *seguranca" requirement from this same
+  # guard in cmd/aurumcode/main.go (its own comment there says so
+  # directly), so WITHOUT --seguranca and without a provider, review --base
+  # now exits 0 (deterministic analysis only, decided by --fail-on) and
+  # DOES carry the skip note -- instead of the old unconditional exit 1
+  # with empty stdout and no note. AUR-542 measured and fixed the identical
+  # assertion in tests/e2e/AUR-449.sh; see docs/specs/AUR-547.md.
   local out_plain err_plain rc
   set +e
   out_plain="$(cd "$demo_repo" && noprov_env "$shared_bin" review --base HEAD~1 2>"$run_dir/plain.err")"
   rc=$?
   set -e
   err_plain="$(cat "$run_dir/plain.err")"
-  [[ "$rc" -eq 1 ]] || fail "no-seguranca-no-provider-must-still-fail:$rc"
-  [[ -z "$out_plain" ]] || fail no-seguranca-unexpected-stdout
+  [[ "$rc" -eq 0 ]] || fail "no-seguranca-no-provider-now-runs-deterministic-analysis:$rc"
+  [[ -n "$out_plain" ]] || fail no-seguranca-expected-summary-stdout
   grep -Fq "$noprovider_text" <<<"$err_plain" || fail no-seguranca-error-missing
-  if grep -Fq "$skip_text" <<<"$err_plain"; then fail skip-note-must-not-appear-without-seguranca; fi
+  grep -Fq "$skip_text" <<<"$err_plain" || fail skip-note-expected-without-seguranca
+  if grep -Fq "$sec_header" <<<"$out_plain"; then fail no-seguranca-must-not-run-security-pass; fi
 
   # The card's central proof: --seguranca alone, with NO provider
   # configured at all, runs the security pass and reports its findings.
@@ -252,34 +275,41 @@ nominal_case() {
 
   # A caller who attempted configuration and got it wrong (an
   # AURUMCODE_LLM_FIXTURE path that does not exist) is a different error
-  # than "nothing configured": it must not be silently downgraded either.
+  # than "nothing configured": it must not be silently downgraded into the
+  # AUR-449 skip (the exact "quality review skipped" phrase must never
+  # appear here). AUR-458 (done, integrated after this card) separately
+  # decided that --seguranca still delivers the deterministic security
+  # findings it computed even when the quality attempt failed
+  # (cmd/aurumcode/main.go's own AUR-458 comment: "...any other
+  # quality-review failure... WHEN --seguranca is given and there is
+  # therefore still deterministic work to deliver"), rather than
+  # discarding already-computed work -- so stdout now legitimately carries
+  # the security section. What this card actually guards (a non-zero exit,
+  # never the skip phrase) is unchanged.
   local out_broken err_broken
   set +e
   out_broken="$(cd "$demo_repo" && AURUMCODE_LLM_FIXTURE="$run_dir/does-not-exist.json" "$shared_bin" review --base HEAD~1 --seguranca 2>"$run_dir/broken.err")"
   rc=$?
   set -e
   err_broken="$(cat "$run_dir/broken.err")"
-  [[ "$rc" -eq 1 ]] || fail "broken-provider-must-still-fail:$rc"
+  [[ "$rc" -ne 0 ]] || fail "broken-provider-must-still-fail:$rc"
   if grep -Fq "$skip_text" <<<"$err_broken"; then fail broken-provider-must-not-trigger-skip; fi
-  if grep -Fq "$sec_header" <<<"$out_broken"; then fail broken-provider-must-fail-before-output; fi
+  grep -Fq "$sec_header" <<<"$out_broken" || fail broken-provider-must-still-deliver-security-section
 
-  # With a provider configured, output is byte-identical to what AUR-442
-  # already published -- proved here by an exact sha256 pin, manually
-  # cross-checked against the parent (pre-AUR-449) binary during
-  # development (see the constant's own comment above).
-  local out_prov prov_sha
-  # Redirected to a file, not captured via `$(...)`: command substitution
-  # strips trailing newlines, which would hash different bytes than the
-  # program actually printed and than the file-based sha256sum this
-  # constant was pinned against (see the constant's own comment above and
-  # tests/acceptance/AUR-433.sh's own baseline_stdout_sha, the precedent
-  # this idiom follows).
+  # With a provider configured, the SECURITY SECTION is byte-identical to
+  # what AUR-442 already published -- proved by an exact count of the rule
+  # citation plus the standard citation, exactly like
+  # tests/integration/AUR-449.go's own check on this same path. AUR-547:
+  # the FULL-stdout sha256 this block used to pin is gone (see the
+  # constant's own comment above, removed with it) -- AUR-490 now prepends
+  # a summary/diagram block this card never owned.
+  local out_prov
   (cd "$demo_repo" && AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1 --seguranca) >"$run_dir/prov.out" || fail provider-run-failed
   out_prov="$(cat "$run_dir/prov.out")"
-  prov_sha="$(sha256sum "$run_dir/prov.out" | awk '{print $1}')"
-  [[ "$prov_sha" == "$expected_with_provider_sha256" ]] || fail "provider-output-changed:$prov_sha"
-  grep -Fq "$citation" <<<"$out_prov" || fail provider-citation-missing
-  grep -Fq "$standard_citation" <<<"$out_prov" || fail provider-standard-missing
+  grep -Fq "$sec_header" <<<"$out_prov" || fail provider-security-section-missing
+  local prov_section="${out_prov#*"$sec_header"}"
+  [[ "$(grep -Fo "$citation" <<<"$prov_section" | wc -l)" -eq 3 ]] || fail provider-citation-count-wrong
+  grep -Fq "$standard_citation" <<<"$prov_section" || fail provider-standard-missing
 
   # The secret canary never reaches a sink on the skip path.
   local canary="aurum-canary-449-$$"
@@ -290,15 +320,27 @@ nominal_case() {
 }
 
 # mutation_case is MUT-001: reverting to require a provider for the
-# --seguranca-only path must make the acceptance fail. It edits a writable
-# staged copy of cmd/aurumcode/main.go, neutralizing exactly the condition
-# that enables the skip (appending "&& false", a fixed-string full-line
-# replacement, so the mutation is minimal and precise), rebuilds, and
-# proves the OLD, broken behavior returns: --seguranca alone with no
-# provider configured exits 1 with the plain no-provider refusal and NO
-# security section -- i.e. that nominal_case's presence assertions above
-# are load-bearing. The committed source is never touched: the mutation
-# exists only in this case's own staged copy.
+# "nothing configured at all" skip must make the acceptance fail. It edits
+# a writable staged copy of cmd/aurumcode/main.go, neutralizing exactly the
+# condition that enables the skip (appending "&& false", a fixed-string
+# full-line replacement, so the mutation is minimal and precise), rebuilds,
+# and proves the OLD, broken behavior returns: --seguranca alone with no
+# provider configured no longer gets the free exit-0 skip, and the skip
+# note disappears -- i.e. that nominal_case's presence assertions above are
+# load-bearing. The committed source is never touched: the mutation exists
+# only in this case's own staged copy.
+#
+# AUR-547: the anchor is updated to the CURRENT guard
+# (cmd/aurumcode/main.go, the qualitySkipped condition) -- AUR-490 (done,
+# integrated after this card) already dropped this same guard's own
+# "&& *seguranca" clause from the line this anchor matches; the anchor
+# below matches what AUR-490 left behind, not what AUR-449 originally
+# wrote. Separately, AUR-458 (also done, also integrated after this card)
+# made the fallback branch this mutation forces execution into still
+# deliver the computed security findings on stdout (never discarding
+# already-computed work) -- so the assertions below check the one thing
+# this mutation actually targets (the skip's exit-0/note disappearing),
+# not stdout emptiness, which is AUR-458's contract, not this one's.
 mutation_case() {
   build_shared # warm GOCACHE; the rebuild recompiles one package.
 
@@ -307,8 +349,8 @@ mutation_case() {
 
   local target="$root/cmd/aurumcode/main.go"
   [[ -f "$target" ]] || fail 'MUT-001/target-missing'
-  local anchor=$'\tif providerErr != nil && *modelo == "" && *seguranca && errors.Is(providerErr, errNoProviderConfigured) {'
-  local replacement=$'\tif providerErr != nil && *modelo == "" && *seguranca && errors.Is(providerErr, errNoProviderConfigured) && false {'
+  local anchor=$'\tif providerErr != nil && *modelo == "" && errors.Is(providerErr, errNoProviderConfigured) {'
+  local replacement=$'\tif providerErr != nil && *modelo == "" && errors.Is(providerErr, errNoProviderConfigured) && false {'
   [[ "$(grep -Fxc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
   awk -v anchor="$anchor" -v replacement="$replacement" '
     $0 == anchor { print replacement; found++; next }
@@ -334,11 +376,15 @@ mutation_case() {
   set -e
   err="$(cat "$run_dir/mut.err")"
 
-  # The mutant must reproduce the exact pre-AUR-449 refusal: requiring a
-  # provider even for the deterministic security-only pass.
-  [[ "$rc" -eq 1 ]] || fail "MUT-001/mutation-survived:exit:$rc"
-  if [[ -n "$out" ]]; then fail 'MUT-001/mutation-survived:stdout-not-empty'; fi
-  if grep -Fq "$sec_header" <<<"$out"; then fail 'MUT-001/mutation-survived:security-section-present'; fi
+  # The mutant must lose exactly the AUR-449 skip: the free exit-0 path
+  # and its stderr note disappear. rc is asserted as "not 0" rather than
+  # a specific non-zero value, and stdout presence is not asserted at
+  # all, because the fallback branch this mutation now forces execution
+  # into is governed by AUR-458 (a separate, later, already-integrated
+  # card), not by AUR-449 -- asserting AUR-458's own stdout contract here
+  # would make this mutation fail for a reason that has nothing to do
+  # with the condition it actually mutates.
+  [[ "$rc" -ne 0 ]] || fail "MUT-001/mutation-survived:exit:$rc"
   grep -Fq "$noprovider_text" <<<"$err" || fail 'MUT-001/unexpected-shape'
   if grep -Fq "$skip_text" <<<"$err"; then fail 'MUT-001/mutation-survived:skip-note-present'; fi
 

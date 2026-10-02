@@ -62,8 +62,10 @@ for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
 done
 required_inputs=(
-  go.mod go.sum cmd/aurumcode internal/analyzer internal/config internal/llm internal/prompt
-  internal/review internal/security/redaction pkg/types
+  go.mod go.sum cmd/aurumcode
+  internal/analysis internal/analyzer internal/apply internal/changelog internal/config
+  internal/context internal/git internal/llm internal/memory internal/prompt
+  internal/render internal/review internal/reviewprofile internal/security internal/testgen pkg/types
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
 )
@@ -81,12 +83,19 @@ export TMPDIR="$run_dir" GOMAXPROCS=1
 
 copy() { local root="$1"; shift; local p; for p in "$@"; do mkdir -p "$root/$(dirname "$p")"; cp -R "$repo_root/$p" "$root/$p"; done; }
 
+# AUR-547: cmd/regenerate-docs, internal/pipeline and internal/documentation/*
+# were removed from the product by commit 670c7f6 ("Focus AurumCode on code
+# review", 2026-09-12), a deliberate pivot predating this fix; AUR-490's
+# done-card record already treats that removal as settled fact. The package
+# list below is `go list -deps ./cmd/aurumcode`'s own answer (run in the
+# go-shared container against this worktree), filtered to the
+# github.com/Mpaape/AurumCode/internal/* entries -- the same technique and
+# resulting list AUR-542 already used for tests/e2e/AUR-459.sh.
 stage_source() {
   local root="$1"; mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode cmd/regenerate-docs
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/git internal/llm internal/pipeline
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
+  copy "$root" cmd/aurumcode
+  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/security internal/testgen
   copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   chmod -R u+w -- "$root"
@@ -107,9 +116,17 @@ build_shared() {
 
 readonly sec_header='Security findings (standards/security-review):'
 readonly clean_line='No issues found.'
-# The exact sha256 AUR-449 pins for `--seguranca` stdout WITH the fixture
-# provider configured. This card must not move it by one byte.
-readonly expected_with_provider_sha256='63c649af1c90e38b473e1bd45b4152b1f96ecad17d5d9c05c17bb94df7b8240f'
+readonly citation='(rule security/hardcoded-secret: Hardcoded Secrets)'
+readonly standard_citation='standards/security-review SCR-003'
+# AUR-547/AUR-490: the full-stdout sha256 this constant used to pin is no
+# longer reproducible -- AUR-490 (done, integrated after this card) made
+# review --base unconditionally prepend the AC-002 summary/diagram block,
+# including on this exact --seguranca-with-provider path, measured
+# directly against this worktree's binary (tests/acceptance/AUR-449.sh
+# dropped the identical pin for the identical reason; see
+# docs/specs/AUR-547.md). What this item actually checks -- the SECURITY
+# SECTION's own byte-for-byte content -- is checked below against the
+# security section substring alone.
 
 noprov_env() { env -u AURUMCODE_LLM_FIXTURE -u LLM_API_KEY -u LLM_BASE_URL -u LLM_MODEL "$@"; }
 
@@ -164,10 +181,15 @@ nominal_case() {
   rc=$?; set -e
   [[ "$rc" -eq 1 ]] || fail "exigir-qualidade-must-exit-1:$rc"
 
-  # (7) A provider that WORKS keeps AUR-449's pinned stdout byte for byte.
-  local sha
-  sha="$(cd "$demo" && noprov_env env AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1 --seguranca 2>/dev/null | sha256sum | cut -d' ' -f1)"
-  [[ "$sha" == "$expected_with_provider_sha256" ]] || fail "with-provider-stdout-changed:$sha"
+  # (7) A provider that WORKS keeps the security section's own citations
+  # byte for byte (AUR-547/AUR-490: the full-stdout pin is gone; see the
+  # constant's own comment above).
+  local prov_out prov_section
+  prov_out="$(cd "$demo" && noprov_env env AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1 --seguranca 2>/dev/null)"
+  grep -Fq "$sec_header" <<<"$prov_out" || fail with-provider-security-section-missing
+  prov_section="${prov_out#*"$sec_header"}"
+  [[ "$(grep -Fo "$citation" <<<"$prov_section" | wc -l)" -eq 3 ]] || fail with-provider-stdout-changed
+  grep -Fq "$standard_citation" <<<"$prov_section" || fail with-provider-stdout-changed
 
   # (8) Without --seguranca there is nothing to fall through to: the
   #     published refusal is untouched (empty stdout, exit 1).
