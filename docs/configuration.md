@@ -920,3 +920,37 @@ consumidor.
   `fail-on`, `model`, `changelog`, `policy_path` (diretório, já no workspace
   do runner e controlado por quem escreveu o job, que contém o
   `.aurumcode/config.yml` de uma política central).
+
+## Artefato de dados de análise (`analysis_data`)
+
+O que a análise usa e envelhece sem ser dependência Go (cópia da base pública
+OSV por ecossistema e as versões dos scanners fixadas pelo projeto) é
+reconstruído todo dia por `.github/workflows/analysis-data.yml`, testado e só
+então publicado como GitHub Release imutável com tag
+`analysis-data/<AAAAMMDDTHHMMSSZ>`. O release traz `manifest.json` (schema,
+data de geração em UTC, fontes, sha256 de cada arquivo e do conjunto) e um
+arquivo por ecossistema; a lista de ecossistemas vem da própria fonte OSV a
+cada build, nunca do código. Teste falhando mantém o release anterior como o
+mais novo. Não há atualização manual.
+
+Em execução, o AurumCode usa o release mais novo, confere o digest de cada
+arquivo e do conjunto e compara a data com a idade máxima:
+
+```yaml
+analysis_data:
+  max_age_days: 7          # padrão 7; aceito de 1 a 365
+  repository: owner/repo   # opcional; padrão: o repositório que publica o artefato
+```
+
+- Artefato acima da idade máxima, digest divergente, sem rede e sem cópia em
+  cache, ou manifesto inválido: o resultado é o `gate.inconclusive` da política
+  com o motivo (`analysis_data_stale`, `analysis_data_digest_mismatch`,
+  `analysis_data_unavailable`, `analysis_data_invalid`). Nunca aprovado.
+- Dentro da idade, o digest do conjunto e a data de geração vão para a
+  auditoria (`--auditoria`).
+- Como `quality_gates`, a seção é governada de forma independente: se a
+  política central declara `analysis_data`, ela decide sozinha e a declaração
+  do repositório é ignorada com aviso; se a política não a menciona, vale a do
+  repositório; sem nenhuma, valem os padrões.
+- Requisito de publicação: ative "Immutable releases" nas configurações do
+  repositório publicador para que um release publicado não possa ser alterado.
