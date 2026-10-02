@@ -65,6 +65,14 @@ runs:
   # a container. Until a future card solves that path-translation
   # problem for the standalone action, SBOM generation is only wired for
   # callers of review.yml.
+  # AUR-551: for the exact same reason, this standalone Docker-container
+  # action does NOT run `aurumcode sign` either -- cosign itself would
+  # need the same `docker run` escape SBOM generation does, and keyless
+  # signing additionally needs an OIDC id-token this container-only
+  # action has no step of its own to request. See docs/configuration.md's
+  # "Assinatura com Sigstore/Cosign" section. Until a future card solves
+  # the path-translation problem above, signing is only wired for callers
+  # of review.yml.
   # AUR-518: the policy path reaches the CLI through the env var it already
   # falls back to (AURUMCODE_POLICY) when --politica is absent, so no change
   # to scripts/action-entrypoint.sh's fixed positional argument count is
