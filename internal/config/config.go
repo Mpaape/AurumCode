@@ -256,11 +256,12 @@ type Config struct {
 	// and ApplyCentralPolicy for why, under a central policy, only the
 	// policy's own Exceptions ever apply.
 	Exceptions []ExceptionConfig `yaml:"exceptions"`
-	// QualityGates is AUR-550's own quality_gates section (today, only
-	// ssor_dtrack). Governed exactly like Gate above: under a central
-	// policy, only the policy's own QualityGates ever applies -- a
-	// repository cannot disable a policy-enabled ssor_dtrack any more
-	// than it can loosen a policy's own severity gate.
+	// QualityGates is the shared quality_gates section the corporate
+	// adoption cards write their own subsection into (AUR-548 Sast,
+	// AUR-549 SsorDtrack.SBOMGenerator, AUR-550 the rest of SsorDtrack,
+	// and SupplyChain for a future xBOM card). See QualityGatesConfig
+	// (qualitygates.go) and ApplyCentralPolicy for why each subsection is
+	// governed independently, the same way Gate/Exceptions already are.
 	QualityGates QualityGatesConfig `yaml:"quality_gates"`
 }
 
