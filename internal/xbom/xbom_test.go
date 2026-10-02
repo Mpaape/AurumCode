@@ -195,7 +195,7 @@ func TestLLMEnrichesButCannotInvent(t *testing.T) {
 	 "additional":[
 	  {"type":"library","name":"fabricated","occurrences":[{"location":"Dockerfile","line":1,"token":"does-not-appear"}]},
 	  {"type":"library","name":"no-occurrence"},
-	  {"type":"library","name":"real-extra","occurrences":[{"location":"Dockerfile","line":1,"token":"golang"}]}]}`
+	  {"type":"library","name":"golang","occurrences":[{"location":"Dockerfile","line":1,"token":"anything"}]}]}`
 	res, doc := gen(t, "build", root, fakeLLM{resp: resp})
 	n := names(doc)
 	if _, ok := n["fabricated"]; ok {
@@ -204,8 +204,15 @@ func TestLLMEnrichesButCannotInvent(t *testing.T) {
 	if _, ok := n["no-occurrence"]; ok {
 		t.Fatal("component without occurrence entered the BOM")
 	}
-	if _, ok := n["real-extra"]; !ok {
-		t.Fatal("verifiable LLM-proposed component was dropped")
+	found := false
+	for _, c := range doc["components"].([]any) {
+		m := c.(map[string]any)
+		if m["name"] == "golang" && m["type"] == "library" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("LLM-proposed component whose name is on the cited line was dropped")
 	}
 	if res.Dropped.DroppedComponents != 2 || metaProp(doc, "aurumcode:xbom:dropped_without_evidence") != "2" {
 		t.Fatalf("dropped accounting wrong: %+v", res.Dropped)
@@ -213,7 +220,7 @@ func TestLLMEnrichesButCannotInvent(t *testing.T) {
 	if metaProp(doc, "aurumcode:xbom:llm") != "present" || res.LLM.Rejected != 1 {
 		t.Fatalf("llm outcome: %+v", res.LLM)
 	}
-	found := false
+	found = false
 	for _, c := range n {
 		if c["description"] == "checkout action" {
 			found = true
@@ -314,5 +321,68 @@ func TestVerifyWithRelativeRoot(t *testing.T) {
 	res, _ := gen(t, "build", ".", nil)
 	if res.Components == 0 || res.Dropped.DroppedComponents != 0 {
 		t.Fatalf("relative root: components=%d dropped=%+v", res.Components, res.Dropped)
+	}
+}
+
+func occCount(doc map[string]any, name, typ string) int {
+	for _, c := range doc["components"].([]any) {
+		m := c.(map[string]any)
+		if m["name"] == name && m["type"] == typ {
+			return len(m["evidence"].(map[string]any)["occurrences"].([]any))
+		}
+	}
+	return -1
+}
+
+// The model's token is ignored: generic tokens cannot launder a component
+// whose name is not on the cited line.
+func TestLLMAdditionalTokenIsDerivedFromName(t *testing.T) {
+	root := sampleRepo(t)
+	resp := `{"additional":[
+	 {"type":"library","name":"evil-pkg","occurrences":[{"location":"Dockerfile","line":1,"token":"FROM"}]},
+	 {"type":"library","name":"evil-hash","occurrences":[{"location":"Dockerfile","line":1,"token":"#"}]},
+	 {"type":"library","name":"evil-one","occurrences":[{"location":"Dockerfile","line":1,"token":"o"}]},
+	 {"type":"library","name":"x","occurrences":[{"location":"Dockerfile","line":1,"token":"x"}]},
+	 {"type":"library","name":"build","occurrences":[{"location":"Dockerfile","line":1,"token":"FROM"}]}]}`
+	_, doc := gen(t, "build", root, fakeLLM{resp: resp})
+	n := names(doc)
+	for _, bad := range []string{"evil-pkg", "evil-hash", "evil-one", "x"} {
+		if _, ok := n[bad]; ok {
+			t.Fatalf("forged component %s entered the BOM", bad)
+		}
+	}
+	if _, ok := n["build"]; !ok {
+		t.Fatal("component whose name is on the cited line was refused")
+	}
+}
+
+// A model proposal with the same Key as a real candidate cannot add
+// occurrences it chose: the false one is dropped, the real one stays.
+func TestLLMAdditionalSameKeyCannotAddFalseOccurrence(t *testing.T) {
+	root := sampleRepo(t)
+	resp := `{"additional":[{"type":"container","name":"golang","version":"1.22","purl":"pkg:docker/golang@1.22",
+	  "occurrences":[{"location":"Dockerfile","line":2,"token":"golang"},{"location":"main.go","line":1,"token":"golang"}]}]}`
+	res, doc := gen(t, "build", root, fakeLLM{resp: resp})
+	if got := occCount(doc, "golang", "container"); got != 1 {
+		t.Fatalf("occurrences = %d, want only the real one", got)
+	}
+	if res.Dropped.DroppedOccurrences != 2 {
+		t.Fatalf("dropped occurrences = %d, want 2", res.Dropped.DroppedOccurrences)
+	}
+}
+
+// The model can only change description/properties/keep of a candidate,
+// never its name, version or purl.
+func TestLLMCannotRewriteCandidateIdentity(t *testing.T) {
+	root := sampleRepo(t)
+	resp := `{"candidates":[{"id":"c1","name":"hacked","version":"9.9","purl":"pkg:evil/x@1","type":"application","description":"d"}]}`
+	_, doc := gen(t, "build", root, fakeLLM{resp: resp})
+	n := names(doc)
+	if _, ok := n["hacked"]; ok {
+		t.Fatal("model renamed a candidate")
+	}
+	co := n["actions/checkout"]
+	if co == nil || co["version"] != "v4" || co["purl"] != "pkg:githubactions/actions/checkout@v4" || co["description"] != "d" {
+		t.Fatalf("identity changed or description lost: %v", co)
 	}
 }
