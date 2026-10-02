@@ -3,7 +3,7 @@
 # Acceptance program for card AUR-523 (AC-001..AC-004, MUT-001).
 #
 # It compiles the real aurumcode binary, runs it over the multi-language
-# corpus in tests/benchmark/multilang with the central policy and the
+# corpus in tests/benchmark/testdata/multilang with the central policy and the
 # deterministic fake provider, and checks that verdict and findings come from
 # the binary's own output. MUT-001 reads the findings from the fixture instead
 # and must be detected (the provenance check goes red).
@@ -29,11 +29,11 @@ repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
 bench="$repo_root/tests/benchmark"
-for input in aur523.go aur523_report.go aur523_test.go multilang/manifest.json multilang/policy/.aurumcode/config.yml \
+for input in aur523.go aur523_report.go aur523_test.go testdata/multilang/manifest.json testdata/multilang/policy/.aurumcode/config.yml \
              out/multilang-report.json out/multilang-report.md; do
   [[ -e "$bench/$input" ]] || fail "behavior-missing:$input"
 done
-[[ -d "$bench/multilang/cases" ]] || fail 'behavior-missing:multilang/cases'
+[[ -d "$bench/testdata/multilang/cases" ]] || fail 'behavior-missing:testdata/multilang/cases'
 [[ -f "$repo_root/go.mod" ]] || infra missing-go-mod
 [[ -f "$repo_root/go.sum" ]] || infra missing-go-sum
 
@@ -53,11 +53,11 @@ mkdir -p "$GOCACHE" "$GOTMPDIR"
 want() { [[ "$selector" == all || "$selector" == "$1" ]]; }
 
 if want AC-002; then
-  langs="$(for f in "$bench"/multilang/cases/*/case.json; do
+  langs="$(for f in "$bench"/testdata/multilang/cases/*/case.json; do
     sed -n 's/^[[:space:]]*"language":[[:space:]]*"\([^"]*\)".*/\1/p' "$f"
   done | sort -u | wc -l)"
   ((langs >= 6)) || fail "fewer-than-6-languages:$langs"
-  grep -q '"corpus_sha256"' "$bench/multilang/manifest.json" || fail 'manifest-without-corpus-digest'
+  grep -q '"corpus_sha256"' "$bench/testdata/multilang/manifest.json" || fail 'manifest-without-corpus-digest'
 fi
 if want AC-003; then
   for col in recall precision approved_with_defect recall_interval_95; do
