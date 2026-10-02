@@ -142,6 +142,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+          # AUR-521: the reusable workflow's OWN version, distinct from
+          # GITHUB_SHA (the commit under review above) -- the audit
+          # record's workflow_sha field falls back to GITHUB_SHA only when
+          # this is absent (e.g. a caller invoking the CLI directly).
+          GITHUB_WORKFLOW_SHA: ${{ job.workflow_sha }}
           AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           AURUMCODE_PR_PERMISSION_MODE: endpoint
           AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
@@ -185,12 +190,21 @@ jobs:
           if [ -n "${policy_dir}" ]; then
             args+=(--politica /github/policy)
           fi
+          # AUR-521: the compliance audit record and SARIF document, always
+          # written by this reusable workflow (the org's required policy
+          # gate is itself a compliance control, see docs/specs/AUR-521.md)
+          # -- never by the standalone action.yml, which has no equivalent
+          # mount point for them.
+          args+=(--auditoria /tmp/aurumcode-audit.json --sarif /tmp/aurumcode-review.sarif)
           : > "${RUNNER_TEMP}/aurumcode-changelog-output"
+          : > "${RUNNER_TEMP}/aurumcode-audit.json"
+          : > "${RUNNER_TEMP}/aurumcode-review.sarif"
           docker_args=(run --rm
             -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
             -w /github/workspace
             -e GITHUB_TOKEN
             -e GITHUB_SHA
+            -e GITHUB_WORKFLOW_SHA
             -e AURUMCODE_BASE_SHA
             -e AURUMCODE_PR_PERMISSION_MODE
             -e LLM_API_KEY
@@ -200,6 +214,8 @@ jobs:
             -e AURUMCODE_OUTPUT_FILE
             -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
             -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
+            -v "${RUNNER_TEMP}/aurumcode-audit.json:/tmp/aurumcode-audit.json"
+            -v "${RUNNER_TEMP}/aurumcode-review.sarif:/tmp/aurumcode-review.sarif"
           )
           if [ -n "${policy_dir}" ]; then
             docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
@@ -209,3 +225,28 @@ jobs:
           if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
             cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
+
+      # AUR-521: upload the SARIF document to the org's code scanning and
+      # the audit record as a job artifact. Both steps are commented out
+      # with a TODO: this card was built offline and no other workflow in
+      # this repository already pins github/codeql-action/upload-sarif or
+      # actions/upload-artifact by commit SHA (only actions/checkout,
+      # actions/configure-pages, actions/upload-pages-artifact and
+      # actions/deploy-pages do, in review.yml/pages.yml -- different
+      # actions). Inventing a SHA for either action would be worse than
+      # leaving this disabled; see docs/specs/AUR-521.md's "Lacuna
+      # conhecida" section. A reviewer with network access must resolve
+      # the real, already-reviewed SHA for each action and uncomment both
+      # steps (and the `security-events: write` permission SARIF upload
+      # needs) before this card is complete end to end.
+      #
+      # - name: Upload SARIF to code scanning
+      #   uses: github/codeql-action/upload-sarif@<PIN-BY-FULL-SHA>
+      #   with:
+      #     sarif_file: ${{ runner.temp }}/aurumcode-review.sarif
+      #
+      # - name: Upload compliance audit record
+      #   uses: actions/upload-artifact@<PIN-BY-FULL-SHA>
+      #   with:
+      #     name: aurumcode-audit-${{ github.event.pull_request.number }}
+      #     path: ${{ runner.temp }}/aurumcode-audit.json
