@@ -37,7 +37,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -132,8 +131,14 @@ func LoadDir(dir string) (*Set, error) {
 // directory, with duplicates collapsed. A skill with no selector is never
 // selected.
 func (s *Set) Select(changed []string) []Skill {
+	return s.SelectWith(changed, DefaultLanguages()).Skills
+}
+
+// SelectWith is Select over an injected language resolver, and it returns the
+// declared warnings next to the skills (AUR-559 AC-004).
+func (s *Set) SelectWith(changed []string, langs *Languages) Selection {
 	if s == nil || len(s.Skills) == 0 {
-		return nil
+		return Selection{}
 	}
 	normalized := normalizeChanged(changed)
 	type entry struct {
@@ -143,7 +148,7 @@ func (s *Set) Select(changed []string) []Skill {
 	seen := map[string]entry{}
 	for _, sk := range s.Skills {
 		for _, cp := range normalized {
-			if sk.matches(cp) {
+			if sk.matches(cp, langs) {
 				seen[sk.Dir] = entry{skill: sk, key: sk.Name + "\x00" + sk.Dir}
 				break
 			}
@@ -159,17 +164,17 @@ func (s *Set) Select(changed []string) []Skill {
 		}
 		return out[i].Dir < out[j].Dir
 	})
-	return out
+	return Selection{Skills: out, Warnings: s.unknownLanguageWarnings(langs)}
 }
 
 // matches reports whether the skill applies to one changed path. A missing
 // selector is OFF; when both criteria are declared, both must match.
-func (s Skill) matches(cp string) bool {
+func (s Skill) matches(cp string, langs *Languages) bool {
 	sel := s.Selector
 	if !sel.Declared() {
 		return false
 	}
-	if len(sel.Languages) > 0 && !matchesLanguage(sel.Languages, cp) {
+	if len(sel.Languages) > 0 && !langs.Matches(sel.Languages, cp) {
 		return false
 	}
 	if len(sel.Paths) > 0 {
@@ -283,6 +288,9 @@ func EstimateTokens(text string) int {
 type Provider struct {
 	Dir    string
 	Budget Budget
+	// Languages resolves selector language names; nil selects
+	// DefaultLanguages().
+	Languages *Languages
 }
 
 // NewProvider roots a Provider at root/.aurumcode/skills.
@@ -300,15 +308,31 @@ func (p *Provider) Provide(_ context.Context, changedPaths []string) (string, er
 	if err != nil {
 		return "", err
 	}
-	selected := set.Select(changedPaths)
-	if len(selected) == 0 {
-		return "", nil
+	langs := p.Languages
+	if langs == nil {
+		langs = DefaultLanguages()
 	}
-	res, err := Assemble(selected, p.Budget)
+	sel := set.SelectWith(changedPaths, langs)
+	warnings := renderWarnings(sel.Warnings)
+	if len(sel.Skills) == 0 {
+		return warnings, nil
+	}
+	res, err := Assemble(sel.Skills, p.Budget)
 	if err != nil {
 		return "", err
 	}
-	return res.Text, nil
+	if warnings == "" {
+		return res.Text, nil
+	}
+	return warnings + "\n\n" + res.Text, nil
+}
+
+// renderWarnings renders the declared selection warnings as a prompt block.
+func renderWarnings(warnings []string) string {
+	if len(warnings) == 0 {
+		return ""
+	}
+	return "### Skill selection warnings\n- " + strings.Join(warnings, "\n- ")
 }
 
 // Providers returns the skills providers for root, ready to append to
@@ -452,60 +476,6 @@ func containsFold(list []string, want string) bool {
 		}
 	}
 	return false
-}
-
-// languageOf maps a file extension to the canonical language name a selector
-// may use. The raw extension is also accepted by matching (see matches), so a
-// selector may say "ts" as well as "typescript".
-func languageOf(p string) string {
-	ext := strings.ToLower(strings.TrimPrefix(path.Ext(p), "."))
-	switch ext {
-	case "go":
-		return "go"
-	case "py", "pyw", "pyi":
-		return "python"
-	case "js", "jsx", "mjs", "cjs":
-		return "javascript"
-	case "ts", "tsx":
-		return "typescript"
-	case "rb":
-		return "ruby"
-	case "rs":
-		return "rust"
-	case "java":
-		return "java"
-	case "kt", "kts":
-		return "kotlin"
-	case "c", "h":
-		return "c"
-	case "cc", "cpp", "cxx", "hpp", "hxx", "hh":
-		return "cpp"
-	case "cs":
-		return "csharp"
-	case "sh", "bash":
-		return "shell"
-	case "yml", "yaml":
-		return "yaml"
-	case "json":
-		return "json"
-	case "md", "markdown":
-		return "markdown"
-	case "tf":
-		return "terraform"
-	default:
-		return ext
-	}
-}
-
-// matchesLanguage accepts either the canonical language name or the raw
-// extension, so "go" and "golang" both work through the common spellings.
-func matchesLanguage(list []string, p string) bool {
-	lang := languageOf(p)
-	if containsFold(list, lang) {
-		return true
-	}
-	ext := strings.ToLower(strings.TrimPrefix(path.Ext(p), "."))
-	return containsFold(list, ext)
 }
 
 // globMatch reports whether path matches pattern, a Copilot/gitignore-style

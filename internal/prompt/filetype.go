@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
+	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -73,10 +74,19 @@ func classifyFile(path string, detector *analyzer.LanguageDetector) (language st
 // review. Unknown extensions remain code by default so a new source language
 // is never silently excluded.
 func HasSubstantiveCodeChange(diff *types.Diff) bool {
+	return HasSubstantiveCodeChangeWith(diff, grammar.Default())
+}
+
+// HasSubstantiveCodeChangeWith is HasSubstantiveCodeChange over an injected
+// grammar provider (AUR-559): which lines are comments is decided by the
+// grammar of the file's language, never by a language name in this package. A
+// language the provider has no grammar for gets no comment filter (see
+// commentfilter.go), and the prompt says so.
+func HasSubstantiveCodeChangeWith(diff *types.Diff, provider grammar.Provider) bool {
 	if diff == nil {
 		return false
 	}
-	detector := analyzer.NewLanguageDetector()
+	detector := analyzer.NewLanguageDetectorWith(provider)
 	for _, file := range diff.Files {
 		language, prose := classifyFile(file.Path, detector)
 		if prose || detector.IsConfigFile(file.Path) || isNonCodeName(file.Path) {
@@ -88,7 +98,7 @@ func HasSubstantiveCodeChange(diff *types.Diff) bool {
 					continue
 				}
 				body := strings.TrimSpace(line[1:])
-				if body != "" && !isCommentLine(body, language) {
+				if body != "" && !isCommentLine(provider, body, language) {
 					return true
 				}
 			}
@@ -105,10 +115,18 @@ func HasSubstantiveCodeChange(diff *types.Diff) bool {
 // its two fixed instructional variants changes) -- every production call
 // site still reads `ReviewChangeScope(diff)` unchanged.
 var ReviewChangeScope = func(diff *types.Diff) string {
-	if HasSubstantiveCodeChange(diff) {
-		return "The diff contains substantive source or test code. Prioritize behavior, correctness, tests, and maintainability of that code."
+	return ChangeScopeWith(diff, grammar.Default())
+}
+
+// ChangeScopeWith renders the change-scope paragraph for an injected grammar
+// provider, followed by the declared comment-filter notice when some changed
+// file has no grammar (AUR-559 AC-003).
+func ChangeScopeWith(diff *types.Diff, provider grammar.Provider) string {
+	scope := "The diff contains only configuration, workflow, documentation, or comment-level changes. Do not manufacture code-quality praise; leave strengths empty unless a concrete behavioral benefit is directly evidenced."
+	if HasSubstantiveCodeChangeWith(diff, provider) {
+		scope = "The diff contains substantive source or test code. Prioritize behavior, correctness, tests, and maintainability of that code."
 	}
-	return "The diff contains only configuration, workflow, documentation, or comment-level changes. Do not manufacture code-quality praise; leave strengths empty unless a concrete behavioral benefit is directly evidenced."
+	return scope + CommentFilterNotice(diff, provider)
 }
 
 func isNonCodeName(path string) bool {
@@ -118,18 +136,5 @@ func isNonCodeName(path string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func isCommentLine(line, language string) bool {
-	switch language {
-	case "python", "shell", "ruby":
-		return strings.HasPrefix(line, "#")
-	case "html":
-		return strings.HasPrefix(line, "<!--")
-	case "sql":
-		return strings.HasPrefix(line, "--") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*")
-	default:
-		return strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*/")
 	}
 }
