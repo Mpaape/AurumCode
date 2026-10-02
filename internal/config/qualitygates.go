@@ -31,10 +31,7 @@ func (q QualityGatesConfig) Declared() bool {
 	return q.Sast != nil || q.SsorDtrack != nil || q.SupplyChain != nil
 }
 
-// SastConfig is quality_gates.sast -- AUR-548's own section (multi-language
-// SAST with Semgrep). This card does not need any field here; left as an
-// empty struct for AUR-548 to populate.
-type SastConfig struct{}
+// SastConfig (quality_gates.sast, AUR-548's own section) lives in sast.go.
 
 // SsorDtrackConfig is quality_gates.ssor_dtrack, shared between this card
 // (SBOMGenerator: the CycloneDX SBOM this file generates with Trivy) and
