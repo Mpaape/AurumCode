@@ -968,7 +968,17 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			} else if err != nil {
 				return reportQualityFailure(stderr, err, *modelo, limiteUSD)
 			}
-			if cacheErr == nil && !qualityFailed {
+			// B3: a degraded parse (prompt.IsDegradedParse) produces
+			// recovered-but-evidence-less issues that filterModelIssues
+			// later discards down to zero -- caching that as "this file's
+			// reviewed content has zero issues" would make run 2 read the
+			// cache and exit clean for a file the model never actually
+			// reviewed successfully. AUR-476 partial coverage (a file this
+			// run only partially saw, config-hidden or filtered) is the
+			// same risk: a cache hit for that file would silently claim a
+			// complete review next time. Neither is persisted.
+			cachePartial := mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths).partial()
+			if cacheErr == nil && !qualityFailed && !prompt.IsDegradedParse(result) && !cachePartial {
 				persistFreshResults(revCache, cacheStatuses, result.Issues, filter)
 			}
 		} else {
@@ -1237,18 +1247,21 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 
 	// AUR-519: the policy gate closes exactly like --fail-on above, reusing
 	// the same two exit codes rather than minting a third: a gate that
-	// failed because the review was inconclusive returns
-	// exitQualityNotReviewed (the same "do not merge, half a review"
-	// signal qualityFailed already returns above), and a gate that failed
-	// on an actual severity breach returns exitFindings, the same code
-	// --fail-on already uses for "ran fine, found something that matters".
-	// A no-op (gateResult.Active == false, no `gate:` declared anywhere)
-	// never reaches either return.
-	if gateResult.Fail {
-		if gateResult.Inconclusive {
-			return exitQualityNotReviewed
-		}
+	// failed on an actual severity breach (gateResult.Breach) returns
+	// exitFindings, the same code --fail-on already uses, REGARDLESS of
+	// whether the review was also inconclusive (B1: an inconclusive run
+	// that still contains a real breach must still fail, never pass
+	// silently because inconclusive:warn is configured). Fail without a
+	// Breach can only come from gate.inconclusive: block, which returns
+	// exitQualityNotReviewed -- the same "do not merge, half a review"
+	// signal qualityFailed already returns above. A no-op
+	// (gateResult.Active == false, no `gate:` declared anywhere) never
+	// reaches either return.
+	if gateResult.Breach {
 		return exitFindings
+	}
+	if gateResult.Fail {
+		return exitQualityNotReviewed
 	}
 
 	if threshold > 0 {

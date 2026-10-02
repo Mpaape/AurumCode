@@ -30,6 +30,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
+	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -140,6 +141,35 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 		merged.Limitations = append(merged.Limitations, res.Limitations...)
 		if merged.Summary == "" {
 			merged.Summary = res.Summary
+		}
+		// B2: res.Metadata was never carried into merged at all, so
+		// prompt.IsDegradedParse(merged) -- and therefore AUR-519's own
+		// gate's "degraded_parse" inconclusive detection -- was always
+		// false under --perfis, no matter how badly any one profile's
+		// pass actually degraded. If ANY profile's pass degraded, the
+		// whole merged result is untrustworthy the same way a
+		// single-reviewer degraded result is: mark it using the engine's
+		// own forge-safe key (prompt.IsDegradedParse already scrubs
+		// anything a model could have supplied under this key before this
+		// ever runs), never copying a model-authored map wholesale.
+		if merged.Metadata == nil {
+			merged.Metadata = map[string]string{}
+		}
+		if prompt.IsDegradedParse(res) {
+			merged.Metadata[prompt.ParseModeKey] = prompt.ParseModeDegraded
+		}
+		// AUR-476's own coverage counts (code_files_total/complete/
+		// partial/omitted) describe the SAME diff and the SAME token
+		// budget regardless of which profile's prompt prefix was used, so
+		// they are identical across profiles, not additive: take the
+		// first profile's values rather than summing or overwriting.
+		for _, key := range []string{"code_files_total", "code_files_complete", "code_files_partial", "code_files_omitted"} {
+			if _, already := merged.Metadata[key]; already {
+				continue
+			}
+			if v, ok := res.Metadata[key]; ok {
+				merged.Metadata[key] = v
+			}
 		}
 	}
 	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings))

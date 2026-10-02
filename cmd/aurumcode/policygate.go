@@ -53,7 +53,17 @@ type gateDecision struct {
 	Active       bool
 	Fail         bool
 	Inconclusive bool
-	Lines        []string
+	// Breach is true only when an actual severity-threshold breach was
+	// found in the issues (the threshold loop below), as opposed to Fail
+	// being set purely because gate.inconclusive: block fired with no
+	// breach ever checked. publishPolicyGateStatus and the exit-code
+	// sections of runReview/runPRReview use this to tell "a real finding
+	// closed the gate" (exitFindings) apart from "the review itself was
+	// never trustworthy enough to grade" (exitQualityNotReviewed) even
+	// when both end up with Fail == true at once (inconclusive: warn/""
+	// plus a breach).
+	Breach bool
+	Lines  []string
 }
 
 // mergedRuleCatalogIDs returns builtin plus every id of dynamic, sorted and
@@ -167,6 +177,34 @@ func severityRankOf(s string) (config.GateSeverityRank, bool) {
 	}
 }
 
+// effectiveSeverityRank is the rank evaluateGate compares against the
+// gate's threshold for one matched finding: the HIGHER of the model's own
+// issue.Severity and the cited dynamic rule's own declared severity
+// (review.Rule.Severity, from the skill section's optional "severity:"
+// line -- see ParseSkillSections). The model's text is untrusted input the
+// diff it reviewed could have tried to steer (a prompt-injection line
+// asking the model to under-report); the rule's own severity is the
+// policy/repo author's own, trusted declaration and must act as a floor
+// the model cannot talk its way under. Either side missing/unrecognized
+// falls back to the other; both missing is not comparable at all.
+func effectiveSeverityRank(issueSeverity, ruleSeverity string) (config.GateSeverityRank, bool) {
+	issueRank, issueOK := severityRankOf(issueSeverity)
+	ruleRank, ruleOK := severityRankOf(ruleSeverity)
+	switch {
+	case issueOK && ruleOK:
+		if ruleRank > issueRank {
+			return ruleRank, true
+		}
+		return issueRank, true
+	case issueOK:
+		return issueRank, true
+	case ruleOK:
+		return ruleRank, true
+	default:
+		return 0, false
+	}
+}
+
 // evaluateGate applies AUR-519's gate to one finished review.
 //
 //   - gate is the effective, already precedence-resolved GateConfig --
@@ -183,10 +221,22 @@ func severityRankOf(s string) (config.GateSeverityRank, bool) {
 //   - inconclusiveReason is "" for a conclusive review, or a short, stable,
 //     non-model-authored reason token (see cmd/aurumcode's own inconclusive
 //     detection: provider failure, partial coverage, or
-//     prompt.IsDegradedParse) otherwise. Checked BEFORE the severity
-//     threshold below, mirroring AUR-458's existing "did not review outranks
-//     reviewed and found things": an inconclusive run is never also graded
-//     on findings it should not be trusted to have produced in full.
+//     prompt.IsDegradedParse) otherwise.
+//
+// Inconclusive handling and the severity threshold are NOT mutually
+// exclusive (fixed from an earlier, incorrect draft that returned early on
+// any inconclusive reason): only gate.inconclusive: block skips the
+// threshold loop outright -- a blocked run is never trusted enough to be
+// graded on its own findings at all, mirroring AUR-458's "did not review
+// outranks reviewed and found things". Both "warn" and "" (no
+// gate.inconclusive key declared at all -- AC-005's own non-default
+// silence) mark the review Inconclusive but still run the threshold loop:
+// an inconclusive review that ALSO contains a real severity breach must
+// still fail the gate (exitFindings, never silently waved through because
+// the review happened to also be degraded or partially covered), and an
+// inconclusive review with gate.fail_on declared but no breach must never
+// publish as approved either -- it stays Inconclusive with no Fail, so the
+// caller's own verdict/status logic can say so without claiming success.
 func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, inconclusiveReason string) (gateDecision, error) {
 	var d gateDecision
 	if !gate.Declared() {
@@ -199,12 +249,13 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 		if err != nil {
 			return d, err
 		}
-		if mode != "" {
-			d.Inconclusive = true
-			d.Lines = []string{fmt.Sprintf("review inconclusive (%s)", inconclusiveReason)}
-			d.Fail = mode == "block"
+		d.Inconclusive = true
+		d.Lines = append(d.Lines, fmt.Sprintf("review inconclusive (%s)", inconclusiveReason))
+		if mode == "block" {
+			d.Fail = true
 			return d, nil
 		}
+		// "warn", or "" (undeclared): fall through to the threshold loop.
 	}
 
 	rank, name, ok, err := gate.Threshold()
@@ -219,11 +270,17 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 		if !found || rule.Origin != acceptedOrigin {
 			continue
 		}
-		issueRank, rankOK := severityRankOf(issue.Severity)
-		if !rankOK || issueRank < rank {
+		// B4: the model's own issue.Severity is untrusted -- the diff it
+		// reviewed could contain a prompt-injection line asking it to
+		// under-report. The cited rule's own declared severity floors the
+		// comparison, so a policy skill's "severity: error" cannot be
+		// talked down to "info" by the model.
+		effective, comparable := effectiveSeverityRank(issue.Severity, rule.Severity)
+		if !comparable || effective < rank {
 			continue
 		}
 		d.Fail = true
+		d.Breach = true
 		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s)", rule.ID, rule.Title, issue.Severity, name))
 	}
 	return d, nil
@@ -247,13 +304,20 @@ func publishPolicyGateStatus(ctx context.Context, client *githubclient.Client, s
 	status := githubclient.CommitStatus{Context: policyGateContext}
 	reasons := strings.Join(gateResult.Lines, "; ")
 	switch {
-	case gateResult.Fail && gateResult.Inconclusive:
+	case gateResult.Breach && gateResult.Inconclusive:
 		status.State = "failure"
-		status.Description = fmt.Sprintf("revisão inconclusiva (bloqueio) no pull request #%d: %s", prNumber, reasons)
-	case gateResult.Fail:
+		status.Description = fmt.Sprintf("achado(s) reprovam o gate numa revisão também inconclusiva no pull request #%d: %s", prNumber, reasons)
+	case gateResult.Breach:
 		status.State = "failure"
 		status.Description = fmt.Sprintf("achado(s) reprovam o gate no pull request #%d: %s", prNumber, reasons)
+	case gateResult.Fail:
+		// Fail without Breach: gate.inconclusive: block fired and the
+		// threshold loop never ran -- this run was never graded at all.
+		status.State = "failure"
+		status.Description = fmt.Sprintf("revisão inconclusiva (bloqueio) no pull request #%d: %s", prNumber, reasons)
 	case gateResult.Inconclusive:
+		// B5: fail_on declared (or not) with no breach found, but the
+		// review itself was inconclusive -- never "aprovado".
 		status.State = "success"
 		status.Description = fmt.Sprintf("revisão inconclusiva (alerta) no pull request #%d: %s", prNumber, reasons)
 	default:
@@ -267,11 +331,16 @@ func publishPolicyGateStatus(ctx context.Context, client *githubclient.Client, s
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", policyGateContext, commitID, status.State, status.Description)
 
-	if gateResult.Fail {
-		if gateResult.Inconclusive {
-			return exitQualityNotReviewed
-		}
+	// B1: a real severity breach (Breach) always closes the gate with
+	// exitFindings, the same code --fail-on uses, regardless of whether
+	// the review was also inconclusive. Fail without Breach can only come
+	// from gate.inconclusive: block, which returns exitQualityNotReviewed
+	// -- the same "half a review" signal AUR-458 already uses.
+	if gateResult.Breach {
 		return exitFindings
+	}
+	if gateResult.Fail {
+		return exitQualityNotReviewed
 	}
 	return 0
 }

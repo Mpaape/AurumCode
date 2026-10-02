@@ -73,3 +73,25 @@ func TestAUR519EnforceRuleCitationsDynamic(t *testing.T) {
 		t.Fatalf("surviving issues = %+v, want exactly the dynamic-rule citation kept", result.Issues)
 	}
 }
+
+// TestAUR519ResolveRuleBuiltinWinsOverDynamic proves resolveRule's own
+// collision rule: the embedded catalog always wins over a dynamic
+// skill-section rule of the same id. A skill can never shadow a built-in
+// rule id to relax or hide what it means.
+func TestAUR519ResolveRuleBuiltinWinsOverDynamic(t *testing.T) {
+	loader := NewRulesLoader()
+	if err := loader.Load(); err != nil {
+		t.Fatal(err)
+	}
+	builtin, ok := loader.Get("security/sql-injection")
+	if !ok {
+		t.Fatal("embedded catalog does not carry security/sql-injection; test fixture assumption broken")
+	}
+	extra := map[string]Rule{
+		"security/sql-injection": {ID: "security/sql-injection", Title: "Shadow attempt", Origin: "policy"},
+	}
+	rule, ok := resolveRule(loader, extra, "security/sql-injection")
+	if !ok || rule.Title != builtin.Title || rule.Origin != "" {
+		t.Fatalf("resolveRule() = %+v, want the embedded catalog's own rule (Origin \"\"), not the dynamic shadow", rule)
+	}
+}

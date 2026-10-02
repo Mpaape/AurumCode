@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -103,6 +108,128 @@ func TestAUR519MergedRuleCatalogIDs(t *testing.T) {
 		if ids[i] != want[i] {
 			t.Fatalf("mergedRuleCatalogIDs() = %v, want %v", ids, want)
 		}
+	}
+}
+
+// TestAUR519EvaluateGateWarnStillFailsOnBreach is B1's regression: an
+// inconclusive run (e.g. AUR-476 partial coverage from an ignored/oversized
+// file on the same PR) under gate.inconclusive: warn must NOT skip the
+// severity threshold loop. Before this fix, evaluateGate returned as soon
+// as inconclusiveReason was non-empty, regardless of mode, so a policy
+// breach riding alongside a merely-partial review silently passed (exit
+// 0) instead of failing. It must still Fail (and Breach must be true, so
+// the caller returns exitFindings, not exitQualityNotReviewed).
+func TestAUR519EvaluateGateWarnStillFailsOnBreach(t *testing.T) {
+	gate := config.GateConfig{FailOn: []string{"high"}, Inconclusive: "warn"}
+	dynamic := map[string]review.Rule{
+		"security#no-hardcoded-secrets": {ID: "security#no-hardcoded-secrets", Title: "No Hardcoded Secrets", Origin: gateOriginPolicy, Severity: "error"},
+	}
+	issues := []types.ReviewIssue{
+		{File: "a.go", Line: 1, Severity: "error", RuleID: "security#no-hardcoded-secrets", Message: "leak"},
+	}
+	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "partial_coverage")
+	if err != nil {
+		t.Fatalf("evaluateGate() error = %v", err)
+	}
+	if !d.Fail || !d.Breach {
+		t.Fatalf("evaluateGate() = %+v, want Fail and Breach: a real breach must close the gate even under inconclusive:warn", d)
+	}
+	if !d.Inconclusive {
+		t.Fatalf("evaluateGate() = %+v, want Inconclusive still reported alongside the breach", d)
+	}
+}
+
+// TestAUR519EvaluateGateRuleSeverityFloorsModel is B4's regression: the
+// model's own issue.Severity is untrusted (the reviewed diff could contain
+// a prompt-injection line asking the model to under-report), so the cited
+// dynamic rule's own declared severity must floor the comparison. Here the
+// model reports "info" for a rule whose skill section declared
+// "severity: error" -- the breach must still fire at a "high"/error
+// threshold.
+func TestAUR519EvaluateGateRuleSeverityFloorsModel(t *testing.T) {
+	gate := config.GateConfig{FailOn: []string{"high"}}
+	dynamic := map[string]review.Rule{
+		"security#no-hardcoded-secrets": {ID: "security#no-hardcoded-secrets", Title: "No Hardcoded Secrets", Origin: gateOriginPolicy, Severity: "error"},
+	}
+	issues := []types.ReviewIssue{
+		{File: "a.go", Line: 1, Severity: "info", RuleID: "security#no-hardcoded-secrets", Message: "leak, downgraded by the model"},
+	}
+	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "")
+	if err != nil {
+		t.Fatalf("evaluateGate() error = %v", err)
+	}
+	if !d.Fail || !d.Breach {
+		t.Fatalf("evaluateGate() = %+v, want Fail: the rule's own \"severity: error\" must floor the model's downgraded \"info\"", d)
+	}
+}
+
+// TestAUR519EvaluateGateFailOnWithoutInconclusiveNeverApproves is B5's
+// regression: gate.fail_on declared with NO gate.inconclusive key at all
+// (the policy never opted into block/warn) must still never let an
+// inconclusive run report success as if it were a clean approval -- it is
+// Inconclusive (so the caller's verdict/status logic can say so) but not
+// Fail (absent inconclusive stays warn-equivalent: visible, never
+// blocking).
+func TestAUR519EvaluateGateFailOnWithoutInconclusiveNeverApproves(t *testing.T) {
+	gate := config.GateConfig{FailOn: []string{"high"}}
+	d, err := evaluateGate(gate, gateOriginPolicy, nil, nil, "degraded_parse")
+	if err != nil {
+		t.Fatalf("evaluateGate() error = %v", err)
+	}
+	if d.Fail {
+		t.Fatalf("evaluateGate() = %+v, want not Fail: absent gate.inconclusive stays warn-equivalent", d)
+	}
+	if !d.Inconclusive || len(d.Lines) == 0 {
+		t.Fatalf("evaluateGate() = %+v, want Inconclusive with a visible reason", d)
+	}
+
+	// The published status must say "inconclusiva", never "aprovado".
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
+			_, _ = w.Write([]byte(`{"permissions":{"push":true}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/statuses/head":
+			var status githubclient.CommitStatus
+			_ = json.NewDecoder(r.Body).Decode(&status)
+			publishedStatusForTest = status
+			w.WriteHeader(http.StatusCreated)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client := githubclient.NewClientWithBaseURL("test-token", server.URL)
+	var out, errOut strings.Builder
+	exit := publishPolicyGateStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", d, 1)
+	if exit != 0 {
+		t.Fatalf("publishPolicyGateStatus() exit = %d, want 0 (inconclusive-without-block never blocks)", exit)
+	}
+	if strings.Contains(publishedStatusForTest.Description, "aprovado") {
+		t.Fatalf("status description = %q, must never claim approval on an inconclusive run", publishedStatusForTest.Description)
+	}
+	if !strings.Contains(publishedStatusForTest.Description, "inconclusiva") || publishedStatusForTest.State != "success" {
+		t.Fatalf("status = %+v, want state success and a description naming the review as inconclusive", publishedStatusForTest)
+	}
+}
+
+// publishedStatusForTest is a tiny package-level scratch var the httptest
+// handler above writes into -- simplest way to inspect the one status this
+// test's own server receives without a second channel/mutex for a
+// single-threaded test body.
+var publishedStatusForTest githubclient.CommitStatus
+
+// TestAUR519MergeDynamicRulesPolicyWins is CR-TRUST-001's precedence proof:
+// on an id collision between the policy's and the repository's own skill
+// sections, the policy's rule must always win -- a repository must never
+// be able to shadow a policy's rule id with a lower-trust, repo-origin
+// copy and quietly remove it from the gate's accepted set.
+func TestAUR519MergeDynamicRulesPolicyWins(t *testing.T) {
+	policy := map[string]review.Rule{"security#x": {ID: "security#x", Title: "Policy version", Origin: gateOriginPolicy, Severity: "error"}}
+	repo := map[string]review.Rule{"security#x": {ID: "security#x", Title: "Repo version", Origin: gateOriginRepo, Severity: "info"}}
+	merged := mergeDynamicRules(policy, repo)
+	got, ok := merged["security#x"]
+	if !ok || got.Origin != gateOriginPolicy || got.Title != "Policy version" {
+		t.Fatalf("mergeDynamicRules() = %+v, want the policy's own rule to win the collision", got)
 	}
 }
 

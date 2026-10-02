@@ -208,7 +208,7 @@ func TestAUR519PolicyGateStatusContextIsStable(t *testing.T) {
 		t.Fatalf("an undeclared gate must publish nothing at all: exit=%d published=%+v", noGate, published)
 	}
 
-	breach := gateDecision{Active: true, Fail: true, Lines: []string{"security#no-hardcoded-secrets: No Hardcoded Secrets (severidade error, limiar error)"}}
+	breach := gateDecision{Active: true, Fail: true, Breach: true, Lines: []string{"security#no-hardcoded-secrets: No Hardcoded Secrets (severidade error, limiar error)"}}
 	code := publishPolicyGateStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", breach, 42)
 	if code != exitFindings {
 		t.Fatalf("exit=%d, want exitFindings; stderr=%s", code, errOut.String())
