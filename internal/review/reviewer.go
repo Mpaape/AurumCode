@@ -38,6 +38,12 @@ type Reviewer struct {
 	parser        *prompt.ResponseParser
 	filter        *redaction.Filter
 	cfg           Config
+	// extraRules is AUR-519's per-run dynamic rule set (skill sections from
+	// the central policy and, when the repository opts in, its own
+	// skills), installed by SetDynamicRules. nil is the zero-config
+	// default: no dynamic rule exists and enforceRuleCitations behaves
+	// exactly as before this card.
+	extraRules map[string]Rule
 }
 
 // Config holds reviewer configuration.
@@ -98,6 +104,26 @@ func NewReviewer(orchestrator *llm.Orchestrator, cfg Config) *Reviewer {
 		filter: redaction.FromEnv(),
 		cfg:    cfg,
 	}
+}
+
+// SetDynamicRules installs AUR-519's per-run dynamic rule set, keyed by rule
+// id exactly as enforceRuleCitations resolves it (resolveRule,
+// skillrules.go). cmd/aurumcode builds this map by parsing the central
+// policy's and, when the repository opts in, the repository's own skill
+// files (ParseSkillSections) before calling GenerateReview. nil/empty keeps
+// today's behavior: only the embedded catalog's ids are accepted.
+func (r *Reviewer) SetDynamicRules(rules map[string]Rule) {
+	r.extraRules = rules
+}
+
+// SetRuleCatalog passes an expanded rule_id list down to the prompt
+// builder, so the model is taught exactly the ids SetDynamicRules will
+// accept -- the embedded catalog's ids plus AUR-519's dynamic skill-section
+// ids. It validates eagerly (the same token-budget and non-empty/sorted
+// checks prompt.ValidateRuleCatalog already applies) and never truncates: a
+// catalog that no longer fits the prompt budget is a loud error here.
+func (r *Reviewer) SetRuleCatalog(ids []string) error {
+	return r.promptBuilder.SetRuleCatalog(ids)
 }
 
 // GenerateReview generates a code review for diff.
@@ -210,7 +236,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	if err != nil {
 		return nil, fmt.Errorf("review rules unavailable: %w", err)
 	}
-	rejected, discarded := enforceRuleCitations(rules, result)
+	rejected, discarded := enforceRuleCitations(rules, r.extraRules, result)
 
 	// Add metadata
 	if result.Metadata == nil {
@@ -392,12 +418,12 @@ type discardSummary struct {
 // enrichment (empty Message/Severity filled from the rule, file path
 // cleaned) and gains the citation itself, appended to the message the
 // user sees as " (rule <id>: <title>)".
-func enforceRuleCitations(rules *RulesLoader, result *types.ReviewResult) (int, discardSummary) {
+func enforceRuleCitations(rules *RulesLoader, extra map[string]Rule, result *types.ReviewResult) (int, discardSummary) {
 	kept := make([]types.ReviewIssue, 0, len(result.Issues))
 	var discarded discardSummary
 	seenUnknown := make(map[string]bool)
 	for _, issue := range result.Issues {
-		rule, ok := rules.Get(issue.RuleID)
+		rule, ok := resolveRule(rules, extra, issue.RuleID)
 		if !ok {
 			if issue.RuleID == "" {
 				discarded.Missing++

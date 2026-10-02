@@ -137,7 +137,7 @@ func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewI
 	// generated FROM catalog rules -- but the gate stays in the path so a
 	// future defect fails closed instead of shipping an uncited finding.
 	result := &types.ReviewResult{Issues: found}
-	enforceRuleCitations(rules, result)
+	enforceRuleCitations(rules, nil, result)
 
 	sort.SliceStable(result.Issues, func(i, j int) bool {
 		if result.Issues[i].File != result.Issues[j].File {

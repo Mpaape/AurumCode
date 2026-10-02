@@ -121,7 +121,7 @@ func TestEnforceRuleCitations(t *testing.T) {
 		},
 	}
 
-	rejected, discarded := enforceRuleCitations(loader, result)
+	rejected, discarded := enforceRuleCitations(loader, nil, result)
 	if rejected != 2 {
 		t.Fatalf("expected 2 rejected issues, got %d: %+v", rejected, result.Issues)
 	}
