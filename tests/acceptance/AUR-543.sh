@@ -13,7 +13,9 @@
 #   all             run every behavior test below, then also run the
 #                   AC-001-MUT-001 mutation and confirm it goes RED
 #   AC-001          editing the fixed prompt template, or the built-in rule
-#                   catalog, moves FixedContentDigest's result
+#                   catalog, moves FixedContentDigest's result (unit), AND
+#                   forces a real second request through runReview's actual
+#                   production wiring with a persisted cache (end-to-end)
 #   AC-002          FixedContentDigest is stable across repeated calls and
 #                   across independently constructed builders
 #   AC-003          end-to-end: the same model name across two real
@@ -128,10 +130,10 @@ pkgs='./internal/prompt/... ./cmd/aurumcode/...'
 test_pattern=''
 expect_fail=''
 case "$selector" in
-  AC-001)         test_pattern='^TestAUR543AC001' ;;
+  AC-001)         test_pattern='^(TestAUR543AC001FixedTextChangeMovesDigest|TestAUR543AC001CatalogChangeMovesDigest|TestAUR543AC001PromptEditForcesFreshReview)$' ;;
   AC-002)         test_pattern='^TestAUR543AC002DigestStableAcrossRuns$' ;;
   AC-003)         test_pattern='^TestAUR543AC003DifferentBaseURLForcesFreshReview$' ;;
-  AC-001-MUT-001) test_pattern='^TestAUR543AC001'; expect_fail=1; apply_mutation_ac001 ;;
+  AC-001-MUT-001) test_pattern='^TestAUR543AC001.*$'; expect_fail=1; apply_mutation_ac001 ;;
   all)            test_pattern='^TestAUR543' ;;
 esac
 
@@ -166,6 +168,7 @@ grep -Eq -- '^--- PASS: TestAUR543' "$log" || fail 'no-test-executed'
 if [[ "$selector" == all ]]; then
   for name in \
       AC001FixedTextChangeMovesDigest AC001CatalogChangeMovesDigest \
+      AC001PromptEditForcesFreshReview \
       AC002DigestStableAcrossRuns AC003DifferentBaseURLForcesFreshReview; do
     grep -q "^--- PASS: TestAUR543$name " "$log" || fail "missing-pass:$name"
   done
@@ -177,7 +180,7 @@ if [[ "$selector" == all ]]; then
   apply_mutation_ac001
   mut_log="$run_dir/test-mut.log"
   mut_status=0
-  run_go_test '^TestAUR543AC001' "$mut_log" || mut_status=$?
+  run_go_test '^TestAUR543AC001.*$' "$mut_log" || mut_status=$?
   cat "$mut_log" >&2
   grep -Eq -- '^--- FAIL: TestAUR543' "$mut_log" || fail 'mutation-survived'
   (( mut_status != 0 )) || fail 'mutation-survived-exit-zero'
