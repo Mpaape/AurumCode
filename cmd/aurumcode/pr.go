@@ -318,7 +318,18 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// empty context and the review continues on the diff alone.
 	// AUR-490: the shared codebase-context pass (resolveCodebaseContext,
 	// cmd/aurumcode/passes.go), identical to the one the --base path now runs.
-	codebaseContextText := resolveCodebaseContext(diff)
+	// AUR-515: on --pr the checkout at cwd is not necessarily the pull
+	// request's own repository or head commit (see cmd/aurumcode/aur515.go);
+	// resolveCodebaseContext only ever runs once that is verified, and a
+	// mismatch is recorded as a limitation below instead of silently
+	// sending an unrelated checkout's files to the provider.
+	var codebaseContextText, codebaseContextLimitation string
+	mismatch := codebaseContextMismatch(ctx, client, owner, repoName, prNumber)
+	if mismatch == "" {
+		codebaseContextText = resolveCodebaseContext(diff)
+	} else {
+		codebaseContextLimitation = codebaseContextOmittedNotice(reviewLanguage, mismatch)
+	}
 
 	// Review memory (opt-in, default off): prior findings and preferences
 	// loaded as untrusted observations and saved back after publication.
@@ -544,6 +555,9 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	}
 	if changelogLimitation != "" {
 		result.Limitations = append(result.Limitations, changelogLimitation)
+	}
+	if codebaseContextLimitation != "" {
+		result.Limitations = append(result.Limitations, codebaseContextLimitation)
 	}
 	// AUR-518: the policy warnings already printed to stderr above also join
 	// the published review body, so the PR sees the same declaration the
