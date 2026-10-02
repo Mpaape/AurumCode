@@ -1,0 +1,3 @@
+Verified OK
+verify-blob: assinatura aceita
+adulterado: SBOM modificado e rejeitado
