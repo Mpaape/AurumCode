@@ -954,7 +954,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// swallow the other.
 	checkExit := 0
 	if check {
-		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber, opts.exigirQualidade && qualityDegraded)
+		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber, opts.exigirQualidade && qualityDegraded, providerFailed)
 	}
 	// AUR-519: the policy gate's own commit status (policyGateContext),
 	// independent of --check's grave-finding status above -- an org's
@@ -1078,16 +1078,36 @@ const checkContext = "aurumcode/review"
 // itself could not be published or a required model review was inconclusive.
 // MUT-001 is exactly the defect of this function reporting success (either
 // the exit code or the published state) while a grave finding is present.
-func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete bool) int {
+//
+// AUR-537 B1: providerFailed means the quality review never ran at all --
+// every configured provider failed, or --limite refused the call before one
+// was ever reached. Before AUR-537 this status was simply never published
+// for that run (runPRReview returned before reaching --check at all), which
+// failed closed for any ruleset requiring this context. AUR-537 made the
+// function keep going, but a provider outage is NOT "inconclusive the way
+// AUR-505's own model-parse failure is" for THIS status: it must never read
+// "success" here, in gate.inconclusive: block OR warn, and REGARDLESS of
+// --exigir-qualidade -- warn only ever softens aurumcode/policy-gate
+// (publishPolicyGateStatus), never this legacy grave-finding status. A prior
+// round of this card left qualityRequiredButIncomplete (gated on
+// --exigir-qualidade) as the only lever, which let a provider outage publish
+// a false "nenhum achado grave" success whenever --exigir-qualidade was not
+// also given -- worse than before this card, which left the context absent
+// (failing closed) rather than falsely green.
+func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete, providerFailed bool) int {
 	grave := countAtOrAbove(issues, rankError)
 	status := githubclient.CommitStatus{Context: checkContext}
-	if qualityRequiredButIncomplete {
+	switch {
+	case providerFailed:
+		status.State = "failure"
+		status.Description = fmt.Sprintf("revisão não executada no pull request #%d: falha do provedor (provider_failure)", prNumber)
+	case qualityRequiredButIncomplete:
 		status.State = "failure"
 		status.Description = fmt.Sprintf("revisão por modelo inconclusiva no pull request #%d", prNumber)
-	} else if grave > 0 {
+	case grave > 0:
 		status.State = "failure"
 		status.Description = fmt.Sprintf("%d achado(s) grave(s) no pull request #%d", grave, prNumber)
-	} else {
+	default:
 		status.State = "success"
 		status.Description = fmt.Sprintf("nenhum achado grave no pull request #%d", prNumber)
 	}
@@ -1098,6 +1118,17 @@ func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", checkContext, commitID, status.State, status.Description)
 
+	// AUR-537 B1: providerFailed's own contribution to the exit code is
+	// deliberately 0 here, even though the STATE published above is always
+	// "failure" -- the overall process exit for a provider outage is
+	// decided once, correctly, by gateResult.Fail/Breach at the bottom of
+	// runPRReview (evaluateGate already sets Fail only for
+	// gate.inconclusive: block, never for warn; providerFailed can only be
+	// true at all once a gate IS declared, so that cascade always runs).
+	// Letting this function ALSO claim exitQualityNotReviewed here would
+	// double-count the same decision and wrongly force exit 1 under warn,
+	// defeating AC-002 -- the published status and the exit code are two
+	// different questions, and only the status must ignore warn/block.
 	if qualityRequiredButIncomplete {
 		return exitQualityNotReviewed
 	}
