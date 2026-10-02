@@ -1,0 +1,9 @@
+{
+  "id": "javascript-sqli",
+  "language": "javascript",
+  "file": "query.js",
+  "label": "defect",
+  "rule": "sql-injection",
+  "line": 3,
+  "simulated_model": "hit"
+}

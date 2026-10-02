@@ -1,0 +1,8 @@
+{
+  "id": "go-clean",
+  "language": "go",
+  "file": "safe.go",
+  "label": "clean",
+  "simulated_model": "silent",
+  "false_alarm_line": 0
+}
