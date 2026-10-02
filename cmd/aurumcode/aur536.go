@@ -9,59 +9,54 @@
 // on disk and would reach the model as "codebase context" even though none
 // of them is part of the commit the pull request actually names.
 //
-// verifiedCleanCheckoutReason closes that gap: it proves every regular file
-// under the checkout (outside ".git") is exactly the content git already
-// has recorded for a committed blob, and fails closed -- "dirty" or
+// verifiedCleanCheckoutReason closes that gap: it proves every file under
+// the checkout (outside ".git") is exactly the content git already has
+// recorded for a committed blob at HEAD, and fails closed -- "dirty" or
 // "unverifiable" -- on anything it cannot prove. This runs only on the --pr
 // path (pr.go, right after codebaseContextMismatch); --base is deliberately
 // left untouched, since there the checkout IS the change under review by
 // construction (see aur515.go's own package doc) and demanding a clean tree
 // there would break reviewing a local, uncommitted diff.
 //
-// Two backends, chosen once per call, mirror internal/analyzer.OpenRepo's
-// own git-binary/pure-Go split:
+// The proof itself is a single comparison against internal/analyzer's own
+// exported Repo.TrackedFiles(ref): analyzer.OpenRepo already resolves, once,
+// which backend reads this repository -- the git binary (loose or packed
+// objects, via `git cat-file`) when one is on PATH, or a pure-Go
+// loose-object reader when it is not -- and TrackedFiles returns HEAD's
+// entire tracked tree, as a path -> {blob id, mode} map, through whichever
+// one it picked. There is exactly one map-building codepath, not two: the
+// git-binary and git-less backends feed the identical comparison
+// (cleanAgainstTracked), so they can only ever disagree on what a loose
+// object lookup finds, never on what "clean" means. A git-less checkout
+// whose objects have been packed is TrackedFiles' hard error case (a loose
+// object the pure-Go reader cannot find): that is reported
+// "unverifiable", never "dirty" -- an inability to prove the tree is dirty
+// is not evidence that it is. It never happens in production, where the
+// shipped Dockerfile always installs git; it is exactly the sealed
+// acceptance profile's own git-less, loose-object-only fixtures that
+// exercise this path for real.
 //
-//   - git on PATH: `git ls-tree -r -z HEAD` lists every path git tracks at
-//     HEAD together with its blob id, resolved by git itself -- so this
-//     works whether the repository's objects are loose or packed. Each
-//     working-tree file's own git blob id (sha1("blob "+len+"\0"+content"),
-//     computed here, not shelled out per file) is compared against that
-//     map. A file absent from the map, a hash mismatch, or a tracked path
-//     missing from disk is "dirty". This is the path the shipped Docker
-//     image (Dockerfile installs git) and any ordinary workstation use.
-//   - no git on PATH: there is no public API in internal/analyzer to list a
-//     commit's tree (its tree/commit readers are deliberately unexported;
-//     this card's paths do not include internal/analyzer), so the fallback
-//     instead asks whether each working-tree file's git blob id names an
-//     object that already exists, loose, in .git/objects. Existence of a
-//     correctly-named loose object is strong evidence the exact content was
-//     committed at some point: git's own loose-object format is
-//     content-addressed, so nothing can occupy that path except that exact
-//     content. This is weaker than the git-binary path in two documented
-//     ways -- it does not confirm the blob is recorded at HEAD for that
-//     exact path (only that it exists somewhere in this repository's
-//     history), and it cannot see packed objects at all, so a repository
-//     that has been packed (any non-trivial real clone, past roughly 100
-//     objects) reads every file as unverifiable and omits context -- which
-//     is a fail-closed outcome, not a wrong one. It is exactly good enough
-//     for the sealed, git-less acceptance profile this card's own tests run
-//     in, built from small, loose-object-only fixtures; production always
-//     has git (the shipped Dockerfile), so it never exercises this
-//     fallback at all.
+// Once the tree verifies clean, the exact file set TrackedFiles named is
+// handed, by construction, to internal/context's resolver
+// (resolveVerifiedCodebaseContext, ResolveWithFiles) as the ONLY files its
+// own repo-wide reference scan may read -- never a second, independent
+// filesystem walk that this proof and the resolver could, in principle,
+// disagree about.
 package main
 
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/analyzer"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // errCheckoutTooLarge is walkVerified's sentinel error for exceeding its
@@ -72,106 +67,51 @@ var errCheckoutTooLarge = errors.New("checkout file count exceeds limit")
 
 // codebaseContextReasonDirty is returned by verifiedCleanCheckoutReason when
 // the checkout's working tree diverges from its committed content: an
-// uncommitted edit, an untracked file, or an extra file (for instance a
-// nested clone) with no committed counterpart. It is a fixed reason code,
-// never remote or local repository text, so it needs no redaction.
+// uncommitted edit, a staged-but-uncommitted change, an untracked file
+// (including an untracked or retargeted symlink), a deleted tracked file,
+// or an extra file (for instance a nested clone) with no committed
+// counterpart. It is a fixed reason code, never remote or local repository
+// text, so it needs no redaction.
 const codebaseContextReasonDirty = "dirty"
 
-// maxVerifiedCheckoutFiles bounds cleanAgainstLooseObjects' walk only (the
-// no-git fallback with no git-reported tracked count to bound against
-// instead -- see cleanAgainstTracked's own, dynamic bound). Matches
-// internal/context's own enumeration bound (DefaultMaxFiles) so a
-// repository too large for the resolver to fully enumerate is, by the same
-// bound, too large for this fallback to fully verify either, and is
-// reported "unverifiable" rather than silently checking only a prefix.
-const maxVerifiedCheckoutFiles = codebasectx.DefaultMaxFiles
-
-// verifiedCleanCheckoutReason returns "" when every regular file under dir
-// (outside ".git") is exactly the content already committed at HEAD;
-// otherwise it returns codebaseContextReasonDirty or
-// codebaseContextReasonUnverifiable (aur515.go). dir must already be
+// verifiedCleanCheckoutReason returns ("", files) when every file under dir
+// (outside ".git") is exactly the content already committed at HEAD, where
+// files is the sorted set of root-relative paths proven clean -- the exact
+// set resolveVerifiedCodebaseContext goes on to read, and no more.
+// Otherwise it returns (codebaseContextReasonDirty, nil) or
+// (codebaseContextReasonUnverifiable, nil) (aur515.go). dir must already be
 // verified, by the caller, as the reviewed repository at the reviewed pull
 // request's head commit -- this function only adds the clean-tree half of
 // that proof.
-func verifiedCleanCheckoutReason(dir string) string {
-	if tracked, ok := gitTrackedBlobs(dir); ok {
-		return cleanAgainstTracked(dir, tracked)
-	}
-	objectsDir, err := gitObjectsDir(dir)
+func verifiedCleanCheckoutReason(dir string) (reason string, files []string) {
+	repo, err := analyzer.OpenRepo(dir)
 	if err != nil {
-		return codebaseContextReasonUnverifiable
+		return codebaseContextReasonUnverifiable, nil
 	}
-	return cleanAgainstLooseObjects(dir, objectsDir)
-}
-
-// gitTrackedBlobs returns dir's HEAD tree as a path -> git blob id map via
-// `git ls-tree`, when a git binary is available; ok is false (map nil)
-// whenever git cannot answer, so the caller falls back to the loose-object
-// check instead of trusting an empty tree.
-//
-// Only ordinary blobs (mode 100644/100755) are kept. A gitlink (mode
-// 160000, type "commit": a submodule) names a commit in a different
-// repository, never an object this reader -- or walkVerified's own
-// content read -- can meaningfully check, so it is left out of the map
-// entirely rather than forced to match. A symlink (mode 120000, its target
-// path stored as a blob's content) is likewise left out: walkVerified
-// never reads a symlink's content either (see its own doc), so the two
-// sides of this comparison only ever disagree about ordinary files.
-func gitTrackedBlobs(dir string) (tracked map[string]string, ok bool) {
-	gitBin, err := exec.LookPath("git")
+	tracked, err := repo.TrackedFiles("HEAD")
 	if err != nil {
-		return nil, false
+		return codebaseContextReasonUnverifiable, nil
 	}
-	cmd := exec.Command(gitBin, "-c", "safe.directory="+dir, "-C", dir, "ls-tree", "-r", "-z", "HEAD")
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, false
-	}
-	tracked = make(map[string]string)
-	for _, record := range strings.Split(string(out), "\x00") {
-		if record == "" {
-			continue
-		}
-		meta, path, cut := strings.Cut(record, "\t")
-		if !cut || path == "" {
-			continue
-		}
-		fields := strings.Fields(meta)
-		if len(fields) != 3 || fields[1] != "blob" || fields[0] == "120000" {
-			continue
-		}
-		tracked[filepath.ToSlash(path)] = fields[2]
-	}
-	return tracked, true
-}
-
-// gitObjectsDir resolves dir's shared git object database directory,
-// reusing gitConfigPath (aur515.go) so a linked worktree's objects --
-// always stored in the main checkout's gitdir, never the worktree's own --
-// resolve the same way AUR-515's own origin/HEAD reads already do.
-func gitObjectsDir(dir string) (string, error) {
-	configPath, err := gitConfigPath(dir)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(filepath.Dir(configPath), "objects"), nil
+	return cleanAgainstTracked(dir, tracked)
 }
 
 // cleanAgainstTracked walks dir and reports codebaseContextReasonDirty
-// unless every regular file (outside ".git") matches tracked's blob id for
-// its own relative path and every tracked path is present on disk. The
-// walk is bounded at len(tracked)+1, not a fixed constant: git itself has
-// already named exactly how many ordinary files this commit tracks, so
-// seeing one more regular file than that already proves an untracked file
-// exists (dirty) without needing to find it by name, and a real
-// repository's own size (this one included, at over 2000 files) never
-// makes the check itself unverifiable.
-func cleanAgainstTracked(dir string, tracked map[string]string) string {
+// unless every file (outside ".git") matches tracked's entry for its own
+// relative path -- blob id for an ordinary file, or blob id of the link
+// target's bytes for a symlink (tracked's own git mode says which this
+// path must be) -- and every tracked path is present on disk. The walk is
+// bounded at len(tracked)+1, not a fixed constant: git itself has already
+// named exactly how many paths this commit tracks, so seeing one more
+// filesystem entry than that already proves an untracked file exists
+// (dirty) without needing to find it by name, and a real repository's own
+// size (this one included, at over 2000 files) never makes the check
+// itself unverifiable.
+func cleanAgainstTracked(dir string, tracked map[string]analyzer.TrackedEntry) (string, []string) {
 	matched := 0
 	dirty := false
-	err := walkVerified(dir, len(tracked)+1, func(rel string, data []byte) {
-		want, ok := tracked[rel]
-		if !ok || want != blobSHA1(data) {
+	err := walkVerified(dir, len(tracked)+1, func(rel string, isSymlink bool, data []byte) {
+		entry, ok := tracked[rel]
+		if !ok || isSymlink != (entry.Mode == "120000") || entry.SHA != blobSHA1(data) {
 			dirty = true
 			return
 		}
@@ -179,50 +119,32 @@ func cleanAgainstTracked(dir string, tracked map[string]string) string {
 	})
 	if err != nil {
 		if errors.Is(err, errCheckoutTooLarge) {
-			return codebaseContextReasonDirty
+			return codebaseContextReasonDirty, nil
 		}
-		return codebaseContextReasonUnverifiable
+		return codebaseContextReasonUnverifiable, nil
 	}
 	if dirty || matched != len(tracked) {
-		return codebaseContextReasonDirty
+		return codebaseContextReasonDirty, nil
 	}
-	return ""
+	files := make([]string, 0, len(tracked))
+	for rel := range tracked {
+		files = append(files, rel)
+	}
+	return "", files
 }
 
-// cleanAgainstLooseObjects walks dir and reports codebaseContextReasonDirty
-// unless every regular file's (outside ".git") git blob id names a loose
-// object that already exists under objectsDir -- see the package doc for
-// exactly what that does and does not prove. There is no git-reported
-// tracked count to bound this walk by (that is exactly why this is the
-// no-git fallback), so it uses the fixed maxVerifiedCheckoutFiles bound
-// instead; see that constant's doc for why this is acceptable here.
-func cleanAgainstLooseObjects(dir, objectsDir string) string {
-	dirty := false
-	err := walkVerified(dir, maxVerifiedCheckoutFiles, func(rel string, data []byte) {
-		sha := blobSHA1(data)
-		if _, statErr := os.Stat(filepath.Join(objectsDir, sha[:2], sha[2:])); statErr != nil {
-			dirty = true
-		}
-	})
-	if err != nil {
-		return codebaseContextReasonUnverifiable
-	}
-	if dirty {
-		return codebaseContextReasonDirty
-	}
-	return ""
-}
-
-// walkVerified walks every regular file under dir, skipping ".git" entirely
-// -- whether it is this checkout's own git directory or, exactly the same
+// walkVerified walks every file under dir, skipping ".git" entirely --
+// whether it is this checkout's own git directory or, exactly the same
 // way, a linked worktree's or a submodule's "gitdir: ..." indirection FILE
-// (neither is tracked content) -- and skipping symlinks (the resolver
-// itself never reads their content either, so they carry no leak risk
-// here), and calls visit with each file's root-relative slash path and
-// full content. It is bounded by limit so a pathological tree cannot make
-// verification itself unbounded; exceeding the bound returns an error, not
-// a visit, so the caller decides what that means for its own backend.
-func walkVerified(dir string, limit int, visit func(rel string, data []byte)) error {
+// (neither is tracked content) -- and calls visit with each file's
+// root-relative slash path, whether it is a symlink, and its comparable
+// content: a regular file's own bytes, or a symlink's link-target bytes
+// (os.Readlink) -- never a symlink's target's CONTENT, so a symlink this
+// walk follows is never itself dereferenced and read. It is bounded by
+// limit so a pathological tree cannot make verification itself unbounded;
+// exceeding the bound returns errCheckoutTooLarge, not a visit, so the
+// caller decides what that means for its own backend.
+func walkVerified(dir string, limit int, visit func(rel string, isSymlink bool, data []byte)) error {
 	count := 0
 	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -237,8 +159,9 @@ func walkVerified(dir string, limit int, visit func(rel string, data []byte)) er
 		if d.IsDir() {
 			return nil
 		}
-		if d.Type()&fs.ModeSymlink != 0 || !d.Type().IsRegular() {
-			return nil
+		isSymlink := d.Type()&fs.ModeSymlink != 0
+		if !isSymlink && !d.Type().IsRegular() {
+			return nil // device, socket, etc.: never tracked content either.
 		}
 		count++
 		if count > limit {
@@ -248,17 +171,47 @@ func walkVerified(dir string, limit int, visit func(rel string, data []byte)) er
 		if err != nil {
 			return err
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
+		var data []byte
+		if isSymlink {
+			target, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			data = []byte(target)
+		} else {
+			data, err = os.ReadFile(path)
+			if err != nil {
+				return err
+			}
 		}
-		visit(filepath.ToSlash(rel), data)
+		visit(filepath.ToSlash(rel), isSymlink, data)
 		return nil
 	})
 }
 
+// resolveVerifiedCodebaseContext is --pr's own codebase-context pass
+// (AUR-536): identical in output shape to resolveCodebaseContext
+// (passes.go, shared with --base), except the resolver's own file
+// discovery is replaced, by construction, with exactly files --
+// verifiedCleanCheckoutReason's own proven-clean set -- so the set this
+// check verified and the set the resolver actually reads can never
+// diverge, not even by a future, independent bug in either side's walk.
+func resolveVerifiedCodebaseContext(diff *types.Diff, dir string, files []string) string {
+	pack, err := codebasectx.NewResolver().ResolveWithFiles(dir, diffPaths(diff), files)
+	if err != nil || pack == nil {
+		return ""
+	}
+	data, err := json.Marshal(pack)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 // blobSHA1 returns the hex git blob object id of data -- the same id
-// `git hash-object` and a tree entry's own recorded id use.
+// `git hash-object` and a tree entry's own recorded id use. For a symlink,
+// data is the link target's own bytes (os.Readlink), matching how git
+// itself stores a symlink's blob content.
 func blobSHA1(data []byte) string {
 	h := sha1.New()
 	fmt.Fprintf(h, "blob %d\x00", len(data))
