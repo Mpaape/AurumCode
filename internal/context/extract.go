@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/grammar"
 )
 
 // maxSymbolAlternation bounds how many distinct symbols are folded into the
@@ -13,113 +15,15 @@ import (
 // omission is recorded, keeping the scan linear in file bytes.
 const maxSymbolAlternation = 4096
 
-// Symbol-definition regexes (pure-Go heuristics, language family only).
-var (
-	goFuncRe   = regexp.MustCompile(`(?m)^[ \t]*(?:func|type)[ \t]+([A-Za-z_][A-Za-z0-9_]*)`)
-	goMethodRe = regexp.MustCompile(`(?m)^[ \t]*func[ \t]+\([^)]*\)[ \t]+([A-Za-z_][A-Za-z0-9_]*)`)
-	goVarRe    = regexp.MustCompile(`(?m)^[ \t]*(?:var|const)[ \t]+([A-Za-z_][A-Za-z0-9_]*)`)
-
-	jsSymbolRe = regexp.MustCompile(`(?m)^[ \t]*(?:export[ \t]+)?(?:function|class|const|let|var)[ \t]+([A-Za-z_$][A-Za-z0-9_$]*)`)
-	pySymbolRe = regexp.MustCompile(`(?m)^[ \t]*(?:def|class)[ \t]+([A-Za-z_][A-Za-z0-9_]*)`)
-	cSymbolRe  = regexp.MustCompile(`(?m)^[ \t]*[A-Za-z_][A-Za-z0-9_ \t*]+[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(`)
-)
-
-// Import-statement regexes.
-var (
-	goImportRe   = regexp.MustCompile(`(?m)^[ \t]*import[ \t]+(?:[A-Za-z_][A-Za-z0-9_]*[ \t]+)?"([^"]+)"`)
-	jsImportRe   = regexp.MustCompile(`(?m)^[ \t]*import[^"']*["']([^"']+)["']`)
-	jsRequireRe  = regexp.MustCompile(`(?m)\brequire[ \t]*\([ \t]*["']([^"']+)["']`)
-	pyImportRe   = regexp.MustCompile(`(?m)^[ \t]*(?:import|from)[ \t]+([A-Za-z_][A-Za-z0-9_.]*)`)
-	goBlockQuote = regexp.MustCompile(`"([^"]+)"`)
-)
-
-// familyOf maps a file extension to a coarse language family used to select
-// extraction heuristics.
-func familyOf(rel string) string {
-	ext := strings.ToLower(strings.TrimPrefix(path.Ext(rel), "."))
-	switch ext {
-	case "go":
-		return "go"
-	case "js", "jsx", "ts", "tsx", "mjs", "cjs":
-		return "js"
-	case "py", "pyw", "pyi":
-		return "py"
-	case "c", "h", "cc", "cpp", "cxx", "hpp", "hxx", "hh", "cs", "java", "rs":
-		return "c"
-	default:
-		return ""
+// structureOf asks the grammar runtime (internal/grammar) for the structure of
+// one file. No language is named here: which grammar applies, and whether one
+// exists at all, is the runtime's answer. Binary content never reaches a
+// parser.
+func (r *Resolver) structureOf(rel string, content []byte) grammar.Structure {
+	if grammar.LooksBinary(content) {
+		return grammar.Structure{Language: grammar.NoStructure, Reason: "binary content"}
 	}
-}
-
-// extractSymbols returns the symbol names defined in content for the given
-// language family, in encounter order (deduplicated by the caller).
-func extractSymbols(family string, content []byte) []string {
-	var out []string
-	switch family {
-	case "go":
-		out = appendMatches(out, content, goFuncRe)
-		out = appendMatches(out, content, goMethodRe)
-		out = appendMatches(out, content, goVarRe)
-	case "js":
-		out = appendMatches(out, content, jsSymbolRe)
-	case "py":
-		out = appendMatches(out, content, pySymbolRe)
-	case "c":
-		out = appendMatches(out, content, cSymbolRe)
-	}
-	return out
-}
-
-// extractImports returns the import/dependency paths referenced in content for
-// the given language family, in encounter order (deduplicated by the caller).
-func extractImports(family string, content []byte) []string {
-	var out []string
-	switch family {
-	case "go":
-		out = appendMatches(out, content, goImportRe)
-		out = append(out, goBlockImports(content)...)
-	case "js":
-		out = appendMatches(out, content, jsImportRe)
-		out = appendMatches(out, content, jsRequireRe)
-	case "py":
-		out = appendMatches(out, content, pyImportRe)
-	}
-	return out
-}
-
-func appendMatches(out []string, content []byte, re *regexp.Regexp) []string {
-	for _, m := range re.FindAllSubmatch(content, -1) {
-		if len(m) > 1 && m[1] != nil {
-			out = append(out, string(m[1]))
-		}
-	}
-	return out
-}
-
-// goBlockImports collects the quoted paths inside a Go `import ( ... )` block.
-func goBlockImports(content []byte) []string {
-	var out []string
-	inBlock := false
-	for _, ln := range strings.Split(string(content), "\n") {
-		trimmed := strings.TrimSpace(ln)
-		if inBlock {
-			if strings.HasPrefix(trimmed, ")") {
-				inBlock = false
-				continue
-			}
-			if m := goBlockQuote.FindStringSubmatch(ln); m != nil {
-				out = append(out, m[1])
-			}
-			continue
-		}
-		if strings.HasPrefix(trimmed, "import") && strings.Contains(trimmed, "(") {
-			inBlock = true
-			if m := goBlockQuote.FindStringSubmatch(ln); m != nil {
-				out = append(out, m[1])
-			}
-		}
-	}
-	return out
+	return r.grammar.Analyze(rel, content)
 }
 
 // importKeys derives the three match keys for a changed file: its directory
