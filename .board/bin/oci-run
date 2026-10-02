@@ -242,6 +242,40 @@ emit_untrusted_output() {
 # rejected rather than guessed at, because a value this runner misreads becomes a
 # container flag. Output is one `key<TAB>type<TAB>value` line per pair.
 readonly flat_json_reader='
+function trim_value(s) {
+  sub(/^[ \t]+/, "", s)
+  sub(/[ \t]+$/, "", s)
+  return s
+}
+# A nested environment is admitted only as a single-line flat object of quoted
+# key/value strings. Every pair is re-emitted as its own scalar entry
+# (environment.<NAME>), so the caller keeps rejecting unknown variables and the
+# exact-value gate stays in one place.
+function emit_environment(inner,   n, i, parts, pair, name, value, colon) {
+  n = split(inner, parts, ",")
+  for (i = 1; i <= n; i++) {
+    pair = trim_value(parts[i])
+    if (pair !~ /^"[A-Za-z_][A-Za-z0-9_]*"[ \t]*:[ \t]*"[^"]*"$/) exit 15
+    colon = index(pair, ":")
+    name = substr(pair, 2, colon - 3)
+    sub(/^"[A-Za-z_][A-Za-z0-9_]*"[ \t]*:[ \t]*"/, "", pair)
+    value = substr(pair, 1, length(pair) - 1)
+    if (seen["environment." name]++) exit 16
+    printf "environment.%s\ts\t%s\n", name, value
+  }
+}
+# A nested command is admitted only as a single-line array of quoted strings,
+# re-emitted as command.<index> so arity and every element are pinned.
+function emit_command(inner,   n, i, parts, item) {
+  n = split(inner, parts, ",")
+  for (i = 1; i <= n; i++) {
+    item = trim_value(parts[i])
+    if (item !~ /^"[^"]*"$/) exit 15
+    item = substr(item, 2, length(item) - 2)
+    if (seen["command." (i - 1)]++) exit 16
+    printf "command.%d\ts\t%s\n", i - 1, item
+  }
+}
 {
   if ($0 ~ /[^\t -~]/) exit 11
   if ($0 ~ /\\/) exit 11
@@ -258,6 +292,22 @@ readonly flat_json_reader='
   if (line == "}") { state = 2; next }
   if (pending_close) exit 14
   if (line ~ /,$/) sub(/,$/, "", line); else pending_close = 1
+  if (line ~ /^"environment"[ \t]*:[ \t]*[{].*[}]$/) {
+    inner = line
+    sub(/^"environment"[ \t]*:[ \t]*[{]/, "", inner)
+    sub(/[}]$/, "", inner)
+    if (inner == "") exit 15
+    emit_environment(inner)
+    next
+  }
+  if (line ~ /^"command"[ \t]*:[ \t]*\[.*\]$/) {
+    inner = line
+    sub(/^"command"[ \t]*:[ \t]*\[/, "", inner)
+    sub(/\]$/, "", inner)
+    if (inner == "") exit 15
+    emit_command(inner)
+    next
+  }
   if (line !~ /^"[a-z][a-z0-9_]*": ("[^"]*"|true|false|(0|[1-9][0-9]*))$/) exit 15
   key = line
   sub(/": .*$/, "", key)
@@ -378,7 +428,7 @@ resolve_profile() {
   local profile_label="profile $name"
   local lock_label="lock for $name"
   local declared_lock declared_lock_digest tmpfs_options tmpfs_mb memory_mb cpu_millis
-  local lock_dir real_root
+  local lock_dir real_root profile_schema
 
   [[ "$name" =~ ^[a-z0-9][a-z0-9.-]{2,63}$ ]] || die 64 "invalid profile name: $name"
 
@@ -424,12 +474,38 @@ resolve_profile() {
   [[ "$image" =~ $digest_pinned_image_pattern ]] ||
     die 65 "$lock_label does not pin the image by immutable digest: $image"
 
-  require_exact_keys profile_doc "$profile_label" \
-    schema version profile lock lock_digest network user cap_drop cap_add mounts \
-    devices pull tmpfs read_only_rootfs no_new_privileges privileged timeout_seconds \
-    memory_mb cpu_millis pids_limit tmpfs_mb stdout_limit_bytes stderr_limit_bytes \
-    max_input_files max_input_bytes
-  require_literal profile_doc "$profile_label" schema s 'aurum.container-profile'
+  # The schema selects the exact key set. The canonical flat profile stays first so
+  # the dispatch gate keeps reflecting the same contract it always has; the offline
+  # Go+Git profile is a second, equally exact set that also pins its environment and
+  # command, which the reader expands into environment.<NAME> and command.<index>.
+  profile_schema="$(require_string profile_doc "$profile_label" schema)" || exit 65
+  case "$profile_schema" in
+    aurum.container-profile)
+      require_exact_keys profile_doc "$profile_label" \
+        schema version profile lock lock_digest network user cap_drop cap_add mounts \
+        devices pull tmpfs read_only_rootfs no_new_privileges privileged timeout_seconds \
+        memory_mb cpu_millis pids_limit tmpfs_mb stdout_limit_bytes stderr_limit_bytes \
+        max_input_files max_input_bytes
+      require_literal profile_doc "$profile_label" schema s 'aurum.container-profile'
+      ;;
+    aurum.go-git-offline-profile)
+      require_exact_keys profile_doc "$profile_label" \
+        schema version profile lock lock_digest network user cap_drop cap_add mounts \
+        devices pull tmpfs checkout_readonly read_only_rootfs no_new_privileges privileged \
+        timeout_seconds memory_mb cpu_millis pids_limit tmpfs_mb stdout_limit_bytes \
+        stderr_limit_bytes max_input_files max_input_bytes module_cache \
+        module_cache_read_only git_fixture git_fixture_root host_checkout credential_helpers \
+        hooks signing environment.GOPROXY environment.GOSUMDB environment.GONOSUMDB \
+        environment.GOTOOLCHAIN environment.GIT_CONFIG_NOSYSTEM environment.GIT_CONFIG_GLOBAL \
+        environment.GIT_CONFIG_SYSTEM environment.GIT_TERMINAL_PROMPT environment.GIT_ASKPASS \
+        environment.GIT_ALLOW_PROTOCOL environment.GIT_CEILING_DIRECTORIES \
+        command.0 command.1 command.2 command.3
+      require_literal profile_doc "$profile_label" schema s 'aurum.go-git-offline-profile'
+      ;;
+    *)
+      die 65 "$profile_label declares an unsupported schema: $profile_schema"
+      ;;
+  esac
   require_literal profile_doc "$profile_label" version n 1
   require_literal profile_doc "$profile_label" profile s "$name"
 
@@ -496,6 +572,43 @@ resolve_profile() {
       "--env=GOMAXPROCS=$go_parallelism"
       "--env=GOFLAGS=-buildvcs=false -p=$go_parallelism"
     )
+  elif [[ "$profile_schema" == 'aurum.go-git-offline-profile' ]]; then
+    # Every extra field of the Go+Git profile is pinned to its schema constant.
+    # Accepting a key without checking its value would turn a declarative denial
+    # into a smuggled option, so a single deviation denies before any engine call.
+    require_literal profile_doc "$profile_label" checkout_readonly b true
+    require_literal profile_doc "$profile_label" module_cache s '/go/pkg/mod'
+    require_literal profile_doc "$profile_label" module_cache_read_only b true
+    require_literal profile_doc "$profile_label" git_fixture s 'ephemeral'
+    require_literal profile_doc "$profile_label" git_fixture_root s '/tmp/aurum-git-fixture'
+    require_literal profile_doc "$profile_label" host_checkout s 'denied'
+    require_literal profile_doc "$profile_label" credential_helpers s 'denied'
+    require_literal profile_doc "$profile_label" hooks s 'denied'
+    require_literal profile_doc "$profile_label" signing s 'denied'
+    require_literal profile_doc "$profile_label" environment.GOPROXY s 'off'
+    require_literal profile_doc "$profile_label" environment.GOSUMDB s 'off'
+    require_literal profile_doc "$profile_label" environment.GONOSUMDB s '*'
+    require_literal profile_doc "$profile_label" environment.GOTOOLCHAIN s 'local'
+    require_literal profile_doc "$profile_label" environment.GIT_CONFIG_NOSYSTEM s '1'
+    require_literal profile_doc "$profile_label" environment.GIT_CONFIG_GLOBAL s '/dev/null'
+    require_literal profile_doc "$profile_label" environment.GIT_CONFIG_SYSTEM s '/dev/null'
+    require_literal profile_doc "$profile_label" environment.GIT_TERMINAL_PROMPT s '0'
+    require_literal profile_doc "$profile_label" environment.GIT_ASKPASS s '/bin/false'
+    require_literal profile_doc "$profile_label" environment.GIT_ALLOW_PROTOCOL s 'none'
+    require_literal profile_doc "$profile_label" environment.GIT_CEILING_DIRECTORIES s '/tmp'
+    require_literal profile_doc "$profile_label" command.0 s 'go'
+    require_literal profile_doc "$profile_label" command.1 s 'test'
+    require_literal profile_doc "$profile_label" command.2 s '-mod=readonly'
+    require_literal profile_doc "$profile_label" command.3 s './...'
+    # The declared environment is applied verbatim to the hardened worker. Every
+    # variable was exact-matched above, so no unvetted value can reach the container.
+    local git_env_name git_env_value
+    for git_env_name in GOPROXY GOSUMDB GONOSUMDB GOTOOLCHAIN \
+      GIT_CONFIG_NOSYSTEM GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM \
+      GIT_TERMINAL_PROMPT GIT_ASKPASS GIT_ALLOW_PROTOCOL GIT_CEILING_DIRECTORIES; do
+      git_env_value="$(require_string profile_doc "$profile_label" "environment.$git_env_name")" || exit 65
+      go_profile_env+=("--env=$git_env_name=$git_env_value")
+    done
   fi
 }
 
