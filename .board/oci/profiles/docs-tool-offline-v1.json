@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "docs-tool-offline-v1",
 "lock": ".board/locks/oci/docs-tool-offline-v1.lock.json",
-"lock_digest": "sha256:7af15055f8976b67e6a2ede099e6de8fef17d207b791d91d04f3917bd289298a",
+"lock_digest": "sha256:134879c4ddc535331f86506c589130fffb477d868572cfbd26b35b6e7de0527c",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",

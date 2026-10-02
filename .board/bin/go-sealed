@@ -13,7 +13,7 @@ usage() { printf 'usage: go-sealed DIR go-args...\n' >&2; exit 2; }
 dir="$1"; shift
 [[ -d "$dir" ]] || { printf 'go-sealed: not a directory: %s\n' "$dir" >&2; exit 2; }
 
-image="${GO_SEALED_IMAGE:-aurumcode-test-img:1.21}"
+image="${GO_SEALED_IMAGE:-aurum-bootstrap-go-bash:1.27.1-2026-10-02}"
 modcache="${GO_SEALED_MODCACHE:-$HOME/go/pkg/mod}"
 
 engine=''
