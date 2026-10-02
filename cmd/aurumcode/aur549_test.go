@@ -47,8 +47,15 @@ func writeSBOMConfig(t *testing.T, root string) {
 type fakeTrivyBehavior string
 
 const (
+	// behaviorValid emits "1.7" -- the REAL output of the digest-pinned
+	// Trivy (0.73.0) this card wires, not the configured minimum ("1.6")
+	// itself: card v3 exists because exact-matching that real output
+	// against "1.6" rejected every genuine SBOM this generator ever
+	// produced. AC-001 must pass against this exact behavior, never
+	// against a same-as-configured value that would mask the bug again.
 	behaviorValid       fakeTrivyBehavior = "valid"
 	behaviorBadVersion  fakeTrivyBehavior = "badversion"
+	behaviorOtherMajor  fakeTrivyBehavior = "othermajor"
 	behaviorWrongFormat fakeTrivyBehavior = "wrongformat"
 	behaviorNotJSON     fakeTrivyBehavior = "notjson"
 	behaviorEmpty       fakeTrivyBehavior = "empty"
@@ -69,12 +76,17 @@ func writeFakeTrivy(t *testing.T, behavior fakeTrivyBehavior) (binDir, logPath s
 	switch behavior {
 	case behaviorValid:
 		write = `cat > "$out" <<'JSON'
-{"bomFormat":"CycloneDX","specVersion":"1.6","components":[]}
+{"bomFormat":"CycloneDX","specVersion":"1.7","components":[]}
 JSON
 `
 	case behaviorBadVersion:
 		write = `cat > "$out" <<'JSON'
 {"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}
+JSON
+`
+	case behaviorOtherMajor:
+		write = `cat > "$out" <<'JSON'
+{"bomFormat":"CycloneDX","specVersion":"2.0","components":[]}
 JSON
 `
 	case behaviorWrongFormat:
@@ -135,8 +147,11 @@ func readBOM(t *testing.T, path string) map[string]any {
 	return out
 }
 
-// TestAUR549TrivyGeneratesValidatedSBOM is AC-001: a fake trivy that
-// produces CycloneDX 1.6 output produces the configured, validated file.
+// TestAUR549TrivyGeneratesValidatedSBOM is AC-001: a fake trivy producing
+// the REAL output of the digest-pinned Trivy (CycloneDX 1.7, not the
+// configured minimum 1.6) still produces the configured, validated file --
+// proving card v3's "minimum, same major" semantics, not merely an exact
+// match that would mask the very bug this version fixes.
 func TestAUR549TrivyGeneratesValidatedSBOM(t *testing.T) {
 	root := t.TempDir()
 	writeSBOMConfig(t, root)
@@ -151,7 +166,7 @@ func TestAUR549TrivyGeneratesValidatedSBOM(t *testing.T) {
 
 	outputPath := filepath.Join(root, "sbom_app_cyclonedx.json")
 	bom := readBOM(t, outputPath)
-	if bom["bomFormat"] != "CycloneDX" || bom["specVersion"] != "1.6" {
+	if bom["bomFormat"] != "CycloneDX" || bom["specVersion"] != "1.7" {
 		t.Fatalf("unexpected bom contents: %#v", bom)
 	}
 
@@ -169,11 +184,15 @@ func TestAUR549TrivyGeneratesValidatedSBOM(t *testing.T) {
 }
 
 // TestAUR549NonCycloneDXOutputRejected is AC-002: output that is not
-// CycloneDX, or whose specVersion differs from the configured one, is
-// refused, and no file is left at output_file -- never an empty/invalid
-// SBOM silently accepted.
+// CycloneDX, or whose specVersion is below the configured minimum or has
+// a different major, is refused, and no file is left at output_file --
+// never an empty/invalid SBOM silently accepted. behaviorBadVersion
+// ("1.5" against a configured "1.6") proves the minimum is still a real
+// floor, not merely "same major accepts anything"; behaviorOtherMajor
+// ("2.0") proves a different major is refused outright, never treated as
+// "newer, so at least as good".
 func TestAUR549NonCycloneDXOutputRejected(t *testing.T) {
-	cases := []fakeTrivyBehavior{behaviorBadVersion, behaviorWrongFormat, behaviorNotJSON, behaviorEmpty}
+	cases := []fakeTrivyBehavior{behaviorBadVersion, behaviorOtherMajor, behaviorWrongFormat, behaviorNotJSON, behaviorEmpty}
 	for _, behavior := range cases {
 		behavior := behavior
 		t.Run(string(behavior), func(t *testing.T) {

@@ -1,23 +1,27 @@
 #!/usr/bin/env bash
-# AUR-549 acceptance: `aurumcode sbom` generates an OWASP CycloneDX 1.6 SBOM
+# AUR-549 acceptance: `aurumcode sbom` generates an OWASP CycloneDX SBOM
 # with Trivy (`trivy fs --format cyclonedx --output <file> <repo>`, and
 # `trivy image --format cyclonedx --output <file> <image>` when an image is
-# given), validates the result (JSON, bomFormat=CycloneDX, specVersion equal
-# to the configured one) before ever writing output_file, and routes any
-# failure/absence of Trivy through the AUR-519 policy gate's
-# gate.inconclusive, never accepting an empty or invalid SBOM. See
-# docs/specs/AUR-549.md for the full account.
+# given), validates the result (JSON, bomFormat=CycloneDX, specVersion AT
+# LEAST the configured one, same major -- card v3: the digest-pinned Trivy
+# 0.73.0 emits CycloneDX 1.7 with no flag to request an older spec version,
+# so spec_version in config is a floor, never an exact match) before ever
+# writing output_file, and routes any failure/absence of Trivy through the
+# AUR-519 policy gate's gate.inconclusive, never accepting an empty or
+# invalid SBOM. See docs/specs/AUR-549.md for the full account.
 #
 # Selectors:
 #   all             run every behavior test below, then apply the AC-002
 #                   mutation and confirm AC-002's own tests go RED
-#   AC-001          fake trivy producing valid CycloneDX 1.6 output writes
+#   AC-001          fake trivy producing the REAL pinned Trivy's output
+#                   (CycloneDX 1.7, not the configured minimum 1.6) writes
 #                   the configured, validated file, invoked as
 #                   `trivy fs --format cyclonedx --output <file> <repo>`
-#   AC-002          output that is not CycloneDX, or whose specVersion
-#                   differs from the configured one, is refused and no file
-#                   is left at output_file (covers: wrong specVersion,
-#                   wrong bomFormat, non-JSON output, empty output)
+#   AC-002          output that is not CycloneDX, or whose specVersion is
+#                   below the configured minimum or has a different major,
+#                   is refused and no file is left at output_file (covers:
+#                   specVersion below the floor, a different major, wrong
+#                   bomFormat, non-JSON output, empty output)
 #   AC-003          trivy absent or erroring follows gate.inconclusive:
 #                   no gate/`block` fails closed (exitQualityNotReviewed),
 #                   `warn` publishes the reason and exits 0
@@ -25,8 +29,8 @@
 #                   its own separate file from the repository's
 #   AC-002-MUT-001  bypass the bomFormat/specVersion check in
 #                   internal/sbom/validator.go (the exact defect AC-002
-#                   exists to catch: accepting a non-CycloneDX/other-version
-#                   output); AC-002's own tests must go RED
+#                   exists to catch: accepting a non-CycloneDX/too-old/
+#                   different-major output); AC-002's own tests must go RED
 # A build failure during the mutation run is infrastructure, never a
 # silently-passing mutation. Unknown selectors exit 64; infrastructure
 # failures exit 79; behavioral failures exit 1.
@@ -90,10 +94,12 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # AC-002-MUT-001: bypass the one line that decides bomFormat/specVersion
 # (formatAndVersionOK, internal/sbom/validator.go) -- the exact defect this
 # card's validator exists to catch. Anchored on the single, unique
-# comparison line; sed replaces it with an unconditional "return true".
+# decision line (card v3: a minimum-version comparison via
+# specVersionAtLeast, not an exact match); sed replaces it with an
+# unconditional "return true".
 apply_mutation_validator() {
   local target="$run_dir/root/internal/sbom/validator.go"
-  local anchor='return bom.BOMFormat == cycloneDXFormat && bom.SpecVersion == wantSpecVersion'
+  local anchor='return bom.BOMFormat == cycloneDXFormat && specVersionAtLeast(bom.SpecVersion, wantSpecVersion)'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
   sed -i "s|${anchor}|return true|" "$target"
   grep -Fq "$anchor" "$target" && infra mutation-not-applied
@@ -139,7 +145,7 @@ case "$selector" in
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
     grep -q "^--- PASS: TestAUR549NonCycloneDXOutputRejected " "$log" || fail 'missing-pass:NonCycloneDXOutputRejected'
-    for sub in badversion wrongformat notjson empty; do
+    for sub in badversion othermajor wrongformat notjson empty; do
       grep -q "^    --- PASS: TestAUR549NonCycloneDXOutputRejected/${sub} " "$log" || fail "missing-pass:${sub}"
     done
     printf '%s/%s/pass\n' "$card" "$selector"

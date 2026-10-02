@@ -458,8 +458,28 @@ exceção para uma regra da política.
 repositório, e, quando `--imagem`/`--image` é informado, também
 `trivy image --format cyclonedx --output <arquivo-da-imagem> <imagem>`. O
 arquivo gerado é validado (JSON, `bomFormat` = `CycloneDX`, `specVersion`
-igual ao configurado) antes de ser escrito no caminho final — um SBOM
-inválido ou vazio nunca é aceito.
+AO MENOS o configurado, com a MESMA major) antes de ser escrito no caminho
+final — um SBOM inválido ou vazio nunca é aceito.
+
+`spec_version` no config é um MÍNIMO ("1.6+"), nunca um valor exato: o
+Trivy fixado por digest em `.board/bootstrap/locks/scanners.yml`
+(`vuln_scanner_image`, hoje `0.73.0`) emite CycloneDX **1.7**, e não tem
+flag para pedir uma versão de especificação mais antiga (Trivy CHANGELOG
+da versão 0.71.0, PR #10715) — uma comparação exata com `"1.6"` reprovaria
+TODO SBOM real que esse binário gera. `aurumcode sbom` aceita uma saída cuja
+`specVersion` tenha a MESMA major do configurado e minor maior ou igual
+(`internal/sbom.specVersionAtLeast`); uma major diferente (ex.: `"2.0"`
+contra um configurado `"1.6"`) é recusada mesmo sendo numericamente maior —
+"mais nova" não é o mesmo que "compatível". `spec_version` só aceita o
+formato estrito `major.minor` (ex.: `"1.6"`); qualquer outro formato
+(`"1"`, `"1.6.0"`, `"v1.6"`) já falha na carga da configuração
+(`internal/config.SBOMGeneratorConfig.Validate`), antes de qualquer
+chamada ao Trivy.
+
+Downstream: o OWASP Dependency-Track só ingere documentos CycloneDX 1.7 a
+partir da versão 5.1.0 do servidor (ou do backport 4.14.4) — quem consome
+o SBOM gerado por este card (AUR-550) precisa de um servidor nessa faixa
+de versão ou mais novo.
 
 A configuração fica em `.aurumcode/config.yml` — o MESMO arquivo que
 `review`/`rules`/`ignore`/`gate`/`exceptions` já usam, nunca um arquivo
@@ -519,17 +539,29 @@ fechado; `warn` publica o motivo (`sbom_generation_failure`) em stderr e sai
 
 `aurumcode sbom` nunca embute um binário Trivy: resolve `trivy` via `PATH`,
 ou via `--trivy-bin` apontando para outro executável (usado pelos testes
-para apontar a um script falso). Em
-`.github/workflows/review.yml`, a etapa "Generate SBOM (Trivy, AUR-549)"
-roda só quando `quality_gates.ssor_dtrack.sbom_generator` está configurado
-(repositório ou política central): ela extrai o binário `aurumcode` já
-compilado na imagem `aurumcode-review` (o mesmo `docker build` que a
-revisão já usa — nenhum segundo build), gera um wrapper que reproduz o
-`argv` do Trivy dentro de `docker run` contra a imagem fixada por digest em
-`.board/bootstrap/locks/scanners.yml` (`vuln_scanner_image`, nunca
-`latest`), e chama `aurumcode sbom --trivy-bin <wrapper>` diretamente no
-executor (runner) — nunca de dentro de outro container, para nunca precisar
-traduzir caminho de host através de um socket do Docker montado.
+para apontar a um script falso). Em `.github/workflows/review.yml`, a
+etapa "Generate SBOM (Trivy, AUR-549)" roda SEMPRE (nenhum grep de texto
+decide isso — `aurumcode sbom` já sabe, com a mesma precedência
+repositório/política, se há algo a gerar, e já sai 0 sem rodar o Trivy
+quando não há; um grep aqui só arriscaria discordar dessa decisão): ela
+extrai o binário `aurumcode` já compilado na imagem `aurumcode-review` (o
+mesmo `docker build` que a revisão já usa — nenhum segundo build), gera um
+wrapper que reproduz o `argv` do Trivy dentro de `docker run` contra a
+imagem fixada por digest em `.board/bootstrap/locks/scanners.yml`
+(`vuln_scanner_image`, nunca `latest`), e chama `aurumcode sbom --trivy-bin
+<wrapper>` diretamente no executor (runner) — nunca de dentro de outro
+container, para nunca precisar traduzir caminho de host através de um
+socket do Docker montado.
+
+O wrapper NUNCA monta o diretório de trabalho (`.aurumcode-target`) como
+gravável dentro do container do Trivy: a saída (`--output`) do Trivy
+dentro do container sempre aponta para um diretório descartável recém
+criado em `$RUNNER_TEMP` (montado como leitura-e-escrita, fora da árvore
+checada-out), e o próprio wrapper — rodando no runner, nunca dentro do
+container — move o arquivo pronto para o caminho que `aurumcode sbom`
+pediu, só depois que o container termina. A montagem da árvore escaneada
+(`trivy fs`) continua só leitura, como sempre foi; nenhuma montagem
+gravável do container toca o checkout da revisão.
 
 A action standalone (`action.yml`, `using: docker`) NÃO roda `aurumcode
 sbom`: seu próprio container não tem como saber o caminho, no HOST, por

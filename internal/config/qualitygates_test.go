@@ -2,6 +2,29 @@ package config
 
 import "testing"
 
+// TestSBOMGeneratorConfigValidateSpecVersionFormat is AUR-549 v3: config
+// load fails closed when spec_version is not a strict major.minor
+// string, since internal/sbom compares it that way (a MINIMUM, same
+// major) and could never compare anything else correctly.
+func TestSBOMGeneratorConfigValidateSpecVersionFormat(t *testing.T) {
+	base := SBOMGeneratorConfig{Tool: "trivy", Format: "cyclonedx", OutputFile: "sbom.json"}
+
+	valid := base
+	valid.SpecVersion = "1.6"
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("unexpected error for a valid major.minor spec_version: %v", err)
+	}
+
+	invalid := []string{"1", "1.6.0", "v1.6", "1.", ".6", "1.a"}
+	for _, sv := range invalid {
+		cfg := base
+		cfg.SpecVersion = sv
+		if err := cfg.Validate(); err == nil {
+			t.Errorf("spec_version %q: expected a validation error, got nil", sv)
+		}
+	}
+}
+
 // TestApplyCentralPolicyQualityGatesPerSectionPrecedence is AUR-549 v2's
 // own proof that quality_gates is governed PER SECTION, unlike Gate/
 // Exceptions (which a policy governs outright, declared or not): a

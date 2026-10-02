@@ -244,15 +244,16 @@ jobs:
             cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
 
-      # AUR-549: optional -- only runs when the reviewed repository's own
-      # .aurumcode/config.yml (or the central policy's, already checked
-      # out above into .aurumcode-policy by AUR-518's own step) declares
-      # quality_gates.ssor_dtrack.sbom_generator. `aurumcode sbom` itself
-      # already resolves that section with the same central-policy
-      # precedence a review uses (ApplyCentralPolicy); this grep is only a
-      # cheap short-circuit so the job does not pay for `docker create`/
-      # `docker cp`/a second `docker run` on every PR of a repository that
-      # never opted in.
+      # AUR-549: `aurumcode sbom` itself resolves
+      # quality_gates.ssor_dtrack.sbom_generator (repo or central policy,
+      # same precedence a review uses, ApplyCentralPolicy) and already
+      # exits 0 doing nothing when that section is not declared -- so this
+      # step runs UNCONDITIONALLY (card v3 review: a text grep here would
+      # only duplicate that decision, with a real chance of disagreeing
+      # with it) and pays only for extracting the (already-built)
+      # `aurumcode` binary and generating a wrapper script when a
+      # repository never opted in; the actual `docker run` of the Trivy
+      # image only happens when aurumcode itself decides to generate.
       #
       # The `aurumcode` binary is extracted from the aurumcode-review image
       # already built above (same reviewed source, no second build/
@@ -267,6 +268,15 @@ jobs:
       # container): a nested `docker run` through a mounted docker socket
       # would need host-path translation this step avoids by never nesting
       # in the first place.
+      #
+      # The wrapper NEVER bind-mounts the checked-out workspace read-write:
+      # trivy's own --output inside the container always lands in a fresh
+      # $RUNNER_TEMP scratch directory (mounted read-write, outside
+      # .aurumcode-target entirely), and the wrapper itself -- running on
+      # the runner, not in the container -- moves the finished file into
+      # the path `aurumcode sbom` actually asked for once the container
+      # exits. The scanned filesystem mount (fs mode) stays read-only, as
+      # it always was.
       - name: Generate SBOM (Trivy, AUR-549)
         if: always() && steps.review.outcome != ''
         working-directory: .aurumcode-target
@@ -275,18 +285,6 @@ jobs:
           POLICY_REPOSITORY: ${{ inputs.policy_repository }}
         run: |
           set -euo pipefail
-          configured=0
-          if grep -Rsq '^[[:space:]]*sbom_generator:' .aurumcode/config.yml 2>/dev/null; then
-            configured=1
-          fi
-          if [ -n "${POLICY_REPOSITORY}" ] && grep -Rsq '^[[:space:]]*sbom_generator:' "${GITHUB_WORKSPACE}/.aurumcode-policy/.aurumcode/config.yml" 2>/dev/null; then
-            configured=1
-          fi
-          if [ "${configured}" -ne 1 ]; then
-            echo "AUR-549: quality_gates.ssor_dtrack.sbom_generator not configured; skipping SBOM"
-            exit 0
-          fi
-
           image="$(sed -n 's/^vuln_scanner_image:[[:space:]]*//p' "${SCANNERS_LOCK}" | head -n1)"
           case "${image}" in
             *@sha256:*) ;;
@@ -306,22 +304,23 @@ jobs:
               *) target="$1"; shift ;;
             esac
           done
-          outdir_rel="$(dirname -- "$output")"
-          outdir="$(cd "$outdir_rel" && pwd -P)"
           outbase="$(basename -- "$output")"
+          scratch="$(mktemp -d "${RUNNER_TEMP:-/tmp}/trivy-docker.XXXXXX")"
+          trap 'rm -rf "$scratch"' EXIT
           case "$mode" in
             fs)
               targetabs="$(cd "$target" && pwd -P)"
-              exec docker run --rm -v "$targetabs:/workspace:ro" -v "$outdir:/out" __TRIVY_IMAGE__ fs --format "$format" --output "/out/$outbase" /workspace
+              docker run --rm -v "$targetabs:/workspace:ro" -v "$scratch:/out" __TRIVY_IMAGE__ fs --format "$format" --output "/out/$outbase" /workspace
               ;;
             image)
-              exec docker run --rm -v "$outdir:/out" __TRIVY_IMAGE__ image --format "$format" --output "/out/$outbase" "$target"
+              docker run --rm -v "$scratch:/out" __TRIVY_IMAGE__ image --format "$format" --output "/out/$outbase" "$target"
               ;;
             *)
               echo "trivy-docker: unknown mode $mode" >&2
               exit 2
               ;;
           esac
+          mv -- "$scratch/$outbase" "$output"
           WRAPPER
           sed -i "s|__TRIVY_IMAGE__|${image}|g" "${wrapper}"
           chmod +x "${wrapper}"
