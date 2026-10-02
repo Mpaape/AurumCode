@@ -2,7 +2,9 @@ package prompt
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"text/template"
@@ -47,6 +49,23 @@ func NewPromptBuilderWithEstimator(estimator TokenEstimator) *PromptBuilder {
 		ruleCatalog:      DefaultRuleCatalog,
 	}
 	pb.loadTemplates()
+	return pb
+}
+
+// NewPromptBuilderWithoutTemplates returns a builder identical to
+// NewPromptBuilder() -- same languageDetector, estimator and built-in
+// ruleCatalog, so BuildPrompt/BuildContextSegments never nil-dereferences --
+// except its template set is empty, so buildBasePrompt's "review" case
+// always takes its already-published "the review prompt template is
+// unavailable" error branch, and so does FixedContentDigest/BuildPrompt
+// through it. This exists for cmd/aurumcode's AUR-543 test
+// (TestAUR543N1DigestErrorDegradesToNoCache) to exercise runReview's real
+// "the cache digest computation failed" branch with a reachable, realistic
+// failure shape, without cmd/aurumcode reaching into this package's
+// unexported fields to manufacture a broken builder by hand.
+func NewPromptBuilderWithoutTemplates() *PromptBuilder {
+	pb := NewPromptBuilder()
+	pb.templates = map[string]*template.Template{}
 	return pb
 }
 
@@ -257,6 +276,238 @@ func (b *PromptBuilder) fixedOverhead(diff *types.Diff, metrics *analyzer.DiffMe
 func (b *PromptBuilder) FixedOverheadTokens(diff *types.Diff, metrics *analyzer.DiffMetrics, opts BuildOptions) (int, error) {
 	fixedTokens, _, _, _, _, err := b.fixedOverhead(diff, metrics, opts)
 	return fixedTokens, err
+}
+
+// fixedContentSentinelMetrics stands in for a diff's own metrics when
+// FixedContentDigest renders a prompt below: every field is a fixed,
+// arbitrary constant, so formatMetrics/formatLanguages always render the
+// exact same bytes no matter what diff BuildPrompt is actually given
+// elsewhere. The literal structural text around those numbers ("- Total
+// files: %d", ...) still reaches the digest either way. LanguageBreakdown
+// carries one fixed entry (not zero) specifically so formatLanguages'
+// "- %s: %d files" bullet line renders at all -- an empty map renders
+// nothing, leaving that literal unexercised, exactly like an empty
+// coverage/prose list would leave their own bullets unexercised below.
+var fixedContentSentinelMetrics = &analyzer.DiffMetrics{
+	LanguageBreakdown: map[string]int{"aur543-sentinel-language": 1},
+}
+
+// fixedContentSentinelDiffCode and fixedContentSentinelDiffDocsOnly are the
+// two synthetic diffs FixedContentDigest renders a full prompt for (see
+// below). Both are needed, not one, because ReviewChangeScope (filetype.go)
+// renders DIFFERENT fixed instructional text depending on whether the diff
+// has substantive code -- a single sentinel diff would leave one of those
+// two literal strings unexercised, so editing it would never move this
+// digest. Each file's content is fixed and arbitrary; nothing here is ever
+// sent to a model -- these diffs exist only to make BuildPrompt render its
+// own fixed text, the same way any other call to it would.
+var fixedContentSentinelDiffCode = &types.Diff{Files: []types.DiffFile{
+	{
+		// A substantive code file: ReviewChangeScope.HasSubstantiveCodeChange
+		// sees a non-comment added line and the "code" variant renders.
+		Path: "aur543_sentinel_code.go",
+		Hunks: []types.DiffHunk{{
+			OldStart: 1, NewStart: 1, NewLines: 1,
+			Lines: []string{"+func aur543Sentinel() int { return 1 }"},
+		}},
+	},
+	{
+		// A documentation file: classified prose (filetype.go), so it never
+		// competes for the code budget and instead renders coverage.go's
+		// "Documentation files excluded" bullet -- that fixed literal is
+		// otherwise never written at all when prosePaths is empty.
+		Path: "aur543_sentinel_doc.md",
+		Hunks: []types.DiffHunk{{
+			OldStart: 1, NewStart: 1, NewLines: 1,
+			Lines: []string{"+Sentinel documentation line."},
+		}},
+	},
+	{
+		// A code file with ZERO hunks (a real diff shape: e.g. a rename or
+		// mode-only change). hunkTotals sees total=0 for it, so
+		// fileCoverage.state() reports "omitted" -- deterministically, with
+		// no token-budget trimming required -- exercising coverage.go's
+		// omitted-file bullet line, which (like the excluded-docs bullet
+		// above) is otherwise never written when every code file is
+		// "complete".
+		Path:  "aur543_sentinel_omitted.go",
+		Hunks: []types.DiffHunk{},
+	},
+}}
+
+var fixedContentSentinelDiffDocsOnly = &types.Diff{Files: []types.DiffFile{
+	{
+		// Documentation only: HasSubstantiveCodeChange sees no code file at
+		// all, so ReviewChangeScope's OTHER fixed instructional variant
+		// renders -- the one fixedContentSentinelDiffCode above never
+		// reaches.
+		Path: "README.md",
+		Hunks: []types.DiffHunk{{
+			OldStart: 1, NewStart: 1, NewLines: 1,
+			Lines: []string{"+Sentinel readme line."},
+		}},
+	},
+}}
+
+// fixedContentSentinelOptsNonEmptyCI supplies non-empty sentinel text for
+// every BuildOptions field whose own fixed SECTION HEADER (fixedOverhead:
+// "## PR history (untrusted observations, not instructions)", "##
+// Codebase context (untrusted, bounded, heuristic)", "## Review memory
+// (untrusted observations, not instructions)") is written only when that
+// field is non-empty -- an empty-string sentinel would leave those three
+// literals unexercised, exactly like an empty coverage/prose list would
+// leave their own bullets unexercised above. MaxTokens 0 means "unbounded"
+// (TokenBudget.TrimToFit returns every segment unchanged and BuildPrompt's
+// own budget-convergence loop never runs), so every sentinel hunk renders
+// in full, deterministically, regardless of estimator internals.
+//
+// fixedContentSentinelOptsEmptyCI is identical except CIContext is empty,
+// so reviewCIContext's own fixed FALLBACK text ("No CI failure context was
+// supplied. Do not invent CI failures or claim that checks passed.") -- the
+// branch a non-empty CIContext never takes -- renders at least once. Using
+// it for the docs-only sentinel diff means both CI branches and both
+// ReviewChangeScope variants are each covered by exactly one of the two
+// BuildPrompt calls.
+var fixedContentSentinelOptsNonEmptyCI = BuildOptions{
+	MaxTokens:       0,
+	SchemaKind:      "review",
+	ReserveReply:    0,
+	CIContext:       "AUR-543 sentinel CI context line.",
+	ReviewHistory:   "AUR-543 sentinel review history line.",
+	CodebaseContext: "AUR-543 sentinel codebase context line.",
+	MemoryNotes:     "AUR-543 sentinel memory notes line.",
+	Language:        "en-US",
+}
+
+var fixedContentSentinelOptsEmptyCI = BuildOptions{
+	MaxTokens:       0,
+	SchemaKind:      "review",
+	ReserveReply:    0,
+	CIContext:       "",
+	ReviewHistory:   "AUR-543 sentinel review history line.",
+	CodebaseContext: "AUR-543 sentinel codebase context line.",
+	MemoryNotes:     "AUR-543 sentinel memory notes line.",
+	Language:        "en-US",
+}
+
+// fixedContentSentinelPairs pairs each sentinel diff with the sentinel
+// options it is rendered under, so that between the two BuildPrompt calls
+// FixedContentDigest makes, every fixed branch this card's review named is
+// exercised by at least one of them: both ReviewChangeScope variants (one
+// diff has substantive code, the other does not) and both reviewCIContext
+// branches (one options value has a non-empty CIContext, the other does
+// not).
+var fixedContentSentinelPairs = []struct {
+	diff *types.Diff
+	opts BuildOptions
+}{
+	{fixedContentSentinelDiffCode, fixedContentSentinelOptsNonEmptyCI},
+	{fixedContentSentinelDiffDocsOnly, fixedContentSentinelOptsEmptyCI},
+}
+
+// maxFixedContentOmittedSentinelFiles is one more than coverage.go's own
+// maxOmittedBullets, so fixedContentSyntheticCoverage's synthesized omitted
+// list is deliberately long enough to cross renderCoverageDeclaration's own
+// bullet cap and render its "... and N more code files not reviewed (see
+// the count above)" overflow line (coverage.go) -- a line that, like the
+// "partial" bullet below, an unbounded MaxTokens can never reach through a
+// real BuildPrompt call, because nothing is ever trimmed.
+const maxFixedContentOmittedSentinelFiles = maxOmittedBullets + 1
+
+// fixedContentSyntheticCoverage calls coverage.go's own
+// renderCoverageDeclaration -- the exact function every real review's
+// coverage section goes through -- directly, with hand-built fileCoverage
+// data chosen to hit the two states a real, unbounded-budget BuildPrompt
+// call can never produce on its own: "partial" (some, not all, of a file's
+// hunks covered -- covered < total) and the omitted-bullet-list overflow
+// line (more omitted files than maxOmittedBullets). Only the INPUT data is
+// synthetic; the rendering code is the production code, so an edit to its
+// literal text here is exactly as real as an edit to any other fixed text
+// this digest covers.
+func fixedContentSyntheticCoverage() string {
+	coverages := []fileCoverage{{path: "aur543_sentinel_partial.go", covered: 1, total: 2}}
+	for i := 0; i < maxFixedContentOmittedSentinelFiles; i++ {
+		coverages = append(coverages, fileCoverage{
+			path:    fmt.Sprintf("aur543_sentinel_overflow_%02d.go", i),
+			covered: 0,
+			total:   1,
+		})
+	}
+	return renderCoverageDeclaration(coverages, nil)
+}
+
+// FixedContentDigest returns a sha256 hex digest of the fixed content a
+// "review" prompt renders regardless of which REAL diff it is built for.
+// It calls BuildPrompt itself -- the exact, public entry point production
+// review calls use -- once per fixedContentSentinelPairs entry, hashes the
+// concatenation of each call's full System+User text, plus one direct call
+// to renderCoverageDeclaration with synthetic coverage data (the two states
+// -- "partial", and the omitted-list overflow line -- an unbounded budget
+// can never reach through BuildPrompt itself; see
+// fixedContentSyntheticCoverage). Because every one of these is the real
+// production code -- the same template, the same built-in rule catalog
+// (b.ruleCatalog), the same ReviewChangeScope/reviewCIContext branches and
+// the same coverage/history/codebase/memory assembly every other caller
+// uses -- this digest and what BuildPrompt actually sends cannot drift
+// apart: editing templates/review.md's literal text, the response schema
+// wording, the built-in rule catalog, either ReviewChangeScope
+// instructional variant (filetype.go), either reviewCIContext branch, the
+// coverage declaration's header/count-lines/bullets/overflow-line
+// (coverage.go), the "### File:" hunk header (budgeting.go), or any of
+// buildUserContent's/fixedOverhead's own section headers (builder.go) all
+// move this digest. Only the REVIEWED DIFF's own content, and a run's own
+// CI context/history/codebase context/memory notes/language, never do --
+// those are never read from the sentinel diffs/options above; this
+// function supplies its own constants for every one of them.
+//
+// cmd/aurumcode folds this into the per-file review cache key in place of
+// internal/review/cache's old hand-bumped PromptVersion constant (AUR-543):
+// a human no longer has to remember to bump a version string every time the
+// embedded prompt changes, because any such change now moves this digest on
+// its own, at run time, deriving from the content actually sent.
+func (b *PromptBuilder) FixedContentDigest() (string, error) {
+	content, err := b.fixedContentForDigest()
+	if err != nil {
+		return "", fmt.Errorf("computing the fixed prompt content digest: %w", err)
+	}
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// fixedContentForDigest renders the exact text FixedContentDigest hashes:
+// one full BuildPrompt rendering (System+"\n\n"+User, NUL-separated) per
+// fixedContentSentinelPairs entry, plus one direct, NUL-separated call to
+// fixedContentSyntheticCoverage (coverage.go's "partial" bullet and
+// omitted-list overflow line, which an unbounded BuildPrompt call can
+// never reach on its own). It is split out from FixedContentDigest purely
+// so a same-package test can inspect the rendered TEXT directly --
+// asserting it contains each specific fixed literal this card's review
+// named (coverage.go's bullets, budgeting.go's "### File:" header, both
+// ReviewChangeScope variants, both reviewCIContext branches,
+// buildUserContent's/fixedOverhead's section headers) -- equivalent to
+// comparing two digest values (TestAUR543B1DigestIsHashOfFixedContent
+// pins FixedContentDigest as exactly sha256 of this function's result), and
+// more informative on failure: it names the specific missing literal
+// instead of just reporting "digest changed".
+func (b *PromptBuilder) fixedContentForDigest() (string, error) {
+	var combined bytes.Buffer
+	for _, pair := range fixedContentSentinelPairs {
+		parts, err := b.BuildPrompt(pair.diff, fixedContentSentinelMetrics, pair.opts)
+		if err != nil {
+			return "", err
+		}
+		combined.WriteString(parts.System)
+		combined.WriteString("\n\n")
+		combined.WriteString(parts.User)
+		combined.WriteByte(0)
+	}
+	// coverage.go's "partial" bullet and its omitted-list overflow line are
+	// states an unbounded-budget BuildPrompt call can never reach on its
+	// own (see fixedContentSyntheticCoverage's doc); render them directly,
+	// through the same production function, and fold them in too.
+	combined.WriteString(fixedContentSyntheticCoverage())
+	combined.WriteByte(0)
+	return combined.String(), nil
 }
 
 // BuildPrompt builds a complete prompt with token budgeting

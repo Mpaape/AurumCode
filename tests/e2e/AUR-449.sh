@@ -120,16 +120,26 @@ err_modelo="$(cat "$run_dir/modelo.err")"
 grep -Fq 'model "local" is unavailable' <<<"$err_modelo" || fail explicit-modelo-error-missing
 if grep -Fq "$header" <<<"$out_modelo"; then fail explicit-modelo-must-not-print-security-section; fi
 
-# Without --seguranca, the pre-existing no-provider refusal is untouched.
+# Without --seguranca: the security section stays absent (that is still
+# this scenario's real subject). AUR-542: AUR-490 (done, integrated on
+# main before this card) dropped this guard's old "&& *seguranca"
+# requirement on purpose (see cmd/aurumcode/main.go's AUR-490 comment
+# above the qualitySkipped branch): `review --base` without a provider
+# now runs deterministic analysis and exits 0, WITH the skip note on
+# stderr, whether or not --seguranca was given -- the note is no longer
+# --seguranca-specific, and stdout is no longer empty (AUR-490 AC-002's
+# summary/diagram). "the pre-existing no-provider refusal is untouched"
+# no longer holds (that refusal is exactly what AUR-490 changed); exit 0
+# is the new, correct default, and --exigir-qualidade (AUR-458) is the
+# documented opt-in back to exit 1.
 set +e
 out_plain="$(cd "$demo_repo" && env -u AURUMCODE_LLM_FIXTURE -u LLM_API_KEY -u LLM_BASE_URL "$bin" review --base HEAD~1 2>"$run_dir/plain.err")"
 rc=$?
 set -e
 err_plain="$(cat "$run_dir/plain.err")"
-[[ "$rc" -eq 1 ]] || fail "no-seguranca-no-provider-must-still-fail:$rc"
-[[ -z "$out_plain" ]] || fail no-seguranca-unexpected-stdout
+[[ "$rc" -eq 0 ]] || fail "no-seguranca-no-provider-unexpected-exit:$rc"
+if grep -Fq "$header" <<<"$out_plain"; then fail no-seguranca-security-section-leaked; fi
 grep -Fq 'no LLM provider configured' <<<"$err_plain" || fail no-seguranca-error-missing
-if grep -Fq 'quality review skipped' <<<"$err_plain"; then fail skip-note-must-not-appear-without-seguranca; fi
 
 # The secret canary never reaches a sink on the skip path.
 canary="aurum-canary-449-e2e-$$"
