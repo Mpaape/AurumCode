@@ -336,6 +336,57 @@ jobs:
           fi
           "${RUNNER_TEMP}/aurumcode" "${sbom_args[@]}"
 
+      # AUR-551: installs the `cosign` binary onto the runner's own PATH,
+      # pinned by COMMIT SHA (never a branch/tag of the installer action
+      # itself, same rule the "Verify tool version" step already applies
+      # to AurumCode's own SHA) and by a fixed `cosign-release` (never
+      # "latest" -- a mutable release could change what every repository
+      # using this workflow signs with, unreviewed). This step runs
+      # unconditionally and costs nothing when supply_chain is not
+      # configured: `aurumcode sign` below is the one that decides,
+      # exactly like the SBOM step above already decides for Trivy.
+      - name: Install cosign (AUR-551)
+        if: always() && steps.review.outcome != ''
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.1.3'
+
+      # AUR-551: `aurumcode sign` itself resolves
+      # quality_gates.supply_chain (repo or central policy, the same
+      # precedence `aurumcode sbom` above already uses) and exits 0 doing
+      # nothing when that section is not declared -- so, like the SBOM
+      # step, this one runs UNCONDITIONALLY and only pays for extracting
+      # the already-built `aurumcode` binary when a repository never
+      # opted in.
+      #
+      # Signing is keyless: cosign authenticates through the Actions
+      # runner's own OIDC identity (no --key, no secret AurumCode
+      # manages). That needs `id-token: write`, which this REUSABLE
+      # workflow can never declare for itself -- see docs/configuration.md's
+      # "Assinatura com Sigstore/Cosign" section for why (the same
+      # workflow_call limitation already documented for
+      # security-events: write above). A caller that enables
+      # sign_sbom/sign_artifacts without granting id-token: write to the
+      # job that calls this workflow gets a loud Cosign/Fulcio failure
+      # here, never a silent skip.
+      - name: Sign SBOM and image (Cosign, AUR-551)
+        if: always() && steps.review.outcome != ''
+        working-directory: .aurumcode-target
+        env:
+          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
+        run: |
+          set -euo pipefail
+          bin_id="$(docker create aurumcode-review)"
+          docker cp "${bin_id}:/app/aurumcode" "${RUNNER_TEMP}/aurumcode"
+          docker rm "${bin_id}" >/dev/null
+          chmod +x "${RUNNER_TEMP}/aurumcode"
+
+          sign_args=(sign --repo . --cosign-bin cosign)
+          if [ -n "${POLICY_REPOSITORY}" ]; then
+            sign_args+=(--politica "${GITHUB_WORKSPACE}/.aurumcode-policy")
+          fi
+          "${RUNNER_TEMP}/aurumcode" "${sign_args[@]}"
+
       # AUR-521: the two compliance files are pre-created (`: >`) above so
       # the docker bind-mount does not create a directory in their place --
       # which means they can exist as valid, empty (0-byte) files on a run

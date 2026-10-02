@@ -65,9 +65,93 @@ type SsorDtrackConfig struct {
 	SBOMGenerator SBOMGeneratorConfig `yaml:"sbom_generator"`
 }
 
-// SupplyChainConfig is quality_gates.supply_chain, reserved for a future
-// xBOM/supply-chain card; no card needs a field here yet.
-type SupplyChainConfig struct{}
+// SupplyChainConfig is quality_gates.supply_chain (AUR-551): signing the
+// SBOM (AUR-549's own output) and/or the artifact image with
+// Sigstore/Cosign, verifiable afterwards.
+//
+//	quality_gates:
+//	  supply_chain:
+//	    engine: cosign
+//	    sign_sbom: true
+//	    sign_artifacts: true
+//	    artifacts: ["ghcr.io/org/app@sha256:<64 hex>"]
+//
+// Engine is a closed vocabulary of exactly one value ("cosign") -- like
+// SBOMGeneratorConfig.Tool/Format above, anything else (including the
+// empty string on a declared-but-incomplete section) is a loud
+// configuration error at load time, never a silent no-op and never an
+// attempt to shell out to an unreviewed signer. Artifacts is optional: the
+// CLI's own --image flags (aur551.go, cmd/aurumcode) may name the image(s)
+// to sign instead, but any entry that does appear here is validated the
+// same way -- pinned by a sha256 digest, never a mutable tag.
+type SupplyChainConfig struct {
+	Engine        string   `yaml:"engine"`
+	SignSBOM      bool     `yaml:"sign_sbom"`
+	SignArtifacts bool     `yaml:"sign_artifacts"`
+	Artifacts     []string `yaml:"artifacts"`
+}
+
+// Declared reports whether this section was actually written -- a nil
+// receiver (the key absent from the yaml entirely) is never declared. The
+// pointer's own nilness is QualityGatesConfig's existence signal
+// (ApplyCentralPolicy already branches on it, central.go); this method
+// exists only so cmd/aurumcode's AUR-551 wiring can ask the same question
+// the other two sections' own Declared() methods already answer, with a
+// nil-safe receiver instead of a naked "!= nil" scattered at call sites.
+func (s *SupplyChainConfig) Declared() bool {
+	return s != nil
+}
+
+// Validate enforces this card's closed vocabulary and its digest-pinning
+// rule. A nil receiver (not declared at all) is never validated -- same
+// contract as SBOMGeneratorConfig.Validate and SsorDtrackConfig.Validate
+// above.
+func (s *SupplyChainConfig) Validate() error {
+	if !s.Declared() {
+		return nil
+	}
+	if strings.TrimSpace(s.Engine) != "cosign" {
+		return fmt.Errorf("quality_gates.supply_chain.engine: only %q is supported, got %q", "cosign", s.Engine)
+	}
+	for _, ref := range s.Artifacts {
+		if err := validateImageDigestRef(ref); err != nil {
+			return fmt.Errorf("quality_gates.supply_chain.artifacts: %w", err)
+		}
+	}
+	return nil
+}
+
+// validateImageDigestRef refuses any image reference that is not pinned
+// by a full sha256 digest: a tag alone (":latest", ":v1", or nothing at
+// all) is exactly the race/tamper window the card's own public contract
+// refuses ("imagem a assinar vem por referencia com digest (@sha256:);
+// tag sem digest e recusada"). Deliberately duplicated (never imported) in
+// internal/supplychain's own ValidateArtifactRef, the same way
+// isMajorMinorVersion above is duplicated rather than imported from
+// internal/sbom: internal/supplychain's CLI-flag validation (aur551.go)
+// must refuse an unpinned --image before this package is even reached,
+// and internal/config must never import a package that itself might need
+// to import internal/config later.
+func validateImageDigestRef(ref string) error {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return fmt.Errorf("image reference must not be empty")
+	}
+	idx := strings.LastIndex(ref, "@sha256:")
+	if idx < 0 {
+		return fmt.Errorf("image reference %q must be pinned by digest (@sha256:<64 hex>), not a tag", ref)
+	}
+	digest := ref[idx+len("@sha256:"):]
+	if len(digest) != 64 {
+		return fmt.Errorf("image reference %q has a sha256 digest of the wrong length", ref)
+	}
+	for _, r := range digest {
+		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f')) {
+			return fmt.Errorf("image reference %q has a non-hex sha256 digest", ref)
+		}
+	}
+	return nil
+}
 
 // SBOMGeneratorConfig is AUR-549's own quality_gates.ssor_dtrack.sbom_generator:
 //
