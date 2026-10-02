@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
@@ -222,6 +223,17 @@ func effectiveSeverityRank(issueSeverity, ruleSeverity string) (config.GateSever
 //     non-model-authored reason token (see cmd/aurumcode's own inconclusive
 //     detection: provider failure, partial coverage, or
 //     prompt.IsDegradedParse) otherwise.
+//   - exceptions is AUR-520's approved, time-bounded exception list --
+//     already precedence-resolved by config.ApplyCentralPolicy exactly
+//     like gate itself, so this function never re-derives policy-over-repo
+//     here either. repoIdentity is this run's own verified "owner/repo"
+//     (localRepoIdentity for --base, the already-authenticated owner/
+//     repoName for --pr) or "" when it could not be confirmed -- matched
+//     against each issue's own RuleID/File by matchException (aur520.go),
+//     never against any other, model-authored field. now is the
+//     injectable clock the expiry comparison uses, always in UTC
+//     (truncateToUTCDate): production callers pass time.Now(), a test
+//     passes a fixed instant (AC-002/MUT-001).
 //
 // Inconclusive handling and the severity threshold are NOT mutually
 // exclusive (fixed from an earlier, incorrect draft that returned early on
@@ -237,7 +249,7 @@ func effectiveSeverityRank(issueSeverity, ruleSeverity string) (config.GateSever
 // inconclusive review with gate.fail_on declared but no breach must never
 // publish as approved either -- it stays Inconclusive with no Fail, so the
 // caller's own verdict/status logic can say so without claiming success.
-func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, inconclusiveReason string) (gateDecision, error) {
+func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, inconclusiveReason string, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) (gateDecision, error) {
 	var d gateDecision
 	if !gate.Declared() {
 		return d, nil
@@ -266,6 +278,27 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 		return d, nil
 	}
 	for _, issue := range issues {
+		// AUR-520: an approved exception is checked before (and
+		// independently of) the dynamic/accepted-origin filter below, so
+		// `rule:` in an exception may name either a dynamic skill-section
+		// id or any other advisory/built-in rule id the model cited --
+		// the exception's own repo+rule+path match is exact regardless of
+		// whether that id would ever have been gate-relevant on its own.
+		if exc, status := matchException(exceptions, repoIdentity, issue.RuleID, issue.File, now); status != exceptionNone {
+			switch status {
+			case exceptionActive:
+				// AC-001: tirado do gate por completo -- nunca chega ao
+				// loop de limiar/severidade abaixo, e aparece como
+				// aceito com dono e validade.
+				d.Lines = append(d.Lines, acceptedExceptionLine(exc, issue))
+				continue
+			case exceptionExpired:
+				// AC-002: a exceção venceu e não vale mais -- o achado
+				// segue para a avaliação normal abaixo, exatamente como
+				// se nenhuma exceção tivesse sido configurada para ele.
+				d.Lines = append(d.Lines, expiredExceptionLine(exc, issue))
+			}
+		}
 		rule, found := dynamic[issue.RuleID]
 		if !found || rule.Origin != acceptedOrigin {
 			continue
