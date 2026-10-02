@@ -1,0 +1,27 @@
+# Data, not code: how AurumCode groups the grammar names that the tree-sitter
+# runtime reports. A grammar that is not listed is category "other", which the
+# review treats as reviewable code (it fails closed). Adding a language needs no
+# Go change, and a language the runtime gains with an update works without an
+# entry here.
+categories:
+  backend: [go, gomod, python, java, kotlin, c, cpp, c_sharp, rust, ruby, php, swift, objc, scala, dart, elixir, erlang, haskell, lua, perl, groovy, zig, julia, r, ocaml, fsharp, clojure, nim, crystal, d]
+  frontend: [javascript, typescript, tsx, html, css, scss, less, vue, svelte, astro]
+  database: [sql, prisma, sparql]
+  infrastructure: [bash, fish, powershell, make, dockerfile, hcl, cmake, nix, bicep, puppet, nginx, just, ninja, earthfile]
+  config: [json, json5, yaml, toml, xml, ini, properties, editorconfig, gitignore, gitattributes, requirements, csv, kdl, ron]
+  documentation: [markdown, markdown_inline, rst, org, djot, typst, vimdoc, norg]
+# Well-known configuration file names that a grammar cannot identify by name.
+config_files:
+  - go.sum
+  - docker-compose.yml
+  - docker-compose.yaml
+  - .env
+  - .env.example
+  - go.mod
+  - dockerfile
+  - makefile
+  - .dockerignore
+  - build.gradle
+  - setup.py
+  - cargo.toml
+  - package.json

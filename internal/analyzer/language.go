@@ -1,244 +1,131 @@
 package analyzer
 
 import (
-	"path/filepath"
+	_ "embed"
+	"path"
 	"strings"
+	"sync"
+	"unicode"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/Mpaape/AurumCode/internal/grammar"
 )
 
-// LanguageDetector detects programming languages from file extensions
-type LanguageDetector struct {
-	extensionMap map[string]string
+//go:embed language_catalog.yml
+var languageCatalogYAML []byte
+
+type languageCatalog struct {
+	Categories  map[string][]string `yaml:"categories"`
+	ConfigFiles []string            `yaml:"config_files"`
 }
+
+var (
+	catalogOnce   sync.Once
+	catalogByLang map[string]string
+	catalogConfig map[string]bool
+)
+
+func loadCatalog() {
+	catalogOnce.Do(func() {
+		catalogByLang = map[string]string{}
+		catalogConfig = map[string]bool{}
+		var c languageCatalog
+		if err := yaml.Unmarshal(languageCatalogYAML, &c); err != nil {
+			return // an unreadable catalog degrades every category to "other"
+		}
+		for cat, names := range c.Categories {
+			for _, n := range names {
+				catalogByLang[n] = cat
+			}
+		}
+		for _, f := range c.ConfigFiles {
+			catalogConfig[strings.ToLower(f)] = true
+		}
+	})
+}
+
+// LanguageDetector names the language of a file. It holds no table of its own:
+// the answer comes from the grammar runtime (internal/grammar).
+type LanguageDetector struct{}
 
 // NewLanguageDetector creates a new language detector
-func NewLanguageDetector() *LanguageDetector {
-	return &LanguageDetector{
-		extensionMap: buildExtensionMap(),
-	}
-}
+func NewLanguageDetector() *LanguageDetector { return &LanguageDetector{} }
 
-// DetectLanguage detects the programming language from a file path
+// DetectLanguage returns the runtime's grammar name for a file path, or
+// "unknown" when the runtime has no grammar for it. Only the path is known
+// here; content-based detection (shebangs) lives in grammar.Detect.
 func (d *LanguageDetector) DetectLanguage(filePath string) string {
-	ext := strings.ToLower(filepath.Ext(filePath))
-
-	if ext == "" {
-		// Check for extensionless files
-		base := filepath.Base(filePath)
-		if lang, ok := d.extensionMap[base]; ok {
-			return lang
-		}
-		return "unknown"
+	if name := grammar.Detect(filePath, nil); name != "" {
+		return name
 	}
-
-	// Remove the dot from extension
-	ext = strings.TrimPrefix(ext, ".")
-
-	if lang, ok := d.extensionMap[ext]; ok {
-		return lang
-	}
-
-	return "unknown"
+	return grammar.NoStructure
 }
 
-// buildExtensionMap creates the mapping of file extensions to languages
-func buildExtensionMap() map[string]string {
-	return map[string]string{
-		// Go
-		"go":  "go",
-		"mod": "go",
-		"sum": "go",
-
-		// JavaScript/TypeScript
-		"js":  "javascript",
-		"jsx": "javascript",
-		"ts":  "typescript",
-		"tsx": "typescript",
-		"mjs": "javascript",
-		"cjs": "javascript",
-
-		// Python
-		"py":  "python",
-		"pyw": "python",
-		"pyx": "python",
-		"pyi": "python",
-
-		// Java/Kotlin
-		"java": "java",
-		"kt":   "kotlin",
-		"kts":  "kotlin",
-
-		// C/C++
-		"c":   "c",
-		"h":   "c",
-		"cpp": "cpp",
-		"cc":  "cpp",
-		"cxx": "cpp",
-		"hpp": "cpp",
-		"hxx": "cpp",
-		"hh":  "cpp",
-
-		// C#
-		"cs":  "csharp",
-		"csx": "csharp",
-
-		// Rust
-		"rs": "rust",
-
-		// Ruby
-		"rb":  "ruby",
-		"erb": "ruby",
-
-		// PHP
-		"php":   "php",
-		"phtml": "php",
-
-		// Swift
-		"swift": "swift",
-
-		// Objective-C
-		"m":  "objective-c",
-		"mm": "objective-c",
-
-		// Shell
-		"sh":   "shell",
-		"bash": "shell",
-		"zsh":  "shell",
-
-		// Web
-		"html": "html",
-		"htm":  "html",
-		"css":  "css",
-		"scss": "scss",
-		"sass": "sass",
-		"less": "less",
-
-		// Config/Data
-		"json": "json",
-		"yaml": "yaml",
-		"yml":  "yaml",
-		"toml": "toml",
-		"xml":  "xml",
-		"ini":  "ini",
-
-		// Markdown/Documentation
-		"md":  "markdown",
-		"mdx": "markdown",
-		"rst": "restructuredtext",
-
-		// SQL
-		"sql": "sql",
-
-		// Docker
-		"dockerfile": "docker",
-		"Dockerfile": "docker",
-
-		// Makefiles
-		"makefile": "make",
-		"Makefile": "make",
-		"mk":       "make",
-
-		// Others
-		"graphql": "graphql",
-		"proto":   "protobuf",
-		"thrift":  "thrift",
-	}
-}
-
-// IsTestFile checks if a file is a test file based on naming conventions
+// IsTestFile checks if a file is a test file from language-neutral naming
+// conventions: a "test"/"tests"/"spec" word in the file name or a test
+// directory in its path.
 func (d *LanguageDetector) IsTestFile(filePath string) bool {
-	base := strings.ToLower(filepath.Base(filePath))
-
-	// Go test files
-	if strings.HasSuffix(base, "_test.go") {
-		return true
-	}
-
-	// JavaScript/TypeScript test files
-	if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
-		return true
-	}
-
-	// Python test files
-	if strings.HasPrefix(base, "test_") || strings.HasSuffix(base, "_test.py") {
-		return true
-	}
-
-	// Java test files (convention)
-	if strings.HasSuffix(base, "test.java") || strings.HasSuffix(base, "tests.java") {
-		return true
-	}
-
-	// Check directory structure
-	lowerPath := strings.ToLower(filePath)
-	testDirs := []string{"/test/", "/tests/", "/__tests__/", "/spec/", "/specs/"}
-	for _, dir := range testDirs {
-		if strings.Contains(lowerPath, dir) {
+	p := strings.ToLower(strings.ReplaceAll(filePath, "\\", "/"))
+	for _, dir := range strings.Split(path.Dir(p), "/") {
+		switch dir {
+		case "test", "tests", "__tests__", "spec", "specs":
 			return true
 		}
 	}
-
+	base := path.Base(filePath)
+	stem := strings.TrimSuffix(base, path.Ext(base))
+	for _, w := range nameWords(stem) {
+		switch w {
+		case "test", "tests", "spec", "specs":
+			return true
+		}
+	}
 	return false
 }
 
-// IsConfigFile checks if a file is a configuration file
+// nameWords splits a file stem on separators and lower/upper camel boundaries.
+func nameWords(stem string) []string {
+	var words []string
+	var cur []rune
+	flush := func() {
+		if len(cur) > 0 {
+			words = append(words, strings.ToLower(string(cur)))
+			cur = cur[:0]
+		}
+	}
+	runes := []rune(stem)
+	for i, r := range runes {
+		switch {
+		case r == '.' || r == '_' || r == '-' || r == ' ':
+			flush()
+		case unicode.IsUpper(r) && i > 0 && unicode.IsLower(runes[i-1]):
+			flush()
+			cur = append(cur, r)
+		default:
+			cur = append(cur, r)
+		}
+	}
+	flush()
+	return words
+}
+
+// IsConfigFile checks if a file is configuration: a grammar the catalog files
+// under "config", or a well-known configuration file name from the catalog.
 func (d *LanguageDetector) IsConfigFile(filePath string) bool {
-	base := strings.ToLower(filepath.Base(filePath))
-
-	configFiles := []string{
-		"package.json",
-		"tsconfig.json",
-		"go.mod",
-		"go.sum",
-		"cargo.toml",
-		"requirements.txt",
-		"pyproject.toml",
-		"setup.py",
-		"pom.xml",
-		"build.gradle",
-		"dockerfile",
-		"docker-compose.yml",
-		"docker-compose.yaml",
-		"makefile",
-		".gitignore",
-		".dockerignore",
-		".env",
-		".env.example",
+	loadCatalog()
+	if catalogConfig[strings.ToLower(path.Base(filePath))] {
+		return true
 	}
-
-	for _, cf := range configFiles {
-		if base == cf {
-			return true
-		}
-	}
-
-	// Check extensions
-	ext := strings.ToLower(filepath.Ext(filePath))
-	configExts := []string{".json", ".yaml", ".yml", ".toml", ".ini", ".env", ".config"}
-	for _, ce := range configExts {
-		if ext == ce {
-			return true
-		}
-	}
-
-	return false
+	return d.GetLanguageCategory(d.DetectLanguage(filePath)) == "config"
 }
 
-// GetLanguageCategory returns the category of a language
+// GetLanguageCategory returns the catalog category of a grammar name, or
+// "other" when the catalog has no entry for it.
 func (d *LanguageDetector) GetLanguageCategory(language string) string {
-	switch language {
-	case "go", "python", "java", "kotlin", "c", "cpp", "csharp", "rust", "ruby", "php", "swift", "objective-c":
-		return "backend"
-	case "javascript", "typescript", "html", "css", "scss", "sass", "less":
-		return "frontend"
-	case "sql":
-		return "database"
-	case "shell", "make", "docker":
-		return "infrastructure"
-	case "json", "yaml", "toml", "xml", "ini":
-		return "config"
-	case "markdown", "restructuredtext":
-		return "documentation"
-	default:
-		return "other"
+	loadCatalog()
+	if cat, ok := catalogByLang[language]; ok {
+		return cat
 	}
+	return "other"
 }

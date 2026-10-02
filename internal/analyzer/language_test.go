@@ -14,19 +14,19 @@ func TestDetectLanguage(t *testing.T) {
 		// Go
 		{"main.go", "go"},
 		{"service/handler.go", "go"},
-		{"go.mod", "go"},
-		{"go.sum", "go"},
+		{"go.mod", "gomod"},
+		{"go.sum", "unknown"}, // no grammar: the review reads the text
 
 		// JavaScript/TypeScript
 		{"app.js", "javascript"},
 		{"component.jsx", "javascript"},
 		{"service.ts", "typescript"},
-		{"Component.tsx", "typescript"},
+		{"Component.tsx", "tsx"},
 		{"index.mjs", "javascript"},
 
 		// Python
 		{"script.py", "python"},
-		{"module.pyx", "python"},
+		{"module.pyx", "unknown"},
 
 		// Java/Kotlin
 		{"Main.java", "java"},
@@ -39,7 +39,7 @@ func TestDetectLanguage(t *testing.T) {
 		{"header.hpp", "cpp"},
 
 		// C#
-		{"Program.cs", "csharp"},
+		{"Program.cs", "c_sharp"},
 
 		// Rust
 		{"main.rs", "rust"},
@@ -92,8 +92,8 @@ func TestGetLanguageCategory(t *testing.T) {
 		{"sql", "database"},
 
 		// Infrastructure
-		{"shell", "infrastructure"},
-		{"docker", "infrastructure"},
+		{"bash", "infrastructure"},
+		{"dockerfile", "infrastructure"},
 
 		// Config
 		{"json", "config"},
@@ -134,6 +134,22 @@ func TestDetectLanguage_CaseInsensitive(t *testing.T) {
 		result := detector.DetectLanguage(test.filePath)
 		if result != test.expected {
 			t.Errorf("DetectLanguage(%s) = %s, want %s", test.filePath, result, test.expected)
+		}
+	}
+}
+
+// The detector holds no table: a name resolves only through the runtime, and a
+// brand-new extension is "unknown", never an error.
+func TestDetectLanguage_UnknownIsNotAnError(t *testing.T) {
+	d := NewLanguageDetector()
+	for _, p := range []string{"notes.zzqx", "weird", "a/b/c.unheardof"} {
+		if got := d.DetectLanguage(p); got != "unknown" {
+			t.Errorf("DetectLanguage(%q) = %q, want unknown", p, got)
+		}
+	}
+	for _, p := range []string{"Dockerfile", "main.tf", "x.kt", "x.php", "x.rb", "x.java"} {
+		if got := d.DetectLanguage(p); got == "unknown" {
+			t.Errorf("DetectLanguage(%q) is unknown; the runtime has a grammar for it", p)
 		}
 	}
 }
