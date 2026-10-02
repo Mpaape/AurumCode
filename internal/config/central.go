@@ -204,5 +204,26 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	}
 	effective.Exceptions = central.Exceptions
 
+	// AUR-548: quality_gates.sast is governed exactly like Gate above --
+	// under a policy, only the policy's own SAST section ever applies, so
+	// a repository can never disable, loosen or otherwise shadow a
+	// policy-enabled SAST pass by declaring its own quality_gates.sast
+	// (CR-TRUST-001). This applies even when the policy's own SAST section
+	// is itself absent (the same "only the policy decides, full stop" rule
+	// Gate/Rules/Ignore/Exceptions already follow above): a policy that
+	// says nothing about SAST means no SAST runs under that policy at all,
+	// not "fall back to the repository's own opinion". The sibling
+	// QualityGates.SsorDtrack/SupplyChain fields (AUR-549/550/551) ride
+	// along in the same wholesale assignment below; they carry no fields
+	// of their own yet, so no separate warning is produced for them here
+	// -- their own cards add that when they add real behavior.
+	if repo.QualityGates.Sast != nil {
+		warnings = append(warnings, ProviderWarning{
+			Provider: "politica central",
+			Reason:   "quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha",
+		})
+	}
+	effective.QualityGates = central.QualityGates
+
 	return &effective, warnings
 }
