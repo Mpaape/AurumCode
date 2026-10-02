@@ -1195,6 +1195,18 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	case coverageBreakdown.partial():
 		gateInconclusiveReason = "partial_coverage"
 	}
+
+	// AUR-524: reuse (or publish, for a later run) a concluded gate verdict
+	// for this exact reviewed SHA/diff, policy, repo context/skills and
+	// model -- see aur524.go. A no-op unless repoCfg.Gate.Declared(): a
+	// review with no `gate:` key anywhere carries no trace of this card.
+	// Folds in the active policy's own AUR-521 digest so a policy change
+	// (or a repo-only run with no policy) can never share a verdict with a
+	// differently-governed run (AC-002).
+	if reused, hit := reuseOrStoreGateVerdict(stderr, &result.Limitations, repoCfg.Gate.Declared(), provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest, render.PolicyDigest(policyDir, centralCfg), os.Getenv("GITHUB_SHA"), diff, gateInconclusiveReason, result.Issues); hit {
+		result.Issues = reused
+	}
+
 	gateOrigin := gateOriginRepo
 	if centralCfg != nil {
 		gateOrigin = gateOriginPolicy
