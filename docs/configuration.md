@@ -269,6 +269,22 @@ card, byte a byte: código 1, nenhum status, nenhuma auditoria/SARIF.** Uma
 recusa de `--limite` antes da chamada (pré-chamada) segue a mesma regra: só
 entra pelo gate como esse motivo inconclusivo quando um gate está declarado.
 
+**Atenção para quem já tem `gate:` declarado sem a chave `inconclusive`
+(o padrão silencioso de `warn`).** Esse comportamento de hoje muda para
+essas configurações existentes assim que `--pr` passa a sofrer uma falha
+do provedor: antes, a falha encerrava com código 1 e nenhum status era
+publicado; agora, `aurumcode/policy-gate` publica sucesso com o alerta
+inconclusivo visível (o mesmo que `warn` explícito produz), a saída é 0 e a
+auditoria/SARIF (quando pedidos) registram a inconclusividade — ou seja,
+uma política antiga que nunca declarou `inconclusive` e nunca viu esse
+status passa a vê-lo, publicado como sucesso alertado. **O status legado
+`aurumcode/review` (de `--check`, independente do gate) NÃO segue esse
+abrandamento: ele publica falha nomeando `provider_failure` nos dois modos,
+`block` e `warn`, e independente de `--exigir-qualidade`** — uma regra de
+proteção de branch que já exige `aurumcode/review` continua bloqueando o
+merge numa falha do provedor, exatamente como bloqueava (por ausência do
+status) antes deste card; só `aurumcode/policy-gate` conhece `warn`.
+
 O gate está ligado em `aurumcode review --base` e `--pr`: achados de
 severidade no limiar ou acima (de origem aceita) reprovam o código de
 saída (reaproveitando os mesmos códigos de `--fail-on`/`--check`), o
