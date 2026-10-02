@@ -105,7 +105,7 @@ do dono e não faz parte deste relatório nem do CI.
 
 ### Corpus
 
-`tests/benchmark/multilang/`:
+`tests/benchmark/testdata/multilang/`:
 
 - `cases/<id>/case.json` (linguagem, arquivo, rótulo `defect`/`clean`, regra e
   linha do defeito) mais o arquivo-fonte do caso. O harness enumera o
@@ -136,7 +136,7 @@ bash tests/acceptance/AUR-523.sh all          # ou AC-001..AC-004, MUT-001
 
 ### Como adicionar um caso por PR
 
-1. Crie `tests/benchmark/multilang/cases/<id>/` com `case.json` e o arquivo
+1. Crie `tests/benchmark/testdata/multilang/cases/<id>/` com `case.json` e o arquivo
    (pequeno, sintético, sem dado de organização; o id é o nome do diretório).
 2. Regenere manifest e relatório com o harness, nunca à mão:
    `go test ./tests/benchmark -run TestAUR523 -update-aur523` (no container

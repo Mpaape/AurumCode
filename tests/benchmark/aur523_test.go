@@ -12,7 +12,7 @@ import (
 var updateMultilang = flag.Bool("update-aur523", false, "regenerate the AUR-523 corpus manifest and report (used by a PR that adds a case)")
 
 const (
-	mlRoot      = "multilang"
+	mlRoot      = "testdata/multilang"
 	mlReportDir = "out"
 	mlReportJS  = "multilang-report.json"
 	mlReportMD  = "multilang-report.md"
