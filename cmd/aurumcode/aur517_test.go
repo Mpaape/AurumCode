@@ -159,6 +159,37 @@ func TestAUR517SummaryWithheldWhenAccusationOutOfScope(t *testing.T) {
 	if strings.Contains(body, "ReadAll ignores the error fetch returns") {
 		t.Fatalf("published review still names the out-of-scope finding:\n%s", body)
 	}
+	// N3a: the withholding itself must be visible, never silent.
+	if !strings.Contains(body, "Model summary omitted: 1 proposed finding(s) were discarded by the scope/rule filters.") {
+		t.Fatalf("published review gives no visible notice that the summary was withheld:\n%s", body)
+	}
+}
+
+// TestAUR517DegradedParseNoticePublished covers B1's required regression: a
+// non-JSON model reply ("app.go:8: warning: ...") recovers one finding with
+// no evidence, so filterModelIssues always discards it -- but the parser's
+// own notice that the reply was unusable must still reach the published
+// review, never be erased by the same withholding that protects AC-001.
+func TestAUR517DegradedParseNoticePublished(t *testing.T) {
+	aur517Env(t, "app.go:8: warning: ReadAll ignores the error\n")
+	server, posted := aur517Server(t)
+	aur517PREnv(t, server)
+
+	var stdout, stderr strings.Builder
+	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if len(*posted) == 0 {
+		t.Fatal("no request was posted to the PR")
+	}
+	body := strings.Join(*posted, "\n")
+	if !strings.Contains(body, "Degraded parse") {
+		t.Fatalf("published review lost the degraded-parse notice:\n%s", body)
+	}
 }
 
 // TestAUR517ValidFindingKeepsEvidenceAndVerdict covers AC-002: a finding
@@ -252,6 +283,33 @@ func TestAUR517SameDecisionAcrossSinks(t *testing.T) {
 	reviewBody := strings.Join(*reviewPosted, "\n")
 	if !strings.Contains(reviewBody, "Changes requested") || !strings.Contains(reviewBody, `"event":"REQUEST_CHANGES"`) {
 		t.Fatalf("formal review did not request changes:\n%s", reviewBody)
+	}
+}
+
+// TestAUR517QualityDegradedLocalVerdictIsComment covers N1: with --base and
+// no LLM provider configured at all (quality review skipped), main.go must
+// mark result.Metadata["quality_degraded"]="true" so the local report's
+// canonicalized verdict stays "Comment" -- never "Approve" -- matching the
+// explicit "LLM quality review did not run" line printed just above it
+// (AUR-449/AUR-458). Turning that metadata assignment into a no-op removes
+// the only signal canonicalVerdict has for this path and must fail this
+// test.
+func TestAUR517QualityDegradedLocalVerdictIsComment(t *testing.T) {
+	dir := aur517LocalFixture(t)
+	restore := chdir(t, dir)
+	defer restore()
+
+	var stdout, stderr strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &stdout, &stderr, redaction.NewFilter())
+	if code != 0 {
+		t.Fatalf("runReview exit=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "LLM quality review did not run") {
+		t.Fatalf("expected the quality-skip notice, got:\n%s", out)
+	}
+	if !strings.Contains(out, "**Verdict:** Comment") {
+		t.Fatalf("quality-degraded local report did not canonicalize to Comment:\n%s", out)
 	}
 }
 

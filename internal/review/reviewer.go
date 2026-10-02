@@ -226,8 +226,21 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// the gate is on the FACT that something was discarded, never on the
 	// summary's content: any discard withholds the summary entirely; no
 	// discard leaves it untouched (AC-002's eligible change summary).
+	//
+	// Exception: internal/prompt's degradedOrError recovers findings from a
+	// non-JSON reply with ITS OWN fixed notice (degradedParseSummary below)
+	// as result.Summary, and those recovered issues never carry evidence, so
+	// filterModelIssues always discards every one of them. Without this
+	// exception the withholding above would delete the only sentence telling
+	// a reader the model's reply was unusable, publishing a clean "Approve"
+	// instead. The exception is deliberately an exact string match against
+	// the parser's literal, never Metadata (Metadata comes from the parsed
+	// JSON body itself and a model can set any key it likes there, including
+	// a forged "parse_mode": "degraded").
 	discardedByPipeline := workflowSuppressed + scopeDiscarded.total() + rejected
-	result.Summary = withholdSummaryWhenFiltered(result.Summary, discardedByPipeline)
+	if result.Summary != degradedParseSummary {
+		result.Summary = withholdSummaryWhenFiltered(result.Summary, discardedByPipeline)
+	}
 
 	// Add metadata
 	if result.Metadata == nil {
@@ -466,6 +479,14 @@ func formatDiscardWarning(discarded discardSummary) string {
 	}
 	return fmt.Sprintf("%d finding(s) discarded: %s", total, strings.Join(reasons, ", "))
 }
+
+// degradedParseSummary is the LITERAL copy of internal/prompt's
+// degradedOrError fixed notice ("the model's response was not valid JSON").
+// internal/prompt is read-only for this card, so the string is duplicated
+// here rather than exported from there; reviewer_test.go pins this constant
+// equal to what ResponseParser actually produces for a free-form reply, so
+// the two cannot drift silently.
+const degradedParseSummary = "Degraded parse: recovered findings from free-form text; the model's response was not valid JSON."
 
 // withholdSummaryWhenFiltered returns summary unchanged when discardedCount
 // is zero, and "" otherwise. It is the single anchor GenerateReviewWithContext

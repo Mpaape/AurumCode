@@ -1298,6 +1298,8 @@ func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *typ
 	fmt.Fprintf(&b, "**%s:** %s\n\n", copy.verdict, reviewVerdictForLanguage(result, copy))
 	if diff != nil && prompt.HasSubstantiveCodeChange(diff) && strings.TrimSpace(result.Summary) != "" {
 		fmt.Fprintf(&b, "### %s\n\n%s\n\n", copy.summary, strings.TrimSpace(result.Summary))
+	} else if note := summaryWithheldNotice(result, copy); note != "" {
+		fmt.Fprintf(&b, "%s\n\n", note)
 	}
 	b.WriteString(reviewSummaryTextForLanguage(result, copy))
 	b.WriteString("\n\n")
@@ -1436,6 +1438,25 @@ func formalReviewEvent(result *types.ReviewResult) string {
 	return "APPROVE"
 }
 
+// summaryWithheldNotice renders AUR-517/N3a's visible notice when
+// internal/review withheld result.Summary (withholdSummaryWhenFiltered):
+// result.Metadata["summary_discarded_findings"] names how many of the
+// model's proposed findings the scope/evidence or rule gate discarded, and
+// an empty result.Summary with a nonzero count is exactly that withholding
+// (never a model that happened to return no summary at all with nothing
+// discarded). Returns "" in every other case, so a clean review's body is
+// unchanged.
+func summaryWithheldNotice(result *types.ReviewResult, copy reviewCopy) string {
+	if result == nil || strings.TrimSpace(result.Summary) != "" {
+		return ""
+	}
+	discarded := atoiOrZero(result.Metadata["summary_discarded_findings"])
+	if discarded <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(copy.summaryWithheld, discarded)
+}
+
 // reviewSummaryText is deliberately derived from the filtered result rather
 // than copied from result.Summary. The model summary can become stale when a
 // source-aware gate removes a false positive; publishing it would produce a
@@ -1482,6 +1503,12 @@ type reviewCopy struct {
 	// not covered gets its own sentence; coverageSummary names the count and
 	// the denominator so the reader sees how much of the diff actually ran.
 	coverageHeading, coverageSummary, coveragePartial, coverageBudget, coverageIgnored, coverageFiltered string
+	// summaryWithheld is AUR-517's one-line notice (%d is the discard
+	// count) printed in place of the "### Summary" block whenever
+	// internal/review withheld the model's free-text summary because the
+	// scope/evidence or rule gate discarded one of its proposed findings
+	// (AC-001/N3a): the omission must be visible, never silent.
+	summaryWithheld string
 }
 
 func reviewCopyFor(language string) reviewCopy {
@@ -1503,6 +1530,7 @@ func reviewCopyFor(language string) reviewCopy {
 			coverageBudget:          "%d arquivo(s) ficaram fora da revisão pelo limite de tokens.",
 			coverageIgnored:         "%d arquivo(s) foram ocultados da revisão pela configuração `ignore` do repositório; a ausência deles no contexto NÃO prova que não existam no diff.",
 			coverageFiltered:        "%d arquivo(s) foram filtrados antes da revisão (binário ou grande demais).",
+			summaryWithheld:         "Resumo do modelo omitido: %d achado(s) propostos foram descartados pelos filtros de escopo/regra.",
 		}
 	}
 	return reviewCopy{
@@ -1522,6 +1550,7 @@ func reviewCopyFor(language string) reviewCopy {
 		coverageBudget:          "%d file(s) were left out of the review by the token budget.",
 		coverageIgnored:         "%d file(s) were hidden from the review by the repository `ignore` config; their absence from the reviewed context is NOT proof they are absent from the diff.",
 		coverageFiltered:        "%d file(s) were filtered before the review (binary or too large).",
+		summaryWithheld:         "Model summary omitted: %d proposed finding(s) were discarded by the scope/rule filters.",
 	}
 }
 
