@@ -1,0 +1,210 @@
+# CBOM catalog (AUR-552): cryptographic assets cited in code and
+# configuration, as CycloneDX 1.6 cryptoProperties. Languages are only
+# globs in file_sets; the engine knows none of them. Override with
+# .aurumcode/xbom/cbom.yml (repository or central policy).
+version: 1
+type: cbom
+file_sets:
+  code:
+    - "**/*.go"
+    - "**/*.py"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.cjs"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.jsx"
+    - "**/*.java"
+    - "**/*.kt"
+    - "**/*.scala"
+  config:
+    - "**/*.yml"
+    - "**/*.yaml"
+    - "**/*.toml"
+    - "**/*.properties"
+    - "**/*.conf"
+    - "**/*.ini"
+  ops:
+    - "**/Dockerfile"
+    - "**/Dockerfile.*"
+exclude:
+  - ".git/**"
+  - "**/node_modules/**"
+  - "**/vendor/**"
+entries:
+  - id: hash
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>sha-?(?:1|224|256|384|512)|sha3-?(?:224|256|384|512)|md5|md4|blake2[bs]?|blake3|ripemd-?160)\b'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|nodash|upper}"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: hash
+          cryptoFunctions: [digest]
+  - id: block-cipher
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>aes|3des|des3|tripledes|des|blowfish|camellia|rc2)(?:[-_/ ]?(?P<size>128|192|256))?(?:[-_/ ]?(?P<mode>gcm|cbc|ctr|ecb|ccm|cfb|ofb))?(?:[^A-Za-z0-9]|$)'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|upper}-{size}-{mode|upper}"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: block-cipher
+          mode: "{mode|lower}"
+          parameterSetIdentifier: "{size}"
+          cryptoFunctions: [encrypt, decrypt]
+  - id: stream-cipher
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>chacha20|rc4|salsa20)\b'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|upper}"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: stream-cipher
+          cryptoFunctions: [encrypt, decrypt]
+  - id: rsa
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>rsa)\b(?:[^0-9\n]{0,40}?(?P<size>1024|2048|3072|4096|7680|15360))?'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|upper}-{size}"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: pke
+          parameterSetIdentifier: "{size}"
+          cryptoFunctions: [encrypt, decrypt, sign, verify]
+  - id: signature
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>ecdsa|ed25519|ed448|dsa)\b'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|upper}"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: signature
+          cryptoFunctions: [sign, verify]
+  - id: key-agreement
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>ecdh|x25519|x448|diffie-?hellman)\b'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|nodash|upper}"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: key-agree
+          cryptoFunctions: [keygen]
+  - id: pqc-kem
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>ml-?kem(?:-?(?:512|768|1024))?|kyber(?:-?(?:512|768|1024))?|frodokem|hqc|x25519mlkem768)\b'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|nodash|upper}"
+      properties:
+        "aurumcode:xbom:pqc": "true"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: kem
+          cryptoFunctions: [encapsulate, decapsulate]
+  - id: pqc-signature
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?P<alg>ml-?dsa(?:-?(?:44|65|87))?|dilithium[2-5]?|slh-?dsa|sphincs|falcon(?:-?(?:512|1024))?)\b'
+    token: alg
+    component:
+      type: cryptographic-asset
+      name: "{alg|nodash|upper}"
+      properties:
+        "aurumcode:xbom:pqc": "true"
+      crypto:
+        assetType: algorithm
+        algorithmProperties:
+          primitive: signature
+          cryptoFunctions: [sign, verify]
+  - id: key-size
+    files: ["@code", "@config"]
+    pattern: '(?i)\b(?:key[_-]?size|key[_-]?length|key[_-]?bits|modulus[_-]?bits|bits)\b\W{1,6}(?P<size>\d{3,5})\b'
+    token: size
+    component:
+      type: cryptographic-asset
+      name: "key-{size}-bit"
+      crypto:
+        assetType: related-crypto-material
+        relatedCryptoMaterialProperties:
+          type: key
+          size: "{size:int}"
+  - id: tls
+    files: ["@code", "@config", "@ops"]
+    pattern: '(?i)(?:^|[^a-z])(?P<proto>tls)[ _-]?v?(?P<ver>1[._]?[0-3])\b'
+    token: ver
+    component:
+      type: cryptographic-asset
+      name: "{proto|upper}-{ver|dot}"
+      crypto:
+        assetType: protocol
+        protocolProperties:
+          type: tls
+          version: "{ver|dot}"
+  - id: ssl
+    files: ["@code", "@config", "@ops"]
+    pattern: '(?i)(?:^|[^a-z])(?P<proto>ssl)[ _-]?v?(?P<ver>[23](?:[._]0)?)\b'
+    token: ver
+    component:
+      type: cryptographic-asset
+      name: "{proto|upper}-{ver|dot}"
+      properties:
+        "aurumcode:xbom:risk": deprecated-protocol
+      crypto:
+        assetType: protocol
+        protocolProperties:
+          type: other
+          version: "{ver|dot}"
+  - id: certificate-file
+    files: ["@code", "@config", "@ops"]
+    pattern: '(?P<path>[A-Za-z0-9_./-]+\.(?P<ext>pem|crt|cer|der|p12|pfx|jks|keystore))\b'
+    token: path
+    component:
+      type: cryptographic-asset
+      name: "{path}"
+      crypto:
+        assetType: certificate
+        certificateProperties:
+          certificateFormat: "{ext|upper}"
+  - id: embedded-certificate
+    files: ["@code", "@config", "**/*.pem", "**/*.crt"]
+    pattern: '(?P<marker>-----BEGIN CERTIFICATE-----)'
+    token: marker
+    component:
+      type: cryptographic-asset
+      name: "embedded-x509-certificate"
+      crypto:
+        assetType: certificate
+        certificateProperties:
+          certificateFormat: X.509
+  - id: embedded-private-key
+    files: ["@code", "@config", "**/*.pem", "**/*.key"]
+    pattern: '(?P<marker>-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----)'
+    token: marker
+    component:
+      type: cryptographic-asset
+      name: "embedded-private-key"
+      properties:
+        "aurumcode:xbom:risk": committed-private-key
+      crypto:
+        assetType: related-crypto-material
+        relatedCryptoMaterialProperties:
+          type: private-key
