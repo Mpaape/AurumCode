@@ -187,5 +187,22 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	}
 	effective.Gate = central.Gate
 
+	// AUR-520: exceptions are governed exactly like Rules/Ignore/Gate
+	// above -- under a policy, only the policy's own Exceptions ever
+	// apply. A repository cannot declare its own exception for a
+	// policy-governed finding (AC-004): every repo-declared exception is
+	// dropped, each with its own named warning (repo/rule/path, the exact
+	// identifying triple), never silently merged with the policy's list.
+	for _, exc := range repo.Exceptions {
+		warnings = append(warnings, ProviderWarning{
+			Provider: "politica central",
+			Reason: fmt.Sprintf(
+				"exceção do repositório para a regra %q no caminho %q (repositório %q) foi ignorada: a política central decide sozinha",
+				exc.Rule, exc.Path, exc.Repo,
+			),
+		})
+	}
+	effective.Exceptions = central.Exceptions
+
 	return &effective, warnings
 }

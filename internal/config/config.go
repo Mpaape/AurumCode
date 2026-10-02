@@ -251,6 +251,11 @@ type Config struct {
 	// ApplyCentralPolicy for why a repository's own Gate is only ever its
 	// explicit opt-in, never a second authority alongside a policy's.
 	Gate GateConfig `yaml:"gate"`
+	// Exceptions is AUR-520's list of approved, time-bounded exceptions
+	// for one exact finding each (repo+rule+path). See ExceptionConfig
+	// and ApplyCentralPolicy for why, under a central policy, only the
+	// policy's own Exceptions ever apply.
+	Exceptions []ExceptionConfig `yaml:"exceptions"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -312,6 +317,13 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Gate.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	// AUR-520: an exception missing its accountability (owner/reason/
+	// expires) or its match key (repo/rule/path), or one with a malformed
+	// expires date, is a config error here -- fail closed before any
+	// model call, exactly like every other section above (AC-005).
+	if err := ValidateExceptions(cfg.Exceptions); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil

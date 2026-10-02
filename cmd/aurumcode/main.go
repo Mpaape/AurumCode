@@ -152,6 +152,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/apply"
@@ -1139,7 +1140,21 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	gateIssues := make([]types.ReviewIssue, 0, len(result.Issues)+len(securityFindings))
 	gateIssues = append(gateIssues, result.Issues...)
 	gateIssues = append(gateIssues, securityFindings...)
-	gateResult, gateErr := evaluateGate(repoCfg.Gate, gateOrigin, dynamicRules, gateIssues, gateInconclusiveReason)
+	// AUR-520: the --base path's own verified repo identity, derived
+	// read-only from the local checkout's "origin" remote (never from the
+	// model or the diff) -- see localRepoIdentity, aur520.go. Unknown
+	// (ok==false) fails closed: repoIdentity stays "", which
+	// matchException never matches against any configured exception's
+	// required, non-empty Repo field. The notice is only published when
+	// an exception was actually configured on either side, so a run that
+	// never uses this card's feature carries no new line at all.
+	repoIdentity, repoIdentityOK := localRepoIdentity(cwd)
+	if !repoIdentityOK && exceptionsConfigured(repoCfg) {
+		notice := repoIdentityUnavailableNotice(reviewLanguage)
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", notice)
+		result.Limitations = append(result.Limitations, notice)
+	}
+	gateResult, gateErr := evaluateGate(repoCfg.Gate, gateOrigin, dynamicRules, gateIssues, gateInconclusiveReason, repoCfg.Exceptions, repoIdentity, time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2

@@ -242,6 +242,50 @@ aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
 perfil selecionado aprende o mesmo catálogo dinâmico.
 
+## Exceções aprovadas: dono e validade (AUR-520)
+
+`exceptions` é uma lista simples, no mesmo `config.yml` (do repositório ou da
+política central), de exceções já aprovadas para um achado exato — falso
+positivo ou risco aceito:
+
+```yaml
+exceptions:
+  - repo: org/repo
+    rule: seguranca.md#sql-injection   # secao da skill (dinamica) ou id de advisory
+    path: legacy/report.py             # caminho exato, relativo ao repositório
+    owner: time-seguranca
+    reason: consulta fixa, sem entrada do usuario
+    expires: 2026-12-31                # YYYY-MM-DD, sempre em UTC
+```
+
+Todos os seis campos são obrigatórios; falta de `owner`, `reason` ou
+`expires`, ou uma `expires` que não seja exatamente `YYYY-MM-DD` (uma data
+com fuso, hora, ou qualquer outro formato é recusada), invalida a política
+inteira antes de qualquer chamada ao modelo (AC-005, falha fechado) — uma
+exceção que um humano não assinou com essa precisão nunca é tratada como
+ausente. `path` é sempre um caminho exato, nunca um glob: a exceção cobre
+exatamente o achado que alguém revisou, nunca uma família de arquivos.
+
+Uma exceção só se aplica quando `repo`, `rule` e `path` casam exatamente com
+o achado (o `rule_id` e o arquivo publicados) E a data de hoje (UTC) é menor
+ou igual a `expires`: o achado some do gate e aparece no resumo/limitações
+como "aceito por exceção", com dono, motivo e validade (AC-001). Uma exceção
+vencida para de valer sozinha — o achado volta a reprovar o check
+normalmente, e a saída diz que a exceção venceu (AC-002). Uma exceção para
+outro repositório, outra regra ou outro caminho simplesmente não casa
+(AC-003). A identidade do repositório nunca vem do modelo ou do diff
+revisado: no `--pr` é o `owner/repo` já autenticado pela própria chamada à
+API; no `--base` vem do remoto `origin` do checkout local (os mesmos
+mecanismos de leitura do AUR-515) — quando ela não pode ser confirmada,
+nenhuma exceção com `repo` declarado casa (falha fechado), e a saída diz por
+quê.
+
+Sob uma política central, só as exceções DA POLÍTICA valem — exatamente como
+`rules`/`ignore`/`gate` já funcionam: uma exceção declarada no config do
+repositório é ignorada por completo, com um aviso nomeando a regra e o
+caminho descartados (AC-004). O repositório sozinho não consegue criar uma
+exceção para uma regra da política.
+
 ## Opções públicas
 
 Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI
@@ -268,6 +312,7 @@ consumidor.
 | `ignore` | Globs de caminhos removidos antes da análise | vazio |
 | `gate.fail_on` | Severidades (do vocabulário de `--fail-on`, mais `critical`) que reprovam o check | vazio (sem gate) |
 | `gate.inconclusive` | `block` ou `warn` para uma revisão inconclusiva | vazio (sem gate) |
+| `exceptions` | Exceções aprovadas (repo+rule+path, dono, motivo, validade) que tiram um achado exato do gate | vazio |
 
 ### CLI `aurumcode review`
 
