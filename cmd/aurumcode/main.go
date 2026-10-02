@@ -1202,7 +1202,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	if centralCfg != nil {
 		sastOrigin = gateOriginPolicy
 	}
-	sastIssues, sastReason := runSASTPass(context.Background(), cwd, repoCfg.QualityGates.Sast, realSemgrepRunner)
+	sastIssues, sastReason := runSASTPass(context.Background(), cwd, repoCfg.QualityGates.Sast, sastOrigin == gateOriginPolicy, filter, realSemgrepRunner)
 	if sastReason != "" {
 		notice := sastInconclusiveNotice(reviewLanguage, sastReason)
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", notice)

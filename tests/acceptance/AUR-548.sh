@@ -13,7 +13,11 @@
 #                   (exitFindings), naming the check_id and line in the
 #                   published output -- including when a central policy
 #                   enables SAST and the repository tries to disable it,
-#                   and on --pr (runPRReview) over the verified checkout
+#                   on --pr (runPRReview) over the verified checkout, a
+#                   real Semgrep 1.x HIGH severity (not just the fixture
+#                   spelling ERROR), and the policy-origin anti-bypass
+#                   hardening (--disable-nosem and the .semgrepignore
+#                   copy-and-strip, independent review follow-up B3)
 #   AC-002          a finding below fail_on_severity is produced but does
 #                   not fail the gate
 #   AC-003          Semgrep absent, erroring, or returning invalid JSON
@@ -22,7 +26,11 @@
 #                   (exitQualityNotReviewed) -- contrasted against a real
 #                   clean scan, which still passes; on --pr, an unverified
 #                   checkout (AUR-515/536) is inconclusive the same way,
-#                   WITHOUT ever invoking Semgrep against the wrong tree
+#                   WITHOUT ever invoking Semgrep against the wrong tree;
+#                   a decodable report whose own "errors" array is
+#                   non-empty (a rule-pack download failure) is also
+#                   inconclusive, at both a non-zero exit and exit 0
+#                   (independent review follow-up B1)
 #   AC-004          rule packs come from quality_gates.sast.rule_packs, or
 #                   the RFC's own documented defaults when absent; with no
 #                   quality_gates.sast section at all, Semgrep is never
@@ -110,16 +118,24 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # error, unique in the file.
 apply_mutation_zero_findings() {
   local target="$run_dir/root/internal/analysis/semgrep.go"
+  # Anchored on the AUR-548-MUT-001-ANCHOR marker comment (unique in the
+  # file), not the return statement's own text: Semgrep's own report-shape
+  # checks (parseErr, report.Errors) share the exact same "execution
+  # failed" wrap for a different branch, so the marker is what singles out
+  # THIS card's own guarded-against defect -- treating ANY non-zero exit
+  # (with an otherwise clean, error-free report) as success -- rather than
+  # one of the other two branches.
+  local marker='AUR-548-MUT-001-ANCHOR'
   local anchor='return nil, fmt.Errorf("semgrep: execution failed: %w", runErr)'
-  local replacement='return []Finding{}, nil'
-  local count anchor_line
-  count="$(grep -Fc "$anchor" "$target")" || infra mutation-anchor-missing
-  [[ "$count" == "1" ]] || infra mutation-anchor-missing
-  anchor_line="$(grep -Fn "$anchor" "$target" | head -1 | cut -d: -f1)"
-  [[ -n "$anchor_line" ]] || infra mutation-anchor-missing
-  sed -i "${anchor_line}s/.*/\t\t\t${replacement}/" "$target"
-  grep -Fq "$anchor" "$target" && infra mutation-not-applied
-  grep -Fq "$replacement" "$target" || infra mutation-not-applied
+  local replacement=$'\t\treturn []Finding{}, nil'
+  local marker_line target_line
+  marker_line="$(grep -Fn "$marker" "$target" | head -1 | cut -d: -f1)"
+  [[ -n "$marker_line" ]] || infra mutation-anchor-missing
+  target_line=$((marker_line + 1))
+  sed -n "${target_line}p" "$target" | grep -Fq "$anchor" || infra mutation-anchor-missing
+  sed -i "${target_line}s/.*/${replacement}/" "$target"
+  sed -n "${target_line}p" "$target" | grep -Fq "$anchor" && infra mutation-not-applied
+  sed -n "${target_line}p" "$target" | grep -Fq 'return []Finding{}, nil' || infra mutation-not-applied
   return 0
 }
 
@@ -141,9 +157,9 @@ check_mutation_red() {
   fi
 }
 
-ac001_pattern='^(TestAUR548SeverityBreachFailsGate|TestAUR548PolicyWinsOverRepoDisable|TestAUR548PRSeverityBreachFailsGate)$'
+ac001_pattern='^(TestAUR548SeverityBreachFailsGate|TestAUR548PolicyWinsOverRepoDisable|TestAUR548PRSeverityBreachFailsGate|TestAUR548HighSeverityFailsAtErrorThreshold|TestAUR548PolicyOriginDisablesNosem|TestAUR548PolicyOriginBypassesSemgrepignore)$'
 ac002_pattern='^(TestAUR548BelowThresholdDoesNotFailGate)$'
-ac003_pattern='^(TestAUR548AbsentSemgrepIsInconclusiveNeverClean|TestAUR548ExecutionFailureIsInconclusive|TestAUR548CleanScanPasses|TestAUR548PRUnverifiedCheckoutIsInconclusive)$'
+ac003_pattern='^(TestAUR548AbsentSemgrepIsInconclusiveNeverClean|TestAUR548ExecutionFailureIsInconclusive|TestAUR548CleanScanPasses|TestAUR548PRUnverifiedCheckoutIsInconclusive|TestAUR548SemgrepReportedErrorsAreInconclusive|TestAUR548NonZeroExitCleanReportIsInconclusive)$'
 ac004_pattern='^(TestAUR548NoConfigNeverInvokesSemgrep|TestAUR548RulePacksFromConfig|TestAUR548DefaultRulePacks)$'
 ac005_pattern='^(TestAUR548ModelCannotRemoveOrDowngradeFinding)$'
 
@@ -153,7 +169,7 @@ case "$selector" in
     run_go_test "$ac001_pattern" "$log"
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
-    for name in SeverityBreachFailsGate PolicyWinsOverRepoDisable PRSeverityBreachFailsGate; do
+    for name in SeverityBreachFailsGate PolicyWinsOverRepoDisable PRSeverityBreachFailsGate HighSeverityFailsAtErrorThreshold PolicyOriginDisablesNosem PolicyOriginBypassesSemgrepignore; do
       grep -q "^--- PASS: TestAUR548$name " "$log" || fail "missing-pass:$name"
     done
     printf '%s/%s/pass\n' "$card" "$selector"
@@ -171,7 +187,7 @@ case "$selector" in
     run_go_test "$ac003_pattern" "$log"
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
-    for name in AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses PRUnverifiedCheckoutIsInconclusive; do
+    for name in AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses PRUnverifiedCheckoutIsInconclusive SemgrepReportedErrorsAreInconclusive NonZeroExitCleanReportIsInconclusive; do
       grep -q "^--- PASS: TestAUR548$name " "$log" || fail "missing-pass:$name"
     done
     printf '%s/%s/pass\n' "$card" "$selector"
@@ -208,8 +224,10 @@ case "$selector" in
     (( status == 0 )) || fail "go-test-exit:$status"
     for name in \
       SeverityBreachFailsGate PolicyWinsOverRepoDisable PRSeverityBreachFailsGate \
+      HighSeverityFailsAtErrorThreshold PolicyOriginDisablesNosem PolicyOriginBypassesSemgrepignore \
       BelowThresholdDoesNotFailGate \
       AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses PRUnverifiedCheckoutIsInconclusive \
+      SemgrepReportedErrorsAreInconclusive NonZeroExitCleanReportIsInconclusive \
       NoConfigNeverInvokesSemgrep RulePacksFromConfig DefaultRulePacks \
       ModelCannotRemoveOrDowngradeFinding; do
       grep -q "^--- PASS: TestAUR548$name " "$log" || fail "missing-pass:$name"

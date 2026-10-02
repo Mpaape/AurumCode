@@ -28,13 +28,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/analysis"
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -98,18 +102,48 @@ func realSemgrepRunner(ctx context.Context, dir string, args ...string) (stdout,
 // cannot tell "clean" apart from "failed" by construction, since issues is
 // nil in both the clean-zero-findings and the failed cases; checking
 // reason is mandatory and is exactly what applySASTGate does).
-func runSASTPass(ctx context.Context, root string, sast *config.SastConfig, run func(ctx context.Context, dir string, args ...string) (stdout, stderr string, err error)) (issues []types.ReviewIssue, reason string) {
+//
+// policyOrigin is true when this run's effective quality_gates.sast
+// section came from a central policy (sastOrigin == gateOriginPolicy at
+// the call site): the scanned tree is then the pull request AUTHOR's own
+// content, and two author-controlled bypasses must not be able to silence
+// a policy-mandated finding --
+//   - a `# nosemgrep` comment: countered by passing Semgrep's own
+//     --disable-nosem flag (analysis.Runner.Semgrep);
+//   - a repository-committed .semgrepignore: countered by scanning a
+//     sanitized COPY of root with that file stripped (sastScanRoot,
+//     below) instead of root itself, since the production checkout is
+//     mounted read-only and this file cannot simply be deleted in place.
+//
+// filter redacts every Semgrep-sourced Message before it is ever
+// published (Semgrep's own fixed rule text is normally safe, but a rule's
+// message can echo configuration/metadata the redaction filter's own
+// canary patterns are meant to catch, and this pass is held to the same
+// bar as every other publication sink in this codebase).
+func runSASTPass(ctx context.Context, root string, sast *config.SastConfig, policyOrigin bool, filter *redaction.Filter, run func(ctx context.Context, dir string, args ...string) (stdout, stderr string, err error)) (issues []types.ReviewIssue, reason string) {
 	if !sast.IsEnabled() {
 		return nil, ""
 	}
 	scanCtx, cancel := context.WithTimeout(ctx, sastTimeout)
 	defer cancel()
-	findings, err := analysis.NewRunner().Semgrep(scanCtx, root, sast.Packs(), run)
+
+	scanRoot, cleanup, sanitizeErr := sastScanRoot(root, policyOrigin)
+	if sanitizeErr == nil {
+		defer cleanup()
+	} else {
+		// Best-effort: a filesystem problem preparing the sanitized copy
+		// falls back to scanning root as-is rather than failing the whole
+		// pass closed on an unrelated I/O error -- --disable-nosem below
+		// still applies regardless, which is the more common bypass.
+		scanRoot = root
+	}
+
+	findings, err := analysis.NewRunner().Semgrep(scanCtx, scanRoot, sast.Packs(), policyOrigin, run)
 	if err != nil {
 		switch {
 		case errors.Is(err, exec.ErrNotFound):
 			return nil, sastReasonUnavailable
-		case errors.Is(err, analysis.ErrSemgrepNoResults), strings.Contains(err.Error(), "invalid JSON"):
+		case errors.Is(err, analysis.ErrSemgrepNoResults), errors.Is(err, analysis.ErrSemgrepReportedErrors), strings.Contains(err.Error(), "invalid JSON"):
 			return nil, sastReasonInvalid
 		default:
 			return nil, sastReasonError
@@ -117,16 +151,88 @@ func runSASTPass(ctx context.Context, root string, sast *config.SastConfig, run 
 	}
 	issues = make([]types.ReviewIssue, 0, len(findings))
 	for _, f := range findings {
+		message := fmt.Sprintf("%s (rule %s)", f.Message, f.RuleID)
+		if filter != nil {
+			message = filter.Redact(message)
+		}
 		issues = append(issues, types.ReviewIssue{
 			File:     f.Path,
 			Line:     f.Line,
 			Side:     f.Side,
 			Severity: f.Severity,
 			RuleID:   f.RuleID,
-			Message:  fmt.Sprintf("%s (rule %s)", f.Message, f.RuleID),
+			Message:  message,
 		})
 	}
 	return issues, ""
+}
+
+// sastScanRoot returns the directory Semgrep should actually scan.
+// policyOrigin == false (a repository's own opt-in, scanning its own
+// tree) always scans root directly: there is no author/policy trust
+// boundary to defend there. policyOrigin == true scans root directly too,
+// UNLESS root contains a top-level ".semgrepignore" file, in which case it
+// copies root into a fresh temporary directory with that file (and ".git",
+// irrelevant to a content scan) excluded, so a repository-committed
+// .semgrepignore can never hide a policy-mandated finding. The returned
+// cleanup removes that temporary directory; it is a no-op when no copy was
+// made. A non-nil error means no copy was attempted or completed, and the
+// caller falls back to scanning root unchanged.
+func sastScanRoot(root string, policyOrigin bool) (scanRoot string, cleanup func(), err error) {
+	noop := func() {}
+	if !policyOrigin {
+		return root, noop, nil
+	}
+	if _, statErr := os.Stat(filepath.Join(root, ".semgrepignore")); statErr != nil {
+		return root, noop, nil
+	}
+	tmp, mkErr := os.MkdirTemp("", "aurumcode-sast-*")
+	if mkErr != nil {
+		return root, noop, mkErr
+	}
+	if cpErr := copyTreeExcluding(root, tmp, map[string]bool{".semgrepignore": true, ".git": true}); cpErr != nil {
+		_ = os.RemoveAll(tmp)
+		return root, noop, cpErr
+	}
+	return tmp, func() { _ = os.RemoveAll(tmp) }, nil
+}
+
+// copyTreeExcluding recursively copies src into dst, skipping any file or
+// directory whose base name is a key of excludeNames. Used only for a
+// small, test-sized checkout (see sastScanRoot); it is a plain, dependency
+// -free Go walk rather than shelling out to "cp", which may not exist in
+// every sealed execution environment this binary runs in.
+func copyTreeExcluding(src, dst string, excludeNames map[string]bool) error {
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, relErr := filepath.Rel(src, path)
+		if relErr != nil {
+			return relErr
+		}
+		if rel == "." {
+			return nil
+		}
+		if excludeNames[d.Name()] {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0700)
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		if mkErr := os.MkdirAll(filepath.Dir(target), 0700); mkErr != nil {
+			return mkErr
+		}
+		return os.WriteFile(target, data, 0600)
+	})
 }
 
 // sastInconclusiveNotice renders the declared-limitation text runReview/
