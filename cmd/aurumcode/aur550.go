@@ -9,7 +9,9 @@
 // quality_gates.ssor_dtrack.enabled: true (cfg.Declared()'s own guard).
 //
 // It never generates a SBOM (AUR-549's own job): the file at
-// cfg.SBOMGenerator.OutputFile is read as-is and uploaded verbatim.
+// cfg.SBOMOutputFile() (AUR-549's own sbom_generator.output_file, nested
+// under this card's own ssor_dtrack section) is read as-is and uploaded
+// verbatim.
 //
 // The API key (read from the environment variable NAMED by
 // cfg.APIKeySecret -- never a literal) must never reach stdout, stderr,
@@ -50,7 +52,7 @@ var (
 // the real process environment or filesystem lookup rules.
 var (
 	dtrackSecretLookup = os.Getenv
-	dtrackReadBOM       = os.ReadFile
+	dtrackReadBOM      = os.ReadFile
 )
 
 // Stable, non-server-authored reason tokens this function itself can add
@@ -59,9 +61,9 @@ var (
 // never a server response, but it must be just as inconclusive, never a
 // silent approval.
 const (
-	gateReasonDTrackSecretMissing = "dtrack_secret_missing"
+	gateReasonDTrackSecretMissing   = "dtrack_secret_missing"
 	gateReasonDTrackSBOMUnavailable = "dtrack_sbom_unavailable"
-	gateReasonDTrackInvalidHost    = "dtrack_invalid_host"
+	gateReasonDTrackInvalidHost     = "dtrack_invalid_host"
 )
 
 // applyDTrackGate evaluates quality_gates.ssor_dtrack when cfg.Declared()
@@ -75,7 +77,7 @@ const (
 // Inconclusive. A breach is never downgraded by this mode: exactly like
 // evaluateGate's own threshold loop, a real breach sets Fail
 // unconditionally.
-func applyDTrackGate(ctx context.Context, cfg config.DTrackGateConfig, inconclusiveMode string, filter *redaction.Filter) (result gateDecision, reason string, newFilter *redaction.Filter) {
+func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclusiveMode string, filter *redaction.Filter) (result gateDecision, reason string, newFilter *redaction.Filter) {
 	newFilter = filter
 	if !cfg.Declared() {
 		return gateDecision{}, "", filter
@@ -102,13 +104,14 @@ func applyDTrackGate(ctx context.Context, cfg config.DTrackGateConfig, inconclus
 		return result, reason, newFilter
 	}
 
-	bom, err := dtrackReadBOM(cfg.SBOMGenerator.OutputFile)
-	if err != nil || len(bom) == 0 {
+	bomPath := cfg.SBOMOutputFile()
+	bom, err := dtrackReadBOM(bomPath)
+	if bomPath == "" || err != nil || len(bom) == 0 {
 		result.Inconclusive = true
 		result.Fail = blockOnInconclusive
 		reason = gateReasonDTrackSBOMUnavailable
 		result.Lines = append(result.Lines, fmt.Sprintf(
-			"ssor_dtrack: SBOM em sbom_generator.output_file %q não pôde ser lido", cfg.SBOMGenerator.OutputFile,
+			"ssor_dtrack: SBOM em sbom_generator.output_file %q não pôde ser lido", bomPath,
 		))
 		return result, reason, newFilter
 	}
