@@ -23,8 +23,9 @@
 #                   as success carrying a visible inconclusive alert --
 #                   never the "aprovado" word -- while aurumcode/review
 #                   still reads failure naming provider_failure; exits 0
-#                   even under --exigir-qualidade's own stricter check -- for
-#                   both the transport failure and the --limite refusal
+#                   (with --exigir-qualidade the stricter check exits with the
+#                   review-not-completed code instead) -- for both the
+#                   transport failure and the --limite refusal
 #   AC-003          with no `gate:` key declared anywhere, the failure stays
 #                   byte-identical to the command's behavior before this
 #                   card: exit 1, no status published, no audit/SARIF file
