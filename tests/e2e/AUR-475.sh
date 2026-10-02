@@ -78,7 +78,10 @@ cat >"$run_dir/fixtures/finding.json" <<'EOF'
       "severity": "error",
       "rule_id": "security/command-injection",
       "message": "user input reaches a shell",
-      "suggestion": "pass an argument vector"
+      "suggestion": "pass an argument vector",
+      "evidence": "a linha adicionada passa um valor de ambiente direto para o interpretador de comandos",
+      "impact": "um valor hostil nessa variavel passa a executar comandos arbitrarios",
+      "verification": "reexecutar com um valor contendo caracteres de controle e confirmar que nao e interpretado"
     }
   ],
   "summary": "one finding"
