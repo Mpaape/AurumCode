@@ -227,6 +227,16 @@ is_known_red() {
 # actually invoked (invoked_log): a build or environment failure that
 # exits non-zero before ever running `aurumcode` must not be read as "ran
 # clean" just because there is nothing in the discard log either.
+#
+# The discard check runs FIRST, for every script, unconditionally --
+# before the known-red exemption or any other exit-code branch gets a
+# chance to `continue`. A known-red script (AUR-438 et al.) still stays
+# red for its own, already-tracked, unrelated reason, but it can ALSO
+# regress its own corrected fixture, and the known-red exemption must
+# never excuse that: it only ever excuses the exit code, never a
+# discard. (A prior version continued on known-red before reaching this
+# check, so stripping evidence back out of AUR-438's corrected inline
+# finding passed AC-001 silently -- fixed here.)
 run_ac001() {
   local any_bad=0 name
   while IFS= read -r name; do
@@ -238,6 +248,14 @@ run_ac001() {
       cat "$e2e_out" >&2
       infra "e2e-infra:$name:$e2e_rc"
     fi
+
+    if [[ -s "$discard_log" ]]; then
+      cat "$discard_log" >&2
+      cat "$e2e_out" >&2
+      printf '%s/%s/undeclared-discard:%s\n' "$card" "$selector" "$name" >&2
+      any_bad=1
+    fi
+
     if [[ "$e2e_rc" -ne 0 ]]; then
       if is_known_red "$name"; then
         continue
@@ -252,16 +270,13 @@ run_ac001() {
         continue
       fi
       printf '%s/%s/unexpected-red-but-invoked:%s\n' "$card" "$selector" "$name" >&2
-    elif [[ ! -s "$invoked_log" ]]; then
-      cat "$e2e_out" >&2
-      printf '%s/%s/passed-without-invoking-binary:%s\n' "$card" "$selector" "$name" >&2
       any_bad=1
       continue
     fi
-    if [[ -s "$discard_log" ]]; then
-      cat "$discard_log" >&2
+
+    if [[ ! -s "$invoked_log" ]]; then
       cat "$e2e_out" >&2
-      printf '%s/%s/undeclared-discard:%s\n' "$card" "$selector" "$name" >&2
+      printf '%s/%s/passed-without-invoking-binary:%s\n' "$card" "$selector" "$name" >&2
       any_bad=1
     fi
   done < <(fixture_scripts)
