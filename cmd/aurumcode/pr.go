@@ -772,7 +772,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		repo:                   owner + "/" + repoName,
 		reviewedSHA:            commitID,
 		model:                  firstNonEmpty(opts.modelo, os.Getenv("LLM_MODEL")),
-		verdict:                result.Verdict,
+		verdict:                canonicalVerdict(result),
 		gate:                   gateResult,
 		gateInconclusiveReason: gateInconclusiveReason,
 		diff:                   diff,

@@ -1204,7 +1204,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		repo:                   os.Getenv("GITHUB_REPOSITORY"),
 		reviewedSHA:            os.Getenv("GITHUB_SHA"),
 		model:                  firstNonEmpty(*modelo, os.Getenv("LLM_MODEL")),
-		verdict:                result.Verdict,
+		verdict:                canonicalVerdict(result),
 		gate:                   gateResult,
 		gateInconclusiveReason: gateInconclusiveReason,
 		diff:                   diff,
