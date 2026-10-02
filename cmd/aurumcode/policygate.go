@@ -76,9 +76,6 @@ type gateDecision struct {
 	// exact point Breach is set below, so it is never populated by a run
 	// that never reached (or never passed) the threshold loop at all
 	// (e.g. gate.inconclusive: block, Fail without Breach).
-	// FindingOrigins (AUR-556) maps findingOriginKey -> origin for findings
-	// counted from a non-skill source, so the SARIF document can name it.
-	FindingOrigins    map[string]string
 	BlockingFindings  []render.AuditFinding
 	AppliedExceptions []render.AuditException
 }
@@ -345,6 +342,7 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 			Path:     issue.File,
 			Line:     issue.Line,
 			Severity: issue.Severity,
+			Origin:   gateOriginSkills,
 		})
 	}
 	return d, nil

@@ -241,6 +241,10 @@ func run(args []string, stdout, stderr *os.File) int {
 		// AUR-551: standalone, config-driven SBOM/image signing
 		// (Sigstore/Cosign). See aur551.go.
 		return runSign(args[1:], stdout, errW)
+	case "xbom":
+		// AUR-552: Build BOM / CBOM in CycloneDX 1.6, catalog-driven,
+		// evidence-verified. See aur552.go.
+		return runXBOM(args[1:], stdout, errW)
 	default:
 		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2

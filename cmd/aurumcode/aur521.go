@@ -116,6 +116,10 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 	}
 
 	if in.sarifPath != "" {
+		origins := make(map[string]string, len(blocking))
+		for _, b := range blocking {
+			origins[findingOriginKey(b.RuleID, b.Path, b.Line)] = b.Origin
+		}
 		findings := make([]render.SARIFFinding, 0, len(in.issues))
 		for _, issue := range in.issues {
 			title := ""
@@ -132,9 +136,9 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 				Message:   issue.Message,
 				Context:   identity.Context,
 			}
-			// AUR-556: name the gate origin of a counted non-skill finding.
-			if origin, ok := in.gate.FindingOrigins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
-				finding.Message = fmt.Sprintf("%s [origem: %s]", finding.Message, origin)
+			// Gate origin of a counted finding, as a typed SARIF property.
+			if origin, ok := origins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
+				finding.Origin = origin
 			}
 			if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
 				finding.Suppressed = true

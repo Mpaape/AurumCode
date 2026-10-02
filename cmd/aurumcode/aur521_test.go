@@ -45,6 +45,7 @@ type auditFile struct {
 		Path     string `json:"path"`
 		Line     int    `json:"line"`
 		Severity string `json:"severity"`
+		Origin   string `json:"origin"`
 	} `json:"blocking_findings"`
 	ExceptionsApplied []map[string]any `json:"exceptions_applied"`
 	Coverage          struct {
