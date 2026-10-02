@@ -9,39 +9,37 @@ import (
 	"testing"
 )
 
-// writeSBOMConfig writes root/.aurumcode/quality_gates.yml with this
-// card's one documented section.
-func writeSBOMConfig(t *testing.T, root string) {
+// writeConfig writes root/.aurumcode/config.yml -- the SAME file every
+// other section (review, rules, ignore, gate, exceptions) already uses --
+// with this card's quality_gates.ssor_dtrack.sbom_generator section, and,
+// when inconclusive is non-blank, a gate.inconclusive section alongside
+// it in the SAME file (AUR-549 v2: no separate quality_gates.yml).
+func writeConfig(t *testing.T, root, inconclusive string) {
 	t.Helper()
 	dir := filepath.Join(root, ".aurumcode")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir %s: %v", dir, err)
 	}
-	content := "quality_gates:\n" +
-		"  ssor_dtrack:\n" +
-		"    sbom_generator:\n" +
-		"      tool: trivy\n" +
-		"      format: cyclonedx\n" +
-		"      spec_version: \"1.6\"\n" +
-		"      output_file: sbom_app_cyclonedx.json\n"
-	if err := os.WriteFile(filepath.Join(dir, "quality_gates.yml"), []byte(content), 0o644); err != nil {
-		t.Fatalf("write quality_gates.yml: %v", err)
+	var b strings.Builder
+	b.WriteString("quality_gates:\n")
+	b.WriteString("  ssor_dtrack:\n")
+	b.WriteString("    sbom_generator:\n")
+	b.WriteString("      tool: trivy\n")
+	b.WriteString("      format: cyclonedx\n")
+	b.WriteString("      spec_version: \"1.6\"\n")
+	b.WriteString("      output_file: sbom_app_cyclonedx.json\n")
+	if strings.TrimSpace(inconclusive) != "" {
+		b.WriteString("gate:\n  inconclusive: " + inconclusive + "\n")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yml"), []byte(b.String()), 0o644); err != nil {
+		t.Fatalf("write config.yml: %v", err)
 	}
 }
 
-// writeGateConfig writes root/.aurumcode/config.yml with just a gate
-// section -- the exact file/key internal/config.Load already owns, used
-// here only to exercise gate.inconclusive, never quality_gates itself.
-func writeGateConfig(t *testing.T, root, inconclusive string) {
+// writeSBOMConfig writes only the sbom_generator section, no gate.
+func writeSBOMConfig(t *testing.T, root string) {
 	t.Helper()
-	dir := filepath.Join(root, ".aurumcode")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", dir, err)
-	}
-	content := "gate:\n  inconclusive: " + inconclusive + "\n"
-	if err := os.WriteFile(filepath.Join(dir, "config.yml"), []byte(content), 0o644); err != nil {
-		t.Fatalf("write config.yml: %v", err)
-	}
+	writeConfig(t, root, "")
 }
 
 // fakeTrivyBehavior selects what the fake trivy script writes to the path
@@ -222,8 +220,7 @@ func TestAUR549MissingTrivyIsInconclusive(t *testing.T) {
 
 	t.Run("GateBlockFailsClosed", func(t *testing.T) {
 		root := t.TempDir()
-		writeSBOMConfig(t, root)
-		writeGateConfig(t, root, "block")
+		writeConfig(t, root, "block")
 		emptyDir := t.TempDir()
 		t.Setenv("PATH", emptyDir)
 
@@ -239,8 +236,7 @@ func TestAUR549MissingTrivyIsInconclusive(t *testing.T) {
 
 	t.Run("GateWarnNeverBlocks", func(t *testing.T) {
 		root := t.TempDir()
-		writeSBOMConfig(t, root)
-		writeGateConfig(t, root, "warn")
+		writeConfig(t, root, "warn")
 		binDir, _ := writeFakeTrivy(t, behaviorFail)
 		setFakePATH(t, binDir)
 
