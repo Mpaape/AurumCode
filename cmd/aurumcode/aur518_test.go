@@ -9,6 +9,11 @@ package main
 // fixture and a small sibling helper for the policy side.
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -161,6 +166,71 @@ func TestAUR518PolicyAndRepoSkillsBothReachPrompt(t *testing.T) {
 	}
 	if policyIdx > repoIdx {
 		t.Fatalf("expected the policy's skill before the repository's in the prompt (policy at %d, repo at %d)", policyIdx, repoIdx)
+	}
+}
+
+// TestAUR518PRPolicyWarningReachesPublishedReview covers AC-001 on the --pr
+// path (cloning the httptest GitHub pattern from
+// TestAUR476PRDeclaresOmittedTests): with a central policy active, the
+// pull request's own "rules.<id>.enabled: false" is ignored in the
+// published review -- the policy-protected finding and the warning naming
+// the overridden rule both reach the posted review body, not just the
+// terminal.
+func TestAUR518PRPolicyWarningReachesPublishedReview(t *testing.T) {
+	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ dbPassword := \"hunter2-super-secret\"\n+ _ = dbPassword\n+}\n"
+	headConfig := "rules:\n  analysis/hardcoded-secret:\n    enabled: false\n"
+	encodedConfig := base64.StdEncoding.EncodeToString([]byte(headConfig))
+
+	var posted struct {
+		Body string `json:"body"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48":
+			_, _ = w.Write([]byte(diffBody))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/"):
+			_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, encodedConfig)
+		case r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/reviews") || strings.HasSuffix(r.URL.Path, "/comments")):
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/reviews"):
+			buf := new(bytes.Buffer)
+			_, _ = buf.ReadFrom(r.Body)
+			posted.Body = buf.String()
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":1}`))
+		default:
+			t.Fatalf("unexpected GitHub request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(aur518FixtureResponse), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+	t.Setenv("AURUMCODE_GITHUB_API_URL", server.URL)
+	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")
+	t.Setenv("GITHUB_SHA", "head-sha")
+	t.Setenv("AURUMCODE_BASE_SHA", "base")
+	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
+
+	policyDir := policyFixture(t, "")
+
+	var stdout, stderr strings.Builder
+	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+		policyDir:      policyDir,
+	})
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(posted.Body, hardcodedSecretMessage) {
+		t.Fatalf("published review lost the policy-protected finding:\n%s", posted.Body)
+	}
+	if !strings.Contains(posted.Body, "analysis/hardcoded-secret") {
+		t.Fatalf("published review does not name the overridden rule:\n%s", posted.Body)
 	}
 }
 
