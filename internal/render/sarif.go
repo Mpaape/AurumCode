@@ -83,7 +83,12 @@ type sarifLocation struct {
 
 type sarifPhysicalLocation struct {
 	ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
-	Region           sarifRegion           `json:"region"`
+	// Region is a pointer so a finding with no usable line number (Line <
+	// 1 -- a general/file-level finding) omits it entirely: SARIF 2.1.0
+	// requires region.startLine >= 1 when region is present at all, and
+	// github/codeql-action/upload-sarif rejects a document that violates
+	// that (AC-002).
+	Region *sarifRegion `json:"region,omitempty"`
 }
 
 type sarifArtifactLocation struct {
@@ -167,16 +172,17 @@ func BuildSARIFLog(toolVersion string, findings []SARIFFinding, executionSuccess
 			Context: f.Context,
 		})
 
+		physical := sarifPhysicalLocation{
+			ArtifactLocation: sarifArtifactLocation{URI: normalizeFindingPath(f.Path)},
+		}
+		if f.Line >= 1 {
+			physical.Region = &sarifRegion{StartLine: f.Line}
+		}
 		result := sarifResult{
-			RuleID:  f.RuleID,
-			Level:   severityToSARIFLevel(f.Severity),
-			Message: sarifMessage{Text: f.Message},
-			Locations: []sarifLocation{{
-				PhysicalLocation: sarifPhysicalLocation{
-					ArtifactLocation: sarifArtifactLocation{URI: normalizeFindingPath(f.Path)},
-					Region:           sarifRegion{StartLine: f.Line},
-				},
-			}},
+			RuleID:    f.RuleID,
+			Level:     severityToSARIFLevel(f.Severity),
+			Message:   sarifMessage{Text: f.Message},
+			Locations: []sarifLocation{{PhysicalLocation: physical}},
 			PartialFingerprints: map[string]string{
 				FindingFingerprintKey: fingerprint,
 			},

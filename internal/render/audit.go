@@ -22,11 +22,17 @@ import (
 // AuditRecord is the complete, redacted-before-write compliance record for
 // one review run.
 type AuditRecord struct {
+	// AC-001 requires every field above to be present, including on a
+	// plain local run where several of these are naturally empty (no
+	// GITHUB_* env, no --modelo) -- never omitted just because they
+	// happen to be "". Only ExceptionsApplied/Coverage.Omitted use
+	// omitempty, and only because they are slices whose empty encoding
+	// ("[]"/absent) is equally explicit either way.
 	PolicyDigest string `json:"policy_digest"`
-	WorkflowSHA  string `json:"workflow_sha,omitempty"`
-	Repo         string `json:"repo,omitempty"`
-	ReviewedSHA  string `json:"reviewed_sha,omitempty"`
-	Model        string `json:"model,omitempty"`
+	WorkflowSHA  string `json:"workflow_sha"`
+	Repo         string `json:"repo"`
+	ReviewedSHA  string `json:"reviewed_sha"`
+	Model        string `json:"model"`
 	Verdict      string `json:"verdict"`
 
 	Gate AuditGate `json:"gate"`

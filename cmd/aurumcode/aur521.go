@@ -45,6 +45,13 @@ type complianceArtifactInputs struct {
 	acceptedOrigin         string
 	gateConfig             config.GateConfig
 
+	// diff is the exact diff this run reviewed. The SARIF fingerprint is
+	// built from the code AT (issue.File, issue.Line, issue.Side) in this
+	// diff (render.FindingIdentityFor) -- never from issue.Message/
+	// Evidence, which are the model's own, rewordable account of the
+	// finding, not the code itself.
+	diff *types.Diff
+
 	issues       []types.ReviewIssue
 	dynamicRules map[string]review.Rule
 
@@ -63,14 +70,18 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 	}
 
 	policyDigest := render.PolicyDigest(in.policyDir, in.centralCfg)
-	// AUR-521's own workflow-SHA convention: GITHUB_WORKFLOW_SHA (the
-	// reusable workflow's own version, when a caller forwards it) takes
+	// AUR-521's own workflow-SHA convention: AURUMCODE_WORKFLOW_SHA (the
+	// reusable workflow's own version, forwarded under a name GitHub
+	// Actions does not reserve -- GITHUB_SHA and, per docs/specs/AUR-504.md
+	// and this package's own pr.go comments, very likely GITHUB_WORKFLOW_SHA
+	// too, are reserved to the pull_request event's own synthetic merge
+	// commit and cannot be overridden by a step's env: block) takes
 	// precedence over GITHUB_SHA (the commit under review -- a usable, if
 	// coarser, fallback when the workflow SHA was never forwarded).
-	workflowSHA := firstNonEmpty(os.Getenv("GITHUB_WORKFLOW_SHA"), os.Getenv("GITHUB_SHA"))
+	workflowSHA := firstNonEmpty(os.Getenv("AURUMCODE_WORKFLOW_SHA"), os.Getenv("GITHUB_SHA"))
 
-	decision, reason := auditGateOutcome(in.gate)
-	blocking := matchedBlockingFindings(in.gateConfig, in.acceptedOrigin, in.dynamicRules, in.issues)
+	decision, reason := auditGateOutcome(in.gate, in.gateInconclusiveReason)
+	blocking := matchedBlockingFindings(in.gate.Breach, in.gateConfig, in.acceptedOrigin, in.dynamicRules, in.issues)
 
 	if in.auditoriaPath != "" {
 		rec := render.BuildAuditRecord(
@@ -95,6 +106,7 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 			if rule, ok := in.dynamicRules[issue.RuleID]; ok {
 				title = rule.Title
 			}
+			identity := render.FindingIdentityFor(in.diff, issue, filter)
 			findings = append(findings, render.SARIFFinding{
 				RuleID:    issue.RuleID,
 				RuleTitle: title,
@@ -102,7 +114,7 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 				Line:      issue.Line,
 				Severity:  issue.Severity,
 				Message:   issue.Message,
-				Context:   issue.Evidence,
+				Context:   identity.Context,
 			})
 		}
 		executionSuccessful := in.gateInconclusiveReason == ""
@@ -115,17 +127,22 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 // auditGateOutcome collapses a gateDecision (policygate.go) into the
 // pass/fail/inconclusive decision AC-001's audit record names, mirroring
 // publishPolicyGateStatus's own switch (policygate.go) without publishing
-// anything: no gate declared, or a gate that ran clean, both read as "pass"
-// -- there is nothing for this record to block on.
-func auditGateOutcome(g gateDecision) (decision, reason string) {
+// anything. inconclusiveReason is checked independently of the gate's own
+// Active/Inconclusive flags: a run can be genuinely inconclusive (provider
+// failure, partial coverage, degraded parse) with NO gate declared at all
+// (gate.Declared() == false, e.g. no `gate:` key in config), and the audit
+// record must still say "inconclusive", never "pass" -- the SARIF document
+// for the exact same run already marks executionSuccessful=false in that
+// case, and the two files must agree.
+func auditGateOutcome(g gateDecision, inconclusiveReason string) (decision, reason string) {
 	reason = strings.Join(g.Lines, "; ")
 	switch {
-	case !g.Active:
-		return "pass", ""
-	case g.Fail:
+	case g.Breach, g.Fail:
 		return "fail", reason
 	case g.Inconclusive:
 		return "inconclusive", reason
+	case inconclusiveReason != "":
+		return "inconclusive", "review inconclusive (" + inconclusiveReason + ")"
 	default:
 		return "pass", reason
 	}
@@ -137,12 +154,21 @@ func auditGateOutcome(g gateDecision) (decision, reason string) {
 // It deliberately mirrors that loop's matching rule (origin + the same
 // rule/model severity floor, effectiveSeverityRank) rather than changing
 // evaluateGate's signature to return them: policygate.go is also being
-// edited concurrently for AUR-520's exceptions, and this function only
+// edited concurrently for AUR-520's exceptions (whose accepted exceptions
+// must also flow through THIS function once that card lands, or the audit
+// record will drift from the gate's real decision), and this function only
 // READS the gate's already-public helpers, so it carries no risk of
 // disagreeing with the gate's own decision.
-func matchedBlockingFindings(gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue) []render.AuditFinding {
+//
+// breach must be the caller's own gateDecision.Breach: when a run never
+// actually ran this threshold loop at all (gate.inconclusive: block fired
+// first, Fail without Breach -- see evaluateGate's own doc), re-running the
+// loop here anyway would list findings the gate itself never graded. An
+// audit record claiming "these findings blocked the gate" when the gate
+// never checked them would be worse than listing none.
+func matchedBlockingFindings(breach bool, gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue) []render.AuditFinding {
 	out := []render.AuditFinding{}
-	if !gate.Declared() {
+	if !breach || !gate.Declared() {
 		return out
 	}
 	rank, _, ok, err := gate.Threshold()

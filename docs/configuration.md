@@ -254,7 +254,7 @@ aurumcode review --base HEAD~1 \
 ```
 
 - `--auditoria <arquivo>`: um registro JSON com o digest da política, o SHA
-  do workflow (`GITHUB_WORKFLOW_SHA`, com `GITHUB_SHA` como alternativa), o
+  do workflow (`AURUMCODE_WORKFLOW_SHA`, com `GITHUB_SHA` como alternativa), o
   repositório, o SHA revisado, o modelo, o veredito, a decisão do gate
   (`pass`/`fail`/`inconclusive` + motivo), os achados que efetivamente
   reprovaram o gate, as exceções aplicadas (campo `exceptions_applied`,
