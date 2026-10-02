@@ -1,0 +1,101 @@
+# Tutoriais executáveis
+
+Cada tutorial de `docs/tutorials/` tem uma demonstração aqui, no padrão do
+guia corporativo (`demo/gate-corporativo`): os blocos de configuração do
+documento **são** os arquivos da demonstração, cada caso de uso roda como uma
+fase, a saída da última execução real é versionada em `out/`, e
+`run.sh --check` compara essa saída com o que o documento promete.
+
+| Tutorial | Demonstração | Casos |
+|---|---|---|
+| [revisao](../../docs/tutorials/revisao.md) | `revisao/` | primeira-revisao, sem-provedor, com-provedor, fix, pr-workflow, falha-nao-revisado |
+| [skills](../../docs/tutorials/skills.md) | `skills/` | ver `skills/run.sh` |
+| [politica-central](../../docs/tutorials/politica-central.md) | `politica-central/` | ver `politica-central/run.sh` |
+
+## Como rodar
+
+```bash
+bash demo/tutoriais/<tutorial>/run.sh all       # todos os casos (docker)
+bash demo/tutoriais/<tutorial>/run.sh <caso>    # um caso
+bash demo/tutoriais/<tutorial>/run.sh --check   # out/ contra expected/, sem docker
+bash demo/tutoriais/<tutorial>/run.sh limpar    # apaga .estado/
+```
+
+No host só existem `bash`, `git`, `docker` e `python3`. O programa roda na
+imagem do produto (`docker build` do `Dockerfile` da raiz, tag
+`aurum-tutoriais:local`, construída na primeira execução; `AURUMCODE_TUT_REBUILD=1`
+força, `AURUMCODE_TUT_IMAGE=` usa outra tag), sem rede (`--network none`) e com
+o provedor de modelo falso e determinístico (`AURUMCODE_LLM_FIXTURE`): nunca
+há credencial real.
+
+## O framework (`_lib/tutorial.sh`)
+
+Um `run.sh` mínimo:
+
+```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+. "$HERE/../_lib/tutorial.sh"
+
+CASOS=(primeiro-caso caso-de-falha)
+
+caso_primeiro_caso() {
+  tut_repo primeiro-caso repo-exemplo/base repo-exemplo/mudanca
+  aurum review --base main
+  expect_rc 0 "o que este caso prova"
+}
+
+tut_main "$@"
+```
+
+| Função | O que faz |
+|---|---|
+| `CASOS=(...)` | A ordem dos casos. O caso `a-b` é a função `caso_a_b`. |
+| `tut_repo CASO BASE [OVERLAY...]` | Cria `.estado/CASO` como repositório git: copia `BASE` e comita em `main`; copia cada `OVERLAY` por cima, na branch `feature`, um commit cada. Define `TUT_WORK`, o diretório de trabalho do caso. |
+| `aurum ARGS...` | Imprime `$ aurumcode ARGS`, roda na imagem (cwd `/work` = o repositório do caso; o diretório do tutorial em `/fixtures`, só leitura), imprime `exit_code=N` e guarda `N` em `LAST_RC`. Não aborta o caso. |
+| `aurum_raw -- ARGS...` | Como `aurum`, sem eco nem `exit_code`; use para redirecionar a saída (`> arquivo`). |
+| `expect_rc N "frase"` | Imprime `RESULTADO: frase` se `LAST_RC == N`, senão `ERRO: ...` e falha o caso. |
+| `TUT_FIXTURE=arquivo.json` | Qual JSON do tutorial serve de modelo (padrão `fixture-llm.json`); `none` remove o provedor. `TUT_ENVS=(-e VAR=valor)` acrescenta variáveis ao container. |
+| `tgit ARGS...` | `git -C "$TUT_WORK"` com identidade de demonstração, só nos repositórios descartáveis (a configuração git do usuário nunca é tocada). |
+
+O `run.sh <caso>` grava `out/<caso>.log` (stdout+stderr, via `tee`) e sai com o
+código do caso. `run.sh --check` lê `expected/<caso>.txt`: **cada linha é um
+trecho literal** (`grep -F`) que precisa existir em `out/<caso>.log`; linhas
+vazias e iniciadas por `#` são ignoradas; sai 1 na primeira divergência
+(`DIVERGENCIA caso=...`). Sem docker, sem rede: serve para o aceite offline.
+
+## Criar um tutorial novo
+
+1. Crie `demo/tutoriais/<nome>/` com o `run.sh` (modelo acima), `fixture-llm.json`
+   (a forma exata aceita pelo motor: `issues[]` com `file`, `line`, `severity`,
+   `rule_id` do catálogo, `message`, `impact`, `evidence`, `suggestion`,
+   `verification`), `repo-exemplo/<base|mudanca>/...` e os demais arquivos de
+   configuração que o texto mostra.
+2. Escreva um caso por fase, com **um caso de falha**. Cada caso deve afirmar o
+   exit esperado com `expect_rc` e imprimir uma linha `RESULTADO:` que diga o
+   que foi provado.
+3. Rode `run.sh all` de verdade; o `out/` gerado é o que se versiona. Copie para
+   `expected/<caso>.txt` só as linhas que provam o caso (não o log inteiro).
+4. Em `docs/tutorials/<nome>.md`, para cada arquivo de configuração use o
+   marcador seguido do bloco, idêntico ao arquivo:
+
+   ````markdown
+   <!-- arquivo: demo/tutoriais/<nome>/caminho/do/arquivo.yml -->
+   ```yaml
+   (o conteúdo exato do arquivo)
+   ```
+   ````
+
+   e para cada saída esperada use `<!-- saida: <caso> -->` seguido de um bloco
+   cujas linhas existam, literalmente, em `out/<caso>.log`.
+5. Comandos do produto, nos blocos `bash`, começam por `aurumcode` (com ou sem
+   `$ `); o aceite confere cada subcomando e cada flag contra `--help`.
+6. Use só `localhost`, `127.0.0.1`, `example.com/.org/.net`, `.invalid`, `.test` e
+   placeholders (`OWNER/REPO`). Nunca endpoint ou nome interno.
+7. Acrescente o tutorial ao nav do `mkdocs.yml` e ao índice
+   `docs/tutorials/README.md`.
+
+`tests/acceptance/AUR-561.sh` mostra como o aceite verifica um tutorial:
+blocos idênticos aos arquivos, `--check` sobre o `out/` versionado, saídas do
+texto presentes no `out/`, comandos e flags reais, domínios reservados.
