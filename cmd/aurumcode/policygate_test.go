@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestAUR519EvaluateGateNoGateDeclared(t *testing.T) {
-	d, err := evaluateGate(config.GateConfig{}, gateOriginPolicy, nil, nil, "")
+	d, err := evaluateGate(config.GateConfig{}, gateOriginPolicy, nil, nil, "", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}
@@ -35,7 +36,7 @@ func TestAUR519EvaluateGateSeverityBreach(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "error", RuleID: "security#no-hardcoded-secrets", Message: "leak"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "")
+	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}
@@ -58,7 +59,7 @@ func TestAUR519EvaluateGateRepoOriginNeverFails(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "error", RuleID: "convencao#estilo", Message: "estilo"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "")
+	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}
@@ -75,7 +76,7 @@ func TestAUR519EvaluateGateRepoOriginNeverFails(t *testing.T) {
 // inconclusiveReason regardless of how many issues ended up in the slice.
 func TestAUR519EvaluateGateInconclusiveBlockAndWarn(t *testing.T) {
 	block := config.GateConfig{Inconclusive: "block"}
-	d, err := evaluateGate(block, gateOriginPolicy, nil, nil, "provider_failure")
+	d, err := evaluateGate(block, gateOriginPolicy, nil, nil, "provider_failure", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}
@@ -84,7 +85,7 @@ func TestAUR519EvaluateGateInconclusiveBlockAndWarn(t *testing.T) {
 	}
 
 	warn := config.GateConfig{Inconclusive: "warn"}
-	d, err = evaluateGate(warn, gateOriginPolicy, nil, nil, "provider_failure")
+	d, err = evaluateGate(warn, gateOriginPolicy, nil, nil, "provider_failure", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}
@@ -127,7 +128,7 @@ func TestAUR519EvaluateGateWarnStillFailsOnBreach(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "error", RuleID: "security#no-hardcoded-secrets", Message: "leak"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "partial_coverage")
+	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "partial_coverage", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}
@@ -154,7 +155,7 @@ func TestAUR519EvaluateGateRuleSeverityFloorsModel(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "info", RuleID: "security#no-hardcoded-secrets", Message: "leak, downgraded by the model"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "")
+	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}
@@ -172,7 +173,7 @@ func TestAUR519EvaluateGateRuleSeverityFloorsModel(t *testing.T) {
 // blocking).
 func TestAUR519EvaluateGateFailOnWithoutInconclusiveNeverApproves(t *testing.T) {
 	gate := config.GateConfig{FailOn: []string{"high"}}
-	d, err := evaluateGate(gate, gateOriginPolicy, nil, nil, "degraded_parse")
+	d, err := evaluateGate(gate, gateOriginPolicy, nil, nil, "degraded_parse", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("evaluateGate() error = %v", err)
 	}

@@ -328,10 +328,31 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// resolveCodebaseContext only ever runs once that is verified, and a
 	// mismatch is recorded as a limitation below instead of silently
 	// sending an unrelated checkout's files to the provider.
+	// AUR-536: a verified repository and HEAD (above) still say nothing
+	// about the working tree itself -- an uncommitted edit, an untracked
+	// file, or a nested clone's files all sit on disk and would otherwise
+	// reach resolveCodebaseContext unfiltered. verifiedCleanCheckoutReason
+	// (aur536.go) proves every file under the checkout matches committed
+	// content before the pass is ever allowed to run, and names exactly
+	// which files it proved -- resolveVerifiedCodebaseContext then reads
+	// only those, never a second, independent walk of its own.
 	var codebaseContextText, codebaseContextLimitation string
+	var verifiedDir string
+	var verifiedFiles []string
 	mismatch := codebaseContextMismatch(ctx, client, owner, repoName, prNumber)
 	if mismatch == "" {
-		codebaseContextText = resolveCodebaseContext(diff)
+		if dir, wdErr := os.Getwd(); wdErr == nil {
+			if reason, files := verifiedCleanCheckoutReason(dir); reason != "" {
+				mismatch = reason
+			} else {
+				verifiedDir, verifiedFiles = dir, files
+			}
+		} else {
+			mismatch = codebaseContextReasonUnverifiable
+		}
+	}
+	if mismatch == "" {
+		codebaseContextText = resolveVerifiedCodebaseContext(diff, verifiedDir, verifiedFiles)
 	} else {
 		codebaseContextLimitation = codebaseContextOmittedNotice(reviewLanguage, mismatch)
 	}
@@ -623,7 +644,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if centralCfg != nil {
 		gateOrigin = gateOriginPolicy
 	}
-	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason)
+	// AUR-520: on --pr the repo identity is simply owner/repoName -- the
+	// exact "owner/repo" the pull request belongs to, already parsed and
+	// verified by parseOwnerRepo/the authenticated GitHub API call above,
+	// never anything derived from the PR's own (author-controlled) diff
+	// or head checkout.
+	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason, reviewConfig.Exceptions, owner+"/"+repoName, time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2
