@@ -1,6 +1,8 @@
 package prompt
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"text/template"
@@ -132,14 +134,16 @@ func TestAUR543AC002DigestStableAcrossRuns(t *testing.T) {
 // hunk header (budgeting.go), either ReviewChangeScope instructional
 // variant (filetype.go), or buildUserContent's/fixedOverhead's own section
 // headers would never move the cache key at all. fixedContentForDigest now
-// renders two full BuildPrompt prompts (System+User) over fixed sentinel
-// diffs/options chosen so every one of those literals renders at least
-// once; this test pins that they are actually present in what gets hashed
-// -- a strictly stronger, more specific proof than comparing two opaque
-// digests, because sha256 is a pure function of exactly these bytes: a test
-// that pins what is inside them covers every edit a before/after hash
-// comparison could ever detect, and names the missing literal on failure
-// instead of just reporting "digest changed".
+// renders a full BuildPrompt prompt (System+User) for each fixed sentinel
+// diff/options pair, PLUS one direct call to fixedContentSyntheticCoverage
+// for the two coverage states (partial, omitted-list overflow) an
+// unbounded BuildPrompt call can never reach on its own; this test pins
+// that every one of those literals is actually present in what gets
+// hashed. Combined with TestAUR543B1DigestIsHashOfFixedContent (which pins
+// FixedContentDigest as exactly sha256 of this same rendered text), this is
+// equivalent to a before/after digest comparison for every literal listed
+// here, and more informative on failure: it names the specific missing
+// literal instead of just reporting "digest changed".
 func TestAUR543B1FixedContentCoversUserHalfAndChangeScope(t *testing.T) {
 	b := NewPromptBuilder()
 	content, err := b.fixedContentForDigest()
@@ -208,5 +212,39 @@ func TestAUR543B1ChangeScopeTextMovesDigest(t *testing.T) {
 	}
 	if after == before {
 		t.Fatal("B1: editing ReviewChangeScope's fixed instructional text must change FixedContentDigest's result")
+	}
+}
+
+// TestAUR543B1DigestIsHashOfFixedContent is the structural link
+// TestAUR543B1FixedContentCoversUserHalfAndChangeScope's containment
+// assertions depend on to actually say something about
+// FixedContentDigest(): it pins that FixedContentDigest() really is
+// `hex(sha256(fixedContentForDigest()))`, nothing more and nothing less.
+// Without this test, a future edit could leave FixedContentDigest hashing
+// something else entirely (or a constant) while fixedContentForDigest's
+// own content still contained every literal, and the containment test
+// would keep passing while proving nothing about the actual cache key.
+// With this link held, "literal X is present in fixedContentForDigest's
+// output" and "FixedContentDigest moves when X changes" become the same
+// fact: sha256 is a pure, collision-free-in-practice function of exactly
+// those bytes. tests/acceptance/AUR-543.sh's AC-001-MUT-002 relies on
+// exactly this link to let a containment-test RED stand in for a digest
+// before/after comparison -- this test is what makes that substitution
+// sound rather than a coincidence of today's implementation.
+func TestAUR543B1DigestIsHashOfFixedContent(t *testing.T) {
+	b := NewPromptBuilder()
+	content, err := b.fixedContentForDigest()
+	if err != nil {
+		t.Fatalf("fixedContentForDigest: %v", err)
+	}
+	want := sha256.Sum256([]byte(content))
+	wantHex := hex.EncodeToString(want[:])
+
+	got, err := b.FixedContentDigest()
+	if err != nil {
+		t.Fatalf("FixedContentDigest: %v", err)
+	}
+	if got != wantHex {
+		t.Fatalf("FixedContentDigest() = %q, want sha256(fixedContentForDigest()) = %q -- the digest is no longer a pure hash of the fixed content this package renders", got, wantHex)
 	}
 }

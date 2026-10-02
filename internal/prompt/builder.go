@@ -475,17 +475,20 @@ func (b *PromptBuilder) FixedContentDigest() (string, error) {
 }
 
 // fixedContentForDigest renders the exact text FixedContentDigest hashes:
-// two full BuildPrompt renderings (System+"\n\n"+User each, NUL-separated),
-// one per sentinel diff above. It is split out from FixedContentDigest
-// purely so a same-package test can inspect the rendered TEXT directly --
+// one full BuildPrompt rendering (System+"\n\n"+User, NUL-separated) per
+// fixedContentSentinelPairs entry, plus one direct, NUL-separated call to
+// fixedContentSyntheticCoverage (coverage.go's "partial" bullet and
+// omitted-list overflow line, which an unbounded BuildPrompt call can
+// never reach on its own). It is split out from FixedContentDigest purely
+// so a same-package test can inspect the rendered TEXT directly --
 // asserting it contains each specific fixed literal this card's review
 // named (coverage.go's bullets, budgeting.go's "### File:" header, both
-// ReviewChangeScope variants, buildUserContent's/fixedOverhead's section
-// headers) -- which is a strictly stronger proof than comparing two opaque
-// hash values: sha256 is a deterministic function of exactly these bytes,
-// so a test that pins what is INSIDE them covers every edit a hash
-// comparison could ever detect, and makes the specific missing literal
-// nameable in a failure message instead of just "digest changed".
+// ReviewChangeScope variants, both reviewCIContext branches,
+// buildUserContent's/fixedOverhead's section headers) -- equivalent to
+// comparing two digest values (TestAUR543B1DigestIsHashOfFixedContent
+// pins FixedContentDigest as exactly sha256 of this function's result), and
+// more informative on failure: it names the specific missing literal
+// instead of just reporting "digest changed".
 func (b *PromptBuilder) fixedContentForDigest() (string, error) {
 	var combined bytes.Buffer
 	for _, pair := range fixedContentSentinelPairs {

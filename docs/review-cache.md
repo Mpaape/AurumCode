@@ -307,38 +307,56 @@ whatever `runReview` was actually given.
 
 `internal/prompt/aur543_test.go`'s
 `TestAUR543B1FixedContentCoversUserHalfAndChangeScope` pins every one of
-these literals is actually present in what gets hashed — a strictly
-stronger check than comparing two opaque digest values, since sha256 is a
-pure function of exactly these bytes, and names the missing literal on
-failure. `TestAUR543B1ChangeScopeTextMovesDigest` additionally proves, by
-before/after comparison, that swapping `ReviewChangeScope`'s own fixed text
-(via its package-level var seam) moves `FixedContentDigest`'s actual
-result. Two of this card's own literals have no in-process seam a Go test
-can swap at runtime (`buildUserContent`'s Go string-literal headers are not
-template-driven, and `ReviewChangeScope`'s underlying strings are not
-independently swappable per-branch) — for those,
-`tests/acceptance/AUR-543.sh`'s `AC-001-MUT-002` mutation edits the real
-source (`"## Code Changes"` in `builder.go`) in a copied tree and reruns
-the containment test as a fresh process, which is the proof instead.
+these literals is actually present in what `fixedContentForDigest` renders
+and names the missing one on failure.
+`TestAUR543B1DigestIsHashOfFixedContent` is the link that makes that
+containment check mean something about the actual cache key: it pins
+`FixedContentDigest() == hex(sha256(fixedContentForDigest()))`, nothing
+more. Together: "literal X is present in the rendered text" (containment)
+plus "the digest really is a pure hash of that rendered text" (the link)
+imply "editing X moves the digest" without ever comparing two digest
+values directly — equivalent to a before/after comparison for each literal
+listed, and more informative on failure: it names the missing literal
+instead of just reporting "digest changed". `TestAUR543B1ChangeScopeTextMovesDigest`
+additionally proves, by actual before/after comparison, that swapping
+`ReviewChangeScope`'s own fixed text (via its package-level var seam) moves
+`FixedContentDigest`'s result directly.
+
+`buildUserContent`'s Go string-literal headers have no in-process seam a
+test can swap at runtime, so `tests/acceptance/AUR-543.sh`'s
+`AC-001-MUT-002` proves that one at the script level instead: it edits the
+real source (`"## Code Changes"` in `builder.go`) in a copied tree, then
+reruns BOTH tests as a fresh process and requires the containment test to
+go RED (the literal is gone) **and** the link test to stay GREEN (the
+mutation never touched `FixedContentDigest`'s own hashing code) in that
+SAME mutated tree. The second check is what rules out the hole a
+containment-RED-alone check would miss: a `FixedContentDigest` hardcoded to
+today's hex value would also make the containment test "survive" by
+coincidence (content changed, hash did not) without the link check
+catching it.
 
 What this digest does NOT, and cannot, cover: literals `internal/prompt`
-does not own. `internal/review/reviewer.go` (`Reviewer.GenerateReview`)
-calls `PromptBuilder.BuildPrompt` once and joins `System`+"\n\n"+`User`
-unchanged -- it adds no fixed literal text of its own, so it is not a gap.
-`internal/config/wrap.go`'s `contextInjectingProvider.Complete` DOES append
-further text after `PromptBuilder.BuildPrompt` runs --
-`prompt+"\n\n"+p.block`, the assembled context block -- but that block's
-content is already covered by `contextBlockCacheDigest`
-(`reviewContextCacheKey`'s own `contextBlockDigest` parameter,
-cmd/aurumcode/review_cache.go), so an edit to a configured repo/policy
-prompt or skill file is not a gap either; both files are outside this
-card's `paths` (`read_paths` only) regardless. The one real residual is
-that this digest, `contextBlockCacheDigest` and `ruleCatalogCacheDigest`
-are three SEPARATE hashes folded into the cache key by different code
-paths rather than one single rendering -- a future refactor could unify
-them, but today each one independently guards the content it owns, and
-nothing in the chain from `BuildPrompt`'s own output to the model call is
-unguarded.
+does not own. Two call sites, both outside this card's `paths`
+(`read_paths` only), add their own small fixed text AFTER
+`PromptBuilder.BuildPrompt` returns, and an edit to either joiner would not
+move this digest:
+
+- `internal/review/reviewer.go` (`Reviewer.GenerateReview`):
+  `fullPrompt := promptParts.System + "\n\n" + promptParts.User`. The two-
+  newline joiner is a fixed literal this digest does not read -- it is
+  reproduced independently inside `fixedContentForDigest` (also `"\n\n"`),
+  so today the two happen to agree, but nothing enforces that; an edit to
+  reviewer.go's own joiner would not change the cache key.
+- `internal/config/wrap.go`'s `contextInjectingProvider.Complete`:
+  `prompt + "\n\n" + p.block`. The appended `p.block` CONTENT is already
+  covered by `contextBlockCacheDigest` (`reviewContextCacheKey`'s own
+  `contextBlockDigest` parameter, cmd/aurumcode/review_cache.go), so an
+  edit to a configured repo/policy prompt or skill file does invalidate the
+  cache; the fixed `"\n\n"` joiner itself does not.
+
+Both residuals are two-character literals, not instructional text a model
+would act on differently, and a future card scoped to either file could
+fold an equivalent digest in from there if that changes.
 
 `cmd/aurumcode`'s `runReview` (`main.go`) computes this digest by calling
 `newCacheDigestBuilder()` (`review_cache.go`) — a package-level seam that
