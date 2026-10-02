@@ -139,8 +139,9 @@ if [[ "$selector" == all ]]; then
       ApplyCentralPolicyGate DegradedParseDetection EvaluateGateNoGateDeclared EvaluateGateSeverityBreach \
       EvaluateGateRepoOriginNeverFails EvaluateGateInconclusiveBlockAndWarn MergedRuleCatalogIDs \
       GateSeverityBreachFailsCheck GateInconclusiveProviderFailureBlocks GatePartialCoverageInconclusiveWarns \
-      PolicyGateStatusContextIsStable NoGateConfiguredStaysUntouched; do
-    grep -q "^--- PASS: TestAUR519$name" "$log" || fail "missing-pass:$name"
+      PolicyGateStatusContextIsStable NoGateConfiguredStaysUntouched \
+      GateSeverityBreachFailsCheckWithProfiles; do
+    grep -q "^--- PASS: TestAUR519$name " "$log" || fail "missing-pass:$name"
   done
 fi
 printf '%s/%s/pass\n' "$card" "$selector"

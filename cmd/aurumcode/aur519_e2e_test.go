@@ -242,3 +242,41 @@ func TestAUR519NoGateConfiguredStaysUntouched(t *testing.T) {
 		t.Fatalf("without a gate, a clean approve verdict must still publish unchanged:\n%s", out.String())
 	}
 }
+
+// TestAUR519GateSeverityBreachFailsCheckWithProfiles proves the gate is
+// identical with and without --perfis: a finding citing a repo-opted-in
+// skill section at gate.fail_on's threshold must still fail the check
+// (exitFindings) when --perfis selects more than one profile, exactly as
+// TestAUR519GateSeverityBreachFailsCheck already proves for the
+// single-reviewer path. Before this fix, each profile's own Reviewer never
+// learned the dynamic rule set, so the citation was discarded as an unknown
+// rule_id and the gate saw no finding at all -- "approved with a defect
+// present" purely because --perfis was selected.
+func TestAUR519GateSeverityBreachFailsCheckWithProfiles(t *testing.T) {
+	dir := coverageFixture(t, "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n")
+	if err := os.MkdirAll(filepath.Join(dir, "skills"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "skills", "security.md"), []byte("## No Hardcoded Secrets\n\nNever commit a literal credential.\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	resp := `{"summary":"ok","verdict":"approve","issues":[{"file":"app.go","line":3,"severity":"error","rule_id":"security#no-hardcoded-secrets","message":"Hardcoded secret","evidence":"dbPassword := \"hunter2-super-secret\"","impact":"Credential leak","verification":"Remove the literal secret"}]}`
+	if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1", "--perfis", "seguranca,solid"}, &out, &errOut, redaction.NewFilter())
+	if code != exitFindings {
+		t.Fatalf("exit=%d, want exitFindings(%d) with --perfis exactly as without it; stdout=%s stderr=%s", code, exitFindings, out.String(), errOut.String())
+	}
+	combined := out.String() + errOut.String()
+	if !strings.Contains(combined, "security#no-hardcoded-secrets") {
+		t.Fatalf("expected the skill/section id named in the output under --perfis:\n%s", combined)
+	}
+	if !strings.Contains(combined, "No Hardcoded Secrets") {
+		t.Fatalf("expected the section title named in the output under --perfis:\n%s", combined)
+	}
+}

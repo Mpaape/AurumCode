@@ -100,12 +100,24 @@ func (p profileProvider) Name() string {
 // once, attributed to the earliest profile in declaration order. The shared
 // tracker (when configured) meters the combined spend, so adding a profile can
 // never raise the cost ceiling.
-func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.Tracker, profiles []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext) (*types.ReviewResult, error) {
+// dynamicRules and ruleCatalogIDs are AUR-519's per-run skill-section rule
+// set and expanded prompt catalog (cmd/aurumcode/policygate.go). Each
+// profile gets its OWN Reviewer (a fresh model pass per profile), so each
+// one must be taught the catalog and accept the same dynamic rules
+// independently -- selecting --perfis must never quietly narrow the gate
+// back to the embedded catalog alone. Without this, a policy skill-section
+// finding is discarded as an unknown rule_id before the gate ever sees it,
+// which is "approved with a defect present" -- never a safe default.
+func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.Tracker, profiles []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext, dynamicRules map[string]review.Rule, ruleCatalogIDs []string) (*types.ReviewResult, error) {
 	merged := &types.ReviewResult{}
 	var findings []reviewprofile.Finding
 	for _, p := range profiles {
 		orchestrator := llm.NewOrchestrator(profileProvider{base: provider, profile: p}, nil, tracker)
 		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+		reviewer.SetDynamicRules(dynamicRules)
+		if err := reviewer.SetRuleCatalog(ruleCatalogIDs); err != nil {
+			return nil, err
+		}
 		res, err := reviewer.GenerateReviewWithContext(ctx, diff, reviewContext)
 		if err != nil {
 			return nil, err

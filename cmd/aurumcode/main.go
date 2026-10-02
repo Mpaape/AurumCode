@@ -939,7 +939,11 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			// never per profile. Zero-config/single-profile keeps the exact
 			// single call below.
 			if profilesApplied {
-				result, err = runProfilePasses(context.Background(), provider, tracker, profileRes.Profiles, toSend, reviewCtx)
+				// AUR-519: every profile's own Reviewer must accept the exact
+				// same dynamic rules and expanded catalog the single-reviewer
+				// path below installs, so the gate cannot be narrowed back to
+				// the embedded catalog alone merely by selecting --perfis.
+				result, err = runProfilePasses(context.Background(), provider, tracker, profileRes.Profiles, toSend, reviewCtx, dynamicRules, ruleCatalogIDs)
 			} else {
 				result, err = reviewer.GenerateReviewWithContext(context.Background(), toSend, reviewCtx)
 			}

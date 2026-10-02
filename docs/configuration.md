@@ -230,8 +230,8 @@ motivo de inconclusivo (falha do provedor, cobertura parcial, parse
 degradado) entra no resumo/limitações publicados, e o veredito nunca
 aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
 é publicado junto do `aurumcode/review` que `--check` já publica, só
-quando um gate foi declarado. O caminho multi-perfil (`--perfis`) ainda
-não ensina o catálogo dinâmico a cada perfil — ver `docs/specs/AUR-519.md`.
+quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
+perfil selecionado aprende o mesmo catálogo dinâmico.
 
 ## Opções públicas
 
