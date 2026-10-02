@@ -240,10 +240,18 @@ func ruleCatalogCacheDigest(ruleCatalogIDs []string, dynamicRules map[string]rev
 }
 
 // partitionByCache resolves, for every file in diff.Files, whether c
-// already holds that file's findings under model. It returns the files
-// that still need a model call, in diff order, and the per-file status
-// slice (also in diff order, one entry per diff.Files element) that
-// mergeCacheHits and persistFreshResults use afterward.
+// already holds that file's findings under model and promptVersion. It
+// returns the files that still need a model call, in diff order, and the
+// per-file status slice (also in diff order, one entry per diff.Files
+// element) that mergeCacheHits and persistFreshResults use afterward.
+//
+// AUR-543: promptVersion is no longer the hand-bumped cache.PromptVersion
+// constant. runReview (main.go) now passes a fresh
+// internal/prompt.PromptBuilder's FixedContentDigest() -- a digest of the
+// fixed content that builder actually renders (instructions, built-in rule
+// catalog, schema text), computed at run time -- so editing that embedded
+// content, without touching any constant, changes every key this function
+// computes and forces a fresh review. See docs/review-cache.md.
 //
 // AC-003 (cross-file evidence survives a partial hit): diff here is the
 // FULL reviewed diff, not yet reduced to misses -- that reduction (toSend in
@@ -261,10 +269,10 @@ func ruleCatalogCacheDigest(ruleCatalogIDs []string, dynamicRules map[string]rev
 // to that cross-file picture also invalidates the right cache entries. See
 // docs/review-cache.md for the alternative considered (refusing to serve a
 // hit for any file the changed set depends on) and why it was rejected.
-func partitionByCache(c *cache.Cache, diff *types.Diff, model string) (miss []types.DiffFile, statuses []fileCacheStatus) {
+func partitionByCache(c *cache.Cache, diff *types.Diff, model, promptVersion string) (miss []types.DiffFile, statuses []fileCacheStatus) {
 	statuses = make([]fileCacheStatus, len(diff.Files))
 	for i, f := range diff.Files {
-		key := cache.Key(f, model, cache.PromptVersion)
+		key := cache.Key(f, model, promptVersion)
 		statuses[i] = fileCacheStatus{path: filepath.Clean(f.Path), key: key}
 		entry, ok, getErr := c.Get(key)
 		if getErr == nil && ok {
