@@ -22,10 +22,16 @@ package main
 //     until this card no test proved it end-to-end with two actual servers
 //     (the AUR-513 review's own documented gap); this test also fails if
 //     that LLM_BASE_URL fold-in regresses.
+//   - TestAUR543N1DigestErrorDegradesToNoCache: a prompt-version digest
+//     computation that fails must degrade the WHOLE cache to "no cache this
+//     run" -- exactly like cache.Open failing already does -- never a crash
+//     and never a cache entry written under a meaningless key. Caching is a
+//     best-effort optimization, never a correctness gate.
 
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -186,5 +192,49 @@ func TestAUR543AC003DifferentBaseURLForcesFreshReview(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(requests1); got != 1 {
 		t.Fatalf("expected server1's request count to stay at 1 (round3 must be served from cache, not a new request), got %d", got)
+	}
+}
+
+// TestAUR543N1DigestErrorDegradesToNoCache covers N1: when
+// newCacheDigestBuilder().FixedContentDigest() fails, runReview
+// (main.go) folds that error into cacheErr exactly like a cache.Open
+// failure, which gates BOTH partitionByCache (toSend stays the full diff)
+// AND persistFreshResults (main.go: "if cacheErr == nil && ... {
+// persistFreshResults(...) }") -- so a digest failure must never write a
+// cache entry under a meaningless key, and must never crash the review.
+// prompt.NewPromptBuilderWithoutTemplates() returns a builder with an empty
+// template set but every other field set up normally, so buildBasePrompt's
+// "review" case takes its template-unavailable error branch -- a real,
+// reachable failure shape, not a synthetic panic.
+func TestAUR543N1DigestErrorDegradesToNoCache(t *testing.T) {
+	cleanFixture(t, "")
+	t.Cleanup(func() { newCacheDigestBuilder = prompt.NewPromptBuilder })
+	newCacheDigestBuilder = prompt.NewPromptBuilderWithoutTemplates
+
+	server, requests := aur543CountingServer()
+	defer server.Close()
+	t.Setenv("LLM_API_KEY", "test-key")
+	t.Setenv("LLM_MODEL", "model-aur543-n1")
+	t.Setenv("LLM_BASE_URL", server.URL)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != 0 {
+		t.Fatalf("exit=%d, want 0; stdout=%s stderr=%s", code, out.String(), errOut.String())
+	}
+	if got := atomic.LoadInt32(requests); got != 1 {
+		t.Fatalf("N1: expected the review to still complete and reach the model exactly once despite the digest failure, got %d requests", got)
+	}
+	if strings.Contains(errOut.String(), "reused") {
+		t.Fatalf("N1: a digest failure must never report a cache reuse:\n%s", errOut.String())
+	}
+
+	cacheDir := os.Getenv("AURUMCODE_CACHE_DIR")
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		t.Fatalf("reading cache dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("N1: a prompt-version digest failure must degrade to NO caching at all -- found %d entries written under a meaningless key", len(entries))
 	}
 }
