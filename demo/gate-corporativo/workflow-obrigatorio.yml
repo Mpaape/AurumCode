@@ -1,0 +1,23 @@
+# Workflow obrigatorio da organizacao (repositorio do dev ou ruleset da organizacao).
+# ORG, <SHA...> e os secrets sao placeholders: troque pelos seus.
+name: Revisao obrigatoria AurumCode
+on:
+  pull_request:
+
+jobs:
+  review:
+    # Um workflow reutilizavel nao concede permissao que o chamador nao tem:
+    # id-token: write e necessario para a assinatura keyless (Cosign).
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+      checks: read
+      id-token: write
+    uses: ORG/AurumCode/.github/workflows/review.yml@<SHA-FIXA-DE-40-HEX-DO-AURUMCODE>
+    with:
+      policy_repository: ORG/aurumcode-policy
+      policy_ref: <SHA-FIXA-DE-40-HEX-DA-POLITICA>
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
