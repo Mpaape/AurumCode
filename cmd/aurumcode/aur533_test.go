@@ -226,7 +226,7 @@ func TestAUR533PRFreshArtifactIsRecordedInAudit(t *testing.T) {
 	audit := filepath.Join(t.TempDir(), "audit.json")
 	code, published, body := runAUR533PR(t, aur533Config("7", "block"), audit)
 	if code != 0 || published.State != "success" {
-		t.Fatalf("exit=%d status=%+v\n%s", code, published, body)
+		t.Fatalf("exit=%d status=%q", code, published.State)
 	}
 	raw, err := os.ReadFile(audit)
 	if err != nil {
@@ -236,7 +236,7 @@ func TestAUR533PRFreshArtifactIsRecordedInAudit(t *testing.T) {
 		AnalysisData *render.AnalysisDataAudit `json:"analysis_data"`
 	}
 	if err := json.Unmarshal(raw, &rec); err != nil || rec.AnalysisData == nil {
-		t.Fatalf("audit lacks analysis_data: %s", raw)
+		t.Fatalf("audit lacks analysis_data (%d bytes)", len(raw))
 	}
 	tag, _ := f.m.Tag()
 	if rec.AnalysisData.Digest != f.m.SetDigest || rec.AnalysisData.GeneratedAt != "2026-10-02T03:17:00Z" || rec.AnalysisData.Tag != tag {
@@ -251,12 +251,12 @@ func TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt(t *testing.T) {
 	useAUR533Env(t, f.srv.URL, aur533Gen.Add(20*24*time.Hour))
 	code, published, body := runAUR533PR(t, aur533Config("7", "block"), "")
 	if code == 0 {
-		t.Fatalf("block + stale must not exit 0\n%s", body)
+		t.Fatalf("block + stale must not exit 0 (status %q)", published.State)
 	}
 	if published.State == "success" || published.State == "" {
-		t.Fatalf("status must not be success: %+v", published)
+		t.Fatalf("status must not be success: %q", published.State)
 	}
 	if !strings.Contains(body, "analysis_data_stale") {
-		t.Fatalf("published body must carry the reason:\n%s", body)
+		t.Fatalf("published body must carry the reason (body %d bytes)", len(body))
 	}
 }
