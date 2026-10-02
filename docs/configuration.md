@@ -937,6 +937,9 @@ type: build                  # igual ao --type
 file_sets:                   # conjuntos de globs reutilizáveis ("@nome")
   workflows: [".github/workflows/*.yml"]
 exclude: [".git/**", "**/vendor/**"]
+additional:                  # regra para componentes propostos pelo modelo (obrigatória)
+  name_pattern: '^[^\s]*[/.:@][^\s]*$'   # o nome precisa casar (aqui: identificador qualificado)
+  reject_tokens: [FROM, RUN, AS, uses]   # palavras estruturais, nunca nome de componente
 entries:
   - id: github-actions-uses
     files: ["@workflows"]    # globs relativos (*, **, ?); sem ".."
@@ -955,7 +958,14 @@ Templates: `{grupo}`; `{a?b}` usa o primeiro grupo não vazio; filtros
 (ex.: `size: "{size:int}"`). Para `cryptographic-asset`, `crypto:` é o
 `cryptoProperties` (com `assetType` válido: `algorithm`, `certificate`,
 `protocol` ou `related-crypto-material`); valores que renderizam vazios são
-omitidos. A validação recusa regex inválida, `token` que não é grupo do
+omitidos. Componentes que o modelo propõe (`additional`) só entram se o nome casar
+`additional.name_pattern`, não estiver em `additional.reject_tokens`
+(comparação sem diferenciar maiúsculas) e aparecer, em fronteira de token
+(`AS` não casa dentro de `ASSERT`), na linha citada; o `token` enviado pelo
+modelo é ignorado. Rejeitados por padrão/palavra contam em
+`aurumcode:xbom:llm_rejected`; sem nome na linha, em
+`dropped_without_evidence`. A validação recusa `additional.name_pattern`
+ausente ou inválido, regex inválida, `token` que não é grupo do
 padrão, placeholder para grupo inexistente, tipo CycloneDX desconhecido, ids
 duplicados e chaves desconhecidas. Detalhes e exemplos completos em
 `docs/specs/AUR-552.md`.

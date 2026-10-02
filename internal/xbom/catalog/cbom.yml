@@ -31,6 +31,11 @@ exclude:
   - ".git/**"
   - "**/node_modules/**"
   - "**/vendor/**"
+additional:
+  # A model-proposed asset must look like an identifier of at least three
+  # characters; structural words of the covered languages are refused.
+  name_pattern: '^[A-Za-z][A-Za-z0-9]{2,}(?:[-_.][A-Za-z0-9]+)*$'
+  reject_tokens: [import, from, require, include, using, package, def, func, class, return, public, private, static, const, var, let, new, function, export, module, crypto, cipher, key, hash, algorithm, true, false, null, FROM, RUN, AS, uses]
 entries:
   - id: hash
     files: ["@code", "@config"]

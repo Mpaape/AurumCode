@@ -157,10 +157,10 @@ func TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM(t *testing.T) {
 	xbomWrite(t, filepath.Dir(fixture), filepath.Base(fixture), `{
 	  "candidates":[{"id":"c1","description":"enriched by the model"}],
 	  "additional":[
-	    {"type":"library","name":"phantom-action","occurrences":[{"location":"Dockerfile","line":1,"token":"phantom-action"}]},
-	    {"type":"library","name":"phantom-file","occurrences":[{"location":"nope/missing.yml","line":1,"token":"x"}]},
-	    {"type":"library","name":"phantom-escape","occurrences":[{"location":"../../etc/passwd","line":1,"token":"root"}]},
-	    {"type":"container","name":"distroless/static","occurrences":[{"location":"Dockerfile","line":2,"token":"FROM"}]}
+	    {"type":"library","name":"phantom.io/action","occurrences":[{"location":"Dockerfile","line":1,"token":"phantom.io/action"}]},
+	    {"type":"library","name":"phantom.io/file","occurrences":[{"location":"nope/missing.yml","line":1,"token":"x"}]},
+	    {"type":"library","name":"phantom.io/escape","occurrences":[{"location":"../../etc/passwd","line":1,"token":"root"}]},
+	    {"type":"container","name":"gcr.io/distroless/static","occurrences":[{"location":"Dockerfile","line":2,"token":"FROM"}]}
 	  ]}`)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 	out := filepath.Join(t.TempDir(), "b.json")
@@ -173,12 +173,12 @@ func TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM(t *testing.T) {
 	for _, c := range d.Components {
 		names[c.Name] = true
 	}
-	for _, bad := range []string{"phantom-action", "phantom-file", "phantom-escape"} {
+	for _, bad := range []string{"phantom.io/action", "phantom.io/file", "phantom.io/escape"} {
 		if names[bad] {
 			t.Fatalf("component without evidence entered the BOM: %s", bad)
 		}
 	}
-	if !names["distroless/static"] {
+	if !names["gcr.io/distroless/static"] {
 		t.Fatal("a component with a verifiable occurrence was dropped")
 	}
 	if d.meta("aurumcode:xbom:dropped_without_evidence") != "3" {
@@ -234,7 +234,7 @@ func TestAUR552PolicyCatalogOverridesRepository(t *testing.T) {
 	pol := t.TempDir()
 	xbomWrite(t, pol, ".aurumcode/config.yml", "")
 	cat := func(name string) string {
-		return "version: 1\ntype: build\nentries:\n  - id: e\n    files: [\"Dockerfile\"]\n    pattern: '^FROM (?P<name>\\S+)'\n    token: name\n    component: {type: container, name: \"" + name + "-{name}\"}\n"
+		return "version: 1\ntype: build\nadditional: {name_pattern: '.+'}\nentries:\n  - id: e\n    files: [\"Dockerfile\"]\n    pattern: '^FROM (?P<name>\\S+)'\n    token: name\n    component: {type: container, name: \"" + name + "-{name}\"}\n"
 	}
 	xbomWrite(t, repo, ".aurumcode/xbom/build.yml", cat("repo"))
 	xbomWrite(t, pol, ".aurumcode/xbom/build.yml", cat("policy"))
@@ -249,23 +249,21 @@ func TestAUR552PolicyCatalogOverridesRepository(t *testing.T) {
 	}
 }
 
-// Unwritable destination directory (when not running as root): non-zero and
-// no file left behind.
-func TestAUR552UnwritableOutDirLeavesNothing(t *testing.T) {
+// --out whose parent is a regular file (ENOTDIR) fails regardless of
+// permissions or uid: non-zero and nothing written.
+func TestAUR552OutParentIsFileLeavesNothing(t *testing.T) {
 	xbomNoLLMEnv(t)
-	if os.Geteuid() == 0 {
-		t.Skip("root ignores directory permissions")
-	}
 	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chmod(dir, 0o700)
-	code, _, _ := runXBOMTo(t, "--type", "build", "--repo", xbomRepo(t), "--out", filepath.Join(dir, "x.json"))
+	parent := filepath.Join(dir, "afile")
+	xbomWrite(t, dir, "afile", "x")
+	code, _, _ := runXBOMTo(t, "--type", "build", "--repo", xbomRepo(t), "--out", filepath.Join(parent, "x.json"))
 	if code == 0 {
-		t.Fatal("unwritable directory exited 0")
+		t.Fatal("ENOTDIR exited 0")
 	}
-	if ents, _ := os.ReadDir(dir); len(ents) != 0 {
-		t.Fatalf("partial file left: %v", ents)
+	if ents, _ := os.ReadDir(dir); len(ents) != 1 {
+		t.Fatalf("stray files: %v", ents)
+	}
+	if b, _ := os.ReadFile(parent); string(b) != "x" {
+		t.Fatal("regular file was clobbered")
 	}
 }

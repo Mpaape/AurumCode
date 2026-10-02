@@ -25,6 +25,9 @@ type Occurrence struct {
 	Location string
 	Line     int
 	Token    string
+	// Model marks an occurrence cited by the model: its token is the
+	// component name and must sit on a token boundary of the line.
+	Model bool
 }
 
 // Component is an xBOM component before serialization.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -91,21 +92,23 @@ func TestEmbeddedCatalogsAreValid(t *testing.T) {
 }
 
 func TestInvalidCatalogRefused(t *testing.T) {
-	base := "version: 1\ntype: build\nentries:\n  - id: a\n    files: [\"*.txt\"]\n    pattern: '(?P<name>x)'\n    token: name\n    component: {type: library, name: \"{name}\"}\n"
+	base := "version: 1\ntype: build\nadditional: {name_pattern: '.+'}\nentries:\n  - id: a\n    files: [\"*.txt\"]\n    pattern: '(?P<name>x)'\n    token: name\n    component: {type: library, name: \"{name}\"}\n"
 	if _, err := ParseCatalog([]byte(base), "build", "t"); err != nil {
 		t.Fatalf("base catalog should be valid: %v", err)
 	}
 	cases := map[string]string{
-		"bad regex":       strings.Replace(base, "(?P<name>x)", "(?P<name>x", 1),
-		"token not group": strings.Replace(base, "token: name", "token: nope", 1),
-		"bad type":        strings.Replace(base, "type: library", "type: bogus", 1),
-		"placeholder":     strings.Replace(base, "{name}", "{ghost}", 1),
-		"wrong type":      strings.Replace(base, "type: build", "type: cbom", 1),
-		"unknown key":     base + "extra: 1\n",
-		"no entries":      "version: 1\ntype: build\nentries: []\n",
-		"unknown set":     strings.Replace(base, `"*.txt"`, `"@nope"`, 1),
-		"glob escape":     strings.Replace(base, `"*.txt"`, `"../x"`, 1),
-		"crypto no asset": strings.Replace(base, "type: library", "type: cryptographic-asset", 1),
+		"bad regex":        strings.Replace(base, "(?P<name>x)", "(?P<name>x", 1),
+		"token not group":  strings.Replace(base, "token: name", "token: nope", 1),
+		"bad type":         strings.Replace(base, "type: library", "type: bogus", 1),
+		"placeholder":      strings.Replace(base, "{name}", "{ghost}", 1),
+		"wrong type":       strings.Replace(base, "type: build", "type: cbom", 1),
+		"unknown key":      base + "extra: 1\n",
+		"no entries":       "version: 1\ntype: build\nadditional: {name_pattern: '.+'}\nentries: []\n",
+		"no name_pattern":  strings.Replace(base, "additional: {name_pattern: '.+'}\n", "", 1),
+		"bad name_pattern": strings.Replace(base, "'.+'", "'('", 1),
+		"unknown set":      strings.Replace(base, `"*.txt"`, `"@nope"`, 1),
+		"glob escape":      strings.Replace(base, `"*.txt"`, `"../x"`, 1),
+		"crypto no asset":  strings.Replace(base, "type: library", "type: cryptographic-asset", 1),
 	}
 	for name, y := range cases {
 		if _, err := ParseCatalog([]byte(y), "build", "t"); err == nil {
@@ -172,11 +175,11 @@ func keys(m map[string]map[string]any) []string {
 func TestVerifyDropsComponentWithoutEvidence(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "a.txt", "alpha\nbeta\n")
-	good := &Component{Type: "library", Name: "g", Occurrences: []Occurrence{{"a.txt", 2, "beta"}}}
-	wrongLine := &Component{Type: "library", Name: "w", Occurrences: []Occurrence{{"a.txt", 1, "beta"}}}
-	missingFile := &Component{Type: "library", Name: "m", Occurrences: []Occurrence{{"nope.txt", 1, "x"}}}
-	outOfRange := &Component{Type: "library", Name: "o", Occurrences: []Occurrence{{"a.txt", 99, "alpha"}}}
-	escape := &Component{Type: "library", Name: "e", Occurrences: []Occurrence{{"../a.txt", 1, "alpha"}}}
+	good := &Component{Type: "library", Name: "g", Occurrences: []Occurrence{{Location: "a.txt", Line: 2, Token: "beta"}}}
+	wrongLine := &Component{Type: "library", Name: "w", Occurrences: []Occurrence{{Location: "a.txt", Line: 1, Token: "beta"}}}
+	missingFile := &Component{Type: "library", Name: "m", Occurrences: []Occurrence{{Location: "nope.txt", Line: 1, Token: "x"}}}
+	outOfRange := &Component{Type: "library", Name: "o", Occurrences: []Occurrence{{Location: "a.txt", Line: 99, Token: "alpha"}}}
+	escape := &Component{Type: "library", Name: "e", Occurrences: []Occurrence{{Location: "../a.txt", Line: 1, Token: "alpha"}}}
 	none := &Component{Type: "library", Name: "n"}
 	kept, r := verifyEvidence(root, []*Component{good, wrongLine, missingFile, outOfRange, escape, none})
 	if len(kept) != 1 || kept[0].Name != "g" {
@@ -193,21 +196,21 @@ func TestLLMEnrichesButCannotInvent(t *testing.T) {
 	  {"id":"c1","keep":true,"description":"checkout action","properties":{"pinning":"mutable-tag"}},
 	  {"id":"zzz","description":"ghost id"}],
 	 "additional":[
-	  {"type":"library","name":"fabricated","occurrences":[{"location":"Dockerfile","line":1,"token":"does-not-appear"}]},
-	  {"type":"library","name":"no-occurrence"},
-	  {"type":"library","name":"golang","occurrences":[{"location":"Dockerfile","line":1,"token":"anything"}]}]}`
+	  {"type":"library","name":"fabricated.io/x","occurrences":[{"location":"Dockerfile","line":1,"token":"does-not-appear"}]},
+	  {"type":"library","name":"no.occurrence/x"},
+	  {"type":"library","name":"gcr.io/distroless/static","occurrences":[{"location":"Dockerfile","line":2,"token":"anything"}]}]}`
 	res, doc := gen(t, "build", root, fakeLLM{resp: resp})
 	n := names(doc)
-	if _, ok := n["fabricated"]; ok {
+	if _, ok := n["fabricated.io/x"]; ok {
 		t.Fatal("LLM invented a component without verifiable evidence")
 	}
-	if _, ok := n["no-occurrence"]; ok {
+	if _, ok := n["no.occurrence/x"]; ok {
 		t.Fatal("component without occurrence entered the BOM")
 	}
 	found := false
 	for _, c := range doc["components"].([]any) {
 		m := c.(map[string]any)
-		if m["name"] == "golang" && m["type"] == "library" {
+		if m["name"] == "gcr.io/distroless/static" && m["type"] == "library" {
 			found = true
 		}
 	}
@@ -253,7 +256,7 @@ func TestLLMKeepFalseExcludes(t *testing.T) {
 func TestCatalogPrecedence(t *testing.T) {
 	repo, pol := t.TempDir(), t.TempDir()
 	mk := func(tag string) string {
-		return "version: 1\ntype: build\nentries:\n  - id: " + tag + "\n    files: [\"*.txt\"]\n    pattern: '(?P<name>" + tag + ")'\n    token: name\n    component: {type: library, name: \"{name}\"}\n"
+		return "version: 1\ntype: build\nadditional: {name_pattern: '.+', reject_tokens: [" + tag + "x]}\nentries:\n  - id: " + tag + "\n    files: [\"*.txt\"]\n    pattern: '(?P<name>" + tag + ")'\n    token: name\n    component: {type: library, name: \"{name}\"}\n"
 	}
 	r, _ := LoadCatalog("build", repo, pol)
 	if r.Catalog.Source != "embedded" {
@@ -334,25 +337,90 @@ func occCount(doc map[string]any, name, typ string) int {
 	return -1
 }
 
-// The model's token is ignored: generic tokens cannot launder a component
-// whose name is not on the cited line.
+// The model's token is ignored and structural words of the covered formats
+// are not component names: the name must be a qualified identifier on a
+// token boundary of the cited line, outside the catalog's reject_tokens.
 func TestLLMAdditionalTokenIsDerivedFromName(t *testing.T) {
 	root := sampleRepo(t)
-	resp := `{"additional":[
-	 {"type":"library","name":"evil-pkg","occurrences":[{"location":"Dockerfile","line":1,"token":"FROM"}]},
-	 {"type":"library","name":"evil-hash","occurrences":[{"location":"Dockerfile","line":1,"token":"#"}]},
-	 {"type":"library","name":"evil-one","occurrences":[{"location":"Dockerfile","line":1,"token":"o"}]},
-	 {"type":"library","name":"x","occurrences":[{"location":"Dockerfile","line":1,"token":"x"}]},
-	 {"type":"library","name":"build","occurrences":[{"location":"Dockerfile","line":1,"token":"FROM"}]}]}`
+	add := func(name, typ string, line int, loc string) string {
+		return `{"type":"` + typ + `","name":"` + name + `","occurrences":[{"location":"` + loc + `","line":` + strconv.Itoa(line) + `,"token":"FROM"}]}`
+	}
+	resp := `{"additional":[` + strings.Join([]string{
+		add("evil-pkg", "library", 1, "Dockerfile"),
+		add("FROM", "library", 1, "Dockerfile"),
+		add("AS", "library", 1, "Dockerfile"),
+		add("build", "library", 1, "Dockerfile"),
+		add("RUN", "library", 1, "Dockerfile"),
+		add("import", "library", 3, "main.go"),
+		add("x", "library", 1, "Dockerfile"),
+		add("gcr.io/distroless/static", "container", 2, "Dockerfile"),
+	}, ",") + `]}`
 	_, doc := gen(t, "build", root, fakeLLM{resp: resp})
 	n := names(doc)
-	for _, bad := range []string{"evil-pkg", "evil-hash", "evil-one", "x"} {
-		if _, ok := n[bad]; ok {
-			t.Fatalf("forged component %s entered the BOM", bad)
+	for _, bad := range []string{"evil-pkg", "FROM", "AS", "build", "RUN", "import", "x"} {
+		if c, ok := n[bad]; ok && c["type"] == "library" {
+			t.Fatalf("forged component %q entered the BOM", bad)
 		}
 	}
-	if _, ok := n["build"]; !ok {
-		t.Fatal("component whose name is on the cited line was refused")
+	if occCount(doc, "gcr.io/distroless/static", "container") != 1 {
+		t.Fatal("qualified name on the cited line was refused or duplicated")
+	}
+}
+
+func TestContainsAtBoundary(t *testing.T) {
+	cases := []struct {
+		line, name string
+		want       bool
+	}{
+		{"FROM x AS build", "AS", true},
+		{"ASSERT(x)", "AS", false},
+		{"CLASS = 1", "AS", false},
+		{"x = AES-256", "AES", true},
+		{"AESTHETIC", "AES", false},
+		{"a gcr.io/x:1", "gcr.io/x", true},
+	}
+	for _, c := range cases {
+		if got := containsAtBoundary(c.line, c.name); got != c.want {
+			t.Errorf("%q in %q = %v", c.name, c.line, got)
+		}
+	}
+}
+
+// The catalog of the policy governs reject_tokens: a name the embedded
+// catalog accepts is refused when the policy rejects it.
+func TestPolicyRejectTokensAreRespected(t *testing.T) {
+	root := sampleRepo(t)
+	pol := t.TempDir()
+	write(t, pol, ".aurumcode/xbom/build.yml", "version: 1\ntype: build\nadditional: {name_pattern: '.+', reject_tokens: [gcr.io/distroless/static]}\nentries:\n  - id: e\n    files: [\"Dockerfile\"]\n    pattern: '^FROM (?P<name>golang)'\n    token: name\n    component: {type: container, name: \"{name}\"}\n")
+	cat := load(t, "build", root, pol)
+	resp := `{"additional":[{"type":"container","name":"gcr.io/distroless/static","occurrences":[{"location":"Dockerfile","line":2}]}]}`
+	res, err := Generate(Options{Type: "build", Root: root, Catalog: cat, Provider: fakeLLM{resp: resp}, Prompt: "p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.LLM.Rejected != 1 {
+		t.Fatalf("policy reject_tokens not applied: %+v", res.LLM)
+	}
+}
+
+// CBOM: a legitimate name on a line the catalog already covers is accepted;
+// structural words and names inside other words are not.
+func TestCBOMAdditionalNames(t *testing.T) {
+	root := sampleRepo(t)
+	write(t, root, "n.py", "x = 'AESTHETIC'\n")
+	cr := `"crypto_properties":{"assetType":"algorithm"}`
+	resp := `{"additional":[
+	 {"type":"cryptographic-asset","name":"AES",` + cr + `,"occurrences":[{"location":"app.py","line":3}]},
+	 {"type":"cryptographic-asset","name":"import",` + cr + `,"occurrences":[{"location":"app.py","line":1}]},
+	 {"type":"cryptographic-asset","name":"hashlib",` + cr + `,"occurrences":[{"location":"app.py","line":1}]},
+	 {"type":"cryptographic-asset","name":"AES",` + cr + `,"occurrences":[{"location":"n.py","line":1}]}]}`
+	_, doc := gen(t, "cbom", root, fakeLLM{resp: resp})
+	n := names(doc)
+	if _, ok := n["import"]; ok {
+		t.Fatal("structural word entered the CBOM")
+	}
+	if got := occCount(doc, "AES", "cryptographic-asset"); got != 1 {
+		t.Fatalf("AES occurrences = %d, want 1 (app.py only)", got)
 	}
 }
 
@@ -360,10 +428,11 @@ func TestLLMAdditionalTokenIsDerivedFromName(t *testing.T) {
 // occurrences it chose: the false one is dropped, the real one stays.
 func TestLLMAdditionalSameKeyCannotAddFalseOccurrence(t *testing.T) {
 	root := sampleRepo(t)
-	resp := `{"additional":[{"type":"container","name":"golang","version":"1.22","purl":"pkg:docker/golang@1.22",
-	  "occurrences":[{"location":"Dockerfile","line":2,"token":"golang"},{"location":"main.go","line":1,"token":"golang"}]}]}`
+	digest := "sha256:" + strings.Repeat("a", 64)
+	resp := `{"additional":[{"type":"container","name":"gcr.io/distroless/static","version":"` + digest + `","purl":"pkg:docker/gcr.io/distroless/static@` + digest + `",
+	  "occurrences":[{"location":"Dockerfile","line":1},{"location":"main.go","line":1}]}]}`
 	res, doc := gen(t, "build", root, fakeLLM{resp: resp})
-	if got := occCount(doc, "golang", "container"); got != 1 {
+	if got := occCount(doc, "gcr.io/distroless/static", "container"); got != 1 {
 		t.Fatalf("occurrences = %d, want only the real one", got)
 	}
 	if res.Dropped.DroppedOccurrences != 2 {
