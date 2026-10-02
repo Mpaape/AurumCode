@@ -62,17 +62,73 @@ done
 [[ -f "$repo_root/internal/prompt/parser_aur538_test.go" ]] || infra missing-behavior-test
 [[ -f "$repo_root/tests/acceptance/AUR-520.sh" ]] || infra missing-source
 
-# AC-008 shells out to the real AUR-520.sh, unmodified, against the
-# repository's own checkout (never a copy): it is the single source of
-# truth for whether that script's own per-selector fix is actually wired
-# up, not a second, parallel reimplementation that could silently drift
-# from it.
+# AC-008 proves tests/acceptance/AUR-520.sh's own per-selector fix is
+# actually load-bearing, not merely present. It builds ONE self-contained
+# copy (go.mod/go.sum/cmd/internal/pkg plus the script itself, at the same
+# relative layout, in a mktemp dir -- N2: never a log or a copy left
+# under the repository root) so the mutations below can edit the COPIED
+# script without ever touching the real one.
+#
+# Positive control: the unmodified copy's own seven selectors must all
+# still exit 0 -- this is the SAME loop the pre-fix version of this file
+# ran, kept so a regression in AUR-520.sh itself is still caught here.
+#
+# Negative control (B1): merely checking "exit 0" cannot tell "the
+# per-selector names loop is wired up" apart from "AUR-520.sh happens to
+# exit 0 for some other reason" -- reverting the AC-008 fix in
+# AUR-520.sh (back to a single `grep -Eq -- '^--- PASS: TestAUR520' "$log"`
+# check) would pass the positive control too, since both of an AC's named
+# tests still run and pass. So for each AC-00N (001..005), this drops ONE
+# of that selector's own two named tests from test_pattern (a literal,
+# fixed-string edit -- never touching `names`, which still names BOTH),
+# so only one of the two tests actually executes, and requires the
+# now-mutated copy to exit 1 with stderr naming exactly the dropped test
+# via AUR-520.sh's own "missing-pass:<name>" line. Only the fix this card
+# added could ever produce that: the old, unfixed AUR-520.sh accepted any
+# single PASS and would have read this as green.
 if [[ "$selector" == AC-008 ]]; then
-  for sub in all AC-001 AC-002 AC-003 AC-004 AC-005 AC-002-MUT-001; do
-    bash "$repo_root/tests/acceptance/AUR-520.sh" "$sub" >/dev/null 2>"$repo_root"/.aur538-508-"$$".log ||
-      { cat "$repo_root"/.aur538-508-"$$".log >&2; rm -f "$repo_root"/.aur538-508-"$$".log; fail "AUR-520.sh-selector-failed:$sub"; }
-    rm -f "$repo_root"/.aur538-508-"$$".log
+  outer="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a538-508.XXXXXX")" || infra mktemp
+  trap 'chmod -R u+w -- "$outer" >/dev/null 2>&1 || true; rm -rf -- "$outer" >/dev/null 2>&1 || true' EXIT INT TERM HUP
+  mkdir -p "$outer/tests/acceptance"
+  for source in go.mod go.sum cmd internal pkg; do
+    cp -R "$repo_root/$source" "$outer/$source"
   done
+  cp "$repo_root/tests/acceptance/AUR-520.sh" "$outer/tests/acceptance/AUR-520.sh"
+  chmod -R u+w -- "$outer"
+  pristine="$outer/tests/acceptance/AUR-520.sh.pristine"
+  cp "$outer/tests/acceptance/AUR-520.sh" "$pristine"
+
+  for sub in all AC-001 AC-002 AC-003 AC-004 AC-005 AC-002-MUT-001; do
+    bash "$outer/tests/acceptance/AUR-520.sh" "$sub" >"$outer/positive.log" 2>&1 ||
+      { cat "$outer/positive.log" >&2; fail "AUR-520.sh-selector-failed:$sub"; }
+  done
+
+  # selector:droppedFullTestName:droppedShortName
+  for triple in \
+      'AC-001:TestAUR520PRValidExceptionPasses:PRValidExceptionPasses' \
+      'AC-002:TestAUR520EvaluateGateExpiredExceptionStillBreaches:EvaluateGateExpiredExceptionStillBreaches' \
+      'AC-003:TestAUR520MatchExceptionExactFieldsRequired:MatchExceptionExactFieldsRequired' \
+      'AC-004:TestAUR520ApplyCentralPolicyException:ApplyCentralPolicyException' \
+      'AC-005:TestAUR520ExceptionConfigValidateRequiresEveryField:ExceptionConfigValidateRequiresEveryField'; do
+    sub="${triple%%:*}"
+    rest="${triple#*:}"
+    dropped_full="${rest%%:*}"
+    dropped_short="${rest#*:}"
+
+    cp "$pristine" "$outer/tests/acceptance/AUR-520.sh"
+    grep -Fq "|$dropped_full" "$outer/tests/acceptance/AUR-520.sh" || infra "mutation-anchor-missing:$sub"
+    sed -i "s#|$dropped_full##" "$outer/tests/acceptance/AUR-520.sh"
+    grep -Fq "|$dropped_full" "$outer/tests/acceptance/AUR-520.sh" && infra "mutation-not-applied:$sub"
+
+    set +e
+    bash "$outer/tests/acceptance/AUR-520.sh" "$sub" >"$outer/negative.log" 2>&1
+    neg_status=$?
+    set -e
+    (( neg_status == 1 )) || { cat "$outer/negative.log" >&2; fail "negative-control-wrong-exit:$sub:$neg_status"; }
+    grep -Fq "missing-pass:$dropped_short" "$outer/negative.log" ||
+      { cat "$outer/negative.log" >&2; fail "negative-control-missing-stderr:$sub"; }
+  done
+
   printf '%s/%s/pass\n' "$card" "$selector"
   exit 0
 fi
@@ -118,7 +174,8 @@ all_names='TestAUR538BaseCleanFixtureVerdictWithheldUnderBlock TestAUR538BaseCle
   TestAUR538MissingTreeObjectIsUnverifiable
   TestAUR538BaseNoOriginExceptionNeverMatches TestAUR538BaseNoOriginNoExceptionsNoNotice
   TestAUR538MatchExceptionActivePreferredOverExpiredSameFinding
-  TestAUR538CapStatusDescriptionRuneSafe TestAUR538PublishPolicyGateStatusDescriptionCapped'
+  TestAUR538CapStatusDescriptionRuneSafe TestAUR538PublishPolicyGateStatusDescriptionCapped
+  TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive TestAUR538PublishPolicyGateStatusWordAndStateTable'
 
 test_pattern=''
 expect_fail=''
@@ -138,8 +195,8 @@ case "$selector" in
           names='TestAUR538BaseNoOriginExceptionNeverMatches TestAUR538BaseNoOriginNoExceptionsNoNotice' ;;
   AC-006) test_pattern='^TestAUR538MatchExceptionActivePreferredOverExpiredSameFinding$'
           names='TestAUR538MatchExceptionActivePreferredOverExpiredSameFinding' ;;
-  AC-007) test_pattern='^(TestAUR538CapStatusDescriptionRuneSafe|TestAUR538PublishPolicyGateStatusDescriptionCapped)$'
-          names='TestAUR538CapStatusDescriptionRuneSafe TestAUR538PublishPolicyGateStatusDescriptionCapped' ;;
+  AC-007) test_pattern='^(TestAUR538CapStatusDescriptionRuneSafe|TestAUR538PublishPolicyGateStatusDescriptionCapped|TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive|TestAUR538PublishPolicyGateStatusWordAndStateTable)$'
+          names='TestAUR538CapStatusDescriptionRuneSafe TestAUR538PublishPolicyGateStatusDescriptionCapped TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive TestAUR538PublishPolicyGateStatusWordAndStateTable' ;;
   AC-001-MUT-001)
           test_pattern='^(TestAUR538BaseCleanFixtureVerdictWithheldUnderBlock|TestAUR538BaseCleanFixtureApprovesWithoutGate)$'
           expect_fail=1; apply_mutation ;;

@@ -424,3 +424,105 @@ func TestAUR538PublishPolicyGateStatusDescriptionCapped(t *testing.T) {
 		t.Fatalf("the breach's own rule id must survive the cap (ordered ahead of the inconclusive reason): %q", published.Description)
 	}
 }
+
+// TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive
+// covers N3: within the capped status description, a real breach line
+// must survive even when gateDecision.Lines lists a long accepted-
+// exception line and the inconclusive-reason line ahead of it --
+// orderedGateReasons must put the breach first, the exception line
+// second, and the fixed inconclusive-reason line last, regardless of
+// Lines' own order.
+func TestAUR538OrderedGateReasonsBreachBeforeExceptionBeforeInconclusive(t *testing.T) {
+	exceptionLine := "other#rule em outro-arquivo.go: aceito por exceção (dono: " +
+		strings.Repeat("dono-bastante-longo ", 6) + ", motivo: " + strings.Repeat("motivo-bastante-longo ", 6) + ", validade: 2099-12-31)"
+	breachLine := "security#no-hardcoded-secrets: No Hardcoded Secrets (severidade error, limiar error)"
+	inconclusiveLine := "review inconclusive (partial_coverage)"
+
+	got := orderedGateReasons([]string{exceptionLine, breachLine, inconclusiveLine})
+	want := breachLine + "; " + exceptionLine + "; " + inconclusiveLine
+	if got != want {
+		t.Fatalf("orderedGateReasons ordering =\n%q\nwant (breach, then exception, then inconclusive):\n%q", got, want)
+	}
+
+	capped := capStatusDescription(gateStatusWordFailure, got, statusDescriptionLimit)
+	if !strings.Contains(capped, "security#no-hardcoded-secrets") {
+		t.Fatalf("the breach line must survive the 140-char cap even with a long exception line ahead of it in Lines: %q", capped)
+	}
+}
+
+// TestAUR538PublishPolicyGateStatusWordAndStateTable covers B2: every one
+// of publishPolicyGateStatus's five outcome branches must publish BOTH
+// the correct commit-status State AND the correct leading result word --
+// a table test, so swapping which word two branches use (for instance,
+// relabeling the blocking-inconclusive branch "aprovado" instead of
+// "inconclusivo") cannot silently pass just because some other branch's
+// assertion happens to still hold.
+func TestAUR538PublishPolicyGateStatusWordAndStateTable(t *testing.T) {
+	breachLine := "security#no-hardcoded-secrets: No Hardcoded Secrets (severidade error, limiar error)"
+	inconclusiveLine := "review inconclusive (partial_coverage)"
+
+	cases := []struct {
+		name      string
+		decision  gateDecision
+		wantState string
+		wantWord  string
+		wantCode  int
+	}{
+		{
+			name:      "breach_and_inconclusive",
+			decision:  gateDecision{Active: true, Fail: true, Breach: true, Inconclusive: true, Lines: []string{inconclusiveLine, breachLine}},
+			wantState: "failure", wantWord: gateStatusWordFailure, wantCode: exitFindings,
+		},
+		{
+			name:      "breach_only",
+			decision:  gateDecision{Active: true, Fail: true, Breach: true, Lines: []string{breachLine}},
+			wantState: "failure", wantWord: gateStatusWordFailure, wantCode: exitFindings,
+		},
+		{
+			name:      "block_inconclusive_no_breach",
+			decision:  gateDecision{Active: true, Fail: true, Breach: false, Inconclusive: true, Lines: []string{inconclusiveLine}},
+			wantState: "failure", wantWord: gateStatusWordInconclusive, wantCode: exitQualityNotReviewed,
+		},
+		{
+			name:      "warn_inconclusive_no_breach",
+			decision:  gateDecision{Active: true, Fail: false, Breach: false, Inconclusive: true, Lines: []string{inconclusiveLine}},
+			wantState: "success", wantWord: gateStatusWordInconclusive, wantCode: 0,
+		},
+		{
+			name:      "clean",
+			decision:  gateDecision{Active: true, Fail: false, Breach: false, Inconclusive: false},
+			wantState: "success", wantWord: gateStatusWordApproved, wantCode: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var published githubclient.CommitStatus
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
+					_, _ = w.Write([]byte(`{"permissions":{"push":true}}`))
+				case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/statuses/head"):
+					_ = json.NewDecoder(r.Body).Decode(&published)
+					w.WriteHeader(http.StatusCreated)
+				default:
+					t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+				}
+			}))
+			defer server.Close()
+			client := githubclient.NewClientWithBaseURL("test-token", server.URL)
+
+			var out, errOut strings.Builder
+			code := publishPolicyGateStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", tc.decision, 48)
+			if code != tc.wantCode {
+				t.Fatalf("code=%d, want %d; stderr=%s", code, tc.wantCode, errOut.String())
+			}
+			if published.State != tc.wantState {
+				t.Fatalf("published state = %q, want %q", published.State, tc.wantState)
+			}
+			if !strings.HasPrefix(published.Description, tc.wantWord) {
+				t.Fatalf("published description = %q, want it to lead with result word %q", published.Description, tc.wantWord)
+			}
+		})
+	}
+}

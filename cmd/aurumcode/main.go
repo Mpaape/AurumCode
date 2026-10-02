@@ -1165,21 +1165,27 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			result.Limitations = append(result.Limitations, "policy gate: "+line)
 		}
 		if gateResult.Fail || gateResult.Inconclusive {
-			// B-V: PolicyGateWithheldKey is the engine-owned signal
-			// pr.go's reviewVerdictForLanguage/formalReviewEvent/
-			// canonicalVerdict check -- never result.Verdict, which the
-			// model controls. render.Summary (--base's own renderer,
-			// outside this card's write paths) still reads result.Verdict
-			// directly, so it is still forced here too, for any model
-			// reply of "" or "approve" -- never conditioned on what the
-			// model's own Verdict happened to say in the first place.
+			// B-V: PolicyGateWithheldKey is the ONLY mechanism that
+			// withholds approval here -- pr.go's own
+			// reviewVerdictForLanguage/formalReviewEvent and passes.go's
+			// canonicalVerdict read this key, never result.Verdict, which
+			// the model controls. --base's own rendering
+			// (renderLocalReport -> renderPass -> localVerdict) ALREADY
+			// discards whatever result.Verdict holds and replaces it with
+			// canonicalVerdict(result) before render.Summary ever sees
+			// it, so setting result.Verdict here would be dead for
+			// --base too (a prior version of this comment claimed
+			// render.Summary read result.Verdict directly and set it for
+			// that reason; AUR-538's review found that false and removed
+			// the dead assignment -- see passes.go's own localVerdict
+			// doc). Firing on gateResult.Fail||Inconclusive alone (never
+			// conditioned on what the model's own Verdict happened to
+			// say) means a model reply of "", "changes_requested" or
+			// "approve" are all withheld alike.
 			if result.Metadata == nil {
 				result.Metadata = make(map[string]string)
 			}
 			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
-			if result.Verdict == "" || result.Verdict == "approve" {
-				result.Verdict = "comment"
-			}
 		}
 	}
 
