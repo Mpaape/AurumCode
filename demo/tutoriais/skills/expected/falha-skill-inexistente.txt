@@ -1,0 +1,5 @@
+continuing without that context
+RESULTADO: localmente a skill ausente e avisada e a revisao continua
+aurumcode review: central policy: review skill "skills/nao-existe.md": stat /policy/skills/nao-existe.md: no such file or directory
+exit_code=1
+RESULTADO: politica com skill inexistente falha o comando

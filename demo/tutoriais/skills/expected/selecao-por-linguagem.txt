@@ -1,0 +1,4 @@
+skill de diretorio: .aurumcode/skills/estilo-ts/SKILL.md com languages: [ts]
+exit_code=0
+prompt: a skill de diretorio SKILL.md NAO foi lida pelo review
+prompt: nenhum bloco 'Skill selection warnings'

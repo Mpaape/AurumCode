@@ -47,11 +47,15 @@ tut_image() {
 #   /fixtures  o diretorio do tutorial, somente leitura (fixture, politica, ...)
 #   AURUMCODE_LLM_FIXTURE aponta para TUT_FIXTURE (padrao fixture-llm.json);
 #   TUT_FIXTURE=none remove o provedor (caso "sem provedor").
+#   TUT_POLICY=<dir> monta <dir> do tutorial em /policy (somente leitura).
 aurum_raw() {
   local envs=() fx="${TUT_FIXTURE:-fixture-llm.json}"
   while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do envs+=("$1" "$2"); shift 2; done
   [ "${1:-}" = "--" ] && shift
   [ "$fx" = none ] || envs+=(-e "AURUMCODE_LLM_FIXTURE=/fixtures/$fx")
+  # TUT_POLICY=<dir do tutorial>: monta a politica central, somente leitura, em
+  # /policy (fora da arvore revisada); passe --politica /policy ao aurumcode.
+  [ -z "${TUT_POLICY:-}" ] || envs+=(-v "$HERE/$TUT_POLICY:/policy:ro")
   docker run --rm --network none --user "$(id -u):$(id -g)" -e HOME=/tmp \
     "${envs[@]}" \
     -v "$HERE:/fixtures:ro" -v "$TUT_WORK:/work" -w /work \

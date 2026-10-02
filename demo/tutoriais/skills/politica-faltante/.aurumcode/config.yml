@@ -1,0 +1,5 @@
+review:
+  context:
+    skills:
+      - skills/seguranca.md
+      - skills/nao-existe.md
