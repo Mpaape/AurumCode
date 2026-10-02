@@ -339,6 +339,58 @@ func TestAUR548PolicyWinsOverRepoDisable(t *testing.T) {
 	}
 }
 
+// TestAUR548PolicyOriginWithoutSastSectionIsRepo is the third review
+// finding on origin derivation: a central policy that exists and governs
+// OTHER sections (here, `gate:`) but never declares quality_gates.sast at
+// all must leave the repository's own section in effect (per-section
+// precedence, config.ApplyCentralPolicy) AND must label it "repo", not
+// "policy" -- sastOrigin used to be derived from centralCfg != nil alone,
+// which would have wrongly applied the policy-only hardening flags
+// (--disable-nosem/--x-ignore-semgrepignore-files) to a repository's own,
+// self-configured SAST opt-in just because SOME unrelated policy existed.
+func TestAUR548PolicyOriginWithoutSastSectionIsRepo(t *testing.T) {
+	dir := cleanFixture(t, "quality_gates:\n  sast:\n    enabled: true\n")
+	policyDir := filepath.Join(filepath.Dir(dir), "aur548-no-sast-policy")
+	if err := os.MkdirAll(filepath.Join(policyDir, ".aurumcode"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	// This policy declares `gate:` but says nothing about quality_gates
+	// at all -- the repo's own quality_gates.sast must survive untouched.
+	if err := os.WriteFile(filepath.Join(policyDir, ".aurumcode", "config.yml"), []byte("gate:\n  inconclusive: warn\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	argvLog := filepath.Join(t.TempDir(), "argv.log")
+	// A real finding (not a clean scan) so applySASTGate actually emits
+	// its own "origem %s" line -- a clean scan never would, regardless of
+	// origin, which would make the origin assertion below vacuous.
+	setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, argvLog))
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1", "--politica", policyDir}, &out, &errOut, redaction.NewFilter())
+	if code != exitFindings {
+		t.Fatalf("exit=%d, want exitFindings(%d); stdout=%s stderr=%s", code, exitFindings, out.String(), errOut.String())
+	}
+	combined := out.String() + errOut.String()
+	if strings.Contains(combined, "quality_gates.sast do config do repositório foi ignorado") {
+		t.Fatalf("the repo's own quality_gates.sast must survive when the policy never declares that section:\n%s", combined)
+	}
+	if !strings.Contains(combined, "origem repo") {
+		t.Fatalf("expected origem repo in the output when the policy never declares quality_gates.sast:\n%s", combined)
+	}
+	if strings.Contains(combined, "origem policy") {
+		t.Fatalf("expected origem repo, not policy, when the policy never declares quality_gates.sast:\n%s", combined)
+	}
+	argv, err := os.ReadFile(argvLog)
+	if err != nil {
+		t.Fatalf("semgrep was never invoked: %v", err)
+	}
+	for _, flag := range []string{"--disable-nosem", "--x-ignore-semgrepignore-files"} {
+		if strings.Contains(string(argv), flag) {
+			t.Fatalf("a repo-origin SAST section must never get policy-only hardening flags just because an unrelated policy exists: %s\n%s", flag, argv)
+		}
+	}
+}
+
 // --- --pr wiring (coordinator follow-up): AC-001 and AC-003 driven
 // through the real runPRReview, with the same httptest GitHub mock
 // pattern aur515_test.go/aur537_test.go already use. aur548PRDiffBody is a
@@ -585,16 +637,23 @@ func TestAUR548HighSeverityFailsAtErrorThreshold(t *testing.T) {
 // quality_gates.sast's effective section came from a central policy, the
 // Semgrep invocation carries --disable-nosem (so a `# nosemgrep` comment
 // committed by the pull request's own author cannot suppress a
-// policy-mandated finding); a repository's own, policy-free opt-in never
-// adds that flag, since there the scanned tree and the configuring party
-// are the same trust boundary. The fake binary cannot itself honor or
-// ignore `# nosemgrep` (it does not parse the scanned tree at all), so the
-// verifiable, hermetic proof available here is that the flag reaches the
-// real Semgrep invocation under a policy and not otherwise -- Semgrep's
-// own documented --disable-nosem semantics are what then actually stop
-// the comment from hiding the finding in a real binary.
+// policy-mandated finding) AND --x-ignore-semgrepignore-files (so a
+// committed .semgrepignore, at any depth, cannot hide a file from the
+// scan either -- the second review's own finding: an earlier version of
+// this hardening scanned a sanitized filesystem COPY instead, which a
+// dangling or tree-escaping symlink could bypass, since copying followed
+// symlink targets). A repository's own, policy-free opt-in never adds
+// either flag, since there the scanned tree and the configuring party are
+// the same trust boundary. The fake binary cannot itself honor or ignore
+// `# nosemgrep`/`.semgrepignore` (it does not parse the scanned tree at
+// all), so the verifiable, hermetic proof available here is that both
+// flags reach the real Semgrep invocation under a policy and not
+// otherwise -- Semgrep's own documented semantics for them (confirmed via
+// `docker run ... semgrep scan --help` against the exact pinned digest in
+// .board/bootstrap/locks/scanners.yml) are what then actually stop either
+// bypass in a real binary.
 func TestAUR548PolicyOriginDisablesNosem(t *testing.T) {
-	t.Run("PolicyOriginAddsDisableNosem", func(t *testing.T) {
+	t.Run("PolicyOriginAddsHardeningFlags", func(t *testing.T) {
 		dir := cleanFixture(t, "")
 		policyDir := filepath.Join(filepath.Dir(dir), "aur548-nosem-policy")
 		if err := os.MkdirAll(filepath.Join(policyDir, ".aurumcode"), 0700); err != nil {
@@ -614,11 +673,13 @@ func TestAUR548PolicyOriginDisablesNosem(t *testing.T) {
 		if err != nil {
 			t.Fatalf("semgrep was never invoked: %v", err)
 		}
-		if !strings.Contains(string(argv), "--disable-nosem") {
-			t.Fatalf("expected --disable-nosem under a central policy:\n%s", argv)
+		for _, flag := range []string{"--disable-nosem", "--x-ignore-semgrepignore-files"} {
+			if !strings.Contains(string(argv), flag) {
+				t.Fatalf("expected %s under a central policy:\n%s", flag, argv)
+			}
 		}
 	})
-	t.Run("RepoOriginOmitsDisableNosem", func(t *testing.T) {
+	t.Run("RepoOriginOmitsHardeningFlags", func(t *testing.T) {
 		cleanFixture(t, "quality_gates:\n  sast:\n    enabled: true\n")
 		argvLog := filepath.Join(t.TempDir(), "argv.log")
 		setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
@@ -631,52 +692,15 @@ func TestAUR548PolicyOriginDisablesNosem(t *testing.T) {
 		if err != nil {
 			t.Fatalf("semgrep was never invoked: %v", err)
 		}
-		if strings.Contains(string(argv), "--disable-nosem") {
-			t.Fatalf("a repository's own opt-in (no policy) must never add --disable-nosem:\n%s", argv)
+		for _, flag := range []string{"--disable-nosem", "--x-ignore-semgrepignore-files"} {
+			if strings.Contains(string(argv), flag) {
+				t.Fatalf("a repository's own opt-in (no policy) must never add %s:\n%s", flag, argv)
+			}
 		}
 	})
-}
-
-// TestAUR548PolicyOriginBypassesSemgrepignore is B3's second half: when
-// quality_gates.sast comes from a central policy and the scanned
-// checkout carries its own, repository-committed .semgrepignore,
-// sastScanRoot must scan a sanitized copy with that file removed rather
-// than the checkout itself -- a committed .semgrepignore is exactly as
-// much an author-controlled bypass as a `# nosemgrep` comment, and must
-// not survive into the policy-origin scan either.
-func TestAUR548PolicyOriginBypassesSemgrepignore(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, ".semgrepignore"), []byte("vuln.go\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "vuln.go"), []byte("package demo\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	scanRoot, cleanup, err := sastScanRoot(root, true)
-	defer cleanup()
-	if err != nil {
-		t.Fatalf("sastScanRoot: %v", err)
-	}
-	if scanRoot == root {
-		t.Fatal("expected a sanitized copy, got the original root (its own .semgrepignore would still apply)")
-	}
-	if _, statErr := os.Stat(filepath.Join(scanRoot, ".semgrepignore")); statErr == nil {
-		t.Fatal(".semgrepignore survived into the policy-origin scan copy")
-	}
-	if _, statErr := os.Stat(filepath.Join(scanRoot, "vuln.go")); statErr != nil {
-		t.Fatalf("vuln.go missing from the scan copy: %v", statErr)
-	}
-
-	// Repo-origin (no policy) must never copy at all -- it scans root
-	// directly, .semgrepignore and all, since there is no trust boundary
-	// to defend from the repository's own opt-in.
-	repoScanRoot, repoCleanup, repoErr := sastScanRoot(root, false)
-	defer repoCleanup()
-	if repoErr != nil {
-		t.Fatalf("sastScanRoot (repo origin): %v", repoErr)
-	}
-	if repoScanRoot != root {
-		t.Fatalf("repo-origin scan root = %q, want the original root %q", repoScanRoot, root)
-	}
+	// TestAUR548PolicyOriginWithoutSastSectionIsRepo (below) covers the
+	// third, review-flagged case: a policy that exists but does not
+	// declare quality_gates.sast at all -- the repo's own section must
+	// survive (per-section precedence) AND must be labeled "repo", never
+	// getting these two hardening flags.
 }

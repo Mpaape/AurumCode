@@ -659,12 +659,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// result.Issues afterward, exactly like --base's own runReview, so a
 	// repository's own `rules:` override was never meant to reach it
 	// either (AC-005's boundary drawn at the same place on both paths).
-	// sastOrigin mirrors gateOrigin's own policy/repo determination
-	// (computed again, just below, for evaluateGate) since
-	// reviewConfig.QualityGates.Sast is already the precedence-resolved
-	// value either way.
+	// AUR-548 (review follow-up): origin is derived from whether the
+	// CENTRAL POLICY ITSELF declares quality_gates.sast (per-section
+	// precedence), never merely from centralCfg != nil -- see main.go's
+	// identical comment.
 	sastOrigin := gateOriginRepo
-	if centralCfg != nil {
+	if centralCfg != nil && centralCfg.QualityGates.Sast != nil {
 		sastOrigin = gateOriginPolicy
 	}
 	var sastIssues []types.ReviewIssue

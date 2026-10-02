@@ -108,24 +108,42 @@ func TestSemgrepCleanExitZeroWithFindingsSucceeds(t *testing.T) {
 	}
 }
 
-// TestSemgrepDisableNosemFlag proves the --disable-nosem flag is actually
-// passed to the runner when requested (B3).
-func TestSemgrepDisableNosemFlag(t *testing.T) {
-	var gotArgs []string
-	run := func(ctx context.Context, dir string, args ...string) (string, string, error) {
-		gotArgs = args
-		return `{"results":[]}`, "", nil
+// TestSemgrepPolicyOriginFlags proves both policy-origin hardening flags
+// (--disable-nosem and --x-ignore-semgrepignore-files) are actually
+// passed to the runner when policyOrigin is true, and neither is passed
+// when it is false (B3; the second flag's name and semantics were
+// confirmed against the exact pinned Semgrep digest in
+// .board/bootstrap/locks/scanners.yml via `semgrep scan --help`).
+func TestSemgrepPolicyOriginFlags(t *testing.T) {
+	capture := func(policyOrigin bool) []string {
+		var gotArgs []string
+		run := func(ctx context.Context, dir string, args ...string) (string, string, error) {
+			gotArgs = args
+			return `{"results":[]}`, "", nil
+		}
+		if _, err := NewRunner().Semgrep(context.Background(), t.TempDir(), nil, policyOrigin, run); err != nil {
+			t.Fatalf("Semgrep: %v", err)
+		}
+		return gotArgs
 	}
-	if _, err := NewRunner().Semgrep(context.Background(), t.TempDir(), nil, true, run); err != nil {
-		t.Fatalf("Semgrep: %v", err)
+	hasFlag := func(args []string, flag string) bool {
+		for _, a := range args {
+			if a == flag {
+				return true
+			}
+		}
+		return false
 	}
-	found := false
-	for _, a := range gotArgs {
-		if a == "--disable-nosem" {
-			found = true
+	policyArgs := capture(true)
+	for _, flag := range []string{"--disable-nosem", "--x-ignore-semgrepignore-files"} {
+		if !hasFlag(policyArgs, flag) {
+			t.Errorf("policyOrigin=true: expected %s in args, got %v", flag, policyArgs)
 		}
 	}
-	if !found {
-		t.Fatalf("expected --disable-nosem in args, got %v", gotArgs)
+	repoArgs := capture(false)
+	for _, flag := range []string{"--disable-nosem", "--x-ignore-semgrepignore-files"} {
+		if hasFlag(repoArgs, flag) {
+			t.Errorf("policyOrigin=false: did not expect %s in args, got %v", flag, repoArgs)
+		}
 	}
 }
