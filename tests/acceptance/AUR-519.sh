@@ -140,7 +140,10 @@ if [[ "$selector" == all ]]; then
       EvaluateGateRepoOriginNeverFails EvaluateGateInconclusiveBlockAndWarn MergedRuleCatalogIDs \
       GateSeverityBreachFailsCheck GateInconclusiveProviderFailureBlocks GatePartialCoverageInconclusiveWarns \
       PolicyGateStatusContextIsStable NoGateConfiguredStaysUntouched \
-      GateSeverityBreachFailsCheckWithProfiles; do
+      GateSeverityBreachFailsCheckWithProfiles EvaluateGateWarnStillFailsOnBreach \
+      EvaluateGateRuleSeverityFloorsModel EvaluateGateFailOnWithoutInconclusiveNeverApproves \
+      MergeDynamicRulesPolicyWins ResolveRuleBuiltinWinsOverDynamic ProfilePassesCarryDegradedMetadata \
+      DegradedParseNeverCached SkillsConfiguredNoGateStaysSafe PRGateWarnStillFailsOnBreach; do
     grep -q "^--- PASS: TestAUR519$name " "$log" || fail "missing-pass:$name"
   done
 fi

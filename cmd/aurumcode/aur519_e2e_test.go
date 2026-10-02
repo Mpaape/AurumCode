@@ -11,6 +11,7 @@ import (
 	"compress/zlib"
 	"context"
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -352,5 +353,103 @@ func TestAUR519DegradedParseNeverCached(t *testing.T) {
 	}
 	if strings.Contains(errOut2.String(), "reused") {
 		t.Fatalf("second run reused a cached result for the degraded file instead of calling the model again:\n%s", errOut2.String())
+	}
+}
+
+// TestAUR519SkillsConfiguredNoGateStaysSafe verifies the coordinator's own
+// concern directly: configuring review.context.skills WITHOUT any `gate:`
+// key must behave exactly like today -- the prompt catalog grows (the
+// skill's sections become citable, per AC-007/AC-002) but nothing about
+// the exit code changes, and in particular SetRuleCatalog's own token-
+// budget validation must not turn a configured skill into a surprise exit
+// 2 for a repository that never asked for a gate at all.
+func TestAUR519SkillsConfiguredNoGateStaysSafe(t *testing.T) {
+	dir := coverageFixture(t, "review:\n  context:\n    skills:\n      - skills/security.md\n")
+	if err := os.MkdirAll(filepath.Join(dir, "skills"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "skills", "security.md"), []byte("## No Hardcoded Secrets\n\nNever commit a literal credential.\n\n## Prefer Parameterized Queries\n\nBuild SQL with bound parameters.\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	setAUR518LLMFixture(t)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != 0 {
+		t.Fatalf("exit=%d, want 0: configuring skills with no gate must never change the exit code (and must never exit 2 on a catalog budget check); stdout=%s stderr=%s", code, out.String(), errOut.String())
+	}
+}
+
+// TestAUR519PRGateWarnStillFailsOnBreach is B1's regression at the --pr
+// level: a pull request whose diff both (a) triggers AUR-476 partial
+// coverage (a second changed file the repo's own `ignore` hides) and (b)
+// carries a real finding citing a repo-opted-in skill section at the
+// gate's threshold, under gate.inconclusive: warn, must still fail the
+// check -- exitFindings, and the published "aurumcode/policy-gate" status
+// must read "failure" naming the breach, never "success" just because the
+// review was also inconclusive.
+func TestAUR519PRGateWarnStillFailsOnBreach(t *testing.T) {
+	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ dbPassword := \"hunter2-super-secret\"\n+ _ = dbPassword\n+}\n" +
+		"diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,2 @@\n package demo\n+func TestChange() {}\n"
+	headConfig := "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n  inconclusive: warn\nignore:\n  - \"tests/**\"\n"
+	skillBody := "## No Hardcoded Secrets\n\nNever commit a literal credential.\n"
+	resp := `{"summary":"ok","verdict":"approve","issues":[{"file":"app.go","line":3,"severity":"error","rule_id":"security#no-hardcoded-secrets","message":"Hardcoded secret","evidence":"dbPassword := \"hunter2-super-secret\"","impact":"Credential leak","verification":"Remove the literal secret"}]}`
+
+	var publishedStatus githubclient.CommitStatus
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
+			_, _ = w.Write([]byte(`{"permissions":{"push":true}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48" && r.Header.Get("Accept") == "application/vnd.github.v3.diff":
+			_, _ = w.Write([]byte(diffBody))
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48":
+			_, _ = fmt.Fprint(w, `{"head":{"sha":"head-sha"}}`)
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") && strings.Contains(r.URL.Path, "config.yml"):
+			_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, base64.StdEncoding.EncodeToString([]byte(headConfig)))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") && strings.Contains(r.URL.Path, "security.md"):
+			_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, base64.StdEncoding.EncodeToString([]byte(skillBody)))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/"):
+			// Every other configured/optional context file (the default
+			// .aurumcode/prompt.md, instructions, docs): not found, exactly
+			// the zero-config case.
+			w.WriteHeader(http.StatusNotFound)
+		case r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/reviews") || strings.HasSuffix(r.URL.Path, "/comments") || strings.HasSuffix(r.URL.Path, "/commits")):
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/reviews"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":1}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/statuses/head-sha":
+			_ = json.NewDecoder(r.Body).Decode(&publishedStatus)
+			w.WriteHeader(http.StatusCreated)
+		default:
+			t.Errorf("unexpected GitHub request: %s %s (Accept=%s)", r.Method, r.URL.Path, r.Header.Get("Accept"))
+		}
+	}))
+	defer server.Close()
+
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+	t.Setenv("AURUMCODE_GITHUB_API_URL", server.URL)
+	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")
+	t.Setenv("GITHUB_SHA", "head-sha")
+	t.Setenv("AURUMCODE_BASE_SHA", "base")
+	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
+
+	var stdout, stderr strings.Builder
+	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	if code != exitFindings {
+		t.Fatalf("exit=%d, want exitFindings(%d): a real breach must fail the check even though the review is also inconclusive (partial coverage, warn); stdout=%s stderr=%s", code, exitFindings, stdout.String(), stderr.String())
+	}
+	if publishedStatus.Context != policyGateContext || publishedStatus.State != "failure" {
+		t.Fatalf("published status = %+v, want context %q and state failure", publishedStatus, policyGateContext)
+	}
+	if !strings.Contains(publishedStatus.Description, "security#no-hardcoded-secrets") {
+		t.Fatalf("published status description = %q, want it naming the breach, not just the inconclusive alert", publishedStatus.Description)
 	}
 }

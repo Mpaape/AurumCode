@@ -210,14 +210,23 @@ um achado do check na severidade do limiar ou acima dele reprova o check,
 nomeando a skill e a seção que o sustentam (AC-001). Só contam achados cuja
 regra é dinâmica E de origem aceita: sob política central, só as seções da
 própria política (AC-005); sem política, só as do repositório, e somente
-quando o repositório declarou seu próprio `gate` — sem isso, nada muda.
+quando o repositório declarou seu próprio `gate` — sem isso, nada muda. O
+limiar compara o MAIOR entre a severidade que o modelo deu ao achado e a
+severidade que a própria seção da skill declarou (`severity:` no corpo):
+a declaração do autor da skill é um piso que o texto do diff revisado não
+pode rebaixar.
 
 `gate.inconclusive` decide o que uma revisão inconclusiva faz ao check:
 falha do provedor, cobertura parcial (AUR-476, com os arquivos nomeados) ou
 resposta do modelo que não pôde ser interpretada como JSON (parse
 degradado — hoje publicado como se a revisão tivesse funcionado). Com
-`block`, a revisão reprova o check; com `warn`, passa com um alerta visível.
-Em nenhum dos dois casos o parecer aparece como aprovado.
+`block`, a revisão reprova o check sem nunca checar achados. Com `warn`,
+ou quando `gate.inconclusive` nem está declarado, a revisão continua
+visível como inconclusiva mas não bloqueia por si só — **e, nos dois
+casos, um achado real que cruze `fail_on` ainda reprova o check**
+(`exitFindings`): ser inconclusiva nunca é uma forma de escapar de um
+achado que já cruzou o limiar. Em nenhum caso o parecer aparece como
+aprovado.
 
 Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
