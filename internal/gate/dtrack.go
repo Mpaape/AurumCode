@@ -1,8 +1,8 @@
 // AUR-550: quality_gates.ssor_dtrack, AUR-519's own breach/inconclusive
 // gate semantics applied to an OWASP Dependency-Track v5 server instead of
-// a model's own findings. applyDTrackGate runs once, right after
-// evaluateGate in both runReview (main.go) and runPRReview (pr.go), and
-// folds its outcome into the SAME gateDecision those two already publish
+// a model's own findings. ApplyDTrackGate runs once, right after
+// EvaluateGate in both runReview (main.go) and runPRReview (pr.go), and
+// folds its outcome into the SAME Result those two already publish
 // through gateResult.Lines, writeComplianceArtifacts and
 // publishPolicyGateStatus -- this card adds no second gate, no second
 // writer, and no change at all to a run that never declares
@@ -22,7 +22,7 @@
 // filter so the caller can keep using it for every write from this point
 // on, including a second redaction.Writer layer wrapped around the
 // caller's own stdout/stderr -- see the call sites in main.go/pr.go.
-package main
+package gate
 
 import (
 	"context"
@@ -37,22 +37,22 @@ import (
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
-// dtrackClockNow/dtrackSleeper are this card's own injectable seams for
+// DTrackClockNow/DTrackSleeper are this card's own injectable seams for
 // TestAUR550...'s fast polling tests. Production code never overrides
 // them; the real HTTP transport is never mocked here -- a test points
 // cfg.ServerAPIHost at an httptest.Server instead (dtrack.ValidateHost's
 // own loopback exception exists exactly for that).
 var (
-	dtrackClockNow = time.Now
-	dtrackSleeper  = time.Sleep
+	DTrackClockNow = time.Now
+	DTrackSleeper  = time.Sleep
 )
 
-// dtrackSecretLookup/dtrackReadBOM abstract os.Getenv/os.ReadFile so a
+// DTrackSecretLookup/DTrackReadBOM abstract os.Getenv/os.ReadFile so a
 // test can supply a fake environment and a fixture SBOM without touching
 // the real process environment or filesystem lookup rules.
 var (
-	dtrackSecretLookup = os.Getenv
-	dtrackReadBOM      = os.ReadFile
+	DTrackSecretLookup = os.Getenv
+	DTrackReadBOM      = os.ReadFile
 )
 
 // Stable, non-server-authored reason tokens this function itself can add
@@ -61,32 +61,32 @@ var (
 // never a server response, but it must be just as inconclusive, never a
 // silent approval.
 const (
-	gateReasonDTrackSecretMissing   = "dtrack_secret_missing"
-	gateReasonDTrackSBOMUnavailable = "dtrack_sbom_unavailable"
-	gateReasonDTrackInvalidHost     = "dtrack_invalid_host"
+	ReasonDTrackSecretMissing   = "dtrack_secret_missing"
+	ReasonDTrackSBOMUnavailable = "dtrack_sbom_unavailable"
+	ReasonDTrackInvalidHost     = "dtrack_invalid_host"
 )
 
-// applyDTrackGate evaluates quality_gates.ssor_dtrack when cfg.Declared()
-// (enabled: true); it is a complete no-op (returns a zero gateDecision,
+// ApplyDTrackGate evaluates quality_gates.ssor_dtrack when cfg.Declared()
+// (enabled: true); it is a complete no-op (returns a zero Result,
 // an empty reason and the SAME filter pointer) otherwise.
 //
 // inconclusiveMode is the SAME GateConfig.InconclusiveMode() the caller
 // already computed for its own skill-based gate -- "block" fails the
 // check outright on any dtrack inconclusive result, "warn"/"" (the same
-// non-blocking default evaluateGate itself uses) only marks it
+// non-blocking default EvaluateGate itself uses) only marks it
 // Inconclusive. A breach is never downgraded by this mode: exactly like
-// evaluateGate's own threshold loop, a real breach sets Fail
+// EvaluateGate's own threshold loop, a real breach sets Fail
 // unconditionally.
-func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclusiveMode string, filter *redaction.Filter) (result gateDecision, reason string, newFilter *redaction.Filter) {
+func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclusiveMode string, filter *redaction.Filter) (result Result, reason string, newFilter *redaction.Filter) {
 	newFilter = filter
 	if !cfg.Declared() {
-		return gateDecision{}, "", filter
+		return Result{}, "", filter
 	}
 	result.Active = true
 	blockOnInconclusive := inconclusiveMode == "block"
 
-	apiKey := dtrackSecretLookup(cfg.APIKeySecret)
-	projectID := dtrackSecretLookup(cfg.ProjectIDSecret)
+	apiKey := DTrackSecretLookup(cfg.APIKeySecret)
+	projectID := DTrackSecretLookup(cfg.ProjectIDSecret)
 	if apiKey != "" {
 		// AC-004: registered as an exact-value secret the instant it is
 		// known, before this function (or its caller) can write a single
@@ -96,7 +96,7 @@ func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	if apiKey == "" || projectID == "" {
 		result.Inconclusive = true
 		result.Fail = blockOnInconclusive
-		reason = gateReasonDTrackSecretMissing
+		reason = ReasonDTrackSecretMissing
 		result.Lines = append(result.Lines, fmt.Sprintf(
 			"ssor_dtrack: revisão inconclusiva (%s): variável de ambiente %q (api_key_secret) ou %q (project_id_secret) não definida",
 			reason, cfg.APIKeySecret, cfg.ProjectIDSecret,
@@ -105,11 +105,11 @@ func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	}
 
 	bomPath := cfg.SBOMOutputFile()
-	bom, err := dtrackReadBOM(bomPath)
+	bom, err := DTrackReadBOM(bomPath)
 	if bomPath == "" || err != nil || len(bom) == 0 {
 		result.Inconclusive = true
 		result.Fail = blockOnInconclusive
-		reason = gateReasonDTrackSBOMUnavailable
+		reason = ReasonDTrackSBOMUnavailable
 		result.Lines = append(result.Lines, fmt.Sprintf(
 			"ssor_dtrack: revisão inconclusiva (%s): SBOM em sbom_generator.output_file %q não pôde ser lido", reason, bomPath,
 		))
@@ -120,11 +120,11 @@ func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	if err != nil {
 		result.Inconclusive = true
 		result.Fail = blockOnInconclusive
-		reason = gateReasonDTrackInvalidHost
+		reason = ReasonDTrackInvalidHost
 		result.Lines = append(result.Lines, fmt.Sprintf("ssor_dtrack: revisão inconclusiva (%s): server_api_host inválido", reason))
 		return result, reason, newFilter
 	}
-	client = client.WithClock(dtrackClockNow, dtrackSleeper)
+	client = client.WithClock(DTrackClockNow, DTrackSleeper)
 
 	timeout := time.Duration(cfg.EffectiveTimeoutSeconds()) * time.Second
 	interval := time.Duration(cfg.EffectivePollIntervalSeconds()) * time.Second
@@ -156,14 +156,14 @@ func applyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	return result, reason, newFilter
 }
 
-// mergeDTrackGate folds dtrackResult into gateResult using the exact same
-// fields evaluateGate's own caller already reads (Active/Fail/Breach/
+// MergeDTrackGate folds dtrackResult into gateResult using the exact same
+// fields EvaluateGate's own caller already reads (Active/Fail/Breach/
 // Inconclusive/Lines/BlockingFindings), and combines dtrackReason with an
 // already-set gateInconclusiveReason by joining with a comma -- never
 // replacing it -- so AUR-537's own single-reason assertions (e.g.
 // "provider_failure") stay intact when ssor_dtrack is not declared, and a
 // run where both fire publishes both reasons.
-func mergeDTrackGate(gateResult gateDecision, gateInconclusiveReason string, dtrackResult gateDecision, dtrackReason string) (gateDecision, string) {
+func MergeDTrackGate(gateResult Result, gateInconclusiveReason string, dtrackResult Result, dtrackReason string) (Result, string) {
 	if !dtrackResult.Active {
 		return gateResult, gateInconclusiveReason
 	}
@@ -184,7 +184,7 @@ func mergeDTrackGate(gateResult gateDecision, gateInconclusiveReason string, dtr
 	return gateResult, gateInconclusiveReason
 }
 
-// wrapWriterWithFilter wraps dst with a second redaction.Writer layer
+// WrapWriterWithFilter wraps dst with a second redaction.Writer layer
 // using filter, so every write through the returned io.Writer is
 // redacted by filter (which may carry a secret dst's own, earlier writer
 // does not yet know about) before reaching dst itself. It returns dst
@@ -193,7 +193,7 @@ func mergeDTrackGate(gateResult gateDecision, gateInconclusiveReason string, dtr
 // happen with the two canonical sinks this card uses -- so the caller
 // can Flush the returned *redaction.Writer before returning, when it is
 // not nil.
-func wrapWriterWithFilter(sink redaction.Sink, dst io.Writer, filter *redaction.Filter) (io.Writer, *redaction.Writer) {
+func WrapWriterWithFilter(sink redaction.Sink, dst io.Writer, filter *redaction.Filter) (io.Writer, *redaction.Writer) {
 	w, err := filter.NewWriter(sink, dst)
 	if err != nil {
 		return dst, nil

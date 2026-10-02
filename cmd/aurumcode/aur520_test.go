@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	igate "github.com/Mpaape/AurumCode/internal/gate"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -56,17 +57,17 @@ func TestAUR520MatchExceptionExactFieldsRequired(t *testing.T) {
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	list := []config.ExceptionConfig{exc}
 
-	if _, status := matchException(list, exc.Repo, exc.Rule, exc.Path, now); status != exceptionActive {
-		t.Fatalf("exact match = %v, want exceptionActive", status)
+	if _, status := igate.MatchException(list, exc.Repo, exc.Rule, exc.Path, now); status != igate.ExceptionActive {
+		t.Fatalf("exact match = %v, want igate.ExceptionActive", status)
 	}
-	if _, status := matchException(list, "other/repo", exc.Rule, exc.Path, now); status != exceptionNone {
-		t.Fatalf("different repo = %v, want exceptionNone", status)
+	if _, status := igate.MatchException(list, "other/repo", exc.Rule, exc.Path, now); status != igate.ExceptionNone {
+		t.Fatalf("different repo = %v, want igate.ExceptionNone", status)
 	}
-	if _, status := matchException(list, exc.Repo, "seguranca.md#xss", exc.Path, now); status != exceptionNone {
-		t.Fatalf("different rule = %v, want exceptionNone", status)
+	if _, status := igate.MatchException(list, exc.Repo, "seguranca.md#xss", exc.Path, now); status != igate.ExceptionNone {
+		t.Fatalf("different rule = %v, want igate.ExceptionNone", status)
 	}
-	if _, status := matchException(list, exc.Repo, exc.Rule, "other/path.py", now); status != exceptionNone {
-		t.Fatalf("different path = %v, want exceptionNone", status)
+	if _, status := igate.MatchException(list, exc.Repo, exc.Rule, "other/path.py", now); status != igate.ExceptionNone {
+		t.Fatalf("different path = %v, want igate.ExceptionNone", status)
 	}
 }
 
@@ -77,8 +78,8 @@ func TestAUR520MatchExceptionExactFieldsRequired(t *testing.T) {
 func TestAUR520MatchExceptionRepoCaseInsensitive(t *testing.T) {
 	exc := sampleException()
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	if _, status := matchException([]config.ExceptionConfig{exc}, "Org/Repo", exc.Rule, exc.Path, now); status != exceptionActive {
-		t.Fatalf("case-insensitive repo match = %v, want exceptionActive", status)
+	if _, status := igate.MatchException([]config.ExceptionConfig{exc}, "Org/Repo", exc.Rule, exc.Path, now); status != igate.ExceptionActive {
+		t.Fatalf("case-insensitive repo match = %v, want igate.ExceptionActive", status)
 	}
 }
 
@@ -88,8 +89,8 @@ func TestAUR520MatchExceptionRepoCaseInsensitive(t *testing.T) {
 func TestAUR520MatchExceptionUnknownRepoNeverMatches(t *testing.T) {
 	exc := sampleException()
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	if _, status := matchException([]config.ExceptionConfig{exc}, "", exc.Rule, exc.Path, now); status != exceptionNone {
-		t.Fatalf("unknown repo identity = %v, want exceptionNone (fail closed)", status)
+	if _, status := igate.MatchException([]config.ExceptionConfig{exc}, "", exc.Rule, exc.Path, now); status != igate.ExceptionNone {
+		t.Fatalf("unknown repo identity = %v, want igate.ExceptionNone (fail closed)", status)
 	}
 }
 
@@ -102,12 +103,12 @@ func TestAUR520MatchExceptionExpiryBoundary(t *testing.T) {
 	list := []config.ExceptionConfig{exc}
 
 	onExpiryDay := time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC)
-	if _, status := matchException(list, exc.Repo, exc.Rule, exc.Path, onExpiryDay); status != exceptionActive {
-		t.Fatalf("on expiry day = %v, want exceptionActive (today <= expires)", status)
+	if _, status := igate.MatchException(list, exc.Repo, exc.Rule, exc.Path, onExpiryDay); status != igate.ExceptionActive {
+		t.Fatalf("on expiry day = %v, want igate.ExceptionActive (today <= expires)", status)
 	}
 	dayAfter := time.Date(2027, 1, 1, 0, 0, 1, 0, time.UTC)
-	if _, status := matchException(list, exc.Repo, exc.Rule, exc.Path, dayAfter); status != exceptionExpired {
-		t.Fatalf("day after expiry = %v, want exceptionExpired", status)
+	if _, status := igate.MatchException(list, exc.Repo, exc.Rule, exc.Path, dayAfter); status != igate.ExceptionExpired {
+		t.Fatalf("day after expiry = %v, want igate.ExceptionExpired", status)
 	}
 }
 
@@ -122,8 +123,8 @@ func TestAUR520MatchExceptionTimezoneCannotBypassExpiry(t *testing.T) {
 	farAhead := time.FixedZone("UTC+14", 14*60*60)
 	// Local wall clock: 2027-01-01 00:30 +14 == UTC 2026-12-31 10:30.
 	now := time.Date(2027, 1, 1, 0, 30, 0, 0, farAhead)
-	if _, status := matchException([]config.ExceptionConfig{exc}, exc.Repo, exc.Rule, exc.Path, now); status != exceptionActive {
-		t.Fatalf("timezone-shifted now = %v, want exceptionActive (UTC date is still 2026-12-31)", status)
+	if _, status := igate.MatchException([]config.ExceptionConfig{exc}, exc.Repo, exc.Rule, exc.Path, now); status != igate.ExceptionActive {
+		t.Fatalf("timezone-shifted now = %v, want igate.ExceptionActive (UTC date is still 2026-12-31)", status)
 	}
 }
 
@@ -131,10 +132,10 @@ func TestAUR520MatchExceptionTimezoneCannotBypassExpiry(t *testing.T) {
 // helper evaluateGate's expiry comparison depends on.
 func TestAUR520TruncateToUTCDateDropsTimeOfDay(t *testing.T) {
 	in := time.Date(2026, 3, 4, 23, 59, 59, 0, time.FixedZone("UTC-5", -5*60*60))
-	got := truncateToUTCDate(in)
+	got := igate.TruncateToUTCDate(in)
 	want := time.Date(2026, 3, 5, 0, 0, 0, 0, time.UTC)
 	if !got.Equal(want) {
-		t.Fatalf("truncateToUTCDate(%v) = %v, want %v", in, got, want)
+		t.Fatalf("igate.TruncateToUTCDate(%v) = %v, want %v", in, got, want)
 	}
 }
 
@@ -153,16 +154,16 @@ func TestAUR520EvaluateGateExceptionSkipsBreach(t *testing.T) {
 	issues := []types.ReviewIssue{{RuleID: exc.Rule, File: exc.Path, Severity: "error"}}
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{exc}, exc.Repo, now)
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{exc}, exc.Repo, now)
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if d.Fail || d.Breach {
-		t.Fatalf("evaluateGate() = %+v, want neither Fail nor Breach: the exception covers the one finding", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want neither Fail nor Breach: the exception covers the one finding", d)
 	}
 	joined := strings.Join(d.Lines, "\n")
 	if !strings.Contains(joined, "aceito por exceção") || !strings.Contains(joined, exc.Owner) || !strings.Contains(joined, exc.Expires) {
-		t.Fatalf("evaluateGate() lines = %v, want an acceptance line naming owner and expiry", d.Lines)
+		t.Fatalf("igate.EvaluateGate() lines = %v, want an acceptance line naming owner and expiry", d.Lines)
 	}
 }
 
@@ -182,16 +183,16 @@ func TestAUR520EvaluateGateExpiredExceptionStillBreaches(t *testing.T) {
 	issues := []types.ReviewIssue{{RuleID: exc.Rule, File: exc.Path, Severity: "error"}}
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{exc}, exc.Repo, now)
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{exc}, exc.Repo, now)
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Fail || !d.Breach {
-		t.Fatalf("evaluateGate() = %+v, want Fail and Breach: an expired exception must not apply", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Fail and Breach: an expired exception must not apply", d)
 	}
 	joined := strings.Join(d.Lines, "\n")
 	if !strings.Contains(joined, "venceu") {
-		t.Fatalf("evaluateGate() lines = %v, want a line saying the exception expired", d.Lines)
+		t.Fatalf("igate.EvaluateGate() lines = %v, want a line saying the exception expired", d.Lines)
 	}
 }
 
@@ -212,15 +213,15 @@ func TestAUR520EvaluateGateInconclusiveBlockNeverAppliesException(t *testing.T) 
 	issues := []types.ReviewIssue{{RuleID: exc.Rule, File: exc.Path, Severity: "error"}}
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "provider_failure", []config.ExceptionConfig{exc}, exc.Repo, now)
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "provider_failure", []config.ExceptionConfig{exc}, exc.Repo, now)
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Fail || !d.Inconclusive {
-		t.Fatalf("evaluateGate() = %+v, want Fail and Inconclusive: block must still close the gate despite a matching exception", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Fail and Inconclusive: block must still close the gate despite a matching exception", d)
 	}
 	if d.Breach {
-		t.Fatalf("evaluateGate() = %+v, want no Breach: the threshold loop (and the exception check inside it) must never run under block", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want no Breach: the threshold loop (and the exception check inside it) must never run under block", d)
 	}
 }
 
@@ -250,12 +251,12 @@ func TestAUR520EvaluateGateIgnoresModelFreeTextFields(t *testing.T) {
 	}}
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{exc}, exc.Repo, now)
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{exc}, exc.Repo, now)
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Fail || !d.Breach {
-		t.Fatalf("evaluateGate() = %+v, want Fail and Breach: forged free-text fields must never substitute for an exact structured match", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Fail and Breach: forged free-text fields must never substitute for an exact structured match", d)
 	}
 }
 
@@ -270,19 +271,19 @@ func TestAUR520EvaluateGateNoExceptionsIsByteIdentical(t *testing.T) {
 	}
 	issues := []types.ReviewIssue{{RuleID: "security#no-hardcoded-secrets", File: "app.go", Severity: "error"}}
 
-	withNil, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
+	withNil, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
-	withEmpty, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{}, "", time.Now())
+	withEmpty, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", []config.ExceptionConfig{}, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !withNil.Fail || !withNil.Breach || !withEmpty.Fail || !withEmpty.Breach {
-		t.Fatalf("evaluateGate() nil=%+v empty=%+v, want both Fail and Breach, unaffected by this card", withNil, withEmpty)
+		t.Fatalf("igate.EvaluateGate() nil=%+v empty=%+v, want both Fail and Breach, unaffected by this card", withNil, withEmpty)
 	}
 	if len(withNil.Lines) != len(withEmpty.Lines) {
-		t.Fatalf("evaluateGate() lines differ between nil and empty exceptions: %v vs %v", withNil.Lines, withEmpty.Lines)
+		t.Fatalf("igate.EvaluateGate() lines differ between nil and empty exceptions: %v vs %v", withNil.Lines, withEmpty.Lines)
 	}
 }
 
