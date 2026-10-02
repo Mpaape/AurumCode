@@ -70,8 +70,20 @@ const (
 // so "" on this side can only ever compare unequal to every configured
 // exception. That is this function's entire fail-closed behavior for an
 // unverifiable repo identity -- no separate branch is needed.
+//
+// AUR-538 AC-006: a config can list more than one exception for the same
+// (repo, rule, path) -- a renewal keeps the expired entry for audit
+// history and adds a fresh one with a later Expires, in either order. An
+// active match always wins over an expired one regardless of list order:
+// the loop returns the first ACTIVE match the instant it finds one, and
+// only falls back to the first EXPIRED match (also list-order-first) when
+// no active match exists at all. This never widens what can match -- the
+// same exact (repo, rule, path) triple is still required -- it only
+// decides which of several matching entries this call reports.
 func matchException(exceptions []config.ExceptionConfig, repoIdentity, ruleID, path string, now time.Time) (config.ExceptionConfig, exceptionMatchStatus) {
 	repoIdentity = strings.TrimSpace(repoIdentity)
+	var firstExpired config.ExceptionConfig
+	haveExpired := false
 	for _, exc := range exceptions {
 		if !strings.EqualFold(strings.TrimSpace(exc.Repo), repoIdentity) {
 			continue
@@ -87,13 +99,23 @@ func matchException(exceptions []config.ExceptionConfig, repoIdentity, ruleID, p
 			// config.ValidateExceptions already refused a malformed
 			// Expires at load time; this is unreachable in practice, but
 			// an exception this function cannot date-check must never be
-			// treated as active.
-			return exc, exceptionExpired
+			// treated as active -- it can only ever be this call's
+			// fallback expired match, never override a later active one.
+			if !haveExpired {
+				firstExpired, haveExpired = exc, true
+			}
+			continue
 		}
 		if truncateToUTCDate(now).After(expires) {
-			return exc, exceptionExpired
+			if !haveExpired {
+				firstExpired, haveExpired = exc, true
+			}
+			continue
 		}
 		return exc, exceptionActive
+	}
+	if haveExpired {
+		return firstExpired, exceptionExpired
 	}
 	return config.ExceptionConfig{}, exceptionNone
 }
@@ -108,6 +130,23 @@ func truncateToUTCDate(t time.Time) time.Time {
 	return time.Date(u.Year(), u.Month(), u.Day(), 0, 0, 0, 0, time.UTC)
 }
 
+// acceptedExceptionMarker and expiredExceptionMarker are the fixed,
+// literal substrings of acceptedExceptionLine/expiredExceptionLine that
+// never vary with RuleID/File/Owner/Reason/Expires -- the exact text
+// between the two dynamic "%s em %s" fields and the dynamic
+// owner/reason/expires fields that follow. AUR-538's orderedGateReasons
+// (aur538.go) matches on these two constants, never on the single word
+// "exceção" alone, so a real severity-breach line (evaluateGate's own
+// "%s: %s (severidade %s, limiar %s)" format, aur519's threshold loop)
+// can never be misclassified as an exception line merely because a
+// policy/repo author's own rule.Title happens to mention "exceção" --
+// only this package's own two exception-line constructors ever produce
+// either marker.
+const (
+	acceptedExceptionMarker = ": aceito por exceção ("
+	expiredExceptionMarker  = ": exceção venceu em "
+)
+
 // acceptedExceptionLine is AC-001's own published line for a finding an
 // active exception covers: the rule and path identify which exact finding
 // (both already redacted/trusted -- RuleID is compared against a known
@@ -116,7 +155,7 @@ func truncateToUTCDate(t time.Time) time.Time {
 // declared.
 func acceptedExceptionLine(exc config.ExceptionConfig, issue types.ReviewIssue) string {
 	return fmt.Sprintf(
-		"%s em %s: aceito por exceção (dono: %s, motivo: %s, validade: %s)",
+		"%s em %s"+acceptedExceptionMarker+"dono: %s, motivo: %s, validade: %s)",
 		issue.RuleID, issue.File, exc.Owner, exc.Reason, exc.Expires,
 	)
 }
@@ -127,7 +166,7 @@ func acceptedExceptionLine(exc config.ExceptionConfig, issue types.ReviewIssue) 
 // had ever been configured for it.
 func expiredExceptionLine(exc config.ExceptionConfig, issue types.ReviewIssue) string {
 	return fmt.Sprintf(
-		"%s em %s: exceção venceu em %s e não vale mais (dono: %s, motivo: %s)",
+		"%s em %s"+expiredExceptionMarker+"%s e não vale mais (dono: %s, motivo: %s)",
 		issue.RuleID, issue.File, exc.Expires, exc.Owner, exc.Reason,
 	)
 }

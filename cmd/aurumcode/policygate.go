@@ -359,28 +359,42 @@ func publishPolicyGateStatus(ctx context.Context, client *githubclient.Client, s
 		return 0
 	}
 	status := githubclient.CommitStatus{Context: policyGateContext}
-	reasons := strings.Join(gateResult.Lines, "; ")
+	// AUR-538 AC-007: reasons here feeds only the CAPPED commit-status
+	// description (capStatusDescription below), never gateResult.Lines
+	// itself or the review body/stderr limitations list built from it
+	// elsewhere (main.go/pr.go) -- those stay the full, untruncated
+	// account. orderedGateReasons puts a real finding ahead of the
+	// inconclusive-reason line within that cap, so a long rule title
+	// still has the best chance of surviving the 140-character cut.
+	reasons := orderedGateReasons(gateResult.Lines)
+	var word, detail string
 	switch {
 	case gateResult.Breach && gateResult.Inconclusive:
 		status.State = "failure"
-		status.Description = fmt.Sprintf("achado(s) reprovam o gate numa revisão também inconclusiva no pull request #%d: %s", prNumber, reasons)
+		word = gateStatusWordFailure
+		detail = fmt.Sprintf("achado(s) reprovam o gate numa revisão também inconclusiva no pull request #%d: %s", prNumber, reasons)
 	case gateResult.Breach:
 		status.State = "failure"
-		status.Description = fmt.Sprintf("achado(s) reprovam o gate no pull request #%d: %s", prNumber, reasons)
+		word = gateStatusWordFailure
+		detail = fmt.Sprintf("achado(s) reprovam o gate no pull request #%d: %s", prNumber, reasons)
 	case gateResult.Fail:
 		// Fail without Breach: gate.inconclusive: block fired and the
 		// threshold loop never ran -- this run was never graded at all.
 		status.State = "failure"
-		status.Description = fmt.Sprintf("revisão inconclusiva (bloqueio) no pull request #%d: %s", prNumber, reasons)
+		word = gateStatusWordInconclusive
+		detail = fmt.Sprintf("revisão inconclusiva (bloqueio) no pull request #%d: %s", prNumber, reasons)
 	case gateResult.Inconclusive:
 		// B5: fail_on declared (or not) with no breach found, but the
 		// review itself was inconclusive -- never "aprovado".
 		status.State = "success"
-		status.Description = fmt.Sprintf("revisão inconclusiva (alerta) no pull request #%d: %s", prNumber, reasons)
+		word = gateStatusWordInconclusive
+		detail = fmt.Sprintf("revisão inconclusiva (alerta) no pull request #%d: %s", prNumber, reasons)
 	default:
 		status.State = "success"
-		status.Description = fmt.Sprintf("gate de política aprovado no pull request #%d", prNumber)
+		word = gateStatusWordApproved
+		detail = fmt.Sprintf("gate de política aprovado no pull request #%d", prNumber)
 	}
+	status.Description = capStatusDescription(word, detail, statusDescriptionLimit)
 
 	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing policy gate status: %v\n", err)

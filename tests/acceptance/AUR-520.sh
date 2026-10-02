@@ -90,16 +90,36 @@ apply_mutation() {
   return 0
 }
 
+# AUR-538 AC-008: every selector below (not just "all") names the exact
+# set of tests it requires, in `names` -- the same list the final check
+# loops over to require EACH ONE's own PASS line, never just "at least
+# one test in the -run pattern passed". Before this fix a per-AC selector
+# could read green with only one of its two named tests actually
+# executed (a typo'd -run pattern, a test silently skipped) because the
+# only check was "some TestAUR520... passed somewhere in the log".
+all_names='ExceptionConfigValidateRequiresEveryField ExceptionConfigValidateRejectsMalformedExpires
+  ExceptionConfigExpiresOnIsUTCMidnight ValidateExceptionsNamesTheFailingIndex
+  ParseRejectsMalformedException ParseAcceptsValidExceptions ApplyCentralPolicyException
+  MatchExceptionExactFieldsRequired MatchExceptionRepoCaseInsensitive
+  MatchExceptionUnknownRepoNeverMatches MatchExceptionExpiryBoundary
+  MatchExceptionTimezoneCannotBypassExpiry TruncateToUTCDateDropsTimeOfDay
+  EvaluateGateExceptionSkipsBreach EvaluateGateExpiredExceptionStillBreaches
+  EvaluateGateInconclusiveBlockNeverAppliesException EvaluateGateIgnoresModelFreeTextFields
+  EvaluateGateNoExceptionsIsByteIdentical BaseValidExceptionPasses BaseExpiredExceptionStillFails
+  BaseMismatchedExceptionNeverApplies CentralPolicyDropsRepoException BaseMalformedExceptionFailsClosed
+  LocalRepoIdentityFromOriginRemote PRValidExceptionPasses'
+
 test_pattern=''
 expect_fail=''
+names=''
 pkgs='./internal/config/... ./cmd/aurumcode/...'
 case "$selector" in
-  all)            test_pattern='^TestAUR520' ;;
-  AC-001)         test_pattern='^(TestAUR520BaseValidExceptionPasses|TestAUR520PRValidExceptionPasses)$' ;;
-  AC-002)         test_pattern='^(TestAUR520BaseExpiredExceptionStillFails|TestAUR520EvaluateGateExpiredExceptionStillBreaches)$' ;;
-  AC-003)         test_pattern='^(TestAUR520BaseMismatchedExceptionNeverApplies|TestAUR520MatchExceptionExactFieldsRequired)$' ;;
-  AC-004)         test_pattern='^(TestAUR520CentralPolicyDropsRepoException|TestAUR520ApplyCentralPolicyException)$' ;;
-  AC-005)         test_pattern='^(TestAUR520BaseMalformedExceptionFailsClosed|TestAUR520ExceptionConfigValidateRequiresEveryField)$' ;;
+  all)            test_pattern='^TestAUR520'; names="$all_names" ;;
+  AC-001)         test_pattern='^(TestAUR520BaseValidExceptionPasses|TestAUR520PRValidExceptionPasses)$'; names='BaseValidExceptionPasses PRValidExceptionPasses' ;;
+  AC-002)         test_pattern='^(TestAUR520BaseExpiredExceptionStillFails|TestAUR520EvaluateGateExpiredExceptionStillBreaches)$'; names='BaseExpiredExceptionStillFails EvaluateGateExpiredExceptionStillBreaches' ;;
+  AC-003)         test_pattern='^(TestAUR520BaseMismatchedExceptionNeverApplies|TestAUR520MatchExceptionExactFieldsRequired)$'; names='BaseMismatchedExceptionNeverApplies MatchExceptionExactFieldsRequired' ;;
+  AC-004)         test_pattern='^(TestAUR520CentralPolicyDropsRepoException|TestAUR520ApplyCentralPolicyException)$'; names='CentralPolicyDropsRepoException ApplyCentralPolicyException' ;;
+  AC-005)         test_pattern='^(TestAUR520BaseMalformedExceptionFailsClosed|TestAUR520ExceptionConfigValidateRequiresEveryField)$'; names='BaseMalformedExceptionFailsClosed ExceptionConfigValidateRequiresEveryField' ;;
   AC-002-MUT-001) test_pattern='^(TestAUR520BaseExpiredExceptionStillFails|TestAUR520EvaluateGateExpiredExceptionStillBreaches)$'; expect_fail=1; apply_mutation ;;
 esac
 
@@ -124,20 +144,10 @@ fi
 (( status == 0 )) || fail "go-test-exit:$status"
 grep -Eq -- '^--- PASS: TestAUR520' "$log" || fail 'no-test-executed'
 
-if [[ "$selector" == all ]]; then
-  for name in \
-      ExceptionConfigValidateRequiresEveryField ExceptionConfigValidateRejectsMalformedExpires \
-      ExceptionConfigExpiresOnIsUTCMidnight ValidateExceptionsNamesTheFailingIndex \
-      ParseRejectsMalformedException ParseAcceptsValidExceptions ApplyCentralPolicyException \
-      MatchExceptionExactFieldsRequired MatchExceptionRepoCaseInsensitive \
-      MatchExceptionUnknownRepoNeverMatches MatchExceptionExpiryBoundary \
-      MatchExceptionTimezoneCannotBypassExpiry TruncateToUTCDateDropsTimeOfDay \
-      EvaluateGateExceptionSkipsBreach EvaluateGateExpiredExceptionStillBreaches \
-      EvaluateGateInconclusiveBlockNeverAppliesException EvaluateGateIgnoresModelFreeTextFields \
-      EvaluateGateNoExceptionsIsByteIdentical BaseValidExceptionPasses BaseExpiredExceptionStillFails \
-      BaseMismatchedExceptionNeverApplies CentralPolicyDropsRepoException BaseMalformedExceptionFailsClosed \
-      LocalRepoIdentityFromOriginRemote PRValidExceptionPasses; do
-    grep -q "^--- PASS: TestAUR520$name " "$log" || fail "missing-pass:$name"
-  done
-fi
+# AC-008: every selector (not only "all") requires EVERY one of its own
+# named tests to show its own PASS line -- never just "something in the
+# log passed".
+for name in $names; do
+  grep -q "^--- PASS: TestAUR520$name " "$log" || fail "missing-pass:$name"
+done
 printf '%s/%s/pass\n' "$card" "$selector"
