@@ -64,9 +64,17 @@ func applyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig, 
 		result.Lines = append(result.Lines, fmt.Sprintf("analysis_data: revisão inconclusiva (%s): %s", out.Reason, out.Detail))
 		return result, out.Reason, nil
 	}
-	return gateDecision{}, "", &render.AnalysisDataAudit{
+	if out.Source == artifacts.SourceCache {
+		// Usable, but the operator must see the release listing was
+		// unreachable: not a failure, never silent.
+		result.Active = true
+		result.Lines = append(result.Lines, fmt.Sprintf(
+			"analysis_data: usando cópia em cache (%s): a listagem de releases estava indisponível; idade e digests verificados", out.Tag))
+	}
+	return result, "", &render.AnalysisDataAudit{
 		Digest:      out.Digest,
 		GeneratedAt: out.GeneratedAt.UTC().Format(time.RFC3339),
 		Tag:         out.Tag,
+		Source:      out.Source,
 	}
 }

@@ -246,6 +246,9 @@ func TestAUR533ResolveUsesFreshArtifactAndExposesAudit(t *testing.T) {
 	if out.Digest != m.SetDigest || !out.GeneratedAt.Equal(t0) {
 		t.Fatalf("newest release not chosen: %+v", out)
 	}
+	if out.Source != SourceRemote {
+		t.Fatalf("source = %q, want remote", out.Source)
+	}
 	a := out.Audit()
 	if a["analysis_data_digest"] != m.SetDigest || a["analysis_data_generated_at"] != "2026-10-02T03:17:00Z" || a["analysis_data"] != "used" {
 		t.Fatalf("audit fields: %v", a)
@@ -353,8 +356,8 @@ func TestAUR533ResolveOfflineIsInconclusive(t *testing.T) {
 		t.Fatal("priming run must succeed")
 	}
 	off := Options{APIBase: dead.URL, Repository: "o/r", CacheDir: cache, MaxAgeDays: 7, Now: func() time.Time { return t0.Add(2 * time.Hour) }}
-	if out := Resolve(context.Background(), off); !out.Usable {
-		t.Fatalf("fresh cached copy should serve offline: %s", out.Message())
+	if out := Resolve(context.Background(), off); !out.Usable || out.Source != SourceCache {
+		t.Fatalf("fresh cached copy should serve offline, marked as cache: %+v", out)
 	}
 	off.Now = func() time.Time { return t0.Add(9 * 24 * time.Hour) }
 	if out := Resolve(context.Background(), off); out.Usable || out.Reason != ReasonStale {

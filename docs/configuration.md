@@ -957,5 +957,13 @@ analysis_data:
   arquivo quando um consumidor a usar (AUR-495); o manifesto inteiro, e portanto
   cada digest de arquivo, continua coberto pelo `set_digest`, que é conferido
   em todo review.
+- `max_age_days` ausente usa 7; escrito explicitamente como 0, negativo ou
+  acima de 365 é erro de carga (nunca "sem limite" nem o padrão em silêncio).
+- Se a listagem de releases estiver indisponível, o AurumCode usa a cópia em
+  cache mais nova, revalidada: o manifesto em cache é validado contra si mesmo
+  (`set_digest` e digest de cada arquivo) e a idade é conferida como sempre.
+  Isso não prova autenticidade perante o GitHub, apenas integridade e
+  frescor da cópia. O uso fica explícito: `source: cache` na auditoria e uma
+  linha no parecer (`remote` quando a listagem respondeu).
 - Requisito de publicação: ative "Immutable releases" nas configurações do
   repositório publicador para que um release publicado não possa ser alterado.
