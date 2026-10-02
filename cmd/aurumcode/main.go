@@ -527,6 +527,10 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
 	}
+	// AUR-476: the raw file count, captured before the ignore filter runs,
+	// is the coverage denominator when the repository config hid files the
+	// prompt builder never measured.
+	rawDiffFileCount := len(diff.Files)
 
 	// AUR-452: repoCfg is the repository's own, EXPLICIT, versioned
 	// .aurumcode/config.yml -- the one thing in this card's design that
@@ -551,6 +555,12 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// --seguranca pass (via SecurityScanWithCoverage(diff), further down)
 	// read, so an ignored file is invisible to both passes identically.
 	// Zero-config: returns diff, the same pointer, unchanged.
+	// AUR-476: capture which paths the repository config explicitly hid
+	// BEFORE the filter drops them, so the coverage notice can name the
+	// ignored count and its cause -- a configured omission is a declared
+	// limitation, never evidence that the file's content (tests included)
+	// does not exist.
+	ignoredPaths := ignoredDiffPaths(diff, repoCfg)
 	diff = config.FilterIgnoredPaths(diff, repoCfg)
 
 	// AUR-502: resolve the reviewer-profile selection. The --perfis/--profile
@@ -961,6 +971,16 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	mergeStaticAnalysis(diff, result)
 	result.Issues = config.ApplyRuleConfig(result.Issues, repoCfg)
 	securityFindings = config.ApplyRuleConfig(securityFindings, repoCfg)
+	// AUR-476: the deterministic coverage pass. It runs after both passes
+	// have produced their findings and reads only the diff, the repository
+	// config and the prompt builder's own coverage metadata -- never the
+	// model's summary -- so the notice is present even when the model
+	// claims complete coverage (AC-003). It is printed on stdout below,
+	// next to the report, so the user never has to open the PR to see it.
+	coverageText := coverageNotice(reviewCopyFor(reviewLanguage), mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths))
+	if coverageText != "" {
+		result.Limitations = append(result.Limitations, coverageText)
+	}
 	if changelogLimitation != "" {
 		result.Limitations = append(result.Limitations, changelogLimitation)
 	}
@@ -1002,6 +1022,12 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintln(stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
 	}
 	fmt.Fprint(stdout, renderLocalReport(result, diff, reviewLanguage))
+	// AUR-476: the coverage notice goes to stdout, directly after the
+	// summary, so the terminal user sees which files the review skipped and
+	// why without opening the PR. Empty on a complete review (AC-002).
+	if coverageText != "" {
+		fmt.Fprint(stdout, "\n"+coverageText+"\n")
+	}
 	if suggestions := renderSuggestions(result, diff, reviewLanguage); suggestions != "" {
 		fmt.Fprint(stdout, "\n"+suggestions)
 	}
