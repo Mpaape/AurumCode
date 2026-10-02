@@ -990,12 +990,29 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// contract, oblivious to caching. A full cache hit means Complete is
 		// never called, so the tracker records nothing and printRealCost below
 		// correctly reports $0.0000 spent.
+		// AUR-543: the cache key's prompt-version component is now a digest of
+		// the fixed content a prompt builder actually renders (instructions,
+		// built-in rule catalog, schema text) -- computed here, at run time,
+		// from a fresh builder -- instead of internal/review/cache's old
+		// hand-bumped PromptVersion constant. A fresh builder (not the
+		// reviewer's own, which carries this run's dynamic, skill-expanded
+		// ruleCatalogIDs) is deliberate: that dynamic catalog already has its
+		// own, separately folded-in digest above (ruleCatalogDigest), so
+		// digesting it again here would double-count it rather than guard
+		// anything new. This way, editing templates/review.md's literal text
+		// or the built-in catalog (internal/prompt.DefaultRuleCatalog) alone
+		// invalidates every cache entry, with no constant to remember to bump.
+		promptVersionDigest, promptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+
 		revCache, cacheErr := cache.Open(cache.ResolveDir())
+		if cacheErr == nil {
+			cacheErr = promptDigestErr
+		}
 		toSend := diff
 		var cacheStatuses []fileCacheStatus
 		if cacheErr == nil {
 			var missFiles []types.DiffFile
-			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest))
+			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest), promptVersionDigest)
 			toSend = &types.Diff{Files: missFiles}
 		}
 
@@ -1168,6 +1185,13 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// severity -- see internal/config's package doc. Zero-config: both
 	// calls return their input slices unchanged.
 	mergeStaticAnalysis(diff, result)
+	// AUR-524 v2: snapshot the RAW issues -- model output plus the
+	// deterministic static-analysis merge just above, before this run's
+	// own rule config filters/overrides them -- so a stored verdict entry
+	// can be re-evaluated against a LATER run's rule config instead of
+	// freezing whatever config happened to be active when it was written
+	// (AC-006). See reuseOrStoreGateVerdict below and aur524.go.
+	rawIssuesSnapshotAUR524 := append([]types.ReviewIssue(nil), result.Issues...)
 	result.Issues = config.ApplyRuleConfig(result.Issues, repoCfg)
 	securityFindings = config.ApplyRuleConfig(securityFindings, repoCfg)
 	// AUR-476: the deterministic coverage pass. It runs after both passes
@@ -1212,6 +1236,50 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	case coverageBreakdown.partial():
 		gateInconclusiveReason = "partial_coverage"
 	}
+
+	// AUR-520: the --base path's own verified repo identity, derived
+	// read-only from the local checkout's "origin" remote (never from the
+	// model or the diff) -- see localRepoIdentity, aur520.go. Unknown
+	// (ok==false) fails closed: repoIdentity stays "", which
+	// matchException never matches against any configured exception's
+	// required, non-empty Repo field, and AUR-524's own key below never
+	// collides a run with unknown repo identity against one with a known
+	// one. The notice is only published when an exception was actually
+	// configured, so a run that never uses that card's feature carries no
+	// new line at all.
+	repoIdentity, repoIdentityOK := localRepoIdentity(cwd)
+	if !repoIdentityOK && exceptionsConfigured(repoCfg) {
+		notice := repoIdentityUnavailableNotice(reviewLanguage)
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", notice)
+		result.Limitations = append(result.Limitations, notice)
+	}
+
+	// AUR-524 v2: reuse (monotonically -- see aur524.go) or publish, for a
+	// later run, a concluded gate verdict for this exact reviewed content,
+	// policy, repo context/skills, model, prompt version and binary. A
+	// no-op unless repoCfg.Gate.Declared(): a review with no `gate:` key
+	// anywhere carries no trace of this card. This is the SAME
+	// FixedContentDigest() AUR-543's per-file cache already calls above
+	// (promptVersionDigest, out of scope at this point) -- a fresh,
+	// side-effect-free call on the exact same fixed, in-memory content,
+	// never a different input.
+	gateVerdictPromptDigest, gateVerdictPromptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+	result.Issues = reuseOrStoreGateVerdict(stderr, &result.Limitations, repoCfg.Gate.Declared(), gateVerdictPromptDigestErr == nil, provider, gateVerdictKeyInputs{
+		BaseModelIdentity:   baseModelIdentity,
+		Language:            reviewLanguage,
+		Codebase:            codebaseContextText,
+		Notes:               memoryNotesText,
+		Profiles:            profileIdentity,
+		ContextBlockDigest:  contextBlockDigest,
+		RuleCatalogDigest:   ruleCatalogDigest,
+		PolicyDigest:        render.PolicyDigest(policyDir, centralCfg),
+		PromptVersionDigest: gateVerdictPromptDigest,
+		BinaryIdentity:      binaryIdentity(),
+		RepoIdentity:        repoIdentity,
+		DiffDigest:          diffContentDigest(diff),
+		ReviewedSHA:         os.Getenv("GITHUB_SHA"),
+	}, repoCfg, gateInconclusiveReason, result.Issues, rawIssuesSnapshotAUR524)
+
 	gateOrigin := gateOriginRepo
 	if centralCfg != nil {
 		gateOrigin = gateOriginPolicy
@@ -1219,20 +1287,6 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	gateIssues := make([]types.ReviewIssue, 0, len(result.Issues)+len(securityFindings))
 	gateIssues = append(gateIssues, result.Issues...)
 	gateIssues = append(gateIssues, securityFindings...)
-	// AUR-520: the --base path's own verified repo identity, derived
-	// read-only from the local checkout's "origin" remote (never from the
-	// model or the diff) -- see localRepoIdentity, aur520.go. Unknown
-	// (ok==false) fails closed: repoIdentity stays "", which
-	// matchException never matches against any configured exception's
-	// required, non-empty Repo field. The notice is only published when
-	// an exception was actually configured on either side, so a run that
-	// never uses this card's feature carries no new line at all.
-	repoIdentity, repoIdentityOK := localRepoIdentity(cwd)
-	if !repoIdentityOK && exceptionsConfigured(repoCfg) {
-		notice := repoIdentityUnavailableNotice(reviewLanguage)
-		fmt.Fprintf(stderr, "aurumcode review: %s\n", notice)
-		result.Limitations = append(result.Limitations, notice)
-	}
 	gateResult, gateErr := evaluateGate(repoCfg.Gate, gateOrigin, dynamicRules, gateIssues, gateInconclusiveReason, repoCfg.Exceptions, repoIdentity, time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
