@@ -1,0 +1,151 @@
+// The model's quality pass of the --base path: cost cap (--limite), review
+// cache (AUR-441/543), profile passes (AUR-502) and the single review call.
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/cache"
+	"github.com/Mpaape/AurumCode/pkg/types"
+)
+
+// qualityCache is the per-file cache state of one quality pass. err != nil
+// degrades to AUR-430's original behavior: every file sent, every run.
+type qualityCache struct {
+	store    *cache.Cache
+	err      error
+	statuses []fileCacheStatus
+	toSend   *types.Diff
+}
+
+// runQualityPass runs everything that talks to a model. When the quality
+// review was skipped or already failed, result stays the zero ReviewResult:
+// no quality issues, nothing to gate or print for that section (AUR-449).
+func (b *baseReview) runQualityPass() (int, bool) {
+	if b.qualitySkipped || b.qualityFailed {
+		b.result = &types.ReviewResult{}
+		return 0, false
+	}
+	if code, done := b.setupCostCap(); done {
+		return code, true
+	}
+	orchestrator := llm.NewOrchestrator(b.provider, nil, b.tracker)
+	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+	// AUR-519: teach the model the expanded catalog and accept its
+	// citations against the same dynamic set computed earlier.
+	reviewer.SetDynamicRules(b.dynamicRules)
+	if err := reviewer.SetRuleCatalog(b.ruleCatalogIDs); err != nil {
+		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
+		return 2, true
+	}
+	qc := b.prepareCache()
+	// A diff with no files at all is the pre-existing "nothing changed"
+	// edge case and is still sent; only a genuine full cache hit skips the
+	// call.
+	if qc.err != nil || len(qc.toSend.Files) > 0 || len(b.diff.Files) == 0 {
+		if code, done := b.callModel(reviewer, qc); done {
+			return code, true
+		}
+	} else {
+		b.result = &types.ReviewResult{}
+	}
+	b.reportQualityOutcome(qc)
+	return 0, false
+}
+
+// setupCostCap wires --limite (AUR-433): the tracker estimates the cost and
+// refuses -- before the model is ever called -- when it exceeds the ceiling.
+func (b *baseReview) setupCostCap() (int, bool) {
+	if !b.limiteSet {
+		return 0, false
+	}
+	price, err := costPrice()
+	if err != nil {
+		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
+		return 2, true
+	}
+	modelKey := costModelKey(b.f.modelo)
+	b.provider = &fixedModelProvider{Provider: b.provider, model: modelKey}
+	b.tracker = buildCostTracker(b.limiteUSD, modelKey, price)
+	printCostEstimate(b.stderr, estimateCostUSD(b.diff, price), b.limiteUSD)
+	return 0, false
+}
+
+// prepareCache opens the review cache and keeps only the cache misses in
+// toSend (AUR-441). The prompt-version component is a digest of the fixed
+// content a prompt builder renders (AUR-543). The estimate printed earlier
+// priced the FULL diff, oblivious to caching.
+func (b *baseReview) prepareCache() *qualityCache {
+	promptVersionDigest, promptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+	store, cacheErr := cache.Open(cache.ResolveDir())
+	if cacheErr == nil {
+		cacheErr = promptDigestErr
+	}
+	qc := &qualityCache{store: store, err: cacheErr, toSend: b.diff}
+	if cacheErr == nil {
+		var missFiles []types.DiffFile
+		missFiles, qc.statuses = partitionByCache(store, b.diff, reviewContextCacheKey(b.provider, b.baseModelIdentity, b.reviewLanguage, b.codebaseContextText, b.memoryNotesText, b.profileIdentity, b.contextBlockDigest, b.ruleCatalogDigest), promptVersionDigest)
+		qc.toSend = &types.Diff{Files: missFiles}
+	}
+	return qc
+}
+
+// callModel sends the cache misses to the model (one call, or one pass per
+// profile sharing the cost tracker) and persists fresh results. With
+// --seguranca a failed quality review diverts to the security pass alone
+// (AUR-458); without it the published exit-1 refusal stays.
+func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int, bool) {
+	reviewCtx := review.ReviewContext{
+		Language:        b.reviewLanguage,
+		CodebaseContext: b.codebaseContextText,
+		MemoryNotes:     b.memoryNotesText,
+	}
+	var err error
+	if b.profilesApplied {
+		// AUR-519: every profile's Reviewer accepts the same dynamic rules
+		// and expanded catalog as the single-reviewer path.
+		b.result, err = runProfilePasses(context.Background(), b.provider, b.tracker, b.profileRes.Profiles, qc.toSend, reviewCtx, b.dynamicRules, b.ruleCatalogIDs)
+	} else {
+		b.result, err = reviewer.GenerateReviewWithContext(context.Background(), qc.toSend, reviewCtx)
+	}
+	if err != nil && b.f.seguranca {
+		reportQualityFailure(b.stderr, err, b.f.modelo, b.limiteUSD)
+		fmt.Fprintln(b.stderr, "aurumcode review: quality review failed; running --seguranca only -- this run reviewed HALF of what was asked")
+		b.qualityFailed = true
+		b.result = &types.ReviewResult{}
+	} else if err != nil {
+		return reportQualityFailure(b.stderr, err, b.f.modelo, b.limiteUSD), true
+	}
+	// B3: a degraded parse or a partially covered file is never persisted:
+	// a later cache hit would claim a complete review.
+	cachePartial := mergeReviewCoverage(b.result.Metadata, b.notices, b.rawDiffFileCount, b.ignoredPaths).partial()
+	if qc.err == nil && !b.qualityFailed && !prompt.IsDegradedParse(b.result) && !cachePartial {
+		persistFreshResults(qc.store, qc.statuses, b.result.Issues, b.filter)
+	}
+	return 0, false
+}
+
+// reportQualityOutcome prints the discard warnings (AUR-448/459, never
+// silent), merges cache hits into the answer and reports cache reuse and
+// the real cost. None of it applies to a failed review (AUR-458).
+func (b *baseReview) reportQualityOutcome(qc *qualityCache) {
+	for _, key := range []string{"discard_warning", "scope_discard_warning", "parse_discard_warning"} {
+		if warning := b.result.Metadata[key]; warning != "" {
+			fmt.Fprintf(b.stderr, "aurumcode review: %s\n", warning)
+		}
+	}
+	reused := 0
+	if qc.err == nil && !b.qualityFailed {
+		reused = mergeCacheHits(b.result, qc.statuses, b.filter)
+	}
+	if reused > 0 {
+		fmt.Fprintf(b.stderr, "aurumcode review: reused %d file(s) from cache (not resent to the model)\n", reused)
+	}
+	if b.limiteSet && !b.qualityFailed {
+		printRealCost(b.stderr, realCostUSD(b.tracker, b.limiteUSD), b.limiteUSD)
+	}
+}
