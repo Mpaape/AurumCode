@@ -1460,6 +1460,7 @@ type reviewCopy struct {
 	changesRequested, comment, approve, inconclusive                                   string
 	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings     string
 	qualityIncomplete                                                                  string
+	suggestionApplicable, suggestionNotApplicable                                      string
 }
 
 func reviewCopyFor(language string) reviewCopy {
@@ -1468,22 +1469,26 @@ func reviewCopyFor(language string) reviewCopy {
 			title: "revisão de código", verdict: "Veredito", summary: "Resumo", strengths: "Pontos fortes", findings: "Achados", suggestions: "Sugestões", ciStatus: "Status do CI", tests: "Testes", limits: "Limitações da revisão",
 			impact: "Impacto", evidence: "Evidência", suggestedFix: "Correção sugerida", verify: "Verificação", rationale: "Motivação", proposedImplementation: "Implementação sugerida", cause: "Causa", fix: "Correção", nextVerification: "Próxima verificação",
 			changesRequested: "Alterações solicitadas", comment: "Comentário", approve: "Aprovado", inconclusive: "Inconclusivo",
-			blockingFindings:    "A revisão encontrou %d achado(s) bloqueante(s) que devem ser tratados antes do merge.",
-			nonBlockingFindings: "A revisão encontrou observações, mas nenhum achado bloqueante permanece na mudança revisada.",
-			optionalSuggestions: "Nenhum achado bloqueante foi identificado; as sugestões abaixo são melhorias opcionais.",
-			noBlockingFindings:  "Nenhum achado bloqueante foi identificado na mudança revisada.",
-			qualityIncomplete:   "A revisão por modelo não foi concluída. Apenas as verificações determinísticas produziram resultado; este parecer não aprova a mudança.",
+			blockingFindings:        "A revisão encontrou %d achado(s) bloqueante(s) que devem ser tratados antes do merge.",
+			nonBlockingFindings:     "A revisão encontrou observações, mas nenhum achado bloqueante permanece na mudança revisada.",
+			optionalSuggestions:     "Nenhum achado bloqueante foi identificado; as sugestões abaixo são melhorias opcionais.",
+			noBlockingFindings:      "Nenhum achado bloqueante foi identificado na mudança revisada.",
+			qualityIncomplete:       "A revisão por modelo não foi concluída. Apenas as verificações determinísticas produziram resultado; este parecer não aprova a mudança.",
+			suggestionApplicable:    "Substituição aplicável em `%s`.",
+			suggestionNotApplicable: "Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.",
 		}
 	}
 	return reviewCopy{
 		title: "code review", verdict: "Verdict", summary: "Summary", strengths: "Strengths", findings: "Findings", suggestions: "Suggestions", ciStatus: "CI status", tests: "Tests", limits: "Review limits",
 		impact: "Impact", evidence: "Evidence", suggestedFix: "Suggested fix", verify: "Verify", rationale: "Rationale", proposedImplementation: "Proposed implementation", cause: "Cause", fix: "Fix", nextVerification: "Next verification",
 		changesRequested: "Changes requested", comment: "Comment", approve: "Approve", inconclusive: "Inconclusive",
-		blockingFindings:    "The review found %d blocking finding(s) that should be addressed before merge.",
-		nonBlockingFindings: "The review found observations, but no blocking finding remains in the reviewed change.",
-		optionalSuggestions: "No blocking finding was identified; the suggestions below are optional improvements.",
-		noBlockingFindings:  "No blocking finding was identified in the reviewed change.",
-		qualityIncomplete:   "The model review did not complete. Only deterministic checks produced results; this review does not approve the change.",
+		blockingFindings:        "The review found %d blocking finding(s) that should be addressed before merge.",
+		nonBlockingFindings:     "The review found observations, but no blocking finding remains in the reviewed change.",
+		optionalSuggestions:     "No blocking finding was identified; the suggestions below are optional improvements.",
+		noBlockingFindings:      "No blocking finding was identified in the reviewed change.",
+		qualityIncomplete:       "The model review did not complete. Only deterministic checks produced results; this review does not approve the change.",
+		suggestionApplicable:    "Applicable replacement at `%s`.",
+		suggestionNotApplicable: "Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.",
 	}
 }
 

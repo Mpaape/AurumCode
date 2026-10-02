@@ -170,6 +170,100 @@ func renderPass(result *types.ReviewResult, diff *types.Diff, language string) (
 	return tldr, diagram
 }
 
+// applicableSuggestionRange reports the 1-based start/end of a suggestion whose
+// replacement can actually be applied, reusing the same coordinate rules the
+// PR publication path already enforces (suggestionRange + isInlineEligible):
+// every line of the range must be a line this diff added, so the replacement
+// has an exact, reviewable boundary. A suggestion without a location, or one
+// whose location falls outside the added lines, is not applicable and returns
+// ok=false -- it is advice, not a one-click fix.
+//
+// It shares one definition with nativeSuggestionComment and
+// filterSuggestionsToChangedLines rather than reimplementing the check, so the
+// terminal view and the PR view can never disagree about what is eligible. The
+// one extra bound -- end-start > 1000 -- mirrors filterSuggestionsToChangedLines
+// so a pathological range is rejected before the line walk, never after.
+func applicableSuggestionRange(diff *types.Diff, suggestion types.ReviewSuggestion) (start, end int, ok bool) {
+	if strings.TrimSpace(suggestion.ProposedCode) == "" || strings.TrimSpace(suggestion.File) == "" {
+		return 0, 0, false
+	}
+	start, end = suggestionRange(suggestion)
+	if start <= 0 || end < start || end-start > 1000 {
+		return 0, 0, false
+	}
+	for line := start; ; line++ {
+		if !isInlineEligible(diff, types.ReviewIssue{File: suggestion.File, Line: line}) {
+			return 0, 0, false
+		}
+		if line == end {
+			break
+		}
+	}
+	return start, end, true
+}
+
+// suggestionLocationLabel renders a suggestion's location in the same
+// `<file>:<line>` / `<file>:<start>-<end>` shape the PR summary already uses,
+// so the terminal and the PR describe a suggestion identically.
+func suggestionLocationLabel(suggestion types.ReviewSuggestion, start, end int) string {
+	if start == end {
+		return fmt.Sprintf("%s:%d", suggestion.File, start)
+	}
+	return fmt.Sprintf("%s:%d-%d", suggestion.File, start, end)
+}
+
+// renderSuggestions renders the review's suggestions for the local --base
+// terminal report. Every suggestion the model returned is shown, exactly once,
+// with its title, description, location and proposed replacement, so a user who
+// never opens the PR still receives the complete suggestion. A suggestion whose
+// replacement is eligible for a one-click change is marked as such (and names
+// its exact range); one that is not -- no location, a location outside the
+// added lines, or no proposed code -- is shown with an explicit limitation and
+// never presented as an applicable substitution, matching the PR path's
+// fail-closed classification (filterSuggestionsToChangedLines /
+// nativeSuggestionComment). Suggestions without a title and without a
+// description carry nothing to render and are skipped, exactly as the PR
+// summary skips them. The returned string is empty when there is nothing to
+// show, so the zero-suggestion report is byte-identical to the published
+// behavior.
+func renderSuggestions(result *types.ReviewResult, diff *types.Diff, language string) string {
+	if result == nil || len(result.Suggestions) == 0 {
+		return ""
+	}
+	copy := reviewCopyFor(language)
+	var b strings.Builder
+	fmt.Fprintf(&b, "### %s\n\n", copy.suggestions)
+	wrote := false
+	for _, suggestion := range result.Suggestions {
+		title := strings.TrimSpace(suggestion.Title)
+		description := strings.TrimSpace(suggestion.Description)
+		if title == "" && description == "" {
+			continue
+		}
+		wrote = true
+		fmt.Fprintf(&b, "- **%s**", title)
+		if description != "" {
+			fmt.Fprintf(&b, " — %s", description)
+		}
+		start, end, applicable := applicableSuggestionRange(diff, suggestion)
+		if applicable {
+			fmt.Fprintf(&b, " %s", fmt.Sprintf(copy.suggestionApplicable, suggestionLocationLabel(suggestion, start, end)))
+		} else {
+			fmt.Fprintf(&b, " %s", copy.suggestionNotApplicable)
+		}
+		b.WriteByte('\n')
+		if proposed := strings.TrimSpace(suggestion.ProposedCode); proposed != "" {
+			fmt.Fprintf(&b, "  - **%s:**\n\n    ```\n%s\n    ```\n", copy.proposedImplementation, proposed)
+		}
+		writeSummaryField(&b, copy.rationale, suggestion.Rationale)
+		writeSummaryField(&b, copy.verify, suggestion.Verification)
+	}
+	if !wrote {
+		return ""
+	}
+	return b.String()
+}
+
 // renderLocalReport renders the --base path's stdout report from the shared
 // render pass: the summary block, then a fenced ```mermaid block when a
 // diagram was produced. It is deterministic and derives only from result and
