@@ -27,10 +27,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -429,4 +431,158 @@ func TestAUR536UntrackedSymlinkOmitsContext(t *testing.T) {
 
 	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
 	assertDirty(t, code, stdout, stderr, capturePath, posted, aur515LocalMarker)
+}
+
+// TestAUR536SubdirectoryCheckoutIsUnverifiable covers this card's own
+// re-review finding: TrackedFiles' paths are relative to the repository
+// root, while walkVerified computes its relative paths from whatever dir
+// it is given. The two only agree when dir IS the root. Before the fix,
+// running --pr with the process cwd set to an otherwise-clean checkout's
+// subdirectory published a false "dirty" (uncommitted changes) claim --
+// every file under the subdirectory looked unmatched against the
+// root-relative tracked map, and every file outside it was never walked
+// at all, so the match count could never reach len(tracked) either.
+// verifiedCleanCheckoutReason now requires dir to carry its own ".git"
+// entry before trusting it as the root at all; from a subdirectory it
+// reports codebaseContextReasonUnverifiable instead -- never a false
+// "clean" (unproven) and never a false "dirty" (actively wrong).
+func TestAUR536SubdirectoryCheckoutIsUnverifiable(t *testing.T) {
+	dir, localHead := aur515Fixture(t, "https://github.com/owner/repo.git")
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(sub, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(sub); err != nil {
+		t.Fatal(err)
+	}
+
+	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	captured, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("reading captured prompt: %v", err)
+	}
+	if strings.Contains(string(captured), aur515LocalMarker) {
+		t.Fatalf("a subdirectory checkout must never have its root's content reach the prompt either:\n%s", string(captured))
+	}
+	if strings.Contains(posted, "uncommitted changes, untracked files, or content that does not match the reviewed commit") {
+		t.Fatalf("a clean checkout run from a subdirectory must never be published as dirty:\n%s", posted)
+	}
+	if !strings.Contains(posted, "the local checkout's identity could not be confirmed") {
+		t.Fatalf("expected the unverifiable-specific wording when run from a subdirectory:\n%s", posted)
+	}
+}
+
+// TestAUR536PackedRepositoryWithoutGitIsUnverifiable is the automated
+// counterpart of this card's own manual real-clone check: a repository
+// whose objects have been packed (git repack -a -d, exactly what a real
+// clone or a `git gc` leaves behind) is unreadable by the pure-Go
+// loose-object reader TrackedFiles falls back to without a git binary.
+// That must surface as codebaseContextReasonUnverifiable -- an inability
+// to prove the tree is dirty is not evidence that it is -- never as a
+// false "dirty" and never as a false "clean". Building the fixture uses a
+// real git binary (shelling out, same as any other test fixture setup);
+// PATH is then cleared so the code under test cannot find one.
+func TestAUR536PackedRepositoryWithoutGitIsUnverifiable(t *testing.T) {
+	gitBin, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not available to build a packed fixture")
+	}
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(gitBin, args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=fixture", "GIT_AUTHOR_EMAIL=fixture@example.invalid",
+			"GIT_COMMITTER_NAME=fixture", "GIT_COMMITTER_EMAIL=fixture@example.invalid")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("init", "-q", "-b", "main")
+	appLocal := []byte("package demo\n\nfunc " + aur515LocalMarker + "() {}\n")
+	if err := os.WriteFile(filepath.Join(dir, "app.go"), appLocal, 0600); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "app.go")
+	run("commit", "-q", "-m", "initial")
+	run("remote", "add", "origin", "https://github.com/owner/repo.git")
+	run("repack", "-a", "-d", "-q") // packs every object, including the commit/tree themselves.
+
+	headOut, err := exec.Command(gitBin, "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	localHead := strings.TrimSpace(string(headOut))
+
+	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "AURUMCODE_LLM_FIXTURE", "AURUMCODE_LLM_INPUT_USD_PER_1K", "AURUMCODE_LLM_OUTPUT_USD_PER_1K"} {
+		t.Setenv(key, "")
+	}
+	restore := chdir(t, dir)
+	t.Cleanup(restore)
+	t.Setenv("PATH", "") // the fixture above already used git; the code under test must not find one.
+
+	code, stdout, stderr, capturePath, posted := runAUR536Review(t, localHead)
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	captured, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("reading captured prompt: %v", err)
+	}
+	if strings.Contains(string(captured), aur515LocalMarker) {
+		t.Fatalf("a packed, git-less checkout must never reach the prompt as context:\n%s", string(captured))
+	}
+	if strings.Contains(posted, "uncommitted changes, untracked files, or content that does not match the reviewed commit") {
+		t.Fatalf("a packed repository the fallback cannot read must be unverifiable, never dirty:\n%s", posted)
+	}
+	if !strings.Contains(posted, "the local checkout's identity could not be confirmed") {
+		t.Fatalf("expected the unverifiable-specific wording for a packed, git-less checkout:\n%s", posted)
+	}
+}
+
+// TestAUR536VerifiedCodebaseContextReadsExactlyTheVerifiedSet kills
+// mutation Ma: it proves, end to end through a real runPRReview call,
+// that resolveVerifiedCodebaseContext hands the resolver exactly the file
+// set verifiedCleanCheckoutReason proved clean -- not a silently
+// re-substituted unrestricted walk. It substitutes resolveWithFilesHook
+// (aur536.go) to capture the call's own arguments; TestAUR536* above prove
+// the resulting PROMPT never carries disallowed content, but none of them
+// pin the WIRING itself, which could regress (back to Resolve's own walk)
+// without changing any of those tests' outcomes once the tree is already
+// proven fully clean.
+func TestAUR536VerifiedCodebaseContextReadsExactlyTheVerifiedSet(t *testing.T) {
+	dir, localHead := aur515Fixture(t, "https://github.com/owner/repo.git")
+
+	var sawDir string
+	var sawFiles []string
+	called := false
+	previous := resolveWithFilesHook
+	resolveWithFilesHook = func(resolver *codebasectx.Resolver, hookDir string, changed, files []string) (*codebasectx.Pack, error) {
+		called = true
+		sawDir = hookDir
+		sawFiles = append([]string(nil), files...)
+		return resolver.ResolveWithFiles(hookDir, changed, files)
+	}
+	t.Cleanup(func() { resolveWithFilesHook = previous })
+
+	code, stdout, stderr, _, posted := runAUR536Review(t, localHead)
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	if !called {
+		t.Fatal("resolveWithFilesHook was never invoked -- --pr did not go through ResolveWithFiles at all")
+	}
+	if sawDir != dir {
+		t.Fatalf("hook saw dir=%q, want %q", sawDir, dir)
+	}
+	if len(sawFiles) != 1 || sawFiles[0] != "app.go" {
+		t.Fatalf("hook saw files=%v, want exactly [app.go] (the verified tracked set)", sawFiles)
+	}
+	if strings.Contains(posted, "Repository context omitted") {
+		t.Fatalf("a verified, clean checkout must not have its context omitted:\n%s", posted)
+	}
 }

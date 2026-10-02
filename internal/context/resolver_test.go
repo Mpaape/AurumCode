@@ -307,3 +307,25 @@ func TestResolveWithFilesRestrictsScanToExactSet(t *testing.T) {
 		t.Fatalf("ResolveWithFiles read a file outside its allowed set: %v", restricted.Dependents)
 	}
 }
+
+// TestResolveWithFilesNilScansNothing pins that a nil (or empty) files
+// argument restricts the scan to nothing -- it must never be reinterpreted
+// as "no restriction given" and fall back to Resolve's own walk, which
+// would silently defeat every caller that passes an empty verified set
+// (for instance because its own proof found zero clean files) expecting
+// that to mean "scan nothing," not "scan everything."
+func TestResolveWithFilesNilScansNothing(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{
+		"app.go":   "package demo\n\nfunc Changed() {}\n",
+		"extra.go": "package demo\n\n// Changed\nvar _ = \"Changed\"\n",
+	})
+
+	pack, err := NewResolver().ResolveWithFiles(root, []string{"app.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pack.Dependents) != 0 || len(pack.References) != 0 {
+		t.Fatalf("ResolveWithFiles(nil) scanned something: dependents=%v references=%v", pack.Dependents, pack.References)
+	}
+}

@@ -155,7 +155,12 @@ fi
 grep -Eq -- '^--- PASS: TestAUR536' "$log" || fail 'no-test-executed'
 
 if [[ "$selector" == all ]]; then
-  for name in UntrackedFileOmitsContextFromPrompt NoGitMetadataOmitsContext NoOriginRemoteOmitsContext PullRequestMetadataFailureOmitsContext GitDirectoryFilesNeverReachPrompt ModifiedTrackedFileOmitsContext StagedButUncommittedChangeOmitsContext RetargetedSymlinkOmitsContext UntrackedSymlinkOmitsContext; do
+  # TestAUR536PackedRepositoryWithoutGitIsUnverifiable is deliberately not
+  # in this list: it needs a real git binary to BUILD its packed fixture
+  # (not merely to verify against), so it legitimately SKIPs rather than
+  # PASSes in the git-less sealed acceptance profile; "all"'s test_pattern
+  # above still runs it everywhere a git binary is present to build it.
+  for name in UntrackedFileOmitsContextFromPrompt NoGitMetadataOmitsContext NoOriginRemoteOmitsContext PullRequestMetadataFailureOmitsContext GitDirectoryFilesNeverReachPrompt ModifiedTrackedFileOmitsContext StagedButUncommittedChangeOmitsContext RetargetedSymlinkOmitsContext UntrackedSymlinkOmitsContext SubdirectoryCheckoutIsUnverifiable VerifiedCodebaseContextReadsExactlyTheVerifiedSet; do
     grep -q "^--- PASS: TestAUR536$name " "$log" || fail "missing-pass:$name"
   done
 fi

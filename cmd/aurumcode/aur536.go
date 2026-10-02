@@ -47,7 +47,6 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -83,7 +82,26 @@ const codebaseContextReasonDirty = "dirty"
 // verified, by the caller, as the reviewed repository at the reviewed pull
 // request's head commit -- this function only adds the clean-tree half of
 // that proof.
+//
+// dir must also be the checkout's own worktree root, not an arbitrary
+// subdirectory of it: TrackedFiles' paths are relative to the repository
+// root (wherever HEAD's tree actually lives), while walkVerified walks --
+// and computes its own relative paths -- from dir. Those agree only when
+// dir IS the root; from a subdirectory they silently name different
+// files, which previously surfaced as a false "dirty" (every file
+// mismatched, or the walk simply never reached most of the tracked set)
+// on a checkout that was actually clean. Detecting "is dir the root" from
+// a subdirectory without a git binary -- correctly resolving the prefix
+// and re-deriving every TrackedFiles key relative to it -- is exactly the
+// kind of path arithmetic this reader was built to avoid depending on, so
+// this fails closed to "unverifiable" instead: a dir with no ".git" entry
+// of its own (file or directory -- covers a linked worktree too) is never
+// trusted as the root, even when git itself could still resolve HEAD from
+// there by walking upward.
 func verifiedCleanCheckoutReason(dir string) (reason string, files []string) {
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+		return codebaseContextReasonUnverifiable, nil
+	}
 	repo, err := analyzer.OpenRepo(dir)
 	if err != nil {
 		return codebaseContextReasonUnverifiable, nil
@@ -189,23 +207,29 @@ func walkVerified(dir string, limit int, visit func(rel string, isSymlink bool, 
 	})
 }
 
+// resolveWithFilesHook is resolveVerifiedCodebaseContext's only call onto
+// the resolver, held behind this package-level variable so a test can
+// substitute it and observe exactly which (dir, changed, files) --pr ends
+// up passing, end to end through a real runPRReview call, without
+// reimplementing pr.go's own wiring. Production code never reassigns it;
+// it exists to make "the verified set this check proved is the exact set
+// the resolver reads" an assertion a test can make directly, not merely an
+// outcome that happens to hold today.
+var resolveWithFilesHook = func(resolver *codebasectx.Resolver, dir string, changed, files []string) (*codebasectx.Pack, error) {
+	return resolver.ResolveWithFiles(dir, changed, files)
+}
+
 // resolveVerifiedCodebaseContext is --pr's own codebase-context pass
-// (AUR-536): identical in output shape to resolveCodebaseContext
-// (passes.go, shared with --base), except the resolver's own file
-// discovery is replaced, by construction, with exactly files --
+// (AUR-536): shares codebaseContextJSON (passes.go) with --base's own
+// resolveCodebaseContext for the marshal-or-empty tail, but the resolver's
+// own file discovery is replaced, by construction, with exactly files --
 // verifiedCleanCheckoutReason's own proven-clean set -- so the set this
 // check verified and the set the resolver actually reads can never
 // diverge, not even by a future, independent bug in either side's walk.
 func resolveVerifiedCodebaseContext(diff *types.Diff, dir string, files []string) string {
-	pack, err := codebasectx.NewResolver().ResolveWithFiles(dir, diffPaths(diff), files)
-	if err != nil || pack == nil {
-		return ""
-	}
-	data, err := json.Marshal(pack)
-	if err != nil {
-		return ""
-	}
-	return string(data)
+	return codebaseContextJSON(func() (*codebasectx.Pack, error) {
+		return resolveWithFilesHook(codebasectx.NewResolver(), dir, diffPaths(diff), files)
+	})
 }
 
 // blobSHA1 returns the hex git blob object id of data -- the same id

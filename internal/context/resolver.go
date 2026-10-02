@@ -93,7 +93,7 @@ func NewResolverWithLimits(limits Limits) *Resolver {
 // every per-file condition is instead recorded in Pack.Dropped. Output is
 // deterministic for a fixed input and tree.
 func (r *Resolver) Resolve(root string, changed []string) (*Pack, error) {
-	return r.resolve(root, changed, nil)
+	return r.resolve(root, changed, false, nil)
 }
 
 // ResolveWithFiles behaves exactly like Resolve, except the repo-wide
@@ -108,11 +108,17 @@ func (r *Resolver) Resolve(root string, changed []string) (*Pack, error) {
 // (a changed path need not also appear in files to have its own content
 // read for symbol extraction); files governs only the repo-wide scan's
 // candidate set, matching repoFiles' own role in Resolve.
+//
+// A nil or empty files restricts the scan to NOTHING -- it is never
+// treated as "no restriction given" and never falls back to Resolve's own
+// walk. The two calls are distinguished by a separate flag internally,
+// precisely so an empty allow-list can never be silently reinterpreted as
+// "walk everything."
 func (r *Resolver) ResolveWithFiles(root string, changed, files []string) (*Pack, error) {
-	return r.resolve(root, changed, files)
+	return r.resolve(root, changed, true, files)
 }
 
-func (r *Resolver) resolve(root string, changed, allowedFiles []string) (*Pack, error) {
+func (r *Resolver) resolve(root string, changed []string, restrict bool, allowedFiles []string) (*Pack, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, fmt.Errorf("context: stat root %q: %w", root, err)
@@ -129,7 +135,7 @@ func (r *Resolver) resolve(root string, changed, allowedFiles []string) (*Pack, 
 	}
 
 	var repoFiles []string
-	if allowedFiles != nil {
+	if restrict {
 		repoFiles = r.normalizeAllowed(root, allowedFiles, pack)
 	} else {
 		repoFiles = r.enumerate(root, pack)
