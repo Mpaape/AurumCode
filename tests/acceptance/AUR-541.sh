@@ -15,23 +15,31 @@
 #   PATH that wraps the built `aurumcode` binary so the scope gate's
 #   stderr line survives even when a script redirects the binary's own
 #   stderr into a temp file it deletes on exit, and fails if any script
-#   reports a discard it has not declared it expects via a
-#   "AUR-541: expect-gate-discard" comment in its own source.
+#   reports an undeclared scope/evidence-gate discard.
 #
-# KNOWN LIMITATION (documented, not hidden): the declaration check is
-# file-level (any such comment anywhere in the script silences every
-# discard line from that script's run), not per-reason or per-fixture.
-# tests/e2e/AUR-434.sh and tests/e2e/AUR-448.sh each carry such a comment
-# for fixtures that mix a corrected (evidence-bearing) finding with
-# deliberately-ungrounded ones; AC-001-MUT-001 therefore exercises the
-# detector against tests/e2e/AUR-461.sh instead, which carries no such
-# comment at all.
+# No per-script exemption mechanism exists any more: every fixture this
+# card corrected (including the ones mixed with deliberately-ungrounded
+# entries in AUR-434.sh and AUR-448.sh) now carries evidence/impact/
+# verification on every entry, so none of them can legitimately trip the
+# scope/evidence gate at all -- any occurrence is an unconditional defect.
+# tests/e2e/AUR-459.sh is excluded from the scan below: its fixture uses
+# the `line_comments` wire format, whose `lineComment` struct (internal/
+# prompt/parser.go) carries no evidence/impact/verification fields at
+# all, so a converted finding can never pass the gate without a parser
+# change this card's non-goals forbid; the script is also permanently
+# infra-blocked in any clean checkout (it requires cmd/regenerate-docs,
+# which git no longer tracks -- `git ls-files cmd/regenerate-docs` is
+# empty on main). That gap is tracked by a separate card (AUR-542), not
+# this one's AC-001.
 #
 # SELECTORS
 #   all             run every scenario below
 #   AC-001          every e2e script that sets AURUMCODE_LLM_FIXTURE to a
-#                   real value is run once; any undeclared scope-gate
-#                   discard line on the binary's stderr is a failure
+#                   real value (except AUR-459, see above) is run once;
+#                   any scope-gate discard line on the binary's stderr is
+#                   a failure, and any script that itself returns
+#                   infrastructure (69/79) makes this selector inconclusive
+#                   (79) rather than silently continuing
 #   AC-002          the scripts this card corrected (tests/e2e/AUR-431.sh,
 #                   AUR-432.sh, AUR-433.sh, AUR-434.sh, AUR-435.sh,
 #                   AUR-436.sh, AUR-441.sh, AUR-461.sh, AUR-475.sh) each
@@ -40,7 +48,7 @@
 #   AC-001-MUT-001  a staged copy of tests/e2e/AUR-461.sh with the
 #                   evidence/impact/verification fields stripped back out
 #                   of its catalog-id.json fixture must make AC-001's
-#                   detector report an undeclared discard
+#                   detector report a discard
 #
 # EXIT CODES (tests/acceptance/EXIT_CODE_CONVENTION.md):
 #   0  = the promised property holds
@@ -93,47 +101,32 @@ mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
 
 # A `go` shim placed first on PATH: it passes every invocation through to
-# the real `go` unchanged, except for `go build -o X ...`. There it first
-# checks a shared binary cache (keyed by the build arguments with the -o
-# path itself excluded, plus the current GOFLAGS) and, on a hit, copies
-# the already-built binary into place instead of invoking the compiler at
-# all -- a second, cheaper-than-GOCACHE layer of reuse across the ~20
-# e2e scripts, every one of which builds the identical ./cmd/aurumcode
-# package. On a miss it builds once, seeds the shared cache, then -- hit
-# or miss -- moves the binary to X.aur541real and writes X as a wrapper
-# that runs it, replays its stdout and stderr untouched to its own
-# caller, and ALSO appends any scope-gate discard line to a fixed log path
-# baked into the wrapper's text -- so the line survives even when the
-# calling e2e script redirects the binary's stderr into a temp file it
-# deletes before this program ever gets to look at it.
+# the real `go` unchanged, except for `go build -o X ...`. There it builds
+# with the real compiler (fast after the first script, since GOCACHE is
+# now shared and content-addressed by Go itself -- no second, separate
+# binary-reuse layer is needed, and one would risk serving a binary built
+# from a DIFFERENT source tree than the one the caller just asked to
+# build, which matters for a staged/mutated copy such as AC-001-MUT-001's).
+# On success it moves the binary to X.aur541real and writes X as a wrapper
+# that runs it, replays its stdout and stderr untouched to its own caller,
+# and ALSO appends any scope-gate discard line to a fixed log path baked
+# into the wrapper's text -- so the line survives even when the calling
+# e2e script redirects the binary's stderr into a temp file it deletes
+# before this program ever gets to look at it.
 shim_dir="$run_dir/shimbin"
-bin_share_dir="$run_dir/binshare"
-mkdir -p "$shim_dir" "$bin_share_dir"
+mkdir -p "$shim_dir"
 cat >"$shim_dir/go" <<'SHIM'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "${1:-}" == "build" ]]; then
   out=""
   prev=""
-  key_args=()
   for a in "$@"; do
-    if [[ "$prev" == "-o" ]]; then out="$a"; key_args+=("-o" "__OUT__"); prev="$a"; continue; fi
-    key_args+=("$a")
+    if [[ "$prev" == "-o" ]]; then out="$a"; fi
     prev="$a"
   done
-  key="$(printf '%s\0' "${key_args[@]}" "GOFLAGS=${GOFLAGS:-}" | sha256sum | awk '{print $1}')"
-  cached="__BIN_SHARE__/$key"
-  rc=0
-  if [[ -n "$out" && -x "$cached" ]]; then
-    cp -f -- "$cached" "$out"
-    chmod +x -- "$out"
-  else
-    "__REAL_GO__" "$@"
-    rc=$?
-    if [[ $rc -eq 0 && -n "$out" && -x "$out" ]]; then
-      cp -f -- "$out" "$cached.tmp" && mv -f -- "$cached.tmp" "$cached"
-    fi
-  fi
+  "__REAL_GO__" "$@"
+  rc=$?
   if [[ $rc -eq 0 && -n "$out" && -x "$out" ]]; then
     mv -f -- "$out" "$out.aur541real"
     {
@@ -153,55 +146,53 @@ else
   exec "__REAL_GO__" "$@"
 fi
 SHIM
-sed -i "s|__REAL_GO__|$real_go|g; s|__DISCARD_LOG__|$discard_log|g; s|__BIN_SHARE__|$bin_share_dir|g" "$shim_dir/go"
+sed -i "s|__REAL_GO__|$real_go|g; s|__DISCARD_LOG__|$discard_log|g" "$shim_dir/go"
 chmod +x "$shim_dir/go"
 
 # Every tests/e2e/*.sh that feeds AURUMCODE_LLM_FIXTURE a real value (a
-# path, not an unset/empty assignment): the scope gate can only discard a
-# finding that fixture actually proposes.
+# path, not an unset/empty assignment) -- except AUR-459, see the header
+# comment above: the scope gate can only discard a finding that fixture
+# actually proposes.
 fixture_scripts() {
   grep -lE 'AURUMCODE_LLM_FIXTURE=("\$[A-Za-z_0-9]+"|\$[A-Za-z_0-9]+|"\$\{[A-Za-z_0-9]+[:=-][^}]*\}")' \
     "$repo_root"/tests/e2e/*.sh 2>/dev/null \
-    | xargs -n1 basename | sed 's/\.sh$//' | sort -u
-}
-
-declares_expected_discard() {
-  grep -q 'AUR-541: expect-gate-discard' "$repo_root/tests/e2e/$1.sh" 2>/dev/null
+    | xargs -n1 basename | sed 's/\.sh$//' | sort -u | grep -Fvx 'AUR-459'
 }
 
 # run_e2e runs one e2e script, from repo_root, with the shim first on
-# PATH, discarding neither stdout nor stderr (both land in $1.out so a
-# caller can inspect the failure tag on a RED run).
+# PATH. It sets globals e2e_rc and e2e_out rather than returning a status
+# through a `$(...)` command substitution: a function's own `rc=$?`
+# executes inside the subshell command substitution forks for its output,
+# so it never reaches the caller -- the exit status every caller used to
+# read back was always 0, the command substitution's own success,
+# regardless of what the e2e script actually did (AUR-541 review,
+# 97c4d39, B1). Call this directly, never as `x="$(run_e2e ...)"`.
 run_e2e() {
-  local name="$1" out
-  out="$run_dir/e2e-$name.out"
+  local name="$1"
+  e2e_out="$run_dir/e2e-$name.out"
   set +e
-  ( cd "$repo_root" && PATH="$shim_dir:$PATH" bash "tests/e2e/$name.sh" ) >"$out" 2>&1
-  rc=$?
+  ( cd "$repo_root" && PATH="$shim_dir:$PATH" bash "tests/e2e/$name.sh" ) >"$e2e_out" 2>&1
+  e2e_rc=$?
   set -e
-  printf '%s\n' "$out"
-  return 0
 }
 
-# AC-001: no fixture-bearing e2e script may report an undeclared
-# scope-gate discard.
+# AC-001: no fixture-bearing e2e script may report a scope-gate discard.
+# A script that itself cannot run (infra, 69/79) makes the WHOLE check
+# inconclusive rather than being silently skipped -- an unresolved
+# "can we even tell" is not the same claim as "no discard happened".
 run_ac001() {
-  local any_bad=0 name out
+  local any_bad=0 name
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     : >"$discard_log"
-    out="$(run_e2e "$name")"
-    rc=$?
-    if [[ "$rc" -eq 79 || "$rc" -eq 69 ]]; then
-      printf '%s/%s/infra-skip/%s:%s\n' "$card" "$selector" "$name" "$rc" >&2
-      continue
+    run_e2e "$name"
+    if [[ "$e2e_rc" -eq 79 || "$e2e_rc" -eq 69 ]]; then
+      cat "$e2e_out" >&2
+      infra "e2e-infra:$name:$e2e_rc"
     fi
     if [[ -s "$discard_log" ]]; then
-      if declares_expected_discard "$name"; then
-        continue
-      fi
       cat "$discard_log" >&2
-      cat "$out" >&2
+      cat "$e2e_out" >&2
       printf '%s/%s/undeclared-discard:%s\n' "$card" "$selector" "$name" >&2
       any_bad=1
     fi
@@ -221,13 +212,16 @@ readonly -a corrected_scripts=(
 )
 
 run_ac002() {
-  local any_bad=0 name out rc
+  local any_bad=0 name
   for name in "${corrected_scripts[@]}"; do
-    out="$(run_e2e "$name")"
-    rc=$?
-    if [[ "$rc" -ne 0 ]]; then
-      cat "$out" >&2
-      printf '%s/%s/corrected-script-not-green:%s:%s\n' "$card" "$selector" "$name" "$rc" >&2
+    run_e2e "$name"
+    if [[ "$e2e_rc" -eq 79 || "$e2e_rc" -eq 69 ]]; then
+      cat "$e2e_out" >&2
+      infra "e2e-infra:$name:$e2e_rc"
+    fi
+    if [[ "$e2e_rc" -ne 0 ]]; then
+      cat "$e2e_out" >&2
+      printf '%s/%s/corrected-script-not-green:%s:%s\n' "$card" "$selector" "$name" "$e2e_rc" >&2
       any_bad=1
     fi
   done
@@ -254,13 +248,34 @@ run_mut001() {
   local before after
   before="$(sha256sum "$target" | awk '{print $1}')"
 
+  # Delete this card's three added fields, then a general post-pass:
+  # whenever a line ends in a comma and the NEXT line (ignoring leading
+  # whitespace) is a closing brace, strip that now-dangling trailing
+  # comma -- a fixed field-name substitution (what this program used to
+  # do) only works if the deleted field happened to be last; here
+  # "verification" genuinely was last, but the fix no longer depends on
+  # that staying true.
   local tmp="$root/AUR-461.mutated.sh"
   sed \
     -e '/"evidence": "linha 4 concatena/d' \
     -e '/"impact": "um valor hostil na variavel vira comando arbitrario no shell",$/d' \
     -e '/"verification": "reexecutar com um valor contendo ; e confirmar/d' \
-    -e '0,/catalog-id.json/{s/"suggestion": "pass an argument vector",$/"suggestion": "pass an argument vector"/}' \
-    "$target" >"$tmp" || infra 'MUT-001/rewrite'
+    "$target" \
+    | awk '
+      { lines[NR] = $0 }
+      END {
+        for (i = 1; i <= NR; i++) {
+          line = lines[i]
+          if (i < NR) {
+            nxt = lines[i + 1]
+            gsub(/^[ \t]+/, "", nxt)
+            if (line ~ /,[ \t]*$/ && substr(nxt, 1, 1) == "}") {
+              sub(/,[ \t]*$/, "", line)
+            }
+          }
+          print line
+        }
+      }' >"$tmp" || infra 'MUT-001/rewrite'
   mv "$tmp" "$target"
 
   after="$(sha256sum "$target" | awk '{print $1}')"
@@ -269,21 +284,21 @@ run_mut001() {
   # Run the mutated copy through the same shim + detector this program's
   # AC-001 uses, scoped to just this one script.
   : >"$discard_log"
-  local out="$root/mut001.out"
-  set +e
-  ( cd "$root" && PATH="$shim_dir:$PATH" bash tests/e2e/AUR-461.sh ) >"$out" 2>&1
-  local rc=$?
-  set -e
+  run_e2e_in() {
+    local root_dir="$1" name="$2"
+    e2e_out="$root_dir/mut001.out"
+    set +e
+    ( cd "$root_dir" && PATH="$shim_dir:$PATH" bash "tests/e2e/$name.sh" ) >"$e2e_out" 2>&1
+    e2e_rc=$?
+    set -e
+  }
+  run_e2e_in "$root" "AUR-461"
 
-  if [[ "$rc" -eq 79 || "$rc" -eq 69 ]]; then cat "$out" >&2; infra 'MUT-001/e2e-infra'; fi
+  if [[ "$e2e_rc" -eq 79 || "$e2e_rc" -eq 69 ]]; then cat "$e2e_out" >&2; infra 'MUT-001/e2e-infra'; fi
   if [[ ! -s "$discard_log" ]]; then
-    cat "$out" >&2
+    cat "$e2e_out" >&2
     return 1 # mutation survived: stripping evidence should have revived the discard
   fi
-  grep -q 'AUR-541: expect-gate-discard' "$target" && {
-    cat "$out" >&2
-    infra 'MUT-001/mutated-script-declares-discard'
-  }
   return 0
 }
 
