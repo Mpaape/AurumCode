@@ -21,7 +21,7 @@ dir="$1"; shift
 (($# >= 1)) || usage
 [[ -d "$dir" ]] || { printf 'go-live: not a directory: %s\n' "$dir" >&2; exit 2; }
 
-image="${GO_LIVE_IMAGE:-aurumcode-test-img:1.21}"
+image="${GO_LIVE_IMAGE:-aurum-bootstrap-go-bash:1.27.1-2026-10-02}"
 
 engine=''
 if command -v podman >/dev/null 2>&1; then engine=podman
