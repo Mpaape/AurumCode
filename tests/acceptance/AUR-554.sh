@@ -90,6 +90,7 @@ ac003() {
   local p="$demo/out/pass.log" v="$demo/out/verify.log"
   grep -q '^sign: sbom .* -> .*sbom_app_cyclonedx.json.sigstore.json$' "$p" || fail "AC-003/sbom-nao-assinado"
   grep -q '^Verified OK$' "$v" || fail "AC-003/verified-ok-ausente"
+  grep -q '^cosign (adulterado): Error: failed to verify signature: .*invalid signature' "$v" || fail "AC-003/rejeicao-sem-mensagem-do-cosign"
   grep -q '^adulterado: SBOM modificado e rejeitado$' "$v" || fail "AC-003/adulterado-aceito"
   if find "$demo" "$repo_root/docs" \( -name 'cosign.key' -o -name 'cosign.pub' -o -name '*.sigstore.json' -o -name 'dtrack.env' \) | grep -q .; then
     fail "AC-003/material-de-chave-versionado"
