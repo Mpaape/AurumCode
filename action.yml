@@ -35,6 +35,10 @@ inputs:
     description: Compute and expose the suggested next version and changelog entry from the reviewed commits.
     required: false
     default: 'false'
+  policy_path:
+    description: Optional path, inside the container workspace, to a central policy's .aurumcode/ directory (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
+    required: false
+    default: ''
 
 outputs:
   version:
@@ -47,6 +51,13 @@ outputs:
 runs:
   using: docker
   image: Dockerfile
+  # AUR-518: the policy path reaches the CLI through the env var it already
+  # falls back to (AURUMCODE_POLICY) when --politica is absent, so no change
+  # to scripts/action-entrypoint.sh's fixed positional argument count is
+  # needed. An empty policy_path leaves AURUMCODE_POLICY empty, which is the
+  # documented "no policy" case -- today's behavior, unchanged.
+  env:
+    AURUMCODE_POLICY: ${{ inputs.policy_path }}
   args:
     - action
     - ${{ inputs.publication }}

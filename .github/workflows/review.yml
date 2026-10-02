@@ -28,6 +28,11 @@ on:
         required: false
         type: boolean
         default: false
+      policy_path:
+        description: Optional path, already present in the runner's checkout, to a central policy's .aurumcode/ directory (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
+        required: false
+        type: string
+        default: ''
     secrets:
       LLM_API_KEY:
         description: API key for the configured OpenAI-compatible service.
@@ -135,6 +140,7 @@ jobs:
           INLINE_COMMENTS: ${{ inputs.inline_comments }}
           SECURITY: ${{ inputs.security }}
           CHANGELOG: ${{ inputs.changelog }}
+          POLICY_PATH: ${{ inputs.policy_path }}
         run: |
           set -euo pipefail
           # A deterministic pass is not a completed code review. The CLI
@@ -152,22 +158,32 @@ jobs:
           if [ "${CHANGELOG}" = true ]; then
             args+=(--changelog)
           fi
+          # AUR-518: an empty policy_path keeps today's behavior unchanged --
+          # no --politica, no extra mount.
+          if [ -n "${POLICY_PATH}" ]; then
+            args+=(--politica /github/policy)
+          fi
           : > "${RUNNER_TEMP}/aurumcode-changelog-output"
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro" \
-            -w /github/workspace \
-            -e GITHUB_TOKEN \
-            -e GITHUB_SHA \
-            -e AURUMCODE_BASE_SHA \
-            -e AURUMCODE_PR_PERMISSION_MODE \
-            -e LLM_API_KEY \
-            -e LLM_BASE_URL \
-            -e LLM_MODEL \
-            -e AURUMCODE_CI_CONTEXT_FILE \
-            -e AURUMCODE_OUTPUT_FILE \
-            -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro" \
-            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output" \
-            aurumcode-review "${args[@]}"
+          docker_args=(run --rm
+            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
+            -w /github/workspace
+            -e GITHUB_TOKEN
+            -e GITHUB_SHA
+            -e AURUMCODE_BASE_SHA
+            -e AURUMCODE_PR_PERMISSION_MODE
+            -e LLM_API_KEY
+            -e LLM_BASE_URL
+            -e LLM_MODEL
+            -e AURUMCODE_CI_CONTEXT_FILE
+            -e AURUMCODE_OUTPUT_FILE
+            -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
+            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
+          )
+          if [ -n "${POLICY_PATH}" ]; then
+            docker_args+=(-v "${GITHUB_WORKSPACE}/${POLICY_PATH}:/github/policy:ro")
+          fi
+          docker_args+=(aurumcode-review "${args[@]}")
+          docker "${docker_args[@]}"
           if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
             cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
