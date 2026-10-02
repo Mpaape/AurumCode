@@ -75,6 +75,13 @@ type sarifResult struct {
 	Locations           []sarifLocation    `json:"locations"`
 	PartialFingerprints map[string]string  `json:"partialFingerprints,omitempty"`
 	Suppressions        []sarifSuppression `json:"suppressions,omitempty"`
+	Properties          *sarifProperties   `json:"properties,omitempty"`
+}
+
+// sarifProperties carries the gate origin (skills|analysis|sast) of a
+// result, when the finding was counted by the policy gate.
+type sarifProperties struct {
+	Origin string `json:"origin,omitempty"`
 }
 
 type sarifLocation struct {
@@ -123,6 +130,8 @@ type SARIFFinding struct {
 	Context       string
 	Suppressed    bool
 	Justification string
+	// Origin is the gate origin (skills|analysis|sast); empty when unknown.
+	Origin string
 }
 
 // severityToSARIFLevel maps this system's three issue severities onto
@@ -186,6 +195,9 @@ func BuildSARIFLog(toolVersion string, findings []SARIFFinding, executionSuccess
 			PartialFingerprints: map[string]string{
 				FindingFingerprintKey: fingerprint,
 			},
+		}
+		if f.Origin != "" {
+			result.Properties = &sarifProperties{Origin: f.Origin}
 		}
 		if f.Suppressed {
 			result.Suppressions = []sarifSuppression{{
@@ -297,6 +309,9 @@ func redactSARIFLog(filter *redaction.Filter, log sarifLog) sarifLog {
 				PartialFingerprints: fingerprints,
 				Suppressions:        suppressions,
 			}
+			if res.Properties != nil {
+				results[i].Properties = &sarifProperties{Origin: filter.Redact(res.Properties.Origin)}
+			}
 		}
 		run.Results = results
 		runs[ri] = run
@@ -328,6 +343,7 @@ func redactSARIFFindings(filter *redaction.Filter, findings []SARIFFinding) []SA
 			Context:       filter.Redact(f.Context),
 			Suppressed:    f.Suppressed,
 			Justification: filter.Redact(f.Justification),
+			Origin:        filter.Redact(f.Origin),
 		}
 	}
 	return out

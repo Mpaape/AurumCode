@@ -222,6 +222,7 @@ func applySASTGate(d *gateDecision, sast *config.SastConfig, origin string, issu
 			Path:     issue.File,
 			Line:     issue.Line,
 			Severity: issue.Severity,
+			Origin:   gateOriginSAST,
 		})
 	}
 	return nil

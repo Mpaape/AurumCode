@@ -242,6 +242,10 @@ func run(args []string, stdout, stderr *os.File) int {
 		// AUR-551: standalone, config-driven SBOM/image signing
 		// (Sigstore/Cosign). See aur551.go.
 		return runSign(args[1:], stdout, errW)
+	case "xbom":
+		// AUR-552: Build BOM / CBOM in CycloneDX 1.6, catalog-driven,
+		// evidence-verified. See aur552.go.
+		return runXBOM(args[1:], stdout, errW)
 	default:
 		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2
@@ -1352,9 +1356,19 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// below (the Lines/Limitations loop, publishPolicyGateStatus, the
 	// exit-code section, writeComplianceArtifacts) needs no change to
 	// also honor a SAST breach or a SAST inconclusive scan.
-	if err := applySASTGate(&gateResult, repoCfg.QualityGates.Sast, sastOrigin, sastIssues, sastReason); err != nil {
+	if err := foldGateSources(&gateResult, repoCfg, diff, sastOrigin, sastIssues, sastReason, repoIdentity, time.Now()); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
 		return 2
+	}
+	// AUR-533: the analysis-data artifact's age/digest gate, folded into the
+	// same gateResult/gateInconclusiveReason (aur533.go). A complete no-op
+	// unless analysis_data is declared in the effective config.
+	var analysisDataAuditAUR533 *render.AnalysisDataAudit
+	{
+		adMode, _ := repoCfg.Gate.InconclusiveMode()
+		adResult, adReason, adAudit := applyAnalysisDataGate(context.Background(), repoCfg.AnalysisData, adMode)
+		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, adResult, adReason)
+		analysisDataAuditAUR533 = adAudit
 	}
 	// AUR-550: the Dependency-Track submission/metrics gate, folded into
 	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
@@ -1425,6 +1439,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		verdict:                canonicalVerdict(result),
 		gate:                   gateResult,
 		gateInconclusiveReason: gateInconclusiveReason,
+		analysisData:           analysisDataAuditAUR533,
 		diff:                   diff,
 		issues:                 gateIssues,
 		dynamicRules:           dynamicRules,

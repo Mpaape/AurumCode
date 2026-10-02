@@ -826,9 +826,19 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// folded into the same gateResult evaluateGate just returned -- see
 	// aur548.go's own package doc for why this never goes through
 	// evaluateGate itself.
-	if err := applySASTGate(&gateResult, reviewConfig.QualityGates.Sast, sastOrigin, sastIssues, sastReason); err != nil {
+	if err := foldGateSources(&gateResult, reviewConfig, diff, sastOrigin, sastIssues, sastReason, prRepoIdentityAUR524, time.Now()); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
 		return 2
+	}
+	// AUR-533: the analysis-data artifact's age/digest gate, folded into the
+	// same gateResult/gateInconclusiveReason (aur533.go). A complete no-op
+	// unless analysis_data is declared in the effective config.
+	var analysisDataAuditAUR533 *render.AnalysisDataAudit
+	{
+		adMode, _ := reviewConfig.Gate.InconclusiveMode()
+		adResult, adReason, adAudit := applyAnalysisDataGate(ctx, reviewConfig.AnalysisData, adMode)
+		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, adResult, adReason)
+		analysisDataAuditAUR533 = adAudit
 	}
 	// AUR-550: the Dependency-Track submission/metrics gate, folded into
 	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
@@ -976,6 +986,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		verdict:                canonicalVerdict(result),
 		gate:                   gateResult,
 		gateInconclusiveReason: gateInconclusiveReason,
+		analysisData:           analysisDataAuditAUR533,
 		diff:                   diff,
 		issues:                 result.Issues,
 		dynamicRules:           dynamicRules,

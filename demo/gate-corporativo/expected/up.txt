@@ -1,0 +1,6 @@
+servidor: Dependency-Track 5.1.1
+admin: senha inicial trocada e login ok
+time aurum-demo com permissoes BOM_UPLOAD, VIEW_PORTFOLIO, VIEW_POLICY_VIOLATION e chave de API criada
+projeto servico-exemplo criado
+politica demo-componente-proibido: reprova lodash 4.17.15 (coordenadas)
+DTRACK_API_KEY e DTRACK_PROJECT_ID gravados em arquivo local ignorado pelo git

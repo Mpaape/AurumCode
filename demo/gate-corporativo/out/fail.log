@@ -1,0 +1,38 @@
+== fail: gate com o defeito de SAST e a dependencia plantada
+sbom: sbom_app_cyclonedx.json
+sbom: CycloneDX 1.7, componentes: lodash@4.17.15
+aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: semgrep:github.policy.regras.demo-sem-eval: eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem policy)
+aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- src/calc.js
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1[".gitignore"]
+    n2["package-lock.json"]
+    n3["package.json"]
+    n4["src/calc.js"]
+    n2 --> n3
+
+```
+src/calc.js:5: [error] eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval)
+
+Security findings (standards/security-review):
+No security findings.
+aurumcode review: exit_code=3
+dependency-track metricas: critical=0 high=0 policyViolationsTotal=1
+dependency-track violacao: politica=demo-componente-proibido componente=lodash versao=4.17.15 estado=FAIL
+RESULTADO: gate reprovou, como esperado

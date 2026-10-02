@@ -1,0 +1,9 @@
+{
+  "id": "java-hash",
+  "language": "java",
+  "file": "Hasher.java",
+  "label": "defect",
+  "rule": "weak-hash",
+  "line": 5,
+  "simulated_model": "hit"
+}

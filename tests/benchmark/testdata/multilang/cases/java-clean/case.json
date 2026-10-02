@@ -1,0 +1,8 @@
+{
+  "id": "java-clean",
+  "language": "java",
+  "file": "Safe.java",
+  "label": "clean",
+  "simulated_model": "silent",
+  "false_alarm_line": 0
+}
