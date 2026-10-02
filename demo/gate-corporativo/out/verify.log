@@ -1,0 +1,5 @@
+== verify: cosign verify-blob com a chave efemera
+WARNING: Skipping tlog verification is an insecure practice that lacks transparency and auditability verification for the blob.
+Verified OK
+verify-blob: assinatura aceita
+adulterado: SBOM modificado e rejeitado
