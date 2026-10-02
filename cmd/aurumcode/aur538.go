@@ -63,8 +63,12 @@ func capStatusDescription(resultWord, detail string, limit int) string {
 //  1. a real severity-breach line (evaluateGate's threshold loop,
 //     policygate.go) -- the one fact that actually closes the gate;
 //  2. an accepted/expired-exception line (acceptedExceptionLine/
-//     expiredExceptionLine, aur520.go -- both contain "exceção") --
-//     context a reader may want, but never the reason the check failed;
+//     expiredExceptionLine, aur520.go -- matched by their own fixed
+//     acceptedExceptionMarker/expiredExceptionMarker substrings, never by
+//     the bare word "exceção", so a breach line whose policy/repo-
+//     authored rule.Title happens to mention "exceção" is never
+//     misclassified into this tier) -- context a reader may want, but
+//     never the reason the check failed;
 //  3. the fixed "review inconclusive (...)" line -- already named by the
 //     status's own State and leading result word
 //     (gateStatusWordFailure/Inconclusive), so it is the one most
@@ -84,7 +88,7 @@ func orderedGateReasons(lines []string) string {
 		switch {
 		case strings.HasPrefix(line, "review inconclusive ("):
 			inconclusive = append(inconclusive, line)
-		case strings.Contains(line, "exceção"):
+		case strings.Contains(line, acceptedExceptionMarker) || strings.Contains(line, expiredExceptionMarker):
 			exception = append(exception, line)
 		default:
 			breach = append(breach, line)

@@ -526,3 +526,21 @@ func TestAUR538PublishPolicyGateStatusWordAndStateTable(t *testing.T) {
 		})
 	}
 }
+
+// TestAUR538OrderedGateReasonsExactExceptionMarkersNotBareWord covers the
+// non-blocking classification fix: a breach line whose own rule.Title
+// happens to contain the word "exceção" (a policy/repo author could
+// title a rule anything) must stay in the breach tier, never be
+// misclassified into the exception tier just because the bare word
+// appears somewhere in the line. Only acceptedExceptionLine/
+// expiredExceptionLine's own fixed markers (aur520.go) select that tier.
+func TestAUR538OrderedGateReasonsExactExceptionMarkersNotBareWord(t *testing.T) {
+	breachLineMentioningException := "quality#trate-exceções: Trate bem as exceções do sistema (severidade error, limiar error)"
+	inconclusiveLine := "review inconclusive (partial_coverage)"
+
+	got := orderedGateReasons([]string{inconclusiveLine, breachLineMentioningException})
+	want := breachLineMentioningException + "; " + inconclusiveLine
+	if got != want {
+		t.Fatalf("orderedGateReasons =\n%q\nwant the breach line (which merely mentions \"exceção\") ordered first, not shunted into the exception tier:\n%q", got, want)
+	}
+}
