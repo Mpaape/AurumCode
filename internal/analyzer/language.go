@@ -47,16 +47,26 @@ func loadCatalog() {
 
 // LanguageDetector names the language of a file. It holds no table of its own:
 // the answer comes from the grammar runtime (internal/grammar).
-type LanguageDetector struct{}
+type LanguageDetector struct {
+	provider grammar.Provider
+}
 
-// NewLanguageDetector creates a new language detector
-func NewLanguageDetector() *LanguageDetector { return &LanguageDetector{} }
+// NewLanguageDetector creates a detector over the default grammar provider.
+func NewLanguageDetector() *LanguageDetector { return NewLanguageDetectorWith(grammar.Default()) }
+
+// NewLanguageDetectorWith creates a detector over an injected provider.
+func NewLanguageDetectorWith(p grammar.Provider) *LanguageDetector {
+	return &LanguageDetector{provider: p}
+}
+
+// Provider exposes the injected grammar provider to collaborators.
+func (d *LanguageDetector) Provider() grammar.Provider { return d.provider }
 
 // DetectLanguage returns the runtime's grammar name for a file path, or
 // "unknown" when the runtime has no grammar for it. Only the path is known
 // here; content-based detection (shebangs) lives in grammar.Detect.
 func (d *LanguageDetector) DetectLanguage(filePath string) string {
-	if name := grammar.Detect(filePath, nil); name != "" {
+	if name := d.provider.Detect(filePath, nil); name != "" {
 		return name
 	}
 	return grammar.NoStructure

@@ -672,7 +672,7 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 			skip = classifyBlob(p, oldContent)
 		}
 		if skip != "" {
-			notices = append(notices, DiffNotice{Path: p, Message: skip})
+			notices = append(notices, DiffNotice{Path: p, Message: skip, Reason: noticeReason(skip)})
 			continue
 		}
 

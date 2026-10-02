@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-	"github.com/Mpaape/AurumCode/internal/grammar"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -14,9 +13,13 @@ type DiffAnalyzer struct {
 
 // NewDiffAnalyzer creates a new diff analyzer
 func NewDiffAnalyzer() *DiffAnalyzer {
-	return &DiffAnalyzer{
-		languageDetector: NewLanguageDetector(),
-	}
+	return NewDiffAnalyzerWith(NewLanguageDetector())
+}
+
+// NewDiffAnalyzerWith creates a diff analyzer over an injected detector (and so
+// over its grammar provider).
+func NewDiffAnalyzerWith(d *LanguageDetector) *DiffAnalyzer {
+	return &DiffAnalyzer{languageDetector: d}
 }
 
 // DiffMetrics contains metrics extracted from a diff
@@ -141,7 +144,7 @@ func (a *DiffAnalyzer) ExtractChangedFunctions(file *types.DiffFile) []string {
 			src.WriteString(line[1:])
 			src.WriteByte('\n')
 		}
-		for _, name := range grammar.Analyze(file.Path, []byte(src.String())).Symbols {
+		for _, name := range a.languageDetector.Provider().Analyze(file.Path, []byte(src.String())).Symbols {
 			if !seen[name] {
 				seen[name] = true
 				functions = append(functions, name)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -56,6 +57,9 @@ const (
 type DiffNotice struct {
 	Path    string
 	Message string
+	// Reason is the short, stable cause: "binary", "generated" or "too large".
+	// A file with a Reason was NOT reviewed; it must never count as approved.
+	Reason string
 }
 
 // classifyBlob reports why the changed file at path must not be line-diffed,
@@ -67,8 +71,15 @@ func classifyBlob(path string, content []byte) string {
 	if len(window) > binarySniffLen {
 		window = window[:binarySniffLen]
 	}
-	if bytes.IndexByte(window, 0) >= 0 {
+	// Binary is decided from the content (a NUL byte, or mostly non-text
+	// bytes), never from the file name.
+	if grammar.LooksBinary(window) {
 		return fmt.Sprintf("binary file, skipped: %s", path)
+	}
+	// A file that says, in its own words, that it was generated is out of the
+	// review's reach: the source that generates it is what a human reviews.
+	if grammar.LooksGenerated(content) {
+		return fmt.Sprintf("generated file, skipped: %s", path)
 	}
 	if len(content) > maxDiffBytes {
 		return fmt.Sprintf("diff too large: %s (%d bytes > limit %d)", path, len(content), maxDiffBytes)
@@ -77,6 +88,18 @@ func classifyBlob(path string, content []byte) string {
 		return fmt.Sprintf("diff too large: %s (%d lines > limit %d)", path, n, maxDiffLines)
 	}
 	return ""
+}
+
+// noticeReason maps a classifyBlob message to the stable reason token.
+func noticeReason(message string) string {
+	switch {
+	case strings.HasPrefix(message, "binary file"):
+		return "binary"
+	case strings.HasPrefix(message, "generated file"):
+		return "generated"
+	default:
+		return "too large"
+	}
 }
 
 // countLines counts the lines in content the same way splitLines splits
