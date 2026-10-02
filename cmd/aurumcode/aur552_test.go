@@ -160,7 +160,7 @@ func TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM(t *testing.T) {
 	    {"type":"library","name":"phantom-action","occurrences":[{"location":"Dockerfile","line":1,"token":"phantom-action"}]},
 	    {"type":"library","name":"phantom-file","occurrences":[{"location":"nope/missing.yml","line":1,"token":"x"}]},
 	    {"type":"library","name":"phantom-escape","occurrences":[{"location":"../../etc/passwd","line":1,"token":"root"}]},
-	    {"type":"container","name":"cited-by-model","occurrences":[{"location":"Dockerfile","line":2,"token":"distroless"}]}
+	    {"type":"container","name":"distroless/static","occurrences":[{"location":"Dockerfile","line":2,"token":"FROM"}]}
 	  ]}`)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 	out := filepath.Join(t.TempDir(), "b.json")
@@ -178,7 +178,7 @@ func TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM(t *testing.T) {
 			t.Fatalf("component without evidence entered the BOM: %s", bad)
 		}
 	}
-	if !names["cited-by-model"] {
+	if !names["distroless/static"] {
 		t.Fatal("a component with a verifiable occurrence was dropped")
 	}
 	if d.meta("aurumcode:xbom:dropped_without_evidence") != "3" {
@@ -246,5 +246,26 @@ func TestAUR552PolicyCatalogOverridesRepository(t *testing.T) {
 	d := xbomRead(t, out)
 	if d.meta("aurumcode:xbom:catalog") != "policy" || !strings.HasPrefix(d.Components[0].Name, "policy-") {
 		t.Fatalf("policy catalog not used: %+v", d.Components)
+	}
+}
+
+// Unwritable destination directory (when not running as root): non-zero and
+// no file left behind.
+func TestAUR552UnwritableOutDirLeavesNothing(t *testing.T) {
+	xbomNoLLMEnv(t)
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(dir, 0o700)
+	code, _, _ := runXBOMTo(t, "--type", "build", "--repo", xbomRepo(t), "--out", filepath.Join(dir, "x.json"))
+	if code == 0 {
+		t.Fatal("unwritable directory exited 0")
+	}
+	if ents, _ := os.ReadDir(dir); len(ents) != 0 {
+		t.Fatalf("partial file left: %v", ents)
 	}
 }

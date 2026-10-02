@@ -102,7 +102,7 @@ apply_mutation() {
 
 ac001_cmd='^TestAUR552BuildAndCBOMValidateAndCiteFileAndLine$'
 ac002_cmd='^TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM$'
-ac002_unit='^(TestVerifyDropsComponentWithoutEvidence|TestLLMEnrichesButCannotInvent|TestVerifyWithRelativeRoot)$'
+ac002_unit='^(TestVerifyDropsComponentWithoutEvidence|TestLLMEnrichesButCannotInvent|TestLLMAdditionalTokenIsDerivedFromName|TestLLMAdditionalSameKeyCannotAddFalseOccurrence|TestVerifyWithRelativeRoot)$'
 ac001_names=(TestAUR552BuildAndCBOMValidateAndCiteFileAndLine)
 ac002_names=(TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM TestVerifyDropsComponentWithoutEvidence TestLLMEnrichesButCannotInvent)
 
@@ -168,7 +168,7 @@ case "$selector" in
       TestAUR552DocumentedAndUnknownTypesAndNoPartialFile TestAUR552PolicyCatalogOverridesRepository \
       TestEmbeddedCatalogsAreValid TestInvalidCatalogRefused TestBuildExtractionWithEvidence TestCBOMExtraction \
       TestVerifyDropsComponentWithoutEvidence TestLLMEnrichesButCannotInvent TestLLMFailureKeepsDeterministicBOM \
-      TestLLMKeepFalseExcludes TestCatalogPrecedence TestPromptPrecedence TestValidateBOMRejectsEvidencelessComponent \
+      TestLLMKeepFalseExcludes TestLLMAdditionalTokenIsDerivedFromName TestLLMAdditionalSameKeyCannotAddFalseOccurrence TestLLMCannotRewriteCandidateIdentity TestCatalogPrecedence TestPromptPrecedence TestValidateBOMRejectsEvidencelessComponent \
       TestVerifyWithRelativeRoot
     check_ac003_docs
 

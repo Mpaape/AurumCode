@@ -11,6 +11,7 @@ import (
 const (
 	maxLLMCandidates  = 300
 	maxDescriptionLen = 500
+	minLLMNameLen     = 3
 	llmPropertyPrefix = "aurumcode:xbom:llm:"
 )
 
@@ -165,8 +166,17 @@ func enrich(p llm.Provider, basePrompt string, cands []*Candidate, redact func(s
 		for k, v := range a.Properties {
 			c.Properties[llmPropertyPrefix+k] = v
 		}
+		// The model's own "token" is never trusted: it would let the model
+		// pick a generic token ("FROM", "#") that any line contains. The
+		// evidence token of a model-proposed component is its own name, so
+		// the cited line must literally contain it. Names too short to be
+		// evidence are refused outright.
+		if len(c.Name) < minLLMNameLen {
+			out.Rejected++
+			continue
+		}
 		for _, o := range a.Occurrences {
-			c.Occurrences = append(c.Occurrences, Occurrence{Location: o.Location, Line: o.Line, Token: o.Token})
+			c.Occurrences = append(c.Occurrences, Occurrence{Location: o.Location, Line: o.Line, Token: c.Name})
 		}
 		extra = append(extra, c) // zero occurrences -> dropped by verification
 	}
