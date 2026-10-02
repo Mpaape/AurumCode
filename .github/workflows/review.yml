@@ -59,6 +59,15 @@ jobs:
       pull-requests: write
       statuses: write
       checks: read
+      # AUR-521: github/codeql-action/upload-sarif needs this to publish to
+      # the repository's code scanning. A reusable workflow's `permissions:`
+      # is bounded by whatever the CALLER already grants its own job --
+      # this key alone does not add the permission. Every caller of this
+      # reusable workflow (this repository's own .github/workflows/
+      # code-review.yml included -- out of this card's paths, so NOT
+      # edited here) must add `security-events: write` to its own job
+      # `permissions:` block, or the upload step below fails with a 403.
+      security-events: write
     concurrency:
       group: aurumcode-review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -231,27 +240,50 @@ jobs:
             cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
 
-      # AUR-521: upload the SARIF document to the org's code scanning and
-      # the audit record as a job artifact. Both steps are commented out
-      # with a TODO: this card was built offline and no other workflow in
-      # this repository already pins github/codeql-action/upload-sarif or
-      # actions/upload-artifact by commit SHA (only actions/checkout,
-      # actions/configure-pages, actions/upload-pages-artifact and
-      # actions/deploy-pages do, in review.yml/pages.yml -- different
-      # actions). Inventing a SHA for either action would be worse than
-      # leaving this disabled; see docs/specs/AUR-521.md's "Lacuna
-      # conhecida" section. A reviewer with network access must resolve
-      # the real, already-reviewed SHA for each action and uncomment both
-      # steps (and the `security-events: write` permission SARIF upload
-      # needs) before this card is complete end to end.
-      #
-      # - name: Upload SARIF to code scanning
-      #   uses: github/codeql-action/upload-sarif@<PIN-BY-FULL-SHA>
-      #   with:
-      #     sarif_file: ${{ runner.temp }}/aurumcode-review.sarif
-      #
-      # - name: Upload compliance audit record
-      #   uses: actions/upload-artifact@<PIN-BY-FULL-SHA>
-      #   with:
-      #     name: aurumcode-audit-${{ github.event.pull_request.number }}
-      #     path: ${{ runner.temp }}/aurumcode-audit.json
+      # AUR-521: the two compliance files are pre-created (`: >`) above so
+      # the docker bind-mount does not create a directory in their place --
+      # which means they can exist as valid, empty (0-byte) files on a run
+      # that never reached the point where the CLI writes them (a usage
+      # error, or the --pr early-provider-failure gap AUR-537 tracks). A
+      # 0-byte file is not a SARIF document and must never be uploaded as
+      # one; this check makes both upload steps below no-ops on that file
+      # instead of letting upload-sarif fail the job on invalid input.
+      - name: Check compliance artifacts are non-empty
+        if: always()
+        id: artifacts
+        run: |
+          set -euo pipefail
+          if [ -s "${RUNNER_TEMP}/aurumcode-review.sarif" ]; then
+            echo "sarif=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sarif=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -s "${RUNNER_TEMP}/aurumcode-audit.json" ]; then
+            echo "audit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "audit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # if: always() -- a gate breach fails the "Run and publish code
+      # review" step (exit 1/3 above), and the whole point of this upload
+      # is that a FAILING gate still reaches code scanning; without
+      # always() this step would be skipped exactly on the runs that most
+      # need it. category is a fixed, non-dynamic string on purpose: SARIF
+      # uploads for the same category replace the prior run's results for
+      # the same ref, so a stable category is what lets code scanning
+      # treat successive --pr and any future scheduled run as updates to
+      # the same analysis instead of each accumulating its own
+      # never-cleared set of alerts.
+      - name: Upload SARIF to code scanning
+        if: always() && steps.artifacts.outputs.sarif == 'true'
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: ${{ runner.temp }}/aurumcode-review.sarif
+          category: aurumcode-policy-gate
+
+      - name: Upload compliance audit record
+        if: always() && steps.artifacts.outputs.audit == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aurumcode-audit-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/aurumcode-audit.json
