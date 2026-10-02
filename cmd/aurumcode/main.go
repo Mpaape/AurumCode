@@ -379,7 +379,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	changelogFlag := fs.Bool("changelog", false, "publish the suggested next version and changelog entry derived from the reviewed commit messages (AUR-498 engine); the review.changelog repository setting is the default (default: off)")
 	perfis := fs.String("perfis", "", "comma-separated reviewer profiles to run in the same review (AUR-502); every finding names its source profile and duplicate findings merge once. Profiles are presets over emphasis and rule families only and never change severity, --fail-on, redaction, the cost cap or the security pass (default: review.profiles from config)")
 	perfil := fs.String("profile", "", "alias of --perfis for a single reviewer profile (AUR-502)")
-	politica := fs.String("politica", "", "directory of a central policy's .aurumcode/ (same config.yml/skills convention as a repository); its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own (AUR-518; default: the AURUMCODE_POLICY environment variable, otherwise no policy)")
+	politica := fs.String("politica", "", "directory containing a central policy's .aurumcode/config.yml (the directory that HOLDS .aurumcode/, same convention as a repository's own config.yml/skills); its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own (AUR-518; default: the AURUMCODE_POLICY environment variable, otherwise no policy)")
 	policyAlias := fs.String("policy", "", "alias of --politica")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -591,6 +591,12 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		}
 	}
 	repoCfg, policyWarnings = config.ApplyCentralPolicy(repoCfg, centralCfg)
+	if filter != nil {
+		for i := range policyWarnings {
+			policyWarnings[i].Provider = filter.Redact(policyWarnings[i].Provider)
+			policyWarnings[i].Reason = filter.Redact(policyWarnings[i].Reason)
+		}
+	}
 	for _, warning := range policyWarnings {
 		fmt.Fprintf(stderr, "aurumcode review: %s: %s\n", warning.Provider, warning.Reason)
 	}

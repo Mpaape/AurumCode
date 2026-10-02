@@ -36,7 +36,7 @@ inputs:
     required: false
     default: 'false'
   policy_path:
-    description: Optional path, inside the container workspace, to a central policy's .aurumcode/ directory (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
+    description: Optional path, inside the container workspace, to the directory containing a central policy's .aurumcode/config.yml (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
     required: false
     default: ''
 

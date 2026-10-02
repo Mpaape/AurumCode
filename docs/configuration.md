@@ -99,13 +99,14 @@ para desligá-lo, remova-o do arquivo ou defina false e não habilite o input.
 
 ## Política central
 
-Um workflow obrigatório pode carregar uma política central: um diretório
-`.aurumcode/` separado (checkout próprio), com o mesmo `config.yml` e os
-mesmos arquivos Markdown (`prompt.md`, `skills/*.md`, docs) que o repositório
-do dev já usa. Nenhum formato novo.
+Um workflow obrigatório pode carregar uma política central: outro diretório
+(checkout próprio) que CONTÉM `.aurumcode/config.yml` e os mesmos arquivos
+Markdown (`prompt.md`, `skills/*.md`, docs) que o repositório do dev já usa —
+não é o diretório `.aurumcode/` em si, é o diretório pai dele. Nenhum formato
+novo.
 
 ```yaml
-# .aurumcode/config.yml da política (outro repositório/checkout)
+# <diretório da política>/.aurumcode/config.yml (outro repositório/checkout)
 rules:
   security/hardcoded-secret:
     enabled: true
@@ -117,9 +118,33 @@ review:
       - skills/security.md
 ```
 
-O workflow passa o diretório ao AurumCode com `--politica <dir>` (alias
+O workflow passa esse diretório ao AurumCode com `--politica <dir>` (alias
 `--policy`); sem a flag, a variável de ambiente `AURUMCODE_POLICY` é usada;
 sem nenhum dos dois, o comportamento é o de hoje, sem política.
+
+No workflow reutilizável (`.github/workflows/review.yml`), `policy_repository`
+(`owner/repo`) faz o próprio workflow buscar a política: ele dá checkout
+read-only (sem persistir credenciais) em `.aurumcode-policy` e usa esse
+diretório como `--politica`, sem o chamador precisar checkar nada. `policy_ref`
+escolhe branch/tag/SHA; vazio usa o branch padrão do repositório da política.
+`policy_path` continua funcionando para uma política já presente no checkout
+do runner (por exemplo, obtida por outro step); `policy_repository`, quando
+definido, tem precedência sobre `policy_path`.
+
+Exemplo de workflow obrigatório da organização, chamando o reutilizável com a
+política embutida:
+
+```yaml
+jobs:
+  review:
+    uses: SuaOrg/AurumCode/.github/workflows/review.yml@<sha-fixa>
+    with:
+      policy_repository: SuaOrg/aurumcode-policy
+      policy_ref: main
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+```
 
 Precedência: com política ativa, `rules` e `ignore` do repositório do dev são
 ignorados por completo — vale só o que a política declara — e cada override
@@ -173,7 +198,7 @@ consumidor.
 | `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
-| `--politica`, `--policy` | Diretório de uma política central com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
+| `--politica`, `--policy` | Diretório que contém o `.aurumcode/config.yml` de uma política central, com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
 
 ### CLI `aurumcode fix`
 
@@ -184,7 +209,11 @@ consumidor.
 ### Workflow reutilizável e Action
 
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`,
-  `policy_path` (diretório, já no checkout do runner, de uma política
-  central; vazio mantém o comportamento sem política).
+  `policy_path` (diretório, já no checkout do runner, que contém a
+  `.aurumcode/config.yml` de uma política central), `policy_repository`
+  (`owner/repo` da política; o workflow faz o checkout, sem persistir
+  credenciais, e usa precedência sobre `policy_path`), `policy_ref` (branch/
+  tag/SHA da política; vazio usa o branch padrão). Nenhum definido mantém o
+  comportamento sem política.
 - Action Docker direta: `publication`, `inline-comments`, `security`, `check`,
   `fail-on`, `model`, `changelog`, `policy_path`.

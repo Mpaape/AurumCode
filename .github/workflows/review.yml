@@ -29,7 +29,17 @@ on:
         type: boolean
         default: false
       policy_path:
-        description: Optional path, already present in the runner's checkout, to a central policy's .aurumcode/ directory (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
+        description: Optional path, already present in the runner's checkout, to the directory containing a central policy's .aurumcode/config.yml (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Ignored when policy_repository is set. Empty (and no policy_repository) keeps today's behavior.
+        required: false
+        type: string
+        default: ''
+      policy_repository:
+        description: Optional owner/repo of a central policy (AUR-518). When set, this workflow checks it out itself (read-only, no credentials persisted) into .aurumcode-policy and uses it as the policy directory, taking precedence over policy_path. Empty keeps today's behavior.
+        required: false
+        type: string
+        default: ''
+      policy_ref:
+        description: Branch, tag or SHA of policy_repository to check out. Empty checks out that repository's default branch. Ignored when policy_repository is empty.
         required: false
         type: string
         default: ''
@@ -106,6 +116,16 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Checkout central policy
+        if: ${{ inputs.policy_repository != '' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.policy_repository }}
+          ref: ${{ inputs.policy_ref }}
+          path: .aurumcode-policy
+          persist-credentials: false
+          fetch-depth: 1
+
       - name: Collect available CI context
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,6 +161,7 @@ jobs:
           SECURITY: ${{ inputs.security }}
           CHANGELOG: ${{ inputs.changelog }}
           POLICY_PATH: ${{ inputs.policy_path }}
+          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
         run: |
           set -euo pipefail
           # A deterministic pass is not a completed code review. The CLI
@@ -158,9 +179,18 @@ jobs:
           if [ "${CHANGELOG}" = true ]; then
             args+=(--changelog)
           fi
-          # AUR-518: an empty policy_path keeps today's behavior unchanged --
-          # no --politica, no extra mount.
-          if [ -n "${POLICY_PATH}" ]; then
+          # AUR-518: policy_repository (checked out above into
+          # .aurumcode-policy) takes precedence over policy_path, which
+          # stays for a policy already present in the checkout. Neither set
+          # keeps today's behavior unchanged -- no --politica, no extra
+          # mount.
+          policy_dir=""
+          if [ -n "${POLICY_REPOSITORY}" ]; then
+            policy_dir=".aurumcode-policy"
+          elif [ -n "${POLICY_PATH}" ]; then
+            policy_dir="${POLICY_PATH}"
+          fi
+          if [ -n "${policy_dir}" ]; then
             args+=(--politica /github/policy)
           fi
           : > "${RUNNER_TEMP}/aurumcode-changelog-output"
@@ -179,8 +209,8 @@ jobs:
             -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
             -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
           )
-          if [ -n "${POLICY_PATH}" ]; then
-            docker_args+=(-v "${GITHUB_WORKSPACE}/${POLICY_PATH}:/github/policy:ro")
+          if [ -n "${policy_dir}" ]; then
+            docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
           fi
           docker_args+=(aurumcode-review "${args[@]}")
           docker "${docker_args[@]}"

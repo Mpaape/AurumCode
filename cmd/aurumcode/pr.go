@@ -230,6 +230,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		}
 	}
 	reviewConfig, policyWarnings = config.ApplyCentralPolicy(reviewConfig, centralCfg)
+	if filter != nil {
+		for i := range policyWarnings {
+			policyWarnings[i].Provider = filter.Redact(policyWarnings[i].Provider)
+			policyWarnings[i].Reason = filter.Redact(policyWarnings[i].Reason)
+		}
+	}
 	for _, warning := range policyWarnings {
 		fmt.Fprintf(stderr, "aurumcode review: %s: %s\n", warning.Provider, warning.Reason)
 	}
