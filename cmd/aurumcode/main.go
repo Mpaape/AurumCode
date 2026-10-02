@@ -1097,6 +1097,18 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// pass really did run.
 	if qualitySkipped || qualityFailed {
 		result.Verdict = "comment"
+		// canonicalVerdict (passes.go, AUR-517) derives the --base report's
+		// verdict from result.Issues/Suggestions and this same
+		// quality_degraded flag, exactly as the published PR paths already
+		// do (formatReviewSummaryForLanguageAndDiff /
+		// formalReviewEvent). Without it, a quality-degraded result with no
+		// deterministic findings would canonicalize to "approve" here,
+		// contradicting the line printed below and the PR publication of
+		// the same result (AUR-449/AUR-458).
+		if result.Metadata == nil {
+			result.Metadata = make(map[string]string)
+		}
+		result.Metadata["quality_degraded"] = "true"
 		fmt.Fprintln(stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
 	}
 	fmt.Fprint(stdout, renderLocalReport(result, diff, reviewLanguage))
