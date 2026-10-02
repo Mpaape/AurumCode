@@ -305,13 +305,45 @@ func redactSARIFLog(filter *redaction.Filter, log sarifLog) sarifLog {
 	return out
 }
 
-// WriteSARIF redacts every string field of the built document
+// redactSARIFFindings redacts every string field of each finding BEFORE
+// BuildSARIFLog ever sees them. This matters for Path specifically:
+// BuildSARIFLog derives artifactLocation.uri via normalizeFindingPath,
+// which replaces every literal backslash in the path with a forward slash
+// -- so a secret containing a backslash, if redacted only AFTER that
+// normalization (as redactSARIFLog alone would), no longer matches the
+// filter's registered pattern (the backslash it was registered with is
+// already gone) and leaks into artifactLocation.uri unredacted. Redacting
+// the raw Path here, first, means normalizeFindingPath only ever sees the
+// filter's own marker text, which contains no backslash to mangle.
+func redactSARIFFindings(filter *redaction.Filter, findings []SARIFFinding) []SARIFFinding {
+	out := make([]SARIFFinding, len(findings))
+	for i, f := range findings {
+		out[i] = SARIFFinding{
+			RuleID:        filter.Redact(f.RuleID),
+			RuleTitle:     filter.Redact(f.RuleTitle),
+			Path:          filter.Redact(f.Path),
+			Line:          f.Line,
+			Severity:      filter.Redact(f.Severity),
+			Message:       filter.Redact(f.Message),
+			Context:       filter.Redact(f.Context),
+			Suppressed:    f.Suppressed,
+			Justification: filter.Redact(f.Justification),
+		}
+	}
+	return out
+}
+
+// WriteSARIF redacts every finding's own fields first (redactSARIFFindings
+// -- before BuildSARIFLog's own path normalization ever runs), redacts
+// every string field of the built document a second time
 // (redactSARIFLog), marshals the result as indented JSON, then runs the
-// complete text through filter a second time (AUR-009, AC-005 -- the
-// single redaction filter every sink in this system writes through) before
-// writing it to path.
+// complete text through filter a THIRD time (AUR-009, AC-005 -- the single
+// redaction filter every sink in this system writes through) before
+// writing it to path. Three passes, not one: each catches a shape the
+// others cannot (pre-normalization, post-build structured fields,
+// post-marshal escaped text).
 func WriteSARIF(path, toolVersion string, findings []SARIFFinding, executionSuccessful bool, notificationReason string, filter *redaction.Filter) error {
-	log := BuildSARIFLog(toolVersion, findings, executionSuccessful, notificationReason)
+	log := BuildSARIFLog(toolVersion, redactSARIFFindings(filter, findings), executionSuccessful, notificationReason)
 	data, err := json.MarshalIndent(redactSARIFLog(filter, log), "", "  ")
 	if err != nil {
 		return err
