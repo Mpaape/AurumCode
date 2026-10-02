@@ -73,6 +73,40 @@ docker run --rm -v "$PWD:/workspace:ro" -w /workspace \
 O cache de memória é separado por repositório. Falhas ao ler ou gravar observações
 aparecem no diagnóstico; memória não autoriza mudanças de regras ou aprovação.
 
+## Corrigir sugestões com o fix
+
+`aurumcode fix` lê a resposta da revisão — o objeto completo com `suggestions`
+ou apenas o array de sugestões — e imprime um diff unificado aplicável. Nada é
+escrito no repositório: você inspeciona e aplica.
+
+```bash
+docker run --rm -v "$PWD:/workspace:ro" -w /workspace \
+  aurumcode:local fix --file review-response.json > fix.patch
+git apply --check fix.patch
+git apply fix.patch
+```
+
+O `current_code` de cada sugestão é conferido contra a árvore de trabalho antes
+de o patch ser considerado aplicável. Exemplo de resposta aceita:
+
+```json
+[
+  {
+    "title": "Carregar a senha do loader",
+    "description": "Evita o segredo inline",
+    "kind": "code",
+    "file": "app.go",
+    "line": 4,
+    "current_code": "\tdbPassword := \"hunter2\"",
+    "proposed_code": "\tdbPassword := loadPassword()"
+  }
+]
+```
+
+Se o `current_code` não corresponder ao arquivo na linha indicada, o comando sai
+com código 1, nomeia o arquivo e a linha, e não imprime patch. As sugestões vêm
+de `aurumcode review` (veja acima) ou de um parecer publicado no PR.
+
 ## Diagnóstico
 
 - Erro de autenticação: confira a credencial e o serviço em `LLM_BASE_URL`.

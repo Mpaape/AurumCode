@@ -95,3 +95,9 @@ de revisão completa nem de ausência de defeitos.
 No workflow reutilizável, o modelo recebe estados e links dos checks de CI.
 Diagnosticar a causa exige evidência adicional, como logs. Falhas de autenticação,
 provider ou publicação podem impedir que qualquer comentário seja enviado.
+
+PRs vindos de forks não recebem os secrets do repositório por padrão, então a
+revisão por modelo não roda neles sem uma configuração explícita; o baseline
+determinístico continua disponível quando o workflow permitir. No CI, o parecer
+é publicado com o `github.token`, limitado ao repositório, e o histórico de
+discussão exige permissão de leitura.
