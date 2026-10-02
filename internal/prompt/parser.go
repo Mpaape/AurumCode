@@ -257,6 +257,25 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 	// Scrub the reserved key here, on every successful strict-JSON decode,
 	// before any engine-owned metadata is ever written to this same map.
 	delete(result.Metadata, ParseModeKey)
+	// Same forgery risk, same fix, for AUR-519's gate-withheld marker
+	// (cmd/aurumcode's reviewVerdictForLanguage/formalReviewEvent/
+	// canonicalVerdict check PolicyGateWithheldKey, never the model's own
+	// Verdict text, precisely so a model cannot talk its way into -- or
+	// out of -- a gate-driven withholding by supplying
+	// "metadata":{"policy_gate_withheld":"true"} itself).
+	delete(result.Metadata, PolicyGateWithheldKey)
+	// AUR-519 (B-C): the per-file coverage counts the prompt builder
+	// computed (code_files_total/complete/partial/omitted,
+	// PromptParts.Meta) are a different map the model's JSON body never
+	// touches, but a model could still smuggle same-named keys into its
+	// own "metadata" object and have them survive here unless scrubbed --
+	// internal/review/reviewer.go overwrites these from the trusted
+	// PromptParts.Meta right after this call, but scrubbing here too
+	// means a caller that forgets that overwrite still fails closed
+	// (absent) rather than trusting a model-supplied count.
+	for _, key := range []string{"code_files_total", "code_files_complete", "code_files_partial", "code_files_omitted"} {
+		delete(result.Metadata, key)
+	}
 
 	// A finding the model reported under "line_comments" is a finding: it
 	// becomes an issue here, before validation, so it travels the same
@@ -485,6 +504,20 @@ const (
 	// the free-form-text fallback (degradedExtract) rather than a valid
 	// JSON response.
 	ParseModeDegraded = "degraded"
+	// PolicyGateWithheldKey is the reserved result.Metadata key AUR-519's
+	// policy gate (cmd/aurumcode) sets to "true" when it decided a review
+	// must not be presented as approved (a severity breach or an
+	// inconclusive run under gate.inconclusive: block). It exists so
+	// cmd/aurumcode's reviewVerdictForLanguage/formalReviewEvent/
+	// canonicalVerdict -- which otherwise re-derive their own verdict from
+	// Issues/Suggestions alone and never from the model's own Verdict
+	// field -- have one forge-safe, engine-owned signal to check instead
+	// of matching on the model's self-reported Verdict text (which the
+	// model controls and which these functions must keep ignoring for
+	// every other purpose, exactly as before this card). ParseReviewResponse
+	// scrubs this key from a model's own JSON on every successful decode,
+	// so only the gate itself, running well after parsing, can ever set it.
+	PolicyGateWithheldKey = "policy_gate_withheld"
 )
 
 // DegradedParseSummary is the fixed Summary text a degraded-parse result

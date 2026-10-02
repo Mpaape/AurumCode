@@ -665,3 +665,126 @@ func TestAUR519ProfilePassesCoverageTakesWorstCase(t *testing.T) {
 		t.Fatalf("code_files_omitted = %q, want the worst case \"3\" across profiles", got["code_files_omitted"])
 	}
 }
+
+// TestAUR519NoGatePublishesApproveDespiteModelCommentVerdict is B-V's
+// no-gate regression: a model that legitimately self-reports
+// "verdict":"comment" with zero issues, zero suggestions and no gate
+// configured at all must still publish APPROVE on --pr -- exactly the
+// pre-AUR-519 behavior (reviewVerdictForLanguage/formalReviewEvent
+// deliberately never trust the model's own Verdict field for anything).
+// A prior fix mistakenly matched result.Verdict == "comment" directly and
+// broke exactly this case.
+func TestAUR519NoGatePublishesApproveDespiteModelCommentVerdict(t *testing.T) {
+	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ _ = 1\n+}\n"
+	var published githubclient.CommitStatus
+	var postedBody string
+	server := runPRGateMockServer(t, diffBody, "", &published, &postedBody)
+	defer server.Close()
+
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"comment","issues":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	setPRGateEnv(t, server, fixture)
+
+	var stdout, stderr strings.Builder
+	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	if code != 0 {
+		t.Fatalf("exit=%d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"APPROVE"`) {
+		t.Fatalf("no gate configured: a model verdict of \"comment\" with no findings must still publish the APPROVE formal review action (pre-AUR-519 behavior), got: %s", stdout.String())
+	}
+	if !strings.Contains(postedBody, "**Verdict:** Approve") {
+		t.Fatalf("no gate configured: the published review body must still read Approve despite the model's own \"comment\" self-report, got: %s", postedBody)
+	}
+}
+
+// TestAUR519VerdictWithheldAcrossModelVerdicts is B-V's main regression:
+// under gate.inconclusive: block, EVERY model-reported verdict the parser
+// accepts ("", "changes_requested", "approve" -- see
+// internal/prompt/parser.go's validateReviewResult) must still withhold
+// approval, both in the published review body's own "Verdict" text and in
+// GitHub's real formal review action -- never just the "approve" case a
+// prior, narrower fix covered.
+func TestAUR519VerdictWithheldAcrossModelVerdicts(t *testing.T) {
+	// Partial coverage (the second, ignored file) is this test's
+	// inconclusive trigger -- a clean, zero-issue JSON response that
+	// covers everything would be a legitimately conclusive, passing
+	// review, and must not be mistaken for an inconclusive one here.
+	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ _ = 1\n+}\n" +
+		"diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,2 @@\n package demo\n+func TestChange() {}\n"
+	blockConfig := "gate:\n  inconclusive: block\nignore:\n  - \"tests/**\"\n"
+
+	for _, modelVerdict := range []string{"", "changes_requested", "approve"} {
+		t.Run("model_verdict_"+modelVerdict, func(t *testing.T) {
+			var published githubclient.CommitStatus
+			var postedBody string
+			server := runPRGateMockServer(t, diffBody, blockConfig, &published, &postedBody)
+			defer server.Close()
+
+			resp := `{"summary":"ok","issues":[]}`
+			if modelVerdict != "" {
+				resp = fmt.Sprintf(`{"summary":"ok","verdict":%q,"issues":[]}`, modelVerdict)
+			}
+			fixture := filepath.Join(t.TempDir(), "response.json")
+			if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
+				t.Fatal(err)
+			}
+			setPRGateEnv(t, server, fixture)
+
+			var stdout, stderr strings.Builder
+			code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+				publicationSet: true,
+				publication:    "review",
+			})
+			if code != exitQualityNotReviewed {
+				t.Fatalf("exit=%d, want exitQualityNotReviewed(%d); stdout=%s stderr=%s", code, exitQualityNotReviewed, stdout.String(), stderr.String())
+			}
+			if strings.Contains(stdout.String(), `"APPROVE"`) {
+				t.Fatalf("model verdict %q: published GitHub review action read APPROVE under a blocking gate: %s", modelVerdict, stdout.String())
+			}
+			if strings.Contains(postedBody, "**Verdict:** Approve") {
+				t.Fatalf("model verdict %q: published review body verdict read Approve under a blocking gate: %s", modelVerdict, postedBody)
+			}
+		})
+	}
+}
+
+// TestAUR519BaseVerdictWithheldAcrossModelVerdicts is the --base half of
+// the same matrix: render.Summary (internal/render, outside this card's
+// write paths) reads result.Verdict directly, so main.go's own pull-down
+// must still force it away from a reading of Approve for every model
+// verdict the parser accepts, under a blocking gate.
+func TestAUR519BaseVerdictWithheldAcrossModelVerdicts(t *testing.T) {
+	for _, modelVerdict := range []string{"", "changes_requested", "approve"} {
+		t.Run("model_verdict_"+modelVerdict, func(t *testing.T) {
+			// Partial coverage (an ignored file) is this test's inconclusive
+			// trigger -- a clean, zero-issue JSON response with full
+			// coverage is a legitimately conclusive, passing review and
+			// must not be mistaken for one here.
+			coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: block\n")
+			resp := `{"summary":"ok","issues":[]}`
+			if modelVerdict != "" {
+				resp = fmt.Sprintf(`{"summary":"ok","verdict":%q,"issues":[]}`, modelVerdict)
+			}
+			fixture := filepath.Join(t.TempDir(), "response.json")
+			if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+			var out, errOut strings.Builder
+			code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+			if code != exitQualityNotReviewed {
+				t.Fatalf("exit=%d, want exitQualityNotReviewed(%d); stdout=%s stderr=%s", code, exitQualityNotReviewed, out.String(), errOut.String())
+			}
+			if strings.Contains(out.String(), "**Verdict:** Approve") {
+				t.Fatalf("model verdict %q: verdict read as Approve under a blocking gate:\n%s", modelVerdict, out.String())
+			}
+		})
+	}
+}

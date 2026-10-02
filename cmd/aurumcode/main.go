@@ -1149,8 +1149,22 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			fmt.Fprintf(stderr, "aurumcode review: policy gate: %s\n", line)
 			result.Limitations = append(result.Limitations, "policy gate: "+line)
 		}
-		if (gateResult.Fail || gateResult.Inconclusive) && result.Verdict == "approve" {
-			result.Verdict = "comment"
+		if gateResult.Fail || gateResult.Inconclusive {
+			// B-V: PolicyGateWithheldKey is the engine-owned signal
+			// pr.go's reviewVerdictForLanguage/formalReviewEvent/
+			// canonicalVerdict check -- never result.Verdict, which the
+			// model controls. render.Summary (--base's own renderer,
+			// outside this card's write paths) still reads result.Verdict
+			// directly, so it is still forced here too, for any model
+			// reply of "" or "approve" -- never conditioned on what the
+			// model's own Verdict happened to say in the first place.
+			if result.Metadata == nil {
+				result.Metadata = make(map[string]string)
+			}
+			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
+			if result.Verdict == "" || result.Verdict == "approve" {
+				result.Verdict = "comment"
+			}
 		}
 	}
 

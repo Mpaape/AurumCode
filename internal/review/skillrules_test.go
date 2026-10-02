@@ -1,8 +1,11 @@
 package review
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
+	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -93,5 +96,43 @@ func TestAUR519ResolveRuleBuiltinWinsOverDynamic(t *testing.T) {
 	rule, ok := resolveRule(loader, extra, "security/sql-injection")
 	if !ok || rule.Title != builtin.Title || rule.Origin != "" {
 		t.Fatalf("resolveRule() = %+v, want the embedded catalog's own rule (Origin \"\"), not the dynamic shadow", rule)
+	}
+}
+
+// TestAUR519ReviewerCopiesCoverageMetadata is B-C's regression: the
+// prompt builder's own per-file coverage counts (code_files_total/
+// complete/partial/omitted, computed from the real token budget) used to
+// stop at PromptParts.Meta and never reach result.Metadata at all, so a
+// file the budget genuinely left out or partially sent was invisible to
+// any caller reading result.Metadata (cmd/aurumcode's AUR-476 coverage
+// pass and AUR-519's own gate included): it always read as "complete".
+// A tiny MaxTokens here forces the prompt builder to omit at least one of
+// several changed files; result.Metadata must say so.
+func TestAUR519ReviewerCopiesCoverageMetadata(t *testing.T) {
+	bigFile := func(name string) types.DiffFile {
+		lines := make([]string, 0, 60)
+		for i := 0; i < 60; i++ {
+			lines = append(lines, fmt.Sprintf("+func Line%d() int { return %d }", i, i))
+		}
+		return types.DiffFile{Path: name, Hunks: []types.DiffHunk{{NewStart: 1, Lines: lines}}}
+	}
+	diff := &types.Diff{Files: []types.DiffFile{
+		bigFile("a.go"), bigFile("b.go"), bigFile("c.go"),
+	}}
+	orch := llm.NewOrchestrator(&FakeProvider{Response: `{"summary":"ok","issues":[]}`}, nil, nil)
+	reviewer := NewReviewer(orch, Config{MaxTokens: 4200, ReserveReply: 100})
+
+	result, err := reviewer.GenerateReview(context.Background(), diff)
+	if err != nil {
+		t.Fatalf("GenerateReview() error = %v", err)
+	}
+	total := result.Metadata["code_files_total"]
+	omitted := result.Metadata["code_files_omitted"]
+	partial := result.Metadata["code_files_partial"]
+	if total == "" {
+		t.Fatalf("result.Metadata[code_files_total] is absent -- the fix did not copy promptParts.Meta's coverage counts at all")
+	}
+	if omitted == "0" && partial == "0" {
+		t.Fatalf("expected the tiny budget to omit or partially cover at least one of 3 large files, got total=%s omitted=%s partial=%s", total, omitted, partial)
 	}
 }

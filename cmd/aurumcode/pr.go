@@ -614,8 +614,22 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			fmt.Fprintf(stderr, "aurumcode review: policy gate: %s\n", line)
 			result.Limitations = append(result.Limitations, "policy gate: "+line)
 		}
-		if (gateResult.Fail || gateResult.Inconclusive) && result.Verdict == "approve" {
-			result.Verdict = "comment"
+		if gateResult.Fail || gateResult.Inconclusive {
+			// B-V: PolicyGateWithheldKey is the engine-owned signal
+			// reviewVerdictForLanguage/formalReviewEvent/canonicalVerdict
+			// check -- never result.Verdict, which the model controls and
+			// which those functions must keep ignoring. Firing on
+			// gateResult.Fail||Inconclusive alone (never conditioned on
+			// what the model's own Verdict happened to say) means a model
+			// reply of "", "changes_requested" or "approve" are all
+			// withheld alike.
+			if result.Metadata == nil {
+				result.Metadata = make(map[string]string)
+			}
+			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
+			if result.Verdict == "" || result.Verdict == "approve" {
+				result.Verdict = "comment"
+			}
 		}
 	}
 
@@ -1554,15 +1568,22 @@ func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) strin
 	if result.Metadata["quality_degraded"] == "true" {
 		return copy.inconclusive
 	}
-	// AUR-519: this function otherwise re-derives the verdict from Issues/
-	// Suggestions alone, never from result.Verdict -- so the policy gate's
-	// own pull-down (runPRReview: result.Verdict = "comment" when the gate
-	// failed or was inconclusive) was being silently discarded for the
-	// PUBLISHED review body, even though --base's render.Summary does
-	// read result.Verdict directly. Checked at the same priority as
-	// quality_degraded above: a gate-driven "comment" is exactly as
-	// authoritative a reason to withhold approval as a degraded parse is.
-	if result.Verdict == "comment" {
+	// AUR-519 (B-V): this function otherwise re-derives the verdict from
+	// Issues/Suggestions alone, never from the model's own Verdict field
+	// -- intentionally: a model is never trusted to self-report "comment"
+	// or "changes_requested" into an outcome these structural checks did
+	// not already reach on their own. The engine's OWN withholding
+	// (gate.Fail/Inconclusive, cmd/aurumcode's gate section) is a
+	// different, trusted signal and gets its own reserved,
+	// forge-safe key instead of overloading result.Verdict's value --
+	// see prompt.PolicyGateWithheldKey's own doc for why a model cannot
+	// set or erase it. A prior version of this check matched
+	// result.Verdict == "comment" directly, which regressed a model that
+	// legitimately self-reports "comment" with no gate active at all: it
+	// started publishing COMMENT instead of this function's pre-AUR-519
+	// APPROVE default, an outcome this function never produced before
+	// and the model's self-report alone must not be able to cause.
+	if result.Metadata[prompt.PolicyGateWithheldKey] == "true" {
 		return copy.comment
 	}
 	for _, suggestion := range result.Suggestions {
@@ -1589,12 +1610,10 @@ func formalReviewEvent(result *types.ReviewResult) string {
 	if result.Metadata["quality_degraded"] == "true" {
 		return "COMMENT"
 	}
-	// AUR-519: same gap as reviewVerdictForLanguage above -- without this,
-	// GitHub's own review action could still read APPROVE while the
-	// published body's Verdict line said otherwise, a direct UI
-	// contradiction and exactly the "approved with a defect present"
-	// shape this card exists to close.
-	if result.Verdict == "comment" {
+	// AUR-519 (B-V): same engine-owned marker as reviewVerdictForLanguage
+	// above, never the model's own Verdict text -- see that function's
+	// comment and prompt.PolicyGateWithheldKey's own doc.
+	if result.Metadata[prompt.PolicyGateWithheldKey] == "true" {
 		return "COMMENT"
 	}
 	for _, suggestion := range result.Suggestions {

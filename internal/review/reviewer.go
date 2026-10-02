@@ -290,6 +290,23 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", metrics.LinesDeleted)
 	result.Metadata["segments_used"] = promptParts.Meta["segments_used"]
 	result.Metadata["estimated_tokens"] = promptParts.Meta["estimated_tokens"]
+	// AUR-519 (B-C): the prompt builder's own per-file coverage counts
+	// (how many code files the token budget let it send in full, in
+	// part, or not at all -- internal/prompt/builder.go) used to stop at
+	// PromptParts.Meta and never reach result.Metadata at all, so
+	// cmd/aurumcode's AUR-476 coverage pass (mergeReviewCoverage) and
+	// AUR-519's own gate could never see a budget-truncated file: it
+	// always read as "complete", a review cached that silent gap as
+	// clean, and a gate configured to block on partial coverage never
+	// fired for the one case -- token-budget omission -- it names by name
+	// in its own docs. These four keys are engine-derived, never
+	// model-controlled (ParseReviewResponse already scrubbed any
+	// same-named key a model's own JSON tried to smuggle in, see
+	// parser.go), so copying them here unconditionally overwrites rather
+	// than merges.
+	for _, key := range []string{"code_files_total", "code_files_complete", "code_files_partial", "code_files_omitted"} {
+		result.Metadata[key] = promptParts.Meta[key]
+	}
 
 	return result, nil
 }
