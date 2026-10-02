@@ -7,13 +7,12 @@
 // invalid file where output_file is configured to appear, and this command
 // never treats an unvalidated file as the SBOM.
 //
-// Configuration lives at .aurumcode/quality_gates.yml, under
-// quality_gates.ssor_dtrack.sbom_generator -- a file of its own, not a new
-// key inside internal/config's .aurumcode/config.yml; see
-// internal/sbom.ConfigRelPath's doc comment for exactly why, and
-// docs/configuration.md for the operator-facing version. With no section
-// declared, this command is a documented no-op (exit 0): "Sem a secao
-// correspondente no yml, nada muda no comportamento atual."
+// Configuration lives at quality_gates.ssor_dtrack.sbom_generator in the
+// SAME .aurumcode/config.yml every other section already uses
+// (internal/config.Config.QualityGates, qualitygates.go) -- never a
+// separate file. With no section declared, this command is a documented
+// no-op (exit 0): "Sem a secao correspondente no yml, nada muda no
+// comportamento atual."
 //
 // Trivy failing, being absent, or producing something that does not
 // validate is never silently accepted as an empty SBOM. It is routed
@@ -22,11 +21,12 @@
 // gateReasonSBOMFailure: gate.inconclusive: block (or no gate declared at
 // all -- a brand-new command with no prior behavior to preserve) fails
 // closed; gate.inconclusive: warn publishes the reason on stderr and exits
-// 0. The gate's own configuration (quality_gates.yml does not carry a gate
-// section) is read from the SAME places --base/--pr already read it from:
-// internal/config.Load, and, when a policy directory is given, LoadCentralPolicy
-// + ApplyCentralPolicy -- so a central policy's gate.inconclusive setting
-// governs this command exactly as it governs a review.
+// 0. Both the gate AND the sbom_generator section are read through the
+// SAME single effective-config resolution (loadEffectiveConfig, below):
+// internal/config.Load, and, when a policy directory is given,
+// ValidatePolicyOutsideReviewedTree + LoadCentralPolicy + ApplyCentralPolicy
+// -- so a central policy governs both exactly as it already governs a
+// review's own Gate/Rules/Ignore/Exceptions.
 package main
 
 import (
@@ -69,7 +69,7 @@ func runSBOM(args []string, stdout, stderr io.Writer) int {
 		if errors.Is(err, flag.ErrHelp) {
 			fmt.Fprintln(stdout, "usage: aurumcode sbom [--repo dir] [--imagem referencia] [--politica dir] [--trivy-bin caminho]")
 			fmt.Fprintln(stdout, "Gera um SBOM OWASP CycloneDX com Trivy para o repositorio e, com --imagem, para uma imagem de container.")
-			fmt.Fprintln(stdout, "Configuracao: quality_gates.ssor_dtrack.sbom_generator em .aurumcode/quality_gates.yml (ver docs/configuration.md).")
+			fmt.Fprintln(stdout, "Configuracao: quality_gates.ssor_dtrack.sbom_generator em .aurumcode/config.yml (ver docs/configuration.md).")
 			return 0
 		}
 		return 2
@@ -90,35 +90,27 @@ func runSBOM(args []string, stdout, stderr io.Writer) int {
 	if policyDir == "" {
 		policyDir = strings.TrimSpace(os.Getenv("AURUMCODE_POLICY"))
 	}
-	if policyDir != "" {
-		// CR-TRUST-001: checked unconditionally, before ResolveConfig's own
-		// "nothing declared" early return below -- a policy directory that
-		// resolves inside the reviewed repository must never be trusted
-		// even for a run that turns out to have nothing to generate.
-		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, root); err != nil {
-			fmt.Fprintf(stderr, "aurumcode sbom: %v\n", err)
-			return 2
-		}
-	}
 
-	genCfg, warnings, err := sbom.ResolveConfig(root, policyDir)
+	effective, gateOrigin, warnings, err := loadEffectiveConfig(root, policyDir)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode sbom: %v\n", err)
 		return 2
 	}
 	for _, w := range warnings {
-		fmt.Fprintf(stderr, "aurumcode sbom: %s\n", w)
+		fmt.Fprintf(stderr, "aurumcode sbom: %s: %s\n", w.Provider, w.Reason)
 	}
 
+	var genCfg sbom.GeneratorConfig
+	if effective.QualityGates.SsorDtrack != nil {
+		genCfg = effective.QualityGates.SsorDtrack.SBOMGenerator
+	}
+	if err := genCfg.Validate(); err != nil {
+		fmt.Fprintf(stderr, "aurumcode sbom: %v\n", err)
+		return 2
+	}
 	if !genCfg.Declared() {
 		fmt.Fprintln(stderr, "aurumcode sbom: quality_gates.ssor_dtrack.sbom_generator nao declarado; nada a fazer")
 		return 0
-	}
-
-	gateCfg, gateOrigin, err := loadSBOMGateConfig(root, policyDir)
-	if err != nil {
-		fmt.Fprintf(stderr, "aurumcode sbom: %v\n", err)
-		return 2
 	}
 
 	outputPath, err := sbom.ResolveOutputPath(root, genCfg.OutputFile)
@@ -139,7 +131,7 @@ func runSBOM(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if genErr != nil {
-		return reportSBOMFailure(stderr, genErr, gateCfg, gateOrigin)
+		return reportSBOMFailure(stderr, genErr, effective.Gate, gateOrigin)
 	}
 
 	fmt.Fprintf(stdout, "sbom: %s\n", outputPath)
@@ -153,11 +145,11 @@ func runSBOM(args []string, stdout, stderr io.Writer) int {
 // exactly like a provider/transport failure does in runPRReview (pr.go):
 // evaluateGate decides Fail/Inconclusive from gate.inconclusive, and every
 // line it returns is printed the same way runPRReview prints
-// gateResult.Lines. With no gate declared at all (gateCfg.Declared() ==
-// false, so evaluateGate returns an inactive decision), this command fails
-// closed -- unlike --base/--pr, `aurumcode sbom` has no pre-AUR-519
-// behavior to stay byte-compatible with, and the card's own Outcome is
-// explicit: "nunca SBOM vazio aceito".
+// gateResult.Lines. With no gate declared at all (so evaluateGate returns
+// an inactive decision), this command fails closed -- unlike --base/--pr,
+// `aurumcode sbom` has no pre-AUR-519 behavior to stay byte-compatible
+// with, and the card's own Outcome is explicit: "nunca SBOM vazio
+// aceito".
 func reportSBOMFailure(stderr io.Writer, genErr error, gateCfg config.GateConfig, gateOrigin string) int {
 	fmt.Fprintf(stderr, "aurumcode sbom: %v\n", genErr)
 
@@ -178,29 +170,31 @@ func reportSBOMFailure(stderr io.Writer, genErr error, gateCfg config.GateConfig
 	return 0
 }
 
-// loadSBOMGateConfig reads the AUR-519 gate the exact same way runReview/
-// runPRReview already do (internal/config.Load, then, when policyDir is
-// set, ValidatePolicyOutsideReviewedTree + LoadCentralPolicy +
-// ApplyCentralPolicy), so a central policy's gate.inconclusive setting
-// governs `aurumcode sbom` identically to how it governs a review. This is
-// the one piece of AUR-519/AUR-518 machinery this command reuses from
-// internal/config directly (a read-only import, not an edit to that
-// package) rather than reimplementing in internal/sbom.
-func loadSBOMGateConfig(root, policyDir string) (config.GateConfig, string, error) {
+// loadEffectiveConfig reads .aurumcode/config.yml the exact same way
+// runReview/runPRReview already do (internal/config.Load, then, when
+// policyDir is set, ValidatePolicyOutsideReviewedTree + LoadCentralPolicy
+// + ApplyCentralPolicy), so a central policy governs this command's Gate
+// AND its quality_gates.ssor_dtrack.sbom_generator section identically to
+// how it already governs a review's Gate/Rules/Ignore/Exceptions -- ONE
+// load, ONE precedence decision, both sections read from its result. This
+// is the only piece of AUR-519/AUR-518 machinery this command reuses from
+// internal/config directly (an ordinary import of a package this card now
+// also has in its own `paths`, not a reimplementation in internal/sbom).
+func loadEffectiveConfig(root, policyDir string) (*config.Config, string, []config.ProviderWarning, error) {
 	repoCfg, err := config.Load(root)
 	if err != nil {
-		return config.GateConfig{}, gateOriginRepo, fmt.Errorf("config: %w", err)
+		return nil, gateOriginRepo, nil, fmt.Errorf("config: %w", err)
 	}
 	if strings.TrimSpace(policyDir) == "" {
-		return repoCfg.Gate, gateOriginRepo, nil
+		return repoCfg, gateOriginRepo, nil, nil
 	}
 	if err := config.ValidatePolicyOutsideReviewedTree(policyDir, root); err != nil {
-		return config.GateConfig{}, gateOriginPolicy, err
+		return nil, gateOriginPolicy, nil, err
 	}
 	centralCfg, err := config.LoadCentralPolicy(policyDir)
 	if err != nil {
-		return config.GateConfig{}, gateOriginPolicy, err
+		return nil, gateOriginPolicy, nil, err
 	}
-	effective, _ := config.ApplyCentralPolicy(repoCfg, centralCfg)
-	return effective.Gate, gateOriginPolicy, nil
+	effective, warnings := config.ApplyCentralPolicy(repoCfg, centralCfg)
+	return effective, gateOriginPolicy, warnings, nil
 }
