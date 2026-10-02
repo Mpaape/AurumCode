@@ -231,14 +231,20 @@ cat >"$fixture" <<'EOF'
       "line": 3,
       "severity": "warning",
       "rule_id": "quality/long-function",
-      "message": "Achado sintetico na linha que o diff adicionou."
+      "message": "Achado sintetico na linha que o diff adicionou.",
+      "evidence": "A linha adicionada estende uma funcao ja longa sem quebra-la.",
+      "impact": "Uma funcao maior fica mais dificil de revisar e de testar isoladamente.",
+      "verification": "Extrair a logica nova para uma funcao auxiliar e medir o tamanho resultante."
     },
     {
       "file": "docs/notas.md",
       "line": 99,
       "severity": "info",
       "rule_id": "quality/long-function",
-      "message": "Achado sintetico fora das linhas alteradas."
+      "message": "Achado sintetico fora das linhas alteradas.",
+      "evidence": "A linha citada referencia uma funcao longa fora do trecho alterado.",
+      "impact": "Um comentario geral sobre codigo nao tocado nesta mudanca pode confundir o revisor.",
+      "verification": "Confirmar que a linha citada realmente nao faz parte do diff enviado."
     }
   ],
   "summary": "Resposta sintetica e deterministica para AUR-438."

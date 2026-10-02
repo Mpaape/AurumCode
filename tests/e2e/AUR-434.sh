@@ -55,6 +55,11 @@ fi
 # Fixtures this script plants itself: one grounded finding plus two
 # ungrounded ones (no rule id / nonexistent rule id), and one response with
 # only an ungrounded finding.
+# AUR-541: expect-gate-discard: the two ungrounded entries below (missing
+# rule_id and citing an invented rule_id) carry no evidence/impact/
+# verification on purpose and are expected to be discarded before the
+# model ever reaches the user -- that discard is this card's own point,
+# proven by lines 115-119 below never seeing UNGROUNDED-* text.
 mixed_fixture="$run_dir/mixed.json"
 cat >"$mixed_fixture" <<'EOF'
 {
@@ -64,7 +69,10 @@ cat >"$mixed_fixture" <<'EOF'
       "line": 3,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "A credential-shaped value was committed in plain text."
+      "message": "A credential-shaped value was committed in plain text.",
+      "evidence": "The added line stores the value as a literal string assignment.",
+      "impact": "A reader with repository access can extract and reuse the value.",
+      "verification": "Replace the literal with an environment lookup and confirm the finding clears."
     },
     {
       "file": "config/demo-tokens.txt",
@@ -84,6 +92,9 @@ cat >"$mixed_fixture" <<'EOF'
 }
 EOF
 
+# AUR-541: expect-gate-discard: this fixture's single finding has no
+# rule_id and no evidence/impact/verification; its own discard (by
+# whichever gate catches it first) is exactly what line 126 below proves.
 ungrounded_fixture="$run_dir/ungrounded.json"
 cat >"$ungrounded_fixture" <<'EOF'
 {

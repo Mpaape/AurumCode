@@ -62,7 +62,10 @@ cat >"$fixture" <<'EOF'
       "line": 4,
       "severity": "warning",
       "rule_id": "security/hardcoded-secret",
-      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN)."
+      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
+      "evidence": "The added line assigns the token to a literal value in a tracked file.",
+      "impact": "Repository readers can lift the literal and reuse it as a live credential.",
+      "verification": "Replace the literal with an environment lookup and rerun to confirm it clears."
     }
   ],
   "summary": "The change adds config/demo-tokens.txt, which commits plaintext credential-shaped values."

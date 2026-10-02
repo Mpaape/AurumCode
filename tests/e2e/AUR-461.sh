@@ -73,7 +73,10 @@ cat >"$run_dir/fixtures/catalog-id.json" <<'EOF'
       "severity": "error",
       "rule_id": "security/command-injection",
       "message": "user input reaches a shell",
-      "suggestion": "pass an argument vector"
+      "suggestion": "pass an argument vector",
+      "evidence": "linha 4 concatena uma variavel de ambiente direto na string de comando",
+      "impact": "um valor hostil na variavel vira comando arbitrario no shell",
+      "verification": "reexecutar com um valor contendo ; e confirmar que nao e mais interpretado pelo shell"
     }
   ],
   "summary": "one finding"
@@ -88,7 +91,10 @@ cat >"$run_dir/fixtures/invented-id.json" <<'EOF'
       "severity": "error",
       "rule_id": "security/shell-injection",
       "message": "user input reaches a shell",
-      "suggestion": "pass an argument vector"
+      "suggestion": "pass an argument vector",
+      "evidence": "linha 4 concatena uma variavel de ambiente direto na string de comando",
+      "impact": "um valor hostil na variavel vira comando arbitrario no shell",
+      "verification": "reexecutar com um valor contendo ; e confirmar que nao e mais interpretado pelo shell"
     }
   ],
   "summary": "one finding"
