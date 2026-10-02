@@ -1,0 +1,9 @@
+{
+  "id": "rust-path",
+  "language": "rust",
+  "file": "files.rs",
+  "label": "defect",
+  "rule": "path-traversal",
+  "line": 4,
+  "simulated_model": "hit"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "php-sqli",
+  "language": "php",
+  "file": "query.php",
+  "label": "defect",
+  "rule": "sql-injection",
+  "line": 3,
+  "simulated_model": "hit"
+}
