@@ -3,18 +3,8 @@
 // loud addition rather than a silent typo) that runs over the whole
 // reviewed tree, independently of AUR-519's own `gate:` section. See
 // SastConfig and cmd/aurumcode's aur548.go for the decision this config
-// feeds.
-//
-// QualityGatesConfig is the shared `quality_gates:` top-level shape every
-// corporate-adoption card under this office uses: AUR-548 (this file) owns
-// Sast; AUR-549/550 (SBOM + OWASP Dependency-Track) own SsorDtrack;
-// AUR-551 (Sigstore/Cosign signing) owns SupplyChain. Each pointer field
-// is nil when its own section is entirely absent from the yml -- the
-// zero-config case every one of these cards preserves. This file defines
-// SsorDtrackConfig/SupplyChainConfig as empty placeholder structs only, so
-// Config's single `quality_gates:` key has one stable shape across all
-// three concurrently-developed cards without this card guessing at their
-// own fields; AUR-548 reads and writes only QualityGatesConfig.Sast.
+// feeds. QualityGatesConfig (the shared `quality_gates:` top-level shape)
+// lives in qualitygates.go.
 package config
 
 import (
@@ -29,27 +19,6 @@ var DefaultSASTRulePacks = []string{"p/security-audit", "p/owasp-top-ten"}
 // DefaultSASTFailOnSeverity is quality_gates.sast's own default threshold
 // when fail_on_severity is absent.
 const DefaultSASTFailOnSeverity = "ERROR"
-
-// QualityGatesConfig is the `quality_gates:` top-level section. See this
-// file's own package doc for why it carries three sibling pointer fields
-// owned by three separately reviewed cards.
-type QualityGatesConfig struct {
-	Sast        *SastConfig        `yaml:"sast"`
-	SsorDtrack  *SsorDtrackConfig  `yaml:"ssor_dtrack"`
-	SupplyChain *SupplyChainConfig `yaml:"supply_chain"`
-}
-
-// SsorDtrackConfig is AUR-549/550's own section (SBOM generation + OWASP
-// Dependency-Track submission/thresholds). Defined here as an empty
-// placeholder only so QualityGatesConfig's shape is stable before those
-// cards land; AUR-548 never reads or writes it.
-type SsorDtrackConfig struct{}
-
-// SupplyChainConfig is AUR-551's own section (Sigstore/Cosign signing and
-// the remaining xBOM preparation). Defined here as an empty placeholder
-// only, for the same reason as SsorDtrackConfig; AUR-548 never reads or
-// writes it.
-type SupplyChainConfig struct{}
 
 // SastConfig is quality_gates.sast: a deterministic, multi-language
 // static-analysis pass whose findings are deterministic evidence -- the
@@ -121,6 +90,15 @@ func (s *SastConfig) Validate() error {
 	}
 	if _, _, err := s.Threshold(); err != nil {
 		return fmt.Errorf("quality_gates.sast.fail_on_severity: %w", err)
+	}
+	// A pack beginning with "-" reads as a CLI flag, not a rule pack name
+	// or path, if it were ever interpolated without its own "--config"
+	// prefix elsewhere -- refused here, at parse time, rather than left
+	// for the Semgrep invocation to misinterpret at run time.
+	for _, p := range s.RulePacks {
+		if strings.HasPrefix(strings.TrimSpace(p), "-") {
+			return fmt.Errorf("quality_gates.sast.rule_packs: %q looks like a flag, not a rule pack", p)
+		}
 	}
 	return nil
 }

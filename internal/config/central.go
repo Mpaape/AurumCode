@@ -204,26 +204,33 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	}
 	effective.Exceptions = central.Exceptions
 
-	// AUR-548: quality_gates.sast is governed exactly like Gate above --
-	// under a policy, only the policy's own SAST section ever applies, so
-	// a repository can never disable, loosen or otherwise shadow a
-	// policy-enabled SAST pass by declaring its own quality_gates.sast
-	// (CR-TRUST-001). This applies even when the policy's own SAST section
-	// is itself absent (the same "only the policy decides, full stop" rule
-	// Gate/Rules/Ignore/Exceptions already follow above): a policy that
-	// says nothing about SAST means no SAST runs under that policy at all,
-	// not "fall back to the repository's own opinion". The sibling
-	// QualityGates.SsorDtrack/SupplyChain fields (AUR-549/550/551) ride
-	// along in the same wholesale assignment below; they carry no fields
-	// of their own yet, so no separate warning is produced for them here
-	// -- their own cards add that when they add real behavior.
-	if repo.QualityGates.Sast != nil {
-		warnings = append(warnings, ProviderWarning{
-			Provider: "politica central",
-			Reason:   "quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha",
-		})
+	// AUR-548 (coordinator-directed, per-section precedence): unlike
+	// Gate/Rules/Ignore/Exceptions above, quality_gates is governed PER
+	// SECTION, not as one wholesale block -- a policy that declares
+	// quality_gates.sast says nothing at all about quality_gates.
+	// ssor_dtrack or quality_gates.supply_chain, and a repository's own,
+	// undeclared sections must survive untouched (effective.QualityGates
+	// starts as repo's own value, below, instead of central's). Only a
+	// section the policy DOES declare (non-nil) is taken over wholesale,
+	// with a named warning when the repository had declared that exact
+	// section -- CR-TRUST-001 still holds (a repository cannot disable or
+	// loosen a policy-enabled SAST), scoped to that one section.
+	effective.QualityGates = repo.QualityGates
+	if central.QualityGates.Sast != nil {
+		if repo.QualityGates.Sast != nil {
+			warnings = append(warnings, ProviderWarning{
+				Provider: "politica central",
+				Reason:   "quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha",
+			})
+		}
+		effective.QualityGates.Sast = central.QualityGates.Sast
 	}
-	effective.QualityGates = central.QualityGates
+	if central.QualityGates.SsorDtrack != nil {
+		effective.QualityGates.SsorDtrack = central.QualityGates.SsorDtrack
+	}
+	if central.QualityGates.SupplyChain != nil {
+		effective.QualityGates.SupplyChain = central.QualityGates.SupplyChain
+	}
 
 	return &effective, warnings
 }

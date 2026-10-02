@@ -673,7 +673,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		if mismatch != "" {
 			sastReason = sastReasonUnverifiedCheckout
 		} else {
-			sastIssues, sastReason = runSASTPass(ctx, verifiedDir, reviewConfig.QualityGates.Sast, realSemgrepRunner)
+			sastIssues, sastReason = runSASTPass(ctx, verifiedDir, reviewConfig.QualityGates.Sast, sastOrigin == gateOriginPolicy, filter, realSemgrepRunner)
 		}
 	}
 	if sastReason != "" {

@@ -468,3 +468,215 @@ func TestAUR548PRUnverifiedCheckoutIsInconclusive(t *testing.T) {
 		t.Fatalf("semgrep must never be invoked against an unverified checkout (dir=%s)", dir)
 	}
 }
+
+// --- Independent review follow-up (B1/B2/B3): fatal Semgrep-side errors,
+// Semgrep 1.x's real severity vocabulary, and the policy-origin
+// anti-bypass hardening.
+
+// semgrepFakeStdout writes a fake "semgrep" that always prints body to
+// STDOUT and exits with exitCode, regardless of exitCode's value -- unlike
+// semgrepFake, which only ever offers exit 0 (stdout) or exit 2 (stderr).
+// B1's own defect is specifically a report that prints to STDOUT (a
+// decodable JSON document) at ANY exit code, including 0; this helper is
+// what lets a test reproduce that exact shape.
+func semgrepFakeStdout(t *testing.T, body string, exitCode int) string {
+	t.Helper()
+	bin := t.TempDir()
+	script := fmt.Sprintf("#!/usr/bin/env bash\ncat <<'AUR548EOF' >&1\n%s\nAUR548EOF\nexit %d\n", body, exitCode)
+	writeExec(t, filepath.Join(bin, "semgrep"), script)
+	return bin
+}
+
+const semgrepReportedErrorsJSON = `{"errors":[{"level":"error","type":"RuleParseError","message":"Failed to download rule pack p/security-audit"}],"results":[]}`
+
+// TestAUR548NonZeroExitCleanReportIsInconclusive is B1's second half,
+// isolated from the "errors" array check above: a report that decodes
+// fine, carries NO "errors" entries, and even reports zero findings, but
+// whose runner exited non-zero, must still be inconclusive -- this
+// command never passes Semgrep's own --error flag, so exit 1 here does
+// NOT mean "findings were reported" the way some other CI integrations
+// read it. This is AUR-548-MUT-001-ANCHOR's own direct target: a
+// mutation that silently treats this exact non-zero exit as success
+// (ignoring runErr once the report decodes) makes this test's own
+// gate.inconclusive: block expectation go red.
+func TestAUR548NonZeroExitCleanReportIsInconclusive(t *testing.T) {
+	cleanFixture(t, "gate:\n  inconclusive: block\nquality_gates:\n  sast:\n    enabled: true\n")
+	setSemgrepPATH(t, semgrepFakeStdout(t, `{"results":[]}`, 1))
+	// gate.inconclusive: block also fires on an unrelated "no LLM provider
+	// configured" skip (AUR-458's own quality_skipped reason) -- a valid
+	// fixture keeps this test isolated to SAST's own outcome (see
+	// TestAUR548CleanScanPasses's identical note).
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != exitQualityNotReviewed {
+		t.Fatalf("exit=%d, want exitQualityNotReviewed(%d): a non-zero exit with no --error flag passed must never read as a clean pass; stdout=%s stderr=%s", code, exitQualityNotReviewed, out.String(), errOut.String())
+	}
+}
+
+// TestAUR548SemgrepReportedErrorsAreInconclusive is B1's end-to-end proof:
+// a Semgrep report that decodes (even to zero results) but carries a
+// non-empty top-level "errors" array -- the exact shape a rule-pack
+// download failure produces -- must be inconclusive under
+// gate.inconclusive: block, at BOTH a non-zero exit (2) and exit 0. Before
+// this fix, rc was reproducibly 0 (clean pass) for both.
+func TestAUR548SemgrepReportedErrorsAreInconclusive(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		exitCode int
+	}{
+		{"NonZeroExit", 2},
+		{"ZeroExit", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanFixture(t, "gate:\n  inconclusive: block\nquality_gates:\n  sast:\n    enabled: true\n")
+			setSemgrepPATH(t, semgrepFakeStdout(t, semgrepReportedErrorsJSON, tc.exitCode))
+			// Isolate this assertion to SAST's own outcome -- see
+			// TestAUR548CleanScanPasses's identical note on quality_skipped.
+			fixture := filepath.Join(t.TempDir(), "response.json")
+			if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+			var out, errOut strings.Builder
+			code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+			if code != exitQualityNotReviewed {
+				t.Fatalf("exit=%d, want exitQualityNotReviewed(%d): a report with a non-empty errors array must never read as a clean pass; stdout=%s stderr=%s", code, exitQualityNotReviewed, out.String(), errOut.String())
+			}
+			combined := out.String() + errOut.String()
+			if !strings.Contains(combined, "inconclusivo") && !strings.Contains(combined, "inconclusive") {
+				t.Fatalf("expected an inconclusive SAST line in the output:\n%s", combined)
+			}
+		})
+	}
+}
+
+const semgrepHighFinding = `{"results":[{"check_id":"generic.secrets.security.detected-generic-api-key","path":"app.go","start":{"line":3},"extra":{"severity":"HIGH","message":"Generic API key detected"}}]}`
+
+// TestAUR548HighSeverityFailsAtErrorThreshold is B2's end-to-end proof:
+// Semgrep 1.x's real HIGH severity (not the fixture spelling "ERROR" every
+// other test in this file uses) must still rank as this project's "error"
+// and fail the default fail_on_severity: ERROR threshold. A mutation that
+// mapped HIGH to "info" (or dropped the mapping to the unknown-default
+// without covering HIGH explicitly) would pass this test with exit 0
+// instead of exitFindings.
+func TestAUR548HighSeverityFailsAtErrorThreshold(t *testing.T) {
+	cleanFixture(t, "quality_gates:\n  sast:\n    enabled: true\n")
+	setSemgrepPATH(t, semgrepFake(t, semgrepHighFinding, false, ""))
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != exitFindings {
+		t.Fatalf("exit=%d, want exitFindings(%d): a HIGH-severity Semgrep finding must rank as error; stdout=%s stderr=%s", code, exitFindings, out.String(), errOut.String())
+	}
+	combined := out.String() + errOut.String()
+	if !strings.Contains(combined, "generic.secrets.security.detected-generic-api-key") {
+		t.Fatalf("expected the semgrep check_id named in the output:\n%s", combined)
+	}
+}
+
+// TestAUR548PolicyOriginDisablesNosem is B3's flag-wiring proof: when
+// quality_gates.sast's effective section came from a central policy, the
+// Semgrep invocation carries --disable-nosem (so a `# nosemgrep` comment
+// committed by the pull request's own author cannot suppress a
+// policy-mandated finding); a repository's own, policy-free opt-in never
+// adds that flag, since there the scanned tree and the configuring party
+// are the same trust boundary. The fake binary cannot itself honor or
+// ignore `# nosemgrep` (it does not parse the scanned tree at all), so the
+// verifiable, hermetic proof available here is that the flag reaches the
+// real Semgrep invocation under a policy and not otherwise -- Semgrep's
+// own documented --disable-nosem semantics are what then actually stop
+// the comment from hiding the finding in a real binary.
+func TestAUR548PolicyOriginDisablesNosem(t *testing.T) {
+	t.Run("PolicyOriginAddsDisableNosem", func(t *testing.T) {
+		dir := cleanFixture(t, "")
+		policyDir := filepath.Join(filepath.Dir(dir), "aur548-nosem-policy")
+		if err := os.MkdirAll(filepath.Join(policyDir, ".aurumcode"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(policyDir, ".aurumcode", "config.yml"), []byte("quality_gates:\n  sast:\n    enabled: true\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		argvLog := filepath.Join(t.TempDir(), "argv.log")
+		setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
+
+		var out, errOut strings.Builder
+		if code := runReview([]string{"--base", "HEAD~1", "--politica", policyDir}, &out, &errOut, redaction.NewFilter()); code != 0 {
+			t.Fatalf("exit=%d, want 0; stdout=%s stderr=%s", code, out.String(), errOut.String())
+		}
+		argv, err := os.ReadFile(argvLog)
+		if err != nil {
+			t.Fatalf("semgrep was never invoked: %v", err)
+		}
+		if !strings.Contains(string(argv), "--disable-nosem") {
+			t.Fatalf("expected --disable-nosem under a central policy:\n%s", argv)
+		}
+	})
+	t.Run("RepoOriginOmitsDisableNosem", func(t *testing.T) {
+		cleanFixture(t, "quality_gates:\n  sast:\n    enabled: true\n")
+		argvLog := filepath.Join(t.TempDir(), "argv.log")
+		setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
+
+		var out, errOut strings.Builder
+		if code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter()); code != 0 {
+			t.Fatalf("exit=%d, want 0; stdout=%s stderr=%s", code, out.String(), errOut.String())
+		}
+		argv, err := os.ReadFile(argvLog)
+		if err != nil {
+			t.Fatalf("semgrep was never invoked: %v", err)
+		}
+		if strings.Contains(string(argv), "--disable-nosem") {
+			t.Fatalf("a repository's own opt-in (no policy) must never add --disable-nosem:\n%s", argv)
+		}
+	})
+}
+
+// TestAUR548PolicyOriginBypassesSemgrepignore is B3's second half: when
+// quality_gates.sast comes from a central policy and the scanned
+// checkout carries its own, repository-committed .semgrepignore,
+// sastScanRoot must scan a sanitized copy with that file removed rather
+// than the checkout itself -- a committed .semgrepignore is exactly as
+// much an author-controlled bypass as a `# nosemgrep` comment, and must
+// not survive into the policy-origin scan either.
+func TestAUR548PolicyOriginBypassesSemgrepignore(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".semgrepignore"), []byte("vuln.go\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "vuln.go"), []byte("package demo\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	scanRoot, cleanup, err := sastScanRoot(root, true)
+	defer cleanup()
+	if err != nil {
+		t.Fatalf("sastScanRoot: %v", err)
+	}
+	if scanRoot == root {
+		t.Fatal("expected a sanitized copy, got the original root (its own .semgrepignore would still apply)")
+	}
+	if _, statErr := os.Stat(filepath.Join(scanRoot, ".semgrepignore")); statErr == nil {
+		t.Fatal(".semgrepignore survived into the policy-origin scan copy")
+	}
+	if _, statErr := os.Stat(filepath.Join(scanRoot, "vuln.go")); statErr != nil {
+		t.Fatalf("vuln.go missing from the scan copy: %v", statErr)
+	}
+
+	// Repo-origin (no policy) must never copy at all -- it scans root
+	// directly, .semgrepignore and all, since there is no trust boundary
+	// to defend from the repository's own opt-in.
+	repoScanRoot, repoCleanup, repoErr := sastScanRoot(root, false)
+	defer repoCleanup()
+	if repoErr != nil {
+		t.Fatalf("sastScanRoot (repo origin): %v", repoErr)
+	}
+	if repoScanRoot != root {
+		t.Fatalf("repo-origin scan root = %q, want the original root %q", repoScanRoot, root)
+	}
+}
