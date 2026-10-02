@@ -1,0 +1,9 @@
+{
+  "id": "ruby-sqli",
+  "language": "ruby",
+  "file": "query.rb",
+  "label": "defect",
+  "rule": "sql-injection",
+  "line": 2,
+  "simulated_model": "hit"
+}

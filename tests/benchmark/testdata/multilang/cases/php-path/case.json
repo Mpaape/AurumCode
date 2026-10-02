@@ -1,0 +1,9 @@
+{
+  "id": "php-path",
+  "language": "php",
+  "file": "files.php",
+  "label": "defect",
+  "rule": "path-traversal",
+  "line": 3,
+  "simulated_model": "miss"
+}

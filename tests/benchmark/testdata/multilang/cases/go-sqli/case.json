@@ -1,0 +1,9 @@
+{
+  "id": "go-sqli",
+  "language": "go",
+  "file": "query.go",
+  "label": "defect",
+  "rule": "sql-injection",
+  "line": 6,
+  "simulated_model": "hit"
+}

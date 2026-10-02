@@ -1,0 +1,102 @@
+{
+  "schema": "aurum.benchmark-multilang",
+  "cases": [
+    {
+      "id": "csharp-clean",
+      "sha256": "8cd26c278551c02ecdb929adb0fa85447fe10c1ceeb428f2f6b07c9d62e694f5"
+    },
+    {
+      "id": "csharp-hash",
+      "sha256": "2572070a1a9d4eb040b7005da0d9c5bde10753c8b76aed9b0b494e7a27df29bb"
+    },
+    {
+      "id": "csharp-sqli",
+      "sha256": "966275e6b3b694e2199d7a5925e3ac8aacf05d04253756937fe82f6c47ec2321"
+    },
+    {
+      "id": "go-clean",
+      "sha256": "b152cb380592a1a5f848c9d28313db25da82f23f4125e776cbf1a24dec77ce37"
+    },
+    {
+      "id": "go-cmd",
+      "sha256": "ac79dd7b55a171f2d51e1916a281b9f667273faebaa670202b6f831cb2890522"
+    },
+    {
+      "id": "go-sqli",
+      "sha256": "8d052da83416459e82984501b19b73040c52d751dd524ad1ef4567f81e427f90"
+    },
+    {
+      "id": "java-clean",
+      "sha256": "117764692c0938d10df4430c95d69f6818a6c69afee6d559fbf6d8deeeb998a2"
+    },
+    {
+      "id": "java-hash",
+      "sha256": "668499e2f02d63cb07863600beba126613bb7839c37ab3106a55d28c4e0dac17"
+    },
+    {
+      "id": "java-sqli",
+      "sha256": "5ad26ac4d9582269568ed632f820a5fdbbd07cb6abbae4e6f4f1d889221bd7dc"
+    },
+    {
+      "id": "javascript-clean",
+      "sha256": "41c6f8750d1db5333598a40648f5a7a5ca3956de5051050c097cb6e177d59944"
+    },
+    {
+      "id": "javascript-path",
+      "sha256": "5d40e34f2acad8d642103877869fa9c5245e8e5da0962ada4401839485e71be1"
+    },
+    {
+      "id": "javascript-sqli",
+      "sha256": "50763999f4a6d991e0835ce2c6115c7278d241409766455a472de4bf4bae518c"
+    },
+    {
+      "id": "php-clean",
+      "sha256": "feac8cd00d95f3bedb3fe1da26e91c68e9de7aa690eaf53cb0fe189a90eac9b2"
+    },
+    {
+      "id": "php-path",
+      "sha256": "8f47e6890b8d942cb2068cfe66688b4f53e4c5f99013ad9622e04350afd10f67"
+    },
+    {
+      "id": "php-sqli",
+      "sha256": "0e4e2c9800ac9c4ce2e7ab7bd3f7e1c79a6a5e92f316859b7175dd67d3b2afa4"
+    },
+    {
+      "id": "python-clean",
+      "sha256": "a9606c45fed3a94a697d160cdc7948091a016649a84c1f73db6ea2940c176613"
+    },
+    {
+      "id": "python-cmd",
+      "sha256": "97bb85d9387cef51cd9071f1cfb6a8386e047811388a2f18743dc59c5573ea56"
+    },
+    {
+      "id": "python-sqli",
+      "sha256": "b98b185c5fe9381745a05830e1e4255d1079ad82e2d3d97eb325d2be0fdea312"
+    },
+    {
+      "id": "ruby-clean",
+      "sha256": "1fefdcc79a25d3ad37a98b22225409702383c162b129684886a0f39ee1324743"
+    },
+    {
+      "id": "ruby-cmd",
+      "sha256": "6b4cd2ae46f85cd2598a896334b4b339f9008c71d48069ef0033521bdd58903c"
+    },
+    {
+      "id": "ruby-sqli",
+      "sha256": "848425d4d83c8684494637fe6369289cf63d1c37dda796ce73c80ac80c078c7a"
+    },
+    {
+      "id": "rust-clean",
+      "sha256": "fdcacbc85e259ac10497d5644359ac24a65cae444f1197d78ccbcd231f959146"
+    },
+    {
+      "id": "rust-cmd",
+      "sha256": "aa2cbeae245eeb3dc7662a255ddd696ab8753117f73f1aba14a8ca73cfe36441"
+    },
+    {
+      "id": "rust-path",
+      "sha256": "53708362e6494988a62a33b3a184adfc662d39ac68fca8aaf3a1ad339e278e45"
+    }
+  ],
+  "corpus_sha256": "77be1b7ca9587a166144434c038da792069a1c12615ac09b9b8e3d632ef4ba86"
+}

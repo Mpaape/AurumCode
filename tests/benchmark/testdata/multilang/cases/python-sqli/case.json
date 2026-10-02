@@ -1,0 +1,9 @@
+{
+  "id": "python-sqli",
+  "language": "python",
+  "file": "query.py",
+  "label": "defect",
+  "rule": "sql-injection",
+  "line": 5,
+  "simulated_model": "hit"
+}
