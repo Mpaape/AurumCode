@@ -251,6 +251,40 @@ Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
 avisos de `rules`/`ignore` já existentes.
 
+**Falha do provedor em `--pr` (AUR-537).** Até este card, uma falha de
+transporte durante a chamada ao modelo em `--pr` — todos os provedores
+configurados falharam, ou `--limite` recusou a chamada antes de qualquer
+provedor ser alcançado — encerrava com código 1 antes mesmo de o gate ser
+avaliado: nenhum status `aurumcode/policy-gate` era publicado e
+`inconclusive: warn` não era honrado, mesmo com um gate declarado. Essa
+falha específica agora é roteada pelo gate como o mesmo motivo inconclusivo
+que `--base` já publica (`provider_failure`): com `block`, o status falha
+nomeando o motivo e a saída usa o código de "revisão não concluída"; com
+`warn` (ou sem `inconclusive` declarado), o status publica sucesso com o
+alerta inconclusivo visível — nunca a palavra "aprovado" — e a saída é 0; em
+ambos os casos a auditoria e o SARIF (quando pedidos) são escritos como
+inconclusivos, e o corpo publicado da revisão diz que ela não foi executada.
+**Sem nenhum `gate:` declarado, o comportamento é idêntico ao de antes deste
+card, byte a byte: código 1, nenhum status, nenhuma auditoria/SARIF.** Uma
+recusa de `--limite` antes da chamada (pré-chamada) segue a mesma regra: só
+entra pelo gate como esse motivo inconclusivo quando um gate está declarado.
+
+**Atenção para quem já tem `gate:` declarado sem a chave `inconclusive`
+(o padrão silencioso de `warn`).** Esse comportamento de hoje muda para
+essas configurações existentes assim que `--pr` passa a sofrer uma falha
+do provedor: antes, a falha encerrava com código 1 e nenhum status era
+publicado; agora, `aurumcode/policy-gate` publica sucesso com o alerta
+inconclusivo visível (o mesmo que `warn` explícito produz), a saída é 0 e a
+auditoria/SARIF (quando pedidos) registram a inconclusividade — ou seja,
+uma política antiga que nunca declarou `inconclusive` e nunca viu esse
+status passa a vê-lo, publicado como sucesso alertado. **O status legado
+`aurumcode/review` (de `--check`, independente do gate) NÃO segue esse
+abrandamento: ele publica falha nomeando `provider_failure` nos dois modos,
+`block` e `warn`, e independente de `--exigir-qualidade`** — uma regra de
+proteção de branch que já exige `aurumcode/review` continua bloqueando o
+merge numa falha do provedor, exatamente como bloqueava (por ausência do
+status) antes deste card; só `aurumcode/policy-gate` conhece `warn`.
+
 O gate está ligado em `aurumcode review --base` e `--pr`: achados de
 severidade no limiar ou acima (de origem aceita) reprovam o código de
 saída (reaproveitando os mesmos códigos de `--fail-on`/`--check`), o

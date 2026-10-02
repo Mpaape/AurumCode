@@ -490,42 +490,99 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		CodebaseContext: codebaseContextText,
 		MemoryNotes:     memoryNotesText,
 	})
+	// AUR-537: a provider/transport failure here -- every configured
+	// provider failed in the orchestrator (llm.ErrAllProvidersFailed) or
+	// --limite refused the call before any provider was ever reached
+	// (llm.ErrBudgetExceeded) -- used to return immediately, before the
+	// policy gate (evaluateGate, below) was ever reached: no
+	// aurumcode/policy-gate status, inconclusive: warn not honored, no
+	// audit/SARIF written. gateDeclared (reviewConfig.Gate is already
+	// policy-resolved by config.ApplyCentralPolicy above) decides whether
+	// that stays true -- AC-003: no gate configured, byte-identical to
+	// before this card, same diagnosis, same exit code -- or whether the
+	// failure instead falls through as the gate's own inconclusive reason
+	// gateReasonProviderFailure (gateInconclusiveReason, below), exactly
+	// like a degraded model parse (qualityDegraded, right below) already
+	// does. Selecting a provider in the first place (selectProvider/
+	// selectProviderForModel, above) is a separate, earlier failure this
+	// card does not touch: a model that was never even chosen has nothing
+	// for the gate to grade either way.
+	gateDeclared := reviewConfig.Gate.Declared()
+	providerFailed := false
 	if err != nil {
 		// --limite: the tracker refused before the model was called, so
 		// nothing was spent -- checked first, exactly like the --base
-		// path's own ordering (runReview).
+		// path's own ordering (runReview). AUR-537: still a pre-call
+		// refusal, not a transport failure, but the gate treats both as
+		// the same "no review happened" reason, and only once a gate is
+		// declared -- otherwise this is exactly today's return.
 		if errors.Is(err, llm.ErrBudgetExceeded) {
-			return reportBudgetExceeded(stderr, limiteUSD, err)
+			rc := reportBudgetExceeded(stderr, limiteUSD, err)
+			if !gateDeclared {
+				return rc
+			}
+			providerFailed = true
+		} else {
+			var parseErr *prompt.ParseError
+			if errors.As(err, &parseErr) {
+				// AUR-505: an unparseable model answer degrades, it does not
+				// crash. Before this card the command printed the diagnosis
+				// and exited 1 with no deterministic finding published, so a
+				// weak model failed a CI pull request even when the
+				// deterministic analysis and security passes were clean. The
+				// fix keeps the diagnosis, records the failure as a declared
+				// limitation (never silent), publishes the deterministic
+				// findings, and lets the deterministic gate decide the exit
+				// code. NO finding is fabricated from the invalid response:
+				// result starts empty (AC-003).
+				fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+				fmt.Fprintf(stderr, "aurumcode review: response diagnostics: bytes=%d raw_json_valid=%t finish_reason=%q syntax_offset=%d\n", parseErr.InputBytes, parseErr.RawJSONValid, parseErr.FinishReason, parseErr.SyntaxOffset)
+				if parseErr.TypeField != "" {
+					fmt.Fprintf(stderr, "aurumcode review: response schema mismatch: field=%q expected=%q actual=%q\n", parseErr.TypeField, parseErr.ExpectedType, parseErr.ActualType)
+				}
+				if parseErr.ValidationCode != "" {
+					fmt.Fprintf(stderr, "aurumcode review: response validation: code=%s\n", parseErr.ValidationCode)
+				}
+				fmt.Fprintln(stderr, "aurumcode review: degrading to deterministic analysis; the model review is inconclusive")
+				qualityDegraded = true
+				result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
+				result.Limitations = append(result.Limitations, modelInvalidOutputNotice(reviewLanguage, string(parseErr.Kind)))
+			} else if errors.Is(err, llm.ErrAllProvidersFailed) {
+				// AUR-537: the diagnosis is unchanged either way -- naming
+				// the model --modelo asked for is strictly more useful
+				// than the bare transport error -- but whether this
+				// returns now or falls through depends on gateDeclared,
+				// mirroring --base's own runReview, where this exact
+				// sentinel already becomes gateInconclusiveReason
+				// "provider_failure" regardless of --modelo.
+				var rc int
+				if opts.modelo != "" {
+					rc = reportModelUnavailable(stderr, opts.modelo, err)
+				} else {
+					fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+					rc = 1
+				}
+				if !gateDeclared {
+					return rc
+				}
+				providerFailed = true
+			} else {
+				fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+				return 1
+			}
 		}
-		var parseErr *prompt.ParseError
-		if errors.As(err, &parseErr) {
-			// AUR-505: an unparseable model answer degrades, it does not
-			// crash. Before this card the command printed the diagnosis
-			// and exited 1 with no deterministic finding published, so a
-			// weak model failed a CI pull request even when the
-			// deterministic analysis and security passes were clean. The
-			// fix keeps the diagnosis, records the failure as a declared
-			// limitation (never silent), publishes the deterministic
-			// findings, and lets the deterministic gate decide the exit
-			// code. NO finding is fabricated from the invalid response:
-			// result starts empty (AC-003).
-			fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
-			fmt.Fprintf(stderr, "aurumcode review: response diagnostics: bytes=%d raw_json_valid=%t finish_reason=%q syntax_offset=%d\n", parseErr.InputBytes, parseErr.RawJSONValid, parseErr.FinishReason, parseErr.SyntaxOffset)
-			if parseErr.TypeField != "" {
-				fmt.Fprintf(stderr, "aurumcode review: response schema mismatch: field=%q expected=%q actual=%q\n", parseErr.TypeField, parseErr.ExpectedType, parseErr.ActualType)
-			}
-			if parseErr.ValidationCode != "" {
-				fmt.Fprintf(stderr, "aurumcode review: response validation: code=%s\n", parseErr.ValidationCode)
-			}
-			fmt.Fprintln(stderr, "aurumcode review: degrading to deterministic analysis; the model review is inconclusive")
+		if providerFailed {
+			// Reuses qualityDegraded/the "quality_degraded" metadata key
+			// on purpose: reviewVerdictForLanguage/formalReviewEvent/
+			// reviewSummaryTextForLanguage (below) already turn that key
+			// into "never approve, say the quality review did not
+			// complete" without this file re-deriving any of that
+			// rendering. providerFailureNotice (aur537.go) is the one
+			// piece of text specific to THIS failure (never reached the
+			// model at all) those shared paths do not already carry.
 			qualityDegraded = true
 			result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
-			result.Limitations = append(result.Limitations, modelInvalidOutputNotice(reviewLanguage, string(parseErr.Kind)))
-		} else if opts.modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
-			return reportModelUnavailable(stderr, opts.modelo, err)
-		} else {
-			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-			return 1
+			result.Limitations = append(result.Limitations, providerFailureNotice(reviewLanguage))
 		}
 	}
 	if historyErr != nil {
@@ -618,21 +675,27 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// AUR-519: the gate, evaluated once every other pass/limitation above
 	// has run so its decision lines can still join the published review
 	// body below. gateInconclusiveReason's priority mirrors AUR-505/
-	// AUR-458: a provider answer this run received but could not parse at
-	// all (qualityDegraded, a prompt.ParseError GenerateReviewWithContext
-	// already turned into the zero ReviewResult above -- this is a MODEL
-	// PARSE failure, not a transport/provider failure: the provider
-	// answered fine) outranks one that parsed as the degraded free-text
-	// fallback (prompt.IsDegradedParse, AC-008), which outranks AUR-476's
-	// own partial coverage (AC-004). A no-op unless a gate was actually
-	// declared (evaluateGate's own Declared() guard).
+	// AUR-458/AUR-537: a provider that never produced an answer at all
+	// (providerFailed -- the orchestrator exhausted every provider, or
+	// --limite refused the call before one was ever reached) outranks a
+	// provider answer this run DID receive but could not parse
+	// (qualityDegraded, a prompt.ParseError GenerateReviewWithContext
+	// already turned into the zero ReviewResult above), which outranks one
+	// that parsed as the degraded free-text fallback (prompt.IsDegradedParse,
+	// AC-008), which outranks AUR-476's own partial coverage (AC-004). A
+	// no-op unless a gate was actually declared (evaluateGate's own
+	// Declared() guard) -- see gateDeclared, above, which is this exact
+	// same Declared() call, computed once and reused by both decisions.
 	//
-	// NOTE: a genuine provider/transport failure (llm.ErrAllProvidersFailed,
-	// llm.ErrBudgetExceeded) returns earlier in this function, before the
-	// gate is ever reached -- declared, not fixed here; see
-	// docs/specs/AUR-519.md.
+	// AUR-537: a genuine provider/transport failure (llm.ErrAllProvidersFailed,
+	// llm.ErrBudgetExceeded) now falls through to here -- it no longer
+	// returns before the gate is reached -- whenever gateDeclared is true;
+	// see docs/specs/AUR-537.md. Without a gate, it still returns earlier,
+	// exactly as before (AC-003).
 	gateInconclusiveReason := ""
 	switch {
+	case providerFailed:
+		gateInconclusiveReason = gateReasonProviderFailure
 	case qualityDegraded:
 		gateInconclusiveReason = "model_parse_failure"
 	case prompt.IsDegradedParse(result):
@@ -891,7 +954,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// swallow the other.
 	checkExit := 0
 	if check {
-		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber, opts.exigirQualidade && qualityDegraded)
+		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber, opts.exigirQualidade && qualityDegraded, providerFailed)
 	}
 	// AUR-519: the policy gate's own commit status (policyGateContext),
 	// independent of --check's grave-finding status above -- an org's
@@ -1015,16 +1078,36 @@ const checkContext = "aurumcode/review"
 // itself could not be published or a required model review was inconclusive.
 // MUT-001 is exactly the defect of this function reporting success (either
 // the exit code or the published state) while a grave finding is present.
-func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete bool) int {
+//
+// AUR-537 B1: providerFailed means the quality review never ran at all --
+// every configured provider failed, or --limite refused the call before one
+// was ever reached. Before AUR-537 this status was simply never published
+// for that run (runPRReview returned before reaching --check at all), which
+// failed closed for any ruleset requiring this context. AUR-537 made the
+// function keep going, but a provider outage is NOT "inconclusive the way
+// AUR-505's own model-parse failure is" for THIS status: it must never read
+// "success" here, in gate.inconclusive: block OR warn, and REGARDLESS of
+// --exigir-qualidade -- warn only ever softens aurumcode/policy-gate
+// (publishPolicyGateStatus), never this legacy grave-finding status. A prior
+// round of this card left qualityRequiredButIncomplete (gated on
+// --exigir-qualidade) as the only lever, which let a provider outage publish
+// a false "nenhum achado grave" success whenever --exigir-qualidade was not
+// also given -- worse than before this card, which left the context absent
+// (failing closed) rather than falsely green.
+func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete, providerFailed bool) int {
 	grave := countAtOrAbove(issues, rankError)
 	status := githubclient.CommitStatus{Context: checkContext}
-	if qualityRequiredButIncomplete {
+	switch {
+	case providerFailed:
+		status.State = "failure"
+		status.Description = fmt.Sprintf("revisão não executada no pull request #%d: falha do provedor (provider_failure)", prNumber)
+	case qualityRequiredButIncomplete:
 		status.State = "failure"
 		status.Description = fmt.Sprintf("revisão por modelo inconclusiva no pull request #%d", prNumber)
-	} else if grave > 0 {
+	case grave > 0:
 		status.State = "failure"
 		status.Description = fmt.Sprintf("%d achado(s) grave(s) no pull request #%d", grave, prNumber)
-	} else {
+	default:
 		status.State = "success"
 		status.Description = fmt.Sprintf("nenhum achado grave no pull request #%d", prNumber)
 	}
@@ -1035,6 +1118,17 @@ func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", checkContext, commitID, status.State, status.Description)
 
+	// AUR-537 B1: providerFailed's own contribution to the exit code is
+	// deliberately 0 here, even though the STATE published above is always
+	// "failure" -- the overall process exit for a provider outage is
+	// decided once, correctly, by gateResult.Fail/Breach at the bottom of
+	// runPRReview (evaluateGate already sets Fail only for
+	// gate.inconclusive: block, never for warn; providerFailed can only be
+	// true at all once a gate IS declared, so that cascade always runs).
+	// Letting this function ALSO claim exitQualityNotReviewed here would
+	// double-count the same decision and wrongly force exit 1 under warn,
+	// defeating AC-002 -- the published status and the exit code are two
+	// different questions, and only the status must ignore warn/block.
 	if qualityRequiredButIncomplete {
 		return exitQualityNotReviewed
 	}
