@@ -1350,12 +1350,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// below (the Lines/Limitations loop, publishPolicyGateStatus, the
 	// exit-code section, writeComplianceArtifacts) needs no change to
 	// also honor a SAST breach or a SAST inconclusive scan.
-	if err := applySASTGate(&gateResult, repoCfg.QualityGates.Sast, sastOrigin, gateSASTIssues(repoCfg.Gate, sastIssues), sastReason); err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
-		return 2
-	}
-	// AUR-556: the embedded analysis catalog's own origin.
-	if err := applyAnalysisGate(&gateResult, repoCfg.Gate, analysisIssuesForGate(diff, repoCfg), repoCfg.Exceptions, repoIdentity, time.Now()); err != nil {
+	if err := foldGateSources(&gateResult, repoCfg, diff, sastOrigin, sastIssues, sastReason, repoIdentity, time.Now()); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
 		return 2
 	}

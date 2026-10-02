@@ -1,4 +1,4 @@
-// AUR-556: the embedded analysis catalog (analysis/*) counts toward the
+// The embedded analysis catalog (analysis/*) counts toward the
 // policy gate. Like applySASTGate (aur548.go) it folds its own decision
 // into the gateDecision evaluateGate already returned, so evaluateGate's
 // signature and every AUR-519/520/521/548 consumer stay untouched. The
@@ -103,4 +103,16 @@ func applyAnalysisGate(d *gateDecision, gate config.GateConfig, issues []types.R
 		d.FindingOrigins[findingOriginKey(issue.RuleID, issue.File, issue.Line)] = gateOriginAnalysis
 	}
 	return nil
+}
+
+// foldGateSources is the single entry point both review paths (--base and
+// --pr) call after evaluateGate: it folds the SAST and embedded-analysis
+// origins into d, honoring gate.sources. Which origins are enabled is
+// decided by config.GateConfig.SourceEnabled; this function only adapts
+// the results to the cmd-level gateDecision.
+func foldGateSources(d *gateDecision, cfg *config.Config, diff *types.Diff, sastOrigin string, sastIssues []types.ReviewIssue, sastReason, repoIdentity string, now time.Time) error {
+	if err := applySASTGate(d, cfg.QualityGates.Sast, sastOrigin, gateSASTIssues(cfg.Gate, sastIssues), sastReason); err != nil {
+		return err
+	}
+	return applyAnalysisGate(d, cfg.Gate, analysisIssuesForGate(diff, cfg), cfg.Exceptions, repoIdentity, now)
 }
