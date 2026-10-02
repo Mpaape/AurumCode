@@ -276,3 +276,36 @@ func TestAUR521SARIFRedactsEscapedSecrets(t *testing.T) {
 		t.Fatalf("SARIF file is not valid JSON after redaction: %v\n%s", err, data)
 	}
 }
+
+// TestAUR521SARIFRedactsSecretWithBackslashInPath covers a real defect: a
+// secret containing a backslash, embedded in a finding's Path, leaked into
+// artifactLocation.uri. normalizeFindingPath (called while building the
+// SARIF document) replaces every literal backslash with a forward slash --
+// so redacting the URI only AFTER that normalization no longer finds the
+// backslash the filter's pattern was registered against, and the secret
+// survives unredacted, just with slashes instead of backslashes. The fix
+// redacts Path BEFORE normalization ever runs.
+func TestAUR521SARIFRedactsSecretWithBackslashInPath(t *testing.T) {
+	secret := `AURUMPATH-abc\xyz`
+	filter := redaction.NewFilter(secret)
+
+	findings := []SARIFFinding{{
+		RuleID:   "r1",
+		Path:     "app/" + secret + "/app.go",
+		Line:     1,
+		Severity: "error",
+		Message:  "m",
+		Context:  "c",
+	}}
+	path := filepath.Join(t.TempDir(), "out.sarif")
+	if err := WriteSARIF(path, "v", findings, true, "", filter); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "AURUMPATH-abc") {
+		t.Fatalf("secret with a backslash leaked into artifactLocation.uri (slashes or not):\n%s", data)
+	}
+}

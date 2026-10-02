@@ -277,8 +277,10 @@ aurumcode review --base HEAD~1 \
   repositório, o SHA revisado, o modelo, o veredito, a decisão do gate
   (`pass`/`fail`/`inconclusive` + motivo), os achados que efetivamente
   reprovaram o gate, as exceções aplicadas (campo `exceptions_applied`,
-  sempre presente como lista — vazia até a AUR-520 passar a preenchê-lo) e a
-  cobertura (completa ou não, com os arquivos que ficaram de fora).
+  sempre presente como lista; AUR-520 — gravada achado por achado DENTRO do
+  loop de limiar de severidade do gate, então só existe quando
+  `gate.fail_on` está declarado e o loop de fato roda) e a cobertura
+  (completa ou não, com os arquivos que ficaram de fora).
 - `--sarif <arquivo>`: um documento SARIF 2.1.0 (`tool.driver` com as regras
   citadas, incluindo as seções dinâmicas de skill com seus títulos;
   `results` com `ruleId`, `level` (`error`/`warning`/`note`), `message`,
@@ -320,11 +322,18 @@ jobs:
 
   upload-sarif:
     needs: review
+    # !cancelled() (não always()): o job de review FALHA quando o gate
+    # reprova (exit 1/3) -- exatamente o caso em que o upload mais
+    # importa -- e !cancelled() ainda roda nesse caso, só pulando um
+    # cancelamento explícito do workflow.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+      actions: read            # necessário para download-artifact em repo privado
       security-events: write
     steps:
-      - uses: actions/download-artifact@<pin-by-sha>
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: aurumcode-sarif-${{ github.event.pull_request.number }}
           path: .
@@ -339,9 +348,12 @@ jobs:
                                              # alertas que nunca é limpo
 ```
 
-(`actions/download-artifact` ainda não está pinada por SHA em nenhum
-workflow deste repositório; quem escrever esse segundo job precisa resolver
-e fixar o SHA real, pelo mesmo motivo que todo outro `uses:` aqui é pinado.)
+Um PR de fork nunca recebe `security-events: write` (o GITHUB_TOKEN de um
+`pull_request` vindo de fork é somente leitura para esse escopo); o job
+`upload-sarif` acima simplesmente não roda nesse caso -- o artefato SARIF
+continua existindo e baixável, só não chega ao code scanning
+automaticamente.
+
 O `code-review.yml` deste próprio repositório ainda não tem esse segundo
 job -- está fora dos `paths` da AUR-521 e não foi criado por este card; até
 que alguém o adicione, o SARIF deste repositório fica disponível como

@@ -125,7 +125,7 @@ case "$selector" in
     test_pattern='^(TestAUR521SARIFInconclusiveRun|TestAUR521AuditRecordInconclusiveMarksOmittedFiles|TestAUR521AuditInconclusiveListsOmittedFiles|TestAUR521AuditGateOutcomeInconclusiveWithoutGateDeclared|TestAUR521AuditAndSARIFAgreeOnInconclusive)$'
     ;;
   AC-005)
-    test_pattern='^(TestAUR521WriteAuditRecordRedactsSecretCanary|TestAUR521SARIFRedactsSecretCanary|TestAUR521RedactsSecretCanaryEndToEnd|TestAUR521RedactsSecretCanaryFromDiffLine|TestAUR521WriteAuditRecordRedactsEscapedSecrets|TestAUR521SARIFRedactsEscapedSecrets)$'
+    test_pattern='^(TestAUR521WriteAuditRecordRedactsSecretCanary|TestAUR521SARIFRedactsSecretCanary|TestAUR521RedactsSecretCanaryEndToEnd|TestAUR521RedactsSecretCanaryFromDiffLine|TestAUR521WriteAuditRecordRedactsEscapedSecrets|TestAUR521SARIFRedactsEscapedSecrets|TestAUR521SARIFRedactsSecretWithBackslashInPath)$'
     ;;
   AC-002-MUT-001)
     test_pattern='^TestAUR521FindingFingerprintStableAcrossRuns$'
@@ -169,7 +169,7 @@ if [[ "$selector" == all ]]; then
     PRPathWritesComplianceArtifacts \
     DiffLineAtSkipsNoNewlineMarker FindingIdentityForUsesDiffLine \
     FindingIdentityForRedactsBeforeHashing \
-    WriteAuditRecordRedactsEscapedSecrets SARIFRedactsEscapedSecrets \
+    WriteAuditRecordRedactsEscapedSecrets SARIFRedactsEscapedSecrets SARIFRedactsSecretWithBackslashInPath \
     ExceptedFindingSuppressedNotBlocking \
     AuditGateOutcomeInconclusiveWithoutGateDeclared \
     AuditAndSARIFAgreeOnInconclusive \
