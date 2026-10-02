@@ -97,6 +97,83 @@ uma revisão em um diff unificado aplicável.
 `inline_comments: true` na configuração é cumulativo com o input do workflow;
 para desligá-lo, remova-o do arquivo ou defina false e não habilite o input.
 
+## Política central
+
+Um workflow obrigatório pode carregar uma política central: outro diretório
+(checkout próprio) que CONTÉM `.aurumcode/config.yml` e os mesmos arquivos
+Markdown (`prompt.md`, `skills/*.md`, docs) que o repositório do dev já usa —
+não é o diretório `.aurumcode/` em si, é o diretório pai dele. Nenhum formato
+novo.
+
+```yaml
+# <diretório da política>/.aurumcode/config.yml (outro repositório/checkout)
+rules:
+  security/hardcoded-secret:
+    enabled: true
+ignore:
+  - "vendor/**"
+review:
+  context:
+    skills:
+      - skills/security.md
+```
+
+O workflow passa esse diretório ao AurumCode com `--politica <dir>` (alias
+`--policy`); sem a flag, a variável de ambiente `AURUMCODE_POLICY` é usada;
+sem nenhum dos dois, o comportamento é o de hoje, sem política. O CLI
+recusa, fechado, um `<dir>` que resolva (depois de symlinks) para dentro da
+árvore sob revisão (o diretório de trabalho do processo) ou para ela mesma:
+a política tem que vir de fora do que está sendo revisado, nunca o repositório
+revisado pode fornecer a própria política.
+
+No workflow reutilizável (`.github/workflows/review.yml`), `policy_repository`
+(`owner/repo`) é a única forma de declarar uma política: o próprio workflow
+dá checkout read-only (sem persistir credenciais) em `.aurumcode-policy` e
+usa esse diretório como `--politica`. Não existe um input `policy_path` nesse
+workflow — num job `workflow_call`, os únicos diretórios alcançáveis são o
+checkout da ferramenta e o checkout do PR sob revisão, então aceitar "um
+caminho já presente" deixaria o próprio PR apontar para a própria política.
+`policy_ref` escolhe o que o checkout busca; vazio usa o branch padrão do
+repositório da política.
+
+Exemplo de workflow obrigatório da organização, chamando o reutilizável com a
+política embutida:
+
+```yaml
+jobs:
+  review:
+    uses: SuaOrg/AurumCode/.github/workflows/review.yml@<sha-fixa-do-aurumcode>
+    with:
+      policy_repository: SuaOrg/aurumcode-policy
+      policy_ref: a1b2c3d4e5f6...  # SHA fixa, não um branch
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+```
+
+`policy_ref` deve ser uma SHA fixa, pela mesma razão que o workflow já exige
+uma SHA fixa do próprio AurumCode (o step "Verify tool version"): um branch
+ou tag é mutável, então fixá-la é o que garante que toda PR da organização é
+julgada pela MESMA política até alguém, deliberadamente, apontar para outra
+SHA — sem isso, uma mudança na branch da política (um push aceitável ou não)
+muda o gate de todo repositório que a usa, sem revisão própria desse PR.
+
+Na Action Docker direta (`action.yml`), quem escreve os steps do job é quem
+controla o que foi checado antes do container rodar, então `policy_path`
+continua existindo lá como o único mecanismo (aponta para um diretório já
+presente no workspace do runner, fora da árvore do repositório sob revisão).
+
+Precedência: com política ativa, `rules` e `ignore` do repositório do dev são
+ignorados por completo — vale só o que a política declara — e cada override
+ignorado gera um aviso no terminal e no PR publicado, nomeando a regra ou o
+padrão. `review.language` e `review.publication` vêm da política quando ela os
+declara; o resto de `review` (contexto, memória, changelog, versão, perfis)
+continua do repositório do dev. As skills e docs da política chegam ao
+modelo primeiro; as do repositório do dev somam-se depois, sem substituir
+nada. Uma política ausente ou inválida (config.yml faltando, YAML inválido,
+skill/doc listada que não existe, ou um diretório dentro da própria árvore
+revisada) falha o comando antes de qualquer chamada ao modelo.
+
 ## Opções públicas
 
 Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI
@@ -138,6 +215,7 @@ consumidor.
 | `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
+| `--politica`, `--policy` | Diretório que contém o `.aurumcode/config.yml` de uma política central, com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
 
 ### CLI `aurumcode fix`
 
@@ -147,6 +225,13 @@ consumidor.
 
 ### Workflow reutilizável e Action
 
-- Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.
+- Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`,
+  `policy_repository` (`owner/repo` de uma política central; o próprio
+  workflow faz o checkout, sem persistir credenciais — não há `policy_path`
+  nesse workflow, só o repositório da política pode fornecer uma),
+  `policy_ref` (branch/tag/SHA da política, fixe em SHA; vazio usa o branch
+  padrão). Nenhum definido mantém o comportamento sem política.
 - Action Docker direta: `publication`, `inline-comments`, `security`, `check`,
-  `fail-on`, `model`, `changelog`.
+  `fail-on`, `model`, `changelog`, `policy_path` (diretório, já no workspace
+  do runner e controlado por quem escreveu o job, que contém o
+  `.aurumcode/config.yml` de uma política central).

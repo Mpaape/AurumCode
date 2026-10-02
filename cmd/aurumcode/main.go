@@ -379,6 +379,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	changelogFlag := fs.Bool("changelog", false, "publish the suggested next version and changelog entry derived from the reviewed commit messages (AUR-498 engine); the review.changelog repository setting is the default (default: off)")
 	perfis := fs.String("perfis", "", "comma-separated reviewer profiles to run in the same review (AUR-502); every finding names its source profile and duplicate findings merge once. Profiles are presets over emphasis and rule families only and never change severity, --fail-on, redaction, the cost cap or the security pass (default: review.profiles from config)")
 	perfil := fs.String("profile", "", "alias of --perfis for a single reviewer profile (AUR-502)")
+	politica := fs.String("politica", "", "directory containing a central policy's .aurumcode/config.yml (the directory that HOLDS .aurumcode/, same convention as a repository's own config.yml/skills); its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own (AUR-518; default: the AURUMCODE_POLICY environment variable, otherwise no policy)")
+	policyAlias := fs.String("policy", "", "alias of --politica")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
@@ -412,6 +414,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	prLimiteGiven := false
 	prPublicationGiven := false
 	perfisGiven := false
+	politicaGiven := false
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "pr":
@@ -426,8 +429,30 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			prPublicationGiven = true
 		case "perfis", "profile":
 			perfisGiven = true
+		case "politica", "policy":
+			politicaGiven = true
 		}
 	})
+
+	// AUR-518: --politica/--policy pick the central policy directory; absent,
+	// AURUMCODE_POLICY is used; both absent, policyDir stays "" and nothing
+	// past this point changes (AC-006). An explicitly empty value (
+	// --politica "" or --politica "$VAR" with VAR unset) is a usage error,
+	// never a silent fallback to reviewing the repository alone -- the same
+	// "explicit empty is refused" rule --modelo/--limite already follow
+	// above. Shared by both the --base and --pr dispatch below -- the flag
+	// is parsed once, here, regardless of path.
+	policyDir := strings.TrimSpace(*politica)
+	if policyDir == "" {
+		policyDir = strings.TrimSpace(*policyAlias)
+	}
+	if politicaGiven && policyDir == "" {
+		fmt.Fprintln(stderr, "aurumcode review: --politica/--policy: directory must not be empty")
+		return 2
+	}
+	if !politicaGiven {
+		policyDir = strings.TrimSpace(os.Getenv("AURUMCODE_POLICY"))
+	}
 	if prGiven {
 		// The PR path uses the same explicit quality requirement as --base:
 		// an inconclusive model must not leave a green CI review gate.
@@ -452,6 +477,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			publication:     *modoPublicacao,
 			changelog:       *changelogFlag,
 			exigirQualidade: *exigirQualidade,
+			policyDir:       policyDir,
 		})
 	}
 
@@ -545,6 +571,44 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1
 	}
+
+	// AUR-518: the central policy, when declared, is loaded and folded over
+	// repoCfg right here -- before any model call, before the ignore filter,
+	// before ApplyRuleConfig -- so everything downstream that already reads
+	// repoCfg (FilterIgnoredPaths, ConfiguredProviders, ApplyRuleConfig,
+	// ReviewLanguage/ReviewPublication) sees the effective config without
+	// its own change. A missing or invalid policy fails closed here, before
+	// any model call (AC-005). No policy declared: centralCfg stays nil,
+	// ApplyCentralPolicy returns repoCfg unchanged, and policyWarnings is
+	// nil (AC-006).
+	var centralCfg *config.Config
+	var policyWarnings []config.ProviderWarning
+	if policyDir != "" {
+		// A policy must come from outside the tree being reviewed -- the
+		// reviewed repository itself must never be able to edit the policy
+		// it is judged against. Checked before LoadCentralPolicy so this
+		// refusal, too, happens before any model call.
+		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, cwd); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
+		centralCfg, err = config.LoadCentralPolicy(policyDir)
+		if err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
+	}
+	repoCfg, policyWarnings = config.ApplyCentralPolicy(repoCfg, centralCfg)
+	if filter != nil {
+		for i := range policyWarnings {
+			policyWarnings[i].Provider = filter.Redact(policyWarnings[i].Provider)
+			policyWarnings[i].Reason = filter.Redact(policyWarnings[i].Reason)
+		}
+	}
+	for _, warning := range policyWarnings {
+		fmt.Fprintf(stderr, "aurumcode review: %s: %s\n", warning.Provider, warning.Reason)
+	}
+
 	reviewLanguage, err := repoCfg.ReviewLanguage()
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
@@ -653,7 +717,15 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// provider file exists, so the wrapped variable is byte-identical to
 	// the unwrapped one on that path.
 	if providerErr == nil {
-		wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), provider, config.ConfiguredProviders(cwd, repoCfg), diffPaths(diff), filter)
+		// AUR-518: the policy's own context files (its prompt/skills/docs)
+		// come first, then the repository's, as today -- never the other
+		// order, so a repository's own prompt cannot appear to override
+		// guidance the policy put first (AC-004).
+		contextProviders := config.ConfiguredProviders(cwd, repoCfg)
+		if centralCfg != nil {
+			contextProviders = append(config.ConfiguredProviders(policyDir, centralCfg), contextProviders...)
+		}
+		wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), provider, contextProviders, diffPaths(diff), filter)
 		if wrapErr != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
 			return 1
@@ -983,6 +1055,12 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	}
 	if changelogLimitation != "" {
 		result.Limitations = append(result.Limitations, changelogLimitation)
+	}
+	// AUR-518: the policy warnings already printed to stderr above also join
+	// the published limitations, so a published PR review (when this review
+	// is later published) carries the same declaration as the terminal.
+	for _, warning := range policyWarnings {
+		result.Limitations = append(result.Limitations, warning.Provider+": "+warning.Reason)
 	}
 
 	// AUR-490 supersedes AUR-443's "summary field" decision (see

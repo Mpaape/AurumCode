@@ -28,6 +28,16 @@ on:
         required: false
         type: boolean
         default: false
+      policy_repository:
+        description: Optional owner/repo of a central policy (AUR-518). When set, this workflow checks it out itself (read-only, no credentials persisted) into .aurumcode-policy and uses it as the policy directory. There is no policy_path input here on purpose -- in a workflow_call job the only directories this job can reach are the tool checkout and the reviewed pull request's own head, so accepting an arbitrary "already checked out" path would let the PR under review name its own policy. Empty keeps today's behavior.
+        required: false
+        type: string
+        default: ''
+      policy_ref:
+        description: Branch, tag or SHA of policy_repository to check out. Empty checks out that repository's default branch. Ignored when policy_repository is empty.
+        required: false
+        type: string
+        default: ''
     secrets:
       LLM_API_KEY:
         description: API key for the configured OpenAI-compatible service.
@@ -101,6 +111,16 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Checkout central policy
+        if: ${{ inputs.policy_repository != '' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.policy_repository }}
+          ref: ${{ inputs.policy_ref }}
+          path: .aurumcode-policy
+          persist-credentials: false
+          fetch-depth: 1
+
       - name: Collect available CI context
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,6 +155,7 @@ jobs:
           INLINE_COMMENTS: ${{ inputs.inline_comments }}
           SECURITY: ${{ inputs.security }}
           CHANGELOG: ${{ inputs.changelog }}
+          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
         run: |
           set -euo pipefail
           # A deterministic pass is not a completed code review. The CLI
@@ -152,22 +173,39 @@ jobs:
           if [ "${CHANGELOG}" = true ]; then
             args+=(--changelog)
           fi
+          # AUR-518: policy_repository, checked out above into
+          # .aurumcode-policy, is the only source of a policy this workflow
+          # accepts -- there is no policy_path input here (see that input's
+          # own comment above). Unset keeps today's behavior unchanged -- no
+          # --politica, no extra mount.
+          policy_dir=""
+          if [ -n "${POLICY_REPOSITORY}" ]; then
+            policy_dir=".aurumcode-policy"
+          fi
+          if [ -n "${policy_dir}" ]; then
+            args+=(--politica /github/policy)
+          fi
           : > "${RUNNER_TEMP}/aurumcode-changelog-output"
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro" \
-            -w /github/workspace \
-            -e GITHUB_TOKEN \
-            -e GITHUB_SHA \
-            -e AURUMCODE_BASE_SHA \
-            -e AURUMCODE_PR_PERMISSION_MODE \
-            -e LLM_API_KEY \
-            -e LLM_BASE_URL \
-            -e LLM_MODEL \
-            -e AURUMCODE_CI_CONTEXT_FILE \
-            -e AURUMCODE_OUTPUT_FILE \
-            -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro" \
-            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output" \
-            aurumcode-review "${args[@]}"
+          docker_args=(run --rm
+            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
+            -w /github/workspace
+            -e GITHUB_TOKEN
+            -e GITHUB_SHA
+            -e AURUMCODE_BASE_SHA
+            -e AURUMCODE_PR_PERMISSION_MODE
+            -e LLM_API_KEY
+            -e LLM_BASE_URL
+            -e LLM_MODEL
+            -e AURUMCODE_CI_CONTEXT_FILE
+            -e AURUMCODE_OUTPUT_FILE
+            -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
+            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
+          )
+          if [ -n "${policy_dir}" ]; then
+            docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
+          fi
+          docker_args+=(aurumcode-review "${args[@]}")
+          docker "${docker_args[@]}"
           if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
             cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
