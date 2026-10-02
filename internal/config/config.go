@@ -332,7 +332,7 @@ func Parse(data []byte, source string) (*Config, error) {
 	if err := ValidateExceptions(cfg.Exceptions); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
-	if err := cfg.QualityGates.SSORDTrack.Validate(); err != nil {
+	if err := cfg.QualityGates.SsorDtrack.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil

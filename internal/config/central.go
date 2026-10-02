@@ -212,7 +212,7 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	// variable (CR-TRUST-001): every repo-declared ssor_dtrack section is
 	// dropped wholesale, with its own named warning, never merged field
 	// by field with the policy's.
-	if repo.QualityGates.SSORDTrack.Declared() {
+	if repo.QualityGates.SsorDtrack.Declared() {
 		warnings = append(warnings, ProviderWarning{
 			Provider: "politica central",
 			Reason:   "quality_gates.ssor_dtrack do config do repositório foi ignorado: a política central decide sozinha",

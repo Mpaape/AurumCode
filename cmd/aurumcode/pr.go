@@ -721,10 +721,10 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
 	// audit record and SARIF below already publish -- see
 	// applyDTrackGate/mergeDTrackGate (aur550.go). A complete no-op
-	// unless reviewConfig.QualityGates.SSORDTrack.enabled: true.
+	// unless reviewConfig.QualityGates.SsorDtrack.enabled: true.
 	{
 		dtrackMode, _ := reviewConfig.Gate.InconclusiveMode()
-		dtrackResult, dtrackReason, nextFilter := applyDTrackGate(ctx, reviewConfig.QualityGates.SSORDTrack, dtrackMode, filter)
+		dtrackResult, dtrackReason, nextFilter := applyDTrackGate(ctx, reviewConfig.QualityGates.SsorDtrack, dtrackMode, filter)
 		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, dtrackResult, dtrackReason)
 		if nextFilter != filter {
 			filter = nextFilter

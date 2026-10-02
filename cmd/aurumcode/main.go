@@ -1259,10 +1259,10 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
 	// audit record and SARIF below already publish -- see
 	// applyDTrackGate/mergeDTrackGate (aur550.go). A complete no-op
-	// unless repoCfg.QualityGates.SSORDTrack.enabled: true.
+	// unless repoCfg.QualityGates.SsorDtrack.enabled: true.
 	{
 		dtrackMode, _ := repoCfg.Gate.InconclusiveMode()
-		dtrackResult, dtrackReason, nextFilter := applyDTrackGate(context.Background(), repoCfg.QualityGates.SSORDTrack, dtrackMode, filter)
+		dtrackResult, dtrackReason, nextFilter := applyDTrackGate(context.Background(), repoCfg.QualityGates.SsorDtrack, dtrackMode, filter)
 		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, dtrackResult, dtrackReason)
 		if nextFilter != filter {
 			filter = nextFilter

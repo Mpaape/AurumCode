@@ -289,6 +289,13 @@ func (c *Client) bomProcessing(ctx context.Context, token string) (*bool, error)
 func (c *Client) PollUntilProcessed(ctx context.Context, token string, interval, timeout time.Duration) error {
 	deadline := c.now().Add(timeout)
 	for {
+		// MUT-001's own anchor (AC-003-MUT-001, tests/acceptance/AUR-550.sh):
+		// this is the ONLY place a timeout is ever declared. Mutating this
+		// one line to `return nil` would treat an unfinished scan as
+		// approved -- the exact defect AC-003 exists to catch.
+		if !c.now().Before(deadline) {
+			return fmt.Errorf("%w", ErrTimeout)
+		}
 		processing, err := c.bomProcessing(ctx, token)
 		if err != nil {
 			return err
@@ -296,13 +303,7 @@ func (c *Client) PollUntilProcessed(ctx context.Context, token string, interval,
 		if processing != nil && !*processing {
 			return nil
 		}
-		if !c.now().Before(deadline) {
-			return fmt.Errorf("%w", ErrTimeout)
-		}
 		c.sleep(interval)
-		if !c.now().Before(deadline) {
-			return fmt.Errorf("%w", ErrTimeout)
-		}
 	}
 }
 
@@ -313,8 +314,8 @@ func (c *Client) PollUntilProcessed(ctx context.Context, token string, interval,
 // that field at all, which EvaluateMetrics refuses to treat as zero.
 type ProjectMetrics struct {
 	Critical              *int `json:"critical"`
-	High                   *int `json:"high"`
-	PolicyViolationsTotal   *int `json:"policyViolationsTotal"`
+	High                  *int `json:"high"`
+	PolicyViolationsTotal *int `json:"policyViolationsTotal"`
 }
 
 // ProjectMetrics reads GET /api/v1/metrics/project/{project}/current for
@@ -396,23 +397,23 @@ func EvaluateMetrics(m ProjectMetrics, t Thresholds) (Evaluation, error) {
 // review body, the audit record and SARIF without redacting it a second
 // time.
 type Outcome struct {
-	Active              bool
-	Breach              bool
-	Inconclusive        bool
-	InconclusiveReason  string
-	Reasons             []string
-	Critical            int
-	High                int
+	Active                bool
+	Breach                bool
+	Inconclusive          bool
+	InconclusiveReason    string
+	Reasons               []string
+	Critical              int
+	High                  int
 	PolicyViolationsTotal int
 }
 
 // Reason tokens Run's Outcome.InconclusiveReason ever carries -- stable,
 // non-server-authored strings a gate/audit/SARIF can publish safely.
 const (
-	ReasonUnreachable        = "dtrack_unreachable"
-	ReasonHTTPError          = "dtrack_http_error"
-	ReasonTimeout            = "dtrack_timeout"
-	ReasonMetricsIncomplete  = "dtrack_metrics_incomplete"
+	ReasonUnreachable       = "dtrack_unreachable"
+	ReasonHTTPError         = "dtrack_http_error"
+	ReasonTimeout           = "dtrack_timeout"
+	ReasonMetricsIncomplete = "dtrack_metrics_incomplete"
 )
 
 // Run performs the full AUR-550 sequence against one already-built
