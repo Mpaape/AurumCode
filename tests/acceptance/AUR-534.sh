@@ -90,34 +90,52 @@ scan_for_121() {
   grep -nE '(^|[^0-9.])1\.21([^0-9]|$)' -- "$1" 2>/dev/null || true
 }
 
+# check_ac001 takes the root to check against (default: the real worktree).
+# AC-001-MUT-001 passes a scratch copy with ci.yml mutated back to 1.21, and
+# requires THIS function -- the actual AC-001 gate, not a private helper --
+# to report the regression.
 check_ac001() {
+  local root="${1:-$repo_root}"
   local hits=0 line
 
-  grep -Fxq 'go 1.27' "$repo_root/go.mod" || { printf 'go.mod does not declare go 1.27\n' >&2; hits=1; }
+  grep -Fxq 'go 1.27' "$root/go.mod" || { printf 'go.mod does not declare go 1.27\n' >&2; hits=1; }
 
-  grep -Fq 'golang:1.27.1-alpine3.24@sha256:' "$repo_root/Dockerfile" ||
+  grep -Fq 'golang:1.27.1-alpine3.24@sha256:' "$root/Dockerfile" ||
     { printf 'Dockerfile does not pin golang 1.27.1-alpine3.24 by digest\n' >&2; hits=1; }
 
-  grep -Fq 'golang:1.27.1-alpine3.24@sha256:' "$image_dockerfile" ||
+  grep -Fq 'golang:1.27.1-alpine3.24@sha256:' "$root/$image_dir/Dockerfile" ||
     { printf '%s does not pin golang 1.27.1-alpine3.24 by digest\n' "$image_dir/Dockerfile" >&2; hits=1; }
 
-  grep -Fq 'golang:1.27.1-alpine3.24@sha256:' "$repo_root/.github/workflows/ci.yml" ||
+  grep -Fq 'golang:1.27.1-alpine3.24@sha256:' "$root/.github/workflows/ci.yml" ||
     { printf 'ci.yml build-and-test job does not pin golang 1.27.1-alpine3.24\n' >&2; hits=1; }
-  grep -Fq 'golang:1.27.1-bookworm@sha256:' "$repo_root/.github/workflows/ci.yml" ||
+  grep -Fq 'golang:1.27.1-bookworm@sha256:' "$root/.github/workflows/ci.yml" ||
     { printf 'ci.yml race job does not pin golang 1.27.1-bookworm\n' >&2; hits=1; }
 
-  local scan_targets=(
-    go.mod Dockerfile .github/workflows/ci.yml
-    .board/bin/go-shared .board/bin/go-sealed .board/bin/go-live
-    "$image_dir/Dockerfile"
-  )
+  # Every workflow file, not just ci.yml -- a stray 1.21 pin in any other
+  # workflow (examples/ included) must fail this just as loudly.
+  local scan_targets=(go.mod Dockerfile "$image_dir/Dockerfile"
+                       .board/bin/go-shared .board/bin/go-sealed .board/bin/go-live)
+  local wf
+  while IFS= read -r -d '' wf; do
+    scan_targets+=("${wf#"$root"/}")
+  done < <(find "$root/.github/workflows" -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 2>/dev/null)
+
   local target
   for target in "${scan_targets[@]}"; do
+    [[ -f "$root/$target" ]] || continue
     while IFS= read -r line; do
       [[ -z "$line" ]] && continue
       printf 'stray 1.21 reference: %s: %s\n' "$target" "$line" >&2
       hits=1
-    done < <(scan_for_121 "$repo_root/$target")
+    done < <(scan_for_121 "$root/$target")
+    # A setup-go/go-version action pinned to anything other than 1.27 would
+    # not match the "1.21" literal scan above; catch that shape too.
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      [[ "$line" == *'1.27'* ]] && continue
+      printf 'go-version action pin is not 1.27: %s: %s\n' "$target" "$line" >&2
+      hits=1
+    done < <(grep -nE 'go-version:' "$root/$target" 2>/dev/null || true)
   done
 
   (( hits == 0 ))
@@ -126,44 +144,37 @@ check_ac001() {
 check_ac002() {
   command -v go >/dev/null 2>&1 || infra missing_go
 
-  # go build compiles only non-test files, over whatever this card's own
-  # paths/read_paths materialized here. That is a real, whole-tree compile
-  # assertion under the new toolchain -- nothing in cmd/internal/pkg fails
-  # to build under Go 1.27.
-  ( cd "$repo_root" && go build ./... ) || { printf 'go build ./... failed\n' >&2; return 1; }
-
-  # go test additionally compiles _test.go files and executes them. Four
-  # packages under internal/ have tests that read fixtures or schemas owned
-  # by OTHER cards (tests/fixtures/repos/git-demo, .board/schemas,
-  # tests/integration) -- paths this card's own `paths`/`read_paths` does
-  # not list and oci-run therefore never materializes into this sandbox,
-  # regardless of Go version. Excluding exactly those four from the
-  # in-sandbox run is not a toolchain exemption; it is the same split
-  # AUR-508's own acceptance program documents ("the real Go assertion ...
-  # run separately"). The full, unexcluded suite -- all 35 packages,
-  # fixtures included -- was separately proven green under this same
-  # toolchain via `go-sealed` over the complete, unsandboxed worktree; see
-  # docs/specs/AUR-534.md.
-  local -a excluded=(
-    github.com/Mpaape/AurumCode/internal/analyzer
-    github.com/Mpaape/AurumCode/internal/evidence
-    github.com/Mpaape/AurumCode/internal/governance/taskspec
-    github.com/Mpaape/AurumCode/internal/review
+  # AC-002 promises "a suite inteira (go test ./...)". That suite reaches
+  # beyond this card's own `paths`/`read_paths`: internal/analyzer and
+  # internal/review read tests/fixtures/repos/git-demo/repo.git,
+  # internal/governance/taskspec reads .board/schemas/task-spec.schema.json,
+  # and internal/evidence imports tests/integration. None of those three
+  # paths is owned or read by this card, so oci-run never materializes them
+  # into this sandbox -- a card-contract gap this card cannot close by
+  # itself (widening `read_paths` is a `.board/cards` edit, forbidden to
+  # this card's own `forbidden_paths`). Silently testing a narrower package
+  # set would report green for a different, smaller promise than AC-002
+  # actually makes. Per tests/acceptance/EXIT_CODE_CONVENTION.md, a
+  # dependency this card does not own being absent from the sandbox is an
+  # environment gap, not a verdict: infra (79), exactly like AUR-542.sh's
+  # own required_inputs/infra check.
+  local -a external_inputs=(
+    tests/fixtures/repos/git-demo/repo.git
+    tests/integration
+    .board/schemas/task-spec.schema.json
   )
-  local -a all_pkgs testable=()
-  mapfile -t all_pkgs < <(cd "$repo_root" && go list ./... 2>/dev/null)
-  (( ${#all_pkgs[@]} > 0 )) || infra go_list_empty
-  local pkg excl skip
-  for pkg in "${all_pkgs[@]}"; do
-    skip=0
-    for excl in "${excluded[@]}"; do
-      [[ "$pkg" == "$excl" ]] && { skip=1; break; }
-    done
-    (( skip == 0 )) && testable+=("$pkg")
+  local input
+  for input in "${external_inputs[@]}"; do
+    [[ -e "$repo_root/$input" ]] ||
+      infra "ac002-requires-unmaterialized-input:$input (amend this card's read_paths)"
   done
-  (( ${#testable[@]} > 0 )) || infra no_testable_packages
-  ( cd "$repo_root" && go test -count=1 "${testable[@]}" ) ||
-    { printf 'go test failed over the materialized, fixture-independent package set\n' >&2; return 1; }
+
+  # Only reachable once every external input above is actually present --
+  # i.e. once this card's read_paths has been amended to carry them, or
+  # this runs outside the per-card sandbox (go-sealed over the whole
+  # worktree). At that point AC-002's real promise is tested as written.
+  ( cd "$repo_root" && go build ./... ) || { printf 'go build ./... failed\n' >&2; return 1; }
+  ( cd "$repo_root" && go test -count=1 ./... ) || { printf 'go test ./... failed\n' >&2; return 1; }
   return 0
 }
 
@@ -204,19 +215,40 @@ check_ac004() {
     { printf 'running image go.sum differs from the repository go.sum\n' >&2; return 1; }
 
   command -v go >/dev/null 2>&1 || infra missing_go
-  go version | grep -Fq 'go1.27' || { printf 'running go toolchain is not go1.27.x: %s\n' "$(go version)" >&2; return 1; }
+  local want_version actual_version
+  want_version="$(awk '$1 == "go" { print $2; exit }' "$repo_root/go.mod")"
+  [[ -n "$want_version" ]] || infra unreadable_go_directive
+  actual_version="$(go version)"
+  grep -Fq "go$want_version" <<< "$actual_version" ||
+    { printf 'running go toolchain (%s) does not match go.mod directive (go %s)\n' "$actual_version" "$want_version" >&2; return 1; }
   return 0
 }
 
 check_ac001_mut001() {
-  local mutant="$run_dir/ci.yml.mutant"
-  cp -- "$repo_root/.github/workflows/ci.yml" "$mutant"
+  # Copy every input check_ac001 reads into a scratch root, then mutate the
+  # copy's ci.yml back to 1.21. This exercises check_ac001 itself end to
+  # end, not just its internal scan_for_121 helper -- if ci.yml were ever
+  # dropped from what AC-001 inspects, this would stop tripping even though
+  # scan_for_121 in isolation still "works".
+  local mutant_root="$run_dir/mutant"
+  mkdir -p "$mutant_root/.github/workflows" "$mutant_root/$image_dir" "$mutant_root/.board/bin"
+  cp -- "$repo_root/go.mod" "$mutant_root/go.mod"
+  cp -- "$repo_root/Dockerfile" "$mutant_root/Dockerfile"
+  cp -- "$repo_root/.github/workflows/ci.yml" "$mutant_root/.github/workflows/ci.yml"
+  cp -- "$image_dockerfile" "$mutant_root/$image_dir/Dockerfile"
+  cp -- "$repo_root/.board/bin/go-shared" "$mutant_root/.board/bin/go-shared"
+  cp -- "$repo_root/.board/bin/go-sealed" "$mutant_root/.board/bin/go-sealed"
+  cp -- "$repo_root/.board/bin/go-live" "$mutant_root/.board/bin/go-live"
+
   # Reintroduce the retired version into the race job's base image, exactly
   # the shape AC-001 scans for.
-  sed -i 's/golang:1\.27\.1-bookworm@sha256:[0-9a-f]*/golang:1.21-bookworm/' "$mutant"
-  local hits
-  hits="$(scan_for_121 "$mutant")"
-  [[ -n "$hits" ]] || { printf 'mutation did not trip the 1.21 scanner; detector is vacuous\n' >&2; return 1; }
+  sed -i 's/golang:1\.27\.1-bookworm@sha256:[0-9a-f]*/golang:1.21-bookworm/' \
+    "$mutant_root/.github/workflows/ci.yml"
+
+  if check_ac001 "$mutant_root" 2>/dev/null; then
+    printf 'mutation did not trip check_ac001; detector is vacuous\n' >&2
+    return 1
+  fi
   return 0
 }
 
