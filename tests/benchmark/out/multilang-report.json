@@ -1,0 +1,226 @@
+{
+  "schema": "aurum.benchmark-multilang-report/1",
+  "mode": "fake-provider-deterministic",
+  "note": "Model stand-in is a deterministic fake provider (fixture derived from each case label); verdict and findings are read from the real binary's SARIF and audit output. A run with a real model is the owner's decision and spend, not part of this report.",
+  "corpus_sha256": "77be1b7ca9587a166144434c038da792069a1c12615ac09b9b8e3d632ef4ba86",
+  "policy_sha256": "9dd14ade6ae351d398a7a6570c9c8dd167a15228be087e0264f24ff00bf81dbf",
+  "languages": [
+    {
+      "language": "csharp",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 2,
+      "missed": 0,
+      "findings": 2,
+      "false_positives": 0,
+      "recall": 1,
+      "recall_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "precision": 1,
+      "precision_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "approved_with_defect": 0,
+      "approved_with_defect_cases": []
+    },
+    {
+      "language": "go",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 2,
+      "missed": 0,
+      "findings": 2,
+      "false_positives": 0,
+      "recall": 1,
+      "recall_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "precision": 1,
+      "precision_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "approved_with_defect": 0,
+      "approved_with_defect_cases": []
+    },
+    {
+      "language": "java",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 2,
+      "missed": 0,
+      "findings": 2,
+      "false_positives": 0,
+      "recall": 1,
+      "recall_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "precision": 1,
+      "precision_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "approved_with_defect": 1,
+      "approved_with_defect_cases": [
+        "java-sqli"
+      ]
+    },
+    {
+      "language": "javascript",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 2,
+      "missed": 0,
+      "findings": 2,
+      "false_positives": 0,
+      "recall": 1,
+      "recall_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "precision": 1,
+      "precision_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "approved_with_defect": 0,
+      "approved_with_defect_cases": []
+    },
+    {
+      "language": "php",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 1,
+      "missed": 1,
+      "findings": 1,
+      "false_positives": 0,
+      "recall": 0.5,
+      "recall_interval_95": {
+        "low": 0.0945,
+        "high": 0.9055
+      },
+      "precision": 1,
+      "precision_interval_95": {
+        "low": 0.2065,
+        "high": 1
+      },
+      "approved_with_defect": 1,
+      "approved_with_defect_cases": [
+        "php-path"
+      ]
+    },
+    {
+      "language": "python",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 2,
+      "missed": 0,
+      "findings": 2,
+      "false_positives": 0,
+      "recall": 1,
+      "recall_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "precision": 1,
+      "precision_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "approved_with_defect": 1,
+      "approved_with_defect_cases": [
+        "python-cmd"
+      ]
+    },
+    {
+      "language": "ruby",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 2,
+      "missed": 0,
+      "findings": 3,
+      "false_positives": 1,
+      "recall": 1,
+      "recall_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "precision": 0.6667,
+      "precision_interval_95": {
+        "low": 0.2077,
+        "high": 0.9385
+      },
+      "approved_with_defect": 0,
+      "approved_with_defect_cases": []
+    },
+    {
+      "language": "rust",
+      "cases": 3,
+      "defect_cases": 2,
+      "clean_cases": 1,
+      "defects": 2,
+      "detected": 2,
+      "missed": 0,
+      "findings": 3,
+      "false_positives": 1,
+      "recall": 1,
+      "recall_interval_95": {
+        "low": 0.3424,
+        "high": 1
+      },
+      "precision": 0.6667,
+      "precision_interval_95": {
+        "low": 0.2077,
+        "high": 0.9385
+      },
+      "approved_with_defect": 0,
+      "approved_with_defect_cases": []
+    }
+  ],
+  "total": {
+    "language": "total",
+    "cases": 24,
+    "defect_cases": 16,
+    "clean_cases": 8,
+    "defects": 16,
+    "detected": 15,
+    "missed": 1,
+    "findings": 17,
+    "false_positives": 2,
+    "recall": 0.9375,
+    "recall_interval_95": {
+      "low": 0.7167,
+      "high": 0.9889
+    },
+    "precision": 0.8824,
+    "precision_interval_95": {
+      "low": 0.6566,
+      "high": 0.9671
+    },
+    "approved_with_defect": 3,
+    "approved_with_defect_cases": [
+      "java-sqli",
+      "php-path",
+      "python-cmd"
+    ]
+  }
+}

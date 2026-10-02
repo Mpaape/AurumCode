@@ -1,0 +1,9 @@
+{
+  "id": "ruby-cmd",
+  "language": "ruby",
+  "file": "run.rb",
+  "label": "defect",
+  "rule": "command-injection",
+  "line": 2,
+  "simulated_model": "hit"
+}
