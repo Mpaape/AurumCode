@@ -38,6 +38,12 @@ type Reviewer struct {
 	parser        *prompt.ResponseParser
 	filter        *redaction.Filter
 	cfg           Config
+	// extraRules is AUR-519's per-run dynamic rule set (skill sections from
+	// the central policy and, when the repository opts in, its own
+	// skills), installed by SetDynamicRules. nil is the zero-config
+	// default: no dynamic rule exists and enforceRuleCitations behaves
+	// exactly as before this card.
+	extraRules map[string]Rule
 }
 
 // Config holds reviewer configuration.
@@ -98,6 +104,26 @@ func NewReviewer(orchestrator *llm.Orchestrator, cfg Config) *Reviewer {
 		filter: redaction.FromEnv(),
 		cfg:    cfg,
 	}
+}
+
+// SetDynamicRules installs AUR-519's per-run dynamic rule set, keyed by rule
+// id exactly as enforceRuleCitations resolves it (resolveRule,
+// skillrules.go). cmd/aurumcode builds this map by parsing the central
+// policy's and, when the repository opts in, the repository's own skill
+// files (ParseSkillSections) before calling GenerateReview. nil/empty keeps
+// today's behavior: only the embedded catalog's ids are accepted.
+func (r *Reviewer) SetDynamicRules(rules map[string]Rule) {
+	r.extraRules = rules
+}
+
+// SetRuleCatalog passes an expanded rule_id list down to the prompt
+// builder, so the model is taught exactly the ids SetDynamicRules will
+// accept -- the embedded catalog's ids plus AUR-519's dynamic skill-section
+// ids. It validates eagerly (the same token-budget and non-empty/sorted
+// checks prompt.ValidateRuleCatalog already applies) and never truncates: a
+// catalog that no longer fits the prompt budget is a loud error here.
+func (r *Reviewer) SetRuleCatalog(ids []string) error {
+	return r.promptBuilder.SetRuleCatalog(ids)
 }
 
 // GenerateReview generates a code review for diff.
@@ -214,7 +240,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	if err != nil {
 		return nil, fmt.Errorf("review rules unavailable: %w", err)
 	}
-	rejected, discarded := enforceRuleCitations(rules, result)
+	rejected, discarded := enforceRuleCitations(rules, r.extraRules, result)
 
 	// AUR-517: the model wrote result.Summary with knowledge of every finding
 	// it proposed, including whichever ones did not survive the gates above
@@ -228,17 +254,19 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// discard leaves it untouched (AC-002's eligible change summary).
 	//
 	// Exception: internal/prompt's degradedOrError recovers findings from a
-	// non-JSON reply with ITS OWN fixed notice (degradedParseSummary below)
+	// non-JSON reply with its own fixed notice (prompt.DegradedParseSummary)
 	// as result.Summary, and those recovered issues never carry evidence, so
 	// filterModelIssues always discards every one of them. Without this
 	// exception the withholding above would delete the only sentence telling
 	// a reader the model's reply was unusable, publishing a clean "Approve"
-	// instead. The exception is deliberately an exact string match against
-	// the parser's literal, never Metadata (Metadata comes from the parsed
-	// JSON body itself and a model can set any key it likes there, including
-	// a forged "parse_mode": "degraded").
+	// instead. AUR-519 exported the single, forge-safe detector for exactly
+	// this check -- prompt.IsDegradedParse -- so this package carries no
+	// second, duplicated copy of the parser's literal any more: a model
+	// cannot fake this exception, because ParseReviewResponse itself scrubs
+	// any "parse_mode" key a model's own JSON supplied before this ever
+	// runs (see internal/prompt/parser.go).
 	discardedByPipeline := workflowSuppressed + scopeDiscarded.total() + rejected
-	if result.Summary != degradedParseSummary {
+	if !prompt.IsDegradedParse(result) {
 		result.Summary = withholdSummaryWhenFiltered(result.Summary, discardedByPipeline)
 	}
 
@@ -262,6 +290,23 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", metrics.LinesDeleted)
 	result.Metadata["segments_used"] = promptParts.Meta["segments_used"]
 	result.Metadata["estimated_tokens"] = promptParts.Meta["estimated_tokens"]
+	// AUR-519 (B-C): the prompt builder's own per-file coverage counts
+	// (how many code files the token budget let it send in full, in
+	// part, or not at all -- internal/prompt/builder.go) used to stop at
+	// PromptParts.Meta and never reach result.Metadata at all, so
+	// cmd/aurumcode's AUR-476 coverage pass (mergeReviewCoverage) and
+	// AUR-519's own gate could never see a budget-truncated file: it
+	// always read as "complete", a review cached that silent gap as
+	// clean, and a gate configured to block on partial coverage never
+	// fired for the one case -- token-budget omission -- it names by name
+	// in its own docs. These four keys are engine-derived, never
+	// model-controlled (ParseReviewResponse already scrubbed any
+	// same-named key a model's own JSON tried to smuggle in, see
+	// parser.go), so copying them here unconditionally overwrites rather
+	// than merges.
+	for _, key := range []string{"code_files_total", "code_files_complete", "code_files_partial", "code_files_omitted"} {
+		result.Metadata[key] = promptParts.Meta[key]
+	}
 
 	return result, nil
 }
@@ -423,12 +468,12 @@ type discardSummary struct {
 // enrichment (empty Message/Severity filled from the rule, file path
 // cleaned) and gains the citation itself, appended to the message the
 // user sees as " (rule <id>: <title>)".
-func enforceRuleCitations(rules *RulesLoader, result *types.ReviewResult) (int, discardSummary) {
+func enforceRuleCitations(rules *RulesLoader, extra map[string]Rule, result *types.ReviewResult) (int, discardSummary) {
 	kept := make([]types.ReviewIssue, 0, len(result.Issues))
 	var discarded discardSummary
 	seenUnknown := make(map[string]bool)
 	for _, issue := range result.Issues {
-		rule, ok := rules.Get(issue.RuleID)
+		rule, ok := resolveRule(rules, extra, issue.RuleID)
 		if !ok {
 			if issue.RuleID == "" {
 				discarded.Missing++
@@ -479,14 +524,6 @@ func formatDiscardWarning(discarded discardSummary) string {
 	}
 	return fmt.Sprintf("%d finding(s) discarded: %s", total, strings.Join(reasons, ", "))
 }
-
-// degradedParseSummary is the LITERAL copy of internal/prompt's
-// degradedOrError fixed notice ("the model's response was not valid JSON").
-// internal/prompt is read-only for this card, so the string is duplicated
-// here rather than exported from there; reviewer_test.go pins this constant
-// equal to what ResponseParser actually produces for a free-form reply, so
-// the two cannot drift silently.
-const degradedParseSummary = "Degraded parse: recovered findings from free-form text; the model's response was not valid JSON."
 
 // withholdSummaryWhenFiltered returns summary unchanged when discardedCount
 // is zero, and "" otherwise. It is the single anchor GenerateReviewWithContext

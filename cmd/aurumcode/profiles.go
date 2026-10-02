@@ -25,11 +25,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
+	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -100,12 +102,24 @@ func (p profileProvider) Name() string {
 // once, attributed to the earliest profile in declaration order. The shared
 // tracker (when configured) meters the combined spend, so adding a profile can
 // never raise the cost ceiling.
-func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.Tracker, profiles []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext) (*types.ReviewResult, error) {
+// dynamicRules and ruleCatalogIDs are AUR-519's per-run skill-section rule
+// set and expanded prompt catalog (cmd/aurumcode/policygate.go). Each
+// profile gets its OWN Reviewer (a fresh model pass per profile), so each
+// one must be taught the catalog and accept the same dynamic rules
+// independently -- selecting --perfis must never quietly narrow the gate
+// back to the embedded catalog alone. Without this, a policy skill-section
+// finding is discarded as an unknown rule_id before the gate ever sees it,
+// which is "approved with a defect present" -- never a safe default.
+func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.Tracker, profiles []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext, dynamicRules map[string]review.Rule, ruleCatalogIDs []string) (*types.ReviewResult, error) {
 	merged := &types.ReviewResult{}
 	var findings []reviewprofile.Finding
 	for _, p := range profiles {
 		orchestrator := llm.NewOrchestrator(profileProvider{base: provider, profile: p}, nil, tracker)
 		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+		reviewer.SetDynamicRules(dynamicRules)
+		if err := reviewer.SetRuleCatalog(ruleCatalogIDs); err != nil {
+			return nil, err
+		}
 		res, err := reviewer.GenerateReviewWithContext(ctx, diff, reviewContext)
 		if err != nil {
 			return nil, err
@@ -129,9 +143,81 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 		if merged.Summary == "" {
 			merged.Summary = res.Summary
 		}
+		// B2: res.Metadata was never carried into merged at all, so
+		// prompt.IsDegradedParse(merged) -- and therefore AUR-519's own
+		// gate's "degraded_parse" inconclusive detection -- was always
+		// false under --perfis, no matter how badly any one profile's
+		// pass actually degraded. If ANY profile's pass degraded, the
+		// whole merged result is untrustworthy the same way a
+		// single-reviewer degraded result is: mark it using the engine's
+		// own forge-safe key (prompt.IsDegradedParse already scrubs
+		// anything a model could have supplied under this key before this
+		// ever runs), never copying a model-authored map wholesale.
+		if merged.Metadata == nil {
+			merged.Metadata = map[string]string{}
+		}
+		if prompt.IsDegradedParse(res) {
+			merged.Metadata[prompt.ParseModeKey] = prompt.ParseModeDegraded
+		}
+		// AUR-476's own coverage counts describe the same diff for every
+		// profile, but NOT the same token budget: each profile's own
+		// prefix (profileProvider.prefix, emphasis/instructions text)
+		// consumes a different slice of the shared MaxTokens ceiling
+		// before the diff itself is packed, so one profile's prompt can
+		// truncate more of the diff than another's. code_files_total/
+		// complete take the first profile's values (the file set and its
+		// "fully sent" count do not depend on which profile asked); for
+		// code_files_partial/omitted -- how much of the diff a profile's
+		// OWN budget pressure left out -- the worst case (max) across
+		// profiles is kept, never the first one's alone, so a gate relying
+		// on this count can never under-report how much went unseen
+		// merely because the first profile in the list happened to fit.
+		merged.Metadata = mergeWorstCaseCoverage(merged.Metadata, res.Metadata)
 	}
 	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings))
 	return merged, nil
+}
+
+// mergeWorstCaseCoverage folds one profile pass's AUR-476 coverage counts
+// (src, its result.Metadata) into the running merge (dst, possibly nil),
+// returning the updated map. code_files_total/code_files_complete take the
+// first profile's own values (the file set and its "fully sent" count do
+// not depend on which profile asked). code_files_partial/code_files_omitted
+// -- how much of the diff THIS profile's own token-budget pressure left
+// out, which DOES vary by profile because each one's own prefix
+// (profileProvider.prefix) consumes a different slice of the shared
+// ceiling before the diff is packed -- keep the worst case (the larger
+// count) across every profile folded in so far, never just the first
+// one's: a gate relying on this count must never under-report how much
+// went unseen merely because an earlier profile in the list happened to
+// fit the whole diff.
+func mergeWorstCaseCoverage(dst, src map[string]string) map[string]string {
+	if dst == nil {
+		dst = map[string]string{}
+	}
+	for _, key := range []string{"code_files_total", "code_files_complete"} {
+		if _, already := dst[key]; already {
+			continue
+		}
+		if v, ok := src[key]; ok {
+			dst[key] = v
+		}
+	}
+	for _, key := range []string{"code_files_partial", "code_files_omitted"} {
+		v, ok := src[key]
+		if !ok {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			continue
+		}
+		existing, _ := strconv.Atoi(dst[key])
+		if n > existing {
+			dst[key] = strconv.Itoa(n)
+		}
+	}
+	return dst
 }
 
 // attributedIssues converts merged, profile-attributed findings back into the

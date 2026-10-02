@@ -712,6 +712,30 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// only ever runs when a provider was actually selected -- there is
 	// nothing to wrap otherwise, and the --seguranca-only skip path below
 	// calls no model at all, so it is untouched by this wrap either way.
+	// AUR-519: the dynamic, skill-section rule set this run accepts
+	// citations against, read from the exact same skill paths
+	// (review.context.skills) the context block above already reads --
+	// policy skills (origin "policy") first when a central policy is
+	// active, then the repository's own (origin "repo"), mirroring the
+	// context-provider ordering convention one block below. Computed once,
+	// before the model is ever taught a catalog, so the catalog handed to
+	// it (ruleCatalogIDs, via reviewer.SetRuleCatalog below) and the set
+	// the gate accepts after the model answers (reviewer.SetDynamicRules)
+	// can never disagree. Zero skills configured -- the product's default
+	// -- leaves both exactly as they were before this card: dynamicRules
+	// empty, ruleCatalogIDs identical to prompt.DefaultRuleCatalog.
+	var dynamicRules map[string]review.Rule
+	var ruleCatalogIDs []string
+	if providerErr == nil {
+		policySkillRules := map[string]review.Rule{}
+		if centralCfg != nil {
+			policySkillRules = dynamicRulesFromLocalSkills(policyDir, centralCfg.Review.Context.Skills, gateOriginPolicy)
+		}
+		repoSkillRules := dynamicRulesFromLocalSkills(cwd, repoCfg.Review.Context.Skills, gateOriginRepo)
+		dynamicRules = mergeDynamicRules(policySkillRules, repoSkillRules)
+		ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, dynamicRules)
+	}
+
 	// Zero-config: config.WrapProvider returns provider completely
 	// unchanged (the same value, not a no-op decorator) whenever no
 	// provider file exists, so the wrapped variable is byte-identical to
@@ -862,6 +886,15 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 
 		orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+		// AUR-519: teach the model the expanded catalog and accept its
+		// citations against the same dynamic set computed above. Zero
+		// skills configured: ruleCatalogIDs equals prompt.DefaultRuleCatalog
+		// and dynamicRules is empty, so both calls are no-ops.
+		reviewer.SetDynamicRules(dynamicRules)
+		if err := reviewer.SetRuleCatalog(ruleCatalogIDs); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
 
 		// AUR-441: do not resend a file whose content, under this exact model
 		// and prompt version, a previous run already reviewed. GenerateReview
@@ -906,7 +939,11 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			// never per profile. Zero-config/single-profile keeps the exact
 			// single call below.
 			if profilesApplied {
-				result, err = runProfilePasses(context.Background(), provider, tracker, profileRes.Profiles, toSend, reviewCtx)
+				// AUR-519: every profile's own Reviewer must accept the exact
+				// same dynamic rules and expanded catalog the single-reviewer
+				// path below installs, so the gate cannot be narrowed back to
+				// the embedded catalog alone merely by selecting --perfis.
+				result, err = runProfilePasses(context.Background(), provider, tracker, profileRes.Profiles, toSend, reviewCtx, dynamicRules, ruleCatalogIDs)
 			} else {
 				result, err = reviewer.GenerateReviewWithContext(context.Background(), toSend, reviewCtx)
 			}
@@ -931,7 +968,17 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			} else if err != nil {
 				return reportQualityFailure(stderr, err, *modelo, limiteUSD)
 			}
-			if cacheErr == nil && !qualityFailed {
+			// B3: a degraded parse (prompt.IsDegradedParse) produces
+			// recovered-but-evidence-less issues that filterModelIssues
+			// later discards down to zero -- caching that as "this file's
+			// reviewed content has zero issues" would make run 2 read the
+			// cache and exit clean for a file the model never actually
+			// reviewed successfully. AUR-476 partial coverage (a file this
+			// run only partially saw, config-hidden or filtered) is the
+			// same risk: a cache hit for that file would silently claim a
+			// complete review next time. Neither is persisted.
+			cachePartial := mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths).partial()
+			if cacheErr == nil && !qualityFailed && !prompt.IsDegradedParse(result) && !cachePartial {
 				persistFreshResults(revCache, cacheStatuses, result.Issues, filter)
 			}
 		} else {
@@ -1049,7 +1096,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// model's summary -- so the notice is present even when the model
 	// claims complete coverage (AC-003). It is printed on stdout below,
 	// next to the report, so the user never has to open the PR to see it.
-	coverageText := coverageNotice(reviewCopyFor(reviewLanguage), mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths))
+	coverageBreakdown := mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths)
+	coverageText := coverageNotice(reviewCopyFor(reviewLanguage), coverageBreakdown)
 	if coverageText != "" {
 		result.Limitations = append(result.Limitations, coverageText)
 	}
@@ -1061,6 +1109,63 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// is later published) carries the same declaration as the terminal.
 	for _, warning := range policyWarnings {
 		result.Limitations = append(result.Limitations, warning.Provider+": "+warning.Reason)
+	}
+
+	// AUR-519: the gate, evaluated once every other pass/limitation above
+	// has run so its decision lines can still join result.Limitations
+	// before renderLocalReport (--base) / the PR body (--pr) render it.
+	// gateInconclusiveReason's priority mirrors AUR-458's own "did not
+	// review outranks reviewed and found things": a provider failure or an
+	// opted-out quality skip outrank a model reply this run could not
+	// parse (prompt.IsDegradedParse, AC-008), which outranks AUR-476's own
+	// partial coverage (AC-004). Every branch here is a no-op unless a
+	// gate was actually declared (evaluateGate's own Declared() guard), so
+	// a review with no `gate:` key anywhere stays byte-identical.
+	gateInconclusiveReason := ""
+	switch {
+	case qualityFailed:
+		gateInconclusiveReason = "provider_failure"
+	case qualitySkipped:
+		gateInconclusiveReason = "quality_skipped"
+	case prompt.IsDegradedParse(result):
+		gateInconclusiveReason = "degraded_parse"
+	case coverageBreakdown.partial():
+		gateInconclusiveReason = "partial_coverage"
+	}
+	gateOrigin := gateOriginRepo
+	if centralCfg != nil {
+		gateOrigin = gateOriginPolicy
+	}
+	gateIssues := make([]types.ReviewIssue, 0, len(result.Issues)+len(securityFindings))
+	gateIssues = append(gateIssues, result.Issues...)
+	gateIssues = append(gateIssues, securityFindings...)
+	gateResult, gateErr := evaluateGate(repoCfg.Gate, gateOrigin, dynamicRules, gateIssues, gateInconclusiveReason)
+	if gateErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
+		return 2
+	}
+	if gateResult.Active {
+		for _, line := range gateResult.Lines {
+			fmt.Fprintf(stderr, "aurumcode review: policy gate: %s\n", line)
+			result.Limitations = append(result.Limitations, "policy gate: "+line)
+		}
+		if gateResult.Fail || gateResult.Inconclusive {
+			// B-V: PolicyGateWithheldKey is the engine-owned signal
+			// pr.go's reviewVerdictForLanguage/formalReviewEvent/
+			// canonicalVerdict check -- never result.Verdict, which the
+			// model controls. render.Summary (--base's own renderer,
+			// outside this card's write paths) still reads result.Verdict
+			// directly, so it is still forced here too, for any model
+			// reply of "" or "approve" -- never conditioned on what the
+			// model's own Verdict happened to say in the first place.
+			if result.Metadata == nil {
+				result.Metadata = make(map[string]string)
+			}
+			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
+			if result.Verdict == "" || result.Verdict == "approve" {
+				result.Verdict = "comment"
+			}
+		}
 	}
 
 	// AUR-490 supersedes AUR-443's "summary field" decision (see
@@ -1151,6 +1256,25 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// the user loses no information by the exit code being 1 instead of 3.
 	// No new exit code is minted for this: see docs/specs/AUR-458.md.
 	if qualityFailed {
+		return exitQualityNotReviewed
+	}
+
+	// AUR-519: the policy gate closes exactly like --fail-on above, reusing
+	// the same two exit codes rather than minting a third: a gate that
+	// failed on an actual severity breach (gateResult.Breach) returns
+	// exitFindings, the same code --fail-on already uses, REGARDLESS of
+	// whether the review was also inconclusive (B1: an inconclusive run
+	// that still contains a real breach must still fail, never pass
+	// silently because inconclusive:warn is configured). Fail without a
+	// Breach can only come from gate.inconclusive: block, which returns
+	// exitQualityNotReviewed -- the same "do not merge, half a review"
+	// signal qualityFailed already returns above. A no-op
+	// (gateResult.Active == false, no `gate:` declared anywhere) never
+	// reaches either return.
+	if gateResult.Breach {
+		return exitFindings
+	}
+	if gateResult.Fail {
 		return exitQualityNotReviewed
 	}
 
