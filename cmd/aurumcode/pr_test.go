@@ -557,10 +557,10 @@ func TestRequiredPRQualityFailurePublishesFailingStatus(t *testing.T) {
 	defer server.Close()
 	client := githubclient.NewClientWithBaseURL("test-token", server.URL)
 	var out, errOut strings.Builder
-	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, false); code != 0 {
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, false, false); code != 0 {
 		t.Fatalf("complete review exit=%d: %s", code, errOut.String())
 	}
-	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, true); code != exitQualityNotReviewed {
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, true, false); code != exitQualityNotReviewed {
 		t.Fatalf("inconclusive review exit=%d: %s", code, errOut.String())
 	}
 	if len(published) != 2 || published[0].State != "success" || published[1].State != "failure" || published[1].Context != checkContext || !strings.Contains(published[1].Description, "inconclusiva") {
