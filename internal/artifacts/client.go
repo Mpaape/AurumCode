@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -41,6 +42,9 @@ type Options struct {
 	// Files restricts the download to these manifest paths (nil = all).
 	// The manifest and its set digest are always verified in full.
 	Files []string
+	// Kinds restricts the download to manifest files of these kinds (nil =
+	// all). Combined with Files, a file must match both when both are set.
+	Kinds []string
 }
 
 // Outcome is Resolve's verdict. Usable is true only when a verified artifact
@@ -166,10 +170,10 @@ func Resolve(ctx context.Context, o Options) Outcome {
 		}
 		return VerifyFile(dir, f)
 	}
-	return judge(out, dir, m, rel.TagName, o.MaxAgeDays, now(), selected(m, o.Files, fetch))
+	return judge(out, dir, m, rel.TagName, o.MaxAgeDays, now(), selected(m, o.Files, o.Kinds, fetch))
 }
 
-func selected(m *Manifest, only []string, fetch func(File) error) func() error {
+func selected(m *Manifest, only, kinds []string, fetch func(File) error) func() error {
 	return func() error {
 		want := map[string]bool{}
 		for _, p := range only {
@@ -177,6 +181,9 @@ func selected(m *Manifest, only []string, fetch func(File) error) func() error {
 		}
 		for _, f := range m.Files {
 			if len(want) > 0 && !want[f.Path] {
+				continue
+			}
+			if len(kinds) > 0 && !slices.Contains(kinds, f.Kind) {
 				continue
 			}
 			if err := fetch(f); err != nil {

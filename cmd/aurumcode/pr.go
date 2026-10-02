@@ -828,6 +828,16 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
 		return 2
 	}
+	// AUR-533: the analysis-data artifact's age/digest gate, folded into the
+	// same gateResult/gateInconclusiveReason (aur533.go). A complete no-op
+	// unless analysis_data is declared in the effective config.
+	var analysisDataAuditAUR533 *analysisDataAudit
+	{
+		adMode, _ := reviewConfig.Gate.InconclusiveMode()
+		adResult, adReason, adAudit := applyAnalysisDataGate(ctx, reviewConfig.AnalysisData, adMode)
+		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, adResult, adReason)
+		analysisDataAuditAUR533 = adAudit
+	}
 	// AUR-550: the Dependency-Track submission/metrics gate, folded into
 	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
 	// audit record and SARIF below already publish -- see
@@ -974,6 +984,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		verdict:                canonicalVerdict(result),
 		gate:                   gateResult,
 		gateInconclusiveReason: gateInconclusiveReason,
+		analysisData:           analysisDataAuditAUR533,
 		diff:                   diff,
 		issues:                 result.Issues,
 		dynamicRules:           dynamicRules,

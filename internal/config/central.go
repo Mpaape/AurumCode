@@ -245,5 +245,18 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 		effective.QualityGates.SupplyChain = central.QualityGates.SupplyChain
 	}
 
+	// AUR-533: analysis_data is governed as its own section. A policy that
+	// declares it decides alone (the repository's own max_age_days cannot
+	// loosen it); a policy silent on it leaves the repository's.
+	if central.AnalysisData != nil {
+		if repo.AnalysisData != nil {
+			warnings = append(warnings, ProviderWarning{
+				Provider: "politica central",
+				Reason:   "analysis_data do config do repositório foi ignorado: a política central decide sozinha",
+			})
+		}
+		effective.AnalysisData = central.AnalysisData
+	}
+
 	return &effective, warnings
 }
