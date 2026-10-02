@@ -317,6 +317,10 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 				d.Lines = append(d.Lines, expiredExceptionLine(exc, issue))
 			}
 		}
+		// AUR-556: gate.sources can leave the policy's skill sections out.
+		if !gate.SourceEnabled(config.GateSourceSkills) {
+			continue
+		}
 		rule, found := dynamic[issue.RuleID]
 		if !found || rule.Origin != acceptedOrigin {
 			continue
@@ -338,6 +342,7 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 			Path:     issue.File,
 			Line:     issue.Line,
 			Severity: issue.Severity,
+			Origin:   gateOriginSkills,
 		})
 	}
 	return d, nil

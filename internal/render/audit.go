@@ -81,6 +81,8 @@ type AuditFinding struct {
 	Path     string `json:"path"`
 	Line     int    `json:"line"`
 	Severity string `json:"severity"`
+	// Origin is where the finding came from: skills, analysis or sast.
+	Origin string `json:"origin,omitempty"`
 }
 
 // AuditException documents one AUR-520 exception applied to a finding. Its
@@ -202,6 +204,7 @@ func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
 			Path:     filter.Redact(f.Path),
 			Line:     f.Line,
 			Severity: filter.Redact(f.Severity),
+			Origin:   filter.Redact(f.Origin),
 		}
 	}
 	rec.BlockingFindings = blocking
