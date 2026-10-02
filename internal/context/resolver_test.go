@@ -329,3 +329,35 @@ func TestResolveWithFilesNilScansNothing(t *testing.T) {
 		t.Fatalf("ResolveWithFiles(nil) scanned something: dependents=%v references=%v", pack.Dependents, pack.References)
 	}
 }
+
+// TestResolveDeclaresMissingStructuralContext: a changed file the grammar
+// runtime has no grammar for is still resolved (no error) and is declared in
+// Pack.Unstructured; a file with a grammar is not.
+func TestResolveDeclaresMissingStructuralContext(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{
+		"app/Greeter.java": "package app;\npublic class Greeter { public void greet() {} }\n",
+		"notes.zzqx":       "plain text in an extension no grammar knows\n",
+		"blob.dat":         "abc\x00\x01\x02def",
+	})
+	pack, err := NewResolver().Resolve(root, []string{"app/Greeter.java", "notes.zzqx", "blob.dat"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(pack.Unstructured, "\n")
+	if !strings.Contains(joined, "notes.zzqx") || !strings.Contains(joined, "blob.dat: binary content") {
+		t.Fatalf("missing structural context not declared: %v", pack.Unstructured)
+	}
+	if strings.Contains(joined, "Greeter.java") {
+		t.Fatalf("a file with a grammar must not be declared unstructured: %v", pack.Unstructured)
+	}
+	found := false
+	for _, s := range pack.Symbols {
+		if s == "Greeter" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("java symbols come from the grammar: %v", pack.Symbols)
+	}
+}

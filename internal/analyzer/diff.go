@@ -13,9 +13,13 @@ type DiffAnalyzer struct {
 
 // NewDiffAnalyzer creates a new diff analyzer
 func NewDiffAnalyzer() *DiffAnalyzer {
-	return &DiffAnalyzer{
-		languageDetector: NewLanguageDetector(),
-	}
+	return NewDiffAnalyzerWith(NewLanguageDetector())
+}
+
+// NewDiffAnalyzerWith creates a diff analyzer over an injected detector (and so
+// over its grammar provider).
+func NewDiffAnalyzerWith(d *LanguageDetector) *DiffAnalyzer {
+	return &DiffAnalyzer{languageDetector: d}
 }
 
 // DiffMetrics contains metrics extracted from a diff
@@ -123,168 +127,31 @@ func (a *DiffAnalyzer) classifyFileChange(file *types.DiffFile) string {
 	return "modified"
 }
 
-// ExtractChangedFunctions extracts function names from changed hunks
+// ExtractChangedFunctions returns the symbols the grammar runtime finds in the
+// new side of each changed hunk (added and context lines), in encounter order.
+// The names come from the grammar of the file, not from per-language patterns;
+// a file with no grammar yields none, and the caller treats that as "no
+// structural context" rather than as "no functions".
 func (a *DiffAnalyzer) ExtractChangedFunctions(file *types.DiffFile) []string {
 	var functions []string
 	seen := make(map[string]bool)
-
-	language := a.languageDetector.DetectLanguage(file.Path)
-
 	for _, hunk := range file.Hunks {
+		var src strings.Builder
 		for _, line := range hunk.Lines {
-			// Look for function declarations
-			funcName := a.extractFunctionName(line, language)
-			if funcName != "" && !seen[funcName] {
-				functions = append(functions, funcName)
-				seen[funcName] = true
+			if len(line) < 1 || (line[0] != '+' && line[0] != ' ') {
+				continue
+			}
+			src.WriteString(line[1:])
+			src.WriteByte('\n')
+		}
+		for _, name := range a.languageDetector.Provider().Analyze(file.Path, []byte(src.String())).Symbols {
+			if !seen[name] {
+				seen[name] = true
+				functions = append(functions, name)
 			}
 		}
 	}
-
 	return functions
-}
-
-// extractFunctionName extracts function name from a line based on language
-func (a *DiffAnalyzer) extractFunctionName(line, language string) string {
-	if len(line) < 2 {
-		return ""
-	}
-
-	// Skip non-addition lines for function detection
-	if line[0] != '+' && line[0] != ' ' {
-		return ""
-	}
-
-	content := strings.TrimSpace(line[1:])
-
-	switch language {
-	case "go":
-		return a.extractGoFunction(content)
-	case "javascript", "typescript":
-		return a.extractJSFunction(content)
-	case "python":
-		return a.extractPythonFunction(content)
-	case "java", "kotlin":
-		return a.extractJavaFunction(content)
-	default:
-		return ""
-	}
-}
-
-// extractGoFunction extracts Go function names
-func (a *DiffAnalyzer) extractGoFunction(line string) string {
-	if !strings.HasPrefix(line, "func ") {
-		return ""
-	}
-
-	// func FunctionName( or func (receiver) FunctionName(
-	parts := strings.Fields(line)
-	if len(parts) < 2 {
-		return ""
-	}
-
-	// Check for method receiver
-	if strings.HasPrefix(parts[1], "(") {
-		// Method: func (r *Receiver) MethodName(
-		if len(parts) < 4 {
-			return ""
-		}
-		funcName := parts[3]
-		if idx := strings.Index(funcName, "("); idx != -1 {
-			return funcName[:idx]
-		}
-		return funcName
-	}
-
-	// Regular function: func FunctionName(
-	funcName := parts[1]
-	if idx := strings.Index(funcName, "("); idx != -1 {
-		return funcName[:idx]
-	}
-
-	return funcName
-}
-
-// extractJSFunction extracts JavaScript/TypeScript function names
-func (a *DiffAnalyzer) extractJSFunction(line string) string {
-	// function name( or const name = ( or name: function( or name() {
-	if strings.Contains(line, "function ") {
-		parts := strings.Split(line, "function ")
-		if len(parts) > 1 {
-			funcPart := strings.TrimSpace(parts[1])
-			if idx := strings.Index(funcPart, "("); idx != -1 {
-				return funcPart[:idx]
-			}
-		}
-	}
-
-	// Arrow functions: const name = ( or name = (
-	if strings.Contains(line, " = ") && strings.Contains(line, "=>") {
-		parts := strings.Split(line, " = ")
-		if len(parts) > 0 {
-			namePart := strings.TrimSpace(parts[0])
-			namePart = strings.TrimPrefix(namePart, "const ")
-			namePart = strings.TrimPrefix(namePart, "let ")
-			namePart = strings.TrimPrefix(namePart, "var ")
-			if namePart != "" {
-				return namePart
-			}
-		}
-	}
-
-	return ""
-}
-
-// extractPythonFunction extracts Python function names
-func (a *DiffAnalyzer) extractPythonFunction(line string) string {
-	if !strings.HasPrefix(line, "def ") {
-		return ""
-	}
-
-	parts := strings.Fields(line)
-	if len(parts) < 2 {
-		return ""
-	}
-
-	funcName := parts[1]
-	if idx := strings.Index(funcName, "("); idx != -1 {
-		return funcName[:idx]
-	}
-
-	return funcName
-}
-
-// extractJavaFunction extracts Java/Kotlin function names
-func (a *DiffAnalyzer) extractJavaFunction(line string) string {
-	// Look for method signatures: public void methodName( or fun methodName(
-	if strings.Contains(line, "fun ") {
-		// Kotlin function
-		parts := strings.Split(line, "fun ")
-		if len(parts) > 1 {
-			funcPart := strings.TrimSpace(parts[1])
-			if idx := strings.Index(funcPart, "("); idx != -1 {
-				return funcPart[:idx]
-			}
-		}
-	}
-
-	// Java method - look for pattern: visibility returnType methodName(
-	words := strings.Fields(line)
-	for i, word := range words {
-		if strings.Contains(word, "(") && i > 0 {
-			// Previous word might be the method name
-			methodName := word
-			if idx := strings.Index(methodName, "("); idx != -1 {
-				methodName = methodName[:idx]
-			}
-			// Skip constructors and keywords
-			if methodName != "if" && methodName != "for" && methodName != "while" && methodName != "switch" {
-				return methodName
-			}
-		}
-	}
-
-	return ""
 }
 
 // GetComplexityScore estimates complexity based on metrics

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/grammar"
 )
 
 // Limits bounds every phase of resolution so a large or hostile repo can
@@ -53,6 +55,11 @@ type Pack struct {
 	// Dependents lists the files (outside the change set) that import or
 	// reference the changed files.
 	Dependents []string `json:"dependents"`
+	// Unstructured lists the changed files whose structure the grammar runtime
+	// could not produce, each with its reason ("path: reason"). The review
+	// continues on the text of those files; this field is the declaration that
+	// symbol and import context for them is absent.
+	Unstructured []string `json:"unstructured,omitempty"`
 	// Dropped records bounded omissions: missing files, skipped symlinks,
 	// truncated files, and limit overflows. Omissions are never fatal.
 	Dropped []string `json:"dropped"`
@@ -60,7 +67,8 @@ type Pack struct {
 
 // Resolver resolves codebase context for a change set.
 type Resolver struct {
-	limits Limits
+	limits  Limits
+	grammar grammar.Provider
 }
 
 // NewResolver returns a Resolver with the default limits.
@@ -84,7 +92,13 @@ func NewResolverWithLimits(limits Limits) *Resolver {
 	if limits.MaxDependents <= 0 {
 		limits.MaxDependents = DefaultMaxDependents
 	}
-	return &Resolver{limits: limits}
+	return &Resolver{limits: limits, grammar: grammar.Default()}
+}
+
+// WithGrammar returns the resolver using an injected grammar provider.
+func (r *Resolver) WithGrammar(p grammar.Provider) *Resolver {
+	r.grammar = p
+	return r
 }
 
 // Resolve walks root and reports the bounded dependency context for the given
@@ -155,8 +169,13 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 		if truncated {
 			pack.Dropped = appendDropped(pack.Dropped, "truncated "+rel+" at "+itoa(r.limits.MaxBytes)+" bytes")
 		}
-		family := familyOf(rel)
-		for _, sym := range extractSymbols(family, data) {
+		st := r.structureOf(rel, data)
+		if !st.HasStructure {
+			// No grammar (or binary content): the model reads the text and the
+			// pack says the structural context was not produced.
+			pack.Unstructured = append(pack.Unstructured, rel+": "+st.Reason)
+		}
+		for _, sym := range st.Symbols {
 			symbolFiles[sym] = append(symbolFiles[sym], rel)
 		}
 		dir, stem, dirBase := importKeys(rel)
@@ -366,8 +385,7 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 		if wasTruncated {
 			pack.Dropped = appendDropped(pack.Dropped, "truncated "+rel+" at "+itoa(r.limits.MaxBytes)+" bytes")
 		}
-		family := familyOf(rel)
-		for _, imp := range extractImports(family, data) {
+		for _, imp := range r.structureOf(rel, data).Imports {
 			if matchesImport(imp, dirKeys, stemKeys, dirBaseKeys) {
 				offset := indexOf(data, []byte(imp))
 				refs = append(refs, Reference{File: rel, Symbol: imp, Line: lineOf(data, offset)})
@@ -394,6 +412,7 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 func (r *Resolver) finalize(pack *Pack) {
 	sort.Strings(pack.Symbols)
 	pack.Symbols = dedupeStrings(pack.Symbols)
+	sort.Strings(pack.Unstructured)
 
 	sort.Slice(pack.References, func(i, j int) bool {
 		a, b := pack.References[i], pack.References[j]

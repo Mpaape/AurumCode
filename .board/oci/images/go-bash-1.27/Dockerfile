@@ -9,7 +9,7 @@ RUN apk add --no-cache bash
 
 WORKDIR /opt/aurum-a006
 COPY go.mod go.sum ./
-RUN GOTOOLCHAIN=local GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org go mod download
+RUN GOTOOLCHAIN=local GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org go mod download all
 
 # Self-reference for AC-004: the acceptance test proves the running image was
 # built from this exact versioned Dockerfile and the repository's real

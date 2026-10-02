@@ -80,6 +80,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/memory"
@@ -723,7 +724,8 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// and the prompt builder's own coverage metadata -- so it must survive
 	// even though it names filtered paths. It is present even when the model
 	// claims complete coverage (AC-003).
-	coverageBreakdown := mergeReviewCoverage(result.Metadata, nil, rawDiffFileCount, ignoredPaths)
+	coverageBreakdown := mergeReviewCoverage(result.Metadata, uninspectedPRNotices(diff, verifiedDir), rawDiffFileCount, ignoredPaths)
+	applyStructuralCoverage(grammar.Default(), diff, &coverageBreakdown, result)
 	if notice := coverageNotice(reviewCopyFor(reviewLanguage), coverageBreakdown); notice != "" {
 		result.Limitations = append(result.Limitations, notice)
 	}
@@ -1996,7 +1998,7 @@ type reviewCopy struct {
 	// deterministic "this review was partial" notice. Each reason a file was
 	// not covered gets its own sentence; coverageSummary names the count and
 	// the denominator so the reader sees how much of the diff actually ran.
-	coverageHeading, coverageSummary, coveragePartial, coverageBudget, coverageIgnored, coverageFiltered string
+	coverageHeading, coverageSummary, coveragePartial, coverageBudget, coverageIgnored, coverageFiltered, coverageNoStructure string
 	// summaryWithheld is AUR-517's one-line notice (%d is the discard
 	// count) printed in place of the "### Summary" block whenever
 	// internal/review withheld the model's free-text summary because the
@@ -2023,7 +2025,8 @@ func reviewCopyFor(language string) reviewCopy {
 			coveragePartial:         "%d arquivo(s) tiveram parte dos trechos omitida pelo limite de tokens; os achados podem não cobrir os trechos omitidos.",
 			coverageBudget:          "%d arquivo(s) ficaram fora da revisão pelo limite de tokens.",
 			coverageIgnored:         "%d arquivo(s) foram ocultados da revisão pela configuração `ignore` do repositório; a ausência deles no contexto NÃO prova que não existam no diff.",
-			coverageFiltered:        "%d arquivo(s) foram filtrados antes da revisão (binário ou grande demais).",
+			coverageFiltered:        "%d arquivo(s) foram filtrados antes da revisão (binário, gerado ou grande demais); arquivo não revisado nunca conta como aprovado.",
+			coverageNoStructure:     "%d arquivo(s) não têm gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.",
 			summaryWithheld:         "Resumo do modelo omitido: %d achado(s) propostos foram descartados pelos filtros de escopo/regra.",
 		}
 	}
@@ -2043,7 +2046,8 @@ func reviewCopyFor(language string) reviewCopy {
 		coveragePartial:         "%d file(s) had some hunks omitted by the token budget; findings may miss those hunks.",
 		coverageBudget:          "%d file(s) were left out of the review by the token budget.",
 		coverageIgnored:         "%d file(s) were hidden from the review by the repository `ignore` config; their absence from the reviewed context is NOT proof they are absent from the diff.",
-		coverageFiltered:        "%d file(s) were filtered before the review (binary or too large).",
+		coverageFiltered:        "%d file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.",
+		coverageNoStructure:     "%d file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.",
 		summaryWithheld:         "Model summary omitted: %d proposed finding(s) were discarded by the scope/rule filters.",
 	}
 }
