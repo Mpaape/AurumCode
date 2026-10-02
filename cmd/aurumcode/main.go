@@ -662,6 +662,21 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	}
 	profilesApplied := profileRes.Applied
 
+	// AUR-513 (AC-001): the review cache key must change when the selected
+	// profile(s) change, even on an otherwise byte-identical diff -- two
+	// profiles can carry different emphasis/instructions and must never
+	// share a cached answer. reviewprofile.Profile.Signature() is already
+	// the deterministic per-profile identity this codebase defines for
+	// exactly this kind of comparison; joined in selection order (order is
+	// part of the identity too: reviewprofile.MergeFindings attributes a
+	// shared finding to "the earliest profile in declaration order", so a
+	// reordering can change the answer even with the same set of names).
+	profileSigs := make([]string, 0, len(profileRes.Profiles))
+	for _, p := range profileRes.Profiles {
+		profileSigs = append(profileSigs, p.Signature())
+	}
+	profileIdentity := strings.Join(profileSigs, "\x1f")
+
 	codebaseContextText := resolveCodebaseContext(diff)
 	memoryStore, memoryNotes, memoryNotesText := openReviewMemory(repoCfg.Review.Memory, "", "", stderr, filter)
 
@@ -731,6 +746,42 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// empty, ruleCatalogIDs identical to prompt.DefaultRuleCatalog.
 	var dynamicRules map[string]review.Rule
 	var ruleCatalogIDs []string
+	// AUR-513 (AC-002): a digest of the expanded rule/skill-section catalog
+	// just computed above, folded into the review cache key further below so
+	// a repository or policy skill file that changes what the model is
+	// taught -- even without changing the raw context block's bytes -- still
+	// invalidates every cache entry built under the old catalog.
+	var ruleCatalogDigest string
+	// AUR-513 (AC-002): a content digest of the assembled context block
+	// (repo + policy prompt/skills/docs), computed once below and folded
+	// into the review cache key. See contextBlockCacheDigest's doc
+	// (review_cache.go) for why it is recomputed here instead of read off
+	// the already-wrapped provider.
+	var contextBlockDigest string
+	// AUR-513: the real answering model's identity, captured from `provider`
+	// BEFORE it is ever wrapped. config.contextInjectingProvider (the type
+	// WrapProviderWithWarnings returns the moment ANY context is configured
+	// -- a repo prompt, a skill, a doc) embeds llm.Provider as an INTERFACE
+	// field, so Go only promotes methods declared on that interface itself.
+	// llm.ModelResolver is a separate interface: a real provider that
+	// implements it (internal/llm/provider/litellm.Provider.ResolveModel,
+	// reporting the actual configured model) stops being visible through a
+	// type assertion the instant it gets wrapped -- modelCacheKey(provider)
+	// called AFTER wrapping degrades silently to litellm.Provider.Name()'s
+	// fixed, model-less "litellm" literal. Before this fix, two reviews
+	// against the SAME endpoint under two DIFFERENT LLM_MODEL values, with
+	// any docs/skills/prompt configured, collided on one cache entry.
+	// Capturing it here, before `provider = wrapped` below, is immune to
+	// that promotion loss. modelCacheKey(provider) is still also called at
+	// the end, inside reviewContextCacheKey -- that second call is what
+	// --limite's own fixedModelProvider (cmd/aurumcode/cost.go, wrapped
+	// LATER, after this block, and carrying its own direct ResolveModel
+	// method, so promotion through IT is not the problem) has always
+	// depended on, and this card leaves that path untouched.
+	var baseModelIdentity string
+	if providerErr == nil {
+		baseModelIdentity = modelCacheKey(provider)
+	}
 	if providerErr == nil {
 		policySkillRules := map[string]review.Rule{}
 		if centralCfg != nil {
@@ -739,6 +790,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		repoSkillRules := dynamicRulesFromLocalSkills(cwd, repoCfg.Review.Context.Skills, gateOriginRepo)
 		dynamicRules = mergeDynamicRules(policySkillRules, repoSkillRules)
 		ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, dynamicRules)
+		ruleCatalogDigest = ruleCatalogCacheDigest(ruleCatalogIDs, dynamicRules)
 	}
 
 	// Zero-config: config.WrapProvider returns provider completely
@@ -754,6 +806,12 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		if centralCfg != nil {
 			contextProviders = append(config.ConfiguredProviders(policyDir, centralCfg), contextProviders...)
 		}
+		// AUR-513 (AC-002): digest the SAME redacted block the model will
+		// actually receive (contextBlockCacheDigest's doc explains why
+		// redacted, not raw), so a changed repo or policy prompt/skill/doc
+		// file invalidates the review cache even when nothing else about
+		// this run differs.
+		contextBlockDigest = contextBlockCacheDigest(contextProviders, diffPaths(diff), filter)
 		wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), provider, contextProviders, diffPaths(diff), filter)
 		if wrapErr != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
@@ -920,7 +978,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		var cacheStatuses []fileCacheStatus
 		if cacheErr == nil {
 			var missFiles []types.DiffFile
-			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, reviewLanguage, codebaseContextText, memoryNotesText))
+			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest))
 			toSend = &types.Diff{Files: missFiles}
 		}
 
