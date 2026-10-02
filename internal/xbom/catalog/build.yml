@@ -1,0 +1,42 @@
+# Build BOM catalog (AUR-552). Data, not code: each entry names the files to
+# read, a line pattern with named groups, the group that is the evidence
+# token, and the CycloneDX component template. Override per repository or
+# central policy with .aurumcode/xbom/build.yml (see docs/specs/AUR-552.md).
+version: 1
+type: build
+exclude:
+  - ".git/**"
+  - "**/node_modules/**"
+  - "**/vendor/**"
+entries:
+  - id: github-actions-uses
+    files:
+      - ".github/workflows/*.yml"
+      - ".github/workflows/*.yaml"
+      - "**/action.yml"
+      - "**/action.yaml"
+    pattern: '^\s*(?:-\s*)?uses:\s*[\x27"]?(?P<name>[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+)@(?P<version>[A-Za-z0-9_.-]+)'
+    token: name
+    component:
+      type: application
+      name: "{name}"
+      version: "{version}"
+      purl: "pkg:githubactions/{name}@{version}"
+      properties:
+        "aurumcode:xbom:ecosystem": github-actions
+  - id: dockerfile-from
+    files:
+      - "**/Dockerfile"
+      - "**/Dockerfile.*"
+      - "**/*.Dockerfile"
+      - "**/Containerfile"
+    pattern: '(?i)^\s*FROM\s+(?:--platform=\S+\s+)?(?P<name>[^\s:@$]+)(?::(?P<tag>[^\s@]+))?(?:@(?P<digest>sha256:[0-9a-f]{64}))?(?:\s+AS\s+\S+)?\s*$'
+    token: name
+    component:
+      type: container
+      name: "{name}"
+      version: "{tag?digest}"
+      purl: "pkg:docker/{name}@{tag?digest}"
+      properties:
+        "aurumcode:xbom:ecosystem": docker
+        "aurumcode:xbom:digest": "{digest}"
