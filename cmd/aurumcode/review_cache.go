@@ -80,6 +80,17 @@ type fileCacheStatus struct {
 func modelCacheKey(provider llm.Provider) string {
 	name := provider.Name()
 
+	// AUR-513: two endpoints serving a model under the same name are not
+	// the same answering entity -- a repository pointed at a self-hosted
+	// gateway today and a different one tomorrow, same LLM_MODEL value,
+	// must not share a cache entry. selectProvider/selectProviderForModel
+	// read LLM_BASE_URL directly to build the real provider; read the same
+	// variable here rather than adding an exported accessor to
+	// internal/llm/provider/litellm (outside this card's paths).
+	if baseURL := os.Getenv("LLM_BASE_URL"); baseURL != "" {
+		name += ":baseurl:" + baseURL
+	}
+
 	if fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE"); fixturePath != "" {
 		data, err := os.ReadFile(fixturePath)
 		if err != nil {
@@ -106,79 +117,79 @@ func modelCacheKey(provider llm.Provider) string {
 
 // AUR-513: the cache key must change whenever ANYTHING that can change the
 // model's answer changes -- not only the file's own diff. reviewContextCacheKey
-// folds in every such input this engine currently has: the review language and
-// memory notes (AUR-441's original scope), the codebase-context pack (AUR-515/
-// 536, already derived from the FULL diff before per-file partitioning -- see
-// AC-003's note on partitionByCache below), the selected reviewer profiles
-// (AUR-502's profileIdentity, reviewprofile.Profile.Signature() joined --
-// built for exactly this comparison), the content of every context block
-// assembled from the repo's and the central policy's prompt/skills/docs files
-// (contextBlockDigest, a content digest, never the raw text itself -- AC-002
-// requires the key carry no secret in legible form), and the dynamic
-// rule/skill-section catalog the model was taught and the gate accepts
-// citations against (ruleCatalogDigest). Two reviews that differ in ANY of
-// these produce a different key and therefore never share a cache entry; two
-// reviews identical in all of them may still validly reuse one.
-func reviewContextCacheKey(provider llm.Provider, language, codebase, notes, profiles, contextBlockDigest, ruleCatalogDigest string) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%q\n%q\n%q\n%q\n%q\n%q", language, codebase, notes, profiles, contextBlockDigest, ruleCatalogDigest)))
+// folds in every such input this engine currently has: baseModelIdentity (see
+// its own doc below -- the real answering model/endpoint, captured BEFORE any
+// context wrapping can hide it), the review language and memory notes
+// (AUR-441's original scope), the codebase-context pack (AUR-515/536, already
+// derived from the FULL diff before per-file partitioning -- see AC-003's
+// note on partitionByCache below), the selected reviewer profiles (AUR-502's
+// profileIdentity, reviewprofile.Profile.Signature() joined -- built for
+// exactly this comparison), the content of the assembled context block (repo
+// and, under a central policy, the policy's own prompt/skills/docs --
+// contextBlockDigest), and the dynamic rule/skill-section catalog the model
+// was taught and the gate accepts citations against (ruleCatalogDigest). Two
+// reviews that differ in ANY of these produce a different key and therefore
+// never share a cache entry; two reviews identical in all of them may still
+// validly reuse one.
+func reviewContextCacheKey(provider llm.Provider, baseModelIdentity, language, codebase, notes, profiles, contextBlockDigest, ruleCatalogDigest string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%q\n%q\n%q\n%q\n%q\n%q\n%q", baseModelIdentity, language, codebase, notes, profiles, contextBlockDigest, ruleCatalogDigest)))
 	return fmt.Sprintf("%s:context:%x", modelCacheKey(provider), sum)
 }
 
-// contextBlockCacheDigest returns a sha256 hex digest of every configured
-// context provider's RAW contribution for changedPaths -- the repository's
-// prompt/skills/docs AND, when a central policy is active, the policy's own
-// (contextProviders in runReview already lists the policy's providers
-// first, per AUR-518).
+// contextBlockCacheDigest returns a sha256 hex digest of the context block
+// config.BuildContextBlockWithWarnings assembles from providers for
+// changedPaths -- the repository's prompt/skills/docs AND, when a central
+// policy is active, the policy's own (contextProviders in runReview already
+// lists the policy's providers first, per AUR-518).
 //
-// Deliberately RAW, not the redacted block config.BuildContextBlockWithWarnings
-// assembles for the actual outbound prompt: redaction.Filter.Redact replaces
-// every secret-shaped span with the SAME fixed "[REDACTED]" placeholder
-// regardless of the secret's real value (internal/security/redaction), so
-// hashing the redacted text would let two genuinely different files (a
-// rotated credential, for instance) collide on one cache key -- exactly the
-// failure mode cache.Key's own doc (internal/review/cache/cache.go) already
-// documents and avoids for a file's diff content, by hashing it before
-// redaction too. The digest itself is still a one-way sha256 hex string, so
-// AC-002's "no secret in legible form" holds the same way cache.Key's
-// output already does: nothing in the KEY is the original text, raw or
-// redacted.
+// This hashes the SAME, already-redacted block the real call sends to the
+// model (filter applied), not each provider's raw text. That is the correct
+// identity for a cache: if two configurations produce the identical outbound
+// prompt, reusing the cached answer is correct regardless of what untracked
+// difference existed before redaction. An earlier version of this function
+// hashed raw provider output instead, specifically to dodge a collision this
+// card's own test caught: redaction.Filter.Redact replaces every
+// secret-shaped span with the same fixed "[REDACTED]" placeholder, so two
+// files differing only in a secret's value can redact to byte-identical
+// text. That collision is real, but it is not a NEW weakness introduced by
+// hashing the redacted form -- it is the exact same thing the model itself
+// already cannot distinguish in the live prompt it answers from. A cache
+// that reuses an answer the model would have produced identically either way
+// is correct, not unsafe; see docs/review-cache.md for the full account and
+// why AC-002's own test now changes a plainly-visible (non-secret-shaped)
+// line instead of a redacted one, so it actually exercises the configured
+// text reaching the digest.
 //
-// This calls each provider's Provide directly rather than going through
-// config.BuildContextBlockWithWarnings (which only ever returns the already-
-// redacted block) or reading the already-wrapped provider's internals --
-// the wrapper type WrapProviderWithWarnings returns (internal/config/wrap.go's
+// The digest itself is still a one-way sha256 hex string: AC-002's "no
+// secret in legible form" holds regardless of which text is hashed, because
+// nothing in the KEY is ever the original text, redacted or not.
+//
+// This calls config.BuildContextBlockWithWarnings directly rather than
+// reading the already-wrapped provider's internals, because the wrapper type
+// WrapProviderWithWarnings returns (internal/config/wrap.go's
 // contextInjectingProvider) is unexported and carries no seam for a caller
-// outside that package to recover raw text from, and this card's paths do
-// not include internal/config. Every provider ConfiguredProviders returns
+// outside that package to recover its block text from -- this card's paths
+// do not include internal/config. Every provider ConfiguredProviders returns
 // today (RepoPromptProvider, FileContextProvider, TextContextProvider,
 // PathInstructionsProvider; see internal/config/provider_files.go) reads a
-// local file and does nothing else, so calling Provide a second time here,
-// purely to digest it, is deterministic and side-effect-free; AUR-469/470
-// (MCP/RAG) are documented future extensions of the same seam, not present
-// in this codebase today -- see docs/review-cache.md for what a stateful
-// future provider would require this function to revisit. Each call is
-// still bounded by config.ProviderTimeout, the same ceiling
-// callProviderBounded applies to the real call. A provider that errors or
-// times out contributes a fixed per-provider sentinel instead of its text,
-// never a crash and never silently treated as "no contribution" (which
-// would wrongly collide with a provider that legitimately has nothing to
-// say).
-func contextBlockCacheDigest(providers []config.ContextProvider, changedPaths []string) string {
-	h := sha256.New()
-	for _, p := range providers {
-		h.Write([]byte(p.Name()))
-		h.Write([]byte{0})
-		ctx, cancel := context.WithTimeout(context.Background(), config.ProviderTimeout)
-		text, err := p.Provide(ctx, changedPaths)
-		cancel()
-		if err != nil {
-			h.Write([]byte("error"))
-		} else {
-			h.Write([]byte(text))
-		}
-		h.Write([]byte{1})
+// local file and does nothing else, so invoking the build a second time
+// here, purely to digest it, is deterministic and side-effect-free;
+// AUR-469/470 (MCP/RAG) are documented future extensions of the same seam,
+// not present in this codebase today -- see docs/review-cache.md for what a
+// stateful future provider would require this function to revisit.
+// Warnings are intentionally discarded here: the real call in runReview
+// already surfaces every provider warning to stderr once; duplicating that
+// announcement from a digest-only call would print it twice for one review.
+// A failure to build the block degrades to a fixed sentinel, never a crash
+// and never a silent empty digest that could collide with "no context
+// configured at all".
+func contextBlockCacheDigest(providers []config.ContextProvider, changedPaths []string, filter *redaction.Filter) string {
+	block, _, err := config.BuildContextBlockWithWarnings(context.Background(), providers, changedPaths, filter)
+	if err != nil {
+		return "digest-error"
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	sum := sha256.Sum256([]byte(block))
+	return hex.EncodeToString(sum[:])
 }
 
 // ruleCatalogCacheDigest returns a deterministic sha256 hex digest of the
@@ -189,6 +200,20 @@ func contextBlockCacheDigest(providers []config.ContextProvider, changedPaths []
 // identical configuration always serializes to the identical bytes regardless
 // of map iteration order or the order review.context.skills/policySkillRules
 // happened to merge in.
+//
+// DEFENSE IN DEPTH, not independently exercised end to end: today every
+// skill file dynamicRulesFromLocalSkills reads (review.ParseSkillSections)
+// is drawn from the exact same files contextBlockCacheDigest's block already
+// hashes, so in practice a skill-content change that alters the derived
+// rule catalog also changes the context-block digest, and this card's tests
+// invalidate the cache through that shared path rather than isolating this
+// one. This digest is kept anyway, independently folded into the key,
+// because the two can diverge in the future without warning: a catalog
+// entry derived with normalization the raw-text digest does not apply (e.g.
+// whitespace-insensitive parsing), a central-policy-only rule source, or any
+// other rule contribution that is not simply "the bytes of a context file"
+// would change what the model is taught and what the gate accepts without
+// necessarily changing the context block's bytes. See docs/review-cache.md.
 func ruleCatalogCacheDigest(ruleCatalogIDs []string, dynamicRules map[string]review.Rule) string {
 	ids := append([]string(nil), ruleCatalogIDs...)
 	sort.Strings(ids)

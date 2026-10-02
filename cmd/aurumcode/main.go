@@ -758,6 +758,30 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// (review_cache.go) for why it is recomputed here instead of read off
 	// the already-wrapped provider.
 	var contextBlockDigest string
+	// AUR-513: the real answering model's identity, captured from `provider`
+	// BEFORE it is ever wrapped. config.contextInjectingProvider (the type
+	// WrapProviderWithWarnings returns the moment ANY context is configured
+	// -- a repo prompt, a skill, a doc) embeds llm.Provider as an INTERFACE
+	// field, so Go only promotes methods declared on that interface itself.
+	// llm.ModelResolver is a separate interface: a real provider that
+	// implements it (internal/llm/provider/litellm.Provider.ResolveModel,
+	// reporting the actual configured model) stops being visible through a
+	// type assertion the instant it gets wrapped -- modelCacheKey(provider)
+	// called AFTER wrapping degrades silently to litellm.Provider.Name()'s
+	// fixed, model-less "litellm" literal. Before this fix, two reviews
+	// against the SAME endpoint under two DIFFERENT LLM_MODEL values, with
+	// any docs/skills/prompt configured, collided on one cache entry.
+	// Capturing it here, before `provider = wrapped` below, is immune to
+	// that promotion loss. modelCacheKey(provider) is still also called at
+	// the end, inside reviewContextCacheKey -- that second call is what
+	// --limite's own fixedModelProvider (cmd/aurumcode/cost.go, wrapped
+	// LATER, after this block, and carrying its own direct ResolveModel
+	// method, so promotion through IT is not the problem) has always
+	// depended on, and this card leaves that path untouched.
+	var baseModelIdentity string
+	if providerErr == nil {
+		baseModelIdentity = modelCacheKey(provider)
+	}
 	if providerErr == nil {
 		policySkillRules := map[string]review.Rule{}
 		if centralCfg != nil {
@@ -782,11 +806,12 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		if centralCfg != nil {
 			contextProviders = append(config.ConfiguredProviders(policyDir, centralCfg), contextProviders...)
 		}
-		// AUR-513 (AC-002): digest the same providers/paths BEFORE wrapping
-		// (raw, pre-redaction -- see contextBlockCacheDigest's doc for why),
-		// so a changed repo or policy prompt/skill/doc file invalidates the
-		// review cache even when nothing else about this run differs.
-		contextBlockDigest = contextBlockCacheDigest(contextProviders, diffPaths(diff))
+		// AUR-513 (AC-002): digest the SAME redacted block the model will
+		// actually receive (contextBlockCacheDigest's doc explains why
+		// redacted, not raw), so a changed repo or policy prompt/skill/doc
+		// file invalidates the review cache even when nothing else about
+		// this run differs.
+		contextBlockDigest = contextBlockCacheDigest(contextProviders, diffPaths(diff), filter)
 		wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), provider, contextProviders, diffPaths(diff), filter)
 		if wrapErr != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
@@ -953,7 +978,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		var cacheStatuses []fileCacheStatus
 		if cacheErr == nil {
 			var missFiles []types.DiffFile
-			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest))
+			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest))
 			toSend = &types.Diff{Files: missFiles}
 		}
 
