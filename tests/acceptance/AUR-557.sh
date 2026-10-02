@@ -46,11 +46,11 @@ real_go="$(command -v go 2>/dev/null)" || infra missing_go
 
 # The acceptances the contract names. AUR-553 has no acceptance program in
 # this repository (it is not in tests/acceptance); it is reported, not run.
-readonly -a all_sub_acceptances=(518 519 520 521 524 537 538 543 548 549 550 551 552 555 556)
+readonly -a all_sub_acceptances=(518 519 520 521 522 524 533 537 538 543 548 549 550 551 552 555 556 559)
 # `all` runs the subset that carries the source-anchored mutations and the
 # gate wiring (measured: the 15 together take ~490 s, past the 450 s margin
 # the sealed profile's 600 s limit allows for `all`); AC-001-full runs all 15.
-readonly -a sub_acceptances_all=(519 537 538 543 524 548 550 556)
+readonly -a sub_acceptances_all=(519 537 538 543 524 548 550 556 522 533)
 
 for input in go.mod go.sum cmd internal pkg internal/gate cmd/aurumcode/structure_test.go docs/specs/AUR-557.md; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
