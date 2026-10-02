@@ -724,7 +724,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// and the prompt builder's own coverage metadata -- so it must survive
 	// even though it names filtered paths. It is present even when the model
 	// claims complete coverage (AC-003).
-	coverageBreakdown := mergeReviewCoverage(result.Metadata, nil, rawDiffFileCount, ignoredPaths)
+	coverageBreakdown := mergeReviewCoverage(result.Metadata, uninspectedPRNotices(diff, verifiedDir), rawDiffFileCount, ignoredPaths)
 	applyStructuralCoverage(grammar.Default(), diff, &coverageBreakdown, result)
 	if notice := coverageNotice(reviewCopyFor(reviewLanguage), coverageBreakdown); notice != "" {
 		result.Limitations = append(result.Limitations, notice)
