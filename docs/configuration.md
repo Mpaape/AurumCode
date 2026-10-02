@@ -85,6 +85,13 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
 - Action Docker direta: usa `Mpaape/AurumCode@main`, exige
   `GITHUB_TOKEN`, `LLM_API_KEY`, `LLM_BASE_URL` no ambiente e evento de PR.
   Acrescenta inputs `check` e `fail-on`; não coleta CI automaticamente.
+  Quem monta o próprio job (em vez do workflow reutilizável, que já faz isso)
+  precisa chamar `actions/checkout` com
+  `ref: ${{ github.event.pull_request.head.sha }}` antes da Action: o padrão
+  do `actions/checkout` num evento `pull_request` é o merge ref sintético
+  (`refs/pull/<n>/merge`), cujo commit não é o head revisado. Nesse caso o
+  contexto de codebase (AUR-515/AUR-536) é omitido como "não verificável" e
+  a revisão continua apenas com o diff remoto.
 - Localmente, `.aurumcode/instructions/*.md` pode usar front matter
   `applyTo` para escopo por caminho. O fluxo remoto usa os arquivos
   explicitamente listados em `review.context`.

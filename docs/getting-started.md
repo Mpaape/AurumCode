@@ -17,6 +17,14 @@ O token de publicação é o `github.token` do workflow, com as permissões
 declaradas no YAML. Ele é limitado ao repositório, não a um único PR.
 Os secrets do repositório não são disponibilizados por padrão para PRs de forks.
 
+O workflow reutilizável já faz o checkout no `ref: ${{ github.event.pull_request.head.sha }}`,
+o head revisado do PR, então o contexto de codebase chega normalmente ao
+modelo. Quem monta a Action Docker diretamente, com o próprio passo
+`actions/checkout` (ver "Opções avançadas" em docs/configuration.md),
+precisa declarar esse mesmo `ref`: o padrão do `actions/checkout` num evento
+`pull_request` é o merge ref sintético, não o head revisado, e sem esse `ref`
+explícito o contexto de codebase é omitido como não verificável.
+
 ## Uso local
 
 Construa a imagem a partir do checkout do AurumCode:

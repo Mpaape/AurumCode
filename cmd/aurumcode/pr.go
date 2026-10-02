@@ -323,8 +323,23 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// resolveCodebaseContext only ever runs once that is verified, and a
 	// mismatch is recorded as a limitation below instead of silently
 	// sending an unrelated checkout's files to the provider.
+	// AUR-536: a verified repository and HEAD (above) still say nothing
+	// about the working tree itself -- an uncommitted edit, an untracked
+	// file, or a nested clone's files all sit on disk and would otherwise
+	// reach resolveCodebaseContext unfiltered. verifiedCleanCheckoutReason
+	// (aur536.go) proves every file under the checkout matches committed
+	// content before the pass is ever allowed to run.
 	var codebaseContextText, codebaseContextLimitation string
 	mismatch := codebaseContextMismatch(ctx, client, owner, repoName, prNumber)
+	if mismatch == "" {
+		if dir, wdErr := os.Getwd(); wdErr == nil {
+			if reason := verifiedCleanCheckoutReason(dir); reason != "" {
+				mismatch = reason
+			}
+		} else {
+			mismatch = codebaseContextReasonUnverifiable
+		}
+	}
 	if mismatch == "" {
 		codebaseContextText = resolveCodebaseContext(diff)
 	} else {

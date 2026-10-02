@@ -48,20 +48,29 @@ import (
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 )
 
+// codebaseContextReasonUnverifiable is the fixed reason code returned
+// whenever this checkout's identity, HEAD, or (AUR-536) clean-tree state
+// simply could not be confirmed -- as opposed to "repository"/"head", where
+// it WAS confirmed and found to mismatch, or "dirty" (aur536.go), where it
+// was confirmed and found unclean. Hoisted into one constant so every
+// "cannot tell" return agrees, and so a single, stable edit can flip them
+// all for a skeptical mutation.
+const codebaseContextReasonUnverifiable = "unverifiable"
+
 // codebaseContextMismatch returns "" when the local checkout is verified as
 // owner/repoName at the pull request's reviewed head commit; otherwise it
 // returns a short, fixed reason code ("repository", "head" or
-// "unverifiable") naming why it could not be trusted. The reason is a
-// constant from this function, never remote or local repository text, so it
-// carries nothing that needs redaction.
+// codebaseContextReasonUnverifiable) naming why it could not be trusted.
+// The reason is a constant from this function, never remote or local
+// repository text, so it carries nothing that needs redaction.
 func codebaseContextMismatch(ctx context.Context, client *githubclient.Client, owner, repoName string, prNumber int) string {
 	dir, err := os.Getwd()
 	if err != nil {
-		return "unverifiable"
+		return codebaseContextReasonUnverifiable
 	}
 	localOwner, localRepo, localHead, err := localCheckoutIdentity(dir)
 	if err != nil {
-		return "unverifiable"
+		return codebaseContextReasonUnverifiable
 	}
 	// Local, free check first: only a repository that already claims to be
 	// the right one ever reaches the GitHub API below.
@@ -70,7 +79,7 @@ func codebaseContextMismatch(ctx context.Context, client *githubclient.Client, o
 	}
 	headSHA, err := resolvePullRequestHeadSHA(ctx, client, owner, repoName, prNumber)
 	if err != nil || strings.TrimSpace(headSHA) == "" {
-		return "unverifiable"
+		return codebaseContextReasonUnverifiable
 	}
 	if !strings.EqualFold(localHead, strings.TrimSpace(headSHA)) {
 		return "head"
@@ -267,6 +276,12 @@ func codebaseContextOmittedNotice(language, reason string) string {
 			why = "o HEAD do checkout local não corresponde ao commit revisado do pull request"
 		} else {
 			why = "the local checkout's HEAD does not match the pull request's reviewed commit"
+		}
+	case codebaseContextReasonDirty:
+		if ptBR {
+			why = "o checkout local tem alterações não commitadas, arquivos não rastreados ou conteúdo que não corresponde ao commit revisado"
+		} else {
+			why = "the local checkout has uncommitted changes, untracked files, or content that does not match the reviewed commit"
 		}
 	default:
 		if ptBR {
