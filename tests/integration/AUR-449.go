@@ -198,20 +198,27 @@ func IntegrationAUR449(t *testing.T) {
 		t.Fatalf("an explicit unavailable --modelo must fail before any output, got:\n%s", modOut)
 	}
 
-	// 5. Without --seguranca, the pre-existing no-provider refusal is
-	// untouched.
+	// 5. Without --seguranca, no provider at all: AUR-547/AUR-490. AUR-490
+	// (done, integrated after this card) dropped this guard's old
+	// "&& *seguranca" requirement in cmd/aurumcode/main.go (that card's own
+	// comment: "AUR-490 drops this guard's old `&& *seguranca`
+	// requirement"), so a bare `review --base` with no provider now exits
+	// 0 (deterministic analysis, decided by --fail-on) and carries the
+	// skip note on stderr REGARDLESS of --seguranca, instead of the old
+	// unconditional exit 1 with empty stdout and no note. This replaces
+	// that pre-AUR-490 assertion, which AUR-490 revoked.
 	plainOut, plainErr, code := run(nil, "review", "--base", "HEAD~1")
-	if code != 1 {
-		t.Fatalf("expected exit 1 without --seguranca and without a provider, got %d", code)
+	if code != 0 {
+		t.Fatalf("expected exit 0 without --seguranca and without a provider, got %d\nstdout=%s\nstderr=%s", code, plainOut, plainErr)
 	}
-	if plainOut != "" {
-		t.Fatalf("expected no stdout, got:\n%s", plainOut)
+	if plainOut == "" {
+		t.Fatalf("expected the AUR-490 summary/diagram block on stdout, got empty")
 	}
 	if !strings.Contains(plainErr, "no LLM provider configured") {
 		t.Fatalf("expected the pre-existing AUR-430 error text, got:\n%s", plainErr)
 	}
-	if strings.Contains(plainErr, "quality review skipped") {
-		t.Fatalf("the AUR-449 skip note must never appear without --seguranca, got:\n%s", plainErr)
+	if !strings.Contains(plainErr, "quality review skipped") {
+		t.Fatalf("expected the AUR-449 skip note (AUR-490 made it unconditional on the provider, not on --seguranca), got:\n%s", plainErr)
 	}
 
 	// 6. The secret canary never reaches a sink on the skip path.
