@@ -290,8 +290,8 @@ run_mut001() {
   cp "$repo_root/tests/acceptance/AUR-443.sh" "$root/tests/acceptance/AUR-443.sh"
   chmod u+w -- "$root/tests/acceptance/AUR-443.sh"
 
-  grep -Fq 'copy "$root" pkg/types' "$root/tests/acceptance/AUR-443.sh" || infra 'MUT-001/anchor-absent'
-  sed -i 's#copy "\$root" pkg/types#copy "$root" cmd/regenerate-docs\n  copy "$root" pkg/types#' "$root/tests/acceptance/AUR-443.sh"
+  grep -Fxq '  copy "$root" pkg' "$root/tests/acceptance/AUR-443.sh" || infra 'MUT-001/anchor-absent'
+  sed -i 's#^  copy "\$root" pkg$#  copy "$root" cmd/regenerate-docs\n  copy "$root" pkg#' "$root/tests/acceptance/AUR-443.sh"
   grep -Fq 'copy "$root" cmd/regenerate-docs' "$root/tests/acceptance/AUR-443.sh" || infra 'MUT-001/mutation-not-applied'
 
   local out="$run_dir/mut001.out" rc
