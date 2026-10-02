@@ -175,5 +175,13 @@ printf '{"issues":[],"summary":"Nothing to report."}' >"$clean_fixture"
 run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$clean_fixture"
 [[ "$rc" -eq 0 ]] || fail "review_regression:exit:$rc"
 [[ "$(tail -n1 "$run_dir/out.stdout")" == "No issues found." ]] || fail review_contract_changed
+# A reviewer found that tail -n1 alone lets a discarded finding leak
+# earlier in stdout undetected (a planted finding line before "No issues
+# found." keeps this check green). Zero findings means ZERO lines shaped
+# like a finding ("<file>:<line>: [<severity>] ...") anywhere in stdout,
+# not just that the last line is the right string.
+if grep -Eq '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout"; then
+  fail review_contract_leaked_finding
+fi
 
 printf '%s/AC-001/E2EAUR443/ok\n' "$card"

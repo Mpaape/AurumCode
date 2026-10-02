@@ -119,6 +119,13 @@ want_happy_tail='config/demo-tokens.txt:4: [error] A credential-shaped value was
 [[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy_tail" ]] || fail happy_path_stdout_regressed
 grep -Fq '```mermaid' "$run_dir/out.stdout" || fail happy_path_missing_summary_block
 [[ ! -s "$run_dir/out.stderr" ]] || fail "happy_path_stderr_not_empty:$(cat "$run_dir/out.stderr")"
+# A reviewer found that tail -n1 alone lets an EXTRA, undetected finding
+# line leak earlier in stdout (a second planted finding before the real
+# one keeps this check green). Exactly one finding went in, so exactly
+# one line shaped like a finding ("<file>:<line>: [<severity>] ...") may
+# appear anywhere in stdout.
+finding_lines="$(grep -Ec '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout")"
+[[ "$finding_lines" -eq 1 ]] || fail "happy_path_wrong_finding_line_count:$finding_lines"
 
 # --- 3. Mixed discard: stdout hides ungrounded findings, stderr names how many and why. ---
 
@@ -212,6 +219,18 @@ run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$all_discarded_f
 # AUR-542: AUR-490 prepends the summary/diagram block here too (see the
 # "happy path" comment above); "No issues found." is still the exact tail.
 [[ "$(tail -n1 "$run_dir/out.stdout")" == "No issues found." ]] || fail all_discarded_stdout_regressed
+# A reviewer found that tail -n1 alone lets the discarded finding itself
+# leak onto an earlier stdout line undetected. Every finding here was
+# discarded, so stdout must carry zero finding-shaped lines AND must not
+# name the discarded finding's own text (this card's own exact leak
+# mutation: printing "config/demo-tokens.txt:4: [error] no rule_id at
+# all" before "No issues found." must fail this check).
+if grep -Eq '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout"; then
+  fail all_discarded_stdout_leaked_finding
+fi
+if grep -Fq 'no rule_id at all' "$run_dir/out.stdout"; then
+  fail all_discarded_stdout_leaked_finding
+fi
 want_all_discarded_stderr='aurumcode review: 1 finding(s) discarded: 1 with no rule_id'
 [[ "$(cat "$run_dir/out.stderr")" == "$want_all_discarded_stderr" ]] || fail all_discarded_stderr_missing
 
