@@ -132,10 +132,30 @@ readonly -a detail_checks=(
   'AUR-481|E2EAUR481|0|e2e-ok'
 )
 
+# has_git is true only when a git BINARY is on PATH. The sealed
+# go-unit-offline-v1 profile's own image has none (measured directly: its
+# own tests/integration/AUR-443.go subtest "git-binary backend" prints
+# "no git binary on PATH in this environment: skipping..."), while the
+# go-shared dev container this card was built against does. That one
+# difference changes TestAUR443IntegrationBridge's own outcome (it
+# compares pure-Go vs git-binary output; with no git binary the
+# git-binary-backend half of the comparison -- and the subtest this card
+# measured RED against, "a_valid_ref_still_resolves_and_reviews_normally_
+# on_both_backends" -- never runs the branch that hits the AUR-490 stdout
+# mismatch), so IntegrationAUR443 is GREEN under the sealed profile and
+# RED under go-shared. Both are real, both are out of this card's paths
+# (tests/integration/AUR-443.go) either way -- this just keeps the pin
+# honest across the two environments this card is run in, documented in
+# docs/specs/AUR-547.md.
+has_git() { command -v git >/dev/null 2>&1; }
+
 run_detail_checks() {
   local any_bad=0 entry name sel want_rc want_tag last
   for entry in "${detail_checks[@]}"; do
     IFS='|' read -r name sel want_rc want_tag <<<"$entry"
+    if [[ "$name/$sel" == 'AUR-443/IntegrationAUR443' ]] && ! has_git; then
+      want_rc=0; want_tag='ok'
+    fi
     run_nested "$name" "$sel"
     if [[ "$n_rc" -eq 79 || "$n_rc" -eq 69 ]]; then
       cat "$n_out" >&2
