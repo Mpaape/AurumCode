@@ -223,6 +223,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		}
 	}
 	inlineComments := reviewConfig.Review.InlineComments || naLinha
+	// AUR-476: capture the paths the repository config explicitly hides
+	// before the filter drops them, so the published coverage notice can
+	// name the ignored count and its cause. The raw count is the coverage
+	// denominator when config hid files the prompt builder never measured.
+	ignoredPaths := ignoredDiffPaths(diff, reviewConfig)
+	rawDiffFileCount := len(diff.Files)
 	diff = config.FilterIgnoredPaths(diff, reviewConfig)
 
 	// AUR-499: the release section is opt-in (review.changelog, off by default;
@@ -474,6 +480,16 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
 	suppressOperationalStrengths(diff, result)
 	result.Limitations = filterLimitationsAgainstDiff(diff, result.Limitations)
+	// AUR-476: the deterministic coverage notice is added AFTER
+	// filterLimitationsAgainstDiff on purpose. That filter removes a model
+	// limitation that names a changed path as "unavailable"; this notice is
+	// not model output -- it is derived from the diff, the base-ref config
+	// and the prompt builder's own coverage metadata -- so it must survive
+	// even though it names filtered paths. It is present even when the model
+	// claims complete coverage (AC-003).
+	if notice := coverageNotice(reviewCopyFor(reviewLanguage), mergeReviewCoverage(result.Metadata, nil, rawDiffFileCount, ignoredPaths)); notice != "" {
+		result.Limitations = append(result.Limitations, notice)
+	}
 	if changelogLimitation != "" {
 		result.Limitations = append(result.Limitations, changelogLimitation)
 	}
@@ -1461,6 +1477,11 @@ type reviewCopy struct {
 	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings     string
 	qualityIncomplete                                                                  string
 	suggestionApplicable, suggestionNotApplicable                                      string
+	// coverageHeading and the coverage* templates render AUR-476's
+	// deterministic "this review was partial" notice. Each reason a file was
+	// not covered gets its own sentence; coverageSummary names the count and
+	// the denominator so the reader sees how much of the diff actually ran.
+	coverageHeading, coverageSummary, coveragePartial, coverageBudget, coverageIgnored, coverageFiltered string
 }
 
 func reviewCopyFor(language string) reviewCopy {
@@ -1476,6 +1497,12 @@ func reviewCopyFor(language string) reviewCopy {
 			qualityIncomplete:       "A revisão por modelo não foi concluída. Apenas as verificações determinísticas produziram resultado; este parecer não aprova a mudança.",
 			suggestionApplicable:    "Substituição aplicável em `%s`.",
 			suggestionNotApplicable: "Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.",
+			coverageHeading:         "Cobertura da revisão",
+			coverageSummary:         "%d de %d arquivo(s) do diff foram cobertos; %d não foram revisados por completo.",
+			coveragePartial:         "%d arquivo(s) tiveram parte dos trechos omitida pelo limite de tokens; os achados podem não cobrir os trechos omitidos.",
+			coverageBudget:          "%d arquivo(s) ficaram fora da revisão pelo limite de tokens.",
+			coverageIgnored:         "%d arquivo(s) foram ocultados da revisão pela configuração `ignore` do repositório; a ausência deles no contexto NÃO prova que não existam no diff.",
+			coverageFiltered:        "%d arquivo(s) foram filtrados antes da revisão (binário ou grande demais).",
 		}
 	}
 	return reviewCopy{
@@ -1489,6 +1516,12 @@ func reviewCopyFor(language string) reviewCopy {
 		qualityIncomplete:       "The model review did not complete. Only deterministic checks produced results; this review does not approve the change.",
 		suggestionApplicable:    "Applicable replacement at `%s`.",
 		suggestionNotApplicable: "Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.",
+		coverageHeading:         "Review coverage",
+		coverageSummary:         "%d of %d file(s) in the diff were covered; %d were not fully reviewed.",
+		coveragePartial:         "%d file(s) had some hunks omitted by the token budget; findings may miss those hunks.",
+		coverageBudget:          "%d file(s) were left out of the review by the token budget.",
+		coverageIgnored:         "%d file(s) were hidden from the review by the repository `ignore` config; their absence from the reviewed context is NOT proof they are absent from the diff.",
+		coverageFiltered:        "%d file(s) were filtered before the review (binary or too large).",
 	}
 }
 

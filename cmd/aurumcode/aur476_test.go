@@ -1,0 +1,273 @@
+package main
+
+// AUR-476 unit proof, in-package: the deterministic coverage pass that makes
+// partial review coverage visible to the user, on both the --base terminal
+// path and the --pr published path, with the reason and the omitted paths.
+//
+// The defect this card exists to kill was measured on a real PR: a diff that
+// contained two acceptance tests and Playwright assertions was summarized as
+// having NO automated tests, because `ignore: ["tests/**"]` removed those
+// files from the model input. The omission was configured, and the summary
+// turned "I was not shown the tests" into "there are no tests". These tests
+// pin that a configured omission is declared, by count and by path, and that
+// a model response asserting complete coverage cannot erase the declaration.
+
+import (
+	"bytes"
+	"compress/zlib"
+	"crypto/sha1"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
+)
+
+// gitObject writes a loose Git object (blob/tree/commit) into dir's object
+// store and returns its hex id. It mirrors passes_test.go's localPassFixture
+// so the coverage fixtures need no git binary, subprocess commits, or global
+// config.
+func gitObject(t *testing.T, dir, kind string, body []byte) string {
+	t.Helper()
+	payload := append([]byte(fmt.Sprintf("%s %d\x00", kind, len(body))), body...)
+	sum := sha1.Sum(payload)
+	id := hex.EncodeToString(sum[:])
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(dir, ".git", "objects", id[:2], id[2:])
+	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, compressed.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+// treeEntry renders a Git tree entry: "<mode> <name>\x00<20-byte sha>" where
+// the sha is the hex id decoded back to raw bytes.
+func treeEntry(t *testing.T, mode, name, hexID string) []byte {
+	t.Helper()
+	raw, err := hex.DecodeString(hexID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := append([]byte(mode+" "+name+"\x00"), raw...)
+	return out
+}
+
+// coverageFixture builds a repository whose HEAD diff (base..HEAD) changes a
+// code file and a test file, plus the .aurumcode/config.yml given. It returns
+// the fixture directory. The test file lives under tests/ so an `ignore:
+// ["tests/**"]` config hides it from the model input -- exactly the measured
+// PR #48 shape.
+func coverageFixture(t *testing.T, configYAML string) string {
+	t.Helper()
+	dir := t.TempDir()
+	write := func(name string, data []byte) {
+		t.Helper()
+		p := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	appBase := gitObject(t, dir, "blob", []byte("package demo\nfunc Change() {}\n"))
+	appHead := gitObject(t, dir, "blob", []byte("package demo\nfunc Change() {\n dbPassword := \"hunter2-super-secret\"\n _ = dbPassword\n}\n"))
+	testBase := gitObject(t, dir, "blob", []byte("package demo\n\nimport \"testing\"\n\nfunc TestOld(t *testing.T) {}\n"))
+	testHead := gitObject(t, dir, "blob", []byte("package demo\n\nimport \"testing\"\n\nfunc TestChange(t *testing.T) {\n if Change() == nil {\n  t.Fatal(\"boom\")\n }\n}\n"))
+
+	// tests/ subtree, then the root tree with entries sorted by name.
+	testsBase := gitObject(t, dir, "tree", treeEntry(t, "100644", "change_test.go", testBase))
+	testsHead := gitObject(t, dir, "tree", treeEntry(t, "100644", "change_test.go", testHead))
+	rootBody := append(treeEntry(t, "100644", "app.go", appBase), treeEntry(t, "40000", "tests", testsBase)...)
+	rootBase := gitObject(t, dir, "tree", rootBody)
+	rootHeadBody := append(treeEntry(t, "100644", "app.go", appHead), treeEntry(t, "40000", "tests", testsHead)...)
+	rootHead := gitObject(t, dir, "tree", rootHeadBody)
+
+	commit := func(tree, parent, msg string) string {
+		body := "tree " + tree + "\n"
+		if parent != "" {
+			body += "parent " + parent + "\n"
+		}
+		body += "author Fixture <fixture@example.invalid> 1 +0000\ncommitter Fixture <fixture@example.invalid> 1 +0000\n\n" + msg + "\n"
+		return gitObject(t, dir, "commit", []byte(body))
+	}
+	base := commit(rootBase, "", "base")
+	head := commit(rootHead, base, "head")
+
+	write(".git/HEAD", []byte("ref: refs/heads/main\n"))
+	write(".git/refs/heads/main", []byte(head+"\n"))
+	write(".git/config", []byte("[core]\nrepositoryformatversion = 0\nbare = false\n"))
+	write("app.go", []byte("package demo\nfunc Change() {\n dbPassword := \"hunter2-super-secret\"\n _ = dbPassword\n}\n"))
+	write("tests/change_test.go", []byte("package demo\n\nimport \"testing\"\n\nfunc TestChange(t *testing.T) {\n if Change() == nil {\n  t.Fatal(\"boom\")\n }\n}\n"))
+	if configYAML != "" {
+		write(".aurumcode/config.yml", []byte(configYAML))
+	}
+
+	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "AURUMCODE_LLM_FIXTURE", "AURUMCODE_LLM_INPUT_USD_PER_1K", "AURUMCODE_LLM_OUTPUT_USD_PER_1K"} {
+		t.Setenv(key, "")
+	}
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("AURUMCODE_CACHE_DIR", t.TempDir())
+	restore := chdir(t, dir)
+	t.Cleanup(restore)
+	return dir
+}
+
+// coverageResponse is a model answer that (falsely) claims it reviewed every
+// file. AC-003: the pipeline's coverage notice must persist even against this.
+const coverageResponse = `{"summary":"All files were reviewed in full and no automated tests are present in the change.","issues":[]}`
+
+// TestAUR476TerminalDeclaresIgnoredCoverage covers AC-001 on the --base path:
+// a diff with a file hidden by the repository `ignore` config produces a
+// coverage notice with the count and the omitted paths on the terminal, and
+// the notice survives a model response claiming complete coverage (AC-003).
+func TestAUR476TerminalDeclaresIgnoredCoverage(t *testing.T) {
+	coverageFixture(t, "ignore:\n  - \"tests/**\"\n")
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(coverageResponse), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%s stderr=%s", code, out.String(), errOut.String())
+	}
+	stdout := out.String()
+	for _, want := range []string{
+		"Review coverage",
+		"tests/change_test.go",
+		"ignore",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("terminal coverage notice missing %q:\n%s", want, stdout)
+		}
+	}
+}
+
+// TestAUR476CompleteReviewHasNoNotice covers AC-002: with no configured
+// omission and a diff that fits, the review is complete and grows no coverage
+// notice at all.
+func TestAUR476CompleteReviewHasNoNotice(t *testing.T) {
+	coverageFixture(t, "")
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(coverageResponse), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%s stderr=%s", code, out.String(), errOut.String())
+	}
+	if strings.Contains(out.String(), "Review coverage") {
+		t.Fatalf("complete review emitted a coverage notice:\n%s", out.String())
+	}
+}
+
+// TestAUR476NoticeIsPipelineDerivedNotModelDerived covers AC-003 directly: the
+// same ignore-configured diff, with a model response that explicitly asserts
+// full coverage and the absence of tests, still carries the pipeline's notice.
+// The notice comes from mergeReviewCoverage, not from any model field.
+func TestAUR476NoticeIsPipelineDerivedNotModelDerived(t *testing.T) {
+	coverageFixture(t, "ignore:\n  - \"tests/**\"\n")
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	// A response that asserts the exact opposite of the truth.
+	response := `{"summary":"Every file, including tests, was fully reviewed. There are no automated tests in this diff.","issues":[]}`
+	if err := os.WriteFile(fixture, []byte(response), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, errOut.String())
+	}
+	stdout := out.String()
+	if !strings.Contains(stdout, "Review coverage") || !strings.Contains(stdout, "tests/change_test.go") {
+		t.Fatalf("pipeline coverage notice did not survive the model's complete-coverage claim:\n%s", stdout)
+	}
+}
+
+// TestAUR476PRDeclaresOmittedTests covers AC-004 on the --pr path: a pull
+// request that changes tests omitted by the base config's `ignore` produces a
+// published review whose body identifies the omission and never presents the
+// absence from context as proof the tests do not exist in the diff.
+func TestAUR476PRDeclaresOmittedTests(t *testing.T) {
+	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,3 @@\n package demo\n+func Change() {}\n+// trailing\n" +
+		"diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,3 @@\n package demo\n+func TestChange(t *testing.T) {}\n"
+	headConfig := "ignore:\n  - \"tests/**\"\n"
+	encodedConfig := base64.StdEncoding.EncodeToString([]byte(headConfig))
+
+	var posted struct {
+		Body string `json:"body"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48":
+			_, _ = w.Write([]byte(diffBody))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/"):
+			_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, encodedConfig)
+		case r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/reviews") || strings.HasSuffix(r.URL.Path, "/comments")):
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/reviews"):
+			// Capture the published body verbatim; the exact JSON shape is
+			// not this card's concern.
+			buf := new(bytes.Buffer)
+			_, _ = buf.ReadFrom(r.Body)
+			posted.Body = buf.String()
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":1}`))
+		default:
+			t.Fatalf("unexpected GitHub request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	response := `{"summary":"There are no automated tests in the changed set.","issues":[]}`
+	if err := os.WriteFile(fixture, []byte(response), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+	t.Setenv("AURUMCODE_GITHUB_API_URL", server.URL)
+	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")
+	t.Setenv("GITHUB_SHA", "head-sha")
+	t.Setenv("AURUMCODE_BASE_SHA", "base")
+	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
+
+	var stdout, stderr strings.Builder
+	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	if code != 0 {
+		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(posted.Body, "coverage") && !strings.Contains(posted.Body, "Cobertura") {
+		t.Fatalf("published review has no coverage declaration:\n%s", posted.Body)
+	}
+	if !strings.Contains(posted.Body, "tests/change_test.go") {
+		t.Fatalf("published review does not name the omitted test path:\n%s", posted.Body)
+	}
+}
