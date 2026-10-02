@@ -921,6 +921,35 @@ consumidor.
   do runner e controlado por quem escreveu o job, que contém o
   `.aurumcode/config.yml` de uma política central).
 
+## gate.sources: which findings count toward the gate
+
+When the central policy declares `gate`, every finding that passed the
+evidence gate (file and line inside the diff) and has no valid exception
+counts if its severity is at or above `fail_on`, whatever its origin:
+
+| origin | what it is |
+|---|---|
+| `skills` | rules from the policy's skill sections (cited by the model) |
+| `analysis` | the embedded deterministic catalog (`analysis/*`) |
+| `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`) |
+
+```yaml
+gate:
+  fail_on: [error]
+  sources: [skills, analysis, sast]   # optional; default: all three
+```
+
+`sources` is a closed list; an unknown value is an error when the config is
+loaded. Absent or empty means all origins. The central policy governs the
+list: when it declares `gate`, a repository's own `gate` (including its
+`sources`) is ignored. Analysis findings are recomputed from the diff by the
+embedded catalog, never taken from the model's answer. The origin appears in
+the gate lines of the review (parecer and stderr), in the audit
+record (`blocking_findings[].origin`, also in the reason) and in the SARIF
+result (`properties.origin`). Without a `gate`,
+nothing changes. Restricting `sources` to leave out `sast` also stops a
+declared gate from counting Semgrep findings.
+
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 
 <a id="xbom"></a>

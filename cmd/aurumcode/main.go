@@ -1354,7 +1354,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// below (the Lines/Limitations loop, publishPolicyGateStatus, the
 	// exit-code section, writeComplianceArtifacts) needs no change to
 	// also honor a SAST breach or a SAST inconclusive scan.
-	if err := applySASTGate(&gateResult, repoCfg.QualityGates.Sast, sastOrigin, sastIssues, sastReason); err != nil {
+	if err := foldGateSources(&gateResult, repoCfg, diff, sastOrigin, sastIssues, sastReason, repoIdentity, time.Now()); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
 		return 2
 	}

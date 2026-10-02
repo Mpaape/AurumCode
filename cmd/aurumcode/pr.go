@@ -824,7 +824,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// folded into the same gateResult evaluateGate just returned -- see
 	// aur548.go's own package doc for why this never goes through
 	// evaluateGate itself.
-	if err := applySASTGate(&gateResult, reviewConfig.QualityGates.Sast, sastOrigin, sastIssues, sastReason); err != nil {
+	if err := foldGateSources(&gateResult, reviewConfig, diff, sastOrigin, sastIssues, sastReason, prRepoIdentityAUR524, time.Now()); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
 		return 2
 	}

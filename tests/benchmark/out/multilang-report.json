@@ -71,10 +71,8 @@
         "low": 0.3424,
         "high": 1
       },
-      "approved_with_defect": 1,
-      "approved_with_defect_cases": [
-        "java-sqli"
-      ]
+      "approved_with_defect": 0,
+      "approved_with_defect_cases": []
     },
     {
       "language": "javascript",
@@ -144,10 +142,8 @@
         "low": 0.3424,
         "high": 1
       },
-      "approved_with_defect": 1,
-      "approved_with_defect_cases": [
-        "python-cmd"
-      ]
+      "approved_with_defect": 0,
+      "approved_with_defect_cases": []
     },
     {
       "language": "ruby",
@@ -216,11 +212,9 @@
       "low": 0.6566,
       "high": 0.9671
     },
-    "approved_with_defect": 3,
+    "approved_with_defect": 1,
     "approved_with_defect_cases": [
-      "java-sqli",
-      "php-path",
-      "python-cmd"
+      "php-path"
     ]
   }
 }
