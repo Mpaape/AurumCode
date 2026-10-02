@@ -295,6 +295,53 @@ aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
 perfil selecionado aprende o mesmo catálogo dinâmico.
 
+## SAST multilinguagem com Semgrep (AUR-548)
+
+`quality_gates.sast` liga uma varredura SAST com [Semgrep](https://semgrep.dev/)
+sobre a árvore inteira do repositório revisado (não só o diff), independente
+de `gate:` estar declarado ou não:
+
+```yaml
+# .aurumcode/config.yml (ou o config.yml da política central)
+quality_gates:
+  sast:
+    engine: semgrep             # único motor aceito hoje
+    enabled: true
+    fail_on_severity: ERROR     # critical|high/error, medium/warning, low/info; padrão ERROR
+    rule_packs: [p/security-audit, p/owasp-top-ten]   # padrão do RFC quando ausente
+```
+
+Sem `enabled: true` (ou sem a seção inteira), nada muda: Semgrep nunca é
+executado (AC-004). Cada resultado do relatório `semgrep scan --json` vira um
+achado com `rule_id` igual a `semgrep:<check_id>`, severidade mapeada
+(`ERROR`→`error`, `WARNING`→`warning`, `INFO`/outros→`info`), arquivo e linha
+— produzido inteiramente por código, depois da chamada ao modelo: a resposta
+do modelo nunca é consultada para decidir se um achado do Semgrep existe ou
+qual severidade ele tem, então uma resposta que alega ter removido ou
+rebaixado o achado não tem efeito nenhum sobre o gate (AC-005).
+
+Um achado na severidade de `fail_on_severity` ou acima reprova o gate
+(nomeando o `check_id` e a linha no parecer, na auditoria e no SARIF, AC-001);
+abaixo do limiar, o achado é publicado mas não reprova (AC-002). Semgrep
+ausente do `PATH`, com erro de execução, ou com saída que não é um relatório
+Semgrep confiável (JSON inválido, ou sem a chave `results`) nunca é lido como
+"zero achados, varredura limpa": é um achado inconclusivo próprio, que segue
+`gate.inconclusive` (`block` reprova a revisão; `warn`, ou a chave ausente,
+publica o alerta inconclusivo sem bloquear) — exatamente o mesmo
+vocabulário de inconclusivo que o gate do AUR-519 já usa (AC-003).
+
+Sob política central, `quality_gates.sast` do repositório é sempre ignorado
+por completo (com o mesmo aviso nomeado que `gate`/`rules`/`ignore` já usam):
+um repositório não consegue desligar ou afrouxar um SAST que a política
+ligou, mesmo declarando sua própria `enabled: false`.
+
+Semgrep é um processo externo: a imagem do produto o traz pré-instalado, na
+versão fixada em `.board/bootstrap/locks/scanners.yml`. Os pacotes de regras
+do registro do Semgrep (`p/security-audit`, `p/owasp-top-ten` e qualquer
+outro `p/...`) são baixados a cada execução e **exigem rede em CI** — um
+runner totalmente isolado precisa apontar `rule_packs` para arquivos de regra
+locais já presentes na imagem/checkout em vez de um nome `p/...` do registro.
+
 ## Trilha de auditoria e SARIF (AUR-521)
 
 Qualquer `aurumcode review` (`--base` ou `--pr`) pode escrever, além do que já
