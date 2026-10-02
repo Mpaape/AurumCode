@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "oci-conformance-v1",
 "lock": ".board/locks/oci/oci-conformance-v1.lock.json",
-"lock_digest": "sha256:ee5edccaac7173ed14c974707b0cb9a3dc7dbe11c66df04af1464c2e9ca4fb65",
+"lock_digest": "sha256:d8688881d55dd2c4ba33a0afa4fcafd796d639c9dab073344fcd724a44a5624b",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",
