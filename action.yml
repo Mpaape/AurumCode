@@ -51,6 +51,20 @@ outputs:
 runs:
   using: docker
   image: Dockerfile
+  # AUR-549: this standalone, Docker-container action does NOT run
+  # `aurumcode sbom` -- GitHub automatically bind-mounts the host's docker
+  # socket into a `using: docker` action's own container, but a `docker
+  # run` issued from INSIDE that container through the mounted socket
+  # creates a SIBLING container on the host daemon, which needs HOST-side
+  # paths for its own -v mounts; this container has no generic way to
+  # learn the host path behind its own /github/workspace, so the
+  # reproducible --trivy-bin wrapper documented in
+  # docs/configuration.md's "SBOM CycloneDX com Trivy" section only runs
+  # from a reusable-workflow JOB STEP (.github/workflows/review.yml),
+  # which calls `docker run` directly from the runner, never from inside
+  # a container. Until a future card solves that path-translation
+  # problem for the standalone action, SBOM generation is only wired for
+  # callers of review.yml.
   # AUR-518: the policy path reaches the CLI through the env var it already
   # falls back to (AURUMCODE_POLICY) when --politica is absent, so no change
   # to scripts/action-entrypoint.sh's fixed positional argument count is
