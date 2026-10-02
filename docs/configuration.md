@@ -451,6 +451,75 @@ repositório é ignorada por completo, com um aviso nomeando a regra e o
 caminho descartados (AC-004). O repositório sozinho não consegue criar uma
 exceção para uma regra da política.
 
+## SBOM CycloneDX com Trivy (AUR-549)
+
+`aurumcode sbom` gera um SBOM no formato OWASP CycloneDX com o Trivy:
+`trivy fs --format cyclonedx --output <arquivo> <repositório>` para o
+repositório, e, quando `--imagem`/`--image` é informado, também
+`trivy image --format cyclonedx --output <arquivo-da-imagem> <imagem>`. O
+arquivo gerado é validado (JSON, `bomFormat` = `CycloneDX`, `specVersion`
+igual ao configurado) antes de ser escrito no caminho final — um SBOM
+inválido ou vazio nunca é aceito.
+
+A configuração fica em um arquivo PRÓPRIO, `.aurumcode/quality_gates.yml`,
+não dentro do `config.yml` que `internal/config` já lê:
+
+```yaml
+quality_gates:
+  ssor_dtrack:
+    sbom_generator:
+      tool: trivy
+      format: cyclonedx
+      spec_version: "1.6"
+      output_file: sbom_app_cyclonedx.json
+```
+
+Por quê um arquivo separado: `internal/config.LoadCentralPolicy` decodifica o
+`config.yml` de uma política central com `KnownFields(true)` — qualquer
+chave desconhecida (como `quality_gates`, que esse pacote ainda não conhece)
+já faz QUALQUER `review --politica`/`--policy` falhar, mesmo numa execução
+que nada tem a ver com SBOM. Este card (AUR-549) não lista `internal/config`
+em seus `paths`, então ensinar aquele pacote sobre `quality_gates` não é uma
+decisão deste card — fica para o AUR-550 (que lista `internal/config` em
+seus `paths` e depende deste), se um dia unificar os dois arquivos. Até lá,
+`.aurumcode/quality_gates.yml` é lido só por `internal/sbom`, nunca por
+`internal/config`.
+
+Sem a seção `quality_gates.ssor_dtrack.sbom_generator` (nem no repositório
+nem, quando há política central, na política), `aurumcode sbom` não faz
+nada e sai com código 0 — nada muda no comportamento atual. `tool` só aceita
+`trivy`; `format` só aceita `cyclonedx`; qualquer outro valor é erro de
+configuração antes de qualquer chamada externa. `output_file` é relativo ao
+repositório e não pode escapar dele (sem caminho absoluto, sem `..`). O SBOM
+da imagem (quando `--imagem` é usado) é escrito ao lado do SBOM do
+repositório, com `-image` inserido antes da extensão
+(`sbom_app_cyclonedx.json` → `sbom_app_cyclonedx-image.json`).
+
+Sob uma política central (`--politica`/`--policy`, ou `AURUMCODE_POLICY`),
+só a seção `sbom_generator` DA POLÍTICA vale — exatamente como
+`rules`/`ignore`/`gate` (AUR-518): uma seção declarada apenas no repositório
+é ignorada, com um aviso em stderr, mesmo que a política não declare nada
+(o que desliga o passo para aquela execução).
+
+Falha ou ausência do Trivy, ou uma saída que não valida, segue o
+`gate.inconclusive` da MESMA política AUR-519 que já governa a revisão —
+lido de `.aurumcode/config.yml` (e, com política central,
+`LoadCentralPolicy`/`ApplyCentralPolicy`), nunca de `quality_gates.yml`.
+`gate.inconclusive: block` (ou nenhum gate declarado — este é um comando
+novo, sem comportamento legado a preservar) falha fechado; `warn` publica o
+motivo (`sbom_generation_failure`) em stderr e sai 0, nunca bloqueando.
+
+O Trivy roda como processo externo: `aurumcode sbom` nunca embute um
+binário, só resolve `trivy` via `PATH` (ou `--trivy-bin`, usado pelos testes
+para apontar a um executável falso). HOJE, nem o `Dockerfile` da imagem do
+produto, nem `action.yml`/`.github/workflows/review.yml`, instalam ou montam
+o Trivy — quem roda `aurumcode sbom` precisa ter um `trivy` já disponível no
+`PATH` (ou usar `--trivy-bin`). O caminho planejado é montar, numa etapa
+futura do workflow/Dockerfile, a imagem fixada por digest em
+`.board/bootstrap/locks/scanners.yml` (`vuln_scanner_image`), igual ao
+padrão já usado para os outros scanners do mesmo lock file; essa etapa não
+foi feita por este card (ver docs/specs/AUR-549.md, "Lacunas conhecidas").
+
 ## Opções públicas
 
 Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI

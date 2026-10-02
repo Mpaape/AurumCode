@@ -233,6 +233,10 @@ func run(args []string, stdout, stderr *os.File) int {
 		return runReview(args[1:], stdout, errW, filter)
 	case "fix":
 		return runFix(args[1:], stdout, errW)
+	case "sbom":
+		// AUR-549: standalone, config-driven SBOM generation (Trivy,
+		// CycloneDX). See aur549.go.
+		return runSBOM(args[1:], stdout, errW)
 	default:
 		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
 		return 2
