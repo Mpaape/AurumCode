@@ -25,6 +25,21 @@
 #   change to internal/prompt broke prompt assembly for an ordinary
 #   all-code diff, this goes RED.
 #
+# AUR-540 (2026-10-02): the finding fixture below gained evidence/impact/
+#   verification fields. internal/review/scope.go::filterModelIssues (the
+#   scope-and-evidence gate, unrelated to and already in done state before
+#   this card) discards any model finding missing one of those three
+#   fields, regardless of severity or rule_id. The old fixture had none of
+#   them, so the fixture's own finding was silently discarded and `review`
+#   exited 0 (clean) instead of 3 (exitFindings), reporting
+#   no-regression-gate-exit:0. That gate is outside this card's paths
+#   (internal/review is read_paths only here) and is not part of what
+#   AUR-467 promised (prose-vs-code classification); the fixture simply
+#   predated a finding-shape contract that tightened after AUR-467 shipped.
+#   Carrying the three fields is the fix: it restores the fixture to a
+#   well-formed model response under the CURRENT contract without touching
+#   internal/review or weakening AUR-467's own exclusion/coverage promise.
+#
 # EXIT CODES (tests/acceptance/EXIT_CODE_CONVENTION.md):
 #   0 = the promised property holds
 #   1 = behavioral RED
@@ -78,7 +93,10 @@ cat >"$run_dir/fixtures/finding.json" <<'EOF'
       "severity": "error",
       "rule_id": "security/command-injection",
       "message": "user input reaches a shell",
-      "suggestion": "pass an argument vector"
+      "suggestion": "pass an argument vector",
+      "evidence": "linha 4 concatena uma variavel de ambiente direto na string de comando",
+      "impact": "um valor hostil na variavel vira comando arbitrario no shell",
+      "verification": "reexecutar com um valor contendo ; e confirmar que nao e mais interpretado pelo shell"
     }
   ],
   "summary": "one finding"
