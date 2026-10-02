@@ -13,7 +13,7 @@ import (
 func TestApplyCentralPolicyQualityGatesPerSection(t *testing.T) {
 	repo := &Config{
 		QualityGates: QualityGatesConfig{
-			Sast:       &SastConfig{Enabled: true},
+			Sast:       &SastConfig{},
 			SsorDtrack: &SsorDtrackConfig{Enabled: true, ServerAPIHost: "https://repo-controlled.example.invalid"},
 		},
 	}
@@ -28,8 +28,8 @@ func TestApplyCentralPolicyQualityGatesPerSection(t *testing.T) {
 	if effective.QualityGates.SsorDtrack == nil || effective.QualityGates.SsorDtrack.ServerAPIHost != "https://policy.example.invalid" {
 		t.Fatalf("ssor_dtrack: a repository must not be able to redirect a policy-enabled section's own server_api_host, got %+v", effective.QualityGates.SsorDtrack)
 	}
-	if effective.QualityGates.Sast == nil || !effective.QualityGates.Sast.Enabled {
-		t.Fatalf("sast: a section the policy never mentions must survive from the repo's own config untouched, got %+v", effective.QualityGates.Sast)
+	if effective.QualityGates.Sast != repo.QualityGates.Sast {
+		t.Fatalf("sast: a section the policy never mentions must survive from the repo's own config untouched (same pointer), got %+v", effective.QualityGates.Sast)
 	}
 	found := false
 	for _, w := range warnings {
@@ -56,7 +56,7 @@ func TestApplyCentralPolicyQualityGatesPolicySilentKeepsRepo(t *testing.T) {
 	}
 	central := &Config{
 		QualityGates: QualityGatesConfig{
-			Sast: &SastConfig{Enabled: true},
+			Sast: &SastConfig{},
 		},
 	}
 
