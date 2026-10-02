@@ -133,19 +133,26 @@ func TestDefaultConfigKeepsMixedCodeDiffInPrompt(t *testing.T) {
 	}
 }
 
-// TestAUR517DegradedParseSummaryPinnedToParser pins reviewer.go's
-// degradedParseSummary constant to the exact string internal/prompt's
-// ResponseParser actually produces for a free-form (non-JSON) reply that
-// still matches its degraded-recovery line pattern. internal/prompt is
-// read-only for this card, so this is the regression that catches any
-// drift between the two copies of that literal.
+// TestAUR517DegradedParseSummaryPinnedToParser pins internal/review's own
+// degraded-parse exception (GenerateReviewWithContext's
+// prompt.IsDegradedParse check) to what internal/prompt's ResponseParser
+// actually produces for a free-form (non-JSON) reply that still matches its
+// degraded-recovery line pattern. AUR-519 unified both packages onto a
+// single exported source of truth (prompt.DegradedParseSummary /
+// prompt.IsDegradedParse), so this is no longer a two-literal drift guard --
+// it instead guards that the exported predicate still fires on the parser's
+// own real output, which is what this package's exception actually depends
+// on.
 func TestAUR517DegradedParseSummaryPinnedToParser(t *testing.T) {
 	result, err := prompt.NewResponseParser().ParseReviewResponse("config/demo-tokens.txt:3: warning: looks suspicious")
 	if err != nil {
 		t.Fatalf("ParseReviewResponse: %v", err)
 	}
-	if result.Summary != degradedParseSummary {
-		t.Fatalf("degradedParseSummary is stale: parser produced %q, constant holds %q", result.Summary, degradedParseSummary)
+	if !prompt.IsDegradedParse(result) {
+		t.Fatalf("prompt.IsDegradedParse did not detect the parser's own degraded-recovery path (Summary=%q)", result.Summary)
+	}
+	if result.Summary != prompt.DegradedParseSummary {
+		t.Fatalf("result.Summary = %q, want prompt.DegradedParseSummary", result.Summary)
 	}
 }
 
@@ -173,7 +180,7 @@ func TestAUR517DegradedParseNoticeSurvivesFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateReview failed: %v", err)
 	}
-	if result.Summary != degradedParseSummary {
+	if result.Summary != prompt.DegradedParseSummary {
 		t.Fatalf("degraded-parse notice was lost: got %q", result.Summary)
 	}
 	if len(result.Issues) != 0 {
