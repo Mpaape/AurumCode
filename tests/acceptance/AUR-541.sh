@@ -83,28 +83,57 @@ trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 discard_log="$run_dir/discard.log"
 : >"$discard_log"
 
+# Every e2e script this program drives falls back to its OWN per-run
+# GOCACHE/GOTMPDIR only when neither is already set (`: "${GOCACHE:=...}"`).
+# Exporting a single shared pair here, before any script runs, means every
+# `go build` after the first one for the same source is a cache hit instead
+# of a cold recompile -- this is what keeps ~20 sequential e2e builds well
+# under the go-unit-offline-v1 profile's 600s budget.
+mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
+export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+
 # A `go` shim placed first on PATH: it passes every invocation through to
-# the real `go` unchanged, except that after a successful `go build -o X
-# ...` it moves the built binary to X.aur541real and writes X as a small
-# wrapper that runs it, replays its stdout and stderr untouched to its own
+# the real `go` unchanged, except for `go build -o X ...`. There it first
+# checks a shared binary cache (keyed by the build arguments with the -o
+# path itself excluded, plus the current GOFLAGS) and, on a hit, copies
+# the already-built binary into place instead of invoking the compiler at
+# all -- a second, cheaper-than-GOCACHE layer of reuse across the ~20
+# e2e scripts, every one of which builds the identical ./cmd/aurumcode
+# package. On a miss it builds once, seeds the shared cache, then -- hit
+# or miss -- moves the binary to X.aur541real and writes X as a wrapper
+# that runs it, replays its stdout and stderr untouched to its own
 # caller, and ALSO appends any scope-gate discard line to a fixed log path
 # baked into the wrapper's text -- so the line survives even when the
 # calling e2e script redirects the binary's stderr into a temp file it
 # deletes before this program ever gets to look at it.
 shim_dir="$run_dir/shimbin"
-mkdir -p "$shim_dir"
+bin_share_dir="$run_dir/binshare"
+mkdir -p "$shim_dir" "$bin_share_dir"
 cat >"$shim_dir/go" <<'SHIM'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "${1:-}" == "build" ]]; then
   out=""
   prev=""
+  key_args=()
   for a in "$@"; do
-    if [[ "$prev" == "-o" ]]; then out="$a"; fi
+    if [[ "$prev" == "-o" ]]; then out="$a"; key_args+=("-o" "__OUT__"); prev="$a"; continue; fi
+    key_args+=("$a")
     prev="$a"
   done
-  "__REAL_GO__" "$@"
-  rc=$?
+  key="$(printf '%s\0' "${key_args[@]}" "GOFLAGS=${GOFLAGS:-}" | sha256sum | awk '{print $1}')"
+  cached="__BIN_SHARE__/$key"
+  rc=0
+  if [[ -n "$out" && -x "$cached" ]]; then
+    cp -f -- "$cached" "$out"
+    chmod +x -- "$out"
+  else
+    "__REAL_GO__" "$@"
+    rc=$?
+    if [[ $rc -eq 0 && -n "$out" && -x "$out" ]]; then
+      cp -f -- "$out" "$cached.tmp" && mv -f -- "$cached.tmp" "$cached"
+    fi
+  fi
   if [[ $rc -eq 0 && -n "$out" && -x "$out" ]]; then
     mv -f -- "$out" "$out.aur541real"
     {
@@ -124,7 +153,7 @@ else
   exec "__REAL_GO__" "$@"
 fi
 SHIM
-sed -i "s|__REAL_GO__|$real_go|g; s|__DISCARD_LOG__|$discard_log|g" "$shim_dir/go"
+sed -i "s|__REAL_GO__|$real_go|g; s|__DISCARD_LOG__|$discard_log|g; s|__BIN_SHARE__|$bin_share_dir|g" "$shim_dir/go"
 chmod +x "$shim_dir/go"
 
 # Every tests/e2e/*.sh that feeds AURUMCODE_LLM_FIXTURE a real value (a
