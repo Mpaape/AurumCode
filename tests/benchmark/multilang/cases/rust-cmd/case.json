@@ -1,0 +1,9 @@
+{
+  "id": "rust-cmd",
+  "language": "rust",
+  "file": "run.rs",
+  "label": "defect",
+  "rule": "command-injection",
+  "line": 4,
+  "simulated_model": "hit"
+}

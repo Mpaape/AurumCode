@@ -1,0 +1,9 @@
+{
+  "id": "csharp-hash",
+  "language": "csharp",
+  "file": "Hasher.cs",
+  "label": "defect",
+  "rule": "weak-hash",
+  "line": 5,
+  "simulated_model": "hit"
+}

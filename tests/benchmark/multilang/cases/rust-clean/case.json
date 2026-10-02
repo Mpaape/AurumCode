@@ -1,0 +1,8 @@
+{
+  "id": "rust-clean",
+  "language": "rust",
+  "file": "safe.rs",
+  "label": "clean",
+  "simulated_model": "false_alarm",
+  "false_alarm_line": 4
+}

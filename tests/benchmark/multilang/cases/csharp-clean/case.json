@@ -1,0 +1,8 @@
+{
+  "id": "csharp-clean",
+  "language": "csharp",
+  "file": "Safe.cs",
+  "label": "clean",
+  "simulated_model": "silent",
+  "false_alarm_line": 0
+}

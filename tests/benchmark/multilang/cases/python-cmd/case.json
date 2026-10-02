@@ -1,0 +1,9 @@
+{
+  "id": "python-cmd",
+  "language": "python",
+  "file": "run.py",
+  "label": "defect",
+  "rule": "command-injection",
+  "line": 4,
+  "simulated_model": "miss"
+}
