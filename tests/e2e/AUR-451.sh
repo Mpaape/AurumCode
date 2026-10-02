@@ -262,20 +262,39 @@ start_fake write "$log2" "$run_dir/seguranca_only.url"
 run_review "$FAKE_URL" "$fixture_empty" "$sha1" --seguranca
 [[ "$rc" -eq 0 ]] || fail "seguranca_only_wrong_exit:$rc"
 grep -Fq 'rule security/hardcoded-secret' "$run_dir/out.stdout" || fail seguranca_only_missing_finding
-[[ "$(grep -c "^POST " "$log2")" -eq 1 ]] || fail seguranca_only_wrong_post_count
+# AUR-542: in "comments" publication mode (the default), cmd/aurumcode/pr.go
+# always posts the review summary via PostIssueComment after the per-issue
+# loop, regardless of how many issues there were -- AUR-439.sh's own
+# "Scenario 3" comment names this explicitly ("the summary review comment,
+# always posted in the comments mode"). So one inline finding here means
+# two POSTs total: the inline comment plus the unconditional summary.
+[[ "$(grep -c "^POST " "$log2")" -eq 2 ]] || fail seguranca_only_wrong_post_count
 
 ## Scenario 3: the pre-AUR-451 contract, no new flags at all, against this
 ## same vulnerable diff. Nothing but --seguranca can ever see the planted
-## secret, so this must still report "No issues found." and post nothing
-## -- proving the fix is additive, not a behavior change on the existing
-## surface.
+## secret, so zero findings must still be published -- proving the fix is
+## additive, not a behavior change on the existing surface. AUR-542, two
+## corrections, both pre-existing and unrelated to this card's own fixes:
+## (1) "No issues found." was never the --pr path's stdout contract --
+## cmd/aurumcode/pr.go's comments-mode branch never writes that string,
+## or any zero-finding prose, to stdout at all (only the per-issue lines
+## and the final "N comentario(s) publicado(s)..." count line); that
+## wording is the --base path's own contract (AUR-439.sh's own "Scenario
+## 3" comment already says so: "the 'No issues found.' string is the
+## --base path's stdout contract, not this one"). The zero-finding count
+## line is this path's actual, checkable "nothing found" signal. (2)
+## "post nothing" is updated to "post only the unconditional summary"
+## (see the comment on scenario 2 above); zero ISSUE-carrying posts is
+## the actual pre-AUR-451 contract this scenario protects.
 log3="$run_dir/plain.log"
 start_fake write "$log3" "$run_dir/plain.url"
 run_review "$FAKE_URL" "$fixture_empty" "$sha1"
 [[ "$rc" -eq 0 ]] || fail "plain_wrong_exit:$rc"
-grep -Fq 'No issues found.' "$run_dir/out.stdout" || fail plain_missing_no_issues
-if grep -q '^POST ' "$log3"; then
-  fail plain_post_leaked
+grep -Fq '0 comentario(s) publicado(s) no pull request #42 (0 na linha, 0 geral).' "$run_dir/out.stdout" \
+  || fail plain_missing_zero_count
+[[ "$(grep -c "^POST " "$log3")" -eq 1 ]] || fail plain_post_leaked
+if grep -q '^POST /repos/dono/projeto/pulls/42/comments ' "$log3"; then
+  fail plain_inline_post_leaked
 fi
 
 ## Scenario 4: --limite far below the diff's cost refuses before any

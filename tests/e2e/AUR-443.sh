@@ -3,8 +3,18 @@
 # it the way a user who has never read the source would -- `--help`,
 # `--version`, `review --help`, a first review with no provider configured,
 # a ref that does not resolve, and outside any git repository -- then
-# confirm review --base's and docs's published output are untouched. See
+# confirm review --base's published output is untouched. See
 # docs/specs/AUR-443.md.
+#
+# AUR-542: the `docs` subcommand and cmd/regenerate-docs were removed by
+# commit 670c7f6 ("Focus AurumCode on code review and publish interactive
+# documentation"), well before this card, as a deliberate product pivot
+# (AUR-490's done-card record treats that removal as already settled
+# fact). Every assertion below that named `docs` tested a subcommand that
+# no longer exists; those assertions are removed here as outdated, not
+# retired wholesale, because the rest of this script's coverage (--help,
+# --version, no-provider message, bad ref, not-a-repo) is still the
+# product's real contract. See docs/specs/AUR-542.md.
 set -euo pipefail
 export LC_ALL=C
 
@@ -79,7 +89,6 @@ run_bin "$repo_root" --help
 [[ "$rc" -eq 0 ]] || fail "help_failed:exit:$rc"
 [[ -s "$run_dir/out.stderr" ]] && fail help_wrote_stderr
 grep -Fq 'review' "$run_dir/out.stdout" || fail help_missing_review
-grep -Fq 'docs' "$run_dir/out.stdout" || fail help_missing_docs
 grep -Fq 'aurumcode review --base HEAD~1' "$run_dir/out.stdout" || fail help_missing_example
 help_stdout="$(cat "$run_dir/out.stdout")"
 
@@ -103,29 +112,29 @@ for arg in --version version; do
   grep -Fq 'aurumcode ' "$run_dir/out.stdout" || fail "${arg}_missing_prefix"
 done
 
-# --- 3. One --help convention across review and docs. ---
+# --- 3. review --help's convention: stdout, exit 0. ---
 
 run_bin "$repo_root" review --help
 [[ "$rc" -eq 0 ]] || fail "review_help_wrong_exit:$rc"
 [[ -s "$run_dir/out.stderr" ]] && fail review_help_wrote_stderr
 grep -Fq -- '-base' "$run_dir/out.stdout" || fail review_help_missing_flags
 
-run_bin "$repo_root" docs --help
-[[ "$rc" -eq 0 ]] || fail "docs_help_wrong_exit:$rc"
-[[ -s "$run_dir/out.stderr" ]] && fail docs_help_wrote_stderr
-grep -Fq 'usage: aurumcode docs' "$run_dir/out.stdout" || fail docs_help_missing_usage
+# A genuine usage error is still stderr + exit 2.
+run_bin "$repo_root" review --this-flag-does-not-exist
+[[ "$rc" -eq 2 ]] || fail "review_usage_error_wrong_exit:$rc"
+[[ -s "$run_dir/out.stdout" ]] && fail review_usage_error_wrote_stdout
 
-# A genuine usage error, for both subcommands, is still stderr + exit 2.
-for sub in review docs; do
-  run_bin "$repo_root" "$sub" --this-flag-does-not-exist
-  [[ "$rc" -eq 2 ]] || fail "${sub}_usage_error_wrong_exit:$rc"
-  [[ -s "$run_dir/out.stdout" ]] && fail "${sub}_usage_error_wrote_stdout"
-done
-
-# --- 4. First run, no provider configured: the message shows the fixture shape. ---
+# --- 4. First run, no provider configured: the message shows the fixture
+# shape. AUR-542: AUR-490 (done, integrated before this card) made a bare
+# `review --base` without a provider exit 0 (deterministic analysis only)
+# instead of 1 unconditionally; see that card's done-record and
+# cmd/aurumcode/main.go's AUR-490 comment. The fixture-shape teaching
+# text this scenario checks is restored in that same function's
+# qualitySkipped branch (see its AUR-542 comment) -- AUR-490's own short
+# skip note did not carry it. ---
 
 run_bin "$repo_dir" review --base HEAD~1
-[[ "$rc" -eq 1 ]] || fail "no_provider_wrong_exit:$rc"
+[[ "$rc" -eq 0 ]] || fail "no_provider_wrong_exit:$rc"
 grep -Fq 'no LLM provider configured' "$run_dir/out.stderr" || fail no_provider_message_missing
 grep -Fq 'tests/fixtures/review/known-problem-response.json' "$run_dir/out.stderr" || fail no_provider_missing_fixture_pointer
 grep -Fq '"severity"' "$run_dir/out.stderr" || fail no_provider_missing_fixture_shape
@@ -153,19 +162,18 @@ run_bin "$repo_dir" review --base does-not-exist-e2e
 grep -Fq 'ref "does-not-exist-e2e" not found' "$run_dir/out.stderr" || fail bad_ref_message_missing
 grep -Fq 'no such file or directory' "$run_dir/out.stderr" && fail bad_ref_leaked_filesystem_path
 
-# --- 7. review --base's published contract, and docs's, are untouched. ---
+# --- 7. review --base's published contract: zero findings still ends in
+# "No issues found." as the exact last line. AUR-542: AUR-490 (done,
+# integrated before this card) made this prepend a summary/diagram block
+# UNCONDITIONALLY (AC-002), with or without a provider, so stdout is no
+# longer the byte-identical lone string this used to check -- measured
+# directly, not inferred, by running this exact scenario on main before
+# this card. ---
 
 clean_fixture="$run_dir/response-clean.json"
 printf '{"issues":[],"summary":"Nothing to report."}' >"$clean_fixture"
 run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$clean_fixture"
 [[ "$rc" -eq 0 ]] || fail "review_regression:exit:$rc"
-[[ "$(cat "$run_dir/out.stdout")" == "No issues found." ]] || fail review_contract_changed
-
-goproject_dir="$repo_root/tests/fixtures/docs/goproject"
-if [[ -d "$goproject_dir" ]]; then
-  run_bin "$repo_root" docs --source "$goproject_dir" --output "$run_dir/site"
-  [[ "$rc" -eq 0 ]] || fail "docs_regression:exit:$rc"
-  grep -Fq 'Generated' "$run_dir/out.stdout" || fail docs_contract_changed
-fi
+[[ "$(tail -n1 "$run_dir/out.stdout")" == "No issues found." ]] || fail review_contract_changed
 
 printf '%s/AC-001/E2EAUR443/ok\n' "$card"
