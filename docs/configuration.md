@@ -686,6 +686,90 @@ canais, mesmo quando o próprio servidor a devolve no corpo de um erro.
 Não-objetivo desta seção: gerar o SBOM (AUR-549, seção acima) e administrar
 projetos no servidor Dependency-Track.
 
+## Assinatura com Sigstore/Cosign (AUR-551)
+
+`aurumcode sign` assina o SBOM gerado (AUR-549) e/ou a imagem do artefato com
+[Cosign](https://docs.sigstore.dev/cosign/overview/), chamando o binário
+externo indicado por `--cosign-bin` (padrão: `cosign`, resolvido via `PATH`).
+A configuração fica em `quality_gates.supply_chain`, o MESMO
+`.aurumcode/config.yml` que `sast`/`ssor_dtrack` já usam:
+
+```yaml
+quality_gates:
+  supply_chain:
+    engine: cosign
+    sign_sbom: true
+    sign_artifacts: true
+    artifacts: ["ghcr.io/org/app@sha256:<64 hex>"]
+```
+
+Sem a seção `quality_gates.supply_chain` (nem no repositório nem, quando há
+política central, na política), `aurumcode sign` não faz nada e sai com
+código 0 — nada muda no comportamento atual (AC-003). `engine` só aceita
+`cosign`; qualquer outro valor, incluindo a string vazia numa seção
+declarada, é erro de configuração antes de qualquer chamada ao Cosign. Cada
+referência de imagem (em `artifacts`, ou em `--image` na linha de comando)
+precisa vir fixada por digest (`@sha256:<64 hex>`); uma tag sozinha
+(`:latest`, `:v1`, ou nenhuma tag) é recusada — fixar por digest é o que
+garante que a imagem assinada é exatamente a que foi escaneada, nunca uma
+substituída depois por um push posterior na mesma tag.
+
+Flags do subcomando:
+
+| Flag | Efeito |
+|---|---|
+| `--repo` | Raiz do repositório cuja configuração governa a assinatura (padrão: diretório atual) |
+| `--politica`, `--policy` | Diretório de uma política central, mesma convenção de `sbom --politica` (padrão: `AURUMCODE_POLICY`) |
+| `--cosign-bin` | Caminho do binário do Cosign (padrão: `cosign`, resolvido via `PATH`) |
+| `--sbom` | Arquivo do SBOM a assinar; repita para mais de um. Sem a flag, usa `quality_gates.ssor_dtrack.sbom_generator.output_file` quando `sign_sbom` está ligado |
+| `--image` | Referência de imagem fixada por digest a assinar; repita para mais de uma. Sem a flag, usa `quality_gates.supply_chain.artifacts` quando `sign_artifacts` está ligado |
+
+Assinatura do SBOM usa `cosign sign-blob`, escrevendo um bundle Sigstore
+(`<sbom>.sigstore.json`, com assinatura, certificado e prova do log de
+transparência) ao lado do arquivo assinado. Assinatura de imagem usa
+`cosign sign`. Nos dois casos, uma chave local (`--key`, usada só por
+testes e pela prova real documentada em docs/specs/AUR-551.md) é opcional:
+sem ela, o Cosign usa o fluxo keyless — identidade por OIDC do próprio
+ambiente (no workflow reutilizável, o OIDC do GitHub Actions), sem nenhuma
+chave gerenciada por este projeto.
+
+**Qualquer falha de assinatura reprova o comando incondicionalmente**: ao
+contrário de `aurumcode sbom` (cuja falha de geração segue
+`gate.inconclusive`), este comando nunca tem um modo "warn" que a suavize —
+o Outcome do card é explícito ("assinatura que falha não deixa o gate
+aprovar o artefato como assinado"). A saída não-zero nomeia, na mensagem de
+erro, exatamente qual arquivo ou referência de imagem ficou sem assinatura
+(AC-002).
+
+No workflow reutilizável (`.github/workflows/review.yml`), o Cosign é
+instalado por [`sigstore/cosign-installer`](https://github.com/sigstore/cosign-installer)
+fixado por SHA de commit (nunca uma tag ou `latest`), com `cosign-release`
+apontando para uma versão fixa do próprio binário Cosign. A etapa
+"Sign SBOM and image (Cosign, AUR-551)" roda sempre, depois da etapa do
+SBOM (AUR-549) — como `aurumcode sign` já sabe, pela mesma precedência
+repositório/política, se há algo a assinar, e já sai 0 sem chamar o Cosign
+quando não há. A assinatura keyless por OIDC do GitHub Actions exige a
+permissão `id-token: write` no job do CALLER: como `review.yml` é um
+workflow reutilizável (`workflow_call`), ele nunca declara `permissions:` —
+pelo mesmo motivo já documentado na seção da trilha de auditoria/SARIF
+acima, um reusable workflow não pode conceder a si mesmo uma permissão que
+o caller não já tem, então declarar `id-token: write` aqui quebraria o job
+inteiro para todo caller que não concede essa permissão. Quem habilita
+`quality_gates.supply_chain.sign_artifacts`/`sign_sbom` precisa conceder
+`id-token: write` no próprio workflow que chama este (`permissions:
+id-token: write` no job, ou no workflow); sem essa permissão, a assinatura
+keyless falha alto e explicitamente (erro do próprio Cosign/Fulcio ao pedir
+o token de identidade), nunca uma aprovação silenciosa.
+
+A action Docker direta (`action.yml`) NÃO roda `aurumcode sign`, pelo mesmo
+motivo documentado na seção do AUR-549 acima para `aurumcode sbom`: seu
+próprio container não tem como montar volumes via o socket do Docker com
+caminhos do HOST. Até que uma futura carta resolva esse problema para a
+action standalone, assinatura só está cablada para quem chama `review.yml`.
+
+Não-objetivo desta seção: gerenciar chaves fora do mecanismo do próprio
+Cosign, e assinar artefatos de terceiros.
+
 ## Opções públicas
 
 Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI
@@ -713,6 +797,20 @@ consumidor.
 | `gate.fail_on` | Severidades (do vocabulário de `--fail-on`, mais `critical`) que reprovam o check | vazio (sem gate) |
 | `gate.inconclusive` | `block` ou `warn` para uma revisão inconclusiva | vazio (sem gate) |
 | `exceptions` | Exceções aprovadas (repo+rule+path, dono, motivo, validade) que tiram um achado exato do gate | vazio |
+| `quality_gates.supply_chain.engine` | Motor de assinatura; só `cosign` é aceito | vazio (sem seção) |
+| `quality_gates.supply_chain.sign_sbom` | Assina o SBOM com `aurumcode sign` | `false` |
+| `quality_gates.supply_chain.sign_artifacts` | Assina a(s) imagem(ns) listada(s) com `aurumcode sign` | `false` |
+| `quality_gates.supply_chain.artifacts` | Imagens (fixadas por `@sha256:`) assinadas quando `--image` não é informado | vazio |
+
+### CLI `aurumcode sign`
+
+| Flag | Efeito |
+|---|---|
+| `--repo` | Raiz do repositório cuja configuração governa a assinatura (padrão: diretório atual) |
+| `--politica`, `--policy` | Diretório de uma política central (padrão: `AURUMCODE_POLICY`) |
+| `--cosign-bin` | Caminho do binário do Cosign (padrão: `cosign`, resolvido via `PATH`) |
+| `--sbom` | Arquivo do SBOM a assinar; repita para mais de um |
+| `--image` | Referência de imagem fixada por digest a assinar; repita para mais de uma |
 
 ### CLI `aurumcode review`
 
