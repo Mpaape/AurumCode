@@ -75,25 +75,6 @@ func (b *baseReview) setupCostCap() (int, bool) {
 	return 0, false
 }
 
-// prepareCache opens the review cache and keeps only the cache misses in
-// toSend (AUR-441). The prompt-version component is a digest of the fixed
-// content a prompt builder renders (AUR-543). The estimate printed earlier
-// priced the FULL diff, oblivious to caching.
-func (b *baseReview) prepareCache() *qualityCache {
-	promptVersionDigest, promptDigestErr := newCacheDigestBuilder().FixedContentDigest()
-	store, cacheErr := cache.Open(cache.ResolveDir())
-	if cacheErr == nil {
-		cacheErr = promptDigestErr
-	}
-	qc := &qualityCache{store: store, err: cacheErr, toSend: b.diff}
-	if cacheErr == nil {
-		var missFiles []types.DiffFile
-		missFiles, qc.statuses = partitionByCache(store, b.diff, reviewContextCacheKey(b.provider, b.baseModelIdentity, b.reviewLanguage, b.codebaseContextText, b.memoryNotesText, b.profileIdentity, b.contextBlockDigest, b.ruleCatalogDigest), promptVersionDigest)
-		qc.toSend = &types.Diff{Files: missFiles}
-	}
-	return qc
-}
-
 // callModel sends the cache misses to the model (one call, or one pass per
 // profile sharing the cost tracker) and persists fresh results. With
 // --seguranca a failed quality review diverts to the security pass alone

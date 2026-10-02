@@ -10,7 +10,6 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/llm"
-	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -66,26 +65,6 @@ func executeGate(label string, pipeline *gate.Pipeline, run *gate.Run, reason st
 		return res, false
 	}
 	return res, true
-}
-
-// applyGateOutcome publishes the decision's lines (stderr and the review's
-// limitations) and, when the gate failed or was inconclusive, sets the
-// engine-owned marker that withholds approval regardless of the model's
-// own verdict.
-func applyGateOutcome(run *gate.Run, res *gate.Result) {
-	if !res.Active {
-		return
-	}
-	for _, line := range res.Lines {
-		fmt.Fprintf(run.Stderr, "aurumcode review: policy gate: %s\n", line)
-		run.Review.Limitations = append(run.Review.Limitations, "policy gate: "+line)
-	}
-	if res.Fail || res.Inconclusive {
-		if run.Review.Metadata == nil {
-			run.Review.Metadata = make(map[string]string)
-		}
-		run.Review.Metadata[prompt.PolicyGateWithheldKey] = "true"
-	}
 }
 
 // gateExitCode maps a failed gate to the shared exit codes: a real severity

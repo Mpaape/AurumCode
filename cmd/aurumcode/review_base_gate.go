@@ -8,31 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 )
-
-// inconclusiveReason is the base path's motive for an inconclusive run. The
-// priority mirrors AUR-458's "did not review outranks reviewed and found
-// things": a provider failure or an opted-out quality skip outrank a model
-// reply this run could not parse (AC-008), which outranks a SAST execution
-// failure (AUR-548: it must also reach the SARIF document's
-// executionSuccessful), which outranks partial coverage (AUR-476).
-func (b *baseReview) inconclusiveReason() string {
-	switch {
-	case b.qualityFailed:
-		return "provider_failure"
-	case b.qualitySkipped:
-		return "quality_skipped"
-	case prompt.IsDegradedParse(b.result):
-		return "degraded_parse"
-	case b.sastReason != "":
-		return b.sastReason
-	case b.coverage.partial():
-		return "partial_coverage"
-	}
-	return ""
-}
 
 // decideGate runs the shared gate pipeline over the finished analyses and
 // publishes its decision lines. The run's redaction filter and writers may
