@@ -174,5 +174,18 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 		effective.Review.Publication = central.Review.Publication
 	}
 
+	// AUR-519: the gate is governed exactly like Rules and Ignore above --
+	// under a policy, only the policy's own Gate ever applies. A
+	// repository's own gate declaration is dropped with a named warning:
+	// the repo opt-in (AC-005) only has authority when no policy is in
+	// play at all.
+	if repo.Gate.Declared() {
+		warnings = append(warnings, ProviderWarning{
+			Provider: "politica central",
+			Reason:   "gate do config do repositório foi ignorado: a política central decide sozinha",
+		})
+	}
+	effective.Gate = central.Gate
+
 	return &effective, warnings
 }

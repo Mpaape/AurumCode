@@ -246,6 +246,11 @@ type Config struct {
 	// matches any number of path segments) whose matching files are
 	// dropped from the diff before either review pass ever sees them.
 	Ignore []string `yaml:"ignore"`
+	// Gate is AUR-519's compliance gate: which severities fail the check,
+	// and what an inconclusive review does. See GateConfig and
+	// ApplyCentralPolicy for why a repository's own Gate is only ever its
+	// explicit opt-in, never a second authority alongside a policy's.
+	Gate GateConfig `yaml:"gate"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -304,6 +309,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if _, err := cfg.ReviewProfiles(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Gate.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil
