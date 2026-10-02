@@ -1,26 +1,30 @@
 #!/usr/bin/env bash
-# AUR-524 acceptance: the gate verdict for the same reviewed SHA (or diff
-# content), the same central policy, the same repository context/skills and
-# the same model must not flip between two runs -- including between a
-# --base run and a --pr run. See cmd/aurumcode/aur524.go and
-# docs/specs/AUR-524.md for the full design.
+# AUR-524 v2 acceptance: a concluded gate verdict is reused MONOTONICALLY
+# -- a stored entry can only ADD findings to a later run's own, never
+# replace or suppress them (AURUMCODE_CACHE_DIR is untrusted input in CI,
+# CR-TRUST-001). See cmd/aurumcode/aur524.go and docs/specs/AUR-524.md.
 #
 # Selectors:
 #   all        run every behavior test below, then apply the MUT-001
 #              mutation and confirm AC-002's own tests turn RED
-#   AC-001     a provider that alternates its answer under an otherwise
-#              identical reviewed SHA/policy/context/model must still have
-#              its SECOND run reuse the first's concluded verdict -- proven
-#              for both --base (runReview) and --pr (runPRReview)
-#   AC-002     changing a repo skill, the model, or the policy digest
-#              invalidates reuse
+#   AC-001     a provider that FAILS then APPROVES under the identical
+#              reviewed content/policy/context/model must still FAIL its
+#              second run (proven for --base and --pr); a MISS that
+#              stores a clean result never suppresses a later, fresh
+#              breach
+#   AC-002     changing a repo skill, the model, the prompt-version
+#              digest, or a central policy's own digest invalidates reuse
 #   AC-003     an inconclusive (provider-failure) run never reuses a prior
 #              verdict and never becomes a stored one either
 #   AC-004     without AURUMCODE_CACHE_DIR set, a run with a gate declared
 #              says plainly that verdict reuse is unavailable
-#   AC-002-MUT-001  remove the policy digest term from gateVerdictCacheKey's
+#   AC-005     a forged, empty cache entry (simulating an untrusted cache
+#              scope) never produces an approval
+#   AC-006     a reused entry is re-evaluated against the CURRENT run's
+#              rule config, not the config active when it was written
+#   AC-002-MUT-001  drop the policy digest term from gateVerdictCacheKey's
 #              own combination (the exact defect MUT-001 names); AC-002's
-#              tests must go RED
+#              own central-policy test must go RED
 # A build failure during the mutation run is infrastructure, never a
 # silently-passing mutation. Unknown selectors exit 64; infrastructure
 # failures exit 79; behavioral failures exit 1.
@@ -32,7 +36,7 @@ readonly card='AUR-524'
 selector="${1:-all}"
 
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|AC-002-MUT-001) ;;
+  all|AC-001|AC-002|AC-003|AC-004|AC-005|AC-006|AC-002-MUT-001) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -53,7 +57,9 @@ for source in \
   cmd/aurumcode/review_cache.go \
   cmd/aurumcode/policygate.go \
   internal/review/cache/cache.go \
-  internal/render/audit.go; do
+  internal/render/audit.go \
+  internal/config/rules.go \
+  internal/prompt/builder.go; do
   [[ -f "$repo_root/$source" ]] || infra "missing-source:$source"
 done
 [[ -f "$repo_root/cmd/aurumcode/aur524_test.go" ]] || infra "missing-behavior-test:cmd/aurumcode/aur524_test.go"
@@ -80,22 +86,18 @@ export GOFLAGS='-mod=mod -p=1'
 export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
-# AC-002-MUT-001: drop the policyDigest term from gateVerdictCacheKey's own
-# combination -- the exact defect this card's gate checklist forbids
-# ("never cross policies"). Anchored on the unique Sprintf call in
-# aur524.go that folds policyDigest and reviewedIdentity into the key.
+# AC-002-MUT-001: drop the policy digest term from gateVerdictCacheKey's
+# own combination -- the exact defect this card's gate checklist forbids
+# ("never cross policies"). Anchored on the composite-literal VALUES line
+# in aur524.go (`{inner, in.PolicyDigest, in.PromptVersionDigest, ...}`);
+# replacing `in.PolicyDigest` with `""` keeps the struct's field count
+# intact (still compiles) while making the key's policy term constant,
+# i.e. absent in all but name.
 apply_mutation_no_policy_digest() {
   local target="$run_dir/root/cmd/aurumcode/aur524.go"
-  # Literal, non-regex substring replace via awk's index()/substr() -- the
-  # anchor contains sed/BRE metacharacters ([, ., %, \n as two literal
-  # chars) that a sed pattern would otherwise have to escape perfectly.
-  local anchor='"%s\n%q\n%q", inner, policyDigest, reviewedIdentity'
-  local mutated='"%s\n%q", inner, reviewedIdentity'
+  local anchor='{inner, in.PolicyDigest, in.PromptVersionDigest'
+  local mutated='{inner, "", in.PromptVersionDigest'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
-  # ENVIRON, not -v: awk's -v assignment re-interprets backslash escapes
-  # (turning the literal two-char "\n" in these anchors into a real
-  # newline), which would silently never match. ENVIRON reads the
-  # variable's raw bytes instead.
   MUT_OLD="$anchor" MUT_NEW="$mutated" awk '
     { idx = index($0, ENVIRON["MUT_OLD"])
       if (idx > 0) { $0 = substr($0, 1, idx - 1) ENVIRON["MUT_NEW"] substr($0, idx + length(ENVIRON["MUT_OLD"])) }
@@ -124,17 +126,19 @@ check_mutation_red() {
   fi
 }
 
-ac001_pattern='^(TestAUR524AC001VerdictReusedAcrossRunsSameInputs|TestAUR524AC001PRVerdictReusedAcrossRuns)$'
-ac002_pattern='^(TestAUR524AC002SkillChangeInvalidatesReuse|TestAUR524AC002ModelChangeInvalidatesReuse|TestAUR524KeyChangesWithPolicyDigest)$'
+ac001_pattern='^(TestAUR524AC001StickyFailAcrossRuns|TestAUR524AC001PRStickyFailInsideHunk|TestAUR524AC001CleanThenBreachStillFails)$'
+ac002_pattern='^(TestAUR524AC002SkillChangeInvalidatesReuse|TestAUR524AC002ModelChangeInvalidatesReuse|TestAUR524AC002PromptVersionChangeInvalidatesReuse|TestAUR524AC002CentralPolicyChangeInvalidatesReuse)$'
 ac003_pattern='^(TestAUR524AC003InconclusiveNeverStoredOrReused)$'
 ac004_pattern='^(TestAUR524AC004NoCacheDirDeclaresUnavailable)$'
+ac005_pattern='^(TestAUR524AC005ForgedEmptyEntryNeverApproves)$'
+ac006_pattern='^(TestAUR524AC006RuleConfigReappliedOnReuse)$'
 
 case "$selector" in
   AC-001)
     log="$run_dir/test.log"
     run_go_test "$ac001_pattern" "$log"; status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
-    for name in VerdictReusedAcrossRunsSameInputs PRVerdictReusedAcrossRuns; do
+    for name in StickyFailAcrossRuns PRStickyFailInsideHunk CleanThenBreachStillFails; do
       grep -q "^--- PASS: TestAUR524AC001$name " "$log" || fail "missing-pass:$name"
     done
     printf '%s/%s/pass\n' "$card" "$selector"
@@ -143,9 +147,9 @@ case "$selector" in
     log="$run_dir/test.log"
     run_go_test "$ac002_pattern" "$log"; status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
-    grep -q '^--- PASS: TestAUR524AC002SkillChangeInvalidatesReuse ' "$log" || fail missing-pass:SkillChangeInvalidatesReuse
-    grep -q '^--- PASS: TestAUR524AC002ModelChangeInvalidatesReuse ' "$log" || fail missing-pass:ModelChangeInvalidatesReuse
-    grep -q '^--- PASS: TestAUR524KeyChangesWithPolicyDigest ' "$log" || fail missing-pass:KeyChangesWithPolicyDigest
+    for name in SkillChangeInvalidatesReuse ModelChangeInvalidatesReuse PromptVersionChangeInvalidatesReuse CentralPolicyChangeInvalidatesReuse; do
+      grep -q "^--- PASS: TestAUR524AC002$name " "$log" || fail "missing-pass:$name"
+    done
     printf '%s/%s/pass\n' "$card" "$selector"
     ;;
   AC-003)
@@ -162,6 +166,20 @@ case "$selector" in
     grep -q '^--- PASS: TestAUR524AC004NoCacheDirDeclaresUnavailable ' "$log" || fail missing-pass:NoCacheDirDeclaresUnavailable
     printf '%s/%s/pass\n' "$card" "$selector"
     ;;
+  AC-005)
+    log="$run_dir/test.log"
+    run_go_test "$ac005_pattern" "$log"; status=$?
+    (( status == 0 )) || fail "go-test-exit:$status"
+    grep -q '^--- PASS: TestAUR524AC005ForgedEmptyEntryNeverApproves ' "$log" || fail missing-pass:ForgedEmptyEntryNeverApproves
+    printf '%s/%s/pass\n' "$card" "$selector"
+    ;;
+  AC-006)
+    log="$run_dir/test.log"
+    run_go_test "$ac006_pattern" "$log"; status=$?
+    (( status == 0 )) || fail "go-test-exit:$status"
+    grep -q '^--- PASS: TestAUR524AC006RuleConfigReappliedOnReuse ' "$log" || fail missing-pass:RuleConfigReappliedOnReuse
+    printf '%s/%s/pass\n' "$card" "$selector"
+    ;;
   AC-002-MUT-001)
     log="$run_dir/mutation.log"
     apply_mutation_no_policy_digest
@@ -174,10 +192,11 @@ case "$selector" in
     run_go_test '^TestAUR524' "$log"; status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
     for name in \
-      AC001VerdictReusedAcrossRunsSameInputs AC001PRVerdictReusedAcrossRuns \
+      AC001StickyFailAcrossRuns AC001PRStickyFailInsideHunk AC001CleanThenBreachStillFails \
       AC002SkillChangeInvalidatesReuse AC002ModelChangeInvalidatesReuse \
+      AC002PromptVersionChangeInvalidatesReuse AC002CentralPolicyChangeInvalidatesReuse \
       AC003InconclusiveNeverStoredOrReused AC004NoCacheDirDeclaresUnavailable \
-      KeyChangesWithPolicyDigest; do
+      AC005ForgedEmptyEntryNeverApproves AC006RuleConfigReappliedOnReuse; do
       grep -q "^--- PASS: TestAUR524$name " "$log" || fail "missing-pass:$name"
     done
 

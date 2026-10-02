@@ -666,6 +666,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			result.TestPlan = append(result.TestPlan, fmt.Sprintf("%s (package %s)", c.Name, c.Package))
 		}
 	}
+	// AUR-524 v2: snapshot the RAW issues (model output, the security
+	// findings merge and the static-analysis merge above), immediately
+	// before this run's own rule config filters/overrides them, so a
+	// stored verdict entry can be re-evaluated against a LATER run's rule
+	// config (AC-006) instead of freezing whatever config happened to be
+	// active when it was written. See reuseOrStoreGateVerdict below and
+	// aur524.go.
+	rawIssuesSnapshotAUR524 := append([]types.ReviewIssue(nil), result.Issues...)
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
 	suppressOperationalStrengths(diff, result)
@@ -726,30 +734,43 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		gateInconclusiveReason = "partial_coverage"
 	}
 
-	// AUR-524: reuse (or publish, for a later run) a concluded gate
-	// verdict for this exact reviewed SHA/diff, policy, repo context/
-	// skills and model -- see aur524.go. This is the --pr counterpart of
-	// runReview's own identical call (main.go): the SAME key builders, the
-	// SAME on-disk store, so the verdict for an unchanged
-	// SHA/policy/context/model cannot flip depending on which of the two
-	// commands happened to run it. A no-op unless reviewConfig.Gate.
-	// Declared(); reviewedSHA is GITHUB_SHA, read exactly as runReview
-	// reads it, so the --pr and --base paths key identically for the same
-	// reviewed commit.
-	if reused, hit := reuseOrStoreGateVerdict(stderr, &result.Limitations, reviewConfig.Gate.Declared(), provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, "", contextBlockDigest, ruleCatalogDigest, render.PolicyDigest(opts.policyDir, centralCfg), os.Getenv("GITHUB_SHA"), diff, gateInconclusiveReason, result.Issues); hit {
-		result.Issues = reused
-	}
-
-	gateOrigin := gateOriginRepo
-	if centralCfg != nil {
-		gateOrigin = gateOriginPolicy
-	}
 	// AUR-520: on --pr the repo identity is simply owner/repoName -- the
 	// exact "owner/repo" the pull request belongs to, already parsed and
 	// verified by parseOwnerRepo/the authenticated GitHub API call above,
 	// never anything derived from the PR's own (author-controlled) diff
 	// or head checkout.
-	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason, reviewConfig.Exceptions, owner+"/"+repoName, time.Now())
+	prRepoIdentityAUR524 := owner + "/" + repoName
+
+	// AUR-524 v2: reuse (monotonically -- see aur524.go) or publish, for a
+	// later run, a concluded gate verdict for this exact reviewed content,
+	// policy, repo context/skills, model, prompt version and binary. This
+	// is the --pr counterpart of runReview's own identical call (main.go):
+	// the SAME key builders, the SAME on-disk store, so the verdict for
+	// an unchanged content/policy/context/model cannot flip depending on
+	// which of the two commands happened to run it. A no-op unless
+	// reviewConfig.Gate.Declared().
+	gateVerdictPromptDigest, gateVerdictPromptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+	result.Issues = reuseOrStoreGateVerdict(stderr, &result.Limitations, reviewConfig.Gate.Declared(), gateVerdictPromptDigestErr == nil, provider, gateVerdictKeyInputs{
+		BaseModelIdentity:   baseModelIdentity,
+		Language:            reviewLanguage,
+		Codebase:            codebaseContextText,
+		Notes:               memoryNotesText,
+		Profiles:            "",
+		ContextBlockDigest:  contextBlockDigest,
+		RuleCatalogDigest:   ruleCatalogDigest,
+		PolicyDigest:        render.PolicyDigest(opts.policyDir, centralCfg),
+		PromptVersionDigest: gateVerdictPromptDigest,
+		BinaryIdentity:      binaryIdentity(),
+		RepoIdentity:        prRepoIdentityAUR524,
+		DiffDigest:          diffContentDigest(diff),
+		ReviewedSHA:         os.Getenv("GITHUB_SHA"),
+	}, reviewConfig, gateInconclusiveReason, result.Issues, rawIssuesSnapshotAUR524)
+
+	gateOrigin := gateOriginRepo
+	if centralCfg != nil {
+		gateOrigin = gateOriginPolicy
+	}
+	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason, reviewConfig.Exceptions, prRepoIdentityAUR524, time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2
