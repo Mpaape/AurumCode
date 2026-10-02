@@ -269,10 +269,30 @@ response schema wording it teaches, or the built-in rule catalog
 context, the configured review language or the change scope never does,
 because those fields are never read from the sentinel call.
 
-`cmd/aurumcode`'s `runReview` (`main.go`) now computes this digest from a
-**fresh** `prompt.NewPromptBuilder()` — not the reviewer's own builder, whose
-`ruleCatalog` may carry this run's dynamic, skill-expanded catalog — and
-passes it to `partitionByCache` as the `promptVersion` argument to
+Scope: this digest covers exactly what the card's Outcome names — the
+template's instructions, the built-in rule catalog and the schema text,
+all rendered by `buildBasePrompt` into the SYSTEM half of the prompt. The
+few fixed section headers `buildUserContent`/`fixedOverhead` write directly
+as Go string literals into the USER half (`"## Change Summary"`, `"##
+Existing CI context"`, `"## Code changes"`, `"## PR history..."`, `"##
+Codebase context..."`, `"## Review memory..."`) are outside it: AC-001's own
+wording is "o prompt embutido" (the embedded, `go:embed`-sourced template),
+not every literal string this package ever writes. A future edit to one of
+those headers alone would not move this digest or the cache key — a
+narrower, deliberate boundary, not an oversight; if that gap ever needs
+closing, start from `fixedOverhead`'s own doc comment, which already lists
+every fixed piece it assembles.
+
+`cmd/aurumcode`'s `runReview` (`main.go`) computes this digest by calling
+`newCacheDigestBuilder()` (`review_cache.go`) — a package-level seam that
+defaults to `prompt.NewPromptBuilder`, not the reviewer's own builder, whose
+`ruleCatalog` may carry this run's dynamic, skill-expanded catalog. The seam
+exists so `TestAUR543AC001PromptEditForcesFreshReview` can substitute a
+builder with different fixed content and prove AC-001 through the real
+`runReview` call -- cache entries actually invalidating end to end -- not
+only through `FixedContentDigest`'s own unit-level result; production code
+never reassigns it. `runReview` passes the result to `partitionByCache` as
+the `promptVersion` argument to
 `cache.Key`, in place of the old `cache.PromptVersion` constant. Using a
 fresh builder is deliberate, not an oversight: the dynamic/skill-expanded
 rule catalog a run teaches the model already has its own, separately folded
