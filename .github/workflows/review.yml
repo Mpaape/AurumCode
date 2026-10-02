@@ -45,6 +45,12 @@ on:
       LLM_BASE_URL:
         description: Base URL for the configured OpenAI-compatible service.
         required: true
+      DTRACK_API_KEY:
+        description: Optional Dependency-Track API key (AUR-555). Only read when quality_gates.ssor_dtrack is enabled and names this variable in api_key_secret.
+        required: false
+      DTRACK_PROJECT_ID:
+        description: Optional Dependency-Track project id (AUR-555). Only read when quality_gates.ssor_dtrack is enabled and names this variable in project_id_secret.
+        required: false
 
 jobs:
   review:
@@ -150,100 +156,6 @@ jobs:
             printf '%s\n' '[]' > "${CI_CONTEXT_FILE}"
           fi
 
-      - name: Run and publish code review
-        id: review
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
-          # AUR-521: the reusable workflow's OWN version, distinct from
-          # GITHUB_SHA (the commit under review above). Forwarded under a
-          # name GitHub Actions does not reserve: GITHUB_SHA (and, per the
-          # same reservation documented for AUR-504, very likely
-          # GITHUB_WORKFLOW_SHA too) cannot be overridden by a step's own
-          # env: block on a pull_request event, so this uses
-          # AURUMCODE_WORKFLOW_SHA instead. The audit record's workflow_sha
-          # field falls back to GITHUB_SHA only when this is absent (e.g. a
-          # caller invoking the CLI directly, outside this workflow).
-          AURUMCODE_WORKFLOW_SHA: ${{ job.workflow_sha }}
-          AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          AURUMCODE_PR_PERMISSION_MODE: endpoint
-          AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
-          AURUMCODE_OUTPUT_FILE: /tmp/aurumcode-changelog-output
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          LLM_MODEL: ${{ inputs.model }}
-          PUBLICATION: ${{ inputs.publication }}
-          INLINE_COMMENTS: ${{ inputs.inline_comments }}
-          SECURITY: ${{ inputs.security }}
-          CHANGELOG: ${{ inputs.changelog }}
-          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
-        run: |
-          set -euo pipefail
-          # A deterministic pass is not a completed code review. The CLI
-          # publishes its honest inconclusive comment, then fails this job.
-          args=(review --pr "${PR_NUMBER}" --repo "${REPOSITORY}" --publicar --check --exigir-qualidade)
-          if [ -n "${PUBLICATION}" ]; then
-            args+=(--modo-publicacao "${PUBLICATION}")
-          fi
-          if [ "${INLINE_COMMENTS}" = true ]; then
-            args+=(--na-linha)
-          fi
-          if [ "${SECURITY}" = true ]; then
-            args+=(--seguranca)
-          fi
-          if [ "${CHANGELOG}" = true ]; then
-            args+=(--changelog)
-          fi
-          # AUR-518: policy_repository, checked out above into
-          # .aurumcode-policy, is the only source of a policy this workflow
-          # accepts -- there is no policy_path input here (see that input's
-          # own comment above). Unset keeps today's behavior unchanged -- no
-          # --politica, no extra mount.
-          policy_dir=""
-          if [ -n "${POLICY_REPOSITORY}" ]; then
-            policy_dir=".aurumcode-policy"
-          fi
-          if [ -n "${policy_dir}" ]; then
-            args+=(--politica /github/policy)
-          fi
-          # AUR-521: the compliance audit record and SARIF document, always
-          # written by this reusable workflow (the org's required policy
-          # gate is itself a compliance control, see docs/specs/AUR-521.md)
-          # -- never by the standalone action.yml, which has no equivalent
-          # mount point for them.
-          args+=(--auditoria /tmp/aurumcode-audit.json --sarif /tmp/aurumcode-review.sarif)
-          : > "${RUNNER_TEMP}/aurumcode-changelog-output"
-          : > "${RUNNER_TEMP}/aurumcode-audit.json"
-          : > "${RUNNER_TEMP}/aurumcode-review.sarif"
-          docker_args=(run --rm
-            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
-            -w /github/workspace
-            -e GITHUB_TOKEN
-            -e GITHUB_SHA
-            -e AURUMCODE_WORKFLOW_SHA
-            -e AURUMCODE_BASE_SHA
-            -e AURUMCODE_PR_PERMISSION_MODE
-            -e LLM_API_KEY
-            -e LLM_BASE_URL
-            -e LLM_MODEL
-            -e AURUMCODE_CI_CONTEXT_FILE
-            -e AURUMCODE_OUTPUT_FILE
-            -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
-            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
-            -v "${RUNNER_TEMP}/aurumcode-audit.json:/tmp/aurumcode-audit.json"
-            -v "${RUNNER_TEMP}/aurumcode-review.sarif:/tmp/aurumcode-review.sarif"
-          )
-          if [ -n "${policy_dir}" ]; then
-            docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
-          fi
-          docker_args+=(aurumcode-review "${args[@]}")
-          docker "${docker_args[@]}"
-          if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
-            cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
-          fi
-
       # AUR-549: `aurumcode sbom` itself resolves
       # quality_gates.ssor_dtrack.sbom_generator (repo or central policy,
       # same precedence a review uses, ApplyCentralPolicy) and already
@@ -277,8 +189,15 @@ jobs:
       # the path `aurumcode sbom` actually asked for once the container
       # exits. The scanned filesystem mount (fs mode) stays read-only, as
       # it always was.
+      # AUR-555: this step now runs BEFORE "Run and publish code review".
+      # The review's ssor_dtrack gate (AUR-550) reads the SBOM from
+      # quality_gates.ssor_dtrack.sbom_generator.output_file, resolved
+      # against the reviewed checkout; `aurumcode sbom --repo .` (cwd
+      # .aurumcode-target) writes exactly that path, and the review
+      # container mounts the same checkout at /github/workspace (its cwd),
+      # so both sides name the same file with no extra flag. It holds no
+      # Dependency-Track secret: only the review step receives them.
       - name: Generate SBOM (Trivy, AUR-549)
-        if: always() && steps.review.outcome != ''
         working-directory: .aurumcode-target
         env:
           SCANNERS_LOCK: ${{ github.workspace }}/.aurumcode-tool/.board/bootstrap/locks/scanners.yml
@@ -336,6 +255,110 @@ jobs:
           fi
           "${RUNNER_TEMP}/aurumcode" "${sbom_args[@]}"
 
+      - name: Run and publish code review
+        id: review
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+          # AUR-521: the reusable workflow's OWN version, distinct from
+          # GITHUB_SHA (the commit under review above). Forwarded under a
+          # name GitHub Actions does not reserve: GITHUB_SHA (and, per the
+          # same reservation documented for AUR-504, very likely
+          # GITHUB_WORKFLOW_SHA too) cannot be overridden by a step's own
+          # env: block on a pull_request event, so this uses
+          # AURUMCODE_WORKFLOW_SHA instead. The audit record's workflow_sha
+          # field falls back to GITHUB_SHA only when this is absent (e.g. a
+          # caller invoking the CLI directly, outside this workflow).
+          AURUMCODE_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          AURUMCODE_PR_PERMISSION_MODE: endpoint
+          AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
+          AURUMCODE_OUTPUT_FILE: /tmp/aurumcode-changelog-output
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ inputs.model }}
+          PUBLICATION: ${{ inputs.publication }}
+          INLINE_COMMENTS: ${{ inputs.inline_comments }}
+          SECURITY: ${{ inputs.security }}
+          CHANGELOG: ${{ inputs.changelog }}
+          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
+          # AUR-555: optional Dependency-Track credentials, exposed ONLY to
+          # this step (the one that runs the ssor_dtrack gate). The names
+          # match the default api_key_secret/project_id_secret of
+          # quality_gates.ssor_dtrack; empty when the caller passes none.
+          DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
+          DTRACK_PROJECT_ID: ${{ secrets.DTRACK_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          # A deterministic pass is not a completed code review. The CLI
+          # publishes its honest inconclusive comment, then fails this job.
+          args=(review --pr "${PR_NUMBER}" --repo "${REPOSITORY}" --publicar --check --exigir-qualidade)
+          if [ -n "${PUBLICATION}" ]; then
+            args+=(--modo-publicacao "${PUBLICATION}")
+          fi
+          if [ "${INLINE_COMMENTS}" = true ]; then
+            args+=(--na-linha)
+          fi
+          if [ "${SECURITY}" = true ]; then
+            args+=(--seguranca)
+          fi
+          if [ "${CHANGELOG}" = true ]; then
+            args+=(--changelog)
+          fi
+          # AUR-518: policy_repository, checked out above into
+          # .aurumcode-policy, is the only source of a policy this workflow
+          # accepts -- there is no policy_path input here (see that input's
+          # own comment above). Unset keeps today's behavior unchanged -- no
+          # --politica, no extra mount.
+          policy_dir=""
+          if [ -n "${POLICY_REPOSITORY}" ]; then
+            policy_dir=".aurumcode-policy"
+          fi
+          if [ -n "${policy_dir}" ]; then
+            args+=(--politica /github/policy)
+          fi
+          # AUR-521: the compliance audit record and SARIF document, always
+          # written by this reusable workflow (the org's required policy
+          # gate is itself a compliance control, see docs/specs/AUR-521.md)
+          # -- never by the standalone action.yml, which has no equivalent
+          # mount point for them.
+          args+=(--auditoria /tmp/aurumcode-audit.json --sarif /tmp/aurumcode-review.sarif)
+          : > "${RUNNER_TEMP}/aurumcode-changelog-output"
+          : > "${RUNNER_TEMP}/aurumcode-audit.json"
+          : > "${RUNNER_TEMP}/aurumcode-review.sarif"
+          docker_args=(run --rm
+            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
+            -w /github/workspace
+            -e GITHUB_TOKEN
+            -e GITHUB_SHA
+            -e AURUMCODE_WORKFLOW_SHA
+            -e AURUMCODE_BASE_SHA
+            -e AURUMCODE_PR_PERMISSION_MODE
+            -e LLM_API_KEY
+            -e LLM_BASE_URL
+            -e LLM_MODEL
+            -e AURUMCODE_CI_CONTEXT_FILE
+            -e AURUMCODE_OUTPUT_FILE
+            -e DTRACK_API_KEY
+            -e DTRACK_PROJECT_ID
+            -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
+            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
+            -v "${RUNNER_TEMP}/aurumcode-audit.json:/tmp/aurumcode-audit.json"
+            -v "${RUNNER_TEMP}/aurumcode-review.sarif:/tmp/aurumcode-review.sarif"
+          )
+          if [ -n "${policy_dir}" ]; then
+            docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
+          fi
+          docker_args+=(aurumcode-review "${args[@]}")
+          docker "${docker_args[@]}"
+          if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
+            cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
+          fi
+
+      # AUR-555: signing runs only after the review step SUCCEEDED, so a
+      # rejected (or inconclusive-blocked) review never signs its artifacts.
       # AUR-551: installs the `cosign` binary onto the runner's own PATH,
       # pinned by COMMIT SHA (never a branch/tag of the installer action
       # itself, same rule the "Verify tool version" step already applies
@@ -346,7 +369,7 @@ jobs:
       # configured: `aurumcode sign` below is the one that decides,
       # exactly like the SBOM step above already decides for Trivy.
       - name: Install cosign (AUR-551)
-        if: always() && steps.review.outcome != ''
+        if: ${{ success() && steps.review.outcome == 'success' }}
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: 'v3.1.3'
@@ -370,7 +393,7 @@ jobs:
       # job that calls this workflow gets a loud Cosign/Fulcio failure
       # here, never a silent skip.
       - name: Sign SBOM and image (Cosign, AUR-551)
-        if: always() && steps.review.outcome != ''
+        if: ${{ success() && steps.review.outcome == 'success' }}
         working-directory: .aurumcode-target
         env:
           POLICY_REPOSITORY: ${{ inputs.policy_repository }}
