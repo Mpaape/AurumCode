@@ -292,17 +292,60 @@ Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
 `--sarif`, o comportamento de hoje é idêntico, byte a byte.
 
 O workflow reutilizável (`.github/workflows/review.yml`) escreve os dois
-sempre e envia o SARIF para o code scanning do GitHub
-(`github/codeql-action/upload-sarif`, categoria fixa `aurumcode-policy-gate`,
-`if: always()` para que um gate reprovado ainda chegue ao code scanning) e
-o registro de auditoria como artefato do job (`actions/upload-artifact`); um
-arquivo vazio (uma rodada que nunca chegou a escrevê-lo) nunca é enviado.
-**Quem chama este workflow reutilizável precisa conceder
-`security-events: write`** no `permissions:` do próprio job — a permissão de
-uma reusable workflow nunca excede o que o caller já concede. O
-`code-review.yml` deste próprio repositório ainda não concede essa
-permissão; até que seja atualizado, o upload do SARIF no self-review falha
-com 403 (o resto do review continua funcionando normalmente).
+sempre e envia AMBOS como artefatos do job via `actions/upload-artifact`
+(`if: always()`, para que um gate reprovado -- o caso que mais importa --
+ainda produza evidência; um arquivo vazio, de uma rodada que nunca chegou a
+escrevê-lo, nunca é enviado): `aurumcode-sarif-<PR>` e
+`aurumcode-audit-<PR>`.
+
+O workflow reutilizável **nunca** chama `github/codeql-action/upload-sarif`
+ele mesmo. Essa action exige `security-events: write`, e uma reusable
+workflow não consegue conceder a si mesma uma permissão que o CALLER não já
+tem: se este workflow declarasse esse `permissions:` sozinho, toda chamada
+cujo caller não concedesse o mesmo pararia de rodar -- não só o upload, o
+job inteiro, para todo caller existente (`code-review.yml` deste
+repositório, os exemplos, qualquer workflow de outro repositório que já
+use este). Em vez disso, quem quer o SARIF no code scanning roda um
+SEGUNDO job, no seu próprio workflow (onde conceder permissão a si mesmo é
+normal, sem cruzar fronteira de reusable workflow), que baixa o artefato e
+faz o upload:
+
+```yaml
+jobs:
+  review:
+    uses: ./.github/workflows/review.yml
+    with:
+      security: true
+    secrets: inherit
+
+  upload-sarif:
+    needs: review
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/download-artifact@<pin-by-sha>
+        with:
+          name: aurumcode-sarif-${{ github.event.pull_request.number }}
+          path: .
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: aurumcode-review.sarif
+          category: aurumcode-policy-gate   # categoria fixa: um upload --pr
+                                             # (ou um futuro run agendado)
+                                             # atualiza a MESMA análise no
+                                             # code scanning em vez de
+                                             # acumular um conjunto de
+                                             # alertas que nunca é limpo
+```
+
+(`actions/download-artifact` ainda não está pinada por SHA em nenhum
+workflow deste repositório; quem escrever esse segundo job precisa resolver
+e fixar o SHA real, pelo mesmo motivo que todo outro `uses:` aqui é pinado.)
+O `code-review.yml` deste próprio repositório ainda não tem esse segundo
+job -- está fora dos `paths` da AUR-521 e não foi criado por este card; até
+que alguém o adicione, o SARIF deste repositório fica disponível como
+artefato do job de review, mas não chega ao code scanning.
 
 A impressão digital de cada achado (`internal/render.FindingFingerprint`) é a
 identidade canônica de um achado neste projeto — a mesma que a AUR-494 deve

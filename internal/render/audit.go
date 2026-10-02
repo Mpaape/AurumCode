@@ -147,15 +147,64 @@ func PolicyDigest(policyDir string, cfg *config.Config) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// WriteAuditRecord marshals rec as indented JSON, runs the complete text
-// through filter -- the single AUR-009 redaction filter every sink in this
-// system writes through -- and writes the redacted result to path (AC-005).
-// Every string in rec passes through the same filter before any byte
-// reaches disk; a registered secret (including the AURUM_SECRET_CANARY
-// value) is replaced wherever it appears in the serialized record, field
-// boundaries or not.
+// redactAuditRecord runs every individual string field of rec through
+// filter BEFORE it is ever marshaled to JSON. This is the fix for a real
+// defect: redacting only the final, marshaled JSON text (as this function's
+// caller also still does, defense in depth) misses a secret whose quote,
+// backslash or embedded newline was escaped by json.Marshal into a
+// different byte sequence than the one the redaction regexes match -- a
+// secret containing `"`, `\` or a line break survives marshaling-after-
+// redact but not redact-after-marshal. Redacting each field first, in its
+// own unescaped form, closes that gap; the post-marshal pass then still
+// catches anything that is only secret-shaped once assembled across field
+// boundaries (e.g. a key name split from its value by JSON's own syntax).
+func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
+	rec.PolicyDigest = filter.Redact(rec.PolicyDigest)
+	rec.WorkflowSHA = filter.Redact(rec.WorkflowSHA)
+	rec.Repo = filter.Redact(rec.Repo)
+	rec.ReviewedSHA = filter.Redact(rec.ReviewedSHA)
+	rec.Model = filter.Redact(rec.Model)
+	rec.Verdict = filter.Redact(rec.Verdict)
+	rec.Gate.Decision = filter.Redact(rec.Gate.Decision)
+	rec.Gate.Reason = filter.Redact(rec.Gate.Reason)
+	// New slices throughout: redaction must never mutate the caller's own
+	// rec in place (a shared backing array would otherwise silently
+	// rewrite data the caller might still hold a reference to).
+	blocking := make([]AuditFinding, len(rec.BlockingFindings))
+	for i, f := range rec.BlockingFindings {
+		blocking[i] = AuditFinding{
+			RuleID:   filter.Redact(f.RuleID),
+			Path:     filter.Redact(f.Path),
+			Line:     f.Line,
+			Severity: filter.Redact(f.Severity),
+		}
+	}
+	rec.BlockingFindings = blocking
+	exceptions := make([]AuditException, len(rec.ExceptionsApplied))
+	for i, e := range rec.ExceptionsApplied {
+		exceptions[i] = AuditException{
+			RuleID:        filter.Redact(e.RuleID),
+			Path:          filter.Redact(e.Path),
+			Justification: filter.Redact(e.Justification),
+		}
+	}
+	rec.ExceptionsApplied = exceptions
+	omitted := make([]string, len(rec.Coverage.Omitted))
+	for i, p := range rec.Coverage.Omitted {
+		omitted[i] = filter.Redact(p)
+	}
+	rec.Coverage.Omitted = omitted
+	return rec
+}
+
+// WriteAuditRecord redacts every string field of rec (redactAuditRecord),
+// marshals the result as indented JSON, then runs the complete text through
+// filter a second time -- the single AUR-009 redaction filter every sink in
+// this system writes through -- before writing it to path (AC-005). A
+// registered secret (including the AURUM_SECRET_CANARY value), however it
+// was escaped by JSON encoding, is replaced wherever it appears.
 func WriteAuditRecord(path string, rec AuditRecord, filter *redaction.Filter) error {
-	data, err := json.MarshalIndent(rec, "", "  ")
+	data, err := json.MarshalIndent(redactAuditRecord(filter, rec), "", "  ")
 	if err != nil {
 		return err
 	}

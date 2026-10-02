@@ -219,13 +219,100 @@ func BuildSARIFLog(toolVersion string, findings []SARIFFinding, executionSuccess
 	}
 }
 
-// WriteSARIF marshals the SARIF document as indented JSON, runs the
-// complete text through filter (AUR-009, AC-005 -- the single redaction
-// filter every sink in this system writes through) and writes the redacted
-// result to path.
+// redactSARIFLog runs every individual string field of log through filter
+// BEFORE it is ever marshaled to JSON -- the same fix, and for the same
+// reason, as redactAuditRecord in audit.go: redacting only the final,
+// marshaled JSON text misses a secret whose quote, backslash or embedded
+// newline json.Marshal escaped into a different byte sequence than the one
+// the redaction regexes match. Builds entirely new slices/structs; never
+// mutates the caller's own log in place.
+func redactSARIFLog(filter *redaction.Filter, log sarifLog) sarifLog {
+	out := log
+	runs := make([]sarifRun, len(log.Runs))
+	for ri, run := range log.Runs {
+		driver := run.Tool.Driver
+		driver.Name = filter.Redact(driver.Name)
+		driver.Version = filter.Redact(driver.Version)
+		rules := make([]sarifRule, len(driver.Rules))
+		for i, r := range driver.Rules {
+			rules[i] = sarifRule{
+				ID:               filter.Redact(r.ID),
+				Name:             filter.Redact(r.Name),
+				ShortDescription: sarifMessage{Text: filter.Redact(r.ShortDescription.Text)},
+			}
+		}
+		driver.Rules = rules
+		run.Tool.Driver = driver
+
+		invocations := make([]sarifInvocation, len(run.Invocations))
+		for i, inv := range run.Invocations {
+			notifications := make([]sarifNotification, len(inv.ToolExecutionNotifications))
+			for j, n := range inv.ToolExecutionNotifications {
+				notifications[j] = sarifNotification{
+					Message: sarifMessage{Text: filter.Redact(n.Message.Text)},
+					Level:   filter.Redact(n.Level),
+				}
+			}
+			invocations[i] = sarifInvocation{
+				ExecutionSuccessful:        inv.ExecutionSuccessful,
+				ToolExecutionNotifications: notifications,
+			}
+		}
+		run.Invocations = invocations
+
+		results := make([]sarifResult, len(run.Results))
+		for i, res := range run.Results {
+			locations := make([]sarifLocation, len(res.Locations))
+			for j, loc := range res.Locations {
+				physical := loc.PhysicalLocation
+				physical.ArtifactLocation = sarifArtifactLocation{URI: filter.Redact(physical.ArtifactLocation.URI)}
+				if physical.Region != nil {
+					region := *physical.Region
+					physical.Region = &region
+				}
+				locations[j] = sarifLocation{PhysicalLocation: physical}
+			}
+			var fingerprints map[string]string
+			if res.PartialFingerprints != nil {
+				fingerprints = make(map[string]string, len(res.PartialFingerprints))
+				for k, v := range res.PartialFingerprints {
+					fingerprints[filter.Redact(k)] = v
+				}
+			}
+			var suppressions []sarifSuppression
+			if res.Suppressions != nil {
+				suppressions = make([]sarifSuppression, len(res.Suppressions))
+				for j, s := range res.Suppressions {
+					suppressions[j] = sarifSuppression{
+						Kind:          filter.Redact(s.Kind),
+						Justification: filter.Redact(s.Justification),
+					}
+				}
+			}
+			results[i] = sarifResult{
+				RuleID:              filter.Redact(res.RuleID),
+				Level:               filter.Redact(res.Level),
+				Message:             sarifMessage{Text: filter.Redact(res.Message.Text)},
+				Locations:           locations,
+				PartialFingerprints: fingerprints,
+				Suppressions:        suppressions,
+			}
+		}
+		run.Results = results
+		runs[ri] = run
+	}
+	out.Runs = runs
+	return out
+}
+
+// WriteSARIF redacts every string field of the built document
+// (redactSARIFLog), marshals the result as indented JSON, then runs the
+// complete text through filter a second time (AUR-009, AC-005 -- the
+// single redaction filter every sink in this system writes through) before
+// writing it to path.
 func WriteSARIF(path, toolVersion string, findings []SARIFFinding, executionSuccessful bool, notificationReason string, filter *redaction.Filter) error {
 	log := BuildSARIFLog(toolVersion, findings, executionSuccessful, notificationReason)
-	data, err := json.MarshalIndent(log, "", "  ")
+	data, err := json.MarshalIndent(redactSARIFLog(filter, log), "", "  ")
 	if err != nil {
 		return err
 	}

@@ -59,15 +59,19 @@ jobs:
       pull-requests: write
       statuses: write
       checks: read
-      # AUR-521: github/codeql-action/upload-sarif needs this to publish to
-      # the repository's code scanning. A reusable workflow's `permissions:`
-      # is bounded by whatever the CALLER already grants its own job --
-      # this key alone does not add the permission. Every caller of this
-      # reusable workflow (this repository's own .github/workflows/
-      # code-review.yml included -- out of this card's paths, so NOT
-      # edited here) must add `security-events: write` to its own job
-      # `permissions:` block, or the upload step below fails with a 403.
-      security-events: write
+      # AUR-521: deliberately NOT security-events: write. A reusable
+      # workflow's own `permissions:` block cannot ELEVATE what its
+      # caller grants -- GitHub refuses to even start a workflow_call job
+      # that declares a permission the caller's job token does not
+      # already have, which would break every existing caller of this
+      # workflow (code-review.yml, docs/site/workflow.yml, every example)
+      # the moment this key were added here. The SARIF document is
+      # uploaded as a plain job artifact below (actions/upload-artifact,
+      # no special permission needed); a caller that wants it in code
+      # scanning runs a SEPARATE job, in its own workflow, that grants
+      # itself security-events: write and uploads from the downloaded
+      # artifact -- see docs/configuration.md's "Trilha de auditoria e
+      # SARIF" section for the exact job.
     concurrency:
       group: aurumcode-review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -265,21 +269,21 @@ jobs:
           fi
 
       # if: always() -- a gate breach fails the "Run and publish code
-      # review" step (exit 1/3 above), and the whole point of this upload
-      # is that a FAILING gate still reaches code scanning; without
-      # always() this step would be skipped exactly on the runs that most
-      # need it. category is a fixed, non-dynamic string on purpose: SARIF
-      # uploads for the same category replace the prior run's results for
-      # the same ref, so a stable category is what lets code scanning
-      # treat successive --pr and any future scheduled run as updates to
-      # the same analysis instead of each accumulating its own
-      # never-cleared set of alerts.
-      - name: Upload SARIF to code scanning
+      # review" step (exit 1/3 above), and the whole point of uploading
+      # these is that a FAILING gate still produces evidence; without
+      # always() both artifacts would be skipped exactly on the runs that
+      # most need them. Uploaded as plain job artifacts -- NOT via
+      # github/codeql-action/upload-sarif here -- because that action
+      # needs security-events: write, which this reusable workflow cannot
+      # grant itself (see the job's own `permissions:` comment above). A
+      # caller that wants the SARIF in code scanning downloads this
+      # artifact in a second job; see docs/configuration.md.
+      - name: Upload SARIF document
         if: always() && steps.artifacts.outputs.sarif == 'true'
-        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          sarif_file: ${{ runner.temp }}/aurumcode-review.sarif
-          category: aurumcode-policy-gate
+          name: aurumcode-sarif-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/aurumcode-review.sarif
 
       - name: Upload compliance audit record
         if: always() && steps.artifacts.outputs.audit == 'true'

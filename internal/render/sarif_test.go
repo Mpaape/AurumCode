@@ -238,3 +238,41 @@ func TestAUR521SARIFRedactsSecretCanary(t *testing.T) {
 		t.Fatalf("SARIF file is not valid JSON after redaction: %v\n%s", err, data)
 	}
 }
+
+// TestAUR521SARIFRedactsEscapedSecrets is B3's SARIF-side proof: see
+// TestAUR521WriteAuditRecordRedactsEscapedSecrets's doc for why a secret
+// containing `"`, `\` or an embedded newline needs redaction BEFORE
+// marshaling, not only after.
+func TestAUR521SARIFRedactsEscapedSecrets(t *testing.T) {
+	quoteSecret := `AURUMQUOTE-abc"xyz`
+	backslashSecret := "AURUMBACKSLASH-abc\\xyz"
+	newlineSecret := "AURUMNEWLINE-abc\nxyz"
+	filter := redaction.NewFilter(quoteSecret, backslashSecret, newlineSecret)
+
+	findings := []SARIFFinding{{
+		RuleID:    "r1",
+		RuleTitle: "title: " + quoteSecret,
+		Path:      "app.go",
+		Line:      1,
+		Severity:  "error",
+		Message:   "msg: " + backslashSecret,
+		Context:   "ctx: " + newlineSecret,
+	}}
+	path := filepath.Join(t.TempDir(), "out.sarif")
+	if err := WriteSARIF(path, "v", findings, true, "", filter); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, prefix := range []string{"AURUMQUOTE-abc", "AURUMBACKSLASH-abc", "AURUMNEWLINE-abc"} {
+		if strings.Contains(string(data), prefix) {
+			t.Fatalf("secret with prefix %q leaked into the SARIF document (escaped or not):\n%s", prefix, data)
+		}
+	}
+	var doc2 sarifDoc
+	if err := json.Unmarshal(data, &doc2); err != nil {
+		t.Fatalf("SARIF file is not valid JSON after redaction: %v\n%s", err, data)
+	}
+}
