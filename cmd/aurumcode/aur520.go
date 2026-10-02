@@ -70,8 +70,20 @@ const (
 // so "" on this side can only ever compare unequal to every configured
 // exception. That is this function's entire fail-closed behavior for an
 // unverifiable repo identity -- no separate branch is needed.
+//
+// AUR-538 AC-006: a config can list more than one exception for the same
+// (repo, rule, path) -- a renewal keeps the expired entry for audit
+// history and adds a fresh one with a later Expires, in either order. An
+// active match always wins over an expired one regardless of list order:
+// the loop returns the first ACTIVE match the instant it finds one, and
+// only falls back to the first EXPIRED match (also list-order-first) when
+// no active match exists at all. This never widens what can match -- the
+// same exact (repo, rule, path) triple is still required -- it only
+// decides which of several matching entries this call reports.
 func matchException(exceptions []config.ExceptionConfig, repoIdentity, ruleID, path string, now time.Time) (config.ExceptionConfig, exceptionMatchStatus) {
 	repoIdentity = strings.TrimSpace(repoIdentity)
+	var firstExpired config.ExceptionConfig
+	haveExpired := false
 	for _, exc := range exceptions {
 		if !strings.EqualFold(strings.TrimSpace(exc.Repo), repoIdentity) {
 			continue
@@ -87,13 +99,23 @@ func matchException(exceptions []config.ExceptionConfig, repoIdentity, ruleID, p
 			// config.ValidateExceptions already refused a malformed
 			// Expires at load time; this is unreachable in practice, but
 			// an exception this function cannot date-check must never be
-			// treated as active.
-			return exc, exceptionExpired
+			// treated as active -- it can only ever be this call's
+			// fallback expired match, never override a later active one.
+			if !haveExpired {
+				firstExpired, haveExpired = exc, true
+			}
+			continue
 		}
 		if truncateToUTCDate(now).After(expires) {
-			return exc, exceptionExpired
+			if !haveExpired {
+				firstExpired, haveExpired = exc, true
+			}
+			continue
 		}
 		return exc, exceptionActive
+	}
+	if haveExpired {
+		return firstExpired, exceptionExpired
 	}
 	return config.ExceptionConfig{}, exceptionNone
 }
