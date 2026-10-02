@@ -143,7 +143,8 @@ if [[ "$selector" == all ]]; then
       GateSeverityBreachFailsCheckWithProfiles EvaluateGateWarnStillFailsOnBreach \
       EvaluateGateRuleSeverityFloorsModel EvaluateGateFailOnWithoutInconclusiveNeverApproves \
       MergeDynamicRulesPolicyWins ResolveRuleBuiltinWinsOverDynamic ProfilePassesCarryDegradedMetadata \
-      DegradedParseNeverCached SkillsConfiguredNoGateStaysSafe PRGateWarnStillFailsOnBreach; do
+      DegradedParseNeverCached SkillsConfiguredNoGateStaysSafe PRGateWarnStillFailsOnBreach \
+      PRGateInconclusiveBlockTable PartialCoverageNeverCachedUnderBlock ProfilePassesCoverageTakesWorstCase; do
     grep -q "^--- PASS: TestAUR519$name " "$log" || fail "missing-pass:$name"
   done
 fi

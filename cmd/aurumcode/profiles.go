@@ -25,6 +25,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -158,22 +159,65 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 		if prompt.IsDegradedParse(res) {
 			merged.Metadata[prompt.ParseModeKey] = prompt.ParseModeDegraded
 		}
-		// AUR-476's own coverage counts (code_files_total/complete/
-		// partial/omitted) describe the SAME diff and the SAME token
-		// budget regardless of which profile's prompt prefix was used, so
-		// they are identical across profiles, not additive: take the
-		// first profile's values rather than summing or overwriting.
-		for _, key := range []string{"code_files_total", "code_files_complete", "code_files_partial", "code_files_omitted"} {
-			if _, already := merged.Metadata[key]; already {
-				continue
-			}
-			if v, ok := res.Metadata[key]; ok {
-				merged.Metadata[key] = v
-			}
-		}
+		// AUR-476's own coverage counts describe the same diff for every
+		// profile, but NOT the same token budget: each profile's own
+		// prefix (profileProvider.prefix, emphasis/instructions text)
+		// consumes a different slice of the shared MaxTokens ceiling
+		// before the diff itself is packed, so one profile's prompt can
+		// truncate more of the diff than another's. code_files_total/
+		// complete take the first profile's values (the file set and its
+		// "fully sent" count do not depend on which profile asked); for
+		// code_files_partial/omitted -- how much of the diff a profile's
+		// OWN budget pressure left out -- the worst case (max) across
+		// profiles is kept, never the first one's alone, so a gate relying
+		// on this count can never under-report how much went unseen
+		// merely because the first profile in the list happened to fit.
+		merged.Metadata = mergeWorstCaseCoverage(merged.Metadata, res.Metadata)
 	}
 	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings))
 	return merged, nil
+}
+
+// mergeWorstCaseCoverage folds one profile pass's AUR-476 coverage counts
+// (src, its result.Metadata) into the running merge (dst, possibly nil),
+// returning the updated map. code_files_total/code_files_complete take the
+// first profile's own values (the file set and its "fully sent" count do
+// not depend on which profile asked). code_files_partial/code_files_omitted
+// -- how much of the diff THIS profile's own token-budget pressure left
+// out, which DOES vary by profile because each one's own prefix
+// (profileProvider.prefix) consumes a different slice of the shared
+// ceiling before the diff is packed -- keep the worst case (the larger
+// count) across every profile folded in so far, never just the first
+// one's: a gate relying on this count must never under-report how much
+// went unseen merely because an earlier profile in the list happened to
+// fit the whole diff.
+func mergeWorstCaseCoverage(dst, src map[string]string) map[string]string {
+	if dst == nil {
+		dst = map[string]string{}
+	}
+	for _, key := range []string{"code_files_total", "code_files_complete"} {
+		if _, already := dst[key]; already {
+			continue
+		}
+		if v, ok := src[key]; ok {
+			dst[key] = v
+		}
+	}
+	for _, key := range []string{"code_files_partial", "code_files_omitted"} {
+		v, ok := src[key]
+		if !ok {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			continue
+		}
+		existing, _ := strconv.Atoi(dst[key])
+		if n > existing {
+			dst[key] = strconv.Itoa(n)
+		}
+	}
+	return dst
 }
 
 // attributedIssues converts merged, profile-attributed findings back into the

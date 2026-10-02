@@ -1554,6 +1554,17 @@ func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) strin
 	if result.Metadata["quality_degraded"] == "true" {
 		return copy.inconclusive
 	}
+	// AUR-519: this function otherwise re-derives the verdict from Issues/
+	// Suggestions alone, never from result.Verdict -- so the policy gate's
+	// own pull-down (runPRReview: result.Verdict = "comment" when the gate
+	// failed or was inconclusive) was being silently discarded for the
+	// PUBLISHED review body, even though --base's render.Summary does
+	// read result.Verdict directly. Checked at the same priority as
+	// quality_degraded above: a gate-driven "comment" is exactly as
+	// authoritative a reason to withhold approval as a degraded parse is.
+	if result.Verdict == "comment" {
+		return copy.comment
+	}
 	for _, suggestion := range result.Suggestions {
 		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
 			return copy.comment
@@ -1576,6 +1587,14 @@ func formalReviewEvent(result *types.ReviewResult) string {
 		return "COMMENT"
 	}
 	if result.Metadata["quality_degraded"] == "true" {
+		return "COMMENT"
+	}
+	// AUR-519: same gap as reviewVerdictForLanguage above -- without this,
+	// GitHub's own review action could still read APPROVE while the
+	// published body's Verdict line said otherwise, a direct UI
+	// contradiction and exactly the "approved with a defect present"
+	// shape this card exists to close.
+	if result.Verdict == "comment" {
 		return "COMMENT"
 	}
 	for _, suggestion := range result.Suggestions {

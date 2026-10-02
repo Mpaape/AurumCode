@@ -453,3 +453,215 @@ func TestAUR519PRGateWarnStillFailsOnBreach(t *testing.T) {
 		t.Fatalf("published status description = %q, want it naming the breach, not just the inconclusive alert", publishedStatus.Description)
 	}
 }
+
+// runPRGateMockServer is the shared httptest GitHub mock for the --pr gate
+// table below: a diff, one repo config.yml (base64, via contents API), no
+// other context files (404, the zero-config case), an accepted formal
+// review POST, and a captured policy-gate status POST. publishedStatus is
+// written into *published.
+func runPRGateMockServer(t *testing.T, diffBody, repoConfig string, published *githubclient.CommitStatus, postedBody *string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
+			_, _ = w.Write([]byte(`{"permissions":{"push":true}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48" && r.Header.Get("Accept") == "application/vnd.github.v3.diff":
+			_, _ = w.Write([]byte(diffBody))
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48":
+			_, _ = fmt.Fprint(w, `{"head":{"sha":"head-sha"}}`)
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") && strings.Contains(r.URL.Path, "config.yml"):
+			_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, base64.StdEncoding.EncodeToString([]byte(repoConfig)))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/"):
+			w.WriteHeader(http.StatusNotFound)
+		case r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/reviews") || strings.HasSuffix(r.URL.Path, "/comments") || strings.HasSuffix(r.URL.Path, "/commits")):
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/reviews"):
+			if postedBody != nil {
+				var payload struct {
+					Body string `json:"body"`
+				}
+				buf := new(bytes.Buffer)
+				_, _ = buf.ReadFrom(r.Body)
+				_ = json.Unmarshal(buf.Bytes(), &payload)
+				*postedBody = payload.Body
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":1}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/statuses/head-sha":
+			_ = json.NewDecoder(r.Body).Decode(published)
+			w.WriteHeader(http.StatusCreated)
+		default:
+			t.Errorf("unexpected GitHub request: %s %s (Accept=%s)", r.Method, r.URL.Path, r.Header.Get("Accept"))
+		}
+	}))
+}
+
+func setPRGateEnv(t *testing.T, server *httptest.Server, fixturePath string) {
+	t.Helper()
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixturePath)
+	t.Setenv("AURUMCODE_GITHUB_API_URL", server.URL)
+	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")
+	t.Setenv("GITHUB_SHA", "head-sha")
+	t.Setenv("AURUMCODE_BASE_SHA", "base")
+	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
+}
+
+// TestAUR519PRGateInconclusiveBlockTable covers gate.inconclusive: block on
+// --pr for the three distinct inconclusive reasons runPRReview computes
+// (pr.go's gateInconclusiveReason switch): a free-form degraded reply
+// (prompt.IsDegradedParse, "degraded_parse"), a reply the parser could not
+// use at all (qualityDegraded, "model_parse_failure" -- renamed from the
+// B-fix round's mislabeled "provider_failure"), and AUR-476 partial
+// coverage ("partial_coverage"). Each must fail the check
+// (exitQualityNotReviewed) and publish aurumcode/policy-gate as "failure".
+// A fourth, check-less run isolates gateResult.Fail's own exit-code branch
+// from --check's independent checkExit/gateCheckExit path entirely.
+func TestAUR519PRGateInconclusiveBlockTable(t *testing.T) {
+	simpleDiff := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ _ = 1\n+}\n"
+	twoFileDiff := simpleDiff + "diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,2 @@\n package demo\n+func TestChange() {}\n"
+	blockConfig := "gate:\n  inconclusive: block\n"
+	partialConfig := "gate:\n  inconclusive: block\nignore:\n  - \"tests/**\"\n"
+
+	cases := []struct {
+		name       string
+		diffBody   string
+		repoConfig string
+		resp       string
+	}{
+		{"degraded_free_text", simpleDiff, blockConfig, "app.go:3: error: looks suspicious\n"},
+		{"model_parse_failure", simpleDiff, blockConfig, "this reply has no json and no file:line pattern at all"},
+		{"partial_coverage", twoFileDiff, partialConfig, `{"summary":"ok","verdict":"approve","issues":[]}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var published githubclient.CommitStatus
+			var postedBody string
+			server := runPRGateMockServer(t, tc.diffBody, tc.repoConfig, &published, &postedBody)
+			defer server.Close()
+			fixture := filepath.Join(t.TempDir(), "response.txt")
+			if err := os.WriteFile(fixture, []byte(tc.resp), 0600); err != nil {
+				t.Fatal(err)
+			}
+			setPRGateEnv(t, server, fixture)
+
+			var stdout, stderr strings.Builder
+			code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+				publicationSet: true,
+				publication:    "review",
+			})
+			if code != exitQualityNotReviewed {
+				t.Fatalf("exit=%d, want exitQualityNotReviewed(%d); stdout=%s stderr=%s", code, exitQualityNotReviewed, stdout.String(), stderr.String())
+			}
+			if published.Context != policyGateContext || published.State != "failure" {
+				t.Fatalf("published status = %+v, want context %q state failure", published, policyGateContext)
+			}
+			if tc.name == "partial_coverage" {
+				// AC-003/M6b: the fixture said "approve"; neither the
+				// published review body's own Verdict line nor GitHub's
+				// own formal review action may read Approve once the gate
+				// pulls it off under a block.
+				if strings.Contains(postedBody, "**Verdict:** Approve") {
+					t.Fatalf("published review body verdict read Approve under a blocking gate: %s", postedBody)
+				}
+				if strings.Contains(stdout.String(), `"APPROVE"`) {
+					t.Fatalf("published GitHub review action read APPROVE under a blocking gate: %s", stdout.String())
+				}
+			}
+		})
+	}
+
+	// M9b: without --check, checkExit/gateCheckExit never run at all, so
+	// this isolates the standalone "if gateResult.Fail { return
+	// exitQualityNotReviewed }" branch.
+	t.Run("fail_exit_without_check", func(t *testing.T) {
+		var published githubclient.CommitStatus
+		server := runPRGateMockServer(t, twoFileDiff, partialConfig, &published, nil)
+		defer server.Close()
+		fixture := filepath.Join(t.TempDir(), "response.json")
+		if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		setPRGateEnv(t, server, fixture)
+
+		var stdout, stderr strings.Builder
+		code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+			publicationSet: true,
+			publication:    "review",
+		})
+		if code != exitQualityNotReviewed {
+			t.Fatalf("without --check: exit=%d, want exitQualityNotReviewed(%d); stdout=%s stderr=%s", code, exitQualityNotReviewed, stdout.String(), stderr.String())
+		}
+	})
+}
+
+// TestAUR519PartialCoverageNeverCachedUnderBlock is item 2 of the latest
+// review round (kills M13b: neutralizing the !cachePartial guard at
+// main.go ~981). AUR-476 partial coverage (a file the repo's own `ignore`
+// hides) must never be papered over by a cache hit either, the same way a
+// degraded parse must not (TestAUR519DegradedParseNeverCached): the same
+// fixture runs twice against the same cache dir under gate.inconclusive:
+// block, and BOTH runs must fail the gate -- a second run that read a
+// cached "clean" result for the same diff would silently defeat the block.
+func TestAUR519PartialCoverageNeverCachedUnderBlock(t *testing.T) {
+	coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: block\n")
+
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
+	var out1, errOut1 strings.Builder
+	code1 := runReview([]string{"--base", "HEAD~1"}, &out1, &errOut1, redaction.NewFilter())
+	if code1 != exitQualityNotReviewed {
+		t.Fatalf("first run exit=%d, want exitQualityNotReviewed(%d); stdout=%s stderr=%s", code1, exitQualityNotReviewed, out1.String(), errOut1.String())
+	}
+
+	// Same fixture, same cache key: without the fix this is a cache hit
+	// with no coverage metadata at all, and the gate (wrongly) passes.
+	var out2, errOut2 strings.Builder
+	code2 := runReview([]string{"--base", "HEAD~1"}, &out2, &errOut2, redaction.NewFilter())
+	if code2 != exitQualityNotReviewed {
+		t.Fatalf("second run (same fixture) exit=%d, want exitQualityNotReviewed(%d) -- partial coverage must never be cached, letting the gate pass on replay:\nstdout=%s\nstderr=%s", code2, exitQualityNotReviewed, out2.String(), errOut2.String())
+	}
+	// AC-003/M6: the fixture said "approve"; a blocked, inconclusive gate
+	// must still pull the verdict off it, on both runs.
+	if strings.Contains(out1.String(), "**Verdict:** Approve") || strings.Contains(out2.String(), "**Verdict:** Approve") {
+		t.Fatalf("verdict read as approved under a blocking gate: run1=%s run2=%s", out1.String(), out2.String())
+	}
+}
+
+// TestAUR519ProfilePassesCoverageTakesWorstCase is item 4's regression
+// (kills M16): each profile pass can truncate the SAME diff differently --
+// its own prefix (emphasis/instructions) eats a different slice of the
+// shared token budget -- so runProfilePasses must keep the WORST
+// (largest) code_files_partial/code_files_omitted across profiles, never
+// just the first one's, or a gate relying on this count could under-report
+// how much of the diff went unseen merely because the first profile in the
+// list happened to fit.
+func TestAUR519ProfilePassesCoverageTakesWorstCase(t *testing.T) {
+	provider := &review.FakeProvider{Response: `{"summary":"ok","issues":[]}`}
+	diff := &types.Diff{Files: []types.DiffFile{{Path: "app.go", Hunks: []types.DiffHunk{{NewStart: 1, Lines: []string{"+x"}}}}}}
+	profiles := []reviewprofile.Profile{{Name: "a"}, {Name: "b"}}
+
+	merged, err := runProfilePasses(context.Background(), provider, nil, profiles, diff, review.ReviewContext{}, nil, prompt.DefaultRuleCatalog)
+	if err != nil {
+		t.Fatalf("runProfilePasses() error = %v", err)
+	}
+	// Reach past the exported seam to simulate what two DIFFERENT budget
+	// outcomes would merge to, exactly as runProfilePasses' own loop does
+	// internally -- the real GenerateReviewWithContext path cannot easily
+	// be driven to two different per-profile budget outcomes from one
+	// shared FakeProvider, so this test exercises the merge helper
+	// directly against the two keys item 4 names.
+	first := map[string]string{"code_files_partial": "1", "code_files_omitted": "0"}
+	second := map[string]string{"code_files_partial": "0", "code_files_omitted": "3"}
+	got := mergeWorstCaseCoverage(merged.Metadata, first)
+	got = mergeWorstCaseCoverage(got, second)
+	if got["code_files_partial"] != "1" {
+		t.Fatalf("code_files_partial = %q, want the worst case \"1\" across profiles", got["code_files_partial"])
+	}
+	if got["code_files_omitted"] != "3" {
+		t.Fatalf("code_files_omitted = %q, want the worst case \"3\" across profiles", got["code_files_omitted"])
+	}
+}
