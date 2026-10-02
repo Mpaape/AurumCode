@@ -645,6 +645,44 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		}
 	}
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
+	// AUR-548: quality_gates.sast's own Semgrep pass, over the EXACT same
+	// verified, clean checkout resolveVerifiedCodebaseContext already
+	// requires (verifiedDir/mismatch, computed above for AUR-515/536) --
+	// never an unverified checkout, a different repository, or a
+	// divergent HEAD. mismatch != "" here means that verification already
+	// failed: SAST is reported inconclusive with its own reason
+	// (sastReasonUnverifiedCheckout) WITHOUT ever invoking Semgrep, so a
+	// stale or unrelated local checkout can never be scanned under the
+	// reviewed pull request's name. sastIssues deliberately never passes
+	// through config.ApplyRuleConfig (called just above, on the MODEL/
+	// deterministic-analysis issues only) -- it is appended straight into
+	// result.Issues afterward, exactly like --base's own runReview, so a
+	// repository's own `rules:` override was never meant to reach it
+	// either (AC-005's boundary drawn at the same place on both paths).
+	// sastOrigin mirrors gateOrigin's own policy/repo determination
+	// (computed again, just below, for evaluateGate) since
+	// reviewConfig.QualityGates.Sast is already the precedence-resolved
+	// value either way.
+	sastOrigin := gateOriginRepo
+	if centralCfg != nil {
+		sastOrigin = gateOriginPolicy
+	}
+	var sastIssues []types.ReviewIssue
+	sastReason := ""
+	if reviewConfig.QualityGates.Sast.IsEnabled() {
+		if mismatch != "" {
+			sastReason = sastReasonUnverifiedCheckout
+		} else {
+			sastIssues, sastReason = runSASTPass(ctx, verifiedDir, reviewConfig.QualityGates.Sast, realSemgrepRunner)
+		}
+	}
+	if sastReason != "" {
+		notice := sastInconclusiveNotice(reviewLanguage, sastReason)
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", notice)
+		result.Limitations = append(result.Limitations, notice)
+	} else if len(sastIssues) > 0 {
+		result.Issues = append(result.Issues, sastIssues...)
+	}
 	result.Suggestions = filterSuggestionsToChangedLines(diff, result.Suggestions)
 	suppressOperationalStrengths(diff, result)
 	result.Limitations = filterLimitationsAgainstDiff(diff, result.Limitations)
@@ -700,6 +738,13 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		gateInconclusiveReason = "model_parse_failure"
 	case prompt.IsDegradedParse(result):
 		gateInconclusiveReason = "degraded_parse"
+	case sastReason != "":
+		// AUR-548: see main.go's own identical case for why this feeds
+		// the top-level reason too, even though applySASTGate (below)
+		// already marks gateResult.Inconclusive independently of it --
+		// writeComplianceArtifacts' SARIF document reads ONLY this
+		// variable for executionSuccessful, never gateResult.Inconclusive.
+		gateInconclusiveReason = sastReason
 	case coverageBreakdown.partial():
 		gateInconclusiveReason = "partial_coverage"
 	}
@@ -715,6 +760,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason, reviewConfig.Exceptions, owner+"/"+repoName, time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
+		return 2
+	}
+	// AUR-548: quality_gates.sast's own, independent gate decision,
+	// folded into the same gateResult evaluateGate just returned -- see
+	// aur548.go's own package doc for why this never goes through
+	// evaluateGate itself.
+	if err := applySASTGate(&gateResult, reviewConfig.QualityGates.Sast, sastOrigin, sastIssues, sastReason); err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", err)
 		return 2
 	}
 	if gateResult.Active {

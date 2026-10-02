@@ -57,6 +57,14 @@ const (
 	sastReasonUnavailable = "sast_unavailable"
 	sastReasonError       = "sast_execution_error"
 	sastReasonInvalid     = "sast_invalid_output"
+	// sastReasonUnverifiedCheckout is --pr's own reason (pr.go): the local
+	// checkout is not verified as the pull request's own head
+	// (codebaseContextMismatch/verifiedCleanCheckoutReason, AUR-515/536
+	// -- a different repository, a divergent HEAD, an unclean tree, or
+	// simply unverifiable). Semgrep is never invoked in this case: a
+	// stale or unrelated checkout must never be scanned under the
+	// reviewed pull request's name.
+	sastReasonUnverifiedCheckout = "sast_unverified_checkout"
 )
 
 // realSemgrepRunner execs the "semgrep" binary from PATH -- the one

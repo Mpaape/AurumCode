@@ -12,14 +12,17 @@
 #   AC-001          a Semgrep ERROR-severity finding fails the gate
 #                   (exitFindings), naming the check_id and line in the
 #                   published output -- including when a central policy
-#                   enables SAST and the repository tries to disable it
+#                   enables SAST and the repository tries to disable it,
+#                   and on --pr (runPRReview) over the verified checkout
 #   AC-002          a finding below fail_on_severity is produced but does
 #                   not fail the gate
 #   AC-003          Semgrep absent, erroring, or returning invalid JSON
 #                   (or JSON with no "results" key) all become
 #                   inconclusive under gate.inconclusive: block
 #                   (exitQualityNotReviewed) -- contrasted against a real
-#                   clean scan, which still passes
+#                   clean scan, which still passes; on --pr, an unverified
+#                   checkout (AUR-515/536) is inconclusive the same way,
+#                   WITHOUT ever invoking Semgrep against the wrong tree
 #   AC-004          rule packs come from quality_gates.sast.rule_packs, or
 #                   the RFC's own documented defaults when absent; with no
 #                   quality_gates.sast section at all, Semgrep is never
@@ -57,6 +60,7 @@ for input in go.mod go.sum cmd internal pkg; do
 done
 for source in \
   cmd/aurumcode/main.go \
+  cmd/aurumcode/pr.go \
   cmd/aurumcode/aur548.go \
   cmd/aurumcode/policygate.go \
   cmd/aurumcode/aur521.go \
@@ -68,7 +72,8 @@ done
 for behavior in \
   cmd/aurumcode/aur548_test.go \
   cmd/aurumcode/aur519_e2e_test.go \
-  cmd/aurumcode/aur476_test.go; do
+  cmd/aurumcode/aur476_test.go \
+  cmd/aurumcode/aur515_test.go; do
   [[ -f "$repo_root/$behavior" ]] || infra "missing-behavior-test:$behavior"
 done
 
@@ -136,9 +141,9 @@ check_mutation_red() {
   fi
 }
 
-ac001_pattern='^(TestAUR548SeverityBreachFailsGate|TestAUR548PolicyWinsOverRepoDisable)$'
+ac001_pattern='^(TestAUR548SeverityBreachFailsGate|TestAUR548PolicyWinsOverRepoDisable|TestAUR548PRSeverityBreachFailsGate)$'
 ac002_pattern='^(TestAUR548BelowThresholdDoesNotFailGate)$'
-ac003_pattern='^(TestAUR548AbsentSemgrepIsInconclusiveNeverClean|TestAUR548ExecutionFailureIsInconclusive|TestAUR548CleanScanPasses)$'
+ac003_pattern='^(TestAUR548AbsentSemgrepIsInconclusiveNeverClean|TestAUR548ExecutionFailureIsInconclusive|TestAUR548CleanScanPasses|TestAUR548PRUnverifiedCheckoutIsInconclusive)$'
 ac004_pattern='^(TestAUR548NoConfigNeverInvokesSemgrep|TestAUR548RulePacksFromConfig|TestAUR548DefaultRulePacks)$'
 ac005_pattern='^(TestAUR548ModelCannotRemoveOrDowngradeFinding)$'
 
@@ -148,7 +153,7 @@ case "$selector" in
     run_go_test "$ac001_pattern" "$log"
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
-    for name in SeverityBreachFailsGate PolicyWinsOverRepoDisable; do
+    for name in SeverityBreachFailsGate PolicyWinsOverRepoDisable PRSeverityBreachFailsGate; do
       grep -q "^--- PASS: TestAUR548$name " "$log" || fail "missing-pass:$name"
     done
     printf '%s/%s/pass\n' "$card" "$selector"
@@ -166,7 +171,7 @@ case "$selector" in
     run_go_test "$ac003_pattern" "$log"
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
-    for name in AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses; do
+    for name in AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses PRUnverifiedCheckoutIsInconclusive; do
       grep -q "^--- PASS: TestAUR548$name " "$log" || fail "missing-pass:$name"
     done
     printf '%s/%s/pass\n' "$card" "$selector"
@@ -202,9 +207,9 @@ case "$selector" in
     status=$?
     (( status == 0 )) || fail "go-test-exit:$status"
     for name in \
-      SeverityBreachFailsGate PolicyWinsOverRepoDisable \
+      SeverityBreachFailsGate PolicyWinsOverRepoDisable PRSeverityBreachFailsGate \
       BelowThresholdDoesNotFailGate \
-      AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses \
+      AbsentSemgrepIsInconclusiveNeverClean ExecutionFailureIsInconclusive CleanScanPasses PRUnverifiedCheckoutIsInconclusive \
       NoConfigNeverInvokesSemgrep RulePacksFromConfig DefaultRulePacks \
       ModelCannotRemoveOrDowngradeFinding; do
       grep -q "^--- PASS: TestAUR548$name " "$log" || fail "missing-pass:$name"
