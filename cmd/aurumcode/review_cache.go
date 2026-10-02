@@ -24,11 +24,26 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
+
+// newCacheDigestBuilder constructs the prompt.PromptBuilder runReview (below)
+// uses to compute the per-file review cache key's prompt-version component
+// (AUR-543: PromptBuilder.FixedContentDigest(), replacing the old hand-bumped
+// cache.PromptVersion constant). It is a package-level variable -- never
+// called directly as prompt.NewPromptBuilder() at the call site -- purely so
+// a behavior test can substitute a builder with different fixed content
+// (e.g. a different built-in rule catalog) and prove AC-001 through the REAL
+// production wiring: that cache.Key's promptVersion argument actually moves
+// end to end, not only that internal/prompt's own FixedContentDigest moves
+// in isolation. See TestAUR543AC001PromptEditForcesFreshReview. Every such
+// test restores this to prompt.NewPromptBuilder via t.Cleanup; production
+// code never reassigns it.
+var newCacheDigestBuilder = prompt.NewPromptBuilder
 
 // fileCacheStatus tracks, for one file of the reviewed diff, whether a
 // previous run already reviewed byte-identical content for it under the

@@ -985,7 +985,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// anything new. This way, editing templates/review.md's literal text
 		// or the built-in catalog (internal/prompt.DefaultRuleCatalog) alone
 		// invalidates every cache entry, with no constant to remember to bump.
-		promptVersionDigest, promptDigestErr := prompt.NewPromptBuilder().FixedContentDigest()
+		promptVersionDigest, promptDigestErr := newCacheDigestBuilder().FixedContentDigest()
 
 		revCache, cacheErr := cache.Open(cache.ResolveDir())
 		if cacheErr == nil {
