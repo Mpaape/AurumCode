@@ -292,7 +292,7 @@ func aur538ExceptionFixtureNoOrigin(t *testing.T, configYAML string) string {
 // unavailable notice is published.
 func TestAUR538BaseNoOriginExceptionNeverMatches(t *testing.T) {
 	cfg := "review:\n  context:\n    skills:\n      - skills/security.md\n" +
-		"gate:\n  fail_on: [high]\n" +
+		"gate:\n  fail_on: [high]\n  sources: [skills]\n" +
 		"exceptions:\n  - repo: org/repo\n    rule: security#no-hardcoded-secrets\n    path: app.go\n" +
 		"    owner: time-seguranca\n    reason: consulta fixa, sem entrada do usuario\n    expires: 2099-12-31\n"
 	dir := aur538ExceptionFixtureNoOrigin(t, cfg)
@@ -324,7 +324,7 @@ func TestAUR538BaseNoOriginExceptionNeverMatches(t *testing.T) {
 // never uses this feature carries no new line (exceptionsConfigured's own
 // guard, aur520.go).
 func TestAUR538BaseNoOriginNoExceptionsNoNotice(t *testing.T) {
-	aur538ExceptionFixtureNoOrigin(t, "gate:\n  fail_on: [high]\n")
+	aur538ExceptionFixtureNoOrigin(t, "gate:\n  fail_on: [high]\n  sources: [skills]\n")
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)

@@ -374,7 +374,7 @@ func excResponseFixture(t *testing.T, ruleID, file string) string {
 // published output shows the finding as accepted with owner and expiry.
 func TestAUR520BaseValidExceptionPasses(t *testing.T) {
 	cfg := "review:\n  context:\n    skills:\n      - skills/security.md\n" +
-		"gate:\n  fail_on: [high]\n" +
+		"gate:\n  fail_on: [high]\n  sources: [skills]\n" +
 		"exceptions:\n  - repo: org/repo\n    rule: security#no-hardcoded-secrets\n    path: app.go\n" +
 		"    owner: time-seguranca\n    reason: consulta fixa, sem entrada do usuario\n    expires: 2099-12-31\n"
 	dir := exceptionFixture(t, cfg)
@@ -405,7 +405,7 @@ func TestAUR520BaseValidExceptionPasses(t *testing.T) {
 // exception expired.
 func TestAUR520BaseExpiredExceptionStillFails(t *testing.T) {
 	cfg := "review:\n  context:\n    skills:\n      - skills/security.md\n" +
-		"gate:\n  fail_on: [high]\n" +
+		"gate:\n  fail_on: [high]\n  sources: [skills]\n" +
 		"exceptions:\n  - repo: org/repo\n    rule: security#no-hardcoded-secrets\n    path: app.go\n" +
 		"    owner: time-seguranca\n    reason: consulta fixa\n    expires: 2020-01-01\n"
 	dir := exceptionFixture(t, cfg)
@@ -433,7 +433,7 @@ func TestAUR520BaseExpiredExceptionStillFails(t *testing.T) {
 // fails the check with no "accepted" line at all.
 func TestAUR520BaseMismatchedExceptionNeverApplies(t *testing.T) {
 	cfg := "review:\n  context:\n    skills:\n      - skills/security.md\n" +
-		"gate:\n  fail_on: [high]\n" +
+		"gate:\n  fail_on: [high]\n  sources: [skills]\n" +
 		"exceptions:\n  - repo: org/repo\n    rule: security#no-hardcoded-secrets\n    path: other/unrelated.go\n" +
 		"    owner: time-seguranca\n    reason: consulta fixa\n    expires: 2099-12-31\n"
 	dir := exceptionFixture(t, cfg)
@@ -467,7 +467,7 @@ func TestAUR520CentralPolicyDropsRepoException(t *testing.T) {
 		t.Fatal(err)
 	}
 	policyCfg := "review:\n  context:\n    skills:\n      - skills/security.md\n" +
-		"gate:\n  fail_on: [high]\n"
+		"gate:\n  fail_on: [high]\n  sources: [skills]\n"
 	if err := os.WriteFile(filepath.Join(policyDir, ".aurumcode", "config.yml"), []byte(policyCfg), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +546,7 @@ func TestAUR520LocalRepoIdentityFromOriginRemote(t *testing.T) {
 func TestAUR520PRValidExceptionPasses(t *testing.T) {
 	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ dbPassword := \"hunter2-super-secret\"\n+ _ = dbPassword\n+}\n"
 	headConfig := "review:\n  context:\n    skills:\n      - skills/security.md\n" +
-		"gate:\n  fail_on: [high]\n" +
+		"gate:\n  fail_on: [high]\n  sources: [skills]\n" +
 		"exceptions:\n  - repo: owner/repo\n    rule: security#no-hardcoded-secrets\n    path: app.go\n" +
 		"    owner: time-seguranca\n    reason: consulta fixa\n    expires: 2099-12-31\n"
 	skillBody := "## No Hardcoded Secrets\n\nNever commit a literal credential.\n"

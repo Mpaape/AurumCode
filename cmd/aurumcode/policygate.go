@@ -76,6 +76,9 @@ type gateDecision struct {
 	// exact point Breach is set below, so it is never populated by a run
 	// that never reached (or never passed) the threshold loop at all
 	// (e.g. gate.inconclusive: block, Fail without Breach).
+	// FindingOrigins (AUR-556) maps findingOriginKey -> origin for findings
+	// counted from a non-skill source, so the SARIF document can name it.
+	FindingOrigins    map[string]string
 	BlockingFindings  []render.AuditFinding
 	AppliedExceptions []render.AuditException
 }
@@ -316,6 +319,10 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 				// se nenhuma exceção tivesse sido configurada para ele.
 				d.Lines = append(d.Lines, expiredExceptionLine(exc, issue))
 			}
+		}
+		// AUR-556: gate.sources can leave the policy's skill sections out.
+		if !gate.SourceEnabled(config.GateSourceSkills) {
+			continue
 		}
 		rule, found := dynamic[issue.RuleID]
 		if !found || rule.Origin != acceptedOrigin {

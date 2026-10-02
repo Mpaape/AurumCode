@@ -132,6 +132,10 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 				Message:   issue.Message,
 				Context:   identity.Context,
 			}
+			// AUR-556: name the gate origin of a counted non-skill finding.
+			if origin, ok := in.gate.FindingOrigins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
+				finding.Message = fmt.Sprintf("%s [origem: %s]", finding.Message, origin)
+			}
 			if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
 				finding.Suppressed = true
 				finding.Justification = exc.Justification
