@@ -90,6 +90,21 @@ func classifyBlob(path string, content []byte) string {
 	return ""
 }
 
+// NoticeReasonNoPatch is the Reason of a changed file whose content nobody
+// inspected: the API gave no patch and no verified copy was available.
+const NoticeReasonNoPatch = "no patch"
+
+// ClassifyBlob is the one content check both review paths share: it returns a
+// notice when the file must not be line-diffed or reviewed (binary, generated,
+// too large), or nil when its content is reviewable text.
+func ClassifyBlob(path string, content []byte) *DiffNotice {
+	msg := classifyBlob(path, content)
+	if msg == "" {
+		return nil
+	}
+	return &DiffNotice{Path: path, Message: msg, Reason: noticeReason(msg)}
+}
+
 // noticeReason maps a classifyBlob message to the stable reason token.
 func noticeReason(message string) string {
 	switch {

@@ -14,7 +14,10 @@
 #   AC-002          a policy finding in Terraform blocks like one in Go
 #   AC-003          absent structural context is declared; the gate's
 #                   inconclusive setting does not fire on the gap alone
-#   AC-004          binary and generated files are declared, never approved
+#   AC-004          binary and generated files are declared, never approved, in
+#                   --base and --pr (verified checkout, or no patch and no checkout)
+#   AC-004-MUT-001  the --pr path passing no notices again (binary files then
+#                   look reviewed) must turn the --pr binary test RED
 #   AC-001-MUT-001  silently skipping a file of unknown extension (no
 #                   declaration) must turn AC-001 RED; applied to a copy
 # Unknown selectors exit 64; infrastructure failures exit 79; behavioral
@@ -27,7 +30,7 @@ readonly card='AUR-522'
 selector="${1:-all}"
 
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|AC-001-MUT-001) ;;
+  all|AC-001|AC-002|AC-003|AC-004|AC-001-MUT-001|AC-004-MUT-001) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -99,6 +102,7 @@ ac001=TestAUR522CorpusEveryFileReviewedOrDeclared
 ac002=TestAUR522PolicyFindingInUnheuristicLanguageBlocks
 ac003=TestAUR522MissingContextDeclaredAndNotInconclusiveByItself
 ac004=TestAUR522BinaryAndGeneratedAreNeverApproved
+ac004pr=(TestAUR522PRBinaryWithoutPatchIsNotReviewed TestAUR522PRGeneratedFileIsNotReviewed TestAUR522PRNoCheckoutAndNoPatchIsNotReviewed TestAUR522PRPlainTextStillApproves TestAUR522ModelCannotForgeOrClearTheRetentionKey)
 
 # The grammar, analyzer and context packages prove the runtime-backed
 # structure, binary detection by content and the unknown-language path.
@@ -125,6 +129,23 @@ apply_mutation_skip_silently() {
   grep -Fq 'MUT-001: unknown extension skipped silently' "$target" || infra mutation-not-applied
 }
 
+# AC-004-MUT-001: --pr feeding mergeReviewCoverage a nil notice list again.
+apply_mutation_pr_no_notices() {
+  local target="$run_dir/root/cmd/aurumcode/pr.go"
+  local anchor='mergeReviewCoverage(result.Metadata, uninspectedPRNotices(diff, verifiedDir), rawDiffFileCount, ignoredPaths)'
+  [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra pr-mutation-anchor-not-unique
+  sed -i 's/uninspectedPRNotices(diff, verifiedDir)/nil \/* AUR-522 MUT-001: pr notices dropped *\//' "$target"
+  grep -Fq 'MUT-001: pr notices dropped' "$target" || infra pr-mutation-not-applied
+}
+
+check_pr_mutation_red() {
+  local log="$1"
+  if grep -Eq 'build failed|cannot use|undefined:|syntax error|declared and not used|\[build failed\]' "$log"; then
+    fail 'pr-mutation-build-failure-not-behavioral'
+  fi
+  grep -Eq -- '^--- FAIL: TestAUR522PRBinaryWithoutPatchIsNotReviewed' "$log" || fail 'pr-mutation-survived'
+}
+
 check_mutation_red() {
   local log="$1"
   if grep -Eq 'build failed|cannot use|undefined:|syntax error|\[build failed\]' "$log"; then
@@ -137,7 +158,18 @@ case "$selector" in
   AC-001) expect_pass "^$ac001\$" "$ac001"; printf '%s/%s/pass\n' "$card" "$selector" ;;
   AC-002) expect_pass "^$ac002\$" "$ac002"; printf '%s/%s/pass\n' "$card" "$selector" ;;
   AC-003) expect_pass "^$ac003\$" "$ac003"; printf '%s/%s/pass\n' "$card" "$selector" ;;
-  AC-004) expect_pass "^$ac004\$" "$ac004"; printf '%s/%s/pass\n' "$card" "$selector" ;;
+  AC-004)
+    expect_pass '^TestAUR522(BinaryAndGenerated|PR|Model)' "$ac004"
+    for name in "${ac004pr[@]}"; do grep -q "^--- PASS: $name " "$run_dir/$ac004.log" || fail "missing-pass:$name"; done
+    printf '%s/%s/pass\n' "$card" "$selector"
+    ;;
+  AC-004-MUT-001)
+    apply_mutation_pr_no_notices
+    log="$run_dir/mutation.log"
+    run_go_test '^TestAUR522PR' "$log" ./cmd/aurumcode/ || true
+    check_pr_mutation_red "$log"
+    printf '%s/%s/pass (mutation produced RED)\n' "$card" "$selector"
+    ;;
   AC-001-MUT-001)
     apply_mutation_skip_silently
     log="$run_dir/mutation.log"
@@ -148,13 +180,18 @@ case "$selector" in
   all)
     run_package_proof
     expect_pass '^TestAUR522' "$ac001"
-    for name in "$ac002" "$ac003" "$ac004"; do
+    for name in "$ac002" "$ac003" "$ac004" "${ac004pr[@]}"; do
       grep -q "^--- PASS: $name " "$run_dir/$ac001.log" || fail "missing-pass:$name"
     done
     apply_mutation_skip_silently
     log="$run_dir/mutation.log"
     run_go_test "^$ac001\$" "$log" ./cmd/aurumcode/ || true
     check_mutation_red "$log"
+    seed_root
+    apply_mutation_pr_no_notices
+    log="$run_dir/mutation_pr.log"
+    run_go_test '^TestAUR522PR' "$log" ./cmd/aurumcode/ || true
+    check_pr_mutation_red "$log"
     printf '%s/%s/pass\n' "$card" "$selector"
     ;;
 esac
