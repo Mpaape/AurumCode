@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -9,6 +10,55 @@ import (
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
+
+// aur467TightBudget finds, empirically, the smallest MaxTokens at which
+// builder admits at least one of diff's code hunks while still omitting at
+// least one -- the exact "tight but not empty" shape AC-003 exercises. It
+// starts just above the builder's own measured fixed overhead
+// (prompt.PromptBuilder.FixedOverheadTokens, AUR-539) and grows in small
+// steps, so the budget always tracks the CURRENT fixed prompt content
+// (instructions, rule catalog, schema) instead of a literal that rots when
+// that content grows, as AUR-467's original hardcoded 1700 did. ceiling
+// bounds the search so a product defect that never admits anything fails
+// the test instead of hanging it.
+func aur467TightBudget(t *testing.T, builder *prompt.PromptBuilder, diff *types.Diff, metrics *analyzer.DiffMetrics, reserveReply, step, ceiling int) (prompt.PromptParts, int) {
+	t.Helper()
+	opts0 := prompt.BuildOptions{SchemaKind: "review", Role: "reviewer"}
+	fixedOverhead, err := builder.FixedOverheadTokens(diff, metrics, opts0)
+	if err != nil {
+		t.Fatalf("FixedOverheadTokens failed: %v", err)
+	}
+	return aur467SearchBudget(t, builder, diff, metrics, fixedOverhead, reserveReply, step, ceiling, func(parts prompt.PromptParts) bool {
+		complete, _ := strconv.Atoi(parts.Meta["code_files_complete"])
+		partial, _ := strconv.Atoi(parts.Meta["code_files_partial"])
+		omitted, _ := strconv.Atoi(parts.Meta["code_files_omitted"])
+		return complete+partial >= 1 && omitted >= 1
+	})
+}
+
+// aur467SearchBudget is the shared search aur467TightBudget and the
+// partial-hunk fixture use: grow MaxTokens from fixedOverhead in steps of
+// step, up to fixedOverhead+reserveReply+ceiling, and return the first
+// assembled prompt for which want reports true. Deriving the budget this
+// way, instead of a literal, keeps the fixture valid as the measured fixed
+// prompt content (and therefore fixedOverhead) changes.
+func aur467SearchBudget(t *testing.T, builder *prompt.PromptBuilder, diff *types.Diff, metrics *analyzer.DiffMetrics, fixedOverhead, reserveReply, step, ceiling int, want func(prompt.PromptParts) bool) (prompt.PromptParts, int) {
+	t.Helper()
+	for extra := 0; extra <= ceiling; extra += step {
+		maxTokens := fixedOverhead + reserveReply + extra
+		parts, err := builder.BuildPrompt(diff, metrics, prompt.BuildOptions{
+			MaxTokens: maxTokens, SchemaKind: "review", Role: "reviewer", ReserveReply: reserveReply,
+		})
+		if err != nil {
+			continue // still refusing: not enough room yet
+		}
+		if want(parts) {
+			return parts, maxTokens
+		}
+	}
+	t.Fatalf("could not find a budget (fixedOverhead=%d) satisfying the fixture's predicate within the search ceiling", fixedOverhead)
+	return prompt.PromptParts{}, 0
+}
 
 // TestAUR467 is this card's unit selector. It proves, at the public
 // boundary of internal/prompt, that a review prompt built from a diff
@@ -55,6 +105,19 @@ func aur467BuildPrompt(t *testing.T, diff *types.Diff, maxTokens, reserve int) p
 		t.Fatalf("BuildPrompt failed: %v", err)
 	}
 	return parts
+}
+
+// mustFixedOverhead is aur467TightBudget's single-use sibling for fixtures
+// that need the measured fixed overhead directly, to drive their own
+// search predicate rather than aur467TightBudget's "some reviewed, some
+// omitted" one.
+func mustFixedOverhead(t *testing.T, diff *types.Diff, metrics *analyzer.DiffMetrics) int {
+	t.Helper()
+	fixedOverhead, err := prompt.NewPromptBuilder().FixedOverheadTokens(diff, metrics, prompt.BuildOptions{SchemaKind: "review", Role: "reviewer"})
+	if err != nil {
+		t.Fatalf("FixedOverheadTokens failed: %v", err)
+	}
+	return fixedOverhead
 }
 
 func aur467CodeFile(path string, lines ...string) types.DiffFile {
@@ -147,13 +210,14 @@ func testAUR467PartialCoverageDeclared(t *testing.T) {
 		files = append(files, aur467CodeFile(fmt.Sprintf("src/big%02d.mjs", i), bigLine))
 	}
 	diff := &types.Diff{Files: files}
+	metrics := analyzer.NewDiffAnalyzer().AnalyzeDiff(diff)
 
-	// A budget deliberately too small to fit every file's ~100-token hunk.
-	// The base review prompt (~1305 tokens) plus this diff's worst-case
-	// coverage-declaration reservation (~186 tokens for 8 files) already
-	// consume most of a 1700-token budget, leaving room for exactly one
-	// file's hunk.
-	parts := aur467BuildPrompt(t, diff, 1700, 40)
+	// A budget deliberately too small to fit every file's ~100-token hunk,
+	// derived from the builder's own measured fixed overhead (AUR-539)
+	// rather than a literal that rots as the fixed prompt content grows:
+	// start just above the fixed cost and grow until some files are
+	// reviewed and some are omitted.
+	parts, maxTokens := aur467TightBudget(t, prompt.NewPromptBuilder(), diff, metrics, 40, 20, 4000)
 
 	total := parts.Meta["code_files_total"]
 	complete := parts.Meta["code_files_complete"]
@@ -178,8 +242,8 @@ func testAUR467PartialCoverageDeclared(t *testing.T) {
 	// declaration used to be appended after the budget was already
 	// closed, and Meta undercounted it).
 	full := prompt.NewHeuristicEstimator().Estimate(parts.System + parts.User)
-	if full > 1700 {
-		t.Fatalf("assembled prompt is %d estimated tokens, over the 1700-token budget (blocker 1 regression)", full)
+	if full > maxTokens {
+		t.Fatalf("assembled prompt is %d estimated tokens, over the %d-token budget (blocker 1 regression)", full, maxTokens)
 	}
 	if got := parts.Meta["estimated_tokens"]; got != fmt.Sprintf("%d", full) {
 		t.Fatalf("Meta[estimated_tokens] = %q, want %d (must count the full assembled prompt, not a partial sum)", got, full)
@@ -199,9 +263,14 @@ func testAUR467CoverageDeclarationNeverOverflowsBudget(t *testing.T) {
 		files = append(files, aur467CodeFile(fmt.Sprintf("src/big%02d.mjs", i), "+"+strings.Repeat("x", 400)))
 	}
 	diff := &types.Diff{Files: files}
+	metrics := analyzer.NewDiffAnalyzer().AnalyzeDiff(diff)
 
-	const maxTokens = 1700
-	parts := aur467BuildPrompt(t, diff, maxTokens, 40)
+	// Derived (AUR-539), not a literal: a budget tight enough to omit at
+	// least one of the 8 big files, which is exactly when the coverage
+	// declaration's own size (it grows with the omitted count) is most
+	// likely to push the assembled prompt over MaxTokens if blocker 1 ever
+	// regresses.
+	parts, maxTokens := aur467TightBudget(t, prompt.NewPromptBuilder(), diff, metrics, 40, 20, 4000)
 
 	full := prompt.NewHeuristicEstimator().Estimate(parts.System + parts.User)
 	if full > maxTokens {
@@ -225,18 +294,19 @@ func testAUR467PartialHunkNeverSilentlyComplete(t *testing.T) {
 		},
 	}}}
 
-	// AUR-475 (2026-08-23): re-sized from MaxTokens=1470. At 1470 the
-	// coverage-reservation math left only ~17 tokens for content -- less than
-	// hunk0's own 35 tokens -- so hunk0 never fit whole either; it only
-	// "survived" under the old TrimToFit, which truncated the first
-	// non-fitting segment instead of skipping it. AUR-475 removed that
-	// truncation branch (a segment fits whole or is skipped whole, never
-	// truncated), so this fixture must actually leave room for hunk0's
-	// real 35 tokens. At MaxTokens=1510, hunk0 (35 tokens) fits and hunk1
-	// (35 tokens) does not (measured: hunk0 present, hunk1 absent,
-	// code_files_partial=1, code_files_omitted=0) -- the partial case this
-	// test exists to exercise is still exercised, for real this time.
-	parts := aur467BuildPrompt(t, diff, 1510, 20)
+	// AUR-539: derived from the builder's measured fixed overhead instead
+	// of the literal MaxTokens=1510 AUR-475 hardcoded, which the fixed
+	// prompt content later outgrew. Search from fixedOverhead upward (fine
+	// 4-token steps, matching the estimator's ~4-chars-per-token
+	// granularity) for the first budget where hunk0 survives and hunk1
+	// does not -- the exact partial-file shape this test exercises,
+	// wherever the boundary between one hunk and two now falls.
+	metrics := analyzer.NewDiffAnalyzer().AnalyzeDiff(diff)
+	parts, _ := aur467SearchBudget(t, prompt.NewPromptBuilder(), diff, metrics,
+		mustFixedOverhead(t, diff, metrics), 20, 4, 400,
+		func(p prompt.PromptParts) bool {
+			return strings.Contains(p.User, "hunk0") && !strings.Contains(p.User, "hunk1")
+		})
 
 	if !strings.Contains(parts.User, "hunk0") {
 		t.Fatalf("test setup invalid: hunk0 did not survive the budget at all:\n%s", parts.User)
