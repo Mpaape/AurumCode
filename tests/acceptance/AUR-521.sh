@@ -113,17 +113,19 @@ pkgs='./internal/render/... ./cmd/aurumcode/...'
 case "$selector" in
   all)   test_pattern='^TestAUR521' ;;
   AC-001)
-    test_pattern='^(TestAUR521PolicyDigestChangesWhenPolicyChanges|TestAUR521AuditAndSARIFOnGateBreach|TestAUR521PRPathWritesComplianceArtifacts)$'
+    test_pattern='^(TestAUR521PolicyDigestChangesWhenPolicyChanges|TestAUR521AuditAndSARIFOnGateBreach|TestAUR521PRPathWritesComplianceArtifacts|TestAUR521EvaluateGateBlockNeverPopulatesBlockingFindings)$'
     ;;
   AC-002)
-    test_pattern='^(TestAUR521SARIFRequiredFields|TestAUR521SARIFFingerprintStableAcrossWrites|TestAUR521SARIFOmitsRegionForLinelessFinding|TestAUR521FindingFingerprintStableAcrossRuns|TestAUR521FindingFingerprintChangesWithContent|TestAUR521FindingFingerprintNormalizesWhitespaceAndPath|TestAUR521AuditFingerprintStableAcrossTwoRuns)$'
+    test_pattern='^(TestAUR521SARIFRequiredFields|TestAUR521SARIFFingerprintStableAcrossWrites|TestAUR521SARIFOmitsRegionForLinelessFinding|TestAUR521FindingFingerprintStableAcrossRuns|TestAUR521FindingFingerprintChangesWithContent|TestAUR521FindingFingerprintNormalizesWhitespaceAndPath|TestAUR521AuditFingerprintStableAcrossTwoRuns|TestAUR521DiffLineAtSkipsNoNewlineMarker|TestAUR521FindingIdentityForUsesDiffLine|TestAUR521FindingIdentityForRedactsBeforeHashing)$'
     ;;
-  AC-003) test_pattern='^TestAUR521SARIFSuppressionForExceptedFinding$' ;;
+  AC-003)
+    test_pattern='^(TestAUR521SARIFSuppressionForExceptedFinding|TestAUR521ExceptedFindingSuppressedNotBlocking)$'
+    ;;
   AC-004)
-    test_pattern='^(TestAUR521SARIFInconclusiveRun|TestAUR521AuditRecordInconclusiveMarksOmittedFiles|TestAUR521AuditInconclusiveListsOmittedFiles)$'
+    test_pattern='^(TestAUR521SARIFInconclusiveRun|TestAUR521AuditRecordInconclusiveMarksOmittedFiles|TestAUR521AuditInconclusiveListsOmittedFiles|TestAUR521AuditGateOutcomeInconclusiveWithoutGateDeclared|TestAUR521AuditAndSARIFAgreeOnInconclusive)$'
     ;;
   AC-005)
-    test_pattern='^(TestAUR521WriteAuditRecordRedactsSecretCanary|TestAUR521SARIFRedactsSecretCanary|TestAUR521RedactsSecretCanaryEndToEnd|TestAUR521RedactsSecretCanaryFromDiffLine)$'
+    test_pattern='^(TestAUR521WriteAuditRecordRedactsSecretCanary|TestAUR521SARIFRedactsSecretCanary|TestAUR521RedactsSecretCanaryEndToEnd|TestAUR521RedactsSecretCanaryFromDiffLine|TestAUR521WriteAuditRecordRedactsEscapedSecrets|TestAUR521SARIFRedactsEscapedSecrets)$'
     ;;
   AC-002-MUT-001)
     test_pattern='^TestAUR521FindingFingerprintStableAcrossRuns$'
@@ -164,7 +166,14 @@ if [[ "$selector" == all ]]; then
     AuditAndSARIFOnGateBreach AuditFingerprintStableAcrossTwoRuns \
     AuditInconclusiveListsOmittedFiles RedactsSecretCanaryEndToEnd \
     RedactsSecretCanaryFromDiffLine \
-    PRPathWritesComplianceArtifacts; do
+    PRPathWritesComplianceArtifacts \
+    DiffLineAtSkipsNoNewlineMarker FindingIdentityForUsesDiffLine \
+    FindingIdentityForRedactsBeforeHashing \
+    WriteAuditRecordRedactsEscapedSecrets SARIFRedactsEscapedSecrets \
+    ExceptedFindingSuppressedNotBlocking \
+    AuditGateOutcomeInconclusiveWithoutGateDeclared \
+    AuditAndSARIFAgreeOnInconclusive \
+    EvaluateGateBlockNeverPopulatesBlockingFindings; do
     grep -q "^--- PASS: TestAUR521$name " "$log" || fail "missing-pass:$name"
   done
 fi

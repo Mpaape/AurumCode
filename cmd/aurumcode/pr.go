@@ -775,8 +775,6 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		verdict:                result.Verdict,
 		gate:                   gateResult,
 		gateInconclusiveReason: gateInconclusiveReason,
-		acceptedOrigin:         gateOrigin,
-		gateConfig:             reviewConfig.Gate,
 		diff:                   diff,
 		issues:                 result.Issues,
 		dynamicRules:           dynamicRules,

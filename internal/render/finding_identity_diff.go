@@ -70,13 +70,23 @@ func diffLineAt(diff *types.Diff, file string, line int, side string) string {
 						return body
 					}
 					oldN++
-				default:
+				case ' ':
 					// A context line exists in both coordinate spaces.
 					if (side == "RIGHT" && newN == line) || (side == "LEFT" && oldN == line) {
 						return body
 					}
 					oldN++
 					newN++
+				default:
+					// Anything else -- most notably git's own "\ No
+					// newline at end of file" marker line -- is not a
+					// real hunk line at all and must never advance either
+					// counter (internal/review/scope.go's own
+					// addedLinesForTesting/scope-building loop treats the
+					// identical marker the same way, for the identical
+					// reason): doing so would shift every line number
+					// after it by one, silently mapping a finding to the
+					// WRONG line's content.
 				}
 			}
 		}

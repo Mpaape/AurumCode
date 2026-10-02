@@ -1201,8 +1201,6 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		verdict:                result.Verdict,
 		gate:                   gateResult,
 		gateInconclusiveReason: gateInconclusiveReason,
-		acceptedOrigin:         gateOrigin,
-		gateConfig:             repoCfg.Gate,
 		diff:                   diff,
 		issues:                 gateIssues,
 		dynamicRules:           dynamicRules,

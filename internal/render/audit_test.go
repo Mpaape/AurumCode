@@ -137,3 +137,46 @@ func TestAUR521WriteAuditRecordRedactsSecretCanary(t *testing.T) {
 		t.Fatalf("audit record is not valid JSON after redaction: %v\n%s", err, data)
 	}
 }
+
+// TestAUR521WriteAuditRecordRedactsEscapedSecrets is B3: a secret
+// containing a `"`, a `\` or an embedded newline survives
+// json.MarshalIndent as a DIFFERENT byte sequence (the special character
+// escaped) than the one a post-marshal-only redaction pass would still
+// match against the raw secret value -- so redacting only the final JSON
+// text misses it. WriteAuditRecord must redact each field BEFORE
+// marshaling (and still run the post-marshal pass as defense in depth).
+// Each secret below carries a stable prefix that is byte-identical whether
+// or not JSON escaped the special character that follows it, so the
+// leak check below is correct regardless of escaping.
+func TestAUR521WriteAuditRecordRedactsEscapedSecrets(t *testing.T) {
+	quoteSecret := `AURUMQUOTE-abc"xyz`
+	backslashSecret := "AURUMBACKSLASH-abc\\xyz"
+	newlineSecret := "AURUMNEWLINE-abc\nxyz"
+	filter := redaction.NewFilter(quoteSecret, backslashSecret, newlineSecret)
+
+	rec := BuildAuditRecord(
+		"digest", "wfsha", "octo/repo", "sha123", "gpt-test", "comment",
+		AuditGate{Decision: "fail", Reason: "a: " + quoteSecret},
+		[]AuditFinding{{RuleID: "r1", Path: "app.go", Line: 1, Severity: "error"}},
+		[]AuditException{{RuleID: "r2", Path: "app.go", Justification: "b: " + backslashSecret}},
+		true, []string{"c: " + newlineSecret},
+	)
+
+	path := filepath.Join(t.TempDir(), "audit.json")
+	if err := WriteAuditRecord(path, rec, filter); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, prefix := range []string{"AURUMQUOTE-abc", "AURUMBACKSLASH-abc", "AURUMNEWLINE-abc"} {
+		if strings.Contains(string(data), prefix) {
+			t.Fatalf("secret with prefix %q leaked into the audit record (escaped or not):\n%s", prefix, data)
+		}
+	}
+	var roundtrip map[string]any
+	if err := json.Unmarshal(data, &roundtrip); err != nil {
+		t.Fatalf("audit record is not valid JSON after redaction: %v\n%s", err, data)
+	}
+}

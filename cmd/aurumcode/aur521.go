@@ -42,8 +42,6 @@ type complianceArtifactInputs struct {
 
 	gate                   gateDecision
 	gateInconclusiveReason string
-	acceptedOrigin         string
-	gateConfig             config.GateConfig
 
 	// diff is the exact diff this run reviewed. The SARIF fingerprint is
 	// built from the code AT (issue.File, issue.Line, issue.Side) in this
@@ -72,26 +70,44 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 	policyDigest := render.PolicyDigest(in.policyDir, in.centralCfg)
 	// AUR-521's own workflow-SHA convention: AURUMCODE_WORKFLOW_SHA (the
 	// reusable workflow's own version, forwarded under a name GitHub
-	// Actions does not reserve -- GITHUB_SHA and, per docs/specs/AUR-504.md
-	// and this package's own pr.go comments, very likely GITHUB_WORKFLOW_SHA
-	// too, are reserved to the pull_request event's own synthetic merge
-	// commit and cannot be overridden by a step's env: block) takes
-	// precedence over GITHUB_SHA (the commit under review -- a usable, if
-	// coarser, fallback when the workflow SHA was never forwarded).
-	workflowSHA := firstNonEmpty(os.Getenv("AURUMCODE_WORKFLOW_SHA"), os.Getenv("GITHUB_SHA"))
+	// Actions does not reserve). No fallback to GITHUB_SHA here on
+	// purpose: GITHUB_SHA already has its own field (ReviewedSHA, right
+	// below) -- a run with no AURUMCODE_WORKFLOW_SHA (a local invocation,
+	// outside the reusable workflow) must record an EMPTY workflow_sha,
+	// never silently duplicate reviewed_sha's value into it. A reviewer
+	// reading the record must be able to tell "this workflow's own
+	// version is unknown" apart from "this workflow's version happens to
+	// equal the reviewed commit".
+	workflowSHA := strings.TrimSpace(os.Getenv("AURUMCODE_WORKFLOW_SHA"))
 
 	decision, reason := auditGateOutcome(in.gate, in.gateInconclusiveReason)
-	blocking := matchedBlockingFindings(in.gate.Breach, in.gateConfig, in.acceptedOrigin, in.dynamicRules, in.issues)
+	// AUR-521/AUR-520: BlockingFindings and AppliedExceptions are
+	// evaluateGate's OWN structured output (policygate.go) -- the single
+	// place a finding is ever decided to block the gate or be excepted.
+	// This function never re-derives that decision a second time.
+	blocking := in.gate.BlockingFindings
+	if blocking == nil {
+		blocking = []render.AuditFinding{}
+	}
+	exceptionsApplied := in.gate.AppliedExceptions
+	if exceptionsApplied == nil {
+		exceptionsApplied = []render.AuditException{}
+	}
+	// suppressed indexes AppliedExceptions by (ruleID, path) so the SARIF
+	// loop below can mark the exact same findings evaluateGate excepted
+	// as suppressed, with the exact same justification -- never a second,
+	// possibly-disagreeing exception match.
+	suppressed := make(map[[2]string]render.AuditException, len(exceptionsApplied))
+	for _, exc := range exceptionsApplied {
+		suppressed[[2]string{exc.RuleID, exc.Path}] = exc
+	}
 
 	if in.auditoriaPath != "" {
 		rec := render.BuildAuditRecord(
 			policyDigest, workflowSHA, in.repo, in.reviewedSHA, in.model, in.verdict,
 			render.AuditGate{Decision: decision, Reason: reason},
 			blocking,
-			// AUR-520: exceptions_applied is always an explicit empty list
-			// until that card lands and starts populating it (see
-			// render.AuditRecord's own doc).
-			nil,
+			exceptionsApplied,
 			in.coverageComplete, in.omittedFiles,
 		)
 		if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
@@ -107,7 +123,7 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 				title = rule.Title
 			}
 			identity := render.FindingIdentityFor(in.diff, issue, filter)
-			findings = append(findings, render.SARIFFinding{
+			finding := render.SARIFFinding{
 				RuleID:    issue.RuleID,
 				RuleTitle: title,
 				Path:      issue.File,
@@ -115,7 +131,12 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 				Severity:  issue.Severity,
 				Message:   issue.Message,
 				Context:   identity.Context,
-			})
+			}
+			if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
+				finding.Suppressed = true
+				finding.Justification = exc.Justification
+			}
+			findings = append(findings, finding)
 		}
 		executionSuccessful := in.gateInconclusiveReason == ""
 		if err := render.WriteSARIF(in.sarifPath, version, findings, executionSuccessful, in.gateInconclusiveReason, filter); err != nil {
@@ -146,52 +167,6 @@ func auditGateOutcome(g gateDecision, inconclusiveReason string) (decision, reas
 	default:
 		return "pass", reason
 	}
-}
-
-// matchedBlockingFindings re-derives the exact set of issues evaluateGate's
-// own threshold loop (policygate.go) would match, as structured
-// render.AuditFinding values instead of evaluateGate's own printable lines.
-// It deliberately mirrors that loop's matching rule (origin + the same
-// rule/model severity floor, effectiveSeverityRank) rather than changing
-// evaluateGate's signature to return them: policygate.go is also being
-// edited concurrently for AUR-520's exceptions (whose accepted exceptions
-// must also flow through THIS function once that card lands, or the audit
-// record will drift from the gate's real decision), and this function only
-// READS the gate's already-public helpers, so it carries no risk of
-// disagreeing with the gate's own decision.
-//
-// breach must be the caller's own gateDecision.Breach: when a run never
-// actually ran this threshold loop at all (gate.inconclusive: block fired
-// first, Fail without Breach -- see evaluateGate's own doc), re-running the
-// loop here anyway would list findings the gate itself never graded. An
-// audit record claiming "these findings blocked the gate" when the gate
-// never checked them would be worse than listing none.
-func matchedBlockingFindings(breach bool, gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue) []render.AuditFinding {
-	out := []render.AuditFinding{}
-	if !breach || !gate.Declared() {
-		return out
-	}
-	rank, _, ok, err := gate.Threshold()
-	if err != nil || !ok {
-		return out
-	}
-	for _, issue := range issues {
-		rule, found := dynamic[issue.RuleID]
-		if !found || rule.Origin != acceptedOrigin {
-			continue
-		}
-		effective, comparable := effectiveSeverityRank(issue.Severity, rule.Severity)
-		if !comparable || effective < rank {
-			continue
-		}
-		out = append(out, render.AuditFinding{
-			RuleID:   issue.RuleID,
-			Path:     issue.File,
-			Line:     issue.Line,
-			Severity: issue.Severity,
-		})
-	}
-	return out
 }
 
 // firstNonEmpty returns the first non-empty, trimmed value, or "" when all
