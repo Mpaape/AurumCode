@@ -158,6 +158,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/apply"
 	"github.com/Mpaape/AurumCode/internal/changelog"
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
@@ -1241,6 +1242,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// claims complete coverage (AC-003). It is printed on stdout below,
 	// next to the report, so the user never has to open the PR to see it.
 	coverageBreakdown := mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths)
+	applyStructuralCoverage(grammar.Default(), diff, &coverageBreakdown, result)
 	coverageText := coverageNotice(reviewCopyFor(reviewLanguage), coverageBreakdown)
 	if coverageText != "" {
 		result.Limitations = append(result.Limitations, coverageText)
