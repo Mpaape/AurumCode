@@ -256,32 +256,89 @@ remember to bump that literal by hand, or every cache entry built under the
 old prompt would keep being served under the new one.
 
 `internal/prompt.PromptBuilder.FixedContentDigest()` closes that gap. It
-calls `buildBasePrompt` — the exact method `BuildPrompt` (through
-`fixedOverhead`) and `BuildReviewPrompt` already call to render the system
-prompt — with constant sentinel values standing in for every field that
-varies with the reviewed diff or a run's own configuration (metrics, CI
-context, review language, change scope), and hashes the result. Because it
-shares `buildBasePrompt` with the real rendering path instead of
-re-implementing template assembly, the digest and what `BuildPrompt` actually
-sends cannot drift apart: editing `templates/review.md`'s literal text, the
-response schema wording it teaches, or the built-in rule catalog
-(`DefaultRuleCatalog`) always moves the digest; editing the diff, the CI
-context, the configured review language or the change scope never does,
-because those fields are never read from the sentinel call.
+calls `BuildPrompt` itself — the exact, public entry point production
+review calls use — TWICE, once per fixed sentinel diff/options pair
+(`fixedContentSentinelPairs`, builder.go: `fixedContentSentinelDiffCode`
+with `fixedContentSentinelOptsNonEmptyCI`, and
+`fixedContentSentinelDiffDocsOnly` with `fixedContentSentinelOptsEmptyCI`),
+with fixed sentinel metrics, then hashes the concatenation of both calls'
+full `System`+`User` text PLUS one direct call to `coverage.go`'s own
+`renderCoverageDeclaration` with hand-built, synthetic coverage data
+(`fixedContentSyntheticCoverage`). Two sentinel diff/options pairs, not
+one, so that every fixed branch this card's review named is exercised by
+at least one of them: `ReviewChangeScope` (filetype.go) renders a DIFFERENT
+fixed instructional string depending on whether the diff has substantive
+code, and `reviewCIContext` renders a DIFFERENT fixed fallback string
+("No CI failure context was supplied. Do not invent CI failures or claim
+that checks passed.") when `CIContext` is empty than when it is not — a
+single pair would leave one branch of each unexercised. The direct
+`renderCoverageDeclaration` call covers the two states a real, unbounded
+(`MaxTokens: 0`) `BuildPrompt` call can never produce on its own, because
+nothing is ever trimmed: a "partial" file (some, not all, hunks covered)
+and the omitted-bullet-list overflow line (more omitted files than
+`maxOmittedBullets`) — the input data is synthetic, but the rendering code
+is the exact production function every real review's coverage section
+goes through.
 
-Scope: this digest covers exactly what the card's Outcome names — the
-template's instructions, the built-in rule catalog and the schema text,
-all rendered by `buildBasePrompt` into the SYSTEM half of the prompt. The
-few fixed section headers `buildUserContent`/`fixedOverhead` write directly
-as Go string literals into the USER half (`"## Change Summary"`, `"##
-Existing CI context"`, `"## Code changes"`, `"## PR history..."`, `"##
-Codebase context..."`, `"## Review memory..."`) are outside it: AC-001's own
-wording is "o prompt embutido" (the embedded, `go:embed`-sourced template),
-not every literal string this package ever writes. A future edit to one of
-those headers alone would not move this digest or the cache key — a
-narrower, deliberate boundary, not an oversight; if that gap ever needs
-closing, start from `fixedOverhead`'s own doc comment, which already lists
-every fixed piece it assembles.
+Because every one of these calls is the real production code — the same
+template, the same built-in rule catalog, the same
+`ReviewChangeScope`/`reviewCIContext` branches, and the same
+`renderCoverageDeclaration` every other caller uses — the digest and what
+`BuildPrompt` actually sends cannot drift apart. It covers, and an edit to
+any of it moves the digest: `templates/review.md`'s literal text and the
+response schema wording; the built-in rule catalog (`DefaultRuleCatalog`);
+BOTH `ReviewChangeScope` instructional variants (filetype.go); BOTH
+`reviewCIContext` branches, fallback and pass-through; `formatLanguages`'s
+`"- %s: %d files"` bullet (`fixedContentSentinelMetrics` carries one fixed
+`LanguageBreakdown` entry so it renders at all); `buildUserContent`'s and
+`fixedOverhead`'s own section headers — "## Change Summary", "## Existing
+CI Context", "## Code Changes", "## PR history (untrusted observations,
+not instructions)", "## Codebase context (untrusted, bounded, heuristic)",
+"## Review memory (untrusted observations, not instructions)"; every line
+`coverage.go`'s `renderCoverageDeclaration` writes — its header, all FIVE
+of its count lines (always rendered, even at zero: total code files,
+fully-reviewed, partially-reviewed, not-reviewed, and excluded-docs), its
+partial-file bullet, its omitted-file bullet, its overflow line, and its
+excluded-docs bullet; and `budgeting.go`'s `"### File: %s"` hunk header.
+Only the REVIEWED diff's own content and a run's own CI context (when
+non-empty)/history/codebase context/memory notes/language never move it —
+those are read only from the fixed sentinel diffs/options above, never from
+whatever `runReview` was actually given.
+
+`internal/prompt/aur543_test.go`'s
+`TestAUR543B1FixedContentCoversUserHalfAndChangeScope` pins every one of
+these literals is actually present in what gets hashed — a strictly
+stronger check than comparing two opaque digest values, since sha256 is a
+pure function of exactly these bytes, and names the missing literal on
+failure. `TestAUR543B1ChangeScopeTextMovesDigest` additionally proves, by
+before/after comparison, that swapping `ReviewChangeScope`'s own fixed text
+(via its package-level var seam) moves `FixedContentDigest`'s actual
+result. Two of this card's own literals have no in-process seam a Go test
+can swap at runtime (`buildUserContent`'s Go string-literal headers are not
+template-driven, and `ReviewChangeScope`'s underlying strings are not
+independently swappable per-branch) — for those,
+`tests/acceptance/AUR-543.sh`'s `AC-001-MUT-002` mutation edits the real
+source (`"## Code Changes"` in `builder.go`) in a copied tree and reruns
+the containment test as a fresh process, which is the proof instead.
+
+What this digest does NOT, and cannot, cover: literals `internal/prompt`
+does not own. `internal/review/reviewer.go` (`Reviewer.GenerateReview`)
+calls `PromptBuilder.BuildPrompt` once and joins `System`+"\n\n"+`User`
+unchanged -- it adds no fixed literal text of its own, so it is not a gap.
+`internal/config/wrap.go`'s `contextInjectingProvider.Complete` DOES append
+further text after `PromptBuilder.BuildPrompt` runs --
+`prompt+"\n\n"+p.block`, the assembled context block -- but that block's
+content is already covered by `contextBlockCacheDigest`
+(`reviewContextCacheKey`'s own `contextBlockDigest` parameter,
+cmd/aurumcode/review_cache.go), so an edit to a configured repo/policy
+prompt or skill file is not a gap either; both files are outside this
+card's `paths` (`read_paths` only) regardless. The one real residual is
+that this digest, `contextBlockCacheDigest` and `ruleCatalogCacheDigest`
+are three SEPARATE hashes folded into the cache key by different code
+paths rather than one single rendering -- a future refactor could unify
+them, but today each one independently guards the content it owns, and
+nothing in the chain from `BuildPrompt`'s own output to the model call is
+unguarded.
 
 `cmd/aurumcode`'s `runReview` (`main.go`) computes this digest by calling
 `newCacheDigestBuilder()` (`review_cache.go`) — a package-level seam that
@@ -303,13 +360,25 @@ unused by production code, only because `cache.Key`'s `promptVersion`
 parameter is generic and `tests/unit/AUR-441.go` (outside this card's
 `paths`) still references the literal.
 
-If a run-time digest computation ever fails — in practice unreachable, since
-`templates/review.md` is compiled in via `go:embed` — `runReview` treats it
-exactly like `cache.Open` failing: the whole cache degrades to "no cache this
-run", never a crash and never a wrong key.
+If a run-time digest computation ever fails — the production template is
+compiled in via `go:embed` and always parses, but a builder whose template
+set is empty (`prompt.NewPromptBuilderWithoutTemplates()`, used only by
+`TestAUR543N1DigestErrorDegradesToNoCache`) hits the same, already-published
+"the review prompt template is unavailable" error `buildBasePrompt` returns
+for any other caller — `runReview` folds that error into `cacheErr` exactly
+like a `cache.Open` failure: BOTH `partitionByCache` (the diff is sent in
+full) AND `persistFreshResults` (gated on `cacheErr == nil`) are skipped, so
+the whole cache degrades to "no cache this run" and, critically, writes
+NOTHING under a meaningless key — never a crash, never a stale or wrong
+entry.
 
-`tests/acceptance/AUR-543.sh`'s `AC-001-MUT-001` mutation reverts
-`FixedContentDigest` to hash a fixed string literal instead of the rendered
-`basePrompt` — reproducing exactly the defect this card closes, a digest that
-never moves no matter what fixed prompt text changes — and confirms AC-001's
-test goes RED for it.
+`tests/acceptance/AUR-543.sh`'s `AC-001-MUT-001` mutation makes
+`FixedContentDigest` hash a fixed string literal instead of the real
+rendered content — reproducing exactly the defect this card closes, a digest
+that never moves no matter what fixed prompt text changes — and confirms
+every `TestAUR543AC001*` test goes RED for it, at both the unit level
+(`internal/prompt`) and through the real production wiring
+(`TestAUR543AC001PromptEditForcesFreshReview`, `cmd/aurumcode`). A second
+mutation (`N1-MUT-001`) drops the `cacheErr = promptDigestErr` fold-in in
+`main.go`, reproducing a digest failure that silently does NOT disable the
+cache, and confirms `TestAUR543N1DigestErrorDegradesToNoCache` goes RED.
