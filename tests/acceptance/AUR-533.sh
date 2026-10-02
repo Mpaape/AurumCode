@@ -16,6 +16,8 @@
 #   AC-004           tampered payload/manifest digest is refused
 #   AC-005           an ecosystem new in the source enters the next artifact
 #                    with no code change
+#   AC-003-MUT-002   removing the analysis-data gate call from the --pr path
+#                    only (copy) turns the --pr end-to-end tests RED
 #   AC-003-MUT-001   ignoring the artifact age (applied to a copy) turns the
 #                    AC-003 test RED
 # Unknown selectors exit 64; infrastructure failures 79; behavior failures 1.
@@ -27,7 +29,7 @@ readonly card='AUR-533'
 selector="${1:-all}"
 
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|AC-005|AC-003-MUT-001) ;;
+  all|AC-001|AC-002|AC-003|AC-004|AC-005|AC-003-MUT-001|AC-003-MUT-002) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -84,8 +86,8 @@ require_pass() {
 ac_tests() {
   case "$1" in
     AC-001) echo TestAUR533BuildProducesVerifiableManifest TestAUR533BuildFailsClosedOnBadSource TestAUR533PassingTestsPublishAndFailingTestsDoNot TestAUR533PublishRefusesUntestedOrChangedArtifact TestAUR533WorkflowOrderingAndPins TestAUR533GeneratedArtifactStepRunsAgainstFreshBuild ;;
-    AC-002) echo TestAUR533ResolveUsesFreshArtifactAndExposesAudit TestAUR533FreshArtifactIsRecordedInAudit TestAUR533UndeclaredSectionChangesNothing ;;
-    AC-003) echo TestAUR533ResolveRefusesStaleArtifact TestAUR533ResolveOfflineIsInconclusive TestAUR533ResolveRejectsBadInputs TestAUR533StaleArtifactIsInconclusiveByMode TestAUR533CentralPolicyAgeWinsOverRepository TestAUR533AnalysisDataSectionParsesAndDefaults TestAUR533AnalysisDataCentralPolicyPrecedence TestAUR533CentralPolicyFileAcceptsAnalysisData ;;
+    AC-002) echo TestAUR533ResolveUsesFreshArtifactAndExposesAudit TestAUR533FreshArtifactIsRecordedInAudit TestAUR533PRFreshArtifactIsRecordedInAudit TestAUR533UndeclaredSectionChangesNothing ;;
+    AC-003) echo TestAUR533ResolveRefusesStaleArtifact TestAUR533ResolveOfflineIsInconclusive TestAUR533ResolveRejectsBadInputs TestAUR533StaleArtifactIsInconclusiveByMode TestAUR533CentralPolicyAgeWinsOverRepository TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt TestAUR533AnalysisDataSectionParsesAndDefaults TestAUR533AnalysisDataCentralPolicyPrecedence TestAUR533CentralPolicyFileAcceptsAnalysisData ;;
     AC-004) echo TestAUR533ResolveRefusesDigestMismatch TestAUR533DigestMismatchAndUnavailableAreInconclusive ;;
     AC-005) echo TestAUR533NewEcosystemEntersNextArtifact ;;
   esac
@@ -124,10 +126,32 @@ check_mutation_red() {
   grep -Eq -- '^--- FAIL: TestAUR533StaleArtifactIsInconclusiveByMode' "$log" || fail 'mutation-survived:end-to-end'
 }
 
+# AC-003-MUT-002: the --pr path's single gate call is dropped (copy).
+check_pr_mutation_red() {
+  local target="$run_dir/root/cmd/aurumcode/pr.go"
+  local anchor='adResult, adReason, adAudit := applyAnalysisDataGate(ctx, reviewConfig.AnalysisData, adMode)'
+  [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra mutation-anchor-not-unique
+  local line
+  line="$(grep -Fn "$anchor" "$target" | head -1 | cut -d: -f1)"
+  sed -i "${line}s/.*/\t\t_ = adMode\n\t\tvar adResult gateDecision\n\t\tvar adReason string\n\t\tvar adAudit *render.AnalysisDataAudit \/\/ MUT-002: gate call removed/" "$target"
+  grep -Fq 'MUT-002: gate call removed' "$target" || infra mutation-not-applied
+  local log="$run_dir/mutation_pr.log"
+  run_tests '^(TestAUR533PRFreshArtifactIsRecordedInAudit|TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt)$' "$log" || true
+  if grep -Eq 'build failed|cannot use|undefined:|syntax error|declared and not used' "$log"; then
+    fail 'mutation-build-failure-not-behavioral'
+  fi
+  grep -Eq -- '^--- FAIL: TestAUR533PRFreshArtifactIsRecordedInAudit' "$log" || fail 'mutation-survived:pr-audit'
+  grep -Eq -- '^--- FAIL: TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt' "$log" || fail 'mutation-survived:pr-stale'
+}
+
 case "$selector" in
   AC-001|AC-002|AC-003|AC-004|AC-005)
     check_ac "$selector"
     printf '%s/%s/pass\n' "$card" "$selector"
+    ;;
+  AC-003-MUT-002)
+    check_pr_mutation_red
+    printf '%s/%s/pass (mutation produced RED)\n' "$card" "$selector"
     ;;
   AC-003-MUT-001)
     check_mutation_red
@@ -141,6 +165,8 @@ case "$selector" in
       require_pass "$all_log" "${names[@]}"
     done
     check_mutation_red
+    seed_root
+    check_pr_mutation_red
     printf '%s/%s/pass\n' "$card" "$selector"
     ;;
 esac

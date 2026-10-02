@@ -952,5 +952,10 @@ analysis_data:
   política central declara `analysis_data`, ela decide sozinha e a declaração
   do repositório é ignorada com aviso; se a política não a menciona, vale a do
   repositório; sem nenhuma, valem os padrões.
+- Em um review, só os arquivos de `kind: scanners` do release são baixados e
+  verificados individualmente. A cópia OSV só é baixada e verificada por
+  arquivo quando um consumidor a usar (AUR-495); o manifesto inteiro, e portanto
+  cada digest de arquivo, continua coberto pelo `set_digest`, que é conferido
+  em todo review.
 - Requisito de publicação: ative "Immutable releases" nas configurações do
   repositório publicador para que um release publicado não possa ser alterado.
