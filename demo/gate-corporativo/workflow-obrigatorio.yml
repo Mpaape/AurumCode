@@ -21,3 +21,5 @@ jobs:
     secrets:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
+      DTRACK_PROJECT_ID: ${{ secrets.DTRACK_PROJECT_ID }}

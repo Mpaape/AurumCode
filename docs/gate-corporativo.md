@@ -130,6 +130,8 @@ jobs:
     secrets:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
+      DTRACK_PROJECT_ID: ${{ secrets.DTRACK_PROJECT_ID }}
 ```
 
 - Fixe `review.yml` e `policy_ref` por **SHA de 40 hex**, nunca por branch ou
@@ -141,16 +143,24 @@ jobs:
   (`security-events: write`): veja a seção "Trilha de auditoria e SARIF" de
   [configuration.md](configuration.md).
 
-**Limitação conhecida (AUR-550, "Known gaps").** O workflow reutilizável de hoje
-gera o SBOM e assina **depois** do passo de revisão e não repassa
-`DTRACK_API_KEY`/`DTRACK_PROJECT_ID` ao container da revisão. Portanto o
-gate do Dependency-Track ainda não fecha de ponta a ponta dentro de
-`review.yml`: sem o SBOM e sem o secret, ele fica inconclusivo
-(`dtrack_sbom_unavailable`, `dtrack_secret_missing`) e, com
-`inconclusive: block`, reprova. A ordem que funciona é a da demonstração (seção
-7): `aurumcode sbom`, depois `aurumcode review`, depois `aurumcode sign`, no
-mesmo ambiente com os secrets exportados. SAST, SBOM, assinatura, auditoria e
-SARIF já funcionam no workflow reutilizável.
+**Como o workflow reutilizável encadeia os passos (`.github/workflows/review.yml`,
+AUR-555).** A ordem é: SBOM (`aurumcode sbom`, Trivy fixado por digest), depois
+a revisão (gate: SAST, envio do SBOM ao Dependency-Track e leitura das
+métricas), depois a assinatura (Cosign), que só roda quando a revisão termina
+com sucesso: um artefato reprovado não é assinado. O bundle `.sigstore.json`
+sobe como artefato do job. `DTRACK_API_KEY` e `DTRACK_PROJECT_ID` são secrets
+opcionais do `workflow_call` (`required: false`), expostos só ao passo da
+revisão; o workflow chamador os repassa em `secrets:` (como no bloco acima), ou
+usa `secrets: inherit`, como o `code-review.yml` deste repositório. Sem
+`ssor_dtrack` nada disso é exigido; com `ssor_dtrack` e secret ausente o gate
+fica inconclusivo (`dtrack_secret_missing`) e, com `inconclusive: block`,
+reprova, nunca aprova. Limites: os nomes repassados são os padrão
+(`DTRACK_API_KEY`/`DTRACK_PROJECT_ID`); se `api_key_secret`/`project_id_secret`
+forem renomeados, o workflow não repassa os novos nomes. Se o passo de SBOM
+falha, o job falha antes da revisão. O que o AUR-555 provou é a estrutura do
+YAML por testes; este guia e a demonstração **não** provam a execução em um
+runner real do GitHub. A demonstração (seção 7) reproduz a mesma ordem
+(`sbom`, `review`, `sign`) em containers locais.
 
 ## 4. Secrets
 
