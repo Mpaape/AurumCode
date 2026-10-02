@@ -263,6 +263,10 @@ type Config struct {
 	// (qualitygates.go) and ApplyCentralPolicy for why each subsection is
 	// governed independently, the same way Gate/Exceptions already are.
 	QualityGates QualityGatesConfig `yaml:"quality_gates"`
+	// AnalysisData is AUR-533's section (nil = not declared): the maximum
+	// age of the published analysis-data artifact. Governed per section by
+	// ApplyCentralPolicy, like each quality_gates subsection.
+	AnalysisData *AnalysisDataConfig `yaml:"analysis_data"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -331,6 +335,9 @@ func Parse(data []byte, source string) (*Config, error) {
 	// expires date, is a config error here -- fail closed before any
 	// model call, exactly like every other section above (AC-005).
 	if err := ValidateExceptions(cfg.Exceptions); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.AnalysisData.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.QualityGates.SsorDtrack.Validate(); err != nil {
