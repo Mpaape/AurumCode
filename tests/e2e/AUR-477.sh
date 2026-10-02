@@ -35,7 +35,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -50,10 +52,28 @@ func main() {
 			Hunks: []types.DiffHunk{{Lines: []string{fmt.Sprintf("+var x%d = 1", i)}}},
 		})
 	}
+	diff := &types.Diff{Files: files}
+
+	// AUR-539: MaxTokens is derived from the review prompt builder's own
+	// measured fixed overhead (instructions, rule catalog, schema) instead
+	// of the literal 4000 this script hardcoded before, which that fixed
+	// content outgrew. The cushion above the floor stays far below the
+	// pre-AUR-477 worst case (a bullet per omitted file, ~200 files), so
+	// this still proves the bounded coverage-declaration reservation: the
+	// review succeeds despite a cushion much smaller than "name every file".
+	metrics := analyzer.NewDiffAnalyzer().AnalyzeDiff(diff)
+	fixedOverhead, err := prompt.NewPromptBuilder().FixedOverheadTokens(diff, metrics, prompt.BuildOptions{SchemaKind: "review", Role: "reviewer"})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "E2E: could not measure fixed overhead: %v\n", err)
+		os.Exit(1)
+	}
+	const cushion = 1000
+	maxTokens := fixedOverhead + cushion
+
 	orch := llm.NewOrchestrator(&review.FakeProvider{Response: response}, nil, nil)
-	reviewer := review.NewReviewer(orch, review.Config{MaxTokens: 4000})
-	if _, err := reviewer.GenerateReview(context.Background(), &types.Diff{Files: files}); err != nil {
-		fmt.Fprintf(os.Stderr, "E2E: large diff review refused: %v\n", err)
+	reviewer := review.NewReviewer(orch, review.Config{MaxTokens: maxTokens})
+	if _, err := reviewer.GenerateReview(context.Background(), diff); err != nil {
+		fmt.Fprintf(os.Stderr, "E2E: large diff review refused (MaxTokens=%d, fixedOverhead=%d): %v\n", maxTokens, fixedOverhead, err)
 		os.Exit(1)
 	}
 	fmt.Println("E2E: large diff produced a review")

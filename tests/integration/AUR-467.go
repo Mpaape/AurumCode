@@ -91,8 +91,19 @@ func integrationAUR467ArithmeticConsistency(t *testing.T) {
 			"+"+strings.Repeat("y", 300)))
 	}
 	diff := &types.Diff{Files: files}
+	metrics := analyzer.NewDiffAnalyzer().AnalyzeDiff(diff)
 
-	for _, mt := range []int{1700, 2200, 8000} {
+	// AUR-539: budgets derived from the builder's own measured fixed
+	// overhead instead of the literals {1700, 2200, 8000}, which the fixed
+	// prompt content (instructions, rule catalog, schema) later outgrew.
+	// A tight budget (some omitted), a looser one (fewer omitted) and an
+	// ample one (likely none omitted) are still exercised, at whatever
+	// absolute token count the CURRENT fixed content puts them at.
+	fixedOverhead, err := prompt.NewPromptBuilder().FixedOverheadTokens(diff, metrics, prompt.BuildOptions{SchemaKind: "review", Role: "reviewer"})
+	if err != nil {
+		t.Fatalf("FixedOverheadTokens failed: %v", err)
+	}
+	for _, mt := range []int{fixedOverhead + 200, fixedOverhead + 700, fixedOverhead + 6000} {
 		parts := integrationAUR467Build(t, diff, mt, 40)
 		total := parts.Meta["code_files_total"]
 		complete := parts.Meta["code_files_complete"]
