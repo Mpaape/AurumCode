@@ -639,7 +639,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if centralCfg != nil {
 		gateOrigin = gateOriginPolicy
 	}
-	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason)
+	// AUR-520: on --pr the repo identity is simply owner/repoName -- the
+	// exact "owner/repo" the pull request belongs to, already parsed and
+	// verified by parseOwnerRepo/the authenticated GitHub API call above,
+	// never anything derived from the PR's own (author-controlled) diff
+	// or head checkout.
+	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason, reviewConfig.Exceptions, owner+"/"+repoName, time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2
