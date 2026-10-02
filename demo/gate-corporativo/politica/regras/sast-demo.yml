@@ -1,0 +1,6 @@
+rules:
+  - id: demo-sem-eval
+    languages: [javascript]
+    severity: ERROR
+    message: "eval() executa texto como codigo; use um parser ou uma tabela de operacoes"
+    pattern: eval(...)
