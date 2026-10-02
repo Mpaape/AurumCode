@@ -154,10 +154,12 @@ import (
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/apply"
 	"github.com/Mpaape/AurumCode/internal/changelog"
+	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -358,6 +360,70 @@ func readFixSuggestions(file string) ([]byte, error) {
 		return os.ReadFile(file)
 	}
 	return io.ReadAll(os.Stdin)
+}
+
+// inconclusiveReason is the base path's motive for an inconclusive run. The
+// priority mirrors AUR-458's "did not review outranks reviewed and found
+// things": a provider failure or an opted-out quality skip outrank a model
+// reply this run could not parse (AC-008), which outranks a SAST execution
+// failure (AUR-548: it must also reach the SARIF document's
+// executionSuccessful), which outranks partial coverage (AUR-476).
+func (b *baseReview) inconclusiveReason() string {
+	gateInconclusiveReason := ""
+	switch {
+	case b.qualityFailed:
+		gateInconclusiveReason = "provider_failure"
+	case b.qualitySkipped:
+		gateInconclusiveReason = "quality_skipped"
+	case prompt.IsDegradedParse(b.result):
+		gateInconclusiveReason = "degraded_parse"
+	case b.sastReason != "":
+		gateInconclusiveReason = b.sastReason
+	case b.coverage.partial():
+		gateInconclusiveReason = "partial_coverage"
+	}
+	return gateInconclusiveReason
+}
+
+// prepareCache opens the review cache and keeps only the cache misses in
+// toSend (AUR-441). The prompt-version component is a digest of the fixed
+// content a prompt builder renders (AUR-543). The estimate printed earlier
+// priced the FULL diff, oblivious to caching.
+func (b *baseReview) prepareCache() *qualityCache {
+	promptVersionDigest, promptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+	store, cacheErr := cache.Open(cache.ResolveDir())
+	if cacheErr == nil {
+		cacheErr = promptDigestErr
+	}
+	qc := &qualityCache{store: store, err: cacheErr, toSend: b.diff}
+	if cacheErr == nil {
+		var missFiles []types.DiffFile
+		missFiles, qc.statuses = partitionByCache(store, b.diff, reviewContextCacheKey(b.provider, b.baseModelIdentity, b.reviewLanguage, b.codebaseContextText, b.memoryNotesText, b.profileIdentity, b.contextBlockDigest, b.ruleCatalogDigest), promptVersionDigest)
+		qc.toSend = &types.Diff{Files: missFiles}
+	}
+	return qc
+}
+
+// applyGateOutcome publishes the decision's lines (stderr and the review's
+// limitations) and, when the gate failed or was inconclusive, sets the
+// engine-owned marker that withholds approval regardless of the model's
+// own verdict. Shared by --base and --pr.
+func applyGateOutcome(run *gate.Run, gateResult *gate.Result) {
+	result := run.Review
+	if gateResult.Active {
+		for _, line := range gateResult.Lines {
+			fmt.Fprintf(run.Stderr, "aurumcode review: policy gate: %s\n", line)
+			result.Limitations = append(result.Limitations, "policy gate: "+line)
+		}
+		if gateResult.Fail || gateResult.Inconclusive {
+			// B-V: PolicyGateWithheldKey is the ONLY mechanism that
+			// withholds approval; result.Verdict is model-controlled.
+			if result.Metadata == nil {
+				result.Metadata = make(map[string]string)
+			}
+			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
+		}
+	}
 }
 
 // exitFindings is the exit code for "the review ran fine and found at least
