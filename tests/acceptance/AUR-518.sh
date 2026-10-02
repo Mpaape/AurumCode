@@ -107,7 +107,7 @@ fi
 grep -Eq -- '^--- PASS: TestAUR518' "$log" || fail 'no-test-executed'
 
 if [[ "$selector" == all ]]; then
-  for name in PolicyKeepsRuleDespiteRepoDisable PolicySeverityOverrideIgnored PolicyIgnoreWinsOverRepo PolicyAndRepoSkillsBothReachPrompt PRPolicyWarningReachesPublishedReview MissingOrInvalidPolicyFailsClosed EmptyPolicyFlagIsUsageError NoPolicyKeepsRepoRuleOverride; do
+  for name in PolicyKeepsRuleDespiteRepoDisable PolicySeverityOverrideIgnored PolicyIgnoreWinsOverRepo PolicyAndRepoSkillsBothReachPrompt PRPolicyWarningReachesPublishedReview PolicyInsideReviewedTreeFailsClosed EnvPolicyAppliesWithoutFlag MissingOrInvalidPolicyFailsClosed EmptyPolicyFlagIsUsageError NoPolicyKeepsRepoRuleOverride; do
     grep -q "^--- PASS: TestAUR518$name " "$log" || fail "missing-pass:$name"
   done
 fi

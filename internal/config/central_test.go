@@ -18,6 +18,42 @@ func writePolicyFile(t *testing.T, dir, name, body string) {
 	}
 }
 
+// TestAUR518ValidatePolicyOutsideReviewedTree covers the B2 containment
+// rule directly: a policy directory inside, or equal to, the reviewed root
+// is refused; one truly outside it, including a sibling directory sharing a
+// path prefix, is accepted.
+func TestAUR518ValidatePolicyOutsideReviewedTree(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	inside := filepath.Join(root, "policy")
+	if err := os.MkdirAll(inside, 0700); err != nil {
+		t.Fatal(err)
+	}
+	// A sibling directory whose name merely starts with root's name must not
+	// be treated as "inside" by a naive string-prefix check without the
+	// path separator.
+	siblingWithPrefixedName := root + "-sibling"
+	if err := os.MkdirAll(siblingWithPrefixedName, 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ValidatePolicyOutsideReviewedTree(root, root); err == nil {
+		t.Fatal("expected an error when the policy dir equals the reviewed root")
+	}
+	if err := ValidatePolicyOutsideReviewedTree(inside, root); err == nil {
+		t.Fatal("expected an error when the policy dir is nested under the reviewed root")
+	}
+	if err := ValidatePolicyOutsideReviewedTree(outside, root); err != nil {
+		t.Fatalf("expected a genuinely outside policy dir to be accepted, got %v", err)
+	}
+	if err := ValidatePolicyOutsideReviewedTree(siblingWithPrefixedName, root); err != nil {
+		t.Fatalf("expected a same-prefix sibling directory to be accepted, got %v", err)
+	}
+	if err := ValidatePolicyOutsideReviewedTree("", root); err != nil {
+		t.Fatalf("expected an empty policy dir to be a no-op, got %v", err)
+	}
+}
+
 // TestAUR518LoadCentralPolicyMissingFailsClosed covers AC-005: a policy
 // directory with no .aurumcode/config.yml at all is a loud error naming the
 // path, never a silently-empty, permissive policy.

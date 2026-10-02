@@ -28,13 +28,8 @@ on:
         required: false
         type: boolean
         default: false
-      policy_path:
-        description: Optional path, already present in the runner's checkout, to the directory containing a central policy's .aurumcode/config.yml (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Ignored when policy_repository is set. Empty (and no policy_repository) keeps today's behavior.
-        required: false
-        type: string
-        default: ''
       policy_repository:
-        description: Optional owner/repo of a central policy (AUR-518). When set, this workflow checks it out itself (read-only, no credentials persisted) into .aurumcode-policy and uses it as the policy directory, taking precedence over policy_path. Empty keeps today's behavior.
+        description: Optional owner/repo of a central policy (AUR-518). When set, this workflow checks it out itself (read-only, no credentials persisted) into .aurumcode-policy and uses it as the policy directory. There is no policy_path input here on purpose -- in a workflow_call job the only directories this job can reach are the tool checkout and the reviewed pull request's own head, so accepting an arbitrary "already checked out" path would let the PR under review name its own policy. Empty keeps today's behavior.
         required: false
         type: string
         default: ''
@@ -160,7 +155,6 @@ jobs:
           INLINE_COMMENTS: ${{ inputs.inline_comments }}
           SECURITY: ${{ inputs.security }}
           CHANGELOG: ${{ inputs.changelog }}
-          POLICY_PATH: ${{ inputs.policy_path }}
           POLICY_REPOSITORY: ${{ inputs.policy_repository }}
         run: |
           set -euo pipefail
@@ -179,16 +173,14 @@ jobs:
           if [ "${CHANGELOG}" = true ]; then
             args+=(--changelog)
           fi
-          # AUR-518: policy_repository (checked out above into
-          # .aurumcode-policy) takes precedence over policy_path, which
-          # stays for a policy already present in the checkout. Neither set
-          # keeps today's behavior unchanged -- no --politica, no extra
-          # mount.
+          # AUR-518: policy_repository, checked out above into
+          # .aurumcode-policy, is the only source of a policy this workflow
+          # accepts -- there is no policy_path input here (see that input's
+          # own comment above). Unset keeps today's behavior unchanged -- no
+          # --politica, no extra mount.
           policy_dir=""
           if [ -n "${POLICY_REPOSITORY}" ]; then
             policy_dir=".aurumcode-policy"
-          elif [ -n "${POLICY_PATH}" ]; then
-            policy_dir="${POLICY_PATH}"
           fi
           if [ -n "${policy_dir}" ]; then
             args+=(--politica /github/policy)

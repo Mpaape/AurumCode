@@ -223,6 +223,19 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	var centralCfg *config.Config
 	var policyWarnings []config.ProviderWarning
 	if opts.policyDir != "" {
+		// A policy must come from outside the tree being reviewed. In this
+		// path the reviewed tree is the process's working directory (the
+		// container's -w /github/workspace, mounted read-only from the pull
+		// request's own head) -- never the PR under review itself.
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", cwdErr)
+			return 1
+		}
+		if err := config.ValidatePolicyOutsideReviewedTree(opts.policyDir, cwd); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
 		centralCfg, err = config.LoadCentralPolicy(opts.policyDir)
 		if err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)

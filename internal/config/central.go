@@ -25,6 +25,47 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ValidatePolicyOutsideReviewedTree refuses a policy directory that resolves
+// (after symlinks) to the reviewed tree itself or anywhere under it. A
+// policy's entire point is that the repository under review cannot change
+// it; a policy directory living inside that same tree would let whoever
+// controls the reviewed checkout (a pull request's own head, in the --pr
+// path) edit the policy it is being judged against. Either path missing is
+// not this function's problem to report -- a missing policyDir surfaces as
+// LoadCentralPolicy's own "not found" error, and reviewedRoot always exists
+// (it is the process's own working directory) -- so a resolution failure
+// here falls back to the unresolved, absolute path rather than masking the
+// real error with one about symlinks.
+func ValidatePolicyOutsideReviewedTree(policyDir, reviewedRoot string) error {
+	policyDir = strings.TrimSpace(policyDir)
+	reviewedRoot = strings.TrimSpace(reviewedRoot)
+	if policyDir == "" || reviewedRoot == "" {
+		return nil
+	}
+	resolvedPolicy := resolvePathBestEffort(policyDir)
+	resolvedRoot := resolvePathBestEffort(reviewedRoot)
+	if resolvedPolicy == resolvedRoot || strings.HasPrefix(resolvedPolicy, resolvedRoot+string(filepath.Separator)) {
+		return fmt.Errorf("central policy: %s is inside the reviewed repository (%s); a policy must come from outside the reviewed tree", policyDir, reviewedRoot)
+	}
+	return nil
+}
+
+// resolvePathBestEffort returns dir's absolute, symlink-resolved form. A dir
+// that does not exist yet (EvalSymlinks fails) or an unresolvable absolute
+// path falls back to the plain absolute form -- there is nothing further to
+// resolve, and the caller that actually needs the directory to exist (e.g.
+// LoadCentralPolicy) still reports that failure on its own.
+func resolvePathBestEffort(dir string) string {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return dir
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return resolved
+	}
+	return abs
+}
+
 // LoadCentralPolicy reads root/.aurumcode/config.yml -- a separate checkout
 // the CI workflow controls, never the reviewed repository -- with the same
 // parsing and validation a repository's own config already goes through
