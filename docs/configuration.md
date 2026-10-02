@@ -97,6 +97,41 @@ uma revisão em um diff unificado aplicável.
 `inline_comments: true` na configuração é cumulativo com o input do workflow;
 para desligá-lo, remova-o do arquivo ou defina false e não habilite o input.
 
+## Política central
+
+Um workflow obrigatório pode carregar uma política central: um diretório
+`.aurumcode/` separado (checkout próprio), com o mesmo `config.yml` e os
+mesmos arquivos Markdown (`prompt.md`, `skills/*.md`, docs) que o repositório
+do dev já usa. Nenhum formato novo.
+
+```yaml
+# .aurumcode/config.yml da política (outro repositório/checkout)
+rules:
+  security/hardcoded-secret:
+    enabled: true
+ignore:
+  - "vendor/**"
+review:
+  context:
+    skills:
+      - skills/security.md
+```
+
+O workflow passa o diretório ao AurumCode com `--politica <dir>` (alias
+`--policy`); sem a flag, a variável de ambiente `AURUMCODE_POLICY` é usada;
+sem nenhum dos dois, o comportamento é o de hoje, sem política.
+
+Precedência: com política ativa, `rules` e `ignore` do repositório do dev são
+ignorados por completo — vale só o que a política declara — e cada override
+ignorado gera um aviso no terminal e no PR publicado, nomeando a regra ou o
+padrão. `review.language` e `review.publication` vêm da política quando ela os
+declara; o resto de `review` (contexto, memória, changelog, versão, perfis)
+continua do repositório do dev. As skills e docs da política chegam ao
+modelo primeiro; as do repositório do dev somam-se depois, sem substituir
+nada. Uma política ausente ou inválida (config.yml faltando, YAML inválido,
+skill/doc listada que não existe) falha o comando antes de qualquer chamada
+ao modelo.
+
 ## Opções públicas
 
 Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI
@@ -138,6 +173,7 @@ consumidor.
 | `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
+| `--politica`, `--policy` | Diretório de uma política central com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
 
 ### CLI `aurumcode fix`
 
@@ -147,6 +183,8 @@ consumidor.
 
 ### Workflow reutilizável e Action
 
-- Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.
+- Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`,
+  `policy_path` (diretório, já no checkout do runner, de uma política
+  central; vazio mantém o comportamento sem política).
 - Action Docker direta: `publication`, `inline-comments`, `security`, `check`,
-  `fail-on`, `model`, `changelog`.
+  `fail-on`, `model`, `changelog`, `policy_path`.
