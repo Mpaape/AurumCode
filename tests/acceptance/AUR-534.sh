@@ -59,7 +59,7 @@ readonly image_dockerfile="$repo_root/$image_dir/Dockerfile"
 # This card's own declared deliverables (its `paths:`). Their absence is the
 # card's own behavior failing to exist, not an environment gap.
 owned_inputs=(
-  go.mod go.sum Dockerfile
+  go.mod go.sum Dockerfile Makefile
   .github/workflows/ci.yml .github/dependabot.yml
   "$image_dir/Dockerfile"
   .board/locks/oci/go-unit-offline-v1.lock.json
@@ -111,9 +111,15 @@ check_ac001() {
   grep -Fq 'golang:1.27.1-bookworm@sha256:' "$root/.github/workflows/ci.yml" ||
     { printf 'ci.yml race job does not pin golang 1.27.1-bookworm\n' >&2; hits=1; }
 
+  grep -Fq 'golang:1.27.1-alpine3.24@sha256:' "$root/Makefile" ||
+    { printf 'Makefile GO_IMAGE does not pin golang 1.27.1-alpine3.24\n' >&2; hits=1; }
+  grep -Fq 'golang:1.27.1-bookworm@sha256:' "$root/Makefile" ||
+    { printf 'Makefile test-race target does not pin golang 1.27.1-bookworm\n' >&2; hits=1; }
+
   # Every workflow file, not just ci.yml -- a stray 1.21 pin in any other
-  # workflow (examples/ included) must fail this just as loudly.
-  local scan_targets=(go.mod Dockerfile "$image_dir/Dockerfile"
+  # workflow (examples/ included) must fail this just as loudly. Makefile
+  # too: it carries its own golang image pins, independent of ci.yml.
+  local scan_targets=(go.mod Dockerfile Makefile "$image_dir/Dockerfile"
                        .board/bin/go-shared .board/bin/go-sealed .board/bin/go-live)
   local wf
   while IFS= read -r -d '' wf; do
@@ -145,35 +151,32 @@ check_ac002() {
   command -v go >/dev/null 2>&1 || infra missing_go
 
   # AC-002 promises "a suite inteira (go test ./...)". That suite reaches
-  # beyond this card's own `paths`/`read_paths`: internal/analyzer and
-  # internal/review read tests/fixtures/repos/git-demo/repo.git,
-  # internal/governance/taskspec reads .board/schemas/task-spec.schema.json,
-  # and internal/evidence imports tests/integration. None of those three
-  # paths is owned or read by this card, so oci-run never materializes them
-  # into this sandbox -- a card-contract gap this card cannot close by
-  # itself (widening `read_paths` is a `.board/cards` edit, forbidden to
-  # this card's own `forbidden_paths`). Silently testing a narrower package
-  # set would report green for a different, smaller promise than AC-002
-  # actually makes. Per tests/acceptance/EXIT_CODE_CONVENTION.md, a
-  # dependency this card does not own being absent from the sandbox is an
-  # environment gap, not a verdict: infra (79), exactly like AUR-542.sh's
-  # own required_inputs/infra check.
-  local -a external_inputs=(
-    tests/fixtures/repos/git-demo/repo.git
-    tests/integration
-    .board/schemas/task-spec.schema.json
-  )
-  local input
-  for input in "${external_inputs[@]}"; do
-    [[ -e "$repo_root/$input" ]] ||
-      infra "ac002-requires-unmaterialized-input:$input (amend this card's read_paths)"
-  done
-
-  # Only reachable once every external input above is actually present --
-  # i.e. once this card's read_paths has been amended to carry them, or
-  # this runs outside the per-card sandbox (go-sealed over the whole
-  # worktree). At that point AC-002's real promise is tested as written.
-  ( cd "$repo_root" && go build ./... ) || { printf 'go build ./... failed\n' >&2; return 1; }
+  # beyond cmd/internal/pkg: internal/analyzer and internal/review read
+  # tests/fixtures/repos/git-demo/repo.git, internal/governance/taskspec
+  # reads .board/schemas/task-spec.schema.json, and internal/evidence
+  # imports tests/integration. Card v4 widened this card's own read_paths
+  # to [cmd, internal, pkg, action.yml, scripts, .board/bin, tests, demo,
+  # standards, docs/specs, .board/schemas, .board/research,
+  # .board/decisions], which covers all three (tests/* and .board/schemas
+  # whole) -- verified independently by the reviewer: oci-run exits 0 with
+  # this set. A per-path existence guard here would just hardcode today's
+  # three known external reads and silently stop protecting the exit-code
+  # convention the moment a fourth one appears or `tests`/`.board/schemas`
+  # ever narrows again, so the generic form is relied on instead: if the
+  # suite's own non-test imports fail to resolve, that is still an
+  # environment/materialization defect (a package this card does not own
+  # is missing), not this card's behavior failing -- infra (79), never
+  # red (1). Only an actual compiled test failing is behavioral red.
+  local build_log="$run_dir/ac002-build.log"
+  if ! ( cd "$repo_root" && go build ./... ) >"$build_log" 2>&1; then
+    if grep -Eq 'cannot find package|no required module provides package|no such file or directory' "$build_log"; then
+      cat "$build_log" >&2
+      infra "ac002-build-references-unmaterialized-input (amend read_paths further)"
+    fi
+    cat "$build_log" >&2
+    printf 'go build ./... failed\n' >&2
+    return 1
+  fi
   ( cd "$repo_root" && go test -count=1 ./... ) || { printf 'go test ./... failed\n' >&2; return 1; }
   return 0
 }
@@ -225,28 +228,40 @@ check_ac004() {
 }
 
 check_ac001_mut001() {
-  # Copy every input check_ac001 reads into a scratch root, then mutate the
-  # copy's ci.yml back to 1.21. This exercises check_ac001 itself end to
-  # end, not just its internal scan_for_121 helper -- if ci.yml were ever
-  # dropped from what AC-001 inspects, this would stop tripping even though
-  # scan_for_121 in isolation still "works".
+  # Copy every input check_ac001 reads into a scratch root (clean, matching
+  # the real worktree), then mutate ONE file at a time back to 1.21 and
+  # require check_ac001 itself -- the actual AC-001 gate, not a private
+  # helper -- to report each regression independently. Two files are
+  # exercised because Makefile and ci.yml carry independent golang pins;
+  # proving the ci.yml mutation trips the detector would say nothing about
+  # whether Makefile is actually being scanned.
   local mutant_root="$run_dir/mutant"
   mkdir -p "$mutant_root/.github/workflows" "$mutant_root/$image_dir" "$mutant_root/.board/bin"
   cp -- "$repo_root/go.mod" "$mutant_root/go.mod"
   cp -- "$repo_root/Dockerfile" "$mutant_root/Dockerfile"
+  cp -- "$repo_root/Makefile" "$mutant_root/Makefile"
   cp -- "$repo_root/.github/workflows/ci.yml" "$mutant_root/.github/workflows/ci.yml"
   cp -- "$image_dockerfile" "$mutant_root/$image_dir/Dockerfile"
   cp -- "$repo_root/.board/bin/go-shared" "$mutant_root/.board/bin/go-shared"
   cp -- "$repo_root/.board/bin/go-sealed" "$mutant_root/.board/bin/go-sealed"
   cp -- "$repo_root/.board/bin/go-live" "$mutant_root/.board/bin/go-live"
 
-  # Reintroduce the retired version into the race job's base image, exactly
-  # the shape AC-001 scans for.
+  # Scenario 1: reintroduce the retired version into ci.yml's race job base
+  # image only; Makefile stays clean.
   sed -i 's/golang:1\.27\.1-bookworm@sha256:[0-9a-f]*/golang:1.21-bookworm/' \
     "$mutant_root/.github/workflows/ci.yml"
-
   if check_ac001 "$mutant_root" 2>/dev/null; then
-    printf 'mutation did not trip check_ac001; detector is vacuous\n' >&2
+    printf 'ci.yml mutation did not trip check_ac001; detector is vacuous\n' >&2
+    return 1
+  fi
+  cp -- "$repo_root/.github/workflows/ci.yml" "$mutant_root/.github/workflows/ci.yml"
+
+  # Scenario 2: restore ci.yml, reintroduce the retired version into
+  # Makefile's race target only.
+  sed -i 's/golang:1\.27\.1-bookworm@sha256:[0-9a-f]*/golang:1.21-bookworm/' \
+    "$mutant_root/Makefile"
+  if check_ac001 "$mutant_root" 2>/dev/null; then
+    printf 'Makefile mutation did not trip check_ac001; Makefile is not actually scanned\n' >&2
     return 1
   fi
   return 0
