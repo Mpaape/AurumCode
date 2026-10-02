@@ -123,7 +123,7 @@ func TestAUR499PublishedBody(t *testing.T) {
 			t.Fatalf("published body missing %q:\n%s", want, posted.Body)
 		}
 	}
-	for file := range map[string]struct{}{"main.go": {}, "pr.go": {}} {
+	for file := range map[string]struct{}{"review_base_inputs.go": {}, "pr.go": {}} {
 		data, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
