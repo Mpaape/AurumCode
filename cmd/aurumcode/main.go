@@ -868,6 +868,23 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	if providerErr != nil && *modelo == "" && errors.Is(providerErr, errNoProviderConfigured) {
 		qualitySkipped = true
 		fmt.Fprintln(stderr, "aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only")
+		// AUR-542: the short note above (AUR-449's, as a plain status
+		// line for the --seguranca skip path; AUR-490 later dropped this
+		// guard's own "&& *seguranca" requirement, so every bare
+		// `review --base` with no provider reaches it now, not only
+		// --seguranca ones) silently left out AUR-443's and AUR-448's
+		// promise that a first-time user with nothing configured sees the
+		// COMPLETE AURUMCODE_LLM_FIXTURE shape -- rule_id, severity, a
+		// real catalog example and the worked-fixture pointer. Measured
+		// on main before this card: a bare `review --base` with no
+		// provider printed only the short line above, none of that
+		// teaching text, on any code path a user reaches without naming
+		// an explicit --modelo. That text already exists, verbatim, as
+		// errNoProviderConfigured's own error string (also used,
+		// unchanged, by the --modelo-named and --seguranca-absent failure
+		// paths below); printing it here too restores the promise without
+		// touching the short line, the exit code, or stdout.
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", providerErr)
 		// AUR-458: without --exigir-qualidade this stays exit 0, exactly
 		// as AUR-449 published it -- `review --base X --seguranca` with no
 		// credential at all is the product's free, offline, deterministic
