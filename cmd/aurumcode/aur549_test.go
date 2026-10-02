@@ -85,8 +85,14 @@ JSON
 JSON
 `
 	case behaviorOtherMajor:
+		// "2.7" (not "2.0"): the minor (7) alone is already >= the
+		// configured minor (6), so this fixture is rejected ONLY by the
+		// same-major rule. "2.0" would also be rejected by the minor
+		// floor alone (0 < 6), leaving the major check unexercised -- a
+		// mutation dropping "gotMajor == wantMajor" from
+		// specVersionAtLeast would have survived against "2.0" alone.
 		write = `cat > "$out" <<'JSON'
-{"bomFormat":"CycloneDX","specVersion":"2.0","components":[]}
+{"bomFormat":"CycloneDX","specVersion":"2.7","components":[]}
 JSON
 `
 	case behaviorWrongFormat:
@@ -189,8 +195,9 @@ func TestAUR549TrivyGeneratesValidatedSBOM(t *testing.T) {
 // never an empty/invalid SBOM silently accepted. behaviorBadVersion
 // ("1.5" against a configured "1.6") proves the minimum is still a real
 // floor, not merely "same major accepts anything"; behaviorOtherMajor
-// ("2.0") proves a different major is refused outright, never treated as
-// "newer, so at least as good".
+// ("2.7" against a configured "1.6" -- a HIGHER minor, 7 >= 6) proves a
+// different major is refused outright even when the minor alone would
+// pass, never treated as "numerically newer, so at least as good".
 func TestAUR549NonCycloneDXOutputRejected(t *testing.T) {
 	cases := []fakeTrivyBehavior{behaviorBadVersion, behaviorOtherMajor, behaviorWrongFormat, behaviorNotJSON, behaviorEmpty}
 	for _, behavior := range cases {

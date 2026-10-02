@@ -113,9 +113,10 @@ func (s SBOMGeneratorConfig) Validate() error {
 }
 
 // isMajorMinorVersion reports whether v is a strict "major.minor" version
-// string: exactly one dot, both sides one or more ASCII decimal digits,
-// no sign, no extra whitespace, no third component. Duplicated (rather
-// than imported) from internal/sbom's own parseMajorMinor: internal/sbom
+// string: exactly one dot, both sides one or more ASCII decimal digits
+// with no leading zero (unless the component is exactly "0"), no sign, no
+// extra whitespace, no third component. Duplicated (rather than
+// imported) from internal/sbom's own parseMajorMinor: internal/sbom
 // already imports this package for GeneratorConfig, so the reverse import
 // would be a cycle.
 func isMajorMinorVersion(v string) bool {
@@ -125,6 +126,9 @@ func isMajorMinorVersion(v string) bool {
 	}
 	for _, p := range parts {
 		if p == "" {
+			return false
+		}
+		if len(p) > 1 && p[0] == '0' {
 			return false
 		}
 		for _, r := range p {
