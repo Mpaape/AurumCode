@@ -1,0 +1,30 @@
+# Language aliases: the names a skill selector (or any other consumer) may use
+# for a grammar, mapped to the runtime's canonical grammar name. Canonical
+# names are NOT listed here: they come from Provider.Languages() at run time.
+# An alias whose target is not a grammar of the linked runtime is a load error.
+#
+# A central policy overrides this file with
+# .aurumcode/grammar/aliases.yml; its `aliases` section replaces this one.
+version: 1
+aliases:
+  golang: go
+  py: python
+  js: javascript
+  jsx: javascript
+  mjs: javascript
+  cjs: javascript
+  ts: typescript
+  rb: ruby
+  rs: rust
+  kt: kotlin
+  cs: c_sharp
+  csharp: c_sharp
+  "c++": cpp
+  sh: bash
+  shell: bash
+  zsh: bash
+  yml: yaml
+  md: markdown
+  tf: hcl
+  terraform: hcl
+  docker: dockerfile

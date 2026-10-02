@@ -25,6 +25,10 @@ type Provider interface {
 	// Analyze extracts structure. It never fails: a problem becomes a
 	// Structure with HasStructure false and a Reason.
 	Analyze(name string, content []byte) Structure
+	// IsComment parses line with the grammar named lang and reports whether
+	// it is entirely a comment. ok is false when there is no such grammar:
+	// the caller then applies no comment filter and says so.
+	IsComment(lang, line string) (isComment bool, ok bool)
 }
 
 // Default returns the provider backed by the linked tree-sitter runtime.
