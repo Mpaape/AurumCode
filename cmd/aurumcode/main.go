@@ -712,6 +712,30 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// only ever runs when a provider was actually selected -- there is
 	// nothing to wrap otherwise, and the --seguranca-only skip path below
 	// calls no model at all, so it is untouched by this wrap either way.
+	// AUR-519: the dynamic, skill-section rule set this run accepts
+	// citations against, read from the exact same skill paths
+	// (review.context.skills) the context block above already reads --
+	// policy skills (origin "policy") first when a central policy is
+	// active, then the repository's own (origin "repo"), mirroring the
+	// context-provider ordering convention one block below. Computed once,
+	// before the model is ever taught a catalog, so the catalog handed to
+	// it (ruleCatalogIDs, via reviewer.SetRuleCatalog below) and the set
+	// the gate accepts after the model answers (reviewer.SetDynamicRules)
+	// can never disagree. Zero skills configured -- the product's default
+	// -- leaves both exactly as they were before this card: dynamicRules
+	// empty, ruleCatalogIDs identical to prompt.DefaultRuleCatalog.
+	var dynamicRules map[string]review.Rule
+	var ruleCatalogIDs []string
+	if providerErr == nil {
+		policySkillRules := map[string]review.Rule{}
+		if centralCfg != nil {
+			policySkillRules = dynamicRulesFromLocalSkills(policyDir, centralCfg.Review.Context.Skills, gateOriginPolicy)
+		}
+		repoSkillRules := dynamicRulesFromLocalSkills(cwd, repoCfg.Review.Context.Skills, gateOriginRepo)
+		dynamicRules = mergeDynamicRules(policySkillRules, repoSkillRules)
+		ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, dynamicRules)
+	}
+
 	// Zero-config: config.WrapProvider returns provider completely
 	// unchanged (the same value, not a no-op decorator) whenever no
 	// provider file exists, so the wrapped variable is byte-identical to
@@ -862,6 +886,15 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 
 		orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+		// AUR-519: teach the model the expanded catalog and accept its
+		// citations against the same dynamic set computed above. Zero
+		// skills configured: ruleCatalogIDs equals prompt.DefaultRuleCatalog
+		// and dynamicRules is empty, so both calls are no-ops.
+		reviewer.SetDynamicRules(dynamicRules)
+		if err := reviewer.SetRuleCatalog(ruleCatalogIDs); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 2
+		}
 
 		// AUR-441: do not resend a file whose content, under this exact model
 		// and prompt version, a previous run already reviewed. GenerateReview
@@ -1049,7 +1082,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// model's summary -- so the notice is present even when the model
 	// claims complete coverage (AC-003). It is printed on stdout below,
 	// next to the report, so the user never has to open the PR to see it.
-	coverageText := coverageNotice(reviewCopyFor(reviewLanguage), mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths))
+	coverageBreakdown := mergeReviewCoverage(result.Metadata, notices, rawDiffFileCount, ignoredPaths)
+	coverageText := coverageNotice(reviewCopyFor(reviewLanguage), coverageBreakdown)
 	if coverageText != "" {
 		result.Limitations = append(result.Limitations, coverageText)
 	}
@@ -1061,6 +1095,49 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// is later published) carries the same declaration as the terminal.
 	for _, warning := range policyWarnings {
 		result.Limitations = append(result.Limitations, warning.Provider+": "+warning.Reason)
+	}
+
+	// AUR-519: the gate, evaluated once every other pass/limitation above
+	// has run so its decision lines can still join result.Limitations
+	// before renderLocalReport (--base) / the PR body (--pr) render it.
+	// gateInconclusiveReason's priority mirrors AUR-458's own "did not
+	// review outranks reviewed and found things": a provider failure or an
+	// opted-out quality skip outrank a model reply this run could not
+	// parse (prompt.IsDegradedParse, AC-008), which outranks AUR-476's own
+	// partial coverage (AC-004). Every branch here is a no-op unless a
+	// gate was actually declared (evaluateGate's own Declared() guard), so
+	// a review with no `gate:` key anywhere stays byte-identical.
+	gateInconclusiveReason := ""
+	switch {
+	case qualityFailed:
+		gateInconclusiveReason = "provider_failure"
+	case qualitySkipped:
+		gateInconclusiveReason = "quality_skipped"
+	case prompt.IsDegradedParse(result):
+		gateInconclusiveReason = "degraded_parse"
+	case coverageBreakdown.partial():
+		gateInconclusiveReason = "partial_coverage"
+	}
+	gateOrigin := gateOriginRepo
+	if centralCfg != nil {
+		gateOrigin = gateOriginPolicy
+	}
+	gateIssues := make([]types.ReviewIssue, 0, len(result.Issues)+len(securityFindings))
+	gateIssues = append(gateIssues, result.Issues...)
+	gateIssues = append(gateIssues, securityFindings...)
+	gateResult, gateErr := evaluateGate(repoCfg.Gate, gateOrigin, dynamicRules, gateIssues, gateInconclusiveReason)
+	if gateErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
+		return 2
+	}
+	if gateResult.Active {
+		for _, line := range gateResult.Lines {
+			fmt.Fprintf(stderr, "aurumcode review: policy gate: %s\n", line)
+			result.Limitations = append(result.Limitations, "policy gate: "+line)
+		}
+		if (gateResult.Fail || gateResult.Inconclusive) && result.Verdict == "approve" {
+			result.Verdict = "comment"
+		}
 	}
 
 	// AUR-490 supersedes AUR-443's "summary field" decision (see
@@ -1152,6 +1229,22 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// No new exit code is minted for this: see docs/specs/AUR-458.md.
 	if qualityFailed {
 		return exitQualityNotReviewed
+	}
+
+	// AUR-519: the policy gate closes exactly like --fail-on above, reusing
+	// the same two exit codes rather than minting a third: a gate that
+	// failed because the review was inconclusive returns
+	// exitQualityNotReviewed (the same "do not merge, half a review"
+	// signal qualityFailed already returns above), and a gate that failed
+	// on an actual severity breach returns exitFindings, the same code
+	// --fail-on already uses for "ran fine, found something that matters".
+	// A no-op (gateResult.Active == false, no `gate:` declared anywhere)
+	// never reaches either return.
+	if gateResult.Fail {
+		if gateResult.Inconclusive {
+			return exitQualityNotReviewed
+		}
+		return exitFindings
 	}
 
 	if threshold > 0 {
