@@ -578,16 +578,23 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// AUR-519: the gate, evaluated once every other pass/limitation above
 	// has run so its decision lines can still join the published review
 	// body below. gateInconclusiveReason's priority mirrors AUR-505/
-	// AUR-458: a provider answer this run could not parse at all
-	// (qualityDegraded, an error GenerateReviewWithContext already turned
-	// into the zero ReviewResult above) outranks one that parsed as the
-	// degraded free-text fallback (prompt.IsDegradedParse, AC-008), which
-	// outranks AUR-476's own partial coverage (AC-004). A no-op unless a
-	// gate was actually declared (evaluateGate's own Declared() guard).
+	// AUR-458: a provider answer this run received but could not parse at
+	// all (qualityDegraded, a prompt.ParseError GenerateReviewWithContext
+	// already turned into the zero ReviewResult above -- this is a MODEL
+	// PARSE failure, not a transport/provider failure: the provider
+	// answered fine) outranks one that parsed as the degraded free-text
+	// fallback (prompt.IsDegradedParse, AC-008), which outranks AUR-476's
+	// own partial coverage (AC-004). A no-op unless a gate was actually
+	// declared (evaluateGate's own Declared() guard).
+	//
+	// NOTE: a genuine provider/transport failure (llm.ErrAllProvidersFailed,
+	// llm.ErrBudgetExceeded) returns earlier in this function, before the
+	// gate is ever reached -- declared, not fixed here; see
+	// docs/specs/AUR-519.md.
 	gateInconclusiveReason := ""
 	switch {
 	case qualityDegraded:
-		gateInconclusiveReason = "provider_failure"
+		gateInconclusiveReason = "model_parse_failure"
 	case prompt.IsDegradedParse(result):
 		gateInconclusiveReason = "degraded_parse"
 	case coverageBreakdown.partial():
@@ -839,15 +846,18 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		return 1
 	}
 	// AUR-519: the policy gate closes exactly like --fail-on/--check above,
-	// reusing the same two exit codes instead of a third: inconclusive-and-
-	// blocking returns exitQualityNotReviewed (the same "half a review"
-	// signal --exigir-qualidade already returns above), a severity breach
-	// returns exitFindings, the same code --fail-on already uses.
-	if gateResult.Fail {
-		if gateResult.Inconclusive {
-			return exitQualityNotReviewed
-		}
+	// reusing the same two exit codes instead of a third. A real severity
+	// breach (gateResult.Breach) always returns exitFindings -- the same
+	// code --fail-on already uses -- regardless of whether the review was
+	// also inconclusive (B1). Fail without a Breach can only come from
+	// gate.inconclusive: block, which returns exitQualityNotReviewed (the
+	// same "half a review" signal --exigir-qualidade already returns
+	// above).
+	if gateResult.Breach {
 		return exitFindings
+	}
+	if gateResult.Fail {
+		return exitQualityNotReviewed
 	}
 	if threshold > 0 {
 		if n := countAtOrAbove(issues, threshold); n > 0 {
