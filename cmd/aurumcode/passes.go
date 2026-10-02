@@ -13,6 +13,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/changelog"
 	"github.com/Mpaape/AurumCode/internal/config"
+	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/memory"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -349,13 +350,29 @@ func ignoredDiffPaths(diff *types.Diff, cfg *config.Config) []string {
 	return out
 }
 
-// resolveCodebaseContext is the codebase-context pass: bounded dependency
-// context for the changed paths, resolved from the checkout so the model sees
-// what else the change can affect. It is an enhancement, never a gate: any
-// failure degrades to empty context and the review continues on the diff
-// alone.
+// resolveCodebaseContext is --base's codebase-context pass: bounded
+// dependency context for the changed paths, resolved from the checkout so
+// the model sees what else the change can affect. It is an enhancement,
+// never a gate: any failure degrades to empty context and the review
+// continues on the diff alone. --pr's own entrypoint,
+// resolveVerifiedCodebaseContext (aur536.go), shares codebaseContextJSON's
+// marshal-or-empty tail with this one -- AUR-490 parity -- but resolves
+// through ResolveWithFiles against its own already-verified file set
+// instead of codebaseContextPack's unrestricted walk, since on --pr the
+// checkout is not necessarily the change under review (see aur515.go).
 func resolveCodebaseContext(diff *types.Diff) string {
-	pack, err := codebaseContextPack(diffPaths(diff))
+	return codebaseContextJSON(func() (*codebasectx.Pack, error) {
+		return codebaseContextPack(diffPaths(diff))
+	})
+}
+
+// codebaseContextJSON is the shared tail of both codebase-context passes
+// (resolveCodebaseContext above, resolveVerifiedCodebaseContext in
+// aur536.go): resolve, by whichever means the caller's closure embeds, and
+// marshal the result, or degrade to "" on any error. Neither pass is ever
+// a gate, so this never returns an error of its own.
+func codebaseContextJSON(resolve func() (*codebasectx.Pack, error)) string {
+	pack, err := resolve()
 	if err != nil || pack == nil {
 		return ""
 	}

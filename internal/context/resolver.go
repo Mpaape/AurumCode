@@ -93,6 +93,32 @@ func NewResolverWithLimits(limits Limits) *Resolver {
 // every per-file condition is instead recorded in Pack.Dropped. Output is
 // deterministic for a fixed input and tree.
 func (r *Resolver) Resolve(root string, changed []string) (*Pack, error) {
+	return r.resolve(root, changed, false, nil)
+}
+
+// ResolveWithFiles behaves exactly like Resolve, except the repo-wide
+// reference scan never discovers its own candidate set by walking root: it
+// scans exactly files, nothing else -- not even anything under ".git",
+// regardless of what enumerate's own walk would otherwise do with it. A
+// caller that has already verified, by its own means (AUR-536's
+// clean-checkout proof), exactly which files are safe to read can pass
+// that set here and make it the ONLY one this resolver ever opens for the
+// scan, by construction -- not merely a set its own, independent walk
+// happens to agree with today. changed is handled exactly as in Resolve
+// (a changed path need not also appear in files to have its own content
+// read for symbol extraction); files governs only the repo-wide scan's
+// candidate set, matching repoFiles' own role in Resolve.
+//
+// A nil or empty files restricts the scan to NOTHING -- it is never
+// treated as "no restriction given" and never falls back to Resolve's own
+// walk. The two calls are distinguished by a separate flag internally,
+// precisely so an empty allow-list can never be silently reinterpreted as
+// "walk everything."
+func (r *Resolver) ResolveWithFiles(root string, changed, files []string) (*Pack, error) {
+	return r.resolve(root, changed, true, files)
+}
+
+func (r *Resolver) resolve(root string, changed []string, restrict bool, allowedFiles []string) (*Pack, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, fmt.Errorf("context: stat root %q: %w", root, err)
@@ -108,7 +134,12 @@ func (r *Resolver) Resolve(root string, changed []string) (*Pack, error) {
 		changedSet[p] = true
 	}
 
-	repoFiles := r.enumerate(root, pack)
+	var repoFiles []string
+	if restrict {
+		repoFiles = r.normalizeAllowed(root, allowedFiles, pack)
+	} else {
+		repoFiles = r.enumerate(root, pack)
+	}
 
 	symbolFiles := make(map[string][]string) // symbol name -> defining changed files
 	dirKeys := make(map[string]struct{})     // directory path of changed files
@@ -186,22 +217,80 @@ func (r *Resolver) normalizeChanged(root string, changed []string, pack *Pack) [
 	return out
 }
 
+// normalizeAllowed converts an explicit, already-verified file set
+// (ResolveWithFiles) into sorted, de-duplicated relative slash paths that
+// are known regular files -- the same shape enumerate's own walk returns,
+// so everything downstream (scan, Dependents) treats the two identically.
+// Anything that doesn't check out -- an absolute or ".."-escaping path, or
+// one no longer a regular file -- is recorded in Dropped and omitted,
+// exactly like normalizeChanged; it is never fatal. Bounded by MaxFiles,
+// same as enumerate.
+func (r *Resolver) normalizeAllowed(root string, allowed []string, pack *Pack) []string {
+	set := make(map[string]struct{})
+	for _, raw := range allowed {
+		p := filepath.ToSlash(strings.TrimSpace(raw))
+		if p == "" {
+			continue
+		}
+		p = strings.TrimPrefix(p, "./")
+		if p == "" || p == "." || strings.HasPrefix(p, "../") || filepath.IsAbs(p) {
+			pack.Dropped = appendDropped(pack.Dropped, "path outside root "+p)
+			continue
+		}
+		if _, ok := set[p]; ok {
+			continue
+		}
+		if !regularFile(filepath.Join(root, filepath.FromSlash(p))) {
+			pack.Dropped = appendDropped(pack.Dropped, "missing or non-regular allowed file "+p)
+			continue
+		}
+		set[p] = struct{}{}
+	}
+	out := make([]string, 0, len(set))
+	for p := range set {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	if len(out) > r.limits.MaxFiles {
+		pack.Dropped = appendDropped(pack.Dropped, "file enumeration truncated at "+itoa(r.limits.MaxFiles)+" files")
+		out = out[:r.limits.MaxFiles]
+	}
+	return out
+}
+
 // enumerate returns the sorted relative slash paths of every regular file
-// under root, bounded by MaxFiles. Symlinks are skipped and any truncation is
-// recorded in Dropped.
+// under root, bounded by MaxFiles. ".git" (this checkout's own git
+// directory, whatever shape it takes) is never descended into at any
+// depth, so nothing stored there -- loose objects, config, or anything
+// else sitting in it -- is ever read as if it were repository content.
+// Symlinks are skipped and any truncation is recorded in Dropped. Every
+// Dropped note here names a root-relative path, never the absolute
+// filesystem path WalkDir itself reports, so a published review can never
+// carry this host's own directory layout.
 func (r *Resolver) enumerate(root string, pack *Pack) []string {
 	var files []string
 	truncated := false
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			rel = filepath.Base(path)
+		}
+		rel = filepath.ToSlash(rel)
 		if err != nil {
-			pack.Dropped = appendDropped(pack.Dropped, "walk error "+path+": "+err.Error())
+			pack.Dropped = appendDropped(pack.Dropped, "walk error "+rel+": "+err.Error())
 			if d != nil && d.IsDir() {
 				return fs.SkipDir
 			}
 			return nil
 		}
+		if d.Name() == ".git" {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil // a ".git" FILE: worktree/submodule indirection, never repository content.
+		}
 		if d.Type()&fs.ModeSymlink != 0 {
-			pack.Dropped = appendDropped(pack.Dropped, "skipped symlink "+filepath.ToSlash(path))
+			pack.Dropped = appendDropped(pack.Dropped, "skipped symlink "+rel)
 			return nil
 		}
 		if d.IsDir() {
@@ -214,11 +303,7 @@ func (r *Resolver) enumerate(root string, pack *Pack) []string {
 			truncated = true
 			return nil
 		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			rel = path
-		}
-		files = append(files, filepath.ToSlash(rel))
+		files = append(files, rel)
 		return nil
 	})
 	sort.Strings(files)
