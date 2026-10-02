@@ -1,0 +1,5 @@
+$ aurumcode review --base main --fail-on error
+**Verdict:** Changes requested
+app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+exit_code=3

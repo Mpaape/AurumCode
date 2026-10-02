@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Ler a senha do ambiente",
+    "description": "Evita o segredo escrito no codigo",
+    "kind": "code",
+    "file": "app.go",
+    "line": 6,
+    "current_code": "\tdbPassword := \"hunter2\"",
+    "proposed_code": "\tdbPassword := os.Getenv(\"DB_PASSWORD\")"
+  }
+]

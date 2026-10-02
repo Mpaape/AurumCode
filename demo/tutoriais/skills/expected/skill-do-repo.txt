@@ -1,0 +1,8 @@
+$ aurumcode review --base main
+app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)
+exit_code=0
+prompt: - `convencoes#sem-segredos-no-codigo`
+prompt: - `convencoes#erros-com-contexto`
+prompt: - review skill (.aurumcode/skills/convencoes.md)
+prompt: ## Sem segredos no codigo
+prompt: Credenciais vem do ambiente, nunca de literais.
