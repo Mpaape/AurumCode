@@ -224,7 +224,7 @@ func TestAUR533PRFreshArtifactIsRecordedInAudit(t *testing.T) {
 	f := newAUR533Fake(t, "")
 	useAUR533Env(t, f.srv.URL, aur533Gen.Add(time.Hour))
 	audit := filepath.Join(t.TempDir(), "audit.json")
-	code, published, body := runAUR533PR(t, aur533Config("7", "block"), audit)
+	code, published, _ := runAUR533PR(t, aur533Config("7", "block"), audit)
 	if code != 0 || published.State != "success" {
 		t.Fatalf("exit=%d status=%q", code, published.State)
 	}
