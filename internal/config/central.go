@@ -204,5 +204,21 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	}
 	effective.Exceptions = central.Exceptions
 
+	// AUR-550: quality_gates (today, ssor_dtrack) is governed exactly
+	// like Gate above -- under a policy, only the policy's own
+	// QualityGates ever applies. A repository cannot disable a
+	// policy-enabled ssor_dtrack, redirect its server_api_host, or swap
+	// its api_key_secret/project_id_secret to a different environment
+	// variable (CR-TRUST-001): every repo-declared ssor_dtrack section is
+	// dropped wholesale, with its own named warning, never merged field
+	// by field with the policy's.
+	if repo.QualityGates.SSORDTrack.Declared() {
+		warnings = append(warnings, ProviderWarning{
+			Provider: "politica central",
+			Reason:   "quality_gates.ssor_dtrack do config do repositório foi ignorado: a política central decide sozinha",
+		})
+	}
+	effective.QualityGates = central.QualityGates
+
 	return &effective, warnings
 }

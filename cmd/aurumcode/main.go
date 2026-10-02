@@ -1255,6 +1255,31 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2
 	}
+	// AUR-550: the Dependency-Track submission/metrics gate, folded into
+	// the SAME gateResult/gateInconclusiveReason the lines, limitations,
+	// audit record and SARIF below already publish -- see
+	// applyDTrackGate/mergeDTrackGate (aur550.go). A complete no-op
+	// unless repoCfg.QualityGates.SSORDTrack.enabled: true.
+	{
+		dtrackMode, _ := repoCfg.Gate.InconclusiveMode()
+		dtrackResult, dtrackReason, nextFilter := applyDTrackGate(context.Background(), repoCfg.QualityGates.SSORDTrack, dtrackMode, filter)
+		gateResult, gateInconclusiveReason = mergeDTrackGate(gateResult, gateInconclusiveReason, dtrackResult, dtrackReason)
+		if nextFilter != filter {
+			filter = nextFilter
+			var flushers []*redaction.Writer
+			if wrapped, w := wrapWriterWithFilter(redaction.SinkStderr, stderr, filter); w != nil {
+				stderr = wrapped
+				flushers = append(flushers, w)
+			}
+			if wrapped, w := wrapWriterWithFilter(redaction.SinkStdout, stdout, filter); w != nil {
+				stdout = wrapped
+				flushers = append(flushers, w)
+			}
+			for _, w := range flushers {
+				defer w.Flush()
+			}
+		}
+	}
 	if gateResult.Active {
 		for _, line := range gateResult.Lines {
 			fmt.Fprintf(stderr, "aurumcode review: policy gate: %s\n", line)

@@ -256,6 +256,12 @@ type Config struct {
 	// and ApplyCentralPolicy for why, under a central policy, only the
 	// policy's own Exceptions ever apply.
 	Exceptions []ExceptionConfig `yaml:"exceptions"`
+	// QualityGates is AUR-550's own quality_gates section (today, only
+	// ssor_dtrack). Governed exactly like Gate above: under a central
+	// policy, only the policy's own QualityGates ever applies -- a
+	// repository cannot disable a policy-enabled ssor_dtrack any more
+	// than it can loosen a policy's own severity gate.
+	QualityGates QualityGatesConfig `yaml:"quality_gates"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -324,6 +330,9 @@ func Parse(data []byte, source string) (*Config, error) {
 	// expires date, is a config error here -- fail closed before any
 	// model call, exactly like every other section above (AC-005).
 	if err := ValidateExceptions(cfg.Exceptions); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.QualityGates.SSORDTrack.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil
