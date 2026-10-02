@@ -58,6 +58,12 @@ exit 1
 		body = `echo "fake-cosign: simulated failure" >&2
 exit 1
 `
+	case "silent-success":
+		// B2's own trap: cosign exits 0 but never writes anything, even
+		// though --bundle named a destination. A caller trusting the
+		// exit code alone would wrongly call this a success.
+		body = `exit 0
+`
 	default:
 		t.Fatalf("unknown fake cosign behavior %q", behavior)
 	}
@@ -96,7 +102,7 @@ func TestSignBlobInvokesCosignWithKeyAndBundle(t *testing.T) {
 	if !strings.HasPrefix(line, "sign-blob ") {
 		t.Fatalf("argv does not start with sign-blob: %q", line)
 	}
-	for _, want := range []string{"--key cosign.key", "--bundle " + bundlePath, "--tlog-upload=false", "sbom.json"} {
+	for _, want := range []string{"--key cosign.key", "--bundle " + bundlePath, "--tlog-upload=false", "-- sbom.json"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("argv %q missing %q", line, want)
 		}
@@ -175,6 +181,8 @@ func TestValidateArtifactRef(t *testing.T) {
 		{"short-digest", "ghcr.io/org/app@sha256:abc", false},
 		{"uppercase-digest", "ghcr.io/org/app@sha256:" + strings.Repeat("A", 64), false},
 		{"non-hex-digest", "ghcr.io/org/app@sha256:" + strings.Repeat("g", 64), false},
+		{"leading-dash", "-ghcr.io/org/app@sha256:" + validDigest, false},
+		{"flag-like", "--certificate-identity=evil@sha256:" + validDigest, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -206,5 +214,60 @@ func TestFailAfterWriteFakeIsStillAFailure(t *testing.T) {
 	}
 	if _, statErr := os.Stat(bundlePath); statErr != nil {
 		t.Fatalf("expected the fake to have written a bundle file: %v", statErr)
+	}
+}
+
+// TestSignBlobFailsWhenCosignSucceedsButWritesNoBundle is B2: an exit 0
+// from cosign is not, by itself, enough to call the SBOM signed -- the
+// bundle it was asked to write must actually exist, with content.
+func TestSignBlobFailsWhenCosignSucceedsButWritesNoBundle(t *testing.T) {
+	binDir, _ := writeFakeCosign(t, "silent-success")
+	s := Signer{Binary: filepath.Join(binDir, "cosign")}
+	bundlePath := filepath.Join(t.TempDir(), "sbom.bundle")
+
+	err := s.SignBlob(context.Background(), Options{KeyPath: "cosign.key", BundlePath: bundlePath}, "sbom_app_cyclonedx.json")
+	if err == nil {
+		t.Fatalf("SignBlob: want error when cosign exits 0 without writing a bundle, got nil")
+	}
+	if !strings.Contains(err.Error(), "sbom_app_cyclonedx.json") {
+		t.Fatalf("error does not name the artifact: %v", err)
+	}
+}
+
+// TestSignImageFailsWhenCosignSucceedsButWritesNoBundle is the same B2
+// proof for the image path: SignImage always asks cosign for a
+// verification bundle (even when the caller names none, using a private
+// temp file) specifically to catch this.
+func TestSignImageFailsWhenCosignSucceedsButWritesNoBundle(t *testing.T) {
+	binDir, _ := writeFakeCosign(t, "silent-success")
+	s := Signer{Binary: filepath.Join(binDir, "cosign")}
+	ref := "ghcr.io/org/app@sha256:" + strings.Repeat("a", 64)
+
+	err := s.SignImage(context.Background(), Options{KeyPath: "cosign.key"}, ref)
+	if err == nil {
+		t.Fatalf("SignImage: want error when cosign exits 0 without writing a bundle, got nil")
+	}
+	if !strings.Contains(err.Error(), ref) {
+		t.Fatalf("error does not name the artifact: %v", err)
+	}
+}
+
+// TestSignBlobRemovesStaleBundleBeforeSigning is B2's other half: a
+// bundle already sitting at bundlePath BEFORE this call (left over from
+// a previous run, or committed into a PR by accident) must never be
+// mistaken for this run's own output. A "silent-success" fake proves it:
+// without the pre-removal, the stale file's own non-zero size would let
+// the post-sign check wrongly pass.
+func TestSignBlobRemovesStaleBundleBeforeSigning(t *testing.T) {
+	binDir, _ := writeFakeCosign(t, "silent-success")
+	s := Signer{Binary: filepath.Join(binDir, "cosign")}
+	bundlePath := filepath.Join(t.TempDir(), "sbom.bundle")
+	if err := os.WriteFile(bundlePath, []byte(`{"bundle":"stale-from-a-previous-run"}`), 0o644); err != nil {
+		t.Fatalf("seed stale bundle: %v", err)
+	}
+
+	err := s.SignBlob(context.Background(), Options{KeyPath: "cosign.key", BundlePath: bundlePath}, "sbom.json")
+	if err == nil {
+		t.Fatalf("SignBlob: want error -- the stale bundle must not count as this run's own signature, got nil")
 	}
 }

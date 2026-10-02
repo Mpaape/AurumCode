@@ -199,4 +199,15 @@ func TestSupplyChainConfigValidate(t *testing.T) {
 	if err := goodDigest.Validate(); err != nil {
 		t.Fatalf("unexpected error for a digest-pinned artifact: %v", err)
 	}
+
+	// H3: a leading "-" could be read as a cosign flag depending on argv
+	// position (never relied on "--" alone to neutralize it) -- refused
+	// here at config-load time, the same way an unpinned reference is.
+	leadingDash := &SupplyChainConfig{
+		Engine: "cosign", SignArtifacts: true,
+		Artifacts: []string{"-ghcr.io/org/app@sha256:" + strings.Repeat("c", 64)},
+	}
+	if err := leadingDash.Validate(); err == nil {
+		t.Fatalf("expected an error for an artifact reference starting with \"-\", got nil")
+	}
 }
