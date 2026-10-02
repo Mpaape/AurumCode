@@ -86,9 +86,20 @@ run_bin() {
 
 # --- 1. No provider configured: the message shows the complete shape. ---
 
+# AUR-542: AUR-490 (done, integrated on main before this card) made
+# `review --base` without a provider run deterministic analysis and exit
+# 0 instead of 1 unconditionally (opt into the old exit 1 with
+# --exigir-qualidade, AUR-458); stdout also now always carries the
+# summary/diagram (AUR-490 AC-002) instead of staying empty. Measured on
+# main before this card, that change also silently dropped the complete
+# fixture-shape teaching text this scenario exists to check (AUR-490's
+# short skip note on its own names none of rule_id/severity/the catalog
+# example/the fixture pointer) -- restored in
+# cmd/aurumcode/main.go's qualitySkipped branch by also printing
+# errNoProviderConfigured's own text, additively, alongside the short
+# note AUR-490 added.
 run_bin "$repo_dir" review --base HEAD~1
-[[ "$rc" -eq 1 ]] || fail "no_provider_wrong_exit:$rc"
-[[ -s "$run_dir/out.stdout" ]] && fail no_provider_wrote_stdout
+[[ "$rc" -eq 0 ]] || fail "no_provider_wrong_exit:$rc"
 grep -Fq 'no LLM provider configured' "$run_dir/out.stderr" || fail no_provider_message_missing
 grep -Fq '"rule_id"' "$run_dir/out.stderr" || fail no_provider_missing_rule_id_field
 grep -Fq 'security/hardcoded-secret' "$run_dir/out.stderr" || fail no_provider_missing_real_rule_id_example
@@ -96,13 +107,25 @@ grep -Fq '"severity"' "$run_dir/out.stderr" || fail no_provider_missing_fixture_
 grep -Fq 'tests/fixtures/review/known-problem-response.json' "$run_dir/out.stderr" || fail no_provider_missing_fixture_pointer
 grep -Fq 'discarded' "$run_dir/out.stderr" || fail no_provider_missing_discard_explanation
 
-# --- 2. Happy path: zero discards, byte-identical stdout, EMPTY stderr. ---
+# --- 2. Happy path: zero discards, the finding still prints, EMPTY stderr. ---
 
+# AUR-542: AUR-490 (done, integrated before this card) made `review --base`
+# always prepend the summary/mermaid-diagram block (AC-002), the same way
+# --pr already did -- so stdout is no longer byte-identical to just the
+# finding line; the finding line is still the exact, unchanged tail.
 run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$known_problem_fixture"
 [[ "$rc" -eq 0 ]] || fail "happy_path_wrong_exit:$rc"
-want_happy_stdout='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
-[[ "$(cat "$run_dir/out.stdout")" == "$want_happy_stdout" ]] || fail happy_path_stdout_regressed
+want_happy_tail='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
+[[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy_tail" ]] || fail happy_path_stdout_regressed
+grep -Fq '```mermaid' "$run_dir/out.stdout" || fail happy_path_missing_summary_block
 [[ ! -s "$run_dir/out.stderr" ]] || fail "happy_path_stderr_not_empty:$(cat "$run_dir/out.stderr")"
+# A reviewer found that tail -n1 alone lets an EXTRA, undetected finding
+# line leak earlier in stdout (a second planted finding before the real
+# one keeps this check green). Exactly one finding went in, so exactly
+# one line shaped like a finding ("<file>:<line>: [<severity>] ...") may
+# appear anywhere in stdout.
+finding_lines="$(grep -Ec '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout")"
+[[ "$finding_lines" -eq 1 ]] || fail "happy_path_wrong_finding_line_count:$finding_lines"
 
 # --- 3. Mixed discard: stdout hides ungrounded findings, stderr names how many and why. ---
 
@@ -193,7 +216,21 @@ EOF
 
 run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$all_discarded_fixture"
 [[ "$rc" -eq 0 ]] || fail "all_discarded_wrong_exit:$rc"
-[[ "$(cat "$run_dir/out.stdout")" == "No issues found." ]] || fail all_discarded_stdout_regressed
+# AUR-542: AUR-490 prepends the summary/diagram block here too (see the
+# "happy path" comment above); "No issues found." is still the exact tail.
+[[ "$(tail -n1 "$run_dir/out.stdout")" == "No issues found." ]] || fail all_discarded_stdout_regressed
+# A reviewer found that tail -n1 alone lets the discarded finding itself
+# leak onto an earlier stdout line undetected. Every finding here was
+# discarded, so stdout must carry zero finding-shaped lines AND must not
+# name the discarded finding's own text (this card's own exact leak
+# mutation: printing "config/demo-tokens.txt:4: [error] no rule_id at
+# all" before "No issues found." must fail this check).
+if grep -Eq '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout"; then
+  fail all_discarded_stdout_leaked_finding
+fi
+if grep -Fq 'no rule_id at all' "$run_dir/out.stdout"; then
+  fail all_discarded_stdout_leaked_finding
+fi
 want_all_discarded_stderr='aurumcode review: 1 finding(s) discarded: 1 with no rule_id'
 [[ "$(cat "$run_dir/out.stderr")" == "$want_all_discarded_stderr" ]] || fail all_discarded_stderr_missing
 

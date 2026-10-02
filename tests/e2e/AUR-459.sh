@@ -72,10 +72,24 @@ copy() {
 }
 mkdir -p "$root"
 copy go.mod go.sum
-copy cmd/aurumcode cmd/regenerate-docs
-copy internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline
-copy internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome
-copy pkg/types tests/fixtures/repos/git-demo tests/fixtures/review
+# AUR-542: cmd/regenerate-docs was removed by commit 670c7f6 ("Focus
+# AurumCode on code review and publish interactive documentation"), a
+# deliberate product pivot that predates this card (AUR-490's done-card
+# record treats the removal as already-settled fact). This script builds
+# only ./cmd/aurumcode, which does not import cmd/regenerate-docs, so
+# copying it was never load-bearing -- just a stale materialization step
+# left over from before the pivot. Removed so this script's real failure
+# (see docs/specs/AUR-542.md) is not masked behind an infra exit 79.
+# AUR-542: internal/pipeline and internal/documentation/* are gone too,
+# removed by the same product pivot (670c7f6) -- `ls internal` on this
+# worktree confirms neither exists any more, and nothing under
+# cmd/aurumcode or the packages below imports them. Materialize every
+# internal/ package this card's own read_paths names instead (none of
+# internal/evidence, internal/governance, internal/sandbox is among
+# them, and grepping confirms cmd/aurumcode needs none of the three).
+copy cmd/aurumcode
+copy internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/security internal/testgen
+copy pkg tests/fixtures/repos/git-demo tests/fixtures/review
 chmod -R u+w -- "$root"
 
 bin="$run_dir/aurumcode"
