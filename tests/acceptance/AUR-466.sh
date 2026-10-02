@@ -103,6 +103,8 @@ required_inputs=(
   internal/reviewprofile
   internal/security
   internal/testgen
+  internal/dtrack
+  internal/sbom
   pkg/types
   tests/fixtures/review/vuln/repo.git
   tests/fixtures/review/vuln/hardcoded-secret/repo.git
@@ -147,7 +149,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
-  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/security internal/testgen
+  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/dtrack internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/sbom internal/security internal/testgen
   copy "$root" pkg/types
   copy "$root" tests/fixtures/review/vuln
   chmod -R u+w -- "$root"
