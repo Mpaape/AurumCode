@@ -45,7 +45,7 @@ type complianceArtifactInputs struct {
 
 	// analysisData (AUR-533) is non-nil only when a declared analysis_data
 	// section resolved a usable artifact.
-	analysisData *analysisDataAudit
+	analysisData *render.AnalysisDataAudit
 
 	// diff is the exact diff this run reviewed. The SARIF fingerprint is
 	// built from the code AT (issue.File, issue.Line, issue.Side) in this
@@ -114,12 +114,9 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 			exceptionsApplied,
 			in.coverageComplete, in.omittedFiles,
 		)
+		rec.AnalysisData = in.analysisData
 		if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: writing audit record: %v\n", err)
-		} else if in.analysisData != nil {
-			if err := addAnalysisDataToAuditFile(in.auditoriaPath, in.analysisData, filter); err != nil {
-				fmt.Fprintf(stderr, "aurumcode review: writing analysis_data audit fields: %v\n", err)
-			}
 		}
 	}
 

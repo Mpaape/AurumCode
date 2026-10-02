@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/artifacts"
+	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -132,7 +134,8 @@ func TestAUR533FreshArtifactIsRecordedInAudit(t *testing.T) {
 		t.Fatal(err)
 	}
 	tag, _ := f.m.Tag()
-	if rec["analysis_data_digest"] != f.m.SetDigest || rec["analysis_data_generated_at"] != "2026-10-02T03:17:00Z" || rec["analysis_data_tag"] != tag {
+	ad, _ := rec["analysis_data"].(map[string]any)
+	if ad["digest"] != f.m.SetDigest || ad["generated_at"] != "2026-10-02T03:17:00Z" || ad["tag"] != tag {
 		t.Fatalf("audit lacks digest/date/tag: %s", raw)
 	}
 	if rec["policy_digest"] == nil {
@@ -202,5 +205,58 @@ func TestAUR533CentralPolicyAgeWinsOverRepository(t *testing.T) {
 	}
 	if !strings.Contains(all, "analysis_data do config do repositório foi ignorado") {
 		t.Fatalf("overridden repo section must warn:\n%s", all)
+	}
+}
+
+func runAUR533PR(t *testing.T, repoConfig, auditPath string) (code int, published githubclient.CommitStatus, body string) {
+	t.Helper()
+	gh := dtrackPRMockServer(t, simpleDiffAUR537, repoConfig, &published, &body)
+	t.Cleanup(gh.Close)
+	setPRGateEnv(t, gh, approveFixture(t))
+	var out, errOut strings.Builder
+	code = runPRReview(&out, &errOut, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{auditoriaPath: auditPath})
+	body += out.String() + errOut.String()
+	return code, published, body
+}
+
+// --pr: a valid artifact is recorded in the audit by the typed field.
+func TestAUR533PRFreshArtifactIsRecordedInAudit(t *testing.T) {
+	f := newAUR533Fake(t, "")
+	useAUR533Env(t, f.srv.URL, aur533Gen.Add(time.Hour))
+	audit := filepath.Join(t.TempDir(), "audit.json")
+	code, published, body := runAUR533PR(t, aur533Config("7", "block"), audit)
+	if code != 0 || published.State != "success" {
+		t.Fatalf("exit=%d status=%+v\n%s", code, published, body)
+	}
+	raw, err := os.ReadFile(audit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rec struct {
+		AnalysisData *render.AnalysisDataAudit `json:"analysis_data"`
+	}
+	if err := json.Unmarshal(raw, &rec); err != nil || rec.AnalysisData == nil {
+		t.Fatalf("audit lacks analysis_data: %s", raw)
+	}
+	tag, _ := f.m.Tag()
+	if rec.AnalysisData.Digest != f.m.SetDigest || rec.AnalysisData.GeneratedAt != "2026-10-02T03:17:00Z" || rec.AnalysisData.Tag != tag {
+		t.Fatalf("wrong analysis_data: %+v", rec.AnalysisData)
+	}
+}
+
+// --pr: a stale artifact in block mode is not approved and the commit status
+// reflects it.
+func TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt(t *testing.T) {
+	f := newAUR533Fake(t, "")
+	useAUR533Env(t, f.srv.URL, aur533Gen.Add(20*24*time.Hour))
+	code, published, body := runAUR533PR(t, aur533Config("7", "block"), "")
+	if code == 0 {
+		t.Fatalf("block + stale must not exit 0\n%s", body)
+	}
+	if published.State == "success" || published.State == "" {
+		t.Fatalf("status must not be success: %+v", published)
+	}
+	if !strings.Contains(body, "analysis_data_stale") {
+		t.Fatalf("published body must carry the reason:\n%s", body)
 	}
 }

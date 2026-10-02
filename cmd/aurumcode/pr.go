@@ -831,7 +831,7 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// AUR-533: the analysis-data artifact's age/digest gate, folded into the
 	// same gateResult/gateInconclusiveReason (aur533.go). A complete no-op
 	// unless analysis_data is declared in the effective config.
-	var analysisDataAuditAUR533 *analysisDataAudit
+	var analysisDataAuditAUR533 *render.AnalysisDataAudit
 	{
 		adMode, _ := reviewConfig.Gate.InconclusiveMode()
 		adResult, adReason, adAudit := applyAnalysisDataGate(ctx, reviewConfig.AnalysisData, adMode)
