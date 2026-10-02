@@ -13,12 +13,18 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -98,11 +104,114 @@ func modelCacheKey(provider llm.Provider) string {
 	return name
 }
 
-// The new repository and memory context must participate in cache identity;
-// otherwise a full cache hit would hide feedback loaded for this review.
-func reviewContextCacheKey(provider llm.Provider, language, codebase, notes string) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%q\n%q\n%q", language, codebase, notes)))
+// AUR-513: the cache key must change whenever ANYTHING that can change the
+// model's answer changes -- not only the file's own diff. reviewContextCacheKey
+// folds in every such input this engine currently has: the review language and
+// memory notes (AUR-441's original scope), the codebase-context pack (AUR-515/
+// 536, already derived from the FULL diff before per-file partitioning -- see
+// AC-003's note on partitionByCache below), the selected reviewer profiles
+// (AUR-502's profileIdentity, reviewprofile.Profile.Signature() joined --
+// built for exactly this comparison), the content of every context block
+// assembled from the repo's and the central policy's prompt/skills/docs files
+// (contextBlockDigest, a content digest, never the raw text itself -- AC-002
+// requires the key carry no secret in legible form), and the dynamic
+// rule/skill-section catalog the model was taught and the gate accepts
+// citations against (ruleCatalogDigest). Two reviews that differ in ANY of
+// these produce a different key and therefore never share a cache entry; two
+// reviews identical in all of them may still validly reuse one.
+func reviewContextCacheKey(provider llm.Provider, language, codebase, notes, profiles, contextBlockDigest, ruleCatalogDigest string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%q\n%q\n%q\n%q\n%q\n%q", language, codebase, notes, profiles, contextBlockDigest, ruleCatalogDigest)))
 	return fmt.Sprintf("%s:context:%x", modelCacheKey(provider), sum)
+}
+
+// contextBlockCacheDigest returns a sha256 hex digest of every configured
+// context provider's RAW contribution for changedPaths -- the repository's
+// prompt/skills/docs AND, when a central policy is active, the policy's own
+// (contextProviders in runReview already lists the policy's providers
+// first, per AUR-518).
+//
+// Deliberately RAW, not the redacted block config.BuildContextBlockWithWarnings
+// assembles for the actual outbound prompt: redaction.Filter.Redact replaces
+// every secret-shaped span with the SAME fixed "[REDACTED]" placeholder
+// regardless of the secret's real value (internal/security/redaction), so
+// hashing the redacted text would let two genuinely different files (a
+// rotated credential, for instance) collide on one cache key -- exactly the
+// failure mode cache.Key's own doc (internal/review/cache/cache.go) already
+// documents and avoids for a file's diff content, by hashing it before
+// redaction too. The digest itself is still a one-way sha256 hex string, so
+// AC-002's "no secret in legible form" holds the same way cache.Key's
+// output already does: nothing in the KEY is the original text, raw or
+// redacted.
+//
+// This calls each provider's Provide directly rather than going through
+// config.BuildContextBlockWithWarnings (which only ever returns the already-
+// redacted block) or reading the already-wrapped provider's internals --
+// the wrapper type WrapProviderWithWarnings returns (internal/config/wrap.go's
+// contextInjectingProvider) is unexported and carries no seam for a caller
+// outside that package to recover raw text from, and this card's paths do
+// not include internal/config. Every provider ConfiguredProviders returns
+// today (RepoPromptProvider, FileContextProvider, TextContextProvider,
+// PathInstructionsProvider; see internal/config/provider_files.go) reads a
+// local file and does nothing else, so calling Provide a second time here,
+// purely to digest it, is deterministic and side-effect-free; AUR-469/470
+// (MCP/RAG) are documented future extensions of the same seam, not present
+// in this codebase today -- see docs/review-cache.md for what a stateful
+// future provider would require this function to revisit. Each call is
+// still bounded by config.ProviderTimeout, the same ceiling
+// callProviderBounded applies to the real call. A provider that errors or
+// times out contributes a fixed per-provider sentinel instead of its text,
+// never a crash and never silently treated as "no contribution" (which
+// would wrongly collide with a provider that legitimately has nothing to
+// say).
+func contextBlockCacheDigest(providers []config.ContextProvider, changedPaths []string) string {
+	h := sha256.New()
+	for _, p := range providers {
+		h.Write([]byte(p.Name()))
+		h.Write([]byte{0})
+		ctx, cancel := context.WithTimeout(context.Background(), config.ProviderTimeout)
+		text, err := p.Provide(ctx, changedPaths)
+		cancel()
+		if err != nil {
+			h.Write([]byte("error"))
+		} else {
+			h.Write([]byte(text))
+		}
+		h.Write([]byte{1})
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// ruleCatalogCacheDigest returns a deterministic sha256 hex digest of the
+// expanded rule catalog (ruleCatalogIDs, AUR-519's embedded-plus-skill-section
+// ID list the model is taught) and the dynamic rules backing it (dynamicRules,
+// ID -> full Rule, including each rule's Description/Severity/Pattern/etc. --
+// cmd/aurumcode/policygate.go). Both inputs are sorted first so that the
+// identical configuration always serializes to the identical bytes regardless
+// of map iteration order or the order review.context.skills/policySkillRules
+// happened to merge in.
+func ruleCatalogCacheDigest(ruleCatalogIDs []string, dynamicRules map[string]review.Rule) string {
+	ids := append([]string(nil), ruleCatalogIDs...)
+	sort.Strings(ids)
+
+	keys := make([]string, 0, len(dynamicRules))
+	for k := range dynamicRules {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	rules := make([]review.Rule, 0, len(keys))
+	for _, k := range keys {
+		rules = append(rules, dynamicRules[k])
+	}
+
+	body, err := json.Marshal(struct {
+		Catalog []string
+		Rules   []review.Rule
+	}{ids, rules})
+	if err != nil {
+		body = []byte("marshal-error")
+	}
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
 }
 
 // partitionByCache resolves, for every file in diff.Files, whether c
@@ -110,6 +219,23 @@ func reviewContextCacheKey(provider llm.Provider, language, codebase, notes stri
 // that still need a model call, in diff order, and the per-file status
 // slice (also in diff order, one entry per diff.Files element) that
 // mergeCacheHits and persistFreshResults use afterward.
+//
+// AC-003 (cross-file evidence survives a partial hit): diff here is the
+// FULL reviewed diff, not yet reduced to misses -- that reduction (toSend in
+// runReview) happens strictly AFTER this call returns. The chosen design
+// does not try to detect which miss file "depends on" which hit file (that
+// would need a dependency graph this package does not have and this card's
+// Non-goals exclude building a remote index to get one); instead it relies
+// on a fact already true one layer up, in runReview: resolveCodebaseContext
+// is computed from diffPaths(diff) -- the SAME full, unpartitioned diff --
+// BEFORE partitionByCache ever runs, so the codebase-context pack
+// (AUR-515/536: symbols, references and dependents across every changed
+// path) always carries the cache-hit file's symbols/content alongside the
+// miss file's, regardless of which files ultimately hit. That pack's text
+// is part of reviewContextCacheKey (the "codebase" parameter), so a change
+// to that cross-file picture also invalidates the right cache entries. See
+// docs/review-cache.md for the alternative considered (refusing to serve a
+// hit for any file the changed set depends on) and why it was rejected.
 func partitionByCache(c *cache.Cache, diff *types.Diff, model string) (miss []types.DiffFile, statuses []fileCacheStatus) {
 	statuses = make([]fileCacheStatus, len(diff.Files))
 	for i, f := range diff.Files {

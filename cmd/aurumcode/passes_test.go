@@ -218,11 +218,24 @@ func TestAUR490SharedPasses(t *testing.T) {
 		}
 	}
 	p := &review.FakeProvider{Response: `{"issues":[]}`}
-	key := reviewContextCacheKey(p, "pt-BR", "context", "first note")
-	if key == reviewContextCacheKey(p, "pt-BR", "context", "new feedback") {
+	key := reviewContextCacheKey(p, "pt-BR", "context", "first note", "", "", "")
+	if key == reviewContextCacheKey(p, "pt-BR", "context", "new feedback", "", "", "") {
 		t.Fatal("cache ignores changed memory")
 	}
-	if key == reviewContextCacheKey(p, "pt-BR", "changed dependency", "first note") {
+	if key == reviewContextCacheKey(p, "pt-BR", "changed dependency", "first note", "", "", "") {
 		t.Fatal("cache ignores dependency context")
+	}
+	// AUR-513 (AC-001/AC-002): the three new identity components -- selected
+	// profiles, the assembled context-block digest, the rule-catalog digest
+	// -- must each independently change the key too, not only the original
+	// three.
+	if key == reviewContextCacheKey(p, "pt-BR", "context", "first note", "solid", "", "") {
+		t.Fatal("cache ignores changed profile selection")
+	}
+	if key == reviewContextCacheKey(p, "pt-BR", "context", "first note", "", "block-digest-changed", "") {
+		t.Fatal("cache ignores changed context-block digest")
+	}
+	if key == reviewContextCacheKey(p, "pt-BR", "context", "first note", "", "", "catalog-digest-changed") {
+		t.Fatal("cache ignores changed rule-catalog digest")
 	}
 }
