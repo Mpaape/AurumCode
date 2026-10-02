@@ -1002,6 +1002,9 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		fmt.Fprintln(stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
 	}
 	fmt.Fprint(stdout, renderLocalReport(result, diff, reviewLanguage))
+	if suggestions := renderSuggestions(result, diff, reviewLanguage); suggestions != "" {
+		fmt.Fprint(stdout, "\n"+suggestions)
+	}
 	if changelogText != "" {
 		fmt.Fprint(stdout, "\n"+changelogText)
 	}
