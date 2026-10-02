@@ -46,7 +46,7 @@ for tool in awk grep sed diff cp mktemp find; do
 done
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a554.XXXXXX")" || infra mktemp
-trap 'rm -rf "${work:?}"' EXIT
+trap 'chmod -R u+rwX "${work:?}" 2>/dev/null || true; rm -rf "${work:?}"' EXIT
 
 ac001() {
   grep -q 'gate-corporativo.md' "$repo_root/docs/README.md" || fail "AC-001/readme-sem-link"
@@ -146,6 +146,7 @@ mut001() {
   local copy="$work/demo"
   mkdir -p "$copy"
   cp -R "$demo/." "$copy/"
+  chmod -R u+rwX "$copy"
   bash "$copy/run.sh" --check >/dev/null 2>&1 || fail "MUT-001/controle-nao-passa"
   # remove o defeito plantado (o achado de SAST) do log registrado
   sed -i '/demo-sem-eval/d; /src\/calc.js:5/d' "$copy/out/fail.log"
