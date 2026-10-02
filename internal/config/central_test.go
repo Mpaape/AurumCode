@@ -54,6 +54,18 @@ func TestAUR518LoadCentralPolicyMissingSkillFailsClosed(t *testing.T) {
 	}
 }
 
+// TestAUR518LoadCentralPolicyUnknownKeyFailsClosed covers AC-005's "unknown
+// keys" half: a policy whose config.yml has a misspelled key (e.g.
+// "enabeld" instead of "enabled") must not silently load as if that key
+// were absent -- a typo in a gate-relevant file is refused, not ignored.
+func TestAUR518LoadCentralPolicyUnknownKeyFailsClosed(t *testing.T) {
+	dir := t.TempDir()
+	writePolicyFile(t, dir, DefaultConfigPath, "rules:\n  analysis/hardcoded-secret:\n    enabeld: true\n")
+	if _, err := LoadCentralPolicy(dir); err == nil {
+		t.Fatal("expected an error for a policy config.yml with an unknown/misspelled key")
+	}
+}
+
 // TestAUR518LoadCentralPolicyValid covers the happy path: a well-formed
 // policy with an existing skill loads cleanly.
 func TestAUR518LoadCentralPolicyValid(t *testing.T) {
