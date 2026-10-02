@@ -395,6 +395,16 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", opts.modelo, providerVia)
 	}
 
+	// AUR-524 (mirrors AUR-513's own baseModelIdentity in runReview): the
+	// real answering model's identity, captured from `provider` BEFORE it
+	// is ever context-wrapped below -- config.WrapProviderWithWarnings
+	// embeds llm.Provider as an interface field, so a provider implementing
+	// llm.ModelResolver stops being visible through a type assertion the
+	// instant it is wrapped. Capturing it here keeps the gate-verdict cache
+	// key (reuseOrStoreGateVerdict, below) identifying the SAME model a
+	// --base run of this same endpoint would.
+	baseModelIdentity := modelCacheKey(provider)
+
 	// Repository context is read from the trusted base ref when the workflow
 	// supplies one. A pull request may still choose its language from its head
 	// config, but it cannot change the prompt, skills or documentation used to
@@ -415,6 +425,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if centralCfg != nil {
 		contextProviders = append(config.ConfiguredProviders(opts.policyDir, centralCfg), contextProviders...)
 	}
+	// AUR-524: digest the SAME redacted block the model actually receives
+	// (contextBlockCacheDigest's own doc, review_cache.go, explains why
+	// redacted, not raw), folded into the gate-verdict cache key below so a
+	// changed repo or policy prompt/skill/doc file invalidates a reused
+	// verdict exactly like it already invalidates runReview's per-file one.
+	contextBlockDigest := contextBlockCacheDigest(contextProviders, diffPaths(diff), filter)
 	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(ctx, provider, contextProviders, diffPaths(diff), filter)
 	if wrapErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
@@ -439,6 +455,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	repoSkillRules := dynamicRulesFromRemoteSkills(ctx, client, owner, repoName, reviewConfig.Review.Context.Skills, contextRef, gateOriginRepo)
 	dynamicRules := mergeDynamicRules(policySkillRules, repoSkillRules)
 	ruleCatalogIDs := mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, dynamicRules)
+	// AUR-524: folded into the gate-verdict cache key below, mirroring
+	// runReview's own ruleCatalogDigest -- a skill/catalog change that
+	// alters what the model is taught and what the gate accepts must
+	// invalidate a reused verdict even without changing the context
+	// block's raw bytes.
+	ruleCatalogDigest := ruleCatalogCacheDigest(ruleCatalogIDs, dynamicRules)
 
 	// --limite (AUR-451): wire internal/llm/cost.Tracker into the
 	// orchestrator exactly as the --base path does (buildCostTracker,
@@ -703,6 +725,21 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	case coverageBreakdown.partial():
 		gateInconclusiveReason = "partial_coverage"
 	}
+
+	// AUR-524: reuse (or publish, for a later run) a concluded gate
+	// verdict for this exact reviewed SHA/diff, policy, repo context/
+	// skills and model -- see aur524.go. This is the --pr counterpart of
+	// runReview's own identical call (main.go): the SAME key builders, the
+	// SAME on-disk store, so the verdict for an unchanged
+	// SHA/policy/context/model cannot flip depending on which of the two
+	// commands happened to run it. A no-op unless reviewConfig.Gate.
+	// Declared(); reviewedSHA is GITHUB_SHA, read exactly as runReview
+	// reads it, so the --pr and --base paths key identically for the same
+	// reviewed commit.
+	if reused, hit := reuseOrStoreGateVerdict(stderr, &result.Limitations, reviewConfig.Gate.Declared(), provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, "", contextBlockDigest, ruleCatalogDigest, render.PolicyDigest(opts.policyDir, centralCfg), os.Getenv("GITHUB_SHA"), diff, gateInconclusiveReason, result.Issues); hit {
+		result.Issues = reused
+	}
+
 	gateOrigin := gateOriginRepo
 	if centralCfg != nil {
 		gateOrigin = gateOriginPolicy
