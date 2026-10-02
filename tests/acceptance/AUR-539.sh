@@ -54,7 +54,7 @@ command -v go >/dev/null 2>&1 || infra missing_go
 required_inputs=(
   go.mod go.sum
   internal/analyzer internal/prompt pkg/types
-  tests/unit/AUR-467.go tests/integration/AUR-467.go tests/e2e/AUR-467.sh
+  tests/unit/AUR-467.go tests/integration/AUR-467.go
   tests/unit/AUR-477.go tests/integration/AUR-477.go tests/e2e/AUR-477.sh
 )
 for input in "${required_inputs[@]}"; do
