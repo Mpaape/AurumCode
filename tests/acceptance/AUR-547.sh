@@ -18,7 +18,11 @@
 #   all             run every scenario below, including the MUT
 #   AC-001          every one of the six scripts either exits 0 (fully
 #                   fixed) or exits with the exact measured RED tag this
-#                   card documented in docs/specs/AUR-547.md
+#                   card documented in docs/specs/AUR-547.md; AND every
+#                   other selector each script exposes (unit/integration/
+#                   e2e/mutation) is run on its own and checked against
+#                   the exact rc and tag docs/specs/AUR-547.md pins --
+#                   so a claimed partial green is proved, not inferred
 #   AC-002          none of the six scripts' stage_source/required_inputs
 #                   copies a package this product no longer has
 #   AC-003          tests/unit/AUR-449.go and tests/integration/AUR-449.go
@@ -98,11 +102,61 @@ run_nested() {
 expected_tag() {
   case "$1" in
     AUR-443) printf 'selector:TestAUR443:exit:1' ;;
-    AUR-448) printf 'behavior-missing' ;;
-    AUR-458) printf 'e2e-failed' ;;
+    AUR-448) printf 's3-grounded-finding-missing' ;;
+    AUR-458) printf 'e2e-failed:AUR-458/E2E/pr-path-must-refuse-the-flag:want-2-got-1' ;;
     AUR-466) printf 'selector:IntegrationAUR466:exit:1' ;;
     AUR-481) printf 'selector:IntegrationAUR481:exit:1' ;;
   esac
+}
+
+# detail_checks pins, per script, the exact outcome of every OTHER
+# selector that script exposes -- not just the coarse AC-001 tag --
+# so a claimed partial green (e.g. AUR-443's e2e_case/mutation_case, or
+# AUR-466/481's e2e_case) is actually proved by running it, and a claimed
+# red's inner cause (unit/integration) is pinned precisely enough that a
+# DIFFERENT red cause is distinguishable from the one measured here (B3,
+# independent review of this card).
+#  script   selector            expected_rc  expected_tag_substring
+readonly -a detail_checks=(
+  'AUR-443|TestAUR443|1|selector:TestAUR443:exit:1'
+  'AUR-443|IntegrationAUR443|1|selector:IntegrationAUR443:exit:1'
+  'AUR-443|E2EAUR443|0|E2EAUR443/ok'
+  'AUR-443|AC-001-MUT-001|0|MUT-001/rejected'
+  'AUR-448|TestAUR448|1|selector:TestAUR448:exit:1'
+  'AUR-448|IntegrationAUR448|1|selector:IntegrationAUR448:exit:1'
+  'AUR-448|E2EAUR448|0|E2EAUR448/ok'
+  'AUR-448|AC-001-MUT-001|1|MUT-001/not-rejected'
+  'AUR-466|IntegrationAUR466|1|selector:IntegrationAUR466:exit:1'
+  'AUR-466|E2EAUR466|0|e2e-ok'
+  'AUR-481|IntegrationAUR481|1|selector:IntegrationAUR481:exit:1'
+  'AUR-481|E2EAUR481|0|e2e-ok'
+)
+
+run_detail_checks() {
+  local any_bad=0 entry name sel want_rc want_tag last
+  for entry in "${detail_checks[@]}"; do
+    IFS='|' read -r name sel want_rc want_tag <<<"$entry"
+    run_nested "$name" "$sel"
+    if [[ "$n_rc" -eq 79 || "$n_rc" -eq 69 ]]; then
+      cat "$n_out" >&2
+      infra "detail-infra:$name:$sel:$n_rc"
+    fi
+    if [[ "$n_rc" != "$want_rc" ]]; then
+      cat "$n_out" >&2
+      printf '%s/%s/detail-wrong-exit:%s:%s:want:%s:got:%s\n' \
+        "$card" "$selector" "$name" "$sel" "$want_rc" "$n_rc" >&2
+      any_bad=1
+      continue
+    fi
+    last="$(tail -n1 "$n_out")"
+    if ! grep -Fq "$want_tag" <<<"$last"; then
+      cat "$n_out" >&2
+      printf '%s/%s/detail-different-cause:%s:%s:want:%s:got:%s\n' \
+        "$card" "$selector" "$name" "$sel" "$want_tag" "$last" >&2
+      any_bad=1
+    fi
+  done
+  [[ "$any_bad" -eq 0 ]]
 }
 
 run_ac001() {
@@ -245,12 +299,16 @@ run_mut001() {
 }
 
 case "$selector" in
-  AC-001) run_ac001 || fail AC-001 ;;
+  AC-001)
+    run_ac001 || fail AC-001
+    run_detail_checks || fail AC-001
+    ;;
   AC-002) run_ac002 || fail AC-002 ;;
   AC-003) run_ac003 || fail AC-003 ;;
   AC-002-MUT-001) run_mut001 || fail AC-002-MUT-001 ;;
   all)
     run_ac001 || fail AC-001
+    run_detail_checks || fail AC-001
     run_ac002 || fail AC-002
     run_ac003 || fail AC-003
     run_mut001 || fail AC-002-MUT-001
