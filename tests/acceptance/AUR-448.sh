@@ -80,6 +80,8 @@ required_inputs=(
   internal/reviewprofile
   internal/security
   internal/testgen
+  internal/dtrack
+  internal/sbom
   pkg/types
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
@@ -141,7 +143,7 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod go.sum
   copy "$root" cmd/aurumcode
-  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/security internal/testgen
+  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/dtrack internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/sbom internal/security internal/testgen
   copy "$root" pkg/types
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input this copies from can be read-only, directories
