@@ -395,6 +395,16 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintf(stderr, "aurumcode review: reviewing with model %q (%s)\n", opts.modelo, providerVia)
 	}
 
+	// AUR-524 (mirrors AUR-513's own baseModelIdentity in runReview): the
+	// real answering model's identity, captured from `provider` BEFORE it
+	// is ever context-wrapped below -- config.WrapProviderWithWarnings
+	// embeds llm.Provider as an interface field, so a provider implementing
+	// llm.ModelResolver stops being visible through a type assertion the
+	// instant it is wrapped. Capturing it here keeps the gate-verdict cache
+	// key (reuseOrStoreGateVerdict, below) identifying the SAME model a
+	// --base run of this same endpoint would.
+	baseModelIdentity := modelCacheKey(provider)
+
 	// Repository context is read from the trusted base ref when the workflow
 	// supplies one. A pull request may still choose its language from its head
 	// config, but it cannot change the prompt, skills or documentation used to
@@ -415,6 +425,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if centralCfg != nil {
 		contextProviders = append(config.ConfiguredProviders(opts.policyDir, centralCfg), contextProviders...)
 	}
+	// AUR-524: digest the SAME redacted block the model actually receives
+	// (contextBlockCacheDigest's own doc, review_cache.go, explains why
+	// redacted, not raw), folded into the gate-verdict cache key below so a
+	// changed repo or policy prompt/skill/doc file invalidates a reused
+	// verdict exactly like it already invalidates runReview's per-file one.
+	contextBlockDigest := contextBlockCacheDigest(contextProviders, diffPaths(diff), filter)
 	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(ctx, provider, contextProviders, diffPaths(diff), filter)
 	if wrapErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
@@ -439,6 +455,12 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	repoSkillRules := dynamicRulesFromRemoteSkills(ctx, client, owner, repoName, reviewConfig.Review.Context.Skills, contextRef, gateOriginRepo)
 	dynamicRules := mergeDynamicRules(policySkillRules, repoSkillRules)
 	ruleCatalogIDs := mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, dynamicRules)
+	// AUR-524: folded into the gate-verdict cache key below, mirroring
+	// runReview's own ruleCatalogDigest -- a skill/catalog change that
+	// alters what the model is taught and what the gate accepts must
+	// invalidate a reused verdict even without changing the context
+	// block's raw bytes.
+	ruleCatalogDigest := ruleCatalogCacheDigest(ruleCatalogIDs, dynamicRules)
 
 	// --limite (AUR-451): wire internal/llm/cost.Tracker into the
 	// orchestrator exactly as the --base path does (buildCostTracker,
@@ -644,6 +666,14 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 			result.TestPlan = append(result.TestPlan, fmt.Sprintf("%s (package %s)", c.Name, c.Package))
 		}
 	}
+	// AUR-524 v2: snapshot the RAW issues (model output, the security
+	// findings merge and the static-analysis merge above), immediately
+	// before this run's own rule config filters/overrides them, so a
+	// stored verdict entry can be re-evaluated against a LATER run's rule
+	// config (AC-006) instead of freezing whatever config happened to be
+	// active when it was written. See reuseOrStoreGateVerdict below and
+	// aur524.go.
+	rawIssuesSnapshotAUR524 := append([]types.ReviewIssue(nil), result.Issues...)
 	result.Issues = config.ApplyRuleConfig(result.Issues, reviewConfig)
 	// AUR-548: quality_gates.sast's own Semgrep pass, over the EXACT same
 	// verified, clean checkout resolveVerifiedCodebaseContext already
@@ -748,16 +778,44 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	case coverageBreakdown.partial():
 		gateInconclusiveReason = "partial_coverage"
 	}
-	gateOrigin := gateOriginRepo
-	if centralCfg != nil {
-		gateOrigin = gateOriginPolicy
-	}
+
 	// AUR-520: on --pr the repo identity is simply owner/repoName -- the
 	// exact "owner/repo" the pull request belongs to, already parsed and
 	// verified by parseOwnerRepo/the authenticated GitHub API call above,
 	// never anything derived from the PR's own (author-controlled) diff
 	// or head checkout.
-	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason, reviewConfig.Exceptions, owner+"/"+repoName, time.Now())
+	prRepoIdentityAUR524 := owner + "/" + repoName
+
+	// AUR-524 v2: reuse (monotonically -- see aur524.go) or publish, for a
+	// later run, a concluded gate verdict for this exact reviewed content,
+	// policy, repo context/skills, model, prompt version and binary. This
+	// is the --pr counterpart of runReview's own identical call (main.go):
+	// the SAME key builders, the SAME on-disk store, so the verdict for
+	// an unchanged content/policy/context/model cannot flip depending on
+	// which of the two commands happened to run it. A no-op unless
+	// reviewConfig.Gate.Declared().
+	gateVerdictPromptDigest, gateVerdictPromptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+	result.Issues = reuseOrStoreGateVerdict(stderr, &result.Limitations, reviewConfig.Gate.Declared(), gateVerdictPromptDigestErr == nil, provider, gateVerdictKeyInputs{
+		BaseModelIdentity:   baseModelIdentity,
+		Language:            reviewLanguage,
+		Codebase:            codebaseContextText,
+		Notes:               memoryNotesText,
+		Profiles:            "",
+		ContextBlockDigest:  contextBlockDigest,
+		RuleCatalogDigest:   ruleCatalogDigest,
+		PolicyDigest:        render.PolicyDigest(opts.policyDir, centralCfg),
+		PromptVersionDigest: gateVerdictPromptDigest,
+		BinaryIdentity:      binaryIdentity(),
+		RepoIdentity:        prRepoIdentityAUR524,
+		DiffDigest:          diffContentDigest(diff),
+		ReviewedSHA:         os.Getenv("GITHUB_SHA"),
+	}, reviewConfig, gateInconclusiveReason, result.Issues, rawIssuesSnapshotAUR524)
+
+	gateOrigin := gateOriginRepo
+	if centralCfg != nil {
+		gateOrigin = gateOriginPolicy
+	}
+	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason, reviewConfig.Exceptions, prRepoIdentityAUR524, time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
 		return 2

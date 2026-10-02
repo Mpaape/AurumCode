@@ -256,10 +256,12 @@ type Config struct {
 	// and ApplyCentralPolicy for why, under a central policy, only the
 	// policy's own Exceptions ever apply.
 	Exceptions []ExceptionConfig `yaml:"exceptions"`
-	// QualityGates is AUR-548's (and siblings') `quality_gates:` section.
-	// See QualityGatesConfig/SASTGateConfig and ApplyCentralPolicy for why,
-	// under a central policy, only the policy's own quality_gates.sast
-	// ever applies.
+	// QualityGates is the shared quality_gates section the corporate
+	// adoption cards write their own subsection into (AUR-548 Sast,
+	// AUR-549 SsorDtrack.SBOMGenerator, AUR-550 the rest of SsorDtrack,
+	// and SupplyChain for a future xBOM card). See QualityGatesConfig
+	// (qualitygates.go) and ApplyCentralPolicy for why each subsection is
+	// governed independently, the same way Gate/Exceptions already are.
 	QualityGates QualityGatesConfig `yaml:"quality_gates"`
 }
 
@@ -329,13 +331,6 @@ func Parse(data []byte, source string) (*Config, error) {
 	// expires date, is a config error here -- fail closed before any
 	// model call, exactly like every other section above (AC-005).
 	if err := ValidateExceptions(cfg.Exceptions); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", source, err)
-	}
-	// AUR-548: a malformed quality_gates.sast (unknown engine or
-	// fail_on_severity) is a loud config error here, exactly like every
-	// other optional section above -- fail closed before any model call
-	// or Semgrep execution.
-	if err := cfg.QualityGates.Sast.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	return &cfg, nil
