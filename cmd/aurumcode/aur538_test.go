@@ -529,18 +529,39 @@ func TestAUR538PublishPolicyGateStatusWordAndStateTable(t *testing.T) {
 
 // TestAUR538OrderedGateReasonsExactExceptionMarkersNotBareWord covers the
 // non-blocking classification fix: a breach line whose own rule.Title
-// happens to contain the word "exceção" (a policy/repo author could
-// title a rule anything) must stay in the breach tier, never be
+// happens to contain the EXACT word "exceção" (a policy/repo author
+// could title a rule anything) must stay in the breach tier, never be
 // misclassified into the exception tier just because the bare word
 // appears somewhere in the line. Only acceptedExceptionLine/
 // expiredExceptionLine's own fixed markers (aur520.go) select that tier.
+//
+// The title below is "Tratamento de exceção" (singular), which DOES
+// contain the exact substring "exceção" -- unlike an earlier draft of
+// this test that used "exceções" (plural): "exceções" ends in "ções"
+// (ç, õ, e, s), never "ção" (ç, ã, o), so it does NOT contain "exceção"
+// as a substring and would have passed under the OLD, reverted
+// bare-word check too, proving nothing.
+//
+// A GENUINE exception line (built from acceptedExceptionLine's own
+// format, which also contains "exceção") is included and placed BEFORE
+// the breach line in the input, specifically so only a classification
+// difference -- never input order -- can explain the output order:
+// under the correct, marker-based classification the breach line still
+// sorts first (breach tier is joined before the exception tier); under
+// the reverted bare-word check, both lines fall into the same
+// "contains exceção" bucket and keep the INPUT's order instead, putting
+// the genuine exception line first. This was confirmed, in a scratch
+// copy with orderedGateReasons' classification reverted to
+// `strings.Contains(line, "exceção")`, to flip the order and fail this
+// test's assertion -- see the commit message for that verification.
 func TestAUR538OrderedGateReasonsExactExceptionMarkersNotBareWord(t *testing.T) {
-	breachLineMentioningException := "quality#trate-exceções: Trate bem as exceções do sistema (severidade error, limiar error)"
+	genuineExceptionLine := "other#rule em outro.go: aceito por exceção (dono: time-x, motivo: y, validade: 2099-12-31)"
+	breachLineMentioningException := "quality#excecao: Tratamento de exceção (severidade error, limiar error)"
 	inconclusiveLine := "review inconclusive (partial_coverage)"
 
-	got := orderedGateReasons([]string{inconclusiveLine, breachLineMentioningException})
-	want := breachLineMentioningException + "; " + inconclusiveLine
+	got := orderedGateReasons([]string{genuineExceptionLine, breachLineMentioningException, inconclusiveLine})
+	want := breachLineMentioningException + "; " + genuineExceptionLine + "; " + inconclusiveLine
 	if got != want {
-		t.Fatalf("orderedGateReasons =\n%q\nwant the breach line (which merely mentions \"exceção\") ordered first, not shunted into the exception tier:\n%q", got, want)
+		t.Fatalf("orderedGateReasons =\n%q\nwant the breach line (which merely mentions \"exceção\") ordered BEFORE the genuine exception line, not grouped with it:\n%q", got, want)
 	}
 }
