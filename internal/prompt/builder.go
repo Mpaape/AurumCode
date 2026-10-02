@@ -2,7 +2,9 @@ package prompt
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"text/template"
@@ -257,6 +259,44 @@ func (b *PromptBuilder) fixedOverhead(diff *types.Diff, metrics *analyzer.DiffMe
 func (b *PromptBuilder) FixedOverheadTokens(diff *types.Diff, metrics *analyzer.DiffMetrics, opts BuildOptions) (int, error) {
 	fixedTokens, _, _, _, _, err := b.fixedOverhead(diff, metrics, opts)
 	return fixedTokens, err
+}
+
+// fixedContentSentinelMetrics stands in for a diff's own metrics when
+// FixedContentDigest renders the system prompt below: every field is the
+// Go zero value, so formatMetrics/formatLanguages always render the exact
+// same bytes no matter what diff BuildPrompt is actually given elsewhere.
+var fixedContentSentinelMetrics = &analyzer.DiffMetrics{}
+
+// FixedContentDigest returns a sha256 hex digest of the fixed content a
+// "review" prompt renders regardless of which diff it is built for: the
+// template's literal instructions, the response schema text embedded in
+// templates/review.md, and this builder's own built-in rule catalog
+// (b.ruleCatalog -- DefaultRuleCatalog on a builder from NewPromptBuilder,
+// unless SetRuleCatalog changed it). It calls buildBasePrompt -- the exact
+// method BuildPrompt (through fixedOverhead) and BuildReviewPrompt already
+// call to render the system prompt -- passing constant sentinel values for
+// every field that varies with the reviewed diff or a run's own
+// configuration (metrics, CI context, review language, change scope), so
+// this digest and BuildPrompt's actual rendering read the same embedded
+// template and the same catalog through the same code and can never drift
+// apart: editing templates/review.md's literal text, the schema wording it
+// teaches, or the built-in rule catalog always moves this digest; changing
+// the diff, the CI context, the configured review language or the change
+// scope never does, because those fields are never read from this
+// function's own sentinel arguments.
+//
+// cmd/aurumcode folds this into the per-file review cache key in place of
+// internal/review/cache's old hand-bumped PromptVersion constant (AUR-543):
+// a human no longer has to remember to bump a version string every time the
+// embedded prompt changes, because any such change now moves this digest on
+// its own, at run time, deriving from the content actually sent.
+func (b *PromptBuilder) FixedContentDigest() (string, error) {
+	basePrompt, err := b.buildBasePrompt("review", fixedContentSentinelMetrics, "", "en-US", "")
+	if err != nil {
+		return "", fmt.Errorf("computing the fixed prompt content digest: %w", err)
+	}
+	sum := sha256.Sum256([]byte(basePrompt))
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // BuildPrompt builds a complete prompt with token budgeting
