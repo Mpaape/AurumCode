@@ -59,7 +59,15 @@ type Outcome struct {
 	GeneratedAt time.Time
 	MaxAgeDays  int
 	Manifest    *Manifest
+	// Source is SourceRemote when the release listing answered, SourceCache
+	// when it failed and a previously verified local copy was used.
+	Source string
 }
+
+const (
+	SourceRemote = "remote"
+	SourceCache  = "cache"
+)
 
 // Message is the inconclusive reason text.
 func (o Outcome) Message() string {
@@ -79,6 +87,7 @@ func (o Outcome) Audit() map[string]string {
 		"analysis_data_digest":       o.Digest,
 		"analysis_data_generated_at": o.GeneratedAt.UTC().Format(time.RFC3339),
 		"analysis_data_tag":          o.Tag,
+		"analysis_data_source":       o.Source,
 	}
 }
 
@@ -125,11 +134,13 @@ func Resolve(ctx context.Context, o Options) Outcome {
 		// Offline fallback: a previously verified copy is still subject to
 		// the same age limit below. No copy, no data: inconclusive.
 		if dir, m := newestCached(cache); m != nil {
+			out.Source = SourceCache
 			return judge(out, dir, m, "", o.MaxAgeDays, now(), nil)
 		}
 		out.Reason, out.Detail = ReasonUnavailable, relErr.Error()
 		return out
 	}
+	out.Source = SourceRemote
 	dir := filepath.Join(cache, strings.ReplaceAll(rel.TagName, "/", "_"))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		out.Reason, out.Detail = ReasonUnavailable, err.Error()

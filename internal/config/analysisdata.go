@@ -22,8 +22,9 @@ const (
 // review never consults the artifact. Declare it as a mapping (`{}` for all
 // defaults); a bare `analysis_data:` YAML null reads as not declared.
 type AnalysisDataConfig struct {
-	// MaxAgeDays is 1..365; 0 (absent) means the default.
-	MaxAgeDays int `yaml:"max_age_days"`
+	// MaxAgeDays is 1..365. Absent (nil) means the default; an explicit 0,
+	// negative or >365 is a load error, never silently the default.
+	MaxAgeDays *int `yaml:"max_age_days"`
 	// Repository is the owner/name publishing the artifact; empty means the
 	// default. It is governed by the same per-section precedence as the rest.
 	Repository string `yaml:"repository"`
@@ -36,10 +37,10 @@ func (c *AnalysisDataConfig) Declared() bool { return c != nil }
 
 // EffectiveMaxAgeDays applies the default for a declared section.
 func (c *AnalysisDataConfig) EffectiveMaxAgeDays() int {
-	if c == nil || c.MaxAgeDays == 0 {
+	if c == nil || c.MaxAgeDays == nil {
 		return DefaultAnalysisDataMaxAgeDays
 	}
-	return c.MaxAgeDays
+	return *c.MaxAgeDays
 }
 
 // EffectiveRepository applies the default for a declared section.
@@ -56,8 +57,8 @@ func (c *AnalysisDataConfig) Validate() error {
 	if c == nil {
 		return nil
 	}
-	if c.MaxAgeDays < 0 || c.MaxAgeDays > MaxAnalysisDataMaxAgeDays {
-		return fmt.Errorf("analysis_data.max_age_days: %d out of range (1..%d)", c.MaxAgeDays, MaxAnalysisDataMaxAgeDays)
+	if c.MaxAgeDays != nil && (*c.MaxAgeDays < 1 || *c.MaxAgeDays > MaxAnalysisDataMaxAgeDays) {
+		return fmt.Errorf("analysis_data.max_age_days: %d out of range (1..%d)", *c.MaxAgeDays, MaxAnalysisDataMaxAgeDays)
 	}
 	if c.Repository != "" && !analysisDataRepoRe.MatchString(c.Repository) {
 		return fmt.Errorf("analysis_data.repository: %q is not owner/name", c.Repository)

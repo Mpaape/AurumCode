@@ -60,6 +60,9 @@ type AnalysisDataAudit struct {
 	Digest      string `json:"digest"`
 	GeneratedAt string `json:"generated_at"`
 	Tag         string `json:"tag"`
+	// Source is "remote" (release listing answered) or "cache" (listing
+	// failed; a locally cached copy, re-verified, was used).
+	Source string `json:"source,omitempty"`
 }
 
 // AuditGate is the gate's own decision for this run: "pass", "fail" or
@@ -185,6 +188,7 @@ func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
 			Digest:      filter.Redact(rec.AnalysisData.Digest),
 			GeneratedAt: filter.Redact(rec.AnalysisData.GeneratedAt),
 			Tag:         filter.Redact(rec.AnalysisData.Tag),
+			Source:      filter.Redact(rec.AnalysisData.Source),
 		}
 		rec.AnalysisData = &ad
 	}

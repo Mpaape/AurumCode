@@ -138,6 +138,9 @@ func TestAUR533FreshArtifactIsRecordedInAudit(t *testing.T) {
 	if ad["digest"] != f.m.SetDigest || ad["generated_at"] != "2026-10-02T03:17:00Z" || ad["tag"] != tag {
 		t.Fatalf("audit lacks digest/date/tag: %s", raw)
 	}
+	if ad["source"] != "remote" {
+		t.Fatalf("audit source = %v", ad["source"])
+	}
 	if rec["policy_digest"] == nil {
 		t.Fatal("existing audit fields must survive")
 	}
@@ -258,5 +261,29 @@ func TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt(t *testing.T) {
 	}
 	if !strings.Contains(body, "analysis_data_stale") {
 		t.Fatalf("published body must carry the reason (body %d bytes)", len(body))
+	}
+}
+
+// Listing unreachable but a verified cached copy exists: usable, marked as
+// cache in the audit and in the review's own line.
+func TestAUR533CacheFallbackIsMarkedInAuditAndReview(t *testing.T) {
+	f := newAUR533Fake(t, "")
+	dir := cleanFixture(t, aur533Config("7", "block"))
+	useAUR533Env(t, f.srv.URL, aur533Gen.Add(time.Hour))
+	if code, out, errOut := runAUR533(t); code != 0 {
+		t.Fatalf("priming run failed: %d\n%s%s", code, out, errOut)
+	}
+	f.srv.Close() // listing now unreachable; the cache (same dir) remains
+	audit := filepath.Join(dir, "audit.json")
+	code, out, errOut := runAUR533(t, "--auditoria", audit)
+	if code != 0 || !strings.Contains(out+errOut, "cópia em cache") {
+		t.Fatalf("cache fallback: exit=%d\n%s%s", code, out, errOut)
+	}
+	raw, _ := os.ReadFile(audit)
+	var rec struct {
+		AnalysisData *render.AnalysisDataAudit `json:"analysis_data"`
+	}
+	if err := json.Unmarshal(raw, &rec); err != nil || rec.AnalysisData == nil || rec.AnalysisData.Source != "cache" {
+		t.Fatalf("audit must record source=cache (%d bytes)", len(raw))
 	}
 }
