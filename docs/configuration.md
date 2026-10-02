@@ -326,7 +326,9 @@ jobs:
     # reprova (exit 1/3) -- exatamente o caso em que o upload mais
     # importa -- e !cancelled() ainda roda nesse caso, só pulando um
     # cancelamento explícito do workflow.
-    if: ${{ !cancelled() }}
+    # A segunda condição pula PRs de fork: neles o token não recebe
+    # security-events: write e o upload falharia.
+    if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -349,10 +351,11 @@ jobs:
 ```
 
 Um PR de fork nunca recebe `security-events: write` (o GITHUB_TOKEN de um
-`pull_request` vindo de fork é somente leitura para esse escopo); o job
-`upload-sarif` acima simplesmente não roda nesse caso -- o artefato SARIF
-continua existindo e baixável, só não chega ao code scanning
-automaticamente.
+`pull_request` vindo de fork é somente leitura para esse escopo). Sem a
+condição de fork no `if`, o job `upload-sarif` rodaria e falharia (403 no
+upload, ou artefato ausente quando o review não recebe secrets). Com ela, o
+job é pulado nesses PRs; quando o review gera o SARIF, ele continua
+disponível como artefato, só não chega ao code scanning automaticamente.
 
 O `code-review.yml` deste próprio repositório ainda não tem esse segundo
 job -- está fora dos `paths` da AUR-521 e não foi criado por este card; até
