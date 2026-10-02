@@ -159,8 +159,19 @@ func TestAUR519GateInconclusiveProviderFailureBlocks(t *testing.T) {
 // alert is visible and the verdict is pulled off "approve" -- neither of
 // which existed before this card (a clean, 0-issue "approve" response with
 // a config-hidden file used to publish untouched).
+//
+// AUR-538 AC-003: this used coverageFixture (aur476_test.go), whose app.go
+// always embeds a hardcoded-secret line for AUR-476's own, unrelated
+// purposes. That line plays no part in this test's response (which
+// reports zero issues) or gate (fail_on is not even declared here), so it
+// never changed this test's outcome either way -- but it meant the
+// "Approve" assertion below could not be trusted as evidence of the
+// gate's own pull-down specifically. aur538CleanFixture (aur538_test.go)
+// is the same two-file, partial-coverage shape with no such secret, so a
+// green run here is now explained only by the verdict/withheld machinery
+// this test names.
 func TestAUR519GatePartialCoverageInconclusiveWarns(t *testing.T) {
-	coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: warn\n")
+	aur538CleanFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: warn\n")
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)
