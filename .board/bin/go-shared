@@ -18,7 +18,7 @@
 set -euo pipefail
 
 name='aurum-go'
-image="${GO_SHARED_IMAGE:-aurum-bootstrap-go-bash:1.27.1-2026-10-02}"
+image="${GO_SHARED_IMAGE:-aurum-dev-go:1.27.1-2026-10-02}"
 cache_volume='aurumcode-gocache'
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 wt_root="${GO_SHARED_WORKTREES:-/tmp/claude-1000/office-wt}"
@@ -34,7 +34,7 @@ case "${1:-}" in
   up)
     if running; then printf 'go-shared: %s already up\n' "$name"; exit 0; fi
     "$engine" image inspect "$image" >/dev/null 2>&1 ||
-      { printf 'go-shared: image %s missing; not building one -- ask the owner\n' "$image" >&2; exit 69; }
+      { printf 'go-shared: image %s missing; build it from .board/oci/images/go-dev-1.27/Dockerfile\n' "$image" >&2; exit 69; }
     "$engine" volume inspect "$cache_volume" >/dev/null 2>&1 || "$engine" volume create "$cache_volume" >/dev/null
     "$engine" rm -f "$name" >/dev/null 2>&1 || true
     mkdir -p "$wt_root"
