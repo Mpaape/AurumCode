@@ -370,6 +370,15 @@ func EvaluateMetrics(m ProjectMetrics, t Thresholds) (Evaluation, error) {
 	if m.Critical == nil || m.High == nil || m.PolicyViolationsTotal == nil {
 		return Evaluation{}, ErrMetricsIncomplete
 	}
+	// A negative count is not a real Dependency-Track value -- it is
+	// either a malformed/tampered response or a server bug. Grading it
+	// normally would be actively dangerous (a negative count can never
+	// exceed a non-negative threshold, so it would silently read as
+	// "clean" no matter how wrong the response is). Treat it exactly like
+	// a missing field: unknown, never clean.
+	if *m.Critical < 0 || *m.High < 0 || *m.PolicyViolationsTotal < 0 {
+		return Evaluation{}, ErrMetricsIncomplete
+	}
 	eval := Evaluation{
 		Critical:              *m.Critical,
 		High:                  *m.High,
