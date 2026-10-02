@@ -140,12 +140,25 @@ run_ac002() {
   local any_bad=0 name
   for name in AUR-438 AUR-443 AUR-448 AUR-449 AUR-451 AUR-459; do
     grep -Fq "$name" "$spec" || { printf '%s/%s/spec-missing-script:%s\n' "$card" "$selector" "$name" >&2; any_bad=1; }
+    # Extract this script's own "## AUR-NNN..." section, up to the next
+    # "## " heading (or end of file), and require all four parts WITHIN
+    # that section -- not merely somewhere in the whole document, which
+    # a single shared heading anywhere would satisfy vacuously for every
+    # script.
+    local section
+    section="$(awk -v id="## $name" '
+      $0 ~ "^"id { found=1; print; next }
+      found && /^## / { exit }
+      found { print }
+    ' "$spec")"
+    [[ -n "$section" ]] || { printf '%s/%s/spec-missing-section:%s\n' "$card" "$selector" "$name" >&2; any_bad=1; continue; }
+    for part in 'Causa' 'Decisao' 'Antes' 'Depois'; do
+      if ! grep -Fq "$part" <<<"$section"; then
+        printf '%s/%s/spec-section-missing-%s:%s\n' "$card" "$selector" "${part,,}" "$name" >&2
+        any_bad=1
+      fi
+    done
   done
-  for heading in 'Causa' 'Decisao' 'Decisão' 'Antes' 'Depois'; do
-    grep -Fq "$heading" "$spec" && continue
-  done
-  grep -Fq 'Antes' "$spec" || { printf '%s/%s/spec-missing-before\n' "$card" "$selector" >&2; any_bad=1; }
-  grep -Fq 'Depois' "$spec" || { printf '%s/%s/spec-missing-after\n' "$card" "$selector" >&2; any_bad=1; }
   [[ "$any_bad" -eq 0 ]]
 }
 
