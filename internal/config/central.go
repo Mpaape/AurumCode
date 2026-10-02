@@ -221,7 +221,7 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 		if repo.QualityGates.Sast != nil {
 			warnings = append(warnings, ProviderWarning{
 				Provider: "politica central",
-				Reason:   "quality_gates.sast do repositório foi ignorado: a política central decide sozinha",
+				Reason:   "quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha",
 			})
 		}
 		effective.QualityGates.Sast = central.QualityGates.Sast
@@ -230,7 +230,7 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 		if repo.QualityGates.SsorDtrack != nil {
 			warnings = append(warnings, ProviderWarning{
 				Provider: "politica central",
-				Reason:   "quality_gates.ssor_dtrack do repositório foi ignorado: a política central decide sozinha",
+				Reason:   "quality_gates.ssor_dtrack do config do repositório foi ignorado: a política central decide sozinha",
 			})
 		}
 		effective.QualityGates.SsorDtrack = central.QualityGates.SsorDtrack
@@ -239,7 +239,7 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 		if repo.QualityGates.SupplyChain != nil {
 			warnings = append(warnings, ProviderWarning{
 				Provider: "politica central",
-				Reason:   "quality_gates.supply_chain do repositório foi ignorado: a política central decide sozinha",
+				Reason:   "quality_gates.supply_chain do config do repositório foi ignorado: a política central decide sozinha",
 			})
 		}
 		effective.QualityGates.SupplyChain = central.QualityGates.SupplyChain
