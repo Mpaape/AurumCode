@@ -33,12 +33,39 @@ type Catalog struct {
 	FileSets map[string][]string `yaml:"file_sets"`
 	Exclude  []string            `yaml:"exclude"`
 	Entries  []Entry             `yaml:"entries"`
+	// Additional is the rule a component PROPOSED BY THE MODEL must satisfy
+	// before it is even verified: a name pattern and structural words that
+	// are never a component name. Data, overridable like the rest.
+	Additional Additional `yaml:"additional"`
 
 	// Source is where the catalog came from: "embedded", "repository" or
 	// "policy". Recorded in metadata.properties.
 	Source string `yaml:"-"`
 
 	exclude []*regexp.Regexp
+}
+
+// Additional is the catalog's rule for model-proposed components.
+type Additional struct {
+	NamePattern  string   `yaml:"name_pattern"`
+	RejectTokens []string `yaml:"reject_tokens"`
+
+	re *regexp.Regexp
+}
+
+// acceptsName is the single decision AC-002-MUT-002 mutates: the proposed
+// name must satisfy name_pattern and must not be a reject_token.
+func (a Additional) acceptsName(name string) bool {
+	return a.re != nil && a.re.MatchString(name) && !a.rejected(name) // AUR-552 AC-002: additional name rule
+}
+
+func (a Additional) rejected(name string) bool {
+	for _, r := range a.RejectTokens {
+		if strings.EqualFold(r, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // Entry is one extractor: files to read, a line pattern with named groups,
@@ -126,6 +153,14 @@ func (c *Catalog) validate(wantType string) error {
 		}
 		c.exclude = append(c.exclude, re)
 	}
+	if strings.TrimSpace(c.Additional.NamePattern) == "" {
+		return fmt.Errorf("additional.name_pattern is required")
+	}
+	are, err := regexp.Compile(c.Additional.NamePattern)
+	if err != nil {
+		return fmt.Errorf("additional.name_pattern: %w", err)
+	}
+	c.Additional.re = are
 	seen := map[string]bool{}
 	for i := range c.Entries {
 		e := &c.Entries[i]

@@ -8,6 +8,12 @@ exclude:
   - ".git/**"
   - "**/node_modules/**"
   - "**/vendor/**"
+additional:
+  # A model-proposed component must be a qualified identifier (a registry
+  # path, a dotted name, a tag/digest reference): bare words such as a stage
+  # alias or a keyword of the format are not component names.
+  name_pattern: '^[^\s]*[/.:@][^\s]*$'
+  reject_tokens: [FROM, RUN, AS, CMD, COPY, ADD, ENV, ARG, WORKDIR, USER, EXPOSE, ENTRYPOINT, LABEL, uses, with, name, run, steps, jobs, on, env]
 entries:
   - id: github-actions-uses
     files:

@@ -85,7 +85,7 @@ func buildPrompt(base string, cands []*Candidate, redact func(string) string) (s
 // (description, llm properties, exclusion) and returns the components the
 // model proposed in addition; those are NOT trusted here: the caller runs
 // them through the same evidence verification as every other component.
-func enrich(p llm.Provider, basePrompt string, cands []*Candidate, redact func(string) string) (kept []*Component, extra []*Component, out LLMOutcome) {
+func enrich(p llm.Provider, basePrompt string, cands []*Candidate, redact func(string) string, cat *Catalog) (kept []*Component, extra []*Component, out LLMOutcome) {
 	out.Status = "present"
 	all := func() []*Component {
 		cs := make([]*Component, len(cands))
@@ -170,12 +170,12 @@ func enrich(p llm.Provider, basePrompt string, cands []*Candidate, redact func(s
 		// evidence token of a model-proposed component is its own name, so
 		// the cited line must literally contain it. Names too short to be
 		// evidence are refused outright.
-		if len(c.Name) < minLLMNameLen {
+		if len(c.Name) < minLLMNameLen || !cat.Additional.acceptsName(c.Name) {
 			out.Rejected++
 			continue
 		}
 		for _, o := range a.Occurrences {
-			c.Occurrences = append(c.Occurrences, Occurrence{Location: o.Location, Line: o.Line, Token: c.Name})
+			c.Occurrences = append(c.Occurrences, Occurrence{Location: o.Location, Line: o.Line, Token: c.Name, Model: true})
 		}
 		extra = append(extra, c) // zero occurrences -> dropped by verification
 	}

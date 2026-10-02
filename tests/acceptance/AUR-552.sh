@@ -9,6 +9,9 @@
 #   AC-002          a component without evidence does not enter the BOM
 #   AC-003          aibom/saasbom/netbom exit 2 pointing at the doc section,
 #                   and the doc defines format and delivery of each
+#   AC-002-MUT-002  removing the additional-name rule (name_pattern and
+#                   reject_tokens, Additional.acceptsName) in a copy must
+#                   turn the model-proposed-name tests RED
 #   AC-002-MUT-001  removing the evidence check (lineCitesToken -> true) in a
 #                   copy must turn AC-002's tests RED
 # Unknown selectors exit 64; infrastructure failures exit 79; behavioral
@@ -21,7 +24,7 @@ readonly card='AUR-552'
 selector="${1:-all}"
 
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-002-MUT-001) ;;
+  all|AC-001|AC-002|AC-003|AC-002-MUT-001|AC-002-MUT-002) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -100,11 +103,34 @@ apply_mutation() {
   sed -n "${line}p" "$target" | grep -Fq 'MUT-001: evidence check removed' || infra mutation-not-applied
 }
 
+apply_mutation2() {
+  local target="$run_dir/root/internal/xbom/catalog.go"
+  local anchor='AUR-552 AC-002: additional name rule'
+  grep -Fq -- "$anchor" "$target" || infra mutation2-anchor-missing
+  [[ "$(grep -Fc -- "$anchor" "$target")" == "1" ]] || infra mutation2-anchor-not-unique
+  local line
+  line="$(grep -Fn -- "$anchor" "$target" | head -1 | cut -d: -f1)"
+  sed -i "${line}s/.*/\treturn true \/\/ AUR-552 MUT-002: additional name rule removed/" "$target"
+  sed -n "${line}p" "$target" | grep -Fq 'MUT-002: additional name rule removed' || infra mutation2-not-applied
+}
+
+run_mutation2() {
+  local mlog="$run_dir/mutation2.log"
+  apply_mutation2
+  run_go_test ./internal/xbom/... '^(TestLLMAdditionalTokenIsDerivedFromName|TestCBOMAdditionalNames|TestPolicyRejectTokensAreRespected)$' "$mlog" || true
+  if grep -Eq 'build failed|cannot use|undefined:|syntax error' "$mlog"; then
+    fail mutation2-build-failure-not-behavioral
+  fi
+  grep -Eq -- '^--- FAIL: TestLLMAdditionalTokenIsDerivedFromName' "$mlog" || fail 'mutation2-survived:token'
+  grep -Eq -- '^--- FAIL: TestCBOMAdditionalNames' "$mlog" || fail 'mutation2-survived:cbom'
+  grep -Eq -- '^--- FAIL: TestPolicyRejectTokensAreRespected' "$mlog" || fail 'mutation2-survived:policy'
+}
+
 ac001_cmd='^TestAUR552BuildAndCBOMValidateAndCiteFileAndLine$'
 ac002_cmd='^TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM$'
-ac002_unit='^(TestVerifyDropsComponentWithoutEvidence|TestLLMEnrichesButCannotInvent|TestLLMAdditionalTokenIsDerivedFromName|TestLLMAdditionalSameKeyCannotAddFalseOccurrence|TestVerifyWithRelativeRoot)$'
+ac002_unit='^(TestVerifyDropsComponentWithoutEvidence|TestLLMEnrichesButCannotInvent|TestLLMAdditionalTokenIsDerivedFromName|TestLLMAdditionalSameKeyCannotAddFalseOccurrence|TestCBOMAdditionalNames|TestVerifyWithRelativeRoot)$'
 ac001_names=(TestAUR552BuildAndCBOMValidateAndCiteFileAndLine)
-ac002_names=(TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM TestVerifyDropsComponentWithoutEvidence TestLLMEnrichesButCannotInvent)
+ac002_names=(TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM TestVerifyDropsComponentWithoutEvidence TestLLMEnrichesButCannotInvent TestLLMAdditionalTokenIsDerivedFromName)
 
 check_ac003_docs() {
   local doc="$repo_root/docs/configuration.md" spec="$repo_root/docs/specs/AUR-552.md"
@@ -160,15 +186,19 @@ case "$selector" in
     grep -Eq -- '^--- FAIL: TestVerifyDropsComponentWithoutEvidence' "$log" || fail 'mutation-survived:unit'
     printf '%s/%s/pass (mutation produced RED)\n' "$card" "$selector"
     ;;
+  AC-002-MUT-002)
+    run_mutation2
+    printf '%s/%s/pass (mutation produced RED)\n' "$card" "$selector"
+    ;;
   all)
     log="$run_dir/test.log"
-    run_go_test './internal/xbom/... ./cmd/aurumcode/...' '^(TestAUR552|TestEmbeddedCatalogsAreValid|TestInvalidCatalogRefused|TestBuildExtractionWithEvidence|TestCBOMExtraction|TestVerify|TestLLM|TestCatalogPrecedence|TestPromptPrecedence|TestValidateBOM)' "$log" || fail go-test-exit
+    run_go_test './internal/xbom/... ./cmd/aurumcode/...' '^(TestAUR552|TestEmbeddedCatalogsAreValid|TestInvalidCatalogRefused|TestBuildExtractionWithEvidence|TestCBOMExtraction|TestVerify|TestLLM|TestCBOM|TestContains|TestPolicy|TestCatalogPrecedence|TestPromptPrecedence|TestValidateBOM)' "$log" || fail go-test-exit
     need_pass "$log" \
       TestAUR552BuildAndCBOMValidateAndCiteFileAndLine TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM \
       TestAUR552DocumentedAndUnknownTypesAndNoPartialFile TestAUR552PolicyCatalogOverridesRepository \
       TestEmbeddedCatalogsAreValid TestInvalidCatalogRefused TestBuildExtractionWithEvidence TestCBOMExtraction \
       TestVerifyDropsComponentWithoutEvidence TestLLMEnrichesButCannotInvent TestLLMFailureKeepsDeterministicBOM \
-      TestLLMKeepFalseExcludes TestLLMAdditionalTokenIsDerivedFromName TestLLMAdditionalSameKeyCannotAddFalseOccurrence TestLLMCannotRewriteCandidateIdentity TestCatalogPrecedence TestPromptPrecedence TestValidateBOMRejectsEvidencelessComponent \
+      TestLLMKeepFalseExcludes TestLLMAdditionalTokenIsDerivedFromName TestLLMAdditionalSameKeyCannotAddFalseOccurrence TestLLMCannotRewriteCandidateIdentity TestCBOMAdditionalNames TestPolicyRejectTokensAreRespected TestContainsAtBoundary TestAUR552OutParentIsFileLeavesNothing TestCatalogPrecedence TestPromptPrecedence TestValidateBOMRejectsEvidencelessComponent \
       TestVerifyWithRelativeRoot
     check_ac003_docs
 
@@ -183,6 +213,8 @@ case "$selector" in
     fi
     grep -Eq -- '^--- FAIL: TestAUR552ComponentWithoutEvidenceDoesNotEnterBOM' "$mlog" || fail 'mutation-survived:e2e'
     grep -Eq -- '^--- FAIL: TestVerifyDropsComponentWithoutEvidence' "$mlog" || fail 'mutation-survived:unit'
+    seed_root
+    run_mutation2
     printf '%s/%s/pass\n' "$card" "$selector"
     ;;
 esac

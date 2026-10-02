@@ -50,7 +50,7 @@ func Generate(o Options) (*Result, error) {
 	res := &Result{}
 	var comps []*Component
 	if o.Provider != nil {
-		kept, extra, out := enrich(o.Provider, o.Prompt, cands, o.Redact)
+		kept, extra, out := enrich(o.Provider, o.Prompt, cands, o.Redact, o.Catalog)
 		res.LLM = out
 		comps = append(kept, extra...)
 	} else {
