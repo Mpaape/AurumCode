@@ -89,7 +89,9 @@ cleanup_root() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1" >/
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 
 discard_log="$run_dir/discard.log"
+invoked_log="$run_dir/invoked.log"
 : >"$discard_log"
+: >"$invoked_log"
 
 # Every e2e script this program drives falls back to its OWN per-run
 # GOCACHE/GOTMPDIR only when neither is already set (`: "${GOCACHE:=...}"`).
@@ -101,18 +103,30 @@ mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
 
 # A `go` shim placed first on PATH: it passes every invocation through to
-# the real `go` unchanged, except for `go build -o X ...`. There it builds
-# with the real compiler (fast after the first script, since GOCACHE is
-# now shared and content-addressed by Go itself -- no second, separate
-# binary-reuse layer is needed, and one would risk serving a binary built
-# from a DIFFERENT source tree than the one the caller just asked to
-# build, which matters for a staged/mutated copy such as AC-001-MUT-001's).
-# On success it moves the binary to X.aur541real and writes X as a wrapper
-# that runs it, replays its stdout and stderr untouched to its own caller,
-# and ALSO appends any scope-gate discard line to a fixed log path baked
-# into the wrapper's text -- so the line survives even when the calling
-# e2e script redirects the binary's stderr into a temp file it deletes
-# before this program ever gets to look at it.
+# the real `go` unchanged, EXCEPT `go build -o X ./cmd/aurumcode` -- an
+# exact package match, checked against the literal last argument, not
+# just "any -o". A prior version wrapped every `go build -o`, including
+# the throwaway fakegithub loopback servers tests/e2e/AUR-438.sh,
+# AUR-439.sh and AUR-451.sh each build and then kill by PID: those
+# scripts captured the WRAPPER's pid and killed it, orphaning the real
+# server child underneath (wrapped in a plain foreground `"$bin" "$@"`,
+# nothing reaped it), leaking one process per AC-001 run. 11 scripts x
+# repeated runs pushed the shared container to 1006/1024 PIDs, `go build`
+# itself started failing with "resource temporarily unavailable", and
+# the resulting build_failed exit (1, zero discard-log content) was
+# silently read as "clean" by the old AC-001. Narrowing the match removes
+# the leak at its source for every binary this program does not need to
+# wrap; the wrapper below is ALSO made exec-safe regardless, in case any
+# future script kills it directly: the real binary runs backgrounded, a
+# trap kills and reaps it on TERM/INT/EXIT, and `wait` propagates its real
+# exit code rather than racing it.
+#
+# The wrapper also appends one line to a fixed "invoked" log every time it
+# actually runs the real binary -- AC-001 below uses this to tell "ran
+# clean" apart from "never got far enough to run at all" (a build or
+# environment failure), which is the other half of the defect above: a
+# script that fails without ever invoking the binary has zero discard-log
+# content for a reason that proves nothing about the gate.
 shim_dir="$run_dir/shimbin"
 mkdir -p "$shim_dir"
 cat >"$shim_dir/go" <<'SHIM'
@@ -121,24 +135,31 @@ set -euo pipefail
 if [[ "${1:-}" == "build" ]]; then
   out=""
   prev=""
+  last=""
   for a in "$@"; do
     if [[ "$prev" == "-o" ]]; then out="$a"; fi
     prev="$a"
+    last="$a"
   done
   "__REAL_GO__" "$@"
   rc=$?
-  if [[ $rc -eq 0 && -n "$out" && -x "$out" ]]; then
+  if [[ $rc -eq 0 && -n "$out" && -x "$out" && "$last" == "./cmd/aurumcode" ]]; then
     mv -f -- "$out" "$out.aur541real"
-    {
-      printf '#!/usr/bin/env bash\n'
-      printf 'errtmp="$(mktemp)"\n'
-      printf '"%s" "$@" 2>"$errtmp"\n' "$out.aur541real"
-      printf 'rc=$?\n'
-      printf 'cat "$errtmp" >&2\n'
-      printf "grep -E 'sem evidencia concreta|sem impacto explicado|sem verificacao proposta' \"\$errtmp\" >> '%s' || true\n" "__DISCARD_LOG__"
-      printf 'rm -f "$errtmp"\n'
-      printf 'exit "$rc"\n'
-    } >"$out"
+    cat >"$out" <<'WRAP'
+#!/usr/bin/env bash
+printf '1\n' >>'__INVOKED_LOG__' 2>/dev/null || true
+errtmp="$(mktemp)"
+"$0.aur541real" "$@" 2>"$errtmp" &
+child=$!
+trap 'kill "$child" 2>/dev/null; wait "$child" 2>/dev/null' TERM INT EXIT
+wait "$child"
+rc=$?
+trap - TERM INT EXIT
+cat "$errtmp" >&2
+grep -E 'sem evidencia concreta|sem impacto explicado|sem verificacao proposta' "$errtmp" >>'__DISCARD_LOG__' || true
+rm -f "$errtmp"
+exit "$rc"
+WRAP
     chmod +x -- "$out"
   fi
   exit "$rc"
@@ -146,7 +167,7 @@ else
   exec "__REAL_GO__" "$@"
 fi
 SHIM
-sed -i "s|__REAL_GO__|$real_go|g; s|__DISCARD_LOG__|$discard_log|g" "$shim_dir/go"
+sed -i "s|__REAL_GO__|$real_go|g; s|__DISCARD_LOG__|$discard_log|g; s|__INVOKED_LOG__|$invoked_log|g" "$shim_dir/go"
 chmod +x "$shim_dir/go"
 
 # Every tests/e2e/*.sh that feeds AURUMCODE_LLM_FIXTURE a real value (a
@@ -176,19 +197,66 @@ run_e2e() {
   set -e
 }
 
+# Scripts already red today for reasons this card's non-goals forbid
+# touching, tracked by card AUR-542, NOT by this selector (measured this
+# session, re-verify by running each one directly if this list is ever
+# in doubt):
+#   AUR-438  the "general" (non-inline) finding is removed by the scope
+#            gate's OutsideAddedLines rule, not by missing evidence --
+#            fixing it means changing internal/review/scope.go.
+#   AUR-443  fails at help_missing_docs, unrelated to any model fixture.
+#   AUR-448  the "no provider configured" scenario returns exit 0 instead
+#            of the expected 1, before the script ever reaches its
+#            gate-relevant mixed/all-discarded fixtures.
+#   AUR-449  the same no-provider defect as AUR-448.
+#   AUR-451  fails at seguranca_only_wrong_post_count; not confirmed
+#            related to the gate either way.
+readonly -a known_red_scripts=(AUR-438 AUR-443 AUR-448 AUR-449 AUR-451)
+
+is_known_red() {
+  local n
+  for n in "${known_red_scripts[@]}"; do [[ "$n" == "$1" ]] && return 0; done
+  return 1
+}
+
 # AC-001: no fixture-bearing e2e script may report a scope-gate discard.
 # A script that itself cannot run (infra, 69/79) makes the WHOLE check
 # inconclusive rather than being silently skipped -- an unresolved
 # "can we even tell" is not the same claim as "no discard happened".
+# Likewise an empty discard log proves nothing if the binary was never
+# actually invoked (invoked_log): a build or environment failure that
+# exits non-zero before ever running `aurumcode` must not be read as "ran
+# clean" just because there is nothing in the discard log either.
 run_ac001() {
   local any_bad=0 name
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     : >"$discard_log"
+    : >"$invoked_log"
     run_e2e "$name"
     if [[ "$e2e_rc" -eq 79 || "$e2e_rc" -eq 69 ]]; then
       cat "$e2e_out" >&2
       infra "e2e-infra:$name:$e2e_rc"
+    fi
+    if [[ "$e2e_rc" -ne 0 ]]; then
+      if is_known_red "$name"; then
+        continue
+      fi
+      if [[ ! -s "$invoked_log" ]]; then
+        cat "$e2e_out" >&2
+        if grep -Fqi 'resource temporarily unavailable' "$e2e_out" || grep -Fq 'build_failed' "$e2e_out"; then
+          infra "build-or-env-error:$name"
+        fi
+        printf '%s/%s/red-without-invoking-binary:%s\n' "$card" "$selector" "$name" >&2
+        any_bad=1
+        continue
+      fi
+      printf '%s/%s/unexpected-red-but-invoked:%s\n' "$card" "$selector" "$name" >&2
+    elif [[ ! -s "$invoked_log" ]]; then
+      cat "$e2e_out" >&2
+      printf '%s/%s/passed-without-invoking-binary:%s\n' "$card" "$selector" "$name" >&2
+      any_bad=1
+      continue
     fi
     if [[ -s "$discard_log" ]]; then
       cat "$discard_log" >&2
