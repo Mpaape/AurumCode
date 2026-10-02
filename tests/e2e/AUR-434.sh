@@ -54,7 +54,11 @@ fi
 
 # Fixtures this script plants itself: one grounded finding plus two
 # ungrounded ones (no rule id / nonexistent rule id), and one response with
-# only an ungrounded finding.
+# only an ungrounded finding. All four carry evidence/impact/verification
+# (AUR-541) -- including the three ungrounded ones -- so the
+# scope-and-evidence gate (internal/review/scope.go) cannot be what
+# removes them; only the rule-citation gate this card is actually about
+# (enforceRuleCitations, below) can, and its exact wording is asserted.
 mixed_fixture="$run_dir/mixed.json"
 cat >"$mixed_fixture" <<'EOF'
 {
@@ -64,20 +68,29 @@ cat >"$mixed_fixture" <<'EOF'
       "line": 3,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "A credential-shaped value was committed in plain text."
+      "message": "A credential-shaped value was committed in plain text.",
+      "evidence": "The added line stores the value as a literal string assignment.",
+      "impact": "A reader with repository access can extract and reuse the value.",
+      "verification": "Replace the literal with an environment lookup and confirm the finding clears."
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
-      "message": "UNGROUNDED-NO-RULE planted finding without any rule id."
+      "message": "UNGROUNDED-NO-RULE planted finding without any rule id.",
+      "evidence": "A linha citada nao traz nenhum identificador de regra.",
+      "impact": "Um achado sem regra nao pode ser rastreado ao padrao de revisao do projeto.",
+      "verification": "Confirmar que o pipeline de citacao de regra rejeita achados sem rule_id."
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 5,
       "severity": "warning",
       "rule_id": "security/definitely-not-a-rule",
-      "message": "UNGROUNDED-BAD-RULE planted finding citing a nonexistent rule."
+      "message": "UNGROUNDED-BAD-RULE planted finding citing a nonexistent rule.",
+      "evidence": "A linha citada aponta para um identificador de regra que nao existe no catalogo.",
+      "impact": "Um achado com regra inventada nao pode ser verificado contra o padrao publicado.",
+      "verification": "Confirmar que o pipeline de citacao de regra rejeita achados com rule_id desconhecido."
     }
   ],
   "summary": "Mixed fixture for AUR-434."
@@ -92,7 +105,10 @@ cat >"$ungrounded_fixture" <<'EOF'
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
-      "message": "UNGROUNDED-NO-RULE planted finding without any rule id."
+      "message": "UNGROUNDED-NO-RULE planted finding without any rule id.",
+      "evidence": "A linha citada nao traz nenhum identificador de regra.",
+      "impact": "Um achado sem regra nao pode ser rastreado ao padrao de revisao do projeto.",
+      "verification": "Confirmar que o pipeline de citacao de regra rejeita achados sem rule_id."
     }
   ],
   "summary": "Only ungrounded findings."
@@ -100,8 +116,9 @@ cat >"$ungrounded_fixture" <<'EOF'
 EOF
 
 run_once() {
-  (cd "$repo_dir" && AURUMCODE_LLM_FIXTURE="$1" "$bin" review --base HEAD~1)
+  (cd "$repo_dir" && AURUMCODE_LLM_FIXTURE="$1" "$bin" review --base HEAD~1) 2>"$run_dir/stderr-last.txt"
 }
+last_stderr() { cat "$run_dir/stderr-last.txt"; }
 
 # The AUR-430 known-problem fixture already cites a catalog rule: its
 # finding must now print with the rule citation appended.
@@ -111,19 +128,34 @@ grep -Fq '[error]' <<<"$out_known" || fail missing_expected_severity
 grep -Fq '(rule security/hardcoded-secret: Hardcoded Secrets)' <<<"$out_known" || fail missing_rule_citation
 
 # Mixed response: the grounded finding survives with its citation; the
-# ungrounded findings never reach the user.
+# ungrounded findings never reach the user. Asserting the rule gate's own
+# stderr wording (formatDiscardWarning, internal/review/reviewer.go) rules
+# out the scope/evidence gate having removed these instead -- which would
+# make this test pass even with enforceRuleCitations disabled.
 out1="$(run_once "$mixed_fixture")" || fail run_failed
+err1="$(last_stderr)"
 grep -Fq 'config/demo-tokens.txt:3' <<<"$out1" || fail missing_grounded_finding
 grep -Fq '(rule security/hardcoded-secret: Hardcoded Secrets)' <<<"$out1" || fail missing_rule_citation
 if grep -Fq 'UNGROUNDED-NO-RULE' <<<"$out1"; then fail ungrounded_no_rule_reached_user; fi
 if grep -Fq 'UNGROUNDED-BAD-RULE' <<<"$out1"; then fail ungrounded_bad_rule_reached_user; fi
+grep -Fq 'with no rule_id' <<<"$err1" || fail missing_rule_gate_no_rule_id_reason
+grep -Fq 'citing an unknown rule_id (security/definitely-not-a-rule)' <<<"$err1" || fail missing_rule_gate_unknown_rule_id_reason
+if grep -Fq 'descartado(s) pelo gate de escopo e evidencia' <<<"$err1"; then
+  fail scope_gate_removed_instead_of_rule_gate
+fi
 
 out2="$(run_once "$mixed_fixture")" || fail rerun_failed
 [[ "$out1" == "$out2" ]] || fail non_deterministic
 
-# Every finding ungrounded: the unchanged AUR-430 no-findings output.
+# Every finding ungrounded: the unchanged AUR-430 no-findings output, with
+# the rule gate's own reason on stderr (not the scope gate's).
 out3="$(run_once "$ungrounded_fixture")" || fail run_failed
+err3="$(last_stderr)"
 grep -Fq 'No issues found.' <<<"$out3" || fail missing_no_issues_output
 if grep -Fq 'UNGROUNDED-NO-RULE' <<<"$out3"; then fail ungrounded_no_rule_reached_user; fi
+grep -Fq 'with no rule_id' <<<"$err3" || fail missing_rule_gate_reason
+if grep -Fq 'descartado(s) pelo gate de escopo e evidencia' <<<"$err3"; then
+  fail scope_gate_removed_instead_of_rule_gate
+fi
 
 printf '%s/AC-001/E2EAUR434/ok\n' "$card"

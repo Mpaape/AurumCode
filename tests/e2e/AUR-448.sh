@@ -106,6 +106,10 @@ want_happy_stdout='config/demo-tokens.txt:4: [error] A credential-shaped value w
 
 # --- 3. Mixed discard: stdout hides ungrounded findings, stderr names how many and why. ---
 
+# All three entries carry evidence/impact/verification (AUR-541), the two
+# ungrounded ones included, so the scope/evidence gate cannot be what
+# removes them -- only the rule-citation gate (AUR-434) can, matching the
+# exact want_mixed_stderr wording asserted below.
 mixed_fixture="$run_dir/mixed.json"
 cat >"$mixed_fixture" <<'EOF'
 {
@@ -115,20 +119,29 @@ cat >"$mixed_fixture" <<'EOF'
       "line": 3,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "grounded"
+      "message": "grounded",
+      "evidence": "a linha adicionada grava um valor de credencial como literal",
+      "impact": "qualquer leitor do repositorio pode reaproveitar esse valor",
+      "verification": "remover o literal e confirmar que o achado desaparece"
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
-      "message": "no rule_id at all"
+      "message": "no rule_id at all",
+      "evidence": "a linha citada nao traz nenhum identificador de regra",
+      "impact": "um achado sem regra nao pode ser rastreado ao padrao de revisao",
+      "verification": "confirmar que o gate de citacao de regra rejeita achados sem rule_id"
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 5,
       "severity": "warning",
       "rule_id": "security/definitely-not-a-rule",
-      "message": "unknown rule_id"
+      "message": "unknown rule_id",
+      "evidence": "a linha citada aponta para um identificador de regra que nao existe no catalogo",
+      "impact": "um achado com regra inventada nao pode ser verificado contra o padrao publicado",
+      "verification": "confirmar que o gate de citacao de regra rejeita achados com rule_id desconhecido"
     }
   ],
   "summary": "Mixed fixture for AUR-448 e2e."
@@ -157,6 +170,9 @@ run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$mixed_fixture"
 # a confidently wrong "your code is clean" for a fixture that planted a
 # real finding.
 
+# This single finding carries evidence/impact/verification (AUR-541) so
+# only the rule-citation gate removes it, matching
+# want_all_discarded_stderr's exact wording below.
 all_discarded_fixture="$run_dir/all-discarded.json"
 cat >"$all_discarded_fixture" <<'EOF'
 {
@@ -165,7 +181,10 @@ cat >"$all_discarded_fixture" <<'EOF'
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
-      "message": "no rule_id at all"
+      "message": "no rule_id at all",
+      "evidence": "a linha citada nao traz nenhum identificador de regra",
+      "impact": "um achado sem regra nao pode ser rastreado ao padrao de revisao",
+      "verification": "confirmar que o gate de citacao de regra rejeita achados sem rule_id"
     }
   ],
   "summary": "All-discarded fixture for AUR-448 e2e."
