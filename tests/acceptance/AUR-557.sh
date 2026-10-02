@@ -140,8 +140,9 @@ ac001() {
 ac002_mut001() {
   local root="$run_dir/mut"
   mkdir -p "$root/tests"
-  cp -a "$repo_root/go.mod" "$repo_root/go.sum" "$repo_root/cmd" "$repo_root/internal" "$repo_root/pkg" "$root/"
-  cp -a "$repo_root/tests/acceptance" "$root/tests/acceptance"
+  cp -R "$repo_root/go.mod" "$repo_root/go.sum" "$repo_root/cmd" "$repo_root/internal" "$repo_root/pkg" "$root/" 2>/dev/null || true
+  cp -R "$repo_root/tests/acceptance" "$root/tests/acceptance" 2>/dev/null || true
+  chmod -R u+w "$root"
   local target="$root/cmd/aurumcode/review_pr_gate.go"
   local anchor='res, ok := executeGate("--pr", pipeline, p.run, reason)'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
