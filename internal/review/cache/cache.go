@@ -29,14 +29,16 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// PromptVersion pins the cache key to the shape of the prompt and rule
-// catalog this engine currently sends to a model. internal/prompt and
-// internal/review/rules.go (both read_paths for this card, owned and
-// versioned by other cards) carry no version of their own to key off, so
-// this constant is the deliberate, manually-bumped invalidation lever: the
-// day either changes in a way that could change what a file's findings look
-// like, bumping PromptVersion makes every entry cached under the old value
-// simply miss -- exactly like a changed file would.
+// PromptVersion is the historical, hand-bumped prompt-version literal
+// AUR-441/AUR-513 folded into Key. AUR-543 replaces it in the production
+// cache key with internal/prompt.PromptBuilder.FixedContentDigest(), a
+// digest of the fixed content the prompt builder actually renders
+// (instructions, built-in rule catalog, schema text), computed at run time
+// from cmd/aurumcode -- so editing that embedded content invalidates the
+// cache automatically instead of depending on someone remembering to bump
+// this constant. It is kept, unused by cmd/aurumcode, only because Key's
+// promptVersion parameter is generic (any caller may still pin an explicit
+// literal) and existing tests outside this card's paths still reference it.
 const PromptVersion = "v1"
 
 // EnvDir is the environment variable that pins the cache directory

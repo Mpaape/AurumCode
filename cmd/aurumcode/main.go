@@ -990,12 +990,29 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		// contract, oblivious to caching. A full cache hit means Complete is
 		// never called, so the tracker records nothing and printRealCost below
 		// correctly reports $0.0000 spent.
+		// AUR-543: the cache key's prompt-version component is now a digest of
+		// the fixed content a prompt builder actually renders (instructions,
+		// built-in rule catalog, schema text) -- computed here, at run time,
+		// from a fresh builder -- instead of internal/review/cache's old
+		// hand-bumped PromptVersion constant. A fresh builder (not the
+		// reviewer's own, which carries this run's dynamic, skill-expanded
+		// ruleCatalogIDs) is deliberate: that dynamic catalog already has its
+		// own, separately folded-in digest above (ruleCatalogDigest), so
+		// digesting it again here would double-count it rather than guard
+		// anything new. This way, editing templates/review.md's literal text
+		// or the built-in catalog (internal/prompt.DefaultRuleCatalog) alone
+		// invalidates every cache entry, with no constant to remember to bump.
+		promptVersionDigest, promptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+
 		revCache, cacheErr := cache.Open(cache.ResolveDir())
+		if cacheErr == nil {
+			cacheErr = promptDigestErr
+		}
 		toSend := diff
 		var cacheStatuses []fileCacheStatus
 		if cacheErr == nil {
 			var missFiles []types.DiffFile
-			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest))
+			missFiles, cacheStatuses = partitionByCache(revCache, diff, reviewContextCacheKey(provider, baseModelIdentity, reviewLanguage, codebaseContextText, memoryNotesText, profileIdentity, contextBlockDigest, ruleCatalogDigest), promptVersionDigest)
 			toSend = &types.Diff{Files: missFiles}
 		}
 
