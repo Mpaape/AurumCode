@@ -235,13 +235,17 @@ fase_verify() {
   rm -rf "$tmp"; mkdir -p "$tmp"
   cp "$STATE/work/sbom_app_cyclonedx.json.sigstore.json" "$tmp/"
   { cat "$STATE/work/sbom_app_cyclonedx.json"; echo " "; } > "$tmp/sbom_app_cyclonedx.json"
-  if docker run --rm --network none --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  local rc=0 err
+  err="$(docker run --rm --network none --user "$(id -u):$(id -g)" -e HOME=/tmp \
       -v "$STATE/bin:/demo/bin:ro" -v "$STATE/keys:/demo/keys:ro" -v "$tmp:/w:ro" -w /w \
       --entrypoint /demo/bin/cosign "$IMG" verify-blob --key /demo/keys/cosign.pub \
       --bundle sbom_app_cyclonedx.json.sigstore.json --insecure-ignore-tlog --insecure-ignore-sct \
-      sbom_app_cyclonedx.json >/dev/null 2>&1; then
-    echo "ERRO: SBOM adulterado foi aceito"; return 1
-  fi
+      sbom_app_cyclonedx.json 2>&1)" || rc=$?
+  [ "$rc" -ne 0 ] || { echo "ERRO: SBOM adulterado foi aceito"; return 1; }
+  # so conta como rejeicao a falha de verificacao do proprio cosign, nao uma falha do docker
+  printf '%s\n' "$err" | grep -q 'invalid signature when validating ASN.1 encoded signature' || {
+    echo "ERRO: falha inesperada (nao e rejeicao de assinatura): $err"; return 1; }
+  printf '%s\n' "$err" | grep -E 'invalid signature|Error' | head -n1 | sed 's/^/cosign (adulterado): /'
   echo "adulterado: SBOM modificado e rejeitado"
 }
 
