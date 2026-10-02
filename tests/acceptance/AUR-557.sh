@@ -81,7 +81,7 @@ shared_path="$run_dir/shim:$PATH"
 # shared; only variant builds are discarded.
 cache_mark="$run_dir/cache.mark"
 warm_cache() {
-  (cd "$repo_root" && go test -mod=mod -p 1 -count=1 -run '^$' ./cmd/aurumcode/ ./internal/... >/dev/null 2>&1) || infra warm-cache
+  (cd "$repo_root" && go test -mod=mod -p 1 -count=1 -run '^$' ./cmd/aurumcode/ >"$run_dir/warm.log" 2>&1) || { cat "$run_dir/warm.log" >&2; infra warm-cache; }
   : >"$cache_mark"
 }
 prune_cache() { find "$run_dir/gocache" -type f -newer "$cache_mark" -delete 2>/dev/null || true; }
