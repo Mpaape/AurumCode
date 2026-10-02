@@ -73,6 +73,19 @@ printf '#!/bin/sh\nexport GOCACHE=%s\nexec %s "$@"\n' "$run_dir/gocache" "$real_
 chmod +x "$run_dir/shim/go"
 shared_path="$run_dir/shim:$PATH"
 
+# The sealed profile's /tmp is a 512 MB tmpfs. A cache shared by scripts that
+# each build mutated variants of the package outgrows it, so: warm the cache
+# once with the unmodified module, mark it, and drop every entry created
+# after the mark when a nested script (or the mutation copy) is done. The
+# warm entries (standard library, dependencies, the unmodified packages) stay
+# shared; only variant builds are discarded.
+cache_mark="$run_dir/cache.mark"
+warm_cache() {
+  (cd "$repo_root" && go test -mod=mod -p 1 -count=1 -run '^$' ./cmd/aurumcode/ ./internal/... >/dev/null 2>&1) || infra warm-cache
+  : >"$cache_mark"
+}
+prune_cache() { find "$run_dir/gocache" -type f -newer "$cache_mark" -delete 2>/dev/null || true; }
+
 # go_test <root> <log> <pattern> <pkg...>: run go test -v; the log is the evidence.
 go_test() {
   local root="$1" log="$2" pattern="$3"; shift 3
@@ -117,6 +130,7 @@ run_nested() {
   ( cd "$root" && PATH="$shared_path" bash "tests/acceptance/$name.sh" "$sel" ) >"$n_out" 2>&1
   n_rc=$?
   set -e
+  prune_cache
 }
 
 ac001() {
@@ -150,22 +164,27 @@ ac002_mut001() {
   grep -Fq "$anchor" "$target" && infra mutation-not-applied
 
   local log="$run_dir/mut-ac002.log"
-  go_test "$root" "$log" '^TestAUR557PathsShareOnePipeline$' ./cmd/aurumcode/ && { cat "$log" >&2; fail 'mutation-survived:ac-002'; }
+  local survived=0
+  go_test "$root" "$log" '^TestAUR557PathsShareOnePipeline$' ./cmd/aurumcode/ && survived=1
+  prune_cache
+  (( survived == 0 )) || { cat "$log" >&2; fail 'mutation-survived:ac-002'; }
   grep -Eq -- '^--- FAIL: TestAUR557PathsShareOnePipeline' "$log" || { cat "$log" >&2; fail 'mutation-not-behavioral:ac-002'; }
 
   run_nested "$root" AUR-550 all
   if (( n_rc == 0 )); then cat "$n_out" >&2; fail 'mutation-survived:AUR-550'; fi
   if (( n_rc == 79 || n_rc == 69 )); then cat "$n_out" >&2; infra "mutation-infra:AUR-550:$n_rc"; fi
+  rm -rf "$root"
 }
 
 case "$selector" in
-  AC-001)       ac001 "${sub_acceptances_all[@]}" ;;
-  AC-001-full)  ac001 "${all_sub_acceptances[@]}" ;;
+  AC-001)       warm_cache; ac001 "${sub_acceptances_all[@]}" ;;
+  AC-001-full)  warm_cache; ac001 "${all_sub_acceptances[@]}" ;;
   AC-002)       ac002 ;;
   AC-003)       ac003 ;;
   AC-004)       ac004 ;;
-  AC-002-MUT-001) ac002_mut001 ;;
+  AC-002-MUT-001) warm_cache; ac002_mut001 ;;
   all)
+    warm_cache
     ac002; ac003; ac004; ac002_mut001
     ac001 "${sub_acceptances_all[@]}"
     ;;
