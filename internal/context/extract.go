@@ -19,11 +19,11 @@ const maxSymbolAlternation = 4096
 // one file. No language is named here: which grammar applies, and whether one
 // exists at all, is the runtime's answer. Binary content never reaches a
 // parser.
-func structureOf(rel string, content []byte) grammar.Structure {
+func (r *Resolver) structureOf(rel string, content []byte) grammar.Structure {
 	if grammar.LooksBinary(content) {
 		return grammar.Structure{Language: grammar.NoStructure, Reason: "binary content"}
 	}
-	return grammar.Analyze(rel, content)
+	return r.grammar.Analyze(rel, content)
 }
 
 // importKeys derives the three match keys for a changed file: its directory

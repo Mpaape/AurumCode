@@ -7,7 +7,7 @@ import (
 )
 
 func TestLanguagesEnumeratedAtRuntime(t *testing.T) {
-	langs := Languages()
+	langs := Default().Languages()
 	if len(langs) < 100 {
 		t.Fatalf("runtime should enumerate its grammars, got %d", len(langs))
 	}
@@ -25,7 +25,7 @@ func TestCorpusStructure(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		s := Analyze(rel, data)
+		s := Default().Analyze(rel, data)
 		t.Logf("%s -> lang=%s structure=%v symbols=%v imports=%v reason=%q", rel, s.Language, s.HasStructure, s.Symbols, s.Imports, s.Reason)
 		if s.HasStructure != grammarExpected {
 			t.Errorf("%s: HasStructure=%v want %v", rel, s.HasStructure, grammarExpected)
