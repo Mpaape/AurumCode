@@ -535,6 +535,13 @@ separado:
 ```yaml
 quality_gates:
   ssor_dtrack:
+    enabled: true
+    server_api_host: "https://dtrack.example.invalid"
+    api_key_secret: DTRACK_API_KEY
+    project_id_secret: DTRACK_PROJECT_ID
+    thresholds: {max_critical: 0, max_high: 0, policy_violations: 0}
+    timeout_seconds: 180
+    poll_interval_seconds: 5
     sbom_generator:
       tool: trivy
       format: cyclonedx
@@ -615,6 +622,69 @@ sbom`: seu próprio container não tem como saber o caminho, no HOST, por
 trás do seu `/github/workspace` montado, o que é exigido para montar
 volumes num `docker run` feito de dentro dela através do socket do Docker.
 Ver o comentário em `action.yml` e docs/specs/AUR-549.md.
+
+## Gate Dependency-Track: SBOM e métricas do projeto (AUR-550)
+
+`quality_gates.ssor_dtrack` (os campos acima, fora de `sbom_generator`)
+envia o SBOM já gerado pela seção acima a um servidor OWASP
+Dependency-Track v5 configurado, acompanha o processamento e reprova o
+gate quando as métricas do projeto passam dos limites. Nada aqui é
+opcional por omissão: esta parte da seção só entra em vigor com
+`enabled: true`.
+
+- `server_api_host`: URL base da API, só da configuração (política central
+  ou repositório) — nunca um literal no código. Precisa ser `https://`; o
+  único caso aceito em `http://` é um endereço IP de loopback
+  (`127.0.0.0/8` ou `::1`), e nunca o nome `localhost` — essa exceção existe
+  só para um servidor de teste local (`httptest`), nunca para produção.
+- `api_key_secret`/`project_id_secret`: não são a chave nem o id do projeto
+  — são os NOMES das variáveis de ambiente de onde a chave e o id do
+  projeto são lidos em tempo de execução (`DTRACK_API_KEY`/
+  `DTRACK_PROJECT_ID` no exemplo acima são apenas exemplos de nome; qualquer
+  nome funciona). A chave nunca é escrita neste repositório.
+- `thresholds.max_critical`/`max_high`/`policy_violations`: comparados aos
+  campos `critical`/`high`/`policyViolationsTotal` do `ProjectMetrics` do
+  Dependency-Track v5 (`GET /api/v1/metrics/project/{project}/current`).
+  Padrão de cada um: 0.
+- `timeout_seconds` (padrão 180) / `poll_interval_seconds` (padrão 5):
+  controlam o acompanhamento de `GET /api/v1/bom/token/{token}` até o
+  servidor responder `processing: false`.
+
+A versão mínima do servidor Dependency-Track para o CycloneDX 1.7 que o
+Trivy fixado emite (5.1.0, ou 4.14.4 na linha 4.x) já está documentada na
+seção do AUR-549 acima; um servidor mais antigo rejeita o upload com um
+erro 4xx, que segue o mesmo caminho de qualquer outro erro HTTP abaixo.
+
+Diretriz do RFC de origem: cada microsserviço tem seu próprio projeto no
+Dependency-Track; nunca envie SBOMs de serviços diferentes para o mesmo
+projeto sem unificá-los primeiro, porque o servidor sobrescreve o anterior.
+
+Semântica do gate: uma métrica acima do limite reprova o gate e publica os
+números (ex.: `ssor_dtrack: critical 3 > max_critical 0`) no parecer, na
+auditoria (AUR-521) e no SARIF. Um timeout de processamento, um erro HTTP ou
+um servidor inalcançável nunca reprovam nem aprovam por si só — seguem o
+`gate.inconclusive` já configurado (`block` fecha o gate; `warn` ou omitido
+só avisa), com um motivo estável (`dtrack_timeout`, `dtrack_http_error`,
+`dtrack_unreachable`, `dtrack_metrics_incomplete`, `dtrack_secret_missing`,
+`dtrack_sbom_unavailable`). Uma resposta de métricas que não traz os três
+campos é tratada como desconhecida, nunca como zero — um zero silencioso
+seria exatamente a "resposta confiantemente errada" que este gate existe
+para evitar.
+
+Sob uma política central, cada subseção de `quality_gates` (incluindo
+`ssor_dtrack`) é governada independentemente, como a seção do AUR-549
+acima já explica: só quando a própria política declara `ssor_dtrack` é que
+ela vale sozinha, com a seção do repositório descartada e um aviso
+nomeado — o repositório não consegue desligar ou redirecionar um
+`ssor_dtrack` que a política ligou.
+
+A chave de API é registrada como segredo de valor exato no filtro de
+redação no instante em que é lida, antes de qualquer escrita adicional
+(stdout, stderr, parecer, auditoria, SARIF) — nunca aparece em nenhum desses
+canais, mesmo quando o próprio servidor a devolve no corpo de um erro.
+
+Não-objetivo desta seção: gerar o SBOM (AUR-549, seção acima) e administrar
+projetos no servidor Dependency-Track.
 
 ## Opções públicas
 
