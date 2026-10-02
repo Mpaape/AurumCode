@@ -22,9 +22,13 @@ import (
 )
 
 // gateOriginAnalysis labels findings of the embedded analysis catalog.
-const gateOriginAnalysis = "analysis"
+const (
+	gateOriginAnalysis = "analysis"
+	gateOriginSkills   = "skills"
+	gateOriginSAST     = "sast"
+)
 
-// findingOriginKey is the key of gateDecision.FindingOrigins.
+// findingOriginKey identifies a finding for origin lookup.
 func findingOriginKey(ruleID, path string, line int) string {
 	return fmt.Sprintf("%s|%s|%d", ruleID, path, line)
 }
@@ -96,11 +100,8 @@ func applyAnalysisGate(d *gateDecision, gate config.GateConfig, issues []types.R
 		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s, origem %s)", issue.RuleID, issue.Message, issue.Severity, name, gateOriginAnalysis))
 		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
 			RuleID: issue.RuleID, Path: issue.File, Line: issue.Line, Severity: issue.Severity,
+			Origin: gateOriginAnalysis,
 		})
-		if d.FindingOrigins == nil {
-			d.FindingOrigins = map[string]string{}
-		}
-		d.FindingOrigins[findingOriginKey(issue.RuleID, issue.File, issue.Line)] = gateOriginAnalysis
 	}
 	return nil
 }

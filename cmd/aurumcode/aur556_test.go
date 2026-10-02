@@ -101,15 +101,43 @@ func TestAUR556AnalysisFindingFailsPolicyGate(t *testing.T) {
 	if !strings.Contains(string(rawAudit), `"decision": "fail"`) && !strings.Contains(string(rawAudit), `"decision":"fail"`) {
 		t.Errorf("audit gate decision must be fail:\n%s", rawAudit)
 	}
-	if !strings.Contains(string(rawAudit), "analysis/sql-injection") || !strings.Contains(string(rawAudit), origin) {
-		t.Errorf("audit must name the blocking finding and its origin:\n%s", rawAudit)
+	var rec auditFile
+	if err := json.Unmarshal(rawAudit, &rec); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.BlockingFindings) != 1 || rec.BlockingFindings[0].RuleID != "analysis/sql-injection" || rec.BlockingFindings[0].Origin != "analysis" {
+		t.Errorf("audit blocking_findings must carry the typed origin: %+v", rec.BlockingFindings)
 	}
 	rawSARIF, err := os.ReadFile(sarif)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(rawSARIF), "analysis/sql-injection") || !strings.Contains(string(rawSARIF), "[origem: analysis]") {
-		t.Errorf("SARIF must carry the finding and its origin:\n%s", rawSARIF)
+	var doc struct {
+		Runs []struct {
+			Results []struct {
+				RuleID     string                  `json:"ruleId"`
+				Message    struct{ Text string }   `json:"message"`
+				Properties struct{ Origin string } `json:"properties"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(rawSARIF, &doc); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range doc.Runs[0].Results {
+		if r.RuleID == "analysis/sql-injection" {
+			found = true
+			if r.Properties.Origin != "analysis" {
+				t.Errorf("SARIF properties.origin=%q, want analysis", r.Properties.Origin)
+			}
+			if strings.Contains(r.Message.Text, "origem") {
+				t.Errorf("origin must not be a message suffix: %q", r.Message.Text)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("SARIF lacks the finding:\n%s", rawSARIF)
 	}
 }
 
@@ -181,7 +209,6 @@ func TestAUR556PRPathCountsAnalysisFinding(t *testing.T) {
 	headConfig := "gate:\n  fail_on: [error]\n"
 	var reviewBody string
 	var publishedStatus githubclient.CommitStatus
-	_ = &publishedStatus
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
@@ -215,7 +242,7 @@ func TestAUR556PRPathCountsAnalysisFinding(t *testing.T) {
 	setPRGateEnv(t, server, fixture)
 	auditPath := filepath.Join(t.TempDir(), "audit.json")
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
 		publicationSet: true, publication: "review", auditoriaPath: auditPath,
 	})
 	if code != exitFindings {
@@ -224,11 +251,18 @@ func TestAUR556PRPathCountsAnalysisFinding(t *testing.T) {
 	if !strings.Contains(reviewBody, "origem analysis") {
 		t.Errorf("published parecer must cite the analysis origin:\n%s", reviewBody)
 	}
+	if publishedStatus.Context != policyGateContext || publishedStatus.State != "failure" || !strings.Contains(publishedStatus.Description, "analysis") {
+		t.Errorf("policy gate status=%+v, want context %s, failure, description citing analysis", publishedStatus, policyGateContext)
+	}
 	raw, err := os.ReadFile(auditPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), "analysis/sql-injection") || !strings.Contains(string(raw), "origem analysis") {
-		t.Errorf("audit must name the finding and origin:\n%s", raw)
+	var rec auditFile
+	if err := json.Unmarshal(raw, &rec); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.BlockingFindings) != 1 || rec.BlockingFindings[0].Origin != "analysis" {
+		t.Errorf("audit blocking origin: %+v", rec.BlockingFindings)
 	}
 }
