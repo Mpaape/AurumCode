@@ -77,10 +77,15 @@ func parseMajorMinor(v string) (major, minor int, ok bool) {
 }
 
 // isDigitsOnly reports whether s is one or more ASCII decimal digits and
-// nothing else -- rejecting what strconv.Atoi alone would still accept
-// (a leading "+", internal whitespace) and the empty string.
+// nothing else -- rejecting what strconv.Atoi alone would still accept (a
+// leading "+", internal whitespace, a leading zero like "01") and the
+// empty string. A leading zero is rejected unless s is exactly "0": a
+// strict version component never has one.
 func isDigitsOnly(s string) bool {
 	if s == "" {
+		return false
+	}
+	if len(s) > 1 && s[0] == '0' {
 		return false
 	}
 	for _, r := range s {

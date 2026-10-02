@@ -112,6 +112,14 @@ func runSBOM(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "aurumcode sbom: quality_gates.ssor_dtrack.sbom_generator nao declarado; nada a fazer")
 		return 0
 	}
+	// Trimmed ONCE, here, at the source: Validate() above already checked
+	// the TRIMMED value's format (strings.TrimSpace inside
+	// SBOMGeneratorConfig.Validate), so every later use of SpecVersion --
+	// GenerateAndValidate's comparison against the SBOM's own specVersion
+	// included -- must see that exact same trimmed value, never the raw
+	// config string a stray surrounding space could otherwise smuggle
+	// past Validate's check and into a comparison that then always fails.
+	genCfg.SpecVersion = strings.TrimSpace(genCfg.SpecVersion)
 
 	outputPath, err := sbom.ResolveOutputPath(root, genCfg.OutputFile)
 	if err != nil {
