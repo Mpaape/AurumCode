@@ -114,6 +114,7 @@ func Analyze(name string, content []byte) (s Structure) {
 			s.Symbols = flatten(syms, nil)
 		}
 	}
+	s.Symbols = unionSorted(s.Symbols, declaredNames(tree.RootNode(), lang, content))
 	for _, imp := range gotreesitter.ExtractImports(tree) {
 		if imp.Path != "" {
 			s.Imports = append(s.Imports, imp.Path)
@@ -182,4 +183,56 @@ func LooksGenerated(content []byte) bool {
 		}
 	}
 	return false
+}
+
+// excludedDeclarationParts name tree-sitter node-type fragments that denote
+// something other than a reusable declaration. They are grammar vocabulary
+// shared by every grammar (blocks, parameters, call arguments, struct fields),
+// not language names.
+var excludedDeclarationParts = []string{"block", "param", "argument", "field", "call", "body_statement"}
+
+// declaredNames walks the tree and collects the text of every `name` field of
+// a declaration-shaped node outside executable blocks. The tags query of a
+// grammar may not cover every declaration kind (types, constants); the `name`
+// field is the grammar-neutral convention for the declared identifier.
+func declaredNames(root *gotreesitter.Node, lang *gotreesitter.Language, src []byte) []string {
+	var out []string
+	var walk func(n *gotreesitter.Node, depth int)
+	walk = func(n *gotreesitter.Node, depth int) {
+		if n == nil || depth > 64 {
+			return
+		}
+		typ := n.Type(lang)
+		for _, part := range excludedDeclarationParts {
+			if strings.Contains(typ, part) {
+				return
+			}
+		}
+		if name := n.ChildByFieldName("name", lang); name != nil && n.IsNamed() {
+			if t := strings.TrimSpace(name.Text(src)); t != "" && !strings.ContainsAny(t, " \t\r\n") && len(t) <= 128 {
+				out = append(out, t)
+			}
+		}
+		for i := 0; i < n.ChildCount(); i++ {
+			walk(n.Child(i), depth+1)
+		}
+	}
+	walk(root, 0)
+	return out
+}
+
+func unionSorted(a, b []string) []string {
+	seen := make(map[string]struct{}, len(a)+len(b))
+	var out []string
+	for _, list := range [][]string{a, b} {
+		for _, v := range list {
+			if _, ok := seen[v]; ok {
+				continue
+			}
+			seen[v] = struct{}{}
+			out = append(out, v)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

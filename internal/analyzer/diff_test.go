@@ -334,47 +334,40 @@ func TestGetComplexityScore(t *testing.T) {
 	}
 }
 
-func TestExtractGoFunction_Methods(t *testing.T) {
+// The two former line-pattern tests (Go methods, JS arrow functions) proved
+// per-language heuristics that no longer exist. Their cases now run through the
+// grammar runtime: the same declarations must yield the same names.
+func TestExtractChangedFunctions_GrammarMethods(t *testing.T) {
 	analyzer := NewDiffAnalyzer()
-
-	tests := []struct {
-		line     string
-		expected string
+	cases := []struct {
+		path, line, expected string
 	}{
-		{"func NewService() *Service {", "NewService"},
-		{"func (s *Service) Start() error {", "Start"},
-		{"func (s Service) Stop() {", "Stop"},
-		{"func HandleRequest(req Request) Response {", "HandleRequest"},
-		{"  not a function", ""},
+		{"svc.go", "func NewService() *Service { return nil }", "NewService"},
+		{"svc.go", "func (s *Service) Start() error { return nil }", "Start"},
+		{"svc.go", "func (s Service) Stop() {}", "Stop"},
+		{"svc.go", "func HandleRequest(req Request) Response { return Response{} }", "HandleRequest"},
+		{"app.js", "const handleClick = () => { return 1 }", "handleClick"},
+		{"app.js", "function normalFunc() { return 1 }", "normalFunc"},
 	}
-
-	for _, test := range tests {
-		result := analyzer.extractGoFunction(test.line)
-		if result != test.expected {
-			t.Errorf("extractGoFunction(%q) = %q, want %q", test.line, result, test.expected)
+	for _, c := range cases {
+		file := &types.DiffFile{Path: c.path, Hunks: []types.DiffHunk{{Lines: []string{"+" + c.line}}}}
+		if c.path == "svc.go" {
+			file.Hunks[0].Lines = []string{"+package svc", "+" + c.line}
+		}
+		found := false
+		for _, name := range analyzer.ExtractChangedFunctions(file) {
+			if name == c.expected {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s %q: %q not found in %v", c.path, c.line, c.expected, analyzer.ExtractChangedFunctions(file))
 		}
 	}
-}
-
-func TestExtractJSFunction_ArrowFunctions(t *testing.T) {
-	analyzer := NewDiffAnalyzer()
-
-	tests := []struct {
-		line     string
-		expected string
-	}{
-		{"const handleClick = () => {", "handleClick"},
-		{"let processData = (data) => {", "processData"},
-		{"var transform = x => x * 2", "transform"},
-		{"function normalFunc() {", "normalFunc"},
-		{"  not a function", ""},
-	}
-
-	for _, test := range tests {
-		result := analyzer.extractJSFunction(test.line)
-		if result != test.expected {
-			t.Errorf("extractJSFunction(%q) = %q, want %q", test.line, result, test.expected)
-		}
+	// A file with no grammar yields no symbols (the caller declares the gap).
+	none := &types.DiffFile{Path: "notes.zzqx", Hunks: []types.DiffHunk{{Lines: []string{"+func Foo() {}"}}}}
+	if got := analyzer.ExtractChangedFunctions(none); len(got) != 0 {
+		t.Errorf("no grammar must mean no symbols, got %v", got)
 	}
 }
 
