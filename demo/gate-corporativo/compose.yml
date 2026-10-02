@@ -1,0 +1,26 @@
+# Servidor OWASP Dependency-Track v5 local para a demonstracao. Imagens por
+# digest (iguais a images.lock). O v5 exige PostgreSQL. Porta so em loopback.
+name: aurum-gate-corp
+services:
+  postgres:
+    image: docker.io/library/postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    environment:
+      POSTGRES_DB: dtrack
+      POSTGRES_USER: dtrack
+      POSTGRES_PASSWORD: demo-only-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dtrack -d dtrack"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  apiserver:
+    image: docker.io/dependencytrack/apiserver@sha256:764dee822521e43d50ad7d0ca5bc35f48968b6b098ef97945e2ecac8c55d52e5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DT_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dtrack
+      DT_DATASOURCE_USERNAME: dtrack
+      DT_DATASOURCE_PASSWORD: demo-only-password
+    ports:
+      - "127.0.0.1:8081:8080"
