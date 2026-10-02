@@ -126,14 +126,14 @@ check_mutation_red() {
   grep -Eq -- '^--- FAIL: TestAUR533StaleArtifactIsInconclusiveByMode' "$log" || fail 'mutation-survived:end-to-end'
 }
 
-# AC-003-MUT-002: the --pr path's single gate call is dropped (copy).
+# AC-003-MUT-002: the single gate call of the analysis-data contributor (shared by --base and --pr) is dropped (copy); the --pr tests must go red.
 check_pr_mutation_red() {
-  local target="$run_dir/root/cmd/aurumcode/pr.go"
-  local anchor='adResult, adReason, adAudit := applyAnalysisDataGate(ctx, reviewConfig.AnalysisData, adMode)'
+  local target="$run_dir/root/cmd/aurumcode/review_gate_contributors.go"
+  local anchor='adResult, adReason, adAudit := applyAnalysisDataGate(ctx, run.Cfg.AnalysisData, mode)'
   [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra mutation-anchor-not-unique
   local line
   line="$(grep -Fn "$anchor" "$target" | head -1 | cut -d: -f1)"
-  sed -i "${line}s/.*/\t\t_ = adMode\n\t\tvar adResult gateDecision\n\t\tvar adReason string\n\t\tvar adAudit *render.AnalysisDataAudit \/\/ MUT-002: gate call removed/" "$target"
+  sed -i "${line}s/.*/\t_ = mode\n\tadResult, adReason, adAudit := gateDecision{}, \"\", res.AnalysisData \/\/ MUT-002: gate call removed/" "$target"
   grep -Fq 'MUT-002: gate call removed' "$target" || infra mutation-not-applied
   local log="$run_dir/mutation_pr.log"
   run_tests '^(TestAUR533PRFreshArtifactIsRecordedInAudit|TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt)$' "$log" || true
