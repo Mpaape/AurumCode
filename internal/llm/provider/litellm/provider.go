@@ -114,36 +114,9 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 		}
 	}
 
-	jsonData, err := json.Marshal(reqBody)
+	body, err := p.post(reqBody)
 	if err != nil {
-		return llm.Response{}, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	url := p.baseURL + "/chat/completions"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return llm.Response{}, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+p.apiKey)
-
-	// Send request
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return llm.Response{}, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return llm.Response{}, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return llm.Response{}, fmt.Errorf("LiteLLM API error (status %d): %s", resp.StatusCode, string(body))
+		return llm.Response{}, err
 	}
 
 	// Parse response
@@ -163,6 +136,43 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 		Model:        completion.Model,
 		FinishReason: completion.Choices[0].FinishReason,
 	}, nil
+}
+
+// post sends one chat-completions request and returns the raw body of a 200
+// response. Every request this provider makes goes through it.
+func (p *Provider) post(reqBody any) ([]byte, error) {
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	url := p.baseURL + "/chat/completions"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+
+	// Send request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("LiteLLM API error (status %d): %s", resp.StatusCode, string(body))
+	}
+	return body, nil
 }
 
 // Tokens estimates token count (approximate)
