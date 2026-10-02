@@ -96,3 +96,57 @@ uma revisão em um diff unificado aplicável.
 
 `inline_comments: true` na configuração é cumulativo com o input do workflow;
 para desligá-lo, remova-o do arquivo ou defina false e não habilite o input.
+
+## Opções públicas
+
+Esta é a superfície pública: o arquivo `.aurumcode/config.yml`, as flags do CLI
+e as entradas do workflow. Variáveis usadas apenas pelos testes internos do
+projeto não fazem parte desta referência e não devem ser configuradas pelo
+consumidor.
+
+### `.aurumcode/config.yml`
+
+| Chave | Efeito | Padrão |
+|---|---|---|
+| `review.language` | Idioma enviado ao modelo e títulos do parecer | inglês |
+| `review.publication` | `review` (revisão formal) ou `comments` (conversa) | `comments` |
+| `review.inline_comments` | Comentários nas linhas alteradas | `false` |
+| `review.context.prompt` | Caminho do prompt adicional | `.aurumcode/prompt.md` |
+| `review.context.skills` | Lista de Markdown de orientação | vazio |
+| `review.context.docs` | Lista de documentos de contexto | vazio |
+| `review.memory` | `off`, `ephemeral` ou `local` | `off` |
+| `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
+| `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
+| `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
+| `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
+| `rules.<id>.severity` | Sobrescreve a severidade de uma regra | embutido |
+| `ignore` | Globs de caminhos removidos antes da análise | vazio |
+
+### CLI `aurumcode review`
+
+| Flag | Efeito |
+|---|---|
+| `--base` | Diffa a referência contra `HEAD` (uso local) |
+| `--fail-on` | Teto de severidade que faz o comando sair com código 3 |
+| `--modelo` | Modelo que revisa (endpoint compatível com OpenAI ou fixture offline) |
+| `--seguranca` | Soma o passe determinístico de segurança |
+| `--pr`, `--repo`, `--publicar` | Revisa e publica em um pull request do GitHub |
+| `--modo-publicacao` | `review` ou `comments` na publicação do PR |
+| `--na-linha` | Inclui achados elegíveis comentados na linha exata |
+| `--check` | Publica status de commit que bloqueia merge em achado grave |
+| `--limite` | Teto em USD estimado antes de chamar o modelo |
+| `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
+| `--changelog` | Força a seção de changelog |
+| `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
+
+### CLI `aurumcode fix`
+
+| Flag | Efeito |
+|---|---|
+| `--file` | Arquivo JSON com sugestões ou resposta de revisão (padrão: stdin) |
+
+### Workflow reutilizável e Action
+
+- Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.
+- Action Docker direta: `publication`, `inline-comments`, `security`, `check`,
+  `fail-on`, `model`, `changelog`.
