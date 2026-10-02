@@ -584,6 +584,14 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	var centralCfg *config.Config
 	var policyWarnings []config.ProviderWarning
 	if policyDir != "" {
+		// A policy must come from outside the tree being reviewed -- the
+		// reviewed repository itself must never be able to edit the policy
+		// it is judged against. Checked before LoadCentralPolicy so this
+		// refusal, too, happens before any model call.
+		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, cwd); err != nil {
+			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+			return 1
+		}
 		centralCfg, err = config.LoadCentralPolicy(policyDir)
 		if err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)

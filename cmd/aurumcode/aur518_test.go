@@ -55,6 +55,17 @@ func setAUR518LLMFixture(t *testing.T) {
 
 const hardcodedSecretMessage = "Hardcoded secret or credential assigned inline"
 
+// policyRuleOverrideWarningSnippet is a fragment of ApplyCentralPolicy's own
+// warning text (internal/config/central.go) for a dropped rule override,
+// including the quoted rule id. It is used, instead of the bare rule id, to
+// prove a warning was actually produced -- the rule id alone also appears in
+// the finding's own rule citation (review.enforceRuleCitations) regardless
+// of whether the warning path ran. posted.Body below captures the raw JSON
+// request bytes verbatim (same convention as aur476_test.go), so the
+// embedded quotes around the rule id are backslash-escaped exactly as the
+// wire JSON carries them.
+const policyRuleOverrideWarningSnippet = `override da regra \"analysis/hardcoded-secret\" no config do repositório foi ignorado`
+
 // TestAUR518PolicyKeepsRuleDespiteRepoDisable covers AC-001: with a central
 // policy active, the repository's "rules.<id>.enabled: false" is ignored --
 // the deterministic analysis/hardcoded-secret finding still appears -- and
@@ -229,8 +240,69 @@ func TestAUR518PRPolicyWarningReachesPublishedReview(t *testing.T) {
 	if !strings.Contains(posted.Body, hardcodedSecretMessage) {
 		t.Fatalf("published review lost the policy-protected finding:\n%s", posted.Body)
 	}
-	if !strings.Contains(posted.Body, "analysis/hardcoded-secret") {
-		t.Fatalf("published review does not name the overridden rule:\n%s", posted.Body)
+	// The finding's own rule citation (enforceRuleCitations) already names
+	// "analysis/hardcoded-secret" in the message text, so that bare
+	// substring alone would pass even if the policyWarnings append in
+	// runPRReview were deleted. Assert on the WARNING sentence itself --
+	// ApplyCentralPolicy's exact wording -- so this test is actually
+	// exercising the warning path, not just the finding that survived.
+	if !strings.Contains(posted.Body, policyRuleOverrideWarningSnippet) {
+		t.Fatalf("published review does not carry the policy override warning text:\n%s", posted.Body)
+	}
+}
+
+// TestAUR518PolicyInsideReviewedTreeFailsClosed proves the B2 containment
+// rule: a --politica directory that resolves inside the tree under review
+// (here, cwd -- the chdir'd repository fixture) is refused before any model
+// call, even though it would otherwise be a perfectly valid policy. The
+// reviewed repository must never be able to supply its own policy.
+func TestAUR518PolicyInsideReviewedTreeFailsClosed(t *testing.T) {
+	dir := coverageFixture(t, "")
+	setAUR518LLMFixture(t)
+	capture := filepath.Join(t.TempDir(), "prompt.txt")
+	t.Setenv("AURUMCODE_PROMPT_CAPTURE", capture)
+
+	insideDir := filepath.Join(dir, "evil-policy")
+	cfgPath := filepath.Join(insideDir, ".aurumcode", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfgPath, []byte(""), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1", "--politica", insideDir}, &out, &errOut, redaction.NewFilter())
+	if code == 0 {
+		t.Fatalf("expected a non-zero exit for a policy inside the reviewed tree; stdout=%s stderr=%s", out.String(), errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "inside the reviewed repository") {
+		t.Fatalf("expected an error naming the containment refusal:\n%s", errOut.String())
+	}
+	if _, err := os.Stat(capture); err == nil {
+		t.Fatal("expected no model call when the policy is refused for being inside the reviewed tree")
+	}
+}
+
+// TestAUR518EnvPolicyAppliesWithoutFlag covers N1: AURUMCODE_POLICY alone
+// (no --politica/--policy flag at all) is enough to apply the central
+// policy, exactly like the flag does.
+func TestAUR518EnvPolicyAppliesWithoutFlag(t *testing.T) {
+	coverageFixture(t, "rules:\n  analysis/hardcoded-secret:\n    enabled: false\n")
+	setAUR518LLMFixture(t)
+	policyDir := policyFixture(t, "")
+	t.Setenv("AURUMCODE_POLICY", policyDir)
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%s stderr=%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), hardcodedSecretMessage) {
+		t.Fatalf("expected AURUMCODE_POLICY alone to apply the policy and keep the finding:\n%s", out.String())
+	}
+	if !strings.Contains(errOut.String(), "analysis/hardcoded-secret") {
+		t.Fatalf("expected a terminal warning naming the overridden rule:\n%s", errOut.String())
 	}
 }
 
