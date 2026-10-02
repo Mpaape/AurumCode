@@ -165,6 +165,20 @@ run_bin() {
   set -e
 }
 
+# after_diagram prints every line that comes after the LAST line that is
+# exactly a lone mermaid fence ("```") in $1 -- i.e. everything the AUR-490
+# summary/diagram block does not own. Review finding (B1, independent
+# review of this card): `tail -n1` plus a grep anchored to the specific
+# "<file>:<line>: [<severity>]" shape lets anything NOT shaped like a
+# finding line -- a leaked line of any other text -- sit between the
+# diagram and "No issues found." undetected, because tail -n1 only ever
+# looks at the true last line, and that "No issues found." is still it.
+# This instead captures the WHOLE remainder after the diagram and compares
+# it for exact equality, so any extra line of any shape is caught.
+after_diagram() {
+  awk 'BEGIN{p=0} /^```$/{p=NR} {buf[NR]=$0} END{for(i=p+1;i<=NR;i++) print buf[i]}' <<<"$1"
+}
+
 # nominal_case is AC-001's core behavioral proof.
 nominal_case() {
   build_shared
@@ -272,21 +286,25 @@ nominal_case() {
   rm -rf "$hier_ref_dir"
 
   # --- 7. review --base's published contract: zero findings still ends in
-  # "No issues found." as the exact LAST line. AUR-547/AUR-490: AUR-490
-  # made this unconditionally prepend a summary/diagram block, so stdout
-  # is no longer the byte-identical lone string this used to check (same
-  # measurement AUR-542 already recorded for tests/e2e/AUR-443.sh); the
-  # `docs` contract check is dropped -- that subcommand no longer exists. ---
+  # "No issues found." and NOTHING ELSE after the summary/diagram block.
+  # AUR-547/AUR-490: AUR-490 made this unconditionally prepend a
+  # summary/diagram block, so stdout is no longer the byte-identical lone
+  # string this used to check (same measurement AUR-542 already recorded
+  # for tests/e2e/AUR-443.sh); the `docs` contract check is dropped -- that
+  # subcommand no longer exists. B1 (independent review): the ORIGINAL fix
+  # here (tail -n1 plus a grep anchored to the finding-line shape) let an
+  # arbitrary leaked line sit right before "No issues found." undetected --
+  # proven by adding a stray stdout line in cmd/aurumcode/main.go's
+  # printFindings ahead of "No issues found." and observing this scenario
+  # stay green. Replaced with after_diagram(): the ENTIRE remainder after
+  # the diagram fence must equal "No issues found." exactly, catching a
+  # leaked line of any shape, not only one shaped like a finding. ---
   local clean_fixture="$run_dir/response-clean.json"
   printf '{"issues":[],"summary":"Nothing to report."}' >"$clean_fixture"
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$clean_fixture"
   [[ "$rc" -eq 0 ]] || fail review-contract-broken
-  [[ "$(tail -n1 "$run_dir/out.stdout")" == "No issues found." ]] || fail review-contract-broken
-  # Zero findings must mean ZERO finding-shaped lines anywhere in stdout,
-  # not just that the last line reads right.
-  if grep -Eq '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout"; then
-    fail review-contract-leaked-finding
-  fi
+  local tail_after; tail_after="$(after_diagram "$(cat "$run_dir/out.stdout")")"
+  [[ "$tail_after" == "No issues found." ]] || fail review-contract-leaked-finding
 
   # Determinism: repeating the declared command over the same input
   # produces the same output.

@@ -224,7 +224,14 @@ mutation_case() {
 case "$selector" in
   AC-001)
     nominal_case
-    (cd "$repo_root" && AURUMCODE_BIN="$shared_bin" bash tests/e2e/AUR-458.sh E2EAUR458) >/dev/null || fail e2e-failed
+    # B3 (independent review of AUR-547): the inner e2e failure cause was
+    # discarded to /dev/null, so a RED here could not be told apart from a
+    # different one. Captured and surfaced as part of the tag instead.
+    e2e458_out="$run_dir/e2e458.out"
+    if ! (cd "$repo_root" && AURUMCODE_BIN="$shared_bin" bash tests/e2e/AUR-458.sh E2EAUR458) >"$e2e458_out" 2>&1; then
+      cat "$e2e458_out" >&2
+      fail "e2e-failed:$(tail -n1 "$e2e458_out")"
+    fi
     printf '%s/%s/ok\n' "$card" "$scenario"
     ;;
   TestAUR458)

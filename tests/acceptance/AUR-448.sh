@@ -246,6 +246,18 @@ run_bin() {
   set -e
 }
 
+# after_diagram prints everything after the LAST lone mermaid fence
+# ("```") line in $1 -- i.e. everything the AUR-490 summary/diagram block
+# does not own. B1 (independent review of this card): a bare `tail -n1`
+# check for "No issues found." lets an arbitrary leaked line sit right
+# before it undetected -- proven by adding a stray stdout line in
+# cmd/aurumcode/main.go's printFindings ahead of "No issues found." and
+# observing scenario 4 below stay green. This instead compares the WHOLE
+# remainder after the diagram for exact equality.
+after_diagram() {
+  awk 'BEGIN{p=0} /^```$/{p=NR} {buf[NR]=$0} END{for(i=p+1;i<=NR;i++) print buf[i]}' <<<"$1"
+}
+
 # nominal_case is AC-001's core behavioral proof: run the built binary
 # exactly as a user would.
 nominal_case() {
@@ -265,21 +277,21 @@ nominal_case() {
   # branch prints it as a second stderr line (AUR-542's own product fix,
   # already merged), so every grep below still holds.
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1
-  [[ "$rc" -eq 0 ]] || fail behavior-missing
-  [[ -s "$run_dir/out.stdout" ]] || fail behavior-missing
-  grep -Fq 'no LLM provider configured' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"issues"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"file"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"line"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"severity"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"rule_id"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"message"' "$run_dir/out.stderr" || fail behavior-missing
+  [[ "$rc" -eq 0 ]] || fail s1-wrong-exit
+  [[ -s "$run_dir/out.stdout" ]] || fail s1-expected-summary-stdout
+  grep -Fq 'no LLM provider configured' "$run_dir/out.stderr" || fail s1-missing-no-provider-text
+  grep -Fq '"issues"' "$run_dir/out.stderr" || fail s1-missing-shape-issues
+  grep -Fq '"file"' "$run_dir/out.stderr" || fail s1-missing-shape-file
+  grep -Fq '"line"' "$run_dir/out.stderr" || fail s1-missing-shape-line
+  grep -Fq '"severity"' "$run_dir/out.stderr" || fail s1-missing-shape-severity
+  grep -Fq '"rule_id"' "$run_dir/out.stderr" || fail s1-missing-shape-rule_id
+  grep -Fq '"message"' "$run_dir/out.stderr" || fail s1-missing-shape-message
   # The example must be a REAL id of the embedded catalog, not a
   # placeholder: it is exercised below (mixed.json cites it for its
   # surviving finding) and resolved by internal/review's own rules_test.go.
-  grep -Fq 'security/hardcoded-secret' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq 'discarded' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq 'tests/fixtures/review/known-problem-response.json' "$run_dir/out.stderr" || fail behavior-missing
+  grep -Fq 'security/hardcoded-secret' "$run_dir/out.stderr" || fail s1-missing-catalog-example
+  grep -Fq 'discarded' "$run_dir/out.stderr" || fail s1-missing-discarded-word
+  grep -Fq 'tests/fixtures/review/known-problem-response.json' "$run_dir/out.stderr" || fail s1-missing-fixture-pointer
 
   # --- 2. Happy path: zero discards. The finding line is the LAST line of
   # stdout; stderr still EMPTY. AUR-547/AUR-490: AUR-490 (done, integrated
@@ -290,21 +302,30 @@ nominal_case() {
   # (the finding reaches stdout at all, exactly once, with no ungrounded
   # finding, and stderr stays empty) is unaffected and still checked.
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$known_fixture"
-  [[ "$rc" -eq 0 ]] || fail behavior-missing
+  [[ "$rc" -eq 0 ]] || fail s2-wrong-exit
   local want_happy='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
-  [[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy" ]] || fail behavior-missing
+  [[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy" ]] || fail s2-finding-line-wrong
   [[ "$(grep -Ec '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout")" -eq 1 ]] || fail happy-path-finding-count-wrong
   [[ ! -s "$run_dir/out.stderr" ]] || fail happy-path-stderr-not-empty
 
-  # --- 3. Mixed discard: stdout hides ungrounded findings; stderr names how many and why. ---
+  # --- 3. Mixed discard: stdout hides ungrounded findings; stderr names
+  # how many and why. MEASURED (independent review, B2): this is where
+  # AC-001 actually stops today -- internal/review/scope.go's newer
+  # "escopo e evidencia" gate (out of this card's paths) discards the
+  # fixture's grounded finding too (it carries no Evidence/Impact/
+  # Verification), so stdout never gets the finding line and stderr reads
+  # "aurumcode review: 3 finding(s) descartado(s) pelo gate de escopo e
+  # evidencia: 3 sem evidencia concreta" (Portuguese), not the English
+  # rule_id-citation message this scenario was written against. See
+  # docs/specs/AUR-547.md. ---
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$run_dir/fixtures/mixed.json"
-  [[ "$rc" -eq 0 ]] || fail behavior-missing
-  grep -Fq 'config/demo-tokens.txt:3' "$run_dir/out.stdout" || fail behavior-missing
-  grep -Fq '(rule security/hardcoded-secret: Hardcoded Secrets)' "$run_dir/out.stdout" || fail behavior-missing
-  if grep -Fq 'no rule_id at all' "$run_dir/out.stdout"; then fail behavior-missing; fi
-  if grep -Fq 'unknown rule_id' "$run_dir/out.stdout"; then fail behavior-missing; fi
+  [[ "$rc" -eq 0 ]] || fail s3-wrong-exit
+  grep -Fq 'config/demo-tokens.txt:3' "$run_dir/out.stdout" || fail s3-grounded-finding-missing
+  grep -Fq '(rule security/hardcoded-secret: Hardcoded Secrets)' "$run_dir/out.stdout" || fail s3-citation-missing
+  if grep -Fq 'no rule_id at all' "$run_dir/out.stdout"; then fail s3-ungrounded-leaked-no-rule-id; fi
+  if grep -Fq 'unknown rule_id' "$run_dir/out.stdout"; then fail s3-ungrounded-leaked-unknown-rule-id; fi
   local want_mixed_stderr='aurumcode review: 2 finding(s) discarded: 1 with no rule_id, 1 citing an unknown rule_id (security/definitely-not-a-rule)'
-  [[ "$(cat "$run_dir/out.stderr")" == "$want_mixed_stderr" ]] || fail behavior-missing
+  [[ "$(cat "$run_dir/out.stderr")" == "$want_mixed_stderr" ]] || fail s3-discard-message-wrong
 
   # Determinism: same input, same stdout AND same stderr.
   local mixed_out1 mixed_err1 mixed_out2 mixed_err2
@@ -320,14 +341,16 @@ nominal_case() {
   # confidently wrong "your code is clean" for a fixture that planted a
   # real finding.
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$run_dir/fixtures/all-discarded.json"
-  [[ "$rc" -eq 0 ]] || fail behavior-missing
-  # AUR-547/AUR-490: "No issues found." is still the exact LAST line (the
-  # AC-002 summary/diagram block now precedes it unconditionally); zero
-  # surviving findings must still mean zero finding-shaped lines anywhere.
-  [[ "$(tail -n1 "$run_dir/out.stdout")" == "No issues found." ]] || fail behavior-missing
-  if grep -Eq '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout"; then fail behavior-missing; fi
+  [[ "$rc" -eq 0 ]] || fail s4-wrong-exit
+  # AUR-547/AUR-490: the AC-002 summary/diagram block now precedes it
+  # unconditionally. B1 (independent review): a bare `tail -n1` check for
+  # "No issues found." plus a finding-shape-only grep let an arbitrary
+  # leaked line sit right before it undetected -- after_diagram() compares
+  # the WHOLE remainder after the diagram fence for exact equality instead.
+  local s4_after; s4_after="$(after_diagram "$(cat "$run_dir/out.stdout")")"
+  [[ "$s4_after" == "No issues found." ]] || fail s4-leaked-content-after-diagram
   local want_all_discarded_stderr='aurumcode review: 1 finding(s) discarded: 1 with no rule_id'
-  [[ "$(cat "$run_dir/out.stderr")" == "$want_all_discarded_stderr" ]] || fail behavior-missing
+  [[ "$(cat "$run_dir/out.stderr")" == "$want_all_discarded_stderr" ]] || fail s4-discard-message-wrong
 }
 
 # mutation_case is MUT-001: accepting a silent discard (the discard still
