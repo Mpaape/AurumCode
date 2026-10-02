@@ -38,7 +38,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-inputs=(go.mod go.sum internal/artifacts scripts/artifacts .github/workflows/analysis-data.yml)
+inputs=(go.mod go.sum cmd internal pkg scripts/artifacts .github/workflows/analysis-data.yml)
 for input in "${inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
@@ -48,9 +48,9 @@ trap 'chmod -R u+w -- "$run_dir" >/dev/null 2>&1 || true; rm -rf -- "$run_dir" >
 mkdir -p "$run_dir/cache" "$run_dir/gotmp"
 seed_root() {
   rm -rf "$run_dir/root"
-  mkdir -p "$run_dir/root/internal" "$run_dir/root/scripts" "$run_dir/root/.github/workflows"
+  mkdir -p "$run_dir/root/scripts" "$run_dir/root/.github/workflows"
   cp "$repo_root/go.mod" "$repo_root/go.sum" "$run_dir/root/"
-  cp -R "$repo_root/internal/artifacts" "$run_dir/root/internal/artifacts"
+  cp -R "$repo_root/cmd" "$repo_root/internal" "$repo_root/pkg" "$run_dir/root/"
   cp -R "$repo_root/scripts/artifacts" "$run_dir/root/scripts/artifacts"
   cp "$repo_root/.github/workflows/analysis-data.yml" "$run_dir/root/.github/workflows/"
   chmod -R u+w -- "$run_dir/root"
@@ -65,7 +65,7 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # run_tests <regex> <log>: go test of the (possibly mutated) package copy.
 run_tests() {
   set +e
-  (cd "$run_dir/root" && go vet ./internal/artifacts/... && go test -mod=mod -p 1 -count=1 -timeout 300s -v ./internal/artifacts/... -run "$1") >"$2" 2>&1
+  (cd "$run_dir/root" && go vet ./internal/artifacts/... ./internal/config/... ./cmd/... && go test -mod=mod -p 1 -count=1 -timeout 600s -v ./internal/artifacts/... ./internal/config/... ./cmd/aurumcode/... -run "$1") >"$2" 2>&1
   local status=$?
   set -e
   cat "$2" >&2
@@ -84,9 +84,9 @@ require_pass() {
 ac_tests() {
   case "$1" in
     AC-001) echo TestAUR533BuildProducesVerifiableManifest TestAUR533BuildFailsClosedOnBadSource TestAUR533PassingTestsPublishAndFailingTestsDoNot TestAUR533PublishRefusesUntestedOrChangedArtifact TestAUR533WorkflowOrderingAndPins TestAUR533GeneratedArtifactStepRunsAgainstFreshBuild ;;
-    AC-002) echo TestAUR533ResolveUsesFreshArtifactAndExposesAudit ;;
-    AC-003) echo TestAUR533ResolveRefusesStaleArtifact TestAUR533ResolveOfflineIsInconclusive TestAUR533ResolveRejectsBadInputs TestAUR533PolicyPrecedenceAndDefaults ;;
-    AC-004) echo TestAUR533ResolveRefusesDigestMismatch ;;
+    AC-002) echo TestAUR533ResolveUsesFreshArtifactAndExposesAudit TestAUR533FreshArtifactIsRecordedInAudit TestAUR533UndeclaredSectionChangesNothing ;;
+    AC-003) echo TestAUR533ResolveRefusesStaleArtifact TestAUR533ResolveOfflineIsInconclusive TestAUR533ResolveRejectsBadInputs TestAUR533StaleArtifactIsInconclusiveByMode TestAUR533CentralPolicyAgeWinsOverRepository TestAUR533AnalysisDataSectionParsesAndDefaults TestAUR533AnalysisDataCentralPolicyPrecedence TestAUR533CentralPolicyFileAcceptsAnalysisData ;;
+    AC-004) echo TestAUR533ResolveRefusesDigestMismatch TestAUR533DigestMismatchAndUnavailableAreInconclusive ;;
     AC-005) echo TestAUR533NewEcosystemEntersNextArtifact ;;
   esac
 }
@@ -116,11 +116,12 @@ apply_mutation_ignore_age() {
 check_mutation_red() {
   local log="$run_dir/mutation.log"
   apply_mutation_ignore_age
-  run_tests '^TestAUR533ResolveRefusesStaleArtifact$' "$log" || true
+  run_tests '^(TestAUR533ResolveRefusesStaleArtifact|TestAUR533StaleArtifactIsInconclusiveByMode)$' "$log" || true
   if grep -Eq 'build failed|cannot use|undefined:|syntax error|declared and not used' "$log"; then
     fail 'mutation-build-failure-not-behavioral'
   fi
   grep -Eq -- '^--- FAIL: TestAUR533ResolveRefusesStaleArtifact' "$log" || fail 'mutation-survived'
+  grep -Eq -- '^--- FAIL: TestAUR533StaleArtifactIsInconclusiveByMode' "$log" || fail 'mutation-survived:end-to-end'
 }
 
 case "$selector" in

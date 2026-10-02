@@ -392,38 +392,6 @@ func TestAUR533ResolveRejectsBadInputs(t *testing.T) {
 	}
 }
 
-func TestAUR533PolicyPrecedenceAndDefaults(t *testing.T) {
-	write := func(root, body string) {
-		p := filepath.Join(root, ConfigPath)
-		_ = os.MkdirAll(filepath.Dir(p), 0o755)
-		_ = os.WriteFile(p, []byte(body), 0o644)
-	}
-	repo, central := t.TempDir(), t.TempDir()
-	pol, err := LoadPolicy(repo, "")
-	if err != nil || pol.MaxAgeDays != DefaultMaxAgeDays || pol.Repository != DefaultRepository {
-		t.Fatalf("defaults: %+v %v", pol, err)
-	}
-	write(repo, "analysis_data:\n  max_age_days: 30\n")
-	if pol, _ = LoadPolicy(repo, ""); pol.MaxAgeDays != 30 {
-		t.Fatalf("repo value: %+v", pol)
-	}
-	write(central, "language: pt\n") // policy silent on this section: repo keeps it
-	if pol, _ = LoadPolicy(repo, central); pol.MaxAgeDays != 30 || len(pol.Warnings) != 0 {
-		t.Fatalf("silent policy must not override: %+v", pol)
-	}
-	write(central, "analysis_data:\n  max_age_days: 3\n")
-	pol, _ = LoadPolicy(repo, central)
-	if pol.MaxAgeDays != 3 || len(pol.Warnings) != 1 {
-		t.Fatalf("central must govern the section alone: %+v", pol)
-	}
-	for _, bad := range []string{"analysis_data:\n  max_age_days: 0\n", "analysis_data:\n  max_age_days: 9999\n", "analysis_data:\n  repository: 'x'\n"} {
-		write(repo, bad)
-		if _, err := LoadPolicy(repo, ""); err == nil {
-			t.Fatalf("accepted %q", bad)
-		}
-	}
-}
-
 // ---- AC-001: the scripts ----
 
 func buildTool(t *testing.T) string {
