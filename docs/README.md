@@ -5,6 +5,7 @@
 - [Primeiro review e uso local](getting-started.md)
 - [Configuração, prompts, skills e referência de opções](configuration.md)
 - [Gate corporativo: SAST, SBOM, inventário e assinatura (guia e demonstração)](gate-corporativo.md)
+- [Arquitetura: mapa de módulos, fluxo do review, pipeline do gate e pontos de extensão](architecture.md)
 - [Qualidade e limitações atuais](review-quality.md)
 - [Desenvolvimento e QA](qa.md)
 
