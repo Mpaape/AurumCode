@@ -1,14 +1,14 @@
-// AUR-533: the analysis-data artifact's age/digest gate. applyAnalysisDataGate
+// AUR-533: the analysis-data artifact's age/digest gate. ApplyAnalysisDataGate
 // runs once, right before the Dependency-Track gate in both runReview
 // (main.go) and runPRReview (pr.go), and folds its outcome into the SAME
-// gateDecision those two already publish, following aur550.go's
-// applyDTrackGate/mergeDTrackGate pattern (mergeDTrackGate itself is reused:
-// it only reads the gateDecision fields).
+// Result those two already publish, following aur550.go's
+// ApplyDTrackGate/MergeDTrackGate pattern (MergeDTrackGate itself is reused:
+// it only reads the Result fields).
 //
 // It is a complete no-op -- no network call, no gate line, no audit field --
 // unless the effective config declares `analysis_data` (repository or central
 // policy; ApplyCentralPolicy has already resolved precedence).
-package main
+package gate
 
 import (
 	"context"
@@ -25,9 +25,9 @@ import (
 // Seams for tests: a local fake GitHub server and a fixed clock. Production
 // never overrides them.
 var (
-	analysisDataAPIBase = artifacts.DefaultAPIBase
-	analysisDataNow     = time.Now
-	analysisDataCache   = func() string {
+	AnalysisDataAPIBase = artifacts.DefaultAPIBase
+	AnalysisDataNow     = time.Now
+	AnalysisDataCache   = func() string {
 		if d, err := os.UserCacheDir(); err == nil {
 			return filepath.Join(d, "aurumcode", "analysis-data")
 		}
@@ -35,27 +35,27 @@ var (
 	}
 )
 
-// analysisDataReviewKinds are the artifact file kinds a review downloads
+// AnalysisDataReviewKinds are the artifact file kinds a review downloads
 // today. The OSV copy (kind "osv") is large and nothing in the review reads
 // it yet; its set digest is still verified through the manifest.
-var analysisDataReviewKinds = []string{"scanners"}
+var AnalysisDataReviewKinds = []string{"scanners"}
 
-// applyAnalysisDataGate resolves the artifact when cfg is declared. An
+// ApplyAnalysisDataGate resolves the artifact when cfg is declared. An
 // unusable outcome is inconclusive by the policy's mode ("block" fails the
 // check, anything else only withholds approval) and carries the reason code;
 // a usable one adds no gate line and returns the audit facts.
-func applyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig, inconclusiveMode string) (result gateDecision, reason string, audit *render.AnalysisDataAudit) {
+func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig, inconclusiveMode string) (result Result, reason string, audit *render.AnalysisDataAudit) {
 	if !cfg.Declared() {
-		return gateDecision{}, "", nil
+		return Result{}, "", nil
 	}
 	out := artifacts.Resolve(ctx, artifacts.Options{
-		APIBase:    analysisDataAPIBase,
+		APIBase:    AnalysisDataAPIBase,
 		Repository: cfg.EffectiveRepository(),
 		Token:      os.Getenv("GITHUB_TOKEN"),
-		CacheDir:   analysisDataCache(),
+		CacheDir:   AnalysisDataCache(),
 		MaxAgeDays: cfg.EffectiveMaxAgeDays(),
-		Now:        analysisDataNow,
-		Kinds:      analysisDataReviewKinds,
+		Now:        AnalysisDataNow,
+		Kinds:      AnalysisDataReviewKinds,
 	})
 	if !out.Usable {
 		result.Active = true

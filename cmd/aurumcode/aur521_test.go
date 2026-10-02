@@ -14,6 +14,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	igate "github.com/Mpaape/AurumCode/internal/gate"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -654,12 +655,12 @@ func TestAUR521EvaluateGateBlockNeverPopulatesBlockingFindings(t *testing.T) {
 	}
 	issues := []types.ReviewIssue{{RuleID: "security#no-hardcoded-secrets", File: "app.go", Line: 3, Severity: "error"}}
 
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "provider_failure", nil, "", time.Now())
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "provider_failure", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Fail || d.Breach {
-		t.Fatalf("evaluateGate() = %+v, want Fail without Breach under gate.inconclusive: block", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Fail without Breach under gate.inconclusive: block", d)
 	}
 	if len(d.BlockingFindings) != 0 {
 		t.Fatalf("BlockingFindings=%v, want none: block never reaches the threshold loop at all, so nothing was ever graded", d.BlockingFindings)

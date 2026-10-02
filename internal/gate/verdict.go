@@ -29,7 +29,7 @@
 // repository has since disabled must stop firing even out of a reused
 // entry, and a rule re-enabled after being disabled when the entry was
 // written must start firing again.
-package main
+package gate
 
 import (
 	"crypto/sha256"
@@ -38,33 +38,31 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime/debug"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// gateVerdictCachePath is the fixed cache.Entry.Path label a verdict entry
+// VerdictCachePath is the fixed cache.Entry.Path label a verdict entry
 // is stored under -- never a real diff file path, so it reads
 // unambiguously in the on-disk JSON even though the directory is shared
 // with AUR-513's own per-file entries (today's cache.ResolveDir()). The
-// verdict KEY (gateVerdictCacheKey) is what actually separates the two
+// verdict KEY (VerdictCacheKey) is what actually separates the two
 // kinds of entry; this is only a readability label, and the one marker
 // the acceptance tests use to confirm an inconclusive run left nothing
 // behind.
-const gateVerdictCachePath = "aur524-gate-verdict"
+const VerdictCachePath = "aur524-gate-verdict"
 
-// gateVerdictCacheUnavailableNotice is AC-004's own declaration: without a
+// VerdictCacheUnavailableNotice is AC-004's own declaration: without a
 // persistent cache directory, this run's gate verdict cannot be shared
 // with a later run, and could not have reused an earlier one either. The
 // run still proceeds -- a missing cache is never a correctness gate here
 // any more than it is for AUR-441's own cache.
-const gateVerdictCacheUnavailableNotice = "gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either"
+const VerdictCacheUnavailableNotice = "gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either"
 
-// gateVerdictCacheAvailable is AC-004's gate: this card's reuse is only
+// VerdictCacheAvailable is AC-004's gate: this card's reuse is only
 // ever attempted when the caller explicitly configured a cache directory
 // meant to outlive this one process (AURUMCODE_CACHE_DIR, cache.EnvDir).
 // Without it, cache.ResolveDir()'s own default
@@ -72,47 +70,17 @@ const gateVerdictCacheUnavailableNotice = "gate verdict reuse unavailable (AURUM
 // pid -- never a location two separate `aurumcode` invocations could share
 // by construction -- so treating it as a valid verdict store would
 // silently promise a reuse guarantee that cannot structurally be kept.
-func gateVerdictCacheAvailable() bool {
+func VerdictCacheAvailable() bool {
 	return strings.TrimSpace(os.Getenv(cache.EnvDir)) != ""
 }
 
-// binaryIdentity folds the running binary's own identity into the key:
-// the -ldflags -X main.version value (see main.go's own doc) plus, when
-// the Go toolchain embedded them (a build with VCS info available --
-// `go build` inside a git checkout, not stripped), the exact commit
-// (vcs.revision) and whether the working tree had uncommitted changes
-// (vcs.modified) at build time. A stale binary from before a logic change
-// in THIS card (or in evaluateGate, or in the rule engine) must never
-// have its stored verdict mistaken for one produced by the current code.
-func binaryIdentity() string {
-	id := "version:" + version
-	if info, ok := debug.ReadBuildInfo(); ok {
-		var revision, modified string
-		for _, setting := range info.Settings {
-			switch setting.Key {
-			case "vcs.revision":
-				revision = setting.Value
-			case "vcs.modified":
-				modified = setting.Value
-			}
-		}
-		if revision != "" {
-			id += ";vcs.revision:" + revision
-		}
-		if modified != "" {
-			id += ";vcs.modified:" + modified
-		}
-	}
-	return id
-}
-
-// diffContentDigest is a deterministic sha256 hex digest of diff.Files --
+// DiffContentDigest is a deterministic sha256 hex digest of diff.Files --
 // ALWAYS folded into the key (unlike this card's v1, which keyed on a SHA
 // OR a diff digest): a reviewed SHA is also folded in when known
-// (gateVerdictKeyInputs.ReviewedSHA), but the SHA is never trusted alone,
+// (VerdictKeyInputs.ReviewedSHA), but the SHA is never trusted alone,
 // only ever alongside the content it is supposed to name. A nil diff
 // (never expected in practice) digests the same as an empty one.
-func diffContentDigest(diff *types.Diff) string {
+func DiffContentDigest(diff *types.Diff) string {
 	var files []types.DiffFile
 	if diff != nil {
 		files = diff.Files
@@ -125,22 +93,17 @@ func diffContentDigest(diff *types.Diff) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// gateVerdictKeyInputs groups every input gateVerdictCacheKey combines.
+// VerdictKeyInputs groups every input VerdictCacheKey combines.
 // Named fields, not positional strings, deliberately: runReview and
 // runPRReview both build one of these, and a transposed positional
 // argument between two ~15-parameter call sites is exactly the kind of
 // mistake that would silently weaken this card's own guarantee.
-type gateVerdictKeyInputs struct {
-	// BaseModelIdentity, Language, Codebase, Notes, Profiles,
-	// ContextBlockDigest, RuleCatalogDigest feed reviewContextCacheKey
-	// (review_cache.go, AUR-513) UNCHANGED -- reused, never duplicated.
-	BaseModelIdentity  string
-	Language           string
-	Codebase           string
-	Notes              string
-	Profiles           string
-	ContextBlockDigest string
-	RuleCatalogDigest  string
+type VerdictKeyInputs struct {
+	// ContextKey yields the review-context cache key (the command builds it
+	// from the model, language, codebase, notes, profiles and rule catalog).
+	// It is lazy: the key is only needed when a verdict can be reused.
+	ContextKey func() string
+
 	// PolicyDigest is render.PolicyDigest -- AUR-521's own audit digest
 	// over the active central policy's config.yml and every skill it
 	// names ("" when no policy is active). MUT-001 removes this term;
@@ -159,20 +122,20 @@ type gateVerdictKeyInputs struct {
 	// --base, "" when unknown (fails closed: an unknown repo never
 	// collides with a known one).
 	RepoIdentity string
-	// DiffDigest is diffContentDigest(diff) -- ALWAYS present.
+	// DiffDigest is DiffContentDigest(diff) -- ALWAYS present.
 	DiffDigest string
 	// ReviewedSHA is GITHUB_SHA when set, "" otherwise -- folded in
 	// ADDITIONALLY to DiffDigest, never as a substitute for it.
 	ReviewedSHA string
 }
 
-// gateVerdictCacheKey combines reviewContextCacheKey's own, unduplicated
-// result with every further input gateVerdictKeyInputs names. A
+// VerdictCacheKey combines reviewContextCacheKey's own, unduplicated
+// result with every further input VerdictKeyInputs names. A
 // difference in ANY of them changes the key, so a reused verdict can
 // never cross a policy, a skill, a model/endpoint, a prompt version, a
 // binary build, a repository or a reviewed diff/SHA.
-func gateVerdictCacheKey(provider llm.Provider, in gateVerdictKeyInputs) string {
-	inner := reviewContextCacheKey(provider, in.BaseModelIdentity, in.Language, in.Codebase, in.Notes, in.Profiles, in.ContextBlockDigest, in.RuleCatalogDigest)
+func VerdictCacheKey(in VerdictKeyInputs) string {
+	inner := in.ContextKey()
 	body, err := json.Marshal(struct {
 		Inner               string
 		PolicyDigest        string
@@ -189,11 +152,11 @@ func gateVerdictCacheKey(provider llm.Provider, in gateVerdictKeyInputs) string 
 	return fmt.Sprintf("verdict:%x", sum)
 }
 
-// loadGateVerdict looks up a previously stored RAW issue set for key. A
+// LoadGateVerdict looks up a previously stored RAW issue set for key. A
 // read/parse error or a plain miss are both treated as "nothing to
 // reuse" -- a corrupted or forged-but-unparseable entry degrades to a
 // fresh review, never to a crash.
-func loadGateVerdict(key string) ([]types.ReviewIssue, bool) {
+func LoadGateVerdict(key string) ([]types.ReviewIssue, bool) {
 	c, err := cache.Open(cache.ResolveDir())
 	if err != nil {
 		return nil, false
@@ -205,7 +168,7 @@ func loadGateVerdict(key string) ([]types.ReviewIssue, bool) {
 	return entry.Issues, true
 }
 
-// storeGateVerdict persists rawIssues -- result.Issues exactly as it
+// StoreGateVerdict persists rawIssues -- result.Issues exactly as it
 // stood immediately BEFORE config.ApplyRuleConfig, still redacted and
 // rule-cited (the same boundary cache.Entry.Issues' own doc already
 // requires of AUR-513's per-file entries), so a later run can re-evaluate
@@ -214,21 +177,21 @@ func loadGateVerdict(key string) ([]types.ReviewIssue, bool) {
 // must never call this for an inconclusive run (AC-003). A write failure
 // is swallowed: caching is a performance/stability optimization, never a
 // correctness gate.
-func storeGateVerdict(key string, rawIssues []types.ReviewIssue) {
+func StoreGateVerdict(key string, rawIssues []types.ReviewIssue) {
 	c, err := cache.Open(cache.ResolveDir())
 	if err != nil {
 		return
 	}
-	_ = c.Put(key, cache.Entry{Path: gateVerdictCachePath, Issues: rawIssues})
+	_ = c.Put(key, cache.Entry{Path: VerdictCachePath, Issues: rawIssues})
 }
 
-// unionReviewIssues is this card's own trust boundary: current (what THIS
+// UnionReviewIssues is this card's own trust boundary: current (what THIS
 // run actually found, on its own, with no cache involved) always
 // survives untouched; reused (a stored entry, already re-evaluated
 // against this run's rule config) can only ADD to it. types.ReviewIssue
 // is a plain, fully comparable struct, so exact-equality dedup via a map
 // key is correct and needs no custom Equal.
-func unionReviewIssues(current, reused []types.ReviewIssue) []types.ReviewIssue {
+func UnionReviewIssues(current, reused []types.ReviewIssue) []types.ReviewIssue {
 	seen := make(map[types.ReviewIssue]bool, len(current)+len(reused))
 	out := make([]types.ReviewIssue, 0, len(current)+len(reused))
 	for _, issue := range current {
@@ -246,9 +209,9 @@ func unionReviewIssues(current, reused []types.ReviewIssue) []types.ReviewIssue 
 	return out
 }
 
-// reuseOrStoreGateVerdict is the one call site runReview and runPRReview
+// ReuseOrStoreGateVerdict is the one call site runReview and runPRReview
 // both make, right after gateInconclusiveReason is final and right
-// before evaluateGate runs. currentIssues is this run's own, freshly
+// before EvaluateGate runs. currentIssues is this run's own, freshly
 // computed, already-rule-config-applied result.Issues; rawIssues is the
 // SAME run's issues captured immediately before that rule config was
 // applied (what gets stored on a miss). cfg is this run's effective
@@ -257,7 +220,7 @@ func unionReviewIssues(current, reused []types.ReviewIssue) []types.ReviewIssue 
 //
 // Every path through this function returns currentIssues UNCHANGED
 // unless a hit actually adds something:
-//   - !gateDeclared, !gateVerdictCacheAvailable(), !promptDigestOK, or
+//   - !gateDeclared, !VerdictCacheAvailable(), !promptDigestOK, or
 //     gateInconclusiveReason != "" (AC-003): no read, no write, no
 //     announcement other than AC-004's own unavailability notice.
 //   - a miss stores rawIssues (conclusive only) and returns currentIssues.
@@ -265,13 +228,13 @@ func unionReviewIssues(current, reused []types.ReviewIssue) []types.ReviewIssue 
 //     into currentIssues (monotonic: current never shrinks or is
 //     replaced), announces how many were newly added when that is
 //     nonzero, and returns the union.
-func reuseOrStoreGateVerdict(stderr io.Writer, limitations *[]string, gateDeclared, promptDigestOK bool, provider llm.Provider, in gateVerdictKeyInputs, cfg *config.Config, gateInconclusiveReason string, currentIssues, rawIssues []types.ReviewIssue) []types.ReviewIssue {
+func ReuseOrStoreGateVerdict(stderr io.Writer, limitations *[]string, gateDeclared, promptDigestOK bool, in VerdictKeyInputs, cfg *config.Config, gateInconclusiveReason string, currentIssues, rawIssues []types.ReviewIssue) []types.ReviewIssue {
 	if !gateDeclared {
 		return currentIssues
 	}
-	if !gateVerdictCacheAvailable() {
-		fmt.Fprintf(stderr, "aurumcode review: %s\n", gateVerdictCacheUnavailableNotice)
-		*limitations = append(*limitations, gateVerdictCacheUnavailableNotice)
+	if !VerdictCacheAvailable() {
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", VerdictCacheUnavailableNotice)
+		*limitations = append(*limitations, VerdictCacheUnavailableNotice)
 		return currentIssues
 	}
 	if !promptDigestOK {
@@ -285,15 +248,15 @@ func reuseOrStoreGateVerdict(stderr io.Writer, limitations *[]string, gateDeclar
 	if gateInconclusiveReason != "" {
 		return currentIssues
 	}
-	key := gateVerdictCacheKey(provider, in)
-	if stored, hit := loadGateVerdict(key); hit {
+	key := VerdictCacheKey(in)
+	if stored, hit := LoadGateVerdict(key); hit {
 		reapplied := config.ApplyRuleConfig(stored, cfg)
-		merged := unionReviewIssues(currentIssues, reapplied)
+		merged := UnionReviewIssues(currentIssues, reapplied)
 		if added := len(merged) - len(currentIssues); added > 0 {
 			fmt.Fprintf(stderr, "aurumcode review: %d achado(s) de uma revisão concluída anterior deste conteúdo reaplicado(s)\n", added)
 		}
 		return merged
 	}
-	storeGateVerdict(key, rawIssues)
+	StoreGateVerdict(key, rawIssues)
 	return currentIssues
 }

@@ -18,7 +18,6 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/memory"
@@ -126,7 +125,7 @@ type baseReview struct {
 	f              *reviewFlags
 	stdout, stderr io.Writer
 	filter         *redaction.Filter
-	run            *gate.Run // flushed by runReview when the run ends
+	run            *gateRun // flushed by runReview when the run ends
 
 	policyDir     string
 	threshold     int
@@ -179,7 +178,7 @@ type baseReview struct {
 	coverage     reviewCoverageBreakdown
 	coverageText string
 
-	gateRes *gate.Result
+	gateRes *gateDecision
 }
 
 // flush drains the redaction writers a gate contributor installed.
@@ -204,7 +203,7 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		}
 		return runPRReview(stdout, stderr, f.pr, f.repo, f.publicar, f.naLinha, f.check, filter, f.prOptions(policyDir))
 	}
-	b := &baseReview{f: f, stdout: stdout, stderr: stderr, filter: filter, policyDir: policyDir, run: &gate.Run{}}
+	b := &baseReview{f: f, stdout: stdout, stderr: stderr, filter: filter, policyDir: policyDir, run: &gateRun{}}
 	defer b.flush()
 	for _, phase := range []func() (int, bool){b.resolveInputs, b.analyze, b.decideGate, b.publish} {
 		if code, done := phase(); done {

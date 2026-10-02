@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	igate "github.com/Mpaape/AurumCode/internal/gate"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -310,7 +311,7 @@ func TestAUR538BaseNoOriginExceptionNeverMatches(t *testing.T) {
 		t.Fatalf("exit=%d, want exitFindings(%d): with no origin remote, the configured exception must fail closed and the breach must still fail the gate; stdout=%s stderr=%s", code, exitFindings, out.String(), errOut.String())
 	}
 	combined := out.String() + errOut.String()
-	if !strings.Contains(combined, repoIdentityUnavailableNotice("en-US")) {
+	if !strings.Contains(combined, igate.RepoIdentityUnavailableNotice("en-US")) {
 		t.Fatalf("expected the identity-unavailable notice:\n%s", combined)
 	}
 	if strings.Contains(combined, "aceito por exceção") {
@@ -352,9 +353,9 @@ func TestAUR538MatchExceptionActivePreferredOverExpiredSameFinding(t *testing.T)
 	expired := config.ExceptionConfig{Repo: "org/repo", Rule: "security#no-hardcoded-secrets", Path: "app.go", Owner: "antigo-dono", Reason: "legado", Expires: "2020-01-01"}
 	renewed := config.ExceptionConfig{Repo: "org/repo", Rule: "security#no-hardcoded-secrets", Path: "app.go", Owner: "novo-dono", Reason: "renovado", Expires: "2099-12-31"}
 
-	exc, status := matchException([]config.ExceptionConfig{expired, renewed}, "org/repo", "security#no-hardcoded-secrets", "app.go", now)
-	if status != exceptionActive {
-		t.Fatalf("status = %v, want exceptionActive: a renewed, still-active exception for the same finding must win over an earlier, expired entry listed before it", status)
+	exc, status := igate.MatchException([]config.ExceptionConfig{expired, renewed}, "org/repo", "security#no-hardcoded-secrets", "app.go", now)
+	if status != igate.ExceptionActive {
+		t.Fatalf("status = %v, want igate.ExceptionActive: a renewed, still-active exception for the same finding must win over an earlier, expired entry listed before it", status)
 	}
 	if exc.Owner != "novo-dono" {
 		t.Fatalf("matched exception owner = %q, want %q (the renewed entry)", exc.Owner, "novo-dono")
