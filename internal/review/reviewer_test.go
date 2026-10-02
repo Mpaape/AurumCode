@@ -132,3 +132,51 @@ func TestDefaultConfigKeepsMixedCodeDiffInPrompt(t *testing.T) {
 		}
 	}
 }
+
+// TestAUR517DegradedParseSummaryPinnedToParser pins reviewer.go's
+// degradedParseSummary constant to the exact string internal/prompt's
+// ResponseParser actually produces for a free-form (non-JSON) reply that
+// still matches its degraded-recovery line pattern. internal/prompt is
+// read-only for this card, so this is the regression that catches any
+// drift between the two copies of that literal.
+func TestAUR517DegradedParseSummaryPinnedToParser(t *testing.T) {
+	result, err := prompt.NewResponseParser().ParseReviewResponse("config/demo-tokens.txt:3: warning: looks suspicious")
+	if err != nil {
+		t.Fatalf("ParseReviewResponse: %v", err)
+	}
+	if result.Summary != degradedParseSummary {
+		t.Fatalf("degradedParseSummary is stale: parser produced %q, constant holds %q", result.Summary, degradedParseSummary)
+	}
+}
+
+// TestAUR517DegradedParseNoticeSurvivesFilters covers AUR-517 B1: a
+// non-JSON reply recovers one finding with no evidence (degradedExtract
+// never sets it), so filterModelIssues always discards it -- but the
+// parser's own "the reply was unusable" notice must still reach the
+// caller instead of being wiped by the summary-withholding gate that
+// discard would otherwise trigger. The diff is a small literal fixture
+// (not the repo's git-demo fixture, which tests/acceptance/AUR-517.sh's
+// sandboxed copy of go.mod/go.sum/cmd/internal/pkg does not include) so
+// this test runs unmodified both in the full checkout and under that
+// acceptance script.
+func TestAUR517DegradedParseNoticeSurvivesFilters(t *testing.T) {
+	diff := &types.Diff{Files: []types.DiffFile{
+		{Path: "app.go", Hunks: []types.DiffHunk{{NewStart: 1, Lines: []string{
+			"+package demo", "+", "+func ReadAll() []byte {", "+\tdata, _ := fetch()",
+			"+\treturn data", "+}", "+", "+func fetch() ([]byte, error) { return nil, nil }",
+		}}}},
+	}}
+	orch := llm.NewOrchestrator(&FakeProvider{Response: "app.go:4: warning: looks suspicious"}, nil, nil)
+	reviewer := NewReviewer(orch, DefaultConfig())
+
+	result, err := reviewer.GenerateReview(context.Background(), diff)
+	if err != nil {
+		t.Fatalf("GenerateReview failed: %v", err)
+	}
+	if result.Summary != degradedParseSummary {
+		t.Fatalf("degraded-parse notice was lost: got %q", result.Summary)
+	}
+	if len(result.Issues) != 0 {
+		t.Fatalf("expected the evidence-less recovered issue to be discarded, got %+v", result.Issues)
+	}
+}
