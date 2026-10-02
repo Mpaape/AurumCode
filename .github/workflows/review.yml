@@ -244,6 +244,98 @@ jobs:
             cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
 
+      # AUR-549: `aurumcode sbom` itself resolves
+      # quality_gates.ssor_dtrack.sbom_generator (repo or central policy,
+      # same precedence a review uses, ApplyCentralPolicy) and already
+      # exits 0 doing nothing when that section is not declared -- so this
+      # step runs UNCONDITIONALLY (card v3 review: a text grep here would
+      # only duplicate that decision, with a real chance of disagreeing
+      # with it) and pays only for extracting the (already-built)
+      # `aurumcode` binary and generating a wrapper script when a
+      # repository never opted in; the actual `docker run` of the Trivy
+      # image only happens when aurumcode itself decides to generate.
+      #
+      # The `aurumcode` binary is extracted from the aurumcode-review image
+      # already built above (same reviewed source, no second build/
+      # toolchain on the runner). Trivy itself NEVER runs as a locally
+      # installed binary and NEVER as `latest`: --trivy-bin points at a
+      # small wrapper this step generates, which re-plays trivy's own argv
+      # inside `docker run` against the DIGEST-PINNED image named by
+      # vuln_scanner_image in .board/bootstrap/locks/scanners.yml (the same
+      # lock file AUR-362 already seals). See docs/configuration.md's "SBOM
+      # CycloneDX com Trivy" section for why this step calls `docker run`
+      # directly from the RUNNER (not from inside aurumcode-review's own
+      # container): a nested `docker run` through a mounted docker socket
+      # would need host-path translation this step avoids by never nesting
+      # in the first place.
+      #
+      # The wrapper NEVER bind-mounts the checked-out workspace read-write:
+      # trivy's own --output inside the container always lands in a fresh
+      # $RUNNER_TEMP scratch directory (mounted read-write, outside
+      # .aurumcode-target entirely), and the wrapper itself -- running on
+      # the runner, not in the container -- moves the finished file into
+      # the path `aurumcode sbom` actually asked for once the container
+      # exits. The scanned filesystem mount (fs mode) stays read-only, as
+      # it always was.
+      - name: Generate SBOM (Trivy, AUR-549)
+        if: always() && steps.review.outcome != ''
+        working-directory: .aurumcode-target
+        env:
+          SCANNERS_LOCK: ${{ github.workspace }}/.aurumcode-tool/.board/bootstrap/locks/scanners.yml
+          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
+        run: |
+          set -euo pipefail
+          image="$(sed -n 's/^vuln_scanner_image:[[:space:]]*//p' "${SCANNERS_LOCK}" | head -n1)"
+          case "${image}" in
+            *@sha256:*) ;;
+            *) echo "::error::AUR-549: vuln_scanner_image in scanners.yml is not digest-pinned"; exit 1 ;;
+          esac
+
+          wrapper="${RUNNER_TEMP}/trivy-docker.sh"
+          cat > "${wrapper}" <<'WRAPPER'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          mode="${1:-}"; shift || true
+          format=''; output=''; target=''
+          while (( $# > 0 )); do
+            case "$1" in
+              --format) format="${2:-}"; shift 2 ;;
+              --output) output="${2:-}"; shift 2 ;;
+              *) target="$1"; shift ;;
+            esac
+          done
+          outbase="$(basename -- "$output")"
+          scratch="$(mktemp -d "${RUNNER_TEMP:-/tmp}/trivy-docker.XXXXXX")"
+          trap 'rm -rf "$scratch"' EXIT
+          case "$mode" in
+            fs)
+              targetabs="$(cd "$target" && pwd -P)"
+              docker run --rm -v "$targetabs:/workspace:ro" -v "$scratch:/out" __TRIVY_IMAGE__ fs --format "$format" --output "/out/$outbase" /workspace
+              ;;
+            image)
+              docker run --rm -v "$scratch:/out" __TRIVY_IMAGE__ image --format "$format" --output "/out/$outbase" "$target"
+              ;;
+            *)
+              echo "trivy-docker: unknown mode $mode" >&2
+              exit 2
+              ;;
+          esac
+          mv -- "$scratch/$outbase" "$output"
+          WRAPPER
+          sed -i "s|__TRIVY_IMAGE__|${image}|g" "${wrapper}"
+          chmod +x "${wrapper}"
+
+          bin_id="$(docker create aurumcode-review)"
+          docker cp "${bin_id}:/app/aurumcode" "${RUNNER_TEMP}/aurumcode"
+          docker rm "${bin_id}" >/dev/null
+          chmod +x "${RUNNER_TEMP}/aurumcode"
+
+          sbom_args=(sbom --repo . --trivy-bin "${wrapper}")
+          if [ -n "${POLICY_REPOSITORY}" ]; then
+            sbom_args+=(--politica "${GITHUB_WORKSPACE}/.aurumcode-policy")
+          fi
+          "${RUNNER_TEMP}/aurumcode" "${sbom_args[@]}"
+
       # AUR-521: the two compliance files are pre-created (`: >`) above so
       # the docker bind-mount does not create a directory in their place --
       # which means they can exist as valid, empty (0-byte) files on a run
