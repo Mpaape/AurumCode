@@ -22,7 +22,11 @@ import (
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // cleanFixture builds a minimal git repository whose HEAD~1..HEAD diff
@@ -30,7 +34,7 @@ import (
 // coverageFixture/localPassFixture (which both deliberately embed a
 // hardcoded-secret line for their own cards), so a test here is never
 // confused by the unrelated, pre-existing deterministic analysis pass.
-func cleanFixture(t *testing.T) string {
+func cleanFixture(t *testing.T, configYAML string) string {
 	t.Helper()
 	dir := t.TempDir()
 	write := func(name string, data []byte) {
@@ -77,6 +81,9 @@ func cleanFixture(t *testing.T) string {
 	write(".git/refs/heads/main", []byte(head+"\n"))
 	write(".git/config", []byte("[core]\nrepositoryformatversion = 0\nbare = false\n"))
 	write("app.go", []byte(source))
+	if configYAML != "" {
+		write(".aurumcode/config.yml", []byte(configYAML))
+	}
 	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "AURUMCODE_LLM_FIXTURE", "AURUMCODE_LLM_INPUT_USD_PER_1K", "AURUMCODE_LLM_OUTPUT_USD_PER_1K"} {
 		t.Setenv(key, "")
 	}
@@ -223,7 +230,7 @@ func TestAUR519PolicyGateStatusContextIsStable(t *testing.T) {
 // policy-gate line, and a clean response's own "approve" verdict still
 // publishes exactly as before AUR-519.
 func TestAUR519NoGateConfiguredStaysUntouched(t *testing.T) {
-	cleanFixture(t)
+	cleanFixture(t, "")
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)
@@ -278,5 +285,72 @@ func TestAUR519GateSeverityBreachFailsCheckWithProfiles(t *testing.T) {
 	}
 	if !strings.Contains(combined, "No Hardcoded Secrets") {
 		t.Fatalf("expected the section title named in the output under --perfis:\n%s", combined)
+	}
+}
+
+// TestAUR519ProfilePassesCarryDegradedMetadata is B2's regression:
+// runProfilePasses never copied a profile pass's result.Metadata into the
+// merged result at all, so prompt.IsDegradedParse(merged) was always false
+// under --perfis no matter how badly a profile's own pass degraded. Every
+// profile here shares the same underlying FakeProvider (profileProvider
+// only prefixes the prompt), so a free-form, non-JSON response degrades
+// every pass identically; the merged result must still carry the engine's
+// own degraded marker.
+func TestAUR519ProfilePassesCarryDegradedMetadata(t *testing.T) {
+	provider := &review.FakeProvider{Response: "app.go:3: error: looks suspicious\n"}
+	diff := &types.Diff{Files: []types.DiffFile{{
+		Path:  "app.go",
+		Hunks: []types.DiffHunk{{NewStart: 3, Lines: []string{"+ suspicious"}}},
+	}}}
+	profiles := []reviewprofile.Profile{{Name: "a"}, {Name: "b"}}
+	merged, err := runProfilePasses(context.Background(), provider, nil, profiles, diff, review.ReviewContext{}, nil, prompt.DefaultRuleCatalog)
+	if err != nil {
+		t.Fatalf("runProfilePasses() error = %v", err)
+	}
+	if !prompt.IsDegradedParse(merged) {
+		t.Fatalf("prompt.IsDegradedParse(merged) = false, want true: every profile's own pass degraded, so the merged result must say so (B2)")
+	}
+}
+
+// TestAUR519DegradedParseNeverCached is B3's regression. The review cache
+// key already incorporates the AURUMCODE_LLM_FIXTURE file's own content
+// (modelCacheKey, review_cache.go), so this test keeps the SAME fixture
+// across both runs -- the bug is not "a different answer got masked", it
+// is "a degraded answer's own classification gets lost on a cache hit":
+// mergeCacheHits (review_cache.go) rebuilds result.Issues from the cached
+// entry alone, with no parse ever happening and therefore no
+// prompt.IsDegradedParse signal at all. With gate.inconclusive: block
+// configured, the FIRST (fresh) run correctly fails the gate because the
+// parse degraded; persistFreshResults used to cache that run's (filtered
+// down to zero) issues anyway, so the SECOND run -- same fixture, a cache
+// hit -- saw zero issues and no degraded signal, and exited 0: a policy
+// gate silently defeated by its own cache. After the fix, a degraded run
+// is never persisted, so the second run calls the model again and fails
+// the gate exactly like the first.
+func TestAUR519DegradedParseNeverCached(t *testing.T) {
+	cleanFixture(t, "gate:\n  inconclusive: block\n")
+
+	degraded := filepath.Join(t.TempDir(), "degraded.txt")
+	if err := os.WriteFile(degraded, []byte("app.go:3: error: looks suspicious\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", degraded)
+
+	var out1, errOut1 strings.Builder
+	code1 := runReview([]string{"--base", "HEAD~1"}, &out1, &errOut1, redaction.NewFilter())
+	if code1 != exitQualityNotReviewed {
+		t.Fatalf("first run exit=%d, want exitQualityNotReviewed(%d); stdout=%s stderr=%s", code1, exitQualityNotReviewed, out1.String(), errOut1.String())
+	}
+
+	// Same fixture, same cache key: without the fix this is a cache hit
+	// with zero issues and no degraded signal, and the gate (wrongly)
+	// passes.
+	var out2, errOut2 strings.Builder
+	code2 := runReview([]string{"--base", "HEAD~1"}, &out2, &errOut2, redaction.NewFilter())
+	if code2 != exitQualityNotReviewed {
+		t.Fatalf("second run (same fixture) exit=%d, want exitQualityNotReviewed(%d) -- a degraded first run must never be cached, letting the gate pass on replay:\nstdout=%s\nstderr=%s", code2, exitQualityNotReviewed, out2.String(), errOut2.String())
+	}
+	if strings.Contains(errOut2.String(), "reused") {
+		t.Fatalf("second run reused a cached result for the degraded file instead of calling the model again:\n%s", errOut2.String())
 	}
 }
