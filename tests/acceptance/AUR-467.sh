@@ -109,6 +109,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/prompt"
@@ -119,6 +120,37 @@ func codeFile(path string, lines ...string) types.DiffFile {
 	return types.DiffFile{Path: path, Hunks: []types.DiffHunk{{Lines: lines}}}
 }
 
+// tightBudget finds, empirically, the smallest MaxTokens at which builder
+// admits at least one of diff's code hunks while still omitting at least
+// one. It starts just above the builder's own measured fixed overhead
+// (PromptBuilder.FixedOverheadTokens, AUR-539) and grows in small steps, so
+// the "tight" fixture always tracks the CURRENT fixed prompt content
+// (instructions, rule catalog, schema) instead of the literal MaxTokens
+// 1700 this script hardcoded before AUR-539, which the fixed content
+// outgrew.
+func tightBudget(builder *prompt.PromptBuilder, diff *types.Diff, metrics *analyzer.DiffMetrics, reserveReply int) (prompt.PromptParts, int, error) {
+	fixedOverhead, err := builder.FixedOverheadTokens(diff, metrics, prompt.BuildOptions{SchemaKind: "review", Role: "reviewer"})
+	if err != nil {
+		return prompt.PromptParts{}, 0, err
+	}
+	for extra := 0; extra <= 4000; extra += 20 {
+		maxTokens := fixedOverhead + reserveReply + extra
+		parts, err := builder.BuildPrompt(diff, metrics, prompt.BuildOptions{
+			MaxTokens: maxTokens, SchemaKind: "review", Role: "reviewer", ReserveReply: reserveReply,
+		})
+		if err != nil {
+			continue
+		}
+		complete, _ := strconv.Atoi(parts.Meta["code_files_complete"])
+		partial, _ := strconv.Atoi(parts.Meta["code_files_partial"])
+		omitted, _ := strconv.Atoi(parts.Meta["code_files_omitted"])
+		if complete+partial >= 1 && omitted >= 1 {
+			return parts, maxTokens, nil
+		}
+	}
+	return prompt.PromptParts{}, 0, fmt.Errorf("no tight budget found (fixedOverhead=%d)", fixedOverhead)
+}
+
 func main() {
 	mode := "nominal"
 	if len(os.Args) > 1 {
@@ -127,6 +159,7 @@ func main() {
 
 	var diff *types.Diff
 	maxTokens, reserve := 8000, 1000
+	tight := false
 
 	switch mode {
 	case "nominal":
@@ -145,16 +178,24 @@ func main() {
 			files = append(files, codeFile(fmt.Sprintf("src/big%02d.mjs", i), "+"+repeat("x", 400)))
 		}
 		diff = &types.Diff{Files: files}
-		maxTokens, reserve = 1700, 40
+		reserve = 40
+		tight = true
 	default:
 		fmt.Fprintf(os.Stderr, "unknown mode %q\n", mode)
 		os.Exit(2)
 	}
 
 	metrics := analyzer.NewDiffAnalyzer().AnalyzeDiff(diff)
-	parts, err := prompt.NewPromptBuilder().BuildPrompt(diff, metrics, prompt.BuildOptions{
-		MaxTokens: maxTokens, SchemaKind: "review", Role: "reviewer", ReserveReply: reserve,
-	})
+
+	var parts prompt.PromptParts
+	var err error
+	if tight {
+		parts, maxTokens, err = tightBudget(prompt.NewPromptBuilder(), diff, metrics, reserve)
+	} else {
+		parts, err = prompt.NewPromptBuilder().BuildPrompt(diff, metrics, prompt.BuildOptions{
+			MaxTokens: maxTokens, SchemaKind: "review", Role: "reviewer", ReserveReply: reserve,
+		})
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "assembly failed: %v\n", err)
 		os.Exit(3)
