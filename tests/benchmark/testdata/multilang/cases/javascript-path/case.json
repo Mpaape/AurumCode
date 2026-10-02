@@ -1,0 +1,9 @@
+{
+  "id": "javascript-path",
+  "language": "javascript",
+  "file": "files.js",
+  "label": "defect",
+  "rule": "path-traversal",
+  "line": 4,
+  "simulated_model": "hit"
+}

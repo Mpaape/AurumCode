@@ -45,6 +45,7 @@ type auditFile struct {
 		Path     string `json:"path"`
 		Line     int    `json:"line"`
 		Severity string `json:"severity"`
+		Origin   string `json:"origin"`
 	} `json:"blocking_findings"`
 	ExceptionsApplied []map[string]any `json:"exceptions_applied"`
 	Coverage          struct {
@@ -76,7 +77,7 @@ type sarifFile struct {
 // with internal/render's own canonical FindingFingerprint -- the exact
 // identity SARIF's writer uses internally).
 func TestAUR521AuditAndSARIFOnGateBreach(t *testing.T) {
-	dir := coverageFixture(t, "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n")
+	dir := coverageFixture(t, "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n  sources: [skills]\n")
 	if err := os.MkdirAll(filepath.Join(dir, "skills"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +187,7 @@ func TestAUR521AuditAndSARIFOnGateBreach(t *testing.T) {
 // the exact same both times -- if it were built from issue.Evidence/
 // Message instead, this test would fail.
 func TestAUR521AuditFingerprintStableAcrossTwoRuns(t *testing.T) {
-	coverageFixture(t, "review:\n  context:\n    skills:\n      - security.md\ngate:\n  fail_on: [high]\n")
+	coverageFixture(t, "review:\n  context:\n    skills:\n      - security.md\ngate:\n  fail_on: [high]\n  sources: [skills]\n")
 	if err := os.WriteFile("security.md", []byte("## No Hardcoded Secrets\n\nNever commit a literal credential.\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +390,7 @@ func TestAUR521RedactsSecretCanaryFromDiffLine(t *testing.T) {
 // with the gate's own decision and the repo/commit this run reviewed.
 func TestAUR521PRPathWritesComplianceArtifacts(t *testing.T) {
 	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ dbPassword := \"hunter2-super-secret\"\n+ _ = dbPassword\n+}\n"
-	headConfig := "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n"
+	headConfig := "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n  sources: [skills]\n"
 	skillBody := "## No Hardcoded Secrets\n\nNever commit a literal credential.\n"
 	resp := `{"summary":"ok","verdict":"approve","issues":[{"file":"app.go","line":3,"severity":"error","rule_id":"security#no-hardcoded-secrets","message":"Hardcoded secret","evidence":"dbPassword := \"hunter2-super-secret\"","impact":"Credential leak","verification":"Remove the literal secret"}]}`
 
@@ -468,7 +469,7 @@ func TestAUR521PRPathWritesComplianceArtifacts(t *testing.T) {
 func TestAUR521ExceptedFindingSuppressedNotBlocking(t *testing.T) {
 	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ dbPassword := \"hunter2-super-secret\"\n+ _ = dbPassword\n+}\n"
 	headConfig := "review:\n  context:\n    skills:\n      - skills/security.md\n" +
-		"gate:\n  fail_on: [high]\n" +
+		"gate:\n  fail_on: [high]\n  sources: [skills]\n" +
 		"exceptions:\n  - repo: owner/repo\n    rule: security#no-hardcoded-secrets\n    path: app.go\n" +
 		"    owner: time-seguranca\n    reason: consulta fixa\n    expires: 2099-12-31\n"
 	skillBody := "## No Hardcoded Secrets\n\nNever commit a literal credential.\n"

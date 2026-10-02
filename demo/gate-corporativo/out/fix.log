@@ -1,0 +1,4 @@
+== fix: remove o eval e atualiza a dependencia
+correcao aplicada: src/calc.js sem eval; lodash 4.17.15 -> 4.17.21
+commit: fix: sem eval, lodash 4.17.21
+commit: feature: calculadora

@@ -15,6 +15,43 @@ import (
 type GateConfig struct {
 	FailOn       []string `yaml:"fail_on"`
 	Inconclusive string   `yaml:"inconclusive"`
+	// Sources (AUR-556) restricts which finding origins count toward the
+	// gate: a closed list of GateSourceSkills, GateSourceAnalysis,
+	// GateSourceSAST. Empty (absent) means all three.
+	Sources []string `yaml:"sources"`
+}
+
+// The closed vocabulary of gate.sources (AUR-556).
+const (
+	GateSourceSkills   = "skills"
+	GateSourceAnalysis = "analysis"
+	GateSourceSAST     = "sast"
+)
+
+// ValidateSources rejects any gate.sources entry outside the closed list.
+func (g GateConfig) ValidateSources() error {
+	for _, s := range g.Sources {
+		switch strings.ToLower(strings.TrimSpace(s)) {
+		case GateSourceSkills, GateSourceAnalysis, GateSourceSAST:
+		default:
+			return fmt.Errorf("gate.sources: unknown source %q (accepted: skills, analysis, sast)", s)
+		}
+	}
+	return nil
+}
+
+// SourceEnabled reports whether findings of the named origin count toward
+// the gate: always true when no sources list was declared.
+func (g GateConfig) SourceEnabled(name string) bool {
+	if len(g.Sources) == 0 {
+		return true
+	}
+	for _, s := range g.Sources {
+		if strings.EqualFold(strings.TrimSpace(s), name) {
+			return true
+		}
+	}
+	return false
 }
 
 // Declared reports whether this GateConfig was actually written, as
@@ -105,5 +142,5 @@ func (g GateConfig) Validate() error {
 	if _, err := g.InconclusiveMode(); err != nil {
 		return err
 	}
-	return nil
+	return g.ValidateSources()
 }

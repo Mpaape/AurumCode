@@ -1,0 +1,9 @@
+# Central policy used by the AUR-523 multi-language benchmark.
+# Synthetic and public: it only names security classes, no organization data.
+review:
+  context:
+    skills:
+      - .aurumcode/skills/seguranca.md
+gate:
+  fail_on: [error]
+  inconclusive: block

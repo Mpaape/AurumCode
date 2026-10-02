@@ -1,0 +1,9 @@
+{
+  "id": "go-cmd",
+  "language": "go",
+  "file": "run.go",
+  "label": "defect",
+  "rule": "command-injection",
+  "line": 8,
+  "simulated_model": "hit"
+}

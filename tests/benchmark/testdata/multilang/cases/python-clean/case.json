@@ -1,0 +1,8 @@
+{
+  "id": "python-clean",
+  "language": "python",
+  "file": "safe.py",
+  "label": "clean",
+  "simulated_model": "silent",
+  "false_alarm_line": 0
+}

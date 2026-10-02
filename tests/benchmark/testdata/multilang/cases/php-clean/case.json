@@ -1,0 +1,8 @@
+{
+  "id": "php-clean",
+  "language": "php",
+  "file": "safe.php",
+  "label": "clean",
+  "simulated_model": "silent",
+  "false_alarm_line": 0
+}

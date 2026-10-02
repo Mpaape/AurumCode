@@ -43,6 +43,10 @@ type complianceArtifactInputs struct {
 	gate                   gateDecision
 	gateInconclusiveReason string
 
+	// analysisData (AUR-533) is non-nil only when a declared analysis_data
+	// section resolved a usable artifact.
+	analysisData *render.AnalysisDataAudit
+
 	// diff is the exact diff this run reviewed. The SARIF fingerprint is
 	// built from the code AT (issue.File, issue.Line, issue.Side) in this
 	// diff (render.FindingIdentityFor) -- never from issue.Message/
@@ -110,12 +114,17 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 			exceptionsApplied,
 			in.coverageComplete, in.omittedFiles,
 		)
+		rec.AnalysisData = in.analysisData
 		if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: writing audit record: %v\n", err)
 		}
 	}
 
 	if in.sarifPath != "" {
+		origins := make(map[string]string, len(blocking))
+		for _, b := range blocking {
+			origins[findingOriginKey(b.RuleID, b.Path, b.Line)] = b.Origin
+		}
 		findings := make([]render.SARIFFinding, 0, len(in.issues))
 		for _, issue := range in.issues {
 			title := ""
@@ -131,6 +140,10 @@ func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Fil
 				Severity:  issue.Severity,
 				Message:   issue.Message,
 				Context:   identity.Context,
+			}
+			// Gate origin of a counted finding, as a typed SARIF property.
+			if origin, ok := origins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
+				finding.Origin = origin
 			}
 			if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
 				finding.Suppressed = true

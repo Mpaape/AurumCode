@@ -1,0 +1,8 @@
+{
+  "id": "ruby-clean",
+  "language": "ruby",
+  "file": "safe.rb",
+  "label": "clean",
+  "simulated_model": "false_alarm",
+  "false_alarm_line": 2
+}

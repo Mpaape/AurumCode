@@ -920,3 +920,260 @@ consumidor.
   `fail-on`, `model`, `changelog`, `policy_path` (diretório, já no workspace
   do runner e controlado por quem escreveu o job, que contém o
   `.aurumcode/config.yml` de uma política central).
+
+## gate.sources: which findings count toward the gate
+
+When the central policy declares `gate`, every finding that passed the
+evidence gate (file and line inside the diff) and has no valid exception
+counts if its severity is at or above `fail_on`, whatever its origin:
+
+| origin | what it is |
+|---|---|
+| `skills` | rules from the policy's skill sections (cited by the model) |
+| `analysis` | the embedded deterministic catalog (`analysis/*`) |
+| `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`) |
+
+```yaml
+gate:
+  fail_on: [error]
+  sources: [skills, analysis, sast]   # optional; default: all three
+```
+
+`sources` is a closed list; an unknown value is an error when the config is
+loaded. Absent or empty means all origins. The central policy governs the
+list: when it declares `gate`, a repository's own `gate` (including its
+`sources`) is ignored. Analysis findings are recomputed from the diff by the
+embedded catalog, never taken from the model's answer. The origin appears in
+the gate lines of the review (parecer and stderr), in the audit
+record (`blocking_findings[].origin`, also in the reason) and in the SARIF
+result (`properties.origin`). Without a `gate`,
+nothing changes. Restricting `sources` to leave out `sast` also stops a
+declared gate from counting Semgrep findings.
+
+## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
+
+<a id="xbom"></a>
+
+`aurumcode xbom --type build|cbom --repo <dir> [--politica <dir>] [--out <arquivo>]`
+gera um BOM CycloneDX 1.6 (`bomFormat: CycloneDX`, `specVersion` 1.6) para o
+repositório. Sem `--out` o JSON vai para stdout. O arquivo só aparece depois
+de validar (mesma validação do AUR-549, `specVersion` maior ou igual a
+`quality_gates.ssor_dtrack.sbom_generator.spec_version` quando declarado,
+senão 1.6): é escrito num temporário e renomeado, então uma falha de escrita
+ou validação sai com código diferente de 0 e não deixa arquivo parcial.
+Códigos de saída: `0` ok; `1` falha de geração, escrita ou validação; `2`
+configuração inválida ou tipo apenas documentado (aibom, saasbom, netbom);
+`64` `--type` desconhecido.
+
+- `build`: ferramentas e Actions de terceiros da esteira: `uses:` de workflows
+  GitHub Actions (com versão ou SHA) e `FROM` de Dockerfiles (com tag ou
+  digest).
+- `cbom`: algoritmos, modos, tamanhos de chave, hashes, protocolos TLS e
+  certificados citados em código (Go, Python, JavaScript/TypeScript, Java,
+  Kotlin, Scala) e em configuração (YAML, TOML, properties), com
+  `cryptoProperties` do CycloneDX 1.6 e destaque para algoritmos
+  pós-quânticos (`aurumcode:xbom:pqc`).
+
+### Evidência: o que entra no BOM
+
+Cada componente carrega `evidence.occurrences[]` com `location` (caminho
+relativo ao repositório) e `line`. Antes de escrever, o gerador reabre cada
+ocorrência e exige que a linha citada contenha o token de evidência do
+componente. Componente sem nenhuma ocorrência verificada é descartado e
+contado em `metadata.properties` `aurumcode:xbom:dropped_without_evidence`
+(ocorrências individuais descartadas ficam em
+`aurumcode:xbom:dropped_occurrences`). O modelo nunca adiciona um componente
+sem ocorrência verificável.
+
+### Catálogos: a coleta é dados, não código
+
+O motor não conhece linguagem, ferramenta ou algoritmo. O que procurar vem de
+um catálogo YAML por tipo, embutido no binário
+(`internal/xbom/catalog/<tipo>.yml`) e sobrescrevível, por seção, em
+`.aurumcode/xbom/<tipo>.yml`:
+
+1. a política central (`--politica` ou `AURUMCODE_POLICY`) vence;
+2. senão, o repositório;
+3. senão, o catálogo embutido.
+
+Como em `quality_gates`, a política decide sozinha: se ela traz o catálogo do
+tipo, o do repositório é ignorado com um aviso. Um catálogo inválido é erro
+(exit 2), nunca volta silenciosamente ao embutido, e um override que seja
+link simbólico é recusado.
+
+```yaml
+version: 1
+type: build                  # igual ao --type
+file_sets:                   # conjuntos de globs reutilizáveis ("@nome")
+  workflows: [".github/workflows/*.yml"]
+exclude: [".git/**", "**/vendor/**"]
+additional:                  # regra para componentes propostos pelo modelo (obrigatória)
+  name_pattern: '^[^\s]*[/.:@][^\s]*$'   # o nome precisa casar (aqui: identificador qualificado)
+  reject_tokens: [FROM, RUN, AS, uses]   # palavras estruturais, nunca nome de componente
+entries:
+  - id: github-actions-uses
+    files: ["@workflows"]    # globs relativos (*, **, ?); sem ".."
+    pattern: '^\s*-?\s*uses:\s*(?P<name>[\w./-]+)@(?P<version>[\w.-]+)'
+    token: name              # grupo que precisa aparecer na linha citada
+    component:
+      type: application      # tipo de componente CycloneDX
+      name: "{name}"
+      version: "{version}"
+      purl: "pkg:githubactions/{name}@{version}"
+      properties: {"aurumcode:xbom:ecosystem": github-actions}
+```
+
+Templates: `{grupo}`; `{a?b}` usa o primeiro grupo não vazio; filtros
+`{grupo|upper|lower|trim|nodash|dot}`; `{grupo:int}` como valor inteiro
+(ex.: `size: "{size:int}"`). Para `cryptographic-asset`, `crypto:` é o
+`cryptoProperties` (com `assetType` válido: `algorithm`, `certificate`,
+`protocol` ou `related-crypto-material`); valores que renderizam vazios são
+omitidos. Componentes que o modelo propõe (`additional`) só entram se o nome casar
+`additional.name_pattern`, não estiver em `additional.reject_tokens`
+(comparação sem diferenciar maiúsculas) e aparecer, em fronteira de token
+(`AS` não casa dentro de `ASSERT`), na linha citada; o `token` enviado pelo
+modelo é ignorado. Rejeitados por padrão/palavra contam em
+`aurumcode:xbom:llm_rejected`; sem nome na linha, em
+`dropped_without_evidence`. A validação recusa `additional.name_pattern`
+ausente ou inválido, regex inválida, `token` que não é grupo do
+padrão, placeholder para grupo inexistente, tipo CycloneDX desconhecido, ids
+duplicados e chaves desconhecidas. Detalhes e exemplos completos em
+`docs/specs/AUR-552.md`.
+
+### Modelo (LLM)
+
+Com um provedor configurado (`LLM_API_KEY` + `LLM_BASE_URL`, ou
+`AURUMCODE_LLM_FIXTURE=<arquivo>` offline), o modelo classifica e enriquece os
+candidatos: descrição, propriedades `aurumcode:xbom:llm:*`, exclusão de falso
+positivo (`keep: false`) e componentes adicionais que ele consiga citar com
+arquivo, linha e token, todos sujeitos à mesma verificação de evidência. O
+prompt é `internal/xbom/prompt/<tipo>.md`, sobrescrevível só pela política
+central em `.aurumcode/xbom/<tipo>.md` (o repositório revisado não pode trocar
+o prompt). Sem provedor, o BOM sai só com a evidência determinística e
+`metadata.properties` registra `aurumcode:xbom:llm=absent`; se o provedor
+falha, registra `failed` e a evidência determinística é mantida. As linhas
+enviadas ao modelo passam pela redação de segredos do produto.
+
+### Demais tipos: formato e envio (AIBOM, SaaSBOM, NetBOM)
+
+Estes tipos são definidos, não gerados: `aurumcode xbom --type aibom|saasbom|netbom`
+sai com código 2 e aponta para esta seção. O formato é CycloneDX 1.6 e o envio
+é o mesmo do SBOM (AUR-550): `POST /api/v1/bom`, multipart com os campos
+`project` (UUID do projeto no Dependency-Track v5) e `bom` (o arquivo), cabeçalho
+`X-Api-Key`, host, chave e projeto vindos de configuração e secrets
+(`quality_gates.ssor_dtrack`), nunca de literais. Um projeto por serviço **e
+por tipo de BOM**: o servidor sobrescreve o BOM anterior do mesmo projeto.
+Todo componente cita `evidence.occurrences[]` (arquivo e linha) como nos tipos
+gerados.
+
+<a id="xbom-aibom"></a>
+
+#### AIBOM / MLBOM (`xbom-aibom`)
+
+Modelos, datasets, pesos e guardrails. Componentes `machine-learning-model`
+(com `modelCard`) e `data` (datasets); pesos como `file` com `hashes`.
+
+```json
+{
+  "bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1,
+  "components": [{
+    "type": "machine-learning-model", "bom-ref": "model-1", "name": "classificador-risco",
+    "version": "3", "modelCard": {"modelParameters": {"task": "classification"}},
+    "evidence": {"occurrences": [{"location": "serving/app.py", "line": 12}]}
+  }]
+}
+```
+
+<a id="xbom-saasbom"></a>
+
+#### SaaSBOM / OBOM (`xbom-saasbom`)
+
+Serviços de nuvem e APIs de terceiros, em `services[]` com `endpoints`,
+`authenticated`, `x-trust-boundary` e `data` (classificação e fluxo).
+
+```json
+{
+  "bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1,
+  "services": [{
+    "bom-ref": "svc-pagamentos", "name": "gateway-pagamentos",
+    "endpoints": ["https://api.exemplo.test/v1"], "authenticated": true,
+    "x-trust-boundary": true,
+    "data": [{"flow": "outbound", "classification": "PII"}],
+    "evidence": {"occurrences": [{"location": "config/app.yml", "line": 8}]}
+  }]
+}
+```
+
+<a id="xbom-netbom"></a>
+
+#### NetBOM (`xbom-netbom`)
+
+Endpoints, portas, direção do tráfego e limites de confiança, também em
+`services[]`: `endpoints` com a porta na URL, `data[].flow` (`inbound`,
+`outbound`, `bi-directional`) e `x-trust-boundary`.
+
+```json
+{
+  "bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1,
+  "services": [{
+    "bom-ref": "net-api", "name": "api-interna",
+    "endpoints": ["https://0.0.0.0:8443"], "x-trust-boundary": false,
+    "data": [{"flow": "inbound", "classification": "internal"}],
+    "evidence": {"occurrences": [{"location": "deploy/service.yml", "line": 21}]}
+  }]
+}
+```
+
+Envio de qualquer um deles (mesmo servidor, mesma chave, projeto próprio):
+
+```bash
+curl -sS -X POST "$DTRACK_API_HOST/api/v1/bom" \
+  -H "X-Api-Key: $DTRACK_API_KEY" \
+  -F "project=$DTRACK_PROJECT_ID_CBOM" -F "bom=@cbom.json"
+```
+## Artefato de dados de análise (`analysis_data`)
+
+O que a análise usa e envelhece sem ser dependência Go (cópia da base pública
+OSV por ecossistema e as versões dos scanners fixadas pelo projeto) é
+reconstruído todo dia por `.github/workflows/analysis-data.yml`, testado e só
+então publicado como GitHub Release imutável com tag
+`analysis-data/<AAAAMMDDTHHMMSSZ>`. O release traz `manifest.json` (schema,
+data de geração em UTC, fontes, sha256 de cada arquivo e do conjunto) e um
+arquivo por ecossistema; a lista de ecossistemas vem da própria fonte OSV a
+cada build, nunca do código. Teste falhando mantém o release anterior como o
+mais novo. Não há atualização manual.
+
+Em execução, o AurumCode usa o release mais novo, confere o digest de cada
+arquivo e do conjunto e compara a data com a idade máxima:
+
+```yaml
+analysis_data:
+  max_age_days: 7          # padrão 7; aceito de 1 a 365
+  repository: owner/repo   # opcional; padrão: o repositório que publica o artefato
+```
+
+- Artefato acima da idade máxima, digest divergente, sem rede e sem cópia em
+  cache, ou manifesto inválido: o resultado é o `gate.inconclusive` da política
+  com o motivo (`analysis_data_stale`, `analysis_data_digest_mismatch`,
+  `analysis_data_unavailable`, `analysis_data_invalid`). Nunca aprovado.
+- Dentro da idade, o digest do conjunto e a data de geração vão para a
+  auditoria (`--auditoria`).
+- Como `quality_gates`, a seção é governada de forma independente: se a
+  política central declara `analysis_data`, ela decide sozinha e a declaração
+  do repositório é ignorada com aviso; se a política não a menciona, vale a do
+  repositório; sem nenhuma, valem os padrões.
+- Em um review, só os arquivos de `kind: scanners` do release são baixados e
+  verificados individualmente. A cópia OSV só é baixada e verificada por
+  arquivo quando um consumidor a usar (AUR-495); o manifesto inteiro, e portanto
+  cada digest de arquivo, continua coberto pelo `set_digest`, que é conferido
+  em todo review.
+- `max_age_days` ausente usa 7; escrito explicitamente como 0, negativo ou
+  acima de 365 é erro de carga (nunca "sem limite" nem o padrão em silêncio).
+- Se a listagem de releases estiver indisponível, o AurumCode usa a cópia em
+  cache mais nova, revalidada: o manifesto em cache é validado contra si mesmo
+  (`set_digest` e digest de cada arquivo) e a idade é conferida como sempre.
+  Isso não prova autenticidade perante o GitHub, apenas integridade e
+  frescor da cópia. O uso fica explícito: `source: cache` na auditoria e uma
+  linha no parecer (`remote` quando a listagem respondeu).
+- Requisito de publicação: ative "Immutable releases" nas configurações do
+  repositório publicador para que um release publicado não possa ser alterado.

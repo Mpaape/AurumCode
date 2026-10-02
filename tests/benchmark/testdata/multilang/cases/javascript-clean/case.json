@@ -1,0 +1,8 @@
+{
+  "id": "javascript-clean",
+  "language": "javascript",
+  "file": "safe.js",
+  "label": "clean",
+  "simulated_model": "silent",
+  "false_alarm_line": 0
+}
