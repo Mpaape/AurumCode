@@ -382,6 +382,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	perfil := fs.String("profile", "", "alias of --perfis for a single reviewer profile (AUR-502)")
 	politica := fs.String("politica", "", "directory containing a central policy's .aurumcode/config.yml (the directory that HOLDS .aurumcode/, same convention as a repository's own config.yml/skills); its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own (AUR-518; default: the AURUMCODE_POLICY environment variable, otherwise no policy)")
 	policyAlias := fs.String("policy", "", "alias of --politica")
+	auditoria := fs.String("auditoria", "", "path to write AUR-521's compliance audit record (JSON) for this run: policy digest, workflow/reviewed SHA, model, verdict, gate decision, blocking findings, exceptions applied and coverage (default: no audit record written)")
+	sarifPath := fs.String("sarif", "", "path to write AUR-521's SARIF 2.1.0 document for this run, for a workflow to upload to GitHub code scanning (default: no SARIF written)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
@@ -479,6 +481,8 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			changelog:       *changelogFlag,
 			exigirQualidade: *exigirQualidade,
 			policyDir:       policyDir,
+			auditoriaPath:   *auditoria,
+			sarifPath:       *sarifPath,
 		})
 	}
 
@@ -1182,6 +1186,27 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			}
 		}
 	}
+
+	// AUR-521: the compliance audit record and SARIF document, written once
+	// the gate's own decision above is final. A no-op unless --auditoria or
+	// --sarif was given (writeComplianceArtifacts's own guard).
+	writeComplianceArtifacts(complianceArtifactInputs{
+		auditoriaPath:          *auditoria,
+		sarifPath:              *sarifPath,
+		policyDir:              policyDir,
+		centralCfg:             centralCfg,
+		repo:                   os.Getenv("GITHUB_REPOSITORY"),
+		reviewedSHA:            os.Getenv("GITHUB_SHA"),
+		model:                  firstNonEmpty(*modelo, os.Getenv("LLM_MODEL")),
+		verdict:                result.Verdict,
+		gate:                   gateResult,
+		gateInconclusiveReason: gateInconclusiveReason,
+		diff:                   diff,
+		issues:                 gateIssues,
+		dynamicRules:           dynamicRules,
+		coverageComplete:       !coverageBreakdown.partial(),
+		omittedFiles:           append(append([]string{}, coverageBreakdown.IgnoredPaths...), coverageBreakdown.FilteredPaths...),
+	}, filter, stderr)
 
 	// AUR-490 supersedes AUR-443's "summary field" decision (see
 	// docs/specs/AUR-443.md section 7's dated postscript): that section
