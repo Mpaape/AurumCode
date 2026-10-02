@@ -1,0 +1,83 @@
+{
+  "schema": "aurum.benchmark-corpus",
+  "version": 1,
+  "frozen_at": "2026-09-28T00:00:00Z",
+  "cases": [
+    {
+      "id": "case-go-nil-handler",
+      "language": "go",
+      "split": "dev",
+      "base": "1111111111111111111111111111111111111111",
+      "head": "2222222222222222222222222222222222222222",
+      "prompt": "review/default-v1",
+      "skills": ["go/errors-v1"],
+      "defects": [
+        {
+          "id": "d1",
+          "file": "service/handler.go",
+          "line": 12,
+          "severity": "high",
+          "category": "nil-deref",
+          "marker": "return user.Name"
+        },
+        {
+          "id": "d2",
+          "file": "service/repo.go",
+          "line": 40,
+          "severity": "medium",
+          "category": "missing-error-check",
+          "cross_file": true,
+          "marker": "rows.Scan(err)"
+        }
+      ]
+    },
+    {
+      "id": "case-py-injection",
+      "language": "python",
+      "split": "holdout",
+      "base": "3333333333333333333333333333333333333333",
+      "head": "4444444444444444444444444444444444444444",
+      "prompt": "review/default-v1",
+      "defects": [
+        {
+          "id": "d1",
+          "file": "app/views.py",
+          "line": 8,
+          "severity": "critical",
+          "category": "sql-injection",
+          "marker": "cursor.execute(query %"
+        }
+      ]
+    },
+    {
+      "id": "case-ts-crossfile",
+      "language": "typescript",
+      "split": "dev",
+      "base": "5555555555555555555555555555555555555555",
+      "head": "6666666666666666666666666666666666666666",
+      "prompt": "review/strict-v2",
+      "skills": ["ts/strict-null-v1"],
+      "defects": [
+        {
+          "id": "d1",
+          "file": "src/loader.ts",
+          "line": 21,
+          "severity": "high",
+          "category": "unchecked-null",
+          "cross_file": true,
+          "marker": "cache.get(id)!"
+        }
+      ]
+    },
+    {
+      "id": "case-clean-neg",
+      "language": "go",
+      "split": "holdout",
+      "base": "7777777777777777777777777777777777777777",
+      "head": "8888888888888888888888888888888888888888",
+      "prompt": "review/default-v1",
+      "has_negative": true,
+      "defects": []
+    }
+  ]
+}
