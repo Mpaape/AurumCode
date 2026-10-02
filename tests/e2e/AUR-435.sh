@@ -61,7 +61,10 @@ cat >"$fixture" <<'EOF'
       "line": 4,
       "severity": "info",
       "rule_id": "quality/poor-naming",
-      "message": "PLANTED-QUALITY-435 finding for the separation proof."
+      "message": "PLANTED-QUALITY-435 finding for the separation proof.",
+      "evidence": "The added line declares an identifier that does not describe its purpose.",
+      "impact": "Readers must trace usage elsewhere to understand what the value holds.",
+      "verification": "Rename the identifier to something descriptive and confirm the finding clears."
     }
   ],
   "summary": "Quality-only fixture for AUR-435."

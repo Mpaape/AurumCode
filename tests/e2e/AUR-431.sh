@@ -59,7 +59,10 @@ cat >"$fixture_error" <<'EOF'
       "line": 4,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN)."
+      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
+      "evidence": "The added line stores the token as a literal string assignment.",
+      "impact": "Anyone with repository read access can extract and reuse the token.",
+      "verification": "Replace the literal with an environment lookup and confirm the finding is gone."
     }
   ],
   "summary": "The change adds config/demo-tokens.txt, which commits plaintext credential-shaped values."
@@ -73,7 +76,10 @@ cat >"$fixture_info" <<'EOF'
       "line": 4,
       "severity": "info",
       "rule_id": "quality/magic-numbers",
-      "message": "Consider documenting where this demo value comes from."
+      "message": "Consider documenting where this demo value comes from.",
+      "evidence": "The added line introduces the value with no explanatory comment nearby.",
+      "impact": "A future maintainer may not know why this particular value was chosen.",
+      "verification": "Add a short comment above the line and confirm reviewers accept it."
     }
   ],
   "summary": "Only informational notes."

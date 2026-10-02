@@ -140,7 +140,10 @@ cat >"$response" <<EOF
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
       "message": "A hardcoded credential is committed in plain text at this line, together with:\n+Authorization: Bearer ${bearer}\nRotate both.",
-      "suggestion": "Remove the value, rotate it, and load it from the environment."
+      "suggestion": "Remove the value, rotate it, and load it from the environment.",
+      "evidence": "The added line writes a live credential value directly into a tracked config file.",
+      "impact": "Anyone who can read the repository can lift the credential and reuse it elsewhere.",
+      "verification": "Remove the literal, load it from the environment instead, and confirm the finding clears."
     }
   ],
   "summary": "The change commits a plaintext credential in config/secrets.env."

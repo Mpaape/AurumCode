@@ -106,6 +106,10 @@ want_happy_stdout='config/demo-tokens.txt:4: [error] A credential-shaped value w
 
 # --- 3. Mixed discard: stdout hides ungrounded findings, stderr names how many and why. ---
 
+# AUR-541: expect-gate-discard: the "no rule_id at all" and "unknown
+# rule_id" entries below carry no evidence/impact/verification on purpose
+# -- their discard (this card's own rule gate, AUR-434) is exactly what
+# lines 142-143 below prove by never seeing that text on stdout.
 mixed_fixture="$run_dir/mixed.json"
 cat >"$mixed_fixture" <<'EOF'
 {
@@ -115,7 +119,10 @@ cat >"$mixed_fixture" <<'EOF'
       "line": 3,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "grounded"
+      "message": "grounded",
+      "evidence": "a linha adicionada grava um valor de credencial como literal",
+      "impact": "qualquer leitor do repositorio pode reaproveitar esse valor",
+      "verification": "remover o literal e confirmar que o achado desaparece"
     },
     {
       "file": "config/demo-tokens.txt",
@@ -157,6 +164,9 @@ run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$mixed_fixture"
 # a confidently wrong "your code is clean" for a fixture that planted a
 # real finding.
 
+# AUR-541: expect-gate-discard: this fixture's single finding has no
+# rule_id and no evidence/impact/verification by design -- it exists to
+# prove the all-discarded path (lines 176-179 below).
 all_discarded_fixture="$run_dir/all-discarded.json"
 cat >"$all_discarded_fixture" <<'EOF'
 {
