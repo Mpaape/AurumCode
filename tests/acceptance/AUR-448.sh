@@ -64,22 +64,9 @@ command -v go >/dev/null 2>&1 || infra missing_go
 required_inputs=(
   go.mod
   go.sum
-  cmd/aurumcode
-  internal/analyzer
-  internal/config
-  internal/llm
-  internal/prompt
-  internal/review
-  internal/security
-  internal/git
-  internal/documentation/extractors
-  internal/documentation/incremental
-  internal/documentation/normalizer
-  internal/documentation/site internal/documentation/review
-  internal/documentation/welcome internal/documentation/review
-  internal/pipeline
-  cmd/regenerate-docs
-  pkg/types
+  cmd
+  internal
+  pkg
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
   tests/unit/AUR-448.go
@@ -106,7 +93,14 @@ mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 # read-only module list) and -p=1 (single build/test process) for every go
 # invocation in this file.
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+# AUR-547 (revisao de coordenacao, custo do selado): GOCACHE aceita um
+# valor ja exportado pelo chamador (tests/acceptance/AUR-547.sh compartilha
+# um GOCACHE entre os 18 sub-selectors que ele invoca, porque o binario
+# cmd/aurumcode e o MESMO source toda vez -- so GOTMPDIR continua por
+# execucao, nunca compartilhado).
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE
+export GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 
 run_go() {
@@ -124,20 +118,31 @@ copy() {
   done
 }
 
-# stage_source materializes exactly what `go build ./cmd/aurumcode` needs:
-# this card's owned packages plus the read-only packages it imports
-# (cmd/aurumcode is shared with concurrently-dispatched cards -- pr.go
-# imports internal/git/githubclient, docs.go imports
-# internal/documentation/* and internal/pipeline -- both have to resolve),
-# plus the fixtures the CLI is exercised against.
+# stage_source materializes exactly what `go build ./cmd/aurumcode` needs.
+# AUR-547: cmd/regenerate-docs, internal/pipeline and internal/documentation/*
+# were removed from the product by commit 670c7f6 ("Focus AurumCode on code
+# review", 2026-09-12), a deliberate pivot predating this fix and already
+# treated as settled fact by AUR-490's done-card record; `ls internal` on
+# this worktree confirms none of the three exists any more. The package
+# list below is `go list -deps ./cmd/aurumcode`'s own answer (run in the
+# go-shared container against this worktree), filtered to the
+# github.com/Mpaape/AurumCode/internal/* entries and rolled up to their
+# owning directory -- the same technique and resulting list AUR-542 already
+# used for tests/e2e/AUR-459.sh's stage_source.
 stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode cmd/regenerate-docs
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
-  copy "$root" pkg/types
+  # AUR-547 (revisao de coordenacao): copiar cmd/internal/pkg POR INTEIRO,
+  # nao mais uma lista de subpacotes a mao -- a lista enumerada ja quebrou
+  # uma vez neste card quando o merge do main trouxe internal/dtrack e
+  # internal/sbom, e quebraria outra vez quando o AUR-551 (em andamento)
+  # adicionar internal/supplychain. Os tres estao em `internal`/`cmd`/`pkg`
+  # por inteiro no read_paths deste card, entao esta copia nao amplia o
+  # que o card ja pode ler.
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input this copies from can be read-only, directories
   # included; force the staged copy writable so mutation_case's sed and
@@ -241,6 +246,18 @@ run_bin() {
   set -e
 }
 
+# after_diagram prints everything after the LAST lone mermaid fence
+# ("```") line in $1 -- i.e. everything the AUR-490 summary/diagram block
+# does not own. B1 (independent review of this card): a bare `tail -n1`
+# check for "No issues found." lets an arbitrary leaked line sit right
+# before it undetected -- proven by adding a stray stdout line in
+# cmd/aurumcode/main.go's printFindings ahead of "No issues found." and
+# observing scenario 4 below stay green. This instead compares the WHOLE
+# remainder after the diagram for exact equality.
+after_diagram() {
+  awk 'BEGIN{p=0} /^```$/{p=NR} {buf[NR]=$0} END{for(i=p+1;i<=NR;i++) print buf[i]}' <<<"$1"
+}
+
 # nominal_case is AC-001's core behavioral proof: run the built binary
 # exactly as a user would.
 nominal_case() {
@@ -250,39 +267,65 @@ nominal_case() {
   write_fixtures "$run_dir/fixtures"
 
   # --- 1. No provider configured: the message shows the COMPLETE shape. ---
+  # AUR-547/AUR-490: AUR-490 (done, integrated after this card) made a bare
+  # `review --base` without a provider exit 0 (deterministic analysis,
+  # decided by --fail-on) instead of 1 unconditionally, with stdout always
+  # carrying the AC-002 summary/diagram block -- measured directly against
+  # this worktree's binary, the same change AUR-542 already recorded for
+  # tests/e2e/AUR-448.sh. The COMPLETE fixture-shape message this card
+  # actually owns is unaffected: cmd/aurumcode/main.go's qualitySkipped
+  # branch prints it as a second stderr line (AUR-542's own product fix,
+  # already merged), so every grep below still holds.
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1
-  [[ "$rc" -eq 1 ]] || fail behavior-missing
-  [[ -s "$run_dir/out.stdout" ]] && fail behavior-missing
-  grep -Fq 'no LLM provider configured' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"issues"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"file"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"line"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"severity"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"rule_id"' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq '"message"' "$run_dir/out.stderr" || fail behavior-missing
+  [[ "$rc" -eq 0 ]] || fail s1-wrong-exit
+  [[ -s "$run_dir/out.stdout" ]] || fail s1-expected-summary-stdout
+  grep -Fq 'no LLM provider configured' "$run_dir/out.stderr" || fail s1-missing-no-provider-text
+  grep -Fq '"issues"' "$run_dir/out.stderr" || fail s1-missing-shape-issues
+  grep -Fq '"file"' "$run_dir/out.stderr" || fail s1-missing-shape-file
+  grep -Fq '"line"' "$run_dir/out.stderr" || fail s1-missing-shape-line
+  grep -Fq '"severity"' "$run_dir/out.stderr" || fail s1-missing-shape-severity
+  grep -Fq '"rule_id"' "$run_dir/out.stderr" || fail s1-missing-shape-rule_id
+  grep -Fq '"message"' "$run_dir/out.stderr" || fail s1-missing-shape-message
   # The example must be a REAL id of the embedded catalog, not a
   # placeholder: it is exercised below (mixed.json cites it for its
   # surviving finding) and resolved by internal/review's own rules_test.go.
-  grep -Fq 'security/hardcoded-secret' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq 'discarded' "$run_dir/out.stderr" || fail behavior-missing
-  grep -Fq 'tests/fixtures/review/known-problem-response.json' "$run_dir/out.stderr" || fail behavior-missing
+  grep -Fq 'security/hardcoded-secret' "$run_dir/out.stderr" || fail s1-missing-catalog-example
+  grep -Fq 'discarded' "$run_dir/out.stderr" || fail s1-missing-discarded-word
+  grep -Fq 'tests/fixtures/review/known-problem-response.json' "$run_dir/out.stderr" || fail s1-missing-fixture-pointer
 
-  # --- 2. Happy path: zero discards. Byte-identical stdout, EMPTY stderr. ---
+  # --- 2. Happy path: zero discards. The finding line is the LAST line of
+  # stdout; stderr still EMPTY. AUR-547/AUR-490: AUR-490 (done, integrated
+  # after this card) made review --base unconditionally prepend the AC-002
+  # summary/diagram block, so stdout is no longer the byte-identical lone
+  # finding line this used to check (measured directly, same effect AUR-542
+  # already recorded for sibling scripts) -- what this card actually owns
+  # (the finding reaches stdout at all, exactly once, with no ungrounded
+  # finding, and stderr stays empty) is unaffected and still checked.
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$known_fixture"
-  [[ "$rc" -eq 0 ]] || fail behavior-missing
+  [[ "$rc" -eq 0 ]] || fail s2-wrong-exit
   local want_happy='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
-  [[ "$(cat "$run_dir/out.stdout")" == "$want_happy" ]] || fail behavior-missing
+  [[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy" ]] || fail s2-finding-line-wrong
+  [[ "$(grep -Ec '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout")" -eq 1 ]] || fail happy-path-finding-count-wrong
   [[ ! -s "$run_dir/out.stderr" ]] || fail happy-path-stderr-not-empty
 
-  # --- 3. Mixed discard: stdout hides ungrounded findings; stderr names how many and why. ---
+  # --- 3. Mixed discard: stdout hides ungrounded findings; stderr names
+  # how many and why. MEASURED (independent review, B2): this is where
+  # AC-001 actually stops today -- internal/review/scope.go's newer
+  # "escopo e evidencia" gate (out of this card's paths) discards the
+  # fixture's grounded finding too (it carries no Evidence/Impact/
+  # Verification), so stdout never gets the finding line and stderr reads
+  # "aurumcode review: 3 finding(s) descartado(s) pelo gate de escopo e
+  # evidencia: 3 sem evidencia concreta" (Portuguese), not the English
+  # rule_id-citation message this scenario was written against. See
+  # docs/specs/AUR-547.md. ---
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$run_dir/fixtures/mixed.json"
-  [[ "$rc" -eq 0 ]] || fail behavior-missing
-  grep -Fq 'config/demo-tokens.txt:3' "$run_dir/out.stdout" || fail behavior-missing
-  grep -Fq '(rule security/hardcoded-secret: Hardcoded Secrets)' "$run_dir/out.stdout" || fail behavior-missing
-  if grep -Fq 'no rule_id at all' "$run_dir/out.stdout"; then fail behavior-missing; fi
-  if grep -Fq 'unknown rule_id' "$run_dir/out.stdout"; then fail behavior-missing; fi
+  [[ "$rc" -eq 0 ]] || fail s3-wrong-exit
+  grep -Fq 'config/demo-tokens.txt:3' "$run_dir/out.stdout" || fail s3-grounded-finding-missing
+  grep -Fq '(rule security/hardcoded-secret: Hardcoded Secrets)' "$run_dir/out.stdout" || fail s3-citation-missing
+  if grep -Fq 'no rule_id at all' "$run_dir/out.stdout"; then fail s3-ungrounded-leaked-no-rule-id; fi
+  if grep -Fq 'unknown rule_id' "$run_dir/out.stdout"; then fail s3-ungrounded-leaked-unknown-rule-id; fi
   local want_mixed_stderr='aurumcode review: 2 finding(s) discarded: 1 with no rule_id, 1 citing an unknown rule_id (security/definitely-not-a-rule)'
-  [[ "$(cat "$run_dir/out.stderr")" == "$want_mixed_stderr" ]] || fail behavior-missing
+  [[ "$(cat "$run_dir/out.stderr")" == "$want_mixed_stderr" ]] || fail s3-discard-message-wrong
 
   # Determinism: same input, same stdout AND same stderr.
   local mixed_out1 mixed_err1 mixed_out2 mixed_err2
@@ -298,10 +341,16 @@ nominal_case() {
   # confidently wrong "your code is clean" for a fixture that planted a
   # real finding.
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$run_dir/fixtures/all-discarded.json"
-  [[ "$rc" -eq 0 ]] || fail behavior-missing
-  [[ "$(cat "$run_dir/out.stdout")" == "No issues found." ]] || fail behavior-missing
+  [[ "$rc" -eq 0 ]] || fail s4-wrong-exit
+  # AUR-547/AUR-490: the AC-002 summary/diagram block now precedes it
+  # unconditionally. B1 (independent review): a bare `tail -n1` check for
+  # "No issues found." plus a finding-shape-only grep let an arbitrary
+  # leaked line sit right before it undetected -- after_diagram() compares
+  # the WHOLE remainder after the diagram fence for exact equality instead.
+  local s4_after; s4_after="$(after_diagram "$(cat "$run_dir/out.stdout")")"
+  [[ "$s4_after" == "No issues found." ]] || fail s4-leaked-content-after-diagram
   local want_all_discarded_stderr='aurumcode review: 1 finding(s) discarded: 1 with no rule_id'
-  [[ "$(cat "$run_dir/out.stderr")" == "$want_all_discarded_stderr" ]] || fail behavior-missing
+  [[ "$(cat "$run_dir/out.stderr")" == "$want_all_discarded_stderr" ]] || fail s4-discard-message-wrong
 }
 
 # mutation_case is MUT-001: accepting a silent discard (the discard still
@@ -380,9 +429,12 @@ mutation_case() {
   run_bin "$bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$run_dir/fixtures/all-discarded.json"
   [[ "$rc" -eq 0 ]] || fail 'MUT-001/mutation-run-failed'
   # The gate itself is untouched: the discarded finding still never reaches
-  # stdout, and "No issues found." still prints -- proving this mutation is
-  # isolated to the warning, not a second copy of AUR-434's own mutation.
-  [[ "$(cat "$run_dir/out.stdout")" == "No issues found." ]] || fail 'MUT-001/gate-also-mutated'
+  # stdout, and "No issues found." still prints as the last line (AUR-547/
+  # AUR-490: the AC-002 summary/diagram block now precedes it
+  # unconditionally) -- proving this mutation is isolated to the warning,
+  # not a second copy of AUR-434's own mutation.
+  [[ "$(tail -n1 "$run_dir/out.stdout")" == "No issues found." ]] || fail 'MUT-001/gate-also-mutated'
+  if grep -Eq '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout"; then fail 'MUT-001/gate-also-mutated'; fi
   # The warning is gone: this is the silent discard nominal_case's own
   # stderr assertion (case 4 above) would have caught.
   [[ -s "$run_dir/out.stderr" ]] && fail 'MUT-001/not-rejected'
