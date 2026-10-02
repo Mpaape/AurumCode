@@ -166,24 +166,27 @@ func TestAUR521AuditAndSARIFOnGateBreach(t *testing.T) {
 }
 
 // TestAUR521AuditFingerprintStableAcrossTwoRuns is the AC-002/MUT-001
-// acceptance scenario at the CLI level: running the exact same review twice
-// must write the exact same SARIF fingerprint both times.
+// acceptance scenario at the CLI level, and the decisive proof that the
+// fingerprint is built from the REVIEWED DIFF, not the model's own
+// free-text fields: the two runs below review the exact same diff but
+// return DIFFERENT message/evidence text each time (a model is free to
+// reword its own explanation run to run). The fingerprint must still be
+// the exact same both times -- if it were built from issue.Evidence/
+// Message instead, this test would fail.
 func TestAUR521AuditFingerprintStableAcrossTwoRuns(t *testing.T) {
-	dir := coverageFixture(t, "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n")
-	if err := os.MkdirAll(filepath.Join(dir, "skills"), 0700); err != nil {
+	coverageFixture(t, "review:\n  context:\n    skills:\n      - security.md\ngate:\n  fail_on: [high]\n")
+	if err := os.WriteFile("security.md", []byte("## No Hardcoded Secrets\n\nNever commit a literal credential.\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "skills", "security.md"), []byte("## No Hardcoded Secrets\n\nNever commit a literal credential.\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	fixture := filepath.Join(t.TempDir(), "response.json")
-	resp := `{"summary":"ok","verdict":"approve","issues":[{"file":"app.go","line":3,"severity":"error","rule_id":"security#no-hardcoded-secrets","message":"Hardcoded secret","evidence":"dbPassword := \"hunter2-super-secret\"","impact":"Credential leak","verification":"Remove the literal secret"}]}`
-	if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 
-	readFingerprint := func() string {
+	readFingerprint := func(message, evidence string) string {
+		fixture := filepath.Join(t.TempDir(), "response.json")
+		resp := `{"summary":"ok","verdict":"approve","issues":[{"file":"app.go","line":3,"severity":"error","rule_id":"security#no-hardcoded-secrets","message":"` + message + `","evidence":"` + evidence + `","impact":"Credential leak","verification":"Remove the literal secret"}]}`
+		if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+
 		sarifPath := filepath.Join(t.TempDir(), "out.sarif")
 		var out, errOut strings.Builder
 		runReview([]string{"--base", "HEAD~1", "--sarif", sarifPath}, &out, &errOut, redaction.NewFilter())
@@ -195,13 +198,19 @@ func TestAUR521AuditFingerprintStableAcrossTwoRuns(t *testing.T) {
 		if err := json.Unmarshal(raw, &doc); err != nil {
 			t.Fatal(err)
 		}
-		return doc.Runs[0].Results[0].PartialFingerprints[render.FindingFingerprintKey]
+		for _, res := range doc.Runs[0].Results {
+			if res.RuleID == "security#no-hardcoded-secrets" {
+				return res.PartialFingerprints[render.FindingFingerprintKey]
+			}
+		}
+		t.Fatalf("no result for security#no-hardcoded-secrets in %+v", doc.Runs[0].Results)
+		return ""
 	}
 
-	first := readFingerprint()
-	second := readFingerprint()
+	first := readFingerprint("Hardcoded secret", "whatever the model said the first time")
+	second := readFingerprint("Different wording entirely", "and a completely different evidence quote")
 	if first == "" || first != second {
-		t.Fatalf("fingerprint not stable across two runs of the same review: %q vs %q", first, second)
+		t.Fatalf("fingerprint depends on the model's own text, not the diff: %q vs %q", first, second)
 	}
 }
 

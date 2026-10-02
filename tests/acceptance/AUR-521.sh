@@ -114,7 +114,7 @@ case "$selector" in
     test_pattern='^(TestAUR521PolicyDigestChangesWhenPolicyChanges|TestAUR521AuditAndSARIFOnGateBreach|TestAUR521PRPathWritesComplianceArtifacts)$'
     ;;
   AC-002)
-    test_pattern='^(TestAUR521SARIFRequiredFields|TestAUR521SARIFFingerprintStableAcrossWrites|TestAUR521FindingFingerprintStableAcrossRuns|TestAUR521FindingFingerprintChangesWithContent|TestAUR521FindingFingerprintNormalizesWhitespaceAndPath|TestAUR521AuditFingerprintStableAcrossTwoRuns)$'
+    test_pattern='^(TestAUR521SARIFRequiredFields|TestAUR521SARIFFingerprintStableAcrossWrites|TestAUR521SARIFOmitsRegionForLinelessFinding|TestAUR521FindingFingerprintStableAcrossRuns|TestAUR521FindingFingerprintChangesWithContent|TestAUR521FindingFingerprintNormalizesWhitespaceAndPath|TestAUR521AuditFingerprintStableAcrossTwoRuns)$'
     ;;
   AC-003) test_pattern='^TestAUR521SARIFSuppressionForExceptedFinding$' ;;
   AC-004)
@@ -158,7 +158,7 @@ if [[ "$selector" == all ]]; then
     PolicyDigestChangesWhenPolicyChanges AuditRecordInconclusiveMarksOmittedFiles \
     WriteAuditRecordRedactsSecretCanary SARIFRequiredFields \
     SARIFFingerprintStableAcrossWrites SARIFSuppressionForExceptedFinding \
-    SARIFInconclusiveRun SARIFRedactsSecretCanary \
+    SARIFOmitsRegionForLinelessFinding SARIFInconclusiveRun SARIFRedactsSecretCanary \
     AuditAndSARIFOnGateBreach AuditFingerprintStableAcrossTwoRuns \
     AuditInconclusiveListsOmittedFiles RedactsSecretCanaryEndToEnd \
     PRPathWritesComplianceArtifacts; do

@@ -156,6 +156,46 @@ func TestAUR521SARIFSuppressionForExceptedFinding(t *testing.T) {
 	}
 }
 
+// TestAUR521SARIFOmitsRegionForLinelessFinding covers SARIF 2.1.0's own
+// constraint that region.startLine must be >= 1 when region is present at
+// all: a finding with no usable line number (Line < 1, a general/file-level
+// finding) must omit the region object entirely rather than emit
+// startLine:0, which github/codeql-action/upload-sarif rejects.
+func TestAUR521SARIFOmitsRegionForLinelessFinding(t *testing.T) {
+	log := BuildSARIFLog("v", []SARIFFinding{
+		{RuleID: "r1", Path: "app.go", Line: 0, Severity: "warning", Message: "general finding"},
+		{RuleID: "r2", Path: "app.go", Line: 5, Severity: "warning", Message: "line finding"},
+	}, true, "")
+	data, err := json.Marshal(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc sarifDoc
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Runs[0].Results[0].Locations[0].PhysicalLocation.Region.StartLine != 0 {
+		t.Fatalf("Line-0 finding should decode with a zero region, got %+v", doc.Runs[0].Results[0])
+	}
+	// The raw encoding must omit "region" entirely for the lineless
+	// finding (not merely decode to zero) and still carry it for the
+	// finding that does have a line.
+	raw := string(data)
+	idx1 := strings.Index(raw, `"ruleId":"r1"`)
+	idx2 := strings.Index(raw, `"ruleId":"r2"`)
+	if idx1 < 0 || idx2 < 0 {
+		t.Fatalf("both results must be present:\n%s", raw)
+	}
+	result1 := raw[idx1:idx2]
+	if strings.Contains(result1, `"region"`) {
+		t.Fatalf("r1 (Line=0) must omit region entirely:\n%s", result1)
+	}
+	result2 := raw[idx2:]
+	if !strings.Contains(result2, `"region":{"startLine":5}`) {
+		t.Fatalf("r2 (Line=5) must carry its region:\n%s", result2)
+	}
+}
+
 // TestAUR521SARIFInconclusiveRun covers AC-004: an inconclusive run still
 // produces a structurally valid SARIF document, with
 // invocations[0].executionSuccessful=false and a notification naming why.

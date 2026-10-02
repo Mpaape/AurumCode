@@ -143,10 +143,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
           # AUR-521: the reusable workflow's OWN version, distinct from
-          # GITHUB_SHA (the commit under review above) -- the audit
-          # record's workflow_sha field falls back to GITHUB_SHA only when
-          # this is absent (e.g. a caller invoking the CLI directly).
-          GITHUB_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          # GITHUB_SHA (the commit under review above). Forwarded under a
+          # name GitHub Actions does not reserve: GITHUB_SHA (and, per the
+          # same reservation documented for AUR-504, very likely
+          # GITHUB_WORKFLOW_SHA too) cannot be overridden by a step's own
+          # env: block on a pull_request event, so this uses
+          # AURUMCODE_WORKFLOW_SHA instead. The audit record's workflow_sha
+          # field falls back to GITHUB_SHA only when this is absent (e.g. a
+          # caller invoking the CLI directly, outside this workflow).
+          AURUMCODE_WORKFLOW_SHA: ${{ job.workflow_sha }}
           AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           AURUMCODE_PR_PERMISSION_MODE: endpoint
           AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
@@ -204,7 +209,7 @@ jobs:
             -w /github/workspace
             -e GITHUB_TOKEN
             -e GITHUB_SHA
-            -e GITHUB_WORKFLOW_SHA
+            -e AURUMCODE_WORKFLOW_SHA
             -e AURUMCODE_BASE_SHA
             -e AURUMCODE_PR_PERMISSION_MODE
             -e LLM_API_KEY
