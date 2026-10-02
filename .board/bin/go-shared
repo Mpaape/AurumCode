@@ -18,7 +18,7 @@
 set -euo pipefail
 
 name='aurum-go'
-image="${GO_SHARED_IMAGE:-aurumcode-test-img:1.21}"
+image="${GO_SHARED_IMAGE:-aurum-bootstrap-go-bash:1.27.1-2026-10-02}"
 cache_volume='aurumcode-gocache'
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 wt_root="${GO_SHARED_WORKTREES:-/tmp/claude-1000/office-wt}"

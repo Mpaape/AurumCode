@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "fake-scm-offline-v1",
 "lock": ".board/locks/oci/fake-scm-offline-v1.lock.json",
-"lock_digest": "sha256:b85272e5395f2dfe862ead6a20373c36a60ffeccae6270903e8bd669cea643be",
+"lock_digest": "sha256:12c6c23ecbcc18e0f9dfd4b3eaba2d80b04c6363a829d635eaaefe6af90380bd",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",

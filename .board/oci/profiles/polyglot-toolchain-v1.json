@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "polyglot-toolchain-v1",
 "lock": ".board/locks/oci/polyglot-toolchain-v1.lock.json",
-"lock_digest": "sha256:d0a196467884073a3477b5e181e42eef28e9c0aee45cf10d748a32516d45b99c",
+"lock_digest": "sha256:9369e0d0a7795849ab3fa402717f828a6371b0346aa1a52be2bccdb65aa4f7b2",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",
