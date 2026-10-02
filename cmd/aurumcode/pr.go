@@ -399,6 +399,21 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	}
 	provider = wrapped
 
+	// AUR-519: the dynamic, skill-section rule set this run accepts
+	// citations against -- policy skills (origin "policy") read locally
+	// from the policy's own checkout, repo skills (origin "repo") read
+	// through the same GitHub contents API at the same trusted base ref
+	// the context block above already uses (never the pull request's own
+	// head, which the author controls). Zero skills configured leaves
+	// both exactly as before this card.
+	policySkillRules := map[string]review.Rule{}
+	if centralCfg != nil {
+		policySkillRules = dynamicRulesFromLocalSkills(opts.policyDir, centralCfg.Review.Context.Skills, gateOriginPolicy)
+	}
+	repoSkillRules := dynamicRulesFromRemoteSkills(ctx, client, owner, repoName, reviewConfig.Review.Context.Skills, contextRef, gateOriginRepo)
+	dynamicRules := mergeDynamicRules(policySkillRules, repoSkillRules)
+	ruleCatalogIDs := mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, dynamicRules)
+
 	// --limite (AUR-451): wire internal/llm/cost.Tracker into the
 	// orchestrator exactly as the --base path does (buildCostTracker,
 	// cmd/aurumcode/cost.go) -- the one place that estimates the cost and
@@ -420,6 +435,13 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 
 	orchestrator := llm.NewOrchestrator(provider, nil, tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+	// AUR-519: teach the model the expanded catalog and accept its
+	// citations against the same dynamic set computed above.
+	reviewer.SetDynamicRules(dynamicRules)
+	if err := reviewer.SetRuleCatalog(ruleCatalogIDs); err != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
+		return 2
+	}
 	history, historyErr := pullRequestHistoryContext(ctx, client, owner, repoName, prNumber,
 		os.Getenv("GITHUB_SHA"), os.Getenv("AURUMCODE_BASE_SHA"), filter)
 	if historyErr != nil {
@@ -550,7 +572,8 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// and the prompt builder's own coverage metadata -- so it must survive
 	// even though it names filtered paths. It is present even when the model
 	// claims complete coverage (AC-003).
-	if notice := coverageNotice(reviewCopyFor(reviewLanguage), mergeReviewCoverage(result.Metadata, nil, rawDiffFileCount, ignoredPaths)); notice != "" {
+	coverageBreakdown := mergeReviewCoverage(result.Metadata, nil, rawDiffFileCount, ignoredPaths)
+	if notice := coverageNotice(reviewCopyFor(reviewLanguage), coverageBreakdown); notice != "" {
 		result.Limitations = append(result.Limitations, notice)
 	}
 	if changelogLimitation != "" {
@@ -564,6 +587,64 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	// terminal does (AC-001/AC-002/AC-003).
 	for _, warning := range policyWarnings {
 		result.Limitations = append(result.Limitations, warning.Provider+": "+warning.Reason)
+	}
+
+	// AUR-519: the gate, evaluated once every other pass/limitation above
+	// has run so its decision lines can still join the published review
+	// body below. gateInconclusiveReason's priority mirrors AUR-505/
+	// AUR-458: a provider answer this run received but could not parse at
+	// all (qualityDegraded, a prompt.ParseError GenerateReviewWithContext
+	// already turned into the zero ReviewResult above -- this is a MODEL
+	// PARSE failure, not a transport/provider failure: the provider
+	// answered fine) outranks one that parsed as the degraded free-text
+	// fallback (prompt.IsDegradedParse, AC-008), which outranks AUR-476's
+	// own partial coverage (AC-004). A no-op unless a gate was actually
+	// declared (evaluateGate's own Declared() guard).
+	//
+	// NOTE: a genuine provider/transport failure (llm.ErrAllProvidersFailed,
+	// llm.ErrBudgetExceeded) returns earlier in this function, before the
+	// gate is ever reached -- declared, not fixed here; see
+	// docs/specs/AUR-519.md.
+	gateInconclusiveReason := ""
+	switch {
+	case qualityDegraded:
+		gateInconclusiveReason = "model_parse_failure"
+	case prompt.IsDegradedParse(result):
+		gateInconclusiveReason = "degraded_parse"
+	case coverageBreakdown.partial():
+		gateInconclusiveReason = "partial_coverage"
+	}
+	gateOrigin := gateOriginRepo
+	if centralCfg != nil {
+		gateOrigin = gateOriginPolicy
+	}
+	gateResult, gateErr := evaluateGate(reviewConfig.Gate, gateOrigin, dynamicRules, result.Issues, gateInconclusiveReason)
+	if gateErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: gate: %v\n", gateErr)
+		return 2
+	}
+	if gateResult.Active {
+		for _, line := range gateResult.Lines {
+			fmt.Fprintf(stderr, "aurumcode review: policy gate: %s\n", line)
+			result.Limitations = append(result.Limitations, "policy gate: "+line)
+		}
+		if gateResult.Fail || gateResult.Inconclusive {
+			// B-V: PolicyGateWithheldKey is the engine-owned signal
+			// reviewVerdictForLanguage/formalReviewEvent/canonicalVerdict
+			// check -- never result.Verdict, which the model controls and
+			// which those functions must keep ignoring. Firing on
+			// gateResult.Fail||Inconclusive alone (never conditioned on
+			// what the model's own Verdict happened to say) means a model
+			// reply of "", "changes_requested" or "approve" are all
+			// withheld alike.
+			if result.Metadata == nil {
+				result.Metadata = make(map[string]string)
+			}
+			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
+			if result.Verdict == "" || result.Verdict == "approve" {
+				result.Verdict = "comment"
+			}
+		}
 	}
 
 	// The engine already redacted every model-authored field on result
@@ -759,6 +840,15 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 	if check {
 		checkExit = publishCheckStatus(ctx, client, stdout, stderr, owner, repoName, commitID, issues, prNumber, opts.exigirQualidade && qualityDegraded)
 	}
+	// AUR-519: the policy gate's own commit status (policyGateContext),
+	// independent of --check's grave-finding status above -- an org's
+	// ruleset can require either, both, or neither. publishPolicyGateStatus
+	// itself no-ops (returns 0, publishes nothing) when the gate was never
+	// declared, so a review with no `gate:` key grows no second status.
+	gateCheckExit := 0
+	if check {
+		gateCheckExit = publishPolicyGateStatus(ctx, client, stdout, stderr, owner, repoName, commitID, gateResult, prNumber)
+	}
 
 	if len(failures) > 0 {
 		fmt.Fprintf(stderr, "aurumcode review: %d comentario(s) falharam ao publicar:\n", len(failures))
@@ -780,8 +870,22 @@ func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, public
 		fmt.Fprintln(stderr, "aurumcode review: --exigir-qualidade: the model review was inconclusive; the published deterministic findings do not approve this pull request")
 		return exitQualityNotReviewed
 	}
-	if checkExit == 1 {
-		return checkExit
+	if checkExit == 1 || gateCheckExit == 1 {
+		return 1
+	}
+	// AUR-519: the policy gate closes exactly like --fail-on/--check above,
+	// reusing the same two exit codes instead of a third. A real severity
+	// breach (gateResult.Breach) always returns exitFindings -- the same
+	// code --fail-on already uses -- regardless of whether the review was
+	// also inconclusive (B1). Fail without a Breach can only come from
+	// gate.inconclusive: block, which returns exitQualityNotReviewed (the
+	// same "half a review" signal --exigir-qualidade already returns
+	// above).
+	if gateResult.Breach {
+		return exitFindings
+	}
+	if gateResult.Fail {
+		return exitQualityNotReviewed
 	}
 	if threshold > 0 {
 		if n := countAtOrAbove(issues, threshold); n > 0 {
@@ -1478,6 +1582,24 @@ func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) strin
 	if result.Metadata["quality_degraded"] == "true" {
 		return copy.inconclusive
 	}
+	// AUR-519 (B-V): this function otherwise re-derives the verdict from
+	// Issues/Suggestions alone, never from the model's own Verdict field
+	// -- intentionally: a model is never trusted to self-report "comment"
+	// or "changes_requested" into an outcome these structural checks did
+	// not already reach on their own. The engine's OWN withholding
+	// (gate.Fail/Inconclusive, cmd/aurumcode's gate section) is a
+	// different, trusted signal and gets its own reserved,
+	// forge-safe key instead of overloading result.Verdict's value --
+	// see prompt.PolicyGateWithheldKey's own doc for why a model cannot
+	// set or erase it. A prior version of this check matched
+	// result.Verdict == "comment" directly, which regressed a model that
+	// legitimately self-reports "comment" with no gate active at all: it
+	// started publishing COMMENT instead of this function's pre-AUR-519
+	// APPROVE default, an outcome this function never produced before
+	// and the model's self-report alone must not be able to cause.
+	if result.Metadata[prompt.PolicyGateWithheldKey] == "true" {
+		return copy.comment
+	}
 	for _, suggestion := range result.Suggestions {
 		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
 			return copy.comment
@@ -1500,6 +1622,12 @@ func formalReviewEvent(result *types.ReviewResult) string {
 		return "COMMENT"
 	}
 	if result.Metadata["quality_degraded"] == "true" {
+		return "COMMENT"
+	}
+	// AUR-519 (B-V): same engine-owned marker as reviewVerdictForLanguage
+	// above, never the model's own Verdict text -- see that function's
+	// comment and prompt.PolicyGateWithheldKey's own doc.
+	if result.Metadata[prompt.PolicyGateWithheldKey] == "true" {
 		return "COMMENT"
 	}
 	for _, suggestion := range result.Suggestions {

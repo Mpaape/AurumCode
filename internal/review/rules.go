@@ -45,6 +45,12 @@ type Rule struct {
 	// this catalog rule, e.g. SCR-001. Security-pass findings cite it as
 	// "standards/security-review <id>".
 	Standard string `yaml:"standard"`
+	// Origin is AUR-519's provenance tag for a dynamic, skill-section rule
+	// (ParseSkillSections, skillrules.go): "policy" or "repo". It is always
+	// empty for a rule loaded from the embedded YAML catalog below -- the
+	// zero value means "built-in" -- and is never read from a rules/*.yml
+	// file (no catalog file declares an "origin" key).
+	Origin string `yaml:"-"`
 }
 
 // RulesFile represents a YAML file containing rules
