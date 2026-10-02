@@ -686,6 +686,47 @@ canais, mesmo quando o próprio servidor a devolve no corpo de um erro.
 Não-objetivo desta seção: gerar o SBOM (AUR-549, seção acima) e administrar
 projetos no servidor Dependency-Track.
 
+### Secrets opcionais no workflow reutilizável (AUR-555)
+
+No workflow reutilizável `review.yml`, a ordem dos passos é: SBOM (AUR-549) →
+review (o gate `ssor_dtrack` do AUR-550 envia o SBOM ao Dependency-Track
+**dentro** do review) → assinatura (AUR-551) → upload do bundle. O SBOM é
+gerado antes do review no mesmo checkout que o review monta como diretório de
+trabalho, então `sbom_generator.output_file` aponta para o mesmo arquivo nos
+dois lados, sem flag extra. A assinatura só roda quando o passo de review
+terminou com sucesso: um artefato reprovado não é assinado.
+
+O workflow declara dois secrets, ambos `required: false`:
+`DTRACK_API_KEY` e `DTRACK_PROJECT_ID` — os nomes padrão de
+`api_key_secret`/`project_id_secret` acima. Só o passo de review os recebe no
+`env` (nenhum outro passo vê esses valores). Repositórios sem
+`quality_gates.ssor_dtrack` ligado não precisam passar nenhum secret novo. Com
+`ssor_dtrack` ligado e um secret ausente, o gate fica inconclusivo
+(`dtrack_secret_missing`) conforme `gate.inconclusive`, nunca aprovado.
+
+O chamador pode herdar todos os secrets:
+
+```yaml
+jobs:
+  review:
+    uses: OWNER/AurumCode/.github/workflows/review.yml@<sha>
+    secrets: inherit
+```
+
+ou passá-los explicitamente (inclusive com outros nomes de origem):
+
+```yaml
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      DTRACK_API_KEY: ${{ secrets.MY_DTRACK_KEY }}
+      DTRACK_PROJECT_ID: ${{ secrets.MY_DTRACK_PROJECT }}
+```
+
+Se `api_key_secret`/`project_id_secret` usarem outros nomes de variável, o
+workflow reutilizável não os repassa: ele só encaminha os dois nomes padrão
+acima. Mantenha os nomes padrão neste fluxo.
+
 ## Assinatura com Sigstore/Cosign (AUR-551)
 
 `aurumcode sign` assina o SBOM gerado (AUR-549) e/ou a imagem do artefato com
