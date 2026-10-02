@@ -96,8 +96,42 @@ func (s SBOMGeneratorConfig) Validate() error {
 	if strings.TrimSpace(s.SpecVersion) == "" {
 		return fmt.Errorf("quality_gates.ssor_dtrack.sbom_generator.spec_version: must not be empty")
 	}
+	// Card v3: spec_version is a MINIMUM ("1.6+"), compared by major.minor
+	// (internal/sbom.specVersionAtLeast -- same major, minor at or above
+	// this value), because the digest-pinned Trivy emits a newer minor
+	// (1.7) with no flag to request an older one. A value that cannot
+	// parse that way can never be compared correctly downstream, so it
+	// fails HERE, at load time, rather than surfacing as a confusing SBOM
+	// rejection later.
+	if !isMajorMinorVersion(strings.TrimSpace(s.SpecVersion)) {
+		return fmt.Errorf("quality_gates.ssor_dtrack.sbom_generator.spec_version: must be major.minor (e.g. \"1.6\"), got %q", s.SpecVersion)
+	}
 	if strings.TrimSpace(s.OutputFile) == "" {
 		return fmt.Errorf("quality_gates.ssor_dtrack.sbom_generator.output_file: must not be empty")
 	}
 	return nil
+}
+
+// isMajorMinorVersion reports whether v is a strict "major.minor" version
+// string: exactly one dot, both sides one or more ASCII decimal digits,
+// no sign, no extra whitespace, no third component. Duplicated (rather
+// than imported) from internal/sbom's own parseMajorMinor: internal/sbom
+// already imports this package for GeneratorConfig, so the reverse import
+// would be a cycle.
+func isMajorMinorVersion(v string) bool {
+	parts := strings.Split(v, ".")
+	if len(parts) != 2 {
+		return false
+	}
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		for _, r := range p {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
