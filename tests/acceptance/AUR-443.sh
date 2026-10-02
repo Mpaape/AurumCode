@@ -70,7 +70,14 @@ mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 # build parallelism gets the compiler OOM-killed under the sealed profile's
 # memory ceiling.
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+# AUR-547 (revisao de coordenacao, custo do selado): GOCACHE aceita um
+# valor ja exportado pelo chamador (tests/acceptance/AUR-547.sh compartilha
+# um GOCACHE entre os 18 sub-selectors que ele invoca, porque o binario
+# cmd/aurumcode e o MESMO source toda vez -- so GOTMPDIR continua por
+# execucao, nunca compartilhado).
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE
+export GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 
 # run_go <dir> <go-args...> runs `go` inside dir with the memory ceiling and
@@ -96,23 +103,33 @@ copy() {
 }
 
 # stage_source materializes what `go build ./cmd/aurumcode` and every
-# scenario below need: exactly this card's declared paths and read_paths
-# (cmd/aurumcode is shared with concurrently-dispatched cards -- AUR-438
-# added pr.go, importing internal/git/githubclient; AUR-426 added docs.go,
-# importing internal/documentation/* and internal/pipeline -- both have to
-# resolve for `go build ./cmd/aurumcode` to succeed against the integrated
-# tree, mirroring tests/acceptance/AUR-433.sh's own stage_source note).
+# scenario below need. AUR-547: cmd/regenerate-docs and internal/pipeline
+# and internal/documentation/* were removed from the product by commit
+# 670c7f6 ("Focus AurumCode on code review", 2026-09-12) -- a deliberate
+# pivot that predates this fix and that AUR-490's done-card record already
+# treats as settled fact; `ls internal` on this worktree confirms none of
+# the three exists any more, and nothing under cmd/aurumcode imports them.
+# The package list below is `go list -deps ./cmd/aurumcode`'s own answer
+# (run in the go-shared container against this worktree), filtered to the
+# github.com/Mpaape/AurumCode/internal/* entries and rolled up to their
+# owning directory -- the same technique and the same resulting list
+# AUR-542 already used for tests/e2e/AUR-459.sh's stage_source. "docs" no
+# longer exists as a subcommand either (see case "4" below).
 stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/git
-  copy "$root" cmd/regenerate-docs
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
-  copy "$root" internal/pipeline
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm pkg/types
-  copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review tests/fixtures/docs/goproject
+  # AUR-547 (revisao de coordenacao): copiar cmd/internal/pkg POR INTEIRO,
+  # nao mais uma lista de subpacotes a mao -- a lista enumerada ja quebrou
+  # uma vez neste card quando o merge do main trouxe internal/dtrack e
+  # internal/sbom, e quebraria outra vez quando o AUR-551 (em andamento)
+  # adicionar internal/supplychain. Os tres estao em `internal`/`cmd`/`pkg`
+  # por inteiro no read_paths deste card, entao esta copia nao amplia o
+  # que o card ja pode ler.
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
+  copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   copy "$root" action.yml
   # cp -R preserves the read-only mode bits of the materialized input; the
   # staged copy is scratch from here on, so force it writable for the
@@ -162,6 +179,20 @@ run_bin() {
   set -e
 }
 
+# after_diagram prints every line that comes after the LAST line that is
+# exactly a lone mermaid fence ("```") in $1 -- i.e. everything the AUR-490
+# summary/diagram block does not own. Review finding (B1, independent
+# review of this card): `tail -n1` plus a grep anchored to the specific
+# "<file>:<line>: [<severity>]" shape lets anything NOT shaped like a
+# finding line -- a leaked line of any other text -- sit between the
+# diagram and "No issues found." undetected, because tail -n1 only ever
+# looks at the true last line, and that "No issues found." is still it.
+# This instead captures the WHOLE remainder after the diagram and compares
+# it for exact equality, so any extra line of any shape is caught.
+after_diagram() {
+  awk 'BEGIN{p=0} /^```$/{p=NR} {buf[NR]=$0} END{for(i=p+1;i<=NR;i++) print buf[i]}' <<<"$1"
+}
+
 # nominal_case is AC-001's core behavioral proof.
 nominal_case() {
   build_shared
@@ -170,11 +201,16 @@ nominal_case() {
   [[ -f "$known_problem_fixture" ]] || infra missing_known_problem_fixture
 
   # --- 1. Top-level --help / -h / help. ---
+  # AUR-547: `docs` (cmd/regenerate-docs) was removed from the product by
+  # commit 670c7f6 ("Focus AurumCode on code review", 2026-09-12), a
+  # deliberate pivot that predates this fix and that AUR-490's done-card
+  # record already treats as settled fact; AUR-542 already made the same
+  # change to tests/e2e/AUR-443.sh. The `docs`-specific assertion is
+  # dropped as outdated, not the rest of this scenario's coverage.
   run_bin "$shared_bin" "$shared_root" --help
   [[ "$rc" -eq 0 ]] || fail behavior-missing
   [[ -s "$run_dir/out.stderr" ]] && fail help-wrote-stderr
   grep -Fq 'review' "$run_dir/out.stdout" || fail help-missing-review
-  grep -Fq 'docs' "$run_dir/out.stdout" || fail help-missing-docs
   grep -Fq 'aurumcode review --base HEAD~1' "$run_dir/out.stdout" || fail help-missing-example
   local help_stdout; help_stdout="$(cat "$run_dir/out.stdout")"
 
@@ -197,26 +233,24 @@ nominal_case() {
     grep -Fq 'aurumcode ' "$run_dir/out.stdout" || fail "${arg}-missing-prefix"
   done
 
-  # --- 3. One --help convention: review and docs agree. ---
+  # --- 3. review --help's convention (docs --help dropped: no longer a subcommand). ---
   run_bin "$shared_bin" "$shared_root" review --help
   [[ "$rc" -eq 0 ]] || fail review-help-wrong-exit
   [[ -s "$run_dir/out.stderr" ]] && fail review-help-wrote-stderr
   grep -Fq -- '-base' "$run_dir/out.stdout" || fail review-help-missing-flags
 
-  run_bin "$shared_bin" "$shared_root" docs --help
-  [[ "$rc" -eq 0 ]] || fail docs-help-wrong-exit
-  [[ -s "$run_dir/out.stderr" ]] && fail docs-help-wrote-stderr
-  grep -Fq 'usage: aurumcode docs' "$run_dir/out.stdout" || fail docs-help-missing-usage
-
-  for sub in review docs; do
-    run_bin "$shared_bin" "$shared_root" "$sub" --this-flag-does-not-exist
-    [[ "$rc" -eq 2 ]] || fail "${sub}-usage-error-wrong-exit"
-    [[ -s "$run_dir/out.stdout" ]] && fail "${sub}-usage-error-wrote-stdout"
-  done
+  run_bin "$shared_bin" "$shared_root" review --this-flag-does-not-exist
+  [[ "$rc" -eq 2 ]] || fail review-usage-error-wrong-exit
+  [[ -s "$run_dir/out.stdout" ]] && fail review-usage-error-wrote-stdout
 
   # --- 4. No provider configured: message shows the fixture shape. ---
+  # AUR-547/AUR-490: `review --base` without a provider no longer exits 1
+  # unconditionally -- it runs the deterministic analysis and exits per
+  # --fail-on/--check/--exigir-qualidade, so a clean fixture-less demo repo
+  # exits 0 here (AUR-490's done record; AUR-542 measured and fixed the
+  # identical assertion in tests/e2e/AUR-443.sh).
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1
-  [[ "$rc" -eq 1 ]] || fail no-provider-wrong-exit
+  [[ "$rc" -eq 0 ]] || fail no-provider-wrong-exit
   grep -Fq 'no LLM provider configured' "$run_dir/out.stderr" || fail no-provider-message-missing
   grep -Fq 'tests/fixtures/review/known-problem-response.json' "$run_dir/out.stderr" || fail no-provider-missing-fixture-pointer
   grep -Fq '"severity"' "$run_dir/out.stderr" || fail no-provider-missing-fixture-shape
@@ -265,17 +299,26 @@ nominal_case() {
   grep -Fq 'is a directory' "$run_dir/out.stderr" && fail dir-ref-leaked-raw-cause
   rm -rf "$hier_ref_dir"
 
-  # --- 7. review --base's and docs's published contracts: byte-for-byte unchanged. ---
+  # --- 7. review --base's published contract: zero findings still ends in
+  # "No issues found." and NOTHING ELSE after the summary/diagram block.
+  # AUR-547/AUR-490: AUR-490 made this unconditionally prepend a
+  # summary/diagram block, so stdout is no longer the byte-identical lone
+  # string this used to check (same measurement AUR-542 already recorded
+  # for tests/e2e/AUR-443.sh); the `docs` contract check is dropped -- that
+  # subcommand no longer exists. B1 (independent review): the ORIGINAL fix
+  # here (tail -n1 plus a grep anchored to the finding-line shape) let an
+  # arbitrary leaked line sit right before "No issues found." undetected --
+  # proven by adding a stray stdout line in cmd/aurumcode/main.go's
+  # printFindings ahead of "No issues found." and observing this scenario
+  # stay green. Replaced with after_diagram(): the ENTIRE remainder after
+  # the diagram fence must equal "No issues found." exactly, catching a
+  # leaked line of any shape, not only one shaped like a finding. ---
   local clean_fixture="$run_dir/response-clean.json"
   printf '{"issues":[],"summary":"Nothing to report."}' >"$clean_fixture"
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$clean_fixture"
   [[ "$rc" -eq 0 ]] || fail review-contract-broken
-  [[ "$(cat "$run_dir/out.stdout")" == "No issues found." ]] || fail review-contract-broken
-
-  local goproject="$shared_root/tests/fixtures/docs/goproject"
-  run_bin "$shared_bin" "$shared_root" docs --source "$goproject" --output "$run_dir/site"
-  [[ "$rc" -eq 0 ]] || fail docs-contract-broken
-  grep -Fq 'Generated' "$run_dir/out.stdout" || fail docs-contract-broken
+  local tail_after; tail_after="$(after_diagram "$(cat "$run_dir/out.stdout")")"
+  [[ "$tail_after" == "No issues found." ]] || fail review-contract-leaked-finding
 
   # Determinism: repeating the declared command over the same input
   # produces the same output.
@@ -322,11 +365,11 @@ mutation_case() {
   grep -Fq 'review' "$run_dir/out.stdout" && fail 'MUT-001/subcommands-still-listed'
 
   # Restoration: the unmutated binary still lists the subcommands for the
-  # same input -- the GREEN reproduces exactly.
+  # same input -- the GREEN reproduces exactly. AUR-547: `docs` dropped
+  # (see nominal_case's own note; that subcommand no longer exists).
   run_bin "$shared_bin" "$shared_root" --help
   [[ "$rc" -eq 0 ]] || fail 'MUT-001/restoration-broken'
   grep -Fq 'review' "$run_dir/out.stdout" || fail 'MUT-001/restoration-broken'
-  grep -Fq 'docs' "$run_dir/out.stdout" || fail 'MUT-001/restoration-broken'
 
   cleanup_root "$root"
   printf '%s/%s/MUT-001/rejected\n' "$card" "$scenario"

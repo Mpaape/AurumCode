@@ -103,17 +103,9 @@ done
 required_inputs=(
   go.mod
   go.sum
-  cmd/aurumcode
-  internal/analyzer
-  internal/config
-  internal/prompt
-  internal/review
-  internal/security
-  internal/git
-  internal/documentation
-  internal/pipeline
-  pkg/types
-  internal/llm
+  cmd
+  internal
+  pkg
   tests/fixtures/review/vuln/repo.git
   tests/fixtures/review/vuln/hardcoded-secret/repo.git
   tests/fixtures/review/vuln/node-xss-command-injection/repo.git
@@ -130,7 +122,14 @@ cleanup_root() {
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+# AUR-547 (revisao de coordenacao, custo do selado): GOCACHE aceita um
+# valor ja exportado pelo chamador (tests/acceptance/AUR-547.sh compartilha
+# um GOCACHE entre os 18 sub-selectors que ele invoca, porque o binario
+# cmd/aurumcode e o MESMO source toda vez -- so GOTMPDIR continua por
+# execucao, nunca compartilhado).
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE
+export GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 export GOMAXPROCS=1
 
@@ -145,13 +144,27 @@ copy() {
   done
 }
 
+# AUR-547: internal/documentation and internal/pipeline were removed from
+# the product by commit 670c7f6 ("Focus AurumCode on code review",
+# 2026-09-12), predating this fix; AUR-490's done-card record already
+# treats the removal as settled fact. The package list below is
+# `go list -deps ./cmd/aurumcode`'s own answer (run in the go-shared
+# container against this worktree) -- the same technique and resulting
+# list AUR-542 already used for tests/e2e/AUR-459.sh.
 stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/config internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation internal/pipeline
-  copy "$root" pkg/types internal/llm
+  # AUR-547 (revisao de coordenacao): copiar cmd/internal/pkg POR INTEIRO,
+  # nao mais uma lista de subpacotes a mao -- a lista enumerada ja quebrou
+  # uma vez neste card quando o merge do main trouxe internal/dtrack e
+  # internal/sbom, e quebraria outra vez quando o AUR-551 (em andamento)
+  # adicionar internal/supplychain. Os tres estao em `internal`/`cmd`/`pkg`
+  # por inteiro no read_paths deste card, entao esta copia nao amplia o
+  # que o card ja pode ler.
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/review/vuln
   chmod -R u+w -- "$root"
 }
@@ -206,13 +219,22 @@ nominal_case() {
   [[ "$out_sec" == "$out_again" ]] || fail non-deterministic
 
   # AC-003: the pre-existing Python SQL-injection regression fixture is
-  # unaffected -- same finding, same count.
+  # unaffected -- same finding, same count. AUR-547/AUR-490: AUR-490 (done,
+  # integrated after this card) made review --base also run the
+  # deterministic ANALYSIS pass unconditionally, which prints its own
+  # "[error]"-shaped line for the same file ahead of the security section
+  # -- measured directly against this worktree's binary. The count is
+  # scoped to the security section alone (after the header), exactly like
+  # AC-002's own count above, so it still counts only what this card
+  # (security findings) owns.
   local py_repo="$shared_root/tests/fixtures/review/vuln/repo.git"
   local out_py
   out_py="$(cd "$py_repo" && "$shared_bin" review --base HEAD~1 --seguranca)" || fail behavior-missing:python-regression
-  grep -Fq 'src/db.py:8: [error]' <<<"$out_py" || fail regression:python-sql-injection-missing
-  grep -Fq "$sql_citation" <<<"$out_py" || fail regression:python-citation-missing
-  [[ "$(grep -Fo '[error]' <<<"$out_py" | wc -l)" -eq 1 ]] || fail regression:python-finding-count-changed
+  grep -Fq "$header" <<<"$out_py" || fail regression:python-security-header-missing
+  local py_after_header="${out_py#*"$header"}"
+  grep -Fq 'src/db.py:8: [error]' <<<"$py_after_header" || fail regression:python-sql-injection-missing
+  grep -Fq "$sql_citation" <<<"$py_after_header" || fail regression:python-citation-missing
+  [[ "$(grep -Fo '[error]' <<<"$py_after_header" | wc -l)" -eq 1 ]] || fail regression:python-finding-count-changed
 
   # AC-003: the pre-existing hardcoded-secret regression fixture is
   # unaffected -- two findings, same lines, same citation.

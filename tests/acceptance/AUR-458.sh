@@ -62,8 +62,7 @@ for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
 done
 required_inputs=(
-  go.mod go.sum cmd/aurumcode internal/analyzer internal/config internal/llm internal/prompt
-  internal/review internal/security/redaction pkg/types
+  go.mod go.sum cmd internal pkg
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
 )
@@ -76,18 +75,39 @@ cleanup_root() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1" >/
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+# AUR-547 (revisao de coordenacao, custo do selado): GOCACHE aceita um
+# valor ja exportado pelo chamador (tests/acceptance/AUR-547.sh compartilha
+# um GOCACHE entre os 18 sub-selectors que ele invoca, porque o binario
+# cmd/aurumcode e o MESMO source toda vez -- so GOTMPDIR continua por
+# execucao, nunca compartilhado).
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE
+export GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir" GOMAXPROCS=1
 
 copy() { local root="$1"; shift; local p; for p in "$@"; do mkdir -p "$root/$(dirname "$p")"; cp -R "$repo_root/$p" "$root/$p"; done; }
 
+# AUR-547: cmd/regenerate-docs, internal/pipeline and internal/documentation/*
+# were removed from the product by commit 670c7f6 ("Focus AurumCode on code
+# review", 2026-09-12), a deliberate pivot predating this fix; AUR-490's
+# done-card record already treats that removal as settled fact. The package
+# list below is `go list -deps ./cmd/aurumcode`'s own answer (run in the
+# go-shared container against this worktree), filtered to the
+# github.com/Mpaape/AurumCode/internal/* entries -- the same technique and
+# resulting list AUR-542 already used for tests/e2e/AUR-459.sh.
 stage_source() {
   local root="$1"; mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode cmd/regenerate-docs
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/git internal/llm internal/pipeline
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
-  copy "$root" pkg/types
+  # AUR-547 (revisao de coordenacao): copiar cmd/internal/pkg POR INTEIRO,
+  # nao mais uma lista de subpacotes a mao -- a lista enumerada ja quebrou
+  # uma vez neste card quando o merge do main trouxe internal/dtrack e
+  # internal/sbom, e quebraria outra vez quando o AUR-551 (em andamento)
+  # adicionar internal/supplychain. Os tres estao em `internal`/`cmd`/`pkg`
+  # por inteiro no read_paths deste card, entao esta copia nao amplia o
+  # que o card ja pode ler.
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   chmod -R u+w -- "$root"
 }
@@ -107,9 +127,17 @@ build_shared() {
 
 readonly sec_header='Security findings (standards/security-review):'
 readonly clean_line='No issues found.'
-# The exact sha256 AUR-449 pins for `--seguranca` stdout WITH the fixture
-# provider configured. This card must not move it by one byte.
-readonly expected_with_provider_sha256='63c649af1c90e38b473e1bd45b4152b1f96ecad17d5d9c05c17bb94df7b8240f'
+readonly citation='(rule security/hardcoded-secret: Hardcoded Secrets)'
+readonly standard_citation='standards/security-review SCR-003'
+# AUR-547/AUR-490: the full-stdout sha256 this constant used to pin is no
+# longer reproducible -- AUR-490 (done, integrated after this card) made
+# review --base unconditionally prepend the AC-002 summary/diagram block,
+# including on this exact --seguranca-with-provider path, measured
+# directly against this worktree's binary (tests/acceptance/AUR-449.sh
+# dropped the identical pin for the identical reason; see
+# docs/specs/AUR-547.md). What this item actually checks -- the SECURITY
+# SECTION's own byte-for-byte content -- is checked below against the
+# security section substring alone.
 
 noprov_env() { env -u AURUMCODE_LLM_FIXTURE -u LLM_API_KEY -u LLM_BASE_URL -u LLM_MODEL "$@"; }
 
@@ -164,10 +192,15 @@ nominal_case() {
   rc=$?; set -e
   [[ "$rc" -eq 1 ]] || fail "exigir-qualidade-must-exit-1:$rc"
 
-  # (7) A provider that WORKS keeps AUR-449's pinned stdout byte for byte.
-  local sha
-  sha="$(cd "$demo" && noprov_env env AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1 --seguranca 2>/dev/null | sha256sum | cut -d' ' -f1)"
-  [[ "$sha" == "$expected_with_provider_sha256" ]] || fail "with-provider-stdout-changed:$sha"
+  # (7) A provider that WORKS keeps the security section's own citations
+  # byte for byte (AUR-547/AUR-490: the full-stdout pin is gone; see the
+  # constant's own comment above).
+  local prov_out prov_section
+  prov_out="$(cd "$demo" && noprov_env env AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1 --seguranca 2>/dev/null)"
+  grep -Fq "$sec_header" <<<"$prov_out" || fail with-provider-security-section-missing
+  prov_section="${prov_out#*"$sec_header"}"
+  [[ "$(grep -Fo "$citation" <<<"$prov_section" | wc -l)" -eq 3 ]] || fail with-provider-stdout-changed
+  grep -Fq "$standard_citation" <<<"$prov_section" || fail with-provider-stdout-changed
 
   # (8) Without --seguranca there is nothing to fall through to: the
   #     published refusal is untouched (empty stdout, exit 1).
@@ -202,7 +235,14 @@ mutation_case() {
 case "$selector" in
   AC-001)
     nominal_case
-    (cd "$repo_root" && AURUMCODE_BIN="$shared_bin" bash tests/e2e/AUR-458.sh E2EAUR458) >/dev/null || fail e2e-failed
+    # B3 (independent review of AUR-547): the inner e2e failure cause was
+    # discarded to /dev/null, so a RED here could not be told apart from a
+    # different one. Captured and surfaced as part of the tag instead.
+    e2e458_out="$run_dir/e2e458.out"
+    if ! (cd "$repo_root" && AURUMCODE_BIN="$shared_bin" bash tests/e2e/AUR-458.sh E2EAUR458) >"$e2e458_out" 2>&1; then
+      cat "$e2e458_out" >&2
+      fail "e2e-failed:$(tail -n1 "$e2e458_out")"
+    fi
     printf '%s/%s/ok\n' "$card" "$scenario"
     ;;
   TestAUR458)

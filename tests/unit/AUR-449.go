@@ -168,19 +168,28 @@ func TestAUR449(t *testing.T) {
 		}
 	})
 
-	t.Run("WithoutSegurancaNoProviderIsUnchanged", func(t *testing.T) {
+	t.Run("WithoutSegurancaNoProviderNowRunsDeterministicAnalysis", func(t *testing.T) {
+		// AUR-547/AUR-490: AUR-490 (done, integrated after this card) dropped
+		// this guard's old "&& *seguranca" requirement in
+		// cmd/aurumcode/main.go -- that card's own comment there says so
+		// directly ("AUR-490 drops this guard's old `&& *seguranca`
+		// requirement"). A bare `review --base` with no provider at all now
+		// reaches the AUR-449 skip branch REGARDLESS of --seguranca: exit 0
+		// (deterministic analysis decides the code via --fail-on, not an
+		// unconditional 1 any more) and the skip note on stderr. This
+		// replaces the pre-AUR-490 assertion that the note never appeared
+		// without --seguranca, which AUR-490 revoked; it does not touch
+		// what AUR-449 actually owns (the --seguranca behavior itself,
+		// asserted by the other subtests in this file).
 		code, stdout, stderr := run(nil)
-		if code != 1 {
-			t.Fatalf("expected exit 1, got %d\nstdout=%s", code, stdout)
-		}
-		if stdout != "" {
-			t.Fatalf("expected no stdout, got:\n%s", stdout)
+		if code != 0 {
+			t.Fatalf("expected exit 0, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
 		if !strings.Contains(stderr, aur449NoProvider) {
 			t.Fatalf("expected the pre-existing AUR-430 error text, got:\n%s", stderr)
 		}
-		if strings.Contains(stderr, "quality review skipped") {
-			t.Fatalf("the AUR-449 skip note must never appear without --seguranca, got:\n%s", stderr)
+		if !strings.Contains(stderr, "quality review skipped") {
+			t.Fatalf("expected the AUR-449 skip note -- AUR-490 made it unconditional on the provider, not on --seguranca -- got:\n%s", stderr)
 		}
 	})
 
@@ -203,17 +212,28 @@ func TestAUR449(t *testing.T) {
 	t.Run("AttemptedButBrokenProviderStillFails", func(t *testing.T) {
 		// A caller who tried to configure a fixture and got the path wrong
 		// is a different error than "nothing configured" -- it must not be
-		// silently downgraded into the skip either.
+		// silently downgraded into the AUR-449 skip (the exact phrase
+		// "quality review skipped" must never appear here: that phrase is
+		// reserved for the nothing-configured-at-all case). AUR-458 (done,
+		// integrated after this card) separately decided that --seguranca
+		// still delivers the deterministic security findings it computed
+		// even when the quality attempt failed ("qualityFailed... any
+		// other quality-review failure... WHEN --seguranca is given and
+		// there is therefore still deterministic work to deliver" --
+		// cmd/aurumcode/main.go's own AUR-458 comment), rather than
+		// discarding already-computed work -- so stdout now legitimately
+		// carries the security section; what AUR-449 actually guards
+		// (non-zero exit, never the skip phrase) is unchanged.
 		bogus := filepath.Join(t.TempDir(), "does-not-exist.json")
 		code, stdout, stderr := run([]string{"AURUMCODE_LLM_FIXTURE=" + bogus}, "--seguranca")
-		if code != 1 {
-			t.Fatalf("expected exit 1, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
+		if code == 0 {
+			t.Fatalf("expected a non-zero exit (quality was requested and failed), got 0\nstdout=%s\nstderr=%s", stdout, stderr)
 		}
 		if strings.Contains(stderr, "quality review skipped") {
-			t.Fatalf("a broken (attempted) provider configuration must not trigger the skip, got:\n%s", stderr)
+			t.Fatalf("a broken (attempted) provider configuration must not trigger the nothing-configured skip, got:\n%s", stderr)
 		}
-		if strings.Contains(stdout, aur449SecHeader) {
-			t.Fatalf("a broken provider must fail before any output, got:\n%s", stdout)
+		if !strings.Contains(stdout, aur449SecHeader) {
+			t.Fatalf("AUR-458: the computed security findings must still be delivered, got:\n%s", stdout)
 		}
 	})
 
@@ -232,7 +252,11 @@ func TestAUR449(t *testing.T) {
 		// With a provider present the AUR-442 contract is unaffected: this
 		// does not re-assert every byte (tests/integration/AUR-449.go and
 		// tests/acceptance/AUR-449.sh do), only that the security section's
-		// content is exactly what it already was.
+		// content is exactly what it already was. AUR-547: this case is
+		// NOT the "nothing configured" path AUR-490 changed (a provider IS
+		// configured and succeeds here), so the skip note staying absent
+		// is still the correct, unaffected assertion -- no behavior change
+		// needed, unlike the two cases above.
 		fixture := filepath.Join(root, "tests/fixtures/review/known-problem-response.json")
 		code, stdout, stderr := run([]string{"AURUMCODE_LLM_FIXTURE=" + fixture}, "--seguranca")
 		if code != 0 {
