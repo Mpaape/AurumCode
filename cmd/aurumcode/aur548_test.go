@@ -25,6 +25,12 @@ package main
 // JSON.
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -330,5 +336,135 @@ func TestAUR548PolicyWinsOverRepoDisable(t *testing.T) {
 	combined := out.String() + errOut.String()
 	if !strings.Contains(combined, "quality_gates.sast do config do repositório foi ignorado") {
 		t.Fatalf("expected the policy-precedence warning naming quality_gates.sast:\n%s", combined)
+	}
+}
+
+// --- --pr wiring (coordinator follow-up): AC-001 and AC-003 driven
+// through the real runPRReview, with the same httptest GitHub mock
+// pattern aur515_test.go/aur537_test.go already use. aur548PRDiffBody is a
+// tiny, secret-free diff so no unrelated deterministic finding can
+// explain any assertion below.
+
+const aur548PRDiffBody = "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ _ = 1\n+}\n"
+
+// aur548PRServer starts a fixture GitHub server for owner/repo pull
+// request 48: apiHeadSHA answers the pull request metadata call
+// (GetPullRequestMetadata/resolvePullRequestHeadSHA), repoConfigYAML
+// answers .aurumcode/config.yml's contents call (base64, matching
+// runPRGateMockServer's own convention), and every posted formal review
+// body is captured into posted.Body.
+func aur548PRServer(t *testing.T, apiHeadSHA, repoConfigYAML string) (server *httptest.Server, posted *struct{ Body string }) {
+	t.Helper()
+	posted = &struct{ Body string }{}
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
+			_, _ = w.Write([]byte(`{"permissions":{"push":true}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48" && strings.Contains(r.Header.Get("Accept"), "diff"):
+			_, _ = w.Write([]byte(aur548PRDiffBody))
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/48":
+			_, _ = fmt.Fprintf(w, `{"head":{"sha":%q}}`, apiHeadSHA)
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") && strings.Contains(r.URL.Path, "config.yml"):
+			_, _ = fmt.Fprintf(w, `{"content":%q,"encoding":"base64"}`, base64.StdEncoding.EncodeToString([]byte(repoConfigYAML)))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/"):
+			w.WriteHeader(http.StatusNotFound)
+		case r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/reviews") || strings.HasSuffix(r.URL.Path, "/comments") || strings.HasSuffix(r.URL.Path, "/commits")):
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/reviews"):
+			buf := new(bytes.Buffer)
+			_, _ = buf.ReadFrom(r.Body)
+			var payload struct {
+				Body string `json:"body"`
+			}
+			_ = json.Unmarshal(buf.Bytes(), &payload)
+			posted.Body = payload.Body
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":1}`))
+		default:
+			t.Fatalf("unexpected GitHub request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server, posted
+}
+
+// aur548PREnv wires the --pr path's standard offline env for these tests:
+// an LLM fixture with zero issues of its own (every assertion below is
+// explained only by Semgrep/the SAST gate, never an unrelated model
+// finding), the fixture GitHub server, and endpoint-mode permissions.
+func aur548PREnv(t *testing.T, serverURL string) {
+	t.Helper()
+	fixture := filepath.Join(t.TempDir(), "response.json")
+	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
+	t.Setenv("AURUMCODE_GITHUB_API_URL", serverURL)
+	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")
+	// loadPullRequestConfig (pr.go) only fetches the REMOTE config.yml
+	// (what these tests actually configure) when GITHUB_SHA is non-empty;
+	// an empty value falls back to the LOCAL checkout's own config.Load,
+	// which is a fixture with no .aurumcode/config.yml at all. The mock
+	// server does not validate this ref string, so any non-empty value
+	// works.
+	t.Setenv("GITHUB_SHA", "config-ref")
+	t.Setenv("AURUMCODE_BASE_SHA", "")
+	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
+}
+
+// TestAUR548PRSeverityBreachFailsGate is AC-001 driven through --pr: a
+// verified checkout (the local fixture's HEAD matches the server's own
+// pull-request head SHA, so AUR-515/536's own check passes and Semgrep's
+// scan target is this exact, verified tree) carrying a fake Semgrep that
+// reports one ERROR finding fails the gate, naming the check_id in the
+// published review body.
+func TestAUR548PRSeverityBreachFailsGate(t *testing.T) {
+	dir, headSHA := aur515Fixture(t, "https://github.com/owner/repo.git")
+	server, posted := aur548PRServer(t, headSHA, "quality_gates:\n  sast:\n    enabled: true\n")
+	aur548PREnv(t, server.URL)
+	setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, ""))
+
+	var out, errOut strings.Builder
+	code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	if code != exitFindings {
+		t.Fatalf("exit=%d, want exitFindings(%d) (dir=%s); stdout=%s stderr=%s posted=%s", code, exitFindings, dir, out.String(), errOut.String(), posted.Body)
+	}
+	combined := out.String() + errOut.String() + posted.Body
+	if !strings.Contains(combined, "semgrep:python.lang.security.audit.hardcoded-secret") {
+		t.Fatalf("expected the semgrep check_id named in the output/posted review:\n%s", combined)
+	}
+}
+
+// TestAUR548PRUnverifiedCheckoutIsInconclusive is AC-003's --pr-specific
+// behavior: the local checkout's HEAD does NOT match the pull request's
+// own head the server reports (a stale or wrong checkout), so AUR-515/
+// 536's own verification fails. SAST must become inconclusive with its
+// own reason -- and, critically, must NEVER invoke Semgrep at all against
+// this unverified tree: the fake binary's own argv log file must not
+// exist afterward.
+func TestAUR548PRUnverifiedCheckoutIsInconclusive(t *testing.T) {
+	dir, localHead := aur515Fixture(t, "https://github.com/owner/repo.git")
+	server, posted := aur548PRServer(t, "a-completely-different-head-sha", "gate:\n  inconclusive: block\nquality_gates:\n  sast:\n    enabled: true\n")
+	aur548PREnv(t, server.URL)
+	argvLog := filepath.Join(t.TempDir(), "argv.log")
+	setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
+
+	var out, errOut strings.Builder
+	code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+		publicationSet: true,
+		publication:    "review",
+	})
+	if code != exitQualityNotReviewed {
+		t.Fatalf("exit=%d, want exitQualityNotReviewed(%d) (dir=%s localHead=%s); stdout=%s stderr=%s posted=%s", code, exitQualityNotReviewed, dir, localHead, out.String(), errOut.String(), posted.Body)
+	}
+	combined := out.String() + errOut.String() + posted.Body
+	if !strings.Contains(combined, "sast_unverified_checkout") {
+		t.Fatalf("expected sast_unverified_checkout named in the output/posted review:\n%s", combined)
+	}
+	if _, err := os.Stat(argvLog); err == nil {
+		t.Fatalf("semgrep must never be invoked against an unverified checkout (dir=%s)", dir)
 	}
 }

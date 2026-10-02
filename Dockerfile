@@ -26,14 +26,15 @@ RUN apk add --no-cache ca-certificates git bash jq python3 py3-pip
 # the fully-offline alternative (point rule_packs at local rule files
 # instead of a p/... registry name).
 #
-# Semgrep's official PyPI wheels target glibc (manylinux); Alpine's musl
-# libc has historically been the one environment where `pip install
-# semgrep` is NOT guaranteed to find a matching wheel. This install was
-# authored but NOT verified against an actual `docker build` in this card's
-# own time-boxed session -- see docs/specs/AUR-548.md's own "Status"
-# section. If this step fails in CI, the documented fallback is switching
-# this final stage's base image to a glibc distribution (e.g.
-# python:3.11-slim) with the same package set installed via apt.
+# VERIFIED: `docker build -t aurumcode-aur548-check:tmp -f Dockerfile .`
+# builds this stage successfully on Alpine 3.20 -- semgrep 1.172.0 ships a
+# musllinux_1_2_x86_64 wheel, so no glibc/musl incompatibility applies for
+# this exact pinned version -- and `docker run --rm --entrypoint semgrep
+# aurumcode-aur548-check:tmp --version` reports `1.172.0` from inside the
+# built image. Should a future version bump ever drop musllinux wheel
+# support, the documented fallback is switching this final stage's base
+# image to a glibc distribution (e.g. python:3.11-slim) with the same
+# package set installed via apt.
 RUN pip3 install --no-cache-dir --break-system-packages semgrep==1.172.0
 
 WORKDIR /github/workspace
