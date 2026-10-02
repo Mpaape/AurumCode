@@ -59,6 +59,19 @@ jobs:
       pull-requests: write
       statuses: write
       checks: read
+      # AUR-521: deliberately NOT security-events: write. A reusable
+      # workflow's own `permissions:` block cannot ELEVATE what its
+      # caller grants -- GitHub refuses to even start a workflow_call job
+      # that declares a permission the caller's job token does not
+      # already have, which would break every existing caller of this
+      # workflow (code-review.yml, docs/site/workflow.yml, every example)
+      # the moment this key were added here. The SARIF document is
+      # uploaded as a plain job artifact below (actions/upload-artifact,
+      # no special permission needed); a caller that wants it in code
+      # scanning runs a SEPARATE job, in its own workflow, that grants
+      # itself security-events: write and uploads from the downloaded
+      # artifact -- see docs/configuration.md's "Trilha de auditoria e
+      # SARIF" section for the exact job.
     concurrency:
       group: aurumcode-review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -142,6 +155,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+          # AUR-521: the reusable workflow's OWN version, distinct from
+          # GITHUB_SHA (the commit under review above). Forwarded under a
+          # name GitHub Actions does not reserve: GITHUB_SHA (and, per the
+          # same reservation documented for AUR-504, very likely
+          # GITHUB_WORKFLOW_SHA too) cannot be overridden by a step's own
+          # env: block on a pull_request event, so this uses
+          # AURUMCODE_WORKFLOW_SHA instead. The audit record's workflow_sha
+          # field falls back to GITHUB_SHA only when this is absent (e.g. a
+          # caller invoking the CLI directly, outside this workflow).
+          AURUMCODE_WORKFLOW_SHA: ${{ job.workflow_sha }}
           AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           AURUMCODE_PR_PERMISSION_MODE: endpoint
           AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
@@ -185,12 +208,21 @@ jobs:
           if [ -n "${policy_dir}" ]; then
             args+=(--politica /github/policy)
           fi
+          # AUR-521: the compliance audit record and SARIF document, always
+          # written by this reusable workflow (the org's required policy
+          # gate is itself a compliance control, see docs/specs/AUR-521.md)
+          # -- never by the standalone action.yml, which has no equivalent
+          # mount point for them.
+          args+=(--auditoria /tmp/aurumcode-audit.json --sarif /tmp/aurumcode-review.sarif)
           : > "${RUNNER_TEMP}/aurumcode-changelog-output"
+          : > "${RUNNER_TEMP}/aurumcode-audit.json"
+          : > "${RUNNER_TEMP}/aurumcode-review.sarif"
           docker_args=(run --rm
             -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
             -w /github/workspace
             -e GITHUB_TOKEN
             -e GITHUB_SHA
+            -e AURUMCODE_WORKFLOW_SHA
             -e AURUMCODE_BASE_SHA
             -e AURUMCODE_PR_PERMISSION_MODE
             -e LLM_API_KEY
@@ -200,6 +232,8 @@ jobs:
             -e AURUMCODE_OUTPUT_FILE
             -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
             -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
+            -v "${RUNNER_TEMP}/aurumcode-audit.json:/tmp/aurumcode-audit.json"
+            -v "${RUNNER_TEMP}/aurumcode-review.sarif:/tmp/aurumcode-review.sarif"
           )
           if [ -n "${policy_dir}" ]; then
             docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
@@ -209,3 +243,51 @@ jobs:
           if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
             cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
+
+      # AUR-521: the two compliance files are pre-created (`: >`) above so
+      # the docker bind-mount does not create a directory in their place --
+      # which means they can exist as valid, empty (0-byte) files on a run
+      # that never reached the point where the CLI writes them (a usage
+      # error, or the --pr early-provider-failure gap AUR-537 tracks). A
+      # 0-byte file is not a SARIF document and must never be uploaded as
+      # one; this check makes both upload steps below no-ops on that file
+      # instead of letting upload-sarif fail the job on invalid input.
+      - name: Check compliance artifacts are non-empty
+        if: always()
+        id: artifacts
+        run: |
+          set -euo pipefail
+          if [ -s "${RUNNER_TEMP}/aurumcode-review.sarif" ]; then
+            echo "sarif=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sarif=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -s "${RUNNER_TEMP}/aurumcode-audit.json" ]; then
+            echo "audit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "audit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # if: always() -- a gate breach fails the "Run and publish code
+      # review" step (exit 1/3 above), and the whole point of uploading
+      # these is that a FAILING gate still produces evidence; without
+      # always() both artifacts would be skipped exactly on the runs that
+      # most need them. Uploaded as plain job artifacts -- NOT via
+      # github/codeql-action/upload-sarif here -- because that action
+      # needs security-events: write, which this reusable workflow cannot
+      # grant itself (see the job's own `permissions:` comment above). A
+      # caller that wants the SARIF in code scanning downloads this
+      # artifact in a second job; see docs/configuration.md.
+      - name: Upload SARIF document
+        if: always() && steps.artifacts.outputs.sarif == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aurumcode-sarif-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/aurumcode-review.sarif
+
+      - name: Upload compliance audit record
+        if: always() && steps.artifacts.outputs.audit == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aurumcode-audit-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/aurumcode-audit.json
