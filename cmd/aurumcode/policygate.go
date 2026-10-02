@@ -24,6 +24,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -65,6 +66,18 @@ type gateDecision struct {
 	// plus a breach).
 	Breach bool
 	Lines  []string
+	// AUR-521: BlockingFindings and AppliedExceptions are the SAME
+	// decisions above (Breach's threshold match, and AUR-520's exception
+	// match), captured as structured data instead of printable lines, so
+	// the compliance audit record/SARIF document never re-derive the
+	// gate's own matching logic a second time -- there is exactly one
+	// place a finding is decided to block or be excepted, and this struct
+	// is its only output. BlockingFindings is appended to ONLY at the
+	// exact point Breach is set below, so it is never populated by a run
+	// that never reached (or never passed) the threshold loop at all
+	// (e.g. gate.inconclusive: block, Fail without Breach).
+	BlockingFindings  []render.AuditFinding
+	AppliedExceptions []render.AuditException
 }
 
 // mergedRuleCatalogIDs returns builtin plus every id of dynamic, sorted and
@@ -291,6 +304,11 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 				// loop de limiar/severidade abaixo, e aparece como
 				// aceito com dono e validade.
 				d.Lines = append(d.Lines, acceptedExceptionLine(exc, issue))
+				d.AppliedExceptions = append(d.AppliedExceptions, render.AuditException{
+					RuleID:        issue.RuleID,
+					Path:          issue.File,
+					Justification: fmt.Sprintf("dono: %s, motivo: %s, validade: %s", exc.Owner, exc.Reason, exc.Expires),
+				})
 				continue
 			case exceptionExpired:
 				// AC-002: a exceção venceu e não vale mais -- o achado
@@ -315,6 +333,12 @@ func evaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 		d.Fail = true
 		d.Breach = true
 		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s)", rule.ID, rule.Title, issue.Severity, name))
+		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
+			RuleID:   issue.RuleID,
+			Path:     issue.File,
+			Line:     issue.Line,
+			Severity: issue.Severity,
+		})
 	}
 	return d, nil
 }
