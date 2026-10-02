@@ -1,0 +1,9 @@
+sbom: CycloneDX 1.7, componentes: lodash@4.17.15
+policy gate: semgrep:github.policy.regras.demo-sem-eval: eval() executa texto como codigo
+(rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem policy)
+src/calc.js:5: [error] eval() executa texto como codigo
+policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
+**Verdict:** Changes requested
+aurumcode review: exit_code=3
+dependency-track violacao: politica=demo-componente-proibido componente=lodash versao=4.17.15 estado=FAIL
+RESULTADO: gate reprovou, como esperado
