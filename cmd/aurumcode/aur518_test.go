@@ -214,6 +214,23 @@ func TestAUR518MissingOrInvalidPolicyFailsClosed(t *testing.T) {
 	}
 }
 
+// TestAUR518EmptyPolicyFlagIsUsageError extends AC-005: an explicitly empty
+// --politica value (the --politica "$VAR" shape with VAR unset in CI) is a
+// usage error, exactly like --modelo/--limite already treat an explicitly
+// empty value -- it must never silently fall back to reviewing the
+// repository alone.
+func TestAUR518EmptyPolicyFlagIsUsageError(t *testing.T) {
+	coverageFixture(t, "")
+	setAUR518LLMFixture(t)
+	t.Setenv("AURUMCODE_POLICY", "")
+
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1", "--politica", ""}, &out, &errOut, redaction.NewFilter())
+	if code != 2 {
+		t.Fatalf("expected exit 2 for an explicitly empty --politica, got %d; stdout=%s stderr=%s", code, out.String(), errOut.String())
+	}
+}
+
 // TestAUR518NoPolicyKeepsRepoRuleOverride covers AC-006: with no policy
 // declared (no --politica flag, no AURUMCODE_POLICY), the repository's own
 // rule override still applies exactly as it did before this card existed,

@@ -408,24 +408,13 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 	// detection: it is a bool flag with no distinct "set but empty" state,
 	// so its zero value already means "not given", exactly like the --base
 	// path treats it.
-	// AUR-518: --politica/--policy pick the central policy directory; absent,
-	// AURUMCODE_POLICY is used; both absent, policyDir stays "" and nothing
-	// past this point changes (AC-006). Shared by both the --base and --pr
-	// dispatch below -- the flag is parsed once, here, regardless of path.
-	policyDir := strings.TrimSpace(*politica)
-	if policyDir == "" {
-		policyDir = strings.TrimSpace(*policyAlias)
-	}
-	if policyDir == "" {
-		policyDir = strings.TrimSpace(os.Getenv("AURUMCODE_POLICY"))
-	}
-
 	prGiven := false
 	prFailOnGiven := false
 	prModeloGiven := false
 	prLimiteGiven := false
 	prPublicationGiven := false
 	perfisGiven := false
+	politicaGiven := false
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "pr":
@@ -440,8 +429,30 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			prPublicationGiven = true
 		case "perfis", "profile":
 			perfisGiven = true
+		case "politica", "policy":
+			politicaGiven = true
 		}
 	})
+
+	// AUR-518: --politica/--policy pick the central policy directory; absent,
+	// AURUMCODE_POLICY is used; both absent, policyDir stays "" and nothing
+	// past this point changes (AC-006). An explicitly empty value (
+	// --politica "" or --politica "$VAR" with VAR unset) is a usage error,
+	// never a silent fallback to reviewing the repository alone -- the same
+	// "explicit empty is refused" rule --modelo/--limite already follow
+	// above. Shared by both the --base and --pr dispatch below -- the flag
+	// is parsed once, here, regardless of path.
+	policyDir := strings.TrimSpace(*politica)
+	if policyDir == "" {
+		policyDir = strings.TrimSpace(*policyAlias)
+	}
+	if politicaGiven && policyDir == "" {
+		fmt.Fprintln(stderr, "aurumcode review: --politica/--policy: directory must not be empty")
+		return 2
+	}
+	if !politicaGiven {
+		policyDir = strings.TrimSpace(os.Getenv("AURUMCODE_POLICY"))
+	}
 	if prGiven {
 		// The PR path uses the same explicit quality requirement as --base:
 		// an inconclusive model must not leave a green CI review gate.
