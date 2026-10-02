@@ -1,0 +1,9 @@
+# Toda imagem usada pela demonstracao, fixada por digest (nunca por tag).
+# trivy e semgrep copiam .board/bootstrap/locks/scanners.yml (vuln_scanner_image,
+# sast_scanner_image). O Semgrep roda dentro da imagem do produto (Dockerfile),
+# na versao identica de scanners.yml; a fase build confere a versao.
+dtrack_apiserver=docker.io/dependencytrack/apiserver@sha256:764dee822521e43d50ad7d0ca5bc35f48968b6b098ef97945e2ecac8c55d52e5
+postgres=docker.io/library/postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+trivy=docker.io/aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
+semgrep=docker.io/semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b
+cosign=ghcr.io/sigstore/cosign/cosign@sha256:9e5c2f2edc34351160407ca3416c61855bdf9403c3c5936e0f0be7fc261611b8
