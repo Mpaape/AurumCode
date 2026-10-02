@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -44,41 +45,9 @@ const (
 	gateOriginRepo   = "repo"
 )
 
-// gateDecision is one run's AUR-519 gate outcome. Active is false when no
-// gate was declared at all (GateConfig.Declared() == false): every other
-// field is then meaningless and the caller changes nothing about today's
-// behavior. Fail means the check must report failure (AC-001's severity
-// breach, or an inconclusive run under gate.inconclusive: block). Lines
-// names why, for the published summary/limitations and for stderr -- never
-// empty when Fail or Inconclusive is true.
-type gateDecision struct {
-	Active       bool
-	Fail         bool
-	Inconclusive bool
-	// Breach is true only when an actual severity-threshold breach was
-	// found in the issues (the threshold loop below), as opposed to Fail
-	// being set purely because gate.inconclusive: block fired with no
-	// breach ever checked. publishPolicyGateStatus and the exit-code
-	// sections of runReview/runPRReview use this to tell "a real finding
-	// closed the gate" (exitFindings) apart from "the review itself was
-	// never trustworthy enough to grade" (exitQualityNotReviewed) even
-	// when both end up with Fail == true at once (inconclusive: warn/""
-	// plus a breach).
-	Breach bool
-	Lines  []string
-	// AUR-521: BlockingFindings and AppliedExceptions are the SAME
-	// decisions above (Breach's threshold match, and AUR-520's exception
-	// match), captured as structured data instead of printable lines, so
-	// the compliance audit record/SARIF document never re-derive the
-	// gate's own matching logic a second time -- there is exactly one
-	// place a finding is decided to block or be excepted, and this struct
-	// is its only output. BlockingFindings is appended to ONLY at the
-	// exact point Breach is set below, so it is never populated by a run
-	// that never reached (or never passed) the threshold loop at all
-	// (e.g. gate.inconclusive: block, Fail without Breach).
-	BlockingFindings  []render.AuditFinding
-	AppliedExceptions []render.AuditException
-}
+// gateDecision is one run's gate outcome; the type lives in internal/gate
+// (gate.Result) and this alias keeps the package's own vocabulary.
+type gateDecision = gate.Result
 
 // mergedRuleCatalogIDs returns builtin plus every id of dynamic, sorted and
 // deduplicated. It is the exact list a Reviewer must be taught

@@ -193,10 +193,17 @@ func TestAUR490SharedPasses(t *testing.T) {
 	// tail (passes.go) -- asserted directly on their own source files below,
 	// since neither main.go nor pr.go calls codebaseContextJSON itself.
 	for file, required := range map[string][]string{
-		"main.go":   {"resolveCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "renderLocalReport"},
-		"pr.go":     {"resolveVerifiedCodebaseContext", "openReviewMemory", "mergeStaticAnalysis", "persistReviewMemory", "formatPublishedReviewBody"},
-		"passes.go": {"codebaseContextJSON"},
-		"aur536.go": {"codebaseContextJSON"},
+		// AUR-557: the bodies of runReview and runPRReview moved into the
+		// --base/--pr phase files; the same calls are asserted, now across
+		// the files that hold them.
+		"review_base_inputs.go":   {"resolveCodebaseContext", "openReviewMemory"},
+		"review_base_analysis.go": {"mergeStaticAnalysis"},
+		"review_base_publish.go":  {"persistReviewMemory", "renderLocalReport"},
+		"review_pr_inputs.go":     {"resolveVerifiedCodebaseContext", "openReviewMemory"},
+		"review_pr_analysis.go":   {"mergeStaticAnalysis"},
+		"review_pr_publish.go":    {"persistReviewMemory", "formatPublishedReviewBody"},
+		"passes.go":               {"codebaseContextJSON"},
+		"aur536.go":               {"codebaseContextJSON"},
 	} {
 		f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
 		if err != nil {
