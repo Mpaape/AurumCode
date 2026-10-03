@@ -35,26 +35,33 @@ LAST_RC=0
 LAST_OUT=
 
 # ---------------------------------------------------------------- imagem
-# Identidade da arvore: sha256 do Dockerfile, go.mod, go.sum e dos arquivos de
-# producao (sem *_test.go) de cmd, internal e pkg, que e o que o `docker build`
-# do produto compila. Usa so sha256 de arquivos (sem git e sem docker), para dar
-# o mesmo valor no host e no container selado dos aceites.
+# Identidade da arvore: sha256 de go.mod, go.sum e dos arquivos de producao (sem
+# *_test.go) de cmd, internal e pkg, que e o que o `docker build` do produto
+# compila. Usa so sha256 de arquivos (sem git e sem docker): o mesmo valor no
+# host e no container selado dos aceites, onde o Dockerfile nao e materializado.
+# O Dockerfile entra a parte (TUT_DOCKERFILE, vazio quando ausente): e conferido
+# sempre que existe e participa da tag da imagem.
 tut_sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; }
 tut_tree_id() {
   (
     cd "$REPO_ROOT"
-    { printf '%s\n' Dockerfile go.mod go.sum
+    { printf '%s\n' go.mod go.sum
       find cmd internal pkg -type f ! -name '*_test.go' 2>/dev/null || true
     } | LC_ALL=C sort | while IFS= read -r f; do
       if [ -f "$f" ]; then printf '%s  %s\n' "$(tut_sha256 < "$f" | awk '{print $1}')" "$f"; fi
     done | tut_sha256 | awk '{print $1}'
   )
 }
+tut_dockerfile_id() {
+  if [ -f "$REPO_ROOT/Dockerfile" ]; then tut_sha256 < "$REPO_ROOT/Dockerfile" | awk '{print $1}'; fi
+}
 TUT_TREE="$(tut_tree_id)"
+TUT_DOCKERFILE="$(tut_dockerfile_id)"
 
-# A tag deriva da identidade da arvore: uma imagem de outra arvore nunca e
-# reaproveitada. AURUMCODE_TUT_IMAGE continua sobrescrevendo a tag.
-TUT_IMAGE="${AURUMCODE_TUT_IMAGE:-aurum-tutoriais:${TUT_TREE:0:12}}"
+# A tag deriva da identidade da arvore e do Dockerfile: uma imagem de outra arvore
+# nunca e reaproveitada. AURUMCODE_TUT_IMAGE continua sobrescrevendo a tag.
+TUT_TAG="$(printf '%s%s' "$TUT_TREE" "$TUT_DOCKERFILE" | tut_sha256 | awk '{print substr($1,1,12)}')"
+TUT_IMAGE="${AURUMCODE_TUT_IMAGE:-aurum-tutoriais:$TUT_TAG}"
 
 # Constroi a imagem do produto uma vez por arvore (AURUMCODE_TUT_REBUILD=1 forca).
 tut_image() {
@@ -68,18 +75,23 @@ tut_image() {
 # Registra em out/.imagem a imagem que gerou out/ e a arvore que a construiu.
 tut_grava_imagem() {
   mkdir -p "$OUT"
-  printf 'tree=%s\nimage=%s\n' "$TUT_TREE" "$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE")" > "$IMAGEM_REG"
+  printf 'tree=%s\ndockerfile=%s\nimage=%s\n' "$TUT_TREE" "$TUT_DOCKERFILE" "$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE")" > "$IMAGEM_REG"
 }
 
 # Confere out/.imagem: ausente ou de outra arvore reprova. Com docker e a imagem
 # local, o digest tambem precisa bater; sem eles, so a arvore e conferida e a
 # saida diz "imagem nao conferida (sem docker)".
 tut_check_imagem() {
-  local tree img atual
+  local tree img atual dfile
   [ -f "$IMAGEM_REG" ] || { echo "DIVERGENCIA: out/.imagem ausente: out/ nao foi gravado por run.sh all com a imagem desta arvore (rode run.sh all)"; return 1; }
   tree="$(sed -n 's/^tree=//p' "$IMAGEM_REG")"; img="$(sed -n 's/^image=//p' "$IMAGEM_REG")"
+  dfile="$(sed -n 's/^dockerfile=//p' "$IMAGEM_REG")"
   if [ "$tree" != "$TUT_TREE" ]; then
     echo "DIVERGENCIA: out/ foi gravado por uma imagem de outra arvore (gravada ${tree:0:12}, atual ${TUT_TREE:0:12}); rode run.sh all"
+    return 1
+  fi
+  if [ -n "$TUT_DOCKERFILE" ] && [ "$dfile" != "$TUT_DOCKERFILE" ]; then
+    echo "DIVERGENCIA: out/ foi gravado com outro Dockerfile (gravado ${dfile:0:12}, atual ${TUT_DOCKERFILE:0:12}); rode run.sh all"
     return 1
   fi
   if command -v docker >/dev/null 2>&1 && atual="$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE" 2>/dev/null)"; then

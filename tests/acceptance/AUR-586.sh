@@ -41,7 +41,7 @@ for tool in awk grep sed tar cp mktemp find sort sha256sum; do
   command -v "$tool" >/dev/null 2>&1 || infra "missing-tool:$tool"
 done
 for f in demo/tutoriais/_lib/tutorial.sh demo/tutoriais/_lib/normaliza.sed docs/tutorials/operacao.md \
-  docs/tutorials/dados-de-analise.md Dockerfile go.mod go.sum tests/acceptance/AUR-563.sh tests/acceptance/AUR-564.sh; do
+  docs/tutorials/dados-de-analise.md go.mod go.sum tests/acceptance/AUR-563.sh tests/acceptance/AUR-564.sh; do
   [[ -f "$repo_root/$f" ]] || infra "missing:$f"
 done
 
@@ -56,7 +56,10 @@ readonly tutorials=(revisao skills politica-central qualquer-linguagem benchmark
 clone() {
   local dest="$1"
   mkdir -p "$dest"
-  (cd "$repo_root" && tar --exclude=.estado -cf - demo docs tests/acceptance Dockerfile go.mod go.sum cmd internal pkg) | tar -x -C "$dest"
+  local inputs=(demo docs tests/acceptance go.mod go.sum cmd internal pkg)
+  # the sealed profile does not materialize the Dockerfile; the tree identity does not need it
+  [[ ! -f "$repo_root/Dockerfile" ]] || inputs+=(Dockerfile)
+  (cd "$repo_root" && tar --exclude=.estado -cf - "${inputs[@]}") | tar -x -C "$dest"
   chmod -R u+w -- "$dest"
 }
 
