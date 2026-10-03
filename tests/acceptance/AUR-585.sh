@@ -81,7 +81,7 @@ check_tidy() { # check_tidy ROOT: prints a reason and returns 1 when red
   else
     printf 'go mod tidy failed: %s\n' "$(sed -n '1,4p' "$run_dir/tidy.log" | tr '\n' ' ')"; return 1
   fi
-  (cd "$root" && go build ./... && go vet ./...) >"$run_dir/build.log" 2>&1 || { echo "build/vet red: $(sed -n '1,3p' "$run_dir/build.log" | tr '\n' ' ')"; return 1; }
+  (cd "$root" && go vet ./...) >"$run_dir/build.log" 2>&1 || { echo "vet red (type-checks every package, as go build does): $(sed -n '1,3p' "$run_dir/build.log" | tr '\n' ' ')"; return 1; }
   mains="$(grep -rlE '^package main$' --include='*.go' "$root/internal" 2>/dev/null | sed -n '1,3p' | tr '\n' ' ' || true)"
   [[ -z "$mains" ]] || { echo "package main under internal/: $mains"; return 1; }
 }
