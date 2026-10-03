@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-563",
+  "commit": "fb53ee7f6acfb6668c67b478e08214d44951ec4d",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-563",
+    "exit_code": 0,
+    "raw_output": "AUR-563/AC-002-MUT-001/ok"
+  }
+}
