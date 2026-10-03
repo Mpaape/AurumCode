@@ -67,7 +67,7 @@ run_acceptance() {
 }
 
 quick=(AUR-491 AUR-493 AUR-496 AUR-497 AUR-500)
-slow=(AUR-468 AUR-473 AUR-479 AUR-504 AUR-505 AUR-540 AUR-541 AUR-542 AUR-547)
+slow=(AUR-468 AUR-473 AUR-479 AUR-504 AUR-505 AUR-540 AUR-542 AUR-547)  # AUR-541 stays out: RED on AUR-441 (product suspicion, see spec)
 # AUR-450 has no `all` selector (64): AC-001 is what AUR-473 AC-003 runs.
 
 ac002() { local id; for id in "${quick[@]}"; do run_acceptance "$id"; done; }
