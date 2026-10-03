@@ -1,5 +1,12 @@
 package prompt
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+
+	"github.com/Mpaape/AurumCode/internal/llm"
+)
+
 // PromptParts represents structured prompt components
 type PromptParts struct {
 	System string            // System message/instructions
@@ -69,4 +76,17 @@ type Document struct {
 	Path    string // Document path
 	Content string // Document content
 	Type    string // Document type: "style-guide", "standards", "examples"
+}
+
+// Messages returns the prompt as the two role messages a provider
+// receives: the trusted template as system, the reviewed material as user.
+func (p PromptParts) Messages() []llm.Message {
+	return llm.SystemUserMessages(p.System, p.User)
+}
+
+// Digest is the sha256 of the exact system and user text, NUL-separated so
+// moving bytes between the two halves changes it.
+func (p PromptParts) Digest() string {
+	sum := sha256.Sum256([]byte(p.System + "\x00" + p.User))
+	return hex.EncodeToString(sum[:])
 }

@@ -75,6 +75,29 @@ func NewOrchestrator(primary Provider, fallbacks []Provider, tracker *cost.Track
 
 // Complete executes a completion request with fallback chain and budget enforcement
 func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options) (Response, error) {
+	return o.attempt(ctx, prompt, opts, func(provider Provider) (Response, error) {
+		return provider.Complete(prompt, opts)
+	})
+}
+
+// CompleteMessages is Complete for a conversation of role messages. A
+// provider with the MessageCompleter capability receives the messages
+// separately; any other provider receives FlattenMessages(messages) through
+// Complete. The budget estimate always uses the flattened text, which is
+// what a single-string provider is sent.
+func (o *Orchestrator) CompleteMessages(ctx context.Context, messages []Message, opts Options) (Response, error) {
+	flat := FlattenMessages(messages)
+	return o.attempt(ctx, flat, opts, func(provider Provider) (Response, error) {
+		if mc, ok := As[MessageCompleter](provider); ok {
+			return mc.CompleteMessages(messages, opts)
+		}
+		return provider.Complete(flat, opts)
+	})
+}
+
+// attempt runs call against each provider of the chain in order, under the
+// budget reservation estimated from estimateText, until one succeeds.
+func (o *Orchestrator) attempt(ctx context.Context, estimateText string, opts Options, call func(Provider) (Response, error)) (Response, error) {
 	if len(o.providers) == 0 {
 		return Response{}, ErrNoProviders
 	}
@@ -94,7 +117,7 @@ func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options
 		// a different model.
 		modelKey := ResolveModelKey(provider, opts)
 
-		tokensIn := o.estimator.Estimate(provider, prompt, modelKey)
+		tokensIn := o.estimator.Estimate(provider, estimateText, modelKey)
 
 		// Reserve books the estimate up front. A bare check-then-charge pair
 		// lets every concurrent request clear a ceiling only one of them fits
@@ -109,7 +132,7 @@ func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options
 			reservation = res
 		}
 
-		resp, err := o.executeWithTimeout(ctx, provider, prompt, opts)
+		resp, err := o.executeWithTimeout(ctx, provider, call)
 		if err != nil {
 			// Nothing billable happened: hand the hold back before falling
 			// through to the next provider, otherwise a failed attempt keeps
@@ -143,7 +166,7 @@ func (o *Orchestrator) Complete(ctx context.Context, prompt string, opts Options
 }
 
 // executeWithTimeout wraps provider execution with context timeout
-func (o *Orchestrator) executeWithTimeout(ctx context.Context, provider Provider, prompt string, opts Options) (Response, error) {
+func (o *Orchestrator) executeWithTimeout(ctx context.Context, provider Provider, call func(Provider) (Response, error)) (Response, error) {
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, ProviderTimeout())
@@ -160,7 +183,7 @@ func (o *Orchestrator) executeWithTimeout(ctx context.Context, provider Provider
 	resultCh := make(chan result, 1)
 
 	go func() {
-		resp, err := provider.Complete(prompt, opts)
+		resp, err := call(provider)
 		resultCh <- result{resp: resp, err: err}
 	}()
 

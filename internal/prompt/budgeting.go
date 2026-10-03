@@ -109,6 +109,14 @@ func (b *TokenBudget) TrimToFit(segments []ContextSegment, baseTokens int) []Con
 	if available <= 0 {
 		return []ContextSegment{}
 	}
+	// When every segment fits there is nothing to choose, so the diff keeps
+	// its own order: a ceiling that trims nothing must not reorder the code
+	// the model reads (the priority sort below orders "f:10" before "f:2").
+	if b.EstimateTotal(segments) <= available {
+		out := make([]ContextSegment, len(segments))
+		copy(out, segments)
+		return out
+	}
 
 	// Sort by priority (high to low), then by sort key for determinism
 	sorted := make([]ContextSegment, len(segments))
