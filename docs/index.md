@@ -95,6 +95,28 @@ e [Arquitetura](architecture.md).
 
 Tutorial: [Estendendo o Aurum na prática](tutorials/extensao.md).
 
+## Como fica
+
+O que o usuário vê, capturado a partir das execuções gravadas dos tutoriais
+(cada tutorial tem a sua seção "Como fica"; as capturas são geradas por
+scripts/docs/capturas.sh e conferidas pelo manifesto
+assets/capturas/capturas.json).
+
+Comentário da revisão no PR (tutorial [revisão](tutorials/revisao.md)):
+
+![Comentario do PR do caso com-provedor](assets/capturas/revisao/com-provedor-comentario.png)
+
+Status checks publicados pelo gate (tutorial [gate](tutorials/gate.md)):
+
+![Status checks do caso status-pr](assets/capturas/gate/status-pr-status.png)
+
+Terminal do gate com a engine de exemplo (tutorial [extensão](tutorials/extensao.md)):
+
+![Terminal do caso engine-no-gate](assets/capturas/extensao/engine-no-gate-terminal.png)
+
+Tutorial: cada tutorial do [índice de tutoriais](tutorials/README.md) termina
+na sua seção "Como fica", com as capturas de todos os casos.
+
 ## Especificações
 
 O arquivo histórico da reconstrução está na seção [Specs](specs/README.md).

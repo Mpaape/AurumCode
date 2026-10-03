@@ -573,3 +573,74 @@ erro **nunca** vira "sem gate": o comando falha.
 - **SAST com `p/...` falhando offline:** pacotes do registro exigem rede; use um
   arquivo de regras local, como no caso 4.
 - **Exceção que não vale:** veja [excecoes.md](excecoes.md).
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/gate/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### achado-deterministico
+
+![Terminal do caso achado-deterministico](../assets/capturas/gate/achado-deterministico-terminal.png)
+
+![Comentario do PR do caso achado-deterministico](../assets/capturas/gate/achado-deterministico-comentario.png)
+
+### fail-on-severidade
+
+![Terminal do caso fail-on-severidade](../assets/capturas/gate/fail-on-severidade-terminal.png)
+
+![Comentario do PR do caso fail-on-severidade](../assets/capturas/gate/fail-on-severidade-comentario.png)
+
+### falha-fonte-invalida
+
+![Terminal do caso falha-fonte-invalida](../assets/capturas/gate/falha-fonte-invalida-terminal.png)
+
+### fontes
+
+![Terminal do caso fontes](../assets/capturas/gate/fontes-terminal.png)
+
+![Comentario do PR do caso fontes](../assets/capturas/gate/fontes-comentario.png)
+
+### inconclusivo-analysis-data
+
+![Terminal do caso inconclusivo-analysis-data](../assets/capturas/gate/inconclusivo-analysis-data-terminal.png)
+
+![Comentario do PR do caso inconclusivo-analysis-data](../assets/capturas/gate/inconclusivo-analysis-data-comentario.png)
+
+### inconclusivo-cobertura
+
+![Terminal do caso inconclusivo-cobertura](../assets/capturas/gate/inconclusivo-cobertura-terminal.png)
+
+![Comentario do PR do caso inconclusivo-cobertura](../assets/capturas/gate/inconclusivo-cobertura-comentario.png)
+
+### inconclusivo-provedor
+
+![Terminal do caso inconclusivo-provedor](../assets/capturas/gate/inconclusivo-provedor-terminal.png)
+
+![Comentario do PR do caso inconclusivo-provedor](../assets/capturas/gate/inconclusivo-provedor-comentario.png)
+
+### inconclusivo-sast
+
+![Terminal do caso inconclusivo-sast](../assets/capturas/gate/inconclusivo-sast-terminal.png)
+
+![Comentario do PR do caso inconclusivo-sast](../assets/capturas/gate/inconclusivo-sast-comentario.png)
+
+### modelo-pondera
+
+![Terminal do caso modelo-pondera](../assets/capturas/gate/modelo-pondera-terminal.png)
+
+![Comentario do PR do caso modelo-pondera](../assets/capturas/gate/modelo-pondera-comentario.png)
+
+### repo-afrouxa
+
+![Terminal do caso repo-afrouxa](../assets/capturas/gate/repo-afrouxa-terminal.png)
+
+![Comentario do PR do caso repo-afrouxa](../assets/capturas/gate/repo-afrouxa-comentario.png)
+
+### status-pr
+
+![Terminal do caso status-pr](../assets/capturas/gate/status-pr-terminal.png)
+
+![Status checks do caso status-pr](../assets/capturas/gate/status-pr-status.png)
+
+<!-- capturas:fim -->

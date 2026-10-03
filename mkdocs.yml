@@ -6,6 +6,9 @@ strict: true
 theme:
   name: material
   language: pt-BR
+  # System fonts: no request to an external font CDN, so the site and its
+  # screenshots (scripts/docs/capturas.sh) depend only on the repository.
+  font: false
   features:
     - navigation.tabs
     - navigation.indexes
@@ -20,6 +23,9 @@ hooks:
 plugins:
   - search:
       lang: [pt]
+      # Paths and file names are split too (demo/tutoriais/deliberacao/run.sh
+      # is found by "deliberacao"); a dot followed by a digit (v1.58.2) is not.
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;'
 exclude_docs: |
   /README.md
   site/*

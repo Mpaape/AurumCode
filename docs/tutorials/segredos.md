@@ -184,3 +184,40 @@ RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gat
 - No CI, o workflow reutilizável faz checkout do PR com histórico completo
   (`fetch-depth: 0`); um clone raso cortaria o intervalo e a engine o recusa
   como inconclusivo.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/segredos/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### allow-sob-politica
+
+![Terminal do caso allow-sob-politica](../assets/capturas/segredos/allow-sob-politica-terminal.png)
+
+![Comentario do PR do caso allow-sob-politica](../assets/capturas/segredos/allow-sob-politica-comentario.png)
+
+### binario-ausente
+
+![Terminal do caso binario-ausente](../assets/capturas/segredos/binario-ausente-terminal.png)
+
+![Comentario do PR do caso binario-ausente](../assets/capturas/segredos/binario-ausente-comentario.png)
+
+### ignore-sob-politica
+
+![Terminal do caso ignore-sob-politica](../assets/capturas/segredos/ignore-sob-politica-terminal.png)
+
+![Comentario do PR do caso ignore-sob-politica](../assets/capturas/segredos/ignore-sob-politica-comentario.png)
+
+### segredo-no-diff
+
+![Terminal do caso segredo-no-diff](../assets/capturas/segredos/segredo-no-diff-terminal.png)
+
+![Comentario do PR do caso segredo-no-diff](../assets/capturas/segredos/segredo-no-diff-comentario.png)
+
+### segredo-so-no-historico
+
+![Terminal do caso segredo-so-no-historico](../assets/capturas/segredos/segredo-so-no-historico-terminal.png)
+
+![Comentario do PR do caso segredo-so-no-historico](../assets/capturas/segredos/segredo-so-no-historico-comentario.png)
+
+<!-- capturas:fim -->

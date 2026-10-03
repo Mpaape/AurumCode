@@ -451,3 +451,38 @@ por afirmação, só por evidência.
 - **`pipeline.sh` com "not represented in Git".** Rode-o num checkout git, não numa cópia sem `.git`.
 - **Não demonstrado aqui:** `go-shared down`, o rebuild da imagem selada, a
   atualização real de scanners e a integração em `main`.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/operacao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### aceite-selado
+
+![Terminal do caso aceite-selado](../assets/capturas/operacao/aceite-selado-terminal.png)
+
+### ambiente-go-shared
+
+![Terminal do caso ambiente-go-shared](../assets/capturas/operacao/ambiente-go-shared-terminal.png)
+
+### dependencia-e-repin
+
+![Terminal do caso dependencia-e-repin](../assets/capturas/operacao/dependencia-e-repin-terminal.png)
+
+### entrega-e-evidencia
+
+![Terminal do caso entrega-e-evidencia](../assets/capturas/operacao/entrega-e-evidencia-terminal.png)
+
+### falha-evidencia-ausente
+
+![Terminal do caso falha-evidencia-ausente](../assets/capturas/operacao/falha-evidencia-ausente-terminal.png)
+
+### profiles-e-locks
+
+![Terminal do caso profiles-e-locks](../assets/capturas/operacao/profiles-e-locks-terminal.png)
+
+### scanners-por-digest
+
+![Terminal do caso scanners-por-digest](../assets/capturas/operacao/scanners-por-digest-terminal.png)
+
+<!-- capturas:fim -->
