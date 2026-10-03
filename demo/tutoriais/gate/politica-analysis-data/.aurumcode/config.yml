@@ -1,0 +1,9 @@
+gate:
+  fail_on: [high]
+  inconclusive: block
+analysis_data:
+  max_age_days: 7
+review:
+  context:
+    skills:
+      - skills/seguranca.md

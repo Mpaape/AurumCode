@@ -1,0 +1,13 @@
+gate:
+  fail_on: [medium]
+exceptions:
+  - repo: OWNER/REPO
+    rule: seguranca#sem-segredos-no-codigo
+    path: app.go
+    owner: time-do-repo
+    reason: o proprio repositorio tenta se isentar
+    expires: 2099-12-31
+review:
+  context:
+    skills:
+      - .aurumcode/skills/seguranca.md

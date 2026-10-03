@@ -1,0 +1,7 @@
+gate:
+  fail_on: [high]
+  sources: [skills, supply]
+review:
+  context:
+    skills:
+      - skills/seguranca.md

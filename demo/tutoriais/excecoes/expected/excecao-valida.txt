@@ -1,0 +1,11 @@
+--- sem excecao: o achado reprova
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+exit_code=3
+RESULTADO: sem excecao, o warning cruza o limiar medium
+--- com excecao (dono, motivo, validade)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: aceito por exceção (dono: time-seguranca, motivo: valor de demonstracao, sem credencial real, validade: 2099-12-31)
+exit_code=0
+RESULTADO: a excecao valida tira o achado do gate
+exceptions_applied: [{"rule_id": "seguranca#sem-segredos-no-codigo", "path": "app.go", "justification": "dono: time-seguranca, motivo: valor de demonstracao, sem credencial real, validade: 2099-12-31"}]
+gate: pass

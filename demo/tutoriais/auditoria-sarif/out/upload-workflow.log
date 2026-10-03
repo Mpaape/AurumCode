@@ -1,0 +1,9 @@
+== upload-workflow
+workflow do chamador: workflow-chamador.yml
+job upload-sarif: concede security-events: write a si mesmo
+job review: nao pede security-events (um reutilizavel nao concede permissao ao chamador)
+review.yml: nao chama upload-sarif; so publica o artefato
+nome do artefato: igual no review.yml e no download do chamador
+arquivo: aurumcode-review.sarif nos dois
+PR de fork: o job de upload e pulado
+NAO EXECUTADO AQUI: o upload ao Code Scanning (nao ha runner nem GitHub neste ambiente)
