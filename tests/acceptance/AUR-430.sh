@@ -92,10 +92,8 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/config internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review internal/pipeline
-  copy "$root" cmd/regenerate-docs
-  copy "$root" pkg/types internal/llm
+  # cmd, internal e pkg inteiros: uma lista enumerada de pacotes apodrece quando o produto os move.
+  copy "$root" cmd internal pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # `cp -R` preserves the source tree's mode bits, and the materialized
   # `paths`/`read_paths` input this copies from is read-only -- including
@@ -139,6 +137,7 @@ nominal_case() {
   out1="$(cd "$repo_dir" && AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1)" || fail behavior-missing
   grep -Fq 'config/demo-tokens.txt' <<<"$out1" || fail behavior-missing
   grep -Fq '[error]' <<<"$out1" || fail behavior-missing
+  grep -Fq 'DEMO_API_TOKEN' <<<"$out1" || fail behavior-missing
 
   local out2
   out2="$(cd "$repo_dir" && AURUMCODE_LLM_FIXTURE="$fixture" "$shared_bin" review --base HEAD~1)" || fail non-deterministic
@@ -167,9 +166,9 @@ mutation_case() {
   local root="$run_dir/root-mut"
   stage_source "$root"
 
-  local target="$root/internal/review/reviewer.go internal/review/fakeprovider.go internal/review/rules.go internal/review/securitypass.go internal/review/workflow_references.go"
+  local target="$root/internal/review/reviewer.go"
   local anchor
-  anchor="$(printf '\treturn result, nil')"
+  anchor="$(printf '\toutcome, err := r.applyGates(prepared.diff, result)')"
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
   sed -i "s/^${anchor}\$/\tresult.Issues = nil\n${anchor}/" "$target"
   grep -Fq 'result.Issues = nil' "$target" || fail 'MUT-001/mutation-not-applied'
@@ -186,10 +185,12 @@ mutation_case() {
 
   local out
   out="$(cd "$repo_dir" && AURUMCODE_LLM_FIXTURE="$fixture" "$bin" review --base HEAD~1)" || fail mutation-run-failed
-  if grep -Fq 'config/demo-tokens.txt' <<<"$out"; then
+  # The report always lists touched files, so the finding itself (its message
+  # and its severity tag) is what must disappear.
+  if grep -Fq 'DEMO_API_TOKEN' <<<"$out"; then
     fail 'MUT-001/not-rejected'
   fi
-  grep -Fq 'No issues found.' <<<"$out" || fail 'MUT-001/unexpected-output'
+  if grep -Fq '[error]' <<<"$out"; then fail 'MUT-001/unexpected-output'; fi
 
   cleanup_root "$root"
   printf '%s/%s/MUT-001/rejected\n' "$card" "$scenario"
