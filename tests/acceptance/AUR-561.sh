@@ -79,7 +79,9 @@ ac001() {
     (( k >= 4 )) || fail "AC-001/$t/fases-insuficientes:$k"
     # o nav: mkdocs.yml quando existe; senao, as entradas registradas na spec
     if [[ -f "$repo_root/mkdocs.yml" ]]; then
-      grep -q "tutorials/$t.md" "$repo_root/mkdocs.yml" || fail "AC-001/$t/fora-do-nav"
+      # o hook do site injeta a aba Tutoriais de docs/tutorials/README.md + *.md
+      grep -q "tutorials" "$repo_root/scripts/docs/hooks.py" || fail "AC-001/$t/hook-sem-tutoriais"
+      grep -q "tutorials/$t.md\|$t.md" "$repo_root/docs/tutorials/README.md" || fail "AC-001/$t/fora-do-nav"
     else
       grep -q "tutorials/$t.md" "$spec" || fail "AC-001/$t/nav-nao-registrado-na-spec"
     fi
