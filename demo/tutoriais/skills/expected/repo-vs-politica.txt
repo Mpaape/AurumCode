@@ -5,3 +5,4 @@ aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
 exit_code=3
 RESULTADO: a secao da skill da politica reprova
+prompt: a skill da politica aparece antes da skill do repositorio

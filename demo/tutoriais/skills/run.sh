@@ -64,8 +64,17 @@ caso_repo_vs_politica() {
   expect_rc 0 "sob politica, a secao da skill do repo nao entra no gate"
   echo "--- o achado cita a skill da POLITICA (seguranca#...)"
   TUT_FIXTURE=fixture-politica.json
+  TUT_ENVS=(-e AURUMCODE_PROMPT_CAPTURE=/work/prompt.txt)
   aurum review --base main --politica /policy
   expect_rc 3 "a secao da skill da politica reprova"
+  local lp lr
+  lp="$(grep -nF 'Nenhum segredo literal e aceito' "$TUT_WORK/prompt.txt" | head -n1 | cut -d: -f1)"
+  lr="$(grep -nF 'Credenciais vem do ambiente' "$TUT_WORK/prompt.txt" | head -n1 | cut -d: -f1)"
+  if [ -n "$lp" ] && [ -n "$lr" ] && [ "$lp" -lt "$lr" ]; then
+    echo "prompt: a skill da politica aparece antes da skill do repositorio"
+  else
+    echo "ERRO: ordem inesperada no prompt (politica=$lp repo=$lr)"; return 1
+  fi
 }
 
 # 5. Uma regra de skill vira regra citavel do gate: o piso de severidade e a secao nova.
