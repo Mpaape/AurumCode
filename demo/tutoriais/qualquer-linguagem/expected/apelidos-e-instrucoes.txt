@@ -2,5 +2,5 @@ prompt: kotlin.md (applyTo: **/*.kt)
 prompt: Em Kotlin, prefira val a var e evite o operador !!.
 prompt: terraform.md (applyTo: **/*.tf)
 prompt: java.md (applyTo: **/*.java) NAO chegou
-prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) NAO foi lida
+prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) FOI lida
 exit_code=0

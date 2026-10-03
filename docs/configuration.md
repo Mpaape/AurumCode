@@ -1249,3 +1249,22 @@ analysis_data:
   linha no parecer (`remote` quando a listagem respondeu).
 - Requisito de publicação: ative "Immutable releases" nas configurações do
   repositório publicador para que um release publicado não possa ser alterado.
+
+## Quais arquivos saem da revisão como documentação
+
+O `review` agrupa cada arquivo pela gramática que o runtime tree-sitter detecta
+e pela categoria dessa gramática em `internal/analyzer/language_catalog.yml`
+(dado, não código). Só a categoria `documentation` tira um arquivo da revisão de
+código, e ela lista **apenas gramáticas de detecção forte**: aquelas que o
+runtime escolhe por uma extensão que significa aquela linguagem de marcação e
+mais nada (`.md` para Markdown, `.rst` para reStructuredText, `.org` para Org).
+
+Uma gramática escolhida só por extensão genérica é de detecção fraca e fica
+fora de `documentation`. O caso conhecido é `vimdoc`, que o runtime atribui a
+qualquer `.txt`: um `.txt` pode guardar uma lista de tokens tanto quanto um
+texto de ajuda. Esses arquivos (e qualquer gramática que o catálogo não
+liste) têm categoria `other` e vão ao modelo como texto, na seção
+`Code Changes`, contados em "Code files in this diff". A regra falha fechada: uma gramática nova
+que o runtime ganhe em uma atualização é revisada até alguém, deliberadamente,
+a declarar como documentação forte no catálogo. Não há lista de extensões em
+Go.
