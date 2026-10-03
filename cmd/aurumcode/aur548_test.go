@@ -374,11 +374,11 @@ func TestAUR548PolicyOriginWithoutSastSectionIsRepo(t *testing.T) {
 	if strings.Contains(combined, "quality_gates.sast do config do repositório foi ignorado") {
 		t.Fatalf("the repo's own quality_gates.sast must survive when the policy never declares that section:\n%s", combined)
 	}
-	if !strings.Contains(combined, "origem repo") {
+	if !strings.Contains(combined, "secao repo") {
 		t.Fatalf("expected origem repo in the output when the policy never declares quality_gates.sast:\n%s", combined)
 	}
-	if strings.Contains(combined, "origem policy") {
-		t.Fatalf("expected origem repo, not policy, when the policy never declares quality_gates.sast:\n%s", combined)
+	if strings.Contains(combined, "secao policy") {
+		t.Fatalf("expected secao repo, not policy, when the policy never declares quality_gates.sast:\n%s", combined)
 	}
 	argv, err := os.ReadFile(argvLog)
 	if err != nil {
@@ -776,11 +776,11 @@ func TestAUR548PRPolicyOriginFlags(t *testing.T) {
 			t.Fatalf("exit=%d, want exitFindings(%d) (dir=%s); stdout=%s stderr=%s posted=%s", code, exitFindings, dir, out.String(), errOut.String(), posted.Body)
 		}
 		combined := out.String() + errOut.String() + posted.Body
-		if !strings.Contains(combined, "origem repo") {
+		if !strings.Contains(combined, "secao repo") {
 			t.Fatalf("expected origem repo when the policy never declares quality_gates.sast:\n%s", combined)
 		}
-		if strings.Contains(combined, "origem policy") {
-			t.Fatalf("expected origem repo, not policy, when the policy never declares quality_gates.sast:\n%s", combined)
+		if strings.Contains(combined, "secao policy") {
+			t.Fatalf("expected secao repo, not policy, when the policy never declares quality_gates.sast:\n%s", combined)
 		}
 		argv, err := os.ReadFile(argvLog)
 		if err != nil {

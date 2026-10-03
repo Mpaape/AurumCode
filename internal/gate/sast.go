@@ -44,7 +44,7 @@ func ApplySASTGate(d *Result, sast *config.SastConfig, origin string, issues []t
 	d.Active = true
 	if reason != "" {
 		d.Inconclusive = true
-		d.Lines = append(d.Lines, fmt.Sprintf("SAST (semgrep, origem %s) inconclusivo (%s)", origin, reason))
+		d.Lines = append(d.Lines, fmt.Sprintf("SAST (semgrep, origem %s, secao %s) inconclusivo (%s)", OriginSAST, origin, reason))
 		return nil
 	}
 	rank, name, err := sast.Threshold()
@@ -60,7 +60,7 @@ func ApplySASTGate(d *Result, sast *config.SastConfig, origin string, issues []t
 		}
 		d.Fail = true
 		d.Breach = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s, origem %s)", issue.RuleID, issue.Message, issue.Severity, name, origin))
+		d.Lines = append(d.Lines, FindingLine(issue.RuleID, issue.Message, issue.Severity, name, OriginSAST+", secao "+origin))
 		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
 			RuleID:   issue.RuleID,
 			Path:     issue.File,

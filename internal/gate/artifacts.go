@@ -31,7 +31,7 @@ func (f ArtifactFailure) Line() string {
 // becomes inconclusive by the policy's mode, exactly like a failing
 // contributor: block fails the check, warn marks it inconclusive, and
 // approval is withheld either way. Without a declared gate only the reason
-// is recorded (the caller still must not exit 0). A no-op for no failures.
+// is recorded and approval is withheld (the caller still must not exit 0). A no-op for no failures.
 func ApplyArtifactFailures(run *Run, res *Result, failures []ArtifactFailure) {
 	if len(failures) == 0 {
 		return
@@ -40,6 +40,12 @@ func ApplyArtifactFailures(run *Run, res *Result, failures []ArtifactFailure) {
 	for _, f := range failures {
 		res.AddReason(f.Reason)
 		lines = append(lines, f.Line())
+	}
+	// Approval is withheld whether or not a gate is declared (AUR-567): the
+	// formal review must not say APPROVE for a run whose own evidence could
+	// not be recorded, and then exit 1.
+	if run != nil && run.Review != nil {
+		withholdApproval(run.Review)
 	}
 	if run == nil || run.Cfg == nil || !run.Cfg.Gate.Declared() {
 		return
@@ -51,5 +57,4 @@ func ApplyArtifactFailures(run *Run, res *Result, failures []ArtifactFailure) {
 	}
 	res.Lines = append(res.Lines, lines...)
 	publishGateLines(run, lines)
-	withholdApproval(run.Review)
 }

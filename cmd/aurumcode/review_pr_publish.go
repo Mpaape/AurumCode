@@ -124,7 +124,7 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	}
 	formal := githubclient.PullRequestReview{
 		Body:     summaryBody,
-		Event:    formalReviewEvent(p.result),
+		Event:    gateAlignedReviewEvent(formalReviewEvent(p.result), p.cfg.Gate.Declared(), p.gateRes.Fail),
 		CommitID: p.commitID,
 		Comments: formalComments,
 	}
@@ -240,4 +240,24 @@ func (p *prReview) exitCode(checkExit, gateCheckExit int, artifactsMissing bool)
 		return checkExit
 	}
 	return 0
+}
+
+// gateAlignedReviewEvent aligns the formal review with the policy gate when
+// one is declared (AUR-567): REQUEST_CHANGES only when the gate fails the
+// check, so the review and the aurumcode/policy-gate status never disagree
+// (a warning below the threshold used to request changes while the checks
+// were green). Everything else the review would have said stays: COMMENT for
+// a run with findings below the threshold or withheld approval, APPROVE for a
+// clean one. With no gate declared the event is the historical one.
+func gateAlignedReviewEvent(event string, gateDeclared, gateFails bool) string {
+	if !gateDeclared {
+		return event
+	}
+	if gateFails {
+		return "REQUEST_CHANGES"
+	}
+	if event == "REQUEST_CHANGES" {
+		return "COMMENT"
+	}
+	return event
 }

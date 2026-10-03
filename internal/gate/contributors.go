@@ -118,7 +118,7 @@ func (SecurityPassContributor) Apply(_ context.Context, run *Run, res *Result) e
 type AnalysisDataContributor struct{}
 
 func (AnalysisDataContributor) Name() string   { return ContributorAnalysisData }
-func (AnalysisDataContributor) Origin() string { return "analysis-data" }
+func (AnalysisDataContributor) Origin() string { return OriginAnalysisData }
 func (AnalysisDataContributor) Apply(ctx context.Context, run *Run, res *Result) error {
 	mode, _ := run.Cfg.Gate.InconclusiveMode()
 	adResult, adReason, adAudit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData, mode)
@@ -135,7 +135,7 @@ func (AnalysisDataContributor) Apply(ctx context.Context, run *Run, res *Result)
 type DependencyTrackContributor struct{}
 
 func (DependencyTrackContributor) Name() string   { return ContributorDTrack }
-func (DependencyTrackContributor) Origin() string { return "dependency-track" }
+func (DependencyTrackContributor) Origin() string { return OriginDTrack }
 func (DependencyTrackContributor) Apply(ctx context.Context, run *Run, res *Result) error {
 	mode, _ := run.Cfg.Gate.InconclusiveMode()
 	dtResult, dtReason, nextFilter := ApplyDTrackGate(ctx, run.Cfg.QualityGates.SsorDtrack, mode, run.Filter)
