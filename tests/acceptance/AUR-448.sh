@@ -373,16 +373,18 @@ mutation_case() {
   local root="$run_dir/root-mut"
   stage_source "$root"
 
-  local target="$root/cmd/aurumcode/main.go"
+  local target="$root/cmd/aurumcode/review_base_quality.go"
   local anchor
-  # AUR-467 added a second print with the same shape for its own
+  # AUR-558: the --base warnings are one loop over the three metadata keys
+  # (reportQualityOutcome); the mutation silences that one print, which
+  # silences discard_warning among them. AUR-467 added a second print with the same shape for its own
   # parse_discard_warning, so the bare Fprintf line is no longer unique. The
   # print is still what must be replaced -- swapping the guard instead would
   # unbalance the braces -- so a second string selects WHICH print: awk arms on
   # the guard carrying this card's metadata key and rewrites only the next
   # matching line.
-  anchor='fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)'
-  local guard='if warning := result.Metadata["discard_warning"]; warning != "" {'
+  anchor='fmt.Fprintf(b.stderr, "aurumcode review: %s\n", warning)'
+  local guard='if warning := b.result.Metadata[key]; warning != "" {'
   [[ "$(grep -Fc "$guard" "$target")" == 1 ]] || fail 'MUT-001/guard-not-unique'
   [[ "$(grep -Fc "$anchor" "$target")" -ge 1 ]] || fail 'MUT-001/anchor-absent'
   # A literal (not regex) substring replace via awk's index/substr, so the

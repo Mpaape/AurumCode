@@ -37,6 +37,9 @@ var findingOriginKey = gate.FindingOriginKey
 // gate outside a review (sbom).
 var evaluateGate = gate.EvaluateGate
 
+// newGatePipeline builds a pipeline from contributors in declared order.
+var newGatePipeline = gate.NewPipeline
+
 // diffContentDigest digests the reviewed diff for the verdict key.
 var diffContentDigest = gate.DiffContentDigest
 
@@ -71,7 +74,7 @@ type gatePipelineInputs struct {
 // assembleGatePipeline declares the one gate pipeline, in the order the
 // contributors apply. Both --base and --pr call exactly this function.
 func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
-	return gate.NewPipeline(
+	return newGatePipeline(
 		gate.ExceptionsContributor{},
 		gate.VerdictReuseContributor{Key: in.VerdictKey, Raw: in.RawIssues, PromptDigest: newCacheDigestBuilder().FixedContentDigest},
 		gate.PolicySkillsContributor{AcceptedOrigin: in.AcceptedOrigin, Dynamic: in.DynamicRules},
