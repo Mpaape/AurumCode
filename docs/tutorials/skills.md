@@ -17,7 +17,7 @@ byte a byte, e as saídas vêm de uma execução real registrada em
 ## Pré-requisitos
 
 - `git`, `docker` e `bash`, e a imagem do produto, como em
-  [revisao.md](revisao.md#pré-requisitos) (o atalho `aurumcode` do tutorial de
+  [revisao.md](revisao.md) (o atalho `aurumcode` do tutorial de
   revisão vale aqui; para repetir um caso à mão, defina
   `TUTORIAL_DIR=/caminho/para/AurumCode/demo/tutoriais/skills` (o atalho monta
   essa pasta em `/fixtures`) e exporte

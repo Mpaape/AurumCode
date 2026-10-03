@@ -17,9 +17,9 @@ execução real registrada em `demo/tutoriais/politica-central/out/`
 ## Pré-requisitos
 
 - `git`, `docker`, `bash` e a imagem do produto, como em
-  [revisao.md](revisao.md#pré-requisitos). Nenhuma credencial: o modelo é um
+  [revisao.md](revisao.md). Nenhuma credencial: o modelo é um
   JSON determinístico (`AURUMCODE_LLM_FIXTURE`) e os containers rodam sem rede.
-  Para repetir um caso à mão, use o atalho de [revisao.md](revisao.md#pré-requisitos)
+  Para repetir um caso à mão, use o atalho de [revisao.md](revisao.md)
   com `TUTORIAL_DIR=/caminho/para/AurumCode/demo/tutoriais/politica-central`
   (montado em `/fixtures`), acrescente ao atalho a pasta da política
   (`-v "/caminho/da/politica:/policy:ro"`) e exporte

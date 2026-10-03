@@ -4,7 +4,7 @@ Cada tutorial é executável: os blocos de configuração são os arquivos de
 `demo/tutoriais/<tutorial>/`, cada caso roda como uma fase (`run.sh <caso>`),
 a saída da última execução real fica em `out/` e `run.sh --check` a compara
 com `expected/`. Para criar um tutorial novo, veja
-[`demo/tutoriais/README.md`](../../demo/tutoriais/README.md).
+`demo/tutoriais/README.md`.
 
 | Tutorial | Casos de uso |
 |---|---|
