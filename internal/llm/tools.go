@@ -63,8 +63,7 @@ type ToolCaller interface {
 // AsToolCaller reports whether provider supports tool calling, before any
 // request is made.
 func AsToolCaller(provider Provider) (ToolCaller, bool) {
-	tc, ok := provider.(ToolCaller)
-	return tc, ok
+	return As[ToolCaller](provider)
 }
 
 // ErrMalformedToolArguments is returned (wrapped in a *MalformedToolCallError)

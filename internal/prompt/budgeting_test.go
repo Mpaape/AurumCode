@@ -132,9 +132,10 @@ func TestTrimToFit_Deterministic(t *testing.T) {
 			t.Errorf("Run %d: Expected 3 segments, got %d", i, len(trimmed))
 		}
 
-		// Verify stable sort by SortKey
-		if trimmed[0].SortKey != "file1.go:0" {
-			t.Errorf("Run %d: Expected first segment file1.go:0, got %s", i, trimmed[0].SortKey)
+		// Everything fits, so nothing is chosen and the diff keeps its own
+		// order -- deterministically, run after run.
+		if trimmed[0].SortKey != "file2.go:0" || trimmed[1].SortKey != "file1.go:0" {
+			t.Errorf("Run %d: Expected the input order when every segment fits, got %s, %s", i, trimmed[0].SortKey, trimmed[1].SortKey)
 		}
 	}
 }

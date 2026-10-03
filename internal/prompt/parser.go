@@ -277,6 +277,11 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 		delete(result.Metadata, key)
 	}
 
+	// Origin is engine-owned: a model cannot claim a finding came from a
+	// deterministic analyzer. An assessment with a status outside the
+	// closed set, or naming no evidence, is dropped rather than guessed.
+	sanitizeModelIssueProvenance(result.Issues)
+
 	// A finding the model reported under "line_comments" is a finding: it
 	// becomes an issue here, before validation, so it travels the same
 	// path as one the model reported under "issues".
@@ -899,4 +904,21 @@ func (p *ResponseParser) SanitizeResponse(response string) string {
 	}
 
 	return strings.TrimSpace(response)
+}
+
+// sanitizeModelIssueProvenance clears the engine-owned Origin of every
+// model-reported issue and drops an assessment that is not well formed.
+func sanitizeModelIssueProvenance(issues []types.ReviewIssue) {
+	for i := range issues {
+		issues[i].Origin = ""
+		a := issues[i].Assessment
+		if a == nil {
+			continue
+		}
+		a.Status = strings.ToLower(strings.TrimSpace(a.Status))
+		a.EvidenceID = strings.TrimSpace(a.EvidenceID)
+		if !types.IsKnownAssessmentStatus(a.Status) || a.EvidenceID == "" {
+			issues[i].Assessment = nil
+		}
+	}
 }
