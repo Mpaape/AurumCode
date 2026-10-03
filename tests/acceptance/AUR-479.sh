@@ -51,7 +51,7 @@ owned_inputs=(tests/unit/AUR-479.go tests/integration/AUR-479.go tests/e2e/AUR-4
 for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
 done
-required_inputs=(go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction)
+required_inputs=(go.mod go.sum cmd internal pkg)  # AUR-573: cmd/internal/pkg inteiros (lista enumerada apodrece, como no AUR-547)
 for input in "${required_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
@@ -61,8 +61,11 @@ cleanup_root() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1" >/
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 
+# AUR-573: respeita o GOCACHE do chamador (compilar internal/ inteiro a frio e caro)
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
+export GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 run_go() { local dir="$1"; shift; ( cd "$dir" && ulimit -v 8388608 && GOMEMLIMIT=2GiB go "$@" ); }
 
 copy() {
@@ -78,7 +81,7 @@ copy() {
 stage_source() {
   local root="$1"
   mkdir -p "$root"
-  copy "$root" go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction
+  copy "$root" go.mod go.sum cmd internal pkg  # AUR-573: pacotes inteiros
   chmod -R u+w -- "$root"
 }
 
