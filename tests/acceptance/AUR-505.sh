@@ -214,12 +214,13 @@ run_ac001() { nominal_call 'AC-001'; }
 run_ac002() { nominal_call 'AC-002'; }
 run_ac003() { nominal_call 'AC-003'; }
 
-# MUT-001: drop the deterministic findings on an invalid response -- restore
-# the old `return 1` -- and AC-001 must fall (no deterministic finding
-# published, exit 1 instead of the deterministic gate).
+# MUT-001: drop the degradation on an invalid response (AUR-573: the old
+# `return 1` no longer exists -- degradeUnparseable returns nothing -- so the
+# mutation returns before flagging quality_degraded and setting the result);
+# AC-001 must fall.
 run_mut001() {
   mutated_call 'MUT-001' \
-    's/qualityDegraded = true/return 1 \/\/ AUR-505 MUT-001/' \
+    's/p\.qualityDegraded = true/return \/\/ AUR-505 MUT-001/' \
     'AC-001' 'AUR-505 MUT-001'
 }
 
