@@ -1,0 +1,12 @@
+quality_gates:
+  ssor_dtrack:
+    enabled: false
+    sbom_generator:
+      tool: trivy
+      format: cyclonedx
+      spec_version: "1.6"
+      output_file: sbom_app_cyclonedx.json
+  supply_chain:
+    engine: cosign
+    sign_sbom: true
+    sign_artifacts: false

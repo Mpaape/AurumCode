@@ -1,0 +1,6 @@
+== cbom
+$ aurumcode xbom --type cbom --repo . --out cbom.json
+aurumcode xbom: cbom: 5 componente(s), 0 descartado(s) sem evidencia
+exit_code=0
+RESULTADO: CBOM gerado e validado
+$ jq .components[] | "\(.name)@\(.version // "-") -> \(.evidence.occurrences[0].location):\(.evidence.occurrences[0].line)" cbom.json
