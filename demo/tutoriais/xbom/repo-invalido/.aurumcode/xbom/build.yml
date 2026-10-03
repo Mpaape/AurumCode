@@ -1,0 +1,8 @@
+version: 1
+type: build
+entries:
+  - id: sem-regra-additional
+    files: ["Dockerfile"]
+    pattern: '^FROM\s+(?P<name>\S+)'
+    token: name
+    component: {type: container, name: "{name}"}

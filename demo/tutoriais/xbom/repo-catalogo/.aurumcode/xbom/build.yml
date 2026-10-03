@@ -1,0 +1,17 @@
+version: 1
+type: build
+exclude: [".git/**"]
+additional:
+  name_pattern: '^[^\s]*[/.:@][^\s]*$'
+  reject_tokens: [FROM, RUN, AS, uses]
+entries:
+  - id: repo-github-actions
+    files: [".github/workflows/*.yml"]
+    pattern: '^\s*-?\s*uses:\s*(?P<name>[\w./-]+)@(?P<version>[\w.-]+)'
+    token: name
+    component:
+      type: application
+      name: "{name}"
+      version: "{version}"
+      purl: "pkg:githubactions/{name}@{version}"
+      properties: {"aurumcode:xbom:ecosystem": github-actions, "aurumcode:xbom:catalogo": repositorio}

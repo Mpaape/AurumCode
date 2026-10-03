@@ -1,0 +1,6 @@
+(analysis_data_digest_mismatch): scanners.yml: expected sha256:
+(29 bytes), got sha256:
+(28 bytes): digest mismatch
+RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova
+does not match its files (sha256:
+RESULTADO: manifesto adulterado: analysis_data_digest_mismatch reprova

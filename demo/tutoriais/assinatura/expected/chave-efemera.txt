@@ -1,0 +1,6 @@
+cosign: Private key written to cosign.key
+$ aurumcode sign --repo . --cosign-bin /fixtures/wrappers/cosign-wrap.sh
+sign: sbom /work/sbom_app_cyclonedx.json -> /work/sbom_app_cyclonedx.json.sigstore.json
+exit_code=0
+RESULTADO: o bundle sbom_app_cyclonedx.json.sigstore.json existe e nao esta vazio (conferido pelo script)
+bundle: campos de primeiro nivel: mediaType,messageSignature,verificationMaterial

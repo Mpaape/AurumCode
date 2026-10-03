@@ -1,0 +1,7 @@
+(severidade error, limiar error, origem policy)
+exit_code=3
+RESULTADO: a politica conta o achado de origem sast
+auditoria blocking_findings: rule_id=semgrep:policy.regras.demo-sem-eval path=calc.js line=5 origin=sast
+--- gate.sources sem sast
+exit_code=0
+RESULTADO: com gate.sources sem sast, o achado do Semgrep e publicado mas nao reprova o gate

@@ -1,0 +1,50 @@
+== origem-sast
+$ aurumcode review --base main --politica /policy --auditoria auditoria.json
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval: eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval) (severidade error, limiar error, origem policy)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- calc.js
+
+
+```mermaid
+flowchart TD
+    n0["calc.js"]
+
+```
+calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
+exit_code=3
+RESULTADO: a politica conta o achado de origem sast
+auditoria blocking_findings: rule_id=semgrep:policy.regras.demo-sem-eval path=calc.js line=5 origin=sast
+--- gate.sources sem sast
+$ aurumcode review --base main --politica /policy
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- calc.js
+
+
+```mermaid
+flowchart TD
+    n0["calc.js"]
+
+```
+calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
+exit_code=0
+RESULTADO: com gate.sources sem sast, o achado do Semgrep e publicado mas nao reprova o gate

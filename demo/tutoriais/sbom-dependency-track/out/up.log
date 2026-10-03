@@ -1,0 +1,16 @@
+== up
+== up: Dependency-Track v5 + PostgreSQL, time, chave e projetos
+imagem fixada por digest (images.lock do AUR-554): dtrack_apiserver ok
+imagem fixada por digest (images.lock do AUR-554): postgres ok
+trivy extraido da imagem fixada
+servidor: Dependency-Track 5.1.1
+admin: senha inicial trocada e login ok
+time aurum-tut com permissoes BOM_UPLOAD, VIEW_PORTFOLIO, VIEW_POLICY_VIOLATION e chave de API criada
+projeto servico-exemplo criado
+projeto compartilhado criado
+projeto servico-a criado
+projeto servico-b criado
+politica demo-componente-proibido: reprova lodash 4.17.15 (coordenadas)
+aquecimento: o servidor avaliou a politica uma vez (projeto descartavel aquecimento)
+chave e ids dos projetos gravados em arquivo local ignorado pelo git
+RESULTADO: servidor, time, chave, quatro projetos e uma politica de violacao prontos
