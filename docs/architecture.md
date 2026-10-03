@@ -80,8 +80,9 @@ apply in this order:
 3. `policy-skills`: the policy's skill sections.
 4. `sast`: `quality_gates.sast`.
 5. `embedded-analysis`: the embedded analysis catalog.
-6. `analysis-data`: the analysis-data artifact.
-7. `dependency-track`: the SBOM submission; may replace the redaction filter.
+6. `security-pass`: the `--seguranca` pass's findings; a finding at or above `fail_on` counts in every `gate.inconclusive` mode (under the `analysis` source).
+7. `analysis-data`: the analysis-data artifact.
+8. `dependency-track`: the SBOM submission; may replace the redaction filter.
 
 A contributor that returns an ordinary error does not abort and is never read
 as "no findings": the result becomes inconclusive (and fails under

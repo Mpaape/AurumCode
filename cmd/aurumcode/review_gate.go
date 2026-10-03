@@ -80,6 +80,7 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 		gate.PolicySkillsContributor{AcceptedOrigin: in.AcceptedOrigin, Dynamic: in.DynamicRules},
 		gate.SASTContributor{SectionOrigin: in.SASTOrigin, Issues: in.SASTIssues, Reason: in.SASTReason},
 		gate.EmbeddedAnalysisContributor{},
+		gate.SecurityPassContributor{},
 		gate.AnalysisDataContributor{},
 		gate.DependencyTrackContributor{},
 	)
