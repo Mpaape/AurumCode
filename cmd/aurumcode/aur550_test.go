@@ -586,7 +586,7 @@ func TestAUR550PRReviewBreachPublishesNumbersInBodyAndAudit(t *testing.T) {
 
 	auditPath := filepath.Join(t.TempDir(), "audit.json")
 	var out, errOut strings.Builder
-	code := runPRReview(&out, &errOut, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		auditoriaPath: auditPath,
 	})
 	if code != exitFindings {

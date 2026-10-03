@@ -119,7 +119,7 @@ func TestAUR453FormalReviewCarriesSuggestion(t *testing.T) {
 	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 42, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 42, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -186,7 +186,7 @@ func TestAUR453RedactionAndConsumerChoice(t *testing.T) {
 	t.Setenv("AURUM_SECRET_CANARY", secret)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 9, "owner/repo", true, true, false, redaction.FromEnv(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.FromEnv()}, prReviewOptions{prNumber: 9, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})

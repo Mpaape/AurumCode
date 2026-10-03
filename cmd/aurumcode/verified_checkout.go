@@ -207,18 +207,6 @@ func walkVerified(dir string, limit int, visit func(rel string, isSymlink bool, 
 	})
 }
 
-// resolveWithFilesHook is resolveVerifiedCodebaseContext's only call onto
-// the resolver, held behind this package-level variable so a test can
-// substitute it and observe exactly which (dir, changed, files) --pr ends
-// up passing, end to end through a real runPRReview call, without
-// reimplementing pr.go's own wiring. Production code never reassigns it;
-// it exists to make "the verified set this check proved is the exact set
-// the resolver reads" an assertion a test can make directly, not merely an
-// outcome that happens to hold today.
-var resolveWithFilesHook = func(resolver *codebasectx.Resolver, dir string, changed, files []string) (*codebasectx.Pack, error) {
-	return resolver.ResolveWithFiles(dir, changed, files)
-}
-
 // resolveVerifiedCodebaseContext is --pr's own codebase-context pass
 // (AUR-536): shares codebaseContextJSON (passes.go) with --base's own
 // resolveCodebaseContext for the marshal-or-empty tail, but the resolver's
@@ -226,9 +214,10 @@ var resolveWithFilesHook = func(resolver *codebasectx.Resolver, dir string, chan
 // verifiedCleanCheckoutReason's own proven-clean set -- so the set this
 // check verified and the set the resolver actually reads can never
 // diverge, not even by a future, independent bug in either side's walk.
-func resolveVerifiedCodebaseContext(diff *types.Diff, dir string, files []string) string {
+// resolveFiles is the session's injected resolver call.
+func resolveVerifiedCodebaseContext(resolveFiles codebaseResolver, diff *types.Diff, dir string, files []string) string {
 	return codebaseContextJSON(func() (*codebasectx.Pack, error) {
-		return resolveWithFilesHook(codebasectx.NewResolver(), dir, diffPaths(diff), files)
+		return resolveFiles(codebasectx.NewResolver(), dir, diffPaths(diff), files)
 	})
 }
 

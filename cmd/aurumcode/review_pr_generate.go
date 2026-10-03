@@ -22,7 +22,6 @@ func (p *prReview) generateReview() (int, bool) {
 	// function: tests/acceptance/AUR-537.sh anchors its mutations on them.
 	stderr, limiteUSD := p.stderr, p.limiteUSD
 	gateDeclared := p.cfg.Gate.Declared()
-	p.gateDeclared = gateDeclared
 	result, err := p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, review.ReviewContext{
 		CI:              readCIContext(),
 		Language:        p.reviewLanguage,
@@ -42,7 +41,7 @@ func (p *prReview) generateReview() (int, bool) {
 		if !gateDeclared {
 			return rc, true
 		}
-		p.providerFailed = true
+		p.model = modelProviderFailed
 	case errors.As(err, &parseErr):
 		p.degradeUnparseable(parseErr)
 	case errors.Is(err, llm.ErrAllProvidersFailed):
@@ -56,15 +55,14 @@ func (p *prReview) generateReview() (int, bool) {
 		if !gateDeclared {
 			return rc, true
 		}
-		p.providerFailed = true
+		p.model = modelProviderFailed
 	default:
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 1, true
 	}
-	if p.providerFailed {
+	if p.model == modelProviderFailed {
 		// Reuses the "quality_degraded" key on purpose: the shared verdict
 		// rendering already turns it into "never approve".
-		p.qualityDegraded = true
 		p.result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
 		p.result.Limitations = append(p.result.Limitations, providerFailureNotice(p.reviewLanguage))
 	}

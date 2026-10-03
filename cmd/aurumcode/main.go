@@ -328,35 +328,12 @@ func readFixSuggestions(file string) ([]byte, error) {
 	return io.ReadAll(os.Stdin)
 }
 
-// inconclusiveReason is the base path's motive for an inconclusive run. The
-// priority mirrors AUR-458's "did not review outranks reviewed and found
-// things": a provider failure or an opted-out quality skip outrank a model
-// reply this run could not parse (AC-008), which outranks a SAST execution
-// failure (AUR-548: it must also reach the SARIF document's
-// executionSuccessful), which outranks partial coverage (AUR-476).
-func (b *baseReview) inconclusiveReason() string {
-	gateInconclusiveReason := ""
-	switch {
-	case b.qualityFailed:
-		gateInconclusiveReason = "provider_failure"
-	case b.qualitySkipped:
-		gateInconclusiveReason = "quality_skipped"
-	case prompt.IsDegradedParse(b.result):
-		gateInconclusiveReason = "degraded_parse"
-	case b.sastReason != "":
-		gateInconclusiveReason = b.sastReason
-	case b.coverage.partial():
-		gateInconclusiveReason = "partial_coverage"
-	}
-	return gateInconclusiveReason
-}
-
 // prepareCache opens the review cache and keeps only the cache misses in
 // toSend (AUR-441). The prompt-version component is a digest of the fixed
 // content a prompt builder renders (AUR-543). The estimate printed earlier
 // priced the FULL diff, oblivious to caching.
 func (b *baseReview) prepareCache() *qualityCache {
-	promptVersionDigest, promptDigestErr := newCacheDigestBuilder().FixedContentDigest()
+	promptVersionDigest, promptDigestErr := b.deps.digestBuilder().FixedContentDigest()
 	store, cacheErr := cache.Open(cache.ResolveDir())
 	if cacheErr == nil {
 		cacheErr = promptDigestErr
@@ -364,7 +341,7 @@ func (b *baseReview) prepareCache() *qualityCache {
 	qc := &qualityCache{store: store, err: cacheErr, toSend: b.diff}
 	if cacheErr == nil {
 		var missFiles []types.DiffFile
-		missFiles, qc.statuses = partitionByCache(store, b.diff, reviewContextCacheKey(b.provider, b.baseModelIdentity, b.reviewLanguage, b.codebaseContextText, b.memoryNotesText, b.profileIdentity, b.contextBlockDigest, b.ruleCatalogDigest), promptVersionDigest)
+		missFiles, qc.statuses = partitionByCache(store, b.diff, reviewContextCacheKey(b.provider, b.baseModelIdentity, b.reviewLanguage, b.codebaseText, b.memoryNotesText, b.profileIdentity, b.contextBlockDigest, b.ruleCatalogDigest), promptVersionDigest)
 		qc.toSend = &types.Diff{Files: missFiles}
 	}
 	return qc
@@ -375,7 +352,7 @@ func (b *baseReview) prepareCache() *qualityCache {
 // (clean run), 1 (the review itself failed) and 2 (usage error) so a CI
 // pipeline can tell "gate closed" apart from "tool broke". Documented in
 // docs/specs/AUR-431.md.
-const exitFindings = 3
+const exitFindings = gateExitFindings
 
 // exitQualityNotReviewed is AUR-458's exit code for "the user asked for a
 // quality review and this run did not produce one". It is deliberately 1
@@ -387,13 +364,13 @@ const exitFindings = 3
 // the runs where the security pass DID deliver findings, which previously
 // reported 0 (nothing configured) or lost the security pass entirely (a
 // provider that failed). See docs/specs/AUR-458.md for the full table.
-const exitQualityNotReviewed = 1
+const exitQualityNotReviewed = gateExitBehavioral
 
 // exitArtifactNotWritten is AUR-568's exit code for a run whose requested
 // --auditoria or --sarif file could not be written: the compliance trail is
 // part of the verdict, so the run never ends as success. Like
 // exitQualityNotReviewed it is the existing behavioral-failure code.
-const exitArtifactNotWritten = 1
+const exitArtifactNotWritten = gateExitBehavioral
 
 // reportQualityFailure prints the diagnosis for a quality review that
 // could not complete after a provider was successfully selected, and

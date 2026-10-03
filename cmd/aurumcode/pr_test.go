@@ -327,7 +327,7 @@ func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing
 	t.Setenv("GITHUB_SHA", "head-sha")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 42, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 42, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})

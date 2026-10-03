@@ -1,32 +1,26 @@
-// The --pr review path as explicit phases: validate the invocation, resolve
-// its inputs (diff, effective config, checkout, memory), run the analyses
-// (model, deterministic passes, SAST, coverage), run the shared gate
-// pipeline (review_gate.go), then publish and decide the exit code. State
-// the phases share lives in prReview; each phase returns (exit, done) so an
-// early exit keeps the exact code the single function used to return.
+// The --pr review path: the pull-request source of the review session
+// (internal/review/session). It validates the invocation and resolves its
+// inputs (diff, effective config, checkout, memory), runs the model pass
+// and the evidence, hands the shared state to the session's gate
+// (review_gate.go), then publishes on GitHub. Each step returns (exit,
+// done) so an early exit keeps its code.
 package main
 
 import (
-	"context"
 	"fmt"
-	"io"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
-	"github.com/Mpaape/AurumCode/internal/llm"
-	"github.com/Mpaape/AurumCode/internal/llm/cost"
-	"github.com/Mpaape/AurumCode/internal/memory"
 	"github.com/Mpaape/AurumCode/internal/review"
-	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/internal/review/session"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// prReview is the state of one --pr run.
+// prReview is the pull-request source of a review session: the shared
+// reviewState plus what only a pull request has.
 type prReview struct {
-	ctx            context.Context
-	stdout, stderr io.Writer
-	filter         *redaction.Filter
-	opts           prReviewOptions
+	reviewState
+	opts prReviewOptions
 
 	prNumber         int
 	repoFlag         string
@@ -34,90 +28,59 @@ type prReview struct {
 	publicar, inline bool // inline: --na-linha as given
 	check            bool
 
-	threshold     int
-	thresholdName string
-	limiteUSD     float64
-
 	client *githubclient.Client
 
-	// resolved inputs
-	diff                *types.Diff
-	cfg                 *config.Config
-	reviewLanguage      string
-	centralCfg          *config.Config
-	policyWarnings      []config.ProviderWarning
-	skillNotices        []string
-	publication         string
-	inlineComments      bool
-	ignoredPaths        []string
-	rawDiffFileCount    int
-	changelogText       string
-	changelogLimitation string
-	codebaseText        string
-	codebaseLimitation  string
-	verifiedDir         string
-	checkoutMismatch    string
-	memoryStore         memory.Store
-	memoryNotes         []memory.Note
-	memoryNotesText     string
-
-	// model and context
-	provider          llm.Provider
-	baseModelIdentity string
-	contextRef        string
-	contextBlockDig   string
-	dynamicRules      map[string]review.Rule
-	ruleCatalogIDs    []string
-	ruleCatalogDig    string
-	tracker           *cost.Tracker
-	reviewer          *review.Reviewer
-	history           string
-	historyErr        error
-
-	// analysis outputs
-	result            *types.ReviewResult
-	qualityDegraded   bool
-	providerFailed    bool
-	gateDeclared      bool
-	securityFindings  []types.ReviewIssue
-	rawIssuesSnapshot []types.ReviewIssue
-	sastOrigin        string
-	sastIssues        []types.ReviewIssue
-	sastReason        string
-	coverage          reviewCoverageBreakdown
-
-	// gate
-	run     *gateRun
-	gateRes *gateDecision
+	publication        string
+	inlineComments     bool
+	codebaseLimitation string
+	verifiedDir        string
+	checkoutMismatch   string
+	contextRef         string
+	reviewer           *review.Reviewer
+	history            string
+	historyErr         error
 
 	// publication
 	issues   []types.ReviewIssue
 	commitID string
 }
 
+// Step maps each session phase onto this source's steps.
+func (p *prReview) Step(phase session.Phase) session.Step {
+	switch phase {
+	case session.PhaseResolve:
+		return p.resolve
+	case session.PhaseModel:
+		return p.runModelPass
+	case session.PhaseEvidence:
+		return p.collectEvidence
+	case session.PhaseGate:
+		return p.runGate
+	}
+	return p.publish
+}
+
 // runPRReview is reached only when --pr was explicitly given (see the
 // fs.Visit dispatch in runReview); every other flag's published behavior
 // is therefore untouched by this function's existence. --repo and
 // --publicar are always required; see validate.
-func runPRReview(stdout, stderr io.Writer, prNumber int, repoFlag string, publicar, naLinha, check bool, filter *redaction.Filter, opts prReviewOptions) int {
+func runPRReview(rio reviewIO, opts prReviewOptions) int {
 	p := &prReview{
-		ctx: context.Background(), stdout: stdout, stderr: stderr, filter: filter, opts: opts,
-		prNumber: prNumber, repoFlag: repoFlag, publicar: publicar, inline: naLinha, check: check,
+		reviewState: newReviewState(session.PullRequest, rio), opts: opts,
+		prNumber: opts.prNumber, repoFlag: opts.repo, publicar: opts.publicar, inline: opts.naLinha, check: opts.check,
 	}
-	defer func() {
-		if p.run != nil {
-			p.run.Flush()
-		}
-	}()
-	phases := []func() (int, bool){
-		p.validate, p.resolveInputs, p.analyze, p.runGate, p.publish,
+	p.policyDir, p.modelFlag, p.seguranca, p.exigirQualidade = opts.policyDir, opts.modelo, opts.seguranca, opts.exigirQualidade
+	p.auditoriaPath, p.sarifPath = opts.auditoriaPath, opts.sarifPath
+	defer p.flush()
+	return session.Run(p)
+}
+
+// resolve validates the invocation, then resolves the inputs.
+func (p *prReview) resolve() (int, bool) {
+	if code, done := p.validate(); done {
+		return code, true
 	}
-	for _, phase := range phases {
-		if code, done := phase(); done {
-			return code
-		}
-	}
-	return 0
+	return p.resolveInputs()
 }
 
 // validate refuses a malformed invocation before any permission check,
@@ -150,6 +113,11 @@ func (p *prReview) validate() (int, bool) {
 		fmt.Fprintf(stderr, "aurumcode review: --repo: %v\n", err)
 		return 2, true
 	}
+	// The repository identity is the verified "owner/repo" of the pull
+	// request, never anything derived from its author-controlled diff or
+	// checkout.
+	p.repoIdentity, p.repoIdentityKnown = p.owner+"/"+p.repoName, true
+	p.artifactRepo = p.repoIdentity
 	return p.validateFlags()
 }
 

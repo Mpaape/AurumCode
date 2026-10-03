@@ -192,7 +192,11 @@ func TestAUR568PRPathUnwritableNeverSucceeds(t *testing.T) {
 						opts.sarifPath = bad
 					}
 					var stdout, stderr strings.Builder
-					code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), opts)
+					code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, func() prReviewOptions {
+						o := opts
+						o.prNumber, o.repo, o.publicar, o.naLinha, o.check = 48, "owner/repo", true, true, true
+						return o
+					}())
 					if code != tc.wantCode {
 						t.Fatalf("exit=%d, want %d; stdout=%s stderr=%s", code, tc.wantCode, stdout.String(), stderr.String())
 					}

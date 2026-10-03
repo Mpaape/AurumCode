@@ -6,6 +6,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/review/session"
 )
 
 // resolveInputs gathers everything the analyses need: the pull request's
@@ -13,7 +14,7 @@ import (
 // policy), the publication settings, the verified checkout and review
 // memory. Nothing here calls a model.
 func (p *prReview) resolveInputs() (int, bool) {
-	steps := []func() (int, bool){
+	steps := []session.Step{
 		p.fetchPullRequest, p.loadPolicy, p.resolvePublication,
 		p.resolveChangelog, p.resolveCheckout, p.openMemory,
 	}
@@ -37,7 +38,7 @@ func (p *prReview) fetchPullRequest() (int, bool) {
 	// The reusable GitHub workflow opts into endpoint-scoped authorization.
 	// Keep the direct CLI's historical repository-role preflight unless the
 	// service explicitly selects this mode.
-	if os.Getenv("AURUMCODE_PR_PERMISSION_MODE") == "endpoint" {
+	if p.env().permissionMode == "endpoint" {
 		p.client.AllowPullRequestWrites()
 	}
 	ghDiff, err := p.client.GetPullRequestDiff(p.ctx, p.owner, p.repoName, p.prNumber)
@@ -46,7 +47,7 @@ func (p *prReview) fetchPullRequest() (int, bool) {
 		return 1, true
 	}
 	p.diff = convertDiff(ghDiff)
-	p.cfg, p.reviewLanguage, err = loadPullRequestConfig(p.ctx, p.client, p.owner, p.repoName, os.Getenv("GITHUB_SHA"), os.Getenv("AURUMCODE_BASE_SHA"))
+	p.cfg, p.reviewLanguage, err = loadPullRequestConfig(p.ctx, p.client, p.owner, p.repoName, p.env().githubSHA, p.env().baseSHA)
 	if err != nil {
 		fmt.Fprintf(p.stderr, "aurumcode review: loading repository review config: %v\n", err)
 		return 1, true
@@ -151,7 +152,7 @@ func (p *prReview) resolveChangelog() (int, bool) {
 		return 0, false
 	}
 	p.changelogText = render.ChangelogSection(section.Version, section.Bump, section.Entry, p.reviewLanguage)
-	if werr := writeChangelogOutput(os.Getenv("AURUMCODE_OUTPUT_FILE"), section); werr != nil {
+	if werr := writeChangelogOutput(p.env().outputFile, section); werr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: writing changelog output: %v\n", werr)
 	}
 	return 0, false
@@ -178,7 +179,7 @@ func (p *prReview) resolveCheckout() (int, bool) {
 	}
 	p.checkoutMismatch = mismatch
 	if mismatch == "" {
-		p.codebaseText = resolveVerifiedCodebaseContext(p.diff, p.verifiedDir, verifiedFiles)
+		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, verifiedFiles)
 	} else {
 		p.codebaseLimitation = codebaseContextOmittedNotice(p.reviewLanguage, mismatch)
 	}
