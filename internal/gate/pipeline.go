@@ -24,6 +24,10 @@ type Run struct {
 	// Extra holds deterministic findings kept apart from Review.Issues
 	// (the --base security pass) that still count toward the gate.
 	Extra []types.ReviewIssue
+	// Security is the --seguranca pass's findings, handed to the gate on both
+	// paths (on --pr they are also merged into Review.Issues). They count
+	// toward fail_on whatever the inconclusive mode (AUR-569).
+	Security []types.ReviewIssue
 
 	Language string
 	Filter   *redaction.Filter

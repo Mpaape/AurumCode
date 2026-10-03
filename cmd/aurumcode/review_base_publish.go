@@ -14,7 +14,7 @@ import (
 // final, prints the report and returns the exit code: the quality failure
 // (AUR-458) outranks the policy gate (AUR-519), which outranks --fail-on.
 func (b *baseReview) publish() (int, bool) {
-	b.writeArtifacts()
+	artifactFailures := b.writeArtifacts()
 	b.printReport()
 	if b.qualityFailed {
 		// "Did not review" outranks "reviewed and found things": exit 1,
@@ -24,12 +24,16 @@ func (b *baseReview) publish() (int, bool) {
 	if code, closed := gateExitCode(b.gateRes); closed {
 		return code, true
 	}
+	if len(artifactFailures) > 0 {
+		// AUR-568: a requested audit/SARIF that is missing never ends as success.
+		return exitArtifactNotWritten, true
+	}
 	return b.failOnExit(), true
 }
 
-func (b *baseReview) writeArtifacts() {
+func (b *baseReview) writeArtifacts() []artifactFailure {
 	res := b.gateRes
-	writeComplianceArtifacts(complianceArtifactInputs{
+	return writeComplianceArtifacts(complianceArtifactInputs{
 		auditoriaPath:          b.f.auditoria,
 		sarifPath:              b.f.sarif,
 		policyDir:              b.policyDir,
@@ -46,7 +50,7 @@ func (b *baseReview) writeArtifacts() {
 		dynamicRules:           b.dynamicRules,
 		coverageComplete:       !b.coverage.partial(),
 		omittedFiles:           append(append([]string{}, b.coverage.IgnoredPaths...), b.coverage.FilteredPaths...),
-	}, b.filter, b.stderr)
+	}, b.run, res, b.filter, b.stderr)
 }
 
 // printReport prints the --base report (AUR-490): diff notices, the report

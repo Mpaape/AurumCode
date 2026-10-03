@@ -59,22 +59,9 @@ required_inputs=(
   go.mod
   go.sum
   cmd/aurumcode
-  internal/analyzer
-  internal/llm
-  internal/prompt
+  internal
+  pkg
   internal/prompt/templates/review.md
-  internal/review
-  internal/security
-  internal/git
-  internal/documentation/extractors
-  internal/documentation/incremental
-  internal/documentation/normalizer
-  internal/documentation/site internal/documentation/review
-  internal/documentation/welcome internal/documentation/review
-  internal/pipeline
-  internal/config
-  cmd/regenerate-docs
-  pkg/types
   tests/fixtures/repos/git-demo/repo.git
   tests/unit/AUR-459.go
   tests/integration/AUR-459.go
@@ -117,7 +104,7 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode cmd/regenerate-docs
+  copy "$root" cmd
   # This list is enumerated by hand and rots: when cmd/aurumcode gains an
   # import under internal/, the build fails here under GOPROXY=off with a
   # confusing third-party message, because the resolver reaches for the whole
@@ -126,9 +113,10 @@ stage_source() {
   # exists -- naming a package that is not tracked yet breaks this acceptance
   # the other way, at copy()'s own existence check.
   # Derive the set with: go list -deps ./cmd/aurumcode
-  copy "$root" internal/analyzer internal/prompt internal/review internal/security internal/llm internal/git internal/pipeline internal/config
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
-  copy "$root" pkg/types
+  # AUR-573: cmd/internal/pkg inteiros; internal/documentation, internal/pipeline e
+  # cmd/regenerate-docs saíram do produto (670c7f6) e a lista enumerada apodreceu.
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   chmod -R u+w -- "$root"
 }

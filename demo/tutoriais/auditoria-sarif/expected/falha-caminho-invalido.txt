@@ -1,5 +1,10 @@
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: writing audit record: open /work/nao-existe/auditoria.json: no such file or directory
-exit_code=0
-RESULTADO: ACHADO: a auditoria nao foi gravada (veja o aviso) e o exit continua 0; confira o arquivo no job
+aurumcode review: audit_write_failed: /work/nao-existe/auditoria.json: open /work/nao-existe/auditoria.json: no such file or directory
+aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao-existe/auditoria.json (audit_write_failed): open /work/nao-existe/auditoria.json: no such file or directory
+**Verdict:** Comment
+exit_code=1
+RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao existe
 o arquivo de auditoria nao existe
+aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
+RESULTADO: sem gate: exit diferente de 0 e a mensagem nomeia o caminho
+RESULTADO: caminho gravavel: exit 0 e a auditoria existe
+o arquivo de auditoria existe

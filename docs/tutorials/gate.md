@@ -8,7 +8,7 @@ merge: o limiar de severidade (`gate.fail_on`), o que acontece quando a revisão
 executada), quais origens de achado contam (`gate.sources`: `skills`,
 `analysis`, `sast`), os códigos de saída, o texto do commit status
 `aurumcode/policy-gate`, e um repositório que tenta afrouxar a política e não
-consegue. Nove fases rodam de verdade, cada uma afirma seu exit code.
+consegue. Dez fases rodam de verdade, cada uma afirma seu exit code.
 
 Os blocos de configuração **são os arquivos de `demo/tutoriais/gate/`**, byte a
 byte, e as saídas vêm de uma execução real registrada em
@@ -29,7 +29,7 @@ e [gate.sources](../configuration.md#gatesources-which-findings-count-toward-the
   produto publica. Não são um runner nem o GitHub.
 
 ```bash
-bash demo/tutoriais/gate/run.sh all      # executa os nove casos e grava out/
+bash demo/tutoriais/gate/run.sh all      # executa os dez casos e grava out/
 bash demo/tutoriais/gate/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -43,7 +43,7 @@ bash demo/tutoriais/gate/run.sh --check  # compara out/ com expected/, sem docke
 | configuração inválida | erro de carga, antes do modelo | 1 |
 
 Achado real que cruza o limiar reprova **mesmo** numa revisão inconclusiva em
-`warn`. `high`, `error` e `critical` são o mesmo limiar; `medium`/`warning`
+`warn`, inclusive o do passe de segurança (caso 9). `high`, `error` e `critical` são o mesmo limiar; `medium`/`warning`
 incluem os avisos.
 
 ## Caso 1: `fail_on` por severidade
@@ -362,6 +362,48 @@ RESULTADO: o repositorio nao consegue afrouxar o inconclusive da politica
 O que observar: sozinho, o repositório aceita a cobertura parcial como alerta
 (exit 0); sob `--politica`, o `gate` do repositório (inclusive `sources`) é
 ignorado e a política decide (exit 1).
+
+## Caso 9: achado determinístico sem provedor
+
+O passe de segurança (`--seguranca`) é determinístico: acha o que o catálogo
+embutido descreve sem nenhum modelo. Sem provedor e com `inconclusive: warn`, o
+achado `[error]` desta execução **reprova** o gate. O modo de inconclusivo
+governa a ausência do parecer do modelo, não a presença de um achado:
+
+<!-- arquivo: demo/tutoriais/gate/politica-alerta/.aurumcode/config.yml -->
+```yaml
+gate:
+  fail_on: [high]
+  inconclusive: warn
+review:
+  context:
+    skills:
+      - skills/seguranca.md
+```
+
+<!-- saida: achado-deterministico -->
+```text
+--- --seguranca, sem provedor, fail_on [high], inconclusive: warn
+aurumcode review: policy gate: review inconclusive (quality_skipped)
+exit_code=3
+origens na auditoria: security
+RESULTADO: warn: o achado [error] do passe de seguranca reprova (exit 3), origem security
+--- o mesmo, inconclusive: block
+RESULTADO: block: o achado reprova com exit 3, nao so o inconclusivo
+--- sem achado deterministico (diff sem segredo), inconclusive: warn
+No security findings.
+exit_code=0
+RESULTADO: warn sem achado deterministico continua so avisando (exit 0)
+```
+
+O que observar: com o segredo no diff, `warn` e `block` saem 3 (e a auditoria
+nomeia a origem `security`); sem achado, `warn` volta a só avisar (exit 0) e
+`block` continua reprovando só pela ausência do parecer (exit 1). Antes do
+AUR-569 este mesmo diff saía 0 em `warn`: o achado aparecia no relatório e não
+contava no gate, porque só os achados de `analysis/*`, do SAST e das seções das
+skills contavam. Os achados do passe de segurança contam sob a origem
+`analysis` de `gate.sources` (o catálogo embutido); com `sources: [skills]`
+não contam. Não é demonstrado aqui o `--pr`; ele é coberto por teste do `cmd`.
 
 ## Quando falha
 

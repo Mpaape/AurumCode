@@ -177,6 +177,18 @@ flowchart TD
     n1["db.py"]
 
 ```
+
+### Suggestions
+
+- **Parameterize the query** — Replace the concatenation with a bound parameter. Applicable replacement at `app.py:5`.
+  - **Proposed implementation:**
+
+    ```
+query = "SELECT * FROM users WHERE id = ?"
+    return connect().execute(query, (uid,))
+    ```
+  - **Rationale:** Removes the injection path without changing the result for valid ids.
+  - **Verify:** Re-run the review and confirm the SQL injection finding is gone.
 app.py:5: [error] SQL query built by string concatenation (rule security/sql-injection: SQL Injection Vulnerability)
 app.py:5: [error] SQL query built by string concatenation (rule analysis/sql-injection)
 

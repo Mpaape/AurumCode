@@ -46,7 +46,7 @@ else
   command -v go >/dev/null 2>&1 || infra missing_go
   bin="$run_dir/aurumcode"
   build_log="$run_dir/build.log"
-  if ! (cd "$repo_root" && GOFLAGS=-mod=mod go build -o "$bin" ./cmd/aurumcode) >"$build_log" 2>&1; then
+  if ! (cd "$repo_root" && GOFLAGS=-mod=mod go build -buildvcs=false -o "$bin" ./cmd/aurumcode) >"$build_log" 2>&1; then
     cat "$build_log" >&2
     fail build_failed
   fi
