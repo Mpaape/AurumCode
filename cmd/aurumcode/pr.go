@@ -93,6 +93,14 @@ import (
 // historical --pr behavior. exigirQualidade is opt-in for direct CLI callers;
 // the reusable workflow enables it by default.
 type prReviewOptions struct {
+	// prNumber and repo name the pull request; publicar, naLinha and check
+	// are --publicar, --na-linha and --check as given.
+	prNumber int
+	repo     string
+	publicar bool
+	naLinha  bool
+	check    bool
+
 	seguranca       bool
 	exigirQualidade bool
 	failOnSet       bool
@@ -1077,7 +1085,7 @@ func (p *prReview) degradeUnparseable(parseErr *prompt.ParseError) {
 		fmt.Fprintf(stderr, "aurumcode review: response validation: code=%s\n", parseErr.ValidationCode)
 	}
 	fmt.Fprintln(stderr, "aurumcode review: degrading to deterministic analysis; the model review is inconclusive")
-	p.qualityDegraded = true
+	p.model = modelParseFailed
 	p.result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
 	p.result.Limitations = append(p.result.Limitations, modelInvalidOutputNotice(p.reviewLanguage, string(parseErr.Kind)))
 }

@@ -85,7 +85,7 @@ func aur522PRRun(t *testing.T, apiHead, diffBody string) (int, string, string) {
 	t.Cleanup(server.Close)
 	aur515Env(t, server.URL)
 	var out, errOut strings.Builder
-	code := runPRReview(&out, &errOut, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{publicationSet: true, publication: "review"})
+	code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false, publicationSet: true, publication: "review"})
 	return code, out.String() + errOut.String(), posted.String()
 }
 

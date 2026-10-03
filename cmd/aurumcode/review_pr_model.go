@@ -3,22 +3,21 @@ package main
 import (
 	"fmt"
 	"github.com/Mpaape/AurumCode/internal/context/skills"
-	"os"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/session"
 )
 
-// analyze runs the model review and every deterministic pass, leaving the
-// result the gate and the publication read.
-func (p *prReview) analyze() (int, bool) {
-	steps := []func() (int, bool){
+// runModelPass selects the model, wraps it with the trusted context and
+// runs the review.
+func (p *prReview) runModelPass() (int, bool) {
+	steps := []session.Step{
 		p.selectProvider, p.wrapContext, p.resolveSkills, p.buildReviewer,
-		p.generateReview, p.noteModelOutcome, p.runDeterministicPasses,
-		p.runStaticAnalysis, p.finishLimitations,
+		p.generateReview, p.noteModelOutcome,
 	}
 	for _, step := range steps {
 		if code, done := step(); done {
@@ -59,9 +58,9 @@ func (p *prReview) selectProvider() (int, bool) {
 // (AUR-518, AC-004). The digest of the redacted block feeds the verdict key.
 func (p *prReview) wrapContext() (int, bool) {
 	stderr := p.stderr
-	p.contextRef = os.Getenv("AURUMCODE_BASE_SHA")
+	p.contextRef = p.env().baseSHA
 	if strings.TrimSpace(p.contextRef) == "" {
-		p.contextRef = os.Getenv("GITHUB_SHA")
+		p.contextRef = p.env().githubSHA
 	}
 	providers, contextErr := loadPullRequestContext(p.ctx, p.client, p.owner, p.repoName, p.cfg, p.contextRef)
 	if contextErr != nil {
@@ -82,7 +81,7 @@ func (p *prReview) wrapContext() (int, bool) {
 	}
 	p.skillNotices = skillSelectionNotices(catalog, diffPaths(p.diff), p.filter)
 	providers = append(providers, catalog)
-	p.contextBlockDig = contextBlockCacheDigest(providers, diffPaths(p.diff), p.filter)
+	p.contextBlockDigest = contextBlockCacheDigest(providers, diffPaths(p.diff), p.filter)
 	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(p.ctx, p.provider, providers, diffPaths(p.diff), p.filter)
 	if wrapErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
@@ -106,7 +105,7 @@ func (p *prReview) resolveSkills() (int, bool) {
 	repoSkillRules := dynamicRulesFromRemoteSkills(p.ctx, p.client, p.owner, p.repoName, p.cfg.Review.Context.Skills, p.contextRef, gateOriginRepo)
 	p.dynamicRules = mergeDynamicRules(policySkillRules, repoSkillRules)
 	p.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, p.dynamicRules)
-	p.ruleCatalogDig = ruleCatalogCacheDigest(p.ruleCatalogIDs, p.dynamicRules)
+	p.ruleCatalogDigest = ruleCatalogCacheDigest(p.ruleCatalogIDs, p.dynamicRules)
 	return 0, false
 }
 
@@ -133,7 +132,7 @@ func (p *prReview) buildReviewer() (int, bool) {
 		return 2, true
 	}
 	p.history, p.historyErr = pullRequestHistoryContext(p.ctx, p.client, p.owner, p.repoName, p.prNumber,
-		os.Getenv("GITHUB_SHA"), os.Getenv("AURUMCODE_BASE_SHA"), p.filter)
+		p.env().githubSHA, p.env().baseSHA, p.filter)
 	if p.historyErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: PR history unavailable: %s; reviewing the current diff without conversation history\n", p.filter.Redact(p.historyErr.Error()))
 		p.history = historyUnavailableNotice(p.reviewLanguage)

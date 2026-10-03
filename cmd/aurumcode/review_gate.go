@@ -7,8 +7,12 @@ package main
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/gate"
+	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -30,6 +34,9 @@ const (
 	acceptedExceptionMarker = gate.AcceptedExceptionMarker
 	expiredExceptionMarker  = gate.ExpiredExceptionMarker
 
+	gateExitFindings   = gate.ExitFindings
+	gateExitBehavioral = gate.ExitBehavioral
+
 	gateReasonAuditWriteFailed = gate.ReasonAuditWriteFailed
 	gateReasonSARIFWriteFailed = gate.ReasonSARIFWriteFailed
 )
@@ -43,18 +50,25 @@ var findingOriginKey = gate.FindingOriginKey
 
 // evaluateGate is the policy gate's decision, used by the commands that
 // gate outside a review (sbom).
-var evaluateGate = gate.EvaluateGate
+func evaluateGate(cfg config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, reason string, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) (gateDecision, error) {
+	return gate.EvaluateGate(cfg, acceptedOrigin, dynamic, issues, reason, exceptions, repoIdentity, now)
+}
 
 // applyInconclusiveModeValue turns an inconclusive decision into a failure
 // under the resolved block mode, for the commands that gate outside the
 // pipeline.
 var applyInconclusiveModeValue = gate.ApplyInconclusiveModeValue
 
-// newGatePipeline builds a pipeline from contributors in declared order.
-var newGatePipeline = gate.NewPipeline
+// The model pass's typed outcome (gate.ModelOutcome) under the command's
+// names.
+type modelOutcome = gate.ModelOutcome
 
-// diffContentDigest digests the reviewed diff for the verdict key.
-var diffContentDigest = gate.DiffContentDigest
+const (
+	modelReviewed       = gate.ModelReviewed
+	modelSkipped        = gate.ModelSkipped
+	modelProviderFailed = gate.ModelProviderFailed
+	modelParseFailed    = gate.ModelParseFailed
+)
 
 // acceptedGateOrigin is the dynamic-rule origin that counts toward the skills
 // gate: the central policy's when one is active, otherwise the repository's.
@@ -71,6 +85,9 @@ type gatePipelineInputs struct {
 	// VerdictKey/RawIssues feed verdict reuse (AUR-524).
 	VerdictKey gateVerdictKeyInputs
 	RawIssues  []types.ReviewIssue
+	// PromptDigest digests the fixed prompt content that versions a stored
+	// verdict.
+	PromptDigest func() (string, error)
 
 	// AcceptedOrigin is the dynamic-rule origin that counts toward the
 	// skills gate: gateOriginPolicy when a central policy is active,
@@ -87,9 +104,9 @@ type gatePipelineInputs struct {
 // assembleGatePipeline declares the one gate pipeline, in the order the
 // contributors apply. Both --base and --pr call exactly this function.
 func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
-	return newGatePipeline(
+	return gate.NewPipeline(
 		gate.ExceptionsContributor{},
-		gate.VerdictReuseContributor{Key: in.VerdictKey, Raw: in.RawIssues, PromptDigest: newCacheDigestBuilder().FixedContentDigest},
+		gate.VerdictReuseContributor{Key: in.VerdictKey, Raw: in.RawIssues, PromptDigest: in.PromptDigest},
 		gate.PolicySkillsContributor{AcceptedOrigin: in.AcceptedOrigin, Dynamic: in.DynamicRules},
 		gate.SASTContributor{SectionOrigin: in.SASTOrigin, Issues: in.SASTIssues, Reason: in.SASTReason},
 		gate.EmbeddedAnalysisContributor{},
@@ -99,39 +116,109 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 	)
 }
 
-// gatePipelineObserver, when set (tests), receives the contributor names of
-// every pipeline a path executes, labeled by path.
-var gatePipelineObserver func(label string, names []string)
-
 // applyGateOutcome publishes the decision's lines and withholds approval when
 // the gate failed or was inconclusive (shared by --base and --pr).
 func applyGateOutcome(run *gateRun, res *gateDecision) { gate.ApplyOutcome(run, res) }
 
-// executeGate runs pipeline against run with reason as the initial
-// inconclusive motive. A configuration error ends the review (exit 2): the
-// message is printed here and ok is false.
-func executeGate(label string, pipeline *gate.Pipeline, run *gate.Run, reason string) (res *gate.Result, ok bool) {
-	if gatePipelineObserver != nil {
-		gatePipelineObserver(label, pipeline.Names())
+// inconclusiveReason ranks why this run's model/analysis half cannot be
+// trusted (gate.RankReason, the one ranking both sources use).
+func (s *reviewState) inconclusiveReason() string {
+	return string(gate.RankReason(gate.ReasonInputs{
+		Model:           s.model,
+		DegradedParse:   prompt.IsDegradedParse(s.result),
+		SASTReason:      s.sastReason,
+		PartialCoverage: s.coverage.partial(),
+	}))
+}
+
+// runGate is the gate phase of every session: it fills the shared gate.Run
+// from the finished analyses, runs the one declared pipeline and publishes
+// its decision lines. The repository identity is the source's verified one,
+// never anything derived from the model or the diff. A contributor may
+// replace the filter and the writers (a secret learned mid-run); everything
+// after the gate writes through them.
+func (s *reviewState) runGate() (int, bool) {
+	run := s.run
+	run.Ctx, run.Cfg, run.Diff, run.Review = s.ctx, s.cfg, s.diff, s.result
+	run.Extra, run.Security, run.Language = s.securityApart(), s.securityFindings, s.reviewLanguage
+	run.Filter, run.Stdout, run.Stderr = s.filter, s.stdout, s.stderr
+	run.RepoIdentity, run.RepoIdentityKnown, run.Now = s.repoIdentity, s.repoIdentityKnown, s.deps.clock
+	pipeline := assembleGatePipeline(s.gatePipelineInputs())
+	reason := s.inconclusiveReason()
+	res, ok := s.executeGate(pipeline, reason)
+	if !ok {
+		return 2, true
 	}
+	s.gateRes = res
+	s.filter, s.stdout, s.stderr = run.Filter, run.Stdout, run.Stderr
+	applyGateOutcome(run, res)
+	return 0, false
+}
+
+// gatePipelineInputs gathers what the contributors capture besides the run.
+func (s *reviewState) gatePipelineInputs() gatePipelineInputs {
+	return gatePipelineInputs{
+		VerdictKey: gateVerdictKeyInputs{
+			ContextKey: func() string {
+				return reviewContextCacheKey(s.provider, s.baseModelIdentity, s.reviewLanguage, s.codebaseText, s.memoryNotesText, s.profileIdentity, s.contextBlockDigest, s.ruleCatalogDigest)
+			},
+			PolicyDigest:   render.PolicyDigest(s.policyDir, s.centralCfg),
+			BinaryIdentity: binaryIdentity(),
+			RepoIdentity:   s.repoIdentity,
+			DiffDigest:     gate.DiffContentDigest(s.diff),
+			ReviewedSHA:    s.env().githubSHA,
+		},
+		RawIssues:      s.rawIssues,
+		AcceptedOrigin: acceptedGateOrigin(s.centralCfg != nil),
+		DynamicRules:   s.dynamicRules,
+		SASTOrigin:     s.sastOrigin,
+		SASTIssues:     s.sastIssues,
+		SASTReason:     s.sastReason,
+		PromptDigest:   s.deps.digestBuilder().FixedContentDigest,
+	}
+}
+
+// executeGate runs pipeline with reason as the initial inconclusive motive,
+// after showing it to the session's observer. A configuration error ends
+// the review (exit 2): the message is printed here and ok is false.
+func (s *reviewState) executeGate(pipeline *gate.Pipeline, reason string) (res *gate.Result, ok bool) {
+	s.deps.gateObserver(s.source.Label, pipeline.Names())
 	res = &gate.Result{Reason: reason}
-	if err := pipeline.Run(run.Ctx, run, res); err != nil {
-		fmt.Fprintf(run.Stderr, "aurumcode review: gate: %v\n", err)
+	if err := pipeline.Run(s.run.Ctx, s.run, res); err != nil {
+		fmt.Fprintf(s.run.Stderr, "aurumcode review: gate: %v\n", err)
 		return res, false
 	}
 	return res, true
 }
 
-// gateExitCode maps a failed gate to the shared exit codes: a real severity
-// breach is exitFindings regardless of inconclusiveness; Fail without a
-// breach is gate.inconclusive: block, exitQualityNotReviewed. closed is
-// false when the gate does not close the run.
-func gateExitCode(res *gate.Result) (code int, closed bool) {
-	if res.Breach {
-		return exitFindings, true
+// decideExit is the one exit decision of a session: gate.ExitPolicy over
+// typed inputs. pub carries what only a publishing source produces (zero
+// for the local report).
+func (s *reviewState) decideExit(pub publishOutcome) int {
+	d := gate.ExitPolicy(gate.ExitInputs{
+		PublishFailures:     pub.failures,
+		NotReviewed:         s.notReviewed(),
+		CheckStatusExit:     pub.checkExit,
+		GateStatusExit:      pub.gateCheckExit,
+		Gate:                s.gateRes,
+		ArtifactsMissing:    pub.artifactsMissing,
+		FindingsAtThreshold: s.findingsAtThreshold(),
+	})
+	switch d.Cause {
+	case gate.CauseNotReviewed:
+		if s.source.NotReviewedNotice != "" {
+			fmt.Fprintln(s.stderr, s.source.NotReviewedNotice)
+		}
+	case gate.CauseFailOn:
+		fmt.Fprintf(s.stderr, "aurumcode review: %d finding(s) at severity %s or above (--fail-on %s)\n", s.findingsAtThreshold(), s.thresholdName, s.thresholdName)
 	}
-	if res.Fail {
-		return exitQualityNotReviewed, true
-	}
-	return 0, false
+	return d.Code
+}
+
+// publishOutcome is what publishing produced that the exit decision reads.
+type publishOutcome struct {
+	failures         int
+	checkExit        int
+	gateCheckExit    int
+	artifactsMissing bool
 }

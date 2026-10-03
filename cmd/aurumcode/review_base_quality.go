@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -26,7 +25,7 @@ type qualityCache struct {
 // review was skipped or already failed, result stays the zero ReviewResult:
 // no quality issues, nothing to gate or print for that section (AUR-449).
 func (b *baseReview) runQualityPass() (int, bool) {
-	if b.qualitySkipped || b.qualityFailed {
+	if b.qualityDidNotRun() {
 		b.result = &types.ReviewResult{}
 		return 0, false
 	}
@@ -82,21 +81,21 @@ func (b *baseReview) setupCostCap() (int, bool) {
 func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int, bool) {
 	reviewCtx := review.ReviewContext{
 		Language:        b.reviewLanguage,
-		CodebaseContext: b.codebaseContextText,
+		CodebaseContext: b.codebaseText,
 		MemoryNotes:     b.memoryNotesText,
 	}
 	var err error
 	if b.profilesApplied {
 		// AUR-519: every profile's Reviewer accepts the same dynamic rules
 		// and expanded catalog as the single-reviewer path.
-		b.result, err = runProfilePasses(context.Background(), b.provider, b.tracker, b.profileRes.Profiles, qc.toSend, reviewCtx, b.dynamicRules, b.ruleCatalogIDs)
+		b.result, err = runProfilePasses(b.ctx, b.provider, b.tracker, b.profileRes.Profiles, qc.toSend, reviewCtx, b.dynamicRules, b.ruleCatalogIDs)
 	} else {
-		b.result, err = reviewer.GenerateReviewWithContext(context.Background(), qc.toSend, reviewCtx)
+		b.result, err = reviewer.GenerateReviewWithContext(b.ctx, qc.toSend, reviewCtx)
 	}
 	if err != nil && b.f.seguranca {
 		reportQualityFailure(b.stderr, err, b.f.modelo, b.limiteUSD)
 		fmt.Fprintln(b.stderr, "aurumcode review: quality review failed; running --seguranca only -- this run reviewed HALF of what was asked")
-		b.qualityFailed = true
+		b.model = modelProviderFailed
 		b.result = &types.ReviewResult{}
 	} else if err != nil {
 		return reportQualityFailure(b.stderr, err, b.f.modelo, b.limiteUSD), true
@@ -104,7 +103,7 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 	// B3: a degraded parse or a partially covered file is never persisted:
 	// a later cache hit would claim a complete review.
 	cachePartial := mergeReviewCoverage(b.result.Metadata, b.notices, b.rawDiffFileCount, b.ignoredPaths).partial()
-	if qc.err == nil && !b.qualityFailed && !prompt.IsDegradedParse(b.result) && !cachePartial {
+	if qc.err == nil && b.model != modelProviderFailed && !prompt.IsDegradedParse(b.result) && !cachePartial {
 		persistFreshResults(qc.store, qc.statuses, b.result.Issues, b.filter)
 	}
 	return 0, false
@@ -120,13 +119,13 @@ func (b *baseReview) reportQualityOutcome(qc *qualityCache) {
 		}
 	}
 	reused := 0
-	if qc.err == nil && !b.qualityFailed {
+	if qc.err == nil && b.model != modelProviderFailed {
 		reused = mergeCacheHits(b.result, qc.statuses, b.filter)
 	}
 	if reused > 0 {
 		fmt.Fprintf(b.stderr, "aurumcode review: reused %d file(s) from cache (not resent to the model)\n", reused)
 	}
-	if b.limiteSet && !b.qualityFailed {
+	if b.limiteSet && b.model != modelProviderFailed {
 		printRealCost(b.stderr, realCostUSD(b.tracker, b.limiteUSD), b.limiteUSD)
 	}
 }

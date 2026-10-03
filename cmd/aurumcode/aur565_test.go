@@ -248,7 +248,7 @@ func TestAUR565PRSelectsSkillsAtTheBaseRef(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("AURUMCODE_CACHE_DIR", t.TempDir())
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 65, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{publicationSet: true, publication: "review"})
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 65, repo: "owner/repo", publicar: true, naLinha: true, check: false, publicationSet: true, publication: "review"})
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%s", code, stderr.String())
 	}

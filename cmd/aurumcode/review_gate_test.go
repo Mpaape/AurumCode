@@ -17,23 +17,21 @@ var declaredGateContributors = []string{
 	"embedded-analysis", "security-pass", "analysis-data", "dependency-track",
 }
 
-// observeGatePipelines records the contributor names every path executes.
-func observeGatePipelines(t *testing.T) map[string][]string {
-	t.Helper()
+// observeGatePipelines returns session dependencies whose observer records
+// the contributor names every path executes.
+func observeGatePipelines() (reviewDeps, map[string][]string) {
 	seen := map[string][]string{}
-	gatePipelineObserver = func(label string, names []string) { seen[label] = names }
-	t.Cleanup(func() { gatePipelineObserver = nil })
-	return seen
+	return reviewDeps{gateObserver: func(label string, names []string) { seen[label] = names }}, seen
 }
 
 // TestAUR557PathsShareOnePipeline is AC-002: a real --base run and a real
 // --pr run each execute the pipeline assembleGatePipeline declares, and the
 // contributor names they ran are identical, in the declared order.
 func TestAUR557PathsShareOnePipeline(t *testing.T) {
-	seen := observeGatePipelines(t)
+	deps, seen := observeGatePipelines()
 
 	// --pr (reuses AUR-499's fake GitHub server and fixture provider).
-	if code, stderr, _ := runPR499(t, true); code != 0 {
+	if code, stderr, _ := runPR499With(t, true, deps); code != 0 {
 		t.Fatalf("--pr exit=%d stderr=%s", code, stderr)
 	}
 
@@ -45,7 +43,7 @@ func TestAUR557PathsShareOnePipeline(t *testing.T) {
 	}
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 	var out, errOut strings.Builder
-	if code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter()); code != 0 {
+	if code := runReviewWith(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter(), deps: deps}, []string{"--base", "HEAD~1"}); code != 0 {
 		t.Fatalf("--base exit=%d stderr=%s", code, errOut.String())
 	}
 
