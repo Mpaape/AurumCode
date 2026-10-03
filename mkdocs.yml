@@ -1,0 +1,50 @@
+site_name: AurumCode
+site_description: Gate de compliance para a organização - review, skills, política central, gate e cadeia de suprimentos
+docs_dir: docs
+site_dir: site
+strict: true
+theme:
+  name: material
+  language: pt-BR
+  features:
+    - navigation.tabs
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+extra_css:
+  - stylesheets/extra.css
+hooks:
+  - scripts/docs/hooks.py
+plugins:
+  - search:
+      lang: [pt]
+exclude_docs: |
+  /README.md
+  site/*
+  !site/workflow.yml
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+nav:
+  - Início:
+    - index.md
+    - Entrada do repositório: README.md
+  - Começando: getting-started.md
+  - Referência: configuration.md
+  - Guia corporativo: gate-corporativo.md
+  - Qualidade e benchmark:
+    - review-quality.md
+    - benchmark.md
+    - qa.md
+    - review-cache.md
+  # Specs (and Tutoriais, when docs/tutorials exists) are injected by
+  # scripts/docs/hooks.py on_config.
