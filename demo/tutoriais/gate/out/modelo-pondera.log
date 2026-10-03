@@ -70,7 +70,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: gate.triage (analysis: model): app.go:6 analysis/hardcoded-secret contestado pelo modelo deixou de contar
 ## Code Review Summary
 
-**Verdict:** Changes requested
+**Verdict:** Comment
 
 **Findings by severity:**
 - error: 1
