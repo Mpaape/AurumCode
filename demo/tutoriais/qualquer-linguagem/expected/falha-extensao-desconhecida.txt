@@ -1,0 +1,6 @@
+script.zzqx:2: [error] A senha esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+1 file(s) have no grammar in the runtime
+  - script.zzqx
+exit_code=3
+prompt: +    String senha = "hunter2";
+RESULTADO: o achado em script.zzqx (sem gramatica) reprovou

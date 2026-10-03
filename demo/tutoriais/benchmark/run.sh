@@ -27,7 +27,7 @@ gt() {
   set +e
   LAST_OUT="$("$GOSHARED" exec -w "$dir" go test "$@" 2>&1)"; LAST_RC=$?
   set -e
-  printf '%s\n' "$LAST_OUT" | sed -E 's/\([0-9.]+s\)/(<t>s)/; s/[[:space:]][0-9.]+s$/ <t>s/'
+  printf '%s\n' "$LAST_OUT" | sed -E 's/\([0-9.]+s\)/(<t>s)/; s/[[:space:]][0-9.]+s$/ <t>s/; s#github.com/[A-Za-z0-9]+/AurumCode#<modulo>#g'
   echo "exit_code=$LAST_RC"
 }
 

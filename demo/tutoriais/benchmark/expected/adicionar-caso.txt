@@ -1,0 +1,5 @@
+case java-cmd is on disk but not in the manifest
++| java | 4 | 3 | 3 | 1.0000 | [0.4385, 1.0000] | 1.0000 | [0.4385, 1.0000] | 0 | 0 |
++| total | 25 | 17 | 16 | 0.9412 | [0.7302, 0.9895] | 0.8889 | [0.6720, 0.9690] | 2 | 1 |
+entradas java-cmd no manifest: 1
+RESULTADO: sem -update, o teste passa

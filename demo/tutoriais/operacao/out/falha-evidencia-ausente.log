@@ -1,0 +1,7 @@
+== falha-evidencia-ausente
+--- clone do repositorio, sem .board/evidence/AUR-561/validated.json
+$ bash .board/pipeline.sh   # no clone; so as linhas do AUR-561 e o resumo
+board error: <clone>/.board/cards/done/AUR-561.md: done card lacks matching validated.json evidence
+board invalid: 1 error(s)
+exit_code=1
+RESULTADO: card done sem validated.json: o pipeline reprova

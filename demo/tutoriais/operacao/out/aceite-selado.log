@@ -1,0 +1,36 @@
+== aceite-selado
+$ ./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-523
+oci-run: untrusted stdout: AUR-523/all/pass
+oci-run: untrusted stderr: === RUN   TestAUR523RealBinaryOutputIsTheSource
+oci-run: untrusted stderr: --- PASS: TestAUR523RealBinaryOutputIsTheSource (<t>s)
+oci-run: untrusted stderr: === RUN   TestAUR523MutationFixtureReadIsRed
+oci-run: untrusted stderr: --- PASS: TestAUR523MutationFixtureReadIsRed (<t>s)
+oci-run: untrusted stderr: === RUN   TestAUR523CorpusLabeledVersionedWithDigest
+oci-run: untrusted stderr: --- PASS: TestAUR523CorpusLabeledVersionedWithDigest (<t>s)
+oci-run: untrusted stderr: === RUN   TestAUR523ReportPerLanguage
+oci-run: untrusted stderr: --- PASS: TestAUR523ReportPerLanguage (<t>s)
+oci-run: untrusted stderr: === RUN   TestAUR523ReportReproducible
+oci-run: untrusted stderr: --- PASS: TestAUR523ReportReproducible (<t>s)
+oci-run: untrusted stderr: PASS
+oci-run: untrusted stderr: ok  	github.com/Mpaape/AurumCode/tests/benchmark <t>s
+{"schema":"aurum.acceptance-execution","version":1,"card_id":"AUR-523","profile":"go-unit-offline-v1","profile_source":"registry","profile_digest":"sha256:8c36ecaf27a6e92f67f6a7324c0e3a524666084bce9e62e48080798cd11cbc26","lock_digest":"sha256:979c3003d5c9ccd5029db5ef88840d477a8844dd915657a5d87d84a5abbb01d6","engine":"docker","image":"aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2","input_manifest_digest":"sha256:2df9f51c5c6623c1f961ea4b52e6c934feb8d659dc89528ee5966ee58b5c8a14","exit_code":0,"stdout_sha256":"sha256:f97c6fe18717208ea310371e68a1b0be9cfbaabd905c2b0465389d6d27e3de90","stderr_sha256":"sha256:27c668b304f369687ba8724b8fe88338ab8f5ee73c203fcaa054de40d9031517","stdout_bytes":17,"stderr_bytes":550,"output_truncated":false,"timed_out":false,"secret_detected":false,"forbidden_authority_assertion":false,"observation_trusted":false}
+exit_code=0
+RESULTADO: aceite selado do card AUR-523 passou: o programa de aceite saiu 0 dentro do container selado
+RESULTADO: o registro de execucao do oci-run declara exit_code 0 e observation_trusted false
+$ ./.board/bin/oci-run --profile nao-existe --card AUR-523
+oci-run: profile is not registered: .board/oci/profiles/nao-existe.json is missing
+exit_code=78
+RESULTADO: profile nao registrado: exit 78
+$ ./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-999
+oci-run: expected exactly one card spec for AUR-999
+exit_code=66
+RESULTADO: card inexistente: exit 66
+$ ./.board/bin/oci-run --profile go-unit-offline-v1
+oci-run: invalid card id
+exit_code=64
+RESULTADO: uso errado (falta --card): exit 64
+$ env AURUM_OCI_ENGINE=podman PATH=/usr/bin:/bin ./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-523
+oci-run: inconclusive: requested OCI engine is unavailable: podman
+exit_code=79
+RESULTADO: motor pedido (podman) indisponivel: exit 79 inconclusivo, nunca verde
+nao demonstrado aqui: exit 69 (dependencia do bootstrap ausente, por exemplo uma ferramenta que o lock exige) e exit 70 (segredo detectado na entrada materializada)

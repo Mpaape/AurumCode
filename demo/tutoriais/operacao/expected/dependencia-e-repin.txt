@@ -1,0 +1,6 @@
+go: added github.com/spf13/pflag v1.0.5
+linhas com pflag em go.mod: 1
+RESULTADO: go.mod e go.sum do repositorio real continuam intactos
+formula confere
+go-git-offline-v1 "image": "golang@
+nao executado (alteraria o repositorio ou exige rede): docker build da imagem selada
