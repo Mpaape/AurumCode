@@ -58,7 +58,7 @@ func runSessionCase(t *testing.T, source session.Source, c sessionCase) (int, []
 	}
 	s.joinSecurityFindings()
 	s.snapshotAndApplyRules()
-	s.runScanners(t.TempDir(), "")
+	s.runScanners(t.TempDir(), scanner.Range{}, "")
 	defer s.flush()
 	if code, done := s.runGate(); done {
 		return code, nil
