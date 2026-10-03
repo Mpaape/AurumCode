@@ -75,6 +75,14 @@ type EvidenceAssessment struct {
 	EvidenceID    string `json:"evidence_id" yaml:"evidence_id"`
 	Status        string `json:"status" yaml:"status"`
 	Justification string `json:"justification" yaml:"justification"`
+	// Correlates names other offered evidence ids the model found pointing
+	// at the same code (two sources, one defect).
+	Correlates []string `json:"correlates_with,omitempty" yaml:"correlates_with,omitempty"`
+	// Priority is the model's ordering hint (high, medium, low). It never
+	// changes the finding's severity, which stays the engine's.
+	Priority string `json:"priority,omitempty" yaml:"priority,omitempty"`
+	// Suggestion is the model's proposed fix for the evidence.
+	Suggestion string `json:"suggestion,omitempty" yaml:"suggestion,omitempty"`
 }
 
 // IsKnownAssessmentStatus reports whether status is one of the three
@@ -148,6 +156,10 @@ type ReviewResult struct {
 	FileComments  []ReviewComment    `json:"file_comments" yaml:"file_comments"`   // Legacy input compatibility
 	CommitComment string             `json:"commit_comment" yaml:"commit_comment"` // Legacy input compatibility
 	Metadata      map[string]string  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	// EvidenceAssessments is the model's verdict on each deterministic
+	// evidence item it was offered, keyed by evidence id. The engine keeps
+	// only assessments of evidence it actually offered.
+	EvidenceAssessments []EvidenceAssessment `json:"evidence_assessments,omitempty" yaml:"evidence_assessments,omitempty"`
 }
 
 // ReviewComment represents a comment to post on a PR

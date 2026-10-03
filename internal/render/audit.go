@@ -51,6 +51,14 @@ type AuditRecord struct {
 	// AnalysisData (AUR-533) names the analysis-data artifact this run used:
 	// present only when the artifact was declared and resolved usable.
 	AnalysisData *AnalysisDataAudit `json:"analysis_data,omitempty"`
+
+	// EvidenceAssessments is every deterministic finding the model
+	// assessed: the engine's origin beside the model's assessment. Absent
+	// when the model assessed nothing.
+	EvidenceAssessments []AuditEvidence `json:"evidence_assessments,omitempty"`
+	// ProposedExceptions is the exceptions the model's disputes suggest,
+	// as text a human may copy into `exceptions`. Never applied.
+	ProposedExceptions string `json:"proposed_exceptions,omitempty"`
 }
 
 // AnalysisDataAudit identifies the verified analysis-data artifact a review
@@ -222,6 +230,8 @@ func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
 		omitted[i] = filter.Redact(p)
 	}
 	rec.Coverage.Omitted = omitted
+	rec.EvidenceAssessments = redactAuditEvidence(filter, rec.EvidenceAssessments)
+	rec.ProposedExceptions = filter.Redact(rec.ProposedExceptions)
 	return rec
 }
 

@@ -70,6 +70,7 @@ func (p *prReview) resolveCommit() (int, bool) {
 // continues, so every finding that COULD be published still was.
 func (p *prReview) postReview() []string {
 	summaryBody := formatPublishedReviewBody(p.result, p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText)
+	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)
 	if p.publication == "review" {
 		return p.postFormalReview(summaryBody)
 	}

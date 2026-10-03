@@ -1058,6 +1058,65 @@ result (`properties.origin`). Without a `gate`,
 nothing changes. Restricting `sources` to leave out `sast` also stops a
 declared gate from counting Semgrep findings.
 
+## The model weighs the deterministic evidence; gate.triage
+
+The security pass (`--seguranca`), the embedded analysis catalog and SAST run
+**before** the model. Each finding reaches the prompt as one evidence item
+(`[E1] origem=analysis regra=... local=file:line severidade=... trecho: ...`,
+redacted, under the evidence ceiling of `limits.yml`; an item left out by the
+ceiling is counted as "N omitidos" and still counts in the gate). The model
+answers, besides the usual fields, `evidence_assessments`: per evidence id a
+`status` (`confirmed`, `disputed`, `needs_context`), a `justification`,
+`correlates_with` (other ids pointing at the same code), a `priority` and a
+`suggestion`. The engine keeps only assessments of ids it offered (any other
+is discarded with a warning on stderr), never lets the model write `origin`
+or change a severity, and shows the two side by side: in the terminal report
+(`origem: analysis | avaliacao do modelo: disputed [E1] ...`), in the audit
+record (`evidence_assessments[]`: `origin` plus `assessment`) and in the SARIF
+(`properties.origin` plus `properties.assessment`).
+
+What the assessment may change in the gate:
+
+- **Under a central policy: nothing.** Evidence of policy origin counts
+  whatever the model says. A disputed finding becomes a **proposed exception**
+  in the report and in the audit (`proposed_exceptions`): the `exceptions`
+  YAML with the rule, the path and the model's reason, and placeholders for
+  the owner, the expiry and (on `--base`) the repository. It is never applied:
+  only a human who copies it into the policy's `exceptions` makes it count.
+- **Without a central policy**, the repository may let a dispute demote the
+  evidence of a source:
+
+```yaml
+gate:
+  fail_on: [high]
+  triage:
+    analysis: model   # disputed analysis and --seguranca findings stop counting
+    sast: none        # the default for every source
+```
+
+`gate.triage.analysis` also covers the findings of the `--seguranca` pass
+(origin `security`), exactly as `gate.sources: analysis` counts them: the
+vocabulary stays the three `gate.sources` names, and a dispute is matched by
+origin, rule, path and line, so it never demotes another source's finding at
+the same place. Evidence the prompt's ceiling left out (declared as
+"N omitidos") was never read by the model: an assessment of it is discarded
+with the same warning as an id never offered, and it can never demote.
+
+`triage` keys are the `gate.sources` names (`skills`, `analysis`, `sast`);
+values are `model` or `none` (the default). The evidence the model assesses
+is the deterministic one (`analysis`, the `--seguranca` pass counted under
+`analysis`, and `sast`); a skill-section finding is the model's own citation,
+so `skills: model` is accepted but has nothing to demote today. An unknown key or value is a
+load error. A demotion is never silent: stderr and the review's limitations
+name each demoted finding (`gate.triage (analysis: model): app.go:6 ...`).
+Under a central policy `triage` is ignored, including a `triage` the policy
+itself declares, and a SAST section of policy origin is never demoted.
+
+A review that offered evidence is not served from the per-file model cache
+(the cache stores issues, not assessments), and the verdict-reuse key includes
+the digest of the evidence offered: a verdict stored before the evidence
+existed is never reused.
+
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 
 <a id="xbom"></a>

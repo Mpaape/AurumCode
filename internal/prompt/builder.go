@@ -521,12 +521,13 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 			// AUR-467 blocker 1: estimated from the ACTUAL final System+User
 			// text this function returns, not a partial sum of its pieces --
 			// so it can never undercount what the declaration itself added.
-			"estimated_tokens":     fmt.Sprintf("%d", b.estimator.Estimate(basePrompt+userContent)),
-			"code_files_total":     fmt.Sprintf("%d", len(codePaths)),
-			"code_files_complete":  fmt.Sprintf("%d", completeCount),
-			"code_files_partial":   fmt.Sprintf("%d", partialCount),
-			"code_files_omitted":   fmt.Sprintf("%d", omittedCount),
-			"prose_files_excluded": fmt.Sprintf("%d", len(prosePaths)),
+			"estimated_tokens":      fmt.Sprintf("%d", b.estimator.Estimate(basePrompt+userContent)),
+			"code_files_total":      fmt.Sprintf("%d", len(codePaths)),
+			"code_files_complete":   fmt.Sprintf("%d", completeCount),
+			"code_files_partial":    fmt.Sprintf("%d", partialCount),
+			"code_files_omitted":    fmt.Sprintf("%d", omittedCount),
+			"prose_files_excluded":  fmt.Sprintf("%d", len(prosePaths)),
+			EvidenceAdmittedMetaKey: strings.Join(sections.evidenceIDs, ","),
 		},
 	}
 

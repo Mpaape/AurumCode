@@ -29,7 +29,7 @@ e [gate.sources](../configuration.md#gatesources-which-findings-count-toward-the
   produto publica. Não são um runner nem o GitHub.
 
 ```bash
-bash demo/tutoriais/gate/run.sh all      # executa os dez casos e grava out/
+bash demo/tutoriais/gate/run.sh all      # executa os onze casos e grava out/
 bash demo/tutoriais/gate/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -442,6 +442,104 @@ contava no gate, porque só os achados de `analysis/*`, do SAST e das seções d
 skills contavam. Os achados do passe de segurança contam sob a origem
 `analysis` de `gate.sources` (o catálogo embutido); com `sources: [skills]`
 não contam. Não é demonstrado aqui o `--pr`; ele é coberto por teste do `cmd`.
+
+## Caso 10: o modelo pondera a evidência
+
+Com provedor, os passes determinísticos rodam **antes** do modelo e o achado
+`analysis/hardcoded-secret` chega ao prompt como evidência `[E1]`. A fixture
+deste caso só responde com a avaliação quando o prompt traz a seção de
+evidência (sem ela, responde `approve` sem avaliar nada): é a prova de que a
+seção não é decorativa.
+
+<!-- arquivo: demo/tutoriais/gate/fixture-pondera-contesta.json -->
+```json
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "[E1] origem=analysis regra=analysis/hardcoded-secret",
+        "response": {
+          "verdict": "comment",
+          "strengths": [],
+          "issues": [],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "O modelo avaliou a evidencia deterministica.",
+          "evidence_assessments": [
+            {
+              "evidence_id": "E1",
+              "status": "disputed",
+              "justification": "O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.",
+              "correlates_with": [],
+              "priority": "low",
+              "suggestion": "Mover o exemplo para um arquivo de teste."
+            }
+          ]
+        }
+      }
+    ],
+    "default": {
+      "verdict": "approve",
+      "strengths": [],
+      "issues": [],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "Nenhuma evidencia deterministica recebida."
+    }
+  }
+}
+```
+
+Sob a política `politica-high`, o modelo contesta: o achado **continua
+reprovando** e o parecer propõe a exceção, sem aplicá-la. Depois o modelo
+confirma (nenhuma exceção proposta). Por fim, sem política central, o próprio
+repositório declara `gate.triage`:
+
+<!-- arquivo: demo/tutoriais/gate/repo-exemplo/base-triagem/.aurumcode/config.yml -->
+```yaml
+gate:
+  fail_on: [high]
+  triage:
+    analysis: model
+```
+
+<!-- saida: modelo-pondera -->
+```text
+--- com provedor, o modelo contesta a evidencia; politica fail_on [high]
+aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
+app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+  origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
+  sugestao: Mover o exemplo para um arquivo de teste.
+Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).
+Para aceitar, um humano copia o bloco para `exceptions` com dono e validade:
+exceptions:
+  - repo: "<owner/repo a definir>"
+    rule: "analysis/hardcoded-secret"
+    path: "app.go"
+    owner: "<dono a definir>"
+    expires: "<AAAA-MM-DD>"
+avaliacoes na auditoria: analysis analysis/hardcoded-secret -> E1 disputed
+RESULTADO: a politica conta o achado contestado (exit 3) e o parecer propoe a excecao, sem aplica-la
+--- o modelo confirma a mesma evidencia
+  origem: analysis | avaliacao do modelo: confirmed [E1] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime.
+RESULTADO: confirmado: o achado conta e nenhuma excecao e proposta
+--- sem politica central, o repositorio declara gate.triage analysis: model
+aurumcode review: gate.triage (analysis: model): app.go:6 analysis/hardcoded-secret contestado pelo modelo deixou de contar
+exit_code=0
+RESULTADO: sem politica, a contestacao rebaixa o achado (gate.triage: model) e o gate aprova
+```
+
+O que observar: a origem (`analysis`, o que o engine mediu) aparece ao lado da
+avaliação do modelo, no relatório e na auditoria (`evidence_assessments`).
+Sob política, contestar não muda a contagem: vira exceção proposta, com dono
+e validade em aberto, que só vale se um humano a copiar para `exceptions`.
+Sem política, `gate.triage: model` deixa a contestação rebaixar o achado, e o
+rebaixamento é declarado no stderr. O mesmo `--pr` é coberto por teste do
+`cmd`, não por este caso.
 
 ## Quando falha
 

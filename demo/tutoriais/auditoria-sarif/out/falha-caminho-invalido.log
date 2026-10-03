@@ -28,6 +28,7 @@ RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao exis
 o arquivo de auditoria nao existe
 --- sem gate, SARIF cujo pai e um arquivo
 $ aurumcode review --base main --sarif /work/arquivo-regular/revisao.sarif
+aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -47,7 +48,6 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: sarif_write_failed
-aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
 exit_code=1
 RESULTADO: sem gate: exit diferente de 0 e a mensagem nomeia o caminho
 --- caminho gravavel: comportamento inalterado

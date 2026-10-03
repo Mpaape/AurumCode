@@ -766,6 +766,7 @@ func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *typ
 			if issue.Verification != "" {
 				fmt.Fprintf(&b, "  - %s: %s\n", copy.verify, issue.Verification)
 			}
+			printAssessment(&b, issue)
 		}
 		b.WriteString("\n")
 	}

@@ -79,11 +79,11 @@ func (b *baseReview) setupCostCap() (int, bool) {
 // --seguranca a failed quality review diverts to the security pass alone
 // (AUR-458); without it the published exit-1 refusal stays.
 func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int, bool) {
-	reviewCtx := review.ReviewContext{
+	reviewCtx := b.reviewContext(review.ReviewContext{
 		Language:        b.reviewLanguage,
 		CodebaseContext: b.codebaseText,
 		MemoryNotes:     b.memoryNotesText,
-	}
+	})
 	var err error
 	if b.profilesApplied {
 		// AUR-519: every profile's Reviewer accepts the same dynamic rules
@@ -113,7 +113,7 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 // silent), merges cache hits into the answer and reports cache reuse and
 // the real cost. None of it applies to a failed review (AUR-458).
 func (b *baseReview) reportQualityOutcome(qc *qualityCache) {
-	for _, key := range []string{"discard_warning", "scope_discard_warning", "parse_discard_warning"} {
+	for _, key := range []string{"discard_warning", "scope_discard_warning", "parse_discard_warning", review.AssessmentDiscardWarningKey} {
 		if warning := b.result.Metadata[key]; warning != "" {
 			fmt.Fprintf(b.stderr, "aurumcode review: %s\n", warning)
 		}

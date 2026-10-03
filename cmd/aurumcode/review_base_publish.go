@@ -34,7 +34,8 @@ func (b *baseReview) printReport() {
 		result.Metadata["quality_degraded"] = "true"
 		fmt.Fprintln(b.stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
 	}
-	fmt.Fprint(b.stdout, renderLocalReport(result, b.diff, b.reviewLanguage))
+	verdict := gateAlignedVerdict(canonicalVerdict(result), b.triageDemoted, b.gateRes)
+	fmt.Fprint(b.stdout, renderLocalReport(result, b.diff, b.reviewLanguage, verdict))
 	if b.coverageText != "" {
 		fmt.Fprint(b.stdout, "\n"+b.coverageText+"\n")
 	}
@@ -58,5 +59,8 @@ func (b *baseReview) printReport() {
 	}
 	if b.f.seguranca {
 		printSecurityFindings(b.stdout, b.filter, b.securityFindings)
+	}
+	if b.proposedExceptions != "" {
+		fmt.Fprint(b.stdout, "\n"+b.filter.Redact(b.proposedExceptions))
 	}
 }

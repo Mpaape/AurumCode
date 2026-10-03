@@ -72,7 +72,11 @@ type PolicySkillsContributor struct {
 func (PolicySkillsContributor) Name() string   { return ContributorSkills }
 func (PolicySkillsContributor) Origin() string { return OriginSkills }
 func (c PolicySkillsContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	d, err := EvaluateGate(run.Cfg.Gate, c.AcceptedOrigin, c.Dynamic, run.IssuesForGate(), res.Reason, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
+	issues := run.IssuesForGate()
+	if c.AcceptedOrigin != OriginPolicy {
+		issues = run.keepSkills(issues, func(id string) bool { _, ok := c.Dynamic[id]; return ok })
+	}
+	d, err := EvaluateGate(run.Cfg.Gate, c.AcceptedOrigin, c.Dynamic, issues, res.Reason, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
 	if err != nil {
 		return Fatal(err)
 	}
@@ -91,7 +95,11 @@ type SASTContributor struct {
 func (SASTContributor) Name() string   { return ContributorSAST }
 func (SASTContributor) Origin() string { return OriginSAST }
 func (c SASTContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	return Fatal(ApplySASTGate(res, run.Cfg.QualityGates.Sast, c.SectionOrigin, SASTIssues(run.Cfg.Gate, c.Issues), c.Reason))
+	issues := SASTIssues(run.Cfg.Gate, c.Issues)
+	if c.SectionOrigin != OriginPolicy {
+		issues = run.keep(config.GateSourceSAST, OriginSAST, issues)
+	}
+	return Fatal(ApplySASTGate(res, run.Cfg.QualityGates.Sast, c.SectionOrigin, issues, c.Reason))
 }
 
 // EmbeddedAnalysisContributor counts the embedded analysis catalog (AUR-556).
@@ -100,7 +108,7 @@ type EmbeddedAnalysisContributor struct{}
 func (EmbeddedAnalysisContributor) Name() string   { return ContributorAnalysis }
 func (EmbeddedAnalysisContributor) Origin() string { return OriginAnalysis }
 func (EmbeddedAnalysisContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	return Fatal(ApplyAnalysisGate(res, run.Cfg.Gate, AnalysisIssuesForGate(run.Diff, run.Cfg), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+	return Fatal(ApplyAnalysisGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginAnalysis, AnalysisIssuesForGate(run.Diff, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // SecurityPassContributor counts the --seguranca pass's deterministic findings
@@ -111,7 +119,7 @@ type SecurityPassContributor struct{}
 func (SecurityPassContributor) Name() string   { return ContributorSecurity }
 func (SecurityPassContributor) Origin() string { return OriginSecurity }
 func (SecurityPassContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	return Fatal(ApplySecurityGate(res, run.Cfg.Gate, config.ApplyRuleConfig(run.Security, run.Cfg), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+	return Fatal(ApplySecurityGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginSecurity, config.ApplyRuleConfig(run.Security, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // AnalysisDataContributor gates the analysis-data artifact (AUR-533).

@@ -31,8 +31,27 @@ func TestRunFollowsTheOneOrder(t *testing.T) {
 		t.Fatalf("Run = %d ran %v, want 0 and %v", code, all.ran, Order)
 	}
 	early := &recorder{stopAt: PhaseEvidence}
-	if code := Run(early); code != 7 || !reflect.DeepEqual(early.ran, Order[:3]) {
-		t.Fatalf("early Run = %d ran %v, want 7 and %v", code, early.ran, Order[:3])
+	stop := 0
+	for i, p := range Order {
+		if p == PhaseEvidence {
+			stop = i + 1
+		}
+	}
+	if code := Run(early); code != 7 || !reflect.DeepEqual(early.ran, Order[:stop]) {
+		t.Fatalf("early Run = %d ran %v, want 7 and %v", code, early.ran, Order[:stop])
+	}
+}
+
+// TestEvidenceRunsBeforeTheModel: the deterministic passes run before the
+// model, so the model is offered their findings instead of answering
+// without them.
+func TestEvidenceRunsBeforeTheModel(t *testing.T) {
+	index := map[Phase]int{}
+	for i, p := range Order {
+		index[p] = i
+	}
+	if index[PhaseEvidence] > index[PhaseModel] {
+		t.Fatalf("Order = %v: the model runs before the deterministic evidence it must weigh", Order)
 	}
 }
 
