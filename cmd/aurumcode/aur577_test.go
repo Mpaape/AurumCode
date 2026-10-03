@@ -94,7 +94,7 @@ func TestAUR577FakeEngineReachesEverySinkByOrigin(t *testing.T) {
 // or cmd/aurumcode, and neither imports an engine package.
 func TestAUR577NoEngineSwitchInGateOrCmd(t *testing.T) {
 	engines := map[string]bool{}
-	for _, name := range scanner.Names() {
+	for _, name := range append(scanner.Names(), scanner.Categories()...) {
 		engines[name] = true
 	}
 	if !engines["semgrep"] {
@@ -185,8 +185,8 @@ func TestAUR577UnknownEngineStopsTheReview(t *testing.T) {
 	writeRepoConfig(t, "quality_gates:\n  scanners:\n    - engine: inexistente\n")
 	var out, errOut strings.Builder
 	rio := reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter(), deps: reviewDeps{env: &reviewEnv{}}}
-	if code := runReviewWith(rio, []string{"--base", "HEAD~1"}); code == 0 || !strings.Contains(errOut.String(), `unknown engine "inexistente"`) {
-		t.Fatalf("exit=%d stderr=%s, want a configuration failure naming the engine", code, errOut.String())
+	if code := runReviewWith(rio, []string{"--base", "HEAD~1"}); code != 1 || !strings.Contains(errOut.String(), `unknown engine "inexistente"`) {
+		t.Fatalf("exit=%d stderr=%s, want exit 1 (every load error, as AUR-575 measured) naming the engine", code, errOut.String())
 	}
 	if out.Len() != 0 {
 		t.Fatalf("no report may be printed:\n%s", out.String())
@@ -220,9 +220,12 @@ func TestAUR577PolicyRequiredScannerSurvivesRepositoryDisable(t *testing.T) {
 		}
 	}
 	central := mustParse(t, "quality_gates:\n  scanners:\n    - engine: policyscan\n")
-	effective, _ := config.ApplyCentralPolicy(mustParse(t, "quality_gates:\n  scanners:\n    - engine: policyscan\n      enabled: false\n"), central)
+	effective, warnings := config.ApplyCentralPolicy(mustParse(t, "quality_gates:\n  scanners:\n    - engine: policyscan\n      enabled: false\n"), central)
 	if len(effective.QualityGates.EnabledScanners()) != 0 {
 		t.Fatalf("a policy entry that is not required yields to the repository: %+v", effective.QualityGates.EnabledScanners())
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0].Reason, "quality_gates.scanners[policyscan] da política central não é obrigatória") {
+		t.Fatalf("the yielded policy entry must be named: %+v", warnings)
 	}
 }
 

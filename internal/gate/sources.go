@@ -26,7 +26,6 @@ import (
 const (
 	OriginAnalysis = "analysis"
 	OriginSkills   = "skills"
-	OriginSAST     = "sast"
 	// OriginSecurity labels findings of the --seguranca pass (AUR-569).
 	OriginSecurity = "security"
 	// OriginDTrack and OriginAnalysisData label the Dependency-Track and
