@@ -40,7 +40,7 @@ func TestAUR489FixApplies(t *testing.T) {
 	if code := runFix([]string{"--file", writeFixInput(t, data)}, &stdout, &stderr); code != 0 {
 		t.Fatalf("AUR-489/AC-003: exit=%d stderr=%s", code, stderr.String())
 	}
-	apply := exec.Command(gitPath, "apply", "--unidiff-zero")
+	apply := exec.Command(gitPath, "apply")
 	apply.Dir = dir
 	apply.Stdin = strings.NewReader(stdout.String())
 	if out, err := apply.CombinedOutput(); err != nil {

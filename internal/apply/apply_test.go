@@ -1,214 +1,192 @@
 package apply
 
 import (
-	"reflect"
+	"strconv"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-func TestBuildPlanSafeSuggestions(t *testing.T) {
-	tests := []struct {
-		name string
-		s    types.ReviewSuggestion
-		want FileEdit
-	}{
-		{
-			name: "single line replacement",
-			s: types.ReviewSuggestion{
-				File: "internal/app.go", StartLine: 10,
-				CurrentCode:  "return err\n",
-				ProposedCode: "return fmt.Errorf(\"wrap: %w\", err)\n",
-			},
-			want: FileEdit{
-				Path:      "internal/app.go",
-				Removals:  []Line{{Number: 10, Text: "return err"}},
-				Additions: []Line{{Number: 10, Text: "return fmt.Errorf(\"wrap: %w\", err)"}},
-				Hunk: "@@ -10,1 +10,1 @@\n" +
-					"-return err\n" +
-					"+return fmt.Errorf(\"wrap: %w\", err)\n",
-			},
-		},
-		{
-			name: "multiline replacement keeps context",
-			s: types.ReviewSuggestion{
-				File: "internal/app.go", StartLine: 10, EndLine: 12,
-				CurrentCode:  "a\nb\nc\n",
-				ProposedCode: "a\nB\nc\n",
-			},
-			want: FileEdit{
-				Path:      "internal/app.go",
-				Removals:  []Line{{Number: 11, Text: "b"}},
-				Additions: []Line{{Number: 11, Text: "B"}},
-				Hunk: "@@ -10,3 +10,3 @@\n" +
-					" a\n-b\n+B\n c\n",
-			},
-		},
-		{
-			name: "pure deletion",
-			s: types.ReviewSuggestion{
-				File: "internal/app.go", StartLine: 10,
-				CurrentCode:  "dead\ncode\n",
-				ProposedCode: "",
-			},
-			want: FileEdit{
-				Path:     "internal/app.go",
-				Removals: []Line{{Number: 10, Text: "dead"}, {Number: 11, Text: "code"}},
-				Hunk: "@@ -10,2 +10,0 @@\n" +
-					"-dead\n-code\n",
-			},
-		},
-		{
-			name: "single line anchor via Line",
-			s: types.ReviewSuggestion{
-				File: "x.go", Line: 7,
-				CurrentCode:  "old\n",
-				ProposedCode: "new\n",
-			},
-			want: FileEdit{
-				Path:      "x.go",
-				Removals:  []Line{{Number: 7, Text: "old"}},
-				Additions: []Line{{Number: 7, Text: "new"}},
-				Hunk:      "@@ -7,1 +7,1 @@\n-old\n+new\n",
-			},
-		},
+// numbered returns a file of n lines "l1".."ln", each ending in a newline.
+func numbered(n int) string {
+	var sb strings.Builder
+	for i := 1; i <= n; i++ {
+		sb.WriteString("l" + strconv.Itoa(i) + "\n")
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			plan, err := BuildPlan([]types.ReviewSuggestion{tc.s})
-			if err != nil {
-				t.Fatalf("BuildPlan error: %v", err)
-			}
-			if len(plan.Files) != 1 {
-				t.Fatalf("files = %d, want 1", len(plan.Files))
-			}
-			if got := plan.Files[0]; !reflect.DeepEqual(got, tc.want) {
-				t.Fatalf("file edit:\n got %#v\nwant %#v", got, tc.want)
-			}
-		})
+	return sb.String()
+}
+
+func tree(files map[string]string) fstest.MapFS {
+	m := fstest.MapFS{}
+	for k, v := range files {
+		m[k] = &fstest.MapFile{Data: []byte(v)}
+	}
+	return m
+}
+
+func mustPatch(t *testing.T, s []types.ReviewSuggestion, files map[string]string) string {
+	t.Helper()
+	p, err := BuildPatch(s, tree(files))
+	if err != nil {
+		t.Fatalf("BuildPatch: %v", err)
+	}
+	return p
+}
+
+// AC-002: a one-line replacement in the middle carries exactly three lines of
+// real context on each side and correct headers and counts.
+func TestHunkHasThreeLinesOfContext(t *testing.T) {
+	p := mustPatch(t, []types.ReviewSuggestion{{File: "a.go", Line: 10, CurrentCode: "l10", ProposedCode: "L10"}},
+		map[string]string{"a.go": numbered(20)})
+	want := "--- a/a.go\n+++ b/a.go\n@@ -7,7 +7,7 @@\n l7\n l8\n l9\n-l10\n+L10\n l11\n l12\n l13\n"
+	if p != want {
+		t.Fatalf("patch:\n%s\nwant:\n%s", p, want)
 	}
 }
 
-func TestBuildPlanSkipsUnsafeSuggestions(t *testing.T) {
-	valid := types.ReviewSuggestion{
-		File: "internal/app.go", StartLine: 10,
-		CurrentCode: "return err\n", ProposedCode: "return nil\n",
-	}
-	tests := []struct {
-		name string
-		s    types.ReviewSuggestion
-	}{
-		{"empty current code", types.ReviewSuggestion{File: "a.go", StartLine: 1, CurrentCode: "", ProposedCode: "x\n"}},
-		{"whitespace-only current code", types.ReviewSuggestion{File: "a.go", StartLine: 1, CurrentCode: "  \n", ProposedCode: "x\n"}},
-		{"proposed equals current", types.ReviewSuggestion{File: "a.go", StartLine: 1, CurrentCode: "x\n", ProposedCode: "x\n"}},
-		{"equal up to trailing newline", types.ReviewSuggestion{File: "a.go", StartLine: 1, CurrentCode: "x\n", ProposedCode: "x"}},
-		{"equal up to CRLF", types.ReviewSuggestion{File: "a.go", StartLine: 1, CurrentCode: "x\r\ny", ProposedCode: "x\ny"}},
-		{"empty file", types.ReviewSuggestion{File: "", StartLine: 1, CurrentCode: "x\n", ProposedCode: "y\n"}},
-		{"absolute file", types.ReviewSuggestion{File: "/etc/passwd", StartLine: 1, CurrentCode: "x\n", ProposedCode: "y\n"}},
-		{"parent traversal", types.ReviewSuggestion{File: "../secret.go", StartLine: 1, CurrentCode: "x\n", ProposedCode: "y\n"}},
-		{"nested parent traversal", types.ReviewSuggestion{File: "a/../../b.go", StartLine: 1, CurrentCode: "x\n", ProposedCode: "y\n"}},
-		{"windows absolute", types.ReviewSuggestion{File: `C:\foo\bar.go`, StartLine: 1, CurrentCode: "x\n", ProposedCode: "y\n"}},
-		{"no line anchor", types.ReviewSuggestion{File: "a.go", CurrentCode: "x\n", ProposedCode: "y\n"}},
-		{"start line after end line", types.ReviewSuggestion{File: "a.go", StartLine: 5, EndLine: 3, CurrentCode: "x\n", ProposedCode: "y\n"}},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			plan, err := BuildPlan([]types.ReviewSuggestion{tc.s, valid})
-			if err != nil {
-				t.Fatalf("BuildPlan error: %v", err)
-			}
-			if len(plan.Files) != 1 {
-				t.Fatalf("files = %d, want 1 (unsafe suggestion must be skipped, valid one kept)", len(plan.Files))
-			}
-			if plan.Files[0].Path != "internal/app.go" {
-				t.Fatalf("kept path = %q, want internal/app.go", plan.Files[0].Path)
-			}
-		})
+func TestHunkContextIsClampedAtFileEdges(t *testing.T) {
+	p := mustPatch(t, []types.ReviewSuggestion{{File: "a.go", Line: 1, CurrentCode: "l1", ProposedCode: "L1"}},
+		map[string]string{"a.go": numbered(3)})
+	want := "--- a/a.go\n+++ b/a.go\n@@ -1,3 +1,3 @@\n-l1\n+L1\n l2\n l3\n"
+	if p != want {
+		t.Fatalf("patch:\n%s\nwant:\n%s", p, want)
 	}
 }
 
-func TestBuildPlanAllUnsafeYieldsEmptyPlan(t *testing.T) {
-	plan, err := BuildPlan([]types.ReviewSuggestion{
-		{File: "", StartLine: 1, CurrentCode: "x\n", ProposedCode: "y\n"},
-		{File: "a.go", StartLine: 1, CurrentCode: "x\n", ProposedCode: "x\n"},
-	})
-	if err != nil {
-		t.Fatalf("BuildPlan error: %v", err)
+func TestInsertionAndDeletionHunkCounts(t *testing.T) {
+	files := map[string]string{"a.go": numbered(12)}
+	p := mustPatch(t, []types.ReviewSuggestion{{File: "a.go", Line: 6, CurrentCode: "l6", ProposedCode: "l6\nextra1\nextra2"}}, files)
+	want := "--- a/a.go\n+++ b/a.go\n@@ -4,6 +4,8 @@\n l4\n l5\n l6\n+extra1\n+extra2\n l7\n l8\n l9\n"
+	if p != want {
+		t.Fatalf("insertion:\n%s\nwant:\n%s", p, want)
 	}
-	if len(plan.Files) != 0 {
-		t.Fatalf("files = %d, want 0", len(plan.Files))
-	}
-	patch, err := BuildPatch([]types.ReviewSuggestion{{File: "a.go", StartLine: 1, CurrentCode: "x\n", ProposedCode: "x\n"}})
-	if err != nil {
-		t.Fatalf("BuildPatch error: %v", err)
-	}
-	if patch != "" {
-		t.Fatalf("patch = %q, want empty", patch)
+	p = mustPatch(t, []types.ReviewSuggestion{{File: "a.go", Line: 6, CurrentCode: "l6\nl7", ProposedCode: ""}}, files)
+	want = "--- a/a.go\n+++ b/a.go\n@@ -3,8 +3,6 @@\n l3\n l4\n l5\n-l6\n-l7\n l8\n l9\n l10\n"
+	if p != want {
+		t.Fatalf("deletion:\n%s\nwant:\n%s", p, want)
 	}
 }
 
-func TestBuildPatchFormatsStandardUnifiedDiff(t *testing.T) {
-	suggestions := []types.ReviewSuggestion{
-		{File: "internal/app.go", StartLine: 10, CurrentCode: "a\nb\n", ProposedCode: "a\nB\n"},
-		{File: "other.go", StartLine: 3, CurrentCode: "old\n", ProposedCode: "new\n"},
+func TestNearbyChangesMergeIntoOneHunkAndFarOnesDoNot(t *testing.T) {
+	files := map[string]string{"a.go": numbered(40)}
+	near := mustPatch(t, []types.ReviewSuggestion{
+		{File: "a.go", Line: 10, CurrentCode: "l10", ProposedCode: "A\nB"},
+		{File: "a.go", Line: 14, CurrentCode: "l14", ProposedCode: "X"},
+	}, files)
+	if n := strings.Count(near, "@@ -"); n != 1 {
+		t.Fatalf("near changes: %d hunks, want 1:\n%s", n, near)
 	}
-	patch, err := BuildPatch(suggestions)
-	if err != nil {
-		t.Fatalf("BuildPatch error: %v", err)
-	}
-	want := "--- a/internal/app.go\n" +
-		"+++ b/internal/app.go\n" +
-		"@@ -10,2 +10,2 @@\n" +
-		" a\n-b\n+B\n" +
-		"--- a/other.go\n" +
-		"+++ b/other.go\n" +
-		"@@ -3,1 +3,1 @@\n" +
-		"-old\n+new\n"
-	if patch != want {
-		t.Fatalf("patch:\n%s\nwant:\n%s", patch, want)
+	far := mustPatch(t, []types.ReviewSuggestion{
+		{File: "a.go", Line: 30, CurrentCode: "l30", ProposedCode: "Z"},
+		{File: "a.go", Line: 10, CurrentCode: "l10", ProposedCode: "A\nB"},
+	}, files)
+	want := "--- a/a.go\n+++ b/a.go\n" +
+		"@@ -7,7 +7,8 @@\n l7\n l8\n l9\n-l10\n+A\n+B\n l11\n l12\n l13\n" +
+		"@@ -27,7 +28,7 @@\n l27\n l28\n l29\n-l30\n+Z\n l31\n l32\n l33\n"
+	if far != want {
+		t.Fatalf("far changes:\n%s\nwant:\n%s", far, want)
 	}
 }
 
-func TestBuildPatchMergesHunksPerFileInLineOrder(t *testing.T) {
-	suggestions := []types.ReviewSuggestion{
-		{File: "a.go", StartLine: 20, CurrentCode: "z\n", ProposedCode: "Z\n"},
-		{File: "a.go", StartLine: 5, CurrentCode: "a\n", ProposedCode: "A\n"},
+func TestNewFileAndRemovalPatches(t *testing.T) {
+	want := "--- /dev/null\n+++ b/new/x.go\n@@ -0,0 +1,3 @@\n+package x\n+\n+var A = 1\n"
+	if p := CreateFilePatch("new/x.go", "package x\n\nvar A = 1\n"); p != want {
+		t.Fatalf("new file:\n%s\nwant:\n%s", p, want)
 	}
-	patch, err := BuildPatch(suggestions)
+	want = "--- a/old.go\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-a\n-b\n\\ No newline at end of file\n"
+	if p := DeleteFilePatch("old.go", "a\nb"); p != want {
+		t.Fatalf("removal:\n%s\nwant:\n%s", p, want)
+	}
+	if CreateFilePatch("../x", "a") != "" || DeleteFilePatch("/abs", "a") != "" || CreateFilePatch("x", "") != "" {
+		t.Fatal("unsafe or empty input must yield an empty patch")
+	}
+}
+
+func TestMissingNewlineAtEndOfFile(t *testing.T) {
+	p := mustPatch(t, []types.ReviewSuggestion{{File: "a.txt", Line: 3, CurrentCode: "c", ProposedCode: "C"}},
+		map[string]string{"a.txt": "a\nb\nc"})
+	want := "--- a/a.txt\n+++ b/a.txt\n@@ -1,3 +1,3 @@\n a\n b\n-c\n\\ No newline at end of file\n+C\n\\ No newline at end of file\n"
+	if p != want {
+		t.Fatalf("patch:\n%s\nwant:\n%s", p, want)
+	}
+}
+
+func TestFailsClosed(t *testing.T) {
+	files := map[string]string{"a.go": numbered(5)}
+	cases := map[string]types.ReviewSuggestion{
+		"stale":    {File: "a.go", Line: 2, CurrentCode: "nope", ProposedCode: "x"},
+		"past-eof": {File: "a.go", Line: 5, CurrentCode: "l5\nl6", ProposedCode: "x"},
+		"missing":  {File: "gone.go", Line: 1, CurrentCode: "l1", ProposedCode: "x"},
+	}
+	for name, s := range cases {
+		if _, err := BuildPatch([]types.ReviewSuggestion{s}, tree(files)); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+	_, err := BuildPatch([]types.ReviewSuggestion{
+		{File: "a.go", Line: 2, CurrentCode: "l2\nl3", ProposedCode: "x"},
+		{File: "a.go", Line: 3, CurrentCode: "l3", ProposedCode: "y"},
+	}, tree(files))
+	if err == nil || !strings.Contains(err.Error(), "overlap") {
+		t.Errorf("overlap: err = %v", err)
+	}
+	if _, err := BuildPatch(nil, nil); err == nil {
+		t.Error("nil source must be an error")
+	}
+}
+
+func TestSkipsUnsafeAndNoopSuggestions(t *testing.T) {
+	files := map[string]string{"a.go": numbered(5), "ok.go": "x\n"}
+	valid := types.ReviewSuggestion{File: "ok.go", Line: 1, CurrentCode: "x", ProposedCode: "y"}
+	for name, s := range map[string]types.ReviewSuggestion{
+		"noop":       {File: "a.go", Line: 1, CurrentCode: "l1\n", ProposedCode: "l1\n"},
+		"abs":        {File: "/etc/passwd", Line: 1, CurrentCode: "l1", ProposedCode: "x"},
+		"dotdot":     {File: "../a.go", Line: 1, CurrentCode: "l1", ProposedCode: "x"},
+		"no-line":    {File: "a.go", CurrentCode: "l1", ProposedCode: "x"},
+		"empty-path": {File: "", Line: 1, CurrentCode: "l1", ProposedCode: "x"},
+	} {
+		plan, err := BuildPlan([]types.ReviewSuggestion{s, valid}, tree(files))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if len(plan.Files) != 1 || plan.Files[0].Path != "ok.go" {
+			t.Errorf("%s: plan = %#v, want only ok.go", name, plan.Files)
+		}
+	}
+	if p := mustPatch(t, nil, files); p != "" {
+		t.Fatalf("patch = %q, want empty", p)
+	}
+}
+
+func TestPlanCarriesLineNumbers(t *testing.T) {
+	plan, err := BuildPlan([]types.ReviewSuggestion{{File: "a.go", Line: 4, CurrentCode: "l4", ProposedCode: "N1\nN2"}}, tree(map[string]string{"a.go": numbered(8)}))
 	if err != nil {
-		t.Fatalf("BuildPatch error: %v", err)
+		t.Fatal(err)
 	}
-	want := "--- a/a.go\n" +
-		"+++ b/a.go\n" +
-		"@@ -5,1 +5,1 @@\n" +
-		"-a\n+A\n" +
-		"@@ -20,1 +20,1 @@\n" +
-		"-z\n+Z\n"
-	if patch != want {
-		t.Fatalf("patch:\n%s\nwant:\n%s", patch, want)
+	fe := plan.Files[0]
+	if len(fe.Removals) != 1 || fe.Removals[0] != (Line{4, "l4"}) {
+		t.Fatalf("removals = %#v", fe.Removals)
+	}
+	if len(fe.Additions) != 2 || fe.Additions[0] != (Line{4, "N1"}) || fe.Additions[1] != (Line{5, "N2"}) {
+		t.Fatalf("additions = %#v", fe.Additions)
 	}
 }
 
 func TestBuildPatchDeterministic(t *testing.T) {
-	suggestions := []types.ReviewSuggestion{
-		{File: "b.go", StartLine: 2, CurrentCode: "1\n", ProposedCode: "2\n"},
-		{File: "a.go", StartLine: 4, CurrentCode: "x\n", ProposedCode: "y\n"},
+	s := []types.ReviewSuggestion{
+		{File: "b.go", Line: 2, CurrentCode: "l2", ProposedCode: "x"},
+		{File: "a.go", Line: 4, CurrentCode: "l4", ProposedCode: "y"},
 	}
-	first, err := BuildPatch(suggestions)
-	if err != nil {
-		t.Fatalf("BuildPatch error: %v", err)
-	}
+	files := map[string]string{"a.go": numbered(6), "b.go": numbered(6)}
+	first := mustPatch(t, s, files)
 	for i := 0; i < 5; i++ {
-		got, err := BuildPatch(suggestions)
-		if err != nil {
-			t.Fatalf("BuildPatch error: %v", err)
-		}
-		if got != first {
-			t.Fatalf("BuildPatch not deterministic on run %d", i)
+		if mustPatch(t, s, files) != first {
+			t.Fatalf("not deterministic on run %d", i)
 		}
 	}
 	if !strings.HasPrefix(first, "--- a/a.go\n") {
-		t.Fatalf("expected files sorted by path, got:\n%s", first)
+		t.Fatalf("expected files sorted by path:\n%s", first)
 	}
 }
