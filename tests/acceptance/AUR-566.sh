@@ -31,7 +31,7 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 
-for f in internal/apply/apply.go internal/apply/hunk.go cmd/aurumcode/aur566_fix_test.go \
+for f in internal/apply/apply.go internal/apply/hunk.go internal/apply/applycheck/applycheck.go cmd/aurumcode/aur566_fix_test.go \
   docs/tutorials/revisao.md docs/getting-started.md demo/tutoriais/revisao/run.sh; do
   [[ -f "$repo_root/$f" ]] || infra "missing:$f"
 done
@@ -80,12 +80,20 @@ run_go_test() { # pkg pattern log
   return $status
 }
 
-ac001_name='TestAUR566FixAppliesWithPlainGitApply'
+# The strict applier (internal/apply/applycheck) runs everywhere; the real
+# `git apply` test runs, and must pass, wherever a git binary exists.
+ac001_name='TestAUR566FixOutputAppliesStrictlyWithoutGit'
+ac001_git='TestAUR566FixAppliesWithPlainGitApply'
 ac001() {
-  command -v git >/dev/null 2>&1 || infra missing_git
-  run_go_test ./cmd/aurumcode "^$ac001_name\$" "$run_dir/ac001.log" || fail 'go-test-falhou'
-  grep -q "^--- PASS: $ac001_name " "$run_dir/ac001.log" || fail 'sem-pass-do-git-apply'
-  printf '%s/AC-001/pass (git apply --check e git apply sem flag; a correcao esta no arquivo)\n' "$card"
+  local how='aplicador estrito'
+  run_go_test ./cmd/aurumcode "^($ac001_name|$ac001_git)\$" "$run_dir/ac001.log" || fail 'go-test-falhou'
+  grep -q "^--- PASS: $ac001_name " "$run_dir/ac001.log" || fail 'sem-pass-do-aplicador-estrito'
+  if command -v git >/dev/null 2>&1; then
+    grep -q "^--- PASS: $ac001_git " "$run_dir/ac001.log" || fail 'sem-pass-do-git-apply'
+    how='git apply --check e git apply sem flag'
+  fi
+  run_go_test ./internal/apply/... '^(TestPatchAppliesWithPlainGitStrictness|TestRejects.*)$' "$run_dir/ac001b.log" || fail 'apply-estrito-falhou'
+  printf '%s/AC-001/pass (%s; a correcao esta no arquivo)\n' "$card" "$how"
 }
 
 ac002() {
@@ -93,11 +101,13 @@ ac002() {
   for n in TestHunkHasThreeLinesOfContext TestNewFileAndRemovalPatches TestMissingNewlineAtEndOfFile; do
     grep -q "^--- PASS: $n " "$run_dir/ac002a.log" || fail "sem-pass:$n"
   done
-  command -v git >/dev/null 2>&1 || infra missing_git
-  run_go_test ./cmd/aurumcode '^(TestAUR566PatchShapeAndOtherTools|TestAUR566NewFileAndRemovalApply)$' "$run_dir/ac002b.log" || fail 'cmd-falhou'
-  for n in TestAUR566PatchShapeAndOtherTools TestAUR566NewFileAndRemovalApply; do
-    grep -q "^--- PASS: $n " "$run_dir/ac002b.log" || fail "sem-pass:$n"
-  done
+  grep -q '^--- PASS: TestPatchAppliesWithPlainGitStrictness ' "$run_dir/ac002a.log" || fail 'sem-pass:strict'
+  if command -v git >/dev/null 2>&1; then
+    run_go_test ./cmd/aurumcode '^(TestAUR566PatchShapeAndOtherTools|TestAUR566NewFileAndRemovalApply)$' "$run_dir/ac002b.log" || fail 'cmd-falhou'
+    for n in TestAUR566PatchShapeAndOtherTools TestAUR566NewFileAndRemovalApply; do
+      grep -q "^--- PASS: $n " "$run_dir/ac002b.log" || fail "sem-pass:$n"
+    done
+  fi
   printf '%s/AC-002/pass (contexto de 3, cabecalhos, arquivo novo e remocao aplicam)\n' "$card"
 }
 
@@ -106,7 +116,6 @@ mut001() {
   grep -q '^const contextLines = 3$' "$f" || infra mutation-anchor-missing
   sed -i 's/^const contextLines = 3$/const contextLines = 0/' "$f"
   grep -q '^const contextLines = 0$' "$f" || infra mutation-not-applied
-  command -v git >/dev/null 2>&1 || infra missing_git
   run_go_test ./cmd/aurumcode "^$ac001_name\$" "$run_dir/mut.log" && fail 'mutation-survived'
   grep -q "^--- FAIL: $ac001_name" "$run_dir/mut.log" || fail 'mutation-not-red-by-ac001'
   if grep -Eq 'build failed|undefined:|syntax error' "$run_dir/mut.log"; then fail 'mutation-build-failure-not-behavioral'; fi

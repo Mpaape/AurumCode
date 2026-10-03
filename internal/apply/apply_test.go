@@ -1,6 +1,7 @@
 package apply
 
 import (
+	"github.com/Mpaape/AurumCode/internal/apply/applycheck"
 	"strconv"
 	"strings"
 	"testing"
@@ -188,5 +189,37 @@ func TestBuildPatchDeterministic(t *testing.T) {
 	}
 	if !strings.HasPrefix(first, "--- a/a.go\n") {
 		t.Fatalf("expected files sorted by path:\n%s", first)
+	}
+}
+
+// AC-001 without a git binary: the patch is applied with plain-git strictness
+// (applycheck) and the result holds the correction. Zero-context hunks, the
+// pre-AUR-566 output, are rejected by it.
+func TestPatchAppliesWithPlainGitStrictness(t *testing.T) {
+	files := map[string]string{"a.go": numbered(40), "b.go": numbered(9)}
+	p := mustPatch(t, []types.ReviewSuggestion{
+		{File: "a.go", Line: 10, CurrentCode: "l10", ProposedCode: "A\nB"},
+		{File: "a.go", Line: 14, CurrentCode: "l14", ProposedCode: "X"},
+		{File: "a.go", Line: 30, CurrentCode: "l30\nl31", ProposedCode: ""},
+		{File: "b.go", Line: 1, CurrentCode: "l1", ProposedCode: "first"},
+		{File: "b.go", Line: 9, CurrentCode: "l9", ProposedCode: "last"},
+	}, files)
+	got, err := applycheck.Apply(files, p)
+	if err != nil {
+		t.Fatalf("patch does not apply:\n%s\n%v", p, err)
+	}
+	if !strings.Contains(got["a.go"], "l9\nA\nB\nl11\nl12\nl13\nX\nl15\n") || strings.Contains(got["a.go"], "l30") || strings.Contains(got["a.go"], "l31") {
+		t.Fatalf("a.go after apply:\n%s", got["a.go"])
+	}
+	if !strings.HasPrefix(got["b.go"], "first\nl2\n") || !strings.HasSuffix(got["b.go"], "l8\nlast\n") {
+		t.Fatalf("b.go after apply:\n%s", got["b.go"])
+	}
+	got, err = applycheck.Apply(map[string]string{}, CreateFilePatch("n/x.go", "package x\n"))
+	if err != nil || got["n/x.go"] != "package x\n" {
+		t.Fatalf("new file: %v %v", got, err)
+	}
+	got, err = applycheck.Apply(map[string]string{"o.go": "a\nb\n"}, DeleteFilePatch("o.go", "a\nb\n"))
+	if err != nil || len(got) != 0 {
+		t.Fatalf("removal: %v %v", got, err)
 	}
 }
