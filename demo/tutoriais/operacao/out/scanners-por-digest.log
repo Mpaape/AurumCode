@@ -14,7 +14,7 @@ lockset error: digest mismatch for AUR-362
 exit_code=1
 RESULTADO: scanners.yml alterado sem atualizar o digest do indice: verify.sh reprova
 --- imagens dos scanners presentes neste host
-ausente (nao puxada): docker.io/zricethezav/gitleaks
+presente: docker.io/zricethezav/gitleaks
 presente: docker.io/aquasec/trivy
 presente: docker.io/semgrep/semgrep
 ausente (nao puxada): docker.io/koalaman/shellcheck
