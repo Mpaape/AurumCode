@@ -1,0 +1,297 @@
+package main
+
+// Deliberation through the real command: the model asks for an optional
+// scanner when the change is large and not when it is small; the scan's
+// findings count in the gate with their origin; exceeding a limit is
+// inconclusive with nothing published; a required scanner is never offered;
+// a missing binary is the scan's inconclusive reason; the transcript is in
+// the audit with redacted arguments.
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/scanner"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
+)
+
+const aur580Approve = `{"verdict":"approve","strengths":[],"issues":[],"suggestions":[%s],"ci_analysis":[],"test_plan":[],"limitations":[],"summary":"parecer"}`
+
+// aur580Fixture writes a tool-calling fixture: toolCalls is the JSON list
+// of tool cases; the answer cites the scan when its result is in the
+// conversation.
+func aur580Fixture(t *testing.T, toolCalls string) string {
+	t.Helper()
+	cited := strings.Replace(aur580Approve, "%s", `{"title":"Evidencia do scanner","description":"o scanner fakescan confirmou fake leak em app.go:4"}`, 1)
+	plain := strings.Replace(aur580Approve, "%s", `{"title":"Sem varredura","description":"sem varredura opcional"}`, 1)
+	body := `{"aurumcode_fixture":{"tool_calls":` + toolCalls + `,"cases":[{"prompt_contains":"fakescan: 1 achado","response":` + cited + `}],"default":` + plain + `}}`
+	path := filepath.Join(t.TempDir(), "fixture.json")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// aur580Setup builds the repository, registers fakescan (one error finding
+// on app.go:4, or a missing binary) and writes the configuration.
+func aur580Setup(t *testing.T, config string, binary string) *int {
+	t.Helper()
+	aur579Repo(t)
+	invoked := 0
+	registerFake(t, scanner.Engine{Scanner: fakeEngine{name: "fakescan", invoked: &invoked, binary: binary, report: scanner.Report{Complete: true, Findings: []scanner.Finding{
+		{Path: "app.go", Line: 4, Side: "RIGHT", RuleID: "fakescan:leak", Severity: "error", Message: "fake leak"},
+	}}}})
+	writeRepoConfig(t, config)
+	return &invoked
+}
+
+const aur580Config = "deliberation:\n  enabled: true\n  max_rounds: 3\nquality_gates:\n  scanners:\n    - engine: fakescan\n"
+
+type aur580Audit struct {
+	Gate struct {
+		Decision string `json:"decision"`
+		Reason   string `json:"reason"`
+	} `json:"gate"`
+	Blocking []struct {
+		RuleID string `json:"rule_id"`
+		Origin string `json:"origin"`
+	} `json:"blocking_findings"`
+	Deliberation *struct {
+		Limit        string   `json:"limit"`
+		Undecided    string   `json:"undecided"`
+		Offered      []string `json:"offered"`
+		Requested    []string `json:"requested"`
+		NotRequested []string `json:"not_requested"`
+		Calls        []struct {
+			Tool      string `json:"tool"`
+			Arguments string `json:"arguments"`
+			Status    string `json:"status"`
+		} `json:"calls"`
+	} `json:"deliberation"`
+}
+
+func aur580Run(t *testing.T, args ...string) (int, string, string, aur580Audit) {
+	t.Helper()
+	audit := filepath.Join(t.TempDir(), "audit.json")
+	code, out, errOut := aur579Review(t, nil, append([]string{"--auditoria", audit}, args...)...)
+	var rec aur580Audit
+	if data, err := os.ReadFile(audit); err == nil {
+		if err := json.Unmarshal(data, &rec); err != nil {
+			t.Fatalf("audit is not JSON: %v\n%s", err, data)
+		}
+	}
+	return code, out, errOut, rec
+}
+
+// AC-001: a large diff makes the fixture ask for the scanner; the scan runs
+// once, its result goes back to the model, the answer cites it, and the
+// finding fails the scanner gate with its origin.
+func TestAUR580ModelAsksForTheScannerOnALargeDiff(t *testing.T) {
+	invoked := aur580Setup(t, aur580Config, "")
+	capture := filepath.Join(t.TempDir(), "prompt.txt")
+	t.Setenv("AURUMCODE_PROMPT_CAPTURE", capture)
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":1,"tool":"scanner_fakescan"}]`))
+	code, out, errOut, rec := aur580Run(t)
+	if code != exitFindings || *invoked != 1 {
+		t.Fatalf("exit=%d invoked=%d, want the requested scan to run once and fail the gate; stderr=%s", code, *invoked, errOut)
+	}
+	if !strings.Contains(out, "o scanner fakescan confirmou fake leak") {
+		t.Errorf("the answer does not cite the tool result:\n%s", out)
+	}
+	if !strings.Contains(errOut, "pedidas [scanner_fakescan]") {
+		t.Errorf("stderr lacks the decision:\n%s", errOut)
+	}
+	if len(rec.Blocking) != 1 || rec.Blocking[0].Origin != "fakescan" {
+		t.Errorf("blocking findings = %+v, want fakescan:leak with origin fakescan", rec.Blocking)
+	}
+	if rec.Deliberation == nil || len(rec.Deliberation.Requested) != 1 || rec.Deliberation.Calls[0].Status != "executed" {
+		t.Fatalf("audit deliberation = %+v", rec.Deliberation)
+	}
+	sent, _ := os.ReadFile(capture)
+	for _, want := range []string{"## Available tools", "`scanner_fakescan` (custo:", "`codebase_context` (custo:"} {
+		if !strings.Contains(string(sent), want) {
+			t.Errorf("the prompt lacks %q", want)
+		}
+	}
+}
+
+// AC-001: a small diff: the fixture does not ask, the scanner never runs,
+// and the audit records that it was offered and not requested.
+func TestAUR580ModelDoesNotAskOnASmallDiff(t *testing.T) {
+	invoked := aur580Setup(t, aur580Config, "")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":50,"tool":"scanner_fakescan"}]`))
+	code, _, errOut, rec := aur580Run(t)
+	if code != 0 || *invoked != 0 {
+		t.Fatalf("exit=%d invoked=%d, want no scan and a clean gate; stderr=%s", code, *invoked, errOut)
+	}
+	if rec.Deliberation == nil || len(rec.Deliberation.Requested) != 0 || !contains(rec.Deliberation.NotRequested, "scanner_fakescan") {
+		t.Fatalf("audit deliberation = %+v, want scanner_fakescan not requested", rec.Deliberation)
+	}
+}
+
+// AC-002: a model that keeps asking exceeds max_rounds: exit 1, the gate's
+// inconclusive motive is deliberation_limit:max_rounds, the audit and the
+// SARIF are written (the audit with the transcript and its limit), and
+// nothing of the model's answer is published.
+func TestAUR580RoundsExceededIsInconclusiveAndUnpublished(t *testing.T) {
+	aur580Setup(t, strings.Replace(aur580Config, "max_rounds: 3", "max_rounds: 2", 1), "")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"tool":"codebase_context","arguments":{"path":"app.go"},"every_round":true}]`))
+	sarif := filepath.Join(t.TempDir(), "out.sarif")
+	code, out, errOut, rec := aur580Run(t, "--sarif", sarif)
+	if code == 0 || !strings.Contains(errOut, "inconclusivo: limite de deliberação (deliberation_limit:max_rounds)") {
+		t.Fatalf("exit=%d, want non-zero with the deliberation_limit motive; stderr=%s", code, errOut)
+	}
+	if strings.Contains(out, "sem varredura opcional") || strings.Contains(out, "Sem varredura") {
+		t.Fatalf("a deliberation over its rounds published the model's text:\nstdout=%s", out)
+	}
+	if !strings.Contains(rec.Gate.Reason, "deliberation_limit:max_rounds") || rec.Gate.Decision != "inconclusive" || rec.Deliberation == nil || rec.Deliberation.Limit != "max_rounds" {
+		t.Fatalf("audit gate=%+v deliberation=%+v, want the limit recorded", rec.Gate, rec.Deliberation)
+	}
+	data, err := os.ReadFile(sarif)
+	if err != nil || !strings.Contains(string(data), "deliberation_limit:max_rounds") {
+		t.Fatalf("the SARIF does not name the limit: %v\n%s", err, data)
+	}
+}
+
+// AC-002: the token ceiling is a limit too.
+func TestAUR580CostExceededIsInconclusive(t *testing.T) {
+	aur580Setup(t, strings.Replace(aur580Config, "max_rounds: 3", "max_rounds: 3\n  max_cost_tokens: 10", 1), "")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":1,"tool":"scanner_fakescan"}]`))
+	code, out, errOut, _ := aur580Run(t)
+	if code == 0 || !strings.Contains(errOut, "deliberation_limit:max_cost_tokens") || strings.Contains(out, "o scanner fakescan confirmou") {
+		t.Fatalf("exit=%d, want the cost limit to stop the review unpublished; stderr=%s", code, errOut)
+	}
+}
+
+// AC-004: a required scanner runs before the model and is never offered.
+func TestAUR580RequiredScannerIsNeverOptional(t *testing.T) {
+	invoked := aur580Setup(t, aur580Config+"      required: true\n", "")
+	capture := filepath.Join(t.TempDir(), "prompt.txt")
+	t.Setenv("AURUMCODE_PROMPT_CAPTURE", capture)
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":1,"tool":"scanner_fakescan"}]`))
+	code, _, errOut, rec := aur580Run(t)
+	if code != exitFindings || *invoked != 1 {
+		t.Fatalf("exit=%d invoked=%d, want the required scan to run once before the model; stderr=%s", code, *invoked, errOut)
+	}
+	sent, _ := os.ReadFile(capture)
+	if strings.Contains(string(sent), "scanner_fakescan") || contains(rec.Deliberation.Offered, "scanner_fakescan") {
+		t.Fatalf("a required scanner was offered as optional")
+	}
+}
+
+// AC-004/AC-005: invalid arguments are refused before running; the audit
+// records the refusal with the arguments redacted.
+func TestAUR580InvalidArgumentsRefusedAndRedactedInTheAudit(t *testing.T) {
+	aur580Setup(t, aur580Config, "")
+	t.Setenv("AURUM_SECRET_CANARY", "canary-token-580-xyz")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"tool":"codebase_context","arguments":{"path":5}},{"tool":"codebase_context","arguments":{"path":"canary-token-580-xyz"}}]`))
+	code, _, errOut, rec := aur580Run(t)
+	if code != 0 {
+		t.Fatalf("exit=%d; stderr=%s", code, errOut)
+	}
+	if rec.Deliberation == nil || len(rec.Deliberation.Calls) != 2 {
+		t.Fatalf("audit deliberation = %+v", rec.Deliberation)
+	}
+	if c := rec.Deliberation.Calls[0]; c.Status != "refused" {
+		t.Errorf("a call with a numeric path was not refused: %+v", c)
+	}
+	if c := rec.Deliberation.Calls[1]; c.Status != "failed" || strings.Contains(c.Arguments, "canary-token-580-xyz") {
+		t.Errorf("a path outside the diff must fail and its argument be redacted: %+v", c)
+	}
+}
+
+// A requested scanner whose binary is missing follows the one rule: the
+// scan is inconclusive and the gate fails under block.
+func TestAUR580MissingBinaryIsInconclusive(t *testing.T) {
+	aur580Setup(t, aur580Config+"gate:\n  fail_on: [error]\n  inconclusive: block\n  sources: [fakescan]\n", "aurumcode-absent-scanner-580")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":1,"tool":"scanner_fakescan"}]`))
+	code, _, errOut, _ := aur580Run(t)
+	if code != 1 || !strings.Contains(errOut, "fakescan_unavailable") {
+		t.Fatalf("exit=%d, want the missing binary inconclusive under block; stderr=%s", code, errOut)
+	}
+}
+
+// Without a tool-capable provider the deferred scanners run as before.
+func TestAUR580DeferredScannerRunsWhenToolsCannotBeOffered(t *testing.T) {
+	invoked := aur580Setup(t, aur580Config, "")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur579Fixture(t, "[]"))
+	code, _, errOut, rec := aur580Run(t)
+	if code != exitFindings || *invoked != 1 || rec.Deliberation != nil {
+		t.Fatalf("exit=%d invoked=%d deliberation=%v, want the scanner run as before; stderr=%s", code, *invoked, rec.Deliberation, errOut)
+	}
+}
+
+func contains(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+// AC-002 on --pr: a deliberation over its rounds still reaches the gate:
+// aurumcode/policy-gate is failure naming deliberation_limit:max_rounds,
+// the audit carries the transcript, the exit is non-zero and the published
+// body holds no text of the model.
+func TestAUR580PullRequestRoundsExceededFailsThePolicyGate(t *testing.T) {
+	registerFake(t, scanner.Engine{Scanner: fakeEngine{name: "fakescan", report: scanner.Report{Complete: true}}})
+	var published []githubclient.CommitStatus
+	var postedBody string
+	cfg := "deliberation:\n  enabled: true\n  max_rounds: 2\nquality_gates:\n  scanners:\n    - engine: fakescan\ngate:\n  inconclusive: block\n"
+	server := runPRGateMockServerMulti(t, simpleDiffAUR537, cfg, &published, &postedBody)
+	defer server.Close()
+	setPRGateEnv(t, server, aur580Fixture(t, `[{"tool":"scanner_fakescan","every_round":true}]`))
+	auditPath := filepath.Join(t.TempDir(), "audit.json")
+	var stdout, stderr strings.Builder
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
+		publicationSet: true, publication: "review", auditoriaPath: auditPath})
+	if code == 0 {
+		t.Fatalf("exit=0; stderr=%s", stderr.String())
+	}
+	gate, ok := statusByContext(published, policyGateContext)
+	if !ok || gate.State != "failure" || !strings.Contains(stderr.String(), "policy gate: review inconclusive (deliberation_limit:max_rounds)") {
+		t.Fatalf("statuses = %+v, want %q failure naming deliberation_limit:max_rounds; stderr=%s", published, policyGateContext, stderr.String())
+	}
+	if review, ok := statusByContext(published, checkContext); !ok || review.State != "failure" {
+		t.Fatalf("statuses = %+v, want %q failure", published, checkContext)
+	}
+	if strings.Contains(postedBody, "sem varredura opcional") {
+		t.Fatalf("the published body carries the model's text: %s", postedBody)
+	}
+	var rec aur580Audit
+	readJSON(t, auditPath, &rec)
+	if rec.Deliberation == nil || rec.Deliberation.Limit != "max_rounds" {
+		t.Fatalf("audit deliberation = %+v", rec.Deliberation)
+	}
+}
+
+// When the model never answers after the offer (here the USD ceiling of
+// --limite refuses the first round), the model decided nothing: the
+// deferred scanner runs as before, its finding counts in the gate, and the
+// transcript says why instead of listing it as not requested.
+func TestAUR580DeferredScannerRunsWhenTheModelNeverAnswered(t *testing.T) {
+	invoked := aur580Setup(t, aur580Config, "")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":50,"tool":"scanner_fakescan"}]`))
+	code, _, errOut, rec := aur580Run(t, "--seguranca", "--limite", "0.0000001")
+	if code == 0 || *invoked != 1 {
+		t.Fatalf("exit=%d invoked=%d, want the deferred scanner run once and a non-zero exit; stderr=%s", code, *invoked, errOut)
+	}
+	found := false
+	for _, b := range rec.Blocking {
+		found = found || (b.RuleID == "fakescan:leak" && b.Origin == "fakescan")
+	}
+	if !found {
+		t.Fatalf("blocking findings = %+v, want fakescan:leak counted in the gate", rec.Blocking)
+	}
+	if rec.Deliberation == nil || rec.Deliberation.Undecided == "" || len(rec.Deliberation.NotRequested) != 0 {
+		t.Fatalf("audit deliberation = %+v, want undecided with no tool declined", rec.Deliberation)
+	}
+	if !strings.Contains(errOut, "sem decisão do modelo") {
+		t.Fatalf("stderr does not say the model decided nothing:\n%s", errOut)
+	}
+}

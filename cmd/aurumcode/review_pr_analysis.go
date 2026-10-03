@@ -26,6 +26,7 @@ func (p *prReview) collectEvidence() (int, bool) {
 // onto the evidence, the evidence and the test plan join the result, the
 // rule config and the verdict snapshot apply, and the limitations close.
 func (p *prReview) joinEvidence() (int, bool) {
+	p.settleDeferredScans()
 	p.attachAssessments()
 	p.reportSecurityPass()
 	p.runStaticAnalysis()

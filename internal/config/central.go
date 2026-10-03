@@ -238,6 +238,7 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 		}
 		effective.AnalysisData = central.AnalysisData
 	}
+	warnings = append(warnings, mergeDeliberation(&effective, repo, central)...)
 
 	return &effective, warnings
 }

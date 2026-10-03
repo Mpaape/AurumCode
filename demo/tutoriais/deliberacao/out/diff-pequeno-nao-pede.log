@@ -1,0 +1,29 @@
+== diff-pequeno-nao-pede
+$ aurumcode review --base main --auditoria auditoria.json
+aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context]; pedidas []; não pedidas [scanner_semgrep, codebase_context]; rodadas 1; desfecho answered
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["calc.js"]
+
+```
+
+### Suggestions
+
+- **Sem varredura opcional** — diff pequeno; o modelo nao pediu o scanner_semgrep Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.
+No issues found.
+exit_code=0
+RESULTADO: diff pequeno: o modelo nao pediu o scanner_semgrep e ele nao rodou
+auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context chamadas=0

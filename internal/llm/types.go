@@ -1,5 +1,7 @@
 package llm
 
+import "encoding/json"
+
 // Options represents LLM request options. Every field here must be carried by
 // a provider; a field no provider sends is a silent no-op for the caller.
 type Options struct {
@@ -10,6 +12,12 @@ type Options struct {
 	// JSONMode asks OpenAI-compatible providers for a JSON object when the
 	// caller's output contract is structured. It does not cap output tokens.
 	JSONMode bool `json:"json_mode,omitempty"`
+	// ResponseSchema, when set, is the JSON Schema the answer must follow.
+	// A provider that supports structured output sends it in place of the
+	// bare JSON mode; any other provider ignores it and the caller still
+	// validates the answer locally.
+	ResponseSchema     json.RawMessage `json:"response_schema,omitempty"`
+	ResponseSchemaName string          `json:"response_schema_name,omitempty"`
 }
 
 // Response represents an LLM response

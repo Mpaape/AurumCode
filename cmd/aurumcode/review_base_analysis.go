@@ -44,6 +44,7 @@ func (b *baseReview) collectEvidence() (int, bool) {
 // onto the evidence, the evidence joins the result, the rule config and the
 // verdict snapshot apply, and the coverage is recorded.
 func (b *baseReview) joinEvidence() (int, bool) {
+	b.settleDeferredScans()
 	b.attachAssessments()
 	b.reportSecurityPass()
 	b.result.Issues = append(b.result.Issues, b.analysisIssues...)
@@ -55,7 +56,7 @@ func (b *baseReview) joinEvidence() (int, bool) {
 
 // qualityDidNotRun reports a quality review that was skipped or failed.
 func (b *baseReview) qualityDidNotRun() bool {
-	return b.model == modelSkipped || b.model == modelProviderFailed
+	return b.model == modelSkipped || b.model == modelProviderFailed || b.model == modelDeliberationLimit
 }
 
 // selectProvider picks the provider (--modelo commands which model reviews,
