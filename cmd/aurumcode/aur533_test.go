@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	igate "github.com/Mpaape/AurumCode/internal/gate"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -71,12 +72,12 @@ func newAUR533Fake(t *testing.T, tamper string) *aur533Fake {
 
 func useAUR533Env(t *testing.T, api string, now time.Time) {
 	t.Helper()
-	oa, on, oc := analysisDataAPIBase, analysisDataNow, analysisDataCache
+	oa, on, oc := igate.AnalysisDataAPIBase, igate.AnalysisDataNow, igate.AnalysisDataCache
 	cache := t.TempDir()
-	analysisDataAPIBase = api
-	analysisDataNow = func() time.Time { return now }
-	analysisDataCache = func() string { return cache }
-	t.Cleanup(func() { analysisDataAPIBase, analysisDataNow, analysisDataCache = oa, on, oc })
+	igate.AnalysisDataAPIBase = api
+	igate.AnalysisDataNow = func() time.Time { return now }
+	igate.AnalysisDataCache = func() string { return cache }
+	t.Cleanup(func() { igate.AnalysisDataAPIBase, igate.AnalysisDataNow, igate.AnalysisDataCache = oa, on, oc })
 	t.Setenv("AURUMCODE_LLM_FIXTURE", approveFixture(t))
 }
 

@@ -12,7 +12,6 @@ import (
 	"io"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
@@ -87,8 +86,8 @@ type prReview struct {
 	coverage          reviewCoverageBreakdown
 
 	// gate
-	run     *gate.Run
-	gateRes *gate.Result
+	run     *gateRun
+	gateRes *gateDecision
 
 	// publication
 	issues   []types.ReviewIssue

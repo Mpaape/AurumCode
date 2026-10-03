@@ -60,7 +60,7 @@ command -v go >/dev/null 2>&1 || infra missing_go
 for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
-[[ -f "$repo_root/cmd/aurumcode/aur538.go" ]] || infra missing-source
+[[ -f "$repo_root/cmd/aurumcode/status_description.go" ]] || infra missing-source
 [[ -f "$repo_root/cmd/aurumcode/aur538_test.go" ]] || infra missing-behavior-test
 [[ -f "$repo_root/internal/prompt/parser_aur538_test.go" ]] || infra missing-behavior-test
 [[ -f "$repo_root/tests/acceptance/AUR-520.sh" ]] || infra missing-source
@@ -181,7 +181,7 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # Anchored on the exact statement so a missing anchor is infrastructure,
 # never a silent no-op.
 apply_mutation() {
-  local target="$run_dir/root/cmd/aurumcode/main.go"
+  local target="$run_dir/root/internal/gate/outcome.go"
   local anchor='			result.Metadata[prompt.PolicyGateWithheldKey] = "true"'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
   grep -Fv "$anchor" "$target" >"$target.tmp"

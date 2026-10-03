@@ -39,7 +39,7 @@ for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 for source in \
-  cmd/aurumcode/aur552.go \
+  cmd/aurumcode/cmd_xbom.go \
   internal/xbom/evidence.go \
   internal/xbom/catalog/build.yml \
   internal/xbom/catalog/cbom.yml; do
