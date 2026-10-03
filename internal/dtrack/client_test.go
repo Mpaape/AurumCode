@@ -52,7 +52,22 @@ type fakeServer struct {
 
 	critical, high, violations int
 	metricsIncomplete          bool
+
+	// AUR-570: when script is non-nil, the n-th metrics read returns
+	// script[n] (the last entry repeats) instead of the fixed numbers.
+	script       []reading
+	refreshCode  int // non-zero: the refresh endpoint answers this status
+	refreshCalls atomic.Int32
 }
+
+// reading is one scripted metrics response. stale = lastOccurrence before
+// the upload instant (the previous revision's numbers).
+type reading struct {
+	critical, high, violations int
+	stale                      bool
+}
+
+const farFutureMillis = int64(4102444800000)
 
 func (f *fakeServer) handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -72,14 +87,25 @@ func (f *fakeServer) handler() http.HandlerFunc {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/bom/token/"):
 			n := f.pollCalls.Add(1)
 			_ = json.NewEncoder(w).Encode(map[string]bool{"processing": n <= f.pendingPolls})
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/refresh"):
+			f.refreshCalls.Add(1)
+			w.WriteHeader(max(f.refreshCode, http.StatusOK))
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/metrics/project/"):
-			f.metricsCalls.Add(1)
+			n := int(f.metricsCalls.Add(1))
 			if f.metricsIncomplete {
-				_ = json.NewEncoder(w).Encode(map[string]int{})
+				_ = json.NewEncoder(w).Encode(map[string]int64{"lastOccurrence": farFutureMillis})
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]int{
-				"critical": f.critical, "high": f.high, "policyViolationsTotal": f.violations,
+			rd := reading{f.critical, f.high, f.violations, false}
+			if f.script != nil {
+				rd = f.script[min(n, len(f.script))-1]
+			}
+			last := farFutureMillis
+			if rd.stale {
+				last = 1000
+			}
+			_ = json.NewEncoder(w).Encode(map[string]int64{
+				"critical": int64(rd.critical), "high": int64(rd.high), "policyViolationsTotal": int64(rd.violations), "lastOccurrence": last,
 			})
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -109,8 +135,8 @@ func TestRunApprovesWithinThresholds(t *testing.T) {
 	if fs.pollCalls.Load() < 2 {
 		t.Fatalf("poll calls=%d, want >= 2", fs.pollCalls.Load())
 	}
-	if fs.metricsCalls.Load() != 1 {
-		t.Fatalf("metrics calls=%d, want 1", fs.metricsCalls.Load())
+	if fs.metricsCalls.Load() != 2 {
+		t.Fatalf("metrics calls=%d, want 2 (two coinciding readings)", fs.metricsCalls.Load())
 	}
 	for _, k := range fs.seenAPIKeys {
 		if k != "secret-key" {
