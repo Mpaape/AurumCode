@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
@@ -42,19 +43,45 @@ func parseReviewTemplate() (*template.Template, error) {
 	return template.New(reviewTemplateName).Parse(string(content))
 }
 
-// renderSlot executes one named slot of the review template. The slots
-// take only engine-built data of fixed types, so an execution error is a
-// programming defect in this package and panics instead of returning a
-// prompt with a silently missing section.
+// renderSlot executes one named slot of the review template. A slot that
+// cannot render never stops the process: it renders a failure mark naming
+// the slot and the cause, and the prompt that carries it is refused
+// (slotRenderError), so a review fails closed instead of reaching the model
+// with a section missing.
 func renderSlot(name string, data any) string {
 	if reviewSlotsErr != nil {
-		panic(fmt.Sprintf("review prompt template unavailable: %v", reviewSlotsErr))
+		return slotFailure(name, fmt.Errorf("review prompt template unavailable: %w", reviewSlotsErr))
 	}
 	var buf bytes.Buffer
 	if err := reviewSlots.ExecuteTemplate(&buf, name, data); err != nil {
-		panic(fmt.Sprintf("rendering review prompt slot %q: %v", name, err))
+		return slotFailure(name, err)
 	}
 	return buf.String()
+}
+
+// slotFailureMark delimits a slot failure inside rendered text. It holds a
+// NUL byte, which no template output and no redacted input carries.
+const slotFailureMark = "\x00aurumcode-slot-failure\x00"
+
+func slotFailure(name string, err error) string {
+	return slotFailureMark + fmt.Sprintf("rendering review prompt slot %q: %v", name, err) + slotFailureMark
+}
+
+// slotRenderError returns the first slot failure any of texts carries, or
+// nil when every slot rendered.
+func slotRenderError(texts ...string) error {
+	for _, text := range texts {
+		start := strings.Index(text, slotFailureMark)
+		if start < 0 {
+			continue
+		}
+		rest := text[start+len(slotFailureMark):]
+		if end := strings.Index(rest, slotFailureMark); end >= 0 {
+			rest = rest[:end]
+		}
+		return errors.New(rest)
+	}
+	return nil
 }
 
 // renderOptionalSlot renders name around value, or nothing when value is
