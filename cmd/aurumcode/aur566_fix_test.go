@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/apply"
+	"github.com/Mpaape/AurumCode/internal/apply/applycheck"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -125,5 +126,25 @@ func TestAUR566NewFileAndRemovalApply(t *testing.T) {
 	gitIn(t, gitPath, dir, []byte(del), "apply")
 	if _, err := os.Stat(filepath.Join(dir, "app.go")); !os.IsNotExist(err) {
 		t.Fatalf("app.go was not removed: %v", err)
+	}
+}
+
+// TestAUR566FixOutputAppliesStrictlyWithoutGit is AC-001 where no git binary
+// exists: the same runFix output is applied with plain-git strictness.
+func TestAUR566FixOutputAppliesStrictlyWithoutGit(t *testing.T) {
+	dir := t.TempDir()
+	writeWorkingTreeFile(t, dir, "app.go", 10, "\tdbPassword := \"hunter2\"")
+	defer chdir(t, dir)()
+	before, err := os.ReadFile(filepath.Join(dir, "app.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	patch := aur566Fix(t)
+	got, err := applycheck.Apply(map[string]string{"app.go": string(before)}, patch)
+	if err != nil {
+		t.Fatalf("AUR-566/AC-001: the printed patch does not apply:\n%s\n%v", patch, err)
+	}
+	if !strings.Contains(got["app.go"], "\tdbPassword := os.Getenv(\"DB_PASSWORD\")\n") || strings.Contains(got["app.go"], "hunter2") {
+		t.Fatalf("AUR-566/AC-001: the correction is not in the file:\n%s", got["app.go"])
 	}
 }
