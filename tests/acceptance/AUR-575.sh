@@ -171,7 +171,7 @@ run_mut002() {
 }
 run_mut003() {
   local dir
-  dir="$(mutant_root 003 internal/gate/sast.go '		if GateRankOf(issue.Severity) < rank {' '		if issueRank, ok := SeverityRankOf(issue.Severity); !ok || issueRank < rank {')"
+  dir="$(mutant_root 003 internal/gate/scanner.go '		if GateRankOf(issue.Severity) < rank {' '		if issueRank, ok := SeverityRankOf(issue.Severity); !ok || issueRank < rank {')"
   replace_literal "$dir/internal/gate/sources.go" '		if GateRankOf(issue.Severity) < rank {' '		if issueRank, ok := SeverityRankOf(issue.Severity); !ok || issueRank < rank {' || infra 'mutation-anchor:003-sources'
   run_go_test "$dir" ./internal/gate/ "$ac005_gate" "$run_dir/mut003.log" && fail 'mutant-passed'
   expect_red "$run_dir/mut003.log" TestAUR575UnknownSeverityCountsAsError

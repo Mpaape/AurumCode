@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # AUR-548 acceptance: Semgrep, a multi-language SAST pass, runs over the
 # whole reviewed tree through quality_gates.sast and feeds its own,
-# independent gate decision (applySASTGate, cmd/aurumcode/sast_pass.go),
+# independent gate decision (ApplyScannerGate, internal/gate/scanner.go;
+# the pass in cmd/aurumcode/scanner_pass.go),
 # folded into the same gateDecision AUR-519's evaluateGate already
 # produces. See docs/specs/AUR-548.md for the full account. Modeled on
 # tests/acceptance/AUR-537.sh.
@@ -69,10 +70,11 @@ done
 for source in \
   cmd/aurumcode/main.go \
   cmd/aurumcode/pr.go \
-  cmd/aurumcode/sast_pass.go \
+  cmd/aurumcode/scanner_pass.go \
   cmd/aurumcode/policygate.go \
   cmd/aurumcode/compliance_artifacts.go \
-  internal/analysis/semgrep.go \
+  internal/scanner/semgrep/semgrep.go \
+  internal/scanner/semgrep/engine.go \
   internal/config/sast.go \
   internal/config/central.go; do
   [[ -f "$repo_root/$source" ]] || infra "missing-source:$source"
@@ -114,10 +116,10 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # AC-003-MUT-001: restore the exact defect this card guards against --
 # treating a Semgrep execution failure (the runner itself erroring, with
 # no parseable JSON left to fall back on) as a clean, zero-finding scan.
-# Anchored on internal/analysis/semgrep.go's own wrap of a genuine runner
+# Anchored on internal/scanner/semgrep/semgrep.go's own wrap of a genuine runner
 # error, unique in the file.
 apply_mutation_zero_findings() {
-  local target="$run_dir/root/internal/analysis/semgrep.go"
+  local target="$run_dir/root/internal/scanner/semgrep/semgrep.go"
   # Anchored on the AUR-548-MUT-001-ANCHOR marker comment (unique in the
   # file), not the return statement's own text: Semgrep's own report-shape
   # checks (parseErr, report.Errors) share the exact same "execution
@@ -127,7 +129,7 @@ apply_mutation_zero_findings() {
   # one of the other two branches.
   local marker='AUR-548-MUT-001-ANCHOR'
   local anchor='return nil, fmt.Errorf("semgrep: execution failed: %w", runErr)'
-  local replacement=$'\t\treturn []Finding{}, nil'
+  local replacement=$'\t\treturn []scanner.Finding{}, nil'
   local marker_line target_line
   marker_line="$(grep -Fn "$marker" "$target" | head -1 | cut -d: -f1)"
   [[ -n "$marker_line" ]] || infra mutation-anchor-missing
@@ -135,7 +137,7 @@ apply_mutation_zero_findings() {
   sed -n "${target_line}p" "$target" | grep -Fq "$anchor" || infra mutation-anchor-missing
   sed -i "${target_line}s/.*/${replacement}/" "$target"
   sed -n "${target_line}p" "$target" | grep -Fq "$anchor" && infra mutation-not-applied
-  sed -n "${target_line}p" "$target" | grep -Fq 'return []Finding{}, nil' || infra mutation-not-applied
+  sed -n "${target_line}p" "$target" | grep -Fq 'return []scanner.Finding{}, nil' || infra mutation-not-applied
   return 0
 }
 
