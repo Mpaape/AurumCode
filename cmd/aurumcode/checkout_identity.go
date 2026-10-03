@@ -8,13 +8,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/i18n"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 )
 
 // codebaseContextReasonUnverifiable is the fixed reason code returned

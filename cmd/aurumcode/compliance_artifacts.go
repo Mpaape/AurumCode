@@ -5,12 +5,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"

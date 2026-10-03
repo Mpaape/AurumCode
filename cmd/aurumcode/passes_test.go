@@ -205,7 +205,7 @@ func TestAUR490SharedPasses(t *testing.T) {
 		"review_pr_inputs.go":     {"resolveVerifiedCodebaseContext", "openReviewMemory"},
 		"review_pr_analysis.go":   {"staticAnalysisIssues"},
 		"review_pr_publish.go":    {"persistReviewMemory", "formatPublishedReviewBody"},
-		"passes.go":               {"codebaseContextJSON"},
+		"codebase_context.go":     {"codebaseContextJSON"},
 		"verified_checkout.go":    {"codebaseContextJSON"},
 	} {
 		f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)

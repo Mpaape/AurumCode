@@ -7,9 +7,9 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/context/skills"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"

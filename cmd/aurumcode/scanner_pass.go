@@ -9,10 +9,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/i18n"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )

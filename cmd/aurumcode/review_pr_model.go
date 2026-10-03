@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
