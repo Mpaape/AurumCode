@@ -25,7 +25,7 @@ type PromptBuilder struct {
 	// ruleCatalog is the closed list of rule_id values rendered into the
 	// review prompt, so the model chooses from the catalog instead of
 	// inventing an id the AUR-434 gate discards. See rulecatalog.go for
-	// why it is mirrored here rather than imported from internal/review.
+	// where the default ids come from.
 	ruleCatalog []string
 	// limits are the slot ceilings (templates/limits.yml by default).
 	limits SlotLimits

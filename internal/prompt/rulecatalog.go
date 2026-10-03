@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/review/rules"
 )
 
 // This file gives the review prompt the one thing it never had: the list
@@ -28,50 +30,31 @@ import (
 // citation presented as true. It removes the cause: the model now picks
 // from a closed list it was given.
 //
-// WHY THIS IS A MIRROR AND NOT AN IMPORT
+// WHERE THE IDS COME FROM
 //
-// The catalog itself lives in internal/review/rules/*.yml behind
-// internal/review.RulesLoader, and internal/review already imports this
-// package (reviewer.go builds a PromptBuilder), so `prompt` importing
-// `review` is an import cycle. Injection by the caller would mean editing
-// internal/review, which this card does not own. So the ids are mirrored
-// here as compile-time data, and tests/unit/AUR-461.go asserts SET
-// EQUALITY between this slice and review.NewRulesLoader().GetAll(): a rule
-// added, renamed or removed in the YAML without the matching edit here
-// fails that test, which is exactly what AC-001 asks for ("uma regra nova
-// sem entrada no prompt quebre o build"). A dynamic load could not fail
-// that way -- it would agree with itself by construction.
+// The catalog lives in internal/review/rules/*.yml. The ids are read from
+// those same embedded files through the internal/review/rules package (a
+// leaf package, so there is no import cycle with internal/review, which
+// imports this one): a rule added, renamed or removed in the YAML reaches
+// the prompt with no second edit, and tests/unit/AUR-461.go still asserts
+// set equality with review.NewRulesLoader().GetAll().
 //
-// SetRuleCatalog below is the seam for the day internal/review can hand
-// its live loader down (a later card owning that file), without another
-// change to this package's callers.
+// SetRuleCatalog below is the seam for a caller that extends the list
+// (AUR-519's dynamic skill-section ids).
 
-// DefaultRuleCatalog is the mirror of the embedded review catalog:
-// every id of internal/review/rules/{security,quality,performance}.yml,
-// sorted, exactly as RulesLoader.Get indexes them. Keep it sorted and keep
-// it complete -- tests/unit/AUR-461.go proves both.
-var DefaultRuleCatalog = []string{
-	"performance/excessive-allocation",
-	"performance/inefficient-algorithm",
-	"performance/inefficient-loop",
-	"performance/memory-leak",
-	"performance/n-plus-one",
-	"quality/dead-code",
-	"quality/duplicate-code",
-	"quality/high-complexity",
-	"quality/long-function",
-	"quality/magic-numbers",
-	"quality/missing-error-handling",
-	"quality/poor-naming",
-	"quality/unused-variable",
-	"security/command-injection",
-	"security/hardcoded-secret",
-	"security/insecure-random",
-	"security/missing-auth",
-	"security/path-traversal",
-	"security/sql-injection",
-	"security/weak-crypto",
-	"security/xss",
+// DefaultRuleCatalog is every id of the embedded review catalog, sorted,
+// exactly as RulesLoader.Get indexes them.
+var DefaultRuleCatalog = mustCatalogIDs()
+
+// mustCatalogIDs loads the embedded catalog ids at initialization. The
+// files are compiled into the binary, so a failure is a build defect that
+// must stop the process rather than send a prompt with no closed list.
+func mustCatalogIDs() []string {
+	ids, err := rules.IDs()
+	if err != nil {
+		panic(fmt.Sprintf("review rule catalog unavailable: %v", err))
+	}
+	return ids
 }
 
 // MaxRuleCatalogTokens is the default ceiling AC-002 puts on the rendered
@@ -139,12 +122,10 @@ func RenderRuleCatalog(ids []string) string {
 	return sb.String()
 }
 
-// SetRuleCatalog replaces the mirrored catalog this builder renders. It is
-// the injection seam for a future caller that can pass internal/review's
-// live loader ids down (see the import-cycle note at the top of this
-// file); production today uses DefaultRuleCatalog. It validates eagerly so
-// an over-budget or empty injected catalog is reported at the seam that
-// caused it rather than at some later prompt assembly.
+// SetRuleCatalog replaces the catalog this builder renders (the default
+// is DefaultRuleCatalog, read from the embedded rule files). It validates
+// eagerly so an over-budget or empty injected catalog is reported at the
+// seam that caused it rather than at some later prompt assembly.
 func (b *PromptBuilder) SetRuleCatalog(ids []string) error {
 	catalog := append([]string(nil), ids...)
 	sort.Strings(catalog)
