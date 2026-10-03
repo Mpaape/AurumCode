@@ -4,6 +4,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"io"
 	"os"
 	"strconv"
@@ -32,10 +33,7 @@ type changelogSection struct {
 // review cannot read the commit metadata a changelog section needs. It is
 // data, not an instruction, and it never fails the review.
 func changelogUnavailableNotice(language string) string {
-	if language == "pt-BR" || language == "pt" {
-		return "Changelog indisponível: os metadados de commit desta revisão não puderam ser lidos; a versão sugerida e a entrada de changelog foram omitidas."
-	}
-	return "Changelog unavailable: this review could not read the commit metadata, so the suggested version and changelog entry were omitted."
+	return i18n.Text(language, "notice.changelog_unavailable")
 }
 
 // modelInvalidOutputNotice is AUR-505's declared limitation for a model
@@ -47,10 +45,7 @@ func changelogUnavailableNotice(language string) string {
 // and needs no redaction; the review's model-derived fields are redacted
 // by internal/review independently. It is a limitation, never a finding.
 func modelInvalidOutputNotice(language, kind string) string {
-	if language == "pt-BR" || language == "pt" {
-		return fmt.Sprintf("Revisão de qualidade inconclusiva: a resposta do modelo não passou no parser (%s); o modelo não foi considerado e os achados determinísticos (análise estática e segurança) foram publicados.", kind)
-	}
-	return fmt.Sprintf("Quality review inconclusive: the model's response did not pass the parser (%s); it was not considered, and the deterministic findings (static analysis and security) were still published.", kind)
+	return i18n.Format(language, "notice.model_invalid_output", kind)
 }
 
 // buildChangelogSection runs the AUR-498 engine over the reviewed commit

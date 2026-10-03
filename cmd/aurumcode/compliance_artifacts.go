@@ -1,11 +1,6 @@
-// AUR-521: writes the compliance audit record and SARIF document a
-// policy-governed review carries out of the process, for a workflow to
-// publish the audit as a job artifact and upload the SARIF to GitHub code
-// scanning (docs/specs/AUR-521.md). runReview (--base, main.go) and
-// runPRReview (--pr, pr.go) call writeComplianceArtifacts once their own
-// gate decision (policygate.go) is final, passing in exactly the facts this
-// file needs -- it never recomputes the gate itself, only renders its
-// already-made decision into the two file formats.
+// Compliance artifacts: the audit record and the SARIF document a
+// policy-governed review writes for a workflow to publish, assembled once
+// from the gate run for both review sources.
 package main
 
 import (

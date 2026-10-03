@@ -1,45 +1,14 @@
-// AUR-515: the --pr path's codebase-context pass (resolveCodebaseContext,
-// passes.go) reads whatever checkout the process happens to be running
-// from. On --base that checkout IS the thing being reviewed, by
-// construction. On --pr it is not: a direct CLI invocation, a monorepo
-// runner, or a stale checkout can reach `aurumcode review --pr` from a
-// directory that is a different repository entirely, or the right
-// repository at a different commit. Sending that checkout's files to the
-// provider as "codebase context" would leak unrelated or stale code into
-// the prompt under the reviewed pull request's name.
-//
-// codebaseContextMismatch verifies, read-only and before any context is
-// resolved, that the local checkout IS the exact repository named by
-// --repo, sitting at the exact commit GitHub reports as the pull request's
-// head (GetPullRequestMetadata.HeadSHA, via the already-existing
-// resolvePullRequestHeadSHA). The repository check runs first and is
-// entirely local (no network): only once it passes does this call out to
-// the GitHub API at all, so an unrelated checkout never causes an extra
-// remote call. Any mismatch -- a different repository, a divergent HEAD,
-// or simply being unable to tell -- fails closed: the caller omits the
-// codebase context and records why as a published review limitation,
-// never a fatal error. The remote diff review itself is entirely
-// unaffected: it never depended on the local checkout at all.
-//
-// The official reusable workflow (.github/workflows/review.yml) checks out
-// the pull request's own head SHA into the exact directory it then mounts
-// as the container's working directory, so this check passes there
-// unchanged and codebase context keeps flowing exactly as before.
-//
-// HEAD is read through internal/analyzer.OpenRepo/ResolveRef -- the same
-// dual-path reader (git binary when present, a pure-Go loose-object/ref
-// reader otherwise) the rest of this codebase already relies on for
-// sealed, network-denied environments with no git binary at all. The
-// origin remote is read the same way git itself would locate it: by
-// walking up from the working directory for a ".git" entry, following a
-// linked worktree's "gitdir:"/"commondir" indirection to the shared
-// config, and parsing only the "[remote \"origin\"]" section's url --
-// never requiring a git binary either.
+// The --pr path's checkout identity: the local codebase context is sent to the
+// provider only when the local checkout is verified to be the reviewed
+// repository at the pull request's reviewed head commit, with no uncommitted
+// or untracked content; otherwise the context is omitted and the omission is
+// declared as a review limitation.
 package main
 
 import (
 	"context"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"os"
 	"path/filepath"
 	"strings"
@@ -262,36 +231,14 @@ func ownerRepoFromRemoteURL(raw string) (owner, repo string, ok bool) {
 // AC-002). reason is one of codebaseContextMismatch's own fixed codes,
 // never model- or remote-authored text, so this needs no redaction.
 func codebaseContextOmittedNotice(language, reason string) string {
-	ptBR := language == "pt-BR" || language == "pt"
-	var why string
+	why := "notice.context_omitted.unconfirmed"
 	switch reason {
 	case "repository":
-		if ptBR {
-			why = "o checkout local não é o repositório revisado"
-		} else {
-			why = "the local checkout is not the reviewed repository"
-		}
+		why = "notice.context_omitted.repository"
 	case "head":
-		if ptBR {
-			why = "o HEAD do checkout local não corresponde ao commit revisado do pull request"
-		} else {
-			why = "the local checkout's HEAD does not match the pull request's reviewed commit"
-		}
+		why = "notice.context_omitted.head"
 	case codebaseContextReasonDirty:
-		if ptBR {
-			why = "o checkout local tem alterações não commitadas, arquivos não rastreados ou conteúdo que não corresponde ao commit revisado"
-		} else {
-			why = "the local checkout has uncommitted changes, untracked files, or content that does not match the reviewed commit"
-		}
-	default:
-		if ptBR {
-			why = "não foi possível confirmar a identidade do checkout local"
-		} else {
-			why = "the local checkout's identity could not be confirmed"
-		}
+		why = "notice.context_omitted.dirty"
 	}
-	if ptBR {
-		return fmt.Sprintf("Contexto do repositório omitido: %s; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.", why)
-	}
-	return fmt.Sprintf("Repository context omitted: %s; this review does not send the local checkout's content to the provider and considers only the remote diff.", why)
+	return i18n.Format(language, "notice.context_omitted", i18n.Text(language, why))
 }

@@ -9,6 +9,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -131,10 +132,7 @@ func (s *reviewState) joinScanners() {
 // not produce trustworthy findings: a Limitations entry, never a finding.
 func scannerInconclusiveNotice(language string, scan gateScan) string {
 	label, engine := strings.ToUpper(scan.Source()), displayName(scan.Engine.Name())
-	if language == "pt-BR" || language == "pt" {
-		return fmt.Sprintf("%s (%s) inconclusivo: a varredura não produziu resultado confiável (%s); nenhum achado determinístico do %s foi publicado nesta execução.", label, engine, scan.Reason, engine)
-	}
-	return fmt.Sprintf("%s (%s) inconclusive: the scan did not produce a trustworthy result (%s); no %s finding was published for this run.", label, engine, scan.Reason, engine)
+	return i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Reason, engine)
 }
 
 // displayName capitalizes an engine name for prose ("semgrep" -> "Semgrep").

@@ -1,15 +1,6 @@
-// AUR-441: do not pay twice for the same file.
-//
-// internal/review.Reviewer.GenerateReview sends the whole reviewed diff to
-// the model in a single prompt, one Complete call per invocation
-// (internal/review/reviewer.go:109,117,120; internal/prompt/builder.go
-// folds every file into that one prompt) -- there is no per-file send for a
-// cache to intercept. So the wiring lives here, in cmd/aurumcode, one layer
-// above GenerateReview: filter diff.Files down to the files
-// internal/review/cache does not already hold an entry for BEFORE calling
-// GenerateReview (zero misses skips the call to the model entirely), merge
-// the cache hits' previously-found issues into the printed result, and
-// report how many files were reused.
+// The review cache: a reviewed diff whose prompt, model, profiles and
+// evidence did not change reuses the stored verdict instead of paying for the
+// same model call twice.
 package main
 
 import (

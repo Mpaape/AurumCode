@@ -1,8 +1,5 @@
-// AUR-538 closes the non-blocking proof gaps the AUR-519/520 reviews left
-// open: AC-007's own commit-status description cap lives here, next to
-// (but not inside) policygate.go's publishPolicyGateStatus, which AUR-521
-// is editing concurrently for its own audit/SARIF work -- this file only
-// adds the two small helpers that function's Description branch calls.
+// Commit-status descriptions: GitHub caps a status description, so the
+// policy gate's description is shortened here without losing its verdict.
 package main
 
 import (

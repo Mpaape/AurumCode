@@ -1,15 +1,6 @@
-// AUR-519: the policy's gate (internal/config.GateConfig) over AUR-519's
-// dynamic, skill-section rules (internal/review.ParseSkillSections).
-// evaluateGate is the pure decision core: it takes the already
-// precedence-resolved GateConfig (config.ApplyCentralPolicy already picked
-// policy-over-repo) and the finished review's issues, and returns whether
-// the check fails and the lines naming why, never touching stdout/stderr or
-// the GitHub client itself. dynamicRulesFromLocalSkills/
-// dynamicRulesFromRemoteSkills/mergeDynamicRules are the loading half:
-// runReview (--base, main.go) and runPRReview (--pr, pr.go) call them to
-// build the per-run dynamic rule set and the merged prompt catalog before
-// GenerateReviewWithContext, then call evaluateGate after the result is
-// final to decide the exit code and the published decision lines.
+// The policy gate over skill-section rules: evaluateGate decides from the
+// precedence-resolved gate configuration, and the command publishes the
+// decision as a commit status and in the review text.
 package main
 
 import (

@@ -70,6 +70,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"io"
 	"os"
 	"sort"
@@ -608,11 +609,7 @@ func formatInlineIssueForLanguage(issue types.ReviewIssue, language string) stri
 	var b strings.Builder
 	fmt.Fprintf(&b, "**[%s] %s**", issue.Severity, issue.Message)
 	if issue.Side == "LEFT" {
-		label := "Removed line (base)"
-		if strings.HasPrefix(language, "pt") {
-			label = "Linha removida (base)"
-		}
-		fmt.Fprintf(&b, "\n\n%s: `%s:%d`", label, issue.File, issue.Line)
+		fmt.Fprintf(&b, "\n\n%s: `%s:%d`", i18n.Text(language, "inline.removed_line"), issue.File, issue.Line)
 	}
 	writeReviewField(&b, copy.impact, issue.Impact)
 	writeReviewField(&b, copy.evidence, issue.Evidence)
@@ -950,72 +947,6 @@ func reviewSummaryTextForLanguage(result *types.ReviewResult, copy reviewCopy) s
 		}
 	}
 	return copy.noBlockingFindings
-}
-
-type reviewCopy struct {
-	title, verdict, summary, strengths, findings, suggestions, ciStatus, tests, limits string
-	impact, evidence, suggestedFix, verify, rationale, proposedImplementation          string
-	cause, fix, nextVerification                                                       string
-	changesRequested, comment, approve, inconclusive                                   string
-	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings     string
-	qualityIncomplete                                                                  string
-	suggestionApplicable, suggestionNotApplicable                                      string
-	// coverageHeading and the coverage* templates render AUR-476's
-	// deterministic "this review was partial" notice. Each reason a file was
-	// not covered gets its own sentence; coverageSummary names the count and
-	// the denominator so the reader sees how much of the diff actually ran.
-	coverageHeading, coverageSummary, coveragePartial, coverageBudget, coverageIgnored, coverageFiltered, coverageNoStructure string
-	// summaryWithheld is AUR-517's one-line notice (%d is the discard
-	// count) printed in place of the "### Summary" block whenever
-	// internal/review withheld the model's free-text summary because the
-	// scope/evidence or rule gate discarded one of its proposed findings
-	// (AC-001/N3a): the omission must be visible, never silent.
-	summaryWithheld string
-}
-
-func reviewCopyFor(language string) reviewCopy {
-	if strings.EqualFold(strings.TrimSpace(language), "pt-BR") || strings.EqualFold(strings.TrimSpace(language), "pt") {
-		return reviewCopy{
-			title: "revisão de código", verdict: "Veredito", summary: "Resumo", strengths: "Pontos fortes", findings: "Achados", suggestions: "Sugestões", ciStatus: "Status do CI", tests: "Testes", limits: "Limitações da revisão",
-			impact: "Impacto", evidence: "Evidência", suggestedFix: "Correção sugerida", verify: "Verificação", rationale: "Motivação", proposedImplementation: "Implementação sugerida", cause: "Causa", fix: "Correção", nextVerification: "Próxima verificação",
-			changesRequested: "Alterações solicitadas", comment: "Comentário", approve: "Aprovado", inconclusive: "Inconclusivo",
-			blockingFindings:        "A revisão encontrou %d achado(s) bloqueante(s) que devem ser tratados antes do merge.",
-			nonBlockingFindings:     "A revisão encontrou observações, mas nenhum achado bloqueante permanece na mudança revisada.",
-			optionalSuggestions:     "Nenhum achado bloqueante foi identificado; as sugestões abaixo são melhorias opcionais.",
-			noBlockingFindings:      "Nenhum achado bloqueante foi identificado na mudança revisada.",
-			qualityIncomplete:       "A revisão por modelo não foi concluída. Apenas as verificações determinísticas produziram resultado; este parecer não aprova a mudança.",
-			suggestionApplicable:    "Substituição aplicável em `%s`.",
-			suggestionNotApplicable: "Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.",
-			coverageHeading:         "Cobertura da revisão",
-			coverageSummary:         "%d de %d arquivo(s) do diff foram cobertos; %d não foram revisados por completo.",
-			coveragePartial:         "%d arquivo(s) tiveram parte dos trechos omitida pelo limite de tokens; os achados podem não cobrir os trechos omitidos.",
-			coverageBudget:          "%d arquivo(s) ficaram fora da revisão pelo limite de tokens.",
-			coverageIgnored:         "%d arquivo(s) foram ocultados da revisão pela configuração `ignore` do repositório; a ausência deles no contexto NÃO prova que não existam no diff.",
-			coverageFiltered:        "%d arquivo(s) foram filtrados antes da revisão (binário, gerado ou grande demais); arquivo não revisado nunca conta como aprovado.",
-			coverageNoStructure:     "%d arquivo(s) não têm gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.",
-			summaryWithheld:         "Resumo do modelo omitido: %d achado(s) propostos foram descartados pelos filtros de escopo/regra.",
-		}
-	}
-	return reviewCopy{
-		title: "code review", verdict: "Verdict", summary: "Summary", strengths: "Strengths", findings: "Findings", suggestions: "Suggestions", ciStatus: "CI status", tests: "Tests", limits: "Review limits",
-		impact: "Impact", evidence: "Evidence", suggestedFix: "Suggested fix", verify: "Verify", rationale: "Rationale", proposedImplementation: "Proposed implementation", cause: "Cause", fix: "Fix", nextVerification: "Next verification",
-		changesRequested: "Changes requested", comment: "Comment", approve: "Approve", inconclusive: "Inconclusive",
-		blockingFindings:        "The review found %d blocking finding(s) that should be addressed before merge.",
-		nonBlockingFindings:     "The review found observations, but no blocking finding remains in the reviewed change.",
-		optionalSuggestions:     "No blocking finding was identified; the suggestions below are optional improvements.",
-		noBlockingFindings:      "No blocking finding was identified in the reviewed change.",
-		qualityIncomplete:       "The model review did not complete. Only deterministic checks produced results; this review does not approve the change.",
-		suggestionApplicable:    "Applicable replacement at `%s`.",
-		suggestionNotApplicable: "Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.",
-		coverageHeading:         "Review coverage",
-		coverageSummary:         "%d of %d file(s) in the diff were covered; %d were not fully reviewed.",
-		coveragePartial:         "%d file(s) had some hunks omitted by the token budget; findings may miss those hunks.",
-		coverageBudget:          "%d file(s) were left out of the review by the token budget.",
-		coverageIgnored:         "%d file(s) were hidden from the review by the repository `ignore` config; their absence from the reviewed context is NOT proof they are absent from the diff.",
-		coverageFiltered:        "%d file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.",
-		coverageNoStructure:     "%d file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.",
-		summaryWithheld:         "Model summary omitted: %d proposed finding(s) were discarded by the scope/rule filters.",
-	}
 }
 
 func writeReviewBullets(b *strings.Builder, values []string) {

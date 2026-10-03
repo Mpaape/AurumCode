@@ -1,162 +1,21 @@
-// Command aurumcode is the entrypoint for this reconstruction's local code
-// review engine (AUR-430). It currently supports one subcommand:
-//
-//	aurumcode review --base <ref> [--fail-on <level>] [--modelo <nome>] [--seguranca]
-//
-// which diffs <ref> against HEAD in the git repository rooted at the
-// current working directory, sends that diff to an LLM through
-// internal/llm.Orchestrator, and prints the findings the model reports.
-//
-// With --fail-on (AUR-431), the command additionally acts as a CI gate: it
-// exits with the distinct code 3 when any finding sits at the chosen
-// severity or above, and 0 otherwise. Without --fail-on, behavior is
-// exactly AUR-430's: findings never change the exit code.
-//
-// With --modelo (AUR-436), the user chooses which model reviews --
-// including a local one, by pointing LLM_BASE_URL at a local
-// OpenAI-compatible endpoint -- and when nothing is configured to serve
-// the chosen model the command fails with a clear, actionable error on
-// stderr and exit 1, never an empty review with exit 0. Without --modelo,
-// provider selection is exactly AUR-430's.
-//
-// With --seguranca (AUR-435), the command additionally runs the project's
-// deterministic security pass over the diff: the ADDED lines are matched
-// against the patterns carried by the security-category rules of the
-// embedded catalog (internal/review/rules/security.yml, scoped by
-// standards/security-review), and the findings print in their own section
-// AFTER the unchanged quality output, each citing its sustaining rule and
-// the standard rule that scopes it. Without --seguranca, stdout is
-// byte-identical to the published contract.
-//
-// With --pr (AUR-438), the command reviews a GitHub pull request instead of
-// a local ref:
-//
-//	aurumcode review --pr <numero> --repo <dono>/<projeto> --publicar --modo-publicacao review
-//
-// It reads the pull request's diff through the restored GitHub client
-// (AUR-437, internal/git/githubclient), reviews it through the same engine
-// and provider selection as the --base path, and publishes every finding
-// either one formal GitHub review or the backwards-compatible set of
-// separate comments. --na-linha is optional and enables inline findings;
-// findings outside changed lines remain in the review body or as general
-// comments, so they are never silently dropped.
-// Publishing refuses, before anything is posted, when the token lacks
-// write permission on the repository. --repo and --publicar are always
-// required with --pr; --modo-publicacao selects the publication style and
-// --na-linha only enables inline findings. Every other flag (--base,
-// --fail-on, --modelo, --seguranca) and its published behavior is unchanged
-// when --pr is absent.
-//
-// With --check (AUR-439), the command additionally publishes a commit
-// status (internal/git/githubclient.SetStatus, restored by AUR-437) on the
-// pull request's head commit: "failure" when at least one finding is grave
-// (error severity, the same rank --fail-on high|error already names),
-// "success" otherwise -- so a branch protection rule that requires this
-// check blocks the merge until the grave finding is fixed. --check needs a
-// commit SHA exactly like an inline comment already does (GITHUB_SHA), and
-// folds into the very same fail-closed gate instead of a second one.
-//
-//	aurumcode review --pr 42 --repo dono/projeto --publicar --check
-//
-// With --limite (AUR-433), the command caps what one run may spend calling
-// the model: it estimates the cost before the model is ever invoked and
-// refuses to call it -- spending nothing -- when the estimate exceeds the
-// USD ceiling given, reporting both the estimated and, on success, the
-// real cost on stderr. Without --limite, behavior and output are exactly
-// as already published: no budget is enforced. Like the other --base-path
-// flags, --limite is inert when --pr is given.
-//
-// With the --base path (AUR-441), the command does not pay twice for the
-// same file: before calling the review engine, it checks
-// internal/review/cache for each changed file's content, under the exact
-// model and prompt version this run would use. A file whose cached entry
-// matches is never resent; a run where every file matches skips the model
-// call entirely. Reused files, when any, are reported on stderr -- stdout
-// is byte-identical whether or not caching engaged. The cache lives at
-// AURUMCODE_CACHE_DIR when the caller sets it, so two invocations that
-// name the same directory reuse each other's entries; without it, each
-// invocation gets its own process-scoped cache and behaves exactly as if
-// caching were off, so nothing shares state across separate `aurumcode`
-// runs unless asked to (see internal/review/cache.ResolveDir). --pr's
-// review path is unaffected.
-//
-// With AUR-443, a user who has never read the source can discover what
-// this binary does and run a first review without reading code: top-level
-// `aurumcode --help` / `-h` (also `help`) lists every subcommand with a
-// one-line summary and a runnable example, on stdout, exit 0; `aurumcode
-// --version` (also `version`) prints a build-stamped version, on stdout,
-// exit 0 -- see the version var below for how to inject a real value at
-// build time. `review --help` now follows the exact convention `docs
-// --help` already established (AUR-426): an explicitly requested --help is
-// a fulfilled request (stdout, exit 0), and a genuine usage error is a
-// refusal (stderr, exit 2) -- the same channel and exit code for both
-// subcommands, where before this card `review --help` printed usage to
-// stderr with exit 2.
-// Provider-missing errors (selectProvider, reportModelUnavailable) now
-// point at a concrete, versioned fixture example
-// (tests/fixtures/review/known-problem-response.json) instead of only
-// naming the environment variable to set. computeDiff's git-repository and
-// ref-resolution errors no longer wrap internal/analyzer's own message
-// verbatim: OpenRepo's single error case used to produce a literally
-// duplicated "not a git repository: not a git repository (...)" phrase,
-// and a ref that does not resolve used to leak a raw filesystem path (the
-// pure-Go path, e.g. "open <repo>/.git/refs/heads/<ref>: no such file or
-// directory") or git's own "fatal: ..." wording (the git-binary path);
-// both are now one clean, actionable sentence, and the two backends report
-// the identical text for the same user mistake. See docs/specs/AUR-443.md
-// for the --limite exit code and the model response's unused `summary`
-// field, both of which this card investigated and deliberately left
-// unchanged: docs/specs/AUR-443.md records why.
-//
-// With AUR-449, `--seguranca` alone no longer needs a provider: the
-// security pass it runs (restored by AUR-442) is a deterministic regex
-// matcher over the diff's added lines and calls no model, so requiring a
-// provider for it was an artificial lock -- the product's only free,
-// offline, deterministic path sat behind the one thing that needs a
-// credential. When --seguranca is given, --modelo is NOT (an explicit
-// model choice is a specific request that must still fail loudly when it
-// cannot be served -- reportModelUnavailable, unchanged), and no provider
-// is configured at all (selectProvider's errNoProviderConfigured, not some
-// other provider failure such as an unreadable fixture path), the command
-// now skips the quality review and runs the security pass alone,
-// reporting its findings -- and says so plainly on stderr before anything
-// prints, never silently. With a provider configured, or with --modelo, or
-// without --seguranca, behavior and output are byte-identical to what was
-// already published: this card does not touch that path. See
-// docs/specs/AUR-449.md.
-//
-// See docs/specs/AUR-430.md for the base command reference,
-// docs/specs/AUR-431.md for the --fail-on gate,
-// docs/specs/AUR-436.md for --modelo, docs/specs/AUR-435.md for
-// --seguranca, docs/specs/AUR-438.md for --pr, docs/specs/AUR-433.md for
-// --limite, docs/specs/AUR-439.md for --check, docs/specs/AUR-441.md for
-// the review cache, docs/specs/AUR-443.md for the top-level help, version
-// and error-message cleanups, docs/specs/AUR-448.md for the complete
-// no-provider fixture shape (rule_id included) and the stderr warning a
-// discarded finding now gets, and docs/specs/AUR-449.md for running
-// --seguranca without a provider, each with an offline, secret-free
-// example.
+// Command aurumcode reviews code changes: `aurumcode review --base <ref>` for a
+// local diff and `aurumcode review --pr <n> --repo <owner>/<name>` for a pull
+// request, plus the compliance subcommands (sbom, sign, xbom, fix). Flags are
+// parsed and dependencies assembled here; the rules live in internal/.
+// `aurumcode --help` lists the subcommands.
 package main
 
 import (
-	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
-	"io/fs"
-	"net/url"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/apply"
-	"github.com/Mpaape/AurumCode/internal/changelog"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
-	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
@@ -237,13 +96,6 @@ func printVersion(stdout io.Writer) {
 	fmt.Fprintf(stdout, "aurumcode %s\n", version)
 }
 
-// newFixFlagSet declares the flags of `fix`; the help reads the same set.
-func newFixFlagSet() (*flag.FlagSet, *string) {
-	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
-	file := fs.String("file", "", "JSON file with review suggestions or a review response (default: stdin)")
-	return fs, file
-}
-
 // runFix turns review suggestions into an applyable unified diff (one-click
 // fix). It reads either a JSON array of ReviewSuggestion objects or a full
 // review response object with a "suggestions" field (so `aurumcode fix <
@@ -303,31 +155,6 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// parseFixSuggestions accepts either a bare JSON array of suggestions or a
-// full review response object whose "suggestions" field holds them.
-func parseFixSuggestions(data []byte) ([]types.ReviewSuggestion, error) {
-	var suggestions []types.ReviewSuggestion
-	if err := json.Unmarshal(data, &suggestions); err == nil {
-		return suggestions, nil
-	}
-	var result struct {
-		Suggestions []types.ReviewSuggestion `json:"suggestions"`
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, err
-	}
-	return result.Suggestions, nil
-}
-
-// readFixSuggestions reads the suggestions JSON from --file, or from stdin
-// when --file is empty.
-func readFixSuggestions(file string) ([]byte, error) {
-	if strings.TrimSpace(file) != "" {
-		return os.ReadFile(file)
-	}
-	return io.ReadAll(os.Stdin)
-}
-
 // prepareCache opens the review cache and keeps only the cache misses in
 // toSend (AUR-441). The prompt-version component is a digest of the fixed
 // content a prompt builder renders (AUR-543). The estimate printed earlier
@@ -356,110 +183,6 @@ func (b *baseReview) prepareCache() *qualityCache {
 	return qc
 }
 
-// exitFindings is the exit code for "the review ran fine and found at least
-// one issue at or above the --fail-on threshold". It is distinct from 0
-// (clean run), 1 (the review itself failed) and 2 (usage error) so a CI
-// pipeline can tell "gate closed" apart from "tool broke". Documented in
-// docs/specs/AUR-431.md.
-const exitFindings = gateExitFindings
-
-// exitQualityNotReviewed is AUR-458's exit code for "the user asked for a
-// quality review and this run did not produce one". It is deliberately 1
-// -- the existing taxonomy's "behavioral failure" -- and NOT a new code:
-// every other could-not-review path in this command (no provider,
-// unavailable --modelo, unparseable response, --limite refusal) already
-// returns 1, so a CI job that already treats 1 as "do not merge" needs no
-// change to be protected. What changes is that this code now also covers
-// the runs where the security pass DID deliver findings, which previously
-// reported 0 (nothing configured) or lost the security pass entirely (a
-// provider that failed). See docs/specs/AUR-458.md for the full table.
-const exitQualityNotReviewed = gateExitBehavioral
-
-// exitArtifactNotWritten is AUR-568's exit code for a run whose requested
-// --auditoria or --sarif file could not be written: the compliance trail is
-// part of the verdict, so the run never ends as success. Like
-// exitQualityNotReviewed it is the existing behavioral-failure code.
-const exitArtifactNotWritten = gateExitBehavioral
-
-// reportQualityFailure prints the diagnosis for a quality review that
-// could not complete after a provider was successfully selected, and
-// returns the exit code for the no---seguranca path. It is the exact
-// cascade runReview used to inline, extracted verbatim (AUR-458) so the
-// two callers -- the published "return 1 immediately" path and the new
-// "keep the security pass alive, then exit 1" path -- can never drift
-// into printing different diagnoses for the same failure.
-func reportQualityFailure(stderr io.Writer, err error, modelo string, limiteUSD float64) int {
-	// --limite (AUR-433): the tracker refused before the model was
-	// called, so nothing was spent. This is checked first because it is
-	// a distinct, more specific outcome than "the provider chain could
-	// not complete" below. Not gated on limiteSet: without --limite,
-	// tracker is nil and the orchestrator cannot produce this error, so
-	// the check is a no-op then and unconditionally correct whenever it
-	// does fire (limiteUSD is 0 only in the case where it cannot).
-	if errors.Is(err, llm.ErrBudgetExceeded) {
-		return reportBudgetExceeded(stderr, limiteUSD, err)
-	}
-	var parseErr *prompt.ParseError
-	if errors.As(err, &parseErr) {
-		fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
-		return 1
-	}
-	// With --modelo, a provider chain that could not complete means the
-	// chosen model is unavailable (endpoint down, wrong URL, model not
-	// served): name the model and say how to fix it, instead of only
-	// surfacing the transport error.
-	if modelo != "" && errors.Is(err, llm.ErrAllProvidersFailed) {
-		return reportModelUnavailable(stderr, modelo, err)
-	}
-	fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-	return 1
-}
-
-// parseFailOnLevel maps a --fail-on level to the internal severity rank it
-// gates on, returning the canonical engine severity name alongside. The
-// accepted spellings are the engine's own severity vocabulary -- error,
-// warning, info, exactly the three values internal/prompt.ResponseParser
-// admits -- plus the CI-conventional aliases high, medium and low.
-// Matching is case-insensitive; anything else is an error.
-func parseFailOnLevel(level string) (int, string, error) {
-	switch strings.ToLower(level) {
-	case "high", "error":
-		return rankError, "error", nil
-	case "medium", "warning":
-		return rankWarning, "warning", nil
-	case "low", "info":
-		return rankInfo, "info", nil
-	default:
-		return 0, "", fmt.Errorf("--fail-on: unknown level %q (accepted: high|error, medium|warning, low|info)", level)
-	}
-}
-
-// Severity ranks, ordered so that "at the chosen severity or above" is a
-// plain >= comparison. 0 is reserved for "no gate configured".
-const (
-	rankInfo    = 1
-	rankWarning = 2
-	rankError   = 3
-)
-
-// severityRank ranks a finding's severity. The parser guarantees every
-// issue carries one of error/warning/info (in any letter case, see
-// internal/prompt/parser.go's validation), so the default arm is
-// unreachable in practice; it still ranks unknown values as error so the
-// gate fails closed rather than silently waving a finding through.
-func severityRank(severity string) int {
-	switch strings.ToLower(severity) {
-	case "info":
-		return rankInfo
-	case "warning":
-		return rankWarning
-	case "error":
-		return rankError
-	default:
-		return rankError
-	}
-}
-
 // countAtOrAbove counts the findings whose severity sits at threshold or
 // above. The count -- not just a boolean -- feeds the gate's stderr note so
 // the user sees how many findings closed the gate.
@@ -471,333 +194,6 @@ func countAtOrAbove(issues []types.ReviewIssue, threshold int) int {
 		}
 	}
 	return count
-}
-
-// computeDiff reads the diff between base and HEAD directly from the git
-// object database at repoRoot. See internal/analyzer/gitrepo.go for why
-// this reads git's on-disk format in pure Go instead of shelling out to a
-// `git` binary.
-// diffPaths returns the changed file paths of diff, in file order, for
-// config.WrapProvider and PathInstructionsProvider's applyTo matching. A
-// nil diff (never actually produced by computeDiff, but kept defensive
-// for callers) yields nil.
-func diffPaths(diff *types.Diff) []string {
-	if diff == nil {
-		return nil
-	}
-	paths := make([]string, 0, len(diff.Files))
-	for _, f := range diff.Files {
-		paths = append(paths, f.Path)
-	}
-	return paths
-}
-
-func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, error) {
-	repo, err := analyzer.OpenRepo(repoRoot)
-	if err != nil {
-		// analyzer.OpenRepo has exactly one error case (gitrepo.go), and its
-		// own message already says "not a git repository (...)"; wrapping
-		// it with another "is not a git repository" prefix used to print a
-		// literally duplicated phrase ("... is not a git repository: not a
-		// git repository (no .git dir ...)"). That message is fully known
-		// (see the package doc above), so this replaces it outright with
-		// one clean, actionable sentence instead of restating the same
-		// fact twice.
-		return nil, nil, fmt.Errorf("%s is not a git repository (no .git directory here, and this path is not itself a bare repository)", repoRoot)
-	}
-	diff, notices, err := repo.Diff(base, "HEAD")
-	if err != nil {
-		return nil, nil, cleanRefError(repoRoot, base, err)
-	}
-	return diff, notices, nil
-}
-
-// localRangeCommits reads the commit messages of base..HEAD from the local
-// repository through the read-only analyzer (gitrepo.go's Commits). The
-// returned text is raw untrusted repository content; buildChangelogSection
-// redacts it before rendering.
-func localRangeCommits(repoRoot, base string) ([]changelog.Commit, error) {
-	repo, err := analyzer.OpenRepo(repoRoot)
-	if err != nil {
-		return nil, err
-	}
-	infos, err := repo.Commits(base, "HEAD")
-	if err != nil {
-		return nil, err
-	}
-	commits := make([]changelog.Commit, 0, len(infos))
-	for _, info := range infos {
-		commits = append(commits, changelog.Commit{Subject: info.Subject, Body: info.Body, Hash: info.Hash})
-	}
-	return commits, nil
-}
-
-// cleanRefError turns internal/analyzer's ref-resolution error into one
-// clean, actionable line instead of the raw internal detail
-// analyzer.Repo.Diff's error chain otherwise surfaces to the user:
-//
-//   - the pure-Go path (gitrepo.go's resolveSymbolic), the one this card's
-//     own sealed acceptance profile exercises (bootstrap-readonly-v1: Go
-//     and bash, no git binary), wraps a raw *fs.PathError, e.g. "open
-//     <repo>/.git/refs/heads/<ref>: no such file or directory";
-//   - the git-binary path (gitrepo.go's ResolveRef, when a `git` binary is
-//     on PATH) wraps git's own "fatal: Needed a single revision" or
-//     "fatal: ... unknown revision or path ..." stderr text.
-//
-// Both leak implementation detail (a filesystem path under .git, or a
-// foreign tool's own wording) that means nothing to a user who has never
-// read the source, and the two backends previously disagreed on what that
-// detail even looked like. Both are recognized here and replaced by the
-// identical clean sentence, naming the ref that failed and how a valid one
-// is spelled, so a real repository behaves the same way regardless of
-// which backend OpenRepo selected. Only the two prefixes
-// analyzer.Repo.Diff itself always wraps with ("resolving base ref %q: " /
-// "resolving head ref %q: ", gitrepo.go) are recognized, and only when the
-// wrapped cause looks like "no such ref" specifically: any other Diff
-// failure (a corrupted tree, an ambiguous parent count, and the like) is
-// not concretely measured by this card's dogfooding and keeps its
-// pre-existing wrapped message unchanged, so a genuinely new failure is
-// never silently hidden behind a guessed diagnosis.
-//
-// A permission problem (the ref file exists but this process cannot read
-// it -- exactly the shape a locked-down runtime like this card's own
-// bootstrap-readonly-v1 profile, or any non-root uid, can hit) is
-// deliberately NOT folded into "not found": refPathPermissionDenied below
-// probes the concrete resource independently and is checked first, so a
-// permission failure is reported as what it is instead of a confident,
-// wrong "ref not found" -- a review found this card's first cut treated
-// every *fs.PathError as "not found" regardless of cause (fixed: the
-// pure-Go path now also requires errors.Is(err, fs.ErrNotExist)), and,
-// separately, that `git rev-parse`'s own stderr text
-// ("fatal: Needed a single revision") is byte-identical for ENOENT and
-// EACCES on the git-binary path -- string-matching git's output alone can
-// never tell the two apart, which is why the probe exists and is checked
-// on both backends rather than only patching the pure-Go one.
-//
-// Once the switch above has matched one of the two prefixes, this failure
-// is KNOWN to be about resolving `ref` specifically, and every branch from
-// here on must return a clean, ref-scoped sentence -- never fall through
-// to a raw %w wrap of `err` again. A second review found exactly one
-// remaining fallthrough that did: `--base feature` against a repository
-// whose only branch is `feature/sub` resolves refs/heads/feature to a
-// DIRECTORY (a hierarchical branch namespace), so the pure-Go path's
-// os.ReadFile fails with EISDIR -- neither fs.ErrNotExist nor
-// fs.ErrPermission, so it fell through every existing check into the raw
-// wrap, leaking the literal "refs/heads/" path this card's own acceptance
-// already treats as a leak everywhere else. refPathIsDirectory closes it
-// the same way refPathPermissionDenied closes EACCES: an independent
-// probe of the concrete resource, checked on both backends, instead of
-// inferring the cause from either backend's own text (the git-binary path
-// already said a clean-but-imprecise "not found" for this exact case;
-// probing first makes both backends agree on the more precise answer
-// instead of only the pure-Go path being fixed).
-func cleanRefError(repoRoot, base string, err error) error {
-	msg := err.Error()
-	ref := ""
-	switch {
-	case strings.HasPrefix(msg, "resolving base ref "):
-		ref = base
-	case strings.HasPrefix(msg, "resolving head ref "):
-		ref = "HEAD"
-	default:
-		return fmt.Errorf("computing diff %s..HEAD: %w", base, err)
-	}
-
-	if refPathPermissionDenied(repoRoot, ref) {
-		return fmt.Errorf("permission denied resolving ref %q in this repository: this process cannot read the ref's storage under .git (or the bare repository root) -- check its file permissions", ref)
-	}
-	if refPathIsDirectory(repoRoot, ref) {
-		return fmt.Errorf("ref %q is not a branch: a directory of refs by that name exists (a hierarchical branch namespace, e.g. %q) -- name the exact branch, not a namespace prefix", ref, ref+"/...")
-	}
-
-	var pathErr *fs.PathError
-	looksLikeNoSuchRef := (errors.As(err, &pathErr) && errors.Is(err, fs.ErrNotExist)) ||
-		strings.Contains(msg, "Needed a single revision") ||
-		strings.Contains(msg, "unknown revision or path")
-	if looksLikeNoSuchRef {
-		return fmt.Errorf("ref %q not found in this repository: expected a branch name, HEAD, a 40-character commit SHA, or a \"<ref>~N\" parent expression", ref)
-	}
-
-	// Some other, not concretely measured cause within ref resolution (a
-	// corrupted ref file's content, an ambiguous parent count, indirection
-	// too deep): still a clean, ref-scoped sentence, never the raw
-	// internal chain -- see the note above this function for exactly why a
-	// fallthrough here is the defect this fix closes.
-	return fmt.Errorf("could not resolve ref %q in this repository", ref)
-}
-
-// refPathCandidate computes the exact physical loose-ref location a ref
-// name would resolve to under repoRoot -- refs/heads/<ref>, or HEAD for
-// ref=="HEAD" -- the one location both analyzer.Repo backends ultimately
-// consult for a bare branch name (see cleanRefError's doc above for why
-// this card probes it directly instead of inferring from either backend's
-// own error text). ok is false when there is nothing meaningful to probe:
-// a raw 40-character commit SHA never touches a loose-ref file, and an
-// empty ref cannot be resolved to a path.
-func refPathCandidate(repoRoot, ref string) (path string, ok bool) {
-	if ref == "" || looksLikeCommitSHA(ref) {
-		return "", false
-	}
-
-	gitDir := filepath.Join(repoRoot, ".git")
-	if info, err := os.Stat(gitDir); err != nil || !info.IsDir() {
-		// No ".git" subdirectory: repoRoot is itself the bare repository
-		// (see analyzer.OpenRepo's own fallback, gitrepo.go).
-		gitDir = repoRoot
-	}
-
-	if ref == "HEAD" {
-		return filepath.Join(gitDir, "HEAD"), true
-	}
-	return filepath.Join(gitDir, "refs", "heads", filepath.FromSlash(ref)), true
-}
-
-// refPathPermissionDenied independently probes whether ref's own loose-ref
-// storage under repoRoot is unreadable for a permission reason (EACCES), as
-// opposed to genuinely absent (ENOENT) -- the one distinction neither
-// backend's own error text reliably carries (see cleanRefError's doc
-// above). It reads the exact physical location either backend would have
-// consulted, directly, from cmd/aurumcode, independent of which backend
-// actually produced the original error: this is one of the things this
-// card can do about the ambiguity without editing internal/analyzer (a
-// read_path for this card).
-//
-// It is deliberately conservative: refPathCandidate returning ok==false
-// (a raw SHA, an empty ref) leaves it alone, and any outcome other than a
-// confirmed permission error (the file does not exist, it is a directory
-// -- os.Open succeeds on a directory -- or the open succeeds) returns
-// false and lets a later check answer instead -- a probe that cannot say
-// anything useful must never manufacture a diagnosis of its own.
-func refPathPermissionDenied(repoRoot, ref string) bool {
-	candidate, ok := refPathCandidate(repoRoot, ref)
-	if !ok {
-		return false
-	}
-
-	f, err := os.Open(candidate)
-	if err == nil {
-		f.Close()
-		return false
-	}
-	return errors.Is(err, fs.ErrPermission)
-}
-
-// refPathIsDirectory independently probes whether ref's own loose-ref
-// location under repoRoot exists as a DIRECTORY rather than a ref file --
-// the shape of a hierarchical branch namespace (refs/heads/feature/ holds
-// refs/heads/feature/sub, so "feature" alone resolves to a directory, not
-// a ref file). os.ReadFile on a directory fails with EISDIR, which is
-// neither fs.ErrNotExist nor fs.ErrPermission, so without this check the
-// failure fell through cleanRefError's classification entirely into the
-// raw internal chain (see cleanRefError's doc above). Same conservative
-// contract as refPathPermissionDenied: refPathCandidate returning
-// ok==false leaves it alone, and anything other than a confirmed
-// directory returns false.
-func refPathIsDirectory(repoRoot, ref string) bool {
-	candidate, ok := refPathCandidate(repoRoot, ref)
-	if !ok {
-		return false
-	}
-
-	info, err := os.Stat(candidate)
-	return err == nil && info.IsDir()
-}
-
-// looksLikeCommitSHA reports whether ref is exactly 40 hex characters --
-// the one ref shape that resolves without ever touching a loose-ref file,
-// so refPathPermissionDenied has nothing to probe for it.
-func looksLikeCommitSHA(ref string) bool {
-	if len(ref) != 40 {
-		return false
-	}
-	for _, c := range ref {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-			return false
-		}
-	}
-	return true
-}
-
-// printNotices reports the changed files that were deliberately not
-// reviewed -- binary blobs and files past the size limits documented in
-// docs/specs/AUR-430.md. They print before the findings, on stdout, in the
-// diff's own sorted path order, and they do not change the exit code: a
-// skipped file is a normal, reportable outcome, not a failure. A run with
-// nothing to skip prints nothing here, so ordinary output is unaffected.
-// Notice text derives from diff paths -- repository-controlled input -- so
-// it passes the redaction filter before reaching the sink (AUR-432); an
-// ordinary path is filter-identity.
-func printNotices(stdout io.Writer, filter *redaction.Filter, notices []analyzer.DiffNotice) {
-	for _, n := range notices {
-		fmt.Fprintln(stdout, filter.Redact(n.Message))
-	}
-}
-
-// selectProvider is the one place cmd/aurumcode names a specific LLM
-// vendor, and it does so only to satisfy an environment variable the
-// operator set -- nothing here is hardwired to one provider. Two modes are
-// supported:
-//
-//   - AURUMCODE_LLM_FIXTURE=<path>: read that file's content and use it
-//     verbatim as the model's response, via review.FakeProvider. This is
-//     how tests/acceptance/AUR-430.sh runs the real binary fully offline
-//     and deterministically (the sandbox this card's acceptance runs under
-//     denies network access entirely).
-//   - LLM_API_KEY and LLM_BASE_URL: use the existing, already-vendor-neutral
-//     internal/llm/provider/litellm.Provider (an OpenAI-compatible endpoint).
-//     LLM_MODEL is forwarded when present; when omitted, the endpoint may
-//     choose its own configured default.
-//
-// Neither set: a clear, typed-by-message error, not a panic or a silent
-// no-op provider.
-// errNoProviderConfigured is selectProvider's error when neither an
-// offline fixture (AURUMCODE_LLM_FIXTURE) nor a live endpoint
-// (LLM_API_KEY + LLM_BASE_URL) is configured -- as opposed to any other
-// provider failure (an AURUMCODE_LLM_FIXTURE path that does not exist, a
-// malformed endpoint). AUR-449's --seguranca-only skip (runReview above)
-// tests for this exact sentinel with errors.Is: "the caller configured
-// nothing at all" is eligible to fall back to the deterministic security
-// pass alone, but a caller who attempted configuration and got it wrong is
-// still told the review failed, never silently downgraded.
-// The message text is AUR-448's: the COMPLETE fixture shape the engine
-// accepts, rule_id included, because enforceRuleCitations (AUR-434)
-// silently discards a finding whose rule_id is missing, and the
-// pre-AUR-448 shape omitted it. See selectProvider's own comment below and
-// docs/specs/AUR-448.md.
-var errNoProviderConfigured = errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider`)
-
-func selectProvider() (llm.Provider, error) {
-	if fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE"); fixturePath != "" {
-		content, err := os.ReadFile(fixturePath)
-		if err != nil {
-			return nil, fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
-		}
-		return review.NewOfflineProvider(string(content), "fixture", os.Getenv("AURUMCODE_PROMPT_CAPTURE")), nil
-	}
-
-	apiKey := os.Getenv("LLM_API_KEY")
-	baseURL := os.Getenv("LLM_BASE_URL")
-	if apiKey != "" && baseURL != "" {
-		model := strings.TrimSpace(os.Getenv("LLM_MODEL"))
-		return litellm.NewProvider(apiKey, baseURL, model), nil
-	}
-
-	// The first-run message names the FORM of a fixture file, not only the
-	// environment variable: a user who has never read the source cannot
-	// build a valid AURUMCODE_LLM_FIXTURE payload from the variable name
-	// alone. AUR-448: the shape shown must be the COMPLETE one the engine
-	// accepts -- rule_id included -- because enforceRuleCitations (AUR-434)
-	// silently discards a finding whose rule_id is missing, and the
-	// pre-AUR-448 shape omitted it: a user who followed it literally got
-	// "No issues found." for a fixture that actually planted a finding.
-	// security/hardcoded-secret is a real id of the embedded catalog
-	// (internal/review/rules/security.yml), not a placeholder. The example
-	// file pointer is phrased conditionally because it does not exist
-	// outside this repository's own checkout; see docs/specs/AUR-448.md.
-	// AUR-449 turned this literal into the errNoProviderConfigured sentinel
-	// above (identity preserved via errors.Is, text unchanged) so the
-	// --seguranca-only skip can recognize "nothing configured" specifically.
-	return nil, errNoProviderConfigured
 }
 
 // selectProviderForModel serves the model the user chose with --modelo
@@ -821,50 +217,36 @@ func selectProvider() (llm.Provider, error) {
 // The second return value says which mechanism serves the model, for the
 // stderr selection note.
 func selectProviderForModel(model string) (llm.Provider, string, error) {
+	p, mechanism, err := providerFromEnv(model, model)
+	if err != nil {
+		return nil, "", err
+	}
+	if p != nil {
+		return p, mechanism, nil
+	}
+	return nil, "", errors.New("no LLM provider is configured to serve it")
+}
+
+// providerFromEnv is the one reader of the provider environment. The offline
+// fixture (AURUMCODE_LLM_FIXTURE) answers as fixtureModel; a live
+// OpenAI-compatible endpoint (LLM_API_KEY and LLM_BASE_URL) serves liveModel
+// ("" lets the endpoint choose). With neither configured it returns a nil
+// provider and a nil error, and the caller names what is missing. The string
+// says which mechanism serves the model, for the stderr selection note.
+func providerFromEnv(fixtureModel, liveModel string) (llm.Provider, string, error) {
 	if fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE"); fixturePath != "" {
 		content, err := os.ReadFile(fixturePath)
 		if err != nil {
 			return nil, "", fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return review.NewOfflineProvider(string(content), model, os.Getenv("AURUMCODE_PROMPT_CAPTURE")), "offline fixture provider", nil
+		return review.NewOfflineProvider(string(content), fixtureModel, os.Getenv("AURUMCODE_PROMPT_CAPTURE")), "offline fixture provider", nil
 	}
-
 	apiKey := os.Getenv("LLM_API_KEY")
 	baseURL := os.Getenv("LLM_BASE_URL")
 	if apiKey != "" && baseURL != "" {
-		return litellm.NewProvider(apiKey, baseURL, model), "litellm endpoint " + redactedEndpoint(baseURL), nil
+		return litellm.NewProvider(apiKey, baseURL, liveModel), "litellm endpoint " + redactedEndpoint(baseURL), nil
 	}
-
-	return nil, "", errors.New("no LLM provider is configured to serve it")
-}
-
-// redactedEndpoint renders a configured endpoint URL for the stderr
-// selection note with any userinfo password already masked at the origin
-// (url.Redacted, AUR-432): LLM_BASE_URL=http://user:PASS@host must never
-// echo PASS back on the success path. The stderr redaction writer
-// additionally replaces the entire userinfo component with the stable
-// marker, so not even the username reaches the terminal; this origin fix
-// exists so no call path -- present or future -- starts from a string
-// that still carries the password. An unparseable value is returned as
-// given and left to the writer's structural rules.
-func redactedEndpoint(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil || u.User == nil {
-		return raw
-	}
-	return u.Redacted()
-}
-
-// reportModelUnavailable prints the clear, actionable error the card
-// promises when the model chosen with --modelo cannot review: which model,
-// why it is unavailable, and how to configure a provider that serves it --
-// including a local one. It returns the command's exit code, 1, the same
-// "the review itself failed" code AUR-430 already documents; the one thing
-// this path must never do is report an empty review with exit 0.
-func reportModelUnavailable(stderr io.Writer, model string, reason error) int {
-	fmt.Fprintf(stderr, "aurumcode review: model %q is unavailable: %v\n", model, reason)
-	fmt.Fprintf(stderr, "aurumcode review: to serve model %q: set AURUMCODE_LLM_FIXTURE=<response-file> for a deterministic offline run -- <response-file> is a JSON file shaped like tests/fixtures/review/known-problem-response.json (an \"issues\" array of file/line/severity/message) -- or set LLM_API_KEY and LLM_BASE_URL to an OpenAI-compatible endpoint that serves it -- a local endpoint works, e.g. LLM_BASE_URL=http://localhost:11434/v1 (ollama) or a litellm proxy in front of any local model -- then re-run with --modelo %s\n", model, model)
-	return 1
+	return nil, "", nil
 }
 
 // printFindings prints one line per issue (and, with none, render.
@@ -898,73 +280,4 @@ func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveRea
 		}
 		printAssessment(stdout, issue)
 	}
-}
-
-// printSecurityFindings prints the AUR-435 security pass section: a blank
-// separator line, a header naming the project security standard, then one
-// line per finding in the quality block's own "<file>:<line>: [<severity>]
-// <message>" format, sorted by (file, line, rule) for determinism -- or the
-// honest "No security findings." when the pass matched nothing. The section
-// only exists when --seguranca was given, so the published no-flag output
-// keeps its exact bytes.
-//
-// The file path derives from the reviewed diff -- repository-controlled
-// input -- so it passes the redaction filter before reaching the sink
-// (AUR-432); an ordinary path is filter-identity. The message is trusted
-// catalog text (rule description, standard citation, rule citation) and is
-// deliberately NOT re-filtered, for the same reason printFindings gives:
-// the filter would rewrite catalog spellings like "-secret:" and change the
-// published format of a secret-free review.
-func printSecurityFindings(stdout io.Writer, filter *redaction.Filter, issues []types.ReviewIssue) {
-	fmt.Fprintln(stdout)
-	fmt.Fprintln(stdout, "Security findings (standards/security-review):")
-	if len(issues) == 0 {
-		fmt.Fprintln(stdout, "No security findings.")
-		return
-	}
-
-	sorted := make([]types.ReviewIssue, len(issues))
-	copy(sorted, issues)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		if sorted[i].File != sorted[j].File {
-			return sorted[i].File < sorted[j].File
-		}
-		if sorted[i].Line != sorted[j].Line {
-			return sorted[i].Line < sorted[j].Line
-		}
-		return sorted[i].RuleID < sorted[j].RuleID
-	})
-	for _, issue := range sorted {
-		fmt.Fprintf(stdout, "%s:%d: [%s] %s\n", filter.Redact(issue.File), issue.Line, issue.Severity, issue.Message)
-		printAssessment(stdout, issue)
-	}
-}
-
-// printSecurityCoverage is the AUR-450 note: how many and which
-// security-category rules of the embedded catalog the --seguranca pass
-// actually applied (carry a matcher, internal/review.RulesLoader.
-// PatternFor), against how many the category declares in total. It always
-// prints when --seguranca runs -- before printSecurityFindings, and before
-// the findings are even known -- so the found and the empty-result cases
-// get the byte-identical coverage line: the figures are catalog-derived,
-// never diff-derived, which is exactly why they cannot lie about "No
-// security findings." meaning "the whole catalog ran."
-//
-// It goes to stderr, the same sink and "aurumcode review: " prefix every
-// other --seguranca-adjacent note already uses (AUR-433's cost lines,
-// AUR-441's cache-reuse note, AUR-448's discard warning, AUR-449's skip
-// explanation) -- never stdout, because tests/acceptance/AUR-449.sh pins
-// an exact sha256 of stdout for this exact command with a provider
-// configured, a byte-for-byte guarantee this card does not own and must
-// not disturb. See docs/specs/AUR-450.md's "Why stderr" section.
-//
-// applied is already sorted by rule id (RulesLoader.AppliedInCategory);
-// the message names every one of them, never truncated, because the whole
-// point is telling the caller exactly what ran.
-func printSecurityCoverage(stderr io.Writer, applied []string, total int) {
-	list := "none"
-	if len(applied) > 0 {
-		list = strings.Join(applied, ", ")
-	}
-	fmt.Fprintf(stderr, "aurumcode review: security pass applied %d of %d security rules (%s); see internal/review/rules/security.yml for the full catalog\n", len(applied), total, list)
 }
