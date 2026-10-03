@@ -19,7 +19,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/artifacts"
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // Seams for tests: a local fake GitHub server and a fixed clock. Production
@@ -44,7 +44,7 @@ var AnalysisDataReviewKinds = []string{"scanners"}
 // unusable outcome is inconclusive (the pipeline applies the mode) and
 // carries the reason code;
 // a usable one adds no gate line and returns the audit facts.
-func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig) (result Result, reason string, audit *render.AnalysisDataAudit) {
+func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig) (result Result, reason string, audit *types.AnalysisDataAudit) {
 	if !cfg.Declared() {
 		return Result{}, "", nil
 	}
@@ -70,7 +70,7 @@ func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig) 
 		result.Lines = append(result.Lines, fmt.Sprintf(
 			"analysis_data: usando cópia em cache (%s): a listagem de releases estava indisponível; idade e digests verificados", out.Tag))
 	}
-	return result, "", &render.AnalysisDataAudit{
+	return result, "", &types.AnalysisDataAudit{
 		Digest:      out.Digest,
 		GeneratedAt: out.GeneratedAt.UTC().Format(time.RFC3339),
 		Tag:         out.Tag,

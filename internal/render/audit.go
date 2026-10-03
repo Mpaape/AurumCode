@@ -7,17 +7,13 @@
 package render
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 
-	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // AuditRecord is the complete, redacted-before-write compliance record for
@@ -66,17 +62,13 @@ type AuditRecord struct {
 	Deliberation *deliberation.Transcript `json:"deliberation,omitempty"`
 }
 
-// AnalysisDataAudit identifies the verified analysis-data artifact a review
-// used: the manifest's set digest, its generation date (RFC 3339, UTC) and
-// the release tag.
-type AnalysisDataAudit struct {
-	Digest      string `json:"digest"`
-	GeneratedAt string `json:"generated_at"`
-	Tag         string `json:"tag"`
-	// Source is "remote" (release listing answered) or "cache" (listing
-	// failed; a locally cached copy, re-verified, was used).
-	Source string `json:"source,omitempty"`
-}
+// AnalysisDataAudit, AuditFinding and AuditException are the gate's own
+// structured facts (pkg/types); the audit record presents them unchanged.
+type (
+	AnalysisDataAudit = types.AnalysisDataAudit
+	AuditFinding      = types.AuditFinding
+	AuditException    = types.AuditException
+)
 
 // AuditGate is the gate's own decision for this run: "pass", "fail" or
 // "inconclusive", plus the reason lines the gate itself produced (empty on
@@ -84,28 +76,6 @@ type AnalysisDataAudit struct {
 type AuditGate struct {
 	Decision string `json:"decision"`
 	Reason   string `json:"reason,omitempty"`
-}
-
-// AuditFinding is one finding that actually contributed to the gate's
-// decision -- not every finding the review raised, only the ones the gate
-// matched against its threshold.
-type AuditFinding struct {
-	RuleID   string `json:"rule_id"`
-	Path     string `json:"path"`
-	Line     int    `json:"line"`
-	Severity string `json:"severity"`
-	// Origin is where the finding came from: skills, analysis, security,
-	// or a scanner engine's typed origin (sast for semgrep).
-	Origin string `json:"origin,omitempty"`
-}
-
-// AuditException documents one AUR-520 exception applied to a finding. Its
-// shape is fixed now so AUR-520 only has to populate it, never redesign the
-// audit record around it.
-type AuditException struct {
-	RuleID        string `json:"rule_id"`
-	Path          string `json:"path"`
-	Justification string `json:"justification"`
 }
 
 // AuditCoverage is AC-004's own coverage fact: whether the review was
@@ -144,39 +114,20 @@ func BuildAuditRecord(policyDigest, workflowSHA, repo, reviewedSHA, model, verdi
 	}
 }
 
-// PolicyDigest is AC-001's policy-change-detection digest: sha256 over the
-// central policy's own config.yml bytes, then every skill file its
-// review.context.skills names (in that declared order -- deterministic
-// because it is the policy author's own order, never re-sorted into a
-// different one), hex-encoded. A nil cfg (no policy declared this run)
-// returns "" -- an empty digest means no policy was active, never "a
-// policy whose content happens to hash to the empty string".
-//
-// A skill file this function cannot read contributes only its own
-// (trimmed) path to the digest and no error: LoadCentralPolicy has already
-// refused to start the run at all when a non-optional skill was missing, so
-// this is defense in depth, never the enforcement point -- and it must
-// never panic or abort a review just to compute an audit-trail digest.
-func PolicyDigest(policyDir string, cfg *config.Config) string {
-	if cfg == nil {
+// PolicySource is the declared central policy whose content the audit
+// record identifies. *config.Config implements it; a nil policy, typed or
+// not, means no policy was active this run.
+type PolicySource interface {
+	PolicyDigest(policyDir string) string
+}
+
+// PolicyDigest is the policy-change-detection digest the audit record
+// carries (see config.Config.PolicyDigest). A nil policy returns "".
+func PolicyDigest(policyDir string, policy PolicySource) string {
+	if policy == nil {
 		return ""
 	}
-	h := sha256.New()
-	configPath := filepath.Join(policyDir, config.DefaultConfigPath)
-	if data, err := os.ReadFile(configPath); err == nil {
-		h.Write(data)
-	}
-	for _, skill := range cfg.Review.Context.Skills {
-		skill = strings.TrimSpace(skill)
-		if skill == "" {
-			continue
-		}
-		h.Write([]byte("\x00" + skill + "\x00"))
-		if data, err := os.ReadFile(filepath.Join(policyDir, filepath.FromSlash(skill))); err == nil {
-			h.Write(data)
-		}
-	}
-	return hex.EncodeToString(h.Sum(nil))
+	return policy.PolicyDigest(policyDir)
 }
 
 // redactAuditRecord runs every individual string field of rec through
