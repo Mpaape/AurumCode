@@ -29,8 +29,9 @@ type Source struct {
 var LocalDiff = Source{
 	Label: "--base",
 	NotReviewed: gate.NotReviewedRules{
-		gate.ModelProviderFailed: gate.AlwaysNotReviewed,
-		gate.ModelParseFailed:    gate.AlwaysNotReviewed,
+		gate.ModelProviderFailed:    gate.AlwaysNotReviewed,
+		gate.ModelParseFailed:       gate.AlwaysNotReviewed,
+		gate.ModelDeliberationLimit: gate.AlwaysNotReviewed,
 	},
 }
 
@@ -41,8 +42,9 @@ var LocalDiff = Source{
 var PullRequest = Source{
 	Label: "--pr",
 	NotReviewed: gate.NotReviewedRules{
-		gate.ModelProviderFailed: gate.NotReviewedWhenRequired,
-		gate.ModelParseFailed:    gate.NotReviewedWhenRequired,
+		gate.ModelProviderFailed:    gate.NotReviewedWhenRequired,
+		gate.ModelParseFailed:       gate.NotReviewedWhenRequired,
+		gate.ModelDeliberationLimit: gate.AlwaysNotReviewed,
 	},
 	SecurityInIssues:  true,
 	NotReviewedNotice: "aurumcode review: --exigir-qualidade: the model review was inconclusive; the published deterministic findings do not approve this pull request",

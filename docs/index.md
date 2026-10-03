@@ -23,7 +23,7 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [Opções públicas](configuration.md#opcoes-publicas). Veja também
 [Qualidade e limitações](review-quality.md) e [Cache de review](review-cache.md).
 
-Tutorial: [Revisão de código](tutorials/revisao.md).
+Tutorial: [Revisão de código](tutorials/revisao.md) e [Deliberação com ferramentas](tutorials/deliberacao.md).
 
 ## Skills e política
 

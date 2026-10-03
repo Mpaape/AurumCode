@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -22,35 +23,55 @@ import (
 // Semgrep keeps sast_unverified_checkout.
 const scanReasonUnverifiedCheckout = "_unverified_checkout"
 
-// runScanners runs every enabled scanner over root. A non-empty blocked
-// suffix makes each one inconclusive without invoking it. A scan's section
+// runScanners runs every enabled scanner over root, except those deferred
+// to the model's decision (onDemand). A non-empty blocked suffix makes each
+// one inconclusive without invoking it. A scan's section
 // is "policy" only when the effective entry is the central policy's own;
 // the engine then runs hardened against the author's in-tree suppressions.
 // Scanner issues never pass through config.ApplyRuleConfig.
 func (s *reviewState) runScanners(root, blocked string) {
-	s.scans = nil
+	s.scans, s.deferredScans = nil, nil
+	s.scanRoot, s.scanBlocked = root, blocked
 	for _, entry := range s.cfg.QualityGates.EnabledScanners() {
-		engine, ok := entry.Lookup()
-		scan := gateScan{Config: entry, Engine: engine, Section: gateOriginRepo}
-		trust := scanner.TrustRepository
-		if s.centralCfg != nil && s.cfg.QualityGates.FromPolicy(entry.Name()) {
-			scan.Section, trust = gateOriginPolicy, scanner.TrustPolicy
+		if s.onDemand(entry) {
+			s.deferredScans = append(s.deferredScans, entry)
+			continue
 		}
-		switch {
-		case !ok:
-			// Parse refuses an unregistered engine; defensive only.
-			scan.Engine = scanner.Unregistered(entry.Name())
-			scan.Reason = scanner.FailureReason(scan.Engine, scanner.Report{}, scanner.ErrNotRegistered)
-		case blocked != "":
-			scan.Reason = scan.Source() + blocked
-		default:
-			out := s.deps.scanners.Scan(s.ctx, engine, scanner.Request{Root: root, Trust: trust, Options: entry.Options})
-			if scan.Reason = out.Reason; scan.Reason == "" {
-				scan.Issues = s.scannerIssues(out.Findings, scan.Origin())
-			}
-		}
-		s.scans = append(s.scans, scan)
+		s.scans = append(s.scans, s.scanEntry(entry))
 	}
+}
+
+// onDemand reports an entry the model decides about: with deliberation
+// enabled, a scanner the configuration does not require is offered as a
+// tool instead of running before the model. A required one always runs.
+func (s *reviewState) onDemand(entry config.ScannerConfig) bool {
+	return s.cfg.Deliberation.Active() && !entry.Required
+}
+
+// scanEntry runs one entry over the session's scan root under s.ctx, or
+// states why it could not.
+func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
+	root, blocked := s.scanRoot, s.scanBlocked
+	engine, ok := entry.Lookup()
+	scan := gateScan{Config: entry, Engine: engine, Section: gateOriginRepo}
+	trust := scanner.TrustRepository
+	if s.centralCfg != nil && s.cfg.QualityGates.FromPolicy(entry.Name()) {
+		scan.Section, trust = gateOriginPolicy, scanner.TrustPolicy
+	}
+	switch {
+	case !ok:
+		// Parse refuses an unregistered engine; defensive only.
+		scan.Engine = scanner.Unregistered(entry.Name())
+		scan.Reason = scanner.FailureReason(scan.Engine, scanner.Report{}, scanner.ErrNotRegistered)
+	case blocked != "":
+		scan.Reason = scan.Source() + blocked
+	default:
+		out := s.deps.scanners.Scan(s.ctx, engine, scanner.Request{Root: root, Trust: trust, Options: entry.Options})
+		if scan.Reason = out.Reason; scan.Reason == "" {
+			scan.Issues = s.scannerIssues(out.Findings, scan.Origin())
+		}
+	}
+	return scan
 }
 
 // scannerIssues converts an engine's findings with their typed origin and

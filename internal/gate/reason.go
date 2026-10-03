@@ -19,6 +19,10 @@ const (
 	// ModelParseFailed: the model answered but the answer could not be
 	// validated, so the run degraded to its deterministic half.
 	ModelParseFailed
+	// ModelDeliberationLimit: the model's tool conversation exceeded one of
+	// its limits (rounds, tokens, tool timeout); nothing it said is a
+	// verdict.
+	ModelDeliberationLimit
 )
 
 // Reason is a machine-readable motive for an inconclusive run. It is what
@@ -34,6 +38,9 @@ const (
 	ReasonModelParseFailure Reason = "model_parse_failure"
 	ReasonDegradedParse     Reason = "degraded_parse"
 	ReasonPartialCoverage   Reason = "partial_coverage"
+	// ReasonDeliberationLimit is the motive of a deliberation stopped by a
+	// limit; DeliberationLimit names which one (deliberation_limit:<limit>).
+	ReasonDeliberationLimit Reason = "deliberation_limit"
 )
 
 // ReasonInputs is everything the inconclusive ranking reads.
@@ -46,6 +53,9 @@ type ReasonInputs struct {
 	ScannerReason string
 	// PartialCoverage: part of the diff was never inspected.
 	PartialCoverage bool
+	// DeliberationLimit names the exceeded limit when Model is
+	// ModelDeliberationLimit.
+	DeliberationLimit string
 }
 
 // RankReason is the one ranking of why a run cannot be trusted. "Did not
@@ -56,6 +66,11 @@ type ReasonInputs struct {
 // flag), then partial coverage.
 func RankReason(in ReasonInputs) Reason {
 	switch {
+	case in.Model == ModelDeliberationLimit:
+		if in.DeliberationLimit == "" {
+			return ReasonDeliberationLimit
+		}
+		return ReasonDeliberationLimit + Reason(":"+in.DeliberationLimit)
 	case in.Model == ModelProviderFailed:
 		return ReasonProviderFailure
 	case in.Model == ModelSkipped:
