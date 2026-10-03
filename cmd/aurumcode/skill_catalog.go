@@ -14,9 +14,12 @@ import (
 // path from the changed files.
 //
 // A policy that cannot be loaded is an error (the policy is the
-// organization's, so it fails closed before any model call). A repository
-// whose skills cannot be loaded is only declared: the review continues
-// without them and the warning reaches the model and the review text.
+// organization's, so it fails closed before any model call, naming the
+// file). In the repository, a malformed SKILL.md drops only that skill, with
+// a warning naming it, and the other skills still apply; a repository skill
+// directory that cannot be read at all is declared and the review continues
+// without the repository's skills. Warnings reach the model and the review
+// text.
 // A nil source means that layer is absent.
 func resolveSkillCatalog(policy, repo skills.Source) (*skills.Catalog, error) {
 	var policySet, repoSet *skills.Set
@@ -29,11 +32,12 @@ func resolveSkillCatalog(policy, repo skills.Source) (*skills.Catalog, error) {
 		policySet = set
 	}
 	if repo != nil {
-		set, err := skills.LoadSource(repo)
+		set, skipped, err := skills.LoadSourceSkippingMalformed(repo)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("repository skills unavailable, review continues without them: %v", err))
 		} else {
 			repoSet = set
+			warnings = append(warnings, skipped...)
 		}
 	}
 	return skills.NewCatalog(policySet, repoSet, nil, warnings), nil
