@@ -2,7 +2,7 @@
 --- aprovado
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
+review formal "COMMENT" publicado no pull request #7 (0 comentário(s) na linha).
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave no pull request #7)
 check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado no pull request #7)
 exit_code=0
@@ -14,21 +14,21 @@ status publicado: context=aurumcode/policy-gate state=success
 --- reprovado
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: failure (1 achado(s) grave(s) no pull request #7)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar err…)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…)
 exit_code=3
 publicado em 7/reviews
 status publicado: context=aurumcode/review state=failure
   description: 1 achado(s) grave(s) no pull request #7
 status publicado: context=aurumcode/policy-gate state=failure
-  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar err…
+  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…
 --- inconclusivo
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (partial_coverage)
-review formal "COMMENT" publicado no pull request #7 (0 comentário(s) na linha).
+review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave no pull request #7)
 check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage))
 exit_code=1
