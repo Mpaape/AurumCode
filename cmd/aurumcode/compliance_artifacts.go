@@ -62,100 +62,131 @@ type complianceArtifactInputs struct {
 }
 
 // writeComplianceArtifacts is a complete no-op when neither --auditoria nor
-// --sarif was given: today's behavior stays byte-identical. A write failure
-// is reported on stderr and never changes the review's own exit code -- the
-// compliance trail is additive evidence, never a second way for an already
-// finished review to fail.
-func writeComplianceArtifacts(in complianceArtifactInputs, filter *redaction.Filter, stderr io.Writer) {
+// --sarif was given: today's behavior stays byte-identical. Both review paths
+// call it once their gate decision is final and before anything is published
+// or any exit code is chosen (AUR-568). A requested artifact that cannot be
+// written never ends as success: the failure is named on stderr with its
+// path, folded into *res (gate.ApplyArtifactFailures: inconclusive by the
+// policy's mode when a gate is declared), and returned so the caller exits
+// non-zero. When something failed, the artifacts that were written are
+// rewritten once with the final decision so every file agrees with it.
+func writeComplianceArtifacts(in complianceArtifactInputs, run *gateRun, res *gateDecision, filter *redaction.Filter, stderr io.Writer) []artifactFailure {
 	if in.auditoriaPath == "" && in.sarifPath == "" {
-		return
+		return nil
 	}
+	in.gate, in.gateInconclusiveReason = *res, res.Reason
+	failures := writeArtifactFiles(in, filter, nil)
+	if len(failures) == 0 {
+		return nil
+	}
+	for _, f := range failures {
+		fmt.Fprintf(stderr, "aurumcode review: %s: %s: %v\n", f.Reason, f.Path, f.Err)
+	}
+	applyArtifactFailures(run, res, failures)
+	in.gate, in.gateInconclusiveReason = *res, res.Reason
+	skip := make(map[string]bool, len(failures))
+	for _, f := range failures {
+		skip[f.Path] = true
+	}
+	writeArtifactFiles(in, filter, skip)
+	return failures
+}
 
-	policyDigest := render.PolicyDigest(in.policyDir, in.centralCfg)
-	// AUR-521's own workflow-SHA convention: AURUMCODE_WORKFLOW_SHA (the
-	// reusable workflow's own version, forwarded under a name GitHub
-	// Actions does not reserve). No fallback to GITHUB_SHA here on
-	// purpose: GITHUB_SHA already has its own field (ReviewedSHA, right
-	// below) -- a run with no AURUMCODE_WORKFLOW_SHA (a local invocation,
-	// outside the reusable workflow) must record an EMPTY workflow_sha,
-	// never silently duplicate reviewed_sha's value into it. A reviewer
-	// reading the record must be able to tell "this workflow's own
-	// version is unknown" apart from "this workflow's version happens to
-	// equal the reviewed commit".
-	workflowSHA := strings.TrimSpace(os.Getenv("AURUMCODE_WORKFLOW_SHA"))
+// writeArtifactFiles writes each requested artifact whose path is not in
+// skip and returns the failures.
+func writeArtifactFiles(in complianceArtifactInputs, filter *redaction.Filter, skip map[string]bool) []artifactFailure {
+	var failures []artifactFailure
+	if in.auditoriaPath != "" && !skip[in.auditoriaPath] {
+		if err := writeAuditFile(in, filter); err != nil {
+			failures = append(failures, artifactFailure{Reason: gateReasonAuditWriteFailed, Path: in.auditoriaPath, Err: err})
+		}
+	}
+	if in.sarifPath != "" && !skip[in.sarifPath] {
+		if err := writeSARIFFile(in, filter); err != nil {
+			failures = append(failures, artifactFailure{Reason: gateReasonSARIFWriteFailed, Path: in.sarifPath, Err: err})
+		}
+	}
+	return failures
+}
 
-	decision, reason := auditGateOutcome(in.gate, in.gateInconclusiveReason)
+// gateFacts is the gate's own structured output, defaulted to empty lists.
+func gateFacts(g gateDecision) (blocking []render.AuditFinding, exceptions []render.AuditException) {
 	// AUR-521/AUR-520: BlockingFindings and AppliedExceptions are
 	// evaluateGate's OWN structured output (policygate.go) -- the single
 	// place a finding is ever decided to block the gate or be excepted.
-	// This function never re-derives that decision a second time.
-	blocking := in.gate.BlockingFindings
+	// This file never re-derives that decision a second time.
+	blocking, exceptions = g.BlockingFindings, g.AppliedExceptions
 	if blocking == nil {
 		blocking = []render.AuditFinding{}
 	}
-	exceptionsApplied := in.gate.AppliedExceptions
-	if exceptionsApplied == nil {
-		exceptionsApplied = []render.AuditException{}
+	if exceptions == nil {
+		exceptions = []render.AuditException{}
 	}
-	// suppressed indexes AppliedExceptions by (ruleID, path) so the SARIF
-	// loop below can mark the exact same findings evaluateGate excepted
-	// as suppressed, with the exact same justification -- never a second,
-	// possibly-disagreeing exception match.
-	suppressed := make(map[[2]string]render.AuditException, len(exceptionsApplied))
-	for _, exc := range exceptionsApplied {
+	return blocking, exceptions
+}
+
+func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error {
+	// AUR-521's own workflow-SHA convention: AURUMCODE_WORKFLOW_SHA (the
+	// reusable workflow's own version, forwarded under a name GitHub
+	// Actions does not reserve). No fallback to GITHUB_SHA here on
+	// purpose: a run with no AURUMCODE_WORKFLOW_SHA (a local invocation,
+	// outside the reusable workflow) must record an EMPTY workflow_sha,
+	// never silently duplicate reviewed_sha's value into it.
+	workflowSHA := strings.TrimSpace(os.Getenv("AURUMCODE_WORKFLOW_SHA"))
+	decision, reason := auditGateOutcome(in.gate, in.gateInconclusiveReason)
+	blocking, exceptions := gateFacts(in.gate)
+	rec := render.BuildAuditRecord(
+		render.PolicyDigest(in.policyDir, in.centralCfg), workflowSHA, in.repo, in.reviewedSHA, in.model, in.verdict,
+		render.AuditGate{Decision: decision, Reason: reason},
+		blocking,
+		exceptions,
+		in.coverageComplete, in.omittedFiles,
+	)
+	rec.AnalysisData = in.analysisData
+	return render.WriteAuditRecord(in.auditoriaPath, rec, filter)
+}
+
+func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error {
+	blocking, exceptions := gateFacts(in.gate)
+	// suppressed indexes AppliedExceptions by (ruleID, path) so the loop
+	// below marks the exact same findings evaluateGate excepted as
+	// suppressed, with the exact same justification.
+	suppressed := make(map[[2]string]render.AuditException, len(exceptions))
+	for _, exc := range exceptions {
 		suppressed[[2]string{exc.RuleID, exc.Path}] = exc
 	}
-
-	if in.auditoriaPath != "" {
-		rec := render.BuildAuditRecord(
-			policyDigest, workflowSHA, in.repo, in.reviewedSHA, in.model, in.verdict,
-			render.AuditGate{Decision: decision, Reason: reason},
-			blocking,
-			exceptionsApplied,
-			in.coverageComplete, in.omittedFiles,
-		)
-		rec.AnalysisData = in.analysisData
-		if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
-			fmt.Fprintf(stderr, "aurumcode review: writing audit record: %v\n", err)
-		}
+	origins := make(map[string]string, len(blocking))
+	for _, b := range blocking {
+		origins[findingOriginKey(b.RuleID, b.Path, b.Line)] = b.Origin
 	}
-
-	if in.sarifPath != "" {
-		origins := make(map[string]string, len(blocking))
-		for _, b := range blocking {
-			origins[findingOriginKey(b.RuleID, b.Path, b.Line)] = b.Origin
+	findings := make([]render.SARIFFinding, 0, len(in.issues))
+	for _, issue := range in.issues {
+		title := ""
+		if rule, ok := in.dynamicRules[issue.RuleID]; ok {
+			title = rule.Title
 		}
-		findings := make([]render.SARIFFinding, 0, len(in.issues))
-		for _, issue := range in.issues {
-			title := ""
-			if rule, ok := in.dynamicRules[issue.RuleID]; ok {
-				title = rule.Title
-			}
-			identity := render.FindingIdentityFor(in.diff, issue, filter)
-			finding := render.SARIFFinding{
-				RuleID:    issue.RuleID,
-				RuleTitle: title,
-				Path:      issue.File,
-				Line:      issue.Line,
-				Severity:  issue.Severity,
-				Message:   issue.Message,
-				Context:   identity.Context,
-			}
-			// Gate origin of a counted finding, as a typed SARIF property.
-			if origin, ok := origins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
-				finding.Origin = origin
-			}
-			if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
-				finding.Suppressed = true
-				finding.Justification = exc.Justification
-			}
-			findings = append(findings, finding)
+		identity := render.FindingIdentityFor(in.diff, issue, filter)
+		finding := render.SARIFFinding{
+			RuleID:    issue.RuleID,
+			RuleTitle: title,
+			Path:      issue.File,
+			Line:      issue.Line,
+			Severity:  issue.Severity,
+			Message:   issue.Message,
+			Context:   identity.Context,
 		}
-		executionSuccessful := in.gateInconclusiveReason == ""
-		if err := render.WriteSARIF(in.sarifPath, version, findings, executionSuccessful, in.gateInconclusiveReason, filter); err != nil {
-			fmt.Fprintf(stderr, "aurumcode review: writing SARIF: %v\n", err)
+		// Gate origin of a counted finding, as a typed SARIF property.
+		if origin, ok := origins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
+			finding.Origin = origin
 		}
+		if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
+			finding.Suppressed = true
+			finding.Justification = exc.Justification
+		}
+		findings = append(findings, finding)
 	}
+	executionSuccessful := in.gateInconclusiveReason == ""
+	return render.WriteSARIF(in.sarifPath, version, findings, executionSuccessful, in.gateInconclusiveReason, filter)
 }
 
 // auditGateOutcome collapses a gateDecision (policygate.go) into the

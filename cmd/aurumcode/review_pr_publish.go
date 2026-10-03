@@ -18,8 +18,8 @@ func (p *prReview) publish() (int, bool) {
 	if code, done := p.resolveCommit(); done {
 		return code, true
 	}
-	p.writeArtifacts()
-	return p.finish(p.postReview()), true
+	artifactFailures := p.writeArtifacts()
+	return p.finish(p.postReview(), len(artifactFailures) > 0), true
 }
 
 // resolveCommit picks the commit SHA the review, its inline comments and the
@@ -68,8 +68,8 @@ func (p *prReview) resolveCommit() (int, bool) {
 // writeArtifacts writes AUR-521's audit record and SARIF once the gate's
 // decision is final and the reviewed commit is resolved; a no-op unless
 // --auditoria or --sarif was given.
-func (p *prReview) writeArtifacts() {
-	writeComplianceArtifacts(complianceArtifactInputs{
+func (p *prReview) writeArtifacts() []artifactFailure {
+	return writeComplianceArtifacts(complianceArtifactInputs{
 		auditoriaPath:          p.opts.auditoriaPath,
 		sarifPath:              p.opts.sarifPath,
 		policyDir:              p.opts.policyDir,
@@ -86,7 +86,7 @@ func (p *prReview) writeArtifacts() {
 		dynamicRules:           p.dynamicRules,
 		coverageComplete:       !p.coverage.partial(),
 		omittedFiles:           append(append([]string{}, p.coverage.IgnoredPaths...), p.coverage.FilteredPaths...),
-	}, p.filter, p.stderr)
+	}, p.run, p.gateRes, p.filter, p.stderr)
 }
 
 // postReview publishes the findings and the summary. The loop never lets one
@@ -186,7 +186,7 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 // exit code. The statuses are published before the comment-failure return: a
 // grave finding must still get its failing check even when an unrelated
 // comment failed (and vice versa); the two outcomes are independent.
-func (p *prReview) finish(failures []string) int {
+func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 	stderr := p.stderr
 	// AUR-505: a degraded run has no model answer to remember; the
 	// deterministic findings are not quality observations.
@@ -207,7 +207,7 @@ func (p *prReview) finish(failures []string) int {
 		}
 		return 1
 	}
-	return p.exitCode(checkExit, gateCheckExit)
+	return p.exitCode(checkExit, gateCheckExit, artifactsMissing)
 }
 
 // exitCode orders the closing conditions: an inconclusive model under
@@ -215,7 +215,7 @@ func (p *prReview) finish(failures []string) int {
 // failure, not a finding), the policy gate (a breach is exitFindings even
 // when also inconclusive, B1; block without a breach is
 // exitQualityNotReviewed), then --fail-on and --check's own status.
-func (p *prReview) exitCode(checkExit, gateCheckExit int) int {
+func (p *prReview) exitCode(checkExit, gateCheckExit int, artifactsMissing bool) int {
 	if p.opts.exigirQualidade && p.qualityDegraded {
 		fmt.Fprintln(p.stderr, "aurumcode review: --exigir-qualidade: the model review was inconclusive; the published deterministic findings do not approve this pull request")
 		return exitQualityNotReviewed
@@ -225,6 +225,10 @@ func (p *prReview) exitCode(checkExit, gateCheckExit int) int {
 	}
 	if code, closed := gateExitCode(p.gateRes); closed {
 		return code
+	}
+	if artifactsMissing {
+		// AUR-568: a requested audit/SARIF that is missing never ends as success.
+		return exitArtifactNotWritten
 	}
 	if p.threshold > 0 {
 		if n := countAtOrAbove(p.issues, p.threshold); n > 0 {
