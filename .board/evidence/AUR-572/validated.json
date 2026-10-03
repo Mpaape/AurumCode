@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-572",
+  "commit": "119176300649e66becf9815ef8d5ef5f27090ebd",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-572",
+    "exit_code": 0,
+    "raw_output": "AUR-572/AC-002-MUT-001/pass"
+  }
+}
