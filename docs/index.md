@@ -68,14 +68,14 @@ A análise não depende da linguagem: regras do Semgrep, SBOM e inventário
 valem para repositórios poliglotas. Referência:
 [SAST multilinguagem](configuration.md#sast-multilinguagem-com-semgrep-aur-548).
 
-Tutorial: em breve (AUR-564, `tutorials/qualquer-linguagem.md`).
+Tutorial: [Qualquer linguagem](tutorials/qualquer-linguagem.md).
 
 ## Benchmark e operação
 
 Corpus de recall e protocolo de comparação ([Benchmark](benchmark.md)) e o
 ambiente de desenvolvimento e QA em container ([Desenvolvimento e QA](qa.md)).
 
-Tutorial: em breve (AUR-564, `tutorials/benchmark.md`) e em breve (AUR-564, `tutorials/operacao.md`).
+Tutorial: [Benchmark de recall](tutorials/benchmark.md) e [Operação](tutorials/operacao.md).
 
 ## Especificações
 

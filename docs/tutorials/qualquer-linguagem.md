@@ -1,0 +1,291 @@
+# Tutorial: o AurumCode em um repositório de qualquer linguagem
+
+## Objetivo
+
+Ao final você terá visto, com saída real, o que o `aurumcode review` faz num
+repositório poliglota (Java, C#, Kotlin, PHP, Ruby, Terraform, YAML de CI e
+Dockerfile): como cada arquivo é classificado por gramática, qual contexto
+estrutural chega ao modelo, o que acontece com um arquivo sem gramática, com um
+binário e com um arquivo gerado, como um achado de política em Terraform
+bloqueia, o que já funciona hoje como "apelido de linguagem" e o que ainda não
+funciona.
+
+Cada comando e cada saída vêm de uma execução real, registrada em
+`demo/tutoriais/qualquer-linguagem/out/` e conferida por `run.sh --check`. Os
+blocos de configuração **são os arquivos da demonstração**, byte a byte. Linhas
+que começam por `RESULTADO:`, `prompt:` e `simbolo da gramatica` são
+**conclusões do script de demonstração** (ele inspeciona o prompt capturado e
+declara a condição que testou); o produto não as imprime.
+
+O modelo é um arquivo JSON determinístico (`AURUMCODE_LLM_FIXTURE`): isto prova
+o caminho do produto (classificação, contexto, cobertura, gate), **não** a
+qualidade de um modelo real em cada linguagem.
+
+## Pré-requisitos
+
+- `git`, `docker` e `bash`; a imagem do produto construída do `Dockerfile` da
+  raiz (veja o tutorial [revisão](revisao.md), "Pré-requisitos", para o atalho
+  `aurumcode`).
+- Nenhuma credencial: o provedor é o arquivo da demonstração.
+
+```bash
+bash demo/tutoriais/qualquer-linguagem/run.sh all      # seis casos, grava out/
+bash demo/tutoriais/qualquer-linguagem/run.sh --check  # out/ contra expected/, sem docker
+```
+
+Para capturar o prompt que o modelo recebeu, a demonstração define
+`AURUMCODE_PROMPT_CAPTURE=/work/prompt.txt` (variável do produto, usada também
+pelo tutorial de skills).
+
+## Caso 1: repositório poliglota e contexto estrutural por gramática
+
+A mudança acrescenta oito arquivos, um por tecnologia. Nenhuma lista de
+linguagens existe no código do produto: as gramáticas vêm do runtime
+tree-sitter e são enumeradas em tempo de execução.
+
+```bash
+aurumcode review --base main
+```
+
+O prompt capturado traz a seção `Languages` com o nome da gramática de cada
+arquivo e a seção `Codebase context` com os símbolos extraídos das árvores.
+Para provar que cada gramática contribuiu, cada método do exemplo tem um nome
+único (`contarJava`, `SaudarCsharp`, `saudarKotlin`, `saudarPhp`,
+`saudar_ruby`):
+
+<!-- saida: repo-poliglota -->
+```text
+- c_sharp: 1 files
+- dockerfile: 1 files
+- hcl: 1 files
+- java: 1 files
+- kotlin: 1 files
+- php: 1 files
+- ruby: 1 files
+- yaml: 1 files
+## Codebase context (untrusted, bounded, heuristic)
+simbolo da gramatica java: contarJava esta no contexto
+simbolo da gramatica c_sharp: SaudarCsharp esta no contexto
+simbolo da gramatica kotlin: saudarKotlin esta no contexto
+simbolo da gramatica php: saudarPhp esta no contexto
+simbolo da gramatica ruby: saudar_ruby esta no contexto
+simbolo da gramatica hcl: logs esta no contexto
+simbolo da gramatica dockerfile: alpine esta no contexto
+exit_code=0
+```
+
+O que observar: oito gramáticas distintas (`c_sharp`, `dockerfile`, `hcl`,
+`java`, `kotlin`, `php`, `ruby`, `yaml`); o Terraform é a gramática `hcl`. O
+trecho de contexto é uma lista **única e plana** de símbolos (JSON, "untrusted,
+bounded, heuristic"): o produto não atribui cada símbolo a um arquivo. Ela traz
+também ruído (`List`, `util`, `Demo`, que vêm de imports e do pacote) e **nada
+do YAML de CI**: a gramática `yaml` entra na lista de linguagens, mas o
+exemplo não produziu símbolo dela. É contexto heurístico para o modelo, não
+um gate.
+
+## Caso 2: arquivo sem gramática, declarado
+
+`notas.zzqx` tem uma extensão que nenhuma gramática conhece. A configuração do
+repositório pede que cobertura parcial reprove (`gate.inconclusive: block`):
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-gate/.aurumcode/config.yml -->
+```yaml
+gate:
+  fail_on: [high]
+  inconclusive: block
+```
+
+```bash
+aurumcode review --base main
+```
+
+<!-- saida: arquivo-sem-gramatica -->
+```text
+Review coverage
+- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+  - notas.zzqx
+exit_code=0
+prompt: +mas e texto simples e precisa ser lido pelo modelo
+RESULTADO: arquivo sem gramatica declarado, revisao completa, gate.inconclusive: block nao dispara
+```
+
+O que observar: o arquivo foi **lido pelo modelo** (a linha adicionada está no
+prompt) e **declarado por nome** no parecer. A lacuna de gramática sozinha não
+torna a revisão inconclusiva: mesmo com `gate.inconclusive: block`, o exit é
+0. Só o que *não foi revisado* (caso 3) aciona essa regra.
+
+## Caso 3: binário e gerado ficam fora do alcance e retêm a aprovação
+
+A mudança traz `ferramenta.bin` (ELF), `leia-me.txt` (**texto só no nome**: tem
+bytes nulos) e `schema.pb.txt` (começa com `Code generated by a tool. DO NOT
+EDIT.`). O produto detecta binário pelo **conteúdo**, nunca pelo nome.
+
+Sem gate:
+
+<!-- saida: binario-e-gerado -->
+```text
+binary file, skipped: ferramenta.bin
+binary file, skipped: leia-me.txt
+generated file, skipped: schema.pb.txt
+**Verdict:** Comment
+RESULTADO: sem gate, exit 0 mas o veredito nao e Approve (arquivos fora do alcance)
+```
+
+Com `gate.inconclusive: block` (a mesma configuração do caso 2):
+
+<!-- saida: binario-e-gerado -->
+```text
+aurumcode review: policy gate: review inconclusive (partial_coverage)
+exit_code=1
+RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
+```
+
+O que observar: o veredito é `Comment`, nunca `Approve`, nos dois casos; cada
+arquivo aparece na cobertura com o motivo (`binary`, `generated`). Sem gate o
+exit continua 0 (o produto só avisa); com o gate, a cobertura parcial reprova
+com exit 1.
+
+## Caso 4: achado de política em Terraform bloqueia
+
+A política do repositório declara uma skill de segurança e `gate.fail_on: [high]`:
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-terraform/.aurumcode/config.yml -->
+```yaml
+review:
+  context:
+    skills:
+      - .aurumcode/skills/seguranca.md
+gate:
+  fail_on: [high]
+```
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-terraform/.aurumcode/skills/seguranca.md -->
+```markdown
+# Seguranca de infraestrutura
+
+## Sem bucket publico
+severity: error
+Nenhum bucket de armazenamento pode ter acl publica.
+```
+
+A mudança é `main.tf` com `acl = "public-read"`:
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/mudanca-terraform/main.tf -->
+```hcl
+resource "aws_s3_bucket" "logs" {
+  bucket = "demo-logs"
+  acl    = "public-read"
+}
+```
+
+```bash
+aurumcode review --base main
+```
+
+<!-- saida: politica-terraform -->
+```text
+aurumcode review: policy gate: seguranca#sem-bucket-publico: Sem bucket publico (severidade error, limiar error)
+main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
+exit_code=3
+RESULTADO: achado citando a regra da skill de seguranca em main.tf bloqueou (gate.fail_on: high)
+```
+
+O que observar: a regra do achado é a seção `## Sem bucket publico` da skill
+(`seguranca#sem-bucket-publico`) e o exit é 3, o mesmo de um achado em Go. O
+achado vem do arquivo de resposta do modelo falso: o teste prova que o gate
+**bloqueia** um achado em HCL, não que um modelo real o encontraria.
+
+## Caso 5: apelidos de linguagem, o que funciona hoje
+
+Hoje o seletor que funciona no `review` é o escopo por caminho:
+`.aurumcode/instructions/*.md` com `applyTo`. Para Kotlin e Terraform:
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-instrucoes/.aurumcode/instructions/kotlin.md -->
+```markdown
+---
+applyTo: "**/*.kt"
+---
+Em Kotlin, prefira val a var e evite o operador !!.
+```
+
+A seleção por linguagem, `SKILL.md` com `languages: [...]`, e os apelidos
+(`kt` para `kotlin`, por exemplo) existem na biblioteca (`internal/context/skills`),
+**mas o `review` ainda não os usa; isso chega com o AUR-565**. O exemplo prova o
+negativo com esta skill de diretório:
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-instrucoes/.aurumcode/skills/estilo-kotlin/SKILL.md -->
+```markdown
+---
+name: estilo-kotlin
+version: 1
+languages: [kt]
+---
+SKILL-POR-LINGUAGEM-KOTLIN: use data class para valores.
+```
+
+```bash
+aurumcode review --base main
+```
+
+<!-- saida: apelidos-e-instrucoes -->
+```text
+prompt: kotlin.md (applyTo: **/*.kt)
+prompt: Em Kotlin, prefira val a var e evite o operador !!.
+prompt: terraform.md (applyTo: **/*.tf)
+prompt: java.md (applyTo: **/*.java) NAO chegou: a mudanca nao toca .java
+prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) NAO foi lida: selecao por linguagem e apelidos ainda nao estao ligados ao review (AUR-565)
+```
+
+O que observar: as instruções de `.kt` e `.tf` chegaram ao modelo e a de `.java`
+(que a mudança não toca) não; a skill por linguagem não foi lida. O aviso de
+apelido desconhecido (`Skill selection warnings`) também só existe na
+biblioteca. Não use `languages:` esperando efeito no `review` até o AUR-565.
+
+## Quando falha: extensão desconhecida com conteúdo de código ainda é revisada
+
+`script.zzqx` não tem gramática, mas contém código com uma senha literal. A
+falha que se teme é o arquivo "passar batido" por não ser reconhecido:
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/mudanca-extensao/script.zzqx -->
+```text
+class Conexao {
+    String senha = "hunter2";
+    void abrir() { System.out.println("abrindo com " + senha); }
+}
+```
+
+```bash
+aurumcode review --base main --fail-on error
+```
+
+<!-- saida: falha-extensao-desconhecida -->
+```text
+script.zzqx:2: [error] A senha esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+  - script.zzqx
+exit_code=3
+prompt: +    String senha = "hunter2";
+RESULTADO: o achado em script.zzqx (sem gramatica) reprovou: extensao desconhecida nao esconde codigo
+```
+
+O que observar: o arquivo foi declarado sem gramática **e** o modelo leu o
+texto e apontou o achado; com `--fail-on error`, exit 3. Falta de gramática
+reduz o contexto estrutural, não o alcance da revisão.
+
+## Problemas comuns
+
+- **"Não aparece contexto estrutural para o meu arquivo."** O contexto é uma
+  lista plana e heurística de símbolos; arquivos sem gramática (caso 2) e
+  linguagens cujo exemplo não define símbolo (o YAML do caso 1) não
+  contribuem. A revisão acontece mesmo assim.
+- **"`languages:` na minha skill não muda nada."** Correto hoje: veja o caso 5
+  (AUR-565).
+- **"Aprovado com binário no PR."** Não acontece: o veredito é `Comment`
+  (caso 3). Para reprovar, declare `gate.inconclusive: block`.
+- **"O aviso `gate verdict reuse unavailable` apareceu."** O cache de veredito
+  precisa de `AURUMCODE_CACHE_DIR`; sem ele o gate roda normalmente, só não
+  reaproveita veredito entre execuções. É aviso, não falha.
+- **Saída em português.** Com `review.language: pt-BR` (caso 5) o parecer sai
+  localizado; os demais casos usam o padrão em inglês.
+- **Não demonstrado aqui:** revisão de PR (`--pr`) de repositório poliglota
+  (a retenção por binário/gerado no caminho `--pr` é coberta por testes Go do
+  AUR-522, não por esta demonstração) e uma rodada com modelo real.

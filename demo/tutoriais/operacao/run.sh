@@ -20,7 +20,7 @@ DEVIMG="${AURUM_DEV_IMAGE:-aurum-dev-go:1.27.1-2026-10-02}"
 MODCACHE="${AURUM_MODCACHE:-$HOME/go/pkg/mod-aurumcode}"
 
 # run CMD...: ecoa "$ CMD", executa, imprime exit_code=N e guarda em LAST_RC/LAST_OUT.
-norm() { sed -E "s/\([0-9.]+s\)/(<t>s)/; s/[[:space:]][0-9.]+s\$/ <t>s/; s#$REPO_ROOT#<repo>#g; s#$HOME#<home>#g; s#/run/desktop/mnt/[^ ]*#<bind-mount>#g"; }
+norm() { sed -E "s/\([0-9.]+s\)/(<t>s)/; s/[[:space:]][0-9.]+s\$/ <t>s/; s#$REPO_ROOT#<repo>#g; s#$HOME#<home>#g; s#/run/desktop/mnt/[^ ]*#<bind-mount>#g; s#github.com/[A-Za-z0-9]+/AurumCode#<modulo>#g"; }
 
 run() {
   printf '$ %s\n' "$*" | norm
