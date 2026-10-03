@@ -23,12 +23,15 @@ type Source struct {
 	NotReviewedNotice string
 }
 
-// LocalDiff reviews a local diff and prints a report. A provider failure
+// LocalDiff reviews a local diff and prints a report. Any model failure
 // (including a required quality review that was skipped) always closes the
 // run: the report it prints covers deterministic analysis only.
 var LocalDiff = Source{
-	Label:       "--base",
-	NotReviewed: gate.NotReviewedRules{gate.ModelProviderFailed: gate.AlwaysNotReviewed},
+	Label: "--base",
+	NotReviewed: gate.NotReviewedRules{
+		gate.ModelProviderFailed: gate.AlwaysNotReviewed,
+		gate.ModelParseFailed:    gate.AlwaysNotReviewed,
+	},
 }
 
 // PullRequest reviews a verified pull request and publishes on it. A
