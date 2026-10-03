@@ -171,7 +171,7 @@ func TestAUR519EvaluateGateRuleSeverityFloorsModel(t *testing.T) {
 // way the pipeline does (gate.ApplyInconclusiveMode): EvaluateGate only marks
 // a result Inconclusive, the failure is decided in that one place.
 func decideInconclusiveForTest(g config.GateConfig, d *igate.Result) {
-	mode, err := g.InconclusiveMode(config.InconclusiveBlock)
+	mode, err := g.InconclusiveMode()
 	applyInconclusiveModeValue(mode, err, d)
 }
 

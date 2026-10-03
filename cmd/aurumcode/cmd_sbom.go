@@ -171,7 +171,7 @@ func reportSBOMFailure(stderr io.Writer, genErr error, gateCfg config.GateConfig
 		fmt.Fprintf(stderr, "aurumcode sbom: gate: %v\n", gateErr)
 		return 2
 	}
-	mode, modeErr := gateCfg.InconclusiveMode(config.InconclusiveBlock)
+	mode, modeErr := gateCfg.InconclusiveMode()
 	applyInconclusiveModeValue(mode, modeErr, &gateResult)
 	for _, line := range gateResult.Lines {
 		fmt.Fprintf(stderr, "aurumcode sbom: policy gate: %s\n", line)

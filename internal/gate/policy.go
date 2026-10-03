@@ -123,7 +123,7 @@ func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 	if inconclusiveReason != "" {
 		// A declared gate without gate.inconclusive blocks (the same
 		// default Config.InconclusiveMode resolves).
-		mode, err := gate.InconclusiveMode(config.InconclusiveBlock)
+		mode, err := gate.InconclusiveMode()
 		if err != nil {
 			return d, err
 		}

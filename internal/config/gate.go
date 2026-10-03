@@ -120,13 +120,22 @@ const (
 	InconclusiveWarn  = "warn"
 )
 
-// InconclusiveMode normalizes gate.inconclusive. An absent value resolves to
-// fallback: the caller owns the context that decides what silence means
-// (Config.InconclusiveMode resolves it to block whenever a gate or a scanner
-// is in play, so a tool that could not run never approves by omission).
+// InconclusiveMode resolves gate.inconclusive for this gate section alone: an
+// absent value is block when the gate is declared (fail_on written), so a
+// declared gate never approves an inconclusive review by omission; with no
+// gate at all it is "". Config.InconclusiveMode adds the scanner context.
+func (g GateConfig) InconclusiveMode() (mode string, err error) {
+	if g.Declared() {
+		return g.resolveInconclusive(InconclusiveBlock)
+	}
+	return g.resolveInconclusive("")
+}
+
+// resolveInconclusive normalizes gate.inconclusive. An absent value resolves
+// to fallback: the caller owns the context that decides what silence means.
 // "block" and "warn" are the documented values; "bloquear"/"alertar" are
 // accepted as the project's own Portuguese aliases.
-func (g GateConfig) InconclusiveMode(fallback string) (mode string, err error) {
+func (g GateConfig) resolveInconclusive(fallback string) (mode string, err error) {
 	switch strings.ToLower(strings.TrimSpace(g.Inconclusive)) {
 	case "":
 		return fallback, nil
@@ -146,7 +155,7 @@ func (g GateConfig) Validate() error {
 	if _, _, _, err := g.Threshold(); err != nil {
 		return err
 	}
-	if _, err := g.InconclusiveMode(""); err != nil {
+	if _, err := g.resolveInconclusive(""); err != nil {
 		return err
 	}
 	return g.ValidateSources()

@@ -10,7 +10,7 @@ func (c *Config) InconclusiveMode() (string, error) {
 	if c == nil {
 		return "", nil
 	}
-	return c.Gate.InconclusiveMode(c.defaultInconclusiveMode())
+	return c.Gate.resolveInconclusive(c.defaultInconclusiveMode())
 }
 
 func (c *Config) defaultInconclusiveMode() string {
