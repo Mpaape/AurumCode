@@ -81,6 +81,17 @@ ambiente de desenvolvimento e QA em container ([Desenvolvimento e QA](qa.md)).
 
 Tutorial: [Benchmark de recall](tutorials/benchmark.md) e [Operação](tutorials/operacao.md).
 
+## Estendendo o Aurum
+
+Os pontos de extensão do produto, com o contrato exato de cada um: engine de
+scanner (`scanner.Scanner`, registro fechado, origem tipada), ferramenta de
+deliberação (`deliberation.Tool`, limites e transcript), skill (`SKILL.md`,
+catálogo em camadas) e fonte de contexto (`ContextProvider`, o lugar do MCP),
+e o que não é ponto de extensão. Referência: [Estendendo o Aurum](extensao.md)
+e [Arquitetura](architecture.md).
+
+Tutorial: [Estendendo o Aurum na prática](tutorials/extensao.md).
+
 ## Especificações
 
 O arquivo histórico da reconstrução está na seção [Specs](specs/README.md).
