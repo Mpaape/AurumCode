@@ -157,11 +157,13 @@ ac002_mut001() {
   cp -R "$repo_root/go.mod" "$repo_root/go.sum" "$repo_root/cmd" "$repo_root/internal" "$repo_root/pkg" "$root/" 2>/dev/null || true
   cp -R "$repo_root/tests/acceptance" "$root/tests/acceptance" 2>/dev/null || true
   chmod -R u+w "$root"
-  local target="$root/cmd/aurumcode/review_pr_gate.go"
-  local anchor='res, ok := executeGate("--pr", pipeline, p.run, reason)'
-  grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
-  sed -i "s|${anchor}|res, ok := executeGate(\"--pr\", newGatePipeline(pipeline.Contributors()[:len(pipeline.Contributors())-1]...), p.run, reason)|" "$target"
-  grep -Fq "$anchor" "$target" && infra mutation-not-applied
+  # AUR-576: both paths run the session's one gate phase (review_gate.go);
+  # the mutation drops the contributor for the --pr source only.
+  local target="$root/cmd/aurumcode/review_gate.go"
+  local anchor='res, ok := s.executeGate(pipeline, reason)'
+  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra mutation-anchor-missing
+  sed -i "s|${anchor}|if s.source.Label == \"--pr\" { pipeline = gate.NewPipeline(pipeline.Contributors()[:len(pipeline.Contributors())-1]...) }; res, ok := s.executeGate(pipeline, reason)|" "$target"
+  grep -Fq 'if s.source.Label == "--pr" { pipeline = gate.NewPipeline(' "$target" || infra mutation-not-applied
 
   local log="$run_dir/mut-ac002.log"
   local survived=0

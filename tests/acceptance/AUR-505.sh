@@ -220,7 +220,7 @@ run_ac003() { nominal_call 'AC-003'; }
 # AC-001 must fall.
 run_mut001() {
   mutated_call 'MUT-001' \
-    's/p\.qualityDegraded = true/return \/\/ AUR-505 MUT-001/' \
+    's/p\.model = modelParseFailed/return \/\/ AUR-505 MUT-001/' \
     'AC-001' 'AUR-505 MUT-001'
 }
 
