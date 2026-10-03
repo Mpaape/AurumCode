@@ -32,7 +32,6 @@ RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova
 --- B. set_digest do manifesto nao confere com a lista de arquivos
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): manifest: set_digest "sha256:0000000000000000000000000000000000000000000000000000000000000000" does not match its files (sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1): digest mismatch
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -53,6 +52,7 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_digest_mismatch
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): manifest: set_digest "sha256:0000000000000000000000000000000000000000000000000000000000000000" does not match its files (sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1): digest mismatch
 --- requisicoes recebidas pelo servidor local (modo adulterado-manifesto): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200

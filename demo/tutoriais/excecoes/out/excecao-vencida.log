@@ -2,7 +2,6 @@
 $ aurumcode review --base main --politica /policy --auditoria /work/auditoria.json
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: exceção venceu em 2024-01-01 e não vale mais (dono: time-seguranca, motivo: valor de demonstracao, sem credencial real)
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -22,6 +21,7 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: a excecao vencida nao vale: o achado volta a reprovar
 exceptions_applied: []
