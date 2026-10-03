@@ -1,10 +1,13 @@
 package review
 
 import (
+	"context"
+
+	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/prompt"
 	"strings"
 	"testing"
 
-	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -21,7 +24,7 @@ func TestWeighAssessmentsKeepsOnlyOfferedEvidence(t *testing.T) {
 		},
 		Issues: []types.ReviewIssue{{RuleID: "r", Assessment: &types.EvidenceAssessment{EvidenceID: "E8", Status: "confirmed"}}},
 	}
-	weighAssessments(result, []prompt.EvidenceItem{{ID: "E1"}, {ID: "E2"}})
+	weighAssessments(result, []string{"E1", "E2"})
 	if len(result.EvidenceAssessments) != 1 {
 		t.Fatalf("kept %+v, want only E1", result.EvidenceAssessments)
 	}
@@ -47,5 +50,37 @@ func TestWeighAssessmentsWithoutEvidenceKeepsNothing(t *testing.T) {
 	weighAssessments(result, nil)
 	if result.EvidenceAssessments != nil || result.Metadata[AssessmentDiscardWarningKey] == "" {
 		t.Fatalf("got %+v / %q", result.EvidenceAssessments, result.Metadata[AssessmentDiscardWarningKey])
+	}
+}
+
+// Evidence above the section's ceiling is declared "N omitidos" and never
+// shown: the model did not read it, so an assessment of an omitted id is
+// discarded with the warning, exactly like an id never offered, and only
+// the admitted ids keep their assessment (nothing omitted can be demoted).
+func TestAssessmentOfEvidenceOmittedByTheCeilingIsDiscarded(t *testing.T) {
+	evidence := sampleEvidence(40)
+	reply := `{"verdict":"comment","issues":[],"summary":"ok","evidence_assessments":[` +
+		`{"evidence_id":"ev-0","status":"confirmed","justification":"lido"},` +
+		`{"evidence_id":"ev-39","status":"disputed","justification":"nunca lido"}]}`
+	provider := &messagesCaptureProvider{FakeProvider: FakeProvider{Response: reply}}
+	reviewer := NewReviewer(llm.NewOrchestrator(provider, nil, nil), DefaultConfig())
+	limits := prompt.DefaultLimits()
+	limits.EvidenceMaxTokens = 400
+	if err := reviewer.promptBuilder.SetSlotLimits(limits); err != nil {
+		t.Fatal(err)
+	}
+	result, err := reviewer.GenerateReviewWithContext(context.Background(), goldenDiff(), ReviewContext{Evidence: evidence})
+	if err != nil {
+		t.Fatal(err)
+	}
+	user := provider.messages[1].Content
+	if strings.Contains(user, "[ev-39]") || !strings.Contains(user, "[ev-0]") || !strings.Contains(user, "omitidos") {
+		t.Fatalf("fixture invalid: ev-39 must be omitted and ev-0 shown")
+	}
+	if len(result.EvidenceAssessments) != 1 || result.EvidenceAssessments[0].EvidenceID != "ev-0" {
+		t.Fatalf("kept %+v, want only the shown ev-0", result.EvidenceAssessments)
+	}
+	if w := result.Metadata[AssessmentDiscardWarningKey]; !strings.Contains(w, `"ev-39"`) || !strings.Contains(w, "omitted by the section ceiling") {
+		t.Fatalf("the omitted id must be discarded loudly, warning = %q", w)
 	}
 }

@@ -94,8 +94,8 @@ replace_once() {
 }
 
 readonly ac001_tests=(TestAUR579PromptCarriesEveryPassBeforeTheModel TestEvidenceRunsBeforeTheModel TestRunFollowsTheOneOrder)
-readonly ac002_tests=(TestAUR579AssessmentBesideOriginInEverySink TestWeighAssessmentsKeepsOnlyOfferedEvidence TestWeighAssessmentsWithoutEvidenceKeepsNothing TestModelAssessmentParsedAndOriginIgnored)
-readonly ac003_tests=(TestAUR579PolicyFloorAndRepositoryTriage TestGateTriageParse)
+readonly ac002_tests=(TestAUR579AssessmentBesideOriginInEverySink TestWeighAssessmentsKeepsOnlyOfferedEvidence TestWeighAssessmentsWithoutEvidenceKeepsNothing TestModelAssessmentParsedAndOriginIgnored TestAssessmentOfEvidenceOmittedByTheCeilingIsDiscarded)
+readonly ac003_tests=(TestAUR579PolicyFloorAndRepositoryTriage TestGateTriageParse TestTriageMatchesTheDisputeByOrigin)
 readonly ac004_tests=(TestAUR579EvidenceSectionDecidesTheAnswer TestEvidenceSlotRendersRedactsAndDeclaresOmissions)
 readonly ac005_tests=(TestAUR579ContextKeyIncludesEvidence TestRequestCacheKeyCoversEvidence)
 readonly pkgs=(./cmd/aurumcode/ ./internal/review/ ./internal/review/session/ ./internal/config/ ./internal/gate/)
@@ -134,8 +134,8 @@ run_ac004() {
   local root="$run_dir/root-mut-ac004"
   stage "$root"
   replace_once "$root/internal/prompt/evidence.go" \
-    'return renderBudgetedSlot(slotDeterministicEvidence, items, maxTokens, est)' \
-    'return "" // AC-004 mutation: the evidence section never reaches the prompt'
+    'text, admitted := renderBudgetedSlot(slotDeterministicEvidence, items, maxTokens, est)' \
+    'text, admitted := "", []int(nil) // AC-004 mutation: the evidence section never reaches the prompt'
   expect_red "$root" "$run_dir/mut-ac004.log" TestAUR579EvidenceSectionDecidesTheAnswer
   printf '%s/AC-004/MUT/rejected\n' "$card"
 }

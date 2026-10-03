@@ -5,6 +5,13 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
+// DisputeKey identifies a disputed finding by its origin as well as its
+// rule, path and line, so a dispute of one source's finding can never
+// demote another source's finding at the same place.
+func DisputeKey(origin, ruleID, path string, line int) string {
+	return origin + "|" + FindingOriginKey(ruleID, path, line)
+}
+
 // Triage is what the model's assessment of the deterministic evidence may
 // change in the gate: nothing, unless the repository (never a central
 // policy) declared gate.triage: model for a source. Disputed holds the
@@ -23,16 +30,16 @@ type Demotion struct {
 	Issue  types.ReviewIssue
 }
 
-// keep returns the issues of source that still count, and records on run
-// the ones the model's dispute demoted.
-func (run *Run) keep(source string, issues []types.ReviewIssue) []types.ReviewIssue {
+// keep returns the issues of source (whose findings carry origin) that
+// still count, and records on run the ones the model's dispute demoted.
+func (run *Run) keep(source, origin string, issues []types.ReviewIssue) []types.ReviewIssue {
 	t := run.Triage
 	if !t.BySource[source] || len(t.Disputed) == 0 {
 		return issues
 	}
 	kept := make([]types.ReviewIssue, 0, len(issues))
 	for _, issue := range issues {
-		if t.Disputed[FindingOriginKey(issue.RuleID, issue.File, issue.Line)] {
+		if t.Disputed[DisputeKey(origin, issue.RuleID, issue.File, issue.Line)] {
 			run.Demoted = append(run.Demoted, Demotion{Source: source, Issue: issue})
 			continue
 		}
@@ -52,5 +59,5 @@ func (run *Run) keepSkills(issues []types.ReviewIssue, dynamic func(ruleID strin
 			rest = append(rest, issue)
 		}
 	}
-	return append(rest, run.keep(config.GateSourceSkills, skills)...)
+	return append(rest, run.keep(config.GateSourceSkills, OriginSkills, skills)...)
 }
