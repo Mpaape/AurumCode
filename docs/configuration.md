@@ -290,9 +290,10 @@ que o esquema não conhece, em qualquer seção (por exemplo `gate.fial_on`),
 falha a carga antes de qualquer chamada ao modelo, com a chave e a linha
 nomeadas (`parsing .aurumcode/config.yml: yaml: unmarshal errors: line 2:
 field fial_on not found in type config.GateConfig`). Sem isso, um erro de
-digitação deixava o gate sem declaração e a revisão aprovava. A seção
-`quality_gates.sast` também é validada na carga: `engine` diferente de
-`semgrep` ou um `rule_packs` que parece flag (`--...`) são recusados citando a
+digitação deixava o gate sem declaração e a revisão aprovava. As seções
+`quality_gates.sast` e `quality_gates.scanners` também são validadas na carga:
+`engine` que não é uma engine registrada no binário, a mesma engine declarada
+duas vezes ou um `rule_packs` que parece flag (`--...`) são recusados citando a
 chave.
 
 **Achado determinístico conta em qualquer modo (AUR-569).** O modo de
@@ -389,7 +390,7 @@ de `gate:` estar declarado ou não:
 # .aurumcode/config.yml (ou o config.yml da política central)
 quality_gates:
   sast:
-    engine: semgrep             # único motor aceito hoje
+    engine: semgrep             # engine registrada da categoria sast
     enabled: true
     fail_on_severity: ERROR     # critical|high/error, medium/warning, low/info; padrão ERROR
     rule_packs: [p/security-audit, p/owasp-top-ten]   # padrão do RFC quando ausente
@@ -418,6 +419,46 @@ Sob política central, `quality_gates.sast` do repositório é sempre ignorado
 por completo (com o mesmo aviso nomeado que `gate`/`rules`/`ignore` já usam):
 um repositório não consegue desligar ou afrouxar um SAST que a política
 ligou, mesmo declarando sua própria `enabled: false`.
+
+### Scanners são engines registradas (AUR-577)
+
+`quality_gates.sast` é o alias da entrada `semgrep` da lista genérica
+`quality_gates.scanners`. As duas formas abaixo são equivalentes (declarar as
+duas para a mesma engine é erro de carga):
+
+```yaml
+quality_gates:
+  scanners:
+    - engine: semgrep           # nome de uma engine registrada no binário
+      enabled: true             # opcional; uma entrada listada roda, salvo enabled: false
+      required: true            # sob política central: o repositório não remove nem afrouxa
+      fail_on: ERROR            # critical|high/error, medium/warning, low/info; padrão ERROR
+      options:
+        rule_packs: [p/security-audit, p/owasp-top-ten]
+```
+
+- As engines são compiladas no binário (lista fechada em
+  `internal/scanner/engines`); `engine` desconhecido é erro de carga, citando a
+  chave e as engines registradas. Hoje a única é `semgrep` (categoria `sast`).
+- `options` é validado pela própria engine (para o `semgrep`, só
+  `rule_packs`).
+- **Política vence engine por engine.** Uma entrada da política com
+  `required: true` (e toda `quality_gates.sast` da política, que é sempre
+  obrigatória) faz a entrada do repositório para a mesma engine ser ignorada,
+  inclusive `enabled: false`, com o aviso `quality_gates.scanners[<engine>] do
+  config do repositório foi ignorado: a política central decide sozinha` (ou
+  `quality_gates.sast ...`). Uma entrada da política sem `required` cede à do
+  repositório. Uma engine que só um lado declara vale como declarada.
+- Origem: a linha do gate, a auditoria e o SARIF levam a origem tipada da
+  engine, que é o nome dela; o `semgrep` mantém a origem `sast` (rótulo de
+  antes), de modo que nenhuma saída existente mudou.
+- Erro, binário ausente ou relatório incompleto de qualquer engine é
+  inconclusivo (`<categoria ou engine>_unavailable`, `_execution_error`,
+  `_invalid_output`, `_incomplete`), nunca "zero achados", e segue a regra
+  única de `gate.inconclusive` (ausente = `block` com scanner habilitado).
+- `gate.sources` e `gate.triage` aceitam `skills`, `analysis` e cada engine
+  registrada pelo nome ou pela categoria: `sast` continua valendo e cobre toda
+  engine da categoria `sast` (`semgrep` também é aceito).
 
 Semgrep é um processo externo: a imagem do produto o traz pré-instalado, na
 versão fixada em `.board/bootstrap/locks/scanners.yml`. Os pacotes de regras
@@ -1039,7 +1080,8 @@ counts if its severity is at or above `fail_on`, whatever its origin:
 |---|---|
 | `skills` | rules from the policy's skill sections (cited by the model) |
 | `analysis` | the embedded deterministic catalog (`analysis/*`) |
-| `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`) |
+| `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`), and every other registered engine of the `sast` category |
+| `<engine>` | a registered scanner engine by name (`semgrep`); an engine without a category answers only to its name |
 
 ```yaml
 gate:
@@ -1047,7 +1089,8 @@ gate:
   sources: [skills, analysis, sast]   # optional; default: all three
 ```
 
-`sources` is a closed list; an unknown value is an error when the config is
+`sources` is a closed list (`skills`, `analysis`, and the registered scanner
+engines by name or category); an unknown value is an error when the config is
 loaded. Absent or empty means all origins. The central policy governs the
 list: when it declares `gate`, a repository's own `gate` (including its
 `sources`) is ignored. Analysis findings are recomputed from the diff by the
@@ -1102,7 +1145,8 @@ the same place. Evidence the prompt's ceiling left out (declared as
 "N omitidos") was never read by the model: an assessment of it is discarded
 with the same warning as an id never offered, and it can never demote.
 
-`triage` keys are the `gate.sources` names (`skills`, `analysis`, `sast`);
+`triage` keys are the `gate.sources` names (`skills`, `analysis`, `sast`, or a
+registered engine's name);
 values are `model` or `none` (the default). The evidence the model assesses
 is the deterministic one (`analysis`, the `--seguranca` pass counted under
 `analysis`, and `sast`); a skill-section finding is the model's own citation,
