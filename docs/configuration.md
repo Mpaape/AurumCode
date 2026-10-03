@@ -374,6 +374,17 @@ aurumcode review --base HEAD~1 \
 Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
 `--sarif`, o comportamento de hoje é idêntico, byte a byte.
 
+**Falha ao gravar (AUR-568).** Um arquivo pedido que não pode ser gravado (o pai
+é um arquivo, o diretório não existe, sem permissão) nunca termina como sucesso:
+a mensagem em stderr nomeia o caminho e o motivo (`audit_write_failed` ou
+`sarif_write_failed`) e o exit é diferente de 0 (1, a menos que um código mais
+específico do gate já valha). Com `gate` declarado, a revisão fica inconclusiva
+pelo modo da política (`gate.inconclusive: block` reprova com status `failure`;
+`warn` publica "inconclusivo", nunca "aprovado") e a aprovação é retida. A
+gravação acontece antes da publicação e do exit, e a decisão final a considera;
+o outro arquivo, se gravável, é regravado com essa decisão final. Sem `gate`, só
+o exit e a mensagem mudam. Com caminhos graváveis o comportamento é o de sempre.
+
 O workflow reutilizável (`.github/workflows/review.yml`) escreve os dois
 sempre e envia AMBOS como artefatos do job via `actions/upload-artifact`
 (`if: always()`, para que um gate reprovado -- o caso que mais importa --
