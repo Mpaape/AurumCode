@@ -11,10 +11,10 @@ $ go test ./tests/benchmark -run TestAUR523 -count=1 -v
 === RUN   TestAUR523ReportReproducible
 --- PASS: TestAUR523ReportReproducible (<t>s)
 PASS
-ok  	github.com/Mpaape/AurumCode/tests/benchmark <t>s
+ok  	<modulo>/tests/benchmark <t>s
 exit_code=0
 RESULTADO: o harness reproduziu o relatorio versionado (corpus e politica inalterados)
 $ go test ./tests/benchmark -run TestAUR523 -count=1 -update-aur523
-ok  	github.com/Mpaape/AurumCode/tests/benchmark <t>s
+ok  	<modulo>/tests/benchmark <t>s
 exit_code=0
 RESULTADO: -update-aur523 numa copia gerou relatorio .md e .json identicos aos versionados (byte a byte)

@@ -1,0 +1,5 @@
+scanners fixados por digest: 4
+RESULTADO: o indice de locks confere os digests dos arquivos de lock
+RESULTADO: scanners.yml alterado sem atualizar o digest do indice: verify.sh reprova
+ausente (nao puxada): docker.io/koalaman/shellcheck
+presente: docker.io/aquasec/trivy

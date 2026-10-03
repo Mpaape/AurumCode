@@ -1,0 +1,5 @@
+--- PASS: TestAUR523RealBinaryOutputIsTheSource
+--- PASS: TestAUR523ReportReproducible
+<modulo>/tests/benchmark
+RESULTADO: o harness reproduziu o relatorio versionado
+RESULTADO: -update-aur523 numa copia gerou relatorio .md e .json identicos aos versionados

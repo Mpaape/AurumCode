@@ -1,0 +1,6 @@
+| php | 3 | 2 | 1 | 0.5000 | [0.0945, 0.9055] | 1.0000 | [0.2065, 1.0000] | 0 | 1 |
+| total | 24 | 16 | 15 | 0.9375 | [0.7167, 0.9889] | 0.8824 | [0.6566, 0.9671] | 2 | 1 |
+modo: fake-provider-deterministic
+total: recall=0.9375 IC95=[0.7167, 0.9889]
+total: precisao=0.8824 IC95=[0.6566, 0.9671]
+RESULTADO: relatorio lido
