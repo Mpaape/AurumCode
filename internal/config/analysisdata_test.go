@@ -6,7 +6,7 @@ import (
 )
 
 func TestAUR533AnalysisDataSectionParsesAndDefaults(t *testing.T) {
-	cfg, err := Parse([]byte("language: pt\n"), "")
+	cfg, err := Parse([]byte("review:\n  language: pt\n"), "")
 	if err != nil || cfg.AnalysisData.Declared() {
 		t.Fatalf("undeclared section must stay nil: %+v %v", cfg.AnalysisData, err)
 	}
@@ -27,7 +27,7 @@ func TestAUR533AnalysisDataSectionParsesAndDefaults(t *testing.T) {
 
 func TestAUR533AnalysisDataCentralPolicyPrecedence(t *testing.T) {
 	repo, _ := Parse([]byte("analysis_data:\n  max_age_days: 300\n"), "")
-	silent, _ := Parse([]byte("language: pt\n"), "")
+	silent, _ := Parse([]byte("review:\n  language: pt\n"), "")
 	eff, warns := ApplyCentralPolicy(repo, silent)
 	if eff.AnalysisData == nil || *eff.AnalysisData.MaxAgeDays != 300 || len(warns) != 0 {
 		t.Fatalf("silent policy must keep the repo section: %+v %v", eff.AnalysisData, warns)

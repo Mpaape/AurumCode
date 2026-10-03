@@ -45,6 +45,11 @@ var findingOriginKey = gate.FindingOriginKey
 // gate outside a review (sbom).
 var evaluateGate = gate.EvaluateGate
 
+// applyInconclusiveModeValue turns an inconclusive decision into a failure
+// under the resolved block mode, for the commands that gate outside the
+// pipeline.
+var applyInconclusiveModeValue = gate.ApplyInconclusiveModeValue
+
 // newGatePipeline builds a pipeline from contributors in declared order.
 var newGatePipeline = gate.NewPipeline
 

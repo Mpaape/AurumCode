@@ -86,7 +86,9 @@ func aur572CleanModel(t *testing.T) {
 // nothing, does not print "No issues found."; a SAST that concluded clean
 // does.
 func TestAUR572InconclusiveSASTReportNeverSaysNoIssuesFound(t *testing.T) {
-	cleanFixture(t, "quality_gates:\n  sast:\n    enabled: true\n")
+	// inconclusive: warn is written so the run completes and the report's
+	// closing line is what is under test; without it the run blocks.
+	cleanFixture(t, "gate:\n  inconclusive: warn\nquality_gates:\n  sast:\n    enabled: true\n")
 	aur572CleanModel(t)
 	setSemgrepPATH(t, semgrepFake(t, "boom: semgrep crashed", true, ""))
 

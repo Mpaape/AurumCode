@@ -52,9 +52,7 @@ func ApplyArtifactFailures(run *Run, res *Result, failures []ArtifactFailure) {
 	}
 	res.Active = true
 	res.Inconclusive = true
-	if mode, err := run.Cfg.Gate.InconclusiveMode(); err == nil && mode == "block" {
-		res.Fail = true
-	}
+	ApplyInconclusiveMode(run, res)
 	res.Lines = append(res.Lines, lines...)
 	publishGateLines(run, lines)
 }

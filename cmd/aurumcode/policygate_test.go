@@ -81,6 +81,7 @@ func TestAUR519EvaluateGateInconclusiveBlockAndWarn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
+	decideInconclusiveForTest(block, &d)
 	if !d.Fail || !d.Inconclusive {
 		t.Fatalf("igate.EvaluateGate() with inconclusive:block = %+v, want failing and inconclusive", d)
 	}
@@ -90,6 +91,7 @@ func TestAUR519EvaluateGateInconclusiveBlockAndWarn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
+	decideInconclusiveForTest(warn, &d)
 	if d.Fail {
 		t.Fatalf("igate.EvaluateGate() with inconclusive:warn = %+v, want passing", d)
 	}
@@ -165,27 +167,50 @@ func TestAUR519EvaluateGateRuleSeverityFloorsModel(t *testing.T) {
 	}
 }
 
-// TestAUR519EvaluateGateFailOnWithoutInconclusiveNeverApproves is B5's
-// regression: gate.fail_on declared with NO gate.inconclusive key at all
-// (the policy never opted into block/warn) must still never let an
-// inconclusive run report success as if it were a clean approval -- it is
-// Inconclusive (so the caller's verdict/status logic can say so) but not
-// Fail (absent inconclusive stays warn-equivalent: visible, never
-// blocking).
-func TestAUR519EvaluateGateFailOnWithoutInconclusiveNeverApproves(t *testing.T) {
+// decideInconclusiveForTest applies the gate's resolved inconclusive mode the
+// way the pipeline does (gate.ApplyInconclusiveMode): EvaluateGate only marks
+// a result Inconclusive, the failure is decided in that one place.
+func decideInconclusiveForTest(g config.GateConfig, d *igate.Result) {
+	mode, err := g.InconclusiveMode()
+	applyInconclusiveModeValue(mode, err, d)
+}
+
+// TestAUR519EvaluateGateFailOnWithoutInconclusiveBlocks: gate.fail_on
+// declared with NO gate.inconclusive key resolves to block, so an
+// inconclusive run fails and publishes "inconclusivo (bloqueio)", never a
+// success; only a written "warn" keeps the alert-only behavior.
+func TestAUR519EvaluateGateFailOnWithoutInconclusiveBlocks(t *testing.T) {
 	gate := config.GateConfig{FailOn: []string{"high"}}
 	d, err := igate.EvaluateGate(gate, gateOriginPolicy, nil, nil, "degraded_parse", nil, "", time.Now())
 	if err != nil {
 		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
-	if d.Fail {
-		t.Fatalf("igate.EvaluateGate() = %+v, want not Fail: absent gate.inconclusive stays warn-equivalent", d)
+	decideInconclusiveForTest(gate, &d)
+	if !d.Fail || !d.Inconclusive || len(d.Lines) == 0 {
+		t.Fatalf("igate.EvaluateGate() = %+v, want Fail and Inconclusive: absent gate.inconclusive blocks", d)
 	}
-	if !d.Inconclusive || len(d.Lines) == 0 {
-		t.Fatalf("igate.EvaluateGate() = %+v, want Inconclusive with a visible reason", d)
+	if got := publishStatusForTest(t, d); got.State != "failure" || !strings.Contains(got.Description, "bloqueio") {
+		t.Fatalf("status = %+v, want failure naming the block", got)
 	}
 
-	// The published status must say "inconclusiva", never "aprovado".
+	warn := config.GateConfig{FailOn: []string{"high"}, Inconclusive: "warn"}
+	d, err = igate.EvaluateGate(warn, gateOriginPolicy, nil, nil, "degraded_parse", nil, "", time.Now())
+	if err != nil {
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
+	}
+	decideInconclusiveForTest(warn, &d)
+	if d.Fail || !d.Inconclusive {
+		t.Fatalf("igate.EvaluateGate() with written warn = %+v, want Inconclusive without Fail", d)
+	}
+	got := publishStatusForTest(t, d)
+	if strings.Contains(got.Description, "aprovado") || !strings.Contains(got.Description, "inconclusiva") || got.State != "success" {
+		t.Fatalf("status = %+v, want state success and a description naming the review as inconclusive", got)
+	}
+}
+
+func publishStatusForTest(t *testing.T, d igate.Result) githubclient.CommitStatus {
+	t.Helper()
+	publishedStatusForTest = githubclient.CommitStatus{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo":
@@ -202,16 +227,8 @@ func TestAUR519EvaluateGateFailOnWithoutInconclusiveNeverApproves(t *testing.T) 
 	defer server.Close()
 	client := githubclient.NewClientWithBaseURL("test-token", server.URL)
 	var out, errOut strings.Builder
-	exit := publishPolicyGateStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", d, 1)
-	if exit != 0 {
-		t.Fatalf("publishPolicyGateStatus() exit = %d, want 0 (inconclusive-without-block never blocks)", exit)
-	}
-	if strings.Contains(publishedStatusForTest.Description, "aprovado") {
-		t.Fatalf("status description = %q, must never claim approval on an inconclusive run", publishedStatusForTest.Description)
-	}
-	if !strings.Contains(publishedStatusForTest.Description, "inconclusiva") || publishedStatusForTest.State != "success" {
-		t.Fatalf("status = %+v, want state success and a description naming the review as inconclusive", publishedStatusForTest)
-	}
+	publishPolicyGateStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", d, 1)
+	return publishedStatusForTest
 }
 
 // publishedStatusForTest is a tiny package-level scratch var the httptest

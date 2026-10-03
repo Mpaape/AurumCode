@@ -184,7 +184,7 @@ aurumcode review --base main
 
 <!-- saida: politica-terraform -->
 ```text
-aurumcode review: policy gate: seguranca#sem-bucket-publico: Sem bucket publico (severidade error, limiar error)
+aurumcode review: policy gate: seguranca#sem-bucket-publico - Sem bucket publico (severidade error, limiar error, origem skills)
 main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
 exit_code=3
 RESULTADO: achado citando a regra da skill de seguranca em main.tf bloqueou (gate.fail_on: high)

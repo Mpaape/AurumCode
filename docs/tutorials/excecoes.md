@@ -55,7 +55,7 @@ aurumcode review --base main --politica /caminho/da/politica --auditoria auditor
 <!-- saida: excecao-valida -->
 ```text
 --- sem excecao: o achado reprova
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: sem excecao, o warning cruza o limiar medium
 --- com excecao (dono, motivo, validade)
@@ -79,7 +79,7 @@ A mesma exceção com `expires: 2024-01-01` (política `politica-vencida`):
 <!-- saida: excecao-vencida -->
 ```text
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: exceção venceu em 2024-01-01 e não vale mais (dono: time-seguranca, motivo: valor de demonstracao, sem credencial real)
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: a excecao vencida nao vale: o achado volta a reprovar
 exceptions_applied: []
@@ -99,7 +99,7 @@ confirma:
 <!-- saida: nao-casa -->
 ```text
 --- outro caminho
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: excecao para outro caminho nao casa
 --- outro repositorio
@@ -143,7 +143,7 @@ RESULTADO: sem politica, o gate e a excecao do proprio repositorio valem
 --- sob politica: a excecao do repositorio e ignorada
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: politica central: exceção do repositório para a regra "seguranca#sem-segredos-no-codigo" no caminho "app.go" (repositório "OWNER/REPO") foi ignorada: a política central decide sozinha
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: sob politica, a excecao do repositorio nao vale
 ```

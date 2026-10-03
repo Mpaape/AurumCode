@@ -1,6 +1,5 @@
 == arquivo-sem-gramatica
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
 **Verdict:** Approve
@@ -24,6 +23,7 @@ Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
   - notas.zzqx
 No issues found.
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 exit_code=0
 RESULTADO: arquivo sem gramatica declarado, revisao completa, gate.inconclusive: block nao dispara
 prompt: ### File: notas.zzqx

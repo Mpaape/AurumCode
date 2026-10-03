@@ -59,7 +59,12 @@ quality_gates:
 - `gate.fail_on: [high]` reprova achados de severidade alta ou acima;
   `gate.inconclusive: block` faz uma revisão inconclusiva (provedor fora,
   scanner quebrado, servidor de inventário inalcançável) **reprovar** em vez de
-  passar em silêncio. Use `warn` só durante a adoção.
+  passar em silêncio. É também o padrão: sem a chave, com `gate` declarado ou
+  um scanner habilitado, o inconclusivo reprova. Use `warn`, escrito, só
+  durante a adoção.
+- Chave desconhecida (erro de digitação como `fial_on`) na política **ou** no
+  `.aurumcode/config.yml` do repositório é erro de carga, antes do modelo, com a
+  chave nomeada; `quality_gates.sast.engine` diferente de `semgrep` também.
 - `quality_gates.sast`: `rule_packs` aceita `p/...` do registro do Semgrep
   (precisa de rede) ou arquivos de regra locais, determinísticos e offline,
   como abaixo. O caminho `/github/policy/...` é onde o workflow reutilizável
@@ -190,8 +195,8 @@ Reprova (código de saída 3 no `--base`; status `aurumcode/policy-gate`
 - achado de skill da política acima de `gate.fail_on`;
 - falha de assinatura: `aurumcode sign` nunca tem modo "warn".
 
-Inconclusivo (nunca aparece como "aprovado"; com `inconclusive: block`
-reprova): Semgrep ausente ou com saída inválida (`sast_*`), Trivy falhou
+Inconclusivo (nunca aparece como "aprovado"; com `inconclusive: block`, ou
+sem a chave, reprova; só `warn` escrito avisa): Semgrep ausente ou com saída inválida (`sast_*`), Trivy falhou
 (`sbom_generation_failure`), servidor de inventário fora do ar, lento ou com
 erro HTTP (`dtrack_unreachable`, `dtrack_timeout`, `dtrack_http_error`),
 métricas incompletas (`dtrack_metrics_incomplete`: ausente nunca é lido como

@@ -61,7 +61,7 @@ func TestPipelineContributorErrorIsInconclusiveNeverApproved(t *testing.T) {
 	for _, tc := range []struct {
 		mode     string
 		wantFail bool
-	}{{"block", true}, {"warn", false}, {"", false}} {
+	}{{"block", true}, {"warn", false}, {"", true}} {
 		var res Result
 		if err := NewPipeline(boom, after).Run(context.Background(), newRun(t, tc.mode), &res); err != nil {
 			t.Fatalf("mode %q: ordinary error must not abort: %v", tc.mode, err)

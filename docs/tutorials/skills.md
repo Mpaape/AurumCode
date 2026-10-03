@@ -248,7 +248,7 @@ aurumcode review --base main --politica /caminho/da/politica
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)
 RESULTADO: sob politica, a secao da skill do repo nao entra no gate
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
 exit_code=3
 RESULTADO: a secao da skill da politica reprova
@@ -289,7 +289,7 @@ do diff não consegue rebaixar:
 
 <!-- saida: regra-citavel -->
 ```text
-aurumcode review: policy gate: convencoes#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar error)
+aurumcode review: policy gate: convencoes#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar error, origem skills)
 exit_code=3
 RESULTADO: o gate compara o MAIOR entre a severidade do modelo e a da secao
 ```
@@ -300,7 +300,7 @@ passa a poder citar `convencoes#logs-sem-dados-pessoais`.
 
 <!-- saida: regra-citavel -->
 ```text
-aurumcode review: policy gate: convencoes#logs-sem-dados-pessoais: Logs sem dados pessoais (severidade warning, limiar error)
+aurumcode review: policy gate: convencoes#logs-sem-dados-pessoais - Logs sem dados pessoais (severidade warning, limiar error, origem skills)
 RESULTADO: a secao nova ja e citavel e reprova
 prompt: - `convencoes#logs-sem-dados-pessoais`
 ```

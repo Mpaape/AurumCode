@@ -1,4 +1,4 @@
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
 RESULTADO: o --pr chega ao mesmo veredito
