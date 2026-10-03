@@ -64,9 +64,9 @@ for input in go.mod go.sum cmd internal pkg; do
 done
 for source in \
   cmd/aurumcode/pr.go \
-  cmd/aurumcode/aur537.go \
+  cmd/aurumcode/provider_failure.go \
   cmd/aurumcode/policygate.go \
-  cmd/aurumcode/aur521.go; do
+  cmd/aurumcode/compliance_artifacts.go; do
   [[ -f "$repo_root/$source" ]] || infra "missing-source:$source"
 done
 for behavior in cmd/aurumcode/aur537_test.go cmd/aurumcode/aur519_e2e_test.go; do
@@ -97,13 +97,13 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
 # AC-001-MUT-001: restore the exact defect this card fixes -- returning
 # before the policy gate on a provider TRANSPORT failure, even when a gate
-# is declared. Anchored on `rc = 1` (unique in pr.go: the generic
+# is declared. Anchored on `rc = 1` (unique in review_pr_generate.go: the generic
 # llm.ErrAllProvidersFailed branch with no --modelo) and, two lines below
 # it, the `if !gateDeclared {` this card added; replacing that one
 # occurrence with `if true {` makes the function return unconditionally
 # again, exactly as it did before AUR-537.
 apply_mutation_transport() {
-  local target="$run_dir/root/cmd/aurumcode/pr.go"
+  local target="$run_dir/root/cmd/aurumcode/review_pr_generate.go"
   local anchor='rc = 1'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
   local anchor_line
@@ -119,10 +119,10 @@ apply_mutation_transport() {
 
 # AC-001-MUT-002: the same defect, this time on the --limite/
 # ErrBudgetExceeded branch. Anchored on `rc := reportBudgetExceeded(stderr,
-# limiteUSD, err)` (unique in pr.go) and, one line below it, its own
+# limiteUSD, err)` (unique in review_pr_generate.go) and, one line below it, its own
 # `if !gateDeclared {`.
 apply_mutation_budget() {
-  local target="$run_dir/root/cmd/aurumcode/pr.go"
+  local target="$run_dir/root/cmd/aurumcode/review_pr_generate.go"
   local anchor='rc := reportBudgetExceeded(stderr, limiteUSD, err)'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
   local anchor_line

@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -80,5 +81,65 @@ func TestAUR557EntryPointsAreShort(t *testing.T) {
 		if !found {
 			t.Errorf("%s not found in %s", name, file)
 		}
+	}
+}
+
+// productionFiles lists the non-test Go files of this package.
+func productionFiles(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, f := range files {
+		if !strings.HasSuffix(f, "_test.go") {
+			out = append(out, f)
+		}
+	}
+	if len(out) < 30 {
+		t.Fatalf("only %d production files seen; the glob no longer sees the package", len(out))
+	}
+	return out
+}
+
+// TestAUR558NoProductionFileNamedByCard is AC-001: a production file is named
+// by its responsibility, never by the card that created it. Tests may keep the
+// card in their name.
+func TestAUR558NoProductionFileNamedByCard(t *testing.T) {
+	cardNamed := regexp.MustCompile(`^aur[0-9]+\.go$`)
+	for _, f := range productionFiles(t) {
+		if cardNamed.MatchString(f) {
+			t.Errorf("%s is named by a card; name it by its responsibility", f)
+		}
+	}
+}
+
+// gateAssemblyFile is the one production file allowed to import internal/gate.
+const gateAssemblyFile = "review_gate.go"
+
+// TestAUR558GateImportedOnlyByAssembly is AC-004's layer guard: cmd/aurumcode
+// assembles the gate pipeline in one file; everything else uses that file's
+// names, so decision logic cannot leak back into the command.
+func TestAUR558GateImportedOnlyByAssembly(t *testing.T) {
+	fset := token.NewFileSet()
+	assembled := false
+	for _, name := range productionFiles(t) {
+		f, err := parser.ParseFile(fset, name, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imp := range f.Imports {
+			if strings.Trim(imp.Path.Value, `"`) != "github.com/Mpaape/AurumCode/internal/gate" {
+				continue
+			}
+			if name != gateAssemblyFile {
+				t.Errorf("%s imports internal/gate; only %s may", name, gateAssemblyFile)
+			}
+			assembled = true
+		}
+	}
+	if !assembled {
+		t.Errorf("%s no longer imports internal/gate; the guard would pass vacuously", gateAssemblyFile)
 	}
 }

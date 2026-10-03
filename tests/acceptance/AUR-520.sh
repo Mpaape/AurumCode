@@ -48,7 +48,7 @@ for input in go.mod go.sum cmd internal pkg; do
 done
 [[ -f "$repo_root/internal/config/exceptions.go" ]] || infra missing-source
 [[ -f "$repo_root/internal/config/gate.go" ]] || infra missing-source
-[[ -f "$repo_root/cmd/aurumcode/aur520.go" ]] || infra missing-source
+[[ -f "$repo_root/internal/gate/exceptions.go" ]] || infra missing-source
 [[ -f "$repo_root/cmd/aurumcode/policygate.go" ]] || infra missing-source
 [[ -f "$repo_root/cmd/aurumcode/aur520_test.go" ]] || infra missing-behavior-test
 
@@ -71,20 +71,20 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
 # MUT-001: blank the one condition that turns "today is past the
 # exception's own expires date" into exceptionExpired (matchException,
-# cmd/aurumcode/aur520.go). With the condition forced false, an expired
+# internal/gate/exceptions.go). With the condition forced false, an expired
 # exception is read as exceptionActive forever -- exactly the bypass
 # AC-002 exists to refuse: ignoring the expiry date must never silently
 # keep an exception applying past its own date. Anchored on the stable
 # condition; the token is split so this file cannot match its own edit,
 # and a missing anchor is infrastructure, never a silent no-op.
 apply_mutation() {
-  local target="$run_dir/root/cmd/aurumcode/aur520.go"
-  local anchor='if truncateToUTCDate(now).After(expires) {'
+  local target="$run_dir/root/internal/gate/exceptions.go"
+  local anchor='if TruncateToUTCDate(now).After(expires) {'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
   # "&" is sed's whole-match placeholder in a replacement, so it is
   # escaped here -- an unescaped "&&" would make sed re-insert the
   # matched text and corrupt the line instead of producing valid Go.
-  local replacement='if false \&\& truncateToUTCDate(now).After(expires) {'
+  local replacement='if false \&\& TruncateToUTCDate(now).After(expires) {'
   sed -i "s|${anchor}|${replacement}|" "$target"
   grep -Fq "$anchor" "$target" && infra mutation-not-applied
   return 0

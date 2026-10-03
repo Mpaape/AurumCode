@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // ApplyOutcome publishes the decision's lines (stderr and the review's
@@ -26,4 +27,9 @@ func ApplyOutcome(run *Run, gateResult *Result) {
 			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
 		}
 	}
+}
+
+// Withheld reports whether the engine withheld approval for this review.
+func Withheld(r *types.ReviewResult) bool {
+	return r != nil && r.Metadata[prompt.PolicyGateWithheldKey] == "true"
 }
