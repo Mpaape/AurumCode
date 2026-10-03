@@ -1,5 +1,5 @@
-(analysis_data_stale): artifact analysis-data/
-is 30.0 days old, above max_age_days=7
+(analysis_data_stale): artifact analysis-data/<timestamp> generated <timestamp>
+is <duracao> days old, above max_age_days=7
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
 RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 RESULTADO: artefato vencido com warn: exit 0, mas a linha inconclusiva continua no parecer

@@ -1,6 +1,6 @@
 RESULTADO: primeira execucao: artefato remoto verificado e guardado no cache
 auditoria analysis_data.source: remote
-usando cópia em cache (analysis-data/
+usando cópia em cache (analysis-data/<timestamp>)
 a listagem de releases estava indisponível; idade e digests verificados
     GET /repos/owner/dados-de-analise/releases -> 503
 RESULTADO: listagem fora do ar com copia valida em cache: usa o cache e o declara
