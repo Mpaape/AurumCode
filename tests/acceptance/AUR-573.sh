@@ -100,7 +100,7 @@ mutation_001() {
   local stage; stage="$(mktemp -d)"
   trap 'chmod -R u+w -- "$stage" 2>/dev/null || true; rm -rf -- "$stage"' RETURN
   local top
-  for top in go.mod go.sum cmd internal pkg; do
+  for top in go.mod go.sum cmd internal pkg scripts .github; do
     [[ -e "$repo_root/$top" ]] || continue
     cp -R "$repo_root/$top" "$stage/$top"
   done
