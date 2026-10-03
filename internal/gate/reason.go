@@ -26,7 +26,7 @@ const (
 type Reason string
 
 // The model- and coverage-derived reasons. Scanner reasons (SAST) are
-// carried as their own tokens through ReasonInputs.SASTReason.
+// carried as their own tokens through ReasonInputs.ScannerReason.
 const (
 	ReasonNone              Reason = ""
 	ReasonProviderFailure   Reason = "provider_failure"
@@ -42,8 +42,8 @@ type ReasonInputs struct {
 	// DegradedParse: the model's reply was accepted through the free-text
 	// fallback (prompt.IsDegradedParse).
 	DegradedParse bool
-	// SASTReason is the SAST pass's own inconclusive token, empty when it ran.
-	SASTReason string
+	// ScannerReason is the SAST pass's own inconclusive token, empty when it ran.
+	ScannerReason string
 	// PartialCoverage: part of the diff was never inspected.
 	PartialCoverage bool
 }
@@ -64,8 +64,8 @@ func RankReason(in ReasonInputs) Reason {
 		return ReasonModelParseFailure
 	case in.DegradedParse:
 		return ReasonDegradedParse
-	case in.SASTReason != "":
-		return Reason(in.SASTReason)
+	case in.ScannerReason != "":
+		return Reason(in.ScannerReason)
 	case in.PartialCoverage:
 		return ReasonPartialCoverage
 	}

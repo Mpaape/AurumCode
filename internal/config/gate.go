@@ -39,10 +39,8 @@ const (
 // vocabulary or a value other than model/none.
 func (g GateConfig) ValidateTriage() error {
 	for source, mode := range g.Triage {
-		switch strings.ToLower(strings.TrimSpace(source)) {
-		case GateSourceSkills, GateSourceAnalysis, GateSourceSAST:
-		default:
-			return fmt.Errorf("gate.triage: unknown source %q (accepted: skills, analysis, sast)", source)
+		if !knownGateSource(source) {
+			return fmt.Errorf("gate.triage: unknown source %q (accepted: %s)", source, acceptedGateSources())
 		}
 		switch strings.ToLower(strings.TrimSpace(mode)) {
 		case TriageNone, TriageModel:
@@ -56,28 +54,51 @@ func (g GateConfig) ValidateTriage() error {
 // TriageByModel reports whether gate.triage lets the model's dispute demote
 // evidence of the named source.
 func (g GateConfig) TriageByModel(source string) bool {
+	return g.TriageByModelFor(func(s string) bool { return strings.EqualFold(strings.TrimSpace(s), source) })
+}
+
+// TriageByModelFor reports whether a gate.triage key that names matches
+// (an engine answers to its name, category and origin) is "model".
+func (g GateConfig) TriageByModelFor(names func(string) bool) bool {
 	for s, mode := range g.Triage {
-		if strings.EqualFold(strings.TrimSpace(s), source) && strings.EqualFold(strings.TrimSpace(mode), TriageModel) {
+		if names(s) && strings.EqualFold(strings.TrimSpace(mode), TriageModel) {
 			return true
 		}
 	}
 	return false
 }
 
-// The closed vocabulary of gate.sources (AUR-556).
+// The vocabulary of gate.sources (AUR-556): skills, analysis, and every
+// registered scanner engine by its name or category (sast is the category
+// of every SAST engine).
 const (
 	GateSourceSkills   = "skills"
 	GateSourceAnalysis = "analysis"
 	GateSourceSAST     = "sast"
 )
 
-// ValidateSources rejects any gate.sources entry outside the closed list.
+// knownGateSource reports whether name is skills, analysis, or a registered
+// scanner engine or category.
+func knownGateSource(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case GateSourceSkills, GateSourceAnalysis:
+		return true
+	}
+	return knownScannerSource(name)
+}
+
+// acceptedGateSources spells the vocabulary in messages: skills, analysis,
+// the scanner categories, then the engines without a category.
+func acceptedGateSources() string {
+	accepted := append([]string{GateSourceSkills, GateSourceAnalysis}, scannerSourceNames()...)
+	return strings.Join(accepted, ", ")
+}
+
+// ValidateSources rejects any gate.sources entry outside the vocabulary.
 func (g GateConfig) ValidateSources() error {
 	for _, s := range g.Sources {
-		switch strings.ToLower(strings.TrimSpace(s)) {
-		case GateSourceSkills, GateSourceAnalysis, GateSourceSAST:
-		default:
-			return fmt.Errorf("gate.sources: unknown source %q (accepted: skills, analysis, sast)", s)
+		if !knownGateSource(s) {
+			return fmt.Errorf("gate.sources: unknown source %q (accepted: %s)", s, acceptedGateSources())
 		}
 	}
 	return nil

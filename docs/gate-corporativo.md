@@ -64,7 +64,14 @@ quality_gates:
   durante a adoção.
 - Chave desconhecida (erro de digitação como `fial_on`) na política **ou** no
   `.aurumcode/config.yml` do repositório é erro de carga, antes do modelo, com a
-  chave nomeada; `quality_gates.sast.engine` diferente de `semgrep` também.
+  chave nomeada; `quality_gates.sast.engine` que não é uma engine registrada da
+  categoria `sast` (hoje só `semgrep`) também, assim como um `engine`
+  desconhecido em `quality_gates.scanners`.
+- `quality_gates.sast` é o alias da entrada `semgrep` de
+  `quality_gates.scanners` (ver [Configuração](configuration.md)). Na lista
+  genérica, `required: true` na política impede o repositório de remover ou
+  afrouxar a engine; o override do repositório vira aviso de política
+  ignorada.
 - `quality_gates.sast`: `rule_packs` aceita `p/...` do registro do Semgrep
   (precisa de rede) ou arquivos de regra locais, determinísticos e offline,
   como abaixo. O caminho `/github/policy/...` é onde o workflow reutilizável

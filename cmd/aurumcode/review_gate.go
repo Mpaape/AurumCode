@@ -26,6 +26,7 @@ type (
 	gateVerdictKeyInputs = gate.VerdictKeyInputs
 	exceptionMatchStatus = gate.ExceptionMatchStatus
 	artifactFailure      = gate.ArtifactFailure
+	gateScan             = gate.Scan
 )
 
 const (
@@ -33,7 +34,6 @@ const (
 	gateOriginRepo          = gate.OriginRepo
 	gateOriginSecurity      = gate.OriginSecurity
 	gateOriginAnalysis      = gate.OriginAnalysis
-	gateOriginSAST          = gate.OriginSAST
 	acceptedExceptionMarker = gate.AcceptedExceptionMarker
 	expiredExceptionMarker  = gate.ExpiredExceptionMarker
 
@@ -104,10 +104,8 @@ type gatePipelineInputs struct {
 	AcceptedOrigin string
 	DynamicRules   map[string]review.Rule
 
-	// SAST* are runSASTPass's outputs and the origin its section came from.
-	SASTOrigin string
-	SASTIssues []types.ReviewIssue
-	SASTReason string
+	// Scans are the scanner pass's outcomes, one per enabled engine.
+	Scans []gateScan
 }
 
 // assembleGatePipeline declares the one gate pipeline, in the order the
@@ -117,7 +115,7 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 		gate.ExceptionsContributor{},
 		gate.VerdictReuseContributor{Key: in.VerdictKey, Raw: in.RawIssues, PromptDigest: in.PromptDigest},
 		gate.PolicySkillsContributor{AcceptedOrigin: in.AcceptedOrigin, Dynamic: in.DynamicRules},
-		gate.SASTContributor{SectionOrigin: in.SASTOrigin, Issues: in.SASTIssues, Reason: in.SASTReason},
+		gate.ScannerContributor{Scans: in.Scans},
 		gate.EmbeddedAnalysisContributor{},
 		gate.SecurityPassContributor{},
 		gate.AnalysisDataContributor{},
@@ -135,7 +133,7 @@ func (s *reviewState) inconclusiveReason() string {
 	return string(gate.RankReason(gate.ReasonInputs{
 		Model:           s.model,
 		DegradedParse:   prompt.IsDegradedParse(s.result),
-		SASTReason:      s.sastReason,
+		ScannerReason:   s.scannerReason(),
 		PartialCoverage: s.coverage.partial(),
 	}))
 }
@@ -178,8 +176,11 @@ func (s *reviewState) triage() gate.Triage {
 	if s.centralCfg != nil {
 		return t
 	}
-	for _, source := range []string{config.GateSourceSkills, config.GateSourceAnalysis, config.GateSourceSAST} {
+	for _, source := range []string{config.GateSourceSkills, config.GateSourceAnalysis} {
 		t.BySource[source] = s.cfg.Gate.TriageByModel(source)
+	}
+	for _, scan := range s.scans {
+		t.BySource[scan.Source()] = t.BySource[scan.Source()] || s.cfg.Gate.TriageByModelFor(scan.Engine.Answers)
 	}
 	return t
 }
@@ -214,9 +215,7 @@ func (s *reviewState) gatePipelineInputs() gatePipelineInputs {
 		RawIssues:      s.rawIssues,
 		AcceptedOrigin: acceptedGateOrigin(s.centralCfg != nil),
 		DynamicRules:   s.dynamicRules,
-		SASTOrigin:     s.sastOrigin,
-		SASTIssues:     s.sastIssues,
-		SASTReason:     s.sastReason,
+		Scans:          s.scans,
 		PromptDigest:   s.deps.digestBuilder().FixedContentDigest,
 	}
 }

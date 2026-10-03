@@ -33,7 +33,7 @@ command -v go >/dev/null 2>&1 || infra missing_go
 for input in go.mod go.sum cmd internal pkg demo/tutoriais/gate docs/specs/AUR-567.md docs/configuration.md docs/tutorials/gate.md; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
-for f in internal/gate/sast.go internal/gate/sources.go cmd/aurumcode/aur567_test.go; do
+for f in internal/gate/scanner.go internal/gate/sources.go cmd/aurumcode/aur567_test.go; do
   [[ -f "$repo_root/$f" ]] || infra "missing-source:$f"
 done
 
@@ -89,10 +89,10 @@ run_ac003() {
   (cd "$repo_root" && bash demo/tutoriais/gate/run.sh --check >"$run_dir/check.log" 2>&1) || { cat "$run_dir/check.log" >&2; fail 'demo-check-failed'; }
 }
 run_mutation() {
-  local target="$run_dir/root/internal/gate/sast.go"
-  local from='name, OriginSAST+", secao "+origin)'
+  local target="$run_dir/root/internal/gate/scanner.go"
+  local from='name, origin+", secao "+s.Section)'
   [[ "$(grep -Fc "$from" "$target")" == "1" ]] || infra mutation-anchor
-  sed -i -e 's/name, OriginSAST+", secao "+origin)/name, origin)/' -e '/^func ApplySASTGate/i // MUT-001: origem policy' "$target"
+  sed -i -e 's/name, origin+", secao "+s.Section)/name, s.Section)/' -e '/^func ApplyScannerGate/i // MUT-001: origem policy' "$target"
   grep -Fq 'MUT-001: origem policy' "$target" || infra mutation-not-applied
   local log="$run_dir/mutation.log"
   run_go_test ./cmd/aurumcode/ '^TestAUR567GateLineCarriesTypedOriginForEverySource$' "$log" || true
