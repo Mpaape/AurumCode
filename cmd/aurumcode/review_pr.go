@@ -39,7 +39,6 @@ type prReview struct {
 	reviewer           *review.Reviewer
 	history            string
 	historyErr         error
-	gateDeclared       bool
 
 	// publication
 	issues   []types.ReviewIssue
