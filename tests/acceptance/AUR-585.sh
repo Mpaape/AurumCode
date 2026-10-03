@@ -95,8 +95,8 @@ check_migrated() { # check_migrated ROOT
   else
     # The sealed profile does not materialize .board/schemas, which taskspec and
     # sandbox-profile read; the packages that need it are not claimed there.
-    pkgs=(./tests/legacy/config/... ./tests/legacy/evidence/... ./tests/legacy/governance/dag/... ./tests/legacy/llm/... ./tests/legacy/sandbox/...)
-    printf '%s/%s/note: .board/schemas absent, taskspec and sandbox-profile tests not claimed\n' "$card" "$selector" >&2
+    pkgs=(./tests/legacy/config/... ./tests/legacy/governance/dag/... ./tests/legacy/llm/... ./tests/legacy/sandbox/...)
+    printf '%s/%s/note: .board/schemas absent, evidence, taskspec and sandbox-profile tests not claimed\n' "$card" "$selector" >&2
   fi
   (cd "$root" && go test "${pkgs[@]}") >"$run_dir/legacy.log" 2>&1 \
     || { echo "tests/legacy red: $(grep -E '^(--- FAIL|FAIL|\s+\S+_test.go)' "$run_dir/legacy.log" | sed -n '1,4p' | tr '\n' ' ')"; return 1; }
