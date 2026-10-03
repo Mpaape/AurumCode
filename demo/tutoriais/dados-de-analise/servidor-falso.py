@@ -57,7 +57,7 @@ manifest = json.dumps({"schema": "aurum-analysis-data/v1", "generated_at": gen_s
                        "scanners": {"vuln_scanner_version": "0.73.0"}, "set_digest": set_digest}).encode()
 if modo == "adulterado-arquivo":
     scanners = b"vuln_scanner_version: 9.9.9\n"
-base = "https://%s/dl/" % HOST
+base = "https://" + HOST + "/dl/"
 release = [{"tag_name": tag, "created_at": gen_s, "draft": False, "prerelease": False, "assets": [
     {"name": "manifest.json", "browser_download_url": base + "manifest.json"},
     {"name": "scanners.yml", "browser_download_url": base + "scanners.yml"}]}]

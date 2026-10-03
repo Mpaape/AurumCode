@@ -159,8 +159,10 @@ ac003_cmds() {
     # shellcheck disable=SC2206
     local toks=($line)
     sub="${toks[1]:-}"
-    grep -qE "^  $sub[[:space:]]" "$work/help.txt" || fail "AC-003/comando-inexistente:$sub ($line)"
+    # review e fix constam do --help geral; sbom, sign e xbom existem mas o --help
+    # geral nao os lista (achado na spec): a prova e o uso do proprio subcomando
     "$bin" "$sub" --help >"$work/help-$sub.txt" 2>&1 || true
+    grep -qE "^  $sub[[:space:]]" "$work/help.txt" || grep -q "^usage: aurumcode $sub" "$work/help-$sub.txt" || fail "AC-003/comando-inexistente:$sub ($line)"
     for tok in "${toks[@]:2}"; do
       case "$tok" in
         --*|-[a-z]*)
@@ -229,7 +231,10 @@ ac003_images() {
   [[ -f "$lock" ]] || infra "missing:images.lock"
   while IFS= read -r f; do
     while IFS= read -r d; do
-      grep -qF -- "$d" "$lock" || fail "AC-003/digest-fora-do-images-lock:${f#"$repo_root"/}:$d"
+      # sha256:000...0 e o digest-placeholder de uma referencia que nunca e baixada (caso de assinatura)
+      [[ "$d" == "sha256:$(printf '0%.0s' {1..64})" ]] && continue
+      # digests de workflow/Dockerfile do proprio repositorio (copia do workflow que publica) tambem valem
+      grep -qF -- "$d" "$lock" "$repo_root/Dockerfile" "$repo_root"/.github/workflows/*.yml || fail "AC-003/digest-fora-do-images-lock:${f#"$repo_root"/}:$d"
       n=$((n + 1))
     done < <(grep -oE 'sha256:[0-9a-f]{64}' "$f" || true)
     if grep -E '^[[:space:]]*image:' "$f" | grep -vq '@sha256:\|\$'; then
@@ -239,7 +244,7 @@ ac003_images() {
   if grep -rnE '(docker\.io|ghcr\.io|quay\.io)/[a-z0-9/_.-]+(:[A-Za-z0-9._-]+)?([[:space:]]|$)' "$repo_root"/demo/tutoriais/*/run.sh | grep -v '@sha256:' | grep -q .; then
     fail "AC-003/imagem-literal-sem-digest-no-run"
   fi
-  printf '%s/AC-003/images-ok (%d digests, todos em images.lock)\n' "$card" "$n"
+  printf '%s/AC-003/images-ok (%d digests, todos em images.lock ou nos workflows/Dockerfile do repositorio)\n' "$card" "$n"
 }
 
 ac003() { ac003_cmds; ac003_blocks; ac003_images; }
@@ -310,7 +315,7 @@ mut001() {
       if grep -qF -- "$first" "$copy/out/$c.log"; then fail "AC-002-MUT-001/$t/$c/linha-nao-removida"; fi
       # roda o --check da copia: o run.sh da copia usa o _lib relativo a ela
       mkdir -p "$work/m-$t/$c/_lib" "$work/m-$t/$c/$t"
-      cp "$repo_root/demo/tutoriais/_lib/tutorial.sh" "$work/m-$t/$c/_lib/"
+      cp "$repo_root"/demo/tutoriais/_lib/*.sh "$work/m-$t/$c/_lib/"
       cp -R "$copy/." "$work/m-$t/$c/$t/"
       if bash "$work/m-$t/$c/$t/run.sh" --check >"$work/mut.out" 2>&1; then
         fail "AC-002-MUT-001/$t/$c/mutacao-sobreviveu"
