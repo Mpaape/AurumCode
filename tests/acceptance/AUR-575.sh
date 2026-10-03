@@ -8,7 +8,10 @@
 #
 # Selectors:
 #   all        AC-001..AC-005, then MUT-001..MUT-003
-#   AC-001     sast engine / rule_packs refused at load, key named, no review
+#   AC-001     sast engine / rule_packs refused at load, key named, no review;
+#              the exit code is pinned to the product's existing load-error
+#              code (1, the same a refused central policy exits with), not the
+#              2 the card text names
 #   AC-002     unknown key refused with the key named; every shipped config
 #              (demos, tutorials, fixtures) still parses strictly
 #   AC-003     sast enabled + scanner missing + no gate.inconclusive: exit != 0,

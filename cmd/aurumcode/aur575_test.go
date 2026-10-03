@@ -47,7 +47,7 @@ func TestAUR575SASTMissingPublishesBlockedStatus(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := publishStatusForTest(t, res)
-		if got.State != tc.state || !strings.Contains(got.Description, tc.word) {
+		if got.State != tc.state || !strings.HasPrefix(got.Description, "inconclusivo:") || !strings.Contains(got.Description, tc.word) {
 			t.Fatalf("mode %q: status %+v, want %s naming %q", tc.mode, got, tc.state, tc.word)
 		}
 	}
@@ -77,8 +77,10 @@ func TestAUR575InvalidConfigRefusedBeforeModel(t *testing.T) {
 		aur572CleanModel(t)
 		var out, errOut strings.Builder
 		code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
-		if code == 0 || !strings.Contains(errOut.String(), key) {
-			t.Fatalf("%s: exit=%d stderr=%q, want a load error naming the key", key, code, errOut.String())
+		// 1 is the product's load-error code, the same a refused central
+		// policy already exits with.
+		if code != 1 || !strings.Contains(errOut.String(), key) {
+			t.Fatalf("%s: exit=%d stderr=%q, want exit 1 and a load error naming the key", key, code, errOut.String())
 		}
 		if strings.Contains(out.String(), "Code Review Summary") {
 			t.Fatalf("%s: a review was produced from an invalid configuration:\n%s", key, out.String())
