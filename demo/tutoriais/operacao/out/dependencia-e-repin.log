@@ -1,6 +1,6 @@
 == dependencia-e-repin
 --- 1. go get numa copia, em container NAO-root, sem rede, pelo cache de modulos do projeto (proxy de arquivo)
-$ docker run --rm --network none --user 1000:1000 -e HOME=/tmp -e GOMODCACHE=/tmp/mod -e GOPROXY=file:///cache/download -e GOSUMDB=off -e GOFLAGS=-mod=mod -v /tmp/claude-1000/office-wt/aur564/demo/tutoriais/operacao/.estado/dependencia:/src -v /home/paape/go/pkg/mod-aurumcode/cache/download:/cache/download:ro -w /src aurum-dev-go:1.27.1-2026-10-02 go get github.com/spf13/pflag
+$ docker run --rm --network none --user 1000:1000 -e HOME=/tmp -e GOMODCACHE=/tmp/mod -e GOPROXY=file:///cache/download -e GOSUMDB=off -e GOFLAGS=-mod=mod -v <repo>/demo/tutoriais/operacao/.estado/dependencia:/src -v <home>/go/pkg/mod-aurumcode/cache/download:/cache/download:ro -w /src aurum-dev-go:1.27.1-2026-10-02 go get github.com/spf13/pflag
 go: downloading github.com/spf13/pflag v1.0.5
 go: added github.com/spf13/pflag v1.0.5
 exit_code=0

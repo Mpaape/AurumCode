@@ -8,7 +8,7 @@ $ go test ./tests/benchmark -run TestAUR523 -count=1
 --- FAIL: TestAUR523ReportPerLanguage (<t>s)
     aur523_test.go:209: versioned multilang-report.json differs from the report this corpus and policy produce; regenerate it with -update-aur523, never by hand
 FAIL
-FAIL	github.com/Mpaape/AurumCode/tests/benchmark <t>s
+FAIL	<modulo>/tests/benchmark <t>s
 FAIL
 exit_code=1
 RESULTADO: caso sem manifest recusado pelo harness (exit_code diferente de 0)

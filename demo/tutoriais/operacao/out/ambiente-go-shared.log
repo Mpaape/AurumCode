@@ -12,3 +12,18 @@ up: aurum-go
 exit_code=0
 RESULTADO: o container monta o cache de modulos do projeto e o volume de build
 $ <repo>/.board/bin/go-shared exec go version
+go version go1.27.1 linux/amd64
+exit_code=0
+RESULTADO: o Go roda DENTRO do container (a versao vem da imagem de desenvolvimento)
+$ <repo>/.board/bin/go-shared exec sh -c echo GOPROXY=$GOPROXY GOFLAGS=$GOFLAGS; id -u
+GOPROXY=off GOFLAGS=-mod=mod -buildvcs=false
+0
+exit_code=0
+conclusao do script: o container nao tem rede de modulos (GOPROXY=off) e roda como uid 0 dentro do container; por isso, arquivos que ele cria num diretorio montado pertencem ao root do host
+$ <repo>/.board/bin/go-shared exec -w <repo> go test ./internal/grammar -run TestLanguagesEnumeratedAtRuntime -count=1
+ok  	github.com/Mpaape/AurumCode/internal/grammar <t>s
+exit_code=0
+RESULTADO: go test roda no container, sobre o worktree montado, sem rede
+imagem de desenvolvimento: aurum-dev-go:1.27.1-2026-10-02
+imagem presente: sha256:10b7c7b36529da63
+nao executado aqui: go-shared down (remove o container compartilhado; outros agentes o usam)
