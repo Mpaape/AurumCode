@@ -157,6 +157,9 @@ ac003() {
   lock="$(head -n1 "$repo_root/scripts/docs/image.lock")"
   [[ "$(wc -l <"$repo_root/scripts/docs/image.lock")" -eq 1 ]] || fail image.lock-not-one-line
   [[ "$lock" =~ ^squidfunk/mkdocs-material@sha256:[0-9a-f]{64}$ ]] || fail image-not-by-digest
+  n="$(grep -lE 'uses:[[:space:]]*actions/deploy-pages@' "$repo_root"/.github/workflows/*.yml "$repo_root"/.github/workflows/*.yaml 2>/dev/null | wc -l || true)"
+  [[ "$n" -eq 1 ]] || fail "deploy-pages-workflows-not-exactly-one:$n"
+  [[ ! -e "$repo_root/.github/workflows/pages.yml" ]] || fail legacy-pages.yml-present
   grep -q 'scripts/docs/build.sh' "$wf" || fail workflow-not-using-build.sh
   if grep -qE 'mkdocs-material(:|[[:space:]]|$)' "$wf"; then fail workflow-names-image-without-digest; fi
   grep -qE 'pip[3]? install' "$wf" && fail workflow-installs-with-pip
