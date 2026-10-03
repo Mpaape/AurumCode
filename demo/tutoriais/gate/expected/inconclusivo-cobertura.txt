@@ -1,0 +1,8 @@
+--- inconclusive: block
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (partial_coverage)
+exit_code=1
+RESULTADO: block: cobertura parcial reprova
+--- inconclusive: warn
+exit_code=0
+RESULTADO: warn: cobertura parcial alerta e sai 0
