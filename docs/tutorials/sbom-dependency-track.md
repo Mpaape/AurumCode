@@ -445,3 +445,58 @@ já existiam antes ficam).
   `out/` gravados, é esse registro.
 - **Sandbox sem `--network host`**: sem ele o `aurumcode` não alcança
   `127.0.0.1` do host (dentro do container, esse IP é outro).
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/sbom-dependency-track/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### down
+
+![Terminal do caso down](../assets/capturas/sbom-dependency-track/down-terminal.png)
+
+### limiares
+
+![Terminal do caso limiares](../assets/capturas/sbom-dependency-track/limiares-terminal.png)
+
+![Comentario do PR do caso limiares](../assets/capturas/sbom-dependency-track/limiares-comentario.png)
+
+### projeto-por-microservico
+
+![Terminal do caso projeto-por-microservico](../assets/capturas/sbom-dependency-track/projeto-por-microservico-terminal.png)
+
+![Comentario do PR do caso projeto-por-microservico](../assets/capturas/sbom-dependency-track/projeto-por-microservico-comentario.png)
+
+### sbom-versao-minima
+
+![Terminal do caso sbom-versao-minima](../assets/capturas/sbom-dependency-track/sbom-versao-minima-terminal.png)
+
+### secret-ausente
+
+![Terminal do caso secret-ausente](../assets/capturas/sbom-dependency-track/secret-ausente-terminal.png)
+
+![Comentario do PR do caso secret-ausente](../assets/capturas/sbom-dependency-track/secret-ausente-comentario.png)
+
+### timeout
+
+![Terminal do caso timeout](../assets/capturas/sbom-dependency-track/timeout-terminal.png)
+
+![Comentario do PR do caso timeout](../assets/capturas/sbom-dependency-track/timeout-comentario.png)
+
+### up
+
+![Terminal do caso up](../assets/capturas/sbom-dependency-track/up-terminal.png)
+
+### upload-e-metricas
+
+![Terminal do caso upload-e-metricas](../assets/capturas/sbom-dependency-track/upload-e-metricas-terminal.png)
+
+![Comentario do PR do caso upload-e-metricas](../assets/capturas/sbom-dependency-track/upload-e-metricas-comentario.png)
+
+### violacao-de-politica
+
+![Terminal do caso violacao-de-politica](../assets/capturas/sbom-dependency-track/violacao-de-politica-terminal.png)
+
+![Comentario do PR do caso violacao-de-politica](../assets/capturas/sbom-dependency-track/violacao-de-politica-comentario.png)
+
+<!-- capturas:fim -->

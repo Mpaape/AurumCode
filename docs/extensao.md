@@ -256,3 +256,25 @@ decide o gate nem engine de scanner.
 - **Engine fora do registro.** `engine:` com nome que o binário não contém é
   recusado ao ler a configuração; o tutorial mostra o binário padrão
   recusando `engine: exemplo`.
+
+## Como fica
+
+Capturas da execução gravada do tutorial
+[Estendendo o Aurum na prática](tutorials/extensao.md), geradas por
+scripts/docs/capturas.sh a partir de demo/tutoriais/extensao/out/.
+
+A engine de exemplo reprovando o gate, no terminal e no comentário do PR:
+
+![Terminal do caso engine-no-gate](assets/capturas/extensao/engine-no-gate-terminal.png)
+
+![Comentario do PR do caso engine-no-gate](assets/capturas/extensao/engine-no-gate-comentario.png)
+
+A skill entrando no prompt e a ferramenta de deliberação pedida pelo modelo:
+
+![Terminal do caso skill-no-prompt](assets/capturas/extensao/skill-no-prompt-terminal.png)
+
+![Terminal do caso ferramenta-pedida](assets/capturas/extensao/ferramenta-pedida-terminal.png)
+
+O binário padrão recusando a engine que não contém:
+
+![Terminal do caso falha-binario-padrao](assets/capturas/extensao/falha-binario-padrao-terminal.png)

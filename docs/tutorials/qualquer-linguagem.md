@@ -323,3 +323,44 @@ vive no catálogo de dados `internal/analyzer/language_catalog.yml` (veja
 - **Não demonstrado aqui:** revisão de PR (`--pr`) de repositório poliglota
   (a retenção por binário/gerado no caminho `--pr` é coberta por testes Go do
   AUR-522, não por esta demonstração) e uma rodada com modelo real.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/qualquer-linguagem/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### apelidos-e-instrucoes
+
+![Terminal do caso apelidos-e-instrucoes](../assets/capturas/qualquer-linguagem/apelidos-e-instrucoes-terminal.png)
+
+### arquivo-sem-gramatica
+
+![Terminal do caso arquivo-sem-gramatica](../assets/capturas/qualquer-linguagem/arquivo-sem-gramatica-terminal.png)
+
+![Comentario do PR do caso arquivo-sem-gramatica](../assets/capturas/qualquer-linguagem/arquivo-sem-gramatica-comentario.png)
+
+### binario-e-gerado
+
+![Terminal do caso binario-e-gerado](../assets/capturas/qualquer-linguagem/binario-e-gerado-terminal.png)
+
+![Comentario do PR do caso binario-e-gerado](../assets/capturas/qualquer-linguagem/binario-e-gerado-comentario.png)
+
+### falha-extensao-desconhecida
+
+![Terminal do caso falha-extensao-desconhecida](../assets/capturas/qualquer-linguagem/falha-extensao-desconhecida-terminal.png)
+
+![Comentario do PR do caso falha-extensao-desconhecida](../assets/capturas/qualquer-linguagem/falha-extensao-desconhecida-comentario.png)
+
+### politica-terraform
+
+![Terminal do caso politica-terraform](../assets/capturas/qualquer-linguagem/politica-terraform-terminal.png)
+
+![Comentario do PR do caso politica-terraform](../assets/capturas/qualquer-linguagem/politica-terraform-comentario.png)
+
+### repo-poliglota
+
+![Terminal do caso repo-poliglota](../assets/capturas/qualquer-linguagem/repo-poliglota-terminal.png)
+
+![Comentario do PR do caso repo-poliglota](../assets/capturas/qualquer-linguagem/repo-poliglota-comentario.png)
+
+<!-- capturas:fim -->

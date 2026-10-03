@@ -332,3 +332,42 @@ diretório de política dentro da árvore revisada. Uma política quebrada
   repositórios sem revisão própria.
 - **Inconclusivo**: `gate.inconclusive: block` reprova, `warn` só alerta; em
   nenhum dos dois o parecer aparece como aprovado.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/politica-central/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### analysis-data
+
+![Terminal do caso analysis-data](../assets/capturas/politica-central/analysis-data-terminal.png)
+
+![Comentario do PR do caso analysis-data](../assets/capturas/politica-central/analysis-data-comentario.png)
+
+### falha-politica-invalida
+
+![Terminal do caso falha-politica-invalida](../assets/capturas/politica-central/falha-politica-invalida-terminal.png)
+
+### policy-repository
+
+![Terminal do caso policy-repository](../assets/capturas/politica-central/policy-repository-terminal.png)
+
+### politica-local
+
+![Terminal do caso politica-local](../assets/capturas/politica-central/politica-local-terminal.png)
+
+![Comentario do PR do caso politica-local](../assets/capturas/politica-central/politica-local-comentario.png)
+
+### precedencia-por-secao
+
+![Terminal do caso precedencia-por-secao](../assets/capturas/politica-central/precedencia-por-secao-terminal.png)
+
+![Comentario do PR do caso precedencia-por-secao](../assets/capturas/politica-central/precedencia-por-secao-comentario.png)
+
+### repo-afrouxa
+
+![Terminal do caso repo-afrouxa](../assets/capturas/politica-central/repo-afrouxa-terminal.png)
+
+![Comentario do PR do caso repo-afrouxa](../assets/capturas/politica-central/repo-afrouxa-comentario.png)
+
+<!-- capturas:fim -->

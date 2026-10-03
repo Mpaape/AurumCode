@@ -280,3 +280,40 @@ dois modos.)
 - **Esperar `--semgrep-bin`**: não existe; use o `PATH` ou a imagem do produto.
 - **Resultado `No issues found.` com SAST inconclusivo**: leia as linhas
   `SAST ... inconclusive`; o parecer não resume o estado do SAST.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/sast/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### nosemgrep-e-semgrepignore
+
+![Terminal do caso nosemgrep-e-semgrepignore](../assets/capturas/sast/nosemgrep-e-semgrepignore-terminal.png)
+
+![Comentario do PR do caso nosemgrep-e-semgrepignore](../assets/capturas/sast/nosemgrep-e-semgrepignore-comentario.png)
+
+### origem-sast
+
+![Terminal do caso origem-sast](../assets/capturas/sast/origem-sast-terminal.png)
+
+![Comentario do PR do caso origem-sast](../assets/capturas/sast/origem-sast-comentario.png)
+
+### registry-sem-rede
+
+![Terminal do caso registry-sem-rede](../assets/capturas/sast/registry-sem-rede-terminal.png)
+
+![Comentario do PR do caso registry-sem-rede](../assets/capturas/sast/registry-sem-rede-comentario.png)
+
+### regra-local
+
+![Terminal do caso regra-local](../assets/capturas/sast/regra-local-terminal.png)
+
+![Comentario do PR do caso regra-local](../assets/capturas/sast/regra-local-comentario.png)
+
+### semgrep-falha
+
+![Terminal do caso semgrep-falha](../assets/capturas/sast/semgrep-falha-terminal.png)
+
+![Comentario do PR do caso semgrep-falha](../assets/capturas/sast/semgrep-falha-comentario.png)
+
+<!-- capturas:fim -->

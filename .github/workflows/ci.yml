@@ -19,12 +19,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      # MkDocs site built with the digest-pinned image (scripts/docs/image.lock).
+      - name: Build the documentation site
+        run: scripts/docs/build.sh
+      # Screenshots against their manifest: referenced captures present, input
+      # digests (tutorial out/, page sources) unchanged since capturas.sh ran.
+      - name: Check documentation screenshots
+        run: bash scripts/docs/capturas-check.sh
+      # Same Playwright image as scripts/docs/playwright.lock (by digest): the
+      # legacy page, then the built MkDocs site (nav, search, captures, mobile).
       - name: Check documentation in Chromium
         run: >-
           docker run --rm --ipc=host
           -v "${GITHUB_WORKSPACE}:/src:ro" -w /src
-          mcr.microsoft.com/playwright:v1.58.2-noble
-          sh -c 'npm install --prefix /tmp/qa playwright@1.58.2 && NODE_PATH=/tmp/qa/node_modules node tests/docs/site.test.cjs'
+          mcr.microsoft.com/playwright:v1.58.2-noble@sha256:6446946a1d9fd62d9ae501312a2d76a43ee688542b21622056a372959b65d63d
+          sh -c 'npm install --prefix /tmp/qa playwright@1.58.2 && NODE_PATH=/tmp/qa/node_modules node tests/docs/site.test.cjs && NODE_PATH=/tmp/qa/node_modules node tests/docs/mkdocs.test.cjs'
 
   build-and-test:
     name: Build and test in OCI
