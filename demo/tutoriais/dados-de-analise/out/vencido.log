@@ -2,7 +2,7 @@
 --- gate.inconclusive: block
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T004327Z generated 2026-09-03T00:43:27Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T025109Z generated 2026-09-03T02:51:09Z is 30.0 days old, above max_age_days=7
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -23,7 +23,7 @@ flowchart TD
 
 ```
 No issues found.
---- requisicoes recebidas pelo falso api.github.com (modo vencido): 2
+--- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
 exit_code=1
@@ -31,7 +31,7 @@ RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T004328Z generated 2026-09-03T00:43:28Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T025110Z generated 2026-09-03T02:51:10Z is 30.0 days old, above max_age_days=7
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -52,7 +52,7 @@ flowchart TD
 
 ```
 No issues found.
---- requisicoes recebidas pelo falso api.github.com (modo vencido): 2
+--- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
 exit_code=0
