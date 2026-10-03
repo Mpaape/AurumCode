@@ -166,11 +166,15 @@ caso_achado_deterministico() {
   echo "--- --seguranca, sem provedor, fail_on [high], inconclusive: warn"
   TUT_POLICY=politica-alerta; aurum review --base main --politica /policy --seguranca --auditoria /work/auditoria-warn.json
   origens auditoria-warn.json
-  expect_rc 0 "REPRODUZIDO (AUR-569): o achado [error] do passe de seguranca nao reprova, exit 0"
+  expect_rc 3 "warn: o achado [error] do passe de seguranca reprova (exit 3), origem security"
   echo "--- o mesmo, inconclusive: block"
   TUT_POLICY=politica-bloqueia; aurum review --base main --politica /policy --seguranca --auditoria /work/auditoria-block.json
   origens auditoria-block.json
-  expect_rc 1 "REPRODUZIDO (AUR-569): block sai 1 so por inconclusivo, sem citar o achado"
+  expect_rc 3 "block: o achado reprova com exit 3, nao so o inconclusivo"
+  echo "--- sem achado deterministico (diff sem segredo), inconclusive: warn"
+  tut_repo achado-deterministico-limpo repo-exemplo/base repo-exemplo/limpo
+  TUT_POLICY=politica-alerta; aurum review --base main --politica /policy --seguranca
+  expect_rc 0 "warn sem achado deterministico continua so avisando (exit 0)"
 }
 
 tut_main "$@"

@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -20,6 +21,7 @@ const (
 	ContributorSkills       = "policy-skills"
 	ContributorSAST         = "sast"
 	ContributorAnalysis     = "embedded-analysis"
+	ContributorSecurity     = "security-pass"
 	ContributorAnalysisData = "analysis-data"
 	ContributorDTrack       = "dependency-track"
 )
@@ -99,6 +101,17 @@ func (EmbeddedAnalysisContributor) Name() string   { return ContributorAnalysis 
 func (EmbeddedAnalysisContributor) Origin() string { return OriginAnalysis }
 func (EmbeddedAnalysisContributor) Apply(_ context.Context, run *Run, res *Result) error {
 	return Fatal(ApplyAnalysisGate(res, run.Cfg.Gate, AnalysisIssuesForGate(run.Diff, run.Cfg), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+}
+
+// SecurityPassContributor counts the --seguranca pass's deterministic findings
+// (AUR-569). Without it a security finding reaches the gate only when a policy
+// skill happens to cite the same rule id.
+type SecurityPassContributor struct{}
+
+func (SecurityPassContributor) Name() string   { return ContributorSecurity }
+func (SecurityPassContributor) Origin() string { return OriginSecurity }
+func (SecurityPassContributor) Apply(_ context.Context, run *Run, res *Result) error {
+	return Fatal(ApplySecurityGate(res, run.Cfg.Gate, config.ApplyRuleConfig(run.Security, run.Cfg), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // AnalysisDataContributor gates the analysis-data artifact (AUR-533).
