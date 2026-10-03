@@ -1,7 +1,6 @@
 == fail-on-severidade
 --- fail_on [high], achado warning
 $ aurumcode review --base main --politica /policy
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -21,6 +20,7 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 exit_code=0
 RESULTADO: warning abaixo do limiar high nao reprova
 --- fail_on [medium], o mesmo achado warning
