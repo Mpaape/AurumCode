@@ -49,3 +49,7 @@ func mustDefaultSlotLimits() SlotLimits {
 
 // defaultSlotLimits is loaded once; builders copy it.
 var defaultSlotLimits = mustDefaultSlotLimits()
+
+// DefaultLimits returns the ceilings loaded from templates/limits.yml at
+// package initialization.
+func DefaultLimits() SlotLimits { return defaultSlotLimits }
