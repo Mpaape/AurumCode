@@ -17,6 +17,29 @@ TUT_BUILD_ARGS="GO_TAGS=aurum_exemplo"
 
 CASOS=(engine-no-gate skill-no-prompt ferramenta-pedida falha-binario-padrao)
 
+# repo_engine CASO CONFIG: repositorio descartavel com a CONFIG do tutorial em
+# .aurumcode/config.yml na main e a marca num commit da feature. A CONFIG fica
+# fora de .aurumcode/ no tutorial (config-engine.yml, config-ferramenta.yml):
+# ela so vale no binario com a tag, e o teste que valida toda config.yml do
+# repositorio usa o binario padrao.
+repo_engine() {
+  local caso="$1" cfg="$2"
+  TUT_WORK="$STATE/$caso"
+  rm -rf "$TUT_WORK"; mkdir -p "$TUT_WORK/.aurumcode"
+  cp -R "$HERE/repo-exemplo/base/." "$TUT_WORK/"
+  cp "$HERE/$cfg" "$TUT_WORK/.aurumcode/config.yml"
+  tgit init -q -b main
+  tgit add -A
+  tgit commit -q -m "base"
+  tgit checkout -q -b feature
+  cp -R "$HERE/repo-exemplo/marca/." "$TUT_WORK/"
+  tgit add -A
+  tgit commit -q -m "feature: marca"
+}
+
+# apaga_repo: remove o repositorio descartavel do caso (pelo mesmo motivo).
+apaga_repo() { rm -rf "${TUT_WORK:?}"; }
+
 # mostra_origens: a origem do achado na auditoria (blocking_findings) e no SARIF.
 mostra_origens() {
   python3 - "$TUT_WORK/auditoria.json" "$TUT_WORK/revisao.sarif" <<'PY'
@@ -34,10 +57,11 @@ PY
 # 1. A engine de exemplo declarada em quality_gates.scanners: o achado reprova
 #    o gate e chega a linha do gate, a auditoria e ao SARIF com origem exemplo.
 caso_engine_no_gate() {
-  tut_repo engine-no-gate repo-exemplo/base repo-exemplo/marca
+  repo_engine engine-no-gate config-engine.yml
   aurum review --base main --auditoria /work/auditoria.json --sarif /work/revisao.sarif
   expect_rc 3 "a engine de exemplo achou a marca no diff e o gate reprovou com origem exemplo"
   mostra_origens
+  apaga_repo
 }
 
 # 2. Uma skill de exemplo entra no prompt: o modelo falso ecoa a marca que viu.
@@ -58,7 +82,7 @@ caso_skill_no_prompt() {
 # 3. A engine opcional vira a ferramenta scanner_exemplo: o modelo a pede, o
 #    achado conta no gate e a chamada fica no transcript da auditoria.
 caso_ferramenta_pedida() {
-  tut_repo ferramenta-pedida repo-exemplo/base-ferramenta repo-exemplo/marca
+  repo_engine ferramenta-pedida config-ferramenta.yml
   TUT_FIXTURE=fixture-ferramenta.json
   aurum review --base main --auditoria /work/auditoria.json
   expect_rc 3 "o modelo pediu scanner_exemplo, o achado contou no gate com origem exemplo"
@@ -70,17 +94,19 @@ print("auditoria deliberation: oferecidas=%s pedidas=%s rodadas=%d desfecho=%s" 
 for c in d["calls"]:
     print("auditoria chamada: rodada=%d ferramenta=%s status=%s resultado=%s" % (c["round"], c["tool"], c["status"], c["result"]))
 PY
+  apaga_repo
 }
 
 # Falha: o binario padrao (imagem sem build args) nao contem a engine de
 # exemplo; `engine: exemplo` e recusado ao ler a configuracao, antes da revisao.
 caso_falha_binario_padrao() {
   tut_image_padrao
-  tut_repo falha-binario-padrao repo-exemplo/base repo-exemplo/marca
+  repo_engine falha-binario-padrao config-engine.yml
   TUT_RUN_IMAGE="$TUT_IMAGE_PADRAO"
   aurum review --base main
   TUT_RUN_IMAGE=
   expect_rc 1 "o binario padrao recusa engine: exemplo como engine desconhecida"
+  apaga_repo
 }
 
 tut_main "$@"
