@@ -18,16 +18,26 @@ const AssessmentDiscardWarningKey = "assessment_discard_warning"
 // The priorities an assessment may carry; anything else is cleared.
 var knownAssessmentPriorities = map[string]bool{"high": true, "medium": true, "low": true}
 
+// admittedEvidence is the ids of the evidence items the prompt text
+// carries: the ones offered and admitted under the section's ceiling.
+func admittedEvidence(parts prompt.PromptParts) []string {
+	listed := parts.Meta[prompt.EvidenceAdmittedMetaKey]
+	if listed == "" {
+		return nil
+	}
+	return strings.Split(listed, ",")
+}
+
 // weighAssessments keeps only the model's assessments of evidence the
-// engine actually offered in this prompt. The model answers about evidence;
+// prompt actually showed it (offered and admitted under the ceiling). The model answers about evidence;
 // it never creates it: an assessment naming an id that was not offered is
 // dropped (and named in the warning), so a reply cannot attach a verdict to
 // a finding it invented. Issue-level assessments of offered evidence are
 // lifted into the result's list when the list has none for that id.
-func weighAssessments(result *types.ReviewResult, offered []prompt.EvidenceItem) {
-	ids := make(map[string]bool, len(offered))
-	for _, e := range offered {
-		ids[e.ID] = true
+func weighAssessments(result *types.ReviewResult, shown []string) {
+	ids := make(map[string]bool, len(shown))
+	for _, id := range shown {
+		ids[id] = true
 	}
 	var refused []string
 	kept := make([]types.EvidenceAssessment, 0, len(result.EvidenceAssessments))
@@ -68,7 +78,7 @@ func weighAssessments(result *types.ReviewResult, offered []prompt.EvidenceItem)
 	result.Metadata[AssessmentDiscardWarningKey] = ""
 	if len(refused) > 0 {
 		result.Metadata[AssessmentDiscardWarningKey] = fmt.Sprintf(
-			"discarded %d evidence assessment(s) that named no offered evidence or carried an unknown status: %s",
+			"discarded %d evidence assessment(s) that named evidence the prompt did not show (never offered, or omitted by the section ceiling) or carried an unknown status: %s",
 			len(refused), strings.Join(refused, ", "))
 	}
 }

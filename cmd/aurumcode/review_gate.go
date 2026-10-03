@@ -173,7 +173,7 @@ func (s *reviewState) runGate() (int, bool) {
 func (s *reviewState) triage() gate.Triage {
 	t := gate.Triage{Disputed: map[string]bool{}, BySource: map[string]bool{}}
 	for _, issue := range s.disputedEvidence() {
-		t.Disputed[findingOriginKey(issue.RuleID, issue.File, issue.Line)] = true
+		t.Disputed[gate.DisputeKey(issue.Origin, issue.RuleID, issue.File, issue.Line)] = true
 	}
 	if s.centralCfg != nil {
 		return t

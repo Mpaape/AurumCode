@@ -173,7 +173,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	if err != nil {
 		return nil, err
 	}
-	weighAssessments(result, reviewContext.Evidence)
+	weighAssessments(result, admittedEvidence(prepared.parts))
 	outcome, err := r.applyGates(prepared.diff, result)
 	if err != nil {
 		return nil, err

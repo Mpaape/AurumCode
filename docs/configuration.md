@@ -1094,6 +1094,14 @@ gate:
     sast: none        # the default for every source
 ```
 
+`gate.triage.analysis` also covers the findings of the `--seguranca` pass
+(origin `security`), exactly as `gate.sources: analysis` counts them: the
+vocabulary stays the three `gate.sources` names, and a dispute is matched by
+origin, rule, path and line, so it never demotes another source's finding at
+the same place. Evidence the prompt's ceiling left out (declared as
+"N omitidos") was never read by the model: an assessment of it is discarded
+with the same warning as an id never offered, and it can never demote.
+
 `triage` keys are the `gate.sources` names (`skills`, `analysis`, `sast`);
 values are `model` or `none` (the default). The evidence the model assesses
 is the deterministic one (`analysis`, the `--seguranca` pass counted under

@@ -97,7 +97,7 @@ func (SASTContributor) Origin() string { return OriginSAST }
 func (c SASTContributor) Apply(_ context.Context, run *Run, res *Result) error {
 	issues := SASTIssues(run.Cfg.Gate, c.Issues)
 	if c.SectionOrigin != OriginPolicy {
-		issues = run.keep(config.GateSourceSAST, issues)
+		issues = run.keep(config.GateSourceSAST, OriginSAST, issues)
 	}
 	return Fatal(ApplySASTGate(res, run.Cfg.QualityGates.Sast, c.SectionOrigin, issues, c.Reason))
 }
@@ -108,7 +108,7 @@ type EmbeddedAnalysisContributor struct{}
 func (EmbeddedAnalysisContributor) Name() string   { return ContributorAnalysis }
 func (EmbeddedAnalysisContributor) Origin() string { return OriginAnalysis }
 func (EmbeddedAnalysisContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	return Fatal(ApplyAnalysisGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, AnalysisIssuesForGate(run.Diff, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+	return Fatal(ApplyAnalysisGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginAnalysis, AnalysisIssuesForGate(run.Diff, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // SecurityPassContributor counts the --seguranca pass's deterministic findings
@@ -119,7 +119,7 @@ type SecurityPassContributor struct{}
 func (SecurityPassContributor) Name() string   { return ContributorSecurity }
 func (SecurityPassContributor) Origin() string { return OriginSecurity }
 func (SecurityPassContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	return Fatal(ApplySecurityGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, config.ApplyRuleConfig(run.Security, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+	return Fatal(ApplySecurityGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginSecurity, config.ApplyRuleConfig(run.Security, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // AnalysisDataContributor gates the analysis-data artifact (AUR-533).
