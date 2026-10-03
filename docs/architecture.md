@@ -37,6 +37,7 @@ rules live in `internal/`.
 | `internal/changelog` | Builds changelog sections and semantic-version bumps from reviewed commits. |
 | `internal/config` | Effective configuration: sections, central policy precedence, gate, exceptions, quality gates. |
 | `internal/context` | Bounded, deterministic codebase context and skill reader. |
+| `internal/deliberation` | Bounded tool conversation with a model, with no review semantics: `Tool` (`Spec`, `Run`), `Limits` (rounds, tokens, per-tool timeout), argument validation before any run, the `Transcript`, and the typed `LimitError` a caller treats as inconclusive. |
 | `internal/dtrack` | Client of OWASP Dependency-Track for the SBOM gate. |
 | `internal/evidence` | Content-addressed evidence-bundle manifest. |
 | `internal/gate` | The gate pipeline: `Run`, `Result`, `Contributor`, `Pipeline`, the failure rule, the inconclusive ranking (`RankReason`) and the exit decision (`ExitPolicy`). |
@@ -47,7 +48,7 @@ rules live in `internal/`.
 | `internal/memory` | Optional review memory. |
 | `internal/prompt` | Prompt building, budgeting, response parsing, comment filter, coverage notes. |
 | `internal/render` | Deterministic reports, audit records, SARIF and finding identity. |
-| `internal/review` | The reviewer, scope, rules (including dynamic skill rules), the review cache and the review session (`internal/review/session`: phase order and per-source data). |
+| `internal/review` | The reviewer, scope, rules (including dynamic skill rules), the review cache, the review session (`internal/review/session`: phase order and per-source data) and the tools a review offers the model (`internal/review/tools`: optional scanners, codebase context, with the manifest's declared cost). |
 | `internal/reviewprofile` | Built-in, versioned reviewer profiles. |
 | `internal/sandbox` | Sealed execution profiles. |
 | `internal/scanner` | The scanner contract (`Scanner`, `Report`, `Finding.ToIssue`), the closed registry of compiled engines and the executor; engines live in subpackages (`internal/scanner/semgrep`) listed in `internal/scanner/engines`. |
@@ -69,7 +70,8 @@ returns `(exit, done)`, so each early exit keeps its code:
 
 1. **resolve.** Validate the invocation; configuration, central policy, diff,
    context, profiles, memory.
-2. **model.** Provider selection and the model's quality pass. Its result is
+2. **model.** Provider selection and the model's quality pass. With
+   `deliberation.enabled`, the model may first ask for tools (below). Its result is
    a typed `gate.ModelOutcome`: `reviewed`, `skipped` (no provider
    configured), `provider failed` (no answer, or a required quality review
    that did not happen) or `parse failed` (an answer that could not be
@@ -141,6 +143,40 @@ tool results (`review/cache.RequestKey`), so evidence that the ceiling left out
 of the text still changes the key. The model may attach an `assessment`
 (`confirmed`, `disputed`, `needs_context`, with justification) to an issue;
 `origin` is written only by the engine, and the parser discards a model's.
+
+## Deliberation
+
+With `deliberation.enabled` and a provider that implements
+`llm.ToolCaller` (found through `llm.As`), the model phase is a bounded tool
+conversation (`internal/deliberation.Session`) instead of a single call:
+
+- The evidence phase runs every `required` scanner as before; an enabled
+  scanner that is not `required` is deferred and offered as the tool
+  `scanner_<engine>`, beside `codebase_context` (the bounded context of one
+  changed file). The manifest goes to the prompt's tools slot with the
+  declared cost and result size of each tool. The model decides; the code
+  never asks for a tool by itself.
+- Every round is one `Orchestrator.CompleteWithTools` call: its cost is
+  reserved before the call and committed after, and fallback only moves
+  between providers that are `ToolCaller`s. The answer is requested with a
+  JSON Schema derived from `types.ReviewResult` (`llm.SchemaOf`) where the
+  provider supports it (`response_format: json_schema` on LiteLLM), JSON
+  mode otherwise.
+- Each call's arguments are checked against the tool's schema before it
+  runs; a refused call is recorded and the model is told why. A requested
+  scanner runs through the same path as the evidence phase and joins the
+  session's scans: its findings count in the gate with their origin, and a
+  missing binary or failed scan is the scan's inconclusive reason.
+- Exceeding `max_rounds`, `max_cost_tokens` or `per_tool_timeout_seconds`
+  is `deliberation_limit:<limit>`: the review is inconclusive, exits 1 and
+  publishes nothing (the gate's own reason is never reached). The transcript
+  (offered, requested and not requested tools, each call with redacted
+  arguments, duration and summarized result) is printed on stderr and
+  written to the audit's `deliberation` field.
+- Without a tool-capable provider (or with review profiles), the deferred
+  scanners run as before. A review that offered tools skips the per-file
+  model cache, and the verdict-reuse key folds in the digests of the tool
+  results.
 
 ## Gate pipeline
 
