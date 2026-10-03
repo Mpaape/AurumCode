@@ -1,0 +1,27 @@
+== engine-no-gate
+$ aurumcode review --base main --auditoria /work/auditoria.json --sarif /work/revisao.sarif
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: exemplo:marca - linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca) (severidade error, limiar error, origem exemplo, secao repo)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.py
+
+
+```mermaid
+flowchart TD
+    n0["app.py"]
+
+```
+app.py:2: [error] linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca)
+exit_code=3
+RESULTADO: a engine de exemplo achou a marca no diff e o gate reprovou com origem exemplo
+auditoria blocking_findings: rule_id=exemplo:marca path=app.py line=2 origin=exemplo
+sarif result: exemplo:marca app.py:2 origin=exemplo

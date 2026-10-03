@@ -7,7 +7,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /aurumcode ./cmd/aurumcode
+# GO_TAGS selects optional engines compiled in by build tag; the default
+# image holds none (e.g. --build-arg GO_TAGS=aurum_exemplo adds the example
+# engine of docs/extensao.md).
+ARG GO_TAGS=""
+RUN CGO_ENABLED=0 go build -trimpath -tags "$GO_TAGS" -ldflags="-s -w" -o /aurumcode ./cmd/aurumcode
 
 # The secrets engine: gitleaks copied from the image the scanners lock pins
 # by digest (.board/bootstrap/locks/scanners.yml, secrets_scanner_image);

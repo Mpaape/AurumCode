@@ -1,0 +1,11 @@
+deliberation:
+  enabled: true
+  max_rounds: 3
+  max_cost_tokens: 60000
+  per_tool_timeout_seconds: 60
+quality_gates:
+  scanners:
+    - engine: exemplo
+      required: false
+gate:
+  fail_on: [error]

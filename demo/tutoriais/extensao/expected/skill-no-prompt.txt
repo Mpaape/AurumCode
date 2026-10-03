@@ -1,0 +1,5 @@
+$ aurumcode review --base main
+- **Eco da skill** — o prompt recebido trazia a skill de exemplo (MARCA-SKILL-EXEMPLO)
+exit_code=0
+RESULTADO: a skill chegou ao prompt; sem engine nem gate o exit e 0
+prompt: Uma funcao faz uma coisa so. MARCA-SKILL-EXEMPLO
