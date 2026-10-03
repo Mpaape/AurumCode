@@ -277,6 +277,14 @@ casos, um achado real que cruze `fail_on` ainda reprova o check**
 achado que já cruzou o limiar. Em nenhum caso o parecer aparece como
 aprovado.
 
+**Achado determinístico conta em qualquer modo (AUR-569).** O modo de
+`gate.inconclusive` governa a ausência do parecer do modelo, nunca a presença
+de um achado determinístico (catálogo embutido, passe de segurança `--seguranca`,
+SAST): com severidade em `fail_on` ou acima, ele reprova o check (exit 3) sob
+`warn` e sob `block`, com ou sem provedor, e a linha do gate nomeia a regra e a
+origem. Os achados do passe de segurança contam sob a origem `analysis` de
+`gate.sources`. Sem achado determinístico, `warn` continua só avisando.
+
 Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
 avisos de `rules`/`ignore` já existentes.
