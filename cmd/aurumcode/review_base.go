@@ -8,8 +8,6 @@
 package main
 
 import (
-	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -39,15 +37,17 @@ type reviewFlags struct {
 	given                                              map[string]bool
 }
 
-// parseReviewFlags parses args. ok is false when the command must return
-// exit now (help requested, or a usage error).
-func parseReviewFlags(args []string, stdout, stderr io.Writer) (f *reviewFlags, exit int, ok bool) {
-	// An explicitly requested --help is a fulfilled request (stdout, exit
-	// 0); a genuine usage error goes to stderr, exit 2 (AUR-443).
-	var helpBuf bytes.Buffer
+// newReviewFlagSet declares the flags of `review`; the help reads the same
+// set.
+func newReviewFlagSet() *flag.FlagSet {
+	fs, _ := declareReviewFlags()
+	return fs
+}
+
+// declareReviewFlags builds the FlagSet and the reviewFlags it binds.
+func declareReviewFlags() (*flag.FlagSet, *reviewFlags) {
 	fs := flag.NewFlagSet("review", flag.ContinueOnError)
-	fs.SetOutput(&helpBuf)
-	f = &reviewFlags{given: map[string]bool{}}
+	f := &reviewFlags{given: map[string]bool{}}
 	fs.StringVar(&f.base, "base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
 	fs.StringVar(&f.failOn, "fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
 	fs.StringVar(&f.modelo, "modelo", "", "model id that reviews; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: the endpoint's configured model)")
@@ -67,13 +67,17 @@ func parseReviewFlags(args []string, stdout, stderr io.Writer) (f *reviewFlags, 
 	fs.StringVar(&f.policy, "policy", "", "alias of --politica")
 	fs.StringVar(&f.auditoria, "auditoria", "", "path to write AUR-521's compliance audit record (JSON) for this run: policy digest, workflow/reviewed SHA, model, verdict, gate decision, blocking findings, exceptions applied and coverage (default: no audit record written)")
 	fs.StringVar(&f.sarif, "sarif", "", "path to write AUR-521's SARIF 2.1.0 document for this run, for a workflow to upload to GitHub code scanning (default: no SARIF written)")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			io.Copy(stdout, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
-			return nil, 0, false
-		}
-		io.Copy(stderr, &helpBuf) //nolint:errcheck // best-effort; nothing left to report to on failure
-		return nil, 2, false
+	return fs, f
+}
+
+// parseReviewFlags parses args. ok is false when the command must return
+// exit now (help requested, or a usage error).
+func parseReviewFlags(args []string, stdout, stderr io.Writer) (f *reviewFlags, exit int, ok bool) {
+	// An explicitly requested --help is a fulfilled request (stdout, exit
+	// 0); a genuine usage error goes to stderr, exit 2 (AUR-443).
+	fs, f := declareReviewFlags()
+	if exit, ok := parseSubcommandFlags("review", fs, args, stdout, stderr); !ok {
+		return nil, exit, false
 	}
 	// Detected via fs.Visit, never by scanning args for a "--" prefix: Go
 	// treats "-pr" and "--pr" identically (docs/specs/AUR-438.md).
