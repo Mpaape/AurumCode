@@ -171,7 +171,7 @@ run_mut002() {
   replace_once "$f" 'Commit      string `json:"Commit"`' 'Commit      string `json:"Commit"`; Secret string `json:"Secret"` // MUT-002'
   replace_once "$f" 'desc := strings.TrimSpace(l.Description)' 'desc := strings.TrimSpace(l.Description + " " + l.Secret) // MUT-002'
   expect_red "$root" "$run_dir/mut2.log" "${ac001_tests[@]}"
-  grep -Eq -- 'output carries' "$run_dir/mut2.log" || fail mut002-wrong-reason
+  grep -Eq -- "output carries the token" "$run_dir/mut2.log" || fail mut002-wrong-reason
   printf '%s/MUT-002/rejected\n' "$card"
 }
 
