@@ -1,47 +1,6 @@
-// AUR-536 closes out AUR-515's own review follow-up: once the --pr path has
-// verified that the local checkout IS the reviewed repository at the
-// reviewed pull request's exact head commit (codebaseContextMismatch,
-// aur515.go), the codebase-context pass (resolveCodebaseContext, passes.go)
-// still reads whatever sits in that checkout's working tree via a plain
-// filepath.WalkDir (internal/context/resolver.go). A verified repository
-// and HEAD do not imply a clean tree: an uncommitted edit, an untracked
-// file, or files belonging to a nested clone copied into the tree all sit
-// on disk and would reach the model as "codebase context" even though none
-// of them is part of the commit the pull request actually names.
-//
-// verifiedCleanCheckoutReason closes that gap: it proves every file under
-// the checkout (outside ".git") is exactly the content git already has
-// recorded for a committed blob at HEAD, and fails closed -- "dirty" or
-// "unverifiable" -- on anything it cannot prove. This runs only on the --pr
-// path (pr.go, right after codebaseContextMismatch); --base is deliberately
-// left untouched, since there the checkout IS the change under review by
-// construction (see aur515.go's own package doc) and demanding a clean tree
-// there would break reviewing a local, uncommitted diff.
-//
-// The proof itself is a single comparison against internal/analyzer's own
-// exported Repo.TrackedFiles(ref): analyzer.OpenRepo already resolves, once,
-// which backend reads this repository -- the git binary (loose or packed
-// objects, via `git cat-file`) when one is on PATH, or a pure-Go
-// loose-object reader when it is not -- and TrackedFiles returns HEAD's
-// entire tracked tree, as a path -> {blob id, mode} map, through whichever
-// one it picked. There is exactly one map-building codepath, not two: the
-// git-binary and git-less backends feed the identical comparison
-// (cleanAgainstTracked), so they can only ever disagree on what a loose
-// object lookup finds, never on what "clean" means. A git-less checkout
-// whose objects have been packed is TrackedFiles' hard error case (a loose
-// object the pure-Go reader cannot find): that is reported
-// "unverifiable", never "dirty" -- an inability to prove the tree is dirty
-// is not evidence that it is. It never happens in production, where the
-// shipped Dockerfile always installs git; it is exactly the sealed
-// acceptance profile's own git-less, loose-object-only fixtures that
-// exercise this path for real.
-//
-// Once the tree verifies clean, the exact file set TrackedFiles named is
-// handed, by construction, to internal/context's resolver
-// (resolveVerifiedCodebaseContext, ResolveWithFiles) as the ONLY files its
-// own repo-wide reference scan may read -- never a second, independent
-// filesystem walk that this proof and the resolver could, in principle,
-// disagree about.
+// Verified checkout: once the --pr path has proven the local checkout is the
+// reviewed repository at the reviewed head, the codebase context is resolved
+// from exactly the pull request's changed files.
 package main
 
 import (

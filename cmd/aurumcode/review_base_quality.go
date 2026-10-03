@@ -1,5 +1,5 @@
 // The model's quality pass of the --base path: cost cap (--limite), review
-// cache (AUR-441/543), profile passes (AUR-502) and the single review call.
+// cache, profile passes and the single review call.
 package main
 
 import (

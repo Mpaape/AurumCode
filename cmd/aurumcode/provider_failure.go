@@ -1,35 +1,9 @@
-// AUR-537: on `--pr`, a provider/transport failure that happens while the
-// model is actually being called -- every configured provider failed in the
-// orchestrator (llm.ErrAllProvidersFailed) or --limite refused the call
-// before any provider was ever reached (llm.ErrBudgetExceeded) -- used to
-// return exit code 1 immediately, before the AUR-519 policy gate
-// (evaluateGate, policygate.go) was ever reached: no aurumcode/policy-gate
-// status, `inconclusive: warn` never honored, and no audit/SARIF written at
-// all. This left a mandatory check failing closed (acceptable on its own)
-// but silently -- a reviewer reading the pull request saw no status and no
-// reason, and a policy that explicitly asked to warn-and-continue on this
-// exact failure could never do so.
-//
-// runPRReview (pr.go) now routes that failure through the gate as the
-// inconclusive reason gateReasonProviderFailure, exactly once a gate is
-// declared (reviewConfig.Gate.Declared()) -- the same token name
-// --base's own runReview (main.go) already uses for its own, structurally
-// different "provider failed after selection" case, so an operator reading
-// either path's published reason sees one vocabulary. Without a gate
-// declared, pr.go's behavior is untouched byte-for-byte (AC-003): the same
-// diagnosis, the same exit code, no status, no audit, no SARIF -- this file
-// adds no new decision there.
-//
-// This file owns only the one new piece of published text the routed path
-// needs that the existing AUR-505 degraded-parse machinery does not already
-// supply: providerFailureNotice. Everything else -- the gate's own
-// inconclusive-mode decision, the commit status, the audit record, the
-// SARIF document, the withheld-approval marker -- is the exact, already
-// shipped and tested machinery AUR-519/520/521 built for AUR-505's sibling
-// reason (a model answer that failed to parse): this card only supplies the
-// trigger, never a second gate or a second writer. See
-// docs/specs/AUR-537.md.
+// Provider failure on --pr: when no model provider answers, or --limite
+// refuses the call, the review still reaches the gate and publishes the
+// deterministic findings, declaring that the quality review did not run.
 package main
+
+import "github.com/Mpaape/AurumCode/internal/i18n"
 
 // gateReasonProviderFailure is AUR-537's own token for
 // evaluateGate/writeComplianceArtifacts' inconclusiveReason parameter: a
@@ -63,8 +37,5 @@ const gateReasonProviderFailure = "provider_failure"
 // already carry, so the review body also says in its own words that the
 // review did not run, not only that it is inconclusive.
 func providerFailureNotice(language string) string {
-	if language == "pt-BR" || language == "pt" {
-		return "Revisão de qualidade inconclusiva: a revisão não foi executada -- nenhum provedor de modelo respondeu (falha de transporte) ou a chamada foi recusada antes de ser feita (--limite); os achados determinísticos (análise estática e segurança), quando houver, foram publicados."
-	}
-	return "Quality review inconclusive: the review did not run -- no model provider answered (transport failure) or the call was refused before it was made (--limite); the deterministic findings (static analysis and security), if any, were still published."
+	return i18n.Text(language, "notice.provider_failure")
 }
