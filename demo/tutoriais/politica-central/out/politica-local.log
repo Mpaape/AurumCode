@@ -26,7 +26,7 @@ RESULTADO: sem politica nao ha gate
 --- com --politica: a politica impoe o gate e o idioma
 $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Resumo da Revisão de Código
 
 **Veredito:** Alterações solicitadas

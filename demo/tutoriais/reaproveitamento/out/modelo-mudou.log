@@ -1,7 +1,7 @@
 == modelo-mudou
 --- modelo A (a resposta tem um achado)
 $ aurumcode review --base main --politica /policy
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested

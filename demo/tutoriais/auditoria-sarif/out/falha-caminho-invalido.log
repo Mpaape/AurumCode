@@ -22,7 +22,7 @@ flowchart TD
     n0["app.go"]
 
 ```
-No issues found.
+Sem achados nas fontes concluídas; inconclusivo: audit_write_failed
 exit_code=1
 RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao existe
 o arquivo de auditoria nao existe
@@ -31,7 +31,7 @@ $ aurumcode review --base main --sarif /work/arquivo-regular/revisao.sarif
 aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
 ## Code Review Summary
 
-**Verdict:** Approve
+**Verdict:** Comment
 
 **Findings by severity:**
 - error: 0
@@ -47,7 +47,7 @@ flowchart TD
     n0["app.go"]
 
 ```
-No issues found.
+Sem achados nas fontes concluídas; inconclusivo: sarif_write_failed
 exit_code=1
 RESULTADO: sem gate: exit diferente de 0 e a mensagem nomeia o caminho
 --- caminho gravavel: comportamento inalterado
