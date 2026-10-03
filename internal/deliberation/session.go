@@ -48,6 +48,9 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 	tools, specs := s.index()
 	out := Outcome{Transcript: Transcript{Offered: specNames(specs), Calls: []Call{}}}
 	conversation := append([]llm.Message(nil), messages...)
+	// last is the latest round's reply. Text that came beside tool calls is
+	// never an answer: only a round without calls ends the conversation.
+	var last llm.ToolResponse
 	for round := 1; ; round++ {
 		if round > s.Limits.MaxRounds {
 			return s.stop(out, &LimitError{Limit: LimitMaxRounds, Detail: fmt.Sprintf("%d rodadas sem resposta final", s.Limits.MaxRounds)})
@@ -56,6 +59,7 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 		if err != nil {
 			return s.stop(out, err)
 		}
+		last = resp
 		out.Transcript.Rounds = round
 		out.Transcript.TokensIn += resp.TokensIn
 		out.Transcript.TokensOut += resp.TokensOut
@@ -63,7 +67,7 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 			return s.stop(out, &LimitError{Limit: LimitMaxCostTokens, Detail: fmt.Sprintf("%d tokens usados, teto %d", used, s.Limits.MaxCostTokens)})
 		}
 		if len(resp.ToolCalls) == 0 {
-			out.Answer = resp.Response
+			out.Answer = last.Response
 			out.Transcript.Outcome = OutcomeAnswered
 			out.Transcript.decide()
 			return out, nil

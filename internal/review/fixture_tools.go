@@ -57,14 +57,13 @@ func NewOfflineProvider(content, name, capturePath string) llm.Provider {
 func (f *ToolFixtureProvider) CompleteWithTools(messages []llm.Message, tools []llm.ToolSpec, opts llm.Options) (llm.ToolResponse, error) {
 	text := llm.FlattenMessages(messages)
 	calls := f.callsFor(messages, tools, text)
-	if len(calls) > 0 {
-		return llm.ToolResponse{
-			Response:  llm.Response{TokensIn: heuristicTokenCount(text), TokensOut: 1, Model: f.Name()},
-			ToolCalls: calls,
-		}, nil
-	}
 	resp, err := f.Complete(text, opts)
-	return llm.ToolResponse{Response: resp}, err
+	if err != nil {
+		return llm.ToolResponse{}, err
+	}
+	// Like a real model, the fixture may write text beside its tool calls;
+	// that text is the answer it would give now, never a final answer.
+	return llm.ToolResponse{Response: resp, ToolCalls: calls}, nil
 }
 
 // callsFor is the tool calls the fixture makes in this round.
