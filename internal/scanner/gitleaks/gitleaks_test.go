@@ -273,6 +273,9 @@ func TestGitleaksFailuresAreInconclusive(t *testing.T) {
 		"shallow clone":      {func(f *fakeRepo) { f.shallow = true }, prRange, "secrets_execution_error"},
 		"other version":      {func(f *fakeRepo) { f.version = "v8.18.0" }, prRange, "secrets_execution_error"},
 		"logged error exit0": {func(f *fakeRepo) { f.stderr = "7:23PM ERR [git] fatal: bad revision" }, prRange, "secrets_execution_error"},
+		"colored logged error": {func(f *fakeRepo) {
+			f.stderr = "\x1b[90m7:23PM\x1b[0m \x1b[31mERR\x1b[0m \x1b[1m[git] fatal: bad revision\x1b[0m"
+		}, prRange, "secrets_execution_error"},
 		"report not array":   {func(f *fakeRepo) { f.report = `{"results":[]}` }, prRange, "secrets_invalid_output"},
 		"report null":        {func(f *fakeRepo) { f.report = `null` }, prRange, "secrets_invalid_output"},
 		"entry without file": {func(f *fakeRepo) { f.report = `[{"RuleID":"x","StartLine":1}]` }, prRange, "secrets_invalid_output"},
@@ -284,7 +287,7 @@ func TestGitleaksFailuresAreInconclusive(t *testing.T) {
 		if out.Reason != c.want || out.Findings != nil {
 			t.Errorf("%s: reason %q findings %v, want %q", name, out.Reason, out.Findings, c.want)
 		}
-		if strings.Contains(c.want, "execution") && name != "logged error exit0" && len(f.scanCalls) != 0 {
+		if strings.Contains(c.want, "execution") && !strings.Contains(name, "logged error") && len(f.scanCalls) != 0 {
 			t.Errorf("%s: gitleaks scanned a range it could not verify", name)
 		}
 		if g := gateOf(t, out, "policy"); !g.Inconclusive {

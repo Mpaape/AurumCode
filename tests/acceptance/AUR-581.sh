@@ -13,7 +13,7 @@
 # binary is recorded in docs/specs/AUR-581.md.
 #
 # Selectors:
-#   all        AC-001..AC-004, then MUT-001 and MUT-002
+#   all        AC-001..AC-003, MUT-001, MUT-002, then AC-004
 #   AC-001     history leak in gate line and audit, no value; lock identity
 #   AC-002     missing binary and every failure are inconclusive
 #   AC-003     gitleaks:allow and .gitleaksignore under policy
@@ -186,9 +186,9 @@ case "$selector" in
     run_ac001
     run_ac AC-002 "${ac002_tests[@]}"
     run_ac AC-003 "${ac003_tests[@]}"
-    run_ac004
     run_mut001
     run_mut002
+    run_ac004
     ;;
 esac
 printf '%s/%s/pass\n' "$card" "$selector"

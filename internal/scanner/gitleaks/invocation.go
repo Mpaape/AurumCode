@@ -45,8 +45,11 @@ var (
 	ErrLoggedError = errors.New("gitleaks: the scan logged an error")
 
 	commitID = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
-	// loggedError matches gitleaks' own error and fatal log levels.
+	// loggedError matches gitleaks' own error and fatal log levels. With
+	// --no-color the pinned binary logs them plain (measured); ansiColor is
+	// stripped first so a colored log still matches.
 	loggedError = regexp.MustCompile(`(?m)\b(?:ERR|FTL)\b`)
+	ansiColor   = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 )
 
 // binaryVersion runs `gitleaks version` and refuses any version but the
@@ -111,7 +114,7 @@ func scanRange(ctx context.Context, run scanner.Command, root string, r scanner.
 	if runErr != nil {
 		return nil, fmt.Errorf("gitleaks: execution failed: %w", runErr)
 	}
-	if loggedError.MatchString(stderr) {
+	if loggedError.MatchString(ansiColor.ReplaceAllString(stderr, " ")) {
 		return nil, ErrLoggedError
 	}
 	raw, err := os.ReadFile(report)
