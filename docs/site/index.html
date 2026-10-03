@@ -258,7 +258,10 @@ review:
       </ol>
       <pre class="observed" aria-label="Saída real observada">--- a/app.py
 +++ b/app.py
-@@ -5,2 +5,2 @@
+@@ -2,5 +2,5 @@
+ 
+ 
+ def find_user(uid):
 -    query = "SELECT * FROM users WHERE id = " + uid
 -    return connect().execute(query)
 +    query = "SELECT * FROM users WHERE id = ?"
@@ -292,7 +295,10 @@ git apply --check fix.patch</code></pre></li>
       </ol>
       <pre class="observed" aria-label="Saída real observada">--- a/app.py
 +++ b/app.py
-@@ -5,2 +5,2 @@
+@@ -2,5 +2,5 @@
+ 
+ 
+ def find_user(uid):
 -    query = "SELECT * FROM users WHERE id = " + uid
 -    return connect().execute(query)
 +    query = "SELECT * FROM users WHERE id = ?"

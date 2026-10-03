@@ -173,7 +173,7 @@ export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
 # AC-001-MUT-001: remove the one line that marks a review as
-# gate-withheld (main.go, right after "if gateResult.Fail ||
+# gate-withheld (internal/gate withholdApproval, reached from ApplyOutcome after "if gateResult.Fail ||
 # gateResult.Inconclusive"). Without it, formalReviewEvent/
 # canonicalVerdict (pr.go/passes.go) have nothing engine-owned left to
 # read, and a clean, zero-issue result falls through to "approve" even
@@ -182,11 +182,12 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # never a silent no-op.
 apply_mutation() {
   local target="$run_dir/root/internal/gate/outcome.go"
-  local anchor='			result.Metadata[prompt.PolicyGateWithheldKey] = "true"'
-  grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
-  grep -Fv "$anchor" "$target" >"$target.tmp"
-  mv "$target.tmp" "$target"
-  grep -Fq "$anchor" "$target" && infra mutation-not-applied
+  local anchor='	result.Metadata[prompt.PolicyGateWithheldKey] = "true"'
+  [[ "$(grep -Fxc "$anchor" "$target")" == "1" ]] || infra mutation-anchor-missing
+  # Same semantics as dropping the line (withholdApproval no longer marks the
+  # review), kept compilable: the prompt import stays used.
+  sed -i 's|^\tresult.Metadata\[prompt.PolicyGateWithheldKey\] = "true"$|\t_ = prompt.PolicyGateWithheldKey // MUT-001: marker not set|' "$target"
+  grep -Fxq "$anchor" "$target" && infra mutation-not-applied
   return 0
 }
 

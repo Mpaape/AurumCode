@@ -282,8 +282,29 @@ aprovado.
 de um achado determinístico (catálogo embutido, passe de segurança `--seguranca`,
 SAST): com severidade em `fail_on` ou acima, ele reprova o check (exit 3) sob
 `warn` e sob `block`, com ou sem provedor, e a linha do gate nomeia a regra e a
-origem. Os achados do passe de segurança contam sob a origem `analysis` de
-`gate.sources`. Sem achado determinístico, `warn` continua só avisando.
+origem. Os achados do passe de segurança contam sob a fonte `analysis` de
+`gate.sources`, mas levam a origem tipada `security`. Sem achado determinístico,
+`warn` continua só avisando.
+
+**Origem em toda linha de gate (AUR-567).** Cada linha que nomeia um achado
+termina em `(severidade <s>, limiar <l>, origem <fonte>)`, onde `<fonte>` é o
+mesmo valor que a auditoria (`origin`) e o SARIF (`properties.origin`) gravam:
+`skills`, `analysis`, `sast`, `security` ou `dtrack`. No SAST a linha acrescenta
+`secao policy|repo` (de onde veio a configuração), nunca no lugar da origem. A
+linha usa a mesma mensagem do relatório: id e mensagem se juntam por ` - `, para
+que o filtro de redação não leia `...secret: <palavra>` como um par chave/valor e
+troque a primeira palavra da mensagem por `[REDACTED]`. Pelo mesmo motivo a linha escreve a citação
+`(rule <id>: <título>)` do relatório como `(rule <id> - <título>)`: a linha do gate e o
+relatório diferem só nesse separador, e a linha mostra o título inteiro (`Hardcoded Secrets`).
+
+**Review formal e gate (AUR-567).** Em `--pr`, quando `gate` está declarado, a
+review formal segue o gate: `REQUEST_CHANGES` só se o gate reprova; achados
+abaixo do limiar ou aprovação retida dão `COMMENT`; uma execução limpa dá
+`APPROVE`. Assim a review e o status `aurumcode/policy-gate` não discordam (um
+aviso abaixo do limiar não pede mudanças com os checks verdes). Sem `gate`
+declarado vale a regra histórica (erro ou aviso pede mudanças). Com ou sem gate,
+uma falha ao gravar `--auditoria`/`--sarif` retém a aprovação: a review formal
+nunca é `APPROVE` antes de o processo sair com 1.
 
 Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os

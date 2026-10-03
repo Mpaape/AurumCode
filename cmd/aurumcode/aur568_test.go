@@ -205,8 +205,8 @@ func TestAUR568PRPathUnwritableNeverSucceeds(t *testing.T) {
 					if tc.wantState != "" && strings.Contains(strings.ToLower(status.Description), "aprovado") {
 						t.Fatalf("status must never say approved: %s", status.Description)
 					}
-					if tc.cfg != "review: {}\n" && event == "APPROVE" {
-						t.Fatalf("formal review must not approve under a declared gate")
+					if event == "APPROVE" {
+						t.Fatalf("formal review must not approve when the audit or SARIF could not be written (AUR-567)")
 					}
 				})
 			}

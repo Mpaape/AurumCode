@@ -143,12 +143,13 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 		result.Breach = true
 		result.Fail = true
 		for _, r := range outcome.Reasons {
-			result.Lines = append(result.Lines, "ssor_dtrack: "+r)
+			result.Lines = append(result.Lines, "ssor_dtrack: "+r+" (origem "+OriginDTrack+")")
 		}
 		result.BlockingFindings = append(result.BlockingFindings, render.AuditFinding{
 			RuleID:   "ssor_dtrack",
 			Path:     projectID,
 			Severity: "error",
+			Origin:   OriginDTrack,
 		})
 	default:
 		result.Lines = append(result.Lines, fmt.Sprintf(
