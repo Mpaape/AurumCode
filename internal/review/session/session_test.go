@@ -71,7 +71,7 @@ type gateCase struct {
 // outcome is what a source decides for a case: the gate's reason and the
 // exit decision.
 func outcome(src Source, c gateCase) (gate.Reason, gate.ExitDecision) {
-	reason := gate.RankReason(gate.ReasonInputs{Model: c.model, SASTReason: c.sastReason})
+	reason := gate.RankReason(gate.ReasonInputs{Model: c.model, ScannerReason: c.sastReason})
 	res := &gate.Result{Active: true, Reason: string(reason), Breach: c.breach}
 	res.Inconclusive = reason != gate.ReasonNone
 	res.Fail = c.breach || (res.Inconclusive && c.block)

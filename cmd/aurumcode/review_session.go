@@ -18,6 +18,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/session"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -45,20 +46,18 @@ func readReviewEnv() reviewEnv {
 	}
 }
 
-// semgrepRunner executes Semgrep in dir.
-type semgrepRunner = func(ctx context.Context, dir string, args ...string) (stdout, stderr string, err error)
-
 // codebaseResolver reads the codebase context of exactly files under dir.
 type codebaseResolver = func(resolver *codebasectx.Resolver, dir string, changed, files []string) (*codebasectx.Pack, error)
 
 // reviewDeps are the collaborators a review session is given instead of
 // reaching for package state: the clock exceptions are judged against, the
-// SAST scanner, an observer of the gate pipeline, the codebase resolver,
+// scanner executor (the registry's engines; a zero value runs the real
+// binaries), an observer of the gate pipeline, the codebase resolver,
 // the prompt builder whose fixed content versions the caches, and the
 // environment snapshot. A zero field takes its production default.
 type reviewDeps struct {
 	clock         func() time.Time
-	semgrep       semgrepRunner
+	scanners      scanner.Executor
 	gateObserver  func(label string, names []string)
 	resolveFiles  codebaseResolver
 	digestBuilder func() *prompt.PromptBuilder
@@ -69,9 +68,6 @@ type reviewDeps struct {
 func (d reviewDeps) withDefaults() reviewDeps {
 	if d.clock == nil {
 		d.clock = time.Now
-	}
-	if d.semgrep == nil {
-		d.semgrep = realSemgrepRunner
 	}
 	if d.gateObserver == nil {
 		d.gateObserver = func(string, []string) {}
@@ -161,9 +157,7 @@ type reviewState struct {
 	proposedExceptions string
 	triageDemoted      int                 // findings the model's dispute demoted (gate.triage)
 	rawIssues          []types.ReviewIssue // verdict-reuse snapshot, before rule config
-	sastOrigin         string
-	sastIssues         []types.ReviewIssue
-	sastReason         string
+	scans              []gateScan
 	coverage           reviewCoverageBreakdown
 
 	gateRes *gateDecision

@@ -35,7 +35,7 @@ func (b *baseReview) collectEvidence() (int, bool) {
 		return code, true
 	}
 	b.analysisIssues = staticAnalysisIssues(b.diff)
-	b.runSAST(b.cwd, "")
+	b.runScanners(b.cwd, "")
 	b.offerEvidence()
 	return 0, false
 }
@@ -48,7 +48,7 @@ func (b *baseReview) joinEvidence() (int, bool) {
 	b.reportSecurityPass()
 	b.result.Issues = append(b.result.Issues, b.analysisIssues...)
 	b.snapshotAndApplyRules()
-	b.joinSAST()
+	b.joinScanners()
 	b.recordCoverage()
 	return 0, false
 }

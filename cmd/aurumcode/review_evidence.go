@@ -1,6 +1,7 @@
 // The evidence phase steps both sources share: the --seguranca pass, the
 // one place that decides where its findings live, the verdict-reuse
-// snapshot, the repository's rule configuration and SAST.
+// snapshot, the repository's rule configuration and the scanners
+// (scanner_pass.go).
 package main
 
 import (
@@ -73,39 +74,6 @@ func (s *reviewState) snapshotAndApplyRules() {
 	s.result.Issues = config.ApplyRuleConfig(s.result.Issues, s.cfg)
 	if !s.source.SecurityInIssues {
 		s.securityFindings = config.ApplyRuleConfig(s.securityFindings, s.cfg)
-	}
-}
-
-// runSAST runs quality_gates.sast's Semgrep pass over root (AUR-548),
-// before the model: its findings are evidence the model weighs. A
-// non-empty blocked reason (an unverified --pr checkout, AUR-515/536)
-// makes SAST inconclusive without invoking Semgrep. Its issues never pass
-// through config.ApplyRuleConfig (deterministic evidence a `rules:`
-// override was never meant to reach). The origin is "policy" only when the
-// CENTRAL POLICY ITSELF declares quality_gates.sast.
-func (s *reviewState) runSAST(root, blocked string) {
-	s.sastOrigin = gateOriginRepo
-	if s.centralCfg != nil && s.centralCfg.QualityGates.Sast != nil {
-		s.sastOrigin = gateOriginPolicy
-	}
-	switch {
-	case blocked != "" && s.cfg.QualityGates.Sast.IsEnabled():
-		s.sastReason = blocked
-	case blocked == "":
-		s.sastIssues, s.sastReason = runSASTPass(s.ctx, root, s.cfg.QualityGates.Sast, s.sastOrigin == gateOriginPolicy, s.filter, s.deps.semgrep)
-	}
-	s.sastIssues = withOrigin(s.sastIssues, gateOriginSAST)
-}
-
-// joinSAST states an inconclusive SAST pass or joins its issues to the
-// review's, once the model's answer exists.
-func (s *reviewState) joinSAST() {
-	if s.sastReason != "" {
-		notice := sastInconclusiveNotice(s.reviewLanguage, s.sastReason)
-		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", notice)
-		s.result.Limitations = append(s.result.Limitations, notice)
-	} else if len(s.sastIssues) > 0 {
-		s.result.Issues = append(s.result.Issues, s.sastIssues...)
 	}
 }
 

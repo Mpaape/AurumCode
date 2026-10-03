@@ -161,10 +161,6 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	for _, exc := range exceptions {
 		suppressed[[2]string{exc.RuleID, exc.Path}] = exc
 	}
-	origins := make(map[string]string, len(blocking))
-	for _, b := range blocking {
-		origins[findingOriginKey(b.RuleID, b.Path, b.Line)] = b.Origin
-	}
 	findings := make([]render.SARIFFinding, 0, len(in.issues))
 	for _, issue := range in.issues {
 		title := ""
@@ -181,20 +177,22 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 			Message:   issue.Message,
 			Context:   identity.Context,
 		}
-		// Gate origin of a counted finding, as a typed SARIF property.
-		if origin, ok := origins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
-			finding.Origin = origin
-		}
-		// The model's assessment of a deterministic finding travels beside
-		// the engine's origin.
-		if finding.Assessment = render.AssessmentOf(issue); finding.Assessment != nil && finding.Origin == "" {
-			finding.Origin = issue.Origin
-		}
 		if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
 			finding.Suppressed = true
 			finding.Justification = exc.Justification
 		}
+		finding.Assessment = render.AssessmentOf(issue)
 		findings = append(findings, finding)
+	}
+	// The gate's blocking findings (the audit's blocking_findings) give each
+	// counted finding its origin and add those no issue carries.
+	findings = render.GateSARIFFindings(findings, blocking)
+	// The model's assessment of a deterministic finding travels beside the
+	// engine's origin.
+	for i := range findings {
+		if findings[i].Assessment != nil && findings[i].Origin == "" && i < len(in.issues) {
+			findings[i].Origin = in.issues[i].Origin
+		}
 	}
 	executionSuccessful := in.gateInconclusiveReason == ""
 	return render.WriteSARIF(in.sarifPath, version, findings, executionSuccessful, in.gateInconclusiveReason, filter)

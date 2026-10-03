@@ -134,14 +134,7 @@ func mergeStaticAnalysis(diff *types.Diff, result *types.ReviewResult) {
 		return
 	}
 	for _, f := range analysis.NewRunner().Analyze(diff) {
-		result.Issues = append(result.Issues, types.ReviewIssue{
-			File:     f.Path,
-			Line:     f.Line,
-			Side:     f.Side,
-			Severity: f.Severity,
-			RuleID:   f.RuleID,
-			Message:  fmt.Sprintf("%s (rule %s)", f.Message, f.RuleID),
-		})
+		result.Issues = append(result.Issues, f.ToIssue(""))
 	}
 }
 
