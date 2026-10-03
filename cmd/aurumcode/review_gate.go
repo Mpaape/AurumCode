@@ -31,6 +31,9 @@ type (
 const (
 	gateOriginPolicy        = gate.OriginPolicy
 	gateOriginRepo          = gate.OriginRepo
+	gateOriginSecurity      = gate.OriginSecurity
+	gateOriginAnalysis      = gate.OriginAnalysis
+	gateOriginSAST          = gate.OriginSAST
 	acceptedExceptionMarker = gate.AcceptedExceptionMarker
 	expiredExceptionMarker  = gate.ExpiredExceptionMarker
 
@@ -149,6 +152,7 @@ func (s *reviewState) runGate() (int, bool) {
 	run.Extra, run.Security, run.Language = s.securityApart(), s.securityFindings, s.reviewLanguage
 	run.Filter, run.Stdout, run.Stderr = s.filter, s.stdout, s.stderr
 	run.RepoIdentity, run.RepoIdentityKnown, run.Now = s.repoIdentity, s.repoIdentityKnown, s.deps.clock
+	run.Triage = s.triage()
 	pipeline := assembleGatePipeline(s.gatePipelineInputs())
 	reason := s.inconclusiveReason()
 	res, ok := s.executeGate(pipeline, reason)
@@ -158,16 +162,44 @@ func (s *reviewState) runGate() (int, bool) {
 	s.gateRes = res
 	s.filter, s.stdout, s.stderr = run.Filter, run.Stdout, run.Stderr
 	applyGateOutcome(run, res)
+	s.reportTriage(run.Demoted)
 	return 0, false
+}
+
+// triage is what the model's assessment may change in this run's gate.
+// Without a central policy the repository's gate.triage decides per
+// source; under a central policy nothing is demoted, whatever either
+// configuration says: evidence of policy origin always counts.
+func (s *reviewState) triage() gate.Triage {
+	t := gate.Triage{Disputed: map[string]bool{}, BySource: map[string]bool{}}
+	for _, issue := range s.disputedEvidence() {
+		t.Disputed[findingOriginKey(issue.RuleID, issue.File, issue.Line)] = true
+	}
+	if s.centralCfg != nil {
+		return t
+	}
+	for _, source := range []string{config.GateSourceSkills, config.GateSourceAnalysis, config.GateSourceSAST} {
+		t.BySource[source] = s.cfg.Gate.TriageByModel(source)
+	}
+	return t
+}
+
+// reportTriage states every finding a dispute demoted, and proposes an
+// exception for every disputed finding that still counts.
+func (s *reviewState) reportTriage(demoted []gate.Demotion) {
+	for _, d := range demoted {
+		line := fmt.Sprintf("gate.triage (%s: model): %s:%d %s contestado pelo modelo deixou de contar", d.Source, d.Issue.File, d.Issue.Line, d.Issue.RuleID)
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
+		s.result.Limitations = append(s.result.Limitations, line)
+	}
+	s.proposedExceptions = gate.RenderProposedExceptions(gate.ProposeExceptions(s.disputedEvidence(), demoted, s.repoIdentity))
 }
 
 // gatePipelineInputs gathers what the contributors capture besides the run.
 func (s *reviewState) gatePipelineInputs() gatePipelineInputs {
 	return gatePipelineInputs{
 		VerdictKey: gateVerdictKeyInputs{
-			ContextKey: func() string {
-				return reviewContextCacheKey(s.provider, s.baseModelIdentity, s.reviewLanguage, s.codebaseText, s.memoryNotesText, s.profileIdentity, s.contextBlockDigest, s.ruleCatalogDigest)
-			},
+			ContextKey:     s.contextCacheKey,
 			PolicyDigest:   render.PolicyDigest(s.policyDir, s.centralCfg),
 			BinaryIdentity: binaryIdentity(),
 			RepoIdentity:   s.repoIdentity,

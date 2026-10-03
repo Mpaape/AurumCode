@@ -42,6 +42,11 @@ type Run struct {
 	// Now is the clock exceptions are judged against.
 	Now func() time.Time
 
+	// Triage is what the model's assessment may change (triage.go);
+	// Demoted collects the findings it demoted in this run.
+	Triage  Triage
+	Demoted []Demotion
+
 	flushers []func()
 }
 

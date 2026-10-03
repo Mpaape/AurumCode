@@ -1,0 +1,56 @@
+package gate
+
+import (
+	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/pkg/types"
+)
+
+// Triage is what the model's assessment of the deterministic evidence may
+// change in the gate: nothing, unless the repository (never a central
+// policy) declared gate.triage: model for a source. Disputed holds the
+// finding keys (FindingOriginKey) the model disputed; BySource the
+// gate.sources names whose disputed evidence stops counting. The assembly
+// leaves BySource empty whenever a central policy is active, so evidence of
+// policy origin always counts whatever the model concluded.
+type Triage struct {
+	Disputed map[string]bool
+	BySource map[string]bool
+}
+
+// Demotion records one finding a dispute removed from the count.
+type Demotion struct {
+	Source string
+	Issue  types.ReviewIssue
+}
+
+// keep returns the issues of source that still count, and records on run
+// the ones the model's dispute demoted.
+func (run *Run) keep(source string, issues []types.ReviewIssue) []types.ReviewIssue {
+	t := run.Triage
+	if !t.BySource[source] || len(t.Disputed) == 0 {
+		return issues
+	}
+	kept := make([]types.ReviewIssue, 0, len(issues))
+	for _, issue := range issues {
+		if t.Disputed[FindingOriginKey(issue.RuleID, issue.File, issue.Line)] {
+			run.Demoted = append(run.Demoted, Demotion{Source: source, Issue: issue})
+			continue
+		}
+		kept = append(kept, issue)
+	}
+	return kept
+}
+
+// keepSkills applies the skills source's triage to the issues citing a
+// dynamic rule, leaving every other issue untouched.
+func (run *Run) keepSkills(issues []types.ReviewIssue, dynamic func(ruleID string) bool) []types.ReviewIssue {
+	var skills, rest []types.ReviewIssue
+	for _, issue := range issues {
+		if dynamic(issue.RuleID) {
+			skills = append(skills, issue)
+		} else {
+			rest = append(rest, issue)
+		}
+	}
+	return append(rest, run.keep(config.GateSourceSkills, skills)...)
+}

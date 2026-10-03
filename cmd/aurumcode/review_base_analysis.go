@@ -19,7 +19,7 @@ import (
 // runModelPass selects the provider, settles what a selection failure
 // means and runs the quality pass.
 func (b *baseReview) runModelPass() (int, bool) {
-	for _, step := range []session.Step{b.selectProvider, b.settleQualityStatus, b.runQualityPass} {
+	for _, step := range []session.Step{b.selectProvider, b.settleQualityStatus, b.runQualityPass, b.joinEvidence} {
 		if code, done := step(); done {
 			return code, true
 		}
@@ -27,15 +27,28 @@ func (b *baseReview) runModelPass() (int, bool) {
 	return 0, false
 }
 
-// collectEvidence runs the deterministic passes the gate and the report
-// consume: the security pass, static analysis, rule config, SAST, coverage.
+// collectEvidence runs the deterministic passes before the model, so their
+// findings reach it as evidence to weigh: the security pass, the embedded
+// analysis and SAST. Nothing here touches the review result.
 func (b *baseReview) collectEvidence() (int, bool) {
 	if code, done := b.runSecurityPass(); done {
 		return code, true
 	}
-	mergeStaticAnalysis(b.diff, b.result)
-	b.snapshotAndApplyRules()
+	b.analysisIssues = staticAnalysisIssues(b.diff)
 	b.runSAST(b.cwd, "")
+	b.offerEvidence()
+	return 0, false
+}
+
+// joinEvidence closes the model phase: the model's assessments are copied
+// onto the evidence, the evidence joins the result, the rule config and the
+// verdict snapshot apply, and the coverage is recorded.
+func (b *baseReview) joinEvidence() (int, bool) {
+	b.attachAssessments()
+	b.reportSecurityPass()
+	b.result.Issues = append(b.result.Issues, b.analysisIssues...)
+	b.snapshotAndApplyRules()
+	b.joinSAST()
 	b.recordCoverage()
 	return 0, false
 }
@@ -48,10 +61,10 @@ func (b *baseReview) qualityDidNotRun() bool {
 // selectProvider picks the provider (--modelo commands which model reviews,
 // AUR-436), computes the dynamic skill-section rule set this run accepts
 // citations against (AUR-519: policy skills first, then the repository's,
-// computed once before the model is taught a catalog) and wraps the
-// provider with the context providers (AUR-452/518: the policy's own
-// context first). The model identity is captured BEFORE wrapping because
-// wrapping hides llm.ModelResolver (AUR-513).
+// computed once before the model is taught a catalog) and renders the
+// context providers' block for the prompt's repository-context slot
+// (AUR-452/518: the policy's own context first). The provider itself is
+// never wrapped, so its capabilities stay visible (AUR-513).
 func (b *baseReview) selectProvider() (int, bool) {
 	if b.f.modelo != "" {
 		b.provider, b.providerVia, b.providerErr = selectProviderForModel(b.f.modelo)
@@ -84,16 +97,7 @@ func (b *baseReview) selectProvider() (int, bool) {
 	contextProviders = append(contextProviders, catalog)
 	// AUR-513: digest the SAME redacted block the model will receive.
 	b.contextBlockDigest = contextBlockCacheDigest(contextProviders, diffPaths(b.diff), b.filter)
-	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(b.ctx, b.provider, contextProviders, diffPaths(b.diff), b.filter)
-	if wrapErr != nil {
-		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", wrapErr)
-		return 1, true
-	}
-	for _, warning := range warnings {
-		fmt.Fprintf(b.stderr, "aurumcode review: context provider %q unavailable: %s; continuing without that context\n", warning.Provider, warning.Reason)
-	}
-	b.provider = wrapped
-	return 0, false
+	return b.buildRepositoryContext(contextProviders)
 }
 
 // settleQualityStatus decides what a provider selection failure means.

@@ -341,7 +341,7 @@ func (b *baseReview) prepareCache() *qualityCache {
 	qc := &qualityCache{store: store, err: cacheErr, toSend: b.diff}
 	if cacheErr == nil {
 		var missFiles []types.DiffFile
-		missFiles, qc.statuses = partitionByCache(store, b.diff, reviewContextCacheKey(b.provider, b.baseModelIdentity, b.reviewLanguage, b.codebaseText, b.memoryNotesText, b.profileIdentity, b.contextBlockDigest, b.ruleCatalogDigest), promptVersionDigest)
+		missFiles, qc.statuses = partitionByCache(store, b.diff, b.contextCacheKey(), promptVersionDigest)
 		qc.toSend = &types.Diff{Files: missFiles}
 	}
 	return qc
@@ -763,11 +763,7 @@ func selectProvider() (llm.Provider, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return &review.FakeProvider{
-			Response:    string(content),
-			NameStr:     "fixture",
-			CapturePath: os.Getenv("AURUMCODE_PROMPT_CAPTURE"),
-		}, nil
+		return review.NewFixtureProvider(string(content), "fixture", os.Getenv("AURUMCODE_PROMPT_CAPTURE")), nil
 	}
 
 	apiKey := os.Getenv("LLM_API_KEY")
@@ -821,11 +817,7 @@ func selectProviderForModel(model string) (llm.Provider, string, error) {
 		if err != nil {
 			return nil, "", fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return &review.FakeProvider{
-			Response:    string(content),
-			NameStr:     model,
-			CapturePath: os.Getenv("AURUMCODE_PROMPT_CAPTURE"),
-		}, "offline fixture provider", nil
+		return review.NewFixtureProvider(string(content), model, os.Getenv("AURUMCODE_PROMPT_CAPTURE")), "offline fixture provider", nil
 	}
 
 	apiKey := os.Getenv("LLM_API_KEY")
@@ -895,6 +887,7 @@ func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveRea
 		if issue.Side == "LEFT" {
 			fmt.Fprintln(stdout, "  Location: LEFT (removed line in base)")
 		}
+		printAssessment(stdout, issue)
 	}
 }
 
@@ -934,6 +927,7 @@ func printSecurityFindings(stdout io.Writer, filter *redaction.Filter, issues []
 	})
 	for _, issue := range sorted {
 		fmt.Fprintf(stdout, "%s:%d: [%s] %s\n", filter.Redact(issue.File), issue.Line, issue.Severity, issue.Message)
+		printAssessment(stdout, issue)
 	}
 }
 

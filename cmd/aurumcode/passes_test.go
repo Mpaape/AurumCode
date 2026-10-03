@@ -197,10 +197,13 @@ func TestAUR490SharedPasses(t *testing.T) {
 		// --base/--pr phase files; the same calls are asserted, now across
 		// the files that hold them.
 		"review_base_inputs.go":   {"resolveCodebaseContext", "openReviewMemory"},
-		"review_base_analysis.go": {"mergeStaticAnalysis"},
+		// The evidence phase runs the analysis before the model, through
+		// the one helper both sources call.
+		"review_base_analysis.go": {"staticAnalysisIssues"},
+		"review_weighing.go":      {"mergeStaticAnalysis"},
 		"review_base_publish.go":  {"persistReviewMemory", "renderLocalReport"},
 		"review_pr_inputs.go":     {"resolveVerifiedCodebaseContext", "openReviewMemory"},
-		"review_pr_analysis.go":   {"mergeStaticAnalysis"},
+		"review_pr_analysis.go":   {"staticAnalysisIssues"},
 		"review_pr_publish.go":    {"persistReviewMemory", "formatPublishedReviewBody"},
 		"passes.go":               {"codebaseContextJSON"},
 		"verified_checkout.go":    {"codebaseContextJSON"},

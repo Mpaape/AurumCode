@@ -19,6 +19,49 @@ type GateConfig struct {
 	// gate: a closed list of GateSourceSkills, GateSourceAnalysis,
 	// GateSourceSAST. Empty (absent) means all three.
 	Sources []string `yaml:"sources"`
+	// Triage lets the model's assessment of a source's evidence demote it,
+	// per source: GateSourceSkills/Analysis/SAST -> TriageModel or
+	// TriageNone (the default). It is honoured only without a central
+	// policy: evidence of policy origin counts whatever the model says.
+	Triage map[string]string `yaml:"triage"`
+}
+
+// The closed vocabulary of a gate.triage value.
+const (
+	// TriageNone: the model's assessment never changes what the gate counts.
+	TriageNone = "none"
+	// TriageModel: evidence the model disputes stops counting for that
+	// source (repository configuration only).
+	TriageModel = "model"
+)
+
+// ValidateTriage rejects a gate.triage key outside gate.sources'
+// vocabulary or a value other than model/none.
+func (g GateConfig) ValidateTriage() error {
+	for source, mode := range g.Triage {
+		switch strings.ToLower(strings.TrimSpace(source)) {
+		case GateSourceSkills, GateSourceAnalysis, GateSourceSAST:
+		default:
+			return fmt.Errorf("gate.triage: unknown source %q (accepted: skills, analysis, sast)", source)
+		}
+		switch strings.ToLower(strings.TrimSpace(mode)) {
+		case TriageNone, TriageModel:
+		default:
+			return fmt.Errorf("gate.triage.%s: unknown value %q (accepted: model, none)", source, mode)
+		}
+	}
+	return nil
+}
+
+// TriageByModel reports whether gate.triage lets the model's dispute demote
+// evidence of the named source.
+func (g GateConfig) TriageByModel(source string) bool {
+	for s, mode := range g.Triage {
+		if strings.EqualFold(strings.TrimSpace(s), source) && strings.EqualFold(strings.TrimSpace(mode), TriageModel) {
+			return true
+		}
+	}
+	return false
 }
 
 // The closed vocabulary of gate.sources (AUR-556).
@@ -158,5 +201,8 @@ func (g GateConfig) Validate() error {
 	if _, err := g.resolveInconclusive(""); err != nil {
 		return err
 	}
-	return g.ValidateSources()
+	if err := g.ValidateSources(); err != nil {
+		return err
+	}
+	return g.ValidateTriage()
 }

@@ -12,8 +12,9 @@ import (
 )
 
 // runSecurityPass is the deterministic --seguranca pass (AUR-435/451) over
-// the exact diff the model saw. A broken rules catalog fails loudly (exit
-// 1); the pass reports its own coverage on stderr (AUR-450).
+// the exact diff the model will see. It runs before the model, so its
+// findings are evidence the model weighs; it touches no review result. A
+// broken rules catalog fails loudly (exit 1).
 func (s *reviewState) runSecurityPass() (int, bool) {
 	if !s.seguranca {
 		return 0, false
@@ -23,10 +24,20 @@ func (s *reviewState) runSecurityPass() (int, bool) {
 		fmt.Fprintf(s.stderr, "aurumcode review: %v\n", err)
 		return 1, true
 	}
-	s.securityFindings = findings
+	s.securityFindings = withOrigin(findings, gateOriginSecurity)
+	s.securityApplied, s.securityTotal = applied, total
+	return 0, false
+}
+
+// reportSecurityPass prints the pass's own coverage on stderr (AUR-450) and
+// places its findings, once the model's answer exists.
+func (s *reviewState) reportSecurityPass() {
+	if !s.seguranca {
+		return
+	}
+	applied, total := s.securityApplied, s.securityTotal
 	printSecurityCoverage(s.stderr, applied, total)
 	s.joinSecurityFindings()
-	return 0, false
 }
 
 // joinSecurityFindings is the one place that decides where the security
@@ -65,13 +76,13 @@ func (s *reviewState) snapshotAndApplyRules() {
 	}
 }
 
-// runSAST runs quality_gates.sast's Semgrep pass over root (AUR-548). A
+// runSAST runs quality_gates.sast's Semgrep pass over root (AUR-548),
+// before the model: its findings are evidence the model weighs. A
 // non-empty blocked reason (an unverified --pr checkout, AUR-515/536)
 // makes SAST inconclusive without invoking Semgrep. Its issues never pass
 // through config.ApplyRuleConfig (deterministic evidence a `rules:`
-// override was never meant to reach) and join the issues directly. The
-// origin is "policy" only when the CENTRAL POLICY ITSELF declares
-// quality_gates.sast.
+// override was never meant to reach). The origin is "policy" only when the
+// CENTRAL POLICY ITSELF declares quality_gates.sast.
 func (s *reviewState) runSAST(root, blocked string) {
 	s.sastOrigin = gateOriginRepo
 	if s.centralCfg != nil && s.centralCfg.QualityGates.Sast != nil {
@@ -83,6 +94,12 @@ func (s *reviewState) runSAST(root, blocked string) {
 	case blocked == "":
 		s.sastIssues, s.sastReason = runSASTPass(s.ctx, root, s.cfg.QualityGates.Sast, s.sastOrigin == gateOriginPolicy, s.filter, s.deps.semgrep)
 	}
+	s.sastIssues = withOrigin(s.sastIssues, gateOriginSAST)
+}
+
+// joinSAST states an inconclusive SAST pass or joins its issues to the
+// review's, once the model's answer exists.
+func (s *reviewState) joinSAST() {
 	if s.sastReason != "" {
 		notice := sastInconclusiveNotice(s.reviewLanguage, s.sastReason)
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", notice)
@@ -123,5 +140,6 @@ func (s *reviewState) writeArtifacts() []artifactFailure {
 		dynamicRules:           s.dynamicRules,
 		coverageComplete:       !s.coverage.partial(),
 		omittedFiles:           append(append([]string{}, s.coverage.IgnoredPaths...), s.coverage.FilteredPaths...),
+		proposedExceptions:     s.proposedExceptions,
 	}, s.run, res, s.filter, s.stderr)
 }

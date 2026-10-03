@@ -59,6 +59,10 @@ type complianceArtifactInputs struct {
 
 	coverageComplete bool
 	omittedFiles     []string
+
+	// proposedExceptions is the text of the exceptions the model's disputes
+	// suggest (never applied).
+	proposedExceptions string
 }
 
 // writeComplianceArtifacts is a complete no-op when neither --auditoria nor
@@ -143,6 +147,8 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 		in.coverageComplete, in.omittedFiles,
 	)
 	rec.AnalysisData = in.analysisData
+	rec.EvidenceAssessments = render.AssessedEvidence(in.issues)
+	rec.ProposedExceptions = in.proposedExceptions
 	return render.WriteAuditRecord(in.auditoriaPath, rec, filter)
 }
 
@@ -178,6 +184,11 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 		// Gate origin of a counted finding, as a typed SARIF property.
 		if origin, ok := origins[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
 			finding.Origin = origin
+		}
+		// The model's assessment of a deterministic finding travels beside
+		// the engine's origin.
+		if finding.Assessment = render.AssessmentOf(issue); finding.Assessment != nil && finding.Origin == "" {
+			finding.Origin = issue.Origin
 		}
 		if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
 			finding.Suppressed = true

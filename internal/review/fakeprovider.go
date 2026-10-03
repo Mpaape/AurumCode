@@ -39,6 +39,10 @@ type FakeProvider struct {
 	// and with the AUR-432 wiring in place the captured prompt is already
 	// redacted, so the capture file never holds a secret either.
 	CapturePath string
+	// Cases, when set, make the answer depend on the prompt: the first
+	// case whose text occurs in the prompt answers, Response otherwise
+	// (NewFixtureProvider, fixture_cases.go).
+	Cases []FixtureCase
 }
 
 // Complete implements llm.Provider.
@@ -48,10 +52,11 @@ func (f *FakeProvider) Complete(prompt string, opts llm.Options) (llm.Response, 
 			return llm.Response{}, fmt.Errorf("writing prompt capture %s: %w", f.CapturePath, err)
 		}
 	}
+	answer := f.answerFor(prompt)
 	return llm.Response{
-		Text:      f.Response,
+		Text:      answer,
 		TokensIn:  heuristicTokenCount(prompt),
-		TokensOut: heuristicTokenCount(f.Response),
+		TokensOut: heuristicTokenCount(answer),
 		Model:     f.Name(),
 	}, nil
 }
