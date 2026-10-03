@@ -260,3 +260,30 @@ intervalo de Wilson e o tamanho da amostra (veja `docs/benchmark.md`, "Limitaç�
 - **"Recall 1.0 numa linguagem, está coberto?"** Não: veja o intervalo.
 - **Não demonstrado aqui:** rodada com modelo real e o ciclo completo de PR
   (commit e revisão do caso novo).
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/benchmark/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### adicionar-caso
+
+![Terminal do caso adicionar-caso](../assets/capturas/benchmark/adicionar-caso-terminal.png)
+
+### aprovado-com-defeito
+
+![Terminal do caso aprovado-com-defeito](../assets/capturas/benchmark/aprovado-com-defeito-terminal.png)
+
+### falha-caso-sem-manifest
+
+![Terminal do caso falha-caso-sem-manifest](../assets/capturas/benchmark/falha-caso-sem-manifest-terminal.png)
+
+### ler-relatorio
+
+![Terminal do caso ler-relatorio](../assets/capturas/benchmark/ler-relatorio-terminal.png)
+
+### rodar-corpus
+
+![Terminal do caso rodar-corpus](../assets/capturas/benchmark/rodar-corpus-terminal.png)
+
+<!-- capturas:fim -->
