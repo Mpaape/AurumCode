@@ -1,0 +1,25 @@
+# Perfis built-in do revisor: dados versionados com o binario, lidos pelo
+# mesmo decodificador do arquivo de time (.aurumcode/profiles.yml). Cada perfil
+# declara so nome, versao, enfoque, familias e instrucoes; uma clausula
+# proibida aqui impede o binario de iniciar.
+profiles:
+  - name: "solid"
+    version: "1"
+    emphasis: "SOLID principles and maintainability"
+    families: ["quality"]
+    instructions: "Priorize responsabilidade unica, coesao, acoplamento e substituicao de Liskov."
+  - name: "seguranca"
+    version: "1"
+    emphasis: "deterministic security review"
+    families: ["security"]
+    instructions: "Priorize segredos embutidos, injecao, deserializacao insegura e superficie de ataque."
+  - name: "performance"
+    version: "1"
+    emphasis: "performance and algorithmic cost"
+    families: ["performance"]
+    instructions: "Priorize complexidade, alocacoes, consultas N+1 e retencao de recursos."
+  - name: "product_owner"
+    version: "1"
+    emphasis: "product intent and user-visible behavior"
+    families: ["quality"]
+    instructions: "Priorize intencao do produto, comportamento visivel ao usuario, valor entregue e riscos de regressao funcional."
