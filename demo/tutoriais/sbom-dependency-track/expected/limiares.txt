@@ -1,5 +1,4 @@
 sbom: CycloneDX 1.7, componentes: lodash@4.17.15
-assentamento: servidor com policyViolationsTotal=1 antes do gate
 aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
 RESULTADO: uma violacao de politica acima do limite 0 reprova o gate
 dependency-track metricas: critical=0 high=0 policyViolationsTotal=1

@@ -96,10 +96,8 @@ administrador (um placeholder de demonstração), cria um time com as permissõe
 desse time (ela vive em `.estado/`, ignorado pelo git, e nunca é impressa),
 cria os projetos `servico-exemplo`, `compartilhado`, `servico-a` e `servico-b` e
 uma política de violação que reprova o componente `lodash` na versão `4.17.15`.
-Por fim faz um **aquecimento**: envia um BOM descartável com `lodash` a um
-projeto à parte e espera a violação aparecer. Sem isso, o primeiro gate contra
-um servidor recém-criado aprova o que a política reprova (veja "Métrica lida
-cedo demais" em Problemas comuns).
+Nenhum aquecimento é necessário: o gate só lê as métricas depois que elas
+assentaram (veja "Métrica lida cedo demais" em Problemas comuns).
 
 <!-- saida: up -->
 ```text
@@ -109,7 +107,6 @@ servidor: Dependency-Track 5.1.1
 admin: senha inicial trocada e login ok
 projeto servico-exemplo criado
 politica demo-componente-proibido: reprova lodash 4.17.15 (coordenadas)
-aquecimento: o servidor avaliou a politica uma vez (projeto descartavel aquecimento)
 RESULTADO: servidor, time, chave, quatro projetos e uma politica de violacao prontos
 ```
 
@@ -426,20 +423,25 @@ já existiam antes ficam).
 - **`critical`/`high` sempre 0**: o servidor não tem fontes de vulnerabilidade
   (e o Trivy só gerou o SBOM); sem elas os limiares de severidade não têm o que
   medir.
-- **Métrica lida cedo demais (achado sobre o produto)**: o gate lê as
-  métricas assim que o servidor responde `processing: false`, e a avaliação de
-  política pode terminar depois. Observado nas execuções de desenvolvimento
-  deste tutorial, contra o Dependency-Track 5.1.1: (a) num servidor recém-criado,
-  a primeira revisão que enviou `lodash@4.17.15` leu `policy_violations=0` e
-  **aprovou** o que a política reprova (duas vezes em duas); (b) numa
-  execução, a revisão logo após trocar `lodash` por `semver` ainda leu a
-  violação anterior (`1`) e reprovou. As leituras seguintes foram corretas. Por
-  isso o `run.sh` contorna a corrida em dois pontos: o aquecimento do `up` e o
-  `dt_assenta`, que, antes do gate, envia o mesmo SBOM pela API e espera
-  `policyViolationsTotal` chegar ao valor esperado (linha `assentamento:` no
-  `out/`). **Isso é um contorno do tutorial, não um comportamento do produto**:
-  num gate real, uma aprovação logo no primeiro upload de um projeto novo, ou
-  logo após mudar o conjunto de componentes, merece desconfiança, e a política
-  deve também bloquear no próprio servidor. A causa exata não foi investigada.
+- **Métrica lida cedo demais (corrigido no AUR-570)**: `processing: false` em
+  `bom/token` só diz que o SBOM foi ingerido; a avaliação de política e o
+  recálculo das métricas terminam depois. Medido nas execuções do AUR-563
+  contra o Dependency-Track 5.1.1, o gate antigo leu `policy_violations=0` num
+  servidor novo e **aprovou** o que a política reprova, e, em outra execução,
+  leu a violação anterior. Este tutorial escapava disso com um aquecimento e uma
+  espera dentro do `run.sh`; ambos foram removidos e os casos foram regravados
+  contra o servidor real. Agora o gate chama
+  `GET /api/v1/metrics/project/{id}/refresh` (a chave do tutorial não tem a
+  permissão, o servidor responde 403 e o gate registra
+  `dtrack_refresh_unavailable` e segue) e relê
+  `metrics/project/{id}/current` até que duas leituras consecutivas de
+  `critical`, `high` e `policyViolationsTotal` coincidam **e** o servidor prove
+  que processou este upload: `lastOccurrence` das métricas posterior ao envio
+  ou, quando as métricas não mudaram (o servidor então não mexe em
+  `lastOccurrence`), `lastVulnerabilityAnalysis` do projeto posterior ao envio.
+  Se isso não ocorrer em `timeout_seconds`, o resultado é inconclusivo com o
+  motivo `dtrack_metrics_unsettled`: com `gate.inconclusive: block` reprova, com
+  `warn` publica o aviso e nunca aprova. A linha `dtrack_refresh_unavailable`, nos
+  `out/` gravados, é esse registro.
 - **Sandbox sem `--network host`**: sem ele o `aurumcode` não alcança
   `127.0.0.1` do host (dentro do container, esse IP é outro).

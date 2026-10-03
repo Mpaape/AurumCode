@@ -648,7 +648,20 @@ opcional por omissão: esta parte da seção só entra em vigor com
   Padrão de cada um: 0.
 - `timeout_seconds` (padrão 180) / `poll_interval_seconds` (padrão 5):
   controlam o acompanhamento de `GET /api/v1/bom/token/{token}` até o
-  servidor responder `processing: false`.
+  servidor responder `processing: false` e, em seguida, a leitura das métricas
+  (AUR-570): `processing: false` não significa que a avaliação de política e o
+  recálculo terminaram. O cliente chama `GET /api/v1/metrics/project/{project}/refresh`
+  quando a chave permite (um 403 é tolerado e registrado como
+  `dtrack_refresh_unavailable`) e relê `.../current` a cada
+  `poll_interval_seconds` até duas leituras consecutivas de `critical`, `high` e
+  `policyViolationsTotal` coincidirem com prova de frescor: `lastOccurrence` das
+  métricas posterior ao envio ou, se as métricas não mudaram, o
+  `lastVulnerabilityAnalysis` do projeto (`GET /api/v1/project/{project}`,
+  `VIEW_PORTFOLIO`) posterior ao envio. A espera usa outra janela de
+  `timeout_seconds`, depois do acompanhamento do token. Sem assentar a tempo, o
+  resultado é inconclusivo, motivo `dtrack_metrics_unsettled`: `gate.inconclusive:
+  block` reprova e `warn` não aprova. Não há campo novo; o número de leituras
+  (2) é fixo.
 
 A versão mínima do servidor Dependency-Track para o CycloneDX 1.7 que o
 Trivy fixado emite (5.1.0, ou 4.14.4 na linha 4.x) já está documentada na

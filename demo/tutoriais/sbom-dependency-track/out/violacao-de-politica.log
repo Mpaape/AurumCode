@@ -6,7 +6,7 @@ sbom: CycloneDX 1.7, componentes: lodash@4.17.15
 $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
-aurumcode review: policy gate: ssor_dtrack: revisão inconclusiva (dtrack_metrics_unsettled)
+aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -30,5 +30,41 @@ flowchart TD
 
 ```
 No issues found.
-exit_code=1
-ERRO: esperado exit_code=3, obtido 1 (a politica do servidor reprova o componente)
+exit_code=3
+RESULTADO: a politica do servidor reprova o componente
+dependency-track violacao: politica=demo-componente-proibido componente=lodash versao=4.17.15 estado=FAIL
+--- correcao: lodash sai, semver entra; novo SBOM para o MESMO projeto
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+sbom: sbom_app_cyclonedx.json
+exit_code=0
+sbom: CycloneDX 1.7, componentes: semver@7.6.0
+$ aurumcode review --base main --fail-on error
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["package-lock.json"]
+    n2["package.json"]
+    n3["src/index.js"]
+    n1 --> n2
+
+```
+No issues found.
+exit_code=0
+RESULTADO: sem o componente proibido, o gate aprova
+dependency-track violacoes: nenhuma
