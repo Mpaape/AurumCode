@@ -28,10 +28,12 @@ const scanReasonUnverifiedCheckout = "_unverified_checkout"
 // one inconclusive without invoking it. A scan's section
 // is "policy" only when the effective entry is the central policy's own;
 // the engine then runs hardened against the author's in-tree suppressions.
-// Scanner issues never pass through config.ApplyRuleConfig.
-func (s *reviewState) runScanners(root, blocked string) {
-	s.scans, s.deferredScans = nil, nil
-	s.scanRoot, s.scanBlocked = root, blocked
+// Scanner issues never pass through config.ApplyRuleConfig. r is the
+// reviewed commit range a history engine scans (empty when unknown: such an
+// engine then fails closed).
+func (s *reviewState) runScanners(root string, r scanner.Range, blocked string) {
+	s.scans, s.deferredScans, s.scanVersions = nil, nil, nil
+	s.scanRoot, s.scanRange, s.scanBlocked = root, r, blocked
 	for _, entry := range s.cfg.QualityGates.EnabledScanners() {
 		if s.onDemand(entry) {
 			s.deferredScans = append(s.deferredScans, entry)
@@ -66,7 +68,10 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 	case blocked != "":
 		scan.Reason = scan.Source() + blocked
 	default:
-		out := s.deps.scanners.Scan(s.ctx, engine, scanner.Request{Root: root, Trust: trust, Options: entry.Options})
+		out := s.deps.scanners.Scan(s.ctx, engine, scanner.Request{Root: root, Trust: trust, Options: entry.Options, Range: s.scanRange})
+		if out.Version != "" {
+			s.scanVersions = append(s.scanVersions, engine.Name()+"="+out.Version)
+		}
 		if scan.Reason = out.Reason; scan.Reason == "" {
 			scan.Issues = s.scannerIssues(out.Findings, scan.Origin())
 		}

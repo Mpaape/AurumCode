@@ -60,7 +60,7 @@ análise. Referência:
 [xBOM](configuration.md#xbom-alem-do-sbom-build-bom-e-cbom-aur-552) e
 [Artefato de dados de análise](configuration.md#artefato-de-dados-de-analise-analysis_data).
 
-Tutorial: [SAST com Semgrep](tutorials/sast.md),
+Tutorial: [SAST com Semgrep](tutorials/sast.md), [Segredos com gitleaks](tutorials/segredos.md),
 [SBOM e Dependency-Track](tutorials/sbom-dependency-track.md),
 [Assinatura com Cosign](tutorials/assinatura.md),
 [xBOM](tutorials/xbom.md) e
