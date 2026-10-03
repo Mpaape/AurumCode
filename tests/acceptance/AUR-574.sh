@@ -103,10 +103,10 @@ ac002() {
 }
 
 ac003() {
-  grep -q '^<!-- saida: txt-com-segredo -->$' "$repo_root/docs/tutorials/qualquer-linguagem.md" || fail 'tutorial-sem-o-caso'
-  grep -q '^caso_txt_com_segredo()' "$repo_root/demo/tutoriais/qualquer-linguagem/run.sh" || fail 'demo-sem-o-caso'
+  grep -q 'mudanca-txt-segredo/config/tokens.txt -->' "$repo_root/docs/tutorials/qualquer-linguagem.md" || fail 'tutorial-sem-o-caso'
+  grep -q 'repo-exemplo/mudanca-txt-segredo' "$repo_root/demo/tutoriais/qualquer-linguagem/run.sh" || fail 'demo-sem-o-caso'
   bash "$repo_root/demo/tutoriais/qualquer-linguagem/run.sh" --check >"$run_dir/check.out" 2>&1 || { cat "$run_dir/check.out" >&2; fail 'check-falhou'; }
-  grep -q 'txt-com-segredo: ok' "$run_dir/check.out" || fail 'check-sem-o-caso'
+  grep -q 'falha-extensao-desconhecida: ok' "$run_dir/check.out" || fail 'check-sem-o-caso'
 }
 
 mut001() {

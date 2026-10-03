@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(repo-poliglota arquivo-sem-gramatica binario-e-gerado politica-terraform apelidos-e-instrucoes falha-extensao-desconhecida txt-com-segredo)
+CASOS=(repo-poliglota arquivo-sem-gramatica binario-e-gerado politica-terraform apelidos-e-instrucoes falha-extensao-desconhecida)
 
 # Imprime as linhas do prompt (AURUMCODE_PROMPT_CAPTURE) que casam com cada trecho
 # literal pedido; "AUSENTE" se o trecho nao esta la.
@@ -100,15 +100,11 @@ caso_falha_extensao_desconhecida() {
   aurum review --base main --fail-on error
   expect_rc 3 "o achado em script.zzqx (sem gramatica) reprovou: extensao desconhecida nao esconde codigo"
   mostra_prompt '### File: script.zzqx' '+    String senha = "hunter2";'
-}
-
-# AUR-574: arquivo .txt com segredo chega ao modelo. O runtime escolhe a gramatica
-# vimdoc pela extensao generica .txt; isso nao o torna documentacao: o arquivo fica
-# em "Code Changes" e e contado como arquivo de codigo da revisao.
-caso_txt_com_segredo() {
+  # AUR-574: arquivo .txt com segredo chega ao modelo (gramatica vimdoc pela extensao generica nao e documentacao)
   tut_repo txt-com-segredo repo-exemplo/base repo-exemplo/mudanca-txt-segredo
   TUT_FIXTURE=fixture-txt-segredo.json
   TUT_ENVS=(-e AURUMCODE_PROMPT_CAPTURE=/work/prompt.txt)
+  echo "--- arquivo .txt com segredo"
   aurum review --base main --fail-on error
   expect_rc 3 "o achado em config/tokens.txt reprovou: arquivo .txt e revisado, nao descartado como documentacao"
   mostra_prompt '### File: config/tokens.txt' '+DEMO_API_TOKEN=[REDACTED]' '- Code files in this diff: 1'
