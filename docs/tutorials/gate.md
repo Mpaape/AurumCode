@@ -39,7 +39,8 @@ bash demo/tutoriais/gate/run.sh --check  # compara out/ com expected/, sem docke
 |---|---|---|
 | achado de origem aceita na severidade de `fail_on` ou acima | reprova | 3 |
 | revisão inconclusiva, `inconclusive: block` | reprova, sem avaliar achados | 1 |
-| revisão inconclusiva, `warn` (ou ausente) | alerta, nunca "aprovado" | 0 |
+| revisão inconclusiva, `inconclusive` ausente com `gate` declarado ou scanner habilitado | reprova (o padrão é `block`) | 1 |
+| revisão inconclusiva, `inconclusive: warn` escrito | alerta, nunca "aprovado" | 0 |
 | configuração inválida | erro de carga, antes do modelo | 1 |
 
 Achado real que cruza o limiar reprova **mesmo** numa revisão inconclusiva em
@@ -185,6 +186,25 @@ rules:
     pattern-regex: 'dbPassword\s*:=\s*"[^"]+"'
 ```
 
+A terceira política liga o mesmo SAST **sem** seção `gate` e sem
+`gate.inconclusive`; a demo roda com `PATH=/sem-semgrep`, então o binário não
+existe:
+
+<!-- arquivo: demo/tutoriais/gate/politica-sast-padrao/.aurumcode/config.yml -->
+```yaml
+review:
+  context:
+    skills:
+      - skills/seguranca.md
+quality_gates:
+  sast:
+    engine: semgrep
+    enabled: true
+    fail_on_severity: ERROR
+    rule_packs:
+      - /policy/regras/senha.yml
+```
+
 <!-- saida: inconclusivo-sast -->
 ```text
 --- semgrep falso que falha (exit 2), inconclusive: block
@@ -199,6 +219,10 @@ RESULTADO: warn: SAST falho alerta e sai 0
 aurumcode review: policy gate: review inconclusive (sast_invalid_output)
 aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_invalid_output)
 RESULTADO: block: saida invalida do SAST e inconclusiva (sast_invalid_output)
+--- semgrep AUSENTE do PATH, SAST habilitado e SEM gate.inconclusive: o padrao e bloquear
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_unavailable)
+Sem achados nas fontes concluídas; inconclusivo: sast_unavailable
+RESULTADO: sem gate.inconclusive, scanner habilitado que nao rodou bloqueia (warn so escrito)
 --- Semgrep REAL (regra local): a mesma politica conclui e o achado SAST reprova
 aurumcode review: policy gate: semgrep:policy.regras.senha-literal - Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem sast, secao policy)
 exit_code=3
@@ -206,7 +230,10 @@ RESULTADO: com o Semgrep real o SAST conclui e o achado reprova (nao e inconclus
 ```
 
 O que observar: `sast_execution_error` e `sast_invalid_output` seguem o
-`gate.inconclusive` como qualquer outra causa (`block` exit 1, `warn` exit 0). A
+`gate.inconclusive` como qualquer outra causa (`block` exit 1, `warn` exit 0).
+Com o scanner habilitado e **sem** `gate.inconclusive`, o Semgrep ausente
+(`sast_unavailable`) reprova com exit 1: o padrão é `block`, e só a palavra
+`warn` escrita faz o gate apenas avisar. A
 última execução usa o Semgrep **real** da imagem com a regra local: conclui e o
 achado SAST reprova (exit 3), o que prova que o inconclusivo veio da falha, não
 do SAST em si. (Sem `rule_packs` locais, os pacotes `p/...` do registro exigem
@@ -433,8 +460,12 @@ erro **nunca** vira "sem gate": o comando falha.
 
 ## Problemas comuns
 
-- **Exit 0 com veredito "Comment":** revisão inconclusiva sob `warn` ou sem
-  `inconclusive`. Declare `inconclusive: block` na política para reprovar.
+- **Exit 0 com veredito "Comment":** revisão inconclusiva sob `inconclusive: warn`
+  escrito. Sem a chave, com `gate` declarado ou um scanner habilitado, o padrão
+  é `block` e a revisão inconclusiva reprova.
+- **`field ... not found in type`:** chave desconhecida no `config.yml` (do
+  repositório ou da política), por exemplo `gate.fial_on`. É erro de carga, exit
+  1, antes do modelo: uma chave com erro de digitação nunca vira "sem gate".
 - **O repositório declarou `gate` e nada mudou:** sob `--politica` o `gate` do
   repositório é ignorado (caso 8); um aviso nomeado diz isso.
 - **`gate verdict reuse unavailable`:** só informa que `AURUMCODE_CACHE_DIR` não
