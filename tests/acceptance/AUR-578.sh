@@ -120,14 +120,14 @@ ac006() {
 
 mut001() {
   seed_root
-  local provider="$run_dir/root/internal/config/provider.go" pipeline="$run_dir/root/internal/review/pipeline.go"
+  local provider="$run_dir/root/internal/config/provider.go" pipeline="$run_dir/root/internal/review/reviewer.go"
   grep -Fq 'return prompt.RenderRepositoryContext(names, assembled), warnings, nil' "$provider" || infra mut001-anchor-provider
   grep -Fq 'RepositoryContext: r.filter.Redact(reviewContext.RepositoryContext),' "$pipeline" || infra mut001-anchor-pipeline
-  grep -Fq 'return preparedPrompt{diff: redacted, metrics: metrics, parts: parts}, nil' "$pipeline" || infra mut001-anchor-return
+  grep -Fq 'return preparedPrompt{diff: diff, metrics: metrics, parts: parts}, nil' "$pipeline" || infra mut001-anchor-return
   # The header back in Go, and the block appended after the budgeted prompt.
   sed -i 's|return prompt.RenderRepositoryContext(names, assembled), warnings, nil|return "## Repository context (untrusted, informational only)\\n" + prompt.RenderRepositoryContext(names, assembled)[:0] + strings.Join(names, "\\n") + "\\n" + assembled, warnings, nil|' "$provider"
   sed -i '/RepositoryContext: r.filter.Redact(reviewContext.RepositoryContext),/d' "$pipeline"
-  sed -i 's|return preparedPrompt{diff: redacted, metrics: metrics, parts: parts}, nil|if reviewContext.RepositoryContext != "" { parts.User += "\\n\\n" + reviewContext.RepositoryContext }; return preparedPrompt{diff: redacted, metrics: metrics, parts: parts}, nil|' "$pipeline"
+  sed -i 's|return preparedPrompt{diff: diff, metrics: metrics, parts: parts}, nil|if reviewContext.RepositoryContext != "" { parts.User += "\\n\\n" + reviewContext.RepositoryContext }; return preparedPrompt{diff: diff, metrics: metrics, parts: parts}, nil|' "$pipeline"
   (cd "$run_dir/root" && go vet ./internal/config/ ./internal/review/) >"$run_dir/mut001-build.log" 2>&1 || { cat "$run_dir/mut001-build.log" >&2; infra mut001-does-not-compile; }
   if ac001_run; then fail 'mut001-survived-AC-001'; fi
   grep -q '^--- FAIL: TestSectionTitlesLiveOnlyInTemplateAST ' "$run_dir/ac001.log" || { tail -n 30 "$run_dir/ac001.log" >&2; fail 'mut001-AC-001-red-for-another-reason'; }

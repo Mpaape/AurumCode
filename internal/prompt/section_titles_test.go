@@ -13,11 +13,16 @@ import (
 	"testing"
 )
 
-// promptAssemblyRoots are the packages that assemble what is sent to the
-// model. Report renderers elsewhere (cmd, internal/render, changelog)
-// legitimately write Markdown headings for humans; they are not prompt
-// sections.
-var promptAssemblyRoots = []string{"../prompt", "../review", "../llm", "../config"}
+// goSourceRoots are every Go source tree of the module.
+var goSourceRoots = []string{"../../cmd", "..", "../../pkg"}
+
+// humanReportWriters render Markdown reports for people (PR comment,
+// summary, changelog); their headings are output, never prompt sections.
+var humanReportWriters = map[string]bool{
+	"../../cmd/aurumcode/pr.go": true,
+	"../render/summary.go":      true,
+	"../changelog/render.go":    true,
+}
 
 // sectionTitleLine matches a level-2 Markdown title at the start of any
 // line of a string: "## " exactly, not "### ".
@@ -26,12 +31,12 @@ var sectionTitleLine = regexp.MustCompile(`(?m)^## `)
 func productionGoFiles(t *testing.T) []string {
 	t.Helper()
 	var files []string
-	for _, root := range promptAssemblyRoots {
+	for _, root := range goSourceRoots {
 		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			if !d.IsDir() && strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+			if !d.IsDir() && strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") && !humanReportWriters[filepath.ToSlash(path)] {
 				files = append(files, path)
 			}
 			return nil
@@ -47,7 +52,7 @@ func productionGoFiles(t *testing.T) []string {
 }
 
 // TestSectionTitlesLiveOnlyInTemplateAST walks every string literal of the
-// prompt-assembly packages and fails on any that carries a "## " section
+// module's Go code (report writers excepted) and fails on any that carries a "## " section
 // title: every title the model sees must come from templates/review.md.
 func TestSectionTitlesLiveOnlyInTemplateAST(t *testing.T) {
 	fset := token.NewFileSet()
