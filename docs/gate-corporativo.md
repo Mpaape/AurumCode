@@ -72,6 +72,12 @@ quality_gates:
   genérica, `required: true` na política impede o repositório de remover ou
   afrouxar a engine; o override do repositório vira aviso de política
   ignorada.
+- `engine: gitleaks` (categoria `secrets`) varre os commits do PR
+  (`base..head`), não só a árvore final. Na política, `required: true` garante
+  que o repositório não a desliga, `gitleaks:allow` não suprime achado e um
+  `.gitleaksignore` na raiz vira o achado bloqueante
+  `gitleaks:ignore-file-present`. Nenhuma saída leva o valor do segredo. Ver
+  [Configuração](configuration.md#segredos-com-gitleaks-engine-gitleaks).
 - `quality_gates.sast`: `rule_packs` aceita `p/...` do registro do Semgrep
   (precisa de rede) ou arquivos de regra locais, determinísticos e offline,
   como abaixo. O caminho `/github/policy/...` é onde o workflow reutilizável

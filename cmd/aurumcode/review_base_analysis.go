@@ -35,7 +35,7 @@ func (b *baseReview) collectEvidence() (int, bool) {
 		return code, true
 	}
 	b.analysisIssues = staticAnalysisIssues(b.diff)
-	b.runScanners(b.cwd, "")
+	b.runScanners(b.cwd, localScanRange(b.cwd, b.f.base), "")
 	b.offerEvidence()
 	return 0, false
 }
