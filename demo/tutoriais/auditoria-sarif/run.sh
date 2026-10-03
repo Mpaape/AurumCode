@@ -112,13 +112,23 @@ caso_upload_workflow() {
   echo "NAO EXECUTADO AQUI: o upload ao Code Scanning (nao ha runner nem GitHub neste ambiente)"
 }
 
-# Falha: o caminho da auditoria nao e gravavel. O produto avisa em stderr, mas nao muda o exit (achado do tutorial).
+# Falha (AUR-568): o artefato pedido nao pode ser gravado. Nunca termina como sucesso.
 caso_falha_caminho_invalido() {
   tut_repo falha-caminho-invalido repo-exemplo/base repo-exemplo/segredo
-  TUT_FIXTURE=fixture-vazia.json; TUT_POLICY=politica
+  TUT_FIXTURE=fixture-vazia.json; TUT_POLICY=politica-bloqueia
+  echo "--- gate.inconclusive: block, auditoria em diretorio inexistente"
   aurum review --base main --politica /policy --auditoria /work/nao-existe/auditoria.json
-  expect_rc 0 "ACHADO: a auditoria nao foi gravada (veja o aviso) e o exit continua 0; confira o arquivo no job"
+  expect_rc 1 "block: a revisao reprova com audit_write_failed; a auditoria nao existe"
   [ ! -e "$TUT_WORK/nao-existe/auditoria.json" ] && echo "o arquivo de auditoria nao existe"
+  echo "--- sem gate, SARIF cujo pai e um arquivo"
+  echo x > "$TUT_WORK/arquivo-regular"
+  TUT_POLICY=
+  aurum review --base main --sarif /work/arquivo-regular/revisao.sarif
+  expect_rc 1 "sem gate: exit diferente de 0 e a mensagem nomeia o caminho"
+  echo "--- caminho gravavel: comportamento inalterado"
+  aurum review --base main --auditoria /work/auditoria.json
+  expect_rc 0 "caminho gravavel: exit 0 e a auditoria existe"
+  [ -s "$TUT_WORK/auditoria.json" ] && echo "o arquivo de auditoria existe"
 }
 
 tut_main "$@"

@@ -30,8 +30,10 @@ ac001() {
 ac002() {
   local file
   for file in .github/workflows/examples/code-review.yml docs/site/workflow.yml; do
-    grep -Fq 'uses: Mpaape/AurumCode/.github/workflows/review.yml@v2' "$repo_root/$file" || fail missing-v2
-    if grep -Fq '@main' "$repo_root/$file"; then fail mutable-example; fi
+    # AUR-573: d3b50e74 made main the sole persistent branch, so the examples
+    # now call the reusable workflow at @main (no more @v2 lane, no @dev).
+    grep -Fq 'uses: Mpaape/AurumCode/.github/workflows/review.yml@main' "$repo_root/$file" || fail missing-main-ref
+    if grep -Eq 'review\.yml@(v2|dev)' "$repo_root/$file"; then fail stale-lane-example; fi
   done
   cmp "$repo_root/.github/workflows/examples/code-review.yml" "$repo_root/docs/site/workflow.yml" || fail divergent-example
 }
@@ -53,7 +55,7 @@ mutation() {
     sed -i '/^          ref:/c\          ref: main' "$staged/.github/workflows/review.yml"
     AURUM_A493_REPO_ROOT="$staged" bash "${BASH_SOURCE[0]}" AC-001 || rc=$?
   else
-    sed -i 's/@v2/@main/' "$staged/docs/site/workflow.yml"
+    sed -i 's/review.yml@main/review.yml@v2/' "$staged/docs/site/workflow.yml"
     AURUM_A493_REPO_ROOT="$staged" bash "${BASH_SOURCE[0]}" AC-002 || rc=$?
   fi
   [[ "$rc" == 1 ]] || fail mutation-survived-or-infrastructure-failed

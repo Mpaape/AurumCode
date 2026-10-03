@@ -46,15 +46,14 @@ trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp" "$run_dir/root"
 
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 
 root="$run_dir/root"
 cp "$repo_root/go.mod" "$repo_root/go.sum" "$root/"
-mkdir -p "$root/internal/config" "$root/pkg/types" "$root/internal/llm" "$root/internal/security/redaction"
-cp -R "$repo_root/internal/config/." "$root/internal/config/"
-cp -R "$repo_root/pkg/types/." "$root/pkg/types/"
-cp -R "$repo_root/internal/llm/." "$root/internal/llm/"
-cp -R "$repo_root/internal/security/redaction/." "$root/internal/security/redaction/"
+# AUR-573: internal/ and pkg/ whole (the enumerated subpackages rotted).
+mkdir -p "$root/internal" "$root/pkg"
+cp -R "$repo_root/internal/." "$root/internal/"
+cp -R "$repo_root/pkg/." "$root/pkg/"
 chmod -R u+w -- "$root"
 
 repo="$run_dir/repo"

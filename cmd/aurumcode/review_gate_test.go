@@ -14,7 +14,7 @@ import (
 // (docs/specs/AUR-557.md).
 var declaredGateContributors = []string{
 	"exceptions", "verdict-reuse", "policy-skills", "sast",
-	"embedded-analysis", "analysis-data", "dependency-track",
+	"embedded-analysis", "security-pass", "analysis-data", "dependency-track",
 }
 
 // observeGatePipelines records the contributor names every path executes.
