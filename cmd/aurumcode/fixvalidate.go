@@ -33,8 +33,14 @@ func validateFixPatch(dir, patch string, plan *apply.Plan) error {
 	if gitPath, err := exec.LookPath("git"); err == nil {
 		return validatePatchWithGit(gitPath, dir, patch)
 	}
-	if plan == nil {
-		return nil
+	return validateWithoutGit(dir, plan)
+}
+
+// validateWithoutGit is the no-git branch: a non-empty patch with nothing in
+// the plan to compare against is rejected, never reported as valid.
+func validateWithoutGit(dir string, plan *apply.Plan) error {
+	if plan == nil || len(plan.Files) == 0 {
+		return fmt.Errorf("patch has no matching plan to verify against the working tree")
 	}
 	return validateAgainstFiles(dir, plan)
 }
