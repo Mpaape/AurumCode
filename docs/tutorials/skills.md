@@ -18,8 +18,9 @@ byte a byte, e as saídas vêm de uma execução real registrada em
 
 - `git`, `docker` e `bash`, e a imagem do produto, como em
   [revisao.md](revisao.md#pré-requisitos) (o atalho `aurumcode` do tutorial de
-  revisão vale aqui; para repetir um caso à mão, monte o diretório
-  `demo/tutoriais/skills` em `/fixtures` e exporte
+  revisão vale aqui; para repetir um caso à mão, defina
+  `TUTORIAL_DIR=/caminho/para/AurumCode/demo/tutoriais/skills` (o atalho monta
+  essa pasta em `/fixtures`) e exporte
   `AURUMCODE_LLM_FIXTURE=/fixtures/fixture-repo.json` ou `fixture-llm.json`).
 - Nenhuma credencial: o modelo é um JSON determinístico
   (`AURUMCODE_LLM_FIXTURE`).

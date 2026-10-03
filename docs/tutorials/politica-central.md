@@ -19,9 +19,10 @@ execução real registrada em `demo/tutoriais/politica-central/out/`
 - `git`, `docker`, `bash` e a imagem do produto, como em
   [revisao.md](revisao.md#pré-requisitos). Nenhuma credencial: o modelo é um
   JSON determinístico (`AURUMCODE_LLM_FIXTURE`) e os containers rodam sem rede.
-  Para repetir um caso à mão, use o atalho de [revisao.md](revisao.md#pré-requisitos),
-  monte `demo/tutoriais/politica-central` em `/fixtures` e a pasta da política em
-  `/policy` (`-v "/caminho/da/politica:/policy:ro"`), com
+  Para repetir um caso à mão, use o atalho de [revisao.md](revisao.md#pré-requisitos)
+  com `TUTORIAL_DIR=/caminho/para/AurumCode/demo/tutoriais/politica-central`
+  (montado em `/fixtures`), acrescente ao atalho a pasta da política
+  (`-v "/caminho/da/politica:/policy:ro"`) e exporte
   `AURUMCODE_LLM_FIXTURE=/fixtures/fixture-politica.json`.
 - Ler [skills.md](skills.md): as seções das skills da política são as regras
   que o gate cobra.

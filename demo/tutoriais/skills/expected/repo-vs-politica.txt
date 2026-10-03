@@ -6,3 +6,4 @@ app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (r
 exit_code=3
 RESULTADO: a secao da skill da politica reprova
 prompt: a skill da politica aparece antes da skill do repositorio
+exit_code=0

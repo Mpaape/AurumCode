@@ -8,3 +8,4 @@ exit_code=3
 $ aurumcode review --base main --seguranca --exigir-qualidade
 aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review
 RESULTADO: com --exigir-qualidade, sem provedor o comando falha
+exit_code=1

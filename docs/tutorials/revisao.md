@@ -23,16 +23,28 @@ docker build -t aurumcode:local /caminho/para/AurumCode
 ```
 
 - Um atalho para chamar o programa dentro do repositório que você revisa. Os
-  exemplos abaixo escrevem `aurumcode ...`; defina o atalho uma vez:
+  exemplos abaixo escrevem `aurumcode ...`. Defina, uma vez, a variável que
+  aponta para a pasta deste tutorial e o atalho:
 
 ```bash
-alias aurumcode='docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work -e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL -e AURUMCODE_LLM_FIXTURE -v "/caminho/para/demo/tutoriais/revisao:/fixtures:ro" --entrypoint /app/aurumcode aurumcode:local'
+export TUTORIAL_DIR=/caminho/para/AurumCode/demo/tutoriais/revisao
+alias aurumcode='docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work -e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL -e AURUMCODE_LLM_FIXTURE -v "$TUTORIAL_DIR:/fixtures:ro" --entrypoint /app/aurumcode aurumcode:local'
 ```
 
 Em uso real, `LLM_API_KEY` e `LLM_BASE_URL` apontam para o seu serviço
-compatível com OpenAI. Para repetir um caso à mão, entre num repositório com a mudança e aponte o provedor falso para o arquivo do tutorial (o volume `/fixtures` do atalho acima), por exemplo `export AURUMCODE_LLM_FIXTURE=/fixtures/fixture-llm.json`; para o caso sem provedor, `unset AURUMCODE_LLM_FIXTURE`. O `--user` evita arquivos com dono root no seu diretório. **Neste tutorial nenhuma credencial é usada**: o
+compatível com OpenAI. **Neste tutorial nenhuma credencial é usada**: o
 provedor é um arquivo JSON determinístico (`AURUMCODE_LLM_FIXTURE`), então o
 resultado é sempre o mesmo e nada sai da sua máquina.
+
+Para repetir um caso à mão:
+
+1. Entre num repositório git com a mudança a revisar (a `main` e uma branch com
+   a alteração).
+2. Aponte o provedor falso para o arquivo do tutorial, que o atalho monta em
+   `/fixtures`: `export AURUMCODE_LLM_FIXTURE=/fixtures/fixture-llm.json`.
+3. Para o caso sem provedor, `unset AURUMCODE_LLM_FIXTURE`.
+4. Rode o comando do caso. O `--user` do atalho evita arquivos com dono root no
+   seu diretório.
 
 ### Rodar a demonstração
 

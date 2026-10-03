@@ -2,3 +2,4 @@ app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardco
 prompt: go.md (applyTo: **/*.go)
 prompt: Em Go, trate todo erro retornado e envolva-o com %w.
 prompt: ts.md (applyTo: **/*.ts) NAO chegou: a mudanca nao toca .ts
+exit_code=0
