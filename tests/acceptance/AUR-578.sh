@@ -62,6 +62,7 @@ seed_root() {
   local s
   for s in go.mod go.sum cmd internal pkg; do cp -R "$repo_root/$s" "$run_dir/root/$s"; done
   cp -R "$repo_root/tests/fixtures/repos/git-demo" "$run_dir/root/tests/fixtures/repos/git-demo"
+  [[ ! -d "$repo_root/docs" ]] || cp -R "$repo_root/docs" "$run_dir/root/docs"
   chmod -R u+w -- "$run_dir/root"
 }
 
@@ -104,12 +105,17 @@ ac005() {
   require_pass "$run_dir/ac005.log" TestModelAssessmentParsedAndOriginIgnored
 }
 
+readonly cmd_skip='^(TestAUR499ActionOutput|TestAUR555SBOMStepPrecedesReview|TestAUR555SecretsOptionalAndScopedToReview|TestAUR555WorkflowValidWithoutDTrackAndSignsOnlyAfterReview)$'
+
 ac006() {
   seed_root
   run_tests "$run_dir/ac006.log" 'TestPromptGolden|TestRepositoryContextSlotMatchesLegacyDecoratorBytes' ./internal/review/ || { tail -n 40 "$run_dir/ac006.log" >&2; fail golden-red; }
   require_pass "$run_dir/ac006.log" TestPromptGoldenBuildPrompt TestPromptGoldenContextBlock TestPromptGoldenCapturedRequest TestRepositoryContextSlotMatchesLegacyDecoratorBytes
   local log="$run_dir/cmd.log"
-  (cd "$run_dir/root" && go test -buildvcs=false -count=1 -timeout 500s ./cmd/aurumcode/...) >"$log" 2>&1 || { tail -n 60 "$log" >&2; fail cmd-tests-red; }
+  # The skipped tests read action.yml and .github/workflows, which are not
+  # inputs of this card (not materialized in the sealed copy); they do not
+  # exercise the prompt.
+  (cd "$run_dir/root" && go test -buildvcs=false -count=1 -timeout 500s -skip "$cmd_skip" ./cmd/aurumcode/...) >"$log" 2>&1 || { tail -n 60 "$log" >&2; fail cmd-tests-red; }
 }
 
 mut001() {
