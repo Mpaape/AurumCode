@@ -84,8 +84,11 @@ cleanup_root() {
 }
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
+# AUR-573: respeita o GOCACHE do chamador (compilar internal/ inteiro a frio e caro)
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 export GOMAXPROCS=1
 
@@ -105,9 +108,10 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/analysis internal/analyzer internal/apply internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/security internal/testgen
-  copy "$root" pkg/types
+  # AUR-573: cmd/internal/pkg inteiros (a lista enumerada apodreceu).
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   chmod -R u+w -- "$root"
 }
