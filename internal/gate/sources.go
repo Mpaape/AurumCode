@@ -12,6 +12,7 @@ package gate
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -40,9 +41,17 @@ const (
 // and the message are joined by " - ", never by a colon: a colon after an id
 // that ends in "secret" reads to the redaction filter as a `secret: value`
 // pair, and it would replace the first word of the message.
+//
+// The citation the review appends to a message, "(rule <id>: <title>)", has the
+// same shape, so the line spells it "(rule <id> - <title>)". The report keeps
+// the legacy citation; the two differ only in that separator.
 func FindingLine(ruleID, message, severity, threshold, origin string) string {
+	message = ruleCitation.ReplaceAllString(message, "(rule $1 - ")
 	return fmt.Sprintf("%s - %s (severidade %s, limiar %s, origem %s)", ruleID, message, severity, threshold, origin)
 }
+
+// ruleCitation matches the opening of the review's "(rule <id>: <title>)" citation.
+var ruleCitation = regexp.MustCompile(`\(rule ([^\s:()]+): `)
 
 // FindingOriginKey identifies a finding for origin lookup.
 func FindingOriginKey(ruleID, path string, line int) string {
