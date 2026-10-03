@@ -195,21 +195,34 @@ está demonstrado.
 
 ## Quando falha
 
-O caminho da auditoria não é gravável (o diretório não existe):
+A trilha de auditoria faz parte do veredito: se o arquivo pedido (`--auditoria`
+ou `--sarif`) não pode ser gravado, a revisão **nunca** termina como sucesso. O
+caso grava num diretório que não existe (com `gate.inconclusive: block`), depois
+num caminho cujo pai é um arquivo regular (sem `gate`) e, por fim, num caminho
+gravável:
 
 <!-- saida: falha-caminho-invalido -->
 ```text
-aurumcode review: writing audit record: open /work/nao-existe/auditoria.json: no such file or directory
-exit_code=0
-RESULTADO: ACHADO: a auditoria nao foi gravada (veja o aviso) e o exit continua 0; confira o arquivo no job
+aurumcode review: audit_write_failed: /work/nao-existe/auditoria.json: open /work/nao-existe/auditoria.json: no such file or directory
+aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao-existe/auditoria.json (audit_write_failed): open /work/nao-existe/auditoria.json: no such file or directory
+**Verdict:** Comment
+exit_code=1
+RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao existe
 o arquivo de auditoria nao existe
+aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
+RESULTADO: sem gate: exit diferente de 0 e a mensagem nomeia o caminho
+RESULTADO: caminho gravavel: exit 0 e a auditoria existe
+o arquivo de auditoria existe
 ```
 
-O que observar, e é um **achado do tutorial**: o produto avisa em stderr
-(`writing audit record: ...`) mas a saída continua 0 numa revisão limpa; a
-auditoria **não existe** e nada reprova. Num pipeline de compliance, confira que
-o arquivo foi criado (por exemplo, com `test -s auditoria.json` no job) em vez de
-confiar só no exit code.
+O que observar: a mensagem nomeia o caminho e o motivo (`audit_write_failed` ou
+`sarif_write_failed`). Com `gate` declarado a revisão fica inconclusiva pelo modo
+da política: em `block` o status vira `failure` e o exit é 1; em `warn` o status é
+"inconclusivo" (nunca "aprovado") e o exit também é 1. O veredito aparece como
+`Comment`, nunca `Approve`. Sem `gate`, só muda o exit (1) e a mensagem. O arquivo
+que pôde ser gravado é regravado com a decisão final, então os dois concordam.
+Com o caminho gravável nada muda: exit 0 e o arquivo existe. (Este era o achado 2
+do AUR-562: o produto avisava e saía 0; o AUR-568 o corrigiu.)
 
 ## Problemas comuns
 

@@ -263,7 +263,7 @@ func resolvePullRequestHeadSHA(ctx context.Context, client *githubclient.Client,
 }
 
 // newGitHubClient builds the restored AUR-437 client.
-// AURUMCODE_GITHUB_API_URL overrides the API base so this card's own tests
+// config.GitHubAPIURLEnv (AURUMCODE_GITHUB_API_URL) overrides the API base, validated by config.GitHubAPIURL (shared with analysis_data), so this card's own tests
 // can point it at a loopback httptest server (the sealed profile denies
 // real network access); production use leaves it unset and gets
 // githubclient.DefaultBaseURL. GITHUB_TOKEN follows the same convention
@@ -272,12 +272,16 @@ func resolvePullRequestHeadSHA(ctx context.Context, client *githubclient.Client,
 // needs no auth. Direct CLI publishing retains the repository-role preflight;
 // the reusable workflow sets AURUMCODE_PR_PERMISSION_MODE=endpoint so GitHub
 // itself enforces pull-requests:write and statuses:write on the actual POST.
-func newGitHubClient() *githubclient.Client {
+func newGitHubClient() (*githubclient.Client, error) {
 	token := os.Getenv("GITHUB_TOKEN")
-	if base := os.Getenv("AURUMCODE_GITHUB_API_URL"); base != "" {
-		return githubclient.NewClientWithBaseURL(token, base)
+	if strings.TrimSpace(os.Getenv(config.GitHubAPIURLEnv)) == "" {
+		return githubclient.NewClient(token), nil
 	}
-	return githubclient.NewClient(token)
+	base, err := config.GitHubAPIURL(os.Getenv)
+	if err != nil {
+		return nil, err
+	}
+	return githubclient.NewClientWithBaseURL(token, base), nil
 }
 
 // loadPullRequestConfig reads the explicit repository config without

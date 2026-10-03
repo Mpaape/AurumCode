@@ -26,6 +26,8 @@ const (
 	OriginAnalysis = "analysis"
 	OriginSkills   = "skills"
 	OriginSAST     = "sast"
+	// OriginSecurity labels findings of the --seguranca pass (AUR-569).
+	OriginSecurity = "security"
 )
 
 // FindingOriginKey identifies a finding for origin lookup.
@@ -62,6 +64,35 @@ func SASTIssues(gate config.GateConfig, issues []types.ReviewIssue) []types.Revi
 // no-op unless the gate is declared, has a severity threshold and does not
 // exclude the analysis source via gate.sources.
 func ApplyAnalysisGate(d *Result, gate config.GateConfig, issues []types.ReviewIssue, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) error {
+	return applyDeterministic(d, gate, issues, exceptions, repoIdentity, now, OriginAnalysis, func(id string) bool {
+		return strings.HasPrefix(id, "analysis/")
+	})
+}
+
+// ApplySecurityGate folds the --seguranca pass's findings (AUR-569) into d.
+// They are deterministic evidence from the embedded security catalog, so a
+// finding at or above fail_on counts in every gate.inconclusive mode: the mode
+// governs the model's missing opinion, not a finding that is already there.
+// They count under the analysis source of gate.sources (the embedded catalog).
+// Findings the gate already holds (same rule, path and line) are not counted
+// twice.
+func ApplySecurityGate(d *Result, gate config.GateConfig, issues []types.ReviewIssue, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) error {
+	known := make(map[string]bool, len(d.BlockingFindings))
+	for _, f := range d.BlockingFindings {
+		known[FindingOriginKey(f.RuleID, f.Path, f.Line)] = true
+	}
+	fresh := make([]types.ReviewIssue, 0, len(issues))
+	for _, i := range issues {
+		if !known[FindingOriginKey(i.RuleID, i.File, i.Line)] {
+			fresh = append(fresh, i)
+		}
+	}
+	return applyDeterministic(d, gate, fresh, exceptions, repoIdentity, now, OriginSecurity, func(string) bool { return true })
+}
+
+// applyDeterministic is the one loop that counts deterministic findings
+// (those a model reply cannot forge or omit) toward the gate, labeled origin.
+func applyDeterministic(d *Result, gate config.GateConfig, issues []types.ReviewIssue, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time, origin string, counts func(ruleID string) bool) error {
 	if !gate.Declared() || !gate.SourceEnabled(config.GateSourceAnalysis) {
 		return nil
 	}
@@ -74,7 +105,7 @@ func ApplyAnalysisGate(d *Result, gate config.GateConfig, issues []types.ReviewI
 	}
 	d.Active = true
 	for _, issue := range issues {
-		if !strings.HasPrefix(issue.RuleID, "analysis/") {
+		if !counts(issue.RuleID) {
 			continue
 		}
 		if exc, status := MatchException(exceptions, repoIdentity, issue.RuleID, issue.File, now); status != ExceptionNone {
@@ -97,10 +128,10 @@ func ApplyAnalysisGate(d *Result, gate config.GateConfig, issues []types.ReviewI
 		}
 		d.Fail = true
 		d.Breach = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s, origem %s)", issue.RuleID, issue.Message, issue.Severity, name, OriginAnalysis))
+		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s, origem %s)", issue.RuleID, issue.Message, issue.Severity, name, origin))
 		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
 			RuleID: issue.RuleID, Path: issue.File, Line: issue.Line, Severity: issue.Severity,
-			Origin: OriginAnalysis,
+			Origin: origin,
 		})
 	}
 	return nil

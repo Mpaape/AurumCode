@@ -21,6 +21,7 @@ type (
 	gateRun              = gate.Run
 	gateVerdictKeyInputs = gate.VerdictKeyInputs
 	exceptionMatchStatus = gate.ExceptionMatchStatus
+	artifactFailure      = gate.ArtifactFailure
 )
 
 const (
@@ -28,7 +29,14 @@ const (
 	gateOriginRepo          = gate.OriginRepo
 	acceptedExceptionMarker = gate.AcceptedExceptionMarker
 	expiredExceptionMarker  = gate.ExpiredExceptionMarker
+
+	gateReasonAuditWriteFailed = gate.ReasonAuditWriteFailed
+	gateReasonSARIFWriteFailed = gate.ReasonSARIFWriteFailed
 )
+
+// applyArtifactFailures folds compliance artifacts that could not be written
+// into the gate decision (AUR-568).
+var applyArtifactFailures = gate.ApplyArtifactFailures
 
 // findingOriginKey identifies a finding for origin lookup in the audit.
 var findingOriginKey = gate.FindingOriginKey
@@ -80,6 +88,7 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 		gate.PolicySkillsContributor{AcceptedOrigin: in.AcceptedOrigin, Dynamic: in.DynamicRules},
 		gate.SASTContributor{SectionOrigin: in.SASTOrigin, Issues: in.SASTIssues, Reason: in.SASTReason},
 		gate.EmbeddedAnalysisContributor{},
+		gate.SecurityPassContributor{},
 		gate.AnalysisDataContributor{},
 		gate.DependencyTrackContributor{},
 	)

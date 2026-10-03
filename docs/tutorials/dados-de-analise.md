@@ -26,22 +26,20 @@ byte a byte (`tests/acceptance/AUR-563.sh` compara).
 
 ### Como a demonstração prova isso sem GitHub
 
-O `review` consulta sempre o endereço público da API do GitHub; o binário de
-produção **não tem opção** para trocar esse endereço (só os testes em Go o
-trocam). Para provar cada desfecho com o binário real, cada caso roda **um
-container** da imagem do produto, sem rede (`--network none`), em que:
+O `review` consulta o endereço da API do GitHub que vem da variável
+`AURUMCODE_GITHUB_API_URL` (padrão `https://api.github.com`; só `https://`, ou
+`http://` para um IP de loopback literal, como em teste). É a mesma variável
+do cliente de PR. Para provar cada desfecho com o binário real, cada caso roda
+**um container** da imagem do produto, sem rede (`--network none`), em que:
 
-- o nome da API do GitHub aponta para `127.0.0.1` (`--add-host`);
-- `servidor-falso.py` (Python, só biblioteca padrão e `cryptography`, que a
-  imagem já traz por causa do Semgrep) atende como essa API, em HTTPS, na
-  porta 443 (`--sysctl net.ipv4.ip_unprivileged_port_start=0`, o usuário não é
-  root), servindo uma lista de *releases*, o `manifest.json` e o
+- `AURUMCODE_GITHUB_API_URL=http://127.0.0.1:8080` aponta para o servidor
+  local do próprio container: sem DNS, sem CA, sem TLS de demonstração;
+- `servidor-local.py` (Python, só biblioteca padrão) atende como a API de
+  *releases*, na porta 8080, servindo a lista, o `manifest.json` e o
   `scanners.yml`, no modo pedido pelo caso;
-- um CA de demonstração e o certificado do falso nascem a cada execução em
-  `/tmp` do container, e `SSL_CERT_FILE` aponta para esse CA. **Nenhuma chave
-  é versionada**; o container some ao fim;
-- ao final, `dentro.sh` lista as requisições que o falso recebeu: é a prova de
-  "zero rede" ou de qual caminho a revisão percorreu.
+- ao final, `dentro.sh` lista as requisições que o servidor recebeu: é a prova de
+  "zero rede" ou de qual caminho a revisão percorreu. O caso "sem rede" não
+  define a variável: o padrão não tem rota no container.
 
 Isso prova o comportamento do cliente do produto contra o **formato** do
 GitHub que o código espera (o mesmo que o teste em Go
@@ -109,7 +107,7 @@ impede a aprovação.
 
 ## Caso 1: declarado ou não
 
-Dois repositórios iguais, um sem `analysis_data` e outro com. O falso está no
+Dois repositórios iguais, um sem `analysis_data` e outro com. O servidor local está no
 ar nos dois, mas só o segundo o consulta. `--auditoria` grava o registro de
 auditoria da execução.
 
@@ -119,25 +117,25 @@ aurumcode review --base main --auditoria audit.json
 
 <!-- saida: declarado-ou-nao -->
 ```text
---- A. nao declarado (o falso esta no ar, mas ninguem o consulta)
+--- A. nao declarado (o servidor local esta no ar, mas ninguem o consulta)
 $ aurumcode review --base main --auditoria audit.json
 **Verdict:** Approve
---- requisicoes recebidas pelo falso api.github.com (modo valido): 0
+--- requisicoes recebidas pelo servidor local (modo valido): 0
 exit_code=0
 RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data
 linhas citando analysis_data na saida do review: 0
 auditoria: sem campo analysis_data
 $ aurumcode review --base main --auditoria audit.json
 **Verdict:** Approve
---- requisicoes recebidas pelo falso api.github.com (modo valido): 3
+--- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
     GET /dl/scanners.yml -> 200
 exit_code=0
 RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria
 auditoria analysis_data.source: remote
-auditoria analysis_data.tag: analysis-data/20261002T004326Z
-auditoria analysis_data.generated_at: 2026-10-02T00:43:26Z
+auditoria analysis_data.tag: analysis-data/20261002T025047Z
+auditoria analysis_data.generated_at: 2026-10-02T02:50:47Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1
 ```
 
@@ -156,7 +154,7 @@ O que observar:
 
 ## Caso 2: artefato vencido
 
-O falso serve um artefato gerado há 30 dias; o limite é `max_age_days: 7`.
+O servidor local serve um artefato gerado há 30 dias; o limite é `max_age_days: 7`.
 Repare que a idade é conferida **antes** de baixar o `scanners.yml`: só duas
 requisições.
 
@@ -167,17 +165,17 @@ aurumcode review --base main
 <!-- saida: vencido -->
 ```text
 --- gate.inconclusive: block
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T004327Z generated 2026-09-03T00:43:27Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T025109Z generated 2026-09-03T02:51:09Z is 30.0 days old, above max_age_days=7
 **Verdict:** Comment
---- requisicoes recebidas pelo falso api.github.com (modo vencido): 2
+--- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
 exit_code=1
 RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T004328Z generated 2026-09-03T00:43:28Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T025110Z generated 2026-09-03T02:51:10Z is 30.0 days old, above max_age_days=7
 **Verdict:** Comment
---- requisicoes recebidas pelo falso api.github.com (modo vencido): 2
+--- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
 exit_code=0
@@ -210,7 +208,7 @@ aurumcode review --base main --auditoria audit.json
 ```text
 --- 1. servidor no ar: baixa, verifica e guarda no cache
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
---- requisicoes recebidas pelo falso api.github.com (modo valido): 3
+--- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
     GET /dl/scanners.yml -> 200
@@ -219,16 +217,16 @@ RESULTADO: primeira execucao: artefato remoto verificado e guardado no cache
 auditoria analysis_data.source: remote
 --- 2. a listagem de releases cai (HTTP 503); a copia em cache, ainda dentro da idade, e usada
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/20261002T004329Z): a listagem de releases estava indisponível; idade e digests verificados
---- requisicoes recebidas pelo falso api.github.com (modo indisponivel): 1
+aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/20261002T025132Z): a listagem de releases estava indisponível; idade e digests verificados
+--- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=0
 RESULTADO: listagem fora do ar com copia valida em cache: usa o cache e o declara
 auditoria analysis_data.source: cache
 --- 3. sem cache nenhum e a listagem fora do ar: inconclusivo
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET https://api.github.com/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
---- requisicoes recebidas pelo falso api.github.com (modo indisponivel): 1
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
+--- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=1
 RESULTADO: sem copia em cache e sem listagem: analysis_data_unavailable
@@ -368,7 +366,7 @@ Dois modos: o `scanners.yml` servido não bate com o digest do manifesto, ou o
 ```text
 --- A. scanners.yml servido diferente do digest do manifesto
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
---- requisicoes recebidas pelo falso api.github.com (modo adulterado-arquivo): 3
+--- requisicoes recebidas pelo servidor local (modo adulterado-arquivo): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
     GET /dl/scanners.yml -> 200
@@ -376,7 +374,7 @@ exit_code=1
 RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova
 --- B. set_digest do manifesto nao confere com a lista de arquivos
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): manifest: set_digest "sha256:0000000000000000000000000000000000000000000000000000000000000000" does not match its files (sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1): digest mismatch
---- requisicoes recebidas pelo falso api.github.com (modo adulterado-manifesto): 2
+--- requisicoes recebidas pelo servidor local (modo adulterado-manifesto): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
 exit_code=1
@@ -389,15 +387,15 @@ manifesto, a revisão parou antes de baixar o arquivo (duas).
 
 ### Fonte indisponível
 
-A listagem responde 503 sem cache; depois, sem rede nenhuma (sem falso, o
+A listagem responde 503 sem cache; depois, sem rede nenhuma (sem servidor local, o
 container não tem rota); e o mesmo com `gate.inconclusive: warn`.
 
 <!-- saida: indisponivel -->
 ```text
 --- A. a listagem responde HTTP 503 e nao ha cache
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET https://api.github.com/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
---- requisicoes recebidas pelo falso api.github.com (modo indisponivel): 1
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
+--- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=1
 RESULTADO: listagem 503 sem cache: analysis_data_unavailable reprova
@@ -444,9 +442,9 @@ O que observar:
 
 ## Achados sobre o produto
 
-- O endereço da API do GitHub do `analysis_data` é fixo no binário de produção;
-  só um teste em Go o troca. Por isso esta demonstração usa um falso atrás de
-  `--add-host` e de um CA de demonstração.
+- O endereço da API do GitHub do `analysis_data` vem de
+  `AURUMCODE_GITHUB_API_URL` (AUR-571). O tutorial media, antes, que o endereço
+  era fixo no binário e precisava de um servidor HTTPS falso com certificado próprio.
 - O filtro de segredos mascara a consulta da URL de listagem
   (`releases?[REDACTED]`) nas mensagens de erro.
 - A cópia em cache usada com a listagem fora do ar não é prova de
