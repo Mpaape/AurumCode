@@ -41,10 +41,10 @@ var (
 var AnalysisDataReviewKinds = []string{"scanners"}
 
 // ApplyAnalysisDataGate resolves the artifact when cfg is declared. An
-// unusable outcome is inconclusive by the policy's mode ("block" fails the
-// check, anything else only withholds approval) and carries the reason code;
+// unusable outcome is inconclusive (the pipeline applies the mode) and
+// carries the reason code;
 // a usable one adds no gate line and returns the audit facts.
-func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig, inconclusiveMode string) (result Result, reason string, audit *render.AnalysisDataAudit) {
+func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig) (result Result, reason string, audit *render.AnalysisDataAudit) {
 	if !cfg.Declared() {
 		return Result{}, "", nil
 	}
@@ -60,7 +60,6 @@ func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig, 
 	if !out.Usable {
 		result.Active = true
 		result.Inconclusive = true
-		result.Fail = inconclusiveMode == "block"
 		result.Lines = append(result.Lines, fmt.Sprintf("analysis_data: revisão inconclusiva (%s): %s", out.Reason, out.Detail))
 		return result, out.Reason, nil
 	}

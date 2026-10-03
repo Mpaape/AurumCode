@@ -1,7 +1,7 @@
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)
 RESULTADO: sob politica, a secao da skill do repo nao entra no gate
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
 exit_code=3
 RESULTADO: a secao da skill da politica reprova

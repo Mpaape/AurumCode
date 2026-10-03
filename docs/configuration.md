@@ -268,14 +268,32 @@ pode rebaixar.
 `gate.inconclusive` decide o que uma revisão inconclusiva faz ao check:
 falha do provedor, cobertura parcial (AUR-476, com os arquivos nomeados) ou
 resposta do modelo que não pôde ser interpretada como JSON (parse
-degradado — hoje publicado como se a revisão tivesse funcionado). Com
-`block`, a revisão reprova o check sem nunca checar achados. Com `warn`,
-ou quando `gate.inconclusive` nem está declarado, a revisão continua
-visível como inconclusiva mas não bloqueia por si só — **e, nos dois
-casos, um achado real que cruze `fail_on` ainda reprova o check**
+degradado — hoje publicado como se a revisão tivesse funcionado), ou um
+scanner habilitado (SAST, Dependency-Track, `analysis_data`) que não pôde
+concluir. Com `block`, a revisão reprova o check sem nunca checar achados.
+**Sem a chave, o padrão é `block` sempre que a configuração efetiva declara
+`gate` ou habilita um scanner (AUR-575):** uma ferramenta que devia verificar
+e não conseguiu nunca aprova por omissão. Só `warn` escrito faz a revisão
+continuar visível como inconclusiva sem bloquear por si só — **e, mesmo
+assim, um achado real que cruze `fail_on` ainda reprova o check**
 (`exitFindings`): ser inconclusiva nunca é uma forma de escapar de um
 achado que já cruzou o limiar. Em nenhum caso o parecer aparece como
-aprovado.
+aprovado. A conversão "inconclusivo vira falha pelo modo" mora num único
+lugar do pipeline do gate e vale para toda fonte: um contribuidor que falha
+e um SAST ausente terminam do mesmo jeito. Uma severidade que o normalizador
+não reconhece num achado determinístico conta como `error`, nunca é
+descartada.
+
+**Chave desconhecida é erro de carga (AUR-575).** O `.aurumcode/config.yml` do
+repositório é lido de forma estrita, como a política central: qualquer chave
+que o esquema não conhece, em qualquer seção (por exemplo `gate.fial_on`),
+falha a carga antes de qualquer chamada ao modelo, com a chave e a linha
+nomeadas (`parsing .aurumcode/config.yml: yaml: unmarshal errors: line 2:
+field fial_on not found in type config.GateConfig`). Sem isso, um erro de
+digitação deixava o gate sem declaração e a revisão aprovava. A seção
+`quality_gates.sast` também é validada na carga: `engine` diferente de
+`semgrep` ou um `rule_packs` que parece flag (`--...`) são recusados citando a
+chave.
 
 **Achado determinístico conta em qualquer modo (AUR-569).** O modo de
 `gate.inconclusive` governa a ausência do parecer do modelo, nunca a presença
@@ -318,8 +336,9 @@ avaliado: nenhum status `aurumcode/policy-gate` era publicado e
 `inconclusive: warn` não era honrado, mesmo com um gate declarado. Essa
 falha específica agora é roteada pelo gate como o mesmo motivo inconclusivo
 que `--base` já publica (`provider_failure`): com `block`, o status falha
-nomeando o motivo e a saída usa o código de "revisão não concluída"; com
-`warn` (ou sem `inconclusive` declarado), o status publica sucesso com o
+nomeando o motivo e a saída usa o código de "revisão não concluída" (desde o
+AUR-575 também o padrão quando `inconclusive` não está declarado); com
+`warn` escrito, o status publica sucesso com o
 alerta inconclusivo visível — nunca a palavra "aprovado" — e a saída é 0; em
 ambos os casos a auditoria e o SARIF (quando pedidos) são escritos como
 inconclusivos, e o corpo publicado da revisão diz que ela não foi executada.
@@ -328,8 +347,10 @@ card, byte a byte: código 1, nenhum status, nenhuma auditoria/SARIF.** Uma
 recusa de `--limite` antes da chamada (pré-chamada) segue a mesma regra: só
 entra pelo gate como esse motivo inconclusivo quando um gate está declarado.
 
-**Atenção para quem já tem `gate:` declarado sem a chave `inconclusive`
-(o padrão silencioso de `warn`).** Esse comportamento de hoje muda para
+**Histórico (antes do AUR-575, quando a chave ausente valia `warn`): quem
+tinha `gate:` declarado sem a chave `inconclusive`.** Hoje essas
+configurações bloqueiam (`block` é o padrão); o texto abaixo descreve o
+comportamento anterior. Esse comportamento de hoje muda para
 essas configurações existentes assim que `--pr` passa a sofrer uma falha
 do provedor: antes, a falha encerrava com código 1 e nenhum status era
 publicado; agora, `aurumcode/policy-gate` publica sucesso com o alerta
@@ -389,8 +410,8 @@ abaixo do limiar, o achado é publicado mas não reprova (AC-002). Semgrep
 ausente do `PATH`, com erro de execução, ou com saída que não é um relatório
 Semgrep confiável (JSON inválido, ou sem a chave `results`) nunca é lido como
 "zero achados, varredura limpa": é um achado inconclusivo próprio, que segue
-`gate.inconclusive` (`block` reprova a revisão; `warn`, ou a chave ausente,
-publica o alerta inconclusivo sem bloquear) — exatamente o mesmo
+`gate.inconclusive` (`block`, ou a chave ausente, reprova a revisão; só `warn`
+escrito publica o alerta inconclusivo sem bloquear) — exatamente o mesmo
 vocabulário de inconclusivo que o gate do AUR-519 já usa (AC-003).
 
 Sob política central, `quality_gates.sast` do repositório é sempre ignorado
@@ -750,8 +771,8 @@ Semântica do gate: uma métrica acima do limite reprova o gate e publica os
 números (ex.: `ssor_dtrack: critical 3 > max_critical 0`) no parecer, na
 auditoria (AUR-521) e no SARIF. Um timeout de processamento, um erro HTTP ou
 um servidor inalcançável nunca reprovam nem aprovam por si só — seguem o
-`gate.inconclusive` já configurado (`block` fecha o gate; `warn` ou omitido
-só avisa), com um motivo estável (`dtrack_timeout`, `dtrack_http_error`,
+`gate.inconclusive` já configurado (`block`, ou omitido, fecha o gate; só
+`warn` escrito avisa), com um motivo estável (`dtrack_timeout`, `dtrack_http_error`,
 `dtrack_unreachable`, `dtrack_metrics_incomplete`, `dtrack_secret_missing`,
 `dtrack_sbom_unavailable`). Uma resposta de métricas que não traz os três
 campos é tratada como desconhecida, nunca como zero — um zero silencioso
@@ -952,7 +973,7 @@ consumidor.
 | `rules.<id>.severity` | Sobrescreve a severidade de uma regra | embutido |
 | `ignore` | Globs de caminhos removidos antes da análise | vazio |
 | `gate.fail_on` | Severidades (do vocabulário de `--fail-on`, mais `critical`) que reprovam o check | vazio (sem gate) |
-| `gate.inconclusive` | `block` ou `warn` para uma revisão inconclusiva | vazio (sem gate) |
+| `gate.inconclusive` | `block` ou `warn` para uma revisão inconclusiva | `block` quando há `gate` ou scanner habilitado; senão sem efeito |
 | `exceptions` | Exceções aprovadas (repo+rule+path, dono, motivo, validade) que tiram um achado exato do gate | vazio |
 | `quality_gates.supply_chain.engine` | Motor de assinatura; só `cosign` é aceito | vazio (sem seção) |
 | `quality_gates.supply_chain.sign_sbom` | Assina o SBOM com `aurumcode sign` | `false` |

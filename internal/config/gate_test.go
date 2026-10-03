@@ -25,9 +25,9 @@ func TestAUR519GateConfigThreshold(t *testing.T) {
 // documented block/warn values (and their Portuguese aliases), defaults to
 // "" (no opt-in) when absent, and rejects anything else.
 func TestAUR519GateConfigInconclusive(t *testing.T) {
-	cases := map[string]string{"": "", "block": "block", "bloquear": "block", "warn": "warn", "alertar": "warn"}
+	cases := map[string]string{"": "fallback", "block": "block", "bloquear": "block", "warn": "warn", "alertar": "warn"}
 	for in, want := range cases {
-		got, err := (GateConfig{Inconclusive: in}).InconclusiveMode()
+		got, err := (GateConfig{Inconclusive: in}).resolveInconclusive("fallback")
 		if err != nil {
 			t.Fatalf("InconclusiveMode(%q) error = %v", in, err)
 		}
@@ -70,5 +70,16 @@ func TestAUR519ApplyCentralPolicyGate(t *testing.T) {
 	}
 	if len(effective.Gate.FailOn) != 1 || effective.Gate.FailOn[0] != "info" {
 		t.Fatalf("no policy: effective.Gate = %+v, want the repo's own gate unchanged", effective.Gate)
+	}
+}
+
+// TestAUR575DeclaredGateDefaultsToBlock: a gate declared with fail_on and no
+// gate.inconclusive blocks; no gate at all resolves to "" (nothing gated).
+func TestAUR575DeclaredGateDefaultsToBlock(t *testing.T) {
+	if got, err := (GateConfig{FailOn: []string{"error"}}).InconclusiveMode(); err != nil || got != InconclusiveBlock {
+		t.Fatalf("declared gate without inconclusive = %q, %v; want block", got, err)
+	}
+	if got, err := (GateConfig{}).InconclusiveMode(); err != nil || got != "" {
+		t.Fatalf("no gate = %q, %v; want empty", got, err)
 	}
 }

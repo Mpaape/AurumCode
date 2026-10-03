@@ -1,7 +1,7 @@
 == canario-de-redacao
 $ aurumcode review --base main --politica /policy --auditoria /work/auditoria.json --sarif /work/revisao.sarif
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested

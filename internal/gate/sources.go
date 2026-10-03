@@ -145,8 +145,7 @@ func applyDeterministic(d *Result, gate config.GateConfig, issues []types.Review
 				d.Lines = append(d.Lines, ExpiredExceptionLine(exc, issue))
 			}
 		}
-		issueRank, ok := SeverityRankOf(issue.Severity)
-		if !ok || issueRank < rank {
+		if GateRankOf(issue.Severity) < rank {
 			continue
 		}
 		d.Fail = true

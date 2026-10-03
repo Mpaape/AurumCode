@@ -120,8 +120,7 @@ type AnalysisDataContributor struct{}
 func (AnalysisDataContributor) Name() string   { return ContributorAnalysisData }
 func (AnalysisDataContributor) Origin() string { return OriginAnalysisData }
 func (AnalysisDataContributor) Apply(ctx context.Context, run *Run, res *Result) error {
-	mode, _ := run.Cfg.Gate.InconclusiveMode()
-	adResult, adReason, adAudit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData, mode)
+	adResult, adReason, adAudit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData)
 	merged, reason := MergeDTrackGate(*res, res.Reason, adResult, adReason)
 	trail := res.Trail
 	*res = merged
@@ -137,8 +136,7 @@ type DependencyTrackContributor struct{}
 func (DependencyTrackContributor) Name() string   { return ContributorDTrack }
 func (DependencyTrackContributor) Origin() string { return OriginDTrack }
 func (DependencyTrackContributor) Apply(ctx context.Context, run *Run, res *Result) error {
-	mode, _ := run.Cfg.Gate.InconclusiveMode()
-	dtResult, dtReason, nextFilter := ApplyDTrackGate(ctx, run.Cfg.QualityGates.SsorDtrack, mode, run.Filter)
+	dtResult, dtReason, nextFilter := ApplyDTrackGate(ctx, run.Cfg.QualityGates.SsorDtrack, run.Filter)
 	merged, reason := MergeDTrackGate(*res, res.Reason, dtResult, dtReason)
 	analysis, trail := res.AnalysisData, res.Trail
 	*res = merged

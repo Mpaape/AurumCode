@@ -87,6 +87,11 @@ caso_inconclusivo_sast() {
   TUT_ENVS=(-e "PATH=/fixtures/fakebin/invalido:$PATH_BASE")
   TUT_POLICY=politica-sast; aurum review --base main --politica /policy
   expect_rc 1 "block: saida invalida do SAST e inconclusiva (sast_invalid_output)"
+  echo "--- semgrep AUSENTE do PATH, SAST habilitado e SEM gate.inconclusive: o padrao e bloquear"
+  TUT_ENVS=(-e "PATH=/sem-semgrep")
+  TUT_POLICY=politica-sast-padrao; aurum review --base main --politica /policy
+  expect_rc 1 "sem gate.inconclusive, scanner habilitado que nao rodou bloqueia (warn so escrito)"
+  TUT_POLICY=politica-sast
   echo "--- Semgrep REAL (regra local): a mesma politica conclui e o achado SAST reprova"
   TUT_ENVS=()
   aurum review --base main --politica /policy

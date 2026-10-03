@@ -1,5 +1,5 @@
 $ aurumcode review --base main
-(rule semgrep:regras.demo-sem-eval) (severidade error, limiar error, origem repo)
+(rule semgrep:regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao repo)
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval)
 exit_code=3
 RESULTADO: a regra local achou eval() e o gate de SAST reprovou, sem rede

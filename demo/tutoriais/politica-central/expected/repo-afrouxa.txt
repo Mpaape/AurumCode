@@ -1,6 +1,6 @@
 exit_code=0
 RESULTADO: o gate do proprio repositorio aceita o warning
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: o repositorio nao consegue afrouxar o gate da politica

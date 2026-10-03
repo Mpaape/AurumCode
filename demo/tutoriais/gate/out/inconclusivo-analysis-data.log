@@ -20,6 +20,6 @@ flowchart TD
     n0["app.go"]
 
 ```
-No issues found.
+Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
 exit_code=1
 RESULTADO: block: artefato de analise indisponivel reprova (analysis_data_unavailable)
