@@ -66,8 +66,8 @@ run_acceptance() {
   printf '%s/%s/%s ok\n' "$card" "$id" "$sel"
 }
 
-quick=(AUR-493 AUR-496 AUR-497 AUR-500)
-slow=(AUR-491 AUR-468 AUR-473 AUR-479 AUR-504 AUR-505 AUR-540 AUR-542 AUR-547)  # AUR-491 needs README.md, absent from the card read_paths (sealed run); AUR-541 stays out: RED on AUR-441 (product suspicion, see spec)
+quick=(AUR-493 AUR-496 AUR-500)
+slow=(AUR-497 AUR-491 AUR-468 AUR-473 AUR-479 AUR-504 AUR-505 AUR-540 AUR-542 AUR-547)  # AUR-491 needs README.md (not in read_paths) and AUR-497 needs git (absent in the sealed image); AUR-541 stays out: RED on AUR-441 (product suspicion, see spec)
 # AUR-450 has no `all` selector (64): AC-001 is what AUR-473 AC-003 runs.
 
 # The benchmark harness builds the real binary (~GBs of cache); the sealed
