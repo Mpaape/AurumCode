@@ -1,0 +1,55 @@
+== binario-e-gerado
+--- sem gate: o parecer deixa de ser Approve, o exit continua 0
+$ aurumcode review --base main
+binary file, skipped: ferramenta.bin
+binary file, skipped: leia-me.txt
+generated file, skipped: schema.pb.txt
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
+- 3 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
+  - ferramenta.bin (binary)
+  - leia-me.txt (binary)
+  - schema.pb.txt (generated)
+No issues found.
+exit_code=0
+RESULTADO: sem gate, exit 0 mas o veredito nao e Approve (arquivos fora do alcance)
+--- com gate.inconclusive: block, os mesmos arquivos
+$ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (partial_coverage)
+binary file, skipped: ferramenta.bin
+binary file, skipped: leia-me.txt
+generated file, skipped: schema.pb.txt
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
+- 3 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
+  - ferramenta.bin (binary)
+  - leia-me.txt (binary)
+  - schema.pb.txt (generated)
+No issues found.
+exit_code=1
+RESULTADO: com gate.inconclusive: block, cobertura parcial reprova

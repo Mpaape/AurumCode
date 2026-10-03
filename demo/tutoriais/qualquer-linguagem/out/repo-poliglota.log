@@ -1,0 +1,66 @@
+== repo-poliglota
+$ aurumcode review --base main
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".github/workflows/ci.yml"]
+    n1["Dockerfile"]
+    n2["greeter.php"]
+    n3["greeter.rb"]
+    n4["infra.tf"]
+    n5["src/csharp/Greeter.cs"]
+    n6["src/main/java/demo/Greeter.java"]
+    n7["src/main/kotlin/Greeter.kt"]
+    n2 --> n5
+    n2 --> n6
+    n2 --> n7
+    n3 --> n5
+    n3 --> n6
+    n3 --> n7
+    n5 --> n6
+    n5 --> n7
+    n6 --> n5
+    n6 --> n7
+    n7 --> n5
+    n7 --> n6
+
+```
+No issues found.
+exit_code=0
+RESULTADO: revisao do repositorio poliglota concluida
+--- trecho do prompt que o modelo recebeu: secao Languages
+- c_sharp: 1 files
+- dockerfile: 1 files
+- hcl: 1 files
+- java: 1 files
+- kotlin: 1 files
+- php: 1 files
+- ruby: 1 files
+- yaml: 1 files
+--- trecho do prompt: contexto estrutural capturado (simbolos extraidos das arvores)
+## Codebase context (untrusted, bounded, heuristic)
+{"symbols":["Demo","Greeter","List","SaudarCsharp","alpine","contarJava","logs","saudarJava","saudarKotlin","saudarPhp","saudar_ruby","util"],"references":[],"dependents":[],"dropped":null}
+simbolo da gramatica java: contarJava esta no contexto
+simbolo da gramatica c_sharp: SaudarCsharp esta no contexto
+simbolo da gramatica kotlin: saudarKotlin esta no contexto
+simbolo da gramatica php: saudarPhp esta no contexto
+simbolo da gramatica ruby: saudar_ruby esta no contexto
+simbolo da gramatica hcl: logs esta no contexto
+simbolo da gramatica dockerfile: alpine esta no contexto
+prompt: ### File: src/main/java/demo/Greeter.java
+prompt: ### File: src/main/kotlin/Greeter.kt
+prompt: ### File: infra.tf
+prompt: ### File: Dockerfile
+prompt: ### File: .github/workflows/ci.yml
