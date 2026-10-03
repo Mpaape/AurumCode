@@ -28,6 +28,7 @@ RESULTADO: sob politica, a secao da skill do repo nao entra no gate
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -47,7 +48,6 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: a secao da skill da politica reprova
 prompt: a skill da politica aparece antes da skill do repositorio
