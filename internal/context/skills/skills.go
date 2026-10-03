@@ -42,6 +42,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 const (
@@ -236,17 +237,10 @@ func Assemble(selected []Skill, budget Budget) (*Result, error) {
 	return res, nil
 }
 
-// EstimateTokens approximates tokens at ~4 characters per token, never zero
-// for non-empty text (the same heuristic internal/prompt and internal/llm
-// use).
+// EstimateTokens is the engine's one character heuristic
+// (types.EstimateTokens), the same internal/prompt and internal/llm use.
 func EstimateTokens(text string) int {
-	if text == "" {
-		return 0
-	}
-	if n := len(text) / 4; n > 0 {
-		return n
-	}
-	return 1
+	return types.EstimateTokens(text)
 }
 
 // Provider is the skills ContextProvider. It loads root/.aurumcode/skills,
