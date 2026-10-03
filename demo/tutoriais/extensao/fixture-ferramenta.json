@@ -1,0 +1,10 @@
+{"aurumcode_fixture": {
+  "tool_calls": [
+    {"tool": "scanner_exemplo"}
+  ],
+  "cases": [
+    {"prompt_contains": "exemplo: 1 achado",
+     "response": {"issues": [], "summary": "A ferramenta pedida devolveu 1 achado da engine de exemplo."}}
+  ],
+  "default": {"issues": [], "summary": "A ferramenta de exemplo nao foi pedida."}
+}}

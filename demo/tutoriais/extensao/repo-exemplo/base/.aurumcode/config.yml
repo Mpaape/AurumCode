@@ -1,0 +1,5 @@
+quality_gates:
+  scanners:
+    - engine: exemplo
+gate:
+  fail_on: [error]
