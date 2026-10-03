@@ -6,7 +6,7 @@ aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> t
 aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (quality_skipped)
-aurumcode review: policy gate: security/hardcoded-secret: [REDACTED] credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: [REDACTED] Secrets) (severidade error, limiar error, origem security)
+aurumcode review: policy gate: security/hardcoded-secret - Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: [REDACTED] Secrets) (severidade error, limiar error, origem security)
 LLM quality review did not run. The following report covers deterministic analysis only.
 ## Code Review Summary
 
@@ -39,7 +39,7 @@ aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> t
 aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (quality_skipped)
-aurumcode review: policy gate: security/hardcoded-secret: [REDACTED] credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: [REDACTED] Secrets) (severidade error, limiar error, origem security)
+aurumcode review: policy gate: security/hardcoded-secret - Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: [REDACTED] Secrets) (severidade error, limiar error, origem security)
 LLM quality review did not run. The following report covers deterministic analysis only.
 ## Code Review Summary
 

@@ -78,11 +78,11 @@ aurumcode review --base main --politica /caminho/da/politica
 exit_code=0
 RESULTADO: warning abaixo do limiar high nao reprova
 --- fail_on [medium], o mesmo achado warning
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: warning no limiar medium reprova (exit 3)
 --- fail_on [error], achado error
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 RESULTADO: error reprova com fail_on error
 --- fail_on [high], achado error: high e error sao o mesmo limiar
 RESULTADO: high e error sao o mesmo limiar: o achado error reprova
@@ -189,7 +189,7 @@ rules:
 ```text
 --- semgrep falso que falha (exit 2), inconclusive: block
 aurumcode review: policy gate: review inconclusive (sast_execution_error)
-aurumcode review: policy gate: SAST (semgrep, origem policy) inconclusivo (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_execution_error)
 exit_code=1
 RESULTADO: block: SAST que falhou nunca vira 'sem achados' (sast_execution_error)
 --- o mesmo SAST falho, inconclusive: warn
@@ -197,10 +197,10 @@ exit_code=0
 RESULTADO: warn: SAST falho alerta e sai 0
 --- semgrep falso com saida que nao e relatorio, inconclusive: block
 aurumcode review: policy gate: review inconclusive (sast_invalid_output)
-aurumcode review: policy gate: SAST (semgrep, origem policy) inconclusivo (sast_invalid_output)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_invalid_output)
 RESULTADO: block: saida invalida do SAST e inconclusiva (sast_invalid_output)
 --- Semgrep REAL (regra local): a mesma politica conclui e o achado SAST reprova
-aurumcode review: policy gate: semgrep:policy.regras.senha-literal: Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem policy)
+aurumcode review: policy gate: semgrep:policy.regras.senha-literal - Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem sast, secao policy)
 exit_code=3
 RESULTADO: com o Semgrep real o SAST conclui e o achado reprova (nao e inconclusivo)
 ```
@@ -273,9 +273,9 @@ review:
 <!-- saida: fontes -->
 ```text
 --- gate.sources: todas
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
-aurumcode review: policy gate: semgrep:policy.regras.senha-literal: Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem policy)
-aurumcode review: policy gate: analysis/hardcoded-secret: [REDACTED] secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
+aurumcode review: policy gate: semgrep:policy.regras.senha-literal - Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem sast, secao policy)
+aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
 exit_code=3
 RESULTADO: sources todas: o gate reprova
 origens na auditoria: analysis, sast, skills
@@ -293,11 +293,14 @@ origens na auditoria: sast
 O que observar: com todas as origens a auditoria registra `analysis, sast,
 skills`; com `sources: [skills]`, `[analysis]` ou `[sast]` só a origem escolhida
 entra no gate e na auditoria, ainda que os outros achados apareçam no parecer.
-**Achado do tutorial:** o `origin` tipado (`skills`, `analysis`, `sast`) está na
-auditoria e no SARIF, mas a linha de gate impressa só diz `origem analysis` para
-a análise; a do SAST diz `origem policy` (de onde veio a configuração, não a
-origem do achado) e a da skill não traz origem. Leia a origem na auditoria, não
-na linha. Ver [auditoria-sarif.md](auditoria-sarif.md).
+**Origem uniforme (AUR-567):** a linha de gate diz `origem <fonte>` com o mesmo
+valor tipado da auditoria e do SARIF para toda fonte: `skills`, `analysis`, `sast`,
+`security`, `dtrack`. No SAST a seção de configuração que decidiu (`policy` ou
+`repo`) vem depois, como `secao policy`, e nunca no lugar da origem. A linha e o
+relatório mostram a mesma mensagem: o título da regra deixou de ser engolido pelo
+filtro de redação (`[REDACTED] secret...`) porque o id da regra e a mensagem se
+juntam por ` - `, não por `:` (um `...secret: Hardcoded` parece um par chave/valor
+a esse filtro).
 
 ## Caso 7: commit status `aurumcode/policy-gate` e exit codes
 
@@ -320,7 +323,7 @@ exit_code=3
 status publicado: context=aurumcode/review state=failure
   description: 1 achado(s) grave(s) no pull request #7
 status publicado: context=aurumcode/policy-gate state=failure
-  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar err…
+  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…
 --- inconclusivo
 exit_code=1
   description: inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage)
@@ -334,6 +337,14 @@ nunca `aprovado`. A descrição é cortada em 140 caracteres (termina em `…`);
 texto completo está no parecer. Os dois status são independentes: no caso
 reprovado ambos falham, mas o `aurumcode/review` só considera achado grave
 (`error`).
+
+**Review formal e gate (AUR-567).** Com `gate` declarado, a review formal segue
+o gate: `REQUEST_CHANGES` só quando o gate reprova (no caso reprovado acima), e
+`COMMENT` quando há achados abaixo do limiar (o aprovado acima, com um aviso
+abaixo de `high`); uma execução limpa continua `APPROVE`. Sem `gate` declarado o
+comportamento é o de sempre: um aviso já pede mudanças. Em ambos os casos, se a
+auditoria ou o SARIF pedidos não puderam ser gravados, a aprovação é retida e o
+processo sai com 1.
 
 ## Caso 8: o repositório tenta afrouxar
 
