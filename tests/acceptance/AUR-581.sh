@@ -13,13 +13,14 @@
 # binary is recorded in docs/specs/AUR-581.md.
 #
 # Selectors:
-#   all        AC-001..AC-003, MUT-001, MUT-002, then AC-004
+#   all        AC-001..AC-003, MUT-001..MUT-003, then AC-004
 #   AC-001     history leak in gate line and audit, no value; lock identity
 #   AC-002     missing binary and every failure are inconclusive
 #   AC-003     gitleaks:allow and .gitleaksignore under policy
 #   AC-004     workflow installs the locked digest/version; tutorial --check
 #   MUT-001    scanning the final tree only (no range) turns AC-001 RED
 #   MUT-002    letting Secret reach the Finding turns AC-001 RED
+#   MUT-003    a planted credential-shaped literal turns the AC-001 scan RED
 # Unknown selector exits 64; infrastructure 79; behavioral failure 1.
 set -Eeuo pipefail
 export LC_ALL=C
@@ -28,7 +29,7 @@ umask 077
 readonly card='AUR-581'
 selector="${1:-all}"
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002) ;;
+  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002|MUT-003) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -120,14 +121,53 @@ run_ac001() {
   go_test "$root" "$log" "$(pattern_of "${review_tests[@]}")" ./cmd/aurumcode/ || { cat "$log" >&2; fail review-test-failed; }
   require_pass "$log" "${review_tests[@]}"
   printf '%s/AC-001/review/pass\n' "$card"
-  local hits path
-  hits=''
-  for path in internal/scanner cmd/aurumcode tests/acceptance/AUR-581.sh docs/tutorials/segredos.md demo/tutoriais/segredos Dockerfile; do
-    [[ -e "$repo_root/$path" ]] || continue
-    hits+="$(grep -rlE --exclude-dir=.estado -- "$credential_shapes" "$repo_root/$path" || true)"
+  local scanned
+  scanned="$(scan_credentials "$repo_root")" || fail credential-shaped-literal
+  printf '%s/AC-001/no-credential-literal (%s files scanned)\n' "$card" "$scanned"
+}
+
+# The card's files that must never carry a credential-shaped literal.
+readonly credential_paths=(internal/scanner cmd/aurumcode tests/acceptance/AUR-581.sh docs/tutorials/segredos.md demo/tutoriais/segredos Dockerfile)
+
+# scan_credentials root: greps every file of credential_paths under root
+# (tutorial state in .estado/ excluded), one file at a time so grep's own
+# status is read: 0 = a credential-shaped literal (named on stderr, return
+# 1), 1 = clean, anything else = infrastructure. Prints the files scanned;
+# zero files scanned is infrastructure too, never a pass.
+scan_credentials() {
+  local root="$1" path f rc count=0 hits=0
+  for path in "${credential_paths[@]}"; do
+    [[ -e "$root/$path" ]] || infra "missing-credential-path:$path"
+    while IFS= read -r -d '' f; do
+      count=$((count + 1))
+      rc=0
+      grep -qE -- "$credential_shapes" "$f" || rc=$?
+      case "$rc" in
+        0) printf 'credential-shaped literal: %s\n' "${f#"$root"/}" >&2; hits=$((hits + 1)) ;;
+        1) ;;
+        *) infra "grep-status-$rc:${f#"$root"/}" ;;
+      esac
+    done < <(find "$root/$path" -name .estado -prune -o -type f -print0)
   done
-  [[ -z "$hits" ]] || { printf '%s\n' "$hits" >&2; fail credential-shaped-literal; }
-  printf '%s/AC-001/no-credential-literal\n' "$card"
+  (( count > 0 )) || infra no-file-scanned
+  printf '%s\n' "$count"
+  (( hits == 0 ))
+}
+
+# MUT-003: a planted credential-shaped literal (built here by concatenation,
+# so this script carries none) turns the credential scan RED.
+run_mut003() {
+  local root="$run_dir/root-mut3" path
+  for path in "${credential_paths[@]}"; do
+    mkdir -p "$root/$(dirname "$path")"
+    cp -R "$repo_root/$path" "$root/$path"
+  done
+  printf 'API_TOKEN = "%s%s%s"\n' "ghp" "_" "PlantadoPeloAceite0Nao0Real0Valor0Xy" > "$root/demo/tutoriais/segredos/plantado.py"
+  if scan_credentials "$root" >/dev/null 2>"$run_dir/mut3.log"; then
+    fail mutation-survived
+  fi
+  grep -Fq 'credential-shaped literal: demo/tutoriais/segredos/plantado.py' "$run_dir/mut3.log" || { cat "$run_dir/mut3.log" >&2; fail mut003-wrong-reason; }
+  printf '%s/MUT-003/rejected\n' "$card"
 }
 
 # AC-004: the review workflow pulls the lock's image by digest, reads the
@@ -195,12 +235,14 @@ case "$selector" in
   AC-004) run_ac004 ;;
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
+  MUT-003) run_mut003 ;;
   all)
     run_ac001
     run_ac AC-002 "${ac002_tests[@]}"
     run_ac AC-003 "${ac003_tests[@]}"
     run_mut001
     run_mut002
+    run_mut003
     run_ac004
     ;;
 esac
