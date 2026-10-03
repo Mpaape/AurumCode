@@ -157,6 +157,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -223,53 +224,24 @@ func run(args []string, stdout, stderr *os.File) int {
 	case "--version", "version":
 		printVersion(stdout)
 		return 0
-	case "review":
-		return runReview(args[1:], stdout, errW, filter)
-	case "fix":
-		return runFix(args[1:], stdout, errW)
-	case "sbom":
-		// AUR-549: standalone, config-driven SBOM generation (Trivy,
-		// CycloneDX). See aur549.go.
-		return runSBOM(args[1:], stdout, errW)
-	case "sign":
-		// AUR-551: standalone, config-driven SBOM/image signing
-		// (Sigstore/Cosign). See aur551.go.
-		return runSign(args[1:], stdout, errW)
-	case "xbom":
-		// AUR-552: Build BOM / CBOM in CycloneDX 1.6, catalog-driven,
-		// evidence-verified. See aur552.go.
-		return runXBOM(args[1:], stdout, errW)
-	default:
-		fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
-		return 2
 	}
-}
-
-// printTopLevelHelp is what makes `aurumcode --help` (or `-h`, or `help`)
-// answer "what does this command do" without the reader ever opening
-// source: the review command and one runnable example.
-// MUT-001 (docs/specs/AUR-443.md, tests/acceptance/AUR-443.sh) removes the
-// "--help", "-h", "help" case above so this function becomes unreachable
-// dead code -- `aurumcode --help` then falls through to the `default` arm
-// and reports "unknown command", exit 2, which is exactly the discoverability
-// regression this card's Outcome exists to fix.
-func printTopLevelHelp(stdout io.Writer) {
-	fmt.Fprintln(stdout, "usage: aurumcode <command> [flags]")
-	fmt.Fprintln(stdout)
-	fmt.Fprintln(stdout, "Commands:")
-	fmt.Fprintln(stdout, "  review   Review a git diff with the configured model and publish or gate the findings.")
-	fmt.Fprintln(stdout, "  fix      Turn review suggestions into an applyable unified diff (one-click fix).")
-	fmt.Fprintln(stdout)
-	fmt.Fprintln(stdout, `Run "aurumcode <command> --help" for that command's own flags.`)
-	fmt.Fprintln(stdout)
-	fmt.Fprintln(stdout, "Example:")
-	fmt.Fprintln(stdout, "  aurumcode review --base HEAD~1")
-	fmt.Fprintln(stdout, "  aurumcode fix --file suggestions.json > fix.patch")
+	if sc, ok := findSubcommand(args[0]); ok {
+		return sc.run(args[1:], stdout, errW, filter)
+	}
+	fmt.Fprintf(errW, "aurumcode: unknown command %q\n", args[0])
+	return 2
 }
 
 // printVersion answers `aurumcode --version` / `aurumcode version`.
 func printVersion(stdout io.Writer) {
 	fmt.Fprintf(stdout, "aurumcode %s\n", version)
+}
+
+// newFixFlagSet declares the flags of `fix`; the help reads the same set.
+func newFixFlagSet() (*flag.FlagSet, *string) {
+	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
+	file := fs.String("file", "", "JSON file with review suggestions or a review response (default: stdin)")
+	return fs, file
 }
 
 // runFix turns review suggestions into an applyable unified diff (one-click
@@ -287,16 +259,9 @@ func printVersion(stdout io.Writer) {
 // never read the file at all. A patch that does not apply now exits 1 and
 // names the offending file and line on stderr.
 func runFix(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
-	file := fs.String("file", "", "JSON file with review suggestions or a review response (default: stdin)")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprintln(stdout, "usage: aurumcode fix [--file suggestions.json]")
-			fmt.Fprintln(stdout, "Reads review suggestions (or a full review response) and prints a unified diff.")
-			fmt.Fprintln(stdout, "Example: aurumcode fix < review-response.json > fix.patch")
-			return 0
-		}
-		return 2
+	fs, file := newFixFlagSet()
+	if exit, ok := parseSubcommandFlags("fix", fs, args, stdout, stderr); !ok {
+		return exit
 	}
 	data, err := readFixSuggestions(*file)
 	if err != nil {
@@ -918,7 +883,8 @@ func reportModelUnavailable(stderr io.Writer, model string, reason error) int {
 	return 1
 }
 
-// printFindings prints one line per issue: "<file>:<line>: [<severity>]
+// printFindings prints one line per issue (and, with none, render.
+// NoFindingsLine: "No issues found." only when no source was inconclusive): "<file>:<line>: [<severity>]
 // <message>", sorted by (file, line) so the same review result always
 // prints in the same order regardless of the order the model listed
 // findings in.
@@ -926,7 +892,7 @@ func reportModelUnavailable(stderr io.Writer, model string, reason error) int {
 // model boundary (internal/review.redactReviewResult, AUR-432), before the
 // trusted rule citation was appended, so the published byte-stable format
 // survives while no echoed secret can reach this sink.
-func printFindings(stdout io.Writer, result *types.ReviewResult) {
+func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveReason string) {
 	issues := make([]types.ReviewIssue, len(result.Issues))
 	copy(issues, result.Issues)
 	sort.SliceStable(issues, func(i, j int) bool {
@@ -937,7 +903,7 @@ func printFindings(stdout io.Writer, result *types.ReviewResult) {
 	})
 
 	if len(issues) == 0 {
-		fmt.Fprintln(stdout, "No issues found.")
+		fmt.Fprintln(stdout, render.NoFindingsLine(inconclusiveReason))
 		return
 	}
 

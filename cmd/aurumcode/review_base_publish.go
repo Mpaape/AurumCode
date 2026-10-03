@@ -85,7 +85,7 @@ func (b *baseReview) printReport() {
 		fmt.Fprint(b.stdout, "\n"+b.changelogText)
 	}
 	if (!b.qualitySkipped && !b.qualityFailed) || len(result.Issues) > 0 {
-		printFindings(b.stdout, result)
+		printFindings(b.stdout, result, b.gateRes.Reason)
 	}
 	if !b.qualityFailed {
 		persistReviewMemory(b.memoryStore, b.repoCfg.Review.Memory, b.memoryNotes, result.Issues, b.stderr, b.filter)
