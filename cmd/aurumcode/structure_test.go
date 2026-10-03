@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/gate"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
 // maxFunctionLines is AUR-557's ceiling for any function of this package.
@@ -377,5 +380,207 @@ func TestImportsFollowLayerTable(t *testing.T) {
 	sort.Strings(violations)
 	if len(violations) > 0 {
 		t.Fatalf("layer violations:\n%s", strings.Join(violations, "\n"))
+	}
+}
+
+// gateOnlyExitCodes are the exit codes only the gate's exit ladder decides:
+// the named constants of this package and of internal/gate, and the literal
+// value of a breach. A review source still returns its own early-exit codes
+// (usage 2, an operational failure 1) as literals, so 1 alone is not one.
+var gateOnlyExitCodes = map[string]bool{
+	"exitFindings": true, "exitQualityNotReviewed": true, "exitArtifactNotWritten": true,
+	"gateExitFindings": true, "gateExitBehavioral": true,
+}
+
+// returnsInt reports whether fn declares an int among its results.
+func returnsInt(fn *ast.FuncDecl) bool {
+	if fn.Type.Results == nil {
+		return false
+	}
+	for _, r := range fn.Type.Results.List {
+		if id, ok := r.Type.(*ast.Ident); ok && id.Name == "int" {
+			return true
+		}
+	}
+	return false
+}
+
+// isGateExitCode reports an expression that names a gate-only exit code:
+// one of the constants above, any gate.Exit* selector, or the literal value
+// of gate.ExitFindings.
+func isGateExitCode(e ast.Expr) bool {
+	switch x := e.(type) {
+	case *ast.Ident:
+		return gateOnlyExitCodes[x.Name]
+	case *ast.SelectorExpr:
+		pkg, ok := x.X.(*ast.Ident)
+		return ok && pkg.Name == "gate" && strings.HasPrefix(x.Sel.Name, "Exit")
+	case *ast.BasicLit:
+		return x.Kind == token.INT && x.Value == strconv.Itoa(gate.ExitFindings)
+	case *ast.ParenExpr:
+		return isGateExitCode(x.X)
+	}
+	return false
+}
+
+// TestReviewSourcesReturnNoGateExitCode: a method of a review source that
+// returns an int never returns a gate-only exit code, however it is spelled
+// (named constant, gate.Exit* selector or literal); the gate's codes come
+// only from gate.ExitPolicy.
+func TestReviewSourcesReturnNoGateExitCode(t *testing.T) {
+	sources := map[string]bool{"baseReview": true, "prReview": true, "reviewState": true}
+	inspected := 0
+	var ladders []string
+	for _, name := range productionFiles(t) {
+		fset := token.NewFileSet()
+		f, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil || !sources[receiverName(fn)] || !returnsInt(fn) {
+				continue
+			}
+			inspected++
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				if _, nested := n.(*ast.FuncLit); nested {
+					return false
+				}
+				if ret, ok := n.(*ast.ReturnStmt); ok {
+					for _, r := range ret.Results {
+						if isGateExitCode(r) {
+							ladders = append(ladders, fmt.Sprintf("%s:%d %s.%s", name, fset.Position(ret.Pos()).Line, receiverName(fn), fn.Name.Name))
+						}
+					}
+				}
+				return true
+			})
+		}
+	}
+	if inspected < 10 {
+		t.Fatalf("only %d source methods returning int inspected; the guard no longer sees them", inspected)
+	}
+	if len(ladders) > 0 {
+		t.Errorf("review sources returning a gate exit code (use gate.ExitPolicy): %v", ladders)
+	}
+}
+
+// engineNames is every registered scanner engine and category, lower-case.
+func engineNames(t *testing.T) map[string]bool {
+	t.Helper()
+	engines := map[string]bool{}
+	for _, name := range append(scanner.Names(), scanner.Categories()...) {
+		engines[strings.ToLower(name)] = true
+	}
+	if !engines["semgrep"] {
+		t.Fatal("semgrep must be registered in the binary")
+	}
+	return engines
+}
+
+// engineConstants collects the package-level constants of files whose value
+// is a string literal naming an engine.
+func engineConstants(files []*ast.File, engines map[string]bool) map[string]bool {
+	consts := map[string]bool{}
+	for _, f := range files {
+		for _, decl := range f.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok || gd.Tok != token.CONST {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				vs := spec.(*ast.ValueSpec)
+				for i, v := range vs.Values {
+					if lit, ok := v.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+						if s, _ := strconv.Unquote(lit.Value); engines[strings.ToLower(s)] && i < len(vs.Names) {
+							consts[vs.Names[i].Name] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	return consts
+}
+
+// engineBranches lists the places a file branches on an engine name: a
+// case, a comparison, a call argument or a map key, spelled as a literal or
+// as a constant holding one.
+func engineBranches(name string, f *ast.File, engines, consts map[string]bool) []string {
+	isEngine := func(e ast.Expr) bool {
+		switch x := e.(type) {
+		case *ast.BasicLit:
+			s, _ := strconv.Unquote(x.Value)
+			return x.Kind == token.STRING && engines[strings.ToLower(s)]
+		case *ast.Ident:
+			return consts[x.Name]
+		}
+		return false
+	}
+	var out []string
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.CaseClause:
+			for _, e := range x.List {
+				if isEngine(e) {
+					out = append(out, name+": a case on an engine name")
+				}
+			}
+		case *ast.BinaryExpr:
+			if (x.Op == token.EQL || x.Op == token.NEQ) && (isEngine(x.X) || isEngine(x.Y)) {
+				out = append(out, name+": a comparison with an engine name")
+			}
+		case *ast.CallExpr:
+			for _, a := range x.Args {
+				if isEngine(a) {
+					out = append(out, name+": an engine name passed as an argument")
+				}
+			}
+		case *ast.KeyValueExpr:
+			if isEngine(x.Key) {
+				out = append(out, name+": an engine name as a map key")
+			}
+		case *ast.IndexExpr:
+			if isEngine(x.Index) {
+				out = append(out, name+": an engine name as an index")
+			}
+		}
+		return true
+	})
+	return out
+}
+
+// TestNoEngineBranchInGateOrCmdByAnyName: neither cmd/aurumcode nor
+// internal/gate branches on an engine name, whether the name is a literal,
+// a named constant or the key of a map literal.
+func TestNoEngineBranchInGateOrCmdByAnyName(t *testing.T) {
+	engines := engineNames(t)
+	for _, dir := range []string{".", filepath.Join(repoRoot, "internal", "gate")} {
+		names, err := filepath.Glob(filepath.Join(dir, "*.go"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var files []*ast.File
+		var paths []string
+		for _, n := range names {
+			if strings.HasSuffix(n, "_test.go") {
+				continue
+			}
+			f, err := parser.ParseFile(token.NewFileSet(), n, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			files, paths = append(files, f), append(paths, n)
+		}
+		if len(files) < 10 {
+			t.Fatalf("only %d files in %s", len(files), dir)
+		}
+		consts := engineConstants(files, engines)
+		for i, f := range files {
+			for _, b := range engineBranches(paths[i], f, engines, consts) {
+				t.Error(b)
+			}
+		}
 	}
 }
