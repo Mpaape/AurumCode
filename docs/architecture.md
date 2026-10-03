@@ -70,6 +70,43 @@ result is published.
 4. **Publish and exit.** Report or comments, status, SARIF and audit, exit
    code. A phase returns `(exit, done)`, so each early exit keeps its code.
 
+## Review prompt
+
+The review prompt is one template, `internal/prompt/templates/review.md`. Its
+body is the system message (instructions, rule catalog, response format); its
+named `{{define}}` blocks are the slots the user message is built from. Go code
+decides which slots render and with what data; every section title lives in
+the template, and a test fails on a `## ` title in a Go string of the
+prompt-assembly packages.
+
+User-message slots, in order: change summary, CI context and the budgeted code
+changes (`user_header`); PR history; codebase context; review memory;
+deterministic evidence (one item per finding, with origin, rule, `file:line`,
+severity and a redacted snippet); available tools (with declared cost); review
+coverage; repository context. A slot whose input is empty renders nothing, so a
+review without that input keeps its previous bytes.
+
+Budgets come from `internal/prompt/templates/limits.yml`: the prompt ceiling
+used when the caller sets none, the rule catalog ceiling, and the evidence and
+tools ceilings. A list slot over its ceiling admits whole items and states how
+many it omitted; code hunks that do not fit are declared in the coverage slot.
+Every slot, the repository context included, is counted inside the budget.
+
+The `Reviewer` depends on a `Completer` (`CompleteMessages`), implemented by
+`llm.Orchestrator`. The prompt travels as a system and a user message. A
+provider with the `llm.MessageCompleter` capability receives them separately;
+any other provider receives `System + "\n\n" + User` through `Complete`, and
+the cost estimate is taken on that same text. Provider decorators that only
+forward requests implement `llm.Unwrapper`, so `llm.As` finds a capability
+behind them; a decorator that alters the request must not.
+
+`Reviewer.PromptDigest` is the digest of the exact messages sent.
+`Reviewer.RequestCacheKey` combines it with digests of the evidence and of the
+tool results (`review/cache.RequestKey`), so evidence that the ceiling left out
+of the text still changes the key. The model may attach an `assessment`
+(`confirmed`, `disputed`, `needs_context`, with justification) to an issue;
+`origin` is written only by the engine, and the parser discards a model's.
+
 ## Gate pipeline
 
 `assembleGatePipeline` is the only place the pipeline is declared. Contributors
