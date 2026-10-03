@@ -16,17 +16,6 @@ type SsorDtrackThresholds struct {
 	PolicyViolations int `yaml:"policy_violations"`
 }
 
-// AsClientThresholds converts to internal/dtrack's own Thresholds shape,
-// so cmd/aurumcode can call dtrack.Run without this package importing
-// cmd/aurumcode or dtrack importing config (avoiding a cycle either way).
-func (t SsorDtrackThresholds) AsClientThresholds() dtrack.Thresholds {
-	return dtrack.Thresholds{
-		MaxCritical:      t.MaxCritical,
-		MaxHigh:          t.MaxHigh,
-		PolicyViolations: t.PolicyViolations,
-	}
-}
-
 // DefaultDTrackTimeoutSeconds and DefaultDTrackPollIntervalSeconds are
 // AUR-550's own documented/sane defaults, applied only when the section is
 // declared (Enabled) and the field was left at its zero value -- an

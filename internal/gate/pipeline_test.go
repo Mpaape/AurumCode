@@ -17,11 +17,13 @@ type stubContributor struct {
 
 func (s stubContributor) Name() string   { return s.name }
 func (s stubContributor) Origin() string { return "stub-" + s.name }
-func (s stubContributor) Apply(_ context.Context, run *Run, res *Result) error {
+func (s stubContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
+	var part Result
 	if s.fn == nil {
-		return nil
+		return part, nil
 	}
-	return s.fn(run, res)
+	err := s.fn(run, &part)
+	return part, err
 }
 
 func newRun(t *testing.T, mode string) *Run {
@@ -37,6 +39,7 @@ func TestPipelineAppliesContributorsInDeclaredOrder(t *testing.T) {
 	rec := func(n string) stubContributor {
 		return stubContributor{name: n, fn: func(_ *Run, res *Result) error {
 			seen = append(seen, n)
+			res.Active = true
 			res.Lines = append(res.Lines, n)
 			return nil
 		}}
@@ -57,7 +60,7 @@ func TestPipelineAppliesContributorsInDeclaredOrder(t *testing.T) {
 
 func TestPipelineContributorErrorIsInconclusiveNeverApproved(t *testing.T) {
 	boom := stubContributor{name: "boom", fn: func(*Run, *Result) error { return errors.New("exploded") }}
-	after := stubContributor{name: "after", fn: func(_ *Run, res *Result) error { res.Lines = append(res.Lines, "after"); return nil }}
+	after := stubContributor{name: "after", fn: func(_ *Run, res *Result) error { res.Active = true; res.Lines = append(res.Lines, "after"); return nil }}
 	for _, tc := range []struct {
 		mode     string
 		wantFail bool

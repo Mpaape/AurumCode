@@ -3,6 +3,8 @@
 $ aurumcode review --base main --politica /policy --auditoria /work/auditoria-todas.json
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
+aurumcode review: policy gate: semgrep:policy.regras.senha-literal - Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem sast, secao policy)
+aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -24,8 +26,6 @@ flowchart TD
 app.go:6: [error] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
 app.go:6: [error] Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal)
-aurumcode review: policy gate: semgrep:policy.regras.senha-literal - Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem sast, secao policy)
-aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
 exit_code=3
 RESULTADO: sources todas: o gate reprova
 origens na auditoria: analysis, sast, skills

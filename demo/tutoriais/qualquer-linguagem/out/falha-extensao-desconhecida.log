@@ -30,7 +30,6 @@ prompt: ### File: script.zzqx
 prompt: +    String senha = "hunter2";
 --- arquivo .txt com segredo
 $ aurumcode review --base main --fail-on error
-aurumcode review: 2 finding(s) at severity error or above (--fail-on error)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -51,6 +50,7 @@ flowchart TD
 ```
 config/tokens.txt:2: [error] O token esta escrito em texto puro. (rule security/hardcoded-secret: Hardcoded Secrets)
 config/tokens.txt:2: [error] Hardcoded secret matched rule generic-api-key (Detected a Generic API Key, potentially exposing access to various services and sensitive operations.) (rule analysis/hardcoded-secret)
+aurumcode review: 2 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: o achado em config/tokens.txt reprovou: arquivo .txt e revisado, nao descartado como documentacao
 prompt: ### File: config/tokens.txt
