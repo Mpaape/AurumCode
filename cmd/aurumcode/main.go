@@ -422,6 +422,12 @@ const exitFindings = 3
 // provider that failed). See docs/specs/AUR-458.md for the full table.
 const exitQualityNotReviewed = 1
 
+// exitArtifactNotWritten is AUR-568's exit code for a run whose requested
+// --auditoria or --sarif file could not be written: the compliance trail is
+// part of the verdict, so the run never ends as success. Like
+// exitQualityNotReviewed it is the existing behavioral-failure code.
+const exitArtifactNotWritten = 1
+
 // reportQualityFailure prints the diagnosis for a quality review that
 // could not complete after a provider was successfully selected, and
 // returns the exit code for the no---seguranca path. It is the exact

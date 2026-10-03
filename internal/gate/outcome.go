@@ -12,21 +12,31 @@ import (
 // engine-owned marker that withholds approval regardless of the model's
 // own verdict. Shared by --base and --pr.
 func ApplyOutcome(run *Run, gateResult *Result) {
-	result := run.Review
 	if gateResult.Active {
-		for _, line := range gateResult.Lines {
-			fmt.Fprintf(run.Stderr, "aurumcode review: policy gate: %s\n", line)
-			result.Limitations = append(result.Limitations, "policy gate: "+line)
-		}
+		publishGateLines(run, gateResult.Lines)
 		if gateResult.Fail || gateResult.Inconclusive {
-			// B-V: PolicyGateWithheldKey is the ONLY mechanism that
-			// withholds approval; result.Verdict is model-controlled.
-			if result.Metadata == nil {
-				result.Metadata = make(map[string]string)
-			}
-			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
+			withholdApproval(run.Review)
 		}
 	}
+}
+
+// publishGateLines prints lines on stderr and adds them to the review's
+// limitations.
+func publishGateLines(run *Run, lines []string) {
+	for _, line := range lines {
+		fmt.Fprintf(run.Stderr, "aurumcode review: policy gate: %s\n", line)
+		run.Review.Limitations = append(run.Review.Limitations, "policy gate: "+line)
+	}
+}
+
+// withholdApproval sets the engine-owned marker. B-V: PolicyGateWithheldKey
+// is the ONLY mechanism that withholds approval; result.Verdict is
+// model-controlled.
+func withholdApproval(result *types.ReviewResult) {
+	if result.Metadata == nil {
+		result.Metadata = make(map[string]string)
+	}
+	result.Metadata[prompt.PolicyGateWithheldKey] = "true"
 }
 
 // Withheld reports whether the engine withheld approval for this review.
