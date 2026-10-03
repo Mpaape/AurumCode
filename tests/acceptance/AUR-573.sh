@@ -40,6 +40,14 @@ clean_go_test() {
   ( cd "$dir" && env -u GOFLAGS GIT_DIR=/nonexistent go test -count=1 "$@" )
 }
 
+# static_check ROOT: no exec.Command("go","build",...) may rely on the
+# environment for -buildvcs. Returns 1 and prints offenders otherwise.
+static_check() {
+  local root="$1" bad
+  bad="$(find "$root/tests" "$root/internal" "$root/cmd" -name '*.go' -type f -exec grep -nE 'exec\.Command\("go", "build",' {} + | grep -vF -e '-buildvcs=false' || true)"
+  [[ -z "$bad" ]] || { printf '%s\n' "$bad" >&2; return 1; }
+}
+
 ac001() {
   local out
   out="$(clean_go_test "$repo_root" ./internal/artifacts 2>&1)" || {
@@ -48,10 +56,7 @@ ac001() {
     fail 'go-test'
   }
   grep -Fq 'github.com/Mpaape/AurumCode/internal/artifacts' <<<"$out" || fail 'artifacts-not-run'
-  # No exec of go may rely on the environment for -buildvcs.
-  local bad
-  bad="$(find "$repo_root/tests" "$repo_root/internal" "$repo_root/cmd" -name '*.go' -type f -exec grep -nE 'exec\.Command\("go", "build",' {} + | grep -vF -e '-buildvcs=false' || true)"
-  [[ -z "$bad" ]] || { printf '%s\n' "$bad" >&2; fail 'go-build-without-buildvcs'; }
+  static_check "$repo_root" || fail 'go-build-without-buildvcs'
 }
 
 # run_acceptance ID [SELECTOR]: exit must be 0.
@@ -110,10 +115,16 @@ mutation_001() {
   grep -Fq '"go", "build", "-buildvcs=false", "-o", bin, "./cmd/analysis-data"' "$target" || infra 'mutation-anchor-missing'
   sed -i 's/"go", "build", "-buildvcs=false", "-o", bin, ".\/cmd\/analysis-data"/"go", "build", "-o", bin, ".\/cmd\/analysis-data"/' "$target"
   grep -Fq '"-buildvcs=false", "-o", bin, "./cmd/analysis-data"' "$target" && infra 'mutation-not-applied'
-  local out rc=0
-  out="$(clean_go_test "$stage" -run 'TestAUR533PassingTestsPublish' ./internal/artifacts 2>&1)" || rc=$?
-  (( rc != 0 )) || fail 'MUT-001/survived'
-  grep -Fq 'error obtaining VCS status' <<<"$out" || { printf '%s\n' "$out" >&2; fail 'MUT-001/wrong-failure-mode'; }
+  # The static detector must reject the mutant everywhere.
+  static_check "$stage" >/dev/null 2>&1 && fail 'MUT-001/static-check-survived'
+  # Where git exists (Go only stamps VCS then) the real failure must reproduce
+  # too; the sealed image has no git, so only the static proof applies there.
+  if command -v git >/dev/null 2>&1; then
+    local out rc=0
+    out="$(clean_go_test "$stage" -run 'TestAUR533PassingTestsPublish' ./internal/artifacts 2>&1)" || rc=$?
+    (( rc != 0 )) || fail 'MUT-001/survived'
+    grep -Fq 'error obtaining VCS status' <<<"$out" || { printf '%s\n' "$out" >&2; fail 'MUT-001/wrong-failure-mode'; }
+  fi
   printf '%s/AC-001-MUT-001/rejected\n' "$card"
 }
 
