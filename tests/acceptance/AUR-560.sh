@@ -45,13 +45,23 @@ for input in mkdocs.yml docs/index.md docs/configuration.md docs/specs/AUR-560.m
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a560.XXXXXX")" || infra mktemp
-trap 'rm -rf -- "$work"' EXIT INT TERM HUP
+trap 'chmod -R u+w -- "$work" >/dev/null 2>&1 || true; rm -rf -- "$work"' EXIT INT TERM HUP
 
 # slug: the python-markdown toc slug MkDocs uses, for Portuguese text.
 slug() {
   printf '%s' "$1" | sed -e 's/á/a/g;s/à/a/g;s/â/a/g;s/ã/a/g;s/ä/a/g;s/é/e/g;s/ê/e/g;s/í/i/g;s/ó/o/g;s/ô/o/g;s/õ/o/g;s/ú/u/g;s/ü/u/g;s/ç/c/g' \
     -e 's/Á/A/g;s/É/E/g;s/Í/I/g;s/Ó/O/g;s/Ú/U/g;s/Ç/C/g' \
     | tr 'A-Z' 'a-z' | sed -e 's/[^a-z0-9_ -]//g' -e 's/^[[:space:]]*//;s/[[:space:]]*$//' -e 's/[[:space:]-][[:space:]-]*/-/g'
+}
+
+# normpath <a/b/../c>: collapses . and .. lexically (no realpath -m in the sealed image).
+normpath() {
+  local -a out=(); local seg
+  local IFS=/
+  for seg in $1; do
+    case "$seg" in ''|.) ;; ..) [[ ${#out[@]} -gt 0 ]] && unset 'out[${#out[@]}-1]' || out+=("..") ;; *) out+=("$seg") ;; esac
+  done
+  printf '%s' "${out[*]}"
 }
 
 # headings <file>: heading text of each ATX heading outside code fences.
@@ -96,7 +106,7 @@ ac002_check() {
       anchor=''; [[ "$target" == *'#'* ]] && anchor="${target#*#}"
       t="${target%%#*}"
       if [[ -z "$t" ]]; then base="$f"; else
-        base="$(realpath -m --relative-to="$docs" "$docs/$dir/$t")"
+        base="$(normpath "$dir/$t")"
         [[ -e "$docs/$base" ]] || { echo "broken-link:$f -> $target"; return 1; }
       fi
       if [[ -n "$anchor" && "$base" == *.md ]]; then
@@ -210,16 +220,17 @@ mut001() {
   cp "$repo_root/mkdocs.yml" "$m/"
   cp -R "$repo_root/docs" "$m/docs"
   cp -R "$repo_root/scripts" "$m/scripts"
+  chmod -R u+w "$m"
   ac002_check "$m" >/dev/null || fail "mutation-baseline-not-green"
   for victim in 'review-cache.md' 'specs/AUR-001.md'; do
-    cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"
+    cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"; chmod u+w "$m/mkdocs.yml"
     grep -qE "^[[:space:]]+- $victim\$" "$m/mkdocs.yml" || fail "mutation-victim-absent:$victim"
     grep -vE "^[[:space:]]+- $victim\$" "$repo_root/mkdocs.yml" >"$m/mkdocs.yml"
     if ac002_check "$m" >"$work/mut.out"; then fail "mutation-survived:$victim"; fi
     grep -q "orphan-page-not-in-nav:$victim" "$work/mut.out" || fail "mutation-wrong-reason:$victim"
   done
   # a broken link must also redden AC-002
-  cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"
+  cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"; chmod u+w "$m/mkdocs.yml"
   printf '\n[quebrado](nao-existe.md)\n' >>"$m/docs/index.md"
   if ac002_check "$m" >/dev/null; then fail mutation-survived:broken-link; fi
 }
