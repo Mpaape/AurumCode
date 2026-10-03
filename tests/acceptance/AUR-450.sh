@@ -341,11 +341,12 @@ mutation_case() {
   local root="$run_dir/root-mut"
   stage_source "$root"
 
-  local target="$root/cmd/aurumcode/main.go"
+  # AUR-573: the --base coverage note moved to review_base_analysis.go (AUR-558).
+  local target="$root/cmd/aurumcode/review_base_analysis.go"
   [[ -f "$target" ]] || fail 'MUT-001/target-missing'
-  local anchor='printSecurityCoverage(stderr, coverageApplied, coverageTotal)'
+  local anchor='printSecurityCoverage(b.stderr, applied, total)'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
-  local replacement='_ = coverageApplied; _ = coverageTotal // MUT-001: suppress the coverage note silently'
+  local replacement='_ = applied; _ = total // MUT-001: suppress the coverage note silently'
   ANCHOR="$anchor" REPL="$replacement" awk '
     BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
     {
