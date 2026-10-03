@@ -223,7 +223,7 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 		}
 		section, _, _ := strings.Cut(typeErr.Field, ".")
 		switch section {
-		case "strengths", "suggestions", "ci_analysis", "test_plan", "limitations", "iso_scores", "summary":
+		case "strengths", "suggestions", "ci_analysis", "test_plan", "limitations", "iso_scores", "summary", "evidence_assessments":
 		default:
 			return p.degradedOrError(response, ParseErrorInvalidJSON, err)
 		}

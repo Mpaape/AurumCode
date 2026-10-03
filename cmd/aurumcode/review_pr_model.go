@@ -17,7 +17,7 @@ import (
 func (p *prReview) runModelPass() (int, bool) {
 	steps := []session.Step{
 		p.selectProvider, p.wrapContext, p.resolveSkills, p.buildReviewer,
-		p.generateReview, p.noteModelOutcome,
+		p.generateReview, p.noteModelOutcome, p.joinEvidence,
 	}
 	for _, step := range steps {
 		if code, done := step(); done {
@@ -52,8 +52,8 @@ func (p *prReview) selectProvider() (int, bool) {
 	return 0, false
 }
 
-// wrapContext wraps the provider with the repository context read from the
-// trusted base ref (a pull request may not change the prompt, skills or
+// wrapContext renders the repository context read from the trusted base
+// ref for the prompt's repository-context slot (a pull request may not change the prompt, skills or
 // docs used to judge it). The policy's own context files come first
 // (AUR-518, AC-004). The digest of the redacted block feeds the verdict key.
 func (p *prReview) wrapContext() (int, bool) {
@@ -82,16 +82,7 @@ func (p *prReview) wrapContext() (int, bool) {
 	p.skillNotices = skillSelectionNotices(catalog, diffPaths(p.diff), p.filter)
 	providers = append(providers, catalog)
 	p.contextBlockDigest = contextBlockCacheDigest(providers, diffPaths(p.diff), p.filter)
-	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(p.ctx, p.provider, providers, diffPaths(p.diff), p.filter)
-	if wrapErr != nil {
-		fmt.Fprintf(stderr, "aurumcode review: %v\n", wrapErr)
-		return 1, true
-	}
-	for _, warning := range warnings {
-		fmt.Fprintf(stderr, "aurumcode review: context provider %q unavailable: %s; continuing without that context\n", warning.Provider, warning.Reason)
-	}
-	p.provider = wrapped
-	return 0, false
+	return p.buildRepositoryContext(providers)
 }
 
 // resolveSkills builds the dynamic, skill-section rule set this run accepts
@@ -151,6 +142,9 @@ func (p *prReview) noteModelOutcome() (int, bool) {
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
 	}
 	if warning := result.Metadata["scope_discard_warning"]; warning != "" {
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
+	}
+	if warning := result.Metadata[review.AssessmentDiscardWarningKey]; warning != "" {
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)
 	}
 	if sections := result.Metadata["optional_sections_discarded"]; sections != "" {

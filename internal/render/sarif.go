@@ -82,6 +82,9 @@ type sarifResult struct {
 // result, when the finding was counted by the policy gate.
 type sarifProperties struct {
 	Origin string `json:"origin,omitempty"`
+	// Assessment is the model's conclusion about the finding, beside the
+	// engine's origin; absent when the model assessed nothing.
+	Assessment *AuditAssessment `json:"assessment,omitempty"`
 }
 
 type sarifLocation struct {
@@ -132,6 +135,8 @@ type SARIFFinding struct {
 	Justification string
 	// Origin is the gate origin (skills|analysis|sast); empty when unknown.
 	Origin string
+	// Assessment is the model's assessment of this deterministic finding.
+	Assessment *AuditAssessment
 }
 
 // severityToSARIFLevel maps this system's three issue severities onto
@@ -196,8 +201,8 @@ func BuildSARIFLog(toolVersion string, findings []SARIFFinding, executionSuccess
 				FindingFingerprintKey: fingerprint,
 			},
 		}
-		if f.Origin != "" {
-			result.Properties = &sarifProperties{Origin: f.Origin}
+		if f.Origin != "" || f.Assessment != nil {
+			result.Properties = &sarifProperties{Origin: f.Origin, Assessment: sarifAssessmentOf(f.Assessment)}
 		}
 		if f.Suppressed {
 			result.Suppressions = []sarifSuppression{{
@@ -311,6 +316,10 @@ func redactSARIFLog(filter *redaction.Filter, log sarifLog) sarifLog {
 			}
 			if res.Properties != nil {
 				results[i].Properties = &sarifProperties{Origin: filter.Redact(res.Properties.Origin)}
+				if a := res.Properties.Assessment; a != nil {
+					redacted := redactAssessment(filter, *a)
+					results[i].Properties.Assessment = &redacted
+				}
 			}
 		}
 		run.Results = results
@@ -344,6 +353,10 @@ func redactSARIFFindings(filter *redaction.Filter, findings []SARIFFinding) []SA
 			Suppressed:    f.Suppressed,
 			Justification: filter.Redact(f.Justification),
 			Origin:        filter.Redact(f.Origin),
+		}
+		if f.Assessment != nil {
+			redacted := redactAssessment(filter, *f.Assessment)
+			out[i].Assessment = &redacted
 		}
 	}
 	return out

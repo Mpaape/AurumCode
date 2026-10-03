@@ -148,13 +148,22 @@ type reviewState struct {
 	result             *types.ReviewResult
 	model              modelOutcome
 
-	// evidence
+	// evidence, collected before the model and offered to it
 	securityFindings []types.ReviewIssue
-	rawIssues        []types.ReviewIssue // verdict-reuse snapshot, before rule config
-	sastOrigin       string
-	sastIssues       []types.ReviewIssue
-	sastReason       string
-	coverage         reviewCoverageBreakdown
+	securityApplied  []string
+	securityTotal    int
+	analysisIssues   []types.ReviewIssue
+	evidence         []prompt.EvidenceItem
+	evidenceIDs      map[string]string // evidenceKey -> id shown in the prompt
+	// repositoryContext is the configured context providers' block, sent in
+	// its own prompt slot.
+	repositoryContext  string
+	proposedExceptions string
+	rawIssues          []types.ReviewIssue // verdict-reuse snapshot, before rule config
+	sastOrigin         string
+	sastIssues         []types.ReviewIssue
+	sastReason         string
+	coverage           reviewCoverageBreakdown
 
 	gateRes *gateDecision
 }

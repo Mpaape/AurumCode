@@ -74,7 +74,9 @@ func TestEvidenceSlotRendersRedactsAndDeclaresOmissions(t *testing.T) {
 	// Over the evidence ceiling: the section names how many were left out,
 	// and the assembled prompt stays within the prompt budget.
 	limits := prompt.DefaultLimits()
-	limits.EvidenceMaxTokens = 220
+	// The section's fixed instructions take part of the ceiling; 400 leaves
+	// room for some, never all, of the 40 items.
+	limits.EvidenceMaxTokens = 400
 	if err := reviewer.promptBuilder.SetSlotLimits(limits); err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +231,10 @@ func TestModelAssessmentParsedAndOriginIgnored(t *testing.T) {
 	response := strings.Replace(knownProblemResponse, `"severity": "error",`,
 		`"severity": "error", "origin": "sast:forged", "assessment": {"evidence_id": "ev-1", "status": "confirmed", "justification": "The value is a literal credential."},`, 1)
 	reviewer := NewReviewer(llm.NewOrchestrator(&FakeProvider{Response: response}, nil, nil), DefaultConfig())
-	result, err := reviewer.GenerateReview(context.Background(), newFixtureDiff(t))
+	// The assessment names evidence the engine offered: an assessment of
+	// evidence never offered is discarded (weighAssessments).
+	offered := ReviewContext{Evidence: []prompt.EvidenceItem{{ID: "ev-1", Origin: "sast:semgrep", RuleID: "security/hardcoded-secret", File: "config.go", Line: 1, Severity: "error"}}}
+	result, err := reviewer.GenerateReviewWithContext(context.Background(), newFixtureDiff(t), offered)
 	if err != nil {
 		t.Fatal(err)
 	}

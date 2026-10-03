@@ -22,13 +22,13 @@ func (p *prReview) generateReview() (int, bool) {
 	// function: tests/acceptance/AUR-537.sh anchors its mutations on them.
 	stderr, limiteUSD := p.stderr, p.limiteUSD
 	gateDeclared := p.cfg.Gate.Declared()
-	result, err := p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, review.ReviewContext{
+	result, err := p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, p.reviewContext(review.ReviewContext{
 		CI:              readCIContext(),
 		Language:        p.reviewLanguage,
 		History:         p.history,
 		CodebaseContext: p.codebaseText,
 		MemoryNotes:     p.memoryNotesText,
-	})
+	}))
 	p.result = result
 	if err == nil {
 		return 0, false

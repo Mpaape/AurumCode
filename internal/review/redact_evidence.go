@@ -19,6 +19,7 @@ func redactEvidence(f *redaction.Filter, evidence []prompt.EvidenceItem) []promp
 			RuleID:   f.Redact(e.RuleID),
 			File:     f.Redact(e.File),
 			Line:     e.Line,
+			Side:     f.Redact(e.Side),
 			Severity: f.Redact(e.Severity),
 			Snippet:  redactLinesKeepingMarkers(f, e.Snippet),
 		}

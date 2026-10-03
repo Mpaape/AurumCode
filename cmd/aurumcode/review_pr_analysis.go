@@ -8,25 +8,37 @@ import (
 	"github.com/Mpaape/AurumCode/internal/testgen"
 )
 
-// collectEvidence runs the deterministic passes over the exact diff the
-// model saw: the security pass (its findings become review comments),
-// static analysis and the test plan, the rule config, SAST over the
-// verified checkout, and the limitations.
+// collectEvidence runs the deterministic passes before the model, so their
+// findings reach it as evidence to weigh: the security pass (its findings
+// later become review comments), the embedded analysis and SAST over the
+// verified checkout. Nothing here touches the review result.
 func (p *prReview) collectEvidence() (int, bool) {
 	if code, done := p.runSecurityPass(); done {
 		return code, true
 	}
+	p.analysisIssues = staticAnalysisIssues(p.diff)
+	p.runSAST(p.verifiedDir, p.sastBlockedReason())
+	p.offerEvidence()
+	return 0, false
+}
+
+// joinEvidence closes the model phase: the model's assessments are copied
+// onto the evidence, the evidence and the test plan join the result, the
+// rule config and the verdict snapshot apply, and the limitations close.
+func (p *prReview) joinEvidence() (int, bool) {
+	p.attachAssessments()
+	p.reportSecurityPass()
 	p.runStaticAnalysis()
 	p.snapshotAndApplyRules()
-	p.runSAST(p.verifiedDir, p.sastBlockedReason())
+	p.joinSAST()
 	return p.finishLimitations()
 }
 
-// runStaticAnalysis merges the zero-config static analysis and the
-// proposed test plan.
+// runStaticAnalysis joins the zero-config static analysis and the proposed
+// test plan.
 func (p *prReview) runStaticAnalysis() {
 	result := p.result
-	mergeStaticAnalysis(p.diff, result)
+	result.Issues = append(result.Issues, p.analysisIssues...)
 	if plan := testgen.Propose(p.diff); plan != nil {
 		for _, c := range plan.Cases {
 			if strings.TrimSpace(c.Name) == "" {

@@ -11,6 +11,7 @@ type EvidenceItem struct {
 	RuleID   string
 	File     string
 	Line     int
+	Side     string // LEFT for a removed line; empty or RIGHT for an added one
 	Severity string
 	Snippet  string // Redacted excerpt of the offending code
 }

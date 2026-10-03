@@ -14,6 +14,9 @@ func (p *prReview) publish() (int, bool) {
 	// --check needs the same already-sorted slice, empty or not, for its
 	// commit status, so both branches share one definition.
 	p.issues = sortedIssues(p.result.Issues)
+	if p.proposedExceptions != "" {
+		p.result.Limitations = append(p.result.Limitations, p.proposedExceptions)
+	}
 	if code, done := p.resolveCommit(); done {
 		return code, true
 	}

@@ -59,4 +59,7 @@ func (b *baseReview) printReport() {
 	if b.f.seguranca {
 		printSecurityFindings(b.stdout, b.filter, b.securityFindings)
 	}
+	if b.proposedExceptions != "" {
+		fmt.Fprint(b.stdout, "\n"+b.filter.Redact(b.proposedExceptions))
+	}
 }

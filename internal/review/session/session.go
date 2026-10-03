@@ -12,10 +12,11 @@ const (
 	// PhaseResolve validates the invocation and resolves the inputs: diff,
 	// effective configuration, context, memory.
 	PhaseResolve Phase = "resolve"
-	// PhaseModel runs the model's quality pass.
+	// PhaseModel runs the model's quality pass over the diff and the
+	// evidence, then joins its assessments onto that evidence.
 	PhaseModel Phase = "model"
-	// PhaseEvidence runs the deterministic passes: security, static
-	// analysis, rule configuration, SAST, coverage.
+	// PhaseEvidence runs the deterministic passes the model is then
+	// offered: security, static analysis, SAST.
 	PhaseEvidence Phase = "evidence"
 	// PhaseGate runs the shared gate pipeline.
 	PhaseGate Phase = "gate"
@@ -23,9 +24,11 @@ const (
 	PhasePublish Phase = "publish"
 )
 
-// Order is the one order every review runs its phases in. Changing when
-// the model runs relative to the evidence is a change to this list only.
-var Order = []Phase{PhaseResolve, PhaseModel, PhaseEvidence, PhaseGate, PhasePublish}
+// Order is the one order every review runs its phases in. The
+// deterministic evidence comes before the model, so the model weighs what
+// the engine measured instead of answering blind; changing when the model
+// runs relative to the evidence is a change to this list only.
+var Order = []Phase{PhaseResolve, PhaseEvidence, PhaseModel, PhaseGate, PhasePublish}
 
 // Step is what a phase returns: done ends the session with exit.
 type Step func() (exit int, done bool)
