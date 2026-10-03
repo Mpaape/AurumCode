@@ -163,7 +163,6 @@ custo de cada rodada é reservado antes da chamada e confirmado depois, então
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: inconclusivo: limite de deliberação (deliberation_limit:max_rounds); nenhum parecer do modelo foi publicado
 aurumcode review: deliberation: rodada 2 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
-aurumcode review: policy gate: review inconclusive (deliberation_limit:max_rounds)
 exit_code=1
 RESULTADO: max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado
 auditoria gate: decision=inconclusive reason=review inconclusive (deliberation_limit:max_rounds)
