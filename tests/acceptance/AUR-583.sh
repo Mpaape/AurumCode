@@ -50,11 +50,13 @@ export GOFLAGS='-mod=mod -p=1 -buildvcs=false'
 export GOCACHE GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
-# stage copies the whole module (never enumerated packages) to a fresh root.
+# stage copies the whole module (never enumerated packages) and the docs the
+# layer guard reads to a fresh root. demo/ is not copied: the tutorials are
+# checked in place, read-only, and their recorded output is large.
 stage() {
   local root="$1" source
   mkdir -p "$root"
-  for source in go.mod go.sum cmd internal pkg docs demo; do
+  for source in go.mod go.sum cmd internal pkg docs; do
     if [[ -e "$repo_root/$source" ]]; then cp -R "$repo_root/$source" "$root/$source"; fi
   done
   for source in tests/fixtures tests/e2e; do
@@ -62,6 +64,9 @@ stage() {
   done
   chmod -R u+w -- "$root"
 }
+
+# drop removes a staged root once its run is judged.
+drop() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1"; }
 
 # go_test root log pattern pkgs... runs the named tests; rc is go's.
 go_test() {
@@ -106,6 +111,7 @@ run_ac() {
   stage "$root"
   go_test "$root" "$log" "$(pattern_of "$@")" "${pkgs[@]}" || { cat "$log" >&2; fail go-test-failed; }
   require_pass "$log" "$@"
+  drop "$root"
   printf '%s/%s/pass\n' "$card" "$name"
 }
 
@@ -131,6 +137,7 @@ expect_red() {
   fi
   grep -Eq -- '^--- FAIL: ' "$log" || { cat "$log" >&2; fail mutation-not-behavioral; }
   grep -E -- '^--- FAIL: |_test\.go:[0-9]+:|^    ' "$log" | sed -n '1,4p' >&2
+  drop "$root"
 }
 
 # MUT-001: the gate reaches back into the presentation package.
