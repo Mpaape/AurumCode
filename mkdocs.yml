@@ -42,6 +42,7 @@ nav:
   - Referência: configuration.md
   - Guia corporativo: gate-corporativo.md
   - Arquitetura: architecture.md
+  - Estendendo o Aurum: extensao.md
   - Qualidade e benchmark:
     - review-quality.md
     - benchmark.md

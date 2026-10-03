@@ -61,37 +61,64 @@ TUT_DOCKERFILE="$(tut_dockerfile_id)"
 # A tag deriva da identidade da arvore e do Dockerfile: uma imagem de outra arvore
 # nunca e reaproveitada. AURUMCODE_TUT_IMAGE continua sobrescrevendo a tag.
 TUT_TAG="$(printf '%s%s' "$TUT_TREE" "$TUT_DOCKERFILE" | tut_sha256 | awk '{print substr($1,1,12)}')"
-TUT_IMAGE="${AURUMCODE_TUT_IMAGE:-aurum-tutoriais:$TUT_TAG}"
+TUT_IMAGE_PADRAO="${AURUMCODE_TUT_IMAGE:-aurum-tutoriais:$TUT_TAG}"
 
-# Constroi a imagem do produto uma vez por arvore (AURUMCODE_TUT_REBUILD=1 forca).
-tut_image() {
-  if [ "${AURUMCODE_TUT_REBUILD:-0}" != "1" ] && docker image inspect "$TUT_IMAGE" >/dev/null 2>&1; then
+# Build args do docker build (palavras CHAVE=valor separadas por espaco). Um
+# tutorial que precisa de outra compilacao do produto (ex.: a engine de exemplo,
+# GO_TAGS=aurum_exemplo) declara TUT_BUILD_ARGS no run.sh ANTES de carregar este
+# arquivo; AURUMCODE_TUT_BUILD_ARGS sobrescreve. Com build args a tag ganha o
+# sufixo -<12 hex dos args>: a imagem padrao (TUT_IMAGE_PADRAO), usada pelos
+# outros tutoriais, nunca e sobrescrita por uma compilacao diferente.
+TUT_BUILD_ARGS="${AURUMCODE_TUT_BUILD_ARGS:-${TUT_BUILD_ARGS:-}}"
+if [ -n "$TUT_BUILD_ARGS" ]; then
+  TUT_IMAGE="$TUT_IMAGE_PADRAO-$(printf '%s' "$TUT_BUILD_ARGS" | tut_sha256 | awk '{print substr($1,1,12)}')"
+else
+  TUT_IMAGE="$TUT_IMAGE_PADRAO"
+fi
+
+# tut_build IMAGEM [ARGS]: docker build do Dockerfile da raiz com os build args,
+# uma vez por arvore (AURUMCODE_TUT_REBUILD=1 forca).
+tut_build() {
+  local img="$1" args=() a
+  for a in ${2:-}; do args+=(--build-arg "$a"); done
+  if [ "${AURUMCODE_TUT_REBUILD:-0}" != "1" ] && docker image inspect "$img" >/dev/null 2>&1; then
     return 0
   fi
-  echo "(construindo a imagem do produto $TUT_IMAGE a partir do Dockerfile)" >&2
-  docker build -q -t "$TUT_IMAGE" "$REPO_ROOT" >/dev/null
+  echo "(construindo a imagem do produto $img a partir do Dockerfile${2:+ com $2})" >&2
+  docker build -q "${args[@]}" -t "$img" "$REPO_ROOT" >/dev/null
 }
+
+# Constroi a imagem do tutorial (com TUT_BUILD_ARGS, quando declarados).
+tut_image() { tut_build "$TUT_IMAGE" "$TUT_BUILD_ARGS"; }
+
+# Constroi a imagem padrao, sem build args: o binario que todo usuario recebe.
+# Um caso a usa com TUT_RUN_IMAGE="$TUT_IMAGE_PADRAO".
+tut_image_padrao() { tut_build "$TUT_IMAGE_PADRAO" ""; }
 
 # Registra em out/.imagem a imagem que gerou out/ e a arvore que a construiu.
 tut_grava_imagem() {
   mkdir -p "$OUT"
-  printf 'tree=%s\ndockerfile=%s\nimage=%s\n' "$TUT_TREE" "$TUT_DOCKERFILE" "$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE")" > "$IMAGEM_REG"
+  printf 'tree=%s\ndockerfile=%s\nbuild_args=%s\nimage=%s\n' "$TUT_TREE" "$TUT_DOCKERFILE" "$TUT_BUILD_ARGS" "$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE")" > "$IMAGEM_REG"
 }
 
 # Confere out/.imagem: ausente ou de outra arvore reprova. Com docker e a imagem
 # local, o digest tambem precisa bater; sem eles, so a arvore e conferida e a
 # saida diz "imagem nao conferida (sem docker)".
 tut_check_imagem() {
-  local tree img atual dfile
+  local tree img atual dfile bargs
   [ -f "$IMAGEM_REG" ] || { echo "DIVERGENCIA: out/.imagem ausente: out/ nao foi gravado por run.sh all com a imagem desta arvore (rode run.sh all)"; return 1; }
   tree="$(sed -n 's/^tree=//p' "$IMAGEM_REG")"; img="$(sed -n 's/^image=//p' "$IMAGEM_REG")"
-  dfile="$(sed -n 's/^dockerfile=//p' "$IMAGEM_REG")"
+  dfile="$(sed -n 's/^dockerfile=//p' "$IMAGEM_REG")"; bargs="$(sed -n 's/^build_args=//p' "$IMAGEM_REG")"
   if [ "$tree" != "$TUT_TREE" ]; then
     echo "DIVERGENCIA: out/ foi gravado por uma imagem de outra arvore (gravada ${tree:0:12}, atual ${TUT_TREE:0:12}); rode run.sh all"
     return 1
   fi
   if [ -n "$TUT_DOCKERFILE" ] && [ "$dfile" != "$TUT_DOCKERFILE" ]; then
     echo "DIVERGENCIA: out/ foi gravado com outro Dockerfile (gravado ${dfile:0:12}, atual ${TUT_DOCKERFILE:0:12}); rode run.sh all"
+    return 1
+  fi
+  if [ "$bargs" != "$TUT_BUILD_ARGS" ]; then
+    echo "DIVERGENCIA: out/ foi gravado com outros build args (gravados '$bargs', atuais '$TUT_BUILD_ARGS'); rode run.sh all"
     return 1
   fi
   if command -v docker >/dev/null 2>&1 && atual="$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE" 2>/dev/null)"; then
@@ -112,6 +139,7 @@ tut_check_imagem() {
 #   AURUMCODE_LLM_FIXTURE aponta para TUT_FIXTURE (padrao fixture-llm.json);
 #   TUT_FIXTURE=none remove o provedor (caso "sem provedor").
 #   TUT_POLICY=<dir> monta <dir> do tutorial em /policy (somente leitura).
+#   TUT_RUN_IMAGE=<imagem> roda outra imagem (padrao: TUT_IMAGE).
 aurum_raw() {
   local envs=() fx="${TUT_FIXTURE:-fixture-llm.json}"
   while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do envs+=("$1" "$2"); shift 2; done
@@ -123,7 +151,7 @@ aurum_raw() {
   docker run --rm --network none --user "$(id -u):$(id -g)" -e HOME=/tmp \
     "${envs[@]}" \
     -v "$HERE:/fixtures:ro" -v "$TUT_WORK:/work" -w /work \
-    --entrypoint /app/aurumcode "$TUT_IMAGE" "$@"
+    --entrypoint /app/aurumcode "${TUT_RUN_IMAGE:-$TUT_IMAGE}" "$@"
 }
 
 # aurum args...: imprime "$ aurumcode args", executa, imprime "exit_code=N" e
