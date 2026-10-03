@@ -56,7 +56,8 @@ type fakeServer struct {
 	// AUR-570: when script is non-nil, the n-th metrics read returns
 	// script[n] (the last entry repeats) instead of the fixed numbers.
 	script       []reading
-	refreshCode  int // non-zero: the refresh endpoint answers this status
+	analysed     bool // project endpoint reports an analysis after the upload
+	refreshCode  int  // non-zero: the refresh endpoint answers this status
 	refreshCalls atomic.Int32
 }
 
@@ -87,6 +88,12 @@ func (f *fakeServer) handler() http.HandlerFunc {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/bom/token/"):
 			n := f.pollCalls.Add(1)
 			_ = json.NewEncoder(w).Encode(map[string]bool{"processing": n <= f.pendingPolls})
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/project/"):
+			if !f.analysed {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]int64{"lastVulnerabilityAnalysis": farFutureMillis})
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/refresh"):
 			f.refreshCalls.Add(1)
 			w.WriteHeader(max(f.refreshCode, http.StatusOK))

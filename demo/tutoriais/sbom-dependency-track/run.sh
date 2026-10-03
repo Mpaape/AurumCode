@@ -78,22 +78,6 @@ for x in v:
     p = x["policyCondition"]["policy"]
     print("dependency-track violacao: politica=%s componente=%s versao=%s estado=%s" % (p["name"], x["component"]["name"], x["component"].get("version"), p["violationState"]))'
 }
-# dt_assenta PROJETO N: as metricas do servidor so ficam estaveis algum tempo
-# DEPOIS de "processing: false" (achado do tutorial). Antes do gate, o script
-# envia este mesmo SBOM pela API e espera policyViolationsTotal == N; o gate
-# entao le um estado ja assentado. Sem isso o resultado depende da corrida.
-dt_assenta() {
-  local bom i v
-  bom="$(base64 -w0 "$TUT_WORK/sbom_app_cyclonedx.json")"
-  dt PUT /api/v1/bom --json "{\"project\":\"$1\",\"bom\":\"$bom\"}" >/dev/null
-  for i in $(seq 1 60); do
-    v="$(dt GET "/api/v1/metrics/project/$1/current" | jget 'd.get("policyViolationsTotal",0)' 2>/dev/null || echo -1)"
-    [ "$v" = "$2" ] && break
-    sleep 2
-  done
-  [ "$v" = "$2" ] || { echo "ERRO: servidor nao assentou em policyViolationsTotal=$2 (leu $v)"; return 1; }
-  echo "assentamento: servidor com policyViolationsTotal=$2 antes do gate"
-}
 review() { aurum review --base main --fail-on error; }
 
 # ---------------------------------------------------------------- casos
@@ -140,20 +124,6 @@ caso_up() {
   dt PUT "/api/v1/policy/$pol/condition" --json \
     '{"subject":"COORDINATES","operator":"MATCHES","value":"{\"group\":\"*\",\"name\":\"lodash\",\"version\":\"4.17.15\"}"}' >/dev/null
   echo "politica demo-componente-proibido: reprova lodash 4.17.15 (coordenadas)"
-  # Aquecimento: a PRIMEIRA avaliacao de politica de um servidor recem-criado
-  # termina depois de "processing: false" (veja "Problemas comuns" no tutorial).
-  # Um BOM descartavel com o componente proibido, num projeto a parte, faz o
-  # servidor avaliar a politica uma vez; so seguimos quando a violacao aparece.
-  local scratch bom
-  scratch="$(dt PUT /api/v1/project --json '{"name":"aquecimento","version":"1.0.0","active":true}' | jget 'd["uuid"]')"
-  bom="$(printf '{"bomFormat":"CycloneDX","specVersion":"1.6","version":1,"components":[{"type":"library","name":"lodash","version":"4.17.15","purl":"pkg:npm/lodash@4.17.15"}]}' | base64 -w0)"
-  dt PUT /api/v1/bom --json "{\"project\":\"$scratch\",\"bom\":\"$bom\"}" >/dev/null
-  for i in $(seq 1 60); do
-    [ "$(dt GET "/api/v1/violation/project/$scratch" | jget 'len(d)')" -ge 1 ] && break
-    sleep 2
-  done
-  [ "$(dt GET "/api/v1/violation/project/$scratch" | jget 'len(d)')" -ge 1 ] || { echo "ERRO: aquecimento sem violacao"; return 1; }
-  echo "aquecimento: o servidor avaliou a politica uma vez (projeto descartavel aquecimento)"
   ( umask 077; printf 'DTRACK_API_KEY=%s\nP_EXEMPLO=%s\nP_COMPARTILHADO=%s\nP_A=%s\nP_B=%s\n' "$key" "${ids[0]}" "${ids[1]}" "${ids[2]}" "${ids[3]}" > "$STATE/dtrack.env" )
   echo "chave e ids dos projetos gravados em arquivo local ignorado pelo git"
   echo "RESULTADO: servidor, time, chave, quatro projetos e uma politica de violacao prontos"
@@ -191,7 +161,6 @@ caso_upload_e_metricas() {
   tut_repo upload-e-metricas repo-exemplo/base repo-exemplo/servico config/gate
   envs_dt "$P_EXEMPLO"
   gera_sbom
-  dt_assenta "$P_EXEMPLO" 0
   review
   expect_rc 0 "o gate enviou o SBOM, esperou o processamento e aprovou"
   dt_metricas "$P_EXEMPLO"
@@ -204,7 +173,6 @@ caso_limiares() {
   tut_repo limiares repo-exemplo/base repo-exemplo/lodash config/gate
   envs_dt "$P_EXEMPLO"
   gera_sbom
-  dt_assenta "$P_EXEMPLO" 1
   echo "--- policy_violations: 0 (o servidor reprova lodash 4.17.15)"
   review
   expect_rc 3 "uma violacao de politica acima do limite 0 reprova o gate"
@@ -221,7 +189,6 @@ caso_violacao_de_politica() {
   tut_repo violacao-de-politica repo-exemplo/base repo-exemplo/lodash config/gate
   envs_dt "$P_EXEMPLO"
   gera_sbom
-  dt_assenta "$P_EXEMPLO" 1
   review
   expect_rc 3 "a politica do servidor reprova o componente"
   dt_violacoes "$P_EXEMPLO"
@@ -230,7 +197,6 @@ caso_violacao_de_politica() {
   rm -rf "$TUT_WORK/node_modules"
   tgit add -A; tgit commit -q -m "fix: sem lodash 4.17.15"
   gera_sbom
-  dt_assenta "$P_EXEMPLO" 0
   review
   expect_rc 0 "sem o componente proibido, o gate aprova"
   dt_violacoes "$P_EXEMPLO"

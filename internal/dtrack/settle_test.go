@@ -81,3 +81,13 @@ func TestSettleRefreshForbiddenIsToleratedAndRecorded(t *testing.T) {
 		t.Fatalf("permitted refresh must add no note: %+v", ok)
 	}
 }
+
+// Measured on Dependency-Track 5.1.1: re-uploading an unchanged SBOM leaves
+// metrics.lastOccurrence frozen. The project's own analysis timestamp,
+// plus two coinciding readings, then proves the server finished.
+func TestSettleUnchangedSBOMSettlesThroughProjectAnalysis(t *testing.T) {
+	out := runSettle(t, &fakeServer{script: []reading{{violations: 1, stale: true}}, analysed: true}, time.Minute)
+	if out.Inconclusive || !out.Breach || out.PolicyViolationsTotal != 1 {
+		t.Fatalf("got %+v", out)
+	}
+}
