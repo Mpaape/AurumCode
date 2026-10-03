@@ -1,0 +1,7 @@
+review:
+  context:
+    skills:
+      - .aurumcode/skills/convencoes.md
+gate:
+  fail_on: [high]
+  inconclusive: block

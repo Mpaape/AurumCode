@@ -1,0 +1,7 @@
+gatilho: pull_request
+uses: workflow reutilizavel fixado em SHA
+input model: existe em review.yml
+input security: existe em review.yml
+secret LLM_API_KEY: existe em review.yml
+secret LLM_BASE_URL: existe em review.yml
+permissao pull-requests: write: o chamador concede o que o reutilizavel declara

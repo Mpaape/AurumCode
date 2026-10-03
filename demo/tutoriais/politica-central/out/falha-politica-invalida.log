@@ -1,0 +1,6 @@
+== falha-politica-invalida
+$ aurumcode review --base main --politica /policy
+aurumcode review: central policy: parsing /policy/.aurumcode/config.yml: yaml: unmarshal errors:
+  line 3: field inconclusve not found in type config.GateConfig
+exit_code=1
+RESULTADO: politica invalida falha antes de qualquer chamada ao modelo

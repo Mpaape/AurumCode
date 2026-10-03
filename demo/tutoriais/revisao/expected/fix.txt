@@ -1,0 +1,7 @@
+$ aurumcode fix --file sugestoes.json > fix.patch
+-	dbPassword := "hunter2"
++	dbPassword := os.Getenv("DB_PASSWORD")
+git apply --unidiff-zero --check: o patch aplica
+aurumcode fix: patch does not apply to the working tree
+exit_code=1
+RESULTADO: sugestao velha recusada, sem patch

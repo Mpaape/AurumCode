@@ -1,0 +1,7 @@
+gate:
+  fail_on: [warning]
+  inconclusive: block
+quality_gates:
+  sast:
+    engine: semgrep
+    enabled: false

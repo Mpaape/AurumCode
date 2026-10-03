@@ -1,0 +1,5 @@
+gate:
+  fail_on: [warning]
+  inconclusive: warn
+analysis_data:
+  max_age_days: 30
