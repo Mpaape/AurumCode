@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/context/skills"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/grammar"
@@ -59,6 +60,13 @@ func (b *baseReview) selectProvider() (int, bool) {
 	if b.centralCfg != nil {
 		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
 	}
+	catalog, catalogErr := resolveSkillCatalog(b.policySkillSource(), localSkillSource(b.cwd, ""))
+	if catalogErr != nil {
+		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", catalogErr)
+		return 1, true
+	}
+	b.skillNotices = skillSelectionNotices(catalog, diffPaths(b.diff), b.filter)
+	contextProviders = append(contextProviders, catalog)
 	// AUR-513: digest the SAME redacted block the model will receive.
 	b.contextBlockDigest = contextBlockCacheDigest(contextProviders, diffPaths(b.diff), b.filter)
 	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), b.provider, contextProviders, diffPaths(b.diff), b.filter)
@@ -184,4 +192,14 @@ func (b *baseReview) recordCoverage() {
 	for _, warning := range b.policyWarnings {
 		b.result.Limitations = append(b.result.Limitations, warning.Provider+": "+warning.Reason)
 	}
+	b.result.Limitations = append(b.result.Limitations, b.skillNotices...)
+}
+
+// policySkillSource is the central policy's skill directory, or nil when no
+// policy is active.
+func (b *baseReview) policySkillSource() skills.Source {
+	if b.centralCfg == nil {
+		return nil
+	}
+	return localSkillSource(b.policyDir, "policy")
 }

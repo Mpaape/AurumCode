@@ -36,7 +36,6 @@ package skills
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -93,38 +92,7 @@ func Load(root string) (*Set, error) {
 // in sorted order. A missing directory returns an empty Set; an unreadable
 // document or an opened-but-unterminated front matter block is a loud error.
 func LoadDir(dir string) (*Set, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &Set{}, nil
-		}
-		return nil, fmt.Errorf("skills: reading %s: %w", dir, err)
-	}
-	var names []string
-	for _, e := range entries {
-		if e.IsDir() {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
-
-	set := &Set{}
-	for _, name := range names {
-		full := filepath.Join(dir, name, DocName)
-		data, err := os.ReadFile(full)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return nil, fmt.Errorf("skills: reading %s: %w", full, err)
-		}
-		sk, err := parseSkill(name, full, string(data))
-		if err != nil {
-			return nil, err
-		}
-		set.Skills = append(set.Skills, sk)
-	}
-	return set, nil
+	return LoadSource(DirSource{Dir: dir, Prefix: dir})
 }
 
 // Select returns the skills that apply to any of changed, sorted by name then
@@ -286,7 +254,9 @@ func EstimateTokens(text string) int {
 // no skills directory, or nothing selected, it contributes nothing -- the
 // zero-config signal.
 type Provider struct {
-	Dir    string
+	Dir string
+	// Source, when set, replaces Dir as the origin of the skills.
+	Source Source
 	Budget Budget
 	// Languages resolves selector language names; nil selects
 	// DefaultLanguages().
@@ -303,28 +273,18 @@ func (p *Provider) Name() string { return "skills (.aurumcode/skills/*/SKILL.md)
 
 // Provide implements config.ContextProvider. A budget overflow is a loud error
 // naming what did not fit; it is never a silent truncation.
-func (p *Provider) Provide(_ context.Context, changedPaths []string) (string, error) {
-	set, err := LoadDir(p.Dir)
+func (p *Provider) Provide(ctx context.Context, changedPaths []string) (string, error) {
+	var set *Set
+	var err error
+	if p.Source != nil {
+		set, err = LoadSource(p.Source)
+	} else {
+		set, err = LoadDir(p.Dir)
+	}
 	if err != nil {
 		return "", err
 	}
-	langs := p.Languages
-	if langs == nil {
-		langs = DefaultLanguages()
-	}
-	sel := set.SelectWith(changedPaths, langs)
-	warnings := renderWarnings(sel.Warnings)
-	if len(sel.Skills) == 0 {
-		return warnings, nil
-	}
-	res, err := Assemble(sel.Skills, p.Budget)
-	if err != nil {
-		return "", err
-	}
-	if warnings == "" {
-		return res.Text, nil
-	}
-	return warnings + "\n\n" + res.Text, nil
+	return NewCatalog(nil, set, p.Languages, nil).withBudget(p.Budget).Provide(ctx, changedPaths)
 }
 
 // renderWarnings renders the declared selection warnings as a prompt block.

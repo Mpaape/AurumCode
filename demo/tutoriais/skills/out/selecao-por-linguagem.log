@@ -1,17 +1,18 @@
 == selecao-por-linguagem
-skill de diretorio: .aurumcode/skills/estilo-ts/SKILL.md com languages: [ts]
+skills de diretorio: estilo-ts com languages: [ts]; estilo-ruim com um apelido desconhecido
+--- a mudanca toca so app.go
 $ aurumcode review --base main
 ## Resumo da Revisão de Código
 
-**Veredito:** Alterações solicitadas
+**Veredito:** Aprovar
 
 **Resultados por severidade:**
-- erro: 1
+- erro: 0
 - aviso: 0
 - informação: 0
 
 **Arquivos alterados:**
-- app.go
+- Nenhum
 
 
 ```mermaid
@@ -19,8 +20,45 @@ flowchart TD
     n0["app.go"]
 
 ```
-app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+
+### Limitações da revisão
+
+- skill "estilo-ruim" (.aurumcode/skills/estilo-ruim): unknown language "linguagem-inexistente" in selector; it matches nothing (add an alias to .aurumcode/grammar/aliases.yml or use a grammar name)
+No issues found.
 exit_code=0
 RESULTADO: revisao feita
-prompt: a skill de diretorio SKILL.md NAO foi lida pelo review (selecao por linguagem e apelidos ainda sao biblioteca, nao CLI)
-prompt: nenhum bloco 'Skill selection warnings': o aviso de apelido desconhecido so existe na biblioteca
+prompt: a skill estilo-ts NAO chegou: a mudanca nao toca TypeScript
+prompt: ### Skill selection warnings
+prompt: unknown language "linguagem-inexistente"
+--- a mudanca toca app.ts
+$ aurumcode review --base main
+## Resumo da Revisão de Código
+
+**Veredito:** Aprovar
+
+**Resultados por severidade:**
+- erro: 0
+- aviso: 0
+- informação: 0
+
+**Arquivos alterados:**
+- Nenhum
+
+
+```mermaid
+flowchart TD
+    n0["app.ts"]
+
+```
+
+### Limitações da revisão
+
+- skill "estilo-ruim" (.aurumcode/skills/estilo-ruim): unknown language "linguagem-inexistente" in selector; it matches nothing (add an alias to .aurumcode/grammar/aliases.yml or use a grammar name)
+No issues found.
+exit_code=0
+RESULTADO: revisao feita
+prompt: #### estilo-ts (v1)
+prompt: Em TypeScript, prefira unknown a any. MARCADOR-SKILL-TS
+prompt: ### Skill selection warnings
+prompt: unknown language "linguagem-inexistente"
+prompt: a skill estilo-ruim NAO chegou: apelido desconhecido nao casa com nada
