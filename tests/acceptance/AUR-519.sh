@@ -78,9 +78,11 @@ export GOFLAGS='-mod=mod -p=1'
 export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
-# MUT-001: blank the one assignment that turns a quality-provider failure
-# into the gate's "provider_failure" inconclusive reason (runReview,
-# cmd/aurumcode/main.go). With it gone, gateInconclusiveReason stays "" for
+# MUT-001: blank the one ranking branch that turns a quality-provider failure
+# into the gate's "provider_failure" inconclusive reason (AUR-576: the one
+# ranking, gate.RankReason in internal/gate/reason.go, serves --base and
+# --pr; it used to be an assignment in runReview, main.go). With it gone, the
+# reason stays "" for
 # exactly TestAUR519GateInconclusiveProviderFailureBlocks's own scenario, so
 # evaluateGate never enters its inconclusive branch and the policy-gate line
 # that test asserts on never appears -- the gate silently treats the
@@ -89,10 +91,10 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # the token is split so this file cannot match its own edit, and a missing
 # anchor is infrastructure, never a silent no-op.
 apply_mutation() {
-  local target="$run_dir/root/cmd/aurumcode/main.go"
-  local anchor='gateInconclusiveReason = "provider_failure"'
-  grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
-  sed -i "s|${anchor}|gateInconclusiveReason = \"\"|" "$target"
+  local target="$run_dir/root/internal/gate/reason.go"
+  local anchor='return ReasonProviderFailure'
+  [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra mutation-anchor-missing
+  sed -i "s|${anchor}|return ReasonNone|" "$target"
   grep -Fq "$anchor" "$target" && infra mutation-not-applied
   return 0
 }
@@ -141,7 +143,7 @@ if [[ "$selector" == all ]]; then
       GateSeverityBreachFailsCheck GateInconclusiveProviderFailureBlocks GatePartialCoverageInconclusiveWarns \
       PolicyGateStatusContextIsStable NoGateConfiguredStaysUntouched \
       GateSeverityBreachFailsCheckWithProfiles EvaluateGateWarnStillFailsOnBreach \
-      EvaluateGateRuleSeverityFloorsModel EvaluateGateFailOnWithoutInconclusiveNeverApproves \
+      EvaluateGateRuleSeverityFloorsModel EvaluateGateFailOnWithoutInconclusiveBlocks \
       MergeDynamicRulesPolicyWins ResolveRuleBuiltinWinsOverDynamic ProfilePassesCarryDegradedMetadata \
       DegradedParseNeverCached SkillsConfiguredNoGateStaysSafe PRGateWarnStillFailsOnBreach \
       PRGateInconclusiveBlockTable PartialCoverageNeverCachedUnderBlock ProfilePassesCoverageTakesWorstCase \

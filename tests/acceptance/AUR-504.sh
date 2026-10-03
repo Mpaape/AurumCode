@@ -211,8 +211,10 @@ ac003_case() {
 
 # --- MUT-001: publish on GITHUB_SHA (the merge commit) again --------------
 # AUR-573: the anchor statement moved to review_pr_publish.go (AUR-558 split).
+# AUR-576: the environment is read once at the command's edge; GITHUB_SHA
+# is the session's snapshot (p.env().githubSHA), the same value.
 readonly mut1_needle='commitID = headSHA'
-readonly mut1_repl='commitID = func() string { _ = headSHA; return os.Getenv("GITHUB_SHA") }()'
+readonly mut1_repl='commitID = func() string { _ = headSHA; return p.env().githubSHA }()'
 
 mutation_case_1() {
   local root="$run_dir/root-mut1"
