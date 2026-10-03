@@ -1,0 +1,5 @@
+#!/bin/sh
+# Semgrep falso, so para o tutorial: sai com erro, sem relatorio. O aurumcode
+# resolve "semgrep" pelo PATH (nao existe --semgrep-bin).
+echo "semgrep falso: falhando de proposito" >&2
+exit 2

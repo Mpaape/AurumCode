@@ -1,0 +1,10 @@
+{"candidates":[
+  {"id":"c1","description":"checkout do repositorio","properties":{"funcao":"obter-codigo"}},
+  {"id":"c3","keep":false}
+ ],
+ "additional":[
+  {"type":"container","name":"docker.io/library/busybox","version":"1.36","purl":"pkg:docker/docker.io/library/busybox@1.36","occurrences":[{"location":"Dockerfile","line":5}]},
+  {"type":"library","name":"fantasma.example.com/lib","version":"9.9","occurrences":[{"location":"Dockerfile","line":1}]},
+  {"type":"library","name":"inexistente.example.org/lib","occurrences":[{"location":"nao/existe.yml","line":3}]},
+  {"type":"library","name":"FROM"}
+ ]}

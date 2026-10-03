@@ -60,7 +60,11 @@ análise. Referência:
 [xBOM](configuration.md#xbom-alem-do-sbom-build-bom-e-cbom-aur-552) e
 [Artefato de dados de análise](configuration.md#artefato-de-dados-de-analise-analysis_data).
 
-Tutorial: em breve (AUR-563, `tutorials/sast.md`), em breve (AUR-563, `tutorials/sbom-dependency-track.md`) e em breve (AUR-563, `tutorials/assinatura.md`).
+Tutoriais: [SAST com Semgrep](tutorials/sast.md),
+[SBOM e Dependency-Track](tutorials/sbom-dependency-track.md),
+[Assinatura com Cosign](tutorials/assinatura.md),
+[xBOM](tutorials/xbom.md) e
+[Dados de análise](tutorials/dados-de-analise.md).
 
 ## Qualquer linguagem
 

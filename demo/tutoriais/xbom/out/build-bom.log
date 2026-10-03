@@ -1,0 +1,19 @@
+== build-bom
+$ aurumcode xbom --type build --repo . --out build-bom.json
+aurumcode xbom: build: 5 componente(s), 0 descartado(s) sem evidencia
+exit_code=0
+RESULTADO: Build BOM gerado e validado (CycloneDX 1.6) sem provedor de modelo
+$ jq .specVersion build-bom.json
+1.6
+$ jq .components[] | "\(.name)@\(.version // "-") -> \(.evidence.occurrences[0].location):\(.evidence.occurrences[0].line)" build-bom.json
+actions/checkout@0123456789abcdef0123456789abcdef01234567 -> .github/workflows/ci.yml:7
+actions/setup-go@v5 -> .github/workflows/ci.yml:8
+example/deploy-action@v1.2.0 -> .github/workflows/ci.yml:9
+alpine@3.20 -> Dockerfile:4
+golang@1.22 -> Dockerfile:1
+$ jq .metadata.properties[] | select(.name|test("llm|dropped|catalog|candidates")) | "\(.name)=\(.value)" build-bom.json
+aurumcode:xbom:candidates=5
+aurumcode:xbom:catalog=embedded
+aurumcode:xbom:dropped_occurrences=0
+aurumcode:xbom:dropped_without_evidence=0
+aurumcode:xbom:llm=absent
