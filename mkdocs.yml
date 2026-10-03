@@ -23,6 +23,9 @@ hooks:
 plugins:
   - search:
       lang: [pt]
+      # Paths and file names are split too (demo/tutoriais/deliberacao/run.sh
+      # is found by "deliberacao"); a dot followed by a digit (v1.58.2) is not.
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;'
 exclude_docs: |
   /README.md
   site/*
