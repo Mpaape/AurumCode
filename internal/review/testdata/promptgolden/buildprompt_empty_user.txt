@@ -1,0 +1,100 @@
+## Change Summary
+- Total files: 4
+- Lines added: 15
+- Lines deleted: 0
+
+## Existing CI Context
+No CI failure context was supplied. Do not invent CI failures or claim that checks passed.
+
+## Code Changes
+
+### File: internal/app/service.go
+```diff
+ func f0() {
++	return 0
+```
+
+### File: internal/app/service.go
+```diff
+ func f1() {
++	return 1
+```
+
+### File: internal/app/service.go
+```diff
+ func f2() {
++	return 2
+```
+
+### File: internal/app/service.go
+```diff
+ func f3() {
++	return 3
+```
+
+### File: internal/app/service.go
+```diff
+ func f4() {
++	return 4
+```
+
+### File: internal/app/service.go
+```diff
+ func f5() {
++	return 5
+```
+
+### File: internal/app/service.go
+```diff
+ func f6() {
++	return 6
+```
+
+### File: internal/app/service.go
+```diff
+ func f7() {
++	return 7
+```
+
+### File: internal/app/service.go
+```diff
+ func f8() {
++	return 8
+```
+
+### File: internal/app/service.go
+```diff
+ func f9() {
++	return 9
+```
+
+### File: internal/app/service.go
+```diff
+ func f10() {
++	return 10
+```
+
+### File: internal/app/service.go
+```diff
+ func f11() {
++	return 11
+```
+
+### File: internal/app/service_test.go
+```diff
++func TestF(t *testing.T) {}
+```
+
+### File: config/app.yml
+```diff
++timeout: 5
+```
+
+
+## Review Coverage
+- Code files in this diff: 3
+- Code files fully reviewed (every hunk included): 3
+- Code files PARTIALLY reviewed (some hunks omitted by the token budget -- findings may miss the omitted hunks): 0
+- Code files NOT reviewed by this review (token budget): 0
+- Documentation files excluded from the code rule catalog (no prose rule catalog exists yet -- see AUR-467 Non-goals): 1
+  - docs/guide.md
