@@ -1,9 +1,7 @@
-// AUR-533: the analysis-data artifact's age/digest gate. ApplyAnalysisDataGate
-// runs once, right before the Dependency-Track gate in both runReview
-// (main.go) and runPRReview (pr.go), and folds its outcome into the SAME
-// Result those two already publish, following aur550.go's
-// ApplyDTrackGate/MergeDTrackGate pattern (MergeDTrackGate itself is reused:
-// it only reads the Result fields).
+// The analysis-data artifact's age/digest gate. ApplyAnalysisDataGate runs
+// once, right before the Dependency-Track gate, and returns a partial
+// decision the pipeline merges into the run's Result (Result.Merge), like
+// every other contributor.
 //
 // It is a complete no-op -- no network call, no gate line, no audit field --
 // unless the effective config declares `analysis_data` (repository or central

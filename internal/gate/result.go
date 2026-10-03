@@ -68,9 +68,13 @@ func (r *Result) AddReason(reason string) {
 
 // Merge folds other into r the way a secondary gate source joins the
 // primary decision: flags are OR-ed, lines and structured findings are
-// appended, and other's Reason is joined to r's. A zero (inactive) other
-// leaves r untouched.
+// appended, and other's Reason is joined to r's. An analysis-data audit
+// fact other carries is kept even when other is inactive. Otherwise a zero
+// (inactive) other leaves r untouched.
 func (r *Result) Merge(other Result) {
+	if other.AnalysisData != nil {
+		r.AnalysisData = other.AnalysisData
+	}
 	if !other.Active {
 		return
 	}

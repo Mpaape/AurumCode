@@ -151,34 +151,6 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *
 	return result, reason, newFilter
 }
 
-// MergeDTrackGate folds dtrackResult into gateResult using the exact same
-// fields EvaluateGate's own caller already reads (Active/Fail/Breach/
-// Inconclusive/Lines/BlockingFindings), and combines dtrackReason with an
-// already-set gateInconclusiveReason by joining with a comma -- never
-// replacing it -- so AUR-537's own single-reason assertions (e.g.
-// "provider_failure") stay intact when ssor_dtrack is not declared, and a
-// run where both fire publishes both reasons.
-func MergeDTrackGate(gateResult Result, gateInconclusiveReason string, dtrackResult Result, dtrackReason string) (Result, string) {
-	if !dtrackResult.Active {
-		return gateResult, gateInconclusiveReason
-	}
-	gateResult.Active = true
-	gateResult.Fail = gateResult.Fail || dtrackResult.Fail
-	gateResult.Breach = gateResult.Breach || dtrackResult.Breach
-	gateResult.Inconclusive = gateResult.Inconclusive || dtrackResult.Inconclusive
-	gateResult.Lines = append(gateResult.Lines, dtrackResult.Lines...)
-	gateResult.BlockingFindings = append(gateResult.BlockingFindings, dtrackResult.BlockingFindings...)
-	gateResult.AppliedExceptions = append(gateResult.AppliedExceptions, dtrackResult.AppliedExceptions...)
-	if dtrackReason != "" {
-		if gateInconclusiveReason != "" {
-			gateInconclusiveReason += "," + dtrackReason
-		} else {
-			gateInconclusiveReason = dtrackReason
-		}
-	}
-	return gateResult, gateInconclusiveReason
-}
-
 // WrapWriterWithFilter wraps dst with a second redaction.Writer layer
 // using filter, so every write through the returned io.Writer is
 // redacted by filter (which may carry a secret dst's own, earlier writer
