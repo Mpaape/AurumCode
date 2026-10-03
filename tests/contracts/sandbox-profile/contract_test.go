@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Mpaape/AurumCode/internal/sandbox/profile"
+	"github.com/Mpaape/AurumCode/tests/legacy/sandbox/profile"
 	"gopkg.in/yaml.v3"
 )
 

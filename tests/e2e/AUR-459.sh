@@ -85,7 +85,7 @@ copy go.mod go.sum
 # worktree confirms neither exists any more, and nothing under
 # cmd/aurumcode or the packages below imports them. Materialize every
 # internal/ package this card's own read_paths names instead (none of
-# internal/evidence, internal/governance, internal/sandbox is among
+# tests/legacy/evidence, internal/governance, internal/sandbox is among
 # them, and grepping confirms cmd/aurumcode needs none of the three).
 copy cmd internal
 copy pkg tests/fixtures/repos/git-demo tests/fixtures/review

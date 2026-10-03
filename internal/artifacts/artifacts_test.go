@@ -400,7 +400,7 @@ func TestAUR533ResolveRejectsBadInputs(t *testing.T) {
 func buildTool(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "analysis-data")
-	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, "./cmd/analysis-data")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, "../../cmd/analysis-data")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build: %v\n%s", err, out)
 	}

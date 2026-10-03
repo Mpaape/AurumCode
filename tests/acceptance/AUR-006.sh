@@ -36,7 +36,7 @@ require_file() {
 
 for path in \
   .board/schemas/container-profile.schema.json \
-  internal/sandbox/profile/schema.go \
+  tests/legacy/sandbox/profile/schema.go \
   tests/contracts/sandbox-profile/contract_test.go \
   tests/specs/AUR-006/cases.yaml \
   tests/specs/AUR-006/go.mod \
@@ -106,12 +106,12 @@ prepare_go_tree() {
   local entrypoint="${1:-}"
   run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a006-tree.XXXXXX")" || infra mktemp_failed
   mkdir -p -- \
-    "$run_dir/internal/sandbox/profile" \
+    "$run_dir/tests/legacy/sandbox/profile" \
     "$run_dir/.board/schemas" \
     "$run_dir/tests/specs/AUR-006"
   cp -- \
-    "$repo_root/internal/sandbox/profile/schema.go" \
-    "$run_dir/internal/sandbox/profile/schema.go"
+    "$repo_root/tests/legacy/sandbox/profile/schema.go" \
+    "$run_dir/tests/legacy/sandbox/profile/schema.go"
   cp -- \
     "$repo_root/.board/schemas/container-profile.schema.json" \
     "$run_dir/.board/schemas/container-profile.schema.json"

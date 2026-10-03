@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Mpaape/AurumCode/internal/evidence"
+	"github.com/Mpaape/AurumCode/tests/legacy/evidence"
 	integration "github.com/Mpaape/AurumCode/tests/integration"
 	unit "github.com/Mpaape/AurumCode/tests/unit"
 )
