@@ -328,7 +328,11 @@ severidade no limiar ou acima (de origem aceita) reprovam o código de
 saída (reaproveitando os mesmos códigos de `--fail-on`/`--check`), o
 motivo de inconclusivo (falha do provedor, cobertura parcial, parse
 degradado) entra no resumo/limitações publicados, e o veredito nunca
-aparece como aprovado nesses casos. No `--pr`, o status `aurumcode/policy-gate`
+aparece como aprovado nesses casos. Em `--base`, um parecer sem achados mas com
+qualquer fonte inconclusiva (SAST, Dependency-Track, `analysis_data`, cobertura
+parcial, provedor) não termina em `No issues found.`: termina em `Sem achados
+nas fontes concluídas; inconclusivo: <motivos>`, com os mesmos motivos do gate
+(AUR-572). No `--pr`, o status `aurumcode/policy-gate`
 é publicado junto do `aurumcode/review` que `--check` já publica, só
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
 perfil selecionado aprende o mesmo catálogo dinâmico.

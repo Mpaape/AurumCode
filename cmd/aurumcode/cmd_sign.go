@@ -24,7 +24,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -58,6 +57,28 @@ func (f *stringListFlag) Set(v string) error {
 	return nil
 }
 
+// signFlags are the values bound by newSignFlagSet.
+type signFlags struct {
+	repo, politica, politicaAlias, cosignBin *string
+	sboms, images                            *stringListFlag
+}
+
+// newSignFlagSet declares the flags of `sign`; the help reads the same set.
+func newSignFlagSet() (*flag.FlagSet, signFlags) {
+	fs := flag.NewFlagSet("sign", flag.ContinueOnError)
+	fl := signFlags{
+		repo:          fs.String("repo", ".", "repository root whose configuration governs signing (default: current directory)"),
+		politica:      fs.String("politica", "", "directory containing a central policy's .aurumcode/ (same convention as `sbom --politica`); default: the AURUMCODE_POLICY environment variable, otherwise no policy"),
+		politicaAlias: fs.String("policy", "", "alias of --politica"),
+		cosignBin:     fs.String("cosign-bin", "", "override the cosign binary/path (default: \"cosign\", resolved from PATH)"),
+		sboms:         &stringListFlag{},
+		images:        &stringListFlag{},
+	}
+	fs.Var(fl.sboms, "sbom", "SBOM file to sign; repeat for more than one (default: quality_gates.ssor_dtrack.sbom_generator.output_file, when configured)")
+	fs.Var(fl.images, "image", "image reference pinned by digest (@sha256:...) to sign; repeat for more than one (default: quality_gates.supply_chain.artifacts)")
+	return fs, fl
+}
+
 // runSign is cmd/aurumcode's AUR-551 wiring: flag parsing, configuration
 // resolution (repo vs. central policy, reusing aur549.go's
 // loadEffectiveConfig), and the cosign calls themselves. It never touches
@@ -65,24 +86,10 @@ func (f *stringListFlag) Set(v string) error {
 // new, standalone subcommand, additive to the existing
 // `review`/`fix`/`sbom` commands.
 func runSign(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("sign", flag.ContinueOnError)
-	repoFlag := fs.String("repo", ".", "repository root whose configuration governs signing (default: current directory)")
-	politica := fs.String("politica", "", "directory containing a central policy's .aurumcode/ (same convention as `sbom --politica`); default: the AURUMCODE_POLICY environment variable, otherwise no policy")
-	politicaAlias := fs.String("policy", "", "alias of --politica")
-	cosignBin := fs.String("cosign-bin", "", "override the cosign binary/path (default: \"cosign\", resolved from PATH)")
-	var sboms stringListFlag
-	var images stringListFlag
-	fs.Var(&sboms, "sbom", "SBOM file to sign; repeat for more than one (default: quality_gates.ssor_dtrack.sbom_generator.output_file, when configured)")
-	fs.Var(&images, "image", "image reference pinned by digest (@sha256:...) to sign; repeat for more than one (default: quality_gates.supply_chain.artifacts)")
-
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprintln(stdout, "usage: aurumcode sign [--repo dir] [--politica dir] [--cosign-bin caminho] [--sbom arquivo]... [--image referencia@sha256:...]...")
-			fmt.Fprintln(stdout, "Assina o SBOM e/ou a imagem do artefato com Sigstore/Cosign.")
-			fmt.Fprintln(stdout, "Configuracao: quality_gates.supply_chain em .aurumcode/config.yml (ver docs/configuration.md).")
-			return 0
-		}
-		return 2
+	fs, fl := newSignFlagSet()
+	repoFlag, politica, politicaAlias, cosignBin, sboms, images := fl.repo, fl.politica, fl.politicaAlias, fl.cosignBin, fl.sboms, fl.images
+	if exit, ok := parseSubcommandFlags("sign", fs, args, stdout, stderr); !ok {
+		return exit
 	}
 
 	root := strings.TrimSpace(*repoFlag)
