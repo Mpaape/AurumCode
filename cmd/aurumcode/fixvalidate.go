@@ -20,31 +20,31 @@ import (
 // When git is on PATH, `git apply --check` against dir IS the check: the
 // same mechanism a human or CI would use to actually apply the patch, so
 // this asks the real question ("would this patch apply?") instead of
-// reimplementing a diff engine. --unidiff-zero is required because
-// apply.BuildPlan's hunks carry no real file context beyond whatever the
-// suggestion's current_code and proposed_code happen to share (its LCS): a
-// hunk that replaces a line outright has zero context lines, which plain
-// `git apply` refuses to trust.
+// reimplementing a diff engine. No flag is needed (AUR-566): the hunks carry
+// three lines of real file context, exactly what plain `git apply` expects.
 //
 // Without git, the fallback -- validateAgainstFiles -- compares each
 // hunk's removed lines against the real file's content at the claimed line
 // numbers: the "context comparison" AC-003 asks for as the non-git path.
 func validateFixPatch(dir, patch string, plan *apply.Plan) error {
-	if strings.TrimSpace(patch) == "" || plan == nil || len(plan.Files) == 0 {
+	if strings.TrimSpace(patch) == "" {
 		return nil
 	}
 	if gitPath, err := exec.LookPath("git"); err == nil {
 		return validatePatchWithGit(gitPath, dir, patch)
 	}
+	if plan == nil {
+		return nil
+	}
 	return validateAgainstFiles(dir, plan)
 }
 
-// validatePatchWithGit runs `git apply --check --unidiff-zero` against dir,
+// validatePatchWithGit runs `git apply --check` against dir,
 // feeding patch on stdin. git's own error output already names the
 // offending file and line (e.g. "error: patch failed: f.go:2"), so it is
 // wrapped, not replaced.
 func validatePatchWithGit(gitPath, dir, patch string) error {
-	cmd := exec.Command(gitPath, "apply", "--check", "--unidiff-zero")
+	cmd := exec.Command(gitPath, "apply", "--check")
 	cmd.Dir = dir
 	cmd.Stdin = strings.NewReader(patch)
 	var stderr bytes.Buffer

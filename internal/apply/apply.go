@@ -3,27 +3,37 @@
 // suggestions and a patch (or GitHub suggested-change comment) that a human
 // or tool can apply.
 //
-// Every decision here fails closed. A suggestion is skipped outright when its
-// current code is empty, its proposed code does not actually change anything,
-// its file path is empty or unsafe (absolute, or containing a ".." segment),
-// or its hunk location cannot be anchored to a positive line number. Nothing
-// is ever partially applied: a suggestion is either rendered whole as a
-// standard unified diff hunk or dropped from the plan.
+// The patch is a standard unified diff: "--- a/x" / "+++ b/x" headers (or
+// /dev/null for a new or removed file, see CreateFilePatch and
+// DeleteFilePatch), "@@ -l,n +l,n @@" hunks, and three
+// lines of real file context around every change, so that plain `git apply`
+// and `patch -p1` accept it without any flag. The context is read from the
+// file the suggestion names, through an fs.FS handed in by the caller.
 //
-// BuildPlan and BuildPatch are pure and side-effect free. They read only the
-// suggestions handed to them, write nothing to disk, perform no network
-// access, and depend on nothing beyond the standard library and the read-only
-// types.ReviewSuggestion model.
+// Every decision fails closed. A suggestion is skipped outright when its
+// proposed code does not actually change anything, its file path is empty or
+// unsafe (absolute, or containing a ".." segment), or its hunk location
+// cannot be anchored to a positive line number. A suggestion whose
+// current_code does not match the file, or that overlaps another one, makes
+// the whole plan fail: nothing is ever partially applied.
+//
+// BuildPlan and BuildPatch read only the suggestions and the given fs.FS;
+// they write nothing, perform no network access, and depend on nothing
+// beyond the standard library and the read-only types.ReviewSuggestion model.
 package apply
 
 import (
 	"fmt"
+	"io/fs"
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
+
+// contextLines is the number of unchanged lines kept around every change,
+// the unified diff default that `git apply` and `patch` require.
+const contextLines = 3
 
 // Line is a single source line to add or remove, carrying its 1-based
 // position in the file it belongs to. Additions use the new file's numbering;
@@ -33,9 +43,10 @@ type Line struct {
 	Text   string
 }
 
-// FileEdit is one safe, applyable change to a single file. Additions and
-// Removals describe the semantic edit; Hunk is the rendered unified diff hunk
-// (the "@@" header and its lines, without the "---/+++" file header).
+// FileEdit is one hunk of a safe, applyable change to a single file.
+// Additions and Removals describe the semantic edit; Hunk is the rendered
+// unified diff hunk (the "@@" header, context and change lines, without the
+// "---/+++" file header).
 type FileEdit struct {
 	Path      string
 	Additions []Line
@@ -49,56 +60,40 @@ type Plan struct {
 }
 
 // BuildPlan reduces a batch of review suggestions to the subset that can be
-// applied safely. Unsafe or ambiguous suggestions are skipped; the returned
-// plan is deterministic and ordered by path, then hunk start line.
-func BuildPlan(suggestions []types.ReviewSuggestion) (*Plan, error) {
-	type located struct {
-		file      FileEdit
-		path      string
-		startLine int
-		order     int
+// applied safely, reading each named file from fsys to render real context.
+// The plan is deterministic and ordered by path, then hunk start line.
+func BuildPlan(suggestions []types.ReviewSuggestion, fsys fs.FS) (*Plan, error) {
+	if fsys == nil {
+		return nil, fmt.Errorf("apply: no file source to read context from")
 	}
-	var edits []located
-	for i, s := range suggestions {
-		fe, startLine, ok := buildEdit(s)
-		if !ok {
-			continue
-		}
-		edits = append(edits, located{file: fe, path: fe.Path, startLine: startLine, order: i})
+	byFile, order, err := collectChanges(suggestions, fsys)
+	if err != nil {
+		return nil, err
 	}
-	sort.SliceStable(edits, func(i, j int) bool {
-		if edits[i].path != edits[j].path {
-			return edits[i].path < edits[j].path
+	plan := &Plan{Files: []FileEdit{}}
+	for _, name := range order {
+		edits, err := renderFile(byFile[name])
+		if err != nil {
+			return nil, err
 		}
-		if edits[i].startLine != edits[j].startLine {
-			return edits[i].startLine < edits[j].startLine
-		}
-		return edits[i].order < edits[j].order
-	})
-	plan := &Plan{Files: make([]FileEdit, 0, len(edits))}
-	for _, e := range edits {
-		plan.Files = append(plan.Files, e.file)
+		plan.Files = append(plan.Files, edits...)
 	}
 	return plan, nil
 }
 
 // BuildPatch renders the safe suggestions as a single standard unified diff
-// (one "---/+++" file header per path, followed by that file's hunks in line
-// order). It returns an empty string when no suggestion can be applied.
-func BuildPatch(suggestions []types.ReviewSuggestion) (string, error) {
-	plan, err := BuildPlan(suggestions)
+// (one file header per path, followed by that file's hunks in line order).
+// It returns an empty string when no suggestion can be applied.
+func BuildPatch(suggestions []types.ReviewSuggestion, fsys fs.FS) (string, error) {
+	plan, err := BuildPlan(suggestions, fsys)
 	if err != nil {
 		return "", err
-	}
-	if len(plan.Files) == 0 {
-		return "", nil
 	}
 	var sb strings.Builder
 	lastPath := ""
 	for _, fe := range plan.Files {
 		if fe.Path != lastPath {
-			fmt.Fprintf(&sb, "--- a/%s\n", fe.Path)
-			fmt.Fprintf(&sb, "+++ b/%s\n", fe.Path)
+			fmt.Fprintf(&sb, "--- a/%s\n+++ b/%s\n", fe.Path, fe.Path)
 			lastPath = fe.Path
 		}
 		sb.WriteString(fe.Hunk)
@@ -114,40 +109,6 @@ type edit struct {
 	text string
 }
 
-// buildEdit validates a single suggestion and, when it passes, renders its
-// hunk. The second return value is the resolved hunk start line; ok is false
-// when the suggestion must be skipped.
-func buildEdit(s types.ReviewSuggestion) (FileEdit, int, bool) {
-	var zero FileEdit
-	file := normalizePath(s.File)
-	if file == "" {
-		return zero, 0, false
-	}
-	if strings.TrimSpace(s.CurrentCode) == "" {
-		return zero, 0, false
-	}
-	current := splitLines(s.CurrentCode)
-	if len(current) == 0 {
-		return zero, 0, false
-	}
-	proposed := splitLines(s.ProposedCode)
-	if equalLines(current, proposed) {
-		return zero, 0, false
-	}
-	startLine := anchorLine(s)
-	if startLine <= 0 {
-		return zero, 0, false
-	}
-	if s.EndLine > 0 && startLine > s.EndLine {
-		return zero, 0, false
-	}
-	fe := renderEdit(file, startLine, lcsDiff(current, proposed))
-	if len(fe.Removals) == 0 && len(fe.Additions) == 0 {
-		return zero, 0, false
-	}
-	return fe, startLine, true
-}
-
 // anchorLine resolves the hunk start line from the suggestion's location
 // hints, preferring the explicit block start, then the single-line reference.
 func anchorLine(s types.ReviewSuggestion) int {
@@ -158,51 +119,6 @@ func anchorLine(s types.ReviewSuggestion) int {
 		return s.Line
 	}
 	return 0
-}
-
-// renderEdit turns an edit script into a FileEdit, tracking the 1-based line
-// numbers of every added and removed line.
-func renderEdit(file string, startLine int, ops []edit) FileEdit {
-	fe := FileEdit{Path: file}
-	oldCount, newCount := 0, 0
-	for _, op := range ops {
-		switch op.kind {
-		case ' ':
-			oldCount++
-			newCount++
-		case '-':
-			oldCount++
-		case '+':
-			newCount++
-		}
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "@@ -%d,%d +%d,%d @@\n", startLine, oldCount, startLine, newCount)
-	oldLine, newLine := startLine, startLine
-	for _, op := range ops {
-		switch op.kind {
-		case ' ':
-			sb.WriteString(" ")
-			sb.WriteString(op.text)
-			sb.WriteString("\n")
-			oldLine++
-			newLine++
-		case '-':
-			fe.Removals = append(fe.Removals, Line{Number: oldLine, Text: op.text})
-			sb.WriteString("-")
-			sb.WriteString(op.text)
-			sb.WriteString("\n")
-			oldLine++
-		case '+':
-			fe.Additions = append(fe.Additions, Line{Number: newLine, Text: op.text})
-			sb.WriteString("+")
-			sb.WriteString(op.text)
-			sb.WriteString("\n")
-			newLine++
-		}
-	}
-	fe.Hunk = sb.String()
-	return fe
 }
 
 // lcsDiff computes a deterministic longest-common-subsequence edit script
