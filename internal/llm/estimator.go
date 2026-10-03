@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sync"
+
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // estimatorCacheMaxEntries caps the cache. Inputs are caller-supplied prompts,
@@ -58,13 +60,11 @@ func (e *Estimator) EstimateTokens(input string) int {
 	return count
 }
 
-// heuristicTokens approximates ~4 characters per token, never below one token
-// so that a non-empty input can never be budgeted as free.
+// heuristicTokens is the engine's one character heuristic
+// (types.EstimateTokens), never below one token: an input the provider could
+// not count is never budgeted as free.
 func heuristicTokens(input string) int {
-	if count := len(input) / 4; count > 0 {
-		return count
-	}
-	return 1
+	return max(1, types.EstimateTokens(input))
 }
 
 func cacheKey(model, input string) string {
