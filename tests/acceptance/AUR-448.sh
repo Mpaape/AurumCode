@@ -395,7 +395,8 @@ mutation_case() {
   # compiling (the identifier stays used); the print itself is gone, so
   # the discard becomes observably SILENT while the underlying gate
   # (untouched) keeps discarding.
-  local replacement='_ = warning // MUT-001: suppress the discard warning silently'
+  # The loop covers three keys; only discard_warning is suppressed, as before.
+  local replacement='if key != "discard_warning" { fmt.Fprintf(b.stderr, "aurumcode review: %s\n", warning) }; _ = warning // MUT-001: suppress the discard warning silently'
   # ENVIRON, not -v: awk's -v (and command-line var=value) assignments
   # process C-style backslash escapes, which would silently turn the
   # anchor's literal `\n` (two bytes, matching the Go source's own
