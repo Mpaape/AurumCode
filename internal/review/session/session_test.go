@@ -39,14 +39,14 @@ func TestRunFollowsTheOneOrder(t *testing.T) {
 // gateCase is one row of the AC-002 table: the same inputs fed to both
 // sources.
 type gateCase struct {
-	name            string
-	model           gate.ModelOutcome
-	qualityRequired bool
-	sastReason      string
-	block           bool // gate.inconclusive: block (the default)
-	breach          bool // a finding at or above the gate's fail_on
-	failOn          int  // findings at or above --fail-on
-	artifacts       bool // a requested audit/SARIF was not written
+	name       string
+	model      gate.ModelOutcome
+	quality    gate.QualityRequirement
+	sastReason string
+	block      bool // gate.inconclusive: block (the default)
+	breach     bool // a finding at or above the gate's fail_on
+	failOn     int  // findings at or above --fail-on
+	artifacts  bool // a requested audit/SARIF was not written
 }
 
 // outcome is what a source decides for a case: the gate's reason and the
@@ -57,7 +57,7 @@ func outcome(src Source, c gateCase) (gate.Reason, gate.ExitDecision) {
 	res.Inconclusive = reason != gate.ReasonNone
 	res.Fail = c.breach || (res.Inconclusive && c.block)
 	return reason, gate.ExitPolicy(gate.ExitInputs{
-		NotReviewed:         src.NotReviewed.NotReviewed(c.model, c.qualityRequired),
+		NotReviewed:         src.NotReviewed.NotReviewed(c.model, c.quality),
 		Gate:                res,
 		ArtifactsMissing:    c.artifacts,
 		FindingsAtThreshold: c.failOn,
@@ -75,8 +75,8 @@ func TestAUR576SameInputsSameExitOnBothSources(t *testing.T) {
 	}{
 		{gateCase{name: "clean", block: true}, gate.ExitClean},
 		{gateCase{name: "provider failure, block", model: gate.ModelProviderFailed, block: true}, gate.ExitBehavioral},
-		{gateCase{name: "provider failure, quality required", model: gate.ModelProviderFailed, qualityRequired: true}, gate.ExitBehavioral},
-		{gateCase{name: "parse failure, quality required", model: gate.ModelParseFailed, qualityRequired: true}, gate.ExitBehavioral},
+		{gateCase{name: "provider failure, quality required", model: gate.ModelProviderFailed, quality: gate.QualityRequired}, gate.ExitBehavioral},
+		{gateCase{name: "parse failure, quality required", model: gate.ModelParseFailed, quality: gate.QualityRequired}, gate.ExitBehavioral},
 		{gateCase{name: "parse failure, block", model: gate.ModelParseFailed, block: true}, gate.ExitBehavioral},
 		{gateCase{name: "scanner absent, block", sastReason: "sast_unavailable", block: true}, gate.ExitBehavioral},
 		{gateCase{name: "scanner absent, warn", sastReason: "sast_unavailable"}, gate.ExitClean},

@@ -60,18 +60,18 @@ func TestRankReasonOrder(t *testing.T) {
 func TestNotReviewedRules(t *testing.T) {
 	rules := NotReviewedRules{ModelProviderFailed: AlwaysNotReviewed, ModelParseFailed: NotReviewedWhenRequired}
 	checks := []struct {
-		outcome  ModelOutcome
-		required bool
-		want     bool
+		outcome ModelOutcome
+		quality QualityRequirement
+		want    bool
 	}{
-		{ModelProviderFailed, false, true},
-		{ModelParseFailed, false, false},
-		{ModelParseFailed, true, true},
-		{ModelReviewed, true, false},
+		{ModelProviderFailed, QualityOptional, true},
+		{ModelParseFailed, QualityOptional, false},
+		{ModelParseFailed, QualityRequired, true},
+		{ModelReviewed, QualityRequired, false},
 	}
 	for _, c := range checks {
-		if got := rules.NotReviewed(c.outcome, c.required); got != c.want {
-			t.Errorf("NotReviewed(%v, %v) = %v, want %v", c.outcome, c.required, got, c.want)
+		if got := rules.NotReviewed(c.outcome, c.quality); got != c.want {
+			t.Errorf("NotReviewed(%v, %v) = %v, want %v", c.outcome, c.quality, got, c.want)
 		}
 	}
 }

@@ -59,15 +59,21 @@ func evaluateGate(cfg config.GateConfig, acceptedOrigin string, dynamic map[stri
 // pipeline.
 var applyInconclusiveModeValue = gate.ApplyInconclusiveModeValue
 
-// The model pass's typed outcome (gate.ModelOutcome) under the command's
-// names.
-type modelOutcome = gate.ModelOutcome
+// The model pass's typed outcome (gate.ModelOutcome) and the quality
+// requirement under the command's names.
+type (
+	modelOutcome       = gate.ModelOutcome
+	qualityRequirement = gate.QualityRequirement
+)
 
 const (
 	modelReviewed       = gate.ModelReviewed
 	modelSkipped        = gate.ModelSkipped
 	modelProviderFailed = gate.ModelProviderFailed
 	modelParseFailed    = gate.ModelParseFailed
+
+	qualityOptional = gate.QualityOptional
+	qualityRequired = gate.QualityRequired
 )
 
 // acceptedGateOrigin is the dynamic-rule origin that counts toward the skills
