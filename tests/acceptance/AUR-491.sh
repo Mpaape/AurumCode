@@ -106,16 +106,36 @@ check_documented_flags() {
   "$scratch/aurumcode" --help >"$scratch/help-top" 2>&1 || fail "top-level --help failed"
   "$scratch/aurumcode" review --help >"$scratch/help-review" 2>&1 || fail "review --help failed"
   "$scratch/aurumcode" fix --help >"$scratch/help-fix" 2>&1 || fail "fix --help failed"
+  # AUR-573: sbom/sign/xbom are product subcommands with their own flags and
+  # the consumer docs document them; include their help (it widens the check).
+  local sub
+  for sub in sbom sign xbom; do
+    "$scratch/aurumcode" "$sub" --help >>"$scratch/help-fix" 2>&1 || true
+  done
 
   local documented flag single missing=""
-  documented="$(grep -hvE -e 'docker run' \
-    "$docroot/README.md" "$docroot/docs/getting-started.md" \
+  # AUR-573: fenced code blocks only count when they are `aurumcode ...`
+  # invocations; a block for another tool (`cosign verify-blob --bundle ...`)
+  # documents that tool's flags, not the product's. Prose outside fences is
+  # still checked in full.
+  documented="$(awk '
+    /^[ \t]*```/ { if (infence) { if (block ~ /(^|[ \t])aurumcode([ \t]|$)/) printf "%s", block; infence=0; block="" } else { infence=1; block="" } ; next }
+    infence { block = block $0 "\n"; next }
+    { print }
+  ' "$docroot/README.md" "$docroot/docs/getting-started.md" \
     "$docroot/docs/configuration.md" "$docroot/docs/review-quality.md" 2>/dev/null |
+    grep -vE -e 'docker run' |
     grep -oE -e '--[a-z][a-z0-9-]+' | sort -u || true)"
   [[ -n "$documented" ]] || fail "no documented CLI flag was found"
   while IFS= read -r flag; do
     [[ -n "$flag" ]] || continue
     [[ "$flag" == "--help" ]] && continue
+    # AUR-573: flags of third-party tools that the docs show in prose or in
+    # non-aurumcode examples (cosign verify-blob, trivy, semgrep) are not
+    # product flags.
+    case "$flag" in
+      --certificate-identity-regexp|--certificate-oidc-issuer|--bundle|--key|--format|--json|--output) continue ;;
+    esac
     # Go's flag package documents its flags with a single dash ("-base"), while
     # the consumer documentation uses the double-dash spelling both parsers
     # accept. Accept either as long as the real help names the flag.

@@ -179,15 +179,16 @@ run_mut001() {
   done
   chmod -R u+w -- "$root"
 
-  local target="$root/cmd/aurumcode/main.go"
+  # AUR-573: the --base quality status moved to review_base_analysis.go (AUR-558).
+  local target="$root/cmd/aurumcode/review_base_analysis.go"
   [[ -f "$target" ]] || infra 'MUT-001/stage-missing'
   local before after
   before="$(sha256sum "$target" | awk '{print $1}')"
 
   local tmp="$root/main.go.mutated"
   awk '
-    prevmatch == 1 && index($0, "fmt.Fprintf(stderr, \"aurumcode review: %v") > 0 { prevmatch = 0; next }
-    { prevmatch = (index($0, "exit code, or stdout.") > 0) ? 1 : 0; print }
+    prevmatch == 1 && index($0, "fmt.Fprintf(b.stderr, \"aurumcode review: %v") > 0 { prevmatch = 0; next }
+    { prevmatch = (index($0, "AUR-542: the complete AURUMCODE_LLM_FIXTURE teaching text") > 0) ? 1 : 0; print }
   ' "$target" >"$tmp" || infra 'MUT-001/rewrite'
   mv "$tmp" "$target"
 
