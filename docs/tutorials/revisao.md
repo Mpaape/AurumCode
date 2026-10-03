@@ -49,7 +49,7 @@ Para repetir um caso à mão:
 ### Rodar a demonstração
 
 ```bash
-bash demo/tutoriais/revisao/run.sh all      # executa os seis casos e grava out/
+bash demo/tutoriais/revisao/run.sh all      # executa os sete casos e grava out/
 bash demo/tutoriais/revisao/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -295,6 +295,87 @@ permissao pull-requests: write: o chamador concede o que o reutilizavel declara
 
 O que observar: um workflow `workflow_call` não concede permissão que o
 chamador não tem; por isso o bloco `permissions:` do chamador é obrigatório.
+
+## Caso 6: o modelo pondera a evidência
+
+Com `--seguranca`, o passe de segurança e o catálogo embutido rodam **antes**
+do modelo, e os dois achados da mesma linha chegam ao prompt como evidências
+`[E1]` (origem `analysis`) e `[E2]` (origem `security`). O modelo contesta uma,
+confirma a outra e aponta que as duas falam do mesmo trecho. A fixture só
+responde com essas avaliações quando o prompt traz a seção de evidência:
+
+<!-- arquivo: demo/tutoriais/revisao/fixture-pondera.json -->
+```json
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "[E2] origem=security regra=security/hardcoded-secret",
+        "response": {
+          "verdict": "comment",
+          "strengths": [],
+          "issues": [],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "O modelo avaliou as duas evidencias deterministicas.",
+          "evidence_assessments": [
+            {
+              "evidence_id": "E1",
+              "status": "disputed",
+              "justification": "O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.",
+              "correlates_with": [
+                "E2"
+              ],
+              "priority": "low",
+              "suggestion": "Mover o exemplo para um arquivo de teste."
+            },
+            {
+              "evidence_id": "E2",
+              "status": "confirmed",
+              "justification": "A linha atribui uma senha literal a dbPassword e a imprime no terminal.",
+              "correlates_with": [
+                "E1"
+              ],
+              "priority": "high",
+              "suggestion": "Ler a senha do ambiente."
+            }
+          ]
+        }
+      }
+    ],
+    "default": {
+      "verdict": "approve",
+      "strengths": [],
+      "issues": [],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "Nenhuma evidencia deterministica recebida."
+    }
+  }
+}
+```
+
+<!-- saida: modelo-pondera -->
+```text
+$ aurumcode review --base main --seguranca
+app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+  origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.
+  correlacao: E2
+  origem: security | avaliacao do modelo: confirmed [E2] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime no terminal.
+  sugestao: Ler a senha do ambiente.
+exit_code=0
+RESULTADO: o relatorio mostra a origem ao lado da avaliacao do modelo (contestado e confirmado), sem gate nada muda de contagem
+```
+
+O que observar: cada achado mostra o que o engine mediu (`origem`) ao lado do
+que o modelo concluiu. Sem política e sem `gate.triage`, só o parecer muda:
+o achado contestado continua no relatório e nada é rebaixado; sem `gate`
+declarado também não há exceção a propor. Com um gate, veja o caso 10 do
+tutorial `gate`.
 
 ## Quando falha: arquivo não revisado nunca conta como aprovado
 

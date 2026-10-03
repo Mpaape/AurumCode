@@ -193,6 +193,10 @@ func (s *reviewState) reportTriage(demoted []gate.Demotion) {
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 		s.result.Limitations = append(s.result.Limitations, line)
 	}
+	// Without a declared gate nothing counts, so there is nothing to except.
+	if !s.cfg.Gate.Declared() {
+		return
+	}
 	s.proposedExceptions = gate.RenderProposedExceptions(gate.ProposeExceptions(s.disputedEvidence(), demoted, s.repoIdentity))
 }
 

@@ -1,0 +1,43 @@
+== modelo-pondera
+$ aurumcode review --base main --seguranca
+aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+  origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.
+  correlacao: E2
+  sugestao: Mover o exemplo para um arquivo de teste.
+
+Security findings (standards/security-review):
+app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+  origem: security | avaliacao do modelo: confirmed [E2] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime no terminal.
+  correlacao: E1
+  sugestao: Ler a senha do ambiente.
+
+Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).
+Para aceitar, um humano copia o bloco para `exceptions` com dono e validade:
+exceptions:
+  - repo: "<owner/repo a definir>"
+    rule: "analysis/hardcoded-secret"
+    path: "app.go"
+    owner: "<dono a definir>"
+    reason: "contestado pelo modelo (E1, linha 6): O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real."
+    expires: "<AAAA-MM-DD>"
+exit_code=0
+RESULTADO: o relatorio mostra a origem ao lado da avaliacao do modelo (contestado e confirmado), sem gate nada muda de contagem
