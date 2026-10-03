@@ -59,7 +59,11 @@ clone() {
   local inputs=(demo/tutoriais docs tests/acceptance go.mod go.sum cmd internal pkg)
   # the sealed profile does not materialize the Dockerfile; the tree identity does not need it
   [[ ! -f "$repo_root/Dockerfile" ]] || inputs+=(Dockerfile)
-  (cd "$repo_root" && tar --exclude=.estado -cf - "${inputs[@]}") | tar -x -C "$dest"
+  # directories are created by mkdir (a sealed source directory can be read-only,
+  # and tar would carry that mode into the copy before filling it)
+  local d f
+  while IFS= read -r d; do mkdir -p "$dest/$d"; done < <(cd "$repo_root" && find "${inputs[@]}" -type d ! -name .estado ! -path '*/.estado/*')
+  while IFS= read -r f; do cp "$repo_root/$f" "$dest/$f"; done < <(cd "$repo_root" && find "${inputs[@]}" -type f ! -path '*/.estado/*')
   chmod -R u+w -- "$dest"
 }
 
