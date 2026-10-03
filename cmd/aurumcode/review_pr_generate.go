@@ -30,7 +30,11 @@ func (p *prReview) generateReview() (int, bool) {
 		MemoryNotes:     p.memoryNotesText,
 	}))
 	p.result = result
+	p.transcript = p.reviewer.Transcript()
 	if err == nil {
+		return 0, false
+	}
+	if p.noteDeliberationLimit(err) {
 		return 0, false
 	}
 	var parseErr *prompt.ParseError

@@ -1,0 +1,6 @@
+{"aurumcode_fixture": {
+  "tool_calls": [
+    {"tool": "codebase_context", "arguments": {"path": "calc.js"}, "every_round": true}
+  ],
+  "default": {"verdict": "approve", "strengths": [], "issues": [], "suggestions": [], "ci_analysis": [], "test_plan": [], "limitations": [], "summary": "parecer que nunca deve ser publicado"}
+}}

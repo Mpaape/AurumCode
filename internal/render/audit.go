@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -59,6 +60,10 @@ type AuditRecord struct {
 	// ProposedExceptions is the exceptions the model's disputes suggest,
 	// as text a human may copy into `exceptions`. Never applied.
 	ProposedExceptions string `json:"proposed_exceptions,omitempty"`
+	// Deliberation is the model's tool conversation: what was offered,
+	// asked for and not, each call with redacted arguments, and the limit
+	// that stopped it. Absent when the model was offered no tool.
+	Deliberation *deliberation.Transcript `json:"deliberation,omitempty"`
 }
 
 // AnalysisDataAudit identifies the verified analysis-data artifact a review

@@ -173,7 +173,7 @@ func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 	}
 	out := publishOutcome{failures: len(failures), artifactsMissing: artifactsMissing}
 	if p.check {
-		out.checkExit = publishCheckStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, p.opts.exigirQualidade && p.modelDegraded(), p.model == modelProviderFailed)
+		out.checkExit = publishCheckStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, (p.opts.exigirQualidade && p.modelDegraded()) || p.model == modelDeliberationLimit, p.model == modelProviderFailed)
 		// AUR-519: the policy gate's own status, independent of --check's
 		// grave-finding status; a no-op when no gate was declared.
 		out.gateCheckExit = publishPolicyGateStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, *p.gateRes, p.prNumber)

@@ -1163,6 +1163,53 @@ A review that offered evidence is not served from the per-file model cache
 the digest of the evidence offered: a verdict stored before the evidence
 existed is never reused.
 
+## Deliberação: o modelo pede ferramentas dentro de limites
+
+```yaml
+deliberation:
+  enabled: true                  # padrão: false (nada é oferecido)
+  max_rounds: 3                  # chamadas ao modelo, a resposta final incluída
+  max_cost_tokens: 60000         # tokens (entrada + saída) somados em todas as rodadas
+  per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
+```
+
+Com `enabled: true` e um provedor que chama ferramentas, a revisão oferece ao
+modelo, num manifesto com custo e tamanho estimados de cada uma:
+
+- `scanner_<engine>`: cada entrada habilitada de `quality_gates.scanners` com
+  `required: false`. Ela **não** roda antes do modelo; roda só se o modelo
+  pedir, pelo mesmo caminho da fase de evidência, e seus achados contam no
+  gate com a origem do engine. Uma entrada `required: true` (e
+  `quality_gates.sast`, sempre exigido) roda antes do modelo e nunca aparece
+  como opcional.
+- `codebase_context`: o contexto delimitado (símbolos, referências,
+  dependentes) de um arquivo alterado no diff; nunca outro arquivo.
+- `skill_section`: o texto completo de uma seção de skill configurada, pelo
+  `rule_id` que o catálogo de regras já lista.
+
+A decisão é do modelo e fica registrada (oferecidas, pedidas, não pedidas) no
+stderr e no campo `deliberation` da auditoria (`--auditoria`), com cada
+chamada, os argumentos redigidos, a duração e o resultado resumido. Os
+argumentos de toda chamada são conferidos contra o schema da ferramenta antes
+de executar; uma chamada inválida é recusada e o modelo é avisado.
+
+Estourar `max_rounds`, `max_cost_tokens` ou `per_tool_timeout_seconds` torna a
+revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
+com os demais motivos do gate: a saída é 1 (a revisão conta como não feita
+nos dois caminhos), a auditoria (com o campo `deliberation` e seu `limit`) e o
+SARIF são gravados, no `--pr` o status `aurumcode/policy-gate` sai em failure
+sob `gate.inconclusive: block`, e nenhum texto do modelo é publicado (o
+parecer é só "inconclusivo: limite de deliberação"). O custo de cada rodada é reservado
+antes da chamada e confirmado depois, então `--limite` vale por rodada. Um
+valor ausente usa o padrão acima; um valor negativo ou uma chave desconhecida
+é erro de configuração.
+
+Sem provedor capaz de chamar ferramentas, ou com perfis de revisão, nada é
+oferecido e os scanners `required: false` rodam antes do modelo, como sem
+`deliberation`. Sob política central, uma seção `deliberation` da política
+decide sozinha (a do repositório é ignorada com aviso); uma política sem a
+seção mantém a do repositório. Tutorial: [Deliberação com ferramentas](tutorials/deliberacao.md).
+
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 
 <a id="xbom"></a>
