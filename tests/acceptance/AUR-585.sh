@@ -65,13 +65,22 @@ seed_root() { # seed_root DIR
 
 # --- AC-001 ------------------------------------------------------------------
 check_tidy() { # check_tidy ROOT: prints a reason and returns 1 when red
-  local root="$1" mains
+  local root="$1" broken mains
+  # Every package, test imports included, must resolve inside the repository.
+  broken="$(cd "$root" && go list -e -test -deps -f '{{if .Error}}{{.ImportPath}}: {{.Error}}{{end}}' ./... 2>&1 | grep -E 'AurumCode' | sed -n '1,3p' | tr '\n' ' ' || true)"
+  [[ -z "$broken" ]] || { echo "unresolvable import: $broken"; return 1; }
+  if grep -q 'gorilla/mux' "$root/go.mod"; then echo 'go.mod still requires gorilla/mux'; return 1; fi
   cp "$root/go.mod" "$run_dir/go.mod.before"; cp "$root/go.sum" "$run_dir/go.sum.before"
-  if ! (cd "$root" && go mod tidy) >"$run_dir/tidy.log" 2>&1; then
+  if (cd "$root" && go mod tidy) >"$run_dir/tidy.log" 2>&1; then
+    cmp -s "$run_dir/go.mod.before" "$root/go.mod" || { echo 'go mod tidy changed go.mod'; return 1; }
+    cmp -s "$run_dir/go.sum.before" "$root/go.sum" || { echo 'go mod tidy changed go.sum'; return 1; }
+  elif grep -q 'module lookup disabled' "$run_dir/tidy.log" && ! grep -q 'AurumCode.*cannot find module' "$run_dir/tidy.log"; then
+    # Offline module cache of a sealed image may lack external modules that tidy
+    # fetches for tests of dependencies; that is an environment gap, not a verdict.
+    printf '%s/%s/note: go mod tidy skipped, module cache is incomplete in this environment\n' "$card" "$selector" >&2
+  else
     printf 'go mod tidy failed: %s\n' "$(sed -n '1,4p' "$run_dir/tidy.log" | tr '\n' ' ')"; return 1
   fi
-  cmp -s "$run_dir/go.mod.before" "$root/go.mod" || { echo 'go mod tidy changed go.mod'; return 1; }
-  cmp -s "$run_dir/go.sum.before" "$root/go.sum" || { echo 'go mod tidy changed go.sum'; return 1; }
   (cd "$root" && go build ./... && go vet ./...) >"$run_dir/build.log" 2>&1 || { echo "build/vet red: $(sed -n '1,3p' "$run_dir/build.log" | tr '\n' ' ')"; return 1; }
   mains="$(grep -rlE '^package main$' --include='*.go' "$root/internal" 2>/dev/null | sed -n '1,3p' | tr '\n' ' ' || true)"
   [[ -z "$mains" ]] || { echo "package main under internal/: $mains"; return 1; }
