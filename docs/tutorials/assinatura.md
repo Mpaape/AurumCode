@@ -22,7 +22,7 @@ conferência estática, nunca como execução.
 
 - `git`, `docker`, `bash` e `python3`.
 - A imagem do produto, construída do `Dockerfile` da raiz (a demonstração a
-  constrói sozinha como `aurum-tutoriais:local`):
+  constrói sozinha com a tag `aurum-tutoriais:<12 hex>` derivada da árvore):
 
 ```bash
 docker build -t aurumcode:local /caminho/para/AurumCode

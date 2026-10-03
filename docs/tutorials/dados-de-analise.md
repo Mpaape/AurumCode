@@ -134,8 +134,8 @@ $ aurumcode review --base main --auditoria audit.json
 exit_code=0
 RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria
 auditoria analysis_data.source: remote
-auditoria analysis_data.tag: analysis-data/20261002T134230Z
-auditoria analysis_data.generated_at: 2026-10-02T13:42:30Z
+auditoria analysis_data.tag: analysis-data/<timestamp>
+auditoria analysis_data.generated_at: <timestamp>
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1
 ```
 
@@ -165,7 +165,7 @@ aurumcode review --base main
 <!-- saida: vencido -->
 ```text
 --- gate.inconclusive: block
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T134254Z generated 2026-09-03T13:42:54Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
 **Verdict:** Comment
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
@@ -173,7 +173,7 @@ aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_da
 exit_code=1
 RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260903T134255Z generated 2026-09-03T13:42:55Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
 **Verdict:** Comment
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
@@ -217,7 +217,7 @@ RESULTADO: primeira execucao: artefato remoto verificado e guardado no cache
 auditoria analysis_data.source: remote
 --- 2. a listagem de releases cai (HTTP 503); a copia em cache, ainda dentro da idade, e usada
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/20261002T134321Z): a listagem de releases estava indisponível; idade e digests verificados
+aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/<timestamp>): a listagem de releases estava indisponível; idade e digests verificados
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=0

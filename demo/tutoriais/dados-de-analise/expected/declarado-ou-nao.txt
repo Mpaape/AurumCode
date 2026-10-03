@@ -8,4 +8,6 @@ auditoria: sem campo analysis_data
     GET /dl/scanners.yml -> 200
 RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria
 auditoria analysis_data.source: remote
+auditoria analysis_data.tag: analysis-data/<timestamp>
+auditoria analysis_data.generated_at: <timestamp>
 auditoria analysis_data.digest: sha256:
