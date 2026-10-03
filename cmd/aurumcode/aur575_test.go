@@ -63,3 +63,25 @@ func TestAUR575SASTMissingWithWrittenWarnAlerts(t *testing.T) {
 		t.Fatalf("exit=%d with inconclusive: warn written; stderr=%s", code, errOut.String())
 	}
 }
+
+// TestAUR575InvalidConfigRefusedBeforeModel: an unsupported SAST engine, a
+// flag-like rule pack and a misspelled gate key are configuration errors:
+// the review stops at load, names the key, and no review is produced.
+func TestAUR575InvalidConfigRefusedBeforeModel(t *testing.T) {
+	for key, doc := range map[string]string{
+		"quality_gates.sast.engine":     "quality_gates:\n  sast:\n    enabled: true\n    engine: gitleaks\n",
+		"quality_gates.sast.rule_packs": "quality_gates:\n  sast:\n    enabled: true\n    rule_packs: [\"--dangerous\"]\n",
+		"fial_on":                       "gate:\n  fial_on: [error]\n",
+	} {
+		cleanFixture(t, doc)
+		aur572CleanModel(t)
+		var out, errOut strings.Builder
+		code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+		if code == 0 || !strings.Contains(errOut.String(), key) {
+			t.Fatalf("%s: exit=%d stderr=%q, want a load error naming the key", key, code, errOut.String())
+		}
+		if strings.Contains(out.String(), "Code Review Summary") {
+			t.Fatalf("%s: a review was produced from an invalid configuration:\n%s", key, out.String())
+		}
+	}
+}
