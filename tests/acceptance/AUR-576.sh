@@ -62,8 +62,12 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 stage() {
   local root="$1" source
   mkdir -p "$root"
-  for source in go.mod go.sum cmd internal pkg; do cp -R "$repo_root/$source" "$root/$source"; done
-  if [[ -d "$repo_root/tests/fixtures" ]]; then mkdir -p "$root/tests"; cp -R "$repo_root/tests/fixtures" "$root/tests/fixtures"; fi
+  for source in go.mod go.sum cmd internal pkg docs demo; do
+    if [[ -e "$repo_root/$source" ]]; then cp -R "$repo_root/$source" "$root/$source"; fi
+  done
+  for source in tests/fixtures tests/e2e; do
+    if [[ -d "$repo_root/$source" ]]; then mkdir -p "$root/tests"; cp -R "$repo_root/$source" "$root/$source"; fi
+  done
   chmod -R u+w -- "$root"
 }
 
@@ -118,7 +122,10 @@ run_ac004() {
   setenv_path="$(cat "$root"/cmd/aurumcode/*_test.go | grep -Fc 't.Setenv("PATH"')" || true
   # Six existed before this card (AUR-548's fake semgrep executables).
   (( setenv_path <= 6 )) || fail "new-t.Setenv-PATH:$setenv_path"
-  ( cd "$root" && go test -buildvcs=false -count=1 -p 1 ./cmd/aurumcode/... ./internal/gate/... ./internal/review/... ) >"$log" 2>&1 || { cat "$log" >&2; fail go-test-failed; }
+  # action.yml and .github/workflows are outside this card's paths and
+  # read_paths (the sealed run does not materialize them); the tests that
+  # read only those files are skipped here and run in the full suite.
+  ( cd "$root" && go test -buildvcs=false -count=1 -p 1 -skip '^(TestAUR499ActionOutput|TestAUR555SBOMStepPrecedesReview|TestAUR555SecretsOptionalAndScopedToReview|TestAUR555WorkflowValidWithoutDTrackAndSignsOnlyAfterReview)$' ./cmd/aurumcode/... ./internal/gate/... ./internal/review/... ) >"$log" 2>&1 || { cat "$log" >&2; fail go-test-failed; }
   grep -Eq '^ok[[:space:]]+github.com/Mpaape/AurumCode/cmd/aurumcode' "$log" || fail 'cmd-not-run'
 }
 
