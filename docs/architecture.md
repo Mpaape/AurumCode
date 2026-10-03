@@ -168,11 +168,14 @@ conversation (`internal/deliberation.Session`) instead of a single call:
   session's scans: its findings count in the gate with their origin, and a
   missing binary or failed scan is the scan's inconclusive reason.
 - Exceeding `max_rounds`, `max_cost_tokens` or `per_tool_timeout_seconds`
-  is `deliberation_limit:<limit>`: the review is inconclusive, exits 1 and
-  publishes nothing (the gate's own reason is never reached). The transcript
-  (offered, requested and not requested tools, each call with redacted
-  arguments, duration and summarized result) is printed on stderr and
-  written to the audit's `deliberation` field.
+  is the model outcome `gate.ModelDeliberationLimit`, never reviewed in
+  either source (exit 1); the gate still runs with the inconclusive motive
+  `deliberation_limit:<limit>` (`gate.RankReason`, ranked first), so the
+  audit, the SARIF and the `--pr` statuses are written, and the only text
+  published is the limitation that says so. The transcript (offered,
+  requested and not requested tools, each call with redacted arguments,
+  duration and summarized result, the limit) is printed on stderr and is
+  the audit's `deliberation` field (`render.AuditRecord.Deliberation`).
 - Without a tool-capable provider (or with review profiles), the deferred
   scanners run as before. A review that offered tools skips the per-file
   model cache, and the verdict-reuse key folds in the digests of the tool

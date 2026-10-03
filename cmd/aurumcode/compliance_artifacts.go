@@ -108,8 +108,6 @@ func writeArtifactFiles(in complianceArtifactInputs, filter *redaction.Filter, s
 	if in.auditoriaPath != "" && !skip[in.auditoriaPath] {
 		if err := writeAuditFile(in, filter); err != nil {
 			failures = append(failures, artifactFailure{Reason: gateReasonAuditWriteFailed, Path: in.auditoriaPath, Err: err})
-		} else if err := appendAuditDeliberation(in.auditoriaPath, in.deliberation, filter); err != nil {
-			failures = append(failures, artifactFailure{Reason: gateReasonAuditWriteFailed, Path: in.auditoriaPath, Err: err})
 		}
 	}
 	if in.sarifPath != "" && !skip[in.sarifPath] {
@@ -156,6 +154,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.AnalysisData = in.analysisData
 	rec.EvidenceAssessments = render.AssessedEvidence(in.issues)
 	rec.ProposedExceptions = in.proposedExceptions
+	rec.Deliberation = in.deliberation
 	return render.WriteAuditRecord(in.auditoriaPath, rec, filter)
 }
 

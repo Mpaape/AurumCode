@@ -191,7 +191,7 @@ func (s *reviewState) flush() { s.run.Flush() }
 
 // modelDegraded reports a model pass that produced no trustworthy answer.
 func (s *reviewState) modelDegraded() bool {
-	return s.model == modelProviderFailed || s.model == modelParseFailed
+	return s.model == modelProviderFailed || s.model == modelParseFailed || s.model == modelDeliberationLimit
 }
 
 // qualityRequirement is --exigir-qualidade as the gate's typed value.

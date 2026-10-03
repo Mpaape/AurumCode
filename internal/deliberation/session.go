@@ -92,6 +92,7 @@ func (s Session) stop(out Outcome, err error) (Outcome, error) {
 	var limit *LimitError
 	if errors.As(err, &limit) {
 		out.Transcript.Outcome = limit.Reason()
+		out.Transcript.Limit = limit.Limit
 	}
 	out.Transcript.decide()
 	return out, err

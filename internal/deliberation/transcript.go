@@ -24,6 +24,8 @@ type Transcript struct {
 	TokensOut    int      `json:"tokens_out"`
 	Calls        []Call   `json:"calls"`
 	Outcome      string   `json:"outcome"`
+	// Limit names the exceeded limit, empty when none was.
+	Limit string `json:"limit,omitempty"`
 }
 
 // Call is one tool call the model made.

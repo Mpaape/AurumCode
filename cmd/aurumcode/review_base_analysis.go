@@ -56,7 +56,7 @@ func (b *baseReview) joinEvidence() (int, bool) {
 
 // qualityDidNotRun reports a quality review that was skipped or failed.
 func (b *baseReview) qualityDidNotRun() bool {
-	return b.model == modelSkipped || b.model == modelProviderFailed
+	return b.model == modelSkipped || b.model == modelProviderFailed || b.model == modelDeliberationLimit
 }
 
 // selectProvider picks the provider (--modelo commands which model reviews,

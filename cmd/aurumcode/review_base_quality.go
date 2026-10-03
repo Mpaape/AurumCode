@@ -94,9 +94,8 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 		b.result, err = reviewer.GenerateReviewWithContext(b.ctx, qc.toSend, reviewCtx)
 		b.transcript = reviewer.Transcript()
 	}
-	if code, failed := reportDeliberationFailure(b.stderr, err); failed {
-		b.reportDeliberation()
-		return code, true
+	if b.noteDeliberationLimit(err) {
+		return 0, false
 	}
 	if err != nil && b.f.seguranca {
 		reportQualityFailure(b.stderr, err, b.f.modelo, b.limiteUSD)
