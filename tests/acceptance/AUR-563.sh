@@ -115,7 +115,7 @@ ac002() {
       nb=$((nb + 1))
     done < "$work/saidas.tsv"
     # nenhuma fase terminou em ERRO
-    if grep -l '^ERRO:' "$demo"/out/*.log | grep -q .; then fail "AC-002/$t/out-com-erro"; fi
+    if grep -l '^ERRO:' "$demo"/out/*.log | awk 'END{exit NR==0}'; then fail "AC-002/$t/out-com-erro"; fi
   done
   grep -qiE 'execu(c|ç)(a|ã)o real' "$spec" || fail "AC-002/spec-sem-execucao-real"
   for t in "${tutorials[@]}"; do
@@ -222,10 +222,10 @@ ac003_blocks() {
   [[ -z "$bad" ]] || fail "AC-003/dominio-real:$bad"
   bad="$(grep -rhoE '[A-Za-z0-9._-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}' "${files[@]}" | grep -vE '@(example\.(com|org|net)|[A-Za-z0-9-]+\.invalid|[A-Za-z0-9-]+\.test)$' || true)"
   [[ -z "$bad" ]] || fail "AC-003/email-real:$bad"
-  if grep -rIlE 'BEGIN [A-Z ]*PRIVATE KEY|ghp_[A-Za-z0-9]{20}|github_pat_|sk-[A-Za-z0-9]{20}|xox[bp]-|AKIA[0-9A-Z]{16}' "${files[@]}" | grep -q .; then
+  if grep -rIlE 'BEGIN [A-Z ]*PRIVATE KEY|ghp_[A-Za-z0-9]{20}|github_pat_|sk-[A-Za-z0-9]{20}|xox[bp]-|AKIA[0-9A-Z]{16}' "${files[@]}" | awk 'END{exit NR==0}'; then
     fail "AC-003/segredo-versionado"
   fi
-  if grep -rIlE 'LLM_API_KEY=[^ ]+|api[_-]?key[\"'"'"']?[:=][ ]*[\"'"'"'][A-Za-z0-9]{16,}' "${files[@]}" | grep -q .; then
+  if grep -rIlE 'LLM_API_KEY=[^ ]+|api[_-]?key[\"'"'"']?[:=][ ]*[\"'"'"'][A-Za-z0-9]{16,}' "${files[@]}" | awk 'END{exit NR==0}'; then
     fail "AC-003/credencial-literal"
   fi
   printf '%s/AC-003/ok (%d blocos identicos aos arquivos da demo; so dominios reservados; sem segredo)\n' "$card" "$total"
@@ -248,7 +248,7 @@ ac003_images() {
       fail "AC-003/imagem-sem-digest:${f#"$repo_root"/}"
     fi
   done < <(find "$repo_root/demo/tutoriais" -type f \( -name '*.yml' -o -name '*.yaml' -o -name '*.sh' \) ! -path '*/.estado/*' ! -path '*/out/*' ! -path '*/_lib/tutorial.sh')
-  if grep -rnE '(docker\.io|ghcr\.io|quay\.io)/[a-z0-9/_.-]+(:[A-Za-z0-9._-]+)?([[:space:]]|$)' "$repo_root"/demo/tutoriais/*/run.sh | grep -v '@sha256:' | grep -q .; then
+  if grep -rnE '(docker\.io|ghcr\.io|quay\.io)/[a-z0-9/_.-]+(:[A-Za-z0-9._-]+)?([[:space:]]|$)' "$repo_root"/demo/tutoriais/*/run.sh | grep -v '@sha256:' | awk 'END{exit NR==0}'; then
     fail "AC-003/imagem-literal-sem-digest-no-run"
   fi
   printf '%s/AC-003/images-ok (%d digests, todos em images.lock ou nos workflows do repositorio)\n' "$card" "$n"
@@ -316,8 +316,8 @@ mut001() {
     bash "$repo_root/demo/tutoriais/$t/run.sh" --check >/dev/null 2>&1 || fail "AC-002-MUT-001/$t/controle-nao-passa"
     for c in $(casos_of "$t"); do
       # a linha que prova o caso: a primeira linha esperada que nao e o eco do comando
-      first="$(grep -vE '^(#|$)' "$copy/expected/$c.txt" | grep -vF '$ aurumcode' | head -n1)"
-      [[ -n "$first" ]] || first="$(grep -vE '^(#|$)' "$copy/expected/$c.txt" | head -n1)"
+      first="$(grep -vE '^(#|$)' "$copy/expected/$c.txt" | grep -vF '$ aurumcode' | sed -n '1p')"
+      [[ -n "$first" ]] || first="$(grep -vE '^(#|$)' "$copy/expected/$c.txt" | sed -n '1p')"
       grep -vF -- "$first" "$repo_root/demo/tutoriais/$t/out/$c.log" > "$copy/out/$c.log" || true
       if grep -qF -- "$first" "$copy/out/$c.log"; then fail "AC-002-MUT-001/$t/$c/linha-nao-removida"; fi
       # roda o --check da copia: o run.sh da copia usa o _lib relativo a ela
