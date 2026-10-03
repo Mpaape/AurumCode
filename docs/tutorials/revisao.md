@@ -26,11 +26,11 @@ docker build -t aurumcode:local /caminho/para/AurumCode
   exemplos abaixo escrevem `aurumcode ...`; defina o atalho uma vez:
 
 ```bash
-alias aurumcode='docker run --rm -v "$PWD:/work" -w /work -e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL --entrypoint /app/aurumcode aurumcode:local'
+alias aurumcode='docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work -e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL -e AURUMCODE_LLM_FIXTURE -v "/caminho/para/demo/tutoriais/revisao:/fixtures:ro" --entrypoint /app/aurumcode aurumcode:local'
 ```
 
 Em uso real, `LLM_API_KEY` e `LLM_BASE_URL` apontam para o seu serviço
-compatível com OpenAI. **Neste tutorial nenhuma credencial é usada**: o
+compatível com OpenAI. Para repetir um caso à mão, entre num repositório com a mudança e aponte o provedor falso para o arquivo do tutorial (o volume `/fixtures` do atalho acima), por exemplo `export AURUMCODE_LLM_FIXTURE=/fixtures/fixture-llm.json`; para o caso sem provedor, `unset AURUMCODE_LLM_FIXTURE`. O `--user` evita arquivos com dono root no seu diretório. **Neste tutorial nenhuma credencial é usada**: o
 provedor é um arquivo JSON determinístico (`AURUMCODE_LLM_FIXTURE`), então o
 resultado é sempre o mesmo e nada sai da sua máquina.
 
@@ -105,8 +105,22 @@ O que observar: o programa **declara** que a revisão por modelo não rodou, e o
 veredito é `Comment`, nunca `Approve`. `--seguranca` soma o passe
 determinístico (regras do catálogo embutido), que ainda acha o segredo, e
 `--fail-on error` o transforma em saída 3. Para um CI que não pode confundir
-"só determinístico" com "revisado", acrescente `--exigir-qualidade`: sem o
-modelo, a saída é 1.
+"só determinístico" com "revisado", acrescente `--exigir-qualidade`:
+
+```bash
+aurumcode review --base main --seguranca --exigir-qualidade
+```
+
+<!-- saida: sem-provedor -->
+```text
+aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review
+exit_code=1
+RESULTADO: com --exigir-qualidade, sem provedor o comando falha
+```
+
+Sem o modelo a saída é 1 e a mensagem diz que a revisão por modelo não rodou.
+(A linha `RESULTADO:` é conclusão do script, não saída do produto: vale quando o
+`exit_code` é o esperado, 1 aqui.)
 
 ## Caso 3: com provedor, achados que citam a regra
 
@@ -249,6 +263,11 @@ reutilizável do repositório: cada entrada de `with:` e cada secret existem em
 `review.yml` e as permissões do chamador cobrem as que ele declara. Os casos
 1 a 3 e 5 usam o mesmo motor que o job executa.
 
+Estas linhas são conclusão do script (não é saída do produto): cada uma é
+impressa quando o `grep` do `run.sh` encontra, em `review.yml` e no workflow do
+chamador, o trecho correspondente (input em `workflow_call.inputs`, secret em
+`workflow_call.secrets`, permissão declarada nos dois).
+
 <!-- saida: pr-workflow -->
 ```text
 gatilho: pull_request
@@ -281,6 +300,9 @@ a file that was not reviewed never counts as approved.
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 ```
 
+(`RESULTADO:` é conclusão do script, não saída do produto: vale quando o
+`exit_code` é o esperado.)
+
 O veredito é `Comment`, o arquivo é nomeado como não revisado, e o parecer
 diz a regra: *um arquivo não revisado nunca conta como aprovado*. A saída
 continua 0 porque nenhum gate foi pedido. Para que a cobertura parcial
@@ -302,8 +324,9 @@ RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 ```
 
 Com `inconclusive: block` a revisão parcial reprova (saída 1) e o motivo
-`partial_coverage` aparece. Com `warn`, ela continua visível como
-inconclusiva sem bloquear. Em nenhum dos dois o veredito é `Approve`.
+`partial_coverage` aparece. Pela referência de configuração, com `warn` ela
+continua visível como inconclusiva sem bloquear (não demonstrado aqui). O
+veredito `Comment` sem `Approve` foi demonstrado nos dois casos acima.
 
 ## Problemas comuns
 
@@ -319,7 +342,7 @@ inconclusiva sem bloquear. Em nenhum dos dois o veredito é `Approve`.
 - **`--base` não vê minha mudança**: ele compara com o commit `HEAD`; faça
   commit antes.
 - **Erro 403 ao publicar no PR**: confira `pull-requests: write` no workflow
-  chamador.
+  chamador (não demonstrado aqui: não há publicação em PR nesta demonstração).
 
 Próximos passos: [skills de convenção](skills.md) e
 [política central](politica-central.md).

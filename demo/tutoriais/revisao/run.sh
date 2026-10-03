@@ -24,6 +24,9 @@ caso_sem_provedor() {
   TUT_FIXTURE=none
   aurum review --base main --seguranca --fail-on error
   expect_rc 3 "sem provedor, a analise deterministica achou o segredo e reprovou"
+  echo "--- sem provedor e com --exigir-qualidade: a ausencia do modelo e falha"
+  aurum review --base main --seguranca --exigir-qualidade
+  expect_rc 1 "com --exigir-qualidade, sem provedor o comando falha"
 }
 
 # 3. Com provedor (fixture): o achado cita a regra do catalogo.

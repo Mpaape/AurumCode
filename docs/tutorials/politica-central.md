@@ -19,6 +19,10 @@ execução real registrada em `demo/tutoriais/politica-central/out/`
 - `git`, `docker`, `bash` e a imagem do produto, como em
   [revisao.md](revisao.md#pré-requisitos). Nenhuma credencial: o modelo é um
   JSON determinístico (`AURUMCODE_LLM_FIXTURE`) e os containers rodam sem rede.
+  Para repetir um caso à mão, use o atalho de [revisao.md](revisao.md#pré-requisitos),
+  monte `demo/tutoriais/politica-central` em `/fixtures` e a pasta da política em
+  `/policy` (`-v "/caminho/da/politica:/policy:ro"`), com
+  `AURUMCODE_LLM_FIXTURE=/fixtures/fixture-politica.json`.
 - Ler [skills.md](skills.md): as seções das skills da política são as regras
   que o gate cobra.
 
@@ -135,6 +139,11 @@ reutilizável faz o checkout em `.aurumcode-policy` sem persistir credenciais e
 passa `--politica`, e que `policy_path` não existe lá. O comportamento da
 política em si é o do caso 1, que usa a mesma flag.
 
+Estas linhas são conclusão do script (não é saída do produto): cada uma é
+impressa quando o `grep` do `run.sh` encontra o trecho correspondente em
+`review.yml` ou em `workflow-organizacao.yml` (para `policy_path`, quando
+ele **não** existe como input).
+
 <!-- saida: policy-repository -->
 ```text
 input policy_repository: existe em review.yml
@@ -192,6 +201,11 @@ aurumcode review: politica central: gate do config do repositório foi ignorado:
 aurumcode review: politica central: quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha
 supply_chain: a politica nao declara, entao nao ha aviso e vale o do repositorio
 ```
+
+A última linha é conclusão do script (não é saída do produto): é impressa
+quando a palavra `supply_chain` **não** aparece na saída do comando. Que "vale o
+do repositório" vem da referência de configuração; aqui só a ausência do aviso
+foi demonstrada.
 
 O que observar, seção por seção:
 
@@ -264,6 +278,9 @@ aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no
 exit_code=3
 RESULTADO: o repositorio nao consegue afrouxar o gate da politica
 ```
+
+(`RESULTADO:` é conclusão do script, não saída do produto: vale quando o
+`exit_code` é o esperado, 0 e 3.)
 
 O que observar: sozinho, o repositório se deixa passar (`fail_on: [high]`
 ignora um `warning`). Sob política, o `gate` dele é descartado com aviso e vale

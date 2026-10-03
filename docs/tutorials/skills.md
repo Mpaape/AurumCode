@@ -18,7 +18,9 @@ byte a byte, e as saídas vêm de uma execução real registrada em
 
 - `git`, `docker` e `bash`, e a imagem do produto, como em
   [revisao.md](revisao.md#pré-requisitos) (o atalho `aurumcode` do tutorial de
-  revisão vale aqui).
+  revisão vale aqui; para repetir um caso à mão, monte o diretório
+  `demo/tutoriais/skills` em `/fixtures` e exporte
+  `AURUMCODE_LLM_FIXTURE=/fixtures/fixture-repo.json` ou `fixture-llm.json`).
 - Nenhuma credencial: o modelo é um JSON determinístico
   (`AURUMCODE_LLM_FIXTURE`).
 - Para ver o que chegou ao modelo, os casos 1 a 3 usam
@@ -78,7 +80,10 @@ exit_code=0
 
 O que observar: o achado nomeia a regra `convencoes#sem-segredos-no-codigo`,
 isto é, o arquivo da skill e a seção. O prompt que chegou ao modelo mostra
-a skill e os ids citáveis:
+a skill e os ids citáveis. As linhas `prompt:` são conclusão do script (não é
+saída do produto): o script imprime `prompt: <trecho>` quando `grep -F` acha o
+trecho no arquivo de `AURUMCODE_PROMPT_CAPTURE`, e `prompt: AUSENTE: ...` se não achar.
+
 
 <!-- saida: skill-do-repo -->
 ```text
@@ -89,7 +94,9 @@ prompt: ## Sem segredos no codigo
 prompt: Credenciais vem do ambiente, nunca de literais.
 ```
 
-A saída é 0: **a skill orientou, mas nenhum gate foi declarado**. O caso 5
+Por que o parecer diz "Alterações solicitadas" (`Changes requested`) e a saída é
+0: sem `gate` declarado, o código de saída não reflete o veredito; com gate
+declarado ele reflete (caso 5). **A skill orientou, mas nenhum gate foi declarado**. O caso 5
 mostra como a mesma seção passa a reprovar.
 
 ## Caso 2: escopo por caminho
@@ -114,7 +121,9 @@ applyTo: "**/*.ts"
 Em TypeScript, prefira unknown a any.
 ```
 
-A mudança toca só `app.go`:
+A mudança toca só `app.go`. Na linha `ts.md ... NAO chegou`, a conclusão é do
+script (não é saída do produto): ela é impressa quando `ts.md (applyTo` **não**
+ocorre no prompt capturado.
 
 <!-- saida: seletor-por-caminho -->
 ```text
@@ -148,6 +157,10 @@ languages: [ts]
 ---
 Em TypeScript, prefira unknown a any. MARCADOR-SKILL-DIRETORIO
 ```
+
+As linhas `prompt:` abaixo são conclusão do script (não é saída do produto): a
+primeira vale quando `MARCADOR-SKILL-DIRETORIO` não ocorre no prompt capturado, a
+segunda quando `Skill selection warnings` não ocorre.
 
 <!-- saida: selecao-por-linguagem -->
 ```text
@@ -206,10 +219,16 @@ aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
 exit_code=3
 RESULTADO: a secao da skill da politica reprova
+prompt: a skill da politica aparece antes da skill do repositorio
 ```
 
-O que observar: quem vence é a política. Pela referência de configuração, as duas skills chegam ao modelo (a da
-política primeiro, a do repositório soma depois); os dois achados aparecem no
+(`RESULTADO:` e `prompt:` são conclusões do script, não saída do produto.)
+
+O que observar: quem vence é a política. As duas skills chegam ao modelo, a da política primeiro e a do repositório
+depois: a linha `prompt: a skill da politica aparece antes da skill do
+repositorio` é conclusão do script (não é saída do produto), impressa quando o
+corpo da seção da política ocorre em linha anterior à do repositório no prompt
+capturado. Os dois achados aparecem no
 parecer, mas **só a seção da política reprova** (saída 3). A seção do
 repositório é orientação visível, que não entra no gate, e o `gate` do
 repositório é descartado com um aviso nomeado.
@@ -252,6 +271,8 @@ aurumcode review: policy gate: convencoes#logs-sem-dados-pessoais: Logs sem dado
 RESULTADO: a secao nova ja e citavel e reprova
 prompt: - `convencoes#logs-sem-dados-pessoais`
 ```
+
+(`RESULTADO:` e `prompt:` são conclusões do script, não saída do produto.)
 
 O que observar: o motivo do bloqueio nomeia a skill e a seção. Um achado que
 cita um id que não existe é descartado e contado, nunca exibido.
