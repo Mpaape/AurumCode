@@ -62,6 +62,7 @@ type aur580Audit struct {
 	} `json:"blocking_findings"`
 	Deliberation *struct {
 		Limit        string   `json:"limit"`
+		Undecided    string   `json:"undecided"`
 		Offered      []string `json:"offered"`
 		Requested    []string `json:"requested"`
 		NotRequested []string `json:"not_requested"`
@@ -266,5 +267,31 @@ func TestAUR580PullRequestRoundsExceededFailsThePolicyGate(t *testing.T) {
 	readJSON(t, auditPath, &rec)
 	if rec.Deliberation == nil || rec.Deliberation.Limit != "max_rounds" {
 		t.Fatalf("audit deliberation = %+v", rec.Deliberation)
+	}
+}
+
+// When the model never answers after the offer (here the USD ceiling of
+// --limite refuses the first round), the model decided nothing: the
+// deferred scanner runs as before, its finding counts in the gate, and the
+// transcript says why instead of listing it as not requested.
+func TestAUR580DeferredScannerRunsWhenTheModelNeverAnswered(t *testing.T) {
+	invoked := aur580Setup(t, aur580Config, "")
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":50,"tool":"scanner_fakescan"}]`))
+	code, _, errOut, rec := aur580Run(t, "--seguranca", "--limite", "0.0000001")
+	if code == 0 || *invoked != 1 {
+		t.Fatalf("exit=%d invoked=%d, want the deferred scanner run once and a non-zero exit; stderr=%s", code, *invoked, errOut)
+	}
+	found := false
+	for _, b := range rec.Blocking {
+		found = found || (b.RuleID == "fakescan:leak" && b.Origin == "fakescan")
+	}
+	if !found {
+		t.Fatalf("blocking findings = %+v, want fakescan:leak counted in the gate", rec.Blocking)
+	}
+	if rec.Deliberation == nil || rec.Deliberation.Undecided == "" || len(rec.Deliberation.NotRequested) != 0 {
+		t.Fatalf("audit deliberation = %+v, want undecided with no tool declined", rec.Deliberation)
+	}
+	if !strings.Contains(errOut, "sem decisão do modelo") {
+		t.Fatalf("stderr does not say the model decided nothing:\n%s", errOut)
 	}
 }
