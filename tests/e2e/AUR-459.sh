@@ -87,8 +87,7 @@ copy go.mod go.sum
 # internal/ package this card's own read_paths names instead (none of
 # internal/evidence, internal/governance, internal/sandbox is among
 # them, and grepping confirms cmd/aurumcode needs none of the three).
-copy cmd/aurumcode
-copy internal/analysis internal/analyzer internal/apply internal/changelog internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/reviewprofile internal/security internal/testgen
+copy cmd internal
 copy pkg tests/fixtures/repos/git-demo tests/fixtures/review
 chmod -R u+w -- "$root"
 
