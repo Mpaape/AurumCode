@@ -2,7 +2,9 @@
 // AurumCode review engine.
 //
 // It is model-free and zero-config: NewRunner builds a Runner over a fixed
-// catalog of hand-audited regular expressions compiled into the binary, so
+// catalog compiled into the binary (hand-audited Go matchers for injection
+// and permissions, and, for hardcoded secrets, the public gitleaks default
+// rule base embedded as pinned data under rules/), so
 // applying it never needs a configuration file, credentials, network access,
 // or an external binary. Analyze scans only the added (RIGHT) lines of a
 // types.Diff — a removed line never produces a finding — and reports each
