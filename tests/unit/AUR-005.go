@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Mpaape/AurumCode/internal/evidence"
+	"github.com/Mpaape/AurumCode/tests/legacy/evidence"
 )
 
 // aur005UnitRoot resolves the tree holding .board/schemas. AURUMCODE_ROOT wins

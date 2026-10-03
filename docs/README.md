@@ -35,3 +35,13 @@ scripts/docs/serve.sh   # serve em http://127.0.0.1:8000
 
 O workflow `docs.yml` publica esse site no GitHub Pages a cada push ao `main`.
 Detalhes e prova da geração em [specs/AUR-560.md](specs/AUR-560.md).
+
+## Evidência histórica em `tests/legacy`
+
+Pacotes que o binário não alcança, mas que aceites de cards `done` ainda
+exercitam (`evidence`, `governance/dag`, `governance/taskspec`,
+`sandbox/profile`, `config/policy`, `llm/httpbase`), vivem em
+`tests/legacy/<pacote>` e não em `internal/`. `apply/applycheck` fica em
+`internal/apply` porque `cmd/aurumcode` o importa em teste. Um job noturno
+(`acceptance-sample.yml`) roda uma amostra fixa de aceites `done`. Detalhes em
+[specs/AUR-585.md](specs/AUR-585.md).

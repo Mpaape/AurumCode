@@ -7,7 +7,7 @@
 #   The ISO/IEC 25010 weights file is EXPLICIT USER CONFIGURATION with
 #   authority over the review's severity policy -- unlike repository prompt
 #   or provider text, which is untrusted DATA. This program builds a real Go
-#   harness over internal/config/policy and asserts:
+#   harness over tests/legacy/config/policy and asserts:
 #
 #     AC-001 with declared weights, the review reports a per-characteristic
 #            and an aggregate score coherent with the file weights;
@@ -42,7 +42,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-for input in go.mod go.sum internal/config/policy pkg/types tests/unit/AUR-471.go tests/integration/AUR-471.go tests/e2e/AUR-471.sh; do
+for input in go.mod go.sum tests/legacy/config/policy pkg/types tests/unit/AUR-471.go tests/integration/AUR-471.go tests/e2e/AUR-471.sh; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -60,9 +60,9 @@ run_go() { local dir="$1"; shift; ( cd "$dir" && ulimit -v 8388608 && GOMEMLIMIT
 # its one dependency, so the harness cannot accidentally test the tree.
 stage() {
   local root="$1"
-  mkdir -p "$root/internal/config/policy" "$root/pkg/types"
+  mkdir -p "$root/tests/legacy/config/policy" "$root/pkg/types"
   cp "$repo_root/go.mod" "$repo_root/go.sum" "$root/"
-  cp -R "$repo_root/internal/config/policy/." "$root/internal/config/policy/"
+  cp -R "$repo_root/tests/legacy/config/policy/." "$root/tests/legacy/config/policy/"
   cp -R "$repo_root/pkg/types/." "$root/pkg/types/"
   chmod -R u+w -- "$root"
 }
@@ -78,7 +78,7 @@ import (
 	"fmt"
 	"os"
 
-	policy "github.com/Mpaape/AurumCode/internal/config/policy"
+	policy "github.com/Mpaape/AurumCode/tests/legacy/config/policy"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -397,7 +397,7 @@ redaction: *off
 mutation_sum() {
   local root="$run_dir/mut001"
   build_harness "$root" "$harness_bin"
-  local target="$root/internal/config/policy/policy.go"
+  local target="$root/tests/legacy/config/policy/policy.go"
   local anchor='	if !(math.Abs(sum-1.0) <= weightTolerance) {'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra 'MUT-001/anchor-not-unique'
   ANCHOR="$anchor" awk '
@@ -432,7 +432,7 @@ mutation_sum() {
 mutation_redaction() {
   local root="$run_dir/mut002"
   build_harness "$root" "$harness_bin"
-  local target="$root/internal/config/policy/policy.go"
+  local target="$root/tests/legacy/config/policy/policy.go"
   local anchor='		redaction := key == "redaction"'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra 'MUT-002/anchor-not-unique'
   ANCHOR="$anchor" SKIP1='key == "secret_redaction"' SKIP2='key == "disable_redaction"' awk '

@@ -145,7 +145,7 @@ e2e_case() {
 # An acceptance that only runs the card's own selectors cannot see any of it.
 #
 # SCOPE, AND WHY IT IS NOT `./internal/...`
-#   `go test ./internal/...` cannot be used as written: `internal/evidence`'s
+#   `go test ./internal/...` cannot be used as written: `tests/legacy/evidence`'s
 #   test imports tests/integration, which holds `package main` files
 #   (tests/integration/AUR-001.go, AUR-002.go, AUR-004.go) alongside `package
 #   integration` ones, so that package fails to build. This is pre-existing and

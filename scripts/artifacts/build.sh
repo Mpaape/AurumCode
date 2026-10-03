@@ -16,7 +16,7 @@ export LC_ALL=C
 dist="${1:-dist}"
 osv_base="${AURUM_OSV_BASE:-https://osv-vulnerabilities.storage.googleapis.com}"
 scanners="${AURUM_SCANNERS_FILE:-.board/bootstrap/locks/scanners.yml}"
-tool="${AURUM_ARTIFACTS_BIN:-go run ./internal/artifacts/cmd/analysis-data}"
+tool="${AURUM_ARTIFACTS_BIN:-go run ./cmd/analysis-data}"
 
 rm -rf -- "$dist" "$dist.tests-passed"
 
