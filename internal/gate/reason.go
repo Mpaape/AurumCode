@@ -86,18 +86,29 @@ const (
 	AlwaysNotReviewed
 )
 
+// QualityRequirement says whether the caller required a quality review
+// (--exigir-qualidade).
+type QualityRequirement int
+
+const (
+	// QualityOptional: deterministic analysis alone is an acceptable run.
+	QualityOptional QualityRequirement = iota
+	// QualityRequired: a run without the model's review is not a review.
+	QualityRequired
+)
+
 // NotReviewedRules maps each model outcome to its rule. Each review source
 // declares its own table; where the two sources differ the difference is
 // visible here as data.
 type NotReviewedRules map[ModelOutcome]NotReviewedRule
 
 // NotReviewed applies the table to an outcome.
-func (r NotReviewedRules) NotReviewed(outcome ModelOutcome, qualityRequired bool) bool {
+func (r NotReviewedRules) NotReviewed(outcome ModelOutcome, quality QualityRequirement) bool {
 	switch r[outcome] {
 	case AlwaysNotReviewed:
 		return true
 	case NotReviewedWhenRequired:
-		return qualityRequired
+		return quality == QualityRequired
 	}
 	return false
 }

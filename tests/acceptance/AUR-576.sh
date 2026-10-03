@@ -22,8 +22,10 @@
 #              internal/review passes unchanged in expectation; the package
 #              seams are gone and no new t.Setenv("PATH") was added
 #   MUT-001    a second exit ladder in the --base publisher turns AC-001 RED;
-#              reordering the ladder (fail-on above a missing artifact) turns
-#              AC-002 RED
+#              reordering the shared ladder (fail-on above a missing
+#              artifact) turns AC-002 RED; a --base-only rung putting fail-on
+#              above a missing artifact turns the behavioral AC-002 table
+#              (real gate pipeline and exit policy, both sources) RED
 #   MUT-002    leaving the kept-apart security findings out of the snapshot
 #              turns AC-003 RED
 # Unknown selector exits 64; infrastructure 79; behavioral failure 1.
@@ -98,7 +100,7 @@ replace_once() {
 }
 
 readonly ac001_tests=(TestAUR576OnePhaseListAndOneExitDecision TestRunFollowsTheOneOrder)
-readonly ac002_tests=(TestAUR576SameInputsSameExitOnBothSources TestExitPolicyPrecedence TestRankReasonOrder TestNotReviewedRules TestAUR557PathsShareOnePipeline)
+readonly ac002_tests=(TestAUR576SameInputsSameExitThroughTheSession TestAUR576SameInputsSameExitOnBothSources TestExitPolicyPrecedence TestRankReasonOrder TestNotReviewedRules TestAUR557PathsShareOnePipeline)
 readonly ac003_tests=(TestAUR576SnapshotHoldsTheSameFindingsOnBothSources)
 readonly pkgs=(./cmd/aurumcode/ ./internal/review/session/ ./internal/gate/)
 
@@ -152,6 +154,13 @@ run_mut001() {
     'return ExitDecision{ExitBehavioral, CauseArtifactMissing}, in.ArtifactsMissing && in.FindingsAtThreshold == 0'
   expect_red "$root" "$run_dir/mut1b.log" "${ac002_tests[@]}"
   grep -Eq -- '^--- FAIL: TestAUR576SameInputsSameExitOnBothSources' "$run_dir/mut1b.log" || fail 'mut001b-wrong-test'
+  root="$run_dir/root-mut1c"
+  stage "$root"
+  replace_once "$root/cmd/aurumcode/review_gate.go" \
+    'd := gate.ExitPolicy(gate.ExitInputs{' \
+    'if s.source.Label == "--base" && pub.artifactsMissing && s.findingsAtThreshold() > 0 { return gate.ExitFindings }; d := gate.ExitPolicy(gate.ExitInputs{'
+  expect_red "$root" "$run_dir/mut1c.log" "${ac002_tests[@]}"
+  grep -Eq -- '^--- FAIL: TestAUR576SameInputsSameExitThroughTheSession' "$run_dir/mut1c.log" || fail 'mut001c-wrong-test'
   printf '%s/%s/MUT-001/rejected\n' "$card" "$selector"
 }
 

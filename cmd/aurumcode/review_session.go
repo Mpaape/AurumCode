@@ -180,7 +180,15 @@ func (s *reviewState) modelDegraded() bool {
 	return s.model == modelProviderFailed || s.model == modelParseFailed
 }
 
+// qualityRequirement is --exigir-qualidade as the gate's typed value.
+func (s *reviewState) qualityRequirement() qualityRequirement {
+	if s.exigirQualidade {
+		return qualityRequired
+	}
+	return qualityOptional
+}
+
 // notReviewed applies this source's outcome table.
 func (s *reviewState) notReviewed() bool {
-	return s.source.NotReviewed.NotReviewed(s.model, s.exigirQualidade)
+	return s.source.NotReviewed.NotReviewed(s.model, s.qualityRequirement())
 }
