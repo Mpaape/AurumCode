@@ -1,0 +1,28 @@
+== txt-com-segredo
+$ aurumcode review --base main --fail-on error
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- config/tokens.txt
+
+
+```mermaid
+flowchart TD
+    n0["config/tokens.txt"]
+
+```
+config/tokens.txt:2: [error] O token esta escrito em texto puro. (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=3
+RESULTADO: o achado em config/tokens.txt reprovou: arquivo .txt e revisado, nao descartado como documentacao
+prompt: ### File: config/tokens.txt
+prompt: +DEMO_API_TOKEN=[REDACTED]
+prompt: - Code files in this diff: 1
+prompt: config/tokens.txt NAO esta na lista de documentacao excluida
