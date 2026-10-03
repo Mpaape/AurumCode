@@ -203,3 +203,27 @@ func mergeAssessments(merged, next []types.EvidenceAssessment) []types.EvidenceA
 	}
 	return merged
 }
+
+// codeFence opens and closes the block the proposed exceptions travel in on
+// a published review, so the YAML keeps its indentation.
+const codeFence = "```"
+
+// appendProposedExceptions adds the proposed exceptions to a published
+// review body as their own block, never as a limitation item.
+func appendProposedExceptions(body, proposed string) string {
+	if proposed == "" {
+		return body
+	}
+	return strings.TrimRight(body, "\n") + "\n\n" + codeFence + "text\n" + strings.TrimRight(proposed, "\n") + "\n" + codeFence + "\n"
+}
+
+// gateAlignedVerdict is the terminal report's verdict once the model's
+// triage changed what the gate counts: a declared gate that passes after a
+// demotion never reads "changes requested" (the --pr review event follows
+// the same rule, gateAlignedReviewEvent).
+func gateAlignedVerdict(verdict string, demoted int, res *gateDecision) string {
+	if demoted > 0 && res != nil && !res.Fail && !res.Inconclusive && verdict == "changes_requested" {
+		return "comment"
+	}
+	return verdict
+}

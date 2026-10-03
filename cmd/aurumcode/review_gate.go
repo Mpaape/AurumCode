@@ -187,6 +187,7 @@ func (s *reviewState) triage() gate.Triage {
 // reportTriage states every finding a dispute demoted, and proposes an
 // exception for every disputed finding that still counts.
 func (s *reviewState) reportTriage(demoted []gate.Demotion) {
+	s.triageDemoted = len(demoted)
 	for _, d := range demoted {
 		line := fmt.Sprintf("gate.triage (%s: model): %s:%d %s contestado pelo modelo deixou de contar", d.Source, d.Issue.File, d.Issue.Line, d.Issue.RuleID)
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
