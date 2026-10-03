@@ -127,7 +127,7 @@ expect_red() {
 
 run_ac004() {
   run_ac ac004 "${ac004_tests[@]}"
-  local expected="$repo_root/demo/tutoriais/gate/expected/achado-deterministico.txt"
+  local expected="$repo_root/demo/tutoriais/gate/expected/modelo-pondera.txt"
   [[ -f "$expected" ]] || fail tutorial-expected-missing
   grep -Fq 'avaliacao do modelo: disputed' "$expected" || fail tutorial-without-assessment
   grep -Fq 'Excecoes propostas pelo modelo' "$expected" || fail tutorial-without-proposed-exception

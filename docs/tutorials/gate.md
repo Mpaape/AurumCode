@@ -29,7 +29,7 @@ e [gate.sources](../configuration.md#gatesources-which-findings-count-toward-the
   produto publica. Não são um runner nem o GitHub.
 
 ```bash
-bash demo/tutoriais/gate/run.sh all      # executa os dez casos e grava out/
+bash demo/tutoriais/gate/run.sh all      # executa os onze casos e grava out/
 bash demo/tutoriais/gate/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -443,7 +443,7 @@ skills contavam. Os achados do passe de segurança contam sob a origem
 `analysis` de `gate.sources` (o catálogo embutido); com `sources: [skills]`
 não contam. Não é demonstrado aqui o `--pr`; ele é coberto por teste do `cmd`.
 
-## Caso 9, continuação: o modelo pondera a evidência
+## Caso 10: o modelo pondera a evidência
 
 Com provedor, os passes determinísticos rodam **antes** do modelo e o achado
 `analysis/hardcoded-secret` chega ao prompt como evidência `[E1]`. A fixture
@@ -507,7 +507,7 @@ gate:
     analysis: model
 ```
 
-<!-- saida: achado-deterministico -->
+<!-- saida: modelo-pondera -->
 ```text
 --- com provedor, o modelo contesta a evidencia; politica fail_on [high]
 aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
