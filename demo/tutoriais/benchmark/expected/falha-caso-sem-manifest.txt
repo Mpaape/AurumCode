@@ -1,0 +1,4 @@
+--- FAIL: TestAUR523RealBinaryOutputIsTheSource
+--- FAIL: TestAUR523CorpusLabeledVersionedWithDigest
+exit_code=1
+RESULTADO: caso sem manifest recusado pelo harness

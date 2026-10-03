@@ -1,0 +1,12 @@
+$ ./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-523
+oci-run: untrusted stdout: AUR-523/all/pass
+RESULTADO: aceite selado do card AUR-523 passou
+exit_code=78
+RESULTADO: profile nao registrado: exit 78
+exit_code=66
+RESULTADO: card inexistente: exit 66
+exit_code=64
+RESULTADO: uso errado (falta --card): exit 64
+exit_code=79
+RESULTADO: motor pedido (podman) indisponivel: exit 79
+nao demonstrado aqui: exit 69

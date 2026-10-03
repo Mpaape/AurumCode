@@ -1,0 +1,19 @@
+# Hosts que os tutoriais e suas demonstracoes podem citar (um por linha).
+# Lido pelos aceites AUR-561, AUR-562, AUR-563 e AUR-564 (uma lista so).
+# "." na frente: o host e todos os subdominios; sem ponto: so o host exato.
+# Reservados (RFC 2606 e loopback)
+.example.com
+.example.org
+.example.net
+.invalid
+.test
+localhost
+127.0.0.1
+# Hosts publicos que o produto ou o board realmente usam
+github.com
+api.github.com
+token.actions.githubusercontent.com
+docker.io
+ghcr.io
+# Falso positivo declarado: nome de pacote Java (import java.io.*) casa com o padrao de dominio
+java.io

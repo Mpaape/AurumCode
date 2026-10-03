@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# AUR-562 acceptance (offline): the four executable tutorials (gate, excecoes,
-# auditoria-sarif, reaproveitamento) are complete, coherent with their demonstrations, and
+# AUR-564 acceptance (offline): the three executable tutorials (qualquer-linguagem,
+# benchmark, operacao) are complete, coherent with their demonstrations, and
 # every command and flag they cite exists in the product.
 #
 # Selectors:
 #   all              every check below, then the mutation
-#   AC-001           the four tutorials exist, are indexed, are in the nav
+#   AC-001           the three tutorials exist, are indexed, are in the nav
 #                    (mkdocs.yml, or the nav entries the spec registers), and
 #                    each has >= 3 numbered use cases plus a failure case
 #   AC-002           run.sh --check passes on the versioned out/ of each
@@ -22,7 +22,7 @@ set -Eeuo pipefail
 export LC_ALL=C
 umask 077
 
-readonly card='AUR-562'
+readonly card='AUR-564'
 selector="${1:-all}"
 case "$selector" in
   all|AC-001|AC-002|AC-003|AC-004|AC-002-MUT-001) ;;
@@ -34,8 +34,8 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
-tutorials=(gate excecoes auditoria-sarif reaproveitamento)
-spec="$repo_root/docs/specs/AUR-562.md"
+tutorials=(qualquer-linguagem benchmark operacao)
+spec="$repo_root/docs/specs/AUR-564.md"
 
 for t in "${tutorials[@]}"; do
   for f in "$repo_root/docs/tutorials/$t.md" "$repo_root/demo/tutoriais/$t/run.sh"; do
@@ -49,7 +49,7 @@ for tool in awk grep sed diff cp mktemp find sort; do
   command -v "$tool" >/dev/null 2>&1 || infra "missing-tool:$tool"
 done
 
-work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a561.XXXXXX")" || infra mktemp
+work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a564.XXXXXX")" || infra mktemp
 trap 'chmod -R u+rwX "${work:?}" 2>/dev/null || true; rm -rf "${work:?}"' EXIT
 
 casos_of() { sed -n 's/^CASOS=(\(.*\))$/\1/p' "$repo_root/demo/tutoriais/$1/run.sh"; }
@@ -86,7 +86,7 @@ ac001() {
       grep -q "tutorials/$t.md" "$spec" || fail "AC-001/$t/nav-nao-registrado-na-spec"
     fi
   done
-  printf '%s/AC-001/ok (4 tutoriais, casos de uso e falha, indice e nav)\n' "$card"
+  printf '%s/AC-001/ok (3 tutoriais, casos de uso e falha, indice e nav)\n' "$card"
 }
 
 ac002() {
@@ -117,7 +117,7 @@ ac002() {
       grep -qF "$t/$c" "$spec" || fail "AC-002/spec-sem-registro:$t/$c"
     done
   done
-  printf '%s/AC-002/ok (--check dos 4 tutoriais; %d linhas de saida do texto presentes no out/; execucao real na spec)\n' "$card" "$nb"
+  printf '%s/AC-002/ok (--check dos 3 tutoriais; %d linhas de saida do texto presentes no out/; execucao real na spec)\n' "$card" "$nb"
 }
 
 # O binario do produto: .bin/aurumcode, AURUMCODE_BIN, aurumcode no PATH, ou go build.
@@ -163,12 +163,40 @@ ac003() {
       esac
     done
   done < <(sort -u "$work/cmds.txt")
-  (( n >= 10 )) || fail "AC-003/poucas-flags-conferidas:$n"
+  (( n >= 3 )) || fail "AC-003/poucas-flags-conferidas:$n"
   # as flags de politica e de gate citadas existem de fato
-  for name in politica base seguranca fail-on exigir-qualidade auditoria sarif pr repo publicar check modelo; do
+  for name in base fail-on; do
     grep -qE "^  -{1,2}$name( |\$)" "$work/help-review.txt" || fail "AC-003/review-sem-flag:$name"
   done
-  printf '%s/AC-003/ok (%d comandos distintos, %d flags conferidas contra --help)\n' "$card" "$(sort -u "$work/cmds.txt" | wc -l)" "$n"
+  # comandos dos blocos bash que nao sao do produto: scripts do board, go-shared, oci-run, go test
+  local doc ln s sub name2 k=0
+  for t in "${tutorials[@]}"; do
+    doc="$repo_root/docs/tutorials/$t.md"
+    awk '/^```/ { if (open) { open = 0 } else { open = ($0 == "```bash") } next } open { print }' "$doc" > "$work/blocks.txt"
+    while IFS= read -r ln; do
+      for s in $(grep -oE '\.board/bin/[a-z.-]+' <<<"$ln" || true); do
+        [[ -f "$repo_root/$s" ]] || fail "AC-003/$t/script-inexistente:$s"; k=$((k + 1))
+      done
+      if [[ "$ln" =~ go-shared[[:space:]]+(up|exec|status|down)($|[[:space:]]) ]]; then
+        sub="${BASH_REMATCH[1]}"; grep -qE "^[[:space:]]+$sub\)" "$repo_root/.board/bin/go-shared" || fail "AC-003/$t/go-shared-sem-subcomando:$sub"; k=$((k + 1))
+      elif [[ "$ln" == *go-shared* ]]; then fail "AC-003/$t/go-shared-subcomando-invalido:$ln"; fi
+      if [[ "$ln" == *oci-run* ]]; then
+        for s in $(grep -oE -- '--[a-z-]+' <<<"$ln"); do
+          grep -qF -- "'$s'" "$repo_root/.board/bin/oci-run" || grep -qE -- "^[[:space:]]+$s\)" "$repo_root/.board/bin/oci-run" || fail "AC-003/$t/oci-run-sem-flag:$s"; k=$((k + 1))
+        done
+      fi
+      if [[ "$ln" == *"go test"* ]]; then
+        for s in $(grep -oE -- '-run [A-Za-z0-9_]+' <<<"$ln" | cut -d' ' -f2); do
+          grep -rqE "^func $s" "$repo_root/tests/benchmark" "$repo_root/internal/grammar" || fail "AC-003/$t/teste-inexistente:$s"; k=$((k + 1))
+        done
+        for s in $(grep -oE -- '-update-[a-z0-9]+' <<<"$ln" | cut -c2-); do
+          grep -rqF "\"$s\"" "$repo_root/tests/benchmark" || fail "AC-003/$t/flag-de-teste-inexistente:$s"; k=$((k + 1))
+        done
+      fi
+    done < "$work/blocks.txt"
+  done
+  (( k >= 12 )) || fail "AC-003/poucas-conferencias-do-board:$k"
+  printf '%s/AC-003/ok (%d comandos do produto, %d flags conferidas contra --help; %d conferencias de scripts do board, go-shared, oci-run e go test)\n' "$card" "$(sort -u "$work/cmds.txt" | wc -l)" "$n" "$k"
 }
 
 ac004() {
@@ -187,9 +215,20 @@ ac004() {
       [[ -s "$work/bloco" ]] || fail "AC-004/$t/bloco-ausente:$path"
       diff -u "$repo_root/$path" "$work/bloco" >/dev/null || fail "AC-004/$t/bloco-diverge:$path"
     done < <(sed -n 's/^<!-- arquivo: \(.*\) -->$/\1/p' "$doc")
-    (( n >= 1 )) || fail "AC-004/$t/blocos-insuficientes:$n"
+    (( n >= 3 )) || fail "AC-004/$t/blocos-insuficientes:$n"
     total=$((total + n))
   done
+  # AC-004 do card: cada script de .board/bin e cada profile registrado e citado no tutorial de operacao
+  local op="$repo_root/docs/tutorials/operacao.md" key
+  for f in "$repo_root"/.board/bin/*; do
+    name="${f##*/}"
+    grep -qF "\`$name\`" "$op" || fail "AC-004/operacao-nao-cita-script:$name"
+  done
+  while IFS= read -r key; do
+    grep -qF "\`$key\`" "$op" || fail "AC-004/operacao-nao-cita-profile:$key"
+  done < <(grep -oE '"key"[[:space:]]*:[[:space:]]*"[^"]+"' "$repo_root/.board/oci/profiles/registry.v1.json" | sed -E 's/.*"([^"]+)"$/\1/')
+  (( $(grep -oE '"key"[[:space:]]*:' "$repo_root/.board/oci/profiles/registry.v1.json" | wc -l) >= 11 )) || fail "AC-004/registry-com-menos-de-11-profiles"
+  grep -qF '`trust-root-docker-v1`' "$op" || fail "AC-004/operacao-nao-cita-profile-fora-do-registro"
   # so dominios reservados; nenhum segredo
   local files=() f host bad=''
   while IFS= read -r f; do files+=("$f"); done < <(find "$repo_root/demo/tutoriais" "$repo_root/docs/tutorials" "$spec" -type f ! -path '*/.estado/*')
@@ -238,7 +277,7 @@ mut001() {
       if grep -qF -- "$first" "$copy/out/$c.log"; then fail "AC-002-MUT-001/$t/$c/linha-nao-removida"; fi
       # roda o --check da copia: o run.sh da copia usa o _lib relativo a ela
       mkdir -p "$work/m-$t/$c/_lib" "$work/m-$t/$c/$t"
-      cp -R "$repo_root/demo/tutoriais/_lib/." "$work/m-$t/$c/_lib/"
+      cp "$repo_root/demo/tutoriais/_lib/tutorial.sh" "$work/m-$t/$c/_lib/"
       cp -R "$copy/." "$work/m-$t/$c/$t/"
       if bash "$work/m-$t/$c/$t/run.sh" --check >"$work/mut.out" 2>&1; then
         fail "AC-002-MUT-001/$t/$c/mutacao-sobreviveu"

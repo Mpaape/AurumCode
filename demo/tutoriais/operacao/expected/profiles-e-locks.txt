@@ -1,0 +1,6 @@
+profiles no registry: 11
+profile go-unit-offline-v1: lock ok
+profile.json sem entrada no registry: ['trust-root-docker-v1']
+go-unit-offline-v1.network = none
+go-unit-offline-v1.user = 65534:65534
+RESULTADO: todo profile do registry tem lock com o digest declarado

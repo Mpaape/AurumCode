@@ -1,0 +1,39 @@
+== entrega-e-evidencia
+--- Delivery record do card AUR-561 (done)
+## Delivery record
+
+- commit: 451e8e78d5d549a7966575b0f51d05b4f398efda
+- review: approved
+- validation: passed
+--- .board/evidence/AUR-561/validated.json
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-561",
+  "commit": "451e8e78d5d549a7966575b0f51d05b4f398efda",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-561",
+    "exit_code": 0,
+    "raw_output": "AUR-561/all/ok"
+  }
+}
+$ bash .board/pipeline.sh
+board note: allowlisted legacy done card without delivery record: AUR-359
+board note: allowlisted legacy done card without delivery record: AUR-017
+board note: allowlisted legacy done card without delivery record: AUR-016
+board note: allowlisted legacy done card without delivery record: AUR-015
+board note: allowlisted legacy done card without delivery record: AUR-364
+board note: allowlisted legacy done card without delivery record: AUR-361
+board note: allowlisted legacy done card without delivery record: AUR-360
+board note: allowlisted legacy done card without delivery record: AUR-363
+board note: allowlisted legacy done card without delivery record: AUR-362
+board note: allowlisted legacy done card without delivery record: AUR-020
+board note: allowlisted legacy done card without delivery record: AUR-021
+board lane doing: 0 card(s)
+board lane review: 0 card(s)
+board lane validating: 0 card(s)
+board valid: 566 atomic cards
+exit_code=0
+RESULTADO: o pipeline valida o board inteiro, inclusive que todo done tem validated.json com o commit do card

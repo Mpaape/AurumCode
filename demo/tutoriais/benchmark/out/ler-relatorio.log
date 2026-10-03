@@ -1,0 +1,19 @@
+== ler-relatorio
+--- tests/benchmark/out/multilang-report.md (versionado)
+| language | cases | defects | detected | recall | recall 95% CI | precision | precision 95% CI | false positives | approved with defect |
+|---|---|---|---|---|---|---|---|---|---|
+| csharp | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 1.0000 | [0.3424, 1.0000] | 0 | 0 |
+| go | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 1.0000 | [0.3424, 1.0000] | 0 | 0 |
+| java | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 1.0000 | [0.3424, 1.0000] | 0 | 0 |
+| javascript | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 1.0000 | [0.3424, 1.0000] | 0 | 0 |
+| php | 3 | 2 | 1 | 0.5000 | [0.0945, 0.9055] | 1.0000 | [0.2065, 1.0000] | 0 | 1 |
+| python | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 1.0000 | [0.3424, 1.0000] | 0 | 0 |
+| ruby | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 0.6667 | [0.2077, 0.9385] | 1 | 0 |
+| rust | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 0.6667 | [0.2077, 0.9385] | 1 | 0 |
+| total | 24 | 16 | 15 | 0.9375 | [0.7167, 0.9889] | 0.8824 | [0.6566, 0.9671] | 2 | 1 |
+modo: fake-provider-deterministic
+total: casos=24 defeitos=16 detectados=15 perdidos=1 achados=17 falsos_positivos=2
+total: recall=0.9375 IC95=[0.7167, 0.9889]
+total: precisao=0.8824 IC95=[0.6566, 0.9671]
+conclusao do script: toda linguagem tem so 2 defeitos; o IC95 de recall 1.0 comeca em 0.3424 (amostra pequena)
+RESULTADO: relatorio lido; recall e precisao sempre com intervalo de Wilson
