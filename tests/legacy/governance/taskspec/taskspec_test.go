@@ -39,7 +39,7 @@ func TestAUR003(t *testing.T) {
 	if !ok {
 		t.Fatal("could not locate schema fixture")
 	}
-	schemaPath := filepath.Join(filepath.Dir(sourceFile), "../../../.board/schemas/task-spec.schema.json")
+	schemaPath := filepath.Join(filepath.Dir(sourceFile), "../../../../.board/schemas/task-spec.schema.json")
 	schema, err := os.ReadFile(schemaPath)
 	if err != nil {
 		t.Fatalf("read schema: %v", err)

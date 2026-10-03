@@ -36,7 +36,7 @@ done
 for path in \
   go.mod \
   go.sum \
-  internal/governance/dag/dag.go \
+  tests/legacy/governance/dag/dag.go \
   tests/unit/AUR-004.go \
   tests/integration/AUR-004.go \
   tests/specs/AUR-004/cases.yaml \

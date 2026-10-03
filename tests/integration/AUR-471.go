@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	policy "github.com/Mpaape/AurumCode/internal/config/policy"
 	"github.com/Mpaape/AurumCode/pkg/types"
+	policy "github.com/Mpaape/AurumCode/tests/legacy/config/policy"
 )
 
 func IntegrationAUR471(t *testing.T) {

@@ -2,7 +2,7 @@ package unit
 
 // Unit program for card AUR-471, selector TestAUR471.
 //
-// Proves internal/config/policy in isolation, no CLI and no model:
+// Proves tests/legacy/config/policy in isolation, no CLI and no model:
 //   - declared weights drive a per-characteristic and an aggregate score
 //     that are coherent with the file (weight*score, rounded sum);
 //   - invalid sum, negative weight and unknown characteristic each fail
@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	policy "github.com/Mpaape/AurumCode/internal/config/policy"
 	"github.com/Mpaape/AurumCode/pkg/types"
+	policy "github.com/Mpaape/AurumCode/tests/legacy/config/policy"
 )
 
 func TestAUR471(t *testing.T) {
