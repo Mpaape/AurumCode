@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -131,9 +132,16 @@ func (b *PromptBuilder) formatLanguages(metrics *analyzer.DiffMetrics) string {
 		return ""
 	}
 
+	// Map iteration order is random; the languages are rendered sorted so
+	// the same diff always produces the same prompt bytes (and digest).
+	langs := make([]string, 0, len(metrics.LanguageBreakdown))
+	for lang := range metrics.LanguageBreakdown {
+		langs = append(langs, lang)
+	}
+	sort.Strings(langs)
 	var sb strings.Builder
-	for lang, count := range metrics.LanguageBreakdown {
-		sb.WriteString(fmt.Sprintf("- %s: %d files\n", lang, count))
+	for _, lang := range langs {
+		sb.WriteString(fmt.Sprintf("- %s: %d files\n", lang, metrics.LanguageBreakdown[lang]))
 	}
 	return sb.String()
 }
