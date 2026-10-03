@@ -200,19 +200,21 @@ você confere e aplica.
 
 ```bash
 aurumcode fix --file sugestoes.json > fix.patch
-git apply --unidiff-zero --check fix.patch
-git apply --unidiff-zero fix.patch
+git apply --check fix.patch
+git apply fix.patch
 ```
 
 <!-- saida: fix -->
 ```text
+@@ -3,6 +3,6 @@
 -	dbPassword := "hunter2"
 +	dbPassword := os.Getenv("DB_PASSWORD")
-git apply --unidiff-zero --check: o patch aplica
+git apply --check: o patch aplica
 ```
 
-O que observar: o patch não tem linhas de contexto (`@@ -6,1 +6,1 @@`), por
-isso o `git apply` precisa de `--unidiff-zero`. O patch troca só a linha
+O que observar: o patch é um diff unificado padrão, com três linhas de
+contexto do próprio arquivo ao redor da troca (`@@ -3,6 +3,6 @@`), por isso o
+`git apply` e o `patch -p1` aceitam sem nenhuma flag. O patch troca só a linha
 sugerida: acrescentar `import "os"` continua sendo seu. O `current_code` é
 conferido contra o arquivo antes de o patch ser considerado aplicável.
 
@@ -221,7 +223,7 @@ a linha já ter sido trocada:
 
 <!-- saida: fix -->
 ```text
-aurumcode fix: patch does not apply to the working tree
+aurumcode fix: app.go:6: working tree does not match the suggestion's current_code
 exit_code=1
 RESULTADO: sugestao velha recusada, sem patch
 ```
@@ -349,8 +351,8 @@ veredito `Comment` sem `Approve` foi demonstrado nos dois casos acima.
   `binary file, skipped`; arquivos filtrados não foram revisados.
 - **Achado "descartado pelo gate de escopo e evidência"**: o modelo citou uma
   linha que não está no diff, ou sem evidência concreta. Isso é proposital.
-- **`git apply` recusa o patch do `fix`**: use `--unidiff-zero`; se mesmo assim
-  recusar, o arquivo mudou depois da revisão (a sugestão está velha).
+- **`git apply` recusa o patch do `fix`**: o arquivo mudou depois da revisão
+  (a sugestão está velha); o `fix` já recusa isso e nomeia arquivo e linha.
 - **`--base` não vê minha mudança**: ele compara com o commit `HEAD`; faça
   commit antes.
 - **Erro 403 ao publicar no PR**: confira `pull-requests: write` no workflow
