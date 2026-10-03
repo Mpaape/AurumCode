@@ -1,4 +1,4 @@
 - commit: 451e8e78d5d549a7966575b0f51d05b4f398efda
 "validation": "passed",
-board valid:
+board valid: <N> atomic cards
 RESULTADO: o pipeline valida o board inteiro

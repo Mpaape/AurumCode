@@ -111,7 +111,10 @@ ac002() {
     [[ -s "$work/saidas.tsv" ]] || fail "AC-002/$t/sem-saidas-no-texto"
     while IFS=$'\t' read -r c line; do
       [[ -n "$line" ]] || continue
-      grep -qF -- "$line" "$demo/out/$c.log" || fail "AC-002/$t/saida-do-texto-nao-esta-no-out:$c:$line"
+      # valores volateis (contagem do board, datas, tags geradas) aparecem no texto
+      # na forma de demo/tutoriais/_lib/normaliza.sed; o out/ e normalizado igual.
+      [[ -f "$work/norm-$t-$c.log" ]] || sed -E -f "$repo_root/demo/tutoriais/_lib/normaliza.sed" "$demo/out/$c.log" > "$work/norm-$t-$c.log"
+      grep -qF -- "$line" "$work/norm-$t-$c.log" || fail "AC-002/$t/saida-do-texto-nao-esta-no-out:$c:$line"
       nb=$((nb + 1))
     done < "$work/saidas.tsv"
     # nenhuma fase terminou em ERRO
@@ -318,11 +321,12 @@ mut001() {
       # a linha que prova o caso: a primeira linha esperada que nao e o eco do comando
       first="$(grep -vE '^(#|$)' "$copy/expected/$c.txt" | grep -vF '$ aurumcode' | sed -n '1p')"
       [[ -n "$first" ]] || first="$(grep -vE '^(#|$)' "$copy/expected/$c.txt" | sed -n '1p')"
-      grep -vF -- "$first" "$repo_root/demo/tutoriais/$t/out/$c.log" > "$copy/out/$c.log" || true
+      # o out/ entra normalizado (a linha esperada esta na forma normalizada)
+      sed -E -f "$repo_root/demo/tutoriais/_lib/normaliza.sed" "$repo_root/demo/tutoriais/$t/out/$c.log" | grep -vF -- "$first" > "$copy/out/$c.log" || true
       if grep -qF -- "$first" "$copy/out/$c.log"; then fail "AC-002-MUT-001/$t/$c/linha-nao-removida"; fi
       # roda o --check da copia: o run.sh da copia usa o _lib relativo a ela
       mkdir -p "$work/m-$t/$c/_lib" "$work/m-$t/$c/$t"
-      cp "$repo_root"/demo/tutoriais/_lib/*.sh "$work/m-$t/$c/_lib/"
+      cp "$repo_root"/demo/tutoriais/_lib/*.sh "$repo_root/demo/tutoriais/_lib/normaliza.sed" "$work/m-$t/$c/_lib/"
       cp -R "$copy/." "$work/m-$t/$c/$t/"
       if bash "$work/m-$t/$c/$t/run.sh" --check >"$work/mut.out" 2>&1; then
         fail "AC-002-MUT-001/$t/$c/mutacao-sobreviveu"

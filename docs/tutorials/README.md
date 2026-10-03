@@ -3,7 +3,10 @@
 Cada tutorial é executável: os blocos de configuração são os arquivos de
 `demo/tutoriais/<tutorial>/`, cada caso roda como uma fase (`run.sh <caso>`),
 a saída da última execução real fica em `out/` e `run.sh --check` a compara
-com `expected/`. Para criar um tutorial novo, veja
+com `expected/` (depois de conferir que `out/.imagem` foi gravado pela imagem desta
+árvore). Valores que mudam com o board ou o relógio aparecem nos blocos pela forma
+(`board valid: <N> atomic cards`, `<timestamp>`, `<duracao>`); a notação está em
+`demo/tutoriais/README.md`. Para criar um tutorial novo, veja
 `demo/tutoriais/README.md`.
 
 | Tutorial | Casos de uso |
