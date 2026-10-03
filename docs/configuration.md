@@ -1095,7 +1095,10 @@ gate:
 ```
 
 `triage` keys are the `gate.sources` names (`skills`, `analysis`, `sast`);
-values are `model` or `none` (the default). An unknown key or value is a
+values are `model` or `none` (the default). The evidence the model assesses
+is the deterministic one (`analysis`, the `--seguranca` pass counted under
+`analysis`, and `sast`); a skill-section finding is the model's own citation,
+so `skills: model` is accepted but has nothing to demote today. An unknown key or value is a
 load error. A demotion is never silent: stderr and the review's limitations
 name each demoted finding (`gate.triage (analysis: model): app.go:6 ...`).
 Under a central policy `triage` is ignored, including a `triage` the policy
