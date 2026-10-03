@@ -39,6 +39,36 @@ Uma skill é um Markdown com orientações de revisão, sem execução de script
 Liste apenas arquivos existentes. `context.prompt` permite substituir o
 caminho do prompt adicional, mantendo a política embutida do produto.
 
+### Skills em diretório, por linguagem
+
+Além da lista `context.skills`, o review lê `.aurumcode/skills/<nome>/SKILL.md`
+sem precisar listar nada. O arquivo abre com um bloco de metadados:
+
+```markdown
+---
+name: estilo-ts
+version: 1
+languages: [ts]
+paths: ["src/**"]
+---
+Em TypeScript, prefira unknown a any.
+```
+
+A skill vale para o review quando **todos** os critérios declarados casam com
+algum arquivo alterado: `languages` (nome da gramática do produto ou apelido do
+catálogo, como `ts` ou `golang`; a linguagem do arquivo vem da gramática) e
+`paths` (globs). Sem nenhum dos dois a skill fica desligada. Um apelido que o
+catálogo não conhece é declarado no contexto enviado ao modelo
+(`### Skill selection warnings`) e na seção de limitações do parecer; a
+política pode acrescentar apelidos em `.aurumcode/grammar/aliases.yml`.
+
+A política central pode ter as suas skills em `<política>/.aurumcode/skills/`.
+Se uma skill da política e uma do repositório declaram o mesmo seletor, a da
+política vence e o repositório recebe um aviso. Um `SKILL.md` ilegível na
+política é erro de carga; no repositório é declarado e o review continua sem
+essas skills. Os arquivos `.aurumcode/instructions/*.md` com `applyTo`
+continuam valendo.
+
 O PR usa configuração e contexto da branch base; o idioma pode vir da versão
 do PR. Isso significa que um novo prompt só passa a orientar reviews depois
 de integrado à base. O uso local lê os arquivos do checkout.

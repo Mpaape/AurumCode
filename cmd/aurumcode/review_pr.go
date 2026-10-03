@@ -46,6 +46,7 @@ type prReview struct {
 	reviewLanguage      string
 	centralCfg          *config.Config
 	policyWarnings      []config.ProviderWarning
+	skillNotices        []string
 	publication         string
 	inlineComments      bool
 	ignoredPaths        []string
