@@ -33,7 +33,7 @@ command -v go >/dev/null 2>&1 || infra missing_go
 for input in go.mod go.sum cmd internal pkg tests/benchmark; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
-for f in cmd/aurumcode/gate_sources.go cmd/aurumcode/aur556_test.go internal/config/gate.go tests/benchmark/aur556_test.go; do
+for f in internal/gate/sources.go cmd/aurumcode/aur556_test.go internal/config/gate.go tests/benchmark/aur556_test.go; do
   [[ -f "$repo_root/$f" ]] || infra "missing-source:$f"
 done
 
@@ -86,7 +86,7 @@ run_ac004() {
            TestAUR523ReportPerLanguage; do need_pass "$log" "$n"; done
 }
 run_mutation() {
-  local target="$run_dir/root/cmd/aurumcode/gate_sources.go"
+  local target="$run_dir/root/internal/gate/sources.go"
   local anchor='if !gate.Declared() || !gate.SourceEnabled(config.GateSourceAnalysis) {'
   [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra mutation-anchor
   sed -i "s/if !gate.Declared() || !gate.SourceEnabled(config.GateSourceAnalysis) {/if true { \/\/ MUT-001: only skills count/" "$target"

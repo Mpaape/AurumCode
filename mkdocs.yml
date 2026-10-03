@@ -41,6 +41,7 @@ nav:
   - Começando: getting-started.md
   - Referência: configuration.md
   - Guia corporativo: gate-corporativo.md
+  - Arquitetura: architecture.md
   - Qualidade e benchmark:
     - review-quality.md
     - benchmark.md

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # AUR-548 acceptance: Semgrep, a multi-language SAST pass, runs over the
 # whole reviewed tree through quality_gates.sast and feeds its own,
-# independent gate decision (applySASTGate, cmd/aurumcode/aur548.go),
+# independent gate decision (applySASTGate, cmd/aurumcode/sast_pass.go),
 # folded into the same gateDecision AUR-519's evaluateGate already
 # produces. See docs/specs/AUR-548.md for the full account. Modeled on
 # tests/acceptance/AUR-537.sh.
@@ -69,9 +69,9 @@ done
 for source in \
   cmd/aurumcode/main.go \
   cmd/aurumcode/pr.go \
-  cmd/aurumcode/aur548.go \
+  cmd/aurumcode/sast_pass.go \
   cmd/aurumcode/policygate.go \
-  cmd/aurumcode/aur521.go \
+  cmd/aurumcode/compliance_artifacts.go \
   internal/analysis/semgrep.go \
   internal/config/sast.go \
   internal/config/central.go; do

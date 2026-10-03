@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	igate "github.com/Mpaape/AurumCode/internal/gate"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,12 +17,12 @@ import (
 )
 
 func TestAUR519EvaluateGateNoGateDeclared(t *testing.T) {
-	d, err := evaluateGate(config.GateConfig{}, gateOriginPolicy, nil, nil, "", nil, "", time.Now())
+	d, err := igate.EvaluateGate(config.GateConfig{}, gateOriginPolicy, nil, nil, "", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if d.Active || d.Fail {
-		t.Fatalf("evaluateGate() with no gate declared = %+v, want inactive and passing", d)
+		t.Fatalf("igate.EvaluateGate() with no gate declared = %+v, want inactive and passing", d)
 	}
 }
 
@@ -36,15 +37,15 @@ func TestAUR519EvaluateGateSeverityBreach(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "error", RuleID: "security#no-hardcoded-secrets", Message: "leak"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Active || !d.Fail {
-		t.Fatalf("evaluateGate() = %+v, want active and failing", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want active and failing", d)
 	}
 	if len(d.Lines) != 1 || !containsAll(d.Lines[0], "security#no-hardcoded-secrets", "No Hardcoded Secrets") {
-		t.Fatalf("evaluateGate() lines = %v, want the skill/section named (AC-001)", d.Lines)
+		t.Fatalf("igate.EvaluateGate() lines = %v, want the skill/section named (AC-001)", d.Lines)
 	}
 }
 
@@ -59,12 +60,12 @@ func TestAUR519EvaluateGateRepoOriginNeverFails(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "error", RuleID: "convencao#estilo", Message: "estilo"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if d.Fail {
-		t.Fatalf("evaluateGate() = %+v, want passing: a repo-origin finding must never fail a policy's gate", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want passing: a repo-origin finding must never fail a policy's gate", d)
 	}
 }
 
@@ -76,24 +77,24 @@ func TestAUR519EvaluateGateRepoOriginNeverFails(t *testing.T) {
 // inconclusiveReason regardless of how many issues ended up in the slice.
 func TestAUR519EvaluateGateInconclusiveBlockAndWarn(t *testing.T) {
 	block := config.GateConfig{Inconclusive: "block"}
-	d, err := evaluateGate(block, gateOriginPolicy, nil, nil, "provider_failure", nil, "", time.Now())
+	d, err := igate.EvaluateGate(block, gateOriginPolicy, nil, nil, "provider_failure", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Fail || !d.Inconclusive {
-		t.Fatalf("evaluateGate() with inconclusive:block = %+v, want failing and inconclusive", d)
+		t.Fatalf("igate.EvaluateGate() with inconclusive:block = %+v, want failing and inconclusive", d)
 	}
 
 	warn := config.GateConfig{Inconclusive: "warn"}
-	d, err = evaluateGate(warn, gateOriginPolicy, nil, nil, "provider_failure", nil, "", time.Now())
+	d, err = igate.EvaluateGate(warn, gateOriginPolicy, nil, nil, "provider_failure", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if d.Fail {
-		t.Fatalf("evaluateGate() with inconclusive:warn = %+v, want passing", d)
+		t.Fatalf("igate.EvaluateGate() with inconclusive:warn = %+v, want passing", d)
 	}
 	if !d.Inconclusive || len(d.Lines) == 0 {
-		t.Fatalf("evaluateGate() with inconclusive:warn = %+v, want a visible alert", d)
+		t.Fatalf("igate.EvaluateGate() with inconclusive:warn = %+v, want a visible alert", d)
 	}
 }
 
@@ -128,15 +129,15 @@ func TestAUR519EvaluateGateWarnStillFailsOnBreach(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "error", RuleID: "security#no-hardcoded-secrets", Message: "leak"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "partial_coverage", nil, "", time.Now())
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "partial_coverage", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Fail || !d.Breach {
-		t.Fatalf("evaluateGate() = %+v, want Fail and Breach: a real breach must close the gate even under inconclusive:warn", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Fail and Breach: a real breach must close the gate even under inconclusive:warn", d)
 	}
 	if !d.Inconclusive {
-		t.Fatalf("evaluateGate() = %+v, want Inconclusive still reported alongside the breach", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Inconclusive still reported alongside the breach", d)
 	}
 }
 
@@ -155,12 +156,12 @@ func TestAUR519EvaluateGateRuleSeverityFloorsModel(t *testing.T) {
 	issues := []types.ReviewIssue{
 		{File: "a.go", Line: 1, Severity: "info", RuleID: "security#no-hardcoded-secrets", Message: "leak, downgraded by the model"},
 	}
-	d, err := evaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, dynamic, issues, "", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if !d.Fail || !d.Breach {
-		t.Fatalf("evaluateGate() = %+v, want Fail: the rule's own \"severity: error\" must floor the model's downgraded \"info\"", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Fail: the rule's own \"severity: error\" must floor the model's downgraded \"info\"", d)
 	}
 }
 
@@ -173,15 +174,15 @@ func TestAUR519EvaluateGateRuleSeverityFloorsModel(t *testing.T) {
 // blocking).
 func TestAUR519EvaluateGateFailOnWithoutInconclusiveNeverApproves(t *testing.T) {
 	gate := config.GateConfig{FailOn: []string{"high"}}
-	d, err := evaluateGate(gate, gateOriginPolicy, nil, nil, "degraded_parse", nil, "", time.Now())
+	d, err := igate.EvaluateGate(gate, gateOriginPolicy, nil, nil, "degraded_parse", nil, "", time.Now())
 	if err != nil {
-		t.Fatalf("evaluateGate() error = %v", err)
+		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
 	if d.Fail {
-		t.Fatalf("evaluateGate() = %+v, want not Fail: absent gate.inconclusive stays warn-equivalent", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want not Fail: absent gate.inconclusive stays warn-equivalent", d)
 	}
 	if !d.Inconclusive || len(d.Lines) == 0 {
-		t.Fatalf("evaluateGate() = %+v, want Inconclusive with a visible reason", d)
+		t.Fatalf("igate.EvaluateGate() = %+v, want Inconclusive with a visible reason", d)
 	}
 
 	// The published status must say "inconclusiva", never "aprovado".

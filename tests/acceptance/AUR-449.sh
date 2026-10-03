@@ -347,10 +347,10 @@ mutation_case() {
   local root="$run_dir/root-mut"
   stage_source "$root"
 
-  local target="$root/cmd/aurumcode/main.go"
+  local target="$root/cmd/aurumcode/review_base_analysis.go"
   [[ -f "$target" ]] || fail 'MUT-001/target-missing'
-  local anchor=$'\tif providerErr != nil && *modelo == "" && errors.Is(providerErr, errNoProviderConfigured) {'
-  local replacement=$'\tif providerErr != nil && *modelo == "" && errors.Is(providerErr, errNoProviderConfigured) && false {'
+  local anchor=$'\tif b.providerErr != nil && f.modelo == "" && errors.Is(b.providerErr, errNoProviderConfigured) {'
+  local replacement=$'\tif b.providerErr != nil && f.modelo == "" && errors.Is(b.providerErr, errNoProviderConfigured) && false {'
   [[ "$(grep -Fxc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
   awk -v anchor="$anchor" -v replacement="$replacement" '
     $0 == anchor { print replacement; found++; next }
