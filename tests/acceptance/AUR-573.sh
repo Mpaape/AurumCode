@@ -99,7 +99,12 @@ ac003() {
 mutation_001() {
   local stage; stage="$(mktemp -d)"
   trap 'chmod -R u+w -- "$stage" 2>/dev/null || true; rm -rf -- "$stage"' RETURN
-  ( cd "$repo_root" && tar --exclude=.git -cf - . ) | tar -xf - -C "$stage"
+  local top
+  for top in go.mod go.sum cmd internal pkg; do
+    [[ -e "$repo_root/$top" ]] || continue
+    cp -R "$repo_root/$top" "$stage/$top"
+  done
+  chmod -R u+w -- "$stage"
   mkdir "$stage/.git"   # present but unusable: with GIT_DIR invalid, VCS stamping errors
   local target="$stage/internal/artifacts/artifacts_test.go"
   grep -Fq '"go", "build", "-buildvcs=false", "-o", bin, "./cmd/analysis-data"' "$target" || infra 'mutation-anchor-missing'
