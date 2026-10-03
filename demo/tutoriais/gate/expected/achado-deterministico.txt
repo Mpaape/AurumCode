@@ -6,3 +6,20 @@ RESULTADO: warn: o achado [error] do passe de seguranca reprova (exit 3), origem
 origens na auditoria: security
 RESULTADO: block: o achado reprova com exit 3, nao so o inconclusivo
 RESULTADO: warn sem achado deterministico continua so avisando (exit 0)
+--- com provedor, o modelo contesta a evidencia; politica fail_on [high]
+aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
+  origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
+Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).
+  - repo: "<owner/repo a definir>"
+    rule: "analysis/hardcoded-secret"
+    owner: "<dono a definir>"
+avaliacoes na auditoria: analysis analysis/hardcoded-secret -> E1 disputed
+RESULTADO: a politica conta o achado contestado (exit 3) e o parecer propoe a excecao, sem aplica-la
+--- o modelo confirma a mesma evidencia
+  origem: analysis | avaliacao do modelo: confirmed [E1] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime.
+RESULTADO: confirmado: o achado conta e nenhuma excecao e proposta
+--- sem politica central, o repositorio declara gate.triage analysis: model
+aurumcode review: gate.triage (analysis: model): app.go:6 analysis/hardcoded-secret contestado pelo modelo deixou de contar
+  origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
+exit_code=0
+RESULTADO: sem politica, a contestacao rebaixa o achado (gate.triage: model) e o gate aprova

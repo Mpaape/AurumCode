@@ -1,0 +1,39 @@
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "[E1] origem=analysis regra=analysis/hardcoded-secret",
+        "response": {
+          "verdict": "comment",
+          "strengths": [],
+          "issues": [],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "O modelo avaliou a evidencia deterministica.",
+          "evidence_assessments": [
+            {
+              "evidence_id": "E1",
+              "status": "disputed",
+              "justification": "O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.",
+              "correlates_with": [],
+              "priority": "low",
+              "suggestion": "Mover o exemplo para um arquivo de teste."
+            }
+          ]
+        }
+      }
+    ],
+    "default": {
+      "verdict": "approve",
+      "strengths": [],
+      "issues": [],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "Nenhuma evidencia deterministica recebida."
+    }
+  }
+}
