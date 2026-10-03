@@ -112,7 +112,7 @@ func TestAUR565LanguageSelectsSkill(t *testing.T) {
 			aur565WriteSkill(t, root, "estilo-ts", aur565TSSkill)
 			prompt, _, _ := aur565Review(t)
 			if got := strings.Contains(prompt, "MARCADOR-ESTILO-TS"); got != tc.want {
-				t.Fatalf("skill in prompt = %v, want %v for %s:\n%s", got, tc.want, tc.file, prompt)
+				t.Fatalf("skill in prompt = %v, want %v for %s (prompt of %d bytes)", got, tc.want, tc.file, len(prompt))
 			}
 		})
 	}
@@ -127,18 +127,18 @@ func TestAUR565AliasResolvesAndUnknownIsDeclared(t *testing.T) {
 	aur565WriteSkill(t, root, "alias-ruim", "---\nname: alias-ruim\nlanguages: [linguagem-inexistente]\n---\nMARCADOR-ALIAS-RUIM\n")
 	prompt, stdout, _ := aur565Review(t)
 	if !strings.Contains(prompt, "MARCADOR-ALIAS-TS") {
-		t.Fatalf("alias ts did not select the skill:\n%s", prompt)
+		t.Fatalf("alias ts did not select the skill (prompt of %d bytes)", len(prompt))
 	}
 	if strings.Contains(prompt, "MARCADOR-ALIAS-RUIM") {
-		t.Fatalf("a skill with an unknown language must match nothing:\n%s", prompt)
+		t.Fatalf("a skill with an unknown language must match nothing (prompt of %d bytes)", len(prompt))
 	}
 	for name, text := range map[string]string{"prompt": prompt, "review": stdout} {
 		if !strings.Contains(text, `unknown language "linguagem-inexistente"`) {
-			t.Errorf("unknown alias not declared in the %s:\n%s", name, text)
+			t.Errorf("unknown alias not declared in the %s (%d bytes)", name, len(text))
 		}
 	}
 	if !strings.Contains(prompt, "### Skill selection warnings") {
-		t.Errorf("prompt has no selection warnings block:\n%s", prompt)
+		t.Errorf("prompt has no selection warnings block (%d bytes)", len(prompt))
 	}
 }
 
@@ -152,14 +152,14 @@ func TestAUR565PolicySkillWinsOverRepo(t *testing.T) {
 	aur565WriteSkill(t, policy, "org-ts", "---\nname: org-ts\nlanguages: [typescript]\n---\nMARCADOR-POLITICA\n")
 	prompt, stdout, _ := aur565Review(t, "--politica", policy)
 	if !strings.Contains(prompt, "MARCADOR-POLITICA") {
-		t.Fatalf("policy skill missing from the prompt:\n%s", prompt)
+		t.Fatalf("policy skill missing from the prompt (%d bytes)", len(prompt))
 	}
 	if strings.Contains(prompt, "MARCADOR-REPO") {
-		t.Fatalf("repository skill with the same selector must not reach the model:\n%s", prompt)
+		t.Fatalf("repository skill with the same selector must not reach the model (%d bytes)", len(prompt))
 	}
 	for name, text := range map[string]string{"prompt": prompt, "review": stdout} {
 		if !strings.Contains(text, `policy skill "org-ts"`) || !strings.Contains(text, `overrides repository skill "estilo-ts"`) {
-			t.Errorf("override not declared in the %s:\n%s", name, text)
+			t.Errorf("override not declared in the %s (%d bytes)", name, len(text))
 		}
 	}
 }
@@ -202,7 +202,7 @@ func TestAUR565InstructionsStillWork(t *testing.T) {
 	}
 	prompt, _, _ := aur565Review(t)
 	if !strings.Contains(prompt, "MARCADOR-INSTRUCAO") {
-		t.Fatalf("instructions regressed:\n%s", prompt)
+		t.Fatalf("instructions regressed (prompt of %d bytes)", len(prompt))
 	}
 }
 
@@ -257,6 +257,6 @@ func TestAUR565PRSelectsSkillsAtTheBaseRef(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(data), "MARCADOR-ESTILO-TS") {
-		t.Fatalf("remote skill did not reach the prompt:\n%s", data)
+		t.Fatalf("remote skill did not reach the prompt (%d bytes)", len(data))
 	}
 }
