@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/Mpaape/AurumCode/internal/i18n"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
