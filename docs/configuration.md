@@ -277,6 +277,14 @@ casos, um achado real que cruze `fail_on` ainda reprova o check**
 achado que já cruzou o limiar. Em nenhum caso o parecer aparece como
 aprovado.
 
+**Achado determinístico conta em qualquer modo (AUR-569).** O modo de
+`gate.inconclusive` governa a ausência do parecer do modelo, nunca a presença
+de um achado determinístico (catálogo embutido, passe de segurança `--seguranca`,
+SAST): com severidade em `fail_on` ou acima, ele reprova o check (exit 3) sob
+`warn` e sob `block`, com ou sem provedor, e a linha do gate nomeia a regra e a
+origem. Os achados do passe de segurança contam sob a origem `analysis` de
+`gate.sources`. Sem achado determinístico, `warn` continua só avisando.
+
 Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
 avisos de `rules`/`ignore` já existentes.
@@ -407,6 +415,17 @@ aurumcode review --base HEAD~1 \
 
 Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
 `--sarif`, o comportamento de hoje é idêntico, byte a byte.
+
+**Falha ao gravar (AUR-568).** Um arquivo pedido que não pode ser gravado (o pai
+é um arquivo, o diretório não existe, sem permissão) nunca termina como sucesso:
+a mensagem em stderr nomeia o caminho e o motivo (`audit_write_failed` ou
+`sarif_write_failed`) e o exit é diferente de 0 (1, a menos que um código mais
+específico do gate já valha). Com `gate` declarado, a revisão fica inconclusiva
+pelo modo da política (`gate.inconclusive: block` reprova com status `failure`;
+`warn` publica "inconclusivo", nunca "aprovado") e a aprovação é retida. A
+gravação acontece antes da publicação e do exit, e a decisão final a considera;
+o outro arquivo, se gravável, é regravado com essa decisão final. Sem `gate`, só
+o exit e a mensagem mudam. Com caminhos graváveis o comportamento é o de sempre.
 
 O workflow reutilizável (`.github/workflows/review.yml`) escreve os dois
 sempre e envia AMBOS como artefatos do job via `actions/upload-artifact`
@@ -1199,6 +1218,13 @@ analysis_data:
   repository: owner/repo   # opcional; padrão: o repositório que publica o artefato
 ```
 
+- O endereço da API do GitHub de onde o release é lido vem de
+  `AURUMCODE_GITHUB_API_URL` (a mesma variável do cliente de PR; padrão
+  `https://api.github.com`), por exemplo o de um GitHub Enterprise. Só
+  `https://` é aceito, exceto `http://` para um IP de loopback literal (servidor
+  de teste). Qualquer outro endereço é recusado antes de qualquer requisição,
+  com erro que nomeia a variável (`analysis_data_invalid`; no cliente de PR, o
+  `review` falha ao carregar).
 - Artefato acima da idade máxima, digest divergente, sem rede e sem cópia em
   cache, ou manifesto inválido: o resultado é o `gate.inconclusive` da política
   com o motivo (`analysis_data_stale`, `analysis_data_digest_mismatch`,

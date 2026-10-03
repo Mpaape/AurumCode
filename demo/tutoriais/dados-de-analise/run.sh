@@ -4,11 +4,11 @@
 #   run.sh declarado-ou-nao|vencido|cache|workflow-agendado|adulterado|indisponivel
 #   run.sh all | --check | limpar
 #
-# O review consulta https://api.github.com (sem opcao para trocar o endereco no
-# binario de producao). Para provar cada desfecho com o binario real, o container
-# do produto resolve api.github.com para 127.0.0.1 (--add-host), confia num CA de
-# demonstracao gerado a cada execucao e roda, no MESMO container, um servidor
-# falso (servidor-falso.py). Rede do container: none. Nada sai da maquina.
+# O review consulta o endereco de AURUMCODE_GITHUB_API_URL (padrao
+# https://api.github.com). Para provar cada desfecho com o binario real, o container
+# do produto roda, no MESMO container, um servidor simples em loopback
+# (servidor-local.py, http://127.0.0.1:8080) e a variavel aponta para ele: sem
+# DNS, sem CA, sem TLS de demonstracao. Rede do container: none.
 set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
@@ -16,7 +16,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 CASOS=(declarado-ou-nao vencido cache workflow-agendado adulterado indisponivel)
 
-# aurum_srv MODO ARGS...: como `aurum`, mas atras do falso api.github.com (MODO).
+# aurum_srv MODO ARGS...: como `aurum`, mas com o servidor local (MODO) apontado pela variavel.
 # SRV_CACHE=<dir do host> monta o cache de dados de analise (/tmp/.cache) para
 # persistir entre execucoes; sem ele cada execucao comeca sem cache.
 aurum_srv() {
@@ -25,8 +25,8 @@ aurum_srv() {
   [ -z "${SRV_CACHE:-}" ] || { mkdir -p "$SRV_CACHE"; cache=(-v "$SRV_CACHE:/tmp/.cache"); }
   printf '$ aurumcode %s\n' "$*"
   set +e
-  LAST_OUT="$(docker run --rm --network none --sysctl net.ipv4.ip_unprivileged_port_start=0 \
-    --add-host api.github.com:127.0.0.1 --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  LAST_OUT="$(docker run --rm --network none --user "$(id -u):$(id -g)" -e HOME=/tmp \
+    -e AURUMCODE_GITHUB_API_URL=http://127.0.0.1:8080 \
     -e AURUMCODE_LLM_FIXTURE=/fixtures/fixture-llm.json "${cache[@]}" \
     -v "$HERE:/fixtures:ro" -v "$TUT_WORK:/work" -w /work \
     --entrypoint /fixtures/dentro.sh "$TUT_IMAGE" "$modo" "$@" 2>&1)"
@@ -54,7 +54,7 @@ repo() { tut_repo "$1" repo-exemplo/base repo-exemplo/mudanca "config/$2"; }
 
 # 1. analysis_data nao declarado: zero rede. Declarado: consulta e registra na auditoria.
 caso_declarado_ou_nao() {
-  echo "--- A. nao declarado (o falso esta no ar, mas ninguem o consulta)"
+  echo "--- A. nao declarado (o servidor local esta no ar, mas ninguem o consulta)"
   repo declarado-ou-nao-a sem-declarar
   aurum_srv valido review --base main --auditoria audit.json
   expect_rc 0 "sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data"

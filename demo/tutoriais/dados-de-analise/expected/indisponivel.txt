@@ -1,4 +1,4 @@
-(analysis_data_unavailable): GET https://api.github.com/repos/owner/dados-de-analise/releases?
+(analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?
 RESULTADO: listagem 503 sem cache: analysis_data_unavailable reprova
 (analysis_data_unavailable): <detalhe de rede omitido do registro>
 RESULTADO: sem rede e sem cache: analysis_data_unavailable reprova

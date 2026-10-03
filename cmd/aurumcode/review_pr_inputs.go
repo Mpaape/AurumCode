@@ -28,7 +28,12 @@ func (p *prReview) resolveInputs() (int, bool) {
 // fetchPullRequest builds the GitHub client, reads the diff and loads the
 // repository's review configuration at the reviewed commit.
 func (p *prReview) fetchPullRequest() (int, bool) {
-	p.client = newGitHubClient()
+	var clientErr error
+	p.client, clientErr = newGitHubClient()
+	if clientErr != nil {
+		fmt.Fprintf(p.stderr, "aurumcode review: %v\n", clientErr)
+		return 1, true
+	}
 	// The reusable GitHub workflow opts into endpoint-scoped authorization.
 	// Keep the direct CLI's historical repository-role preflight unless the
 	// service explicitly selects this mode.
