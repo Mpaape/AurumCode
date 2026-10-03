@@ -271,7 +271,7 @@ func VerifyMLCorpus(c *MLCorpus) error {
 // BuildAurumBinary compiles the real CLI into outDir and returns its path.
 func BuildAurumBinary(repoRoot, outDir string) (string, error) {
 	bin := filepath.Join(outDir, "aurumcode")
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/aurumcode")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, "./cmd/aurumcode")
 	cmd.Dir = repoRoot
 	cmd.Env = os.Environ()
 	if out, err := cmd.CombinedOutput(); err != nil {
