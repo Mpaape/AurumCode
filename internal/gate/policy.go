@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -158,7 +157,7 @@ func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 				// loop de limiar/severidade abaixo, e aparece como
 				// aceito com dono e validade.
 				d.Lines = append(d.Lines, AcceptedExceptionLine(exc, issue))
-				d.AppliedExceptions = append(d.AppliedExceptions, render.AuditException{
+				d.AppliedExceptions = append(d.AppliedExceptions, types.AuditException{
 					RuleID:        issue.RuleID,
 					Path:          issue.File,
 					Justification: fmt.Sprintf("dono: %s, motivo: %s, validade: %s", exc.Owner, exc.Reason, exc.Expires),
@@ -191,7 +190,7 @@ func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 		d.Fail = true
 		d.Breach = true
 		d.Lines = append(d.Lines, FindingLine(rule.ID, rule.Title, issue.Severity, name, OriginSkills))
-		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
+		d.BlockingFindings = append(d.BlockingFindings, types.AuditFinding{
 			RuleID:   issue.RuleID,
 			Path:     issue.File,
 			Line:     issue.Line,

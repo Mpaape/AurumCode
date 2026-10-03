@@ -7,7 +7,7 @@
 package gate
 
 import (
-	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // Result is one run's gate outcome. Active is false when nothing declared
@@ -27,12 +27,12 @@ type Result struct {
 	// BlockingFindings and AppliedExceptions are the same decisions as
 	// Breach and the exception match, as structured data for the audit
 	// record and the SARIF document.
-	BlockingFindings  []render.AuditFinding
-	AppliedExceptions []render.AuditException
+	BlockingFindings  []types.AuditFinding
+	AppliedExceptions []types.AuditException
 
 	// AnalysisData is the audit fact of a declared analysis_data section
 	// that resolved a usable artifact.
-	AnalysisData *render.AnalysisDataAudit
+	AnalysisData *types.AnalysisDataAudit
 
 	// Reason is the machine-readable motive of an inconclusive run
 	// ("provider_failure", "partial_coverage", ...), comma-joined when

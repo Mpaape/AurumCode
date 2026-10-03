@@ -33,8 +33,8 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dtrack"
-	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // DTrackClockNow/DTrackSleeper are this card's own injectable seams for
@@ -120,7 +120,7 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *
 
 	timeout := time.Duration(cfg.EffectiveTimeoutSeconds()) * time.Second
 	interval := time.Duration(cfg.EffectivePollIntervalSeconds()) * time.Second
-	outcome := dtrack.Run(ctx, client, projectID, bom, cfg.Thresholds.AsClientThresholds(), interval, timeout)
+	outcome := dtrack.Run(ctx, client, projectID, bom, clientThresholds(cfg.Thresholds), interval, timeout)
 
 	for _, note := range outcome.Notes {
 		result.Lines = append(result.Lines, "ssor_dtrack: "+note+": recálculo de métricas não permitido à chave; seguiu lendo até assentar")
@@ -136,7 +136,7 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *
 		for _, r := range outcome.Reasons {
 			result.Lines = append(result.Lines, "ssor_dtrack: "+r+" (origem "+OriginDTrack+")")
 		}
-		result.BlockingFindings = append(result.BlockingFindings, render.AuditFinding{
+		result.BlockingFindings = append(result.BlockingFindings, types.AuditFinding{
 			RuleID:   "ssor_dtrack",
 			Path:     projectID,
 			Severity: "error",
@@ -194,4 +194,14 @@ func WrapWriterWithFilter(sink redaction.Sink, dst io.Writer, filter *redaction.
 		return dst, nil
 	}
 	return w, w
+}
+
+// clientThresholds converts the configured thresholds to the client's own
+// shape, so the configuration never depends on the client that applies it.
+func clientThresholds(t config.SsorDtrackThresholds) dtrack.Thresholds {
+	return dtrack.Thresholds{
+		MaxCritical:      t.MaxCritical,
+		MaxHigh:          t.MaxHigh,
+		PolicyViolations: t.PolicyViolations,
+	}
 }
