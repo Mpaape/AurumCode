@@ -32,6 +32,7 @@ RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado
 --- sob politica central: o .gitleaksignore vira achado
 $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: gitleaks:ignore-file-present - a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present) (severidade error, limiar error, origem gitleaks, secao policy)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -59,6 +60,5 @@ Review coverage
   - .gitleaksignore
 .gitleaksignore:1: [error] a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present)
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
-aurumcode review: policy gate: gitleaks:ignore-file-present - a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present) (severidade error, limiar error, origem gitleaks, secao policy)
 exit_code=3
 RESULTADO: sob politica, o .gitleaksignore na raiz e um achado bloqueante
