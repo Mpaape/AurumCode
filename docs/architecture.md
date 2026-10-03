@@ -51,7 +51,7 @@ rules live in `internal/`.
 | `internal/review` | The reviewer, scope, rules (including dynamic skill rules), the review cache, the review session (`internal/review/session`: phase order and per-source data) and the tools a review offers the model (`internal/review/tools`: optional scanners, codebase context, with the manifest's declared cost). |
 | `internal/reviewprofile` | Built-in, versioned reviewer profiles. |
 | `internal/sandbox` | Sealed execution profiles. |
-| `internal/scanner` | The scanner contract (`Scanner`, `Report`, `Finding.ToIssue`), the closed registry of compiled engines and the executor; engines live in subpackages (`internal/scanner/semgrep`) listed in `internal/scanner/engines`. |
+| `internal/scanner` | The scanner contract (`Scanner`, `Report`, `Finding.ToIssue`), the closed registry of compiled engines and the executor; engines live in subpackages (`internal/scanner/semgrep`, SAST over the tree; `internal/scanner/gitleaks`, secrets over the reviewed commit range `Request.Range`) listed in `internal/scanner/engines`. The review hands every engine the reviewed range (`--pr`: the pull request's base and head; `--base`: the ref and `HEAD` resolved to full ids), and each engine's reported identity (`Outcome.Version`) enters the evidence digest of the cache key. |
 | `internal/sbom` | CycloneDX SBOM generation and validation. |
 | `internal/security` | Redaction of secrets from every sink. |
 | `internal/supplychain` | Sigstore/Cosign signing of SBOMs and images. |

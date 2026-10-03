@@ -40,7 +40,7 @@ repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 readonly lock_file='.board/bootstrap/locks/scanners.yml'
 readonly workflow='.github/workflows/review.yml'
-for input in go.mod go.sum cmd internal pkg "$lock_file" "$workflow" internal/scanner/gitleaks/invocation.go internal/scanner/gitleaks/report.go internal/scanner/engines/engines.go; do
+for input in go.mod go.sum cmd internal pkg Dockerfile "$lock_file" "$workflow" internal/scanner/gitleaks/invocation.go internal/scanner/gitleaks/report.go internal/scanner/engines/engines.go; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -93,6 +93,9 @@ replace_once() {
 }
 
 readonly ac001_tests=(TestGitleaksSecretInPullRequestHistoryReachesGateWithoutValue TestGitleaksIdentityMatchesScannersLock TestGitleaksRegistrationAndOptions)
+# The real review --base hands the resolved range to the engine; the gitleaks
+# finding reaches the gate line and the audit; the identity enters the digest.
+readonly review_tests=(TestBaseReviewHandsTheResolvedRangeToGitleaks TestEngineIdentityEntersTheEvidenceDigest)
 readonly ac002_tests=(TestGitleaksFailuresAreInconclusive)
 readonly ac003_tests=(TestGitleaksInlineAllowOnlyHonoredWithoutPolicy TestGitleaksIgnoreFileIsAFindingUnderPolicy)
 readonly pkgs=(./internal/scanner/gitleaks/)
@@ -112,11 +115,16 @@ run_ac() {
 
 run_ac001() {
   run_ac AC-001 "${ac001_tests[@]}"
+  local root="$run_dir/root-AC-001-review" log="$run_dir/AC-001-review.log"
+  stage "$root"
+  go_test "$root" "$log" "$(pattern_of "${review_tests[@]}")" ./cmd/aurumcode/ || { cat "$log" >&2; fail review-test-failed; }
+  require_pass "$log" "${review_tests[@]}"
+  printf '%s/AC-001/review/pass\n' "$card"
   local hits path
   hits=''
-  for path in internal/scanner tests/acceptance/AUR-581.sh docs/tutorials/segredos.md demo/tutoriais/segredos; do
+  for path in internal/scanner cmd/aurumcode tests/acceptance/AUR-581.sh docs/tutorials/segredos.md demo/tutoriais/segredos Dockerfile; do
     [[ -e "$repo_root/$path" ]] || continue
-    hits+="$(grep -rlE -- "$credential_shapes" "$repo_root/$path" || true)"
+    hits+="$(grep -rlE --exclude-dir=.estado -- "$credential_shapes" "$repo_root/$path" || true)"
   done
   [[ -z "$hits" ]] || { printf '%s\n' "$hits" >&2; fail credential-shaped-literal; }
   printf '%s/AC-001/no-credential-literal\n' "$card"
@@ -133,6 +141,11 @@ run_ac004() {
   grep -Fq 'if [ "$got" != "$version" ]; then' "$wf" || fail workflow-version-not-checked
   grep -Fq 'fetch-depth: 0' "$wf" || fail workflow-history-cut
   grep -Eq '^secrets_scanner_image: docker\.io/zricethezav/gitleaks@sha256:[0-9a-f]{64}$' "$repo_root/$lock_file" || fail lock-not-by-digest
+  local locked_image locked_version
+  locked_image="$(sed -n 's/^secrets_scanner_image: //p' "$repo_root/$lock_file")"
+  locked_version="$(sed -n 's/^secrets_scanner_version: //p' "$repo_root/$lock_file")"
+  grep -Fxq "FROM $locked_image AS gitleaks" "$repo_root/Dockerfile" || fail dockerfile-image-not-the-lock
+  grep -Fxq "RUN test \"\$(gitleaks version)\" = \"$locked_version\"" "$repo_root/Dockerfile" || fail dockerfile-version-not-checked
   printf '%s/AC-004/workflow/pass\n' "$card"
   [[ -x "$repo_root/demo/tutoriais/segredos/run.sh" || -f "$repo_root/demo/tutoriais/segredos/run.sh" ]] || fail tutorial-missing
   (cd "$repo_root" && bash demo/tutoriais/segredos/run.sh --check >"$run_dir/tut.log" 2>&1) || { cat "$run_dir/tut.log" >&2; fail tutorial-check-failed; }
