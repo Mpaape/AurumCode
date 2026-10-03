@@ -308,30 +308,32 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "aurumcode fix: parsing suggestions: %v\n", err)
 		return 1
 	}
-	// BuildPlan and BuildPatch are both pure functions of the exact same
-	// suggestions slice (package apply's own doc comment), so the plan
-	// used to validate and the patch printed on success can never diverge.
-	plan, err := apply.BuildPlan(suggestions)
+	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
 		return 1
 	}
-	patch, err := apply.BuildPatch(suggestions)
+	// BuildPlan and BuildPatch read the same suggestions and the same
+	// working tree, so the plan used to validate and the patch printed on
+	// success can never diverge. The hunks carry three lines of real file
+	// context, so the printed patch applies with plain `git apply`.
+	tree := os.DirFS(dir)
+	plan, err := apply.BuildPlan(suggestions, tree)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
+		return 1
+	}
+	patch, err := apply.BuildPatch(suggestions, tree)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
 		return 1
 	}
 	if strings.TrimSpace(patch) != "" {
-		dir, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
-			return 1
-		}
 		if err := validateFixPatch(dir, patch, plan); err != nil {
 			fmt.Fprintf(stderr, "aurumcode fix: %v\n", err)
 			return 1
 		}
-		fmt.Fprintln(stdout, patch)
+		fmt.Fprint(stdout, patch)
 	}
 	return 0
 }
