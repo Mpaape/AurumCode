@@ -1,0 +1,8 @@
+aurumcode xbom: build: 5 componente(s), 2 descartado(s) sem evidencia
+actions/checkout@0123456789abcdef0123456789abcdef01234567 -> .github/workflows/ci.yml:7 descricao=checkout do repositorio
+registry.example.com/library/busybox@1.36 -> Dockerfile:5
+aurumcode:xbom:dropped_without_evidence=2
+aurumcode:xbom:llm=present
+aurumcode:xbom:llm_excluded=1
+aurumcode:xbom:llm_rejected=1
+RESULTADO: BOM enriquecido pelo modelo (fixture) e verificado

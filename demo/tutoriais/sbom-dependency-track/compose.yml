@@ -1,0 +1,28 @@
+# Dependency-Track v5 + PostgreSQL local para o tutorial. As imagens NAO sao
+# digitadas aqui: o run.sh exporta DTRACK_IMAGE e POSTGRES_IMAGE a partir de
+# demo/gate-corporativo/images.lock (digests do AUR-554), uma unica fonte de
+# verdade. A porta so abre em loopback.
+name: aurum-tut-dtrack
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?rode pelo run.sh}
+    environment:
+      POSTGRES_DB: dtrack
+      POSTGRES_USER: dtrack
+      POSTGRES_PASSWORD: demo-only-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dtrack -d dtrack"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  apiserver:
+    image: ${DTRACK_IMAGE:?rode pelo run.sh}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DT_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dtrack
+      DT_DATASOURCE_USERNAME: dtrack
+      DT_DATASOURCE_PASSWORD: demo-only-password
+    ports:
+      - "127.0.0.1:8081:8080"

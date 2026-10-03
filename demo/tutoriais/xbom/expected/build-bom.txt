@@ -1,0 +1,7 @@
+$ aurumcode xbom --type build --repo . --out build-bom.json
+aurumcode xbom: build: 5 componente(s), 0 descartado(s) sem evidencia
+actions/checkout@0123456789abcdef0123456789abcdef01234567 -> .github/workflows/ci.yml:7
+alpine@3.20 -> Dockerfile:4
+golang@1.22 -> Dockerfile:1
+aurumcode:xbom:llm=absent
+RESULTADO: Build BOM gerado e validado (CycloneDX 1.6) sem provedor de modelo

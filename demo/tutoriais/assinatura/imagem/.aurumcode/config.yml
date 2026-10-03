@@ -1,0 +1,5 @@
+quality_gates:
+  supply_chain:
+    engine: cosign
+    sign_sbom: false
+    sign_artifacts: true

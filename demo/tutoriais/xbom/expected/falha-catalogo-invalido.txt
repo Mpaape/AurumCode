@@ -1,0 +1,3 @@
+aurumcode xbom: catalog build (repository): additional.name_pattern is required
+exit_code=2
+RESULTADO: nenhum arquivo foi escrito (conferido pelo script)

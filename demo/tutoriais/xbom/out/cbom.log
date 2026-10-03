@@ -1,0 +1,14 @@
+== cbom
+$ aurumcode xbom --type cbom --repo . --out cbom.json
+aurumcode xbom: cbom: 5 componente(s), 0 descartado(s) sem evidencia
+exit_code=0
+RESULTADO: CBOM gerado e validado
+$ jq .components[] | "\(.name)@\(.version // "-") -> \(.evidence.occurrences[0].location):\(.evidence.occurrences[0].line)" cbom.json
+AES-256-GCM@- -> src/seguranca.go:4
+MD5@- -> config/app.yml:4
+MLKEM768@- -> src/seguranca.go:5
+SHA256@- -> src/seguranca.go:3
+TLS-1.3@- -> config/app.yml:2
+--- ativos marcados como pos-quanticos (aurumcode:xbom:pqc)
+$ jq .components[] | select(any(.properties[]?; .name=="aurumcode:xbom:pqc")) | .name cbom.json
+MLKEM768

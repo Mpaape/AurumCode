@@ -1,0 +1,8 @@
+{
+  "name": "servico-b",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "semver": "7.6.0"
+  }
+}

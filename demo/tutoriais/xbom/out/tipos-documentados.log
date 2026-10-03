@@ -1,0 +1,17 @@
+== tipos-documentados
+$ aurumcode xbom --type aibom --repo .
+aurumcode xbom: o tipo "aibom" nao e gerado; formato e envio estao definidos em docs/configuration.md#xbom-aibom
+exit_code=2
+RESULTADO: tipo aibom e apenas documentado: exit 2 com a ancora da documentacao
+$ aurumcode xbom --type saasbom --repo .
+aurumcode xbom: o tipo "saasbom" nao e gerado; formato e envio estao definidos em docs/configuration.md#xbom-saasbom
+exit_code=2
+RESULTADO: tipo saasbom e apenas documentado: exit 2 com a ancora da documentacao
+$ aurumcode xbom --type netbom --repo .
+aurumcode xbom: o tipo "netbom" nao e gerado; formato e envio estao definidos em docs/configuration.md#xbom-netbom
+exit_code=2
+RESULTADO: tipo netbom e apenas documentado: exit 2 com a ancora da documentacao
+$ aurumcode xbom --type sbomx --repo .
+aurumcode xbom: --type "sbomx" desconhecido (geraveis: build, cbom; documentados: aibom, saasbom, netbom)
+exit_code=64
+RESULTADO: tipo desconhecido: exit 64

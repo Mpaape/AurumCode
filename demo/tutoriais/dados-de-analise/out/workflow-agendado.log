@@ -1,0 +1,11 @@
+== workflow-agendado
+NAO EXECUTADO: o workflow roda so no GitHub Actions; aqui so a conferencia estatica do arquivo.
+workflow-publicador.yml: identico a .github/workflows/analysis-data.yml
+gatilho: schedule diario (cron 17 3 * * *)
+gatilho: workflow_dispatch (disparo manual)
+publish depende de build: teste falhando nao publica
+so o job publish recebe contents: write
+publish.sh: so aceita tag analysis-data/*
+publish.sh: cria como rascunho e so depois publica (nunca fica visivel pela metade)
+publish.sh: tag existente nunca e tocada
+RESULTADO: o workflow tem o agendamento, o teste antes de publicar e a publicacao em duas etapas que o texto descreve (conferencia estatica; a imutabilidade do release depende de 'Immutable releases' no repositorio e NAO foi demonstrada)
