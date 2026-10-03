@@ -56,7 +56,7 @@ readonly tutorials=(revisao skills politica-central qualquer-linguagem benchmark
 clone() {
   local dest="$1"
   mkdir -p "$dest"
-  local inputs=(demo docs tests/acceptance go.mod go.sum cmd internal pkg)
+  local inputs=(demo/tutoriais docs tests/acceptance go.mod go.sum cmd internal pkg)
   # the sealed profile does not materialize the Dockerfile; the tree identity does not need it
   [[ ! -f "$repo_root/Dockerfile" ]] || inputs+=(Dockerfile)
   (cd "$repo_root" && tar --exclude=.estado -cf - "${inputs[@]}") | tar -x -C "$dest"
