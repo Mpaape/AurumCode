@@ -9,8 +9,11 @@
 #   AC-001          a sealed copy of the repo is built; `review --base HEAD~1`
 #                   over the git-demo fixture must put config/demo-tokens.txt
 #                   and NOTES.txt under "## Code Changes" with "Code files in
-#                   this diff" >= 2; tests/e2e/AUR-441.sh and
-#                   tests/acceptance/AUR-541.sh all pass unedited
+#                   this diff" >= 2; tests/e2e/AUR-441.sh passes unedited (it reuses
+#                   the binary built once here)
+#   AC-001-full     tests/acceptance/AUR-541.sh all in the sealed copy (about 9
+#                   minutes, beyond the sealed profile's 600 s budget: run by
+#                   the validation step, not by `all`)
 #   AC-002          .md stays documentation, .go stays code, .txt and an
 #                   extensionless file are not documentation (Go tests)
 #   AC-003          the qualquer-linguagem tutorial carries the .txt case and
@@ -26,7 +29,7 @@ umask 077
 readonly card='AUR-574'
 selector="${1:-all}"
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-001-MUT-001) ;;
+  all|AC-001|AC-001-full|AC-002|AC-003|AC-001-MUT-001) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -87,7 +90,12 @@ ac001() {
   build_bin "$run_dir/aurumcode"
   measure "$run_dir/aurumcode" || fail 'text-files-not-reviewed'
   local log="$run_dir/e2e441.log"
-  (cd "$run_dir/root" && bash tests/e2e/AUR-441.sh) >"$log" 2>&1 || { cat "$log" >&2; fail 'e2e-AUR-441-red'; }
+  (cd "$run_dir/root" && AURUMCODE_BIN="$run_dir/aurumcode" bash tests/e2e/AUR-441.sh) >"$log" 2>&1 || { cat "$log" >&2; fail 'e2e-AUR-441-red'; }
+}
+
+ac001_full() {
+  seed_root
+  local log
   log="$run_dir/a541.log"
   (cd "$run_dir/root" && bash tests/acceptance/AUR-541.sh all) >"$log" 2>&1 || { local rc=$?; cat "$log" >&2; (( rc == 79 )) && infra 'AUR-541-inconclusive'; fail 'AUR-541-red'; }
 }
@@ -121,6 +129,7 @@ mut001() {
 
 case "$selector" in
   AC-001) ac001 ;;
+  AC-001-full) ac001_full ;;
   AC-002) ac002 ;;
   AC-003) ac003 ;;
   AC-001-MUT-001) mut001 ;;
