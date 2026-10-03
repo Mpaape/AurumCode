@@ -162,6 +162,7 @@ run_mut003() {
     mkdir -p "$root/$(dirname "$path")"
     cp -R "$repo_root/$path" "$root/$path"
   done
+  chmod -R u+w -- "$root"
   printf 'API_TOKEN = "%s%s%s"\n' "ghp" "_" "PlantadoPeloAceite0Nao0Real0Valor0Xy" > "$root/demo/tutoriais/segredos/plantado.py"
   if scan_credentials "$root" >/dev/null 2>"$run_dir/mut3.log"; then
     fail mutation-survived
