@@ -212,9 +212,13 @@ func TestGitleaksSecretInPullRequestHistoryReachesGateWithoutValue(t *testing.T)
 	if len(d.BlockingFindings) != 1 || d.BlockingFindings[0].Origin != "gitleaks" || d.BlockingFindings[0].Path != "config/app.env" || d.BlockingFindings[0].Line != 3 {
 		t.Fatalf("audit findings %+v", d.BlockingFindings)
 	}
-	everything, _ := json.Marshal([]any{out, d, got.ToIssue("gitleaks")})
+	audit, err := json.Marshal(d.BlockingFindings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	everything := fmt.Sprintf("%#v %#v %#v %s %s", out.Findings, got.ToIssue("gitleaks"), d.Lines, audit, out.Version)
 	for _, leaked := range []string{fakeToken, fakeToken[4:], "dev@example.com", "add config"} {
-		if strings.Contains(string(everything), leaked) {
+		if strings.Contains(everything, leaked) {
 			t.Fatalf("output carries %q: %s", leaked, everything)
 		}
 	}

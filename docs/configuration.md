@@ -439,9 +439,10 @@ quality_gates:
 
 - As engines são compiladas no binário (lista fechada em
   `internal/scanner/engines`); `engine` desconhecido é erro de carga, citando a
-  chave e as engines registradas. Hoje a única é `semgrep` (categoria `sast`).
+  chave e as engines registradas. Hoje são `semgrep` (categoria `sast`) e
+  `gitleaks` (categoria `secrets`).
 - `options` é validado pela própria engine (para o `semgrep`, só
-  `rule_packs`).
+  `rule_packs`; o `gitleaks` não aceita opção).
 - **Política vence engine por engine.** Uma entrada da política com
   `required: true` (e toda `quality_gates.sast` da política, que é sempre
   obrigatória) faz a entrada do repositório para a mesma engine ser ignorada,
@@ -468,6 +469,56 @@ do registro do Semgrep (`p/security-audit`, `p/owasp-top-ten` e qualquer
 outro `p/...`) são baixados a cada execução e **exigem rede em CI** — um
 runner totalmente isolado precisa apontar `rule_packs` para arquivos de regra
 locais já presentes na imagem/checkout em vez de um nome `p/...` do registro.
+
+### Segredos com gitleaks (engine `gitleaks`)
+
+```yaml
+quality_gates:
+  scanners:
+    - engine: gitleaks          # categoria secrets, origem gitleaks
+      required: true            # na política: o repositório não desliga
+      fail_on: ERROR            # gitleaks não tem severidade; todo vazamento é error
+```
+
+- **Varre o intervalo de commits revisado, não a árvore final.** Um segredo
+  commitado num commit intermediário do PR e removido depois já vazou: está no
+  histórico que o merge publica. A engine roda
+  `gitleaks git --log-opts=<base>..<head>` com `--report-format json`,
+  `--report-path` num diretório temporário privado, `--exit-code 0`,
+  `--no-banner`, `--redact` e `--config` com a base embutida do binário
+  (`[extend] useDefault = true`), que passa à frente de `GITLEAKS_CONFIG`,
+  `GITLEAKS_CONFIG_TOML` e de um `.gitleaks.toml` do repositório.
+- O intervalo precisa de dois ids de commit completos presentes num clone
+  **não raso**; intervalo ausente, ponta que não é id de commit, commit
+  ausente ou clone raso é `secrets_execution_error`, nunca uma varredura só da
+  árvore. Medido na imagem fixada: o gitleaks, sozinho, responde a uma revisão
+  desconhecida com relatório `[]` e exit 0 — por isso o intervalo é conferido
+  antes, e qualquer linha de log `ERR`/`FTL` também torna a varredura
+  inconclusiva.
+- **O valor do segredo nunca sai do adaptador.** O relatório é decodificado
+  numa lista fechada de campos (regra, descrição, arquivo, linha, commit);
+  `Secret`, `Match`, `Line`, mensagem do commit, autor e e-mail não têm campo e
+  são descartados na decodificação. O achado é `gitleaks:<regra>` em
+  `arquivo:linha`, com a descrição da regra e o commit que o introduziu.
+- **Sob política central** (`secao policy`): `--ignore-gitleaks-allow`, então
+  um comentário `gitleaks:allow` não suprime o achado (sem política, suprime).
+  O `.gitleaksignore` da raiz é lido pelo gitleaks qualquer que seja a flag
+  (medido: `--gitleaks-ignore-path` apontando para outro diretório não impede);
+  por isso, sob política, a presença de `.gitleaksignore` na raiz é ela mesma
+  um achado bloqueante `gitleaks:ignore-file-present`, que o dono da política
+  precisa resolver.
+- Versão: só `v8.30.1` (a de `.board/bootstrap/locks/scanners.yml`) é aceita;
+  outra versão é `secrets_execution_error`, porque a base de regras embutida
+  seria outra. Binário ausente é `secrets_unavailable`. A identidade da engine
+  (versão + `secrets_rulebase_sha256`) vai no `Version` do resultado.
+- O workflow reutilizável (`review.yml`) instala o binário a partir da imagem
+  fixada por digest no lock (o pull por digest falha se os bytes divergirem),
+  confere `gitleaks version` contra a versão do lock e faz checkout do PR com
+  histórico completo (`fetch-depth: 0`).
+- **Limite atual:** o review ainda não preenche o intervalo de commits da
+  requisição da engine; até isso ser ligado, uma entrada `gitleaks` habilitada
+  fica sempre inconclusiva (`secrets_execution_error`) — falha fechada, nunca
+  "zero achados".
 
 ## Trilha de auditoria e SARIF (AUR-521)
 
@@ -1083,7 +1134,8 @@ counts if its severity is at or above `fail_on`, whatever its origin:
 | `skills` | rules from the policy's skill sections (cited by the model) |
 | `analysis` | the embedded deterministic catalog (`analysis/*`) |
 | `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`), and every other registered engine of the `sast` category |
-| `<engine>` | a registered scanner engine by name (`semgrep`); an engine without a category answers only to its name |
+| `secrets` | gitleaks findings (`gitleaks:*`) and every other registered engine of the `secrets` category |
+| `<engine>` | a registered scanner engine by name (`semgrep`, `gitleaks`); an engine without a category answers only to its name |
 
 ```yaml
 gate:
