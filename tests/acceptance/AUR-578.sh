@@ -128,7 +128,7 @@ mut001() {
   sed -i 's|return prompt.RenderRepositoryContext(names, assembled), warnings, nil|return "## Repository context (untrusted, informational only)\\n" + prompt.RenderRepositoryContext(names, assembled)[:0] + strings.Join(names, "\\n") + "\\n" + assembled, warnings, nil|' "$provider"
   sed -i '/RepositoryContext: r.filter.Redact(reviewContext.RepositoryContext),/d' "$pipeline"
   sed -i 's|return preparedPrompt{diff: diff, metrics: metrics, parts: parts}, nil|if reviewContext.RepositoryContext != "" { parts.User += "\\n\\n" + reviewContext.RepositoryContext }; return preparedPrompt{diff: diff, metrics: metrics, parts: parts}, nil|' "$pipeline"
-  (cd "$run_dir/root" && go vet ./internal/config/ ./internal/review/) >"$run_dir/mut001-build.log" 2>&1 || { cat "$run_dir/mut001-build.log" >&2; infra mut001-does-not-compile; }
+  (cd "$run_dir/root" && go vet -buildvcs=false ./internal/config/ ./internal/review/) >"$run_dir/mut001-build.log" 2>&1 || { cat "$run_dir/mut001-build.log" >&2; infra mut001-does-not-compile; }
   if ac001_run; then fail 'mut001-survived-AC-001'; fi
   grep -q '^--- FAIL: TestSectionTitlesLiveOnlyInTemplateAST ' "$run_dir/ac001.log" || { tail -n 30 "$run_dir/ac001.log" >&2; fail 'mut001-AC-001-red-for-another-reason'; }
   if ac003_run; then fail 'mut001-survived-AC-003'; fi
@@ -141,7 +141,7 @@ mut002() {
   local key="$run_dir/root/internal/review/cache/request_key.go"
   grep -Fq 'in.PromptDigest, in.EvidenceDigest, in.ToolResultsDigest' "$key" || infra mut002-anchor
   sed -i 's|in.PromptDigest, in.EvidenceDigest, in.ToolResultsDigest|in.PromptDigest, "", in.ToolResultsDigest|' "$key"
-  (cd "$run_dir/root" && go vet ./internal/review/cache/) >"$run_dir/mut002-build.log" 2>&1 || { cat "$run_dir/mut002-build.log" >&2; infra mut002-does-not-compile; }
+  (cd "$run_dir/root" && go vet -buildvcs=false ./internal/review/cache/) >"$run_dir/mut002-build.log" 2>&1 || { cat "$run_dir/mut002-build.log" >&2; infra mut002-does-not-compile; }
   if ac004_run; then fail 'mut002-survived-AC-004'; fi
   grep -q '^--- FAIL: TestRequestCacheKeyCoversEvidence ' "$run_dir/ac004.log" || { tail -n 30 "$run_dir/ac004.log" >&2; fail 'mut002-AC-004-red-for-another-reason'; }
   grep -E 'shared a cache key|shared the key' "$run_dir/ac004.log" >&2 || true
