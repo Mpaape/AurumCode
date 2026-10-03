@@ -1,4 +1,11 @@
-skill de diretorio: .aurumcode/skills/estilo-ts/SKILL.md com languages: [ts]
+skills de diretorio: estilo-ts com languages: [ts]; estilo-ruim com um apelido desconhecido
+--- a mudanca toca so app.go
+prompt: a skill estilo-ts NAO chegou: a mudanca nao toca TypeScript
+prompt: unknown language "linguagem-inexistente"
+--- a mudanca toca app.ts
+prompt: #### estilo-ts (v1)
+prompt: Em TypeScript, prefira unknown a any. MARCADOR-SKILL-TS
+prompt: ### Skill selection warnings
+prompt: a skill estilo-ruim NAO chegou: apelido desconhecido nao casa com nada
+skill "estilo-ruim" (.aurumcode/skills/estilo-ruim): unknown language "linguagem-inexistente" in selector
 exit_code=0
-prompt: a skill de diretorio SKILL.md NAO foi lida pelo review
-prompt: nenhum bloco 'Skill selection warnings'

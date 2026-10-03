@@ -41,17 +41,25 @@ caso_seletor_por_caminho() {
   echo "prompt: ts.md (applyTo: **/*.ts) NAO chegou: a mudanca nao toca .ts"
 }
 
-# 3. Selecao por linguagem e apelido: o que a CLI faz hoje.
+# 3. Selecao por linguagem e apelido: a skill de diretorio so chega quando o diff tem a linguagem.
 caso_selecao_por_linguagem() {
-  tut_repo selecao-por-linguagem repo-exemplo/base-instrucoes repo-exemplo/segredo
+  TUT_FIXTURE=fixture-vazio.json
   TUT_ENVS=(-e AURUMCODE_PROMPT_CAPTURE=/work/prompt.txt)
-  echo "skill de diretorio: .aurumcode/skills/estilo-ts/SKILL.md com languages: [ts]"
+  echo "skills de diretorio: estilo-ts com languages: [ts]; estilo-ruim com um apelido desconhecido"
+  echo "--- a mudanca toca so app.go"
+  tut_repo selecao-por-linguagem-go repo-exemplo/base-linguagem repo-exemplo/segredo
   aurum review --base main
   expect_rc 0 "revisao feita"
-  if grep -qF 'MARCADOR-SKILL-DIRETORIO' "$TUT_WORK/prompt.txt"; then echo "ERRO: a CLI leu a skill de diretorio"; return 1; fi
-  echo "prompt: a skill de diretorio SKILL.md NAO foi lida pelo review (selecao por linguagem e apelidos ainda sao biblioteca, nao CLI)"
-  if grep -qF 'Skill selection warnings' "$TUT_WORK/prompt.txt"; then echo "ERRO: ha bloco de avisos de selecao"; return 1; fi
-  echo "prompt: nenhum bloco 'Skill selection warnings': o aviso de apelido desconhecido so existe na biblioteca"
+  if grep -qF 'MARCADOR-SKILL-TS' "$TUT_WORK/prompt.txt"; then echo "ERRO: a skill de TypeScript chegou num diff Go"; return 1; fi
+  echo "prompt: a skill estilo-ts NAO chegou: a mudanca nao toca TypeScript"
+  mostra_prompt '### Skill selection warnings' 'unknown language "linguagem-inexistente"'
+  echo "--- a mudanca toca app.ts"
+  tut_repo selecao-por-linguagem-ts repo-exemplo/base-linguagem repo-exemplo/mudanca-ts
+  aurum review --base main
+  expect_rc 0 "revisao feita"
+  mostra_prompt '#### estilo-ts (v1)' 'Em TypeScript, prefira unknown a any. MARCADOR-SKILL-TS' '### Skill selection warnings' 'unknown language "linguagem-inexistente"'
+  if grep -qF 'MARCADOR-SKILL-RUIM' "$TUT_WORK/prompt.txt"; then echo "ERRO: a skill de apelido desconhecido chegou ao modelo"; return 1; fi
+  echo "prompt: a skill estilo-ruim NAO chegou: apelido desconhecido nao casa com nada"
 }
 
 # 4. Skill do repositorio vs skill da politica: sob politica central, so a da politica reprova.

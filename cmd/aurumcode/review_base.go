@@ -141,6 +141,7 @@ type baseReview struct {
 	repoCfg          *config.Config
 	centralCfg       *config.Config
 	policyWarnings   []config.ProviderWarning
+	skillNotices     []string
 	reviewLanguage   string
 
 	profileRes      *reviewprofile.MultiResult
