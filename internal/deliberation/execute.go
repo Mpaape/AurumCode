@@ -15,7 +15,7 @@ import (
 // error is reported to the model (the tool itself records what its failure
 // means, e.g. an inconclusive scan).
 func (s Session) execute(ctx context.Context, round int, tools map[string]Tool, call llm.ToolCall) (llm.Message, Call, error) {
-	record := Call{Round: round, ID: call.ID, Tool: call.Name, Arguments: s.redact(string(call.Arguments))}
+	record := Call{Round: round, ID: s.redact(call.ID), Tool: s.redact(call.Name), Arguments: s.redact(string(call.Arguments))}
 	tool, ok := tools[call.Name]
 	if !ok {
 		return s.refuse(record, call, fmt.Errorf("ferramenta %q não foi oferecida", call.Name))
