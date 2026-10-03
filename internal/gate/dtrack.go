@@ -130,6 +130,9 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	interval := time.Duration(cfg.EffectivePollIntervalSeconds()) * time.Second
 	outcome := dtrack.Run(ctx, client, projectID, bom, cfg.Thresholds.AsClientThresholds(), interval, timeout)
 
+	for _, note := range outcome.Notes {
+		result.Lines = append(result.Lines, "ssor_dtrack: "+note+": recálculo de métricas não permitido à chave; seguiu lendo até assentar")
+	}
 	switch {
 	case outcome.Inconclusive:
 		result.Inconclusive = true
