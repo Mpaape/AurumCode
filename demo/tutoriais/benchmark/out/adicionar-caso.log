@@ -10,23 +10,3 @@
   "simulated_model": "hit"
 }
 $ go test ./tests/benchmark -run TestAUR523 -count=1 -update-aur523
---- FAIL: TestAUR523RealBinaryOutputIsTheSource (<t>s)
-    aur523_test.go:72: corpus digest divergence: case java-cmd is on disk but not in the manifest
-FAIL
-FAIL	<modulo>/tests/benchmark <t>s
-FAIL
-exit_code=1
-RESULTADO: o primeiro teste reprova (caso fora do manifest); os testes seguintes gravaram manifest e relatorio
-RESULTADO: a recusa nomeia o caso: java-cmd esta no disco e nao esta no manifest
---- git diff do manifest e do relatorio .md (copia versus o comitado)
--- corpus sha256: `77be1b7ca9587a166144434c038da792069a1c12615ac09b9b8e3d632ef4ba86`
-+- corpus sha256: `5f83bc71b6b471f9fa4e398dc1eeff29bcf592eafb7f49ec19726bd7a84f19b2`
--| java | 3 | 2 | 2 | 1.0000 | [0.3424, 1.0000] | 1.0000 | [0.3424, 1.0000] | 0 | 0 |
-+| java | 4 | 3 | 3 | 1.0000 | [0.4385, 1.0000] | 1.0000 | [0.4385, 1.0000] | 0 | 0 |
--| total | 24 | 16 | 15 | 0.9375 | [0.7167, 0.9889] | 0.8824 | [0.6566, 0.9671] | 2 | 1 |
-+| total | 25 | 17 | 16 | 0.9412 | [0.7302, 0.9895] | 0.8889 | [0.6720, 0.9690] | 2 | 1 |
-entradas java-cmd no manifest: 1
-$ go test ./tests/benchmark -run TestAUR523 -count=1
-ok  	<modulo>/tests/benchmark <t>s
-exit_code=0
-RESULTADO: sem -update, o teste passa com o corpus, o manifest e o relatorio novos (o caso foi aceito)
