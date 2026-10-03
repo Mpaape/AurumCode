@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
@@ -197,5 +198,13 @@ func TestAUR580TranscriptRedactsArguments(t *testing.T) {
 func TestAUR580LimitsMustBePositive(t *testing.T) {
 	if err := (Limits{MaxRounds: 0, MaxCostTokens: 1, PerToolTimeout: time.Second}).Validate(); err == nil || !strings.Contains(err.Error(), LimitMaxRounds) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAUR580ToolMessageIsCappedOnARuneBoundary(t *testing.T) {
+	long := strings.Repeat("é", maxToolMessageBytes)
+	got := capContent(long)
+	if len(got) > maxToolMessageBytes || !strings.HasSuffix(got, truncationNote) || !utf8.ValidString(got) {
+		t.Fatalf("capped message: %d bytes, valid=%v", len(got), utf8.ValidString(got))
 	}
 }

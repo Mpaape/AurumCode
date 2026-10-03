@@ -1,0 +1,31 @@
+== falha-semgrep-ausente
+$ aurumcode review --base main
+aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context]; pedidas [scanner_semgrep]; não pedidas [codebase_context]; rodadas 2; desfecho answered
+aurumcode review: deliberation: rodada 1 scanner_semgrep({}) failed: varredura inconclusiva (sast_unavailable)
+aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_unavailable); no Semgrep finding was published for this run.
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_unavailable)
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["calc.js"]
+
+```
+
+### Suggestions
+
+- **Sem varredura opcional** — diff pequeno; o modelo nao pediu o scanner_semgrep Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.
+Sem achados nas fontes concluídas; inconclusivo: sast_unavailable
+exit_code=1
+RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e o gate reprova

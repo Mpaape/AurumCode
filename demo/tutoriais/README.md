@@ -9,6 +9,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | Tutorial | Demonstração | Casos |
 |---|---|---|
 | [revisao](../../docs/tutorials/revisao.md) | `revisao/` | primeira-revisao, sem-provedor, com-provedor, fix, pr-workflow, falha-nao-revisado |
+| [deliberacao](../../docs/tutorials/deliberacao.md) | `deliberacao/` | diff-grande-pede-semgrep, diff-pequeno-nao-pede, estoura-rodadas, falha-semgrep-ausente |
 | [skills](../../docs/tutorials/skills.md) | `skills/` | ver `skills/run.sh` |
 | [politica-central](../../docs/tutorials/politica-central.md) | `politica-central/` | ver `politica-central/run.sh` |
 | [qualquer-linguagem](../../docs/tutorials/qualquer-linguagem.md) | `qualquer-linguagem/` | repo-poliglota, arquivo-sem-gramatica, binario-e-gerado, politica-terraform, apelidos-e-instrucoes, falha-extensao-desconhecida |

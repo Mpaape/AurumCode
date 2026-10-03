@@ -1,0 +1,20 @@
+{"aurumcode_fixture": {
+  "tool_calls": [
+    {"lines_above": 30, "tool": "scanner_semgrep"}
+  ],
+  "cases": [
+    {"prompt_contains": "semgrep: 1 achado",
+     "response": {"verdict": "comment", "strengths": [], "issues": [], "ci_analysis": [], "test_plan": [], "limitations": [],
+                  "summary": "A varredura pedida confirmou eval() em calc.js.",
+                  "suggestions": [{"title": "Evidencia da varredura pedida", "description": "o scanner_semgrep apontou eval() em calc.js:5 (regras.demo-sem-eval); troque por uma tabela de operacoes"}]}},
+    {"prompt_contains": "falha da ferramenta: varredura inconclusiva",
+     "response": {"verdict": "comment", "strengths": [], "issues": [], "ci_analysis": [], "test_plan": [], "limitations": [],
+                  "summary": "A varredura pedida nao concluiu.",
+                  "suggestions": [{"title": "Varredura pedida inconclusiva", "description": "o scanner_semgrep nao produziu resultado; nada pode ser afirmado sobre calc.js"}]}},
+    {"prompt_contains": "semgrep: 0 achado",
+     "response": {"verdict": "approve", "strengths": [], "issues": [], "suggestions": [], "ci_analysis": [], "test_plan": [], "limitations": [], "summary": "A varredura pedida nao achou nada."}}
+  ],
+  "default": {"verdict": "approve", "strengths": [], "issues": [], "ci_analysis": [], "test_plan": [], "limitations": [],
+              "summary": "Diff pequeno: nenhuma ferramenta pedida.",
+              "suggestions": [{"title": "Sem varredura opcional", "description": "diff pequeno; o modelo nao pediu o scanner_semgrep"}]}
+}}
