@@ -1,5 +1,5 @@
 --- gate.inconclusive: block
-policy gate: SAST (semgrep, origem repo) inconclusivo (sast_execution_error)
+policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
 exit_code=1
 RESULTADO: semgrep falhou: inconclusivo e, com block, o gate reprova
 --- gate.inconclusive: warn

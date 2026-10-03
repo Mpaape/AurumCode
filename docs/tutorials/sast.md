@@ -113,7 +113,7 @@ aurumcode review --base main
 ```text
 $ aurumcode review --base main
 aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run.
-aurumcode review: policy gate: SAST (semgrep, origem repo) inconclusivo (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
 exit_code=1
 ```
 
@@ -195,7 +195,7 @@ aurumcode review --base main --politica /policy --auditoria auditoria.json
 <!-- saida: origem-sast -->
 ```text
 $ aurumcode review --base main --politica /policy --auditoria auditoria.json
-(severidade error, limiar error, origem policy)
+(severidade error, limiar error, origem sast, secao policy)
 exit_code=3
 auditoria blocking_findings: rule_id=semgrep:policy.regras.demo-sem-eval path=calc.js line=5 origin=sast
 ```
@@ -256,7 +256,7 @@ aurumcode review --base main
 <!-- saida: semgrep-falha -->
 ```text
 --- gate.inconclusive: block
-aurumcode review: policy gate: SAST (semgrep, origem repo) inconclusivo (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
 exit_code=1
 --- gate.inconclusive: warn
 exit_code=0

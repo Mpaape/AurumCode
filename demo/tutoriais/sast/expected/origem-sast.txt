@@ -1,4 +1,4 @@
-(severidade error, limiar error, origem policy)
+(severidade error, limiar error, origem sast, secao policy)
 exit_code=3
 RESULTADO: a politica conta o achado de origem sast
 auditoria blocking_findings: rule_id=semgrep:policy.regras.demo-sem-eval path=calc.js line=5 origin=sast
