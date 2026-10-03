@@ -20,7 +20,9 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [Prompts, skills e docs](configuration.md#prompts-skills-e-docs),
 [Modelo e credenciais](configuration.md#modelo-e-credenciais),
 [Opções avançadas](configuration.md#opcoes-avancadas) e
-[Opções públicas](configuration.md#opcoes-publicas). Veja também
+[Opções públicas](configuration.md#opcoes-publicas),
+[Deliberação: o modelo pede ferramentas](configuration.md#deliberacao-o-modelo-pede-ferramentas-dentro-de-limites) e
+[Arquivos que saem da revisão como documentação](configuration.md#quais-arquivos-saem-da-revisao-como-documentacao). Veja também
 [Qualidade e limitações](review-quality.md) e [Cache de review](review-cache.md).
 
 Tutorial: [Revisão de código](tutorials/revisao.md) e [Deliberação com ferramentas](tutorials/deliberacao.md).
@@ -42,6 +44,7 @@ dono e validade e registra uma trilha de auditoria com saída SARIF.
 Referência:
 [Gate e regras citáveis](configuration.md#gate-skills-viram-regra-citavel-e-a-politica-decide-o-que-reprova-aur-519),
 [gate.sources](configuration.md#gatesources-which-findings-count-toward-the-gate),
+[O modelo pondera a evidência determinística (gate.triage)](configuration.md#the-model-weighs-the-deterministic-evidence-gatetriage),
 [Exceções aprovadas](configuration.md#excecoes-aprovadas-dono-e-validade-aur-520) e
 [Trilha de auditoria e SARIF](configuration.md#trilha-de-auditoria-e-sarif-aur-521).
 O [Guia corporativo](gate-corporativo.md) reúne tudo num conjunto que funciona junto.
