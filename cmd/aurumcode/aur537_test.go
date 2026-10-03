@@ -216,7 +216,7 @@ func TestAUR537ProviderFailureBlocksGate(t *testing.T) {
 	sarifPath := filepath.Join(t.TempDir(), "out.sarif")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 		auditoriaPath:  auditPath,
@@ -276,7 +276,7 @@ func TestAUR537ProviderFailureWarnsGate(t *testing.T) {
 	sarifPath := filepath.Join(t.TempDir(), "out.sarif")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 		auditoriaPath:  auditPath,
@@ -325,7 +325,7 @@ func TestAUR537ProviderFailureExigirQualidadeStillInconclusive(t *testing.T) {
 	deadProviderEnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet:  true,
 		publication:     "review",
 		exigirQualidade: true,
@@ -360,7 +360,7 @@ func TestAUR537NoGateProviderFailureUnchanged(t *testing.T) {
 	sarifPath := filepath.Join(t.TempDir(), "out.sarif")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 		auditoriaPath:  auditPath,
@@ -395,7 +395,7 @@ func TestAUR537MutationReturnsBeforeGate(t *testing.T) {
 	deadProviderEnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -418,7 +418,7 @@ func TestAUR537BudgetExceededBlocksGate(t *testing.T) {
 	tinyBudgetEnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 		limiteSet:      true,
@@ -446,7 +446,7 @@ func TestAUR537BudgetExceededWarnsGate(t *testing.T) {
 	tinyBudgetEnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 		limiteSet:      true,
@@ -477,7 +477,7 @@ func TestAUR537BudgetExceededNoGateUnchanged(t *testing.T) {
 	sarifPath := filepath.Join(t.TempDir(), "out.sarif")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 		limiteSet:      true,
@@ -511,7 +511,7 @@ func TestAUR537BudgetMutationReturnsBeforeGate(t *testing.T) {
 	tinyBudgetEnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
 		publicationSet: true,
 		publication:    "review",
 		limiteSet:      true,

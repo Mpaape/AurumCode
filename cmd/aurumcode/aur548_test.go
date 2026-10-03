@@ -477,7 +477,7 @@ func TestAUR548PRSeverityBreachFailsGate(t *testing.T) {
 	setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, ""))
 
 	var out, errOut strings.Builder
-	code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -505,7 +505,7 @@ func TestAUR548PRUnverifiedCheckoutIsInconclusive(t *testing.T) {
 	setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
 
 	var out, errOut strings.Builder
-	code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -731,7 +731,7 @@ func TestAUR548PRPolicyOriginFlags(t *testing.T) {
 		setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
 
 		var out, errOut strings.Builder
-		code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+		code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 			publicationSet: true,
 			publication:    "review",
 			policyDir:      policyDir,
@@ -767,7 +767,7 @@ func TestAUR548PRPolicyOriginFlags(t *testing.T) {
 		setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, argvLog))
 
 		var out, errOut strings.Builder
-		code := runPRReview(&out, &errOut, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+		code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 			publicationSet: true,
 			publication:    "review",
 			policyDir:      policyDir,

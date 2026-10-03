@@ -1,11 +1,10 @@
-// Phase 2 of the --base path: run the analyses. The model's quality pass
-// lives in review_base_quality.go; this file selects the provider, runs the
-// deterministic passes (security, static analysis, rule config, SAST) and
-// records coverage.
+// The --base model and evidence phases. The model's quality pass lives in
+// review_base_quality.go; this file selects the provider, settles what a
+// selection failure means, and runs the evidence steps the session shares
+// (review_evidence.go) plus the local coverage notice.
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/Mpaape/AurumCode/internal/context/skills"
@@ -14,20 +13,36 @@ import (
 	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
-	"github.com/Mpaape/AurumCode/pkg/types"
+	"github.com/Mpaape/AurumCode/internal/review/session"
 )
 
-// analyze runs every analysis whose output the gate and the report consume.
-func (b *baseReview) analyze() (int, bool) {
-	steps := []func() (int, bool){
-		b.selectProvider, b.settleQualityStatus, b.runQualityPass, b.runSecurityPass, b.runDeterministicPasses,
-	}
-	for _, step := range steps {
+// runModelPass selects the provider, settles what a selection failure
+// means and runs the quality pass.
+func (b *baseReview) runModelPass() (int, bool) {
+	for _, step := range []session.Step{b.selectProvider, b.settleQualityStatus, b.runQualityPass} {
 		if code, done := step(); done {
 			return code, true
 		}
 	}
 	return 0, false
+}
+
+// collectEvidence runs the deterministic passes the gate and the report
+// consume: the security pass, static analysis, rule config, SAST, coverage.
+func (b *baseReview) collectEvidence() (int, bool) {
+	if code, done := b.runSecurityPass(); done {
+		return code, true
+	}
+	mergeStaticAnalysis(b.diff, b.result)
+	b.snapshotAndApplyRules()
+	b.runSAST(b.cwd, "")
+	b.recordCoverage()
+	return 0, false
+}
+
+// qualityDidNotRun reports a quality review that was skipped or failed.
+func (b *baseReview) qualityDidNotRun() bool {
+	return b.model == modelSkipped || b.model == modelProviderFailed
 }
 
 // selectProvider picks the provider (--modelo commands which model reviews,
@@ -51,12 +66,12 @@ func (b *baseReview) selectProvider() (int, bool) {
 	if b.centralCfg != nil {
 		policySkillRules = dynamicRulesFromLocalSkills(b.policyDir, b.centralCfg.Review.Context.Skills, gateOriginPolicy)
 	}
-	repoSkillRules := dynamicRulesFromLocalSkills(b.cwd, b.repoCfg.Review.Context.Skills, gateOriginRepo)
+	repoSkillRules := dynamicRulesFromLocalSkills(b.cwd, b.cfg.Review.Context.Skills, gateOriginRepo)
 	b.dynamicRules = mergeDynamicRules(policySkillRules, repoSkillRules)
 	b.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, b.dynamicRules)
 	b.ruleCatalogDigest = ruleCatalogCacheDigest(b.ruleCatalogIDs, b.dynamicRules)
 
-	contextProviders := config.ConfiguredProviders(b.cwd, b.repoCfg)
+	contextProviders := config.ConfiguredProviders(b.cwd, b.cfg)
 	if b.centralCfg != nil {
 		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
 	}
@@ -69,7 +84,7 @@ func (b *baseReview) selectProvider() (int, bool) {
 	contextProviders = append(contextProviders, catalog)
 	// AUR-513: digest the SAME redacted block the model will receive.
 	b.contextBlockDigest = contextBlockCacheDigest(contextProviders, diffPaths(b.diff), b.filter)
-	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(context.Background(), b.provider, contextProviders, diffPaths(b.diff), b.filter)
+	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(b.ctx, b.provider, contextProviders, diffPaths(b.diff), b.filter)
 	if wrapErr != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", wrapErr)
 		return 1, true
@@ -83,21 +98,21 @@ func (b *baseReview) selectProvider() (int, bool) {
 
 // settleQualityStatus decides what a provider selection failure means.
 //   - Nothing configured and no --modelo (AUR-449/490): the quality review
-//     is skipped (qualitySkipped), deterministic analysis still runs, and
+//     is skipped (modelSkipped), deterministic analysis still runs, and
 //     stderr says so plainly; --exigir-qualidade turns it into a failure
-//     (qualityFailed, AUR-458).
+//     (modelProviderFailed, AUR-458).
 //   - Any other failure: the published refusal (exit 1), except that with
 //     --seguranca and no --modelo the deterministic pass still runs and the
-//     run is marked qualityFailed (AUR-458/473).
+//     run is marked modelProviderFailed (AUR-458/473).
 func (b *baseReview) settleQualityStatus() (int, bool) {
 	f := b.f
 	if b.providerErr != nil && f.modelo == "" && errors.Is(b.providerErr, errNoProviderConfigured) {
-		b.qualitySkipped = true
+		b.model = modelSkipped
 		fmt.Fprintln(b.stderr, "aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only")
 		// AUR-542: the complete AURUMCODE_LLM_FIXTURE teaching text.
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", b.providerErr)
 		if f.exigirQualidade {
-			b.qualityFailed = true
+			b.model = modelProviderFailed
 			fmt.Fprintln(b.stderr, "aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review")
 		}
 	} else if b.providerErr != nil {
@@ -112,66 +127,13 @@ func (b *baseReview) settleQualityStatus() (int, bool) {
 		if !f.seguranca || f.modelo != "" {
 			return rc, true
 		}
-		b.qualityFailed = true
+		b.model = modelProviderFailed
 		fmt.Fprintln(b.stderr, "aurumcode review: quality review failed; running --seguranca only -- this run reviewed HALF of what was asked")
 	}
-	if f.modelo != "" && !b.qualityFailed {
+	if f.modelo != "" && b.model != modelProviderFailed {
 		fmt.Fprintf(b.stderr, "aurumcode review: reviewing with model %q (%s)\n", f.modelo, b.providerVia)
 	}
 	return 0, false
-}
-
-// runSecurityPass is the deterministic --seguranca pass (AUR-435): it runs
-// before anything prints, so a broken rules catalog fails loudly with
-// nothing on stdout, and reports its own coverage on stderr (AUR-450).
-func (b *baseReview) runSecurityPass() (int, bool) {
-	if !b.f.seguranca {
-		return 0, false
-	}
-	findings, applied, total, err := review.SecurityScanWithCoverage(b.diff)
-	if err != nil {
-		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
-		return 1, true
-	}
-	b.securityFindings = findings
-	printSecurityCoverage(b.stderr, applied, total)
-	return 0, false
-}
-
-// runDeterministicPasses merges static analysis, applies the repository's
-// explicit rule config to both finding sets (AUR-452), runs the SAST pass
-// (AUR-548) and records coverage and the declared limitations.
-func (b *baseReview) runDeterministicPasses() (int, bool) {
-	mergeStaticAnalysis(b.diff, b.result)
-	// AUR-524 v2: snapshot the RAW issues, before this run's rule config
-	// filters/overrides them, so a stored verdict can be re-evaluated
-	// against a later run's rule config.
-	b.rawIssues = append([]types.ReviewIssue(nil), b.result.Issues...)
-	b.result.Issues = config.ApplyRuleConfig(b.result.Issues, b.repoCfg)
-	b.securityFindings = config.ApplyRuleConfig(b.securityFindings, b.repoCfg)
-	b.runSAST()
-	b.recordCoverage()
-	return 0, false
-}
-
-// runSAST runs quality_gates.sast's Semgrep pass over the reviewed tree. Its
-// issues never pass through config.ApplyRuleConfig (deterministic evidence a
-// `rules:` override was never meant to reach) and join result.Issues
-// directly. The origin is "policy" only when the CENTRAL POLICY ITSELF
-// declares quality_gates.sast (AUR-548).
-func (b *baseReview) runSAST() {
-	b.sastOrigin = gateOriginRepo
-	if b.centralCfg != nil && b.centralCfg.QualityGates.Sast != nil {
-		b.sastOrigin = gateOriginPolicy
-	}
-	b.sastIssues, b.sastReason = runSASTPass(context.Background(), b.cwd, b.repoCfg.QualityGates.Sast, b.sastOrigin == gateOriginPolicy, b.filter, realSemgrepRunner)
-	if b.sastReason != "" {
-		notice := sastInconclusiveNotice(b.reviewLanguage, b.sastReason)
-		fmt.Fprintf(b.stderr, "aurumcode review: %s\n", notice)
-		b.result.Limitations = append(b.result.Limitations, notice)
-	} else if len(b.sastIssues) > 0 {
-		b.result.Issues = append(b.result.Issues, b.sastIssues...)
-	}
 }
 
 // recordCoverage runs the deterministic coverage pass (AUR-476/522): it

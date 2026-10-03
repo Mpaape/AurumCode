@@ -65,7 +65,7 @@ func TestAUR536UntrackedFileOmitsContextFromPrompt(t *testing.T) {
 	capturePath := aur515Env(t, server.URL)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -141,7 +141,7 @@ func TestAUR536NoGitMetadataOmitsContext(t *testing.T) {
 	capturePath := aur515Env(t, server.URL)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -159,7 +159,7 @@ func TestAUR536NoOriginRemoteOmitsContext(t *testing.T) {
 	capturePath := aur515Env(t, server.URL)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -209,7 +209,7 @@ func TestAUR536PullRequestMetadataFailureOmitsContext(t *testing.T) {
 	capturePath := aur515Env(t, server.URL)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -246,12 +246,18 @@ func assertDirty(t *testing.T, code int, stdout, stderr, capturePath, posted, le
 // captured/published.
 func runAUR536Review(t *testing.T, localHead string) (code int, stdout, stderr, capturePath string, posted string) {
 	t.Helper()
+	return runAUR536ReviewWith(t, localHead, reviewDeps{})
+}
+
+// runAUR536ReviewWith is runAUR536Review with injected session dependencies.
+func runAUR536ReviewWith(t *testing.T, localHead string, deps reviewDeps) (code int, stdout, stderr, capturePath string, posted string) {
+	t.Helper()
 	var postedBody struct{ Body string }
 	server := aur515Server(t, localHead, &postedBody)
 	capturePath = aur515Env(t, server.URL)
 
 	var out, errOut strings.Builder
-	code = runPRReview(&out, &errOut, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code = runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter(), deps: deps}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -548,8 +554,8 @@ func TestAUR536PackedRepositoryWithoutGitIsUnverifiable(t *testing.T) {
 // mutation Ma: it proves, end to end through a real runPRReview call,
 // that resolveVerifiedCodebaseContext hands the resolver exactly the file
 // set verifiedCleanCheckoutReason proved clean -- not a silently
-// re-substituted unrestricted walk. It substitutes resolveWithFilesHook
-// (aur536.go) to capture the call's own arguments; TestAUR536* above prove
+// re-substituted unrestricted walk. It injects the session's resolveFiles
+// dependency (reviewDeps) to capture the call's own arguments; TestAUR536* above prove
 // the resulting PROMPT never carries disallowed content, but none of them
 // pin the WIRING itself, which could regress (back to Resolve's own walk)
 // without changing any of those tests' outcomes once the tree is already
@@ -560,21 +566,19 @@ func TestAUR536VerifiedCodebaseContextReadsExactlyTheVerifiedSet(t *testing.T) {
 	var sawDir string
 	var sawFiles []string
 	called := false
-	previous := resolveWithFilesHook
-	resolveWithFilesHook = func(resolver *codebasectx.Resolver, hookDir string, changed, files []string) (*codebasectx.Pack, error) {
+	deps := reviewDeps{resolveFiles: func(resolver *codebasectx.Resolver, hookDir string, changed, files []string) (*codebasectx.Pack, error) {
 		called = true
 		sawDir = hookDir
 		sawFiles = append([]string(nil), files...)
 		return resolver.ResolveWithFiles(hookDir, changed, files)
-	}
-	t.Cleanup(func() { resolveWithFilesHook = previous })
+	}}
 
-	code, stdout, stderr, _, posted := runAUR536Review(t, localHead)
+	code, stdout, stderr, _, posted := runAUR536ReviewWith(t, localHead, deps)
 	if code != 0 {
 		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout, stderr)
 	}
 	if !called {
-		t.Fatal("resolveWithFilesHook was never invoked -- --pr did not go through ResolveWithFiles at all")
+		t.Fatal("the injected resolveFiles was never invoked -- --pr did not go through ResolveWithFiles at all")
 	}
 	if sawDir != dir {
 		t.Fatalf("hook saw dir=%q, want %q", sawDir, dir)

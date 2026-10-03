@@ -1,10 +1,10 @@
-// The --base review path (AUR-430), split into explicit phases: resolve the
-// inputs (review_base_inputs.go), run the analyses (review_base_analysis.go
-// and review_base_quality.go), run the shared gate pipeline
-// (review_base_gate.go) and publish/exit (review_base_publish.go). The
-// state every phase shares lives in baseReview; each phase returns
-// (exit code, done) so an early `return N` of the original single function
-// stays an identical early return.
+// The --base review path (AUR-430): the local-diff source of the review
+// session (internal/review/session). It resolves its inputs
+// (review_base_inputs.go), runs the model pass (review_base_analysis.go,
+// review_base_quality.go) and the evidence, then hands the shared state to
+// the session's gate (review_gate.go) and publishes a terminal report
+// (review_base_publish.go). Each step returns (exit code, done) so an early
+// exit keeps its code.
 package main
 
 import (
@@ -15,14 +15,9 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
-	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/llm"
-	"github.com/Mpaape/AurumCode/internal/llm/cost"
-	"github.com/Mpaape/AurumCode/internal/memory"
-	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/session"
 	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
-	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // reviewFlags is the parsed command line of `review`. given records which
@@ -107,6 +102,11 @@ func (f *reviewFlags) resolvePolicyDir(stderr io.Writer) (dir string, exit int, 
 // prOptions maps the flags onto the --pr path's options.
 func (f *reviewFlags) prOptions(policyDir string) prReviewOptions {
 	return prReviewOptions{
+		prNumber:        f.pr,
+		repo:            f.repo,
+		publicar:        f.publicar,
+		naLinha:         f.naLinha,
+		check:           f.check,
 		seguranca:       f.seguranca,
 		failOnSet:       f.given["fail-on"],
 		failOn:          f.failOn,
@@ -124,73 +124,46 @@ func (f *reviewFlags) prOptions(policyDir string) prReviewOptions {
 	}
 }
 
-// baseReview is the state of one --base run, shared by every phase.
+// baseReview is the local-diff source of a review session: the shared
+// reviewState plus what only a local run has.
 type baseReview struct {
-	f              *reviewFlags
-	stdout, stderr io.Writer
-	filter         *redaction.Filter
-	run            *gateRun // flushed by runReview when the run ends
+	reviewState
+	f *reviewFlags
 
-	policyDir     string
-	threshold     int
-	thresholdName string
-	limiteSet     bool
-	limiteUSD     float64
-
-	cwd              string
-	diff             *types.Diff
-	notices          []analyzer.DiffNotice
-	rawDiffFileCount int
-	ignoredPaths     []string
-	repoCfg          *config.Config
-	centralCfg       *config.Config
-	policyWarnings   []config.ProviderWarning
-	skillNotices     []string
-	reviewLanguage   string
-
+	limiteSet       bool
+	cwd             string
+	notices         []analyzer.DiffNotice
 	profileRes      *reviewprofile.MultiResult
 	profilesApplied bool
-	profileIdentity string
-
-	codebaseContextText string
-	memoryStore         memory.Store
-	memoryNotes         []memory.Note
-	memoryNotesText     string
-	changelogText       string
-	changelogLimitation string
-
-	provider     llm.Provider
-	providerErr  error
-	providerVia  string
-	tracker      *cost.Tracker
-	result       *types.ReviewResult
-	dynamicRules map[string]review.Rule
-
-	ruleCatalogIDs     []string
-	ruleCatalogDigest  string
-	contextBlockDigest string
-	baseModelIdentity  string
-
-	qualitySkipped bool
-	qualityFailed  bool
-
-	securityFindings []types.ReviewIssue
-	rawIssues        []types.ReviewIssue // AUR-524 v2 snapshot, before rule config
-	sastIssues       []types.ReviewIssue
-	sastReason       string
-	sastOrigin       string
-
-	coverage     reviewCoverageBreakdown
-	coverageText string
-
-	gateRes *gateDecision
+	providerErr     error
+	providerVia     string
+	coverageText    string
 }
 
-// flush drains the redaction writers a gate contributor installed.
-func (b *baseReview) flush() { b.run.Flush() }
+// Step maps each session phase onto this source's steps.
+func (b *baseReview) Step(phase session.Phase) session.Step {
+	switch phase {
+	case session.PhaseResolve:
+		return b.resolveInputs
+	case session.PhaseModel:
+		return b.runModelPass
+	case session.PhaseEvidence:
+		return b.collectEvidence
+	case session.PhaseGate:
+		return b.runGate
+	}
+	return b.publish
+}
 
-// runReview is the --base entry point (and the --pr dispatcher).
+// runReview is the review command: --base, or the --pr dispatcher.
 func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int {
+	return runReviewWith(reviewIO{stdout: stdout, stderr: stderr, filter: filter}, args)
+}
+
+// runReviewWith runs the review command with the given writers and
+// dependencies; the environment is read once here, at the edge.
+func runReviewWith(rio reviewIO, args []string) int {
+	stdout, stderr := rio.stdout, rio.stderr
 	f, exit, ok := parseReviewFlags(args, stdout, stderr)
 	if !ok {
 		return exit
@@ -206,14 +179,12 @@ func runReview(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 			fmt.Fprintln(stderr, "aurumcode review: --perfis/--profile are not supported with --pr (they select the --base review passes only)")
 			return 2
 		}
-		return runPRReview(stdout, stderr, f.pr, f.repo, f.publicar, f.naLinha, f.check, filter, f.prOptions(policyDir))
+		return runPRReview(rio, f.prOptions(policyDir))
 	}
-	b := &baseReview{f: f, stdout: stdout, stderr: stderr, filter: filter, policyDir: policyDir, run: &gateRun{}}
+	b := &baseReview{reviewState: newReviewState(session.LocalDiff, rio), f: f}
+	b.policyDir, b.modelFlag, b.seguranca, b.exigirQualidade = policyDir, f.modelo, f.seguranca, f.exigirQualidade
+	b.auditoriaPath, b.sarifPath = f.auditoria, f.sarif
+	b.artifactRepo, b.artifactCommit = b.env().repository, b.env().githubSHA
 	defer b.flush()
-	for _, phase := range []func() (int, bool){b.resolveInputs, b.analyze, b.decideGate, b.publish} {
-		if code, done := phase(); done {
-			return code
-		}
-	}
-	return 0
+	return session.Run(b)
 }

@@ -149,7 +149,11 @@ func aur567PR(t *testing.T, diffBody, cfg, reply string, opts prReviewOptions) (
 	setPRGateEnv(t, server, fixture)
 	opts.publicationSet, opts.publication = true, "review"
 	var o, e strings.Builder
-	code = runPRReview(&o, &e, 48, "owner/repo", true, true, true, redaction.NewFilter(), opts)
+	code = runPRReview(reviewIO{stdout: &o, stderr: &e, filter: redaction.NewFilter()}, func() prReviewOptions {
+		o := opts
+		o.prNumber, o.repo, o.publicar, o.naLinha, o.check = 48, "owner/repo", true, true, true
+		return o
+	}())
 	return code, status, event, e.String()
 }
 

@@ -595,7 +595,7 @@ func TestAUR520PRValidExceptionPasses(t *testing.T) {
 	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})

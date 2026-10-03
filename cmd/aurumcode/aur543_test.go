@@ -9,7 +9,7 @@ package main
 //     content (here, the built-in rule catalog) must force a fresh review
 //     THROUGH THE REAL PRODUCTION CALL, not merely inside
 //     FixedContentDigest's own unit test. It substitutes
-//     newCacheDigestBuilder (review_cache.go's seam) rather than calling
+//     the session's injected digestBuilder (reviewDeps) rather than calling
 //     prompt.NewPromptBuilder() directly, so this test would also fail if
 //     the wiring ever stopped calling FixedContentDigest at all -- e.g. a
 //     regression back to the old, hand-bumped cache.PromptVersion constant.
@@ -63,7 +63,7 @@ func jsonEscapeAUR543(s string) string {
 // production boundary: "alterar qualquer texto fixo do prompt embutido muda
 // a chave do cache e forca review novo, sem editar constante." It stands in
 // for "the embedded prompt changed" by substituting
-// newCacheDigestBuilder (review_cache.go) -- the exact seam runReview calls
+// the digestBuilder injected into the review session (reviewDeps) -- the exact dependency runReview calls
 // -- with a builder whose built-in rule catalog differs, leaving the diff,
 // the model name and the endpoint byte-identical across every round. This
 // is deliberately NOT the same proof as internal/prompt's own
@@ -74,7 +74,6 @@ func jsonEscapeAUR543(s string) string {
 // defect.
 func TestAUR543AC001PromptEditForcesFreshReview(t *testing.T) {
 	cleanFixture(t, "")
-	t.Cleanup(func() { newCacheDigestBuilder = prompt.NewPromptBuilder })
 
 	server, requests := aur543CountingServer()
 	defer server.Close()
@@ -97,16 +96,16 @@ func TestAUR543AC001PromptEditForcesFreshReview(t *testing.T) {
 	// input to this run changed at all.
 	mutatedCatalog := append([]string(nil), prompt.DefaultRuleCatalog...)
 	mutatedCatalog = append(mutatedCatalog, "zzz-aur543-canary/marker")
-	newCacheDigestBuilder = func() *prompt.PromptBuilder {
+	mutated := reviewDeps{digestBuilder: func() *prompt.PromptBuilder {
 		b := prompt.NewPromptBuilder()
 		if err := b.SetRuleCatalog(mutatedCatalog); err != nil {
 			t.Fatalf("SetRuleCatalog: %v", err)
 		}
 		return b
-	}
+	}}
 
 	var out2, err2 strings.Builder
-	if code := runReview([]string{"--base", "HEAD~1"}, &out2, &err2, redaction.NewFilter()); code != 0 {
+	if code := runReviewWith(reviewIO{stdout: &out2, stderr: &err2, filter: redaction.NewFilter(), deps: mutated}, []string{"--base", "HEAD~1"}); code != 0 {
 		t.Fatalf("round2 exit=%d, want 0; stdout=%s stderr=%s", code, out2.String(), err2.String())
 	}
 	if strings.Contains(err2.String(), "reused") {
@@ -121,7 +120,7 @@ func TestAUR543AC001PromptEditForcesFreshReview(t *testing.T) {
 	// round 2's own entry, proving round 2 was not simply "every run
 	// always misses" and round 1's entry was not silently destroyed.
 	var out3, err3 strings.Builder
-	if code := runReview([]string{"--base", "HEAD~1"}, &out3, &err3, redaction.NewFilter()); code != 0 {
+	if code := runReviewWith(reviewIO{stdout: &out3, stderr: &err3, filter: redaction.NewFilter(), deps: mutated}, []string{"--base", "HEAD~1"}); code != 0 {
 		t.Fatalf("round3 exit=%d, want 0; stdout=%s stderr=%s", code, out3.String(), err3.String())
 	}
 	if !strings.Contains(err3.String(), "reused") {
@@ -196,7 +195,7 @@ func TestAUR543AC003DifferentBaseURLForcesFreshReview(t *testing.T) {
 }
 
 // TestAUR543N1DigestErrorDegradesToNoCache covers N1: when
-// newCacheDigestBuilder().FixedContentDigest() fails, runReview
+// the injected digestBuilder().FixedContentDigest() fails, runReview
 // (main.go) folds that error into cacheErr exactly like a cache.Open
 // failure, which gates BOTH partitionByCache (toSend stays the full diff)
 // AND persistFreshResults (main.go: "if cacheErr == nil && ... {
@@ -208,8 +207,6 @@ func TestAUR543AC003DifferentBaseURLForcesFreshReview(t *testing.T) {
 // reachable failure shape, not a synthetic panic.
 func TestAUR543N1DigestErrorDegradesToNoCache(t *testing.T) {
 	cleanFixture(t, "")
-	t.Cleanup(func() { newCacheDigestBuilder = prompt.NewPromptBuilder })
-	newCacheDigestBuilder = prompt.NewPromptBuilderWithoutTemplates
 
 	server, requests := aur543CountingServer()
 	defer server.Close()
@@ -218,7 +215,8 @@ func TestAUR543N1DigestErrorDegradesToNoCache(t *testing.T) {
 	t.Setenv("LLM_BASE_URL", server.URL)
 
 	var out, errOut strings.Builder
-	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	deps := reviewDeps{digestBuilder: prompt.NewPromptBuilderWithoutTemplates}
+	code := runReviewWith(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter(), deps: deps}, []string{"--base", "HEAD~1"})
 	if code != 0 {
 		t.Fatalf("exit=%d, want 0; stdout=%s stderr=%s", code, out.String(), errOut.String())
 	}

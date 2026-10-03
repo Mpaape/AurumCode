@@ -139,7 +139,7 @@ func TestAUR517SummaryWithheldWhenAccusationOutOfScope(t *testing.T) {
 	aur517PREnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -176,7 +176,7 @@ func TestAUR517DegradedParseNoticePublished(t *testing.T) {
 	aur517PREnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -204,7 +204,7 @@ func TestAUR517ValidFindingKeepsEvidenceAndVerdict(t *testing.T) {
 	aur517PREnv(t, server)
 
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
@@ -256,7 +256,7 @@ func TestAUR517SameDecisionAcrossSinks(t *testing.T) {
 	commentServer, commentPosted := aur517Server(t)
 	aur517PREnv(t, commentServer)
 	var commentOut, commentErr strings.Builder
-	code = runPRReview(&commentOut, &commentErr, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+	code = runPRReview(reviewIO{stdout: &commentOut, stderr: &commentErr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 		publicationSet: true,
 		publication:    "comments",
 	})
@@ -273,7 +273,7 @@ func TestAUR517SameDecisionAcrossSinks(t *testing.T) {
 	reviewServer, reviewPosted := aur517Server(t)
 	aur517PREnv(t, reviewServer)
 	var reviewOut, reviewErr strings.Builder
-	code = runPRReview(&reviewOut, &reviewErr, 48, "owner/repo", true, false, false, redaction.NewFilter(), prReviewOptions{
+	code = runPRReview(reviewIO{stdout: &reviewOut, stderr: &reviewErr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
 		publicationSet: true,
 		publication:    "review",
 	})
