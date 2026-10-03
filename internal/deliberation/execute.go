@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
@@ -59,5 +60,9 @@ func capContent(content string) string {
 	if len(content) <= maxToolMessageBytes {
 		return content
 	}
-	return content[:maxToolMessageBytes-len(truncationNote)] + truncationNote
+	cut := maxToolMessageBytes - len(truncationNote)
+	for cut > 0 && !utf8.RuneStart(content[cut]) {
+		cut--
+	}
+	return content[:cut] + truncationNote
 }

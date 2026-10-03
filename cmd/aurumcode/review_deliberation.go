@@ -70,7 +70,20 @@ func (s *reviewState) toolOffers() []reviewtools.Offer {
 	if s.scanRoot != "" {
 		offers = append(offers, reviewtools.Offer{Tool: reviewtools.NewContextTool(s.scanRoot, diffPaths(s.diff)), Cost: reviewtools.ContextCost})
 	}
+	if sections := s.skillSections(); len(sections) > 0 {
+		offers = append(offers, reviewtools.Offer{Tool: reviewtools.NewSkillTool(sections), Cost: reviewtools.SkillCost})
+	}
 	return offers
+}
+
+// skillSections is the configured skill sections the model may read on
+// demand, keyed by the rule id the catalog lists.
+func (s *reviewState) skillSections() map[string]reviewtools.SkillSection {
+	out := make(map[string]reviewtools.SkillSection, len(s.dynamicRules))
+	for id, rule := range s.dynamicRules {
+		out[id] = reviewtools.SkillSection{Title: rule.Title, Text: rule.Description}
+	}
+	return out
 }
 
 // scanOnRequest runs entry when the model asks for it, through the same
