@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -36,7 +37,18 @@ var catalogYAML []byte
 // Catalog maps a locale to its key -> text table.
 type Catalog map[Locale]map[string]string
 
-var builtin = mustParse(catalogYAML)
+// builtin is the embedded catalog, parsed on first use. A catalog that
+// fails its own check stops the process at the first text it would print,
+// never shows a half-translated review.
+var (
+	builtinOnce sync.Once
+	builtin     Catalog
+)
+
+func catalog() Catalog {
+	builtinOnce.Do(func() { builtin = mustParse(catalogYAML) })
+	return builtin
+}
 
 // verbPattern matches a fmt verb (a literal "%%" is not one).
 var verbPattern = regexp.MustCompile(`%[-+# 0-9.]*[a-zA-Z%]`)
@@ -53,7 +65,7 @@ func LocaleOf(language string) Locale {
 // is a programming error the catalog test catches; it returns the key itself
 // so the gap is visible rather than silent.
 func Text(language, key string) string {
-	if v, ok := builtin[LocaleOf(language)][key]; ok {
+	if v, ok := catalog()[LocaleOf(language)][key]; ok {
 		return v
 	}
 	return key
@@ -66,7 +78,7 @@ func Format(language, key string, args ...any) string {
 
 // Keys returns the embedded catalog's keys, sorted.
 func Keys() []string {
-	return sortedKeys(builtin[English])
+	return sortedKeys(catalog()[English])
 }
 
 // Parse decodes a catalog and refuses one where a locale is missing, a key
