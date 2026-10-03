@@ -52,6 +52,7 @@ rules live in `internal/`.
 | `internal/reviewprofile` | Built-in, versioned reviewer profiles. |
 | `internal/sandbox` | Sealed execution profiles. |
 | `internal/scanner` | The scanner contract (`Scanner`, `Report`, `Finding.ToIssue`), the closed registry of compiled engines and the executor; engines live in subpackages (`internal/scanner/semgrep`, SAST over the tree; `internal/scanner/gitleaks`, secrets over the reviewed commit range `Request.Range`) listed in `internal/scanner/engines`. The review hands every engine the reviewed range (`--pr`: the pull request's base and head; `--base`: the ref and `HEAD` resolved to full ids), and each engine's reported identity (`Outcome.Version`) enters the evidence digest of the cache key. |
+| `internal/scanner/engines/exemplo` | The example engine of the extension guide (`docs/extensao.md`): reports lines holding a marker, registered only in a binary built with the tag `aurum_exemplo`. |
 | `internal/sbom` | CycloneDX SBOM generation and validation. |
 | `internal/security` | Redaction of secrets from every sink. |
 | `internal/supplychain` | Sigstore/Cosign signing of SBOMs and images. |
@@ -257,6 +258,13 @@ the configuration exit code.
   and generation read the catalog. SBOM stays in `internal/sbom`.
 - **A grammar.** Add a catalog entry under `internal/grammar/catalog`; no Go
   code changes for a language the runtime already supports.
+
+Veja o guia de extensão, [Estendendo o Aurum](extensao.md), em português,
+com o contrato exato e um exemplo mínimo de cada ponto (engine de scanner,
+ferramenta de deliberação, skill e fonte de contexto `ContextProvider`) e o
+que não é ponto de extensão; o tutorial
+[Estendendo o Aurum na prática](tutorials/extensao.md) roda a engine de
+exemplo.
 
 ## Guards
 

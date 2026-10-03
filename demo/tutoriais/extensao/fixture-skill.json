@@ -1,0 +1,11 @@
+{"aurumcode_fixture": {
+  "cases": [
+    {"prompt_contains": "MARCA-SKILL-EXEMPLO",
+     "response": {"verdict": "comment", "strengths": [], "issues": [], "ci_analysis": [], "test_plan": [], "limitations": [],
+                  "summary": "A skill de exemplo chegou ao prompt.",
+                  "suggestions": [{"title": "Eco da skill", "description": "o prompt recebido trazia a skill de exemplo (MARCA-SKILL-EXEMPLO)"}]}}
+  ],
+  "default": {"verdict": "comment", "strengths": [], "issues": [], "ci_analysis": [], "test_plan": [], "limitations": [],
+              "summary": "A skill de exemplo nao chegou ao prompt.",
+              "suggestions": [{"title": "Eco da skill", "description": "o prompt recebido NAO trazia a skill de exemplo"}]}
+}}

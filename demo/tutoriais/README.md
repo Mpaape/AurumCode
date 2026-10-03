@@ -24,6 +24,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [sbom-dependency-track](../../docs/tutorials/sbom-dependency-track.md) | `sbom-dependency-track/` | up, sbom-versao-minima, upload-e-metricas, limiares, violacao-de-politica, secret-ausente, timeout, projeto-por-microservico, down |
 | [assinatura](../../docs/tutorials/assinatura.md) | `assinatura/` | chave-efemera, verificacao-por-terceiro, keyless-actions, bundle-artefato, falha-cosign, falha-sem-bundle, falha-imagem-sem-digest |
 | [xbom](../../docs/tutorials/xbom.md) | `xbom/` | build-bom, cbom, evidencia, catalogo, enriquecimento, tipos-documentados, falha-catalogo-invalido |
+| [extensao](../../docs/tutorials/extensao.md) | `extensao/` | engine-no-gate, skill-no-prompt, ferramenta-pedida, falha-binario-padrao (imagem com `TUT_BUILD_ARGS="GO_TAGS=aurum_exemplo"`; a falha usa a imagem padrao) |
 | [dados-de-analise](../../docs/tutorials/dados-de-analise.md) | `dados-de-analise/` | declarado-ou-nao, vencido, cache, workflow-agendado, adulterado, indisponivel |
 
 ## Como rodar
@@ -38,7 +39,10 @@ bash demo/tutoriais/<tutorial>/run.sh limpar    # apaga .estado/
 No host só existem `bash`, `git`, `docker` e `python3`. O programa roda na
 imagem do produto (`docker build` do `Dockerfile` da raiz, tag
 `aurum-tutoriais:<12 hex>` derivada da identidade da árvore, construída na primeira execução; `AURUMCODE_TUT_REBUILD=1`
-força, `AURUMCODE_TUT_IMAGE=` usa outra tag), sem rede (`--network none`) e com
+força, `AURUMCODE_TUT_IMAGE=` usa outra tag; um `run.sh` que declara
+`TUT_BUILD_ARGS="CHAVE=valor ..."` antes de carregar `_lib/tutorial.sh`
+constrói com esses `--build-arg`, numa tag com o sufixo `-<12 hex dos args>`,
+e `AURUMCODE_TUT_BUILD_ARGS` sobrescreve), sem rede (`--network none`) e com
 o provedor de modelo falso e determinístico (`AURUMCODE_LLM_FIXTURE`): nunca
 há credencial real.
 

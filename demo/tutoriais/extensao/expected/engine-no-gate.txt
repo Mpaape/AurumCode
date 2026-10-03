@@ -1,0 +1,7 @@
+$ aurumcode review --base main --auditoria /work/auditoria.json --sarif /work/revisao.sarif
+aurumcode review: policy gate: exemplo:marca - linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca) (severidade error, limiar error, origem exemplo, secao repo)
+app.py:2: [error] linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca)
+exit_code=3
+RESULTADO: a engine de exemplo achou a marca no diff e o gate reprovou com origem exemplo
+auditoria blocking_findings: rule_id=exemplo:marca path=app.py line=2 origin=exemplo
+sarif result: exemplo:marca app.py:2 origin=exemplo
