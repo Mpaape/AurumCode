@@ -18,7 +18,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/analysis"
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -122,7 +122,7 @@ func applyDeterministic(d *Result, gate config.GateConfig, issues []types.Review
 			switch status {
 			case ExceptionActive:
 				d.Lines = append(d.Lines, AcceptedExceptionLine(exc, issue))
-				d.AppliedExceptions = append(d.AppliedExceptions, render.AuditException{
+				d.AppliedExceptions = append(d.AppliedExceptions, facts.AuditException{
 					RuleID:        issue.RuleID,
 					Path:          issue.File,
 					Justification: fmt.Sprintf("dono: %s, motivo: %s, validade: %s", exc.Owner, exc.Reason, exc.Expires),
@@ -138,7 +138,7 @@ func applyDeterministic(d *Result, gate config.GateConfig, issues []types.Review
 		d.Fail = true
 		d.Breach = true
 		d.Lines = append(d.Lines, FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin))
-		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
+		d.BlockingFindings = append(d.BlockingFindings, facts.AuditFinding{
 			RuleID: issue.RuleID, Path: issue.File, Line: issue.Line, Severity: issue.Severity,
 			Origin: origin,
 		})

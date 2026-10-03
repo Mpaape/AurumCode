@@ -42,6 +42,8 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/llm/tokens"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -236,17 +238,10 @@ func Assemble(selected []Skill, budget Budget) (*Result, error) {
 	return res, nil
 }
 
-// EstimateTokens approximates tokens at ~4 characters per token, never zero
-// for non-empty text (the same heuristic internal/prompt and internal/llm
-// use).
+// EstimateTokens is the engine's one character heuristic
+// (tokens.Estimate), the same internal/prompt and internal/llm use.
 func EstimateTokens(text string) int {
-	if text == "" {
-		return 0
-	}
-	if n := len(text) / 4; n > 0 {
-		return n
-	}
-	return 1
+	return tokens.Estimate(text)
 }
 
 // Provider is the skills ContextProvider. It loads root/.aurumcode/skills,
@@ -322,84 +317,60 @@ func parseSkill(dir, full, content string) (Skill, error) {
 	}
 	fm := rest[:idx]
 	sk.Instructions = rest[idx+len(delim)+1:]
-	parseFrontMatter(fm, &sk)
+	if err := parseFrontMatter(full, fm, &sk); err != nil {
+		return Skill{}, err
+	}
 	if strings.TrimSpace(sk.Name) == "" {
 		sk.Name = dir
 	}
 	return sk, nil
 }
 
-// parseFrontMatter reads the flat key/value subset skills use: scalars and
-// inline ("[a, b]") or block ("- a") lists for languages and paths.
-func parseFrontMatter(fm string, sk *Skill) {
-	lastList := ""
-	var languages, paths []string
-	for _, raw := range strings.Split(fm, "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if strings.HasPrefix(line, "- ") {
-			item := yamlScalar(strings.TrimSpace(line[2:]))
-			switch lastList {
-			case "languages":
-				languages = append(languages, item)
-			case "paths":
-				paths = append(paths, item)
-			}
-			continue
-		}
-		k, v, ok := strings.Cut(line, ":")
-		if !ok {
-			continue
-		}
-		key := strings.TrimSpace(k)
-		value := strings.TrimSpace(v)
-		lastList = ""
-		switch key {
-		case "name":
-			sk.Name = yamlScalar(value)
-		case "version":
-			sk.Version = yamlScalar(value)
-		case "languages":
-			lastList = "languages"
-			languages = append(languages, yamlList(value)...)
-		case "paths":
-			lastList = "paths"
-			paths = append(paths, yamlList(value)...)
-		}
-	}
-	sk.Selector = Selector{Languages: languages, Paths: paths}
+// frontMatter is the YAML header of a SKILL.md. Unknown keys are ignored.
+type frontMatter struct {
+	Name      string     `yaml:"name"`
+	Version   string     `yaml:"version"`
+	Languages stringList `yaml:"languages"`
+	Paths     stringList `yaml:"paths"`
 }
 
-// yamlScalar trims surrounding quotes and whitespace.
-func yamlScalar(s string) string {
-	s = strings.TrimSpace(s)
-	if len(s) >= 2 {
-		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
-			return s[1 : len(s)-1]
+// stringList accepts a YAML list or one scalar; a scalar may hold several
+// comma-separated items. Empty items are dropped.
+type stringList []string
+
+// UnmarshalYAML implements yaml.Unmarshaler.
+func (l *stringList) UnmarshalYAML(node *yaml.Node) error {
+	var raw []string
+	switch node.Kind {
+	case yaml.ScalarNode:
+		raw = strings.Split(node.Value, ",")
+	case yaml.SequenceNode:
+		if err := node.Decode(&raw); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("line %d: want a list or a scalar", node.Line)
+	}
+	*l = nil
+	for _, item := range raw {
+		if item = strings.TrimSpace(item); item != "" {
+			*l = append(*l, item)
 		}
 	}
-	return s
+	return nil
 }
 
-// yamlList parses an inline list ("[a, b]") or a single scalar into items.
-func yamlList(value string) []string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil
+// parseFrontMatter decodes the YAML header into sk. Malformed YAML is an
+// error naming the file, never a skill read with half its selector.
+func parseFrontMatter(full, fm string, sk *Skill) error {
+	var meta frontMatter
+	if err := yaml.Unmarshal([]byte(fm), &meta); err != nil {
+		return fmt.Errorf("skills: %s: front matter: %w", full, err)
 	}
-	if strings.HasPrefix(value, "[") {
-		value = strings.TrimSuffix(strings.TrimPrefix(value, "["), "]")
-	}
-	var out []string
-	for _, part := range strings.Split(value, ",") {
-		item := yamlScalar(part)
-		if item != "" {
-			out = append(out, item)
-		}
-	}
-	return out
+	sk.Name = strings.TrimSpace(meta.Name)
+	sk.Version = strings.TrimSpace(meta.Version)
+	sk.Selector = Selector{Languages: meta.Languages, Paths: meta.Paths}
+	return nil
 }
 
 // versionLabel renders a skill version, defaulting to "1" when undeclared.

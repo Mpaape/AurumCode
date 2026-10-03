@@ -84,10 +84,13 @@ type Contributor interface {
 	Name() string
 	// Origin labels the findings this contributor adds.
 	Origin() string
-	// Apply folds the contributor's evidence into res. Returning a plain
-	// error makes the run inconclusive by the policy's mode; wrapping it
-	// with Fatal aborts the pipeline (invalid configuration).
-	Apply(ctx context.Context, run *Run, res *Result) error
+	// Apply returns the contributor's own partial decision; the pipeline
+	// merges it (Result.Merge) into the run's result. prior is the result
+	// so far, to read (its inconclusive reason), never to rewrite.
+	// Returning a plain error makes the run inconclusive by the policy's
+	// mode; wrapping it with Fatal aborts the pipeline (invalid
+	// configuration).
+	Apply(ctx context.Context, run *Run, prior Result) (Result, error)
 }
 
 // FatalError marks an error the pipeline must not absorb as inconclusive.
@@ -128,8 +131,8 @@ func (p *Pipeline) Names() []string {
 	return names
 }
 
-// Run applies every contributor to res in declared order and records each
-// one's footprint in res.Trail. A contributor that returns an ordinary
+// Run merges every contributor's partial decision into res in declared
+// order and records each one's footprint in res.Trail. A contributor that returns an ordinary
 // error leaves the run inconclusive: it is marked Active and Inconclusive
 // and its reason is joined to res.Reason. After every contributor the
 // effective inconclusive mode is applied (ApplyInconclusiveMode), the same
@@ -138,7 +141,8 @@ func (p *Pipeline) Names() []string {
 func (p *Pipeline) Run(ctx context.Context, run *Run, res *Result) error {
 	for _, c := range p.contributors {
 		lines, findings := len(res.Lines), len(res.BlockingFindings)
-		err := c.Apply(ctx, run, res)
+		part, err := c.Apply(ctx, run, *res)
+		res.Merge(part)
 		entry := Contribution{Name: c.Name(), Origin: c.Origin()}
 		if err != nil {
 			var fatal *FatalError

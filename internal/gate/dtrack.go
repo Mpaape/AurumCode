@@ -33,7 +33,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dtrack"
-	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -120,7 +120,7 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *
 
 	timeout := time.Duration(cfg.EffectiveTimeoutSeconds()) * time.Second
 	interval := time.Duration(cfg.EffectivePollIntervalSeconds()) * time.Second
-	outcome := dtrack.Run(ctx, client, projectID, bom, cfg.Thresholds.AsClientThresholds(), interval, timeout)
+	outcome := dtrack.Run(ctx, client, projectID, bom, clientThresholds(cfg.Thresholds), interval, timeout)
 
 	for _, note := range outcome.Notes {
 		result.Lines = append(result.Lines, "ssor_dtrack: "+note+": recálculo de métricas não permitido à chave; seguiu lendo até assentar")
@@ -136,7 +136,7 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *
 		for _, r := range outcome.Reasons {
 			result.Lines = append(result.Lines, "ssor_dtrack: "+r+" (origem "+OriginDTrack+")")
 		}
-		result.BlockingFindings = append(result.BlockingFindings, render.AuditFinding{
+		result.BlockingFindings = append(result.BlockingFindings, facts.AuditFinding{
 			RuleID:   "ssor_dtrack",
 			Path:     projectID,
 			Severity: "error",
@@ -149,34 +149,6 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *
 		))
 	}
 	return result, reason, newFilter
-}
-
-// MergeDTrackGate folds dtrackResult into gateResult using the exact same
-// fields EvaluateGate's own caller already reads (Active/Fail/Breach/
-// Inconclusive/Lines/BlockingFindings), and combines dtrackReason with an
-// already-set gateInconclusiveReason by joining with a comma -- never
-// replacing it -- so AUR-537's own single-reason assertions (e.g.
-// "provider_failure") stay intact when ssor_dtrack is not declared, and a
-// run where both fire publishes both reasons.
-func MergeDTrackGate(gateResult Result, gateInconclusiveReason string, dtrackResult Result, dtrackReason string) (Result, string) {
-	if !dtrackResult.Active {
-		return gateResult, gateInconclusiveReason
-	}
-	gateResult.Active = true
-	gateResult.Fail = gateResult.Fail || dtrackResult.Fail
-	gateResult.Breach = gateResult.Breach || dtrackResult.Breach
-	gateResult.Inconclusive = gateResult.Inconclusive || dtrackResult.Inconclusive
-	gateResult.Lines = append(gateResult.Lines, dtrackResult.Lines...)
-	gateResult.BlockingFindings = append(gateResult.BlockingFindings, dtrackResult.BlockingFindings...)
-	gateResult.AppliedExceptions = append(gateResult.AppliedExceptions, dtrackResult.AppliedExceptions...)
-	if dtrackReason != "" {
-		if gateInconclusiveReason != "" {
-			gateInconclusiveReason += "," + dtrackReason
-		} else {
-			gateInconclusiveReason = dtrackReason
-		}
-	}
-	return gateResult, gateInconclusiveReason
 }
 
 // WrapWriterWithFilter wraps dst with a second redaction.Writer layer
@@ -194,4 +166,14 @@ func WrapWriterWithFilter(sink redaction.Sink, dst io.Writer, filter *redaction.
 		return dst, nil
 	}
 	return w, w
+}
+
+// clientThresholds converts the configured thresholds to the client's own
+// shape, so the configuration never depends on the client that applies it.
+func clientThresholds(t config.SsorDtrackThresholds) dtrack.Thresholds {
+	return dtrack.Thresholds{
+		MaxCritical:      t.MaxCritical,
+		MaxHigh:          t.MaxHigh,
+		PolicyViolations: t.PolicyViolations,
+	}
 }

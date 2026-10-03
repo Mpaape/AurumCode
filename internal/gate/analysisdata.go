@@ -1,9 +1,7 @@
-// AUR-533: the analysis-data artifact's age/digest gate. ApplyAnalysisDataGate
-// runs once, right before the Dependency-Track gate in both runReview
-// (main.go) and runPRReview (pr.go), and folds its outcome into the SAME
-// Result those two already publish, following aur550.go's
-// ApplyDTrackGate/MergeDTrackGate pattern (MergeDTrackGate itself is reused:
-// it only reads the Result fields).
+// The analysis-data artifact's age/digest gate. ApplyAnalysisDataGate runs
+// once, right before the Dependency-Track gate, and returns a partial
+// decision the pipeline merges into the run's Result (Result.Merge), like
+// every other contributor.
 //
 // It is a complete no-op -- no network call, no gate line, no audit field --
 // unless the effective config declares `analysis_data` (repository or central
@@ -19,7 +17,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/artifacts"
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 )
 
 // Seams for tests: a local fake GitHub server and a fixed clock. Production
@@ -44,7 +42,7 @@ var AnalysisDataReviewKinds = []string{"scanners"}
 // unusable outcome is inconclusive (the pipeline applies the mode) and
 // carries the reason code;
 // a usable one adds no gate line and returns the audit facts.
-func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig) (result Result, reason string, audit *render.AnalysisDataAudit) {
+func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig) (result Result, reason string, audit *facts.AnalysisDataAudit) {
 	if !cfg.Declared() {
 		return Result{}, "", nil
 	}
@@ -70,7 +68,7 @@ func ApplyAnalysisDataGate(ctx context.Context, cfg *config.AnalysisDataConfig) 
 		result.Lines = append(result.Lines, fmt.Sprintf(
 			"analysis_data: usando cópia em cache (%s): a listagem de releases estava indisponível; idade e digests verificados", out.Tag))
 	}
-	return result, "", &render.AnalysisDataAudit{
+	return result, "", &facts.AnalysisDataAudit{
 		Digest:      out.Digest,
 		GeneratedAt: out.GeneratedAt.UTC().Format(time.RFC3339),
 		Tag:         out.Tag,

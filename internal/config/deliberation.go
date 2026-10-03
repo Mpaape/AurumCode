@@ -78,7 +78,7 @@ func mergeDeliberation(effective *Config, repo, central *Config) []ProviderWarni
 		return nil
 	}
 	return []ProviderWarning{{
-		Provider: "politica central",
+		Provider: centralPolicyProvider,
 		Reason:   "deliberation do config do repositório foi ignorado: a política central decide sozinha",
 	}}
 }

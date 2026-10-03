@@ -59,6 +59,36 @@ rules live in `internal/`.
 | `internal/testgen` | Deterministic test proposals from a diff. |
 | `internal/xbom` | BOMs beyond the SBOM (build, data, and so on) from catalogs. |
 
+## Layers
+
+Dependencies point one way: `pkg/types` (the shared domain shapes) ← the
+`internal/` packages ← `cmd`. Inside `internal/`, configuration holds values
+and runs nothing, the domain decides without knowing how it is presented, and
+presentation (`internal/render`) consumes the domain's facts: the gate's
+structured findings and exceptions live in `internal/gate/facts`, which both
+`internal/gate` and `internal/render` import and which imports neither. The table below is read by a structural test
+(`cmd/aurumcode/structure_test.go`): a production file of the package on the
+left that imports the package on the right fails it, unless the exception
+column allows that exact file or only the listed symbols. An exception that
+no longer matches anything also fails, so it cannot outlive its reason.
+
+| Package | Must not import | Exception |
+| --- | --- | --- |
+| `pkg` | `internal` | |
+| `pkg` | `cmd` | |
+| `internal` | `cmd` | |
+| `internal` | `internal/render` | |
+| `internal/gate` | `internal/render` | |
+| `internal/render` | `internal/config` | |
+| `internal/config` | `internal/llm` | file `internal/config/wrap.go` |
+| `internal/config` | `internal/dtrack` | only `ValidateHost` |
+
+`internal/config/wrap.go` is the context-injecting provider decorator; it
+stays in `internal/config` while finished acceptance scripts still call
+`config.WrapProvider`. `internal/config` uses Dependency-Track only to refuse
+an insecure `server_api_host` at parse time; submitting the SBOM and judging
+it is `internal/gate`'s.
+
 ## Review flow
 
 `--base` reviews a local diff and prints a report; `--pr` reviews a pull
@@ -204,8 +234,9 @@ the configuration exit code.
 ## Extension points
 
 - **A gate contributor.** Implement `gate.Contributor` (`Name`, `Origin`,
-  `Apply`) and add one line to `assembleGatePipeline`. Its decision is merged
-  into the one `gate.Result`; do not publish from inside it.
+  `Apply`) and add one line to `assembleGatePipeline`. `Apply` returns the
+  contributor's partial decision and the pipeline merges it into the one
+  `gate.Result` (`Result.Merge`); do not publish from inside it.
 - **A scanner.** Add a package under `internal/scanner/<engine>` that
   implements `scanner.Scanner` (`Name`, `Run(ctx, Request) (Report, error)`)
   and registers a `scanner.Engine` (category, typed origin, options
@@ -217,9 +248,12 @@ the configuration exit code.
   error, a missing binary or `Complete: false` is inconclusive. The model
   never decides whether a scanner finding exists.
 - **A configuration section.** Add the type in `internal/config`, its
-  validation, and its precedence between central policy and repository in
-  `config.ApplyCentralPolicy`, section by section. Document it in
-  `docs/configuration.md`.
+  validation, and its precedence between central policy and repository as
+  a row of `governedSections` (`internal/config/governance.go`), which
+  `config.ApplyCentralPolicy` applies in order. A field of `Config`,
+  `ReviewConfig` or `QualityGatesConfig` that no row classifies fails a
+  reflexive test, so a new section is never controlled by the repository
+  by omission. Document it in `docs/configuration.md`.
 - **A BOM type.** Add a catalog entry under `internal/xbom/catalog`; extraction
   and generation read the catalog. SBOM stays in `internal/sbom`.
 - **A grammar.** Add a catalog entry under `internal/grammar/catalog`; no Go
@@ -235,8 +269,9 @@ exemplo.
 ## Guards
 
 Structural tests in `cmd/aurumcode` keep this document true: no production
-function of `cmd/aurumcode` exceeds 150 lines, and the package list above is
-compared with the packages on disk, so a package without a citation here fails
-the test. `cmd/aurumcode` also declares no phase list and no exit ladder of its
+function of `cmd`, `internal` or `pkg` exceeds 150 lines, no production file
+is named after a card, the layer table above is enforced on every import, and
+the package list above is compared with the packages on disk, so a package
+without a citation here fails the test. `cmd/aurumcode` also declares no phase list and no exit ladder of its
 own: a slice of phase steps, a review source returning an exit code, or a
 second caller of `gate.ExitPolicy` fails the test.
