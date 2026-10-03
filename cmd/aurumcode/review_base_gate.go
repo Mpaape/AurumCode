@@ -26,28 +26,19 @@ func (b *baseReview) decideGate() (int, bool) {
 	run.Filter, run.Stdout, run.Stderr = b.filter, b.stdout, b.stderr
 	run.RepoIdentity, run.RepoIdentityKnown, run.Now = repoIdentity, repoIdentityOK, time.Now
 
-	acceptedOrigin := gateOriginRepo
-	if b.centralCfg != nil {
-		acceptedOrigin = gateOriginPolicy
-	}
 	pipeline := assembleGatePipeline(gatePipelineInputs{
-		Provider: b.provider,
 		VerdictKey: gateVerdictKeyInputs{
-			BaseModelIdentity:  b.baseModelIdentity,
-			Language:           b.reviewLanguage,
-			Codebase:           b.codebaseContextText,
-			Notes:              b.memoryNotesText,
-			Profiles:           b.profileIdentity,
-			ContextBlockDigest: b.contextBlockDigest,
-			RuleCatalogDigest:  b.ruleCatalogDigest,
-			PolicyDigest:       render.PolicyDigest(b.policyDir, b.centralCfg),
-			BinaryIdentity:     binaryIdentity(),
-			RepoIdentity:       repoIdentity,
-			DiffDigest:         diffContentDigest(b.diff),
-			ReviewedSHA:        os.Getenv("GITHUB_SHA"),
+			ContextKey: func() string {
+				return reviewContextCacheKey(b.provider, b.baseModelIdentity, b.reviewLanguage, b.codebaseContextText, b.memoryNotesText, b.profileIdentity, b.contextBlockDigest, b.ruleCatalogDigest)
+			},
+			PolicyDigest:   render.PolicyDigest(b.policyDir, b.centralCfg),
+			BinaryIdentity: binaryIdentity(),
+			RepoIdentity:   repoIdentity,
+			DiffDigest:     diffContentDigest(b.diff),
+			ReviewedSHA:    os.Getenv("GITHUB_SHA"),
 		},
 		RawIssues:      b.rawIssues,
-		AcceptedOrigin: acceptedOrigin,
+		AcceptedOrigin: acceptedGateOrigin(b.centralCfg != nil),
 		DynamicRules:   b.dynamicRules,
 		SASTOrigin:     b.sastOrigin,
 		SASTIssues:     b.sastIssues,

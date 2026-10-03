@@ -1,0 +1,4 @@
+cosign-falso: nao foi possivel obter identidade para assinar
+exit_code=1
+RESULTADO: sign falhou (exit 1) e nomeou o SBOM sem assinatura
+RESULTADO: nenhum bundle foi deixado no repositorio

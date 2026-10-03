@@ -373,16 +373,18 @@ mutation_case() {
   local root="$run_dir/root-mut"
   stage_source "$root"
 
-  local target="$root/cmd/aurumcode/main.go"
+  local target="$root/cmd/aurumcode/review_base_quality.go"
   local anchor
-  # AUR-467 added a second print with the same shape for its own
+  # AUR-558: the --base warnings are one loop over the three metadata keys
+  # (reportQualityOutcome); the mutation silences that one print, which
+  # silences discard_warning among them. AUR-467 added a second print with the same shape for its own
   # parse_discard_warning, so the bare Fprintf line is no longer unique. The
   # print is still what must be replaced -- swapping the guard instead would
   # unbalance the braces -- so a second string selects WHICH print: awk arms on
   # the guard carrying this card's metadata key and rewrites only the next
   # matching line.
-  anchor='fmt.Fprintf(stderr, "aurumcode review: %s\n", warning)'
-  local guard='if warning := result.Metadata["discard_warning"]; warning != "" {'
+  anchor='fmt.Fprintf(b.stderr, "aurumcode review: %s\n", warning)'
+  local guard='if warning := b.result.Metadata[key]; warning != "" {'
   [[ "$(grep -Fc "$guard" "$target")" == 1 ]] || fail 'MUT-001/guard-not-unique'
   [[ "$(grep -Fc "$anchor" "$target")" -ge 1 ]] || fail 'MUT-001/anchor-absent'
   # A literal (not regex) substring replace via awk's index/substr, so the
@@ -393,7 +395,8 @@ mutation_case() {
   # compiling (the identifier stays used); the print itself is gone, so
   # the discard becomes observably SILENT while the underlying gate
   # (untouched) keeps discarding.
-  local replacement='_ = warning // MUT-001: suppress the discard warning silently'
+  # The loop covers three keys; only discard_warning is suppressed, as before.
+  local replacement='if key != "discard_warning" { fmt.Fprintf(b.stderr, "aurumcode review: %s\n", warning) }; _ = warning // MUT-001: suppress the discard warning silently'
   # ENVIRON, not -v: awk's -v (and command-line var=value) assignments
   # process C-style backslash escapes, which would silently turn the
   # anchor's literal `\n` (two bytes, matching the Go source's own

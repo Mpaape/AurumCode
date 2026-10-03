@@ -4,7 +4,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 )
@@ -37,33 +36,24 @@ func (p *prReview) inconclusiveReason() string {
 func (p *prReview) runGate() (int, bool) {
 	identity := p.owner + "/" + p.repoName
 	reason := p.inconclusiveReason()
-	p.run = &gate.Run{
+	p.run = &gateRun{
 		Ctx: p.ctx, Cfg: p.cfg, Diff: p.diff, Review: p.result,
 		Language: p.reviewLanguage, Filter: p.filter, Stdout: p.stdout, Stderr: p.stderr,
 		RepoIdentity: identity, RepoIdentityKnown: true, Now: time.Now,
 	}
-	gateOrigin := gateOriginRepo
-	if p.centralCfg != nil {
-		gateOrigin = gateOriginPolicy
-	}
 	pipeline := assembleGatePipeline(gatePipelineInputs{
-		Provider: p.provider,
 		VerdictKey: gateVerdictKeyInputs{
-			BaseModelIdentity:  p.baseModelIdentity,
-			Language:           p.reviewLanguage,
-			Codebase:           p.codebaseText,
-			Notes:              p.memoryNotesText,
-			Profiles:           "",
-			ContextBlockDigest: p.contextBlockDig,
-			RuleCatalogDigest:  p.ruleCatalogDig,
-			PolicyDigest:       render.PolicyDigest(p.opts.policyDir, p.centralCfg),
-			BinaryIdentity:     binaryIdentity(),
-			RepoIdentity:       identity,
-			DiffDigest:         diffContentDigest(p.diff),
-			ReviewedSHA:        os.Getenv("GITHUB_SHA"),
+			ContextKey: func() string {
+				return reviewContextCacheKey(p.provider, p.baseModelIdentity, p.reviewLanguage, p.codebaseText, p.memoryNotesText, "", p.contextBlockDig, p.ruleCatalogDig)
+			},
+			PolicyDigest:   render.PolicyDigest(p.opts.policyDir, p.centralCfg),
+			BinaryIdentity: binaryIdentity(),
+			RepoIdentity:   identity,
+			DiffDigest:     diffContentDigest(p.diff),
+			ReviewedSHA:    os.Getenv("GITHUB_SHA"),
 		},
 		RawIssues:      p.rawIssuesSnapshot,
-		AcceptedOrigin: gateOrigin,
+		AcceptedOrigin: acceptedGateOrigin(p.centralCfg != nil),
 		DynamicRules:   p.dynamicRules,
 		SASTOrigin:     p.sastOrigin,
 		SASTIssues:     p.sastIssues,

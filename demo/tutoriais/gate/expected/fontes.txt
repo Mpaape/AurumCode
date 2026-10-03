@@ -1,0 +1,17 @@
+--- gate.sources: todas
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+aurumcode review: policy gate: semgrep:policy.regras.senha-literal: Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem policy)
+aurumcode review: policy gate: analysis/hardcoded-secret: [REDACTED] secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
+exit_code=3
+RESULTADO: sources todas: o gate reprova
+origens na auditoria: analysis, sast, skills
+--- gate.sources: skills
+RESULTADO: sources skills: o gate reprova
+origens na auditoria: skills
+--- gate.sources: analysis
+RESULTADO: sources analysis: o gate reprova
+origens na auditoria: analysis
+--- gate.sources: sast
+RESULTADO: sources sast: o gate reprova
+origens na auditoria: sast

@@ -1,0 +1,6 @@
+aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
+RESULTADO: a politica do servidor reprova o componente
+dependency-track violacao: politica=demo-componente-proibido componente=lodash versao=4.17.15 estado=FAIL
+sbom: CycloneDX 1.7, componentes: semver@7.6.0
+RESULTADO: sem o componente proibido, o gate aprova
+dependency-track violacoes: nenhuma

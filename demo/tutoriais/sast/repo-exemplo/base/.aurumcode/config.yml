@@ -1,0 +1,6 @@
+quality_gates:
+  sast:
+    engine: semgrep
+    enabled: true
+    fail_on_severity: ERROR
+    rule_packs: ["regras/sast.yml"]

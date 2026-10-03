@@ -58,7 +58,7 @@ for source in \
   internal/render/finding_identity.go \
   internal/render/audit.go \
   internal/render/sarif.go \
-  cmd/aurumcode/aur521.go \
+  cmd/aurumcode/compliance_artifacts.go \
   cmd/aurumcode/policygate.go; do
   [[ -f "$repo_root/$source" ]] || infra "missing-source:$source"
 done

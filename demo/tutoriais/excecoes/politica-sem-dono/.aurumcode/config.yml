@@ -1,0 +1,12 @@
+gate:
+  fail_on: [medium]
+exceptions:
+  - repo: OWNER/REPO
+    rule: seguranca#sem-segredos-no-codigo
+    path: app.go
+    reason: valor de demonstracao, sem credencial real
+    expires: 2099-12-31
+review:
+  context:
+    skills:
+      - skills/seguranca.md

@@ -1,0 +1,16 @@
+== verificacao-por-terceiro
+$ aurumcode sign --repo . --cosign-bin /fixtures/wrappers/cosign-wrap.sh
+sign: sbom /work/sbom_app_cyclonedx.json -> /work/sbom_app_cyclonedx.json.sigstore.json
+exit_code=0
+RESULTADO: sbom assinado
+--- o terceiro so tem cosign.pub, o SBOM e o bundle (sem rede)
+$ cosign verify-blob --key /pub/cosign.pub --bundle sbom_app_cyclonedx.json.sigstore.json --insecure-ignore-tlog --insecure-ignore-sct sbom_app_cyclonedx.json
+WARNING: Skipping tlog verification is an insecure practice that lacks transparency and auditability verification for the blob.
+Verified OK
+exit_code=0
+RESULTADO: o terceiro verificou a assinatura com a chave publica
+--- prova negativa: o mesmo bundle contra um SBOM adulterado
+$ cosign verify-blob --key /pub/cosign.pub --bundle sbom_app_cyclonedx.json.sigstore.json --insecure-ignore-tlog --insecure-ignore-sct sbom-adulterado.json
+Error: failed to verify signature: could not verify message: invalid signature when validating ASN.1 encoded signature
+exit_code=1
+RESULTADO: o SBOM adulterado foi rejeitado pelo Cosign (invalid signature)

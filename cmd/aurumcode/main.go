@@ -154,7 +154,6 @@ import (
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/apply"
 	"github.com/Mpaape/AurumCode/internal/changelog"
-	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
@@ -402,28 +401,6 @@ func (b *baseReview) prepareCache() *qualityCache {
 		qc.toSend = &types.Diff{Files: missFiles}
 	}
 	return qc
-}
-
-// applyGateOutcome publishes the decision's lines (stderr and the review's
-// limitations) and, when the gate failed or was inconclusive, sets the
-// engine-owned marker that withholds approval regardless of the model's
-// own verdict. Shared by --base and --pr.
-func applyGateOutcome(run *gate.Run, gateResult *gate.Result) {
-	result := run.Review
-	if gateResult.Active {
-		for _, line := range gateResult.Lines {
-			fmt.Fprintf(run.Stderr, "aurumcode review: policy gate: %s\n", line)
-			result.Limitations = append(result.Limitations, "policy gate: "+line)
-		}
-		if gateResult.Fail || gateResult.Inconclusive {
-			// B-V: PolicyGateWithheldKey is the ONLY mechanism that
-			// withholds approval; result.Verdict is model-controlled.
-			if result.Metadata == nil {
-				result.Metadata = make(map[string]string)
-			}
-			result.Metadata[prompt.PolicyGateWithheldKey] = "true"
-		}
-	}
 }
 
 // exitFindings is the exit code for "the review ran fine and found at least

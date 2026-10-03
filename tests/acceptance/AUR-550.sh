@@ -59,7 +59,7 @@ for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 for source in \
-  cmd/aurumcode/aur550.go \
+  internal/gate/dtrack.go \
   cmd/aurumcode/policygate.go \
   cmd/aurumcode/pr.go \
   cmd/aurumcode/main.go \

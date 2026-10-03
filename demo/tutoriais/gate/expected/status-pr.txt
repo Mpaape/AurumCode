@@ -1,0 +1,22 @@
+--- aprovado
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado no pull request #7)
+exit_code=0
+status publicado: context=aurumcode/review state=success
+  description: nenhum achado grave no pull request #7
+status publicado: context=aurumcode/policy-gate state=success
+  description: aprovado: gate de política aprovado no pull request #7
+--- reprovado
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar err…)
+exit_code=3
+status publicado: context=aurumcode/review state=failure
+  description: 1 achado(s) grave(s) no pull request #7
+status publicado: context=aurumcode/policy-gate state=failure
+  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar err…
+--- inconclusivo
+aurumcode review: policy gate: review inconclusive (partial_coverage)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage))
+exit_code=1
+  description: inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage)
+RESULTADO: o ultimo caso (inconclusivo em block) sai 1 e publica status failure

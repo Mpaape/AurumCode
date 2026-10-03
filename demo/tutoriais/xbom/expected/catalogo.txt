@@ -1,0 +1,6 @@
+actions/checkout catalogo=repositorio
+aurumcode:xbom:catalog=repository
+aurumcode xbom: .aurumcode/xbom/build.yml do repositorio ignorado: a politica central decide sozinha
+actions/checkout catalogo=politica
+aurumcode:xbom:catalog=policy
+RESULTADO: catalogo da politica usado, o do repositorio ignorado

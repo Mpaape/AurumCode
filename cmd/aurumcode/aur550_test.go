@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	igate "github.com/Mpaape/AurumCode/internal/gate"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -98,11 +99,11 @@ func (f *dtrackFakeServer) handler() http.HandlerFunc {
 // time, restoring the production defaults on cleanup.
 func useFakeDTrackClock(t *testing.T) {
 	t.Helper()
-	origNow, origSleep := dtrackClockNow, dtrackSleeper
+	origNow, origSleep := igate.DTrackClockNow, igate.DTrackSleeper
 	cur := time.Unix(0, 0)
-	dtrackClockNow = func() time.Time { return cur }
-	dtrackSleeper = func(d time.Duration) { cur = cur.Add(d) }
-	t.Cleanup(func() { dtrackClockNow, dtrackSleeper = origNow, origSleep })
+	igate.DTrackClockNow = func() time.Time { return cur }
+	igate.DTrackSleeper = func(d time.Duration) { cur = cur.Add(d) }
+	t.Cleanup(func() { igate.DTrackClockNow, igate.DTrackSleeper = origNow, origSleep })
 }
 
 func writeSBOMFixture(t *testing.T) string {
