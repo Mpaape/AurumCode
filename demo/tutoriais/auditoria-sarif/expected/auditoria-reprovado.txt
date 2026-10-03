@@ -1,0 +1,15 @@
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+exit_code=3
+RESULTADO: a revisao reprova e a auditoria e escrita mesmo assim
+--- campos da auditoria
+chaves: policy_digest, workflow_sha, repo, reviewed_sha, model, verdict, gate, blocking_findings, exceptions_applied, coverage
+workflow_sha: 4444444444444444444444444444444444444444
+repo: OWNER/REPO
+reviewed_sha: 3333333333333333333333333333333333333333
+model: modelo-demo
+verdict: changes_requested
+gate.decision: fail
+blocking_findings: seguranca#sem-segredos-no-codigo app.go:6 error origin=skills
+exceptions_applied: []
+coverage.complete: True

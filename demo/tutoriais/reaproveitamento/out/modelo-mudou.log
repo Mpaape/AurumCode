@@ -1,0 +1,49 @@
+== modelo-mudou
+--- modelo A (a resposta tem um achado)
+$ aurumcode review --base main --politica /policy
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 0
+- warning: 1
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+exit_code=3
+RESULTADO: modelo A reprova
+--- modelo B (outra resposta; mesmo SHA, politica e arquivos)
+$ aurumcode review --base main --politica /policy
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+No issues found.
+exit_code=0
+RESULTADO: com outro modelo nada e reaproveitado: a resposta nova vale
+cache: 2 entrada(s) de veredito, 2 entrada(s) por arquivo
