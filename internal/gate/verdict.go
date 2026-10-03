@@ -104,7 +104,7 @@ type VerdictKeyInputs struct {
 	// It is lazy: the key is only needed when a verdict can be reused.
 	ContextKey func() string
 
-	// PolicyDigest is render.PolicyDigest -- AUR-521's own audit digest
+	// PolicyDigest is config.Config.PolicyDigest -- AUR-521's own audit digest
 	// over the active central policy's config.yml and every skill it
 	// names ("" when no policy is active). MUT-001 removes this term;
 	// AC-002's tests must then fail.

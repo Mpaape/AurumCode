@@ -34,14 +34,14 @@ type ExceptionsContributor struct{}
 
 func (ExceptionsContributor) Name() string   { return ContributorExceptions }
 func (ExceptionsContributor) Origin() string { return "exceptions" }
-func (ExceptionsContributor) Apply(_ context.Context, run *Run, _ *Result) error {
+func (ExceptionsContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
 	if run.RepoIdentityKnown || !ExceptionsConfigured(run.Cfg) {
-		return nil
+		return Result{}, nil
 	}
 	notice := RepoIdentityUnavailableNotice(run.Language)
 	fmt.Fprintf(run.Stderr, "aurumcode review: %s\n", notice)
 	run.Review.Limitations = append(run.Review.Limitations, notice)
-	return nil
+	return Result{}, nil
 }
 
 // VerdictReuseContributor reuses or publishes a concluded gate verdict
@@ -56,11 +56,11 @@ type VerdictReuseContributor struct {
 
 func (VerdictReuseContributor) Name() string   { return ContributorVerdict }
 func (VerdictReuseContributor) Origin() string { return "verdict-cache" }
-func (c VerdictReuseContributor) Apply(_ context.Context, run *Run, res *Result) error {
+func (c VerdictReuseContributor) Apply(_ context.Context, run *Run, prior Result) (Result, error) {
 	digest, digestErr := c.PromptDigest()
 	c.Key.PromptVersionDigest = digest
-	run.Review.Issues = ReuseOrStoreGateVerdict(run.Stderr, &run.Review.Limitations, run.Cfg.Gate.Declared(), digestErr == nil, c.Key, run.Cfg, res.Reason, run.Review.Issues, c.Raw)
-	return nil
+	run.Review.Issues = ReuseOrStoreGateVerdict(run.Stderr, &run.Review.Limitations, run.Cfg.Gate.Declared(), digestErr == nil, c.Key, run.Cfg, prior.Reason, run.Review.Issues, c.Raw)
+	return Result{}, nil
 }
 
 // PolicySkillsContributor evaluates the policy's skill sections (AUR-519).
@@ -71,18 +71,19 @@ type PolicySkillsContributor struct {
 
 func (PolicySkillsContributor) Name() string   { return ContributorSkills }
 func (PolicySkillsContributor) Origin() string { return OriginSkills }
-func (c PolicySkillsContributor) Apply(_ context.Context, run *Run, res *Result) error {
+func (c PolicySkillsContributor) Apply(_ context.Context, run *Run, prior Result) (Result, error) {
 	issues := run.IssuesForGate()
 	if c.AcceptedOrigin != OriginPolicy {
 		issues = run.keepSkills(issues, func(id string) bool { _, ok := c.Dynamic[id]; return ok })
 	}
-	d, err := EvaluateGate(run.Cfg.Gate, c.AcceptedOrigin, c.Dynamic, issues, res.Reason, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
+	d, err := EvaluateGate(run.Cfg.Gate, c.AcceptedOrigin, c.Dynamic, issues, prior.Reason, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
 	if err != nil {
-		return Fatal(err)
+		return Result{}, Fatal(err)
 	}
-	d.Reason, d.Trail = res.Reason, res.Trail
-	*res = d
-	return nil
+	// The inconclusive reason the gate was judged against is already the
+	// run's; the partial adds only the decision.
+	d.Reason = ""
+	return d, nil
 }
 
 // ScannerContributor folds every configured scanner engine's own decision,
@@ -94,7 +95,8 @@ type ScannerContributor struct {
 
 func (ScannerContributor) Name() string   { return ContributorScanners }
 func (ScannerContributor) Origin() string { return ContributorScanners }
-func (c ScannerContributor) Apply(_ context.Context, run *Run, res *Result) error {
+func (c ScannerContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
+	var part Result
 	for _, scan := range c.Scans {
 		var issues []types.ReviewIssue
 		if scan.countsUnder(run.Cfg.Gate) {
@@ -103,11 +105,11 @@ func (c ScannerContributor) Apply(_ context.Context, run *Run, res *Result) erro
 		if scan.Section != OriginPolicy {
 			issues = run.keep(scan.Source(), scan.Origin(), issues)
 		}
-		if err := ApplyScannerGate(res, scan, issues); err != nil {
-			return Fatal(err)
+		if err := ApplyScannerGate(&part, scan, issues); err != nil {
+			return part, Fatal(err)
 		}
 	}
-	return nil
+	return part, nil
 }
 
 // EmbeddedAnalysisContributor counts the embedded analysis catalog (AUR-556).
@@ -115,8 +117,9 @@ type EmbeddedAnalysisContributor struct{}
 
 func (EmbeddedAnalysisContributor) Name() string   { return ContributorAnalysis }
 func (EmbeddedAnalysisContributor) Origin() string { return OriginAnalysis }
-func (EmbeddedAnalysisContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	return Fatal(ApplyAnalysisGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginAnalysis, AnalysisIssuesForGate(run.Diff, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+func (EmbeddedAnalysisContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
+	var part Result
+	return part, Fatal(ApplyAnalysisGate(&part, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginAnalysis, AnalysisIssuesForGate(run.Diff, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // SecurityPassContributor counts the --seguranca pass's deterministic findings
@@ -126,8 +129,9 @@ type SecurityPassContributor struct{}
 
 func (SecurityPassContributor) Name() string   { return ContributorSecurity }
 func (SecurityPassContributor) Origin() string { return OriginSecurity }
-func (SecurityPassContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	return Fatal(ApplySecurityGate(res, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginSecurity, config.ApplyRuleConfig(run.Security, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+func (SecurityPassContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
+	var part Result
+	return part, Fatal(ApplySecurityGate(&part, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginSecurity, config.ApplyRuleConfig(run.Security, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // AnalysisDataContributor gates the analysis-data artifact (AUR-533).
@@ -135,13 +139,10 @@ type AnalysisDataContributor struct{}
 
 func (AnalysisDataContributor) Name() string   { return ContributorAnalysisData }
 func (AnalysisDataContributor) Origin() string { return OriginAnalysisData }
-func (AnalysisDataContributor) Apply(ctx context.Context, run *Run, res *Result) error {
-	adResult, adReason, adAudit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData)
-	merged, reason := MergeDTrackGate(*res, res.Reason, adResult, adReason)
-	trail := res.Trail
-	*res = merged
-	res.Reason, res.Trail, res.AnalysisData = reason, trail, adAudit
-	return nil
+func (AnalysisDataContributor) Apply(ctx context.Context, run *Run, _ Result) (Result, error) {
+	part, reason, audit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData)
+	part.Reason, part.AnalysisData = reason, audit
+	return part, nil
 }
 
 // DependencyTrackContributor gates the Dependency-Track submission (AUR-550).
@@ -151,12 +152,9 @@ type DependencyTrackContributor struct{}
 
 func (DependencyTrackContributor) Name() string   { return ContributorDTrack }
 func (DependencyTrackContributor) Origin() string { return OriginDTrack }
-func (DependencyTrackContributor) Apply(ctx context.Context, run *Run, res *Result) error {
-	dtResult, dtReason, nextFilter := ApplyDTrackGate(ctx, run.Cfg.QualityGates.SsorDtrack, run.Filter)
-	merged, reason := MergeDTrackGate(*res, res.Reason, dtResult, dtReason)
-	analysis, trail := res.AnalysisData, res.Trail
-	*res = merged
-	res.Reason, res.Trail, res.AnalysisData = reason, trail, analysis
+func (DependencyTrackContributor) Apply(ctx context.Context, run *Run, _ Result) (Result, error) {
+	part, reason, nextFilter := ApplyDTrackGate(ctx, run.Cfg.QualityGates.SsorDtrack, run.Filter)
+	part.Reason = reason
 	if nextFilter != run.Filter {
 		run.Filter = nextFilter
 		if wrapped, w := WrapWriterWithFilter(redaction.SinkStderr, run.Stderr, run.Filter); w != nil {
@@ -168,5 +166,5 @@ func (DependencyTrackContributor) Apply(ctx context.Context, run *Run, res *Resu
 			run.OnFlush(func() { w.Flush() })
 		}
 	}
-	return nil
+	return part, nil
 }
