@@ -15,9 +15,10 @@ reescrita em massa.
 
 ## Site de documentação
 
-O site fica em `docs/site/`, com HTML, CSS e JavaScript sem dependências de
-runtime. A publicação usa o workflow `pages.yml`, a partir de `main`, sem
-branch extra e sem regeneração via LLM.
+O site de documentação é gerado por MkDocs Material em container, numa imagem
+fixada por digest (`scripts/docs/build.sh`, com `--strict`). A publicação usa o
+workflow `docs.yml`, a partir de `main`, sem branch extra e sem regeneração via
+LLM. O guia interativo antigo continua em `docs/site/`, apenas como arquivo.
 
 A verificação de navegador em container cobre desktop, mobile, links locais,
 geração de configuração, cópia para clipboard e carregamento do workflow:
