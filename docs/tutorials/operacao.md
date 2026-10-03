@@ -113,7 +113,8 @@ container criado a partir de um profile. O profile e o lock do `go-unit-offline-
 }
 ```
 
-<!-- arquivo: .board/locks/oci/go-unit-offline-v1.lock.json -->
+O lock correspondente (`.board/locks/oci/go-unit-offline-v1.lock.json`; fica fora dos `read_paths` do card, então o aceite selado não o confere byte a byte):
+
 ```json
 {
 "schema": "aurum.oci-image-lock",
@@ -201,6 +202,39 @@ go-unit-offline-v1.image = aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a40
 RESULTADO: todo profile do registry tem lock com o digest declarado
 ```
 
+O profile que está fora do registro:
+
+<!-- arquivo: .board/oci/profiles/trust-root-docker-v1.json -->
+```json
+{
+"schema": "aurum.container-profile",
+"version": 1,
+"profile": "trust-root-docker-v1",
+"lock": ".board/locks/oci/trust-root-docker-v1.lock.json",
+"lock_digest": "sha256:f7390477e98b1e37858314d945b6edbb81503f7bf4103aec2a9125932fbd717b",
+"network": "none",
+"user": "65532:65532",
+"cap_drop": "ALL",
+"cap_add": "none",
+"mounts": "none",
+"devices": "none",
+"pull": "never",
+"tmpfs": "rw,noexec,nosuid,nodev",
+"read_only_rootfs": true,
+"no_new_privileges": true,
+"privileged": false,
+"timeout_seconds": 15,
+"memory_mb": 128,
+"cpu_millis": 500,
+"pids_limit": 64,
+"tmpfs_mb": 8,
+"stdout_limit_bytes": 65536,
+"stderr_limit_bytes": 65536,
+"max_input_files": 64,
+"max_input_bytes": 4194304
+}
+```
+
 O que observar: **achado** — existe `.board/oci/profiles/trust-root-docker-v1.json`
 (profile do `AUR-233`, usuário `65532:65532`, 15 s) **sem** entrada no
 `registry.v1.json`; ele não pode ser pedido ao `oci-run` pelo caminho do
@@ -257,8 +291,65 @@ o smoke test (passos 2 a 4): alterariam o repositório ou exigem rede.
 ## Caso 5: atualizar scanners fixados por digest
 
 `.board/bootstrap/locks/scanners.yml` fixa quatro scanners (gitleaks, trivy,
-semgrep, shellcheck), cada um com versão e imagem `@sha256:...`. Quem confere o
-conjunto de locks contra o índice é `.board/bootstrap/verify.sh`:
+semgrep, shellcheck), cada um com versão e imagem `@sha256:...`:
+
+<!-- arquivo: .board/bootstrap/locks/scanners.yml -->
+```yaml
+schema: bootstrap-lock-v1
+card: AUR-362
+
+secrets_scanner_name: gitleaks
+secrets_scanner_role: secrets
+secrets_scanner_version: v8.30.1
+secrets_scanner_image: docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+secrets_rulebase_id: gitleaks-default-config-v8.30.1
+secrets_rulebase_sha256: sha256:e163e53b9e7e8a8511e77271e2b323ed057759542a6d988258afe3a1fa329caf
+secrets_finding_format_flag: --report-format
+secrets_finding_format_default: none
+secrets_finding_format_values: json,csv,junit,sarif,template
+secrets_offline_mode: fully-offline
+secrets_egress: denied
+
+vuln_scanner_name: trivy
+vuln_scanner_role: vulnerabilities
+vuln_scanner_version: 0.73.0
+vuln_scanner_image: docker.io/aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
+vuln_rulebase_id: trivy-db-schema-2
+vuln_rulebase_image: ghcr.io/aquasecurity/trivy-db@sha256:cce7b2ad966d6fe3789d65879579b8b24fce9d31052ed3ff73b1c5224f049142
+vuln_finding_format_flag: --format
+vuln_finding_format_default: table
+vuln_finding_format_values: table,json,template,sarif,cyclonedx,spdx,spdx-json,github,cosign-vuln
+vuln_offline_mode: pre-cached-db-required
+vuln_offline_flag: --offline-scan
+vuln_egress: denied
+
+sast_scanner_name: semgrep
+sast_scanner_role: sast
+sast_scanner_version: 1.172.0
+sast_scanner_image: docker.io/semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b
+sast_rulebase_id: semgrep-rules-pinned-commit
+sast_rulebase_ref: 311ca4e9ba59d700624539bf658e3d29b134ee77
+sast_finding_format_flag: --json
+sast_finding_format_default: text
+sast_finding_format_values: json,sarif,text,junit-xml,emacs,vim,gitlab-sast,gitlab-secrets
+sast_offline_mode: local-config-required
+sast_offline_flag: --config
+sast_egress: denied
+
+shell_scanner_name: shellcheck
+shell_scanner_role: shell
+shell_scanner_version: v0.11.0
+shell_scanner_image: docker.io/koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
+shell_rulebase_id: shellcheck-builtin-checks-v0.11.0
+shell_rulebase_digest: sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
+shell_finding_format_flag: --format
+shell_finding_format_default: tty
+shell_finding_format_values: checkstyle,diff,gcc,json,json1,quiet,tty
+shell_offline_mode: fully-offline
+shell_egress: denied
+```
+
+Quem confere o conjunto de locks contra o índice é `.board/bootstrap/verify.sh`:
 
 <!-- saida: scanners-por-digest -->
 ```text
@@ -294,7 +385,8 @@ Um card `done` carrega um `## Delivery record` com o commit e, para
 evidência correspondente (o `check-delivery-evidence.py` valida os campos
 estruturais do registro):
 
-<!-- arquivo: .board/evidence/AUR-561/validated.json -->
+`.board/evidence/AUR-561/validated.json` (fora dos `read_paths`; cópia sem conferência byte a byte no aceite selado):
+
 ```json
 {
   "schema": "aurum.delivery-record",
