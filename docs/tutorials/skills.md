@@ -289,7 +289,7 @@ do diff não consegue rebaixar:
 
 <!-- saida: regra-citavel -->
 ```text
-aurumcode review: policy gate: convencoes#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar error)
+aurumcode review: policy gate: convencoes#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar error, origem skills)
 exit_code=3
 RESULTADO: o gate compara o MAIOR entre a severidade do modelo e a da secao
 ```
@@ -300,7 +300,7 @@ passa a poder citar `convencoes#logs-sem-dados-pessoais`.
 
 <!-- saida: regra-citavel -->
 ```text
-aurumcode review: policy gate: convencoes#logs-sem-dados-pessoais: Logs sem dados pessoais (severidade warning, limiar error)
+aurumcode review: policy gate: convencoes#logs-sem-dados-pessoais - Logs sem dados pessoais (severidade warning, limiar error, origem skills)
 RESULTADO: a secao nova ja e citavel e reprova
 prompt: - `convencoes#logs-sem-dados-pessoais`
 ```
