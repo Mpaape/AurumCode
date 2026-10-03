@@ -77,27 +77,13 @@ export TMPDIR="$run_dir" GOMAXPROCS=1
 # staged tree equal to the module closure the sealed worker can actually see
 # -- copying a bare `internal`/`pkg` would depend on the sandbox happening to
 # hold every subpackage `cmd/aurumcode` imports.
+# AUR-573: internal/ and pkg/ whole (enumerated subpackages rotted when sbom,
+# supplychain and xbom joined cmd/aurumcode's imports, as in AUR-547).
 readonly declared_roots=(
   cmd/aurumcode
   docs/specs/AUR-505.md
-  internal/analysis
-  internal/analyzer
-  internal/apply
-  internal/changelog
-  internal/config
-  internal/context
-  internal/evidence
-  internal/git
-  internal/llm
-  internal/memory
-  internal/prompt
-  internal/render
-  internal/review
-  internal/reviewprofile
-  internal/sandbox
-  internal/security
-  internal/testgen
-  pkg/types
+  internal
+  pkg
   tests/acceptance/AUR-505.sh
   tests/unit/AUR-505.go
   go.mod

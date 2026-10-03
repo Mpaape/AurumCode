@@ -69,7 +69,7 @@ if [[ -n "${AURUMCODE_BIN:-}" ]]; then
 else
   bin="$run_dir/aurumcode"
   build_log="$run_dir/build.log"
-  if ! (cd "$repo_root" && GOFLAGS='-mod=mod -p=1' go build -o "$bin" ./cmd/aurumcode) >"$build_log" 2>&1; then
+  if ! (cd "$repo_root" && GOFLAGS='-mod=mod -p=1' go build -buildvcs=false -o "$bin" ./cmd/aurumcode) >"$build_log" 2>&1; then
     cat "$build_log" >&2
     fail build_failed
   fi

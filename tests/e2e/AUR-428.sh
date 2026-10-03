@@ -205,7 +205,7 @@ go_env=(
 build_rc=0
 ( ulimit -v 8388608
   cd "$validator" && env "${go_env[@]}" \
-    timeout 300s go build -o "$run_dir/validate" . ) || build_rc=$?
+    timeout 300s go build -buildvcs=false -o "$run_dir/validate" . ) || build_rc=$?
 (( build_rc == 0 )) || infra "validator_build:$build_rc"
 
 run_validator() {

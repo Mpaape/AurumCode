@@ -39,7 +39,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-readonly read_inputs=(go.mod go.sum internal/config internal/context/skills pkg/types internal/llm internal/security/redaction internal/llm/cost)
+readonly read_inputs=(go.mod go.sum cmd internal pkg)  # AUR-573: pacotes inteiros
 for input in "${read_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
@@ -50,7 +50,7 @@ trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp" "$run_dir/root"
 
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 
 root="$run_dir/root"
 mkdir -p "$root"
