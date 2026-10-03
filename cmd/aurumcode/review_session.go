@@ -12,6 +12,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
+	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/memory"
@@ -159,6 +160,15 @@ type reviewState struct {
 	rawIssues          []types.ReviewIssue // verdict-reuse snapshot, before rule config
 	scans              []gateScan
 	coverage           reviewCoverageBreakdown
+
+	// deliberation: the scanners deferred to the model's decision, the
+	// root and refusal they run with, what was offered and the transcript.
+	deferredScans []config.ScannerConfig
+	scanRoot      string
+	scanBlocked   string
+	toolManifest  []prompt.ToolOffer
+	toolsOffered  bool
+	transcript    *deliberation.Transcript
 
 	gateRes *gateDecision
 }

@@ -338,6 +338,9 @@ func (b *baseReview) prepareCache() *qualityCache {
 	if cacheErr == nil {
 		cacheErr = promptDigestErr
 	}
+	if cacheErr == nil && b.toolsOffered {
+		cacheErr = errDeliberationNotCacheable
+	}
 	if cacheErr == nil && len(b.evidence) > 0 {
 		// The per-file cache stores issues, not the model's assessment of
 		// the evidence, and an assessment may weigh evidence of several
@@ -769,7 +772,7 @@ func selectProvider() (llm.Provider, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return review.NewFixtureProvider(string(content), "fixture", os.Getenv("AURUMCODE_PROMPT_CAPTURE")), nil
+		return review.NewOfflineProvider(string(content), "fixture", os.Getenv("AURUMCODE_PROMPT_CAPTURE")), nil
 	}
 
 	apiKey := os.Getenv("LLM_API_KEY")
@@ -823,7 +826,7 @@ func selectProviderForModel(model string) (llm.Provider, string, error) {
 		if err != nil {
 			return nil, "", fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return review.NewFixtureProvider(string(content), model, os.Getenv("AURUMCODE_PROMPT_CAPTURE")), "offline fixture provider", nil
+		return review.NewOfflineProvider(string(content), model, os.Getenv("AURUMCODE_PROMPT_CAPTURE")), "offline fixture provider", nil
 	}
 
 	apiKey := os.Getenv("LLM_API_KEY")

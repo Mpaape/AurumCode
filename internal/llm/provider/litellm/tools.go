@@ -64,11 +64,9 @@ type toolCompletionResponse struct {
 // and returns the model's text and/or tool calls. Implements llm.ToolCaller.
 func (p *Provider) CompleteWithTools(messages []llm.Message, tools []llm.ToolSpec, opts llm.Options) (llm.ToolResponse, error) {
 	reqBody := toolRequest{
-		Model:     p.ResolveModel(opts),
-		MaxTokens: opts.MaxTokens,
-	}
-	if opts.JSONMode {
-		reqBody.ResponseFormat = &responseFormat{Type: "json_object"}
+		Model:          p.ResolveModel(opts),
+		MaxTokens:      opts.MaxTokens,
+		ResponseFormat: answerFormat(opts),
 	}
 	if opts.System != "" {
 		system := opts.System
