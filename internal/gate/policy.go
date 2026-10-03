@@ -182,7 +182,7 @@ func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 		}
 		d.Fail = true
 		d.Breach = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s)", rule.ID, rule.Title, issue.Severity, name))
+		d.Lines = append(d.Lines, FindingLine(rule.ID, rule.Title, issue.Severity, name, OriginSkills))
 		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
 			RuleID:   issue.RuleID,
 			Path:     issue.File,
