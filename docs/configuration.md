@@ -1203,6 +1203,13 @@ analysis_data:
   repository: owner/repo   # opcional; padrão: o repositório que publica o artefato
 ```
 
+- O endereço da API do GitHub de onde o release é lido vem de
+  `AURUMCODE_GITHUB_API_URL` (a mesma variável do cliente de PR; padrão
+  `https://api.github.com`), por exemplo o de um GitHub Enterprise. Só
+  `https://` é aceito, exceto `http://` para um IP de loopback literal (servidor
+  de teste). Qualquer outro endereço é recusado antes de qualquer requisição,
+  com erro que nomeia a variável (`analysis_data_invalid`; no cliente de PR, o
+  `review` falha ao carregar).
 - Artefato acima da idade máxima, digest divergente, sem rede e sem cópia em
   cache, ou manifesto inválido: o resultado é o `gate.inconclusive` da política
   com o motivo (`analysis_data_stale`, `analysis_data_digest_mismatch`,
