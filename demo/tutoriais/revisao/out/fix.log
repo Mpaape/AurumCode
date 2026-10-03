@@ -6,15 +6,18 @@ exit_code=0
 RESULTADO: fix imprimiu o patch (nada foi escrito no repositorio)
 --- a/app.go
 +++ b/app.go
-@@ -6,1 +6,1 @@
+@@ -3,6 +3,6 @@
+ import "fmt"
+ 
+ func main() {
 -	dbPassword := "hunter2"
 +	dbPassword := os.Getenv("DB_PASSWORD")
-
-git apply --unidiff-zero --check: o patch aplica
+ 	fmt.Println("conectando com", dbPassword)
+ }
+git apply --check: o patch aplica
 --- depois
 	dbPassword := os.Getenv("DB_PASSWORD")
 $ aurumcode fix --file sugestoes.json
-aurumcode fix: patch does not apply to the working tree: error: patch failed: app.go:6
-error: app.go: patch does not apply
+aurumcode fix: app.go:6: working tree does not match the suggestion's current_code
 exit_code=1
 RESULTADO: sugestao velha recusada, sem patch
