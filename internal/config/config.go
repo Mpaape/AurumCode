@@ -39,8 +39,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // RuleConfig is one rule's explicit override. Enabled is a pointer so
@@ -305,8 +303,8 @@ func Parse(data []byte, source string) (*Config, error) {
 	if source == "" {
 		source = DefaultConfigPath
 	}
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	cfg, err := decodeStrict(data)
+	if err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if cfg.Rules == nil {
@@ -340,6 +338,9 @@ func Parse(data []byte, source string) (*Config, error) {
 	if err := cfg.AnalysisData.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
+	if err := cfg.QualityGates.Sast.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
 	if err := cfg.QualityGates.SsorDtrack.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
@@ -350,5 +351,5 @@ func Parse(data []byte, source string) (*Config, error) {
 	if err := cfg.QualityGates.SupplyChain.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
-	return &cfg, nil
+	return cfg, nil
 }

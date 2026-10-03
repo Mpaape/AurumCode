@@ -659,6 +659,7 @@ func TestAUR521EvaluateGateBlockNeverPopulatesBlockingFindings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
+	decideInconclusiveForTest(gate, &d)
 	if !d.Fail || d.Breach {
 		t.Fatalf("igate.EvaluateGate() = %+v, want Fail without Breach under gate.inconclusive: block", d)
 	}

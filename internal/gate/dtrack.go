@@ -70,20 +70,15 @@ const (
 // (enabled: true); it is a complete no-op (returns a zero Result,
 // an empty reason and the SAME filter pointer) otherwise.
 //
-// inconclusiveMode is the SAME GateConfig.InconclusiveMode() the caller
-// already computed for its own skill-based gate -- "block" fails the
-// check outright on any dtrack inconclusive result, "warn"/"" (the same
-// non-blocking default EvaluateGate itself uses) only marks it
-// Inconclusive. A breach is never downgraded by this mode: exactly like
-// EvaluateGate's own threshold loop, a real breach sets Fail
-// unconditionally.
-func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclusiveMode string, filter *redaction.Filter) (result Result, reason string, newFilter *redaction.Filter) {
+// Every inconclusive outcome only marks the result Inconclusive; whether it
+// fails is decided once, by the pipeline (ApplyInconclusiveMode). A breach
+// is never downgraded: a real breach sets Fail unconditionally.
+func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *redaction.Filter) (result Result, reason string, newFilter *redaction.Filter) {
 	newFilter = filter
 	if !cfg.Declared() {
 		return Result{}, "", filter
 	}
 	result.Active = true
-	blockOnInconclusive := inconclusiveMode == "block"
 
 	apiKey := DTrackSecretLookup(cfg.APIKeySecret)
 	projectID := DTrackSecretLookup(cfg.ProjectIDSecret)
@@ -95,7 +90,6 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	}
 	if apiKey == "" || projectID == "" {
 		result.Inconclusive = true
-		result.Fail = blockOnInconclusive
 		reason = ReasonDTrackSecretMissing
 		result.Lines = append(result.Lines, fmt.Sprintf(
 			"ssor_dtrack: revisão inconclusiva (%s): variável de ambiente %q (api_key_secret) ou %q (project_id_secret) não definida",
@@ -108,7 +102,6 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	bom, err := DTrackReadBOM(bomPath)
 	if bomPath == "" || err != nil || len(bom) == 0 {
 		result.Inconclusive = true
-		result.Fail = blockOnInconclusive
 		reason = ReasonDTrackSBOMUnavailable
 		result.Lines = append(result.Lines, fmt.Sprintf(
 			"ssor_dtrack: revisão inconclusiva (%s): SBOM em sbom_generator.output_file %q não pôde ser lido", reason, bomPath,
@@ -119,7 +112,6 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	client, err := dtrack.NewClient(cfg.ServerAPIHost, apiKey)
 	if err != nil {
 		result.Inconclusive = true
-		result.Fail = blockOnInconclusive
 		reason = ReasonDTrackInvalidHost
 		result.Lines = append(result.Lines, fmt.Sprintf("ssor_dtrack: revisão inconclusiva (%s): server_api_host inválido", reason))
 		return result, reason, newFilter
@@ -136,7 +128,6 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, inconclu
 	switch {
 	case outcome.Inconclusive:
 		result.Inconclusive = true
-		result.Fail = blockOnInconclusive
 		reason = outcome.InconclusiveReason
 		result.Lines = append(result.Lines, fmt.Sprintf("ssor_dtrack: revisão inconclusiva (%s)", outcome.InconclusiveReason))
 	case outcome.Breach:
