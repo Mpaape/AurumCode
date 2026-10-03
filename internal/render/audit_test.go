@@ -83,7 +83,7 @@ func TestAUR521AuditRecordInconclusiveMarksOmittedFiles(t *testing.T) {
 		"digest123", "workflowsha", "octo/repo", "deadbeef", "gpt-test", "comment",
 		AuditGate{Decision: "inconclusive", Reason: "review inconclusive (partial_coverage)"},
 		nil, nil,
-		false, []string{"b.go", "a.go"},
+		AuditCoverage{Complete: false, Omitted: []string{"b.go", "a.go"}},
 	)
 	if rec.Gate.Decision != "inconclusive" {
 		t.Fatalf("decision=%q, want inconclusive", rec.Gate.Decision)
@@ -114,7 +114,7 @@ func TestAUR521WriteAuditRecordRedactsSecretCanary(t *testing.T) {
 		"digest", "wfsha", "octo/repo", "sha123", "gpt-test", "comment",
 		AuditGate{Decision: "fail", Reason: "token leaked: " + canary},
 		[]AuditFinding{{RuleID: "r1", Path: "app.go", Line: 1, Severity: "error"}},
-		nil, true, nil,
+		nil, AuditCoverage{Complete: true},
 	)
 
 	path := filepath.Join(t.TempDir(), "audit.json")
@@ -159,7 +159,7 @@ func TestAUR521WriteAuditRecordRedactsEscapedSecrets(t *testing.T) {
 		AuditGate{Decision: "fail", Reason: "a: " + quoteSecret},
 		[]AuditFinding{{RuleID: "r1", Path: "app.go", Line: 1, Severity: "error"}},
 		[]AuditException{{RuleID: "r2", Path: "app.go", Justification: "b: " + backslashSecret}},
-		true, []string{"c: " + newlineSecret},
+		AuditCoverage{Complete: true, Omitted: []string{"c: " + newlineSecret}},
 	)
 
 	path := filepath.Join(t.TempDir(), "audit.json")

@@ -144,7 +144,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 		render.AuditGate{Decision: decision, Reason: reason},
 		blocking,
 		exceptions,
-		in.coverageComplete, in.omittedFiles,
+		render.AuditCoverage{Complete: in.coverageComplete, Omitted: in.omittedFiles},
 	)
 	rec.AnalysisData = in.analysisData
 	rec.EvidenceAssessments = render.AssessedEvidence(in.issues)
@@ -195,8 +195,7 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 			findings[i].Origin = in.issues[i].Origin
 		}
 	}
-	executionSuccessful := in.gateInconclusiveReason == ""
-	return render.WriteSARIF(in.sarifPath, version, findings, executionSuccessful, in.gateInconclusiveReason, filter)
+	return render.WriteSARIF(in.sarifPath, version, findings, in.gateInconclusiveReason, filter)
 }
 
 // auditGateOutcome collapses a gateDecision (policygate.go) into the

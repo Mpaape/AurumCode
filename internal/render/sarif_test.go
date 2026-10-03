@@ -76,7 +76,7 @@ func TestAUR521SARIFRequiredFields(t *testing.T) {
 			Message:   "Hardcoded secret",
 			Context:   `dbPassword := "hunter2"`,
 		},
-	}, true, "")
+	}, "")
 
 	data, err := json.Marshal(log)
 	if err != nil {
@@ -126,8 +126,8 @@ func TestAUR521SARIFRequiredFields(t *testing.T) {
 // same partialFingerprints value both times.
 func TestAUR521SARIFFingerprintStableAcrossWrites(t *testing.T) {
 	finding := SARIFFinding{RuleID: "r1", Path: "app.go", Line: 10, Severity: "warning", Message: "m", Context: "x := 1"}
-	first := BuildSARIFLog("v", []SARIFFinding{finding}, true, "")
-	second := BuildSARIFLog("v", []SARIFFinding{finding}, true, "")
+	first := BuildSARIFLog("v", []SARIFFinding{finding}, "")
+	second := BuildSARIFLog("v", []SARIFFinding{finding}, "")
 	fp1 := first.Runs[0].Results[0].PartialFingerprints[FindingFingerprintKey]
 	fp2 := second.Runs[0].Results[0].PartialFingerprints[FindingFingerprintKey]
 	if fp1 == "" || fp1 != fp2 {
@@ -143,7 +143,7 @@ func TestAUR521SARIFSuppressionForExceptedFinding(t *testing.T) {
 	log := BuildSARIFLog("v", []SARIFFinding{
 		{RuleID: "r1", Path: "app.go", Line: 1, Severity: "error", Message: "m", Context: "x",
 			Suppressed: true, Justification: "accepted risk: tracked in TICKET-1"},
-	}, true, "")
+	}, "")
 	res := log.Runs[0].Results[0]
 	if len(res.Suppressions) != 1 {
 		t.Fatalf("suppressions=%v, want exactly one", res.Suppressions)
@@ -165,7 +165,7 @@ func TestAUR521SARIFOmitsRegionForLinelessFinding(t *testing.T) {
 	log := BuildSARIFLog("v", []SARIFFinding{
 		{RuleID: "r1", Path: "app.go", Line: 0, Severity: "warning", Message: "general finding"},
 		{RuleID: "r2", Path: "app.go", Line: 5, Severity: "warning", Message: "line finding"},
-	}, true, "")
+	}, "")
 	data, err := json.Marshal(log)
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func TestAUR521SARIFOmitsRegionForLinelessFinding(t *testing.T) {
 // produces a structurally valid SARIF document, with
 // invocations[0].executionSuccessful=false and a notification naming why.
 func TestAUR521SARIFInconclusiveRun(t *testing.T) {
-	log := BuildSARIFLog("v", nil, false, "provider_failure")
+	log := BuildSARIFLog("v", nil, "provider_failure")
 	inv := log.Runs[0].Invocations[0]
 	if inv.ExecutionSuccessful {
 		t.Fatal("inconclusive run must mark executionSuccessful false")
@@ -223,7 +223,7 @@ func TestAUR521SARIFRedactsSecretCanary(t *testing.T) {
 		Message: "leaked: " + canary, Context: "token = \"" + canary + "\"",
 	}}
 	path := filepath.Join(t.TempDir(), "out.sarif")
-	if err := WriteSARIF(path, "v", findings, true, "", filter); err != nil {
+	if err := WriteSARIF(path, "v", findings, "", filter); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -259,7 +259,7 @@ func TestAUR521SARIFRedactsEscapedSecrets(t *testing.T) {
 		Context:   "ctx: " + newlineSecret,
 	}}
 	path := filepath.Join(t.TempDir(), "out.sarif")
-	if err := WriteSARIF(path, "v", findings, true, "", filter); err != nil {
+	if err := WriteSARIF(path, "v", findings, "", filter); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -298,7 +298,7 @@ func TestAUR521SARIFRedactsSecretWithBackslashInPath(t *testing.T) {
 		Context:  "c",
 	}}
 	path := filepath.Join(t.TempDir(), "out.sarif")
-	if err := WriteSARIF(path, "v", findings, true, "", filter); err != nil {
+	if err := WriteSARIF(path, "v", findings, "", filter); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)

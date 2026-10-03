@@ -157,11 +157,10 @@ func severityToSARIFLevel(sev string) string {
 	}
 }
 
-// BuildSARIFLog assembles the complete SARIF document. executionSuccessful
-// is AC-004's own invocation flag: false marks the run inconclusive, and
-// notificationReason (non-empty exactly when executionSuccessful is false)
-// becomes the one toolExecutionNotification naming why.
-func BuildSARIFLog(toolVersion string, findings []SARIFFinding, executionSuccessful bool, notificationReason string) sarifLog {
+// BuildSARIFLog assembles the complete SARIF document. inconclusiveReason is
+// empty for a conclusive run; a non-empty reason marks the invocation as not
+// successful and becomes the one toolExecutionNotification naming why.
+func BuildSARIFLog(toolVersion string, findings []SARIFFinding, inconclusiveReason string) sarifLog {
 	rules := make([]sarifRule, 0, len(findings))
 	seenRules := map[string]bool{}
 	results := make([]sarifResult, 0, len(findings))
@@ -214,10 +213,11 @@ func BuildSARIFLog(toolVersion string, findings []SARIFFinding, executionSuccess
 		results = append(results, result)
 	}
 
+	executionSuccessful := inconclusiveReason == ""
 	invocation := sarifInvocation{ExecutionSuccessful: executionSuccessful}
-	if !executionSuccessful && strings.TrimSpace(notificationReason) != "" {
+	if !executionSuccessful && strings.TrimSpace(inconclusiveReason) != "" {
 		invocation.ToolExecutionNotifications = []sarifNotification{{
-			Message: sarifMessage{Text: notificationReason},
+			Message: sarifMessage{Text: inconclusiveReason},
 			Level:   "error",
 		}}
 	}
@@ -372,8 +372,8 @@ func redactSARIFFindings(filter *redaction.Filter, findings []SARIFFinding) []SA
 // writing it to path. Three passes, not one: each catches a shape the
 // others cannot (pre-normalization, post-build structured fields,
 // post-marshal escaped text).
-func WriteSARIF(path, toolVersion string, findings []SARIFFinding, executionSuccessful bool, notificationReason string, filter *redaction.Filter) error {
-	log := BuildSARIFLog(toolVersion, redactSARIFFindings(filter, findings), executionSuccessful, notificationReason)
+func WriteSARIF(path, toolVersion string, findings []SARIFFinding, inconclusiveReason string, filter *redaction.Filter) error {
+	log := BuildSARIFLog(toolVersion, redactSARIFFindings(filter, findings), inconclusiveReason)
 	data, err := json.MarshalIndent(redactSARIFLog(filter, log), "", "  ")
 	if err != nil {
 		return err
