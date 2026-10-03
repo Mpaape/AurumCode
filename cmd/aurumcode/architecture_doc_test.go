@@ -33,7 +33,7 @@ func TestAUR558ArchitectureDocCitesEveryInternalPackage(t *testing.T) {
 	if checked < 20 {
 		t.Fatalf("only %d internal packages found; the walk no longer sees internal/", checked)
 	}
-	for _, point := range []string{"A gate contributor", "A scanner", "A configuration section", "A BOM type", "A grammar"} {
+	for _, point := range []string{"Um contribuidor do gate", "Um scanner", "Uma seção de configuração", "Um tipo de BOM", "Uma gramática"} {
 		if !strings.Contains(text, "**"+point+".**") {
 			t.Errorf("docs/architecture.md lacks the extension point %q", point)
 		}
