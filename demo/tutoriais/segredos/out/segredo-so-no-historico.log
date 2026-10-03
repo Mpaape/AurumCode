@@ -1,0 +1,28 @@
+== segredo-so-no-historico
+--- commit intermediario que adicionou o token: e0e6e6b93167
+--- a arvore final nao tem o token:
+API_TOKEN = os.environ["API_TOKEN"]
+$ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- config.py
+
+
+```mermaid
+flowchart TD
+    n0["config.py"]
+
+```
+config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat)
+exit_code=3
+RESULTADO: o token so existe num commit intermediario do PR e mesmo assim o gate reprova

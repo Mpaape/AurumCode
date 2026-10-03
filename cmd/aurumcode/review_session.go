@@ -165,10 +165,14 @@ type reviewState struct {
 	// root and refusal they run with, what was offered and the transcript.
 	deferredScans []config.ScannerConfig
 	scanRoot      string
+	scanRange     scanner.Range
 	scanBlocked   string
-	toolManifest  []prompt.ToolOffer
-	toolsOffered  bool
-	transcript    *deliberation.Transcript
+	// scanVersions is each engine's reported identity ("<engine>=<version>"),
+	// folded into the evidence digest of the cache key.
+	scanVersions []string
+	toolManifest []prompt.ToolOffer
+	toolsOffered bool
+	transcript   *deliberation.Transcript
 
 	gateRes *gateDecision
 }

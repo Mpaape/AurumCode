@@ -9,7 +9,13 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /aurumcode ./cmd/aurumcode
 
-FROM alpine:3.20
+# The secrets engine: gitleaks copied from the image the scanners lock pins
+# by digest (.board/bootstrap/locks/scanners.yml, secrets_scanner_image);
+# pulling by digest fails if the registry serves other bytes. The binary is
+# static, and the build fails unless it reports the locked version.
+FROM docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f AS gitleaks
+
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 RUN apk add --no-cache ca-certificates git bash jq python3 py3-pip
 
@@ -48,6 +54,9 @@ RUN apk add --no-cache ca-certificates git bash jq python3 py3-pip
 # but a human should still close the gap deliberately rather than leave
 # the SAST pass permanently inconclusive under policy.
 RUN pip3 install --no-cache-dir --break-system-packages semgrep==1.172.0
+
+COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks
+RUN test "$(gitleaks version)" = "v8.30.1"
 
 WORKDIR /github/workspace
 COPY --from=builder /aurumcode /app/aurumcode

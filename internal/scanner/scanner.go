@@ -35,12 +35,29 @@ const (
 type Options map[string]any
 
 // Request is one scan: the tree to scan, who mandated it, the engine's
-// options and the command runner (nil runs the real binary).
+// options, the reviewed commit range and the command runner (nil runs the
+// real binary).
 type Request struct {
 	Root    string
 	Trust   Trust
 	Options Options
+	Range   Range
 	Command Command
+}
+
+// Range is the reviewed commit range: the commits reachable from Head and
+// not from Base. A history engine scans exactly these commits; a tree
+// engine ignores it. Both ends are full commit ids resolved by the caller;
+// an engine that needs the range treats an empty end as a failed scan,
+// never as "scan the final tree instead".
+type Range struct {
+	Base string
+	Head string
+}
+
+// Empty reports a range with either end missing.
+func (r Range) Empty() bool {
+	return strings.TrimSpace(r.Base) == "" || strings.TrimSpace(r.Head) == ""
 }
 
 // Command runs binary with args in dir and returns its streams.

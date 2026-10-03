@@ -312,7 +312,7 @@ func scanSession(t *testing.T, cfg, central *config.Config) *reviewState {
 	s.cfg, s.centralCfg = cfg, central
 	s.diff = &types.Diff{}
 	s.result = &types.ReviewResult{}
-	s.runScanners(t.TempDir(), "")
+	s.runScanners(t.TempDir(), scanner.Range{}, "")
 	t.Cleanup(s.flush)
 	return &s
 }

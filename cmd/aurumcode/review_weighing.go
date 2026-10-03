@@ -125,7 +125,7 @@ func (s *reviewState) contextCacheKey() string {
 	if len(s.evidence) == 0 {
 		return cache.RequestKey(cache.RequestKeyInput{PromptDigest: legacy, ToolResultsDigest: toolResults})
 	}
-	evidenceDigest, err := cache.DigestOf(s.evidence)
+	evidenceDigest, err := cache.DigestOf(s.evidenceIdentity())
 	if err != nil {
 		// json.Marshal of plain strings and ints cannot fail; a key that
 		// matches nothing is the safe answer if it ever did.
@@ -242,4 +242,21 @@ func gateAlignedVerdict(verdict string, demoted int, res *gateDecision) string {
 		return "comment"
 	}
 	return verdict
+}
+
+// evidenceIdentity is what the evidence digest covers: the items offered
+// and, when an engine reported one, each engine's identity (binary version
+// and rule base), so a verdict computed with another scanner version or
+// rule base is never reused. Without any reported identity it is the items
+// alone, keeping every existing key unchanged.
+func (s *reviewState) evidenceIdentity() any {
+	if len(s.scanVersions) == 0 {
+		return s.evidence
+	}
+	engines := append([]string(nil), s.scanVersions...)
+	sort.Strings(engines)
+	return struct {
+		Evidence []prompt.EvidenceItem `json:"evidence"`
+		Engines  []string              `json:"engines"`
+	}{s.evidence, engines}
 }

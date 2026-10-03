@@ -1,0 +1,4 @@
+aurumcode review: SECRETS (Gitleaks) inconclusive: the scan did not produce a trustworthy result (secrets_unavailable); no Gitleaks finding was published for this run.
+aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable)
+exit_code=1
+RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova
