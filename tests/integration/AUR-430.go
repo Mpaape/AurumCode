@@ -41,7 +41,7 @@ func IntegrationAUR430(t *testing.T) {
 	}
 
 	binPath := filepath.Join(t.TempDir(), "aurumcode-aur430")
-	build := exec.Command("go", "build", "-o", binPath, "./cmd/aurumcode")
+	build := exec.Command("go", "build", "-buildvcs=false", "-o", binPath, "./cmd/aurumcode")
 	build.Dir = root
 	build.Env = os.Environ()
 	var buildOut bytes.Buffer

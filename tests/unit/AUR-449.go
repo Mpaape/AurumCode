@@ -85,7 +85,7 @@ func TestAUR449(t *testing.T) {
 	}
 
 	binPath := filepath.Join(t.TempDir(), "aurumcode-aur449")
-	build := exec.Command("go", "build", "-o", binPath, "./cmd/aurumcode")
+	build := exec.Command("go", "build", "-buildvcs=false", "-o", binPath, "./cmd/aurumcode")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("go build ./cmd/aurumcode failed: %v\n%s", err, out)

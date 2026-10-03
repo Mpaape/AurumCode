@@ -33,7 +33,7 @@ func aur458Bin(t *testing.T, root string) string {
 		return b
 	}
 	bin := filepath.Join(t.TempDir(), "aurumcode")
-	cmd := exec.Command("go", "build", "-mod=mod", "-o", bin, "./cmd/aurumcode")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-mod=mod", "-o", bin, "./cmd/aurumcode")
 	cmd.Dir = root
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Skipf("infrastructure: cannot build aurumcode: %v\n%s", err, out)
