@@ -92,7 +92,7 @@ run_mutation() {
   local target="$run_dir/root/internal/gate/sast.go"
   local from='name, OriginSAST+", secao "+origin)'
   [[ "$(grep -Fc "$from" "$target")" == "1" ]] || infra mutation-anchor
-  sed -i 's/name, OriginSAST+", secao "+origin)/name, origin) \/\/ MUT-001: origem policy/' "$target"
+  sed -i -e 's/name, OriginSAST+", secao "+origin)/name, origin)/' -e '/^func ApplySASTGate/i // MUT-001: origem policy' "$target"
   grep -Fq 'MUT-001: origem policy' "$target" || infra mutation-not-applied
   local log="$run_dir/mutation.log"
   run_go_test ./cmd/aurumcode/ '^TestAUR567GateLineCarriesTypedOriginForEverySource$' "$log" || true
