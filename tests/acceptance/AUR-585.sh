@@ -99,7 +99,7 @@ check_migrated() { # check_migrated ROOT
     printf '%s/%s/note: .board/schemas absent, taskspec and sandbox-profile tests not claimed\n' "$card" "$selector" >&2
   fi
   (cd "$root" && go test "${pkgs[@]}") >"$run_dir/legacy.log" 2>&1 \
-    || { echo "tests/legacy red: $(tail -n3 "$run_dir/legacy.log" | tr '\n' ' ')"; return 1; }
+    || { echo "tests/legacy red: $(grep -E '^(--- FAIL|FAIL|\s+\S+_test.go)' "$run_dir/legacy.log" | sed -n '1,4p' | tr '\n' ' ')"; return 1; }
   for id in "${migrated_acceptances[@]}"; do
     out="$run_dir/acc-$id.log"; code=0
     (cd "$root" && bash "tests/acceptance/$id.sh") >"$out" 2>&1 || code=$?
