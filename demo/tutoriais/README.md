@@ -11,6 +11,10 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [revisao](../../docs/tutorials/revisao.md) | `revisao/` | primeira-revisao, sem-provedor, com-provedor, fix, pr-workflow, falha-nao-revisado |
 | [skills](../../docs/tutorials/skills.md) | `skills/` | ver `skills/run.sh` |
 | [politica-central](../../docs/tutorials/politica-central.md) | `politica-central/` | ver `politica-central/run.sh` |
+| [gate](../../docs/tutorials/gate.md) | `gate/` | ver `gate/run.sh` (usa `_lib/pr.sh`: GitHub falso em 127.0.0.1) |
+| [excecoes](../../docs/tutorials/excecoes.md) | `excecoes/` | ver `excecoes/run.sh` |
+| [auditoria-sarif](../../docs/tutorials/auditoria-sarif.md) | `auditoria-sarif/` | ver `auditoria-sarif/run.sh` |
+| [reaproveitamento](../../docs/tutorials/reaproveitamento.md) | `reaproveitamento/` | ver `reaproveitamento/run.sh` |
 
 ## Como rodar
 

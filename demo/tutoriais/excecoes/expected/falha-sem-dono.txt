@@ -1,0 +1,3 @@
+aurumcode review: central policy: parsing /policy/.aurumcode/config.yml: exceptions[0]: owner is required (exception seguranca#sem-segredos-no-codigo app.go)
+exit_code=1
+RESULTADO: excecao sem dono invalida a politica inteira (falha fechado)

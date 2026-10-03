@@ -1,0 +1,10 @@
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+exit_code=3
+RESULTADO: a revisao reprova
+--- o canario aparece em algum destino?
+stdout/stderr: canario ausente
+auditoria.json: canario ausente
+revisao.sarif: canario ausente
+revisao.sarif: o valor foi trocado por [REDACTED]
+RESULTADO: o canario nao vazou para saida, auditoria nem SARIF

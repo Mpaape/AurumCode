@@ -1,0 +1,6 @@
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+exit_code=3
+RESULTADO: primeira execucao reprova e grava o cache
+--- todas as entradas do cache corrompidas
+RESULTADO: cache corrompido: revisao nova, o achado continua reprovando
+nenhuma linha 'reused': nada foi reaproveitado do cache corrompido

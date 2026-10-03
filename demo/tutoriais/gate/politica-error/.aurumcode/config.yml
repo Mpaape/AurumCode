@@ -1,0 +1,6 @@
+gate:
+  fail_on: [error]
+review:
+  context:
+    skills:
+      - skills/seguranca.md

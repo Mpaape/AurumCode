@@ -46,7 +46,7 @@ Referência:
 [Trilha de auditoria e SARIF](configuration.md#trilha-de-auditoria-e-sarif-aur-521).
 O [Guia corporativo](gate-corporativo.md) reúne tudo num conjunto que funciona junto.
 
-Tutorial: em breve (AUR-562, `tutorials/gate.md`), em breve (AUR-562, `tutorials/excecoes.md`) e em breve (AUR-562, `tutorials/auditoria-sarif.md`).
+Tutorial: [O gate de política](tutorials/gate.md), [Exceções aprovadas](tutorials/excecoes.md), [Auditoria e SARIF](tutorials/auditoria-sarif.md) e [Reaproveitamento](tutorials/reaproveitamento.md).
 
 ## Cadeia de suprimentos
 

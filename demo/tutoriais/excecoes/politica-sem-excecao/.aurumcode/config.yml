@@ -1,0 +1,6 @@
+gate:
+  fail_on: [medium]
+review:
+  context:
+    skills:
+      - skills/seguranca.md

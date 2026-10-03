@@ -1,0 +1,8 @@
+exit_code=0
+RESULTADO: politica high: o warning passa
+cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
+aurumcode review: reused 1 file(s) from cache (not resent to the model)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+exit_code=3
+RESULTADO: politica medium: o mesmo warning reprova; a politica nova gera outra entrada de veredito (a resposta por arquivo segue reaproveitada)
+cache: 2 entrada(s) de veredito, 1 entrada(s) por arquivo
