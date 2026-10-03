@@ -4,13 +4,13 @@
 # again on main).
 #
 # SELECTORS
-#   all                 AC-001, AC-002, AC-003 and AC-001-MUT-001
+#   all                 AC-001, AC-002 (quick subset), AC-003 and AC-001-MUT-001
 #   AC-001              go test of tests/benchmark and internal/artifacts with
 #                       a clean environment (no GOFLAGS) and an invalid GIT_DIR
 #                       passes: the harnesses pass -buildvcs=false themselves
 #   AC-002              the quick repaired acceptances exit 0
-#   AC-002-full         the slow repaired acceptances exit 0 (the full run is
-#                       longer than the 600 s sealed budget; run it on its own)
+#   AC-002-full         every repaired acceptance exits 0 (quick + slow; longer than
+#                       the sealed budget, run it on its own)
 #   AC-003              docs/specs/AUR-573.md records each script's measured cause
 #   AC-001-MUT-001      removing -buildvcs=false from the benchmark harness makes
 #                       AC-001 fail when VCS is unavailable (simulated)
@@ -66,13 +66,14 @@ run_acceptance() {
   printf '%s/%s/%s ok\n' "$card" "$id" "$sel"
 }
 
-quick=(AUR-493 AUR-496 AUR-500 AUR-561 AUR-562)
-slow=(AUR-468 AUR-473 AUR-479 AUR-504 AUR-505)
+quick=(AUR-491 AUR-493 AUR-496 AUR-497 AUR-500)
+slow=(AUR-468 AUR-473 AUR-479 AUR-504 AUR-505 AUR-540 AUR-541 AUR-542 AUR-547)
 # AUR-450 has no `all` selector (64): AC-001 is what AUR-473 AC-003 runs.
 
 ac002() { local id; for id in "${quick[@]}"; do run_acceptance "$id"; done; }
 ac002_full() {
   local id
+  ac002
   for id in "${slow[@]}"; do run_acceptance "$id"; done
   run_acceptance AUR-450 AC-001
 }
@@ -80,7 +81,7 @@ ac002_full() {
 ac003() {
   local spec="$repo_root/docs/specs/AUR-573.md" id
   [[ -f "$spec" ]] || fail 'spec-missing'
-  for id in AUR-468 AUR-473 AUR-479 AUR-491 AUR-493 AUR-496 AUR-497 AUR-500 AUR-504 AUR-505 AUR-561 AUR-562 AUR-534; do
+  for id in AUR-441 AUR-450 AUR-459 AUR-468 AUR-473 AUR-479 AUR-491 AUR-493 AUR-496 AUR-497 AUR-500 AUR-504 AUR-505 AUR-534 AUR-540 AUR-541 AUR-542 AUR-547 AUR-557 AUR-558 AUR-561 AUR-562; do
     grep -Fq -- "$id" "$spec" || fail "spec-lacks:$id"
   done
   grep -Fq 'Causa medida' "$spec" || fail 'spec-lacks-cause-heading'
@@ -103,7 +104,7 @@ mutation_001() {
 }
 
 case "$selector" in
-  all) ac001; ac002; ac003; mutation_001 ;;
+  all) ac001; ac002; ac003; mutation_001 ;;  # AC-002 here is the quick subset
   AC-001) ac001 ;;
   AC-002) ac002 ;;
   AC-002-full) ac002_full ;;
