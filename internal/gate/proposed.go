@@ -15,6 +15,9 @@ import (
 const (
 	ProposedOwnerPlaceholder   = "<dono a definir>"
 	ProposedExpiresPlaceholder = "<AAAA-MM-DD>"
+	// ProposedRepoPlaceholder stands in when the run has no verified
+	// repository identity (a local --base run): an exception must name it.
+	ProposedRepoPlaceholder = "<owner/repo a definir>"
 )
 
 // ProposedException is an exception the model's dispute suggests and the
@@ -33,6 +36,9 @@ func ProposeExceptions(disputed []types.ReviewIssue, demoted []Demotion, repo st
 	gone := make(map[string]bool, len(demoted))
 	for _, d := range demoted {
 		gone[FindingOriginKey(d.Issue.RuleID, d.Issue.File, d.Issue.Line)] = true
+	}
+	if repo == "" {
+		repo = ProposedRepoPlaceholder
 	}
 	var out []ProposedException
 	for _, issue := range disputed {

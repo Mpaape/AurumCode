@@ -26,6 +26,12 @@ origens() {
   python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(", ".join(sorted({b.get("origin","?") for b in d["blocking_findings"]})) or "(nenhuma)")' "$TUT_WORK/$1"
 }
 
+# avaliacoes: imprime, da auditoria, a origem (o que o engine mediu) ao lado da avaliacao do modelo.
+avaliacoes() {
+  printf 'avaliacoes na auditoria: '
+  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("; ".join("%s %s -> %s %s" % (e["origin"], e["rule_id"], e["assessment"]["evidence_id"], e["assessment"]["status"]) for e in d.get("evidence_assessments", [])) or "(nenhuma)")' "$TUT_WORK/$1"
+}
+
 # 1. fail_on por severidade: high e error sao o mesmo limiar; medium inclui warning.
 caso_fail_on_severidade() {
   tut_repo fail-on-severidade repo-exemplo/base repo-exemplo/segredo
@@ -180,6 +186,24 @@ caso_achado_deterministico() {
   tut_repo achado-deterministico-limpo repo-exemplo/base repo-exemplo/limpo
   TUT_POLICY=politica-alerta; aurum review --base main --politica /policy --seguranca
   expect_rc 0 "warn sem achado deterministico continua so avisando (exit 0)"
+  # Com provedor (AUR-579): os passes deterministicos rodam antes do modelo, o achado entra
+  # no prompt como evidencia [E1] e o modelo a avalia. A fixture so responde com a avaliacao
+  # quando o prompt traz a secao de evidencia; sem ela, responde "approve" sem avaliacao.
+  echo "--- com provedor, o modelo contesta a evidencia; politica fail_on [high]"
+  tut_repo achado-deterministico-pondera repo-exemplo/base repo-exemplo/achados
+  TUT_FIXTURE=fixture-pondera-contesta.json
+  TUT_POLICY=politica-high; aurum review --base main --politica /policy --auditoria /work/auditoria-pondera.json
+  avaliacoes auditoria-pondera.json
+  expect_rc 3 "a politica conta o achado contestado (exit 3) e o parecer propoe a excecao, sem aplica-la"
+  echo "--- o modelo confirma a mesma evidencia"
+  TUT_FIXTURE=fixture-pondera-confirma.json
+  aurum review --base main --politica /policy
+  expect_rc 3 "confirmado: o achado conta e nenhuma excecao e proposta"
+  echo "--- sem politica central, o repositorio declara gate.triage analysis: model"
+  tut_repo achado-deterministico-triagem repo-exemplo/base-triagem repo-exemplo/achados
+  TUT_FIXTURE=fixture-pondera-contesta.json
+  aurum review --base main
+  expect_rc 0 "sem politica, a contestacao rebaixa o achado (gate.triage: model) e o gate aprova"
 }
 
 tut_main "$@"

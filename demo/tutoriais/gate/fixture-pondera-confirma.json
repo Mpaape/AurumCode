@@ -1,0 +1,39 @@
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "[E1] origem=analysis regra=analysis/hardcoded-secret",
+        "response": {
+          "verdict": "comment",
+          "strengths": [],
+          "issues": [],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "O modelo avaliou a evidencia deterministica.",
+          "evidence_assessments": [
+            {
+              "evidence_id": "E1",
+              "status": "confirmed",
+              "justification": "A linha atribui uma senha literal a dbPassword e a imprime.",
+              "correlates_with": [],
+              "priority": "high",
+              "suggestion": "Ler a senha do ambiente."
+            }
+          ]
+        }
+      }
+    ],
+    "default": {
+      "verdict": "approve",
+      "strengths": [],
+      "issues": [],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "Nenhuma evidencia deterministica recebida."
+    }
+  }
+}
