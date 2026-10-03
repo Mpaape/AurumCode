@@ -29,16 +29,42 @@ fase, a saída da última execução real é versionada em `out/`, e
 ```bash
 bash demo/tutoriais/<tutorial>/run.sh all       # todos os casos (docker)
 bash demo/tutoriais/<tutorial>/run.sh <caso>    # um caso
-bash demo/tutoriais/<tutorial>/run.sh --check   # out/ contra expected/, sem docker
+bash demo/tutoriais/<tutorial>/run.sh --check   # out/.imagem e out/ contra expected/, sem docker
 bash demo/tutoriais/<tutorial>/run.sh limpar    # apaga .estado/
 ```
 
 No host só existem `bash`, `git`, `docker` e `python3`. O programa roda na
 imagem do produto (`docker build` do `Dockerfile` da raiz, tag
-`aurum-tutoriais:local`, construída na primeira execução; `AURUMCODE_TUT_REBUILD=1`
+`aurum-tutoriais:<12 hex>` derivada da identidade da árvore, construída na primeira execução; `AURUMCODE_TUT_REBUILD=1`
 força, `AURUMCODE_TUT_IMAGE=` usa outra tag), sem rede (`--network none`) e com
 o provedor de modelo falso e determinístico (`AURUMCODE_LLM_FIXTURE`): nunca
 há credencial real.
+
+## Imagem registrada e valores voláteis
+
+`run.sh all` (ou um caso) grava `out/.imagem` com a identidade da árvore
+(sha256 do `Dockerfile`, `go.mod`, `go.sum` e dos arquivos de produção de `cmd`,
+`internal` e `pkg`, sem `*_test.go`) e o digest da imagem usada. A tag da imagem
+deriva dessa identidade, então uma imagem de outra árvore nunca é reaproveitada.
+`run.sh --check` falha com o motivo quando `out/.imagem` falta ou foi gravado por
+outra árvore, e imprime `imagem conferida` (com docker e a imagem local) ou
+`imagem nao conferida (sem docker)` (só a árvore é conferida, como no container
+selado).
+
+`expected/` e os blocos de `docs/tutorials/` nunca pinam valor volátil. Eles
+escrevem a forma, e o `--check` (e os aceites 563/564) normalizam o `out/` com
+`_lib/normaliza.sed` antes da comparação literal:
+
+| Valor volátil | Forma em `expected/` e no texto |
+|---|---|
+| `board valid: 585 atomic cards` | `board valid: <N> atomic cards` |
+| `analysis-data/20261002T134230Z` | `analysis-data/<timestamp>` |
+| `2026-10-02T13:42:30Z` | `<timestamp>` |
+| `is 30.0 days old` / `idade: 30.0 dias` | `is <duracao> days old` / `idade: <duracao>` |
+
+Outro número ou outra data passa; um valor fora da forma (`board valid: abc
+atomic cards`) reprova. Para um novo valor volátil, acrescente a regra em
+`_lib/normaliza.sed`.
 
 ## O framework (`_lib/tutorial.sh`)
 
