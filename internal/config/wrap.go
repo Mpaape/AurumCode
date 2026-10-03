@@ -11,6 +11,17 @@ import (
 // forwards carries the assembled, clearly-labeled, redacted context
 // block appended after the reviewer's own prompt.
 //
+// It is the COMPATIBILITY path. The block now has its own slot in the
+// review template: a caller passes BuildContextBlockWithWarnings' result
+// as review.ReviewContext.RepositoryContext, where it is counted by the
+// prompt budget and the prompt digest, and sends through the unwrapped
+// provider, keeping every capability (ModelResolver, ToolCaller,
+// MessageCompleter) visible. For a provider without the message
+// capability the slot produces the very bytes this decorator sends. This
+// type deliberately does NOT implement llm.Unwrapper: it alters the
+// request, so letting llm.As reach the inner provider would skip the
+// injection.
+//
 // THE COST-CEILING FIX: Tokens is overridden, not merely forwarded. The
 // orchestrator's pre-flight budget check (internal/llm.Orchestrator.
 // Complete, via its Estimator) calls provider.Tokens(prompt) on the
