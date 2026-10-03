@@ -38,7 +38,7 @@ func (p *prReview) runGate() (int, bool) {
 	reason := p.inconclusiveReason()
 	p.run = &gateRun{
 		Ctx: p.ctx, Cfg: p.cfg, Diff: p.diff, Review: p.result,
-		Language: p.reviewLanguage, Filter: p.filter, Stdout: p.stdout, Stderr: p.stderr,
+		Security: p.securityFindings, Language: p.reviewLanguage, Filter: p.filter, Stdout: p.stdout, Stderr: p.stderr,
 		RepoIdentity: identity, RepoIdentityKnown: true, Now: time.Now,
 	}
 	pipeline := assembleGatePipeline(gatePipelineInputs{

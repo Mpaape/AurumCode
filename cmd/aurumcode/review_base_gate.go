@@ -22,7 +22,7 @@ func (b *baseReview) decideGate() (int, bool) {
 	repoIdentity, repoIdentityOK := localRepoIdentity(b.cwd)
 	run := b.run
 	run.Ctx, run.Cfg, run.Diff, run.Review = context.Background(), b.repoCfg, b.diff, b.result
-	run.Extra, run.Language = b.securityFindings, b.reviewLanguage
+	run.Extra, run.Security, run.Language = b.securityFindings, b.securityFindings, b.reviewLanguage
 	run.Filter, run.Stdout, run.Stderr = b.filter, b.stdout, b.stderr
 	run.RepoIdentity, run.RepoIdentityKnown, run.Now = repoIdentity, repoIdentityOK, time.Now
 

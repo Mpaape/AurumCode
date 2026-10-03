@@ -1,3 +1,8 @@
+policy gate: review inconclusive (quality_skipped)
+policy gate: security/hardcoded-secret: [REDACTED] credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: [REDACTED] Secrets) (severidade error, limiar error, origem security)
 app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
-RESULTADO: REPRODUZIDO (AUR-569): o achado [error] do passe de seguranca nao reprova, exit 0
-origens na auditoria: (nenhuma)
+exit_code=3
+RESULTADO: warn: o achado [error] do passe de seguranca reprova (exit 3), origem security
+origens na auditoria: security
+RESULTADO: block: o achado reprova com exit 3, nao so o inconclusivo
+RESULTADO: warn sem achado deterministico continua so avisando (exit 0)
