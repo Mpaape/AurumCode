@@ -260,7 +260,7 @@ Saída real de `fail` (trecho de `out/fail.log`):
 
 ```text
 sbom: CycloneDX 1.7, componentes: lodash@4.17.15
-aurumcode review: policy gate: semgrep:github.policy.regras.demo-sem-eval: eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem policy)
+aurumcode review: policy gate: semgrep:github.policy.regras.demo-sem-eval - eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
 aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
 **Verdict:** Changes requested
 src/calc.js:5: [error] eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval)
