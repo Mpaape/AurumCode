@@ -160,7 +160,7 @@ ac002_mut001() {
   local target="$root/cmd/aurumcode/review_pr_gate.go"
   local anchor='res, ok := executeGate("--pr", pipeline, p.run, reason)'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
-  sed -i "s|${anchor}|res, ok := executeGate(\"--pr\", gate.NewPipeline(pipeline.Contributors()[:len(pipeline.Contributors())-1]...), p.run, reason)|" "$target"
+  sed -i "s|${anchor}|res, ok := executeGate(\"--pr\", newGatePipeline(pipeline.Contributors()[:len(pipeline.Contributors())-1]...), p.run, reason)|" "$target"
   grep -Fq "$anchor" "$target" && infra mutation-not-applied
 
   local log="$run_dir/mut-ac002.log"
