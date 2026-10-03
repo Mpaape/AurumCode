@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -41,10 +42,13 @@ const (
 	RuleGoVet            = "go-vet"
 )
 
-// Fixed, trusted messages for the embedded catalog. They are constants so a
-// finding can never leak reviewed source text into its message.
+// Fixed, trusted messages for the embedded catalog. They are constants (or,
+// for a public-base secret rule, the rule's own id and description from the
+// pinned catalog) so a finding can never leak reviewed source text into its
+// message.
 const (
 	msgHardcodedSecret  = "Hardcoded secret or credential assigned inline"
+	msgBaseSecretFormat = "Hardcoded secret matched rule %s (%s)"
 	msgCommandInjection = "Command built by string concatenation"
 	msgFilePermissions  = "File permissions set explicitly; prefer restrictive modes"
 	msgSQLInjection     = "SQL query built by string concatenation"
@@ -63,38 +67,15 @@ type rule struct {
 	checkFn  func(string) bool
 }
 
-// embeddedRules is the fixed, zero-config catalog. Every pattern or checkFn
+// embeddedRules is the fixed, zero-config catalog of the non-secret rules;
+// RuleHardcodedSecret is driven by the data catalog in secretcatalog.go
+// instead. Every pattern or checkFn
 // is hardcoded and hand-audited; there is no way to add or remove a rule
 // without editing this source, which is what keeps the pass deterministic
 // and configuration-free. A broken regex panics at package init
 // (MustCompile), matching the project's "fail loudly, never silently empty"
 // rule for matchers.
 var embeddedRules = []rule{
-	{
-		id:       RuleHardcodedSecret,
-		severity: "error",
-		message:  msgHardcodedSecret,
-		// AUR-489/AC-002: the keyword must sit at the END of the
-		// identifier (an optional plural "s" allowed, e.g. "apiKeys"),
-		// preceded by an optional camelCase/snake_case prefix of letters
-		// and digits only ("dbPassword", "admin_token", "userSecret").
-		// Requiring \b immediately before AND after the keyword (as the
-		// prior pattern did) matched a bare "password" but missed every
-		// prefixed identifier, since there is no word boundary between
-		// two letters/digits ("dbPassword" has none between "b" and
-		// "P"). The prefix charclass deliberately excludes "_", so a
-		// keyword stuck to the END of a longer word by an underscore
-		// ("access_token_expiry") still cannot match: \b right after the
-		// keyword requires a non-word character there, and "_" is a word
-		// character, same as a letter. The value must be 8+ characters,
-		// so a placeholder like `token = "x"` or an empty `secret = ""`
-		// is not flagged. match() additionally rejects a hit whose
-		// keyword starts inside an already-open string or raw-string
-		// literal (AUR-496/AC-002), so a documentation example quoted or
-		// backtick-quoted around the whole assignment is not mistaken
-		// for a real one.
-		re: regexp.MustCompile(`(?i)\b(?:[a-z][a-z0-9]*)?(?:api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)s?\b\s*[:=]=?\s*["'][^"'\r\n]{8,}["']`),
-	},
 	{
 		id:       RuleCommandInjection,
 		severity: "error",
@@ -280,14 +261,29 @@ func isInsideStringLiteral(body string, pos int, inRaw bool) bool {
 // Runner is immutable after construction and therefore safe to reuse across
 // calls and goroutines: Analyze and Vet never mutate it.
 type Runner struct {
-	rules []rule
+	rules   []rule
+	secrets *secretCatalog
+}
+
+// embeddedSecrets is the secret catalog compiled from the embedded data at
+// package init. A catalog that fails its digest check or does not compile
+// panics here, matching the project's "fail loudly, never silently empty"
+// rule for matchers.
+var embeddedSecrets = mustLoadEmbeddedSecretCatalog()
+
+func mustLoadEmbeddedSecretCatalog() *secretCatalog {
+	cat, err := loadEmbeddedSecretCatalog()
+	if err != nil {
+		panic(err)
+	}
+	return cat
 }
 
 // NewRunner returns a Runner configured with the embedded catalog only and
 // no external commands. It needs no configuration, no filesystem access and
 // no network; Analyze works entirely in-process.
 func NewRunner() *Runner {
-	return &Runner{rules: embeddedRules}
+	return &Runner{rules: embeddedRules, secrets: embeddedSecrets}
 }
 
 // Analyze scans every added (RIGHT) line of diff against the embedded
@@ -346,15 +342,14 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 // suppressed too.
 func (r *Runner) match(path string, line int, side, body string, inRaw bool) []Finding {
 	var out []Finding
+	if f, ok := r.matchSecret(path, line, side, body, inRaw); ok {
+		out = append(out, f)
+	}
 	for _, rule := range r.rules {
 		matched := false
 		switch {
 		case rule.checkFn != nil:
 			matched = rule.checkFn(body)
-		case rule.id == RuleHardcodedSecret:
-			if loc := rule.re.FindStringIndex(body); loc != nil && !isInsideStringLiteral(body, loc[0], inRaw) {
-				matched = true
-			}
 		case rule.re != nil:
 			matched = rule.re.MatchString(body)
 		}
@@ -370,6 +365,25 @@ func (r *Runner) match(path string, line int, side, body string, inRaw bool) []F
 		}
 	}
 	return out
+}
+
+// matchSecret reports the hardcoded-secret finding for body, if the secret
+// catalog flags it. A local catalog rule keeps the fixed keyword-assignment
+// message; a public-base rule names its id and description. The captured
+// value never reaches the message.
+func (r *Runner) matchSecret(path string, line int, side, body string, inRaw bool) (Finding, bool) {
+	if r.secrets == nil {
+		return Finding{}, false
+	}
+	hit, ok := r.secrets.firstMatch(path, body, inRaw)
+	if !ok {
+		return Finding{}, false
+	}
+	msg := msgHardcodedSecret
+	if hit.origin == originBase {
+		msg = fmt.Sprintf(msgBaseSecretFormat, hit.id, hit.description)
+	}
+	return Finding{Path: path, Line: line, Side: side, RuleID: RuleHardcodedSecret, Severity: "error", Message: msg}, true
 }
 
 // splitDiffMarker splits a unified-diff line into its one-character
