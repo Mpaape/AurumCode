@@ -241,7 +241,7 @@ do PR e roda `aurumcode review --pr N --repo OWNER/REPO --publicar --check
 --exigir-qualidade` (mais `--seguranca` e `--politica`, quando configurados); o
 parecer é publicado no PR e o job falha se a revisão for inconclusiva.
 
-**O que esta demonstração prova, e o que não prova.** Não há runner do GitHub
+O que observar, e o que esta demonstração prova: não há runner do GitHub
 aqui e não há servidor de GitHub reutilizável fora dos testes de unidade do
 repositório, então este tutorial **não** executa uma revisão de PR. O que a
 fase `pr-workflow` verifica de verdade é que o arquivo acima é coerente com o

@@ -1,0 +1,7 @@
+review:
+  context:
+    skills:
+      - .aurumcode/skills/seguranca.md
+gate:
+  fail_on: [high]
+  inconclusive: warn

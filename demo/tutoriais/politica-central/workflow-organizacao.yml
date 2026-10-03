@@ -1,0 +1,22 @@
+# Workflow obrigatorio da organizacao, com a politica central embutida.
+# ORG, o SHA do AurumCode e o SHA da politica sao placeholders: troque pelos seus.
+name: Revisao obrigatoria AurumCode
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: read
+
+jobs:
+  review:
+    uses: ORG/AurumCode/.github/workflows/review.yml@0000000000000000000000000000000000000000
+    with:
+      policy_repository: ORG/aurumcode-policy
+      policy_ref: 1111111111111111111111111111111111111111
+      security: true
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}

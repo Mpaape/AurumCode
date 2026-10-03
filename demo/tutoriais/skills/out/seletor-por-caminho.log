@@ -1,0 +1,26 @@
+== seletor-por-caminho
+$ aurumcode review --base main
+## Resumo da Revisão de Código
+
+**Veredito:** Alterações solicitadas
+
+**Resultados por severidade:**
+- erro: 1
+- aviso: 0
+- informação: 0
+
+**Arquivos alterados:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=0
+RESULTADO: revisao feita
+prompt: go.md (applyTo: **/*.go)
+prompt: Em Go, trate todo erro retornado e envolva-o com %w.
+prompt: ts.md (applyTo: **/*.ts) NAO chegou: a mudanca nao toca .ts
