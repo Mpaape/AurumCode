@@ -1,0 +1,9 @@
+quality_gates:
+  sast:
+    engine: semgrep
+    enabled: true
+    fail_on_severity: ERROR
+    rule_packs: [p/security-audit]
+gate:
+  fail_on: [error]
+  inconclusive: block

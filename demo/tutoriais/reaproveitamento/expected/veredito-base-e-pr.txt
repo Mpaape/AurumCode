@@ -1,0 +1,6 @@
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+exit_code=3
+cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
+RESULTADO: o --pr chega ao mesmo veredito
+cache: 2 entrada(s) de veredito, 1 entrada(s) por arquivo
+NAO DEMONSTRADO: o compartilhamento da mesma chave entre --base e --pr; neste experimento (diff do GitHub falso) cada caminho gravou a sua

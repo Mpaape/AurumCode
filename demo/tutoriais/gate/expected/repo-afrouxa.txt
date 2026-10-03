@@ -1,0 +1,9 @@
+--- so o repositorio: inconclusive warn
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (partial_coverage)
+exit_code=0
+RESULTADO: o proprio repositorio aceita cobertura parcial como alerta
+--- com a politica (inconclusive block): o gate do repositorio e ignorado
+aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
+exit_code=1
+RESULTADO: o repositorio nao consegue afrouxar o inconclusive da politica

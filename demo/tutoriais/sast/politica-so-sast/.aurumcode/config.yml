@@ -1,0 +1,10 @@
+gate:
+  fail_on: [error]
+  inconclusive: warn
+  sources: [skills, analysis]
+quality_gates:
+  sast:
+    engine: semgrep
+    enabled: true
+    fail_on_severity: ERROR
+    rule_packs: ["/policy/regras/sast.yml"]

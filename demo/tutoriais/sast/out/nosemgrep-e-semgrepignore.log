@@ -1,0 +1,66 @@
+== nosemgrep-e-semgrepignore
+--- sem politica (config do proprio repositorio): nosemgrep e .semgrepignore valem
+$ aurumcode review --base main
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".semgrepignore"]
+    n1["calc.js"]
+    n2["legado.js"]
+    n0 --> n2
+
+```
+
+Review coverage
+- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+  - .semgrepignore
+No issues found.
+exit_code=0
+RESULTADO: sem politica, o nosemgrep e o .semgrepignore silenciam os dois eval()
+--- sob politica central: o mesmo codigo, o autor nao consegue silenciar
+$ aurumcode review --base main --politica /policy
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval: eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval) (severidade error, limiar error, origem policy)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 2
+- warning: 0
+- info: 0
+
+**Files touched:**
+- calc.js
+- legado.js
+
+
+```mermaid
+flowchart TD
+    n0[".semgrepignore"]
+    n1["calc.js"]
+    n2["legado.js"]
+    n0 --> n2
+
+```
+
+Review coverage
+- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+  - .semgrepignore
+calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
+legado.js:2: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
+aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval: eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval) (severidade error, limiar error, origem policy)
+exit_code=3
+RESULTADO: sob politica, os dois eval() aparecem apesar de nosemgrep e .semgrepignore

@@ -1,0 +1,19 @@
+== enriquecimento
+$ aurumcode xbom --type build --repo . --out build-bom.json
+aurumcode xbom: build: 5 componente(s), 2 descartado(s) sem evidencia
+exit_code=0
+RESULTADO: BOM enriquecido pelo modelo (fixture) e verificado
+$ jq .components[] | "\(.name)@\(.version // "-") -> \(.evidence.occurrences[0].location):\(.evidence.occurrences[0].line) descricao=\(.description // "-")" build-bom.json
+actions/checkout@0123456789abcdef0123456789abcdef01234567 -> .github/workflows/ci.yml:7 descricao=checkout do repositorio
+actions/setup-go@v5 -> .github/workflows/ci.yml:8 descricao=-
+alpine@3.20 -> Dockerfile:4 descricao=-
+golang@1.22 -> Dockerfile:1 descricao=-
+registry.example.com/library/busybox@1.36 -> Dockerfile:5 descricao=-
+$ jq .metadata.properties[] | select(.name|test("llm|dropped|catalog|candidates")) | "\(.name)=\(.value)" build-bom.json
+aurumcode:xbom:candidates=5
+aurumcode:xbom:catalog=embedded
+aurumcode:xbom:dropped_occurrences=2
+aurumcode:xbom:dropped_without_evidence=2
+aurumcode:xbom:llm=present
+aurumcode:xbom:llm_excluded=1
+aurumcode:xbom:llm_rejected=1

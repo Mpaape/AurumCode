@@ -80,7 +80,6 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
-	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/memory"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -1059,64 +1058,6 @@ func notesFromIssues(existing []memory.Note, issues []types.ReviewIssue) []memor
 		}
 	}
 	return notes
-}
-
-// generateReview calls the model. An unparseable answer degrades to the
-// deterministic half (AUR-505, never a crash); a provider/transport failure
-// returns immediately unless a gate is declared, in which case it falls
-// through as the gate's own inconclusive reason (AUR-537, AC-003).
-func (p *prReview) generateReview() (int, bool) {
-	// stderr, limiteUSD and gateDeclared stay named as in the original
-	// function: tests/acceptance/AUR-537.sh anchors its mutations on them.
-	stderr, limiteUSD := p.stderr, p.limiteUSD
-	gateDeclared := p.cfg.Gate.Declared()
-	p.gateDeclared = gateDeclared
-	result, err := p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, review.ReviewContext{
-		CI:              readCIContext(),
-		Language:        p.reviewLanguage,
-		History:         p.history,
-		CodebaseContext: p.codebaseText,
-		MemoryNotes:     p.memoryNotesText,
-	})
-	p.result = result
-	if err == nil {
-		return 0, false
-	}
-	var parseErr *prompt.ParseError
-	switch {
-	case errors.Is(err, llm.ErrBudgetExceeded):
-		// --limite: nothing was spent; checked first, like --base.
-		rc := reportBudgetExceeded(stderr, limiteUSD, err)
-		if !gateDeclared {
-			return rc, true
-		}
-		p.providerFailed = true
-	case errors.As(err, &parseErr):
-		p.degradeUnparseable(parseErr)
-	case errors.Is(err, llm.ErrAllProvidersFailed):
-		var rc int
-		if p.opts.modelo != "" {
-			rc = reportModelUnavailable(stderr, p.opts.modelo, err)
-		} else {
-			fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-			rc = 1
-		}
-		if !gateDeclared {
-			return rc, true
-		}
-		p.providerFailed = true
-	default:
-		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
-		return 1, true
-	}
-	if p.providerFailed {
-		// Reuses the "quality_degraded" key on purpose: the shared verdict
-		// rendering already turns it into "never approve".
-		p.qualityDegraded = true
-		p.result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
-		p.result.Limitations = append(p.result.Limitations, providerFailureNotice(p.reviewLanguage))
-	}
-	return 0, false
 }
 
 // degradeUnparseable records an answer the parser could not validate as a

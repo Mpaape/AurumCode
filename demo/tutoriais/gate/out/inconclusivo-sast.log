@@ -1,0 +1,107 @@
+== inconclusivo-sast
+--- semgrep falso que falha (exit 2), inconclusive: block
+$ aurumcode review --base main --politica /policy
+aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run.
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem policy) inconclusivo (sast_execution_error)
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+No issues found.
+exit_code=1
+RESULTADO: block: SAST que falhou nunca vira 'sem achados' (sast_execution_error)
+--- o mesmo SAST falho, inconclusive: warn
+$ aurumcode review --base main --politica /policy
+aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run.
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem policy) inconclusivo (sast_execution_error)
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+No issues found.
+exit_code=0
+RESULTADO: warn: SAST falho alerta e sai 0
+--- semgrep falso com saida que nao e relatorio, inconclusive: block
+$ aurumcode review --base main --politica /policy
+aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_invalid_output); no Semgrep finding was published for this run.
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (sast_invalid_output)
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+No issues found.
+aurumcode review: policy gate: SAST (semgrep, origem policy) inconclusivo (sast_invalid_output)
+exit_code=1
+RESULTADO: block: saida invalida do SAST e inconclusiva (sast_invalid_output)
+--- Semgrep REAL (regra local): a mesma politica conclui e o achado SAST reprova
+$ aurumcode review --base main --politica /policy
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: semgrep:policy.regras.senha-literal: Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem policy)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [error] Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal)
+exit_code=3
+RESULTADO: com o Semgrep real o SAST conclui e o achado reprova (nao e inconclusivo)

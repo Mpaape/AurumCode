@@ -1,0 +1,73 @@
+name: Analysis data artifact
+
+# AUR-533: everything the analysis uses that ages and is not a Go dependency
+# (the public OSV database, the pinned scanner versions) is rebuilt on a
+# schedule, tested, and only then published as an immutable GitHub Release
+# tagged analysis-data/<UTC timestamp>. A failing build or test leaves the
+# previous release as the newest one. The runtime refuses data older than
+# analysis_data.max_age_days (default 7).
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: analysis-data
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test the artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Build and test with the project toolchain
+        run: >-
+          docker run --rm
+          -v "${GITHUB_WORKSPACE}:/src"
+          -w /src
+          golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+          sh -c 'apk add --no-cache bash >/dev/null && bash scripts/artifacts/build.sh dist'
+
+      - name: Upload the tested artifact for the publish job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: analysis-data
+          path: |
+            dist
+            dist.tests-passed
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish the tested artifact
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Download the tested artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: analysis-data
+
+      - name: Publish immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/artifacts/publish.sh dist

@@ -1,0 +1,60 @@
+== adulterado
+--- A. scanners.yml servido diferente do digest do manifesto
+$ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["app.go"]
+
+```
+No issues found.
+--- requisicoes recebidas pelo falso api.github.com (modo adulterado-arquivo): 3
+    GET /repos/owner/dados-de-analise/releases -> 200
+    GET /dl/manifest.json -> 200
+    GET /dl/scanners.yml -> 200
+exit_code=1
+RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova
+--- B. set_digest do manifesto nao confere com a lista de arquivos
+$ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): manifest: set_digest "sha256:0000000000000000000000000000000000000000000000000000000000000000" does not match its files (sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1): digest mismatch
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["app.go"]
+
+```
+No issues found.
+--- requisicoes recebidas pelo falso api.github.com (modo adulterado-manifesto): 2
+    GET /repos/owner/dados-de-analise/releases -> 200
+    GET /dl/manifest.json -> 200
+exit_code=1
+RESULTADO: manifesto adulterado: analysis_data_digest_mismatch reprova

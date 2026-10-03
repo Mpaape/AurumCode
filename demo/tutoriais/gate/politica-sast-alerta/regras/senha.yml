@@ -1,0 +1,6 @@
+rules:
+  - id: senha-literal
+    languages: [generic]
+    severity: ERROR
+    message: Senha literal atribuida a variavel.
+    pattern-regex: 'dbPassword\s*:=\s*"[^"]+"'

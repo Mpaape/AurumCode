@@ -1,0 +1,2 @@
+cosign exited 0 but wrote no signature bundle to /work/sbom_app_cyclonedx.json.sigstore.json
+RESULTADO: cosign saiu 0 sem bundle e mesmo assim sign falhou (exit 1)

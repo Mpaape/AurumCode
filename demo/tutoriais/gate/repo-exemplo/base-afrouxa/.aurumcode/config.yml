@@ -1,0 +1,4 @@
+gate:
+  fail_on: [high]
+  inconclusive: warn
+  sources: [skills]

@@ -1,0 +1,11 @@
+== bundle-artefato
+review.yml: artefato aurumcode-sbom-bundle-<PR>
+review.yml: path .aurumcode-target/**/*.sigstore.json
+review.yml: if-no-files-found: ignore
+$ aurumcode sign --repo . --cosign-bin /fixtures/wrappers/cosign-wrap.sh
+sign: sbom /work/sbom_app_cyclonedx.json -> /work/sbom_app_cyclonedx.json.sigstore.json
+exit_code=0
+RESULTADO: sbom assinado
+--- arquivos que o glob **/*.sigstore.json alcanca:
+./sbom_app_cyclonedx.json.sigstore.json
+RESULTADO: o bundle que aurumcode sign escreve casa com o glob do upload-artifact (conferido pelo script; o upload em si so ocorre no Actions)

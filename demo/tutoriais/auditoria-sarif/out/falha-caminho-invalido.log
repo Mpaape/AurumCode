@@ -1,0 +1,26 @@
+== falha-caminho-invalido
+$ aurumcode review --base main --politica /policy --auditoria /work/nao-existe/auditoria.json
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: writing audit record: open /work/nao-existe/auditoria.json: no such file or directory
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+No issues found.
+exit_code=0
+RESULTADO: ACHADO: a auditoria nao foi gravada (veja o aviso) e o exit continua 0; confira o arquivo no job
+o arquivo de auditoria nao existe

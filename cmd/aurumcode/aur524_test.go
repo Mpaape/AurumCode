@@ -26,6 +26,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	igate "github.com/Mpaape/AurumCode/internal/gate"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -116,7 +117,7 @@ func aur524CacheEntryPaths(t *testing.T, cacheDir string) map[string]string {
 func aur524DeleteNonVerdictEntries(t *testing.T, cacheDir string) {
 	t.Helper()
 	for name, path := range aur524CacheEntryPaths(t, cacheDir) {
-		if path != gateVerdictCachePath {
+		if path != igate.VerdictCachePath {
 			_ = os.Remove(filepath.Join(cacheDir, name))
 		}
 	}
@@ -127,7 +128,7 @@ func aur524DeleteNonVerdictEntries(t *testing.T, cacheDir string) {
 func aur524DeleteVerdictEntries(t *testing.T, cacheDir string) {
 	t.Helper()
 	for name, path := range aur524CacheEntryPaths(t, cacheDir) {
-		if path == gateVerdictCachePath {
+		if path == igate.VerdictCachePath {
 			_ = os.Remove(filepath.Join(cacheDir, name))
 		}
 	}
@@ -138,9 +139,9 @@ func aur524DeleteVerdictEntries(t *testing.T, cacheDir string) {
 // entry with a forged, empty issue list.
 func aur524ForgeVerdictEntriesEmpty(t *testing.T, cacheDir string) {
 	t.Helper()
-	forged := []byte(`{"path":"` + gateVerdictCachePath + `","issues":[]}`)
+	forged := []byte(`{"path":"` + igate.VerdictCachePath + `","issues":[]}`)
 	for name, path := range aur524CacheEntryPaths(t, cacheDir) {
-		if path == gateVerdictCachePath {
+		if path == igate.VerdictCachePath {
 			if err := os.WriteFile(filepath.Join(cacheDir, name), forged, 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -484,7 +485,7 @@ func TestAUR524AC003InconclusiveNeverStoredOrReused(t *testing.T) {
 
 	cacheDir := os.Getenv("AURUMCODE_CACHE_DIR")
 	for name, path := range aur524CacheEntryPaths(t, cacheDir) {
-		if path == gateVerdictCachePath {
+		if path == igate.VerdictCachePath {
 			t.Fatalf("an inconclusive review must never be persisted as a reusable gate verdict (entry %s)", name)
 		}
 	}
@@ -514,7 +515,7 @@ func TestAUR524AC004NoCacheDirDeclaresUnavailable(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit=%d, want 0; stdout=%s stderr=%s", code, out.String(), errOut.String())
 	}
-	if !strings.Contains(errOut.String(), gateVerdictCacheUnavailableNotice) {
+	if !strings.Contains(errOut.String(), igate.VerdictCacheUnavailableNotice) {
 		t.Fatalf("expected AC-004's own declaration that reuse is unavailable:\n%s", errOut.String())
 	}
 }

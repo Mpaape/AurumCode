@@ -1,0 +1,13 @@
+--- fail_on [high], achado warning
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+exit_code=0
+RESULTADO: warning abaixo do limiar high nao reprova
+--- fail_on [medium], o mesmo achado warning
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+exit_code=3
+RESULTADO: warning no limiar medium reprova (exit 3)
+--- fail_on [error], achado error
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade error, limiar error)
+RESULTADO: error reprova com fail_on error
+--- fail_on [high], achado error: high e error sao o mesmo limiar
+RESULTADO: high e error sao o mesmo limiar: o achado error reprova

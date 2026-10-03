@@ -1,0 +1,17 @@
+gate:
+  fail_on: [high]
+  inconclusive: block
+quality_gates:
+  ssor_dtrack:
+    enabled: true
+    server_api_host: "http://127.0.0.1:8081"
+    api_key_secret: DTRACK_API_KEY
+    project_id_secret: DTRACK_PROJECT_ID
+    thresholds: {max_critical: 0, max_high: 0, policy_violations: 1}
+    timeout_seconds: 120
+    poll_interval_seconds: 2
+    sbom_generator:
+      tool: trivy
+      format: cyclonedx
+      spec_version: "1.6"
+      output_file: sbom_app_cyclonedx.json

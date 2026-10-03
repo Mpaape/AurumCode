@@ -1,0 +1,2 @@
+recursos restantes do tutorial: 0
+RESULTADO: nenhum container, rede ou volume do tutorial ficou vivo

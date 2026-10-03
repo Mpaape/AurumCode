@@ -45,8 +45,8 @@ for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 for source in \
-  cmd/aurumcode/aur551.go \
-  cmd/aurumcode/aur549.go \
+  cmd/aurumcode/cmd_sign.go \
+  cmd/aurumcode/cmd_sbom.go \
   cmd/aurumcode/main.go \
   internal/supplychain/signer.go \
   internal/config/qualitygates.go \
@@ -96,9 +96,9 @@ run_package_proof() {
 }
 run_package_proof
 
-# AC-002-MUT-001: cmd/aurumcode/aur551.go has exactly one place EACH of
+# AC-002-MUT-001: cmd/aurumcode/cmd_sign.go has exactly one place EACH of
 # the SBOM and the image signing failure's own return statements appear
-# (unique in the file on purpose -- see aur551.go's own comments at those
+# (unique in the file on purpose -- see cmd_sign.go's own comments at those
 # lines). Dropping either return (while still printing the error) treats
 # that branch's own "cosign failed" as non-fatal -- the exact defect this
 # card exists to refuse: AC-002 says a signing failure must
@@ -124,7 +124,7 @@ mutate_one_anchor() {
 }
 
 apply_mutation_swallow_failure() {
-  local target="$run_dir/root/cmd/aurumcode/aur551.go"
+  local target="$run_dir/root/cmd/aurumcode/cmd_sign.go"
   mutate_one_anchor "$target" \
     'return exitQualityNotReviewed // AUR-551 AC-002: sbom signing failure must never be swallowed' \
     '\t\t\t\t_ = signErr \/\/ AUR-551 MUT-001: failure swallowed'

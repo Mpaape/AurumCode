@@ -2,7 +2,7 @@
 # AUR-524 v2 acceptance: a concluded gate verdict is reused MONOTONICALLY
 # -- a stored entry can only ADD findings to a later run's own, never
 # replace or suppress them (AURUMCODE_CACHE_DIR is untrusted input in CI,
-# CR-TRUST-001). See cmd/aurumcode/aur524.go and docs/specs/AUR-524.md.
+# CR-TRUST-001). See internal/gate/verdict.go and docs/specs/AUR-524.md.
 #
 # Selectors:
 #   all        run every behavior test below, then apply the MUT-001
@@ -51,7 +51,7 @@ for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 for source in \
-  cmd/aurumcode/aur524.go \
+  internal/gate/verdict.go \
   cmd/aurumcode/main.go \
   cmd/aurumcode/pr.go \
   cmd/aurumcode/review_cache.go \
@@ -89,12 +89,12 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # AC-002-MUT-001: drop the policy digest term from gateVerdictCacheKey's
 # own combination -- the exact defect this card's gate checklist forbids
 # ("never cross policies"). Anchored on the composite-literal VALUES line
-# in aur524.go (`{inner, in.PolicyDigest, in.PromptVersionDigest, ...}`);
+# in internal/gate/verdict.go (`{inner, in.PolicyDigest, in.PromptVersionDigest, ...}`);
 # replacing `in.PolicyDigest` with `""` keeps the struct's field count
 # intact (still compiles) while making the key's policy term constant,
 # i.e. absent in all but name.
 apply_mutation_no_policy_digest() {
-  local target="$run_dir/root/cmd/aurumcode/aur524.go"
+  local target="$run_dir/root/internal/gate/verdict.go"
   local anchor='{inner, in.PolicyDigest, in.PromptVersionDigest'
   local mutated='{inner, "", in.PromptVersionDigest'
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
