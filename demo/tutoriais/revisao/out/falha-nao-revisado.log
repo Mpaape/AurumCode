@@ -23,6 +23,8 @@ exit_code=0
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 --- com gate.inconclusive: block
 $ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (partial_coverage)
 binary file, skipped: logo.png
 ## Code Review Summary
 
@@ -47,7 +49,5 @@ Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully re
 - 1 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
   - logo.png (binary)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (partial_coverage)
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
