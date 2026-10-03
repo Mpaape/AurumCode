@@ -20,6 +20,9 @@ type subcommand struct {
 	name    string
 	summary string
 	example string
+	// docSection is the heading of docs/configuration.md that documents the
+	// command; the help footer is generated from it.
+	docSection string
 	// flags builds a fresh FlagSet with every flag the command declares.
 	flags func() *flag.FlagSet
 	run   func(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int
@@ -31,44 +34,49 @@ type subcommand struct {
 func subcommands() []subcommand {
 	return []subcommand{
 		{
-			name:    "review",
-			summary: "Review a git diff with the configured model and publish or gate the findings.",
-			example: "aurumcode review --base HEAD~1",
-			flags:   newReviewFlagSet,
-			run:     runReview,
+			name:       "review",
+			docSection: "CLI `aurumcode review`",
+			summary:    "Review a git diff with the configured model and publish or gate the findings.",
+			example:    "aurumcode review --base HEAD~1",
+			flags:      newReviewFlagSet,
+			run:        runReview,
 		},
 		{
-			name:    "fix",
-			summary: "Turn review suggestions into an applyable unified diff (one-click fix).",
-			example: "aurumcode fix --file suggestions.json > fix.patch",
-			flags:   func() *flag.FlagSet { fs, _ := newFixFlagSet(); return fs },
+			name:       "fix",
+			docSection: "CLI `aurumcode fix`",
+			summary:    "Turn review suggestions into an applyable unified diff (one-click fix).",
+			example:    "aurumcode fix --file suggestions.json > fix.patch",
+			flags:      func() *flag.FlagSet { fs, _ := newFixFlagSet(); return fs },
 			run: func(args []string, stdout, stderr io.Writer, _ *redaction.Filter) int {
 				return runFix(args, stdout, stderr)
 			},
 		},
 		{
-			name:    "sbom",
-			summary: "Generate an OWASP CycloneDX SBOM with Trivy for the repository and, optionally, an image.",
-			example: "aurumcode sbom --repo . --imagem example.test/app:1.0",
-			flags:   func() *flag.FlagSet { fs, _ := newSBOMFlagSet(); return fs },
+			name:       "sbom",
+			docSection: "SBOM CycloneDX com Trivy (AUR-549)",
+			summary:    "Generate an OWASP CycloneDX SBOM with Trivy for the repository and, optionally, an image.",
+			example:    "aurumcode sbom --repo . --imagem example.test/app:1.0",
+			flags:      func() *flag.FlagSet { fs, _ := newSBOMFlagSet(); return fs },
 			run: func(args []string, stdout, stderr io.Writer, _ *redaction.Filter) int {
 				return runSBOM(args, stdout, stderr)
 			},
 		},
 		{
-			name:    "sign",
-			summary: "Sign the SBOM and/or the artifact image with Sigstore/Cosign.",
-			example: "aurumcode sign --repo . --sbom sbom.cdx.json",
-			flags:   func() *flag.FlagSet { fs, _ := newSignFlagSet(); return fs },
+			name:       "sign",
+			docSection: "CLI `aurumcode sign`",
+			summary:    "Sign the SBOM and/or the artifact image with Sigstore/Cosign.",
+			example:    "aurumcode sign --repo . --sbom sbom.cdx.json",
+			flags:      func() *flag.FlagSet { fs, _ := newSignFlagSet(); return fs },
 			run: func(args []string, stdout, stderr io.Writer, _ *redaction.Filter) int {
 				return runSign(args, stdout, stderr)
 			},
 		},
 		{
-			name:    "xbom",
-			summary: "Generate a CycloneDX 1.6 Build BOM or CBOM whose components cite file and line.",
-			example: "aurumcode xbom --type build --repo . --out build-bom.cdx.json",
-			flags:   func() *flag.FlagSet { fs, _ := newXBOMFlagSet(); return fs },
+			name:       "xbom",
+			docSection: "xBOM além do SBOM: Build BOM e CBOM (AUR-552)",
+			summary:    "Generate a CycloneDX 1.6 Build BOM or CBOM whose components cite file and line.",
+			example:    "aurumcode xbom --type build --repo . --out build-bom.cdx.json",
+			flags:      func() *flag.FlagSet { fs, _ := newXBOMFlagSet(); return fs },
 			run: func(args []string, stdout, stderr io.Writer, _ *redaction.Filter) int {
 				return runXBOM(args, stdout, stderr)
 			},
@@ -120,6 +128,7 @@ func printSubcommandHelp(stdout io.Writer, name string) {
 	fmt.Fprintf(stdout, "usage: aurumcode %s [flags]\n\n%s\n\nFlags:\n", sc.name, sc.summary)
 	fs.PrintDefaults()
 	fmt.Fprintf(stdout, "\nExample:\n  %s\n", sc.example)
+	fmt.Fprintf(stdout, "\nConfiguração e referência: docs/configuration.md (seção %s)\n", sc.docSection)
 }
 
 // parseSubcommandFlags parses args with fs. ok is false when the command

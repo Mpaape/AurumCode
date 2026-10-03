@@ -48,7 +48,7 @@ func TestAUR572SubcommandHelpListsEveryDeclaredFlag(t *testing.T) {
 		if n == 0 {
 			t.Errorf("%s declares no flags", sc.name)
 		}
-		for _, want := range []string{"usage: aurumcode " + sc.name, "Example:", sc.example} {
+		for _, want := range []string{"usage: aurumcode " + sc.name, "Example:", sc.example, "Configuração e referência: docs/configuration.md (seção " + sc.docSection + ")"} {
 			if !strings.Contains(stdout.String(), want) {
 				t.Errorf("%s --help lacks %q:\n%s", sc.name, want, stdout.String())
 			}
