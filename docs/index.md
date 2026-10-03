@@ -23,7 +23,7 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [Opções públicas](configuration.md#opcoes-publicas). Veja também
 [Qualidade e limitações](review-quality.md) e [Cache de review](review-cache.md).
 
-Tutorial: em breve (AUR-561, `tutorials/revisao.md`).
+Tutorial: [Revisão de código](tutorials/revisao.md).
 
 ## Skills e política
 
@@ -32,7 +32,7 @@ mantida num repositório da organização, que `rules` e `gate` do repositório
 do dev não conseguem afrouxar. Referência:
 [Política central](configuration.md#politica-central).
 
-Tutorial: em breve (AUR-561, `tutorials/skills.md`) e em breve (AUR-561, `tutorials/politica-central.md`).
+Tutorial: [Skills de convenção](tutorials/skills.md) e [Política central](tutorials/politica-central.md).
 
 ## Gate
 
