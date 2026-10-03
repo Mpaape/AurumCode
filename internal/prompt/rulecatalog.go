@@ -74,20 +74,23 @@ var DefaultRuleCatalog = []string{
 	"security/xss",
 }
 
-// MaxRuleCatalogTokens is the ceiling AC-002 puts on the rendered catalog
-// section. The current 21-rule catalog renders at roughly a quarter of it,
-// so there is room to grow; growing PAST it is a loud build/assembly
-// failure and never a silent truncation. That distinction is the whole
-// point: a truncated list would make the model cite a rule that exists but
-// was cut, and the gate would discard it -- this card's defect back by
-// another road.
-const MaxRuleCatalogTokens = 512
+// MaxRuleCatalogTokens is the default ceiling AC-002 puts on the rendered
+// catalog section, read from templates/limits.yml (rule_catalog_max_tokens).
+// Growing PAST it is a loud assembly failure and never a silent
+// truncation. That distinction is the whole point: a truncated list would
+// make the model cite a rule that exists but was cut, and the gate would
+// discard it. A builder may carry a different ceiling (SetSlotLimits).
+var MaxRuleCatalogTokens = defaultSlotLimits.RuleCatalogMaxTokens
 
 // ValidateRuleCatalog reports whether the rendered form of ids fits
 // MaxRuleCatalogTokens under est, and rejects an empty or unsorted
 // catalog. An empty catalog would render a section telling the model to
 // choose from nothing.
 func ValidateRuleCatalog(ids []string, est TokenEstimator) error {
+	return validateRuleCatalogWithin(ids, est, MaxRuleCatalogTokens)
+}
+
+func validateRuleCatalogWithin(ids []string, est TokenEstimator, maxTokens int) error {
 	if len(ids) == 0 {
 		return fmt.Errorf("review rule catalog is empty: the prompt would ask the model to choose a rule_id from an empty list")
 	}
@@ -102,10 +105,10 @@ func ValidateRuleCatalog(ids []string, est TokenEstimator) error {
 	if est == nil {
 		est = NewHeuristicEstimator()
 	}
-	if got := est.Estimate(RenderRuleCatalog(ids)); got > MaxRuleCatalogTokens {
+	if got := est.Estimate(RenderRuleCatalog(ids)); got > maxTokens {
 		return fmt.Errorf(
 			"review rule catalog section needs %d tokens, over the %d-token budget for %d rules: refusing to truncate the list, because a model citing a rule that exists but was cut would have its finding discarded",
-			got, MaxRuleCatalogTokens, len(ids))
+			got, maxTokens, len(ids))
 	}
 	return nil
 }
@@ -145,7 +148,7 @@ func RenderRuleCatalog(ids []string) string {
 func (b *PromptBuilder) SetRuleCatalog(ids []string) error {
 	catalog := append([]string(nil), ids...)
 	sort.Strings(catalog)
-	if err := ValidateRuleCatalog(catalog, b.estimator); err != nil {
+	if err := validateRuleCatalogWithin(catalog, b.estimator, b.limits.RuleCatalogMaxTokens); err != nil {
 		return err
 	}
 	b.ruleCatalog = catalog
@@ -161,8 +164,22 @@ func (b *PromptBuilder) RuleCatalog() []string {
 // never returns a partial list: AC-002's requirement is that assembly
 // fails high rather than truncating.
 func (b *PromptBuilder) ruleCatalogSection() (string, error) {
-	if err := ValidateRuleCatalog(b.ruleCatalog, b.estimator); err != nil {
+	if err := validateRuleCatalogWithin(b.ruleCatalog, b.estimator, b.limits.RuleCatalogMaxTokens); err != nil {
 		return "", err
 	}
 	return RenderRuleCatalog(b.ruleCatalog), nil
 }
+
+// SetSlotLimits replaces this builder's slot ceilings (the prompt-wide
+// default, the rule catalog, evidence and tools sections). Every ceiling
+// must be positive: a zero would silently disable the section's bound.
+func (b *PromptBuilder) SetSlotLimits(limits SlotLimits) error {
+	if limits.PromptMaxTokens <= 0 || limits.RuleCatalogMaxTokens <= 0 || limits.EvidenceMaxTokens <= 0 || limits.ToolsMaxTokens <= 0 {
+		return fmt.Errorf("every slot ceiling must be a positive token count: %+v", limits)
+	}
+	b.limits = limits
+	return nil
+}
+
+// SlotLimits returns this builder's slot ceilings.
+func (b *PromptBuilder) SlotLimits() SlotLimits { return b.limits }

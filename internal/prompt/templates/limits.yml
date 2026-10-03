@@ -1,0 +1,15 @@
+# Tetos padrao do prompt de review, em tokens estimados. Sao a fonte unica
+# dos valores default: o codigo nao repete nenhum destes numeros.
+#
+# prompt_max_tokens: teto do prompt inteiro (system + user). Um diff que nao
+#   cabe e aparado por hunk inteiro e declarado na secao de cobertura; nunca
+#   cortado em silencio.
+# rule_catalog_max_tokens: teto da secao do catalogo de regras; acima dele a
+#   montagem falha alto em vez de truncar a lista.
+# evidence_max_tokens: teto da secao de evidencia deterministica; itens alem
+#   dele sao contados como "N omitidos".
+# tools_max_tokens: teto da secao de ferramentas disponiveis, mesma regra.
+prompt_max_tokens: 120000
+rule_catalog_max_tokens: 512
+evidence_max_tokens: 4096
+tools_max_tokens: 1024
