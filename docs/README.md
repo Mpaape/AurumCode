@@ -36,6 +36,30 @@ scripts/docs/serve.sh   # serve em http://127.0.0.1:8000
 O workflow `docs.yml` publica esse site no GitHub Pages a cada push ao `main`.
 Detalhes e prova da geração em [specs/AUR-560.md](specs/AUR-560.md).
 
+### Capturas de tela (`scripts/docs/capturas.sh`)
+
+Cada página de capacidade (tutoriais, guia de extensão, arquitetura,
+configuração, guia corporativo e início) tem captura desktop e mobile, e cada
+caso de tutorial tem a renderização do que o usuário vê (terminal, comentário
+do PR e status checks, quando o caso publica), feita a partir de
+`demo/tutoriais/<t>/out/<caso>.log`. Tudo é gerado por um comando, com a
+imagem Playwright fixada por digest em `scripts/docs/playwright.lock` (a mesma
+do CI):
+
+```bash
+scripts/docs/capturas.sh        # reescreve "Como fica", captura, gera o manifesto
+scripts/docs/capturas-check.sh  # confere sem docker: manifesto, imagens, digests
+```
+
+O manifesto `docs/assets/capturas/capturas.json` registra, por imagem, o
+digest do insumo (`out/` ou página-fonte), a imagem Playwright e o comando. Ele
+não registra o digest do PNG nem data: duas execuções sobre os mesmos insumos
+dão o mesmo manifesto e o mesmo conjunto de arquivos, enquanto os bytes do PNG
+podem variar entre máquinas. Quem muda um `out/` (ou uma página capturada)
+roda `capturas.sh` de novo; senão `capturas-check.sh`, o `docs.yml` e o CI
+reprovam. O teste em Chromium do site construído está em
+`tests/docs/mkdocs.test.cjs` ([specs/AUR-588.md](specs/AUR-588.md)).
+
 ## Evidência histórica em `tests/legacy`
 
 Pacotes que o binário não alcança, mas que aceites de cards `done` ainda

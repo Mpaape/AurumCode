@@ -114,6 +114,9 @@ Terminal do gate com a engine de exemplo (tutorial [extensão](tutorials/extensa
 
 ![Terminal do caso engine-no-gate](assets/capturas/extensao/engine-no-gate-terminal.png)
 
+Tutorial: cada tutorial do [índice de tutoriais](tutorials/README.md) termina
+na sua seção "Como fica", com as capturas de todos os casos.
+
 ## Especificações
 
 O arquivo histórico da reconstrução está na seção [Specs](specs/README.md).

@@ -52,7 +52,7 @@ while IFS= read -r ref; do
   img="docs/${ref}"; refs=$((refs + 1))
   [[ -f "$img" ]] || falha "$img: captura referenciada ausente"
   [[ -n "${no_manifesto[$img]+x}" ]] || falha "$img: captura referenciada fora do manifesto"
-done < <(grep -rhoE --include='*.md' 'assets/capturas/[A-Za-z0-9._/-]+\.png' docs | sort -u)
+done < <(find docs -name '*.md' -type f -exec grep -ohE 'assets/capturas/[A-Za-z0-9._/-]+\.png' {} + | sort -u)
 
 # Capability pages: desktop and mobile.
 paginas="$paginas_fixas"
