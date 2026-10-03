@@ -232,7 +232,14 @@ ac004() {
   # so dominios reservados; nenhum segredo
   local files=() f host bad=''
   while IFS= read -r f; do files+=("$f"); done < <(find "$repo_root/demo/tutoriais" "$repo_root/docs/tutorials" "$spec" -type f ! -path '*/.estado/*')
-  local allowed='^(java\.io|github\.com|docker\.io|ghcr\.io|localhost|127\.0\.0\.1|([A-Za-z0-9-]+\.)*(example\.(com|org|net)|[A-Za-z0-9-]+\.invalid|[A-Za-z0-9-]+\.test)|example\.(com|org|net)|invalid|test)$'
+  local allowed dl="$repo_root/demo/tutoriais/_lib/dominios-permitidos.txt" dline alt=''
+  [[ -f "$dl" ]] || infra "missing:demo/tutoriais/_lib/dominios-permitidos.txt"
+  while IFS= read -r dline || [[ -n "$dline" ]]; do
+    case "$dline" in ''|'#'*) continue ;; esac
+    dline="${dline//./\\.}"
+    if [[ "$dline" == \\.* ]]; then alt="$alt|([A-Za-z0-9-]+\\.)*${dline#\\.}"; else alt="$alt|$dline"; fi
+  done < "$dl"
+  allowed="^(${alt#|})\$"
   while IFS= read -r host; do
     host="${host#*://}"; host="${host%%[:/]*}"
     [[ "$host" =~ $allowed ]] || bad="$bad $host"
