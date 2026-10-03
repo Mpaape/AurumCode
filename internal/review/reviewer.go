@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
+	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -44,6 +45,10 @@ type Reviewer struct {
 	// default: no dynamic rule exists and enforceRuleCitations behaves
 	// exactly as before this card.
 	extraRules map[string]Rule
+	// deliberation, when set, lets the model ask for tools (deliberate.go);
+	// transcript is the last deliberation's record.
+	deliberation *Deliberation
+	transcript   *deliberation.Transcript
 }
 
 // Completer is what the Reviewer needs from the model side: one call that
@@ -165,7 +170,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	if err != nil {
 		return nil, err
 	}
-	resp, err := r.complete(ctx, prepared.parts)
+	resp, err := r.answer(ctx, prepared.parts)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"io"
 	"os"
 	"strings"
@@ -29,6 +30,10 @@ import (
 type complianceArtifactInputs struct {
 	auditoriaPath string
 	sarifPath     string
+
+	// deliberation is the tool conversation's transcript, nil when the
+	// model was offered no tool.
+	deliberation *deliberation.Transcript
 
 	// policyDir/centralCfg feed render.PolicyDigest (AC-001); centralCfg nil
 	// means no policy was declared this run, exactly as elsewhere.
@@ -149,7 +154,10 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.AnalysisData = in.analysisData
 	rec.EvidenceAssessments = render.AssessedEvidence(in.issues)
 	rec.ProposedExceptions = in.proposedExceptions
-	return render.WriteAuditRecord(in.auditoriaPath, rec, filter)
+	if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
+		return err
+	}
+	return appendAuditDeliberation(in.auditoriaPath, in.deliberation, filter)
 }
 
 func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error {

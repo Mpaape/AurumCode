@@ -44,6 +44,7 @@ func (b *baseReview) collectEvidence() (int, bool) {
 // onto the evidence, the evidence joins the result, the rule config and the
 // verdict snapshot apply, and the coverage is recorded.
 func (b *baseReview) joinEvidence() (int, bool) {
+	b.settleDeferredScans()
 	b.attachAssessments()
 	b.reportSecurityPass()
 	b.result.Issues = append(b.result.Issues, b.analysisIssues...)

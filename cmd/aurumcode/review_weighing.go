@@ -108,6 +108,7 @@ func (s *reviewState) offerEvidence() {
 func (s *reviewState) reviewContext(base review.ReviewContext) review.ReviewContext {
 	base.Evidence = s.evidence
 	base.RepositoryContext = s.repositoryContext
+	base.Tools = s.manifestOrNil()
 	return base
 }
 
@@ -117,8 +118,12 @@ func (s *reviewState) reviewContext(base review.ReviewContext) review.ReviewCont
 // reused for a request that offers it.
 func (s *reviewState) contextCacheKey() string {
 	legacy := reviewContextCacheKey(s.provider, s.baseModelIdentity, s.reviewLanguage, s.codebaseText, s.memoryNotesText, s.profileIdentity, s.contextBlockDigest, s.ruleCatalogDigest)
-	if len(s.evidence) == 0 {
+	toolResults := s.toolResultsDigest()
+	if len(s.evidence) == 0 && toolResults == "" {
 		return legacy
+	}
+	if len(s.evidence) == 0 {
+		return cache.RequestKey(cache.RequestKeyInput{PromptDigest: legacy, ToolResultsDigest: toolResults})
 	}
 	evidenceDigest, err := cache.DigestOf(s.evidence)
 	if err != nil {
@@ -126,7 +131,7 @@ func (s *reviewState) contextCacheKey() string {
 		// matches nothing is the safe answer if it ever did.
 		evidenceDigest = "unavailable:" + err.Error()
 	}
-	return cache.RequestKey(cache.RequestKeyInput{PromptDigest: legacy, EvidenceDigest: evidenceDigest})
+	return cache.RequestKey(cache.RequestKeyInput{PromptDigest: legacy, EvidenceDigest: evidenceDigest, ToolResultsDigest: toolResults})
 }
 
 // attachAssessments copies the model's assessment of each offered evidence

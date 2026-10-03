@@ -41,6 +41,7 @@ func (b *baseReview) runQualityPass() (int, bool) {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
 		return 2, true
 	}
+	b.prepareDeliberation(orchestrator, toolsCapable(orchestrator, b.profilesApplied), reviewer)
 	qc := b.prepareCache()
 	// A diff with no files at all is the pre-existing "nothing changed"
 	// edge case and is still sent; only a genuine full cache hit skips the
@@ -91,6 +92,11 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 		b.result, err = runProfilePasses(b.ctx, b.provider, b.tracker, b.profileRes.Profiles, qc.toSend, reviewCtx, b.dynamicRules, b.ruleCatalogIDs)
 	} else {
 		b.result, err = reviewer.GenerateReviewWithContext(b.ctx, qc.toSend, reviewCtx)
+		b.transcript = reviewer.Transcript()
+	}
+	if code, failed := reportDeliberationFailure(b.stderr, err); failed {
+		b.reportDeliberation()
+		return code, true
 	}
 	if err != nil && b.f.seguranca {
 		reportQualityFailure(b.stderr, err, b.f.modelo, b.limiteUSD)
