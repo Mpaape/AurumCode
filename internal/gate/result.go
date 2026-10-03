@@ -7,7 +7,7 @@
 package gate
 
 import (
-	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 )
 
 // Result is one run's gate outcome. Active is false when nothing declared
@@ -27,12 +27,12 @@ type Result struct {
 	// BlockingFindings and AppliedExceptions are the same decisions as
 	// Breach and the exception match, as structured data for the audit
 	// record and the SARIF document.
-	BlockingFindings  []render.AuditFinding
-	AppliedExceptions []render.AuditException
+	BlockingFindings  []facts.AuditFinding
+	AppliedExceptions []facts.AuditException
 
 	// AnalysisData is the audit fact of a declared analysis_data section
 	// that resolved a usable artifact.
-	AnalysisData *render.AnalysisDataAudit
+	AnalysisData *facts.AnalysisDataAudit
 
 	// Reason is the machine-readable motive of an inconclusive run
 	// ("provider_failure", "partial_coverage", ...), comma-joined when
@@ -68,9 +68,13 @@ func (r *Result) AddReason(reason string) {
 
 // Merge folds other into r the way a secondary gate source joins the
 // primary decision: flags are OR-ed, lines and structured findings are
-// appended, and other's Reason is joined to r's. A zero (inactive) other
-// leaves r untouched.
+// appended, and other's Reason is joined to r's. An analysis-data audit
+// fact other carries is kept even when other is inactive. Otherwise a zero
+// (inactive) other leaves r untouched.
 func (r *Result) Merge(other Result) {
+	if other.AnalysisData != nil {
+		r.AnalysisData = other.AnalysisData
+	}
 	if !other.Active {
 		return
 	}

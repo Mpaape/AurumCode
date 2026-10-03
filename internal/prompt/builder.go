@@ -160,7 +160,11 @@ func (b *PromptBuilder) fixedOverhead(diff *types.Diff, metrics *analyzer.DiffMe
 	// fit, so they must be counted against the budget alongside the base
 	// prompt -- otherwise the assembled prompt quietly overshoots MaxTokens
 	// by exactly this fixed overhead.
-	userFixed := b.estimator.Estimate(b.buildUserContent(nil, metrics, opts.CIContext))
+	userHeader := b.buildUserContent(nil, metrics, opts.CIContext)
+	if err := slotRenderError(sections.assemble(userHeader, "")); err != nil {
+		return 0, "", contextSections{}, err
+	}
+	userFixed := b.estimator.Estimate(userHeader)
 	return baseTokens + userFixed, basePrompt, sections, nil
 }
 
@@ -530,7 +534,9 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 			EvidenceAdmittedMetaKey: strings.Join(sections.evidenceIDs, ","),
 		},
 	}
-
+	if err := slotRenderError(parts.System, parts.User); err != nil {
+		return PromptParts{}, err
+	}
 	return parts, nil
 }
 

@@ -17,7 +17,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -121,7 +120,8 @@ func LoadCentralPolicy(root string) (*Config, error) {
 // about Review -- InlineComments, Context, Memory, Changelog, Version,
 // Profiles -- stays the repository's own setting (AC-004): the policy only
 // subtracts rule/ignore authority, it never replaces a repository's own
-// context or presentation choices.
+// context or presentation choices. Who decides each section is declared in
+// governedSections (governance.go), applied in that order.
 func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	if central == nil {
 		return repo, nil
@@ -131,114 +131,8 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	}
 	effective := *repo
 	var warnings []ProviderWarning
-
-	ruleIDs := make([]string, 0, len(repo.Rules))
-	for id := range repo.Rules {
-		ruleIDs = append(ruleIDs, id)
+	for _, section := range governedSections {
+		warnings = append(warnings, section.apply(&effective, repo, central)...)
 	}
-	sort.Strings(ruleIDs)
-	for _, id := range ruleIDs {
-		warnings = append(warnings, ProviderWarning{
-			Provider: "politica central",
-			Reason:   fmt.Sprintf("override da regra %q no config do repositório foi ignorado: a política central decide sozinha", id),
-		})
-	}
-	effective.Rules = central.Rules
-
-	for _, pattern := range repo.Ignore {
-		warnings = append(warnings, ProviderWarning{
-			Provider: "politica central",
-			Reason:   fmt.Sprintf("padrão de ignore %q do repositório não foi aplicado: a política central decide sozinha", pattern),
-		})
-	}
-	effective.Ignore = central.Ignore
-
-	if strings.TrimSpace(central.Review.Language) != "" {
-		effective.Review.Language = central.Review.Language
-	}
-	if strings.TrimSpace(central.Review.Publication) != "" {
-		effective.Review.Publication = central.Review.Publication
-	}
-
-	// AUR-519: the gate is governed exactly like Rules and Ignore above --
-	// under a policy, only the policy's own Gate ever applies. A
-	// repository's own gate declaration is dropped with a named warning:
-	// the repo opt-in (AC-005) only has authority when no policy is in
-	// play at all.
-	if repo.Gate.Declared() {
-		warnings = append(warnings, ProviderWarning{
-			Provider: "politica central",
-			Reason:   "gate do config do repositório foi ignorado: a política central decide sozinha",
-		})
-	}
-	effective.Gate = central.Gate
-
-	// AUR-520: exceptions are governed exactly like Rules/Ignore/Gate
-	// above -- under a policy, only the policy's own Exceptions ever
-	// apply. A repository cannot declare its own exception for a
-	// policy-governed finding (AC-004): every repo-declared exception is
-	// dropped, each with its own named warning (repo/rule/path, the exact
-	// identifying triple), never silently merged with the policy's list.
-	for _, exc := range repo.Exceptions {
-		warnings = append(warnings, ProviderWarning{
-			Provider: "politica central",
-			Reason: fmt.Sprintf(
-				"exceção do repositório para a regra %q no caminho %q (repositório %q) foi ignorada: a política central decide sozinha",
-				exc.Rule, exc.Path, exc.Repo,
-			),
-		})
-	}
-	effective.Exceptions = central.Exceptions
-
-	// AUR-549: each quality_gates subsection (scanners, ssor_dtrack,
-	// supply_chain) is governed INDEPENDENTLY, unlike Gate/Exceptions
-	// above (which a policy always governs outright, declared or not).
-	// quality_gates is shared by three different cards' own sections, so
-	// a policy that only ever mentions one of them (say, sast) must not
-	// also silently turn off a repository's own, policy-unaddressed
-	// ssor_dtrack.sbom_generator -- the policy never had an opinion on
-	// that key at all. Only when the policy's own subsection is non-nil
-	// does it take over that one key; the repository's matching
-	// declaration, if any, is then dropped with its own named warning
-	// (repo cannot disable -- or quietly loosen -- a policy-enabled
-	// section by also declaring its own).
-	// Scanners (quality_gates.sast included, as the semgrep alias) are
-	// resolved engine by engine: see mergeScanners.
-	var scannerWarnings []ProviderWarning
-	effective.QualityGates, scannerWarnings = mergeScanners(central.QualityGates, repo.QualityGates)
-	warnings = append(warnings, scannerWarnings...)
-	if central.QualityGates.SsorDtrack != nil {
-		if repo.QualityGates.SsorDtrack != nil {
-			warnings = append(warnings, ProviderWarning{
-				Provider: "politica central",
-				Reason:   "quality_gates.ssor_dtrack do config do repositório foi ignorado: a política central decide sozinha",
-			})
-		}
-		effective.QualityGates.SsorDtrack = central.QualityGates.SsorDtrack
-	}
-	if central.QualityGates.SupplyChain != nil {
-		if repo.QualityGates.SupplyChain != nil {
-			warnings = append(warnings, ProviderWarning{
-				Provider: "politica central",
-				Reason:   "quality_gates.supply_chain do config do repositório foi ignorado: a política central decide sozinha",
-			})
-		}
-		effective.QualityGates.SupplyChain = central.QualityGates.SupplyChain
-	}
-
-	// AUR-533: analysis_data is governed as its own section. A policy that
-	// declares it decides alone (the repository's own max_age_days cannot
-	// loosen it); a policy silent on it leaves the repository's.
-	if central.AnalysisData != nil {
-		if repo.AnalysisData != nil {
-			warnings = append(warnings, ProviderWarning{
-				Provider: "politica central",
-				Reason:   "analysis_data do config do repositório foi ignorado: a política central decide sozinha",
-			})
-		}
-		effective.AnalysisData = central.AnalysisData
-	}
-	warnings = append(warnings, mergeDeliberation(&effective, repo, central)...)
-
 	return &effective, warnings
 }

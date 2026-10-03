@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -82,7 +82,7 @@ func ApplyScannerGate(d *Result, s Scan, issues []types.ReviewIssue) error {
 		d.Fail = true
 		d.Breach = true
 		d.Lines = append(d.Lines, FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin+", secao "+s.Section))
-		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
+		d.BlockingFindings = append(d.BlockingFindings, facts.AuditFinding{
 			RuleID:   issue.RuleID,
 			Path:     issue.File,
 			Line:     issue.Line,
