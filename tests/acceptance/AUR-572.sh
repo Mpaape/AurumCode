@@ -31,20 +31,9 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 
-for f in cmd/aurumcode/subcommands.go cmd/aurumcode/aur572_test.go internal/render/no_findings.go \
-  tests/acceptance/AUR-561.sh tests/acceptance/AUR-562.sh tests/acceptance/AUR-563.sh tests/acceptance/AUR-564.sh; do
+for f in cmd/aurumcode/subcommands.go cmd/aurumcode/aur572_test.go internal/render/no_findings.go docs/tutorials/README.md; do
   [[ -f "$repo_root/$f" ]] || infra "missing:$f"
 done
-
-ac003() {
-  local n
-  for n in 561 562 563 564; do
-    bash "$repo_root/tests/acceptance/AUR-$n.sh" AC-003 >&2 || fail "AUR-$n-AC-003-vermelho"
-  done
-  printf '%s/AC-003/pass (AC-003 de AUR-561..564 verdes)\n' "$card"
-}
-
-if [[ "$selector" == AC-003 ]]; then ac003; exit 0; fi
 
 command -v go >/dev/null 2>&1 || infra missing_go
 for input in go.mod go.sum cmd internal pkg; do
@@ -72,6 +61,52 @@ run_go_test() { # pattern log
   set -e
   cat "$2" >&2
   return $status
+}
+
+# AC-003. The sealed profile sees only the card's paths and read_paths, so the
+# AC-003 of AUR-561..564 may be absent there; they run when present. In every
+# case the same property is checked here against the real binary: each
+# `aurumcode <sub> --flag` of the tutorials, of getting-started and of the demo
+# scripts names a command the help lists and a flag its --help declares.
+ac003() {
+  local n bin="$run_dir/aurumcode" f line sub tok name checked=0 ran=0
+  for n in 561 562 563 564; do
+    if [[ -f "$repo_root/tests/acceptance/AUR-$n.sh" ]]; then
+      bash "$repo_root/tests/acceptance/AUR-$n.sh" AC-003 >&2 || fail "AUR-$n-AC-003-vermelho"
+      ran=$((ran + 1))
+    fi
+  done
+  (cd "$run_dir/root" && go build -mod=mod -o "$bin" ./cmd/aurumcode) >"$run_dir/build.log" 2>&1 || { cat "$run_dir/build.log" >&2; infra go-build; }
+  "$bin" --help >"$run_dir/help.txt" 2>&1 || fail help-geral-falhou
+  : >"$run_dir/cmds.txt"
+  for f in "$repo_root"/docs/tutorials/*.md "$repo_root/docs/getting-started.md"; do
+    awk '/^```/ { if (open) { open = 0 } else { open = ($0 == "```bash") } next } open && /^(\$ )?aurumcode / { sub(/^\$ /, ""); print }' "$f" >>"$run_dir/cmds.txt"
+  done
+  for f in "$repo_root"/demo/tutoriais/*/run.sh; do
+    sed -n 's/^[[:space:]]*aurum \(review\|fix\|sbom\|sign\|xbom\) /aurumcode \1 /p' "$f" >>"$run_dir/cmds.txt"
+    sed -n 's/.*aurum_raw -- \(review\|fix\|sbom\|sign\|xbom\) /aurumcode \1 /p' "$f" >>"$run_dir/cmds.txt"
+  done
+  [[ -s "$run_dir/cmds.txt" ]] || fail nenhum-comando-extraido
+  while IFS= read -r line; do
+    line="${line%%#*}"; line="${line%%>*}"
+    # shellcheck disable=SC2206
+    local toks=($line)
+    sub="${toks[1]:-}"
+    [[ -n "$sub" && "$sub" != -* ]] || continue
+    grep -qE "^  $sub[[:space:]]" "$run_dir/help.txt" || fail "comando-fora-do-help:$sub ($line)"
+    "$bin" "$sub" --help >"$run_dir/help-$sub.txt" 2>&1 || fail "help-falhou:$sub"
+    for tok in "${toks[@]:2}"; do
+      case "$tok" in
+        --*)
+          name="${tok#--}"; name="${name%%=*}"
+          [[ "$name" == help ]] && continue
+          grep -qE "^  -$name( |\$)" "$run_dir/help-$sub.txt" || fail "flag-fora-do-help:$sub --$name ($line)"
+          checked=$((checked + 1)) ;;
+      esac
+    done
+  done < <(sort -u "$run_dir/cmds.txt")
+  (( checked >= 10 )) || fail "poucas-flags-conferidas:$checked"
+  printf '%s/AC-003/pass (%d flags conferidas contra --help; %d scripts AC-003 de 561..564 presentes e verdes)\n' "$card" "$checked" "$ran"
 }
 
 ac001_tests=(TestAUR572TopLevelHelpListsEverySubcommand TestAUR572SubcommandHelpListsEveryDeclaredFlag)
@@ -108,6 +143,7 @@ mut001() {
 case "$selector" in
   AC-001) ac001 ;;
   AC-002) ac002 ;;
+  AC-003) ac003 ;;
   AC-002-MUT-001) mut001 ;;
   all) ac001; ac002; ac003; seed_root; mut001 ;;
 esac
