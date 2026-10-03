@@ -409,7 +409,7 @@ estruturais do registro):
 - review: approved
 - validation: passed
   "validation": "passed",
-board valid: 566 atomic cards
+board valid: 585 atomic cards
 RESULTADO: o pipeline valida o board inteiro, inclusive que todo done tem validated.json com o commit do card
 ```
 
