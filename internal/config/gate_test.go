@@ -83,3 +83,33 @@ func TestAUR575DeclaredGateDefaultsToBlock(t *testing.T) {
 		t.Fatalf("no gate = %q, %v; want empty", got, err)
 	}
 }
+
+// gate.triage is validated strictly at parse time: a source outside
+// gate.sources' vocabulary or a value other than model/none is an error,
+// and the default (absent) demotes nothing.
+func TestGateTriageParse(t *testing.T) {
+	cfg, err := Parse([]byte("gate:\n  fail_on: [high]\n  triage:\n    analysis: model\n    sast: none\n"), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Gate.TriageByModel(GateSourceAnalysis) || cfg.Gate.TriageByModel(GateSourceSAST) || cfg.Gate.TriageByModel(GateSourceSkills) {
+		t.Fatalf("triage = %v", cfg.Gate.Triage)
+	}
+	for _, bad := range []string{
+		"gate:\n  triage:\n    dtrack: model\n",
+		"gate:\n  triage:\n    analysis: always\n",
+		"gate:\n  triage: model\n",
+		"gate:\n  triagem:\n    analysis: model\n",
+	} {
+		if _, err := Parse([]byte(bad), "test"); err == nil {
+			t.Errorf("Parse accepted %q", bad)
+		}
+	}
+	plain, err := Parse([]byte("gate:\n  fail_on: [high]\n"), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.Gate.TriageByModel(GateSourceAnalysis) {
+		t.Fatal("the default must be none")
+	}
+}
