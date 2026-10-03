@@ -16,7 +16,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/pr.sh
 . "$HERE/../_lib/pr.sh"
 
-CASOS=(fail-on-severidade inconclusivo-provedor inconclusivo-cobertura inconclusivo-sast inconclusivo-analysis-data fontes status-pr repo-afrouxa falha-fonte-invalida)
+CASOS=(fail-on-severidade inconclusivo-provedor inconclusivo-cobertura inconclusivo-sast inconclusivo-analysis-data fontes status-pr repo-afrouxa falha-fonte-invalida achado-deterministico)
 
 PATH_BASE=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -156,6 +156,21 @@ caso_falha_fonte_invalida() {
   TUT_POLICY=politica-invalida
   aurum review --base main --politica /policy
   expect_rc 1 "gate.sources com valor desconhecido falha antes de qualquer chamada ao modelo"
+}
+
+# 10. Achado deterministico sem provedor (AUR-569): o modo de inconclusivo governa a ausencia
+# de parecer do modelo, nao a presenca de um achado do catalogo embutido ou do passe de seguranca.
+caso_achado_deterministico() {
+  tut_repo achado-deterministico repo-exemplo/base repo-exemplo/segredo
+  TUT_FIXTURE=none
+  echo "--- --seguranca, sem provedor, fail_on [high], inconclusive: warn"
+  TUT_POLICY=politica-alerta; aurum review --base main --politica /policy --seguranca --auditoria /work/auditoria-warn.json
+  origens auditoria-warn.json
+  expect_rc 0 "REPRODUZIDO (AUR-569): o achado [error] do passe de seguranca nao reprova, exit 0"
+  echo "--- o mesmo, inconclusive: block"
+  TUT_POLICY=politica-bloqueia; aurum review --base main --politica /policy --seguranca --auditoria /work/auditoria-block.json
+  origens auditoria-block.json
+  expect_rc 1 "REPRODUZIDO (AUR-569): block sai 1 so por inconclusivo, sem citar o achado"
 }
 
 tut_main "$@"

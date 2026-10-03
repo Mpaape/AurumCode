@@ -1,0 +1,3 @@
+app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+RESULTADO: REPRODUZIDO (AUR-569): o achado [error] do passe de seguranca nao reprova, exit 0
+origens na auditoria: (nenhuma)

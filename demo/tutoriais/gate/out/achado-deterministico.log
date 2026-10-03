@@ -1,0 +1,65 @@
+== achado-deterministico
+--- --seguranca, sem provedor, fail_on [high], inconclusive: warn
+$ aurumcode review --base main --politica /policy --seguranca --auditoria /work/auditoria-warn.json
+aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
+aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider
+aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (quality_skipped)
+LLM quality review did not run. The following report covers deterministic analysis only.
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+
+Security findings (standards/security-review):
+app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=0
+origens na auditoria: (nenhuma)
+RESULTADO: REPRODUZIDO (AUR-569): o achado [error] do passe de seguranca nao reprova, exit 0
+--- o mesmo, inconclusive: block
+$ aurumcode review --base main --politica /policy --seguranca --auditoria /work/auditoria-block.json
+aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
+aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider
+aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (quality_skipped)
+LLM quality review did not run. The following report covers deterministic analysis only.
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+
+Security findings (standards/security-review):
+app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=1
+origens na auditoria: (nenhuma)
+RESULTADO: REPRODUZIDO (AUR-569): block sai 1 so por inconclusivo, sem citar o achado
