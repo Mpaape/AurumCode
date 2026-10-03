@@ -217,9 +217,11 @@ func TestGitleaksSecretInPullRequestHistoryReachesGateWithoutValue(t *testing.T)
 		t.Fatal(err)
 	}
 	everything := fmt.Sprintf("%#v %#v %#v %s %s", out.Findings, got.ToIssue("gitleaks"), d.Lines, audit, out.Version)
-	for _, leaked := range []string{fakeToken, fakeToken[4:], "dev@example.com", "add config"} {
+	// The failure names which value leaked, never the value itself: a test
+	// log is an output too.
+	for label, leaked := range map[string]string{"token": fakeToken, "token suffix": fakeToken[4:], "author e-mail": "dev@example.com", "commit message": "add config"} {
 		if strings.Contains(everything, leaked) {
-			t.Fatalf("output carries %q: %s", leaked, everything)
+			t.Fatalf("output carries the %s", label)
 		}
 	}
 }
