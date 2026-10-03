@@ -11,7 +11,8 @@
 # Selectors:
 #   all        AC-001..AC-005, then MUT-001 and MUT-002
 #   AC-001     large diff asks for the scanner, small diff does not
-#   AC-002     max_rounds / max_cost_tokens / tool timeout are inconclusive
+#   AC-002     max_rounds / max_cost_tokens / tool timeout are inconclusive through
+#              the gate (audit with the limit, SARIF, --pr policy-gate failure)
 #   AC-003     reserve and commit per round; no fallback without ToolCaller
 #   AC-004     invalid arguments refused; required scanner never optional
 #   AC-005     transcript in the audit; tutorial --check
@@ -89,7 +90,7 @@ replace_once() {
 }
 
 readonly ac001_tests=(TestAUR580ModelAsksForTheScannerOnALargeDiff TestAUR580ModelDoesNotAskOnASmallDiff TestAUR580ToolResultGoesBackAndAnswerEnds)
-readonly ac002_tests=(TestAUR580MaxRoundsIsALimitErrorWithoutAnswer TestAUR580MaxCostTokensIsALimitError TestAUR580PerToolTimeoutIsALimitError TestAUR580RoundsExceededIsInconclusiveAndUnpublished TestAUR580CostExceededIsInconclusive)
+readonly ac002_tests=(TestAUR580MaxRoundsIsALimitErrorWithoutAnswer TestAUR580MaxCostTokensIsALimitError TestAUR580PerToolTimeoutIsALimitError TestAUR580RoundsExceededIsInconclusiveAndUnpublished TestAUR580CostExceededIsInconclusive TestAUR580PullRequestRoundsExceededFailsThePolicyGate)
 readonly ac003_tests=(TestAUR580EveryToolRoundIsReservedAndCommitted TestAUR580RoundOverTheCeilingIsRefusedBeforeTheCall TestAUR580NoFallbackToAProviderWithoutTools TestAUR580ToolRoundSendsTheJSONSchema TestAUR580SchemaOfStruct)
 readonly ac004_tests=(TestAUR580InvalidArgumentsRefusedBeforeRun TestAUR580InvalidArgumentsRefusedAndRedactedInTheAudit TestAUR580RequiredScannerIsNeverOptional TestAUR580ManifestNamesEachToolWithItsCost TestAUR580InconclusiveScanIsAToolError TestAUR580ContextAndSkillToolsAnswerOnlyKnownNames TestAUR580MissingBinaryIsInconclusive TestAUR580DeferredScannerRunsWhenToolsCannotBeOffered TestAUR580DeliberationParsesWithDefaultsAndRefusesBadValues TestAUR580PolicyDeliberationDecidesAlone TestAUR580LimitsMustBePositive)
 readonly ac005_tests=(TestAUR580TranscriptRedactsArguments TestAUR580InvalidArgumentsRefusedAndRedactedInTheAudit TestAUR580ModelAsksForTheScannerOnALargeDiff)

@@ -9,7 +9,7 @@ revisão: com `deliberation.enabled`, os scanners que a configuração não exig
 arquivo alterado e das seções de skill. O modelo vê no prompt o manifesto das
 ferramentas, com custo e tamanho estimados, e decide. Quatro casos: o modelo
 pede o Semgrep num diff grande, não pede num diff pequeno, estoura o limite de
-rodadas (a revisão fica inconclusiva e nada é publicado) e pede um scanner
+rodadas (a revisão fica inconclusiva pelo gate e nenhum texto do modelo é publicado) e pede um scanner
 cujo binário não existe (inconclusivo pela regra única dos scanners).
 
 O ponto central: **a decisão é do modelo, o teto é da configuração**. Estourar
@@ -141,8 +141,10 @@ auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context c
 
 Uma rodada é uma chamada ao modelo. Com `max_rounds: 2` e um modelo que só
 pede ferramenta, a segunda rodada termina sem resposta final: a revisão é
-inconclusiva (`deliberation_limit:max_rounds`), sai com 1 e **nenhum parecer
-é publicado**, nem o texto que o modelo escreveu ao lado das chamadas. O
+inconclusiva pelo gate (motivo `deliberation_limit:max_rounds`, na mesma
+regra dos outros motivos inconclusivos), sai com 1, a auditoria e o SARIF são
+gravados (a auditoria com o transcript e o limite) e **nenhum texto do
+modelo é publicado**, nem o que ele escreveu ao lado das chamadas. O
 custo de cada rodada é reservado antes da chamada e confirmado depois, então
 `--limite` também é checado a cada rodada.
 
@@ -159,11 +161,13 @@ custo de cada rodada é reservado antes da chamada e confirmado depois, então
 <!-- saida: estoura-rodadas -->
 ```text
 $ aurumcode review --base main --auditoria auditoria.json
-aurumcode review: inconclusivo (deliberation_limit:max_rounds): deliberation_limit: max_rounds (2 rodadas sem resposta final); nenhum parecer foi publicado
+aurumcode review: inconclusivo: limite de deliberação (deliberation_limit:max_rounds); nenhum parecer do modelo foi publicado
 aurumcode review: deliberation: rodada 2 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
+aurumcode review: policy gate: review inconclusive (deliberation_limit:max_rounds)
 exit_code=1
-RESULTADO: max_rounds estourado: inconclusivo, exit 1, nenhum parecer publicado
-nenhuma auditoria nem parecer foram escritos
+RESULTADO: max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado
+auditoria gate: decision=inconclusive reason=review inconclusive (deliberation_limit:max_rounds)
+auditoria deliberation: limit=max_rounds rodadas=2 chamadas=2 desfecho=deliberation_limit:max_rounds
 ```
 
 ## Caso de falha: o scanner pedido não existe

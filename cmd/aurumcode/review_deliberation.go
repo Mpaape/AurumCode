@@ -12,7 +12,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -23,14 +22,16 @@ import (
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	reviewtools "github.com/Mpaape/AurumCode/internal/review/tools"
 	"github.com/Mpaape/AurumCode/internal/scanner"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // errDeliberationNotCacheable keeps a review that offered tools out of the
 // per-file cache: its answer depends on tool results the cache never sees.
 var errDeliberationNotCacheable = errors.New("the review offered tools to the model; per-file cache bypassed")
 
-// prepareDeliberation installs the deliberation on reviewer and returns the
-// manifest for the prompt, or nil when nothing is offered. supportsTools is
+// prepareDeliberation installs the deliberation on reviewer and records the
+// manifest the prompt's tools slot shows (s.toolManifest), or offers nothing
+// when deliberation is off or tools cannot be offered. supportsTools is
 // false for a provider without tool calling and for profile passes (each
 // profile decorates the request, so its provider is not a plain caller).
 func (s *reviewState) prepareDeliberation(caller deliberation.Caller, supportsTools bool, reviewer *review.Reviewer) {
@@ -149,15 +150,30 @@ func (s *reviewState) toolResultsDigest() string {
 	return digest
 }
 
-// reportDeliberationFailure handles a deliberation stopped by a limit: the
-// review is inconclusive, nothing the model said is published, exit 1.
-func reportDeliberationFailure(stderr io.Writer, err error) (int, bool) {
+// noteDeliberationLimit handles a deliberation stopped by a limit: the
+// model outcome becomes ModelDeliberationLimit (the gate's inconclusive
+// motive deliberation_limit:<limit>, never reviewed in either source), the
+// result is replaced by the one limitation that says so, and nothing the
+// model wrote is kept. The session goes on to the gate, so the audit, the
+// SARIF and the --pr statuses are still written. False for any other error.
+func (s *reviewState) noteDeliberationLimit(err error) bool {
 	var limit *deliberation.LimitError
 	if !errors.As(err, &limit) {
-		return 0, false
+		return false
 	}
-	fmt.Fprintf(stderr, "aurumcode review: inconclusivo (%s): %v; nenhum parecer foi publicado\n", limit.Reason(), limit)
-	return 1, true
+	notice := fmt.Sprintf("inconclusivo: limite de deliberação (%s); nenhum parecer do modelo foi publicado", limit.Reason())
+	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", notice)
+	s.model = modelDeliberationLimit
+	s.result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}, Limitations: []string{notice}}
+	return true
+}
+
+// deliberationLimit is the exceeded limit, "" when none was.
+func (s *reviewState) deliberationLimit() string {
+	if s.transcript == nil {
+		return ""
+	}
+	return s.transcript.Limit
 }
 
 // toolsCapable reports whether the orchestrator can deliberate.

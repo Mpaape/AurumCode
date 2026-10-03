@@ -70,10 +70,11 @@ type (
 )
 
 const (
-	modelReviewed       = gate.ModelReviewed
-	modelSkipped        = gate.ModelSkipped
-	modelProviderFailed = gate.ModelProviderFailed
-	modelParseFailed    = gate.ModelParseFailed
+	modelReviewed          = gate.ModelReviewed
+	modelSkipped           = gate.ModelSkipped
+	modelProviderFailed    = gate.ModelProviderFailed
+	modelParseFailed       = gate.ModelParseFailed
+	modelDeliberationLimit = gate.ModelDeliberationLimit
 
 	qualityOptional = gate.QualityOptional
 	qualityRequired = gate.QualityRequired
@@ -131,10 +132,11 @@ func applyGateOutcome(run *gateRun, res *gateDecision) { gate.ApplyOutcome(run, 
 // trusted (gate.RankReason, the one ranking both sources use).
 func (s *reviewState) inconclusiveReason() string {
 	return string(gate.RankReason(gate.ReasonInputs{
-		Model:           s.model,
-		DegradedParse:   prompt.IsDegradedParse(s.result),
-		ScannerReason:   s.scannerReason(),
-		PartialCoverage: s.coverage.partial(),
+		Model:             s.model,
+		DegradedParse:     prompt.IsDegradedParse(s.result),
+		ScannerReason:     s.scannerReason(),
+		PartialCoverage:   s.coverage.partial(),
+		DeliberationLimit: s.deliberationLimit(),
 	}))
 }
 

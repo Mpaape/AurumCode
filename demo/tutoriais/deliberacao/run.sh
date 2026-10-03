@@ -45,16 +45,22 @@ PY
 }
 
 # 3. Estouro de rodadas: o modelo so pede ferramenta; com max_rounds 2 a revisao
-#    e inconclusiva e nenhum parecer e publicado.
+#    e inconclusiva pelo gate (deliberation_limit:max_rounds), a auditoria e
+#    gravada com o transcript e nenhum texto do modelo e publicado.
 caso_estoura_rodadas() {
   tut_repo estoura-rodadas repo-exemplo/base repo-exemplo/pequeno
   mkdir -p "$TUT_WORK/.aurumcode"
   sed 's/max_rounds: 3/max_rounds: 2/' "$HERE/repo-exemplo/base/.aurumcode/config.yml" > "$TUT_WORK/.aurumcode/config.yml"
   TUT_FIXTURE=fixture-rodadas.json
   aurum review --base main --auditoria auditoria.json
-  expect_rc 1 "max_rounds estourado: inconclusivo, exit 1, nenhum parecer publicado"
-  if [ -e "$TUT_WORK/auditoria.json" ]; then echo "ERRO: auditoria escrita para um parecer inconclusivo"; return 1; fi
-  echo "nenhuma auditoria nem parecer foram escritos"
+  expect_rc 1 "max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado"
+  python3 - "$TUT_WORK/auditoria.json" <<'PY'
+import json, sys
+a = json.load(open(sys.argv[1]))
+d = a["deliberation"]
+print("auditoria gate: decision=%s reason=%s" % (a["gate"]["decision"], a["gate"]["reason"]))
+print("auditoria deliberation: limit=%s rodadas=%d chamadas=%d desfecho=%s" % (d["limit"], d["rounds"], len(d["calls"]), d["outcome"]))
+PY
   TUT_FIXTURE=
 }
 

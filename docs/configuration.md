@@ -1194,8 +1194,12 @@ argumentos de toda chamada são conferidos contra o schema da ferramenta antes
 de executar; uma chamada inválida é recusada e o modelo é avisado.
 
 Estourar `max_rounds`, `max_cost_tokens` ou `per_tool_timeout_seconds` torna a
-revisão inconclusiva com o motivo `deliberation_limit:<limite>`: a saída é 1 e
-nenhum parecer é publicado (nem parcial). O custo de cada rodada é reservado
+revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
+com os demais motivos do gate: a saída é 1 (a revisão conta como não feita
+nos dois caminhos), a auditoria (com o campo `deliberation` e seu `limit`) e o
+SARIF são gravados, no `--pr` o status `aurumcode/policy-gate` sai em failure
+sob `gate.inconclusive: block`, e nenhum texto do modelo é publicado (o
+parecer é só "inconclusivo: limite de deliberação"). O custo de cada rodada é reservado
 antes da chamada e confirmado depois, então `--limite` vale por rodada. Um
 valor ausente usa o padrão acima; um valor negativo ou uma chave desconhecida
 é erro de configuração.

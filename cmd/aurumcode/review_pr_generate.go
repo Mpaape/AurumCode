@@ -34,9 +34,8 @@ func (p *prReview) generateReview() (int, bool) {
 	if err == nil {
 		return 0, false
 	}
-	if code, failed := reportDeliberationFailure(stderr, err); failed {
-		p.reportDeliberation()
-		return code, true
+	if p.noteDeliberationLimit(err) {
+		return 0, false
 	}
 	var parseErr *prompt.ParseError
 	switch {

@@ -14,7 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/scanner"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
 const aur580Approve = `{"verdict":"approve","strengths":[],"issues":[],"suggestions":[%s],"ci_analysis":[],"test_plan":[],"limitations":[],"summary":"parecer"}`
@@ -50,11 +52,16 @@ func aur580Setup(t *testing.T, config string, binary string) *int {
 const aur580Config = "deliberation:\n  enabled: true\n  max_rounds: 3\nquality_gates:\n  scanners:\n    - engine: fakescan\n"
 
 type aur580Audit struct {
+	Gate struct {
+		Decision string `json:"decision"`
+		Reason   string `json:"reason"`
+	} `json:"gate"`
 	Blocking []struct {
 		RuleID string `json:"rule_id"`
 		Origin string `json:"origin"`
 	} `json:"blocking_findings"`
 	Deliberation *struct {
+		Limit        string   `json:"limit"`
 		Offered      []string `json:"offered"`
 		Requested    []string `json:"requested"`
 		NotRequested []string `json:"not_requested"`
@@ -125,17 +132,27 @@ func TestAUR580ModelDoesNotAskOnASmallDiff(t *testing.T) {
 	}
 }
 
-// AC-002: a model that keeps asking exceeds max_rounds: exit 1, the motive
-// is named, nothing of its answer is published and no audit is written.
+// AC-002: a model that keeps asking exceeds max_rounds: exit 1, the gate's
+// inconclusive motive is deliberation_limit:max_rounds, the audit and the
+// SARIF are written (the audit with the transcript and its limit), and
+// nothing of the model's answer is published.
 func TestAUR580RoundsExceededIsInconclusiveAndUnpublished(t *testing.T) {
 	aur580Setup(t, strings.Replace(aur580Config, "max_rounds: 3", "max_rounds: 2", 1), "")
 	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"tool":"codebase_context","arguments":{"path":"app.go"},"every_round":true}]`))
-	code, out, errOut, rec := aur580Run(t)
-	if code == 0 || !strings.Contains(errOut, "inconclusivo (deliberation_limit:max_rounds)") {
+	sarif := filepath.Join(t.TempDir(), "out.sarif")
+	code, out, errOut, rec := aur580Run(t, "--sarif", sarif)
+	if code == 0 || !strings.Contains(errOut, "inconclusivo: limite de deliberação (deliberation_limit:max_rounds)") {
 		t.Fatalf("exit=%d, want non-zero with the deliberation_limit motive; stderr=%s", code, errOut)
 	}
-	if strings.Contains(out, "sem varredura opcional") || strings.Contains(out, "Verdict") || rec.Deliberation != nil {
-		t.Fatalf("a deliberation over its rounds published a verdict:\nstdout=%s", out)
+	if strings.Contains(out, "sem varredura opcional") || strings.Contains(out, "Sem varredura") {
+		t.Fatalf("a deliberation over its rounds published the model's text:\nstdout=%s", out)
+	}
+	if !strings.Contains(rec.Gate.Reason, "deliberation_limit:max_rounds") || rec.Gate.Decision != "inconclusive" || rec.Deliberation == nil || rec.Deliberation.Limit != "max_rounds" {
+		t.Fatalf("audit gate=%+v deliberation=%+v, want the limit recorded", rec.Gate, rec.Deliberation)
+	}
+	data, err := os.ReadFile(sarif)
+	if err != nil || !strings.Contains(string(data), "deliberation_limit:max_rounds") {
+		t.Fatalf("the SARIF does not name the limit: %v\n%s", err, data)
 	}
 }
 
@@ -144,7 +161,7 @@ func TestAUR580CostExceededIsInconclusive(t *testing.T) {
 	aur580Setup(t, strings.Replace(aur580Config, "max_rounds: 3", "max_rounds: 3\n  max_cost_tokens: 10", 1), "")
 	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"lines_above":1,"tool":"scanner_fakescan"}]`))
 	code, out, errOut, _ := aur580Run(t)
-	if code == 0 || !strings.Contains(errOut, "deliberation_limit:max_cost_tokens") || strings.Contains(out, "Verdict") {
+	if code == 0 || !strings.Contains(errOut, "deliberation_limit:max_cost_tokens") || strings.Contains(out, "o scanner fakescan confirmou") {
 		t.Fatalf("exit=%d, want the cost limit to stop the review unpublished; stderr=%s", code, errOut)
 	}
 }
@@ -214,4 +231,40 @@ func contains(list []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// AC-002 on --pr: a deliberation over its rounds still reaches the gate:
+// aurumcode/policy-gate is failure naming deliberation_limit:max_rounds,
+// the audit carries the transcript, the exit is non-zero and the published
+// body holds no text of the model.
+func TestAUR580PullRequestRoundsExceededFailsThePolicyGate(t *testing.T) {
+	registerFake(t, scanner.Engine{Scanner: fakeEngine{name: "fakescan", report: scanner.Report{Complete: true}}})
+	var published []githubclient.CommitStatus
+	var postedBody string
+	cfg := "deliberation:\n  enabled: true\n  max_rounds: 2\nquality_gates:\n  scanners:\n    - engine: fakescan\ngate:\n  inconclusive: block\n"
+	server := runPRGateMockServerMulti(t, simpleDiffAUR537, cfg, &published, &postedBody)
+	defer server.Close()
+	setPRGateEnv(t, server, aur580Fixture(t, `[{"tool":"scanner_fakescan","every_round":true}]`))
+	auditPath := filepath.Join(t.TempDir(), "audit.json")
+	var stdout, stderr strings.Builder
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true,
+		publicationSet: true, publication: "review", auditoriaPath: auditPath})
+	if code == 0 {
+		t.Fatalf("exit=0; stderr=%s", stderr.String())
+	}
+	gate, ok := statusByContext(published, policyGateContext)
+	if !ok || gate.State != "failure" || !strings.Contains(stderr.String(), "policy gate: review inconclusive (deliberation_limit:max_rounds)") {
+		t.Fatalf("statuses = %+v, want %q failure naming deliberation_limit:max_rounds; stderr=%s", published, policyGateContext, stderr.String())
+	}
+	if review, ok := statusByContext(published, checkContext); !ok || review.State != "failure" {
+		t.Fatalf("statuses = %+v, want %q failure", published, checkContext)
+	}
+	if strings.Contains(postedBody, "sem varredura opcional") {
+		t.Fatalf("the published body carries the model's text: %s", postedBody)
+	}
+	var rec aur580Audit
+	readJSON(t, auditPath, &rec)
+	if rec.Deliberation == nil || rec.Deliberation.Limit != "max_rounds" {
+		t.Fatalf("audit deliberation = %+v", rec.Deliberation)
+	}
 }
