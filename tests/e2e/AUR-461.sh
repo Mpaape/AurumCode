@@ -58,7 +58,7 @@ export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
 export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 
 bin="$run_dir/aurumcode"
-if ! (cd "$repo_root" && ulimit -v 8388608 && GOMEMLIMIT=2GiB go build -o "$bin" ./cmd/aurumcode) >"$run_dir/build.log" 2>&1; then
+if ! (cd "$repo_root" && ulimit -v 8388608 && GOMEMLIMIT=2GiB go build -buildvcs=false -o "$bin" ./cmd/aurumcode) >"$run_dir/build.log" 2>&1; then
   cat "$run_dir/build.log" >&2
   infra build_failed
 fi

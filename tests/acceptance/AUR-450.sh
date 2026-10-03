@@ -143,9 +143,10 @@ stage_source() {
   # after 670c7f6 removed internal/documentation/*, internal/pipeline and
   # cmd/regenerate-docs; staging a path that no longer exists aborts the
   # whole acceptance before it asserts anything).
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/analysis internal/analyzer internal/apply internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/security internal/testgen
-  copy "$root" pkg/types
+  # AUR-573: cmd/internal/pkg inteiros (a lista enumerada apodreceu)
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input tree can be read-only, directories included;
   # force the staged scratch copy writable so mutation_case's rewrite and

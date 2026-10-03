@@ -362,7 +362,7 @@ mutation_001() {
   stage_source "$root"
   write_harness "$root"
   local target="$root/internal/context/skills/skills.go"
-  local anchor='func (s Skill) matches(cp string) bool {'
+  local anchor='func (s Skill) matches(cp string, langs *Languages) bool {'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra 'MUT-001/anchor-not-unique'
   local replacement="$anchor"$'\n\t_ = cp\n\treturn true // MUT-001: ignore the selector'
   ANCHOR="$anchor" REPL="$replacement" awk '

@@ -63,7 +63,7 @@ if [[ -n "${AURUMCODE_BIN:-}" ]]; then
 else
   bin="$run_dir/aurumcode"
   build_log="$run_dir/build.log"
-  if ! (cd "$repo_root" && GOFLAGS=-mod=mod go build -o "$bin" ./cmd/aurumcode) >"$build_log" 2>&1; then
+  if ! (cd "$repo_root" && GOFLAGS=-mod=mod go build -buildvcs=false -o "$bin" ./cmd/aurumcode) >"$build_log" 2>&1; then
     cat "$build_log" >&2
     fail build_failed
   fi
@@ -178,7 +178,7 @@ EOF
 
 fakegithub_bin="$run_dir/fakegithub"
 fakegithub_build_log="$run_dir/fakegithub-build.log"
-if ! go build -o "$fakegithub_bin" "$fakegithub_src" >"$fakegithub_build_log" 2>&1; then
+if ! go build -buildvcs=false -o "$fakegithub_bin" "$fakegithub_src" >"$fakegithub_build_log" 2>&1; then
   cat "$fakegithub_build_log" >&2
   fail fakegithub_build_failed
 fi
