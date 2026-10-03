@@ -4,6 +4,7 @@ $ aurumcode review --base main
 aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run.
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -23,7 +24,6 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
 exit_code=1
 RESULTADO: semgrep falhou: inconclusivo e, com block, o gate reprova
 --- gate.inconclusive: warn
@@ -31,6 +31,7 @@ $ aurumcode review --base main
 aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run.
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -50,6 +51,5 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
 exit_code=0
 RESULTADO: semgrep falhou: com warn o alerta e publicado e o comando sai 0, sem aprovar
