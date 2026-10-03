@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/Mpaape/AurumCode/pkg/types"
+	"github.com/Mpaape/AurumCode/internal/llm/tokens"
 )
 
 // estimatorCacheMaxEntries caps the cache. Inputs are caller-supplied prompts,
@@ -61,10 +61,10 @@ func (e *Estimator) EstimateTokens(input string) int {
 }
 
 // heuristicTokens is the engine's one character heuristic
-// (types.EstimateTokens), never below one token: an input the provider could
+// (tokens.Estimate), never below one token: an input the provider could
 // not count is never budgeted as free.
 func heuristicTokens(input string) int {
-	return max(1, types.EstimateTokens(input))
+	return max(1, tokens.Estimate(input))
 }
 
 func cacheKey(model, input string) string {

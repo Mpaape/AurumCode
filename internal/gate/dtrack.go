@@ -33,8 +33,8 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dtrack"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
-	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // DTrackClockNow/DTrackSleeper are this card's own injectable seams for
@@ -136,7 +136,7 @@ func ApplyDTrackGate(ctx context.Context, cfg *config.SsorDtrackConfig, filter *
 		for _, r := range outcome.Reasons {
 			result.Lines = append(result.Lines, "ssor_dtrack: "+r+" (origem "+OriginDTrack+")")
 		}
-		result.BlockingFindings = append(result.BlockingFindings, types.AuditFinding{
+		result.BlockingFindings = append(result.BlockingFindings, facts.AuditFinding{
 			RuleID:   "ssor_dtrack",
 			Path:     projectID,
 			Severity: "error",

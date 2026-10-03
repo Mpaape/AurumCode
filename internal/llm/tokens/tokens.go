@@ -1,4 +1,6 @@
-package types
+// Package tokens is the engine's one token heuristic, for every budget
+// taken where no provider counts tokens itself.
+package tokens
 
 // charsPerToken is the one character-per-token ratio every budget in the
 // engine uses when no provider counts tokens itself: unrelated to any
@@ -6,10 +8,10 @@ package types
 // over the same text agree.
 const charsPerToken = 4
 
-// EstimateTokens approximates text's token count at charsPerToken
+// Estimate approximates text's token count at charsPerToken
 // characters per token, never zero for non-empty text, so a non-empty
 // segment can never be budgeted as free.
-func EstimateTokens(text string) int {
+func Estimate(text string) int {
 	if text == "" {
 		return 0
 	}

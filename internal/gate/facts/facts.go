@@ -1,8 +1,9 @@
-package types
-
-// The gate's structured facts. The gate produces them while it decides; the
-// audit record and the SARIF document only present them, so they live here,
-// below both, and neither the gate nor the presentation owns the other.
+// Package facts holds the gate's structured facts. The gate produces them
+// while it decides; the audit record and the SARIF document only present
+// them. They live in their own package, imported by both internal/gate and
+// internal/render and importing neither, so the domain never depends on
+// its presentation.
+package facts
 
 // AnalysisDataAudit is the audit fact of a declared analysis_data section
 // that resolved a usable artifact.

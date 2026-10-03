@@ -60,11 +60,12 @@ rules live in `internal/`.
 
 ## Layers
 
-Dependencies point one way: `pkg/types` (the shared domain shapes, among
-them the gate's structured facts) ← the `internal/` packages ← `cmd`. Inside
-`internal/`, configuration holds values and runs nothing, the domain decides
-without knowing how it is presented, and presentation (`internal/render`)
-consumes the domain's facts. The table below is read by a structural test
+Dependencies point one way: `pkg/types` (the shared domain shapes) ← the
+`internal/` packages ← `cmd`. Inside `internal/`, configuration holds values
+and runs nothing, the domain decides without knowing how it is presented, and
+presentation (`internal/render`) consumes the domain's facts: the gate's
+structured findings and exceptions live in `internal/gate/facts`, which both
+`internal/gate` and `internal/render` import and which imports neither. The table below is read by a structural test
 (`cmd/aurumcode/structure_test.go`): a production file of the package on the
 left that imports the package on the right fails it, unless the exception
 column allows that exact file or only the listed symbols. An exception that
