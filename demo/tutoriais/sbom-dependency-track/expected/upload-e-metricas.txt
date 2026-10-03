@@ -2,3 +2,4 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 RESULTADO: o gate enviou o SBOM, esperou o processamento e aprovou
 dependency-track metricas: critical=0 high=0 policyViolationsTotal=0
 dependency-track componentes (servico-exemplo): package-lock.json@None, semver@7.6.0
+dtrack_refresh_unavailable
