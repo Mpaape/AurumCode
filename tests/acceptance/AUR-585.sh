@@ -88,19 +88,21 @@ check_tidy() { # check_tidy ROOT: prints a reason and returns 1 when red
 
 # --- AC-002 ------------------------------------------------------------------
 check_migrated() { # check_migrated ROOT
-  local root="$1" id out code pkgs
+  local root="$1" id out code pkgs acceptances
   pkgs=(./tests/legacy/...)
+  acceptances=("${migrated_acceptances[@]}")
   if [[ -d "$root/.board/schemas" ]]; then
     pkgs+=(./tests/contracts/sandbox-profile/...)
   else
     # The sealed profile does not materialize .board/schemas, which taskspec and
     # sandbox-profile read; the packages that need it are not claimed there.
     pkgs=(./tests/legacy/config/... ./tests/legacy/governance/dag/... ./tests/legacy/llm/... ./tests/legacy/sandbox/...)
-    printf '%s/%s/note: .board/schemas absent, evidence, taskspec and sandbox-profile tests not claimed\n' "$card" "$selector" >&2
+    acceptances=(AUR-471 AUR-566)
+    printf '%s/%s/note: .board/schemas absent, AUR-003..006 acceptances need it too, evidence, taskspec and sandbox-profile tests not claimed\n' "$card" "$selector" >&2
   fi
   (cd "$root" && go test "${pkgs[@]}") >"$run_dir/legacy.log" 2>&1 \
     || { echo "tests/legacy red: $(grep -E '^(--- FAIL|FAIL|\s+\S+_test.go)' "$run_dir/legacy.log" | sed -n '1,4p' | tr '\n' ' ')"; return 1; }
-  for id in "${migrated_acceptances[@]}"; do
+  for id in "${acceptances[@]}"; do
     out="$run_dir/acc-$id.log"; code=0
     (cd "$root" && bash "tests/acceptance/$id.sh") >"$out" 2>&1 || code=$?
     case "$code" in
