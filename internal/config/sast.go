@@ -1,20 +1,19 @@
-// AUR-548: `quality_gates.sast` configures a multi-language SAST pass
-// (Semgrep today; Engine is validated so a future engine is an explicit,
-// loud addition rather than a silent typo) that runs over the whole
-// reviewed tree, independently of AUR-519's own `gate:` section. See
-// SastConfig and cmd/aurumcode's aur548.go for the decision this config
-// feeds. QualityGatesConfig (the shared `quality_gates:` top-level shape)
+// `quality_gates.sast` is the alias of a SAST engine's entry in
+// quality_gates.scanners (scanners.go): its engine must be a registered
+// engine of the "sast" category (semgrep), and AsScanner reads it as that
+// entry. QualityGatesConfig (the shared `quality_gates:` top-level shape)
 // lives in qualitygates.go.
 package config
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
-// DefaultSASTRulePacks is the RFC's own default rule-pack selection, used
-// whenever quality_gates.sast is enabled but rule_packs is empty.
-var DefaultSASTRulePacks = []string{"p/security-audit", "p/owasp-top-ten"}
+// sastCategory is the scanner category quality_gates.sast is an alias of.
+const sastCategory = "sast"
 
 // DefaultSASTFailOnSeverity is quality_gates.sast's own default threshold
 // when fail_on_severity is absent.
@@ -38,31 +37,13 @@ func (s *SastConfig) IsEnabled() bool {
 	return s != nil && s.Enabled
 }
 
-// EngineName returns the configured engine, defaulting to "semgrep" (the
-// only engine this card implements) when absent or when s is nil.
+// EngineName returns the configured engine, defaulting to "semgrep" when
+// absent or when s is nil.
 func (s *SastConfig) EngineName() string {
 	if s == nil || strings.TrimSpace(s.Engine) == "" {
 		return "semgrep"
 	}
 	return strings.ToLower(strings.TrimSpace(s.Engine))
-}
-
-// Packs returns the configured rule packs, or DefaultSASTRulePacks when
-// the list is empty or s is nil -- the RFC's own documented default.
-func (s *SastConfig) Packs() []string {
-	if s == nil || len(s.RulePacks) == 0 {
-		out := make([]string, len(DefaultSASTRulePacks))
-		copy(out, DefaultSASTRulePacks)
-		return out
-	}
-	out := make([]string, 0, len(s.RulePacks))
-	for _, p := range s.RulePacks {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 // Threshold normalizes fail_on_severity (defaulting to
@@ -85,8 +66,9 @@ func (s *SastConfig) Validate() error {
 	if s == nil {
 		return nil
 	}
-	if s.Engine != "" && s.EngineName() != "semgrep" {
-		return fmt.Errorf("quality_gates.sast.engine: unsupported engine %q (accepted: semgrep)", s.Engine)
+	accepted := scanner.NamesIn(sastCategory)
+	if e, ok := scanner.Lookup(s.EngineName()); !ok || scanner.Normalize(e.Category) != sastCategory {
+		return fmt.Errorf("quality_gates.sast.engine: unsupported engine %q (accepted: %s)", s.Engine, strings.Join(accepted, ", "))
 	}
 	if _, _, err := s.Threshold(); err != nil {
 		return fmt.Errorf("quality_gates.sast.fail_on_severity: %w", err)

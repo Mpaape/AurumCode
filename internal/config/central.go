@@ -190,7 +190,7 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	}
 	effective.Exceptions = central.Exceptions
 
-	// AUR-549: each quality_gates subsection (sast, ssor_dtrack,
+	// AUR-549: each quality_gates subsection (scanners, ssor_dtrack,
 	// supply_chain) is governed INDEPENDENTLY, unlike Gate/Exceptions
 	// above (which a policy always governs outright, declared or not).
 	// quality_gates is shared by three different cards' own sections, so
@@ -202,16 +202,11 @@ func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	// declaration, if any, is then dropped with its own named warning
 	// (repo cannot disable -- or quietly loosen -- a policy-enabled
 	// section by also declaring its own).
-	effective.QualityGates = repo.QualityGates
-	if central.QualityGates.Sast != nil {
-		if repo.QualityGates.Sast != nil {
-			warnings = append(warnings, ProviderWarning{
-				Provider: "politica central",
-				Reason:   "quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha",
-			})
-		}
-		effective.QualityGates.Sast = central.QualityGates.Sast
-	}
+	// Scanners (quality_gates.sast included, as the semgrep alias) are
+	// resolved engine by engine: see mergeScanners.
+	var scannerWarnings []ProviderWarning
+	effective.QualityGates, scannerWarnings = mergeScanners(central.QualityGates, repo.QualityGates)
+	warnings = append(warnings, scannerWarnings...)
 	if central.QualityGates.SsorDtrack != nil {
 		if repo.QualityGates.SsorDtrack != nil {
 			warnings = append(warnings, ProviderWarning{

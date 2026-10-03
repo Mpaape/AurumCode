@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -16,14 +17,10 @@ import (
 // types.ReviewIssue.Side, and RuleID / Severity / Message carry the catalog
 // identity and a fixed, trusted message. Message never contains the matched
 // source text, so a Finding is always safe to surface verbatim.
-type Finding struct {
-	Path     string
-	Line     int
-	Side     string
-	RuleID   string
-	Severity string
-	Message  string
-}
+//
+// It is the scanner contract's finding, so its one conversion to a review
+// issue is scanner.Finding.ToIssue.
+type Finding = scanner.Finding
 
 // Side conventions, shared with types.ReviewIssue.
 const (

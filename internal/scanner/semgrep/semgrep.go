@@ -1,11 +1,19 @@
-package analysis
+// Package semgrep is the Semgrep engine of the scanner registry: a
+// multi-language SAST pass over the whole reviewed tree (never just the
+// diff). Its category is "sast" and, so the gate line, the audit and the
+// SARIF of existing policies keep their bytes, its typed origin is "sast"
+// too.
+package semgrep
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
 // RuleSemgrepPrefix prefixes every Semgrep-sourced Finding's RuleID with
@@ -54,7 +62,7 @@ type semgrepError struct {
 // not-actually-Semgrep JSON document looks like, and must never be read as
 // a clean pass (AUR-548/MUT-001: treating a failed execution as zero
 // findings).
-var ErrSemgrepNoResults = errors.New("semgrep: JSON output has no \"results\" key")
+var ErrSemgrepNoResults = fmt.Errorf("semgrep: JSON output has no \"results\" key: %w", scanner.ErrInvalidOutput)
 
 // ErrSemgrepReportedErrors is returned when Semgrep's own report decodes
 // successfully (a "results" key is present, possibly empty) but its
@@ -64,11 +72,10 @@ var ErrSemgrepNoResults = errors.New("semgrep: JSON output has no \"results\" ke
 // at ANY exit code, including 0. Reading that as "a clean scan found
 // nothing" would let exactly the failure this error guards against pass
 // as green (fail-closed per the review that found this gap).
-var ErrSemgrepReportedErrors = errors.New("semgrep: report contains one or more errors")
+var ErrSemgrepReportedErrors = fmt.Errorf("semgrep: report contains one or more errors: %w", scanner.ErrInvalidOutput)
 
-// Semgrep runs `semgrep scan --json --config <pack>...` in dir through the
-// injected commandRunner (the same seam Vet already uses) and parses the
-// report into Findings. Unlike Analyze/Vet, Semgrep scans the WHOLE
+// scan runs `semgrep scan --json --config <pack>...` in dir through the
+// injected scanner.Command and parses the report into findings. It scans the WHOLE
 // reviewed tree, not a diff's added lines: Side is always SideRight (there
 // is no removed-line concept for a whole-tree SAST pass), and a path's
 // leading "./" is trimmed so it aligns with diff/repository paths.
@@ -113,9 +120,9 @@ var ErrSemgrepReportedErrors = errors.New("semgrep: report contains one or more 
 // were reported" -- it is an execution problem like any other non-zero
 // exit, checked last, after both report-shape checks above have already
 // had a chance to name a more specific reason.
-func (r *Runner) Semgrep(ctx context.Context, dir string, packs []string, policyOrigin bool, run commandRunner) ([]Finding, error) {
+func scan(ctx context.Context, dir string, packs []string, policyOrigin bool, run scanner.Command) ([]scanner.Finding, error) {
 	if run == nil {
-		return nil, errors.New("analysis: nil command runner")
+		return nil, errors.New("semgrep: nil command runner")
 	}
 	args := []string{"scan", "--json", "--quiet", "--metrics=off", "--disable-version-check"}
 	if policyOrigin {
@@ -130,7 +137,7 @@ func (r *Runner) Semgrep(ctx context.Context, dir string, packs []string, policy
 	}
 	args = append(args, ".")
 
-	stdout, _, runErr := run(ctx, dir, args...)
+	stdout, _, runErr := run(ctx, dir, binary, args...)
 	report, parseErr := decodeSemgrepReport(stdout)
 	if parseErr != nil {
 		if runErr != nil {
@@ -145,12 +152,12 @@ func (r *Runner) Semgrep(ctx context.Context, dir string, packs []string, policy
 		return nil, fmt.Errorf("semgrep: execution failed: %w", runErr)
 	}
 
-	findings := make([]Finding, 0, len(*report.Results))
+	findings := make([]scanner.Finding, 0, len(*report.Results))
 	for _, res := range *report.Results {
-		findings = append(findings, Finding{
+		findings = append(findings, scanner.Finding{
 			Path:     strings.TrimPrefix(res.Path, "./"),
 			Line:     res.Start.Line,
-			Side:     SideRight,
+			Side:     sideRight,
 			RuleID:   RuleSemgrepPrefix + res.CheckID,
 			Severity: normalizeSemgrepSeverity(res.Extra.Severity),
 			// Message is Semgrep's own fixed rule message, never the
@@ -159,7 +166,16 @@ func (r *Runner) Semgrep(ctx context.Context, dir string, packs []string, policy
 			Message: strings.TrimSpace(res.Extra.Message),
 		})
 	}
-	sortFindings(findings)
+	sort.SliceStable(findings, func(i, j int) bool {
+		a, b := findings[i], findings[j]
+		if a.Path != b.Path {
+			return a.Path < b.Path
+		}
+		if a.Line != b.Line {
+			return a.Line < b.Line
+		}
+		return a.RuleID < b.RuleID
+	})
 	return findings, nil
 }
 
@@ -169,7 +185,7 @@ func (r *Runner) Semgrep(ctx context.Context, dir string, packs []string, policy
 func decodeSemgrepReport(raw string) (semgrepReport, error) {
 	var report semgrepReport
 	if err := json.Unmarshal([]byte(raw), &report); err != nil {
-		return semgrepReport{}, fmt.Errorf("invalid JSON output: %w", err)
+		return semgrepReport{}, fmt.Errorf("invalid JSON output: %w: %v", scanner.ErrInvalidOutput, err)
 	}
 	if report.Results == nil {
 		return semgrepReport{}, ErrSemgrepNoResults

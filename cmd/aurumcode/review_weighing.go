@@ -73,7 +73,7 @@ func (s *reviewState) offerEvidence() {
 	var all []types.ReviewIssue
 	all = append(all, s.securityFindings...)
 	all = append(all, s.analysisIssues...)
-	all = append(all, s.sastIssues...)
+	all = append(all, s.scanIssues()...)
 	sort.SliceStable(all, func(i, j int) bool {
 		a, b := all[i], all[j]
 		if a.Origin != b.Origin {
@@ -140,7 +140,7 @@ func (s *reviewState) attachAssessments() {
 	for _, a := range s.result.EvidenceAssessments {
 		byID[a.EvidenceID] = a
 	}
-	for _, list := range [][]types.ReviewIssue{s.securityFindings, s.analysisIssues, s.sastIssues} {
+	for _, list := range s.evidenceLists() {
 		for i := range list {
 			if a, ok := byID[s.evidenceIDs[evidenceKey(list[i])]]; ok {
 				assessment := a
@@ -150,10 +150,21 @@ func (s *reviewState) attachAssessments() {
 	}
 }
 
+// evidenceLists is the deterministic passes' own finding lists (each
+// scanner's separately), so an assessment attached through them lands on
+// the finding the gate reads.
+func (s *reviewState) evidenceLists() [][]types.ReviewIssue {
+	lists := [][]types.ReviewIssue{s.securityFindings, s.analysisIssues}
+	for _, scan := range s.scans {
+		lists = append(lists, scan.Issues)
+	}
+	return lists
+}
+
 // disputedEvidence is every deterministic finding the model disputed.
 func (s *reviewState) disputedEvidence() []types.ReviewIssue {
 	var out []types.ReviewIssue
-	for _, list := range [][]types.ReviewIssue{s.securityFindings, s.analysisIssues, s.sastIssues} {
+	for _, list := range s.evidenceLists() {
 		for _, issue := range list {
 			if issue.Assessment != nil && issue.Assessment.Status == types.AssessmentDisputed {
 				out = append(out, issue)

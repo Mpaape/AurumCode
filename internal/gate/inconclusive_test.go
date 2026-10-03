@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -23,7 +24,7 @@ func sastOnlyRun(mode string) *Run {
 // its binary is missing, gate.inconclusive is absent: the gate fails. Only
 // a written "warn" keeps the alert-only behavior.
 func TestAUR575SASTMissingBlocksWithoutInconclusive(t *testing.T) {
-	missing := SASTContributor{SectionOrigin: OriginRepo, Reason: "sast_unavailable"}
+	missing := ScannerContributor{Scans: []Scan{semgrepScan(t, OriginRepo, "sast_unavailable")}}
 	for _, tc := range []struct {
 		mode     string
 		wantFail bool
@@ -43,7 +44,7 @@ func TestAUR575SASTMissingBlocksWithoutInconclusive(t *testing.T) {
 // applied in one place of the pipeline, not by each source.
 func TestAUR575OneRuleForEveryInconclusiveSource(t *testing.T) {
 	boom := stubContributor{name: "boom", fn: func(*Run, *Result) error { return errors.New("exploded") }}
-	missing := SASTContributor{SectionOrigin: OriginRepo, Reason: "sast_unavailable"}
+	missing := ScannerContributor{Scans: []Scan{semgrepScan(t, OriginRepo, "sast_unavailable")}}
 	for _, mode := range []string{"", "block", "warn"} {
 		var viaError, viaSAST Result
 		if err := NewPipeline(boom).Run(context.Background(), sastOnlyRun(mode), &viaError); err != nil {
@@ -65,7 +66,7 @@ func TestAUR575UnknownSeverityCountsAsError(t *testing.T) {
 	odd := types.ReviewIssue{RuleID: "analysis/odd", File: "a.go", Line: 1, Severity: "CRITICAL!", Message: "m"}
 
 	var sast Result
-	if err := ApplySASTGate(&sast, &config.SastConfig{Enabled: true}, OriginRepo, []types.ReviewIssue{odd}, ""); err != nil {
+	if err := ApplyScannerGate(&sast, semgrepScan(t, OriginRepo, ""), []types.ReviewIssue{odd}); err != nil {
 		t.Fatal(err)
 	}
 	if !sast.Fail || !sast.Breach || len(sast.BlockingFindings) != 1 {
@@ -88,4 +89,14 @@ func TestAUR575UnknownSeverityCountsAsError(t *testing.T) {
 	if !security.Fail || len(security.BlockingFindings) != 1 {
 		t.Fatalf("security pass: unknown severity must count as error, got %+v", security)
 	}
+}
+
+// semgrepScan is the semgrep engine's scan as quality_gates.sast declares it.
+func semgrepScan(t *testing.T, section, reason string) Scan {
+	t.Helper()
+	engine, ok := scanner.Lookup("semgrep")
+	if !ok {
+		t.Fatal("semgrep engine not registered")
+	}
+	return Scan{Config: *(&config.SastConfig{Enabled: true}).AsScanner(), Engine: engine, Section: section, Reason: reason}
 }

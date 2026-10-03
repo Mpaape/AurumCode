@@ -1,8 +1,10 @@
-package analysis
+package semgrep
 
 import (
 	"context"
 	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
 // TestNormalizeSemgrepSeverity is B2's table test: Semgrep 1.x's real
@@ -36,11 +38,11 @@ func TestNormalizeSemgrepSeverity(t *testing.T) {
 	}
 }
 
-// fakeSemgrepRunner returns a commandRunner that always returns the given
+// fakeSemgrepRunner returns a scanner.Command that always returns the given
 // stdout/exitErr, ignoring args -- a minimal fake for exercising Semgrep's
 // own report-decoding logic directly, without a real executable.
-func fakeSemgrepRunner(stdout string, exitErr error) commandRunner {
-	return func(ctx context.Context, dir string, args ...string) (string, string, error) {
+func fakeSemgrepRunner(stdout string, exitErr error) scanner.Command {
+	return func(ctx context.Context, dir, bin string, args ...string) (string, string, error) {
 		return stdout, "", exitErr
 	}
 }
@@ -73,7 +75,7 @@ func TestSemgrepReportedErrorsNeverReadAsClean(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := NewRunner().Semgrep(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(c.stdout, c.exitErr))
+			_, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(c.stdout, c.exitErr))
 			if err == nil {
 				t.Fatal("Semgrep returned no error for a report with a non-empty \"errors\" array -- a fatal failure read as a clean pass")
 			}
@@ -88,7 +90,7 @@ func TestSemgrepReportedErrorsNeverReadAsClean(t *testing.T) {
 // failure.
 func TestSemgrepNonZeroExitWithoutErrorFlagIsFailure(t *testing.T) {
 	stdout := `{"results":[{"check_id":"demo.rule","path":"app.go","start":{"line":1},"extra":{"severity":"ERROR","message":"demo"}}]}`
-	_, err := NewRunner().Semgrep(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, exitError{code: 1}))
+	_, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, exitError{code: 1}))
 	if err == nil {
 		t.Fatal("Semgrep returned no error for a non-zero exit (no --error flag passed, so exit 1 is not \"findings reported\")")
 	}
@@ -99,7 +101,7 @@ func TestSemgrepNonZeroExitWithoutErrorFlagIsFailure(t *testing.T) {
 // findings.
 func TestSemgrepCleanExitZeroWithFindingsSucceeds(t *testing.T) {
 	stdout := `{"results":[{"check_id":"demo.rule","path":"app.go","start":{"line":1},"extra":{"severity":"ERROR","message":"demo"}}]}`
-	findings, err := NewRunner().Semgrep(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, nil))
+	findings, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, nil))
 	if err != nil {
 		t.Fatalf("Semgrep returned an error for a clean exit 0 report: %v", err)
 	}
@@ -117,11 +119,11 @@ func TestSemgrepCleanExitZeroWithFindingsSucceeds(t *testing.T) {
 func TestSemgrepPolicyOriginFlags(t *testing.T) {
 	capture := func(policyOrigin bool) []string {
 		var gotArgs []string
-		run := func(ctx context.Context, dir string, args ...string) (string, string, error) {
+		run := func(ctx context.Context, dir, bin string, args ...string) (string, string, error) {
 			gotArgs = args
 			return `{"results":[]}`, "", nil
 		}
-		if _, err := NewRunner().Semgrep(context.Background(), t.TempDir(), nil, policyOrigin, run); err != nil {
+		if _, err := scan(context.Background(), t.TempDir(), nil, policyOrigin, run); err != nil {
 			t.Fatalf("Semgrep: %v", err)
 		}
 		return gotArgs

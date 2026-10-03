@@ -35,7 +35,7 @@ func TestExitPolicyPrecedence(t *testing.T) {
 // lower motive too, so only the top one may be named.
 func TestRankReasonOrder(t *testing.T) {
 	all := func(m ModelOutcome) ReasonInputs {
-		return ReasonInputs{Model: m, DegradedParse: true, SASTReason: "sast_unavailable", PartialCoverage: true}
+		return ReasonInputs{Model: m, DegradedParse: true, ScannerReason: "sast_unavailable", PartialCoverage: true}
 	}
 	cases := []struct {
 		in   ReasonInputs
@@ -45,7 +45,7 @@ func TestRankReasonOrder(t *testing.T) {
 		{all(ModelSkipped), ReasonQualitySkipped},
 		{all(ModelParseFailed), ReasonModelParseFailure},
 		{all(ModelReviewed), ReasonDegradedParse},
-		{ReasonInputs{SASTReason: "sast_unavailable", PartialCoverage: true}, Reason("sast_unavailable")},
+		{ReasonInputs{ScannerReason: "sast_unavailable", PartialCoverage: true}, Reason("sast_unavailable")},
 		{ReasonInputs{PartialCoverage: true}, ReasonPartialCoverage},
 		{ReasonInputs{}, ReasonNone},
 	}

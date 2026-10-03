@@ -17,7 +17,7 @@ func (p *prReview) collectEvidence() (int, bool) {
 		return code, true
 	}
 	p.analysisIssues = staticAnalysisIssues(p.diff)
-	p.runSAST(p.verifiedDir, p.sastBlockedReason())
+	p.runScanners(p.verifiedDir, p.scanBlockedReason())
 	p.offerEvidence()
 	return 0, false
 }
@@ -30,7 +30,7 @@ func (p *prReview) joinEvidence() (int, bool) {
 	p.reportSecurityPass()
 	p.runStaticAnalysis()
 	p.snapshotAndApplyRules()
-	p.joinSAST()
+	p.joinScanners()
 	return p.finishLimitations()
 }
 
@@ -49,12 +49,12 @@ func (p *prReview) runStaticAnalysis() {
 	}
 }
 
-// sastBlockedReason keeps SAST off a checkout not verified as the pull
-// request's own clean head (AUR-515/536): a stale or unrelated tree is
+// scanBlockedReason keeps every scanner off a checkout not verified as the
+// pull request's own clean head (AUR-515/536): a stale or unrelated tree is
 // never scanned under the reviewed pull request's name.
-func (p *prReview) sastBlockedReason() string {
+func (p *prReview) scanBlockedReason() string {
 	if p.checkoutMismatch != "" {
-		return sastReasonUnverifiedCheckout
+		return scanReasonUnverifiedCheckout
 	}
 	return ""
 }

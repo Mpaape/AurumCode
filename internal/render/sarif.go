@@ -78,7 +78,7 @@ type sarifResult struct {
 	Properties          *sarifProperties   `json:"properties,omitempty"`
 }
 
-// sarifProperties carries the gate origin (skills|analysis|sast) of a
+// sarifProperties carries the gate origin (skills|analysis|<engine origin>) of a
 // result, when the finding was counted by the policy gate.
 type sarifProperties struct {
 	Origin string `json:"origin,omitempty"`
@@ -133,7 +133,8 @@ type SARIFFinding struct {
 	Context       string
 	Suppressed    bool
 	Justification string
-	// Origin is the gate origin (skills|analysis|sast); empty when unknown.
+	// Origin is the gate origin (skills, analysis, or a scanner engine's
+	// typed origin); empty when unknown.
 	Origin string
 	// Assessment is the model's assessment of this deterministic finding.
 	Assessment *AuditAssessment

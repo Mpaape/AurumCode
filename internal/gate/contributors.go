@@ -1,5 +1,5 @@
 // The Contributors of the gate pipeline. Each one connects a gate source of
-// this package (policy.go, sast.go, sources.go, analysisdata.go, dtrack.go,
+// this package (policy.go, scanner.go, sources.go, analysisdata.go, dtrack.go,
 // exceptions.go, verdict.go) to the Contributor interface: no decision is
 // made here. What a source needs from the command (the prompt digest, the
 // review-context key) is injected by the pipeline's assembly.
@@ -19,7 +19,7 @@ const (
 	ContributorExceptions   = "exceptions"
 	ContributorVerdict      = "verdict-reuse"
 	ContributorSkills       = "policy-skills"
-	ContributorSAST         = "sast"
+	ContributorScanners     = "scanners"
 	ContributorAnalysis     = "embedded-analysis"
 	ContributorSecurity     = "security-pass"
 	ContributorAnalysisData = "analysis-data"
@@ -85,21 +85,29 @@ func (c PolicySkillsContributor) Apply(_ context.Context, run *Run, res *Result)
 	return nil
 }
 
-// SASTContributor folds quality_gates.sast's own decision (AUR-548).
-type SASTContributor struct {
-	SectionOrigin string
-	Issues        []types.ReviewIssue
-	Reason        string
+// ScannerContributor folds every configured scanner engine's own decision,
+// in declaration order. It knows no engine: what differs between engines is
+// data in each Scan.
+type ScannerContributor struct {
+	Scans []Scan
 }
 
-func (SASTContributor) Name() string   { return ContributorSAST }
-func (SASTContributor) Origin() string { return OriginSAST }
-func (c SASTContributor) Apply(_ context.Context, run *Run, res *Result) error {
-	issues := SASTIssues(run.Cfg.Gate, c.Issues)
-	if c.SectionOrigin != OriginPolicy {
-		issues = run.keep(config.GateSourceSAST, OriginSAST, issues)
+func (ScannerContributor) Name() string   { return ContributorScanners }
+func (ScannerContributor) Origin() string { return ContributorScanners }
+func (c ScannerContributor) Apply(_ context.Context, run *Run, res *Result) error {
+	for _, scan := range c.Scans {
+		var issues []types.ReviewIssue
+		if scan.countsUnder(run.Cfg.Gate) {
+			issues = scan.Issues
+		}
+		if scan.Section != OriginPolicy {
+			issues = run.keep(scan.Source(), scan.Origin(), issues)
+		}
+		if err := ApplyScannerGate(res, scan, issues); err != nil {
+			return Fatal(err)
+		}
 	}
-	return Fatal(ApplySASTGate(res, run.Cfg.QualityGates.Sast, c.SectionOrigin, issues, c.Reason))
+	return nil
 }
 
 // EmbeddedAnalysisContributor counts the embedded analysis catalog (AUR-556).

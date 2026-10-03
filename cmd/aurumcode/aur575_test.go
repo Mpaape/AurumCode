@@ -7,6 +7,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	igate "github.com/Mpaape/AurumCode/internal/gate"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -42,7 +43,8 @@ func TestAUR575SASTMissingPublishesBlockedStatus(t *testing.T) {
 		cfg.Gate.Inconclusive = tc.mode
 		run := &igate.Run{Cfg: cfg, Review: &types.ReviewResult{}}
 		var res igate.Result
-		missing := igate.SASTContributor{SectionOrigin: gateOriginRepo, Reason: "sast_unavailable"}
+		engine, _ := scanner.Lookup("semgrep")
+		missing := igate.ScannerContributor{Scans: []igate.Scan{{Config: *cfg.QualityGates.Sast.AsScanner(), Engine: engine, Section: gateOriginRepo, Reason: "sast_unavailable"}}}
 		if err := igate.NewPipeline(missing).Run(context.Background(), run, &res); err != nil {
 			t.Fatal(err)
 		}

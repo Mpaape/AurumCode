@@ -30,7 +30,7 @@ rules live in `internal/`.
 
 | Package | Responsibility |
 | --- | --- |
-| `internal/analysis` | Deterministic static-analysis pass over a diff, plus the Semgrep runner. |
+| `internal/analysis` | Deterministic static-analysis pass over a diff (embedded catalog, go vet). |
 | `internal/analyzer` | Diff parsing, language detection from the language catalog, text diffs. |
 | `internal/apply` | Turns validated suggestions into safe, applyable patches. |
 | `internal/artifacts` | The analysis-data artifact: resolved, age- and digest-checked, cached copy of published scanner data. |
@@ -50,6 +50,7 @@ rules live in `internal/`.
 | `internal/review` | The reviewer, scope, rules (including dynamic skill rules), the review cache and the review session (`internal/review/session`: phase order and per-source data). |
 | `internal/reviewprofile` | Built-in, versioned reviewer profiles. |
 | `internal/sandbox` | Sealed execution profiles. |
+| `internal/scanner` | The scanner contract (`Scanner`, `Report`, `Finding.ToIssue`), the closed registry of compiled engines and the executor; engines live in subpackages (`internal/scanner/semgrep`) listed in `internal/scanner/engines`. |
 | `internal/sbom` | CycloneDX SBOM generation and validation. |
 | `internal/security` | Redaction of secrets from every sink. |
 | `internal/supplychain` | Sigstore/Cosign signing of SBOMs and images. |
@@ -74,12 +75,12 @@ returns `(exit, done)`, so each early exit keeps its code:
    that did not happen) or `parse failed` (an answer that could not be
    validated).
 3. **evidence.** The security pass, static analysis, the repository's rule
-   configuration, SAST and coverage. One step decides where the security
+   configuration, every enabled scanner engine and coverage. One step decides where the security
    findings live (in the review's issues on `--pr`, in their own section on
    `--base`); the verdict-reuse snapshot holds the same findings either way.
 4. **gate.** The shared pipeline below, from the session's `gate.Run`. The
    inconclusive motive is `gate.RankReason`: provider failure, skipped
-   review, unparseable answer, degraded parse, the SAST reason, partial
+   review, unparseable answer, degraded parse, the first scanner's reason, partial
    coverage, in that order.
 5. **publish.** The compliance artifacts (from the gate run's findings), the
    report or the GitHub publication, then `gate.ExitPolicy`.
@@ -100,7 +101,7 @@ published (1), the gate (a breach 3, a block 1), a requested audit or SARIF
 not written (1), `--fail-on` (3), the `--check` status's own code.
 
 The session's collaborators are injected (`reviewDeps`), never package
-variables: the clock exceptions are judged against, the SAST runner, the
+variables: the clock exceptions are judged against, the scanner executor, the
 gate-pipeline observer, the codebase resolver, the prompt builder that
 versions the caches, and the environment, read once at the command's edge.
 
@@ -149,7 +150,7 @@ apply in this order:
 1. `exceptions`: declares that no exception can match when the repository identity is unverified.
 2. `verdict-reuse`: reuses or stores a concluded verdict.
 3. `policy-skills`: the policy's skill sections.
-4. `sast`: `quality_gates.sast`.
+4. `scanners`: every enabled entry of `quality_gates.scanners` (`quality_gates.sast` is the semgrep alias), one `gate.Scan` each; the contributor names no engine.
 5. `embedded-analysis`: the embedded analysis catalog.
 6. `security-pass`: the `--seguranca` pass's findings; a finding at or above `fail_on` counts in every `gate.inconclusive` mode (under the `analysis` source).
 7. `analysis-data`: the analysis-data artifact.
@@ -165,10 +166,16 @@ the configuration exit code.
 - **A gate contributor.** Implement `gate.Contributor` (`Name`, `Origin`,
   `Apply`) and add one line to `assembleGatePipeline`. Its decision is merged
   into the one `gate.Result`; do not publish from inside it.
-- **A scanner.** Add a runner in `internal/analysis`, expose its findings as
-  deterministic `ReviewIssue`s with a rule id, enable it from a config section,
-  and feed the result to a contributor. The model never decides whether a scanner
-  finding exists.
+- **A scanner.** Add a package under `internal/scanner/<engine>` that
+  implements `scanner.Scanner` (`Name`, `Run(ctx, Request) (Report, error)`)
+  and registers a `scanner.Engine` (category, typed origin, options
+  validator) from its `init`, then add its import to
+  `internal/scanner/engines`. Nothing in `internal/gate`, `internal/config`
+  or `cmd` changes: `quality_gates.scanners: [{engine: <name>}]` enables it,
+  `gate.sources`/`gate.triage` accept its name and category, its findings
+  reach the gate line, the audit and the SARIF with its origin, and an
+  error, a missing binary or `Complete: false` is inconclusive. The model
+  never decides whether a scanner finding exists.
 - **A configuration section.** Add the type in `internal/config`, its
   validation, and its precedence between central policy and repository in
   `config.ApplyCentralPolicy`, section by section. Document it in
