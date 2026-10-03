@@ -28,7 +28,21 @@ const (
 	OriginSAST     = "sast"
 	// OriginSecurity labels findings of the --seguranca pass (AUR-569).
 	OriginSecurity = "security"
+	// OriginDTrack and OriginAnalysisData label the Dependency-Track and
+	// analysis-data contributors (AUR-567).
+	OriginDTrack       = "dtrack"
+	OriginAnalysisData = "analysis_data"
 )
+
+// FindingLine is the one spelling of a gate line for a finding, shared by
+// every source (AUR-567): the message, then severity, threshold and the typed
+// origin, the same value the audit and the SARIF carry in origin. The rule id
+// and the message are joined by " - ", never by a colon: a colon after an id
+// that ends in "secret" reads to the redaction filter as a `secret: value`
+// pair, and it would replace the first word of the message.
+func FindingLine(ruleID, message, severity, threshold, origin string) string {
+	return fmt.Sprintf("%s - %s (severidade %s, limiar %s, origem %s)", ruleID, message, severity, threshold, origin)
+}
 
 // FindingOriginKey identifies a finding for origin lookup.
 func FindingOriginKey(ruleID, path string, line int) string {
@@ -128,7 +142,7 @@ func applyDeterministic(d *Result, gate config.GateConfig, issues []types.Review
 		}
 		d.Fail = true
 		d.Breach = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s: %s (severidade %s, limiar %s, origem %s)", issue.RuleID, issue.Message, issue.Severity, name, origin))
+		d.Lines = append(d.Lines, FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin))
 		d.BlockingFindings = append(d.BlockingFindings, render.AuditFinding{
 			RuleID: issue.RuleID, Path: issue.File, Line: issue.Line, Severity: issue.Severity,
 			Origin: origin,
