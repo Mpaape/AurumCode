@@ -12,8 +12,8 @@ import (
 	"sort"
 
 	"github.com/Mpaape/AurumCode/internal/deliberation"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
-	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // AuditRecord is the complete, redacted-before-write compliance record for
@@ -63,11 +63,11 @@ type AuditRecord struct {
 }
 
 // AnalysisDataAudit, AuditFinding and AuditException are the gate's own
-// structured facts (pkg/types); the audit record presents them unchanged.
+// structured facts (internal/gate/facts); the audit record presents them unchanged.
 type (
-	AnalysisDataAudit = types.AnalysisDataAudit
-	AuditFinding      = types.AuditFinding
-	AuditException    = types.AuditException
+	AnalysisDataAudit = facts.AnalysisDataAudit
+	AuditFinding      = facts.AuditFinding
+	AuditException    = facts.AuditException
 )
 
 // AuditGate is the gate's own decision for this run: "pass", "fail" or

@@ -3,7 +3,7 @@
 # direction is a table in docs/architecture.md read by a test; the central
 # policy's authority over every Config field is a declarative table checked
 # by reflection; no function of cmd, internal or pkg passes 150 lines; the
-# refactor (gate facts in pkg/types, contributors returning partial results,
+# refactor (gate facts in internal/gate/facts, contributors returning partial results,
 # one token heuristic, yaml.v3 front matter, a slot failure that is an error)
 # leaves the audit, the SARIF and the reports byte for byte as they were.
 #
@@ -36,7 +36,7 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
-for input in go.mod go.sum cmd internal pkg docs/architecture.md cmd/aurumcode/structure_test.go internal/config/governance.go internal/config/governance_test.go pkg/types/gatefacts.go; do
+for input in go.mod go.sum cmd internal pkg docs/architecture.md cmd/aurumcode/structure_test.go internal/config/governance.go internal/config/governance_test.go internal/gate/facts/facts.go; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -145,8 +145,8 @@ run_mut001() {
   local root="$run_dir/root-mut1"
   stage "$root"
   replace_once "$root/internal/gate/result.go" \
-    '"github.com/Mpaape/AurumCode/pkg/types"' \
-    '"github.com/Mpaape/AurumCode/pkg/types"
+    '"github.com/Mpaape/AurumCode/internal/gate/facts"' \
+    '"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/internal/render"'
   printf '\n// MUT-001: the domain reads a presentation helper.\nvar _ = render.GateSARIFFindings\n' >>"$root/internal/gate/result.go"
   expect_red "$root" "$run_dir/mut1.log" "${ac001_tests[@]}"

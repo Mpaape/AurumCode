@@ -42,7 +42,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/pkg/types"
+	"github.com/Mpaape/AurumCode/internal/llm/tokens"
 	"gopkg.in/yaml.v3"
 )
 
@@ -239,9 +239,9 @@ func Assemble(selected []Skill, budget Budget) (*Result, error) {
 }
 
 // EstimateTokens is the engine's one character heuristic
-// (types.EstimateTokens), the same internal/prompt and internal/llm use.
+// (tokens.Estimate), the same internal/prompt and internal/llm use.
 func EstimateTokens(text string) int {
-	return types.EstimateTokens(text)
+	return tokens.Estimate(text)
 }
 
 // Provider is the skills ContextProvider. It loads root/.aurumcode/skills,
