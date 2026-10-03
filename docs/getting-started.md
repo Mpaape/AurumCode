@@ -117,6 +117,26 @@ Se o `current_code` não corresponder ao arquivo na linha indicada, o comando sa
 com código 1, nomeia o arquivo e a linha, e não imprime patch. As sugestões vêm
 de `aurumcode review` (veja acima) ou de um parecer publicado no PR.
 
+## Ajuda por subcomando
+
+`aurumcode --help` lista todos os subcomandos, uma linha cada: `review`, `fix`,
+`sbom`, `sign` e `xbom`. `aurumcode <subcomando> --help` imprime todas as flags
+do subcomando (as mesmas que ele aceita: ajuda e parser leem o mesmo conjunto
+de flags) e um exemplo executável. A ajuda é gerada de um registro único de
+subcomandos, então um subcomando novo não existe sem uma linha de ajuda.
+
+```bash
+aurumcode --help
+aurumcode xbom --help
+```
+
+Quando o `review` não acha nada, a última linha do parecer depende de todas as
+fontes terem concluído. Se todas concluíram, é `No issues found.`. Se alguma
+ficou inconclusiva (SAST, Dependency-Track, dados de análise, cobertura
+parcial, provedor), o parecer não diz isso: imprime `Sem achados nas fontes
+concluídas; inconclusivo: <motivos>`, com o motivo de cada fonte, por exemplo
+`sast_execution_error`.
+
 ## Diagnóstico
 
 - Erro de autenticação: confira a credencial e o serviço em `LLM_BASE_URL`.

@@ -35,22 +35,28 @@ var xbomDocumentedOnly = map[string]string{
 
 const exitUsageUnknownType = 64
 
-func runXBOM(args []string, stdout, stderr io.Writer) int {
+// xbomFlags are the values bound by newXBOMFlagSet.
+type xbomFlags struct {
+	typ, repo, politica, policy, out *string
+}
+
+// newXBOMFlagSet declares the flags of `xbom`; the help reads the same set.
+func newXBOMFlagSet() (*flag.FlagSet, xbomFlags) {
 	fs := flag.NewFlagSet("xbom", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	typ := fs.String("type", "", "xBOM type: build or cbom")
-	repo := fs.String("repo", ".", "repository root to read")
-	politica := fs.String("politica", "", "central policy directory (default: AURUMCODE_POLICY)")
-	policy := fs.String("policy", "", "alias of --politica")
-	out := fs.String("out", "", "output file (default: stdout)")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprintln(stdout, "usage: aurumcode xbom --type build|cbom --repo <dir> [--politica <dir>] [--out <arquivo>]")
-			fmt.Fprintln(stdout, "Gera um BOM CycloneDX 1.6; cada componente cita arquivo e linha (ver docs/configuration.md#xbom).")
-			return 0
-		}
-		fmt.Fprintf(stderr, "aurumcode xbom: %v\n", err)
-		return 2
+	return fs, xbomFlags{
+		typ:      fs.String("type", "", "xBOM type: build or cbom"),
+		repo:     fs.String("repo", ".", "repository root to read"),
+		politica: fs.String("politica", "", "central policy directory (default: AURUMCODE_POLICY)"),
+		policy:   fs.String("policy", "", "alias of --politica"),
+		out:      fs.String("out", "", "output file (default: stdout)"),
+	}
+}
+
+func runXBOM(args []string, stdout, stderr io.Writer) int {
+	fs, fl := newXBOMFlagSet()
+	typ, repo, politica, policy, out := fl.typ, fl.repo, fl.politica, fl.policy, fl.out
+	if exit, ok := parseSubcommandFlags("xbom", fs, args, stdout, stderr); !ok {
+		return exit
 	}
 	t := strings.TrimSpace(*typ)
 	if doc, ok := xbomDocumentedOnly[t]; ok {
