@@ -87,9 +87,9 @@ run_ac003() {
 }
 run_mutation() {
   local target="$run_dir/root/internal/gate/contributors.go"
-  local anchor='func (SecurityPassContributor) Apply(_ context.Context, run *Run, res *Result) error {'
+  local anchor='func (SecurityPassContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {'
   [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra mutation-anchor
-  sed -i "/^func (SecurityPassContributor) Apply/a\\	if m, _ := run.Cfg.Gate.InconclusiveMode(); m == \"warn\" { return nil } // MUT-001: warn swallows the finding" "$target"
+  sed -i "/^func (SecurityPassContributor) Apply/a\\	if m, _ := run.Cfg.Gate.InconclusiveMode(); m == \"warn\" { return Result{}, nil } // MUT-001: warn swallows the finding" "$target"
   grep -Fq 'MUT-001: warn swallows' "$target" || infra mutation-not-applied
   local log="$run_dir/mutation.log"
   run_go_test ./cmd/aurumcode/ '^TestAUR569SecurityFindingFailsGateInEveryInconclusiveMode$' "$log" || true
