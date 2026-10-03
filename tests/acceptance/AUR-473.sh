@@ -251,9 +251,10 @@ e2e_case() {
 # anchor must appear exactly once, so a future refactor cannot silently
 # mutate the wrong line.
 apply_mutation() {
-  local root="$1" anchor="$2" repl="$3" tag="$4"
+  local root="$1" anchor="$2" repl="$3" tag="$4" file="${5:-main.go}"
   stage_source "$root"
-  local target="$root/cmd/aurumcode/main.go"
+  # AUR-573: the --base flow moved out of main.go (AUR-558); callers name the file.
+  local target="$root/cmd/aurumcode/$file"
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail "mutation/anchor-not-unique:$tag"
   ANCHOR="$anchor" REPL="$repl" awk '
     BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
@@ -279,7 +280,7 @@ mutation_001() {
   build_shared
   local root="$run_dir/root-mut1"
   local bin demo_repo out rc
-  bin="$(apply_mutation "$root" '!*seguranca || *modelo != ""' '!*seguranca' mut1)"
+  bin="$(apply_mutation "$root" '!f.seguranca || f.modelo != ""' '!f.seguranca' mut1 review_base_analysis.go)"
   demo_repo="$root/tests/fixtures/repos/git-demo/repo.git"
   set +e
   out="$(cd "$demo_repo" && noprov_env "$bin" review --base HEAD~1 --seguranca --modelo local 2>/dev/null)"
@@ -300,7 +301,7 @@ mutation_002() {
   build_shared
   local root="$run_dir/root-mut2"
   local bin demo_repo out rc
-  bin="$(apply_mutation "$root" 'err != nil && *seguranca' 'err != nil && false' mut2)"
+  bin="$(apply_mutation "$root" 'err != nil && b.f.seguranca' 'err != nil && false' mut2 review_base_quality.go)"
   demo_repo="$root/tests/fixtures/repos/git-demo/repo.git"
   set +e
   out="$(cd "$demo_repo" && noprov_env env LLM_API_KEY=k LLM_BASE_URL=http://127.0.0.1:9/v1 "$bin" review --base HEAD~1 --seguranca 2>/dev/null)"
