@@ -5,6 +5,10 @@ two as the same home page), which breaks the many relative links to
 ../README.md in the specs. README.md is the repository entry point, so this
 hook re-adds it as its own page (served at /README/).
 """
+import fnmatch
+import os
+import re
+
 from mkdocs.structure.files import File, InclusionLevel
 
 
@@ -22,3 +26,39 @@ def on_files(files, config):
         inclusion=InclusionLevel.INCLUDED,
     ))
     return files
+
+
+def _natural(name):
+    return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", name)]
+
+
+def _section(config, folder, pattern, index):
+    """Nav entries for docs/<folder>: <index> first (when present), then every
+    file matching <pattern> in natural order."""
+    base = os.path.join(config["docs_dir"], folder)
+    if not os.path.isdir(base):
+        return []
+    items = []
+    if os.path.isfile(os.path.join(base, index)):
+        items.append(f"{folder}/{index}")
+    names = sorted((n for n in os.listdir(base) if fnmatch.fnmatch(n, pattern) and n != index),
+                   key=_natural)
+    items.extend(f"{folder}/{n}" for n in names)
+    return items
+
+
+def on_config(config):
+    """Inject the generated sections into the nav, before MkDocs validates
+    pages: Tutoriais (docs/tutorials/README.md, then *.md) when the folder
+    exists, and Specs (docs/specs/README.md, then AUR-*.md). Nothing to
+    maintain by hand when a card adds a spec or a tutorial.
+    tests/acceptance/AUR-560.sh reimplements this rule in bash."""
+    nav = list(config["nav"] or [])
+    tutorials = _section(config, "tutorials", "*.md", "README.md")
+    if tutorials:
+        nav.append({"Tutoriais": tutorials})
+    specs = _section(config, "specs", "AUR-*.md", "README.md")
+    if specs:
+        nav.append({"Specs": specs})
+    config["nav"] = nav
+    return config

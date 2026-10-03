@@ -79,7 +79,18 @@ nav_files() {
 ac002_check() {
   local root="$1" slugs h f t base dir target anchor line problems=0
   local docs="$root/docs"
-  nav_files "$root/mkdocs.yml" >"$work/nav.txt"
+  # nav = the explicit sections of mkdocs.yml + what scripts/docs/hooks.py
+  # injects (same rule, in bash): specs/README.md and specs/AUR-*.md, and
+  # tutorials/README.md and tutorials/*.md when docs/tutorials exists.
+  grep -q 'AUR-\*.md' "$root/scripts/docs/hooks.py" || { echo "hook-without-specs-rule"; return 1; }
+  { nav_files "$root/mkdocs.yml"
+    [[ -f "$docs/specs/README.md" ]] && echo specs/README.md
+    for f in "$docs"/specs/AUR-*.md; do [[ -e "$f" ]] && echo "specs/${f##*/}"; done
+    if [[ -d "$docs/tutorials" ]]; then
+      for f in "$docs"/tutorials/*.md; do [[ -e "$f" ]] && echo "tutorials/${f##*/}"; done
+    fi
+  } | sort -u >"$work/nav.txt"
+  if nav_files "$root/mkdocs.yml" | grep -q '^specs/AUR-'; then echo "static-spec-list-in-mkdocs.yml"; return 1; fi
   (cd "$docs" && find . -name '*.md' -not -path './site/*' | sed 's#^\./##' | sort) >"$work/pages.txt"
   [[ -s "$work/nav.txt" && -s "$work/pages.txt" ]] || { echo "empty-nav-or-docs"; return 1; }
   if line="$(comm -13 "$work/nav.txt" "$work/pages.txt" | head -n1)" && [[ -n "$line" ]]; then
@@ -225,13 +236,18 @@ mut001() {
   cp -R "$repo_root/scripts" "$m/scripts"
   chmod -R u+w "$m"
   ac002_check "$m" >/dev/null || fail "mutation-baseline-not-green"
-  for victim in 'review-cache.md' 'specs/AUR-001.md'; do
-    cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"; chmod u+w "$m/mkdocs.yml"
-    grep -qE "^[[:space:]]+- $victim\$" "$m/mkdocs.yml" || fail "mutation-victim-absent:$victim"
-    grep -vE "^[[:space:]]+- $victim\$" "$repo_root/mkdocs.yml" >"$m/mkdocs.yml"
-    if ac002_check "$m" >"$work/mut.out"; then fail "mutation-survived:$victim"; fi
-    grep -q "orphan-page-not-in-nav:$victim" "$work/mut.out" || fail "mutation-wrong-reason:$victim"
-  done
+  victim='review-cache.md'
+  cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"; chmod u+w "$m/mkdocs.yml"
+  grep -qE "^[[:space:]]+- $victim\$" "$m/mkdocs.yml" || fail "mutation-victim-absent:$victim"
+  grep -vE "^[[:space:]]+- $victim\$" "$repo_root/mkdocs.yml" >"$m/mkdocs.yml"
+  if ac002_check "$m" >"$work/mut.out"; then fail "mutation-survived:$victim"; fi
+  grep -q "orphan-page-not-in-nav:$victim" "$work/mut.out" || fail "mutation-wrong-reason:$victim"
+  # a page the hook would not inject (not AUR-*.md) is an orphan
+  cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"; chmod u+w "$m/mkdocs.yml"
+  echo '# x' >"$m/docs/specs/notas.md"
+  if ac002_check "$m" >"$work/mut.out"; then fail "mutation-survived:stray-spec-page"; fi
+  grep -q 'orphan-page-not-in-nav:specs/notas.md' "$work/mut.out" || fail "mutation-wrong-reason:stray-spec-page"
+  rm -f "$m/docs/specs/notas.md"
   # a broken link must also redden AC-002
   cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"; chmod u+w "$m/mkdocs.yml"
   printf '\n[quebrado](nao-existe.md)\n' >>"$m/docs/index.md"
