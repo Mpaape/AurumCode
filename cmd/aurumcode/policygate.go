@@ -54,8 +54,9 @@ func mergedRuleCatalogIDs(builtin []string, dynamic map[string]review.Rule) []st
 // skill that cannot be read (missing, unreadable) is skipped here rather
 // than reported: config.FileContextProvider is the place that already
 // turns a missing, EXPLICITLY configured skill into a loud provider
-// warning for the context block itself (see WrapProviderWithWarnings in
-// runReview/runPRReview) -- this function only adds the citable-rule layer
+// warning for the context block itself (config.BuildContextBlockWithWarnings,
+// called by the evidence step in review_weighing.go, which puts the block in
+// the prompt's evidence) -- this function only adds the citable-rule layer
 // on top of whatever skill content successfully reached the model, and
 // must not duplicate or race that decision.
 func dynamicRulesFromLocalSkills(root string, paths []string, origin string) map[string]review.Rule {

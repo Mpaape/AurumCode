@@ -155,12 +155,9 @@ func reviewContextCacheKey(provider llm.Provider, baseModelIdentity, language, c
 // secret in legible form" holds regardless of which text is hashed, because
 // nothing in the KEY is ever the original text, redacted or not.
 //
-// This calls config.BuildContextBlockWithWarnings directly rather than
-// reading the already-wrapped provider's internals, because the wrapper type
-// WrapProviderWithWarnings returns (internal/config/wrap.go's
-// contextInjectingProvider) is unexported and carries no seam for a caller
-// outside that package to recover its block text from -- this card's paths
-// do not include internal/config. Every provider ConfiguredProviders returns
+// This calls config.BuildContextBlockWithWarnings, the same builder the
+// evidence step (review_weighing.go) uses to put the block in the prompt's
+// evidence; no provider decorator carries the block any more. Every provider ConfiguredProviders returns
 // today (RepoPromptProvider, FileContextProvider, TextContextProvider,
 // PathInstructionsProvider; see internal/config/provider_files.go) reads a
 // local file and does nothing else, so invoking the build a second time
