@@ -66,7 +66,10 @@ cleanup_root() {
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS=-mod=mod
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+# AUR-544: GOCACHE aceita um valor ja exportado pelo chamador (o aceite
+# tests/acceptance/AUR-544.sh compartilha um cache para caber no selado).
+: "${GOCACHE:=$run_dir/gocache}"
+export GOCACHE GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 export GOMAXPROCS=1 GOMEMLIMIT=192MiB
 
@@ -96,11 +99,12 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/analysis internal/analyzer internal/apply internal/changelog \
-    internal/config internal/context internal/git/githubclient internal/llm internal/memory \
-    internal/prompt internal/render internal/review internal/security/redaction internal/testgen \
-    pkg/types
+  # AUR-544: cmd, internal e pkg POR INTEIRO, nunca uma lista enumerada de
+  # subpacotes -- a lista antiga omitia internal/artifacts, dtrack, gate,
+  # grammar, reviewprofile, sbom, supplychain e xbom, que `go list -deps
+  # ./cmd/aurumcode` hoje exige; sem eles o go build tenta resolve-los como
+  # modulo e o GOPROXY=off o reporta como "module lookup disabled".
+  copy "$root" cmd internal pkg
   copy "$root" tests/fixtures/scm/github tests/fixtures/repos/git-demo tests/fixtures/review
 
   # See the note above copy(): the staged copy is scratch from here on, so
