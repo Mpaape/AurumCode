@@ -1,0 +1,7 @@
+gate:
+  fail_on: [warning]
+  inconclusive: block
+review:
+  context:
+    skills:
+      - skills/seguranca.md

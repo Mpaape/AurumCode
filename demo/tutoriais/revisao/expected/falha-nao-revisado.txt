@@ -1,0 +1,9 @@
+binary file, skipped: logo.png
+**Verdict:** Comment
+a file that was not reviewed never counts as approved.
+  - logo.png (binary)
+RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
+aurumcode review: policy gate: review inconclusive (partial_coverage)
+exit_code=1
+RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
+exit_code=0

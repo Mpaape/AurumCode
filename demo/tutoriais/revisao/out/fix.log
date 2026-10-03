@@ -1,0 +1,20 @@
+== fix
+--- antes
+	dbPassword := "hunter2"
+$ aurumcode fix --file sugestoes.json > fix.patch
+exit_code=0
+RESULTADO: fix imprimiu o patch (nada foi escrito no repositorio)
+--- a/app.go
++++ b/app.go
+@@ -6,1 +6,1 @@
+-	dbPassword := "hunter2"
++	dbPassword := os.Getenv("DB_PASSWORD")
+
+git apply --unidiff-zero --check: o patch aplica
+--- depois
+	dbPassword := os.Getenv("DB_PASSWORD")
+$ aurumcode fix --file sugestoes.json
+aurumcode fix: patch does not apply to the working tree: error: patch failed: app.go:6
+error: app.go: patch does not apply
+exit_code=1
+RESULTADO: sugestao velha recusada, sem patch

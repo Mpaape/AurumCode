@@ -1,0 +1,8 @@
+input policy_repository: existe em review.yml
+input policy_ref: existe em review.yml
+policy_ref: SHA fixa, nao um branch
+review.yml nao tem input policy_path: so policy_repository pode declarar a politica
+review.yml: faz o checkout de policy_repository
+review.yml: o checkout vai para .aurumcode-policy
+review.yml: checkout sem persistir credenciais
+review.yml: passa --politica /github/policy ao aurumcode

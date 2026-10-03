@@ -1,0 +1,26 @@
+== analysis-data
+$ aurumcode review --base main --politica /policy
+aurumcode review: politica central: analysis_data do config do repositório foi ignorado: a política central decide sozinha
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=0
+RESULTADO: analysis_data da politica indisponivel e inconclusivo (warn), nunca aprovado
