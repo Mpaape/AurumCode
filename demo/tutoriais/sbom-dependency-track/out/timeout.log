@@ -1,0 +1,34 @@
+== timeout
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+sbom: sbom_app_cyclonedx.json
+exit_code=0
+sbom: CycloneDX 1.7, componentes: semver@7.6.0
+--- servidor falso em 127.0.0.1:8099 (servidor-lento.py): aceita o upload e responde processing=true para sempre
+$ aurumcode review --base main --fail-on error
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: ssor_dtrack: revisão inconclusiva (dtrack_timeout)
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["package-lock.json"]
+    n2["package.json"]
+    n3["src/index.js"]
+    n1 --> n2
+
+```
+No issues found.
+exit_code=1
+RESULTADO: timeout_seconds: 2 vencido com block: inconclusivo e reprovado

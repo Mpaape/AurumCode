@@ -1,0 +1,6 @@
+== falha-catalogo-invalido
+$ aurumcode xbom --type build --repo . --out nao-deve-existir.json
+aurumcode xbom: catalog build (repository): additional.name_pattern is required
+exit_code=2
+RESULTADO: catalogo invalido do repositorio: exit 2, sem voltar ao catalogo embutido
+RESULTADO: nenhum arquivo foi escrito (conferido pelo script)

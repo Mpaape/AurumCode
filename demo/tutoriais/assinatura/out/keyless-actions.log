@@ -1,0 +1,15 @@
+== keyless-actions
+keyless: nao executado aqui, exige OIDC do GitHub Actions (Fulcio/Rekor reais)
+workflow do chamador: workflow/aurumcode-assinado.yml
+uses: workflow reutilizavel fixado em SHA
+permissions do chamador: id-token: write (exigido pelo keyless)
+review.yml nao declara permissions de id-token: quem concede e o chamador
+input security: existe em review.yml
+review.yml instala o Cosign por action fixada em SHA
+review.yml fixa cosign-release v3.1.3
+review.yml chama aurumcode sign sem chave (keyless)
+--- as flags da verificacao keyless existem no Cosign fixado (nao executada)
+cosign verify-blob --certificate-identity-regexp: existe
+cosign verify-blob --certificate-oidc-issuer: existe
+cosign verify-blob --bundle: existe
+RESULTADO: conferencia estatica do workflow e das flags; a assinatura keyless em si nao foi demonstrada

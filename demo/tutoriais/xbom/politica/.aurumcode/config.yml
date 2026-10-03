@@ -1,1 +1,2 @@
-language: pt-BR
+gate:
+  fail_on: [error]

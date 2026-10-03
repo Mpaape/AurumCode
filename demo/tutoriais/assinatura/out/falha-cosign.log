@@ -1,0 +1,6 @@
+== falha-cosign
+$ aurumcode sign --repo . --cosign-bin /fixtures/wrappers/cosign-falha.sh
+aurumcode sign: supplychain: signing sbom /work/sbom_app_cyclonedx.json: cosign sign-blob --yes --bundle /work/sbom_app_cyclonedx.json.sigstore.json -- /work/sbom_app_cyclonedx.json: exit status 1: cosign-falso: nao foi possivel obter identidade para assinar
+exit_code=1
+RESULTADO: sign falhou (exit 1) e nomeou o SBOM sem assinatura
+RESULTADO: nenhum bundle foi deixado no repositorio

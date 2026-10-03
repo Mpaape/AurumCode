@@ -1,0 +1,9 @@
+sbom: CycloneDX 1.7, componentes: semver@7.6.0
+RESULTADO: SBOM CycloneDX 1.7 aceito contra o minimo 1.6 (mesma major)
+aurumcode sbom: sbom: <temporario>: bomFormat="CycloneDX" specVersion="1.7", want bomFormat="CycloneDX" specVersion>="2.0" (mesma major)
+RESULTADO: SBOM 1.7 recusado contra minimo 2.0 (major diferente)
+RESULTADO: nenhum SBOM foi escrito
+must be major.minor (e.g. "1.6"), got "1.6.0"
+RESULTADO: "1.6.0" falha na carga da configuracao, antes do Trivy
+only "cyclonedx" is supported, got "spdx"
+RESULTADO: format: spdx falha na carga da configuracao, antes do Trivy

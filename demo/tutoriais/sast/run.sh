@@ -57,7 +57,7 @@ PY
   echo "--- gate.sources sem sast"
   TUT_POLICY=politica-so-sast
   aurum review --base main --politica /policy
-  echo "(sources=[skills, analysis]: o resultado acima mostra se o achado do Semgrep ainda reprova)"
+  expect_rc 0 "com gate.sources sem sast, o achado do Semgrep e publicado mas nao reprova o gate"
   TUT_POLICY=
 }
 

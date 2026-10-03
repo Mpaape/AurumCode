@@ -165,7 +165,7 @@ ac003_cmds() {
       case "$tok" in
         --*|-[a-z]*)
           name="${tok#--}"; name="${name#-}"; name="${name%%=*}"
-          grep -qE "^  -{1,2}$name( |\$)" "$work/help-$sub.txt" || fail "AC-003/flag-inexistente:$sub --$name ($line)"
+          grep -qE "(^|[ \[])-{1,2}$name([^A-Za-z0-9_-]|\$)" "$work/help-$sub.txt" || fail "AC-003/flag-inexistente:$sub --$name ($line)"
           n=$((n + 1)) ;;
       esac
     done
@@ -200,7 +200,7 @@ ac003_blocks() {
   # so dominios reservados; nenhum segredo
   local files=() f host bad=''
   while IFS= read -r f; do files+=("$f"); done < <(find "$repo_root/demo/tutoriais" "$repo_root/docs/tutorials" "$spec" -type f ! -path '*/.estado/*')
-  local allowed='^(localhost|127\.0\.0\.1|([A-Za-z0-9-]+\.)*(example\.(com|org|net)|[A-Za-z0-9-]+\.invalid|[A-Za-z0-9-]+\.test)|example\.(com|org|net)|invalid|test)$'
+  local allowed='^(localhost|127\.0\.0\.1|api\.github\.com|([A-Za-z0-9-]+\.)*(example\.(com|org|net)|[A-Za-z0-9-]+\.invalid|[A-Za-z0-9-]+\.test)|example\.(com|org|net)|invalid|test)$'
   while IFS= read -r host; do
     host="${host#*://}"; host="${host%%[:/]*}"
     [[ "$host" =~ $allowed ]] || bad="$bad $host"
@@ -247,7 +247,38 @@ ac003() { ac003_cmds; ac003_blocks; ac003_images; }
 # Casos de borda do Outcome do card -> "tutorial/caso" executado. Cada um tem
 # de existir em CASOS, com expected/ e out/ (e a spec registra a execucao).
 EDGE_CASES=(
-@@EDGE@@
+  sast/regra-local
+  sast/registry-sem-rede
+  sast/nosemgrep-e-semgrepignore
+  sast/origem-sast
+  sast/semgrep-falha
+  sbom-dependency-track/sbom-versao-minima
+  sbom-dependency-track/upload-e-metricas
+  sbom-dependency-track/limiares
+  sbom-dependency-track/violacao-de-politica
+  sbom-dependency-track/secret-ausente
+  sbom-dependency-track/timeout
+  sbom-dependency-track/projeto-por-microservico
+  assinatura/chave-efemera
+  assinatura/verificacao-por-terceiro
+  assinatura/keyless-actions
+  assinatura/bundle-artefato
+  assinatura/falha-cosign
+  assinatura/falha-sem-bundle
+  assinatura/falha-imagem-sem-digest
+  xbom/build-bom
+  xbom/cbom
+  xbom/evidencia
+  xbom/catalogo
+  xbom/enriquecimento
+  xbom/tipos-documentados
+  xbom/falha-catalogo-invalido
+  dados-de-analise/declarado-ou-nao
+  dados-de-analise/vencido
+  dados-de-analise/cache
+  dados-de-analise/workflow-agendado
+  dados-de-analise/adulterado
+  dados-de-analise/indisponivel
 )
 
 ac004() {

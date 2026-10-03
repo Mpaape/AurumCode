@@ -1,0 +1,129 @@
+== projeto-por-microservico
+--- servico-a e servico-b enviam para o MESMO projeto (compartilhado)
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+sbom: sbom_app_cyclonedx.json
+exit_code=0
+sbom: CycloneDX 1.7, componentes: ms@2.1.3
+$ aurumcode review --base main --fail-on error
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["package-lock.json"]
+    n2["package.json"]
+    n3["src/index.js"]
+    n1 --> n2
+
+```
+No issues found.
+exit_code=0
+RESULTADO: servico-a enviado
+dependency-track componentes (compartilhado): ms@2.1.3, package-lock.json@None
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+sbom: sbom_app_cyclonedx.json
+exit_code=0
+sbom: CycloneDX 1.7, componentes: semver@7.6.0
+$ aurumcode review --base main --fail-on error
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["package-lock.json"]
+    n2["package.json"]
+    n3["src/index.js"]
+    n1 --> n2
+
+```
+No issues found.
+exit_code=0
+RESULTADO: servico-b enviado ao mesmo projeto
+dependency-track componentes (compartilhado): package-lock.json@None, semver@7.6.0
+RESULTADO: o segundo upload substituiu o primeiro: ms@2.1.3 (servico-a) sumiu do projeto compartilhado (conclusao do script: ms ausente e semver presente)
+--- um projeto por microsservico
+$ aurumcode review --base main --fail-on error
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["package-lock.json"]
+    n2["package.json"]
+    n3["src/index.js"]
+    n1 --> n2
+
+```
+No issues found.
+exit_code=0
+RESULTADO: servico-a no projeto servico-a
+$ aurumcode review --base main --fail-on error
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["package-lock.json"]
+    n2["package.json"]
+    n3["src/index.js"]
+    n1 --> n2
+
+```
+No issues found.
+exit_code=0
+RESULTADO: servico-b no projeto servico-b
+dependency-track componentes (servico-a): ms@2.1.3, package-lock.json@None
+dependency-track componentes (servico-b): package-lock.json@None, semver@7.6.0
+RESULTADO: com um projeto por servico, os dois inventarios coexistem (conclusao do script: ms no projeto servico-a, semver no projeto servico-b)
