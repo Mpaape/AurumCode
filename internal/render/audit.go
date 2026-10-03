@@ -88,14 +88,14 @@ type AuditCoverage struct {
 
 // BuildAuditRecord assembles AC-001's full audit record from one finished
 // review's already-resolved facts. blocking and exceptions are copied (never
-// nil in the result, see ExceptionsApplied's own doc); omitted is sorted so
-// the same run always serializes identically.
-func BuildAuditRecord(policyDigest, workflowSHA, repo, reviewedSHA, model, verdict string, gate AuditGate, blocking []AuditFinding, exceptions []AuditException, complete bool, omitted []string) AuditRecord {
+// nil in the result, see ExceptionsApplied's own doc); the coverage's omitted
+// files are sorted so the same run always serializes identically.
+func BuildAuditRecord(policyDigest, workflowSHA, repo, reviewedSHA, model, verdict string, gate AuditGate, blocking []AuditFinding, exceptions []AuditException, coverage AuditCoverage) AuditRecord {
 	blockingCopy := make([]AuditFinding, len(blocking))
 	copy(blockingCopy, blocking)
 	exceptionsCopy := make([]AuditException, len(exceptions))
 	copy(exceptionsCopy, exceptions)
-	omittedCopy := append([]string{}, omitted...)
+	omittedCopy := append([]string{}, coverage.Omitted...)
 	sort.Strings(omittedCopy)
 	return AuditRecord{
 		PolicyDigest:      policyDigest,
@@ -108,7 +108,7 @@ func BuildAuditRecord(policyDigest, workflowSHA, repo, reviewedSHA, model, verdi
 		BlockingFindings:  blockingCopy,
 		ExceptionsApplied: exceptionsCopy,
 		Coverage: AuditCoverage{
-			Complete: complete,
+			Complete: coverage.Complete,
 			Omitted:  omittedCopy,
 		},
 	}
