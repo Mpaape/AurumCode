@@ -1,0 +1,8 @@
+$ aurumcode review --base main --seguranca
+app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+  origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.
+  correlacao: E2
+  origem: security | avaliacao do modelo: confirmed [E2] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime no terminal.
+  sugestao: Ler a senha do ambiente.
+exit_code=0
+RESULTADO: o relatorio mostra a origem ao lado da avaliacao do modelo (contestado e confirmado), sem gate nada muda de contagem

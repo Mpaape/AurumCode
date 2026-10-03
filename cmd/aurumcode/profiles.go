@@ -71,7 +71,9 @@ func resolveReviewProfiles(cwd string, flagNames []string, flagSet bool, repoCfg
 // emphasis and instructions. It changes no request option and inspects no
 // response: the model still answers the same prompt shape, with the profile's
 // focus prepended as declared review emphasis. Name() is distinct per profile
-// so caches and cost accounting keep the passes apart.
+// so caches and cost accounting keep the passes apart. It alters the
+// request, so it deliberately does not implement llm.Unwrapper: a
+// capability found behind it would bypass the prefix.
 type profileProvider struct {
 	base    llm.Provider
 	profile reviewprofile.Profile
@@ -137,6 +139,7 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 		if merged.Verdict == "" {
 			merged.Verdict = res.Verdict
 		}
+		merged.EvidenceAssessments = mergeAssessments(merged.EvidenceAssessments, res.EvidenceAssessments)
 		merged.Strengths = append(merged.Strengths, res.Strengths...)
 		merged.Suggestions = append(merged.Suggestions, res.Suggestions...)
 		merged.Limitations = append(merged.Limitations, res.Limitations...)

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Tutorial executavel: revisao (AUR-561). Veja ../README.md e docs/tutorials/revisao.md.
 #
-#   run.sh primeira-revisao|sem-provedor|com-provedor|fix|pr-workflow|falha-nao-revisado
+#   run.sh primeira-revisao|sem-provedor|com-provedor|fix|pr-workflow|falha-nao-revisado|modelo-pondera
 #   run.sh all | --check | limpar
 set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(primeira-revisao sem-provedor com-provedor fix pr-workflow falha-nao-revisado)
+CASOS=(primeira-revisao sem-provedor com-provedor fix pr-workflow falha-nao-revisado modelo-pondera)
 
 # 1. Primeira revisao local: uma troca de mensagem, modelo (fixture) sem achados.
 caso_primeira_revisao() {
@@ -88,6 +88,16 @@ caso_falha_nao_revisado() {
   tut_repo falha-nao-revisado-gate repo-exemplo/base repo-exemplo/gate-estrito repo-exemplo/binario
   aurum review --base main
   expect_rc 1 "com gate.inconclusive: block, cobertura parcial reprova"
+}
+
+# 7. O modelo pondera a evidencia: o passe de seguranca e o catalogo embutido rodam antes do
+# modelo e os dois achados entram no prompt como evidencias [E1] e [E2]. O modelo contesta
+# uma e confirma a outra. Sem politica e sem gate.triage, so o parecer muda: nada e rebaixado.
+caso_modelo_pondera() {
+  tut_repo modelo-pondera repo-exemplo/base repo-exemplo/pondera
+  TUT_FIXTURE=fixture-pondera.json
+  aurum review --base main --seguranca
+  expect_rc 0 "o relatorio mostra a origem ao lado da avaliacao do modelo (contestado e confirmado), sem gate nada muda de contagem"
 }
 
 tut_main "$@"

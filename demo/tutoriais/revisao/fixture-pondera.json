@@ -1,0 +1,51 @@
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "[E2] origem=security regra=security/hardcoded-secret",
+        "response": {
+          "verdict": "comment",
+          "strengths": [],
+          "issues": [],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "O modelo avaliou as duas evidencias deterministicas.",
+          "evidence_assessments": [
+            {
+              "evidence_id": "E1",
+              "status": "disputed",
+              "justification": "O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.",
+              "correlates_with": [
+                "E2"
+              ],
+              "priority": "low",
+              "suggestion": "Mover o exemplo para um arquivo de teste."
+            },
+            {
+              "evidence_id": "E2",
+              "status": "confirmed",
+              "justification": "A linha atribui uma senha literal a dbPassword e a imprime no terminal.",
+              "correlates_with": [
+                "E1"
+              ],
+              "priority": "high",
+              "suggestion": "Ler a senha do ambiente."
+            }
+          ]
+        }
+      }
+    ],
+    "default": {
+      "verdict": "approve",
+      "strengths": [],
+      "issues": [],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "Nenhuma evidencia deterministica recebida."
+    }
+  }
+}

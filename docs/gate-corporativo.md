@@ -314,6 +314,15 @@ exceptions:
     expires: 2026-12-31
 ```
 
+Quando o modelo contesta um achado determinístico (ele recebe os achados do
+passe de segurança, da análise embutida e do SAST antes de responder), o
+parecer e a auditoria (`proposed_exceptions`) trazem uma **exceção proposta**
+neste mesmo formato, com a regra, o caminho e o motivo do modelo, e
+`owner`/`expires` a preencher. Ela nunca é aplicada: o achado continua
+reprovando até que alguém copie a entrada para a política pelo fluxo abaixo.
+A contestação do modelo nunca rebaixa um achado sob a política central
+(`gate.triage` só vale sem política; veja docs/configuration.md).
+
 Os seis campos são obrigatórios; `path` é exato (sem glob); `expires` é
 `YYYY-MM-DD` em UTC. Vencida, a exceção para de valer sozinha e o achado volta a
 reprovar. O fluxo: abra um PR no repositório da política com a entrada acima e

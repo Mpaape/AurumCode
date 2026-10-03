@@ -11,6 +11,7 @@ type EvidenceItem struct {
 	RuleID   string
 	File     string
 	Line     int
+	Side     string // LEFT for a removed line; empty or RIGHT for an added one
 	Severity string
 	Snippet  string // Redacted excerpt of the offending code
 }
@@ -33,34 +34,48 @@ type budgetedSlotData struct {
 // renderBudgetedSlot renders items into the slot named slotName, admitting
 // them in order while the whole section stays within maxTokens. An item
 // that does not fit is counted, never cut, and the section states how many
-// were omitted. No items renders nothing at all.
-func renderBudgetedSlot(slotName string, items []string, maxTokens int, est TokenEstimator) string {
+// were omitted. No items renders nothing at all. admitted holds the indexes
+// of the items the text carries.
+func renderBudgetedSlot(slotName string, items []string, maxTokens int, est TokenEstimator) (text string, admitted []int) {
 	if len(items) == 0 {
-		return ""
+		return "", nil
 	}
 	data := budgetedSlotData{}
-	for _, item := range items {
-		admitted := append(append([]string(nil), data.Items...), item)
+	for i, item := range items {
+		candidateItems := append(append([]string(nil), data.Items...), item)
 		// Measure with every not-yet-admitted item counted as omitted: the
 		// final omitted count can only be smaller, so the section that is
 		// finally rendered never exceeds what was measured here.
-		candidate := budgetedSlotData{Items: admitted, Omitted: len(items) - len(admitted)}
+		candidate := budgetedSlotData{Items: candidateItems, Omitted: len(items) - len(candidateItems)}
 		if est.Estimate(renderSlot(slotName, candidate)) > maxTokens {
 			continue
 		}
-		data.Items = admitted
+		data.Items = candidateItems
+		admitted = append(admitted, i)
 	}
 	data.Omitted = len(items) - len(data.Items)
-	return renderSlot(slotName, data)
+	return renderSlot(slotName, data), admitted
 }
 
-// renderEvidenceSlot renders the deterministic evidence section.
-func renderEvidenceSlot(evidence []EvidenceItem, maxTokens int, est TokenEstimator) string {
+// EvidenceAdmittedMetaKey is the PromptParts.Meta key listing, comma
+// separated, the ids of the evidence items the prompt text actually
+// carries. An item the section's ceiling omitted is not among them: the
+// model never read it, so it may not assess it.
+const EvidenceAdmittedMetaKey = "evidence_admitted"
+
+// renderEvidenceSlot renders the deterministic evidence section and returns
+// the ids of the items it admitted.
+func renderEvidenceSlot(evidence []EvidenceItem, maxTokens int, est TokenEstimator) (string, []string) {
 	items := make([]string, 0, len(evidence))
 	for _, e := range evidence {
 		items = append(items, renderSlot(slotEvidenceItem, e))
 	}
-	return renderBudgetedSlot(slotDeterministicEvidence, items, maxTokens, est)
+	text, admitted := renderBudgetedSlot(slotDeterministicEvidence, items, maxTokens, est)
+	ids := make([]string, 0, len(admitted))
+	for _, i := range admitted {
+		ids = append(ids, evidence[i].ID)
+	}
+	return text, ids
 }
 
 // renderToolsSlot renders the available-tools section.
@@ -69,5 +84,6 @@ func renderToolsSlot(tools []ToolOffer, maxTokens int, est TokenEstimator) strin
 	for _, t := range tools {
 		items = append(items, renderSlot(slotToolItem, t))
 	}
-	return renderBudgetedSlot(slotAvailableTools, items, maxTokens, est)
+	text, _ := renderBudgetedSlot(slotAvailableTools, items, maxTokens, est)
+	return text
 }

@@ -416,8 +416,12 @@ func codebaseContextJSON(resolve func() (*codebasectx.Pack, error)) string {
 // so --base can never show a different outcome than the PR comment or the
 // formal review publish for the identical, already-filtered result (AUR-517
 // AC-003).
-func renderPass(result *types.ReviewResult, diff *types.Diff, language string) (tldr string, diagram string) {
-	tldr = render.Summary(localVerdict(result), language)
+func renderPass(result *types.ReviewResult, diff *types.Diff, language, verdict string) (tldr string, diagram string) {
+	labeled := localVerdict(result)
+	if labeled != nil {
+		labeled.Verdict = verdict
+	}
+	tldr = render.Summary(labeled, language)
 	if d, err := render.Mermaid(diff); err == nil {
 		diagram = d
 	}
@@ -553,8 +557,9 @@ func renderSuggestions(result *types.ReviewResult, diff *types.Diff, language st
 // render pass: the summary block, then a fenced ```mermaid block when a
 // diagram was produced. It is deterministic and derives only from result and
 // diff, so the same input always prints the same bytes.
-func renderLocalReport(result *types.ReviewResult, diff *types.Diff, language string) string {
-	tldr, diagram := renderPass(result, diff, language)
+// verdict is canonicalVerdict(result), or the one aligned with the gate.
+func renderLocalReport(result *types.ReviewResult, diff *types.Diff, language, verdict string) string {
+	tldr, diagram := renderPass(result, diff, language, verdict)
 	var b strings.Builder
 	if strings.TrimSpace(tldr) != "" {
 		b.WriteString(tldr)

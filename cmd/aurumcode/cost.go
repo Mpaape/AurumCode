@@ -135,6 +135,11 @@ type fixedModelProvider struct {
 
 var _ llm.ModelResolver = (*fixedModelProvider)(nil)
 
+// Unwrap implements llm.Unwrapper: the decorator only names the model the
+// cost is priced for and forwards every request unchanged, so a capability
+// of the provider behind it (separate system/user messages) stays visible.
+func (f *fixedModelProvider) Unwrap() llm.Provider { return f.Provider }
+
 // ResolveModel implements llm.ModelResolver.
 func (f *fixedModelProvider) ResolveModel(llm.Options) string {
 	return f.model

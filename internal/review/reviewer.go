@@ -173,6 +173,7 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	if err != nil {
 		return nil, err
 	}
+	weighAssessments(result, admittedEvidence(prepared.parts))
 	outcome, err := r.applyGates(prepared.diff, result)
 	if err != nil {
 		return nil, err
@@ -476,6 +477,17 @@ func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
 		if issue.Assessment != nil {
 			issue.Assessment.EvidenceID = f.Redact(issue.Assessment.EvidenceID)
 			issue.Assessment.Justification = redactLinesKeepingMarkers(f, issue.Assessment.Justification)
+		}
+	}
+	for i := range result.EvidenceAssessments {
+		a := &result.EvidenceAssessments[i]
+		a.EvidenceID = f.Redact(a.EvidenceID)
+		a.Status = f.Redact(a.Status)
+		a.Priority = f.Redact(a.Priority)
+		a.Justification = redactLinesKeepingMarkers(f, a.Justification)
+		a.Suggestion = redactLinesKeepingMarkers(f, a.Suggestion)
+		for j := range a.Correlates {
+			a.Correlates[j] = f.Redact(a.Correlates[j])
 		}
 	}
 	for i := range result.Suggestions {
