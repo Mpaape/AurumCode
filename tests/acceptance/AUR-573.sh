@@ -17,7 +17,7 @@
 #
 # EXIT CODES: 0 holds; 1 behavioral RED; 64 unknown selector; 79 infrastructure.
 set -Eeuo pipefail
-export LC_ALL=C
+# LC_ALL is deliberately not forced to C: the nested acceptances match UTF-8 words.
 
 readonly card='AUR-573'
 selector="${1:-all}"
