@@ -33,6 +33,9 @@ type Outcome struct {
 	Engine   Engine
 	Findings []Finding
 	Reason   string
+	// Version is the report's engine identity (binary version and rule
+	// base), for the caller's result digest.
+	Version string
 }
 
 // Executor runs registered engines. A nil Command runs the real binaries.
@@ -53,7 +56,7 @@ func (x Executor) Scan(ctx context.Context, e Engine, req Request) Outcome {
 	if reason := FailureReason(e, report, err); reason != "" {
 		return Outcome{Engine: e, Reason: reason}
 	}
-	return Outcome{Engine: e, Findings: report.Findings}
+	return Outcome{Engine: e, Findings: report.Findings, Version: report.Version}
 }
 
 // FailureReason names why a scan is inconclusive, "" when it is

@@ -548,7 +548,7 @@ chamada ao modelo (a política `politica-invalida` lista `supply`):
 
 <!-- saida: falha-fonte-invalida -->
 ```text
-aurumcode review: central policy: parsing /policy/.aurumcode/config.yml: gate.sources: unknown source "supply" (accepted: skills, analysis, sast)
+aurumcode review: central policy: parsing /policy/.aurumcode/config.yml: gate.sources: unknown source "supply" (accepted: skills, analysis, sast, secrets)
 exit_code=1
 RESULTADO: gate.sources com valor desconhecido falha antes de qualquer chamada ao modelo
 ```

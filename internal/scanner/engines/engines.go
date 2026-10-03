@@ -4,6 +4,8 @@
 package engines
 
 import (
+	// Gitleaks, the secrets engine over the reviewed commit range.
+	_ "github.com/Mpaape/AurumCode/internal/scanner/gitleaks"
 	// Semgrep, the SAST engine.
 	_ "github.com/Mpaape/AurumCode/internal/scanner/semgrep"
 )

@@ -19,6 +19,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [excecoes](../../docs/tutorials/excecoes.md) | `excecoes/` | ver `excecoes/run.sh` |
 | [auditoria-sarif](../../docs/tutorials/auditoria-sarif.md) | `auditoria-sarif/` | ver `auditoria-sarif/run.sh` |
 | [reaproveitamento](../../docs/tutorials/reaproveitamento.md) | `reaproveitamento/` | ver `reaproveitamento/run.sh` |
+| [segredos](../../docs/tutorials/segredos.md) | `segredos/` | segredo-no-diff, segredo-so-no-historico, allow-sob-politica, ignore-sob-politica, binario-ausente |
 | [sast](../../docs/tutorials/sast.md) | `sast/` | regra-local, registry-sem-rede, nosemgrep-e-semgrepignore, origem-sast, semgrep-falha |
 | [sbom-dependency-track](../../docs/tutorials/sbom-dependency-track.md) | `sbom-dependency-track/` | up, sbom-versao-minima, upload-e-metricas, limiares, violacao-de-politica, secret-ausente, timeout, projeto-por-microservico, down |
 | [assinatura](../../docs/tutorials/assinatura.md) | `assinatura/` | chave-efemera, verificacao-por-terceiro, keyless-actions, bundle-artefato, falha-cosign, falha-sem-bundle, falha-imagem-sem-digest |
