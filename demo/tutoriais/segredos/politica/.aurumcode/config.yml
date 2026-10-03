@@ -1,0 +1,7 @@
+quality_gates:
+  scanners:
+    - engine: gitleaks
+      required: true
+gate:
+  fail_on: [error]
+  sources: [secrets]

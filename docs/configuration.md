@@ -515,10 +515,14 @@ quality_gates:
   fixada por digest no lock (o pull por digest falha se os bytes divergirem),
   confere `gitleaks version` contra a versão do lock e faz checkout do PR com
   histórico completo (`fetch-depth: 0`).
-- **Limite atual:** o review ainda não preenche o intervalo de commits da
-  requisição da engine; até isso ser ligado, uma entrada `gitleaks` habilitada
-  fica sempre inconclusiva (`secrets_execution_error`) — falha fechada, nunca
-  "zero achados".
+- O review entrega à engine o intervalo revisado: no `--pr`, a base e a cabeça
+  do pull request (`AURUMCODE_BASE_SHA`, `GITHUB_SHA`); no `--base`, a ref e o
+  `HEAD` resolvidos para ids completos. A identidade da engine entra no digest
+  de evidência da chave do cache, então um parecer dado com outra versão ou
+  outra base de regras nunca é reaproveitado.
+- A imagem do produto (`Dockerfile`) copia o binário da imagem fixada por
+  digest no lock e o build falha se `gitleaks version` não for a do lock.
+  Tutorial: [Segredos com gitleaks](tutorials/segredos.md).
 
 ## Trilha de auditoria e SARIF (AUR-521)
 
