@@ -161,7 +161,6 @@ func renderCoverageDeclaration(coverages []fileCoverage, prosePaths []string) st
 	}
 
 	var sb strings.Builder
-	sb.WriteString("## Review Coverage\n")
 	sb.WriteString(fmt.Sprintf("- Code files in this diff: %d\n", len(coverages)))
 	sb.WriteString(fmt.Sprintf("- Code files fully reviewed (every hunk included): %d\n", len(complete)))
 	sb.WriteString(fmt.Sprintf("- Code files PARTIALLY reviewed (some hunks omitted by the token budget -- findings may miss the omitted hunks): %d\n", len(partial)))
@@ -182,7 +181,7 @@ func renderCoverageDeclaration(coverages []fileCoverage, prosePaths []string) st
 	for _, p := range prosePaths {
 		sb.WriteString("  - " + p + "\n")
 	}
-	return sb.String()
+	return renderSlot(slotCoverage, sb.String())
 }
 
 // coverageDeclarationFixedTokens estimates the part of the coverage

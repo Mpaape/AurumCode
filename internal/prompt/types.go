@@ -19,6 +19,15 @@ type BuildOptions struct {
 	MemoryNotes     string // Untrusted, attributed observations from review memory
 	Language        string // Human-facing review language, e.g. "pt-BR"
 	ChangeScope     string // Deterministic scope classification for the review
+	// Evidence is the deterministic, already-redacted findings offered to
+	// the model for assessment; empty renders no section.
+	Evidence []EvidenceItem
+	// Tools are the tools the model may ask for, with declared cost;
+	// empty renders no section.
+	Tools []ToolOffer
+	// RepositoryContext is the rendered repository context block
+	// (RenderRepositoryContext); empty renders no section.
+	RepositoryContext string
 }
 
 // TokenEstimator estimates token counts for text
