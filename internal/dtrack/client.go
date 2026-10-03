@@ -316,6 +316,10 @@ type ProjectMetrics struct {
 	Critical              *int `json:"critical"`
 	High                  *int `json:"high"`
 	PolicyViolationsTotal *int `json:"policyViolationsTotal"`
+	// LastOccurrence is the epoch-millisecond instant the server last
+	// (re)calculated this project's metrics (AUR-570). nil = not
+	// reported, which settle.go never reads as fresh.
+	LastOccurrence *int64 `json:"lastOccurrence"`
 }
 
 // ProjectMetrics reads GET /api/v1/metrics/project/{project}/current for
@@ -414,6 +418,9 @@ type Outcome struct {
 	Critical              int
 	High                  int
 	PolicyViolationsTotal int
+	// Notes are stable, non-server-authored remarks a gate may publish
+	// (AUR-570: the metrics refresh was unavailable to the API key).
+	Notes []string
 }
 
 // Reason tokens Run's Outcome.InconclusiveReason ever carries -- stable,
@@ -423,6 +430,9 @@ const (
 	ReasonHTTPError         = "dtrack_http_error"
 	ReasonTimeout           = "dtrack_timeout"
 	ReasonMetricsIncomplete = "dtrack_metrics_incomplete"
+	// ReasonMetricsUnsettled (AUR-570): the server's metrics never
+	// settled (fresh and stable) within timeout_seconds.
+	ReasonMetricsUnsettled = "dtrack_metrics_unsettled"
 )
 
 // Run performs the full AUR-550 sequence against one already-built
@@ -435,6 +445,7 @@ const (
 func Run(ctx context.Context, client *Client, project string, bom []byte, thresholds Thresholds, pollInterval, timeout time.Duration) Outcome {
 	out := Outcome{Active: true}
 
+	uploadedAt := client.now()
 	token, err := client.Upload(ctx, project, bom)
 	if err != nil {
 		out.Inconclusive = true
@@ -448,7 +459,10 @@ func Run(ctx context.Context, client *Client, project string, bom []byte, thresh
 		return out
 	}
 
-	metrics, err := client.ProjectMetrics(ctx, project)
+	// AUR-570 MUT-001's own anchor: bom/token's processing:false does not
+	// mean the policy evaluation and metrics recalculation finished, so
+	// the metrics are only read once they are fresh and stable.
+	metrics, err := client.SettledMetrics(ctx, project, uploadedAt, pollInterval, timeout, &out.Notes)
 	if err != nil {
 		out.Inconclusive = true
 		out.InconclusiveReason = reasonFor(err)
@@ -474,6 +488,8 @@ func reasonFor(err error) string {
 	switch {
 	case errors.Is(err, ErrTimeout):
 		return ReasonTimeout
+	case errors.Is(err, ErrMetricsUnsettled):
+		return ReasonMetricsUnsettled
 	case errors.Is(err, ErrUnreachable):
 		return ReasonUnreachable
 	case errors.Is(err, ErrHTTPStatus):

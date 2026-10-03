@@ -79,14 +79,17 @@ func (f *dtrackFakeServer) handler() http.HandlerFunc {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/bom/token/"):
 			n := f.pollCalls.Add(1)
 			_ = json.NewEncoder(w).Encode(map[string]bool{"processing": n <= f.pendingPolls})
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/refresh"):
+			// AUR-570: the optional metrics refresh is accepted, not counted.
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/metrics/project/"):
 			f.metricsCalls.Add(1)
 			if f.metricsIncomplete {
-				_ = json.NewEncoder(w).Encode(map[string]int{})
+				_ = json.NewEncoder(w).Encode(map[string]int64{"lastOccurrence": 4102444800000})
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]int{
-				"critical": f.critical, "high": f.high, "policyViolationsTotal": f.violations,
+			_ = json.NewEncoder(w).Encode(map[string]int64{
+				"critical": int64(f.critical), "high": int64(f.high), "policyViolationsTotal": int64(f.violations),
+				"lastOccurrence": 4102444800000, // AUR-570: settled, later than any upload
 			})
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -220,8 +223,8 @@ func TestAUR550WithinLimitsApproves(t *testing.T) {
 	if !strings.Contains(combined, "ssor_dtrack: aprovado") {
 		t.Fatalf("expected an explicit ssor_dtrack approval line:\n%s", combined)
 	}
-	if fs.uploadCalls.Load() != 1 || fs.metricsCalls.Load() != 1 {
-		t.Fatalf("expected exactly one upload and one metrics call, got upload=%d metrics=%d", fs.uploadCalls.Load(), fs.metricsCalls.Load())
+	if fs.uploadCalls.Load() != 1 || fs.metricsCalls.Load() != 2 {
+		t.Fatalf("expected one upload and two coinciding metrics reads, got upload=%d metrics=%d", fs.uploadCalls.Load(), fs.metricsCalls.Load())
 	}
 	if fs.pollCalls.Load() < 2 {
 		t.Fatalf("expected at least 2 poll calls (processing -> done), got %d", fs.pollCalls.Load())
