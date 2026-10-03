@@ -228,7 +228,7 @@ run_mut001() {
 # fabricated finding must surface and AC-003 must fall.
 run_mut002() {
   mutated_call 'MUT-002' \
-    's/result\.Limitations = append(result\.Limitations, modelInvalidOutputNotice(reviewLanguage, string(parseErr\.Kind)))/result.Issues = append(result.Issues, types.ReviewIssue{File: "app.go", Line: 2, Severity: "error", Message: "AUR505-FABRICATED"})/' \
+    's/p\.result\.Limitations = append(p\.result\.Limitations, modelInvalidOutputNotice(p\.reviewLanguage, string(parseErr\.Kind)))/p.result.Issues = append(p.result.Issues, types.ReviewIssue{File: "app.go", Line: 2, Severity: "error", Message: "AUR505-FABRICATED"})/' \
     'AC-003' 'AUR505-FABRICATED'
 }
 
