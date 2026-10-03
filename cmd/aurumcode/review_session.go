@@ -159,6 +159,7 @@ type reviewState struct {
 	// its own prompt slot.
 	repositoryContext  string
 	proposedExceptions string
+	triageDemoted      int                 // findings the model's dispute demoted (gate.triage)
 	rawIssues          []types.ReviewIssue // verdict-reuse snapshot, before rule config
 	sastOrigin         string
 	sastIssues         []types.ReviewIssue

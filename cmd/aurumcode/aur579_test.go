@@ -17,6 +17,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // aur579Assessments answers about the three offered evidence items of the
@@ -299,5 +300,54 @@ func readJSON(t *testing.T, path string, v any) {
 	}
 	if err := json.Unmarshal(data, v); err != nil {
 		t.Fatalf("%s: %v\n%s", path, err, data)
+	}
+}
+
+// When the repository's triage demoted the only finding and the gate passes,
+// the terminal verdict follows the gate, as the --pr review event does.
+func TestAUR579VerdictFollowsTheGateAfterTriage(t *testing.T) {
+	aur579Repo(t)
+	t.Setenv("AURUMCODE_LLM_FIXTURE", aur579Fixture(t, aur579Assessments))
+	cfg := "gate:\n  fail_on: [high]\n  triage:\n    analysis: model\n"
+	if err := os.MkdirAll(".aurumcode", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(".aurumcode", "config.yml"), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut := aur579Review(t, nil)
+	if code != 0 {
+		t.Fatalf("exit=%d; stderr=%s", code, errOut)
+	}
+	if strings.Contains(out, "Changes requested") || !strings.Contains(out, "**Verdict:** Comment") {
+		t.Fatalf("the gate passed after the triage; the report must not request changes:\n%s", out)
+	}
+	if gateAlignedVerdict("changes_requested", 0, &gateDecision{}) != "changes_requested" {
+		t.Fatal("without a demotion the verdict is the review's own")
+	}
+	if gateAlignedVerdict("changes_requested", 1, &gateDecision{Fail: true}) != "changes_requested" {
+		t.Fatal("a failing gate keeps requesting changes")
+	}
+}
+
+// The published --pr body shows, per finding, the engine's origin beside the
+// model's assessment (the terminal's renderer) and the proposed exceptions as
+// their own block.
+func TestAUR579PublishedBodyCarriesAssessmentAndProposal(t *testing.T) {
+	result := &types.ReviewResult{Issues: []types.ReviewIssue{{
+		File: "app.go", Line: 4, Severity: "error", RuleID: "analysis/hardcoded-secret", Message: "segredo", Origin: "analysis",
+		Assessment: &types.EvidenceAssessment{EvidenceID: "E1", Status: types.AssessmentDisputed, Justification: "valor de exemplo"},
+	}}}
+	body := formatPublishedReviewBody(result, nil, "pt-BR", false, "")
+	if !strings.Contains(body, "origem: analysis | avaliacao do modelo: disputed [E1] - valor de exemplo") {
+		t.Fatalf("body lacks origin beside assessment:\n%s", body)
+	}
+	proposal := "Excecoes propostas pelo modelo (nao aplicadas).\nexceptions:\n  - rule: \"analysis/hardcoded-secret\"\n"
+	with := appendProposedExceptions(body, proposal)
+	if !strings.Contains(with, "```text\n"+proposal+"```\n") {
+		t.Fatalf("the proposal must be its own block:\n%s", with)
+	}
+	if appendProposedExceptions(body, "") != body {
+		t.Fatal("no proposal, no change")
 	}
 }
