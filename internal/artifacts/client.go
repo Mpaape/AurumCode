@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/Mpaape/AurumCode/internal/config"
 )
 
 // Reason codes of an unusable Outcome. Callers turn any of them into the
@@ -23,8 +25,9 @@ const (
 	ReasonInvalid        = "analysis_data_invalid"
 )
 
-// DefaultAPIBase is the GitHub REST API root.
-const DefaultAPIBase = "https://api.github.com"
+// DefaultAPIBase is the GitHub REST API root default; the literal lives only
+// in internal/config, next to the validation shared with the PR client.
+const DefaultAPIBase = config.DefaultGitHubAPIURL
 
 // maxClockSkew tolerates a runner clock slightly behind the publisher's.
 const maxClockSkew = 10 * time.Minute
@@ -32,7 +35,11 @@ const maxClockSkew = 10 * time.Minute
 // Options configures Resolve. APIBase is injectable so tests point it at a
 // local fake server; no real network is ever needed to exercise this code.
 type Options struct {
-	APIBase    string // DefaultAPIBase when empty
+	// APIBase empty, or equal to DefaultAPIBase, means "not chosen by the
+	// caller": the root then comes from AURUMCODE_GITHUB_API_URL (default
+	// DefaultAPIBase). Any other value is used as given. Both are validated
+	// by config.ValidateGitHubAPIURL.
+	APIBase    string
 	Repository string // owner/name
 	Token      string // optional; sent only to APIBase, never to asset hosts
 	CacheDir   string // where verified artifacts live; temp dir when empty
@@ -130,6 +137,10 @@ func Resolve(ctx context.Context, o Options) Outcome {
 	}
 
 	rel, relErr := newestRelease(ctx, hc, o)
+	if errors.Is(relErr, errInvalidAPIBase) {
+		out.Reason, out.Detail = ReasonInvalid, relErr.Error()
+		return out
+	}
 	if relErr != nil {
 		// Offline fallback: a previously verified copy is still subject to
 		// the same age limit below. No copy, no data: inconclusive.
@@ -253,10 +264,29 @@ func fail(out Outcome, err error) Outcome {
 	return out
 }
 
+// errInvalidAPIBase marks a configuration failure (never a network one), so
+// Resolve does not fall back to a cached copy fetched from somewhere else.
+var errInvalidAPIBase = errors.New("invalid GitHub API address")
+
+func apiBase(o Options) (string, error) {
+	if o.APIBase == "" || o.APIBase == DefaultAPIBase {
+		base, err := config.GitHubAPIURL(os.Getenv)
+		if err != nil {
+			return "", fmt.Errorf("%w: %v", errInvalidAPIBase, err)
+		}
+		return base, nil
+	}
+	base, err := config.ValidateGitHubAPIURL(o.APIBase)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", errInvalidAPIBase, err)
+	}
+	return base, nil
+}
+
 func newestRelease(ctx context.Context, hc *http.Client, o Options) (*release, error) {
-	api := strings.TrimRight(o.APIBase, "/")
-	if api == "" {
-		api = DefaultAPIBase
+	api, err := apiBase(o)
+	if err != nil {
+		return nil, err
 	}
 	raw, err := getBytes(ctx, hc, api+"/repos/"+o.Repository+"/releases?per_page=100", o.Token)
 	if err != nil {
