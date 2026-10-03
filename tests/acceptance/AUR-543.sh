@@ -160,20 +160,22 @@ apply_mutation_ac001() {
     'sum := sha256.Sum256([]byte(content[:0] + "aur543-mut-001-constant-digest-input"))'
 }
 
-# AC-001-MUT-002: edit a USER-HALF fixed header literal -- buildUserContent's
-# own "## Code Changes" line (internal/prompt/builder.go) -- the specific
-# gap an independent review found in this card's first cut, where the
-# digest covered only the system-half template and every literal
-# buildUserContent/fixedOverhead write directly as Go string literals was
-# invisible to it. TestAUR543B1FixedContentCoversUserHalfAndChangeScope
-# asserts the exact string "## Code Changes" is present in the hashed
-# content; this mutation removes it, so that assertion -- not a digest
-# value comparison -- is what must go RED.
+# AC-001-MUT-002: edit a USER-HALF fixed header literal -- the "## Code
+# Changes" title of the user message. It used to be a Go string literal in
+# buildUserContent (internal/prompt/builder.go); every section title now
+# lives in the review template, in the user_header slot of
+# internal/prompt/templates/review.md (the system half spells it "## Code
+# changes", so the capitalized anchor is unique). Same semantics as before:
+# a fixed user-half header the digest must cover.
+# TestAUR543B1FixedContentCoversUserHalfAndChangeScope asserts the exact
+# string "## Code Changes" is present in the hashed content; this mutation
+# removes it, so that assertion -- not a digest value comparison -- is what
+# must go RED.
 apply_mutation_ac001_mut002() {
   apply_literal_mutation \
-    "$run_dir/root/internal/prompt/builder.go" \
-    'result.WriteString("## Code Changes\n\n")' \
-    'result.WriteString("## AUR543 Mutated User-Half Header\n\n")'
+    "$run_dir/root/internal/prompt/templates/review.md" \
+    '## Code Changes' \
+    '## AUR543 Mutated User-Half Header'
 }
 
 # N1-MUT-001: drop the digest-error fold-in in cmd/aurumcode/main.go --

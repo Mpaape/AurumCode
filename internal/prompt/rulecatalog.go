@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/review/rules"
 )
 
 // This file gives the review prompt the one thing it never had: the list
@@ -28,66 +30,50 @@ import (
 // citation presented as true. It removes the cause: the model now picks
 // from a closed list it was given.
 //
-// WHY THIS IS A MIRROR AND NOT AN IMPORT
+// WHERE THE IDS COME FROM
 //
-// The catalog itself lives in internal/review/rules/*.yml behind
-// internal/review.RulesLoader, and internal/review already imports this
-// package (reviewer.go builds a PromptBuilder), so `prompt` importing
-// `review` is an import cycle. Injection by the caller would mean editing
-// internal/review, which this card does not own. So the ids are mirrored
-// here as compile-time data, and tests/unit/AUR-461.go asserts SET
-// EQUALITY between this slice and review.NewRulesLoader().GetAll(): a rule
-// added, renamed or removed in the YAML without the matching edit here
-// fails that test, which is exactly what AC-001 asks for ("uma regra nova
-// sem entrada no prompt quebre o build"). A dynamic load could not fail
-// that way -- it would agree with itself by construction.
+// The catalog lives in internal/review/rules/*.yml. The ids are read from
+// those same embedded files through the internal/review/rules package (a
+// leaf package, so there is no import cycle with internal/review, which
+// imports this one): a rule added, renamed or removed in the YAML reaches
+// the prompt with no second edit, and tests/unit/AUR-461.go still asserts
+// set equality with review.NewRulesLoader().GetAll().
 //
-// SetRuleCatalog below is the seam for the day internal/review can hand
-// its live loader down (a later card owning that file), without another
-// change to this package's callers.
+// SetRuleCatalog below is the seam for a caller that extends the list
+// (AUR-519's dynamic skill-section ids).
 
-// DefaultRuleCatalog is the mirror of the embedded review catalog:
-// every id of internal/review/rules/{security,quality,performance}.yml,
-// sorted, exactly as RulesLoader.Get indexes them. Keep it sorted and keep
-// it complete -- tests/unit/AUR-461.go proves both.
-var DefaultRuleCatalog = []string{
-	"performance/excessive-allocation",
-	"performance/inefficient-algorithm",
-	"performance/inefficient-loop",
-	"performance/memory-leak",
-	"performance/n-plus-one",
-	"quality/dead-code",
-	"quality/duplicate-code",
-	"quality/high-complexity",
-	"quality/long-function",
-	"quality/magic-numbers",
-	"quality/missing-error-handling",
-	"quality/poor-naming",
-	"quality/unused-variable",
-	"security/command-injection",
-	"security/hardcoded-secret",
-	"security/insecure-random",
-	"security/missing-auth",
-	"security/path-traversal",
-	"security/sql-injection",
-	"security/weak-crypto",
-	"security/xss",
+// DefaultRuleCatalog is every id of the embedded review catalog, sorted,
+// exactly as RulesLoader.Get indexes them.
+var DefaultRuleCatalog = mustCatalogIDs()
+
+// mustCatalogIDs loads the embedded catalog ids at initialization. The
+// files are compiled into the binary, so a failure is a build defect that
+// must stop the process rather than send a prompt with no closed list.
+func mustCatalogIDs() []string {
+	ids, err := rules.IDs()
+	if err != nil {
+		panic(fmt.Sprintf("review rule catalog unavailable: %v", err))
+	}
+	return ids
 }
 
-// MaxRuleCatalogTokens is the ceiling AC-002 puts on the rendered catalog
-// section. The current 21-rule catalog renders at roughly a quarter of it,
-// so there is room to grow; growing PAST it is a loud build/assembly
-// failure and never a silent truncation. That distinction is the whole
-// point: a truncated list would make the model cite a rule that exists but
-// was cut, and the gate would discard it -- this card's defect back by
-// another road.
-const MaxRuleCatalogTokens = 512
+// MaxRuleCatalogTokens is the default ceiling AC-002 puts on the rendered
+// catalog section, read from templates/limits.yml (rule_catalog_max_tokens).
+// Growing PAST it is a loud assembly failure and never a silent
+// truncation. That distinction is the whole point: a truncated list would
+// make the model cite a rule that exists but was cut, and the gate would
+// discard it. A builder may carry a different ceiling (SetSlotLimits).
+var MaxRuleCatalogTokens = defaultSlotLimits.RuleCatalogMaxTokens
 
 // ValidateRuleCatalog reports whether the rendered form of ids fits
 // MaxRuleCatalogTokens under est, and rejects an empty or unsorted
 // catalog. An empty catalog would render a section telling the model to
 // choose from nothing.
 func ValidateRuleCatalog(ids []string, est TokenEstimator) error {
+	return validateRuleCatalogWithin(ids, est, MaxRuleCatalogTokens)
+}
+
+func validateRuleCatalogWithin(ids []string, est TokenEstimator, maxTokens int) error {
 	if len(ids) == 0 {
 		return fmt.Errorf("review rule catalog is empty: the prompt would ask the model to choose a rule_id from an empty list")
 	}
@@ -102,10 +88,10 @@ func ValidateRuleCatalog(ids []string, est TokenEstimator) error {
 	if est == nil {
 		est = NewHeuristicEstimator()
 	}
-	if got := est.Estimate(RenderRuleCatalog(ids)); got > MaxRuleCatalogTokens {
+	if got := est.Estimate(RenderRuleCatalog(ids)); got > maxTokens {
 		return fmt.Errorf(
 			"review rule catalog section needs %d tokens, over the %d-token budget for %d rules: refusing to truncate the list, because a model citing a rule that exists but was cut would have its finding discarded",
-			got, MaxRuleCatalogTokens, len(ids))
+			got, maxTokens, len(ids))
 	}
 	return nil
 }
@@ -136,16 +122,14 @@ func RenderRuleCatalog(ids []string) string {
 	return sb.String()
 }
 
-// SetRuleCatalog replaces the mirrored catalog this builder renders. It is
-// the injection seam for a future caller that can pass internal/review's
-// live loader ids down (see the import-cycle note at the top of this
-// file); production today uses DefaultRuleCatalog. It validates eagerly so
-// an over-budget or empty injected catalog is reported at the seam that
-// caused it rather than at some later prompt assembly.
+// SetRuleCatalog replaces the catalog this builder renders (the default
+// is DefaultRuleCatalog, read from the embedded rule files). It validates
+// eagerly so an over-budget or empty injected catalog is reported at the
+// seam that caused it rather than at some later prompt assembly.
 func (b *PromptBuilder) SetRuleCatalog(ids []string) error {
 	catalog := append([]string(nil), ids...)
 	sort.Strings(catalog)
-	if err := ValidateRuleCatalog(catalog, b.estimator); err != nil {
+	if err := validateRuleCatalogWithin(catalog, b.estimator, b.limits.RuleCatalogMaxTokens); err != nil {
 		return err
 	}
 	b.ruleCatalog = catalog
@@ -161,8 +145,22 @@ func (b *PromptBuilder) RuleCatalog() []string {
 // never returns a partial list: AC-002's requirement is that assembly
 // fails high rather than truncating.
 func (b *PromptBuilder) ruleCatalogSection() (string, error) {
-	if err := ValidateRuleCatalog(b.ruleCatalog, b.estimator); err != nil {
+	if err := validateRuleCatalogWithin(b.ruleCatalog, b.estimator, b.limits.RuleCatalogMaxTokens); err != nil {
 		return "", err
 	}
 	return RenderRuleCatalog(b.ruleCatalog), nil
 }
+
+// SetSlotLimits replaces this builder's slot ceilings (the prompt-wide
+// default, the rule catalog, evidence and tools sections). Every ceiling
+// must be positive: a zero would silently disable the section's bound.
+func (b *PromptBuilder) SetSlotLimits(limits SlotLimits) error {
+	if limits.PromptMaxTokens <= 0 || limits.RuleCatalogMaxTokens <= 0 || limits.EvidenceMaxTokens <= 0 || limits.ToolsMaxTokens <= 0 {
+		return fmt.Errorf("every slot ceiling must be a positive token count: %+v", limits)
+	}
+	b.limits = limits
+	return nil
+}
+
+// SlotLimits returns this builder's slot ceilings.
+func (b *PromptBuilder) SlotLimits() SlotLimits { return b.limits }

@@ -32,7 +32,7 @@ import (
 // belongs to another card), so this Reviewer still has no iso25010
 // dependency.
 type Reviewer struct {
-	orchestrator  *llm.Orchestrator
+	completer     Completer
 	diffAnalyzer  *analyzer.DiffAnalyzer
 	promptBuilder *prompt.PromptBuilder
 	parser        *prompt.ResponseParser
@@ -46,11 +46,25 @@ type Reviewer struct {
 	extraRules map[string]Rule
 }
 
+// Completer is what the Reviewer needs from the model side: one call that
+// takes the prompt as separate system and user messages. *llm.Orchestrator
+// implements it (with its fallback chain and cost ceiling); a test may pass
+// any other implementation.
+type Completer interface {
+	CompleteMessages(ctx context.Context, messages []llm.Message, opts llm.Options) (llm.Response, error)
+}
+
 // Config holds reviewer configuration.
 type Config struct {
-	MaxTokens    int
-	Temperature  float64
+	// MaxTokens, when positive, is both the prompt budget and (minus
+	// ReserveReply) the reply cap sent to the provider.
+	MaxTokens   int
+	Temperature float64
+	// ReserveReply is subtracted from MaxTokens for the reply.
 	ReserveReply int
+	// PromptTokenBudget bounds the assembled prompt when MaxTokens is zero.
+	// It never caps the reply.
+	PromptTokenBudget int
 }
 
 // ReviewContext contains optional evidence available beside the diff. It is
@@ -62,6 +76,16 @@ type ReviewContext struct {
 	History         string // Attributed PR observations, not review instructions
 	CodebaseContext string // Untrusted, bounded, heuristic codebase dependency context
 	MemoryNotes     string // Untrusted, attributed observations from review memory
+	// RepositoryContext is the rendered repository context block
+	// (config.BuildContextBlockWithWarnings). It travels in its own prompt
+	// slot, inside the budget, instead of being appended by a provider
+	// decorator.
+	RepositoryContext string
+	// Evidence is deterministic findings offered to the model for
+	// assessment. Every field is redacted before it reaches the prompt.
+	Evidence []prompt.EvidenceItem
+	// Tools are the tools the model may ask for, with declared cost.
+	Tools []prompt.ToolOffer
 }
 
 // DefaultConfig returns sensible defaults for Config.
@@ -75,26 +99,27 @@ type ReviewContext struct {
 func DefaultConfig() Config {
 	return Config{
 		// Zero means no client-side output cap. The selected provider/model
-		// owns its supported response limit; the prompt builder keeps the
-		// complete diff instead of silently dropping context for an arbitrary
-		// ceiling.
+		// owns its supported response limit.
 		MaxTokens:    0,
 		ReserveReply: 0,
+		// The prompt itself is bounded by the default ceiling declared in
+		// internal/prompt/templates/limits.yml: a diff that does not fit is
+		// trimmed by whole hunks and declared in the coverage section.
+		PromptTokenBudget: prompt.DefaultLimits().PromptMaxTokens,
 	}
 }
 
-// NewReviewer creates a new reviewer. orchestrator is an *llm.Orchestrator,
-// the same concrete type and Complete signature the original engine used --
-// see internal/llm.Orchestrator.Complete -- so wiring a real provider chain
-// here needs no adapter. A test or an offline CLI invocation builds that
-// Orchestrator around a FakeProvider (see fakeprovider.go) instead of a
-// vendor provider; the Reviewer itself never knows the difference.
-func NewReviewer(orchestrator *llm.Orchestrator, cfg Config) *Reviewer {
-	if cfg.MaxTokens == 0 {
-		cfg = DefaultConfig()
+// NewReviewer creates a new reviewer around completer -- in production an
+// *llm.Orchestrator, whose provider chain may be a FakeProvider (see
+// fakeprovider.go) in a test or an offline CLI invocation; the Reviewer
+// itself never knows the difference.
+func NewReviewer(completer Completer, cfg Config) *Reviewer {
+	if cfg.MaxTokens == 0 && cfg.PromptTokenBudget == 0 {
+		defaults := DefaultConfig()
+		cfg.PromptTokenBudget = defaults.PromptTokenBudget
 	}
 	return &Reviewer{
-		orchestrator:  orchestrator,
+		completer:     completer,
 		diffAnalyzer:  analyzer.NewDiffAnalyzer(),
 		promptBuilder: prompt.NewPromptBuilder(),
 		parser:        prompt.NewResponseParser(),
@@ -132,10 +157,52 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 }
 
 // GenerateReviewWithContext generates a review using the diff and optional
-// external evidence such as completed CI check statuses.
+// external evidence such as completed CI check statuses. It runs four
+// stages: assemble the redacted prompt, ask the model, parse its reply, and
+// pass the parsed findings through the engine's gates.
 func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
-	cfg := r.cfg
+	prepared, err := r.preparePrompt(diff, reviewContext)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := r.complete(ctx, prepared.parts)
+	if err != nil {
+		return nil, err
+	}
+	result, err := r.parse(resp)
+	if err != nil {
+		return nil, err
+	}
+	outcome, err := r.applyGates(prepared.diff, result)
+	if err != nil {
+		return nil, err
+	}
+	annotateResult(result, prepared, outcome)
+	return result, nil
+}
 
+// PromptDigest returns the digest of the exact system and user messages
+// GenerateReviewWithContext would send for diff and reviewContext, without
+// calling the model. Equal inputs give equal digests; any change to the
+// rendered text -- evidence included -- moves it.
+func (r *Reviewer) PromptDigest(diff *types.Diff, reviewContext ReviewContext) (string, error) {
+	prepared, err := r.preparePrompt(diff, reviewContext)
+	if err != nil {
+		return "", err
+	}
+	return prepared.parts.Digest(), nil
+}
+
+// preparedPrompt is the output of the assembly stage.
+type preparedPrompt struct {
+	diff    *types.Diff // redacted copy: everything downstream sees this one
+	metrics *analyzer.DiffMetrics
+	parts   prompt.PromptParts
+}
+
+// preparePrompt redacts every untrusted input and assembles the budgeted
+// prompt from the review template's slots.
+func (r *Reviewer) preparePrompt(diff *types.Diff, reviewContext ReviewContext) (preparedPrompt, error) {
 	// Analyze diff (counts only; metrics carry no content into the prompt)
 	metrics := r.diffAnalyzer.AnalyzeDiff(diff)
 
@@ -146,54 +213,64 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// filter's header rule is anchored at line start, so redacting the
 	// assembled prompt would let "+Authorization: Bearer x" through
 	// verbatim. redactDiff strips each line's marker, redacts the bodies
-	// as the filter would see them on their own, and re-prefixes -- values
-	// become the stable marker while key names, header names, file paths
-	// and line structure survive, so the model still sees THAT a
-	// credential sits on a line without ever seeing it. MUT-001 disables
-	// exactly the next line.
+	// as the filter would see them on their own, and re-prefixes.
 	diff = redactDiff(r.filter, diff)
 
-	// Build prompt with token budgeting
 	opts := prompt.BuildOptions{
-		MaxTokens:       cfg.MaxTokens,
-		SchemaKind:      "review",
-		Role:            "reviewer",
-		ReserveReply:    cfg.ReserveReply,
-		CIContext:       r.filter.Redact(reviewContext.CI),
-		ReviewHistory:   r.filter.Redact(reviewContext.History),
-		CodebaseContext: r.filter.Redact(reviewContext.CodebaseContext),
-		MemoryNotes:     r.filter.Redact(reviewContext.MemoryNotes),
-		Language:        reviewContext.Language,
+		MaxTokens:         r.promptBudget(),
+		SchemaKind:        "review",
+		Role:              "reviewer",
+		ReserveReply:      r.cfg.ReserveReply,
+		CIContext:         r.filter.Redact(reviewContext.CI),
+		ReviewHistory:     r.filter.Redact(reviewContext.History),
+		CodebaseContext:   r.filter.Redact(reviewContext.CodebaseContext),
+		MemoryNotes:       r.filter.Redact(reviewContext.MemoryNotes),
+		Language:          reviewContext.Language,
+		RepositoryContext: r.filter.Redact(reviewContext.RepositoryContext),
+		Evidence:          redactEvidence(r.filter, reviewContext.Evidence),
+		Tools:             redactTools(r.filter, reviewContext.Tools),
 	}
 
-	promptParts, err := r.promptBuilder.BuildPrompt(diff, metrics, opts)
+	parts, err := r.promptBuilder.BuildPrompt(diff, metrics, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build prompt: %w", err)
+		return preparedPrompt{}, fmt.Errorf("failed to build prompt: %w", err)
 	}
+	return preparedPrompt{diff: diff, metrics: metrics, parts: parts}, nil
+}
 
-	// Combine system and user prompts. The System half is the trusted
-	// embedded template plus numeric metrics; everything untrusted in the
-	// User half derives from the diff redacted above.
-	fullPrompt := promptParts.System + "\n\n" + promptParts.User
+// promptBudget is the explicit MaxTokens when set, else the default prompt
+// ceiling.
+func (r *Reviewer) promptBudget() int {
+	if r.cfg.MaxTokens > 0 {
+		return r.cfg.MaxTokens
+	}
+	return r.cfg.PromptTokenBudget
+}
 
-	// Call LLM
+// complete sends the prompt as separate system and user messages. The
+// system message is the trusted embedded template; everything untrusted in
+// the user message was redacted by preparePrompt.
+func (r *Reviewer) complete(ctx context.Context, parts prompt.PromptParts) (llm.Response, error) {
 	maxReplyTokens := 0
-	if cfg.MaxTokens > cfg.ReserveReply {
-		maxReplyTokens = cfg.MaxTokens - cfg.ReserveReply
+	if r.cfg.MaxTokens > r.cfg.ReserveReply {
+		maxReplyTokens = r.cfg.MaxTokens - r.cfg.ReserveReply
 	}
 	// The parser requires JSON. Ask the provider to constrain syntax instead
 	// of relying on prompt wording alone; schema and finding evidence are
 	// still validated locally after the response arrives.
-	resp, err := r.orchestrator.Complete(ctx, fullPrompt, llm.Options{
+	resp, err := r.completer.CompleteMessages(ctx, parts.Messages(), llm.Options{
 		MaxTokens:   maxReplyTokens,
-		Temperature: cfg.Temperature,
+		Temperature: r.cfg.Temperature,
 		JSONMode:    true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("LLM request failed: %w", err)
+		return llm.Response{}, fmt.Errorf("LLM request failed: %w", err)
 	}
+	return resp, nil
+}
 
-	// Parse response
+// parse decodes the model reply and redacts every model-authored string.
+func (r *Reviewer) parse(resp llm.Response) (*types.ReviewResult, error) {
 	result, err := r.parser.ParseReviewResponse(resp.Text)
 	if err != nil {
 		var parseErr *prompt.ParseError
@@ -202,7 +279,6 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 		}
 		return nil, fmt.Errorf("parse failed: %w", err)
 	}
-
 	// Model output is untrusted input: a model may echo a secret from the
 	// diff back in a finding. Every string of the parsed result that can
 	// reach a sink (report, stdout, cache, evidence) is redacted here, at
@@ -212,103 +288,92 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	// catalog's own "...-secret: <title>" spelling and change the
 	// published output format for a secret-free review (AUR-432).
 	redactReviewResult(r.filter, result)
+	return result, nil
+}
+
+// gateOutcome records what the engine's gates removed from a parsed
+// review, so the result's metadata can say so.
+type gateOutcome struct {
+	workflowSuppressed int
+	scopeDiscarded     scopeDiscardSummary
+	rejected           int
+	discarded          discardSummary
+}
+
+func (o gateOutcome) total() int {
+	return o.workflowSuppressed + o.scopeDiscarded.total() + o.rejected
+}
+
+// applyGates passes the parsed findings through the workflow-reference
+// filter, the scope/evidence precision gate and the rule gate, in that
+// order, and withholds the model's summary when any of them removed
+// something.
+func (r *Reviewer) applyGates(diff *types.Diff, result *types.ReviewResult) (gateOutcome, error) {
+	var outcome gateOutcome
 	// Model output is also allowed to propose a hardcoded-secret finding on a
 	// safe workflow reference. Apply the narrow, source-aware filter before
 	// the rule gate so `${{ secrets.NAME }}`, permission scopes, and event
 	// types cannot become a blocking issue while literal values remain visible
 	// to the deterministic security pass.
-	issuesBeforeWorkflowFilter := len(result.Issues)
-	suggestionsBeforeWorkflowFilter := len(result.Suggestions)
+	issuesBefore := len(result.Issues)
+	suggestionsBefore := len(result.Suggestions)
 	result.Issues = suppressWorkflowReferenceFindings(diff, result.Issues)
 	result.Suggestions = suppressWorkflowReferenceSuggestions(diff, result.Suggestions)
-	workflowSuppressed := (issuesBeforeWorkflowFilter - len(result.Issues)) +
-		(suggestionsBeforeWorkflowFilter - len(result.Suggestions))
+	outcome.workflowSuppressed = (issuesBefore - len(result.Issues)) + (suggestionsBefore - len(result.Suggestions))
 
 	// Precision gate: the model may use repository context, language knowledge
 	// and configured prompts to reason about a change, but it cannot promote a
 	// concern about untouched code into a finding for this patch. The finding
-	// also has to carry the three pieces of proof the prompt requests. This is
-	// deliberately applied before rule citation and publication so every caller
-	// (local, comments and formal PR review) receives the same bounded result.
-	var scopeDiscarded scopeDiscardSummary
-	result.Issues, scopeDiscarded = filterModelIssues(diff, result.Issues)
+	// also has to carry the three pieces of proof the prompt requests.
+	result.Issues, outcome.scopeDiscarded = filterModelIssues(diff, result.Issues)
 
 	// Rule gate (AUR-434): every issue must cite a rule of the project
 	// review standard. A broken or empty embedded catalog is a loud
 	// error here, never a silent zero-rule review.
 	rules, err := sharedRules()
 	if err != nil {
-		return nil, fmt.Errorf("review rules unavailable: %w", err)
+		return gateOutcome{}, fmt.Errorf("review rules unavailable: %w", err)
 	}
-	rejected, discarded := enforceRuleCitations(rules, r.extraRules, result)
+	outcome.rejected, outcome.discarded = enforceRuleCitations(rules, r.extraRules, result)
 
-	// AUR-517: the model wrote result.Summary with knowledge of every finding
-	// it proposed, including whichever ones did not survive the gates above
-	// (out-of-scope, missing evidence, an unresolvable rule citation, or a
-	// suppressed workflow-reference false positive). A removed finding can
-	// still be named in that prose, which would publish an accusation the
-	// rest of the result no longer makes. There is no reliable way to tell,
-	// from the free text alone, which sentence belonged to which finding, so
-	// the gate is on the FACT that something was discarded, never on the
-	// summary's content: any discard withholds the summary entirely; no
-	// discard leaves it untouched (AC-002's eligible change summary).
-	//
-	// Exception: internal/prompt's degradedOrError recovers findings from a
-	// non-JSON reply with its own fixed notice (prompt.DegradedParseSummary)
-	// as result.Summary, and those recovered issues never carry evidence, so
-	// filterModelIssues always discards every one of them. Without this
-	// exception the withholding above would delete the only sentence telling
-	// a reader the model's reply was unusable, publishing a clean "Approve"
-	// instead. AUR-519 exported the single, forge-safe detector for exactly
-	// this check -- prompt.IsDegradedParse -- so this package carries no
-	// second, duplicated copy of the parser's literal any more: a model
-	// cannot fake this exception, because ParseReviewResponse itself scrubs
-	// any "parse_mode" key a model's own JSON supplied before this ever
-	// runs (see internal/prompt/parser.go).
-	discardedByPipeline := workflowSuppressed + scopeDiscarded.total() + rejected
+	// AUR-517: the model wrote result.Summary knowing every finding it
+	// proposed, including the ones the gates above removed; a removed
+	// finding can still be named in that prose. The gate is on the FACT that
+	// something was discarded, never on the summary's content. The degraded
+	// parse notice (prompt.IsDegradedParse) is the one summary kept, because
+	// it is the only sentence telling a reader the reply was unusable.
+	discardedByPipeline := outcome.total()
 	if !prompt.IsDegradedParse(result) {
 		result.Summary = withholdSummaryWhenFiltered(result.Summary, discardedByPipeline)
 	}
+	return outcome, nil
+}
 
-	// Add metadata
+// annotateResult writes the engine-derived metadata: what the gates
+// discarded, the diff's counts, and the prompt builder's own coverage
+// counts. Every key here is engine-owned; the parser already scrubbed any
+// same-named key a model's JSON supplied, so these overwrite, never merge.
+func annotateResult(result *types.ReviewResult, prepared preparedPrompt, outcome gateOutcome) {
 	if result.Metadata == nil {
 		result.Metadata = make(map[string]string)
 	}
-	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", rejected)
-	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", scopeDiscarded.total())
-	result.Metadata["scope_discard_warning"] = scopeDiscarded.warning()
-	result.Metadata["summary_discarded_findings"] = fmt.Sprintf("%d", discardedByPipeline)
-	// AUR-448: a discard the rule gate makes is never silent. The caller
-	// (cmd/aurumcode) prints discardWarning verbatim to stderr when it is
-	// non-empty; it is deliberately "" on the happy path (rejected == 0) so
-	// a caller that prints unconditionally on a non-empty string never
-	// writes a byte to stderr for a review where every finding cites a
-	// resolvable rule -- see formatDiscardWarning.
-	result.Metadata["discard_warning"] = formatDiscardWarning(discarded)
-	result.Metadata["total_files"] = fmt.Sprintf("%d", metrics.TotalFiles)
-	result.Metadata["lines_added"] = fmt.Sprintf("%d", metrics.LinesAdded)
-	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", metrics.LinesDeleted)
-	result.Metadata["segments_used"] = promptParts.Meta["segments_used"]
-	result.Metadata["estimated_tokens"] = promptParts.Meta["estimated_tokens"]
-	// AUR-519 (B-C): the prompt builder's own per-file coverage counts
-	// (how many code files the token budget let it send in full, in
-	// part, or not at all -- internal/prompt/builder.go) used to stop at
-	// PromptParts.Meta and never reach result.Metadata at all, so
-	// cmd/aurumcode's AUR-476 coverage pass (mergeReviewCoverage) and
-	// AUR-519's own gate could never see a budget-truncated file: it
-	// always read as "complete", a review cached that silent gap as
-	// clean, and a gate configured to block on partial coverage never
-	// fired for the one case -- token-budget omission -- it names by name
-	// in its own docs. These four keys are engine-derived, never
-	// model-controlled (ParseReviewResponse already scrubbed any
-	// same-named key a model's own JSON tried to smuggle in, see
-	// parser.go), so copying them here unconditionally overwrites rather
-	// than merges.
+	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", outcome.rejected)
+	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", outcome.scopeDiscarded.total())
+	result.Metadata["scope_discard_warning"] = outcome.scopeDiscarded.warning()
+	result.Metadata["summary_discarded_findings"] = fmt.Sprintf("%d", outcome.total())
+	// AUR-448: a discard the rule gate makes is never silent; "" on the
+	// happy path so a caller printing a non-empty warning writes nothing.
+	result.Metadata["discard_warning"] = formatDiscardWarning(outcome.discarded)
+	result.Metadata["total_files"] = fmt.Sprintf("%d", prepared.metrics.TotalFiles)
+	result.Metadata["lines_added"] = fmt.Sprintf("%d", prepared.metrics.LinesAdded)
+	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", prepared.metrics.LinesDeleted)
+	result.Metadata["segments_used"] = prepared.parts.Meta["segments_used"]
+	result.Metadata["estimated_tokens"] = prepared.parts.Meta["estimated_tokens"]
+	// AUR-519 (B-C): the builder's per-file coverage counts reach the
+	// result so a budget-truncated file is never read as "complete".
 	for _, key := range []string{"code_files_total", "code_files_complete", "code_files_partial", "code_files_omitted"} {
-		result.Metadata[key] = promptParts.Meta[key]
+		result.Metadata[key] = prepared.parts.Meta[key]
 	}
-
-	return result, nil
 }
 
 // sharedRules loads the embedded rules catalog exactly once per process.
@@ -408,6 +473,10 @@ func redactReviewResult(f *redaction.Filter, result *types.ReviewResult) {
 		issue.Evidence = redactLinesKeepingMarkers(f, issue.Evidence)
 		issue.Suggestion = redactLinesKeepingMarkers(f, issue.Suggestion)
 		issue.Verification = redactLinesKeepingMarkers(f, issue.Verification)
+		if issue.Assessment != nil {
+			issue.Assessment.EvidenceID = f.Redact(issue.Assessment.EvidenceID)
+			issue.Assessment.Justification = redactLinesKeepingMarkers(f, issue.Assessment.Justification)
+		}
 	}
 	for i := range result.Suggestions {
 		suggestion := &result.Suggestions[i]

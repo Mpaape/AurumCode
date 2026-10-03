@@ -52,6 +52,39 @@ type ReviewIssue struct {
 	Evidence     string `json:"evidence,omitempty" yaml:"evidence,omitempty"`
 	Suggestion   string `json:"suggestion,omitempty" yaml:"suggestion,omitempty"`
 	Verification string `json:"verification,omitempty" yaml:"verification,omitempty"`
+	// Origin names the deterministic analyzer that produced the finding.
+	// Only the engine writes it; a value in a model's reply is discarded at
+	// parse time. Empty means the finding came from the model.
+	Origin string `json:"origin,omitempty" yaml:"origin,omitempty"`
+	// Assessment is the model's verdict on one piece of deterministic
+	// evidence offered in the prompt; nil when the issue assesses none.
+	Assessment *EvidenceAssessment `json:"assessment,omitempty" yaml:"assessment,omitempty"`
+}
+
+// Assessment statuses the model may give a piece of evidence.
+const (
+	AssessmentConfirmed    = "confirmed"
+	AssessmentDisputed     = "disputed"
+	AssessmentNeedsContext = "needs_context"
+)
+
+// EvidenceAssessment is the model's evaluation of one deterministic
+// evidence item: whether the code confirms it, disputes it, or needs more
+// context to decide, and why.
+type EvidenceAssessment struct {
+	EvidenceID    string `json:"evidence_id" yaml:"evidence_id"`
+	Status        string `json:"status" yaml:"status"`
+	Justification string `json:"justification" yaml:"justification"`
+}
+
+// IsKnownAssessmentStatus reports whether status is one of the three
+// statuses an assessment may carry.
+func IsKnownAssessmentStatus(status string) bool {
+	switch status {
+	case AssessmentConfirmed, AssessmentDisputed, AssessmentNeedsContext:
+		return true
+	}
+	return false
 }
 
 // ReviewSuggestion is a non-blocking improvement proposed by the reviewer.

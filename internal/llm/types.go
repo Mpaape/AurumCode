@@ -55,7 +55,7 @@ type ModelResolver interface {
 // configured price table has no entry for that, so the request would be refused
 // while the provider bills a real model.
 func ResolveModelKey(provider Provider, opts Options) string {
-	if r, ok := provider.(ModelResolver); ok {
+	if r, ok := As[ModelResolver](provider); ok {
 		if key := r.ResolveModel(opts); key != "" {
 			return key
 		}
