@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(repo-poliglota arquivo-sem-gramatica binario-e-gerado politica-terraform apelidos-e-instrucoes falha-extensao-desconhecida)
+CASOS=(repo-poliglota arquivo-sem-gramatica binario-e-gerado politica-terraform apelidos-e-instrucoes falha-extensao-desconhecida txt-com-segredo)
 
 # Imprime as linhas do prompt (AURUMCODE_PROMPT_CAPTURE) que casam com cada trecho
 # literal pedido; "AUSENTE" se o trecho nao esta la.
@@ -76,8 +76,7 @@ caso_politica_terraform() {
   expect_rc 3 "achado citando a regra da skill de seguranca em main.tf bloqueou (gate.fail_on: high)"
 }
 
-# 5. Apelidos: o que funciona hoje e o escopo por caminho (applyTo). A selecao por
-# SKILL.md/languages nao esta ligada ao review (chega com o AUR-565).
+# 5. Apelidos: escopo por caminho (applyTo) e selecao por SKILL.md/languages (AUR-565).
 caso_apelidos_e_instrucoes() {
   tut_repo apelidos-e-instrucoes repo-exemplo/base-instrucoes repo-exemplo/mudanca-kt-tf
   TUT_FIXTURE=fixture-vazia.json
@@ -88,8 +87,9 @@ caso_apelidos_e_instrucoes() {
     'terraform.md (applyTo: **/*.tf)' 'Em Terraform, todo bucket declara acl privada.'
   if grep -qF 'java.md (applyTo' "$TUT_WORK/prompt.txt"; then echo "ERRO: java.md chegou ao modelo"; return 1; fi
   echo "prompt: java.md (applyTo: **/*.java) NAO chegou: a mudanca nao toca .java"
-  if grep -qF 'SKILL-POR-LINGUAGEM-KOTLIN' "$TUT_WORK/prompt.txt"; then echo "ERRO: a CLI leu a skill de diretorio"; return 1; fi
-  echo "prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) NAO foi lida: selecao por linguagem e apelidos ainda nao estao ligados ao review (AUR-565)"
+  # AUR-565: a skill de diretorio com languages: [kt] e selecionada pelo apelido (kt = kotlin).
+  if ! grep -qF 'SKILL-POR-LINGUAGEM-KOTLIN' "$TUT_WORK/prompt.txt"; then echo "ERRO: a skill estilo-kotlin nao foi lida"; return 1; fi
+  echo "prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) FOI lida: o apelido kt selecionou a gramatica kotlin"
 }
 
 # Falha: extensao desconhecida com conteudo de codigo ainda e revisada.
@@ -100,6 +100,22 @@ caso_falha_extensao_desconhecida() {
   aurum review --base main --fail-on error
   expect_rc 3 "o achado em script.zzqx (sem gramatica) reprovou: extensao desconhecida nao esconde codigo"
   mostra_prompt '### File: script.zzqx' '+    String senha = "hunter2";'
+}
+
+# AUR-574: arquivo .txt com segredo chega ao modelo. O runtime escolhe a gramatica
+# vimdoc pela extensao generica .txt; isso nao o torna documentacao: o arquivo fica
+# em "Code Changes" e e contado como arquivo de codigo da revisao.
+caso_txt_com_segredo() {
+  tut_repo txt-com-segredo repo-exemplo/base repo-exemplo/mudanca-txt-segredo
+  TUT_FIXTURE=fixture-txt-segredo.json
+  TUT_ENVS=(-e AURUMCODE_PROMPT_CAPTURE=/work/prompt.txt)
+  aurum review --base main --fail-on error
+  expect_rc 3 "o achado em config/tokens.txt reprovou: arquivo .txt e revisado, nao descartado como documentacao"
+  mostra_prompt '### File: config/tokens.txt' '+DEMO_API_TOKEN=[REDACTED]' '- Code files in this diff: 1'
+  if grep -qF 'Documentation files excluded' "$TUT_WORK/prompt.txt" && grep -qF 'config/tokens.txt' <(sed -n '/Documentation files excluded/,$p' "$TUT_WORK/prompt.txt"); then
+    echo "ERRO: config/tokens.txt foi excluido como documentacao"; return 1
+  fi
+  echo "prompt: config/tokens.txt NAO esta na lista de documentacao excluida"
 }
 
 tut_main "$@"

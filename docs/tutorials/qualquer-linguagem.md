@@ -7,8 +7,8 @@ repositório poliglota (Java, C#, Kotlin, PHP, Ruby, Terraform, YAML de CI e
 Dockerfile): como cada arquivo é classificado por gramática, qual contexto
 estrutural chega ao modelo, o que acontece com um arquivo sem gramática, com um
 binário e com um arquivo gerado, como um achado de política em Terraform
-bloqueia, o que já funciona hoje como "apelido de linguagem" e o que ainda não
-funciona.
+bloqueia, como funciona o "apelido de linguagem" e por que um arquivo `.txt` com segredo
+chega ao modelo.
 
 Cada comando e cada saída vêm de uma execução real, registrada em
 `demo/tutoriais/qualquer-linguagem/out/` e conferida por `run.sh --check`. Os
@@ -29,7 +29,7 @@ qualidade de um modelo real em cada linguagem.
 - Nenhuma credencial: o provedor é o arquivo da demonstração.
 
 ```bash
-bash demo/tutoriais/qualquer-linguagem/run.sh all      # seis casos, grava out/
+bash demo/tutoriais/qualquer-linguagem/run.sh all      # sete casos, grava out/
 bash demo/tutoriais/qualquer-linguagem/run.sh --check  # out/ contra expected/, sem docker
 ```
 
@@ -209,9 +209,8 @@ Em Kotlin, prefira val a var e evite o operador !!.
 ```
 
 A seleção por linguagem, `SKILL.md` com `languages: [...]`, e os apelidos
-(`kt` para `kotlin`, por exemplo) existem na biblioteca (`internal/context/skills`),
-**mas o `review` ainda não os usa; isso chega com o AUR-565**. O exemplo prova o
-negativo com esta skill de diretório:
+(`kt` para `kotlin`, por exemplo) valem no `review` desde o AUR-565. O exemplo
+prova com esta skill de diretório:
 
 <!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-instrucoes/.aurumcode/skills/estilo-kotlin/SKILL.md -->
 ```markdown
@@ -233,13 +232,12 @@ prompt: kotlin.md (applyTo: **/*.kt)
 prompt: Em Kotlin, prefira val a var e evite o operador !!.
 prompt: terraform.md (applyTo: **/*.tf)
 prompt: java.md (applyTo: **/*.java) NAO chegou: a mudanca nao toca .java
-prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) NAO foi lida: selecao por linguagem e apelidos ainda nao estao ligados ao review (AUR-565)
+prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) FOI lida: o apelido kt selecionou a gramatica kotlin
 ```
 
 O que observar: as instruções de `.kt` e `.tf` chegaram ao modelo e a de `.java`
-(que a mudança não toca) não; a skill por linguagem não foi lida. O aviso de
-apelido desconhecido (`Skill selection warnings`) também só existe na
-biblioteca. Não use `languages:` esperando efeito no `review` até o AUR-565.
+(que a mudança não toca) não; a skill por linguagem foi lida, porque o
+apelido `kt` seleciona a gramática `kotlin` do arquivo `Greeter.kt`.
 
 ## Quando falha: extensão desconhecida com conteúdo de código ainda é revisada
 
@@ -271,14 +269,50 @@ O que observar: o arquivo foi declarado sem gramática **e** o modelo leu o
 texto e apontou o achado; com `--fail-on error`, exit 3. Falta de gramática
 reduz o contexto estrutural, não o alcance da revisão.
 
+## Quando falha: arquivo .txt com segredo chega ao modelo
+
+O runtime escolhe a gramática `vimdoc` para qualquer `.txt`, só pela extensão.
+Isso não torna o arquivo documentação: uma detecção fraca nunca tira um arquivo
+da revisão. Só gramáticas de documentação com detecção forte (Markdown por
+`.md`, por exemplo) vão para a lista de documentação excluída; o `.txt` é lido
+pelo modelo como texto, na seção `Code Changes`.
+
+<!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/mudanca-txt-segredo/config/tokens.txt -->
+```text
+ambiente: demo
+DEMO_API_TOKEN=tok_live_9f8e7d6c5b4a
+```
+
+```bash
+aurumcode review --base main --fail-on error
+```
+
+<!-- saida: txt-com-segredo -->
+```text
+config/tokens.txt:2: [error] O token esta escrito em texto puro. (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=3
+prompt: ### File: config/tokens.txt
+prompt: +DEMO_API_TOKEN=[REDACTED]
+prompt: - Code files in this diff: 1
+prompt: config/tokens.txt NAO esta na lista de documentacao excluida
+RESULTADO: o achado em config/tokens.txt reprovou: arquivo .txt e revisado, nao descartado como documentacao
+```
+
+O que observar: o modelo recebe o hunk (o produto já troca o valor do segredo por
+`[REDACTED]` antes de enviar), o arquivo conta como arquivo de código da revisão
+(`Code files in this diff: 1`) e o achado do modelo reprova com exit 3. A regra
+vive no catálogo de dados `internal/analyzer/language_catalog.yml` (veja
+[configuração](../configuration.md)).
+
 ## Problemas comuns
 
 - **"Não aparece contexto estrutural para o meu arquivo."** O contexto é uma
   lista plana e heurística de símbolos; arquivos sem gramática (caso 2) e
   linguagens cujo exemplo não define símbolo (o YAML do caso 1) não
   contribuem. A revisão acontece mesmo assim.
-- **"`languages:` na minha skill não muda nada."** Correto hoje: veja o caso 5
-  (AUR-565).
+- **"`languages:` na minha skill não muda nada."** Confira o apelido e a
+  gramática do arquivo (caso 5): a skill só entra quando a mudança toca um
+  arquivo daquela linguagem.
 - **"Aprovado com binário no PR."** Não acontece: o veredito é `Comment`
   (caso 3). Para reprovar, declare `gate.inconclusive: block`.
 - **"O aviso `gate verdict reuse unavailable` apareceu."** O cache de veredito

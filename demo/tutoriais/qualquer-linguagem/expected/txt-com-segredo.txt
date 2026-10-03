@@ -1,0 +1,7 @@
+config/tokens.txt:2: [error] O token esta escrito em texto puro.
+exit_code=3
+prompt: ### File: config/tokens.txt
+prompt: +DEMO_API_TOKEN=[REDACTED]
+prompt: - Code files in this diff: 1
+prompt: config/tokens.txt NAO esta na lista de documentacao excluida
+RESULTADO: o achado em config/tokens.txt reprovou
