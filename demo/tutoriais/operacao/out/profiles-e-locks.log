@@ -1,0 +1,26 @@
+== profiles-e-locks
+profiles no registry: 11
+profile bootstrap-readonly-v1: lock ok
+profile docs-tool-offline-v1: lock ok
+profile fake-provider-v1: lock ok
+profile fake-scm-offline-v1: lock ok
+profile go-git-offline-v1: lock ok
+profile go-unit-offline-v1: lock ok
+profile oci-conformance-v1: lock ok
+profile parser-worker-v1: lock ok
+profile polyglot-toolchain-v1: lock ok
+profile registry-v1: lock ok
+profile sqlite-offline-v1: lock ok
+profile.json sem entrada no registry: ['trust-root-docker-v1']
+go-unit-offline-v1.network = none
+go-unit-offline-v1.user = 65534:65534
+go-unit-offline-v1.cap_drop = ALL
+go-unit-offline-v1.mounts = none
+go-unit-offline-v1.pull = never
+go-unit-offline-v1.read_only_rootfs = True
+go-unit-offline-v1.no_new_privileges = True
+go-unit-offline-v1.timeout_seconds = 600
+go-unit-offline-v1.memory_mb = 2048
+go-unit-offline-v1.image = aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2
+RESULTADO: todo profile do registry tem lock com o digest declarado
+conclusao do script: o registry e os arquivos .json da pasta de profiles listam os mesmos nomes

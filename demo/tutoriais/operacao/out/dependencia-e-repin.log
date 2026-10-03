@@ -1,0 +1,31 @@
+== dependencia-e-repin
+--- 1. go get numa copia, em container NAO-root, sem rede, pelo cache de modulos do projeto (proxy de arquivo)
+$ docker run --rm --network none --user 1000:1000 -e HOME=/tmp -e GOMODCACHE=/tmp/mod -e GOPROXY=file:///cache/download -e GOSUMDB=off -e GOFLAGS=-mod=mod -v <repo>/demo/tutoriais/operacao/.estado/dependencia:/src -v <home>/go/pkg/mod-aurumcode/cache/download:/cache/download:ro -w /src aurum-dev-go:1.27.1-2026-10-02 go get github.com/spf13/pflag
+go: downloading github.com/spf13/pflag v1.0.5
+go: added github.com/spf13/pflag v1.0.5
+exit_code=0
+RESULTADO: go get acrescentou a dependencia na COPIA (GOSUMDB=off: sem verificacao de sumdb, porque nao ha rede)
+linhas com pflag em go.mod: 1
+linhas com pflag em go.sum: 2
+RESULTADO: go.mod e go.sum do repositorio real continuam intactos (so a copia mudou)
+--- 2. a formula do image_set_digest, conferida contra o registry com a imagem atual
+sha256('aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2') = sha256:e082db45c52a651bf8285f46023d1ce7f23508a650c34630b16324d705809845
+image_set_digest do registry = sha256:e082db45c52a651bf8285f46023d1ce7f23508a650c34630b16324d705809845
+formula confere
+--- 3. a imagem que cada lock de profile fixa (campo image)
+bootstrap-readonly-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+docs-tool-offline-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+fake-provider-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+fake-scm-offline-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+go-git-offline-v1 "image": "golang@sha256:4746d26432a9117a5f58e95cb9f954ddf0de128e9d5816886514199316e4a2fb"
+go-unit-offline-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+oci-conformance-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+parser-worker-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+polyglot-toolchain-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+registry-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+second-reader-go-v1 "image": "golang@sha256:2414035b086e3c42b99654c8b26e6f5b1b1598080d65fd03c7f499552ff4dc94"
+second-reader-shell-v1 "image": "bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831"
+sqlite-offline-v1 "image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+trust-root-docker-v1 "image": "bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831"
+nao executado (alteraria o repositorio ou exige rede): docker build da imagem selada, atualizacao do campo image dos locks, lock_digest de cada profile e do registry, image_set_digest, smoke test do oci-run na imagem nova
+RESULTADO: a parte demonstravel do repin foi executada

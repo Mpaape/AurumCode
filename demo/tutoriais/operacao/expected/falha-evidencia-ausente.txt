@@ -1,0 +1,3 @@
+done card lacks matching validated.json evidence
+exit_code=1
+RESULTADO: card done sem validated.json: o pipeline reprova

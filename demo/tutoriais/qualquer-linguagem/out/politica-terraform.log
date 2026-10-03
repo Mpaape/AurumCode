@@ -1,0 +1,25 @@
+== politica-terraform
+$ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-bucket-publico: Sem bucket publico (severidade error, limiar error)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- main.tf
+
+
+```mermaid
+flowchart TD
+    n0["main.tf"]
+
+```
+main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
+exit_code=3
+RESULTADO: achado citando a regra da skill de seguranca em main.tf bloqueou (gate.fail_on: high)

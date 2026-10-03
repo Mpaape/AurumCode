@@ -1,0 +1,9 @@
+{
+  "id": "java-cmd",
+  "language": "java",
+  "file": "Runner.java",
+  "label": "defect",
+  "rule": "command-injection",
+  "line": 5,
+  "simulated_model": "hit"
+}

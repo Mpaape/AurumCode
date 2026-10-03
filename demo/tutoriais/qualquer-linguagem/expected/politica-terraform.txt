@@ -1,0 +1,4 @@
+policy gate: seguranca#sem-bucket-publico: Sem bucket publico (severidade error, limiar error)
+main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
+exit_code=3
+RESULTADO: achado citando a regra da skill de seguranca em main.tf bloqueou

@@ -1,0 +1,18 @@
+$ aurumcode review --base main
+- c_sharp: 1 files
+- dockerfile: 1 files
+- hcl: 1 files
+- java: 1 files
+- kotlin: 1 files
+- php: 1 files
+- ruby: 1 files
+- yaml: 1 files
+## Codebase context (untrusted, bounded, heuristic)
+simbolo da gramatica java: contarJava esta no contexto
+simbolo da gramatica c_sharp: SaudarCsharp esta no contexto
+simbolo da gramatica kotlin: saudarKotlin esta no contexto
+simbolo da gramatica php: saudarPhp esta no contexto
+simbolo da gramatica ruby: saudar_ruby esta no contexto
+simbolo da gramatica hcl: logs esta no contexto
+simbolo da gramatica dockerfile: alpine esta no contexto
+RESULTADO: revisao do repositorio poliglota concluida

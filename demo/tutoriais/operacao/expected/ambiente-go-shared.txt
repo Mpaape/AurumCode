@@ -1,0 +1,8 @@
+go-shared: aurum-go already up
+-> /go/pkg/mod
+-> /gocache
+go version go1.27.1 linux/amd64
+GOPROXY=off GOFLAGS=-mod=mod -buildvcs=false
+RESULTADO: go test roda no container, sobre o worktree montado, sem rede
+imagem de desenvolvimento: aurum-dev-go:1.27.1-2026-10-02
+nao executado aqui: go-shared down
