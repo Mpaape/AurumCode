@@ -6,7 +6,7 @@
 #
 #   tests/acceptance/AUR-471.sh::AC-001 runs the same package through a
 #   harness in the card's own staging. This program builds a standalone Go
-#   harness directly over internal/config/policy against REAL files on a
+#   harness directly over tests/legacy/config/policy against REAL files on a
 #   REAL temp filesystem -- no git, no model -- and asserts the end-to-end
 #   composition a caller like cmd/aurumcode performs: load the declared
 #   weights file, weight the review's ISO scores by it, render the review
@@ -38,7 +38,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-for input in go.mod go.sum internal/config/policy pkg/types; do
+for input in go.mod go.sum tests/legacy/config/policy pkg/types; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -52,8 +52,8 @@ export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 
 root="$run_dir/root"
 cp "$repo_root/go.mod" "$repo_root/go.sum" "$root/"
-mkdir -p "$root/internal/config/policy" "$root/pkg/types"
-cp -R "$repo_root/internal/config/policy/." "$root/internal/config/policy/"
+mkdir -p "$root/tests/legacy/config/policy" "$root/pkg/types"
+cp -R "$repo_root/tests/legacy/config/policy/." "$root/tests/legacy/config/policy/"
 cp -R "$repo_root/pkg/types/." "$root/pkg/types/"
 chmod -R u+w -- "$root"
 
@@ -98,7 +98,7 @@ import (
 	"fmt"
 	"os"
 
-	policy "github.com/Mpaape/AurumCode/internal/config/policy"
+	policy "github.com/Mpaape/AurumCode/tests/legacy/config/policy"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 

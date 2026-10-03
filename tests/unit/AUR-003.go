@@ -17,7 +17,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Mpaape/AurumCode/internal/governance/taskspec"
+	"github.com/Mpaape/AurumCode/tests/legacy/governance/taskspec"
 )
 
 const validTaskSpecYAML = `schema: aurum.task-spec

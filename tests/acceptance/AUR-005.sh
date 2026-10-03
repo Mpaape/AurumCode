@@ -37,8 +37,8 @@ repo_root="$(CDPATH='' cd -- "$script_dir/../.." >/dev/null 2>&1 && pwd -P)" || 
 cd -- "$repo_root" || infra repo_root_unreachable
 
 readonly schema='.board/schemas/evidence-bundle.schema.json'
-readonly implementation='internal/evidence/manifest.go'
-readonly package_test='internal/evidence/manifest_test.go'
+readonly implementation='tests/legacy/evidence/manifest.go'
+readonly package_test='tests/legacy/evidence/manifest_test.go'
 readonly vectors='tests/specs/AUR-005/cases.yaml'
 readonly unit_selector='tests/unit/AUR-005.go'
 readonly integration_selector='tests/integration/AUR-005.go'
@@ -96,7 +96,7 @@ run_test() {
   set +e
   AURUMCODE_ROOT="$repo_root" GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
     GOCACHE="$run_root/cache" GOTMPDIR="$run_root/tmp" \
-    go test -vet=off ./internal/evidence -run "^${go_selector}$" -count=1 -v >"$output" 2>&1
+    go test -vet=off ./tests/legacy/evidence -run "^${go_selector}$" -count=1 -v >"$output" 2>&1
   local test_exit=$?
   set -e
   (( test_exit == 0 )) || classify_failure

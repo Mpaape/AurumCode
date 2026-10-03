@@ -78,7 +78,7 @@ closure=(
   internal/documentation/welcome internal/documentation/review
   internal/llm
   internal/llm/cost
-  internal/llm/httpbase
+  tests/legacy/llm/httpbase
   internal/llm/provider/litellm
   internal/llm/provider/openai
   internal/pipeline

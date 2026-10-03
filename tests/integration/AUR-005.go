@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Mpaape/AurumCode/internal/evidence"
+	"github.com/Mpaape/AurumCode/tests/legacy/evidence"
 )
 
 type casesAUR005 struct {

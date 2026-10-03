@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Mpaape/AurumCode/internal/governance/dag"
+	"github.com/Mpaape/AurumCode/tests/legacy/governance/dag"
 )
 
 const candidateDigestIntegrationAUR004 = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
