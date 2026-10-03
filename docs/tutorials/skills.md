@@ -358,3 +358,42 @@ Por isso, em CI, convenções que precisam valer pertencem à política central.
   **branch base**, como o resto do contexto.
 
 Próximo passo: [política central](politica-central.md).
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/skills/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### falha-skill-inexistente
+
+![Terminal do caso falha-skill-inexistente](../assets/capturas/skills/falha-skill-inexistente-terminal.png)
+
+![Comentario do PR do caso falha-skill-inexistente](../assets/capturas/skills/falha-skill-inexistente-comentario.png)
+
+### regra-citavel
+
+![Terminal do caso regra-citavel](../assets/capturas/skills/regra-citavel-terminal.png)
+
+![Comentario do PR do caso regra-citavel](../assets/capturas/skills/regra-citavel-comentario.png)
+
+### repo-vs-politica
+
+![Terminal do caso repo-vs-politica](../assets/capturas/skills/repo-vs-politica-terminal.png)
+
+![Comentario do PR do caso repo-vs-politica](../assets/capturas/skills/repo-vs-politica-comentario.png)
+
+### selecao-por-linguagem
+
+![Terminal do caso selecao-por-linguagem](../assets/capturas/skills/selecao-por-linguagem-terminal.png)
+
+### seletor-por-caminho
+
+![Terminal do caso seletor-por-caminho](../assets/capturas/skills/seletor-por-caminho-terminal.png)
+
+### skill-do-repo
+
+![Terminal do caso skill-do-repo](../assets/capturas/skills/skill-do-repo-terminal.png)
+
+![Comentario do PR do caso skill-do-repo](../assets/capturas/skills/skill-do-repo-comentario.png)
+
+<!-- capturas:fim -->

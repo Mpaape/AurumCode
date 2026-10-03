@@ -2,7 +2,7 @@ name: Documentation site
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'mkdocs.yml', 'scripts/docs/**', '.github/workflows/docs.yml']
+    paths: ['docs/**', 'demo/tutoriais/**', 'mkdocs.yml', 'scripts/docs/**', '.github/workflows/docs.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,6 +15,10 @@ jobs:
     steps:
       # actions/checkout v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # A referenced screenshot that is missing, or whose input (tutorial out/,
+      # page source) changed without scripts/docs/capturas.sh, fails the build.
+      - name: Check documentation screenshots
+        run: bash scripts/docs/capturas-check.sh
       # Same pinned image as local use (scripts/docs/image.lock), --strict.
       - name: Build site (MkDocs Material, --strict)
         run: scripts/docs/build.sh
