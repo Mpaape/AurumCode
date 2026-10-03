@@ -5,4 +5,3 @@ admin: senha inicial trocada e login ok
 projeto servico-exemplo criado
 politica demo-componente-proibido: reprova lodash 4.17.15 (coordenadas)
 RESULTADO: servidor, time, chave, quatro projetos e uma politica de violacao prontos
-aquecimento: o servidor avaliou a politica uma vez (projeto descartavel aquecimento)
