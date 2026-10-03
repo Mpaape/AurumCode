@@ -217,6 +217,7 @@ func TestAUR520EvaluateGateInconclusiveBlockNeverAppliesException(t *testing.T) 
 	if err != nil {
 		t.Fatalf("igate.EvaluateGate() error = %v", err)
 	}
+	decideInconclusiveForTest(gate, &d)
 	if !d.Fail || !d.Inconclusive {
 		t.Fatalf("igate.EvaluateGate() = %+v, want Fail and Inconclusive: block must still close the gate despite a matching exception", d)
 	}

@@ -114,19 +114,26 @@ func (g GateConfig) Threshold() (rank GateSeverityRank, canonical string, ok boo
 	return min, minName, true, nil
 }
 
-// InconclusiveMode normalizes gate.inconclusive. "" (absent) means the
-// policy did not opt into inconclusive-specific gate behavior at all --
-// today's behavior is unchanged. "block" and "warn" are the documented
-// values; "bloquear"/"alertar" are accepted as the project's own
-// Portuguese aliases, in house style with the rest of this engine's flags.
-func (g GateConfig) InconclusiveMode() (mode string, err error) {
+// The two values gate.inconclusive resolves to.
+const (
+	InconclusiveBlock = "block"
+	InconclusiveWarn  = "warn"
+)
+
+// InconclusiveMode normalizes gate.inconclusive. An absent value resolves to
+// fallback: the caller owns the context that decides what silence means
+// (Config.InconclusiveMode resolves it to block whenever a gate or a scanner
+// is in play, so a tool that could not run never approves by omission).
+// "block" and "warn" are the documented values; "bloquear"/"alertar" are
+// accepted as the project's own Portuguese aliases.
+func (g GateConfig) InconclusiveMode(fallback string) (mode string, err error) {
 	switch strings.ToLower(strings.TrimSpace(g.Inconclusive)) {
 	case "":
-		return "", nil
+		return fallback, nil
 	case "block", "bloquear":
-		return "block", nil
+		return InconclusiveBlock, nil
 	case "warn", "alertar":
-		return "warn", nil
+		return InconclusiveWarn, nil
 	default:
 		return "", fmt.Errorf("gate.inconclusive: unknown value %q (accepted: block, warn)", g.Inconclusive)
 	}
@@ -139,7 +146,7 @@ func (g GateConfig) Validate() error {
 	if _, _, _, err := g.Threshold(); err != nil {
 		return err
 	}
-	if _, err := g.InconclusiveMode(); err != nil {
+	if _, err := g.InconclusiveMode(""); err != nil {
 		return err
 	}
 	return g.ValidateSources()

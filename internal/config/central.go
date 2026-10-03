@@ -13,16 +13,12 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // ValidatePolicyOutsideReviewedTree refuses a policy directory that resolves
@@ -88,20 +84,10 @@ func LoadCentralPolicy(root string) (*Config, error) {
 		}
 		return nil, fmt.Errorf("central policy: reading %s: %w", configPath, err)
 	}
-	// A policy is gate-relevant content a repository cannot override, so a
-	// typo in its own key names (a misspelled "enabeld" instead of
-	// "enabled") must be a loud error, never a silently-ignored field that
-	// leaves a rule or pattern unprotected. Parse (shared with a
-	// repository's own, more permissive config.yml) stays lenient on
-	// purpose -- this extra, policy-only strict decode is this function's
-	// own, additional check. An empty file (io.EOF, nothing to decode) is
-	// the policy's own valid zero-config case.
-	var strict Config
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&strict); err != nil && err != io.EOF {
-		return nil, fmt.Errorf("central policy: parsing %s: %w", configPath, err)
-	}
+	// A policy is gate-relevant content a repository cannot override; Parse
+	// decodes it strictly (decodeStrict), exactly like the repository's own
+	// config.yml, so a misspelled key is a loud error, never a silently
+	// ignored field that leaves a rule or pattern unprotected.
 	cfg, err := Parse(data, configPath)
 	if err != nil {
 		return nil, fmt.Errorf("central policy: %w", err)

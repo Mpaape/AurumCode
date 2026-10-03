@@ -37,6 +37,16 @@ func SeverityRankOf(s string) (config.GateSeverityRank, bool) {
 	}
 }
 
+// GateRankOf is the rank a deterministic finding's severity counts with at
+// the gate. A severity the normalizer does not recognize counts as error:
+// a finding whose severity could not be read is never dropped from the gate.
+func GateRankOf(s string) config.GateSeverityRank {
+	if rank, ok := SeverityRankOf(s); ok {
+		return rank
+	}
+	return config.GateSeverityError
+}
+
 // EffectiveSeverityRank is the rank EvaluateGate compares against the
 // gate's threshold for one matched finding: the HIGHER of the model's own
 // issue.Severity and the cited dynamic rule's own declared severity
@@ -95,19 +105,14 @@ func EffectiveSeverityRank(issueSeverity, ruleSeverity string) (config.GateSever
 //     passes a fixed instant (AC-002/MUT-001).
 //
 // Inconclusive handling and the severity threshold are NOT mutually
-// exclusive (fixed from an earlier, incorrect draft that returned early on
-// any inconclusive reason): only gate.inconclusive: block skips the
-// threshold loop outright -- a blocked run is never trusted enough to be
-// graded on its own findings at all, mirroring AUR-458's "did not review
-// outranks reviewed and found things". Both "warn" and "" (no
-// gate.inconclusive key declared at all -- AC-005's own non-default
-// silence) mark the review Inconclusive but still run the threshold loop:
-// an inconclusive review that ALSO contains a real severity breach must
-// still fail the gate (exitFindings, never silently waved through because
-// the review happened to also be degraded or partially covered), and an
-// inconclusive review with gate.fail_on declared but no breach must never
-// publish as approved either -- it stays Inconclusive with no Fail, so the
-// caller's own verdict/status logic can say so without claiming success.
+// exclusive: only the block mode (written, or the default for a declared
+// gate) skips the threshold loop -- a blocked run is never trusted enough to
+// be graded on its own findings. EvaluateGate only marks it Inconclusive;
+// the failure is decided by ApplyInconclusiveMode, the one place every
+// source shares. Under "warn" the review is marked Inconclusive and the
+// threshold loop still runs: an inconclusive review that ALSO contains a
+// real severity breach must still fail the gate, and one with no breach
+// must never publish as approved either.
 func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, inconclusiveReason string, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) (Result, error) {
 	var d Result
 	if !gate.Declared() {
@@ -116,17 +121,20 @@ func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 	d.Active = true
 
 	if inconclusiveReason != "" {
-		mode, err := gate.InconclusiveMode()
+		// A declared gate without gate.inconclusive blocks (the same
+		// default Config.InconclusiveMode resolves).
+		mode, err := gate.InconclusiveMode(config.InconclusiveBlock)
 		if err != nil {
 			return d, err
 		}
 		d.Inconclusive = true
 		d.Lines = append(d.Lines, fmt.Sprintf("review inconclusive (%s)", inconclusiveReason))
-		if mode == "block" {
-			d.Fail = true
+		if mode == config.InconclusiveBlock {
+			// Not graded at all; the failure itself is decided once, by
+			// ApplyInconclusiveMode.
 			return d, nil
 		}
-		// "warn", or "" (undeclared): fall through to the threshold loop.
+		// "warn": fall through to the threshold loop.
 	}
 
 	rank, name, ok, err := gate.Threshold()

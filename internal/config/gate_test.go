@@ -25,9 +25,9 @@ func TestAUR519GateConfigThreshold(t *testing.T) {
 // documented block/warn values (and their Portuguese aliases), defaults to
 // "" (no opt-in) when absent, and rejects anything else.
 func TestAUR519GateConfigInconclusive(t *testing.T) {
-	cases := map[string]string{"": "", "block": "block", "bloquear": "block", "warn": "warn", "alertar": "warn"}
+	cases := map[string]string{"": "fallback", "block": "block", "bloquear": "block", "warn": "warn", "alertar": "warn"}
 	for in, want := range cases {
-		got, err := (GateConfig{Inconclusive: in}).InconclusiveMode()
+		got, err := (GateConfig{Inconclusive: in}).InconclusiveMode("fallback")
 		if err != nil {
 			t.Fatalf("InconclusiveMode(%q) error = %v", in, err)
 		}
@@ -35,7 +35,7 @@ func TestAUR519GateConfigInconclusive(t *testing.T) {
 			t.Fatalf("InconclusiveMode(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if _, err := (GateConfig{Inconclusive: "maybe"}).InconclusiveMode(); err == nil {
+	if _, err := (GateConfig{Inconclusive: "maybe"}).InconclusiveMode(""); err == nil {
 		t.Fatal("InconclusiveMode(\"maybe\") should error")
 	}
 }

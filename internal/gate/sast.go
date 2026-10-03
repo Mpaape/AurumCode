@@ -54,8 +54,7 @@ func ApplySASTGate(d *Result, sast *config.SastConfig, origin string, issues []t
 		return err
 	}
 	for _, issue := range issues {
-		issueRank, ok := SeverityRankOf(issue.Severity)
-		if !ok || issueRank < rank {
+		if GateRankOf(issue.Severity) < rank {
 			continue
 		}
 		d.Fail = true
