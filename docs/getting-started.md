@@ -85,8 +85,9 @@ aparecem no diagnóstico; memória não autoriza mudanças de regras ou aprovaç
 ## Corrigir sugestões com o fix
 
 `aurumcode fix` lê a resposta da revisão — o objeto completo com `suggestions`
-ou apenas o array de sugestões — e imprime um diff unificado aplicável. Nada é
-escrito no repositório: você inspeciona e aplica.
+ou apenas o array de sugestões — e imprime um diff unificado padrão, com três
+linhas de contexto do próprio arquivo, que o `git apply` (e o `patch -p1`)
+aceita sem nenhuma flag. Nada é escrito no repositório: você inspeciona e aplica.
 
 ```bash
 docker run --rm -v "$PWD:/workspace:ro" -w /workspace \

@@ -46,8 +46,8 @@ caso_fix() {
   echo "exit_code=$LAST_RC"
   expect_rc 0 "fix imprimiu o patch (nada foi escrito no repositorio)"
   cat "$TUT_WORK/fix.patch"
-  git -C "$TUT_WORK" apply --unidiff-zero --check fix.patch && echo "git apply --unidiff-zero --check: o patch aplica"
-  git -C "$TUT_WORK" apply --unidiff-zero fix.patch
+  git -C "$TUT_WORK" apply --check fix.patch && echo "git apply --check: o patch aplica"
+  git -C "$TUT_WORK" apply fix.patch
   echo "--- depois"; sed -n '6p' "$TUT_WORK/app.go"
   # a mesma sugestao agora esta velha (o current_code ja nao existe): exit 1, nenhum patch
   aurum fix --file sugestoes.json
