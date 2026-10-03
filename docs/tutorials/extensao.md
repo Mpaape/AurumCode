@@ -44,9 +44,12 @@ padrão dos outros tutoriais.
 
 A engine (`internal/scanner/engines/exemplo`) reporta cada linha da árvore
 revisada que contém a marca `EXEMPLO-ACHADO`, sem binário externo. O
-repositório liga a engine como qualquer outra:
+repositório liga a engine como qualquer outra, no `.aurumcode/config.yml`
+(o `run.sh` copia `config-engine.yml` para lá no repositório descartável;
+o arquivo fica fora de `.aurumcode/` no tutorial porque só vale no binário
+com a tag, e o repositório descartável é apagado ao fim do caso):
 
-<!-- arquivo: demo/tutoriais/extensao/repo-exemplo/base/.aurumcode/config.yml -->
+<!-- arquivo: demo/tutoriais/extensao/config-engine.yml -->
 ```yaml
 quality_gates:
   scanners:
@@ -127,9 +130,10 @@ prompt: Uma funcao faz uma coisa so. MARCA-SKILL-EXEMPLO
 
 Com a deliberação ligada, a entrada `required: false` não roda antes do
 modelo: vira a ferramenta `scanner_exemplo`, oferecida no manifesto do
-prompt.
+prompt. O `run.sh` copia `config-ferramenta.yml` para o
+`.aurumcode/config.yml` do repositório descartável.
 
-<!-- arquivo: demo/tutoriais/extensao/repo-exemplo/base-ferramenta/.aurumcode/config.yml -->
+<!-- arquivo: demo/tutoriais/extensao/config-ferramenta.yml -->
 ```yaml
 deliberation:
   enabled: true
