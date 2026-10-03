@@ -75,18 +75,9 @@ done
 required_inputs=(
   go.mod
   go.sum
-  cmd/aurumcode
-  internal/analyzer
-  internal/config
-  internal/llm
-  internal/prompt
-  internal/review
-  internal/security
-  internal/git
-  internal/documentation
-  internal/pipeline
-  cmd/regenerate-docs
-  pkg/types
+  cmd
+  internal
+  pkg
   tests/fixtures/repos/git-demo/repo.git
 )
 for input in "${required_inputs[@]}"; do
@@ -129,15 +120,10 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/git
-  copy "$root" cmd/regenerate-docs
-  copy "$root" internal/documentation/extractors internal/documentation/incremental \
-    internal/documentation/normalizer internal/documentation/site internal/documentation/review \
-    internal/documentation/welcome internal/documentation/review
-  copy "$root" internal/pipeline
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/llm \
-    internal/security pkg/types
+  # AUR-573: cmd/internal/pkg inteiros (documentation/pipeline/regenerate-docs sairam do produto)
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo
   # The materialized input tree can be read-only, directories included;
   # force the staged scratch copy writable so this card's own cache writes

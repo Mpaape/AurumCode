@@ -180,7 +180,14 @@ coverage_rules=(security/command-injection security/hardcoded-secret security/sq
 # re-derived by running the exact command on this base and hashing its
 # stdout file -- not patched to whatever made an assertion pass. AUR-449's
 # own pin remains stale and is not this card's to repair.
-readonly expected_with_provider_sha256='905075cc86ca1dfc9239c365ae67f24894365ecde5f8ffb3ae2d3a6cb30f7371'
+# AUR-573: re-pinned from 905075cc... Measured by diffing the stdout of the
+# commit that set the old pin against this base: the ONLY difference is the
+# summary line `**Verdict:** Unknown` -> `**Verdict:** Changes requested`. The
+# fixture carries no verdict; AUR-519 stopped pinning the verdict to the
+# model's field and derives it from the findings, so a review with an error
+# finding now says so. Findings, order, mermaid and the coverage note are
+# byte-identical.
+readonly expected_with_provider_sha256='9c0f18c2fd611cd0efdf112c13d060790bfcfa59e88bed61ede1b11ff2ec48a0'
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its
