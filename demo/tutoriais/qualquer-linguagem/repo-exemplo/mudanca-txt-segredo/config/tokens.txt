@@ -1,0 +1,2 @@
+ambiente: demo
+DEMO_API_TOKEN=tok_live_9f8e7d6c5b4a

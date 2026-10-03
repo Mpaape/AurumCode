@@ -27,4 +27,4 @@ prompt: Em Kotlin, prefira val a var e evite o operador !!.
 prompt: terraform.md (applyTo: **/*.tf)
 prompt: Em Terraform, todo bucket declara acl privada.
 prompt: java.md (applyTo: **/*.java) NAO chegou: a mudanca nao toca .java
-prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) NAO foi lida: selecao por linguagem e apelidos ainda nao estao ligados ao review (AUR-565)
+prompt: a skill .aurumcode/skills/estilo-kotlin/SKILL.md (languages: [kt]) FOI lida: o apelido kt selecionou a gramatica kotlin
