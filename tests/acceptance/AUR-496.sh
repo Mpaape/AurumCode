@@ -116,6 +116,15 @@ check_workflow_contract() {
   # package-manager and build command patterns stay as a backstop.
   local without_mount
   without_mount="$(grep -Ev '^[[:space:]]*(-v[[:space:]]+"\$\{GITHUB_WORKSPACE\}/\.aurumcode-target:/github/workspace:ro"|path: \.aurumcode-target)[[:space:]]*\\?[[:space:]]*$' "$workflow" || true)"
+  # AUR-573: AUR-549/551/555 added steps that legitimately name the tree: a
+  # `working-directory: .aurumcode-target` (they run the product's own
+  # `aurumcode sbom|sign` binary copied out of the review image, never PR
+  # code), comments, and the upload of the *.sigstore.json bundles. Drop only
+  # those anchored whole lines; any other mention still counts as running PR
+  # code. Because `working-directory` now lets a step start inside the tree,
+  # also reject a run line that executes a relative path or sources a file.
+  without_mount="$(grep -Ev '^[[:space:]]*(#.*|working-directory: \.aurumcode-target|path: \.aurumcode-target/\*\*/\*\.sigstore\.json)[[:space:]]*$' <<<"$without_mount" || true)"
+  if grep -Eq '(^|[[:space:]])(\./[A-Za-z_]|(ba)?sh [^-"$]|source )|run:[[:space:]]*\.?/' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
   if grep -Fq -- '.aurumcode-target' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
   if grep -Eq 'npm (ci|install)|go (build|test)|make ' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
 
@@ -191,6 +200,13 @@ case "$selector" in
     { cat "$workflow"; printf '      - name: Leak\n        run: cd .aurumcode-target && bash build.sh\n'; } > "$mut_e"
     grep -Fq 'run: cd .aurumcode-target && bash build.sh' "$mut_e" || infra 'mutation-anchor-missing:MUT-002e'
     if check_workflow_contract "$mut_e" >/dev/null; then fail 'cd-pr-code-execution-not-detected'; fi
+
+    # Mutation G (AUR-573): a step that starts in the PR tree through the
+    # now-allowed working-directory line and executes a script from there.
+    mut_g="$staged_dir/workdir-exec.yml"
+    { cat "$workflow"; printf '      - name: Leak\n        working-directory: .aurumcode-target\n        run: ./build.sh\n'; } > "$mut_g"
+    grep -Fq 'run: ./build.sh' "$mut_g" || infra 'mutation-anchor-missing:MUT-002g'
+    if check_workflow_contract "$mut_g" >/dev/null; then fail 'workdir-exec-not-detected'; fi
 
     # Mutation F: execute from the PR tree while disguising the line behind a
     # comment that embeds the exact "path: .aurumcode-target" substring. A

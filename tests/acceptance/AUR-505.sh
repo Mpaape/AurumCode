@@ -77,27 +77,13 @@ export TMPDIR="$run_dir" GOMAXPROCS=1
 # staged tree equal to the module closure the sealed worker can actually see
 # -- copying a bare `internal`/`pkg` would depend on the sandbox happening to
 # hold every subpackage `cmd/aurumcode` imports.
+# AUR-573: internal/ and pkg/ whole (enumerated subpackages rotted when sbom,
+# supplychain and xbom joined cmd/aurumcode's imports, as in AUR-547).
 readonly declared_roots=(
   cmd/aurumcode
   docs/specs/AUR-505.md
-  internal/analysis
-  internal/analyzer
-  internal/apply
-  internal/changelog
-  internal/config
-  internal/context
-  internal/evidence
-  internal/git
-  internal/llm
-  internal/memory
-  internal/prompt
-  internal/render
-  internal/review
-  internal/reviewprofile
-  internal/sandbox
-  internal/security
-  internal/testgen
-  pkg/types
+  internal
+  pkg
   tests/acceptance/AUR-505.sh
   tests/unit/AUR-505.go
   go.mod
@@ -228,12 +214,13 @@ run_ac001() { nominal_call 'AC-001'; }
 run_ac002() { nominal_call 'AC-002'; }
 run_ac003() { nominal_call 'AC-003'; }
 
-# MUT-001: drop the deterministic findings on an invalid response -- restore
-# the old `return 1` -- and AC-001 must fall (no deterministic finding
-# published, exit 1 instead of the deterministic gate).
+# MUT-001: drop the degradation on an invalid response (AUR-573: the old
+# `return 1` no longer exists -- degradeUnparseable returns nothing -- so the
+# mutation returns before flagging quality_degraded and setting the result);
+# AC-001 must fall.
 run_mut001() {
   mutated_call 'MUT-001' \
-    's/qualityDegraded = true/return 1 \/\/ AUR-505 MUT-001/' \
+    's/p\.qualityDegraded = true/return \/\/ AUR-505 MUT-001/' \
     'AC-001' 'AUR-505 MUT-001'
 }
 
@@ -241,7 +228,7 @@ run_mut001() {
 # fabricated finding must surface and AC-003 must fall.
 run_mut002() {
   mutated_call 'MUT-002' \
-    's/result\.Limitations = append(result\.Limitations, modelInvalidOutputNotice(reviewLanguage, string(parseErr\.Kind)))/result.Issues = append(result.Issues, types.ReviewIssue{File: "app.go", Line: 2, Severity: "error", Message: "AUR505-FABRICATED"})/' \
+    's/p\.result\.Limitations = append(p\.result\.Limitations, modelInvalidOutputNotice(p\.reviewLanguage, string(parseErr\.Kind)))/p.result.Issues = append(p.result.Issues, types.ReviewIssue{File: "app.go", Line: 2, Severity: "error", Message: "AUR505-FABRICATED"})/' \
     'AC-003' 'AUR505-FABRICATED'
 }
 

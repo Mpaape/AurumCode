@@ -74,8 +74,10 @@ func testAUR500ConfigSelectedProfileApplies(t *testing.T) {
 
 func testAUR500BuiltinsAreVersionedAndDeterministic(t *testing.T) {
 	names := reviewprofile.Names()
-	if len(names) != 3 {
-		t.Fatalf("built-ins = %v, want solid, seguranca, performance", names)
+	// AUR-573: product_owner joined the built-ins after this card; the exact set
+	// is still pinned (names are sorted by reviewprofile.Names).
+	if strings.Join(names, ",") != "performance,product_owner,seguranca,solid" {
+		t.Fatalf("built-ins = %v, want performance, product_owner, seguranca, solid", names)
 	}
 	for _, name := range names {
 		first := resolve(t, reviewprofile.Selection{Flag: name})

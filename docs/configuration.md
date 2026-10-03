@@ -1104,8 +1104,7 @@ duplicados e chaves desconhecidas. Detalhes e exemplos completos em
 
 ### Modelo (LLM)
 
-Com um provedor configurado (`LLM_API_KEY` + `LLM_BASE_URL`, ou
-`AURUMCODE_LLM_FIXTURE=<arquivo>` offline), o modelo classifica e enriquece os
+Com um provedor configurado (`LLM_API_KEY` + `LLM_BASE_URL`, ou o modo offline por fixture dos testes), o modelo classifica e enriquece os
 candidatos: descrição, propriedades `aurumcode:xbom:llm:*`, exclusão de falso
 positivo (`keep: false`) e componentes adicionais que ele consiga citar com
 arquivo, linha e token, todos sujeitos à mesma verificação de evidência. O

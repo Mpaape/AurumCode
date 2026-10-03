@@ -162,7 +162,7 @@ check_ac002() {
   # defect, not a materialization gap: every go build/test failure is
   # behavioral red (1), never infra.
   local build_log="$run_dir/ac002-build.log"
-  if ! ( cd "$repo_root" && go build ./... ) >"$build_log" 2>&1; then
+  if ! ( cd "$repo_root" && go build -buildvcs=false ./... ) >"$build_log" 2>&1; then
     cat "$build_log" >&2
     printf 'go build ./... failed\n' >&2
     return 1

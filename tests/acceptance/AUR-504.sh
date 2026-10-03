@@ -210,13 +210,14 @@ ac003_case() {
 }
 
 # --- MUT-001: publish on GITHUB_SHA (the merge commit) again --------------
+# AUR-573: the anchor statement moved to review_pr_publish.go (AUR-558 split).
 readonly mut1_needle='commitID = headSHA'
 readonly mut1_repl='commitID = func() string { _ = headSHA; return os.Getenv("GITHUB_SHA") }()'
 
 mutation_case_1() {
   local root="$run_dir/root-mut1"
   stage_source "$root"
-  replace_once "$root/cmd/aurumcode/pr.go" "$mut1_needle" "$mut1_repl" MUT-001
+  replace_once "$root/cmd/aurumcode/review_pr_publish.go" "$mut1_needle" "$mut1_repl" MUT-001
   expect_red "$root" 'AC-001' 'MUT-001/AC-001-survived'
   # Specificity: the mutation is scoped to the status anchor; the --base
   # contract is untouched.

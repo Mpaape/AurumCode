@@ -143,9 +143,10 @@ stage_source() {
   # after 670c7f6 removed internal/documentation/*, internal/pipeline and
   # cmd/regenerate-docs; staging a path that no longer exists aborts the
   # whole acceptance before it asserts anything).
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/analysis internal/analyzer internal/apply internal/config internal/context internal/git internal/llm internal/memory internal/prompt internal/render internal/review internal/security internal/testgen
-  copy "$root" pkg/types
+  # AUR-573: cmd/internal/pkg inteiros (a lista enumerada apodreceu)
+  copy "$root" cmd
+  copy "$root" internal
+  copy "$root" pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input tree can be read-only, directories included;
   # force the staged scratch copy writable so mutation_case's rewrite and
@@ -179,7 +180,14 @@ coverage_rules=(security/command-injection security/hardcoded-secret security/sq
 # re-derived by running the exact command on this base and hashing its
 # stdout file -- not patched to whatever made an assertion pass. AUR-449's
 # own pin remains stale and is not this card's to repair.
-readonly expected_with_provider_sha256='905075cc86ca1dfc9239c365ae67f24894365ecde5f8ffb3ae2d3a6cb30f7371'
+# AUR-573: re-pinned from 905075cc... Measured by diffing the stdout of the
+# commit that set the old pin against this base: the ONLY difference is the
+# summary line `**Verdict:** Unknown` -> `**Verdict:** Changes requested`. The
+# fixture carries no verdict; AUR-519 stopped pinning the verdict to the
+# model's field and derives it from the findings, so a review with an error
+# finding now says so. Findings, order, mermaid and the coverage note are
+# byte-identical.
+readonly expected_with_provider_sha256='9c0f18c2fd611cd0efdf112c13d060790bfcfa59e88bed61ede1b11ff2ec48a0'
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its
@@ -333,11 +341,12 @@ mutation_case() {
   local root="$run_dir/root-mut"
   stage_source "$root"
 
-  local target="$root/cmd/aurumcode/main.go"
+  # AUR-573: the --base coverage note moved to review_base_analysis.go (AUR-558).
+  local target="$root/cmd/aurumcode/review_base_analysis.go"
   [[ -f "$target" ]] || fail 'MUT-001/target-missing'
-  local anchor='printSecurityCoverage(stderr, coverageApplied, coverageTotal)'
+  local anchor='printSecurityCoverage(b.stderr, applied, total)'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || fail 'MUT-001/anchor-not-unique'
-  local replacement='_ = coverageApplied; _ = coverageTotal // MUT-001: suppress the coverage note silently'
+  local replacement='_ = applied; _ = total // MUT-001: suppress the coverage note silently'
   ANCHOR="$anchor" REPL="$replacement" awk '
     BEGIN { anchor = ENVIRON["ANCHOR"]; repl = ENVIRON["REPL"] }
     {
