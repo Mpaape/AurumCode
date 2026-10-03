@@ -111,16 +111,45 @@ func scanOutcome(g gateScan) scanner.Outcome {
 	return out
 }
 
-// settleDeferredScans runs, as before, every deferred scanner when no tool
-// was offered: a scanner is only ever skipped by the model's own decision.
+// settleDeferredScans runs, as before, every deferred scanner the model did
+// not decide about: a scanner is only ever skipped by the model's own
+// decision. When tools were offered and the model answered, or its
+// deliberation hit a limit (already inconclusive), the transcript stands.
+// When tools were offered but the model never answered (provider failure,
+// a USD ceiling), nothing was decided: the deferred scanners it had not
+// already run now run, and the transcript says why instead of calling them
+// "not requested".
 func (s *reviewState) settleDeferredScans() {
-	if s.toolsOffered {
+	if s.toolsOffered && s.modelDecided() {
 		s.reportDeliberation()
 		return
 	}
-	for _, entry := range s.deferredScans {
-		s.scans = append(s.scans, s.scanEntry(entry))
+	ran := map[string]bool{}
+	for _, scan := range s.scans {
+		ran[scan.Config.Name()] = true
 	}
+	for _, entry := range s.deferredScans {
+		if !ran[entry.Name()] {
+			s.scans = append(s.scans, s.scanEntry(entry))
+		}
+	}
+	if s.toolsOffered && s.transcript != nil {
+		s.transcript.MarkUndecided(undecidedReason)
+		s.reportDeliberation()
+	}
+}
+
+// undecidedReason is the transcript's account of a deliberation the model
+// never finished for a reason other than a limit.
+const undecidedReason = "o modelo não respondeu (falha do provedor ou teto de custo); os scanners opcionais rodaram sem decisão do modelo"
+
+// modelDecided reports a deliberation that ended in the model's answer or
+// in a limit.
+func (s *reviewState) modelDecided() bool {
+	if s.model == modelDeliberationLimit {
+		return true
+	}
+	return s.transcript != nil && s.transcript.Outcome == deliberation.OutcomeAnswered && s.model != modelProviderFailed
 }
 
 // reportDeliberation states on stderr what the model was offered, what it
@@ -132,6 +161,9 @@ func (s *reviewState) reportDeliberation() {
 	}
 	fmt.Fprintf(s.stderr, "aurumcode review: deliberation: oferecidas [%s]; pedidas [%s]; não pedidas [%s]; rodadas %d; desfecho %s\n",
 		strings.Join(t.Offered, ", "), strings.Join(t.Requested, ", "), strings.Join(t.NotRequested, ", "), t.Rounds, t.Outcome)
+	if t.Undecided != "" {
+		fmt.Fprintf(s.stderr, "aurumcode review: deliberation: sem decisão do modelo: %s\n", t.Undecided)
+	}
 	for _, c := range t.Calls {
 		fmt.Fprintf(s.stderr, "aurumcode review: deliberation: rodada %d %s(%s) %s: %s\n", c.Round, c.Tool, c.Arguments, c.Status, c.Result)
 	}

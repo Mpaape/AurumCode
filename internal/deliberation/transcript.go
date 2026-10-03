@@ -26,6 +26,17 @@ type Transcript struct {
 	Outcome      string   `json:"outcome"`
 	// Limit names the exceeded limit, empty when none was.
 	Limit string `json:"limit,omitempty"`
+	// Undecided says why the model never decided about the tools it was
+	// offered (it never answered); NotRequested is then empty, because
+	// nothing was declined.
+	Undecided string `json:"undecided,omitempty"`
+}
+
+// MarkUndecided records that the model never finished deciding: no offered
+// tool counts as declined.
+func (t *Transcript) MarkUndecided(reason string) {
+	t.Undecided = reason
+	t.NotRequested = []string{}
 }
 
 // Call is one tool call the model made.
