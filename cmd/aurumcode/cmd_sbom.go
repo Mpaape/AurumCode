@@ -31,7 +31,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -51,28 +50,34 @@ import (
 // LLM or a scanned repository controls.
 const gateReasonSBOMFailure = "sbom_generation_failure"
 
+// sbomFlags are the values bound by newSBOMFlagSet.
+type sbomFlags struct {
+	repo, imagem, imagemAlias, politica, politicaAlias, trivyBin *string
+}
+
+// newSBOMFlagSet declares the flags of `sbom`; the help reads the same set.
+func newSBOMFlagSet() (*flag.FlagSet, sbomFlags) {
+	fs := flag.NewFlagSet("sbom", flag.ContinueOnError)
+	return fs, sbomFlags{
+		repo:          fs.String("repo", ".", "repository root to scan with `trivy fs` (default: current directory)"),
+		imagem:        fs.String("imagem", "", "optional container image reference to scan with `trivy image`; alias --image"),
+		imagemAlias:   fs.String("image", "", "alias of --imagem"),
+		politica:      fs.String("politica", "", "directory containing a central policy's .aurumcode/ (same convention as `review --politica`); default: the AURUMCODE_POLICY environment variable, otherwise no policy"),
+		politicaAlias: fs.String("policy", "", "alias of --politica"),
+		trivyBin:      fs.String("trivy-bin", "", "override the trivy binary/path (default: \"trivy\", resolved from PATH)"),
+	}
+}
+
 // runSBOM is cmd/aurumcode's AUR-549 wiring: flag parsing, configuration
 // resolution (repo vs. central policy), the two Trivy calls, and routing a
 // failure through the AUR-519 gate. It never touches the review pipeline in
 // main.go/pr.go -- this is a new, standalone subcommand, additive to the
 // existing `review`/`fix` commands.
 func runSBOM(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("sbom", flag.ContinueOnError)
-	repoFlag := fs.String("repo", ".", "repository root to scan with `trivy fs` (default: current directory)")
-	imagem := fs.String("imagem", "", "optional container image reference to scan with `trivy image`; alias --image")
-	imagemAlias := fs.String("image", "", "alias of --imagem")
-	politica := fs.String("politica", "", "directory containing a central policy's .aurumcode/ (same convention as `review --politica`); default: the AURUMCODE_POLICY environment variable, otherwise no policy")
-	politicaAlias := fs.String("policy", "", "alias of --politica")
-	trivyBin := fs.String("trivy-bin", "", "override the trivy binary/path (default: \"trivy\", resolved from PATH)")
-
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprintln(stdout, "usage: aurumcode sbom [--repo dir] [--imagem referencia] [--politica dir] [--trivy-bin caminho]")
-			fmt.Fprintln(stdout, "Gera um SBOM OWASP CycloneDX com Trivy para o repositorio e, com --imagem, para uma imagem de container.")
-			fmt.Fprintln(stdout, "Configuracao: quality_gates.ssor_dtrack.sbom_generator em .aurumcode/config.yml (ver docs/configuration.md).")
-			return 0
-		}
-		return 2
+	fs, fl := newSBOMFlagSet()
+	repoFlag, imagem, imagemAlias, politica, politicaAlias, trivyBin := fl.repo, fl.imagem, fl.imagemAlias, fl.politica, fl.politicaAlias, fl.trivyBin
+	if exit, ok := parseSubcommandFlags("sbom", fs, args, stdout, stderr); !ok {
+		return exit
 	}
 
 	root := strings.TrimSpace(*repoFlag)
