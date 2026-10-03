@@ -400,7 +400,7 @@ func TestAUR533ResolveRejectsBadInputs(t *testing.T) {
 func buildTool(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "analysis-data")
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/analysis-data")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, "./cmd/analysis-data")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build: %v\n%s", err, out)
 	}
@@ -603,7 +603,7 @@ func TestAUR533GeneratedArtifactStepRunsAgainstFreshBuild(t *testing.T) {
 	srv := fakeOSV(t, baseEcos(t))
 	dir, _ := buildAt(t, srv.URL, time.Now())
 	step := func() ([]byte, error) {
-		c := exec.Command("go", "test", "-count=1", "-v", "-run", "^TestGeneratedArtifact$", ".")
+		c := exec.Command("go", "test", "-buildvcs=false", "-count=1", "-v", "-run", "^TestGeneratedArtifact$", ".")
 		c.Env = append(os.Environ(), "AURUM_ARTIFACT_DIR="+dir)
 		return c.CombinedOutput()
 	}
