@@ -29,7 +29,7 @@ qualidade de um modelo real em cada linguagem.
 - Nenhuma credencial: o provedor é o arquivo da demonstração.
 
 ```bash
-bash demo/tutoriais/qualquer-linguagem/run.sh all      # sete casos, grava out/
+bash demo/tutoriais/qualquer-linguagem/run.sh all      # seis casos, grava out/
 bash demo/tutoriais/qualquer-linguagem/run.sh --check  # out/ contra expected/, sem docker
 ```
 
@@ -287,7 +287,7 @@ DEMO_API_TOKEN=tok_live_9f8e7d6c5b4a
 aurumcode review --base main --fail-on error
 ```
 
-<!-- saida: txt-com-segredo -->
+<!-- saida: falha-extensao-desconhecida -->
 ```text
 config/tokens.txt:2: [error] O token esta escrito em texto puro. (rule security/hardcoded-secret: Hardcoded Secrets)
 exit_code=3
