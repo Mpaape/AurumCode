@@ -121,6 +121,29 @@ jobs:
       - name: Build AurumCode image
         run: docker build --tag aurumcode-review .aurumcode-tool
 
+      # The secrets engine (gitleaks) runs from the image at the digest the
+      # scanners lock pins: pulling by digest fails if the registry serves
+      # other bytes, and the installed binary must report the lock's version
+      # (the engine refuses any other version as an inconclusive scan).
+      - name: Install pinned gitleaks
+        run: |
+          set -euo pipefail
+          lock=.aurumcode-tool/.board/bootstrap/locks/scanners.yml
+          image="$(sed -n 's/^secrets_scanner_image: //p' "$lock")"
+          version="$(sed -n 's/^secrets_scanner_version: //p' "$lock")"
+          if [[ ! "$image" =~ @sha256:[0-9a-f]{64}$ || -z "$version" ]]; then
+            echo "::error::scanners lock does not pin gitleaks by digest"
+            exit 1
+          fi
+          docker pull "$image"
+          printf 'FROM %s AS gitleaks\nFROM aurumcode-review\nCOPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks\n' "$image" |
+            docker build --tag aurumcode-review -
+          got="$(docker run --rm --entrypoint gitleaks aurumcode-review version)"
+          if [ "$got" != "$version" ]; then
+            echo "::error::gitleaks $got is not the locked $version"
+            exit 1
+          fi
+
       - name: Checkout pull request
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -128,7 +151,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           path: .aurumcode-target
           persist-credentials: false
-          fetch-depth: 1
+          # Full history: gitleaks scans base..head, and a shallow clone
+          # would cut the range (the engine refuses one as inconclusive).
+          fetch-depth: 0
 
       - name: Checkout central policy
         if: ${{ inputs.policy_repository != '' }}
@@ -336,6 +361,12 @@ jobs:
             -e AURUMCODE_WORKFLOW_SHA
             -e AURUMCODE_BASE_SHA
             -e AURUMCODE_PR_PERMISSION_MODE
+            # git inside the container runs as another user than the
+            # checkout's owner; command-scope safe.directory lets the
+            # secrets engine read the history of the read-only mount.
+            -e GIT_CONFIG_COUNT=1
+            -e GIT_CONFIG_KEY_0=safe.directory
+            -e GIT_CONFIG_VALUE_0=/github/workspace
             -e LLM_API_KEY
             -e LLM_BASE_URL
             -e LLM_MODEL
