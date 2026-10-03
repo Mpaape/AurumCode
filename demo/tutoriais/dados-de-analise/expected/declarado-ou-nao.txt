@@ -1,5 +1,5 @@
---- A. nao declarado (o falso esta no ar, mas ninguem o consulta)
---- requisicoes recebidas pelo falso api.github.com (modo valido): 0
+--- A. nao declarado (o servidor local esta no ar, mas ninguem o consulta)
+--- requisicoes recebidas pelo servidor local (modo valido): 0
 RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data
 linhas citando analysis_data na saida do review: 0
 auditoria: sem campo analysis_data
