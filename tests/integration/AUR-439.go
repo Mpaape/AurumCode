@@ -19,6 +19,7 @@ package integration
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -89,6 +90,21 @@ type aur439FakeGitHub struct {
 	*httptest.Server
 	mu       sync.Mutex
 	requests []aur439Request
+	headSHA  string
+}
+
+// setHead sets the head SHA the fake reports in the pull request metadata
+// (AUR-504: --check anchors its status on that head, never on GITHUB_SHA).
+func (f *aur439FakeGitHub) setHead(sha string) {
+	f.mu.Lock()
+	f.headSHA = sha
+	f.mu.Unlock()
+}
+
+func (f *aur439FakeGitHub) head() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.headSHA
 }
 
 func aur439NewFakeGitHub(t *testing.T, scenario string) *aur439FakeGitHub {
@@ -148,8 +164,17 @@ func aur439NewFakeGitHub(t *testing.T, scenario string) *aur439FakeGitHub {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(repoJSON)
 		case "/repos/dono/projeto/pulls/42":
+			// AUR-544: the diff request carries a .diff Accept type; the
+			// metadata request (Accept: application/vnd.github+json) gets
+			// the JSON with head.sha, as the product consumes since AUR-504.
+			if strings.Contains(r.Header.Get("Accept"), "diff") {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(diffBody)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(diffBody)
+			_, _ = fmt.Fprintf(w, `{"number":42,"title":"t","body":"b","head":{"sha":%q}}`, f.head())
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -191,10 +216,10 @@ func aur439ResponseFixture(t *testing.T, issuesJSON string) string {
 
 const (
 	aur439GraveIssues = `[
-    {"file": "cmdb/settings.go", "line": 3, "severity": "error", "rule_id": "quality/long-function", "message": "Achado grave sintetico."},
+    {"file": "cmdb/settings.go", "line": 3, "severity": "error", "rule_id": "quality/long-function", "message": "Achado grave sintetico.", "impact": "Um limite de retentativas inadequado degrada espelhos lentos.", "evidence": "A linha adicionada eleva o limite de retentativas sem justificativa.", "verification": "Reduzir o limite e rodar a suite de retentativas."},
     {"file": "docs/notas.md", "line": 99, "severity": "info", "rule_id": "quality/long-function", "message": "Achado informativo fora das linhas alteradas."}
   ]`
-	aur439CleanIssues       = `[{"file": "cmdb/settings.go", "line": 3, "severity": "warning", "rule_id": "quality/long-function", "message": "Achado nao grave sintetico."}]`
+	aur439CleanIssues       = `[{"file": "cmdb/settings.go", "line": 3, "severity": "warning", "rule_id": "quality/long-function", "message": "Achado nao grave sintetico.", "impact": "Um limite de retentativas discutivel, sem impacto grave.", "evidence": "A linha adicionada altera o limite de retentativas.", "verification": "Rodar a suite de retentativas com o limite proposto."}]`
 	aur439GeneralOnlyIssues = `[{"file": "docs/notas.md", "line": 99, "severity": "info", "rule_id": "quality/long-function", "message": "Achado geral sintetico."}]`
 	aur439EmptyIssues       = `[]`
 )
@@ -223,7 +248,9 @@ func IntegrationAUR439(t *testing.T) {
 	// run drives the binary once with --check. sha == "" means GITHUB_SHA
 	// is left genuinely absent from the child's environment (scrubbed,
 	// never merely empty).
-	run := func(baseURL, token, fixture, sha string) (int, string, string) {
+	run := func(fake *aur439FakeGitHub, token, fixture, sha string) (int, string, string) {
+		fake.setHead(sha)
+		baseURL := fake.URL
 		env := append(aur439IntegrationScrubEnv(),
 			"AURUMCODE_LLM_FIXTURE="+fixture,
 			"AURUMCODE_GITHUB_API_URL="+baseURL,
@@ -255,7 +282,7 @@ func IntegrationAUR439(t *testing.T) {
 		defer fake.Close()
 		fixture := aur439ResponseFixture(t, aur439GraveIssues)
 
-		code, stdout, stderr := run(fake.URL, "token-sintetico-write", fixture, "integration-sha-grave")
+		code, stdout, stderr := run(fake, "token-sintetico-write", fixture, "integration-sha-grave")
 		if code == 0 {
 			t.Fatalf("a grave finding must never exit 0, got 0\nstdout=%s\nstderr=%s", stdout, stderr)
 		}
@@ -280,7 +307,7 @@ func IntegrationAUR439(t *testing.T) {
 		defer fake.Close()
 		fixture := aur439ResponseFixture(t, aur439CleanIssues)
 
-		code, stdout, stderr := run(fake.URL, "token-sintetico-write", fixture, "integration-sha-clean")
+		code, stdout, stderr := run(fake, "token-sintetico-write", fixture, "integration-sha-clean")
 		if code != 0 {
 			t.Fatalf("expected exit 0, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
@@ -298,12 +325,12 @@ func IntegrationAUR439(t *testing.T) {
 		defer fake.Close()
 		fixture := aur439ResponseFixture(t, aur439EmptyIssues)
 
-		code, stdout, _ := run(fake.URL, "token-sintetico-write", fixture, "integration-sha-empty")
+		code, stdout, _ := run(fake, "token-sintetico-write", fixture, "integration-sha-empty")
 		if code != 0 {
 			t.Fatalf("expected exit 0, got %d\nstdout=%s", code, stdout)
 		}
-		if !strings.Contains(stdout, "No issues found.") {
-			t.Fatalf("expected the pre-existing zero-issue line, got:\n%s", stdout)
+		if !strings.Contains(stdout, "0 comentario(s) publicado(s)") {
+			t.Fatalf("expected the zero-findings summary line (AUR-490: \"No issues found.\" is the --base stdout contract), got:\n%s", stdout)
 		}
 		statuses := fake.statusPosts()
 		if len(statuses) != 1 {
@@ -312,8 +339,11 @@ func IntegrationAUR439(t *testing.T) {
 		if statuses[0].Body["state"] != "success" {
 			t.Fatalf("expected state %q, got %v", "success", statuses[0].Body["state"])
 		}
-		if len(fake.posts()) != 1 {
-			t.Fatalf("expected zero comment POSTs alongside the one status POST, got %d: %+v", len(fake.posts()), fake.posts())
+		// The summary comment is always posted in the comments mode (see
+		// tests/e2e/AUR-439.sh scenario 3): exactly one summary POST plus
+		// the single status POST, and no second status.
+		if len(fake.posts()) != 2 {
+			t.Fatalf("expected the summary comment POST alongside the one status POST, got %d: %+v", len(fake.posts()), fake.posts())
 		}
 	})
 
@@ -322,12 +352,12 @@ func IntegrationAUR439(t *testing.T) {
 		defer fake.Close()
 		fixture := aur439ResponseFixture(t, aur439GeneralOnlyIssues)
 
-		code, stdout, stderr := run(fake.URL, "token-sintetico-write", fixture, "")
+		code, stdout, stderr := run(fake, "token-sintetico-write", fixture, "")
 		if code != 1 {
 			t.Fatalf("expected exit 1, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
-		if !strings.Contains(stderr, "commit SHA") {
-			t.Fatalf("expected a clear commit-SHA refusal message, got:\n%s", stderr)
+		if !strings.Contains(stderr, "head SHA") {
+			t.Fatalf("expected a clear head-SHA refusal message, got:\n%s", stderr)
 		}
 		if posts := fake.posts(); len(posts) != 0 {
 			t.Fatalf("expected zero POSTs, got %d: %+v", len(posts), posts)
@@ -339,7 +369,7 @@ func IntegrationAUR439(t *testing.T) {
 		defer fake.Close()
 		fixture := aur439ResponseFixture(t, aur439GraveIssues)
 
-		code, _, stderr := run(fake.URL, "token-sintetico-readonly", fixture, "integration-sha-readonly")
+		code, _, stderr := run(fake, "token-sintetico-readonly", fixture, "integration-sha-readonly")
 		if code != 1 {
 			t.Fatalf("expected exit 1, got %d\nstderr=%s", code, stderr)
 		}
@@ -356,11 +386,11 @@ func IntegrationAUR439(t *testing.T) {
 
 		fakeA := aur439NewFakeGitHub(t, "write")
 		defer fakeA.Close()
-		codeA, stdoutA, _ := run(fakeA.URL, "token-sintetico-write", fixture, "integration-sha-det")
+		codeA, stdoutA, _ := run(fakeA, "token-sintetico-write", fixture, "integration-sha-det")
 
 		fakeB := aur439NewFakeGitHub(t, "write")
 		defer fakeB.Close()
-		codeB, stdoutB, _ := run(fakeB.URL, "token-sintetico-write", fixture, "integration-sha-det")
+		codeB, stdoutB, _ := run(fakeB, "token-sintetico-write", fixture, "integration-sha-det")
 
 		if codeA != codeB {
 			t.Fatalf("exit code is not deterministic: %d vs %d", codeA, codeB)
