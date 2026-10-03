@@ -432,7 +432,7 @@ func TestAUR521PRPathWritesComplianceArtifacts(t *testing.T) {
 
 	auditPath := filepath.Join(t.TempDir(), "audit.json")
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 		auditoriaPath:  auditPath,
@@ -514,7 +514,7 @@ func TestAUR521ExceptedFindingSuppressedNotBlocking(t *testing.T) {
 	auditPath := filepath.Join(t.TempDir(), "audit.json")
 	sarifPath := filepath.Join(t.TempDir(), "out.sarif")
 	var stdout, stderr strings.Builder
-	code := runPRReview(&stdout, &stderr, 48, "owner/repo", true, true, false, redaction.NewFilter(), prReviewOptions{
+	code := runPRReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: false,
 		publicationSet: true,
 		publication:    "review",
 		auditoriaPath:  auditPath,

@@ -264,7 +264,11 @@ func TestAUR524AC001PRStickyFailInsideHunk(t *testing.T) {
 	opts := prReviewOptions{publicationSet: true, publication: "review"}
 
 	var out1, err1 strings.Builder
-	code1 := runPRReview(&out1, &err1, 48, "owner/repo", true, true, false, redaction.NewFilter(), opts)
+	code1 := runPRReview(reviewIO{stdout: &out1, stderr: &err1, filter: redaction.NewFilter()}, func() prReviewOptions {
+		o := opts
+		o.prNumber, o.repo, o.publicar, o.naLinha, o.check = 48, "owner/repo", true, true, false
+		return o
+	}())
 	if code1 != exitFindings {
 		t.Fatalf("round1 exit=%d, want exitFindings(%d); stdout=%s stderr=%s", code1, exitFindings, out1.String(), err1.String())
 	}
@@ -273,7 +277,11 @@ func TestAUR524AC001PRStickyFailInsideHunk(t *testing.T) {
 	}
 
 	var out2, err2 strings.Builder
-	code2 := runPRReview(&out2, &err2, 48, "owner/repo", true, true, false, redaction.NewFilter(), opts)
+	code2 := runPRReview(reviewIO{stdout: &out2, stderr: &err2, filter: redaction.NewFilter()}, func() prReviewOptions {
+		o := opts
+		o.prNumber, o.repo, o.publicar, o.naLinha, o.check = 48, "owner/repo", true, true, false
+		return o
+	}())
 	if code2 != exitFindings {
 		t.Fatalf("round2 exit=%d, want exitFindings(%d): the --pr gate verdict must stay sticky; stdout=%s stderr=%s", code2, exitFindings, out2.String(), err2.String())
 	}
@@ -380,7 +388,7 @@ func TestAUR524AC002ModelChangeInvalidatesReuse(t *testing.T) {
 }
 
 // TestAUR524AC002PromptVersionChangeInvalidatesReuse covers AC-002's
-// prompt-version term: swapping newCacheDigestBuilder (review_cache.go's
+// prompt-version term: swapping the injected digestBuilder (reviewDeps,
 // own seam, AUR-543) for one with different fixed content -- as if the
 // embedded prompt/catalog changed -- between two otherwise identical runs
 // invalidates reuse. Mirrors TestAUR543AC001PromptEditForcesFreshReview's
@@ -395,13 +403,11 @@ func TestAUR524AC002PromptVersionChangeInvalidatesReuse(t *testing.T) {
 		t.Fatalf("round1 exit=%d, want exitFindings(%d); stdout=%s stderr=%s", code, exitFindings, out1.String(), err1.String())
 	}
 
-	original := newCacheDigestBuilder
-	t.Cleanup(func() { newCacheDigestBuilder = original })
-	newCacheDigestBuilder = prompt.NewPromptBuilderWithoutTemplates
+	deps := reviewDeps{digestBuilder: prompt.NewPromptBuilderWithoutTemplates}
 	t.Setenv("AURUMCODE_LLM_FIXTURE", aur524WriteFixture(t, aur524CleanResp))
 
 	var out2, err2 strings.Builder
-	code2 := runReview([]string{"--base", "HEAD~1"}, &out2, &err2, redaction.NewFilter())
+	code2 := runReviewWith(reviewIO{stdout: &out2, stderr: &err2, filter: redaction.NewFilter(), deps: deps}, []string{"--base", "HEAD~1"})
 	if code2 != 0 {
 		t.Fatalf("round2 exit=%d, want 0: a changed prompt-version digest must never reuse round1's stored breach; stdout=%s stderr=%s", code2, out2.String(), err2.String())
 	}

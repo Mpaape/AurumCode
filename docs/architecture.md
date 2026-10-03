@@ -39,7 +39,7 @@ rules live in `internal/`.
 | `internal/context` | Bounded, deterministic codebase context and skill reader. |
 | `internal/dtrack` | Client of OWASP Dependency-Track for the SBOM gate. |
 | `internal/evidence` | Content-addressed evidence-bundle manifest. |
-| `internal/gate` | The gate pipeline: `Run`, `Result`, `Contributor`, `Pipeline` and the failure rule. |
+| `internal/gate` | The gate pipeline: `Run`, `Result`, `Contributor`, `Pipeline`, the failure rule, the inconclusive ranking (`RankReason`) and the exit decision (`ExitPolicy`). |
 | `internal/git` | GitHub client and git access used by the `--pr` path. |
 | `internal/governance` | Task specification and dependency-graph model of the board. |
 | `internal/grammar` | The only source of per-language structure, from grammar catalogs. |
@@ -47,7 +47,7 @@ rules live in `internal/`.
 | `internal/memory` | Optional review memory. |
 | `internal/prompt` | Prompt building, budgeting, response parsing, comment filter, coverage notes. |
 | `internal/render` | Deterministic reports, audit records, SARIF and finding identity. |
-| `internal/review` | The reviewer, scope, rules (including dynamic skill rules) and the review cache. |
+| `internal/review` | The reviewer, scope, rules (including dynamic skill rules), the review cache and the review session (`internal/review/session`: phase order and per-source data). |
 | `internal/reviewprofile` | Built-in, versioned reviewer profiles. |
 | `internal/sandbox` | Sealed execution profiles. |
 | `internal/sbom` | CycloneDX SBOM generation and validation. |
@@ -59,16 +59,50 @@ rules live in `internal/`.
 ## Review flow
 
 `--base` reviews a local diff and prints a report; `--pr` reviews a pull
-request and publishes comments, a formal review and commit statuses. Both run
-the same phases and differ only in where the diff comes from and how the
-result is published.
+request and publishes comments, a formal review and commit statuses. Both are
+one review session (`internal/review/session`) and differ only in their
+source (where the diff comes from) and their publisher (terminal or GitHub).
 
-1. **Resolve inputs.** Configuration, central policy, diff, context, profiles.
-2. **Analyses.** Model review, security and quality passes, SAST, structural
-   coverage, embedded analysis.
-3. **Gate.** The shared pipeline below decides pass, fail or inconclusive.
-4. **Publish and exit.** Report or comments, status, SARIF and audit, exit
-   code. A phase returns `(exit, done)`, so each early exit keeps its code.
+`session.Order` is the one phase order; `session.Run` executes it and a step
+returns `(exit, done)`, so each early exit keeps its code:
+
+1. **resolve.** Validate the invocation; configuration, central policy, diff,
+   context, profiles, memory.
+2. **model.** Provider selection and the model's quality pass. Its result is
+   a typed `gate.ModelOutcome`: `reviewed`, `skipped` (no provider
+   configured), `provider failed` (no answer, or a required quality review
+   that did not happen) or `parse failed` (an answer that could not be
+   validated).
+3. **evidence.** The security pass, static analysis, the repository's rule
+   configuration, SAST and coverage. One step decides where the security
+   findings live (in the review's issues on `--pr`, in their own section on
+   `--base`); the verdict-reuse snapshot holds the same findings either way.
+4. **gate.** The shared pipeline below, from the session's `gate.Run`. The
+   inconclusive motive is `gate.RankReason`: provider failure, skipped
+   review, unparseable answer, degraded parse, the SAST reason, partial
+   coverage, in that order.
+5. **publish.** The compliance artifacts (from the gate run's findings), the
+   report or the GitHub publication, then `gate.ExitPolicy`.
+
+A source is `cmd/aurumcode` code (`baseReview`, `prReview`) that embeds the
+shared `reviewState`; what differs between the two and is not the source or
+the publisher is data in `session.Source`:
+
+| Model outcome | `--base` (`session.LocalDiff`) | `--pr` (`session.PullRequest`) |
+| --- | --- | --- |
+| provider failed | not reviewed (exit 1) | not reviewed only with `--exigir-qualidade`; otherwise the gate decides |
+| parse failed | not reviewed (exit 1) | not reviewed only with `--exigir-qualidade`; otherwise the gate decides |
+| skipped | the gate decides (`--exigir-qualidade` escalates it to provider failed) | not reachable: no provider is an error |
+
+`gate.ExitPolicy` is one ladder, highest first: a review comment that could
+not be posted (1), not reviewed (1), a commit status that could not be
+published (1), the gate (a breach 3, a block 1), a requested audit or SARIF
+not written (1), `--fail-on` (3), the `--check` status's own code.
+
+The session's collaborators are injected (`reviewDeps`), never package
+variables: the clock exceptions are judged against, the SAST runner, the
+gate-pipeline observer, the codebase resolver, the prompt builder that
+versions the caches, and the environment, read once at the command's edge.
 
 ## Review prompt
 
@@ -149,4 +183,6 @@ the configuration exit code.
 Structural tests in `cmd/aurumcode` keep this document true: no production
 function of `cmd/aurumcode` exceeds 150 lines, and the package list above is
 compared with the packages on disk, so a package without a citation here fails
-the test.
+the test. `cmd/aurumcode` also declares no phase list and no exit ladder of its
+own: a slice of phase steps, a review source returning an exit code, or a
+second caller of `gate.ExitPolicy` fails the test.

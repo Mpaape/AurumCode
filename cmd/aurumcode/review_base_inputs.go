@@ -1,4 +1,4 @@
-// Phase 1 of the --base path: resolve the inputs. Everything here happens
+// The resolve phase of the --base path: resolve the inputs. Everything here happens
 // before any model call or analysis runs.
 package main
 
@@ -9,13 +9,14 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/review/session"
 )
 
 // resolveInputs validates usage, computes the diff, loads the effective
 // config (repository + central policy), selects profiles and gathers the
 // context the model will see (codebase, memory, changelog).
 func (b *baseReview) resolveInputs() (int, bool) {
-	steps := []func() (int, bool){
+	steps := []session.Step{
 		b.validateUsage, b.loadDiff, b.loadConfig, b.resolveProfiles, b.gatherContext,
 	}
 	for _, step := range steps {
@@ -74,6 +75,10 @@ func (b *baseReview) loadDiff() (int, bool) {
 		return 1, true
 	}
 	b.cwd = cwd
+	// AUR-520: the verified repo identity comes from the local checkout's
+	// "origin" remote, never from the model or the diff. Unknown fails
+	// closed (the exceptions contributor says so).
+	b.repoIdentity, b.repoIdentityKnown = localRepoIdentity(cwd)
 	b.diff, b.notices, err = computeDiff(cwd, b.f.base)
 	if err != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
@@ -90,7 +95,7 @@ func (b *baseReview) loadDiff() (int, bool) {
 // capturing which paths the config hid (AUR-476).
 func (b *baseReview) loadConfig() (int, bool) {
 	var err error
-	b.repoCfg, err = config.Load(b.cwd)
+	b.cfg, err = config.Load(b.cwd)
 	if err != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
 		return 1, true
@@ -107,7 +112,7 @@ func (b *baseReview) loadConfig() (int, bool) {
 			return 1, true
 		}
 	}
-	b.repoCfg, b.policyWarnings = config.ApplyCentralPolicy(b.repoCfg, b.centralCfg)
+	b.cfg, b.policyWarnings = config.ApplyCentralPolicy(b.cfg, b.centralCfg)
 	if b.filter != nil {
 		for i := range b.policyWarnings {
 			b.policyWarnings[i].Provider = b.filter.Redact(b.policyWarnings[i].Provider)
@@ -117,13 +122,13 @@ func (b *baseReview) loadConfig() (int, bool) {
 	for _, warning := range b.policyWarnings {
 		fmt.Fprintf(b.stderr, "aurumcode review: %s: %s\n", warning.Provider, warning.Reason)
 	}
-	b.reviewLanguage, err = b.repoCfg.ReviewLanguage()
+	b.reviewLanguage, err = b.cfg.ReviewLanguage()
 	if err != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
 		return 1, true
 	}
-	b.ignoredPaths = ignoredDiffPaths(b.diff, b.repoCfg)
-	b.diff = config.FilterIgnoredPaths(b.diff, b.repoCfg)
+	b.ignoredPaths = ignoredDiffPaths(b.diff, b.cfg)
+	b.diff = config.FilterIgnoredPaths(b.diff, b.cfg)
 	return 0, false
 }
 
@@ -147,7 +152,7 @@ func (b *baseReview) resolveProfiles() (int, bool) {
 		flagNames = splitProfileNames(raw)
 	}
 	var err error
-	b.profileRes, err = resolveReviewProfiles(b.cwd, flagNames, perfisGiven, b.repoCfg)
+	b.profileRes, err = resolveReviewProfiles(b.cwd, flagNames, perfisGiven, b.cfg)
 	if err != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
 		return 2, true
@@ -169,11 +174,11 @@ func (b *baseReview) resolveProfiles() (int, bool) {
 // and bounded; missing metadata omits the section with a declared
 // limitation and never crashes the review.
 func (b *baseReview) gatherContext() (int, bool) {
-	b.codebaseContextText = resolveCodebaseContext(b.diff)
-	b.memoryStore, b.memoryNotes, b.memoryNotesText = openReviewMemory(b.repoCfg.Review.Memory, "", "", b.stderr, b.filter)
+	b.codebaseText = resolveCodebaseContext(b.diff)
+	b.memoryStore, b.memoryNotes, b.memoryNotesText = openReviewMemory(b.cfg.Review.Memory, "", "", b.stderr, b.filter)
 	changelogOn := b.f.changelog
 	if !changelogOn {
-		on, cfgErr := b.repoCfg.ReviewChangelog()
+		on, cfgErr := b.cfg.ReviewChangelog()
 		if cfgErr != nil {
 			fmt.Fprintf(b.stderr, "aurumcode review: %v\n", cfgErr)
 			return 1, true
@@ -187,12 +192,12 @@ func (b *baseReview) gatherContext() (int, bool) {
 	if commitErr != nil {
 		b.changelogLimitation = changelogUnavailableNotice(b.reviewLanguage)
 		fmt.Fprintf(b.stderr, "aurumcode review: %s\n", b.changelogLimitation)
-	} else if section, limit := buildChangelogSection(b.repoCfg.Review.Version, commits, b.filter); limit != "" {
+	} else if section, limit := buildChangelogSection(b.cfg.Review.Version, commits, b.filter); limit != "" {
 		b.changelogLimitation = limit
 		fmt.Fprintf(b.stderr, "aurumcode review: %s\n", limit)
 	} else {
 		b.changelogText = render.ChangelogSection(section.Version, section.Bump, section.Entry, b.reviewLanguage)
-		if werr := writeChangelogOutput(os.Getenv("AURUMCODE_OUTPUT_FILE"), section); werr != nil {
+		if werr := writeChangelogOutput(b.env().outputFile, section); werr != nil {
 			fmt.Fprintf(b.stderr, "aurumcode review: writing changelog output: %v\n", werr)
 		}
 	}

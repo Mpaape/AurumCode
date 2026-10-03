@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -31,7 +30,7 @@ func (p *prReview) publish() (int, bool) {
 // is posted -- fail closed, never a POST built with an empty commit_id.
 func (p *prReview) resolveCommit() (int, bool) {
 	stderr := p.stderr
-	p.commitID = os.Getenv("GITHUB_SHA")
+	p.commitID = p.env().githubSHA
 	needsCommitID := p.check
 	if p.inlineComments {
 		for _, issue := range p.issues {
@@ -62,31 +61,8 @@ func (p *prReview) resolveCommit() (int, bool) {
 		fmt.Fprintln(stderr, "aurumcode review: refusing to publish: inline comments or --check require a commit SHA; set GITHUB_SHA")
 		return 1, true
 	}
+	p.artifactCommit = p.commitID
 	return 0, false
-}
-
-// writeArtifacts writes AUR-521's audit record and SARIF once the gate's
-// decision is final and the reviewed commit is resolved; a no-op unless
-// --auditoria or --sarif was given.
-func (p *prReview) writeArtifacts() []artifactFailure {
-	return writeComplianceArtifacts(complianceArtifactInputs{
-		auditoriaPath:          p.opts.auditoriaPath,
-		sarifPath:              p.opts.sarifPath,
-		policyDir:              p.opts.policyDir,
-		centralCfg:             p.centralCfg,
-		repo:                   p.owner + "/" + p.repoName,
-		reviewedSHA:            p.commitID,
-		model:                  firstNonEmpty(p.opts.modelo, os.Getenv("LLM_MODEL")),
-		verdict:                canonicalVerdict(p.result),
-		gate:                   *p.gateRes,
-		gateInconclusiveReason: p.gateRes.Reason,
-		analysisData:           p.gateRes.AnalysisData,
-		diff:                   p.diff,
-		issues:                 p.result.Issues,
-		dynamicRules:           p.dynamicRules,
-		coverageComplete:       !p.coverage.partial(),
-		omittedFiles:           append(append([]string{}, p.coverage.IgnoredPaths...), p.coverage.FilteredPaths...),
-	}, p.run, p.gateRes, p.filter, p.stderr)
 }
 
 // postReview publishes the findings and the summary. The loop never lets one
@@ -183,63 +159,31 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 }
 
 // finish saves review memory, publishes the commit statuses and returns the
-// exit code. The statuses are published before the comment-failure return: a
-// grave finding must still get its failing check even when an unrelated
-// comment failed (and vice versa); the two outcomes are independent.
+// session's exit decision. The statuses are published before a comment
+// failure is reported: a grave finding must still get its failing check
+// even when an unrelated comment failed (and vice versa); the two outcomes
+// are independent.
 func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 	stderr := p.stderr
 	// AUR-505: a degraded run has no model answer to remember; the
 	// deterministic findings are not quality observations.
-	if !p.qualityDegraded {
+	if !p.modelDegraded() {
 		persistReviewMemory(p.memoryStore, p.cfg.Review.Memory, p.memoryNotes, p.result.Issues, stderr, p.filter)
 	}
-	checkExit, gateCheckExit := 0, 0
+	out := publishOutcome{failures: len(failures), artifactsMissing: artifactsMissing}
 	if p.check {
-		checkExit = publishCheckStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, p.opts.exigirQualidade && p.qualityDegraded, p.providerFailed)
+		out.checkExit = publishCheckStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, p.opts.exigirQualidade && p.modelDegraded(), p.model == modelProviderFailed)
 		// AUR-519: the policy gate's own status, independent of --check's
 		// grave-finding status; a no-op when no gate was declared.
-		gateCheckExit = publishPolicyGateStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, *p.gateRes, p.prNumber)
+		out.gateCheckExit = publishPolicyGateStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, *p.gateRes, p.prNumber)
 	}
 	if len(failures) > 0 {
 		fmt.Fprintf(stderr, "aurumcode review: %d comentario(s) falharam ao publicar:\n", len(failures))
 		for _, f := range failures {
 			fmt.Fprintf(stderr, "  %s\n", f)
 		}
-		return 1
 	}
-	return p.exitCode(checkExit, gateCheckExit, artifactsMissing)
-}
-
-// exitCode orders the closing conditions: an inconclusive model under
-// --exigir-qualidade, a status that could not be published (a transport
-// failure, not a finding), the policy gate (a breach is exitFindings even
-// when also inconclusive, B1; block without a breach is
-// exitQualityNotReviewed), then --fail-on and --check's own status.
-func (p *prReview) exitCode(checkExit, gateCheckExit int, artifactsMissing bool) int {
-	if p.opts.exigirQualidade && p.qualityDegraded {
-		fmt.Fprintln(p.stderr, "aurumcode review: --exigir-qualidade: the model review was inconclusive; the published deterministic findings do not approve this pull request")
-		return exitQualityNotReviewed
-	}
-	if checkExit == 1 || gateCheckExit == 1 {
-		return 1
-	}
-	if code, closed := gateExitCode(p.gateRes); closed {
-		return code
-	}
-	if artifactsMissing {
-		// AUR-568: a requested audit/SARIF that is missing never ends as success.
-		return exitArtifactNotWritten
-	}
-	if p.threshold > 0 {
-		if n := countAtOrAbove(p.issues, p.threshold); n > 0 {
-			fmt.Fprintf(p.stderr, "aurumcode review: %d finding(s) at severity %s or above (--fail-on %s)\n", n, p.thresholdName, p.thresholdName)
-			return exitFindings
-		}
-	}
-	if p.check {
-		return checkExit
-	}
-	return 0
+	return p.decideExit(out)
 }
 
 // gateAlignedReviewEvent aligns the formal review with the policy gate when

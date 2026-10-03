@@ -218,7 +218,7 @@ func runAUR533PR(t *testing.T, repoConfig, auditPath string) (code int, publishe
 	t.Cleanup(gh.Close)
 	setPRGateEnv(t, gh, approveFixture(t))
 	var out, errOut strings.Builder
-	code = runPRReview(&out, &errOut, 48, "owner/repo", true, true, true, redaction.NewFilter(), prReviewOptions{auditoriaPath: auditPath})
+	code = runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: true, check: true, auditoriaPath: auditPath})
 	body += out.String() + errOut.String()
 	return code, published, body
 }

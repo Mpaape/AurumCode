@@ -55,6 +55,12 @@ func pr499Fixture(t *testing.T, metadata bool, posted *githubclient.PullRequestR
 
 func runPR499(t *testing.T, metadata bool) (int, string, githubclient.PullRequestReview) {
 	t.Helper()
+	return runPR499With(t, metadata, reviewDeps{})
+}
+
+// runPR499With is runPR499 with injected session dependencies.
+func runPR499With(t *testing.T, metadata bool, deps reviewDeps) (int, string, githubclient.PullRequestReview) {
+	t.Helper()
 	var posted githubclient.PullRequestReview
 	server := pr499Fixture(t, metadata, &posted)
 	defer server.Close()
@@ -72,7 +78,7 @@ func runPR499(t *testing.T, metadata bool) (int, string, githubclient.PullReques
 	t.Setenv("AURUMCODE_OUTPUT_FILE", "")
 
 	var stdout, stderr strings.Builder
-	code := runReview([]string{"--pr", "7", "--repo", "team/project", "--publicar", "--modo-publicacao", "review", "--changelog"}, &stdout, &stderr, redaction.NewFilter())
+	code := runReviewWith(reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter(), deps: deps}, []string{"--pr", "7", "--repo", "team/project", "--publicar", "--modo-publicacao", "review", "--changelog"})
 	return code, stderr.String(), posted
 }
 
