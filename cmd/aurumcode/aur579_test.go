@@ -16,6 +16,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -86,7 +87,7 @@ func aur579Repo(t *testing.T) {
 
 // aur579SAST enables SAST in the fixture repository and returns a Semgrep
 // runner that reports one finding on the credential line.
-func aur579SAST(t *testing.T, extraConfig string) semgrepRunner {
+func aur579SAST(t *testing.T, extraConfig string) scanner.Command {
 	t.Helper()
 	cfg := "quality_gates:\n  sast:\n    enabled: true\n" + extraConfig
 	if err := os.MkdirAll(".aurumcode", 0o700); err != nil {
@@ -95,16 +96,16 @@ func aur579SAST(t *testing.T, extraConfig string) semgrepRunner {
 	if err := os.WriteFile(filepath.Join(".aurumcode", "config.yml"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return func(context.Context, string, ...string) (string, string, error) {
+	return func(context.Context, string, string, ...string) (string, string, error) {
 		return `{"results":[{"check_id":"generic.secrets.hardcoded","path":"app.go","start":{"line":4},"extra":{"severity":"ERROR","message":"Hardcoded secret"}}]}`, "", nil
 	}
 }
 
 // aur579Review runs the review with the given semgrep runner.
-func aur579Review(t *testing.T, semgrep semgrepRunner, args ...string) (int, string, string) {
+func aur579Review(t *testing.T, semgrep scanner.Command, args ...string) (int, string, string) {
 	t.Helper()
 	var out, errOut strings.Builder
-	rio := reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter(), deps: reviewDeps{semgrep: semgrep, env: &reviewEnv{}}}
+	rio := reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter(), deps: reviewDeps{scanners: scanner.Executor{Command: semgrep}, env: &reviewEnv{}}}
 	code := runReviewWith(rio, append([]string{"--base", "HEAD~1"}, args...))
 	return code, out.String(), errOut.String()
 }

@@ -13,7 +13,7 @@ import (
 // declaredGateContributors is the documented order of the shared pipeline
 // (docs/specs/AUR-557.md).
 var declaredGateContributors = []string{
-	"exceptions", "verdict-reuse", "policy-skills", "sast",
+	"exceptions", "verdict-reuse", "policy-skills", "scanners",
 	"embedded-analysis", "security-pass", "analysis-data", "dependency-track",
 }
 

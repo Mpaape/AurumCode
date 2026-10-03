@@ -23,12 +23,19 @@ type QualityGatesConfig struct {
 	Sast        *SastConfig        `yaml:"sast"`
 	SsorDtrack  *SsorDtrackConfig  `yaml:"ssor_dtrack"`
 	SupplyChain *SupplyChainConfig `yaml:"supply_chain"`
+	// Scanners is the generic list of registered scanner engines
+	// (scanners.go); Sast is accepted as the alias of its semgrep entry.
+	Scanners []ScannerConfig `yaml:"scanners"`
+
+	// policyEngines holds the engines whose effective entry is the central
+	// policy's (mergeScanners).
+	policyEngines map[string]bool
 }
 
-// Declared reports whether quality_gates had ANY of its three subsections
+// Declared reports whether quality_gates had ANY of its subsections
 // written at all.
 func (q QualityGatesConfig) Declared() bool {
-	return q.Sast != nil || q.SsorDtrack != nil || q.SupplyChain != nil
+	return q.Sast != nil || q.SsorDtrack != nil || q.SupplyChain != nil || len(q.Scanners) > 0
 }
 
 // SastConfig (quality_gates.sast, AUR-548's own section) lives in sast.go.

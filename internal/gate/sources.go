@@ -1,5 +1,5 @@
 // The embedded analysis catalog (analysis/*) counts toward the
-// policy gate. Like ApplySASTGate (aur548.go) it folds its own decision
+// policy gate. Like ApplyScannerGate (scanner.go) it folds its own decision
 // into the Result EvaluateGate already returned, so EvaluateGate's
 // signature and every AUR-519/520/521/548 consumer stay untouched. The
 // findings come from a fresh, deterministic analysis.Runner pass over the
@@ -66,21 +66,9 @@ func AnalysisIssuesForGate(diff *types.Diff, cfg *config.Config) []types.ReviewI
 	}
 	var out []types.ReviewIssue
 	for _, f := range analysis.NewRunner().Analyze(diff) {
-		out = append(out, types.ReviewIssue{
-			File: f.Path, Line: f.Line, Side: f.Side, Severity: f.Severity, RuleID: f.RuleID,
-			Message: fmt.Sprintf("%s (rule %s)", f.Message, f.RuleID),
-		})
+		out = append(out, f.ToIssue(""))
 	}
 	return config.ApplyRuleConfig(out, cfg)
-}
-
-// SASTIssues returns the SAST issues ApplySASTGate may count: none when
-// a declared gate restricts gate.sources to exclude sast.
-func SASTIssues(gate config.GateConfig, issues []types.ReviewIssue) []types.ReviewIssue {
-	if gate.Declared() && !gate.SourceEnabled(config.GateSourceSAST) {
-		return nil
-	}
-	return issues
 }
 
 // ApplyAnalysisGate folds the analysis origin into d in place. A complete
@@ -157,16 +145,4 @@ func applyDeterministic(d *Result, gate config.GateConfig, issues []types.Review
 		})
 	}
 	return nil
-}
-
-// FoldSources is the single entry point both review paths (--base and
-// --pr) call after EvaluateGate: it folds the SAST and embedded-analysis
-// origins into d, honoring gate.sources. Which origins are enabled is
-// decided by config.GateConfig.SourceEnabled; this function only adapts
-// the results to the cmd-level Result.
-func FoldSources(d *Result, cfg *config.Config, diff *types.Diff, sastOrigin string, sastIssues []types.ReviewIssue, sastReason, repoIdentity string, now time.Time) error {
-	if err := ApplySASTGate(d, cfg.QualityGates.Sast, sastOrigin, SASTIssues(cfg.Gate, sastIssues), sastReason); err != nil {
-		return err
-	}
-	return ApplyAnalysisGate(d, cfg.Gate, AnalysisIssuesForGate(diff, cfg), cfg.Exceptions, repoIdentity, now)
 }

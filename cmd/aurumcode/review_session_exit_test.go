@@ -11,6 +11,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/internal/review/session"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -28,7 +29,7 @@ type sessionCase struct {
 }
 
 // missingSemgrep is the injected scanner runner of a host without Semgrep.
-func missingSemgrep(context.Context, string, ...string) (string, string, error) {
+func missingSemgrep(context.Context, string, string, ...string) (string, string, error) {
 	return "", "", exec.ErrNotFound
 }
 
@@ -43,7 +44,7 @@ func runSessionCase(t *testing.T, source session.Source, c sessionCase) (int, []
 	var stdout, stderr strings.Builder
 	fixed := func() time.Time { return time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC) }
 	s := newReviewState(source, reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter(),
-		deps: reviewDeps{clock: fixed, semgrep: missingSemgrep, env: &reviewEnv{}}})
+		deps: reviewDeps{clock: fixed, scanners: scanner.Executor{Command: missingSemgrep}, env: &reviewEnv{}}})
 	s.cfg, s.model = cfg, c.model
 	s.diff = &types.Diff{Files: []types.DiffFile{{Path: "app.go"}}}
 	s.result = &types.ReviewResult{Issues: append([]types.ReviewIssue(nil), c.issues...)}
@@ -57,7 +58,7 @@ func runSessionCase(t *testing.T, source session.Source, c sessionCase) (int, []
 	}
 	s.joinSecurityFindings()
 	s.snapshotAndApplyRules()
-	s.runSAST(t.TempDir(), "")
+	s.runScanners(t.TempDir(), "")
 	defer s.flush()
 	if code, done := s.runGate(); done {
 		return code, nil
