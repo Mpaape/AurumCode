@@ -1,0 +1,5 @@
+aurumcode xbom: o tipo "aibom" nao e gerado; formato e envio estao definidos em docs/configuration.md#xbom-aibom
+aurumcode xbom: o tipo "saasbom" nao e gerado; formato e envio estao definidos em docs/configuration.md#xbom-saasbom
+aurumcode xbom: o tipo "netbom" nao e gerado; formato e envio estao definidos em docs/configuration.md#xbom-netbom
+exit_code=64
+RESULTADO: tipo desconhecido: exit 64

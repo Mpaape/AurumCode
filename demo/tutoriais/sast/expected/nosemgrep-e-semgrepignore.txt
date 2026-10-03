@@ -1,0 +1,8 @@
+--- sem politica (config do proprio repositorio): nosemgrep e .semgrepignore valem
+exit_code=0
+RESULTADO: sem politica, o nosemgrep e o .semgrepignore silenciam os dois eval()
+--- sob politica central: o mesmo codigo, o autor nao consegue silenciar
+calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
+legado.js:2: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
+exit_code=3
+RESULTADO: sob politica, os dois eval() aparecem apesar de nosemgrep e .semgrepignore

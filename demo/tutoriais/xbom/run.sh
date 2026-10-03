@@ -50,7 +50,8 @@ caso_evidencia() {
   aurum xbom --type cbom --repo . --out cbom.json
   expect_rc 0 "CBOM gerado"
   echo "--- conferencia do script: a linha citada contem o token de evidencia?"
-  docker run --rm --network none --user "$(id -u):$(id -g)" -v "$TUT_WORK:/work:ro" -w /work \
+  set +e
+  docker run -i --rm --network none --user "$(id -u):$(id -g)" -v "$TUT_WORK:/work:ro" -w /work \
     --entrypoint python3 "$TUT_IMAGE" - cbom.json <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -65,7 +66,7 @@ for c in d["components"]:
 print("ocorrencias sem evidencia: %d" % bad)
 sys.exit(1 if bad else 0)
 PY
-  LAST_RC=$?
+  LAST_RC=$?; set -e
   echo "exit_code=$LAST_RC"
   expect_rc 0 "toda ocorrencia do CBOM cita uma linha que contem o token (conferencia do script)"
 }

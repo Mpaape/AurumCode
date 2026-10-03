@@ -1,0 +1,7 @@
+keyless: nao executado aqui, exige OIDC do GitHub Actions (Fulcio/Rekor reais)
+permissions do chamador: id-token: write (exigido pelo keyless)
+review.yml nao declara permissions de id-token: quem concede e o chamador
+review.yml chama aurumcode sign sem chave (keyless)
+cosign verify-blob --certificate-identity-regexp: existe
+cosign verify-blob --certificate-oidc-issuer: existe
+RESULTADO: conferencia estatica do workflow e das flags; a assinatura keyless em si nao foi demonstrada

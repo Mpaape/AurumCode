@@ -1,0 +1,17 @@
+== evidencia
+$ aurumcode xbom --type cbom --repo . --out cbom.json
+aurumcode xbom: cbom: 5 componente(s), 0 descartado(s) sem evidencia
+exit_code=0
+RESULTADO: CBOM gerado
+--- conferencia do script: a linha citada contem o token de evidencia?
+evidencia ok: src/seguranca.go:4 contem 'AES'
+evidencia ok: src/seguranca.go:6 contem 'aes'
+evidencia ok: config/app.yml:4 contem 'md5'
+evidencia ok: src/seguranca.go:5 contem 'ML-KEM-768'
+evidencia ok: src/seguranca.go:6 contem 'ml-kem-768'
+evidencia ok: src/seguranca.go:3 contem 'SHA-256'
+evidencia ok: src/seguranca.go:6 contem 'sha256'
+evidencia ok: config/app.yml:2 contem '1.3'
+ocorrencias sem evidencia: 0
+exit_code=0
+RESULTADO: toda ocorrencia do CBOM cita uma linha que contem o token (conferencia do script)

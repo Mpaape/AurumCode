@@ -1,0 +1,28 @@
+== sbom-versao-minima
+--- spec_version "1.6" e um MINIMO: o Trivy emite 1.7 e o SBOM e aceito
+config: gate
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+sbom: sbom_app_cyclonedx.json
+exit_code=0
+sbom: CycloneDX 1.7, componentes: semver@7.6.0
+RESULTADO: SBOM CycloneDX 1.7 aceito contra o minimo 1.6 (mesma major)
+--- major diferente (minimo "2.0"): recusado, nenhum arquivo
+config: versao-2-0
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+aurumcode sbom: sbom: <temporario>: bomFormat="CycloneDX" specVersion="1.7", want bomFormat="CycloneDX" specVersion>="2.0" (mesma major)
+aurumcode sbom: policy gate: review inconclusive (sbom_generation_failure)
+exit_code=1
+RESULTADO: SBOM 1.7 recusado contra minimo 2.0 (major diferente)
+RESULTADO: nenhum SBOM foi escrito
+--- spec_version fora do formato major.minor
+config: versao-malformada
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+aurumcode sbom: quality_gates.ssor_dtrack.sbom_generator.spec_version: must be major.minor (e.g. "1.6"), got "1.6.0"
+exit_code=2
+RESULTADO: "1.6.0" falha na carga da configuracao, antes do Trivy
+--- formato diferente de cyclonedx
+config: formato-spdx
+$ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
+aurumcode sbom: quality_gates.ssor_dtrack.sbom_generator.format: only "cyclonedx" is supported, got "spdx"
+exit_code=2
+RESULTADO: format: spdx falha na carga da configuracao, antes do Trivy

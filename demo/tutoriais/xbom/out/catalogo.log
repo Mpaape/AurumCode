@@ -1,0 +1,32 @@
+== catalogo
+--- so o catalogo do repositorio
+$ aurumcode xbom --type build --repo . --out repo.json
+aurumcode xbom: build: 3 componente(s), 0 descartado(s) sem evidencia
+exit_code=0
+RESULTADO: catalogo do repositorio usado
+$ jq .components[] | "\(.name) catalogo=\(.properties[]? | select(.name=="aurumcode:xbom:catalogo") | .value)" repo.json
+actions/checkout catalogo=repositorio
+actions/setup-go catalogo=repositorio
+example/deploy-action catalogo=repositorio
+$ jq .metadata.properties[] | select(.name|test("llm|dropped|catalog|candidates")) | "\(.name)=\(.value)" repo.json
+aurumcode:xbom:candidates=3
+aurumcode:xbom:catalog=repository
+aurumcode:xbom:dropped_occurrences=0
+aurumcode:xbom:dropped_without_evidence=0
+aurumcode:xbom:llm=absent
+--- com --politica: o catalogo da politica vence e o do repositorio e ignorado com aviso
+$ aurumcode xbom --type build --repo . --politica /fixtures/politica --out politica.json
+aurumcode xbom: .aurumcode/xbom/build.yml do repositorio ignorado: a politica central decide sozinha
+aurumcode xbom: build: 3 componente(s), 0 descartado(s) sem evidencia
+exit_code=0
+RESULTADO: catalogo da politica usado, o do repositorio ignorado
+$ jq .components[] | "\(.name) catalogo=\(.properties[]? | select(.name=="aurumcode:xbom:catalogo") | .value)" politica.json
+actions/checkout catalogo=politica
+actions/setup-go catalogo=politica
+example/deploy-action catalogo=politica
+$ jq .metadata.properties[] | select(.name|test("llm|dropped|catalog|candidates")) | "\(.name)=\(.value)" politica.json
+aurumcode:xbom:candidates=3
+aurumcode:xbom:catalog=policy
+aurumcode:xbom:dropped_occurrences=0
+aurumcode:xbom:dropped_without_evidence=0
+aurumcode:xbom:llm=absent

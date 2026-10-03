@@ -1,0 +1,4 @@
+review.yml: artefato aurumcode-sbom-bundle-<PR>
+review.yml: path .aurumcode-target/**/*.sigstore.json
+./sbom_app_cyclonedx.json.sigstore.json
+RESULTADO: o bundle que aurumcode sign escreve casa com o glob do upload-artifact (conferido pelo script; o upload em si so ocorre no Actions)

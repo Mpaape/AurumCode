@@ -1,0 +1,4 @@
+Verified OK
+RESULTADO: o terceiro verificou a assinatura com a chave publica
+invalid signature when validating ASN.1 encoded signature
+RESULTADO: o SBOM adulterado foi rejeitado pelo Cosign (invalid signature)

@@ -1,0 +1,5 @@
+aurumcode xbom: cbom: 5 componente(s), 0 descartado(s) sem evidencia
+AES-256-GCM@- -> src/seguranca.go:4
+MD5@- -> config/app.yml:4
+MLKEM768
+RESULTADO: CBOM gerado e validado

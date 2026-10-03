@@ -1,0 +1,3 @@
+evidencia ok: src/seguranca.go:5 contem 'ML-KEM-768'
+ocorrencias sem evidencia: 0
+RESULTADO: toda ocorrencia do CBOM cita uma linha que contem o token (conferencia do script)

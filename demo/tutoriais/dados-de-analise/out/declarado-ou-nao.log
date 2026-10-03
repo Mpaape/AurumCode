@@ -1,0 +1,62 @@
+== declarado-ou-nao
+--- A. nao declarado (o falso esta no ar, mas ninguem o consulta)
+$ aurumcode review --base main --auditoria audit.json
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["app.go"]
+
+```
+No issues found.
+--- requisicoes recebidas pelo falso api.github.com (modo valido): 0
+exit_code=0
+RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data
+linhas citando analysis_data na saida do review: 0
+auditoria: sem campo analysis_data
+--- B. declarado, artefato valido de 1 dia (max_age_days: 7)
+$ aurumcode review --base main --auditoria audit.json
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+    n1["app.go"]
+
+```
+No issues found.
+--- requisicoes recebidas pelo falso api.github.com (modo valido): 3
+    GET /repos/owner/dados-de-analise/releases -> 200
+    GET /dl/manifest.json -> 200
+    GET /dl/scanners.yml -> 200
+exit_code=0
+RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria
+auditoria analysis_data.source: remote
+auditoria analysis_data.tag: analysis-data/20261002T003006Z
+auditoria analysis_data.generated_at: 2026-10-02T00:30:06Z
+auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1
