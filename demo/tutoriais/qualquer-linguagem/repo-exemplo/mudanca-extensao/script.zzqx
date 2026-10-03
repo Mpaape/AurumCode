@@ -1,0 +1,4 @@
+class Conexao {
+    String senha = "hunter2";
+    void abrir() { System.out.println("abrindo com " + senha); }
+}

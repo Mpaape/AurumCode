@@ -1,0 +1,8 @@
+== aprovado-com-defeito
+aprovado com defeito: linguagem=php casos=php-path
+aprovado com defeito (total): 1 de 16 defeitos rotulados
+  "label": "defect",
+  "rule": "path-traversal",
+  "simulated_model": "miss"
+conclusao do script: php-path e um defeito de verdade cujo modelo falso foi configurado para ficar calado (miss); o gate real viu 0 achados e saiu 0
+RESULTADO: o relatorio expoe o caso aprovado com defeito, com o nome do caso

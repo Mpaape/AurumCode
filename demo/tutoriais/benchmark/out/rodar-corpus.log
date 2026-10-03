@@ -1,0 +1,20 @@
+== rodar-corpus
+$ go test ./tests/benchmark -run TestAUR523 -count=1 -v
+=== RUN   TestAUR523RealBinaryOutputIsTheSource
+--- PASS: TestAUR523RealBinaryOutputIsTheSource (<t>s)
+=== RUN   TestAUR523MutationFixtureReadIsRed
+--- PASS: TestAUR523MutationFixtureReadIsRed (<t>s)
+=== RUN   TestAUR523CorpusLabeledVersionedWithDigest
+--- PASS: TestAUR523CorpusLabeledVersionedWithDigest (<t>s)
+=== RUN   TestAUR523ReportPerLanguage
+--- PASS: TestAUR523ReportPerLanguage (<t>s)
+=== RUN   TestAUR523ReportReproducible
+--- PASS: TestAUR523ReportReproducible (<t>s)
+PASS
+ok  	github.com/Mpaape/AurumCode/tests/benchmark <t>s
+exit_code=0
+RESULTADO: o harness reproduziu o relatorio versionado (corpus e politica inalterados)
+$ go test ./tests/benchmark -run TestAUR523 -count=1 -update-aur523
+ok  	github.com/Mpaape/AurumCode/tests/benchmark <t>s
+exit_code=0
+RESULTADO: -update-aur523 numa copia gerou relatorio .md e .json identicos aos versionados (byte a byte)
