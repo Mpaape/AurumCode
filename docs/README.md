@@ -8,6 +8,7 @@
 - [Arquitetura: mapa de módulos, fluxo do review, pipeline do gate e pontos de extensão](architecture.md)
 - [Qualidade e limitações atuais](review-quality.md)
 - [Desenvolvimento e QA](qa.md)
+- [Visão geral por capacidade (home do site pesquisável)](index.md)
 
 O produto é gratuito e de código aberto (MIT). Instale copiando o workflow,
 configure no máximo `LLM_API_KEY`, `LLM_BASE_URL` e, se necessário, `LLM_MODEL`,
@@ -20,3 +21,17 @@ O workflow de Pages publica somente esse diretório a partir de `main`.
 `specs/` é um arquivo histórico da reconstrução, preservado porque o board e
 suas evidências o referenciam. Não use essas especificações como manual de
 instalação ou como lista de funcionalidades entregues.
+
+## Site de documentação pesquisável
+
+`mkdocs.yml` gera, com MkDocs Material numa imagem fixada por digest, um site
+com busca de texto completo e navegação por capacidade. Nada é instalado no
+host; só é preciso Docker:
+
+```bash
+scripts/docs/build.sh   # gera ./site com --strict (warning vira erro)
+scripts/docs/serve.sh   # serve em http://127.0.0.1:8000
+```
+
+O workflow `docs.yml` publica esse site no GitHub Pages a cada push ao `main`.
+Detalhes e prova da geração em [specs/AUR-560.md](specs/AUR-560.md).
