@@ -1,0 +1,4 @@
+review:
+  context:
+    skills:
+      - .aurumcode/skills/exemplo.md

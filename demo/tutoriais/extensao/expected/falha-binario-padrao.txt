@@ -1,0 +1,4 @@
+$ aurumcode review --base main
+aurumcode review: parsing /work/.aurumcode/config.yml: quality_gates.scanners[exemplo].engine: unknown engine "exemplo" (registered: gitleaks, semgrep)
+exit_code=1
+RESULTADO: o binario padrao recusa engine: exemplo como engine desconhecida
