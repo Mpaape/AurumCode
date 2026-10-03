@@ -148,3 +148,51 @@ func TestAUR566FixOutputAppliesStrictlyWithoutGit(t *testing.T) {
 		t.Fatalf("AUR-566/AC-001: the correction is not in the file:\n%s", got["app.go"])
 	}
 }
+
+// A non-empty patch must never be reported valid without something to check
+// it against: an empty or nil plan is rejected (it was a fail-open before).
+func TestAUR566ValidateFixPatchRejectsPatchWithoutPlan(t *testing.T) {
+	dir := t.TempDir()
+	patch := "--- a/x\n+++ b/x\n@@ -1,1 +1,1 @@\n-a\n+b\n"
+	if err := validateFixPatch(dir, patch, &apply.Plan{}); err == nil {
+		t.Error("git or fallback: a patch that does not apply with an empty plan must be rejected")
+	}
+	if err := validateFixPatch(dir, patch, nil); err == nil {
+		t.Error("nil plan with a non-empty patch must be rejected")
+	}
+	if err := validateFixPatch(dir, "  \n", nil); err != nil {
+		t.Errorf("empty patch is nothing to validate: %v", err)
+	}
+	if err := validateWithoutGit(dir, &apply.Plan{}); err == nil {
+		t.Error("no-git branch: empty plan with a patch must be rejected")
+	}
+	if err := validateWithoutGit(dir, nil); err == nil {
+		t.Error("no-git branch: nil plan with a patch must be rejected")
+	}
+}
+
+// \ No newline at end of file: the patch applies with the real git, and the
+// strict applier tolerates the same patch.
+func TestAUR566NoNewlineAtEndOfFileApplies(t *testing.T) {
+	dir, gitPath := aur566Repo(t)
+	if err := os.WriteFile(filepath.Join(dir, "n.txt"), []byte("a\nb\nc"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal([]types.ReviewSuggestion{{File: "n.txt", Line: 3, CurrentCode: "c", ProposedCode: "C"}})
+	var stdout, stderr bytes.Buffer
+	if code := runFix([]string{"--file", writeFixInput(t, data)}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr.String())
+	}
+	patch := stdout.String()
+	if !strings.Contains(patch, "\\ No newline at end of file") {
+		t.Fatalf("no marker:\n%s", patch)
+	}
+	gitIn(t, gitPath, dir, []byte(patch), "apply", "--check")
+	gitIn(t, gitPath, dir, []byte(patch), "apply")
+	if b, _ := os.ReadFile(filepath.Join(dir, "n.txt")); string(b) != "a\nb\nC" {
+		t.Fatalf("n.txt = %q", b)
+	}
+	if _, err := applycheck.Apply(map[string]string{"n.txt": "a\nb\nc"}, patch); err != nil {
+		t.Fatalf("applycheck: %v", err)
+	}
+}
