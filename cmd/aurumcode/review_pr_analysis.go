@@ -112,5 +112,6 @@ func (p *prReview) finishLimitations() (int, bool) {
 	for _, warning := range p.policyWarnings {
 		result.Limitations = append(result.Limitations, warning.Provider+": "+warning.Reason)
 	}
+	result.Limitations = append(result.Limitations, p.skillNotices...)
 	return 0, false
 }

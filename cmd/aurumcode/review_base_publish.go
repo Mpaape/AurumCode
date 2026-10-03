@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -70,6 +71,12 @@ func (b *baseReview) printReport() {
 	fmt.Fprint(b.stdout, renderLocalReport(result, b.diff, b.reviewLanguage))
 	if b.coverageText != "" {
 		fmt.Fprint(b.stdout, "\n"+b.coverageText+"\n")
+	}
+	if len(b.skillNotices) > 0 {
+		var notes strings.Builder
+		fmt.Fprintf(&notes, "\n### %s\n\n", reviewCopyFor(b.reviewLanguage).limits)
+		writeReviewBullets(&notes, b.skillNotices)
+		fmt.Fprint(b.stdout, notes.String())
 	}
 	if suggestions := renderSuggestions(result, b.diff, b.reviewLanguage); suggestions != "" {
 		fmt.Fprint(b.stdout, "\n"+suggestions)

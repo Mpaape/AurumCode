@@ -5,14 +5,14 @@
 Ensinar o time a revisar do seu jeito: escrever convenções em Markdown, fazer
 com que cheguem ao modelo, e saber **quando uma convenção só orienta e quando
 ela reprova o check**. Cinco usos, todos executados: a skill de convenção do
-repositório, o escopo por caminho, o que a seleção por linguagem faz hoje, a
+repositório, o escopo por caminho, a seleção por linguagem e por apelido, a
 skill do repositório contra a da política, e a seção de skill como regra
 citável do gate.
 
 Os blocos de configuração **são os arquivos de `demo/tutoriais/skills/`**,
 byte a byte, e as saídas vêm de uma execução real registrada em
-`demo/tutoriais/skills/out/` (`run.sh --check` e
-`tests/acceptance/AUR-561.sh` conferem).
+`demo/tutoriais/skills/out/` (`run.sh --check`,
+`tests/acceptance/AUR-561.sh` e `tests/acceptance/AUR-565.sh` conferem).
 
 ## Pré-requisitos
 
@@ -137,45 +137,77 @@ O que observar: a instrução de Go chegou e a de TypeScript não. Um arquivo se
 front matter `applyTo` nunca é aplicado: esquecer o escopo desliga a
 orientação em vez de espalhá-la.
 
-## Caso 3: seleção por linguagem e apelidos (o que existe hoje)
+## Caso 3: seleção por linguagem e apelidos
 
-O produto tem um seletor por **linguagem** com apelidos (`ts` → `typescript`,
-`golang` → `go`, `py` → `python`...) e uma declaração de apelido desconhecido
-(bloco `### Skill selection warnings`). Ele vive no pacote
-`internal/context/skills` (skills em diretório, `.aurumcode/skills/<nome>/SKILL.md`
-com `languages: [...]`) e é coberto por testes de unidade
-(`TestAUR559AliasResolvesAndUnknownIsDeclared`). **O comando `review` ainda
-não lê esse formato**: a seleção por linguagem não está ligada à CLI. A
-demonstração prova isso em vez de prometer o contrário. Esta é a skill de
-diretório que ela cria no repositório:
+Uma skill também pode ser um **diretório**, `.aurumcode/skills/<nome>/SKILL.md`,
+com um bloco de metadados que declara quando ela vale. `languages:` limita a
+skill às linguagens dos arquivos alterados; os nomes aceitos são os da gramática
+do produto e os **apelidos** do catálogo (`ts` → `typescript`, `golang` → `go`,
+`py` → `python`...). Um apelido que o catálogo não conhece **nunca é ignorado
+em silêncio**: é declarado no contexto enviado ao modelo (bloco
+`### Skill selection warnings`) e no parecer. Uma skill sem `languages:` nem
+`paths:` fica desligada, nunca universal. Estas são as duas skills do
+repositório do caso:
 
-<!-- arquivo: demo/tutoriais/skills/repo-exemplo/base-instrucoes/.aurumcode/skills/estilo-ts/SKILL.md -->
+<!-- arquivo: demo/tutoriais/skills/repo-exemplo/base-linguagem/.aurumcode/skills/estilo-ts/SKILL.md -->
 ```markdown
 ---
 name: estilo-ts
 version: 1
 languages: [ts]
 ---
-Em TypeScript, prefira unknown a any. MARCADOR-SKILL-DIRETORIO
+Em TypeScript, prefira unknown a any. MARCADOR-SKILL-TS
 ```
 
-As linhas `prompt:` abaixo são conclusão do script (não é saída do produto): a
-primeira vale quando `MARCADOR-SKILL-DIRETORIO` não ocorre no prompt capturado, a
-segunda quando `Skill selection warnings` não ocorre.
+<!-- arquivo: demo/tutoriais/skills/repo-exemplo/base-linguagem/.aurumcode/skills/estilo-ruim/SKILL.md -->
+```markdown
+---
+name: estilo-ruim
+version: 1
+languages: [linguagem-inexistente]
+---
+Esta skill nunca chega ao modelo. MARCADOR-SKILL-RUIM
+```
+
+O caso roda duas revisões: uma cuja mudança toca só `app.go` e outra cuja
+mudança cria `app.ts`. As linhas `prompt:` são conclusão do script (não é saída
+do produto): o script imprime `prompt: <trecho>` quando o trecho ocorre no
+prompt capturado, e a linha `NAO chegou` quando o marcador da skill **não**
+ocorre nele.
 
 <!-- saida: selecao-por-linguagem -->
 ```text
-skill de diretorio: .aurumcode/skills/estilo-ts/SKILL.md com languages: [ts]
+--- a mudanca toca so app.go
+prompt: a skill estilo-ts NAO chegou: a mudanca nao toca TypeScript
+prompt: unknown language "linguagem-inexistente"
+--- a mudanca toca app.ts
+prompt: #### estilo-ts (v1)
+prompt: Em TypeScript, prefira unknown a any. MARCADOR-SKILL-TS
+prompt: ### Skill selection warnings
+prompt: a skill estilo-ruim NAO chegou: apelido desconhecido nao casa com nada
 exit_code=0
-prompt: a skill de diretorio SKILL.md NAO foi lida pelo review
-prompt: nenhum bloco 'Skill selection warnings'
 ```
 
-O que observar: o `review` roda normalmente, mas a orientação do `SKILL.md` não
-chegou ao modelo e não há aviso de seleção. Hoje, para limitar uma convenção a
-uma linguagem, use o caso 2 (`applyTo: "**/*.ts"`), que funciona na CLI. Não
-confie num `languages:` em `SKILL.md` para uma convenção que o time precisa
-que valha.
+E o parecer de cada revisão declara o apelido desconhecido (a seção de
+limitações, na língua do repositório):
+
+<!-- saida: selecao-por-linguagem -->
+```text
+skill "estilo-ruim" (.aurumcode/skills/estilo-ruim): unknown language "linguagem-inexistente" in selector
+```
+
+O que observar: com a mudança só em Go a skill de TypeScript não chega ao
+modelo; com `app.ts` ela chega, selecionada pelo apelido `ts`. A skill com o
+apelido desconhecido não chega nunca, e o aviso aparece nas duas revisões, no
+prompt e no parecer, mesmo quando o diff não toca a linguagem. Quando a skill
+precisa valer só para um caminho, o caso 2 (`applyTo`) continua valendo, e
+`paths:` no mesmo bloco de metadados faz o mesmo para skills em diretório.
+Skills em diretório entram também numa política central
+(`<política>/.aurumcode/skills/`); se uma skill da política e uma do
+repositório declaram o **mesmo seletor** (mesmas linguagens, mesmos caminhos),
+a da política vence e a do repositório não é enviada, com um aviso que nomeia
+as duas. Um `SKILL.md` ilegível na política é erro de carga (a revisão falha
+antes de qualquer chamada ao modelo); no repositório é só declarado.
 
 ## Caso 4: skill do repositório contra skill da política
 
@@ -319,6 +351,10 @@ Por isso, em CI, convenções que precisam valer pertencem à política central.
 - **O id citado é descartado**: o slug é minúsculo, qualquer sequência não
   alfanumérica vira um `-`. Copie o id da lista de
   regras do prompt, não o reescreva.
-- **`languages:` em `SKILL.md` não faz nada no `review`**: veja o caso 3.
+- **A skill em diretório não aparece**: `languages:` precisa casar com a linguagem
+  de algum arquivo alterado (nome da gramática ou apelido do catálogo); sem
+  `languages:` nem `paths:` ela fica desligada. O aviso de apelido
+  desconhecido diz qual nome corrigir. Num PR as skills em diretório vêm da
+  **branch base**, como o resto do contexto.
 
 Próximo passo: [política central](politica-central.md).

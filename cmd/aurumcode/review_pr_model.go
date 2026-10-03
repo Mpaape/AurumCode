@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"os"
 	"strings"
 
@@ -70,6 +71,17 @@ func (p *prReview) wrapContext() (int, bool) {
 	if p.centralCfg != nil {
 		providers = append(config.ConfiguredProviders(p.opts.policyDir, p.centralCfg), providers...)
 	}
+	var policySkills skills.Source
+	if p.centralCfg != nil {
+		policySkills = localSkillSource(p.opts.policyDir, "policy")
+	}
+	catalog, catalogErr := resolveSkillCatalog(policySkills, remoteSkillSource{ctx: p.ctx, client: p.client, owner: p.owner, repo: p.repoName, ref: p.contextRef})
+	if catalogErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", catalogErr)
+		return 1, true
+	}
+	p.skillNotices = skillSelectionNotices(catalog, diffPaths(p.diff), p.filter)
+	providers = append(providers, catalog)
 	p.contextBlockDig = contextBlockCacheDigest(providers, diffPaths(p.diff), p.filter)
 	wrapped, warnings, wrapErr := config.WrapProviderWithWarnings(p.ctx, p.provider, providers, diffPaths(p.diff), p.filter)
 	if wrapErr != nil {
