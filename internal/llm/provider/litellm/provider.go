@@ -52,7 +52,28 @@ type completionRequest struct {
 }
 
 type responseFormat struct {
-	Type string `json:"type"`
+	Type       string            `json:"type"`
+	JSONSchema *jsonSchemaFormat `json:"json_schema,omitempty"`
+}
+
+// jsonSchemaFormat is the structured-output form of response_format: the
+// answer must follow Schema.
+type jsonSchemaFormat struct {
+	Name   string          `json:"name"`
+	Schema json.RawMessage `json:"schema"`
+}
+
+// answerFormat is the response_format a request carries: the caller's JSON
+// Schema when it gave one, the bare JSON object mode when it only asked for
+// JSON, nothing otherwise.
+func answerFormat(opts llm.Options) *responseFormat {
+	if len(opts.ResponseSchema) > 0 {
+		return &responseFormat{Type: "json_schema", JSONSchema: &jsonSchemaFormat{Name: opts.ResponseSchemaNameOrDefault(), Schema: opts.ResponseSchema}}
+	}
+	if opts.JSONMode {
+		return &responseFormat{Type: "json_object"}
+	}
+	return nil
 }
 
 type message struct {

@@ -265,6 +265,9 @@ type Config struct {
 	// age of the published analysis-data artifact. Governed per section by
 	// ApplyCentralPolicy, like each quality_gates subsection.
 	AnalysisData *AnalysisDataConfig `yaml:"analysis_data"`
+	// Deliberation (nil = not declared) lets the model ask for tools within
+	// limits. Governed per section by ApplyCentralPolicy.
+	Deliberation *DeliberationConfig `yaml:"deliberation"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -336,6 +339,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.AnalysisData.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Deliberation.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.QualityGates.Sast.Validate(); err != nil {
