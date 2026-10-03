@@ -6,6 +6,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -18,6 +19,10 @@ import (
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
+
+// errEvidenceNotCacheable keeps a review that offered evidence out of the
+// per-file model cache (prepareCache).
+var errEvidenceNotCacheable = errors.New("the review offered deterministic evidence; per-file cache bypassed")
 
 // evidenceIDPrefix starts every evidence id the prompt shows ("E1", "E2").
 const evidenceIDPrefix = "E"

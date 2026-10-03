@@ -338,6 +338,12 @@ func (b *baseReview) prepareCache() *qualityCache {
 	if cacheErr == nil {
 		cacheErr = promptDigestErr
 	}
+	if cacheErr == nil && len(b.evidence) > 0 {
+		// The per-file cache stores issues, not the model's assessment of
+		// the evidence, and an assessment may weigh evidence of several
+		// files: a review that offered evidence is never served from it.
+		cacheErr = errEvidenceNotCacheable
+	}
 	qc := &qualityCache{store: store, err: cacheErr, toSend: b.diff}
 	if cacheErr == nil {
 		var missFiles []types.DiffFile

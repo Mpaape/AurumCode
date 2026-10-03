@@ -196,7 +196,7 @@ func TestAUR490SharedPasses(t *testing.T) {
 		// AUR-557: the bodies of runReview and runPRReview moved into the
 		// --base/--pr phase files; the same calls are asserted, now across
 		// the files that hold them.
-		"review_base_inputs.go":   {"resolveCodebaseContext", "openReviewMemory"},
+		"review_base_inputs.go": {"resolveCodebaseContext", "openReviewMemory"},
 		// The evidence phase runs the analysis before the model, through
 		// the one helper both sources call.
 		"review_base_analysis.go": {"staticAnalysisIssues"},
