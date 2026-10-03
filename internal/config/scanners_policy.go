@@ -6,8 +6,8 @@ import "github.com/Mpaape/AurumCode/internal/scanner"
 // engine by engine. A policy entry that is required wins: the repository's
 // entry for the same engine (including enabled: false) is dropped with a
 // named warning. A policy entry that is not required yields to the
-// repository's entry for the same engine. An engine only one side declares
-// is kept as declared.
+// repository's entry for the same engine, and that is a named warning too.
+// An engine only one side declares is kept as declared.
 func mergeScanners(central, repo QualityGatesConfig) (QualityGatesConfig, []ProviderWarning) {
 	effective := repo
 	effective.Sast, effective.Scanners = nil, nil
@@ -23,6 +23,12 @@ func mergeScanners(central, repo QualityGatesConfig) (QualityGatesConfig, []Prov
 				Reason:   r.Label() + " do config do repositório foi ignorado: a política central decide sozinha",
 			})
 			continue
+		}
+		if declared {
+			warnings = append(warnings, ProviderWarning{
+				Provider: "politica central",
+				Reason:   "quality_gates.scanners[" + p.Name() + "] da política central não é obrigatória (required: false): vale a entrada do repositório",
+			})
 		}
 		repoWins[r.Name()] = true
 	}

@@ -448,7 +448,9 @@ quality_gates:
   inclusive `enabled: false`, com o aviso `quality_gates.scanners[<engine>] do
   config do repositório foi ignorado: a política central decide sozinha` (ou
   `quality_gates.sast ...`). Uma entrada da política sem `required` cede à do
-  repositório. Uma engine que só um lado declara vale como declarada.
+  repositório, e isso também é um aviso nomeado (`quality_gates.scanners[<engine>]
+  da política central não é obrigatória (required: false): vale a entrada do
+  repositório`). Uma engine que só um lado declara vale como declarada.
 - Origem: a linha do gate, a auditoria e o SARIF levam a origem tipada da
   engine, que é o nome dela; o `semgrep` mantém a origem `sast` (rótulo de
   antes), de modo que nenhuma saída existente mudou.

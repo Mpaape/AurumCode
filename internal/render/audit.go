@@ -89,7 +89,8 @@ type AuditFinding struct {
 	Path     string `json:"path"`
 	Line     int    `json:"line"`
 	Severity string `json:"severity"`
-	// Origin is where the finding came from: skills, analysis or sast.
+	// Origin is where the finding came from: skills, analysis, security,
+	// or a scanner engine's typed origin (sast for semgrep).
 	Origin string `json:"origin,omitempty"`
 }
 
