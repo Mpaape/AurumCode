@@ -194,23 +194,15 @@ ac004() {
   local files=() f host bad=''
   while IFS= read -r f; do files+=("$f"); done < <(find "$repo_root/demo/tutoriais" "$repo_root/docs/tutorials" "$spec" -type f ! -path '*/.estado/*')
   local allowed='^(localhost|127\.0\.0\.1|([A-Za-z0-9-]+\.)*(example\.(com|org|net)|[A-Za-z0-9-]+\.invalid|[A-Za-z0-9-]+\.test)|example\.(com|org|net)|invalid|test)$'
-  # AUR-573: o tutorial dados-de-analise (AUR-563) sobe um FALSO api.github.com
-  # em loopback (--add-host api.github.com:127.0.0.1) porque o produto nao tem
-  # opcao para trocar o endereco; so la o host e aceito, nunca rede real.
-  local fake_dir="$repo_root/demo/tutoriais/dados-de-analise/"
   while IFS= read -r host; do
-    f="${host%%|*}"; host="${host#*|}"
     host="${host#*://}"; host="${host%%[:/]*}"
-    [[ "$host" == api.github.com && ( "$f" == "$fake_dir"* || "$f" == "$repo_root/docs/tutorials/dados-de-analise.md" ) ]] && continue
     [[ "$host" =~ $allowed ]] || bad="$bad $host"
-  done < <(for f in "${files[@]}"; do grep -hoE 'https?://[^/[:space:]"'"'"')`>]+' "$f" | sed "s|^|$f\||" || true; done)
+  done < <(grep -rhoE 'https?://[^/[:space:]"'"'"')`>]+' "${files[@]}" || true)
   [[ -z "$bad" ]] || fail "AC-004/url-real:$bad"
   bad=''
   while IFS= read -r host; do
-    f="${host%%|*}"; host="${host#*|}"
-    [[ "$host" == api.github.com && ( "$f" == "$fake_dir"* || "$f" == "$repo_root/docs/tutorials/dados-de-analise.md" ) ]] && continue
     [[ "$host" =~ $allowed ]] || bad="$bad $host"
-  done < <(for f in "${files[@]}"; do grep -hoE '\b([A-Za-z0-9-]+\.)+(com|org|net|io|dev|app|cloud|co|ai|local|internal|corp|lan|br|gov|edu)\b' "$f" | sed "s|^|$f\||" || true; done)
+  done < <(grep -rhoE '\b([A-Za-z0-9-]+\.)+(com|org|net|io|dev|app|cloud|co|ai|local|internal|corp|lan|br|gov|edu)\b' "${files[@]}" || true)
   [[ -z "$bad" ]] || fail "AC-004/dominio-real:$bad"
   bad="$(grep -rhoE '[A-Za-z0-9._-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}' "${files[@]}" | grep -vE '@(example\.(com|org|net)|[A-Za-z0-9-]+\.invalid|[A-Za-z0-9-]+\.test)$' || true)"
   [[ -z "$bad" ]] || fail "AC-004/email-real:$bad"
