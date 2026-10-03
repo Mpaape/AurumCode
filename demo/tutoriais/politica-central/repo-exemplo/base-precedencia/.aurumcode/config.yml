@@ -1,0 +1,15 @@
+gate:
+  fail_on: [high]
+  inconclusive: warn
+quality_gates:
+  sast:
+    engine: semgrep
+    enabled: true
+  supply_chain:
+    engine: cosign
+    sign_sbom: false
+rules:
+  security/hardcoded-secret:
+    enabled: false
+ignore:
+  - "docs/**"

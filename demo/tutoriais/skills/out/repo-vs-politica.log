@@ -1,0 +1,52 @@
+== repo-vs-politica
+--- o achado cita a skill do REPOSITORIO (convencoes#...)
+$ aurumcode review --base main --politica /policy
+aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 0
+- warning: 1
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)
+exit_code=0
+RESULTADO: sob politica, a secao da skill do repo nao entra no gate
+--- o achado cita a skill da POLITICA (seguranca#...)
+$ aurumcode review --base main --politica /policy
+aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo: Sem segredos no codigo (severidade warning, limiar warning)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 0
+- warning: 1
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+exit_code=3
+RESULTADO: a secao da skill da politica reprova

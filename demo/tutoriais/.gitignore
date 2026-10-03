@@ -1,1 +1,4 @@
 .estado/
+# a saida da ultima execucao real e versionada (o .gitignore da raiz ignora *.log)
+!out/
+!*/out/*.log

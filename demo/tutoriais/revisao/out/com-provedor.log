@@ -1,0 +1,24 @@
+== com-provedor
+$ aurumcode review --base main --fail-on error
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=3
+RESULTADO: achado do modelo citando security/hardcoded-secret reprovou

@@ -1,0 +1,26 @@
+== selecao-por-linguagem
+skill de diretorio: .aurumcode/skills/estilo-ts/SKILL.md com languages: [ts]
+$ aurumcode review --base main
+## Resumo da Revisão de Código
+
+**Veredito:** Alterações solicitadas
+
+**Resultados por severidade:**
+- erro: 1
+- aviso: 0
+- informação: 0
+
+**Arquivos alterados:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=0
+RESULTADO: revisao feita
+prompt: a skill de diretorio SKILL.md NAO foi lida pelo review (selecao por linguagem e apelidos ainda sao biblioteca, nao CLI)
+prompt: nenhum bloco 'Skill selection warnings': o aviso de apelido desconhecido so existe na biblioteca

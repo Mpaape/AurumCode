@@ -1,0 +1,5 @@
+aurumcode review: politica central: override da regra "security/hardcoded-secret" no config do repositório foi ignorado: a política central decide sozinha
+aurumcode review: politica central: padrão de ignore "docs/**" do repositório não foi aplicado: a política central decide sozinha
+aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
+aurumcode review: politica central: quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha
+supply_chain: a politica nao declara, entao nao ha aviso e vale o do repositorio

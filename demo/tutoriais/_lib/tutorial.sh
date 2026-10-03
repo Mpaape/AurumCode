@@ -30,6 +30,7 @@ EXPECTED="$HERE/expected"
 STATE="$HERE/.estado"
 TUT_IMAGE="${AURUMCODE_TUT_IMAGE:-aurum-tutoriais:local}"
 LAST_RC=0
+LAST_OUT=
 
 # ---------------------------------------------------------------- imagem
 # Constroi a imagem do produto uma vez (AURUMCODE_TUT_REBUILD=1 forca).
@@ -63,14 +64,17 @@ aurum_raw() {
 }
 
 # aurum args...: imprime "$ aurumcode args", executa, imprime "exit_code=N" e
-# guarda N em LAST_RC. Nao aborta a fase: cada caso afirma o exit esperado
+# guarda N em LAST_RC e a saida em LAST_OUT. Nao aborta a fase: cada caso afirma o exit esperado
 # com expect_rc.
 aurum() {
   printf '$ aurumcode %s\n' "$*"
   set +e
-  aurum_raw "${TUT_ENVS[@]}" -- "$@" 2>&1
+  LAST_OUT="$(aurum_raw "${TUT_ENVS[@]}" -- "$@" 2>&1)"
   LAST_RC=$?
   set -e
+  # TUT_SED: filtro sed -E opcional sobre a saida (so para texto que varia por ambiente; documente-o no caso).
+  [ -z "${TUT_SED:-}" ] || LAST_OUT="$(printf '%s\n' "$LAST_OUT" | sed -E "$TUT_SED")"
+  [ -z "$LAST_OUT" ] || printf '%s\n' "$LAST_OUT"
   echo "exit_code=$LAST_RC"
 }
 TUT_ENVS=()
