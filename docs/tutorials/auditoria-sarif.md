@@ -234,3 +234,44 @@ do AUR-562: o produto avisava e saía 0; o AUR-568 o corrigiu.)
   como artefato.
 - **Nome de artefato diferente:** o download do chamador precisa usar
   `aurumcode-sarif-<número do PR>`.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/auditoria-sarif/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### auditoria-reprovado
+
+![Terminal do caso auditoria-reprovado](../assets/capturas/auditoria-sarif/auditoria-reprovado-terminal.png)
+
+![Comentario do PR do caso auditoria-reprovado](../assets/capturas/auditoria-sarif/auditoria-reprovado-comentario.png)
+
+### canario-de-redacao
+
+![Terminal do caso canario-de-redacao](../assets/capturas/auditoria-sarif/canario-de-redacao-terminal.png)
+
+![Comentario do PR do caso canario-de-redacao](../assets/capturas/auditoria-sarif/canario-de-redacao-comentario.png)
+
+### falha-caminho-invalido
+
+![Terminal do caso falha-caminho-invalido](../assets/capturas/auditoria-sarif/falha-caminho-invalido-terminal.png)
+
+![Comentario do PR do caso falha-caminho-invalido](../assets/capturas/auditoria-sarif/falha-caminho-invalido-comentario.png)
+
+### sarif-campos
+
+![Terminal do caso sarif-campos](../assets/capturas/auditoria-sarif/sarif-campos-terminal.png)
+
+![Comentario do PR do caso sarif-campos](../assets/capturas/auditoria-sarif/sarif-campos-comentario.png)
+
+### sarif-inconclusivo
+
+![Terminal do caso sarif-inconclusivo](../assets/capturas/auditoria-sarif/sarif-inconclusivo-terminal.png)
+
+![Comentario do PR do caso sarif-inconclusivo](../assets/capturas/auditoria-sarif/sarif-inconclusivo-comentario.png)
+
+### upload-workflow
+
+![Terminal do caso upload-workflow](../assets/capturas/auditoria-sarif/upload-workflow-terminal.png)
+
+<!-- capturas:fim -->

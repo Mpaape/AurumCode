@@ -374,3 +374,38 @@ tipo desconhecido.
 - Um modelo real: a fixture é determinística; um modelo de verdade pode
   classificar diferente (a verificação de evidência vale igual).
 - O sobrescrito de prompt por política (`.aurumcode/xbom/<tipo>.md`).
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/xbom/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### build-bom
+
+![Terminal do caso build-bom](../assets/capturas/xbom/build-bom-terminal.png)
+
+### catalogo
+
+![Terminal do caso catalogo](../assets/capturas/xbom/catalogo-terminal.png)
+
+### cbom
+
+![Terminal do caso cbom](../assets/capturas/xbom/cbom-terminal.png)
+
+### enriquecimento
+
+![Terminal do caso enriquecimento](../assets/capturas/xbom/enriquecimento-terminal.png)
+
+### evidencia
+
+![Terminal do caso evidencia](../assets/capturas/xbom/evidencia-terminal.png)
+
+### falha-catalogo-invalido
+
+![Terminal do caso falha-catalogo-invalido](../assets/capturas/xbom/falha-catalogo-invalido-terminal.png)
+
+### tipos-documentados
+
+![Terminal do caso tipos-documentados](../assets/capturas/xbom/tipos-documentados-terminal.png)
+
+<!-- capturas:fim -->

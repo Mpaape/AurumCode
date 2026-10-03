@@ -208,3 +208,32 @@ RESULTADO: o binario padrao recusa engine: exemplo como engine desconhecida
 - O contrato de cada ponto de extensão: [Estendendo o Aurum](../extensao.md).
 - A deliberação com o Semgrep: [Deliberação com ferramentas](deliberacao.md).
 - Skills em camadas e política central: [Skills de convenção](skills.md).
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/extensao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### engine-no-gate
+
+![Terminal do caso engine-no-gate](../assets/capturas/extensao/engine-no-gate-terminal.png)
+
+![Comentario do PR do caso engine-no-gate](../assets/capturas/extensao/engine-no-gate-comentario.png)
+
+### falha-binario-padrao
+
+![Terminal do caso falha-binario-padrao](../assets/capturas/extensao/falha-binario-padrao-terminal.png)
+
+### ferramenta-pedida
+
+![Terminal do caso ferramenta-pedida](../assets/capturas/extensao/ferramenta-pedida-terminal.png)
+
+![Comentario do PR do caso ferramenta-pedida](../assets/capturas/extensao/ferramenta-pedida-comentario.png)
+
+### skill-no-prompt
+
+![Terminal do caso skill-no-prompt](../assets/capturas/extensao/skill-no-prompt-terminal.png)
+
+![Comentario do PR do caso skill-no-prompt](../assets/capturas/extensao/skill-no-prompt-comentario.png)
+
+<!-- capturas:fim -->

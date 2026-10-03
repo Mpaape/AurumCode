@@ -6,6 +6,9 @@ strict: true
 theme:
   name: material
   language: pt-BR
+  # System fonts: no request to an external font CDN, so the site and its
+  # screenshots (scripts/docs/capturas.sh) depend only on the repository.
+  font: false
   features:
     - navigation.tabs
     - navigation.indexes

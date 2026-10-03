@@ -328,3 +328,38 @@ caso 2. A assinatura real de imagem não foi demonstrada (exigiria registry).
   keyless real, não a use.
 - **A chave privada**: nunca vá para o repositório. Aqui ela vive em `.estado/`,
   ignorado pelo git.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/assinatura/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### bundle-artefato
+
+![Terminal do caso bundle-artefato](../assets/capturas/assinatura/bundle-artefato-terminal.png)
+
+### chave-efemera
+
+![Terminal do caso chave-efemera](../assets/capturas/assinatura/chave-efemera-terminal.png)
+
+### falha-cosign
+
+![Terminal do caso falha-cosign](../assets/capturas/assinatura/falha-cosign-terminal.png)
+
+### falha-imagem-sem-digest
+
+![Terminal do caso falha-imagem-sem-digest](../assets/capturas/assinatura/falha-imagem-sem-digest-terminal.png)
+
+### falha-sem-bundle
+
+![Terminal do caso falha-sem-bundle](../assets/capturas/assinatura/falha-sem-bundle-terminal.png)
+
+### keyless-actions
+
+![Terminal do caso keyless-actions](../assets/capturas/assinatura/keyless-actions-terminal.png)
+
+### verificacao-por-terceiro
+
+![Terminal do caso verificacao-por-terceiro](../assets/capturas/assinatura/verificacao-por-terceiro-terminal.png)
+
+<!-- capturas:fim -->

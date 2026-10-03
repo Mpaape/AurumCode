@@ -441,3 +441,48 @@ veredito `Comment` sem `Approve` foi demonstrado nos dois casos acima.
 
 Próximos passos: [skills de convenção](skills.md) e
 [política central](politica-central.md).
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/revisao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### com-provedor
+
+![Terminal do caso com-provedor](../assets/capturas/revisao/com-provedor-terminal.png)
+
+![Comentario do PR do caso com-provedor](../assets/capturas/revisao/com-provedor-comentario.png)
+
+### falha-nao-revisado
+
+![Terminal do caso falha-nao-revisado](../assets/capturas/revisao/falha-nao-revisado-terminal.png)
+
+![Comentario do PR do caso falha-nao-revisado](../assets/capturas/revisao/falha-nao-revisado-comentario.png)
+
+### fix
+
+![Terminal do caso fix](../assets/capturas/revisao/fix-terminal.png)
+
+### modelo-pondera
+
+![Terminal do caso modelo-pondera](../assets/capturas/revisao/modelo-pondera-terminal.png)
+
+![Comentario do PR do caso modelo-pondera](../assets/capturas/revisao/modelo-pondera-comentario.png)
+
+### pr-workflow
+
+![Terminal do caso pr-workflow](../assets/capturas/revisao/pr-workflow-terminal.png)
+
+### primeira-revisao
+
+![Terminal do caso primeira-revisao](../assets/capturas/revisao/primeira-revisao-terminal.png)
+
+![Comentario do PR do caso primeira-revisao](../assets/capturas/revisao/primeira-revisao-comentario.png)
+
+### sem-provedor
+
+![Terminal do caso sem-provedor](../assets/capturas/revisao/sem-provedor-terminal.png)
+
+![Comentario do PR do caso sem-provedor](../assets/capturas/revisao/sem-provedor-comentario.png)
+
+<!-- capturas:fim -->
