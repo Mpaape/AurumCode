@@ -2,7 +2,8 @@
 # Tutorial executavel: gate de politica (AUR-562). Veja ../README.md e docs/tutorials/gate.md.
 #
 #   run.sh fail-on-severidade|inconclusivo-provedor|inconclusivo-cobertura|inconclusivo-sast|
-#          inconclusivo-analysis-data|fontes|status-pr|repo-afrouxa|falha-fonte-invalida
+#          inconclusivo-analysis-data|fontes|status-pr|repo-afrouxa|falha-fonte-invalida|
+#          achado-deterministico|modelo-pondera
 #   run.sh all | --check | limpar
 #
 # Os casos do SAST usam o Semgrep REAL da imagem com uma regra local (sem rede) ou, para
@@ -16,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/pr.sh
 . "$HERE/../_lib/pr.sh"
 
-CASOS=(fail-on-severidade inconclusivo-provedor inconclusivo-cobertura inconclusivo-sast inconclusivo-analysis-data fontes status-pr repo-afrouxa falha-fonte-invalida achado-deterministico)
+CASOS=(fail-on-severidade inconclusivo-provedor inconclusivo-cobertura inconclusivo-sast inconclusivo-analysis-data fontes status-pr repo-afrouxa falha-fonte-invalida achado-deterministico modelo-pondera)
 
 PATH_BASE=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -186,11 +187,15 @@ caso_achado_deterministico() {
   tut_repo achado-deterministico-limpo repo-exemplo/base repo-exemplo/limpo
   TUT_POLICY=politica-alerta; aurum review --base main --politica /policy --seguranca
   expect_rc 0 "warn sem achado deterministico continua so avisando (exit 0)"
-  # Com provedor (AUR-579): os passes deterministicos rodam antes do modelo, o achado entra
-  # no prompt como evidencia [E1] e o modelo a avalia. A fixture so responde com a avaliacao
-  # quando o prompt traz a secao de evidencia; sem ela, responde "approve" sem avaliacao.
+}
+
+
+# 11. O modelo pondera a evidencia (AUR-579): os passes deterministicos rodam antes do modelo,
+# o achado entra no prompt como evidencia [E1] e o modelo a avalia. A fixture so responde com a
+# avaliacao quando o prompt traz a secao de evidencia; sem ela, responde "approve" sem avaliacao.
+caso_modelo_pondera() {
   echo "--- com provedor, o modelo contesta a evidencia; politica fail_on [high]"
-  tut_repo achado-deterministico-pondera repo-exemplo/base repo-exemplo/achados
+  tut_repo modelo-pondera repo-exemplo/base repo-exemplo/achados
   TUT_FIXTURE=fixture-pondera-contesta.json
   TUT_POLICY=politica-high; aurum review --base main --politica /policy --auditoria /work/auditoria-pondera.json
   avaliacoes auditoria-pondera.json
@@ -200,7 +205,7 @@ caso_achado_deterministico() {
   aurum review --base main --politica /policy
   expect_rc 3 "confirmado: o achado conta e nenhuma excecao e proposta"
   echo "--- sem politica central, o repositorio declara gate.triage analysis: model"
-  tut_repo achado-deterministico-triagem repo-exemplo/base-triagem repo-exemplo/achados
+  tut_repo modelo-pondera-triagem repo-exemplo/base-triagem repo-exemplo/achados
   TUT_FIXTURE=fixture-pondera-contesta.json
   aurum review --base main
   expect_rc 0 "sem politica, a contestacao rebaixa o achado (gate.triage: model) e o gate aprova"
