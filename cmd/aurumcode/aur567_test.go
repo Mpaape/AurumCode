@@ -100,6 +100,9 @@ func TestAUR567GateLineAndReportShowTheSameMessage(t *testing.T) {
 	if checked == 0 {
 		t.Fatalf("report has no analysis hardcoded-secret line:\n%s", out)
 	}
+	if !strings.Contains(errOut, "(rule security/hardcoded-secret - Hardcoded Secrets)") || strings.Contains(errOut, "[REDACTED] Secrets") {
+		t.Errorf("the security line must show the full rule title:\n%s", errOut)
+	}
 	if strings.Contains(errOut, "[REDACTED] secret or credential") {
 		t.Errorf("redaction replaced the title of the rule:\n%s", errOut)
 	}

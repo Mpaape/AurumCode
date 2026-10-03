@@ -293,7 +293,9 @@ mesmo valor que a auditoria (`origin`) e o SARIF (`properties.origin`) gravam:
 `secao policy|repo` (de onde veio a configuração), nunca no lugar da origem. A
 linha usa a mesma mensagem do relatório: id e mensagem se juntam por ` - `, para
 que o filtro de redação não leia `...secret: <palavra>` como um par chave/valor e
-troque a primeira palavra da mensagem por `[REDACTED]`.
+troque a primeira palavra da mensagem por `[REDACTED]`. Pelo mesmo motivo a linha escreve a citação
+`(rule <id>: <título>)` do relatório como `(rule <id> - <título>)`: a linha do gate e o
+relatório diferem só nesse separador, e a linha mostra o título inteiro (`Hardcoded Secrets`).
 
 **Review formal e gate (AUR-567).** Em `--pr`, quando `gate` está declarado, a
 review formal segue o gate: `REQUEST_CHANGES` só se o gate reprova; achados
