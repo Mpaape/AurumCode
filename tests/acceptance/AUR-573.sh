@@ -50,7 +50,7 @@ ac001() {
   grep -Fq 'github.com/Mpaape/AurumCode/internal/artifacts' <<<"$out" || fail 'artifacts-not-run'
   # No exec of go may rely on the environment for -buildvcs.
   local bad
-  bad="$(grep -rnE 'exec\.Command\("go", "build",' --include='*.go' "$repo_root/tests" "$repo_root/internal" "$repo_root/cmd" | grep -v -- '-buildvcs=false' || true)"
+  bad="$(grep -rnE 'exec\.Command\("go", "build",' --include='*.go' "$repo_root/tests" "$repo_root/internal" "$repo_root/cmd" | grep -vF -e '-buildvcs=false' || true)"
   [[ -z "$bad" ]] || { printf '%s\n' "$bad" >&2; fail 'go-build-without-buildvcs'; }
 }
 
