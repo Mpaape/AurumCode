@@ -439,10 +439,10 @@ quality_gates:
 
 - As engines são compiladas no binário (lista fechada em
   `internal/scanner/engines`); `engine` desconhecido é erro de carga, citando a
-  chave e as engines registradas. Hoje são `semgrep` (categoria `sast`) e
-  `gitleaks` (categoria `secrets`).
+  chave e as engines registradas. Hoje são `semgrep` (categoria `sast`),
+  `gitleaks` (categoria `secrets`) e `govet` (categoria `lint`).
 - `options` é validado pela própria engine (para o `semgrep`, só
-  `rule_packs`; o `gitleaks` não aceita opção).
+  `rule_packs`; o `gitleaks` e o `govet` não aceitam opção).
 - **Política vence engine por engine.** Uma entrada da política com
   `required: true` (e toda `quality_gates.sast` da política, que é sempre
   obrigatória) faz a entrada do repositório para a mesma engine ser ignorada,
@@ -523,6 +523,65 @@ quality_gates:
 - A imagem do produto (`Dockerfile`) copia o binário da imagem fixada por
   digest no lock e o build falha se `gitleaks version` não for a do lock.
   Tutorial: [Segredos com gitleaks](tutorials/segredos.md).
+
+### Linter real com go vet (engine `govet`)
+
+```yaml
+quality_gates:
+  scanners:
+    - engine: govet             # categoria lint, origem govet
+      fail_on: warning          # go vet reporta warning; com o padrão ERROR o achado só é publicado
+```
+
+- **Só roda quando declarada.** Sem a entrada, o review é o de sempre; nada é
+  instalado. O `go` precisa já estar no `PATH` do processo do aurumcode (a
+  imagem do produto não o traz): `go` ausente é `lint_unavailable`.
+- Roda `go vet -json ./...` na raiz revisada, que precisa ter `go.mod` (sem
+  ele é `lint_execution_error`: o go resolveria outro módulo, cujos caminhos o
+  diff não mapeia; módulos aninhados ficam de fora) e lê o relatório JSON, nunca o texto como comando.
+  Cada achado é `go-vet/<analisador>` (ex.: `go-vet/printf`) em
+  `arquivo:linha`, severidade `warning`, origem `govet`.
+- **Só linhas que o intervalo revisado adicionou.** A engine roda
+  `git diff --relative --unified=0 <base>...<head>` a partir da raiz revisada
+  (caminhos relativos a ela, como os do go vet) e descarta todo achado fora das linhas
+  adicionadas: um defeito antigo de um arquivo que o PR não tocou não reprova o
+  PR. Intervalo ausente, ou caminho que o git cita entre aspas (tab, aspas,
+  barra invertida), é `lint_execution_error`/`lint_invalid_output`, nunca uma
+  varredura da árvore inteira nem um arquivo descartado em silêncio.
+- **Falha nunca é verde nem parcial.** `go vet -json` sai 0 com diagnósticos e
+  diferente de 0 quando algum pacote não carrega ou não compila (medido no
+  go1.27.1); qualquer saída diferente de 0 é `lint_execution_error` sem nenhum
+  achado, mesmo que outro pacote tenha diagnósticos. JSON inválido ou posição
+  fora da raiz é `lint_invalid_output`.
+- **Sem download nem compilador C:** `GOTOOLCHAIN=local`, `GOPROXY=off` e
+  `CGO_ENABLED=0` são fixos (o PR controla as diretivas `#cgo`, então o vet
+  nunca chama o compilador C; arquivos cgo ficam fora da cobertura); dependência
+  fora do cache de módulos (ou de `vendor/`) é `lint_execution_error`.
+  `GOFLAGS` do processo não é repassado (um `-toolexec` executaria outro
+  programa).
+- A identidade da engine (`go vet <GOVERSION>`) vai no `Version` do resultado.
+- Tutorial: [SAST com Semgrep, Caso 5](tutorials/sast.md).
+
+### Ambiente dos processos das engines
+
+Toda engine (semgrep, gitleaks, govet) roda o binário externo com um ambiente
+**explícito**, nunca o do processo do aurumcode: a chave do modelo
+(`LLM_API_KEY`), o `GITHUB_TOKEN` e qualquer outro segredo do job não chegam
+ao processo filho, que lê conteúdo controlado pelo autor do PR. O ambiente é:
+
+- para todas: `PATH`, `HOME`, `TMPDIR`, `LANG`, `LC_ALL`, `SSL_CERT_FILE`,
+  `SSL_CERT_DIR` (quando definidos);
+- gitleaks e govet: das entradas `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/
+  `GIT_CONFIG_VALUE_n`, só as de `safe.directory`, renumeradas (um
+  `http.extraheader` com credencial é descartado);
+- govet: `GOCACHE`, `GOPATH`, `GOMODCACHE`, `GOROOT`, e os fixos
+  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`.
+
+Variáveis de proxy (`HTTPS_PROXY` etc.) não são repassadas: um runner atrás de
+proxy precisa de regras locais (veja os pacotes `p/...` acima). Limites de
+cada execução: 120 s (`scanner.Timeout`), 5 s para fechar a saída depois do
+cancelamento (`scanner.WaitDelay`) e 32 MiB por fluxo de saída
+(`scanner.MaxOutputBytes`); passar de qualquer um deles é inconclusivo.
 
 ## Trilha de auditoria e SARIF (AUR-521)
 
@@ -1139,7 +1198,8 @@ counts if its severity is at or above `fail_on`, whatever its origin:
 | `analysis` | the embedded deterministic catalog (`analysis/*`) |
 | `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`), and every other registered engine of the `sast` category |
 | `secrets` | gitleaks findings (`gitleaks:*`) and every other registered engine of the `secrets` category |
-| `<engine>` | a registered scanner engine by name (`semgrep`, `gitleaks`); an engine without a category answers only to its name |
+| `lint` | go vet findings (`go-vet/<analyzer>`, engine `govet`) and every other registered engine of the `lint` category |
+| `<engine>` | a registered scanner engine by name (`semgrep`, `gitleaks`, `govet`); an engine without a category answers only to its name |
 
 ```yaml
 gate:

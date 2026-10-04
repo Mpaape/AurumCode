@@ -6,8 +6,12 @@ Ao final você terá rodado o SAST do AurumCode (`quality_gates.sast`, Semgrep)
 em cinco situações: com uma regra local e sem rede, com um pacote do registry
 (o que acontece sem rede), com `nosemgrep` e `.semgrepignore` sem e sob
 política central, com a origem `sast` aparecendo no gate e na auditoria, e com
-o Semgrep falhando. O ponto central: **um Semgrep que não produziu relatório
-confiável nunca vale como "zero achados"**; vira inconclusivo.
+o Semgrep falhando. Depois, o mesmo mecanismo com um linter real: a engine
+`govet` (categoria `lint`), declarada em `quality_gates.scanners`, achando um
+defeito só na linha que o PR adicionou e sem receber os segredos do processo,
+e falhando quando o `go` não existe. O ponto central: **um scanner que não
+produziu relatório confiável nunca vale como "zero achados"**; vira
+inconclusivo.
 
 Cada comando e cada saída vêm de uma execução real, registrada em
 `demo/tutoriais/sast/out/` e conferida por `run.sh --check`. Os blocos de
@@ -32,7 +36,7 @@ docker build -t aurumcode:local /caminho/para/AurumCode
   Semgrep nasce de código, depois da chamada ao modelo.
 
 ```bash
-bash demo/tutoriais/sast/run.sh all      # cinco casos; grava out/
+bash demo/tutoriais/sast/run.sh all      # sete casos; grava out/
 bash demo/tutoriais/sast/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -229,6 +233,81 @@ reprova o gate (exit 0). Esta política só vale para o gate com `gate`
 declarado; a seção `quality_gates.sast` do repositório, ao contrário, nunca é
 afrouxável sob política.
 
+## Caso 5: linter real, engine `govet`
+
+`go vet` é uma engine registrada (`govet`, categoria `lint`, origem `govet`).
+Ela só roda quando `quality_gates.scanners` a declara; sem a declaração, o
+review é o de sempre e nada é instalado:
+
+<!-- arquivo: demo/tutoriais/sast/repo-exemplo/lint-base/.aurumcode/config.yml -->
+```yaml
+quality_gates:
+  scanners:
+    - engine: govet             # categoria lint, origem govet
+      fail_on: warning          # go vet reporta warning; o padrao ERROR so publicaria
+gate:
+  fail_on: [error]
+```
+
+A `main` já tem um `fmt.Printf` com verbo errado em `legado/legado.go`; a
+branch `feature` adiciona outro em `calc/calc.go`, linha 9. A engine roda
+`go vet -json ./...` e guarda só o achado que cai numa linha adicionada pelo
+intervalo revisado (`git diff --relative <base>...<head>`): o de `legado.go` é histórico
+do repositório, não do PR. A regra é o analisador do próprio go vet
+(`go-vet/printf`), que qualquer um reexecuta.
+
+A imagem do produto não traz o Go, então este caso põe na frente do `PATH` um
+`go` falso que devolve exatamente o JSON que o `go vet -json` real (go1.27.1)
+devolve para este repositório, e grava se os segredos do processo do
+aurumcode chegaram a ele. O caso passa `LLM_API_KEY` e `GITHUB_TOKEN` ao
+aurumcode; o processo da engine recebe só um ambiente explícito (`PATH`,
+`HOME`, `TMPDIR`, locale, certificados, os caches do Go e
+`GOTOOLCHAIN=local`/`GOPROXY=off`/`CGO_ENABLED=0`):
+
+<!-- arquivo: demo/tutoriais/sast/fake-go/go -->
+```sh
+#!/bin/sh
+# go falso, so para o tutorial: a imagem do produto nao traz o Go. Responde o
+# que o `go vet -json ./...` real (go1.27.1) responde para este repositorio de
+# exemplo, com os mesmos dois achados medidos: um numa linha que o PR
+# adicionou, outro num arquivo que o PR nao tocou. Antes, grava em
+# ambiente-do-go.txt se os segredos do processo do aurumcode chegaram aqui.
+{
+  for v in LLM_API_KEY GITHUB_TOKEN; do
+    if printenv "$v" >/dev/null; then echo "$v no ambiente do go: PRESENTE"; else echo "$v no ambiente do go: ausente"; fi
+  done
+} > "$PWD/ambiente-do-go.txt"
+case "$1" in
+  env) echo go1.27.1-falso ;;
+  vet)
+    cat <<JSON
+{"example.com/calc/calc": {"printf": [{"posn": "$PWD/calc/calc.go:9:35", "message": "fmt.Printf format %d has arg s of wrong type string"}]}}
+{"example.com/calc/legado": {"printf": [{"posn": "$PWD/legado/legado.go:6:37", "message": "fmt.Printf format %d has arg s of wrong type string"}]}}
+JSON
+    ;;
+  *) echo "go falso: comando nao simulado: $*" >&2; exit 2 ;;
+esac
+```
+
+```bash
+aurumcode review --base main
+```
+
+<!-- saida: govet-achado -->
+```text
+$ aurumcode review --base main
+aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf) (severidade warning, limiar warning, origem govet, secao repo)
+calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)
+exit_code=3
+LLM_API_KEY no ambiente do go: ausente
+GITHUB_TOKEN no ambiente do go: ausente
+```
+
+O que observar: um achado só, em `calc/calc.go:9`, com origem `govet`; o
+`fail_on: warning` da entrada faz o warning do go vet reprovar (com o padrão
+`ERROR` ele só seria publicado). Nenhum segredo chegou ao `go`. (Conclusão do
+script: exit 3 e as duas linhas `ausente`.)
+
 ## Quando falha
 
 Semgrep ausente do `PATH`, com erro de execução, ou com saída que não é um
@@ -268,6 +347,29 @@ publicado e o comando sai 0, mas a revisão não é aprovação (o parecer diz
 gate de conformidade. (Conclusão do script: os exits 1 e 0, a mesma falha com
 dois modos.)
 
+### Sem `go` no `PATH`
+
+O mesmo repositório do Caso 5, agora com a imagem do produto como ela é (sem
+Go). O aurumcode não instala nada: a engine fica inconclusiva
+(`lint_unavailable`) e, com `gate.inconclusive` ausente (= `block`), o gate
+reprova.
+
+```bash
+aurumcode review --base main
+```
+
+<!-- saida: govet-sem-go -->
+```text
+$ aurumcode review --base main
+aurumcode review: LINT (Govet) inconclusive: the scan did not produce a trustworthy result (lint_unavailable); no Govet finding was published for this run.
+aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable)
+exit_code=1
+```
+
+O que observar: inconclusivo nunca é "zero achados"; o mesmo vale para um
+pacote que não compila ou uma dependência fora do cache de módulos
+(`lint_execution_error`). (Conclusão do script: exit 1.)
+
 ## Problemas comuns
 
 - **Pacote `p/...` num runner sem rede**: demora até o limite de 120 s e fica
@@ -285,6 +387,18 @@ dois modos.)
 ## Como fica
 
 Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/sast/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### govet-achado
+
+![Terminal do caso govet-achado](../assets/capturas/sast/govet-achado-terminal.png)
+
+![Comentario do PR do caso govet-achado](../assets/capturas/sast/govet-achado-comentario.png)
+
+### govet-sem-go
+
+![Terminal do caso govet-sem-go](../assets/capturas/sast/govet-sem-go-terminal.png)
+
+![Comentario do PR do caso govet-sem-go](../assets/capturas/sast/govet-sem-go-comentario.png)
 
 ### nosemgrep-e-semgrepignore
 
