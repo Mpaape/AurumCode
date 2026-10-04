@@ -1,0 +1,5 @@
+$ aurumcode review --base main
+aurumcode review: LINT (Govet) inconclusive: the scan did not produce a trustworthy result (lint_unavailable); no Govet finding was published for this run.
+aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable)
+exit_code=1
+RESULTADO: sem go no PATH: inconclusivo (lint_unavailable) e o gate reprova; nada e instalado

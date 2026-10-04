@@ -1,0 +1,21 @@
+#!/bin/sh
+# go falso, so para o tutorial: a imagem do produto nao traz o Go. Responde o
+# que o `go vet -json ./...` real (go1.27.1) responde para este repositorio de
+# exemplo, com os mesmos dois achados medidos: um numa linha que o PR
+# adicionou, outro num arquivo que o PR nao tocou. Antes, grava em
+# ambiente-do-go.txt se os segredos do processo do aurumcode chegaram aqui.
+{
+  for v in LLM_API_KEY GITHUB_TOKEN; do
+    if printenv "$v" >/dev/null; then echo "$v no ambiente do go: PRESENTE"; else echo "$v no ambiente do go: ausente"; fi
+  done
+} > "$PWD/ambiente-do-go.txt"
+case "$1" in
+  env) echo go1.27.1-falso ;;
+  vet)
+    cat <<JSON
+{"example.com/calc/calc": {"printf": [{"posn": "$PWD/calc/calc.go:9:35", "message": "fmt.Printf format %d has arg s of wrong type string"}]}}
+{"example.com/calc/legado": {"printf": [{"posn": "$PWD/legado/legado.go:6:37", "message": "fmt.Printf format %d has arg s of wrong type string"}]}}
+JSON
+    ;;
+  *) echo "go falso: comando nao simulado: $*" >&2; exit 2 ;;
+esac
