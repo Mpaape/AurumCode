@@ -198,7 +198,7 @@ bash demo/tutoriais/extensao/run.sh falha-binario-padrao
 <!-- saida: falha-binario-padrao -->
 ```text
 $ aurumcode review --base main
-aurumcode review: parsing /work/.aurumcode/config.yml: quality_gates.scanners[exemplo].engine: unknown engine "exemplo" (registered: gitleaks, semgrep)
+aurumcode review: parsing /work/.aurumcode/config.yml: quality_gates.scanners[exemplo].engine: unknown engine "exemplo" (registered: gitleaks, govet, semgrep)
 exit_code=1
 RESULTADO: o binario padrao recusa engine: exemplo como engine desconhecida
 ```

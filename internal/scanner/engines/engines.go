@@ -4,6 +4,8 @@
 package engines
 
 import (
+	// go vet, the lint engine over the lines the reviewed range added.
+	_ "github.com/Mpaape/AurumCode/internal/scanner/govet"
 	// Gitleaks, the secrets engine over the reviewed commit range.
 	_ "github.com/Mpaape/AurumCode/internal/scanner/gitleaks"
 	// Semgrep, the SAST engine.
