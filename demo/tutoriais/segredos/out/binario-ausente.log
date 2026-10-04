@@ -1,5 +1,9 @@
 == binario-ausente
 $ aurumcode review --base main
+aurumcode review: SECRETS (Gitleaks) inconclusive: the scan did not produce a trustworthy result (secrets_unavailable); no Gitleaks finding was published for this run.
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (secrets_unavailable)
+aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -19,9 +23,5 @@ flowchart TD
 
 ```
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
-aurumcode review: SECRETS (Gitleaks) inconclusive: the scan did not produce a trustworthy result (secrets_unavailable); no Gitleaks finding was published for this run.
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (secrets_unavailable)
-aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable)
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova
