@@ -11,12 +11,15 @@
 # Selectors:
 #   all        AC-001..AC-004, then MUT-001..MUT-004
 #   AC-001     real go vet: finding on the added line; corrected change clean
-#   AC-002     missing go, failed vet, bad report, no range: inconclusive; sast demo
+#   AC-002     missing go, failed vet, bad report, no range: inconclusive; recorded demo
 #   AC-003     explicit child environment; no secret reaches any engine
-#   AC-004     govet runs only when quality_gates.scanners declares it
+#   AC-004     govet runs only when declared: the recorded sast cases without the
+#              entry never mention it; config.Parse test where internal/config's
+#              closure is materialized (the sealed image holds only the card's
+#              paths, without internal/dtrack and the other config imports)
 #   MUT-001    a failed go vet read as findings turns AC-002 RED
 #   MUT-002    keeping findings outside the diff turns AC-001 RED
-#   MUT-003    the engine left out of the binary (ignored) turns AC-004 RED
+#   MUT-003    the engine left out of the binary (ignored) turns AC-003 RED
 #   MUT-004    the child inheriting the process environment turns AC-003 RED
 # Unknown selector exits 64; infrastructure 79; behavioral failure 1.
 set -Eeuo pipefail
@@ -93,7 +96,8 @@ readonly ac001_tests=(TestRealVetFindingOnAddedLine TestRealVetCorrectedChangeIs
 readonly ac002_tests=(TestMissingGoIsUnavailable TestRealVetFailureIsInconclusive TestNoRangeIsInconclusive TestRefusesOptions TestVetFailureNeverYieldsFindings TestVetKeepsMissingBinary TestVetRefusesUntrustedReport TestParseAddedLinesRefusesBadHeader)
 readonly ac003_tests=(TestNoEngineChildInheritsSecrets TestChildEnvironmentIsExplicit TestGitSafeDirectoriesDropsOtherKeys TestIsolatedCommandUsesOnlyGivenEnvironment TestIsolatedCommandBoundsOutput)
 readonly ac004_tests=(TestGovetRunsOnlyWhenDeclared)
-readonly pkgs=(./internal/scanner/ ./internal/scanner/govet/ ./internal/scanner/engines/ ./internal/analysis/)
+readonly pkgs=(./internal/scanner/ ./internal/scanner/govet/ ./internal/analysis/)
+readonly config_pkgs=(./internal/scanner/engines/)
 
 pattern_of() { local IFS='|'; printf '^(%s)$' "$*"; }
 
@@ -120,11 +124,58 @@ expect_red() {
   grep -E -- '^--- FAIL: |_test\.go:[0-9]+:' "$log" | sed -n '1,4p' >&2
 }
 
+demo="$repo_root/demo/tutoriais/sast"
+
+# expect_recorded case: every line of expected/<case>.txt is in out/<case>.log,
+# literally (the image identity of out/ is checked by run.sh --check in the
+# regression, where the whole tree exists).
+expect_recorded() {
+  local c="$1" line
+  [[ -f "$demo/out/$c.log" && -f "$demo/expected/$c.txt" ]] || fail "demo-missing:$c"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == '#'* ]] && continue
+    grep -Fq -- "$line" "$demo/out/$c.log" || fail "demo-line-missing:$c:$line"
+  done <"$demo/expected/$c.txt"
+}
+
+run_ac001() {
+  run_ac AC-001 "${ac001_tests[@]}"
+  expect_recorded govet-achado
+  grep -Fq 'calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)' "$demo/out/govet-achado.log" || fail demo-finding-missing
+  if grep -Fq 'legado/legado.go' "$demo/out/govet-achado.log"; then fail demo-finding-outside-diff; fi
+  printf '%s/AC-001/demo/pass\n' "$card"
+}
+
 run_ac002() {
   run_ac AC-002 "${ac002_tests[@]}"
-  (cd "$repo_root" && bash demo/tutoriais/sast/run.sh --check >"$run_dir/sast-check.log" 2>&1) || { cat "$run_dir/sast-check.log" >&2; fail sast-demo-check-failed; }
-  grep -Fq 'caso govet-achado: ok' "$run_dir/sast-check.log" || fail sast-demo-without-govet
-  printf '%s/AC-002/sast-demo/pass\n' "$card"
+  expect_recorded govet-sem-go
+  grep -Fq 'inconclusivo (lint_unavailable)' "$demo/out/govet-sem-go.log" || fail demo-not-inconclusive
+  printf '%s/AC-002/demo/pass\n' "$card"
+}
+
+run_ac003() {
+  run_ac AC-003 "${ac003_tests[@]}"
+  expect_recorded govet-achado
+  grep -Fxq 'LLM_API_KEY no ambiente do go: ausente' "$demo/out/govet-achado.log" || fail demo-secret-reached-go
+  grep -Fxq 'GITHUB_TOKEN no ambiente do go: ausente' "$demo/out/govet-achado.log" || fail demo-token-reached-go
+  printf '%s/AC-003/demo/pass\n' "$card"
+}
+
+run_ac004() {
+  local c root="$run_dir/root-AC-004" log="$run_dir/AC-004.log"
+  for c in regra-local registry-sem-rede nosemgrep-e-semgrepignore origem-sast semgrep-falha; do
+    expect_recorded "$c"
+    if grep -Eqi 'govet|lint_' "$demo/out/$c.log"; then fail "undeclared-govet-ran:$c"; fi
+  done
+  printf '%s/AC-004/demo/pass\n' "$card"
+  stage "$root"
+  if ( cd "$root" && go list -deps ./internal/config/ >/dev/null 2>&1 ); then
+    go_test "$root" "$log" "$(pattern_of "${ac004_tests[@]}")" "${config_pkgs[@]}" || { cat "$log" >&2; fail go-test-failed; }
+    require_pass "$log" "${ac004_tests[@]}"
+    printf '%s/AC-004/config/pass\n' "$card"
+  else
+    printf '%s/AC-004/config/not-materialized\n' "$card"
+  fi
 }
 
 # mutate name file anchor replacement tests...: one mutated copy must turn
@@ -154,7 +205,7 @@ run_mut002() {
 run_mut003() {
   mutate MUT-003 internal/scanner/engines/engines.go '_ "github.com/Mpaape/AurumCode/internal/scanner/govet"' \
     '/* MUT-003: govet left out of the binary */' \
-    TestGovetRunsOnlyWhenDeclared TestNoEngineChildInheritsSecrets
+    TestNoEngineChildInheritsSecrets
 }
 
 run_mut004() {
@@ -164,19 +215,19 @@ run_mut004() {
 }
 
 case "$selector" in
-  AC-001) run_ac AC-001 "${ac001_tests[@]}" ;;
+  AC-001) run_ac001 ;;
   AC-002) run_ac002 ;;
-  AC-003) run_ac AC-003 "${ac003_tests[@]}" ;;
-  AC-004) run_ac AC-004 "${ac004_tests[@]}" ;;
+  AC-003) run_ac003 ;;
+  AC-004) run_ac004 ;;
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
   MUT-003) run_mut003 ;;
   MUT-004) run_mut004 ;;
   all)
-    run_ac AC-001 "${ac001_tests[@]}"
+    run_ac001
     run_ac002
-    run_ac AC-003 "${ac003_tests[@]}"
-    run_ac AC-004 "${ac004_tests[@]}"
+    run_ac003
+    run_ac004
     run_mut001
     run_mut002
     run_mut003

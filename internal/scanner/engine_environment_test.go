@@ -1,4 +1,4 @@
-package engines_test
+package scanner_test
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/scanner"
+	// Every engine compiled into the binary, registered.
+	_ "github.com/Mpaape/AurumCode/internal/scanner/engines"
 )
 
 // secretVariables stand for the secrets a CI job holds while it reviews.
