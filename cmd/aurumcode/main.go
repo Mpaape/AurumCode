@@ -281,3 +281,36 @@ func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveRea
 		printAssessment(stdout, issue)
 	}
 }
+
+// selectProvider is the one place cmd/aurumcode names a specific LLM
+// vendor, and it does so only to satisfy an environment variable the
+// operator set -- nothing here is hardwired to one provider. Two modes are
+// supported:
+//
+//   - AURUMCODE_LLM_FIXTURE=<path>: read that file's content and use it
+//     verbatim as the model's response, via review.FakeProvider. This is
+//     how tests/acceptance/AUR-430.sh runs the real binary fully offline
+//     and deterministically (the sandbox this card's acceptance runs under
+//     denies network access entirely).
+//   - LLM_API_KEY and LLM_BASE_URL: use the existing, already-vendor-neutral
+//     internal/llm/provider/litellm.Provider (an OpenAI-compatible endpoint).
+//     LLM_MODEL is forwarded when present; when omitted, the endpoint may
+//     choose its own configured default.
+//
+// Neither set: a clear, typed-by-message error, not a panic or a silent
+// no-op provider.
+// errNoProviderConfigured is selectProvider's error when neither an
+// offline fixture (AURUMCODE_LLM_FIXTURE) nor a live endpoint
+// (LLM_API_KEY + LLM_BASE_URL) is configured -- as opposed to any other
+// provider failure (an AURUMCODE_LLM_FIXTURE path that does not exist, a
+// malformed endpoint). AUR-449's --seguranca-only skip (runReview above)
+// tests for this exact sentinel with errors.Is: "the caller configured
+// nothing at all" is eligible to fall back to the deterministic security
+// pass alone, but a caller who attempted configuration and got it wrong is
+// still told the review failed, never silently downgraded.
+// The message text is AUR-448's: the COMPLETE fixture shape the engine
+// accepts, rule_id included, because enforceRuleCitations (AUR-434)
+// silently discards a finding whose rule_id is missing, and the
+// pre-AUR-448 shape omitted it. See selectProvider's own comment below and
+// docs/specs/AUR-448.md.
+var errNoProviderConfigured = errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider`)

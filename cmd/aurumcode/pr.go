@@ -10,8 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/changelog"
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -178,4 +181,65 @@ func (p *prReview) degradeUnparseable(parseErr *prompt.ParseError) {
 	p.model = modelParseFailed
 	p.result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
 	p.result.Limitations = append(p.result.Limitations, modelInvalidOutputNotice(p.reviewLanguage, string(parseErr.Kind)))
+}
+
+// newGitHubClient builds the restored AUR-437 client.
+// config.GitHubAPIURLEnv (AURUMCODE_GITHUB_API_URL) overrides the API base, validated by config.GitHubAPIURL (shared with analysis_data), so this card's own tests
+// can point it at a loopback httptest server (the sealed profile denies
+// real network access); production use leaves it unset and gets
+// githubclient.DefaultBaseURL. GITHUB_TOKEN follows the same convention
+// GitHub Actions already exposes to a step (see docs/specs/AUR-440.md); an
+// empty token still builds a working client -- reading a public repository
+// needs no auth. Direct CLI publishing retains the repository-role preflight;
+// the reusable workflow sets AURUMCODE_PR_PERMISSION_MODE=endpoint so GitHub
+// itself enforces pull-requests:write and statuses:write on the actual POST.
+func newGitHubClient() (*githubclient.Client, error) {
+	token := os.Getenv("GITHUB_TOKEN")
+	if strings.TrimSpace(os.Getenv(config.GitHubAPIURLEnv)) == "" {
+		return githubclient.NewClient(token), nil
+	}
+	base, err := config.GitHubAPIURL(os.Getenv)
+	if err != nil {
+		return nil, err
+	}
+	return githubclient.NewClientWithBaseURL(token, base), nil
+}
+
+// pullRequestChangelogSource reads the PR title/body and the PR's commit
+// messages, then folds the title/body into a synthetic first commit so the
+// engine sees the whole reviewed narrative. Any missing source is an error and
+// the caller declares a limitation; nothing here is executed.
+func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client, owner, repo string, number int) ([]changelog.Commit, error) {
+	ctx, cancel := context.WithTimeout(ctx, config.ProviderTimeout)
+	defer cancel()
+	meta, err := client.GetPullRequestMetadata(ctx, owner, repo, number)
+	if err != nil {
+		return nil, err
+	}
+	commits, err := client.GetPullRequestCommits(ctx, owner, repo, number)
+	if err != nil {
+		return nil, err
+	}
+	if len(commits) == 0 {
+		return nil, errors.New("pull request has no commit messages")
+	}
+	out := make([]changelog.Commit, 0, len(commits)+1)
+	if strings.TrimSpace(meta.Title) != "" || strings.TrimSpace(meta.Body) != "" {
+		out = append(out, changelog.Commit{Subject: meta.Title, Body: meta.Body})
+	}
+	for _, c := range commits {
+		subject, body := splitCommitMessage(c.Message)
+		out = append(out, changelog.Commit{Subject: subject, Body: body, Hash: c.SHA})
+	}
+	return out, nil
+}
+
+// splitCommitMessage splits a GitHub commit message into its first line and
+// the remaining body. Both parts are untrusted.
+func splitCommitMessage(msg string) (subject, body string) {
+	msg = strings.TrimRight(strings.ReplaceAll(msg, "\r\n", "\n"), "\n")
+	if i := strings.IndexByte(msg, '\n'); i >= 0 {
+		return msg[:i], strings.TrimLeft(msg[i+1:], "\n")
+	}
+	return msg, ""
 }
