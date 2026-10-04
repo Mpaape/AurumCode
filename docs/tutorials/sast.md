@@ -252,7 +252,7 @@ gate:
 A `main` já tem um `fmt.Printf` com verbo errado em `legado/legado.go`; a
 branch `feature` adiciona outro em `calc/calc.go`, linha 9. A engine roda
 `go vet -json ./...` e guarda só o achado que cai numa linha adicionada pelo
-intervalo revisado (`git diff <base>...<head>`): o de `legado.go` é histórico
+intervalo revisado (`git diff --relative <base>...<head>`): o de `legado.go` é histórico
 do repositório, não do PR. A regra é o analisador do próprio go vet
 (`go-vet/printf`), que qualquer um reexecuta.
 
@@ -262,7 +262,7 @@ devolve para este repositório, e grava se os segredos do processo do
 aurumcode chegaram a ele. O caso passa `LLM_API_KEY` e `GITHUB_TOKEN` ao
 aurumcode; o processo da engine recebe só um ambiente explícito (`PATH`,
 `HOME`, `TMPDIR`, locale, certificados, os caches do Go e
-`GOTOOLCHAIN=local`/`GOPROXY=off`):
+`GOTOOLCHAIN=local`/`GOPROXY=off`/`CGO_ENABLED=0`):
 
 <!-- arquivo: demo/tutoriais/sast/fake-go/go -->
 ```sh

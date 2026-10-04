@@ -536,21 +536,26 @@ quality_gates:
 - **Só roda quando declarada.** Sem a entrada, o review é o de sempre; nada é
   instalado. O `go` precisa já estar no `PATH` do processo do aurumcode (a
   imagem do produto não o traz): `go` ausente é `lint_unavailable`.
-- Roda `go vet -json ./...` na raiz revisada (o módulo da raiz; módulos
-  aninhados ficam de fora) e lê o relatório JSON, nunca o texto como comando.
+- Roda `go vet -json ./...` na raiz revisada, que precisa ter `go.mod` (sem
+  ele é `lint_execution_error`: o go resolveria outro módulo, cujos caminhos o
+  diff não mapeia; módulos aninhados ficam de fora) e lê o relatório JSON, nunca o texto como comando.
   Cada achado é `go-vet/<analisador>` (ex.: `go-vet/printf`) em
   `arquivo:linha`, severidade `warning`, origem `govet`.
 - **Só linhas que o intervalo revisado adicionou.** A engine roda
-  `git diff --unified=0 <base>...<head>` e descarta todo achado fora das linhas
+  `git diff --relative --unified=0 <base>...<head>` a partir da raiz revisada
+  (caminhos relativos a ela, como os do go vet) e descarta todo achado fora das linhas
   adicionadas: um defeito antigo de um arquivo que o PR não tocou não reprova o
-  PR. Intervalo ausente é `lint_execution_error`, nunca uma varredura da árvore
-  inteira.
+  PR. Intervalo ausente, ou caminho que o git cita entre aspas (tab, aspas,
+  barra invertida), é `lint_execution_error`/`lint_invalid_output`, nunca uma
+  varredura da árvore inteira nem um arquivo descartado em silêncio.
 - **Falha nunca é verde nem parcial.** `go vet -json` sai 0 com diagnósticos e
   diferente de 0 quando algum pacote não carrega ou não compila (medido no
   go1.27.1); qualquer saída diferente de 0 é `lint_execution_error` sem nenhum
   achado, mesmo que outro pacote tenha diagnósticos. JSON inválido ou posição
   fora da raiz é `lint_invalid_output`.
-- **Sem download:** `GOTOOLCHAIN=local` e `GOPROXY=off` são fixos; dependência
+- **Sem download nem compilador C:** `GOTOOLCHAIN=local`, `GOPROXY=off` e
+  `CGO_ENABLED=0` são fixos (o PR controla as diretivas `#cgo`, então o vet
+  nunca chama o compilador C; arquivos cgo ficam fora da cobertura); dependência
   fora do cache de módulos (ou de `vendor/`) é `lint_execution_error`.
   `GOFLAGS` do processo não é repassado (um `-toolexec` executaria outro
   programa).
@@ -570,7 +575,7 @@ ao processo filho, que lê conteúdo controlado pelo autor do PR. O ambiente é:
   `GIT_CONFIG_VALUE_n`, só as de `safe.directory`, renumeradas (um
   `http.extraheader` com credencial é descartado);
 - govet: `GOCACHE`, `GOPATH`, `GOMODCACHE`, `GOROOT`, e os fixos
-  `GOTOOLCHAIN=local`, `GOPROXY=off`.
+  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`.
 
 Variáveis de proxy (`HTTPS_PROXY` etc.) não são repassadas: um runner atrás de
 proxy precisa de regras locais (veja os pacotes `p/...` acima). Limites de

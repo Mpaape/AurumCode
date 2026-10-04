@@ -25,7 +25,7 @@ var secretVariables = map[string]string{
 // govet caches and fixed values, and the renumbered safe.directory entries.
 var allowedNames = map[string]bool{
 	"GOCACHE": true, "GOPATH": true, "GOMODCACHE": true, "GOROOT": true,
-	"GOTOOLCHAIN": true, "GOPROXY": true,
+	"GOTOOLCHAIN": true, "GOPROXY": true, "CGO_ENABLED": true,
 	"GIT_CONFIG_COUNT": true, "GIT_CONFIG_KEY_0": true, "GIT_CONFIG_VALUE_0": true,
 }
 
@@ -70,7 +70,11 @@ func TestNoEngineChildInheritsSecrets(t *testing.T) {
 	t.Setenv("GIT_CONFIG_KEY_1", "safe.directory")
 	t.Setenv("GIT_CONFIG_VALUE_1", "/github/workspace")
 	commit := strings.Repeat("a", 40)
-	req := scanner.Request{Root: t.TempDir(), Range: scanner.Range{Base: commit, Head: strings.Repeat("b", 40)}}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/m\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	req := scanner.Request{Root: root, Range: scanner.Range{Base: commit, Head: strings.Repeat("b", 40)}}
 	for _, name := range []string{"semgrep", "gitleaks", "govet"} {
 		engine, ok := scanner.Lookup(name)
 		if !ok {
@@ -103,6 +107,9 @@ func checkDump(t *testing.T, binary, dump string) {
 		if !allowedNames[key] && !isBase(key) {
 			t.Errorf("%s received %s, outside the declared environment", binary, key)
 		}
+	}
+	if binary == "go" && !strings.Contains(dump, "CGO_ENABLED=0\n") {
+		t.Errorf("go did not receive CGO_ENABLED=0:\n%s", dump)
 	}
 	if binary == "git" && !strings.Contains(dump, "GIT_CONFIG_VALUE_0=/github/workspace") {
 		t.Errorf("git lost the safe.directory entry:\n%s", dump)

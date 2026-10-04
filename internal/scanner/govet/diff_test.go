@@ -28,3 +28,17 @@ func TestParseAddedLinesRefusesBadHeader(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestParseAddedLinesRefusesQuotedPath(t *testing.T) {
+	diff := "diff --git \"a/x\\ty.go\" \"b/x\\ty.go\"\n--- \"a/x\\ty.go\"\n+++ \"b/x\\ty.go\"\n@@ -0,0 +1 @@\n+a\n"
+	if _, err := parseAddedLines(diff); !errors.Is(err, scanner.ErrInvalidOutput) {
+		t.Fatalf("err = %v, want ErrInvalidOutput", err)
+	}
+}
+
+func TestDiffIsRelativeToTheRoot(t *testing.T) {
+	args := diffArgs(scanner.Range{Base: "a", Head: "b"})
+	if args[2] != "diff" || args[3] != "--relative" {
+		t.Fatalf("args = %v, want git diff --relative", args)
+	}
+}
