@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tutorial executavel: SAST com Semgrep (AUR-563). Veja ../README.md e docs/tutorials/sast.md.
 #
-#   run.sh regra-local|registry-sem-rede|nosemgrep-e-semgrepignore|origem-sast|semgrep-falha
+#   run.sh regra-local|registry-sem-rede|nosemgrep-e-semgrepignore|origem-sast|semgrep-falha|govet-achado|govet-sem-go
 #   run.sh all | --check | limpar
 #
 # Semgrep roda DENTRO da imagem do produto (versao igual a scanners.yml), sem
@@ -12,7 +12,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(regra-local registry-sem-rede nosemgrep-e-semgrepignore origem-sast semgrep-falha)
+CASOS=(regra-local registry-sem-rede nosemgrep-e-semgrepignore origem-sast semgrep-falha govet-achado govet-sem-go)
 
 # 1. Regra local, offline: o pacote de regras e um arquivo do proprio repositorio.
 caso_regra_local() {
@@ -75,6 +75,25 @@ caso_semgrep_falha() {
   aurum review --base main
   expect_rc 0 "semgrep falhou: com warn o alerta e publicado e o comando sai 0, sem aprovar"
   TUT_ENVS=()
+}
+
+# 6. Linter real (engine govet, categoria lint): so a linha que o PR adicionou
+# vira achado, e os segredos do processo do aurumcode nao chegam ao go.
+caso_govet_achado() {
+  tut_repo govet-achado repo-exemplo/lint-base repo-exemplo/lint-erro
+  TUT_ENVS=(-e PATH=/fixtures/fake-go:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    -e LLM_API_KEY=segredo-de-demonstracao -e GITHUB_TOKEN=segredo-de-demonstracao)
+  aurum review --base main
+  expect_rc 3 "go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra"
+  cat "$TUT_WORK/ambiente-do-go.txt"
+  TUT_ENVS=()
+}
+
+# 7. Falha: a imagem do produto nao traz o Go => lint_unavailable, nunca "limpo".
+caso_govet_sem_go() {
+  tut_repo govet-sem-go repo-exemplo/lint-base repo-exemplo/lint-erro
+  aurum review --base main
+  expect_rc 1 "sem go no PATH: inconclusivo (lint_unavailable) e o gate reprova; nada e instalado"
 }
 
 tut_main "$@"

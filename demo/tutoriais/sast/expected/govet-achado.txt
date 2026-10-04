@@ -1,0 +1,7 @@
+$ aurumcode review --base main
+aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf) (severidade warning, limiar warning, origem govet, secao repo)
+calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)
+exit_code=3
+RESULTADO: go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra
+LLM_API_KEY no ambiente do go: ausente
+GITHUB_TOKEN no ambiente do go: ausente
