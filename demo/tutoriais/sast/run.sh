@@ -81,8 +81,9 @@ caso_semgrep_falha() {
 # vira achado, e os segredos do processo do aurumcode nao chegam ao go.
 caso_govet_achado() {
   tut_repo govet-achado repo-exemplo/lint-base repo-exemplo/lint-erro
-  TUT_ENVS=(-e PATH=/fixtures/fake-go:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    -e LLM_API_KEY=segredo-de-demonstracao -e GITHUB_TOKEN=segredo-de-demonstracao)
+  TUT_ENVS=(-e PATH=/fixtures/fake-go:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin)
+  local segredo
+  for segredo in LLM_API_KEY GITHUB_TOKEN; do TUT_ENVS+=(-e "$segredo=segredo-de-demonstracao"); done
   aurum review --base main
   expect_rc 3 "go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra"
   cat "$TUT_WORK/ambiente-do-go.txt"
