@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -107,36 +108,19 @@ type summaryLabels struct {
 }
 
 func labelsFor(language string) summaryLabels {
-	lang := strings.ToLower(strings.TrimSpace(language))
-	if lang == "pt" || lang == "pt-br" || strings.HasPrefix(lang, "pt-") {
-		return summaryLabels{
-			heading:         "Resumo da Revisão de Código",
-			verdictLabel:    "Veredito",
-			findings:        "Resultados por severidade",
-			filesTouched:    "Arquivos alterados",
-			none:            "Nenhum",
-			unknown:         "Desconhecido",
-			severityError:   "erro",
-			severityWarning: "aviso",
-			severityInfo:    "informação",
-			approve:         "Aprovar",
-			changes:         "Alterações solicitadas",
-			comment:         "Comentário",
-		}
-	}
 	return summaryLabels{
-		heading:         "Code Review Summary",
-		verdictLabel:    "Verdict",
-		findings:        "Findings by severity",
-		filesTouched:    "Files touched",
-		none:            "None",
-		unknown:         "Unknown",
-		severityError:   "error",
-		severityWarning: "warning",
-		severityInfo:    "info",
-		approve:         "Approve",
-		changes:         "Changes requested",
-		comment:         "Comment",
+		heading:         i18n.Text(language, "summary.heading"),
+		verdictLabel:    i18n.Text(language, "summary.verdict_label"),
+		findings:        i18n.Text(language, "summary.findings"),
+		filesTouched:    i18n.Text(language, "summary.files_touched"),
+		none:            i18n.Text(language, "summary.none"),
+		unknown:         i18n.Text(language, "summary.unknown"),
+		severityError:   i18n.Text(language, "summary.severity_error"),
+		severityWarning: i18n.Text(language, "summary.severity_warning"),
+		severityInfo:    i18n.Text(language, "summary.severity_info"),
+		approve:         i18n.Text(language, "summary.approve"),
+		changes:         i18n.Text(language, "summary.changes"),
+		comment:         i18n.Text(language, "summary.comment"),
 	}
 }
 

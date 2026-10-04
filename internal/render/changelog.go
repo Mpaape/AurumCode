@@ -3,6 +3,8 @@ package render
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/i18n"
 )
 
 // ChangelogSection renders the review's advisory release block from the
@@ -12,14 +14,9 @@ import (
 // reaches this function unescaped. language selects Portuguese labels for
 // "pt"/"pt-BR"; anything else uses English.
 func ChangelogSection(version, bump, entry, language string) string {
-	heading := "### Suggested release"
-	versionLabel := "Next version"
-	bumpLabel := "Bump"
-	lang := strings.ToLower(strings.TrimSpace(language))
-	if lang == "pt" || lang == "pt-br" || strings.HasPrefix(lang, "pt-") {
-		heading = "### Versão sugerida"
-		versionLabel = "Próxima versão"
-	}
+	heading := i18n.Text(language, "changelog.heading")
+	versionLabel := i18n.Text(language, "changelog.next_version")
+	bumpLabel := i18n.Text(language, "changelog.bump")
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n\n", heading)
 	fmt.Fprintf(&b, "**%s:** `%s`\n\n", versionLabel, inlineSafe(version))

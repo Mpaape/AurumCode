@@ -47,7 +47,7 @@ func TestCatalogVerbMismatchIsRefused(t *testing.T) {
 }
 
 func TestLocaleOf(t *testing.T) {
-	for in, want := range map[string]Locale{"pt-BR": Portuguese, "pt": Portuguese, " PT-br ": Portuguese, "en-US": English, "es-ES": English, "": English} {
+	for in, want := range map[string]Locale{"pt-BR": Portuguese, "pt": Portuguese, " PT-br ": Portuguese, "pt-PT": Portuguese, "en-US": English, "ptx": English, "es-ES": English, "": English} {
 		if got := LocaleOf(in); got != want {
 			t.Errorf("LocaleOf(%q) = %s, want %s", in, got, want)
 		}
