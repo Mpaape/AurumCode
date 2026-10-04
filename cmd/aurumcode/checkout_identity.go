@@ -231,14 +231,18 @@ func ownerRepoFromRemoteURL(raw string) (owner, repo string, ok bool) {
 // AC-002). reason is one of codebaseContextMismatch's own fixed codes,
 // never model- or remote-authored text, so this needs no redaction.
 func codebaseContextOmittedNotice(language, reason string) string {
-	why := "notice.context_omitted.unconfirmed"
+	return i18n.Format(language, "notice.context_omitted", contextOmittedReason(language, reason))
+}
+
+// contextOmittedReason is the catalog text of one codebaseContextMismatch code.
+func contextOmittedReason(language, reason string) string {
 	switch reason {
 	case "repository":
-		why = "notice.context_omitted.repository"
+		return i18n.Text(language, "notice.context_omitted.repository")
 	case "head":
-		why = "notice.context_omitted.head"
+		return i18n.Text(language, "notice.context_omitted.head")
 	case codebaseContextReasonDirty:
-		why = "notice.context_omitted.dirty"
+		return i18n.Text(language, "notice.context_omitted.dirty")
 	}
-	return i18n.Format(language, "notice.context_omitted", i18n.Text(language, why))
+	return i18n.Text(language, "notice.context_omitted.unconfirmed")
 }

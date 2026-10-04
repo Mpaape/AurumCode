@@ -36,7 +36,7 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
-for input in go.mod go.sum cmd internal pkg docs/architecture.md cmd/aurumcode/structure_size_test.go cmd/aurumcode/aur584_test.go internal/i18n/catalog.yml internal/i18n/i18n_test.go internal/reviewprofile/builtin.yml internal/prompt/parser_patterns_test.go; do
+for input in go.mod go.sum cmd internal pkg docs/architecture.md cmd/aurumcode/structure_test.go cmd/aurumcode/aur584_test.go internal/i18n/catalog.yml internal/i18n/i18n_test.go internal/reviewprofile/builtin.yml internal/prompt/parser_patterns_test.go; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -97,7 +97,7 @@ replace_once() {
 pattern_of() { local IFS='|'; printf '^(%s)$' "$*"; }
 
 readonly ac001_tests=(TestProductionFilesStayShort TestPackageDocNamesNoCard TestNoBoolParameterInExportedFunction TestParserCompilesPatternsOnce TestNoFunctionExceedsLineLimitAnywhere TestNoProductionFileNamedByCardAnywhere TestImportsFollowLayerTable TestAUR558ArchitectureDocCitesEveryInternalPackage)
-readonly ac002_tests=(TestEveryKeyExistsInEveryLocale TestCatalogMissingKeyIsRefused TestCatalogVerbMismatchIsRefused TestLocaleOf TestNoLanguageBranchOutsideCatalog)
+readonly ac002_tests=(TestEveryKeyExistsInEveryLocale TestCatalogMissingKeyIsRefused TestCatalogVerbMismatchIsRefused TestLocaleOf TestNoLanguageBranchOutsideCatalog TestEveryCatalogKeyUsedExists)
 readonly ac003_tests=(TestAUR584BuiltinProfilesKeepThePromptDigest)
 readonly ac004_tests=(TestAUR519GateSeverityBreachFailsCheck TestAUR519GateInconclusiveProviderFailureBlocks TestAUR519PRGateInconclusiveBlockTable TestAUR519BaseVerdictWithheldAcrossModelVerdicts TestPRJourneyCarriesConversationAndPublishesDeletionAtBase TestPRHistoryFailureIsVisibleAndHistoryCannotAuthorizeApproval TestAUR584MalformedRepositorySkillDropsOnlyItself TestAUR584MalformedPolicySkillFailsClosedNamingTheFile TestAUR565PolicySkillLoadErrorFailsClosed)
 readonly pkgs=(./cmd/aurumcode/ ./internal/i18n/ ./internal/prompt/)

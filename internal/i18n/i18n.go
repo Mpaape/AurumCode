@@ -27,9 +27,9 @@ const (
 // Locales lists every locale the catalog must cover.
 var Locales = []Locale{Portuguese, English}
 
-// portugueseTags are the review-language tags (config.NormalizeReviewLanguage
-// output, compared case-insensitively) that select Portuguese.
-var portugueseTags = map[string]bool{"pt-br": true, "pt": true}
+// portugueseTag is the language subtag that selects Portuguese: "pt" alone or
+// with any region ("pt-BR"), compared case-insensitively.
+const portugueseTag = "pt"
 
 //go:embed catalog.yml
 var catalogYAML []byte
@@ -55,7 +55,8 @@ var verbPattern = regexp.MustCompile(`%[-+# 0-9.]*[a-zA-Z%]`)
 
 // LocaleOf maps a review-language tag to its catalog locale.
 func LocaleOf(language string) Locale {
-	if portugueseTags[strings.ToLower(strings.TrimSpace(language))] {
+	tag := strings.ToLower(strings.TrimSpace(language))
+	if tag == portugueseTag || strings.HasPrefix(tag, portugueseTag+"-") {
 		return Portuguese
 	}
 	return English
