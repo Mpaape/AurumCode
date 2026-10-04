@@ -28,10 +28,12 @@ func (s lineSet) keep(findings []scanner.Finding) []scanner.Finding {
 // diffArgs compares the merge base of the range with its head (what a pull
 // request shows), with fixed prefixes and no external diff driver, so the
 // repository's own configuration cannot change the format read below.
+// --relative: run from the review root, paths are relative to it (as go
+// vet's are) even when the root is a subdirectory of the repository.
 func diffArgs(r scanner.Range) []string {
 	return []string{
 		"-c", "core.quotePath=false",
-		"diff", "--no-color", "--no-ext-diff", "--no-renames", "--no-textconv",
+		"diff", "--relative", "--no-color", "--no-ext-diff", "--no-renames", "--no-textconv",
 		"--src-prefix=a/", "--dst-prefix=b/", "--unified=0",
 		r.Base + "..." + r.Head, "--",
 	}
@@ -53,6 +55,10 @@ func parseAddedLines(diff string) (lineSet, error) {
 	path := ""
 	for _, line := range strings.Split(diff, "\n") {
 		switch {
+		case strings.HasPrefix(line, "+++ \""):
+			// git quotes a path with a tab, newline, quote or backslash even
+			// with core.quotePath=false; dropping it would hide its lines.
+			return nil, fmt.Errorf("govet: quoted path in diff %q: %w", line, scanner.ErrInvalidOutput)
 		case strings.HasPrefix(line, "+++ "):
 			path = strings.TrimPrefix(strings.TrimPrefix(line, "+++ "), "b/")
 			if path == "/dev/null" {

@@ -193,6 +193,43 @@ func TestRealGitRangeEndToEnd(t *testing.T) {
 	}
 }
 
+// A root without go.mod (go vet would resolve a parent module whose paths
+// the root's diff cannot map) is inconclusive, never clean.
+func TestRootWithoutModuleIsInconclusive(t *testing.T) {
+	out := scanTree(t, tree{files: map[string]string{"calc/calc.go": badCalc}, added: map[string][]int{"calc/calc.go": {9}}})
+	if out.Reason != "lint_execution_error" || out.Findings != nil {
+		t.Fatalf("outcome = %+v, want lint_execution_error", out)
+	}
+}
+
+// The root may be a subdirectory of the repository: git diff --relative
+// maps vet's root-relative paths, so the finding is kept.
+func TestRealGitSubdirectoryRoot(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	r := newRepo(t, map[string]string{"svc/go.mod": goMod, "svc/calc/calc.go": cleanCalc}, map[string]string{"svc/calc/calc.go": badCalc})
+	r.root = filepath.Join(r.root, "svc")
+	out := scan(t, r)
+	if out.Reason != "" || len(out.Findings) != 1 || out.Findings[0].Path != "calc/calc.go" || out.Findings[0].Line != 9 {
+		t.Fatalf("outcome = %+v, want calc/calc.go:9", out)
+	}
+}
+
+// The child go receives CGO_ENABLED=0 whatever the reviewing process says.
+func TestGoChildHasCgoDisabled(t *testing.T) {
+	t.Setenv("CGO_ENABLED", "1")
+	engine, _ := scanner.Lookup(govet.Name)
+	env := scanner.ChildEnvironment(os.LookupEnv, engine.Environment)
+	out, _, err := scanner.IsolatedCommand(env)(context.Background(), t.TempDir(), "/usr/bin/env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "CGO_ENABLED=0\n") || strings.Contains(out, "CGO_ENABLED=1") {
+		t.Fatalf("child env = %q, want CGO_ENABLED=0 only", out)
+	}
+}
+
 // Without a reviewed range nothing can be anchored: inconclusive, never a
 // whole-tree scan.
 func TestNoRangeIsInconclusive(t *testing.T) {

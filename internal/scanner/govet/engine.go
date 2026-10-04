@@ -15,6 +15,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analysis"
@@ -28,7 +30,14 @@ const (
 	Category = "lint"
 	// goBinary is the executable looked up on PATH.
 	goBinary = "go"
+	// goModFile marks the module the engine vets: the review root's own.
+	goModFile = "go.mod"
 )
+
+// ErrNoModule: the review root holds no go.mod. go vet would then resolve
+// another module (a parent's) whose paths the diff of the root cannot map,
+// and an unmapped finding must never read as "clean".
+var ErrNoModule = errors.New("govet: no go.mod at the review root")
 
 // ErrNoRange: the caller gave no commit range, so no finding can be
 // anchored to the change; vetting the whole tree instead would accuse the
@@ -38,10 +47,11 @@ var ErrNoRange = errors.New("govet: no reviewed commit range")
 // Environment is what `go` receives beyond scanner.BaseEnvironment: the
 // caller's build and module caches, and fixed values that forbid any
 // download. GOFLAGS is deliberately absent (a -toolexec there would run an
-// arbitrary program).
+// arbitrary program). CGO_ENABLED=0: the pull request controls the #cgo
+// directives (CFLAGS, LDFLAGS), so vet must never invoke the C toolchain.
 var Environment = scanner.Environment{
 	Pass:  []string{"GOCACHE", "GOPATH", "GOMODCACHE", "GOROOT"},
-	Fixed: []string{"GOTOOLCHAIN=local", "GOPROXY=off"},
+	Fixed: []string{"GOTOOLCHAIN=local", "GOPROXY=off", "CGO_ENABLED=0"},
 	Extra: scanner.GitSafeDirectories,
 }
 
@@ -71,6 +81,9 @@ func (Engine) Run(ctx context.Context, req scanner.Request) (scanner.Report, err
 	}
 	if req.Range.Empty() {
 		return scanner.Report{}, ErrNoRange
+	}
+	if info, err := os.Stat(filepath.Join(req.Root, goModFile)); err != nil || !info.Mode().IsRegular() {
+		return scanner.Report{}, ErrNoModule
 	}
 	version, err := goVersion(ctx, run, req.Root)
 	if err != nil {

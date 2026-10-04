@@ -26,6 +26,7 @@ exit_code=3
 RESULTADO: excecao para outro caminho nao casa
 --- outro repositorio
 $ aurumcode review --base main --politica /policy
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -45,7 +46,6 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: excecao de outro repositorio nao casa
@@ -53,7 +53,6 @@ RESULTADO: excecao de outro repositorio nao casa
 $ aurumcode review --base main --politica /policy
 aurumcode review: Exceptions disabled: the reviewed repository's identity could not be confirmed from the "origin" remote.
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -73,5 +72,6 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: sem identidade confirmada, nenhuma excecao casa (falha fechado)
