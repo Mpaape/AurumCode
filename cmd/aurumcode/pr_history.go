@@ -6,6 +6,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -52,8 +53,5 @@ func pullRequestHistoryContext(ctx context.Context, client *githubclient.Client,
 }
 
 func historyUnavailableNotice(language string) string {
-	if language == "pt-BR" || language == "pt" {
-		return "Histórico do PR indisponível: esta revisão considera o diff atual, mas não confirma decisões ou correções de rodadas anteriores."
-	}
-	return "PR history unavailable: this review considers the current diff but cannot confirm decisions or fixes from earlier rounds."
+	return i18n.Text(language, "notice.history_unavailable")
 }

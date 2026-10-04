@@ -1,21 +1,16 @@
-// AUR-521: writes the compliance audit record and SARIF document a
-// policy-governed review carries out of the process, for a workflow to
-// publish the audit as a job artifact and upload the SARIF to GitHub code
-// scanning (docs/specs/AUR-521.md). runReview (--base, main.go) and
-// runPRReview (--pr, pr.go) call writeComplianceArtifacts once their own
-// gate decision (policygate.go) is final, passing in exactly the facts this
-// file needs -- it never recomputes the gate itself, only renders its
-// already-made decision into the two file formats.
+// Compliance artifacts: the audit record and the SARIF document a
+// policy-governed review writes for a workflow to publish, assembled once
+// from the gate run for both review sources.
 package main
 
 import (
 	"fmt"
-	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -149,7 +144,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 		render.AuditGate{Decision: decision, Reason: reason},
 		blocking,
 		exceptions,
-		in.coverageComplete, in.omittedFiles,
+		render.AuditCoverage{Complete: in.coverageComplete, Omitted: in.omittedFiles},
 	)
 	rec.AnalysisData = in.analysisData
 	rec.EvidenceAssessments = render.AssessedEvidence(in.issues)
@@ -200,8 +195,7 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 			findings[i].Origin = in.issues[i].Origin
 		}
 	}
-	executionSuccessful := in.gateInconclusiveReason == ""
-	return render.WriteSARIF(in.sarifPath, version, findings, executionSuccessful, in.gateInconclusiveReason, filter)
+	return render.WriteSARIF(in.sarifPath, version, findings, in.gateInconclusiveReason, filter)
 }
 
 // auditGateOutcome collapses a gateDecision (policygate.go) into the

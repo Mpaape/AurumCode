@@ -1,10 +1,6 @@
-// The --base review path (AUR-430): the local-diff source of the review
-// session (internal/review/session). It resolves its inputs
-// (review_base_inputs.go), runs the model pass (review_base_analysis.go,
-// review_base_quality.go) and the evidence, then hands the shared state to
-// the session's gate (review_gate.go) and publishes a terminal report
-// (review_base_publish.go). Each step returns (exit code, done) so an early
-// exit keeps its code.
+// The --base review path: the local-diff source of the review session
+// (internal/review/session). It resolves its inputs, runs the model pass and
+// the evidence, then hands the shared state to the gate and the publisher.
 package main
 
 import (

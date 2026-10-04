@@ -1,15 +1,6 @@
-// AUR-552: `aurumcode xbom --type build|cbom` generates a CycloneDX 1.6
-// Build BOM or CBOM from the repository. Candidate collection is driven by
-// catalogs (internal/xbom/catalog/<type>.yml, overridable by
-// .aurumcode/xbom/<type>.yml in the repository or the central policy);
-// the LLM, when a provider is configured, only classifies and enriches. A
-// component reaches the BOM only if the line it cites contains its evidence
-// token (internal/xbom, AC-002). The file is written to a temporary name,
-// validated with the AUR-549 validator (specVersion >= the configured
-// minimum) and only then renamed: a failure never leaves a partial file.
-//
-// aibom, saasbom and netbom are not generated: they exit 2 pointing at the
-// documentation section that defines their format and delivery (AC-003).
+// `aurumcode xbom --type build|cbom`: generates a CycloneDX Build BOM or CBOM
+// from the repository, with candidates collected by catalogs that the
+// repository or the central policy may override.
 package main
 
 import (

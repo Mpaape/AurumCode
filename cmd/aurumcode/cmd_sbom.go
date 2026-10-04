@@ -1,32 +1,6 @@
-// AUR-549: `aurumcode sbom` generates an OWASP CycloneDX 1.6 SBOM with
-// Trivy (`trivy fs --format cyclonedx --output <file> <repo>`, and `trivy
-// image --format cyclonedx --output <file> <image>` when an image
-// reference is given), validates the result (JSON, bomFormat=CycloneDX,
-// specVersion equal to the configured one) and writes it only after it
-// validates -- internal/sbom.GenerateAndValidate never leaves a partial or
-// invalid file where output_file is configured to appear, and this command
-// never treats an unvalidated file as the SBOM.
-//
-// Configuration lives at quality_gates.ssor_dtrack.sbom_generator in the
-// SAME .aurumcode/config.yml every other section already uses
-// (internal/config.Config.QualityGates, qualitygates.go) -- never a
-// separate file. With no section declared, this command is a documented
-// no-op (exit 0): "Sem a secao correspondente no yml, nada muda no
-// comportamento atual."
-//
-// Trivy failing, being absent, or producing something that does not
-// validate is never silently accepted as an empty SBOM. It is routed
-// through the exact same AUR-519 policy gate every other inconclusive
-// reason uses (evaluateGate, policygate.go), with its own reason token
-// gateReasonSBOMFailure: gate.inconclusive: block (or no gate declared at
-// all -- a brand-new command with no prior behavior to preserve) fails
-// closed; gate.inconclusive: warn publishes the reason on stderr and exits
-// 0. Both the gate AND the sbom_generator section are read through the
-// SAME single effective-config resolution (loadEffectiveConfig, below):
-// internal/config.Load, and, when a policy directory is given,
-// ValidatePolicyOutsideReviewedTree + LoadCentralPolicy + ApplyCentralPolicy
-// -- so a central policy governs both exactly as it already governs a
-// review's own Gate/Rules/Ignore/Exceptions.
+// `aurumcode sbom`: generates a CycloneDX SBOM with Trivy for the repository
+// (and an image when one is named), validates it and writes it; with a
+// Dependency-Track server configured, the SBOM also feeds the gate.
 package main
 
 import (

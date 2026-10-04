@@ -185,8 +185,8 @@ func TestAUR565PolicySkillLoadErrorFailsClosed(t *testing.T) {
 	}
 	aur565WriteSkill(t, root, "quebrada", "---\nname: quebrada\nlanguages: [ts]\n")
 	_, stdout, _ := aur565Review(t)
-	if !strings.Contains(stdout, "repository skills unavailable") {
-		t.Fatalf("repository load error not declared in the review:\n%s", stdout)
+	if !strings.Contains(stdout, "repository skill .aurumcode/skills/quebrada/SKILL.md unavailable") {
+		t.Fatalf("repository load error not declared in the review, naming the skill:\n%s", stdout)
 	}
 }
 

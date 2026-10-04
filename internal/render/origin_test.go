@@ -29,7 +29,7 @@ func TestAuditFindingOriginSerialization(t *testing.T) {
 func TestAuditFindingOriginRedacted(t *testing.T) {
 	secret := "ORIGIN-SECRET-123"
 	rec := BuildAuditRecord("", "", "o/r", "sha", "m", "v", AuditGate{Decision: "fail"},
-		[]AuditFinding{{RuleID: "r", Path: "a.go", Line: 1, Severity: "error", Origin: "analysis" + secret}}, nil, true, nil)
+		[]AuditFinding{{RuleID: "r", Path: "a.go", Line: 1, Severity: "error", Origin: "analysis" + secret}}, nil, AuditCoverage{Complete: true})
 	path := filepath.Join(t.TempDir(), "audit.json")
 	if err := WriteAuditRecord(path, rec, redaction.NewFilter(secret)); err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestSARIFPropertiesOrigin(t *testing.T) {
 		{RuleID: "r3", Path: "c.go", Line: 3, Severity: "error", Message: "m", Context: "c", Origin: "sast" + secret},
 	}
 	path := filepath.Join(t.TempDir(), "out.sarif")
-	if err := WriteSARIF(path, "v", findings, true, "", redaction.NewFilter(secret)); err != nil {
+	if err := WriteSARIF(path, "v", findings, "", redaction.NewFilter(secret)); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)

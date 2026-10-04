@@ -18,13 +18,10 @@
 package reviewprofile
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // DefaultTeamFile is where a team declares its profiles, relative to the
@@ -96,30 +93,17 @@ type teamDoc struct {
 // because a team file may not shadow a code-owned preset.
 func LoadTeam(data []byte) (*Team, error) {
 	source := DefaultTeamFile
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("reviewprofile: parse-error (%s): %w", source, err)
+	parsed, err := decodeProfiles(data, source)
+	if err != nil {
+		return nil, err
 	}
-	// The raw scan descends sequences, so every profile mapping inside the
-	// `profiles:` list is checked -- merge keys and aliases included.
-	if len(doc.Content) > 0 {
-		if err := scanRefusedClauses(doc.Content[0], ""); err != nil {
-			return nil, err
-		}
-	}
-	var parsed teamDoc
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("reviewprofile: parse-error (%s): %w", source, err)
-	}
-	if len(parsed.Profiles) == 0 {
+	if len(parsed) == 0 {
 		return nil, fmt.Errorf("%w: %s declares no profiles", ErrEmptyProfile, source)
 	}
 
 	team := &Team{Declared: fmt.Sprintf("team profiles: %s", source), byName: map[string]*Profile{}}
 	seen := map[string]bool{}
-	for i, spec := range parsed.Profiles {
+	for i, spec := range parsed {
 		name := strings.TrimSpace(spec.Name)
 		if name == "" {
 			return nil, fmt.Errorf("%w: %s profile #%d does not declare a name", ErrMissingName, source, i+1)

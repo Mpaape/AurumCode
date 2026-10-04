@@ -206,8 +206,10 @@ Skills em diretório entram também numa política central
 (`<política>/.aurumcode/skills/`); se uma skill da política e uma do
 repositório declaram o **mesmo seletor** (mesmas linguagens, mesmos caminhos),
 a da política vence e a do repositório não é enviada, com um aviso que nomeia
-as duas. Um `SKILL.md` ilegível na política é erro de carga (a revisão falha
-antes de qualquer chamada ao modelo); no repositório é só declarado.
+as duas. Um `SKILL.md` ilegível na política é erro de carga que nomeia o
+arquivo (a revisão falha antes de qualquer chamada ao modelo); no repositório
+só aquela skill é descartada, com um aviso que nomeia o arquivo, e as demais
+continuam valendo.
 
 ## Caso 4: skill do repositório contra skill da política
 
@@ -345,6 +347,11 @@ Por isso, em CI, convenções que precisam valer pertencem à política central.
 - **A seção não reprova**: sem `gate` declarado (ou sem `fail_on` no limiar da
   severidade), a skill só orienta. Sob política central só as seções da
   política contam.
+- **Glob sem aspas derruba a skill**: nos metadados YAML de um `SKILL.md`,
+  um valor que começa com `*` é lido como alias e o bloco não é YAML válido.
+  Escreva globs entre aspas: `paths: ["src/**/*.ts"]` ou `paths: "*.ts"`. No
+  repositório o aviso `repository skill <caminho>/SKILL.md unavailable` nomeia
+  a skill descartada; na política central é erro de carga.
 - **`severity:` ignorado**: precisa ser a primeira linha do corpo da seção,
   exatamente `severity: error` (ou `warning`/`info`); outra grafia vale como o
   padrão `warning`.

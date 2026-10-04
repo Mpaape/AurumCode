@@ -1,19 +1,6 @@
-// Cost control for `aurumcode review` (AUR-433).
-//
-// --limite gives the user a hard USD ceiling on what a single review run
-// may spend calling the configured model, and the command REFUSES to call
-// the model at all when the estimate exceeds it. The enforcement itself is
-// not new logic: internal/llm/cost.Tracker.Reserve already computes a
-// per-request estimate and fails closed against a configured ceiling,
-// atomically, BEFORE internal/llm.Orchestrator.Complete ever invokes
-// provider.Complete (see internal/llm/orchestrator.go). This file's only
-// job is to wire that already-existing, already-tested budget package into
-// cmd/aurumcode's provider selection and to report what it decided.
-//
-// There is exactly one gate: the tracker built by buildCostTracker, passed
-// into llm.NewOrchestrator. Nothing here re-implements or duplicates that
-// decision -- a second, independent check would make the two disagree at
-// the margin and would let a defect in either one hide behind the other.
+// Cost control for `aurumcode review`: --limite is a hard USD ceiling on what
+// one run may spend calling the model; a call that would cross it is refused
+// before it is made, and the estimated and actual spend are reported.
 package main
 
 import (
