@@ -2,6 +2,7 @@ package govet_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,6 +69,48 @@ func newRepo(t *testing.T, base, head map[string]string) repo {
 	return r
 }
 
+// tree is a reviewed tree without git: the files of the head, and the diff
+// git would print for the lines the range added (path -> lines).
+type tree struct {
+	files map[string]string
+	added map[string][]int
+}
+
+// cannedDiff is the zero-context diff `git diff --unified=0` prints for
+// added lines, one hunk per line.
+func (tr tree) cannedDiff() string {
+	var b strings.Builder
+	for path, lines := range tr.added {
+		fmt.Fprintf(&b, "diff --git a/%s b/%s\n--- a/%s\n+++ b/%s\n", path, path, path, path)
+		for _, n := range lines {
+			fmt.Fprintf(&b, "@@ -%d,0 +%d @@\n+x\n", n-1, n)
+		}
+	}
+	return b.String()
+}
+
+// scanTree runs the registered engine through the executor with the real
+// go binary (the production command, with the engine's own environment)
+// and git answered by the canned diff, so the proof needs no git binary.
+func scanTree(t *testing.T, tr tree) scanner.Outcome {
+	t.Helper()
+	root := t.TempDir()
+	write(t, root, tr.files)
+	engine, ok := scanner.Lookup(govet.Name)
+	if !ok {
+		t.Fatal("govet is not registered")
+	}
+	real := scanner.IsolatedCommand(scanner.ChildEnvironment(os.LookupEnv, engine.Environment))
+	command := func(ctx context.Context, dir, binary string, args ...string) (string, string, error) {
+		if binary == "git" {
+			return tr.cannedDiff(), "", nil
+		}
+		return real(ctx, dir, binary, args...)
+	}
+	r := scanner.Range{Base: strings.Repeat("a", 40), Head: strings.Repeat("b", 40)}
+	return scanner.Executor{Command: command}.Scan(context.Background(), engine, scanner.Request{Root: root, Range: r})
+}
+
 func scan(t *testing.T, r repo) scanner.Outcome {
 	t.Helper()
 	engine, ok := scanner.Lookup(govet.Name)
@@ -80,8 +123,7 @@ func scan(t *testing.T, r repo) scanner.Outcome {
 // AC-001: a real go vet diagnostic on a line the range added is a finding
 // with file, line, the analyzer's rule and the engine's origin.
 func TestRealVetFindingOnAddedLine(t *testing.T) {
-	r := newRepo(t, map[string]string{"go.mod": goMod, "calc/calc.go": cleanCalc}, map[string]string{"calc/calc.go": badCalc})
-	out := scan(t, r)
+	out := scanTree(t, tree{files: map[string]string{"go.mod": goMod, "calc/calc.go": badCalc}, added: map[string][]int{"calc/calc.go": {7, 8, 9}}})
 	if out.Reason != "" {
 		t.Fatalf("inconclusive: %s", out.Reason)
 	}
@@ -103,8 +145,7 @@ func TestRealVetFindingOnAddedLine(t *testing.T) {
 // AC-001: the corrected change produces no finding, and is a complete scan.
 func TestRealVetCorrectedChangeIsClean(t *testing.T) {
 	fixed := strings.Replace(badCalc, `"%d\n", s`, `"%s\n", s`, 1)
-	r := newRepo(t, map[string]string{"go.mod": goMod, "calc/calc.go": cleanCalc}, map[string]string{"calc/calc.go": fixed})
-	out := scan(t, r)
+	out := scanTree(t, tree{files: map[string]string{"go.mod": goMod, "calc/calc.go": fixed}, added: map[string][]int{"calc/calc.go": {7, 8, 9}}})
 	if out.Reason != "" || len(out.Findings) != 0 {
 		t.Fatalf("outcome = %+v, want clean", out)
 	}
@@ -113,8 +154,7 @@ func TestRealVetCorrectedChangeIsClean(t *testing.T) {
 // MUT-001: a diagnostic outside the reviewed range is never this change's
 // finding.
 func TestRealVetIgnoresUntouchedLines(t *testing.T) {
-	r := newRepo(t, map[string]string{"go.mod": goMod, "calc/calc.go": cleanCalc, "legado/legado.go": legacy}, map[string]string{"calc/calc.go": badCalc})
-	out := scan(t, r)
+	out := scanTree(t, tree{files: map[string]string{"go.mod": goMod, "calc/calc.go": badCalc, "legado/legado.go": legacy}, added: map[string][]int{"calc/calc.go": {7, 8, 9}}})
 	if out.Reason != "" || len(out.Findings) != 1 || out.Findings[0].Path != "calc/calc.go" {
 		t.Fatalf("outcome = %+v, want only the calc finding", out)
 	}
@@ -123,8 +163,7 @@ func TestRealVetIgnoresUntouchedLines(t *testing.T) {
 // MUT-001: a package go vet cannot vet makes the scan inconclusive, even
 // when another package has a diagnostic on an added line.
 func TestRealVetFailureIsInconclusive(t *testing.T) {
-	r := newRepo(t, map[string]string{"go.mod": goMod, "calc/calc.go": cleanCalc}, map[string]string{"calc/calc.go": badCalc, "quebrado/q.go": broken})
-	out := scan(t, r)
+	out := scanTree(t, tree{files: map[string]string{"go.mod": goMod, "calc/calc.go": badCalc, "quebrado/q.go": broken}, added: map[string][]int{"calc/calc.go": {7, 8, 9}, "quebrado/q.go": {1, 2, 3}}})
 	if out.Reason != "lint_execution_error" || out.Findings != nil {
 		t.Fatalf("outcome = %+v, want lint_execution_error and no findings", out)
 	}
@@ -132,11 +171,25 @@ func TestRealVetFailureIsInconclusive(t *testing.T) {
 
 // AC-002: a missing go binary is a coverage limitation, not an accusation.
 func TestMissingGoIsUnavailable(t *testing.T) {
-	r := newRepo(t, map[string]string{"go.mod": goMod, "calc/calc.go": cleanCalc}, map[string]string{"calc/calc.go": badCalc})
 	t.Setenv("PATH", t.TempDir())
-	out := scan(t, r)
+	out := scanTree(t, tree{files: map[string]string{"go.mod": goMod, "calc/calc.go": badCalc}, added: map[string][]int{"calc/calc.go": {7, 8, 9}}})
 	if out.Reason != "lint_unavailable" || out.Findings != nil {
 		t.Fatalf("outcome = %+v, want lint_unavailable", out)
+	}
+}
+
+// The same proof through the production command for git too: a real
+// repository, a real `git diff` over the range. Skipped where git is absent
+// (the sealed acceptance image); the canned-diff tests above carry the proof
+// there.
+func TestRealGitRangeEndToEnd(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	r := newRepo(t, map[string]string{"go.mod": goMod, "calc/calc.go": cleanCalc, "legado/legado.go": legacy}, map[string]string{"calc/calc.go": badCalc})
+	out := scan(t, r)
+	if out.Reason != "" || len(out.Findings) != 1 || out.Findings[0].Path != "calc/calc.go" || out.Findings[0].Line != 9 {
+		t.Fatalf("outcome = %+v, want only calc/calc.go:9", out)
 	}
 }
 

@@ -36,7 +36,6 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
-command -v git >/dev/null 2>&1 || infra missing_git
 for input in go.mod go.sum internal pkg internal/scanner/govet/engine.go internal/scanner/executor.go internal/scanner/environment.go internal/analysis/vet.go internal/scanner/engines/engines.go demo/tutoriais/sast/run.sh; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
