@@ -1,25 +1,5 @@
-// AUR-551: `aurumcode sign` signs the SBOM (AUR-549's own output) and/or
-// the artifact image with Sigstore/Cosign (internal/supplychain), calling
-// the external `cosign` binary named by --cosign-bin (default: "cosign",
-// resolved from PATH -- the same convention `aurumcode sbom`'s
-// --trivy-bin already uses for Trivy).
-//
-// Configuration lives at quality_gates.supply_chain in the SAME
-// .aurumcode/config.yml every other section already uses
-// (internal/config.QualityGatesConfig, qualitygates.go) -- never a
-// separate file, and resolved through the SAME repo/central-policy
-// precedence as `aurumcode sbom` (loadEffectiveConfig, aur549.go). With
-// no section declared at all, this command is a documented no-op (exit
-// 0): "Sem a secao supply_chain, nada muda" (AC-003).
-//
-// Unlike `aurumcode sbom`'s own inconclusive-SBOM-generation failure,
-// this card's own AC-002 is unconditional: "falha de assinatura reprova
-// a etapa" names no inconclusive mode to soften it, so a signing failure
-// here is ALWAYS a non-zero exit naming the artifact that was left
-// unsigned -- it is never routed through gate.inconclusive the way
-// reportSBOMFailure routes a Trivy failure. Ignoring that failure (the
-// defect MUT-001 exists to catch) would let the gate approve an artifact
-// that was never actually signed.
+// `aurumcode sign`: signs the SBOM and/or the artifact image with
+// Sigstore/Cosign through the external cosign binary (internal/supplychain).
 package main
 
 import (

@@ -93,3 +93,36 @@ func LoadSource(src Source) (*Set, error) {
 	}
 	return set, nil
 }
+
+// LoadSourceSkippingMalformed reads every skill of src like LoadSource, but a
+// SKILL.md that cannot be parsed (malformed front matter) only drops that one
+// skill: it comes back as a warning naming the file, and the other skills
+// still load. A source that cannot be listed or read is still an error. The
+// repository's skills use this; the central policy's use LoadSource, so a
+// broken policy skill fails closed.
+func LoadSourceSkippingMalformed(src Source) (*Set, []string, error) {
+	names, err := src.Dirs()
+	if err != nil {
+		return nil, nil, err
+	}
+	sort.Strings(names)
+	set := &Set{}
+	var warnings []string
+	for _, name := range names {
+		label := src.Label(name)
+		data, found, err := src.Read(name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("skills: reading %s/%s: %w", label, DocName, err)
+		}
+		if !found {
+			continue
+		}
+		sk, err := parseSkill(name, label+"/"+DocName, string(data))
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("repository skill %s/%s unavailable, the other skills still apply: %v", label, DocName, err))
+			continue
+		}
+		set.Skills = append(set.Skills, sk)
+	}
+	return set, warnings, nil
+}

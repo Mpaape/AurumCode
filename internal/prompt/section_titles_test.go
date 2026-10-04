@@ -19,9 +19,9 @@ var goSourceRoots = []string{"../../cmd", "..", "../../pkg"}
 // humanReportWriters render Markdown reports for people (PR comment,
 // summary, changelog); their headings are output, never prompt sections.
 var humanReportWriters = map[string]bool{
-	"../../cmd/aurumcode/pr.go": true,
-	"../render/summary.go":      true,
-	"../changelog/render.go":    true,
+	"../../cmd/aurumcode/pr_summary_format.go": true,
+	"../render/summary.go":                     true,
+	"../changelog/render.go":                   true,
 }
 
 // sectionTitleLine matches a level-2 Markdown title at the start of any

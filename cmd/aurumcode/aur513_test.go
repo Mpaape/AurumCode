@@ -368,8 +368,10 @@ func TestAUR513AC004UnreadableCacheDirDegradesToFreshReview(t *testing.T) {
 }
 
 // TestAUR513ModelIdentitySurvivesContextWrapping covers point 3 of the
-// AUR-513 review: config.contextInjectingProvider (internal/config/wrap.go)
-// embeds llm.Provider as an INTERFACE field, so wrapping a provider that
+// AUR-513 review: a provider decorator such as config.WrapProvider's
+// (internal/config/wrap.go, kept for finished acceptance scripts; the review
+// itself now carries the context block in the prompt evidence) embeds
+// llm.Provider as an INTERFACE field, so wrapping a provider that
 // implements llm.ModelResolver (internal/llm/provider/litellm.Provider)
 // with ANY configured context (a repo prompt, a skill, a doc) silently
 // drops that extra method from promotion -- modelCacheKey(provider) called

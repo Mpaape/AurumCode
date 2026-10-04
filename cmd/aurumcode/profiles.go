@@ -1,25 +1,6 @@
-// Reviewer profiles at the CLI seam (AUR-502).
-//
-// This file wires internal/reviewprofile into `aurumcode review`: the
-// --perfis/--profile flag and the repository's review.profiles setting name
-// one or more presets, each resolves against the built-ins plus the team file
-// (.aurumcode/profiles.yml), and -- when more than one profile is selected --
-// each profile gets its own model pass whose prompt carries that profile's
-// emphasis and instructions. Findings from every pass are merged with
-// reviewprofile.MergeFindings: deterministic order, no duplicate, and every
-// finding names the profile that produced it.
-//
-// # The boundary this file must never move
-//
-// A profile is a PRESET over emphasis and rule families. It never changes a
-// finding's severity, relaxes --fail-on, disables secret redaction, changes the
-// cost cap or disables the deterministic security pass. Those five things live
-// entirely outside this file (and outside internal/reviewprofile): the gate is
-// still parsed and applied below in runReview, redaction is still wrapped
-// around the provider before any profile touches it, the cost tracker is shared
-// across every profile pass rather than rebuilt, and the --seguranca pass still
-// runs after the model regardless. Selecting a profile therefore cannot open
-// the gate; ResolveAll refuses a team definition that names a boundary clause.
+// Reviewer profiles at the command seam: --perfis and review.profiles name
+// built-in or team profiles; each selected profile runs its own model pass
+// with its emphasis prefixed to the prompt, and the findings are merged.
 package main
 
 import (

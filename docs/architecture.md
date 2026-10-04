@@ -1,76 +1,79 @@
-# Architecture
+# Arquitetura
 
-How AurumCode is organised, how a review flows, and where each kind of
-extension plugs in. The principles the owner fixed come first because every
-other section follows from them.
+Como o AurumCode está organizado, como uma revisão flui e onde cada tipo de
+extensão se encaixa. Os princípios fixados pelo dono vêm primeiro porque todas
+as outras seções decorrem deles.
 
-## Principles
+## Princípios
 
-- **No hardcode.** Languages, rules, scanners and BOM types come from YAML
-  catalogs and grammars (`internal/analyzer/language_catalog.yml`,
-  `internal/grammar/catalog`, `internal/xbom/catalog`), not from `switch`
-  statements. A new one is data.
-- **LLM first, with deterministic evidence.** The model reviews; AST, linters,
-  Semgrep, SBOM and public sources are evidence it can explain but never
-  remove or downgrade. The model's own severity is untrusted.
-- **Configuration is YAML and Markdown.** Behaviour is set in `.aurumcode.yml`
-  and in skill sections written in Markdown. A central policy and a repository
-  resolve per section, with an explicit precedence for each.
-- **Reproducible container.** Go builds and tests run only in the shared
-  container image from a versioned Dockerfile (`.board/bin/go-shared`, sealed
-  `oci-run` for acceptance), never on a developer host.
-- **Fail closed.** A gate source that errors, a repository identity that
-  cannot be verified, an unusable artifact: the review is inconclusive and is
-  never approved by silence.
+- **Sem hardcode.** Linguagens, regras, scanners e tipos de BOM vêm de
+  catálogos YAML e gramáticas (`internal/analyzer/language_catalog.yml`,
+  `internal/grammar/catalog`, `internal/xbom/catalog`), não de instruções
+  `switch`. Um novo item é dado.
+- **LLM primeiro, com evidência determinística.** O modelo revisa; AST,
+  linters, Semgrep, SBOM e fontes públicas são evidências que ele pode explicar,
+  mas nunca remover ou rebaixar. A severidade do próprio modelo não é confiável.
+- **A configuração é YAML e Markdown.** O comportamento é definido em
+  `.aurumcode.yml` e em seções de skill escritas em Markdown. Uma política
+  central e um repositório são resolvidos por seção, com uma precedência
+  explícita para cada uma.
+- **Contêiner reproduzível.** Builds e testes de Go rodam apenas na imagem de
+  contêiner compartilhada, a partir de um Dockerfile versionado
+  (`.board/bin/go-shared`, `oci-run` selado para aceite), nunca no host de uma
+  pessoa desenvolvedora.
+- **Falha fechada.** Uma fonte do gate que dá erro, uma identidade de
+  repositório que não pode ser verificada, um artefato inutilizável: a revisão
+  é inconclusiva e nunca é aprovada pelo silêncio.
 
-## Module map
+## Mapa de módulos
 
-`cmd/aurumcode` parses flags, assembles dependencies and publishes. Business
-rules live in `internal/`.
+`cmd/aurumcode` interpreta flags, monta as dependências e publica. As regras de
+negócio vivem em `internal/`.
 
-| Package | Responsibility |
+| Pacote | Responsabilidade |
 | --- | --- |
-| `internal/analysis` | Deterministic static-analysis pass over a diff (embedded catalog, go vet). |
-| `internal/analyzer` | Diff parsing, language detection from the language catalog, text diffs. |
-| `internal/apply` | Turns validated suggestions into safe, applyable patches. |
-| `internal/artifacts` | The analysis-data artifact: resolved, age- and digest-checked, cached copy of published scanner data. |
-| `internal/changelog` | Builds changelog sections and semantic-version bumps from reviewed commits. |
-| `internal/config` | Effective configuration: sections, central policy precedence, gate, exceptions, quality gates. |
-| `internal/context` | Bounded, deterministic codebase context and skill reader. |
-| `internal/deliberation` | Bounded tool conversation with a model, with no review semantics: `Tool` (`Spec`, `Run`), `Limits` (rounds, tokens, per-tool timeout), argument validation before any run, the `Transcript`, and the typed `LimitError` a caller treats as inconclusive. |
-| `internal/dtrack` | Client of OWASP Dependency-Track for the SBOM gate. |
-| `internal/evidence` | Content-addressed evidence-bundle manifest. |
-| `internal/gate` | The gate pipeline: `Run`, `Result`, `Contributor`, `Pipeline`, the failure rule, the inconclusive ranking (`RankReason`) and the exit decision (`ExitPolicy`). |
-| `internal/git` | GitHub client and git access used by the `--pr` path. |
-| `internal/governance` | Task specification and dependency-graph model of the board. |
-| `internal/grammar` | The only source of per-language structure, from grammar catalogs. |
-| `internal/llm` | Providers, orchestration, budget and cost estimation. |
-| `internal/memory` | Optional review memory. |
-| `internal/prompt` | Prompt building, budgeting, response parsing, comment filter, coverage notes. |
-| `internal/render` | Deterministic reports, audit records, SARIF and finding identity. |
-| `internal/review` | The reviewer, scope, rules (including dynamic skill rules), the review cache, the review session (`internal/review/session`: phase order and per-source data) and the tools a review offers the model (`internal/review/tools`: optional scanners, codebase context, with the manifest's declared cost). |
-| `internal/reviewprofile` | Built-in, versioned reviewer profiles. |
-| `internal/sandbox` | Sealed execution profiles. |
-| `internal/scanner` | The scanner contract (`Scanner`, `Report`, `Finding.ToIssue`), the closed registry of compiled engines and the executor; engines live in subpackages (`internal/scanner/semgrep`, SAST over the tree; `internal/scanner/gitleaks`, secrets over the reviewed commit range `Request.Range`) listed in `internal/scanner/engines`. The review hands every engine the reviewed range (`--pr`: the pull request's base and head; `--base`: the ref and `HEAD` resolved to full ids), and each engine's reported identity (`Outcome.Version`) enters the evidence digest of the cache key. |
-| `internal/scanner/engines/exemplo` | The example engine of the extension guide (`docs/extensao.md`): reports lines holding a marker, registered only in a binary built with the tag `aurum_exemplo`. |
-| `internal/sbom` | CycloneDX SBOM generation and validation. |
-| `internal/security` | Redaction of secrets from every sink. |
-| `internal/supplychain` | Sigstore/Cosign signing of SBOMs and images. |
-| `internal/testgen` | Deterministic test proposals from a diff. |
-| `internal/xbom` | BOMs beyond the SBOM (build, data, and so on) from catalogs. |
+| `internal/analysis` | Passagem determinística de análise estática sobre um diff (catálogo embutido, go vet). |
+| `internal/analyzer` | Parsing de diff, detecção de linguagem a partir do catálogo de linguagens, diffs de texto. |
+| `internal/apply` | Transforma sugestões validadas em patches seguros e aplicáveis. |
+| `internal/artifacts` | O artefato de dados de análise: cópia resolvida, verificada por idade e digest e em cache dos dados publicados dos scanners. |
+| `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados. |
+| `internal/config` | Configuração efetiva: seções, precedência da política central, gate, exceções, quality gates. |
+| `internal/context` | Contexto de código limitado e determinístico e leitor de skills. |
+| `internal/deliberation` | Conversa limitada com ferramentas junto a um modelo, sem semântica de revisão: `Tool` (`Spec`, `Run`), `Limits` (rodadas, tokens, timeout por ferramenta), validação de argumentos antes de qualquer execução, o `Transcript` e o `LimitError` tipado que quem chama trata como inconclusivo. |
+| `internal/dtrack` | Cliente do OWASP Dependency-Track para o gate de SBOM. |
+| `internal/evidence` | Manifesto do pacote de evidências endereçado por conteúdo. |
+| `internal/gate` | O pipeline do gate: `Run`, `Result`, `Contributor`, `Pipeline`, a regra de falha, o ranking de inconclusivo (`RankReason`) e a decisão de saída (`ExitPolicy`). |
+| `internal/git` | Cliente do GitHub e acesso ao git usados pelo caminho `--pr`. |
+| `internal/governance` | Especificação de tarefas e modelo de grafo de dependências do board. |
+| `internal/grammar` | A única fonte da estrutura por linguagem, a partir de catálogos de gramáticas. |
+| `internal/i18n` | Catálogo de textos de interface por idioma (YAML embutido, pt-BR e en): toda chave existe nos dois idiomas. |
+| `internal/llm` | Provedores, orquestração, orçamento e estimativa de custo. |
+| `internal/memory` | Memória de revisão opcional. |
+| `internal/prompt` | Montagem de prompt, orçamento, parsing de resposta (dividido por responsabilidade, com os padrões compilados uma vez no pacote), filtro de comentários, notas de cobertura. |
+| `internal/render` | Relatórios determinísticos, registros de auditoria, SARIF e identidade de achados. |
+| `internal/review` | O revisor, o escopo, as regras (incluindo regras dinâmicas de skill), o cache de revisão, a sessão de revisão (`internal/review/session`: ordem das fases e dados por fonte) e as ferramentas que uma revisão oferece ao modelo (`internal/review/tools`: scanners opcionais, contexto de código, com o custo declarado no manifesto). |
+| `internal/reviewprofile` | Perfis de revisor: os embutidos são YAML versionado no binário (`builtin.yml`), lidos pelo mesmo decodificador do arquivo de perfis do time. |
+| `internal/sandbox` | Perfis de execução selados. |
+| `internal/scanner` | O contrato de scanner (`Scanner`, `Report`, `Finding.ToIssue`), o registro fechado de engines compiladas e o executor; as engines vivem em subpacotes (`internal/scanner/semgrep`, SAST sobre a árvore; `internal/scanner/gitleaks`, segredos sobre o intervalo de commits revisado `Request.Range`) listados em `internal/scanner/engines`. A revisão entrega a cada engine o intervalo revisado (`--pr`: a base e o head do pull request; `--base`: a ref e `HEAD` resolvidos para ids completos), e a identidade informada por cada engine (`Outcome.Version`) entra no digest de evidências da chave de cache. |
+| `internal/scanner/engines/exemplo` | A engine de exemplo do guia de extensão (`docs/extensao.md`): informa linhas que contêm um marcador, registrada apenas em um binário compilado com a tag `aurum_exemplo`. |
+| `internal/sbom` | Geração e validação de SBOM CycloneDX. |
+| `internal/security` | Redação de segredos em todos os destinos de saída. |
+| `internal/supplychain` | Assinatura Sigstore/Cosign de SBOMs e imagens. |
+| `internal/testgen` | Propostas determinísticas de testes a partir de um diff. |
+| `internal/xbom` | BOMs além do SBOM (build, dados e assim por diante) a partir de catálogos. |
 
 ## Layers
 
-Dependencies point one way: `pkg/types` (the shared domain shapes) ← the
-`internal/` packages ← `cmd`. Inside `internal/`, configuration holds values
-and runs nothing, the domain decides without knowing how it is presented, and
-presentation (`internal/render`) consumes the domain's facts: the gate's
-structured findings and exceptions live in `internal/gate/facts`, which both
-`internal/gate` and `internal/render` import and which imports neither. The table below is read by a structural test
-(`cmd/aurumcode/structure_test.go`): a production file of the package on the
-left that imports the package on the right fails it, unless the exception
-column allows that exact file or only the listed symbols. An exception that
-no longer matches anything also fails, so it cannot outlive its reason.
+As dependências apontam em uma só direção: `pkg/types` (as formas de domínio compartilhadas) ← os
+pacotes `internal/` ← `cmd`. Dentro de `internal/`, a configuração guarda valores
+e não executa nada, o domínio decide sem saber como é apresentado, e a
+apresentação (`internal/render`) consome os fatos do domínio: os achados
+estruturados e as exceções do gate vivem em `internal/gate/facts`, que tanto
+`internal/gate` quanto `internal/render` importam e que não importa nenhum dos dois. A tabela abaixo é lida por um teste estrutural
+(`cmd/aurumcode/structure_test.go`): um arquivo de produção do pacote da
+esquerda que importa o pacote da direita falha no teste, a menos que a coluna
+de exceção permita exatamente esse arquivo ou apenas os símbolos listados. Uma
+exceção que já não corresponde a nada também falha, para que não sobreviva à sua razão.
 
 | Package | Must not import | Exception |
 | --- | --- | --- |
@@ -83,181 +86,189 @@ no longer matches anything also fails, so it cannot outlive its reason.
 | `internal/config` | `internal/llm` | file `internal/config/wrap.go` |
 | `internal/config` | `internal/dtrack` | only `ValidateHost` |
 
-`internal/config/wrap.go` is the context-injecting provider decorator; it
-stays in `internal/config` while finished acceptance scripts still call
-`config.WrapProvider`. `internal/config` uses Dependency-Track only to refuse
-an insecure `server_api_host` at parse time; submitting the SBOM and judging
-it is `internal/gate`'s.
+`internal/config/wrap.go` é o decorador de provedor que injeta contexto; ele
+permanece em `internal/config` enquanto os scripts de aceite concluídos ainda
+chamam `config.WrapProvider`. `internal/config` usa o Dependency-Track apenas
+para recusar um `server_api_host` inseguro na hora do parse; submeter o SBOM e
+julgá-lo cabe a `internal/gate`.
 
-## Review flow
+## Fluxo da revisão
 
-`--base` reviews a local diff and prints a report; `--pr` reviews a pull
-request and publishes comments, a formal review and commit statuses. Both are
-one review session (`internal/review/session`) and differ only in their
-source (where the diff comes from) and their publisher (terminal or GitHub).
+`--base` revisa um diff local e imprime um relatório; `--pr` revisa um pull
+request e publica comentários, uma revisão formal e status de commit. Ambos são
+uma só sessão de revisão (`internal/review/session`) e diferem apenas na fonte
+(de onde vem o diff) e no publicador (terminal ou GitHub).
 
-`session.Order` is the one phase order; `session.Run` executes it and a step
-returns `(exit, done)`, so each early exit keeps its code:
+`session.Order` é a única ordem de fases; `session.Run` a executa e cada passo
+retorna `(exit, done)`, de modo que cada saída antecipada mantém seu código:
 
-1. **resolve.** Validate the invocation; configuration, central policy, diff,
-   context, profiles, memory.
-2. **model.** Provider selection and the model's quality pass. With
-   `deliberation.enabled`, the model may first ask for tools (below). Its result is
-   a typed `gate.ModelOutcome`: `reviewed`, `skipped` (no provider
-   configured), `provider failed` (no answer, or a required quality review
-   that did not happen) or `parse failed` (an answer that could not be
-   validated).
-3. **evidence.** The security pass, static analysis, the repository's rule
-   configuration, every enabled scanner engine and coverage. One step decides where the security
-   findings live (in the review's issues on `--pr`, in their own section on
-   `--base`); the verdict-reuse snapshot holds the same findings either way.
-4. **gate.** The shared pipeline below, from the session's `gate.Run`. The
-   inconclusive motive is `gate.RankReason`: provider failure, skipped
-   review, unparseable answer, degraded parse, the first scanner's reason, partial
-   coverage, in that order.
-5. **publish.** The compliance artifacts (from the gate run's findings), the
-   report or the GitHub publication, then `gate.ExitPolicy`.
+1. **resolve.** Valida a invocação; configuração, política central, diff,
+   contexto, perfis, memória.
+2. **model.** Seleção do provedor e a passagem de qualidade do modelo. Com
+   `deliberation.enabled`, o modelo pode primeiro pedir ferramentas (abaixo).
+   Seu resultado é um `gate.ModelOutcome` tipado: `reviewed`, `skipped` (nenhum
+   provedor configurado), `provider failed` (sem resposta, ou uma revisão de
+   qualidade exigida que não aconteceu) ou `parse failed` (uma resposta que não
+   pôde ser validada).
+3. **evidence.** A passagem de segurança, a análise estática, a configuração de
+   regras do repositório, cada engine de scanner habilitada e a cobertura. Um
+   único passo decide onde ficam os achados de segurança (nos issues da revisão
+   em `--pr`, em sua própria seção em `--base`); o snapshot de reaproveitamento
+   de veredito guarda os mesmos achados nos dois casos.
+4. **gate.** O pipeline compartilhado abaixo, a partir do `gate.Run` da sessão.
+   O motivo de inconclusivo é `gate.RankReason`: falha do provedor, revisão
+   ignorada, resposta não interpretável, parse degradado, o motivo do primeiro
+   scanner, cobertura parcial, nessa ordem.
+5. **publish.** Os artefatos de conformidade (a partir dos achados da execução
+   do gate), o relatório ou a publicação no GitHub e, por fim, `gate.ExitPolicy`.
 
-A source is `cmd/aurumcode` code (`baseReview`, `prReview`) that embeds the
-shared `reviewState`; what differs between the two and is not the source or
-the publisher is data in `session.Source`:
+Uma fonte é código de `cmd/aurumcode` (`baseReview`, `prReview`) que embute o
+`reviewState` compartilhado; o que difere entre as duas e não é a fonte nem o
+publicador é dado em `session.Source`:
 
-| Model outcome | `--base` (`session.LocalDiff`) | `--pr` (`session.PullRequest`) |
+| Resultado do modelo | `--base` (`session.LocalDiff`) | `--pr` (`session.PullRequest`) |
 | --- | --- | --- |
-| provider failed | not reviewed (exit 1) | not reviewed only with `--exigir-qualidade`; otherwise the gate decides |
-| parse failed | not reviewed (exit 1) | not reviewed only with `--exigir-qualidade`; otherwise the gate decides |
-| skipped | the gate decides (`--exigir-qualidade` escalates it to provider failed) | not reachable: no provider is an error |
+| provider failed | não revisado (saída 1) | não revisado apenas com `--exigir-qualidade`; caso contrário o gate decide |
+| parse failed | não revisado (saída 1) | não revisado apenas com `--exigir-qualidade`; caso contrário o gate decide |
+| skipped | o gate decide (`--exigir-qualidade` o escala para provider failed) | inalcançável: nenhum provedor é um erro |
 
-`gate.ExitPolicy` is one ladder, highest first: a review comment that could
-not be posted (1), not reviewed (1), a commit status that could not be
-published (1), the gate (a breach 3, a block 1), a requested audit or SARIF
-not written (1), `--fail-on` (3), the `--check` status's own code.
+`gate.ExitPolicy` é uma única escada, da mais alta para a mais baixa: um
+comentário de revisão que não pôde ser postado (1), não revisado (1), um status
+de commit que não pôde ser publicado (1), o gate (uma violação 3, um bloqueio
+1), uma auditoria ou SARIF solicitados e não gravados (1), `--fail-on` (3), o
+código próprio do status de `--check`.
 
-The session's collaborators are injected (`reviewDeps`), never package
-variables: the clock exceptions are judged against, the scanner executor, the
-gate-pipeline observer, the codebase resolver, the prompt builder that
-versions the caches, and the environment, read once at the command's edge.
+Os colaboradores da sessão são injetados (`reviewDeps`), nunca variáveis de
+pacote: o relógio contra o qual as exceções são julgadas, o executor de
+scanners, o observador do pipeline do gate, o resolvedor de codebase, o
+construtor de prompt que versiona os caches e o ambiente, lido uma só vez na
+borda do comando.
 
-## Review prompt
+## Prompt de revisão
 
-The review prompt is one template, `internal/prompt/templates/review.md`. Its
-body is the system message (instructions, rule catalog, response format); its
-named `{{define}}` blocks are the slots the user message is built from. Go code
-decides which slots render and with what data; every section title lives in
-the template, and a test fails on a `## ` title in a Go string of the
-prompt-assembly packages.
+O prompt de revisão é um único template, `internal/prompt/templates/review.md`.
+Seu corpo é a mensagem de sistema (instruções, catálogo de regras, formato de
+resposta); seus blocos `{{define}}` nomeados são os slots a partir dos quais a
+mensagem de usuário é montada. O código Go decide quais slots são renderizados
+e com quais dados; todo título de seção vive no template, e um teste falha
+diante de um título `## ` em uma string Go dos pacotes de montagem do prompt.
 
-User-message slots, in order: change summary, CI context and the budgeted code
-changes (`user_header`); PR history; codebase context; review memory;
-deterministic evidence (one item per finding, with origin, rule, `file:line`,
-severity and a redacted snippet); available tools (with declared cost); review
-coverage; repository context. A slot whose input is empty renders nothing, so a
-review without that input keeps its previous bytes.
+Slots da mensagem de usuário, em ordem: resumo da mudança, contexto de CI e as
+mudanças de código orçadas (`user_header`); histórico do PR; contexto da
+codebase; memória de revisão; evidências determinísticas (um item por achado,
+com origem, regra, `file:line`, severidade e um trecho redigido); ferramentas
+disponíveis (com custo declarado); cobertura da revisão; contexto do
+repositório. Um slot cuja entrada está vazia não renderiza nada, de modo que
+uma revisão sem essa entrada mantém seus bytes anteriores.
 
-Budgets come from `internal/prompt/templates/limits.yml`: the prompt ceiling
-used when the caller sets none, the rule catalog ceiling, and the evidence and
-tools ceilings. A list slot over its ceiling admits whole items and states how
-many it omitted; code hunks that do not fit are declared in the coverage slot.
-Every slot, the repository context included, is counted inside the budget.
+Os orçamentos vêm de `internal/prompt/templates/limits.yml`: o teto do prompt
+usado quando quem chama não define nenhum, o teto do catálogo de regras e os
+tetos de evidências e ferramentas. Um slot de lista acima do teto admite itens
+inteiros e informa quantos omitiu; trechos de código que não cabem são
+declarados no slot de cobertura. Todo slot, inclusive o contexto do
+repositório, é contado dentro do orçamento.
 
-The `Reviewer` depends on a `Completer` (`CompleteMessages`), implemented by
-`llm.Orchestrator`. The prompt travels as a system and a user message. A
-provider with the `llm.MessageCompleter` capability receives them separately;
-any other provider receives `System + "\n\n" + User` through `Complete`, and
-the cost estimate is taken on that same text. Provider decorators that only
-forward requests implement `llm.Unwrapper`, so `llm.As` finds a capability
-behind them; a decorator that alters the request must not.
+O `Reviewer` depende de um `Completer` (`CompleteMessages`), implementado por
+`llm.Orchestrator`. O prompt viaja como uma mensagem de sistema e uma de
+usuário. Um provedor com a capacidade `llm.MessageCompleter` as recebe
+separadas; qualquer outro provedor recebe `System + "\n\n" + User` por
+`Complete`, e a estimativa de custo é feita sobre esse mesmo texto. Decoradores
+de provedor que apenas repassam requisições implementam `llm.Unwrapper`, de
+modo que `llm.As` encontre uma capacidade atrás deles; um decorador que altera
+a requisição não deve implementá-lo.
 
-`Reviewer.PromptDigest` is the digest of the exact messages sent.
-`Reviewer.RequestCacheKey` combines it with digests of the evidence and of the
-tool results (`review/cache.RequestKey`), so evidence that the ceiling left out
-of the text still changes the key. The model may attach an `assessment`
-(`confirmed`, `disputed`, `needs_context`, with justification) to an issue;
-`origin` is written only by the engine, and the parser discards a model's.
+`Reviewer.PromptDigest` é o digest das mensagens exatas enviadas.
+`Reviewer.RequestCacheKey` o combina com digests das evidências e dos
+resultados de ferramentas (`review/cache.RequestKey`), de modo que evidências
+que o teto deixou fora do texto ainda alteram a chave. O modelo pode anexar a
+um issue uma `assessment` (`confirmed`, `disputed`, `needs_context`, com
+justificativa); `origin` é escrita apenas pelo motor, e o parser descarta a que
+vier do modelo.
 
-## Deliberation
+## Deliberação
 
-With `deliberation.enabled` and a provider that implements
-`llm.ToolCaller` (found through `llm.As`), the model phase is a bounded tool
-conversation (`internal/deliberation.Session`) instead of a single call:
+Com `deliberation.enabled` e um provedor que implementa `llm.ToolCaller`
+(encontrado por `llm.As`), a fase do modelo é uma conversa limitada com
+ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
 
-- The evidence phase runs every `required` scanner as before; an enabled
-  scanner that is not `required` is deferred and offered as the tool
-  `scanner_<engine>`, beside `codebase_context` (the bounded context of one
-  changed file). The manifest goes to the prompt's tools slot with the
-  declared cost and result size of each tool. The model decides; the code
-  never asks for a tool by itself.
-- Every round is one `Orchestrator.CompleteWithTools` call: its cost is
-  reserved before the call and committed after, and fallback only moves
-  between providers that are `ToolCaller`s. The answer is requested with a
-  JSON Schema derived from `types.ReviewResult` (`llm.SchemaOf`) where the
-  provider supports it (`response_format: json_schema` on LiteLLM), JSON
-  mode otherwise.
-- Each call's arguments are checked against the tool's schema before it
-  runs; a refused call is recorded and the model is told why. A requested
-  scanner runs through the same path as the evidence phase and joins the
-  session's scans: its findings count in the gate with their origin, and a
-  missing binary or failed scan is the scan's inconclusive reason.
-- Exceeding `max_rounds`, `max_cost_tokens` or `per_tool_timeout_seconds`
-  is the model outcome `gate.ModelDeliberationLimit`, never reviewed in
-  either source (exit 1); the gate still runs with the inconclusive motive
-  `deliberation_limit:<limit>` (`gate.RankReason`, ranked first), so the
-  audit, the SARIF and the `--pr` statuses are written, and the only text
-  published is the limitation that says so. The transcript (offered,
-  requested and not requested tools, each call with redacted arguments,
-  duration and summarized result, the limit) is printed on stderr and is
-  the audit's `deliberation` field (`render.AuditRecord.Deliberation`).
-- Without a tool-capable provider (or with review profiles), the deferred
-  scanners run as before. A review that offered tools skips the per-file
-  model cache, and the verdict-reuse key folds in the digests of the tool
-  results.
+- A fase de evidências executa todo scanner `required` como antes; um scanner
+  habilitado que não é `required` é adiado e oferecido como a ferramenta
+  `scanner_<engine>`, ao lado de `codebase_context` (o contexto limitado de um
+  arquivo alterado). O manifesto vai para o slot de ferramentas do prompt com o
+  custo declarado e o tamanho de resultado de cada ferramenta. O modelo decide;
+  o código nunca pede uma ferramenta por conta própria.
+- Cada rodada é uma chamada a `Orchestrator.CompleteWithTools`: seu custo é
+  reservado antes da chamada e confirmado depois, e o fallback só transita
+  entre provedores que são `ToolCaller`. A resposta é solicitada com um JSON
+  Schema derivado de `types.ReviewResult` (`llm.SchemaOf`) onde o provedor
+  oferece suporte (`response_format: json_schema` no LiteLLM), e em modo JSON
+  nos demais casos.
+- Os argumentos de cada chamada são verificados contra o schema da ferramenta
+  antes de ela rodar; uma chamada recusada é registrada e o modelo é informado
+  do motivo. Um scanner solicitado roda pelo mesmo caminho da fase de
+  evidências e entra nas varreduras da sessão: seus achados contam no gate com
+  a sua origem, e um binário ausente ou uma varredura que falhou é o motivo
+  inconclusivo da varredura.
+- Exceder `max_rounds`, `max_cost_tokens` ou `per_tool_timeout_seconds` é o
+  resultado de modelo `gate.ModelDeliberationLimit`, nunca revisado em nenhuma
+  das fontes (saída 1); o gate ainda roda com o motivo inconclusivo
+  `deliberation_limit:<limit>` (`gate.RankReason`, classificado em primeiro),
+  de modo que a auditoria, o SARIF e os status de `--pr` são escritos, e o
+  único texto publicado é a limitação que diz isso. A transcrição (ferramentas
+  oferecidas, solicitadas e não solicitadas, cada chamada com argumentos
+  redigidos, duração e resultado resumido, o limite) é impressa em stderr e é o
+  campo `deliberation` da auditoria (`render.AuditRecord.Deliberation`).
+- Sem um provedor capaz de usar ferramentas (ou com perfis de revisão), os
+  scanners adiados rodam como antes. Uma revisão que ofereceu ferramentas
+  dispensa o cache de modelo por arquivo, e a chave de reaproveitamento de
+  veredito incorpora os digests dos resultados das ferramentas.
 
-## Gate pipeline
+## Pipeline do gate
 
-`assembleGatePipeline` is the only place the pipeline is declared. Contributors
-apply in this order:
+`assembleGatePipeline` é o único lugar onde o pipeline é declarado. Os
+contribuidores se aplicam nesta ordem:
 
-1. `exceptions`: declares that no exception can match when the repository identity is unverified.
-2. `verdict-reuse`: reuses or stores a concluded verdict.
-3. `policy-skills`: the policy's skill sections.
-4. `scanners`: every enabled entry of `quality_gates.scanners` (`quality_gates.sast` is the semgrep alias), one `gate.Scan` each; the contributor names no engine.
-5. `embedded-analysis`: the embedded analysis catalog.
-6. `security-pass`: the `--seguranca` pass's findings; a finding at or above `fail_on` counts in every `gate.inconclusive` mode (under the `analysis` source).
-7. `analysis-data`: the analysis-data artifact.
-8. `dependency-track`: the SBOM submission; may replace the redaction filter.
+1. `exceptions`: declara que nenhuma exceção pode corresponder quando a identidade do repositório não é verificada.
+2. `verdict-reuse`: reaproveita ou armazena um veredito concluído.
+3. `policy-skills`: as seções de skill da política.
+4. `scanners`: toda entrada habilitada de `quality_gates.scanners` (`quality_gates.sast` é o alias do semgrep), um `gate.Scan` cada; o contribuidor não nomeia nenhuma engine.
+5. `embedded-analysis`: o catálogo de análise embutido.
+6. `security-pass`: os achados da passagem `--seguranca`; um achado igual ou acima de `fail_on` conta em todos os modos de `gate.inconclusive` (sob a fonte `analysis`).
+7. `analysis-data`: o artefato de dados de análise.
+8. `dependency-track`: a submissão do SBOM; pode substituir o filtro de redação.
 
-A contributor that returns an ordinary error does not abort and is never read
-as "no findings": the result becomes inconclusive (and fails under
-`gate.inconclusive: block`). An error wrapped with `gate.Fatal` aborts with
-the configuration exit code.
+Um contribuidor que retorna um erro comum não aborta e nunca é lido como "sem
+achados": o resultado se torna inconclusivo (e falha sob
+`gate.inconclusive: block`). Um erro embrulhado com `gate.Fatal` aborta com o
+código de saída de configuração.
 
-## Extension points
+## Pontos de extensão
 
-- **A gate contributor.** Implement `gate.Contributor` (`Name`, `Origin`,
-  `Apply`) and add one line to `assembleGatePipeline`. `Apply` returns the
-  contributor's partial decision and the pipeline merges it into the one
-  `gate.Result` (`Result.Merge`); do not publish from inside it.
-- **A scanner.** Add a package under `internal/scanner/<engine>` that
-  implements `scanner.Scanner` (`Name`, `Run(ctx, Request) (Report, error)`)
-  and registers a `scanner.Engine` (category, typed origin, options
-  validator) from its `init`, then add its import to
-  `internal/scanner/engines`. Nothing in `internal/gate`, `internal/config`
-  or `cmd` changes: `quality_gates.scanners: [{engine: <name>}]` enables it,
-  `gate.sources`/`gate.triage` accept its name and category, its findings
-  reach the gate line, the audit and the SARIF with its origin, and an
-  error, a missing binary or `Complete: false` is inconclusive. The model
-  never decides whether a scanner finding exists.
-- **A configuration section.** Add the type in `internal/config`, its
-  validation, and its precedence between central policy and repository as
-  a row of `governedSections` (`internal/config/governance.go`), which
-  `config.ApplyCentralPolicy` applies in order. A field of `Config`,
-  `ReviewConfig` or `QualityGatesConfig` that no row classifies fails a
-  reflexive test, so a new section is never controlled by the repository
-  by omission. Document it in `docs/configuration.md`.
-- **A BOM type.** Add a catalog entry under `internal/xbom/catalog`; extraction
-  and generation read the catalog. SBOM stays in `internal/sbom`.
-- **A grammar.** Add a catalog entry under `internal/grammar/catalog`; no Go
-  code changes for a language the runtime already supports.
+- **Um contribuidor do gate.** Implemente `gate.Contributor` (`Name`, `Origin`,
+  `Apply`) e acrescente uma linha a `assembleGatePipeline`. `Apply` retorna a
+  decisão parcial do contribuidor e o pipeline a mescla no único
+  `gate.Result` (`Result.Merge`); não publique de dentro dele.
+- **Um scanner.** Acrescente um pacote em `internal/scanner/<engine>` que
+  implemente `scanner.Scanner` (`Name`, `Run(ctx, Request) (Report, error)`)
+  e registre um `scanner.Engine` (categoria, origem tipada, validador de
+  opções) a partir do seu `init`; depois acrescente seu import a
+  `internal/scanner/engines`. Nada em `internal/gate`, `internal/config`
+  ou `cmd` muda: `quality_gates.scanners: [{engine: <name>}]` o habilita,
+  `gate.sources`/`gate.triage` aceitam seu nome e categoria, seus achados
+  chegam à linha do gate, à auditoria e ao SARIF com a sua origem, e um
+  erro, um binário ausente ou `Complete: false` é inconclusivo. O modelo
+  nunca decide se um achado de scanner existe.
+- **Uma seção de configuração.** Acrescente o tipo em `internal/config`, sua
+  validação e sua precedência entre política central e repositório como
+  uma linha de `governedSections` (`internal/config/governance.go`), que
+  `config.ApplyCentralPolicy` aplica em ordem. Um campo de `Config`,
+  `ReviewConfig` ou `QualityGatesConfig` que nenhuma linha classifica falha em
+  um teste reflexivo, de modo que uma seção nova nunca fica sob controle do
+  repositório por omissão. Documente-a em `docs/configuration.md`.
+- **Um tipo de BOM.** Acrescente uma entrada de catálogo em `internal/xbom/catalog`; a extração
+  e a geração leem o catálogo. O SBOM permanece em `internal/sbom`.
+- **Uma gramática.** Acrescente uma entrada de catálogo em `internal/grammar/catalog`; nenhuma
+  mudança de código Go para uma linguagem que o runtime já suporta.
 
 Veja o guia de extensão, [Estendendo o Aurum](extensao.md), em português,
 com o contrato exato e um exemplo mínimo de cada ponto (engine de scanner,
@@ -266,12 +277,24 @@ que não é ponto de extensão; o tutorial
 [Estendendo o Aurum na prática](tutorials/extensao.md) roda a engine de
 exemplo.
 
-## Guards
+## Guardas
 
-Structural tests in `cmd/aurumcode` keep this document true: no production
-function of `cmd`, `internal` or `pkg` exceeds 150 lines, no production file
-is named after a card, the layer table above is enforced on every import, and
-the package list above is compared with the packages on disk, so a package
-without a citation here fails the test. `cmd/aurumcode` also declares no phase list and no exit ladder of its
-own: a slice of phase steps, a review source returning an exit code, or a
-second caller of `gate.ExitPolicy` fails the test.
+Testes estruturais em `cmd/aurumcode` mantêm este documento verdadeiro: nenhuma
+função de produção de `cmd`, `internal` ou `pkg` passa de 150 linhas, nenhum
+arquivo de produção leva o nome de um card, a tabela de camadas acima é
+imposta a cada import, e a lista de pacotes acima é comparada com os pacotes em
+disco, de modo que um pacote sem citação aqui falha no teste. `cmd/aurumcode`
+também não declara lista de fases nem escada de saída própria: uma slice de
+passos de fase, uma fonte de revisão que retorna um código de saída ou um
+segundo chamador de `gate.ExitPolicy` falha no teste.
+
+Os mesmos testes impõem a forma de `cmd/aurumcode`: nenhum arquivo de produção
+passa de 400 linhas, nenhum comentário de pacote cita número de card (o
+histórico vive em `docs/specs/`), e nenhuma função exportada de `cmd`,
+`internal/i18n`, `internal/prompt`, `internal/render`, `internal/reviewprofile`
+ou `internal/context` recebe parâmetro booleano. Texto de interface por idioma
+vive no catálogo de `internal/i18n`: toda chave existe em pt-BR e en com os
+mesmos verbos de formatação, toda chave usada em `cmd/aurumcode` e
+`internal/render` existe no catálogo, e uma etiqueta de idioma português
+escrita como literal nesses arquivos falha no teste. As mensagens de exceção de
+`internal/gate` ainda escolhem o idioma no próprio código.

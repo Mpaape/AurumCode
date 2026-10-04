@@ -1,15 +1,6 @@
-// AUR-441: do not pay twice for the same file.
-//
-// internal/review.Reviewer.GenerateReview sends the whole reviewed diff to
-// the model in a single prompt, one Complete call per invocation
-// (internal/review/reviewer.go:109,117,120; internal/prompt/builder.go
-// folds every file into that one prompt) -- there is no per-file send for a
-// cache to intercept. So the wiring lives here, in cmd/aurumcode, one layer
-// above GenerateReview: filter diff.Files down to the files
-// internal/review/cache does not already hold an entry for BEFORE calling
-// GenerateReview (zero misses skips the call to the model entirely), merge
-// the cache hits' previously-found issues into the printed result, and
-// report how many files were reused.
+// The review cache: a reviewed diff whose prompt, model, profiles and
+// evidence did not change reuses the stored verdict instead of paying for the
+// same model call twice.
 package main
 
 import (
@@ -164,12 +155,9 @@ func reviewContextCacheKey(provider llm.Provider, baseModelIdentity, language, c
 // secret in legible form" holds regardless of which text is hashed, because
 // nothing in the KEY is ever the original text, redacted or not.
 //
-// This calls config.BuildContextBlockWithWarnings directly rather than
-// reading the already-wrapped provider's internals, because the wrapper type
-// WrapProviderWithWarnings returns (internal/config/wrap.go's
-// contextInjectingProvider) is unexported and carries no seam for a caller
-// outside that package to recover its block text from -- this card's paths
-// do not include internal/config. Every provider ConfiguredProviders returns
+// This calls config.BuildContextBlockWithWarnings, the same builder the
+// evidence step (review_weighing.go) uses to put the block in the prompt's
+// evidence; no provider decorator carries the block any more. Every provider ConfiguredProviders returns
 // today (RepoPromptProvider, FileContextProvider, TextContextProvider,
 // PathInstructionsProvider; see internal/config/provider_files.go) reads a
 // local file and does nothing else, so invoking the build a second time

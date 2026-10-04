@@ -480,58 +480,6 @@ func Compile(data []byte) (*Profile, error) {
 	return compileSpec(spec)
 }
 
-// builtinSpecs are the code-owned built-ins. Each declares a version and only
-// emphasis/families: a built-in that carried a forbidden clause would fail
-// mustBuiltin at init, so the binary cannot start with a boundary-violating
-// preset.
-var builtinSpecs = []Spec{
-	{
-		Name:         "solid",
-		Version:      "1",
-		Emphasis:     "SOLID principles and maintainability",
-		Families:     []string{string(FamilyQuality)},
-		Instructions: "Priorize responsabilidade unica, coesao, acoplamento e substituicao de Liskov.",
-	},
-	{
-		Name:         "seguranca",
-		Version:      "1",
-		Emphasis:     "deterministic security review",
-		Families:     []string{string(FamilySecurity)},
-		Instructions: "Priorize segredos embutidos, injecao, deserializacao insegura e superficie de ataque.",
-	},
-	{
-		Name:         "performance",
-		Version:      "1",
-		Emphasis:     "performance and algorithmic cost",
-		Families:     []string{string(FamilyPerformance)},
-		Instructions: "Priorize complexidade, alocacoes, consultas N+1 e retencao de recursos.",
-	},
-	{
-		Name:         "product_owner",
-		Version:      "1",
-		Emphasis:     "product intent and user-visible behavior",
-		Families:     []string{string(FamilyQuality)},
-		Instructions: "Priorize intencao do produto, comportamento visivel ao usuario, valor entregue e riscos de regressao funcional.",
-	},
-}
-
-var builtins = mustBuiltins()
-
-func mustBuiltins() map[string]*Profile {
-	m := make(map[string]*Profile, len(builtinSpecs))
-	for _, spec := range builtinSpecs {
-		if err := refuseForbidden(spec); err != nil {
-			panic(fmt.Sprintf("reviewprofile: built-in %q violates the boundary: %v", spec.Name, err))
-		}
-		p, err := compileSpec(spec)
-		if err != nil {
-			panic(fmt.Sprintf("reviewprofile: built-in %q is invalid: %v", spec.Name, err))
-		}
-		m[strings.ToLower(p.Name)] = p
-	}
-	return m
-}
-
 // Names returns the built-in profile names in canonical order.
 func Names() []string {
 	out := make([]string, 0, len(builtinSpecs))
