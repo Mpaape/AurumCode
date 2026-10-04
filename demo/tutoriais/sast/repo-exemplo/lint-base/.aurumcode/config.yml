@@ -1,0 +1,6 @@
+quality_gates:
+  scanners:
+    - engine: govet             # categoria lint, origem govet
+      fail_on: warning          # go vet reporta warning; o padrao ERROR so publicaria
+gate:
+  fail_on: [error]
