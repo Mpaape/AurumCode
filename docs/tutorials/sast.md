@@ -388,6 +388,18 @@ pacote que não compila ou uma dependência fora do cache de módulos
 
 Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/sast/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
+### govet-achado
+
+![Terminal do caso govet-achado](../assets/capturas/sast/govet-achado-terminal.png)
+
+![Comentario do PR do caso govet-achado](../assets/capturas/sast/govet-achado-comentario.png)
+
+### govet-sem-go
+
+![Terminal do caso govet-sem-go](../assets/capturas/sast/govet-sem-go-terminal.png)
+
+![Comentario do PR do caso govet-sem-go](../assets/capturas/sast/govet-sem-go-comentario.png)
+
 ### nosemgrep-e-semgrepignore
 
 ![Terminal do caso nosemgrep-e-semgrepignore](../assets/capturas/sast/nosemgrep-e-semgrepignore-terminal.png)
