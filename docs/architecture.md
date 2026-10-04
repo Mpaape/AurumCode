@@ -49,10 +49,10 @@ negócio vivem em `internal/`.
 | `internal/i18n` | Catálogo de textos de interface por idioma (YAML embutido, pt-BR e en): toda chave existe nos dois idiomas. |
 | `internal/llm` | Provedores, orquestração, orçamento e estimativa de custo. |
 | `internal/memory` | Memória de revisão opcional. |
-| `internal/prompt` | Montagem de prompt, orçamento, parsing de resposta, filtro de comentários, notas de cobertura. |
+| `internal/prompt` | Montagem de prompt, orçamento, parsing de resposta (dividido por responsabilidade, com os padrões compilados uma vez no pacote), filtro de comentários, notas de cobertura. |
 | `internal/render` | Relatórios determinísticos, registros de auditoria, SARIF e identidade de achados. |
 | `internal/review` | O revisor, o escopo, as regras (incluindo regras dinâmicas de skill), o cache de revisão, a sessão de revisão (`internal/review/session`: ordem das fases e dados por fonte) e as ferramentas que uma revisão oferece ao modelo (`internal/review/tools`: scanners opcionais, contexto de código, com o custo declarado no manifesto). |
-| `internal/reviewprofile` | Perfis de revisor embutidos e versionados. |
+| `internal/reviewprofile` | Perfis de revisor: os embutidos são YAML versionado no binário (`builtin.yml`), lidos pelo mesmo decodificador do arquivo de perfis do time. |
 | `internal/sandbox` | Perfis de execução selados. |
 | `internal/scanner` | O contrato de scanner (`Scanner`, `Report`, `Finding.ToIssue`), o registro fechado de engines compiladas e o executor; as engines vivem em subpacotes (`internal/scanner/semgrep`, SAST sobre a árvore; `internal/scanner/gitleaks`, segredos sobre o intervalo de commits revisado `Request.Range`) listados em `internal/scanner/engines`. A revisão entrega a cada engine o intervalo revisado (`--pr`: a base e o head do pull request; `--base`: a ref e `HEAD` resolvidos para ids completos), e a identidade informada por cada engine (`Outcome.Version`) entra no digest de evidências da chave de cache. |
 | `internal/scanner/engines/exemplo` | A engine de exemplo do guia de extensão (`docs/extensao.md`): informa linhas que contêm um marcador, registrada apenas em um binário compilado com a tag `aurum_exemplo`. |
@@ -287,3 +287,14 @@ disco, de modo que um pacote sem citação aqui falha no teste. `cmd/aurumcode`
 também não declara lista de fases nem escada de saída própria: uma slice de
 passos de fase, uma fonte de revisão que retorna um código de saída ou um
 segundo chamador de `gate.ExitPolicy` falha no teste.
+
+Os mesmos testes impõem a forma de `cmd/aurumcode`: nenhum arquivo de produção
+passa de 400 linhas, nenhum comentário de pacote cita número de card (o
+histórico vive em `docs/specs/`), e nenhuma função exportada de `cmd`,
+`internal/i18n`, `internal/prompt`, `internal/render`, `internal/reviewprofile`
+ou `internal/context` recebe parâmetro booleano. Texto de interface por idioma
+vive no catálogo de `internal/i18n`: toda chave existe em pt-BR e en com os
+mesmos verbos de formatação, toda chave usada em `cmd/aurumcode` e
+`internal/render` existe no catálogo, e uma etiqueta de idioma português
+escrita como literal nesses arquivos falha no teste. As mensagens de exceção de
+`internal/gate` ainda escolhem o idioma no próprio código.
