@@ -3,64 +3,85 @@ package analysis
 import (
 	"context"
 	"errors"
+	"os/exec"
+	"reflect"
 	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
-func TestVetParsesDiagnostics(t *testing.T) {
-	r := NewRunner()
+// vetReport is go vet -json's real shape (measured on go1.27): a stream of
+// one JSON object per package, with absolute positions.
+const vetReport = "{}\n{\n\t\"example.com/m/p\": {\n\t\t\"printf\": [\n\t\t\t{\"posn\": \"/sandbox/p/a.go:5:24\", \"end\": \"/sandbox/p/a.go:5:26\", \"message\": \"fmt.Printf format %d has arg \\\"x\\\" of wrong type string\"}\n\t\t]\n\t}\n}\n"
+
+func TestVetReadsJSONReport(t *testing.T) {
 	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) {
-		return "", "# example.com/x\n./pkg/a.go:10:2: printf: non-constant format string\n./pkg/b.go:3:5: unreachable code\n", errors.New("exit status 1")
+		return vetReport, "", nil
 	}
-	got, err := r.Vet(context.Background(), "/sandbox", fake)
+	got, err := NewRunner().Vet(context.Background(), "/sandbox", fake)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("Vet: %v", err)
 	}
-	want := []Finding{
-		{Path: "pkg/a.go", Line: 10, RuleID: RuleGoVet, Severity: "warning", Message: "printf: non-constant format string"},
-		{Path: "pkg/b.go", Line: 3, RuleID: RuleGoVet, Severity: "warning", Message: "unreachable code"},
+	want := []Finding{{Path: "p/a.go", Line: 5, Side: SideRight, RuleID: "go-vet/printf", Severity: "warning", Message: `fmt.Printf format %d has arg "x" of wrong type string`}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Vet = %#v, want %#v", got, want)
 	}
-	assertFindings(t, got, want)
 }
 
-func TestVetParsesNoColumnFormat(t *testing.T) {
-	r := NewRunner()
-	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) {
-		return "pkg.go:12: suspicious construct\n", "", nil
+func TestVetCleanReportHasNoFinding(t *testing.T) {
+	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) { return "{}\n", "", nil }
+	got, err := NewRunner().Vet(context.Background(), "/sandbox", fake)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("Vet = %v, %v; want no finding, no error", got, err)
 	}
-	got, err := r.Vet(context.Background(), "/sandbox", fake)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	want := []Finding{{Path: "pkg.go", Line: 12, RuleID: RuleGoVet, Severity: "warning", Message: "suspicious construct"}}
-	assertFindings(t, got, want)
 }
 
-func TestVetSkipsHeadersAndStrayLines(t *testing.T) {
-	r := NewRunner()
+// A non-zero exit is a package go vet did not vet: even with diagnostics
+// on stdout, the result is an error and no findings.
+func TestVetFailureNeverYieldsFindings(t *testing.T) {
 	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) {
-		return "", "# github.com/x/y\nexit status 1\n", nil
+		return vetReport, "# example.com/m/a\nvet: a/a.go:3:23: cannot use \"x\"\n", errors.New("exit status 1")
 	}
-	got, err := r.Vet(context.Background(), "/sandbox", fake)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	got, err := NewRunner().Vet(context.Background(), "/sandbox", fake)
+	if !errors.Is(err, ErrVetFailed) || got != nil {
+		t.Fatalf("Vet = %v, %v; want nil, ErrVetFailed", got, err)
 	}
-	assertFindings(t, got, nil)
 }
 
-func TestVetInvokesGoVetWithDotSlashDot(t *testing.T) {
+func TestVetKeepsMissingBinary(t *testing.T) {
+	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) {
+		return "", "", &exec.Error{Name: "go", Err: exec.ErrNotFound}
+	}
+	_, err := NewRunner().Vet(context.Background(), "/sandbox", fake)
+	if !errors.Is(err, exec.ErrNotFound) {
+		t.Fatalf("err = %v, want exec.ErrNotFound", err)
+	}
+}
+
+func TestVetRefusesUntrustedReport(t *testing.T) {
+	for name, out := range map[string]string{
+		"not json":       "p/a.go:1:1: something\n",
+		"outside root":   `{"m": {"printf": [{"posn": "/etc/x.go:1:1", "message": "m"}]}}`,
+		"no line":        `{"m": {"printf": [{"posn": "/sandbox/a.go", "message": "m"}]}}`,
+		"empty analyzer": `{"m": {"": [{"posn": "/sandbox/a.go:1:1", "message": "m"}]}}`,
+	} {
+		fake := func(ctx context.Context, dir string, args ...string) (string, string, error) { return out, "", nil }
+		if _, err := NewRunner().Vet(context.Background(), "/sandbox", fake); !errors.Is(err, scanner.ErrInvalidOutput) {
+			t.Errorf("%s: err = %v, want ErrInvalidOutput", name, err)
+		}
+	}
+}
+
+func TestVetInvokesJSONMode(t *testing.T) {
 	var gotDir string
 	var gotArgs []string
 	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) {
-		gotDir = dir
-		gotArgs = append([]string(nil), args...)
+		gotDir, gotArgs = dir, append([]string(nil), args...)
 		return "", "", nil
 	}
 	_, _ = NewRunner().Vet(context.Background(), "/work", fake)
-	if gotDir != "/work" {
-		t.Errorf("dir = %q, want %q", gotDir, "/work")
-	}
-	if len(gotArgs) != 2 || gotArgs[0] != "vet" || gotArgs[1] != "./..." {
-		t.Errorf("args = %v, want [vet ./...]", gotArgs)
+	if gotDir != "/work" || !reflect.DeepEqual(gotArgs, []string{"vet", "-json", "./..."}) {
+		t.Fatalf("ran %v in %q", gotArgs, gotDir)
 	}
 }
 
@@ -68,31 +89,4 @@ func TestVetNilRunner(t *testing.T) {
 	if _, err := NewRunner().Vet(context.Background(), "/x", nil); err == nil {
 		t.Fatal("expected error for nil commandRunner")
 	}
-}
-
-func TestVetRunnerErrorWithNoFindingsPropagates(t *testing.T) {
-	wantErr := errors.New("sandbox: go binary missing")
-	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) {
-		return "", "", wantErr
-	}
-	_, err := NewRunner().Vet(context.Background(), "/x", fake)
-	if err != wantErr {
-		t.Fatalf("err = %v, want %v", err, wantErr)
-	}
-}
-
-func TestVetCombinesStdoutAndStderr(t *testing.T) {
-	r := NewRunner()
-	fake := func(ctx context.Context, dir string, args ...string) (string, string, error) {
-		return "a.go:1:2: out diag\n", "b.go:2:3: err diag\n", nil
-	}
-	got, err := r.Vet(context.Background(), "/sandbox", fake)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	want := []Finding{
-		{Path: "a.go", Line: 1, RuleID: RuleGoVet, Severity: "warning", Message: "out diag"},
-		{Path: "b.go", Line: 2, RuleID: RuleGoVet, Severity: "warning", Message: "err diag"},
-	}
-	assertFindings(t, got, want)
 }

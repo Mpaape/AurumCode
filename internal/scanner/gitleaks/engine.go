@@ -53,6 +53,9 @@ func init() {
 		Category: Category,
 		Origin:   Name,
 		Validate: validateOptions,
+		// git reads a checkout owned by another user only through the CI
+		// job's safe.directory entry; no other git configuration passes.
+		Environment: scanner.Environment{Extra: scanner.GitSafeDirectories},
 	})
 }
 

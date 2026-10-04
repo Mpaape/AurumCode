@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -11,6 +13,18 @@ import (
 // Timeout bounds one scan: generous for a real registry scan in CI, short
 // enough that a hung executable never stalls a review.
 const Timeout = 120 * time.Second
+
+// WaitDelay bounds how long a killed scan may keep its output pipes open
+// (a grandchild such as a vet tool or semgrep-core): past it the pipes are
+// closed and the scan fails, so Timeout is a real limit.
+const WaitDelay = 5 * time.Second
+
+// MaxOutputBytes bounds each output stream of one engine's process. A
+// larger stream is not a trustworthy report: the scan is inconclusive.
+const MaxOutputBytes = 32 << 20
+
+// ErrOutputTooLarge marks a stream that exceeded MaxOutputBytes.
+var ErrOutputTooLarge = fmt.Errorf("scanner: output exceeds %d bytes: %w", MaxOutputBytes, ErrInvalidOutput)
 
 // ErrInvalidOutput marks a scan whose output is not a trustworthy report
 // (unparseable, wrong shape, or carrying the engine's own errors).
@@ -38,7 +52,9 @@ type Outcome struct {
 	Version string
 }
 
-// Executor runs registered engines. A nil Command runs the real binaries.
+// Executor runs registered engines. A nil Command runs the real binaries,
+// each with the engine's explicit ChildEnvironment, never the reviewing
+// process's own.
 type Executor struct {
 	Command Command
 }
@@ -48,7 +64,7 @@ type Executor struct {
 // list.
 func (x Executor) Scan(ctx context.Context, e Engine, req Request) Outcome {
 	if req.Command == nil {
-		req.Command = x.command()
+		req.Command = x.command(e)
 	}
 	scanCtx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
@@ -80,20 +96,59 @@ func FailureReason(e Engine, report Report, err error) string {
 	}
 }
 
-func (x Executor) command() Command {
+func (x Executor) command(e Engine) Command {
 	if x.Command != nil {
 		return x.Command
 	}
-	return ExecCommand
+	return IsolatedCommand(ChildEnvironment(os.LookupEnv, e.Environment))
 }
 
-// ExecCommand runs binary from PATH in dir: the production Command.
+// ExecCommand runs binary from PATH in dir with only BaseEnvironment.
 func ExecCommand(ctx context.Context, dir, binary string, args ...string) (stdout, stderr string, err error) {
-	cmd := exec.CommandContext(ctx, binary, args...)
-	cmd.Dir = dir
-	var outBuf, errBuf bytes.Buffer
-	cmd.Stdout = &outBuf
-	cmd.Stderr = &errBuf
-	err = cmd.Run()
-	return outBuf.String(), errBuf.String(), err
+	return IsolatedCommand(ChildEnvironment(os.LookupEnv, Environment{}))(ctx, dir, binary, args...)
 }
+
+// IsolatedCommand is the production Command: binary from PATH in dir, with
+// exactly env as its environment (nil is read as empty, never as
+// "inherit"), each stream bounded by MaxOutputBytes, and its pipes closed
+// WaitDelay after a cancelled context.
+func IsolatedCommand(env []string) Command {
+	if env == nil {
+		env = []string{}
+	}
+	return func(ctx context.Context, dir, binary string, args ...string) (string, string, error) {
+		cmd := exec.CommandContext(ctx, binary, args...)
+		cmd.Dir = dir
+		cmd.Env = env
+		cmd.WaitDelay = WaitDelay
+		outBuf, errBuf := &boundedBuffer{}, &boundedBuffer{}
+		cmd.Stdout, cmd.Stderr = outBuf, errBuf
+		err := cmd.Run()
+		if outBuf.exceeded || errBuf.exceeded {
+			return "", "", ErrOutputTooLarge
+		}
+		return outBuf.String(), errBuf.String(), err
+	}
+}
+
+// boundedBuffer keeps at most MaxOutputBytes and remembers it was cut. It
+// never fails a write, so the child is not killed by a broken pipe before
+// the caller learns the output was too large. The buffer is a field, not
+// embedded, so io.Copy cannot bypass Write through bytes.Buffer.ReadFrom.
+type boundedBuffer struct {
+	buf      bytes.Buffer
+	exceeded bool
+}
+
+func (b *boundedBuffer) Write(p []byte) (int, error) {
+	if room := MaxOutputBytes - b.buf.Len(); len(p) > room {
+		b.exceeded = true
+		if room > 0 {
+			b.buf.Write(p[:room])
+		}
+		return len(p), nil
+	}
+	return b.buf.Write(p)
+}
+
+func (b *boundedBuffer) String() string { return b.buf.String() }

@@ -106,12 +106,14 @@ type Scanner interface {
 // engine also answers to (every "sast" engine counts under gate.sources:
 // [sast]); Origin is the typed origin of its findings in the gate line, the
 // audit and the SARIF (empty: the engine's name). Validate checks the
-// engine's options when the configuration is parsed.
+// engine's options when the configuration is parsed. Environment is what
+// the engine's child process receives beyond BaseEnvironment.
 type Engine struct {
-	Scanner  Scanner
-	Category string
-	Origin   string
-	Validate func(Options) error
+	Scanner     Scanner
+	Category    string
+	Origin      string
+	Validate    func(Options) error
+	Environment Environment
 }
 
 // Name is the engine's registered name.
