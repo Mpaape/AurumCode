@@ -36,7 +36,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-for input in go.mod go.sum cmd internal pkg; do
+for input in go.mod go.sum internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 for src in provider.go provider_files.go decode.go wrap.go; do
@@ -50,7 +50,10 @@ cleanup_root() {
 }
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/root" "$run_dir/gotmp"
+# The sealed profile materializes only the card paths and read_paths, so cmd
+# is copied when present; this package does not depend on it.
 for source in go.mod go.sum cmd internal pkg; do
+  [[ -e "$repo_root/$source" ]] || continue
   cp -R "$repo_root/$source" "$run_dir/root/$source"
 done
 chmod -R u+w -- "$run_dir/root"
