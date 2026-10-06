@@ -122,7 +122,11 @@ ac_003() {
 tutorial_copy() {
   local dir="$1"
   mkdir -p "$dir/demo/tutoriais"
-  cp -R "$repo_root/demo/tutoriais/_lib" "$repo_root/demo/tutoriais/qualquer-linguagem" "$dir/demo/tutoriais/"
+  local tut="$repo_root/demo/tutoriais/qualquer-linguagem" part
+  cp -R "$repo_root/demo/tutoriais/_lib" "$dir/demo/tutoriais/"
+  mkdir -p "$dir/demo/tutoriais/qualquer-linguagem"
+  # only what --check reads: never the local .estado/ of a previous run
+  for part in run.sh expected out; do cp -R "$tut/$part" "$dir/demo/tutoriais/qualquer-linguagem/"; done
   chmod -R u+w -- "$dir"
 }
 
@@ -193,7 +197,9 @@ ac_006() {
   local c sel
   for c in AUR-491 AUR-448 AUR-458; do
     sel=all; [[ "$c" == AUR-491 ]] || sel=AC-001
-    ( cd "$repo_root" && bash "tests/acceptance/$c.sh" "$sel" ) >"$run_dir/$c.log" 2>&1 ||
+    # each script runs as its own caller would: its own locale (AUR-491 greps
+    # accented text), not this script's C locale.
+    ( cd "$repo_root" && env -u LC_ALL bash "tests/acceptance/$c.sh" "$sel" ) >"$run_dir/$c.log" 2>&1 ||
       { tail -n 3 "$run_dir/$c.log" >&2; fail "blocked:$c:$(tail -n 1 "$run_dir/$c.log")"; }
   done
   printf '%s/AC-006/pass\n' "$card"
