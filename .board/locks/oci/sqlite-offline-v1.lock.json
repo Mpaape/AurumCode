@@ -2,5 +2,5 @@
 "schema": "aurum.oci-image-lock",
 "version": 1,
 "profile": "sqlite-offline-v1",
-"image": "aurum-bootstrap-go-bash@sha256:4fc470138d44132013390c90dd7f5e0157c3d0a38c696d3e759473462fe17d36"
+"image": "aurum-bootstrap-go-bash@sha256:b678437d5b61b54437940fd62d5716f237de249ed921765bd02b2077c945308c"
 }
