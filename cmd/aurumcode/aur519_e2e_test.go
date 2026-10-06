@@ -176,7 +176,7 @@ func TestAUR519GateInconclusiveProviderFailureBlocks(t *testing.T) {
 // and a green run here is now explained only by the verdict/withheld
 // machinery this test names.
 func TestAUR519GatePartialCoverageInconclusiveWarns(t *testing.T) {
-	aur538CleanFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: warn\n")
+	aur538CleanFixtureTests(t, "gate:\n  inconclusive: warn\n", generatedMarker)
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)
@@ -534,9 +534,9 @@ func setPRGateEnv(t *testing.T, server *httptest.Server, fixturePath string) {
 // from --check's independent checkExit/gateCheckExit path entirely.
 func TestAUR519PRGateInconclusiveBlockTable(t *testing.T) {
 	simpleDiff := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ _ = 1\n+}\n"
-	twoFileDiff := simpleDiff + "diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,2 @@\n package demo\n+func TestChange() {}\n"
+	twoFileDiff := simpleDiff + "diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,3 @@\n+" + generatedMarker + " package demo\n+func TestChange() {}\n"
 	blockConfig := "gate:\n  inconclusive: block\n"
-	partialConfig := "gate:\n  inconclusive: block\nignore:\n  - \"tests/**\"\n"
+	partialConfig := "gate:\n  inconclusive: block\n"
 
 	cases := []struct {
 		name       string
@@ -619,7 +619,7 @@ func TestAUR519PRGateInconclusiveBlockTable(t *testing.T) {
 // block, and BOTH runs must fail the gate -- a second run that read a
 // cached "clean" result for the same diff would silently defeat the block.
 func TestAUR519PartialCoverageNeverCachedUnderBlock(t *testing.T) {
-	coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: block\n")
+	coverageFixtureTests(t, "gate:\n  inconclusive: block\n", generatedMarker+coverageTestHead)
 
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
@@ -727,13 +727,13 @@ func TestAUR519NoGatePublishesApproveDespiteModelCommentVerdict(t *testing.T) {
 // GitHub's real formal review action -- never just the "approve" case a
 // prior, narrower fix covered.
 func TestAUR519VerdictWithheldAcrossModelVerdicts(t *testing.T) {
-	// Partial coverage (the second, ignored file) is this test's
+	// Partial coverage (the second, generated file) is this test's
 	// inconclusive trigger -- a clean, zero-issue JSON response that
 	// covers everything would be a legitimately conclusive, passing
 	// review, and must not be mistaken for an inconclusive one here.
 	diffBody := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change() {\n+ _ = 1\n+}\n" +
-		"diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,2 @@\n package demo\n+func TestChange() {}\n"
-	blockConfig := "gate:\n  inconclusive: block\nignore:\n  - \"tests/**\"\n"
+		"diff --git a/tests/change_test.go b/tests/change_test.go\n@@ -1,1 +1,3 @@\n+" + generatedMarker + " package demo\n+func TestChange() {}\n"
+	blockConfig := "gate:\n  inconclusive: block\n"
 
 	for _, modelVerdict := range []string{"", "changes_requested", "approve"} {
 		t.Run("model_verdict_"+modelVerdict, func(t *testing.T) {
@@ -778,11 +778,11 @@ func TestAUR519VerdictWithheldAcrossModelVerdicts(t *testing.T) {
 func TestAUR519BaseVerdictWithheldAcrossModelVerdicts(t *testing.T) {
 	for _, modelVerdict := range []string{"", "changes_requested", "approve"} {
 		t.Run("model_verdict_"+modelVerdict, func(t *testing.T) {
-			// Partial coverage (an ignored file) is this test's inconclusive
+			// Partial coverage (a generated file) is this test's inconclusive
 			// trigger -- a clean, zero-issue JSON response with full
 			// coverage is a legitimately conclusive, passing review and
 			// must not be mistaken for one here.
-			coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: block\n")
+			coverageFixtureTests(t, "gate:\n  inconclusive: block\n", generatedMarker+coverageTestHead)
 			resp := `{"summary":"ok","issues":[]}`
 			if modelVerdict != "" {
 				resp = fmt.Sprintf(`{"summary":"ok","verdict":%q,"issues":[]}`, modelVerdict)

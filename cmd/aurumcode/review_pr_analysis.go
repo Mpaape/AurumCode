@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/Mpaape/AurumCode/internal/analyzer"
+
 	"fmt"
 	"strings"
 
@@ -72,7 +74,7 @@ func (p *prReview) finishLimitations() (int, bool) {
 	result.Suggestions = filterSuggestionsToChangedLines(p.diff, result.Suggestions)
 	suppressOperationalStrengths(p.diff, result)
 	result.Limitations = filterLimitationsAgainstDiff(p.diff, result.Limitations)
-	p.coverage = mergeReviewCoverage(result.Metadata, uninspectedPRNotices(p.diff, p.verifiedDir), p.rawDiffFileCount, p.ignoredPaths)
+	p.coverage = mergeReviewCoverage(result.Metadata, append(append([]analyzer.DiffNotice{}, p.binaryNotices...), uninspectedPRNotices(p.diff, p.verifiedDir)...), p.rawDiffFileCount, p.ignoredPaths)
 	applyStructuralCoverage(grammar.Default(), p.diff, &p.coverage, result)
 	if notice := coverageNotice(reviewCopyFor(p.reviewLanguage), p.coverage); notice != "" {
 		result.Limitations = append(result.Limitations, notice)

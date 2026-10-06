@@ -1,10 +1,8 @@
-package govet
+package scanner
 
 import (
 	"errors"
 	"testing"
-
-	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
 func TestParseAddedLines(t *testing.T) {
@@ -24,20 +22,20 @@ func TestParseAddedLines(t *testing.T) {
 }
 
 func TestParseAddedLinesRefusesBadHeader(t *testing.T) {
-	if _, err := parseAddedLines("+++ b/x.go\n@@ nonsense\n"); !errors.Is(err, scanner.ErrInvalidOutput) {
+	if _, err := parseAddedLines("+++ b/x.go\n@@ nonsense\n"); !errors.Is(err, ErrInvalidOutput) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestParseAddedLinesRefusesQuotedPath(t *testing.T) {
 	diff := "diff --git \"a/x\\ty.go\" \"b/x\\ty.go\"\n--- \"a/x\\ty.go\"\n+++ \"b/x\\ty.go\"\n@@ -0,0 +1 @@\n+a\n"
-	if _, err := parseAddedLines(diff); !errors.Is(err, scanner.ErrInvalidOutput) {
+	if _, err := parseAddedLines(diff); !errors.Is(err, ErrInvalidOutput) {
 		t.Fatalf("err = %v, want ErrInvalidOutput", err)
 	}
 }
 
 func TestDiffIsRelativeToTheRoot(t *testing.T) {
-	args := diffArgs(scanner.Range{Base: "a", Head: "b"})
+	args := diffArgs(Range{Base: "a", Head: "b"})
 	if args[2] != "diff" || args[3] != "--relative" {
 		t.Fatalf("args = %v, want git diff --relative", args)
 	}

@@ -106,7 +106,9 @@ func aur522ExpectNotApproved(t *testing.T, code int, out, posted string, wants .
 	}
 }
 
-// (a) a binary: no patch in the API diff, NUL bytes in the verified checkout.
+// (a) an executable: no patch in the API diff, NUL bytes in the verified
+// checkout, and an extension the binary-format catalog does not list. It is
+// not reviewable, so it is never approved.
 func TestAUR522PRBinaryWithoutPatchIsNotReviewed(t *testing.T) {
 	head := aur522PRCheckout(t, map[string][]byte{
 		"app.go":   []byte("package demo\nfunc Change() {}\n"),
@@ -115,6 +117,24 @@ func TestAUR522PRBinaryWithoutPatchIsNotReviewed(t *testing.T) {
 	diff := aur522PRAppDiff + "diff --git a/tool.bin b/tool.bin\nBinary files /dev/null and b/tool.bin differ\n"
 	code, out, posted := aur522PRRun(t, head, diff)
 	aur522ExpectNotApproved(t, code, out, posted, "tool.bin (binary)")
+}
+
+// (a') an image: binary content and an extension of the binary-format
+// catalog. Nothing in it is reviewable by reading, so it is declared ignored
+// (listed by name), out of the coverage count.
+func TestAUR522PRBinaryIsDeclaredIgnored(t *testing.T) {
+	head := aur522PRCheckout(t, map[string][]byte{
+		"app.go":   []byte("package demo\nfunc Change() {}\n"),
+		"logo.png": pngBytes,
+	})
+	diff := aur522PRAppDiff + "diff --git a/logo.png b/logo.png\nBinary files /dev/null and b/logo.png differ\n"
+	code, out, posted := aur522PRRun(t, head, diff)
+	if code != 0 || !strings.Contains(posted, "  - logo.png (binary)") || !strings.Contains(posted, "ignored") {
+		t.Fatalf("an image must be declared ignored by name (exit=%d):\n%s\n%s", code, out, posted)
+	}
+	if strings.Contains(posted, "were not fully reviewed") || strings.Contains(posted, "token budget") {
+		t.Fatalf("an image must not make the review partial:\n%s", posted)
+	}
 }
 
 // (b) a generated file that does carry a patch.
@@ -164,7 +184,7 @@ func TestAUR522ModelCannotForgeOrClearTheRetentionKey(t *testing.T) {
 	}
 	// And the engine's marker survives the coverage step for a filtered file.
 	result := &types.ReviewResult{Metadata: map[string]string{}}
-	c := reviewCoverageBreakdown{FilteredPaths: []string{"x.bin (binary)"}}
+	c := reviewCoverageBreakdown{FilteredPaths: []string{"gen.go (generated)"}}
 	applyStructuralCoverage(grammar.Default(), &types.Diff{}, &c, result)
 	if result.Metadata[prompt.PolicyGateWithheldKey] != "true" {
 		t.Fatal("a filtered file must set the engine retention key")

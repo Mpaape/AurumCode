@@ -141,9 +141,12 @@ RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 ```
 
 O que observar: o veredito é `Comment`, nunca `Approve`, nos dois casos; cada
-arquivo aparece na cobertura com o motivo (`binary`, `generated`). Sem gate o
-exit continua 0 (o produto só avisa); com o gate, a cobertura parcial reprova
-com exit 1.
+arquivo aparece na cobertura com o motivo (`binary`, `generated`). Os dois
+binários retêm a aprovação: `.bin` e `.txt` não são formatos do catálogo de
+binários (`binary_formats.yml`), e só um formato do catálogo (uma imagem PNG,
+um PDF) com conteúdo binário é declarado ignorado. Um byte NUL num arquivo de
+texto ou código nunca o tira da revisão. Sem gate o exit continua 0 (o produto só avisa);
+com o gate, a cobertura parcial reprova com exit 1.
 
 ## Caso 4: achado de política em Terraform bloqueia
 
@@ -314,14 +317,15 @@ vive no catálogo de dados `internal/analyzer/language_catalog.yml` (veja
   gramática do arquivo (caso 5): a skill só entra quando a mudança toca um
   arquivo daquela linguagem.
 - **"Aprovado com binário no PR."** Não acontece: o veredito é `Comment`
-  (caso 3). Para reprovar, declare `gate.inconclusive: block`.
+  (caso 3). Para reprovar, declare `gate.inconclusive: block`. Só uma imagem,
+  PDF, fonte ou mídia do catálogo de formatos é declarada ignorada.
 - **"O aviso `gate verdict reuse unavailable` apareceu."** O cache de veredito
   precisa de `AURUMCODE_CACHE_DIR`; sem ele o gate roda normalmente, só não
   reaproveita veredito entre execuções. É aviso, não falha.
 - **Saída em português.** Com `review.language: pt-BR` (caso 5) o parecer sai
   localizado; os demais casos usam o padrão em inglês.
 - **Não demonstrado aqui:** revisão de PR (`--pr`) de repositório poliglota
-  (a retenção por binário/gerado no caminho `--pr` é coberta por testes Go do
+  (a retenção por binário/gerado e a declaração de imagem no caminho `--pr` é coberta por testes Go do
   AUR-522, não por esta demonstração) e uma rodada com modelo real.
 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
