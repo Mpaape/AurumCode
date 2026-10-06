@@ -196,9 +196,10 @@ apply_mutation() {
   # writer gone the tests pass (measured in docs/specs/AUR-589.md); with the
   # gate's marker gone as well they must go red.
   local structural="$run_dir/root/cmd/aurumcode/structural_coverage.go"
-  [[ "$(grep -Fxc "$anchor" "$structural")" == "1" ]] || infra structural-anchor-missing
+  local structural_anchor='	result.Metadata[prompt.PolicyGateWithheldKey] = "true"'
+  [[ "$(grep -Fxc "$structural_anchor" "$structural")" == "1" ]] || infra structural-anchor-missing
   sed -i 's|^\tresult.Metadata\[prompt.PolicyGateWithheldKey\] = "true"$|\t_ = prompt.PolicyGateWithheldKey // MUT-001: structural marker not set|' "$structural"
-  grep -Fxq "$anchor" "$structural" && infra structural-mutation-not-applied
+  grep -Fxq "$structural_anchor" "$structural" && infra structural-mutation-not-applied
   return 0
 }
 
