@@ -226,9 +226,11 @@ tut_run_caso() {
   return "$rc"
 }
 
-# --check: cada linha de expected/<caso>.txt precisa aparecer, como trecho literal (grep -F), em
-# out/<caso>.log normalizado por _lib/normaliza.sed. Linhas vazias e '#' sao
-# ignoradas. Sai 1 na primeira divergencia. Por fim confere out/.imagem
+# --check: cada linha de expected/<caso>.txt precisa aparecer, como trecho literal, em
+# out/<caso>.log normalizado por _lib/normaliza.sed, TANTAS VEZES quantas o
+# expected/ a repete (duas linhas `exit_code=3` exigem dois `exit_code=3`), e as
+# linhas `RESULTADO:` (a conclusao de cada passo) precisam aparecer na ordem do
+# expected/. Linhas vazias e '#' sao ignoradas. Sai 1 na primeira divergencia. Por fim confere out/.imagem
 # (tut_check_imagem): a prova so vale se out/ veio da imagem desta arvore.
 #
 # Notacao de forma (valores volateis): expected/ e os blocos de docs/tutorials/
@@ -236,6 +238,37 @@ tut_run_caso() {
 # `analysis-data/<timestamp>`, `<timestamp>`, `is <duracao> days old`. O out/ e
 # normalizado pelas mesmas regras antes do grep, entao outro N ou outra data
 # passa e um valor fora da forma reprova. Lista completa em _lib/normaliza.sed.
+# TUT_CONFERE_AWK le expected/ (-v esperado=) e o out/ normalizado (stdin) e
+# imprime a primeira divergencia: trecho com menos ocorrencias que no
+# expected/, ou linha RESULTADO: fora de ordem. awk POSIX (roda no busybox).
+TUT_CONFERE_AWK='
+BEGIN {
+  while ((getline l < esperado) > 0) {
+    if (l == "" || substr(l, 1, 1) == "#") continue
+    if (!(l in quer)) distinta[++n] = l
+    quer[l]++
+    if (index(l, "RESULTADO:") == 1) resultado[++r] = l
+  }
+}
+{ o[++m] = $0 }
+END {
+  for (i = 1; i <= n; i++) {
+    l = distinta[i]; tem = 0
+    for (j = 1; j <= m && tem < quer[l]; j++) {
+      resto = o[j]
+      while ((p = index(resto, l)) > 0) { tem++; resto = substr(resto, p + length(l)) }
+    }
+    if (tem == 0) { printf "trecho esperado ausente: %s\n", l; exit 1 }
+    if (tem < quer[l]) { printf "trecho esperado %d vez(es), encontrado %d: %s\n", quer[l], tem, l; exit 1 }
+  }
+  j = 1
+  for (i = 1; i <= r; i++) {
+    while (j <= m && index(o[j], resultado[i]) == 0) j++
+    if (j > m) { printf "RESULTADO fora de ordem: %s\n", resultado[i]; exit 1 }
+    j++
+  }
+}'
+
 tut_check() {
   local c line norm
   for c in "${CASOS[@]}"; do
@@ -243,13 +276,10 @@ tut_check() {
     [ -f "$EXPECTED/$c.txt" ] || { echo "DIVERGENCIA caso=$c: expected/$c.txt ausente"; return 1; }
     # sem o arquivo de regras (copia parcial) compara o out/ cru: mais estrito, nunca mais frouxo
     if [ -f "$NORMALIZA" ]; then norm="$(sed -E -f "$NORMALIZA" "$OUT/$c.log")"; else norm="$(cat "$OUT/$c.log")"; fi
-    while IFS= read -r line || [ -n "$line" ]; do
-      case "$line" in ''|'#'*) continue ;; esac
-      if ! grep -qF -- "$line" <<<"$norm"; then
-        echo "DIVERGENCIA caso=$c: trecho esperado ausente: $line"
-        return 1
-      fi
-    done < "$EXPECTED/$c.txt"
+    if ! line="$(printf '%s\n' "$norm" | awk -v esperado="$EXPECTED/$c.txt" "$TUT_CONFERE_AWK")"; then
+      echo "DIVERGENCIA caso=$c: $line"
+      return 1
+    fi
     echo "caso $c: ok"
   done
   tut_check_imagem || return 1

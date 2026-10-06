@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -43,18 +44,26 @@ import (
 // (AUR-519's dynamic skill-section ids).
 
 // DefaultRuleCatalog is every id of the embedded review catalog, sorted,
-// exactly as RulesLoader.Get indexes them.
-var DefaultRuleCatalog = mustCatalogIDs()
+// exactly as RulesLoader.Get indexes them. When the embedded files cannot
+// be read it is empty and defaultRuleCatalogErr carries why: the builder
+// then refuses to assemble a prompt (EmbeddedDefaultsErr) instead of
+// sending one with no closed list.
+var DefaultRuleCatalog, defaultRuleCatalogErr = catalogIDs(rules.IDs)
 
-// mustCatalogIDs loads the embedded catalog ids at initialization. The
-// files are compiled into the binary, so a failure is a build defect that
-// must stop the process rather than send a prompt with no closed list.
-func mustCatalogIDs() []string {
-	ids, err := rules.IDs()
+// catalogIDs loads the catalog ids through load and names the failure.
+func catalogIDs(load func() ([]string, error)) ([]string, error) {
+	ids, err := load()
 	if err != nil {
-		panic(fmt.Sprintf("review rule catalog unavailable: %v", err))
+		return nil, fmt.Errorf("review rule catalog unavailable: %w", err)
 	}
-	return ids
+	return ids, nil
+}
+
+// EmbeddedDefaultsErr reports whether the defaults compiled into the binary
+// (templates/limits.yml and the review rule catalog) loaded. A non-nil
+// value is a build defect; every prompt assembly returns it.
+func EmbeddedDefaultsErr() error {
+	return errors.Join(defaultSlotLimitsErr, defaultRuleCatalogErr)
 }
 
 // MaxRuleCatalogTokens is the default ceiling AC-002 puts on the rendered
@@ -70,6 +79,9 @@ var MaxRuleCatalogTokens = defaultSlotLimits.RuleCatalogMaxTokens
 // catalog. An empty catalog would render a section telling the model to
 // choose from nothing.
 func ValidateRuleCatalog(ids []string, est TokenEstimator) error {
+	if err := EmbeddedDefaultsErr(); err != nil {
+		return err
+	}
 	return validateRuleCatalogWithin(ids, est, MaxRuleCatalogTokens)
 }
 
@@ -145,6 +157,9 @@ func (b *PromptBuilder) RuleCatalog() []string {
 // never returns a partial list: AC-002's requirement is that assembly
 // fails high rather than truncating.
 func (b *PromptBuilder) ruleCatalogSection() (string, error) {
+	if b.defaultsErr != nil {
+		return "", b.defaultsErr
+	}
 	if err := validateRuleCatalogWithin(b.ruleCatalog, b.estimator, b.limits.RuleCatalogMaxTokens); err != nil {
 		return "", err
 	}

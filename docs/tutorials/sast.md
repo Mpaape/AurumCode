@@ -349,8 +349,9 @@ dois modos.)
 
 ### Sem `go` no `PATH`
 
-O mesmo repositório do Caso 5, agora com a imagem do produto como ela é (sem
-Go). O aurumcode não instala nada: a engine fica inconclusiva
+O mesmo repositório do Caso 5, agora com um `PATH` sem o Go (a imagem do
+produto traz o Go pinado em `/usr/local/go/bin`; o caso o deixa de fora do
+`PATH`). O aurumcode não instala nada: a engine fica inconclusiva
 (`lint_unavailable`) e, com `gate.inconclusive` ausente (= `block`), o gate
 reprova.
 

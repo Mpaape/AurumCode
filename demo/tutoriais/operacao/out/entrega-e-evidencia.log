@@ -34,6 +34,6 @@ board note: allowlisted legacy done card without delivery record: AUR-021
 board lane doing: 0 card(s)
 board lane review: 0 card(s)
 board lane validating: 0 card(s)
-board valid: 588 atomic cards
+board valid: 593 atomic cards
 exit_code=0
 RESULTADO: o pipeline valida o board inteiro, inclusive que todo done tem validated.json com o commit do card

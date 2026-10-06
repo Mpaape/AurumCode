@@ -31,7 +31,10 @@ n=0
 while IFS= read -r linha; do
   img="$(campo imagem "$linha")"; insumo="$(campo insumo "$linha")"
   dig="$(campo insumo_sha256 "$linha")"; pw="$(campo playwright "$linha")"
-  [[ -n "$img" && -n "$insumo" && "$dig" =~ ^[0-9a-f]{64}$ ]] || { falha "entrada invalida no manifesto: $linha"; continue; }
+  # O digest e gravado so com o prefixo sha256: (um hex nu depois de "insumo"
+  # casa com a regra de token do gitleaks); valor sem o prefixo reprova.
+  [[ -n "$img" && -n "$insumo" && "$dig" =~ ^sha256:[0-9a-f]{64}$ ]] || { falha "entrada invalida no manifesto: $linha"; continue; }
+  dig="${dig#sha256:}"
   no_manifesto["$img"]=1; n=$((n + 1))
   [[ "$pw" == "$lock" ]] || falha "$img: imagem Playwright $pw difere de playwright.lock"
   [[ -f "$img" ]] || falha "$img: captura do manifesto ausente"

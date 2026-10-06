@@ -3,6 +3,8 @@ package skills
 import (
 	"context"
 	"fmt"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -26,6 +28,28 @@ type Catalog struct {
 	budget   Budget
 	dropped  []string
 	loadWarn []string
+	// policyDirs is the Dir of every skill the central policy contributed,
+	// so each selected skill keeps its trust layer after the merge.
+	policyDirs map[string]bool
+}
+
+// Layer is who a skill belongs to: the central policy or the repository.
+type Layer int
+
+const (
+	// LayerRepository: a skill of the reviewed repository.
+	LayerRepository Layer = iota
+	// LayerPolicy: a skill of the central policy.
+	LayerPolicy
+)
+
+// Doc is one selected skill as the model received it: its document path
+// (the skill directory's SKILL.md), its instructions and its layer. Each
+// "## " section of Instructions is a rule a finding can cite.
+type Doc struct {
+	Path         string
+	Instructions string
+	Layer        Layer
 }
 
 // NewCatalog layers repo under policy. Either set may be nil. loadWarnings
@@ -36,9 +60,52 @@ func NewCatalog(policy, repo *Set, langs *Languages, loadWarnings []string) *Cat
 	if langs == nil {
 		langs = DefaultLanguages()
 	}
-	c := &Catalog{langs: langs, loadWarn: append([]string(nil), loadWarnings...)}
+	c := &Catalog{langs: langs, loadWarn: append([]string(nil), loadWarnings...), policyDirs: map[string]bool{}}
 	c.set, c.dropped = layer(policy, repo, langs)
+	if policy != nil {
+		for _, sk := range policy.Skills {
+			c.policyDirs[sk.Dir] = true
+		}
+	}
 	return c
+}
+
+// layerOf is the trust layer sk came from.
+func (c *Catalog) layerOf(sk Skill) Layer {
+	if c.policyDirs[sk.Dir] {
+		return LayerPolicy
+	}
+	return LayerRepository
+}
+
+// ExcludeListed drops the skills of layer whose SKILL.md is also listed by
+// path (review.context.skills, relative to that layer's root): a listed file
+// is already sent to the model by the listing, so the same text never
+// reaches the prompt twice.
+func (c *Catalog) ExcludeListed(layer Layer, listed []string) {
+	docs := map[string]bool{}
+	for _, p := range listed {
+		docs[path.Clean(strings.TrimSpace(filepath.ToSlash(p)))] = true
+	}
+	kept := c.set.Skills[:0:0]
+	for _, sk := range c.set.Skills {
+		if c.layerOf(sk) == layer && docs[DefaultDirName+"/"+path.Base(sk.Dir)+"/"+DocName] {
+			continue
+		}
+		kept = append(kept, sk)
+	}
+	c.set = &Set{Skills: kept}
+}
+
+// Docs is every skill selected for changed, with its layer, in the order the
+// model receives them: the source of the citable rules of directory skills.
+func (c *Catalog) Docs(changed []string) []Doc {
+	selected := c.Select(changed).Skills
+	out := make([]Doc, 0, len(selected))
+	for _, sk := range selected {
+		out = append(out, Doc{Path: sk.Dir + "/" + DocName, Instructions: sk.Instructions, Layer: c.layerOf(sk)})
+	}
+	return out
 }
 
 // layer merges the two sets, dropping every repository skill whose selector a

@@ -62,6 +62,16 @@ RUN pip3 install --no-cache-dir --break-system-packages semgrep==1.172.0
 COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks
 RUN test "$(gitleaks version)" = "v8.30.1"
 
+# The lint engine (govet) runs the Go toolchain's own `go vet`. The toolchain
+# is copied from the builder stage, the golang image pinned by digest above,
+# so the review runs the same Go the project builds with (go.mod's `go`
+# line). It never downloads a toolchain or a module (the engine fixes
+# GOTOOLCHAIN=local and GOPROXY=off): a repository's modules must already be
+# in GOMODCACHE, which the review workflow fills before the review.
+COPY --from=builder /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:$PATH GOPATH=/go GOMODCACHE=/go/pkg/mod
+RUN go version | grep -q "go1.27.1 "
+
 WORKDIR /github/workspace
 COPY --from=builder /aurumcode /app/aurumcode
 COPY scripts/action-entrypoint.sh /app/action-entrypoint.sh

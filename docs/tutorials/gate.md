@@ -134,14 +134,16 @@ um job que não pode confundir "só análise determinística" com "revisado".
 
 ## Caso 3: inconclusivo, cobertura parcial
 
-Um binário no diff não é revisado; um arquivo não revisado nunca conta como
-aprovado.
+Um arquivo gerado no diff (`gerado.go`, `Code generated ... DO NOT EDIT.`)
+não é revisado; um arquivo não revisado nunca conta como aprovado. (Um
+binário ou um caminho em `ignore` não entra aqui: é declarado ignorado e não
+deixa a revisão parcial.)
 
 <!-- saida: inconclusivo-cobertura -->
 ```text
 --- inconclusive: block
 aurumcode review: policy gate: review inconclusive (partial_coverage)
-  - logo.png (binary)
+  - gerado.go (generated)
 exit_code=1
 RESULTADO: block: cobertura parcial reprova
 --- inconclusive: warn

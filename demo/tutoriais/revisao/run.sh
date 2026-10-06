@@ -77,17 +77,21 @@ caso_pr_workflow() {
   done
 }
 
-# Falha: arquivo nao revisado (binario) nunca conta como aprovado.
+# Falha: arquivo nao revisado (gerado) nunca conta como aprovado; binario e caminho em ignore sao declarados ignorados, nunca parciais.
 caso_falha_nao_revisado() {
-  tut_repo falha-nao-revisado repo-exemplo/base repo-exemplo/binario
+  tut_repo falha-nao-revisado repo-exemplo/base repo-exemplo/gerado
   TUT_FIXTURE=fixture-vazia.json
   echo "--- sem gate: veredito 'Comment', nunca 'Approve'"
   aurum review --base main
   expect_rc 0 "sem gate, exit 0 mas o veredito nao e Approve"
   echo "--- com gate.inconclusive: block"
-  tut_repo falha-nao-revisado-gate repo-exemplo/base repo-exemplo/gate-estrito repo-exemplo/binario
+  tut_repo falha-nao-revisado-gate repo-exemplo/base repo-exemplo/gate-estrito repo-exemplo/gerado
   aurum review --base main
   expect_rc 1 "com gate.inconclusive: block, cobertura parcial reprova"
+  echo "--- binario com gate.inconclusive: block: declarado ignorado, nao parcial"
+  tut_repo falha-nao-revisado-binario repo-exemplo/base repo-exemplo/gate-estrito repo-exemplo/binario
+  aurum review --base main
+  expect_rc 0 "o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova"
 }
 
 # 7. O modelo pondera a evidencia: o passe de seguranca e o catalogo embutido rodam antes do

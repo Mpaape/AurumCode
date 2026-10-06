@@ -28,29 +28,38 @@ contexto de codebase é omitido por esse descompasso de HEAD.
 
 ## Configuração mínima
 
-Sem `.aurumcode/config.yml` o review já roda, mas só orienta. Para que ele
-seja um gate de verdade, copie estas linhas para `.aurumcode/config.yml` na
-branch base:
+Sem `.aurumcode/config.yml` o review já roda, mas só orienta. Para um gate,
+estas linhas na branch base bastam, sem ajuste fino:
 
 ```yaml
-review:
-  language: pt-BR
 gate:
   fail_on: [error]      # achado error reprova o check
   inconclusive: block   # revisão que não concluiu nunca aprova
+ignore:
+  - "tests/**"          # fora da revisão: listado como ignorado, nunca "parcial"
 quality_gates:
   scanners:
     - engine: gitleaks  # segredos no intervalo de commits da PR
       required: true
+    - engine: semgrep   # SAST: só achados em linhas que a PR adicionou
+    - engine: govet     # go vet com o Go da imagem: só linhas adicionadas
+      fail_on: warning
 ```
 
-As convenções do time entram como skills Markdown em
-`.aurumcode/skills/<nome>/SKILL.md`; para que uma seção `## ` vire regra
-citável pelo gate, liste o arquivo em `review.context.skills` (ver
-[Configuração](configuration.md#prompts-skills-e-docs)). O próprio AurumCode
-se revisa assim: o [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
-do repositório tem menos de 30 linhas úteis e acrescenta deliberação e seis
-skills de convenção.
+- Caminho em `ignore` e arquivo de formato binário conhecido (uma captura
+  PNG) ficam fora da conta de cobertura: o parecer os lista como ignorados e a revisão não fica
+  inconclusiva por eles.
+- Semgrep e go vet varrem a árvore, mas só reprovam pelo que a PR mudou: um
+  achado antigo num arquivo que ela não tocou não bloqueia.
+- Convenções do time entram como `.aurumcode/skills/<nome>/SKILL.md`; cada
+  seção `## ` vira regra citável `<nome>#<slug>` sem listar nada (ver
+  "Skills em diretório" em docs/configuration.md).
+- Falha de provedor e scanner ausente continuam bloqueando com
+  `inconclusive: block`.
+- O próprio AurumCode se revisa assim: o
+  [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
+  do repositório acrescenta deliberação e seis skills de convenção, em menos
+  de 30 linhas úteis.
 
 ## Uso local
 

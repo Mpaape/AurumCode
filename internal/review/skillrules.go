@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -43,7 +44,7 @@ var skillHeadingPattern = regexp.MustCompile(`(?m)^##[ \t]+(.+?)[ \t]*$`)
 // or heading-less skill returns nil, never an error: a skill with no
 // sections simply contributes no dynamic rule, exactly like today.
 func ParseSkillSections(skillFile, content, origin string) []Rule {
-	base := strings.TrimSuffix(filepath.Base(skillFile), filepath.Ext(skillFile))
+	base := skillRuleBase(skillFile)
 	if base == "" {
 		return nil
 	}
@@ -79,6 +80,26 @@ func ParseSkillSections(skillFile, content, origin string) []Rule {
 		})
 	}
 	return rules
+}
+
+// skillDocStem is the file name, without extension, of the document inside a
+// skill directory (.aurumcode/skills/<name>/SKILL.md).
+const skillDocStem = "SKILL"
+
+// skillRuleBase is the stable prefix of a skill file's rule ids: the file
+// name without extension, or, for a skill directory's SKILL.md, the
+// directory's name. A skill directory therefore yields the same ids whether
+// it reaches the review through the directory or listed by path, and two
+// skill directories never share a prefix.
+func skillRuleBase(skillFile string) string {
+	clean := filepath.ToSlash(filepath.Clean(skillFile))
+	base := strings.TrimSuffix(path.Base(clean), path.Ext(clean))
+	if base == skillDocStem {
+		if dir := path.Base(path.Dir(clean)); dir != "." && dir != "/" {
+			return dir
+		}
+	}
+	return base
 }
 
 // extractSkillSectionSeverity reads body's own first non-blank line as an

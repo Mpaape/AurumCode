@@ -90,11 +90,14 @@ caso_govet_achado() {
   TUT_ENVS=()
 }
 
-# 7. Falha: a imagem do produto nao traz o Go => lint_unavailable, nunca "limpo".
+# 7. Falha: sem Go no PATH (a imagem do produto traz o Go em /usr/local/go/bin;
+# aqui o PATH o deixa de fora) => lint_unavailable, nunca "limpo".
 caso_govet_sem_go() {
   tut_repo govet-sem-go repo-exemplo/lint-base repo-exemplo/lint-erro
+  TUT_ENVS=(-e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin)
   aurum review --base main
   expect_rc 1 "sem go no PATH: inconclusivo (lint_unavailable) e o gate reprova; nada e instalado"
+  TUT_ENVS=()
 }
 
 tut_main "$@"
