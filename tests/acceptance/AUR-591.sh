@@ -8,8 +8,9 @@
 #             not comment), declares gate, scanners and deliberation, passes
 #             the strict Parse (a typo key is a named load error), and a local
 #             `review --base HEAD~1` with an offline provider fixture sends the
-#             repository skills to the model and fails the check on a finding
-#             citing one of them
+#             directory skills selected by path to the model (none listed in
+#             the config) and fails the check on a finding citing one of them
+#             by its <dir>#<slug> id
 #   MUT-001   without the skill file, the same fixture finding is discarded as
 #             an unknown rule and the check passes: the finding depends on the
 #             skill, not on a fixed rule
@@ -37,7 +38,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 readonly config="$repo_root/.aurumcode/config.yml"
 readonly workflow="$repo_root/.github/workflows/code-review.yml"
-readonly skill_rule='SKILL#tam-001-funcao-com-no-maximo-150-linhas'
+readonly skill_rule='tamanho#tam-001-funcao-com-no-maximo-150-linhas'
 for input in go.mod go.sum cmd internal pkg .aurumcode/config.yml .aurumcode/skills/tamanho/SKILL.md .github/workflows/code-review.yml; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
@@ -183,7 +184,7 @@ run_ac003() {
   printf 'useful lines: %s\n' "$useful" >&2
   (( useful <= 30 )) || fail "config-too-long:$useful"
   for key in '^gate:' '^  fail_on: \[error\]' '^  inconclusive: block' '^quality_gates:' '^  scanners:' \
-             '^    - engine: gitleaks' '^      required: true' '^    - \{engine: semgrep, enabled: false\}' '^    - \{engine: govet, enabled: false' \
+             '^    - engine: gitleaks' '^      required: true' '^    - engine: semgrep' '^    - engine: govet' \
              '^deliberation:' '^  enabled: true' '^  max_rounds: ' '^  max_cost_tokens: ' '^  per_tool_timeout_seconds: ' \
              '^  - "tests/\*\*"' '^  - "docs/assets/capturas/\*\*"' '^  language: pt-BR'; do
     grep -Eq "$key" "$config" || fail "config-lacks:$key"
@@ -213,9 +214,15 @@ run_ac003() {
   dir="$(repo skills "$run_dir/skills.yml")"
   review "$dir" skills
   local heading
-  for heading in 'ARQ-001' 'TAM-001' 'TAM-002' 'CARD-001' 'PUB-001' 'PUB-002' 'BOOL-001' 'GATE-001'; do
+  # Directory skills, selected by their paths: the changed longa.go selects
+  # the Go-wide and repository-wide skills, not the cmd/internal/pkg ones.
+  for heading in 'TAM-001' 'TAM-002' 'PUB-001' 'PUB-002' 'BOOL-001'; do
     grep -q "## $heading " "$prompt" || fail "skill-not-in-prompt:$heading"
   done
+  for heading in 'ARQ-001' 'CARD-001' 'GATE-001'; do
+    grep -q "## $heading " "$prompt" && fail "skill-outside-its-paths-in-prompt:$heading"
+  done
+  grep -q 'context:' "$config" && fail 'skills-listed-in-config'
   [[ "$rc" == 3 ]] || fail "skill-finding-did-not-fail-check:$rc"
   grep -qF "(rule $skill_rule: TAM-001 Funcao com no maximo 150 linhas)" "$out" || fail 'finding-does-not-cite-skill'
   grep -qF "policy gate: $skill_rule" "$err" || fail 'gate-does-not-name-skill'

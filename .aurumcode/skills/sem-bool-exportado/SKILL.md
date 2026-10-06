@@ -4,7 +4,7 @@ version: 1
 paths: ["**/*.go"]
 ---
 APIs com intencao nomeada. Cada `## ` abaixo e uma regra citavel
-(`SKILL#<slug do titulo>`).
+(`sem-bool-exportado#<slug do titulo>`).
 
 ## BOOL-001 Sem parametro bool em funcao exportada
 severity: error

@@ -4,7 +4,7 @@ version: 1
 paths: ["**"]
 ---
 O repositorio e publico. Cada `## ` abaixo e uma regra citavel
-(`SKILL#<slug do titulo>`).
+(`repo-publico#<slug do titulo>`).
 
 ## PUB-001 Sem empresa, dominio interno ou repositorio privado
 severity: error

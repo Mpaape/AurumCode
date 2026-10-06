@@ -4,7 +4,7 @@ version: 1
 paths: ["**/*.go"]
 ---
 Limites de tamanho do codigo de producao Go (testes fora). Cada `## ` abaixo
-e uma regra citavel (`SKILL#<slug do titulo>`).
+e uma regra citavel (`tamanho#<slug do titulo>`).
 
 ## TAM-001 Funcao com no maximo 150 linhas
 severity: error
