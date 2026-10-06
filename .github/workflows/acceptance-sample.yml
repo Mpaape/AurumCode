@@ -4,6 +4,8 @@ name: Acceptance sample
 # docs/specs/AUR-589.md records for it (0 = green, 69 = retired with a product
 # reason), in shards, inside the same pinned Go image as CI. A new red shows
 # up the next morning. The table is the single list: no card is named here.
+# The job runs under C.UTF-8 (musl supports it natively), so acceptances that
+# match accented Portuguese text see UTF-8, as on a developer machine.
 on:
   schedule:
     - cron: '17 3 * * *'
@@ -36,6 +38,8 @@ jobs:
           -e "AUR589_SHARD=${SHARD}/6"
           -e GOFLAGS=-buildvcs=false
           -e GOCACHE=/tmp/gocache
+          -e LANG=C.UTF-8
+          -e LC_ALL=C.UTF-8
           golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
           sh -c 'apk add --no-cache bash git python3 >/dev/null
           && git config --global --add safe.directory /src
