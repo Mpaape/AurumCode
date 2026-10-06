@@ -62,6 +62,13 @@ catálogo não conhece é declarado no contexto enviado ao modelo
 (`### Skill selection warnings`) e na seção de limitações do parecer; a
 política pode acrescentar apelidos em `.aurumcode/grammar/aliases.yml`.
 
+Uma skill de diretório chega ao modelo, mas só vira regra citável pelo gate
+(seção abaixo) quando o arquivo também está listado em `review.context.skills`.
+O id da regra usa o nome do arquivo, então toda skill de diretório gera ids
+`SKILL#<slug-da-seção>`: dê às seções títulos únicos entre as skills (por
+exemplo com um prefixo, `## TAM-001 Funcao com no maximo 150 linhas`). É o
+formato do `.aurumcode/` do próprio AurumCode.
+
 A política central pode ter as suas skills em `<política>/.aurumcode/skills/`.
 Se uma skill da política e uma do repositório declaram o mesmo seletor, a da
 política vence e o repositório recebe um aviso. Um `SKILL.md` ilegível na
