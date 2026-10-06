@@ -44,6 +44,9 @@ umask 077
 readonly card='AUR-448'
 readonly scenario='AC-001'
 selector="${1:-AC-001}"
+# `all` is AC-001 (which runs every scenario of this card), the name every
+# other acceptance script uses for the whole contract.
+[[ "$selector" != all ]] || selector=AC-001
 
 case "$selector" in
   AC-001|TestAUR448|IntegrationAUR448|E2EAUR448|AC-001-MUT-001) ;;
