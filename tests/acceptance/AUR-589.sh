@@ -59,12 +59,12 @@ acc_dir="$repo_root/tests/acceptance"
 [[ -d "$acc_dir" ]] || infra missing-acceptance-dir
 
 # Cards this run does not execute, each for a reason stated in the spec:
-# AUR-448, 458, 491 and 547 belong to AUR-590 (measured defects and the sealed
-# image repin); AUR-534's AC-004 only runs inside the sealed image, whose baked
-# /opt/aurum-a006 files it compares (AUR-590 repins that image); AUR-436 and
-# AUR-460 are open as their own cards (a product behavior shared with AUR-448,
-# and a fake gateway response in tests/e2e outside this card's paths).
-readonly -a allowed_outside=(AUR-436 AUR-448 AUR-458 AUR-460 AUR-491 AUR-534 AUR-547)
+# AUR-534's AC-004 and AUR-590's AC-003 prove the sealed image itself (its
+# baked /opt/aurum-a006 files, its offline module cache), so they only run
+# inside it, through oci-run; AUR-436 and AUR-460 are open as their own cards
+# (a review without a provider exits 0, and a fake gateway response in
+# tests/e2e outside this card's paths).
+readonly -a allowed_outside=(AUR-436 AUR-460 AUR-534 AUR-590)
 
 # Fixed sample for `all`: retired stubs of each retirement class plus light
 # green acceptances that were repaired by this card.

@@ -66,6 +66,9 @@ Pacotes que o binário não alcança, mas que aceites de cards `done` ainda
 exercitam (`evidence`, `governance/dag`, `governance/taskspec`,
 `sandbox/profile`, `config/policy`, `llm/httpbase`), vivem em
 `tests/legacy/<pacote>` e não em `internal/`. `apply/applycheck` fica em
-`internal/apply` porque `cmd/aurumcode` o importa em teste. Um job noturno
-(`acceptance-sample.yml`) roda uma amostra fixa de aceites `done`. Detalhes em
-[specs/AUR-585.md](specs/AUR-585.md).
+`internal/apply` porque `cmd/aurumcode` o importa em teste. Detalhes em
+[specs/AUR-585.md](specs/AUR-585.md). Um job noturno (`acceptance-sample.yml`)
+faz a varredura completa dos aceites de cards `done` em 6 shards, na mesma imagem
+Go do CI: cada aceite precisa sair com o estado da tabela de
+[specs/AUR-589.md](specs/AUR-589.md) (0 verde, ou 69 aposentado com motivo de
+produto), entao podridao nova aparece no dia seguinte.
