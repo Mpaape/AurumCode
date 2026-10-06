@@ -43,7 +43,7 @@ owned_inputs=(tests/unit/AUR-452.go tests/integration/AUR-452.go tests/e2e/AUR-4
 for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
 done
-required_inputs=(go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction)
+required_inputs=(go.mod go.sum cmd internal pkg)
 for input in "${required_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
@@ -54,7 +54,7 @@ trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 run_go() { local dir="$1"; shift; ( cd "$dir" && ulimit -v 8388608 && GOMEMLIMIT=2GiB go "$@" ); }
 
 copy() {
@@ -70,7 +70,7 @@ copy() {
 stage_source() {
   local root="$1"
   mkdir -p "$root"
-  copy "$root" go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction
+  copy "$root" go.mod go.sum cmd internal pkg
   chmod -R u+w -- "$root"
 }
 
