@@ -1,32 +1,56 @@
 # Binary formats the review declares "ignored" instead of partial coverage:
-# file extensions (lower case, without the dot) of formats that hold no
-# reviewable source (images, documents, fonts, media, plain archives). A file
-# is declared ignored only when its extension is listed here AND its content
-# is binary (grammar.LooksBinary). Anything else with binary content -- a
-# script or source extension, no extension (a shebang file), or an extension
-# not listed -- stays partial and withholds approval (fail-closed).
-# Executables and libraries are deliberately absent: they are not reviewable
-# and must not pass silently.
-version: 1
-extensions:
-  - png
-  - jpg
-  - jpeg
-  - gif
-  - webp
-  - bmp
-  - ico
-  - tif
-  - tiff
-  - pdf
-  - zip
-  - woff
-  - woff2
-  - ttf
-  - otf
-  - eot
-  - mp3
-  - mp4
-  - wav
-  - ogg
-  - webm
+# formats that hold no reviewable source (images, documents, fonts, media,
+# plain archives). A file is declared ignored only when ALL hold:
+#   - its extension (any case) is one of the format's `extensions`;
+#   - its content starts with one of the format's `signatures` (magic bytes,
+#     hex, at `offset`);
+#   - its content is binary (grammar.LooksBinary).
+# Anything else with binary content -- a script or source extension, no
+# extension (a shebang file), an unlisted extension, or a listed extension
+# without its signature (a script renamed to .png) -- stays partial and
+# withholds approval (fail-closed). Executables and libraries are deliberately
+# absent: they are not reviewable and must not pass silently.
+version: 2
+formats:
+  - name: png
+    extensions: [png]
+    signatures: [{offset: 0, hex: 89504E470D0A1A0A}]
+  - name: jpeg
+    extensions: [jpg, jpeg]
+    signatures: [{offset: 0, hex: FFD8FF}]
+  - name: gif
+    extensions: [gif]
+    signatures: [{offset: 0, hex: "474946383761"}, {offset: 0, hex: "474946383961"}]
+  - name: ico
+    extensions: [ico]
+    signatures: [{offset: 0, hex: "00000100"}]
+  - name: tiff
+    extensions: [tif, tiff]
+    signatures: [{offset: 0, hex: 49492A00}, {offset: 0, hex: 4D4D002A}]
+  - name: pdf
+    extensions: [pdf]
+    signatures: [{offset: 0, hex: "25504446"}]
+  - name: zip
+    extensions: [zip]
+    signatures: [{offset: 0, hex: 504B0304}, {offset: 0, hex: 504B0506}]
+  - name: woff
+    extensions: [woff]
+    signatures: [{offset: 0, hex: 774F4646}]
+  - name: woff2
+    extensions: [woff2]
+    signatures: [{offset: 0, hex: 774F4632}]
+  - name: ttf
+    extensions: [ttf]
+    signatures: [{offset: 0, hex: "00010000"}]
+  - name: otf
+    extensions: [otf]
+    signatures: [{offset: 0, hex: 4F54544F}]
+  - name: mp4
+    extensions: [mp4]
+    signatures: [{offset: 4, hex: "66747970"}]
+  - name: ogg
+    extensions: [ogg]
+    signatures: [{offset: 0, hex: 4F676753}]
+  - name: webm
+    extensions: [webm]
+    signatures: [{offset: 0, hex: 1A45DFA3}]

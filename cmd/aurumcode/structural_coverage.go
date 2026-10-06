@@ -88,13 +88,14 @@ func uninspectedPRNotices(diff *types.Diff, dir string) []analyzer.DiffNotice {
 }
 
 // declaredBinary reports a notice the review declares ignored instead of
-// partial: binary content (the analyzer's own content check) in a file whose
-// extension the binary-format catalog lists (grammar.KnownBinaryFormat). A
-// NUL byte in a script, a source file, a file without extension or of an
-// unknown format is not enough: such a file stays unreviewed and withholds
+// partial: binary content of a format the catalog declares, by extension AND
+// signature (grammar.DeclaredBinaryFormat, decided by the analyzer over the
+// content). A NUL byte in a script, a source file, a file without extension,
+// of an unknown format, or a script renamed to a listed extension is not
+// enough: such a file stays unreviewed and withholds
 // approval, so a crafted byte can never hide code from the review.
 func declaredBinary(n analyzer.DiffNotice) bool {
-	return n.Reason == analyzer.NoticeReasonBinary && grammar.KnownBinaryFormat(n.Path)
+	return n.Reason == analyzer.NoticeReasonBinary && n.DeclaredFormat
 }
 
 // splitBinaryFiles separates the diff's declared binary files (by the same content

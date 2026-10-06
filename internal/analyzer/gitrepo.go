@@ -1,6 +1,8 @@
 package analyzer
 
 import (
+	"github.com/Mpaape/AurumCode/internal/grammar"
+
 	"bytes"
 	"compress/zlib"
 	"encoding/hex"
@@ -672,7 +674,13 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 			skip = classifyBlob(p, oldContent)
 		}
 		if skip != "" {
-			notices = append(notices, DiffNotice{Path: p, Message: skip, Reason: noticeReason(skip)})
+			// The side that exists decides the format: the new content, or
+			// the old one of a deleted file.
+			formatContent := newContent
+			if !hasNew {
+				formatContent = oldContent
+			}
+			notices = append(notices, DiffNotice{Path: p, Message: skip, Reason: noticeReason(skip), DeclaredFormat: grammar.DeclaredBinaryFormat(p, formatContent)})
 			continue
 		}
 
