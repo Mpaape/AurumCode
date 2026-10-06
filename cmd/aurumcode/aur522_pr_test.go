@@ -106,22 +106,34 @@ func aur522ExpectNotApproved(t *testing.T, code int, out, posted string, wants .
 	}
 }
 
-// (a) a binary: no patch in the API diff, NUL bytes in the verified checkout.
-// Nothing in it is reviewable by reading, so it is declared ignored (listed
-// by name), out of the coverage count: the review of the text stays
-// complete and is never held partial by a binary.
-func TestAUR522PRBinaryIsDeclaredIgnored(t *testing.T) {
+// (a) an executable: no patch in the API diff, NUL bytes in the verified
+// checkout, and an extension the binary-format catalog does not list. It is
+// not reviewable, so it is never approved.
+func TestAUR522PRBinaryWithoutPatchIsNotReviewed(t *testing.T) {
 	head := aur522PRCheckout(t, map[string][]byte{
 		"app.go":   []byte("package demo\nfunc Change() {}\n"),
 		"tool.bin": {0x7f, 'E', 'L', 'F', 0, 1, 2, 0, 9},
 	})
 	diff := aur522PRAppDiff + "diff --git a/tool.bin b/tool.bin\nBinary files /dev/null and b/tool.bin differ\n"
 	code, out, posted := aur522PRRun(t, head, diff)
-	if code != 0 || !strings.Contains(posted, "  - tool.bin (binary)") || !strings.Contains(posted, "ignored") {
-		t.Fatalf("a binary must be declared ignored by name (exit=%d):\n%s\n%s", code, out, posted)
+	aur522ExpectNotApproved(t, code, out, posted, "tool.bin (binary)")
+}
+
+// (a') an image: binary content and an extension of the binary-format
+// catalog. Nothing in it is reviewable by reading, so it is declared ignored
+// (listed by name), out of the coverage count.
+func TestAUR522PRBinaryIsDeclaredIgnored(t *testing.T) {
+	head := aur522PRCheckout(t, map[string][]byte{
+		"app.go":   []byte("package demo\nfunc Change() {}\n"),
+		"logo.png": pngBytes,
+	})
+	diff := aur522PRAppDiff + "diff --git a/logo.png b/logo.png\nBinary files /dev/null and b/logo.png differ\n"
+	code, out, posted := aur522PRRun(t, head, diff)
+	if code != 0 || !strings.Contains(posted, "  - logo.png (binary)") || !strings.Contains(posted, "ignored") {
+		t.Fatalf("an image must be declared ignored by name (exit=%d):\n%s\n%s", code, out, posted)
 	}
 	if strings.Contains(posted, "were not fully reviewed") || strings.Contains(posted, "token budget") {
-		t.Fatalf("a binary must not make the review partial:\n%s", posted)
+		t.Fatalf("an image must not make the review partial:\n%s", posted)
 	}
 }
 

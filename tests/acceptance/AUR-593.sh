@@ -6,10 +6,11 @@
 # once; the review image carries the pinned Go toolchain for govet.
 #
 # Selectors:
-#   all        AC-001..AC-005, then MUT-001 and MUT-002
+#   all        AC-001..AC-005, then MUT-001..MUT-003
 #   AC-001     tests/** (ignored) + a PNG under inconclusive: block: not
 #              inconclusive by coverage, the ignored files listed; a
-#              generated file still partial (fail-closed)
+#              generated file, and a .sh/.js/.yml/shebang file with a NUL
+#              byte, still partial with approval withheld (fail-closed)
 #   AC-002     pre-existing Semgrep finding in an untouched file: gate
 #              passes; a finding on an added line: gate fails; recovered
 #              parse errors outside the change are not invalid output
@@ -20,6 +21,8 @@
 #              AC-001..AC-003 together (the real-tree run is in the spec)
 #   MUT-001    counting ignored files as partial again turns AC-001 RED
 #   MUT-002    Semgrep keeping findings off the change turns AC-002 RED
+#   MUT-003    any binary content declared ignored (no format catalog): a
+#              script with one NUL byte would pass; turns AC-001 RED
 # Unknown selector exits 64; infrastructure 79; behavioral failure 1.
 set -Eeuo pipefail
 export LC_ALL=C
@@ -28,7 +31,7 @@ umask 077
 readonly card='AUR-593'
 selector="${1:-all}"
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|AC-005|MUT-001|MUT-002) ;;
+  all|AC-001|AC-002|AC-003|AC-004|AC-005|MUT-001|MUT-002|MUT-003) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -81,7 +84,7 @@ replace_once() {
   grep -Fq -- "$replacement" "$file" || infra "mutation-not-applied:${file##*/}"
 }
 
-readonly ac001_tests=(TestIgnoredAndBinaryAreDeclaredNotPartial TestGeneratedFileStillPartialUnderBlock TestAUR522PRBinaryIsDeclaredIgnored TestAUR522PRGeneratedFileIsNotReviewed)
+readonly ac001_tests=(TestIgnoredAndBinaryAreDeclaredNotPartial TestGeneratedFileStillPartialUnderBlock TestNULInCodeIsNeverDeclaredBinary TestAUR522PRBinaryIsDeclaredIgnored TestAUR522PRBinaryWithoutPatchIsNotReviewed TestAUR522PRGeneratedFileIsNotReviewed)
 readonly ac002_cmd=(TestSemgrepJudgesOnlyTheChange)
 readonly ac002_engine=(TestSemgrepKeepsOnlyFindingsOnAddedLines TestSemgrepRecoveredParseErrorOutsideTheChangeIsNotInvalid TestSemgrepErrorsOnTheChangeStayInvalid TestSemgrepWithoutRangeFails)
 readonly ac003_tests=(TestDirectorySkillIsCitableOnce)
@@ -170,6 +173,16 @@ run_mut002() {
   printf '%s/MUT-002/rejected\n' "$card"
 }
 
+run_mut003() {
+  local root="$run_dir/root-mut3"
+  stage "$root"
+  replace_once "$root/cmd/aurumcode/structural_coverage.go" \
+    'return n.Reason == analyzer.NoticeReasonBinary && grammar.KnownBinaryFormat(n.Path)' \
+    'return n.Reason == analyzer.NoticeReasonBinary || grammar.KnownBinaryFormat("") /* MUT-003 */'
+  expect_red "$root" "$run_dir/mut3.log" ./cmd/aurumcode/ TestNULInCodeIsNeverDeclaredBinary
+  printf '%s/MUT-003/rejected\n' "$card"
+}
+
 case "$selector" in
   AC-001) run_ac001 ;;
   AC-002) run_ac002 ;;
@@ -178,6 +191,7 @@ case "$selector" in
   AC-005) run_ac005 ;;
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
+  MUT-003) run_mut003 ;;
   all)
     run_ac001
     run_ac002
@@ -186,6 +200,7 @@ case "$selector" in
     run_ac005
     run_mut001
     run_mut002
+    run_mut003
     ;;
 esac
 printf '%s/%s/pass\n' "$card" "$selector"

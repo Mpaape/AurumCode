@@ -74,8 +74,9 @@ func (c reviewCoverageBreakdown) declaredIgnored() bool { return c.Ignored > 0 }
 // deterministic facts cmd/aurumcode owns: which files the repository config
 // ignored (removed before the model ever saw the diff) and which were filtered
 // before the review (analyzer.DiffNotice). A file is counted at most once: a
-// config-ignored path is ignored whatever its content; a binary file is
-// declared ignored; every other notice is filtered. When no prompt was
+// config-ignored path is ignored whatever its content; a file of a known
+// binary format with binary content is declared ignored (declaredBinary);
+// every other notice is filtered. When no prompt was
 // assembled (promptMeta nil, e.g. the deterministic-only path) the prompt
 // counts are simply absent and the configured/filtered counts remain.
 func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNotice, rawFileCount int, ignoredPaths []string) reviewCoverageBreakdown {
@@ -102,7 +103,7 @@ func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNo
 		if n.Reason != "" {
 			label = n.Path + " (" + n.Reason + ")"
 		}
-		if n.Reason == analyzer.NoticeReasonBinary {
+		if declaredBinary(n) {
 			ignored = append(ignored, label)
 			continue
 		}
