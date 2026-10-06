@@ -49,8 +49,8 @@ As convenções do time entram como skills Markdown em
 citável pelo gate, liste o arquivo em `review.context.skills` (ver
 [Configuração](configuration.md#prompts-skills-e-docs)). O próprio AurumCode
 se revisa assim: o [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
-do repositório tem menos de 30 linhas úteis e acrescenta Semgrep,
-deliberação e seis skills de convenção.
+do repositório tem menos de 30 linhas úteis e acrescenta deliberação e seis
+skills de convenção.
 
 ## Uso local
 

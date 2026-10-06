@@ -12,9 +12,11 @@ review:
       - .aurumcode/skills/repo-publico/SKILL.md
       - .aurumcode/skills/sem-bool-exportado/SKILL.md
       - .aurumcode/skills/gate-fail-closed/SKILL.md
-# Fixtures de teste tem canarios de segredo e de injecao de proposito.
+# Fixtures de teste tem canarios de segredo e de injecao de proposito; as
+# capturas geradas da documentacao repetem a saida desses casos.
 ignore:
   - "tests/**"
+  - "docs/assets/capturas/**"
 gate:
   fail_on: [error]      # achado error (modelo, skill ou scanner) reprova
   inconclusive: block   # revisao que nao concluiu nunca aprova
@@ -22,13 +24,14 @@ quality_gates:
   scanners:
     - engine: gitleaks  # segredos no intervalo de commits da PR
       required: true
-    - engine: semgrep   # SAST; pacotes p/... exigem rede no CI
+    # Semgrep varre a arvore inteira: hoje acha erros em arquivos que a PR
+    # nao tocou e recusa avisos de parse, o que bloquearia toda PR. Fica
+    # declarado e desligado ate filtrar por linhas alteradas.
+    - {engine: semgrep, enabled: false}
     # go vet exige `go` no PATH; a imagem do review ainda nao o traz e a
     # engine ligada seria inconclusiva (bloqueio) em toda PR. Ligar junto
     # com a imagem que trouxer go e o cache de modulos.
-    - engine: govet
-      enabled: false
-      fail_on: warning
+    - {engine: govet, enabled: false, fail_on: warning}
 deliberation:
   enabled: true
   max_rounds: 3

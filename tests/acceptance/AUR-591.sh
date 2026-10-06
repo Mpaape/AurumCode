@@ -183,9 +183,9 @@ run_ac003() {
   printf 'useful lines: %s\n' "$useful" >&2
   (( useful <= 30 )) || fail "config-too-long:$useful"
   for key in '^gate:' '^  fail_on: \[error\]' '^  inconclusive: block' '^quality_gates:' '^  scanners:' \
-             '^    - engine: gitleaks' '^      required: true' '^    - engine: semgrep' '^    - engine: govet' \
+             '^    - engine: gitleaks' '^      required: true' '^    - \{engine: semgrep, enabled: false\}' '^    - \{engine: govet, enabled: false' \
              '^deliberation:' '^  enabled: true' '^  max_rounds: ' '^  max_cost_tokens: ' '^  per_tool_timeout_seconds: ' \
-             '^  - "tests/\*\*"' '^  language: pt-BR'; do
+             '^  - "tests/\*\*"' '^  - "docs/assets/capturas/\*\*"' '^  language: pt-BR'; do
     grep -Eq "$key" "$config" || fail "config-lacks:$key"
   done
   build
