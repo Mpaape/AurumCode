@@ -1,9 +1,36 @@
-# Repository review preferences. Security rules, redaction, gates and cost
-# limits remain controlled by AurumCode and are not configurable here.
+# O AurumCode revisa o proprio AurumCode. O que nao esta aqui usa o padrao
+# do produto; redacao de segredos e regras de seguranca nao se configuram.
 review:
   language: pt-BR
-# Test fixtures deliberately contain injection patterns and secret canaries;
-# the deterministic security and quality passes must not flag them. Real
-# source under cmd/, internal/ and pkg/ is still reviewed.
+  context:
+    # Convencoes do repo. Cada "## " vira regra citavel SKILL#<slug>; uma
+    # secao com "severity: error" reprova o check pelo gate abaixo.
+    skills:
+      - .aurumcode/skills/arquitetura/SKILL.md
+      - .aurumcode/skills/tamanho/SKILL.md
+      - .aurumcode/skills/sem-numero-de-card/SKILL.md
+      - .aurumcode/skills/repo-publico/SKILL.md
+      - .aurumcode/skills/sem-bool-exportado/SKILL.md
+      - .aurumcode/skills/gate-fail-closed/SKILL.md
+# Fixtures de teste tem canarios de segredo e de injecao de proposito.
 ignore:
   - "tests/**"
+gate:
+  fail_on: [error]      # achado error (modelo, skill ou scanner) reprova
+  inconclusive: block   # revisao que nao concluiu nunca aprova
+quality_gates:
+  scanners:
+    - engine: gitleaks  # segredos no intervalo de commits da PR
+      required: true
+    - engine: semgrep   # SAST; pacotes p/... exigem rede no CI
+    # go vet exige `go` no PATH; a imagem do review ainda nao o traz e a
+    # engine ligada seria inconclusiva (bloqueio) em toda PR. Ligar junto
+    # com a imagem que trouxer go e o cache de modulos.
+    - engine: govet
+      enabled: false
+      fail_on: warning
+deliberation:
+  enabled: true
+  max_rounds: 3
+  max_cost_tokens: 60000
+  per_tool_timeout_seconds: 120
