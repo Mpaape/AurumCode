@@ -7,11 +7,11 @@ sbom: CycloneDX 1.7, componentes: lodash@4.17.15
 $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
-aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0 (origem dtrack)
 ## Code Review Summary
 
 **Verdict:** Comment
 
+aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0 (origem dtrack)
 **Findings by severity:**
 - error: 0
 - warning: 0
