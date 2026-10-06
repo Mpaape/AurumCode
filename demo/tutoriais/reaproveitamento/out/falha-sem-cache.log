@@ -26,7 +26,6 @@ exit_code=3
 RESULTADO: sem cache a revisao funciona, mas o veredito nao e compartilhado
 --- revisao inconclusiva nunca grava veredito
 $ aurumcode review --base main --politica /policy
-aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
 ## Code Review Summary
 
@@ -42,9 +41,10 @@ generated file, skipped: gerado.go
 
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
-- 1 file(s) were filtered before the review (generated, too large or no patch); a file that was not reviewed never counts as approved.
+- 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
+aurumcode review: policy gate: review inconclusive (partial_coverage)
 exit_code=1
 RESULTADO: inconclusivo em block reprova
 cache: 0 entrada(s) de veredito, 0 entrada(s) por arquivo
