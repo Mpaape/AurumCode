@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"fmt"
+	"io/fs"
 
 	"gopkg.in/yaml.v3"
 )
@@ -21,8 +22,11 @@ const limitsFile = "templates/limits.yml"
 // DefaultSlotLimits returns the ceilings declared in templates/limits.yml.
 // The file is embedded, so a missing or malformed one is a build defect and
 // is returned as an error the caller must surface.
-func DefaultSlotLimits() (SlotLimits, error) {
-	raw, err := templateFS.ReadFile(limitsFile)
+func DefaultSlotLimits() (SlotLimits, error) { return loadSlotLimits(templateFS) }
+
+// loadSlotLimits reads and validates the limits file from fsys.
+func loadSlotLimits(fsys fs.ReadFileFS) (SlotLimits, error) {
+	raw, err := fsys.ReadFile(limitsFile)
 	if err != nil {
 		return SlotLimits{}, fmt.Errorf("reading %s: %w", limitsFile, err)
 	}
@@ -36,20 +40,13 @@ func DefaultSlotLimits() (SlotLimits, error) {
 	return limits, nil
 }
 
-// mustDefaultSlotLimits is DefaultSlotLimits for package initialization:
-// the embedded file is part of the binary, so failing to read it is a
-// build defect that must stop the process rather than run unbounded.
-func mustDefaultSlotLimits() SlotLimits {
-	limits, err := DefaultSlotLimits()
-	if err != nil {
-		panic(err)
-	}
-	return limits
-}
-
-// defaultSlotLimits is loaded once; builders copy it.
-var defaultSlotLimits = mustDefaultSlotLimits()
+// defaultSlotLimits is loaded once; builders copy it. A load failure is
+// kept in defaultSlotLimitsErr instead of stopping the process: every
+// builder entry point returns it (EmbeddedDefaultsErr), so no prompt is
+// ever assembled with zero, unbounded ceilings.
+var defaultSlotLimits, defaultSlotLimitsErr = DefaultSlotLimits()
 
 // DefaultLimits returns the ceilings loaded from templates/limits.yml at
-// package initialization.
+// package initialization. When that load failed it returns the zero value;
+// callers that budget with it must check EmbeddedDefaultsErr first.
 func DefaultLimits() SlotLimits { return defaultSlotLimits }

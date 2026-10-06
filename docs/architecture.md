@@ -44,6 +44,7 @@ negócio vivem em `internal/`.
 | `internal/evidence` | Manifesto do pacote de evidências endereçado por conteúdo. |
 | `internal/gate` | O pipeline do gate: `Run`, `Result`, `Contributor`, `Pipeline`, a regra de falha, o ranking de inconclusivo (`RankReason`) e a decisão de saída (`ExitPolicy`). |
 | `internal/git` | Cliente do GitHub e acesso ao git usados pelo caminho `--pr`. |
+| `internal/gittest` | Ambiente hermético para o git real dos fixtures de teste: sem configuração global nem de sistema, `HOME` privado e sem prompt, para o teste dar o mesmo resultado no container de desenvolvimento e no CI. |
 | `internal/governance` | Especificação de tarefas e modelo de grafo de dependências do board. |
 | `internal/grammar` | A única fonte da estrutura por linguagem, a partir de catálogos de gramáticas. |
 | `internal/i18n` | Catálogo de textos de interface por idioma (YAML embutido, pt-BR e en): toda chave existe nos dois idiomas. |

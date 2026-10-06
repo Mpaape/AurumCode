@@ -48,10 +48,14 @@ var ErrNoRange = errors.New("govet: no reviewed commit range")
 // caller's build and module caches, and fixed values that forbid any
 // download. GOFLAGS is deliberately absent (a -toolexec there would run an
 // arbitrary program). CGO_ENABLED=0: the pull request controls the #cgo
-// directives (CFLAGS, LDFLAGS), so vet must never invoke the C toolchain.
+// directives (CFLAGS, LDFLAGS), so vet must never invoke the C toolchain; a
+// touched package with a cgo file is therefore inconclusive (cgo.go).
+// GOWORK=off: the module vetted is the review root's go.mod alone, never a
+// go.work found in a parent directory, which could swap the module set or
+// its replacements and make vet read code other than the reviewed tree.
 var Environment = scanner.Environment{
 	Pass:  []string{"GOCACHE", "GOPATH", "GOMODCACHE", "GOROOT"},
-	Fixed: []string{"GOTOOLCHAIN=local", "GOPROXY=off", "CGO_ENABLED=0"},
+	Fixed: []string{"GOTOOLCHAIN=local", "GOPROXY=off", "CGO_ENABLED=0", "GOWORK=off"},
 	Extra: scanner.GitSafeDirectories,
 }
 
@@ -91,6 +95,9 @@ func (Engine) Run(ctx context.Context, req scanner.Request) (scanner.Report, err
 	}
 	added, err := addedLines(ctx, run, req.Root, req.Range)
 	if err != nil {
+		return scanner.Report{}, err
+	}
+	if err := refuseUnvettedCgo(req.Root, added); err != nil {
 		return scanner.Report{}, err
 	}
 	goRun := func(ctx context.Context, dir string, args ...string) (string, string, error) {

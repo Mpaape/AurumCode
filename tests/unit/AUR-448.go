@@ -52,6 +52,9 @@ const aur448AllGroundedResponse = `{
       "file": "config/demo-tokens.txt",
       "line": 3,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/hardcoded-secret",
       "message": "A credential-shaped value was committed in plain text."
     }
@@ -70,6 +73,9 @@ const aur448MixedResponse = `{
       "file": "config/demo-tokens.txt",
       "line": 3,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/hardcoded-secret",
       "message": "grounded"
     },
@@ -77,12 +83,18 @@ const aur448MixedResponse = `{
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 5,
       "severity": "warning",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/definitely-not-a-rule",
       "message": "unknown rule_id"
     }
@@ -98,6 +110,9 @@ const aur448MissingOnlyResponse = `{
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     }
   ],
@@ -113,6 +128,9 @@ const aur448UnknownOnlyResponse = `{
       "file": "config/demo-tokens.txt",
       "line": 5,
       "severity": "warning",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/definitely-not-a-rule",
       "message": "unknown rule_id"
     }

@@ -482,12 +482,19 @@ quality_gates:
 
 - **Varre o intervalo de commits revisado, não a árvore final.** Um segredo
   commitado num commit intermediário do PR e removido depois já vazou: está no
-  histórico que o merge publica. A engine roda
-  `gitleaks git --log-opts=<base>..<head>` com `--report-format json`,
-  `--report-path` num diretório temporário privado, `--exit-code 0`,
-  `--no-banner`, `--redact` e `--config` com a base embutida do binário
-  (`[extend] useDefault = true`), que passa à frente de `GITLEAKS_CONFIG`,
-  `GITLEAKS_CONFIG_TOML` e de um `.gitleaks.toml` do repositório.
+  histórico que o merge publica. A engine roda o gitleaks (flags do gitleaks,
+  não do aurumcode), com o relatório num diretório temporário privado e a
+  configuração base embutida do binário (`[extend] useDefault = true`), que
+  passa à frente de `GITLEAKS_CONFIG`, `GITLEAKS_CONFIG_TOML` e de um
+  `.gitleaks.toml` do repositório:
+
+  ```sh
+  gitleaks git --log-opts=<base>..<head> --report-format json \
+    --report-path <dir-privado>/report.json --exit-code 0 \
+    --no-banner --redact --config <base-embutida>
+  # sob política central, acrescenta:
+  gitleaks git ... --ignore-gitleaks-allow
+  ```
 - O intervalo precisa de dois ids de commit completos presentes num clone
   **não raso**; intervalo ausente, ponta que não é id de commit, commit
   ausente ou clone raso é `secrets_execution_error`, nunca uma varredura só da
@@ -500,10 +507,11 @@ quality_gates:
   `Secret`, `Match`, `Line`, mensagem do commit, autor e e-mail não têm campo e
   são descartados na decodificação. O achado é `gitleaks:<regra>` em
   `arquivo:linha`, com a descrição da regra e o commit que o introduziu.
-- **Sob política central** (`secao policy`): `--ignore-gitleaks-allow`, então
-  um comentário `gitleaks:allow` não suprime o achado (sem política, suprime).
-  O `.gitleaksignore` da raiz é lido pelo gitleaks qualquer que seja a flag
-  (medido: `--gitleaks-ignore-path` apontando para outro diretório não impede);
+- **Sob política central** (`secao policy`): a flag do gitleaks que ignora
+  `gitleaks:allow` (bloco acima), então um comentário `gitleaks:allow` não
+  suprime o achado (sem política, suprime). O `.gitleaksignore` da raiz é lido
+  pelo gitleaks qualquer que seja a flag (medido: a flag de caminho do ignore
+  do gitleaks apontando para outro diretório não impede);
   por isso, sob política, a presença de `.gitleaksignore` na raiz é ela mesma
   um achado bloqueante `gitleaks:ignore-file-present`, que o dono da política
   precisa resolver.
@@ -541,8 +549,13 @@ quality_gates:
   diff não mapeia; módulos aninhados ficam de fora) e lê o relatório JSON, nunca o texto como comando.
   Cada achado é `go-vet/<analisador>` (ex.: `go-vet/printf`) em
   `arquivo:linha`, severidade `warning`, origem `govet`.
-- **Só linhas que o intervalo revisado adicionou.** A engine roda
-  `git diff --relative --unified=0 <base>...<head>` a partir da raiz revisada
+- **Só linhas que o intervalo revisado adicionou.** A engine roda, a partir da
+  raiz revisada, o diff do git (flags do git, não do aurumcode):
+
+  ```sh
+  git diff --relative --unified=0 <base>...<head>
+  ```
+
   (caminhos relativos a ela, como os do go vet) e descarta todo achado fora das linhas
   adicionadas: um defeito antigo de um arquivo que o PR não tocou não reprova o
   PR. Intervalo ausente, ou caminho que o git cita entre aspas (tab, aspas,
@@ -555,8 +568,16 @@ quality_gates:
   fora da raiz é `lint_invalid_output`.
 - **Sem download nem compilador C:** `GOTOOLCHAIN=local`, `GOPROXY=off` e
   `CGO_ENABLED=0` são fixos (o PR controla as diretivas `#cgo`, então o vet
-  nunca chama o compilador C; arquivos cgo ficam fora da cobertura); dependência
-  fora do cache de módulos (ou de `vendor/`) é `lint_execution_error`.
+  nunca chama o compilador C); dependência fora do cache de módulos (ou de
+  `vendor/`) é `lint_execution_error`.
+- **Arquivo cgo não passa como limpo:** com `CGO_ENABLED=0` o go vet tira do
+  pacote, sem aviso, todo arquivo com `import "C"`. Se um pacote que o
+  intervalo tocou tem um arquivo assim, a varredura é `lint_execution_error`
+  (inconclusiva, nunca limpa); arquivo cgo em pacote não tocado não muda
+  nada.
+- **Só o módulo da raiz:** `GOWORK=off` é fixo. Um `go.work` num diretório
+  acima da raiz revisada não escolhe os módulos nem as substituições que o
+  vet carrega.
   `GOFLAGS` do processo não é repassado (um `-toolexec` executaria outro
   programa).
 - A identidade da engine (`go vet <GOVERSION>`) vai no `Version` do resultado.
@@ -575,7 +596,7 @@ ao processo filho, que lê conteúdo controlado pelo autor do PR. O ambiente é:
   `GIT_CONFIG_VALUE_n`, só as de `safe.directory`, renumeradas (um
   `http.extraheader` com credencial é descartado);
 - govet: `GOCACHE`, `GOPATH`, `GOMODCACHE`, `GOROOT`, e os fixos
-  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`.
+  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`, `GOWORK=off`.
 
 Variáveis de proxy (`HTTPS_PROXY` etc.) não são repassadas: um runner atrás de
 proxy precisa de regras locais (veja os pacotes `p/...` acima). Limites de
