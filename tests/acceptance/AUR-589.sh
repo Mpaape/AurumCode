@@ -147,15 +147,17 @@ coverage() {
   done < <(table_rows)
   # A duplicated row would let one state hide another.
   [[ -z "$(table_rows | awk '{ print $1 }' | sort | uniq -d)" ]] || fail duplicate-row
-  # Every script that declares itself retired is a 69 row, and back.
+  # Every retired stub (prints /retired: and ends in `exit 69`) is a 69 row,
+  # and every 69 row's script is such a stub.
   for f in "$acc_dir"/AUR-*.sh; do
     c="$(basename "$f" .sh)"
-    grep -Fq '/retired: ' "$f" || continue
+    grep -Fq '/retired: ' "$f" && grep -Fxq 'exit 69' "$f" || continue
     [[ "$(expect_of "$c")" == 69 ]] || fail "retired-script-not-69-row:$c"
   done
   while read -r c e; do
     [[ "$e" == 69 ]] || continue
-    grep -Fq '/retired: ' "$acc_dir/$c.sh" 2>/dev/null || fail "69-row-script-not-retired:$c"
+    { grep -Fq '/retired: ' "$acc_dir/$c.sh" && grep -Fxq 'exit 69' "$acc_dir/$c.sh"; } 2>/dev/null ||
+      fail "69-row-script-not-retired:$c"
   done < <(table_rows)
   # Outside the sealed profile the board is present: every done card has a row.
   if [[ -d "$repo_root/.board/cards/done" ]]; then
