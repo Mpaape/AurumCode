@@ -6,7 +6,7 @@
 # once; the review image carries the pinned Go toolchain for govet.
 #
 # Selectors:
-#   all        AC-001..AC-005, then MUT-001..MUT-003
+#   all        AC-001..AC-005, then MUT-001..MUT-004
 #   AC-001     tests/** (ignored) + a PNG under inconclusive: block: not
 #              inconclusive by coverage, the ignored files listed; a
 #              generated file, and a .sh/.js/.yml/shebang file with a NUL
@@ -23,6 +23,8 @@
 #   MUT-002    Semgrep keeping findings off the change turns AC-002 RED
 #   MUT-003    any binary content declared ignored (no format catalog): a
 #              script with one NUL byte would pass; turns AC-001 RED
+#   MUT-004    the format signature not checked: a script with a NUL byte
+#              renamed to .png would pass; turns AC-001 RED
 # Unknown selector exits 64; infrastructure 79; behavioral failure 1.
 set -Eeuo pipefail
 export LC_ALL=C
@@ -31,7 +33,7 @@ umask 077
 readonly card='AUR-593'
 selector="${1:-all}"
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|AC-005|MUT-001|MUT-002|MUT-003) ;;
+  all|AC-001|AC-002|AC-003|AC-004|AC-005|MUT-001|MUT-002|MUT-003|MUT-004) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -84,7 +86,7 @@ replace_once() {
   grep -Fq -- "$replacement" "$file" || infra "mutation-not-applied:${file##*/}"
 }
 
-readonly ac001_tests=(TestIgnoredAndBinaryAreDeclaredNotPartial TestGeneratedFileStillPartialUnderBlock TestNULInCodeIsNeverDeclaredBinary TestAUR522PRBinaryIsDeclaredIgnored TestAUR522PRBinaryWithoutPatchIsNotReviewed TestAUR522PRGeneratedFileIsNotReviewed)
+readonly ac001_tests=(TestIgnoredAndBinaryAreDeclaredNotPartial TestGeneratedFileStillPartialUnderBlock TestNULInCodeIsNeverDeclaredBinary TestRealPNGUpperCaseIsDeclaredIgnored TestAUR522PRBinaryIsDeclaredIgnored TestAUR522PRBinaryWithoutPatchIsNotReviewed TestAUR522PRGeneratedFileIsNotReviewed)
 readonly ac002_cmd=(TestSemgrepJudgesOnlyTheChange)
 readonly ac002_engine=(TestSemgrepKeepsOnlyFindingsOnAddedLines TestSemgrepRecoveredParseErrorOutsideTheChangeIsNotInvalid TestSemgrepErrorsOnTheChangeStayInvalid TestSemgrepWithoutRangeFails)
 readonly ac003_tests=(TestDirectorySkillIsCitableOnce)
@@ -177,10 +179,21 @@ run_mut003() {
   local root="$run_dir/root-mut3"
   stage "$root"
   replace_once "$root/cmd/aurumcode/structural_coverage.go" \
-    'return n.Reason == analyzer.NoticeReasonBinary && grammar.KnownBinaryFormat(n.Path)' \
-    'return n.Reason == analyzer.NoticeReasonBinary || grammar.KnownBinaryFormat("") /* MUT-003 */'
+    'return n.Reason == analyzer.NoticeReasonBinary && n.DeclaredFormat' \
+    'return n.Reason == analyzer.NoticeReasonBinary || n.DeclaredFormat /* MUT-003 */'
   expect_red "$root" "$run_dir/mut3.log" ./cmd/aurumcode/ TestNULInCodeIsNeverDeclaredBinary
   printf '%s/MUT-003/rejected\n' "$card"
+}
+
+run_mut004() {
+  local root="$run_dir/root-mut4"
+  stage "$root"
+  replace_once "$root/internal/grammar/binary_formats.go" \
+    'if signatureMatches(content, sig) {' \
+    'if signatureMatches(content, sig) || len(sig.bytes) > 0 /* MUT-004 */ {'
+  expect_red "$root" "$run_dir/mut4.log" ./cmd/aurumcode/ TestNULInCodeIsNeverDeclaredBinary
+  grep -Eq -- 'payload\.(png|PNG)' "$run_dir/mut4.log" || { cat "$run_dir/mut4.log" >&2; fail mut004-wrong-case; }
+  printf '%s/MUT-004/rejected\n' "$card"
 }
 
 case "$selector" in
@@ -192,6 +205,7 @@ case "$selector" in
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
   MUT-003) run_mut003 ;;
+  MUT-004) run_mut004 ;;
   all)
     run_ac001
     run_ac002
@@ -201,6 +215,7 @@ case "$selector" in
     run_mut001
     run_mut002
     run_mut003
+    run_mut004
     ;;
 esac
 printf '%s/%s/pass\n' "$card" "$selector"

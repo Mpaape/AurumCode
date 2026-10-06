@@ -60,6 +60,11 @@ type DiffNotice struct {
 	// Reason is the short, stable cause: "binary", "generated" or "too large".
 	// A file with a Reason was NOT reviewed; it must never count as approved.
 	Reason string
+	// DeclaredFormat: the binary content is a format the catalog declares
+	// out of the review's scope (grammar.DeclaredBinaryFormat: listed
+	// extension, its signature and binary content). Only such a file may be
+	// declared ignored instead of partial.
+	DeclaredFormat bool
 }
 
 // classifyBlob reports why the changed file at path must not be line-diffed,
@@ -107,7 +112,7 @@ func ClassifyBlob(path string, content []byte) *DiffNotice {
 	if msg == "" {
 		return nil
 	}
-	return &DiffNotice{Path: path, Message: msg, Reason: noticeReason(msg)}
+	return &DiffNotice{Path: path, Message: msg, Reason: noticeReason(msg), DeclaredFormat: grammar.DeclaredBinaryFormat(path, content)}
 }
 
 // noticeReason maps a classifyBlob message to the stable reason token.

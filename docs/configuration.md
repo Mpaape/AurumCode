@@ -109,15 +109,18 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
 ## Opções avançadas
 
 - `ignore`: lista de globs de caminhos a excluir antes da análise. Um caminho
-  ignorado, e um arquivo de formato binário conhecido (extensão do catálogo
+  ignorado, e um arquivo de formato binário conhecido (catálogo
   `internal/grammar/catalog/binary_formats.yml`: imagens, PDF, fontes, mídia,
-  `zip`) **com** conteúdo binário, fica fora da conta de cobertura: o parecer o lista como **ignorado**, pelo nome, e a
+  `zip`), com a extensão do formato (qualquer caixa), a assinatura do formato
+  no início do conteúdo (ex. PNG `89504E47…`) **e** conteúdo binário, fica
+  fora da conta de cobertura: o parecer o lista como **ignorado**, pelo nome, e a
   revisão não fica parcial por causa dele (`partial_coverage` não dispara, nem
   com `gate.inconclusive: block`). Continua parcial o que a revisão quis ler e
   não conseguiu: arquivo gerado, grande demais, sem patch, cortado pelo
   limite de tokens, e todo conteúdo binário fora do catálogo — um script,
   código ou config com um byte NUL (`deploy.sh`, `app.js`, `ci.yml`), um
-  arquivo sem extensão, um executável ou uma extensão desconhecida. Um byte
+  arquivo sem extensão, um executável, uma extensão desconhecida ou um
+  script renomeado para `.png` sem a assinatura PNG. Um byte
   forjado nunca esconde código da revisão.
 - `rules`: overrides explícitos de regras reconhecidas, por identificador.
 - `review.memory`: `off` (padrão, sem estado), `ephemeral` (em processo) ou

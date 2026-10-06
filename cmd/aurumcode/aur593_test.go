@@ -74,9 +74,11 @@ func TestGeneratedFileStillPartialUnderBlock(t *testing.T) {
 
 // A NUL byte never turns code into an ignored binary: a script, a source or
 // a config file with binary content stays unreviewed under block (exit 1,
-// approval withheld) -- only a file of a known binary format is declared.
+// approval withheld) -- only a file of a known binary format is declared. A
+// script renamed to .png (any case) lacks the PNG signature and stays
+// unreviewed too.
 func TestNULInCodeIsNeverDeclaredBinary(t *testing.T) {
-	for _, name := range []string{"deploy.sh", "app.js", "ci.yml", "instala"} {
+	for _, name := range []string{"deploy.sh", "app.js", "ci.yml", "instala", "lib/payload.png", "lib/payload.PNG"} {
 		t.Run(name, func(t *testing.T) {
 			base := map[string][]byte{"app.go": []byte("package demo\n")}
 			head := map[string][]byte{
@@ -92,6 +94,19 @@ func TestNULInCodeIsNeverDeclaredBinary(t *testing.T) {
 				t.Fatalf("exit=%d, want %d partial_coverage with approval withheld for %s with a NUL byte\n%s", code, exitQualityNotReviewed, name, combined)
 			}
 		})
+	}
+}
+
+// A real image is declared ignored whatever the case of its extension.
+func TestRealPNGUpperCaseIsDeclaredIgnored(t *testing.T) {
+	base := map[string][]byte{"app.go": []byte("package demo\n")}
+	head := map[string][]byte{"app.go": []byte("package demo\n\nfunc Change() {}\n"), "docs/Captura.PNG": pngBytes}
+	aur522Repo(t, base, head, "gate:\n  inconclusive: block\n")
+	aur522Fixture(t, cleanApproval)
+	var out, errOut strings.Builder
+	code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+	if code != 0 || !strings.Contains(out.String(), "  - docs/Captura.PNG (binary)") {
+		t.Fatalf("exit=%d, want 0 with docs/Captura.PNG declared ignored\n%s%s", code, out.String(), errOut.String())
 	}
 }
 
