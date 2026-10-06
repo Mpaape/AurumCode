@@ -320,7 +320,7 @@ jobs:
           AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           AURUMCODE_PR_PERMISSION_MODE: endpoint
           AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
-          AURUMCODE_OUTPUT_FILE: /tmp/aurumcode-changelog-output
+          AURUMCODE_OUTPUT_FILE: /aurumcode-out/aurumcode-changelog-output
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -371,10 +371,16 @@ jobs:
           # gate is itself a compliance control, see docs/specs/AUR-521.md)
           # -- never by the standalone action.yml, which has no equivalent
           # mount point for them.
-          args+=(--auditoria /tmp/aurumcode-audit.json --sarif /tmp/aurumcode-review.sarif)
-          : > "${RUNNER_TEMP}/aurumcode-changelog-output"
-          : > "${RUNNER_TEMP}/aurumcode-audit.json"
-          : > "${RUNNER_TEMP}/aurumcode-review.sarif"
+          args+=(--auditoria /aurumcode-out/aurumcode-audit.json --sarif /aurumcode-out/aurumcode-review.sarif)
+          # The files the review writes live in a directory mounted outside
+          # the container's /tmp: /tmp is sticky and world-writable, and with
+          # the kernel's fs.protected_regular an open(O_CREAT) of a file there
+          # owned by another uid (the runner's, through a file bind mount)
+          # fails with EACCES even for root -- the audit and SARIF were then
+          # never written (audit_write_failed / sarif_write_failed).
+          out_dir="${RUNNER_TEMP}/aurumcode-out"
+          mkdir -p "${out_dir}"
+          rm -f "${out_dir}/aurumcode-changelog-output" "${out_dir}/aurumcode-audit.json" "${out_dir}/aurumcode-review.sarif"
           docker_args=(run --rm
             -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
             -w /github/workspace
@@ -397,18 +403,25 @@ jobs:
             -e DTRACK_API_KEY
             -e DTRACK_PROJECT_ID
             -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
-            -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
-            -v "${RUNNER_TEMP}/aurumcode-audit.json:/tmp/aurumcode-audit.json"
-            -v "${RUNNER_TEMP}/aurumcode-review.sarif:/tmp/aurumcode-review.sarif"
+            -v "${out_dir}:/aurumcode-out"
             -v "${RUNNER_TEMP}/aurumcode-gomod:/go/pkg/mod"
           )
           if [ -n "${policy_dir}" ]; then
             docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
           fi
           docker_args+=(aurumcode-review "${args[@]}")
-          docker "${docker_args[@]}"
-          if [ -s "${RUNNER_TEMP}/aurumcode-changelog-output" ]; then
-            cat "${RUNNER_TEMP}/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
+          review_rc=0
+          docker "${docker_args[@]}" || review_rc=$?
+          # The container writes as root; hand the files to the runner's uid
+          # so the steps below can read and upload them, then keep the
+          # review's own exit status.
+          docker run --rm --entrypoint chown -v "${out_dir}:/aurumcode-out" aurumcode-review \
+            -R "$(id -u):$(id -g)" /aurumcode-out
+          if [ "${review_rc}" -ne 0 ]; then
+            exit "${review_rc}"
+          fi
+          if [ -s "${RUNNER_TEMP}/aurumcode-out/aurumcode-changelog-output" ]; then
+            cat "${RUNNER_TEMP}/aurumcode-out/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"
           fi
 
       # AUR-555: signing runs only after the review step SUCCEEDED, so a
@@ -464,9 +477,7 @@ jobs:
           fi
           "${RUNNER_TEMP}/aurumcode" "${sign_args[@]}"
 
-      # AUR-521: the two compliance files are pre-created (`: >`) above so
-      # the docker bind-mount does not create a directory in their place --
-      # which means they can exist as valid, empty (0-byte) files on a run
+      # AUR-521: the two compliance files may be absent or empty on a run
       # that never reached the point where the CLI writes them (a usage
       # error, or the --pr early-provider-failure gap AUR-537 tracks). A
       # 0-byte file is not a SARIF document and must never be uploaded as
@@ -477,12 +488,12 @@ jobs:
         id: artifacts
         run: |
           set -euo pipefail
-          if [ -s "${RUNNER_TEMP}/aurumcode-review.sarif" ]; then
+          if [ -s "${RUNNER_TEMP}/aurumcode-out/aurumcode-review.sarif" ]; then
             echo "sarif=true" >> "$GITHUB_OUTPUT"
           else
             echo "sarif=false" >> "$GITHUB_OUTPUT"
           fi
-          if [ -s "${RUNNER_TEMP}/aurumcode-audit.json" ]; then
+          if [ -s "${RUNNER_TEMP}/aurumcode-out/aurumcode-audit.json" ]; then
             echo "audit=true" >> "$GITHUB_OUTPUT"
           else
             echo "audit=false" >> "$GITHUB_OUTPUT"
@@ -503,14 +514,14 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: aurumcode-sarif-${{ github.event.pull_request.number }}
-          path: ${{ runner.temp }}/aurumcode-review.sarif
+          path: ${{ runner.temp }}/aurumcode-out/aurumcode-review.sarif
 
       - name: Upload compliance audit record
         if: always() && steps.artifacts.outputs.audit == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: aurumcode-audit-${{ github.event.pull_request.number }}
-          path: ${{ runner.temp }}/aurumcode-audit.json
+          path: ${{ runner.temp }}/aurumcode-out/aurumcode-audit.json
 
       # AUR-551: the SBOM's own signature bundle (<sbom>.sigstore.json,
       # written by the "Sign SBOM and image" step above, next to whatever
