@@ -56,6 +56,10 @@ quality_gates:
   "Skills em diretório" em docs/configuration.md).
 - Falha de provedor e scanner ausente continuam bloqueando com
   `inconclusive: block`.
+- O próprio AurumCode se revisa assim: o
+  [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
+  do repositório acrescenta deliberação e seis skills de convenção, em menos
+  de 30 linhas úteis.
 
 ## Uso local
 

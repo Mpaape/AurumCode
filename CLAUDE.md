@@ -24,6 +24,13 @@ and target `main` directly; remove them only after merge and after every `done`
 delivery SHA has been verified as an ancestor of `main`. Do not recreate a
 permanent `dev` release lane.
 
+Every delivery is integrated by pull request: card -> branch -> PR to `main`
+-> CI plus the AurumCode self review (review comment and
+`aurumcode/policy-gate` status, with the binary built from the PR and the
+convention skills in `.aurumcode/skills/`) -> merge only with every check
+green. Without LLM secrets the self review fails closed, never green. Direct
+pushes to `main` are only for commits that touch nothing but `.board/`.
+
 ## Reconstruction workflow source of truth
 
 For the current AurumCode reconstruction, `.board/` is the sole authoritative

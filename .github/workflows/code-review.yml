@@ -1,5 +1,13 @@
 name: AurumCode self review
 
+# O AurumCode revisa o proprio AurumCode em toda PR para main. O job
+# `review` chama o workflow reutilizavel local; num evento pull_request ele
+# roda a partir do merge ref da PR, entao job.workflow_sha (o commit de onde
+# review.yml constroi a imagem e o binario) e o commit de merge da PR: o
+# Aurum que revisa e o Aurum que esta sendo mudado. Configuracao, prompt e
+# skills de convencao (.aurumcode/) vem da branch base, como em qualquer
+# repositorio consumidor.
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -21,3 +29,36 @@ jobs:
       model: ${{ vars.LLM_MODEL }}
       security: true
     secrets: inherit
+
+  # Falha fechada sem provedor: sem LLM_API_KEY/LLM_BASE_URL (PR de fork ou
+  # do dependabot, ou secret apagado) o review nao roda e o job `review`
+  # falha; este job, em paralelo e sem `needs` (um check pulado conta como
+  # aprovado), publica o motivo no status aurumcode/policy-gate como failure.
+  # Nunca publica success: com os secrets presentes quem decide o status e o
+  # proprio review.
+  provider:
+    name: LLM provider configured
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail closed without LLM secrets
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # provider-guard-begin
+          set -euo pipefail
+          if [ -n "${LLM_API_KEY:-}" ] && [ -n "${LLM_BASE_URL:-}" ]; then
+            echo "LLM provider configured; the review job publishes aurumcode/policy-gate"
+            exit 0
+          fi
+          reason="self review nao executado: secrets LLM_API_KEY e LLM_BASE_URL ausentes"
+          gh api --method POST "repos/${REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state=failure -f context=aurumcode/policy-gate \
+            -f description="${reason}" >/dev/null ||
+            echo "::warning::could not publish the aurumcode/policy-gate failure status"
+          echo "::error::${reason}"
+          exit 1
+          # provider-guard-end
