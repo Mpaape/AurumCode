@@ -60,7 +60,7 @@ cleanup_root() {
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS=-mod=mod
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 export GOMAXPROCS=1 GOMEMLIMIT=192MiB
 
@@ -80,7 +80,9 @@ stage_source() {
   mkdir -p "$root"
   copy "$root" go.mod
   [[ -f "$repo_root/go.sum" ]] && copy "$root" go.sum
-  copy "$root" internal/git/githubclient tests/fixtures/scm/github
+  # cmd, internal and pkg go whole: an enumerated package list rots as soon as
+  # the package under test gains an import (AUR-589).
+  copy "$root" cmd internal pkg tests/fixtures/scm/github
   # The materialized input tree is read-only including directory modes;
   # force the staged scratch copy writable (see cleanup_root's note).
   chmod -R u+w -- "$root"
