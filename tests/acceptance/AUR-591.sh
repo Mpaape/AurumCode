@@ -7,7 +7,7 @@
 #   AC-003    .aurumcode/config.yml has at most 30 useful lines (not blank,
 #             not comment), declares gate, scanners and deliberation, passes
 #             the strict Parse (a typo key is a named load error), and a local
-#             `review --base main` with an offline provider fixture sends the
+#             `review --base HEAD~1` with an offline provider fixture sends the
 #             repository skills to the model and fails the check on a finding
 #             citing one of them
 #   MUT-001   without the skill file, the same fixture finding is discarded as
@@ -53,43 +53,104 @@ export GOCACHE GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
 bin="$run_dir/aurumcode"
-# build compiles the product from a copy of the whole module.
+mkrepo="$run_dir/mkrepo-bin"
+# build compiles the product from a copy of the whole module, and mkrepo: a
+# stdlib-only helper that writes a two-commit git repository as loose objects
+# (the sealed profile has no git CLI; the product reads the objects itself).
 build() {
   [[ -x "$bin" ]] && return 0
   command -v go >/dev/null 2>&1 || infra missing_go
-  command -v git >/dev/null 2>&1 || infra missing_git
   local src="$run_dir/src" source
-  mkdir -p "$src"
+  mkdir -p "$src" "$run_dir/mkrepo"
   for source in go.mod go.sum cmd internal pkg; do cp -R "$repo_root/$source" "$src/$source"; done
   chmod -R u+w -- "$src"
   ( cd "$src" && go build -buildvcs=false -o "$bin" ./cmd/aurumcode ) >"$run_dir/build.log" 2>&1 ||
     { cat "$run_dir/build.log" >&2; infra build; }
+  printf 'module mkrepo\n\ngo 1.22\n' >"$run_dir/mkrepo/go.mod"
+  cat >"$run_dir/mkrepo/main.go" <<'GO'
+// Command mkrepo DIR NAME BASE HEAD writes DIR/.git with a base commit whose
+// tree holds NAME with the content of file BASE, and a head commit (on main)
+// with the content of file HEAD; NAME in the working tree gets HEAD.
+package main
+
+import (
+	"bytes"
+	"compress/zlib"
+	"crypto/sha1"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+func object(dir, kind string, body []byte) string {
+	payload := append([]byte(fmt.Sprintf("%s %d\x00", kind, len(body))), body...)
+	sum := sha1.Sum(payload)
+	id := hex.EncodeToString(sum[:])
+	var z bytes.Buffer
+	w := zlib.NewWriter(&z)
+	must(w.Write(payload))
+	must(0, w.Close())
+	p := filepath.Join(dir, ".git", "objects", id[:2], id[2:])
+	must(0, os.MkdirAll(filepath.Dir(p), 0o700))
+	must(0, os.WriteFile(p, z.Bytes(), 0o600))
+	return id
 }
 
-# repo NAME CONFIG: a git repository whose base carries this repository's
-# .aurumcode (with CONFIG as its config.yml) and whose branch adds a
-# 160-line function to a Go file.
+func must[T any](_ T, err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func commit(dir, name string, content []byte, parent, msg string) string {
+	blob := object(dir, "blob", content)
+	raw, _ := hex.DecodeString(blob)
+	tree := object(dir, "tree", append([]byte("100644 "+name+"\x00"), raw...))
+	body := "tree " + tree + "\n"
+	if parent != "" {
+		body += "parent " + parent + "\n"
+	}
+	body += "author Fixture <fixture@example.invalid> 1 +0000\ncommitter Fixture <fixture@example.invalid> 1 +0000\n\n" + msg + "\n"
+	return object(dir, "commit", []byte(body))
+}
+
+func main() {
+	dir, name := os.Args[1], os.Args[2]
+	base, err := os.ReadFile(os.Args[3])
+	must(0, err)
+	head, err := os.ReadFile(os.Args[4])
+	must(0, err)
+	first := commit(dir, name, base, "", "base")
+	last := commit(dir, name, head, first, "mudanca")
+	must(0, os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o600))
+	must(0, os.MkdirAll(filepath.Join(dir, ".git", "refs", "heads"), 0o700))
+	must(0, os.WriteFile(filepath.Join(dir, ".git", "refs", "heads", "main"), []byte(last+"\n"), 0o600))
+	must(0, os.WriteFile(filepath.Join(dir, ".git", "config"), []byte("[core]\nrepositoryformatversion = 0\nbare = false\n"), 0o600))
+	must(0, os.WriteFile(filepath.Join(dir, name), head, 0o600))
+}
+GO
+  ( cd "$run_dir/mkrepo" && go build -buildvcs=false -o "$mkrepo" . ) >"$run_dir/mkrepo.log" 2>&1 ||
+    { cat "$run_dir/mkrepo.log" >&2; infra build-mkrepo; }
+}
+
+# repo NAME CONFIG: a repository whose working tree carries this repository's
+# .aurumcode (with CONFIG as its config.yml) and whose last commit adds a
+# 160-line function to longa.go.
 repo() {
-  local dir="$run_dir/$1"
+  local dir="$run_dir/$1" i
   mkdir -p "$dir"
   cp -R "$repo_root/.aurumcode" "$dir/.aurumcode"
   cp "$2" "$dir/.aurumcode/config.yml"
   printf 'module example.com/convencao\n\ngo 1.22\n' >"$dir/go.mod"
-  printf 'package convencao\n' >"$dir/longa.go"
-  (
-    cd "$dir"
-    git init -q -b main .
-    git -c user.email=a591@example.com -c user.name=a591 add -A
-    git -c user.email=a591@example.com -c user.name=a591 commit -qm base
-    git checkout -qb mudanca
-    {
-      printf 'package convencao\n\n// Longa soma uma linha por passo.\nfunc Longa() int {\n\ttotal := 0\n'
-      local i
-      for ((i = 0; i < 155; i++)); do printf '\ttotal++\n'; done
-      printf '\treturn total\n}\n'
-    } >longa.go
-    git -c user.email=a591@example.com -c user.name=a591 commit -qam 'funcao de 160 linhas'
-  ) >/dev/null
+  printf 'package convencao\n' >"$run_dir/$1.base"
+  {
+    printf 'package convencao\n\n// Longa soma uma linha por passo.\nfunc Longa() int {\n\ttotal := 0\n'
+    for ((i = 0; i < 155; i++)); do printf '\ttotal++\n'; done
+    printf '\treturn total\n}\n'
+  } >"$run_dir/$1.head"
+  "$mkrepo" "$dir" longa.go "$run_dir/$1.base" "$run_dir/$1.head" || infra "mkrepo:$1"
   printf '%s' "$dir"
 }
 
@@ -97,11 +158,13 @@ repo() {
 fixture="$run_dir/fixture.json"
 printf '{"issues":[{"file":"longa.go","line":4,"severity":"warning","rule_id":"%s","message":"Funcao Longa tem 160 linhas.","impact":"Funcao longa demais para revisar.","evidence":"As linhas adicionadas declaram Longa em longa.go com 160 linhas.","suggestion":"Divida em etapas nomeadas.","verification":"Conte as linhas da funcao."}],"summary":"Convencao de tamanho violada."}\n' "$skill_rule" >"$fixture"
 
-# review DIR NAME: runs `review --base main` in DIR; sets rc, out, err, prompt.
+# review DIR NAME: runs `review --base HEAD~1` in DIR; sets rc, out, err, prompt.
 review() {
   out="$run_dir/$2.out"; err="$run_dir/$2.err"; prompt="$run_dir/$2.prompt"
   set +e
-  ( cd "$1" && AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_PROMPT_CAPTURE="$prompt" "$bin" review --base main ) >"$out" 2>"$err"
+  mkdir -p "$run_dir/cache-$2"
+  ( cd "$1" && env -u LLM_API_KEY -u LLM_BASE_URL -u LLM_MODEL XDG_CACHE_HOME="$run_dir/cache-$2" AURUMCODE_CACHE_DIR="$run_dir/cache-$2" \
+      AURUMCODE_LLM_FIXTURE="$fixture" AURUMCODE_PROMPT_CAPTURE="$prompt" "$bin" review --base HEAD~1 ) >"$out" 2>"$err"
   rc=$?
   set -e
   printf '%s rc=%s\n' "$2" "$rc" >&2
@@ -165,7 +228,6 @@ run_mut001() {
   local dir
   dir="$(repo mutation "$run_dir/skills.yml")"
   rm -f -- "$dir/.aurumcode/skills/tamanho/SKILL.md"
-  ( cd "$dir" && git -c user.email=a591@example.com -c user.name=a591 commit -qam 'sem a skill' ) >/dev/null
   review "$dir" mutation
   grep -q 'parsing .*config.yml' "$err" && infra 'mutation-config-did-not-parse'
   [[ -s "$prompt" ]] || infra 'mutation-did-not-reach-model'
