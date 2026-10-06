@@ -568,8 +568,17 @@ quality_gates:
   fora da raiz é `lint_invalid_output`.
 - **Sem download nem compilador C:** `GOTOOLCHAIN=local`, `GOPROXY=off` e
   `CGO_ENABLED=0` são fixos (o PR controla as diretivas `#cgo`, então o vet
-  nunca chama o compilador C; arquivos cgo ficam fora da cobertura); dependência
-  fora do cache de módulos (ou de `vendor/`) é `lint_execution_error`.
+  nunca chama o compilador C); dependência fora do cache de módulos (ou de
+  `vendor/`) é `lint_execution_error`.
+- **Arquivo cgo não passa como limpo:** com `CGO_ENABLED=0` o go vet tira do
+  pacote, sem aviso, todo arquivo com `import "C"`. Se um pacote que o
+  intervalo tocou tem um arquivo assim, a varredura é `lint_execution_error`
+  e o erro da engine nomeia cada arquivo (`govet: package has a cgo file go
+  vet does not vet (CGO_ENABLED=0): calc/hello.go`); arquivo cgo em pacote
+  não tocado não muda nada.
+- **Só o módulo da raiz:** `GOWORK=off` é fixo. Um `go.work` num diretório
+  acima da raiz revisada não escolhe os módulos nem as substituições que o
+  vet carrega.
   `GOFLAGS` do processo não é repassado (um `-toolexec` executaria outro
   programa).
 - A identidade da engine (`go vet <GOVERSION>`) vai no `Version` do resultado.
@@ -588,7 +597,7 @@ ao processo filho, que lê conteúdo controlado pelo autor do PR. O ambiente é:
   `GIT_CONFIG_VALUE_n`, só as de `safe.directory`, renumeradas (um
   `http.extraheader` com credencial é descartado);
 - govet: `GOCACHE`, `GOPATH`, `GOMODCACHE`, `GOROOT`, e os fixos
-  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`.
+  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`, `GOWORK=off`.
 
 Variáveis de proxy (`HTTPS_PROXY` etc.) não são repassadas: um runner atrás de
 proxy precisa de regras locais (veja os pacotes `p/...` acima). Limites de

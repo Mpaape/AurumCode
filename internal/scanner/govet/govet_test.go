@@ -94,7 +94,13 @@ func (tr tree) cannedDiff() string {
 // and git answered by the canned diff, so the proof needs no git binary.
 func scanTree(t *testing.T, tr tree) scanner.Outcome {
 	t.Helper()
-	root := t.TempDir()
+	return scanTreeAt(t, t.TempDir(), tr)
+}
+
+// scanTreeAt is scanTree with the review root chosen by the caller, so a
+// test can place files around it (a go.work in a parent directory).
+func scanTreeAt(t *testing.T, root string, tr tree) scanner.Outcome {
+	t.Helper()
 	write(t, root, tr.files)
 	engine, ok := scanner.Lookup(govet.Name)
 	if !ok {
