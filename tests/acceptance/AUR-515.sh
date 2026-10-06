@@ -38,15 +38,15 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 # A git binary is NOT required: the checkout-identity read
-# (cmd/aurumcode/aur515.go) walks the .git layout and HEAD itself (via
+# (cmd/aurumcode/checkout_identity.go) walks the .git layout and HEAD itself (via
 # internal/analyzer, the same dual-path reader the rest of this codebase
 # already relies on in a sealed, network-denied, git-less profile).
 
 for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
-[[ -f "$repo_root/cmd/aurumcode/pr.go" ]] || infra missing-source
-[[ -f "$repo_root/cmd/aurumcode/aur515.go" ]] || infra missing-source
+[[ -f "$repo_root/cmd/aurumcode/review_pr_inputs.go" ]] || infra missing-source
+[[ -f "$repo_root/cmd/aurumcode/checkout_identity.go" ]] || infra missing-source
 [[ -f "$repo_root/cmd/aurumcode/aur515_test.go" ]] || infra missing-behavior-test
 
 run_dir="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a515.XXXXXX")" || infra mktemp
@@ -63,7 +63,7 @@ chmod -R u+w -- "$run_dir/root"
 
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOWORK=off GOENV=off
 export GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
+export GOCACHE="${GOCACHE:-$run_dir/cache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
 # MUT-001: "always trust the local checkout" -- the target verification
@@ -74,8 +74,8 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 # call-assignment line; the token is split so this file cannot match its
 # own edit, and a missing anchor is infrastructure, never a silent no-op.
 apply_mutation() {
-  local target="$run_dir/root/cmd/aurumcode/pr.go"
-  local anchor='mismatch := codebaseContextMismatch(ctx, client, owner, '"repoName, prNumber)"
+  local target="$run_dir/root/cmd/aurumcode/review_pr_inputs.go"
+  local anchor='mismatch := codebaseContextMismatch(p.ctx, p.client, p.owner, '"p.repoName, p.prNumber)"
   grep -Fq "$anchor" "$target" || infra mutation-anchor-missing
   sed -i "s|${anchor}|mismatch := \"\"|" "$target"
   grep -Fq "$anchor" "$target" && infra mutation-not-applied
