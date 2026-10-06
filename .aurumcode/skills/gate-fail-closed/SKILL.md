@@ -4,7 +4,7 @@ version: 1
 paths: ["cmd/**", "internal/**", "pkg/**", ".github/workflows/**"]
 ---
 O gate falha fechado. Cada `## ` abaixo e uma regra citavel
-(`SKILL#<slug do titulo>`).
+(`gate-fail-closed#<slug do titulo>`).
 
 ## GATE-001 Erro, ausencia ou duvida nunca aprova
 severity: error

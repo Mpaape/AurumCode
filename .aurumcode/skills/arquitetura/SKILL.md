@@ -4,7 +4,7 @@ version: 1
 paths: ["cmd/**", "internal/**", "pkg/**"]
 ---
 Convencao de arquitetura do AurumCode. Cada `## ` abaixo e uma regra citavel
-(`SKILL#<slug do titulo>`).
+(`arquitetura#<slug do titulo>`).
 
 ## ARQ-001 Logica fica em internal, cmd so monta
 severity: warning

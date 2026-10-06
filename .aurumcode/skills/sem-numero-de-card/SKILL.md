@@ -4,7 +4,7 @@ version: 1
 paths: ["cmd/**", "internal/**", "pkg/**"]
 ---
 Codigo e doc de pacote explicam o conceito, nao a historia do board. Cada
-`## ` abaixo e uma regra citavel (`SKILL#<slug do titulo>`).
+`## ` abaixo e uma regra citavel (`sem-numero-de-card#<slug do titulo>`).
 
 ## CARD-001 Sem numero de card em codigo ou doc de pacote
 severity: warning
