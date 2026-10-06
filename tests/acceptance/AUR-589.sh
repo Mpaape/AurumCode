@@ -26,9 +26,11 @@ set -euo pipefail
 #                   scratch dir and changed to exit 0 is rejected by AC-001
 #   AC-003-MUT-001  (the card's MUT-001) an enumerated copy reintroduced in a
 #                   scratch copy of a fixed acceptance is rejected by AC-003
+#   MUT-001/MUT-002 aliases of AC-003-MUT-001 / AC-001-MUT-001 (the card's IDs)
 #   coverage        table/script consistency (every retired script is a 69
 #                   row; every 69 row's script says retired; with .board
-#                   present, every done card has a row)
+#                   present, a done card without a row runs in AC-001
+#                   expecting 0)
 #   all             coverage, AC-003, both mutations and AC-001 over a fixed
 #                   sample (fits the sealed 600 s budget)
 #   full            coverage, AC-003 and AC-001 over the whole table
@@ -41,7 +43,7 @@ readonly card='AUR-589'
 selector="${1:-all}"
 
 case "$selector" in
-  all|full|AC-001|AC-003|AC-001-MUT-001|AC-003-MUT-001|coverage|one) ;;
+  all|full|AC-001|AC-003|AC-001-MUT-001|AC-003-MUT-001|MUT-001|MUT-002|coverage|one) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -123,7 +125,7 @@ shard_filter() {
 
 ac001_full() {
   local rows
-  rows="$(table_rows | awk '$2 != "fora"' | shard_filter)"
+  rows="$({ table_rows | awk '$2 != "fora"'; unlisted_done; } | shard_filter)"
   [[ -n "$rows" ]] || infra empty-table
   run_rows "$acc_dir" <<<"$rows" || fail rows-mismatch
 }
@@ -159,15 +161,24 @@ coverage() {
     { grep -Fq '/retired: ' "$acc_dir/$c.sh" && grep -Fxq 'exit 69' "$acc_dir/$c.sh"; } 2>/dev/null ||
       fail "69-row-script-not-retired:$c"
   done < <(table_rows)
-  # Outside the sealed profile the board is present: every done card has a row.
+  # Outside the sealed profile the board is present: a done card without a
+  # row (one that reached done after this table) runs in AC-001 expecting 0.
   if [[ -d "$repo_root/.board/cards/done" ]]; then
-    for f in "$repo_root"/.board/cards/done/AUR-*.md; do
-      c="$(basename "$f" .md)"
-      [[ -n "$(expect_of "$c")" ]] || fail "done-card-without-row:$c"
-    done
+    local extra; extra="$(unlisted_done | awk '{ print $1 }' | tr '\n' ' ')"
+    [[ -z "$extra" ]] || printf '%s/%s/unlisted-done-expected-green: %s\n' "$card" "$selector" "$extra" >&2
   else
     printf '%s/%s/board-absent: done list cross-check skipped, table rows still checked\n' "$card" "$selector" >&2
   fi
+}
+
+# unlisted_done prints "CARD 0" for every done card on the board without a row.
+unlisted_done() {
+  [[ -d "$repo_root/.board/cards/done" ]] || return 0
+  local f c
+  for f in "$repo_root"/.board/cards/done/AUR-*.md; do
+    c="$(basename "$f" .md)"
+    [[ -n "$(expect_of "$c")" ]] || printf '%s 0\n' "$c"
+  done
 }
 
 # enumerated_copies DIR prints file:line of every acceptance that copies a named
@@ -220,8 +231,8 @@ case "$selector" in
   coverage)       coverage ;;
   AC-001)         coverage; ac001_full ;;
   AC-003)         ac003 ;;
-  AC-001-MUT-001) mut_retired_exit0 ;;
-  AC-003-MUT-001) mut_enumerated_copy ;;
+  AC-001-MUT-001|MUT-002) mut_retired_exit0 ;;
+  AC-003-MUT-001|MUT-001) mut_enumerated_copy ;;
   all)            coverage; ac003; mut_enumerated_copy; mut_retired_exit0; ac001_sample ;;
   full)           coverage; ac003; ac001_full ;;
 esac
