@@ -17,10 +17,11 @@ generated file, skipped: schema.pb.txt
 - None
 
 
-Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
-- 3 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
+Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
+- 2 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
   - ferramenta.bin (binary)
   - leia-me.txt (binary)
+- 1 file(s) were filtered before the review (generated, too large or no patch); a file that was not reviewed never counts as approved.
   - schema.pb.txt (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
 exit_code=0
@@ -45,10 +46,11 @@ generated file, skipped: schema.pb.txt
 - None
 
 
-Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
-- 3 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
+Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
+- 2 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
   - ferramenta.bin (binary)
   - leia-me.txt (binary)
+- 1 file(s) were filtered before the review (generated, too large or no patch); a file that was not reviewed never counts as approved.
   - schema.pb.txt (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
 exit_code=1

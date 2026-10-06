@@ -63,7 +63,7 @@ PY
 
 # 3. Revisao inconclusiva: auditoria e SARIF dizem isso.
 caso_sarif_inconclusivo() {
-  tut_repo sarif-inconclusivo repo-exemplo/base repo-exemplo/binario
+  tut_repo sarif-inconclusivo repo-exemplo/base repo-exemplo/gerado
   TUT_FIXTURE=fixture-vazia.json; TUT_POLICY=politica-bloqueia
   aurum review --base main --politica /policy --auditoria /work/auditoria.json --sarif /work/revisao.sarif
   expect_rc 1 "inconclusivo em block reprova"

@@ -107,14 +107,22 @@ func aur522ExpectNotApproved(t *testing.T, code int, out, posted string, wants .
 }
 
 // (a) a binary: no patch in the API diff, NUL bytes in the verified checkout.
-func TestAUR522PRBinaryWithoutPatchIsNotReviewed(t *testing.T) {
+// Nothing in it is reviewable by reading, so it is declared ignored (listed
+// by name), out of the coverage count: the review of the text stays
+// complete and is never held partial by a binary.
+func TestAUR522PRBinaryIsDeclaredIgnored(t *testing.T) {
 	head := aur522PRCheckout(t, map[string][]byte{
 		"app.go":   []byte("package demo\nfunc Change() {}\n"),
 		"tool.bin": {0x7f, 'E', 'L', 'F', 0, 1, 2, 0, 9},
 	})
 	diff := aur522PRAppDiff + "diff --git a/tool.bin b/tool.bin\nBinary files /dev/null and b/tool.bin differ\n"
 	code, out, posted := aur522PRRun(t, head, diff)
-	aur522ExpectNotApproved(t, code, out, posted, "tool.bin (binary)")
+	if code != 0 || !strings.Contains(posted, "  - tool.bin (binary)") || !strings.Contains(posted, "ignored") {
+		t.Fatalf("a binary must be declared ignored by name (exit=%d):\n%s\n%s", code, out, posted)
+	}
+	if strings.Contains(posted, "were not fully reviewed") || strings.Contains(posted, "token budget") {
+		t.Fatalf("a binary must not make the review partial:\n%s", posted)
+	}
 }
 
 // (b) a generated file that does carry a patch.
@@ -164,7 +172,7 @@ func TestAUR522ModelCannotForgeOrClearTheRetentionKey(t *testing.T) {
 	}
 	// And the engine's marker survives the coverage step for a filtered file.
 	result := &types.ReviewResult{Metadata: map[string]string{}}
-	c := reviewCoverageBreakdown{FilteredPaths: []string{"x.bin (binary)"}}
+	c := reviewCoverageBreakdown{FilteredPaths: []string{"gen.go (generated)"}}
 	applyStructuralCoverage(grammar.Default(), &types.Diff{}, &c, result)
 	if result.Metadata[prompt.PolicyGateWithheldKey] != "true" {
 		t.Fatal("a filtered file must set the engine retention key")

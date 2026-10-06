@@ -62,6 +62,15 @@ catálogo não conhece é declarado no contexto enviado ao modelo
 (`### Skill selection warnings`) e na seção de limitações do parecer; a
 política pode acrescentar apelidos em `.aurumcode/grammar/aliases.yml`.
 
+Cada seção `## ` de uma skill em diretório é uma regra citável pelo gate, com
+id estável `<nome-do-diretório>#<slug-da-seção>` (ex.:
+`.aurumcode/skills/tamanho/SKILL.md` com `## TAM-001 Função com no máximo 150
+linhas` vira `tamanho#tam-001-funcao-com-no-maximo-150-linhas`), sem listar
+nada em `context.skills`. Se o mesmo `SKILL.md` também estiver listado em
+`context.skills`, o texto chega ao modelo uma única vez (pela lista) e o id é
+o mesmo. A regra de uma skill do repositório tem sempre a origem do
+repositório; a de uma skill da política, a da política.
+
 A política central pode ter as suas skills em `<política>/.aurumcode/skills/`.
 Se uma skill da política e uma do repositório declaram o mesmo seletor, a da
 política vence e o repositório recebe um aviso. Um `SKILL.md` ilegível na
@@ -99,7 +108,13 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
 
 ## Opções avançadas
 
-- `ignore`: lista de globs de caminhos a excluir antes da análise.
+- `ignore`: lista de globs de caminhos a excluir antes da análise. Um caminho
+  ignorado, e todo arquivo binário (uma imagem PNG, um executável), fica fora
+  da conta de cobertura: o parecer o lista como **ignorado**, pelo nome, e a
+  revisão não fica parcial por causa dele (`partial_coverage` não dispara, nem
+  com `gate.inconclusive: block`). Continua parcial o que a revisão quis ler e
+  não conseguiu: arquivo gerado, grande demais, sem patch, ou cortado pelo
+  limite de tokens.
 - `rules`: overrides explícitos de regras reconhecidas, por identificador.
 - `review.memory`: `off` (padrão, sem estado), `ephemeral` (em processo) ou
   `local` (persistido por repositório no diretório de cache). No review de PR,
@@ -227,7 +242,8 @@ revisada) falha o comando antes de qualquer chamada ao modelo.
 
 Cada seção `## ` de cada skill Markdown — as da política e as do próprio
 repositório — é lida a cada execução e vira uma regra citável, com id
-`<nome-do-arquivo-da-skill>#<slug-da-seção>` (minúsculas, qualquer sequência
+`<nome-do-arquivo-da-skill>#<slug-da-seção>` (para um `SKILL.md` de
+diretório, o nome do diretório no lugar do nome do arquivo; minúsculas, qualquer sequência
 de caracteres não alfanuméricos some num único `-`, sem `-` nas pontas; ex.:
 `security.md` com `## No Hardcoded Secrets` vira
 `security#no-hardcoded-secrets`). Título = o texto do cabeçalho. Descrição =
@@ -383,8 +399,14 @@ perfil selecionado aprende o mesmo catálogo dinâmico.
 ## SAST multilinguagem com Semgrep (AUR-548)
 
 `quality_gates.sast` liga uma varredura SAST com [Semgrep](https://semgrep.dev/)
-sobre a árvore inteira do repositório revisado (não só o diff), independente
-de `gate:` estar declarado ou não:
+sobre a árvore inteira do repositório revisado, independente de `gate:` estar
+declarado ou não. A varredura é da árvore inteira (uma regra pode precisar dos
+arquivos vizinhos), mas só conta o que o intervalo revisado mudou: um achado
+fica apenas se cai numa linha que o intervalo adicionou (o mesmo
+`git diff --relative --unified=0 <base>...<head>` do `govet`). Um achado
+antigo, num arquivo que o PR não tocou, não reprova o PR. Sem intervalo
+revisado (`--base` que não resolve), a varredura é inconclusiva, nunca a
+árvore inteira:
 
 ```yaml
 # .aurumcode/config.yml (ou o config.yml da política central)
@@ -409,11 +431,20 @@ Um achado na severidade de `fail_on_severity` ou acima reprova o gate
 (nomeando o `check_id` e a linha no parecer, na auditoria e no SARIF, AC-001);
 abaixo do limiar, o achado é publicado mas não reprova (AC-002). Semgrep
 ausente do `PATH`, com erro de execução, ou com saída que não é um relatório
-Semgrep confiável (JSON inválido, ou sem a chave `results`) nunca é lido como
+Semgrep confiável (JSON inválido, sem a chave `results`, ou um erro do próprio
+Semgrep que alcança a mudança) nunca é lido como
 "zero achados, varredura limpa": é um achado inconclusivo próprio, que segue
 `gate.inconclusive` (`block`, ou a chave ausente, reprova a revisão; só `warn`
 escrito publica o alerta inconclusivo sem bloquear) — exatamente o mesmo
 vocabulário de inconclusivo que o gate do AUR-519 já usa (AC-003).
+
+Os erros do relatório do Semgrep seguem a mesma régua de escopo. Um erro
+fatal (nível diferente de `warn`) ou sem arquivo sempre torna a varredura
+inválida (`sast_invalid_output`). Um erro de parse recuperado (`warn`, ex.:
+um script bash que o Semgrep não entende por inteiro) só torna a varredura
+inválida quando alcança a mudança: arquivo tocado sem linhas indicadas, ou
+trecho sobre uma linha adicionada. Num arquivo que o PR não tocou, ele não
+esconde nada do que a revisão julga e é ignorado.
 
 Sob política central, `quality_gates.sast` do repositório é sempre ignorado
 por completo (com o mesmo aviso nomeado que `gate`/`rules`/`ignore` já usam):
@@ -542,8 +573,13 @@ quality_gates:
 ```
 
 - **Só roda quando declarada.** Sem a entrada, o review é o de sempre; nada é
-  instalado. O `go` precisa já estar no `PATH` do processo do aurumcode (a
-  imagem do produto não o traz): `go` ausente é `lint_unavailable`.
+  instalado. O `go` precisa já estar no `PATH` do processo do aurumcode: a
+  imagem do produto traz o Go pinado (o mesmo do `go.mod` do projeto, copiado
+  da imagem golang fixada por digest), e o workflow reutilizável baixa os
+  módulos do repositório revisado antes da review (passo "Prefetch Go
+  modules", `GOTOOLCHAIN=local`, sem segredos) para o cache que a review
+  monta. `go` ausente é `lint_unavailable`; módulo fora do cache é
+  `lint_execution_error`.
 - Roda `go vet -json ./...` na raiz revisada, que precisa ter `go.mod` (sem
   ele é `lint_execution_error`: o go resolveria outro módulo, cujos caminhos o
   diff não mapeia; módulos aninhados ficam de fora) e lê o relatório JSON, nunca o texto como comando.

@@ -1,6 +1,7 @@
 // Package semgrep is the Semgrep engine of the scanner registry: a
-// multi-language SAST pass over the whole reviewed tree (never just the
-// diff). Its category is "sast" and, so the gate line, the audit and the
+// multi-language SAST pass over the whole reviewed tree, whose findings and
+// recovered parse errors are kept only where the reviewed range added lines
+// (the change scope, scanner.AddedLines). Its category is "sast" and, so the gate line, the audit and the
 // SARIF of existing policies keep their bytes, its typed origin is "sast"
 // too.
 package semgrep
@@ -48,11 +49,71 @@ type semgrepResult struct {
 	} `json:"extra"`
 }
 
-// semgrepError is one entry of Semgrep's own top-level "errors" array.
+// semgrepError is one entry of Semgrep's own top-level "errors" array. Type
+// is kept raw: Semgrep writes it as a string ("Syntax error") or as an array
+// (["PartialParsing", [...]]), and decoding it into a string made every
+// report with a partial parse unreadable (measured on this repository: 8 of
+// its 13 errors). Path and Spans name the file and lines a parse error
+// concerns, when Semgrep knows them.
 type semgrepError struct {
-	Level   string `json:"level"`
-	Type    string `json:"type"`
-	Message string `json:"message"`
+	Level   string          `json:"level"`
+	Type    json.RawMessage `json:"type"`
+	Message string          `json:"message"`
+	Path    string          `json:"path"`
+	Spans   []semgrepSpan   `json:"spans"`
+}
+
+// semgrepSpan is the line range of one error location.
+type semgrepSpan struct {
+	Start struct {
+		Line int `json:"line"`
+	} `json:"start"`
+	End struct {
+		Line int `json:"line"`
+	} `json:"end"`
+}
+
+// semgrepLevelWarn is Semgrep's level for an error it recovered from: the
+// scan went on, without the part it could not parse.
+const semgrepLevelWarn = "warn"
+
+// blocking reports whether e makes the report untrustworthy for the change
+// in added. A fatal error (any level but warn), or one Semgrep cannot place
+// in a file, always does. A recovered parse error (warn) only does when it
+// touches what the change added: a whole-file failure on a touched file, or
+// a span over an added line. A parse error in a file the change did not
+// touch hides nothing the review judges.
+func (e semgrepError) blocking(added scanner.LineSet) bool {
+	path := strings.TrimPrefix(e.Path, "./")
+	if !strings.EqualFold(strings.TrimSpace(e.Level), semgrepLevelWarn) || path == "" {
+		return true
+	}
+	if !added.Touched(path) {
+		return false
+	}
+	if len(e.Spans) == 0 {
+		return true
+	}
+	for _, span := range e.Spans {
+		for line := span.Start.Line; line <= span.End.Line; line++ {
+			if added[path][line] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// blockingErrors keeps the errors that make the report untrustworthy for the
+// change in added.
+func blockingErrors(errs []semgrepError, added scanner.LineSet) []semgrepError {
+	var out []semgrepError
+	for _, e := range errs {
+		if e.blocking(added) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // ErrSemgrepNoResults is returned when Semgrep's own JSON decodes but
@@ -110,8 +171,9 @@ var ErrSemgrepReportedErrors = fmt.Errorf("semgrep: report contains one or more 
 //     (ErrNotFound when the binary is missing, wrapped otherwise);
 //   - output that is not valid JSON, or valid JSON with no "results" key
 //     (ErrSemgrepNoResults);
-//   - a decodable report whose own "errors" array is non-empty
-//     (ErrSemgrepReportedErrors) -- checked BEFORE the runner's own exit
+//   - a decodable report whose own "errors" array holds an error that
+//     concerns the change (ErrSemgrepReportedErrors, see
+//     semgrepError.blocking) -- checked BEFORE the runner's own exit
 //     code, so a fatal Semgrep-side failure is never masked by a report
 //     that still parses.
 //
@@ -120,7 +182,7 @@ var ErrSemgrepReportedErrors = fmt.Errorf("semgrep: report contains one or more 
 // were reported" -- it is an execution problem like any other non-zero
 // exit, checked last, after both report-shape checks above have already
 // had a chance to name a more specific reason.
-func scan(ctx context.Context, dir string, packs []string, policyOrigin bool, run scanner.Command) ([]scanner.Finding, error) {
+func scan(ctx context.Context, dir string, packs []string, policyOrigin bool, run scanner.Command, added scanner.LineSet) ([]scanner.Finding, error) {
 	if run == nil {
 		return nil, errors.New("semgrep: nil command runner")
 	}
@@ -145,8 +207,8 @@ func scan(ctx context.Context, dir string, packs []string, policyOrigin bool, ru
 		}
 		return nil, fmt.Errorf("semgrep: %w", parseErr)
 	}
-	if len(report.Errors) > 0 {
-		return nil, fmt.Errorf("semgrep: %w: %s", ErrSemgrepReportedErrors, firstSemgrepErrorMessage(report.Errors))
+	if errs := blockingErrors(report.Errors, added); len(errs) > 0 {
+		return nil, fmt.Errorf("semgrep: %w: %s", ErrSemgrepReportedErrors, firstSemgrepErrorMessage(errs))
 	}
 	if runErr != nil { // AUR-548-MUT-001-ANCHOR
 		return nil, fmt.Errorf("semgrep: execution failed: %w", runErr)

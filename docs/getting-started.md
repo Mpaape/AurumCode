@@ -26,6 +26,37 @@ precisa declarar esse mesmo `ref`: o padrão do `actions/checkout` num evento
 explícito o HEAD do checkout diverge do commit revisado pela API, e o
 contexto de codebase é omitido por esse descompasso de HEAD.
 
+## Configuração mínima
+
+Sem `.aurumcode/config.yml` o review já roda, mas só orienta. Para um gate,
+estas linhas na branch base bastam, sem ajuste fino:
+
+```yaml
+gate:
+  fail_on: [error]      # achado error reprova o check
+  inconclusive: block   # revisão que não concluiu nunca aprova
+ignore:
+  - "tests/**"          # fora da revisão: listado como ignorado, nunca "parcial"
+quality_gates:
+  scanners:
+    - engine: gitleaks  # segredos no intervalo de commits da PR
+      required: true
+    - engine: semgrep   # SAST: só achados em linhas que a PR adicionou
+    - engine: govet     # go vet com o Go da imagem: só linhas adicionadas
+      fail_on: warning
+```
+
+- Caminho em `ignore` e arquivo binário (uma captura PNG) ficam fora da conta
+  de cobertura: o parecer os lista como ignorados e a revisão não fica
+  inconclusiva por eles.
+- Semgrep e go vet varrem a árvore, mas só reprovam pelo que a PR mudou: um
+  achado antigo num arquivo que ela não tocou não bloqueia.
+- Convenções do time entram como `.aurumcode/skills/<nome>/SKILL.md`; cada
+  seção `## ` vira regra citável `<nome>#<slug>` sem listar nada (ver
+  "Skills em diretório" em docs/configuration.md).
+- Falha de provedor e scanner ausente continuam bloqueando com
+  `inconclusive: block`.
+
 ## Uso local
 
 Construa a imagem a partir do checkout do AurumCode:
