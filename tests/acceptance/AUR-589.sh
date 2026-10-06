@@ -147,6 +147,10 @@ coverage() {
     [[ "$e" == fora ]] || continue
     [[ " ${allowed_outside[*]} " == *" $c "* ]] || fail "outside-not-allowed:$c"
   done < <(table_rows)
+  # A row must name an acceptance that exists, or AC-001 fails late on it.
+  while read -r c e; do
+    [[ "$e" == fora || -f "$acc_dir/$c.sh" ]] || fail "row-without-script:$c"
+  done < <(table_rows)
   # A duplicated row would let one state hide another.
   [[ -z "$(table_rows | awk '{ print $1 }' | sort | uniq -d)" ]] || fail duplicate-row
   # Every retired stub (prints /retired: and ends in `exit 69`) is a 69 row,
