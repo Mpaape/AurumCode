@@ -132,9 +132,12 @@ apply_mutation_skip_silently() {
 # AC-004-MUT-001: --pr feeding mergeReviewCoverage a nil notice list again.
 apply_mutation_pr_no_notices() {
   local target="$run_dir/root/cmd/aurumcode/review_pr_analysis.go"
-  local anchor='mergeReviewCoverage(result.Metadata, uninspectedPRNotices(p.diff, p.verifiedDir), p.rawDiffFileCount, p.ignoredPaths)'
+  # AUR-593 prepends the binary notices; the uninspected-file notices are
+  # still the one call this mutation drops (same semantics: --pr no longer
+  # reports a file it did not inspect).
+  local anchor='p.binaryNotices...), uninspectedPRNotices(p.diff, p.verifiedDir)...), p.rawDiffFileCount, p.ignoredPaths)'
   [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra pr-mutation-anchor-not-unique
-  sed -i 's/uninspectedPRNotices(p.diff, p.verifiedDir)/nil \/* AUR-522 MUT-001: pr notices dropped *\//' "$target"
+  sed -i 's/uninspectedPRNotices(p.diff, p.verifiedDir)\.\.\./[]analyzer.DiffNotice(nil \/* AUR-522 MUT-001: pr notices dropped *\/).../' "$target"
   grep -Fq 'MUT-001: pr notices dropped' "$target" || infra pr-mutation-not-applied
 }
 
