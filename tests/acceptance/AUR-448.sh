@@ -44,6 +44,9 @@ umask 077
 readonly card='AUR-448'
 readonly scenario='AC-001'
 selector="${1:-AC-001}"
+# `all` is AC-001 (which runs every scenario of this card), the name every
+# other acceptance script uses for the whole contract.
+[[ "$selector" != all ]] || selector=AC-001
 
 case "$selector" in
   AC-001|TestAUR448|IntegrationAUR448|E2EAUR448|AC-001-MUT-001) ;;
@@ -167,6 +170,9 @@ write_fixtures() {
       "file": "config/demo-tokens.txt",
       "line": 3,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/hardcoded-secret",
       "message": "grounded"
     },
@@ -174,12 +180,18 @@ write_fixtures() {
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 5,
       "severity": "warning",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/definitely-not-a-rule",
       "message": "unknown rule_id"
     }
@@ -194,6 +206,9 @@ EOF
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     }
   ],

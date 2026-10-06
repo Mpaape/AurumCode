@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/gittest"
 )
 
 // These tests exercise the git-binary path in gitrepo.go: they build a real
@@ -28,10 +30,7 @@ func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(),
-		"GIT_AUTHOR_NAME=AurumCode Test", "GIT_AUTHOR_EMAIL=test@aurumcode.invalid",
-		"GIT_COMMITTER_NAME=AurumCode Test", "GIT_COMMITTER_EMAIL=test@aurumcode.invalid",
-	)
+	cmd.Env = gittest.HermeticEnv(t.TempDir())
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
