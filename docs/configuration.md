@@ -573,9 +573,8 @@ quality_gates:
 - **Arquivo cgo não passa como limpo:** com `CGO_ENABLED=0` o go vet tira do
   pacote, sem aviso, todo arquivo com `import "C"`. Se um pacote que o
   intervalo tocou tem um arquivo assim, a varredura é `lint_execution_error`
-  e o erro da engine nomeia cada arquivo (`govet: package has a cgo file go
-  vet does not vet (CGO_ENABLED=0): calc/hello.go`); arquivo cgo em pacote
-  não tocado não muda nada.
+  (inconclusiva, nunca limpa); arquivo cgo em pacote não tocado não muda
+  nada.
 - **Só o módulo da raiz:** `GOWORK=off` é fixo. Um `go.work` num diretório
   acima da raiz revisada não escolhe os módulos nem as substituições que o
   vet carrega.
