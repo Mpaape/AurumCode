@@ -73,6 +73,7 @@ RESULTADO: o segundo upload substituiu o primeiro: ms@2.1.3 (servico-a) sumiu do
 $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
 ## Code Review Summary
 
 **Verdict:** Approve
@@ -96,7 +97,6 @@ flowchart TD
 
 ```
 No issues found.
-aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
 exit_code=0
 RESULTADO: servico-a no projeto servico-a
 $ aurumcode review --base main --fail-on error

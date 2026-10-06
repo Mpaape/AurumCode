@@ -1,6 +1,7 @@
 == govet-achado
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf) (severidade warning, limiar warning, origem govet, secao repo)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -20,7 +21,6 @@ flowchart TD
 
 ```
 calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)
-aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf) (severidade warning, limiar warning, origem govet, secao repo)
 exit_code=3
 RESULTADO: go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra
 LLM_API_KEY no ambiente do go: ausente
