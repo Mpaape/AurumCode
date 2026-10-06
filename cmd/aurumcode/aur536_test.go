@@ -33,6 +33,7 @@ import (
 	"testing"
 
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
+	"github.com/Mpaape/AurumCode/internal/gittest"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -497,13 +498,12 @@ func TestAUR536PackedRepositoryWithoutGitIsUnverifiable(t *testing.T) {
 		t.Skip("git not available to build a packed fixture")
 	}
 	dir := t.TempDir()
+	gitHome := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
 		cmd := exec.Command(gitBin, args...)
 		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=fixture", "GIT_AUTHOR_EMAIL=fixture@example.invalid",
-			"GIT_COMMITTER_NAME=fixture", "GIT_COMMITTER_EMAIL=fixture@example.invalid")
+		cmd.Env = gittest.HermeticEnv(gitHome)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
@@ -518,7 +518,9 @@ func TestAUR536PackedRepositoryWithoutGitIsUnverifiable(t *testing.T) {
 	run("remote", "add", "origin", "https://github.com/owner/repo.git")
 	run("repack", "-a", "-d", "-q") // packs every object, including the commit/tree themselves.
 
-	headOut, err := exec.Command(gitBin, "-C", dir, "rev-parse", "HEAD").Output()
+	revParse := exec.Command(gitBin, "-C", dir, "rev-parse", "HEAD")
+	revParse.Env = gittest.HermeticEnv(gitHome)
+	headOut, err := revParse.Output()
 	if err != nil {
 		t.Fatal(err)
 	}
