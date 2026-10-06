@@ -167,6 +167,9 @@ write_fixtures() {
       "file": "config/demo-tokens.txt",
       "line": 3,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/hardcoded-secret",
       "message": "grounded"
     },
@@ -174,12 +177,18 @@ write_fixtures() {
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 5,
       "severity": "warning",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/definitely-not-a-rule",
       "message": "unknown rule_id"
     }
@@ -194,6 +203,9 @@ EOF
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     }
   ],
