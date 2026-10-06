@@ -109,13 +109,12 @@ ac_002() {
   printf '%s/AC-002/pass\n' "$card"
 }
 
-# AC-003 is honest: it is RED until the sealed image is repinned from the
-# current go.mod/go.sum (docs/specs/AUR-590.md, the lock and the profiles
-# live outside this card's paths).
+# AC-003: the sealed image's module cache resolves the whole module graph
+# offline (repinned from the current go.mod/go.sum, docs/specs/AUR-590.md).
 ac_003() {
   current=AC-003; staged
   ( cd "$module" && GOFLAGS='-mod=mod' go list -m all ) >"$run_dir/ac003.log" 2>&1 ||
-    { cat "$run_dir/ac003.log" >&2; fail 'blocked:module-cache-without-kr-text:repin-needs-.board/locks/oci+.board/oci/profiles'; }
+    { cat "$run_dir/ac003.log" >&2; fail go-list-offline-failed; }
   printf '%s/AC-003/pass\n' "$card"
 }
 
