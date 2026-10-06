@@ -79,6 +79,8 @@ func (p *prReview) wrapContext() (int, bool) {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", catalogErr)
 		return 1, true
 	}
+	excludeListedSkills(catalog, p.centralCfg, p.cfg)
+	p.skillCatalog = catalog
 	p.skillNotices = skillSelectionNotices(catalog, diffPaths(p.diff), p.filter)
 	providers = append(providers, catalog)
 	p.contextBlockDigest = contextBlockCacheDigest(providers, diffPaths(p.diff), p.filter)
@@ -94,7 +96,9 @@ func (p *prReview) resolveSkills() (int, bool) {
 		policySkillRules = dynamicRulesFromLocalSkills(p.opts.policyDir, p.centralCfg.Review.Context.Skills, gateOriginPolicy)
 	}
 	repoSkillRules := dynamicRulesFromRemoteSkills(p.ctx, p.client, p.owner, p.repoName, p.cfg.Review.Context.Skills, p.contextRef, gateOriginRepo)
-	p.dynamicRules = mergeDynamicRules(policySkillRules, repoSkillRules)
+	// The skill directories the catalog read at the same trusted ref.
+	catalogPolicy, catalogRepo := dynamicRulesFromCatalog(p.skillCatalog, diffPaths(p.diff))
+	p.dynamicRules = mergeDynamicRules(unionRules(policySkillRules, catalogPolicy), unionRules(repoSkillRules, catalogRepo))
 	p.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, p.dynamicRules)
 	p.ruleCatalogDigest = ruleCatalogCacheDigest(p.ruleCatalogIDs, p.dynamicRules)
 	return 0, false

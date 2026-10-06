@@ -89,7 +89,7 @@ container criado a partir de um profile. O profile e o lock do `go-unit-offline-
 "version": 1,
 "profile": "go-unit-offline-v1",
 "lock": ".board/locks/oci/go-unit-offline-v1.lock.json",
-"lock_digest": "sha256:979c3003d5c9ccd5029db5ef88840d477a8844dd915657a5d87d84a5abbb01d6",
+"lock_digest": "sha256:026e9310444c083a5e51f5ab99e1d9caa829bf857a8b3c75bf3c317c2df6c4f4",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",

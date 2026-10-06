@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
@@ -41,6 +42,21 @@ func resolveSkillCatalog(policy, repo skills.Source) (*skills.Catalog, error) {
 		}
 	}
 	return skills.NewCatalog(policySet, repoSet, nil, warnings), nil
+}
+
+// excludeListedSkills drops from catalog every skill directory whose
+// SKILL.md its own layer also lists in review.context.skills: the listing
+// already sends that text to the model, and it must reach the prompt once.
+func excludeListedSkills(catalog *skills.Catalog, policy, repo *config.Config) {
+	if catalog == nil {
+		return
+	}
+	if policy != nil {
+		catalog.ExcludeListed(skills.LayerPolicy, policy.Review.Context.Skills)
+	}
+	if repo != nil {
+		catalog.ExcludeListed(skills.LayerRepository, repo.Review.Context.Skills)
+	}
 }
 
 // localSkillSource reads root/.aurumcode/skills from disk, shown with a
