@@ -67,9 +67,9 @@ caso_inconclusivo_provedor() {
   expect_rc 1 "--exigir-qualidade reprova mesmo com warn (provider_failure)"
 }
 
-# 3. Inconclusivo: cobertura parcial (arquivo binario).
+# 3. Inconclusivo: cobertura parcial (arquivo gerado, que a revisao nao le).
 caso_inconclusivo_cobertura() {
-  tut_repo inconclusivo-cobertura repo-exemplo/base repo-exemplo/binario
+  tut_repo inconclusivo-cobertura repo-exemplo/base repo-exemplo/gerado
   TUT_FIXTURE=fixture-vazia.json
   echo "--- inconclusive: block"
   TUT_POLICY=politica-bloqueia; aurum review --base main --politica /policy
@@ -137,7 +137,7 @@ caso_status_pr() {
     case "$alvo" in
       aprovado)     tut_repo "status-pr-$alvo" repo-exemplo/base repo-exemplo/segredo; TUT_FIXTURE=fixture-aviso.json; TUT_POLICY=politica-high ;;
       reprovado)    tut_repo "status-pr-$alvo" repo-exemplo/base repo-exemplo/segredo; TUT_FIXTURE=fixture-erro.json; TUT_POLICY=politica-high ;;
-      inconclusivo) tut_repo "status-pr-$alvo" repo-exemplo/base repo-exemplo/binario; TUT_FIXTURE=fixture-vazia.json; TUT_POLICY=politica-bloqueia ;;
+      inconclusivo) tut_repo "status-pr-$alvo" repo-exemplo/base repo-exemplo/gerado; TUT_FIXTURE=fixture-vazia.json; TUT_POLICY=politica-bloqueia ;;
     esac
     echo "--- $alvo"
     tut_pr_servidor "status-pr-$alvo"
@@ -150,7 +150,7 @@ caso_status_pr() {
 
 # 8. O repositorio tenta afrouxar a politica: inconclusive warn e sources [skills] sao ignorados.
 caso_repo_afrouxa() {
-  tut_repo repo-afrouxa repo-exemplo/base-afrouxa repo-exemplo/binario
+  tut_repo repo-afrouxa repo-exemplo/base-afrouxa repo-exemplo/gerado
   TUT_FIXTURE=fixture-vazia.json
   echo "--- so o repositorio: inconclusive warn"
   aurum review --base main

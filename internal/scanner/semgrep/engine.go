@@ -2,6 +2,7 @@ package semgrep
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -33,6 +34,10 @@ func init() {
 		// and SARIF byte-identical.
 		Origin:   Category,
 		Validate: validateOptions,
+		// git reads the reviewed range for the change scope; in CI the
+		// checkout belongs to another user, so only its safe.directory
+		// entries reach the child.
+		Environment: scanner.Environment{Extra: scanner.GitSafeDirectories},
 	})
 }
 
@@ -42,18 +47,29 @@ type Engine struct{}
 // Name is the engine's registered name.
 func (Engine) Name() string { return Name }
 
-// Run scans req.Root. Under a central policy (TrustPolicy) the author's
-// `# nosemgrep` comments and committed `.semgrepignore` files are ignored.
+// Run scans req.Root and keeps the findings on the lines req.Range added:
+// the tree is scanned whole (a rule may need the surrounding files), but a
+// finding on a line the pull request did not add is the repository's history
+// and never judges this change. Under a central policy (TrustPolicy) the
+// author's `# nosemgrep` comments and committed `.semgrepignore` files are
+// ignored.
 func (Engine) Run(ctx context.Context, req scanner.Request) (scanner.Report, error) {
 	packs, err := RulePacks(req.Options)
 	if err != nil {
 		return scanner.Report{}, err
 	}
-	findings, err := scan(ctx, req.Root, packs, req.Trust == scanner.TrustPolicy, req.Command)
+	if req.Command == nil {
+		return scanner.Report{}, errors.New("semgrep: nil command runner")
+	}
+	added, err := scanner.AddedLines(ctx, req.Command, req.Root, req.Range)
+	if err != nil {
+		return scanner.Report{}, fmt.Errorf("semgrep: %w", err)
+	}
+	findings, err := scan(ctx, req.Root, packs, req.Trust == scanner.TrustPolicy, req.Command, added)
 	if err != nil {
 		return scanner.Report{}, err
 	}
-	return scanner.Report{Findings: findings, Complete: true}, nil
+	return scanner.Report{Findings: added.Keep(findings), Complete: true}, nil
 }
 
 // RulePacks reads the rule_packs option, defaulting to DefaultRulePacks.

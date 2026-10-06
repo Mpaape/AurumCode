@@ -1,9 +1,14 @@
-binary file, skipped: logo.png
+generated file, skipped: gerado.go
 **Verdict:** Comment
 a file that was not reviewed never counts as approved.
-  - logo.png (binary)
+  - gerado.go (generated)
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 aurumcode review: policy gate: review inconclusive (partial_coverage)
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 exit_code=0
+binary file, skipped: logo.png
+**Verdict:** Approve
+- 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
+  - logo.png (binary)
+RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova

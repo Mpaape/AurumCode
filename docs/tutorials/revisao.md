@@ -379,8 +379,9 @@ tutorial `gate`.
 
 ## Quando falha: arquivo não revisado nunca conta como aprovado
 
-E se a mudança é só um binário (`logo.png`), que o motor filtra antes da
-revisão? Sem gate declarado:
+E se a mudança é só um arquivo gerado (`gerado.go`, que diz no topo
+`Code generated ... DO NOT EDIT.`)? O motor não o revisa: quem se revisa é a
+fonte que o gera. Sem gate declarado:
 
 ```bash
 aurumcode review --base main
@@ -388,10 +389,10 @@ aurumcode review --base main
 
 <!-- saida: falha-nao-revisado -->
 ```text
-binary file, skipped: logo.png
+generated file, skipped: gerado.go
 **Verdict:** Comment
 a file that was not reviewed never counts as approved.
-  - logo.png (binary)
+  - gerado.go (generated)
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 ```
 
@@ -422,6 +423,20 @@ Com `inconclusive: block` a revisão parcial reprova (saída 1) e o motivo
 `partial_coverage` aparece. Pela referência de configuração, com `warn` ela
 continua visível como inconclusiva sem bloquear (não demonstrado aqui). O
 veredito `Comment` sem `Approve` foi demonstrado nos dois casos acima.
+
+Um binário é diferente: nada nele se revisa lendo. O mesmo gate em `block`,
+com uma mudança que só traz `logo.png`, conclui: o motor tira o binário da
+conta de cobertura e o lista como **ignorado**, pelo nome (o mesmo vale para
+um caminho em `ignore`).
+
+<!-- saida: falha-nao-revisado -->
+```text
+binary file, skipped: logo.png
+**Verdict:** Approve
+- 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
+  - logo.png (binary)
+RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova
+```
 
 ## Problemas comuns
 

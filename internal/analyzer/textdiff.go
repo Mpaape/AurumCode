@@ -60,6 +60,11 @@ type DiffNotice struct {
 	// Reason is the short, stable cause: "binary", "generated" or "too large".
 	// A file with a Reason was NOT reviewed; it must never count as approved.
 	Reason string
+	// DeclaredFormat: the binary content is a format the catalog declares
+	// out of the review's scope (grammar.DeclaredBinaryFormat: listed
+	// extension, its signature and binary content). Only such a file may be
+	// declared ignored instead of partial.
+	DeclaredFormat bool
 }
 
 // classifyBlob reports why the changed file at path must not be line-diffed,
@@ -94,6 +99,11 @@ func classifyBlob(path string, content []byte) string {
 // inspected: the API gave no patch and no verified copy was available.
 const NoticeReasonNoPatch = "no patch"
 
+// NoticeReasonBinary is the Reason of a changed file whose content is not
+// text. Nothing in it is reviewable by reading, so the review declares it
+// instead of counting it as partially covered.
+const NoticeReasonBinary = "binary"
+
 // ClassifyBlob is the one content check both review paths share: it returns a
 // notice when the file must not be line-diffed or reviewed (binary, generated,
 // too large), or nil when its content is reviewable text.
@@ -102,14 +112,14 @@ func ClassifyBlob(path string, content []byte) *DiffNotice {
 	if msg == "" {
 		return nil
 	}
-	return &DiffNotice{Path: path, Message: msg, Reason: noticeReason(msg)}
+	return &DiffNotice{Path: path, Message: msg, Reason: noticeReason(msg), DeclaredFormat: grammar.DeclaredBinaryFormat(path, content)}
 }
 
 // noticeReason maps a classifyBlob message to the stable reason token.
 func noticeReason(message string) string {
 	switch {
 	case strings.HasPrefix(message, "binary file"):
-		return "binary"
+		return NoticeReasonBinary
 	case strings.HasPrefix(message, "generated file"):
 		return "generated"
 	default:
