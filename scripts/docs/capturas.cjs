@@ -260,8 +260,10 @@ function imagemPinada() {
 
 function escreveManifesto(imagem) {
   // One entry per line, so the sealed acceptance can read it with awk/sed.
+  // Digests carry the "sha256:" prefix: a bare 64-hex value after a key that
+  // contains "sumo" (insumo) reads as a SumoLogic token to a secret scanner.
   const linhas = esperadas().map(e => "    " + JSON.stringify({
-    imagem: e.imagem, tipo: e.tipo, insumo: e.insumo, insumo_sha256: sha256(path.join(ROOT, e.insumo)),
+    imagem: e.imagem, tipo: e.tipo, insumo: e.insumo, insumo_sha256: "sha256:" + sha256(path.join(ROOT, e.insumo)),
     playwright: imagem, comando: COMANDO }));
   const json = "{\n" +
     `  "gerador": ${JSON.stringify(COMANDO)},\n` +

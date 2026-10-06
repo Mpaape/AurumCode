@@ -44,6 +44,14 @@ import (
 // that machinery.
 func aur538CleanFixture(t *testing.T, configYAML string) string {
 	t.Helper()
+	return aur538CleanFixtureTests(t, configYAML, "")
+}
+
+// aur538CleanFixtureTests is aur538CleanFixture with testsPrefix written at
+// the top of the head tests/change_test.go (generatedMarker makes the file
+// generated, the partial-coverage trigger).
+func aur538CleanFixtureTests(t *testing.T, configYAML, testsPrefix string) string {
+	t.Helper()
 	dir := t.TempDir()
 	write := func(name string, data []byte) {
 		t.Helper()
@@ -58,7 +66,7 @@ func aur538CleanFixture(t *testing.T, configYAML string) string {
 	appBase := []byte("package demo\nfunc Change() int {\n return 1\n}\n")
 	appHead := []byte("package demo\nfunc Change() int {\n return 42\n}\n")
 	testsBase := []byte("package demo\n\nimport \"testing\"\n\nfunc TestOld(t *testing.T) {}\n")
-	testsHead := []byte("package demo\n\nimport \"testing\"\n\nfunc TestChange(t *testing.T) {\n if Change() != 42 {\n  t.Fatal(\"boom\")\n }\n}\n")
+	testsHead := []byte(testsPrefix + "package demo\n\nimport \"testing\"\n\nfunc TestChange(t *testing.T) {\n if Change() != 42 {\n  t.Fatal(\"boom\")\n }\n}\n")
 
 	appBaseID := gitObject(t, dir, "blob", appBase)
 	appHeadID := gitObject(t, dir, "blob", appHead)
@@ -115,7 +123,7 @@ func aur538CleanFixture(t *testing.T, configYAML string) string {
 func TestAUR538BaseCleanFixtureVerdictWithheldUnderBlock(t *testing.T) {
 	for _, modelVerdict := range []string{"", "changes_requested"} {
 		t.Run("model_verdict_"+modelVerdict, func(t *testing.T) {
-			aur538CleanFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: block\n")
+			aur538CleanFixtureTests(t, "gate:\n  inconclusive: block\n", generatedMarker)
 			resp := `{"summary":"ok","issues":[]}`
 			if modelVerdict != "" {
 				resp = fmt.Sprintf(`{"summary":"ok","verdict":%q,"issues":[]}`, modelVerdict)

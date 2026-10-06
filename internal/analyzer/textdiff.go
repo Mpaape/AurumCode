@@ -94,6 +94,11 @@ func classifyBlob(path string, content []byte) string {
 // inspected: the API gave no patch and no verified copy was available.
 const NoticeReasonNoPatch = "no patch"
 
+// NoticeReasonBinary is the Reason of a changed file whose content is not
+// text. Nothing in it is reviewable by reading, so the review declares it
+// instead of counting it as partially covered.
+const NoticeReasonBinary = "binary"
+
 // ClassifyBlob is the one content check both review paths share: it returns a
 // notice when the file must not be line-diffed or reviewed (binary, generated,
 // too large), or nil when its content is reviewable text.
@@ -109,7 +114,7 @@ func ClassifyBlob(path string, content []byte) *DiffNotice {
 func noticeReason(message string) string {
 	switch {
 	case strings.HasPrefix(message, "binary file"):
-		return "binary"
+		return NoticeReasonBinary
 	case strings.HasPrefix(message, "generated file"):
 		return "generated"
 	default:

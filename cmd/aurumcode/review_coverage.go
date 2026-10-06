@@ -30,10 +30,14 @@ type reviewCoverageBreakdown struct {
 	Ignored  int
 	Filtered int
 	// IgnoredPaths and FilteredPaths are the concrete paths cmd/aurumcode
-	// owns the knowledge of: config-hidden and binary/oversized files. They
-	// are named in the notice so AC-001's "caminhos nao revisados" holds.
-	// Budget omissions are named by the prompt builder inside the model
-	// input; only their count reaches cmd through result.Metadata.
+	// owns the knowledge of. IgnoredPaths is what the review declares out of
+	// its scope by construction: paths the repository's `ignore` hides and
+	// binary files (nothing in them is reviewable by reading). They are
+	// listed, never counted as partial coverage. FilteredPaths is what the
+	// review wanted to read and could not (generated, too large, no patch):
+	// those keep the review partial. Budget omissions are named by the
+	// prompt builder inside the model input; only their count reaches cmd
+	// through result.Metadata.
 	IgnoredPaths  []string
 	FilteredPaths []string
 	// NoStructure names the changed files for which the grammar runtime has
@@ -48,36 +52,44 @@ type reviewCoverageBreakdown struct {
 // derived, never stored, so it cannot disagree with the parts.
 func (c reviewCoverageBreakdown) covered() int { return c.Complete + c.Partial }
 
-// uncovered counts every file the review did not fully cover, for any reason.
+// uncovered counts every file the review meant to read and did not fully
+// cover. Declared-ignored files are out of scope, not uncovered.
 func (c reviewCoverageBreakdown) uncovered() int {
-	return c.Budget + c.Ignored + c.Filtered
+	return c.Budget + c.Filtered
 }
 
-// partial reports whether any file was left out of the review in whole or in
-// part. AC-002: this is the single predicate every sink uses, so a complete
-// review can never grow a coverage notice on one path and not the other.
+// partial reports whether any file in the review's scope was left out in
+// whole or in part. AC-002: this is the single predicate every sink uses, so
+// a complete review can never grow a coverage notice on one path and not the
+// other. A declared-ignored file (config `ignore`, binary) never makes the
+// review partial: it is listed in the notice instead.
 func (c reviewCoverageBreakdown) partial() bool {
 	return c.Partial > 0 || c.uncovered() > 0
 }
 
+// declaredIgnored reports whether the notice has ignored files to list.
+func (c reviewCoverageBreakdown) declaredIgnored() bool { return c.Ignored > 0 }
+
 // mergeReviewCoverage combines a model-produced promptMeta with the
 // deterministic facts cmd/aurumcode owns: which files the repository config
 // ignored (removed before the model ever saw the diff) and which were filtered
-// as binary/oversized (analyzer.DiffNotice). A file can be counted at most
-// once; the ignored and filtered causes are checked first because they are the
-// more specific explanations. When no prompt was assembled (promptMeta nil,
-// e.g. the deterministic-only path) the prompt counts are simply absent and
-// the configured/filtered counts remain.
+// before the review (analyzer.DiffNotice). A file is counted at most once: a
+// config-ignored path is ignored whatever its content; a binary file is
+// declared ignored; every other notice is filtered. When no prompt was
+// assembled (promptMeta nil, e.g. the deterministic-only path) the prompt
+// counts are simply absent and the configured/filtered counts remain.
 func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNotice, rawFileCount int, ignoredPaths []string) reviewCoverageBreakdown {
 	var c reviewCoverageBreakdown
 	c.Total = atoiOrZero(promptMeta["code_files_total"])
 	c.Complete = atoiOrZero(promptMeta["code_files_complete"])
 	c.Partial = atoiOrZero(promptMeta["code_files_partial"])
 	c.Budget = atoiOrZero(promptMeta["code_files_omitted"])
-	c.IgnoredPaths = dedupePaths(ignoredPaths)
-	c.Ignored = len(c.IgnoredPaths)
-	filtered := make([]string, 0, len(notices))
-	seen := make(map[string]struct{}, len(notices))
+	ignored := dedupePaths(ignoredPaths)
+	seen := make(map[string]struct{}, len(ignored)+len(notices))
+	for _, p := range ignored {
+		seen[p] = struct{}{}
+	}
+	var filtered []string
 	for _, n := range notices {
 		if n.Path == "" {
 			continue
@@ -86,14 +98,18 @@ func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNo
 			continue
 		}
 		seen[n.Path] = struct{}{}
+		label := n.Path
 		if n.Reason != "" {
-			filtered = append(filtered, n.Path+" ("+n.Reason+")")
-		} else {
-			filtered = append(filtered, n.Path)
+			label = n.Path + " (" + n.Reason + ")"
 		}
+		if n.Reason == analyzer.NoticeReasonBinary {
+			ignored = append(ignored, label)
+			continue
+		}
+		filtered = append(filtered, label)
 	}
-	c.FilteredPaths = filtered
-	c.Filtered = len(filtered)
+	c.IgnoredPaths, c.Ignored = ignored, len(ignored)
+	c.FilteredPaths, c.Filtered = filtered, len(filtered)
 	// The code-file total must account for files the prompt builder never saw:
 	// an ignored or filtered file is absent from the diff the builder measured,
 	// so its own total undercounts the review's true denominator. Reconcile to

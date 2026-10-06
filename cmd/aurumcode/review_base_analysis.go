@@ -76,15 +76,6 @@ func (b *baseReview) selectProvider() (int, bool) {
 		return 0, false
 	}
 	b.baseModelIdentity = modelCacheKey(b.provider)
-	policySkillRules := map[string]review.Rule{}
-	if b.centralCfg != nil {
-		policySkillRules = dynamicRulesFromLocalSkills(b.policyDir, b.centralCfg.Review.Context.Skills, gateOriginPolicy)
-	}
-	repoSkillRules := dynamicRulesFromLocalSkills(b.cwd, b.cfg.Review.Context.Skills, gateOriginRepo)
-	b.dynamicRules = mergeDynamicRules(policySkillRules, repoSkillRules)
-	b.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, b.dynamicRules)
-	b.ruleCatalogDigest = ruleCatalogCacheDigest(b.ruleCatalogIDs, b.dynamicRules)
-
 	contextProviders := config.ConfiguredProviders(b.cwd, b.cfg)
 	if b.centralCfg != nil {
 		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
@@ -94,6 +85,16 @@ func (b *baseReview) selectProvider() (int, bool) {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", catalogErr)
 		return 1, true
 	}
+	excludeListedSkills(catalog, b.centralCfg, b.cfg)
+	catalogPolicy, catalogRepo := dynamicRulesFromCatalog(catalog, diffPaths(b.diff))
+	policySkillRules := map[string]review.Rule{}
+	if b.centralCfg != nil {
+		policySkillRules = dynamicRulesFromLocalSkills(b.policyDir, b.centralCfg.Review.Context.Skills, gateOriginPolicy)
+	}
+	repoSkillRules := dynamicRulesFromLocalSkills(b.cwd, b.cfg.Review.Context.Skills, gateOriginRepo)
+	b.dynamicRules = mergeDynamicRules(unionRules(policySkillRules, catalogPolicy), unionRules(repoSkillRules, catalogRepo))
+	b.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, b.dynamicRules)
+	b.ruleCatalogDigest = ruleCatalogCacheDigest(b.ruleCatalogIDs, b.dynamicRules)
 	b.skillNotices = skillSelectionNotices(catalog, diffPaths(b.diff), b.filter)
 	contextProviders = append(contextProviders, catalog)
 	// AUR-513: digest the SAME redacted block the model will receive.

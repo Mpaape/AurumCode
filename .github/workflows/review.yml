@@ -280,6 +280,28 @@ jobs:
           fi
           "${RUNNER_TEMP}/aurumcode" "${sbom_args[@]}"
 
+      # The lint engine (govet) vets with GOPROXY=off and never downloads a
+      # module during the review. A Go repository's modules are downloaded
+      # here, before it, by the image's own pinned toolchain
+      # (GOTOOLCHAIN=local: a `toolchain` line in the pull request never
+      # fetches another Go), with no secret in the environment, into a cache
+      # the review step mounts. A failed download is only a warning here:
+      # with govet enabled the review then reports lint_execution_error and
+      # the gate fails closed.
+      - name: Prefetch Go modules for the lint engine
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/aurumcode-gomod"
+          if [ ! -f .aurumcode-target/go.mod ]; then
+            exit 0
+          fi
+          docker run --rm --entrypoint go \
+            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro" \
+            -v "${RUNNER_TEMP}/aurumcode-gomod:/go/pkg/mod" \
+            -w /github/workspace -e GOTOOLCHAIN=local -e GOFLAGS= \
+            aurumcode-review mod download ||
+            echo "::warning::go mod download failed; an enabled govet engine will be inconclusive"
+
       - name: Run and publish code review
         id: review
         env:
@@ -378,6 +400,7 @@ jobs:
             -v "${RUNNER_TEMP}/aurumcode-changelog-output:/tmp/aurumcode-changelog-output"
             -v "${RUNNER_TEMP}/aurumcode-audit.json:/tmp/aurumcode-audit.json"
             -v "${RUNNER_TEMP}/aurumcode-review.sarif:/tmp/aurumcode-review.sarif"
+            -v "${RUNNER_TEMP}/aurumcode-gomod:/go/pkg/mod"
           )
           if [ -n "${policy_dir}" ]; then
             docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")

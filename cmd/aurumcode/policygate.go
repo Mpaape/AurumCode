@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/review"
 )
@@ -98,6 +99,40 @@ func dynamicRulesFromRemoteSkills(ctx context.Context, client *githubclient.Clie
 		}
 	}
 	return out
+}
+
+// dynamicRulesFromCatalog turns every skill the catalog selected for changed
+// into dynamic rules, tagged with its own layer's origin: a repository skill
+// directory is citable exactly like a listed skill file (same ids, see
+// review.ParseSkillSections), and never with the policy's origin
+// (CR-TRUST-001). It returns the policy and repository rule sets apart so
+// the caller merges them with the policy winning.
+func dynamicRulesFromCatalog(catalog *skills.Catalog, changed []string) (policy, repo map[string]review.Rule) {
+	policy, repo = map[string]review.Rule{}, map[string]review.Rule{}
+	if catalog == nil {
+		return policy, repo
+	}
+	for _, doc := range catalog.Docs(changed) {
+		target, origin := repo, gateOriginRepo
+		if doc.Layer == skills.LayerPolicy {
+			target, origin = policy, gateOriginPolicy
+		}
+		for _, rule := range review.ParseSkillSections(doc.Path, doc.Instructions, origin) {
+			target[rule.ID] = rule
+		}
+	}
+	return policy, repo
+}
+
+// unionRules adds every rule of extra to base that base does not already
+// hold, and returns base.
+func unionRules(base, extra map[string]review.Rule) map[string]review.Rule {
+	for id, rule := range extra {
+		if _, ok := base[id]; !ok {
+			base[id] = rule
+		}
+	}
+	return base
 }
 
 // mergeDynamicRules combines policy and repo dynamic rule sets into one

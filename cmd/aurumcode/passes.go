@@ -144,18 +144,17 @@ func mergeStaticAnalysis(diff *types.Diff, result *types.ReviewResult) {
 // it (AC-003). The paths named are repository paths from the diff/config, not
 // model output, so they carry no untrusted bytes.
 func coverageNotice(copy reviewCopy, c reviewCoverageBreakdown) string {
-	if !c.partial() && len(c.NoStructure) == 0 {
+	if !c.partial() && !c.declaredIgnored() && len(c.NoStructure) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	if !c.partial() {
-		// Complete coverage, but some files had no grammar: declare only that.
+	if c.partial() {
+		fmt.Fprintf(&b, "%s — %s\n", copy.coverageHeading, fmt.Sprintf(copy.coverageSummary, c.covered(), c.Total, c.uncovered()))
+	} else {
+		// Complete coverage of the review's scope: declare only what was
+		// out of it (ignored, binary) and what had no grammar.
 		fmt.Fprintf(&b, "%s\n", copy.coverageHeading)
-		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageNoStructure, len(c.NoStructure)))
-		writeCoveragePaths(&b, c.NoStructure)
-		return strings.TrimRight(b.String(), "\n")
 	}
-	fmt.Fprintf(&b, "%s — %s\n", copy.coverageHeading, fmt.Sprintf(copy.coverageSummary, c.covered(), c.Total, c.uncovered()))
 	if c.Partial > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coveragePartial, c.Partial))
 	}

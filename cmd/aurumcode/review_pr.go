@@ -7,6 +7,10 @@
 package main
 
 import (
+	"github.com/Mpaape/AurumCode/internal/analyzer"
+
+	"github.com/Mpaape/AurumCode/internal/context/skills"
+
 	"fmt"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -36,9 +40,15 @@ type prReview struct {
 	verifiedDir        string
 	checkoutMismatch   string
 	contextRef         string
-	reviewer           *review.Reviewer
-	history            string
-	historyErr         error
+	// skillCatalog is the skill directories read at contextRef; their
+	// sections become citable rules in resolveSkills.
+	skillCatalog *skills.Catalog
+	// binaryNotices are the binary files declareBinaries took out of the
+	// diff, for the coverage pass.
+	binaryNotices []analyzer.DiffNotice
+	reviewer      *review.Reviewer
+	history       string
+	historyErr    error
 
 	// publication
 	issues   []types.ReviewIssue

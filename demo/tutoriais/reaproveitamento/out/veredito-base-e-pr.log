@@ -1,5 +1,6 @@
 == veredito-base-e-pr
 $ aurumcode review --base main --politica /policy
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -19,7 +20,6 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
