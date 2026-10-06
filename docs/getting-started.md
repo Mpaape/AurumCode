@@ -26,6 +26,32 @@ precisa declarar esse mesmo `ref`: o padrão do `actions/checkout` num evento
 explícito o HEAD do checkout diverge do commit revisado pela API, e o
 contexto de codebase é omitido por esse descompasso de HEAD.
 
+## Configuração mínima
+
+Sem `.aurumcode/config.yml` o review já roda, mas só orienta. Para que ele
+seja um gate de verdade, copie estas linhas para `.aurumcode/config.yml` na
+branch base:
+
+```yaml
+review:
+  language: pt-BR
+gate:
+  fail_on: [error]      # achado error reprova o check
+  inconclusive: block   # revisão que não concluiu nunca aprova
+quality_gates:
+  scanners:
+    - engine: gitleaks  # segredos no intervalo de commits da PR
+      required: true
+```
+
+As convenções do time entram como skills Markdown em
+`.aurumcode/skills/<nome>/SKILL.md`; para que uma seção `## ` vire regra
+citável pelo gate, liste o arquivo em `review.context.skills` (ver
+[Configuração](configuration.md#prompts-skills-e-docs)). O próprio AurumCode
+se revisa assim: o [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
+do repositório tem menos de 30 linhas úteis e acrescenta Semgrep,
+deliberação e seis skills de convenção.
+
 ## Uso local
 
 Construa a imagem a partir do checkout do AurumCode:

@@ -132,9 +132,20 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
   limpo. Exit 0 e evidencia; exit 69/79 e inconclusivo; exit 1 e RED somente
   quando o programa chegou ao comportamento. Falha de loader, runtime,
   imagem, engine ou dependencia nunca e RED.
-- Coordenador: integra o commit, grava `validated.json`, escreve no card
-  `commit`, `review: approved` e `validation: passed`, e so entao move para
-  `done`.
+- Coordenador: integra o commit por pull request (abaixo), grava
+  `validated.json`, escreve no card `commit`, `review: approved` e
+  `validation: passed`, e so entao move para `done`.
+
+## Integracao: PR com o self review do Aurum
+
+O caminho normal de integracao e: card -> branch `card/AUR-NNN` -> PR para
+`main` -> CI + self review do Aurum (parecer na PR e status
+`aurumcode/policy-gate`) -> merge so com todos os checks verdes. O self
+review usa o binario construido da propria PR e as skills de convencao de
+`.aurumcode/skills/` da base; achado citando uma skill `severity: error`
+reprova. Sem os secrets do provedor ele falha fechado, nunca verde. Push
+direto em `main` fica restrito a commits so de `.board/` (mover card,
+Delivery record, evidencia).
 
 ## Evidencia minima
 

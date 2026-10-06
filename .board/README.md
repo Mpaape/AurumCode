@@ -45,6 +45,27 @@ every 20-minute review uses `--review`.
 7. Only the coordinator moves cards and integrates. Commits never carry AI
    authorship, co-authorship, signatures, or generated-by attribution.
 
+### Integration path: pull request plus the Aurum self review
+
+Every delivery reaches `main` through a pull request, so AurumCode reviews
+AurumCode with the binary built from the pull request itself:
+
+card -> branch `card/AUR-NNN` -> pull request to `main` -> CI (`Build and
+test in OCI`, `Race tests in OCI`, `Documentation browser checks`) plus the
+self review (`review / Review pull request`, its review comment and the
+`aurumcode/policy-gate` status) -> merge only with every check green.
+
+- The self review reads `.aurumcode/config.yml`, `prompt.md` and the
+  convention skills (`.aurumcode/skills/*/SKILL.md`) from the base branch; a
+  finding that cites a skill with `severity: error` fails the gate.
+- Without the `LLM_API_KEY`/`LLM_BASE_URL` secrets the self review fails
+  closed (`aurumcode/policy-gate` failure with the reason), never green.
+- A failing self review is answered with a fix commit on the same branch or
+  an explicit owner decision recorded in the pull request; never by pushing
+  around it.
+- Direct pushes to `main` are reserved for commits that touch only `.board/`
+  (card moves, Delivery records, evidence); they do not need the self review.
+
 The earlier ceremony (two blind reviewers, skeptical mutation, OCI evidence
 bundles) is preserved as frozen history for cards already in `done`; every
 backlog or active card runs the lightweight cycle above. A legacy Review or
