@@ -46,6 +46,9 @@ const aur448IntegrationMixedFixture = `{
       "file": "config/demo-tokens.txt",
       "line": 3,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/hardcoded-secret",
       "message": "grounded"
     },
@@ -53,12 +56,18 @@ const aur448IntegrationMixedFixture = `{
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     },
     {
       "file": "config/demo-tokens.txt",
       "line": 5,
       "severity": "warning",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "rule_id": "security/definitely-not-a-rule",
       "message": "unknown rule_id"
     }
@@ -72,6 +81,9 @@ const aur448IntegrationAllDiscardedFixture = `{
       "file": "config/demo-tokens.txt",
       "line": 4,
       "severity": "error",
+      "impact": "Anyone with repository access can reuse the committed value.",
+      "evidence": "The added line assigns a literal credential-shaped value in config/demo-tokens.txt.",
+      "verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
       "message": "no rule_id at all"
     }
   ],
@@ -150,12 +162,19 @@ func IntegrationAUR448(t *testing.T) {
 	}
 
 	t.Run("no provider: message shows the complete fixture shape with a real rule_id example", func(t *testing.T) {
+		// Since AUR-449/AUR-458 a run with no provider is not a failure: it
+		// skips the quality review, says so, runs the deterministic analysis
+		// and exits 0. The provider-missing message (this card's contract)
+		// still reaches stderr with the complete fixture shape.
 		stdout, stderr, code := run(baseEnv(), "review", "--base", "HEAD~1")
-		if code != 1 {
-			t.Fatalf("expected exit 1, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
+		if code != 0 {
+			t.Fatalf("expected exit 0 (deterministic analysis only), got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
-		if stdout != "" {
-			t.Fatalf("expected empty stdout, got:\n%s", stdout)
+		if !strings.HasPrefix(stdout, "LLM quality review did not run.") {
+			t.Fatalf("expected stdout to declare the skipped quality review, got:\n%s", stdout)
+		}
+		if !strings.Contains(stderr, "quality review skipped; running deterministic analysis only") {
+			t.Fatalf("expected stderr to name the deterministic-only run, got:\n%s", stderr)
 		}
 		for _, want := range []string{
 			"no LLM provider configured",
@@ -181,9 +200,11 @@ func IntegrationAUR448(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("expected exit 0, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
-		wantStdout := "config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)\n"
-		if stdout != wantStdout {
-			t.Fatalf("stdout regressed on the zero-discard path:\ngot:  %q\nwant: %q", stdout, wantStdout)
+		// AUR-490 prepends the summary/diagram block to every review, so the
+		// finding is the last line after the diagram, and the only one.
+		wantFinding := "config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)"
+		if got := aur448AfterDiagram(stdout); got != wantFinding {
+			t.Fatalf("stdout regressed on the zero-discard path:\ngot after the diagram: %q\nwant: %q", got, wantFinding)
 		}
 		if stderr != "" {
 			t.Fatalf("expected zero bytes on stderr when nothing was discarded, got:\n%q", stderr)
@@ -237,12 +258,23 @@ func IntegrationAUR448(t *testing.T) {
 		// This is the exact defect the card's Outcome exists to fix: before
 		// AUR-448, this run produced "No issues found." with NOTHING on
 		// stderr, indistinguishable from a genuinely clean review.
-		if stdout != "No issues found.\n" {
-			t.Fatalf("expected the unchanged AUR-430/AUR-434 no-findings output, got: %q", stdout)
+		if got := aur448AfterDiagram(stdout); got != "No issues found." {
+			t.Fatalf("expected the unchanged AUR-430/AUR-434 no-findings output after the diagram, got: %q", got)
 		}
 		wantStderr := "aurumcode review: 1 finding(s) discarded: 1 with no rule_id\n"
 		if stderr != wantStderr {
 			t.Fatalf("stderr mismatch:\ngot:  %q\nwant: %q", stderr, wantStderr)
 		}
 	})
+}
+
+// aur448AfterDiagram is everything stdout carries after the closing fence of
+// the AUR-490 summary/diagram block, trimmed: the review's own findings (or
+// "No issues found."), compared whole so no leaked line can hide there.
+func aur448AfterDiagram(stdout string) string {
+	const fence = "```\n"
+	if i := strings.LastIndex(stdout, fence); i >= 0 {
+		stdout = stdout[i+len(fence):]
+	}
+	return strings.TrimSpace(stdout)
 }

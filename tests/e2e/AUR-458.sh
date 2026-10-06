@@ -79,8 +79,15 @@ grep -Fq "$sec_header" <<<"$out" || fail strict-run-lost-the-security-section
 grep -Fq 'did not run' <<<"$err" || fail strict-run-did-not-explain-itself
 
 # --- 4. THE FLAG IS NEVER SILENTLY DROPPED ------------------------------
+# Since 7eab0407 the --pr path accepts --exigir-qualidade and honors it (a
+# degraded model review publishes a failing check). So the flag is parsed,
+# never refused as unknown (exit 2), and the run proceeds to fetch the pull
+# request, which fails here (no such repository / no network): exit 1.
 run pr noprov "$bin" review --pr 1 --repo a/b --publicar --na-linha --exigir-qualidade
-[[ "$rc" -eq 2 ]] || fail "pr-path-must-refuse-the-flag:want-2-got-$rc"
+[[ "$rc" -ne 2 ]] || fail "pr-path-refused-a-supported-flag:got-2"
+[[ "$rc" -eq 1 ]] || fail "pr-path-without-pr-must-fail:want-1-got-$rc"
+if grep -Fq 'flag provided but not defined' <<<"$err"; then fail pr-path-does-not-know-the-flag; fi
+grep -Fq 'fetching pull request diff' <<<"$err" || fail "pr-path-did-not-reach-the-fetch:$err"
 
 # --- 5. DETERMINISM -----------------------------------------------------
 run det1 noprov "$bin" review --base HEAD~1 --seguranca

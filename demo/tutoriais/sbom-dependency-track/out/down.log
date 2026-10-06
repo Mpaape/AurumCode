@@ -1,6 +1,4 @@
 == down
 == down: remove containers, rede, volumes e imagens baixadas so para o tutorial
 recursos restantes do tutorial: 0
-imagem dtrack_apiserver removida (baixada so para o tutorial)
-imagem postgres removida (baixada so para o tutorial)
 RESULTADO: nenhum container, rede ou volume do tutorial ficou vivo
