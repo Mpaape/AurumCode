@@ -87,7 +87,17 @@ func uninspectedPRNotices(diff *types.Diff, dir string) []analyzer.DiffNotice {
 	return notices
 }
 
-// splitBinaryFiles separates the diff's binary files (by the same content
+// declaredBinary reports a notice the review declares ignored instead of
+// partial: binary content (the analyzer's own content check) in a file whose
+// extension the binary-format catalog lists (grammar.KnownBinaryFormat). A
+// NUL byte in a script, a source file, a file without extension or of an
+// unknown format is not enough: such a file stays unreviewed and withholds
+// approval, so a crafted byte can never hide code from the review.
+func declaredBinary(n analyzer.DiffNotice) bool {
+	return n.Reason == analyzer.NoticeReasonBinary && grammar.KnownBinaryFormat(n.Path)
+}
+
+// splitBinaryFiles separates the diff's declared binary files (by the same content
 // check, analyzer.ClassifyBlob, over the verified checkout or the patch) from
 // the rest. A file whose content nobody can read is not split out: it stays
 // in the diff and uninspectedPRNotices keeps it unreviewed.
@@ -100,7 +110,7 @@ func splitBinaryFiles(diff *types.Diff, dir string) ([]analyzer.DiffNotice, *typ
 	rest.Files = nil
 	for _, f := range diff.Files {
 		if content, ok := prFileContent(f, dir); ok {
-			if n := analyzer.ClassifyBlob(f.Path, content); n != nil && n.Reason == analyzer.NoticeReasonBinary {
+			if n := analyzer.ClassifyBlob(f.Path, content); n != nil && declaredBinary(*n) {
 				notices = append(notices, *n)
 				continue
 			}

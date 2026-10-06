@@ -46,8 +46,8 @@ quality_gates:
       fail_on: warning
 ```
 
-- Caminho em `ignore` e arquivo binário (uma captura PNG) ficam fora da conta
-  de cobertura: o parecer os lista como ignorados e a revisão não fica
+- Caminho em `ignore` e arquivo de formato binário conhecido (uma captura
+  PNG) ficam fora da conta de cobertura: o parecer os lista como ignorados e a revisão não fica
   inconclusiva por eles.
 - Semgrep e go vet varrem a árvore, mas só reprovam pelo que a PR mudou: um
   achado antigo num arquivo que ela não tocou não bloqueia.

@@ -1,0 +1,32 @@
+# Binary formats the review declares "ignored" instead of partial coverage:
+# file extensions (lower case, without the dot) of formats that hold no
+# reviewable source (images, documents, fonts, media, plain archives). A file
+# is declared ignored only when its extension is listed here AND its content
+# is binary (grammar.LooksBinary). Anything else with binary content -- a
+# script or source extension, no extension (a shebang file), or an extension
+# not listed -- stays partial and withholds approval (fail-closed).
+# Executables and libraries are deliberately absent: they are not reviewable
+# and must not pass silently.
+version: 1
+extensions:
+  - png
+  - jpg
+  - jpeg
+  - gif
+  - webp
+  - bmp
+  - ico
+  - tif
+  - tiff
+  - pdf
+  - zip
+  - woff
+  - woff2
+  - ttf
+  - otf
+  - eot
+  - mp3
+  - mp4
+  - wav
+  - ogg
+  - webm

