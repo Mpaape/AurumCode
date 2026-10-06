@@ -317,6 +317,12 @@ mutation_case_2() {
   local root="$run_dir/root-mut2"
   stage_source "$root"
 
+  # The unmutated binary must report the real secret under its security
+  # rule, so the check below cannot pass vacuously.
+  local before
+  before="$(cd "$node_repo" && "$shared_bin" review --base HEAD~1 --seguranca)" || fail 'MUT-002/baseline-run-failed'
+  grep -Eq 'src/app\.js:21: \[error\].*rule security/hardcoded-secret' <<<"$before" || fail 'MUT-002/baseline-finding-missing'
+
   local target="$root/internal/review/rules/security.yml"
   [[ -f "$target" ]] || fail 'MUT-002/target-missing'
   local id_anchor='  - id: security/hardcoded-secret'
@@ -347,7 +353,10 @@ mutation_case_2() {
   grep -Fq "$header" <<<"$out" || fail 'MUT-002/pass-did-not-run'
   # The mutant must lose the AC-002 real-secret finding: exactly the
   # "zeroing AC-001 by zeroing AC-002 too" shape this card forbids.
-  if grep -Fq 'src/app.js:21: [error]' <<<"$out"; then fail 'MUT-002/mutation-survived'; fi
+  # Matched with its security rule: the deterministic analysis pass reports
+  # the same line under its own analysis/* rule, which this mutant does not
+  # touch.
+  if grep -Eq 'src/app\.js:21: \[error\].*rule security/hardcoded-secret' <<<"$out"; then fail 'MUT-002/mutation-survived'; fi
 
   cleanup_root "$root"
   printf '%s/%s/MUT-002/rejected\n' "$card" "$scenario"
