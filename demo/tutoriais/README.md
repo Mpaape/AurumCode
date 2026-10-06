@@ -105,7 +105,12 @@ tut_main "$@"
 
 O `run.sh <caso>` grava `out/<caso>.log` (stdout+stderr, via `tee`) e sai com o
 código do caso. `run.sh --check` lê `expected/<caso>.txt`: **cada linha é um
-trecho literal** (`grep -F`) que precisa existir em `out/<caso>.log`; linhas
+trecho literal** que precisa existir em `out/<caso>.log` normalizado, **tantas
+vezes quantas** `expected/` a repete (duas linhas `exit_code=3` exigem dois
+`exit_code=3` na saída; um só reprova com `trecho esperado 2 vez(es),
+encontrado 1`), e as linhas `RESULTADO:` precisam aparecer **na ordem** de
+`expected/` (senão `RESULTADO fora de ordem`). As demais linhas não têm ordem
+imposta: um trecho pode ser só um pedaço de uma linha longa da saída. Linhas
 vazias e iniciadas por `#` são ignoradas; sai 1 na primeira divergência
 (`DIVERGENCIA caso=...`). Sem docker, sem rede: serve para o aceite offline.
 
