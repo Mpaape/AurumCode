@@ -188,6 +188,17 @@ apply_mutation() {
   # review), kept compilable: the prompt import stays used.
   sed -i 's|^\tresult.Metadata\[prompt.PolicyGateWithheldKey\] = "true"$|\t_ = prompt.PolicyGateWithheldKey // MUT-001: marker not set|' "$target"
   grep -Fxq "$anchor" "$target" && infra mutation-not-applied
+  # AUR-589: since AUR-593 the structural coverage of both review paths
+  # withholds approval on its own when a file was not reviewed, and this
+  # fixture's generated file is exactly that, so the gate's marker alone no
+  # longer decides the verdict. Neutralize that second, independent writer
+  # too, so the mutation still isolates the gate: with only the structural
+  # writer gone the tests pass (measured in docs/specs/AUR-589.md); with the
+  # gate's marker gone as well they must go red.
+  local structural="$run_dir/root/cmd/aurumcode/structural_coverage.go"
+  [[ "$(grep -Fxc "$anchor" "$structural")" == "1" ]] || infra structural-anchor-missing
+  sed -i 's|^\tresult.Metadata\[prompt.PolicyGateWithheldKey\] = "true"$|\t_ = prompt.PolicyGateWithheldKey // MUT-001: structural marker not set|' "$structural"
+  grep -Fxq "$anchor" "$structural" && infra structural-mutation-not-applied
   return 0
 }
 
