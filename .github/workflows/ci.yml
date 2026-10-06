@@ -49,7 +49,7 @@ jobs:
           -v "${GITHUB_WORKSPACE}:/src"
           -w /src
           golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
-          sh -c 'apk add --no-cache bash git >/dev/null && export GOFLAGS=-buildvcs=false && go build ./... && go test ./... -count=1'
+          sh scripts/ci/build-test.sh
 
   race:
     name: Race tests in OCI
@@ -65,4 +65,4 @@ jobs:
           -v "${GITHUB_WORKSPACE}:/src"
           -w /src
           golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195
-          sh -c 'GOFLAGS=-buildvcs=false CGO_ENABLED=1 go test ./... -race -count=1'
+          bash scripts/ci/race.sh
