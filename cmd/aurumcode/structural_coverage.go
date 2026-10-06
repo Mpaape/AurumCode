@@ -36,10 +36,13 @@ func noStructureDiffPaths(p grammar.Provider, diff *types.Diff) []string {
 
 // applyStructuralCoverage is the one place both review paths (--base and --pr)
 // record what the review could not cover: files without a grammar are
-// declared (never a failure by themselves), and any file declared out of
-// reach (binary, generated, too large) withholds approval with the same
+// declared (never a failure by themselves), and any file the review meant to
+// read and could not (generated, too large, no patch) withholds approval with
+// the same
 // engine-owned marker the gate uses, which the model can neither set nor
-// erase (AUR-522: an unreviewed file never counts as approved).
+// erase (AUR-522: an unreviewed file never counts as approved). A binary or
+// config-ignored file is declared in the notice, out of the review's scope,
+// and withholds nothing.
 func applyStructuralCoverage(p grammar.Provider, diff *types.Diff, c *reviewCoverageBreakdown, result *types.ReviewResult) {
 	c.NoStructure = noStructureDiffPaths(p, diff)
 	if len(c.FilteredPaths) == 0 || result == nil {
@@ -82,6 +85,40 @@ func uninspectedPRNotices(diff *types.Diff, dir string) []analyzer.DiffNotice {
 		}
 	}
 	return notices
+}
+
+// declaredBinary reports a notice the review declares ignored instead of
+// partial: binary content of a format the catalog declares, by extension AND
+// signature (grammar.DeclaredBinaryFormat, decided by the analyzer over the
+// content). A NUL byte in a script, a source file, a file without extension,
+// of an unknown format, or a script renamed to a listed extension is not
+// enough: such a file stays unreviewed and withholds
+// approval, so a crafted byte can never hide code from the review.
+func declaredBinary(n analyzer.DiffNotice) bool {
+	return n.Reason == analyzer.NoticeReasonBinary && n.DeclaredFormat
+}
+
+// splitBinaryFiles separates the diff's declared binary files (by the same content
+// check, analyzer.ClassifyBlob, over the verified checkout or the patch) from
+// the rest. A file whose content nobody can read is not split out: it stays
+// in the diff and uninspectedPRNotices keeps it unreviewed.
+func splitBinaryFiles(diff *types.Diff, dir string) ([]analyzer.DiffNotice, *types.Diff) {
+	if diff == nil {
+		return nil, diff
+	}
+	var notices []analyzer.DiffNotice
+	rest := *diff
+	rest.Files = nil
+	for _, f := range diff.Files {
+		if content, ok := prFileContent(f, dir); ok {
+			if n := analyzer.ClassifyBlob(f.Path, content); n != nil && declaredBinary(*n) {
+				notices = append(notices, *n)
+				continue
+			}
+		}
+		rest.Files = append(rest.Files, f)
+	}
+	return notices, &rest
 }
 
 // prFileContent returns the bytes to inspect for one changed file: the

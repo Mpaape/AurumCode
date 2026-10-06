@@ -233,7 +233,7 @@ func TestAUR521AuditFingerprintStableAcrossTwoRuns(t *testing.T) {
 // naming the inconclusive decision and the file the repository config hid
 // from the review.
 func TestAUR521AuditInconclusiveListsOmittedFiles(t *testing.T) {
-	coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: warn\n")
+	coverageFixtureTests(t, "gate:\n  inconclusive: warn\n", generatedMarker+coverageTestHead)
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)
@@ -256,11 +256,11 @@ func TestAUR521AuditInconclusiveListsOmittedFiles(t *testing.T) {
 		t.Fatalf("gate.decision=%q, want inconclusive", audit.Gate.Decision)
 	}
 	if audit.Coverage.Complete {
-		t.Fatal("coverage.complete must be false: a configured path was hidden from the review")
+		t.Fatal("coverage.complete must be false: a generated file was left out of the review")
 	}
 	found := false
 	for _, p := range audit.Coverage.Omitted {
-		if p == "tests/change_test.go" {
+		if p == "tests/change_test.go (generated)" {
 			found = true
 		}
 	}
@@ -601,7 +601,7 @@ func TestAUR521AuditGateOutcomeInconclusiveWithoutGateDeclared(t *testing.T) {
 // would make the two files, for the exact same run, disagree about whether
 // the review was trustworthy.
 func TestAUR521AuditAndSARIFAgreeOnInconclusive(t *testing.T) {
-	coverageFixture(t, "ignore:\n  - \"tests/**\"\ngate:\n  inconclusive: warn\n")
+	coverageFixtureTests(t, "gate:\n  inconclusive: warn\n", generatedMarker+coverageTestHead)
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)

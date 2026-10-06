@@ -96,7 +96,11 @@ func aur579SAST(t *testing.T, extraConfig string) scanner.Command {
 	if err := os.WriteFile(filepath.Join(".aurumcode", "config.yml"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return func(context.Context, string, string, ...string) (string, string, error) {
+	return func(_ context.Context, _, bin string, _ ...string) (string, string, error) {
+		if bin == "git" {
+			// The reviewed range added lines 4-5 of app.go.
+			return "+++ b/app.go\n@@ -3,0 +4,2 @@\n", "", nil
+		}
 		return `{"results":[{"check_id":"generic.secrets.hardcoded","path":"app.go","start":{"line":4},"extra":{"severity":"ERROR","message":"Hardcoded secret"}}]}`, "", nil
 	}
 }

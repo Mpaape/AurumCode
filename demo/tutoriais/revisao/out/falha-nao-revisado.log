@@ -1,7 +1,7 @@
 == falha-nao-revisado
 --- sem gate: veredito 'Comment', nunca 'Approve'
 $ aurumcode review --base main
-binary file, skipped: logo.png
+generated file, skipped: gerado.go
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -16,8 +16,8 @@ binary file, skipped: logo.png
 
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
-- 1 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
-  - logo.png (binary)
+- 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+  - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
 exit_code=0
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
@@ -25,7 +25,7 @@ RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (partial_coverage)
-binary file, skipped: logo.png
+generated file, skipped: gerado.go
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -46,8 +46,37 @@ flowchart TD
 ```
 
 Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully reviewed.
-- 1 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
-  - logo.png (binary)
+- 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+  - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
+--- binario com gate.inconclusive: block: declarado ignorado, nao parcial
+$ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+binary file, skipped: logo.png
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0[".aurumcode/config.yml"]
+
+```
+
+Review coverage
+- 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
+  - logo.png (binary)
+No issues found.
+exit_code=0
+RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova

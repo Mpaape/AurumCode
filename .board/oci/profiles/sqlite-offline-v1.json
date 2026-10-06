@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "sqlite-offline-v1",
 "lock": ".board/locks/oci/sqlite-offline-v1.lock.json",
-"lock_digest": "sha256:3dda2d09ec5856d19e2b841999304e555c5422266debc2a645f1ff7d3a532bfe",
+"lock_digest": "sha256:440e1af3dc3fc74925e8e5fc25e6d04ca284be65d0ef2e22d710bc348209751d",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",

@@ -89,7 +89,7 @@ container criado a partir de um profile. O profile e o lock do `go-unit-offline-
 "version": 1,
 "profile": "go-unit-offline-v1",
 "lock": ".board/locks/oci/go-unit-offline-v1.lock.json",
-"lock_digest": "sha256:979c3003d5c9ccd5029db5ef88840d477a8844dd915657a5d87d84a5abbb01d6",
+"lock_digest": "sha256:026e9310444c083a5e51f5ab99e1d9caa829bf857a8b3c75bf3c317c2df6c4f4",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",
@@ -120,7 +120,7 @@ O lock correspondente (`.board/locks/oci/go-unit-offline-v1.lock.json`; fica for
 "schema": "aurum.oci-image-lock",
 "version": 1,
 "profile": "go-unit-offline-v1",
-"image": "aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2"
+"image": "aurum-bootstrap-go-bash@sha256:b678437d5b61b54437940fd62d5716f237de249ed921765bd02b2077c945308c"
 }
 ```
 
@@ -198,7 +198,7 @@ profile.json sem entrada no registry: ['trust-root-docker-v1']
 go-unit-offline-v1.network = none
 go-unit-offline-v1.user = 65534:65534
 go-unit-offline-v1.read_only_rootfs = True
-go-unit-offline-v1.image = aurum-bootstrap-go-bash@sha256:3aa0ce99e30b6548535a4009e8c9496f6953b10fd864895154633f2d7de5fee2
+go-unit-offline-v1.image = aurum-bootstrap-go-bash@sha256:b678437d5b61b54437940fd62d5716f237de249ed921765bd02b2077c945308c
 RESULTADO: todo profile do registry tem lock com o digest declarado
 ```
 

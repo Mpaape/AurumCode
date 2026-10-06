@@ -108,7 +108,7 @@ caso_falha_sem_cache() {
   aurum review --base main --politica /policy
   expect_rc 3 "sem cache a revisao funciona, mas o veredito nao e compartilhado"
   echo "--- revisao inconclusiva nunca grava veredito"
-  tut_repo falha-sem-cache-inconclusivo repo-exemplo/base repo-exemplo/binario
+  tut_repo falha-sem-cache-inconclusivo repo-exemplo/base repo-exemplo/gerado
   TUT_POLICY=politica-bloqueia; TUT_FIXTURE=fixture-vazia.json; TUT_ENVS=("${CACHE[@]}")
   aurum review --base main --politica /policy
   expect_rc 1 "inconclusivo em block reprova"

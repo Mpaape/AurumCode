@@ -25,7 +25,7 @@ var secretVariables = map[string]string{
 // govet caches and fixed values, and the renumbered safe.directory entries.
 var allowedNames = map[string]bool{
 	"GOCACHE": true, "GOPATH": true, "GOMODCACHE": true, "GOROOT": true,
-	"GOTOOLCHAIN": true, "GOPROXY": true, "CGO_ENABLED": true,
+	"GOTOOLCHAIN": true, "GOPROXY": true, "CGO_ENABLED": true, "GOWORK": true,
 	"GIT_CONFIG_COUNT": true, "GIT_CONFIG_KEY_0": true, "GIT_CONFIG_VALUE_0": true,
 }
 

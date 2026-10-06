@@ -3,7 +3,7 @@
 "version": 1,
 "profile": "fake-provider-v1",
 "lock": ".board/locks/oci/fake-provider-v1.lock.json",
-"lock_digest": "sha256:9d1046ce7e8cb7c87b32eaf75198916a0aa99ed963cb45a1003f6c0033fdfce8",
+"lock_digest": "sha256:47cba14eb1dccebe31dd3bc2ea3dabee7035a6a6960d648b07d9b813095847d8",
 "network": "none",
 "user": "65534:65534",
 "cap_drop": "ALL",

@@ -62,12 +62,14 @@ catálogo não conhece é declarado no contexto enviado ao modelo
 (`### Skill selection warnings`) e na seção de limitações do parecer; a
 política pode acrescentar apelidos em `.aurumcode/grammar/aliases.yml`.
 
-Uma skill de diretório chega ao modelo, mas só vira regra citável pelo gate
-(seção abaixo) quando o arquivo também está listado em `review.context.skills`.
-O id da regra usa o nome do arquivo, então toda skill de diretório gera ids
-`SKILL#<slug-da-seção>`: dê às seções títulos únicos entre as skills (por
-exemplo com um prefixo, `## TAM-001 Funcao com no maximo 150 linhas`). É o
-formato do `.aurumcode/` do próprio AurumCode.
+Cada seção `## ` de uma skill em diretório é uma regra citável pelo gate, com
+id estável `<nome-do-diretório>#<slug-da-seção>` (ex.:
+`.aurumcode/skills/tamanho/SKILL.md` com `## TAM-001 Função com no máximo 150
+linhas` vira `tamanho#tam-001-funcao-com-no-maximo-150-linhas`), sem listar
+nada em `context.skills`. Se o mesmo `SKILL.md` também estiver listado em
+`context.skills`, o texto chega ao modelo uma única vez (pela lista) e o id é
+o mesmo. A regra de uma skill do repositório tem sempre a origem do
+repositório; a de uma skill da política, a da política.
 
 A política central pode ter as suas skills em `<política>/.aurumcode/skills/`.
 Se uma skill da política e uma do repositório declaram o mesmo seletor, a da
@@ -106,7 +108,20 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
 
 ## Opções avançadas
 
-- `ignore`: lista de globs de caminhos a excluir antes da análise.
+- `ignore`: lista de globs de caminhos a excluir antes da análise. Um caminho
+  ignorado, e um arquivo de formato binário conhecido (catálogo
+  `internal/grammar/catalog/binary_formats.yml`: imagens, PDF, fontes, mídia,
+  `zip`), com a extensão do formato (qualquer caixa), a assinatura do formato
+  no início do conteúdo (ex. PNG `89504E47…`) **e** conteúdo binário, fica
+  fora da conta de cobertura: o parecer o lista como **ignorado**, pelo nome, e a
+  revisão não fica parcial por causa dele (`partial_coverage` não dispara, nem
+  com `gate.inconclusive: block`). Continua parcial o que a revisão quis ler e
+  não conseguiu: arquivo gerado, grande demais, sem patch, cortado pelo
+  limite de tokens, e todo conteúdo binário fora do catálogo — um script,
+  código ou config com um byte NUL (`deploy.sh`, `app.js`, `ci.yml`), um
+  arquivo sem extensão, um executável, uma extensão desconhecida ou um
+  script renomeado para `.png` sem a assinatura PNG. Um byte
+  forjado nunca esconde código da revisão.
 - `rules`: overrides explícitos de regras reconhecidas, por identificador.
 - `review.memory`: `off` (padrão, sem estado), `ephemeral` (em processo) ou
   `local` (persistido por repositório no diretório de cache). No review de PR,
@@ -234,7 +249,8 @@ revisada) falha o comando antes de qualquer chamada ao modelo.
 
 Cada seção `## ` de cada skill Markdown — as da política e as do próprio
 repositório — é lida a cada execução e vira uma regra citável, com id
-`<nome-do-arquivo-da-skill>#<slug-da-seção>` (minúsculas, qualquer sequência
+`<nome-do-arquivo-da-skill>#<slug-da-seção>` (para um `SKILL.md` de
+diretório, o nome do diretório no lugar do nome do arquivo; minúsculas, qualquer sequência
 de caracteres não alfanuméricos some num único `-`, sem `-` nas pontas; ex.:
 `security.md` com `## No Hardcoded Secrets` vira
 `security#no-hardcoded-secrets`). Título = o texto do cabeçalho. Descrição =
@@ -390,8 +406,14 @@ perfil selecionado aprende o mesmo catálogo dinâmico.
 ## SAST multilinguagem com Semgrep (AUR-548)
 
 `quality_gates.sast` liga uma varredura SAST com [Semgrep](https://semgrep.dev/)
-sobre a árvore inteira do repositório revisado (não só o diff), independente
-de `gate:` estar declarado ou não:
+sobre a árvore inteira do repositório revisado, independente de `gate:` estar
+declarado ou não. A varredura é da árvore inteira (uma regra pode precisar dos
+arquivos vizinhos), mas só conta o que o intervalo revisado mudou: um achado
+fica apenas se cai numa linha que o intervalo adicionou (o mesmo
+`git diff --relative --unified=0 <base>...<head>` do `govet`). Um achado
+antigo, num arquivo que o PR não tocou, não reprova o PR. Sem intervalo
+revisado (`--base` que não resolve), a varredura é inconclusiva, nunca a
+árvore inteira:
 
 ```yaml
 # .aurumcode/config.yml (ou o config.yml da política central)
@@ -416,11 +438,20 @@ Um achado na severidade de `fail_on_severity` ou acima reprova o gate
 (nomeando o `check_id` e a linha no parecer, na auditoria e no SARIF, AC-001);
 abaixo do limiar, o achado é publicado mas não reprova (AC-002). Semgrep
 ausente do `PATH`, com erro de execução, ou com saída que não é um relatório
-Semgrep confiável (JSON inválido, ou sem a chave `results`) nunca é lido como
+Semgrep confiável (JSON inválido, sem a chave `results`, ou um erro do próprio
+Semgrep que alcança a mudança) nunca é lido como
 "zero achados, varredura limpa": é um achado inconclusivo próprio, que segue
 `gate.inconclusive` (`block`, ou a chave ausente, reprova a revisão; só `warn`
 escrito publica o alerta inconclusivo sem bloquear) — exatamente o mesmo
 vocabulário de inconclusivo que o gate do AUR-519 já usa (AC-003).
+
+Os erros do relatório do Semgrep seguem a mesma régua de escopo. Um erro
+fatal (nível diferente de `warn`) ou sem arquivo sempre torna a varredura
+inválida (`sast_invalid_output`). Um erro de parse recuperado (`warn`, ex.:
+um script bash que o Semgrep não entende por inteiro) só torna a varredura
+inválida quando alcança a mudança: arquivo tocado sem linhas indicadas, ou
+trecho sobre uma linha adicionada. Num arquivo que o PR não tocou, ele não
+esconde nada do que a revisão julga e é ignorado.
 
 Sob política central, `quality_gates.sast` do repositório é sempre ignorado
 por completo (com o mesmo aviso nomeado que `gate`/`rules`/`ignore` já usam):
@@ -489,12 +520,19 @@ quality_gates:
 
 - **Varre o intervalo de commits revisado, não a árvore final.** Um segredo
   commitado num commit intermediário do PR e removido depois já vazou: está no
-  histórico que o merge publica. A engine roda
-  `gitleaks git --log-opts=<base>..<head>` com `--report-format json`,
-  `--report-path` num diretório temporário privado, `--exit-code 0`,
-  `--no-banner`, `--redact` e `--config` com a base embutida do binário
-  (`[extend] useDefault = true`), que passa à frente de `GITLEAKS_CONFIG`,
-  `GITLEAKS_CONFIG_TOML` e de um `.gitleaks.toml` do repositório.
+  histórico que o merge publica. A engine roda o gitleaks (flags do gitleaks,
+  não do aurumcode), com o relatório num diretório temporário privado e a
+  configuração base embutida do binário (`[extend] useDefault = true`), que
+  passa à frente de `GITLEAKS_CONFIG`, `GITLEAKS_CONFIG_TOML` e de um
+  `.gitleaks.toml` do repositório:
+
+  ```sh
+  gitleaks git --log-opts=<base>..<head> --report-format json \
+    --report-path <dir-privado>/report.json --exit-code 0 \
+    --no-banner --redact --config <base-embutida>
+  # sob política central, acrescenta:
+  gitleaks git ... --ignore-gitleaks-allow
+  ```
 - O intervalo precisa de dois ids de commit completos presentes num clone
   **não raso**; intervalo ausente, ponta que não é id de commit, commit
   ausente ou clone raso é `secrets_execution_error`, nunca uma varredura só da
@@ -507,10 +545,11 @@ quality_gates:
   `Secret`, `Match`, `Line`, mensagem do commit, autor e e-mail não têm campo e
   são descartados na decodificação. O achado é `gitleaks:<regra>` em
   `arquivo:linha`, com a descrição da regra e o commit que o introduziu.
-- **Sob política central** (`secao policy`): `--ignore-gitleaks-allow`, então
-  um comentário `gitleaks:allow` não suprime o achado (sem política, suprime).
-  O `.gitleaksignore` da raiz é lido pelo gitleaks qualquer que seja a flag
-  (medido: `--gitleaks-ignore-path` apontando para outro diretório não impede);
+- **Sob política central** (`secao policy`): a flag do gitleaks que ignora
+  `gitleaks:allow` (bloco acima), então um comentário `gitleaks:allow` não
+  suprime o achado (sem política, suprime). O `.gitleaksignore` da raiz é lido
+  pelo gitleaks qualquer que seja a flag (medido: a flag de caminho do ignore
+  do gitleaks apontando para outro diretório não impede);
   por isso, sob política, a presença de `.gitleaksignore` na raiz é ela mesma
   um achado bloqueante `gitleaks:ignore-file-present`, que o dono da política
   precisa resolver.
@@ -541,15 +580,25 @@ quality_gates:
 ```
 
 - **Só roda quando declarada.** Sem a entrada, o review é o de sempre; nada é
-  instalado. O `go` precisa já estar no `PATH` do processo do aurumcode (a
-  imagem do produto não o traz): `go` ausente é `lint_unavailable`.
+  instalado. O `go` precisa já estar no `PATH` do processo do aurumcode: a
+  imagem do produto traz o Go pinado (o mesmo do `go.mod` do projeto, copiado
+  da imagem golang fixada por digest), e o workflow reutilizável baixa os
+  módulos do repositório revisado antes da review (passo "Prefetch Go
+  modules", `GOTOOLCHAIN=local`, sem segredos) para o cache que a review
+  monta. `go` ausente é `lint_unavailable`; módulo fora do cache é
+  `lint_execution_error`.
 - Roda `go vet -json ./...` na raiz revisada, que precisa ter `go.mod` (sem
   ele é `lint_execution_error`: o go resolveria outro módulo, cujos caminhos o
   diff não mapeia; módulos aninhados ficam de fora) e lê o relatório JSON, nunca o texto como comando.
   Cada achado é `go-vet/<analisador>` (ex.: `go-vet/printf`) em
   `arquivo:linha`, severidade `warning`, origem `govet`.
-- **Só linhas que o intervalo revisado adicionou.** A engine roda
-  `git diff --relative --unified=0 <base>...<head>` a partir da raiz revisada
+- **Só linhas que o intervalo revisado adicionou.** A engine roda, a partir da
+  raiz revisada, o diff do git (flags do git, não do aurumcode):
+
+  ```sh
+  git diff --relative --unified=0 <base>...<head>
+  ```
+
   (caminhos relativos a ela, como os do go vet) e descarta todo achado fora das linhas
   adicionadas: um defeito antigo de um arquivo que o PR não tocou não reprova o
   PR. Intervalo ausente, ou caminho que o git cita entre aspas (tab, aspas,
@@ -562,8 +611,16 @@ quality_gates:
   fora da raiz é `lint_invalid_output`.
 - **Sem download nem compilador C:** `GOTOOLCHAIN=local`, `GOPROXY=off` e
   `CGO_ENABLED=0` são fixos (o PR controla as diretivas `#cgo`, então o vet
-  nunca chama o compilador C; arquivos cgo ficam fora da cobertura); dependência
-  fora do cache de módulos (ou de `vendor/`) é `lint_execution_error`.
+  nunca chama o compilador C); dependência fora do cache de módulos (ou de
+  `vendor/`) é `lint_execution_error`.
+- **Arquivo cgo não passa como limpo:** com `CGO_ENABLED=0` o go vet tira do
+  pacote, sem aviso, todo arquivo com `import "C"`. Se um pacote que o
+  intervalo tocou tem um arquivo assim, a varredura é `lint_execution_error`
+  (inconclusiva, nunca limpa); arquivo cgo em pacote não tocado não muda
+  nada.
+- **Só o módulo da raiz:** `GOWORK=off` é fixo. Um `go.work` num diretório
+  acima da raiz revisada não escolhe os módulos nem as substituições que o
+  vet carrega.
   `GOFLAGS` do processo não é repassado (um `-toolexec` executaria outro
   programa).
 - A identidade da engine (`go vet <GOVERSION>`) vai no `Version` do resultado.
@@ -582,7 +639,7 @@ ao processo filho, que lê conteúdo controlado pelo autor do PR. O ambiente é:
   `GIT_CONFIG_VALUE_n`, só as de `safe.directory`, renumeradas (um
   `http.extraheader` com credencial é descartado);
 - govet: `GOCACHE`, `GOPATH`, `GOMODCACHE`, `GOROOT`, e os fixos
-  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`.
+  `GOTOOLCHAIN=local`, `GOPROXY=off`, `CGO_ENABLED=0`, `GOWORK=off`.
 
 Variáveis de proxy (`HTTPS_PROXY` etc.) não são repassadas: um runner atrás de
 proxy precisa de regras locais (veja os pacotes `p/...` acima). Limites de

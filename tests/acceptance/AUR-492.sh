@@ -197,7 +197,7 @@ run_mut001() {
 }
 
 run_mut002() {
-  mutate MUT-002 internal/scanner/govet/diff.go 'if s[f.Path][f.Line] {' \
+  mutate MUT-002 internal/scanner/added_lines.go 'if s[f.Path][f.Line] {' \
     'if true || s[f.Path][f.Line] { // MUT-002: findings outside the diff kept' \
     TestRealVetIgnoresUntouchedLines
 }

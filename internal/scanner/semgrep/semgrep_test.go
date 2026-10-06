@@ -75,7 +75,7 @@ func TestSemgrepReportedErrorsNeverReadAsClean(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(c.stdout, c.exitErr))
+			_, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(c.stdout, c.exitErr), nil)
 			if err == nil {
 				t.Fatal("Semgrep returned no error for a report with a non-empty \"errors\" array -- a fatal failure read as a clean pass")
 			}
@@ -90,7 +90,7 @@ func TestSemgrepReportedErrorsNeverReadAsClean(t *testing.T) {
 // failure.
 func TestSemgrepNonZeroExitWithoutErrorFlagIsFailure(t *testing.T) {
 	stdout := `{"results":[{"check_id":"demo.rule","path":"app.go","start":{"line":1},"extra":{"severity":"ERROR","message":"demo"}}]}`
-	_, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, exitError{code: 1}))
+	_, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, exitError{code: 1}), nil)
 	if err == nil {
 		t.Fatal("Semgrep returned no error for a non-zero exit (no --error flag passed, so exit 1 is not \"findings reported\")")
 	}
@@ -101,7 +101,7 @@ func TestSemgrepNonZeroExitWithoutErrorFlagIsFailure(t *testing.T) {
 // findings.
 func TestSemgrepCleanExitZeroWithFindingsSucceeds(t *testing.T) {
 	stdout := `{"results":[{"check_id":"demo.rule","path":"app.go","start":{"line":1},"extra":{"severity":"ERROR","message":"demo"}}]}`
-	findings, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, nil))
+	findings, err := scan(context.Background(), t.TempDir(), nil, false, fakeSemgrepRunner(stdout, nil), nil)
 	if err != nil {
 		t.Fatalf("Semgrep returned an error for a clean exit 0 report: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestSemgrepPolicyOriginFlags(t *testing.T) {
 			gotArgs = args
 			return `{"results":[]}`, "", nil
 		}
-		if _, err := scan(context.Background(), t.TempDir(), nil, policyOrigin, run); err != nil {
+		if _, err := scan(context.Background(), t.TempDir(), nil, policyOrigin, run, nil); err != nil {
 			t.Fatalf("Semgrep: %v", err)
 		}
 		return gotArgs
