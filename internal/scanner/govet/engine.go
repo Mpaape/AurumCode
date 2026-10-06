@@ -93,7 +93,7 @@ func (Engine) Run(ctx context.Context, req scanner.Request) (scanner.Report, err
 	if err != nil {
 		return scanner.Report{}, err
 	}
-	added, err := addedLines(ctx, run, req.Root, req.Range)
+	added, err := scanner.AddedLines(ctx, run, req.Root, req.Range)
 	if err != nil {
 		return scanner.Report{}, err
 	}
@@ -107,7 +107,7 @@ func (Engine) Run(ctx context.Context, req scanner.Request) (scanner.Report, err
 	if err != nil {
 		return scanner.Report{}, fmt.Errorf("govet: %w", err)
 	}
-	return scanner.Report{Findings: added.keep(findings), Complete: true, Version: "go vet " + version}, nil
+	return scanner.Report{Findings: added.Keep(findings), Complete: true, Version: "go vet " + version}, nil
 }
 
 // goVersion is the toolchain's own version, the engine identity recorded

@@ -18,7 +18,7 @@ generated file, skipped: schema.pb.txt
 
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
-- 3 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
+- 3 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - ferramenta.bin (binary)
   - leia-me.txt (binary)
   - schema.pb.txt (generated)
@@ -46,7 +46,7 @@ generated file, skipped: schema.pb.txt
 
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
-- 3 file(s) were filtered before the review (binary, generated or too large); a file that was not reviewed never counts as approved.
+- 3 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - ferramenta.bin (binary)
   - leia-me.txt (binary)
   - schema.pb.txt (generated)

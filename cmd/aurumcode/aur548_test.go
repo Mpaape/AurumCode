@@ -32,6 +32,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -86,10 +87,34 @@ const semgrepClean = `{"results":[]}`
 const semgrepNoResultsKey = `{}`
 const semgrepGarbage = `not json at all`
 
+// prChangeGitFake writes, next to a fake semgrep in bin, a "git" that
+// answers `git diff` with a change adding lines 1-5 of app.go (the
+// single-commit --pr fixture has no base commit to diff against) and hands
+// every other command to the real git. It returns a base SHA to export as
+// AURUMCODE_BASE_SHA, so the scanners receive a non-empty reviewed range.
+func prChangeGitFake(t *testing.T, bin string) string {
+	t.Helper()
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not on PATH")
+	}
+	script := "#!/usr/bin/env bash\nfor a in \"$@\"; do if [ \"$a\" = diff ]; then printf '+++ b/app.go\\n@@ -0,0 +1,5 @@\\n'; exit 0; fi; done\nexec " + shellQuote(realGit) + " \"$@\"\n"
+	writeExec(t, filepath.Join(bin, "git"), script)
+	return "0000000000000000000000000000000000000001"
+}
+
 // setSemgrepPATH prepends bin to PATH for the duration of the test.
 func setSemgrepPATH(t *testing.T, bin string) {
 	t.Helper()
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// setPRSemgrepPATH is setSemgrepPATH for a --pr test: the fake semgrep plus
+// prChangeGitFake, and the base SHA of the reviewed range.
+func setPRSemgrepPATH(t *testing.T, bin string) {
+	t.Helper()
+	t.Setenv("AURUMCODE_BASE_SHA", prChangeGitFake(t, bin))
+	setSemgrepPATH(t, bin)
 }
 
 // TestAUR548SeverityBreachFailsGate covers AC-001: an ERROR-severity
@@ -474,7 +499,7 @@ func TestAUR548PRSeverityBreachFailsGate(t *testing.T) {
 	dir, headSHA := aur515Fixture(t, "https://github.com/owner/repo.git")
 	server, posted := aur548PRServer(t, headSHA, "quality_gates:\n  sast:\n    enabled: true\n")
 	aur548PREnv(t, server.URL)
-	setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, ""))
+	setPRSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, ""))
 
 	var out, errOut strings.Builder
 	code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
@@ -728,7 +753,7 @@ func TestAUR548PRPolicyOriginFlags(t *testing.T) {
 			t.Fatal(err)
 		}
 		argvLog := filepath.Join(t.TempDir(), "argv.log")
-		setSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
+		setPRSemgrepPATH(t, semgrepFake(t, semgrepClean, false, argvLog))
 
 		var out, errOut strings.Builder
 		code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,
@@ -764,7 +789,7 @@ func TestAUR548PRPolicyOriginFlags(t *testing.T) {
 			t.Fatal(err)
 		}
 		argvLog := filepath.Join(t.TempDir(), "argv.log")
-		setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, argvLog))
+		setPRSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, argvLog))
 
 		var out, errOut strings.Builder
 		code := runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true, naLinha: false, check: false,

@@ -16,7 +16,7 @@ import (
 func (p *prReview) resolveInputs() (int, bool) {
 	steps := []session.Step{
 		p.fetchPullRequest, p.loadPolicy, p.resolvePublication,
-		p.resolveChangelog, p.resolveCheckout, p.openMemory,
+		p.resolveChangelog, p.resolveCheckout, p.declareBinaries, p.openMemory,
 	}
 	for _, step := range steps {
 		if code, done := step(); done {
@@ -183,6 +183,15 @@ func (p *prReview) resolveCheckout() (int, bool) {
 	} else {
 		p.codebaseLimitation = codebaseContextOmittedNotice(p.reviewLanguage, mismatch)
 	}
+	return 0, false
+}
+
+// declareBinaries takes the binary files out of the diff before the model
+// sees it, as --base does: nothing in them is reviewable by reading, so the
+// prompt never counts them as omitted by the budget, and the coverage pass
+// declares them ignored (binaryNotices) instead of partial.
+func (p *prReview) declareBinaries() (int, bool) {
+	p.binaryNotices, p.diff = splitBinaryFiles(p.diff, p.verifiedDir)
 	return 0, false
 }
 

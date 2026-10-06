@@ -1,6 +1,8 @@
 package govet
 
 import (
+	"github.com/Mpaape/AurumCode/internal/scanner"
+
 	"errors"
 	"fmt"
 	"go/parser"
@@ -26,7 +28,7 @@ var ErrCgoUnvetted = errors.New("govet: package has a cgo file go vet does not v
 
 // unvettedCgoFiles returns, sorted and relative to root, every file that
 // imports "C" in a directory holding a Go file the range added lines to.
-func unvettedCgoFiles(root string, added lineSet) ([]string, error) {
+func unvettedCgoFiles(root string, added scanner.LineSet) ([]string, error) {
 	dirs := map[string]bool{}
 	for rel := range added {
 		if strings.HasSuffix(rel, ".go") && filepath.IsLocal(filepath.FromSlash(rel)) {
@@ -78,7 +80,7 @@ func cgoFilesIn(root, dir string) ([]string, error) {
 }
 
 // refuseUnvettedCgo turns cgo files in a touched package into ErrCgoUnvetted.
-func refuseUnvettedCgo(root string, added lineSet) error {
+func refuseUnvettedCgo(root string, added scanner.LineSet) error {
 	files, err := unvettedCgoFiles(root, added)
 	if err != nil {
 		return err

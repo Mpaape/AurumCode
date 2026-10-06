@@ -1,22 +1,29 @@
-package govet
+// The change scope of a scanner: the lines the reviewed commit range added.
+// An engine whose findings are about code (sast, lint) keeps only the
+// findings on these lines, so a pull request is judged by what it changed and
+// never by the repository's history.
+package scanner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
 const gitBinary = "git"
 
-// lineSet is the lines the reviewed range added, per path.
-type lineSet map[string]map[int]bool
+// LineSet is the lines the reviewed range added, per path relative to the
+// scan root.
+type LineSet map[string]map[int]bool
 
-// keep returns the findings on added lines, in their order.
-func (s lineSet) keep(findings []scanner.Finding) []scanner.Finding {
-	var out []scanner.Finding
+// Touched reports whether the range added any line to path.
+func (s LineSet) Touched(path string) bool { return len(s[path]) > 0 }
+
+// Keep returns the findings on added lines, in their order.
+func (s LineSet) Keep(findings []Finding) []Finding {
+	var out []Finding
 	for _, f := range findings {
 		if s[f.Path][f.Line] {
 			out = append(out, f)
@@ -30,7 +37,7 @@ func (s lineSet) keep(findings []scanner.Finding) []scanner.Finding {
 // repository's own configuration cannot change the format read below.
 // --relative: run from the review root, paths are relative to it (as go
 // vet's are) even when the root is a subdirectory of the repository.
-func diffArgs(r scanner.Range) []string {
+func diffArgs(r Range) []string {
 	return []string{
 		"-c", "core.quotePath=false",
 		"diff", "--relative", "--no-color", "--no-ext-diff", "--no-renames", "--no-textconv",
@@ -39,26 +46,35 @@ func diffArgs(r scanner.Range) []string {
 	}
 }
 
-// addedLines runs git diff over the range and reads the added lines.
-func addedLines(ctx context.Context, run scanner.Command, root string, r scanner.Range) (lineSet, error) {
+// ErrNoRange: the caller gave no commit range, so no finding can be
+// anchored to the change; reporting the whole tree instead would accuse the
+// pull request of the repository's history.
+var ErrNoRange = errors.New("scanner: no reviewed commit range")
+
+// AddedLines runs git diff over the range in root and reads the added lines.
+// An empty range is ErrNoRange: never "every line".
+func AddedLines(ctx context.Context, run Command, root string, r Range) (LineSet, error) {
+	if r.Empty() {
+		return nil, ErrNoRange
+	}
 	stdout, _, err := run(ctx, root, gitBinary, diffArgs(r)...)
 	if err != nil {
-		return nil, fmt.Errorf("govet: git diff: %w", err)
+		return nil, fmt.Errorf("scanner: git diff: %w", err)
 	}
 	return parseAddedLines(stdout)
 }
 
 // parseAddedLines reads the "+++ b/<path>" and "@@ -a,b +c,d @@" lines of a
 // zero-context unified diff.
-func parseAddedLines(diff string) (lineSet, error) {
-	set := lineSet{}
+func parseAddedLines(diff string) (LineSet, error) {
+	set := LineSet{}
 	path := ""
 	for _, line := range strings.Split(diff, "\n") {
 		switch {
 		case strings.HasPrefix(line, "+++ \""):
 			// git quotes a path with a tab, newline, quote or backslash even
 			// with core.quotePath=false; dropping it would hide its lines.
-			return nil, fmt.Errorf("govet: quoted path in diff %q: %w", line, scanner.ErrInvalidOutput)
+			return nil, fmt.Errorf("scanner: quoted path in diff %q: %w", line, ErrInvalidOutput)
 		case strings.HasPrefix(line, "+++ "):
 			path = strings.TrimPrefix(strings.TrimPrefix(line, "+++ "), "b/")
 			if path == "/dev/null" {
@@ -84,7 +100,7 @@ func parseAddedLines(diff string) (lineSet, error) {
 func newRange(header string) (int, int, error) {
 	fields := strings.Fields(header)
 	if len(fields) < 3 || !strings.HasPrefix(fields[2], "+") {
-		return 0, 0, fmt.Errorf("govet: hunk header %q: %w", header, scanner.ErrInvalidOutput)
+		return 0, 0, fmt.Errorf("scanner: hunk header %q: %w", header, ErrInvalidOutput)
 	}
 	startRaw, countRaw, hasCount := strings.Cut(strings.TrimPrefix(fields[2], "+"), ",")
 	start, err := strconv.Atoi(startRaw)
@@ -93,7 +109,7 @@ func newRange(header string) (int, int, error) {
 		count, err = strconv.Atoi(countRaw)
 	}
 	if err != nil || start < 0 || count < 0 {
-		return 0, 0, fmt.Errorf("govet: hunk header %q: %w", header, scanner.ErrInvalidOutput)
+		return 0, 0, fmt.Errorf("scanner: hunk header %q: %w", header, ErrInvalidOutput)
 	}
 	return start, count, nil
 }
