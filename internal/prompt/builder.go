@@ -29,6 +29,9 @@ type PromptBuilder struct {
 	ruleCatalog []string
 	// limits are the slot ceilings (templates/limits.yml by default).
 	limits SlotLimits
+	// defaultsErr is why the embedded defaults (limits, rule catalog) did
+	// not load; while set, every assembly fails with it.
+	defaultsErr error
 }
 
 // NewPromptBuilder creates a new prompt builder
@@ -39,6 +42,7 @@ func NewPromptBuilder() *PromptBuilder {
 		estimator:        NewHeuristicEstimator(), // Default estimator
 		ruleCatalog:      DefaultRuleCatalog,
 		limits:           defaultSlotLimits,
+		defaultsErr:      EmbeddedDefaultsErr(),
 	}
 	pb.loadTemplates()
 	return pb
@@ -52,6 +56,7 @@ func NewPromptBuilderWithEstimator(estimator TokenEstimator) *PromptBuilder {
 		estimator:        estimator,
 		ruleCatalog:      DefaultRuleCatalog,
 		limits:           defaultSlotLimits,
+		defaultsErr:      EmbeddedDefaultsErr(),
 	}
 	pb.loadTemplates()
 	return pb
@@ -130,6 +135,9 @@ func (b *PromptBuilder) formatLanguages(metrics *analyzer.DiffMetrics) string {
 // as that content grows -- see AUR-539 (AUR-467 and AUR-477 pinned 1700-
 // and 4000-token budgets that the fixed content outgrew).
 func (b *PromptBuilder) fixedOverhead(diff *types.Diff, metrics *analyzer.DiffMetrics, opts BuildOptions) (int, string, contextSections, error) {
+	if b.defaultsErr != nil {
+		return 0, "", contextSections{}, b.defaultsErr
+	}
 	reviewLanguage := strings.TrimSpace(opts.Language)
 	if reviewLanguage == "" {
 		reviewLanguage = "en-US"
@@ -419,6 +427,9 @@ func (b *PromptBuilder) fixedContentForDigest() (string, error) {
 
 // BuildPrompt builds a complete prompt with token budgeting
 func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetrics, opts BuildOptions) (PromptParts, error) {
+	if b.defaultsErr != nil {
+		return PromptParts{}, b.defaultsErr
+	}
 	// Create token budget
 	budget := NewTokenBudget(b.estimator, opts.MaxTokens, opts.ReserveReply)
 
