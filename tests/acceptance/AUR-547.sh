@@ -93,10 +93,9 @@ run_nested() {
 }
 
 # AUR-590: AUR-458 is now green too (its e2e expected the --pr path to refuse
-# --exigir-qualidade, which it accepts since 7eab0407), and AUR-448's unit
-# fixtures carry the evidence the scope gate requires, so its remaining red
-# is tests/integration/AUR-448.go (the no-provider run now exits 0 with
-# deterministic analysis). See docs/specs/AUR-590.md.
+# --exigir-qualidade, which it accepts since 7eab0407), and so is AUR-448 (its
+# fixtures carry the evidence the scope gate requires, and its integration
+# test follows the deterministic no-provider run). See docs/specs/AUR-590.md.
 # AC-001: AUR-449 is fully fixed (exits 0); the other five are fixed at the
 # materialization and acceptance-shell level but stay RED for a measured,
 # out-of-path cause (a sibling tests/unit/*.go, tests/integration/*.go or
@@ -107,7 +106,6 @@ run_nested() {
 expected_tag() {
   case "$1" in
     AUR-443) printf 'selector:TestAUR443:exit:1' ;;
-    AUR-448) printf 'selector:IntegrationAUR448:exit:1' ;;
     AUR-466) printf 'selector:IntegrationAUR466:exit:1' ;;
     AUR-481) printf 'selector:IntegrationAUR481:exit:1' ;;
   esac
@@ -127,7 +125,7 @@ readonly -a detail_checks=(
   'AUR-443|E2EAUR443|0|E2EAUR443/ok'
   'AUR-443|AC-001-MUT-001|0|MUT-001/rejected'
   'AUR-448|TestAUR448|0|ok'
-  'AUR-448|IntegrationAUR448|1|selector:IntegrationAUR448:exit:1'
+  'AUR-448|IntegrationAUR448|0|ok'
   'AUR-448|E2EAUR448|0|E2EAUR448/ok'
   'AUR-448|AC-001-MUT-001|0|MUT-001/rejected'
   'AUR-466|IntegrationAUR466|1|selector:IntegrationAUR466:exit:1'
@@ -187,7 +185,7 @@ run_ac001() {
   local any_bad=0 name last
   for name in "${scripts[@]}"; do
     run_nested "$name" AC-001
-    if [[ "$name" == AUR-449 || "$name" == AUR-458 ]]; then
+    if [[ "$name" == AUR-448 || "$name" == AUR-449 || "$name" == AUR-458 ]]; then
       if [[ "$n_rc" -ne 0 ]]; then
         cat "$n_out" >&2
         printf '%s/%s/%s-regressed:%s\n' "$card" "$selector" "$name" "$n_rc" >&2
