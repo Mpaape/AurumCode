@@ -143,7 +143,8 @@ repo() {
   local dir="$run_dir/$1" i
   mkdir -p "$dir"
   cp -R "$repo_root/.aurumcode" "$dir/.aurumcode"
-  cp "$2" "$dir/.aurumcode/config.yml"
+  chmod -R u+w -- "$dir/.aurumcode"
+  cp "$2" "$dir/.aurumcode/config.yml" || infra "config-copy:$1"
   printf 'module example.com/convencao\n\ngo 1.22\n' >"$dir/go.mod"
   printf 'package convencao\n' >"$run_dir/$1.base"
   {
