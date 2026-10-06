@@ -112,9 +112,9 @@ mutation_001() {
   chmod -R u+w -- "$stage"
   mkdir "$stage/.git"   # present but unusable: with GIT_DIR invalid, VCS stamping errors
   local target="$stage/internal/artifacts/artifacts_test.go"
-  grep -Fq '"go", "build", "-buildvcs=false", "-o", bin, "./cmd/analysis-data"' "$target" || infra 'mutation-anchor-missing'
-  sed -i 's/"go", "build", "-buildvcs=false", "-o", bin, ".\/cmd\/analysis-data"/"go", "build", "-o", bin, ".\/cmd\/analysis-data"/' "$target"
-  grep -Fq '"-buildvcs=false", "-o", bin, "./cmd/analysis-data"' "$target" && infra 'mutation-not-applied'
+  grep -Fq '"go", "build", "-buildvcs=false", "-o", bin, "../../cmd/analysis-data"' "$target" || infra 'mutation-anchor-missing'
+  sed -i 's/"go", "build", "-buildvcs=false", "-o", bin, "..\/..\/cmd\/analysis-data"/"go", "build", "-o", bin, "..\/..\/cmd\/analysis-data"/' "$target"
+  grep -Fq '"-buildvcs=false", "-o", bin, "../../cmd/analysis-data"' "$target" && infra 'mutation-not-applied'
   # The static detector must reject the mutant everywhere.
   static_check "$stage" >/dev/null 2>&1 && fail 'MUT-001/static-check-survived'
   # Where git exists (Go only stamps VCS then) the real failure must reproduce
