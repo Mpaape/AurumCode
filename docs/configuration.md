@@ -409,8 +409,14 @@ perfil selecionado aprende o mesmo catálogo dinâmico.
 sobre a árvore inteira do repositório revisado, independente de `gate:` estar
 declarado ou não. A varredura é da árvore inteira (uma regra pode precisar dos
 arquivos vizinhos), mas só conta o que o intervalo revisado mudou: um achado
-fica apenas se cai numa linha que o intervalo adicionou (o mesmo
-`git diff --relative --unified=0 <base>...<head>` do `govet`). Um achado
+fica apenas se cai numa linha que o intervalo adicionou, pelo mesmo diff do
+git que o `govet` usa:
+
+```sh
+git diff --relative --unified=0 <base>...<head>
+```
+
+Um achado
 antigo, num arquivo que o PR não tocou, não reprova o PR. Sem intervalo
 revisado (`--base` que não resolve), a varredura é inconclusiva, nunca a
 árvore inteira:
