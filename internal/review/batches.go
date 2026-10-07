@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/deliberation"
+	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -64,6 +65,13 @@ type Batch struct {
 // Batches returns the batches of the last review, nil when its diff fit one
 // prompt.
 func (r *Reviewer) Batches() []Batch { return r.batches }
+
+// ErrNoBatchReviewed is a review in batches whose ceilings admit no batch at
+// all (a max_prompt_tokens below one prompt): the model never read anything.
+// It wraps llm.ErrAllProvidersFailed so every caller takes the path of a
+// model review that did not run: not reviewed, never approved, and with a
+// declared gate an inconclusive result.
+var ErrNoBatchReviewed = fmt.Errorf("no review batch fits the configured ceilings (batches.max_batches, batches.max_prompt_tokens): the model review did not run: %w", llm.ErrAllProvidersFailed)
 
 // Metadata keys a review in batches adds to the result.
 const (
@@ -129,6 +137,9 @@ func (r *Reviewer) reviewInBatches(ctx context.Context, diff *types.Diff, review
 	plan, err := r.planBatches(diff, reviewContext)
 	if err != nil {
 		return nil, err
+	}
+	if len(plan.batches) == 0 {
+		return nil, fmt.Errorf("%w (%d file(s) left out)", ErrNoBatchReviewed, len(plan.outside))
 	}
 	results := make([]*types.ReviewResult, 0, len(plan.batches))
 	var transcripts []*deliberation.Transcript

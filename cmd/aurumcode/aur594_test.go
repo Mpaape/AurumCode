@@ -303,3 +303,15 @@ func (r *analyzerRepoRefs) resolve(t *testing.T, ref string) string {
 	}
 	return sha
 }
+
+// A ceiling below one prompt admits no batch: the model never read anything,
+// so the review is not reviewed and never approved, even without a gate.
+func TestNoBatchAdmittedIsNeverApproved(t *testing.T) {
+	code, out, _ := aur594BaseReview(t, "batches:\n  max_prompt_tokens: 1\n")
+	if code == 0 || strings.Contains(out, "Verdict:** Approve") || strings.Contains(out, "Verdict: Approve") {
+		t.Fatalf("exit=%d, want non-zero and no approval: no batch was reviewed\n%s", code, out)
+	}
+	if !strings.Contains(out, "no review batch fits the configured ceilings") {
+		t.Fatalf("the failure must say no batch fit the ceilings\n%s", out)
+	}
+}

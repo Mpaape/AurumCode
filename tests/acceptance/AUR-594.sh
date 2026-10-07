@@ -6,7 +6,7 @@
 # the files left out are named and the approval is withheld.
 #
 # Selectors:
-#   all        AC-001..AC-004, then MUT-001 and MUT-002
+#   all        AC-001..AC-004, then MUT-001..MUT-003
 #   AC-001     406 too_large: the verified checkout's diff is reviewed; an
 #              unverified checkout fails with nothing sent or published;
 #              only the size refusal is typed (another 406 stays an error);
@@ -23,6 +23,8 @@
 #   MUT-001    treating the 406 as an empty diff turns AC-001 RED
 #   MUT-002    not declaring the files a ceiling left out (approval with
 #              batches missing) turns AC-003 RED
+#   MUT-003    a ceiling that admits no batch consolidating an empty result
+#              (the model never called, approved by default) turns AC-003 RED
 # Unknown selector exits 64; infrastructure 79; behavioral failure 1.
 set -Eeuo pipefail
 export LC_ALL=C
@@ -31,7 +33,7 @@ umask 077
 readonly card='AUR-594'
 selector="${1:-all}"
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002) ;;
+  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002|MUT-003) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -86,7 +88,7 @@ readonly ac001_cmd=(TestTooLargeDiffIsReadFromObjectCheckout TestTooLargeDiffWit
 readonly ac001_git_cmd=(TestTooLargeDiffIsReadFromTheVerifiedCheckout TestTooLargeDiffWithUnverifiedCheckoutFails)
 readonly ac001_client=(TestDiffRefusedAsTooLargeIsTyped TestParseHunkHeaderWithoutCount)
 readonly ac002_tests=(TestDiffAboveTheBudgetIsReviewedInBatches)
-readonly ac003_tests=(TestBatchCeilingLeavesFilesOutAndWithholdsApproval)
+readonly ac003_tests=(TestBatchCeilingLeavesFilesOutAndWithholdsApproval TestNoBatchAdmittedIsNeverApproved)
 
 pattern_of() { local IFS='|'; printf '^(%s)$' "$*"; }
 
@@ -168,6 +170,16 @@ run_mut002() {
   printf '%s/MUT-002/rejected\n' "$card"
 }
 
+run_mut003() {
+  local root="$run_dir/root-mut3"
+  stage "$root"
+  replace_once "$root/internal/review/batches.go" \
+    'if len(plan.batches) == 0 {' \
+    'if len(plan.batches) < 0 /* MUT-003 */ {'
+  expect_red "$root" "$run_dir/mut3.log" ./cmd/aurumcode/ TestNoBatchAdmittedIsNeverApproved
+  printf '%s/MUT-003/rejected\n' "$card"
+}
+
 case "$selector" in
   AC-001) run_ac001 ;;
   AC-002) run_ac002 ;;
@@ -175,6 +187,7 @@ case "$selector" in
   AC-004) run_ac004 ;;
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
+  MUT-003) run_mut003 ;;
   all)
     run_ac001
     run_ac002
@@ -182,6 +195,7 @@ case "$selector" in
     run_ac004
     run_mut001
     run_mut002
+    run_mut003
     ;;
 esac
 printf '%s/%s/pass\n' "$card" "$selector"
