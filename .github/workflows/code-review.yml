@@ -32,7 +32,10 @@ jobs:
       model: ${{ vars.LLM_MODEL }}
       provider: ${{ vars.LLM_PROVIDER }}
       security: true
-    secrets: inherit
+    # So o que o review usa (menor privilegio), nunca secrets: inherit.
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
 
   # Falha fechada sem provedor: sem LLM_API_KEY/LLM_BASE_URL (PR de fork ou
   # do dependabot, ou secret apagado) o review nao roda e o job `review`

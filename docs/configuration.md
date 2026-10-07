@@ -354,6 +354,16 @@ troque a primeira palavra da mensagem por `[REDACTED]`. Pelo mesmo motivo a linh
 `(rule <id>: <título>)` do relatório como `(rule <id> - <título>)`: a linha do gate e o
 relatório diferem só nesse separador, e a linha mostra o título inteiro (`Hardcoded Secrets`).
 
+**Achado sobre o marcador de redação é descartado (AUR-598).** Antes de chegar
+ao modelo, todo valor com forma de segredo vira `[REDACTED]`, inclusive quando
+era só um identificador (`APIKey: key`). O modelo nunca vê o valor mascarado,
+então um achado dele que cita o marcador na mensagem, evidência, impacto ou
+correção é descartado, contado em `issues_rejected_by_redaction_marker` (e no
+total de `issues_rejected_by_scope`) e nomeado no aviso de descarte. Achados de
+scanners determinísticos (segredos, SAST, vet, passe de segurança) nunca passam
+por esse filtro: eles leem o conteúdo bruto, e a detecção de segredo é do
+scanner de segredos, obrigatório e com falha fechada.
+
 **Review formal e gate (AUR-567).** Em `--pr`, quando `gate` está declarado, a
 review formal segue o gate: `REQUEST_CHANGES` só se o gate reprova; achados
 abaixo do limiar ou aprovação retida dão `COMMENT`; uma execução limpa dá
