@@ -18,7 +18,8 @@ const OriginDependencies = "dependencies"
 // is nil when the configuration declares no dependencies section: the
 // contributor then adds nothing. An inconclusive check is inconclusive here
 // (the one rule, ApplyInconclusiveMode, decides what that does), never a
-// pass.
+// pass. Each advisory is judged by the section's policy at this run's
+// severity (dependencies_policy.go).
 type DependenciesContributor struct {
 	Report *dependencies.Report
 }
@@ -37,11 +38,15 @@ func (c DependenciesContributor) Apply(_ context.Context, run *Run, _ Result) (R
 		part.Lines = append(part.Lines, fmt.Sprintf("DEPENDENCIAS inconclusivo (%s): %s", report.Reason, report.Detail))
 		return part, nil
 	}
+	policy, err := newDependencyPolicy(run)
+	if err != nil {
+		return Result{}, Fatal(err)
+	}
 	for _, d := range report.Divergences {
 		part.Lines = append(part.Lines, "DEPENDENCIAS divergencia entre modelo e scanner: "+d)
 	}
 	for _, f := range report.Findings {
-		part.Lines = append(part.Lines, DependencyFindingLine(f, "informativo"))
+		policy.judge(&part, f)
 	}
 	return part, nil
 }
