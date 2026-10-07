@@ -126,7 +126,7 @@ run_ac003() {
 }
 
 run_ac004() {
-  local expected="$repo_root/demo/tutoriais/revisao/expected/pr-grande.txt"
+  local expected="$repo_root/demo/tutoriais/revisao/expected/pr-workflow.txt"
   local spec="$repo_root/docs/specs/AUR-594.md"
   [[ -f "$expected" ]] || fail no-large-pr-tutorial-case
   grep -Fq 'the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout' "$expected" || fail tutorial-without-local-diff

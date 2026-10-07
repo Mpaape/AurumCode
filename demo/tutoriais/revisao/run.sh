@@ -7,6 +7,8 @@ set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
+# shellcheck source=../_lib/pr.sh
+. "$HERE/../_lib/pr.sh"
 
 CASOS=(primeira-revisao sem-provedor com-provedor fix pr-workflow falha-nao-revisado modelo-pondera)
 
@@ -55,8 +57,8 @@ caso_fix() {
 }
 
 # 5. Revisao de PR pelo workflow reutilizavel. O que roda aqui e a conferencia do
-# workflow do chamador contra as entradas reais do reutilizavel; a revisao de
-# PR em si so acontece no GitHub (veja o tutorial).
+# workflow do chamador contra as entradas reais do reutilizavel e, contra um GitHub
+# falso local, a revisao de um PR grande (pr_grande, abaixo).
 caso_pr_workflow() {
   local wf="$HERE/workflow-chamador.yml" reuse="$REPO_ROOT/.github/workflows/review.yml" k
   echo "workflow do chamador: workflow-chamador.yml"
@@ -75,6 +77,8 @@ caso_pr_workflow() {
     grep -qE "^      $k\$" "$reuse" && grep -qE "^  $k\$" "$wf" || { echo "ERRO: permissao '$k' nao coberta pelo chamador"; return 1; }
     echo "permissao $k: o chamador concede o que o reutilizavel declara"
   done
+  echo "--- PR grande contra um GitHub falso local"
+  pr_grande
 }
 
 # Falha: arquivo nao revisado (gerado) nunca conta como aprovado; binario e caminho em ignore sao declarados ignorados, nunca parciais.
@@ -102,6 +106,69 @@ caso_modelo_pondera() {
   TUT_FIXTURE=fixture-pondera.json
   aurum review --base main --seguranca
   expect_rc 0 "o relatorio mostra a origem ao lado da avaliacao do modelo (contestado e confirmado), sem gate nada muda de contagem"
+}
+
+# gera_pr_grande DIR: uma mudanca maior que um prompt (tres diretorios com dois
+# arquivos grandes cada), gerada aqui para nao versionar centenas de KB de fixture.
+gera_pr_grande() {
+  local dir="$1" d f i
+  for d in api banco web; do
+    mkdir -p "$dir/$d"
+    for f in tabela catalogo; do
+      { printf 'package %s\n\n' "$d"
+        for i in $(seq -w 1 1400); do
+          printf 'var %s%s%s = "valor %s/%s linha %s de uma mudanca grande"\n' "$f" "$d" "$i" "$d" "$f" "$i"
+        done
+      } > "$dir/$d/$f.go"
+    done
+  done
+}
+
+# cobertura_publicada: as linhas de cobertura do review que o produto publicou no PR.
+cobertura_publicada() {
+  [ ! -s "$TUT_PR_LOG" ] || python3 -c '
+import json,sys
+for l in open(sys.argv[1]):
+    corpo = json.loads(l)["corpo"].get("body") or ""
+    for linha in corpo.splitlines():
+        if "Review coverage" in linha or "left out" in linha or linha.startswith("  - "):
+            print(linha)
+' "$TUT_PR_LOG"
+}
+
+# PR grande (parte do caso pr-workflow): o GitHub (falso, local) recusa o diff por tamanho (406 too_large). A revisao
+# le o mesmo intervalo main...feature do checkout verificado e, como o diff passa do
+# orcamento de um prompt, revisa em lotes por diretorio, com um parecer e um gate.
+pr_grande() {
+  tut_repo pr-grande repo-exemplo/base
+  tgit checkout -q -b feature
+  gera_pr_grande "$TUT_WORK"
+  tgit add -A
+  tgit commit -q -m "feature: pr grande"
+  tgit remote add origin https://github.com/OWNER/REPO.git
+  TUT_FIXTURE=fixture-vazia.json
+  TUT_POLICY=politica-lotes
+  tut_pr_servidor_recusa pr-grande
+  aurum_pr review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
+  tut_pr_log
+  tut_pr_parar
+  expect_rc 0 "406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou"
+  echo "--- teto de lotes (batches.max_batches: 1): os arquivos fora sao listados e a aprovacao e retida"
+  TUT_POLICY=politica-teto
+  tut_pr_servidor_recusa pr-grande-teto
+  aurum_pr review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
+  tut_pr_log
+  tut_pr_parar
+  cobertura_publicada
+  expect_rc 1 "no teto, a revisao fica parcial (partial_coverage) e o gate em block reprova"
+  echo "--- checkout nao verificado (um arquivo nao versionado): o diff local e recusado"
+  TUT_POLICY=politica-lotes
+  echo rascunho > "$TUT_WORK/rascunho.txt"
+  tut_pr_servidor_recusa pr-grande-sujo
+  aurum_pr review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
+  tut_pr_log
+  tut_pr_parar
+  expect_rc 1 "sem checkout verificado nada e revisado nem publicado: falha fechada"
 }
 
 tut_main "$@"
