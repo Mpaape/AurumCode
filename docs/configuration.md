@@ -1460,7 +1460,7 @@ oferecido e os scanners `required: false` rodam antes do modelo, como sem
 decide sozinha (a do repositório é ignorada com aviso); uma política sem a
 seção mantém a do repositório. Tutorial: [Deliberação com ferramentas](tutorials/deliberacao.md).
 
-### Status do CI no parecer
+## Status do CI no parecer
 
 No `--pr`, o contexto de CI que o workflow grava (`gh pr checks`, em
 `AURUMCODE_CI_CONTEXT_FILE`) chega ao modelo só com os checks **concluídos**
