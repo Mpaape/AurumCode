@@ -32,10 +32,10 @@ const (
 // configuration without it behaves exactly as before. Declared without
 // fail_on, the check runs and its findings are informative only.
 type DependenciesConfig struct {
-	// FailOn lists the advisory severities (critical, high, medium, low)
-	// that fail the check for a vulnerability the pull request introduces;
-	// each listed severity fails, an unlisted one alerts. Empty: informative
-	// only.
+	// FailOn lists advisory severities (critical, high, medium, low); the
+	// lowest one listed is the threshold, as gate.fail_on: an introduced
+	// vulnerability at or above it fails, one below alerts. Empty:
+	// informative only.
 	FailOn []string `yaml:"fail_on"`
 	// Preexisting is what a vulnerability present on both sides does:
 	// warn (the default) passes with an alert, block fails.
@@ -124,9 +124,15 @@ func NormalizeDependencySeverity(raw string) string {
 // Gated reports a declared fail_on.
 func (c *DependenciesConfig) Gated() bool { return c != nil && len(c.FailOn) > 0 }
 
-// Fails reports whether an advisory of severity fails the check: its
-// severity is listed in fail_on. An unknown severity fails whenever fail_on
-// is declared: a severity that cannot be read never lets a finding pass.
+// dependencySeverityRanks is the advisory severity ladder: unlike the
+// gate's three levels, critical and high are distinct ranks.
+var dependencySeverityRanks = map[string]int{"low": 1, "medium": 2, "high": 3, "critical": 4}
+
+// Fails reports whether an advisory of severity fails the check: its rank
+// is at or above the lowest level listed in fail_on, the same "this level
+// and above" reading as gate.fail_on. An unknown severity fails whenever
+// fail_on is declared: a severity that cannot be read never lets a finding
+// pass.
 func (c *DependenciesConfig) Fails(severity string) bool {
 	if !c.Gated() {
 		return false
@@ -135,12 +141,13 @@ func (c *DependenciesConfig) Fails(severity string) bool {
 	if sev == SeverityUnknown {
 		return true
 	}
+	threshold := 0
 	for _, level := range c.FailOn {
-		if NormalizeDependencySeverity(level) == sev {
-			return true
+		if r := dependencySeverityRanks[NormalizeDependencySeverity(level)]; r > 0 && (threshold == 0 || r < threshold) {
+			threshold = r
 		}
 	}
-	return false
+	return threshold > 0 && dependencySeverityRanks[sev] >= threshold
 }
 
 // Validate refuses what would silently weaken the check: an unknown

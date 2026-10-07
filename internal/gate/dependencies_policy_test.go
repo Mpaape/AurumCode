@@ -39,6 +39,10 @@ func TestAUR527AC001IntroducedFollowsFailOn(t *testing.T) {
 	if res.Fail || !hasLine(res, "[alerta]") {
 		t.Fatalf("low introduced = %+v", res)
 	}
+	res = applyDeps(t, depRun(failOn("high")), dependencies.Report{Findings: []dependencies.Finding{depFinding("GHSA-4", "critical", dependencies.StatusIntroduced)}})
+	if !res.Fail {
+		t.Fatalf("fail_on [high] must fail a critical advisory: %+v", res)
+	}
 	res = applyDeps(t, depRun(failOn("high")), dependencies.Report{Findings: []dependencies.Finding{depFinding("GHSA-3", dependencies.SeverityUnknown, dependencies.StatusIntroduced)}})
 	if !res.Fail {
 		t.Fatalf("unknown severity must count at the top: %+v", res)
