@@ -259,11 +259,14 @@ var (
 
 // runGateway runs call under the time limit, one at a time.
 func (s *Server) runGateway(ctx context.Context, call func(context.Context) (SessionOutcome, error)) (SessionOutcome, error) {
+	// cancel runs only when runGateway returns: cancelling inside the
+	// goroutine would make c.Done() ready next to an already delivered
+	// result, and select would then report a finished call as a timeout.
 	c, cancel := context.WithTimeout(ctx, s.opts.Timeout)
+	defer cancel()
 	select {
 	case s.busy <- struct{}{}:
 	case <-c.Done():
-		cancel()
 		return SessionOutcome{}, errBusy
 	}
 	type result struct {
@@ -273,7 +276,6 @@ func (s *Server) runGateway(ctx context.Context, call func(context.Context) (Ses
 	done := make(chan result, 1)
 	go func() {
 		defer func() { <-s.busy }()
-		defer cancel()
 		o, err := call(c)
 		done <- result{o, err}
 	}()
