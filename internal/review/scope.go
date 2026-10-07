@@ -160,12 +160,9 @@ func (s scopeDiscardSummary) warning() string {
 // structurally publishable when it points to an addition or deletion and
 // supplies evidence, impact and a verification proposal. Nonempty fields are
 // not proof of correctness; semantic qualification remains the reviewer's job.
-// A finding that cites the redaction marker is removed first: the model
-// never saw the masked value, so it cannot ground a finding on it.
 func filterModelIssues(diff *types.Diff, issues []types.ReviewIssue) ([]types.ReviewIssue, scopeDiscardSummary) {
 	scope := newFindingScope(diff)
 	var discarded scopeDiscardSummary
-	issues, discarded.CitesRedactionMarker = discardRedactedModelFindings(issues)
 	kept := make([]types.ReviewIssue, 0, len(issues))
 	for _, issue := range issues {
 		if !scope.containsSide(issue.File, issue.Line, issue.Side) {

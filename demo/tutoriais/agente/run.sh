@@ -75,7 +75,7 @@ caso_gate_consultado() {
   echo "RESULTADO: o servidor MCP e a CLI deram o mesmo relatorio e a mesma decisao"
   echo "--- o agente pede a explicacao do achado bloqueante"
   local id
-  id="$(id_de erros#err-001-erro-nunca-ignorado)"
+  id="$(id_de 'erros#err-001-erro-nunca-ignorado')"
   mcp "$(chama 4 aurum_gate '{"base":"main"}')" "$(chama 5 aurum_explain "{\"finding_id\":\"$id\"}")"
   confere 'aurum_explain:' "a explicacao traz a regra, a sugestao e como corrigir"
   echo "--- o agente corrige (novo commit) e consulta de novo"
