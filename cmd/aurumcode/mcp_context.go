@@ -1,4 +1,4 @@
-// MCP context sources (AUR-469): review.context.mcp entries become context
+// MCP context sources: review.context.mcp entries become context
 // providers whose answer goes to the prompt's repository-context slot with
 // origin mcp:<name>/<tool>. Only trusted configuration starts a server: the
 // central policy always; the repository's own config in --base (the
