@@ -43,11 +43,22 @@ Regras que valem para todos:
   com o nome do perfil e redigido (a chave e segredos conhecidos viram
   marcador): `anthropic API error (status 401): authentication_error: ...`.
 
-No workflow reutilizável do Aurum (`.github/workflows/review.yml`), por
-enquanto só `LLM_API_KEY` e `LLM_BASE_URL` chegam ao contêiner: ali, use um
-endpoint compatível com OpenAI que autentique por Bearer (por exemplo, um
-proxy LiteLLM na frente do provedor). Pela CLI, pela imagem e pelo servidor
-MCP, `LLM_PROVIDER` vale para todos os perfis.
+No workflow reutilizável do Aurum (`.github/workflows/review.yml`), o perfil
+vem do input `provider` (vira `LLM_PROVIDER` no contêiner) e a chave do
+secret `LLM_API_KEY`; `LLM_BASE_URL` é obrigatório só sem perfil ou para os
+perfis sem URL padrão:
+
+```yaml
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@main
+    with:
+      provider: anthropic
+      model: claude-sonnet-5-5
+    secrets: inherit
+```
+
+Pela CLI, pela imagem e pelo servidor MCP, `LLM_PROVIDER` vale do mesmo jeito.
 
 Tudo isto está demonstrado, com um provedor falso e local, no tutorial
 [Provedores de LLM](tutorials/provedores.md).
