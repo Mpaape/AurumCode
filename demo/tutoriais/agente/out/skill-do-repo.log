@@ -1,0 +1,42 @@
+== skill-do-repo
+--- antes de escrever, o agente pergunta quais regras valem para app.go
+$ aurumcode mcp   # cliente de teste: initialize + 1 requisicao(oes) por stdio
+exit_code=0
+stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
+initialize: servidor aurumcode, protocolo 2025-06-18
+aurum_rules: politica central=nenhuma
+  skill (repository): .aurumcode/skills/erros/SKILL.md
+  regra: erros#err-001-erro-nunca-ignorado [error] origem repo
+RESULTADO: a secao da skill do repositorio e uma regra citavel
+--- o modelo cita so a regra do catalogo (quality/missing-error-handling): o achado aparece, o gate nao reprova
+$ aurumcode mcp   # cliente de teste: initialize + 1 requisicao(oes) por stdio
+exit_code=0
+stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
+initialize: servidor aurumcode, protocolo 2025-06-18
+aurum_review: decisao=pass exit_code=0
+  achado: d4eaae43264e app.go:10 [error] quality/missing-error-handling (origem model)
+  proximo passo: The gate passes. Commit or push.
+RESULTADO: achado do modelo sem regra de skill orienta e nao reprova
+--- o modelo cita a skill do repositorio (disse warning; a skill diz error): o gate reprova
+$ aurumcode mcp   # cliente de teste: initialize + 1 requisicao(oes) por stdio
+exit_code=0
+stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
+initialize: servidor aurumcode, protocolo 2025-06-18
+aurum_gate: decisao=fail exit_code=3
+  bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
+  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+RESULTADO: a violacao da skill do repo reprova o gate
+--- sob politica central (AURUMCODE_POLICY): as skills da politica e as do repositorio
+$ aurumcode mcp   # cliente de teste: initialize + 2 requisicao(oes) por stdio
+exit_code=0
+stdout: 3 mensagens JSON-RPC 2.0, nenhuma outra linha
+initialize: servidor aurumcode, protocolo 2025-06-18
+aurum_rules: politica central=/policy
+  skill (repository): .aurumcode/skills/erros/SKILL.md
+  skill (policy): policy/.aurumcode/skills/org/SKILL.md
+  regra: erros#err-001-erro-nunca-ignorado [error] origem repo
+  regra: org#org-001-sem-credencial-no-codigo [error] origem policy
+aurum_gate: recusado antes de executar: erro -32602: invalid arguments: json: unknown field "politica"
+RESULTADO: a skill da politica aparece com a camada policy
+RESULTADO: a skill do repositorio aparece com a camada repository
+RESULTADO: nenhum argumento aponta outra politica ou desliga regra

@@ -1237,6 +1237,19 @@ consumidor.
 |---|---|
 | `--file` | Arquivo JSON com sugestões ou resposta de revisão (padrão: stdin) |
 
+### CLI `aurumcode mcp`
+
+Servidor MCP local (stdio, só leitura) para agentes de código; cada pergunta
+de gate é uma sessão `review --base <ref> --seguranca --exigir-qualidade`.
+Política central por `AURUMCODE_POLICY`, provedor por `LLM_API_KEY` e
+`LLM_BASE_URL`, como na CLI. Configuração de cada agente:
+[Aurum no seu agente de código](agentes.md).
+
+| Flag | Efeito |
+|---|---|
+| `--tempo` | Tempo máximo de cada chamada de ferramenta; estourado, a resposta é `inconclusive` (padrão: 10m) |
+| `--limite` | Teto em USD de cada revisão, o mesmo de `review --limite` (padrão: sem teto) |
+
 ### Workflow reutilizável e Action
 
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`,

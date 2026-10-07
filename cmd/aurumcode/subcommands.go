@@ -81,6 +81,7 @@ func subcommands() []subcommand {
 				return runXBOM(args, stdout, stderr)
 			},
 		},
+		mcpSubcommand(),
 	}
 }
 
