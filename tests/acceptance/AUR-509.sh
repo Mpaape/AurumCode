@@ -30,7 +30,7 @@ repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 readonly pkgs=(./internal/changelog/ ./internal/config/ ./cmd/aurumcode/)
 readonly ac1='^TestAUR509AC001RequiredModeRefusesUselessChanges$'
 readonly ac2='^TestAUR509AC002EntryIsConciseAndUserFacing$'
-readonly ac3='^(TestAUR509AC003CheckFailsClosed|TestAUR509AC003PullRequestCannotSwitchItOff|TestAUR509ChangelogCheckSection)$'
+readonly ac3='^(TestAUR509AC003CheckFailsClosed|TestAUR509AC003PullRequestCannotSwitchItOff|TestAUR509AC003CentralPolicyDecides|TestAUR509ChangelogCheckSection)$'
 readonly ac4='^(TestAUR509AC004SuggestionStaysSeparate|TestAUR509AC004EntryTextIsData)$'
 readonly missing_rule='return fail(ReasonMissing, "a PR não altera "+r.File)'
 readonly diff_rule='não foi possível obter o diff'
@@ -116,14 +116,14 @@ run_mut002() {
 case "$selector" in
   AC-001) run_ac AC-001 "$ac1" 1 ;;
   AC-002) run_ac AC-002 "$ac2" 1 ;;
-  AC-003) run_ac AC-003 "$ac3" 3 ;;
+  AC-003) run_ac AC-003 "$ac3" 4 ;;
   AC-004) run_ac AC-004 "$ac4" 2 ;;
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
   all)
     run_ac AC-001 "$ac1" 1
     run_ac AC-002 "$ac2" 1
-    run_ac AC-003 "$ac3" 3
+    run_ac AC-003 "$ac3" 4
     run_ac AC-004 "$ac4" 2
     run_mut001
     run_mut002

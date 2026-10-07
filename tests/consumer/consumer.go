@@ -136,6 +136,12 @@ func LoadEvidence(dir string) (map[string]Evidence, error) {
 		if err := json.Unmarshal(data, &e); err != nil {
 			return nil, fmt.Errorf("%s: %w", f, err)
 		}
+		if strings.TrimSpace(e.Scenario) == "" {
+			return nil, fmt.Errorf("%s: evidência sem cenario", f)
+		}
+		if _, dup := out[e.Scenario]; dup {
+			return nil, fmt.Errorf("%s: segunda evidência do cenário %s", f, e.Scenario)
+		}
 		out[e.Scenario] = e
 	}
 	return out, nil
@@ -233,14 +239,16 @@ func compare(x Expectation, e Evidence) []string {
 	return out
 }
 
-// Report verifies every scenario. ok is false when any scenario failed;
-// a not-measured scenario never counts as a pass and is listed as such.
+// Report verifies every scenario. ok is true only when every non-manual
+// scenario passed: a failed one, or one that was not measured (billing,
+// infrastructure), keeps ok false, so a release never rests on zero
+// measured QA. A manual scenario (fork) may stay not measured.
 func Report(scenarios []Scenario, evidence map[string]Evidence) (results []Result, ok bool) {
 	ok = true
 	for _, s := range scenarios {
 		e, found := evidence[s.ID]
 		r := Verify(s, e, found)
-		if r.State == Failed {
+		if r.State == Failed || (r.State == NotMeasured && !s.Manual) {
 			ok = false
 		}
 		results = append(results, r)

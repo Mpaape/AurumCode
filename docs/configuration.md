@@ -1857,6 +1857,7 @@ changelog_check:
 | `--base` | Commit base da PR (obrigatório). O modo e os limites vêm do `config.yml` desse commit. |
 | `--head` | Commit com a mudança proposta (padrão `HEAD`). |
 | `--repo` | Diretório do repositório (padrão `.`). |
+| `--politica` | Diretório de uma política central (o que contém `.aurumcode/`), fora do repositório revisado; padrão `AURUMCODE_POLICY`. No workflow, a entrada `policy_repository`. |
 
 - O modo é lido da **base**: a PR não desliga o check que se aplica a ela.
   Quando a PR não altera o `config.yml`, ele é lido do checkout.
@@ -1874,8 +1875,12 @@ changelog_check:
   contexto `<job do chamador> / Changelog obrigatório` na proteção da `main`
   (neste repositório, `Changelog obrigatório`). O teste local prova o
   comando; o bloqueio do merge depende da proteção configurada.
-- Com política central, uma seção `changelog_check` da política decide
-  sozinha (a do repositório é ignorada com aviso).
+- Com política central (`--politica` ou `policy_repository` no workflow
+  reutilizável), uma seção `changelog_check` da política decide sozinha (a do
+  repositório é ignorada com aviso). Política dentro da árvore revisada é
+  recusada.
+- Nas PRs do próprio AurumCode o verificador é construído da base da PR; no
+  consumidor, do SHA pinado no `uses:`.
 
 ## Realimentação da política (AUR-532)
 

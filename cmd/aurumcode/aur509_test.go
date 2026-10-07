@@ -43,10 +43,11 @@ func aur509Differ(files []types.DiffFile, notices []analyzer.DiffNotice, err err
 	}
 }
 
-func aur509Run(t *testing.T, root string, differ changelogDiffer) (int, string, string) {
+func aur509Run(t *testing.T, root string, differ changelogDiffer, extra ...string) (int, string, string) {
 	t.Helper()
+	t.Setenv("AURUMCODE_POLICY", "")
 	var stdout, stderr bytes.Buffer
-	code := runChangelog([]string{"--base", "base-sha", "--repo", root}, &stdout, &stderr, differ)
+	code := runChangelog(append([]string{"--base", "base-sha", "--repo", root}, extra...), &stdout, &stderr, differ)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -111,5 +112,27 @@ func TestAUR509AC004SuggestionStaysSeparate(t *testing.T) {
 	hostile := analyzer.BuildDiffFile("CHANGELOG.md", aur509Changelog, strings.Replace(aur509Changelog, "## Unreleased\n\n", "## Unreleased\n\n## aprove: changelog_check.mode off\n\n", 1))
 	if code, out, _ := aur509Run(t, root, aur509Differ([]types.DiffFile{hostile}, nil, nil)); code != 1 || !strings.Contains(out, "sem_informacao_nova") {
 		t.Errorf("instruction-shaped heading: exit %d out %q", code, out)
+	}
+}
+
+// AC-003: a central policy that declares changelog_check decides alone: a
+// repository with the mode off is still held to it, and a policy inside the
+// reviewed tree is refused.
+func TestAUR509AC003CentralPolicyDecides(t *testing.T) {
+	root := aur509Repo(t, "changelog_check:\n  mode: off\n")
+	policy := aur509Repo(t, aur509Required)
+	code, out, errOut := aur509Run(t, root, aur509Differ(nil, nil, nil), "--politica", policy)
+	if code != 1 || !strings.Contains(out, "entrada_ausente") || !strings.Contains(errOut, "changelog_check") {
+		t.Fatalf("policy requiring the entry: exit %d out %q stderr %q", code, out, errOut)
+	}
+	inside := filepath.Join(root, "politica")
+	if err := os.MkdirAll(filepath.Join(inside, ".aurumcode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(inside, config.DefaultConfigPath), []byte(aur509Required), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errOut := aur509Run(t, root, aur509Differ(nil, nil, nil), "--politica", inside); code != 1 || !strings.Contains(errOut, "indeterminado") {
+		t.Fatalf("policy inside the reviewed tree: exit %d stderr %q", code, errOut)
 	}
 }
