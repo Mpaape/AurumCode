@@ -49,6 +49,7 @@ func (b *baseReview) joinEvidence() (int, bool) {
 	b.snapshotAndApplyRules()
 	b.joinScanners()
 	b.runDependencyCheck()
+	b.explainDependencyReach()
 	b.settleCIStatus(noCIContext())
 	b.recordCoverage()
 	return 0, false

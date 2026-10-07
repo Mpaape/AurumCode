@@ -35,6 +35,7 @@ func (p *prReview) joinEvidence() (int, bool) {
 	p.snapshotAndApplyRules()
 	p.joinScanners()
 	p.runDependencyCheck()
+	p.explainDependencyReach()
 	p.settleCIStatus(p.ciFacts)
 	return p.finishLimitations()
 }
