@@ -97,7 +97,8 @@ repo, SHA, id e URL do run. Run que não conclui (billing, fila) vira
 `"medido": false` com a limitação. Depois, no container:
 
 ```bash
-AURUMCODE_QA_EVIDENCIA=qa-evidencia .board/bin/go-shared go test ./tests/consumer -run TestAUR512
+.board/bin/go-shared up
+.board/bin/go-shared exec -w "$PWD" env AURUMCODE_QA_EVIDENCIA="$PWD/qa-evidencia" go test ./tests/consumer -count=1 -run TestAUR512
 ```
 
 O verificador reprova evidência sem repo, SHA ou run, cenário negativo que

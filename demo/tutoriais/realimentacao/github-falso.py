@@ -69,7 +69,7 @@ class H(BaseHTTPRequestHandler):
         if p == POL:
             return self._send(200, {"default_branch": "main"})
         if p == POL + "/pulls":
-            return self._send(200, [{"number": n} for n in abertas])
+            return self._send(200, [{"number": n, "state": "open", "head": {"sha": "sha-aurum-realimentacao"}} for n in abertas])
         if p.startswith(POL + "/git/ref/heads/"):
             b = p[len(POL + "/git/ref/heads/"):]
             if b not in branches:

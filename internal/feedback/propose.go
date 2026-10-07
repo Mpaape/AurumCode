@@ -128,6 +128,8 @@ func ValidateProposals(filter *redaction.Filter, proposals []Proposal, signals [
 			reason = "seção inválida"
 		case strings.TrimSpace(p.Text) == "":
 			reason = "texto vazio"
+		case hasHeading(p.Text):
+			reason = "texto com título: criaria seção que nenhum sinal cita"
 		}
 		if reason != "" {
 			discarded = append(discarded, Discarded{Title: title, Reason: reason})
@@ -156,4 +158,15 @@ func allKnown(ids []string, known map[string]bool) bool {
 func declared(skills map[string]string, path string) bool {
 	_, ok := skills[strings.TrimSpace(path)]
 	return ok
+}
+
+// hasHeading reports whether text has a Markdown heading line, which would
+// open a section of the skill that no signal motivates.
+func hasHeading(text string) bool {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			return true
+		}
+	}
+	return false
 }

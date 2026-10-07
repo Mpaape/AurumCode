@@ -65,24 +65,27 @@ func escapePath(p string) string {
 	return strings.Join(parts, "/")
 }
 
-// OpenPull returns the open pull request whose head is Branch, if any.
-func (p PolicyRepo) OpenPull() (number int, found bool, err error) {
-	owner := p.Repo[:strings.Index(p.Repo, "/")]
-	type pull struct {
-		Number int `json:"number"`
-	}
-	pulls, err := list[pull](p.GitHub, "/repos/"+p.Repo+"/pulls?state=open&head="+url.QueryEscape(owner+":"+Branch)+"&per_page="+perPage)
-	if err != nil {
-		return 0, false, err
-	}
-	if len(pulls) == 0 {
-		return 0, false, nil
-	}
-	return pulls[0].Number, true, nil
+// Pull is one feedback pull request (any state) and its head commit.
+type Pull struct {
+	Number int    `json:"number"`
+	State  string `json:"state"`
+	Head   struct {
+		SHA string `json:"sha"`
+	} `json:"head"`
 }
 
-// ensureBranch creates Branch from base when it does not exist.
-func (p PolicyRepo) ensureBranch(base string) error {
+// Pulls lists every feedback pull request whose head is Branch, open or
+// closed: a closed one (rejected or merged) still says which signals were
+// already proposed.
+func (p PolicyRepo) Pulls() ([]Pull, error) {
+	owner := p.Repo[:strings.Index(p.Repo, "/")]
+	return list[Pull](p.GitHub, "/repos/"+p.Repo+"/pulls?state=all&head="+url.QueryEscape(owner+":"+Branch)+"&per_page="+perPage)
+}
+
+// ensureBranch makes Branch ready: with an open pull request it is kept;
+// without one, a leftover Branch (from a closed pull request) is deleted
+// and recreated from base, so a rejected proposal never rides along.
+func (p PolicyRepo) ensureBranch(base string, open bool) error {
 	var ref struct {
 		Object struct {
 			SHA string `json:"sha"`
@@ -90,10 +93,14 @@ func (p PolicyRepo) ensureBranch(base string) error {
 	}
 	err := p.GitHub.getJSON("/repos/"+p.Repo+"/git/ref/heads/"+escapePath(Branch), &ref)
 	var nf errNotFound
-	if err == nil {
+	switch {
+	case err == nil && open:
 		return nil
-	}
-	if !errors.As(err, &nf) {
+	case err == nil:
+		if _, _, err := p.GitHub.do("DELETE", "/repos/"+p.Repo+"/git/refs/heads/"+escapePath(Branch), nil); err != nil {
+			return err
+		}
+	case !errors.As(err, &nf):
 		return err
 	}
 	if err := p.GitHub.getJSON("/repos/"+p.Repo+"/git/ref/heads/"+escapePath(base), &ref); err != nil {
@@ -123,7 +130,7 @@ func (p PolicyRepo) put(path, content, message string) error {
 // Publish writes the plan to Branch and opens the pull request, or updates
 // the one already open: a run never opens a second feedback pull request.
 func (p PolicyRepo) Publish(plan Plan, base string, openNumber int, open bool) (int, error) {
-	if err := p.ensureBranch(base); err != nil {
+	if err := p.ensureBranch(base, open); err != nil {
 		return 0, err
 	}
 	for _, path := range plan.Paths() {
