@@ -131,7 +131,9 @@ Não existe um input `policy_path` no reutilizável: num job `workflow_call` os
 únicos diretórios alcançáveis são o checkout da ferramenta e o do PR, então
 aceitar "um caminho que já existe" deixaria o próprio PR apontar para a sua
 política. (A Action Docker direta, `action.yml`, tem `policy_path`, porque ali
-quem escreve os steps controla o que foi checado.)
+quem escreve os steps controla o que foi checado; a política vai para
+`$RUNNER_TEMP/_github_home` e `policy_path` aponta para `/github/home/<dir>`,
+já que tudo em `/github/workspace` é a árvore revisada e é recusado.)
 
 O que observar, e o que isto prova: não há runner do GitHub nesta demonstração: a fase
 `policy-repository` não executa a revisão de PR. Ela confere, contra o
