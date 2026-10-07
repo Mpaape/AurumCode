@@ -32,7 +32,7 @@ convention skills in `.aurumcode/skills/`), once per batch; merge only with
 every check green. Without LLM secrets the self review fails closed, never
 green. Open the `dev -> main` PR once a batch of cards is ready, not per card,
 and avoid needless `gh pr update-branch` on it: every update re-runs the LLM.
-A card merged into `dev` stays in `validating` until its batch passes the
+A card merged into `dev` stays in `review` until its batch passes the
 self review into `main`; only then does it move to `done`, recording the
 delivery SHA that is an ancestor of `main`. Direct pushes to `dev` or `main`
 are only for commits that touch nothing but `.board/`.
