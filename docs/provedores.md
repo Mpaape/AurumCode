@@ -45,8 +45,9 @@ Regras que valem para todos:
 
 No workflow reutilizável do Aurum (`.github/workflows/review.yml`), o perfil
 vem do input `provider` (vira `LLM_PROVIDER` no contêiner) e a chave do
-secret `LLM_API_KEY`; `LLM_BASE_URL` é obrigatório só sem perfil ou para os
-perfis sem URL padrão:
+secret `LLM_API_KEY`. No Actions o secret `LLM_BASE_URL` continua
+obrigatório (falha fechada sem ele), mesmo com perfil: grave nele a URL do
+perfil escolhido, a mesma da seção do provedor abaixo:
 
 ```yaml
 jobs:

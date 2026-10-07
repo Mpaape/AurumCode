@@ -48,17 +48,13 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # provider-guard-begin
           set -euo pipefail
-          # Com um perfil (LLM_PROVIDER) a URL padrao do perfil dispensa
-          # LLM_BASE_URL; o binario recusa perfil sem URL, entao nao ha
-          # caminho verde sem provedor.
-          if [ -n "${LLM_API_KEY:-}" ] && { [ -n "${LLM_BASE_URL:-}" ] || [ -n "${LLM_PROVIDER:-}" ]; }; then
+          if [ -n "${LLM_API_KEY:-}" ] && [ -n "${LLM_BASE_URL:-}" ]; then
             echo "LLM provider configured; the review job publishes aurumcode/policy-gate"
             exit 0
           fi

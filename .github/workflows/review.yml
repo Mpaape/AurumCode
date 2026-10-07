@@ -9,7 +9,7 @@ on:
         type: string
         default: ''
       provider:
-        description: Optional LLM provider profile (LLM_PROVIDER; see docs/provedores.md), e.g. openai, azure-openai, anthropic, google, bedrock, litellm, openrouter, opencode, ollama. Empty keeps the generic OpenAI-compatible endpoint, which needs LLM_BASE_URL.
+        description: Optional LLM provider profile (LLM_PROVIDER; see docs/provedores.md), e.g. openai, azure-openai, anthropic, google, bedrock, litellm, openrouter, opencode, ollama. Empty keeps the generic OpenAI-compatible endpoint.
         required: false
         type: string
         default: ''
@@ -48,8 +48,8 @@ on:
         description: API key for the configured OpenAI-compatible service.
         required: true
       LLM_BASE_URL:
-        description: Base URL of the LLM service. Required without a provider profile; with one it overrides the profile's default URL (and is required by the profiles that have none).
-        required: false
+        description: Base URL of the LLM service (with a provider profile, the endpoint that profile talks to).
+        required: true
       DTRACK_API_KEY:
         description: Optional Dependency-Track API key (AUR-555). Only read when quality_gates.ssor_dtrack is enabled and names this variable in api_key_secret.
         required: false
@@ -92,15 +92,10 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          LLM_PROVIDER: ${{ inputs.provider }}
         run: |
           set -euo pipefail
-          if [ -z "${LLM_API_KEY}" ]; then
-            echo "::error::AurumCode needs the LLM_API_KEY repository secret; the review was not run"
-            exit 1
-          fi
-          if [ -z "${LLM_PROVIDER}" ] && [ -z "${LLM_BASE_URL}" ]; then
-            echo "::error::AurumCode needs the LLM_BASE_URL repository secret, or the provider input naming a profile; the review was not run"
+          if [ -z "${LLM_API_KEY}" ] || [ -z "${LLM_BASE_URL}" ]; then
+            echo "::error::AurumCode needs LLM_API_KEY and LLM_BASE_URL repository secrets; the review was not run"
             exit 1
           fi
 
