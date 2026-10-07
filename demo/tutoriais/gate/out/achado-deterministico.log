@@ -71,8 +71,8 @@ aurumcode review: no LLM provider configured: quality review skipped; running de
 aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider
 aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-LLM quality review did not run. The following report covers deterministic analysis only.
 aurumcode review: policy gate: review inconclusive (quality_skipped)
+LLM quality review did not run. The following report covers deterministic analysis only.
 ## Code Review Summary
 
 **Verdict:** Comment

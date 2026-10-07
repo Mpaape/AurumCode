@@ -156,16 +156,23 @@ func (s scopeDiscardSummary) warning() string {
 }
 
 // filterModelIssues enforces the review's precision contract after parsing
-// and redaction, before rule citations or publication. A finding is useful
-// structurally publishable when it points to an addition or deletion and
-// supplies evidence, impact and a verification proposal. Nonempty fields are
-// not proof of correctness; semantic qualification remains the reviewer's job.
-func filterModelIssues(diff *types.Diff, issues []types.ReviewIssue) ([]types.ReviewIssue, scopeDiscardSummary) {
+// and redaction, before rule citations or publication. A finding is
+// structurally publishable inline when it points to an addition or deletion
+// and supplies evidence, impact and a verification proposal. A finding
+// outside the changed lines that still carries that full proof and a valid
+// relative path is routed to outside (a general comment that never counts
+// for the gate); one without it is discarded. Nonempty fields are not proof
+// of correctness; semantic qualification remains the reviewer's job.
+func filterModelIssues(diff *types.Diff, issues []types.ReviewIssue) (kept, outside []types.ReviewIssue, discarded scopeDiscardSummary) {
 	scope := newFindingScope(diff)
-	var discarded scopeDiscardSummary
-	kept := make([]types.ReviewIssue, 0, len(issues))
+	kept = make([]types.ReviewIssue, 0, len(issues))
 	for _, issue := range issues {
 		if !scope.containsSide(issue.File, issue.Line, issue.Side) {
+			if file := normalizeDiffPath(issue.File); file != "" && hasFullProof(issue) {
+				issue.File = file
+				outside = append(outside, issue)
+				continue
+			}
 			discarded.OutsideAddedLines++
 			continue
 		}
@@ -184,7 +191,7 @@ func filterModelIssues(diff *types.Diff, issues []types.ReviewIssue) ([]types.Re
 		issue.File = normalizeDiffPath(issue.File)
 		kept = append(kept, issue)
 	}
-	return kept, discarded
+	return kept, outside, discarded
 }
 
 // addedLinesForTesting exposes only the deterministic location set to
