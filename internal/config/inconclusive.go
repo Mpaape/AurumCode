@@ -23,5 +23,5 @@ func (c *Config) defaultInconclusiveMode() string {
 // scannerEnabled reports whether any deterministic scanner section of the
 // effective configuration is switched on.
 func (c *Config) scannerEnabled() bool {
-	return len(c.QualityGates.EnabledScanners()) > 0 || c.QualityGates.SsorDtrack.Declared() || c.AnalysisData.Declared()
+	return len(c.QualityGates.EnabledScanners()) > 0 || c.QualityGates.SsorDtrack.Declared() || c.AnalysisData.Declared() || c.Dependencies.Declared()
 }

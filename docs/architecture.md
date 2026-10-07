@@ -39,6 +39,7 @@ negócio vivem em `internal/`.
 | `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados. |
 | `internal/config` | Configuração efetiva: seções, precedência da política central, gate, exceções, quality gates. |
 | `internal/context` | Contexto de código limitado e determinístico, leitor de skills e o cliente das fontes MCP de contexto (`internal/context/mcp`: servidor e ferramenta declarados na configuração confiável, payload declarado e redigido, resposta só como contexto com origem). |
+| `internal/dependencies` | A verificação de dependências de uma mudança: o modelo lê o diff de qualquer manifesto ou lockfile e nomeia os pacotes alterados, o código aterra a resposta no diff, confere com o osv-scanner quando ele reconhece o arquivo, consulta a base OSV pelos dois lados e classifica cada advisory como introduzido, pré-existente ou corrigido; fonte inalcançável, vencida ou scanner ausente é inconclusivo. |
 | `internal/deliberation` | Conversa limitada com ferramentas junto a um modelo, sem semântica de revisão: `Tool` (`Spec`, `Run`), `Limits` (rodadas, tokens, timeout por ferramenta), validação de argumentos antes de qualquer execução, o `Transcript` e o `LimitError` tipado que quem chama trata como inconclusivo. |
 | `internal/dtrack` | Cliente do OWASP Dependency-Track para o gate de SBOM. |
 | `internal/evidence` | Manifesto do pacote de evidências endereçado por conteúdo. |
@@ -278,6 +279,7 @@ contribuidores se aplicam nesta ordem:
 6. `security-pass`: os achados da passagem `--seguranca`; um achado igual ou acima de `fail_on` conta em todos os modos de `gate.inconclusive` (sob a fonte `analysis`).
 7. `analysis-data`: o artefato de dados de análise.
 8. `dependency-track`: a submissão do SBOM; pode substituir o filtro de redação.
+9. `dependencies`: a verificação de dependências da seção `dependencies` (vulnerabilidade introduzida ou pré-existente, pacote malicioso, licença); sem a seção, não acrescenta nada.
 
 Um contribuidor que retorna um erro comum não aborta e nunca é lido como "sem
 achados": o resultado se torna inconclusivo (e falha sob

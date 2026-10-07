@@ -48,6 +48,7 @@ func (b *baseReview) joinEvidence() (int, bool) {
 	b.result.Issues = append(b.result.Issues, b.analysisIssues...)
 	b.snapshotAndApplyRules()
 	b.joinScanners()
+	b.runDependencyCheck()
 	b.settleCIStatus(noCIContext())
 	b.recordCoverage()
 	return 0, false

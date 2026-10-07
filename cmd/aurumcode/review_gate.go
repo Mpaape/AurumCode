@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
@@ -108,6 +109,9 @@ type gatePipelineInputs struct {
 
 	// Scans are the scanner pass's outcomes, one per enabled engine.
 	Scans []gateScan
+
+	// Dependencies is the dependency check's report (nil: not declared).
+	Dependencies *dependencies.Report
 }
 
 // assembleGatePipeline declares the one gate pipeline, in the order the
@@ -122,6 +126,7 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 		gate.SecurityPassContributor{},
 		gate.AnalysisDataContributor{},
 		gate.DependencyTrackContributor{},
+		gate.DependenciesContributor{Report: in.Dependencies},
 	)
 }
 
@@ -219,6 +224,7 @@ func (s *reviewState) gatePipelineInputs() gatePipelineInputs {
 		AcceptedOrigin: acceptedGateOrigin(s.centralCfg != nil),
 		DynamicRules:   s.dynamicRules,
 		Scans:          s.scans,
+		Dependencies:   s.dependencyReportForGate(),
 		PromptDigest:   s.deps.digestBuilder().FixedContentDigest,
 	}
 }

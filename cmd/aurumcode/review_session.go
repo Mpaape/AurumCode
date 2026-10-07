@@ -13,6 +13,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/deliberation"
+	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/memory"
@@ -63,6 +64,7 @@ type reviewDeps struct {
 	resolveFiles  codebaseResolver
 	digestBuilder func() *prompt.PromptBuilder
 	env           *reviewEnv
+	dependencies  dependencySources
 }
 
 // withDefaults fills every unset dependency with production's.
@@ -178,6 +180,10 @@ type reviewState struct {
 	batches []review.Batch
 
 	gateRes *gateDecision
+
+	// depReport is the dependency check's report, nil when the
+	// configuration declares no dependencies section.
+	depReport *dependencies.Report
 }
 
 // newReviewState starts the shared state of one session.
