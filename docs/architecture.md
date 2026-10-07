@@ -36,13 +36,14 @@ negócio vivem em `internal/`.
 | `internal/analyzer` | Parsing de diff, detecção de linguagem a partir do catálogo de linguagens, diffs de texto. |
 | `internal/apply` | Transforma sugestões validadas em patches seguros e aplicáveis. |
 | `internal/artifacts` | O artefato de dados de análise: cópia resolvida, verificada por idade e digest e em cache dos dados publicados dos scanners. |
-| `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados. |
+| `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados, e decide o changelog obrigatório (`Requirement.Verify`, padrões em `require_defaults.yml`). |
 | `internal/config` | Configuração efetiva: seções, precedência da política central, gate, exceções, quality gates. |
 | `internal/context` | Contexto de código limitado e determinístico, leitor de skills e o cliente das fontes MCP de contexto (`internal/context/mcp`: servidor e ferramenta declarados na configuração confiável, payload declarado e redigido, resposta só como contexto com origem). |
 | `internal/dependencies` | A verificação de dependências: o modelo lê o diff de qualquer manifesto ou lockfile e nomeia os pacotes alterados, o código aterra a resposta no diff e a confere nos dois sentidos com o osv-scanner (todo arquivo alterado que ele reconhece), consulta a base OSV pelos dois lados e classifica cada advisory como introduzido, pré-existente ou corrigido; os metadados vivos do deps.dev alimentam a suspeita de typosquat do modelo (mantida só com evidência dos metadados) e a licença registrada, avaliada pela expressão SPDX; `Scan` faz o mesmo sobre a árvore inteira para a varredura agendada. Fonte inalcançável, vencida ou scanner ausente é inconclusivo. |
 | `internal/deliberation` | Conversa limitada com ferramentas junto a um modelo, sem semântica de revisão: `Tool` (`Spec`, `Run`), `Limits` (rodadas, tokens, timeout por ferramenta), validação de argumentos antes de qualquer execução, o `Transcript` e o `LimitError` tipado que quem chama trata como inconclusivo. |
 | `internal/dtrack` | Cliente do OWASP Dependency-Track para o gate de SBOM. |
 | `internal/evidence` | Manifesto do pacote de evidências endereçado por conteúdo. |
+| `internal/feedback` | O ciclo de realimentação (AUR-532): sinais de uso vindos do GitHub (alerta dispensado como falso positivo, achado corrigido entre auditorias, `/aurum perdeu`), propostas do modelo validadas contra os sinais citados, o registro de sinais no repositório da política, a medição antes/depois do corpus e a PR única. Nada é aplicado à política sem merge humano. |
 | `internal/gate` | O pipeline do gate: `Run`, `Result`, `Contributor`, `Pipeline`, a regra de falha, o ranking de inconclusivo (`RankReason`) e a decisão de saída (`ExitPolicy`). |
 | `internal/git` | Cliente do GitHub e acesso ao git usados pelo caminho `--pr`. |
 | `internal/gittest` | Ambiente hermético para o git real dos fixtures de teste: sem configuração global nem de sistema, `HOME` privado e sem prompt, para o teste dar o mesmo resultado no container de desenvolvimento e no CI. |

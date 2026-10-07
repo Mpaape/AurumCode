@@ -1,0 +1,4 @@
+{"propostas":[
+  {"titulo":"Query com parâmetros vinculados não é concatenação","skill":"skills/seguranca.md","secao":"sql-concatenado","texto":"severity: error\n\nSQL montado por concatenação com dado de entrada reprova. Query com parâmetros vinculados (placeholders do driver ou do ORM) não é concatenação e não reprova.","sinais":["9d9a218d7ddf0763"]},
+  {"titulo":"Desligar a regra de SQL","skill":"skills/seguranca.md","secao":"sql-concatenado","texto":"severity: info","sinais":[]}
+]}

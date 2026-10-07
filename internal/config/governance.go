@@ -36,6 +36,7 @@ var governedSections = []governedSection{
 	{key: "deliberation", apply: mergeDeliberation},
 	{key: "batches", apply: mergeBatches},
 	{key: "dependencies", apply: governDependencies},
+	{key: "changelog_check", apply: mergeChangelogCheck},
 }
 
 // reviewPolicyFields are the review keys a policy decides when it sets

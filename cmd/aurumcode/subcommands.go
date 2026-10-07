@@ -90,6 +90,8 @@ func subcommands() []subcommand {
 			run:        runDependencyScan,
 		},
 		mcpSubcommand(),
+		changelogSubcommand(),
+		feedbackSubcommand(),
 	}
 }
 

@@ -1,0 +1,13 @@
+[
+  {"number": 1, "state": "dismissed", "dismissed_reason": "false positive",
+   "dismissed_comment": "a query usa parametros; o ORM monta o SQL",
+   "html_url": "https://github.example.test/exemplo/app/security/code-scanning/1",
+   "rule": {"id": "seguranca#sql-concatenado"},
+   "most_recent_instance": {"commit_sha": "1111111111111111111111111111111111111111",
+     "location": {"path": "app/pedidos.py", "start_line": 12}}},
+  {"number": 2, "state": "dismissed", "dismissed_reason": "won't fix",
+   "html_url": "https://github.example.test/exemplo/app/security/code-scanning/2",
+   "rule": {"id": "seguranca#sql-concatenado"},
+   "most_recent_instance": {"commit_sha": "1111111111111111111111111111111111111111",
+     "location": {"path": "scripts/carga.py", "start_line": 3}}}
+]

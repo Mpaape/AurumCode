@@ -1,0 +1,5 @@
+$ aurumcode review --base main --fail-on error
+aurumcode review: review memory unavailable: memory: unsupported mode "sempre" (want off, ephemeral, or local); continuing without it
+exit_code=3
+RESULTADO: o modo invalido foi relatado e a revisao seguiu sem memoria
+--- arquivos de memoria: 0

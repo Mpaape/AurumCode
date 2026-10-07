@@ -108,8 +108,10 @@ check_documented_flags() {
   "$scratch/aurumcode" fix --help >"$scratch/help-fix" 2>&1 || fail "fix --help failed"
   # AUR-573: sbom/sign/xbom are product subcommands with their own flags and
   # the consumer docs document them; include their help (it widens the check).
+  # AUR-592: `mcp` (local MCP server for coding agents) is a product
+  # subcommand whose flags (--tempo, --limite) docs/agentes.md documents.
   local sub
-  for sub in sbom sign xbom; do
+  for sub in sbom sign xbom mcp; do
     "$scratch/aurumcode" "$sub" --help >>"$scratch/help-fix" 2>&1 || true
   done
 

@@ -280,6 +280,9 @@ type Config struct {
 	// Dependencies (nil = not declared) is the dependency check of a pull
 	// request and its gate. Governed per section by ApplyCentralPolicy.
 	Dependencies *DependenciesConfig `yaml:"dependencies"`
+	// ChangelogCheck (nil = not declared = off) makes every pull request
+	// add a concise changelog entry (AUR-509). Governed per section.
+	ChangelogCheck *ChangelogCheckConfig `yaml:"changelog_check"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -360,6 +363,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Dependencies.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.ChangelogCheck.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.QualityGates.Sast.Validate(); err != nil {
