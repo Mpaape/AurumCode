@@ -107,14 +107,18 @@ func HasSubstantiveCodeChangeWith(diff *types.Diff, provider grammar.Provider) b
 	return false
 }
 
-// ReviewChangeScope is safe to place in the model prompt because it is
-// derived from the diff, not authored by repository content. It is a
-// package-level var holding a func literal, not a plain func, so
-// internal/prompt's own same-package tests can swap it out (AUR-543: an
-// in-process mutation proving FixedContentDigest actually moves when one of
-// its two fixed instructional variants changes) -- every production call
-// site still reads `ReviewChangeScope(diff)` unchanged.
-var ReviewChangeScope = func(diff *types.Diff) string {
+// ReviewChangeScope renders the change-scope paragraph for diff with the
+// default grammar provider. It is safe to place in the model prompt because
+// it is derived from the diff, not authored by repository content.
+func ReviewChangeScope(diff *types.Diff) string {
+	return reviewChangeScope(diff)
+}
+
+// reviewChangeScope is the seam behind ReviewChangeScope: a package-level
+// var holding a func literal so this package's own tests can swap the fixed
+// instructional text and prove FixedContentDigest moves with it. It is
+// unexported so no other package can mutate prompt behavior at run time.
+var reviewChangeScope = func(diff *types.Diff) string {
 	return ChangeScopeWith(diff, grammar.Default())
 }
 

@@ -24,8 +24,9 @@ import (
 //     Re-adding a "line_comments"/"file_comments"/"commit_comment" block to
 //     the template turns this red.
 //  2. TestAcceptedReviewFieldsAreConsumed drives one probe response per
-//     accepted field through the real parser. Removing adoptLineComments
-//     turns this red, as does removing the conversion's field mapping.
+//     accepted field through the real parser. "line_comments" is no longer
+//     accepted at all (see parser_line_comments.go): it is not a findings
+//     schema, and its entries are announced and dropped, never converted.
 //
 // The second test is what makes the first one honest: canonicalReviewFields
 // is a hand-written list, and a hand-written list is exactly the failure
@@ -136,27 +137,6 @@ func TestAcceptedReviewFieldsAreConsumed(t *testing.T) {
 				}
 			},
 		},
-		"line_comments": {
-			response: `{"line_comments":[{"path":"src/a.go","line":12,"body":"hardcoded AWS key on this line"}]}`,
-			verify: func(t *testing.T, got parsedProbe) {
-				if len(got.Issues) != 1 {
-					t.Fatalf("a response whose only findings are in line_comments produced %d issues: the user is being told nothing (AUR-459)", len(got.Issues))
-				}
-				issue := got.Issues[0]
-				if issue.File != "src/a.go" {
-					t.Errorf("line_comments path must map to the issue file, got %q", issue.File)
-				}
-				if issue.Line != 12 {
-					t.Errorf("line_comments line must map to the issue line, got %d", issue.Line)
-				}
-				if issue.Message != "hardcoded AWS key on this line" {
-					t.Errorf("line_comments body must map to the issue message, got %q", issue.Message)
-				}
-				if issue.Severity != "warning" {
-					t.Errorf("a comment with no severity must be reported as a warning, got %q", issue.Severity)
-				}
-			},
-		},
 		"iso_scores": {
 			response: `{"issues":[],"iso_scores":{"functionality":8,"reliability":7,"usability":9,"efficiency":7,"maintainability":8,"portability":9,"security":5,"compatibility":8}}`,
 			verify: func(t *testing.T, got parsedProbe) {
@@ -250,145 +230,6 @@ func TestAcceptedReviewFieldsAreConsumed(t *testing.T) {
 				Limitations: result.Limitations,
 			})
 		})
-	}
-}
-
-// TestLineCommentsDoNotDisplaceIssues pins the merge rule: a model that
-// answers with both arrays loses nothing. The SAME finding restated in the
-// other vocabulary (same file, same line, same text up to case and
-// whitespace) collapses onto the "issues" record, which is the richer one
-// -- it carries the rule citation -- and the collapse is announced;
-// anything reported only under "line_comments" is added.
-func TestLineCommentsDoNotDisplaceIssues(t *testing.T) {
-	const response = `{
-	  "issues":[{"file":"src/a.go","line":7,"severity":"error","rule_id":"security/hardcoded-secret","message":"from issues"}],
-	  "line_comments":[
-	    {"path":"src/a.go","line":7,"body":"From   Issues"},
-	    {"path":"src/b.go","line":3,"body":"only reported as a comment","rule_id":"security/hardcoded-secret","severity":"error"}
-	  ]
-	}`
-
-	result, err := NewResponseParser().ParseReviewResponse(response)
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if len(result.Issues) != 2 {
-		t.Fatalf("expected 2 issues (the issues entry plus the comment at a location it did not cover), got %d: %+v", len(result.Issues), result.Issues)
-	}
-	if result.Issues[0].Message != "from issues" || result.Issues[0].RuleID != "security/hardcoded-secret" {
-		t.Errorf("the issues entry must win at a location both arrays report: %+v", result.Issues[0])
-	}
-	second := result.Issues[1]
-	if second.File != "src/b.go" || second.Line != 3 || second.RuleID != "security/hardcoded-secret" || second.Severity != "error" {
-		t.Errorf("a comment-only finding must be adopted with the rule_id and severity it carried: %+v", second)
-	}
-	if result.Metadata["line_comments_converted"] != "1" {
-		t.Errorf("the conversion must be recorded in metadata, got %q", result.Metadata["line_comments_converted"])
-	}
-	if want := "1 line comment(s) not converted: 1 already reported as an issue"; result.Metadata["parse_discard_warning"] != want {
-		t.Errorf("the collapse must be announced as %q, got %q", want, result.Metadata["parse_discard_warning"])
-	}
-}
-
-// TestLineCommentsAtTheSameLineSurvive is the counterexample that broke
-// the first version of this card's merge rule. That version keyed the
-// merge on (file, line) alone and justified it as "the issues entry is the
-// richer record". Executed, the claim was false: a quality nit reported
-// under "issues" swallowed a SECRET LEAK reported at the same line under
-// "line_comments", and two DISTINCT comments on one line collapsed into
-// one -- silently, because the counter only counted survivors. A card
-// whose whole point is that no finding disappears without a word cannot
-// hide findings in its own merge.
-func TestLineCommentsAtTheSameLineSurvive(t *testing.T) {
-	const response = `{
-	  "issues":[{"file":"a.go","line":42,"severity":"info","rule_id":"quality/naming","message":"style nit"}],
-	  "line_comments":[
-	    {"path":"a.go","line":42,"severity":"error","rule_id":"security/hardcoded-secret","body":"SECRET LEAK on this line"},
-	    {"path":"a.go","line":42,"severity":"error","rule_id":"security/sql-injection","body":"SQL injection on the same line"}
-	  ]
-	}`
-
-	result, err := NewResponseParser().ParseReviewResponse(response)
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if len(result.Issues) != 3 {
-		t.Fatalf("expected all 3 distinct findings (1 nit + 2 security), got %d: %+v", len(result.Issues), result.Issues)
-	}
-
-	var sawSecret, sawInjection bool
-	for _, issue := range result.Issues {
-		if strings.Contains(issue.Message, "SECRET LEAK") {
-			sawSecret = true
-			if issue.RuleID != "security/hardcoded-secret" || issue.Severity != "error" {
-				t.Errorf("the secret finding lost its citation or severity: %+v", issue)
-			}
-		}
-		if strings.Contains(issue.Message, "SQL injection") {
-			sawInjection = true
-		}
-	}
-	if !sawSecret {
-		t.Error("a security finding reported at a line already carrying a style nit was dropped: the user is told about the nit and not the secret")
-	}
-	if !sawInjection {
-		t.Error("two distinct comments at the same line collapsed into one")
-	}
-}
-
-// TestLineCommentDiscardsAreAnnounced pins the principle this card chose:
-// EVERY discard is announced. adoptLineComments has three of them --
-// a comment that repeats a finding already reported, a comment with no
-// path, and a comment with a blank body -- and all three must be counted
-// and named, never dropped in silence.
-func TestLineCommentDiscardsAreAnnounced(t *testing.T) {
-	const response = `{
-	  "issues":[{"file":"a.go","line":7,"severity":"error","rule_id":"security/hardcoded-secret","message":"same finding"}],
-	  "line_comments":[
-	    {"path":"a.go","line":7,"body":"Same Finding"},
-	    {"path":"","line":1,"body":"nowhere to point"},
-	    {"path":"b.go","line":2,"body":"   "},
-	    {"path":"b.go","line":9,"body":"a real one"}
-	  ]
-	}`
-
-	result, err := NewResponseParser().ParseReviewResponse(response)
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if len(result.Issues) != 2 {
-		t.Fatalf("expected the reported finding plus the one usable comment, got %d: %+v", len(result.Issues), result.Issues)
-	}
-	if result.Metadata["line_comments_converted"] != "1" {
-		t.Errorf("converted count wrong: %q", result.Metadata["line_comments_converted"])
-	}
-	if result.Metadata["line_comments_discarded"] != "3" {
-		t.Errorf("discarded count must cover the repeat, the missing path and the blank body, got %q", result.Metadata["line_comments_discarded"])
-	}
-	warning := result.Metadata["parse_discard_warning"]
-	if warning == "" {
-		t.Fatal("a discard with no warning is exactly the silence this card exists to remove")
-	}
-	for _, want := range []string{"3", "already reported", "no path", "empty body"} {
-		if !strings.Contains(warning, want) {
-			t.Errorf("the warning must name why; %q is missing from %q", want, warning)
-		}
-	}
-}
-
-// TestLineCommentsJunkIsSkippedNotFatal keeps the fix from trading a false
-// negative for a hard failure: a comment with no path or no body is
-// skipped, never handed to validateReviewResult, which would reject the
-// whole response over one junk entry.
-func TestLineCommentsJunkIsSkippedNotFatal(t *testing.T) {
-	const response = `{"line_comments":[{"path":"","line":1,"body":"no path"},{"path":"src/a.go","line":2,"body":"   "},{"path":"src/a.go","line":9,"body":"real finding"}]}`
-
-	result, err := NewResponseParser().ParseReviewResponse(response)
-	if err != nil {
-		t.Fatalf("a partly junk line_comments block must not kill the parse: %v", err)
-	}
-	if len(result.Issues) != 1 || result.Issues[0].Line != 9 {
-		t.Fatalf("expected only the usable comment to survive, got %+v", result.Issues)
 	}
 }
 
