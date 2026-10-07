@@ -61,7 +61,7 @@ seed_root
 
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOWORK=off GOENV=off
 export GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/cache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
+export GOCACHE="${GOCACHE:-$run_dir/cache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
 
 # run_tests <regex> <log>: go test of the (possibly mutated) package copy.
@@ -126,14 +126,14 @@ check_mutation_red() {
   grep -Eq -- '^--- FAIL: TestAUR533StaleArtifactIsInconclusiveByMode' "$log" || fail 'mutation-survived:end-to-end'
 }
 
-# AC-003-MUT-002: the single gate call of the analysis-data contributor (shared by --base and --pr) is dropped (copy); the --pr tests must go red.
+# AC-003-MUT-002: the single gate call of the analysis-data contributor (shared by --base and --pr) is dropped: the contributor returns an empty partial decision and no audit; the --pr tests must go red.
 check_pr_mutation_red() {
   local target="$run_dir/root/internal/gate/contributors.go"
-  local anchor='adResult, adReason, adAudit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData)'
+  local anchor='part, reason, audit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData)'
   [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra mutation-anchor-not-unique
   local line
   line="$(grep -Fn "$anchor" "$target" | head -1 | cut -d: -f1)"
-  sed -i "${line}s/.*/\tadResult, adReason, adAudit := Result{}, \"\", res.AnalysisData \/\/ MUT-002: gate call removed/" "$target"
+  sed -i "${line}s/.*/\tpart, reason, audit := Result{}, \"\", Result{}.AnalysisData \/\/ MUT-002: gate call removed/" "$target"
   grep -Fq 'MUT-002: gate call removed' "$target" || infra mutation-not-applied
   local log="$run_dir/mutation_pr.log"
   run_tests '^(TestAUR533PRFreshArtifactIsRecordedInAudit|TestAUR533PRStaleArtifactBlocksAndStatusReflectsIt)$' "$log" || true

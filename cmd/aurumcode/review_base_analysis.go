@@ -9,10 +9,8 @@ import (
 	"fmt"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/internal/prompt"
-	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/session"
 )
 
@@ -80,19 +78,12 @@ func (b *baseReview) selectProvider() (int, bool) {
 	if b.centralCfg != nil {
 		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
 	}
-	catalog, catalogErr := resolveSkillCatalog(b.policySkillSource(), localSkillSource(b.cwd, ""))
+	catalog, dynamicRules, catalogErr := resolveSkillRules(skillLayers{cwd: b.cwd, policyDir: b.policyDir, cfg: b.cfg, centralCfg: b.centralCfg}, diffPaths(b.diff))
 	if catalogErr != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", catalogErr)
 		return 1, true
 	}
-	excludeListedSkills(catalog, b.centralCfg, b.cfg)
-	catalogPolicy, catalogRepo := dynamicRulesFromCatalog(catalog, diffPaths(b.diff))
-	policySkillRules := map[string]review.Rule{}
-	if b.centralCfg != nil {
-		policySkillRules = dynamicRulesFromLocalSkills(b.policyDir, b.centralCfg.Review.Context.Skills, gateOriginPolicy)
-	}
-	repoSkillRules := dynamicRulesFromLocalSkills(b.cwd, b.cfg.Review.Context.Skills, gateOriginRepo)
-	b.dynamicRules = mergeDynamicRules(unionRules(policySkillRules, catalogPolicy), unionRules(repoSkillRules, catalogRepo))
+	b.dynamicRules = dynamicRules
 	b.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, b.dynamicRules)
 	b.ruleCatalogDigest = ruleCatalogCacheDigest(b.ruleCatalogIDs, b.dynamicRules)
 	b.skillNotices = skillSelectionNotices(catalog, diffPaths(b.diff), b.filter)
@@ -161,13 +152,4 @@ func (b *baseReview) recordCoverage() {
 		b.result.Limitations = append(b.result.Limitations, warning.Provider+": "+warning.Reason)
 	}
 	b.result.Limitations = append(b.result.Limitations, b.skillNotices...)
-}
-
-// policySkillSource is the central policy's skill directory, or nil when no
-// policy is active.
-func (b *baseReview) policySkillSource() skills.Source {
-	if b.centralCfg == nil {
-		return nil
-	}
-	return localSkillSource(b.policyDir, "policy")
 }

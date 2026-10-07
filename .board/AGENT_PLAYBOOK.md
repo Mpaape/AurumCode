@@ -139,13 +139,17 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
 ## Integracao: PR com o self review do Aurum
 
 O caminho normal de integracao e: card -> branch `card/AUR-NNN` -> PR para
-`main` -> CI + self review do Aurum (parecer na PR e status
-`aurumcode/policy-gate`) -> merge so com todos os checks verdes. O self
-review usa o binario construido da propria PR e as skills de convencao de
-`.aurumcode/skills/` da base; achado citando uma skill `severity: error`
-reprova. Sem os secrets do provedor ele falha fechado, nunca verde. Push
-direto em `main` fica restrito a commits so de `.board/` (mover card,
-Delivery record, evidencia).
+`dev` -> so CI (build, race, docs) -> merge -> card em `review`. Em lote:
+PR `dev -> main` -> CI + self review do Aurum (parecer na PR e status
+`aurumcode/policy-gate`) -> merge so com todos os checks verdes -> os cards
+do lote vao para `done` com o SHA entregue, ancestral de `main`. O self
+review roda so nas PRs para `main` para limitar o gasto com LLM (decisao do
+dono em 2026-10-06); cada push na PR `dev -> main` repete a chamada, entao
+abra-a uma vez por lote. Ele usa o binario construido da propria PR e as
+skills de convencao de `.aurumcode/skills/` da base; achado citando uma
+skill `severity: error` reprova. Sem os secrets do provedor ele falha
+fechado, nunca verde. Push direto em `dev` ou `main` fica restrito a commits
+so de `.board/` (mover card, Delivery record, evidencia).
 
 ## Evidencia minima
 

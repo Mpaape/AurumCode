@@ -49,6 +49,7 @@ negócio vivem em `internal/`.
 | `internal/grammar` | A única fonte da estrutura por linguagem, a partir de catálogos de gramáticas. |
 | `internal/i18n` | Catálogo de textos de interface por idioma (YAML embutido, pt-BR e en): toda chave existe nos dois idiomas. |
 | `internal/llm` | Provedores, orquestração, orçamento e estimativa de custo. |
+| `internal/mcpserver` | O adaptador MCP (Model Context Protocol) por stdio de `aurumcode mcp`: o subconjunto JSON-RPC 2.0 que o MCP exige (`initialize`, `tools/list`, `tools/call`), as quatro ferramentas só leitura (`aurum_review`, `aurum_gate`, `aurum_rules`, `aurum_explain`) com JSON Schema fechado, a validação dos argumentos antes de executar e um único ponto de redação de toda resposta. Não decide nada: pergunta à porta `Gateway`, que `cmd/aurumcode` implementa com a mesma sessão `--base`. |
 | `internal/memory` | Memória de revisão opcional. |
 | `internal/prompt` | Montagem de prompt, orçamento, parsing de resposta (dividido por responsabilidade, com os padrões compilados uma vez no pacote), filtro de comentários, notas de cobertura. |
 | `internal/render` | Relatórios determinísticos, registros de auditoria, SARIF e identidade de achados. |
@@ -150,6 +151,21 @@ pacote: o relógio contra o qual as exceções são julgadas, o executor de
 scanners, o observador do pipeline do gate, o resolvedor de codebase, o
 construtor de prompt que versiona os caches e o ambiente, lido uma só vez na
 borda do comando.
+
+## Adaptador MCP para agentes de código
+
+`aurumcode mcp` serve o gate a um agente de código (Claude Code, Codex,
+Cursor) por stdio. É um adaptador fino: `internal/mcpserver` fala o protocolo,
+valida os argumentos contra o schema declarado e redige toda resposta;
+`cmd/aurumcode/mcp_gateway.go` monta cada pergunta como a linha de comando
+`review --base <ref> --seguranca --exigir-qualidade`, constrói a sessão com o
+mesmo `newBaseReview` da CLI e a executa com `session.Run`. A decisão
+(`pass`, `fail`, `inconclusive`) é lida do código de saída e do `gate.Result`
+da própria sessão, nunca recalculada; só uma saída 0 de uma revisão
+conclusiva é `pass`. O cliente escolhe apenas a ref; política central
+(`AURUMCODE_POLICY`), skills, severidades e limites são do servidor. As regras
+listadas por `aurum_rules` vêm de `resolveSkillRules`, a mesma resolução que a
+sessão usa para aceitar citações.
 
 ## Prompt de revisão
 

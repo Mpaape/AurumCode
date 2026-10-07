@@ -47,24 +47,29 @@ every 20-minute review uses `--review`.
 
 ### Integration path: pull request plus the Aurum self review
 
-Every delivery reaches `main` through a pull request, so AurumCode reviews
-AurumCode with the binary built from the pull request itself:
+Cards integrate into `dev`; `main` receives batched `dev -> main` pull
+requests, and only those run the AurumCode self review (owner decision
+2026-10-06, to bound LLM spend):
 
-card -> branch `card/AUR-NNN` -> pull request to `main` -> CI (`Build and
-test in OCI`, `Race tests in OCI`, `Documentation browser checks`) plus the
+card -> branch `card/AUR-NNN` -> pull request to `dev` -> CI (`Build and
+test in OCI`, `Race tests in OCI`, `Documentation browser checks`) -> merge
+-> card in `review`. Batch: pull request `dev -> main` -> CI plus the
 self review (`review / Review pull request`, its review comment and the
-`aurumcode/policy-gate` status) -> merge only with every check green.
+`aurumcode/policy-gate` status) -> merge only with every check green -> the
+batch's cards move to `done` with the delivery SHA, an ancestor of `main`.
 
 - The self review reads `.aurumcode/config.yml`, `prompt.md` and the
   convention skills (`.aurumcode/skills/*/SKILL.md`) from the base branch; a
   finding that cites a skill with `severity: error` fails the gate.
 - Without the `LLM_API_KEY`/`LLM_BASE_URL` secrets the self review fails
   closed (`aurumcode/policy-gate` failure with the reason), never green.
-- A failing self review is answered with a fix commit on the same branch or
-  an explicit owner decision recorded in the pull request; never by pushing
-  around it.
-- Direct pushes to `main` are reserved for commits that touch only `.board/`
-  (card moves, Delivery records, evidence); they do not need the self review.
+- A failing self review is answered with a fix commit on `dev` (through a
+  card PR) or an explicit owner decision recorded in the pull request; never
+  by pushing around it.
+- Every push to the `dev -> main` PR re-runs the LLM: open it once per batch
+  and avoid needless `gh pr update-branch`.
+- Direct pushes to `dev` or `main` are reserved for commits that touch only
+  `.board/` (card moves, Delivery records, evidence).
 
 The earlier ceremony (two blind reviewers, skeptical mutation, OCI evidence
 bundles) is preserved as frozen history for cards already in `done`; every

@@ -64,8 +64,11 @@ for input in "${owned_inputs[@]}"; do
   [[ -e "$repo_root/$input" ]] || fail "behavior-missing:$input"
 done
 required_inputs=(
-  go.mod go.sum cmd/aurumcode internal/analyzer internal/config internal/llm internal/prompt
-  internal/review internal/security/redaction pkg/types
+  go.mod
+  go.sum
+  cmd
+  internal
+  pkg
   tests/fixtures/repos/git-demo/repo.git
 )
 for input in "${required_inputs[@]}"; do
@@ -77,7 +80,7 @@ cleanup_root() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1" >/
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir" GOMAXPROCS=1
 
 copy() { local root="$1"; shift; local p; for p in "$@"; do mkdir -p "$root/$(dirname "$p")"; cp -R "$repo_root/$p" "$root/$p"; done; }
@@ -85,10 +88,7 @@ copy() { local root="$1"; shift; local p; for p in "$@"; do mkdir -p "$root/$(di
 stage_source() {
   local root="$1"; mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode cmd/regenerate-docs
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/git internal/llm internal/pipeline
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
-  copy "$root" pkg/types
+  copy "$root" cmd internal pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   chmod -R u+w -- "$root"
 }

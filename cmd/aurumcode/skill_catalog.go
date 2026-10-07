@@ -6,6 +6,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/context/skills"
+	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -57,6 +58,37 @@ func excludeListedSkills(catalog *skills.Catalog, policy, repo *config.Config) {
 	if repo != nil {
 		catalog.ExcludeListed(skills.LayerRepository, repo.Review.Context.Skills)
 	}
+}
+
+// skillLayers is where the two skill layers of a review live: the
+// repository at cwd and, when centralCfg is set, the central policy at
+// policyDir.
+type skillLayers struct {
+	cwd, policyDir  string
+	cfg, centralCfg *config.Config
+}
+
+// resolveSkillRules is the one computation of the skill catalog and of the
+// dynamic skill-section rules a review accepts citations against, for the
+// changed paths: the review session and the agent server's rules listing
+// both call it, so they can never disagree on which rules apply.
+func resolveSkillRules(l skillLayers, changed []string) (*skills.Catalog, map[string]review.Rule, error) {
+	var policySource skills.Source
+	if l.centralCfg != nil {
+		policySource = localSkillSource(l.policyDir, "policy")
+	}
+	catalog, err := resolveSkillCatalog(policySource, localSkillSource(l.cwd, ""))
+	if err != nil {
+		return nil, nil, err
+	}
+	excludeListedSkills(catalog, l.centralCfg, l.cfg)
+	catalogPolicy, catalogRepo := dynamicRulesFromCatalog(catalog, changed)
+	policySkillRules := map[string]review.Rule{}
+	if l.centralCfg != nil {
+		policySkillRules = dynamicRulesFromLocalSkills(l.policyDir, l.centralCfg.Review.Context.Skills, gateOriginPolicy)
+	}
+	repoSkillRules := dynamicRulesFromLocalSkills(l.cwd, l.cfg.Review.Context.Skills, gateOriginRepo)
+	return catalog, mergeDynamicRules(unionRules(policySkillRules, catalogPolicy), unionRules(repoSkillRules, catalogRepo)), nil
 }
 
 // localSkillSource reads root/.aurumcode/skills from disk, shown with a

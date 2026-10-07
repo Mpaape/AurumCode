@@ -122,6 +122,14 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   arquivo sem extensão, um executável, uma extensão desconhecida ou um
   script renomeado para `.png` sem a assinatura PNG. Um byte
   forjado nunca esconde código da revisão.
+
+  Recomendação para artefatos gerados: saída gravada (logs de tutorial,
+  capturas, golden files, relatórios regravados por script) repete de
+  propósito o que a fonte produz, inclusive exemplos de injeção e canários
+  de segredo, e o passe de segurança acusaria cada um. Ponha esses caminhos
+  em `ignore` e revise a fonte que os gera; o próprio AurumCode ignora
+  `demo/tutoriais/*/out/**` e `demo/tutoriais/*/expected/**`. Ignorar não
+  desliga regra: o código que gera a saída continua revisado.
 - `rules`: overrides explícitos de regras reconhecidas, por identificador.
 - `review.memory`: `off` (padrão, sem estado), `ephemeral` (em processo) ou
   `local` (persistido por repositório no diretório de cache). No review de PR,
@@ -409,8 +417,14 @@ perfil selecionado aprende o mesmo catálogo dinâmico.
 sobre a árvore inteira do repositório revisado, independente de `gate:` estar
 declarado ou não. A varredura é da árvore inteira (uma regra pode precisar dos
 arquivos vizinhos), mas só conta o que o intervalo revisado mudou: um achado
-fica apenas se cai numa linha que o intervalo adicionou (o mesmo
-`git diff --relative --unified=0 <base>...<head>` do `govet`). Um achado
+fica apenas se cai numa linha que o intervalo adicionou, pelo mesmo diff do
+git que o `govet` usa:
+
+```sh
+git diff --relative --unified=0 <base>...<head>
+```
+
+Um achado
 antigo, num arquivo que o PR não tocou, não reprova o PR. Sem intervalo
 revisado (`--base` que não resolve), a varredura é inconclusiva, nunca a
 árvore inteira:
@@ -561,9 +575,23 @@ quality_gates:
   fixada por digest no lock (o pull por digest falha se os bytes divergirem),
   confere `gitleaks version` contra a versão do lock e faz checkout do PR com
   histórico completo (`fetch-depth: 0`).
-- O review entrega à engine o intervalo revisado: no `--pr`, a base e a cabeça
-  do pull request (`AURUMCODE_BASE_SHA`, `GITHUB_SHA`); no `--base`, a ref e o
-  `HEAD` resolvidos para ids completos. A identidade da engine entra no digest
+- O review entrega à engine o intervalo revisado: no `--pr`, a base do pull
+  request (`AURUMCODE_BASE_SHA`) e o `HEAD` do checkout já verificado como a
+  cabeça que a API do pull request informa; no `--base`, a ref e o `HEAD`
+  resolvidos para ids completos. No `--pr` o `GITHUB_SHA` nunca é a ponta do
+  intervalo: num evento `pull_request` o GitHub o reserva ao merge commit
+  sintético (`refs/pull/N/merge`), que o checkout da cabeça não contém
+  (medido na PR #89: `cat-file` do merge commit falha num checkout
+  `fetch-depth: 0` da cabeça, e o resultado era `secrets_execution_error`).
+  Sem checkout verificado, a varredura fica bloqueada como antes.
+- **Motivo diagnosticável.** Uma varredura inconclusiva mantém o token do
+  motivo (`secrets_execution_error`, `sast_execution_error`, ...) e acrescenta
+  o detalhe da engine, numa linha resumida (até 240 bytes) e redigida pelo
+  mesmo filtro da revisão: a ponta do intervalo que falta (`base commit <id>
+  not found in the checkout`), clone raso, ou a última linha de erro do
+  comando. O detalhe vai na linha do gate (`inconclusivo
+  (secrets_execution_error) [detalhe: ...]`), no `gate.reason` da auditoria e
+  na limitação publicada no parecer; nunca muda a decisão. A identidade da engine entra no digest
   de evidência da chave do cache, então um parecer dado com outra versão ou
   outra base de regras nunca é reaproveitado.
 - A imagem do produto (`Dockerfile`) copia o binário da imagem fixada por
@@ -1239,6 +1267,19 @@ consumidor.
 |---|---|
 | `--file` | Arquivo JSON com sugestões ou resposta de revisão (padrão: stdin) |
 
+### CLI `aurumcode mcp`
+
+Servidor MCP local (stdio, só leitura) para agentes de código; cada pergunta
+de gate é uma sessão `review --base <ref> --seguranca --exigir-qualidade`.
+Política central por `AURUMCODE_POLICY`, provedor por `LLM_API_KEY` e
+`LLM_BASE_URL`, como na CLI. Configuração de cada agente:
+[Aurum no seu agente de código](agentes.md).
+
+| Flag | Efeito |
+|---|---|
+| `--tempo` | Tempo máximo de cada chamada de ferramenta; estourado, a resposta é `inconclusive` (padrão: 10m) |
+| `--limite` | Teto em USD de cada revisão, o mesmo de `review --limite` (padrão: sem teto) |
+
 ### Workflow reutilizável e Action
 
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`,
@@ -1351,7 +1392,7 @@ existed is never reused.
 deliberation:
   enabled: true                  # padrão: false (nada é oferecido)
   max_rounds: 3                  # chamadas ao modelo, a resposta final incluída
-  max_cost_tokens: 60000         # tokens (entrada + saída) somados em todas as rodadas
+  max_cost_tokens: 60000         # tokens da deliberação além do prompt base
   per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
 ```
 
@@ -1374,6 +1415,16 @@ stderr e no campo `deliberation` da auditoria (`--auditoria`), com cada
 chamada, os argumentos redigidos, a duração e o resultado resumido. Os
 argumentos de toda chamada são conferidos contra o schema da ferramenta antes
 de executar; uma chamada inválida é recusada e o modelo é avisado.
+
+`max_cost_tokens` mede o custo da deliberação, não o do prompt base: a
+entrada da primeira rodada (o prompt base, como o provedor a conta) fica
+registrada em `deliberation.base_tokens` da auditoria e continua sob o
+orçamento do prompt; contam no teto a saída de cada rodada e o que a
+entrada de cada rodada seguinte traz além do prompt base (as chamadas e os
+resultados das ferramentas), somados em `deliberation.cost_tokens`. Uma PR
+média cujo prompt base passa de 60000 tokens e que não pede ferramenta não
+estoura o teto; três rodadas com resultados de ferramenta de até 8 KiB cada
+cabem com folga no padrão.
 
 Estourar `max_rounds`, `max_cost_tokens` ou `per_tool_timeout_seconds` torna a
 revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
