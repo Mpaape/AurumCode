@@ -36,7 +36,7 @@ negócio vivem em `internal/`.
 | `internal/analyzer` | Parsing de diff, detecção de linguagem a partir do catálogo de linguagens, diffs de texto. |
 | `internal/apply` | Transforma sugestões validadas em patches seguros e aplicáveis. |
 | `internal/artifacts` | O artefato de dados de análise: cópia resolvida, verificada por idade e digest e em cache dos dados publicados dos scanners. |
-| `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados. |
+| `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados, e decide o changelog obrigatório (`Requirement.Verify`, padrões em `require_defaults.yml`). |
 | `internal/config` | Configuração efetiva: seções, precedência da política central, gate, exceções, quality gates. |
 | `internal/context` | Contexto de código limitado e determinístico e leitor de skills. |
 | `internal/deliberation` | Conversa limitada com ferramentas junto a um modelo, sem semântica de revisão: `Tool` (`Spec`, `Run`), `Limits` (rodadas, tokens, timeout por ferramenta), validação de argumentos antes de qualquer execução, o `Transcript` e o `LimitError` tipado que quem chama trata como inconclusivo. |

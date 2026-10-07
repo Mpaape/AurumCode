@@ -1278,8 +1278,9 @@ consumidor.
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
 | `review.context.docs` | Lista de documentos de contexto | vazio |
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
-| `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
+| `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
+| `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
 | `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
@@ -1830,3 +1831,46 @@ liste) têm categoria `other` e vão ao modelo como texto, na seção
 que o runtime ganhe em uma atualização é revisada até alguém, deliberadamente,
 a declarar como documentação forte no catálogo. Não há lista de extensões em
 Go.
+
+## Changelog obrigatório (AUR-509)
+
+`aurumcode changelog --base <sha>` reprova a pull request que não acrescenta
+uma entrada útil e concisa no `CHANGELOG.md`. O check é determinístico (sem
+modelo) e independente de `review.changelog`, que só sugere um texto. Guia com
+exemplos de `Unreleased` e de consolidação de release: [Changelog
+obrigatório](changelog.md).
+
+```yaml
+changelog_check:
+  mode: required          # padrão: off (o check passa dizendo "não exigido")
+  file: CHANGELOG.md      # padrão
+  section: Unreleased     # padrão; aceita "## [Unreleased]" e "## Unreleased - data"
+  max_entry_lines: 12     # linhas novas em Unreleased
+  max_line_length: 240    # caracteres por linha nova
+  max_release_lines: 120  # notas de uma release consolidada (uma ou duas páginas)
+  min_words: 3            # palavras para uma linha contar como informação
+  agent_log_markers: []   # somam-se aos marcadores padrão, nunca os trocam
+```
+
+| Flag | Efeito |
+| --- | --- |
+| `--base` | Commit base da PR (obrigatório). O modo e os limites vêm do `config.yml` desse commit. |
+| `--head` | Commit com a mudança proposta (padrão `HEAD`). |
+| `--repo` | Diretório do repositório (padrão `.`). |
+
+- O modo é lido da **base**: a PR não desliga o check que se aplica a ela.
+  Quando a PR não altera o `config.yml`, ele é lido do checkout.
+- Exit 0: entrada válida, ou modo `off`. Exit 1: entrada reprovada
+  (`entrada_ausente`, `apenas_espacos`, `sem_informacao_nova`,
+  `entrada_longa`, `log_de_agente`) ou `indeterminado` (diff ilegível,
+  arquivo binário ou grande demais, `config.yml` da base inválido). Exit 2:
+  uso errado.
+- Linhas que só mudaram de lugar não são informação nova; uma linha nova
+  conta em `Unreleased` ou numa seção cujo título é uma versão
+  (`## 1.2.0`, `## [1.2.0] - 2026-10-07`).
+- Required check: o workflow `.github/workflows/changelog.yml` roda o comando
+  no job **Changelog obrigatório**; exija esse nome na proteção da `main`. O
+  teste local prova o comando; o bloqueio do merge depende da proteção
+  configurada no repositório.
+- Com política central, uma seção `changelog_check` da política decide
+  sozinha (a do repositório é ignorada com aviso).

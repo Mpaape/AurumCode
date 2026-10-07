@@ -90,6 +90,17 @@ valem para repositórios poliglotas. Referência:
 
 Tutorial: [Qualquer linguagem](tutorials/qualquer-linguagem.md).
 
+## Changelog
+
+Cada pull request acrescenta uma entrada curta e voltada a quem usa o produto
+em `## Unreleased`; o check `aurumcode changelog` reprova a PR sem ela, lendo o
+modo do commit base. A sugestão de entrada do review continua separada e só
+consultiva. Referência:
+[Changelog obrigatório](configuration.md#changelog-obrigatorio-aur-509) e o
+guia [Changelog obrigatório](changelog.md).
+
+Tutorial: em breve (AUR-501, `tutorials/changelog.md`).
+
 ## Benchmark e operação
 
 Corpus de recall e protocolo de comparação ([Benchmark](benchmark.md)) e o
