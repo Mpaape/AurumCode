@@ -56,6 +56,11 @@ quality_gates:
   "Skills em diretório" em docs/configuration.md).
 - Falha de provedor e scanner ausente continuam bloqueando com
   `inconclusive: block`.
+- PR grande também é revisado: quando o GitHub recusa o diff por tamanho, o
+  diff sai do checkout verificado do PR; quando ele não cabe num prompt, a
+  revisão é feita em lotes por diretório, com um parecer e um gate. Só no teto
+  de lotes (`batches`, padrão 4) a revisão fica parcial, listando os arquivos
+  que ficaram fora (ver "PR grande" em docs/configuration.md).
 - O próprio AurumCode se revisa assim: o
   [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
   do repositório acrescenta deliberação e seis skills de convenção, em menos

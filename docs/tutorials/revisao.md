@@ -15,7 +15,7 @@ configuração **são os arquivos de `demo/tutoriais/revisao/`**, byte a byte
 
 ## Pré-requisitos
 
-- `git`, `docker` e `bash`.
+- `git`, `docker`, `bash` e `python3` (o GitHub falso local do caso 5).
 - A imagem do produto, construída do `Dockerfile` da raiz do repositório:
 
 ```bash
@@ -270,10 +270,9 @@ do PR e roda `aurumcode review --pr N --repo OWNER/REPO --publicar --check
 parecer é publicado no PR e o job falha se a revisão for inconclusiva.
 
 O que observar, e o que esta demonstração prova: não há runner do GitHub
-aqui e não há servidor de GitHub reutilizável fora dos testes de unidade do
-repositório, então este tutorial **não** executa uma revisão de PR. O que a
-fase `pr-workflow` verifica de verdade é que o arquivo acima é coerente com o
-reutilizável do repositório: cada entrada de `with:` e cada secret existem em
+aqui, então a fase `pr-workflow` não executa o workflow. Ela verifica que o
+arquivo acima é coerente com o reutilizável do repositório (e, logo abaixo,
+roda uma revisão de PR grande contra um GitHub falso local): cada entrada de `with:` e cada secret existem em
 `review.yml` e as permissões do chamador cobrem as que ele declara. Os casos
 1 a 3 e 5 usam o mesmo motor que o job executa.
 
@@ -295,6 +294,58 @@ permissao pull-requests: write: o chamador concede o que o reutilizavel declara
 
 O que observar: um workflow `workflow_call` não concede permissão que o
 chamador não tem; por isso o bloco `permissions:` do chamador é obrigatório.
+
+### PR grande: o GitHub recusa o diff e a revisão vai em lotes
+
+Um PR acima do limite de linhas do GitHub recebe `406 too_large` no pedido do
+diff. A mesma fase sobe um GitHub falso em `127.0.0.1` que responde assim e
+informa o head e a base reais de um repositório com três diretórios de
+arquivos grandes (gerados pelo `run.sh`), e roda
+`aurumcode review --pr 7 --repo OWNER/REPO --publicar --politica /policy` no
+checkout do head (com `origin` apontando para `OWNER/REPO`). A política é só
+o gate:
+
+<!-- arquivo: demo/tutoriais/revisao/politica-lotes/.aurumcode/config.yml -->
+```yaml
+gate:
+  fail_on: [error]
+  inconclusive: block
+```
+
+<!-- saida: pr-workflow -->
+```text
+aurumcode review: the diff did not fit one prompt; reviewed in 3 batches by directory (files per batch: 2, 2, 2)
+review formal "APPROVE" publicado no pull request #7 (0 comentário(s) na linha).
+exit_code=0
+```
+
+O que observar: a primeira linha do stderr diz que a API recusou o diff e que
+o mesmo intervalo `main...feature` foi lido do checkout verificado (com os
+dois commits e o número de arquivos). O diff passa do orçamento de um prompt,
+então a revisão é feita em três lotes, um por diretório, com um só parecer e
+um só gate. Com `batches.max_batches: 1` na política, o teto é atingido: os
+arquivos fora são listados na cobertura publicada e a aprovação é retida.
+
+<!-- saida: pr-workflow -->
+```text
+aurumcode review: policy gate: review inconclusive (partial_coverage)
+review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
+exit_code=1
+- 4 file(s) were left out of the review by the token budget.
+  - banco/catalogo.go
+  - banco/tabela.go
+  - web/catalogo.go
+  - web/tabela.go
+```
+
+Um arquivo não versionado no checkout (`rascunho.txt`) basta para que ele não
+seja o head do PR: nada é revisado nem publicado.
+
+<!-- saida: pr-workflow -->
+```text
+aurumcode review: fetching pull request diff: the API refused the pull request diff as too large; the diff could not be computed from the checkout either: the local checkout is not verified as the pull request head (dirty)
+exit_code=1
+```
 
 ## Caso 6: o modelo pondera a evidência
 
