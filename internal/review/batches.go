@@ -176,47 +176,66 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 type measureFunc func(files []types.DiffFile) (fits bool, err error)
 
 // packUnits packs units (directories) greedily, in order, into batches that
-// fit. A unit that does not fit alone is split into its files; a single file
-// that does not fit alone is a batch of its own, reviewed in part and
-// declared so by its prompt's coverage.
+// fit. A directory stays whole in a batch when it fits; one that does not is
+// added file by file, so a batch is filled before the next one starts. A
+// single file that does not fit even alone is a batch of its own, reviewed
+// in part and declared so by its prompt's coverage.
 func packUnits(units [][]types.DiffFile, measure measureFunc) ([][]types.DiffFile, error) {
-	var batches [][]types.DiffFile
-	var current []types.DiffFile
+	p := &packer{measure: measure}
 	for _, unit := range units {
-		candidate := append(append([]types.DiffFile{}, current...), unit...)
-		fits, err := measure(candidate)
-		if err != nil {
+		if err := p.add(unit); err != nil {
 			return nil, err
 		}
+	}
+	p.flush()
+	return p.batches, nil
+}
+
+// packer holds the batches closed so far and the one being filled.
+type packer struct {
+	measure measureFunc
+	batches [][]types.DiffFile
+	current []types.DiffFile
+}
+
+// add places one unit: in the current batch when it fits, else file by
+// file, else in a new batch.
+func (p *packer) add(unit []types.DiffFile) error {
+	candidate := append(append([]types.DiffFile{}, p.current...), unit...)
+	fits, err := p.measure(candidate)
+	if err != nil || fits {
 		if fits {
-			current = candidate
-			continue
+			p.current = candidate
 		}
-		if len(current) > 0 {
-			batches = append(batches, current)
-			current = nil
-		}
-		alone, err := measure(unit)
-		if err != nil {
-			return nil, err
-		}
-		switch {
-		case alone:
-			current = unit
-		case len(unit) == 1:
-			batches = append(batches, unit)
-		default:
-			split, err := packUnits(singleFileUnits(unit), measure)
-			if err != nil {
-				return nil, err
+		return err
+	}
+	if len(unit) > 1 {
+		for _, f := range unit {
+			if err := p.add([]types.DiffFile{f}); err != nil {
+				return err
 			}
-			batches = append(batches, split...)
 		}
+		return nil
 	}
-	if len(current) > 0 {
-		batches = append(batches, current)
+	p.flush()
+	alone, err := p.measure(unit)
+	if err != nil {
+		return err
 	}
-	return batches, nil
+	if alone {
+		p.current = unit
+		return nil
+	}
+	p.batches = append(p.batches, unit)
+	return nil
+}
+
+// flush closes the batch being filled.
+func (p *packer) flush() {
+	if len(p.current) > 0 {
+		p.batches = append(p.batches, p.current)
+		p.current = nil
+	}
 }
 
 // groupByDirectory groups the files by their directory, directories in
