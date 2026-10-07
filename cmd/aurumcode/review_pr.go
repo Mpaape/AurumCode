@@ -16,6 +16,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/cistatus"
 	"github.com/Mpaape/AurumCode/internal/review/session"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -33,6 +34,9 @@ type prReview struct {
 	check            bool
 
 	client *githubclient.Client
+	// ciFacts is the CI context split into what the model may analyze and
+	// what it may not (running checks, this product's own statuses).
+	ciFacts cistatus.Context
 
 	publication        string
 	inlineComments     bool
