@@ -24,7 +24,7 @@ inputs:
     required: false
     default: 'false'
   fail-on:
-    description: Optional severity gate: error, warning or info. Use none for no gate.
+    description: 'Optional severity gate: error, warning or info. Use none for no gate.'
     required: false
     default: none
   model:
