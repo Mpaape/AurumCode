@@ -1798,9 +1798,10 @@ analysis_data:
   repositório; sem nenhuma, valem os padrões.
 - Em um review, só os arquivos de `kind: scanners` do release são baixados e
   verificados individualmente. A cópia OSV só é baixada e verificada por
-  arquivo quando um consumidor a usar (AUR-495); o manifesto inteiro, e portanto
-  cada digest de arquivo, continua coberto pelo `set_digest`, que é conferido
-  em todo review.
+  arquivo quando um consumidor a usar; a verificação de dependências
+  (`dependencies`) consulta a API OSV ao vivo e não a usa. O manifesto
+  inteiro, e portanto cada digest de arquivo, continua coberto pelo
+  `set_digest`, que é conferido em todo review.
 - `max_age_days` ausente usa 7; escrito explicitamente como 0, negativo ou
   acima de 365 é erro de carga (nunca "sem limite" nem o padrão em silêncio).
 - Se a listagem de releases estiver indisponível, o AurumCode usa a cópia em
@@ -1811,6 +1812,52 @@ analysis_data:
   linha no parecer (`remote` quando a listagem respondeu).
 - Requisito de publicação: ative "Immutable releases" nas configurações do
   repositório publicador para que um release publicado não possa ser alterado.
+
+## Dependências do PR (`dependencies`)
+
+Com a seção `dependencies` declarada, toda revisão (`--base` e `--pr`) verifica
+as dependências que a mudança altera. Sem a seção, nada muda.
+
+```yaml
+dependencies:
+  osv_url: https://api.osv.dev     # padrão; um espelho da API OSV
+  scanner: osv-scanner             # padrão; o scanner de conferência
+  max_source_age_hours: 24         # opcional: idade máxima da resposta da base
+```
+
+- **O modelo lê, o código confere.** O modelo recebe a lista de arquivos
+  alterados e diz quais são manifestos ou lockfiles, em qualquer formato e
+  ecossistema; depois lê o diff deles e nomeia cada pacote adicionado,
+  atualizado ou removido, com ecossistema e versão. Não existe lista de
+  ecossistemas, extensões ou pacotes no AurumCode.
+- **Nada inventado passa.** Pacote cujo nome não aparece no diff do arquivo,
+  ou versão que não aparece nas linhas alteradas do lado certo, é descartado e
+  o descarte é declarado no parecer. Arquivo que não está no diff nunca é
+  manifesto.
+- **Conferência com o scanner.** Quando o `osv-scanner` (na imagem do
+  AurumCode) reconhece o arquivo no checkout revisado, a extração dele confere
+  a do modelo; cada divergência é declarada. Arquivo que o scanner não conhece
+  fica só com a leitura do modelo.
+- **Os dois lados na base OSV.** Cada versão anterior e nova é consultada na
+  API OSV. Cada advisory sai com identificador (OSV/GHSA e aliases CVE),
+  pacote, versão, severidade da fonte, versão corrigida quando existe e link,
+  e é classificado como **introduzido pelo PR** (só na versão nova),
+  **pré-existente** (nos dois lados) ou **corrigido pelo PR** (só na versão
+  anterior; o parecer registra a correção). Cada lockfile de um monorepo é
+  reportado separado.
+- **Faixa sem versão resolvida.** O modelo explica a faixa declarada e a base
+  é consultada pelo pacote inteiro (todo advisory do pacote é candidato);
+  dependência sem versão nem faixa legível segue o `gate.inconclusive`.
+- **Falha fechada.** Base inalcançável (`dependencies_source_unreachable`),
+  resposta mais velha que `max_source_age_hours` ou sem data
+  (`dependencies_source_stale`), scanner ausente
+  (`dependencies_scanner_unavailable`), modelo ausente ou com resposta fora do
+  contrato (`dependencies_no_model`, `dependencies_model_failed`) e checkout
+  não verificado do PR (`dependencies_unverified_checkout`) tornam a revisão
+  inconclusiva com o motivo; nunca são lidos como "sem vulnerabilidade". Com a
+  seção declarada, o padrão de `gate.inconclusive` é `block`.
+- A seção é governada como `analysis_data`: a política central que a declara
+  decide sozinha; o repositório só vale quando a política não a menciona.
 
 ## Quais arquivos saem da revisão como documentação
 
