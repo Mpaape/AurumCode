@@ -34,3 +34,19 @@ func TestDiffRefusedAsTooLargeIsTyped(t *testing.T) {
 		})
 	}
 }
+
+// A side without a count is one line, and a deleted one-line file's header
+// ("@@ -1 +0,0 @@") parses instead of panicking.
+func TestParseHunkHeaderWithoutCount(t *testing.T) {
+	for line, want := range map[string][4]int{
+		"@@ -1 +0,0 @@":            {1, 1, 0, 0},
+		"@@ -0,0 +1 @@":            {0, 0, 1, 1},
+		"@@ -10,5 +10,7 @@ func x": {10, 5, 10, 7},
+		"@@ malformed":             {0, 0, 0, 0},
+	} {
+		h := parseHunkHeader(line)
+		if got := [4]int{h.OldStart, h.OldLines, h.NewStart, h.NewLines}; got != want {
+			t.Errorf("parseHunkHeader(%q) = %v, want %v", line, got, want)
+		}
+	}
+}

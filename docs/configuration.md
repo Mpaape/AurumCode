@@ -1401,13 +1401,14 @@ antes paravam a revisão:
   com o código `too_large` ao pedido do diff. No `--pr`, só essa recusa (outro
   `406` continua erro) faz a revisão calcular o diff localmente, do checkout:
   o mesmo intervalo `base...head` da API (desde a base de merge), com as mesmas
-  janelas de contexto, pelo `git` da imagem, sem diff externo, `textconv` nem
-  `fsmonitor` do repositório. O checkout precisa ser **verificado** antes: o
+  janelas de contexto, pelo `git` da imagem (sem diff externo, `textconv` nem
+  `fsmonitor` do repositório) ou, sem `git`, lido em Go do banco de objetos
+  (base de merge única; histórico cruzado com duas bases é erro). O checkout precisa ser **verificado** antes: o
   repositório e o head do PR (`origin` e `HEAD` iguais aos do PR) e a árvore
   sem nada fora do commit. O head é o `HEAD` verificado; a base é
   `AURUMCODE_BASE_SHA` quando é um commit do checkout, senão o `base.sha` que
-  a API informa. Checkout não verificado, base ausente (clone raso) ou sem
-  `git`: a revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
+  a API informa. Checkout não verificado ou base ausente (clone raso): a
+  revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
   workflow reutilizável já faz o checkout do head com histórico completo. Com
   a API respondendo o diff, nada muda: o diff local é só o caminho da recusa.
 - **O diff passa do orçamento de um prompt.** Quando o prompt único deixaria
