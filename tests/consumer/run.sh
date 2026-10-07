@@ -16,7 +16,7 @@
 # consumidor ja tem fixtures/base (este script nunca escreve na main) e os
 # secrets LLM_API_KEY e LLM_BASE_URL. A verificacao roda depois, no container:
 #
-#   AURUMCODE_QA_EVIDENCIA=<dir> .board/bin/go-shared go test ./tests/consumer -run TestAUR512
+#   .board/bin/go-shared exec -w "$PWD" env AURUMCODE_QA_EVIDENCIA="$PWD/<dir>" go test ./tests/consumer -run TestAUR512
 #
 # Falha de infraestrutura (billing, run que nao comeca, API fora) vira
 # evidencia "medido": false com a limitacao: nunca aprovacao.

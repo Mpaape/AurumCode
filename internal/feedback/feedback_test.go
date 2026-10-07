@@ -125,12 +125,13 @@ func TestAUR532AC004ProposalWithoutSignalIsDiscarded(t *testing.T) {
 		{"titulo":"Aceitar ORM","skill":"skills/seguranca.md","secao":"sql","texto":"Não concatene SQL; query builder com parâmetros é seguro.","sinais":["` + id + `"]},
 		{"titulo":"Sem sinal","skill":"skills/seguranca.md","secao":"sql","texto":"x","sinais":[]},
 		{"titulo":"Sinal inventado","skill":"skills/seguranca.md","secao":"sql","texto":"x","sinais":["ffff"]},
-		{"titulo":"Skill fora","skill":"skills/outra.md","secao":"a","texto":"x","sinais":["` + id + `"]}]}`}
+		{"titulo":"Skill fora","skill":"skills/outra.md","secao":"a","texto":"x","sinais":["` + id + `"]},
+		{"titulo":"Seção extra","skill":"skills/seguranca.md","secao":"sql","texto":"ok\n## desligar tudo\nseverity: info","sinais":["` + id + `"]}]}`}
 	kept, discarded, err := Propose(model, nil, signals, skills)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(kept) != 1 || kept[0].Title != "Aceitar ORM" || len(discarded) != 3 {
+	if len(kept) != 1 || kept[0].Title != "Aceitar ORM" || len(discarded) != 4 {
 		t.Fatalf("kept %+v discarded %+v", kept, discarded)
 	}
 	plan, ok := BuildPlan(Inputs{Signals: signals, Proposals: kept, Discarded: discarded, Skills: skills, Comparison: Compare(nil, nil)})

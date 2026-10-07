@@ -113,7 +113,15 @@ evidencia_ok() {
     jq -e --arg s "$sha" '.aurumcode_sha == $s' "$f" >/dev/null || recusa "evidencia $f nao e do SHA $sha"
   done
   [ -x .board/bin/go-shared ] || falta ".board/bin/go-shared (o verificador roda em container)"
-  AURUMCODE_QA_EVIDENCIA="$dir" .board/bin/go-shared go test ./tests/consumer -count=1 \
+  # O container monta o repositorio no mesmo caminho: a evidencia precisa
+  # estar dentro dele, e o caminho vai absoluto.
+  dir="$(cd "$dir" && pwd -P)"
+  case "$dir/" in
+    "$(pwd -P)"/*) ;;
+    *) recusa "a evidencia precisa estar dentro do repositorio ($dir)" ;;
+  esac
+  .board/bin/go-shared up >/dev/null
+  .board/bin/go-shared exec -w "$(pwd -P)" env AURUMCODE_QA_EVIDENCIA="$dir" go test ./tests/consumer -count=1 \
     -run '^TestAUR512EvidenceIdentifiesTheRunAndInfraIsNotMeasured$' >/dev/null || recusa "o QA do consumidor reprova $sha"
 }
 

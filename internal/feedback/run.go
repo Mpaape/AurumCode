@@ -106,7 +106,7 @@ func Run(o Options) (Result, error) {
 	if err != nil {
 		return res, err
 	}
-	number, open, err := policy.OpenPull()
+	number, open, known, err := proposedBefore(policy)
 	if err != nil {
 		return res, err
 	}
@@ -118,12 +118,7 @@ func Run(o Options) (Result, error) {
 	if err != nil {
 		return res, err
 	}
-	branchLedger := Ledger{}
-	if open {
-		if branchLedger, err = readLedger(policy, Branch); err != nil {
-			return res, err
-		}
-	}
+	branchLedger := Ledger{}.With(known)
 	fresh := Fresh(signals, ledger, branchLedger)
 	res.Fresh = len(fresh)
 	if len(fresh) == 0 {
@@ -147,6 +142,31 @@ func Run(o Options) (Result, error) {
 	}
 	res.PullRequest, err = policy.Publish(plan, base, number, open)
 	return res, err
+}
+
+// proposedBefore finds the open feedback pull request, if any, and every
+// signal id any feedback pull request (open, merged or rejected) already
+// carried, read from the ledger at its head commit.
+func proposedBefore(p PolicyRepo) (number int, open bool, known []Signal, err error) {
+	pulls, err := p.Pulls()
+	if err != nil {
+		return 0, false, nil, err
+	}
+	for _, pr := range pulls {
+		ref := pr.Head.SHA
+		if pr.State == "open" {
+			number, open, ref = pr.Number, true, Branch
+		}
+		if ref == "" {
+			continue
+		}
+		l, err := readLedger(p, ref)
+		if err != nil {
+			return 0, false, nil, err
+		}
+		known = append(known, l.toSignals()...)
+	}
+	return number, open, known, nil
 }
 
 func (l Ledger) toSignals() []Signal {

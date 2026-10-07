@@ -122,7 +122,9 @@ func (g *GitHub) ChangedLines(repo, from, to string) (map[string]map[int]bool, e
 // Comments lists the issue and pull request comments of repo since an
 // RFC 3339 instant (empty: every comment the bounded pages reach).
 func (g *GitHub) Comments(repo, since string) ([]Comment, error) {
-	path := "/repos/" + repo + "/issues/comments?per_page=" + perPage
+	// Newest first: with the bounded pages, a busy repository is read from
+	// its recent comments, never only from its oldest ones.
+	path := "/repos/" + repo + "/issues/comments?sort=created&direction=desc&per_page=" + perPage
 	if since != "" {
 		path += "&since=" + url.QueryEscape(since)
 	}
