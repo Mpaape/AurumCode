@@ -55,7 +55,14 @@ quality_gates:
   seção `## ` vira regra citável `<nome>#<slug>` sem listar nada (ver
   "Skills em diretório" em docs/configuration.md).
 - Falha de provedor e scanner ausente continuam bloqueando com
-  `inconclusive: block`.
+  `inconclusive: block`; o motivo inconclusivo de uma engine traz o detalhe
+  da falha, resumido e redigido (`[detalhe: ...]`), no parecer e na auditoria.
+- Saída gravada por script (logs de tutorial, golden files, capturas) repete
+  de propósito exemplos de injeção e canários de segredo: ponha-a em `ignore`
+  e revise a fonte que a gera.
+- Com `deliberation`, o teto `max_cost_tokens` mede só o que as rodadas de
+  ferramenta acrescentam ao prompt base; um prompt base grande, sozinho, não
+  estoura o teto.
 - O próprio AurumCode se revisa assim: o
   [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
   do repositório acrescenta deliberação e seis skills de convenção, em menos
