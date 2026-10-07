@@ -32,7 +32,7 @@ repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 readonly pkgs=(./internal/gate/ ./internal/dependencies/)
 readonly ac_001='^(TestAUR528AC001MaliciousAlwaysFails)$'
 readonly ac_002='^(TestAUR528AC002MaliciousExceptionRefused)$'
-readonly ac_003='^(TestAUR528AC003UnreachableIsInconclusive|TestAUR528AC003UnreachableNeverClears)$'
+readonly ac_003='^(TestAUR528AC003UnreachableIsInconclusive|TestAUR528AC003UnreachableNeverClears|TestUnvettedPackageInconclusiveUnderFailOn)$'
 readonly ac_004='^(TestAUR528AC004SuspicionFollowsFailOn|TestAUR528AC004GroundedSuspicion)$'
 readonly ac_005='^(TestAUR528AC005UngroundedSuspicionDiscarded)$'
 
@@ -110,14 +110,14 @@ run_mut001() {
 case "$selector" in
   AC-001) run_ac AC-001 "$ac_001" 1 ;;
   AC-002) run_ac AC-002 "$ac_002" 1 ;;
-  AC-003) run_ac AC-003 "$ac_003" 2 ;;
+  AC-003) run_ac AC-003 "$ac_003" 3 ;;
   AC-004) run_ac AC-004 "$ac_004" 2 ;;
   AC-005) run_ac AC-005 "$ac_005" 1 ;;
   MUT-001) run_mut001 ;;
   all)
     run_ac AC-001 "$ac_001" 1
     run_ac AC-002 "$ac_002" 1
-    run_ac AC-003 "$ac_003" 2
+    run_ac AC-003 "$ac_003" 3
     run_ac AC-004 "$ac_004" 2
     run_ac AC-005 "$ac_005" 1
     run_mut001
