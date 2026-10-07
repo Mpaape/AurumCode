@@ -238,7 +238,8 @@ func ruleCatalogCacheDigest(ruleCatalogIDs []string, dynamicRules map[string]rev
 // already holds that file's findings under model and promptVersion. It
 // returns the files that still need a model call, in diff order, and the
 // per-file status slice (also in diff order, one entry per diff.Files
-// element) that mergeCacheHits and persistFreshResults use afterward.
+// element) that mergeCacheHits and persistFreshResults use afterward. Every
+// cached finding it returns is redacted with filter (cache_redaction.go).
 //
 // AUR-543: promptVersion is no longer the hand-bumped cache.PromptVersion
 // constant. runReview (main.go) now passes a fresh
@@ -264,7 +265,7 @@ func ruleCatalogCacheDigest(ruleCatalogIDs []string, dynamicRules map[string]rev
 // to that cross-file picture also invalidates the right cache entries. See
 // docs/review-cache.md for the alternative considered (refusing to serve a
 // hit for any file the changed set depends on) and why it was rejected.
-func partitionByCache(c *cache.Cache, diff *types.Diff, model, promptVersion string) (miss []types.DiffFile, statuses []fileCacheStatus) {
+func partitionByCache(c *cache.Cache, diff *types.Diff, model, promptVersion string, filter *redaction.Filter) (miss []types.DiffFile, statuses []fileCacheStatus) {
 	statuses = make([]fileCacheStatus, len(diff.Files))
 	for i, f := range diff.Files {
 		key := cache.Key(f, model, promptVersion)
@@ -272,7 +273,9 @@ func partitionByCache(c *cache.Cache, diff *types.Diff, model, promptVersion str
 		entry, ok, getErr := c.Get(key)
 		if getErr == nil && ok {
 			statuses[i].hit = true
-			statuses[i].issues = entry.Issues
+			// A stored entry is untrusted input (a shared cache scope):
+			// it passes the model-output redaction before any sink.
+			statuses[i].issues = redactCachedIssues(filter, entry.Issues)
 			continue
 		}
 		miss = append(miss, f)

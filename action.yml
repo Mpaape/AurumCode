@@ -24,7 +24,7 @@ inputs:
     required: false
     default: 'false'
   fail-on:
-    description: Optional severity gate: error, warning or info. Use none for no gate.
+    description: 'Optional severity gate: error, warning or info. Use none for no gate.'
     required: false
     default: none
   model:
@@ -36,7 +36,7 @@ inputs:
     required: false
     default: 'false'
   policy_path:
-    description: Optional path, inside the container workspace, to the directory containing a central policy's .aurumcode/config.yml (AUR-518). Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
+    description: Optional absolute path to the directory containing a central policy's .aurumcode/config.yml. It must be outside the reviewed checkout (/github/workspace), which is always refused; copy the policy into $RUNNER_TEMP/_github_home/<dir> in an earlier step and pass /github/home/<dir>. Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
     required: false
     default: ''
 
@@ -78,6 +78,11 @@ runs:
   # to scripts/action-entrypoint.sh's fixed positional argument count is
   # needed. An empty policy_path leaves AURUMCODE_POLICY empty, which is the
   # documented "no policy" case -- today's behavior, unchanged.
+  # The CLI refuses any policy that resolves inside its working directory,
+  # and the entrypoint runs it from /github/workspace (the reviewed
+  # checkout), so the only usable policy location is the other directory
+  # the job author fills before this container starts: /github/home, the
+  # mount of $RUNNER_TEMP/_github_home.
   env:
     AURUMCODE_POLICY: ${{ inputs.policy_path }}
   args:

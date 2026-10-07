@@ -362,58 +362,53 @@ func TestAUR524AC002SkillChangeInvalidatesReuse(t *testing.T) {
 
 // TestAUR524AC002ModelChangeInvalidatesReuse is AC-002's "o modelo"
 // counterpart: switching --modelo between two otherwise identical runs
-// invalidates reuse.
+// invalidates reuse. The provider keeps ONE identity across both rounds
+// (the same alternating endpoint, breach then clean): a fixture file would
+// change the key by its own content and prove nothing about the model name.
 func TestAUR524AC002ModelChangeInvalidatesReuse(t *testing.T) {
-	dir := cleanFixture(t, aur524GateConfig)
-	aur524WriteSkill(t, dir, aur524SkillBody)
-	t.Setenv("LLM_API_KEY", "")
-	t.Setenv("LLM_BASE_URL", "")
-	t.Setenv("LLM_MODEL", "")
-
-	t.Setenv("AURUMCODE_LLM_FIXTURE", aur524WriteFixture(t, aur524BreachResp))
-	var out1, err1 strings.Builder
-	if code := runReview([]string{"--base", "HEAD~1", "--modelo", "model-a"}, &out1, &err1, redaction.NewFilter()); code != exitFindings {
-		t.Fatalf("round1 exit=%d, want exitFindings(%d); stdout=%s stderr=%s", code, exitFindings, out1.String(), err1.String())
+	_, _, calls := aur553BaseEnv(t, aur524BreachResp, aur524CleanResp)
+	if code, out, errOut := aur553RunBase(t, reviewIO{}, "--modelo", "model-a"); code != exitFindings {
+		t.Fatalf("round1 exit=%d, want exitFindings(%d); stdout=%s stderr=%s", code, exitFindings, out, errOut)
 	}
-
-	t.Setenv("AURUMCODE_LLM_FIXTURE", aur524WriteFixture(t, aur524CleanResp))
-	var out2, err2 strings.Builder
-	code2 := runReview([]string{"--base", "HEAD~1", "--modelo", "model-b"}, &out2, &err2, redaction.NewFilter())
-	if code2 != 0 {
-		t.Fatalf("round2 exit=%d, want 0; stdout=%s stderr=%s", code2, out2.String(), err2.String())
+	code, out, errOut := aur553RunBase(t, reviewIO{}, "--modelo", "model-b")
+	if atomic.LoadInt32(calls) != 2 {
+		t.Fatalf("round2 must call the provider again, got %d calls", atomic.LoadInt32(calls))
 	}
-	if strings.Contains(err2.String(), "reaplicado") {
-		t.Fatalf("a different --modelo must never reuse the previous model's verdict:\n%s", err2.String())
-	}
+	aur553RequireFreshPass(t, "model name", code, out, errOut)
 }
 
 // TestAUR524AC002PromptVersionChangeInvalidatesReuse covers AC-002's
 // prompt-version term: swapping the injected digestBuilder (reviewDeps,
 // own seam, AUR-543) for one with different fixed content -- as if the
 // embedded prompt/catalog changed -- between two otherwise identical runs
-// invalidates reuse. Mirrors TestAUR543AC001PromptEditForcesFreshReview's
-// own technique of substituting the seam rather than editing a constant.
+// invalidates reuse. The provider keeps one identity across both rounds
+// (alternating endpoint), so only the prompt digest moves. The substitute
+// builder renders a VALID, different digest (one catalog entry fewer): a
+// builder whose digest fails would disable reuse altogether and prove
+// nothing about the term.
 func TestAUR524AC002PromptVersionChangeInvalidatesReuse(t *testing.T) {
-	dir := cleanFixture(t, aur524GateConfig)
-	aur524WriteSkill(t, dir, aur524SkillBody)
-	t.Setenv("AURUMCODE_LLM_FIXTURE", aur524WriteFixture(t, aur524BreachResp))
-
-	var out1, err1 strings.Builder
-	if code := runReview([]string{"--base", "HEAD~1"}, &out1, &err1, redaction.NewFilter()); code != exitFindings {
-		t.Fatalf("round1 exit=%d, want exitFindings(%d); stdout=%s stderr=%s", code, exitFindings, out1.String(), err1.String())
+	_, _, calls := aur553BaseEnv(t, aur524BreachResp, aur524CleanResp)
+	if code, out, errOut := aur553RunBase(t, reviewIO{}); code != exitFindings {
+		t.Fatalf("round1 exit=%d, want exitFindings(%d); stdout=%s stderr=%s", code, exitFindings, out, errOut)
 	}
-
-	deps := reviewDeps{digestBuilder: prompt.NewPromptBuilderWithoutTemplates}
-	t.Setenv("AURUMCODE_LLM_FIXTURE", aur524WriteFixture(t, aur524CleanResp))
-
-	var out2, err2 strings.Builder
-	code2 := runReviewWith(reviewIO{stdout: &out2, stderr: &err2, filter: redaction.NewFilter(), deps: deps}, []string{"--base", "HEAD~1"})
-	if code2 != 0 {
-		t.Fatalf("round2 exit=%d, want 0: a changed prompt-version digest must never reuse round1's stored breach; stdout=%s stderr=%s", code2, out2.String(), err2.String())
+	editedPrompt := func() *prompt.PromptBuilder {
+		b := prompt.NewPromptBuilder()
+		if err := b.SetRuleCatalog(b.RuleCatalog()[1:]); err != nil {
+			t.Fatal(err)
+		}
+		return b
 	}
-	if strings.Contains(err2.String(), "reaplicado") {
-		t.Fatalf("round2 must not claim a reapplied finding after the prompt digest changed:\n%s", err2.String())
+	original, errOriginal := prompt.NewPromptBuilder().FixedContentDigest()
+	edited, errEdited := editedPrompt().FixedContentDigest()
+	if errOriginal != nil || errEdited != nil || original == edited {
+		t.Fatalf("the substitute prompt must yield a valid, different digest: %q (%v) vs %q (%v)", original, errOriginal, edited, errEdited)
 	}
+	deps := reviewDeps{digestBuilder: editedPrompt}
+	code, out, errOut := aur553RunBase(t, reviewIO{deps: deps})
+	if atomic.LoadInt32(calls) != 2 {
+		t.Fatalf("round2 must call the provider again, got %d calls", atomic.LoadInt32(calls))
+	}
+	aur553RequireFreshPass(t, "prompt-version digest", code, out, errOut)
 }
 
 // TestAUR524AC002CentralPolicyChangeInvalidatesReuse is this card's own
