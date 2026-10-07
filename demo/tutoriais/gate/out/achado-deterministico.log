@@ -10,7 +10,7 @@ aurumcode review: policy gate: security/hardcoded-secret - Hardcoded credentials
 LLM quality review did not run. The following report covers deterministic analysis only.
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0
@@ -43,7 +43,7 @@ aurumcode review: policy gate: security/hardcoded-secret - Hardcoded credentials
 LLM quality review did not run. The following report covers deterministic analysis only.
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0
@@ -73,6 +73,7 @@ aurumcode review: security pass applied 4 of 8 security rules (security/command-
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (quality_skipped)
 LLM quality review did not run. The following report covers deterministic analysis only.
+aurumcode review: policy gate: review inconclusive (quality_skipped)
 ## Code Review Summary
 
 **Verdict:** Comment

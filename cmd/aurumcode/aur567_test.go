@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -233,7 +234,7 @@ func TestAUR567GateAlignedReviewEvent(t *testing.T) {
 		{"COMMENT", true, true, "REQUEST_CHANGES"},
 		{"APPROVE", true, false, "APPROVE"},
 	} {
-		if got := gateAlignedReviewEvent(tc.event, tc.declared, tc.fails); got != tc.want {
+		if got := blocking.FromGate(tc.declared, gateDecision{Fail: tc.fails}).Event(tc.event); got != tc.want {
 			t.Errorf("%+v: got %s", tc, got)
 		}
 	}

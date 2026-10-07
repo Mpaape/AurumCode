@@ -34,7 +34,7 @@ func (b *baseReview) printReport() {
 		result.Metadata["quality_degraded"] = "true"
 		fmt.Fprintln(b.stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
 	}
-	verdict := gateAlignedVerdict(canonicalVerdict(result), b.triageDemoted, b.gateRes)
+	verdict := gateRuleVerdict(b.blockingRule(), gateAlignedVerdict(canonicalVerdict(result), b.triageDemoted, b.gateRes))
 	fmt.Fprint(b.stdout, renderLocalReport(result, b.diff, b.reviewLanguage, verdict))
 	if b.coverageText != "" {
 		fmt.Fprint(b.stdout, "\n"+b.coverageText+"\n")

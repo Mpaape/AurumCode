@@ -408,6 +408,17 @@ declarado vale a regra histórica (erro ou aviso pede mudanças). Com ou sem gat
 uma falha ao gravar `--auditoria`/`--sarif` retém a aprovação: a review formal
 nunca é `APPROVE` antes de o processo sair com 1.
 
+**Texto do parecer e gate (AUR-600).** Com `gate` declarado, o texto do
+parecer segue a mesma regra: "bloqueante" significa exatamente o que o gate
+reprova. O veredito do parecer (e o do relatório local `--base`) é "Alterações
+solicitadas" só quando o gate reprova; com o gate passando e achados abaixo do
+limiar ele é "Comentário", a frase de conclusão diz que o gate passou e que os
+achados são observações não bloqueantes, e cada achado fora do que o gate
+reprovou leva o rótulo "(não bloqueante)". A contagem de bloqueantes é a dos
+achados distintos que o gate reprovou. Uma revisão inconclusiva continua
+"Inconclusivo". Sem `gate` declarado, o texto histórico é mantido (erro ou
+aviso é bloqueante).
+
 Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
 avisos de `rules`/`ignore` já existentes.
@@ -1511,6 +1522,8 @@ modelo sobre check sem resultado, sobre status `aurumcode/*` ou sobre scanner
 (`scanner_<engine>` ou nome de engine) que não rodou nesta revisão é
 descartado antes da publicação, contado em `ci_status_discarded` e nomeado no
 stderr. Check concluído com falha continua no contexto e no parecer.
+Quando todos os itens foram descartados, a seção não some: ela diz em uma
+linha que nada falhou nesta execução e quantos itens foram descartados.
 
 ## PR grande: diff local e revisão em lotes
 
