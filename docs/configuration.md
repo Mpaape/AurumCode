@@ -1190,6 +1190,8 @@ consumidor.
 | `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
+| `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
+| `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
 | `rules.<id>.severity` | Sobrescreve a severidade de uma regra | embutido |
 | `ignore` | Globs de caminhos removidos antes da análise | vazio |
@@ -1389,6 +1391,54 @@ oferecido e os scanners `required: false` rodam antes do modelo, como sem
 `deliberation`. Sob política central, uma seção `deliberation` da política
 decide sozinha (a do repositório é ignorada com aviso); uma política sem a
 seção mantém a do repositório. Tutorial: [Deliberação com ferramentas](tutorials/deliberacao.md).
+
+## PR grande: diff local e revisão em lotes
+
+Duas situações de um PR grande (renomeações, artefatos gerados, limpezas) que
+antes paravam a revisão:
+
+- **A API recusa o diff.** Acima do limite de linhas o GitHub responde `406`
+  com o código `too_large` ao pedido do diff. No `--pr`, só essa recusa (outro
+  `406` continua erro) faz a revisão calcular o diff localmente, do checkout:
+  o mesmo intervalo `base...head` da API (desde a base de merge), com as mesmas
+  janelas de contexto, pelo `git` da imagem, sem diff externo, `textconv` nem
+  `fsmonitor` do repositório. O checkout precisa ser **verificado** antes: o
+  repositório e o head do PR (`origin` e `HEAD` iguais aos do PR) e a árvore
+  sem nada fora do commit. O head é o `HEAD` verificado; a base é
+  `AURUMCODE_BASE_SHA` quando é um commit do checkout, senão o `base.sha` que
+  a API informa. Checkout não verificado, base ausente (clone raso) ou sem
+  `git`: a revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
+  workflow reutilizável já faz o checkout do head com histórico completo. Com
+  a API respondendo o diff, nada muda: o diff local é só o caminho da recusa.
+- **O diff passa do orçamento de um prompt.** Quando o prompt único deixaria
+  um arquivo com patch fora, no todo ou em parte, a revisão é feita em
+  **lotes**: os arquivos são agrupados por diretório (um diretório fica
+  inteiro num lote quando cabe; senão completa o lote arquivo a arquivo), e
+  cada lote é uma revisão completa com o mesmo template, catálogo de regras,
+  skills, política e contexto, com a evidência determinística dos seus
+  arquivos (os ids `E<n>` são os mesmos em todos os lotes). Os achados viram
+  um parecer e um gate só. O stderr diz `reviewed in N batches by directory`
+  e a auditoria (`--auditoria`) ganha o campo `batches` (arquivos e tamanho
+  estimado de cada lote). Um arquivo sem patch (binário) não decide a divisão
+  nem ocupa lote. Um lote que falha (provedor, resposta, limite de
+  deliberação) faz a revisão inteira falhar, como o prompt único.
+
+```yaml
+batches:
+  max_batches: 4           # padrão: 4 lotes
+  max_prompt_tokens: 480000 # padrão: soma estimada dos prompts de todos os lotes
+```
+
+Os padrões vêm de `internal/prompt/templates/limits.yml` (`batch_max_count`,
+`batch_max_prompt_tokens`). Ao atingir um dos tetos, os lotes seguintes não
+são revisados: seus arquivos são listados no aviso de cobertura ("N file(s)
+were left out of the review by the token budget", um por linha) e em
+`coverage.omitted_files` da auditoria, a cobertura fica parcial e a aprovação
+é retida (`partial_coverage`; reprova sob `gate.inconclusive: block`). Um
+valor negativo é erro de configuração; zero usa o padrão. Sob política
+central, uma seção `batches` da política decide sozinha (a do repositório é
+ignorada com aviso). `deliberation.max_cost_tokens` e `--limite` valem por
+lote. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
 
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 
