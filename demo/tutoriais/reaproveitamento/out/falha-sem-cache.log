@@ -30,7 +30,7 @@ aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0

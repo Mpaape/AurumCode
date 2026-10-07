@@ -34,7 +34,7 @@ binary file, skipped: leia-me.txt
 generated file, skipped: schema.pb.txt
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0
