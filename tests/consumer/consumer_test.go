@@ -163,6 +163,32 @@ func TestAUR512EvidenceIdentifiesTheRunAndInfraIsNotMeasured(t *testing.T) {
 	if r := Verify(fork, Evidence{}, false); r.State != NotMeasured {
 		t.Fatalf("manual scenario without evidence is not measured: %+v", r)
 	}
+	// A release needs every non-manual scenario measured and passed.
+	all2 := map[string]Evidence{}
+	for _, sc := range all {
+		if !sc.Manual {
+			all2[sc.ID] = Evidence{Scenario: sc.ID, Measured: false, Limitations: []string{"billing"}}
+		}
+	}
+	if _, ok := Report(all, all2); ok {
+		t.Fatal("zero measured scenarios must not pass the QA")
+	}
+	dupDir := t.TempDir()
+	for _, name := range []string{"a.json", "b.json"} {
+		if err := os.WriteFile(filepath.Join(dupDir, name), []byte(`{"cenario":"comments-inline"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := LoadEvidence(dupDir); err == nil {
+		t.Fatal("two evidence files for the same scenario must be refused")
+	}
+	emptyDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(emptyDir, "x.json"), []byte(`{"medido":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadEvidence(emptyDir); err == nil {
+		t.Fatal("evidence without a scenario must be refused")
+	}
 	if dir := os.Getenv("AURUMCODE_QA_EVIDENCIA"); dir != "" {
 		evidence, err := LoadEvidence(dir)
 		if err != nil {

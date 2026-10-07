@@ -17,4 +17,8 @@ fi
 git config --global --add safe.directory "$target"
 export GOFLAGS=-buildvcs=false
 go build -o /tmp/aurumcode ./cmd/aurumcode
-/tmp/aurumcode changelog --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$target"
+if [ -n "${POLICY_DIR:-}" ]; then
+  /tmp/aurumcode changelog --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$target" --politica "$POLICY_DIR"
+else
+  AURUMCODE_POLICY='' /tmp/aurumcode changelog --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$target"
+fi

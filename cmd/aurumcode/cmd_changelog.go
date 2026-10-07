@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -16,9 +18,10 @@ import (
 
 // changelogFlags are the inputs of one check.
 type changelogFlags struct {
-	base string
-	head string
-	repo string
+	base     string
+	head     string
+	repo     string
+	politica string
 }
 
 func newChangelogFlagSet() (*flag.FlagSet, *changelogFlags) {
@@ -27,6 +30,7 @@ func newChangelogFlagSet() (*flag.FlagSet, *changelogFlags) {
 	fs.StringVar(&f.base, "base", "", "base commit of the pull request (required); the mode and limits come from this commit's .aurumcode/config.yml, never from the proposed change")
 	fs.StringVar(&f.head, "head", "HEAD", "commit with the proposed change")
 	fs.StringVar(&f.repo, "repo", ".", "repository directory")
+	fs.StringVar(&f.politica, "politica", "", "directory containing a central policy's .aurumcode/ (same convention as `review --politica`); a changelog_check declared there decides alone; default: the AURUMCODE_POLICY environment variable, otherwise no policy")
 	return fs, f
 }
 
@@ -80,7 +84,11 @@ func runChangelog(args []string, stdout, stderr io.Writer, differ changelogDiffe
 		fmt.Fprintln(stderr, "aurumcode changelog: indeterminado: diff vazio de origem desconhecida")
 		return 1
 	}
-	verdict, required, err := evaluateChangelog(f.repo, diff, notices)
+	policyDir := strings.TrimSpace(f.politica)
+	if policyDir == "" {
+		policyDir = strings.TrimSpace(os.Getenv("AURUMCODE_POLICY"))
+	}
+	verdict, required, err := evaluateChangelog(f.repo, policyDir, diff, notices, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode changelog: indeterminado: %v\n", err)
 		return 1

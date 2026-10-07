@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"path"
 	"path/filepath"
 	"strings"
@@ -99,11 +100,27 @@ func changelogRequirement(c *config.ChangelogCheckConfig) (changelog.Requirement
 	return req, req.Validate()
 }
 
-// evaluateChangelog returns the verdict and whether the base requires one.
-func evaluateChangelog(repoRoot string, diff *types.Diff, notices []analyzer.DiffNotice) (changelog.Verdict, bool, error) {
+// evaluateChangelog returns the verdict and whether the base (or the
+// central policy, which decides alone when it declares changelog_check)
+// requires one.
+func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []analyzer.DiffNotice, stderr io.Writer) (changelog.Verdict, bool, error) {
 	cfg, err := baseConfig(repoRoot, diff, notices)
 	if err != nil {
 		return changelog.Verdict{}, false, err
+	}
+	if policyDir != "" {
+		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, repoRoot); err != nil {
+			return changelog.Verdict{}, false, err
+		}
+		central, err := config.LoadCentralPolicy(policyDir)
+		if err != nil {
+			return changelog.Verdict{}, false, err
+		}
+		var warnings []config.ProviderWarning
+		cfg, warnings = config.ApplyCentralPolicy(cfg, central)
+		for _, w := range warnings {
+			fmt.Fprintf(stderr, "aurumcode changelog: aviso (%s): %s\n", w.Provider, w.Reason)
+		}
 	}
 	if !cfg.ChangelogCheck.Required() {
 		return changelog.Verdict{}, false, nil
