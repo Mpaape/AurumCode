@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -19,6 +20,7 @@ import (
 const aur599CIContext = `[{"name":"Build and test in OCI","state":"IN_PROGRESS","workflow":"CI","link":"https://example.test/1"},
 {"name":"review / Review pull request","state":"IN_PROGRESS","workflow":"AurumCode self review","link":"https://example.test/2"},
 {"name":"Lint","state":"FAILURE","workflow":"CI","link":"https://example.test/3"},
+{"name":"semgrep","state":"FAILURE","workflow":"CI","link":"https://example.test/4"},
 {"name":"aurumcode/policy-gate","state":"FAILURE","workflow":"","link":""}]`
 
 // aur599Response is a model answer that invents analysis for the running
@@ -28,7 +30,8 @@ const aur599Response = `{"summary":"Mudança pequena.","issues":[],"ci_analysis"
 {"check":"scanner_semgrep","status":"inconclusive","cause":"CAUSA-SEMGREP","evidence":"sast_invalid_output","fix":"x","next_verification":"y","confidence":"low"},
 {"check":"Build and test in OCI","status":"in_progress","cause":"CAUSA-BUILD","evidence":"IN_PROGRESS","fix":"x","next_verification":"y","confidence":"low"},
 {"check":"aurumcode/policy-gate","status":"failure","cause":"CAUSA-GATE","evidence":"rodada anterior","fix":"x","next_verification":"y","confidence":"low"},
-{"check":"Lint","status":"failure","cause":"CAUSA-LINT","evidence":"contexto de CI: FAILURE","fix":"x","next_verification":"y","confidence":"medium"}]}`
+{"check":"Lint","status":"failure","cause":"CAUSA-LINT","evidence":"contexto de CI: FAILURE","fix":"x","next_verification":"y","confidence":"medium"},
+{"check":"semgrep","status":"failure","cause":"CAUSA-JOB-SEMGREP","evidence":"contexto de CI: FAILURE","fix":"x","next_verification":"y","confidence":"medium"}]}`
 
 // aur599Review runs a --pr review against a fake GitHub with the CI context
 // above and returns the published body, the prompt and stderr.
@@ -110,7 +113,8 @@ func TestAUR599AC002ScannerNotRunIsNotPublished(t *testing.T) {
 	}
 }
 
-// AC-003: the concluded failure stays in the prompt and in the review.
+// AC-003: the concluded failures stay in the prompt and in the review, even
+// a CI job named like a scanner engine this review did not run.
 func TestAUR599AC003ConcludedFailureIsPublished(t *testing.T) {
 	body, sent, _ := aur599Review(t)
 	if !strings.Contains(sent, `"name":"Lint","state":"FAILURE"`) {
@@ -118,5 +122,11 @@ func TestAUR599AC003ConcludedFailureIsPublished(t *testing.T) {
 	}
 	if !strings.Contains(body, "**Lint — failure**") || !strings.Contains(body, "CAUSA-LINT") {
 		t.Fatalf("the concluded failure is missing from the review:\n%s", body)
+	}
+	if _, ok := scanner.Lookup("semgrep"); !ok {
+		t.Fatal("the semgrep engine is not registered: the CI job below would not share an engine name")
+	}
+	if !strings.Contains(body, "**semgrep — failure**") || !strings.Contains(body, "CAUSA-JOB-SEMGREP") {
+		t.Fatalf("a concluded CI job named like an engine was hidden:\n%s", body)
 	}
 }
