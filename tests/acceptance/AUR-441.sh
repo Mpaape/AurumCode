@@ -96,7 +96,7 @@ cleanup_root() {
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 export GOMAXPROCS=1
 
@@ -136,7 +136,9 @@ stage_source() {
 # write_fixture plants this card's deterministic model response: exactly
 # one finding on config/demo-tokens.txt, the file commit 3 of git-demo adds
 # (the same planted problem tests/acceptance/AUR-430.sh's own fixture
-# uses).
+# uses). It carries evidence, impact and verification because the review's
+# precision contract (internal/review/scope.go) discards a finding without
+# them before it is published or cached.
 write_fixture() {
   local dir="$1"
   mkdir -p "$dir"
@@ -149,7 +151,10 @@ write_fixture() {
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
       "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
-      "suggestion": "Remove the secret from version control and load it from the environment instead."
+      "suggestion": "Remove the secret from version control and load it from the environment instead.",
+      "evidence": "config/demo-tokens.txt line 4 assigns DEMO_API_TOKEN a literal credential-shaped value.",
+      "impact": "Anyone with read access to the repository history can reuse the credential.",
+      "verification": "Search the added lines for DEMO_API_TOKEN and confirm the value is read from the environment."
     }
   ],
   "summary": "The change adds config/demo-tokens.txt, which commits plaintext credential-shaped values."

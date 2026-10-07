@@ -40,14 +40,16 @@ export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
 export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir" GOMAXPROCS=1
 export XDG_CACHE_HOME="$run_dir/xdg" HOME="$run_dir/home"
 
-# Copy the module root plus the package under test into a writable staging
+# Copy the module root plus cmd, internal and pkg into a writable staging
 # tree, so the mutation scenarios can edit source without ever touching the
 # repository. Only the declared inputs are copied.
-root="$run_dir/root"; mkdir -p "$root/internal"
+root="$run_dir/root"; mkdir -p "$root"
 for f in go.mod go.sum; do
   cp "$repo_root/$f" "$root/$f"
 done
-cp -R "$repo_root/internal/changelog" "$root/internal/changelog"
+# cmd, internal and pkg go whole: an enumerated package list rots as soon as
+# the package under test gains an import (AUR-589).
+for d in cmd internal pkg; do cp -R "$repo_root/$d" "$root/$d"; done
 chmod -R u+w -- "$root"
 
 # gotest SELECTOR -> 0 when the named test PASSES, 1 when it FAILS, 79 when the

@@ -124,6 +124,12 @@ check_workflow_contract() {
   # code. Because `working-directory` now lets a step start inside the tree,
   # also reject a run line that executes a relative path or sources a file.
   without_mount="$(grep -Ev '^[[:space:]]*(#.*|working-directory: \.aurumcode-target|path: \.aurumcode-target/\*\*/\*\.sigstore\.json)[[:space:]]*$' <<<"$without_mount" || true)"
+  # AUR-589: AUR-593 added a module prefetch for the lint engine that only
+  # tests whether the tree has a go.mod (then runs `go mod download` from the
+  # read-only mount, inside the review image, with GOTOOLCHAIN=local). Drop
+  # only that exact anchored test line; the mount line it uses is already
+  # dropped above, and the run-line patterns below still apply to the rest.
+  without_mount="$(grep -Ev '^[[:space:]]*if \[ ! -f \.aurumcode-target/go\.mod \]; then[[:space:]]*$' <<<"$without_mount" || true)"
   if grep -Eq '(^|[[:space:]])(\./[A-Za-z_]|(ba)?sh [^-"$]|source )|run:[[:space:]]*\.?/' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
   if grep -Fq -- '.aurumcode-target' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
   if grep -Eq 'npm (ci|install)|go (build|test)|make ' <<<"$without_mount"; then echo "runs-pr-code"; bad=1; fi
