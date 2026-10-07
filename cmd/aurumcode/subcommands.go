@@ -82,6 +82,7 @@ func subcommands() []subcommand {
 			},
 		},
 		mcpSubcommand(),
+		changelogSubcommand(),
 	}
 }
 

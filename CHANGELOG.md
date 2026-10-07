@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Changelog obrigatório: `aurumcode changelog --base <sha>` reprova a PR sem
+  entrada útil nesta seção; o repositório liga com `changelog_check.mode: required`.
+
 ## Reconstrução focada em code review
 
 - Um CLI Go para revisão local e de pull requests.

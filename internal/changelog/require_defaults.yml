@@ -1,0 +1,28 @@
+# Padroes do changelog obrigatorio (AUR-509). O repositorio sobrescreve cada
+# valor em changelog_check (.aurumcode/config.yml); marcadores de log de
+# agente declarados la se somam a estes, nunca os substituem.
+file: CHANGELOG.md
+section: Unreleased
+# Entrada concisa: quantas linhas novas cabem na secao e o tamanho de cada uma.
+max_entry_lines: 12
+max_line_length: 240
+# Consolidacao de uma release: notas de uma ou duas paginas.
+max_release_lines: 120
+# Uma linha informativa tem ao menos estas palavras (titulo nao conta).
+min_words: 3
+# Texto que denuncia log de agente ou de ferramenta colado no changelog.
+agent_log_markers:
+  - "--- PASS"
+  - "--- FAIL"
+  - "=== RUN"
+  - "Co-Authored-By"
+  - "Generated with"
+  - "Generated-by"
+  - "/pass"
+  - "/rejected"
+  - "exit code"
+  - "exit status"
+  - "```"
+  - "$ go "
+  - "tool_use"
+  - "tool call"
