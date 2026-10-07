@@ -1841,10 +1841,16 @@ dependencies:
   ou versão que não aparece nas linhas alteradas do lado certo, é descartado e
   o descarte é declarado no parecer. Arquivo que não está no diff nunca é
   manifesto.
-- **Conferência com o scanner.** Quando o `osv-scanner` (na imagem do
-  AurumCode) reconhece o arquivo no checkout revisado, a extração dele confere
-  a do modelo; cada divergência é declarada. Arquivo que o scanner não conhece
-  fica só com a leitura do modelo.
+- **Conferência com o scanner.** O `osv-scanner` (na imagem do AurumCode)
+  roda uma vez sobre o checkout revisado e sua extração confere a do modelo
+  em todo arquivo alterado que ele reconhece: arquivo que o scanner reconhece
+  e o modelo não apontou é lido do mesmo jeito e a omissão é declarada;
+  versão nova que o scanner não lista é divergência declarada; pacote que o
+  scanner extrai das linhas adicionadas e o modelo omitiu torna a revisão
+  inconclusiva (`dependencies_extraction_gap`). Arquivo que o scanner não
+  conhece fica só com a leitura do modelo. Scanner ausente ou com saída
+  ilegível é inconclusivo (`dependencies_scanner_unavailable`,
+  `dependencies_scanner_failed`).
 - **Os dois lados na base OSV.** Cada versão anterior e nova é consultada na
   API OSV. Cada advisory sai com identificador (OSV/GHSA e aliases CVE),
   pacote, versão, severidade da fonte, versão corrigida quando existe e link,
@@ -1864,12 +1870,13 @@ dependencies:
   inconclusiva com o motivo; nunca são lidos como "sem vulnerabilidade". Com a
   seção declarada, o padrão de `gate.inconclusive` é `block`.
 - **O gate.** `fail_on` lista severidades da fonte (`critical`, `high`,
-  `medium`, `low`; `moderate` do GitHub é `medium`): advisory introduzido com
-  severidade listada reprova o check; com severidade fora da lista, sai como
-  alerta. Severidade que a fonte não informa reprova sempre que `fail_on`
-  existe. Pré-existente segue `preexisting`: `warn` (padrão) passa com alerta,
-  `block` reprova (o de severidade listada, ou qualquer um quando `fail_on`
-  está vazio). Sem `fail_on` (e sem
+  `medium`, `low`; `moderate` do GitHub é `medium`) e, como no `gate.fail_on`,
+  o menor nível listado é o limiar: advisory introduzido com severidade igual
+  ou acima dele reprova o check; abaixo, sai como alerta. Aqui `critical` fica
+  acima de `high` (`fail_on: [critical]` não reprova um `high`). Severidade que
+  a fonte não informa reprova sempre que `fail_on` existe. Pré-existente segue
+  `preexisting`: `warn` (padrão) passa com alerta, `block` reprova (o que
+  atinge o limiar, ou qualquer um quando `fail_on` está vazio). Sem `fail_on` (e sem
   `preexisting: block`), os achados são só informativos. A severidade é a da
   base no momento da execução: advisory reclassificado na fonte muda o
   resultado da execução seguinte sem mudar o yml; nada é guardado entre

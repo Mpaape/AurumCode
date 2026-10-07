@@ -19,6 +19,13 @@ func TestDependenciesSectionParse(t *testing.T) {
 	if !d.Fails("CRITICAL") || !d.Fails("high") || d.Fails("moderate") || !d.Fails("") {
 		t.Fatalf("fail_on [critical, high] read wrong: %+v", d.FailOn)
 	}
+	high := &DependenciesConfig{FailOn: []string{"high"}}
+	if !high.Fails("critical") || high.Fails("medium") {
+		t.Fatal("fail_on [high] must fail a critical advisory and alert a medium one")
+	}
+	if (&DependenciesConfig{FailOn: []string{"critical"}}).Fails("high") {
+		t.Fatal("fail_on [critical] must not fail a high advisory")
+	}
 	if mode, _ := cfg.InconclusiveMode(); mode != InconclusiveBlock {
 		t.Fatalf("declared section inconclusive mode = %q, want block", mode)
 	}
