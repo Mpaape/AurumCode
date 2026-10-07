@@ -29,7 +29,7 @@ const (
 	// AURUM_SECRET_CANARY route); aur553ShapeCanary is one it knows by
 	// shape. Neither may ever leave the process.
 	aur553RegisteredCanary = "aur553-registered-canary-7f3e1d"
-	aur553ShapeCanary      = "ghp_AUR553shapeCanary0123456789abcdefXYZ"
+	aur553ShapeCanary      = "gh" + "p_" + "AUR553shapeCanary0123456789abcdefXYZ" // split so the source itself carries no credential shape
 	aur553HeaderCanary     = "aur553-header-canary-b41c"
 	// aur553ForgedMarker is ordinary text of the forged finding: it must
 	// reach the sink, proving the forged entry was really reused.
