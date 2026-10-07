@@ -1825,6 +1825,7 @@ as dependências que a mudança altera. Sem a seção, nada muda.
 dependencies:
   fail_on: [critical, high]        # severidades que reprovam o introduzido
   preexisting: warn                # ou block
+  licenses_denied: [AGPL-3.0-only, SSPL-1.0]  # identificadores SPDX proibidos
   osv_url: https://api.osv.dev     # padrão; um espelho da API OSV
   scanner: osv-scanner             # padrão; o scanner de conferência
   max_source_age_hours: 24         # opcional: idade máxima da resposta da base
@@ -1914,6 +1915,20 @@ exceptions:
   de typosquat (o advisory `MAL-` da OSV continua valendo); registro
   inalcançável torna a revisão inconclusiva
   (`dependencies_metadata_unreachable`).
+- **Licença proibida.** Com `licenses_denied`, a licença de cada pacote
+  novo ou atualizado vem do deps.dev no momento da execução e é avaliada
+  pela expressão SPDX, nunca por substring: `MIT OR AGPL-3.0-only` passa
+  (basta um ramo permitido), `MIT AND AGPL-3.0-only` reprova, `WITH` vale
+  pela licença que modifica, e `LGPL-3.0-only` não casa com
+  `GPL-3.0-only`. Cada expressão registrada precisa permitir o pacote.
+  Licença proibida reprova o check com pacote, versão e licença, em qualquer
+  `fail_on`; exceção por pacote usa `rule: license/<pacote>` e `path:` o
+  manifesto, com dono e validade. Licença sem identificador SPDX avaliável
+  (`non-standard`, `LicenseRef-*`, `NOASSERTION`), pacote só com faixa ou
+  registro inalcançável tornam a revisão inconclusiva
+  (`dependencies_license_unknown`); a imagem não traz leitor do arquivo de
+  licença, então a classificação do texto pelo modelo só entra quando um
+  leitor é ligado. Sem `licenses_denied`, nenhuma licença é consultada.
 - A seção é governada como `analysis_data`: a política central que a declara
   decide sozinha; o repositório só vale quando a política não a menciona.
 
