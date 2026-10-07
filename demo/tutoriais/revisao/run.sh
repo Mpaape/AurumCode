@@ -7,8 +7,6 @@ set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
-# shellcheck source=../_lib/pr.sh
-. "$HERE/../_lib/pr.sh"
 
 CASOS=(primeira-revisao sem-provedor com-provedor fix pr-workflow falha-nao-revisado modelo-pondera)
 
@@ -111,6 +109,9 @@ caso_modelo_pondera() {
 # gera_pr_grande DIR: uma mudanca maior que um prompt (tres diretorios com dois
 # arquivos grandes cada), gerada aqui para nao versionar centenas de KB de fixture.
 gera_pr_grande() {
+  # carregado so aqui: o --check (e as copias que o aceite AUR-561 monta) so precisa de tutorial.sh
+  # shellcheck source=../_lib/pr.sh
+  . "$HERE/../_lib/pr.sh"
   local dir="$1" d f i
   for d in api banco web; do
     mkdir -p "$dir/$d"
