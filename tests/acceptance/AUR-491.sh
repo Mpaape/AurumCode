@@ -172,7 +172,9 @@ check_ac001() {
     fail "getting-started lacks LLM_API_KEY"
   grep -qF -e 'LLM_BASE_URL' "$docroot/docs/getting-started.md" ||
     fail "getting-started lacks LLM_BASE_URL"
-  grep -qiE -e 'hist[oó]rica' "$docroot/docs/getting-started.md" ||
+  # Alternation, not a bracket: under LC_ALL=C (musl or glibc) a bracket holds
+  # one byte and cannot match the two-byte UTF-8 "ó".
+  grep -qiE -e 'hist(o|ó)rica' "$docroot/docs/getting-started.md" ||
     fail "getting-started does not distinguish historical tags"
   check_config_path
 }
@@ -225,7 +227,7 @@ check_ac004() {
   grep -qF -e 'aurumcode review' "$docroot/README.md" || fail "README does not show the review command"
   grep -qF -e 'aurumcode fix' "$docroot/README.md" || fail "README does not show the fix command"
   grep -qiE -e 'fork' "$docroot/README.md" || fail "README does not state the fork limitation"
-  grep -qiE -e 'mem[oó]ria|memory' "$docroot/README.md" || fail "README does not cover memory"
+  grep -qiE -e 'mem(o|ó)ria|memory' "$docroot/README.md" || fail "README does not cover memory"
   grep -qE -e '(^|[^A-Za-z])CI([^A-Za-z]|$)' "$docroot/README.md" || fail "README does not cover CI"
   grep -qiE -e 'custo|--limite' "$docroot/README.md" || fail "README does not cover cost"
   grep -qiE -e 'OpenAI' "$docroot/README.md" || fail "README does not cover provider neutrality"

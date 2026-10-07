@@ -30,6 +30,8 @@ func aur441Root(t *testing.T) string {
 // (AUR-430's own fixture): exactly one finding on config/demo-tokens.txt.
 // A local copy lets this program plant its own, differently-worded second
 // fixture (aur441OtherFixture) without depending on that file's exact text.
+// Evidence, impact and verification are present because the review's
+// precision contract discards a finding without them.
 const aur441KnownProblemFixture = `{
   "issues": [
     {
@@ -38,7 +40,10 @@ const aur441KnownProblemFixture = `{
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
       "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
-      "suggestion": "Remove the secret from version control and load it from the environment instead."
+      "suggestion": "Remove the secret from version control and load it from the environment instead.",
+      "evidence": "config/demo-tokens.txt line 4 assigns DEMO_API_TOKEN a literal credential-shaped value.",
+      "impact": "Anyone with read access to the repository history can reuse the credential.",
+      "verification": "Search the added lines for DEMO_API_TOKEN and confirm the value is read from the environment."
     }
   ],
   "summary": "The change adds config/demo-tokens.txt, which commits plaintext credential-shaped values."
@@ -192,7 +197,9 @@ func IntegrationAUR441(t *testing.T) {
 	if third.captureSections != 2 {
 		t.Fatalf("a different fixture must be treated as a different model and force a fresh call, got %d captured sections", third.captureSections)
 	}
-	if strings.Contains(third.stdout, "config/demo-tokens.txt") {
+	// The finding line ("path:line:"), not the bare path: the summary's file
+	// diagram names every touched file even when nothing was found.
+	if strings.Contains(third.stdout, "config/demo-tokens.txt:4:") {
 		t.Fatalf("the different fixture's own (empty) findings must be what prints, not the first fixture's cached finding:\n%s", third.stdout)
 	}
 	if third.stdout == first.stdout {

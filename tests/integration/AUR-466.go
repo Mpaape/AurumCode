@@ -178,7 +178,9 @@ func IntegrationAUR466(t *testing.T) {
 	if !strings.Contains(pyOut, "src/db.py:8: [error]") || !strings.Contains(pyOut, "rule security/sql-injection") {
 		t.Fatalf("expected the pre-existing Python sql-injection finding to survive unchanged, got:\n%s", pyOut)
 	}
-	if strings.Count(pyOut, "[error]") != 1 {
+	// Counted by rule, not by "[error]": the deterministic analysis now
+	// reports its own analysis/sql-injection line for the same change.
+	if strings.Count(pyOut, "rule security/sql-injection") != 1 {
 		t.Fatalf("expected exactly one finding on the Python vuln fixture, got:\n%s", pyOut)
 	}
 
