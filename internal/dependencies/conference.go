@@ -184,3 +184,5 @@ func sortedKeys(m map[string][]Package) []string {
 }
 
 func isStale(err error) bool { return errors.Is(err, ErrStale) }
+
+func isMissing(err error) bool { return errors.Is(err, ErrScannerMissing) }

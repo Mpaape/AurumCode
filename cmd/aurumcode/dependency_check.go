@@ -28,9 +28,7 @@ type dependencySources struct {
 func (s *reviewState) dependencySourcesFor() dependencySources {
 	d := s.deps.dependencies
 	if d.source == nil {
-		d.source = func(cfg *config.DependenciesConfig, now func() time.Time) dependencies.Source {
-			return dependencies.OSV{BaseURL: cfg.EffectiveOSVURL(), Client: &http.Client{Timeout: 60 * time.Second}, MaxAge: sourceMaxAge(cfg), Now: now}
-		}
+		d.source = productionDependencySource
 	}
 	if d.extractor == nil {
 		d.extractor = func(cfg *config.DependenciesConfig) dependencies.Extractor {
@@ -45,8 +43,13 @@ func (s *reviewState) dependencySourcesFor() dependencySources {
 	return d
 }
 
+// productionDependencySource is the configured OSV API.
+func productionDependencySource(cfg *config.DependenciesConfig, now func() time.Time) dependencies.Source {
+	return dependencies.OSV{BaseURL: cfg.EffectiveOSVURL(), Client: &http.Client{Timeout: 60 * time.Second}, MaxAge: sourceMaxAge(cfg), Now: now}
+}
+
 func sourceMaxAge(cfg *config.DependenciesConfig) time.Duration {
-	if cfg.MaxSourceAgeHours == nil {
+	if cfg == nil || cfg.MaxSourceAgeHours == nil {
 		return 0
 	}
 	return time.Duration(*cfg.MaxSourceAgeHours) * time.Hour
