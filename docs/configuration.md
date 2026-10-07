@@ -472,7 +472,11 @@ nas fontes concluídas; inconclusivo: <motivos>`, com os mesmos motivos do gate
 (AUR-572). No `--pr`, o status `aurumcode/policy-gate`
 é publicado junto do `aurumcode/review` que `--check` já publica, só
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
-perfil selecionado aprende o mesmo catálogo dinâmico.
+perfil selecionado aprende o mesmo catálogo dinâmico. A fusão dos perfis
+preserva lado (`LEFT`/`RIGHT`), impacto, evidência, correção sugerida e
+verificação de cada achado; um achado que dois perfis repetem sai uma vez,
+atribuído como `[perfil a; também: b]`, e a evidência de cada perfil é mantida.
+O terminal (`--base`) mostra os mesmos campos que o parecer do PR.
 
 ## SAST multilinguagem com Semgrep (AUR-548)
 
@@ -1285,6 +1289,7 @@ consumidor.
 | `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
+| `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
@@ -1528,6 +1533,25 @@ descartado antes da publicação, contado em `ci_status_discarded` e nomeado no
 stderr. Check concluído com falha continua no contexto e no parecer.
 Quando todos os itens foram descartados, a seção não some: ela diz em uma
 linha que nada falhou nesta execução e quantos itens foram descartados.
+
+Cada item que fica separa observação de inferência:
+
+- **Check concluído do contexto.** O estado e o link publicados são os do
+  contexto, nunca o `status` escrito pelo modelo, com o rótulo "verificado no
+  contexto de CI". Check que passou não ganha causa nem correção. Check que
+  falhou sem log lido diz "Causa: desconhecida", mostra a causa do modelo só
+  como "Hipótese do modelo (não verificada)", não publica correção e orienta a
+  abrir o log do check no link.
+- **Trecho de log opcional.** Cada check do arquivo de contexto aceita um
+  campo `excerpt` com um trecho já sanitizado do log (o `gh pr checks` não o
+  produz e a revisão nunca baixa logs). Quando a `evidence` do modelo cita
+  esse trecho (uma linha inteira dele, ou ao menos 20 caracteres que não são
+  espaço; uma palavra solta como `error` não basta), o parecer publica "Observado no log do CI" e, em linhas
+  separadas, "Causa inferida pelo modelo" e "Correção inferida pelo modelo".
+- **Sem check correspondente.** Sem contexto de CI, ou com um nome que o
+  contexto não conhece como check concluído, o item aparece como "estado não
+  verificado (inferência do modelo)": o `status` do modelo nunca vira estado
+  de CI aprovado ou reprovado.
 
 ## PR grande: diff local e revisão em lotes
 

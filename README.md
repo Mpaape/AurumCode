@@ -73,8 +73,10 @@ limitação real. O guia interativo reúne exemplos e saídas observadas.
   contexto para o modelo; não alteram permissões, redação de segredos nem
   opções do programa.
 
-Limitações atuais: não há navegação autônoma, busca web, execução automática de
-testes em sandbox nem deduplicação garantida. PRs de forks não recebem os
+Limitações atuais: não há navegação autônoma, busca web nem execução automática
+de testes em sandbox. Entre rodadas do mesmo PR, um achado já comentado não é
+comentado de novo (identidade por regra, caminho e código da linha); um achado
+que o modelo descreve de outro jeito em outra regra é outro achado. PRs de forks não recebem os
 secrets do repositório por padrão. No CI, o histórico de discussão do PR exige
 permissão de leitura e o parecer é publicado com o `github.token`. O veredito
 semântico depende do modelo; veja [qualidade e limitações](docs/review-quality.md).

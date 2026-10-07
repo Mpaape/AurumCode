@@ -96,6 +96,7 @@ func (p profileProvider) Name() string {
 func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.Tracker, profiles []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext, dynamicRules map[string]review.Rule, ruleCatalogIDs []string) (*types.ReviewResult, error) {
 	merged := &types.ReviewResult{}
 	var findings []reviewprofile.Finding
+	var originals []types.ReviewIssue
 	for _, p := range profiles {
 		orchestrator := llm.NewOrchestrator(profileProvider{base: provider, profile: p}, nil, tracker)
 		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
@@ -108,14 +109,8 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 			return nil, err
 		}
 		for _, issue := range res.Issues {
-			findings = append(findings, reviewprofile.Finding{
-				Profile:  p.Name,
-				RuleID:   issue.RuleID,
-				File:     issue.File,
-				Line:     issue.Line,
-				Message:  issue.Message,
-				Severity: issue.Severity,
-			})
+			findings = append(findings, profileFinding(p.Name, len(originals), issue))
+			originals = append(originals, issue)
 		}
 		if merged.Verdict == "" {
 			merged.Verdict = res.Verdict
@@ -158,7 +153,7 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 		// merely because the first profile in the list happened to fit.
 		merged.Metadata = mergeWorstCaseCoverage(merged.Metadata, res.Metadata)
 	}
-	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings))
+	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings), originals, reviewContext.Language)
 	return merged, nil
 }
 
@@ -202,29 +197,4 @@ func mergeWorstCaseCoverage(dst, src map[string]string) map[string]string {
 		}
 	}
 	return dst
-}
-
-// attributedIssues converts merged, profile-attributed findings back into the
-// report's ReviewIssue shape. The source profile is folded into the message so
-// the published report names it, without changing the severity the finding
-// already carried.
-func attributedIssues(findings []reviewprofile.Finding) []types.ReviewIssue {
-	if len(findings) == 0 {
-		return nil
-	}
-	out := make([]types.ReviewIssue, 0, len(findings))
-	for _, f := range findings {
-		message := f.Message
-		if f.Profile != "" && !strings.Contains(message, "[perfil ") {
-			message = fmt.Sprintf("%s [perfil %s]", message, f.Profile)
-		}
-		out = append(out, types.ReviewIssue{
-			File:     f.File,
-			Line:     f.Line,
-			Severity: f.Severity,
-			RuleID:   f.RuleID,
-			Message:  message,
-		})
-	}
-	return out
 }

@@ -33,6 +33,24 @@ type Finding struct {
 	Message string
 	// Severity is carried verbatim; a profile never rewrites it.
 	Severity string
+	// Side is the diff side of Line (LEFT for a removed line); empty is
+	// RIGHT. It is part of the identity: the same line number on the two
+	// sides is two different lines.
+	Side string
+	// Impact, Evidence, Suggestion and Verification are the finding's
+	// actionable detail. They never decide identity; the merge keeps them
+	// (see mergeDuplicate) so a combined run publishes what a single
+	// profile would have.
+	Impact       string
+	Evidence     string
+	Suggestion   string
+	Verification string
+	// Ref is the caller's opaque handle to its own record of the finding;
+	// the merge carries the kept occurrence's Ref verbatim.
+	Ref int
+	// AlsoFrom names, in declaration order, every later profile that
+	// reported the same finding; Profile stays the first one.
+	AlsoFrom []string
 }
 
 // identity is the content key a duplicate shares. It deliberately excludes
@@ -43,6 +61,7 @@ func (f Finding) identity() string {
 		f.File,
 		fmt.Sprintf("%d", f.Line),
 		f.Message,
+		sideOf(f.Side),
 	}, "\x00")
 }
 
@@ -55,25 +74,30 @@ func (f Finding) orderKey() string {
 		fmt.Sprintf("%09d", f.Line),
 		strings.ToLower(f.RuleID),
 		f.Message,
+		sideOf(f.Side),
 	}, "\x00")
 }
 
 // MergeFindings merges findings from every profile into one deterministic
 // list: duplicates collapse to the first occurrence (the earliest profile in
-// declaration order), every finding keeps its source Profile, and the result
-// is sorted by a stable content key. The input slice is not modified.
+// declaration order), every finding keeps its source Profile, a duplicate's
+// profile is recorded in AlsoFrom and its detail fills what the kept
+// occurrence lacked (mergeDuplicate), and the result is sorted by a stable
+// content key. The input slice is not modified.
 func MergeFindings(in []Finding) []Finding {
 	if len(in) == 0 {
 		return nil
 	}
-	seen := map[string]bool{}
+	seen := map[string]int{}
 	out := make([]Finding, 0, len(in))
 	for _, f := range in {
 		key := f.identity()
-		if seen[key] {
+		if at, dup := seen[key]; dup {
+			out[at] = mergeDuplicate(out[at], f)
 			continue
 		}
-		seen[key] = true
+		seen[key] = len(out)
+		f.AlsoFrom = append([]string(nil), f.AlsoFrom...)
 		out = append(out, f)
 	}
 	sort.SliceStable(out, func(i, j int) bool {

@@ -103,6 +103,10 @@ type ReviewConfig struct {
 	// --fail-on, redaction, the cost cap or the deterministic security pass.
 	// Absent/empty keeps the zero-config behavior byte for byte.
 	Profiles []string `yaml:"profiles"`
+	// Presentation holds the repository's explicit presentation
+	// preferences (presentation.go). Absent keeps every finding published
+	// one by one.
+	Presentation ReviewPresentationConfig `yaml:"presentation"`
 }
 
 // ReviewProfiles returns the configured multi-agent profile selection,
