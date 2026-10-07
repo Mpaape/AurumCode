@@ -1,5 +1,7 @@
 package deliberation
 
+import "github.com/Mpaape/AurumCode/internal/llm"
+
 // Call statuses recorded in the transcript.
 const (
 	StatusExecuted = "executed"
@@ -22,8 +24,16 @@ type Transcript struct {
 	Rounds       int      `json:"rounds"`
 	TokensIn     int      `json:"tokens_in"`
 	TokensOut    int      `json:"tokens_out"`
-	Calls        []Call   `json:"calls"`
-	Outcome      string   `json:"outcome"`
+	// BaseTokens is the base prompt as the provider measured it: the input
+	// tokens of the first round, before any tool result existed. The prompt
+	// budget already bounds it.
+	BaseTokens int `json:"base_tokens"`
+	// CostTokens is what the deliberation added beyond the base prompt, the
+	// figure max_cost_tokens bounds: every round's output plus each round's
+	// input above BaseTokens (the tool calls and results carried forward).
+	CostTokens int    `json:"cost_tokens"`
+	Calls      []Call `json:"calls"`
+	Outcome    string `json:"outcome"`
 	// Limit names the exceeded limit, empty when none was.
 	Limit string `json:"limit,omitempty"`
 	// Undecided says why the model never decided about the tools it was
@@ -79,4 +89,19 @@ func (t *Transcript) decide() {
 			t.NotRequested = append(t.NotRequested, name)
 		}
 	}
+}
+
+// count adds one round's provider-reported tokens. The first round's input
+// is the base prompt; a later round's input counts only what it carries
+// beyond it, so a large base prompt alone never exhausts the ceiling.
+func (t *Transcript) count(resp llm.ToolResponse) {
+	t.Rounds++
+	t.TokensIn += resp.TokensIn
+	t.TokensOut += resp.TokensOut
+	if t.Rounds == 1 {
+		t.BaseTokens = resp.TokensIn
+	} else if grown := resp.TokensIn - t.BaseTokens; grown > 0 {
+		t.CostTokens += grown
+	}
+	t.CostTokens += resp.TokensOut
 }

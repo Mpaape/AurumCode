@@ -47,6 +47,10 @@ type Outcome struct {
 	Engine   Engine
 	Findings []Finding
 	Reason   string
+	// Detail is the engine's own account of a failure, one bounded line
+	// (Summarize), so an inconclusive reason can be diagnosed; empty when
+	// the scan is trustworthy. The caller redacts it before publishing.
+	Detail string
 	// Version is the report's engine identity (binary version and rule
 	// base), for the caller's result digest.
 	Version string
@@ -70,7 +74,7 @@ func (x Executor) Scan(ctx context.Context, e Engine, req Request) Outcome {
 	defer cancel()
 	report, err := e.Scanner.Run(scanCtx, req)
 	if reason := FailureReason(e, report, err); reason != "" {
-		return Outcome{Engine: e, Reason: reason}
+		return Outcome{Engine: e, Reason: reason, Detail: Summarize(err)}
 	}
 	return Outcome{Engine: e, Findings: report.Findings, Version: report.Version}
 }

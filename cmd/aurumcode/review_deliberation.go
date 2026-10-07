@@ -104,7 +104,7 @@ func (s *reviewState) scanOnRequest(entry config.ScannerConfig) reviewtools.Scan
 
 // scanOutcome is the scan as the tool reports it to the model.
 func scanOutcome(g gateScan) scanner.Outcome {
-	out := scanner.Outcome{Engine: g.Engine, Reason: g.Reason}
+	out := scanner.Outcome{Engine: g.Engine, Reason: g.Reason, Detail: g.Detail}
 	for _, issue := range g.Issues {
 		out.Findings = append(out.Findings, scanner.Finding{Path: issue.File, Line: issue.Line, RuleID: issue.RuleID, Severity: issue.Severity, Message: issue.Message})
 	}

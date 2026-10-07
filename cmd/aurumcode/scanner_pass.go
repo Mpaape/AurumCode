@@ -75,6 +75,8 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 		}
 		if scan.Reason = out.Reason; scan.Reason == "" {
 			scan.Issues = s.scannerIssues(out.Findings, scan.Origin())
+		} else {
+			scan.Detail = s.redactDetail(out.Detail)
 		}
 	}
 	return scan
@@ -92,6 +94,15 @@ func (s *reviewState) scannerIssues(findings []scanner.Finding, origin string) [
 		issues = append(issues, issue)
 	}
 	return issues
+}
+
+// redactDetail passes a failed scan's detail through the review's redaction
+// filter: it quotes engine output, which may quote the scanned content.
+func (s *reviewState) redactDetail(detail string) string {
+	if s.filter == nil || detail == "" {
+		return detail
+	}
+	return s.filter.Redact(detail)
 }
 
 // scanIssues is every scanner's issues, in declaration order.
@@ -132,7 +143,7 @@ func (s *reviewState) joinScanners() {
 // not produce trustworthy findings: a Limitations entry, never a finding.
 func scannerInconclusiveNotice(language string, scan gateScan) string {
 	label, engine := strings.ToUpper(scan.Source()), displayName(scan.Engine.Name())
-	return i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Reason, engine)
+	return i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Motive(), engine)
 }
 
 // displayName capitalizes an engine name for prose ("semgrep" -> "Semgrep").

@@ -20,6 +20,19 @@ type Scan struct {
 	Section string
 	Issues  []types.ReviewIssue
 	Reason  string
+	// Detail is the redacted, bounded account of why the scan failed
+	// (scanner.Outcome.Detail); it joins the gate line beside Reason and
+	// never changes the decision.
+	Detail string
+}
+
+// Motive is the inconclusive reason as a gate line and a notice state it:
+// the reason token, then the engine's detail when there is one.
+func (s Scan) Motive() string {
+	if s.Detail == "" {
+		return s.Reason
+	}
+	return s.Reason + ": " + s.Detail
 }
 
 // Origin is the typed origin of the scan's findings.
@@ -67,7 +80,7 @@ func ApplyScannerGate(d *Result, s Scan, issues []types.ReviewIssue) error {
 	origin := s.Origin()
 	if s.Reason != "" {
 		d.Inconclusive = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)", s.label(), s.Engine.Name(), origin, s.Section, s.Reason))
+		d.Lines = append(d.Lines, fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)", s.label(), s.Engine.Name(), origin, s.Section, s.Motive()))
 		return nil
 	}
 	rank, name, err := s.Config.Threshold()
