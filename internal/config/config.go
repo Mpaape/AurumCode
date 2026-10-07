@@ -63,6 +63,8 @@ type ReviewContextConfig struct {
 	Prompt string   `yaml:"prompt"`
 	Skills []string `yaml:"skills"`
 	Docs   []string `yaml:"docs"`
+	// MCP are the configured MCP context sources (AUR-469, mcpcontext.go).
+	MCP []MCPContextSource `yaml:"mcp"`
 }
 
 // ContextFile describes one configured context contribution in deterministic
@@ -209,7 +211,7 @@ func (c ReviewConfig) ValidateContext() error {
 			return fmt.Errorf("review.context.%s path %q: %w", file.Kind, file.Path, err)
 		}
 	}
-	return nil
+	return c.Context.ValidateMCP()
 }
 
 func validateContextPath(raw string) error {
