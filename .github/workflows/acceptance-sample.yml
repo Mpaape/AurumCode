@@ -41,8 +41,4 @@ jobs:
           -e LANG=C.UTF-8
           -e LC_ALL=C.UTF-8
           golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
-          sh -c 'apk add --no-cache bash git python3 >/dev/null
-          && git config --global --add safe.directory /src
-          && go mod download
-          && bash tests/acceptance/AUR-589.sh AC-003
-          && bash tests/acceptance/AUR-589.sh AC-001'
+          sh scripts/ci/acceptance-sample.sh
