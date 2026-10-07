@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // vetted is one new or updated package with its registry metadata, as the
@@ -19,23 +20,27 @@ type vetted struct {
 
 // vetRegistry asks the registry about every new or updated package and the
 // model whether any of them looks like a typosquat or a malicious package.
-// A package the registry cannot place (no system, or only a range) is
-// declared; a registry
+// A package the registry cannot place (no system from the model, or only a
+// range) is unvetted unless the same package was vetted from another file
+// of the change (a range in a manifest, the exact version in its lockfile).
+// An unvetted package is declared, and with required (a declared fail_on)
+// it makes the check inconclusive: it never passes as vetted. A registry
 // that fails is inconclusive. A suspicion is kept only when grounded in the
 // metadata the model was given.
-func vetRegistry(ctx context.Context, model Completer, reg Registry, report *Report) {
+func vetRegistry(ctx context.Context, model Completer, reg Registry, required bool, report *Report) {
 	var batch []vetted
+	var pending []Change
 	for _, c := range report.Changes {
 		if !c.NewOrUpdated() {
 			continue
 		}
 		if c.Head == "" {
-			report.Unvetted = append(report.Unvetted, fmt.Sprintf("%s faixa %s (%s, %s)", c.Name, c.HeadRange, c.Ecosystem, c.Manifest))
+			pending = append(pending, c)
 			continue
 		}
 		meta, err := reg.Metadata(ctx, c)
 		if errors.Is(err, ErrNoSystem) {
-			report.Unvetted = append(report.Unvetted, fmt.Sprintf("%s %s (%s, %s)", c.Name, c.Head, c.Ecosystem, c.Manifest))
+			pending = append(pending, c)
 			continue
 		}
 		if err != nil {
@@ -44,6 +49,7 @@ func vetRegistry(ctx context.Context, model Completer, reg Registry, report *Rep
 		}
 		batch = append(batch, vetted{Manifest: c.Manifest, Ecosystem: c.Ecosystem, Name: c.Name, Version: c.Head, Metadata: meta})
 	}
+	settleUnvetted(batch, pending, required, report)
 	if len(batch) == 0 {
 		return
 	}
@@ -94,4 +100,32 @@ func groundSuspicion(batch []vetted, changes []Change, s Suspicion) (Suspicion, 
 		return s, ""
 	}
 	return s, "pacote fora dos pacotes novos consultados"
+}
+
+// settleUnvetted declares every pending package not vetted from another
+// file, and fails the check for it when vetting is required.
+func settleUnvetted(batch []vetted, pending []Change, required bool, report *Report) {
+	for _, c := range pending {
+		if vettedElsewhere(batch, c) {
+			continue
+		}
+		version := c.Head
+		if version == "" {
+			version = "faixa " + c.HeadRange
+		}
+		entry := fmt.Sprintf("%s %s (%s, %s)", c.Name, version, c.Ecosystem, c.Manifest)
+		report.Unvetted = append(report.Unvetted, entry)
+		if required {
+			report.fail(ReasonUnvetted, "pacote sem análise de registro: "+entry)
+		}
+	}
+}
+
+func vettedElsewhere(batch []vetted, c Change) bool {
+	for _, v := range batch {
+		if v.Name == c.Name && strings.EqualFold(v.Ecosystem, c.Ecosystem) {
+			return true
+		}
+	}
+	return false
 }
