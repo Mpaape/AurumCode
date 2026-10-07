@@ -22,8 +22,9 @@ func (p *prReview) generateReview() (int, bool) {
 	// function: tests/acceptance/AUR-537.sh anchors its mutations on them.
 	stderr, limiteUSD := p.stderr, p.limiteUSD
 	gateDeclared := p.cfg.Gate.Declared()
+	p.ciFacts = readCIFacts()
 	result, err := p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, p.reviewContext(review.ReviewContext{
-		CI:              readCIContext(),
+		CI:              p.ciFacts.ModelText(),
 		Language:        p.reviewLanguage,
 		History:         p.history,
 		CodebaseContext: p.codebaseText,
