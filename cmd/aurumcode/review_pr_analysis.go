@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/grammar"
-	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/testgen"
 )
 
@@ -20,7 +19,7 @@ func (p *prReview) collectEvidence() (int, bool) {
 		return code, true
 	}
 	p.analysisIssues = staticAnalysisIssues(p.diff)
-	p.runScanners(p.verifiedDir, scanner.Range{Base: p.env().baseSHA, Head: p.env().githubSHA}, p.scanBlockedReason())
+	p.runScanners(p.verifiedDir, p.prScanRange(), p.scanBlockedReason())
 	p.offerEvidence()
 	return 0, false
 }

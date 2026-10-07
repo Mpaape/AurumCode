@@ -5,10 +5,14 @@
 review:
   language: pt-BR
 # Fixtures de teste tem canarios de segredo e de injecao de proposito; as
-# capturas geradas da documentacao repetem a saida desses casos.
+# capturas geradas da documentacao e os logs gravados dos tutoriais (out/ e
+# expected/, regravados pelo run.sh) repetem a saida desses casos. Artefato
+# gerado se revisa na fonte que o gera, nao na saida gravada.
 ignore:
   - "tests/**"
   - "docs/assets/capturas/**"
+  - "demo/tutoriais/*/out/**"
+  - "demo/tutoriais/*/expected/**"
 gate:
   fail_on: [error]      # achado error (modelo, skill ou scanner) reprova
   inconclusive: block   # revisao que nao concluiu nunca aprova
@@ -22,5 +26,5 @@ quality_gates:
 deliberation:
   enabled: true
   max_rounds: 3
-  max_cost_tokens: 60000
+  max_cost_tokens: 60000   # custo das rodadas de ferramenta alem do prompt base
   per_tool_timeout_seconds: 120
