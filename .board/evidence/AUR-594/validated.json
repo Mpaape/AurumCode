@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-594",
+  "commit": "72efc9f864cabe8ce3b0c8ebdae0f78934523f83",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-594",
+    "exit_code": 0,
+    "raw_output": "AUR-594/all/pass"
+  }
+}
