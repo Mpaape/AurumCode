@@ -935,6 +935,9 @@ repositório é ignorada por completo, com um aviso nomeando a regra e o
 caminho descartados (AC-004). O repositório sozinho não consegue criar uma
 exceção para uma regra da política.
 
+Para um advisory de dependência, `rule` é `cve/<id>` e `path` é o manifesto
+ou lockfile (veja [Dependências do PR](#dependencias-do-pr-dependencies)).
+
 ## SBOM CycloneDX com Trivy (AUR-549)
 
 `aurumcode sbom` gera um SBOM no formato OWASP CycloneDX com o Trivy:
@@ -1851,9 +1854,10 @@ analysis_data:
   repositório; sem nenhuma, valem os padrões.
 - Em um review, só os arquivos de `kind: scanners` do release são baixados e
   verificados individualmente. A cópia OSV só é baixada e verificada por
-  arquivo quando um consumidor a usar (AUR-495); o manifesto inteiro, e portanto
-  cada digest de arquivo, continua coberto pelo `set_digest`, que é conferido
-  em todo review.
+  arquivo quando um consumidor a usar; a verificação de dependências
+  (`dependencies`) consulta a API OSV ao vivo e não a usa. O manifesto
+  inteiro, e portanto cada digest de arquivo, continua coberto pelo
+  `set_digest`, que é conferido em todo review.
 - `max_age_days` ausente usa 7; escrito explicitamente como 0, negativo ou
   acima de 365 é erro de carga (nunca "sem limite" nem o padrão em silêncio).
 - Se a listagem de releases estiver indisponível, o AurumCode usa a cópia em
@@ -1864,6 +1868,100 @@ analysis_data:
   linha no parecer (`remote` quando a listagem respondeu).
 - Requisito de publicação: ative "Immutable releases" nas configurações do
   repositório publicador para que um release publicado não possa ser alterado.
+
+## Dependências do PR (`dependencies`)
+
+Com a seção `dependencies` declarada, toda revisão (`--base` e `--pr`) verifica
+as dependências que a mudança altera. Sem a seção, nada muda.
+
+```yaml
+dependencies:
+  fail_on: [critical, high]        # severidades que reprovam o introduzido
+  preexisting: warn                # ou block
+  osv_url: https://api.osv.dev     # padrão; um espelho da API OSV
+  scanner: osv-scanner             # padrão; o scanner de conferência
+  max_source_age_hours: 24         # opcional: idade máxima da resposta da base
+  deps_dev_url: https://api.deps.dev  # padrão; metadados vivos do registro
+  suspicion_severity: high         # padrão; severidade da suspeita de typosquat
+```
+
+- **O modelo lê, o código confere.** O modelo recebe a lista de arquivos
+  alterados e diz quais são manifestos ou lockfiles, em qualquer formato e
+  ecossistema; depois lê o diff deles e nomeia cada pacote adicionado,
+  atualizado ou removido, com ecossistema e versão. Não existe lista de
+  ecossistemas, extensões ou pacotes no AurumCode.
+- **Nada inventado passa.** Pacote cujo nome não aparece no diff do arquivo,
+  ou versão que não aparece nas linhas alteradas do lado certo, é descartado e
+  o descarte é declarado no parecer. Arquivo que não está no diff nunca é
+  manifesto.
+- **Conferência com o scanner.** Quando o `osv-scanner` (na imagem do
+  AurumCode) reconhece o arquivo no checkout revisado, a extração dele confere
+  a do modelo; cada divergência é declarada. Arquivo que o scanner não conhece
+  fica só com a leitura do modelo.
+- **Os dois lados na base OSV.** Cada versão anterior e nova é consultada na
+  API OSV. Cada advisory sai com identificador (OSV/GHSA e aliases CVE),
+  pacote, versão, severidade da fonte, versão corrigida quando existe e link,
+  e é classificado como **introduzido pelo PR** (só na versão nova),
+  **pré-existente** (nos dois lados) ou **corrigido pelo PR** (só na versão
+  anterior; o parecer registra a correção). Cada lockfile de um monorepo é
+  reportado separado.
+- **Faixa sem versão resolvida.** O modelo explica a faixa declarada e a base
+  é consultada pelo pacote inteiro (todo advisory do pacote é candidato);
+  dependência sem versão nem faixa legível segue o `gate.inconclusive`.
+- **Falha fechada.** Base inalcançável (`dependencies_source_unreachable`),
+  resposta mais velha que `max_source_age_hours` ou sem data
+  (`dependencies_source_stale`), scanner ausente
+  (`dependencies_scanner_unavailable`), modelo ausente ou com resposta fora do
+  contrato (`dependencies_no_model`, `dependencies_model_failed`) e checkout
+  não verificado do PR (`dependencies_unverified_checkout`) tornam a revisão
+  inconclusiva com o motivo; nunca são lidos como "sem vulnerabilidade". Com a
+  seção declarada, o padrão de `gate.inconclusive` é `block`.
+- **O gate.** `fail_on` lista severidades da fonte (`critical`, `high`,
+  `medium`, `low`; `moderate` do GitHub é `medium`): advisory introduzido com
+  severidade listada reprova o check; com severidade fora da lista, sai como
+  alerta. Severidade que a fonte não informa reprova sempre que `fail_on`
+  existe. Pré-existente segue `preexisting`: `warn` (padrão) passa com alerta,
+  `block` reprova (o de severidade listada, ou qualquer um quando `fail_on`
+  está vazio). Sem `fail_on` (e sem
+  `preexisting: block`), os achados são só informativos. A severidade é a da
+  base no momento da execução: advisory reclassificado na fonte muda o
+  resultado da execução seguinte sem mudar o yml; nada é guardado entre
+  execuções.
+- **Exceção por CVE.** A mesma lista `exceptions` (veja
+  [Exceções aprovadas](#excecoes-aprovadas-dono-e-validade-aur-520)), com
+  `rule: cve/<id>` (qualquer identificador do advisory: CVE, GHSA ou OSV) e
+  `path:` o manifesto; vale com dono e validade como qualquer exceção, sai na
+  linha do gate como aceita e vencida deixa de valer.
+
+```yaml
+exceptions:
+  - repo: org/app
+    rule: cve/CVE-2021-44906
+    path: app/package-lock.json
+    owner: time-seguranca
+    reason: parser vulneravel nao e alcancado
+    expires: "2026-12-31"
+```
+
+- **Pacote malicioso.** Pacote novo ou atualizado que a base OSV marca como
+  malicioso (advisory `MAL-`) reprova o check sempre, independente de
+  `fail_on`. Exceção para advisory `MAL-` é recusada e a recusa sai no
+  parecer.
+- **Typosquat.** Para cada pacote novo ou atualizado, o AurumCode busca os
+  metadados vivos do registro no deps.dev (data da primeira publicação,
+  quantidade de versões, repositório de origem, licenças, depreciação) e o
+  modelo aponta suspeita de typosquat ou pacote malicioso citando os campos e
+  valores em que se apoia. Suspeita cuja evidência não está nos metadados
+  consultados é descartada e o descarte é declarado. A suspeita mantida conta
+  com `suspicion_severity` contra `fail_on`, como qualquer achado, e aceita
+  exceção com `rule: suspicion/<pacote>` e `path:` o manifesto. Nenhuma lista
+  de pacotes nem regra de distância de nome existe no código. Pacote que o
+  modelo não consegue situar num sistema do deps.dev é declarado sem análise
+  de typosquat (o advisory `MAL-` da OSV continua valendo); registro
+  inalcançável torna a revisão inconclusiva
+  (`dependencies_metadata_unreachable`).
+- A seção é governada como `analysis_data`: a política central que a declara
+  decide sozinha; o repositório só vale quando a política não a menciona.
 
 ## Quais arquivos saem da revisão como documentação
 
