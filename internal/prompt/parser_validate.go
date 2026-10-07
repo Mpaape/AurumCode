@@ -111,7 +111,8 @@ func sanitizeModelIssueProvenance(issues []types.ReviewIssue) {
 }
 
 // errMissingFindingsList is the validation failure of an answer that names
-// neither "issues" nor the legacy "line_comments" list.
+// no "issues" list. A "line_comments" list does not count: it is not part
+// of the answer schema, so a reply carrying only it is inconclusive.
 var errMissingFindingsList = errors.New("missing issues list")
 
 // hasFindingsList reports whether the decoded answer object carries a
@@ -124,10 +125,6 @@ func hasFindingsList(jsonContent string) bool {
 	if json.Unmarshal([]byte(jsonContent), &fields) != nil {
 		return false
 	}
-	for _, key := range []string{"issues", "line_comments"} {
-		if raw, ok := fields[key]; ok && strings.TrimSpace(string(raw)) != "null" {
-			return true
-		}
-	}
-	return false
+	raw, ok := fields[findingsListKey]
+	return ok && strings.TrimSpace(string(raw)) != "null"
 }

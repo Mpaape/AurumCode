@@ -1,7 +1,6 @@
 == ignore-sob-politica
 --- sem politica: o .gitleaksignore do repositorio esconde o achado
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -27,6 +26,7 @@ Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
   - .gitleaksignore
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 exit_code=0
 RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado
 --- sob politica central: o .gitleaksignore vira achado
