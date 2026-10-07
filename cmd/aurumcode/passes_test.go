@@ -204,7 +204,7 @@ func TestAUR490SharedPasses(t *testing.T) {
 		"review_base_publish.go":  {"persistReviewMemory", "renderLocalReport"},
 		"review_pr_inputs.go":     {"resolveVerifiedCodebaseContext", "openReviewMemory"},
 		"review_pr_analysis.go":   {"staticAnalysisIssues"},
-		"review_pr_publish.go":    {"persistReviewMemory", "formatPublishedReviewBody"},
+		"review_pr_publish.go":    {"persistReviewMemory", "formatGatedReviewBody"},
 		"codebase_context.go":     {"codebaseContextJSON"},
 		"verified_checkout.go":    {"codebaseContextJSON"},
 	} {
