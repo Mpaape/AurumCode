@@ -114,7 +114,7 @@ type gatePipelineInputs struct {
 func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 	return gate.NewPipeline(
 		gate.ExceptionsContributor{},
-		gate.VerdictReuseContributor{Key: in.VerdictKey, Raw: in.RawIssues, PromptDigest: in.PromptDigest},
+		redactedVerdictReuse{gate.VerdictReuseContributor{Key: in.VerdictKey, Raw: in.RawIssues, PromptDigest: in.PromptDigest}},
 		gate.PolicySkillsContributor{AcceptedOrigin: in.AcceptedOrigin, Dynamic: in.DynamicRules},
 		gate.ScannerContributor{Scans: in.Scans},
 		gate.EmbeddedAnalysisContributor{},

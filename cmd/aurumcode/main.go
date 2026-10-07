@@ -178,7 +178,7 @@ func (b *baseReview) prepareCache() *qualityCache {
 	qc := &qualityCache{store: store, err: cacheErr, toSend: b.diff}
 	if cacheErr == nil {
 		var missFiles []types.DiffFile
-		missFiles, qc.statuses = partitionByCache(store, b.diff, b.contextCacheKey(), promptVersionDigest)
+		missFiles, qc.statuses = partitionByCache(store, b.diff, b.contextCacheKey(), promptVersionDigest, b.filter)
 		qc.toSend = &types.Diff{Files: missFiles}
 	}
 	return qc
