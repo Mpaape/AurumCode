@@ -28,6 +28,15 @@ const (
 	pinnedConfig = "[extend]\nuseDefault = true\n"
 	// maxQuoted bounds any tool output quoted in an error.
 	maxQuoted = 64
+	// maxQuotedStderr bounds the error output of a failed command quoted
+	// in an error: enough for git's or gitleaks' last message.
+	maxQuotedStderr = 160
+)
+
+// The names of the range ends in an error.
+const (
+	endBase = "base"
+	endHead = "head"
 )
 
 var (
@@ -74,21 +83,22 @@ func verifyRange(ctx context.Context, run scanner.Command, root string, r scanne
 	if r.Empty() {
 		return ErrNoRange
 	}
-	for _, end := range []string{r.Base, r.Head} {
-		if !commitID.MatchString(end) {
-			return fmt.Errorf("%w: %q is not a full commit id", ErrBadRange, bounded(end))
+	ends := [][2]string{{endBase, r.Base}, {endHead, r.Head}}
+	for _, end := range ends {
+		if !commitID.MatchString(end[1]) {
+			return fmt.Errorf("%w: %s %q is not a full commit id", ErrBadRange, end[0], bounded(end[1]))
 		}
 	}
-	stdout, _, err := run(ctx, root, gitBinary, "rev-parse", "--is-shallow-repository")
+	stdout, stderr, err := run(ctx, root, gitBinary, "rev-parse", "--is-shallow-repository")
 	if err != nil {
-		return fmt.Errorf("%w: git rev-parse: %v", ErrBadRange, err)
+		return fmt.Errorf("%w: git rev-parse --is-shallow-repository: %v%s", ErrBadRange, err, quotedStderr(stderr))
 	}
 	if strings.TrimSpace(stdout) != "false" {
-		return fmt.Errorf("%w: shallow repository", ErrBadRange)
+		return fmt.Errorf("%w: shallow repository (the checkout needs the full history of the range)", ErrBadRange)
 	}
-	for _, end := range []string{r.Base, r.Head} {
-		if _, _, err := run(ctx, root, gitBinary, "cat-file", "-e", end+"^{commit}"); err != nil {
-			return fmt.Errorf("%w: commit %s not found", ErrBadRange, end)
+	for _, end := range ends {
+		if _, _, err := run(ctx, root, gitBinary, "cat-file", "-e", end[1]+"^{commit}"); err != nil {
+			return fmt.Errorf("%w: %s commit %s not found in the checkout", ErrBadRange, end[0], end[1])
 		}
 	}
 	return nil
@@ -112,10 +122,10 @@ func scanRange(ctx context.Context, run scanner.Command, root string, r scanner.
 	report := filepath.Join(dir, reportFile)
 	_, stderr, runErr := run(ctx, root, binary, scanArgs(r, report, config, dir, policy)...)
 	if runErr != nil {
-		return nil, fmt.Errorf("gitleaks: execution failed: %w", runErr)
+		return nil, fmt.Errorf("gitleaks: execution failed: %w%s", runErr, quotedStderr(stderr))
 	}
-	if loggedError.MatchString(ansiColor.ReplaceAllString(stderr, " ")) {
-		return nil, ErrLoggedError
+	if plain := ansiColor.ReplaceAllString(stderr, " "); loggedError.MatchString(plain) {
+		return nil, fmt.Errorf("%w%s", ErrLoggedError, quotedStderr(loggedErrorLine(plain)))
 	}
 	raw, err := os.ReadFile(report)
 	if err != nil {
@@ -163,6 +173,32 @@ func ignoreFileFinding(root string) (scanner.Finding, bool) {
 		Severity: severity,
 		Message:  "a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding",
 	}, true
+}
+
+// quotedStderr is the last non-empty line of a command's error output,
+// bounded, as an error suffix ("" when there is none): the line where git
+// and gitleaks state why they failed.
+func quotedStderr(stderr string) string {
+	lines := strings.Split(strings.TrimSpace(stderr), "\n")
+	last := strings.TrimSpace(lines[len(lines)-1])
+	if last == "" {
+		return ""
+	}
+	if len(last) > maxQuotedStderr {
+		last = last[:maxQuotedStderr]
+	}
+	return ": " + last
+}
+
+// loggedErrorLine is the first line of stderr at gitleaks' error or fatal
+// level: the one that says what went wrong, not the summary after it.
+func loggedErrorLine(stderr string) string {
+	for _, line := range strings.Split(stderr, "\n") {
+		if loggedError.MatchString(line) {
+			return line
+		}
+	}
+	return ""
 }
 
 // bounded trims tool output quoted in an error.
