@@ -60,6 +60,17 @@ type AuditRecord struct {
 	// asked for and not, each call with redacted arguments, and the limit
 	// that stopped it. Absent when the model was offered no tool.
 	Deliberation *deliberation.Transcript `json:"deliberation,omitempty"`
+	// Batches lists the batches of a review whose diff did not fit one
+	// prompt: each batch's files and estimated prompt size. Absent when the
+	// review was a single prompt.
+	Batches []AuditBatch `json:"batches,omitempty"`
+}
+
+// AuditBatch is one batch of a review in batches.
+type AuditBatch struct {
+	Index           int      `json:"index"`
+	Files           []string `json:"files"`
+	EstimatedTokens int      `json:"estimated_tokens"`
 }
 
 // AnalysisDataAudit, AuditFinding and AuditException are the gate's own

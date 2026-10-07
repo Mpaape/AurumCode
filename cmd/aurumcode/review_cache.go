@@ -37,6 +37,9 @@ type fileCacheStatus struct {
 	issues []types.ReviewIssue
 }
 
+// baseURLReporter is a provider that knows the endpoint it calls.
+type baseURLReporter interface{ BaseURL() string }
+
 // modelCacheKey identifies, for the cache, which "model" is answering this
 // run -- not simply provider.Name(). Two things can make Name() alone
 // under-identify the answering entity:
@@ -80,6 +83,10 @@ func modelCacheKey(provider llm.Provider) string {
 	// internal/llm/provider/litellm (outside this card's paths).
 	if baseURL := os.Getenv("LLM_BASE_URL"); baseURL != "" {
 		name += ":baseurl:" + baseURL
+	} else if endpoint, ok := provider.(baseURLReporter); ok && endpoint.BaseURL() != "" {
+		// A catalog profile resolves its URL without LLM_BASE_URL (for
+		// example an Azure resource and deployment): the same rule holds.
+		name += ":baseurl:" + endpoint.BaseURL()
 	}
 
 	if fixturePath := os.Getenv("AURUMCODE_LLM_FIXTURE"); fixturePath != "" {

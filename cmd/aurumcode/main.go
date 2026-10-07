@@ -16,6 +16,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/apply"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
+	"github.com/Mpaape/AurumCode/internal/llm/provider/profiles"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
@@ -240,6 +241,15 @@ func providerFromEnv(fixtureModel, liveModel string) (llm.Provider, string, erro
 			return nil, "", fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
 		return review.NewOfflineProvider(string(content), fixtureModel, os.Getenv("AURUMCODE_PROMPT_CAPTURE")), "offline fixture provider", nil
+	}
+	// LLM_PROVIDER selects a catalog profile (internal/llm/provider/profiles);
+	// set but unusable is an error, never a silent fallback.
+	endpoint, selected, err := profiles.FromEnv(os.Getenv)
+	if selected {
+		if err != nil {
+			return nil, "", err
+		}
+		return litellm.NewProviderWithDialect(endpoint.Dialect, endpoint.APIKey, endpoint.BaseURL, liveModel), endpoint.Profile + " endpoint " + redactedEndpoint(endpoint.BaseURL), nil
 	}
 	apiKey := os.Getenv("LLM_API_KEY")
 	baseURL := os.Getenv("LLM_BASE_URL")

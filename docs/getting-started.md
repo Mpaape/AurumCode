@@ -57,6 +57,11 @@ quality_gates:
 - Falha de provedor e scanner ausente continuam bloqueando com
   `inconclusive: block`; o motivo inconclusivo de uma engine traz o detalhe
   da falha, resumido e redigido (`[detalhe: ...]`), no parecer e na auditoria.
+- PR grande também é revisado: quando o GitHub recusa o diff por tamanho, o
+  diff sai do checkout verificado do PR; quando ele não cabe num prompt, a
+  revisão é feita em lotes por diretório, com um parecer e um gate. Só no teto
+  de lotes (`batches`, padrão 4) a revisão fica parcial, listando os arquivos
+  que ficaram fora (ver "PR grande" em docs/configuration.md).
 - Saída gravada por script (logs de tutorial, golden files, capturas) repete
   de propósito exemplos de injeção e canários de segredo: ponha-a em `ignore`
   e revise a fonte que a gera.
@@ -77,6 +82,9 @@ docker build -t aurumcode:local /caminho/para/AurumCode
 ```
 
 Exporte `LLM_API_KEY`, `LLM_BASE_URL` e, se necessário, `LLM_MODEL` no terminal.
+Para um provedor conhecido, `LLM_PROVIDER` escolhe o perfil e dispensa montar a
+URL (passe também `-e LLM_PROVIDER` e as variáveis do provedor ao `docker run`);
+veja [Provedores de LLM](provedores.md).
 Dentro do repositório que deseja revisar:
 
 ```bash

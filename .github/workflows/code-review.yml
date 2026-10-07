@@ -1,6 +1,8 @@
 name: AurumCode self review
 
-# O AurumCode revisa o proprio AurumCode em toda PR para main. O job
+# O AurumCode revisa o proprio AurumCode so nas PRs para main (o lote
+# dev -> main): cards entram em dev apenas com CI, para que cada chamada ao
+# LLM revise um lote inteiro em vez de cada push de card. O job
 # `review` chama o workflow reutilizavel local; num evento pull_request ele
 # roda a partir do merge ref da PR, entao job.workflow_sha (o commit de onde
 # review.yml constroi a imagem e o binario) e o commit de merge da PR: o
@@ -11,6 +13,7 @@ name: AurumCode self review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    branches: [main]
 
 permissions:
   contents: read
@@ -27,8 +30,12 @@ jobs:
     uses: ./.github/workflows/review.yml
     with:
       model: ${{ vars.LLM_MODEL }}
+      provider: ${{ vars.LLM_PROVIDER }}
       security: true
-    secrets: inherit
+    # So o que o review usa (menor privilegio), nunca secrets: inherit.
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
 
   # Falha fechada sem provedor: sem LLM_API_KEY/LLM_BASE_URL (PR de fork ou
   # do dependabot, ou secret apagado) o review nao roda e o job `review`

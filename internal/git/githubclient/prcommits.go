@@ -20,6 +20,8 @@ type PullRequestMetadata struct {
 	Title   string
 	Body    string
 	HeadSHA string
+	// BaseSHA is the commit of the base branch the pull request targets.
+	BaseSHA string
 }
 
 // PullRequestCommit is one commit message attached to a pull request. SHA and
@@ -70,12 +72,15 @@ func (c *Client) GetPullRequestMetadata(ctx context.Context, owner, repo string,
 		Head  struct {
 			SHA string `json:"sha"`
 		} `json:"head"`
+		Base struct {
+			SHA string `json:"sha"`
+		} `json:"base"`
 	}
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 4<<20))
 	if err := decoder.Decode(&payload); err != nil {
 		return PullRequestMetadata{}, fmt.Errorf("decoding pull request metadata")
 	}
-	return PullRequestMetadata{Title: payload.Title, Body: payload.Body, HeadSHA: payload.Head.SHA}, nil
+	return PullRequestMetadata{Title: payload.Title, Body: payload.Body, HeadSHA: payload.Head.SHA, BaseSHA: payload.Base.SHA}, nil
 }
 
 // GetPullRequestCommits reads every page of the pull request's commit list.

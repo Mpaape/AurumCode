@@ -121,6 +121,7 @@ func (p *prReview) buildReviewer() (int, bool) {
 	}
 	orchestrator := llm.NewOrchestrator(p.provider, nil, p.tracker)
 	p.reviewer = review.NewReviewer(orchestrator, review.DefaultConfig())
+	p.reviewer.SetBatchLimits(configuredBatchLimits(p.cfg))
 	p.reviewer.SetDynamicRules(p.dynamicRules)
 	if err := p.reviewer.SetRuleCatalog(p.ruleCatalogIDs); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)

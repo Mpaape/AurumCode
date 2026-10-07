@@ -49,6 +49,7 @@ negócio vivem em `internal/`.
 | `internal/grammar` | A única fonte da estrutura por linguagem, a partir de catálogos de gramáticas. |
 | `internal/i18n` | Catálogo de textos de interface por idioma (YAML embutido, pt-BR e en): toda chave existe nos dois idiomas. |
 | `internal/llm` | Provedores, orquestração, orçamento e estimativa de custo. |
+| `internal/mcpserver` | O adaptador MCP (Model Context Protocol) por stdio de `aurumcode mcp`: o subconjunto JSON-RPC 2.0 que o MCP exige (`initialize`, `tools/list`, `tools/call`), as quatro ferramentas só leitura (`aurum_review`, `aurum_gate`, `aurum_rules`, `aurum_explain`) com JSON Schema fechado, a validação dos argumentos antes de executar e um único ponto de redação de toda resposta. Não decide nada: pergunta à porta `Gateway`, que `cmd/aurumcode` implementa com a mesma sessão `--base`. |
 | `internal/memory` | Memória de revisão opcional. |
 | `internal/prompt` | Montagem de prompt, orçamento, parsing de resposta (dividido por responsabilidade, com os padrões compilados uma vez no pacote), filtro de comentários, notas de cobertura. |
 | `internal/render` | Relatórios determinísticos, registros de auditoria, SARIF e identidade de achados. |
@@ -123,6 +124,12 @@ retorna `(exit, done)`, de modo que cada saída antecipada mantém seu código:
 5. **publish.** Os artefatos de conformidade (a partir dos achados da execução
    do gate), o relatório ou a publicação no GitHub e, por fim, `gate.ExitPolicy`.
 
+No `--pr`, o diff vem da API; quando ela o recusa por tamanho
+(`githubclient.ErrDiffTooLarge`, `406 too_large`), o mesmo intervalo
+`base...head` é lido do checkout já verificado como o PR
+(`analyzer.Repo.RangeDiff`, `cmd/aurumcode/pr_local_diff.go`) e passa pelo
+mesmo parser do diff da API; checkout não verificado é falha.
+
 Uma fonte é código de `cmd/aurumcode` (`baseReview`, `prReview`) que embute o
 `reviewState` compartilhado; o que difere entre as duas e não é a fonte nem o
 publicador é dado em `session.Source`:
@@ -144,6 +151,21 @@ pacote: o relógio contra o qual as exceções são julgadas, o executor de
 scanners, o observador do pipeline do gate, o resolvedor de codebase, o
 construtor de prompt que versiona os caches e o ambiente, lido uma só vez na
 borda do comando.
+
+## Adaptador MCP para agentes de código
+
+`aurumcode mcp` serve o gate a um agente de código (Claude Code, Codex,
+Cursor) por stdio. É um adaptador fino: `internal/mcpserver` fala o protocolo,
+valida os argumentos contra o schema declarado e redige toda resposta;
+`cmd/aurumcode/mcp_gateway.go` monta cada pergunta como a linha de comando
+`review --base <ref> --seguranca --exigir-qualidade`, constrói a sessão com o
+mesmo `newBaseReview` da CLI e a executa com `session.Run`. A decisão
+(`pass`, `fail`, `inconclusive`) é lida do código de saída e do `gate.Result`
+da própria sessão, nunca recalculada; só uma saída 0 de uma revisão
+conclusiva é `pass`. O cliente escolhe apenas a ref; política central
+(`AURUMCODE_POLICY`), skills, severidades e limites são do servidor. As regras
+listadas por `aurum_rules` vêm de `resolveSkillRules`, a mesma resolução que a
+sessão usa para aceitar citações.
 
 ## Prompt de revisão
 
@@ -177,6 +199,16 @@ separadas; qualquer outro provedor recebe `System + "\n\n" + User` por
 de provedor que apenas repassam requisições implementam `llm.Unwrapper`, de
 modo que `llm.As` encontre uma capacidade atrás deles; um decorador que altera
 a requisição não deve implementá-lo.
+
+Um diff que não cabe num prompt (algum arquivo com patch omitido ou parcial)
+é revisado em lotes (`internal/review/batches.go`): os arquivos são empacotados
+por diretório em prompts que cabem, cada lote passa pelas mesmas quatro etapas
+do prompt único (com a evidência dos seus arquivos) e os resultados são
+consolidados num só (`batch_merge.go`). Os tetos de lotes e da soma dos
+prompts vêm de `limits.yml` e da seção `batches`; os arquivos além deles são
+contados e nomeados como omitidos (`code_files_omitted_paths`), de modo que a
+cobertura fica parcial. `Reviewer.Batches` alimenta o campo `batches` da
+auditoria.
 
 `Reviewer.PromptDigest` é o digest das mensagens exatas enviadas.
 `Reviewer.RequestCacheKey` o combina com digests das evidências e dos

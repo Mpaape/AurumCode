@@ -31,6 +31,7 @@ func (p *prReview) generateReview() (int, bool) {
 	}))
 	p.result = result
 	p.transcript = p.reviewer.Transcript()
+	p.noteBatches(p.reviewer.Batches())
 	if err == nil {
 		return 0, false
 	}

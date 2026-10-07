@@ -160,6 +160,7 @@ func coverageNotice(copy reviewCopy, c reviewCoverageBreakdown) string {
 	}
 	if c.Budget > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageBudget, c.Budget))
+		writeCoveragePaths(&b, c.BudgetPaths)
 	}
 	if c.Ignored > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageIgnored, c.Ignored))

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -49,6 +50,9 @@ type Reviewer struct {
 	// transcript is the last deliberation's record.
 	deliberation *Deliberation
 	transcript   *deliberation.Transcript
+	// batches records the batches of the last review, nil when the diff
+	// fit one prompt.
+	batches []Batch
 }
 
 // Completer is what the Reviewer needs from the model side: one call that
@@ -70,6 +74,8 @@ type Config struct {
 	// PromptTokenBudget bounds the assembled prompt when MaxTokens is zero.
 	// It never caps the reply.
 	PromptTokenBudget int
+	// Batches bounds a review split in batches (batches.go).
+	Batches BatchLimits
 }
 
 // ReviewContext contains optional evidence available beside the diff. It is
@@ -111,6 +117,7 @@ func DefaultConfig() Config {
 		// internal/prompt/templates/limits.yml: a diff that does not fit is
 		// trimmed by whole hunks and declared in the coverage section.
 		PromptTokenBudget: prompt.DefaultLimits().PromptMaxTokens,
+		Batches:           DefaultBatchLimits(),
 	}
 }
 
@@ -123,6 +130,7 @@ func NewReviewer(completer Completer, cfg Config) *Reviewer {
 		defaults := DefaultConfig()
 		cfg.PromptTokenBudget = defaults.PromptTokenBudget
 	}
+	cfg.Batches = cfg.Batches.withDefaults()
 	return &Reviewer{
 		completer:     completer,
 		diffAnalyzer:  analyzer.NewDiffAnalyzer(),
@@ -165,11 +173,28 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 // external evidence such as completed CI check statuses. It runs four
 // stages: assemble the redacted prompt, ask the model, parse its reply, and
 // pass the parsed findings through the engine's gates.
+//
+// A diff that does not fit one prompt is reviewed in batches (batches.go):
+// the same four stages per batch, one consolidated result.
 func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
+	r.batches = nil
 	prepared, err := r.preparePrompt(diff, reviewContext)
 	if err != nil {
 		return nil, err
 	}
+	split, err := r.needsBatches(diff, prepared, reviewContext)
+	if err != nil {
+		return nil, err
+	}
+	if split {
+		return r.reviewInBatches(ctx, diff, reviewContext)
+	}
+	return r.reviewPrepared(ctx, prepared)
+}
+
+// reviewPrepared asks the model about one assembled prompt and passes the
+// answer through the parser and the engine's gates.
+func (r *Reviewer) reviewPrepared(ctx context.Context, prepared preparedPrompt) (*types.ReviewResult, error) {
 	resp, err := r.answer(ctx, prepared.parts)
 	if err != nil {
 		return nil, err
@@ -293,7 +318,19 @@ func (r *Reviewer) parse(resp llm.Response) (*types.ReviewResult, error) {
 	// the embedded catalog -- redacting after would also rewrite the
 	// catalog's own "...-secret: <title>" spelling and change the
 	// published output format for a secret-free review (AUR-432).
+	//
+	// A finding that already cites the redaction marker in the raw reply
+	// echoes the mask the model saw in its input, so it is removed here,
+	// before redactReviewResult: after it, a finding quoting a real
+	// secret-shaped value would carry the same marker and be
+	// indistinguishable.
+	var echoed int
+	result.Issues, echoed = discardRedactedModelFindings(result.Issues)
 	redactReviewResult(r.filter, result)
+	if result.Metadata == nil {
+		result.Metadata = make(map[string]string)
+	}
+	result.Metadata[RedactionMarkerDiscardKey] = strconv.Itoa(echoed)
 	return result, nil
 }
 
@@ -332,6 +369,7 @@ func (r *Reviewer) applyGates(diff *types.Diff, result *types.ReviewResult) (gat
 	// concern about untouched code into a finding for this patch. The finding
 	// also has to carry the three pieces of proof the prompt requests.
 	result.Issues, outcome.scopeDiscarded = filterModelIssues(diff, result.Issues)
+	outcome.scopeDiscarded.CitesRedactionMarker, _ = strconv.Atoi(result.Metadata[RedactionMarkerDiscardKey])
 
 	// Rule gate (AUR-434): every issue must cite a rule of the project
 	// review standard. A broken or empty embedded catalog is a loud
@@ -365,6 +403,7 @@ func annotateResult(result *types.ReviewResult, prepared preparedPrompt, outcome
 	}
 	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", outcome.rejected)
 	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", outcome.scopeDiscarded.total())
+	result.Metadata[RedactionMarkerDiscardKey] = fmt.Sprintf("%d", outcome.scopeDiscarded.CitesRedactionMarker)
 	result.Metadata["scope_discard_warning"] = outcome.scopeDiscarded.warning()
 	result.Metadata["summary_discarded_findings"] = fmt.Sprintf("%d", outcome.total())
 	// AUR-448: a discard the rule gate makes is never silent; "" on the

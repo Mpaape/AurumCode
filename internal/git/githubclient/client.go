@@ -354,6 +354,9 @@ func (c *Client) GetPullRequestDiff(ctx context.Context, owner, repo string, num
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if diffRefusedAsTooLarge(resp.StatusCode, body) {
+			return nil, fmt.Errorf("HTTP %d: %s: %w", resp.StatusCode, string(body), ErrDiffTooLarge)
+		}
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -940,64 +943,28 @@ func extractFilePath(line string) string {
 
 // parseHunkHeader parses a hunk header line
 // Example: "@@ -10,5 +10,7 @@ func main() {" -> DiffHunk{OldStart: 10, OldLines: 5, NewStart: 10, NewLines: 7}
+// A side without a count ("@@ -1 +0,0 @@", a deleted one-line file) has one
+// line, as in unified diff. A malformed header yields zero values, never a
+// panic.
 func parseHunkHeader(line string) DiffHunk {
-	hunk := DiffHunk{
-		Lines: []string{},
-	}
-
-	// Find positions of key characters
-	minusIdx := stringIndexByte(line, '-')
-	commaIdx1 := stringIndexByte(line[minusIdx:], ',')
-	plusIdx := stringIndexByte(line, '+')
-	commaIdx2 := stringIndexByte(line[plusIdx:], ',')
-	atIdx := stringIndexByte(line[plusIdx:], '@')
-
-	if minusIdx == -1 || plusIdx == -1 {
+	hunk := DiffHunk{Lines: []string{}}
+	fields := strings.Fields(strings.TrimPrefix(line, "@@"))
+	if len(fields) < 2 || !strings.HasPrefix(fields[0], "-") || !strings.HasPrefix(fields[1], "+") {
 		return hunk
 	}
-
-	// Parse old start
-	if commaIdx1 != -1 {
-		commaIdx1 += minusIdx
-		hunk.OldStart = parseInt(line[minusIdx+1 : commaIdx1])
-
-		// Parse old lines
-		endIdx := plusIdx
-		if spaceIdx := stringIndexByte(line[commaIdx1:plusIdx], ' '); spaceIdx != -1 {
-			endIdx = commaIdx1 + spaceIdx
-		}
-		hunk.OldLines = parseInt(line[commaIdx1+1 : endIdx])
-	} else {
-		// No comma, single line
-		hunk.OldStart = parseInt(line[minusIdx+1 : plusIdx-1])
-		hunk.OldLines = 1
-	}
-
-	// Parse new start
-	if commaIdx2 != -1 {
-		commaIdx2 += plusIdx
-		hunk.NewStart = parseInt(line[plusIdx+1 : commaIdx2])
-
-		// Parse new lines
-		endIdx := len(line)
-		if atIdx != -1 {
-			endIdx = plusIdx + atIdx
-		}
-		if spaceIdx := stringIndexByte(line[commaIdx2:endIdx], ' '); spaceIdx != -1 {
-			endIdx = commaIdx2 + spaceIdx
-		}
-		hunk.NewLines = parseInt(line[commaIdx2+1 : endIdx])
-	} else {
-		// No comma, single line
-		endIdx := len(line)
-		if atIdx != -1 {
-			endIdx = plusIdx + atIdx
-		}
-		hunk.NewStart = parseInt(line[plusIdx+1 : endIdx])
-		hunk.NewLines = 1
-	}
-
+	hunk.OldStart, hunk.OldLines = parseHunkRange(fields[0][1:])
+	hunk.NewStart, hunk.NewLines = parseHunkRange(fields[1][1:])
 	return hunk
+}
+
+// parseHunkRange parses "start[,count]"; an absent count is 1.
+func parseHunkRange(s string) (start, count int) {
+	startText, countText, hasCount := strings.Cut(s, ",")
+	start = parseInt(startText)
+	if !hasCount {
+		return start, 1
+	}
+	return start, parseInt(countText)
 }
 
 // Helper functions for string parsing

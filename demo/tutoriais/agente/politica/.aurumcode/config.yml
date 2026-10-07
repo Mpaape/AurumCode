@@ -1,0 +1,3 @@
+gate:
+  fail_on: [error]
+  inconclusive: block
