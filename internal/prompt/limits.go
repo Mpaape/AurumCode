@@ -15,6 +15,10 @@ type SlotLimits struct {
 	RuleCatalogMaxTokens int `yaml:"rule_catalog_max_tokens"`
 	EvidenceMaxTokens    int `yaml:"evidence_max_tokens"`
 	ToolsMaxTokens       int `yaml:"tools_max_tokens"`
+	// BatchMaxCount and BatchMaxPromptTokens bound a review split in
+	// batches: how many prompts, and their summed size.
+	BatchMaxCount        int `yaml:"batch_max_count"`
+	BatchMaxPromptTokens int `yaml:"batch_max_prompt_tokens"`
 }
 
 const limitsFile = "templates/limits.yml"
@@ -34,7 +38,8 @@ func loadSlotLimits(fsys fs.ReadFileFS) (SlotLimits, error) {
 	if err := yaml.Unmarshal(raw, &limits); err != nil {
 		return SlotLimits{}, fmt.Errorf("parsing %s: %w", limitsFile, err)
 	}
-	if limits.PromptMaxTokens <= 0 || limits.RuleCatalogMaxTokens <= 0 || limits.EvidenceMaxTokens <= 0 || limits.ToolsMaxTokens <= 0 {
+	if limits.PromptMaxTokens <= 0 || limits.RuleCatalogMaxTokens <= 0 || limits.EvidenceMaxTokens <= 0 || limits.ToolsMaxTokens <= 0 ||
+		limits.BatchMaxCount <= 0 || limits.BatchMaxPromptTokens <= 0 {
 		return SlotLimits{}, fmt.Errorf("%s must declare every ceiling as a positive token count: %+v", limitsFile, limits)
 	}
 	return limits, nil

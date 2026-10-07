@@ -1,0 +1,5 @@
+gate:
+  fail_on: [error]
+  inconclusive: block
+batches:
+  max_batches: 1

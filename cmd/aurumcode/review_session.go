@@ -173,6 +173,9 @@ type reviewState struct {
 	toolManifest []prompt.ToolOffer
 	toolsOffered bool
 	transcript   *deliberation.Transcript
+	// batches are the batches of a review whose diff did not fit one
+	// prompt, nil otherwise.
+	batches []review.Batch
 
 	gateRes *gateDecision
 }
