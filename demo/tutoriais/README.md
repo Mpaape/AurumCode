@@ -28,6 +28,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [agente](../../docs/tutorials/agente.md) | `agente/` | gate-consultado, skill-do-repo, hook-pre-commit, gate-inconclusivo (cliente MCP de teste em `cliente-mcp.py`, python3 no host) |
 | [dados-de-analise](../../docs/tutorials/dados-de-analise.md) | `dados-de-analise/` | declarado-ou-nao, vencido, cache, workflow-agendado, adulterado, indisponivel |
 | [provedores](../../docs/tutorials/provedores.md) | `provedores/` | sem-perfil, azure-openai, anthropic, catalogo-do-operador, falha-fora-do-schema, falha-perfil-desconhecido (provedor falso dentro do container, rede none) |
+| [changelog](../../docs/tutorials/changelog.md) | `changelog/` | entrada-valida, consolidar-release, sugestao-separada, pr-desliga-o-modo, log-de-agente, falha-entrada-ausente |
 
 ## Como rodar
 
