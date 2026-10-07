@@ -143,7 +143,11 @@ func (s *reviewState) joinScanners() {
 // not produce trustworthy findings: a Limitations entry, never a finding.
 func scannerInconclusiveNotice(language string, scan gateScan) string {
 	label, engine := strings.ToUpper(scan.Source()), displayName(scan.Engine.Name())
-	return i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Motive(), engine)
+	notice := i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Reason, engine)
+	if scan.Detail != "" {
+		notice += " " + i18n.Format(language, "notice.scanner_detail", scan.Detail)
+	}
+	return notice
 }
 
 // displayName capitalizes an engine name for prose ("semgrep" -> "Semgrep").
