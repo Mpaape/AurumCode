@@ -73,15 +73,41 @@ const (
 	MetaOmittedPaths = "code_files_omitted_paths"
 )
 
-// needsBatches reports whether the single prompt left a file out, in whole
-// or in part, and there is more than one file to split. Otherwise the review
-// stays the single prompt it always was. A ceiling of one batch still plans:
-// the files that do not fit are then named, not only counted.
-func (r *Reviewer) needsBatches(diff *types.Diff, prepared preparedPrompt) bool {
-	if diff == nil || len(diff.Files) < 2 {
-		return false
+// needsBatches reports whether the single prompt left a file with a patch
+// out, in whole or in part, and there is more than one such file to split.
+// Otherwise the review stays the single prompt it always was. A file with no
+// patch (a binary, a file the forge would not render) is never helped by
+// splitting, so it is left out of the question. A ceiling of one batch still
+// plans: the files that do not fit are then named, not only counted.
+func (r *Reviewer) needsBatches(diff *types.Diff, prepared preparedPrompt, reviewContext ReviewContext) (bool, error) {
+	if diff == nil {
+		return false, nil
 	}
-	return metaCount(prepared.parts.Meta, "code_files_omitted") > 0 || metaCount(prepared.parts.Meta, "code_files_partial") > 0
+	withPatch, withoutPatch := splitByPatch(diff.Files)
+	if len(withPatch) < 2 {
+		return false, nil
+	}
+	meta := prepared.parts.Meta
+	if len(withoutPatch) > 0 {
+		p, err := r.preparePrompt(&types.Diff{Files: withPatch}, batchContext(reviewContext, withPatch))
+		if err != nil {
+			return false, err
+		}
+		meta = p.parts.Meta
+	}
+	return metaCount(meta, "code_files_omitted") > 0 || metaCount(meta, "code_files_partial") > 0, nil
+}
+
+// splitByPatch separates the files that carry hunks from those that do not.
+func splitByPatch(files []types.DiffFile) (withPatch, withoutPatch []types.DiffFile) {
+	for _, f := range files {
+		if len(f.Hunks) > 0 {
+			withPatch = append(withPatch, f)
+		} else {
+			withoutPatch = append(withoutPatch, f)
+		}
+	}
+	return withPatch, withoutPatch
 }
 
 // batchPlan is the packing of a diff: the prompts of the batches that will
@@ -148,9 +174,15 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 		meta := p.parts.Meta
 		return metaCount(meta, "code_files_omitted") == 0 && metaCount(meta, "code_files_partial") == 0, nil
 	}
-	packed, err := packUnits(groupByDirectory(diff.Files), measure)
+	withPatch, withoutPatch := splitByPatch(diff.Files)
+	packed, err := packUnits(groupByDirectory(withPatch), measure)
 	if err != nil {
 		return batchPlan{}, err
+	}
+	if len(withoutPatch) > 0 && len(packed) > 0 {
+		// Files without a patch ride in the first batch: its prompt
+		// declares them as the single prompt would have.
+		packed[0] = append(packed[0], withoutPatch...)
 	}
 	var plan batchPlan
 	total, stopped := 0, false

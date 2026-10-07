@@ -14,10 +14,11 @@
 #   Acima dele os arquivos restantes ficam fora, declarados, e a aprovacao e
 #   retida.
 # batch_max_prompt_tokens: teto da soma dos prompts de todos os lotes (o custo
-#   de entrada da revisao inteira), mesma regra.
+#   de entrada da revisao inteira), mesma regra. O padrao equivale a quatro
+#   prompts cheios: e o numero de lotes que limita, ate a configuracao baixar.
 prompt_max_tokens: 120000
 rule_catalog_max_tokens: 512
 evidence_max_tokens: 4096
 tools_max_tokens: 1024
 batch_max_count: 4
-batch_max_prompt_tokens: 400000
+batch_max_prompt_tokens: 480000
