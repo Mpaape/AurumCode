@@ -1,0 +1,6 @@
+$ aurumcode review --base main --fail-on error
+app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+exit_code=3
+RESULTADO: a revisao reprovou e guardou o achado na memoria local
+--- arquivos de memoria: 1
+"id":"security/hardcoded-secret:app.go:6"

@@ -27,7 +27,7 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [Arquivos que saem da revisão como documentação](configuration.md#quais-arquivos-saem-da-revisao-como-documentacao). Veja também
 [Qualidade e limitações](review-quality.md) e [Cache de review](review-cache.md).
 
-Tutorial: [Revisão de código](tutorials/revisao.md) e [Deliberação com ferramentas](tutorials/deliberacao.md).
+Tutorial: [Revisão de código](tutorials/revisao.md), [Deliberação com ferramentas](tutorials/deliberacao.md) e [Memória de revisão](tutorials/memoria.md).
 
 ## No seu agente de código
 

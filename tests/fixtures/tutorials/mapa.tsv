@@ -139,6 +139,9 @@ realimentação da política	realimentacao	rodada-sem-novidade	aurumcode realime
 realimentação da política	realimentacao	medir-melhora	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/medir-melhora.txt	RESULTADO: antes e depois medidos, sem regressao	-	entregue
 realimentação da política	realimentacao	medir-regressao	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/medir-regressao.txt	RESULTADO: o aumento de aprovado com defeito foi destacado como regressao	-	entregue
 realimentação da política	realimentacao	falha-sem-modelo	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/falha-sem-modelo.txt	RESULTADO: sem modelo nao ha proposta e nenhuma PR foi aberta	-	entregue
+memória de revisão	memoria	local-guarda-observacao	aurumcode review	demo/tutoriais/memoria	expected/local-guarda-observacao.txt	RESULTADO: a revisao reprovou e guardou o achado na memoria local	memoria	entregue
+memória de revisão	memoria	segunda-rodada-le-a-memoria	aurumcode review	demo/tutoriais/memoria	expected/segunda-rodada-le-a-memoria.txt	RESULTADO: primeira rodada: o achado foi guardado	-	entregue
+memória de revisão	memoria	desligada-nao-guarda	aurumcode review	demo/tutoriais/memoria	expected/desligada-nao-guarda.txt	RESULTADO: com a memoria desligada a revisao roda igual e nada e guardado	-	entregue
+memória de revisão	memoria	falha-modo-invalido	aurumcode review	demo/tutoriais/memoria	expected/falha-modo-invalido.txt	RESULTADO: o modo invalido foi relatado e a revisao seguiu sem memoria	-	entregue
 Release oficial com tag imutável	-	-	scripts/release.sh	-	-	AUR-510	release	planejado
-Memória de revisão (review.memory)	-	-	aurumcode review	-	-	tutorial pendente	memoria	planejado
 Status do CI no parecer	-	-	aurumcode review	-	-	tutorial pendente	-	planejado
