@@ -82,6 +82,9 @@ docker build -t aurumcode:local /caminho/para/AurumCode
 ```
 
 Exporte `LLM_API_KEY`, `LLM_BASE_URL` e, se necessário, `LLM_MODEL` no terminal.
+Para um provedor conhecido, `LLM_PROVIDER` escolhe o perfil e dispensa montar a
+URL (passe também `-e LLM_PROVIDER` e as variáveis do provedor ao `docker run`);
+veja [Provedores de LLM](provedores.md).
 Dentro do repositório que deseja revisar:
 
 ```bash
