@@ -26,13 +26,14 @@ type Scan struct {
 	Detail string
 }
 
-// Motive is the inconclusive reason as a gate line and a notice state it:
-// the reason token, then the engine's detail when there is one.
-func (s Scan) Motive() string {
+// DetailSuffix is the engine's detail as a gate line ends with it, after
+// the reason token ("" without detail): the token stays a whole word in
+// parentheses for whoever matches on it.
+func (s Scan) DetailSuffix() string {
 	if s.Detail == "" {
-		return s.Reason
+		return ""
 	}
-	return s.Reason + ": " + s.Detail
+	return " [detalhe: " + s.Detail + "]"
 }
 
 // Origin is the typed origin of the scan's findings.
@@ -80,7 +81,7 @@ func ApplyScannerGate(d *Result, s Scan, issues []types.ReviewIssue) error {
 	origin := s.Origin()
 	if s.Reason != "" {
 		d.Inconclusive = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)", s.label(), s.Engine.Name(), origin, s.Section, s.Motive()))
+		d.Lines = append(d.Lines, fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)%s", s.label(), s.Engine.Name(), origin, s.Section, s.Reason, s.DetailSuffix()))
 		return nil
 	}
 	rank, name, err := s.Config.Threshold()
