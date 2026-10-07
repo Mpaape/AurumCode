@@ -75,7 +75,7 @@ cleanup_root() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1" >/
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
 export TMPDIR="$run_dir"
 
@@ -103,13 +103,13 @@ run_nested() {
 # exact last-line tag docs/specs/AUR-547.md documents for each. A different
 # red cause, or an unexpected green, both fail this scenario: either means
 # the documented spec no longer describes the real, current state.
-expected_tag() {
-  case "$1" in
-    AUR-443) printf 'selector:TestAUR443:exit:1' ;;
-    AUR-466) printf 'selector:IntegrationAUR466:exit:1' ;;
-    AUR-481) printf 'selector:IntegrationAUR481:exit:1' ;;
-  esac
-}
+# AUR-589: AUR-466 and AUR-481 are green (their integration bridges count the
+# finding by rule now that the deterministic pass adds its own line), and
+# AUR-443 is retired with exit 69 and a product reason (the docs subcommand it
+# pinned was removed in 670c7f6d). See docs/specs/AUR-589.md. So every script
+# but AUR-443 must exit 0, and AUR-443 must exit 69 naming its reason; any
+# other outcome means the recorded state no longer describes the real one.
+readonly retired_script='AUR-443' 
 
 # detail_checks pins, per script, the exact outcome of every OTHER
 # selector that script exposes -- not just the coarse AC-001 tag --
@@ -120,46 +120,25 @@ expected_tag() {
 # independent review of this card).
 #  script   selector            expected_rc  expected_tag_substring
 readonly -a detail_checks=(
-  'AUR-443|TestAUR443|1|selector:TestAUR443:exit:1'
-  'AUR-443|IntegrationAUR443|1|selector:IntegrationAUR443:exit:1'
-  'AUR-443|E2EAUR443|0|E2EAUR443/ok'
-  'AUR-443|AC-001-MUT-001|0|MUT-001/rejected'
+  'AUR-443|TestAUR443|69|AUR-443/retired: '
+  'AUR-443|E2EAUR443|69|AUR-443/retired: '
   'AUR-448|TestAUR448|0|ok'
   'AUR-448|IntegrationAUR448|0|ok'
   'AUR-448|E2EAUR448|0|E2EAUR448/ok'
   'AUR-448|AC-001-MUT-001|0|MUT-001/rejected'
-  'AUR-466|IntegrationAUR466|1|selector:IntegrationAUR466:exit:1'
+  'AUR-466|IntegrationAUR466|0|ok'
   'AUR-466|E2EAUR466|0|e2e-ok'
-  'AUR-481|IntegrationAUR481|1|selector:IntegrationAUR481:exit:1'
+  'AUR-481|IntegrationAUR481|0|ok'
   'AUR-481|E2EAUR481|0|e2e-ok'
 )
 
-# has_git is true only when a git BINARY is on PATH. The sealed
-# go-unit-offline-v1 profile's own image has none (measured directly: its
-# own tests/integration/AUR-443.go subtest "git-binary backend" prints
-# "no git binary on PATH in this environment: skipping..."), while the
-# go-shared dev container this card was built against does. That one
-# difference changes TestAUR443IntegrationBridge's own outcome (it
-# compares pure-Go vs git-binary output; with no git binary the
-# git-binary-backend half of the comparison -- and the subtest this card
-# measured RED against, "a_valid_ref_still_resolves_and_reviews_normally_
-# on_both_backends" -- never runs the branch that hits the AUR-490 stdout
-# mismatch), so IntegrationAUR443 is GREEN under the sealed profile and
-# RED under go-shared. Both are real, both are out of this card's paths
-# (tests/integration/AUR-443.go) either way -- this just keeps the pin
-# honest across the two environments this card is run in, documented in
-# docs/specs/AUR-547.md.
-has_git() { command -v git >/dev/null 2>&1; }
 
 run_detail_checks() {
   local any_bad=0 entry name sel want_rc want_tag last
   for entry in "${detail_checks[@]}"; do
     IFS='|' read -r name sel want_rc want_tag <<<"$entry"
-    if [[ "$name/$sel" == 'AUR-443/IntegrationAUR443' ]] && ! has_git; then
-      want_rc=0; want_tag='ok'
-    fi
     run_nested "$name" "$sel"
-    if [[ "$n_rc" -eq 79 || "$n_rc" -eq 69 ]]; then
+    if [[ "$n_rc" -eq 79 || ( "$n_rc" -eq 69 && "$name" != "$retired_script" ) ]]; then
       cat "$n_out" >&2
       infra "detail-infra:$name:$sel:$n_rc"
     fi
@@ -182,31 +161,24 @@ run_detail_checks() {
 }
 
 run_ac001() {
-  local any_bad=0 name last
+  local any_bad=0 name
   for name in "${scripts[@]}"; do
     run_nested "$name" AC-001
-    if [[ "$name" == AUR-448 || "$name" == AUR-449 || "$name" == AUR-458 ]]; then
-      if [[ "$n_rc" -ne 0 ]]; then
+    if [[ "$name" == "$retired_script" ]]; then
+      if [[ "$n_rc" -ne 69 ]] || ! grep -Eq "^$name/retired: .{20,}" "$n_out"; then
         cat "$n_out" >&2
-        printf '%s/%s/%s-regressed:%s\n' "$card" "$selector" "$name" "$n_rc" >&2
+        printf '%s/%s/%s-not-retired:%s\n' "$card" "$selector" "$name" "$n_rc" >&2
         any_bad=1
       fi
       continue
     fi
-    if [[ "$n_rc" -eq 0 ]]; then
-      cat "$n_out" >&2
-      printf '%s/%s/unexpectedly-fixed:%s\n' "$card" "$selector" "$name" >&2
-      any_bad=1
-      continue
-    fi
-    if [[ "$n_rc" -eq 79 || "$n_rc" -eq 69 ]]; then
+    if [[ "$n_rc" -eq 79 ]]; then
       cat "$n_out" >&2
       infra "ac001-infra:$name:$n_rc"
     fi
-    last="$(tail -n1 "$n_out")"
-    if ! grep -Fq "$(expected_tag "$name")" <<<"$last"; then
+    if [[ "$n_rc" -ne 0 ]]; then
       cat "$n_out" >&2
-      printf '%s/%s/different-red-cause:%s:%s\n' "$card" "$selector" "$name" "$last" >&2
+      printf '%s/%s/%s-regressed:%s\n' "$card" "$selector" "$name" "$n_rc" >&2
       any_bad=1
     fi
   done
@@ -269,14 +241,16 @@ run_ac003() {
 # being caught as an environment gap.
 run_mut001() {
   local root="$run_dir/root-mut001"
-  # tests/acceptance/AUR-443.sh resolves its OWN repo_root from $0's
+  # AUR-589 retired AUR-443, the script this mutation used to stage, so it
+  # now stages AUR-448.sh, whose copy() raises infra() the same way.
+  # tests/acceptance/AUR-448.sh resolves its OWN repo_root from $0's
   # location (two directories up), so the mutated copy has to sit at the
   # same relative depth as the real file, not loose in a flat scratch
   # dir. Everything it might read is symlinked from the real tree (cheap,
   # no copying -- the mutated script's own stage_source() does the actual
   # cp -R'ing into a further-nested scratch root of its own); only
   # tests/acceptance is a REAL directory, holding just the mutated file,
-  # so this never writes into the real tests/acceptance/. AUR-443.sh is
+  # so this never writes into the real tests/acceptance/. AUR-448.sh is
   # chosen because its copy() helper raises infra() itself the instant a
   # source path does not exist (AUR-449.sh's copy() has no such guard, so
   # a missing cp source there would surface as a raw shell errexit, not
@@ -289,16 +263,16 @@ run_mut001() {
   for top in unit integration e2e fixtures; do
     [[ -e "$repo_root/tests/$top" ]] && ln -s "$repo_root/tests/$top" "$root/tests/$top"
   done
-  cp "$repo_root/tests/acceptance/AUR-443.sh" "$root/tests/acceptance/AUR-443.sh"
-  chmod u+w -- "$root/tests/acceptance/AUR-443.sh"
+  cp "$repo_root/tests/acceptance/AUR-448.sh" "$root/tests/acceptance/AUR-448.sh"
+  chmod u+w -- "$root/tests/acceptance/AUR-448.sh"
 
-  grep -Fxq '  copy "$root" pkg' "$root/tests/acceptance/AUR-443.sh" || infra 'MUT-001/anchor-absent'
-  sed -i 's#^  copy "\$root" pkg$#  copy "$root" cmd/regenerate-docs\n  copy "$root" pkg#' "$root/tests/acceptance/AUR-443.sh"
-  grep -Fq 'copy "$root" cmd/regenerate-docs' "$root/tests/acceptance/AUR-443.sh" || infra 'MUT-001/mutation-not-applied'
+  grep -Fxq '  copy "$root" pkg' "$root/tests/acceptance/AUR-448.sh" || infra 'MUT-001/anchor-absent'
+  sed -i 's#^  copy "\$root" pkg$#  copy "$root" cmd/regenerate-docs\n  copy "$root" pkg#' "$root/tests/acceptance/AUR-448.sh"
+  grep -Fq 'copy "$root" cmd/regenerate-docs' "$root/tests/acceptance/AUR-448.sh" || infra 'MUT-001/mutation-not-applied'
 
   local out="$run_dir/mut001.out" rc
   set +e
-  ( cd "$root" && bash "tests/acceptance/AUR-443.sh" AC-001 ) >"$out" 2>&1
+  ( cd "$root" && bash "tests/acceptance/AUR-448.sh" AC-001 ) >"$out" 2>&1
   rc=$?
   set -e
 

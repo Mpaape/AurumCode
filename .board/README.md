@@ -53,7 +53,7 @@ requests, and only those run the AurumCode self review (owner decision
 
 card -> branch `card/AUR-NNN` -> pull request to `dev` -> CI (`Build and
 test in OCI`, `Race tests in OCI`, `Documentation browser checks`) -> merge
--> card in `validating`. Batch: pull request `dev -> main` -> CI plus the
+-> card in `review`. Batch: pull request `dev -> main` -> CI plus the
 self review (`review / Review pull request`, its review comment and the
 `aurumcode/policy-gate` status) -> merge only with every check green -> the
 batch's cards move to `done` with the delivery SHA, an ancestor of `main`.

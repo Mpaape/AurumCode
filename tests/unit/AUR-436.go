@@ -40,7 +40,10 @@ func aur436Fixture(t *testing.T, severity string) string {
       "line": 4,
       "severity": %q,
       "rule_id": "security/hardcoded-secret",
-      "message": "A planted, synthetic problem used to exercise model selection."
+      "message": "A planted, synthetic problem used to exercise model selection.",
+      "evidence": "The added line at this location carries the value the message describes.",
+      "impact": "A reader of the change inherits the problem the message describes.",
+      "verification": "Change the flagged line and confirm the finding is gone."
     }
   ],
   "summary": "Deterministic offline response for AUR-436."
