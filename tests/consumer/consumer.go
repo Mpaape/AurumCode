@@ -62,6 +62,7 @@ type Scenario struct {
 // Evidence is what run.sh recorded for one scenario.
 type Evidence struct {
 	Scenario    string            `json:"cenario"`
+	ToolSHA     string            `json:"aurumcode_sha"`
 	Repo        string            `json:"repo"`
 	SHA         string            `json:"sha"`
 	RunID       int64             `json:"run_id"`
@@ -184,6 +185,9 @@ func identityProblems(e Evidence) []string {
 	}
 	if e.RunID <= 0 || e.RunURL == "" {
 		out = append(out, "evidência sem run")
+	}
+	if len(e.ToolSHA) != 40 {
+		out = append(out, "evidência sem o SHA do AurumCode sob teste")
 	}
 	return out
 }

@@ -96,18 +96,18 @@ $(gh api "repos/$repo/pulls/$pr/reviews" --jq '[.[] | .body] | join("\n")')"
   log="$(gh run view "$run_id" --repo "$repo" --log-failed 2>/dev/null | tail -n 200 || true)"
   idioma=''
   if printf '%s' "$texto" | grep -q 'Veredito'; then idioma=pt-BR; elif printf '%s' "$texto" | grep -q 'Verdict'; then idioma=en; fi
-  jq -n --arg c "$cenario" --arg r "$repo" --arg s "$head" --argjson id "$run_id" --arg url "$run_url" \
+  jq -n --arg c "$cenario" --arg t "$sha" --arg r "$repo" --arg s "$head" --argjson id "$run_id" --arg url "$run_url" \
     --arg conc "$conclusao" --argjson st "$(jq -n --argjson a "$status" --argjson b "$checks" '$a + $b')" \
     --arg idioma "$idioma" --arg modo "$modo" --argjson inline "$inline" --argjson com "$comentarios" \
     --arg texto "$texto
 $log" \
-    '{cenario: $c, repo: $r, sha: $s, run_id: $id, run_url: $url, medido: true, limitacoes: [],
+    '{cenario: $c, aurumcode_sha: $t, repo: $r, sha: $s, run_id: $id, run_url: $url, medido: true, limitacoes: [],
       conclusao: $conc, status: $st, idioma: $idioma, modo: $modo, sugestoes_inline: $inline,
       comentarios_aurum: $com, texto: $texto}'
 }
 
 nao_medido() {
-  jq -n --arg c "$1" --arg r "$repo" --arg why "$2" '{cenario: $c, repo: $r, medido: false, limitacoes: [$why]}' >"$out/$1.json"
+  jq -n --arg c "$1" --arg t "$sha" --arg r "$repo" --arg why "$2" '{cenario: $c, aurumcode_sha: $t, repo: $r, medido: false, limitacoes: [$why]}' >"$out/$1.json"
   echo "$1: nao medido ($2)"
 }
 

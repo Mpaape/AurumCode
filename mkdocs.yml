@@ -47,6 +47,7 @@ nav:
   - Começando: getting-started.md
   - Referência: configuration.md
   - Changelog obrigatório: changelog.md
+  - Releases: releases.md
   - Provedores de LLM: provedores.md
   - Guia corporativo: gate-corporativo.md
   - Aurum no seu agente: agentes.md
