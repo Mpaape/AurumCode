@@ -1,0 +1,80 @@
+name: AurumCode feedback measurement
+
+# Medicao do corpus do AUR-523 antes e depois de uma PR de realimentacao
+# (AUR-532), reutilizavel. O repositorio da politica chama este workflow nas
+# PRs da branch aurum/realimentacao:
+#
+#   on:
+#     pull_request:
+#       branches: [main]
+#   permissions:
+#     contents: read
+#     pull-requests: write
+#   jobs:
+#     medicao:
+#       uses: Mpaape/AurumCode/.github/workflows/realimentacao-medicao.yml@<sha>
+#
+# O job comenta a tabela antes/depois na PR e falha quando "aprovado com
+# defeito" sobe, o recall cai ou um lado nao pode ser medido. A seguranca
+# decide o merge; o check so mostra o efeito.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  medicao:
+    name: Medicao do corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout AurumCode
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .aurumcode-tool
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout policy at the base
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .politica-base
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout policy at the pull request
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: .politica-pr
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Measure the corpus before and after
+        id: medir
+        run: >-
+          docker run --rm
+          -v "${GITHUB_WORKSPACE}:/w"
+          -w /w/.aurumcode-tool
+          golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+          sh scripts/ci/realimentacao-medir.sh /w/.politica-base /w/.politica-pr /w/medicao.md
+
+      - name: Comment the measurement
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ ! -s medicao.md ]; then
+            printf '## Medição do corpus (AUR-523)\n\n**Não medido.** A medição falhou antes de produzir a tabela.\n' > medicao.md
+          fi
+          gh pr comment "${PR_NUMBER}" --repo "${REPOSITORY}" --body-file medicao.md

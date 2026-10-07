@@ -4,6 +4,9 @@
 
 - Changelog obrigatório: `aurumcode changelog --base <sha>` reprova a PR sem
   entrada útil nesta seção; o repositório liga com `changelog_check.mode: required`.
+- Realimentação da política: `aurumcode realimentacao` abre uma única PR no
+  repositório da política com propostas citando falsos positivos, achados
+  corrigidos e `/aurum perdeu`; nada é aplicado sem merge humano.
 
 ## Reconstrução focada em code review
 

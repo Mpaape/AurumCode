@@ -42,6 +42,7 @@ negócio vivem em `internal/`.
 | `internal/deliberation` | Conversa limitada com ferramentas junto a um modelo, sem semântica de revisão: `Tool` (`Spec`, `Run`), `Limits` (rodadas, tokens, timeout por ferramenta), validação de argumentos antes de qualquer execução, o `Transcript` e o `LimitError` tipado que quem chama trata como inconclusivo. |
 | `internal/dtrack` | Cliente do OWASP Dependency-Track para o gate de SBOM. |
 | `internal/evidence` | Manifesto do pacote de evidências endereçado por conteúdo. |
+| `internal/feedback` | O ciclo de realimentação (AUR-532): sinais de uso vindos do GitHub (alerta dispensado como falso positivo, achado corrigido entre auditorias, `/aurum perdeu`), propostas do modelo validadas contra os sinais citados, o registro de sinais no repositório da política, a medição antes/depois do corpus e a PR única. Nada é aplicado à política sem merge humano. |
 | `internal/gate` | O pipeline do gate: `Run`, `Result`, `Contributor`, `Pipeline`, a regra de falha, o ranking de inconclusivo (`RankReason`) e a decisão de saída (`ExitPolicy`). |
 | `internal/git` | Cliente do GitHub e acesso ao git usados pelo caminho `--pr`. |
 | `internal/gittest` | Ambiente hermético para o git real dos fixtures de teste: sem configuração global nem de sistema, `HOME` privado e sem prompt, para o teste dar o mesmo resultado no container de desenvolvimento e no CI. |
