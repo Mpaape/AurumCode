@@ -1,0 +1,5 @@
+$ LLM_PROVIDER=nao-existe aurumcode review --base main
+aurumcode review: unknown LLM provider profile "nao-existe"; valid profiles: anthropic, azure-openai, bedrock, google, litellm, ollama, openai, openai-compatible, opencode, openrouter
+--- requisicoes recebidas pelo provedor falso: 0
+exit_code=1
+RESULTADO: perfil desconhecido: erro com a lista de perfis validos

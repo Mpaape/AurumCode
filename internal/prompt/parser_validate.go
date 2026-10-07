@@ -1,6 +1,8 @@
 package prompt
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -106,4 +108,26 @@ func sanitizeModelIssueProvenance(issues []types.ReviewIssue) {
 			issues[i].Assessment = nil
 		}
 	}
+}
+
+// errMissingFindingsList is the validation failure of an answer that names
+// neither "issues" nor the legacy "line_comments" list.
+var errMissingFindingsList = errors.New("missing issues list")
+
+// hasFindingsList reports whether the decoded answer object carries a
+// findings list. Without one, a reply such as {"answer":"ok"} would decode
+// into an empty list of issues -- an approval the model never gave. A
+// provider that does not enforce the answer schema (no response_format)
+// can return exactly that, so the parser holds every reply to it.
+func hasFindingsList(jsonContent string) bool {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal([]byte(jsonContent), &fields) != nil {
+		return false
+	}
+	for _, key := range []string{"issues", "line_comments"} {
+		if raw, ok := fields[key]; ok && strings.TrimSpace(string(raw)) != "null" {
+			return true
+		}
+	}
+	return false
 }

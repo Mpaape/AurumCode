@@ -12,11 +12,13 @@ import (
 // sends these types.
 
 type toolRequest struct {
-	Model          string          `json:"model,omitempty"`
-	Messages       []toolMessage   `json:"messages"`
-	Tools          []wireTool      `json:"tools,omitempty"`
-	MaxTokens      int             `json:"max_tokens,omitempty"`
-	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+	Model     string        `json:"model,omitempty"`
+	Messages  []toolMessage `json:"messages"`
+	Tools     []wireTool    `json:"tools,omitempty"`
+	MaxTokens int           `json:"max_tokens,omitempty"`
+	// MaxCompletionTokens: see completionRequest.
+	MaxCompletionTokens int             `json:"max_completion_tokens,omitempty"`
+	ResponseFormat      *responseFormat `json:"response_format,omitempty"`
 }
 
 type wireTool struct {
@@ -65,9 +67,9 @@ type toolCompletionResponse struct {
 func (p *Provider) CompleteWithTools(messages []llm.Message, tools []llm.ToolSpec, opts llm.Options) (llm.ToolResponse, error) {
 	reqBody := toolRequest{
 		Model:          p.ResolveModel(opts),
-		MaxTokens:      opts.MaxTokens,
-		ResponseFormat: answerFormat(opts),
+		ResponseFormat: p.dialect.answerFormat(opts),
 	}
+	reqBody.MaxTokens, reqBody.MaxCompletionTokens = p.dialect.replyCap(opts.MaxTokens)
 	if opts.System != "" {
 		system := opts.System
 		reqBody.Messages = append(reqBody.Messages, toolMessage{Role: llm.RoleSystem, Content: &system})

@@ -142,6 +142,12 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 		delete(result.Metadata, key)
 	}
 
+	// An answer without a findings list is outside the answer schema: it
+	// must never read as "the model looked and found nothing".
+	if !hasFindingsList(jsonContent) {
+		return p.degradedOrError(response, ParseErrorValidation, errMissingFindingsList)
+	}
+
 	// Origin is engine-owned: a model cannot claim a finding came from a
 	// deterministic analyzer. An assessment with a status outside the
 	// closed set, or naming no evidence, is dropped rather than guessed.

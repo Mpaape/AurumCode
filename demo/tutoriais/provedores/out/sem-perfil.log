@@ -1,0 +1,25 @@
+== sem-perfil
+$ aurumcode review --base main
+## Code Review Summary
+
+**Verdict:** Approve
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- None
+
+
+```mermaid
+flowchart TD
+    n0["app.py"]
+
+```
+No issues found.
+--- requisicoes recebidas pelo provedor falso: 1
+    provedor recebeu: /legado/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+exit_code=0
+RESULTADO: sem LLM_PROVIDER a requisicao e a de sempre e a revisao conclui

@@ -46,7 +46,9 @@ nav:
     - Entrada do repositório: README.md
   - Começando: getting-started.md
   - Referência: configuration.md
+  - Provedores de LLM: provedores.md
   - Guia corporativo: gate-corporativo.md
+  - Aurum no seu agente: agentes.md
   - Arquitetura: architecture.md
   - Estendendo o Aurum: extensao.md
   - Qualidade e benchmark:

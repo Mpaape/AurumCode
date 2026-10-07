@@ -1,0 +1,12 @@
+# Catalogo do operador: acrescenta um perfil (ou substitui um do catalogo
+# embutido pelo mesmo nome). Apontado por LLM_PROVIDERS_FILE.
+profiles:
+  meu-gateway:
+    description: gateway OpenAI-compativel que autentica por header proprio
+    base_url: http://localhost:9000/v1
+    key_env: [GATEWAY_KEY]
+    auth: header
+    auth_header: x-gw-key
+    path: /chat/completions
+    token_field: max_completion_tokens
+    structured_output: none

@@ -85,14 +85,9 @@ done
 required_inputs=(
   go.mod
   go.sum
-  cmd/aurumcode
-  internal/analyzer
-  internal/config
-  internal/llm
-  internal/prompt
-  internal/review
-  internal/security/redaction
-  pkg/types
+  cmd
+  internal
+  pkg
   standards/security-review/rules.md
   tests/fixtures/repos/git-demo/repo.git
   tests/fixtures/review/known-problem-response.json
@@ -113,7 +108,7 @@ cleanup_root() {
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 export GOMAXPROCS=1
 
@@ -133,10 +128,7 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode internal/analyzer internal/config internal/prompt internal/review internal/security
-  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review internal/pipeline
-  copy "$root" cmd/regenerate-docs
-  copy "$root" pkg/types internal/llm
+  copy "$root" cmd internal pkg
   copy "$root" tests/fixtures/repos/git-demo tests/fixtures/review
   # The materialized input tree can be read-only, directories included;
   # force the staged scratch copy writable so mutation_case's rewrite and

@@ -1,0 +1,6 @@
+$ LLM_PROVIDER=anthropic aurumcode review --base main
+No issues found.
+--- requisicoes recebidas pelo provedor falso: 1
+    provedor recebeu: /anthropic/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=ausente
+exit_code=0
+RESULTADO: anthropic: sem response_format, resposta dentro do schema, revisao conclui
