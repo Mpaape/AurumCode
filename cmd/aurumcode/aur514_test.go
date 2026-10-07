@@ -33,11 +33,11 @@ var aur514Left = []aur514Field{
 }
 
 const aur514Response = `{"summary":"ok","verdict":"comment","issues":[` +
-	`{"file":"handler.go","line":11,"side":"LEFT","severity":"error","rule_id":"security#no-hardcoded-secrets",` +
+	`{"file":"handler.go","line":11,"side":"LEFT","severity":"error","rule_id":"quality/poor-naming",` +
 	`"message":"Remover o retorno permite nil","impact":"O handler entra em panico sem usuario.",` +
 	`"evidence":"Sem o retorno, user == nil chega a user.ID.","suggestion":"Restaure o retorno antecipado.",` +
 	`"verification":"Chame o handler sem usuario e confira o erro."},` +
-	`{"file":"handler.go","line":12,"side":"RIGHT","severity":"warning","rule_id":"security#no-hardcoded-secrets",` +
+	`{"file":"handler.go","line":12,"side":"RIGHT","severity":"warning","rule_id":"quality/magic-numbers",` +
 	`"message":"Persistir sem validar","impact":"Grava id invalido.","evidence":"persist(user.ID) sem checagem.",` +
 	`"suggestion":"Valide antes de persistir.","verification":"Teste com id vazio."}]}`
 
