@@ -2,6 +2,7 @@ package dependencies
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -25,21 +26,20 @@ type Inputs struct {
 
 // Check runs the dependency check. Every failure is a Reason on the report:
 // no model, a model answer that is not the contract, an unreachable or stale
-// source, a missing scanner, an unresolved version. None is ever "no
-// findings".
+// source, a missing or failing scanner, an extraction the scanner shows to
+// be incomplete, an unresolved version. None is ever "no findings".
 func Check(ctx context.Context, in Inputs) Report {
 	var report Report
-	if in.Model == nil {
+	switch {
+	case in.Model == nil:
 		report.fail(ReasonNoModel, "nenhum modelo para ler os manifestos")
 		return report
-	}
-	manifests, err := selectManifests(ctx, in.Model, in.Diff)
-	if err != nil {
-		report.fail(ReasonModelFailed, err.Error())
+	case strings.TrimSpace(in.Blocked) != "":
+		report.fail(ReasonCheckoutBlocked, in.Blocked)
 		return report
 	}
-	report.Manifests = manifests
-	if len(manifests) == 0 {
+	scanned, manifests, ok := readManifests(ctx, in, &report)
+	if !ok || len(manifests) == 0 {
 		return report
 	}
 	raw, omitted, err := extractChanges(ctx, in.Model, in.Diff, manifests)
@@ -52,13 +52,7 @@ func Check(ctx context.Context, in Inputs) Report {
 		return report
 	}
 	report.Changes, report.Discarded = ground(in.Diff, manifests, raw)
-	if strings.TrimSpace(in.Blocked) != "" {
-		report.fail(ReasonCheckoutBlocked, in.Blocked)
-		return report
-	}
-	if in.Extractor != nil {
-		confer(ctx, in.Extractor, in.Root, report.Changes, &report)
-	}
+	confer(in.Diff, scanned, report.Changes, &report)
 	if report.Inconclusive() {
 		return report
 	}
@@ -72,4 +66,30 @@ func Check(ctx context.Context, in Inputs) Report {
 	}
 	vetRegistry(ctx, in.Model, in.Registry, &report)
 	return report
+}
+
+// readManifests asks the model which changed files are manifests and the
+// scanner which changed files it recognizes; the union is read, and a file
+// only the scanner named is declared. ok is false when either failed.
+func readManifests(ctx context.Context, in Inputs, report *Report) (map[string][]Package, []string, bool) {
+	manifests, err := selectManifests(ctx, in.Model, in.Diff)
+	if err != nil {
+		report.fail(ReasonModelFailed, err.Error())
+		return nil, nil, false
+	}
+	var scanned map[string][]Package
+	if in.Extractor != nil {
+		scanned, err = in.Extractor.Extract(ctx, in.Root, diffPaths(in.Diff))
+		if err != nil {
+			reason := ReasonScannerFailed
+			if errors.Is(err, ErrScannerMissing) {
+				reason = ReasonScannerMissing
+			}
+			report.fail(reason, err.Error())
+			return nil, nil, false
+		}
+		manifests = adoptScanned(manifests, scanned, report)
+	}
+	report.Manifests = manifests
+	return scanned, manifests, true
 }

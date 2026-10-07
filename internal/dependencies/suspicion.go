@@ -19,13 +19,18 @@ type vetted struct {
 
 // vetRegistry asks the registry about every new or updated package and the
 // model whether any of them looks like a typosquat or a malicious package.
-// A package the registry cannot place (no system) is declared; a registry
+// A package the registry cannot place (no system, or only a range) is
+// declared; a registry
 // that fails is inconclusive. A suspicion is kept only when grounded in the
 // metadata the model was given.
 func vetRegistry(ctx context.Context, model Completer, reg Registry, report *Report) {
 	var batch []vetted
 	for _, c := range report.Changes {
-		if !c.NewOrUpdated() || c.Head == "" {
+		if !c.NewOrUpdated() {
+			continue
+		}
+		if c.Head == "" {
+			report.Unvetted = append(report.Unvetted, fmt.Sprintf("%s faixa %s (%s, %s)", c.Name, c.HeadRange, c.Ecosystem, c.Manifest))
 			continue
 		}
 		meta, err := reg.Metadata(ctx, c)

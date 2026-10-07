@@ -9,7 +9,7 @@
 #   AC-001     bump to an advisory version: introduced, with ids, fix and link
 #   AC-002     advisory on both sides is pre-existing
 #   AC-003     fixing the version records the fix
-#   AC-004     unknown format read by the model; divergence declared
+#   AC-004     unknown format read by the model; divergence declared; scanner evidence kept
 #   AC-005     range consulted by package; unresolved is inconclusive
 #   AC-006     unreachable/stale source or missing scanner is inconclusive
 #   AC-007     monorepo lockfiles reported separately
@@ -38,7 +38,7 @@ readonly pkgs=(./internal/dependencies/ ./internal/gate/ ./internal/config/)
 readonly ac_001='^(TestAUR495AC001IntroducedAdvisory|TestAUR495AC001FindingLine|TestDependenciesSectionParse|TestDependenciesGovernedByPolicy)$'
 readonly ac_002='^(TestAUR495AC002Preexisting)$'
 readonly ac_003='^(TestAUR495AC003Fixed)$'
-readonly ac_004='^(TestAUR495AC004UnknownFormatAndDivergence)$'
+readonly ac_004='^(TestAUR495AC004UnknownFormatAndDivergence|TestAUR495AC004ScannerEvidenceKept)$'
 readonly ac_005='^(TestAUR495AC005Range)$'
 readonly ac_006='^(TestAUR495AC006SourceFailures|TestAUR495AC006InconclusiveFollowsPolicy)$'
 readonly ac_007='^(TestAUR495AC007Monorepo)$'
@@ -128,7 +128,7 @@ case "$selector" in
   AC-001) run_ac AC-001 "$ac_001" 4 ;;
   AC-002) run_ac AC-002 "$ac_002" 1 ;;
   AC-003) run_ac AC-003 "$ac_003" 1 ;;
-  AC-004) run_ac AC-004 "$ac_004" 1 ;;
+  AC-004) run_ac AC-004 "$ac_004" 2 ;;
   AC-005) run_ac AC-005 "$ac_005" 1 ;;
   AC-006) run_ac AC-006 "$ac_006" 2 ;;
   AC-007) run_ac AC-007 "$ac_007" 1 ;;
@@ -139,7 +139,7 @@ case "$selector" in
     run_ac AC-001 "$ac_001" 4
     run_ac AC-002 "$ac_002" 1
     run_ac AC-003 "$ac_003" 1
-    run_ac AC-004 "$ac_004" 1
+    run_ac AC-004 "$ac_004" 2
     run_ac AC-005 "$ac_005" 1
     run_ac AC-006 "$ac_006" 2
     run_ac AC-007 "$ac_007" 1
