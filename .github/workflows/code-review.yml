@@ -30,6 +30,7 @@ jobs:
     uses: ./.github/workflows/review.yml
     with:
       model: ${{ vars.LLM_MODEL }}
+      provider: ${{ vars.LLM_PROVIDER }}
       security: true
     secrets: inherit
 
