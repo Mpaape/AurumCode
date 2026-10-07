@@ -1460,6 +1460,21 @@ oferecido e os scanners `required: false` rodam antes do modelo, como sem
 decide sozinha (a do repositório é ignorada com aviso); uma política sem a
 seção mantém a do repositório. Tutorial: [Deliberação com ferramentas](tutorials/deliberacao.md).
 
+### Status do CI no parecer
+
+No `--pr`, o contexto de CI que o workflow grava (`gh pr checks`, em
+`AURUMCODE_CI_CONTEXT_FILE`) chega ao modelo só com os checks **concluídos**
+de outros produtores. Checks ainda sem resultado (em andamento, na fila) e os
+status `aurumcode/*` publicados numa rodada anterior saem do contexto; o
+modelo recebe apenas a contagem do que foi omitido. Um arquivo que não é um
+array JSON de checks não é repassado.
+
+A seção "Status do CI" do parecer só lista fatos desta execução: um item do
+modelo sobre check sem resultado, sobre status `aurumcode/*` ou sobre scanner
+(`scanner_<engine>` ou nome de engine) que não rodou nesta revisão é
+descartado antes da publicação, contado em `ci_status_discarded` e nomeado no
+stderr. Check concluído com falha continua no contexto e no parecer.
+
 ## PR grande: diff local e revisão em lotes
 
 Duas situações de um PR grande (renomeações, artefatos gerados, limpezas) que
