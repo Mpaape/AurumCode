@@ -229,9 +229,11 @@ func TestBatchCeilingLeavesFilesOutAndWithholdsApproval(t *testing.T) {
 	}
 }
 
-// aur594ObjectCheckout builds the same pull request as aur594Checkout with
-// no git binary (loose objects written in Go), origin naming owner/repo, and
-// takes git off PATH. It returns the directory, the base and the head.
+// aur594ObjectCheckout builds the same pull request as aur594Checkout
+// without a git binary (loose objects written in Go), origin naming
+// owner/repo. Where no git binary exists (the sealed acceptance) the review
+// reads the range from the object database; elsewhere git reads the same
+// objects. It returns the directory, the base and the head.
 func aur594ObjectCheckout(t *testing.T) (dir, base, head string) {
 	t.Helper()
 	baseFiles := map[string][]byte{"app.go": []byte("package demo\n\nfunc Base() int {\n\treturn 1\n}\n")}
@@ -248,14 +250,13 @@ func aur594ObjectCheckout(t *testing.T) (dir, base, head string) {
 	if err := os.WriteFile(cfg, append(data, []byte("[remote \"origin\"]\n\turl = https://github.com/owner/repo.git\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PATH", "")
 	refs := &analyzerRepoRefs{dir: dir}
 	return dir, refs.resolve(t, "HEAD~1"), refs.resolve(t, "HEAD")
 }
 
-// AC-001 without a git binary: the range is read from the object database
-// (merge base and windowed hunks in Go) of a verified checkout.
-func TestTooLargeDiffIsReadWithoutGit(t *testing.T) {
+// AC-001 on a checkout built without git: the range of a verified checkout
+// is reviewed whichever reader the environment has.
+func TestTooLargeDiffIsReadFromObjectCheckout(t *testing.T) {
 	_, base, head := aur594ObjectCheckout(t)
 	code, stderr, prompt, posted := runAUR594PR(t, base, head)
 	if code != 0 || posted == "" {
@@ -263,14 +264,14 @@ func TestTooLargeDiffIsReadWithoutGit(t *testing.T) {
 	}
 	for _, want := range []string{aur594HeadMarker, "lib/extra.go", "+\treturn 2"} {
 		if !strings.Contains(prompt, want) {
-			t.Fatalf("the prompt does not carry %q without git: the review did not read the pull request's diff\n%s", want, prompt)
+			t.Fatalf("the prompt does not carry %q: the review did not read the pull request's diff\n%s", want, prompt)
 		}
 	}
 }
 
-// AC-001, the refusal half without git: an untracked file and nothing is
-// sent or published.
-func TestTooLargeDiffWithUnverifiedCheckoutFailsWithoutGit(t *testing.T) {
+// AC-001, the refusal half on the same checkout: an untracked file and
+// nothing is sent or published.
+func TestTooLargeDiffWithUnverifiedObjectCheckoutFails(t *testing.T) {
 	dir, base, head := aur594ObjectCheckout(t)
 	if err := os.WriteFile(filepath.Join(dir, "untracked.go"), []byte("package demo\n"), 0o600); err != nil {
 		t.Fatal(err)
