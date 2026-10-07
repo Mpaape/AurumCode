@@ -1,0 +1,4 @@
+$ aurumcode changelog --base main
+changelog: aprovado (entrada_valida): 1 linha(s) nova(s) em Unreleased, 0 em notas de versão
+exit_code=0
+RESULTADO: a PR acrescentou uma entrada util em Unreleased e o check aprovou

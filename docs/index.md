@@ -102,7 +102,7 @@ consultiva. Referência:
 [Changelog obrigatório](configuration.md#changelog-obrigatorio-aur-509) e o
 guia [Changelog obrigatório](changelog.md).
 
-Tutorial: em breve (AUR-501, `tutorials/changelog.md`).
+Tutorial: [Changelog obrigatório](tutorials/changelog.md).
 
 ## Benchmark e operação
 
