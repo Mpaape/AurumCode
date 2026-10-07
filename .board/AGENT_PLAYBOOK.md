@@ -139,7 +139,7 @@ container. Se os resultados divergirem, o resultado e bloqueio, nunca GREEN.
 ## Integracao: PR com o self review do Aurum
 
 O caminho normal de integracao e: card -> branch `card/AUR-NNN` -> PR para
-`dev` -> so CI (build, race, docs) -> merge -> card em `validating`. Em lote:
+`dev` -> so CI (build, race, docs) -> merge -> card em `review`. Em lote:
 PR `dev -> main` -> CI + self review do Aurum (parecer na PR e status
 `aurumcode/policy-gate`) -> merge so com todos os checks verdes -> os cards
 do lote vao para `done` com o SHA entregue, ancestral de `main`. O self
