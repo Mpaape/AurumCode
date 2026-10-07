@@ -3,8 +3,9 @@
 package main
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/i18n"
 
 	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -37,7 +38,7 @@ func profileFinding(profile string, ref int, issue types.ReviewIssue) reviewprof
 // have filled an empty field or added evidence) and folds the attribution
 // into the message: the first profile, then every profile that agreed. The
 // severity the finding already carried never changes.
-func attributedIssues(findings []reviewprofile.Finding, originals []types.ReviewIssue) []types.ReviewIssue {
+func attributedIssues(findings []reviewprofile.Finding, originals []types.ReviewIssue, language string) []types.ReviewIssue {
 	if len(findings) == 0 {
 		return nil
 	}
@@ -52,21 +53,21 @@ func attributedIssues(findings []reviewprofile.Finding, originals []types.Review
 		issue.Evidence = f.Evidence
 		issue.Suggestion = f.Suggestion
 		issue.Verification = f.Verification
-		issue.Message = profileAttribution(f)
+		issue.Message = profileAttribution(f, language)
 		out = append(out, issue)
 	}
 	return out
 }
 
 // profileAttribution is the finding's message with the profiles that
-// reported it: "[perfil a]", or "[perfil a; tambem: b, c]" when later
-// profiles agreed, so a collapsed duplicate stays traceable.
-func profileAttribution(f reviewprofile.Finding) string {
-	if f.Profile == "" || strings.Contains(f.Message, "[perfil ") {
+// reported it, in the review's language: the first profile, then every
+// profile that agreed, so a collapsed duplicate stays traceable.
+func profileAttribution(f reviewprofile.Finding, language string) string {
+	if f.Profile == "" || strings.Contains(f.Message, i18n.Format(language, "review.profile_attribution", f.Profile)) {
 		return f.Message
 	}
 	if len(f.AlsoFrom) == 0 {
-		return fmt.Sprintf("%s [perfil %s]", f.Message, f.Profile)
+		return f.Message + " " + i18n.Format(language, "review.profile_attribution", f.Profile)
 	}
-	return fmt.Sprintf("%s [perfil %s; tambem: %s]", f.Message, f.Profile, strings.Join(f.AlsoFrom, ", "))
+	return f.Message + " " + i18n.Format(language, "review.profile_attribution_also", f.Profile, strings.Join(f.AlsoFrom, ", "))
 }

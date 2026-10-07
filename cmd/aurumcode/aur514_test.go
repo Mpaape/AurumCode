@@ -48,7 +48,7 @@ func aur514Merged(t *testing.T) *types.ReviewResult {
 	t.Helper()
 	provider := &review.FakeProvider{Response: aur514Response}
 	profiles := []reviewprofile.Profile{{Name: "solid"}, {Name: "release"}}
-	merged, err := runProfilePasses(context.Background(), provider, nil, profiles, aur514Diff(), review.ReviewContext{}, nil, prompt.DefaultRuleCatalog)
+	merged, err := runProfilePasses(context.Background(), provider, nil, profiles, aur514Diff(), review.ReviewContext{Language: "pt-BR"}, nil, prompt.DefaultRuleCatalog)
 	if err != nil {
 		t.Fatalf("runProfilePasses: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestAUR514AC001ProfileMergeKeepsEveryField(t *testing.T) {
 			t.Fatalf("AUR-514 field lost: %s = %q, want %q", f.name, got, f.value)
 		}
 	}
-	if !strings.Contains(left.Message, "[perfil solid; tambem: release]") {
+	if !strings.Contains(left.Message, "[perfil solid; também: release]") {
 		t.Fatalf("AUR-514 attribution lost: the duplicate must name both profiles: %q", left.Message)
 	}
 }
@@ -115,7 +115,7 @@ func TestAUR514AC001DuplicateKeepsTheLaterEvidence(t *testing.T) {
 	merged := reviewprofile.MergeFindings([]reviewprofile.Finding{
 		profileFinding("solid", 0, first), profileFinding("release", 1, second),
 	})
-	got := attributedIssues(merged, originals)
+	got := attributedIssues(merged, originals, "pt-BR")
 	if len(got) != 1 {
 		t.Fatalf("duplicate not collapsed: %+v", got)
 	}
@@ -129,7 +129,7 @@ func TestAUR514AC001DuplicateKeepsTheLaterEvidence(t *testing.T) {
 	if issue.ID != "f-1" || issue.Assessment == nil || issue.Assessment.EvidenceID != "e-1" {
 		t.Fatalf("AUR-514 field lost: id/assessment of the original dropped: %+v", issue)
 	}
-	if issue.Message != "m [perfil solid; tambem: release]" {
+	if issue.Message != "m [perfil solid; também: release]" {
 		t.Fatalf("attribution = %q", issue.Message)
 	}
 }

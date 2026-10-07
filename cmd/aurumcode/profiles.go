@@ -153,7 +153,7 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 		// merely because the first profile in the list happened to fit.
 		merged.Metadata = mergeWorstCaseCoverage(merged.Metadata, res.Metadata)
 	}
-	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings), originals)
+	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings), originals, reviewContext.Language)
 	return merged, nil
 }
 
