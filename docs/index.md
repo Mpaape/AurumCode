@@ -50,7 +50,7 @@ do dev não conseguem afrouxar. Referência:
 que transforma falsos positivos, achados corrigidos e defeitos escapados numa
 PR de propostas para a política.
 
-Tutorial: [Skills de convenção](tutorials/skills.md) e [Política central](tutorials/politica-central.md).
+Tutorial: [Skills de convenção](tutorials/skills.md), [Política central](tutorials/politica-central.md) e [Realimentação da política](tutorials/realimentacao.md).
 
 ## Gate
 

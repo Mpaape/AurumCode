@@ -133,7 +133,12 @@ xBOM (Build BOM e CBOM)	xbom	catalogo	aurumcode xbom	demo/tutoriais/xbom	expecte
 xBOM (Build BOM e CBOM)	xbom	enriquecimento	aurumcode xbom	demo/tutoriais/xbom	expected/enriquecimento.txt	RESULTADO: BOM enriquecido pelo modelo (fixture) e verificado	-	entregue
 xBOM (Build BOM e CBOM)	xbom	tipos-documentados	aurumcode xbom	demo/tutoriais/xbom	expected/tipos-documentados.txt	RESULTADO: tipo desconhecido: exit 64	-	entregue
 xBOM (Build BOM e CBOM)	xbom	falha-catalogo-invalido	aurumcode xbom	demo/tutoriais/xbom	expected/falha-catalogo-invalido.txt	RESULTADO: nenhum arquivo foi escrito (conferido pelo script)	-	entregue
+realimentação da política	realimentacao	plano-sem-publicar	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/plano-sem-publicar.txt	RESULTADO: o plano cita os sinais e descarta a proposta sem sinal	-	entregue
+realimentação da política	realimentacao	publica-uma-pr	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/publica-uma-pr.txt	RESULTADO: a rodada abriu uma PR na politica, sem tocar na main	-	entregue
+realimentação da política	realimentacao	rodada-sem-novidade	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/rodada-sem-novidade.txt	RESULTADO: a primeira rodada abriu a PR	-	entregue
+realimentação da política	realimentacao	medir-melhora	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/medir-melhora.txt	RESULTADO: antes e depois medidos, sem regressao	-	entregue
+realimentação da política	realimentacao	medir-regressao	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/medir-regressao.txt	RESULTADO: o aumento de aprovado com defeito foi destacado como regressao	-	entregue
+realimentação da política	realimentacao	falha-sem-modelo	aurumcode realimentacao	demo/tutoriais/realimentacao	expected/falha-sem-modelo.txt	RESULTADO: sem modelo nao ha proposta e nenhuma PR foi aberta	-	entregue
 Release oficial com tag imutável	-	-	scripts/release.sh	-	-	AUR-510	release	planejado
 Memória de revisão (review.memory)	-	-	aurumcode review	-	-	tutorial pendente	memoria	planejado
-Realimentação da política	-	-	aurumcode realimentacao	-	-	AUR-532 (tutorial pendente)	-	planejado
 Status do CI no parecer	-	-	aurumcode review	-	-	tutorial pendente	-	planejado
