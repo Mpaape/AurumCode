@@ -40,7 +40,8 @@ type Outcome struct {
 
 // Run converses until the model answers without asking for a tool, or a
 // limit is exceeded. Exceeding MaxRounds, MaxCostTokens or PerToolTimeout
-// returns a *LimitError and no answer.
+// returns a *LimitError and no answer. MaxCostTokens bounds the
+// deliberation's own cost (Transcript.CostTokens), never the base prompt.
 func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, error) {
 	if err := s.Limits.Validate(); err != nil {
 		return Outcome{}, err
@@ -60,11 +61,9 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 			return s.stop(out, err)
 		}
 		last = resp
-		out.Transcript.Rounds = round
-		out.Transcript.TokensIn += resp.TokensIn
-		out.Transcript.TokensOut += resp.TokensOut
-		if used := out.Transcript.TokensIn + out.Transcript.TokensOut; used > s.Limits.MaxCostTokens {
-			return s.stop(out, &LimitError{Limit: LimitMaxCostTokens, Detail: fmt.Sprintf("%d tokens usados, teto %d", used, s.Limits.MaxCostTokens)})
+		out.Transcript.count(resp)
+		if used := out.Transcript.CostTokens; used > s.Limits.MaxCostTokens {
+			return s.stop(out, &LimitError{Limit: LimitMaxCostTokens, Detail: fmt.Sprintf("%d tokens de deliberacao alem do prompt base de %d, teto %d", used, out.Transcript.BaseTokens, s.Limits.MaxCostTokens)})
 		}
 		if len(resp.ToolCalls) == 0 {
 			out.Answer = last.Response

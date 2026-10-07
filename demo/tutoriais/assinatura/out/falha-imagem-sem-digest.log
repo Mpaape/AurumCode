@@ -5,7 +5,7 @@ exit_code=1
 RESULTADO: tag sem digest recusada (exit 1)
 RESULTADO: o Cosign nao foi chamado (cosign-chamado.txt nao existe)
 $ aurumcode sign --repo . --cosign-bin /fixtures/wrappers/cosign-marcador.sh --image example.com/org/app@sha256:0000000000000000000000000000000000000000000000000000000000000000
-aurumcode sign: supplychain: signing image example.com/org/app@sha256:0000000000000000000000000000000000000000000000000000000000000000: cosign exited 0 but wrote no signature bundle to /tmp/cosign-image-55858838.sigstore.json: stat /tmp/cosign-image-55858838.sigstore.json: no such file or directory
+aurumcode sign: supplychain: signing image example.com/org/app@sha256:0000000000000000000000000000000000000000000000000000000000000000: cosign exited 0 but wrote no signature bundle to /tmp/cosign-image-2249999688.sigstore.json: stat /tmp/cosign-image-2249999688.sigstore.json: no such file or directory
 exit_code=1
 RESULTADO: com digest de 64 hex a referencia passou da validacao e o Cosign (falso) foi chamado (cosign-chamado.txt existe)
 RESULTADO: o Cosign falso saiu 0 sem bundle, e sign falhou: a recusa anterior foi a da validacao, nao a do Cosign
