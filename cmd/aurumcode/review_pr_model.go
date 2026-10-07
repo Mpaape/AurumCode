@@ -70,6 +70,7 @@ func (p *prReview) wrapContext() (int, bool) {
 	if p.centralCfg != nil {
 		providers = append(config.ConfiguredProviders(p.opts.policyDir, p.centralCfg), providers...)
 	}
+	providers = append(providers, mcpContextProviders(trustedMCPSources(p.cfg, strings.TrimSpace(p.env().baseSHA) != "", p.centralCfg), p.filter)...)
 	var policySkills skills.Source
 	if p.centralCfg != nil {
 		policySkills = localSkillSource(p.opts.policyDir, "policy")

@@ -39,6 +39,36 @@ Uma skill é um Markdown com orientações de revisão, sem execução de script
 Liste apenas arquivos existentes. `context.prompt` permite substituir o
 caminho do prompt adicional, mantendo a política embutida do produto.
 
+### Fontes MCP de contexto (`review.context.mcp`)
+
+```yaml
+review:
+  context:
+    mcp:
+      - name: adr                  # origem no prompt: mcp:adr/lookup
+        command: ["adr-mcp-server", "--stdio"]
+        tool: lookup               # a única ferramenta chamada
+        arguments:                 # argumentos fixos (texto), redigidos
+          scope: pagamentos
+        send: [changed_paths]      # único payload dinâmico possível
+        env: [ADR_TOKEN]           # além de PATH e HOME, nada mais do ambiente
+        timeout_seconds: 5         # 0 = 10 s; nunca acima de 10 s
+```
+
+O Aurum inicia o servidor (MCP por stdio), chama só a ferramenta `tool` com
+só `arguments` e, quando declarado, os caminhos alterados, tudo pela redação
+AUR-009; nada do repositório é enviado. O texto devolvido entra no contexto
+do repositório do prompt com a origem `mcp:<name>/<tool>`, como dado não
+confiável: não aprova o PR, não liga nem desliga regra e não muda gate nem
+permissão. Servidor ausente, lento, com resposta malformada ou acima de
+64 KiB vira aviso de omissão no stderr e a revisão segue sem ele.
+
+A fonte só existe em configuração confiável: a política central sempre; o
+`.aurumcode/config.yml` local no `--base`; no `--pr`, o config lido na
+base da PR, nunca o da head (uma PR não adiciona a própria fonte). Um item
+sem `name`, `command` ou `tool`, com nome repetido, `send` diferente de
+`changed_paths` ou `timeout_seconds` fora de 0..10 é erro de configuração.
+
 ### Skills em diretório, por linguagem
 
 Além da lista `context.skills`, o review lê `.aurumcode/skills/<nome>/SKILL.md`
