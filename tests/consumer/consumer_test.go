@@ -31,7 +31,7 @@ func byID(t *testing.T, all []Scenario, id string) Scenario {
 // is synthetic and lives only in memory: it proves the verifier, never the
 // product.
 func conforming(s Scenario) Evidence {
-	e := Evidence{Scenario: s.ID, Repo: "exemplo/consumidor", SHA: "abcdef1234567", RunID: 42, RunURL: "https://github.example.test/run/42", Measured: true}
+	e := Evidence{Scenario: s.ID, ToolSHA: strings.Repeat("a", 40), Repo: "exemplo/consumidor", SHA: "abcdef1234567", RunID: 42, RunURL: "https://github.example.test/run/42", Measured: true}
 	fill := func(x Expectation, e *Evidence) {
 		e.Conclusion, e.Language, e.Mode = x.Conclusion, x.Language, x.Mode
 		e.Statuses = map[string]string{}
