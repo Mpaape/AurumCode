@@ -7,18 +7,35 @@ name: AurumCode feedback measurement
 #   on:
 #     pull_request:
 #       branches: [main]
+#     workflow_dispatch:          # disparado pelo realimentacao.yml sem POLICY_TOKEN
+#       inputs:
+#         pr_number:
+#           required: true
+#           type: number
 #   permissions:
 #     contents: read
 #     pull-requests: write
 #   jobs:
 #     medicao:
 #       uses: Mpaape/AurumCode/.github/workflows/realimentacao-medicao.yml@<sha>
+#       with:
+#         pr_number: ${{ inputs.pr_number || 0 }}
+#
+# A medicao usa o provedor falso do AUR-523, derivado dos rotulos dos casos:
+# ela mede o efeito da politica nas regras citaveis e no gate, nao a
+# qualidade de um modelo real.
 #
 # O job comenta a tabela antes/depois na PR e falha quando "aprovado com
 # defeito" sobe, o recall cai ou um lado nao pode ser medido. A seguranca
 # decide o merge; o check so mostra o efeito.
 on:
   workflow_call:
+    inputs:
+      pr_number:
+        description: Numero da PR (disparo por workflow_dispatch); 0 usa o evento pull_request.
+        required: false
+        type: number
+        default: 0
 
 permissions:
   contents: read
@@ -32,6 +49,28 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      - name: Resolve the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          INPUT_PR: ${{ inputs.pr_number }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          EVENT_BASE: ${{ github.event.pull_request.base.sha }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "${EVENT_PR}" ]; then
+            printf 'number=%s\nbase=%s\nhead=%s\n' "${EVENT_PR}" "${EVENT_BASE}" "${EVENT_HEAD}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [ "${INPUT_PR:-0}" = "0" ]; then
+            echo "::error::sem pull_request e sem pr_number: nada a medir"
+            exit 1
+          fi
+          gh api "repos/${REPOSITORY}/pulls/${INPUT_PR}" \
+            --jq '"number=\(.number)\nbase=\(.base.sha)\nhead=\(.head.sha)"' >> "${GITHUB_OUTPUT}"
+
       - name: Checkout AurumCode
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -44,7 +83,7 @@ jobs:
       - name: Checkout policy at the base
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ steps.pr.outputs.base }}
           path: .politica-base
           persist-credentials: false
           fetch-depth: 1
@@ -52,7 +91,7 @@ jobs:
       - name: Checkout policy at the pull request
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ steps.pr.outputs.head }}
           path: .politica-pr
           persist-credentials: false
           fetch-depth: 1
@@ -71,7 +110,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           set -euo pipefail
           if [ ! -s medicao.md ]; then

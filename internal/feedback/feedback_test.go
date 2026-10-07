@@ -135,7 +135,7 @@ func TestAUR532AC004ProposalWithoutSignalIsDiscarded(t *testing.T) {
 		t.Fatalf("kept %+v discarded %+v", kept, discarded)
 	}
 	plan, ok := BuildPlan(Inputs{Signals: signals, Proposals: kept, Discarded: discarded, Skills: skills, Comparison: Compare(nil, nil)})
-	if !ok || !strings.Contains(plan.Files["skills/seguranca.md"], "query builder com parâmetros") || !strings.Contains(plan.Body, id) {
+	if !ok || !strings.Contains(plan.Files["skills/seguranca.md"], "query builder com parâmetros") || !strings.Contains(plan.Body, id) || !strings.Contains(plan.Body, "provedor falso do AUR-523") {
 		t.Fatalf("plan does not apply the proposal citing its signal:\n%s", plan.Body)
 	}
 	if _, _, err := Propose(&fakeModel{text: "aprovado"}, nil, signals, skills); err == nil {
@@ -155,7 +155,7 @@ func TestAUR532AC005MeasurementHighlightsRegression(t *testing.T) {
 	if c := Compare(before, worse); !c.Regression || !strings.Contains(c.Markdown, "REGRESSÃO") || !strings.Contains(c.Markdown, "| Aprovado com defeito | 1 | 3") {
 		t.Fatalf("regression not highlighted:\n%s", c.Markdown)
 	}
-	if c := Compare(before, better); c.Regression || !c.Measured || strings.Contains(c.Markdown, "REGRESSÃO") {
+	if c := Compare(before, better); c.Regression || !c.Measured || strings.Contains(c.Markdown, "REGRESSÃO") || !strings.Contains(c.Markdown, "provedor falso do AUR-523") {
 		t.Fatalf("improvement flagged:\n%s", c.Markdown)
 	}
 	if c := Compare(before, nil); c.Measured || !strings.Contains(c.Markdown, "Não medido") {

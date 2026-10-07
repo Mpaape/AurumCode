@@ -103,6 +103,7 @@ func planBody(in Inputs) string {
 	}
 	b.WriteString("\n")
 	b.WriteString(in.Comparison.Markdown)
+	b.WriteString("\nA medição do corpus roda no CI desta PR com o provedor falso do AUR-523 (derivado dos rótulos dos casos): ela mostra o efeito da política nas regras citáveis e no gate, não a qualidade de um modelo real.\n")
 	return b.String()
 }
 
