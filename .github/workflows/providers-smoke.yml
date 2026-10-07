@@ -18,6 +18,9 @@ jobs:
     outputs:
       configurados: ${{ steps.detectar.outputs.configurados }}
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - id: detectar
         name: Detect providers with secrets
         env:
@@ -33,46 +36,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-        run: |
-          set -euo pipefail
-          declare -A precisa=(
-            [openai]="OPENAI_API_KEY"
-            [azure-openai]="AZURE_OPENAI_API_KEY AZURE_OPENAI_RESOURCE AZURE_OPENAI_DEPLOYMENT"
-            [anthropic]="ANTHROPIC_API_KEY"
-            [google]="GEMINI_API_KEY"
-            [bedrock]="AWS_BEARER_TOKEN_BEDROCK AWS_REGION"
-            [openrouter]="OPENROUTER_API_KEY"
-            [opencode]="OPENCODE_API_KEY"
-            [litellm]="LITELLM_API_KEY LITELLM_BASE_URL"
-          )
-          configurados=()
-          {
-            echo "## Smoke de provedores"
-            echo
-            echo "| Provedor | Estado |"
-            echo "|---|---|"
-          } >> "$GITHUB_STEP_SUMMARY"
-          for p in openai azure-openai anthropic google bedrock openrouter opencode litellm; do
-            ok=1
-            for v in ${precisa[$p]}; do [ -n "${!v:-}" ] || ok=0; done
-            if [ "$ok" = 1 ]; then
-              configurados+=("\"$p\"")
-              echo "| $p | smoke ao vivo no job smoke ($p) |" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "::warning::$p: nao verificado (secrets ausentes: ${precisa[$p]})"
-              echo "| $p | nao verificado (sem secrets) |" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          done
-          echo "| ollama | nao verificado (exige servidor local) |" >> "$GITHUB_STEP_SUMMARY"
-          lista="[$(IFS=,; echo "${configurados[*]:-}")]"
-          echo "configurados=$lista" >> "$GITHUB_OUTPUT"
-          echo "provedores com secrets: $lista"
-          if [ "${#configurados[@]}" -eq 0 ]; then
-            # Nenhum provedor verificavel: a execucao nao prova nada e nao
-            # pode terminar verde.
-            echo "::error::nenhum provedor com secrets; todos nao verificados"
-            exit 1
-          fi
+        run: bash scripts/ci/providers-smoke-detect.sh
 
   smoke:
     needs: detectar
@@ -106,35 +70,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-        run: |
-          set -euo pipefail
-          nome="SMOKE_MODEL_$(printf '%s' "$PROVEDOR" | tr 'a-z-' 'A-Z_')"
-          SMOKE_MODEL="$(printf '%s' "$SMOKE_VARS" | jq -r --arg n "$nome" '.[$n] // ""')"
-          [ -n "$SMOKE_MODEL" ] || { echo "defina a variavel de Actions $nome com o modelo do smoke" >&2; exit 1; }
-          repo="$RUNNER_TEMP/repo"
-          mkdir -p "$repo"
-          git -C "$repo" init -q -b main
-          printf 'def soma(a, b):\n    return a + b\n' > "$repo/app.py"
-          git -C "$repo" add app.py
-          git -C "$repo" -c user.name=smoke -c user.email=smoke@example.invalid commit -q -m base
-          printf 'def soma(a, b):\n    """Soma dois numeros."""\n    return a + b\n' > "$repo/app.py"
-          git -C "$repo" -c user.name=smoke -c user.email=smoke@example.invalid commit -qam doc
-          extra=()
-          if [ "$PROVEDOR" = litellm ]; then extra=(-e "LLM_BASE_URL=$LITELLM_BASE_URL"); fi
-          set +e
-          docker run --rm -v "$repo:/workspace" -w /workspace -e HOME=/tmp \
-            -e "LLM_PROVIDER=$PROVEDOR" -e "LLM_MODEL=$SMOKE_MODEL" "${extra[@]}" \
-            -e OPENAI_API_KEY -e AZURE_OPENAI_API_KEY -e AZURE_OPENAI_RESOURCE -e AZURE_OPENAI_DEPLOYMENT \
-            -e ANTHROPIC_API_KEY -e GEMINI_API_KEY -e AWS_BEARER_TOKEN_BEDROCK -e AWS_REGION \
-            -e OPENROUTER_API_KEY -e OPENCODE_API_KEY -e LITELLM_API_KEY \
-            --entrypoint /app/aurumcode aurumcode-smoke review --base HEAD~1
-          rc=$?
-          set -e
-          echo "exit_code=$rc"
-          # 0 = revisao concluida sem bloqueio; 3 = concluida com achado que
-          # reprova. Qualquer outro codigo (1 = provedor falhou ou resposta
-          # inconclusiva) reprova o smoke.
-          case "$rc" in 0|3) echo "$PROVEDOR: verificado ao vivo" >> "$GITHUB_STEP_SUMMARY" ;; *) exit 1 ;; esac
+        run: bash scripts/ci/providers-smoke.sh
       - name: Remove the image
         if: always()
         run: docker rmi aurumcode-smoke >/dev/null 2>&1 || true
