@@ -25,6 +25,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [assinatura](../../docs/tutorials/assinatura.md) | `assinatura/` | chave-efemera, verificacao-por-terceiro, keyless-actions, bundle-artefato, falha-cosign, falha-sem-bundle, falha-imagem-sem-digest |
 | [xbom](../../docs/tutorials/xbom.md) | `xbom/` | build-bom, cbom, evidencia, catalogo, enriquecimento, tipos-documentados, falha-catalogo-invalido |
 | [extensao](../../docs/tutorials/extensao.md) | `extensao/` | engine-no-gate, skill-no-prompt, ferramenta-pedida, falha-binario-padrao (imagem com `TUT_BUILD_ARGS="GO_TAGS=aurum_exemplo"`; a falha usa a imagem padrao) |
+| [agente](../../docs/tutorials/agente.md) | `agente/` | gate-consultado, skill-do-repo, hook-pre-commit, gate-inconclusivo (cliente MCP de teste em `cliente-mcp.py`, python3 no host) |
 | [dados-de-analise](../../docs/tutorials/dados-de-analise.md) | `dados-de-analise/` | declarado-ou-nao, vencido, cache, workflow-agendado, adulterado, indisponivel |
 
 ## Como rodar

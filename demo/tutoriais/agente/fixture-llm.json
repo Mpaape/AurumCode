@@ -1,0 +1,16 @@
+{
+  "issues": [
+    {
+      "file": "app.go",
+      "line": 10,
+      "severity": "error",
+      "rule_id": "quality/missing-error-handling",
+      "message": "O erro de os.RemoveAll e descartado.",
+      "impact": "Uma limpeza que falhou passa despercebida.",
+      "evidence": "A linha adicionada chama os.RemoveAll(dir) sem ler o erro retornado.",
+      "suggestion": "Devolva o erro: func limpa(dir string) error { return os.RemoveAll(dir) }.",
+      "verification": "Rode aurum_gate de novo; o achado deve sumir."
+    }
+  ],
+  "summary": "A mudanca descarta o erro de os.RemoveAll."
+}

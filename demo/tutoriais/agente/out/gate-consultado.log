@@ -1,0 +1,45 @@
+== gate-consultado
+--- o agente pergunta ao gate (aurum_gate, base main) e pede o relatorio (aurum_review)
+$ aurumcode mcp   # cliente de teste: initialize + 3 requisicao(oes) por stdio
+exit_code=0
+stdout: 4 mensagens JSON-RPC 2.0, nenhuma outra linha
+initialize: servidor aurumcode, protocolo 2025-06-18
+tools/list: aurum_explain, aurum_gate, aurum_review, aurum_rules
+  aurum_review(base) somente leitura=True
+  aurum_gate(base) somente leitura=True
+  aurum_rules(paths) somente leitura=True
+  aurum_explain(finding_id) somente leitura=True
+aurum_gate: decisao=fail exit_code=3
+  bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
+  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+aurum_review: decisao=fail exit_code=3
+  bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
+  achado: ba04efaf2bb3 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem model)
+  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+RESULTADO: o gate reprova a mudanca, como o CI reprovaria
+--- a mesma pergunta pela CLI: review --base com as mesmas opcoes do servidor
+$ aurumcode review --base main --seguranca --exigir-qualidade
+exit_code=3
+report de aurum_review == stdout de review --base: igual
+exit_code de aurum_review == exit_code de review --base: igual (3)
+RESULTADO: o servidor MCP e a CLI deram o mesmo relatorio e a mesma decisao
+--- o agente pede a explicacao do achado bloqueante
+$ aurumcode mcp   # cliente de teste: initialize + 2 requisicao(oes) por stdio
+exit_code=0
+stdout: 3 mensagens JSON-RPC 2.0, nenhuma outra linha
+initialize: servidor aurumcode, protocolo 2025-06-18
+aurum_gate: decisao=fail exit_code=3
+  bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
+  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+aurum_explain: a5a11362b168 app.go:10 erros#err-001-erro-nunca-ignorado
+  sugestao: Devolva o erro com contexto.
+  como corrigir: Rule erros#err-001-erro-nunca-ignorado (skills) at app.go:10. Apply the suggestion or remove the cause in the code, then call aurum_gate again; an exception or a disabled rule is a policy decision for a human, not a fix.
+RESULTADO: a explicacao traz a regra, a sugestao e como corrigir
+--- o agente corrige (novo commit) e consulta de novo
+$ aurumcode mcp   # cliente de teste: initialize + 1 requisicao(oes) por stdio
+exit_code=0
+stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
+initialize: servidor aurumcode, protocolo 2025-06-18
+aurum_gate: decisao=pass exit_code=0
+  proximo passo: The gate passes. Commit or push.
+RESULTADO: depois da correcao o gate passa: o agente pode commitar e abrir o PR

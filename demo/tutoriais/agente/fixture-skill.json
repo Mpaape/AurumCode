@@ -1,0 +1,16 @@
+{
+  "issues": [
+    {
+      "file": "app.go",
+      "line": 10,
+      "severity": "warning",
+      "rule_id": "erros#err-001-erro-nunca-ignorado",
+      "message": "O erro de os.RemoveAll e descartado, contra a convencao do time.",
+      "impact": "Uma limpeza que falhou passa despercebida.",
+      "evidence": "A linha adicionada chama os.RemoveAll(dir) sem ler o erro retornado.",
+      "suggestion": "Devolva o erro com contexto.",
+      "verification": "Rode aurum_gate de novo; o achado deve sumir."
+    }
+  ],
+  "summary": "A mudanca contraria a skill erros do repositorio."
+}

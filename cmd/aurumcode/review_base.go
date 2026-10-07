@@ -177,10 +177,18 @@ func runReviewWith(rio reviewIO, args []string) int {
 		}
 		return runPRReview(rio, f.prOptions(policyDir))
 	}
+	b := newBaseReview(rio, f, policyDir)
+	defer b.flush()
+	return session.Run(b)
+}
+
+// newBaseReview is the one constructor of a --base session: the review
+// command and the agent server (cmd_mcp.go) both start their local review
+// here and run it with session.Run.
+func newBaseReview(rio reviewIO, f *reviewFlags, policyDir string) *baseReview {
 	b := &baseReview{reviewState: newReviewState(session.LocalDiff, rio), f: f}
 	b.policyDir, b.modelFlag, b.seguranca, b.exigirQualidade = policyDir, f.modelo, f.seguranca, f.exigirQualidade
 	b.auditoriaPath, b.sarifPath = f.auditoria, f.sarif
 	b.artifactRepo, b.artifactCommit = b.env().repository, b.env().githubSHA
-	defer b.flush()
-	return session.Run(b)
+	return b
 }
