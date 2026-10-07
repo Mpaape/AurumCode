@@ -181,7 +181,11 @@ func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Di
 	if err != nil {
 		return nil, err
 	}
-	if r.needsBatches(diff, prepared) {
+	split, err := r.needsBatches(diff, prepared, reviewContext)
+	if err != nil {
+		return nil, err
+	}
+	if split {
 		return r.reviewInBatches(ctx, diff, reviewContext)
 	}
 	return r.reviewPrepared(ctx, prepared)

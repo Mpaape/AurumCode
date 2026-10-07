@@ -59,3 +59,16 @@ func TestMergeResultsConsolidatesBatches(t *testing.T) {
 		t.Fatalf("result not consolidated: %+v", merged)
 	}
 }
+
+// A file without a patch never decides the split and never takes a batch of
+// its own: it rides in the first batch.
+func TestFilesWithoutPatchRideInTheFirstBatch(t *testing.T) {
+	withHunk := func(p string) types.DiffFile {
+		return types.DiffFile{Path: p, Hunks: []types.DiffHunk{{Lines: []string{"+x"}}}}
+	}
+	all := []types.DiffFile{withHunk("a/1"), {Path: "b/logo.png"}, withHunk("c/1")}
+	withPatch, withoutPatch := splitByPatch(all)
+	if len(withPatch) != 2 || len(withoutPatch) != 1 || withoutPatch[0].Path != "b/logo.png" {
+		t.Fatalf("split = %v / %v", filePaths(withPatch), filePaths(withoutPatch))
+	}
+}
