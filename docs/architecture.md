@@ -124,6 +124,12 @@ retorna `(exit, done)`, de modo que cada saída antecipada mantém seu código:
 5. **publish.** Os artefatos de conformidade (a partir dos achados da execução
    do gate), o relatório ou a publicação no GitHub e, por fim, `gate.ExitPolicy`.
 
+No `--pr`, o diff vem da API; quando ela o recusa por tamanho
+(`githubclient.ErrDiffTooLarge`, `406 too_large`), o mesmo intervalo
+`base...head` é lido do checkout já verificado como o PR
+(`analyzer.Repo.RangeDiff`, `cmd/aurumcode/pr_local_diff.go`) e passa pelo
+mesmo parser do diff da API; checkout não verificado é falha.
+
 Uma fonte é código de `cmd/aurumcode` (`baseReview`, `prReview`) que embute o
 `reviewState` compartilhado; o que difere entre as duas e não é a fonte nem o
 publicador é dado em `session.Source`:
@@ -193,6 +199,16 @@ separadas; qualquer outro provedor recebe `System + "\n\n" + User` por
 de provedor que apenas repassam requisições implementam `llm.Unwrapper`, de
 modo que `llm.As` encontre uma capacidade atrás deles; um decorador que altera
 a requisição não deve implementá-lo.
+
+Um diff que não cabe num prompt (algum arquivo com patch omitido ou parcial)
+é revisado em lotes (`internal/review/batches.go`): os arquivos são empacotados
+por diretório em prompts que cabem, cada lote passa pelas mesmas quatro etapas
+do prompt único (com a evidência dos seus arquivos) e os resultados são
+consolidados num só (`batch_merge.go`). Os tetos de lotes e da soma dos
+prompts vêm de `limits.yml` e da seção `batches`; os arquivos além deles são
+contados e nomeados como omitidos (`code_files_omitted_paths`), de modo que a
+cobertura fica parcial. `Reviewer.Batches` alimenta o campo `batches` da
+auditoria.
 
 `Reviewer.PromptDigest` é o digest das mensagens exatas enviadas.
 `Reviewer.RequestCacheKey` o combina com digests das evidências e dos

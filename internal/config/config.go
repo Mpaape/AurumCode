@@ -268,6 +268,9 @@ type Config struct {
 	// Deliberation (nil = not declared) lets the model ask for tools within
 	// limits. Governed per section by ApplyCentralPolicy.
 	Deliberation *DeliberationConfig `yaml:"deliberation"`
+	// Batches (nil = not declared) bounds a review split in batches when
+	// the diff does not fit one prompt.
+	Batches *BatchesConfig `yaml:"batches"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -342,6 +345,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Deliberation.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Batches.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.QualityGates.Sast.Validate(); err != nil {

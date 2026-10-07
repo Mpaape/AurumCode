@@ -28,6 +28,24 @@ tut_pr_servidor() {
   echo "ERRO: servidor falso nao subiu" >&2; return 1
 }
 
+# tut_pr_servidor_recusa CASO: o GitHub falso recusa o diff do PR por tamanho (406
+# too_large) e informa o head e o base REAIS do repo do caso (feature e main): a
+# revisao so pode ler o diff do checkout verificado.
+tut_pr_servidor_recusa() {
+  local caso="$1" base
+  TUT_PR_PORT=$((20000 + RANDOM % 20000))
+  TUT_PR_LOG="$STATE/$caso.pr.log"; : > "$TUT_PR_LOG"
+  TUT_PR_SHA="$(tgit rev-parse feature)"; base="$(tgit rev-parse main)"
+  python3 "$TUT_LIB/github-falso.py" "$TUT_PR_PORT" 406 "$TUT_PR_LOG" "$TUT_PR_SHA" "$base" &
+  TUT_PR_PID=$!
+  local i
+  for i in $(seq 1 50); do
+    (exec 3<>"/dev/tcp/127.0.0.1/$TUT_PR_PORT") 2>/dev/null && return 0
+    sleep 0.1
+  done
+  echo "ERRO: servidor falso nao subiu" >&2; return 1
+}
+
 tut_pr_parar() { [ -z "$TUT_PR_PID" ] || { kill "$TUT_PR_PID" 2>/dev/null || true; wait "$TUT_PR_PID" 2>/dev/null || true; TUT_PR_PID=; }; }
 
 aurum_pr() {

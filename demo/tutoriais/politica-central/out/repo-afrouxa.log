@@ -1,7 +1,6 @@
 == repo-afrouxa
 --- so o repositorio: fail_on [high] deixa o achado warning passar
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -21,6 +20,7 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 exit_code=0
 RESULTADO: o gate do proprio repositorio aceita o warning
 --- com a politica: fail_on [warning] vale, o do repositorio e ignorado
