@@ -109,9 +109,6 @@ caso_modelo_pondera() {
 # gera_pr_grande DIR: uma mudanca maior que um prompt (tres diretorios com dois
 # arquivos grandes cada), gerada aqui para nao versionar centenas de KB de fixture.
 gera_pr_grande() {
-  # carregado so aqui: o --check (e as copias que o aceite AUR-561 monta) so precisa de tutorial.sh
-  # shellcheck source=../_lib/pr.sh
-  . "$HERE/../_lib/pr.sh"
   local dir="$1" d f i
   for d in api banco web; do
     mkdir -p "$dir/$d"
@@ -141,6 +138,11 @@ for l in open(sys.argv[1]):
 # le o mesmo intervalo main...feature do checkout verificado e, como o diff passa do
 # orcamento de um prompt, revisa em lotes por diretorio, com um parecer e um gate.
 pr_grande() {
+  # carregado so aqui: o --check (e as copias que o aceite AUR-561 monta) so precisa de tutorial.sh
+  # shellcheck source=../_lib/pr.sh
+  . "$HERE/../_lib/pr.sh"
+  # datas fixas: os commits (e os SHAs que a saida mostra) sao os mesmos a cada execucao
+  export GIT_AUTHOR_DATE='2026-01-01T00:00:00Z' GIT_COMMITTER_DATE='2026-01-01T00:00:00Z'
   tut_repo pr-grande repo-exemplo/base
   tgit checkout -q -b feature
   gera_pr_grande "$TUT_WORK"
