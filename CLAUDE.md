@@ -19,17 +19,23 @@ usage documentation starts at docs/README.md; task state is owned by .board/.
 
 ## Branches
 
-`main` is the only permanent branch. Card branches are temporary PR candidates
-and target `main` directly; remove them only after merge and after every `done`
-delivery SHA has been verified as an ancestor of `main`. Do not recreate a
-permanent `dev` release lane.
+`main` and `dev` are the two permanent branches (owner decision 2026-10-06,
+to bound LLM spend). Card branches are temporary PR candidates that target
+`dev`; card PRs run CI only (`Build and test in OCI`, `Race tests in OCI`,
+`Documentation browser checks`) and never the LLM self review. Remove a card
+branch only after merge into `dev`.
 
-Every delivery is integrated by pull request: card -> branch -> PR to `main`
--> CI plus the AurumCode self review (review comment and
+`main` receives only batched pull requests `dev -> main`. Those are the only
+PRs that run the AurumCode self review (review comment and
 `aurumcode/policy-gate` status, with the binary built from the PR and the
-convention skills in `.aurumcode/skills/`) -> merge only with every check
-green. Without LLM secrets the self review fails closed, never green. Direct
-pushes to `main` are only for commits that touch nothing but `.board/`.
+convention skills in `.aurumcode/skills/`), once per batch; merge only with
+every check green. Without LLM secrets the self review fails closed, never
+green. Open the `dev -> main` PR once a batch of cards is ready, not per card,
+and avoid needless `gh pr update-branch` on it: every update re-runs the LLM.
+A card merged into `dev` stays in `validating` until its batch passes the
+self review into `main`; only then does it move to `done`, recording the
+delivery SHA that is an ancestor of `main`. Direct pushes to `dev` or `main`
+are only for commits that touch nothing but `.board/`.
 
 ## Reconstruction workflow source of truth
 
