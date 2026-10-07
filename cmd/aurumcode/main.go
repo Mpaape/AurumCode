@@ -1,6 +1,6 @@
 // Command aurumcode reviews code changes: `aurumcode review --base <ref>` for a
 // local diff and `aurumcode review --pr <n> --repo <owner>/<name>` for a pull
-// request, plus the compliance subcommands (sbom, sign, xbom, fix). Flags are
+// request, plus the compliance subcommands (sbom, sign, xbom, fix, changelog). Flags are
 // parsed and dependencies assembled here; the rules live in internal/.
 // `aurumcode --help` lists the subcommands.
 package main

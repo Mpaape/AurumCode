@@ -1332,8 +1332,9 @@ consumidor.
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
 | `review.context.docs` | Lista de documentos de contexto | vazio |
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
-| `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
+| `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
+| `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
 | `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
@@ -2174,3 +2175,112 @@ liste) têm categoria `other` e vão ao modelo como texto, na seção
 que o runtime ganhe em uma atualização é revisada até alguém, deliberadamente,
 a declarar como documentação forte no catálogo. Não há lista de extensões em
 Go.
+
+## Changelog obrigatório (AUR-509)
+
+`aurumcode changelog --base <sha>` reprova a pull request que não acrescenta
+uma entrada útil e concisa no `CHANGELOG.md`. O check é determinístico (sem
+modelo) e independente de `review.changelog`, que só sugere um texto. Guia com
+exemplos de `Unreleased` e de consolidação de release: [Changelog
+obrigatório](changelog.md).
+
+```yaml
+changelog_check:
+  mode: required          # padrão: off (o check passa dizendo "não exigido")
+  file: CHANGELOG.md      # padrão
+  section: Unreleased     # padrão; aceita "## [Unreleased]" e "## Unreleased - data"
+  max_entry_lines: 12     # linhas novas em Unreleased
+  max_line_length: 240    # caracteres por linha nova
+  max_release_lines: 120  # notas de uma release consolidada (uma ou duas páginas)
+  min_words: 3            # palavras para uma linha contar como informação
+  agent_log_markers: []   # somam-se aos marcadores padrão, nunca os trocam
+```
+
+| Flag | Efeito |
+| --- | --- |
+| `--base` | Commit base da PR (obrigatório). O modo e os limites vêm do `config.yml` desse commit. |
+| `--head` | Commit com a mudança proposta (padrão `HEAD`). |
+| `--repo` | Diretório do repositório (padrão `.`). |
+| `--politica` | Diretório de uma política central (o que contém `.aurumcode/`), fora do repositório revisado; padrão `AURUMCODE_POLICY`. No workflow, a entrada `policy_repository`. |
+
+- O modo é lido da **base**: a PR não desliga o check que se aplica a ela.
+  Quando a PR não altera o `config.yml`, ele é lido do checkout.
+- Exit 0: entrada válida, ou modo `off`. Exit 1: entrada reprovada
+  (`entrada_ausente`, `apenas_espacos`, `sem_informacao_nova`,
+  `entrada_longa`, `log_de_agente`) ou `indeterminado` (diff ilegível,
+  arquivo binário ou grande demais, `config.yml` da base inválido). Exit 2:
+  uso errado.
+- Linhas que só mudaram de lugar não são informação nova; uma linha nova
+  conta em `Unreleased` ou numa seção cujo título é uma versão
+  (`## 1.2.0`, `## [1.2.0] - 2026-10-07`).
+- Required check: `.github/workflows/changelog.yml` é reutilizável
+  (`uses: Mpaape/AurumCode/.github/workflows/changelog.yml@<sha>`) e constrói
+  o verificador do checkout do AurumCode, nunca do código da PR. Exija o
+  contexto `<job do chamador> / Changelog obrigatório` na proteção da `main`
+  (neste repositório, `Changelog obrigatório`). O teste local prova o
+  comando; o bloqueio do merge depende da proteção configurada.
+- Com política central (`--politica` ou `policy_repository` no workflow
+  reutilizável), uma seção `changelog_check` da política decide sozinha (a do
+  repositório é ignorada com aviso). Política dentro da árvore revisada é
+  recusada.
+- Nas PRs do próprio AurumCode o verificador é construído da base da PR; no
+  consumidor, do SHA pinado no `uses:`.
+
+## Realimentação da política (AUR-532)
+
+`aurumcode realimentacao` transforma o uso real do gate em uma pull request no
+repositório da política central. Não há banco próprio: os sinais já estão no
+GitHub, e o estado (quais sinais já foram propostos) fica no próprio
+repositório da política, em `realimentacao/sinais.json`.
+
+| Sinal | De onde vem |
+| --- | --- |
+| `falso_positivo` | Alerta de code scanning dispensado com o motivo *false positive* (repo, SHA, skill e seção da regra `skill#secao`, arquivo e linha). *Won't fix* e *used in tests* não são sinal. |
+| `verdadeiro_positivo` | Achado bloqueante de uma auditoria (`aurumcode-audit-<pr>`, AUR-521) que some na auditoria seguinte da mesma PR, com a linha do achado reescrita pelo diff entre as duas. |
+| `defeito_escapado` | Comentário `/aurum perdeu [<sha>] <descrição>` de OWNER, MEMBER ou COLLABORATOR em PR ou issue. Sem SHA, vale o head da PR; numa issue sem SHA o comando é recusado. Gera um caso candidato em `realimentacao/candidatos/`. |
+
+O modelo agrupa os sinais novos em propostas para as skills que a política
+declara em `review.context.skills`; proposta que não cita sinal, cita sinal
+desconhecido ou mira skill não declarada é descartada e listada na PR. Todo
+texto passa pela redação antes do modelo e da PR. Nada é aplicado à
+política: a PR (branch `aurum/realimentacao`) é única enquanto aberta e a
+segurança decide o merge. Rodar de novo sem sinal novo não abre nem altera
+nada.
+
+| Flag | Efeito |
+| --- | --- |
+| `--org` | Organização cujos repositórios são lidos. |
+| `--repos` | Repositórios `owner/nome` separados por vírgula (além de `--org`). |
+| `--repo-politica` | Repositório `owner/nome` da política que recebe a PR. |
+| `--desde` | Instante RFC 3339; comentários anteriores não são lidos. |
+| `--publicar` | Grava a branch e abre ou atualiza a PR (sem ela, só imprime o plano). |
+| `--medicao-antes`, `--medicao-depois` | Relatórios do corpus do AUR-523 (`multilang-report.json`). |
+| `--medir` | Só compara os dois relatórios; exit 1 em regressão ou relatório ausente. |
+
+- Tokens: `AURUMCODE_SIGNALS_TOKEN` lê a organização (alertas, artefatos,
+  comentários); `GITHUB_TOKEN` grava só no repositório da política. Sem o
+  primeiro, `GITHUB_TOKEN` lê também. A escrita usa a API de conteúdo; nenhuma
+  identidade git é configurada.
+- Quem abre a PR: com o segredo opcional `POLICY_TOKEN` do workflow (GitHub
+  App ou token fine-grained com escrita de conteúdo e PRs no repositório da
+  política), a PR é dessa identidade e a medição roda no evento
+  `pull_request`. Sem ele, a PR é do `github.token`: a org precisa ligar
+  *Settings → Actions → General → Allow GitHub Actions to create and approve
+  pull requests*, e uma PR aberta pelo `github.token` não dispara workflows de
+  `pull_request`; por isso o job dispara a medição por `workflow_dispatch`
+  (entrada `measurement_workflow`, o arquivo do repositório da política que
+  chama `realimentacao-medicao.yml` com `pr_number`).
+- Modelo: o mesmo da revisão (`LLM_API_KEY`/`LLM_BASE_URL` ou
+  `AURUMCODE_LLM_FIXTURE`). Sem modelo, há sinal novo e nenhuma proposta:
+  o comando falha, sem abrir PR.
+- Workflows reutilizáveis: `.github/workflows/realimentacao.yml` (agendado no
+  repositório da política) e `.github/workflows/realimentacao-medicao.yml`
+  (nas PRs da realimentação: roda o corpus na base e na PR, comenta a tabela
+  antes/depois e falha quando "aprovado com defeito" sobe, o recall cai ou um
+  lado não pôde ser medido). A medição espera o corpus no layout do AUR-523
+  em `corpus/cases` do repositório da política.
+- O que a medição mede: o corpus do AUR-523 roda com o provedor falso,
+  derivado dos rótulos dos casos (`tests/benchmark/aur523.go`). Ela mostra o
+  efeito da política nas regras citáveis e no gate (seções, severidades,
+  `fail_on`), não a qualidade de um modelo real; a tabela e o corpo da PR
+  dizem isso.

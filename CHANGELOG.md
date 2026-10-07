@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Changelog obrigatório: `aurumcode changelog --base <sha>` reprova a PR sem
+  entrada útil nesta seção; o repositório liga com `changelog_check.mode: required`.
+- Realimentação da política: `aurumcode realimentacao` abre uma única PR no
+  repositório da política com propostas citando falsos positivos, achados
+  corrigidos e `/aurum perdeu`; nada é aplicado sem merge humano.
+- Tutoriais executáveis de changelog obrigatório e de realimentação da
+  política, e um mapa que liga cada caso de tutorial ao comando e à evidência.
+- QA no repositório consumidor (`tests/consumer`) e roteiro de release
+  (`scripts/release.sh`, `docs/releases.md`); nenhuma release foi publicada.
+
 ## Reconstrução focada em code review
 
 - Um CLI Go para revisão local e de pull requests.

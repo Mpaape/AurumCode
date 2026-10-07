@@ -12,7 +12,7 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-var aur572Commands = []string{"review", "fix", "sbom", "sign", "xbom", "dependencies", "mcp"}
+var aur572Commands = []string{"review", "fix", "sbom", "sign", "xbom", "dependencies", "mcp", "changelog", "realimentacao"}
 
 // AC-001: the top-level help lists every command of the registry, and each
 // `<sub> --help` prints every flag its FlagSet declares plus an example.

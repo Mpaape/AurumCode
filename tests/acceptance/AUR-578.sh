@@ -56,6 +56,8 @@ mkdir -p "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOWORK=off GOENV=off
 export GOFLAGS='-mod=mod -p=1 -buildvcs=false' GOCACHE GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB
+# Only the Go module is staged: no .github/workflows to check the manifest.
+export AURUMCODE_MODULE_ONLY=1
 
 seed_root() {
   rm -rf "$run_dir/root"; mkdir -p "$run_dir/root/tests/fixtures/repos"

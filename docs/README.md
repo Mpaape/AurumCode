@@ -8,6 +8,8 @@
 - [Arquitetura: mapa de módulos, fluxo do review, pipeline do gate e pontos de extensão](architecture.md)
 - [Qualidade e limitações atuais](review-quality.md)
 - [Desenvolvimento e QA](qa.md)
+- [Changelog obrigatório: entrada por PR e consolidação por release](changelog.md)
+- [Releases: preparar, verificar no consumidor e publicar](releases.md)
 - [Visão geral por capacidade (home do site pesquisável)](index.md)
 
 O produto é gratuito e de código aberto (MIT). Instale copiando o workflow,

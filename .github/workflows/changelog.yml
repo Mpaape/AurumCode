@@ -1,0 +1,85 @@
+name: Changelog
+
+# Check obrigatorio de changelog (AUR-509). Neste repositorio roda em toda
+# pull_request; um repositorio consumidor chama o mesmo arquivo como workflow
+# reutilizavel (workflow_call), pinado por SHA:
+#
+#   jobs:
+#     changelog:
+#       uses: Mpaape/AurumCode/.github/workflows/changelog.yml@<sha>
+#
+# O verificador e construido do checkout da ferramenta, nunca do codigo da
+# PR; a PR entra so como dado, em outro diretorio. No consumidor, a
+# ferramenta e job.workflow_sha (o SHA pinado no `uses:`). Nas PRs do proprio
+# AurumCode, job.workflow_sha e o merge da PR -- a PR poderia trocar o
+# verificador --, por isso aqui a ferramenta vem da base da PR. Uma politica
+# central opcional (policy_repository) e lida da ferramenta do lado de fora
+# da PR, como no review.yml, e decide sozinha quando declara changelog_check. Sem
+# filtro de paths e sem `if:` no job: um job pulado conta como verde num
+# required check. Contexto a exigir na protecao da main: "Changelog
+# obrigatório" aqui; "<job do chamador> / Changelog obrigatório" no consumidor.
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      policy_repository:
+        description: Optional owner/repo of a central policy whose changelog_check decides alone.
+        required: false
+        type: string
+        default: ''
+      policy_ref:
+        description: Branch, tag or SHA of policy_repository. Empty is its default branch.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: Changelog obrigatório
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout AurumCode
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ github.repository == job.workflow_repository && github.event.pull_request.base.sha || job.workflow_sha }}
+          path: .aurumcode-tool
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout pull request
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: .aurumcode-target
+          persist-credentials: false
+          # Historia completa: a base da PR precisa estar no clone.
+          fetch-depth: 0
+
+      - name: Checkout central policy
+        if: ${{ inputs.policy_repository != '' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.policy_repository }}
+          ref: ${{ inputs.policy_ref }}
+          path: .aurumcode-policy
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check the changelog entry
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          POLICY_DIR: ${{ inputs.policy_repository != '' && '/w/.aurumcode-policy' || '' }}
+        run: >-
+          docker run --rm
+          -e BASE_SHA -e HEAD_SHA -e POLICY_DIR
+          -v "${GITHUB_WORKSPACE}:/w"
+          -w /w/.aurumcode-tool
+          golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+          sh scripts/ci/changelog-check.sh /w/.aurumcode-target

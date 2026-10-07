@@ -1,0 +1,1 @@
+{"schema":"aurum.benchmark-multilang","corpus_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","policy_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","total":{"cases":20,"defects":10,"recall":0.9,"precision":0.95,"approved_with_defect":0}}

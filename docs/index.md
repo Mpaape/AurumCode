@@ -22,12 +22,14 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [Opções avançadas](configuration.md#opcoes-avancadas) e
 [Opções públicas](configuration.md#opcoes-publicas),
 [Deliberação: o modelo pede ferramentas](configuration.md#deliberacao-o-modelo-pede-ferramentas-dentro-de-limites),
+[Status do CI no parecer](configuration.md#status-do-ci-no-parecer),
+[PR grande: diff local e revisão em lotes](configuration.md#pr-grande-diff-local-e-revisao-em-lotes),
 [Arquivos que saem da revisão como documentação](configuration.md#quais-arquivos-saem-da-revisao-como-documentacao),
 [Dependências do PR](configuration.md#dependencias-do-pr-dependencies) e
 [Varredura agendada de dependências](configuration.md#varredura-agendada-de-dependencias-aurumcode-dependencies). Veja também
 [Qualidade e limitações](review-quality.md) e [Cache de review](review-cache.md).
 
-Tutorial: [Revisão de código](tutorials/revisao.md) e [Deliberação com ferramentas](tutorials/deliberacao.md).
+Tutorial: [Revisão de código](tutorials/revisao.md), [Deliberação com ferramentas](tutorials/deliberacao.md) e [Memória de revisão](tutorials/memoria.md).
 
 ## No seu agente de código
 
@@ -45,9 +47,12 @@ Tutorial: [Aurum no seu agente](tutorials/agente.md).
 Skills de convenção escritas em Markdown pelos times e uma política central,
 mantida num repositório da organização, que `rules` e `gate` do repositório
 do dev não conseguem afrouxar. Referência:
-[Política central](configuration.md#politica-central).
+[Política central](configuration.md#politica-central) e
+[Realimentação da política](configuration.md#realimentacao-da-politica-aur-532),
+que transforma falsos positivos, achados corrigidos e defeitos escapados numa
+PR de propostas para a política.
 
-Tutorial: [Skills de convenção](tutorials/skills.md) e [Política central](tutorials/politica-central.md).
+Tutorial: [Skills de convenção](tutorials/skills.md), [Política central](tutorials/politica-central.md) e [Realimentação da política](tutorials/realimentacao.md).
 
 ## Gate
 
@@ -89,6 +94,17 @@ valem para repositórios poliglotas. Referência:
 [SAST multilinguagem](configuration.md#sast-multilinguagem-com-semgrep-aur-548).
 
 Tutorial: [Qualquer linguagem](tutorials/qualquer-linguagem.md).
+
+## Changelog
+
+Cada pull request acrescenta uma entrada curta e voltada a quem usa o produto
+em `## Unreleased`; o check `aurumcode changelog` reprova a PR sem ela, lendo o
+modo do commit base. A sugestão de entrada do review continua separada e só
+consultiva. Referência:
+[Changelog obrigatório](configuration.md#changelog-obrigatorio-aur-509) e o
+guia [Changelog obrigatório](changelog.md).
+
+Tutorial: [Changelog obrigatório](tutorials/changelog.md).
 
 ## Benchmark e operação
 
