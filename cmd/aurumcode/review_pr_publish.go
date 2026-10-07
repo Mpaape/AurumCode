@@ -108,10 +108,12 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	key := fmt.Sprintf("aurumcode/review/%d/%s", p.prNumber, p.commitID)
 	if err := p.client.PostPullRequestReview(p.ctx, p.owner, p.repoName, p.prNumber, formal, key); err != nil {
 		fmt.Fprintf(p.stderr, "aurumcode review: publishing formal review: %v\n", err)
-		return append(failures, "formal review: "+err.Error())
+		failures = append(failures, "formal review: "+err.Error())
+	} else {
+		fmt.Fprintf(p.stdout, "review formal %q publicado no pull request #%d (%d comentário(s) na linha).\n", formal.Event, p.prNumber, len(formalComments))
 	}
-	fmt.Fprintf(p.stdout, "review formal %q publicado no pull request #%d (%d comentário(s) na linha).\n", formal.Event, p.prNumber, len(formalComments))
-	return failures
+	_, outsideFailures := p.postOutsideDiffFindings()
+	return append(failures, outsideFailures...)
 }
 
 // postSeparateComments is the historical mode: one comment per finding
@@ -147,9 +149,12 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
 			continue
 		}
-		fmt.Fprintf(stdout, "%s -- publicado como comentario geral\n", line)
+		fmt.Fprintf(stdout, "%s %s\n", line, outsideDiffPublishedMarker)
 		generalCount++
 	}
+	outsidePublished, outsideFailures := p.postOutsideDiffFindings()
+	generalCount += outsidePublished
+	failures = append(failures, outsideFailures...)
 	if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, summaryBody); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 		failures = append(failures, "summary: "+err.Error())

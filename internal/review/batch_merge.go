@@ -88,6 +88,8 @@ func mergeMetadata(into, from map[string]string) {
 	for key, value := range from {
 		current, seen := into[key]
 		switch {
+		case key == OutsideDiffFindingsKey:
+			mergeOutsideDiff(into, value)
 		case summedMetaKeys[key]:
 			into[key] = strconv.Itoa(metaCount(into, key) + metaCount(from, key))
 		case joinedMetaKeys[key]:
