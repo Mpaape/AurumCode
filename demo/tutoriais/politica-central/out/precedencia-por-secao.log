@@ -4,6 +4,7 @@ aurumcode review: politica central: override da regra "security/hardcoded-secret
 aurumcode review: politica central: padrão de ignore "docs/**" do repositório não foi aplicado: a política central decide sozinha
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: politica central: quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -23,7 +24,6 @@ flowchart TD
 
 ```
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 exit_code=0
 RESULTADO: revisao feita sob politica
 supply_chain: a politica nao declara, entao nao ha aviso e vale o do repositorio
