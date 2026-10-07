@@ -271,6 +271,9 @@ type Config struct {
 	// Batches (nil = not declared) bounds a review split in batches when
 	// the diff does not fit one prompt.
 	Batches *BatchesConfig `yaml:"batches"`
+	// Dependencies (nil = not declared) is the dependency check of a pull
+	// request and its gate. Governed per section by ApplyCentralPolicy.
+	Dependencies *DependenciesConfig `yaml:"dependencies"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -348,6 +351,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Batches.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Dependencies.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.QualityGates.Sast.Validate(); err != nil {
