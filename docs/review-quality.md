@@ -104,7 +104,11 @@ Cada comentário de achado publicado no `--pr` leva um marcador oculto
 (`<!-- aurumcode:finding <impressão> <regra> -->`) com a impressão do achado:
 a mesma de `render.FindingFingerprint`, sobre regra, caminho e o código da
 linha revisada, sem o número da linha. A rodada seguinte lê os marcadores do
-histórico do PR (respostas dentro de uma thread não contam) e:
+histórico do PR, só de comentários do próprio publicador (o login em
+`AURUMCODE_PUBLISHER_LOGIN`, que o workflow reutilizável define como
+`github-actions[bot]`, o autor do `github.token`); respostas dentro de uma
+thread e marcadores de qualquer outro autor não contam, e sem esse login
+nenhum marcador é lido e todo achado é comentado de novo. Então:
 
 - não comenta de novo um achado já comentado, nem quando o mesmo código só
   mudou de linha; outro defeito na mesma linha (outra regra) é comentado;
@@ -112,7 +116,10 @@ histórico do PR (respostas dentro de uma thread não contam) e:
   continuam no parecer, no gate e nos status, de modo que o veredito de duas
   rodadas iguais é o mesmo;
 - lista, em "Rodadas anteriores", os achados de rodadas anteriores que esta
-  execução não reencontrou (corrigidos ou não reencontrados). O evento da
+  execução não reencontrou (corrigidos ou não reencontrados). Um achado
+  agrupado por `review.presentation.collapse` continua reportado e nunca entra
+  nessa lista; uma execução inconclusiva (falha do modelo ou gate
+  inconclusivo) não lista nada como resolvido. O evento da
   revisão e os status seguem só os achados desta execução, então um bug
   corrigido deixa de bloquear. Uma revisão formal `REQUEST_CHANGES` de uma
   rodada anterior continua no GitHub até uma aprovação posterior; o Aurum não
@@ -122,7 +129,7 @@ O marcador nunca é autoridade sobre um achado: decide apenas se um comentário
 a mais é publicado. Uma resposta de pessoa (por exemplo, "falso positivo")
 entra no prompt como contexto, mas não desliga regra; um marcador forjado pode,
 no máximo, evitar a repetição de um comentário, nunca tirar o achado do
-parecer, do gate ou dos status. Sem histórico legível, todo achado é
+parecer, do gate ou dos status; só o publicador consegue escrevê-lo. Sem histórico legível, todo achado é
 comentado. Mudança de prompt, configuração ou contexto muda as chaves de cache
 e a revisão é refeita; um defeito novo é comentado e os equivalentes já
 comentados, não.

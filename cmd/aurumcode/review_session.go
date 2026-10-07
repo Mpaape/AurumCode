@@ -33,6 +33,9 @@ type reviewEnv struct {
 	llmModel       string // LLM_MODEL
 	outputFile     string // AURUMCODE_OUTPUT_FILE
 	permissionMode string // AURUMCODE_PR_PERMISSION_MODE
+	// publisherLogin (AURUMCODE_PUBLISHER_LOGIN) is the login this product
+	// publishes as; only its comments' round markers are read.
+	publisherLogin string
 }
 
 // readReviewEnv snapshots the environment.
@@ -44,6 +47,7 @@ func readReviewEnv() reviewEnv {
 		llmModel:       os.Getenv("LLM_MODEL"),
 		outputFile:     os.Getenv("AURUMCODE_OUTPUT_FILE"),
 		permissionMode: os.Getenv("AURUMCODE_PR_PERMISSION_MODE"),
+		publisherLogin: os.Getenv("AURUMCODE_PUBLISHER_LOGIN"),
 	}
 }
 

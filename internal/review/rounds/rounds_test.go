@@ -30,7 +30,7 @@ func TestPublishedIgnoresReplies(t *testing.T) {
 
 func TestPlanRoundCountsRepeatsAndResolved(t *testing.T) {
 	previous := []Previous{{Fingerprint: fpA, RuleID: "r1"}, {Fingerprint: fpB, RuleID: "r2"}}
-	plan := PlanRound([]string{fpA, fpA, ""}, previous)
+	plan := PlanRound([]string{fpA, fpA, ""}, nil, previous)
 	if plan.Post[0] || !plan.Post[1] || !plan.Post[2] || plan.Repeated != 1 {
 		t.Fatalf("plan = %+v: one earlier comment covers one occurrence only", plan)
 	}
@@ -39,5 +39,14 @@ func TestPlanRoundCountsRepeatsAndResolved(t *testing.T) {
 	}
 	if !strings.HasPrefix(Marker(fpB, "r2"), "<!-- aurumcode:finding ") {
 		t.Fatal("marker shape changed")
+	}
+}
+
+// TestPlanRoundCondensedIsNeverResolved: a finding still reported, only
+// without its own comment, is not listed as resolved.
+func TestPlanRoundCondensedIsNeverResolved(t *testing.T) {
+	plan := PlanRound(nil, []string{fpB}, []Previous{{Fingerprint: fpB, RuleID: "r2"}})
+	if len(plan.Resolved) != 0 {
+		t.Fatalf("a condensed finding was called resolved: %+v", plan.Resolved)
 	}
 }

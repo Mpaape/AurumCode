@@ -475,7 +475,7 @@ quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
 perfil selecionado aprende o mesmo catálogo dinâmico. A fusão dos perfis
 preserva lado (`LEFT`/`RIGHT`), impacto, evidência, correção sugerida e
 verificação de cada achado; um achado que dois perfis repetem sai uma vez,
-atribuído como `[perfil a; tambem: b]`, e a evidência de cada perfil é mantida.
+atribuído como `[perfil a; também: b]`, e a evidência de cada perfil é mantida.
 O terminal (`--base`) mostra os mesmos campos que o parecer do PR.
 
 ## SAST multilinguagem com Semgrep (AUR-548)
@@ -1285,7 +1285,7 @@ consumidor.
 | `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
-| `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado | vazio (todo achado publicado um a um) |
+| `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
@@ -1541,7 +1541,8 @@ Cada item que fica separa observação de inferência:
 - **Trecho de log opcional.** Cada check do arquivo de contexto aceita um
   campo `excerpt` com um trecho já sanitizado do log (o `gh pr checks` não o
   produz e a revisão nunca baixa logs). Quando a `evidence` do modelo cita
-  esse trecho, o parecer publica "Observado no log do CI" e, em linhas
+  esse trecho (uma linha inteira dele, ou ao menos 20 caracteres que não são
+  espaço; uma palavra solta como `error` não basta), o parecer publica "Observado no log do CI" e, em linhas
   separadas, "Causa inferida pelo modelo" e "Correção inferida pelo modelo".
 - **Sem check correspondente.** Sem contexto de CI, ou com um nome que o
   contexto não conhece como check concluído, o item aparece como "estado não

@@ -324,6 +324,9 @@ jobs:
           AURUMCODE_WORKFLOW_SHA: ${{ job.workflow_sha }}
           AURUMCODE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           AURUMCODE_PR_PERMISSION_MODE: endpoint
+          # The login github.token publishes as: only its comments' round
+          # markers are read by the next round (AUR-494).
+          AURUMCODE_PUBLISHER_LOGIN: github-actions[bot]
           AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
           AURUMCODE_OUTPUT_FILE: /aurumcode-out/aurumcode-changelog-output
           REPOSITORY: ${{ github.repository }}
@@ -395,6 +398,7 @@ jobs:
             -e AURUMCODE_WORKFLOW_SHA
             -e AURUMCODE_BASE_SHA
             -e AURUMCODE_PR_PERMISSION_MODE
+            -e AURUMCODE_PUBLISHER_LOGIN
             # git inside the container runs as another user than the
             # checkout's owner; command-scope safe.directory lets the
             # secrets engine read the history of the read-only mount.

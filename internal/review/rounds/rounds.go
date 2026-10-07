@@ -38,6 +38,8 @@ func Marker(fingerprint, ruleID string) string {
 }
 
 // Comment is one earlier comment of the conversation, as the caller read it.
+// The caller passes only comments authored by the identity this product
+// publishes as: a marker from anyone else is never read.
 type Comment struct {
 	Body string
 	Path string
@@ -82,18 +84,23 @@ type Plan struct {
 	Resolved []Previous
 }
 
-// PlanRound matches the round's fingerprints (one per finding, in
-// publication order) against the earlier ones. Matching is by count: two
+// PlanRound matches the round's fingerprints (one per published finding,
+// in publication order) against the earlier ones. Matching is by count: two
 // findings with the same fingerprint need two earlier comments, so a second
 // occurrence of the same defect is still posted. An empty fingerprint is
-// always posted.
-func PlanRound(current []string, previous []Previous) Plan {
+// always posted. stillReported are findings this round reports without a
+// comment of their own (condensed by a preference): never posted, never
+// resolved.
+func PlanRound(current, stillReported []string, previous []Previous) Plan {
 	available := map[string]int{}
 	for _, p := range previous {
 		available[p.Fingerprint]++
 	}
 	plan := Plan{Post: make([]bool, len(current))}
 	reported := map[string]bool{}
+	for _, fp := range stillReported {
+		reported[fp] = true
+	}
 	for i, fp := range current {
 		reported[fp] = true
 		if fp != "" && available[fp] > 0 {
