@@ -12,7 +12,9 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dependencies"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/scanner"
 )
 
 // dependencySources builds the advisory source and the extraction scanner
@@ -79,34 +81,36 @@ func (s *reviewState) runDependencyCheck() {
 		// The license text fallback has no production reader: a license
 		// the registry cannot name is inconclusive.
 		LicensesDenied: cfg.LicensesDenied,
+		VetRequired:    cfg.Gated(),
 	})
 	s.depReport = &report
-	for _, line := range dependencyNotices(report) {
+	for _, line := range dependencyNotices(s.reviewLanguage, report, s.redactor()) {
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 		s.result.Limitations = append(s.result.Limitations, line)
 	}
 }
 
-// dependencyNotices is what the review states besides the gate lines: the
-// reason of an inconclusive check, the model's discarded answers and the
-// manifests read.
-func dependencyNotices(r dependencies.Report) []string {
+// dependencyNotices is what the review states besides the gate lines, in
+// the review's language: the reason of an inconclusive check (its detail
+// redacted: it may quote a source's answer), the model's discarded
+// answers, the unvetted packages, the divergences and the fixes.
+func dependencyNotices(language string, r dependencies.Report, redact scanner.Redactor) []string {
 	var out []string
 	if r.Inconclusive() {
-		out = append(out, fmt.Sprintf("Dependencias: verificacao inconclusiva (%s): %s", r.Reason, r.Detail))
+		out = append(out, i18n.Format(language, "deps.notice.inconclusive", r.Reason, redact(r.Detail)))
 	}
 	for _, d := range r.Discarded {
-		out = append(out, "Dependencias: extracao do modelo descartada, ausente do diff: "+d)
+		out = append(out, i18n.Format(language, "deps.notice.discarded", d))
 	}
 	for _, u := range r.Unvetted {
-		out = append(out, "Dependencias: pacote sem metadados de registro, sem analise de typosquat: "+u)
+		out = append(out, i18n.Format(language, "deps.notice.unvetted", u))
 	}
 	for _, d := range r.Divergences {
-		out = append(out, "Dependencias: divergencia entre modelo e scanner: "+d)
+		out = append(out, i18n.Format(language, "deps.notice.divergence", d))
 	}
 	for _, f := range r.Findings {
 		if f.Status == dependencies.StatusFixed {
-			out = append(out, fmt.Sprintf("Dependencias: o PR corrige %s em %s (%s)", f.Vuln.ID, f.Change.Name, f.Change.Manifest))
+			out = append(out, i18n.Format(language, "deps.notice.fixed", f.Vuln.ID, f.Change.Name, f.Change.Manifest))
 		}
 	}
 	return out

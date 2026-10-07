@@ -1827,8 +1827,8 @@ dependencies:
   fail_on: [critical, high]        # severidades que reprovam o introduzido
   preexisting: warn                # ou block
   licenses_denied: [AGPL-3.0-only, SSPL-1.0]  # identificadores SPDX proibidos
-  osv_url: https://api.osv.dev     # padrão; um espelho da API OSV
-  scanner: osv-scanner             # padrão; o scanner de conferência
+  osv_url: https://api.osv.dev     # padrão; um espelho da API OSV (https)
+  scanner: osv-scanner             # padrão; nome no PATH ou caminho absoluto
   max_source_age_hours: 24         # opcional: idade máxima da resposta da base
   deps_dev_url: https://api.deps.dev  # padrão; metadados vivos do registro
   suspicion_severity: high         # padrão; severidade da suspeita de typosquat
@@ -1853,13 +1853,27 @@ dependencies:
   conhece fica só com a leitura do modelo. Scanner ausente ou com saída
   ilegível é inconclusivo (`dependencies_scanner_unavailable`,
   `dependencies_scanner_failed`).
+- **Fontes e scanner.** `osv_url` e `deps_dev_url` precisam ser `https`
+  (`http` só para `127.0.0.1`, `::1` ou `localhost`, um espelho local);
+  `scanner` é um nome procurado no `PATH` ou um caminho absoluto, nunca um
+  caminho relativo, que resolveria dentro do checkout que o PR controla. O
+  `osv-scanner` precisa de rede para a API OSV durante a execução.
+  Só as saídas 0 e 1 do scanner trazem relatório; 128 é "nenhum pacote";
+  qualquer outra saída, tempo esgotado ou processo morto é
+  `dependencies_scanner_failed`, mesmo com JSON na saída. Quando o scanner
+  lista o pacote, valem a versão e o ecossistema dele na consulta à base
+  (a divergência com o modelo é declarada; mais de uma versão candidata é
+  inconclusiva).
 - **Os dois lados na base OSV.** Cada versão anterior e nova é consultada na
   API OSV. Cada advisory sai com identificador (OSV/GHSA e aliases CVE),
-  pacote, versão, severidade da fonte, versão corrigida quando existe e link,
+  pacote, versão, severidade da fonte (a do banco de advisories; sem ela, a
+  nota do vetor CVSS v3, pela escala da especificação; só vetor CVSS v4 fica
+  `unknown`), versão corrigida quando existe e link,
   e é classificado como **introduzido pelo PR** (só na versão nova),
   **pré-existente** (nos dois lados) ou **corrigido pelo PR** (só na versão
   anterior; o parecer registra a correção). Cada lockfile de um monorepo é
-  reportado separado.
+  reportado separado. Registros do mesmo advisory em bancos diferentes
+  (`GO-`, `GHSA-`, `PYSEC-` com o mesmo CVE) viram um achado só.
 - **Faixa sem versão resolvida.** O modelo explica a faixa declarada e a base
   é consultada pelo pacote inteiro (todo advisory do pacote é candidato);
   dependência sem versão nem faixa legível segue o `gate.inconclusive`.
@@ -1924,8 +1938,10 @@ exceptions:
   com `suspicion_severity` contra `fail_on`, como qualquer achado, e aceita
   exceção com `rule: suspicion/<pacote>` e `path:` o manifesto. Nenhuma lista
   de pacotes nem regra de distância de nome existe no código. Pacote que o
-  modelo não consegue situar num sistema do deps.dev é declarado sem análise
-  de typosquat (o advisory `MAL-` da OSV continua valendo); registro
+  modelo não consegue situar num sistema do deps.dev, ou que só tem faixa, é
+  declarado sem análise de typosquat e, com `fail_on` declarado, torna a
+  revisão inconclusiva (`dependencies_unvetted_package`), a menos que o mesmo
+  pacote tenha sido analisado pelo lockfile da mudança; registro
   inalcançável torna a revisão inconclusiva
   (`dependencies_metadata_unreachable`).
 - **Licença proibida.** Com `licenses_denied`, a licença de cada pacote
@@ -1963,11 +1979,22 @@ aurumcode dependencies --repo . --sarif aurumcode-dependencies.sarif
   aterrado no conteúdo. Cada versão é consultada na API OSV atual (a mesma
   `dependencies.osv_url`, `max_source_age_hours` e política central da
   revisão de PR).
+- **O que a varredura não aplica.** Ela não julga: `fail_on`,
+  `preexisting`, `licenses_denied`, suspeita de typosquat e a lista
+  `exceptions` valem só no gate do PR. O SARIF agendado traz todo advisory
+  presente na branch, com a severidade da fonte como nível; aceitar um
+  risco ali é dispensar o alerta no code scanning. Pacote que o scanner
+  lista sem versão torna a varredura inconclusiva
+  (`dependencies_unresolved_version`), nunca some do resultado. O
+  `osv-scanner` precisa de rede para a API OSV.
 - **SARIF com categoria própria.** O documento traz
   `automationDetails.id: aurumcode/dependencies-scheduled/` (mude com
   `--categoria`), distinta da do review de PR, e cada resultado
-  (`cve/<id>`, no manifesto) tem impressão digital estável: advisory,
-  manifesto, ecossistema e pacote, sem versão, linha, severidade nem data.
+  (`cve/<id>` com o menor identificador do advisory, no manifesto; registros
+  `GO-`/`GHSA-` do mesmo advisory são um alerta) tem impressão digital
+  estável: advisory, manifesto, ecossistema e pacote, sem versão, linha,
+  severidade nem data, para que subir para outra versão ainda vulnerável não
+  feche e reabra o mesmo alerta.
   Por isso o mesmo alerta continua aberto entre execuções, e quando a
   dependência é corrigida ou o advisory é retirado o resultado some do
   próximo upload e o code scanning fecha o alerta sozinho. Nenhum estado

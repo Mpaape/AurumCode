@@ -8,6 +8,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/gate/facts"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -19,14 +20,14 @@ const DependencyRulePrefix = "cve/"
 // DependencySuspicionPrefix is the rule prefix of a typosquat suspicion.
 const DependencySuspicionPrefix = "suspicion/"
 
-// The decisions a dependency gate line ends with.
+// The decisions a dependency gate line ends with (internal/i18n keys).
 const (
-	depDecisionInfo      = "informativo"
-	depDecisionWarn      = "alerta"
-	depDecisionBlock     = "reprova"
-	depDecisionFixed     = "corrigida"
-	depDecisionExcused   = "aceita por excecao"
-	depDecisionMalicious = "reprova: pacote malicioso"
+	depDecisionInfo      = "deps.decision.info"
+	depDecisionWarn      = "deps.decision.warn"
+	depDecisionBlock     = "deps.decision.block"
+	depDecisionFixed     = "deps.decision.fixed"
+	depDecisionExcused   = "deps.decision.excused"
+	depDecisionMalicious = "deps.decision.malicious"
 )
 
 // dependencyPolicy is the dependencies section applied to one run: which
@@ -38,6 +39,7 @@ type dependencyPolicy struct {
 	exceptions []config.ExceptionConfig
 	repo       string
 	now        time.Time
+	lang       string
 }
 
 func newDependencyPolicy(run *Run) (dependencyPolicy, error) {
@@ -45,7 +47,7 @@ func newDependencyPolicy(run *Run) (dependencyPolicy, error) {
 	if err := cfg.Validate(); err != nil {
 		return dependencyPolicy{}, err
 	}
-	return dependencyPolicy{cfg: cfg, gated: cfg.Gated(), exceptions: run.Cfg.Exceptions, repo: run.RepoIdentity, now: run.Clock()}, nil
+	return dependencyPolicy{cfg: cfg, gated: cfg.Gated(), exceptions: run.Cfg.Exceptions, repo: run.RepoIdentity, now: run.Clock(), lang: run.Language}, nil
 }
 
 // judge folds one advisory into part: fixed is stated; an active exception
@@ -55,7 +57,7 @@ func newDependencyPolicy(run *Run) (dependencyPolicy, error) {
 // this run, never a stored one.
 func (p dependencyPolicy) judge(part *Result, f dependencies.Finding) {
 	if f.Status == dependencies.StatusFixed {
-		part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionFixed))
+		part.Lines = append(part.Lines, DependencyFindingLine(p.lang, f, depDecisionFixed))
 		return
 	}
 	if f.Vuln.Malicious() {
@@ -63,19 +65,19 @@ func (p dependencyPolicy) judge(part *Result, f dependencies.Finding) {
 		return
 	}
 	if !p.gated && !(f.Status == dependencies.StatusPreexisting && p.cfg.EffectivePreexisting() == config.PreexistingBlock) {
-		part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionInfo))
+		part.Lines = append(part.Lines, DependencyFindingLine(p.lang, f, depDecisionInfo))
 		return
 	}
 	if p.excused(part, f) {
-		part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionExcused))
+		part.Lines = append(part.Lines, DependencyFindingLine(p.lang, f, depDecisionExcused))
 		return
 	}
 	if p.blocks(f) {
 		p.block(part, f, DependencyRulePrefix+f.Vuln.ID, f.Vuln.Severity)
-		part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionBlock))
+		part.Lines = append(part.Lines, DependencyFindingLine(p.lang, f, depDecisionBlock))
 		return
 	}
-	part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionWarn))
+	part.Lines = append(part.Lines, DependencyFindingLine(p.lang, f, depDecisionWarn))
 }
 
 // blocks decides an unexcused advisory. Introduced: its severity is in
@@ -138,15 +140,15 @@ func (p dependencyPolicy) judgeMalicious(part *Result, f dependencies.Finding) {
 	for _, id := range f.Vuln.Identifiers() {
 		exc, status := MatchException(p.exceptions, p.repo, DependencyRulePrefix+id, f.Change.Manifest, p.now)
 		if status == ExceptionActive {
-			part.Lines = append(part.Lines, fmt.Sprintf("%s%s em %s: excecao recusada para pacote malicioso (dono: %s, validade: %s)", DependencyRulePrefix, id, f.Change.Manifest, exc.Owner, exc.Expires))
+			part.Lines = append(part.Lines, i18n.Format(p.lang, "deps.gate.malicious_exception", DependencyRulePrefix+id, f.Change.Manifest, exc.Owner, exc.Expires))
 		}
 	}
 	if blocksMalicious(p, f) {
 		p.block(part, f, DependencyRulePrefix+f.Vuln.ID, f.Vuln.Severity)
-		part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionMalicious))
+		part.Lines = append(part.Lines, DependencyFindingLine(p.lang, f, depDecisionMalicious))
 		return
 	}
-	part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionInfo))
+	part.Lines = append(part.Lines, DependencyFindingLine(p.lang, f, depDecisionInfo))
 }
 
 // blocksMalicious: a malicious package always fails, independent of fail_on.
@@ -160,27 +162,27 @@ func blocksMalicious(p dependencyPolicy, f dependencies.Finding) bool {
 func (p dependencyPolicy) judgeSuspicion(part *Result, s dependencies.Suspicion) {
 	severity := p.cfg.EffectiveSuspicionSeverity()
 	rule := DependencySuspicionPrefix + s.Change.Name
-	line := DependencySuspicionLine(s, severity)
+	decision := depDecisionWarn
 	switch {
 	case !p.gated:
-		part.Lines = append(part.Lines, line+" ["+depDecisionInfo+"]")
+		decision = depDecisionInfo
 	case p.exception(part, rule, s.Change.Manifest):
-		part.Lines = append(part.Lines, line+" ["+depDecisionExcused+"]")
+		decision = depDecisionExcused
 	case p.cfg.Fails(severity):
 		part.Fail, part.Breach = true, true
 		part.BlockingFindings = append(part.BlockingFindings, facts.AuditFinding{RuleID: rule, Path: s.Change.Manifest, Severity: severity, Origin: OriginDependencies})
-		part.Lines = append(part.Lines, line+" ["+depDecisionBlock+"]")
-	default:
-		part.Lines = append(part.Lines, line+" ["+depDecisionWarn+"]")
+		decision = depDecisionBlock
 	}
+	part.Lines = append(part.Lines, DependencySuspicionLine(p.lang, s, severity, decision))
 }
 
-// DependencySuspicionLine states a suspicion with the metadata it rests on.
-func DependencySuspicionLine(s dependencies.Suspicion, severity string) string {
+// DependencySuspicionLine states a suspicion with the metadata it rests on
+// and the decision (an internal/i18n key) in language.
+func DependencySuspicionLine(language string, s dependencies.Suspicion, severity, decision string) string {
 	evidence := make([]string, 0, len(s.Evidence))
 	for _, e := range s.Evidence {
 		evidence = append(evidence, e.Field+"="+e.Value)
 	}
-	return fmt.Sprintf("DEPENDENCIAS suspeita de pacote malicioso ou typosquat: %s %s (%s, %s), severidade %s: %s (evidencia: %s)",
-		s.Change.Name, s.Change.Head, s.Change.Ecosystem, s.Change.Manifest, severity, s.Summary, strings.Join(evidence, "; "))
+	return i18n.Format(language, "deps.gate.suspicion", s.Change.Name, s.Change.Head, s.Change.Ecosystem, s.Change.Manifest,
+		severity, s.Summary, strings.Join(evidence, "; "), i18n.Text(language, decision))
 }
