@@ -2,7 +2,7 @@
 --- gate.inconclusive: block
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260907T005130Z generated 2026-09-07T00:51:30Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260907T012629Z generated 2026-09-07T01:26:29Z is 30.0 days old, above max_age_days=7
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -31,7 +31,7 @@ RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260907T005131Z generated 2026-09-07T00:51:31Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260907T012630Z generated 2026-09-07T01:26:30Z is 30.0 days old, above max_age_days=7
 ## Code Review Summary
 
 **Verdict:** Comment

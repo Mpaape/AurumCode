@@ -1438,8 +1438,12 @@ were left out of the review by the token budget", um por linha) e em
 é retida (`partial_coverage`; reprova sob `gate.inconclusive: block`). Um
 valor negativo é erro de configuração; zero usa o padrão. Sob política
 central, uma seção `batches` da política decide sozinha (a do repositório é
-ignorada com aviso). `deliberation.max_cost_tokens` e `--limite` valem por
-lote. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
+ignorada com aviso). Os tetos de custo somam todos os lotes:
+`max_prompt_tokens` é a soma estimada dos prompts, e `--limite` usa um só
+rastreador de custo para a revisão inteira; só `deliberation.max_cost_tokens`
+vale por lote. Um teto que não admite nenhum lote (um `max_prompt_tokens`
+menor que um prompt) é uma revisão de modelo que não rodou: não revisada
+(saída 1) sem gate e inconclusiva com gate, nunca aprovada. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
 
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 

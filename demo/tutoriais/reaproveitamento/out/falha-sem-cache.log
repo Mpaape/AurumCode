@@ -2,7 +2,6 @@
 --- sem AURUMCODE_CACHE_DIR
 $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -22,10 +21,12 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: sem cache a revisao funciona, mas o veredito nao e compartilhado
 --- revisao inconclusiva nunca grava veredito
 $ aurumcode review --base main --politica /policy
+aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
 ## Code Review Summary
 
@@ -44,7 +45,6 @@ Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully re
 - 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
-aurumcode review: policy gate: review inconclusive (partial_coverage)
 exit_code=1
 RESULTADO: inconclusivo em block reprova
 cache: 0 entrada(s) de veredito, 0 entrada(s) por arquivo
