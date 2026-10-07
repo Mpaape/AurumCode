@@ -1,0 +1,102 @@
+# Catalogo de perfis de provedor de LLM (Chat Completions OpenAI-compativel).
+# Cada perfil descreve so o que difere no fio; o motor e um so
+# (internal/llm/provider/litellm). Valores conferidos na documentacao publica
+# de cada provedor; fontes em docs/provedores.md e docs/specs/AUR-596.md.
+#
+# Campos:
+#   base_url          URL base padrao; {VAR} e lido da variavel de ambiente VAR,
+#                     {VAR:-padrao} usa o padrao quando VAR esta vazia
+#                     (ausente = erro). LLM_BASE_URL sempre sobrescreve.
+#   key_env           variaveis com a chave, na ordem; a primeira nao vazia vale.
+#   auth              bearer | header | none
+#   auth_header       nome do header quando auth = header
+#   path              caminho anexado a URL base
+#   query             parametros de query; valores aceitam {VAR}
+#   token_field       max_tokens | max_completion_tokens
+#   structured_output json_schema | json_object | none
+#
+# Um arquivo apontado por LLM_PROVIDERS_FILE (mesmo formato) acrescenta perfis
+# ou substitui um perfil inteiro pelo nome.
+profiles:
+  openai-compatible:
+    description: endpoint OpenAI-compativel qualquer (comportamento padrao)
+    key_env: [LLM_API_KEY]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: json_schema
+  openai:
+    description: OpenAI API
+    base_url: https://api.openai.com/v1
+    key_env: [LLM_API_KEY, OPENAI_API_KEY]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_completion_tokens
+    structured_output: json_schema
+  azure-openai:
+    description: Azure OpenAI (rota por deployment, api-version obrigatoria)
+    base_url: https://{AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/deployments/{AZURE_OPENAI_DEPLOYMENT}
+    key_env: [LLM_API_KEY, AZURE_OPENAI_API_KEY]
+    auth: header
+    auth_header: api-key
+    path: /chat/completions
+    query:
+      api-version: "{AZURE_OPENAI_API_VERSION:-2024-10-21}"
+    token_field: max_completion_tokens
+    structured_output: json_schema
+  anthropic:
+    description: Anthropic (camada de compatibilidade OpenAI SDK; ignora response_format)
+    base_url: https://api.anthropic.com/v1
+    key_env: [LLM_API_KEY, ANTHROPIC_API_KEY]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: none
+  google:
+    description: Google Gemini (endpoint OpenAI-compativel)
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    key_env: [LLM_API_KEY, GEMINI_API_KEY]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: json_object
+  bedrock:
+    description: Amazon Bedrock (chave de API Bedrock no endpoint OpenAI-compativel do bedrock-runtime)
+    base_url: https://bedrock-runtime.{AWS_REGION}.amazonaws.com/openai/v1
+    key_env: [LLM_API_KEY, AWS_BEARER_TOKEN_BEDROCK]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: json_object
+  litellm:
+    description: proxy LiteLLM (chave mestra ou virtual)
+    base_url: http://localhost:4000
+    key_env: [LLM_API_KEY, LITELLM_API_KEY]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: json_schema
+  openrouter:
+    description: OpenRouter
+    base_url: https://openrouter.ai/api/v1
+    key_env: [LLM_API_KEY, OPENROUTER_API_KEY]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: json_object
+  opencode:
+    description: OpenCode Zen (modelos com endpoint chat/completions)
+    base_url: https://opencode.ai/zen/v1
+    key_env: [LLM_API_KEY, OPENCODE_API_KEY]
+    auth: bearer
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: json_object
+  ollama:
+    description: Ollama local (a chave e ignorada pelo servidor)
+    base_url: http://localhost:11434/v1
+    key_env: [LLM_API_KEY]
+    auth: none
+    path: /chat/completions
+    token_field: max_tokens
+    structured_output: json_object

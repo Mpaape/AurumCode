@@ -1,0 +1,6 @@
+$ LLM_PROVIDER=meu-gateway LLM_PROVIDERS_FILE=/fixtures/meus-perfis.yml GATEWAY_KEY=chave-falsa-gw-0123456789 aurumcode review --base main
+No issues found.
+--- requisicoes recebidas pelo provedor falso: 1
+    provedor recebeu: /gateway/chat/completions query=- authorization=ausente api-key=ausente x-gw-key=<chave> limite=- response_format=ausente
+exit_code=0
+RESULTADO: perfil do operador: chave so no header x-gw-key, sem response_format, revisao conclui

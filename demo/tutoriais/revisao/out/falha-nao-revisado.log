@@ -53,6 +53,7 @@ exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 --- binario com gate.inconclusive: block: declarado ignorado, nao parcial
 $ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 binary file, skipped: logo.png
 ## Code Review Summary
 
@@ -77,6 +78,5 @@ Review coverage
 - 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
   - logo.png (binary)
 No issues found.
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 exit_code=0
 RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova

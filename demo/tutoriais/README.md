@@ -27,6 +27,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [extensao](../../docs/tutorials/extensao.md) | `extensao/` | engine-no-gate, skill-no-prompt, ferramenta-pedida, falha-binario-padrao (imagem com `TUT_BUILD_ARGS="GO_TAGS=aurum_exemplo"`; a falha usa a imagem padrao) |
 | [agente](../../docs/tutorials/agente.md) | `agente/` | gate-consultado, skill-do-repo, hook-pre-commit, gate-inconclusivo (cliente MCP de teste em `cliente-mcp.py`, python3 no host) |
 | [dados-de-analise](../../docs/tutorials/dados-de-analise.md) | `dados-de-analise/` | declarado-ou-nao, vencido, cache, workflow-agendado, adulterado, indisponivel |
+| [provedores](../../docs/tutorials/provedores.md) | `provedores/` | sem-perfil, azure-openai, anthropic, catalogo-do-operador, falha-fora-do-schema, falha-perfil-desconhecido (provedor falso dentro do container, rede none) |
 
 ## Como rodar
 

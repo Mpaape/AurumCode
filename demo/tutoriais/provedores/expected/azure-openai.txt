@@ -1,0 +1,6 @@
+$ LLM_PROVIDER=azure-openai aurumcode review --base main
+No issues found.
+--- requisicoes recebidas pelo provedor falso: 1
+    provedor recebeu: /azure/chat/completions query=api-version=2024-10-21 authorization=ausente api-key=<chave> x-gw-key=ausente limite=- response_format=json_object
+exit_code=0
+RESULTADO: azure-openai: api-key e api-version, sem Authorization, e a revisao conclui

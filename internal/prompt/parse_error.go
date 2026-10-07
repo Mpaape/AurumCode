@@ -70,6 +70,8 @@ func newParseError(kind ParseErrorKind, raw string, err error) *ParseError {
 			parseErr.ValidationCode = "issue_missing_message"
 		case strings.Contains(message, "invalid severity"):
 			parseErr.ValidationCode = "issue_invalid_severity"
+		case message == errMissingFindingsList.Error():
+			parseErr.ValidationCode = "missing_issues"
 		case strings.HasPrefix(message, "ISO score"):
 			parseErr.ValidationCode = "iso_score_out_of_range"
 		default:
