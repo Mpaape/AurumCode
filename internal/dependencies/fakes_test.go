@@ -81,9 +81,10 @@ func (f *fakeOSV) asked() []string {
 // fakeModel answers the select prompt with manifests and the extract
 // prompt with changes, as JSON.
 type fakeModel struct {
-	manifests []string
-	changes   []Change
-	err       error
+	manifests  []string
+	changes    []Change
+	suspicions []map[string]any
+	err        error
 }
 
 func (m fakeModel) CompleteMessages(_ context.Context, msgs []llm.Message, _ llm.Options) (llm.Response, error) {
@@ -91,7 +92,9 @@ func (m fakeModel) CompleteMessages(_ context.Context, msgs []llm.Message, _ llm
 		return llm.Response{}, m.err
 	}
 	var body any
-	if strings.Contains(msgs[0].Content, `{"manifests"`) {
+	if strings.Contains(msgs[0].Content, `{"suspicions"`) {
+		body = map[string]any{"suspicions": m.suspicions}
+	} else if strings.Contains(msgs[0].Content, `{"manifests"`) {
 		body = map[string]any{"manifests": m.manifests}
 	} else {
 		body = map[string]any{"changes": m.changes}
@@ -144,4 +147,22 @@ func findingsOf(r Report, status Status) []Finding {
 		}
 	}
 	return out
+}
+
+// fakeRegistry serves fixed metadata per package name; fail makes it
+// unreachable.
+type fakeRegistry struct {
+	meta map[string]Metadata
+	fail bool
+}
+
+func (r fakeRegistry) Metadata(_ context.Context, c Change) (Metadata, error) {
+	if r.fail {
+		return nil, errors.New("registry unreachable")
+	}
+	m, ok := r.meta[c.Name]
+	if !ok {
+		return nil, ErrNoSystem
+	}
+	return m, nil
 }

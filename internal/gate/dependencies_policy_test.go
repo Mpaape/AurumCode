@@ -28,7 +28,8 @@ func hasLine(res Result, want string) bool {
 	return false
 }
 
-// AUR-527 AC-001: an introduced advisory in fail_on fails; below it alerts.
+// AUR-527 AC-001: an introduced advisory whose severity is in fail_on
+// fails; one outside it alerts; an unknown severity fails.
 func TestAUR527AC001IntroducedFollowsFailOn(t *testing.T) {
 	res := applyDeps(t, depRun(failOn("critical", "high")), dependencies.Report{Findings: []dependencies.Finding{depFinding("GHSA-1", "critical", dependencies.StatusIntroduced)}})
 	if !res.Fail || !res.Breach || len(res.BlockingFindings) != 1 || res.BlockingFindings[0].RuleID != "cve/GHSA-1" {
@@ -51,7 +52,7 @@ func TestAUR527AC002Preexisting(t *testing.T) {
 	if res := applyDeps(t, depRun(warn), report); res.Fail || !hasLine(res, "[alerta]") {
 		t.Fatalf("preexisting warn = %+v", res)
 	}
-	block := failOn("high")
+	block := failOn("critical", "high")
 	block.Preexisting = config.PreexistingBlock
 	if res := applyDeps(t, depRun(block), report); !res.Fail || !hasLine(res, "[reprova]") {
 		t.Fatalf("preexisting block = %+v", res)
@@ -66,7 +67,7 @@ func TestAUR527AC003CVEException(t *testing.T) {
 	report := dependencies.Report{Findings: []dependencies.Finding{f}}
 	exc := config.ExceptionConfig{Repo: "acme/app", Rule: "cve/CVE-2021-44906", Path: "app/package-lock.json", Owner: "seguranca", Reason: "sem uso do parser", Expires: "2026-12-31"}
 
-	run := depRun(failOn("high"))
+	run := depRun(failOn("critical", "high"))
 	run.Cfg.Exceptions = []config.ExceptionConfig{exc}
 	res := applyDeps(t, run, report)
 	if res.Fail || len(res.AppliedExceptions) != 1 || !hasLine(res, AcceptedExceptionMarker) {
@@ -74,7 +75,7 @@ func TestAUR527AC003CVEException(t *testing.T) {
 	}
 
 	exc.Expires = "2026-10-01"
-	run = depRun(failOn("high"))
+	run = depRun(failOn("critical", "high"))
 	run.Cfg.Exceptions = []config.ExceptionConfig{exc}
 	res = applyDeps(t, run, report)
 	if !res.Fail || len(res.AppliedExceptions) != 0 || !hasLine(res, ExpiredExceptionMarker) {
@@ -82,7 +83,7 @@ func TestAUR527AC003CVEException(t *testing.T) {
 	}
 
 	exc.Expires, exc.Repo = "2026-12-31", "acme/other"
-	run = depRun(failOn("high"))
+	run = depRun(failOn("critical", "high"))
 	run.Cfg.Exceptions = []config.ExceptionConfig{exc}
 	if res = applyDeps(t, run, report); !res.Fail {
 		t.Fatalf("exception of another repository applied: %+v", res)
@@ -144,7 +145,7 @@ func TestAUR527AC004SeverityFollowsSource(t *testing.T) {
 	check := func() dependencies.Report {
 		return dependencies.Check(context.Background(), dependencies.Inputs{Diff: diff, Model: policyModel{}, Source: dependencies.OSV{BaseURL: server.URL, Client: server.Client()}})
 	}
-	cfg := failOn("high")
+	cfg := failOn("critical", "high")
 	if res := applyDeps(t, depRun(cfg), check()); !res.Fail {
 		t.Fatalf("critical run = %+v", res)
 	}

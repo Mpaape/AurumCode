@@ -11,11 +11,14 @@ import (
 // about advisories; Extractor cross-checks the model on the checked-out
 // head at Root. Blocked, when set, is why the head checkout cannot be
 // trusted (the extraction then never runs and the check is inconclusive).
+// Registry, when set, vets every new or updated package with its live
+// registry metadata (suspicion.go).
 type Inputs struct {
 	Diff      *types.Diff
 	Model     Completer
 	Source    Source
 	Extractor Extractor
+	Registry  Registry
 	Root      string
 	Blocked   string
 }
@@ -64,5 +67,9 @@ func Check(ctx context.Context, in Inputs) Report {
 		return report
 	}
 	classify(ctx, in.Source, report.Changes, &report)
+	if report.Inconclusive() || in.Registry == nil {
+		return report
+	}
+	vetRegistry(ctx, in.Model, in.Registry, &report)
 	return report
 }

@@ -109,6 +109,8 @@ type License struct {
 // Suspicion is a grounded typosquat or malicious-package suspicion.
 type Suspicion struct {
 	Change   Change     `json:"change"`
+	Manifest string     `json:"manifest"`
+	Name     string     `json:"name"`
 	Summary  string     `json:"summary"`
 	Evidence []Evidence `json:"evidence"`
 }
@@ -128,6 +130,7 @@ type Report struct {
 	Licenses    []License   `json:"licenses,omitempty"`
 	Suspicions  []Suspicion `json:"suspicions,omitempty"`
 	Divergences []string    `json:"divergences,omitempty"`
+	Unvetted    []string    `json:"unvetted,omitempty"`
 	Discarded   []string    `json:"discarded,omitempty"`
 	Reason      string      `json:"reason,omitempty"`
 	Detail      string      `json:"detail,omitempty"`
