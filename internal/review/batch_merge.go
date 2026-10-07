@@ -15,6 +15,7 @@ import (
 var summedMetaKeys = map[string]bool{
 	"issues_rejected_without_rule": true,
 	"issues_rejected_by_scope":     true,
+	RedactionMarkerDiscardKey:      true,
 	"summary_discarded_findings":   true,
 	"total_files":                  true,
 	"lines_added":                  true,

@@ -389,6 +389,7 @@ func annotateResult(result *types.ReviewResult, prepared preparedPrompt, outcome
 	}
 	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", outcome.rejected)
 	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", outcome.scopeDiscarded.total())
+	result.Metadata[RedactionMarkerDiscardKey] = fmt.Sprintf("%d", outcome.scopeDiscarded.CitesRedactionMarker)
 	result.Metadata["scope_discard_warning"] = outcome.scopeDiscarded.warning()
 	result.Metadata["summary_discarded_findings"] = fmt.Sprintf("%d", outcome.total())
 	// AUR-448: a discard the rule gate makes is never silent; "" on the
