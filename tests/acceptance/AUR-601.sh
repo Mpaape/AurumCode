@@ -31,9 +31,18 @@ run_acc() {
 }
 
 ac003() {
-  local log name sel
+  local log name sel pairs
   log="$(mktemp)"
-  for pair in AUR-441:AC-001 AUR-491:all AUR-541:all AUR-560:all AUR-574:all AUR-576:all AUR-578:all; do
+  # AUR-541, 574, 576 and 578 rerun e2e programs and tutorials that need git
+  # and the tutorial image; the sealed profile has neither. There they are
+  # proved by the nightly sample (acceptance-sample.yml), not here.
+  pairs='AUR-441:AC-001 AUR-491:all AUR-560:all'
+  if command -v git >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
+    pairs="$pairs AUR-541:all AUR-574:all AUR-576:all AUR-578:all"
+  else
+    printf '%s/AC-003/sealed-subset: 441, 491, 560 (541, 574, 576, 578 pela amostra noturna)\n' "$card" >&2
+  fi
+  for pair in $pairs; do
     name="${pair%%:*}"; sel="${pair#*:}"
     if ! run_acc "$name" "$sel" "$log"; then
       tail -n 20 "$log" >&2
