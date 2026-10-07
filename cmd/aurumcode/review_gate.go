@@ -14,6 +14,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -265,4 +266,13 @@ type publishOutcome struct {
 	checkExit        int
 	gateCheckExit    int
 	artifactsMissing bool
+}
+
+// blockingRule is what this run's review calls blocking: the declared
+// gate's decision, or the historical severity reading without a gate.
+func (s *reviewState) blockingRule() blocking.Rule {
+	if s.gateRes == nil || s.cfg == nil {
+		return blocking.Ungated()
+	}
+	return blocking.FromGate(s.cfg.Gate.Declared(), *s.gateRes)
 }

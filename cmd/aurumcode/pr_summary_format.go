@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -14,7 +15,7 @@ import (
 // duplicated as a second code block in the review summary. The title,
 // description and location remain in the summary while the replacement itself
 // is attached to the exact changed lines by nativeSuggestionComment.
-func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, language string) string {
+func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, language string, rule blocking.Rule) string {
 	copy := *result
 	copy.Suggestions = append([]types.ReviewSuggestion(nil), result.Suggestions...)
 	for i := range copy.Suggestions {
@@ -22,7 +23,7 @@ func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, lan
 			copy.Suggestions[i].ProposedCode = ""
 		}
 	}
-	return formatReviewSummaryForLanguageAndDiff(&copy, diff, language)
+	return formatReviewDocument(&copy, diff, language, rule)
 }
 
 // A published review is one code-review document. The deterministic TL;DR
@@ -30,9 +31,17 @@ func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, lan
 // them here duplicated the verdict and mislabeled files without findings as
 // "none". A diagram inferred from imports is not evidence about runtime flow.
 func formatPublishedReviewBody(result *types.ReviewResult, diff *types.Diff, language string, formalWithInline bool, changelogText string) string {
-	body := formatReviewSummaryForLanguageAndDiff(result, diff, language)
+	return formatGatedReviewBody(result, diff, language, formalWithInline, changelogText, blocking.Ungated())
+}
+
+// formatGatedReviewBody is formatPublishedReviewBody under rule: with a
+// declared gate, the verdict, the blocking count and the finding labels
+// follow the gate decision, so the document never claims a block the gate
+// did not apply.
+func formatGatedReviewBody(result *types.ReviewResult, diff *types.Diff, language string, formalWithInline bool, changelogText string, rule blocking.Rule) string {
+	body := formatReviewDocument(result, diff, language, rule)
 	if formalWithInline {
-		body = formatFormalReviewSummary(result, diff, language)
+		body = formatFormalReviewSummary(result, diff, language, rule)
 	}
 	return appendChangelogSection(body, changelogText)
 }
@@ -46,17 +55,22 @@ func formatReviewSummaryForLanguage(result *types.ReviewResult, language string)
 }
 
 func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *types.Diff, language string) string {
+	return formatReviewDocument(result, diff, language, blocking.Ungated())
+}
+
+// formatReviewDocument renders the review document under rule.
+func formatReviewDocument(result *types.ReviewResult, diff *types.Diff, language string, rule blocking.Rule) string {
 	copy := reviewCopyFor(language)
 	var b strings.Builder
 	b.WriteString("<!-- aurumcode-review -->\n")
 	fmt.Fprintf(&b, "## AurumCode %s\n\n", copy.title)
-	fmt.Fprintf(&b, "**%s:** %s\n\n", copy.verdict, reviewVerdictForLanguage(result, copy))
+	fmt.Fprintf(&b, "**%s:** %s\n\n", copy.verdict, gatedVerdictText(result, copy, rule))
 	if diff != nil && prompt.HasSubstantiveCodeChange(diff) && strings.TrimSpace(result.Summary) != "" {
 		fmt.Fprintf(&b, "### %s\n\n%s\n\n", copy.summary, strings.TrimSpace(result.Summary))
 	} else if note := summaryWithheldNotice(result, copy); note != "" {
 		fmt.Fprintf(&b, "%s\n\n", note)
 	}
-	b.WriteString(reviewSummaryTextForLanguage(result, copy))
+	b.WriteString(gatedSummaryText(result, copy, rule))
 	b.WriteString("\n\n")
 
 	if len(result.Strengths) > 0 {
@@ -65,29 +79,7 @@ func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *typ
 		b.WriteString("\n")
 	}
 
-	if issues := sortedIssues(result.Issues); len(issues) > 0 {
-		fmt.Fprintf(&b, "### %s\n\n", copy.findings)
-		for _, issue := range issues {
-			fmt.Fprintf(&b, "- **[%s] %s:%d** — %s\n", issue.Severity, issue.File, issue.Line, issue.Message)
-			if issue.Side == "LEFT" {
-				fmt.Fprintln(&b, "  - `LEFT`: base / −")
-			}
-			if issue.Impact != "" {
-				fmt.Fprintf(&b, "  - %s: %s\n", copy.impact, issue.Impact)
-			}
-			if issue.Evidence != "" {
-				fmt.Fprintf(&b, "  - %s: %s\n", copy.evidence, issue.Evidence)
-			}
-			if issue.Suggestion != "" {
-				fmt.Fprintf(&b, "  - %s: %s\n", copy.suggestedFix, issue.Suggestion)
-			}
-			if issue.Verification != "" {
-				fmt.Fprintf(&b, "  - %s: %s\n", copy.verify, issue.Verification)
-			}
-			printAssessment(&b, issue)
-		}
-		b.WriteString("\n")
-	}
+	writeFindingsSection(&b, result.Issues, copy, rule)
 
 	if len(result.Suggestions) > 0 {
 		fmt.Fprintf(&b, "### %s\n\n", copy.suggestions)
@@ -119,17 +111,7 @@ func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *typ
 		b.WriteString("\n")
 	}
 
-	if len(result.CIAnalysis) > 0 {
-		fmt.Fprintf(&b, "### %s\n\n", copy.ciStatus)
-		for _, analysis := range result.CIAnalysis {
-			fmt.Fprintf(&b, "- **%s — %s**\n", analysis.Check, analysis.Status)
-			writeSummaryField(&b, copy.cause, analysis.Cause)
-			writeSummaryField(&b, copy.evidence, analysis.Evidence)
-			writeSummaryField(&b, copy.fix, analysis.Fix)
-			writeSummaryField(&b, copy.nextVerification, analysis.NextVerification)
-		}
-		b.WriteString("\n")
-	}
+	writeCIStatusSection(&b, result, copy)
 
 	if len(result.TestPlan) > 0 {
 		fmt.Fprintf(&b, "### %s\n\n", copy.tests)
@@ -150,6 +132,31 @@ func reviewVerdict(result *types.ReviewResult) string {
 }
 
 func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) string {
+	return gatedVerdictText(result, copy, blocking.Ungated())
+}
+
+// gatedVerdictText is the document's verdict under rule. A declared gate
+// decides it the way the formal review event follows the gate: a failing
+// gate requests changes, a passing one never does. A run whose quality
+// review did not complete keeps reading inconclusive: the gate fails it for
+// that reason, and inconclusive already never approves.
+func gatedVerdictText(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
+	verdict := ungatedVerdictText(result, copy)
+	if !rule.Gated() {
+		return verdict
+	}
+	if rule.Fails() && verdict != copy.inconclusive {
+		return copy.changesRequested
+	}
+	if !rule.Fails() && verdict == copy.changesRequested {
+		return copy.comment
+	}
+	return verdict
+}
+
+// ungatedVerdictText is the historical verdict, read from the findings
+// alone: any error or warning requests changes.
+func ungatedVerdictText(result *types.ReviewResult, copy reviewCopy) string {
 	for _, issue := range result.Issues {
 		switch strings.ToLower(issue.Severity) {
 		case "error", "warning":
@@ -246,15 +253,24 @@ func reviewSummaryText(result *types.ReviewResult) string {
 }
 
 func reviewSummaryTextForLanguage(result *types.ReviewResult, copy reviewCopy) string {
-	blocking := 0
-	for _, issue := range result.Issues {
-		switch strings.ToLower(issue.Severity) {
-		case "error", "warning":
-			blocking++
-		}
+	return gatedSummaryText(result, copy, blocking.Ungated())
+}
+
+// gatedSummaryText is the document's one-line conclusion under rule: the
+// blocking count is the rule's, and with a declared gate that passed every
+// finding is named a non-blocking observation below the threshold.
+func gatedSummaryText(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
+	if count := rule.Count(result.Issues); count > 0 {
+		return fmt.Sprintf(copy.blockingFindings, count)
 	}
-	if blocking > 0 {
-		return fmt.Sprintf(copy.blockingFindings, blocking)
+	if rule.Fails() {
+		if result.Metadata["quality_degraded"] == "true" {
+			return copy.qualityIncomplete
+		}
+		return copy.gateFailed
+	}
+	if rule.Gated() && len(result.Issues) > 0 {
+		return fmt.Sprintf(copy.belowGateThreshold, len(result.Issues))
 	}
 	if len(result.Issues) > 0 {
 		return copy.nonBlockingFindings
