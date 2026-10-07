@@ -32,7 +32,7 @@ board note: allowlisted legacy done card without delivery record: AUR-362
 board note: allowlisted legacy done card without delivery record: AUR-020
 board note: allowlisted legacy done card without delivery record: AUR-021
 board lane doing: 0 card(s)
-board lane review: 0 card(s)
+board lane review: 2 card(s)
 board lane validating: 0 card(s)
 board valid: 596 atomic cards
 exit_code=0

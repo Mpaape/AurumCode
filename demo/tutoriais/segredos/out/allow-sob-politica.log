@@ -1,6 +1,7 @@
 == allow-sob-politica
 --- sem politica (config do proprio repositorio): gitleaks:allow suprime
 $ aurumcode review --base main
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -20,7 +21,6 @@ flowchart TD
 
 ```
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 exit_code=0
 RESULTADO: sem politica, o comentario gitleaks:allow do autor silencia o achado
 --- sob politica central: o mesmo commit, o autor nao consegue silenciar
