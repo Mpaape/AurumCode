@@ -119,9 +119,13 @@ func scanDependencies(root string, cfg *config.DependenciesConfig, deps dependen
 }
 
 // dependencySARIFFindings is every advisory as a code scanning result. The
-// identity (rule, manifest, ecosystem and package) never carries the
-// version, the line, the severity or the time, so the same advisory on the
-// same package keeps one alert across runs, and its absence closes it.
+// records of one advisory under several databases (GO-, GHSA-, CVE-) were
+// already merged by the check, and the rule is the advisory's canonical
+// identifier (the smallest of its ids), so the answer order of the source
+// never renames it. The identity (rule, manifest, ecosystem and package)
+// never carries the version, the line, the severity or the time: the same
+// advisory on the same package keeps one alert across runs (a bump to
+// another still-vulnerable version included), and its absence closes it.
 func dependencySARIFFindings(report dependencies.Report) []render.SARIFFinding {
 	out := make([]render.SARIFFinding, 0, len(report.Findings))
 	for _, f := range report.Findings {
@@ -129,7 +133,7 @@ func dependencySARIFFindings(report dependencies.Report) []render.SARIFFinding {
 			continue
 		}
 		out = append(out, render.SARIFFinding{
-			RuleID:    "cve/" + f.Vuln.ID,
+			RuleID:    "cve/" + f.Vuln.CanonicalID(),
 			RuleTitle: f.Vuln.Summary,
 			Path:      f.Change.Manifest,
 			Severity:  sarifSeverityOf(f.Vuln.Severity),

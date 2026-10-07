@@ -23,9 +23,10 @@ import (
 // scanOSV is an OSV fake: minimist below 1.2.6 carries one advisory whose
 // severity the test may re-grade; down makes it unreachable.
 type scanOSV struct {
-	mu       sync.Mutex
-	severity string
-	down     bool
+	mu        sync.Mutex
+	severity  string
+	down      bool
+	duplicate bool
 }
 
 func (s *scanOSV) serve(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +38,7 @@ func (s *scanOSV) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&q)
 	s.mu.Lock()
-	down, sev := s.down, s.severity
+	down, sev, duplicate := s.down, s.severity, s.duplicate
 	s.mu.Unlock()
 	if down {
 		http.Error(w, "unavailable", http.StatusServiceUnavailable)
@@ -45,6 +46,10 @@ func (s *scanOSV) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if q.Package.Name != "minimist" || q.Version == "1.2.6" {
 		_, _ = w.Write([]byte(`{}`))
+		return
+	}
+	if duplicate {
+		_, _ = w.Write([]byte(`{"vulns":[{"id":"GO-2099-0001","aliases":["CVE-2021-44906"],"affected":[{"package":{"name":"minimist","ecosystem":"npm"}}]},{"id":"GHSA-xvch-5gv4-984h","aliases":["CVE-2021-44906"],"database_specific":{"severity":"` + sev + `"},"affected":[{"package":{"name":"minimist","ecosystem":"npm"}}]}]}`))
 		return
 	}
 	_, _ = w.Write([]byte(`{"vulns":[{"id":"GHSA-xvch-5gv4-984h","aliases":["CVE-2021-44906"],"summary":"Prototype pollution in minimist","database_specific":{"severity":"` + sev + `"},"affected":[{"package":{"name":"minimist","ecosystem":"npm"},"ranges":[{"events":[{"introduced":"0"},{"fixed":"1.2.6"}]}]}]}]}`))
@@ -152,7 +157,7 @@ func TestAUR530AC001ScheduledSARIF(t *testing.T) {
 		t.Fatalf("category = %v", details)
 	}
 	results := sarifResults(t, doc)
-	if len(results) != 1 || results[0]["ruleId"] != "cve/GHSA-xvch-5gv4-984h" || !strings.Contains(results[0]["message"].(map[string]any)["text"].(string), "CVE-2021-44906") {
+	if len(results) != 1 || results[0]["ruleId"] != "cve/CVE-2021-44906" || !strings.Contains(results[0]["message"].(map[string]any)["text"].(string), "CVE-2021-44906") {
 		t.Fatalf("results = %v", results)
 	}
 }
@@ -228,5 +233,30 @@ func TestAUR530AC003WorkflowUploadsOnlyConclusive(t *testing.T) {
 	}
 	if !ran || !uploaded {
 		t.Fatalf("scan step=%v upload step=%v", ran, uploaded)
+	}
+}
+
+// The records of one advisory under two databases are one alert, named by
+// the advisory's canonical id whatever record the source answers first.
+func TestAUR530AliasRecordsAreOneAlert(t *testing.T) {
+	r := newScanRun(t)
+	r.osv.duplicate = true
+	code, doc, stderr := r.run()
+	if code != 0 || doc == nil {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	results := sarifResults(t, doc)
+	if len(results) != 1 || results[0]["ruleId"] != "cve/CVE-2021-44906" || results[0]["level"] != "error" {
+		t.Fatalf("alias records = %v", results)
+	}
+}
+
+// An inconclusive detail is redacted before it is published.
+func TestDependencyNoticesRedactDetail(t *testing.T) {
+	report := dependencies.Report{Reason: dependencies.ReasonSourceFailed, Detail: "answer quoted SECRET-VALUE"}
+	redact := func(s string) string { return strings.ReplaceAll(s, "SECRET-VALUE", "[REDACTED]") }
+	notices := dependencyNotices("en", report, redact)
+	if len(notices) != 1 || strings.Contains(notices[0], "SECRET-VALUE") || !strings.Contains(notices[0], "Dependencies: inconclusive check") {
+		t.Fatalf("notices = %v", notices)
 	}
 }

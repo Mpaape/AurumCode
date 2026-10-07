@@ -28,10 +28,10 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 
-readonly pkgs=(./cmd/aurumcode/)
+readonly pkgs=(./cmd/aurumcode/ ./internal/dependencies/)
 readonly ac_001='^(TestAUR530AC001ScheduledSARIF|TestAUR572TopLevelHelpListsEverySubcommand|TestAUR572SubcommandHelpListsEveryDeclaredFlag)$'
-readonly ac_002='^(TestAUR530AC002StableFingerprintAndClosure)$'
-readonly ac_003='^(TestAUR530AC003UnreachableKeepsAlerts|TestAUR530AC003WorkflowUploadsOnlyConclusive)$'
+readonly ac_002='^(TestAUR530AC002StableFingerprintAndClosure|TestAUR530AliasRecordsAreOneAlert|TestScanVersionlessPackageIsInconclusive)$'
+readonly ac_003='^(TestAUR530AC003UnreachableKeepsAlerts|TestAUR530AC003WorkflowUploadsOnlyConclusive|TestDependencyNoticesRedactDetail)$'
 
 for input in go.mod go.sum cmd internal pkg .github; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
@@ -106,13 +106,13 @@ run_mut001() {
 
 case "$selector" in
   AC-001) run_ac AC-001 "$ac_001" 3 ;;
-  AC-002) run_ac AC-002 "$ac_002" 1 ;;
-  AC-003) run_ac AC-003 "$ac_003" 2 ;;
+  AC-002) run_ac AC-002 "$ac_002" 3 ;;
+  AC-003) run_ac AC-003 "$ac_003" 3 ;;
   MUT-001) run_mut001 ;;
   all)
     run_ac AC-001 "$ac_001" 3
-    run_ac AC-002 "$ac_002" 1
-    run_ac AC-003 "$ac_003" 2
+    run_ac AC-002 "$ac_002" 3
+    run_ac AC-003 "$ac_003" 3
     run_mut001
     printf '%s/all/pass\n' "$card"
     ;;
