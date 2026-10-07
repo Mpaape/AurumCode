@@ -100,15 +100,18 @@ func readModelOnly(ctx context.Context, in ScanInputs, paths []string, report *R
 }
 
 // scannedChanges is every package the scanner extracted, as a package
-// present on the branch.
+// present on the branch. A package without a name or a version is never
+// dropped: it is unresolved, and the scan is then inconclusive, so a scan
+// never concludes over fewer packages than the tree declares.
 func scannedChanges(scanned map[string][]Package) []Change {
 	var out []Change
 	for _, path := range sortedKeys(scanned) {
 		for _, p := range scanned[path] {
+			c := Change{Manifest: path, Ecosystem: p.Ecosystem, Name: p.Name, Head: p.Version}
 			if p.Name == "" || p.Version == "" {
-				continue
+				c.Unresolved = true
 			}
-			out = append(out, Change{Manifest: path, Ecosystem: p.Ecosystem, Name: p.Name, Head: p.Version})
+			out = append(out, c)
 		}
 	}
 	return out
