@@ -47,6 +47,20 @@ secao_versao() {
   ' <<<"$1"
 }
 
+# refs_fixadas TEXTO VERSAO: confere que toda referencia ao AurumCode
+# (Mpaape/AurumCode...@ref) no texto e exatamente vVERSAO, comparando a ref
+# inteira como texto (sem regex com pontos) e linha por linha: uma linha com
+# a versao nova e uma antiga na mesma linha reprova. Sai 1 sem nenhuma ref.
+refs_fixadas() {
+  local texto="$1" quer="v$2" refs ref
+  refs="$(grep -oE 'Mpaape/AurumCode(/[^@[:space:]]*)?@[^[:space:]]+' <<<"$texto" | sed 's/.*@//')" || return 1
+  [ -n "$refs" ] || return 1
+  while IFS= read -r ref; do
+    [ "$ref" = "$quer" ] || return 1
+  done <<<"$refs"
+  return 0
+}
+
 # notas CHANGELOG VERSAO: o corpo da secao da versao.
 notas() {
   awk -v v="$2" '
@@ -64,7 +78,8 @@ confere() {
   git rev-parse -q --verify "$main^{commit}" >/dev/null || falta "ref $main (faca git fetch)"
   git merge-base --is-ancestor "$sha" "$main" || recusa "SHA $sha fora de $main"
   changelog="$(git show "$sha:CHANGELOG.md" 2>/dev/null)" || recusa "CHANGELOG.md ausente em $sha"
-  grep -q '^## Unreleased' <<<"$changelog" || recusa "CHANGELOG.md sem a secao ## Unreleased"
+  # Mesma grafia que o changelog obrigatorio aceita: "## Unreleased" ou "## [Unreleased]".
+  grep -Eq '^## \[?Unreleased\]?( |$)' <<<"$changelog" || recusa "CHANGELOG.md sem a secao ## Unreleased"
   derivada="$(secao_versao "$changelog")"
   [ -n "$derivada" ] || recusa "CHANGELOG.md sem secao de versao depois de ## Unreleased"
   if [ -z "$versao" ]; then versao="$derivada"; fi
@@ -89,15 +104,12 @@ confere() {
   fi
   for ex in "${exemplos[@]}"; do
     conteudo="$(git show "$sha:$ex" 2>/dev/null)" || recusa "exemplo $ex ausente em $sha"
-    grep -q "@v$versao\b" <<<"$conteudo" || recusa "exemplo $ex nao fixa @v$versao"
-    if grep -Eq '@(main|v[0-9]+\.[0-9]+\.[0-9]+)\b' <<<"$(grep -v "@v$versao\b" <<<"$conteudo")"; then
-      recusa "exemplo $ex referencia outra versao"
-    fi
+    refs_fixadas "$conteudo" "$versao" || recusa "exemplo $ex nao fixa @v$versao (toda referencia ao AurumCode precisa ser @v$versao)"
     if [ -z "$primeiro" ]; then primeiro="$conteudo"; elif [ "$conteudo" != "$primeiro" ]; then
       recusa "exemplos ${exemplos[*]} diferem em $sha"
     fi
   done
-  git show "$sha:$guia" 2>/dev/null | grep -q "@v$versao\b" || recusa "$guia nao mostra a instalacao de @v$versao"
+  refs_fixadas "$(git show "$sha:$guia" 2>/dev/null)" "$versao" || recusa "$guia nao mostra a instalacao de @v$versao"
   printf 'release: v%s em %s\n' "$versao" "$sha"
   printf '%s\n' "$corpo"
 }
@@ -116,10 +128,9 @@ evidencia_ok() {
   # O container monta o repositorio no mesmo caminho: a evidencia precisa
   # estar dentro dele, e o caminho vai absoluto.
   dir="$(cd "$dir" && pwd -P)"
-  case "$dir/" in
-    "$(pwd -P)"/*) ;;
-    *) recusa "a evidencia precisa estar dentro do repositorio ($dir)" ;;
-  esac
+  if [[ "$dir/" != "$(pwd -P)"/* ]]; then
+    recusa "a evidencia precisa estar dentro do repositorio ($dir)"
+  fi
   .board/bin/go-shared up >/dev/null
   .board/bin/go-shared exec -w "$(pwd -P)" env AURUMCODE_QA_EVIDENCIA="$dir" go test ./tests/consumer -count=1 \
     -run '^TestAUR512EvidenceIdentifiesTheRunAndInfraIsNotMeasured$' >/dev/null || recusa "o QA do consumidor reprova $sha"
