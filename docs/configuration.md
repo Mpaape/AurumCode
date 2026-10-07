@@ -1503,7 +1503,9 @@ modelo, num manifesto com custo e tamanho estimados de cada uma:
   `quality_gates.sast`, sempre exigido) roda antes do modelo e nunca aparece
   como opcional.
 - `codebase_context`: o contexto delimitado (símbolos, referências,
-  dependentes) de um arquivo alterado no diff; nunca outro arquivo.
+  dependentes e trechos numerados de cada uso e teste, com arquivo e linha)
+  de um arquivo alterado no diff; nunca outro arquivo como alvo, e nunca
+  arquivo de `ignore`, de segredo ou link simbólico nos trechos.
 - `skill_section`: o texto completo de uma seção de skill configurada, pelo
   `rule_id` que o catálogo de regras já lista.
 - Ferramentas do repositório, em qualquer linguagem: `read_file` (linhas

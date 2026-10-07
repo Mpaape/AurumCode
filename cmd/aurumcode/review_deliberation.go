@@ -70,7 +70,7 @@ func (s *reviewState) toolOffers() []reviewtools.Offer {
 		})
 	}
 	if s.scanRoot != "" {
-		offers = append(offers, reviewtools.Offer{Tool: reviewtools.NewContextTool(s.scanRoot, diffPaths(s.diff)), Cost: reviewtools.ContextCost})
+		offers = append(offers, reviewtools.Offer{Tool: reviewtools.NewContextTool(s.scanRoot, diffPaths(s.diff)).WithExclude(codebaseExclude(s.cfg)), Cost: reviewtools.ContextCost})
 	}
 	offers = append(offers, s.repositoryOffers()...)
 	if sections := s.skillSections(); len(sections) > 0 {

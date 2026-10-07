@@ -187,7 +187,7 @@ func (p *prReview) resolveCheckout() (int, bool) {
 	}
 	p.checkoutMismatch = mismatch
 	if mismatch == "" {
-		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, verifiedFiles)
+		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, includedFiles(verifiedFiles, p.cfg))
 	} else {
 		p.codebaseLimitation = codebaseContextOmittedNotice(p.reviewLanguage, mismatch)
 	}
