@@ -1868,9 +1868,11 @@ changelog_check:
 - Linhas que só mudaram de lugar não são informação nova; uma linha nova
   conta em `Unreleased` ou numa seção cujo título é uma versão
   (`## 1.2.0`, `## [1.2.0] - 2026-10-07`).
-- Required check: o workflow `.github/workflows/changelog.yml` roda o comando
-  no job **Changelog obrigatório**; exija esse nome na proteção da `main`. O
-  teste local prova o comando; o bloqueio do merge depende da proteção
-  configurada no repositório.
+- Required check: `.github/workflows/changelog.yml` é reutilizável
+  (`uses: Mpaape/AurumCode/.github/workflows/changelog.yml@<sha>`) e constrói
+  o verificador do checkout do AurumCode, nunca do código da PR. Exija o
+  contexto `<job do chamador> / Changelog obrigatório` na proteção da `main`
+  (neste repositório, `Changelog obrigatório`). O teste local prova o
+  comando; o bloqueio do merge depende da proteção configurada.
 - Com política central, uma seção `changelog_check` da política decide
   sozinha (a do repositório é ignorada com aviso).

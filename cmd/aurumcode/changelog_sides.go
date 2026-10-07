@@ -66,7 +66,7 @@ func baseConfig(repoRoot string, diff *types.Diff, notices []analyzer.DiffNotice
 	side := fileSides(config.DefaultConfigPath, diff, notices)
 	switch {
 	case side.unusable:
-		return nil, fmt.Errorf("%s mudou e o lado da base nao pode ser lido", config.DefaultConfigPath)
+		return nil, fmt.Errorf("%s mudou e o lado da base não pode ser lido", config.DefaultConfigPath)
 	case side.found:
 		return config.Parse([]byte(side.old), config.DefaultConfigPath+" (base)")
 	}

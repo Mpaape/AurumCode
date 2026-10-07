@@ -93,7 +93,7 @@ func TestAUR509AC003PullRequestCannotSwitchItOff(t *testing.T) {
 		t.Fatalf("PR flipping the mode off: exit %d out %q", code, out)
 	}
 	off := aur509Repo(t, "")
-	if code, out, _ := aur509Run(t, off, aur509Differ(nil, nil, nil)); code != 0 || !strings.Contains(out, "nao exigido") {
+	if code, out, _ := aur509Run(t, off, aur509Differ(nil, nil, nil)); code != 0 || !strings.Contains(out, "não exigido") {
 		t.Errorf("repository without the mode: exit %d out %q", code, out)
 	}
 }
