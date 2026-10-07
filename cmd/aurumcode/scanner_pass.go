@@ -14,6 +14,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/scanner"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -75,6 +76,8 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 		}
 		if scan.Reason = out.Reason; scan.Reason == "" {
 			scan.Issues = s.scannerIssues(out.Findings, scan.Origin())
+		} else {
+			scan.Detail = scanner.Summarize(out.Err, s.redactor())
 		}
 	}
 	return scan
@@ -92,6 +95,16 @@ func (s *reviewState) scannerIssues(findings []scanner.Finding, origin string) [
 		issues = append(issues, issue)
 	}
 	return issues
+}
+
+// redactor is the review's redaction filter, or a fresh one: a failed
+// scan's detail quotes engine output, which may quote the scanned content,
+// and is never published unredacted.
+func (s *reviewState) redactor() scanner.Redactor {
+	if s.filter != nil {
+		return s.filter.Redact
+	}
+	return redaction.NewFilter().Redact
 }
 
 // scanIssues is every scanner's issues, in declaration order.
@@ -132,7 +145,11 @@ func (s *reviewState) joinScanners() {
 // not produce trustworthy findings: a Limitations entry, never a finding.
 func scannerInconclusiveNotice(language string, scan gateScan) string {
 	label, engine := strings.ToUpper(scan.Source()), displayName(scan.Engine.Name())
-	return i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Reason, engine)
+	notice := i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Reason, engine)
+	if scan.Detail != "" {
+		notice += " " + i18n.Format(language, "notice.scanner_detail", scan.Detail)
+	}
+	return notice
 }
 
 // displayName capitalizes an engine name for prose ("semgrep" -> "Semgrep").
