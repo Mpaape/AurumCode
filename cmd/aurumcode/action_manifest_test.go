@@ -14,6 +14,13 @@ import (
 // repository that uses the Action, with no CI signal in this repository.
 func TestActionManifestAndWorkflowsAreValidYAML(t *testing.T) {
 	root := filepath.Join("..", "..")
+	// Acceptance programs stage only the Go module (go.mod, cmd, internal,
+	// pkg) into a temporary root; there is no manifest to check there. A
+	// full checkout always has .github/workflows, and then action.yml is
+	// required.
+	if _, err := os.Stat(filepath.Join(root, ".github", "workflows")); err != nil {
+		t.Skip("not a full checkout: no .github/workflows next to the module")
+	}
 	files := []string{filepath.Join(root, "action.yml")}
 	workflows, err := filepath.Glob(filepath.Join(root, ".github", "workflows", "*.yml"))
 	if err != nil {

@@ -320,6 +320,7 @@ func mergeCacheHits(result *types.ReviewResult, statuses []fileCacheStatus, filt
 			kept = append(kept, issue)
 		}
 		result.Issues = kept
+		review.DropOutsideDiffFindings(result, func(file string) bool { return hitPaths[filepath.Clean(file)] })
 	}
 
 	reused := 0
