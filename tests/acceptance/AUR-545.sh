@@ -84,11 +84,12 @@ cat >"$fixture" <<'EOF'
 "summary":"Resposta sintetica do aceite AUR-545."}
 EOF
 
-# run_base builds root's binary and reviews the git-demo fixture with the
+# run_base builds root's binary (named by $2, inside run_dir, never in
+# the checkout) and reviews the git-demo fixture with the
 # outside-diff response under --fail-on error. Sets base_rc, base_out,
 # base_sarif.
 run_base() {
-  local root="$1" bin="$1/aurumcode-bin"
+  local root="$1" bin="$run_dir/aurumcode-$2"
   (cd "$root" && go build -buildvcs=false -o "$bin" ./cmd/aurumcode) >"$run_dir/build.log" 2>&1 \
     || { cat "$run_dir/build.log" >&2; infra build_failed; }
   base_out="$run_dir/base.out"
@@ -137,7 +138,7 @@ run_ac002() {
 run_ac003() {
   go_test "$repo_root" 'TestOutsideDiffAC003ProvedFindingNeverCountsForTheGate'
   [[ "$gt_rc" -eq 0 ]] || { cat "$run_dir/gotest.out" >&2; fail gate-test; }
-  run_base "$repo_root"
+  run_base "$repo_root" candidate
   base_gate_ignores_outside || { cat "$base_out" >&2; fail binary-gate; }
 }
 
@@ -152,7 +153,7 @@ run_mut001() {
   go_test "$root" 'TestOutsideDiffAC003ProvedFindingNeverCountsForTheGate'
   grep -Eq '^(FAIL|--- FAIL)' "$run_dir/gotest.out" || { cat "$run_dir/gotest.out" >&2; fail mutant-test-survived; }
   grep -Fq 'a finding outside the diff reached result.Issues' "$run_dir/gotest.out" || { cat "$run_dir/gotest.out" >&2; fail mutant-test-other-cause; }
-  run_base "$root"
+  run_base "$root" mutant
   if base_gate_ignores_outside 2>/dev/null; then cat "$base_out" >&2; fail mutant-binary-survived; fi
   [[ "$base_rc" -ne 0 ]] || { cat "$base_out" >&2; fail mutant-binary-exit-zero; }
   printf 'MUT-001 red: go test fails and --fail-on error exits %s\n' "$base_rc"
