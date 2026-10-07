@@ -2,6 +2,7 @@
 --- o modelo diz warning; a secao declara severity: error
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: convencoes#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar error, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -21,7 +22,6 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)
-aurumcode review: policy gate: convencoes#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar error, origem skills)
 exit_code=3
 RESULTADO: o gate compara o MAIOR entre a severidade do modelo e a da secao
 --- uma secao nova na skill vale na execucao seguinte
