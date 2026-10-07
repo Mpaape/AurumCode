@@ -102,6 +102,13 @@ Credenciais ficam nos secrets `LLM_API_KEY` e `LLM_BASE_URL` do repositório
 hospedeiro. O exemplo passa a variável `LLM_MODEL` para o workflow reutilizável.
 Nenhuma credencial deve estar em Markdown, YAML versionado ou na página.
 
+Para usar um provedor conhecido (OpenAI, Azure OpenAI, Anthropic, Google
+Gemini, Amazon Bedrock, LiteLLM, OpenRouter, OpenCode Zen, Ollama) sem montar
+a URL à mão, defina `LLM_PROVIDER` com o nome do perfil; sem ela, nada muda.
+O catálogo de perfis, as variáveis de cada provedor e as limitações estão em
+[Provedores de LLM](provedores.md). O provedor e a chave vêm só do ambiente do
+operador, nunca da configuração do repositório revisado.
+
 O modelo é escolhido pelo serviço quando não há identificador explícito.
 Não há limite de saída imposto por padrão pelo AurumCode; o serviço continua
 sujeito à janela de contexto, ao timeout e às restrições do modelo.

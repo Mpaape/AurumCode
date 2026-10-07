@@ -1,0 +1,140 @@
+name: Providers smoke
+# Smoke ao vivo dos perfis de provedor de LLM (docs/provedores.md). So manual:
+# chamada real custa e nunca roda em PR. O job `detectar` ve quais provedores
+# tem secrets; so esses ganham um job `smoke` (uma revisao minima com
+# `aurumcode review`). Os demais aparecem no resumo como "nao verificado" e
+# nao ganham job nenhum: nunca um verde sem chamada real.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: providers-smoke
+  cancel-in-progress: false
+jobs:
+  detectar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      configurados: ${{ steps.detectar.outputs.configurados }}
+    steps:
+      - id: detectar
+        name: Detect providers with secrets
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_RESOURCE: ${{ secrets.AZURE_OPENAI_RESOURCE }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+        run: |
+          set -euo pipefail
+          declare -A precisa=(
+            [openai]="OPENAI_API_KEY"
+            [azure-openai]="AZURE_OPENAI_API_KEY AZURE_OPENAI_RESOURCE AZURE_OPENAI_DEPLOYMENT"
+            [anthropic]="ANTHROPIC_API_KEY"
+            [google]="GEMINI_API_KEY"
+            [bedrock]="AWS_BEARER_TOKEN_BEDROCK AWS_REGION"
+            [openrouter]="OPENROUTER_API_KEY"
+            [opencode]="OPENCODE_API_KEY"
+            [litellm]="LITELLM_API_KEY LITELLM_BASE_URL"
+          )
+          configurados=()
+          {
+            echo "## Smoke de provedores"
+            echo
+            echo "| Provedor | Estado |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for p in openai azure-openai anthropic google bedrock openrouter opencode litellm; do
+            ok=1
+            for v in ${precisa[$p]}; do [ -n "${!v:-}" ] || ok=0; done
+            if [ "$ok" = 1 ]; then
+              configurados+=("\"$p\"")
+              echo "| $p | smoke ao vivo no job smoke ($p) |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::$p: nao verificado (secrets ausentes: ${precisa[$p]})"
+              echo "| $p | nao verificado (sem secrets) |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "| ollama | nao verificado (exige servidor local) |" >> "$GITHUB_STEP_SUMMARY"
+          lista="[$(IFS=,; echo "${configurados[*]:-}")]"
+          echo "configurados=$lista" >> "$GITHUB_OUTPUT"
+          echo "provedores com secrets: $lista"
+          if [ "${#configurados[@]}" -eq 0 ]; then
+            # Nenhum provedor verificavel: a execucao nao prova nada e nao
+            # pode terminar verde.
+            echo "::error::nenhum provedor com secrets; todos nao verificados"
+            exit 1
+          fi
+
+  smoke:
+    needs: detectar
+    if: needs.detectar.outputs.configurados != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        provedor: ${{ fromJSON(needs.detectar.outputs.configurados) }}
+    name: smoke (${{ matrix.provedor }})
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build the product image
+        run: docker build --tag aurumcode-smoke .
+      - name: Review a small diff with the live provider
+        env:
+          PROVEDOR: ${{ matrix.provedor }}
+          SMOKE_VARS: ${{ toJSON(vars) }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_RESOURCE: ${{ secrets.AZURE_OPENAI_RESOURCE }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+        run: |
+          set -euo pipefail
+          nome="SMOKE_MODEL_$(printf '%s' "$PROVEDOR" | tr 'a-z-' 'A-Z_')"
+          SMOKE_MODEL="$(printf '%s' "$SMOKE_VARS" | jq -r --arg n "$nome" '.[$n] // ""')"
+          [ -n "$SMOKE_MODEL" ] || { echo "defina a variavel de Actions $nome com o modelo do smoke" >&2; exit 1; }
+          repo="$RUNNER_TEMP/repo"
+          mkdir -p "$repo"
+          git -C "$repo" init -q -b main
+          printf 'def soma(a, b):\n    return a + b\n' > "$repo/app.py"
+          git -C "$repo" add app.py
+          git -C "$repo" -c user.name=smoke -c user.email=smoke@example.invalid commit -q -m base
+          printf 'def soma(a, b):\n    """Soma dois numeros."""\n    return a + b\n' > "$repo/app.py"
+          git -C "$repo" -c user.name=smoke -c user.email=smoke@example.invalid commit -qam doc
+          extra=()
+          if [ "$PROVEDOR" = litellm ]; then extra=(-e "LLM_BASE_URL=$LITELLM_BASE_URL"); fi
+          set +e
+          docker run --rm -v "$repo:/workspace" -w /workspace -e HOME=/tmp \
+            -e "LLM_PROVIDER=$PROVEDOR" -e "LLM_MODEL=$SMOKE_MODEL" "${extra[@]}" \
+            -e OPENAI_API_KEY -e AZURE_OPENAI_API_KEY -e AZURE_OPENAI_RESOURCE -e AZURE_OPENAI_DEPLOYMENT \
+            -e ANTHROPIC_API_KEY -e GEMINI_API_KEY -e AWS_BEARER_TOKEN_BEDROCK -e AWS_REGION \
+            -e OPENROUTER_API_KEY -e OPENCODE_API_KEY -e LITELLM_API_KEY \
+            --entrypoint /app/aurumcode aurumcode-smoke review --base HEAD~1
+          rc=$?
+          set -e
+          echo "exit_code=$rc"
+          # 0 = revisao concluida sem bloqueio; 3 = concluida com achado que
+          # reprova. Qualquer outro codigo (1 = provedor falhou ou resposta
+          # inconclusiva) reprova o smoke.
+          case "$rc" in 0|3) echo "$PROVEDOR: verificado ao vivo" >> "$GITHUB_STEP_SUMMARY" ;; *) exit 1 ;; esac
+      - name: Remove the image
+        if: always()
+        run: docker rmi aurumcode-smoke >/dev/null 2>&1 || true
