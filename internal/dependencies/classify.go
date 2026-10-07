@@ -37,7 +37,69 @@ func side(ctx context.Context, src Source, c Change, version, rng string) (vulns
 		vulns, err = src.Query(ctx, Query{Ecosystem: c.Ecosystem, Name: c.Name})
 		byRange = true
 	}
-	return vulns, byRange, err
+	return mergeAliases(vulns), byRange, err
+}
+
+// mergeAliases folds the records of one advisory published under several
+// databases (GO-, GHSA-, PYSEC-, CVE-) that alias each other into the first
+// one: identifiers and fixed versions are joined, and the highest known
+// severity is kept, so one advisory is one finding.
+func mergeAliases(vulns []Vulnerability) []Vulnerability {
+	var out []Vulnerability
+	for _, v := range vulns {
+		merged := false
+		for i := range out {
+			if !containsAdvisory([]Vulnerability{out[i]}, v) {
+				continue
+			}
+			for _, id := range v.Identifiers() {
+				if id != out[i].ID {
+					out[i].Aliases = appendUnique(out[i].Aliases, id)
+				}
+			}
+			for _, f := range v.Fixed {
+				out[i].Fixed = appendUnique(out[i].Fixed, f)
+			}
+			out[i].Severity = higherSeverity(out[i].Severity, v.Severity)
+			merged = true
+			break
+		}
+		if !merged {
+			v.Aliases = append([]string(nil), v.Aliases...)
+			v.Fixed = append([]string(nil), v.Fixed...)
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// severityRank orders the normalized severities.
+var severityRank = map[string]int{"low": 1, "medium": 2, "high": 3, "critical": 4}
+
+// higherSeverity keeps the higher of two severities of one advisory; a
+// severity one database gives wins over another database's silence.
+func higherSeverity(a, b string) string {
+	switch {
+	case a == SeverityUnknown:
+		return b
+	case b == SeverityUnknown:
+		return a
+	case severityRank[b] > severityRank[a]:
+		return b
+	}
+	return a
+}
+
+// CanonicalID is the one identifier of an advisory that does not depend on
+// which database answered first: the smallest of its identifiers.
+func (v Vulnerability) CanonicalID() string {
+	best := v.ID
+	for _, id := range v.Aliases {
+		if id < best {
+			best = id
+		}
+	}
+	return best
 }
 
 // classify asks the source about both sides of every change: an advisory on

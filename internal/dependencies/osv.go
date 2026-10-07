@@ -79,10 +79,11 @@ type osvSpecific struct {
 }
 
 type osvAffected struct {
-	Package           osvPackage  `json:"package"`
-	Ranges            []osvRange  `json:"ranges"`
-	DatabaseSpecific  osvSpecific `json:"database_specific"`
-	EcosystemSpecific osvSpecific `json:"ecosystem_specific"`
+	Package           osvPackage    `json:"package"`
+	Ranges            []osvRange    `json:"ranges"`
+	DatabaseSpecific  osvSpecific   `json:"database_specific"`
+	EcosystemSpecific osvSpecific   `json:"ecosystem_specific"`
+	Severity          []osvSeverity `json:"severity"`
 }
 
 type osvRange struct {
@@ -210,6 +211,16 @@ func (o OSV) convert(v osvVuln, q Query) Vulnerability {
 				if fixed := ev["fixed"]; fixed != "" {
 					out.Fixed = appendUnique(out.Fixed, fixed)
 				}
+			}
+		}
+	}
+	if out.Severity == SeverityUnknown {
+		out.Severity = severityFromCVSS(v.Severity)
+	}
+	if out.Severity == SeverityUnknown {
+		for _, a := range v.Affected {
+			if strings.EqualFold(a.Package.Name, q.Name) && out.Severity == SeverityUnknown {
+				out.Severity = severityFromCVSS(a.Severity)
 			}
 		}
 	}

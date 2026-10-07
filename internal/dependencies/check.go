@@ -2,7 +2,6 @@ package dependencies
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -27,6 +26,9 @@ type Inputs struct {
 	LicenseText    LicenseReader
 	Root           string
 	Blocked        string
+	// VetRequired (a declared fail_on) makes a new or updated package the
+	// registry could not analyse inconclusive instead of only declared.
+	VetRequired bool
 }
 
 // Check runs the dependency check. Every failure is a Reason on the report:
@@ -57,7 +59,7 @@ func Check(ctx context.Context, in Inputs) Report {
 		return report
 	}
 	report.Changes, report.Discarded = ground(in.Diff, manifests, raw)
-	confer(in.Diff, scanned, report.Changes, &report)
+	report.Changes = confer(in.Diff, scanned, report.Changes, &report)
 	if report.Inconclusive() {
 		return report
 	}
@@ -66,13 +68,19 @@ func Check(ctx context.Context, in Inputs) Report {
 		return report
 	}
 	classify(ctx, in.Source, report.Changes, &report)
-	if report.Inconclusive() || in.Registry == nil {
+	if report.Inconclusive() {
+		return report
+	}
+	if in.Registry == nil {
+		if in.VetRequired || len(in.LicensesDenied) > 0 {
+			report.fail(ReasonUnvetted, "nenhum registro para analisar os pacotes novos")
+		}
 		return report
 	}
 	if len(in.LicensesDenied) > 0 {
 		vetLicenses(ctx, in.Model, in.Registry, in.LicenseText, in.LicensesDenied, &report)
 	}
-	vetRegistry(ctx, in.Model, in.Registry, &report)
+	vetRegistry(ctx, in.Model, in.Registry, in.VetRequired, &report)
 	return report
 }
 
@@ -89,11 +97,7 @@ func readManifests(ctx context.Context, in Inputs, report *Report) (map[string][
 	if in.Extractor != nil {
 		scanned, err = in.Extractor.Extract(ctx, in.Root, diffPaths(in.Diff))
 		if err != nil {
-			reason := ReasonScannerFailed
-			if errors.Is(err, ErrScannerMissing) {
-				reason = ReasonScannerMissing
-			}
-			report.fail(reason, err.Error())
+			report.fail(scannerReason(err), err.Error())
 			return nil, nil, false
 		}
 		manifests = adoptScanned(manifests, scanned, report)

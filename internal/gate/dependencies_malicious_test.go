@@ -30,7 +30,7 @@ func TestAUR528AC002MaliciousExceptionRefused(t *testing.T) {
 	run := depRun(failOn("high"))
 	run.Cfg.Exceptions = []config.ExceptionConfig{{Repo: "acme/app", Rule: "cve/MAL-2026-1234", Path: "app/package-lock.json", Owner: "dev", Reason: "confio", Expires: "2026-12-31"}}
 	res := applyDeps(t, run, malicious())
-	if !res.Fail || len(res.AppliedExceptions) != 0 || !hasLine(res, "excecao recusada para pacote malicioso") {
+	if !res.Fail || len(res.AppliedExceptions) != 0 || !hasLine(res, "exceção recusada para pacote malicioso") {
 		t.Fatalf("malicious exception = %+v", res)
 	}
 }

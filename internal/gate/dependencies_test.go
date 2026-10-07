@@ -19,6 +19,7 @@ func depRun(cfg *config.DependenciesConfig) *Run {
 		Stderr:       io.Discard,
 		Stdout:       io.Discard,
 		RepoIdentity: "acme/app",
+		Language:     "pt-BR",
 		Now:          func() time.Time { return time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC) },
 	}
 }
@@ -59,10 +60,21 @@ func TestAUR495AC006InconclusiveFollowsPolicy(t *testing.T) {
 func TestAUR495AC001FindingLine(t *testing.T) {
 	f := depFinding("GHSA-xvch-5gv4-984h", "critical", dependencies.StatusIntroduced)
 	f.Vuln.Aliases = []string{"CVE-2021-44906"}
-	line := DependencyFindingLine(f, "informativo")
+	line := DependencyFindingLine("pt-BR", f, depDecisionInfo)
 	for _, want := range []string{"introduzida pelo PR", "GHSA-xvch-5gv4-984h/CVE-2021-44906", "minimist 1.2.5", "severidade critical", "corrigida em 1.2.6", "https://example.invalid/"} {
 		if !strings.Contains(line, want) {
 			t.Errorf("line %q lacks %q", line, want)
 		}
+	}
+}
+
+// The gate lines follow the review language.
+func TestDependencyLinesFollowLanguage(t *testing.T) {
+	f := depFinding("GHSA-1", "critical", dependencies.StatusIntroduced)
+	if line := DependencyFindingLine("en", f, depDecisionBlock); !strings.Contains(line, "introduced by the PR") || !strings.Contains(line, "[fails]") {
+		t.Fatalf("en line = %q", line)
+	}
+	if line := DependencyFindingLine("pt-BR", f, depDecisionBlock); !strings.Contains(line, "DEPENDÊNCIAS introduzida pelo PR") || !strings.Contains(line, "[reprova]") {
+		t.Fatalf("pt-BR line = %q", line)
 	}
 }

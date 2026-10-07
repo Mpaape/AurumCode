@@ -154,6 +154,7 @@ const (
 	ReasonNotRun           = "dependencies_not_run"
 	ReasonExtractionGap    = "dependencies_extraction_gap"
 	ReasonScannerFailed    = "dependencies_scanner_failed"
+	ReasonUnvetted         = "dependencies_unvetted_package"
 )
 
 // fail records the first inconclusive reason; later ones keep the first.

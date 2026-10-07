@@ -57,3 +57,31 @@ func TestDependenciesGovernedByPolicy(t *testing.T) {
 		t.Fatalf("effective = %+v warnings = %v", effective.Dependencies, warnings)
 	}
 }
+
+// The advisory and registry sources must be https (http only on loopback),
+// and the scanner a command name from PATH or an absolute path: a relative
+// path would resolve inside the checkout the pull request controls.
+func TestDependenciesSourcesAndScannerValidated(t *testing.T) {
+	for _, bad := range []string{
+		"dependencies:\n  osv_url: http://mirror.example\n",
+		"dependencies:\n  deps_dev_url: http://10.0.0.5/\n",
+		"dependencies:\n  scanner: ./bin/osv-scanner\n",
+		"dependencies:\n  scanner: tools/osv-scanner\n",
+		"dependencies:\n  scanner: ..\n",
+	} {
+		if _, err := Parse([]byte(bad), ""); err == nil {
+			t.Errorf("accepted %q", bad)
+		}
+	}
+	for _, good := range []string{
+		"dependencies:\n  osv_url: https://osv.mirror.example\n",
+		"dependencies:\n  osv_url: http://127.0.0.1:8080\n",
+		"dependencies:\n  deps_dev_url: http://localhost:9000\n",
+		"dependencies:\n  scanner: osv-scanner\n",
+		"dependencies:\n  scanner: /usr/local/bin/osv-scanner\n",
+	} {
+		if _, err := Parse([]byte(good), ""); err != nil {
+			t.Errorf("refused %q: %v", good, err)
+		}
+	}
+}

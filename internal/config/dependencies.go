@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
+	"path/filepath"
 	"strings"
 )
 
@@ -45,7 +47,8 @@ type DependenciesConfig struct {
 	LicensesDenied []string `yaml:"licenses_denied"`
 	// SuspicionSeverity is the severity of a grounded typosquat suspicion.
 	SuspicionSeverity string `yaml:"suspicion_severity"`
-	// OSVURL and DepsDevURL override the public sources (a mirror).
+	// OSVURL and DepsDevURL override the public sources (a mirror): https,
+	// or http on a loopback host only.
 	OSVURL     string `yaml:"osv_url"`
 	DepsDevURL string `yaml:"deps_dev_url"`
 	// MaxSourceAgeHours, when set, bounds how old the advisory answer may be
@@ -53,7 +56,9 @@ type DependenciesConfig struct {
 	// inconclusive.
 	MaxSourceAgeHours *int `yaml:"max_source_age_hours"`
 	// Scanner is the extraction scanner binary used as a cross-check of the
-	// model's extraction; empty means "osv-scanner".
+	// model's extraction: a command name from PATH or an absolute path, never
+	// a relative path (it would resolve inside the reviewed checkout); empty
+	// means "osv-scanner".
 	Scanner string `yaml:"scanner"`
 }
 
@@ -169,13 +174,12 @@ func (c *DependenciesConfig) Validate() error {
 		return fmt.Errorf("dependencies.preexisting: %q is not warn|block", c.Preexisting)
 	}
 	for key, raw := range map[string]string{"osv_url": c.OSVURL, "deps_dev_url": c.DepsDevURL} {
-		if strings.TrimSpace(raw) == "" {
-			continue
+		if err := validateSourceURL(raw); err != nil {
+			return fmt.Errorf("dependencies.%s: %w", key, err)
 		}
-		u, err := url.Parse(strings.TrimSpace(raw))
-		if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
-			return fmt.Errorf("dependencies.%s: %q is not an http(s) URL", key, raw)
-		}
+	}
+	if err := validateScannerBinary(c.Scanner); err != nil {
+		return fmt.Errorf("dependencies.scanner: %w", err)
 	}
 	for _, id := range c.LicensesDenied {
 		if strings.TrimSpace(id) == "" || strings.ContainsAny(id, " ()") {
@@ -184,6 +188,51 @@ func (c *DependenciesConfig) Validate() error {
 	}
 	if c.MaxSourceAgeHours != nil && (*c.MaxSourceAgeHours < 1 || *c.MaxSourceAgeHours > MaxDependencySourceAgeHours) {
 		return fmt.Errorf("dependencies.max_source_age_hours: %d out of range (1..%d)", *c.MaxSourceAgeHours, MaxDependencySourceAgeHours)
+	}
+	return nil
+}
+
+// validateSourceURL accepts an https URL; plain http only for a loopback
+// host (a local mirror or a test server), never across a network where the
+// advisory answer could be altered in transit.
+func validateSourceURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("%q is not a URL", raw)
+	}
+	switch {
+	case u.Scheme == "https":
+		return nil
+	case u.Scheme == "http" && loopbackHost(u.Hostname()):
+		return nil
+	}
+	return fmt.Errorf("%q must be https (http only for 127.0.0.1, ::1 or localhost)", raw)
+}
+
+func loopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// validateScannerBinary accepts a bare command name (looked up in PATH) or
+// an absolute path. A relative path would resolve from the checkout under
+// review, which the pull request's author controls: it is refused.
+func validateScannerBinary(raw string) error {
+	raw = strings.TrimSpace(raw)
+	switch {
+	case raw == "":
+		return nil
+	case filepath.IsAbs(raw):
+		return nil
+	case strings.ContainsAny(raw, `/\`), strings.HasPrefix(raw, "-"), raw == ".", raw == "..":
+		return fmt.Errorf("%q must be a command name from PATH or an absolute path", raw)
 	}
 	return nil
 }

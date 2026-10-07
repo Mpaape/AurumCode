@@ -35,12 +35,12 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 
 readonly pkgs=(./internal/dependencies/ ./internal/gate/ ./internal/config/)
-readonly ac_001='^(TestAUR495AC001IntroducedAdvisory|TestAUR495AC001FindingLine|TestDependenciesSectionParse|TestDependenciesGovernedByPolicy)$'
+readonly ac_001='^(TestAUR495AC001IntroducedAdvisory|TestAUR495AC001FindingLine|TestDependenciesSectionParse|TestDependenciesGovernedByPolicy|TestCVSSSeverity|TestAliasesMerged|TestDependenciesSourcesAndScannerValidated|TestDependencyLinesFollowLanguage)$'
 readonly ac_002='^(TestAUR495AC002Preexisting)$'
 readonly ac_003='^(TestAUR495AC003Fixed)$'
-readonly ac_004='^(TestAUR495AC004UnknownFormatAndDivergence|TestAUR495AC004ScannerEvidenceKept)$'
+readonly ac_004='^(TestAUR495AC004UnknownFormatAndDivergence|TestAUR495AC004ScannerEvidenceKept|TestScannerVersionAndEcosystemWin)$'
 readonly ac_005='^(TestAUR495AC005Range)$'
-readonly ac_006='^(TestAUR495AC006SourceFailures|TestAUR495AC006InconclusiveFollowsPolicy)$'
+readonly ac_006='^(TestAUR495AC006SourceFailures|TestAUR495AC006InconclusiveFollowsPolicy|TestScannerExitCodesAndRelativeRoot)$'
 readonly ac_007='^(TestAUR495AC007Monorepo)$'
 readonly ac_008='^(TestAUR495AC008InventedDependencyDiscarded)$'
 
@@ -125,23 +125,23 @@ run_mut002() {
 }
 
 case "$selector" in
-  AC-001) run_ac AC-001 "$ac_001" 4 ;;
+  AC-001) run_ac AC-001 "$ac_001" 8 ;;
   AC-002) run_ac AC-002 "$ac_002" 1 ;;
   AC-003) run_ac AC-003 "$ac_003" 1 ;;
-  AC-004) run_ac AC-004 "$ac_004" 2 ;;
+  AC-004) run_ac AC-004 "$ac_004" 3 ;;
   AC-005) run_ac AC-005 "$ac_005" 1 ;;
-  AC-006) run_ac AC-006 "$ac_006" 2 ;;
+  AC-006) run_ac AC-006 "$ac_006" 3 ;;
   AC-007) run_ac AC-007 "$ac_007" 1 ;;
   AC-008) run_ac AC-008 "$ac_008" 1 ;;
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
   all)
-    run_ac AC-001 "$ac_001" 4
+    run_ac AC-001 "$ac_001" 8
     run_ac AC-002 "$ac_002" 1
     run_ac AC-003 "$ac_003" 1
-    run_ac AC-004 "$ac_004" 2
+    run_ac AC-004 "$ac_004" 3
     run_ac AC-005 "$ac_005" 1
-    run_ac AC-006 "$ac_006" 2
+    run_ac AC-006 "$ac_006" 3
     run_ac AC-007 "$ac_007" 1
     run_ac AC-008 "$ac_008" 1
     run_mut001
