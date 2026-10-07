@@ -82,7 +82,7 @@ replace_once() {
   grep -Fq -- "$replacement" "$file" || infra "mutation-not-applied:${file##*/}"
 }
 
-readonly ac001_cmd=(TestTooLargeDiffIsReadWithoutGit TestTooLargeDiffWithUnverifiedCheckoutFailsWithoutGit)
+readonly ac001_cmd=(TestTooLargeDiffIsReadFromObjectCheckout TestTooLargeDiffWithUnverifiedObjectCheckoutFails)
 readonly ac001_git_cmd=(TestTooLargeDiffIsReadFromTheVerifiedCheckout TestTooLargeDiffWithUnverifiedCheckoutFails)
 readonly ac001_client=(TestDiffRefusedAsTooLargeIsTyped TestParseHunkHeaderWithoutCount)
 readonly ac002_tests=(TestDiffAboveTheBudgetIsReviewedInBatches)
@@ -154,7 +154,7 @@ run_mut001() {
   replace_once "$root/internal/git/githubclient/client.go" \
     'return nil, fmt.Errorf("HTTP %d: %s: %w", resp.StatusCode, string(body), ErrDiffTooLarge)' \
     'return &Diff{}, nil /* MUT-001 */'
-  expect_red "$root" "$run_dir/mut1.log" ./cmd/aurumcode/ TestTooLargeDiffIsReadWithoutGit
+  expect_red "$root" "$run_dir/mut1.log" ./cmd/aurumcode/ TestTooLargeDiffIsReadFromObjectCheckout
   printf '%s/MUT-001/rejected\n' "$card"
 }
 
