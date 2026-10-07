@@ -62,15 +62,28 @@ func localPullRequestDiff(ctx context.Context, client *githubclient.Client, owne
 	if err != nil {
 		return nil, pullRequestRange{}, err
 	}
-	text, err := checkout.RangeDiff(rng.base, rng.head)
+	diff, err := rangeDiff(checkout, rng)
 	if err != nil {
 		return nil, pullRequestRange{}, err
+	}
+	return diff, rng, nil
+}
+
+// rangeDiff reads base...head with git, through the same parser as the
+// API's diff, or from the object database when there is no git binary.
+func rangeDiff(checkout *analyzer.Repo, rng pullRequestRange) (*types.Diff, error) {
+	text, err := checkout.RangeDiff(rng.base, rng.head)
+	if errors.Is(err, analyzer.ErrRangeDiffUnavailable) {
+		return checkout.RangeDiffFromObjects(rng.base, rng.head)
+	}
+	if err != nil {
+		return nil, err
 	}
 	parsed, err := githubclient.ParseUnifiedDiff(text)
 	if err != nil {
-		return nil, pullRequestRange{}, err
+		return nil, err
 	}
-	return convertDiff(parsed), rng, nil
+	return convertDiff(parsed), nil
 }
 
 // pullRequestRangeIn resolves the range in the checkout. The head is the

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/gittest"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
@@ -226,4 +227,72 @@ func TestBatchCeilingLeavesFilesOutAndWithholdsApproval(t *testing.T) {
 			}
 		})
 	}
+}
+
+// aur594ObjectCheckout builds the same pull request as aur594Checkout with
+// no git binary (loose objects written in Go), origin naming owner/repo, and
+// takes git off PATH. It returns the directory, the base and the head.
+func aur594ObjectCheckout(t *testing.T) (dir, base, head string) {
+	t.Helper()
+	baseFiles := map[string][]byte{"app.go": []byte("package demo\n\nfunc Base() int {\n\treturn 1\n}\n")}
+	headFiles := map[string][]byte{
+		"app.go":       []byte("package demo\n\nfunc Base() int {\n\treturn 2\n}\n"),
+		"lib/extra.go": []byte("package lib\n\nfunc " + aur594HeadMarker + "() {}\n"),
+	}
+	dir = aur522Repo(t, baseFiles, headFiles, "")
+	cfg := filepath.Join(dir, ".git", "config")
+	data, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg, append(data, []byte("[remote \"origin\"]\n\turl = https://github.com/owner/repo.git\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", "")
+	refs := &analyzerRepoRefs{dir: dir}
+	return dir, refs.resolve(t, "HEAD~1"), refs.resolve(t, "HEAD")
+}
+
+// AC-001 without a git binary: the range is read from the object database
+// (merge base and windowed hunks in Go) of a verified checkout.
+func TestTooLargeDiffIsReadWithoutGit(t *testing.T) {
+	_, base, head := aur594ObjectCheckout(t)
+	code, stderr, prompt, posted := runAUR594PR(t, base, head)
+	if code != 0 || posted == "" {
+		t.Fatalf("exit=%d posted=%d bytes, want 0 and a published review\n%s", code, len(posted), stderr)
+	}
+	for _, want := range []string{aur594HeadMarker, "lib/extra.go", "+\treturn 2"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("the prompt does not carry %q without git: the review did not read the pull request's diff\n%s", want, prompt)
+		}
+	}
+}
+
+// AC-001, the refusal half without git: an untracked file and nothing is
+// sent or published.
+func TestTooLargeDiffWithUnverifiedCheckoutFailsWithoutGit(t *testing.T) {
+	dir, base, head := aur594ObjectCheckout(t)
+	if err := os.WriteFile(filepath.Join(dir, "untracked.go"), []byte("package demo\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stderr, prompt, posted := runAUR594PR(t, base, head)
+	if code != 1 || posted != "" || prompt != "" || !strings.Contains(stderr, "not verified") {
+		t.Fatalf("exit=%d posted=%q prompt=%d bytes, want exit 1 naming the unverified checkout\n%s", code, posted, len(prompt), stderr)
+	}
+}
+
+// analyzerRepoRefs resolves refs of a fixture repository.
+type analyzerRepoRefs struct{ dir string }
+
+func (r *analyzerRepoRefs) resolve(t *testing.T, ref string) string {
+	t.Helper()
+	repo, err := analyzer.OpenRepo(r.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sha, err := repo.ResolveRef(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sha
 }

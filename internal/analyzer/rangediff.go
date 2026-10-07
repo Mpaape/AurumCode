@@ -6,9 +6,8 @@ import (
 )
 
 // ErrRangeDiffUnavailable is returned by RangeDiff when no git binary is
-// available. The pure-Go reader does not compute merge bases: a first common
-// ancestor found by a simple walk is wrong on criss-cross histories, and a
-// wrong base would review a different range than the pull request's.
+// available; RangeDiffFromObjects reads the same range from the object
+// database instead.
 var ErrRangeDiffUnavailable = errors.New("a pull request range diff needs a git binary")
 
 // RangeDiff returns the unified diff text of baseRef...headRef: the changes

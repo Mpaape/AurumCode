@@ -9,7 +9,9 @@
 #   all        AC-001..AC-004, then MUT-001 and MUT-002
 #   AC-001     406 too_large: the verified checkout's diff is reviewed; an
 #              unverified checkout fails with nothing sent or published;
-#              only the size refusal is typed (another 406 stays an error)
+#              only the size refusal is typed (another 406 stays an error);
+#              without git the range comes from the object database, and
+#              with git it matches `git diff base...head` hunk for hunk
 #   AC-002     a change above one prompt: two batches, coverage complete,
 #              gate pass, the audit lists the batches and their files
 #   AC-003     max_batches / max_prompt_tokens reached: partial_coverage,
@@ -80,8 +82,9 @@ replace_once() {
   grep -Fq -- "$replacement" "$file" || infra "mutation-not-applied:${file##*/}"
 }
 
-readonly ac001_cmd=(TestTooLargeDiffIsReadFromTheVerifiedCheckout TestTooLargeDiffWithUnverifiedCheckoutFails)
-readonly ac001_client=(TestDiffRefusedAsTooLargeIsTyped)
+readonly ac001_cmd=(TestTooLargeDiffIsReadWithoutGit TestTooLargeDiffWithUnverifiedCheckoutFailsWithoutGit)
+readonly ac001_git_cmd=(TestTooLargeDiffIsReadFromTheVerifiedCheckout TestTooLargeDiffWithUnverifiedCheckoutFails)
+readonly ac001_client=(TestDiffRefusedAsTooLargeIsTyped TestParseHunkHeaderWithoutCount)
 readonly ac002_tests=(TestDiffAboveTheBudgetIsReviewedInBatches)
 readonly ac003_tests=(TestBatchCeilingLeavesFilesOutAndWithholdsApproval)
 
@@ -109,10 +112,18 @@ expect_red() {
 }
 
 run_ac001() {
-  command -v git >/dev/null 2>&1 || infra missing_git
   run_tests AC-001 ./cmd/aurumcode/ "${ac001_cmd[@]}"
   run_tests AC-001 ./internal/git/githubclient/ "${ac001_client[@]}"
-  printf '%s/AC-001/pass\n' "$card"
+  # With a git binary (the product image has one) the same range also goes
+  # through `git diff base...head`, and the object-database reader must
+  # match it hunk for hunk. Without git these tests would only skip.
+  if command -v git >/dev/null 2>&1; then
+    run_tests AC-001 ./cmd/aurumcode/ "${ac001_git_cmd[@]}"
+    run_tests AC-001 ./internal/analyzer/ TestRangeDiffFromObjectsMatchesGit
+    printf '%s/AC-001/pass (git and object database)\n' "$card"
+  else
+    printf '%s/AC-001/pass (object database; no git binary here)\n' "$card"
+  fi
 }
 
 run_ac002() {
@@ -143,7 +154,7 @@ run_mut001() {
   replace_once "$root/internal/git/githubclient/client.go" \
     'return nil, fmt.Errorf("HTTP %d: %s: %w", resp.StatusCode, string(body), ErrDiffTooLarge)' \
     'return &Diff{}, nil /* MUT-001 */'
-  expect_red "$root" "$run_dir/mut1.log" ./cmd/aurumcode/ TestTooLargeDiffIsReadFromTheVerifiedCheckout
+  expect_red "$root" "$run_dir/mut1.log" ./cmd/aurumcode/ TestTooLargeDiffIsReadWithoutGit
   printf '%s/MUT-001/rejected\n' "$card"
 }
 
