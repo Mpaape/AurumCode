@@ -2,6 +2,7 @@ package gate
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -15,21 +16,24 @@ import (
 // carries: OSV, GHSA, CVE).
 const DependencyRulePrefix = "cve/"
 
+// DependencySuspicionPrefix is the rule prefix of a typosquat suspicion.
+const DependencySuspicionPrefix = "suspicion/"
+
 // The decisions a dependency gate line ends with.
 const (
-	depDecisionInfo    = "informativo"
-	depDecisionWarn    = "alerta"
-	depDecisionBlock   = "reprova"
-	depDecisionFixed   = "corrigida"
-	depDecisionExcused = "aceita por excecao"
+	depDecisionInfo      = "informativo"
+	depDecisionWarn      = "alerta"
+	depDecisionBlock     = "reprova"
+	depDecisionFixed     = "corrigida"
+	depDecisionExcused   = "aceita por excecao"
+	depDecisionMalicious = "reprova: pacote malicioso"
 )
 
-// dependencyPolicy is the dependencies section applied to one run: the
-// severity threshold (gated is false without fail_on: findings are
+// dependencyPolicy is the dependencies section applied to one run: which
+// severities fail (gated is false without fail_on: findings are
 // informative), what a pre-existing advisory does, and the exceptions.
 type dependencyPolicy struct {
 	cfg        *config.DependenciesConfig
-	threshold  config.GateSeverityRank
 	gated      bool
 	exceptions []config.ExceptionConfig
 	repo       string
@@ -38,30 +42,24 @@ type dependencyPolicy struct {
 
 func newDependencyPolicy(run *Run) (dependencyPolicy, error) {
 	cfg := run.Cfg.Dependencies
-	rank, gated, err := cfg.Threshold()
-	if err != nil {
+	if err := cfg.Validate(); err != nil {
 		return dependencyPolicy{}, err
 	}
-	return dependencyPolicy{cfg: cfg, threshold: rank, gated: gated, exceptions: run.Cfg.Exceptions, repo: run.RepoIdentity, now: run.Clock()}, nil
-}
-
-// DependencySeverityRank is the gate rank of an advisory severity read from
-// the source at this run (never a stored one). An unknown severity counts
-// at the top: a severity that cannot be read never lets a finding pass.
-func DependencySeverityRank(severity string) config.GateSeverityRank {
-	if rank, _, err := config.NormalizeGateSeverity(severity); err == nil {
-		return rank
-	}
-	return config.GateSeverityError
+	return dependencyPolicy{cfg: cfg, gated: cfg.Gated(), exceptions: run.Cfg.Exceptions, repo: run.RepoIdentity, now: run.Clock()}, nil
 }
 
 // judge folds one advisory into part: fixed is stated; an active exception
 // for any of its identifiers on this manifest accepts it; otherwise an
 // introduced advisory at or above fail_on fails and one below alerts, and a
-// pre-existing one follows `preexisting`.
+// pre-existing one follows `preexisting`. The severity is the source's at
+// this run, never a stored one.
 func (p dependencyPolicy) judge(part *Result, f dependencies.Finding) {
 	if f.Status == dependencies.StatusFixed {
 		part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionFixed))
+		return
+	}
+	if f.Vuln.Malicious() {
+		p.judgeMalicious(part, f)
 		return
 	}
 	if !p.gated && !(f.Status == dependencies.StatusPreexisting && p.cfg.EffectivePreexisting() == config.PreexistingBlock) {
@@ -80,11 +78,11 @@ func (p dependencyPolicy) judge(part *Result, f dependencies.Finding) {
 	part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionWarn))
 }
 
-// blocks decides an unexcused advisory. Introduced: at or above fail_on.
-// Pre-existing: only under `preexisting: block`, at or above fail_on when
+// blocks decides an unexcused advisory. Introduced: its severity is in
+// fail_on. Pre-existing: only under `preexisting: block`, in fail_on when
 // one is declared, at any severity otherwise.
 func (p dependencyPolicy) blocks(f dependencies.Finding) bool {
-	atThreshold := p.gated && DependencySeverityRank(f.Vuln.Severity) >= p.threshold
+	atThreshold := p.cfg.Fails(f.Vuln.Severity)
 	if f.Status == dependencies.StatusIntroduced {
 		return atThreshold
 	}
@@ -131,4 +129,58 @@ func (p dependencyPolicy) exception(part *Result, rule, path string) bool {
 		part.Lines = append(part.Lines, ExpiredExceptionLine(exc, issue))
 	}
 	return false
+}
+
+// judgeMalicious: a package the source marks malicious (MAL-) fails the
+// check whatever fail_on says, and no exception can accept it; a matching
+// one is refused with a warning.
+func (p dependencyPolicy) judgeMalicious(part *Result, f dependencies.Finding) {
+	for _, id := range f.Vuln.Identifiers() {
+		exc, status := MatchException(p.exceptions, p.repo, DependencyRulePrefix+id, f.Change.Manifest, p.now)
+		if status == ExceptionActive {
+			part.Lines = append(part.Lines, fmt.Sprintf("%s%s em %s: excecao recusada para pacote malicioso (dono: %s, validade: %s)", DependencyRulePrefix, id, f.Change.Manifest, exc.Owner, exc.Expires))
+		}
+	}
+	if blocksMalicious(p, f) {
+		p.block(part, f, DependencyRulePrefix+f.Vuln.ID, f.Vuln.Severity)
+		part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionMalicious))
+		return
+	}
+	part.Lines = append(part.Lines, DependencyFindingLine(f, depDecisionInfo))
+}
+
+// blocksMalicious: a malicious package always fails, independent of fail_on.
+func blocksMalicious(p dependencyPolicy, f dependencies.Finding) bool {
+	return f.Vuln.Malicious()
+}
+
+// judgeSuspicion: a grounded typosquat or malicious-package suspicion
+// counts with suspicion_severity against fail_on, as any finding; an
+// exception may name it as `rule: suspicion/<name>` on its manifest.
+func (p dependencyPolicy) judgeSuspicion(part *Result, s dependencies.Suspicion) {
+	severity := p.cfg.EffectiveSuspicionSeverity()
+	rule := DependencySuspicionPrefix + s.Change.Name
+	line := DependencySuspicionLine(s, severity)
+	switch {
+	case !p.gated:
+		part.Lines = append(part.Lines, line+" ["+depDecisionInfo+"]")
+	case p.exception(part, rule, s.Change.Manifest):
+		part.Lines = append(part.Lines, line+" ["+depDecisionExcused+"]")
+	case p.cfg.Fails(severity):
+		part.Fail, part.Breach = true, true
+		part.BlockingFindings = append(part.BlockingFindings, facts.AuditFinding{RuleID: rule, Path: s.Change.Manifest, Severity: severity, Origin: OriginDependencies})
+		part.Lines = append(part.Lines, line+" ["+depDecisionBlock+"]")
+	default:
+		part.Lines = append(part.Lines, line+" ["+depDecisionWarn+"]")
+	}
+}
+
+// DependencySuspicionLine states a suspicion with the metadata it rests on.
+func DependencySuspicionLine(s dependencies.Suspicion, severity string) string {
+	evidence := make([]string, 0, len(s.Evidence))
+	for _, e := range s.Evidence {
+		evidence = append(evidence, e.Field+"="+e.Value)
+	}
+	return fmt.Sprintf("DEPENDENCIAS suspeita de pacote malicioso ou typosquat: %s %s (%s, %s), severidade %s: %s (evidencia: %s)",
+		s.Change.Name, s.Change.Head, s.Change.Ecosystem, s.Change.Manifest, severity, s.Summary, strings.Join(evidence, "; "))
 }

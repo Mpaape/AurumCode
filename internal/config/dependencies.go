@@ -32,9 +32,10 @@ const (
 // configuration without it behaves exactly as before. Declared without
 // fail_on, the check runs and its findings are informative only.
 type DependenciesConfig struct {
-	// FailOn lists the advisory severities that fail the check for a
-	// vulnerability the pull request introduces; the lowest one is the
-	// threshold, as gate.fail_on. Empty: informative only.
+	// FailOn lists the advisory severities (critical, high, medium, low)
+	// that fail the check for a vulnerability the pull request introduces;
+	// each listed severity fails, an unlisted one alerts. Empty: informative
+	// only.
 	FailOn []string `yaml:"fail_on"`
 	// Preexisting is what a vulnerability present on both sides does:
 	// warn (the default) passes with an alert, block fails.
@@ -99,21 +100,47 @@ func (c *DependenciesConfig) EffectiveSuspicionSeverity() string {
 	return strings.TrimSpace(c.SuspicionSeverity)
 }
 
-// Threshold is the lowest rank of FailOn; ok is false when FailOn is empty.
-func (c *DependenciesConfig) Threshold() (rank GateSeverityRank, ok bool, err error) {
-	if c == nil || len(c.FailOn) == 0 {
-		return 0, false, nil
+// SeverityUnknown is an advisory severity the source did not give.
+const SeverityUnknown = "unknown"
+
+// NormalizeDependencySeverity reads an advisory severity word (GitHub's
+// LOW/MODERATE/HIGH/CRITICAL, or the gate's own spellings) as
+// critical/high/medium/low; anything else is SeverityUnknown.
+func NormalizeDependencySeverity(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "critical":
+		return "critical"
+	case "high", "error":
+		return "high"
+	case "moderate", "medium", "warning":
+		return "medium"
+	case "low", "info":
+		return "low"
+	default:
+		return SeverityUnknown
+	}
+}
+
+// Gated reports a declared fail_on.
+func (c *DependenciesConfig) Gated() bool { return c != nil && len(c.FailOn) > 0 }
+
+// Fails reports whether an advisory of severity fails the check: its
+// severity is listed in fail_on. An unknown severity fails whenever fail_on
+// is declared: a severity that cannot be read never lets a finding pass.
+func (c *DependenciesConfig) Fails(severity string) bool {
+	if !c.Gated() {
+		return false
+	}
+	sev := NormalizeDependencySeverity(severity)
+	if sev == SeverityUnknown {
+		return true
 	}
 	for _, level := range c.FailOn {
-		r, _, err := NormalizeGateSeverity(level)
-		if err != nil {
-			return 0, false, fmt.Errorf("dependencies.fail_on: %w", err)
-		}
-		if rank == 0 || r < rank {
-			rank = r
+		if NormalizeDependencySeverity(level) == sev {
+			return true
 		}
 	}
-	return rank, true, nil
+	return false
 }
 
 // Validate refuses what would silently weaken the check: an unknown
@@ -123,11 +150,13 @@ func (c *DependenciesConfig) Validate() error {
 	if c == nil {
 		return nil
 	}
-	if _, _, err := c.Threshold(); err != nil {
-		return err
+	for _, level := range c.FailOn {
+		if NormalizeDependencySeverity(level) == SeverityUnknown {
+			return fmt.Errorf("dependencies.fail_on: unknown severity %q (accepted: critical, high, medium, low)", level)
+		}
 	}
-	if _, _, err := NormalizeGateSeverity(c.EffectiveSuspicionSeverity()); err != nil {
-		return fmt.Errorf("dependencies.suspicion_severity: %w", err)
+	if NormalizeDependencySeverity(c.EffectiveSuspicionSeverity()) == SeverityUnknown {
+		return fmt.Errorf("dependencies.suspicion_severity: unknown severity %q (accepted: critical, high, medium, low)", c.SuspicionSeverity)
 	}
 	if p := c.EffectivePreexisting(); p != PreexistingWarn && p != PreexistingBlock {
 		return fmt.Errorf("dependencies.preexisting: %q is not warn|block", c.Preexisting)

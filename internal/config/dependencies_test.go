@@ -16,8 +16,8 @@ func TestDependenciesSectionParse(t *testing.T) {
 	if !d.Declared() || d.EffectivePreexisting() != PreexistingBlock || d.EffectiveOSVURL() != DefaultOSVURL {
 		t.Fatalf("section = %+v", d)
 	}
-	if rank, ok, err := d.Threshold(); err != nil || !ok || rank != GateSeverityError {
-		t.Fatalf("threshold = %v %v %v", rank, ok, err)
+	if !d.Fails("CRITICAL") || !d.Fails("high") || d.Fails("moderate") || !d.Fails("") {
+		t.Fatalf("fail_on [critical, high] read wrong: %+v", d.FailOn)
 	}
 	if mode, _ := cfg.InconclusiveMode(); mode != InconclusiveBlock {
 		t.Fatalf("declared section inconclusive mode = %q, want block", mode)

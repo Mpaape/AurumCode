@@ -20,10 +20,11 @@ import (
 type dependencySources struct {
 	source    func(*config.DependenciesConfig, func() time.Time) dependencies.Source
 	extractor func(*config.DependenciesConfig) dependencies.Extractor
+	registry  func(*config.DependenciesConfig) dependencies.Registry
 }
 
-// dependencySourcesFor is production: the configured OSV API and
-// osv-scanner through the scanners' executor command.
+// dependencySourcesFor is production: the configured OSV API, osv-scanner
+// through the scanners' executor command and the deps.dev registry.
 func (s *reviewState) dependencySourcesFor() dependencySources {
 	d := s.deps.dependencies
 	if d.source == nil {
@@ -34,6 +35,11 @@ func (s *reviewState) dependencySourcesFor() dependencySources {
 	if d.extractor == nil {
 		d.extractor = func(cfg *config.DependenciesConfig) dependencies.Extractor {
 			return dependencies.OSVScanner{Binary: cfg.EffectiveScanner(), Command: s.deps.scanners.Command}
+		}
+	}
+	if d.registry == nil {
+		d.registry = func(cfg *config.DependenciesConfig) dependencies.Registry {
+			return dependencies.DepsDev{BaseURL: cfg.EffectiveDepsDevURL(), Client: &http.Client{Timeout: 60 * time.Second}}
 		}
 	}
 	return d
@@ -64,6 +70,7 @@ func (s *reviewState) runDependencyCheck() {
 		Model:     model,
 		Source:    src.source(cfg, s.deps.clock),
 		Extractor: src.extractor(cfg),
+		Registry:  src.registry(cfg),
 		Root:      s.scanRoot,
 		Blocked:   s.scanBlocked,
 	})
@@ -84,6 +91,9 @@ func dependencyNotices(r dependencies.Report) []string {
 	}
 	for _, d := range r.Discarded {
 		out = append(out, "Dependencias: extracao do modelo descartada, ausente do diff: "+d)
+	}
+	for _, u := range r.Unvetted {
+		out = append(out, "Dependencias: pacote sem metadados de registro, sem analise de typosquat: "+u)
 	}
 	for _, d := range r.Divergences {
 		out = append(out, "Dependencias: divergencia entre modelo e scanner: "+d)

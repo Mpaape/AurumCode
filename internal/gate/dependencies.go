@@ -36,7 +36,6 @@ func (c DependenciesContributor) Apply(_ context.Context, run *Run, _ Result) (R
 		part.Inconclusive = true
 		part.AddReason(report.Reason)
 		part.Lines = append(part.Lines, fmt.Sprintf("DEPENDENCIAS inconclusivo (%s): %s", report.Reason, report.Detail))
-		return part, nil
 	}
 	policy, err := newDependencyPolicy(run)
 	if err != nil {
@@ -45,8 +44,14 @@ func (c DependenciesContributor) Apply(_ context.Context, run *Run, _ Result) (R
 	for _, d := range report.Divergences {
 		part.Lines = append(part.Lines, "DEPENDENCIAS divergencia entre modelo e scanner: "+d)
 	}
+	// Findings exist only when the advisory lookup itself concluded; a later
+	// failure (registry) keeps them judged, so a malicious package is never
+	// hidden behind an inconclusive mark.
 	for _, f := range report.Findings {
 		policy.judge(&part, f)
+	}
+	for _, s := range report.Suspicions {
+		policy.judgeSuspicion(&part, s)
 	}
 	return part, nil
 }
