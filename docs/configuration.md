@@ -1494,6 +1494,7 @@ deliberation:
   per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
   max_read_bytes: 262144         # bytes que as ferramentas do repositório devolvem na revisão
   secret_paths: []               # globs de segredo somados ao catálogo embutido
+  dependency_reachability: false # AUR-531: explicar o uso da parte vulnerável
 ```
 
 Com `enabled: true` e um provedor que chama ferramentas, a revisão oferece ao
@@ -1557,6 +1558,17 @@ parecer é só "inconclusivo: limite de deliberação"). O custo de cada rodada 
 antes da chamada e confirmado depois, então `--limite` vale por rodada. Um
 valor ausente usa o padrão acima; um valor negativo ou uma chave desconhecida
 é erro de configuração.
+
+Com `dependency_reachability: true` e a seção `dependencies` declarada,
+cada advisory introduzido ou pré-existente da verificação de dependências
+ganha uma explicação do modelo: ele procura no repositório, com as
+ferramentas acima e em qualquer linguagem, o uso do pacote e das funções
+citadas no advisory, e o parecer diz onde o uso aparece (arquivo e linha que
+a revisão contém; local inventado é descartado) ou que não achou uso. A
+explicação acompanha o achado e nunca o rebaixa, apaga nem muda severidade
+ou veredito; rebaixar é papel de exceção da segurança. Até 5 explicações por
+revisão; sem provedor com ferramentas ou checkout verificado, o parecer diz
+que não há explicação.
 
 Sem provedor capaz de chamar ferramentas, ou com perfis de revisão, nada é
 oferecido e os scanners `required: false` rodam antes do modelo, como sem
@@ -1873,6 +1885,9 @@ analysis_data:
 
 Com a seção `dependencies` declarada, toda revisão (`--base` e `--pr`) verifica
 as dependências que a mudança altera. Sem a seção, nada muda.
+Para o parecer explicar se o código usa a parte vulnerável de cada advisory,
+ligue `deliberation.dependency_reachability` (seção Deliberação); a
+explicação nunca muda o achado nem o veredito.
 
 ```yaml
 dependencies:

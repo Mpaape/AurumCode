@@ -31,6 +31,11 @@ type DeliberationConfig struct {
 	// SecretPaths are globs of secret files the repository tools refuse,
 	// added to the embedded catalog (secret_paths.yml), never replacing it.
 	SecretPaths []string `yaml:"secret_paths"`
+	// DependencyReachability (AUR-531) asks the model, with the repository
+	// tools, whether the code uses the vulnerable part of each dependency
+	// advisory; the explanation travels beside the finding and never
+	// changes it. Off unless written.
+	DependencyReachability bool `yaml:"dependency_reachability"`
 }
 
 // Active reports whether the model may ask for tools.
