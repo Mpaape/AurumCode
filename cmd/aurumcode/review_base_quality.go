@@ -34,6 +34,7 @@ func (b *baseReview) runQualityPass() (int, bool) {
 	}
 	orchestrator := llm.NewOrchestrator(b.provider, nil, b.tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+	reviewer.SetBatchLimits(configuredBatchLimits(b.cfg))
 	// AUR-519: teach the model the expanded catalog and accept its
 	// citations against the same dynamic set computed earlier.
 	reviewer.SetDynamicRules(b.dynamicRules)
@@ -93,6 +94,7 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 	} else {
 		b.result, err = reviewer.GenerateReviewWithContext(b.ctx, qc.toSend, reviewCtx)
 		b.transcript = reviewer.Transcript()
+		b.noteBatches(reviewer.Batches())
 	}
 	if b.noteDeliberationLimit(err) {
 		return 0, false

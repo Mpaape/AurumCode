@@ -9,6 +9,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -40,6 +41,10 @@ type reviewCoverageBreakdown struct {
 	// through result.Metadata.
 	IgnoredPaths  []string
 	FilteredPaths []string
+	// BudgetPaths names the files a review in batches left out at its
+	// ceilings (the prompt builder names a single prompt's own omissions
+	// inside the model input only).
+	BudgetPaths []string
 	// NoStructure names the changed files for which the grammar runtime has
 	// no grammar, so no symbol or import context was produced for them. The
 	// model still read their text; this is a declaration, not a failure, and
@@ -85,6 +90,7 @@ func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNo
 	c.Complete = atoiOrZero(promptMeta["code_files_complete"])
 	c.Partial = atoiOrZero(promptMeta["code_files_partial"])
 	c.Budget = atoiOrZero(promptMeta["code_files_omitted"])
+	c.BudgetPaths = splitNonEmptyLines(promptMeta[review.MetaOmittedPaths])
 	ignored := dedupePaths(ignoredPaths)
 	seen := make(map[string]struct{}, len(ignored)+len(notices))
 	for _, p := range ignored {

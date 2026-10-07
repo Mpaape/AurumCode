@@ -49,6 +49,9 @@ type Reviewer struct {
 	// transcript is the last deliberation's record.
 	deliberation *Deliberation
 	transcript   *deliberation.Transcript
+	// batches records the batches of the last review, nil when the diff
+	// fit one prompt.
+	batches []Batch
 }
 
 // Completer is what the Reviewer needs from the model side: one call that
@@ -70,6 +73,8 @@ type Config struct {
 	// PromptTokenBudget bounds the assembled prompt when MaxTokens is zero.
 	// It never caps the reply.
 	PromptTokenBudget int
+	// Batches bounds a review split in batches (batches.go).
+	Batches BatchLimits
 }
 
 // ReviewContext contains optional evidence available beside the diff. It is
@@ -111,6 +116,7 @@ func DefaultConfig() Config {
 		// internal/prompt/templates/limits.yml: a diff that does not fit is
 		// trimmed by whole hunks and declared in the coverage section.
 		PromptTokenBudget: prompt.DefaultLimits().PromptMaxTokens,
+		Batches:           DefaultBatchLimits(),
 	}
 }
 
@@ -123,6 +129,7 @@ func NewReviewer(completer Completer, cfg Config) *Reviewer {
 		defaults := DefaultConfig()
 		cfg.PromptTokenBudget = defaults.PromptTokenBudget
 	}
+	cfg.Batches = cfg.Batches.withDefaults()
 	return &Reviewer{
 		completer:     completer,
 		diffAnalyzer:  analyzer.NewDiffAnalyzer(),
@@ -165,11 +172,24 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 // external evidence such as completed CI check statuses. It runs four
 // stages: assemble the redacted prompt, ask the model, parse its reply, and
 // pass the parsed findings through the engine's gates.
+//
+// A diff that does not fit one prompt is reviewed in batches (batches.go):
+// the same four stages per batch, one consolidated result.
 func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
+	r.batches = nil
 	prepared, err := r.preparePrompt(diff, reviewContext)
 	if err != nil {
 		return nil, err
 	}
+	if r.needsBatches(diff, prepared) {
+		return r.reviewInBatches(ctx, diff, reviewContext)
+	}
+	return r.reviewPrepared(ctx, prepared)
+}
+
+// reviewPrepared asks the model about one assembled prompt and passes the
+// answer through the parser and the engine's gates.
+func (r *Reviewer) reviewPrepared(ctx context.Context, prepared preparedPrompt) (*types.ReviewResult, error) {
 	resp, err := r.answer(ctx, prepared.parts)
 	if err != nil {
 		return nil, err

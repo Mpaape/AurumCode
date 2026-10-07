@@ -155,3 +155,75 @@ func TestTooLargeDiffWithUnverifiedCheckoutFails(t *testing.T) {
 		t.Fatalf("the failure must name the unverified checkout\n%s", stderr)
 	}
 }
+
+// aur594LargeTree is a change above one prompt's budget: three directories
+// with two large files each. Directories a/ and b/ fit one prompt together,
+// c/ needs a second one.
+func aur594LargeTree() map[string][]byte {
+	files := map[string][]byte{}
+	for _, dir := range []string{"a", "b", "c"} {
+		for _, name := range []string{"one", "two"} {
+			var b strings.Builder
+			b.WriteString("package " + dir + "\n\n")
+			for i := 0; i < 1400; i++ {
+				fmt.Fprintf(&b, "var %s%s%04d = \"value %s/%s line %04d of a large change\"\n", name, dir, i, dir, name, i)
+			}
+			files[dir+"/"+name+".go"] = []byte(b.String())
+		}
+	}
+	return files
+}
+
+// aur594BaseReview runs --base over the large change with configYAML and
+// returns the exit code, the output and the audit record.
+func aur594BaseReview(t *testing.T, configYAML string) (int, string, string) {
+	t.Helper()
+	base := map[string][]byte{"README.txt": []byte("base\n")}
+	aur522Repo(t, base, mergeFiles(base, aur594LargeTree()), configYAML)
+	aur522Fixture(t, cleanApproval)
+	audit := filepath.Join(t.TempDir(), "audit.json")
+	code, out := aur522Review(t, "--auditoria", audit)
+	data, _ := os.ReadFile(audit)
+	return code, out, string(data)
+}
+
+// AC-002: a change above one prompt is reviewed in batches by directory;
+// every file is covered, one gate decides, and the audit lists the batches.
+func TestDiffAboveTheBudgetIsReviewedInBatches(t *testing.T) {
+	code, out, audit := aur594BaseReview(t, "gate:\n  fail_on: [error]\n  inconclusive: block\n")
+	if code != 0 || strings.Contains(out, "partial_coverage") {
+		t.Fatalf("exit=%d, want 0 and complete coverage: every batch was reviewed\n%s", code, out)
+	}
+	if !strings.Contains(out, "reviewed in 2 batches by directory (files per batch: 4, 2)") {
+		t.Fatalf("the review must say it was split in two batches\n%s", out)
+	}
+	for _, want := range []string{`"batches"`, `"a/one.go"`, `"c/two.go"`, `"complete": true`, `"decision": "pass"`} {
+		if !strings.Contains(audit, want) {
+			t.Fatalf("the audit record lacks %s\n%s", want, audit)
+		}
+	}
+}
+
+// AC-003: at the batch ceiling the files left out are named, the coverage
+// is partial and the approval is withheld (block fails the review).
+func TestBatchCeilingLeavesFilesOutAndWithholdsApproval(t *testing.T) {
+	for name, cfg := range map[string]string{
+		"max_batches":       "batches:\n  max_batches: 1\n",
+		"max_prompt_tokens": "batches:\n  max_prompt_tokens: 120000\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			code, out, audit := aur594BaseReview(t, cfg+"gate:\n  fail_on: [error]\n  inconclusive: block\n")
+			if code != 1 || !strings.Contains(out, "partial_coverage") || strings.Contains(out, "Verdict: approve") {
+				t.Fatalf("exit=%d, want 1 with partial_coverage and no approval: files beyond the ceiling were not read\n%s", code, out)
+			}
+			for _, want := range []string{"2 file(s) were left out of the review by the token budget", "  - c/one.go", "  - c/two.go"} {
+				if !strings.Contains(out, want) {
+					t.Fatalf("the coverage notice must name the files left out (%q)\n%s", want, out)
+				}
+			}
+			if !strings.Contains(audit, `"c/one.go"`) || !strings.Contains(audit, `"complete": false`) {
+				t.Fatalf("the audit must record the files left out\n%s", audit)
+			}
+		})
+	}
+}

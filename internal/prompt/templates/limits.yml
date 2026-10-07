@@ -9,7 +9,15 @@
 # evidence_max_tokens: teto da secao de evidencia deterministica; itens alem
 #   dele sao contados como "N omitidos".
 # tools_max_tokens: teto da secao de ferramentas disponiveis, mesma regra.
+# batch_max_count: quantos lotes uma revisao pode fazer quando o diff nao cabe
+#   num prompt (cada lote e um prompt com o mesmo template, politica e skills).
+#   Acima dele os arquivos restantes ficam fora, declarados, e a aprovacao e
+#   retida.
+# batch_max_prompt_tokens: teto da soma dos prompts de todos os lotes (o custo
+#   de entrada da revisao inteira), mesma regra.
 prompt_max_tokens: 120000
 rule_catalog_max_tokens: 512
 evidence_max_tokens: 4096
 tools_max_tokens: 1024
+batch_max_count: 4
+batch_max_prompt_tokens: 400000
