@@ -128,7 +128,7 @@ func (p *prReview) buildReviewer() (int, bool) {
 		return 2, true
 	}
 	p.prepareDeliberation(orchestrator, toolsCapable(orchestrator, false), p.reviewer)
-	p.history, p.historyErr = pullRequestHistoryContext(p.ctx, p.client, p.owner, p.repoName, p.prNumber,
+	p.history, p.historyEntries, p.historyErr = pullRequestHistoryContext(p.ctx, p.client, p.owner, p.repoName, p.prNumber,
 		p.env().githubSHA, p.env().baseSHA, p.filter)
 	if p.historyErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: PR history unavailable: %s; reviewing the current diff without conversation history\n", p.filter.Redact(p.historyErr.Error()))

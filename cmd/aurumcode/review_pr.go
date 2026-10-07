@@ -53,6 +53,11 @@ type prReview struct {
 	reviewer      *review.Reviewer
 	history       string
 	historyErr    error
+	// historyEntries is the conversation read for the prompt; the
+	// publication reads the earlier rounds' finding markers from it.
+	historyEntries []githubclient.ReviewHistoryEntry
+	// round is what this round publishes given the earlier ones.
+	round roundPlan
 
 	// publication
 	issues   []types.ReviewIssue
