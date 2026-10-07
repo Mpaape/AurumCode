@@ -40,20 +40,19 @@ var canonicalReviewFields = []string{
 	"verdict",
 }
 
-// acceptedReviewFields is what this parser consumes: the canonical set
-// plus "line_comments", kept as a tolerated alias rather than a taught
-// schema. The template no longer shows it, but a model that saw an older
-// prompt, a user-supplied .aurumcode/prompts/review.md, or a model that
-// simply drifts to the PR-comment vocabulary still gets its findings read
-// instead of dropped (see adoptLineComments). Every name here is proven to
-// change the parse result by TestAcceptedReviewFieldsAreConsumed -- the
-// list is a claim, that test is the fact.
+// acceptedReviewFields is what this parser consumes: exactly the canonical
+// set. "line_comments" is deliberately absent: it carried no evidence,
+// impact or verification, so every finding converted from it was discarded
+// by the evidence gate, and the template never teaches it. A reply that
+// still uses it is announced, never converted (see discardLineComments).
+// Every name here is proven to change the parse result by
+// TestAcceptedReviewFieldsAreConsumed -- the list is a claim, that test is
+// the fact.
 var acceptedReviewFields = []string{
 	"ci_analysis",
 	"issues",
 	"iso_scores",
 	"limitations",
-	"line_comments",
 	"strengths",
 	"suggestions",
 	"summary",
@@ -153,10 +152,9 @@ func (p *ResponseParser) ParseReviewResponse(response string) (*types.ReviewResu
 	// closed set, or naming no evidence, is dropped rather than guessed.
 	sanitizeModelIssueProvenance(result.Issues)
 
-	// A finding the model reported under "line_comments" is a finding: it
-	// becomes an issue here, before validation, so it travels the same
-	// path as one the model reported under "issues".
-	p.adoptLineComments(jsonContent, &result)
+	// "line_comments" is not part of the answer schema: its entries never
+	// become findings, and dropping them is announced, not silent.
+	discardLineComments(&result)
 	// The example formerly showed iso_scores:{} even though the validator
 	// treats every missing score as zero and rejects it. An empty object has
 	// no scores to validate; normalize only that exact shape to absent.

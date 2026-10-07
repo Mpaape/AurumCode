@@ -13,6 +13,7 @@ func TestAnswerWithoutFindingsListIsInconclusive(t *testing.T) {
 		`{"verdict":"approve","summary":"ok"}`,
 		`{"issues":null,"verdict":"approve"}`,
 		`{}`,
+		`{"line_comments":[]}`,
 	} {
 		result, err := NewResponseParser().ParseReviewResponse(reply)
 		var parseErr *ParseError
@@ -20,7 +21,7 @@ func TestAnswerWithoutFindingsListIsInconclusive(t *testing.T) {
 			t.Fatalf("%s: result=%+v err=%v", reply, result, err)
 		}
 	}
-	for _, reply := range []string{`{"issues":[]}`, `{"line_comments":[]}`} {
+	for _, reply := range []string{`{"issues":[]}`} {
 		if _, err := NewResponseParser().ParseReviewResponse(reply); err != nil {
 			t.Fatalf("%s: %v", reply, err)
 		}
