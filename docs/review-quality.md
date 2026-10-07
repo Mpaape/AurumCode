@@ -25,6 +25,23 @@ Sugestões são opcionais e devem ser pequenas, locais e justificadas.
 Pontos fortes devem descrever benefícios do código/testes, sem elogios
 genéricos ao workflow ou à existência do AurumCode.
 
+## Consolidação e preferências de apresentação
+
+No `--pr`, o mesmo problema no mesmo trecho (mesmo arquivo, linha, lado e
+regra) relatado por passes diferentes (modelo, análise determinística,
+passagem de segurança, scanner, lotes) é publicado uma vez: fica a ocorrência
+de origem determinística quando há uma, com a maior severidade do grupo, a
+evidência de cada passe e as fontes no texto (`[fontes: analysis, model]`).
+Regra diferente na mesma linha é outro problema; não há corte por contagem nem
+teto de achados. A consolidação muda só o que é publicado: gate, evento da
+revisão e status continuam lendo os achados da execução.
+
+`review.presentation.collapse` (ver [Configuração](configuration.md)) é a
+preferência explícita de concisão: achados não bloqueantes das severidades
+listadas saem numa linha de "Consolidação e preferências" que nomeia cada um
+(severidade, regra, arquivo e linha), em vez de um comentário cada. Achado
+bloqueante nunca é agrupado; valor desconhecido é avisado e nada é agrupado.
+
 ## Heurísticas versus defeitos provados
 
 Um achado do catálogo determinístico ou do modelo é uma heurística: aponta um
@@ -38,7 +55,8 @@ categoria própria no catálogo.
 ## Comparação funcional com fontes primárias
 
 O Aurum hoje revisa o diff completo do PR e o histórico de discussão como
-contexto, sem garantia de deduplicação entre execuções. Isso é diferente do
+contexto; entre rodadas, não repete o comentário de um achado que uma rodada
+anterior já comentou (ver "Rodadas do mesmo PR" abaixo). Isso é diferente do
 que outras ferramentas documentam: o CodeRabbit distingue explicitamente uma
 revisão incremental (`@coderabbitai review`) de uma revisão completa
 (`@coderabbitai full review`), conforme
@@ -74,11 +92,47 @@ itens ou tokens. Um orçamento explícito de prompt inclui o histórico completo
 recusa quando ele não cabe, em vez de truncar a resposta do autor silenciosamente.
 
 Isso ainda **não é revisão incremental nem um gerenciador de pendências**: o
-diff continua sendo o PR completo. O Aurum não resolve threads, não atualiza
-comentários anteriores e não garante deduplicação. A decisão semântica permanece
-com o modelo; repetir uma revisão pode produzir novos resultados. A leitura das
-três fontes não é um snapshot transacional do GitHub. O uso local `--base` e seu
-cache legado não recebem esse histórico remoto.
+diff continua sendo o PR completo. O Aurum não resolve threads nem edita
+comentários anteriores. A decisão semântica permanece com o modelo; repetir uma
+revisão pode produzir novos resultados. A leitura das três fontes não é um
+snapshot transacional do GitHub. O uso local `--base` e seu cache legado não
+recebem esse histórico remoto.
+
+### Rodadas do mesmo PR
+
+Cada comentário de achado publicado no `--pr` leva um marcador oculto
+(`<!-- aurumcode:finding <impressão> <regra> -->`) com a impressão do achado:
+a mesma de `render.FindingFingerprint`, sobre regra, caminho e o código da
+linha revisada, sem o número da linha. A rodada seguinte lê os marcadores do
+histórico do PR, só de comentários do próprio publicador (o login em
+`AURUMCODE_PUBLISHER_LOGIN`, que o workflow reutilizável define como
+`github-actions[bot]`, o autor do `github.token`); respostas dentro de uma
+thread e marcadores de qualquer outro autor não contam, e sem esse login
+nenhum marcador é lido e todo achado é comentado de novo. Então:
+
+- não comenta de novo um achado já comentado, nem quando o mesmo código só
+  mudou de linha; outro defeito na mesma linha (outra regra) é comentado;
+- conta no parecer quantos achados não foram comentados de novo: eles
+  continuam no parecer, no gate e nos status, de modo que o veredito de duas
+  rodadas iguais é o mesmo;
+- lista, em "Rodadas anteriores", os achados de rodadas anteriores que esta
+  execução não reencontrou (corrigidos ou não reencontrados). Um achado
+  agrupado por `review.presentation.collapse` continua reportado e nunca entra
+  nessa lista; uma execução inconclusiva (falha do modelo ou gate
+  inconclusivo) não lista nada como resolvido. O evento da
+  revisão e os status seguem só os achados desta execução, então um bug
+  corrigido deixa de bloquear. Uma revisão formal `REQUEST_CHANGES` de uma
+  rodada anterior continua no GitHub até uma aprovação posterior; o Aurum não
+  a dispensa.
+
+O marcador nunca é autoridade sobre um achado: decide apenas se um comentário
+a mais é publicado. Uma resposta de pessoa (por exemplo, "falso positivo")
+entra no prompt como contexto, mas não desliga regra; um marcador forjado pode,
+no máximo, evitar a repetição de um comentário, nunca tirar o achado do
+parecer, do gate ou dos status; só o publicador consegue escrevê-lo. Sem histórico legível, todo achado é
+comentado. Mudança de prompt, configuração ou contexto muda as chaves de cache
+e a revisão é refeita; um defeito novo é comentado e os equivalentes já
+comentados, não.
 
 O histórico aumenta o contexto enviado ao endpoint LLM já configurado: inclui
 também discussões de pessoas e outros bots. Considere a política de dados do
@@ -92,9 +146,19 @@ prosa não compete com código no prompt e contribuições de contexto têm limi
 de tamanho. Confira os avisos e a cobertura; ausência de achados não é garantia
 de revisão completa nem de ausência de defeitos.
 
-No workflow reutilizável, o modelo recebe estados e links dos checks de CI.
-Diagnosticar a causa exige evidência adicional, como logs. Falhas de autenticação,
-provider ou publicação podem impedir que qualquer comentário seja enviado.
+No workflow reutilizável, o modelo recebe estados e links dos checks de CI
+concluídos. O parecer publica estado e link como observados apenas quando vêm
+desse contexto; o `status` que o próprio modelo escreve nunca vira afirmação de
+CI aprovado ou reprovado e, sem check correspondente, o item sai como "estado
+não verificado". Diagnosticar a causa exige evidência adicional, como logs: a
+revisão não baixa logs, então uma falha sem trecho de log no contexto sai com
+causa desconhecida, a explicação do modelo como hipótese não verificada,
+nenhuma correção e a orientação de abrir o log do check. Quando o contexto traz
+um trecho sanitizado (`excerpt`) e a evidência do modelo o cita, a correção é
+publicada separando o que foi observado no log do que o modelo inferiu (ver
+"Status do CI no parecer" em [Configuração](configuration.md)). Falhas de
+autenticação, provider ou publicação podem impedir que qualquer comentário seja
+enviado.
 
 PRs vindos de forks não recebem os secrets do repositório por padrão, então a
 revisão por modelo não roda neles sem uma configuração explícita; o baseline

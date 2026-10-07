@@ -126,6 +126,16 @@ type CIAnalysis struct {
 	Fix              string `json:"fix" yaml:"fix"`
 	NextVerification string `json:"next_verification" yaml:"next_verification"`
 	Confidence       string `json:"confidence" yaml:"confidence"`
+	// Basis, Observed, Link and Grounded are written only by the engine
+	// (json:"-": a model reply can never set them) from what this execution
+	// observed: Basis says whether the item rests on a concluded check of
+	// the CI context or only on the model's text, Observed and Link are that
+	// check's state and link, and Grounded reports that Evidence quotes a
+	// log excerpt the CI context supplied.
+	Basis    string `json:"-" yaml:"-"`
+	Observed string `json:"-" yaml:"-"`
+	Link     string `json:"-" yaml:"-"`
+	Grounded bool   `json:"-" yaml:"-"`
 }
 
 // ISOScores represents ISO/IEC 25010 quality characteristics
