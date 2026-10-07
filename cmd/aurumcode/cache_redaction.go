@@ -28,7 +28,7 @@ func redactCachedIssues(f *redaction.Filter, issues []types.ReviewIssue) []types
 		issue.File = f.Redact(issue.File)
 		issue.Side = f.Redact(issue.Side)
 		issue.RuleID = f.Redact(issue.RuleID)
-		issue.Message = redactProse(f, issue.Message)
+		issue.Message = redactCachedMessage(f, issue.Message, issue.RuleID)
 		issue.Impact = redactProse(f, issue.Impact)
 		issue.Evidence = redactProse(f, issue.Evidence)
 		issue.Suggestion = redactProse(f, issue.Suggestion)
@@ -49,6 +49,25 @@ func redactCachedIssues(f *redaction.Filter, issues []types.ReviewIssue) []types
 		out[i] = issue
 	}
 	return out
+}
+
+// redactCachedMessage redacts a cached finding's message the way a fresh
+// one is redacted: the model's text before the rule citation the engine
+// appended, never the two together. Redacting "... (rule
+// security/hardcoded-secret: Hardcoded Secrets)" as one string makes the
+// filter read "secret: Hardcoded" as a key/value pair and mask the title, so
+// a cache hit would print a different line than the run that stored it
+// (AUR-441). The citation's title still passes the filter on its own: a
+// forged entry cannot smuggle a secret through it.
+func redactCachedMessage(f *redaction.Filter, message, ruleID string) string {
+	opener := " (rule " + ruleID + ": "
+	at := strings.LastIndex(message, opener)
+	if ruleID == "" || at < 0 || !strings.HasSuffix(message, ")") {
+		return redactProse(f, message)
+	}
+	body := message[:at]
+	title := message[at+len(opener) : len(message)-1]
+	return redactProse(f, body) + opener + f.Redact(title) + ")"
 }
 
 // redactProse redacts a finding's prose the way the model-output boundary
