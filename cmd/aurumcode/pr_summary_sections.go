@@ -28,18 +28,7 @@ func writeFindingsSection(b *strings.Builder, issues []types.ReviewIssue, copy r
 		if issue.Side == "LEFT" {
 			fmt.Fprintln(b, "  - `LEFT`: base / −")
 		}
-		if issue.Impact != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.impact, issue.Impact)
-		}
-		if issue.Evidence != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.evidence, issue.Evidence)
-		}
-		if issue.Suggestion != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.suggestedFix, issue.Suggestion)
-		}
-		if issue.Verification != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.verify, issue.Verification)
-		}
+		writeFindingFields(b, issue, copy)
 		printAssessment(b, issue)
 	}
 	b.WriteString("\n")
