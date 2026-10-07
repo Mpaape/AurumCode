@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -43,6 +45,8 @@ func (c ReviewContextConfig) ValidateMCP() error {
 			return fmt.Errorf("%s: name %q is duplicated", where, src.Name)
 		case len(src.Command) == 0 || strings.TrimSpace(src.Command[0]) == "":
 			return fmt.Errorf("%s (%s): command is required", where, src.Name)
+		case !mcpCommandSafe(src.Command[0]):
+			return fmt.Errorf("%s (%s): command[0] %q must be an absolute path or a bare name found in PATH, never a relative path (it would run a file of the reviewed checkout)", where, src.Name, src.Command[0])
 		case strings.TrimSpace(src.Tool) == "":
 			return fmt.Errorf("%s (%s): tool is required", where, src.Name)
 		case src.TimeoutSeconds < 0 || src.TimeoutSeconds > int(ProviderTimeout.Seconds()):
@@ -56,4 +60,18 @@ func (c ReviewContextConfig) ValidateMCP() error {
 		seen[src.Name] = true
 	}
 	return nil
+}
+
+// mcpCommandSafe accepts an absolute path or a bare program name (resolved
+// from PATH, never from the working directory). A relative path such as
+// ./tools/mcp would run a file of the checkout under review.
+func mcpCommandSafe(command string) bool {
+	command = strings.TrimSpace(command)
+	if command == "" || command == "." || command == ".." {
+		return false
+	}
+	if filepath.IsAbs(command) || path.IsAbs(command) {
+		return true
+	}
+	return !strings.ContainsAny(command, "/\\")
 }

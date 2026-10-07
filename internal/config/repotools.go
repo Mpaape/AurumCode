@@ -2,6 +2,7 @@ package config
 
 import (
 	_ "embed"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -34,6 +35,18 @@ func defaultSecretPaths() ([]string, error) {
 	return secretPaths, secretPathsErr
 }
 
+// DefaultDeliberationMaxCacheBytes is the default ceiling of file bytes the
+// repository tools keep in memory over one review.
+const DefaultDeliberationMaxCacheBytes = 64 << 20
+
+// EffectiveMaxCacheBytes is max_cache_bytes, defaulted.
+func (d *DeliberationConfig) EffectiveMaxCacheBytes() int {
+	if d != nil && d.MaxCacheBytes != 0 {
+		return d.MaxCacheBytes
+	}
+	return DefaultDeliberationMaxCacheBytes
+}
+
 // EffectiveMaxReadBytes is max_read_bytes, defaulted.
 func (d *DeliberationConfig) EffectiveMaxReadBytes() int {
 	if d != nil && d.MaxReadBytes != 0 {
@@ -43,8 +56,8 @@ func (d *DeliberationConfig) EffectiveMaxReadBytes() int {
 }
 
 // IsSecretPath reports a path the repository tools must never read: one
-// matching the embedded catalog or deliberation.secret_paths. An unreadable
-// catalog fails closed: every path counts as secret.
+// matching the embedded catalog or deliberation.secret_paths, ignoring
+// case. An unreadable catalog fails closed: every path counts as secret.
 func (c *Config) IsSecretPath(path string) bool {
 	patterns, err := defaultSecretPaths()
 	if err != nil {
@@ -53,7 +66,13 @@ func (c *Config) IsSecretPath(path string) bool {
 	if c != nil && c.Deliberation != nil {
 		patterns = append(append([]string(nil), patterns...), c.Deliberation.SecretPaths...)
 	}
-	return matchesAny(patterns, path)
+	// Case-insensitive: .ENV and Credentials are the same secret file on a
+	// case-insensitive filesystem and to anyone reading them.
+	lowered := make([]string, len(patterns))
+	for i, p := range patterns {
+		lowered[i] = strings.ToLower(p)
+	}
+	return matchesAny(lowered, strings.ToLower(path))
 }
 
 // IgnoresPath reports a path the policy's ignore globs exclude from the

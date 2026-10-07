@@ -50,17 +50,32 @@ func TestAUR531ExplanationNeverChangesTheReport(t *testing.T) {
 	report := &dependencies.Report{Manifests: []string{"go.mod"}, Findings: []dependencies.Finding{finding}}
 	before, _ := json.Marshal(report)
 	var errOut strings.Builder
-	s := &reviewState{ctx: context.Background(), stderr: &errOut, stdout: io.Discard, cfg: cfg, depReport: report, result: &types.ReviewResult{}, provider: aur531Model{}, scanRoot: ".", diff: &types.Diff{}}
+	s := &reviewState{ctx: context.Background(), stderr: &errOut, stdout: io.Discard, cfg: cfg, depReport: report, result: &types.ReviewResult{}, reviewLanguage: "pt-BR", provider: aur531Model{}, scanRoot: ".", diff: &types.Diff{}}
 	s.explainDependencyReach()
 	after, _ := json.Marshal(s.depReport)
 	if string(before) != string(after) || !reflect.DeepEqual(s.depReport.Findings[0], finding) {
 		t.Fatalf("the explanation changed the report the gate judges:\nbefore %s\nafter  %s", before, after)
 	}
-	if len(s.result.Issues) != 0 || len(s.result.Limitations) != 1 {
-		t.Fatalf("result = %+v", s.result)
+	if len(s.result.Issues) != 0 || len(s.result.Limitations) != 0 || len(s.reachLines) != 1 {
+		t.Fatalf("result = %+v reach = %v: the explanation must be its own section, never a limitation", s.result, s.reachLines)
 	}
-	line := s.result.Limitations[0]
+	line := s.reachLines[0]
 	if !strings.Contains(line, "GHSA-test-0002") || !strings.Contains(line, "o modelo não achou uso") || !strings.Contains(line, "não mudam") {
 		t.Fatalf("explanation line = %q; stderr=%s", line, errOut.String())
+	}
+}
+
+// The reachability section survives the review's limitation filters: it is
+// appended to the published body under its own localized heading.
+func TestAUR531ReachHasItsOwnSection(t *testing.T) {
+	body := appendReachSection("## AurumCode\n\nresumo\n", []string{"Alcance de GHSA-1 em lib (go.mod): usado em a.go:3"}, "pt-BR")
+	if !strings.Contains(body, "### Alcance das dependências vulneráveis\n\n- Alcance de GHSA-1") || !strings.HasPrefix(body, "## AurumCode") {
+		t.Fatalf("body = %q", body)
+	}
+	if en := appendReachSection("x", []string{"Reach of GHSA-1"}, "en"); !strings.Contains(en, "### Reach of vulnerable dependencies") {
+		t.Fatalf("en body = %q", en)
+	}
+	if same := appendReachSection("x", nil, "pt-BR"); same != "x" {
+		t.Fatalf("an empty section changed the body: %q", same)
 	}
 }

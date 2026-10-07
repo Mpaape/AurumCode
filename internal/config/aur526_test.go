@@ -70,3 +70,34 @@ func TestAUR526SecretAndIgnoredPaths(t *testing.T) {
 		t.Fatalf("a negative max_read_bytes was accepted: %v", err)
 	}
 }
+
+// AUR-469 hardening: a relative MCP command is a configuration error; an
+// absolute path or a bare name from PATH is accepted.
+func TestAUR469RelativeMCPCommandIsRefused(t *testing.T) {
+	for _, cmd := range []string{"./tools/mcp", "tools/mcp", "..\\\\mcp"} {
+		yml := "review:\n  context:\n    mcp:\n      - name: a\n        command: [\"" + cmd + "\"]\n        tool: t\n"
+		if _, err := Parse([]byte(yml), "t"); err == nil || !strings.Contains(err.Error(), "absolute path") {
+			t.Errorf("%q: err = %v", cmd, err)
+		}
+	}
+	for _, cmd := range []string{"/usr/bin/adr-mcp", "adr-mcp"} {
+		yml := "review:\n  context:\n    mcp:\n      - name: a\n        command: [\"" + cmd + "\"]\n        tool: t\n"
+		if _, err := Parse([]byte(yml), "t"); err != nil {
+			t.Errorf("%q refused: %v", cmd, err)
+		}
+	}
+}
+
+// Secret paths match ignoring case, and the catalog covers cluster and
+// registry credentials and service-account keys.
+func TestAUR526SecretPathsIgnoreCaseAndCoverCloudCredentials(t *testing.T) {
+	cfg := &Config{}
+	for _, path := range []string{".ENV", "app/Credentials", "deploy/TLS.PEM", "ops/kubeconfig", "home/.kube/config", "ci/.docker/config.json", "gcp/prod-service-account-key.json", "x/My-Service-Account.JSON"} {
+		if !cfg.IsSecretPath(path) {
+			t.Errorf("IsSecretPath(%q) = false", path)
+		}
+	}
+	if cfg.IsSecretPath("src/Main.java") || cfg.IsSecretPath("docs/accounts.md") {
+		t.Fatal("an ordinary file counted as secret")
+	}
+}

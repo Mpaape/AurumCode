@@ -86,10 +86,10 @@ replace_once() {
 }
 
 readonly ac001_tests=(TestAUR470CallerExcerptWithFileAndLine TestResolveGoPackage)
-readonly ac002_tests=(TestAUR470ExcludedFilesAndSymlinksNeverEnter)
+readonly ac002_tests=(TestAUR470ExcludedFilesAndSymlinksNeverEnter TestAUR470SnippetsAreRedactedBeforeTheModel)
 readonly ac003_tests=(TestAUR470StableOrderAndDeclaredOmissions)
 readonly ac004_tests=(TestAUR470CompatibleCallerIsContextNotADefect)
-readonly pkgs=(./internal/context/ ./cmd/aurumcode/)
+readonly pkgs=(./internal/context/ ./internal/review/ ./cmd/aurumcode/)
 
 pattern_of() { local IFS='|'; printf '^(%s)$' "$*"; }
 

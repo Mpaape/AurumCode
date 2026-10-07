@@ -240,3 +240,21 @@ func TestAUR526DiffToolAnswersOnlyChangedFiles(t *testing.T) {
 		t.Fatal("the diff tool answered a file outside the diff")
 	}
 }
+
+// The file cache has a memory ceiling: crossing it refuses the read and
+// makes the review partial like max_read_bytes, naming max_cache_bytes.
+func TestAUR526CacheCeilingMakesTheReviewPartial(t *testing.T) {
+	root, tracked := revisionFixture(t, javaFixture(t))
+	rev := openRevision(t, root, tracked, RevisionOptions{MaxCacheBytes: 100})
+	offers := RepositoryOffers(rev, nil, grammar.Default(), nil)
+	if _, err := run(t, offers[0].Tool, `{"path":"src/shop/Contract.java"}`); err == nil || !strings.Contains(err.Error(), LimitMaxCacheBytes) {
+		t.Fatalf("a read over the cache ceiling was served: %v", err)
+	}
+	limit := PartialLimit(offers)()
+	if limit == nil || limit.Limit != LimitMaxCacheBytes || !errors.Is(limit, deliberation.ErrLimit) {
+		t.Fatalf("partial = %+v, want max_cache_bytes", limit)
+	}
+	if _, err := run(t, offers[1].Tool, `{"query":"priceOf"}`); err == nil {
+		t.Fatal("a tool answered after the cache ceiling made the review partial")
+	}
+}

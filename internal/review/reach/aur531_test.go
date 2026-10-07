@@ -86,7 +86,7 @@ func TestAUR531UseIsCitedWithFileAndLine(t *testing.T) {
 	if tool := model.seen[len(model.seen)-1]; !strings.Contains(tool.Content, "app/config.py:4:") {
 		t.Fatalf("the search never reached the model: %+v", tool)
 	}
-	if line := Line(x); !strings.Contains(line, "usado em app/config.py:4") || !strings.Contains(line, "o achado, a severidade e o veredito não mudam") {
+	if line := Line(x, "pt-BR"); !strings.Contains(line, "usado em app/config.py:4") || !strings.Contains(line, "o achado, a severidade e o veredito não mudam") {
 		t.Fatalf("line = %q", line)
 	}
 }
@@ -95,8 +95,8 @@ func TestAUR531UseIsCitedWithFileAndLine(t *testing.T) {
 // not hold is discarded, and the line still says the finding stands.
 func TestAUR531NoUseSaysSoAndFindingStands(t *testing.T) {
 	x, _ := explain(t, map[string]string{"app/main.py": "print('hi')\n"}, `{"uses":"no","locations":[],"explanation":"o pacote nao e importado"}`)
-	if x.Uses != UsesNo || !strings.Contains(Line(x), "o modelo não achou uso") || !strings.Contains(Line(x), "não mudam") {
-		t.Fatalf("explanation = %+v line=%q", x, Line(x))
+	if x.Uses != UsesNo || !strings.Contains(Line(x, "pt-BR"), "o modelo não achou uso") || !strings.Contains(Line(x, "pt-BR"), "não mudam") {
+		t.Fatalf("explanation = %+v line=%q", x, Line(x, "pt-BR"))
 	}
 	invented, _ := explain(t, map[string]string{"app/main.py": "print('hi')\n"}, `{"uses":"yes","locations":[{"file":"app/ghost.py","line":9}],"explanation":"x"}`)
 	if invented.Uses != UsesUnknown || len(invented.Discarded) != 1 || len(invented.Locations) != 0 {
@@ -115,7 +115,19 @@ func TestAUR531DowngradeAttemptIsIgnored(t *testing.T) {
 		}
 	}
 	bad, _ := explain(t, map[string]string{"app/main.py": "print('hi')\n"}, `nao e json`)
-	if bad.Uses != UsesUnknown || bad.Reason == "" || strings.Contains(Line(bad), "não achou uso") {
+	if bad.Uses != UsesUnknown || bad.Reason == "" || strings.Contains(Line(bad, "pt-BR"), "não achou uso") {
 		t.Fatalf("a malformed answer read as no use: %+v", bad)
+	}
+}
+
+// The explanation line follows the review language through the i18n
+// catalog: Portuguese with accents, English otherwise.
+func TestAUR531LineFollowsTheReviewLanguage(t *testing.T) {
+	x := Explanation{Request: request, Uses: UsesNo, Text: "-"}
+	if pt := Line(x, "pt-BR"); !strings.Contains(pt, "Alcance de GHSA-test-0001") || !strings.Contains(pt, "não mudam") {
+		t.Fatalf("pt-BR line = %q", pt)
+	}
+	if en := Line(x, "en-US"); !strings.Contains(en, "Reach of GHSA-test-0001") || !strings.Contains(en, "the model found no use") || strings.Contains(en, "não") {
+		t.Fatalf("en line = %q", en)
 	}
 }

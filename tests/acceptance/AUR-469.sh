@@ -85,7 +85,7 @@ replace_once() {
 
 readonly ac001_tests=(TestAUR469DeclaredRedactedPayloadAndOrigin TestAUR469NothingUndeclaredIsSent TestAUR469AnswerInPromptWithOriginAndNoGateEffect)
 readonly ac002_tests=(TestAUR469AbsentSlowAndMalformedServersAreErrors TestAUR469AbsentServerWarnsAndReviewContinues TestAUR480ProviderFailureWarnsAndContinues)
-readonly ac003_tests=(TestAUR469AnswerInPromptWithOriginAndNoGateEffect TestAUR469OnlyTrustedConfigurationDeclaresASource)
+readonly ac003_tests=(TestAUR469AnswerInPromptWithOriginAndNoGateEffect TestAUR469OnlyTrustedConfigurationDeclaresASource TestAUR469RelativeCommandIsRefused TestAUR469ServerRunsInAnEmptyTemporaryDirectory TestAUR469RelativeMCPCommandIsRefused TestAUR469LocalMCPUnderCIRequiresOptIn)
 readonly pkgs=(./cmd/aurumcode/ ./internal/context/mcp/ ./internal/config/)
 
 pattern_of() { local IFS='|'; printf '^(%s)$' "$*"; }
