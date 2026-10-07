@@ -2,8 +2,8 @@
 $ aurumcode review --base main
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context]; pedidas [scanner_semgrep]; não pedidas [codebase_context]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) failed: varredura inconclusiva (sast_unavailable)
-aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_unavailable); no Semgrep finding was published for this run.
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_unavailable)
+aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_unavailable); no Semgrep finding was published for this run. Engine detail: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_unavailable) [detalhe: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH]
 ## Code Review Summary
 
 **Verdict:** Comment
