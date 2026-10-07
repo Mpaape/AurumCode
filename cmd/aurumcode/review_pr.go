@@ -58,6 +58,8 @@ type prReview struct {
 	historyEntries []githubclient.ReviewHistoryEntry
 	// round is what this round publishes given the earlier ones.
 	round roundPlan
+	// shown is the published shape of the findings (pr_presentation.go).
+	shown presentation
 
 	// publication
 	issues   []types.ReviewIssue

@@ -1285,6 +1285,7 @@ consumidor.
 | `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
+| `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |

@@ -14,6 +14,7 @@ func (p *prReview) publish() (int, bool) {
 	// --check needs the same already-sorted slice, empty or not, for its
 	// commit status, so both branches share one definition.
 	p.issues = sortedIssues(p.result.Issues)
+	p.shown = p.presentFindings()
 	p.round = p.planRound()
 	if code, done := p.resolveCommit(); done {
 		return code, true
@@ -70,8 +71,9 @@ func (p *prReview) resolveCommit() (int, bool) {
 // POST failure swallow the rest: failures are recorded and the loop
 // continues, so every finding that COULD be published still was.
 func (p *prReview) postReview() []string {
-	summaryBody := formatGatedReviewBody(p.result, p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule())
+	summaryBody := formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule())
 	summaryBody = appendRoundNotice(summaryBody, p.round, p.reviewLanguage)
+	summaryBody = appendPresentationNotice(summaryBody, p.shown, p.reviewLanguage)
 	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)
 	if p.publication == "review" {
 		return p.postFormalReview(summaryBody)
@@ -84,7 +86,7 @@ func (p *prReview) postReview() []string {
 func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	formalComments := make([]githubclient.ReviewLineComment, 0)
 	if p.inlineComments {
-		for i, issue := range p.issues {
+		for i, issue := range p.shown.withSources(p.reviewLanguage) {
 			if !isInlineEligible(p.diff, issue) || !p.round.posts(i) {
 				continue
 			}
@@ -123,7 +125,7 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 func (p *prReview) postSeparateComments(summaryBody string) (failures []string) {
 	inlineCount, generalCount := 0, 0
 	stdout, stderr := p.stdout, p.stderr
-	for i, issue := range p.issues {
+	for i, issue := range p.shown.withSources(p.reviewLanguage) {
 		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
 		if issue.Side == "LEFT" {
 			line += " [LEFT/base]"
