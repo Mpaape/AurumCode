@@ -1,0 +1,14 @@
+== falha-fora-do-schema
+$ LLM_PROVIDER=anthropic aurumcode review --base main
+aurumcode review: could not understand the model's response (validation_failed)
+--- requisicoes recebidas pelo provedor falso: 1
+    provedor recebeu: /fora-do-schema/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=ausente
+exit_code=1
+RESULTADO: resposta fora do schema: revisao inconclusiva, nunca aprovada
+--- erro do provedor ecoando a chave: chega resumido, redigido e com o nome do provedor
+$ LLM_PROVIDER=anthropic aurumcode review --base main
+aurumcode review: LLM request failed: all providers failed: provider anthropic failed: anthropic API error (status 401): authentication_error: invalid x-api-key [REDACTED]
+--- requisicoes recebidas pelo provedor falso: 1
+    provedor recebeu: /erro/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=ausente
+exit_code=1
+RESULTADO: erro 401 do provedor: nomeado, resumido e sem a chave
