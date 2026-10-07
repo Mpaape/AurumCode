@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/i18n"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/internal/review/consolidate"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -28,7 +29,21 @@ func (p *prReview) presentFindings() presentation {
 		collapse = nil
 	}
 	rule := p.blockingRule()
+	if !collapseAllowed(rule, p.gateRes != nil && p.gateRes.Inconclusive) {
+		collapse = nil
+	}
 	return presentation{consolidate.Apply(p.issues, consolidate.Options{Collapse: collapse, Blocking: rule.Blocks})}
+}
+
+// collapseAllowed reports whether the run's blocking rule can tell what
+// blocks. A declared gate that fails without naming a blocking finding (an
+// inconclusive run under gate.inconclusive: block) or any inconclusive run
+// leaves every finding possibly blocking: nothing is condensed.
+func collapseAllowed(rule blocking.Rule, inconclusive bool) bool {
+	if inconclusive {
+		return false
+	}
+	return !(rule.Gated() && rule.Fails() && rule.Count(nil) == 0)
 }
 
 // publishedResult is the run's result with the published findings, for the
@@ -45,7 +60,7 @@ func (pr presentation) withSources(language string) []types.ReviewIssue {
 	out := make([]types.ReviewIssue, len(pr.Issues))
 	for i, issue := range pr.Issues {
 		if i < len(pr.AlsoFrom) && len(pr.AlsoFrom[i]) > 0 {
-			sources := sourceList(append([]string{issue.Origin}, pr.AlsoFrom[i]...))
+			sources := sourceList(append([]string{issue.Origin}, pr.AlsoFrom[i]...), language)
 			issue.Message = fmt.Sprintf("%s [%s]", issue.Message, i18n.Format(language, "review.presentation_sources", sources))
 		}
 		out[i] = issue
@@ -53,14 +68,15 @@ func (pr presentation) withSources(language string) []types.ReviewIssue {
 	return out
 }
 
-// sourceList names each source once; the model has no origin.
-func sourceList(origins []string) string {
+// sourceList names each source once; the model has no origin and is named
+// in the review's language.
+func sourceList(origins []string, language string) string {
 	seen := map[string]bool{}
 	var names []string
 	for _, o := range origins {
 		name := o
 		if name == "" {
-			name = "model"
+			name = i18n.Text(language, "review.presentation_model_source")
 		}
 		if !seen[name] {
 			seen[name] = true
