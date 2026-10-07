@@ -128,13 +128,19 @@ func aur517PREnv(t *testing.T, server *httptest.Server) {
 
 // TestAUR517SummaryWithheldWhenAccusationOutOfScope covers AC-001: a model
 // response names a finding on an unchanged line (line 1, outside the diff's
-// added lines) and a free-text summary accusing that exact defect. The
-// scope gate (filterModelIssues) discards the finding, and the published
+// added lines) without evidence, and a free-text summary accusing that
+// exact defect. The scope gate (filterModelIssues) discards the finding (a
+// proved one would become a general comment instead, docs/specs/AUR-545.md),
+// and the published
 // review -- comment and formal review alike -- must not carry the
 // accusation the rest of the result no longer makes.
 func TestAUR517SummaryWithheldWhenAccusationOutOfScope(t *testing.T) {
 	const token = "AUR517-OUT-OF-SCOPE-ACCUSATION"
-	aur517Env(t, aur517Response(token, 1))
+	unproved := strings.Replace(aur517Response(token, 1), `"evidence": "data, _ := fetch() discards the second return value"`, `"evidence": ""`, 1)
+	if !strings.Contains(unproved, `"evidence": ""`) {
+		t.Fatal("fixture still carries evidence; the scope gate would route it, not discard it")
+	}
+	aur517Env(t, unproved)
 	server, posted := aur517Server(t)
 	aur517PREnv(t, server)
 

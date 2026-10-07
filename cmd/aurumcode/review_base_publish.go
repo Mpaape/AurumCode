@@ -54,6 +54,7 @@ func (b *baseReview) printReport() {
 	if !b.qualityDidNotRun() || len(result.Issues) > 0 {
 		printFindings(b.stdout, result, b.gateRes.Reason)
 	}
+	printOutsideDiffFindings(b.stdout, result)
 	if b.model != modelProviderFailed {
 		persistReviewMemory(b.memoryStore, b.cfg.Review.Memory, b.memoryNotes, result.Issues, b.stderr, b.filter)
 	}

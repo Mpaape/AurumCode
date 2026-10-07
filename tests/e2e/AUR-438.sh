@@ -220,8 +220,10 @@ start_fake() {
 # finding on cmdb/settings.go's added line 3 (inline-eligible), one on
 # docs/notas.md line 99 -- a line number nowhere near that file's single
 # +1-line hunk (@@ -1,1 +1,2 @@), so it must become a general comment
-# instead of being dropped. Both cite an embedded quality rule so they
-# survive the AUR-434 rule-citation gate.
+# instead of being dropped (it carries evidence, impact and verification;
+# see docs/specs/AUR-545.md), and a third one on docs/notas.md line 120
+# with no evidence, which must stay discarded and never be posted. All cite
+# an embedded quality rule so they survive the AUR-434 rule-citation gate.
 fixture="$run_dir/response.json"
 cat >"$fixture" <<'EOF'
 {
@@ -245,6 +247,16 @@ cat >"$fixture" <<'EOF'
       "evidence": "A linha citada referencia uma funcao longa fora do trecho alterado.",
       "impact": "Um comentario geral sobre codigo nao tocado nesta mudanca pode confundir o revisor.",
       "verification": "Confirmar que a linha citada realmente nao faz parte do diff enviado."
+    },
+    {
+      "file": "docs/notas.md",
+      "line": 120,
+      "severity": "error",
+      "rule_id": "quality/long-function",
+      "message": "Achado sintetico fora do diff sem evidencia.",
+      "evidence": "",
+      "impact": "Sem prova, este achado nao pode virar comentario.",
+      "verification": "Confirmar que ele nunca e publicado."
     }
   ],
   "summary": "Resposta sintetica e deterministica para AUR-438."
@@ -302,9 +314,17 @@ inline_posts="$(grep -c '^POST /repos/dono/projeto/pulls/42/comments ' "$log1" |
 [[ "$inline_posts" -eq 1 ]] || fail "wrong_inline_post_count:$inline_posts"
 grep -Fq '"path":"cmdb/settings.go"' "$log1" || fail inline_post_wrong_path
 grep -Fq '"line":3' "$log1" || fail inline_post_wrong_line
-general_posts="$(grep -c '^POST /repos/dono/projeto/issues/42/comments ' "$log1" || true)"
+# The review summary is also an issue comment (it carries the
+# aurumcode-review marker); only the finding comments are counted here.
+general_posts="$(grep '^POST /repos/dono/projeto/issues/42/comments ' "$log1" | grep -vc 'aurumcode-review' || true)"
 [[ "$general_posts" -eq 1 ]] || fail missing_general_comment
+summary_posts="$(grep '^POST /repos/dono/projeto/issues/42/comments ' "$log1" | grep -c 'aurumcode-review' || true)"
+[[ "$summary_posts" -eq 1 ]] || fail "wrong_summary_post_count:$summary_posts"
 grep -Fq 'docs/notas.md:99' "$log1" || fail missing_general_comment
+# AUR-545 AC-002: the outside finding without evidence is never published.
+if grep -Fq 'sem evidencia' "$log1" "$run_dir/out.stdout"; then
+  fail unproved_outside_finding_published
+fi
 
 first_stdout="$(cat "$run_dir/out.stdout")"
 
@@ -316,7 +336,8 @@ url2="$FAKE_URL"
 run_pr "$url2" "token-sintetico-write"
 [[ "$rc" -eq 0 ]] || fail "write_rerun_failed:exit:$rc"
 [[ "$(cat "$run_dir/out.stdout")" == "$first_stdout" ]] || fail non_deterministic
-[[ "$(grep -c '^POST ' "$log2")" -eq 2 ]] || fail non_deterministic_publish_count
+[[ "$(grep -c '^POST ' "$log2")" -eq 3 ]] || fail non_deterministic_publish_count
+[[ "$(grep '^POST ' "$log1" | sed 's/ {.*//')" == "$(grep '^POST ' "$log2" | sed 's/ {.*//')" ]] || fail non_deterministic_publish_order
 
 ## Scenario 2: a read-only token. Both findings were computable, but
 ## nothing may be posted: the command refuses up front, and the fake
@@ -364,6 +385,7 @@ grep -Fq 'docs/notas.md:99: [info] Achado sintetico fora das linhas alteradas.' 
   || fail onefail_swallowed_other_finding
 grep -Fq -- '-- publicado como comentario geral' "$run_dir/out.stdout" || fail onefail_swallowed_other_finding
 grep -Fq '1 comentario(s) falharam ao publicar' "$run_dir/out.stderr" || fail onefail_missing_failure_summary
-[[ "$(grep -c '^POST ' "$log5")" -eq 2 ]] || fail onefail_second_post_not_attempted
+# Three POSTs: the failed inline one, the general comment and the summary.
+[[ "$(grep -c '^POST ' "$log5")" -eq 3 ]] || fail onefail_second_post_not_attempted
 
 printf '%s/AC-001/E2EAUR438/ok\n' "$card"
