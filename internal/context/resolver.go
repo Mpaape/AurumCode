@@ -60,6 +60,9 @@ type Pack struct {
 	// continues on the text of those files; this field is the declaration that
 	// symbol and import context for them is absent.
 	Unstructured []string `json:"unstructured,omitempty"`
+	// Snippets are excerpts around the references, with file and line
+	// (AUR-470): the impact of the change on other files, as context only.
+	Snippets []Snippet `json:"snippets,omitempty"`
 	// Dropped records bounded omissions: missing files, skipped symlinks,
 	// truncated files, and limit overflows. Omissions are never fatal.
 	Dropped []string `json:"dropped"`
@@ -69,6 +72,7 @@ type Pack struct {
 type Resolver struct {
 	limits  Limits
 	grammar grammar.Provider
+	exclude func(rel string) bool
 }
 
 // NewResolver returns a Resolver with the default limits.
@@ -142,7 +146,7 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 	}
 
 	pack := &Pack{}
-	changedPaths := r.normalizeChanged(root, changed, pack)
+	changedPaths := r.keepIncluded(r.normalizeChanged(root, changed, pack), pack)
 	changedSet := make(map[string]bool, len(changedPaths))
 	for _, p := range changedPaths {
 		changedSet[p] = true
@@ -154,6 +158,7 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 	} else {
 		repoFiles = r.enumerate(root, pack)
 	}
+	repoFiles = r.keepIncluded(repoFiles, pack)
 
 	symbolFiles := make(map[string][]string) // symbol name -> defining changed files
 	dirKeys := make(map[string]struct{})     // directory path of changed files
@@ -193,6 +198,9 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 	}
 
 	r.finalize(pack)
+	r.attachSnippets(root, pack)
+	sort.Strings(pack.Dropped)
+	pack.Dropped = dedupeStrings(pack.Dropped)
 	return pack, nil
 }
 

@@ -115,14 +115,15 @@ func (p *Provider) CompleteWithTools(messages []llm.Message, tools []llm.ToolSpe
 		out.Text = *choice.Message.Content
 	}
 	for _, c := range choice.Message.ToolCalls {
-		if err := llm.ValidateToolArguments([]byte(c.Function.Arguments)); err != nil {
-			return llm.ToolResponse{}, &llm.MalformedToolCallError{ID: c.ID, Name: c.Function.Name}
-		}
-		out.ToolCalls = append(out.ToolCalls, llm.ToolCall{
+		call := llm.ToolCall{
 			ID:        c.ID,
 			Name:      c.Function.Name,
 			Arguments: json.RawMessage(c.Function.Arguments),
-		})
+		}
+		if err := llm.ValidateToolCall(call); err != nil {
+			return llm.ToolResponse{}, err
+		}
+		out.ToolCalls = append(out.ToolCalls, call)
 	}
 	return out, nil
 }
@@ -139,6 +140,9 @@ func toWireMessage(m llm.Message) (toolMessage, error) {
 			wm.Content = &content
 		}
 		for _, c := range m.ToolCalls {
+			if err := llm.ValidateToolCall(c); err != nil {
+				return toolMessage{}, err
+			}
 			wm.ToolCalls = append(wm.ToolCalls, wireToolCall{
 				ID:       c.ID,
 				Type:     "function",

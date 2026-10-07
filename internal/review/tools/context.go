@@ -71,3 +71,10 @@ func (t *ContextTool) Run(_ context.Context, raw json.RawMessage) (deliberation.
 		Digest:  hex.EncodeToString(sum[:]),
 	}, nil
 }
+
+// WithExclude keeps the paths exclude reports (the policy's ignore globs
+// and secret files) out of the context the tool returns (AUR-470).
+func (t *ContextTool) WithExclude(exclude func(string) bool) *ContextTool {
+	t.resolve = codebasectx.NewResolver().WithExclude(exclude).Resolve
+	return t
+}
