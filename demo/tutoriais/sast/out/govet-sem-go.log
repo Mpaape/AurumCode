@@ -6,7 +6,7 @@ aurumcode review: policy gate: review inconclusive (lint_unavailable)
 aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable) [detalhe: govet: go env: exec: "go": executable file not found in $PATH]
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0

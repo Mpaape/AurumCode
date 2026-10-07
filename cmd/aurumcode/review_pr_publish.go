@@ -69,7 +69,7 @@ func (p *prReview) resolveCommit() (int, bool) {
 // POST failure swallow the rest: failures are recorded and the loop
 // continues, so every finding that COULD be published still was.
 func (p *prReview) postReview() []string {
-	summaryBody := formatPublishedReviewBody(p.result, p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText)
+	summaryBody := formatGatedReviewBody(p.result, p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule())
 	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)
 	if p.publication == "review" {
 		return p.postFormalReview(summaryBody)
@@ -101,7 +101,7 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	}
 	formal := githubclient.PullRequestReview{
 		Body:     summaryBody,
-		Event:    gateAlignedReviewEvent(formalReviewEvent(p.result), p.cfg.Gate.Declared(), p.gateRes.Fail),
+		Event:    p.blockingRule().Event(formalReviewEvent(p.result)),
 		CommitID: p.commitID,
 		Comments: formalComments,
 	}
@@ -185,24 +185,4 @@ func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 		}
 	}
 	return p.decideExit(out)
-}
-
-// gateAlignedReviewEvent aligns the formal review with the policy gate when
-// one is declared (AUR-567): REQUEST_CHANGES only when the gate fails the
-// check, so the review and the aurumcode/policy-gate status never disagree
-// (a warning below the threshold used to request changes while the checks
-// were green). Everything else the review would have said stays: COMMENT for
-// a run with findings below the threshold or withheld approval, APPROVE for a
-// clean one. With no gate declared the event is the historical one.
-func gateAlignedReviewEvent(event string, gateDeclared, gateFails bool) string {
-	if !gateDeclared {
-		return event
-	}
-	if gateFails {
-		return "REQUEST_CHANGES"
-	}
-	if event == "REQUEST_CHANGES" {
-		return "COMMENT"
-	}
-	return event
 }
