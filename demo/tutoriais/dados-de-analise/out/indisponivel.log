@@ -2,7 +2,6 @@
 --- A. a listagem responde HTTP 503 e nao ha cache
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -23,6 +22,7 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=1
@@ -56,6 +56,7 @@ RESULTADO: sem rede e sem cache: analysis_data_unavailable reprova
 --- C. o mesmo com gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -76,6 +77,5 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 exit_code=0
 RESULTADO: sem rede com warn: exit 0, mas nunca aprovado silenciosamente

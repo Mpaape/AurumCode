@@ -27,6 +27,17 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 
 Tutorial: [Revisão de código](tutorials/revisao.md) e [Deliberação com ferramentas](tutorials/deliberacao.md).
 
+## No seu agente de código
+
+Para quem programa com agente de IA: `aurumcode mcp` é um servidor MCP local
+(stdio, só leitura) que o Claude Code, o Codex ou o Cursor consultam antes do
+commit, com o mesmo gate do CI (`aurum_gate`, `aurum_review`, `aurum_rules`,
+`aurum_explain`); a skill `aurum-review` ensina o agente a perguntar e corrigir,
+e um hook de pre-commit opcional faz o mesmo sem agente. Configuração:
+[Aurum no seu agente de código](agentes.md).
+
+Tutorial: [Aurum no seu agente](tutorials/agente.md).
+
 ## Skills e política
 
 Skills de convenção escritas em Markdown pelos times e uma política central,

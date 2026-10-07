@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Optional git pre-commit hook: asks the Aurum gate about the STAGED change
+# before the commit exists, with the same review session as `aurumcode mcp`
+# and CI (review --base, security pass, a review the model did not do is
+# never clean). It works without any agent.
+#
+# Install:  cp .agents/skills/aurum-review/hooks/pre-commit .git/hooks/pre-commit
+#           chmod +x .git/hooks/pre-commit
+# Settings (environment):
+#   AURUM_BASE   branch the change will merge into (default: main)
+#   AURUMCODE    the aurumcode command (default: aurumcode on PATH)
+# The staged tree is snapshotted into a temporary detached worktree (the
+# index, never the unstaged edits), reviewed there and removed. The hook
+# never edits your files, never changes a rule and never skips the gate on
+# its own; an inconclusive review blocks like a failing one.
+set -euo pipefail
+
+base="${AURUM_BASE:-main}"
+aurum="${AURUMCODE:-aurumcode}"
+
+head="$(git rev-parse -q --verify HEAD || true)"
+if [ -z "$head" ]; then
+  echo "aurum pre-commit: first commit of the repository, nothing to compare with" >&2
+  exit 0
+fi
+merge_base="$(git merge-base "$base" HEAD 2>/dev/null || true)"
+if [ -z "$merge_base" ]; then
+  echo "aurum pre-commit: base '$base' not found; set AURUM_BASE to the branch you merge into" >&2
+  exit 1
+fi
+
+tree="$(git write-tree)"
+snapshot="$(git -c user.name=aurum-pre-commit -c user.email=aurum-pre-commit@example.invalid \
+  commit-tree "$tree" -p "$head" -m "aurum pre-commit snapshot")"
+work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-pre-commit.XXXXXX")"
+# git sets GIT_INDEX_FILE for the hook (the index being committed): the
+# snapshot reads it, the temporary worktree must never write to it, and the
+# review runs without the hook's GIT_* variables so it reads the snapshot.
+# core.hooksPath=/dev/null: creating the worktree never runs the operator's
+# own hooks (post-checkout).
+cleanup() { env -u GIT_INDEX_FILE git -c core.hooksPath=/dev/null worktree remove --force "$work" >/dev/null 2>&1 || rm -rf "$work"; }
+trap cleanup EXIT INT TERM
+env -u GIT_INDEX_FILE git -c core.hooksPath=/dev/null worktree add -q --detach "$work" "$snapshot"
+
+set +e
+(cd "$work" && env -u GIT_INDEX_FILE -u GIT_DIR -u GIT_WORK_TREE $aurum review --base "$merge_base" --seguranca --exigir-qualidade)
+rc=$?
+set -e
+if [ "$rc" -ne 0 ]; then
+  echo "aurum pre-commit: the gate did not pass (exit $rc); fix the findings and commit again" >&2
+fi
+exit "$rc"

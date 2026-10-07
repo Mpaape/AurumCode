@@ -1,6 +1,5 @@
 == cache-degradado
 $ aurumcode review --base main --politica /policy
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -20,11 +19,11 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: primeira execucao reprova e grava o cache
 --- todas as entradas do cache corrompidas
 $ aurumcode review --base main --politica /policy
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -44,6 +43,7 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: cache corrompido: revisao nova, o achado continua reprovando
 nenhuma linha 'reused': nada foi reaproveitado do cache corrompido
