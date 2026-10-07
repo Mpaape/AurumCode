@@ -206,6 +206,10 @@ Reprova (código de saída 3 no `--base`; status `aurumcode/policy-gate`
   (`ssor_dtrack: policy_violations 1 > policy_violations 0`,
   `critical 3 > max_critical 0`);
 - achado de skill da política acima de `gate.fail_on`;
+- com a seção `dependencies` declarada: advisory introduzido pelo PR no
+  limiar de `dependencies.fail_on`, pacote malicioso (`MAL-`), suspeita de
+  typosquat no limiar e licença de `licenses_denied` (veja
+  [Dependências do PR](configuration.md#dependencias-do-pr-dependencies));
 - falha de assinatura: `aurumcode sign` nunca tem modo "warn".
 
 Inconclusivo (nunca aparece como "aprovado"; com `inconclusive: block`, ou
@@ -214,7 +218,9 @@ sem a chave, reprova; só `warn` escrito avisa): Semgrep ausente ou com saída i
 erro HTTP (`dtrack_unreachable`, `dtrack_timeout`, `dtrack_http_error`),
 métricas incompletas (`dtrack_metrics_incomplete`: ausente nunca é lido como
 zero), secret ausente (`dtrack_secret_missing`), SBOM ausente
-(`dtrack_sbom_unavailable`), falha do provedor do modelo (`provider_failure`).
+(`dtrack_sbom_unavailable`), falha do provedor do modelo (`provider_failure`),
+verificação de dependências que não concluiu (`dependencies_*`: base OSV ou
+deps.dev inalcançável, scanner ausente, licença desconhecida).
 
 Em produção, as métricas `critical` e `high` vêm dos espelhos de
 vulnerabilidade do **próprio servidor** (NVD, GitHub Advisories, OSV...),

@@ -1867,10 +1867,22 @@ dependencies:
   resposta mais velha que `max_source_age_hours` ou sem data
   (`dependencies_source_stale`), scanner ausente
   (`dependencies_scanner_unavailable`), modelo ausente ou com resposta fora do
-  contrato (`dependencies_no_model`, `dependencies_model_failed`) e checkout
-  não verificado do PR (`dependencies_unverified_checkout`) tornam a revisão
-  inconclusiva com o motivo; nunca são lidos como "sem vulnerabilidade". Com a
-  seção declarada, o padrão de `gate.inconclusive` é `block`.
+  contrato (`dependencies_no_model`, `dependencies_model_failed`), checkout
+  não verificado do PR (`dependencies_unverified_checkout`), dependência sem
+  versão nem faixa legível (`dependencies_unresolved_version`), diff de
+  manifestos acima de 256 KiB (`dependencies_manifests_omitted`) e uma fase
+  anterior que encerrou a revisão antes da verificação
+  (`dependencies_not_run`) tornam a revisão inconclusiva com o motivo; nunca
+  são lidos como "sem vulnerabilidade". Com a seção declarada, o padrão de
+  `gate.inconclusive` é `block`.
+- **Quando esperar inconclusivo.** Por desenho, falha fechada pesa em PRs
+  reais: uma atualização grande de lockfile (diff dos manifestos acima de
+  256 KiB) é `dependencies_manifests_omitted`; o `osv-scanner` roda sobre o
+  checkout inteiro em até 120 s, e um repositório muito grande pode passar
+  disso (`dependencies_scanner_failed`); pacote que o deps.dev ainda não
+  indexou (comum num typosquat recém-publicado) responde 404 e vira
+  `dependencies_metadata_unreachable`. Em adoção, `gate.inconclusive: warn`
+  deixa esses casos como aviso.
 - **O gate.** `fail_on` lista severidades da fonte (`critical`, `high`,
   `medium`, `low`; `moderate` do GitHub é `medium`) e, como no `gate.fail_on`,
   o menor nível listado é o limiar: advisory introduzido com severidade igual
@@ -1961,7 +1973,8 @@ aurumcode dependencies --repo . --sarif aurumcode-dependencies.sarif
   próximo upload e o code scanning fecha o alerta sozinho. Nenhum estado
   próprio é guardado: o estado é o do code scanning.
 - **Inconclusivo não apaga alerta.** Base inalcançável, scanner ausente,
-  modelo indisponível ou lista de arquivos acima do limite do modelo: o
+  modelo indisponível ou lista de arquivos rastreados acima do limite do
+  modelo (256 KiB de caminhos, por volta de 6 mil arquivos): o
   comando sai com 1, diz o motivo e **não grava SARIF**; o passo de upload do
   workflow só roda depois de uma varredura conclusiva (`if: success()`),
   então nenhum documento vazio fecha os alertas abertos. Código 2 é erro de
