@@ -5,7 +5,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0
@@ -33,7 +33,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0

@@ -2,7 +2,7 @@
 $ aurumcode review --base main --politica /policy
 ## Code Review Summary
 
-**Verdict:** Changes requested
+**Verdict:** Comment
 
 **Findings by severity:**
 - error: 0

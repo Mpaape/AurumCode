@@ -4,7 +4,7 @@ $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
-**Verdict:** Changes requested
+**Verdict:** Comment
 
 **Findings by severity:**
 - error: 1
