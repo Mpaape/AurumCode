@@ -83,7 +83,7 @@ replace_once() {
 }
 
 readonly ac001_tests=(TestAUR531UseIsCitedWithFileAndLine)
-readonly ac002_tests=(TestAUR531NoUseSaysSoAndFindingStands TestAUR531ExplanationNeverChangesTheReport)
+readonly ac002_tests=(TestAUR531NoUseSaysSoAndFindingStands TestAUR531ExplanationNeverChangesTheReport TestAUR531ReachHasItsOwnSection TestAUR531LineFollowsTheReviewLanguage)
 readonly ac003_tests=(TestAUR531DowngradeAttemptIsIgnored TestAUR531ExplanationNeverChangesTheReport)
 readonly pkgs=(./internal/review/reach/ ./cmd/aurumcode/)
 
@@ -117,8 +117,8 @@ run_mut001() {
   local root="$run_dir/root-mut1"
   stage "$root"
   replace_once "$root/cmd/aurumcode/dependency_reach.go" \
-    'line := s.redactText(reach.Line(x))' \
-    'if x.Uses == reach.UsesNo { s.depReport.Findings = nil } /* MUT-001 */; line := s.redactText(reach.Line(x))'
+    'line := s.redactText(reach.Line(x, s.reviewLanguage))' \
+    'if x.Uses == reach.UsesNo { s.depReport.Findings = nil } /* MUT-001 */; line := s.redactText(reach.Line(x, s.reviewLanguage))'
   expect_red "$root" "$run_dir/mut1.log" "${ac003_tests[@]}"
   grep -Eq -- '^--- FAIL: TestAUR531ExplanationNeverChangesTheReport' "$run_dir/mut1.log" || fail mut001-wrong-test
   printf '%s/MUT-001/rejected\n' "$card"

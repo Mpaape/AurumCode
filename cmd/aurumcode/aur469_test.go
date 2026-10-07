@@ -125,3 +125,28 @@ func TestAUR469OnlyTrustedConfigurationDeclaresASource(t *testing.T) {
 		t.Fatal("an undeclared payload kind was accepted")
 	}
 }
+
+// Under CI the local config's MCP sources are ignored with a warning unless
+// the operator opts in; outside CI they stay trusted.
+func TestAUR469LocalMCPUnderCIRequiresOptIn(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Review.Context.MCP = []config.MCPContextSource{{Name: "repo", Command: []string{"x"}, Tool: "t"}}
+	for _, c := range []struct {
+		env  reviewEnv
+		want bool
+	}{
+		{reviewEnv{}, true},
+		{reviewEnv{ci: true}, false},
+		{reviewEnv{ci: true, trustLocalMCP: true}, true},
+	} {
+		env := c.env
+		var errOut strings.Builder
+		s := &reviewState{cfg: cfg, stderr: &errOut, deps: reviewDeps{env: &env}}
+		if got := s.localMCPTrusted(); got != c.want {
+			t.Fatalf("env %+v: trusted = %v, want %v", c.env, got, c.want)
+		}
+		if !c.want && !strings.Contains(errOut.String(), "ignorado em CI") {
+			t.Fatalf("an ignored source was silent: %q", errOut.String())
+		}
+	}
+}

@@ -8,10 +8,12 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/grammar"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/review/reach"
 	reviewtools "github.com/Mpaape/AurumCode/internal/review/tools"
@@ -21,10 +23,12 @@ import (
 // reachability; the rest are declared as not explained.
 const maxReachExplanations = 5
 
-// explainDependencyReach adds one explanation line per advisory of the
-// dependency report, or says why none could be given.
+// explainDependencyReach records one explanation line per advisory of the
+// dependency report, or says why none could be given; the lines are the
+// review's own reachability section (appendReachSection).
 func (s *reviewState) explainDependencyReach() {
-	if s.depReport == nil || s.cfg == nil || !s.cfg.Deliberation.Active() || !s.cfg.Deliberation.DependencyReachability || s.result == nil {
+	s.reachLines = nil
+	if s.depReport == nil || s.cfg == nil || !s.cfg.Deliberation.Active() || !s.cfg.Deliberation.DependencyReachability {
 		return
 	}
 	requests := reachRequests(*s.depReport)
@@ -38,13 +42,13 @@ func (s *reviewState) explainDependencyReach() {
 		case reason != "":
 			x = reach.Explanation{Request: req, Reason: reason}
 		case i >= maxReachExplanations:
-			x = reach.Explanation{Request: req, Reason: fmt.Sprintf("limite de %d explicações por revisão", maxReachExplanations)}
+			x = reach.Explanation{Request: req, Reason: i18n.Format(s.reviewLanguage, "reach.reason_limit", maxReachExplanations)}
 		default:
 			x = explainer.Explain(s.ctx, req)
 		}
-		line := s.redactText(reach.Line(x))
+		line := s.redactText(reach.Line(x, s.reviewLanguage))
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
-		s.result.Limitations = append(s.result.Limitations, line)
+		s.reachLines = append(s.reachLines, line)
 	}
 }
 
@@ -71,26 +75,43 @@ func reachRequests(r dependencies.Report) []reach.Request {
 // it cannot exist.
 func (s *reviewState) reachExplainer() (reach.Explainer, string) {
 	if s.provider == nil {
-		return reach.Explainer{}, "sem provedor de modelo"
+		return reach.Explainer{}, i18n.Text(s.reviewLanguage, "reach.reason_no_provider")
 	}
 	orchestrator := llm.NewOrchestrator(s.provider, nil, s.tracker)
 	if !orchestrator.SupportsTools() {
-		return reach.Explainer{}, "o provedor não chama ferramentas"
+		return reach.Explainer{}, i18n.Text(s.reviewLanguage, "reach.reason_no_tools")
 	}
 	if s.scanRoot == "" || s.scanBlocked != "" {
-		return reach.Explainer{}, "checkout não verificado como a revisão revisada"
+		return reach.Explainer{}, i18n.Text(s.reviewLanguage, "reach.reason_unverified")
 	}
 	rev, err := s.reviewedRevision()
 	if err != nil {
-		return reach.Explainer{}, "revisão revisada ilegível"
+		return reach.Explainer{}, i18n.Text(s.reviewLanguage, "reach.reason_unreadable")
 	}
 	offers := reviewtools.RepositoryOffers(rev, s.diff, grammar.Default(), s.redactText)
 	maxRounds, maxCost, perTool := s.cfg.Deliberation.EffectiveLimits()
 	return reach.Explainer{
-		Caller: orchestrator,
-		Tools:  reviewtools.Tools(offers),
-		Limits: deliberation.Limits{MaxRounds: maxRounds, MaxCostTokens: maxCost, PerToolTimeout: perTool},
-		Redact: s.redactText,
-		Read:   rev.Read,
+		Caller:   orchestrator,
+		Tools:    reviewtools.Tools(offers),
+		Limits:   deliberation.Limits{MaxRounds: maxRounds, MaxCostTokens: maxCost, PerToolTimeout: perTool},
+		Redact:   s.redactText,
+		Read:     rev.Read,
+		Language: s.reviewLanguage,
 	}, ""
+}
+
+// appendReachSection appends the reachability section to a review body:
+// its own heading, one item per explanation, after everything the filters
+// of the review touch.
+func appendReachSection(body string, lines []string, language string) string {
+	if len(lines) == 0 {
+		return body
+	}
+	var b strings.Builder
+	b.WriteString(strings.TrimRight(body, "\n"))
+	fmt.Fprintf(&b, "\n\n### %s\n\n", i18n.Text(language, "reach.section"))
+	for _, line := range lines {
+		fmt.Fprintf(&b, "- %s\n", line)
+	}
+	return b.String()
 }

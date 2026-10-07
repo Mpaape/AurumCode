@@ -19,6 +19,7 @@ import (
 	"text/template"
 
 	"github.com/Mpaape/AurumCode/internal/deliberation"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
 
@@ -78,6 +79,8 @@ type Explainer struct {
 	Redact func(string) string
 	// Read reads a file of the reviewed revision (tools.Revision.Read).
 	Read func(path string) ([]byte, error)
+	// Language is the review language of the reasons it states.
+	Language string
 }
 
 // Explain asks the model and grounds its answer. A failed deliberation or
@@ -102,7 +105,7 @@ func (e Explainer) Explain(ctx context.Context, req Request) Explanation {
 	}
 	var a answer
 	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Answer.Text)), &a); err != nil {
-		out.Reason = "resposta fora do formato"
+		out.Reason = i18n.Text(e.Language, "reach.reason_malformed")
 		return out
 	}
 	return e.ground(out, a)
@@ -144,22 +147,23 @@ func (e Explainer) exists(loc Location) bool {
 	return loc.Line <= bytes.Count(data, []byte("\n"))+1
 }
 
-// Line is the explanation as one line of the review: where the use is (or
-// that none was found) and, always, that the finding and the verdict stand.
-func Line(x Explanation) string {
-	head := fmt.Sprintf("Dependencias: alcance de %s em %s (%s)", x.Request.AdvisoryID, x.Request.Package, x.Request.Manifest)
-	const stands = "o achado, a severidade e o veredito não mudam"
+// Line is the explanation as one line of the review in language: where the
+// use is (or that none was found) and, always, that the finding and the
+// verdict stand. The words come from the i18n catalog.
+func Line(x Explanation, language string) string {
+	head := i18n.Format(language, "reach.head", x.Request.AdvisoryID, x.Request.Package, x.Request.Manifest)
+	stands := i18n.Text(language, "reach.stands")
 	switch {
 	case x.Reason != "":
-		return fmt.Sprintf("%s: sem explicação (%s); %s", head, x.Reason, stands)
+		return i18n.Format(language, "reach.no_explanation", head, x.Reason, stands)
 	case x.Uses == UsesYes:
 		locs := make([]string, 0, len(x.Locations))
 		for _, l := range x.Locations {
 			locs = append(locs, fmt.Sprintf("%s:%d", l.File, l.Line))
 		}
-		return fmt.Sprintf("%s: usado em %s. %s; %s", head, strings.Join(locs, ", "), x.Text, stands)
+		return i18n.Format(language, "reach.used", head, strings.Join(locs, ", "), x.Text, stands)
 	case x.Uses == UsesNo:
-		return fmt.Sprintf("%s: o modelo não achou uso. %s; %s", head, x.Text, stands)
+		return i18n.Format(language, "reach.not_found", head, x.Text, stands)
 	}
-	return fmt.Sprintf("%s: uso indeterminado. %s; %s", head, x.Text, stands)
+	return i18n.Format(language, "reach.undetermined", head, x.Text, stands)
 }

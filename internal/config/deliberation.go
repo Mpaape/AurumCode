@@ -28,6 +28,9 @@ type DeliberationConfig struct {
 	// MaxReadBytes bounds what the repository tools (AUR-526) return to the
 	// model over one review; 0 means DefaultDeliberationMaxReadBytes.
 	MaxReadBytes int `yaml:"max_read_bytes"`
+	// MaxCacheBytes bounds the file bytes the repository tools keep in
+	// memory over one review; 0 means DefaultDeliberationMaxCacheBytes.
+	MaxCacheBytes int `yaml:"max_cache_bytes"`
 	// SecretPaths are globs of secret files the repository tools refuse,
 	// added to the embedded catalog (secret_paths.yml), never replacing it.
 	SecretPaths []string `yaml:"secret_paths"`
@@ -71,6 +74,7 @@ func (d *DeliberationConfig) Validate() error {
 		{"max_cost_tokens", d.MaxCostTokens},
 		{"per_tool_timeout_seconds", d.PerToolTimeoutSeconds},
 		{"max_read_bytes", d.MaxReadBytes},
+		{"max_cache_bytes", d.MaxCacheBytes},
 	} {
 		if f.value < 0 {
 			return fmt.Errorf("deliberation.%s: must be positive (got %d)", f.key, f.value)

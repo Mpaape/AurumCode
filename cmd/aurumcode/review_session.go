@@ -34,6 +34,12 @@ type reviewEnv struct {
 	llmModel       string // LLM_MODEL
 	outputFile     string // AURUMCODE_OUTPUT_FILE
 	permissionMode string // AURUMCODE_PR_PERMISSION_MODE
+	// ci is set when CI or GITHUB_ACTIONS is: the checkout may be a pull
+	// request's, so its own config cannot start an MCP server.
+	ci bool
+	// trustLocalMCP is AURUMCODE_TRUST_LOCAL_MCP=true: the operator's
+	// explicit opt-in to MCP sources of the local config under CI.
+	trustLocalMCP bool
 }
 
 // readReviewEnv snapshots the environment.
@@ -45,6 +51,8 @@ func readReviewEnv() reviewEnv {
 		llmModel:       os.Getenv("LLM_MODEL"),
 		outputFile:     os.Getenv("AURUMCODE_OUTPUT_FILE"),
 		permissionMode: os.Getenv("AURUMCODE_PR_PERMISSION_MODE"),
+		ci:             os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "",
+		trustLocalMCP:  os.Getenv("AURUMCODE_TRUST_LOCAL_MCP") == "true",
 	}
 }
 
@@ -184,6 +192,9 @@ type reviewState struct {
 	// depReport is the dependency check's report, nil when the
 	// configuration declares no dependencies section.
 	depReport *dependencies.Report
+	// reachLines are the dependency reachability explanations, published
+	// in their own section of the review, never among the limitations.
+	reachLines []string
 }
 
 // newReviewState starts the shared state of one session.

@@ -64,10 +64,26 @@ permissão. Servidor ausente, lento, com resposta malformada ou acima de
 64 KiB vira aviso de omissão no stderr e a revisão segue sem ele.
 
 A fonte só existe em configuração confiável: a política central sempre; o
-`.aurumcode/config.yml` local no `--base`; no `--pr`, o config lido na
-base da PR, nunca o da head (uma PR não adiciona a própria fonte). Um item
-sem `name`, `command` ou `tool`, com nome repetido, `send` diferente de
-`changed_paths` ou `timeout_seconds` fora de 0..10 é erro de configuração.
+`.aurumcode/config.yml` local no `--base` fora de CI; no `--pr`, o config
+lido na base da PR, nunca o da head (uma PR não adiciona a própria fonte).
+Um item sem `name`, `command` ou `tool`, com nome repetido, `send` diferente
+de `changed_paths` ou `timeout_seconds` fora de 0..10 é erro de
+configuração.
+
+**Risco: o servidor é um processo que o Aurum executa.** Por isso:
+
+- `command[0]` precisa ser caminho absoluto ou nome simples resolvido pelo
+  `PATH` (`adr-mcp-server`); caminho relativo (`./tools/mcp`) é recusado,
+  porque executaria um arquivo do checkout revisado, que no `--pr` é a head
+  da PR. Um caminho absoluto dentro do workspace tem o mesmo risco: aponte
+  para um binário instalado fora do checkout.
+- O servidor roda num diretório temporário vazio (nunca no checkout),
+  apagado ao fim, e recebe só `PATH`, `HOME` e as variáveis de `env`; não
+  declare em `env` um token que a fonte não precise.
+- No `--base` sob CI (`CI` ou `GITHUB_ACTIONS` definidos), o checkout pode
+  ser o de uma PR: as fontes do config local são ignoradas com aviso, a
+  menos que o workflow defina `AURUMCODE_TRUST_LOCAL_MCP=true`. Fontes da
+  política central valem sempre.
 
 ### Skills em diretório, por linguagem
 
@@ -1493,6 +1509,7 @@ deliberation:
   max_cost_tokens: 60000         # tokens da deliberação além do prompt base
   per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
   max_read_bytes: 262144         # bytes que as ferramentas do repositório devolvem na revisão
+  max_cache_bytes: 67108864      # bytes de arquivos que as ferramentas mantêm em memória
   secret_paths: []               # globs de segredo somados ao catálogo embutido
   dependency_reachability: false # AUR-531: explicar o uso da parte vulnerável
 ```
@@ -1527,7 +1544,9 @@ de outro commit é recusado. Também são recusados caminho absoluto ou com
 `..`, link simbólico (na árvore ou no disco, inclusive diretório que aponta
 para fora do repositório), arquivo de `ignore` e arquivo de segredo (o
 catálogo embutido `.env`, `*.pem`, `*.key`, `id_rsa*`, `.ssh/`, `.aws/`,
-entre outros, mais `deliberation.secret_paths`). Todo resultado passa pela
+`kubeconfig`, `.docker/config.json`, `*service-account*.json`, entre
+outros, mais `deliberation.secret_paths`, comparados sem diferenciar
+maiúsculas de minúsculas). Todo resultado passa pela
 redação AUR-009 antes de ir ao modelo. No `--pr` com checkout não verificado
 elas não são oferecidas.
 
@@ -1547,9 +1566,9 @@ média cujo prompt base passa de 60000 tokens e que não pede ferramenta não
 estoura o teto; três rodadas com resultados de ferramenta de até 8 KiB cada
 cabem com folga no padrão.
 
-Estourar `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds` ou
-`max_read_bytes` (a revisão fica parcial: o resultado que passaria do teto
-não é devolvido) torna a revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
+Estourar `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`,
+`max_read_bytes` ou `max_cache_bytes` (a revisão fica parcial: o resultado
+que passaria do teto não é devolvido) torna a revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
 com os demais motivos do gate: a saída é 1 (a revisão conta como não feita
 nos dois caminhos), a auditoria (com o campo `deliberation` e seu `limit`) e o
 SARIF são gravados, no `--pr` o status `aurumcode/policy-gate` sai em failure
@@ -1564,8 +1583,9 @@ cada advisory introduzido ou pré-existente da verificação de dependências
 ganha uma explicação do modelo: ele procura no repositório, com as
 ferramentas acima e em qualquer linguagem, o uso do pacote e das funções
 citadas no advisory, e o parecer diz onde o uso aparece (arquivo e linha que
-a revisão contém; local inventado é descartado) ou que não achou uso. A
-explicação acompanha o achado e nunca o rebaixa, apaga nem muda severidade
+a revisão contém; local inventado é descartado) ou que não achou uso, numa
+seção própria do parecer ("Alcance das dependências vulneráveis", no idioma
+da revisão), fora das limitações. A explicação acompanha o achado e nunca o rebaixa, apaga nem muda severidade
 ou veredito; rebaixar é papel de exceção da segurança. Até 5 explicações por
 revisão; sem provedor com ferramentas ou checkout verificado, o parecer diz
 que não há explicação.

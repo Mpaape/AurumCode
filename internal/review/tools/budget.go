@@ -11,6 +11,10 @@ import (
 // configuration spells it (deliberation.max_read_bytes).
 const LimitMaxReadBytes = "max_read_bytes"
 
+// LimitMaxCacheBytes names the ceiling of file bytes the repository tools
+// keep in memory over one review (deliberation.max_cache_bytes).
+const LimitMaxCacheBytes = "max_cache_bytes"
+
 // defaultMaxReadBytes applies when a budget is built without a ceiling.
 const defaultMaxReadBytes = 256 * 1024
 
@@ -22,6 +26,8 @@ type ByteBudget struct {
 	mu        sync.Mutex
 	max, used int
 	exhausted bool
+	// limit and detail name what exhausted the budget.
+	limit, detail string
 }
 
 // NewByteBudget is a budget of max bytes (a non-positive max takes the
@@ -37,8 +43,12 @@ func NewByteBudget(max int) *ByteBudget {
 func (b *ByteBudget) Charge(n int) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.exhausted || b.used+n > b.max {
-		b.exhausted = true
+	if b.exhausted {
+		return fmt.Errorf("teto de %s atingido; a revisão fica parcial", b.limit)
+	}
+	if b.used+n > b.max {
+		b.exhausted, b.limit = true, LimitMaxReadBytes
+		b.detail = fmt.Sprintf("%d de %d bytes devolvidos pelas ferramentas do repositório", b.used, b.max)
 		return fmt.Errorf("teto de %s atingido (%d de %d bytes já devolvidos); a revisão fica parcial", LimitMaxReadBytes, b.used, b.max)
 	}
 	b.used += n
@@ -55,10 +65,31 @@ func (b *ByteBudget) Exhausted() bool {
 	return b.exhausted
 }
 
+// Exhaust marks the budget exhausted by another ceiling of the same
+// review (the file cache's): nothing more is returned and the review is
+// partial, exactly as for max_read_bytes.
+func (b *ByteBudget) Exhaust(limit, detail string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if !b.exhausted {
+		b.exhausted, b.limit, b.detail = true, limit, detail
+	}
+}
+
+// Limit names the ceiling that exhausted the budget ("" while it is not).
+func (b *ByteBudget) Limit() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.limit
+}
+
 // Detail says how the budget was spent, for the limit error.
 func (b *ByteBudget) Detail() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.detail != "" {
+		return b.detail
+	}
 	return fmt.Sprintf("%d de %d bytes devolvidos pelas ferramentas do repositório", b.used, b.max)
 }
 
@@ -86,7 +117,7 @@ func PartialLimit(offers []Offer) func() *deliberation.LimitError {
 	return func() *deliberation.LimitError {
 		for _, b := range budgets {
 			if b.Exhausted() {
-				return &deliberation.LimitError{Limit: LimitMaxReadBytes, Detail: b.Detail()}
+				return &deliberation.LimitError{Limit: b.Limit(), Detail: b.Detail()}
 			}
 		}
 		return nil

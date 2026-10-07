@@ -1,12 +1,14 @@
 // MCP context sources: review.context.mcp entries become context
 // providers whose answer goes to the prompt's repository-context slot with
 // origin mcp:<name>/<tool>. Only trusted configuration starts a server: the
-// central policy always; the repository's own config in --base (the
-// operator's checkout) and in --pr only when it was read at the base ref,
-// never from the pull request's head.
+// central policy always; the repository's own config in --base outside CI
+// (the operator's checkout) or under CI with AURUMCODE_TRUST_LOCAL_MCP=true,
+// and in --pr only when it was read at the base ref, never from the pull
+// request's head.
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -55,4 +57,19 @@ func mcpContextProviders(sources []config.MCPContextSource, filter *redaction.Fi
 		})
 	}
 	return out
+}
+
+// localMCPTrusted reports whether --base may start the local config's MCP
+// servers: always outside CI; under CI (the checkout may be a pull
+// request's) only with the operator's AURUMCODE_TRUST_LOCAL_MCP=true. An
+// ignored source is never silent.
+func (s *reviewState) localMCPTrusted() bool {
+	env := s.env()
+	if !env.ci || env.trustLocalMCP {
+		return true
+	}
+	if s.cfg != nil && len(s.cfg.Review.Context.MCP) > 0 {
+		fmt.Fprintf(s.stderr, "aurumcode review: review.context.mcp do config local ignorado em CI: o checkout pode ser de uma PR; declare a fonte na política central ou defina AURUMCODE_TRUST_LOCAL_MCP=true\n")
+	}
+	return false
 }

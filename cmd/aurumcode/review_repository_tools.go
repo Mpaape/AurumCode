@@ -52,6 +52,8 @@ func (s *reviewState) reviewedRevision() (*reviewtools.Revision, error) {
 		Ignored: s.cfg.IgnoresPath,
 		Secret:  s.cfg.IsSecretPath,
 		Budget:  reviewtools.NewByteBudget(s.cfg.Deliberation.EffectiveMaxReadBytes()),
+		// The file cache's ceiling exhausts the same budget: partial review.
+		MaxCacheBytes: s.cfg.Deliberation.EffectiveMaxCacheBytes(),
 	})
 }
 
