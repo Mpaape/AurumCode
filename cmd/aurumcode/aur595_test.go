@@ -255,3 +255,20 @@ func TestAUR595BasePromptAboveTheCeilingConcludes(t *testing.T) {
 		t.Fatalf("base_tokens=%d cost_tokens=%d, want a base prompt above the 300 ceiling and a cost within it", d.BaseTokens, d.CostTokens)
 	}
 }
+
+// AC-003: an auth header the engine printed as its last error line is
+// redacted in every output, though the detail is joined into one line.
+func TestAUR595EngineHeaderLineIsRedacted(t *testing.T) {
+	base, head := aur595Checkout(t)
+	secret := "tok" + strings.Repeat("8", 14)
+	var scanned string
+	_, stderr, posted, reason := aur595Review(t, base, head, aur595Runner{scanned: &scanned, stderrLine: "Authorization: Bearer " + secret})
+	for name, text := range map[string]string{"stderr": stderr, "audit": reason, "review": posted} {
+		if strings.Contains(text, secret) {
+			t.Fatalf("%s carries the header value:\n%s", name, text)
+		}
+		if !strings.Contains(text, "gitleaks: execution failed: exit status 2: Authorization: "+redaction.Marker) {
+			t.Fatalf("%s does not carry the redacted header detail:\n%s", name, text)
+		}
+	}
+}

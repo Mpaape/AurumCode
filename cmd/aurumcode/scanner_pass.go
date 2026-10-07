@@ -14,6 +14,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/scanner"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -76,7 +77,7 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 		if scan.Reason = out.Reason; scan.Reason == "" {
 			scan.Issues = s.scannerIssues(out.Findings, scan.Origin())
 		} else {
-			scan.Detail = s.redactDetail(out.Detail)
+			scan.Detail = scanner.Summarize(out.Err, s.redactor())
 		}
 	}
 	return scan
@@ -96,13 +97,14 @@ func (s *reviewState) scannerIssues(findings []scanner.Finding, origin string) [
 	return issues
 }
 
-// redactDetail passes a failed scan's detail through the review's redaction
-// filter: it quotes engine output, which may quote the scanned content.
-func (s *reviewState) redactDetail(detail string) string {
-	if s.filter == nil || detail == "" {
-		return detail
+// redactor is the review's redaction filter, or a fresh one: a failed
+// scan's detail quotes engine output, which may quote the scanned content,
+// and is never published unredacted.
+func (s *reviewState) redactor() scanner.Redactor {
+	if s.filter != nil {
+		return s.filter.Redact
 	}
-	return s.filter.Redact(detail)
+	return redaction.NewFilter().Redact
 }
 
 // scanIssues is every scanner's issues, in declaration order.

@@ -26,11 +26,6 @@ const (
 	// .gitleaks.toml at the scanned root (gitleaks' documented precedence),
 	// so the rule base is always the pinned one.
 	pinnedConfig = "[extend]\nuseDefault = true\n"
-	// maxQuoted bounds any tool output quoted in an error.
-	maxQuoted = 64
-	// maxQuotedStderr bounds the error output of a failed command quoted
-	// in an error: enough for git's or gitleaks' last message.
-	maxQuotedStderr = 160
 )
 
 // The names of the range ends in an error.
@@ -70,7 +65,7 @@ func binaryVersion(ctx context.Context, run scanner.Command, root string) (strin
 	}
 	version := strings.TrimSpace(stdout)
 	if version != PinnedVersion {
-		return "", fmt.Errorf("%w: got %q, pinned %s", ErrVersionMismatch, bounded(version), PinnedVersion)
+		return "", fmt.Errorf("%w: got %q, pinned %s", ErrVersionMismatch, version, PinnedVersion)
 	}
 	return version, nil
 }
@@ -86,7 +81,7 @@ func verifyRange(ctx context.Context, run scanner.Command, root string, r scanne
 	ends := [][2]string{{endBase, r.Base}, {endHead, r.Head}}
 	for _, end := range ends {
 		if !commitID.MatchString(end[1]) {
-			return fmt.Errorf("%w: %s %q is not a full commit id", ErrBadRange, end[0], bounded(end[1]))
+			return fmt.Errorf("%w: %s %q is not a full commit id", ErrBadRange, end[0], end[1])
 		}
 	}
 	stdout, stderr, err := run(ctx, root, gitBinary, "rev-parse", "--is-shallow-repository")
@@ -175,19 +170,19 @@ func ignoreFileFinding(root string) (scanner.Finding, bool) {
 	}, true
 }
 
-// quotedStderr is the last non-empty line of a command's error output,
-// bounded, as an error suffix ("" when there is none): the line where git
-// and gitleaks state why they failed.
+// quotedStderr is the last non-empty line of a command's error output as
+// an error suffix ("" when there is none): the line where git and gitleaks
+// state why they failed. The line is kept whole and on a line of its own,
+// so the redaction that runs before any summary (scanner.Summarize) still
+// sees a credential or an auth header exactly as the tool printed it; a
+// cut here could split a secret below the redaction patterns.
 func quotedStderr(stderr string) string {
 	lines := strings.Split(strings.TrimSpace(stderr), "\n")
 	last := strings.TrimSpace(lines[len(lines)-1])
 	if last == "" {
 		return ""
 	}
-	if len(last) > maxQuotedStderr {
-		last = last[:maxQuotedStderr]
-	}
-	return ": " + last
+	return ":\n" + last
 }
 
 // loggedErrorLine is the first line of stderr at gitleaks' error or fatal
@@ -199,12 +194,4 @@ func loggedErrorLine(stderr string) string {
 		}
 	}
 	return ""
-}
-
-// bounded trims tool output quoted in an error.
-func bounded(s string) string {
-	if len(s) > maxQuoted {
-		return s[:maxQuoted]
-	}
-	return s
 }
