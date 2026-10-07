@@ -225,6 +225,12 @@ func TestBatchCeilingLeavesFilesOutAndWithholdsApproval(t *testing.T) {
 			if !strings.Contains(audit, `"c/one.go"`) || !strings.Contains(audit, `"complete": false`) {
 				t.Fatalf("the audit must record the files left out\n%s", audit)
 			}
+			// A partial review is never cached: the second run (same cache
+			// directory) still leaves the same files out and still withholds.
+			again, out2 := aur522Review(t)
+			if again != 1 || !strings.Contains(out2, "  - c/two.go") {
+				t.Fatalf("second run exit=%d, want 1 with c/two.go still left out: a file nobody read became a cache hit\n%s", again, out2)
+			}
 		})
 	}
 }
