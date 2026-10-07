@@ -29,7 +29,10 @@ func TestTooLargeDiffWithBaseAbsentFromCheckoutFailsClosed(t *testing.T) {
 	if code != 1 || posted != "" || prompt != "" {
 		t.Fatalf("exit=%d posted=%q prompt=%d bytes, want exit 1 and nothing sent or published\n%s", code, posted, len(prompt), stderr)
 	}
-	if !strings.Contains(stderr, "base commit is not in the checkout") {
-		t.Fatalf("the failure must name the base absent from the checkout\n%s", stderr)
+	// With git the range resolver refuses the base; without git (object
+	// database reader) reading the absent commit fails. Either way the
+	// review declares that the checkout could not yield the diff.
+	if !strings.Contains(stderr, "could not be computed from the checkout either") {
+		t.Fatalf("the failure must say the checkout could not yield the diff\n%s", stderr)
 	}
 }
