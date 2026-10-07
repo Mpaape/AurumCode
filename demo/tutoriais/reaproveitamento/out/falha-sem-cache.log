@@ -26,8 +26,8 @@ exit_code=3
 RESULTADO: sem cache a revisao funciona, mas o veredito nao e compartilhado
 --- revisao inconclusiva nunca grava veredito
 $ aurumcode review --base main --politica /policy
-generated file, skipped: gerado.go
 aurumcode review: policy gate: review inconclusive (partial_coverage)
+generated file, skipped: gerado.go
 ## Code Review Summary
 
 **Verdict:** Comment
