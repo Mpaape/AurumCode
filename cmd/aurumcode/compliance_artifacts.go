@@ -29,6 +29,8 @@ type complianceArtifactInputs struct {
 	// deliberation is the tool conversation's transcript, nil when the
 	// model was offered no tool.
 	deliberation *deliberation.Transcript
+	// batches are the batches of a review in batches, nil otherwise.
+	batches []render.AuditBatch
 
 	// policyDir/centralCfg feed render.PolicyDigest (AC-001); centralCfg nil
 	// means no policy was declared this run, exactly as elsewhere.
@@ -150,6 +152,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.EvidenceAssessments = render.AssessedEvidence(in.issues)
 	rec.ProposedExceptions = in.proposedExceptions
 	rec.Deliberation = in.deliberation
+	rec.Batches = in.batches
 	return render.WriteAuditRecord(in.auditoriaPath, rec, filter)
 }
 
