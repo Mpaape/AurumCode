@@ -2,17 +2,19 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -25,42 +27,41 @@ const aur595Config = "gate:\n  fail_on: [error]\n  inconclusive: block\nquality_
 
 const aur595Diff = "diff --git a/app.go b/app.go\n@@ -1,1 +1,2 @@\n package demo\n+func Change() {}\n"
 
-// aur595Checkout builds, with the real git, the checkout a pull_request job
-// has: origin owner/repo, a base commit and the pull request head on top of
-// it, clean, as the working directory. It returns the base and head ids.
+// aur595Checkout builds the checkout a pull_request job has, without a git
+// binary (the sealed profile has none): origin owner/repo, a base commit
+// and the pull request head on top of it as loose objects, clean, as the
+// working directory. It returns the base and head ids.
 func aur595Checkout(t *testing.T) (base, head string) {
 	t.Helper()
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not on PATH")
-	}
 	dir := t.TempDir()
-	git := func(args ...string) string {
+	write := func(name, body string) {
 		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=Fixture", "GIT_AUTHOR_EMAIL=fixture@example.invalid",
-			"GIT_COMMITTER_NAME=Fixture", "GIT_COMMITTER_EMAIL=fixture@example.invalid", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
+		p := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			t.Fatal(err)
 		}
-		return strings.TrimSpace(string(out))
-	}
-	write := func(body string) {
-		t.Helper()
-		if err := os.WriteFile(filepath.Join(dir, "app.go"), []byte(body), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	git("init", "-q", "-b", "main")
-	git("remote", "add", "origin", "https://github.com/owner/repo.git")
-	write("package demo\n")
-	git("add", "app.go")
-	git("commit", "-q", "-m", "base")
-	base = git("rev-parse", "HEAD")
-	write("package demo\nfunc Change() {}\n")
-	git("commit", "-q", "-am", "head")
-	head = git("rev-parse", "HEAD")
+	commit := func(content, parent, message string) string {
+		t.Helper()
+		blob := gitObject(t, dir, "blob", []byte(content))
+		tree := gitObject(t, dir, "tree", treeEntry(t, "100644", "app.go", blob))
+		body := "tree " + tree + "\n"
+		if parent != "" {
+			body += "parent " + parent + "\n"
+		}
+		body += "author Fixture <fixture@example.invalid> 1 +0000\ncommitter Fixture <fixture@example.invalid> 1 +0000\n\n" + message + "\n"
+		return gitObject(t, dir, "commit", []byte(body))
+	}
+	base = commit("package demo\n", "", "base")
+	headContent := "package demo\nfunc Change() {}\n"
+	head = commit(headContent, base, "head")
+	write(".git/HEAD", "ref: refs/heads/main\n")
+	write(".git/refs/heads/main", head+"\n")
+	write(".git/config", "[core]\n\trepositoryformatversion = 0\n\tbare = false\n[remote \"origin\"]\n\turl = https://github.com/owner/repo.git\n")
+	write("app.go", headContent)
 	for _, key := range []string{"LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "AURUMCODE_LLM_INPUT_USD_PER_1K", "AURUMCODE_LLM_OUTPUT_USD_PER_1K"} {
 		t.Setenv(key, "")
 	}
@@ -68,26 +69,49 @@ func aur595Checkout(t *testing.T) (base, head string) {
 	return base, head
 }
 
-// aur595Gitleaks puts a fake gitleaks first on PATH: the pinned version,
-// and a scan that records its --log-opts range and writes an empty report.
-// stderrLine, when set, makes the scan fail with that error output. The
-// range is never checked here: the engine's own verifyRange runs the real
-// git against the checkout first.
-func aur595Gitleaks(t *testing.T, stderrLine string) (record string) {
-	t.Helper()
-	bin := t.TempDir()
-	record = filepath.Join(bin, "range.txt")
-	fail := ""
-	if stderrLine != "" {
-		fail = fmt.Sprintf("printf '%%s\\n' %s >&2; exit 2\n", shellQuote(stderrLine))
+// aur595Runner is the scanner command runner of these tests. git answers
+// from the checkout's own object store (a commit is present only when its
+// object is), so the engine's verifyRange decides on the real repository;
+// gitleaks reports the pinned version and, for a scan, records its
+// --log-opts range and writes an empty report, or fails with stderrLine.
+type aur595Runner struct {
+	stderrLine string
+	scanned    *string
+}
+
+func (r aur595Runner) run(_ context.Context, dir, binary string, args ...string) (string, string, error) {
+	switch {
+	case binary == "git" && len(args) == 2 && args[0] == "rev-parse" && args[1] == "--is-shallow-repository":
+		if _, err := os.Stat(filepath.Join(dir, ".git", "shallow")); err == nil {
+			return "true\n", "", nil
+		}
+		return "false\n", "", nil
+	case binary == "git" && len(args) == 3 && args[0] == "cat-file" && args[1] == "-e":
+		id := strings.TrimSuffix(args[2], "^{commit}")
+		if len(id) == 40 {
+			if _, err := os.Stat(filepath.Join(dir, ".git", "objects", id[:2], id[2:])); err == nil {
+				return "", "", nil
+			}
+		}
+		return "", "fatal: Not a valid object name " + args[2] + "\n", errors.New("exit status 128")
+	case binary == "gitleaks" && len(args) == 1 && args[0] == "version":
+		return "v8.30.1\n", "", nil
+	case binary == "gitleaks" && r.stderrLine != "":
+		return "", r.stderrLine + "\n", errors.New("exit status 2")
+	case binary == "gitleaks":
+		for i, a := range args {
+			if strings.HasPrefix(a, "--log-opts=") {
+				*r.scanned = strings.TrimPrefix(a, "--log-opts=")
+			}
+			if a == "--report-path" && i+1 < len(args) {
+				if err := os.WriteFile(args[i+1], []byte("[]"), 0o600); err != nil {
+					return "", "", err
+				}
+			}
+		}
+		return "", "", nil
 	}
-	script := "#!/usr/bin/env bash\n" +
-		"if [ \"$1\" = version ]; then echo v8.30.1; exit 0; fi\n" + fail +
-		"for a in \"$@\"; do case \"$a\" in --log-opts=*) printf '%s\\n' \"${a#--log-opts=}\" > " + shellQuote(record) + ";; esac; done\n" +
-		"while [ $# -gt 0 ]; do if [ \"$1\" = --report-path ]; then printf '[]' > \"$2\"; fi; shift; done\n"
-	writeExec(t, filepath.Join(bin, "gitleaks"), script)
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return record
+	return "", "", fmt.Errorf("unexpected command %s %v", binary, args)
 }
 
 // aur595Server is the GitHub API of pull request 48 whose head is headSHA:
@@ -128,7 +152,7 @@ func aur595Server(t *testing.T, headSHA string, posted *string) *httptest.Server
 // aur595Review runs --pr 48 as the review workflow does: GITHUB_SHA is the
 // merge commit, AURUMCODE_BASE_SHA the given base. It returns the exit
 // code, stderr, the posted body and the audit's gate reason.
-func aur595Review(t *testing.T, base, head string) (code int, stderr, posted, auditReason string) {
+func aur595Review(t *testing.T, base, head string, runner aur595Runner) (code int, stderr, posted, auditReason string) {
 	t.Helper()
 	server := aur595Server(t, head, &posted)
 	fixture := filepath.Join(t.TempDir(), "response.json")
@@ -143,7 +167,8 @@ func aur595Review(t *testing.T, base, head string) (code int, stderr, posted, au
 	t.Setenv("AURUMCODE_BASE_SHA", base)
 	audit := filepath.Join(t.TempDir(), "audit.json")
 	var out, errOut strings.Builder
-	code = runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter()}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true,
+	deps := reviewDeps{scanners: scanner.Executor{Command: runner.run}}
+	code = runPRReview(reviewIO{stdout: &out, stderr: &errOut, filter: redaction.NewFilter(), deps: deps}, prReviewOptions{prNumber: 48, repo: "owner/repo", publicar: true,
 		publicationSet: true, publication: "review", auditoriaPath: audit})
 	var rec aur580Audit
 	readJSON(t, audit, &rec)
@@ -154,13 +179,12 @@ func aur595Review(t *testing.T, base, head string) (code int, stderr, posted, au
 // the engine still scans the pull request's own base..head and concludes.
 func TestAUR595GitleaksScansThePullRequestHeadNotTheMergeCommit(t *testing.T) {
 	base, head := aur595Checkout(t)
-	record := aur595Gitleaks(t, "")
-	code, stderr, _, reason := aur595Review(t, base, head)
-	scanned, err := os.ReadFile(record)
-	if err != nil {
-		t.Fatalf("gitleaks never scanned (exit=%d): %v\nstderr=%s", code, err, stderr)
+	var scanned string
+	code, stderr, _, reason := aur595Review(t, base, head, aur595Runner{scanned: &scanned})
+	if scanned == "" {
+		t.Fatalf("gitleaks never scanned (exit=%d)\nstderr=%s", code, stderr)
 	}
-	if got := strings.TrimSpace(string(scanned)); got != base+".."+head {
+	if got := scanned; got != base+".."+head {
 		t.Fatalf("gitleaks scanned %q, want the pull request range %s..%s", got, base, head)
 	}
 	if code != 0 || strings.Contains(stderr, "secrets_execution_error") || strings.Contains(reason, "inconclusivo") {
@@ -173,9 +197,9 @@ func TestAUR595GitleaksScansThePullRequestHeadNotTheMergeCommit(t *testing.T) {
 // the audit and the published review.
 func TestAUR595AbsentBaseIsInconclusiveWithItsDetail(t *testing.T) {
 	_, head := aur595Checkout(t)
-	aur595Gitleaks(t, "")
+	var scanned string
 	missing := strings.Repeat("0", 39) + "9"
-	code, stderr, posted, reason := aur595Review(t, missing, head)
+	code, stderr, posted, reason := aur595Review(t, missing, head, aur595Runner{scanned: &scanned})
 	detail := "base commit " + missing + " not found in the checkout"
 	if code == 0 || !strings.Contains(stderr, "inconclusivo (secrets_execution_error) [detalhe: ") || !strings.Contains(stderr, detail) {
 		t.Fatalf("exit=%d, want an inconclusive gate line naming the absent base; stderr=%s", code, stderr)
@@ -193,8 +217,8 @@ func TestAUR595AbsentBaseIsInconclusiveWithItsDetail(t *testing.T) {
 func TestAUR595EngineFailureDetailIsRedacted(t *testing.T) {
 	base, head := aur595Checkout(t)
 	credential := "ghp_" + strings.Repeat("Zq9", 12)
-	aur595Gitleaks(t, "fatal: cannot read pack for token "+credential)
-	code, stderr, posted, reason := aur595Review(t, base, head)
+	var scanned string
+	code, stderr, posted, reason := aur595Review(t, base, head, aur595Runner{scanned: &scanned, stderrLine: "fatal: cannot read pack for token " + credential})
 	for name, text := range map[string]string{"stderr": stderr, "audit": reason, "review": posted} {
 		if strings.Contains(text, credential) {
 			t.Fatalf("%s carries the credential the engine printed:\n%s", name, text)
