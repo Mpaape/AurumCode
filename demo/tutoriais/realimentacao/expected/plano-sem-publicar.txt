@@ -1,0 +1,16 @@
+$ aurumcode realimentacao --repos exemplo/app --repo-politica exemplo/politica
+realimentação: 2 sinal(is), 2 novo(s)
+plano (sem --publicar nada foi gravado): Realimentação do gate: 2 sinal(is), 1 proposta(s)
+  realimentacao/candidatos/escapado-a8108400ff71ca95.json
+  realimentacao/sinais.json
+  skills/seguranca.md
+### Query com parâmetros vinculados não é concatenação
+Sinais citados: `9d9a218d7ddf0763`
+- Desligar a regra de SQL: não cita sinal
+| `9d9a218d7ddf0763` | falso_positivo | exemplo/app | `111111111111` | seguranca#sql-concatenado | app/pedidos.py:12 |
+| `a8108400ff71ca95` | defeito_escapado | exemplo/app | `2222222` |
+- https://github.example.test/exemplo/app/pull/7#issuecomment-502: autor sem associação ao repositório
+**Não medido.**
+exit_code=0
+RESULTADO: o plano cita os sinais e descarta a proposta sem sinal
+--- escritas no GitHub falso: 0

@@ -29,6 +29,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [dados-de-analise](../../docs/tutorials/dados-de-analise.md) | `dados-de-analise/` | declarado-ou-nao, vencido, cache, workflow-agendado, adulterado, indisponivel |
 | [provedores](../../docs/tutorials/provedores.md) | `provedores/` | sem-perfil, azure-openai, anthropic, catalogo-do-operador, falha-fora-do-schema, falha-perfil-desconhecido (provedor falso dentro do container, rede none) |
 | [changelog](../../docs/tutorials/changelog.md) | `changelog/` | entrada-valida, consolidar-release, sugestao-separada, pr-desliga-o-modo, log-de-agente, falha-entrada-ausente |
+| [realimentacao](../../docs/tutorials/realimentacao.md) | `realimentacao/` | plano-sem-publicar, publica-uma-pr, rodada-sem-novidade, medir-melhora, medir-regressao, falha-sem-modelo (GitHub falso em 127.0.0.1, `github-falso.py` do tutorial) |
 
 ## Como rodar
 
