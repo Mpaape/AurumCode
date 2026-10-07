@@ -1,0 +1,89 @@
+name: AurumCode feedback loop
+
+# Ciclo de realimentacao (AUR-532), reutilizavel. O repositorio da politica
+# central chama este workflow num agendamento:
+#
+#   on:
+#     schedule:
+#       - cron: '23 4 * * 1'
+#     workflow_dispatch:
+#   permissions:
+#     contents: write        # grava a branch aurum/realimentacao
+#     pull-requests: write   # abre ou atualiza a PR unica
+#   jobs:
+#     realimentacao:
+#       uses: Mpaape/AurumCode/.github/workflows/realimentacao.yml@<sha>
+#       with:
+#         org: minha-org
+#       secrets:
+#         SIGNALS_TOKEN: ${{ secrets.AURUM_SIGNALS_TOKEN }}
+#         LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+#         LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+#
+# Le os sinais da org (alertas dispensados, auditorias, /aurum perdeu) com
+# SIGNALS_TOKEN (leitura de security-events, actions e issues da org) e grava
+# so no repositorio da politica com o token do proprio job. Nada e aplicado
+# a politica: a PR e revisada e mergeada por gente. Sem sinal novo, nada e
+# aberto nem alterado.
+on:
+  workflow_call:
+    inputs:
+      org:
+        description: Organizacao cujos repositorios sao lidos.
+        required: false
+        type: string
+        default: ''
+      repos:
+        description: Repositorios owner/nome separados por virgula (alem de org).
+        required: false
+        type: string
+        default: ''
+    secrets:
+      SIGNALS_TOKEN:
+        required: true
+      LLM_API_KEY:
+        required: true
+      LLM_BASE_URL:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurumcode-realimentacao-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  realimentacao:
+    name: Realimentacao da politica
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout AurumCode
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Collect signals and propose
+        env:
+          ORG: ${{ inputs.org }}
+          REPOS: ${{ inputs.repos }}
+          POLICY_REPO: ${{ github.repository }}
+          SIGNALS_TOKEN: ${{ secrets.SIGNALS_TOKEN }}
+          POLICY_TOKEN: ${{ github.token }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+        run: >-
+          docker run --rm
+          -e ORG -e REPOS -e POLICY_REPO -e SIGNALS_TOKEN -e POLICY_TOKEN
+          -e LLM_API_KEY -e LLM_BASE_URL
+          -v "${GITHUB_WORKSPACE}:/src"
+          -w /src
+          golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+          sh scripts/ci/realimentacao.sh

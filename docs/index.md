@@ -45,7 +45,10 @@ Tutorial: [Aurum no seu agente](tutorials/agente.md).
 Skills de convenção escritas em Markdown pelos times e uma política central,
 mantida num repositório da organização, que `rules` e `gate` do repositório
 do dev não conseguem afrouxar. Referência:
-[Política central](configuration.md#politica-central).
+[Política central](configuration.md#politica-central) e
+[Realimentação da política](configuration.md#realimentacao-da-politica-aur-532),
+que transforma falsos positivos, achados corrigidos e defeitos escapados numa
+PR de propostas para a política.
 
 Tutorial: [Skills de convenção](tutorials/skills.md) e [Política central](tutorials/politica-central.md).
 

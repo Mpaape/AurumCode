@@ -1876,3 +1876,48 @@ changelog_check:
   comando; o bloqueio do merge depende da proteção configurada.
 - Com política central, uma seção `changelog_check` da política decide
   sozinha (a do repositório é ignorada com aviso).
+
+## Realimentação da política (AUR-532)
+
+`aurumcode realimentacao` transforma o uso real do gate em uma pull request no
+repositório da política central. Não há banco próprio: os sinais já estão no
+GitHub, e o estado (quais sinais já foram propostos) fica no próprio
+repositório da política, em `realimentacao/sinais.json`.
+
+| Sinal | De onde vem |
+| --- | --- |
+| `falso_positivo` | Alerta de code scanning dispensado com o motivo *false positive* (repo, SHA, skill e seção da regra `skill#secao`, arquivo e linha). *Won't fix* e *used in tests* não são sinal. |
+| `verdadeiro_positivo` | Achado bloqueante de uma auditoria (`aurumcode-audit-<pr>`, AUR-521) que some na auditoria seguinte da mesma PR, com a linha do achado reescrita pelo diff entre as duas. |
+| `defeito_escapado` | Comentário `/aurum perdeu [<sha>] <descrição>` de OWNER, MEMBER ou COLLABORATOR em PR ou issue. Sem SHA, vale o head da PR; numa issue sem SHA o comando é recusado. Gera um caso candidato em `realimentacao/candidatos/`. |
+
+O modelo agrupa os sinais novos em propostas para as skills que a política
+declara em `review.context.skills`; proposta que não cita sinal, cita sinal
+desconhecido ou mira skill não declarada é descartada e listada na PR. Todo
+texto passa pela redação antes do modelo e da PR. Nada é aplicado à
+política: a PR (branch `aurum/realimentacao`) é única enquanto aberta e a
+segurança decide o merge. Rodar de novo sem sinal novo não abre nem altera
+nada.
+
+| Flag | Efeito |
+| --- | --- |
+| `--org` | Organização cujos repositórios são lidos. |
+| `--repos` | Repositórios `owner/nome` separados por vírgula (além de `--org`). |
+| `--repo-politica` | Repositório `owner/nome` da política que recebe a PR. |
+| `--desde` | Instante RFC 3339; comentários anteriores não são lidos. |
+| `--publicar` | Grava a branch e abre ou atualiza a PR (sem ela, só imprime o plano). |
+| `--medicao-antes`, `--medicao-depois` | Relatórios do corpus do AUR-523 (`multilang-report.json`). |
+| `--medir` | Só compara os dois relatórios; exit 1 em regressão ou relatório ausente. |
+
+- Tokens: `AURUMCODE_SIGNALS_TOKEN` lê a organização (alertas, artefatos,
+  comentários); `GITHUB_TOKEN` grava só no repositório da política. Sem o
+  primeiro, `GITHUB_TOKEN` lê também. A escrita usa a API de conteúdo com o
+  token do workflow; nenhuma identidade git é configurada.
+- Modelo: o mesmo da revisão (`LLM_API_KEY`/`LLM_BASE_URL` ou
+  `AURUMCODE_LLM_FIXTURE`). Sem modelo, há sinal novo e nenhuma proposta:
+  o comando falha, sem abrir PR.
+- Workflows reutilizáveis: `.github/workflows/realimentacao.yml` (agendado no
+  repositório da política) e `.github/workflows/realimentacao-medicao.yml`
+  (nas PRs da realimentação: roda o corpus na base e na PR, comenta a tabela
+  antes/depois e falha quando "aprovado com defeito" sobe, o recall cai ou um
+  lado não pôde ser medido). A medição espera o corpus no layout do AUR-523
+  em `corpus/cases` do repositório da política.
