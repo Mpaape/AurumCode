@@ -1,0 +1,11 @@
+== hook-pre-commit
+hook instalado: .git/hooks/pre-commit (copia de .agents/skills/aurum-review/hooks/pre-commit)
+$ git commit -m "limpa o diretorio"   # mudanca que descarta o erro
+app.go:10: [warning] O erro de os.RemoveAll e descartado, contra a convencao do time. (rule erros#err-001-erro-nunca-ignorado: ERR-001 Erro nunca ignorado)
+aurum pre-commit: the gate did not pass (exit 3); fix the findings and commit again
+exit_code=1
+RESULTADO: o hook barrou o commit; nenhum commit novo existe
+$ git commit -m "limpa o diretorio e devolve o erro"
+exit_code=0
+RESULTADO: com a correcao o gate passa e o commit existe
+RESULTADO: a worktree temporaria do hook foi removida
