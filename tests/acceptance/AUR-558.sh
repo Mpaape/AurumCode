@@ -47,12 +47,12 @@ cleanup_root() { chmod -R u+w -- "$1" >/dev/null 2>&1 || true; rm -rf -- "$1" >/
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp" "$run_dir/shim"
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOWORK=off GOENV=off
 export GOFLAGS='-mod=mod -p=1' GOMEMLIMIT=2GiB GOMAXPROCS=1
 
 # One GOCACHE for every nested script (each sets its own otherwise).
-printf '#!/bin/sh\nexport GOCACHE=%s\nexec %s "$@"\n' "$run_dir/gocache" "$real_go" >"$run_dir/shim/go"
+printf '#!/bin/sh\nexport GOCACHE=%s\nexec %s "$@"\n' "$GOCACHE" "$real_go" >"$run_dir/shim/go"
 chmod +x "$run_dir/shim/go"
 shared_path="$run_dir/shim:$PATH"
 
@@ -178,11 +178,18 @@ ac002_mutations() {
 ac002_mut002() {
   local root="$run_dir/mut2"
   make_copy "$root"
+  # AUR-538 anchors its mutation on the exact marker line of internal/gate
+  # withholdApproval and rewrites it with a fixed sed. Both are moved to a
+  # comment line of the same file ("// limitations."), so the mutation still
+  # applies cleanly and still compiles but changes nothing.
   local script="$root/tests/acceptance/AUR-538.sh" before
-  before="$(grep -Fc "local anchor='			result.Metadata[prompt.PolicyGateWithheldKey] = \"true\"'" "$script")"
+  before="$(grep -Fc "local anchor='	result.Metadata[prompt.PolicyGateWithheldKey] = \"true\"'" "$script" || true)"
   [[ "$before" == 1 ]] || infra mutation-anchor-missing
-  sed -i "s|local anchor='			result.Metadata\[prompt.PolicyGateWithheldKey\] = \"true\"'|local anchor='// ApplyOutcome publishes the decision'\"'\"'s lines (stderr and the review'\"'\"'s'|" "$script"
-  grep -Fq "ApplyOutcome publishes the decision" "$script" || infra mutation-not-applied
+  [[ "$(grep -Fxc '// limitations.' "$root/internal/gate/outcome.go" || true)" == 1 ]] || infra mutation-anchor-missing
+  sed -i "s|local anchor='	result.Metadata\[prompt.PolicyGateWithheldKey\] = \"true\"'|local anchor='// limitations.'|" "$script"
+  sed -i 's/s|^\\tresult.Metadata\\\[prompt.PolicyGateWithheldKey\\\] = "true"\$|\\t_ = prompt.PolicyGateWithheldKey \/\/ MUT-001: marker not set|/s|^\/\/ limitations.$|\/\/ MUT-001: no effect|/' "$script"
+  grep -Fq "local anchor='// limitations.'" "$script" || infra mutation-not-applied
+  grep -Fq 's|^// limitations.$|// MUT-001: no effect|' "$script" || infra mutation-not-applied
   run_nested "$root" AUR-538 AC-001-MUT-001
   if (( n_rc == 0 )); then cat "$n_out" >&2; fail 'mutation-survived:AUR-538-still-red'; fi
   if (( n_rc == 79 || n_rc == 64 )); then cat "$n_out" >&2; infra "mutation-infra:AUR-538:$n_rc"; fi

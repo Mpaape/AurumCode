@@ -75,7 +75,7 @@ mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 # OOM-killed under the sealed profile's memory ceiling; -p=1 plus the
 # GOMEMLIMIT/ulimit pair in run_go keeps peak memory bounded instead.
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 
 # run_go <dir> <go-args...> runs `go` inside dir with the memory ceiling and
@@ -114,14 +114,9 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/git
-  copy "$root" cmd/regenerate-docs
-  copy "$root" internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review
-  copy "$root" internal/pipeline
+  copy "$root" cmd internal pkg
   copy "$root" action.yml
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm pkg/types
-  copy "$root" tests/fixtures/repos/git-demo tests/fixtures/docs/goproject tests/fixtures/scm/github
+  copy "$root" tests/fixtures/repos/git-demo tests/fixtures/scm/github
   # cp -R preserves the read-only mode bits of the materialized input; the
   # staged copy is scratch from here on, so force it writable for the
   # mutation case's sed and for cleanup_root.
@@ -142,7 +137,10 @@ cat >"$fixture" <<'EOF'
       "line": 4,
       "severity": "warning",
       "rule_id": "security/hardcoded-secret",
-      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN)."
+      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
+      "evidence": "The added line at this location carries the value the message describes.",
+      "impact": "A reader of the change inherits the problem the message describes.",
+      "verification": "Change the flagged line and confirm the finding is gone."
     }
   ],
   "summary": "The change adds config/demo-tokens.txt, which commits plaintext credential-shaped values."
@@ -246,22 +244,24 @@ nominal_case() {
   [[ -e "$run_dir/capture-refuse.txt" ]] && fail call-counter-nonzero-when-refused
 
   # The margin case: on this fixture with the default price, the diff-only
-  # pre-flight estimate is ~$0.0914, but the enforced check (the larger,
+  # pre-flight estimate is ~$0.0313, but the enforced check (the larger,
   # fully assembled prompt) does not admit the request until --limite
-  # reaches ~$0.11. --limite 0.10 must still refuse even though $0.0914 <
-  # $0.10 -- exactly the case printCostEstimate/reportBudgetExceeded's
+  # reaches ~$0.075. --limite 0.05 must still refuse even though $0.0313 <
+  # $0.05 -- exactly the case printCostEstimate/reportBudgetExceeded's
   # wording is designed not to contradict (see docs/specs/AUR-433.md).
-  # NOTE: $0.10 is pinned to the CURRENT size of the prompt template
-  # internal/prompt.PromptBuilder assembles (system template + diff). If a
+  # NOTE: $0.05 is pinned to the CURRENT size of the prompt template
+  # internal/prompt.PromptBuilder assembles (system template + diff). AUR-589
+  # re-derived it (was $0.10 against a ~$0.0914 estimate and a ~$0.11
+  # admission) by bisecting --limite after the template shrank. If a
   # future card grows or shrinks that template, this boundary moves and
   # `boundary-wrong-exit` below stops meaning "AUR-433 regressed" and starts
   # meaning "re-derive the boundary" -- re-run the binary search this value
   # came from (bisect --limite between the printed diff-only estimate and a
   # value comfortably large) rather than assume a defect here.
-  run_review_captured "$shared_bin" "$repo_dir" "$run_dir/capture-boundary.txt" --base HEAD~1 --limite 0.10
+  run_review_captured "$shared_bin" "$repo_dir" "$run_dir/capture-boundary.txt" --base HEAD~1 --limite 0.05
   [[ "$rc" -eq 1 ]] || fail boundary-wrong-exit
   [[ -e "$run_dir/capture-boundary.txt" ]] && fail boundary-call-counter-nonzero
-  grep -Eq 'estimated cost \$[0-9]+\.[0-9]{4}, diff-only pre-flight \(--limite \$0\.1000\)' "$run_dir/out.stderr" || fail boundary-missing-estimate
+  grep -Eq 'estimated cost \$[0-9]+\.[0-9]{4}, diff-only pre-flight \(--limite \$0\.0500\)' "$run_dir/out.stderr" || fail boundary-missing-estimate
   grep -Fq 'refusing to call the model' "$run_dir/out.stderr" || fail boundary-missing-refusal
   # The refusal line must not restate a dollar figure as "the" cost that
   # was exceeded -- that would contradict the smaller estimate printed
@@ -299,7 +299,10 @@ nominal_case() {
       "line": 4,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN)."
+      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
+      "evidence": "The added line at this location carries the value the message describes.",
+      "impact": "A reader of the change inherits the problem the message describes.",
+      "verification": "Change the flagged line and confirm the finding is gone."
     }
   ],
   "summary": "err"
