@@ -1,6 +1,5 @@
 == falha-extensao-desconhecida
 $ aurumcode review --base main --fail-on error
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -24,6 +23,7 @@ Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
   - script.zzqx
 script.zzqx:2: [error] A senha esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: o achado em script.zzqx (sem gramatica) reprovou: extensao desconhecida nao esconde codigo
 prompt: ### File: script.zzqx
