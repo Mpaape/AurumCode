@@ -62,12 +62,27 @@ func (c Context) observed(name string) (Check, bool) {
 	return found, ok
 }
 
-// quotes reports that evidence, whitespace-folded, appears in excerpt: the
-// model cited what the log shows instead of describing it.
+// minQuotedChars is how many non-space characters a partial quote of the
+// log needs to count as citing it: a single word such as "error" appears in
+// almost any failing log and proves nothing.
+const minQuotedChars = 20
+
+// quotes reports that the model cited what the log shows instead of
+// describing it: evidence, whitespace-folded, is a whole line of the
+// excerpt, or a part of it with at least minQuotedChars non-space
+// characters.
 func quotes(excerpt, evidence string) bool {
-	ev := strings.Join(strings.Fields(evidence), " ")
+	ev := fold(evidence)
 	if ev == "" {
 		return false
 	}
-	return strings.Contains(strings.Join(strings.Fields(excerpt), " "), ev)
+	for _, line := range strings.Split(excerpt, "\n") {
+		if fold(line) == ev {
+			return true
+		}
+	}
+	return len(strings.ReplaceAll(ev, " ", "")) >= minQuotedChars && strings.Contains(fold(excerpt), ev)
 }
+
+// fold collapses whitespace runs into one space.
+func fold(text string) string { return strings.Join(strings.Fields(text), " ") }

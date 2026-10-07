@@ -45,3 +45,15 @@ func TestVerifyGroundedOnlyWhenEvidenceQuotesTheExcerpt(t *testing.T) {
 		t.Fatal("grounded without any excerpt")
 	}
 }
+
+// TestVerifyOneWordIsNotAQuote: a single word found in the log is not
+// observed evidence; a whole short line is.
+func TestVerifyOneWordIsNotAQuote(t *testing.T) {
+	ctx := Parse(`[{"name":"Lint","state":"FAILURE","excerpt":"golangci-lint run: error in main.go\nexit 1"}]`, "aurumcode/")
+	cases := map[string]bool{"error": false, "main.go": false, "exit 1": true, "golangci-lint run: error in main.go": true}
+	for evidence, want := range cases {
+		if got := ctx.Verify([]types.CIAnalysis{{Check: "Lint", Evidence: evidence}})[0].Grounded; got != want {
+			t.Fatalf("evidence %q grounded=%v want %v", evidence, got, want)
+		}
+	}
+}
