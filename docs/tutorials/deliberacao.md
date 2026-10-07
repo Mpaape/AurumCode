@@ -6,14 +6,16 @@ Ao final você terá visto o modelo **decidir** quais recursos usar numa
 revisão: com `deliberation.enabled`, os scanners que a configuração não exige
 (`required: false`) deixam de rodar antes do modelo e passam a ser
 **ferramentas** que ele pode pedir, ao lado do contexto do código de um
-arquivo alterado e das seções de skill. O modelo vê no prompt o manifesto das
+arquivo alterado, das seções de skill e das ferramentas que leem a revisão
+revisada (`read_file`, `search_text`, `find_symbol`, `changed_file_diff`). O modelo vê no prompt o manifesto das
 ferramentas, com custo e tamanho estimados, e decide. Quatro casos: o modelo
 pede o Semgrep num diff grande, não pede num diff pequeno, estoura o limite de
 rodadas (a revisão fica inconclusiva pelo gate e nenhum texto do modelo é publicado) e pede um scanner
 cujo binário não existe (inconclusivo pela regra única dos scanners).
 
 O ponto central: **a decisão é do modelo, o teto é da configuração**. Estourar
-qualquer limite (`max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`)
+qualquer limite (`max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`,
+`max_read_bytes`)
 nunca vira um parecer parcial; e um achado que o scanner pedido devolve conta
 no gate com a origem do scanner, nunca só no texto do modelo.
 
@@ -193,7 +195,9 @@ RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e 
   ferramenta antes de executar; um argumento inválido é recusado, registrado
   e explicado ao modelo, e a ferramenta não roda.
 - Nenhuma ferramenta escreve nem acessa rede além do que o produto já faz; o
-  `codebase_context` só responde por arquivos do diff.
+  `codebase_context` só responde por arquivos do diff, e as ferramentas do
+  repositório só leem a revisão revisada (nunca link simbólico, arquivo de
+  `ignore` ou de segredo).
 - Sem provedor capaz de chamar ferramentas (ou com perfis de revisão), nada é
   oferecido e os scanners opcionais rodam antes do modelo, como sempre.
 - A referência dos limites está em

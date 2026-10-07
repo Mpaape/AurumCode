@@ -25,6 +25,12 @@ type DeliberationConfig struct {
 	MaxRounds             int  `yaml:"max_rounds"`
 	MaxCostTokens         int  `yaml:"max_cost_tokens"`
 	PerToolTimeoutSeconds int  `yaml:"per_tool_timeout_seconds"`
+	// MaxReadBytes bounds what the repository tools (AUR-526) return to the
+	// model over one review; 0 means DefaultDeliberationMaxReadBytes.
+	MaxReadBytes int `yaml:"max_read_bytes"`
+	// SecretPaths are globs of secret files the repository tools refuse,
+	// added to the embedded catalog (secret_paths.yml), never replacing it.
+	SecretPaths []string `yaml:"secret_paths"`
 }
 
 // Active reports whether the model may ask for tools.
@@ -59,6 +65,7 @@ func (d *DeliberationConfig) Validate() error {
 		{"max_rounds", d.MaxRounds},
 		{"max_cost_tokens", d.MaxCostTokens},
 		{"per_tool_timeout_seconds", d.PerToolTimeoutSeconds},
+		{"max_read_bytes", d.MaxReadBytes},
 	} {
 		if f.value < 0 {
 			return fmt.Errorf("deliberation.%s: must be positive (got %d)", f.key, f.value)

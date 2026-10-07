@@ -1459,6 +1459,8 @@ deliberation:
   max_rounds: 3                  # chamadas ao modelo, a resposta final incluída
   max_cost_tokens: 60000         # tokens da deliberação além do prompt base
   per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
+  max_read_bytes: 262144         # bytes que as ferramentas do repositório devolvem na revisão
+  secret_paths: []               # globs de segredo somados ao catálogo embutido
 ```
 
 Com `enabled: true` e um provedor que chama ferramentas, a revisão oferece ao
@@ -1474,6 +1476,24 @@ modelo, num manifesto com custo e tamanho estimados de cada uma:
   dependentes) de um arquivo alterado no diff; nunca outro arquivo.
 - `skill_section`: o texto completo de uma seção de skill configurada, pelo
   `rule_id` que o catálogo de regras já lista.
+- Ferramentas do repositório, em qualquer linguagem: `read_file` (linhas
+  numeradas de um arquivo, até 200 por chamada), `search_text` (texto
+  literal, até 50 ocorrências com `arquivo:linha`), `find_symbol` (onde um
+  símbolo é definido, pela gramática tree-sitter do arquivo, e onde é usado
+  fora de comentário) e `changed_file_diff` (o diff revisado de outro arquivo
+  alterado).
+
+As ferramentas do repositório leem **só a revisão revisada**: o caminho tem
+de existir na árvore do commit revisado (`HEAD` do checkout no `--base`, a
+head verificada no `--pr`), e os bytes lidos do checkout têm de ter o mesmo
+id de blob do commit; um arquivo editado depois do commit, não rastreado ou
+de outro commit é recusado. Também são recusados caminho absoluto ou com
+`..`, link simbólico (na árvore ou no disco, inclusive diretório que aponta
+para fora do repositório), arquivo de `ignore` e arquivo de segredo (o
+catálogo embutido `.env`, `*.pem`, `*.key`, `id_rsa*`, `.ssh/`, `.aws/`,
+entre outros, mais `deliberation.secret_paths`). Todo resultado passa pela
+redação AUR-009 antes de ir ao modelo. No `--pr` com checkout não verificado
+elas não são oferecidas.
 
 A decisão é do modelo e fica registrada (oferecidas, pedidas, não pedidas) no
 stderr e no campo `deliberation` da auditoria (`--auditoria`), com cada
@@ -1491,8 +1511,9 @@ média cujo prompt base passa de 60000 tokens e que não pede ferramenta não
 estoura o teto; três rodadas com resultados de ferramenta de até 8 KiB cada
 cabem com folga no padrão.
 
-Estourar `max_rounds`, `max_cost_tokens` ou `per_tool_timeout_seconds` torna a
-revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
+Estourar `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds` ou
+`max_read_bytes` (a revisão fica parcial: o resultado que passaria do teto
+não é devolvido) torna a revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
 com os demais motivos do gate: a saída é 1 (a revisão conta como não feita
 nos dois caminhos), a auditoria (com o campo `deliberation` e seu `limit`) e o
 SARIF são gravados, no `--pr` o status `aurumcode/policy-gate` sai em failure
