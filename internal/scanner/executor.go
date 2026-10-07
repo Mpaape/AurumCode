@@ -47,6 +47,10 @@ type Outcome struct {
 	Engine   Engine
 	Findings []Finding
 	Reason   string
+	// Err is the engine's raw failure, nil when the scan is trustworthy.
+	// It may quote tool output: it is never published as is, only through
+	// Summarize, which redacts before it bounds.
+	Err error
 	// Version is the report's engine identity (binary version and rule
 	// base), for the caller's result digest.
 	Version string
@@ -70,7 +74,7 @@ func (x Executor) Scan(ctx context.Context, e Engine, req Request) Outcome {
 	defer cancel()
 	report, err := e.Scanner.Run(scanCtx, req)
 	if reason := FailureReason(e, report, err); reason != "" {
-		return Outcome{Engine: e, Reason: reason}
+		return Outcome{Engine: e, Reason: reason, Err: err}
 	}
 	return Outcome{Engine: e, Findings: report.Findings, Version: report.Version}
 }
