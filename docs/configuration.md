@@ -905,6 +905,9 @@ repositório é ignorada por completo, com um aviso nomeando a regra e o
 caminho descartados (AC-004). O repositório sozinho não consegue criar uma
 exceção para uma regra da política.
 
+Para um advisory de dependência, `rule` é `cve/<id>` e `path` é o manifesto
+ou lockfile (veja [Dependências do PR](#dependencias-do-pr-dependencies)).
+
 ## SBOM CycloneDX com Trivy (AUR-549)
 
 `aurumcode sbom` gera um SBOM no formato OWASP CycloneDX com o Trivy:
@@ -1820,6 +1823,8 @@ as dependências que a mudança altera. Sem a seção, nada muda.
 
 ```yaml
 dependencies:
+  fail_on: [critical, high]        # severidades que reprovam o introduzido
+  preexisting: warn                # ou block
   osv_url: https://api.osv.dev     # padrão; um espelho da API OSV
   scanner: osv-scanner             # padrão; o scanner de conferência
   max_source_age_hours: 24         # opcional: idade máxima da resposta da base
@@ -1856,6 +1861,31 @@ dependencies:
   não verificado do PR (`dependencies_unverified_checkout`) tornam a revisão
   inconclusiva com o motivo; nunca são lidos como "sem vulnerabilidade". Com a
   seção declarada, o padrão de `gate.inconclusive` é `block`.
+- **O gate.** Advisory introduzido com severidade igual ou acima do menor
+  nível de `fail_on` reprova o check; abaixo, sai como alerta. Severidade que
+  a fonte não informa conta no topo. Pré-existente segue `preexisting`: `warn`
+  (padrão) passa com alerta, `block` reprova (o que atinge `fail_on`, ou
+  qualquer um quando `fail_on` está vazio). Sem `fail_on` (e sem
+  `preexisting: block`), os achados são só informativos. A severidade é a da
+  base no momento da execução: advisory reclassificado na fonte muda o
+  resultado da execução seguinte sem mudar o yml; nada é guardado entre
+  execuções.
+- **Exceção por CVE.** A mesma lista `exceptions` (veja
+  [Exceções aprovadas](#excecoes-aprovadas-dono-e-validade-aur-520)), com
+  `rule: cve/<id>` (qualquer identificador do advisory: CVE, GHSA ou OSV) e
+  `path:` o manifesto; vale com dono e validade como qualquer exceção, sai na
+  linha do gate como aceita e vencida deixa de valer.
+
+```yaml
+exceptions:
+  - repo: org/app
+    rule: cve/CVE-2021-44906
+    path: app/package-lock.json
+    owner: time-seguranca
+    reason: parser vulneravel nao e alcancado
+    expires: "2026-12-31"
+```
+
 - A seção é governada como `analysis_data`: a política central que a declara
   decide sozinha; o repositório só vale quando a política não a menciona.
 
