@@ -46,11 +46,7 @@ func writeCIStatusSection(b *strings.Builder, result *types.ReviewResult, copy r
 	}
 	fmt.Fprintf(b, "### %s\n\n", copy.ciStatus)
 	for _, analysis := range result.CIAnalysis {
-		fmt.Fprintf(b, "- **%s — %s**\n", analysis.Check, analysis.Status)
-		writeSummaryField(b, copy.cause, analysis.Cause)
-		writeSummaryField(b, copy.evidence, analysis.Evidence)
-		writeSummaryField(b, copy.fix, analysis.Fix)
-		writeSummaryField(b, copy.nextVerification, analysis.NextVerification)
+		writeCIAnalysisItem(b, analysis, copy)
 	}
 	b.WriteString("\n")
 }

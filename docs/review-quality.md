@@ -92,9 +92,19 @@ prosa não compete com código no prompt e contribuições de contexto têm limi
 de tamanho. Confira os avisos e a cobertura; ausência de achados não é garantia
 de revisão completa nem de ausência de defeitos.
 
-No workflow reutilizável, o modelo recebe estados e links dos checks de CI.
-Diagnosticar a causa exige evidência adicional, como logs. Falhas de autenticação,
-provider ou publicação podem impedir que qualquer comentário seja enviado.
+No workflow reutilizável, o modelo recebe estados e links dos checks de CI
+concluídos. O parecer publica estado e link como observados apenas quando vêm
+desse contexto; o `status` que o próprio modelo escreve nunca vira afirmação de
+CI aprovado ou reprovado e, sem check correspondente, o item sai como "estado
+não verificado". Diagnosticar a causa exige evidência adicional, como logs: a
+revisão não baixa logs, então uma falha sem trecho de log no contexto sai com
+causa desconhecida, a explicação do modelo como hipótese não verificada,
+nenhuma correção e a orientação de abrir o log do check. Quando o contexto traz
+um trecho sanitizado (`excerpt`) e a evidência do modelo o cita, a correção é
+publicada separando o que foi observado no log do que o modelo inferiu (ver
+"Status do CI no parecer" em [Configuração](configuration.md)). Falhas de
+autenticação, provider ou publicação podem impedir que qualquer comentário seja
+enviado.
 
 PRs vindos de forks não recebem os secrets do repositório por padrão, então a
 revisão por modelo não roda neles sem uma configuração explícita; o baseline

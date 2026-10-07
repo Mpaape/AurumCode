@@ -20,6 +20,10 @@ type Check struct {
 	State    string `json:"state"`
 	Workflow string `json:"workflow,omitempty"`
 	Link     string `json:"link,omitempty"`
+	// Excerpt is an optional, already sanitized excerpt of the check's log
+	// a workflow may add. gh does not emit it and the review never fetches
+	// logs: without it the cause of a failure is unknown.
+	Excerpt string `json:"excerpt,omitempty"`
 }
 
 // concludedStates are the check states that carry a result. Any other state,

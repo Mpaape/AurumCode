@@ -1529,6 +1529,24 @@ stderr. Check concluído com falha continua no contexto e no parecer.
 Quando todos os itens foram descartados, a seção não some: ela diz em uma
 linha que nada falhou nesta execução e quantos itens foram descartados.
 
+Cada item que fica separa observação de inferência:
+
+- **Check concluído do contexto.** O estado e o link publicados são os do
+  contexto, nunca o `status` escrito pelo modelo, com o rótulo "verificado no
+  contexto de CI". Check que passou não ganha causa nem correção. Check que
+  falhou sem log lido diz "Causa: desconhecida", mostra a causa do modelo só
+  como "Hipótese do modelo (não verificada)", não publica correção e orienta a
+  abrir o log do check no link.
+- **Trecho de log opcional.** Cada check do arquivo de contexto aceita um
+  campo `excerpt` com um trecho já sanitizado do log (o `gh pr checks` não o
+  produz e a revisão nunca baixa logs). Quando a `evidence` do modelo cita
+  esse trecho, o parecer publica "Observado no log do CI" e, em linhas
+  separadas, "Causa inferida pelo modelo" e "Correção inferida pelo modelo".
+- **Sem check correspondente.** Sem contexto de CI, ou com um nome que o
+  contexto não conhece como check concluído, o item aparece como "estado não
+  verificado (inferência do modelo)": o `status` do modelo nunca vira estado
+  de CI aprovado ou reprovado.
+
 ## PR grande: diff local e revisão em lotes
 
 Duas situações de um PR grande (renomeações, artefatos gerados, limpezas) que
