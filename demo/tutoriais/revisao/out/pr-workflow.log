@@ -12,7 +12,7 @@ permissao statuses: write: o chamador concede o que o reutilizavel declara
 permissao checks: read: o chamador concede o que o reutilizavel declara
 --- PR grande contra um GitHub falso local
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
-aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (4c8e8e34e1df...aa747d74c1ac, 6 file(s))
+aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (85a3c98dd4ed...943b3aa5445f, 6 file(s))
 aurumcode review: the diff did not fit one prompt; reviewed in 3 batches by directory (files per batch: 2, 2, 2)
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 review formal "APPROVE" publicado no pull request #7 (0 comentário(s) na linha).
@@ -21,22 +21,9 @@ publicado em 7/reviews
 RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
 --- teto de lotes (batches.max_batches: 1): os arquivos fora sao listados e a aprovacao e retida
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
-aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (4c8e8e34e1df...aa747d74c1ac, 6 file(s))
+aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (85a3c98dd4ed...943b3aa5445f, 6 file(s))
 aurumcode review: the diff did not fit one prompt; reviewed in 1 batches by directory (files per batch: 2)
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (partial_coverage)
 review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
 exit_code=1
-publicado em 7/reviews
-- Review coverage — 2 of 6 file(s) in the diff were covered; 4 were not fully reviewed.
-- 4 file(s) were left out of the review by the token budget.
-  - banco/catalogo.go
-  - banco/tabela.go
-  - web/catalogo.go
-  - web/tabela.go
-RESULTADO: no teto, a revisao fica parcial (partial_coverage) e o gate em block reprova
---- checkout nao verificado (um arquivo nao versionado): o diff local e recusado
-$ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
-aurumcode review: fetching pull request diff: the API refused the pull request diff as too large; the diff could not be computed from the checkout either: the local checkout is not verified as the pull request head (dirty)
-exit_code=1
-RESULTADO: sem checkout verificado nada e revisado nem publicado: falha fechada
