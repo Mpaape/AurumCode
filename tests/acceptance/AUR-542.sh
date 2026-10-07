@@ -89,11 +89,20 @@ readonly -a fixed_scripts=(AUR-443 AUR-448 AUR-449 AUR-451)
 # the measured signature -- if a future change on cmd/aurumcode or
 # internal/review/scope.go makes either script print something else
 # (including, silently, exit 0), this selector must notice.
-readonly -a red_scripts=(AUR-438 AUR-459)
+readonly -a red_scripts=(AUR-438)
 red_tag() {
   case "$1" in
     AUR-438) printf 'missing_general_finding' ;;
-    AUR-459) printf 'gate-open-on-converted-finding' ;;
+  esac
+}
+
+# Retired by a later card that removed the behavior the script proved: it
+# must exit 69 and name the spec of the retiring card, never pass and never
+# fail functionally. AUR-459: line_comments left the parser (AUR-546).
+readonly -a retired_scripts=(AUR-459)
+retired_by() {
+  case "$1" in
+    AUR-459) printf 'docs/specs/AUR-546.md' ;;
   esac
 }
 
@@ -126,6 +135,14 @@ run_ac001() {
     if ! grep -Fq "$(red_tag "$name")" "$e2e_out"; then
       cat "$e2e_out" >&2
       printf '%s/%s/different-red-cause:%s\n' "$card" "$selector" "$name" >&2
+      any_bad=1
+    fi
+  done
+  for name in "${retired_scripts[@]}"; do
+    run_e2e "$name"
+    if [[ "$e2e_rc" -ne 69 ]] || ! grep -Fq "$(retired_by "$name")" "$e2e_out"; then
+      cat "$e2e_out" >&2
+      printf '%s/%s/retirement-broken:%s:%s\n' "$card" "$selector" "$name" "$e2e_rc" >&2
       any_bad=1
     fi
   done
