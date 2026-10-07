@@ -31,4 +31,7 @@ echo "exit_code=$rc"
 # 0 = revisao concluida sem bloqueio; 3 = concluida com achado que
 # reprova. Qualquer outro codigo (1 = provedor falhou ou resposta
 # inconclusiva) reprova o smoke.
-case "$rc" in 0|3) echo "$PROVEDOR: verificado ao vivo" >> "$GITHUB_STEP_SUMMARY" ;; *) exit 1 ;; esac
+if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
+  exit 1
+fi
+echo "$PROVEDOR: verificado ao vivo" >> "$GITHUB_STEP_SUMMARY"

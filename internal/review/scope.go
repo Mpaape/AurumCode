@@ -123,17 +123,20 @@ type scopeDiscardSummary struct {
 	MissingEvidence     int
 	MissingImpact       int
 	MissingVerification int
+	// CitesRedactionMarker counts the model findings built on redacted
+	// text (redacted_findings.go).
+	CitesRedactionMarker int
 }
 
 func (s scopeDiscardSummary) total() int {
-	return s.OutsideAddedLines + s.MissingEvidence + s.MissingImpact + s.MissingVerification
+	return s.OutsideAddedLines + s.MissingEvidence + s.MissingImpact + s.MissingVerification + s.CitesRedactionMarker
 }
 
 func (s scopeDiscardSummary) warning() string {
 	if s.total() == 0 {
 		return ""
 	}
-	reasons := make([]string, 0, 4)
+	reasons := make([]string, 0, 5)
 	if s.OutsideAddedLines > 0 {
 		reasons = append(reasons, fmt.Sprintf("%d fora de linhas alteradas no diff", s.OutsideAddedLines))
 	}
@@ -146,6 +149,9 @@ func (s scopeDiscardSummary) warning() string {
 	if s.MissingVerification > 0 {
 		reasons = append(reasons, fmt.Sprintf("%d sem verificacao proposta", s.MissingVerification))
 	}
+	if s.CitesRedactionMarker > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d %s", s.CitesRedactionMarker, redactedMarkerDiscardReason))
+	}
 	return fmt.Sprintf("%d finding(s) descartado(s) pelo gate de escopo e evidencia: %s", s.total(), strings.Join(reasons, ", "))
 }
 
@@ -156,8 +162,8 @@ func (s scopeDiscardSummary) warning() string {
 // not proof of correctness; semantic qualification remains the reviewer's job.
 func filterModelIssues(diff *types.Diff, issues []types.ReviewIssue) ([]types.ReviewIssue, scopeDiscardSummary) {
 	scope := newFindingScope(diff)
-	kept := make([]types.ReviewIssue, 0, len(issues))
 	var discarded scopeDiscardSummary
+	kept := make([]types.ReviewIssue, 0, len(issues))
 	for _, issue := range issues {
 		if !scope.containsSide(issue.File, issue.Line, issue.Side) {
 			discarded.OutsideAddedLines++
