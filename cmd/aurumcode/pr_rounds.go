@@ -19,7 +19,8 @@ import (
 // already commented on.
 const roundRepeatedMarker = "-- ja comentado em rodada anterior"
 
-// roundPlan is the publication plan of this round, parallel to p.issues.
+// roundPlan is the publication plan of this round, parallel to the
+// published findings (p.shown.Issues).
 type roundPlan struct {
 	fingerprints []string
 	plan         rounds.Plan
@@ -57,12 +58,12 @@ func earlierComments(entries []githubclient.ReviewHistoryEntry) []rounds.Comment
 	return out
 }
 
-// planRound computes this round's plan over the sorted issues. Without a
+// planRound computes this round's plan over the published findings. Without a
 // readable conversation every finding is posted: a repeated comment is
 // better than a missing one.
 func (p *prReview) planRound() roundPlan {
-	fps := make([]string, len(p.issues))
-	for i, issue := range p.issues {
+	fps := make([]string, len(p.shown.Issues))
+	for i, issue := range p.shown.Issues {
 		fps[i] = roundFingerprint(p.diff, issue, p.filter)
 	}
 	var previous []rounds.Previous

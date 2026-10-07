@@ -25,6 +25,23 @@ Sugestões são opcionais e devem ser pequenas, locais e justificadas.
 Pontos fortes devem descrever benefícios do código/testes, sem elogios
 genéricos ao workflow ou à existência do AurumCode.
 
+## Consolidação e preferências de apresentação
+
+No `--pr`, o mesmo problema no mesmo trecho (mesmo arquivo, linha, lado e
+regra) relatado por passes diferentes (modelo, análise determinística,
+passagem de segurança, scanner, lotes) é publicado uma vez: fica a ocorrência
+de origem determinística quando há uma, com a maior severidade do grupo, a
+evidência de cada passe e as fontes no texto (`[fontes: analysis, model]`).
+Regra diferente na mesma linha é outro problema; não há corte por contagem nem
+teto de achados. A consolidação muda só o que é publicado: gate, evento da
+revisão e status continuam lendo os achados da execução.
+
+`review.presentation.collapse` (ver [Configuração](configuration.md)) é a
+preferência explícita de concisão: achados não bloqueantes das severidades
+listadas saem numa linha de "Consolidação e preferências" que nomeia cada um
+(severidade, regra, arquivo e linha), em vez de um comentário cada. Achado
+bloqueante nunca é agrupado; valor desconhecido é avisado e nada é agrupado.
+
 ## Heurísticas versus defeitos provados
 
 Um achado do catálogo determinístico ou do modelo é uma heurística: aponta um
