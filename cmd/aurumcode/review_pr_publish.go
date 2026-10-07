@@ -131,7 +131,7 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 			line += " [LEFT/base]"
 		}
 		if !p.round.posts(i) {
-			fmt.Fprintf(stdout, "%s %s\n", line, roundRepeatedMarker)
+			fmt.Fprintf(stdout, "%s -- %s\n", line, roundRepeatedMarker(p.reviewLanguage))
 			continue
 		}
 		if p.inlineComments && isInlineEligible(p.diff, issue) {

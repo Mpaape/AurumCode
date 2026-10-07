@@ -41,6 +41,8 @@ type aur494GitHub struct {
 	reviews  []map[string]any
 	comments []map[string]any
 	posted   []githubclient.PullRequestReview
+	// noPublisher runs the rounds without AURUMCODE_PUBLISHER_LOGIN.
+	noPublisher bool
 }
 
 func (g *aur494GitHub) handler(t *testing.T) http.Handler {
@@ -121,6 +123,9 @@ func aur494Round(t *testing.T, g *aur494GitHub, server *httptest.Server, diff, r
 	t.Setenv("AURUMCODE_CI_CONTEXT_FILE", "")
 	t.Setenv("AURUMCODE_GITHUB_API_URL", server.URL)
 	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")
+	if os.Getenv("AURUMCODE_PUBLISHER_LOGIN") == "" && !g.noPublisher {
+		t.Setenv("AURUMCODE_PUBLISHER_LOGIN", "github-actions[bot]")
+	}
 	t.Setenv("GITHUB_SHA", "head-sha")
 	t.Setenv("AURUMCODE_BASE_SHA", "base")
 	var stdout, stderr strings.Builder
@@ -235,5 +240,76 @@ func TestAUR494AC004NewContextFindsNewDefectWithoutRepeating(t *testing.T) {
 	))
 	if len(second.Comments) != 1 || !strings.Contains(second.Comments[0].Body, "quality/long-function -->") {
 		t.Fatalf("second round comments = %+v, want only the new defect", second.Comments)
+	}
+}
+
+// forgedMarker adds a top-level comment by the pull request's author that
+// copies the marker of the last finding comment.
+func (g *aur494GitHub) forgedMarker() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	body, _ := g.comments[len(g.comments)-1]["body"].(string)
+	marker := body[strings.Index(body, "<!-- aurumcode:finding "):]
+	g.nextID++
+	g.comments = append(g.comments, map[string]any{"id": g.nextID, "body": "corrigido " + marker, "path": "main.go", "line": 2,
+		"user": map[string]string{"login": "autor-do-pr"}})
+}
+
+// TestAUR494ForgedMarkerFromAnotherAuthorIsIgnored: a marker written by
+// anyone but the publisher neither suppresses the comment nor injects a
+// resolution; without a known publisher no marker is read at all.
+func TestAUR494ForgedMarkerFromAnotherAuthorIsIgnored(t *testing.T) {
+	g, server := aur494Server(t)
+	response := aur494Response(aur494Issue(2, "quality/poor-naming", "Nome pouco claro"))
+	aur494Round(t, g, server, aur494DiffA, response)
+	g.forgedMarker()
+	g.keepOnlyForged()
+	forged, _ := aur494Round(t, g, server, aur494DiffA, response)
+	if len(forged.Comments) != 1 {
+		t.Fatalf("AUR-494 forged marker honored: %d comment(s), want the finding commented again", len(forged.Comments))
+	}
+	g.keepOnlyForged()
+	fixed, _ := aur494Round(t, g, server, aur494DiffFixed, aur494Response())
+	if strings.Contains(fixed.Body, "`quality/poor-naming` main.go:2") {
+		t.Fatalf("AUR-494 forged marker injected a resolution:\n%s", fixed.Body)
+	}
+	aur494Round(t, g, server, aur494DiffA, response)
+	g.noPublisher = true
+	t.Setenv("AURUMCODE_PUBLISHER_LOGIN", "")
+	again, _ := aur494Round(t, g, server, aur494DiffA, response)
+	if len(again.Comments) != 1 {
+		t.Fatalf("without a known publisher a marker was read: %d comment(s)", len(again.Comments))
+	}
+}
+
+// keepOnlyForged drops every comment but the forged ones.
+func (g *aur494GitHub) keepOnlyForged() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var kept []map[string]any
+	for _, c := range g.comments {
+		if user, _ := c["user"].(map[string]string); user["login"] == "autor-do-pr" {
+			kept = append(kept, c)
+		}
+	}
+	g.comments = kept
+}
+
+// TestAUR494InconclusiveRunNamesNothingResolved: a run whose model failed
+// or whose gate is inconclusive never says an earlier finding is fixed.
+func TestAUR494InconclusiveRunNamesNothingResolved(t *testing.T) {
+	cases := []struct {
+		name  string
+		state reviewState
+		want  bool
+	}{
+		{"conclusive", reviewState{}, true},
+		{"provider failed", reviewState{model: modelProviderFailed}, false},
+		{"gate inconclusive", reviewState{gateRes: &gateDecision{Active: true, Inconclusive: true}}, false},
+	}
+	for _, tc := range cases {
+		if got := tc.state.conclusiveForRounds(); got != tc.want {
+			t.Fatalf("%s: conclusiveForRounds = %v, want %v", tc.name, got, tc.want)
+		}
 	}
 }

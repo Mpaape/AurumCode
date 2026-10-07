@@ -17,7 +17,9 @@ import (
 
 // roundRepeatedMarker ends the stdout line of a finding an earlier round
 // already commented on.
-const roundRepeatedMarker = "-- ja comentado em rodada anterior"
+func roundRepeatedMarker(language string) string {
+	return i18n.Text(language, "review.round_repeated_line")
+}
 
 // roundPlan is the publication plan of this round, parallel to the
 // published findings (p.shown.Issues).
@@ -39,12 +41,19 @@ func roundFingerprint(diff *types.Diff, issue types.ReviewIssue, filter *redacti
 	return render.FindingFingerprint(id)
 }
 
-// earlierComments maps the conversation onto the comments rounds reads.
-// Review bodies are left out: only finding comments carry markers.
-func earlierComments(entries []githubclient.ReviewHistoryEntry) []rounds.Comment {
+// earlierComments maps the conversation onto the comments rounds reads:
+// only finding comments (review bodies are left out) authored by publisher,
+// the login this product publishes as. Anyone else can write a marker, so
+// their comments are never read; without a known publisher no marker is
+// read and every finding is commented again (fail closed).
+func earlierComments(entries []githubclient.ReviewHistoryEntry, publisher string) []rounds.Comment {
+	publisher = strings.TrimSpace(publisher)
+	if publisher == "" {
+		return nil
+	}
 	out := make([]rounds.Comment, 0, len(entries))
 	for _, e := range entries {
-		if e.Kind == "review" {
+		if e.Kind == "review" || !strings.EqualFold(strings.TrimSpace(e.Author), publisher) {
 			continue
 		}
 		line := 0
@@ -60,17 +69,37 @@ func earlierComments(entries []githubclient.ReviewHistoryEntry) []rounds.Comment
 
 // planRound computes this round's plan over the published findings. Without a
 // readable conversation every finding is posted: a repeated comment is
-// better than a missing one.
+// better than a missing one. A finding condensed by a preference is still
+// reported, so it is never called resolved; an inconclusive run (model
+// failure, inconclusive gate) did not look everywhere, so it names nothing
+// as resolved.
 func (p *prReview) planRound() roundPlan {
-	fps := make([]string, len(p.shown.Issues))
-	for i, issue := range p.shown.Issues {
-		fps[i] = roundFingerprint(p.diff, issue, p.filter)
-	}
+	fps := p.fingerprintsOf(p.shown.Issues)
 	var previous []rounds.Previous
 	if p.historyErr == nil {
-		previous = rounds.Published(earlierComments(p.historyEntries))
+		previous = rounds.Published(earlierComments(p.historyEntries, p.env().publisherLogin))
 	}
-	return roundPlan{fingerprints: fps, plan: rounds.PlanRound(fps, previous)}
+	plan := rounds.PlanRound(fps, p.fingerprintsOf(p.shown.Collapsed), previous)
+	if !p.conclusiveForRounds() {
+		plan.Resolved = nil
+	}
+	return roundPlan{fingerprints: fps, plan: plan}
+}
+
+// conclusiveForRounds reports a run that looked everywhere it should: the
+// model answered and the gate is not inconclusive. Only such a run may say
+// an earlier finding is no longer reported.
+func (s *reviewState) conclusiveForRounds() bool {
+	return !s.modelDegraded() && (s.gateRes == nil || !s.gateRes.Inconclusive)
+}
+
+// fingerprintsOf is the round identity of each issue, in order.
+func (p *prReview) fingerprintsOf(issues []types.ReviewIssue) []string {
+	fps := make([]string, len(issues))
+	for i, issue := range issues {
+		fps[i] = roundFingerprint(p.diff, issue, p.filter)
+	}
+	return fps
 }
 
 // posts reports whether the i-th sorted issue gets a comment this round.

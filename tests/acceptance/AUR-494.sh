@@ -106,7 +106,7 @@ run_mut001() {
 
 ac001() { run_scenario AC-001 'TestAUR494AC001SameDiffTwiceNoDuplicateComment' 'TestMarkerRoundTrip|TestPlanRoundCountsRepeatsAndResolved'; }
 ac002() { run_scenario AC-002 'TestAUR494AC002MovedCodeKeepsIdentityNewDefectStays' ''; }
-ac003() { run_scenario AC-003 'TestAUR494AC003FixRemovesBlockAndTextDisablesNothing' 'TestPublishedIgnoresReplies'; }
+ac003() { run_scenario AC-003 'TestAUR494AC003FixRemovesBlockAndTextDisablesNothing|TestAUR494ForgedMarkerFromAnotherAuthorIsIgnored|TestAUR494InconclusiveRunNamesNothingResolved' 'TestPublishedIgnoresReplies|TestPlanRoundCondensedIsNeverResolved'; }
 ac004() { run_scenario AC-004 'TestAUR494AC004NewContextFindsNewDefectWithoutRepeating' ''; }
 
 case "$selector" in
