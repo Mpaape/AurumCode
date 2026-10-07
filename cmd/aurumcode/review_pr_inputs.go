@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review/session"
 )
@@ -42,11 +44,17 @@ func (p *prReview) fetchPullRequest() (int, bool) {
 		p.client.AllowPullRequestWrites()
 	}
 	ghDiff, err := p.client.GetPullRequestDiff(p.ctx, p.owner, p.repoName, p.prNumber)
-	if err != nil {
+	switch {
+	case errors.Is(err, githubclient.ErrDiffTooLarge):
+		if code, done := p.useLocalPullRequestDiff(); done {
+			return code, true
+		}
+	case err != nil:
 		fmt.Fprintf(p.stderr, "aurumcode review: fetching pull request diff: %v\n", err)
 		return 1, true
+	default:
+		p.diff = convertDiff(ghDiff)
 	}
-	p.diff = convertDiff(ghDiff)
 	p.cfg, p.reviewLanguage, err = loadPullRequestConfig(p.ctx, p.client, p.owner, p.repoName, p.env().githubSHA, p.env().baseSHA)
 	if err != nil {
 		fmt.Fprintf(p.stderr, "aurumcode review: loading repository review config: %v\n", err)

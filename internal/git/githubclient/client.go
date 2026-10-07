@@ -354,6 +354,9 @@ func (c *Client) GetPullRequestDiff(ctx context.Context, owner, repo string, num
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if diffRefusedAsTooLarge(resp.StatusCode, body) {
+			return nil, fmt.Errorf("HTTP %d: %s: %w", resp.StatusCode, string(body), ErrDiffTooLarge)
+		}
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
