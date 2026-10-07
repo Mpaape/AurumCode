@@ -11,13 +11,14 @@
 #            scope_test.go and tests/e2e/AUR-438.sh agree with it
 #   AC-002   an outside finding without evidence is still discarded,
 #            counted, and never published
-#   AC-003   no outside finding counts for the gate: the real binary,
-#            under --fail-on error, approves and exits 0 with an
-#            error-severity proved finding outside the diff, which it
-#            prints as a general comment, and SARIF stays empty
+#   AC-003   no outside finding counts for the gate: the engine keeps it
+#            out of result.Issues, and the real --pr session (fake GitHub
+#            in process) under --fail-on error approves and exits 0 with an
+#            error-severity proved finding outside the diff, published as
+#            a general comment
 #   MUT-001  letting the outside finding into result.Issues (so it counts
-#            for the gate) turns AC-003 red, in the Go test and in the
-#            real binary
+#            for the gate) turns AC-003 red, in the engine test and in
+#            the --pr session test (nonzero exit under --fail-on error)
 #
 # EXIT CODES: 0 pass, 1 behavioral RED, 64 unknown selector, 79 infrastructure.
 set -euo pipefail
@@ -37,10 +38,9 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
-command -v git >/dev/null 2>&1 || infra missing_git
 
 for input in go.mod go.sum cmd internal pkg docs/specs/AUR-545.md tests/e2e/AUR-438.sh \
-  tests/fixtures/repos/git-demo/repo.git tests/fixtures/scm/github; do
+  tests/fixtures/scm/github; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -72,46 +72,15 @@ go_test() {
   set -e
 }
 
-# The proved, error-severity finding on src/greeter.py:5, a line the
-# HEAD~1..HEAD diff of the git-demo fixture does not touch.
-fixture="$run_dir/outside.json"
-cat >"$fixture" <<'EOF'
-{"issues":[{"file":"src/greeter.py","line":5,"severity":"error","rule_id":"quality/dead-code",
-"message":"Achado sintetico fora do diff.",
-"evidence":"A linha 5 de src/greeter.py nao foi alterada e e citada como prova.",
-"impact":"Impacto sintetico para a prova de aceite.",
-"verification":"Rodar o review e conferir que o achado vira comentario geral."}],
-"summary":"Resposta sintetica do aceite AUR-545."}
-EOF
-
-# run_base builds root's binary (named by $2, inside run_dir, never in
-# the checkout) and reviews the git-demo fixture with the
-# outside-diff response under --fail-on error. Sets base_rc, base_out,
-# base_sarif.
-run_base() {
-  local root="$1" bin="$run_dir/aurumcode-$2"
-  (cd "$root" && go build -buildvcs=false -o "$bin" ./cmd/aurumcode) >"$run_dir/build.log" 2>&1 \
-    || { cat "$run_dir/build.log" >&2; infra build_failed; }
-  base_out="$run_dir/base.out"
-  base_sarif="$run_dir/base.sarif"
-  rm -f -- "$base_sarif"
+# go_test_cmd runs the named tests of cmd/aurumcode in root (the real --pr
+# session against an in-process fake GitHub); rc in gtc_rc, output in
+# $run_dir/gotest-cmd.out.
+go_test_cmd() {
+  local root="$1" pattern="$2"
   set +e
-  (cd "$repo_root/tests/fixtures/repos/git-demo/repo.git" && env -u AURUMCODE_CACHE_DIR -u LLM_API_KEY -u LLM_BASE_URL \
-    AURUMCODE_LLM_FIXTURE="$fixture" "$bin" review --base HEAD~1 --fail-on error --sarif "$base_sarif") >"$base_out" 2>&1
-  base_rc=$?
+  (cd "$root" && go test -buildvcs=false -count=1 -p 1 -run "$pattern" ./cmd/aurumcode) >"$run_dir/gotest-cmd.out" 2>&1
+  gtc_rc=$?
   set -e
-}
-
-# base_gate_ignores_outside: 0 when the binary's run kept the finding out
-# of every gate input and printed it as a general comment.
-base_gate_ignores_outside() {
-  [[ "$base_rc" -eq 0 ]] || { printf 'exit=%s\n' "$base_rc" >&2; return 1; }
-  grep -Fq '**Verdict:** Approve' "$base_out" || { echo 'verdict-not-approve' >&2; return 1; }
-  grep -Fq 'src/greeter.py:5: [error] Achado sintetico fora do diff.' "$base_out" || { echo 'general-line-missing' >&2; return 1; }
-  grep -Fq 'fora das linhas alteradas (comentario geral; nao conta para o gate)' "$base_out" || { echo 'general-marker-missing' >&2; return 1; }
-  [[ -s "$base_sarif" ]] || { echo 'sarif-missing' >&2; return 1; }
-  if grep -Fq 'greeter' "$base_sarif"; then echo 'outside-finding-in-sarif' >&2; return 1; fi
-  return 0
 }
 
 run_ac001() {
@@ -138,8 +107,8 @@ run_ac002() {
 run_ac003() {
   go_test "$repo_root" 'TestOutsideDiffAC003ProvedFindingNeverCountsForTheGate'
   [[ "$gt_rc" -eq 0 ]] || { cat "$run_dir/gotest.out" >&2; fail gate-test; }
-  run_base "$repo_root" candidate
-  base_gate_ignores_outside || { cat "$base_out" >&2; fail binary-gate; }
+  go_test_cmd "$repo_root" 'TestOutsideDiffFindingNeverCountsForTheGate'
+  [[ "$gtc_rc" -eq 0 ]] || { cat "$run_dir/gotest-cmd.out" >&2; fail session-gate-test; }
 }
 
 run_mut001() {
@@ -153,10 +122,10 @@ run_mut001() {
   go_test "$root" 'TestOutsideDiffAC003ProvedFindingNeverCountsForTheGate'
   grep -Eq '^(FAIL|--- FAIL)' "$run_dir/gotest.out" || { cat "$run_dir/gotest.out" >&2; fail mutant-test-survived; }
   grep -Fq 'a finding outside the diff reached result.Issues' "$run_dir/gotest.out" || { cat "$run_dir/gotest.out" >&2; fail mutant-test-other-cause; }
-  run_base "$root" mutant
-  if base_gate_ignores_outside 2>/dev/null; then cat "$base_out" >&2; fail mutant-binary-survived; fi
-  [[ "$base_rc" -ne 0 ]] || { cat "$base_out" >&2; fail mutant-binary-exit-zero; }
-  printf 'MUT-001 red: go test fails and --fail-on error exits %s\n' "$base_rc"
+  go_test_cmd "$root" 'TestOutsideDiffFindingNeverCountsForTheGate'
+  grep -Eq '^(FAIL|--- FAIL)' "$run_dir/gotest-cmd.out" || { cat "$run_dir/gotest-cmd.out" >&2; fail mutant-session-survived; }
+  grep -Fq 'an outside-diff finding counted for the gate: exit=' "$run_dir/gotest-cmd.out" || { cat "$run_dir/gotest-cmd.out" >&2; fail mutant-session-other-cause; }
+  printf 'MUT-001 red: %s\n' "$(grep -o 'an outside-diff finding counted for the gate: exit=[0-9]*' "$run_dir/gotest-cmd.out" | sed -n '1p')"
 }
 
 case "$selector" in
