@@ -14,6 +14,7 @@ type Provider struct {
 	apiKey  string
 	baseURL string
 	model   string
+	dialect Dialect
 	client  *http.Client
 }
 
@@ -21,10 +22,17 @@ type Provider struct {
 // llm.ProviderTimeout(), the single source of truth this package shares with
 // the orchestrator's own context deadline (see its doc comment).
 func NewProvider(apiKey, baseURL, model string) *Provider {
+	return NewProviderWithDialect(DefaultDialect(), apiKey, baseURL, model)
+}
+
+// NewProviderWithDialect creates a provider that speaks dialect: one
+// OpenAI-compatible engine, configured per provider by the catalog.
+func NewProviderWithDialect(dialect Dialect, apiKey, baseURL, model string) *Provider {
 	return &Provider{
 		apiKey:  apiKey,
 		baseURL: baseURL,
 		model:   model,
+		dialect: dialect,
 		client: &http.Client{
 			Timeout: llm.ProviderTimeout(),
 		},
@@ -45,10 +53,13 @@ func NewProvider(apiKey, baseURL, model string) *Provider {
 // rejects the call for some other reason, that is surfaced verbatim as the
 // provider's own error message, not papered over here.
 type completionRequest struct {
-	Model          string          `json:"model,omitempty"`
-	Messages       []message       `json:"messages"`
-	MaxTokens      int             `json:"max_tokens,omitempty"`
-	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+	Model     string    `json:"model,omitempty"`
+	Messages  []message `json:"messages"`
+	MaxTokens int       `json:"max_tokens,omitempty"`
+	// MaxCompletionTokens replaces MaxTokens for a dialect whose models
+	// refuse max_tokens; at most one of the two is ever set.
+	MaxCompletionTokens int             `json:"max_completion_tokens,omitempty"`
+	ResponseFormat      *responseFormat `json:"response_format,omitempty"`
 }
 
 type responseFormat struct {
@@ -63,10 +74,14 @@ type jsonSchemaFormat struct {
 	Schema json.RawMessage `json:"schema"`
 }
 
-// answerFormat is the response_format a request carries: the caller's JSON
-// Schema when it gave one, the bare JSON object mode when it only asked for
-// JSON, nothing otherwise.
-func answerFormat(opts llm.Options) *responseFormat {
+// answerFormat is the response_format a tool-conversation request carries:
+// the caller's JSON Schema when it gave one and the dialect honours it, the
+// bare JSON object mode when it only asked for JSON (or the dialect takes
+// no schema), nothing when the dialect takes no response_format.
+func (d Dialect) answerFormat(opts llm.Options) *responseFormat {
+	if d.StructuredOutput != StructuredJSONSchema {
+		return d.jsonModeFormat(opts.JSONMode || len(opts.ResponseSchema) > 0)
+	}
 	if len(opts.ResponseSchema) > 0 {
 		return &responseFormat{Type: "json_schema", JSONSchema: &jsonSchemaFormat{Name: opts.ResponseSchemaNameOrDefault(), Schema: opts.ResponseSchema}}
 	}
@@ -121,11 +136,9 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 		Messages: []message{
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: opts.MaxTokens,
+		ResponseFormat: p.dialect.jsonModeFormat(opts.JSONMode),
 	}
-	if opts.JSONMode {
-		reqBody.ResponseFormat = &responseFormat{Type: "json_object"}
-	}
+	reqBody.MaxTokens, reqBody.MaxCompletionTokens = p.dialect.replyCap(opts.MaxTokens)
 
 	// Add system message if provided
 	if opts.System != "" {
@@ -167,15 +180,17 @@ func (p *Provider) post(reqBody any) ([]byte, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Create HTTP request
-	url := p.baseURL + "/chat/completions"
+	url, err := p.dialect.requestURL(p.baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("%s: invalid base URL: %w", p.dialect.Name, err)
+	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	p.dialect.authorize(req, p.apiKey)
 
 	// Send request
 	resp, err := p.client.Do(req)
@@ -191,7 +206,7 @@ func (p *Provider) post(reqBody any) ([]byte, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("LiteLLM API error (status %d): %s", resp.StatusCode, string(body))
+		return nil, p.apiError(resp.StatusCode, body)
 	}
 	return body, nil
 }
@@ -202,7 +217,13 @@ func (p *Provider) Tokens(input string) (int, error) {
 	return len(input) / 4, nil
 }
 
+// BaseURL is the endpoint this provider calls (never the key): two
+// endpoints serving the same model name are distinct answering entities.
+func (p *Provider) BaseURL() string {
+	return p.baseURL
+}
+
 // Name returns the provider name
 func (p *Provider) Name() string {
-	return "litellm"
+	return p.dialect.Name
 }
