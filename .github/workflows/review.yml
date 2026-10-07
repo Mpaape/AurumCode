@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: ''
+      provider:
+        description: Optional LLM provider profile (LLM_PROVIDER; see docs/provedores.md), e.g. openai, azure-openai, anthropic, google, bedrock, litellm, openrouter, opencode, ollama. Empty keeps the generic OpenAI-compatible endpoint.
+        required: false
+        type: string
+        default: ''
       publication:
         description: comments or review; the repository config is used when omitted.
         required: false
@@ -43,7 +48,7 @@ on:
         description: API key for the configured OpenAI-compatible service.
         required: true
       LLM_BASE_URL:
-        description: Base URL for the configured OpenAI-compatible service.
+        description: Base URL of the LLM service (with a provider profile, the endpoint that profile talks to).
         required: true
       DTRACK_API_KEY:
         description: Optional Dependency-Track API key (AUR-555). Only read when quality_gates.ssor_dtrack is enabled and names this variable in api_key_secret.
@@ -326,6 +331,7 @@ jobs:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: ${{ inputs.model }}
+          LLM_PROVIDER: ${{ inputs.provider }}
           PUBLICATION: ${{ inputs.publication }}
           INLINE_COMMENTS: ${{ inputs.inline_comments }}
           SECURITY: ${{ inputs.security }}
@@ -398,6 +404,7 @@ jobs:
             -e LLM_API_KEY
             -e LLM_BASE_URL
             -e LLM_MODEL
+            -e LLM_PROVIDER
             -e AURUMCODE_CI_CONTEXT_FILE
             -e AURUMCODE_OUTPUT_FILE
             -e DTRACK_API_KEY
