@@ -5,10 +5,10 @@ exit_code=0
 RESULTADO: go-shared up e idempotente: o container ja estava no ar (ou foi criado)
 $ <repo>/.board/bin/go-shared status
 up: aurum-go
-  /tmp/claude-1000/office-wt -> /tmp/claude-1000/office-wt
-  <home>/go/pkg/mod-aurumcode -> /go/pkg/mod
   /var/lib/docker/volumes/aurumcode-gocache/_data -> /gocache
   <home>/repos/AurumCode -> <home>/repos/AurumCode
+  /tmp/claude-1000/office-wt -> /tmp/claude-1000/office-wt
+  <home>/go/pkg/mod-aurumcode -> /go/pkg/mod
 exit_code=0
 RESULTADO: o container monta o cache de modulos do projeto e o volume de build
 $ <repo>/.board/bin/go-shared exec go version
