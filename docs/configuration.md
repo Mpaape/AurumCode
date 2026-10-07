@@ -831,11 +831,12 @@ jobs:
         with:
           sarif_file: aurumcode-review.sarif
           category: aurumcode-policy-gate   # categoria fixa: um upload --pr
-                                             # (ou um futuro run agendado)
                                              # atualiza a MESMA análise no
                                              # code scanning em vez de
                                              # acumular um conjunto de
-                                             # alertas que nunca é limpo
+                                             # alertas que nunca é limpo; a
+                                             # varredura agendada de
+                                             # dependências usa a sua própria
 ```
 
 Um PR de fork nunca recebe `security-events: write` (o GITHUB_TOKEN de um
@@ -1931,6 +1932,77 @@ exceptions:
   leitor é ligado. Sem `licenses_denied`, nenhuma licença é consultada.
 - A seção é governada como `analysis_data`: a política central que a declara
   decide sozinha; o repositório só vale quando a política não a menciona.
+
+## Varredura agendada de dependências (`aurumcode dependencies`)
+
+CVE publicada depois do merge não passa por nenhum PR. O mesmo workflow
+reutilizável (`.github/workflows/review.yml`) roda, quando o caller o chama
+num `schedule:`, o job `dependencies` em vez do review: ele faz checkout da
+branch padrão (a ref de um run agendado) e executa
+
+```bash
+aurumcode dependencies --repo . --sarif aurumcode-dependencies.sarif
+```
+
+- **O que lê.** Todo arquivo rastreado pelo git. O `osv-scanner` extrai os
+  pacotes de cada arquivo que reconhece, de qualquer tamanho, e essa
+  extração é usada como está (evidência determinística); o modelo aponta, na
+  lista de arquivos, manifestos que o scanner não conhece e lê só esses,
+  aterrado no conteúdo. Cada versão é consultada na API OSV atual (a mesma
+  `dependencies.osv_url`, `max_source_age_hours` e política central da
+  revisão de PR).
+- **SARIF com categoria própria.** O documento traz
+  `automationDetails.id: aurumcode/dependencies-scheduled/` (mude com
+  `--categoria`), distinta da do review de PR, e cada resultado
+  (`cve/<id>`, no manifesto) tem impressão digital estável: advisory,
+  manifesto, ecossistema e pacote, sem versão, linha, severidade nem data.
+  Por isso o mesmo alerta continua aberto entre execuções, e quando a
+  dependência é corrigida ou o advisory é retirado o resultado some do
+  próximo upload e o code scanning fecha o alerta sozinho. Nenhum estado
+  próprio é guardado: o estado é o do code scanning.
+- **Inconclusivo não apaga alerta.** Base inalcançável, scanner ausente,
+  modelo indisponível ou lista de arquivos acima do limite do modelo: o
+  comando sai com 1, diz o motivo e **não grava SARIF**; o passo de upload do
+  workflow só roda depois de uma varredura conclusiva (`if: success()`),
+  então nenhum documento vazio fecha os alertas abertos. Código 2 é erro de
+  uso ou de configuração.
+- **O caller.** Acrescenta `schedule:` ao seu `on:` e, como no SARIF do PR,
+  um segundo job com `security-events: write` que baixa o artefato
+  `aurumcode-dependencies-sarif` e faz o upload, **sem** `category:` (o
+  documento já traz a sua):
+
+```yaml
+on:
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *"
+
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@<sha>
+    secrets: inherit
+
+  upload-dependencies-sarif:
+    needs: review
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: aurumcode-dependencies-sarif
+          path: .
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: aurumcode-dependencies.sarif
+```
+
+  Com o job `review` falhando (varredura inconclusiva), `needs` impede o
+  upload. A action standalone (`action.yml`) é só de PR e não roda a
+  varredura agendada.
 
 ## Quais arquivos saem da revisão como documentação
 

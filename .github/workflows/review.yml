@@ -60,6 +60,9 @@ on:
 jobs:
   review:
     name: Review pull request
+    # A scheduled run of the caller has no pull request: it runs the
+    # dependency scan job below instead.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.review.outputs.version }}
@@ -549,3 +552,122 @@ jobs:
           name: aurumcode-sbom-bundle-${{ github.event.pull_request.number }}
           path: .aurumcode-target/**/*.sigstore.json
           if-no-files-found: ignore
+
+  # The scheduled dependency scan. A reusable workflow cannot declare its own
+  # trigger: the caller adds `schedule:` to its `on:` and this job runs on
+  # those runs only, over the caller's default branch (the ref a scheduled
+  # run checks out), against the OSV base as it is today. The SARIF has its
+  # own category (automationDetails.id aurumcode/dependencies-scheduled/)
+  # and is uploaded as an artifact only when the scan was conclusive: an
+  # inconclusive scan exits 1 and writes no SARIF, so the caller's
+  # code-scanning upload (which needs security-events: write, a permission
+  # this workflow cannot grant itself) never sends an empty document that
+  # would close the open alerts. See docs/configuration.md, "Varredura
+  # agendada de dependencias".
+  dependencies:
+    name: Scheduled dependency scan
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: aurumcode-dependencies-${{ github.repository }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Check provider configuration
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LLM_API_KEY}" ] || [ -z "${LLM_BASE_URL}" ]; then
+            echo "::error::AurumCode needs LLM_API_KEY and LLM_BASE_URL repository secrets; the scan was not run"
+            exit 1
+          fi
+
+      - name: Verify tool version
+        env:
+          TOOL_REPOSITORY: ${{ job.workflow_repository }}
+          TOOL_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TOOL_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ||
+                ! "$TOOL_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Cannot identify the AurumCode workflow version. This workflow requires GitHub.com job.workflow_sha support."
+            exit 1
+          fi
+
+      - name: Checkout AurumCode
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .aurumcode-tool
+          fetch-depth: 1
+
+      - name: Build AurumCode image
+        run: docker build --tag aurumcode-review .aurumcode-tool
+
+      - name: Checkout default branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.repository }}
+          path: .aurumcode-target
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout central policy
+        if: ${{ inputs.policy_repository != '' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.policy_repository }}
+          ref: ${{ inputs.policy_ref }}
+          path: .aurumcode-policy
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Scan dependencies
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ inputs.model }}
+          LLM_PROVIDER: ${{ inputs.provider }}
+          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
+        run: |
+          set -euo pipefail
+          out_dir="${RUNNER_TEMP}/aurumcode-out"
+          mkdir -p "${out_dir}"
+          rm -f "${out_dir}/aurumcode-dependencies.sarif"
+          args=(dependencies --repo /github/workspace --sarif /aurumcode-out/aurumcode-dependencies.sarif)
+          docker_args=(run --rm
+            -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
+            -w /github/workspace
+            -e GIT_CONFIG_COUNT=1
+            -e GIT_CONFIG_KEY_0=safe.directory
+            -e GIT_CONFIG_VALUE_0=/github/workspace
+            -e LLM_API_KEY
+            -e LLM_BASE_URL
+            -e LLM_MODEL
+            -e LLM_PROVIDER
+            -v "${out_dir}:/aurumcode-out"
+          )
+          if [ -n "${POLICY_REPOSITORY}" ]; then
+            docker_args+=(-v "${GITHUB_WORKSPACE}/.aurumcode-policy:/github/policy:ro")
+            args+=(--politica /github/policy)
+          fi
+          scan_rc=0
+          docker "${docker_args[@]}" aurumcode-review "${args[@]}" || scan_rc=$?
+          docker run --rm --entrypoint chown -v "${out_dir}:/aurumcode-out" aurumcode-review \
+            -R "$(id -u):$(id -g)" /aurumcode-out
+          exit "${scan_rc}"
+
+      # Only after a conclusive scan (success(), never always()): the
+      # artifact is what the caller uploads to code scanning.
+      - name: Upload dependency SARIF
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aurumcode-dependencies-sarif
+          path: ${{ runner.temp }}/aurumcode-out/aurumcode-dependencies.sarif
+          if-no-files-found: error
