@@ -106,6 +106,10 @@ ac001() {
   prepara 1 'nao e maior que v1.1.0' --sha "$sha"
   fixture incoerente 2.0.0 "$(sem_secao '### Limites')" v2.0.0
   prepara 1 "sem '### Limites'" --sha "$sha"
+  fixture colchetes 2.0.0 "$notas_ok" v2.0.0
+  sed -i 's/^## Unreleased$/## [Unreleased]/' "$repo/CHANGELOG.md"
+  fgit add -A && fgit commit -q -m colchetes
+  prepara 0 "release: v2.0.0 em $(fgit rev-parse HEAD)" --sha "$(fgit rev-parse HEAD)"
   fixture idempotente 2.0.0 "$notas_ok" v2.0.0
   fgit tag -a v2.0.0 "$sha" -m ja-marcada
   prepara 0 "release: v2.0.0 em $sha" --sha "$sha"
@@ -132,6 +136,14 @@ ac003() {
   prepara 1 'diferem' --sha "$(fgit rev-parse HEAD)"
   fixture main-solto 2.0.0 "$notas_ok" main
   prepara 1 'nao fixa @v2.0.0' --sha "$sha"
+  # A version with the dots replaced is not the version (no regex dots).
+  fixture pontos 2.0.0 "$notas_ok" v2x0x0
+  prepara 1 'nao fixa @v2.0.0' --sha "$sha"
+  # A line with the new and an old version together still refers to the old one.
+  fixture duas-versoes 2.0.0 "$notas_ok" v2.0.0
+  printf '    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.0.0 Mpaape/AurumCode@v1.1.0\n' | tee "$repo/.github/workflows/examples/code-review.yml" >"$repo/docs/site/workflow.yml"
+  fgit add -A && fgit commit -q -m duas-versoes
+  prepara 1 'nao fixa @v2.0.0' --sha "$(fgit rev-parse HEAD)"
   printf '%s/AC-003/pass\n' "$card"
 }
 
