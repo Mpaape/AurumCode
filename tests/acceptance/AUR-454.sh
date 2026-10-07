@@ -82,7 +82,7 @@ ac003() {
   stage "$run_dir/ac003"
   go_test_v "$run_dir/ac003" ./internal/review/consolidate 'TestAC003CollapseIsDeterministicExplainedAndNeverHidesBlocking' collapse
   go_test_v "$run_dir/ac003" ./internal/config 'TestReviewPresentationCollapseValidates' config
-  go_test_v "$run_dir/ac003" ./cmd/aurumcode 'TestAUR454PublishedBodyExplainsMergeAndCollapse' published-body
+  go_test_v "$run_dir/ac003" ./cmd/aurumcode 'TestAUR454PublishedBodyExplainsMergeAndCollapse|TestAUR454InconclusiveGateCondensesNothing' published-body
 }
 
 # mutant applies one sed to consolidate.go in a fresh copy and requires the
