@@ -246,8 +246,43 @@ muda o gate de todo repositório que a usa, sem revisão própria desse PR.
 
 Na Action Docker direta (`action.yml`), quem escreve os steps do job é quem
 controla o que foi checado antes do container rodar, então `policy_path`
-continua existindo lá como o único mecanismo (aponta para um diretório já
-presente no workspace do runner, fora da árvore do repositório sob revisão).
+continua existindo lá como o único mecanismo. O container da Action só
+enxerga dois diretórios que o job preenche: `/github/workspace`, que é a
+própria árvore revisada (o entrypoint roda o CLI dali), e `/github/home`,
+montado a partir de `$RUNNER_TEMP/_github_home`. Toda política em
+`/github/workspace` — inclusive um `policy_path` relativo, que se resolve
+dentro dele — é recusada pela contenção acima, fechado, antes de qualquer
+chamada ao modelo. A política, portanto, vai para `$RUNNER_TEMP/_github_home`
+num step anterior e `policy_path` recebe o caminho absoluto em `/github/home`:
+
+```yaml
+steps:
+  - uses: actions/checkout@<sha-fixa>
+    with:
+      repository: SuaOrg/aurumcode-policy
+      ref: a1b2c3d4e5f6...  # SHA fixa, não um branch
+      path: aurumcode-policy-src
+      persist-credentials: false
+  - run: |
+      mkdir -p "$RUNNER_TEMP/_github_home"
+      mv aurumcode-policy-src "$RUNNER_TEMP/_github_home/aurumcode-policy"
+  - uses: actions/checkout@<sha-fixa>
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
+  - uses: SuaOrg/AurumCode@<sha-fixa-do-aurumcode>
+    with:
+      policy_path: /github/home/aurumcode-policy
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+```
+
+O `actions/checkout` só grava dentro do workspace, por isso a política é
+checada lá e movida para fora antes do checkout do PR; o `mv` também evita
+que o checkout do PR limpe o diretório. Um symlink fora da árvore que aponte
+para dentro dela é recusado do mesmo jeito, porque a contenção compara os
+caminhos já resolvidos.
 
 Precedência: com política ativa, `rules` e `ignore` do repositório do dev são
 ignorados por completo — vale só o que a política declara — e cada override
@@ -1306,9 +1341,11 @@ Política central por `AURUMCODE_POLICY`, provedor por `LLM_API_KEY` e
   `policy_ref` (branch/tag/SHA da política, fixe em SHA; vazio usa o branch
   padrão). Nenhum definido mantém o comportamento sem política.
 - Action Docker direta: `publication`, `inline-comments`, `security`, `check`,
-  `fail-on`, `model`, `changelog`, `policy_path` (diretório, já no workspace
-  do runner e controlado por quem escreveu o job, que contém o
-  `.aurumcode/config.yml` de uma política central).
+  `fail-on`, `model`, `changelog`, `policy_path` (caminho absoluto em
+  `/github/home`, preenchido por quem escreveu o job em
+  `$RUNNER_TEMP/_github_home`, do diretório que contém o
+  `.aurumcode/config.yml` de uma política central; um caminho em
+  `/github/workspace` é recusado).
 
 ## gate.sources: which findings count toward the gate
 

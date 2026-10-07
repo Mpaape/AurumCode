@@ -231,3 +231,31 @@ func TestAUR518ApplyCentralPolicyLanguageAndPublicationOverride(t *testing.T) {
 		t.Fatalf("expected the policy's publication to win, got %q", effective.Review.Publication)
 	}
 }
+
+// TestAUR535PolicySymlinkIntoReviewedTreeRefused covers the symlink half of
+// the containment rule: a policy path that lives OUTSIDE the reviewed tree
+// but is a symlink whose target is inside it must be refused. Only the
+// symlink resolution in resolvePathBestEffort sees through it -- the
+// unresolved path is a sibling of the tree.
+func TestAUR535PolicySymlinkIntoReviewedTreeRefused(t *testing.T) {
+	base := t.TempDir()
+	tree := filepath.Join(base, "tree")
+	target := filepath.Join(tree, "policy")
+	if err := os.MkdirAll(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "policy-link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidatePolicyOutsideReviewedTree(link, tree); err == nil {
+		t.Fatalf("symlink %s -> %s (inside the reviewed tree) was accepted as a policy", link, target)
+	}
+	rootLink := filepath.Join(base, "tree-link")
+	if err := os.Symlink(tree, rootLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidatePolicyOutsideReviewedTree(rootLink, tree); err == nil {
+		t.Fatalf("symlink %s -> the reviewed tree itself was accepted as a policy", rootLink)
+	}
+}
