@@ -87,5 +87,5 @@ func WrapProviderWithWarnings(ctx context.Context, base llm.Provider, providers 
 	if block == "" {
 		return base, warnings, nil
 	}
-	return &contextInjectingProvider{Provider: base, block: block}, warnings, nil
+	return withToolCalling(base, &contextInjectingProvider{Provider: base, block: block}), warnings, nil
 }

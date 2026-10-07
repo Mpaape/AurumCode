@@ -71,7 +71,7 @@ func (p *prReview) resolveCommit() (int, bool) {
 // POST failure swallow the rest: failures are recorded and the loop
 // continues, so every finding that COULD be published still was.
 func (p *prReview) postReview() []string {
-	summaryBody := formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule())
+	summaryBody := appendReachSection(formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule()), p.reachLines, p.reviewLanguage)
 	summaryBody = appendRoundNotice(summaryBody, p.round, p.reviewLanguage)
 	summaryBody = appendPresentationNotice(summaryBody, p.shown, p.reviewLanguage)
 	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)

@@ -90,3 +90,17 @@ func ValidateToolArguments(raw []byte) error {
 	}
 	return nil
 }
+
+// ValidateToolCall refuses a tool call that cannot be answered or replayed
+// (AUR-526 AC-008): no id (its result could not name it), no tool name, or
+// arguments that are not a JSON object. It applies in both directions: to
+// a call a provider returns and to a call sent back in the conversation.
+func ValidateToolCall(call ToolCall) error {
+	if call.ID == "" || call.Name == "" {
+		return &MalformedToolCallError{ID: call.ID, Name: call.Name}
+	}
+	if err := ValidateToolArguments(call.Arguments); err != nil {
+		return &MalformedToolCallError{ID: call.ID, Name: call.Name}
+	}
+	return nil
+}

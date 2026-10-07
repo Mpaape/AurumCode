@@ -210,8 +210,8 @@ e no tutorial [Skills de convenção](tutorials/skills.md).
 ## 4. Fonte de contexto (`ContextProvider`)
 
 `config.ContextProvider` é a costura comum de todo contexto injetado na
-revisão: arquivos, skills, e no futuro MCP (AUR-469) e índices de
-repositório.
+revisão: arquivos, skills, fontes MCP (`review.context.mcp`, AUR-469) e,
+no futuro, índices de repositório.
 
 - `config.ContextProvider.Name` identifica a fonte no prompt e nos avisos.
 - `config.ContextProvider.Provide` recebe os caminhos alterados e devolve
@@ -238,16 +238,22 @@ func (n notasDoTime) Provide(ctx context.Context, changedPaths []string) (string
 ```
 
 **O lugar do MCP.** Um servidor MCP entra como fonte de contexto (AUR-469):
-um `config.ContextProvider` cujo `Provide` consulta o servidor dentro de
-`config.ProviderTimeout`. Ele informa o modelo; não vira ferramenta que
-decide o gate nem engine de scanner.
+`internal/context/mcp.Source` é um `config.ContextProvider` cujo `Provide`
+inicia o servidor declarado em `review.context.mcp` (só configuração
+confiável: a política central, o config local no `--base` e, no `--pr`, o
+config lido na base, nunca o da head), chama a única ferramenta declarada
+com só o payload declarado e redigido, dentro de `timeout_seconds` (no
+máximo `config.ProviderTimeout`), e devolve o texto com origem
+`mcp:<nome>/<ferramenta>`. Ele informa o modelo; não vira ferramenta que
+decide o gate nem engine de scanner. O servidor é um processo externo, como o
+binário de um scanner: nada é carregado no binário do Aurum.
 
 ## O que NÃO é ponto de extensão
 
 - **Plugin dinâmico.** Não existe carga de código em tempo de execução: nem
-  `.so`, nem binário apontado pela configuração, nem script de skill. Uma
-  engine ou ferramenta nova é código compilado no binário, revisado como o
-  resto.
+  `.so`, nem script de skill. Uma engine ou ferramenta nova é código
+  compilado no binário, revisado como o resto. O binário de um scanner e o
+  servidor de uma fonte MCP são processos externos que só devolvem dados.
 - **Texto do modelo alterando o gate.** A severidade que o modelo escreve não
   é confiável; uma skill, uma fonte de contexto ou uma resposta de ferramenta
   não liga regra, não rebaixa achado e não afrouxa `fail_on`.

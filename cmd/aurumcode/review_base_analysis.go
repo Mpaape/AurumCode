@@ -49,6 +49,7 @@ func (b *baseReview) joinEvidence() (int, bool) {
 	b.snapshotAndApplyRules()
 	b.joinScanners()
 	b.runDependencyCheck()
+	b.explainDependencyReach()
 	b.settleCIStatus(noCIContext())
 	b.recordCoverage()
 	return 0, false
@@ -80,6 +81,7 @@ func (b *baseReview) selectProvider() (int, bool) {
 	if b.centralCfg != nil {
 		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
 	}
+	contextProviders = append(contextProviders, mcpContextProviders(trustedMCPSources(b.cfg, b.localMCPTrusted(), b.centralCfg), b.filter)...)
 	catalog, dynamicRules, catalogErr := resolveSkillRules(skillLayers{cwd: b.cwd, policyDir: b.policyDir, cfg: b.cfg, centralCfg: b.centralCfg}, diffPaths(b.diff))
 	if catalogErr != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", catalogErr)

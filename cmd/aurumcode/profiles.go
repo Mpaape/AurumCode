@@ -98,7 +98,7 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 	var findings []reviewprofile.Finding
 	var originals []types.ReviewIssue
 	for _, p := range profiles {
-		orchestrator := llm.NewOrchestrator(profileProvider{base: provider, profile: p}, nil, tracker)
+		orchestrator := llm.NewOrchestrator(newProfileProvider(provider, p), nil, tracker)
 		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 		reviewer.SetDynamicRules(dynamicRules)
 		if err := reviewer.SetRuleCatalog(ruleCatalogIDs); err != nil {
