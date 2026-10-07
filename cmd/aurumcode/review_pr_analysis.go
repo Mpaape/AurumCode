@@ -34,6 +34,7 @@ func (p *prReview) joinEvidence() (int, bool) {
 	p.runStaticAnalysis()
 	p.snapshotAndApplyRules()
 	p.joinScanners()
+	p.settleCIStatus(p.ciFacts)
 	return p.finishLimitations()
 }
 
