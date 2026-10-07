@@ -100,8 +100,11 @@ type Finding struct {
 
 // License is the registered license of a new or updated package.
 type License struct {
-	Change     Change `json:"change"`
-	Expression string `json:"expression"`
+	Change     Change         `json:"change"`
+	Expression string         `json:"expression"`
+	Verdict    LicenseVerdict `json:"verdict"`
+	// ByModel is true when the model classified the license text.
+	ByModel bool `json:"by_model,omitempty"`
 	// Reason is set when the license could not be determined.
 	Reason string `json:"reason,omitempty"`
 }

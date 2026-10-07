@@ -20,8 +20,13 @@ type Inputs struct {
 	Source    Source
 	Extractor Extractor
 	Registry  Registry
-	Root      string
-	Blocked   string
+	// LicensesDenied, when not empty, judges the license of every new or
+	// updated package (licenses.go); LicenseText is the optional reader of
+	// a package's license file for the model to classify.
+	LicensesDenied []string
+	LicenseText    LicenseReader
+	Root           string
+	Blocked        string
 }
 
 // Check runs the dependency check. Every failure is a Reason on the report:
@@ -63,6 +68,9 @@ func Check(ctx context.Context, in Inputs) Report {
 	classify(ctx, in.Source, report.Changes, &report)
 	if report.Inconclusive() || in.Registry == nil {
 		return report
+	}
+	if len(in.LicensesDenied) > 0 {
+		vetLicenses(ctx, in.Model, in.Registry, in.LicenseText, in.LicensesDenied, &report)
 	}
 	vetRegistry(ctx, in.Model, in.Registry, &report)
 	return report

@@ -22,6 +22,8 @@ type Metadata map[string]string
 // "nothing suspicious".
 type Registry interface {
 	Metadata(ctx context.Context, c Change) (Metadata, error)
+	// Licenses is the version's registered license expressions.
+	Licenses(ctx context.Context, c Change) ([]string, error)
 }
 
 // ErrNoSystem marks a package the model could not place in a registry
@@ -65,8 +67,8 @@ func (d DepsDev) Metadata(ctx context.Context, c Change) (Metadata, error) {
 	if err := d.get(ctx, pkgURL, &pkg); err != nil {
 		return nil, err
 	}
-	var ver depsDevVersion
-	if err := d.get(ctx, pkgURL+"/versions/"+url.PathEscape(c.Head), &ver); err != nil {
+	ver, err := d.version(ctx, pkgURL, c)
+	if err != nil {
 		return nil, err
 	}
 	meta := Metadata{
@@ -91,6 +93,26 @@ func (d DepsDev) Metadata(ctx context.Context, c Change) (Metadata, error) {
 		meta["links."+l.Label] = l.URL
 	}
 	return meta, nil
+}
+
+// Licenses is the version's license list as deps.dev holds it (SPDX
+// expressions, or "non-standard").
+func (d DepsDev) Licenses(ctx context.Context, c Change) ([]string, error) {
+	pkgURL, err := d.packageURL(c)
+	if err != nil {
+		return nil, err
+	}
+	ver, err := d.version(ctx, pkgURL, c)
+	if err != nil {
+		return nil, err
+	}
+	return ver.Licenses, nil
+}
+
+func (d DepsDev) version(ctx context.Context, pkgURL string, c Change) (depsDevVersion, error) {
+	var ver depsDevVersion
+	err := d.get(ctx, pkgURL+"/versions/"+url.PathEscape(c.Head), &ver)
+	return ver, err
 }
 
 func (d DepsDev) packageURL(c Change) (string, error) {

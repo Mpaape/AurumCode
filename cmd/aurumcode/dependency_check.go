@@ -73,6 +73,9 @@ func (s *reviewState) runDependencyCheck() {
 		Registry:  src.registry(cfg),
 		Root:      s.scanRoot,
 		Blocked:   s.scanBlocked,
+		// The license text fallback has no production reader: a license
+		// the registry cannot name is inconclusive.
+		LicensesDenied: cfg.LicensesDenied,
 	})
 	s.depReport = &report
 	for _, line := range dependencyNotices(report) {

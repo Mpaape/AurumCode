@@ -53,6 +53,9 @@ func (c DependenciesContributor) Apply(_ context.Context, run *Run, _ Result) (R
 	for _, s := range report.Suspicions {
 		policy.judgeSuspicion(&part, s)
 	}
+	for _, l := range report.Licenses {
+		policy.judgeLicense(&part, l)
+	}
 	return part, nil
 }
 

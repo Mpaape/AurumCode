@@ -84,6 +84,7 @@ type fakeModel struct {
 	manifests  []string
 	changes    []Change
 	suspicions []map[string]any
+	license    map[string]any
 	err        error
 }
 
@@ -92,7 +93,9 @@ func (m fakeModel) CompleteMessages(_ context.Context, msgs []llm.Message, _ llm
 		return llm.Response{}, m.err
 	}
 	var body any
-	if strings.Contains(msgs[0].Content, `{"suspicions"`) {
+	if strings.Contains(msgs[0].Content, `{"spdx"`) {
+		body = m.license
+	} else if strings.Contains(msgs[0].Content, `{"suspicions"`) {
 		body = map[string]any{"suspicions": m.suspicions}
 	} else if strings.Contains(msgs[0].Content, `{"manifests"`) {
 		body = map[string]any{"manifests": m.manifests}
@@ -157,8 +160,20 @@ func findingsOf(r Report, status Status) []Finding {
 // fakeRegistry serves fixed metadata per package name; fail makes it
 // unreachable.
 type fakeRegistry struct {
-	meta map[string]Metadata
-	fail bool
+	meta     map[string]Metadata
+	licenses map[string][]string
+	fail     bool
+}
+
+func (r fakeRegistry) Licenses(_ context.Context, c Change) ([]string, error) {
+	if r.fail {
+		return nil, errors.New("registry unreachable")
+	}
+	l, ok := r.licenses[c.Name]
+	if !ok {
+		return nil, ErrNoSystem
+	}
+	return l, nil
 }
 
 func (r fakeRegistry) Metadata(_ context.Context, c Change) (Metadata, error) {
