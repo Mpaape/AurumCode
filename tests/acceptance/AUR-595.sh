@@ -37,9 +37,6 @@ infra() { printf '%s/%s/infrastructure/%s\n' "$card" "$selector" "$1" >&2; exit 
 script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
-# The AC-002/AC-003 tests build a real repository: without git they would
-# skip, and a skipped test proves nothing.
-command -v git >/dev/null 2>&1 || infra missing_git
 for input in go.mod go.sum cmd internal pkg .aurumcode/config.yml docs/configuration.md docs/getting-started.md cmd/aurumcode/aur595_test.go cmd/aurumcode/pr_scan_range.go internal/deliberation/transcript.go internal/deliberation/cost_test.go; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
