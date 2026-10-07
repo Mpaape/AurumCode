@@ -50,7 +50,10 @@ type Context struct {
 	// an analysis of them can only be invented.
 	pendingOnly  map[string]bool
 	pendingCount int
-	ownPrefix    string
+	// concludedNames holds the normalized names with a concluded entry: an
+	// analysis of them rests on the context, whatever else they are named.
+	concludedNames map[string]bool
+	ownPrefix      string
 }
 
 // Parse splits raw (the workflow-produced JSON array) with ownPrefix, the
@@ -58,7 +61,7 @@ type Context struct {
 // JSON array of checks is unreadable: nothing of it reaches the model,
 // because unparsed text would bypass the split.
 func Parse(raw, ownPrefix string) Context {
-	c := Context{ownPrefix: normalizeName(ownPrefix), pendingOnly: map[string]bool{}}
+	c := Context{ownPrefix: normalizeName(ownPrefix), pendingOnly: map[string]bool{}, concludedNames: map[string]bool{}}
 	if strings.TrimSpace(raw) == "" {
 		return c
 	}
@@ -68,7 +71,6 @@ func Parse(raw, ownPrefix string) Context {
 		c.unreadable = true
 		return c
 	}
-	concludedNames := map[string]bool{}
 	for _, check := range checks {
 		name := normalizeName(check.Name)
 		switch {
@@ -76,14 +78,14 @@ func Parse(raw, ownPrefix string) Context {
 			c.ownCount++
 		case Concluded(check.State):
 			c.concluded = append(c.concluded, check)
-			concludedNames[name] = true
+			c.concludedNames[name] = true
 		default:
 			c.pendingCount++
 			c.pendingOnly[name] = true
 		}
 	}
 	for name := range c.pendingOnly {
-		if concludedNames[name] {
+		if c.concludedNames[name] {
 			delete(c.pendingOnly, name)
 		}
 	}
@@ -97,6 +99,9 @@ func (c Context) Own(name string) bool {
 
 // withoutResult reports a name the context only knows as still running.
 func (c Context) withoutResult(name string) bool { return c.pendingOnly[normalizeName(name)] }
+
+// concludedCheck reports a name the context knows with a result.
+func (c Context) concludedCheck(name string) bool { return c.concludedNames[normalizeName(name)] }
 
 // ModelText is the CI context the model receives: the concluded checks of
 // other producers, plus a note on what was withheld. Empty when no context

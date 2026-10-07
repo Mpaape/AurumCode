@@ -54,6 +54,9 @@ func (f Facts) reason(item types.CIAnalysis, executed map[string]bool) string {
 		return ReasonOwnStatus
 	case f.Context.withoutResult(item.Check), stillRunning(item.Status):
 		return ReasonWithoutResult
+	case f.Context.concludedCheck(item.Check):
+		// A concluded CI job that shares an engine's name is a CI fact.
+		return reasonNone
 	}
 	if engine, ok := scannerEngine(item.Check); ok && !executed[engine] {
 		return ReasonScannerNotRun
