@@ -22,7 +22,7 @@ tut_pr_servidor() {
   TUT_PR_PID=$!
   local i
   for i in $(seq 1 50); do
-    (exec 3<>"/dev/tcp/127.0.0.1/$TUT_PR_PORT") 2>/dev/null && return 0
+    (: > "/dev/tcp/127.0.0.1/$TUT_PR_PORT") 2>/dev/null && return 0
     sleep 0.1
   done
   echo "ERRO: servidor falso nao subiu" >&2; return 1
@@ -40,7 +40,7 @@ tut_pr_servidor_recusa() {
   TUT_PR_PID=$!
   local i
   for i in $(seq 1 50); do
-    (exec 3<>"/dev/tcp/127.0.0.1/$TUT_PR_PORT") 2>/dev/null && return 0
+    (: > "/dev/tcp/127.0.0.1/$TUT_PR_PORT") 2>/dev/null && return 0
     sleep 0.1
   done
   echo "ERRO: servidor falso nao subiu" >&2; return 1
