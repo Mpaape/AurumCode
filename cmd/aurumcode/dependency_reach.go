@@ -1,4 +1,4 @@
-// Dependency reachability (AUR-531): with deliberation.dependency_reachability,
+// Dependency reachability: with deliberation.dependency_reachability,
 // each advisory of the dependency check gets the model's explanation of
 // whether the reviewed code uses the vulnerable part, found with the
 // repository tools and grounded in the reviewed revision. The explanation is

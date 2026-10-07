@@ -1,4 +1,4 @@
-// Repository tools of the deliberation (AUR-526): with deliberation active
+// Repository tools of the deliberation: with deliberation active
 // and a checkout proven to be the reviewed revision, the model may read
 // files, search text, look a symbol up through the grammar provider and read
 // the diff of another changed file. The tools read the reviewed commit's

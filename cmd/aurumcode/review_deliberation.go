@@ -46,8 +46,8 @@ func (s *reviewState) prepareDeliberation(caller deliberation.Caller, supportsTo
 	offers := s.toolOffers()
 	maxRounds, maxCost, perTool := s.cfg.Deliberation.EffectiveLimits()
 	reviewer.SetDeliberation(&review.Deliberation{
-		Caller: caller,
-		Tools:  reviewtools.Tools(offers),
+		Caller:  caller,
+		Tools:   reviewtools.Tools(offers),
 		Limits:  deliberation.Limits{MaxRounds: maxRounds, MaxCostTokens: maxCost, PerToolTimeout: perTool},
 		Partial: reviewtools.PartialLimit(offers),
 	})

@@ -1,6 +1,6 @@
 // Package reach explains, for one advisory on a dependency, whether the
-// reviewed code uses the vulnerable part (AUR-531): the model searches the
-// repository with the read-only repository tools (AUR-526), in any
+// reviewed code uses the vulnerable part: the model searches the
+// repository with the read-only repository tools, in any
 // language, and answers where the use appears. The code only orchestrates,
 // validates the answer's shape and grounds every cited location in the
 // reviewed revision. The explanation travels beside the finding: it never
