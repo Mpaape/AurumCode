@@ -472,7 +472,11 @@ nas fontes concluídas; inconclusivo: <motivos>`, com os mesmos motivos do gate
 (AUR-572). No `--pr`, o status `aurumcode/policy-gate`
 é publicado junto do `aurumcode/review` que `--check` já publica, só
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
-perfil selecionado aprende o mesmo catálogo dinâmico.
+perfil selecionado aprende o mesmo catálogo dinâmico. A fusão dos perfis
+preserva lado (`LEFT`/`RIGHT`), impacto, evidência, correção sugerida e
+verificação de cada achado; um achado que dois perfis repetem sai uma vez,
+atribuído como `[perfil a; tambem: b]`, e a evidência de cada perfil é mantida.
+O terminal (`--base`) mostra os mesmos campos que o parecer do PR.
 
 ## SAST multilinguagem com Semgrep (AUR-548)
 

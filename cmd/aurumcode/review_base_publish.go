@@ -52,7 +52,7 @@ func (b *baseReview) printReport() {
 		fmt.Fprint(b.stdout, "\n"+b.changelogText)
 	}
 	if !b.qualityDidNotRun() || len(result.Issues) > 0 {
-		printFindings(b.stdout, result, b.gateRes.Reason)
+		printFindings(b.stdout, result, b.gateRes.Reason, b.reviewLanguage)
 	}
 	printOutsideDiffFindings(b.stdout, result)
 	if b.model != modelProviderFailed {
