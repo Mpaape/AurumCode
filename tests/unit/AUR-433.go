@@ -40,7 +40,10 @@ func aur433Fixture(t *testing.T, severity string) string {
       "line": 4,
       "severity": %q,
       "rule_id": "security/hardcoded-secret",
-      "message": "A planted, synthetic problem used to exercise --limite."
+      "message": "A planted, synthetic problem used to exercise --limite.",
+      "evidence": "The added line at this location carries the value the message describes.",
+      "impact": "A reader of the change inherits the problem the message describes.",
+      "verification": "Change the flagged line and confirm the finding is gone."
     }
   ],
   "summary": "Deterministic offline response for AUR-433."
@@ -213,20 +216,21 @@ func TestAUR433(t *testing.T) {
 
 	t.Run("a --limite between the pre-flight estimate and the enforced check still refuses", func(t *testing.T) {
 		// On the git-demo fixture with the default price the diff-only
-		// pre-flight estimate is ~$0.0914, but the enforced check (the
+		// pre-flight estimate is ~$0.0313, but the enforced check (the
 		// larger, fully assembled prompt) does not admit a request until
-		// --limite reaches ~$0.11: $0.10 must still refuse even though the
-		// PRINTED estimate is smaller than $0.10. This is the exact margin
+		// --limite reaches ~$0.075: $0.05 must still refuse even though the
+		// PRINTED estimate is smaller than $0.05. This is the exact margin
 		// printCostEstimate/reportBudgetExceeded's wording is designed not
 		// to contradict (see docs/specs/AUR-433.md).
 		//
-		// $0.10 is pinned to the CURRENT size of the prompt template
-		// internal/prompt.PromptBuilder assembles. If that template grows or
-		// shrinks in a future card, this boundary moves and a failure here
+		// $0.05 is pinned to the CURRENT size of the prompt template
+		// internal/prompt.PromptBuilder assembles (re-derived by bisection
+		// after the template shrank; it was $0.10 against ~$0.0914). If
+		// that template grows or shrinks in a future card, this boundary moves and a failure here
 		// means "re-derive the boundary", not "AUR-433 regressed".
 		fixture := aur433Fixture(t, "warning")
 		env := []string{"AURUMCODE_LLM_FIXTURE=" + fixture}
-		code, stdout, stderr, called := callCount(env, "--limite", "0.10")
+		code, stdout, stderr, called := callCount(env, "--limite", "0.05")
 		if code != 1 {
 			t.Fatalf("expected exit 1 at the boundary, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
@@ -241,7 +245,7 @@ func TestAUR433(t *testing.T) {
 		}
 		// The refusal line must not itself restate a specific dollar amount
 		// as "the" cost that was exceeded -- the printed pre-flight
-		// estimate ($0.0914) is smaller than this --limite ($0.10), so a
+		// estimate ($0.0313) is smaller than this --limite ($0.05), so a
 		// message like "estimated cost exceeds --limite" would read as
 		// self-contradicting next to the estimate line above it.
 		if strings.Contains(stderr, "estimated cost exceeds") {

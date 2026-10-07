@@ -63,7 +63,7 @@ cleanup_root() {
 trap 'cleanup_root "$run_dir"' EXIT INT TERM HUP
 mkdir -p "$run_dir/gocache" "$run_dir/gotmp"
 export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS='-mod=mod -p=1'
-export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp"
+export GOCACHE="${GOCACHE:-$run_dir/gocache}" GOTMPDIR="$run_dir/gotmp"
 export TMPDIR="$run_dir"
 
 # copy materializes one repo path into a staged root. Every path it copies
@@ -87,10 +87,7 @@ stage_source() {
   local root="$1"
   mkdir -p "$root"
   copy "$root" go.mod go.sum
-  copy "$root" cmd/aurumcode
-  copy "$root" internal/git internal/documentation/extractors internal/documentation/incremental internal/documentation/normalizer internal/documentation/site internal/documentation/welcome internal/documentation/review internal/pipeline
-  copy "$root" cmd/regenerate-docs
-  copy "$root" internal/analyzer internal/config internal/prompt internal/review internal/security internal/llm pkg/types
+  copy "$root" cmd internal pkg
   copy "$root" tests/fixtures/repos/git-demo
   # cp -R preserves the read-only mode bits of the materialized input; the
   # staged copy is scratch from here on, so force it writable for the
@@ -113,7 +110,10 @@ cat >"$fixture_error" <<'EOF'
       "line": 4,
       "severity": "error",
       "rule_id": "security/hardcoded-secret",
-      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN)."
+      "message": "A credential-shaped value was committed in plain text (DEMO_API_TOKEN).",
+      "evidence": "The added line at this location carries the value the message describes.",
+      "impact": "A reader of the change inherits the problem the message describes.",
+      "verification": "Change the flagged line and confirm the finding is gone."
     }
   ],
   "summary": "The change adds config/demo-tokens.txt, which commits plaintext credential-shaped values."
