@@ -204,3 +204,25 @@ func TestAUR495AC008InventedDependencyDiscarded(t *testing.T) {
 		}
 	}
 }
+
+// AC-004: the model never removes deterministic evidence: a lockfile the
+// scanner recognizes and the model did not name is read anyway and the
+// omission declared; a package the scanner extracts from the added lines
+// and the model leaves out makes the check inconclusive.
+func TestAUR495AC004ScannerEvidenceKept(t *testing.T) {
+	osv := newFakeOSV(t, fixture)
+	scanner := fakeExtractor{pkgs: map[string][]Package{"app/package-lock.json": {{Ecosystem: "npm", Name: "minimist", Version: "1.2.5"}}}}
+	skipped := fakeModel{manifests: nil, changes: []Change{minimist("1.2.6", "1.2.5")}}
+	r := run(t, osv, Inputs{Diff: npmBump("1.2.6", "1.2.5"), Model: skipped, Extractor: scanner})
+	if r.Inconclusive() || len(r.Manifests) != 1 || len(findingsOf(r, StatusIntroduced)) != 1 {
+		t.Fatalf("scanner-recognized lockfile not read: %+v", r)
+	}
+	if len(r.Divergences) != 1 || !strings.Contains(r.Divergences[0], "modelo nao o apontou") {
+		t.Fatalf("omission not declared: %v", r.Divergences)
+	}
+	silent := fakeModel{manifests: []string{"app/package-lock.json"}}
+	r = run(t, osv, Inputs{Diff: npmBump("1.2.6", "1.2.5"), Model: silent, Extractor: scanner})
+	if r.Reason != ReasonExtractionGap || r.Findings != nil {
+		t.Fatalf("model omission of an added package = %q %+v", r.Reason, r.Findings)
+	}
+}

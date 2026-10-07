@@ -149,6 +149,8 @@ const (
 	ReasonCheckoutBlocked  = "dependencies_unverified_checkout"
 	ReasonManifestsOmitted = "dependencies_manifests_omitted"
 	ReasonNotRun           = "dependencies_not_run"
+	ReasonExtractionGap    = "dependencies_extraction_gap"
+	ReasonScannerFailed    = "dependencies_scanner_failed"
 )
 
 // fail records the first inconclusive reason; later ones keep the first.

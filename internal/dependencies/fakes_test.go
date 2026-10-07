@@ -110,12 +110,17 @@ type fakeExtractor struct {
 	missing bool
 }
 
-func (x fakeExtractor) Extract(_ context.Context, _, path string) ([]Package, bool, error) {
+func (x fakeExtractor) Extract(_ context.Context, _ string, paths []string) (map[string][]Package, error) {
 	if x.missing {
-		return nil, false, errors.Join(ErrScannerMissing, errors.New("osv-scanner not in PATH"))
+		return nil, errors.Join(ErrScannerMissing, errors.New("osv-scanner not in PATH"))
 	}
-	p, ok := x.pkgs[path]
-	return p, ok, nil
+	out := map[string][]Package{}
+	for _, p := range paths {
+		if pkgs, ok := x.pkgs[p]; ok {
+			out[p] = pkgs
+		}
+	}
+	return out, nil
 }
 
 // fileDiff is one file of a diff whose hunk holds lines as written ("+",
