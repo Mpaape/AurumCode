@@ -97,17 +97,17 @@ func fail(reason, detail string) Verdict { return Verdict{Reason: reason, Detail
 // Verify applies r to c. Anything the check cannot establish is a failure.
 func (r Requirement) Verify(c Change) Verdict {
 	if err := r.Validate(); err != nil {
-		return fail(ReasonIndeterminate, "regras invalidas: "+err.Error())
+		return fail(ReasonIndeterminate, "regras inválidas: "+err.Error())
 	}
 	switch c.State {
 	case FileUnreadable:
-		return fail(ReasonIndeterminate, r.File+" mudou, mas o conteudo nao pode ser lido")
+		return fail(ReasonIndeterminate, r.File+" mudou, mas o conteúdo não pode ser lido")
 	case FileChanged:
 	default:
-		return fail(ReasonMissing, "a PR nao altera "+r.File)
+		return fail(ReasonMissing, "a PR não altera "+r.File)
 	}
 	if normalizeLine(c.Old) == normalizeLine(c.New) {
-		return fail(ReasonWhitespace, "a alteracao de "+r.File+" muda apenas espacos ou quebras de linha")
+		return fail(ReasonWhitespace, "a alteração de "+r.File+" muda apenas espaços ou quebras de linha")
 	}
 	added := addedLines(c.Old, c.New)
 	return r.judge(added)
@@ -118,7 +118,7 @@ func (r Requirement) judge(added []addedLine) Verdict {
 	entry, release := 0, 0
 	for _, l := range added {
 		if marker := r.agentLogMarker(l.text); marker != "" {
-			return fail(ReasonAgentLog, fmt.Sprintf("linha %d parece log de agente ou ferramenta (%q)", l.number, marker))
+			return fail(ReasonAgentLog, fmt.Sprintf("linha %d parece log de agente ou de ferramenta (%q)", l.number, marker))
 		}
 		if len([]rune(strings.TrimSpace(l.text))) > r.MaxLineLength {
 			return fail(ReasonTooLong, fmt.Sprintf("linha %d passa de %d caracteres", l.number, r.MaxLineLength))
@@ -134,15 +134,15 @@ func (r Requirement) judge(added []addedLine) Verdict {
 		}
 	}
 	if entry > r.MaxEntryLines {
-		return fail(ReasonTooLong, fmt.Sprintf("a entrada em %s tem %d linhas; o limite e %d", r.Section, entry, r.MaxEntryLines))
+		return fail(ReasonTooLong, fmt.Sprintf("a entrada em %s tem %d linhas; o limite é %d", r.Section, entry, r.MaxEntryLines))
 	}
 	if release > r.MaxReleaseLines {
-		return fail(ReasonTooLong, fmt.Sprintf("as notas da release tem %d linhas; o limite e %d", release, r.MaxReleaseLines))
+		return fail(ReasonTooLong, fmt.Sprintf("as notas da release têm %d linhas; o limite é %d", release, r.MaxReleaseLines))
 	}
 	if entry+release == 0 {
-		return fail(ReasonNoInformation, "nenhuma linha nova com informacao de mudanca em "+r.Section+" nem em uma secao de versao")
+		return fail(ReasonNoInformation, "nenhuma linha nova com informação de mudança em "+r.Section+" nem numa seção de versão")
 	}
-	return Verdict{OK: true, Reason: ReasonOK, Detail: fmt.Sprintf("%d linha(s) nova(s) em %s, %d em notas de versao", entry, r.Section, release)}
+	return Verdict{OK: true, Reason: ReasonOK, Detail: fmt.Sprintf("%d linha(s) nova(s) em %s, %d em notas de versão", entry, r.Section, release)}
 }
 
 // informative reports whether an added line carries change information: not

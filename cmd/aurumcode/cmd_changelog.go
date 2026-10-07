@@ -37,7 +37,7 @@ type changelogDiffer func(repoRoot, base, head string) (*types.Diff, []analyzer.
 func gitChangelogDiff(repoRoot, base, head string) (*types.Diff, []analyzer.DiffNotice, error) {
 	repo, err := analyzer.OpenRepo(repoRoot)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s nao e um repositorio git", repoRoot)
+		return nil, nil, fmt.Errorf("%s não é um repositório git", repoRoot)
 	}
 	return repo.Diff(base, head)
 }
@@ -68,12 +68,12 @@ func runChangelog(args []string, stdout, stderr io.Writer, differ changelogDiffe
 		return 2
 	}
 	if f.base == "" {
-		fmt.Fprintln(stderr, "aurumcode changelog: --base e obrigatorio")
+		fmt.Fprintln(stderr, "aurumcode changelog: --base é obrigatório")
 		return 2
 	}
 	diff, notices, err := differ(f.repo, f.base, f.head)
 	if err != nil {
-		fmt.Fprintf(stderr, "aurumcode changelog: indeterminado: nao foi possivel obter o diff: %v\n", err)
+		fmt.Fprintf(stderr, "aurumcode changelog: indeterminado: não foi possível obter o diff: %v\n", err)
 		return 1
 	}
 	if diff == nil {
@@ -86,7 +86,7 @@ func runChangelog(args []string, stdout, stderr io.Writer, differ changelogDiffe
 		return 1
 	}
 	if !required {
-		fmt.Fprintln(stdout, "changelog: nao exigido (changelog_check.mode: off na base)")
+		fmt.Fprintln(stdout, "changelog: não exigido (changelog_check.mode: off na base)")
 		return 0
 	}
 	if !verdict.OK {

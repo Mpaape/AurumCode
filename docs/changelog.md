@@ -22,12 +22,28 @@ O modo vem do `config.yml` do commit **base** da PR. Uma PR que desliga o
 modo no próprio `config.yml` continua sujeita ao check; a mudança só vale
 depois do merge.
 
-No GitHub, copie [`.github/workflows/changelog.yml`](https://github.com/Mpaape/AurumCode/blob/main/.github/workflows/changelog.yml)
-e marque o job **Changelog obrigatório** como required check em
-*Settings → Branches → Branch protection rules → Require status checks to
-pass*. O nome do job é o contexto estável: não o renomeie depois de exigido.
-O workflow não tem filtro de `paths` nem `if:`, porque um job pulado conta
-como verde num required check.
+No GitHub, chame o workflow reutilizável, pinado por SHA:
+
+```yaml
+# .github/workflows/changelog.yml do repositório consumidor
+name: Changelog
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  changelog:
+    uses: Mpaape/AurumCode/.github/workflows/changelog.yml@<sha>
+```
+
+O verificador é construído do checkout do AurumCode naquele SHA, nunca do
+código da PR; a PR entra só como dado. Marque o contexto
+**changelog / Changelog obrigatório** (job do chamador / job do workflow) como
+required check em *Settings → Branches → Branch protection rules → Require
+status checks to pass*. Não renomeie o job depois de exigido. O workflow não
+tem filtro de `paths` nem `if:`, porque um job pulado conta como verde num
+required check. Neste repositório o mesmo arquivo roda direto em
+`pull_request`, com o contexto **Changelog obrigatório**.
 
 ## O que reprova
 

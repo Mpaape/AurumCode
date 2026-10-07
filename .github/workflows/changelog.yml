@@ -1,17 +1,24 @@
 name: Changelog
 
-# Check obrigatorio de changelog (AUR-509). Sem filtro de paths e sem `if:`
-# no job: um job pulado conta como verde num required check. O nome do job
-# ("Changelog obrigatório") e o contexto estavel a exigir na protecao da main.
+# Check obrigatorio de changelog (AUR-509). Neste repositorio roda em toda
+# pull_request; um repositorio consumidor chama o mesmo arquivo como workflow
+# reutilizavel (workflow_call), pinado por SHA:
+#
+#   jobs:
+#     changelog:
+#       uses: Mpaape/AurumCode/.github/workflows/changelog.yml@<sha>
+#
+# O verificador e construido do checkout da ferramenta (job.workflow_sha),
+# nunca do codigo da PR; a PR entra so como dado, em outro diretorio. Sem
+# filtro de paths e sem `if:` no job: um job pulado conta como verde num
+# required check. Contexto a exigir na protecao da main: "Changelog
+# obrigatório" aqui; "<job do chamador> / Changelog obrigatório" no consumidor.
 on:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
-
-concurrency:
-  group: changelog-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   changelog:
@@ -19,19 +26,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout repository
+      - name: Checkout AurumCode
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .aurumcode-tool
           persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout pull request
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: .aurumcode-target
+          persist-credentials: false
+          # Historia completa: a base da PR precisa estar no clone.
+          fetch-depth: 0
 
       - name: Check the changelog entry
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: >-
           docker run --rm
-          -e BASE_SHA
-          -v "${GITHUB_WORKSPACE}:/src"
-          -w /src
+          -e BASE_SHA -e HEAD_SHA
+          -v "${GITHUB_WORKSPACE}:/w"
+          -w /w/.aurumcode-tool
           golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
-          sh scripts/ci/changelog-check.sh
+          sh scripts/ci/changelog-check.sh /w/.aurumcode-target

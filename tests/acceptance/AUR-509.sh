@@ -32,8 +32,8 @@ readonly ac1='^TestAUR509AC001RequiredModeRefusesUselessChanges$'
 readonly ac2='^TestAUR509AC002EntryIsConciseAndUserFacing$'
 readonly ac3='^(TestAUR509AC003CheckFailsClosed|TestAUR509AC003PullRequestCannotSwitchItOff|TestAUR509ChangelogCheckSection)$'
 readonly ac4='^(TestAUR509AC004SuggestionStaysSeparate|TestAUR509AC004EntryTextIsData)$'
-readonly missing_rule='return fail(ReasonMissing, "a PR nao altera "+r.File)'
-readonly diff_rule='nao foi possivel obter o diff'
+readonly missing_rule='return fail(ReasonMissing, "a PR não altera "+r.File)'
+readonly diff_rule='não foi possível obter o diff'
 
 for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
@@ -92,7 +92,7 @@ run_mut001() {
   file="$root/internal/changelog/require.go"
   grep -Fq -- "$missing_rule" "$file" || infra missing-rule-absent
   # A pull request that does not touch the changelog is approved.
-  sed -i 's/return fail(ReasonMissing, "a PR nao altera "+r.File)/return Verdict{OK: true, Reason: ReasonOK}/' "$file"
+  sed -i 's/return fail(ReasonMissing, "a PR não altera "+r.File)/return Verdict{OK: true, Reason: ReasonOK}/' "$file"
   ! grep -Fq -- "$missing_rule" "$file" || infra mutation-not-applied
   expect_red "$root" "$run_dir/mut1.log" "$ac1"
   printf '%s/MUT-001/rejected\n' "$card"
