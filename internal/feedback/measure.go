@@ -68,6 +68,7 @@ func Compare(before, after *CorpusReport) Comparison {
 	fmt.Fprintf(&b, "| Precisão | %.4f | %.4f |\n", before.Total.Precision, after.Total.Precision)
 	fmt.Fprintf(&b, "| Aprovado com defeito | %d | %d%s |\n", before.Total.ApprovedWithDefect, after.Total.ApprovedWithDefect, mark(regressed))
 	fmt.Fprintf(&b, "| Casos | %d | %d |\n", before.Total.Cases, after.Total.Cases)
+	b.WriteString("\nMedição com o provedor falso do AUR-523, derivado dos rótulos dos casos: mede o efeito da política nas regras citáveis e no gate, não a qualidade de um modelo real.\n")
 	fmt.Fprintf(&b, "\nCorpus `%s` → `%s`; política `%s` → `%s`.\n", shortSHA(before.CorpusSHA256), shortSHA(after.CorpusSHA256), shortSHA(before.PolicySHA256), shortSHA(after.PolicySHA256))
 	if regressed {
 		fmt.Fprintf(&b, "\n> **REGRESSÃO:** \"aprovado com defeito\" subiu de %d para %d. A política proposta deixa passar defeitos que a atual reprova.\n", before.Total.ApprovedWithDefect, after.Total.ApprovedWithDefect)

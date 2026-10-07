@@ -22,9 +22,10 @@ byte.
 
 - `git`, `docker`, `bash` e `python3`. Nada mais roda no seu host.
 - A imagem do produto, construída do `Dockerfile` da raiz.
-- O GitHub é um servidor falso local (`github-falso.py`, em `127.0.0.1`): o
-  container usa a rede do host só para alcançá-lo, com um token falso. O
-  modelo é o provedor falso (`AURUMCODE_LLM_FIXTURE`).
+- O GitHub é um servidor falso (`github-falso.py`) que sobe **dentro** do
+  container do produto (`dentro.sh`, `--network none`), com um token falso;
+  o estado de cada caso fica em `.estado/`. O modelo é o provedor falso
+  (`AURUMCODE_LLM_FIXTURE`).
 
 ```bash
 bash demo/tutoriais/realimentacao/run.sh all      # seis casos; grava out/

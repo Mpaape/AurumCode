@@ -3,15 +3,17 @@
 127.0.0.1, sem rede externa. Serve um repositorio de aplicacao (exemplo/app:
 alertas de code scanning e comentarios lidos de github/) e um repositorio de
 politica (exemplo/politica: arquivos por branch, comecando por politica/ em
-main). Cada escrita do produto vira uma linha em LOG_ARQUIVO.
+main). Cada escrita do produto vira uma linha em LOG_ARQUIVO. O estado
+(branches e PRs abertas) fica em ESTADO, para sobreviver entre os containers
+de um caso; PRONTO e criado quando o servidor escuta.
 
-uso: github-falso.py PORTA DIR_TUTORIAL LOG_ARQUIVO
+uso: github-falso.py PORTA DIR_TUTORIAL LOG_ARQUIVO ESTADO PRONTO
 """
 import base64, json, os, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlsplit, parse_qs, unquote
 
-porta, raiz, log_arq = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+porta, raiz, log_arq, estado_arq, pronto = int(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
 APP, POL = "/repos/exemplo/app", "/repos/exemplo/politica"
 
 
@@ -32,11 +34,23 @@ def arvore(dir_rel):
 
 branches = {"main": arvore("politica")}
 abertas = []
+if os.path.exists(estado_arq):
+    with open(estado_arq) as f:
+        salvo = json.load(f)
+    branches = {b: {k: base64.b64decode(v) for k, v in fs.items()} for b, fs in salvo["branches"].items()}
+    abertas = salvo["abertas"]
+
+
+def salva():
+    with open(estado_arq, "w") as f:
+        json.dump({"branches": {b: {k: base64.b64encode(v).decode() for k, v in fs.items()} for b, fs in branches.items()},
+                   "abertas": abertas}, f)
 
 
 def grava(linha):
     with open(log_arq, "a") as f:
         f.write(json.dumps(linha, ensure_ascii=False) + "\n")
+    salva()
 
 
 class H(BaseHTTPRequestHandler):
@@ -113,4 +127,6 @@ class H(BaseHTTPRequestHandler):
         return self._send(200, {})
 
 
-HTTPServer(("127.0.0.1", porta), H).serve_forever()
+servidor = HTTPServer(("127.0.0.1", porta), H)
+open(pronto, "w").close()
+servidor.serve_forever()

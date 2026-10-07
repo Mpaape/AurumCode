@@ -1915,8 +1915,17 @@ nada.
 
 - Tokens: `AURUMCODE_SIGNALS_TOKEN` lê a organização (alertas, artefatos,
   comentários); `GITHUB_TOKEN` grava só no repositório da política. Sem o
-  primeiro, `GITHUB_TOKEN` lê também. A escrita usa a API de conteúdo com o
-  token do workflow; nenhuma identidade git é configurada.
+  primeiro, `GITHUB_TOKEN` lê também. A escrita usa a API de conteúdo; nenhuma
+  identidade git é configurada.
+- Quem abre a PR: com o segredo opcional `POLICY_TOKEN` do workflow (GitHub
+  App ou token fine-grained com escrita de conteúdo e PRs no repositório da
+  política), a PR é dessa identidade e a medição roda no evento
+  `pull_request`. Sem ele, a PR é do `github.token`: a org precisa ligar
+  *Settings → Actions → General → Allow GitHub Actions to create and approve
+  pull requests*, e uma PR aberta pelo `github.token` não dispara workflows de
+  `pull_request`; por isso o job dispara a medição por `workflow_dispatch`
+  (entrada `measurement_workflow`, o arquivo do repositório da política que
+  chama `realimentacao-medicao.yml` com `pr_number`).
 - Modelo: o mesmo da revisão (`LLM_API_KEY`/`LLM_BASE_URL` ou
   `AURUMCODE_LLM_FIXTURE`). Sem modelo, há sinal novo e nenhuma proposta:
   o comando falha, sem abrir PR.
@@ -1926,3 +1935,8 @@ nada.
   antes/depois e falha quando "aprovado com defeito" sobe, o recall cai ou um
   lado não pôde ser medido). A medição espera o corpus no layout do AUR-523
   em `corpus/cases` do repositório da política.
+- O que a medição mede: o corpus do AUR-523 roda com o provedor falso,
+  derivado dos rótulos dos casos (`tests/benchmark/aur523.go`). Ela mostra o
+  efeito da política nas regras citáveis e no gate (seções, severidades,
+  `fail_on`), não a qualidade de um modelo real; a tabela e o corpo da PR
+  dizem isso.

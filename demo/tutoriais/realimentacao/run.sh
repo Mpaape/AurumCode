@@ -5,8 +5,8 @@
 #   run.sh plano-sem-publicar|publica-uma-pr|rodada-sem-novidade|medir-melhora|medir-regressao|falha-sem-modelo
 #   run.sh all | --check | limpar
 #
-# O GitHub e um servidor falso local (github-falso.py, em 127.0.0.1): o
-# container usa --network host so para alcanca-lo, com um token falso. O
+# O GitHub e um servidor falso (github-falso.py) que sobe DENTRO do container
+# do produto (dentro.sh, rede none), com o estado do caso em .estado/. O
 # modelo e o provedor falso (fixture-propostas.json). A medicao le relatorios
 # do corpus gravados em medicao/, sem rede.
 set -Eeuo pipefail
@@ -16,38 +16,17 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 CASOS=(plano-sem-publicar publica-uma-pr rodada-sem-novidade medir-melhora medir-regressao falha-sem-modelo)
 TUT_FIXTURE=fixture-propostas.json
-GH_PID=
-GH_PORT=
-GH_LOG=
-
-# gh_servidor CASO: sobe o GitHub falso com a politica de politica/ em main.
-gh_servidor() {
-  GH_PORT=$((20000 + RANDOM % 20000))
-  GH_LOG="$STATE/$1.github.log"; : > "$GH_LOG"
-  python3 "$HERE/github-falso.py" "$GH_PORT" "$HERE" "$GH_LOG" &
-  GH_PID=$!
-  trap gh_parar EXIT
-  local i
-  for i in $(seq 1 50); do
-    (: > "/dev/tcp/127.0.0.1/$GH_PORT") 2>/dev/null && return 0
-    sleep 0.1
-  done
-  echo "ERRO: servidor falso nao subiu" >&2; return 1
-}
-
-gh_parar() { [ -z "$GH_PID" ] || { kill "$GH_PID" 2>/dev/null || true; wait "$GH_PID" 2>/dev/null || true; GH_PID=; }; }
-
-# aurum_gh ARGS...: como `aurum`, com o container na rede do host (so o
-# loopback: o servidor falso) e a API do GitHub apontando para ele.
+# aurum_gh ARGS...: como `aurum`, com o GitHub falso subindo DENTRO do
+# container (dentro.sh, rede none) e a API apontando para ele.
 aurum_gh() {
   printf '$ aurumcode %s\n' "$*"
   local envs=()
   [ "$TUT_FIXTURE" = none ] || envs+=(-e "AURUMCODE_LLM_FIXTURE=/fixtures/$TUT_FIXTURE")
   set +e
-  LAST_OUT="$(docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp \
-    -e "AURUMCODE_GITHUB_API_URL=http://127.0.0.1:$GH_PORT" -e GITHUB_TOKEN=token-falso-local \
+  LAST_OUT="$(docker run --rm --network none --user "$(id -u):$(id -g)" -e HOME=/tmp \
+    -e AURUMCODE_GITHUB_API_URL=http://127.0.0.1:8080 -e GITHUB_TOKEN=token-falso-local \
     "${envs[@]}" -v "$HERE:/fixtures:ro" -v "$TUT_WORK:/work" -w /work \
-    --entrypoint /app/aurumcode "${TUT_RUN_IMAGE:-$TUT_IMAGE}" "$@" 2>&1)"
+    --entrypoint /fixtures/dentro.sh "${TUT_RUN_IMAGE:-$TUT_IMAGE}" "$@" 2>&1)"
   LAST_RC=$?
   set -e
   [ -z "$LAST_OUT" ] || printf '%s\n' "$LAST_OUT"
@@ -56,8 +35,9 @@ aurum_gh() {
 
 # escritas: o que o produto gravou no GitHub falso, uma linha por escrita.
 escritas() {
-  echo "--- escritas no GitHub falso: $(wc -l < "$GH_LOG")"
-  cat "$GH_LOG"
+  touch "$TUT_WORK/github.log"
+  echo "--- escritas no GitHub falso: $(wc -l < "$TUT_WORK/github.log")"
+  cat "$TUT_WORK/github.log"
 }
 
 vazio() { TUT_WORK="$STATE/$1"; rm -rf "$TUT_WORK"; mkdir -p "$TUT_WORK"; }
@@ -65,7 +45,6 @@ vazio() { TUT_WORK="$STATE/$1"; rm -rf "$TUT_WORK"; mkdir -p "$TUT_WORK"; }
 # 1. Sem --publicar: coleta os sinais, pede as propostas e so imprime o plano.
 caso_plano_sem_publicar() {
   vazio plano-sem-publicar
-  gh_servidor plano-sem-publicar
   aurum_gh realimentacao --repos exemplo/app --repo-politica exemplo/politica
   expect_rc 0 "o plano cita os sinais e descarta a proposta sem sinal"
   escritas
@@ -74,7 +53,6 @@ caso_plano_sem_publicar() {
 # 2. Com --publicar: uma unica PR na politica, na branch aurum/realimentacao.
 caso_publica_uma_pr() {
   vazio publica-uma-pr
-  gh_servidor publica-uma-pr
   aurum_gh realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
   expect_rc 0 "a rodada abriu uma PR na politica, sem tocar na main"
   escritas
@@ -83,7 +61,6 @@ caso_publica_uma_pr() {
 # 3. Rodar de novo sem sinal novo: nada e aberto nem gravado.
 caso_rodada_sem_novidade() {
   vazio rodada-sem-novidade
-  gh_servidor rodada-sem-novidade
   aurum_gh realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
   expect_rc 0 "a primeira rodada abriu a PR"
   aurum_gh realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
@@ -108,7 +85,6 @@ caso_medir_regressao() {
 # 6. Falha: ha sinal novo e nenhum modelo configurado.
 caso_falha_sem_modelo() {
   vazio falha-sem-modelo
-  gh_servidor falha-sem-modelo
   TUT_FIXTURE=none
   aurum_gh realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
   expect_rc 1 "sem modelo nao ha proposta e nenhuma PR foi aberta"
