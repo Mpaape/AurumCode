@@ -9,15 +9,21 @@ const MaxDetailBytes = 240
 // detailEllipsis ends a detail cut by MaxDetailBytes.
 const detailEllipsis = "..."
 
-// Summarize is err as one bounded line: whitespace (newlines included)
-// collapsed to single spaces and the text cut at MaxDetailBytes on a rune
-// boundary. nil is "". It never redacts: the caller applies the review's
-// redaction filter before the detail reaches any output.
-func Summarize(err error) string {
-	if err == nil {
+// Redactor removes credentials from text that is about to be published.
+type Redactor func(string) string
+
+// Summarize is a failed scan's error as one publishable line. Order is the
+// point: redact runs first, over the whole raw text with its line breaks,
+// so a secret is never cut below the redaction patterns and a header on a
+// line of its own still matches; only then is whitespace collapsed to
+// single spaces and the text cut at MaxDetailBytes on a rune boundary. A
+// nil error is ""; so is a nil redact, since an unredacted detail is never
+// published.
+func Summarize(err error, redact Redactor) string {
+	if err == nil || redact == nil {
 		return ""
 	}
-	line := strings.Join(strings.Fields(err.Error()), " ")
+	line := strings.Join(strings.Fields(redact(err.Error())), " ")
 	if len(line) <= MaxDetailBytes {
 		return line
 	}
