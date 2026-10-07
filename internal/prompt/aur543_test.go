@@ -193,8 +193,8 @@ func TestAUR543B1FixedContentCoversUserHalfAndChangeScope(t *testing.T) {
 // literal -- must move FixedContentDigest's result, with the diff, metrics
 // and options held exactly fixed.
 func TestAUR543B1ChangeScopeTextMovesDigest(t *testing.T) {
-	original := ReviewChangeScope
-	t.Cleanup(func() { ReviewChangeScope = original })
+	original := reviewChangeScope
+	t.Cleanup(func() { reviewChangeScope = original })
 
 	b := NewPromptBuilder()
 	before, err := b.FixedContentDigest()
@@ -202,7 +202,7 @@ func TestAUR543B1ChangeScopeTextMovesDigest(t *testing.T) {
 		t.Fatalf("FixedContentDigest (before): %v", err)
 	}
 
-	ReviewChangeScope = func(diff *types.Diff) string {
+	reviewChangeScope = func(diff *types.Diff) string {
 		return "AUR-543 mutated change-scope instruction, same every time."
 	}
 
