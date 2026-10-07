@@ -102,7 +102,7 @@ run_mut001() {
 
 ac001() { run_scenario AC-001 'TestAUR516AC001ModelSaysCIGreenWithoutContext' 'TestVerifyNeverTakesTheModelsState'; }
 ac002() { run_scenario AC-002 'TestAUR516AC002FailedCheckWithoutLogsGivesDiagnosis' 'TestVerifyObservedStateAndLink'; }
-ac003() { run_scenario AC-003 'TestAUR516AC003EvidenceQuotedKeepsInferenceApart' 'TestVerifyGroundedOnlyWhenEvidenceQuotesTheExcerpt'; }
+ac003() { run_scenario AC-003 'TestAUR516AC003EvidenceQuotedKeepsInferenceApart' 'TestVerifyGroundedOnlyWhenEvidenceQuotesTheExcerpt|TestVerifyOneWordIsNotAQuote'; }
 
 case "$selector" in
   AC-001)
