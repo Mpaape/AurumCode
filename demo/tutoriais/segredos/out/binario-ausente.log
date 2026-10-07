@@ -1,9 +1,9 @@
 == binario-ausente
 $ aurumcode review --base main
-aurumcode review: SECRETS (Gitleaks) inconclusive: the scan did not produce a trustworthy result (secrets_unavailable); no Gitleaks finding was published for this run.
+aurumcode review: SECRETS (Gitleaks) inconclusive: the scan did not produce a trustworthy result (secrets_unavailable); no Gitleaks finding was published for this run. Engine detail: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (secrets_unavailable)
-aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable)
+aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
 ## Code Review Summary
 
 **Verdict:** Changes requested
