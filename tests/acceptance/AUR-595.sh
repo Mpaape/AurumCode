@@ -9,7 +9,7 @@
 # recorded in docs/specs/AUR-595.md.
 #
 # Selectors:
-#   all        AC-001..AC-004, then MUT-001..MUT-002
+#   all        AC-001..AC-004, then MUT-001..MUT-003
 #   AC-001     base prompt above max_cost_tokens, no tool: concludes; tool
 #              rounds beyond the base still exceed the ceiling
 #   AC-002     GITHUB_SHA = merge commit absent from the checkout: scans
@@ -19,6 +19,7 @@
 #              the docs carry the recommendation; AC-001..AC-003 together
 #   MUT-001    counting the base prompt in the ceiling turns AC-001 RED
 #   MUT-002    using GITHUB_SHA (the merge commit) turns AC-002 RED
+#   MUT-003    summarizing (join and cut) before redacting turns AC-003 RED
 # Unknown selector exits 64; infrastructure 79; behavioral failure 1.
 set -Eeuo pipefail
 export LC_ALL=C
@@ -27,7 +28,7 @@ umask 077
 readonly card='AUR-595'
 selector="${1:-all}"
 case "$selector" in
-  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002) ;;
+  all|AC-001|AC-002|AC-003|AC-004|MUT-001|MUT-002|MUT-003) ;;
   *) printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2; exit 64 ;;
 esac
 
@@ -82,7 +83,8 @@ replace_once() {
 readonly ac001_unit=(TestAUR595LargeBasePromptWithoutToolsIsNotALimit TestAUR595ToolRoundsBeyondTheBaseStillExceedTheCeiling TestAUR580MaxCostTokensIsALimitError)
 readonly ac001_cmd=(TestAUR595BasePromptAboveTheCeilingConcludes TestAUR580CostExceededIsInconclusive)
 readonly ac002_cmd=(TestAUR595GitleaksScansThePullRequestHeadNotTheMergeCommit TestAUR595AbsentBaseIsInconclusiveWithItsDetail)
-readonly ac003_cmd=(TestAUR595AbsentBaseIsInconclusiveWithItsDetail TestAUR595EngineFailureDetailIsRedacted)
+readonly ac003_cmd=(TestAUR595AbsentBaseIsInconclusiveWithItsDetail TestAUR595EngineFailureDetailIsRedacted TestAUR595EngineHeaderLineIsRedacted)
+readonly ac003_unit=(TestAUR595SummaryRedactsATokenAtTheCut TestAUR595SummaryRedactsAHeaderOnItsOwnLine TestAUR595SummaryCutsOnARuneBoundaryAndNeedsARedactor)
 
 pattern_of() { local IFS='|'; printf '^(%s)$' "$*"; }
 
@@ -123,6 +125,7 @@ run_ac002() {
 }
 
 run_ac003() {
+  run_tests AC-003 ./internal/scanner/ "${ac003_unit[@]}"
   run_tests AC-003 ./cmd/aurumcode/ "${ac003_cmd[@]}"
   printf '%s/AC-003/pass\n' "$card"
 }
@@ -158,6 +161,23 @@ run_mut002() {
   printf '%s/MUT-002/rejected\n' "$card"
 }
 
+run_mut003() {
+  local root="$run_dir/root-mut3"
+  stage "$root"
+  replace_once "$root/internal/scanner/detail.go" \
+    'line := strings.Join(strings.Fields(redact(err.Error())), " ")' \
+    'line := strings.Join(strings.Fields(err.Error()), " ") /* MUT-003 */'
+  replace_once "$root/internal/scanner/detail.go" \
+    'return line[:cut] + detailEllipsis' \
+    'return redact(line[:cut]) + detailEllipsis'
+  replace_once "$root/internal/scanner/detail.go" \
+    'if len(line) <= MaxDetailBytes {' \
+    'if len(line) <= MaxDetailBytes { line = redact(line)'
+  expect_red "$root" "$run_dir/mut3.log" ./internal/scanner/ "${ac003_unit[@]}"
+  expect_red "$root" "$run_dir/mut3-cmd.log" ./cmd/aurumcode/ TestAUR595EngineHeaderLineIsRedacted
+  printf '%s/MUT-003/rejected\n' "$card"
+}
+
 case "$selector" in
   AC-001) run_ac001 ;;
   AC-002) run_ac002 ;;
@@ -165,6 +185,7 @@ case "$selector" in
   AC-004) run_ac004 ;;
   MUT-001) run_mut001 ;;
   MUT-002) run_mut002 ;;
+  MUT-003) run_mut003 ;;
   all)
     run_ac001
     run_ac002
@@ -172,6 +193,7 @@ case "$selector" in
     run_ac004
     run_mut001
     run_mut002
+    run_mut003
     ;;
 esac
 printf '%s/%s/pass\n' "$card" "$selector"
