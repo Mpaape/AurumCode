@@ -118,8 +118,12 @@ func TestAUR580MaxRoundsIsALimitErrorWithoutAnswer(t *testing.T) {
 }
 
 func TestAUR580MaxCostTokensIsALimitError(t *testing.T) {
-	caller := &scriptedCaller{rounds: []llm.ToolResponse{answer(`{}`, 900, 200)}}
-	out, err := Session{Caller: caller, Limits: limits()}.Run(context.Background(), nil)
+	tool := &countingTool{name: "scan"}
+	caller := &scriptedCaller{rounds: []llm.ToolResponse{
+		{Response: llm.Response{TokensIn: 500, TokensOut: 100}, ToolCalls: []llm.ToolCall{call("c", "scan", `{"path":"a.go"}`)}},
+		answer(`{}`, 1500, 200),
+	}}
+	out, err := Session{Caller: caller, Tools: []Tool{tool}, Limits: limits()}.Run(context.Background(), nil)
 	var limit *LimitError
 	if !errors.As(err, &limit) || limit.Limit != LimitMaxCostTokens || out.Answer.Text != "" {
 		t.Fatalf("err=%v answer=%q, want max_cost_tokens and no answer", err, out.Answer.Text)
