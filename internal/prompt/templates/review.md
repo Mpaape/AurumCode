@@ -193,6 +193,11 @@ por quem chamou o review; pode não conter logs completos.
   e escopos como `contents: read`, `pull-requests: write` e `statuses: write`
   não são secrets hardcoded. Só reporte um valor de credencial efetivamente
   gravado na mudança.
+- `[REDACTED]` é a máscara que o próprio Aurum aplica antes deste prompt sobre
+  o valor original, que pode ser só um identificador ou uma expressão. Não é
+  literal da mudança nem evidência de segredo: a detecção de segredo cabe ao
+  scanner de segredos sobre o conteúdo bruto. Nunca reporte segredo, literal
+  mascarado ou credencial com base nesse marcador.
 - Nunca copie logs, transcripts de comandos, stack traces, caminhos temporários,
   secrets ou saída do provider para qualquer campo. Resuma a evidência.
 - `verdict` deve ser `approve` sem issue bloqueante, `changes_requested` se
