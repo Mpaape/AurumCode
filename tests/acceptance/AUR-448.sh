@@ -319,7 +319,12 @@ nominal_case() {
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$known_fixture"
   [[ "$rc" -eq 0 ]] || fail s2-wrong-exit
   local want_happy='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
-  [[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy" ]] || fail s2-finding-line-wrong
+  # AUR-514 (AC-002: os mesmos campos permanecem presentes no terminal)
+  # made the terminal print the finding's labeled detail lines ("  - Impact:
+  # ...", "  - Evidence: ...") right under it (cmd/aurumcode/finding_fields.go).
+  # The finding line is still the exact last line once those indented detail
+  # lines are set aside -- so any other line after it still fails this.
+  [[ "$(grep -v '^  - ' "$run_dir/out.stdout" | tail -n1)" == "$want_happy" ]] || fail s2-finding-line-wrong
   [[ "$(grep -Ec '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout")" -eq 1 ]] || fail happy-path-finding-count-wrong
   [[ ! -s "$run_dir/out.stderr" ]] || fail happy-path-stderr-not-empty
 

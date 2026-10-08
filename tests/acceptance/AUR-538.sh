@@ -200,6 +200,18 @@ apply_mutation() {
   [[ "$(grep -Fxc "$structural_anchor" "$structural")" == "1" ]] || infra structural-anchor-missing
   sed -i 's|^\tresult.Metadata\[prompt.PolicyGateWithheldKey\] = "true"$|\t_ = prompt.PolicyGateWithheldKey // MUT-001: structural marker not set|' "$structural"
   grep -Fxq "$structural_anchor" "$structural" && infra structural-mutation-not-applied
+  # AUR-600 (commit c92bafde, "veredito e texto do parecer seguem o gate
+  # declarado") added a third, independent path: the --base report's
+  # verdict goes through blocking.Rule.Event (gateRuleVerdict), which
+  # requests changes whenever the declared gate fails, so with only the two
+  # markers gone the tests still pass. Neutralize that branch too, so the
+  # mutation keeps isolating the gate's own withholding: with all three
+  # gone the report reads Approve again and the tests must go red.
+  local rule="$run_dir/root/internal/review/blocking/rule.go"
+  local rule_anchor='	if r.fails {'
+  [[ "$(grep -Fxc "$rule_anchor" "$rule")" == "1" ]] || infra gated-verdict-anchor-missing
+  sed -i 's|^\tif r.fails {$|\tif false \&\& r.fails { // MUT-001: AUR-600 gated verdict off|' "$rule"
+  grep -Fxq "$rule_anchor" "$rule" && infra gated-verdict-mutation-not-applied
   return 0
 }
 

@@ -116,7 +116,12 @@ grep -Fq 'discarded' "$run_dir/out.stderr" || fail no_provider_missing_discard_e
 run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$known_problem_fixture"
 [[ "$rc" -eq 0 ]] || fail "happy_path_wrong_exit:$rc"
 want_happy_tail='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
-[[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy_tail" ]] || fail happy_path_stdout_regressed
+# AUR-514 (AC-002: os mesmos campos permanecem presentes no terminal)
+# made the terminal print the finding's labeled detail lines ("  - Impact:
+# ...", "  - Evidence: ...") right under it (cmd/aurumcode/finding_fields.go).
+# The finding line is still the exact last line once those indented detail
+# lines are set aside -- so any other line after it still fails this.
+[[ "$(grep -v '^  - ' "$run_dir/out.stdout" | tail -n1)" == "$want_happy_tail" ]] || fail happy_path_stdout_regressed
 grep -Fq '```mermaid' "$run_dir/out.stdout" || fail happy_path_missing_summary_block
 [[ ! -s "$run_dir/out.stderr" ]] || fail "happy_path_stderr_not_empty:$(cat "$run_dir/out.stderr")"
 # A reviewer found that tail -n1 alone lets an EXTRA, undetected finding
