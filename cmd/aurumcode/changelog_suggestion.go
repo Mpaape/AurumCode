@@ -25,7 +25,7 @@ import (
 const stepSummaryEnv = "GITHUB_STEP_SUMMARY"
 
 // changelogLogLanguage is the language of the check's own log lines.
-const changelogLogLanguage = "pt-BR"
+const changelogLogLanguage = string(i18n.Portuguese)
 
 // changelogCommitSource reads the commit messages of base..head.
 type changelogCommitSource func(repoRoot, base, head string) ([]changelog.Commit, error)
@@ -78,7 +78,7 @@ func (d changelogDeps) offerSuggestion(req changelog.Requirement, f *changelogFl
 		return
 	}
 	block := redactSuggestion(d.filter, s.Block())
-	fmt.Fprintf(stdout, "changelog: entrada sugerida (fonte: %s); cole em \"## %s\" de %s:\n\n%s", s.Source, req.Section, req.File, block)
+	fmt.Fprintf(stdout, "changelog: entrada sugerida (fonte: %s); cole na seção %s de %s:\n\n%s", s.Source, req.Section, req.File, block)
 	if path := strings.TrimSpace(os.Getenv(stepSummaryEnv)); path != "" {
 		if err := appendStepSummary(path, changelogSuggestionMarkdown(req, s.Source, block, changelogLogLanguage)); err != nil {
 			fmt.Fprintf(stderr, "aurumcode changelog: resumo do job não gravado: %v\n", err)

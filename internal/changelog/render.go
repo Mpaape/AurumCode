@@ -120,3 +120,17 @@ func Render(version Version, commits []Commit) string {
 	}
 	return b.String()
 }
+
+// Block renders the suggestion as the Markdown a human pastes into the
+// changelog file: the section heading followed by one bullet per line.
+func (s Suggestion) Block() string {
+	if s.Empty() {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("## " + s.Section + "\n\n")
+	for _, l := range s.Lines {
+		b.WriteString(l + "\n")
+	}
+	return b.String()
+}
