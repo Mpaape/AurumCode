@@ -2,7 +2,7 @@
 # Tutorial executavel: changelog obrigatorio (AUR-509). Veja ../README.md e
 # docs/tutorials/changelog.md.
 #
-#   run.sh entrada-valida|consolidar-release|sugestao-separada|pr-desliga-o-modo|log-de-agente|falha-entrada-ausente|sugestao-da-entrada
+#   run.sh entrada-valida|consolidar-release|sugestao-separada|pr-desliga-o-modo|log-de-agente|falha-entrada-ausente|sugestao-da-entrada|modo-sugerir
 #   run.sh all | --check | limpar
 #
 # O veredito de `aurumcode changelog` e deterministico: compara o CHANGELOG.md
@@ -15,7 +15,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(entrada-valida consolidar-release sugestao-separada pr-desliga-o-modo log-de-agente falha-entrada-ausente sugestao-da-entrada)
+CASOS=(entrada-valida consolidar-release sugestao-separada pr-desliga-o-modo log-de-agente falha-entrada-ausente sugestao-da-entrada modo-sugerir)
 
 # 1. A PR muda o codigo e acrescenta uma linha em Unreleased: aprovado.
 caso_entrada_valida() {
@@ -70,6 +70,15 @@ caso_sugestao_da_entrada() {
   TUT_FIXTURE=fixture-sugestao.json
   aurum changelog --base main
   expect_rc 1 "o check reprovou e trouxe a entrada sugerida pelo modelo, pronta para colar"
+}
+
+# 8. Modo sugerir: a base declara `mode: sugerir`. A PR sem entrada nao
+#    reprova; o check so imprime a entrada sugerida, pronta para colar.
+caso_modo_sugerir() {
+  tut_repo modo-sugerir repo-exemplo/base-sugerir repo-exemplo/mudanca
+  TUT_FIXTURE=fixture-sugestao.json
+  aurum changelog --base main
+  expect_rc 0 "modo sugerir: a PR sem entrada passou e o check trouxe a entrada sugerida"
 }
 
 tut_main "$@"
