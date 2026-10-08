@@ -218,3 +218,36 @@ RESULTADO: sem entrada no CHANGELOG.md o check reprova
   sugestão do caso 3.
 - O texto da entrada não aparece na saída do check: ele é contado, nunca
   repetido nem obedecido.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/changelog/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### consolidar-release
+
+![Terminal do caso consolidar-release](../assets/capturas/changelog/consolidar-release-terminal.png)
+
+### entrada-valida
+
+![Terminal do caso entrada-valida](../assets/capturas/changelog/entrada-valida-terminal.png)
+
+### falha-entrada-ausente
+
+![Terminal do caso falha-entrada-ausente](../assets/capturas/changelog/falha-entrada-ausente-terminal.png)
+
+### log-de-agente
+
+![Terminal do caso log-de-agente](../assets/capturas/changelog/log-de-agente-terminal.png)
+
+### pr-desliga-o-modo
+
+![Terminal do caso pr-desliga-o-modo](../assets/capturas/changelog/pr-desliga-o-modo-terminal.png)
+
+### sugestao-separada
+
+![Terminal do caso sugestao-separada](../assets/capturas/changelog/sugestao-separada-terminal.png)
+
+![Comentário do PR do caso sugestao-separada](../assets/capturas/changelog/sugestao-separada-comentario.png)
+
+<!-- capturas:fim -->

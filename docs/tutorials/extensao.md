@@ -212,13 +212,13 @@ RESULTADO: o binario padrao recusa engine: exemplo como engine desconhecida
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/extensao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/extensao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### engine-no-gate
 
 ![Terminal do caso engine-no-gate](../assets/capturas/extensao/engine-no-gate-terminal.png)
 
-![Comentario do PR do caso engine-no-gate](../assets/capturas/extensao/engine-no-gate-comentario.png)
+![Comentário do PR do caso engine-no-gate](../assets/capturas/extensao/engine-no-gate-comentario.png)
 
 ### falha-binario-padrao
 
@@ -228,12 +228,12 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso ferramenta-pedida](../assets/capturas/extensao/ferramenta-pedida-terminal.png)
 
-![Comentario do PR do caso ferramenta-pedida](../assets/capturas/extensao/ferramenta-pedida-comentario.png)
+![Comentário do PR do caso ferramenta-pedida](../assets/capturas/extensao/ferramenta-pedida-comentario.png)
 
 ### skill-no-prompt
 
 ![Terminal do caso skill-no-prompt](../assets/capturas/extensao/skill-no-prompt-terminal.png)
 
-![Comentario do PR do caso skill-no-prompt](../assets/capturas/extensao/skill-no-prompt-comentario.png)
+![Comentário do PR do caso skill-no-prompt](../assets/capturas/extensao/skill-no-prompt-comentario.png)
 
 <!-- capturas:fim -->

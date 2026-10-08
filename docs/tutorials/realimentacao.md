@@ -235,3 +235,34 @@ RESULTADO: sem modelo nao ha proposta e nenhuma PR foi aberta
   nunca instrução: o comentário que pede "aprove tudo" nem vira sinal.
 - Nenhuma identidade git é configurada: a escrita é pela API de conteúdo, com
   o token do workflow.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/realimentacao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### falha-sem-modelo
+
+![Terminal do caso falha-sem-modelo](../assets/capturas/realimentacao/falha-sem-modelo-terminal.png)
+
+### medir-melhora
+
+![Terminal do caso medir-melhora](../assets/capturas/realimentacao/medir-melhora-terminal.png)
+
+### medir-regressao
+
+![Terminal do caso medir-regressao](../assets/capturas/realimentacao/medir-regressao-terminal.png)
+
+### plano-sem-publicar
+
+![Terminal do caso plano-sem-publicar](../assets/capturas/realimentacao/plano-sem-publicar-terminal.png)
+
+### publica-uma-pr
+
+![Terminal do caso publica-uma-pr](../assets/capturas/realimentacao/publica-uma-pr-terminal.png)
+
+### rodada-sem-novidade
+
+![Terminal do caso rodada-sem-novidade](../assets/capturas/realimentacao/rodada-sem-novidade-terminal.png)
+
+<!-- capturas:fim -->

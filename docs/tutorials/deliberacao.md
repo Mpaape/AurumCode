@@ -206,30 +206,30 @@ RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/deliberacao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/deliberacao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### diff-grande-pede-semgrep
 
 ![Terminal do caso diff-grande-pede-semgrep](../assets/capturas/deliberacao/diff-grande-pede-semgrep-terminal.png)
 
-![Comentario do PR do caso diff-grande-pede-semgrep](../assets/capturas/deliberacao/diff-grande-pede-semgrep-comentario.png)
+![Comentário do PR do caso diff-grande-pede-semgrep](../assets/capturas/deliberacao/diff-grande-pede-semgrep-comentario.png)
 
 ### diff-pequeno-nao-pede
 
 ![Terminal do caso diff-pequeno-nao-pede](../assets/capturas/deliberacao/diff-pequeno-nao-pede-terminal.png)
 
-![Comentario do PR do caso diff-pequeno-nao-pede](../assets/capturas/deliberacao/diff-pequeno-nao-pede-comentario.png)
+![Comentário do PR do caso diff-pequeno-nao-pede](../assets/capturas/deliberacao/diff-pequeno-nao-pede-comentario.png)
 
 ### estoura-rodadas
 
 ![Terminal do caso estoura-rodadas](../assets/capturas/deliberacao/estoura-rodadas-terminal.png)
 
-![Comentario do PR do caso estoura-rodadas](../assets/capturas/deliberacao/estoura-rodadas-comentario.png)
+![Comentário do PR do caso estoura-rodadas](../assets/capturas/deliberacao/estoura-rodadas-comentario.png)
 
 ### falha-semgrep-ausente
 
 ![Terminal do caso falha-semgrep-ausente](../assets/capturas/deliberacao/falha-semgrep-ausente-terminal.png)
 
-![Comentario do PR do caso falha-semgrep-ausente](../assets/capturas/deliberacao/falha-semgrep-ausente-comentario.png)
+![Comentário do PR do caso falha-semgrep-ausente](../assets/capturas/deliberacao/falha-semgrep-ausente-comentario.png)
 
 <!-- capturas:fim -->
