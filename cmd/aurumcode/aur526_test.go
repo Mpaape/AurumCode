@@ -53,9 +53,11 @@ func TestAUR526ReadCeilingIsInconclusive(t *testing.T) {
 
 type aur526ToolProvider struct{ seen []llm.Message }
 
-func (p *aur526ToolProvider) Complete(string, llm.Options) (llm.Response, error) { return llm.Response{}, nil }
-func (p *aur526ToolProvider) Tokens(string) (int, error)                         { return 1, nil }
-func (p *aur526ToolProvider) Name() string                                       { return "tools" }
+func (p *aur526ToolProvider) Complete(string, llm.Options) (llm.Response, error) {
+	return llm.Response{}, nil
+}
+func (p *aur526ToolProvider) Tokens(string) (int, error) { return 1, nil }
+func (p *aur526ToolProvider) Name() string               { return "tools" }
 func (p *aur526ToolProvider) CompleteWithTools(m []llm.Message, _ []llm.ToolSpec, _ llm.Options) (llm.ToolResponse, error) {
 	p.seen = m
 	return llm.ToolResponse{}, nil
@@ -63,9 +65,11 @@ func (p *aur526ToolProvider) CompleteWithTools(m []llm.Message, _ []llm.ToolSpec
 
 type aur526TextProvider struct{}
 
-func (aur526TextProvider) Complete(string, llm.Options) (llm.Response, error) { return llm.Response{}, nil }
-func (aur526TextProvider) Tokens(string) (int, error)                         { return 1, nil }
-func (aur526TextProvider) Name() string                                       { return "text" }
+func (aur526TextProvider) Complete(string, llm.Options) (llm.Response, error) {
+	return llm.Response{}, nil
+}
+func (aur526TextProvider) Tokens(string) (int, error) { return 1, nil }
+func (aur526TextProvider) Name() string               { return "text" }
 
 // AC-007: the profile decorator forwards llm.ToolCaller with its prefix,
 // and never invents it for a provider without tools.

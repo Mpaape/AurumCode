@@ -16,12 +16,19 @@ import (
 // goSourceRoots are every Go source tree of the module.
 var goSourceRoots = []string{"../../cmd", "..", "../../pkg"}
 
-// humanReportWriters render Markdown reports for people (PR comment,
-// summary, changelog); their headings are output, never prompt sections.
+// humanReportWriters render or read Markdown documents for people (PR
+// comment, summary, changelog, the policy feedback pull request and the
+// skill files it edits); their headings are output or parsed input, never
+// prompt sections.
 var humanReportWriters = map[string]bool{
 	"../../cmd/aurumcode/pr_summary_format.go": true,
 	"../render/summary.go":                     true,
 	"../changelog/render.go":                   true,
+	"../changelog/require_lines.go":            true,
+	"../feedback/measure.go":                   true,
+	"../feedback/plan.go":                      true,
+	"../feedback/propose.go":                   true,
+	"../feedback/skills.go":                    true,
 }
 
 // sectionTitleLine matches a level-2 Markdown title at the start of any

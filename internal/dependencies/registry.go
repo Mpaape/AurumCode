@@ -43,7 +43,7 @@ type DepsDev struct {
 type depsDevPackage struct {
 	Versions []struct {
 		VersionKey  struct{ Version string } `json:"versionKey"`
-		PublishedAt string                    `json:"publishedAt"`
+		PublishedAt string                   `json:"publishedAt"`
 	} `json:"versions"`
 }
 
