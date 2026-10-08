@@ -117,6 +117,9 @@ func TestVerificationDemotesRefutedModelFindingBeforeTheGate(t *testing.T) {
 	if !strings.Contains(marked, "refutado pela verificação") || !strings.Contains(marked, model.RuleID) || !strings.Contains(stderr.String(), "refutado pela verificação") {
 		t.Fatalf("the refuted finding must stay visible and marked: %q / %q", marked, stderr.String())
 	}
+	if len(s.result.Suggestions) != 1 || !strings.Contains(s.result.Suggestions[0].Title, "Refutado pela verificação") || s.result.Suggestions[0].File != model.File {
+		t.Fatalf("the refuted finding must stay as a marked non-blocking comment: %+v", s.result.Suggestions)
+	}
 	audit := filepath.Join(t.TempDir(), "auditoria.json")
 	if err := os.WriteFile(audit, []byte("{\n  \"verdict\": \"comment\"\n}\n"), 0o600); err != nil {
 		t.Fatal(err)

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Tutorial executavel: revisao (AUR-561). Veja ../README.md e docs/tutorials/revisao.md.
 #
-#   run.sh primeira-revisao|sem-provedor|com-provedor|fix|pr-workflow|falha-nao-revisado|modelo-pondera
+#   run.sh primeira-revisao|sem-provedor|com-provedor|fix|pr-workflow|falha-nao-revisado|modelo-pondera|achado-refutado
 #   run.sh all | --check | limpar
 set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(primeira-revisao sem-provedor com-provedor fix pr-workflow falha-nao-revisado modelo-pondera)
+CASOS=(primeira-revisao sem-provedor com-provedor fix pr-workflow falha-nao-revisado modelo-pondera achado-refutado)
 
 # 1. Primeira revisao local: uma troca de mensagem, modelo (fixture) sem achados.
 caso_primeira_revisao() {
@@ -104,6 +104,25 @@ caso_modelo_pondera() {
   TUT_FIXTURE=fixture-pondera.json
   aurum review --base main --seguranca
   expect_rc 0 "o relatorio mostra a origem ao lado da avaliacao do modelo (contestado e confirmado), sem gate nada muda de contagem"
+}
+
+# 8. Achado do modelo refutado pela verificacao: o modelo afirma que Validar e
+# chamado sem guarda de nil, mas o metodo comeca com `if l == nil`. Antes do gate,
+# o achado bloqueante vai a uma chamada de verificacao com o codigo real; a
+# refutacao cita as linhas exatas do arquivo, o achado deixa de bloquear e fica
+# marcado no parecer e na auditoria. Com a citacao parafraseada (que nao existe
+# no arquivo), a refutacao e descartada e o achado continua bloqueando.
+caso_achado_refutado() {
+  tut_repo achado-refutado repo-exemplo/base repo-exemplo/refutado
+  TUT_FIXTURE=fixture-refutado.json
+  aurum review --base main --fail-on error --auditoria auditoria.json
+  expect_rc 0 "refutado com citacao literal: o achado deixa de bloquear e fica marcado"
+  echo "--- a auditoria guarda o achado refutado, com o motivo e a citacao"
+  python3 -c 'import json,sys; [print(r["path"], r["line"], r["rule_id"], r["outcome"], "rebaixado" if r["demoted"] else "mantido") for r in json.load(open(sys.argv[1]))["verification"]]' "$TUT_WORK/auditoria.json"
+  echo "--- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando"
+  TUT_FIXTURE=fixture-refutado-parafraseado.json
+  aurum review --base main --fail-on error
+  expect_rc 3 "citacao inexistente: a refutacao e descartada e o achado reprova"
 }
 
 # gera_pr_grande DIR: uma mudanca maior que um prompt (tres diretorios com dois

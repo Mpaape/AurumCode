@@ -16,7 +16,11 @@ import (
 	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/review/verify"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
+
+// suggestionKindGeneral is a suggestion without a patch shape.
+const suggestionKindGeneral = "general"
 
 // verifyModelFindings runs the verification when review.verification is on
 // and the model pass left a provider to call.
@@ -31,7 +35,7 @@ func (s *reviewState) verifyModelFindings() {
 		Caller:   s.verifyCaller,
 		Declared: declaredSymbols(grammar.Default()),
 		MaxCalls: s.cfg.Review.Verification.EffectiveMaxCalls(),
-		Language: firstNonEmpty(s.reviewLanguage, "pt-BR"),
+		Language: s.reviewLanguage,
 		Redact:   s.redactText,
 	}
 	if rev, reason := s.verificationSource(); reason == "" {
@@ -42,8 +46,12 @@ func (s *reviewState) verifyModelFindings() {
 	res := v.Verify(s.ctx, s.result.Issues, s.modelFindingBlocks)
 	s.result.Issues = res.Kept
 	s.verification = res.Records
+	demoted := map[verify.Record]types.ReviewIssue{}
+	for _, d := range res.Demoted {
+		demoted[d.Record] = d.Issue
+	}
 	for _, rec := range res.Records {
-		s.reportVerification(rec)
+		s.reportVerification(rec, demoted[rec])
 	}
 }
 
@@ -73,10 +81,17 @@ func (s *reviewState) verificationSource() (verify.Source, string) {
 }
 
 // reportVerification states one verified finding: a refuted one becomes a
-// marked limitation of the review (never dropped); a kept one is said on
-// stderr with why it still blocks.
-func (s *reviewState) reportVerification(rec verify.Record) {
+// marked, non-blocking comment and limitation of the review (never
+// dropped); a kept one is said on stderr with why it still blocks.
+func (s *reviewState) reportVerification(rec verify.Record, issue types.ReviewIssue) {
 	if rec.Demoted {
+		s.result.Suggestions = append(s.result.Suggestions, types.ReviewSuggestion{
+			Title:       i18n.Format(s.reviewLanguage, "review.verification_comment_title", rec.RuleID),
+			Description: i18n.Format(s.reviewLanguage, "review.verification_comment_body", oneLine(issue.Message), oneLine(rec.Reason), oneLine(rec.Quote)),
+			Kind:        suggestionKindGeneral,
+			File:        issue.File,
+			Line:        issue.Line,
+		})
 		line := i18n.Format(s.reviewLanguage, "review.verification_refuted", rec.Path, rec.Line, rec.RuleID, oneLine(rec.Reason), oneLine(rec.Quote))
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 		s.result.Limitations = append(s.result.Limitations, line)
