@@ -1,402 +1,421 @@
-# Review cache: identity, cross-file evidence, and degrade behavior (AUR-513)
+# Cache de revisão: identidade, evidência entre arquivos e comportamento de degradação (AUR-513)
 
-This extends AUR-441's per-file review cache (`cmd/aurumcode/review_cache.go`,
-`internal/review/cache`). See `docs/specs/AUR-441.md` for the original
-design (one cache entry per changed file, keyed by that file's own raw diff
-content plus the model identity and a prompt-version constant). This
-document covers what AUR-513 adds: every other input that can change the
-model's answer, how a per-file hit keeps cross-file evidence, and how a
-broken cache degrades.
+Este documento estende o cache de revisão por arquivo do AUR-441 (`cmd/aurumcode/review_cache.go`,
+`internal/review/cache`). Veja `docs/specs/AUR-441.md` para o desenho
+original (uma entrada de cache por arquivo alterado, chaveada pelo conteúdo do
+diff bruto desse próprio arquivo, mais a identidade do modelo e uma constante
+de versão do prompt). Aqui está o que o AUR-513 acrescenta: toda outra entrada
+que pode mudar a resposta do modelo, como um acerto por arquivo preserva a
+evidência entre arquivos e como um cache quebrado degrada.
 
-## What is now part of the cache key
+## O que agora faz parte da chave do cache
 
-`reviewContextCacheKey` (`cmd/aurumcode/review_cache.go`) folds in, on top of
-AUR-441's original three (review language, codebase-context pack, memory
-notes):
+`reviewContextCacheKey` (`cmd/aurumcode/review_cache.go`) incorpora, além dos
+três itens originais do AUR-441 (idioma da revisão, pacote de contexto da
+base de código, notas de memória):
 
-- **The real answering model/endpoint, captured before any context
-  wrapping** (`baseModelIdentity`): `modelCacheKey(provider)` called on
-  `provider` the instant it is selected, BEFORE `config.WrapProviderWithWarnings`
-  ever gets a chance to wrap it. This is not redundant with the
-  `modelCacheKey(provider)` call `reviewContextCacheKey` still also makes on
-  the (by then, possibly wrapped and possibly `--limite`-wrapped) final
-  provider — see "Why the model identity is captured twice" below for the
-  bug this closes.
-- **Selected reviewer profile(s)** (AUR-502): the joined
-  `reviewprofile.Profile.Signature()` of every selected profile, in
-  selection order. Order matters because `reviewprofile.MergeFindings`
-  attributes a shared finding to the earliest profile in declaration
-  order, so reordering the same set of names can change the answer.
-  Before this card, `partitionByCache` was called with a key computed
-  **before** `runProfilePasses` ever saw which profile(s) were chosen, so
-  two reviews of the same diff under different profiles could wrongly
-  share one cache entry.
-- **The assembled, REDACTED context block's content** (repo prompt +
-  skills + docs, and, under a central policy, the policy's own —
-  AUR-518): `contextBlockCacheDigest` hashes the same block
-  `config.BuildContextBlockWithWarnings` builds for the real outbound
-  prompt. See "Why the context digest hashes the redacted block" below.
-- **The dynamic rule/skill-section catalog** (AUR-519): `ruleCatalogCacheDigest`
-  hashes the sorted rule-catalog ID list and the sorted `dynamicRules` map
-  (each entry's full `review.Rule`, not just its ID) — this is what the
-  model is taught and what the gate accepts citations against. See
-  "ruleCatalogDigest: defense in depth" below for its current test status.
+- **O modelo/endpoint que de fato responde, capturado antes de qualquer
+  encapsulamento de contexto** (`baseModelIdentity`): `modelCacheKey(provider)`
+  chamado sobre `provider` no instante em que ele é selecionado, ANTES de
+  `config.WrapProviderWithWarnings` ter qualquer chance de encapsulá-lo. Isto
+  não é redundante com a chamada `modelCacheKey(provider)` que
+  `reviewContextCacheKey` ainda faz sobre o provider final (a essa altura,
+  possivelmente encapsulado e possivelmente encapsulado por `--limite`) —
+  veja "Por que a identidade do modelo é capturada duas vezes" abaixo para o
+  bug que isso fecha.
+- **Perfil(is) de revisor selecionado(s)** (AUR-502): a concatenação de
+  `reviewprofile.Profile.Signature()` de cada perfil selecionado, na ordem de
+  seleção. A ordem importa porque `reviewprofile.MergeFindings` atribui um
+  achado compartilhado ao perfil mais antigo na ordem de declaração; portanto,
+  reordenar o mesmo conjunto de nomes pode mudar a resposta. Antes deste card,
+  `partitionByCache` era chamada com uma chave calculada **antes** de
+  `runProfilePasses` saber quais perfis foram escolhidos, de modo que duas
+  revisões do mesmo diff sob perfis diferentes podiam, por engano,
+  compartilhar uma única entrada de cache.
+- **O conteúdo do bloco de contexto montado e REDIGIDO** (prompt do repositório
+  + skills + docs e, sob uma política central, o da própria política —
+  AUR-518): `contextBlockCacheDigest` faz o hash do mesmo bloco que
+  `config.BuildContextBlockWithWarnings` monta para o prompt de saída real.
+  Veja "Por que o digest do contexto faz hash do bloco redigido" abaixo.
+- **O catálogo dinâmico de regras/seções de skill** (AUR-519):
+  `ruleCatalogCacheDigest` faz o hash da lista ordenada de IDs do catálogo de
+  regras e do mapa `dynamicRules` ordenado (o `review.Rule` completo de cada
+  entrada, não só o ID) — é isso que o modelo aprende e contra o que o gate
+  aceita citações. Veja "ruleCatalogDigest: defesa em profundidade, não
+  exercitado isoladamente de ponta a ponta" abaixo para o estado atual dos
+  testes.
 
-Two reviews identical in every one of these may validly reuse a cache
-entry; a difference in any one of them must produce a different key.
+Duas revisões idênticas em todos esses itens podem reutilizar legitimamente
+uma entrada de cache; uma diferença em qualquer um deles deve produzir uma
+chave diferente.
 
-### Why the model identity is captured twice
+### Por que a identidade do modelo é capturada duas vezes
 
-`config.contextInjectingProvider` (`internal/config/wrap.go`, the type
-`WrapProviderWithWarnings` returns the instant ANY context is configured —
-a repo prompt, a skill, a doc) embeds `llm.Provider` as an **interface**
-field. Go only promotes methods declared on the embedded field's own
-*static* type, so a method the underlying concrete provider also happens to
-implement, but that is not part of the `llm.Provider` interface itself, is
-not promoted through the wrapper. `llm.ModelResolver` (`ResolveModel`) is
-exactly such a method: `internal/llm/provider/litellm.Provider` implements
-it (reporting the real configured model), but once wrapped, a type
-assertion `provider.(llm.ModelResolver)` on the wrapped value fails, and
-`modelCacheKey` silently falls back to `litellm.Provider.Name()`'s fixed
-`"litellm"` literal — no model, no endpoint.
+`config.contextInjectingProvider` (`internal/config/wrap.go`, o tipo que
+`WrapProviderWithWarnings` devolve assim que QUALQUER contexto é configurado —
+um prompt do repositório, uma skill, um doc) embute `llm.Provider` como um
+campo de **interface**. Go só promove métodos declarados no tipo *estático* do
+campo embutido; logo, um método que o provider concreto subjacente também
+implementa, mas que não faz parte da própria interface `llm.Provider`, não é
+promovido pelo wrapper. `llm.ModelResolver` (`ResolveModel`) é exatamente um
+método assim: `internal/llm/provider/litellm.Provider` o implementa (reportando
+o modelo realmente configurado), mas, uma vez encapsulado, uma asserção de tipo
+`provider.(llm.ModelResolver)` sobre o valor encapsulado falha, e
+`modelCacheKey` recorre silenciosamente ao literal fixo `"litellm"` de
+`litellm.Provider.Name()` — sem modelo, sem endpoint.
 
-Before this fix: with ANY docs/skills/prompt configured (common), two
-reviews against the same endpoint under two **different** `LLM_MODEL`
-values collided on one cache entry, because the only thing distinguishing
-them (`ResolveModel`'s reported model) had become invisible. `cmd/aurumcode/cost.go`'s
-own `fixedModelProvider` documents this exact promotion-loss hazard for a
-different wrapper and works around it by implementing `ResolveModel`
-directly on itself — but that only fixes `--limite`'s own wrapper, not the
-context wrapper underneath it, and only when `--limite` is actually used.
+Antes desta correção: com QUALQUER doc/skill/prompt configurado (comum), duas
+revisões contra o mesmo endpoint com dois valores **diferentes** de `LLM_MODEL`
+colidiam numa só entrada de cache, porque a única coisa que as distinguia (o
+modelo reportado por `ResolveModel`) tinha se tornado invisível. O
+`fixedModelProvider` de `cmd/aurumcode/cost.go` documenta esse mesmo risco de
+perda de promoção para outro wrapper e o contorna implementando `ResolveModel`
+diretamente em si mesmo — mas isso só corrige o wrapper próprio do `--limite`,
+não o wrapper de contexto que está por baixo, e apenas quando `--limite` é
+realmente usado.
 
-The fix: `runReview` (`cmd/aurumcode/main.go`) calls `modelCacheKey(provider)`
-immediately after provider selection and before any wrapping, captures it
-as `baseModelIdentity`, and passes that string into `reviewContextCacheKey`
-unconditionally. The pre-existing `modelCacheKey(provider)` call inside
-`reviewContextCacheKey` itself is kept, unchanged, because `--limite`'s
-`fixedModelProvider` (wrapped later, on top of the context wrapper, and
-implementing `ResolveModel` directly — not relying on promotion) still
-needs that late-captured value for cost-key accounting exactly as before
-AUR-513; removing it would regress `tests/acceptance/AUR-433.sh`. The two
-values are complementary, not alternatives.
+A correção: `runReview` (`cmd/aurumcode/main.go`) chama `modelCacheKey(provider)`
+imediatamente após a seleção do provider e antes de qualquer encapsulamento,
+captura o resultado como `baseModelIdentity` e passa essa string a
+`reviewContextCacheKey` incondicionalmente. A chamada preexistente
+`modelCacheKey(provider)` dentro do próprio `reviewContextCacheKey` é mantida,
+inalterada, porque o `fixedModelProvider` do `--limite` (encapsulado depois,
+sobre o wrapper de contexto, e implementando `ResolveModel` diretamente — sem
+depender de promoção) ainda precisa desse valor capturado tarde para a
+contabilidade da chave de custo, exatamente como antes do AUR-513; removê-la
+regrediria `tests/acceptance/AUR-433.sh`. Os dois valores são complementares,
+não alternativas.
 
-`modelCacheKey` also now folds in `LLM_BASE_URL` directly (two endpoints
-serving a model under the same name are not the same answering entity).
-`TestAUR513ModelIdentitySurvivesContextWrapping` (`cmd/aurumcode/aur513_test.go`)
-proves both halves: a unit check that two `litellm.Provider`s with
-different models AND base URLs, wrapped by the identical context, still
-produce different review-cache keys (and a sanity assertion that their
-**wrapped** `modelCacheKey` alone collides, demonstrating the bug this
-closes); and an end-to-end run against a real `httptest.Server` with a
-request counter, where switching `LLM_MODEL` between two rounds against a
-persisted cache forces a real second request.
+`modelCacheKey` também passa a incorporar `LLM_BASE_URL` diretamente (dois
+endpoints que servem um modelo com o mesmo nome não são a mesma entidade
+respondente). `TestAUR513ModelIdentitySurvivesContextWrapping`
+(`cmd/aurumcode/aur513_test.go`) prova as duas metades: uma verificação
+unitária de que dois `litellm.Provider` com modelos E URLs base diferentes,
+encapsulados pelo mesmo contexto, ainda produzem chaves de cache de revisão
+diferentes (e uma asserção de sanidade de que o `modelCacheKey` **encapsulado**
+sozinho colide, demonstrando o bug que isso fecha); e uma execução de ponta a
+ponta contra um `httptest.Server` real com contador de requisições, em que
+trocar `LLM_MODEL` entre duas rodadas contra um cache persistido força uma
+segunda requisição de verdade.
 
-### Why the context digest hashes the redacted block
+### Por que o digest do contexto faz hash do bloco redigido
 
-`contextBlockCacheDigest` hashes the block `config.BuildContextBlockWithWarnings`
-assembles — the SAME, already-redacted text the real call sends to the
-model — rather than each provider's raw, pre-redaction output.
+`contextBlockCacheDigest` faz o hash do bloco que
+`config.BuildContextBlockWithWarnings` monta — o MESMO texto, já redigido, que
+a chamada real envia ao modelo — em vez da saída bruta, pré-redação, de cada
+provider.
 
-An earlier revision of this function hashed raw provider output
-specifically to avoid a collision: `redaction.Filter.Redact` replaces every
-secret-shaped span with the same fixed `[REDACTED]` placeholder, so two
-files differing only in a secret's value can redact to byte-identical text,
-and a test that changed only a secret-shaped marker between rounds proved
-exactly that — the digest didn't move, because the text it was computed
-over didn't move either, once the Model identity and the raw-text approach
-disagreed with what the model actually receives.
+Uma revisão anterior desta função fazia hash da saída bruta dos providers
+justamente para evitar uma colisão: `redaction.Filter.Redact` substitui todo
+trecho com formato de segredo pelo mesmo marcador fixo `[REDACTED]`; assim,
+dois arquivos que diferem apenas no valor de um segredo podem ser redigidos
+para um texto idêntico byte a byte, e um teste que mudava apenas um marcador
+com formato de segredo entre rodadas provou exatamente isso — o digest não se
+movia, porque o texto sobre o qual era calculado também não se movia, uma vez
+que a identidade do modelo e a abordagem sobre texto bruto discordavam do que
+o modelo realmente recebe.
 
-That collision is real, but hashing the raw text to dodge it is answering a
-different question than "should this count as a cache hit": the model only
-ever sees the REDACTED prompt. If two configurations produce the identical
-redacted block, the model would answer identically either way, and reusing
-the cached answer is correct — not a weakness, just the same thing the
-model itself already cannot distinguish. Hashing raw provider text instead
-would make the cache MORE conservative than the model it is caching for,
-forcing needless re-reviews for a difference the model never sees, while
-still not changing the actual secret-exposure story at all (the digest, raw
-or redacted, is a one-way sha256 hex string either way — `cache.Key`'s own
-established pattern for a file's diff content — so "no secret in legible
-form" holds in both versions).
+Essa colisão é real, mas fazer hash do texto bruto para driblá-la responde a
+uma pergunta diferente de "isto deve contar como acerto de cache": o modelo só
+vê o prompt REDIGIDO. Se duas configurações produzem o bloco redigido
+idêntico, o modelo responderia identicamente nos dois casos, e reutilizar a
+resposta em cache está correto — não é uma fraqueza, é apenas aquilo que o
+próprio modelo já não consegue distinguir. Fazer hash do texto bruto dos
+providers tornaria o cache MAIS conservador que o modelo para o qual ele
+guarda respostas, forçando re-revisões desnecessárias por uma diferença que o
+modelo nunca vê, sem mudar em nada a história de exposição de segredos (o
+digest, bruto ou redigido, é de qualquer forma uma string hex sha256 de mão
+única — o padrão já estabelecido de `cache.Key` para o conteúdo do diff de um
+arquivo —, então "nenhum segredo em forma legível" vale nas duas versões).
 
-`TestAUR513AC002DocContentChangeForcesFreshReview` therefore changes a
-**plainly-visible** line (ordinary prose, not secret-shaped) between
-rounds, so the test actually exercises "the configured text reaches the
-digest" rather than a redaction collision either version would behave
-identically under.
+`TestAUR513AC002DocContentChangeForcesFreshReview` portanto muda uma linha
+**claramente visível** (prosa comum, sem formato de segredo) entre as rodadas,
+de modo que o teste realmente exercite "o texto configurado chega ao digest" e
+não uma colisão de redação sob a qual ambas as versões se comportariam de
+forma idêntica.
 
-This still calls `config.BuildContextBlockWithWarnings` a second time
-rather than reading the already-wrapped provider's internals, because
-`contextInjectingProvider` is unexported and exposes no seam for a caller
-outside `internal/config` to recover its block text from, and this card's
-`paths` do not include `internal/config`. Every provider
-`ConfiguredProviders` returns today (`RepoPromptProvider`,
-`FileContextProvider`, `TextContextProvider`, `PathInstructionsProvider`)
-reads one local file and does nothing else, so a second call is
-deterministic and side-effect-free; a future stateful provider (MCP/RAG,
-referenced but not yet implemented) would need this revisited — most
-likely by memoizing one call's result for both the digest and the real
-wrap within a single review, rather than building the block twice.
+Isso ainda chama `config.BuildContextBlockWithWarnings` uma segunda vez em vez
+de ler as entranhas do provider já encapsulado, porque
+`contextInjectingProvider` não é exportado e não expõe nenhum ponto de
+costura para um chamador fora de `internal/config` recuperar o texto do seu
+bloco, e os `paths` deste card não incluem `internal/config`. Todo provider
+que `ConfiguredProviders` devolve (`RepoPromptProvider`,
+`FileContextProvider`, `TextContextProvider`, `PathInstructionsProvider`) lê
+um arquivo local e não faz mais nada; para eles, uma segunda chamada é
+determinística e livre de efeitos colaterais. As fontes MCP de
+`review.context.mcp` também entram na lista de providers passada ao digest
+(`review_base_analysis.go` e `review_pr_model.go`): montar o bloco só para o
+digest consulta cada servidor MCP de novo, e uma resposta diferente do servidor
+muda a chave de cache. Evitar essa segunda consulta exigiria memoizar o bloco
+de uma mesma revisão para o digest e para o prompt.
 
-### ruleCatalogDigest: defense in depth, not independently exercised end to end
+### ruleCatalogDigest: defesa em profundidade, não exercitado isoladamente de ponta a ponta
 
-Today every skill file `dynamicRulesFromLocalSkills` reads
-(`review.ParseSkillSections`) is drawn from the exact same files
-`contextBlockCacheDigest`'s block already hashes, so in practice a
-skill-content change that alters the derived rule catalog also changes the
-context-block digest, and this card's tests invalidate the cache through
-that shared path rather than isolating this one directly. `ruleCatalogDigest`
-is kept anyway, independently folded into the key, because the two can
-diverge without warning in the future: a catalog entry derived with
-normalization the block's raw bytes do not reflect, a central-policy-only
-rule source, or any rule contribution that is not simply "the bytes of a
-context file" would change what the model is taught and what the gate
-accepts without necessarily changing the context block itself. This is a
-documented gap, not a claim of end-to-end proof for this one component in
-isolation.
+Hoje, todo arquivo de skill que `dynamicRulesFromLocalSkills` lê
+(`review.ParseSkillSections`) vem exatamente dos mesmos arquivos que o bloco
+já hasheado por `contextBlockCacheDigest` contém; assim, na prática, uma
+mudança de conteúdo de skill que altera o catálogo de regras derivado também
+altera o digest do bloco de contexto, e os testes deste card invalidam o
+cache por esse caminho compartilhado, em vez de isolar este diretamente.
+`ruleCatalogDigest` é mantido mesmo assim, incorporado de forma independente
+à chave, porque os dois podem divergir sem aviso no futuro: uma entrada de
+catálogo derivada com uma normalização que os bytes brutos do bloco não
+refletem, uma fonte de regras exclusiva da política central, ou qualquer
+contribuição de regra que não seja simplesmente "os bytes de um arquivo de
+contexto" mudaria o que o modelo aprende e o que o gate aceita sem
+necessariamente mudar o próprio bloco de contexto. Esta é uma lacuna
+documentada, não uma alegação de prova de ponta a ponta para este componente
+isoladamente.
 
-## AC-003: a per-file hit must not drop cross-file evidence
+## AC-003: um acerto por arquivo não pode descartar evidência entre arquivos
 
-**Chosen approach:** rely on the codebase-context pack already being
-computed from the full, unpartitioned diff, before any per-file cache
-lookup happens, and already being part of the cache key.
+**Abordagem escolhida:** apoiar-se no pacote de contexto da base de código já
+ser calculado a partir do diff completo, sem partição, antes de qualquer
+consulta de cache por arquivo, e já fazer parte da chave do cache.
 
-In `runReview` (`cmd/aurumcode/main.go`), `resolveCodebaseContext(diff)`
-runs on the complete reviewed diff — every changed file, hit or miss — and
-only afterward does `partitionByCache` reduce the diff sent to the model
-down to the misses (`toSend`). `codebasectx.Resolver.Resolve`
-(`internal/context/resolver.go`) reads every changed path's own content
-from the checkout and extracts its defined symbols and cross-file
-reference edges into `Pack.Symbols`/`Pack.References`/`Pack.Dependents`,
-regardless of which files will turn out to be cache hits. That pack is
-serialized into `codebaseContextText`, which is both (a) embedded verbatim
-into the outbound prompt (`internal/prompt/builder.go`'s "## Codebase
-context" section, via `review.ReviewContext.CodebaseContext`) and (b)
-already one of `reviewContextCacheKey`'s inputs. So a cache-hit file's
-symbols still reach the model reviewing a changed sibling file, and a
-change to that cross-file picture still invalidates the right entries.
+Em `runReview` (`cmd/aurumcode/main.go`), `resolveCodebaseContext(diff)` roda
+sobre o diff completo revisado — todo arquivo alterado, acerto ou falha — e só
+depois `partitionByCache` reduz o diff enviado ao modelo apenas às falhas
+(`toSend`). `codebasectx.Resolver.Resolve` (`internal/context/resolver.go`)
+lê o conteúdo de cada caminho alterado a partir do checkout e extrai seus
+símbolos definidos e as arestas de referência entre arquivos para
+`Pack.Symbols`/`Pack.References`/`Pack.Dependents`, independentemente de quais
+arquivos acabarão sendo acertos de cache. Esse pacote é serializado em
+`codebaseContextText`, que é (a) embutido literalmente no prompt de saída (a
+seção "## Codebase context" de `internal/prompt/builder.go`, via
+`review.ReviewContext.CodebaseContext`) e (b) uma das entradas de
+`reviewContextCacheKey`. Assim, os símbolos de um arquivo com acerto de cache
+ainda chegam ao modelo que revisa um arquivo irmão alterado, e uma mudança
+nesse quadro entre arquivos ainda invalida as entradas certas.
 
-Concretely: if `lib.go` defines `HelperZZZ` and is reviewed once alongside
-`app.go` (which calls it), then on a later round where only `app.go`
-changes again and `lib.go`'s own diff against the fixed base is
-byte-identical to the cached round (a genuine cache hit, never resent),
-`HelperZZZ` still appears in that round's codebase-context pack, because
-the pack was built from both files' paths before the partition ran.
-`TestAUR513AC003CrossFileEvidenceSurvivesPartialHit`
-(`cmd/aurumcode/aur513_test.go`) proves this end to end, via
-`AURUMCODE_PROMPT_CAPTURE`: it specifically parses the captured prompt's
-own `## Codebase context` JSON section and asserts `HelperZZZ` is in its
-`Symbols` field — NOT merely a substring check against the whole prompt,
-because `app.go`'s own diff literally contains the text `HelperZZZ()` at
-its call site, which would make a bare substring check pass even with an
-empty codebase-context pack. `tests/acceptance/AUR-513.sh`'s
-`AC-003-MUT-001` selector mutates the `reviewCtx` construction to resolve
-the codebase context from `toSend` (the already-partitioned, miss-only
-diff) instead of the full `diff`, reproducing the regression this design
-exists to refuse, and confirms the test goes RED for it.
+Concretamente: se `lib.go` define `HelperZZZ` e é revisado uma vez junto com
+`app.go` (que o chama), então, numa rodada posterior em que só `app.go` muda
+de novo e o diff de `lib.go` contra a base fixa é idêntico byte a byte ao da
+rodada em cache (um acerto de cache genuíno, nunca reenviado), `HelperZZZ`
+ainda aparece no pacote de contexto da base de código dessa rodada, porque o
+pacote foi construído a partir dos caminhos dos dois arquivos antes de a
+partição rodar. `TestAUR513AC003CrossFileEvidenceSurvivesPartialHit`
+(`cmd/aurumcode/aur513_test.go`) prova isso de ponta a ponta, via
+`AURUMCODE_PROMPT_CAPTURE`: ele analisa especificamente a seção JSON
+`## Codebase context` do prompt capturado e afirma que `HelperZZZ` está no seu
+campo `Symbols` — NÃO apenas uma checagem de substring contra o prompt
+inteiro, porque o diff do próprio `app.go` contém literalmente o texto
+`HelperZZZ()` no ponto de chamada, o que faria uma checagem de substring pura
+passar mesmo com um pacote de contexto vazio. O seletor `AC-003-MUT-001` de
+`tests/acceptance/AUR-513.sh` muta a construção de `reviewCtx` para resolver o
+contexto da base de código a partir de `toSend` (o diff já particionado, só
+com falhas) em vez do `diff` completo, reproduzindo a regressão que este
+desenho existe para recusar, e confirma que o teste fica VERMELHO.
 
-**Alternative considered and rejected:** refuse to serve a cache hit for
-any file the newly-changed file set might depend on. This needs a
-dependency graph the cache package does not have, and building and
-maintaining a reliable one (which files statically depend on which,
-transitively, across languages) is a much larger undertaking than this
-card's Outcome asks for, and risks the opposite failure — treating an
-unrelated file as "depended on" and forcing it to be resent forever,
-quietly defeating the cache's whole purpose. The codebase-context pack
-already gives the model the cross-file picture it needs without that
-graph, and it was already wired in before this card for exactly this
-`AUR-515`/`AUR-536` reason; this card's job was to confirm, by test, that
-nothing in the cache partitioning narrows what that pack sees, and to fold
-it (plus the review's other new identity inputs) correctly into the key.
+**Alternativa considerada e rejeitada:** recusar servir um acerto de cache
+para qualquer arquivo do qual o conjunto de arquivos recém-alterado possa
+depender. Isso exige um grafo de dependências que o pacote de cache não tem, e
+construir e manter um confiável (quais arquivos dependem estaticamente de
+quais, transitivamente, entre linguagens) é um empreendimento muito maior do
+que o Outcome deste card pede, e arrisca a falha oposta — tratar um arquivo
+não relacionado como "dependido" e forçá-lo a ser reenviado para sempre,
+frustrando silenciosamente todo o propósito do cache. O pacote de contexto da
+base de código já dá ao modelo o quadro entre arquivos de que ele precisa sem
+esse grafo, e já estava ligado antes deste card exatamente por essa razão
+(`AUR-515`/`AUR-536`); o trabalho deste card foi confirmar, por teste, que
+nada na partição do cache estreita o que esse pacote enxerga, e incorporá-lo
+(junto com as demais novas entradas de identidade da revisão)
+corretamente à chave.
 
-## AC-004: a broken cache degrades to a fresh review, never an approval
+## AC-004: um cache quebrado degrada para uma revisão nova, nunca para uma aprovação
 
-Two independent failure points, both pre-existing in AUR-441's design and
-unchanged by this card except for being proven by test here:
+Dois pontos de falha independentes, ambos preexistentes no desenho do AUR-441
+e inalterados por este card, exceto por serem aqui provados por teste:
 
-- **A corrupted entry** (`cache.Cache.Get`, `internal/review/cache/cache.go`):
-  a read or JSON-parse error returns `(nil, false, err)`. `partitionByCache`
-  (`cmd/aurumcode/review_cache.go`) only ever treats a lookup as a hit when
-  `getErr == nil && ok`; any other outcome — including a parse error on a
-  truncated/garbled on-disk entry — puts that file back into the miss list,
-  so it is reviewed fresh and its real finding(s) surface normally.
-  `TestAUR513AC004CorruptCacheEntryDegradesToFreshReview` writes a garbled
-  entry over a real cached one and proves the second round, under the
-  **same** `AURUMCODE_LLM_FIXTURE` as round 1 (deliberately: changing the
-  fixture between rounds would also change `modelCacheKey` and force a
-  fresh key on its own, proving nothing about the corrupted-entry path
-  specifically), never prints a reuse note and actually (re)writes an
-  `AURUMCODE_PROMPT_CAPTURE` file naming `app.go`. `AC-004-MUT-001`
-  (`tests/acceptance/AUR-513.sh`) mutates `partitionByCache` to treat any
-  `Get` error as a hit with zero issues and confirms this test goes RED for
-  it.
-- **An unusable cache directory** (`cache.Open`,
-  `internal/review/cache/cache.go`): a directory that cannot be created or
-  used returns an error. `runReview` treats that exactly like "no cache
-  configured for this run" — `toSend` stays the full, unpartitioned diff,
-  and `persistFreshResults`/`mergeCacheHits` are skipped entirely (gated on
-  `cacheErr == nil`). Caching is a best-effort optimization, never a
-  correctness gate.
-  `TestAUR513AC004UnreadableCacheDirDegradesToFreshReview` points
-  `AURUMCODE_CACHE_DIR` at a path that already exists as a plain file (so
-  `os.MkdirAll` fails) and proves the review still runs in full and still
-  reports the real finding.
+- **Uma entrada corrompida** (`cache.Cache.Get`, `internal/review/cache/cache.go`):
+  um erro de leitura ou de parse de JSON devolve `(nil, false, err)`.
+  `partitionByCache` (`cmd/aurumcode/review_cache.go`) só trata uma consulta
+  como acerto quando `getErr == nil && ok`; qualquer outro resultado — inclusive
+  um erro de parse numa entrada truncada/corrompida em disco — devolve esse
+  arquivo à lista de falhas, de modo que ele é revisado do zero e seus
+  achados reais aparecem normalmente.
+  `TestAUR513AC004CorruptCacheEntryDegradesToFreshReview` escreve uma entrada
+  corrompida por cima de uma entrada real em cache e prova que a segunda
+  rodada, sob o **mesmo** `AURUMCODE_LLM_FIXTURE` da rodada 1
+  (deliberadamente: mudar o fixture entre as rodadas também mudaria
+  `modelCacheKey` e forçaria uma chave nova por si só, sem provar nada sobre
+  o caminho da entrada corrompida em especial), nunca imprime uma nota de
+  reutilização e de fato (re)escreve um arquivo `AURUMCODE_PROMPT_CAPTURE`
+  nomeando `app.go`. `AC-004-MUT-001` (`tests/acceptance/AUR-513.sh`) muta
+  `partitionByCache` para tratar qualquer erro de `Get` como um acerto com zero
+  issues e confirma que este teste fica VERMELHO.
+- **Um diretório de cache inutilizável** (`cache.Open`,
+  `internal/review/cache/cache.go`): um diretório que não pode ser criado ou
+  usado devolve um erro. `runReview` trata isso exatamente como "nenhum cache
+  configurado para esta execução" — `toSend` continua sendo o diff completo,
+  sem partição, e `persistFreshResults`/`mergeCacheHits` são ignorados por
+  completo (condicionados a `cacheErr == nil`). O cache é uma otimização de
+  melhor esforço, nunca um portão de corretude.
+  `TestAUR513AC004UnreadableCacheDirDegradesToFreshReview` aponta
+  `AURUMCODE_CACHE_DIR` para um caminho que já existe como arquivo comum (de
+  modo que `os.MkdirAll` falha) e prova que a revisão ainda roda por inteiro e
+  ainda reporta o achado real.
 
-In both cases the gate-relevant guarantee already established for
-AUR-441/AUR-519 holds: a cache failure can only ever cost a repeated model
-call, never silently turn an inconclusive/blocked result into a pass, and
-never omit a file from coverage.
+Nos dois casos, vale a garantia relevante para o gate já estabelecida para
+AUR-441/AUR-519: uma falha de cache só pode custar uma chamada repetida ao
+modelo, nunca transformar silenciosamente um resultado inconclusivo/bloqueado
+em aprovação, e nunca omitir um arquivo da cobertura.
 
-## Closed gap: the prompt-version key component is now a run-time digest (AUR-543)
+## Lacuna fechada: o componente de versão do prompt na chave agora é um digest em tempo de execução (AUR-543)
 
-Before this card, `internal/review/cache.PromptVersion` ("v1") was a
-manually-bumped lever: the day the embedded prompt or built-in rule catalog
-changed in a way that could change a file's findings, a human had to
-remember to bump that literal by hand, or every cache entry built under the
-old prompt would keep being served under the new one.
+Antes deste card, `internal/review/cache.PromptVersion` ("v1") era uma
+alavanca incrementada à mão: no dia em que o prompt embutido ou o catálogo de
+regras embutido mudasse de um jeito que pudesse alterar os achados de um
+arquivo, um humano tinha de lembrar de incrementar esse literal manualmente, ou
+toda entrada de cache construída sob o prompt antigo continuaria sendo servida
+sob o novo.
 
-`internal/prompt.PromptBuilder.FixedContentDigest()` closes that gap. It
-calls `BuildPrompt` itself — the exact, public entry point production
-review calls use — TWICE, once per fixed sentinel diff/options pair
-(`fixedContentSentinelPairs`, builder.go: `fixedContentSentinelDiffCode`
-with `fixedContentSentinelOptsNonEmptyCI`, and
-`fixedContentSentinelDiffDocsOnly` with `fixedContentSentinelOptsEmptyCI`),
-with fixed sentinel metrics, then hashes the concatenation of both calls'
-full `System`+`User` text PLUS one direct call to `coverage.go`'s own
-`renderCoverageDeclaration` with hand-built, synthetic coverage data
-(`fixedContentSyntheticCoverage`). Two sentinel diff/options pairs, not
-one, so that every fixed branch this card's review named is exercised by
-at least one of them: `ReviewChangeScope` (filetype.go) renders a DIFFERENT
-fixed instructional string depending on whether the diff has substantive
-code, and `reviewCIContext` renders a DIFFERENT fixed fallback string
-("No CI failure context was supplied. Do not invent CI failures or claim
-that checks passed.") when `CIContext` is empty than when it is not — a
-single pair would leave one branch of each unexercised. The direct
-`renderCoverageDeclaration` call covers the two states a real, unbounded
-(`MaxTokens: 0`) `BuildPrompt` call can never produce on its own, because
-nothing is ever trimmed: a "partial" file (some, not all, hunks covered)
-and the omitted-bullet-list overflow line (more omitted files than
-`maxOmittedBullets`) — the input data is synthetic, but the rendering code
-is the exact production function every real review's coverage section
-goes through.
+`internal/prompt.PromptBuilder.FixedContentDigest()` fecha essa lacuna. Ele
+chama o próprio `BuildPrompt` — o ponto de entrada público exato que as
+chamadas de revisão em produção usam — DUAS vezes, uma para cada par fixo
+sentinela de diff/opções (`fixedContentSentinelPairs`, builder.go:
+`fixedContentSentinelDiffCode` com `fixedContentSentinelOptsNonEmptyCI`, e
+`fixedContentSentinelDiffDocsOnly` com `fixedContentSentinelOptsEmptyCI`), com
+métricas sentinela fixas, e então faz o hash da concatenação do texto completo
+`System`+`User` das duas chamadas MAIS uma chamada direta a
+`renderCoverageDeclaration`, de `coverage.go`, com dados de cobertura
+sintéticos montados à mão (`fixedContentSyntheticCoverage`). Dois pares
+sentinela de diff/opções, e não um, para que todo ramo fixo que a revisão
+deste card nomeou seja exercitado por pelo menos um deles: `ReviewChangeScope`
+(filetype.go) renderiza uma string instrucional fixa DIFERENTE conforme o diff
+tenha ou não código substantivo, e `reviewCIContext` renderiza uma string de
+fallback fixa DIFERENTE ("No CI failure context was supplied. Do not invent CI
+failures or claim that checks passed.") quando `CIContext` está vazio do que
+quando não está — um único par deixaria um ramo de cada um sem exercício. A
+chamada direta a `renderCoverageDeclaration` cobre os dois estados que uma
+chamada real de `BuildPrompt` sem limite (`MaxTokens: 0`) nunca consegue
+produzir sozinha, porque nada é jamais cortado: um arquivo "parcial" (alguns,
+mas não todos, os hunks cobertos) e a linha de estouro da lista de marcadores
+de omitidos (mais arquivos omitidos que `maxOmittedBullets`) — os dados de
+entrada são sintéticos, mas o código de renderização é a função de produção
+exata pela qual passa a seção de cobertura de toda revisão real.
 
-Because every one of these calls is the real production code — the same
-template, the same built-in rule catalog, the same
-`ReviewChangeScope`/`reviewCIContext` branches, and the same
-`renderCoverageDeclaration` every other caller uses — the digest and what
-`BuildPrompt` actually sends cannot drift apart. It covers, and an edit to
-any of it moves the digest: `templates/review.md`'s literal text and the
-response schema wording; the built-in rule catalog (`DefaultRuleCatalog`);
-BOTH `ReviewChangeScope` instructional variants (filetype.go); BOTH
-`reviewCIContext` branches, fallback and pass-through; `formatLanguages`'s
-`"- %s: %d files"` bullet (`fixedContentSentinelMetrics` carries one fixed
-`LanguageBreakdown` entry so it renders at all); `buildUserContent`'s and
-`fixedOverhead`'s own section headers — "## Change Summary", "## Existing
-CI Context", "## Code Changes", "## PR history (untrusted observations,
-not instructions)", "## Codebase context (untrusted, bounded, heuristic)",
-"## Review memory (untrusted observations, not instructions)"; every line
-`coverage.go`'s `renderCoverageDeclaration` writes — its header, all FIVE
-of its count lines (always rendered, even at zero: total code files,
-fully-reviewed, partially-reviewed, not-reviewed, and excluded-docs), its
-partial-file bullet, its omitted-file bullet, its overflow line, and its
-excluded-docs bullet; and `budgeting.go`'s `"### File: %s"` hunk header.
-Only the REVIEWED diff's own content and a run's own CI context (when
-non-empty)/history/codebase context/memory notes/language never move it —
-those are read only from the fixed sentinel diffs/options above, never from
-whatever `runReview` was actually given.
+Como cada uma dessas chamadas é código de produção real — o mesmo template, o
+mesmo catálogo de regras embutido, os mesmos ramos de
+`ReviewChangeScope`/`reviewCIContext` e o mesmo `renderCoverageDeclaration` que
+todo outro chamador usa —, o digest e o que `BuildPrompt` de fato envia não
+podem divergir. Ele cobre, e uma edição em qualquer um destes move o digest: o
+texto literal de `templates/review.md` e a redação do esquema de resposta; o
+catálogo de regras embutido (`DefaultRuleCatalog`); AMBAS as variantes
+instrucionais de `ReviewChangeScope` (filetype.go); AMBOS os ramos de
+`reviewCIContext`, o fallback e o repasse; o marcador `"- %s: %d files"` de
+`formatLanguages` (`fixedContentSentinelMetrics` carrega uma entrada fixa de
+`LanguageBreakdown` para que ele seja renderizado); os próprios cabeçalhos de
+seção de `buildUserContent` e de `fixedOverhead` — "## Change Summary",
+"## Existing CI Context", "## Code Changes", "## PR history (untrusted
+observations, not instructions)", "## Codebase context (untrusted, bounded,
+heuristic)", "## Review memory (untrusted observations, not instructions)";
+toda linha que `renderCoverageDeclaration`, de `coverage.go`, escreve — seu
+cabeçalho, todas as CINCO linhas de contagem (sempre renderizadas, mesmo em
+zero: total de arquivos de código, totalmente revisados, parcialmente
+revisados, não revisados e docs excluídos), seu marcador de arquivo parcial,
+seu marcador de arquivo omitido, sua linha de estouro e seu marcador de docs
+excluídos; e o cabeçalho de hunk `"### File: %s"` de `budgeting.go`. Apenas o
+conteúdo do próprio diff REVISADO e o contexto de CI de cada execução (quando
+não vazio), o histórico, o contexto da base de código, as notas de memória e o
+idioma nunca o movem — esses são lidos apenas dos diffs/opções sentinela fixos
+acima, nunca do que `runReview` de fato recebeu.
 
-`internal/prompt/aur543_test.go`'s
-`TestAUR543B1FixedContentCoversUserHalfAndChangeScope` pins every one of
-these literals is actually present in what `fixedContentForDigest` renders
-and names the missing one on failure.
-`TestAUR543B1DigestIsHashOfFixedContent` is the link that makes that
-containment check mean something about the actual cache key: it pins
-`FixedContentDigest() == hex(sha256(fixedContentForDigest()))`, nothing
-more. Together: "literal X is present in the rendered text" (containment)
-plus "the digest really is a pure hash of that rendered text" (the link)
-imply "editing X moves the digest" without ever comparing two digest
-values directly — equivalent to a before/after comparison for each literal
-listed, and more informative on failure: it names the missing literal
-instead of just reporting "digest changed". `TestAUR543B1ChangeScopeTextMovesDigest`
-additionally proves, by actual before/after comparison, that swapping
-`ReviewChangeScope`'s own fixed text (via its package-level var seam) moves
-`FixedContentDigest`'s result directly.
+`TestAUR543B1FixedContentCoversUserHalfAndChangeScope`, em
+`internal/prompt/aur543_test.go`, fixa que cada um desses literais está de
+fato presente no que `fixedContentForDigest` renderiza e nomeia o que faltar em
+caso de falha. `TestAUR543B1DigestIsHashOfFixedContent` é o elo que faz essa
+checagem de contenção significar algo sobre a chave de cache real: ele fixa
+`FixedContentDigest() == hex(sha256(fixedContentForDigest()))`, nada mais.
+Juntos: "o literal X está presente no texto renderizado" (contenção) mais "o
+digest é de fato um hash puro desse texto renderizado" (o elo) implicam
+"editar X move o digest" sem nunca comparar dois valores de digest
+diretamente — equivalente a uma comparação antes/depois para cada literal
+listado, e mais informativo em caso de falha: nomeia o literal ausente em vez
+de apenas reportar "digest mudou". `TestAUR543B1ChangeScopeTextMovesDigest`
+prova adicionalmente, por comparação real antes/depois, que trocar o texto
+fixo do próprio `ReviewChangeScope` (via seu ponto de costura em variável de
+pacote) move diretamente o resultado de `FixedContentDigest`.
 
-`buildUserContent`'s Go string-literal headers have no in-process seam a
-test can swap at runtime, so `tests/acceptance/AUR-543.sh`'s
-`AC-001-MUT-002` proves that one at the script level instead: it edits the
-real source (`"## Code Changes"` in `builder.go`) in a copied tree, then
-reruns BOTH tests as a fresh process and requires the containment test to
-go RED (the literal is gone) **and** the link test to stay GREEN (the
-mutation never touched `FixedContentDigest`'s own hashing code) in that
-SAME mutated tree. The second check is what rules out the hole a
-containment-RED-alone check would miss: a `FixedContentDigest` hardcoded to
-today's hex value would also make the containment test "survive" by
-coincidence (content changed, hash did not) without the link check
-catching it.
+Os cabeçalhos literais de string Go de `buildUserContent` não têm ponto de
+costura em processo que um teste possa trocar em tempo de execução; por isso,
+`AC-001-MUT-002`, de `tests/acceptance/AUR-543.sh`, prova esse caso no nível do
+script: ele edita o código-fonte real (`"## Code Changes"` em `builder.go`)
+numa árvore copiada, depois reexecuta AMBOS os testes como um processo novo e
+exige que o teste de contenção fique VERMELHO (o literal sumiu) **e** que o
+teste do elo continue VERDE (a mutação nunca tocou o código de hash do próprio
+`FixedContentDigest`) nessa MESMA árvore mutada. A segunda checagem é o que
+elimina o buraco que uma checagem só com contenção VERMELHA deixaria passar:
+um `FixedContentDigest` fixado no valor hex de hoje também faria o teste de
+contenção "sobreviver" por coincidência (conteúdo mudou, hash não) sem que a
+checagem do elo o pegasse.
 
-What this digest does NOT, and cannot, cover: literals `internal/prompt`
-does not own. Two call sites, both outside this card's `paths`
-(`read_paths` only), add their own small fixed text AFTER
-`PromptBuilder.BuildPrompt` returns, and an edit to either joiner would not
-move this digest:
+O que este digest NÃO cobre, e não pode cobrir: literais que
+`internal/prompt` não possui. Dois pontos de chamada, ambos fora dos `paths`
+deste card (apenas `read_paths`), acrescentam seu próprio texto fixo pequeno
+DEPOIS que `PromptBuilder.BuildPrompt` retorna, e uma edição em qualquer uma
+das duas junções não moveria este digest:
 
 - `internal/review/reviewer.go` (`Reviewer.GenerateReview`):
-  `fullPrompt := promptParts.System + "\n\n" + promptParts.User`. The two-
-  newline joiner is a fixed literal this digest does not read -- it is
-  reproduced independently inside `fixedContentForDigest` (also `"\n\n"`),
-  so today the two happen to agree, but nothing enforces that; an edit to
-  reviewer.go's own joiner would not change the cache key.
-- `internal/config/wrap.go`'s `contextInjectingProvider.Complete`:
-  `prompt + "\n\n" + p.block`. The appended `p.block` CONTENT is already
-  covered by `contextBlockCacheDigest` (`reviewContextCacheKey`'s own
-  `contextBlockDigest` parameter, cmd/aurumcode/review_cache.go), so an
-  edit to a configured repo/policy prompt or skill file does invalidate the
-  cache; the fixed `"\n\n"` joiner itself does not.
+  `fullPrompt := promptParts.System + "\n\n" + promptParts.User`. A junção de
+  duas quebras de linha é um literal fixo que este digest não lê — ela é
+  reproduzida de forma independente dentro de `fixedContentForDigest`
+  (também `"\n\n"`), então hoje os dois por acaso concordam, mas nada impõe
+  isso; uma edição na junção do próprio reviewer.go não mudaria a chave do
+  cache.
+- `contextInjectingProvider.Complete`, de `internal/config/wrap.go`:
+  `prompt + "\n\n" + p.block`. O CONTEÚDO de `p.block` anexado já é coberto
+  por `contextBlockCacheDigest` (o parâmetro `contextBlockDigest` do próprio
+  `reviewContextCacheKey`, cmd/aurumcode/review_cache.go), então uma edição em
+  um prompt de repositório/política configurado ou em um arquivo de skill de
+  fato invalida o cache; a junção fixa `"\n\n"` em si, não.
 
-Both residuals are two-character literals, not instructional text a model
-would act on differently, and a future card scoped to either file could
-fold an equivalent digest in from there if that changes.
+Os dois resíduos são literais de dois caracteres, não texto instrucional ao
+qual um modelo reagiria de forma diferente, e um futuro card com escopo em
+qualquer um dos arquivos poderia incorporar um digest equivalente a partir dali
+se isso mudar.
 
-`cmd/aurumcode`'s `runReview` (`main.go`) computes this digest by calling
-`newCacheDigestBuilder()` (`review_cache.go`) — a package-level seam that
-defaults to `prompt.NewPromptBuilder`, not the reviewer's own builder, whose
-`ruleCatalog` may carry this run's dynamic, skill-expanded catalog. The seam
-exists so `TestAUR543AC001PromptEditForcesFreshReview` can substitute a
-builder with different fixed content and prove AC-001 through the real
-`runReview` call -- cache entries actually invalidating end to end -- not
-only through `FixedContentDigest`'s own unit-level result; production code
-never reassigns it. `runReview` passes the result to `partitionByCache` as
-the `promptVersion` argument to
-`cache.Key`, in place of the old `cache.PromptVersion` constant. Using a
-fresh builder is deliberate, not an oversight: the dynamic/skill-expanded
-rule catalog a run teaches the model already has its own, separately folded
-in digest (`ruleCatalogDigest`, folded into `reviewContextCacheKey`'s
-`model` argument); digesting it a second time here would double-count it
-rather than guard anything new. `cache.PromptVersion` itself stays defined,
-unused by production code, only because `cache.Key`'s `promptVersion`
-parameter is generic and `tests/unit/AUR-441.go` (outside this card's
-`paths`) still references the literal.
+`runReview` (`main.go`), de `cmd/aurumcode`, calcula esse digest chamando
+`newCacheDigestBuilder()` (`review_cache.go`) — um ponto de costura em nível de
+pacote que por padrão é `prompt.NewPromptBuilder`, e não o builder do próprio
+revisor, cujo `ruleCatalog` pode carregar o catálogo dinâmico, expandido por
+skills, desta execução. O ponto de costura existe para que
+`TestAUR543AC001PromptEditForcesFreshReview` possa substituir um builder com
+conteúdo fixo diferente e provar o AC-001 pela chamada real a `runReview` — as
+entradas de cache de fato invalidando de ponta a ponta —, e não só pelo
+resultado unitário do próprio `FixedContentDigest`; o código de produção nunca
+o reatribui. `runReview` passa o resultado a `partitionByCache` como o
+argumento `promptVersion` de `cache.Key`, no lugar da antiga constante
+`cache.PromptVersion`. Usar um builder novo é deliberado, não um descuido: o
+catálogo de regras dinâmico/expandido por skills que uma execução ensina ao
+modelo já tem seu próprio digest, incorporado separadamente
+(`ruleCatalogDigest`, incorporado ao argumento `model` de
+`reviewContextCacheKey`); fazer o digest dele uma segunda vez aqui o contaria
+em dobro em vez de proteger algo novo. O próprio `cache.PromptVersion`
+continua definido, sem uso pelo código de produção, apenas porque o parâmetro
+`promptVersion` de `cache.Key` é genérico e `tests/unit/AUR-441.go` (fora dos
+`paths` deste card) ainda referencia o literal.
 
-If a run-time digest computation ever fails — the production template is
-compiled in via `go:embed` and always parses, but a builder whose template
-set is empty (`prompt.NewPromptBuilderWithoutTemplates()`, used only by
-`TestAUR543N1DigestErrorDegradesToNoCache`) hits the same, already-published
-"the review prompt template is unavailable" error `buildBasePrompt` returns
-for any other caller — `runReview` folds that error into `cacheErr` exactly
-like a `cache.Open` failure: BOTH `partitionByCache` (the diff is sent in
-full) AND `persistFreshResults` (gated on `cacheErr == nil`) are skipped, so
-the whole cache degrades to "no cache this run" and, critically, writes
-NOTHING under a meaningless key — never a crash, never a stale or wrong
-entry.
+Se o cálculo do digest em tempo de execução alguma vez falhar — o template de
+produção é compilado via `go:embed` e sempre faz parse, mas um builder cujo
+conjunto de templates está vazio (`prompt.NewPromptBuilderWithoutTemplates()`,
+usado apenas por `TestAUR543N1DigestErrorDegradesToNoCache`) esbarra no mesmo
+erro já publicado, "the review prompt template is unavailable", que
+`buildBasePrompt` devolve a qualquer outro chamador —, `runReview` incorpora
+esse erro em `cacheErr` exatamente como uma falha de `cache.Open`: TANTO
+`partitionByCache` (o diff é enviado por inteiro) QUANTO `persistFreshResults`
+(condicionado a `cacheErr == nil`) são ignorados, de modo que todo o cache
+degrada para "sem cache nesta execução" e, criticamente, não escreve NADA sob
+uma chave sem sentido — nunca uma falha, nunca uma entrada obsoleta ou errada.
 
-`tests/acceptance/AUR-543.sh`'s `AC-001-MUT-001` mutation makes
-`FixedContentDigest` hash a fixed string literal instead of the real
-rendered content — reproducing exactly the defect this card closes, a digest
-that never moves no matter what fixed prompt text changes — and confirms
-every `TestAUR543AC001*` test goes RED for it, at both the unit level
-(`internal/prompt`) and through the real production wiring
-(`TestAUR543AC001PromptEditForcesFreshReview`, `cmd/aurumcode`). A second
-mutation (`N1-MUT-001`) drops the `cacheErr = promptDigestErr` fold-in in
-`main.go`, reproducing a digest failure that silently does NOT disable the
-cache, and confirms `TestAUR543N1DigestErrorDegradesToNoCache` goes RED.
+A mutação `AC-001-MUT-001` de `tests/acceptance/AUR-543.sh` faz
+`FixedContentDigest` fazer hash de um literal de string fixo em vez do
+conteúdo renderizado real — reproduzindo exatamente o defeito que este card
+fecha, um digest que nunca se move por mais que o texto fixo do prompt mude —
+e confirma que todo teste `TestAUR543AC001*` fica VERMELHO, tanto no nível
+unitário (`internal/prompt`) quanto pela fiação real de produção
+(`TestAUR543AC001PromptEditForcesFreshReview`, `cmd/aurumcode`). Uma segunda
+mutação (`N1-MUT-001`) remove a incorporação `cacheErr = promptDigestErr` em
+`main.go`, reproduzindo uma falha de digest que silenciosamente NÃO desativa o
+cache, e confirma que `TestAUR543N1DigestErrorDegradesToNoCache` fica
+VERMELHO.

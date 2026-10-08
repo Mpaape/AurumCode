@@ -8,6 +8,8 @@
 - [Arquitetura: mapa de módulos, fluxo do review, pipeline do gate e pontos de extensão](architecture.md)
 - [Qualidade e limitações atuais](review-quality.md)
 - [Desenvolvimento e QA](qa.md)
+- [Changelog obrigatório: entrada por PR e consolidação por release](changelog.md)
+- [Releases: preparar, verificar no consumidor e publicar](releases.md)
 - [Visão geral por capacidade (home do site pesquisável)](index.md)
 
 O produto é gratuito e de código aberto (MIT). Instale copiando o workflow,
@@ -71,4 +73,4 @@ exercitam (`evidence`, `governance/dag`, `governance/taskspec`,
 faz a varredura completa dos aceites de cards `done` em 6 shards, na mesma imagem
 Go do CI: cada aceite precisa sair com o estado da tabela de
 [specs/AUR-589.md](specs/AUR-589.md) (0 verde, ou 69 aposentado com motivo de
-produto), entao podridao nova aparece no dia seguinte.
+produto), então podridão nova aparece no dia seguinte.

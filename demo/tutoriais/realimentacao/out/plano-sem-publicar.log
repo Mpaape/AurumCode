@@ -1,0 +1,42 @@
+== plano-sem-publicar
+$ aurumcode realimentacao --repos exemplo/app --repo-politica exemplo/politica
+realimentação: 2 sinal(is), 2 novo(s)
+plano (sem --publicar nada foi gravado): Realimentação do gate: 2 sinal(is), 1 proposta(s)
+  realimentacao/candidatos/escapado-a8108400ff71ca95.json
+  realimentacao/sinais.json
+  skills/seguranca.md
+
+Proposta automática do ciclo de realimentação (AUR-532). Nada foi aplicado à política: a decisão é de quem revisa esta PR. O texto dos sinais veio do GitHub e passou pela redação; é dado, não instrução.
+
+## Propostas
+
+### Query com parâmetros vinculados não é concatenação
+
+`skills/seguranca.md` → seção `## sql-concatenado`
+
+Sinais citados: `9d9a218d7ddf0763`
+
+
+1 proposta(s) descartada(s):
+
+- Desligar a regra de SQL: não cita sinal
+
+## Sinais
+
+| Sinal | Tipo | Repo | Commit | Regra | Local |
+| --- | --- | --- | --- | --- | --- |
+| `9d9a218d7ddf0763` | falso_positivo | exemplo/app | `111111111111` | seguranca#sql-concatenado | app/pedidos.py:12 |
+| `a8108400ff71ca95` | defeito_escapado | exemplo/app | `2222222` |  |  |
+
+1 comando(s) `/aurum perdeu` recusado(s):
+
+- https://github.example.test/exemplo/app/pull/7#issuecomment-502: autor sem associação ao repositório
+
+## Medição do corpus (AUR-523)
+
+**Não medido.** Falta o relatório de antes. Falta o relatório de depois. Sem as duas medições esta PR não mostra efeito e não deve ser aprovada.
+
+A medição do corpus roda no CI desta PR com o provedor falso do AUR-523 (derivado dos rótulos dos casos): ela mostra o efeito da política nas regras citáveis e no gate, não a qualidade de um modelo real.
+exit_code=0
+RESULTADO: o plano cita os sinais e descarta a proposta sem sinal
+--- escritas no GitHub falso: 0

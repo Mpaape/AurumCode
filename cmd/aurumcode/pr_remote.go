@@ -168,10 +168,10 @@ func readCIContext() string {
 // codebaseContextPack resolves bounded codebase dependency context from the
 // current checkout for the changed paths. It is an enhancement, never a gate:
 // the caller degrades to empty context on any error.
-func codebaseContextPack(changed []string) (*codebasectx.Pack, error) {
+func codebaseContextPack(changed []string, exclude func(string) bool) (*codebasectx.Pack, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	return codebasectx.NewResolver().Resolve(cwd, changed)
+	return codebasectx.NewResolver().WithExclude(exclude).Resolve(cwd, changed)
 }

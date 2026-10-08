@@ -39,7 +39,7 @@ func (s *reviewState) settleCIStatus(ci cistatus.Context) {
 		executed = append(executed, scan.Config.Name(), scan.Engine.Name())
 	}
 	kept, discarded := cistatus.Facts{Context: ci, Executed: executed}.Keep(s.result.CIAnalysis)
-	s.result.CIAnalysis = kept
+	s.result.CIAnalysis = ci.Verify(kept)
 	if len(discarded) == 0 {
 		return
 	}

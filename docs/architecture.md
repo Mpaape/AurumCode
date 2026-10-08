@@ -36,12 +36,14 @@ negócio vivem em `internal/`.
 | `internal/analyzer` | Parsing de diff, detecção de linguagem a partir do catálogo de linguagens, diffs de texto. |
 | `internal/apply` | Transforma sugestões validadas em patches seguros e aplicáveis. |
 | `internal/artifacts` | O artefato de dados de análise: cópia resolvida, verificada por idade e digest e em cache dos dados publicados dos scanners. |
-| `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados. |
+| `internal/changelog` | Monta seções de changelog e incrementos de versão semântica a partir de commits revisados, e decide o changelog obrigatório (`Requirement.Verify`, padrões em `require_defaults.yml`). |
 | `internal/config` | Configuração efetiva: seções, precedência da política central, gate, exceções, quality gates. |
-| `internal/context` | Contexto de código limitado e determinístico e leitor de skills. |
+| `internal/context` | Contexto de código limitado e determinístico, leitor de skills e o cliente das fontes MCP de contexto (`internal/context/mcp`: servidor e ferramenta declarados na configuração confiável, payload declarado e redigido, resposta só como contexto com origem). |
+| `internal/dependencies` | A verificação de dependências: o modelo lê o diff de qualquer manifesto ou lockfile e nomeia os pacotes alterados, o código aterra a resposta no diff e a confere nos dois sentidos com o osv-scanner (todo arquivo alterado que ele reconhece), consulta a base OSV pelos dois lados e classifica cada advisory como introduzido, pré-existente ou corrigido; os metadados vivos do deps.dev alimentam a suspeita de typosquat do modelo (mantida só com evidência dos metadados) e a licença registrada, avaliada pela expressão SPDX; `Scan` faz o mesmo sobre a árvore inteira para a varredura agendada. Fonte inalcançável, vencida ou scanner ausente é inconclusivo. |
 | `internal/deliberation` | Conversa limitada com ferramentas junto a um modelo, sem semântica de revisão: `Tool` (`Spec`, `Run`), `Limits` (rodadas, tokens, timeout por ferramenta), validação de argumentos antes de qualquer execução, o `Transcript` e o `LimitError` tipado que quem chama trata como inconclusivo. |
 | `internal/dtrack` | Cliente do OWASP Dependency-Track para o gate de SBOM. |
 | `internal/evidence` | Manifesto do pacote de evidências endereçado por conteúdo. |
+| `internal/feedback` | O ciclo de realimentação (AUR-532): sinais de uso vindos do GitHub (alerta dispensado como falso positivo, achado corrigido entre auditorias, `/aurum perdeu`), propostas do modelo validadas contra os sinais citados, o registro de sinais no repositório da política, a medição antes/depois do corpus e a PR única. Nada é aplicado à política sem merge humano. |
 | `internal/gate` | O pipeline do gate: `Run`, `Result`, `Contributor`, `Pipeline`, a regra de falha, o ranking de inconclusivo (`RankReason`) e a decisão de saída (`ExitPolicy`). |
 | `internal/git` | Cliente do GitHub e acesso ao git usados pelo caminho `--pr`. |
 | `internal/gittest` | Ambiente hermético para o git real dos fixtures de teste: sem configuração global nem de sistema, `HOME` privado e sem prompt, para o teste dar o mesmo resultado no container de desenvolvimento e no CI. |
@@ -52,8 +54,8 @@ negócio vivem em `internal/`.
 | `internal/mcpserver` | O adaptador MCP (Model Context Protocol) por stdio de `aurumcode mcp`: o subconjunto JSON-RPC 2.0 que o MCP exige (`initialize`, `tools/list`, `tools/call`), as quatro ferramentas só leitura (`aurum_review`, `aurum_gate`, `aurum_rules`, `aurum_explain`) com JSON Schema fechado, a validação dos argumentos antes de executar e um único ponto de redação de toda resposta. Não decide nada: pergunta à porta `Gateway`, que `cmd/aurumcode` implementa com a mesma sessão `--base`. |
 | `internal/memory` | Memória de revisão opcional. |
 | `internal/prompt` | Montagem de prompt, orçamento, parsing de resposta (dividido por responsabilidade, com os padrões compilados uma vez no pacote), filtro de comentários, notas de cobertura. |
-| `internal/render` | Relatórios determinísticos, registros de auditoria, SARIF e identidade de achados. |
-| `internal/review` | O revisor, o escopo, as regras (incluindo regras dinâmicas de skill), o cache de revisão, a sessão de revisão (`internal/review/session`: ordem das fases e dados por fonte) e as ferramentas que uma revisão oferece ao modelo (`internal/review/tools`: scanners opcionais, contexto de código, com o custo declarado no manifesto). |
+| `internal/render` | Relatórios determinísticos, registros de auditoria, SARIF (inclusive com categoria própria, `automationDetails.id`) e identidade de achados. |
+| `internal/review` | O revisor, o escopo, as regras (incluindo regras dinâmicas de skill), o cache de revisão, a sessão de revisão (`internal/review/session`: ordem das fases e dados por fonte) e as ferramentas que uma revisão oferece ao modelo (`internal/review/tools`: scanners opcionais, contexto de código, seções de skill e as ferramentas que leem a revisão revisada, com o custo declarado no manifesto). |
 | `internal/reviewprofile` | Perfis de revisor: os embutidos são YAML versionado no binário (`builtin.yml`), lidos pelo mesmo decodificador do arquivo de perfis do time. |
 | `internal/sandbox` | Perfis de execução selados. |
 | `internal/scanner` | O contrato de scanner (`Scanner`, `Report`, `Finding.ToIssue`), o registro fechado de engines compiladas e o executor; as engines vivem em subpacotes (`internal/scanner/semgrep`, SAST sobre a árvore; `internal/scanner/govet`, lint com `go vet`; `internal/scanner/gitleaks`, segredos sobre o intervalo de commits revisado `Request.Range`) listados em `internal/scanner/engines`. O escopo de mudança (`scanner.AddedLines`, `LineSet.Keep`) é um lugar só: as engines de código (semgrep, govet) varrem a árvore, mas guardam só achados em linhas que o intervalo revisado adicionou, e o semgrep usa o mesmo conjunto para decidir se um erro de parse alcança a mudança. A revisão entrega a cada engine o intervalo revisado (`--pr`: a base e o head do pull request; `--base`: a ref e `HEAD` resolvidos para ids completos), e a identidade informada por cada engine (`Outcome.Version`) entra no digest de evidências da chave de cache. |
@@ -106,17 +108,17 @@ retorna `(exit, done)`, de modo que cada saída antecipada mantém seu código:
 
 1. **resolve.** Valida a invocação; configuração, política central, diff,
    contexto, perfis, memória.
-2. **model.** Seleção do provedor e a passagem de qualidade do modelo. Com
+2. **evidence.** A passagem de segurança, a análise estática, a configuração de
+   regras do repositório, cada engine de scanner habilitada e a cobertura. Um
+   único passo decide onde ficam os achados de segurança (nos issues da revisão
+   em `--pr`, em sua própria seção em `--base`); o snapshot de reaproveitamento
+   de veredito guarda os mesmos achados nos dois casos.
+3. **model.** Seleção do provedor e a passagem de qualidade do modelo. Com
    `deliberation.enabled`, o modelo pode primeiro pedir ferramentas (abaixo).
    Seu resultado é um `gate.ModelOutcome` tipado: `reviewed`, `skipped` (nenhum
    provedor configurado), `provider failed` (sem resposta, ou uma revisão de
    qualidade exigida que não aconteceu) ou `parse failed` (uma resposta que não
    pôde ser validada).
-3. **evidence.** A passagem de segurança, a análise estática, a configuração de
-   regras do repositório, cada engine de scanner habilitada e a cobertura. Um
-   único passo decide onde ficam os achados de segurança (nos issues da revisão
-   em `--pr`, em sua própria seção em `--base`); o snapshot de reaproveitamento
-   de veredito guarda os mesmos achados nos dois casos.
 4. **gate.** O pipeline compartilhado abaixo, a partir do `gate.Run` da sessão.
    O motivo de inconclusivo é `gate.RankReason`: falha do provedor, revisão
    ignorada, resposta não interpretável, parse degradado, o motivo do primeiro
@@ -227,7 +229,12 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
 - A fase de evidências executa todo scanner `required` como antes; um scanner
   habilitado que não é `required` é adiado e oferecido como a ferramenta
   `scanner_<engine>`, ao lado de `codebase_context` (o contexto limitado de um
-  arquivo alterado). O manifesto vai para o slot de ferramentas do prompt com o
+  arquivo alterado) e das ferramentas do repositório (`read_file`,
+  `search_text`, `find_symbol` sobre as gramáticas de `internal/grammar`,
+  `changed_file_diff`), que leem só a revisão revisada
+  (`internal/review/tools.Revision`: caminho da árvore do commit, bytes com o
+  mesmo id de blob, sem link simbólico, `ignore` nem arquivo de segredo) e
+  dividem o teto `max_read_bytes`. O manifesto vai para o slot de ferramentas do prompt com o
   custo declarado e o tamanho de resultado de cada ferramenta. O modelo decide;
   o código nunca pede uma ferramenta por conta própria.
 - Cada rodada é uma chamada a `Orchestrator.CompleteWithTools`: seu custo é
@@ -242,7 +249,8 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
   evidências e entra nas varreduras da sessão: seus achados contam no gate com
   a sua origem, e um binário ausente ou uma varredura que falhou é o motivo
   inconclusivo da varredura.
-- Exceder `max_rounds`, `max_cost_tokens` ou `per_tool_timeout_seconds` é o
+- Exceder `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds` ou
+  `max_read_bytes` é o
   resultado de modelo `gate.ModelDeliberationLimit`, nunca revisado em nenhuma
   das fontes (saída 1); o gate ainda roda com o motivo inconclusivo
   `deliberation_limit:<limit>` (`gate.RankReason`, classificado em primeiro),
@@ -252,7 +260,10 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
   redigidos, duração e resultado resumido, o limite) é impressa em stderr e é o
   campo `deliberation` da auditoria (`render.AuditRecord.Deliberation`).
 - Sem um provedor capaz de usar ferramentas (ou com perfis de revisão), os
-  scanners adiados rodam como antes. Uma revisão que ofereceu ferramentas
+  scanners adiados rodam como antes. Os decoradores do provedor (contexto do
+  repositório em `internal/config`, perfis em `cmd/aurumcode`) repassam
+  `llm.ToolCaller` só quando o provedor embrulhado o tem, aplicando o mesmo
+  bloco ou prefixo à conversa com ferramentas. Uma revisão que ofereceu ferramentas
   dispensa o cache de modelo por arquivo, e a chave de reaproveitamento de
   veredito incorpora os digests dos resultados das ferramentas.
 
@@ -269,6 +280,7 @@ contribuidores se aplicam nesta ordem:
 6. `security-pass`: os achados da passagem `--seguranca`; um achado igual ou acima de `fail_on` conta em todos os modos de `gate.inconclusive` (sob a fonte `analysis`).
 7. `analysis-data`: o artefato de dados de análise.
 8. `dependency-track`: a submissão do SBOM; pode substituir o filtro de redação.
+9. `dependencies`: a verificação de dependências da seção `dependencies` (vulnerabilidade introduzida ou pré-existente, pacote malicioso, licença); sem a seção, não acrescenta nada.
 
 Um contribuidor que retorna um erro comum não aborta e nunca é lido como "sem
 achados": o resultado se torna inconclusivo (e falha sob

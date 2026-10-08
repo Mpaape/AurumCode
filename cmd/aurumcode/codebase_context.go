@@ -19,9 +19,11 @@ import (
 // through ResolveWithFiles against its own already-verified file set
 // instead of codebaseContextPack's unrestricted walk, since on --pr the
 // checkout is not necessarily the change under review (see aur515.go).
-func resolveCodebaseContext(diff *types.Diff) string {
+// exclude (AUR-470) is the policy's ignore and secret-file paths, never
+// read; nil excludes nothing.
+func resolveCodebaseContext(diff *types.Diff, exclude func(string) bool) string {
 	return codebaseContextJSON(func() (*codebasectx.Pack, error) {
-		return codebaseContextPack(diffPaths(diff))
+		return codebaseContextPack(diffPaths(diff), exclude)
 	})
 }
 

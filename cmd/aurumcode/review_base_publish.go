@@ -35,7 +35,7 @@ func (b *baseReview) printReport() {
 		fmt.Fprintln(b.stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
 	}
 	verdict := gateRuleVerdict(b.blockingRule(), gateAlignedVerdict(canonicalVerdict(result), b.triageDemoted, b.gateRes))
-	fmt.Fprint(b.stdout, renderLocalReport(result, b.diff, b.reviewLanguage, verdict))
+	fmt.Fprint(b.stdout, appendReachSection(renderLocalReport(result, b.diff, b.reviewLanguage, verdict), b.reachLines, b.reviewLanguage))
 	if b.coverageText != "" {
 		fmt.Fprint(b.stdout, "\n"+b.coverageText+"\n")
 	}
@@ -52,7 +52,7 @@ func (b *baseReview) printReport() {
 		fmt.Fprint(b.stdout, "\n"+b.changelogText)
 	}
 	if !b.qualityDidNotRun() || len(result.Issues) > 0 {
-		printFindings(b.stdout, result, b.gateRes.Reason)
+		printFindings(b.stdout, result, b.gateRes.Reason, b.reviewLanguage)
 	}
 	printOutsideDiffFindings(b.stdout, result)
 	if b.model != modelProviderFailed {

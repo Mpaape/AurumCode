@@ -190,6 +190,10 @@ query = "SELECT * FROM users WHERE id = ?"
   - **Rationale:** Removes the injection path without changing the result for valid ids.
   - **Verify:** Re-run the review and confirm the SQL injection finding is gone.
 app.py:5: [error] SQL query built by string concatenation (rule security/sql-injection: SQL Injection Vulnerability)
+  - Impact: An attacker controls part of the query and can read or change other rows.
+  - Evidence: Line 5 concatenates uid into the SQL string instead of binding it.
+  - Suggested fix: Bind uid as a query parameter.
+  - Verify: Re-run the review; the finding disappears once uid is bound.
 app.py:5: [error] SQL query built by string concatenation (rule analysis/sql-injection)
 
 Security findings (standards/security-review):

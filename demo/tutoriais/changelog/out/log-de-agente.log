@@ -1,0 +1,5 @@
+== log-de-agente
+$ aurumcode changelog --base main
+changelog: reprovado (log_de_agente): linha 5 parece log de agente ou de ferramenta ("/pass")
+exit_code=1
+RESULTADO: a linha com log de agente foi recusada

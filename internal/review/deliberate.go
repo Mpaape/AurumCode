@@ -17,6 +17,11 @@ type Deliberation struct {
 	Caller deliberation.Caller
 	Tools  []deliberation.Tool
 	Limits deliberation.Limits
+	// Partial reports a limit the tools themselves hit (the repository
+	// tools' byte ceiling, AUR-526) while the conversation went on; nil or
+	// a nil result means none. A hit limit discards the answer exactly like
+	// a limit of the conversation: the review is partial, never a verdict.
+	Partial func() *deliberation.LimitError
 }
 
 // reviewAnswerSchemaName names the answer schema sent to the provider.
@@ -56,6 +61,12 @@ func (r *Reviewer) answer(ctx context.Context, parts prompt.PromptParts) (llm.Re
 	}
 	out, err := session.Run(ctx, parts.Messages())
 	r.transcript = &out.Transcript
+	if err == nil && d.Partial != nil {
+		if limit := d.Partial(); limit != nil {
+			r.transcript.Outcome, r.transcript.Limit = limit.Reason(), limit.Limit
+			err = limit
+		}
+	}
 	if err != nil {
 		return llm.Response{}, fmt.Errorf("LLM deliberation failed: %w", err)
 	}

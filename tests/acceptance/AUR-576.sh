@@ -59,6 +59,8 @@ export GOFLAGS='-mod=mod -p=1 -buildvcs=false'
 : "${GOCACHE:=$run_dir/gocache}"
 export GOCACHE GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 export GOMEMLIMIT=2GiB GOMAXPROCS=1
+# Only the Go module is staged: no .github/workflows to check the manifest.
+export AURUMCODE_MODULE_ONLY=1
 
 # stage copies the whole module (never enumerated packages) to a fresh root.
 stage() {

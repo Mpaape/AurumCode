@@ -511,19 +511,19 @@ Próximos passos: [skills de convenção](skills.md) e
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/revisao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/revisao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### com-provedor
 
 ![Terminal do caso com-provedor](../assets/capturas/revisao/com-provedor-terminal.png)
 
-![Comentario do PR do caso com-provedor](../assets/capturas/revisao/com-provedor-comentario.png)
+![Comentário do PR do caso com-provedor](../assets/capturas/revisao/com-provedor-comentario.png)
 
 ### falha-nao-revisado
 
 ![Terminal do caso falha-nao-revisado](../assets/capturas/revisao/falha-nao-revisado-terminal.png)
 
-![Comentario do PR do caso falha-nao-revisado](../assets/capturas/revisao/falha-nao-revisado-comentario.png)
+![Comentário do PR do caso falha-nao-revisado](../assets/capturas/revisao/falha-nao-revisado-comentario.png)
 
 ### fix
 
@@ -533,7 +533,7 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso modelo-pondera](../assets/capturas/revisao/modelo-pondera-terminal.png)
 
-![Comentario do PR do caso modelo-pondera](../assets/capturas/revisao/modelo-pondera-comentario.png)
+![Comentário do PR do caso modelo-pondera](../assets/capturas/revisao/modelo-pondera-comentario.png)
 
 ### pr-workflow
 
@@ -543,12 +543,12 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso primeira-revisao](../assets/capturas/revisao/primeira-revisao-terminal.png)
 
-![Comentario do PR do caso primeira-revisao](../assets/capturas/revisao/primeira-revisao-comentario.png)
+![Comentário do PR do caso primeira-revisao](../assets/capturas/revisao/primeira-revisao-comentario.png)
 
 ### sem-provedor
 
 ![Terminal do caso sem-provedor](../assets/capturas/revisao/sem-provedor-terminal.png)
 
-![Comentario do PR do caso sem-provedor](../assets/capturas/revisao/sem-provedor-comentario.png)
+![Comentário do PR do caso sem-provedor](../assets/capturas/revisao/sem-provedor-comentario.png)
 
 <!-- capturas:fim -->

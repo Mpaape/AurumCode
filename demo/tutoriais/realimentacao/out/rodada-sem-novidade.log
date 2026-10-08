@@ -1,0 +1,17 @@
+== rodada-sem-novidade
+$ aurumcode realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
+realimentação: 2 sinal(is), 2 novo(s)
+PR #101 no repositório da política (aurum/realimentacao)
+exit_code=0
+RESULTADO: a primeira rodada abriu a PR
+$ aurumcode realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
+realimentação: 2 sinal(is), 0 novo(s)
+nada novo: nenhuma PR aberta ou alterada
+exit_code=0
+RESULTADO: sem sinal novo a segunda rodada nao abriu nem gravou nada
+--- escritas no GitHub falso: 5
+{"escrita": "branch", "nome": "aurum/realimentacao"}
+{"escrita": "arquivo", "branch": "aurum/realimentacao", "caminho": "realimentacao/candidatos/escapado-a8108400ff71ca95.json"}
+{"escrita": "arquivo", "branch": "aurum/realimentacao", "caminho": "realimentacao/sinais.json"}
+{"escrita": "arquivo", "branch": "aurum/realimentacao", "caminho": "skills/seguranca.md"}
+{"escrita": "pr-aberta", "numero": 101, "head": "aurum/realimentacao", "base": "main", "titulo": "Realimentação do gate: 2 sinal(is), 1 proposta(s)"}

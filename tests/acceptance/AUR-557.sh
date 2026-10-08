@@ -148,9 +148,12 @@ ac001() {
   (( bad == 0 )) || exit 1
 }
 
-# MUT-001: in a copy, the --pr path alone drops the last contributor of the
-# pipeline it executes. AC-002 must go red, and so must AUR-550's own
-# acceptance (the dropped contributor is the Dependency-Track one).
+# MUT-001: in a copy, the --pr path alone drops the Dependency-Track
+# contributor of the pipeline it executes. AC-002 must go red, and so must
+# AUR-550's own acceptance. AUR-495 (commit 979940e2, "dependencia alterada
+# no PR checada contra o OSV") appended gate.DependenciesContributor after
+# it, so "the last contributor" no longer named Dependency-Track: the
+# mutation now selects it by type, the contributor this proof always meant.
 ac002_mut001() {
   local root="$run_dir/mut"
   mkdir -p "$root/tests"
@@ -162,8 +165,8 @@ ac002_mut001() {
   local target="$root/cmd/aurumcode/review_gate.go"
   local anchor='res, ok := s.executeGate(pipeline, reason)'
   [[ "$(grep -Fc "$anchor" "$target")" == 1 ]] || infra mutation-anchor-missing
-  sed -i "s|${anchor}|if s.source.Label == \"--pr\" { pipeline = gate.NewPipeline(pipeline.Contributors()[:len(pipeline.Contributors())-1]...) }; res, ok := s.executeGate(pipeline, reason)|" "$target"
-  grep -Fq 'if s.source.Label == "--pr" { pipeline = gate.NewPipeline(' "$target" || infra mutation-not-applied
+  sed -i "s|${anchor}|if s.source.Label == \"--pr\" { var kept []gate.Contributor; for _, c := range pipeline.Contributors() { if _, dt := c.(gate.DependencyTrackContributor); !dt { kept = append(kept, c) } }; pipeline = gate.NewPipeline(kept...) }; res, ok := s.executeGate(pipeline, reason)|" "$target"
+  grep -Fq 'if _, dt := c.(gate.DependencyTrackContributor); !dt' "$target" || infra mutation-not-applied
 
   local log="$run_dir/mut-ac002.log"
   local survived=0

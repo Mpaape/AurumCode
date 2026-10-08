@@ -1,6 +1,5 @@
 == falha-extensao-desconhecida
 $ aurumcode review --base main --fail-on error
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -24,6 +23,11 @@ Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
   - script.zzqx
 script.zzqx:2: [error] A senha esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+  - Impact: Quem le o repositorio reutiliza a senha.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a senha em script.zzqx.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: o achado em script.zzqx (sem gramatica) reprovou: extensao desconhecida nao esconde codigo
 prompt: ### File: script.zzqx
@@ -50,6 +54,10 @@ flowchart TD
 
 ```
 config/tokens.txt:2: [error] O token esta escrito em texto puro. (rule security/hardcoded-secret: Hardcoded Secrets)
+  - Impact: Quem le o repositorio reutiliza o token.
+  - Evidence: A linha adicionada atribui o literal tok_live_9f8e7d6c5b4a a DEMO_API_TOKEN em config/tokens.txt.
+  - Suggested fix: Leia o token do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 config/tokens.txt:2: [error] Hardcoded secret matched rule generic-api-key (Detected a Generic API Key, potentially exposing access to various services and sensitive operations.) (rule analysis/hardcoded-secret)
 exit_code=3
 RESULTADO: o achado em config/tokens.txt reprovou: arquivo .txt e revisado, nao descartado como documentacao

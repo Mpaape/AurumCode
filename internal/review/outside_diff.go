@@ -60,6 +60,25 @@ func decodeOutsideDiff(raw string) []types.ReviewIssue {
 	return issues
 }
 
+// DropOutsideDiffFindings removes from result's general-comment channel
+// every finding whose file stale reports as true. A file served from the
+// review cache was not sent to the model this round, so a fresh answer
+// naming it is stale; without this, the stale answer the inline path drops
+// would come back as a general comment beside the cached finding.
+func DropOutsideDiffFindings(result *types.ReviewResult, stale func(file string) bool) {
+	if result == nil || result.Metadata == nil {
+		return
+	}
+	issues := OutsideDiffFindings(result)
+	kept := make([]types.ReviewIssue, 0, len(issues))
+	for _, issue := range issues {
+		if !stale(issue.File) {
+			kept = append(kept, issue)
+		}
+	}
+	setOutsideDiffFindings(result.Metadata, kept)
+}
+
 // setOutsideDiffFindings writes issues under OutsideDiffFindingsKey, or
 // removes the key when there are none (including any same-named value a
 // model reply carried).
