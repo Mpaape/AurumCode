@@ -111,7 +111,9 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 	// B3: a degraded parse or a partially covered file is never persisted:
 	// a later cache hit would claim a complete review.
 	cachePartial := mergeReviewCoverage(b.result.Metadata, b.notices, b.rawDiffFileCount, b.ignoredPaths).partial()
-	if qc.err == nil && b.model != modelProviderFailed && !prompt.IsDegradedParse(b.result) && !cachePartial {
+	// A review answered by a fallback provider is never stored under the
+	// primary's cache identity (AUR-605).
+	if qc.err == nil && b.model != modelProviderFailed && !prompt.IsDegradedParse(b.result) && !cachePartial && !answeredByFallback(b.provider) {
 		persistFreshResults(qc.store, qc.statuses, b.result.Issues, b.filter)
 	}
 	return 0, false

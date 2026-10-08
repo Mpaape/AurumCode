@@ -67,6 +67,7 @@ func run(args []string, stdout, stderr *os.File) int {
 		return 1
 	}
 	defer errW.Flush()
+	fallbackNoticeSink = errW
 
 	if len(args) == 0 {
 		fmt.Fprintln(errW, "usage: aurumcode review [flags]")
@@ -249,12 +250,13 @@ func providerFromEnv(fixtureModel, liveModel string) (llm.Provider, string, erro
 		if err != nil {
 			return nil, "", err
 		}
-		return litellm.NewProviderWithDialect(endpoint.Dialect, endpoint.APIKey, endpoint.BaseURL, liveModel), endpoint.Profile + " endpoint " + redactedEndpoint(endpoint.BaseURL), nil
+		return withFallbacks(litellm.NewProviderWithDialect(endpoint.Dialect, endpoint.APIKey, endpoint.BaseURL, liveModel), endpoint.Profile+" endpoint "+redactedEndpoint(endpoint.BaseURL))
 	}
 	apiKey := os.Getenv("LLM_API_KEY")
 	baseURL := os.Getenv("LLM_BASE_URL")
 	if apiKey != "" && baseURL != "" {
-		return litellm.NewProvider(apiKey, baseURL, liveModel), "litellm endpoint " + redactedEndpoint(baseURL), nil
+		// LLM_FALLBACK_<n>_* slots, when set, answer if this one fails.
+		return withFallbacks(litellm.NewProvider(apiKey, baseURL, liveModel), "litellm endpoint "+redactedEndpoint(baseURL))
 	}
 	return nil, "", nil
 }

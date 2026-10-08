@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Provedor reserva: `LLM_FALLBACK_<n>_PROVIDER`, `_BASE_URL`, `_API_KEY` e
+  `_MODEL` (até 5) declaram provedores tentados em ordem quando o principal
+  falha; cada troca aparece no stderr e, se todos falharem, a revisão falha
+  fechada nomeando cada erro. O workflow reutilizável aceita duas reservas.
 - Status `aurumcode/review` e código de saída do `--pr` seguem o gate declarado:
   achado que o gate não reprova não é contado como grave.
 - Site: diagramas Mermaid renderizados localmente; a biblioteca é baixada no
