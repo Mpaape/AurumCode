@@ -111,7 +111,9 @@ check_documented_flags() {
   # AUR-592: `mcp` (local MCP server for coding agents) is a product
   # subcommand whose flags (--tempo, --limite) docs/agentes.md documents.
   local sub
-  for sub in sbom sign xbom mcp; do
+  # Lote 3: dependencies (scheduled scan), changelog and realimentacao
+  # (feedback loop) are product subcommands documented with their flags.
+  for sub in sbom sign xbom mcp dependencies changelog realimentacao; do
     "$scratch/aurumcode" "$sub" --help >>"$scratch/help-fix" 2>&1 || true
   done
 

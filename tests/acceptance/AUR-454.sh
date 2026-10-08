@@ -92,7 +92,12 @@ mutant() {
   stage "$root"
   target="$root/internal/review/consolidate/consolidate.go"
   grep -Fq "$from" "$target" || infra "mut-anchor:$name"
-  FROM="$from" TO="$to" perl -0pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$target"
+  # Literal (not regex) replacement in bash: the quoted pattern is literal.
+  local content
+  content="$(cat -- "$target"; printf x)"
+  content="${content%x}"
+  content="${content/"$from"/"$to"}"
+  printf '%s' "$content" >"$target"
   grep -Fq "$to" "$target" || infra "mut-not-applied:$name"
   set +e
   (cd "$root" && go test -buildvcs=false -count=1 -p 1 -run "$test" ./internal/review/consolidate) >"$run_dir/mut.out" 2>&1
@@ -108,7 +113,6 @@ mutant() {
 }
 
 run_mut001() {
-  command -v perl >/dev/null 2>&1 || infra missing_perl
   mutant no-consolidation 'key := identity(issue)' 'key := identity(issue) + strconv.Itoa(len(res.Issues)+res.Merged)' \
     'TestAC001TwoPassesSameDefectPublishedOnce' 'AUR-454 duplicate kept'
   mutant merge-different-rules 'strconv.Itoa(issue.Line), side, issue.RuleID}' 'strconv.Itoa(issue.Line), side}' \

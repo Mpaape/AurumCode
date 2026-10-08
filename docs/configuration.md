@@ -2270,8 +2270,8 @@ nada.
   `pull_request`; por isso o job dispara a medição por `workflow_dispatch`
   (entrada `measurement_workflow`, o arquivo do repositório da política que
   chama `realimentacao-medicao.yml` com `pr_number`).
-- Modelo: o mesmo da revisão (`LLM_API_KEY`/`LLM_BASE_URL` ou
-  `AURUMCODE_LLM_FIXTURE`). Sem modelo, há sinal novo e nenhuma proposta:
+- Modelo: o mesmo da revisão (`LLM_API_KEY`/`LLM_BASE_URL`, com
+  `LLM_PROVIDER` quando houver perfil). Sem modelo, há sinal novo e nenhuma proposta:
   o comando falha, sem abrir PR.
 - Workflows reutilizáveis: `.github/workflows/realimentacao.yml` (agendado no
   repositório da política) e `.github/workflows/realimentacao-medicao.yml`
