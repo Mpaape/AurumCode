@@ -99,3 +99,12 @@ func TestDependenciesFailsClosedOnUnreadableLevel(t *testing.T) {
 		t.Fatal("a fail_on with no readable level let an advisory pass")
 	}
 }
+
+// fail_on: [severe] is refused when the config is read, before any gate
+// decision can use it.
+func TestDependenciesUnknownFailOnLevelRefusedAtParse(t *testing.T) {
+	_, err := Parse([]byte("dependencies:\n  fail_on: [severe]\n"), "config.yml")
+	if err == nil || !strings.Contains(err.Error(), "dependencies.fail_on") {
+		t.Fatalf("fail_on [severe] must be refused at parse, got %v", err)
+	}
+}
