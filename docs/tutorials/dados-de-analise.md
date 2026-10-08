@@ -453,37 +453,37 @@ O que observar:
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/dados-de-analise/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/dados-de-analise/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### adulterado
 
 ![Terminal do caso adulterado](../assets/capturas/dados-de-analise/adulterado-terminal.png)
 
-![Comentario do PR do caso adulterado](../assets/capturas/dados-de-analise/adulterado-comentario.png)
+![Comentário do PR do caso adulterado](../assets/capturas/dados-de-analise/adulterado-comentario.png)
 
 ### cache
 
 ![Terminal do caso cache](../assets/capturas/dados-de-analise/cache-terminal.png)
 
-![Comentario do PR do caso cache](../assets/capturas/dados-de-analise/cache-comentario.png)
+![Comentário do PR do caso cache](../assets/capturas/dados-de-analise/cache-comentario.png)
 
 ### declarado-ou-nao
 
 ![Terminal do caso declarado-ou-nao](../assets/capturas/dados-de-analise/declarado-ou-nao-terminal.png)
 
-![Comentario do PR do caso declarado-ou-nao](../assets/capturas/dados-de-analise/declarado-ou-nao-comentario.png)
+![Comentário do PR do caso declarado-ou-nao](../assets/capturas/dados-de-analise/declarado-ou-nao-comentario.png)
 
 ### indisponivel
 
 ![Terminal do caso indisponivel](../assets/capturas/dados-de-analise/indisponivel-terminal.png)
 
-![Comentario do PR do caso indisponivel](../assets/capturas/dados-de-analise/indisponivel-comentario.png)
+![Comentário do PR do caso indisponivel](../assets/capturas/dados-de-analise/indisponivel-comentario.png)
 
 ### vencido
 
 ![Terminal do caso vencido](../assets/capturas/dados-de-analise/vencido-terminal.png)
 
-![Comentario do PR do caso vencido](../assets/capturas/dados-de-analise/vencido-comentario.png)
+![Comentário do PR do caso vencido](../assets/capturas/dados-de-analise/vencido-comentario.png)
 
 ### workflow-agendado
 

@@ -21,11 +21,30 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [Modelo e credenciais](configuration.md#modelo-e-credenciais),
 [Opções avançadas](configuration.md#opcoes-avancadas) e
 [Opções públicas](configuration.md#opcoes-publicas),
-[Deliberação: o modelo pede ferramentas](configuration.md#deliberacao-o-modelo-pede-ferramentas-dentro-de-limites) e
-[Arquivos que saem da revisão como documentação](configuration.md#quais-arquivos-saem-da-revisao-como-documentacao). Veja também
+[Deliberação: o modelo pede ferramentas](configuration.md#deliberacao-o-modelo-pede-ferramentas-dentro-de-limites),
+[Status do CI no parecer](configuration.md#status-do-ci-no-parecer),
+[PR grande: diff local e revisão em lotes](configuration.md#pr-grande-diff-local-e-revisao-em-lotes),
+[Arquivos que saem da revisão como documentação](configuration.md#quais-arquivos-saem-da-revisao-como-documentacao),
+[Dependências do PR](configuration.md#dependencias-do-pr-dependencies) e
+[Varredura agendada de dependências](configuration.md#varredura-agendada-de-dependencias-aurumcode-dependencies). Veja também
 [Qualidade e limitações](review-quality.md) e [Cache de review](review-cache.md).
 
-Tutorial: [Revisão de código](tutorials/revisao.md) e [Deliberação com ferramentas](tutorials/deliberacao.md).
+Contexto e rodadas: [Fontes MCP de contexto](configuration.md#fontes-mcp-de-contexto-reviewcontextmcp)
+(`review.context.mcp`), [Rodadas do mesmo PR](review-quality.md#rodadas-do-mesmo-pr)
+(um achado já comentado não é comentado de novo) e
+[Consolidação e preferências de apresentação](review-quality.md#consolidacao-e-preferencias-de-apresentacao)
+(`review.presentation.collapse`).
+
+Tutorial: [Revisão de código](tutorials/revisao.md), [Deliberação com ferramentas](tutorials/deliberacao.md) e [Memória de revisão](tutorials/memoria.md).
+
+## Provedores de LLM
+
+Qualquer endpoint compatível com OpenAI ou um perfil escolhido por
+`LLM_PROVIDER` (Azure OpenAI, Anthropic, Gemini, Bedrock, LiteLLM, OpenRouter,
+OpenCode Zen, Ollama ou um perfil do operador em `LLM_PROVIDERS_FILE`).
+Referência: [Provedores de LLM](provedores.md).
+
+Tutorial: [Provedores de LLM](tutorials/provedores.md).
 
 ## No seu agente de código
 
@@ -43,9 +62,12 @@ Tutorial: [Aurum no seu agente](tutorials/agente.md).
 Skills de convenção escritas em Markdown pelos times e uma política central,
 mantida num repositório da organização, que `rules` e `gate` do repositório
 do dev não conseguem afrouxar. Referência:
-[Política central](configuration.md#politica-central).
+[Política central](configuration.md#politica-central) e
+[Realimentação da política](configuration.md#realimentacao-da-politica-aur-532),
+que transforma falsos positivos, achados corrigidos e defeitos escapados numa
+PR de propostas para a política.
 
-Tutorial: [Skills de convenção](tutorials/skills.md) e [Política central](tutorials/politica-central.md).
+Tutorial: [Skills de convenção](tutorials/skills.md), [Política central](tutorials/politica-central.md) e [Realimentação da política](tutorials/realimentacao.md).
 
 ## Gate
 
@@ -54,8 +76,8 @@ reprova, trata resultado inconclusivo como não aprovado, aceita exceções com
 dono e validade e registra uma trilha de auditoria com saída SARIF.
 Referência:
 [Gate e regras citáveis](configuration.md#gate-skills-viram-regra-citavel-e-a-politica-decide-o-que-reprova-aur-519),
-[gate.sources](configuration.md#gatesources-which-findings-count-toward-the-gate),
-[O modelo pondera a evidência determinística (gate.triage)](configuration.md#the-model-weighs-the-deterministic-evidence-gatetriage),
+[gate.sources](configuration.md#gatesources-quais-achados-contam-para-o-gate),
+[O modelo pondera a evidência determinística (gate.triage)](configuration.md#o-modelo-pondera-a-evidencia-deterministica-gatetriage),
 [Exceções aprovadas](configuration.md#excecoes-aprovadas-dono-e-validade-aur-520) e
 [Trilha de auditoria e SARIF](configuration.md#trilha-de-auditoria-e-sarif-aur-521).
 O [Guia corporativo](gate-corporativo.md) reúne tudo num conjunto que funciona junto.
@@ -88,10 +110,23 @@ valem para repositórios poliglotas. Referência:
 
 Tutorial: [Qualquer linguagem](tutorials/qualquer-linguagem.md).
 
+## Changelog
+
+Cada pull request acrescenta uma entrada curta e voltada a quem usa o produto
+em `## Unreleased`; o check `aurumcode changelog` reprova a PR sem ela, lendo o
+modo do commit base. A sugestão de entrada do review continua separada e só
+consultiva. Referência:
+[Changelog obrigatório](configuration.md#changelog-obrigatorio-aur-509) e o
+guia [Changelog obrigatório](changelog.md).
+
+Tutorial: [Changelog obrigatório](tutorials/changelog.md).
+
 ## Benchmark e operação
 
-Corpus de recall e protocolo de comparação ([Benchmark](benchmark.md)) e o
-ambiente de desenvolvimento e QA em container ([Desenvolvimento e QA](qa.md)).
+Corpus de recall e protocolo de comparação ([Benchmark](benchmark.md)), o
+ambiente de desenvolvimento e QA em container ([Desenvolvimento e QA](qa.md)),
+o [QA no repositório consumidor](qa.md#qa-no-repositorio-consumidor-aur-512) e
+o [roteiro de release](releases.md).
 
 Tutorial: [Benchmark de recall](tutorials/benchmark.md) e [Operação](tutorials/operacao.md).
 

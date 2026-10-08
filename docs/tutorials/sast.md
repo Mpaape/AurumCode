@@ -387,48 +387,48 @@ pacote que não compila ou uma dependência fora do cache de módulos
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/sast/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/sast/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### govet-achado
 
 ![Terminal do caso govet-achado](../assets/capturas/sast/govet-achado-terminal.png)
 
-![Comentario do PR do caso govet-achado](../assets/capturas/sast/govet-achado-comentario.png)
+![Comentário do PR do caso govet-achado](../assets/capturas/sast/govet-achado-comentario.png)
 
 ### govet-sem-go
 
 ![Terminal do caso govet-sem-go](../assets/capturas/sast/govet-sem-go-terminal.png)
 
-![Comentario do PR do caso govet-sem-go](../assets/capturas/sast/govet-sem-go-comentario.png)
+![Comentário do PR do caso govet-sem-go](../assets/capturas/sast/govet-sem-go-comentario.png)
 
 ### nosemgrep-e-semgrepignore
 
 ![Terminal do caso nosemgrep-e-semgrepignore](../assets/capturas/sast/nosemgrep-e-semgrepignore-terminal.png)
 
-![Comentario do PR do caso nosemgrep-e-semgrepignore](../assets/capturas/sast/nosemgrep-e-semgrepignore-comentario.png)
+![Comentário do PR do caso nosemgrep-e-semgrepignore](../assets/capturas/sast/nosemgrep-e-semgrepignore-comentario.png)
 
 ### origem-sast
 
 ![Terminal do caso origem-sast](../assets/capturas/sast/origem-sast-terminal.png)
 
-![Comentario do PR do caso origem-sast](../assets/capturas/sast/origem-sast-comentario.png)
+![Comentário do PR do caso origem-sast](../assets/capturas/sast/origem-sast-comentario.png)
 
 ### registry-sem-rede
 
 ![Terminal do caso registry-sem-rede](../assets/capturas/sast/registry-sem-rede-terminal.png)
 
-![Comentario do PR do caso registry-sem-rede](../assets/capturas/sast/registry-sem-rede-comentario.png)
+![Comentário do PR do caso registry-sem-rede](../assets/capturas/sast/registry-sem-rede-comentario.png)
 
 ### regra-local
 
 ![Terminal do caso regra-local](../assets/capturas/sast/regra-local-terminal.png)
 
-![Comentario do PR do caso regra-local](../assets/capturas/sast/regra-local-comentario.png)
+![Comentário do PR do caso regra-local](../assets/capturas/sast/regra-local-comentario.png)
 
 ### semgrep-falha
 
 ![Terminal do caso semgrep-falha](../assets/capturas/sast/semgrep-falha-terminal.png)
 
-![Comentario do PR do caso semgrep-falha](../assets/capturas/sast/semgrep-falha-comentario.png)
+![Comentário do PR do caso semgrep-falha](../assets/capturas/sast/semgrep-falha-comentario.png)
 
 <!-- capturas:fim -->

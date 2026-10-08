@@ -61,6 +61,13 @@ func (o *Orchestrator) CompleteWithTools(ctx context.Context, messages []Message
 			continue
 		}
 		o.commitRound(reservation, resp.TokensIn, resp.TokensOut, modelKey)
+		// AUR-526 AC-008: whatever the provider, a call without id or name,
+		// or with arguments that are not an object, never reaches a tool.
+		for _, c := range resp.ToolCalls {
+			if err := ValidateToolCall(c); err != nil {
+				return ToolResponse{}, fmt.Errorf("provider %s: %w", provider.Name(), err)
+			}
+		}
 		return resp, nil
 	}
 	if tried == 0 {

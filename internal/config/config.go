@@ -63,6 +63,8 @@ type ReviewContextConfig struct {
 	Prompt string   `yaml:"prompt"`
 	Skills []string `yaml:"skills"`
 	Docs   []string `yaml:"docs"`
+	// MCP are the configured MCP context sources (AUR-469, mcpcontext.go).
+	MCP []MCPContextSource `yaml:"mcp"`
 }
 
 // ContextFile describes one configured context contribution in deterministic
@@ -103,6 +105,10 @@ type ReviewConfig struct {
 	// --fail-on, redaction, the cost cap or the deterministic security pass.
 	// Absent/empty keeps the zero-config behavior byte for byte.
 	Profiles []string `yaml:"profiles"`
+	// Presentation holds the repository's explicit presentation
+	// preferences (presentation.go). Absent keeps every finding published
+	// one by one.
+	Presentation ReviewPresentationConfig `yaml:"presentation"`
 }
 
 // ReviewProfiles returns the configured multi-agent profile selection,
@@ -209,7 +215,7 @@ func (c ReviewConfig) ValidateContext() error {
 			return fmt.Errorf("review.context.%s path %q: %w", file.Kind, file.Path, err)
 		}
 	}
-	return nil
+	return c.Context.ValidateMCP()
 }
 
 func validateContextPath(raw string) error {
@@ -271,6 +277,12 @@ type Config struct {
 	// Batches (nil = not declared) bounds a review split in batches when
 	// the diff does not fit one prompt.
 	Batches *BatchesConfig `yaml:"batches"`
+	// Dependencies (nil = not declared) is the dependency check of a pull
+	// request and its gate. Governed per section by ApplyCentralPolicy.
+	Dependencies *DependenciesConfig `yaml:"dependencies"`
+	// ChangelogCheck (nil = not declared = off) makes every pull request
+	// add a concise changelog entry (AUR-509). Governed per section.
+	ChangelogCheck *ChangelogCheckConfig `yaml:"changelog_check"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -348,6 +360,12 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Batches.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Dependencies.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.ChangelogCheck.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.QualityGates.Sast.Validate(); err != nil {

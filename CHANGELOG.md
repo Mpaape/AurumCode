@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- Dependências do PR: cada dependência alterada é checada no OSV em qualquer
+  ecossistema, com gate `dependencies.fail_on`, exceção por CVE e licença,
+  pacote malicioso ou typosquat reprovando e varredura agendada
+  (`aurumcode dependencies`) publicando SARIF.
+- Qualidade do parecer: evidência completa na fusão de perfis, status do CI
+  separado da inferência do modelo, rodadas que não repetem comentário e
+  consolidação de ruído (`review.presentation.collapse`).
+- Contexto: o modelo lê e busca arquivos da revisão (qualquer linguagem),
+  fontes MCP configuradas, trechos de impacto e o alcance da parte vulnerável
+  de uma dependência.
+- Changelog obrigatório: `aurumcode changelog --base <sha>` reprova a PR sem
+  entrada útil nesta seção; o repositório liga com `changelog_check.mode: required`.
+- Realimentação da política: `aurumcode realimentacao` abre uma única PR no
+  repositório da política com propostas citando falsos positivos, achados
+  corrigidos e `/aurum perdeu`; nada é aplicado sem merge humano.
+- Tutoriais executáveis de changelog obrigatório e de realimentação da
+  política, e um mapa que liga cada caso de tutorial ao comando e à evidência.
+- QA no repositório consumidor (`tests/consumer`) e roteiro de release
+  (`scripts/release.sh`, `docs/releases.md`); nenhuma release foi publicada.
+
 ## Reconstrução focada em code review
 
 - Um CLI Go para revisão local e de pull requests.

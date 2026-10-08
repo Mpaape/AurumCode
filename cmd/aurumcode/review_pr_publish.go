@@ -14,6 +14,8 @@ func (p *prReview) publish() (int, bool) {
 	// --check needs the same already-sorted slice, empty or not, for its
 	// commit status, so both branches share one definition.
 	p.issues = sortedIssues(p.result.Issues)
+	p.shown = p.presentFindings()
+	p.round = p.planRound()
 	if code, done := p.resolveCommit(); done {
 		return code, true
 	}
@@ -69,7 +71,9 @@ func (p *prReview) resolveCommit() (int, bool) {
 // POST failure swallow the rest: failures are recorded and the loop
 // continues, so every finding that COULD be published still was.
 func (p *prReview) postReview() []string {
-	summaryBody := formatGatedReviewBody(p.result, p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule())
+	summaryBody := appendReachSection(formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule()), p.reachLines, p.reviewLanguage)
+	summaryBody = appendRoundNotice(summaryBody, p.round, p.reviewLanguage)
+	summaryBody = appendPresentationNotice(summaryBody, p.shown, p.reviewLanguage)
 	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)
 	if p.publication == "review" {
 		return p.postFormalReview(summaryBody)
@@ -82,12 +86,12 @@ func (p *prReview) postReview() []string {
 func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	formalComments := make([]githubclient.ReviewLineComment, 0)
 	if p.inlineComments {
-		for _, issue := range p.issues {
-			if !isInlineEligible(p.diff, issue) {
+		for i, issue := range p.shown.withSources(p.reviewLanguage) {
+			if !isInlineEligible(p.diff, issue) || !p.round.posts(i) {
 				continue
 			}
 			formalComments = append(formalComments, githubclient.ReviewLineComment{
-				Body: formatInlineIssueForLanguage(issue, p.reviewLanguage),
+				Body: p.round.findingBody(i, issue, p.reviewLanguage),
 				Path: issue.File,
 				Line: issue.Line,
 				Side: review.FindingSide(issue),
@@ -121,14 +125,18 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 func (p *prReview) postSeparateComments(summaryBody string) (failures []string) {
 	inlineCount, generalCount := 0, 0
 	stdout, stderr := p.stdout, p.stderr
-	for _, issue := range p.issues {
+	for i, issue := range p.shown.withSources(p.reviewLanguage) {
 		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
 		if issue.Side == "LEFT" {
 			line += " [LEFT/base]"
 		}
+		if !p.round.posts(i) {
+			fmt.Fprintf(stdout, "%s -- %s\n", line, roundRepeatedMarker(p.reviewLanguage))
+			continue
+		}
 		if p.inlineComments && isInlineEligible(p.diff, issue) {
 			comment := githubclient.ReviewComment{
-				Body:     formatInlineIssueForLanguage(issue, p.reviewLanguage),
+				Body:     p.round.findingBody(i, issue, p.reviewLanguage),
 				CommitID: p.commitID,
 				Path:     issue.File,
 				Line:     issue.Line,
@@ -144,7 +152,7 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 			inlineCount++
 			continue
 		}
-		if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, formatInlineIssueForLanguage(issue, p.reviewLanguage)); err != nil {
+		if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, p.round.findingBody(i, issue, p.reviewLanguage)); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
 			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
 			continue

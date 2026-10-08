@@ -28,18 +28,7 @@ func writeFindingsSection(b *strings.Builder, issues []types.ReviewIssue, copy r
 		if issue.Side == "LEFT" {
 			fmt.Fprintln(b, "  - `LEFT`: base / −")
 		}
-		if issue.Impact != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.impact, issue.Impact)
-		}
-		if issue.Evidence != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.evidence, issue.Evidence)
-		}
-		if issue.Suggestion != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.suggestedFix, issue.Suggestion)
-		}
-		if issue.Verification != "" {
-			fmt.Fprintf(b, "  - %s: %s\n", copy.verify, issue.Verification)
-		}
+		writeFindingFields(b, issue, copy)
 		printAssessment(b, issue)
 	}
 	b.WriteString("\n")
@@ -57,11 +46,7 @@ func writeCIStatusSection(b *strings.Builder, result *types.ReviewResult, copy r
 	}
 	fmt.Fprintf(b, "### %s\n\n", copy.ciStatus)
 	for _, analysis := range result.CIAnalysis {
-		fmt.Fprintf(b, "- **%s — %s**\n", analysis.Check, analysis.Status)
-		writeSummaryField(b, copy.cause, analysis.Cause)
-		writeSummaryField(b, copy.evidence, analysis.Evidence)
-		writeSummaryField(b, copy.fix, analysis.Fix)
-		writeSummaryField(b, copy.nextVerification, analysis.NextVerification)
+		writeCIAnalysisItem(b, analysis, copy)
 	}
 	b.WriteString("\n")
 }

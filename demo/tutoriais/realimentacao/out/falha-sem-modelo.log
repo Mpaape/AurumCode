@@ -1,0 +1,6 @@
+== falha-sem-modelo
+$ aurumcode realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
+aurumcode realimentacao: sem provedor de modelo configurado: as propostas exigem o modelo
+exit_code=1
+RESULTADO: sem modelo nao ha proposta e nenhuma PR foi aberta
+--- escritas no GitHub falso: 0

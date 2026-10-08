@@ -19,6 +19,19 @@ RUN CGO_ENABLED=0 go build -trimpath -tags "$GO_TAGS" -ldflags="-s -w" -o /aurum
 # static, and the build fails unless it reports the locked version.
 FROM docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f AS gitleaks
 
+# The dependency extraction scanner: osv-scanner built from its module at a
+# pinned version. The integrity check is the Go checksum database, made
+# explicit here: the module and every dependency are fetched from the public
+# proxy and must match sum.golang.org's signed hashes (GOSUMDB, never off;
+# GONOSUMDB/GOPRIVATE/GOINSECURE empty), so a tampered module fails the
+# build. This replaces a sha256 of a release binary: the binary is built by
+# the pinned toolchain above from hash-verified sources. The review uses it
+# only to extract packages from a manifest or lockfile; the advisories come
+# from the OSV API.
+FROM golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS osvscanner
+ENV GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org GONOSUMDB= GOPRIVATE= GOINSECURE= GOFLAGS=-mod=readonly GOTOOLCHAIN=local
+RUN CGO_ENABLED=0 GOBIN=/out go install -trimpath github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.0.0
+
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 RUN apk add --no-cache ca-certificates git bash jq python3 py3-pip
@@ -61,6 +74,9 @@ RUN pip3 install --no-cache-dir --break-system-packages semgrep==1.172.0
 
 COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks
 RUN test "$(gitleaks version)" = "v8.30.1"
+
+COPY --from=osvscanner /out/osv-scanner /usr/local/bin/osv-scanner
+RUN osv-scanner --version | grep -q "2.0.0"
 
 # The lint engine (govet) runs the Go toolchain's own `go vet`. The toolchain
 # is copied from the builder stage, the golang image pinned by digest above,
