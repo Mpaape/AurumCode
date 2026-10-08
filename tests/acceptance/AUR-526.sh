@@ -53,19 +53,41 @@ export GOMEMLIMIT=2GiB GOMAXPROCS=1
 stage() {
   local root="$1" source
   mkdir -p "$root"
-  for source in go.mod go.sum cmd internal pkg docs demo; do
+  for source in go.mod go.sum cmd internal pkg; do
     if [[ -e "$repo_root/$source" ]]; then cp -R "$repo_root/$source" "$root/$source"; fi
   done
+  # Docs as text only: the screenshots under docs/assets and the recorded
+  # tutorials fill the sealed profile's temporary disk and no test reads them.
+  if [[ -d "$repo_root/docs" ]]; then
+    (cd "$repo_root" && find docs -path docs/assets -prune -o -type f -name '*.md' -print) |
+      while IFS= read -r f; do mkdir -p "$root/$(dirname "$f")"; cp "$repo_root/$f" "$root/$f"; done
+  fi
   for source in tests/fixtures tests/e2e; do
     if [[ -d "$repo_root/$source" ]]; then mkdir -p "$root/tests"; cp -R "$repo_root/$source" "$root/$source"; fi
   done
   chmod -R u+w -- "$root"
 }
 
+# free_disk root drops a staged copy, Go's temporary files and, when it is
+# this run's own, the build cache: the sealed temporary disk holds one build.
+free_disk() {
+  rm -rf -- "$1" "$run_dir/gotmp"
+  mkdir -p "$run_dir/gotmp"
+  case "$GOCACHE" in "$run_dir"/*) rm -rf -- "$GOCACHE" ;; esac
+}
+
 # go_test root log pattern pkgs... runs the named tests; rc is go's.
 go_test() {
-  local root="$1" log="$2" pattern="$3"; shift 3
-  ( cd "$root" && go test -buildvcs=false -count=1 -p 1 -v -run "$pattern" "$@" ) >"$log" 2>&1
+  local root="$1" log="$2" pattern="$3" pkg rc=0; shift 3
+  : >"$log"
+  # One package at a time, freeing the temporary build files in between:
+  # the sealed temporary disk does not hold several test binaries at once.
+  for pkg in "$@"; do
+    ( cd "$root" && go test -buildvcs=false -count=1 -p 1 -v -run "$pattern" "$pkg" ) >>"$log" 2>&1 || rc=1
+    rm -rf -- "$run_dir/gotmp" && mkdir -p "$run_dir/gotmp"
+    case "$GOCACHE" in "$run_dir"/*) rm -rf -- "$GOCACHE" ;; esac
+  done
+  return "$rc"
 }
 
 # require_pass log names... fails unless every named test passed.
@@ -106,6 +128,8 @@ run_ac() {
   stage "$root"
   go_test "$root" "$log" "$(pattern_of "$@")" "${pkgs[@]}" || { cat "$log" >&2; fail go-test-failed; }
   require_pass "$log" "$@"
+  # One staged copy of the module per AC fills the sealed temporary disk.
+  free_disk "$root"
   printf '%s/%s/pass\n' "$card" "$name"
 }
 
@@ -126,6 +150,7 @@ expect_red() {
 # MUT-001: the revision follows a symbolic link (Stat instead of Lstat).
 run_mut001() {
   local root="$run_dir/root-mut1"
+  free_disk "$run_dir/root-mut1"
   stage "$root"
   replace_once "$root/internal/review/tools/revision.go" \
     'info, err := os.Lstat(full)' \
