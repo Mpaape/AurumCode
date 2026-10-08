@@ -72,6 +72,7 @@ func (p *prReview) resolveCommit() (int, bool) {
 // continues, so every finding that COULD be published still was.
 func (p *prReview) postReview() []string {
 	summaryBody := appendReachSection(formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule()), p.reachLines, p.reviewLanguage)
+	summaryBody = appendChangelogSection(summaryBody, p.changelogSuggestion)
 	summaryBody = appendRoundNotice(summaryBody, p.round, p.reviewLanguage)
 	summaryBody = appendPresentationNotice(summaryBody, p.shown, p.reviewLanguage)
 	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)
