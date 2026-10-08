@@ -272,6 +272,10 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 
 ![Terminal do caso pr-desliga-o-modo](../assets/capturas/changelog/pr-desliga-o-modo-terminal.png)
 
+### sugestao-da-entrada
+
+![Terminal do caso sugestao-da-entrada](../assets/capturas/changelog/sugestao-da-entrada-terminal.png)
+
 ### sugestao-separada
 
 ![Terminal do caso sugestao-separada](../assets/capturas/changelog/sugestao-separada-terminal.png)
