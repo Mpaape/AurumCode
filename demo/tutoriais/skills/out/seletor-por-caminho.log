@@ -1,5 +1,6 @@
 == seletor-por-caminho
 $ aurumcode review --base main
+aurumcode review: verificação: app.go:6 security/hardcoded-secret continua bloqueando (invalid_answer: veredito desconhecido "")
 ## Resumo da Revisão de Código
 
 **Veredito:** Alterações solicitadas

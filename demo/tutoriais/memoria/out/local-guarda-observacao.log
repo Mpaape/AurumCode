@@ -1,5 +1,6 @@
 == local-guarda-observacao
 $ aurumcode review --base main --fail-on error
+aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
 ## Code Review Summary
 
 **Verdict:** Changes requested

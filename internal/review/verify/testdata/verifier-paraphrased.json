@@ -1,0 +1,1 @@
+{"verdict":"refuted","reason":"o método tem guarda de nil","quote":"if b == nil { return nil }"}
