@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Revisão: cada achado do modelo que bloquearia o gate passa por uma
+  verificação adversarial com o código da revisão revisada; só refutação com
+  citação literal o rebaixa a comentário não bloqueante marcado (parecer,
+  stderr e `verification` na auditoria). Confirmado, incerto, citação
+  inexistente, erro ou teto mantêm o bloqueio. `review.verification`
+  (`enabled`, `max_calls`).
 - Deliberação: a última rodada permitida não oferece ferramenta e pede o
   parecer com a evidência já reunida, em vez de terminar sem resposta.
 - `dependencies.Fails`: limiar de `fail_on` calculado à parte e explícito

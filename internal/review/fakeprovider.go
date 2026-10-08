@@ -3,8 +3,10 @@ package review
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/prompt"
 )
 
 // FakeProvider is a deterministic llm.Provider that never touches the
@@ -48,8 +50,9 @@ type FakeProvider struct {
 // Complete implements llm.Provider.
 func (f *FakeProvider) Complete(prompt string, opts llm.Options) (llm.Response, error) {
 	if f.CapturePath != "" {
-		if err := os.WriteFile(f.CapturePath, []byte(prompt), 0o600); err != nil {
-			return llm.Response{}, fmt.Errorf("writing prompt capture %s: %w", f.CapturePath, err)
+		path := f.capturePathFor(prompt)
+		if err := os.WriteFile(path, []byte(prompt), 0o600); err != nil {
+			return llm.Response{}, fmt.Errorf("writing prompt capture %s: %w", path, err)
 		}
 	}
 	answer := f.answerFor(prompt)
@@ -59,6 +62,19 @@ func (f *FakeProvider) Complete(prompt string, opts llm.Options) (llm.Response, 
 		TokensOut: heuristicTokenCount(answer),
 		Model:     f.Name(),
 	}, nil
+}
+
+// VerificationCaptureSuffix names the capture of a verification prompt:
+// CapturePath plus this suffix. The capture itself keeps the review's own
+// prompt, and what the verification sent stays observable beside it.
+const VerificationCaptureSuffix = ".verificacao"
+
+// capturePathFor is where prompt is captured.
+func (f *FakeProvider) capturePathFor(text string) string {
+	if strings.Contains(text, prompt.VerificationMarker) {
+		return f.CapturePath + VerificationCaptureSuffix
+	}
+	return f.CapturePath
 }
 
 // Tokens implements llm.Provider with the same ~4-chars-per-token heuristic

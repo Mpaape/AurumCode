@@ -163,11 +163,8 @@ const tamanhoRule = "tamanho#tam-001-funcao-com-no-maximo-150-linhas"
 // reaches the prompt once; listed as well, it still reaches it once.
 func TestDirectorySkillIsCitableOnce(t *testing.T) {
 	for name, cfg := range map[string]string{
-		// The capture keeps the last prompt sent; the verification of the
-		// blocking finding (review.verification) would be that one, so it
-		// is off here: this test reads the review's own prompt.
-		"directory only":       "review:\n  verification:\n    enabled: false\ngate:\n  fail_on: [error]\n",
-		"directory and listed": "review:\n  verification:\n    enabled: false\n  context:\n    skills:\n      - .aurumcode/skills/tamanho/SKILL.md\ngate:\n  fail_on: [error]\n",
+		"directory only":       "gate:\n  fail_on: [error]\n",
+		"directory and listed": "review:\n  context:\n    skills:\n      - .aurumcode/skills/tamanho/SKILL.md\ngate:\n  fail_on: [error]\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			files := map[string][]byte{".aurumcode/skills/tamanho/SKILL.md": []byte(tamanhoSkill), "app.go": []byte("package demo\n")}
