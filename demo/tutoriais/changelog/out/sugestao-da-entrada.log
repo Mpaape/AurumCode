@@ -1,7 +1,7 @@
 == sugestao-da-entrada
 $ aurumcode changelog --base main
 changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
-changelog: entrada sugerida (fonte: modelo); cole em "## Unreleased" de CHANGELOG.md:
+changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
 
 ## Unreleased
 
