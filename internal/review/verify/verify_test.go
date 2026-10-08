@@ -108,7 +108,7 @@ func TestAC001RefutedWithLiteralQuoteIsDemotedAndRecorded(t *testing.T) {
 	}
 	rec := res.Demoted[0].Record
 	if rec.Outcome != OutcomeRefuted || !rec.Demoted || rec.Reason == "" || !strings.Contains(rec.Quote, "if b == nil {") {
-		t.Fatalf("record = %+v", rec)
+		t.Fatalf("record outcome=%s demoted=%v", rec.Outcome, rec.Demoted)
 	}
 	if len(res.Records) != 1 || res.Calls != 1 {
 		t.Fatalf("records=%d calls=%d", len(res.Records), res.Calls)
@@ -123,7 +123,7 @@ func TestAC001RefutedWithLiteralQuoteIsDemotedAndRecorded(t *testing.T) {
 
 func TestAC002RefutedWithQuoteNotInRevisionKeepsBlocking(t *testing.T) {
 	rev, issue := scenario(t)
-	for _, reply := range []string{
+	for i, reply := range []string{
 		fixture(t, "verifier-paraphrased.json"),
 		`{"verdict":"refuted","reason":"r","quote":"   "}`,
 		`{"verdict":"refuted","reason":"r","quote":""}`,
@@ -131,7 +131,7 @@ func TestAC002RefutedWithQuoteNotInRevisionKeepsBlocking(t *testing.T) {
 		c := &caller{replies: []string{reply}}
 		res := newVerifier(rev, c, 8).Verify(context.Background(), []types.ReviewIssue{issue}, blocksAll)
 		if len(res.Kept) != 1 || len(res.Demoted) != 0 || res.Records[0].Outcome != OutcomeQuoteNotFound {
-			t.Fatalf("reply %s: a refutation whose quote is not in the revision must keep blocking: %+v", reply, res.Records)
+			t.Fatalf("reply %d: a refutation whose quote is not in the revision must keep blocking: outcome %s", i, res.Records[0].Outcome)
 		}
 	}
 }
@@ -162,18 +162,18 @@ func TestAC003EveryOtherOutcomeKeepsBlocking(t *testing.T) {
 	for _, tc := range cases {
 		res := newVerifier(rev, tc.c, 8).Verify(context.Background(), []types.ReviewIssue{issue}, blocksAll)
 		if len(res.Kept) != 1 || len(res.Demoted) != 0 || res.Records[0].Outcome != tc.want {
-			t.Errorf("%s: must keep blocking with %s, got %+v", tc.name, tc.want, res.Records)
+			t.Errorf("%s: must keep blocking with %s, got outcome %s", tc.name, tc.want, res.Records[0].Outcome)
 		}
 	}
 	limited := newVerifier(rev, &caller{replies: []string{fixture(t, "verifier-refuted.json")}}, 0).
 		Verify(context.Background(), []types.ReviewIssue{issue}, blocksAll)
 	if len(limited.Kept) != 1 || limited.Records[0].Outcome != OutcomeCallLimit || limited.Calls != 0 {
-		t.Errorf("past the call ceiling the finding keeps blocking: %+v", limited.Records)
+		t.Errorf("past the call ceiling the finding keeps blocking: outcome %s", limited.Records[0].Outcome)
 	}
 	unread := newVerifier(nil, &caller{replies: []string{fixture(t, "verifier-refuted.json")}}, 8).
 		Verify(context.Background(), []types.ReviewIssue{issue}, blocksAll)
 	if len(unread.Kept) != 1 || unread.Records[0].Outcome != OutcomeSourceUnavailable {
-		t.Errorf("without the reviewed revision the finding keeps blocking: %+v", unread.Records)
+		t.Errorf("without the reviewed revision the finding keeps blocking: outcome %s", unread.Records[0].Outcome)
 	}
 }
 
@@ -202,6 +202,6 @@ func TestAC005NonBlockingFindingsAndTheCeiling(t *testing.T) {
 	c = &caller{replies: []string{fixture(t, "verifier-refuted.json")}}
 	res = newVerifier(rev, c, 1).Verify(context.Background(), []types.ReviewIssue{issue, second}, blocksAll)
 	if res.Calls != 1 || len(res.Demoted) != 1 || len(res.Kept) != 1 || res.Records[1].Outcome != OutcomeCallLimit {
-		t.Fatalf("max_calls 1: one call, the excess keeps blocking: %+v", res.Records)
+		t.Fatalf("max_calls 1: one call, the excess keeps blocking: calls=%d demoted=%d", res.Calls, len(res.Demoted))
 	}
 }
