@@ -57,7 +57,7 @@ O `CHANGELOG.md` da base:
 - Primeira versão do serviço de pedidos.
 ```
 
-O caso 7 usa uma base igual, com `mode: sugerir` (sinônimo de `suggest`).
+O caso 7 usa uma base igual, com `mode: sugerir` (o mesmo que `mode: suggest`).
 
 ## Caso 1: entrada válida
 
