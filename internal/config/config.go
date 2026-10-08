@@ -109,6 +109,10 @@ type ReviewConfig struct {
 	// preferences (presentation.go). Absent keeps every finding published
 	// one by one.
 	Presentation ReviewPresentationConfig `yaml:"presentation"`
+	// Verification is the adversarial check of the model's blocking
+	// findings (verification.go). Absent keeps it on with the default
+	// ceiling.
+	Verification ReviewVerificationConfig `yaml:"verification"`
 }
 
 // ReviewProfiles returns the configured multi-agent profile selection,
@@ -357,6 +361,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Deliberation.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Review.Verification.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.Batches.Validate(); err != nil {

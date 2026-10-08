@@ -1,6 +1,7 @@
 == modelo-mudou
 --- modelo A (a resposta tem um achado)
 $ aurumcode review --base main --politica /policy
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 ## Code Review Summary
 
 **Verdict:** Changes requested

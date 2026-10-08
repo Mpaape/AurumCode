@@ -25,6 +25,7 @@ exit_code=0
 RESULTADO: sem politica nao ha gate
 --- com --politica: a politica impoe o gate e o idioma
 $ aurumcode review --base main --politica /policy
+aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Resumo da Revisão de Código
 

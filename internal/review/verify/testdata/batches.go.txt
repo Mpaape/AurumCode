@@ -1,0 +1,19 @@
+package config
+
+import "fmt"
+
+// BatchesConfig is the batches section (nil = not declared).
+type BatchesConfig struct {
+	MaxBatches int `yaml:"max_batches"`
+}
+
+// Validate refuses a negative ceiling (zero means the default).
+func (b *BatchesConfig) Validate() error {
+	if b == nil {
+		return nil
+	}
+	if b.MaxBatches < 0 {
+		return fmt.Errorf("batches.max_batches: must be positive (got %d)", b.MaxBatches)
+	}
+	return nil
+}
