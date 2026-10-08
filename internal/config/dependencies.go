@@ -142,25 +142,33 @@ func (c *DependenciesConfig) Fails(severity string) bool {
 	if !c.Gated() {
 		return false
 	}
+	threshold, readable := c.failThreshold()
+	if !readable {
+		// fail_on declared but not fully readable (Validate refuses it at
+		// parse time; a value that bypassed it): doubt never passes.
+		return true
+	}
 	sev := NormalizeDependencySeverity(severity)
 	if sev == SeverityUnknown {
 		return true
 	}
+	return dependencySeverityRanks[sev] >= threshold
+}
+
+// failThreshold is the rank of the lowest level in fail_on, and false when
+// any level is unreadable or none is listed: the caller then fails closed.
+func (c *DependenciesConfig) failThreshold() (int, bool) {
 	threshold := 0
 	for _, level := range c.FailOn {
 		r := dependencySeverityRanks[NormalizeDependencySeverity(level)]
 		if r == 0 {
-			// An unreadable level in a declared fail_on (Validate refuses
-			// it; a value that bypassed it) fails closed: doubt never passes.
-			return true
+			return 0, false
 		}
 		if threshold == 0 || r < threshold {
 			threshold = r
 		}
 	}
-	// No readable level in a declared fail_on (Validate refuses it; a value
-	// that bypassed it) fails closed rather than letting everything pass.
-	return threshold == 0 || dependencySeverityRanks[sev] >= threshold
+	return threshold, threshold > 0
 }
 
 // Validate refuses what would silently weaken the check: an unknown
