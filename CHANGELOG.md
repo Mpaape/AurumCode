@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Changelog: `changelog_check.mode: suggest` só sugere a entrada no parecer da
+  PR, sem reprovar; `off` e `required` seguem como antes. Docs de changelog e
+  de auditoria/SARIF reescritas, mais curtas e com diagrama.
 - Deliberação: a última rodada permitida não oferece ferramenta e pede o
   parecer com a evidência já reunida, em vez de terminar sem resposta.
 - `dependencies.Fails`: limiar de `fail_on` calculado à parte e explícito

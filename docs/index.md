@@ -113,8 +113,8 @@ Tutorial: [Qualquer linguagem](tutorials/qualquer-linguagem.md).
 ## Changelog
 
 Cada pull request acrescenta uma entrada curta e voltada a quem usa o produto
-em `## Unreleased`; o check `aurumcode changelog` reprova a PR sem ela, lendo o
-modo do commit base. A sugestão de entrada do review continua separada e só
+em `## Unreleased`; o check `aurumcode changelog` reprova a PR sem ela (modo
+`required`) ou só sugere a entrada (modo `suggest`), lendo o modo do commit base. A sugestão de entrada do review continua separada e só
 consultiva. Referência:
 [Changelog obrigatório](configuration.md#changelog-obrigatorio-aur-509) e o
 guia [Changelog obrigatório](changelog.md).
