@@ -141,8 +141,11 @@ auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context,r
 
 ## Caso 3: estouro de rodadas
 
-Uma rodada é uma chamada ao modelo. Com `max_rounds: 2` e um modelo que só
-pede ferramenta, a segunda rodada termina sem resposta final: a revisão é
+Uma rodada é uma chamada ao modelo. A última rodada permitida não oferece
+ferramenta e pede o parecer com o que já foi reunido; o limite só estoura se
+o modelo ainda pedir ferramenta. Com `max_rounds: 1` (não há rodada final
+separada) e um modelo que só pede ferramenta, a rodada termina sem resposta
+final: a revisão é
 inconclusiva pelo gate (motivo `deliberation_limit:max_rounds`, na mesma
 regra dos outros motivos inconclusivos), sai com 1, a auditoria e o SARIF são
 gravados (a auditoria com o transcript e o limite) e **nenhum texto do
@@ -164,11 +167,11 @@ custo de cada rodada é reservado antes da chamada e confirmado depois, então
 ```text
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: inconclusivo: limite de deliberação (deliberation_limit:max_rounds); nenhum parecer do modelo foi publicado
-aurumcode review: deliberation: rodada 2 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
+aurumcode review: deliberation: rodada 1 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
 exit_code=1
 RESULTADO: max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado
 auditoria gate: decision=inconclusive reason=review inconclusive (deliberation_limit:max_rounds)
-auditoria deliberation: limit=max_rounds rodadas=2 chamadas=2 desfecho=deliberation_limit:max_rounds
+auditoria deliberation: limit=max_rounds rodadas=1 chamadas=1 desfecho=deliberation_limit:max_rounds
 ```
 
 ## Caso de falha: o scanner pedido não existe

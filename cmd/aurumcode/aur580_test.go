@@ -133,12 +133,13 @@ func TestAUR580ModelDoesNotAskOnASmallDiff(t *testing.T) {
 	}
 }
 
-// AC-002: a model that keeps asking exceeds max_rounds: exit 1, the gate's
+// AC-002: a model that keeps asking exceeds max_rounds (1 here: with more,
+// the last round offers no tool and asks for the answer): exit 1, the gate's
 // inconclusive motive is deliberation_limit:max_rounds, the audit and the
 // SARIF are written (the audit with the transcript and its limit), and
 // nothing of the model's answer is published.
 func TestAUR580RoundsExceededIsInconclusiveAndUnpublished(t *testing.T) {
-	aur580Setup(t, strings.Replace(aur580Config, "max_rounds: 3", "max_rounds: 2", 1), "")
+	aur580Setup(t, strings.Replace(aur580Config, "max_rounds: 3", "max_rounds: 1", 1), "")
 	t.Setenv("AURUMCODE_LLM_FIXTURE", aur580Fixture(t, `[{"tool":"codebase_context","arguments":{"path":"app.go"},"every_round":true}]`))
 	sarif := filepath.Join(t.TempDir(), "out.sarif")
 	code, out, errOut, rec := aur580Run(t, "--sarif", sarif)
@@ -242,7 +243,7 @@ func TestAUR580PullRequestRoundsExceededFailsThePolicyGate(t *testing.T) {
 	registerFake(t, scanner.Engine{Scanner: fakeEngine{name: "fakescan", report: scanner.Report{Complete: true}}})
 	var published []githubclient.CommitStatus
 	var postedBody string
-	cfg := "deliberation:\n  enabled: true\n  max_rounds: 2\nquality_gates:\n  scanners:\n    - engine: fakescan\ngate:\n  inconclusive: block\n"
+	cfg := "deliberation:\n  enabled: true\n  max_rounds: 1\nquality_gates:\n  scanners:\n    - engine: fakescan\ngate:\n  inconclusive: block\n"
 	server := runPRGateMockServerMulti(t, simpleDiffAUR537, cfg, &published, &postedBody)
 	defer server.Close()
 	setPRGateEnv(t, server, aur580Fixture(t, `[{"tool":"scanner_fakescan","every_round":true}]`))
