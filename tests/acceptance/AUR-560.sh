@@ -238,8 +238,9 @@ mut001() {
   ac002_check "$m" >/dev/null || fail "mutation-baseline-not-green"
   victim='review-cache.md'
   cp "$repo_root/mkdocs.yml" "$m/mkdocs.yml"; chmod u+w "$m/mkdocs.yml"
-  grep -qE "^[[:space:]]+- $victim\$" "$m/mkdocs.yml" || fail "mutation-victim-absent:$victim"
-  grep -vE "^[[:space:]]+- $victim\$" "$repo_root/mkdocs.yml" >"$m/mkdocs.yml"
+  # The nav entry may carry a title ("- Cache de review: review-cache.md").
+  grep -qE "^[[:space:]]+- ([^:]+: )?$victim\$" "$m/mkdocs.yml" || fail "mutation-victim-absent:$victim"
+  grep -vE "^[[:space:]]+- ([^:]+: )?$victim\$" "$repo_root/mkdocs.yml" >"$m/mkdocs.yml"
   if ac002_check "$m" >"$work/mut.out"; then fail "mutation-survived:$victim"; fi
   grep -q "orphan-page-not-in-nav:$victim" "$work/mut.out" || fail "mutation-wrong-reason:$victim"
   # a page the hook would not inject (not AUR-*.md) is an orphan

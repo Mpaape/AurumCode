@@ -6,10 +6,6 @@ $ LLM_PROVIDER=azure-openai aurumcode review --base main
 > **Approved: no problem found in the reviewed change.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-sem achados
 No issues found.
 --- requisicoes recebidas pelo provedor falso: 1
     provedor recebeu: /azure/chat/completions query=api-version=2024-10-21 authorization=ausente api-key=<chave> x-gw-key=ausente limite=- response_format=json_object

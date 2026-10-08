@@ -9,10 +9,6 @@ aurumcode review: policy gate: seguranca#sem-bucket-publico - Sem bucket publico
 > **Blocked: 1 problem(s) must be fixed before merge.**
 
 policy gate: failed · 1 file(s) reviewed
-
-### Summary
-
-Bucket publico em Terraform.
 main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
   - Impact: Qualquer pessoa na internet le os logs.
   - Evidence: A linha adicionada declara acl = "public-read" em main.tf.

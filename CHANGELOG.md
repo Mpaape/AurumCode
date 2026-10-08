@@ -15,7 +15,8 @@
   problema é publicado uma vez, sob a regra que o gate reconhece. A lista de
   testes afetados vira uma contagem; prosa repetida entre partes da revisão é
   removida; o aviso de cache do veredito fica só no stderr. O relatório do
-  terminal (`--base`) abre com a mesma decisão, sem o diagrama Mermaid.
+  terminal (`--base`) abre com a mesma decisão e a linha de fatos, sem o
+  resumo antigo nem o diagrama Mermaid.
 - Provedor reserva: `LLM_FALLBACK_<n>_PROVIDER`, `_BASE_URL`, `_API_KEY` e
   `_MODEL` (até 5) declaram provedores tentados em ordem quando o principal
   falha; cada troca aparece no stderr e, se todos falharem, a revisão falha

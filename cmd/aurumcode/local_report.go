@@ -12,21 +12,18 @@ import (
 
 // renderPass renders the terminal report's head from the already-redacted
 // result: the same decision headline and facts line the parecer opens
-// with, then the model's summary when the change is substantive. It is
-// deterministic and derives only from result, diff and rule, so the same
-// input always prints the same bytes, and the terminal never shows a
-// different outcome than the published parecer.
+// with. It is deterministic and derives only from result, diff and rule, so
+// the same input always prints the same bytes, and the terminal never shows
+// a different outcome than the published parecer.
 func renderPass(result *types.ReviewResult, diff *types.Diff, language string, rule blocking.Rule) string {
 	if result == nil {
 		return ""
 	}
-	copy := reviewCopyFor(language)
+	// The model's summary stays out of the terminal head: a run served from
+	// the review cache has none, and the same input must print the same
+	// bytes with a cold or a warm cache (AUR-441).
 	var b strings.Builder
-	writeParecerHead(&b, result, diff, copy, rule)
-	if strings.TrimSpace(result.Summary) != "" {
-		b.WriteString("\n")
-		writeModelSummary(&b, result, diff, copy)
-	}
+	writeParecerHead(&b, result, diff, reviewCopyFor(language), rule)
 	return strings.TrimRight(b.String(), "\n") + "\n"
 }
 
