@@ -198,6 +198,13 @@ func TestAUR530AC003UnreachableKeepsAlerts(t *testing.T) {
 // AUR-530 AC-003: the workflow runs the scan only on the caller's schedule
 // and uploads the SARIF only after a conclusive scan, never on always().
 func TestAUR530AC003WorkflowUploadsOnlyConclusive(t *testing.T) {
+	skip, err := manifestCheckSkipped(filepath.Join("..", ".."), os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skip {
+		t.Skip("AURUMCODE_MODULE_ONLY=1: the acceptance staged only the Go module")
+	}
 	raw, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "review.yml"))
 	if err != nil {
 		t.Fatal(err)
