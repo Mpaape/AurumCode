@@ -1,0 +1,1 @@
+{"file":"internal/config/config.go","line":10,"severity":"error","rule_id":"repo/falha-fechada","message":"Validate chamado sem guarda de nil: cfg.Batches pode ser nil e Validate entra em pânico","evidence":"if err := cfg.Batches.Validate(); err != nil {"}

@@ -13,6 +13,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/verify"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -65,6 +66,9 @@ type complianceArtifactInputs struct {
 	// proposedExceptions is the text of the exceptions the model's disputes
 	// suggest (never applied).
 	proposedExceptions string
+
+	// verification is every model finding the verification judged.
+	verification []verify.Record
 }
 
 // writeComplianceArtifacts is a complete no-op when neither --auditoria nor
@@ -153,7 +157,10 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.ProposedExceptions = in.proposedExceptions
 	rec.Deliberation = in.deliberation
 	rec.Batches = in.batches
-	return render.WriteAuditRecord(in.auditoriaPath, rec, filter)
+	if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
+		return err
+	}
+	return appendAuditVerification(in.auditoriaPath, in.verification, filter)
 }
 
 func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error {

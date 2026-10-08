@@ -1,5 +1,6 @@
 == politica-terraform
 $ aurumcode review --base main
+aurumcode review: verification: main.tf:3 seguranca#sem-bucket-publico still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-bucket-publico - Sem bucket publico (severidade error, limiar error, origem skills)
 ## Code Review Summary

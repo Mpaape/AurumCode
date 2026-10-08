@@ -51,7 +51,9 @@ var reviewPolicyFields = []struct {
 
 // reviewRepositoryFields are the review keys that stay the repository's
 // own, additive choice under any policy: context, presentation, memory.
-var reviewRepositoryFields = []string{"inline_comments", "context", "memory", "changelog", "version", "profiles", "presentation"}
+// verification is the repository's too: turning it off only keeps more
+// findings blocking, and its ceiling only bounds the extra calls.
+var reviewRepositoryFields = []string{"inline_comments", "context", "memory", "changelog", "version", "profiles", "presentation", "verification"}
 
 // qualityGateSections are the quality_gates keys. Scanners (and sast, the
 // semgrep alias) resolve engine by engine; every other subsection is

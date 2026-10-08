@@ -1,0 +1,59 @@
+== achado-refutado
+$ aurumcode review --base main --fail-on error --auditoria auditoria.json
+aurumcode review: limites.go:23 quality/missing-error-handling refuted by verification: no longer blocks and stays as a non-blocking comment (reason: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; quote: func (l *Limites) Validar() error { if l == nil { return nil })
+## Code Review Summary
+
+**Verdict:** Comment
+
+**Findings by severity:**
+- error: 0
+- warning: 0
+- info: 0
+
+**Files touched:**
+- limites.go
+
+
+```mermaid
+flowchart TD
+    n0["limites.go"]
+
+```
+
+### Suggestions
+
+- **Refuted by verification (non-blocking): quality/missing-error-handling** — Model finding: Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling) Verification reason: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo. Code quote: func (l *Limites) Validar() error { if l == nil { return nil } Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.
+No issues found.
+exit_code=0
+RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
+--- a auditoria guarda o achado refutado, com o motivo e a citacao
+limites.go 23 quality/missing-error-handling refuted rebaixado
+--- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
+$ aurumcode review --base main --fail-on error
+aurumcode review: verification: limites.go:23 quality/missing-error-handling still blocks (quote_not_found: Validar tem guarda de nil.)
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- limites.go
+
+
+```mermaid
+flowchart TD
+    n0["limites.go"]
+
+```
+limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
+  - Impact: Uma configuracao sem a secao derruba o carregamento.
+  - Evidence: carregar chama l.Validar() sem conferir se l e nil.
+  - Suggested fix: Confira l == nil antes de chamar Validar.
+  - Verify: Chame carregar(nil) num teste.
+exit_code=3
+RESULTADO: citacao inexistente: a refutacao e descartada e o achado reprova

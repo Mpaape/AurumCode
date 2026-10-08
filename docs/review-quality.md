@@ -145,6 +145,21 @@ O histórico aumenta o contexto enviado ao endpoint LLM já configurado: inclui
 também discussões de pessoas e outros bots. Considere a política de dados do
 time para esse endpoint; a remoção de segredos reconhecidos não é anonimização.
 
+## Achado do modelo verificado contra o código
+
+Um achado plausível e falso do modelo é o pior defeito de uma revisão: ele
+bloqueia o merge com uma afirmação que o código refuta (por exemplo, "método
+chamado sem guarda de nil" quando o método começa com `if c == nil { return
+nil }`). Por isso todo achado do modelo que bloquearia o gate passa por uma
+verificação adversarial com o código real da revisão revisada, e só uma
+refutação apoiada numa citação literal desse código o rebaixa a comentário não
+bloqueante marcado, visível no parecer e na auditoria. Qualquer outra resposta,
+ou falha da verificação, mantém o bloqueio: a verificação só pode tirar um
+achado do gate com prova, nunca por silêncio. Achados de scanner não passam por
+ela. Configuração em
+[`review.verification`](configuration.md#verificacao-adversarial-dos-achados-do-modelo-reviewverification);
+o caso `achado-refutado` do tutorial de revisão mostra as duas pontas.
+
 ## Cobertura e falhas
 
 Não há teto arbitrário de saída enviado por padrão. Isso não significa leitura

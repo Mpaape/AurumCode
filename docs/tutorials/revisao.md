@@ -49,7 +49,7 @@ Para repetir um caso à mão:
 ### Rodar a demonstração
 
 ```bash
-bash demo/tutoriais/revisao/run.sh all      # executa os sete casos e grava out/
+bash demo/tutoriais/revisao/run.sh all      # executa os oito casos e grava out/
 bash demo/tutoriais/revisao/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -428,6 +428,51 @@ o achado contestado continua no relatório e nada é rebaixado; sem `gate`
 declarado também não há exceção a propor. Com um gate, veja o caso 10 do
 tutorial `gate`.
 
+## Caso 7: o achado do modelo é verificado contra o código
+
+O modelo afirma que `Validar` é chamado sem guarda de nil, mas o método começa
+com `if l == nil { return nil }`. Antes do gate, todo achado do modelo que
+bloquearia a execução vai a uma chamada de verificação com o código real (a
+janela citada e as ocorrências dos símbolos que o achado nomeia). O
+verificador só tira o achado do gate com uma citação literal do arquivo:
+
+```bash
+aurumcode review --base main --fail-on error --auditoria auditoria.json
+```
+
+A fixture `fixture-refutado.json` responde à revisão com o achado e, ao prompt
+de verificação, com `refuted` e as linhas exatas do método. A segunda execução
+usa `fixture-refutado-parafraseado.json`, cuja citação (`if l == nil { return
+nil }`, numa linha só) não existe no arquivo.
+
+<!-- saida: achado-refutado -->
+```text
+$ aurumcode review --base main --fail-on error --auditoria auditoria.json
+aurumcode review: limites.go:23 quality/missing-error-handling refuted by verification: no longer blocks and stays as a non-blocking comment (reason: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; quote: func (l *Limites) Validar() error { if l == nil { return nil })
+**Verdict:** Comment
+exit_code=0
+RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
+--- a auditoria guarda o achado refutado, com o motivo e a citacao
+limites.go 23 quality/missing-error-handling refuted rebaixado
+--- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
+$ aurumcode review --base main --fail-on error
+aurumcode review: verification: limites.go:23 quality/missing-error-handling still blocks (quote_not_found: Validar tem guarda de nil.)
+**Verdict:** Changes requested
+limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+exit_code=3
+RESULTADO: citacao inexistente: a refutacao e descartada e o achado reprova
+```
+
+O que observar: refutado com citação literal, o achado deixa de contar
+(`exit_code=0`), mas não some: vira o comentário não bloqueante "Refuted by
+verification" no parecer, uma linha no stderr e a entrada `verification` da
+auditoria, com motivo e citação. Com a citação parafraseada, a refutação é
+descartada (`quote_not_found`) e o achado continua reprovando. Confirmado,
+incerto, resposta inválida, erro do provedor e o teto `max_calls` também
+mantêm o bloqueio. Configuração em `review.verification`
+([Configuração](../configuration.md#verificacao-adversarial-dos-achados-do-modelo-reviewverification)).
+
 ## Quando falha: arquivo não revisado nunca conta como aprovado
 
 E se a mudança é só um arquivo gerado (`gerado.go`, que diz no topo
@@ -512,6 +557,12 @@ Próximos passos: [skills de convenção](skills.md) e
 ## Como fica
 
 Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/revisao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### achado-refutado
+
+![Terminal do caso achado-refutado](../assets/capturas/revisao/achado-refutado-terminal.png)
+
+![Comentário do PR do caso achado-refutado](../assets/capturas/revisao/achado-refutado-comentario.png)
 
 ### com-provedor
 
