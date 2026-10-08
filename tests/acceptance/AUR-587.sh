@@ -86,7 +86,8 @@ guide_test() { go_in "$1" "$2" test -buildvcs=false -count=1 -p 1 -v -run TestEx
 run_ac001() {
   local root="$run_dir/ac001" sec
   stage "$root"
-  grep -qE '^  - Estendendo o Aurum: extensao\.md$' "$repo_root/mkdocs.yml" || fail AC-001/fora-do-nav
+  # The page may sit under a nav section (deeper indent) since the tabs menu.
+  grep -qE '^ +- Estendendo o Aurum: extensao\.md$' "$repo_root/mkdocs.yml" || fail AC-001/fora-do-nav
   for sec in '## 1. Engine de scanner' '## 2. Ferramenta de deliberação' '## 3. Skill' '## 4. Fonte de contexto (`ContextProvider`)' '## O que NÃO é ponto de extensão'; do
     grep -qF -- "$sec" "$repo_root/docs/extensao.md" || fail "AC-001/secao-ausente:$sec"
   done
