@@ -202,7 +202,14 @@ func IntegrationAUR448(t *testing.T) {
 		}
 		// AUR-490 prepends the summary/diagram block to every review, so the
 		// finding is the last line after the diagram, and the only one.
-		wantFinding := "config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)"
+		// AUR-514 (docs/specs/AUR-514.md lines 20-21 and 39): printFindings in
+		// `--base` now prints the fixture's impact/evidence/fix/verification
+		// under the finding line; still pinned byte-for-byte.
+		wantFinding := "config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)\n" +
+			"  - Impact: Anyone with repository access can reuse the committed credential-shaped value.\n" +
+			"  - Evidence: The added line assigns DEMO_API_TOKEN to a literal value in config/demo-tokens.txt.\n" +
+			"  - Suggested fix: Remove the secret from version control and load it from the environment instead.\n" +
+			"  - Verify: Remove the literal and rerun the review fixture; the finding should disappear."
 		if got := aur448AfterDiagram(stdout); got != wantFinding {
 			t.Fatalf("stdout regressed on the zero-discard path:\ngot after the diagram: %q\nwant: %q", got, wantFinding)
 		}

@@ -116,7 +116,15 @@ grep -Fq 'discarded' "$run_dir/out.stderr" || fail no_provider_missing_discard_e
 run_bin "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$known_problem_fixture"
 [[ "$rc" -eq 0 ]] || fail "happy_path_wrong_exit:$rc"
 want_happy_tail='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
-[[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy_tail" ]] || fail happy_path_stdout_regressed
+# AUR-514 (docs/specs/AUR-514.md lines 20-21 and 39): printFindings in
+# `--base` now prints the fixture's impact/evidence/fix/verification under the
+# finding line; the tail stays pinned byte-for-byte, line plus its detail.
+want_happy_tail="$(printf '%s\n' "$want_happy_tail" \
+  '  - Impact: Anyone with repository access can reuse the committed credential-shaped value.' \
+  '  - Evidence: The added line assigns DEMO_API_TOKEN to a literal value in config/demo-tokens.txt.' \
+  '  - Suggested fix: Remove the secret from version control and load it from the environment instead.' \
+  '  - Verify: Remove the literal and rerun the review fixture; the finding should disappear.')"
+[[ "$(tail -n5 "$run_dir/out.stdout")" == "$want_happy_tail" ]] || fail happy_path_stdout_regressed
 grep -Fq '```mermaid' "$run_dir/out.stdout" || fail happy_path_missing_summary_block
 [[ ! -s "$run_dir/out.stderr" ]] || fail "happy_path_stderr_not_empty:$(cat "$run_dir/out.stderr")"
 # A reviewer found that tail -n1 alone lets an EXTRA, undetected finding
