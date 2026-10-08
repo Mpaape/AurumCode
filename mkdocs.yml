@@ -21,7 +21,8 @@ extra_css:
 # Mermaid 11.4.1 (dist/mermaid.min.js, sha256
 # a43bc1afd446f9c4cc66ac5dd45d02e8d65e26fc5344ec0ef787f88d6ddb6f9e) is served
 # from the site itself: the theme uses it instead of fetching it from a CDN,
-# so the diagrams render with no external request.
+# so the diagrams render with no external request. It is not versioned:
+# scripts/docs/mermaid.sh downloads it at build time and checks the sha256.
 extra_javascript:
   - javascripts/mermaid.min.js
 markdown_extensions:
