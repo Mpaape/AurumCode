@@ -1,23 +1,15 @@
 == azure-openai
 $ LLM_PROVIDER=azure-openai aurumcode review --base main
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
+no gate declared · 1 file(s) reviewed
 
-**Files touched:**
-- None
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["app.py"]
-
-```
+sem achados
 No issues found.
 --- requisicoes recebidas pelo provedor falso: 1
     provedor recebeu: /azure/chat/completions query=api-version=2024-10-21 authorization=ausente api-key=<chave> x-gw-key=ausente limite=- response_format=json_object

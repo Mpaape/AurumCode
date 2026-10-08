@@ -3,24 +3,16 @@ $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [scanner_semgrep]; não pedidas [codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) executed: 1 achado(s)
 aurumcode review: policy gate: semgrep:regras.demo-sem-eval - eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao repo)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
+no gate declared · 1 file(s) reviewed
 
-**Files touched:**
-- calc.js
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["calc.js"]
-
-```
+A varredura pedida confirmou eval() em calc.js.
 
 ### Suggestions
 

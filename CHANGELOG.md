@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Parecer da PR redesenhado: a decisão abre o comentário (Aprovado, Aprovado
+  com observações, Bloqueado ou Inconclusivo, num bloco de aviso do GitHub),
+  seguida de "Corrigir antes do merge", das observações em uma linha cada e do
+  resumo; pontos fortes, sugestões, CI, testes e limitações ficam recolhidos em
+  "Detalhes da revisão". Um parecer por PR: a rodada seguinte edita o anterior
+  e marca como resolvido o comentário de achado que não reencontrou. Só o que
+  bloqueia ganha comentário na linha. Todo achado do modelo passa pela
+  verificação contra o código (os bloqueantes primeiro); o refutado sai do
+  parecer e fica nos detalhes; sem revisão revisada, a verificação avisa uma
+  vez só. Achado do modelo que repete um scanner no mesmo trecho, categoria e
+  problema é publicado uma vez, sob a regra que o gate reconhece. A lista de
+  testes afetados vira uma contagem; prosa repetida entre partes da revisão é
+  removida; o aviso de cache do veredito fica só no stderr. O relatório do
+  terminal (`--base`) abre com a mesma decisão, sem o diagrama Mermaid.
 - Provedor reserva: `LLM_FALLBACK_<n>_PROVIDER`, `_BASE_URL`, `_API_KEY` e
   `_MODEL` (até 5) declaram provedores tentados em ordem quando o principal
   falha; cada troca aparece no stderr e, se todos falharem, a revisão falha

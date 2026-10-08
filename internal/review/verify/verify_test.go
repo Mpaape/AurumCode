@@ -192,13 +192,24 @@ func TestAC004DeterministicFindingsAreNeverSent(t *testing.T) {
 
 func TestAC005NonBlockingFindingsAndTheCeiling(t *testing.T) {
 	rev, issue := scenario(t)
+	// A finding that does not block is verified too (an observation the
+	// code refutes never reaches the parecer), marked as not blocking.
 	c := &caller{replies: []string{fixture(t, "verifier-refuted.json")}}
 	res := newVerifier(rev, c, 8).Verify(context.Background(), []types.ReviewIssue{issue}, func(types.ReviewIssue) bool { return false })
-	if len(c.prompts) != 0 || len(res.Kept) != 1 {
-		t.Fatal("a finding that does not block is never verified")
+	if len(c.prompts) != 1 || len(res.Kept) != 0 || len(res.Demoted) != 1 || res.Records[0].Blocking {
+		t.Fatalf("a refuted observation is dropped and marked non-blocking: prompts=%d kept=%d records=%+v", len(c.prompts), len(res.Kept), res.Records)
 	}
+	// The ceiling serves the blocking findings first: with one call, the
+	// blocking finding listed second is verified and the observation
+	// listed first is not.
 	second := issue
 	second.Line = 7
+	c = &caller{replies: []string{fixture(t, "verifier-refuted.json")}}
+	blocksSecond := func(i types.ReviewIssue) bool { return i.Line == 7 }
+	res = newVerifier(rev, c, 1).Verify(context.Background(), []types.ReviewIssue{issue, second}, blocksSecond)
+	if res.Calls != 1 || len(res.Demoted) != 1 || res.Demoted[0].Issue.Line != 7 || len(res.Kept) != 1 || res.Records[0].Outcome != OutcomeCallLimit || !res.Records[1].Blocking {
+		t.Fatalf("max_calls 1: the blocking finding is verified first, the excess keeps counting: calls=%d demoted=%+v records=%+v", res.Calls, res.Demoted, res.Records)
+	}
 	c = &caller{replies: []string{fixture(t, "verifier-refuted.json")}}
 	res = newVerifier(rev, c, 1).Verify(context.Background(), []types.ReviewIssue{issue, second}, blocksAll)
 	if res.Calls != 1 || len(res.Demoted) != 1 || len(res.Kept) != 1 || res.Records[1].Outcome != OutcomeCallLimit {

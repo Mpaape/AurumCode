@@ -46,11 +46,20 @@ func (p *prReview) runStaticAnalysis() {
 	result := p.result
 	result.Issues = append(result.Issues, p.analysisIssues...)
 	if plan := testgen.Propose(p.diff); plan != nil {
+		var names []string
 		for _, c := range plan.Cases {
 			if strings.TrimSpace(c.Name) == "" {
 				continue
 			}
-			result.TestPlan = append(result.TestPlan, fmt.Sprintf("%s (package %s)", c.Name, c.Package))
+			names = append(names, fmt.Sprintf("%s (package %s)", c.Name, c.Package))
+		}
+		if len(names) > 0 {
+			// Kept apart from the model's test plan: the parecer shows the
+			// count and the first names, never hundreds of lines.
+			if result.Metadata == nil {
+				result.Metadata = map[string]string{}
+			}
+			result.Metadata[metaAffectedTests] = strings.Join(names, "\n")
 		}
 	}
 }

@@ -17,7 +17,27 @@ aurumcode review: the diff did not fit one prompt; reviewed in 3 batches by dire
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 review formal "APPROVE" publicado no pull request #7 (0 comentário(s) na linha).
 exit_code=0
-publicado em 7/reviews
+parecer publicado em 7/reviews:
+<!-- aurumcode-review -->
+## AurumCode code review
+
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
+
+policy gate: passed · 6 file(s) reviewed in 3 parts
+
+### Summary
+
+Troca de mensagem sem risco.
+
+<details>
+<summary>Review details</summary>
+
+#### Tests
+
+- 6 affected test(s) in 3 package(s): TestCatalogo (package api), TestCatalogo (package banco), TestCatalogo (package web), TestTabela (package api), TestTabela (package banco), TestTabela (package web)
+
+</details>
 RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
 --- teto de lotes (batches.max_batches: 1): os arquivos fora sao listados e a aprovacao e retida
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
@@ -27,7 +47,39 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: policy gate: review inconclusive (partial_coverage)
 review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
 exit_code=1
-publicado em 7/reviews
+parecer publicado em 7/reviews:
+<!-- aurumcode-review -->
+## AurumCode code review
+
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+
+policy gate: failed · 6 file(s) reviewed
+
+### Summary
+
+Troca de mensagem sem risco.
+
+<details>
+<summary>Review details</summary>
+
+#### Tests
+
+- 6 affected test(s) in 3 package(s): TestCatalogo (package api), TestCatalogo (package banco), TestCatalogo (package web), TestTabela (package api), TestTabela (package banco), TestTabela (package web)
+
+#### Review limits
+
+- Review coverage — 2 of 6 file(s) in the diff were covered; 4 were not fully reviewed.
+- 4 file(s) were left out of the review by the token budget.
+  - banco/catalogo.go
+  - banco/tabela.go
+  - web/catalogo.go
+  - web/tabela.go
+- policy gate: review inconclusive (partial_coverage)
+
+</details>
+--- cobertura publicada nos detalhes do parecer:
 - Review coverage — 2 of 6 file(s) in the diff were covered; 4 were not fully reviewed.
 - 4 file(s) were left out of the review by the token budget.
   - banco/catalogo.go

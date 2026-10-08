@@ -2,27 +2,15 @@
 --- A. scanners.yml servido diferente do digest do manifesto
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: failed · 2 file(s) reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_digest_mismatch
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
 --- requisicoes recebidas pelo servidor local (modo adulterado-arquivo): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -33,25 +21,13 @@ RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): manifest: set_digest "sha256:0000000000000000000000000000000000000000000000000000000000000000" does not match its files (sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1): digest mismatch
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: failed · 2 file(s) reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_digest_mismatch
 --- requisicoes recebidas pelo servidor local (modo adulterado-manifesto): 2
     GET /repos/owner/dados-de-analise/releases -> 200

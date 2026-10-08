@@ -1,24 +1,15 @@
 == apelidos-e-instrucoes
 $ aurumcode review --base main
-## Resumo da Revisão de Código
+## AurumCode revisão de código
 
-**Veredito:** Aprovar
+> [!TIP]
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-**Resultados por severidade:**
-- erro: 0
-- aviso: 0
-- informação: 0
+sem gate declarado · 2 arquivo(s) revisado(s)
 
-**Arquivos alterados:**
-- Nenhum
+### Resumo
 
-
-```mermaid
-flowchart TD
-    n0["infra.tf"]
-    n1["src/main/kotlin/Greeter.kt"]
-
-```
+Nada a apontar.
 No issues found.
 exit_code=0
 RESULTADO: revisao feita

@@ -1,25 +1,18 @@
 == repo-afrouxa
 --- so o repositorio: fail_on [high] deixa o achado warning passar
 $ aurumcode review --base main
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!NOTE]
+> **Approved with 1 observation(s) that do not block the merge.**
 
-**Findings by severity:**
-- error: 0
-- warning: 1
-- info: 0
+policy gate: passed · 1 file(s) reviewed
 
-**Files touched:**
-- app.go
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+Senha escrita no codigo.
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impact: A senha vai para o historico do repositorio.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
@@ -33,24 +26,16 @@ aurumcode review: politica central: gate do config do repositório foi ignorado:
 aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
-## Resumo da Revisão de Código
+## AurumCode revisão de código
 
-**Veredito:** Alterações solicitadas
+> [!CAUTION]
+> **Bloqueado: 1 problema(s) precisam de correção antes do merge.**
 
-**Resultados por severidade:**
-- erro: 0
-- aviso: 1
-- informação: 0
+gate da política: reprovou · 1 arquivo(s) revisado(s)
 
-**Arquivos alterados:**
-- app.go
+### Resumo
 
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+Senha escrita no codigo.
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impacto: A senha vai para o historico do repositorio.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.

@@ -158,25 +158,16 @@
         <li class="tut-step"><span class="tut-k">Como funciona</span><p>Cada linha adicionada passa por matchers determinísticos. O catálogo de segurança tem 8 regras nomeadas, mas só 4 têm matcher — as outras 4 ficam como metadado citável pelo modelo, nunca aplicado pelo passe determinístico. Sem modelo, sem custo de LLM.</p></li>
         <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>aurumcode review --base HEAD~1 --seguranca</code></pre></li>
       </ol>
-      <pre class="observed" aria-label="Saída real observada">## Code Review Summary
+      <pre class="observed" aria-label="Saída real observada">## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 2 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 2
-- warning: 0
-- info: 0
+no gate declared · 2 file(s) reviewed
 
-**Files touched:**
-- app.py
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["app.py"]
-    n1["db.py"]
-
-```
+The change builds a SQL query by concatenation instead of binding the id.
 
 ### Suggestions
 
@@ -204,33 +195,20 @@ db.py:1: [error] Hardcoded credentials or API keys detected [standards/security-
     </article>
 
     <article>
-      <h3>Resumo + diagrama <span class="flag on">ligado por padrão</span></h3>
+      <h3>Decisão e resumo <span class="flag on">ligado por padrão</span></h3>
       <ol class="tut-flow">
         <li class="tut-step"><span class="tut-k">Ativa</span><p>Já roda em todo review com provedor, sem flag e sem arquivo.</p></li>
-        <li class="tut-step"><span class="tut-k">Como funciona</span><p>O resumo (TL;DR) e o fluxo alterado em Mermaid são <strong>determinísticos</strong>: derivam do resultado e do diff, sem chamar o modelo. Não gastam tokens de LLM.</p></li>
+        <li class="tut-step"><span class="tut-k">Como funciona</span><p>O relatório abre com a mesma decisão do parecer da PR (Aprovado, Aprovado com observações, Bloqueado ou Inconclusivo) e a linha de fatos (gate, arquivos revisados). A decisão e a linha de fatos são <strong>determinísticas</strong>: derivam dos achados e do gate, nunca do rótulo que o modelo se dá. Não gastam tokens de LLM; o resumo do modelo vem em seguida.</p></li>
         <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>aurumcode review --base HEAD~1</code></pre></li>
       </ol>
-      <pre class="observed" aria-label="Saída real observada">## Code Review Summary
+      <pre class="observed" aria-label="Saída real observada">## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 2 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 2
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.py
-
-
-```mermaid
-flowchart TD
-    n0["app.py"]
-    n1["db.py"]
-
-```</pre>
+no gate declared · 2 file(s) reviewed</pre>
       <p class="obs-label">Determinístico (sem provedor).</p>
-      <p class="obs-proof">Prova: <code>internal/render/mermaid_test.go::TestMermaidHeaderEdgesAndFiles</code></p>
+      <p class="obs-proof">Prova: <code>cmd/aurumcode/aur517_test.go::TestAUR517SameDecisionAcrossSinks</code></p>
     </article>
 
     <article>
@@ -334,7 +312,8 @@ export LLM_API_KEY=your-api-key
 export LLM_MODEL=your-model
 aurumcode review --base HEAD~1</code></pre></li>
       </ol>
-      <pre class="observed" aria-label="Saída real observada">aurumcode review: reviewing with model "local" (offline fixture provider)</pre>
+      <pre class="observed" aria-label="Saída real observada">aurumcode review: reviewing with model "local" (offline fixture provider)
+aurumcode review: verification: app.py:5 security/sql-injection still blocks (invalid_answer: veredito desconhecido "changes_requested")</pre>
       <p class="obs-label">Fixture offline (AURUMCODE_LLM_FIXTURE) — qualquer endpoint compatível com OpenAI serve.</p>
       <p class="obs-proof">Prova: <code>cmd/aurumcode/redaction_wiring_test.go::TestStderrLinesSurviveTheRedactionWriter</code></p>
     </article>

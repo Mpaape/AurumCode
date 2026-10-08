@@ -4,24 +4,16 @@ aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still 
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: exceção venceu em 2024-01-01 e não vale mais (dono: time-seguranca, motivo: valor de demonstracao, sem credencial real)
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 0
-- warning: 1
-- info: 0
+policy gate: failed · 1 file(s) reviewed
 
-**Files touched:**
-- app.go
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+Senha escrita no codigo.
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impact: A senha vai para o historico do repositorio.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.

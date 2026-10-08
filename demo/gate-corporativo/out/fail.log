@@ -3,31 +3,19 @@ sbom: sbom_app_cyclonedx.json
 sbom: CycloneDX 1.7, componentes: lodash@4.17.15
 aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: semgrep:github.policy.regras.demo-sem-eval: eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem policy)
-aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
-## Code Review Summary
+aurumcode review: policy gate: semgrep:github.policy.regras.demo-sem-eval - eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
+aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
+aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0 (origem dtrack)
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 2 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
+policy gate: failed · 5 file(s) reviewed
 
-**Files touched:**
-- src/calc.js
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1[".gitignore"]
-    n2["package-lock.json"]
-    n3["package.json"]
-    n4["src/calc.js"]
-    n2 --> n3
-
-```
+Review coverage
+- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+  - .gitignore
 src/calc.js:5: [error] eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval)
 
 Security findings (standards/security-review):
