@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `dependencies.Fails`: limiar de `fail_on` calculado à parte e explícito
+  (nível ilegível ou lista vazia falha fechado); `fail_on: [severe]` recusado
+  ao ler a configuração.
+- Check de changelog: o resumo do job recebe a entrada sugerida (o container
+  grava no workspace e o passo anexa ao resumo).
 - Autorrevisão do lote: `dependencies.fail_on` com qualquer nível ilegível falha fechado;
   caminhos da API de refs da realimentação montados por função; fixture do
   tutorial de memória sem literal de senha inteiro.
