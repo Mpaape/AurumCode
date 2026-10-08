@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Autorrevisão do lote: `dependencies.fail_on` sem nível legível falha fechado;
+- Autorrevisão do lote: `dependencies.fail_on` com qualquer nível ilegível falha fechado;
   caminhos da API de refs da realimentação montados por função; fixture do
   tutorial de memória sem literal de senha inteiro.
 - Documentação de configuração sem variável interna de teste na seção de

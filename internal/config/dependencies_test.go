@@ -85,3 +85,17 @@ func TestDependenciesSourcesAndScannerValidated(t *testing.T) {
 		}
 	}
 }
+
+// A declared fail_on with an unreadable level fails closed even beside a
+// valid one: doubt never lets a finding pass (Validate refuses the config;
+// this guards a value that bypassed it).
+func TestDependenciesFailsClosedOnUnreadableLevel(t *testing.T) {
+	mixed := &DependenciesConfig{FailOn: []string{"critical", "hgih"}}
+	if !mixed.Fails("low") {
+		t.Fatal("an unreadable fail_on level let a low advisory pass")
+	}
+	only := &DependenciesConfig{FailOn: []string{"???"}}
+	if !only.Fails("medium") {
+		t.Fatal("a fail_on with no readable level let an advisory pass")
+	}
+}

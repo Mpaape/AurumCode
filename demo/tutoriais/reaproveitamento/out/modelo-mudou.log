@@ -1,7 +1,6 @@
 == modelo-mudou
 --- modelo A (a resposta tem um achado)
 $ aurumcode review --base main --politica /policy
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -25,6 +24,7 @@ app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (r
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: modelo A reprova
 --- modelo B (outra resposta; mesmo SHA, politica e arquivos)
