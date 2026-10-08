@@ -53,7 +53,9 @@ func Escaped(filter *redaction.Filter, repo string, comments []Comment, head Pul
 		if !ok {
 			continue
 		}
-		reject := func(reason string) { rejected = append(rejected, Rejected{Source: filter.Redact(c.HTMLURL), Reason: reason}) }
+		reject := func(reason string) {
+			rejected = append(rejected, Rejected{Source: filter.Redact(c.HTMLURL), Reason: reason})
+		}
 		if !trustedAssociations[strings.ToUpper(c.AuthorAssociation)] {
 			reject("autor sem associação ao repositório")
 			continue

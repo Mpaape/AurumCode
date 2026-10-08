@@ -1,4 +1,4 @@
-// The changelog command (AUR-509): the required check that every pull
+// The changelog command: the required check that every pull
 // request adds a useful, concise changelog entry. The rules live in
 // internal/changelog (Verify) and internal/config (changelog_check); this
 // file reads the two sides from git and maps the verdict to an exit code.

@@ -1,4 +1,4 @@
-// The realimentacao command (AUR-532): the feedback loop of the gate. It
+// The realimentacao command: the feedback loop of the gate. It
 // collects usage signals from GitHub, asks the model to group them into
 // proposals and opens one pull request in the policy repository. The rules
 // live in internal/feedback; this file parses flags and wires dependencies.
