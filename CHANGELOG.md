@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Pré-verificação do lote: shell do aceite AUR-526 parseável pelo semgrep e
+  exemplos do QA de consumidor pinados por SHA (placeholder de 40 hex).
 - Dependências do PR: cada dependência alterada é checada no OSV em qualquer
   ecossistema, com gate `dependencies.fail_on`, exceção por CVE e licença,
   pacote malicioso ou typosquat reprovando e varredura agendada

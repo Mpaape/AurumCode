@@ -91,7 +91,7 @@ func TestAUR512ScenarioTableCoversTheContract(t *testing.T) {
 			t.Fatalf("workflow %s: %v", wf, err)
 		}
 		text := string(data)
-		if !strings.Contains(text, "@AURUMCODE_SHA") || strings.Contains(text, "AurumCode/.github/workflows/review.yml@main") || strings.Contains(text, "Mpaape/AurumCode@main") {
+		if !strings.Contains(text, "@0000000000000000000000000000000000000000") || strings.Contains(text, "AurumCode/.github/workflows/review.yml@main") || strings.Contains(text, "Mpaape/AurumCode@main") {
 			t.Errorf("workflow %s não está pinado pelo SHA sob teste", wf)
 		}
 		if strings.Contains(text, "pull_request_target") {
