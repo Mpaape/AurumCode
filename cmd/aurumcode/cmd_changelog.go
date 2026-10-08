@@ -17,6 +17,10 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
+// exitChangelogRefused is the exit of a refused entry; a suggested entry
+// never turns it into a pass.
+const exitChangelogRefused = 1
+
 // changelogFlags are the inputs of one check.
 type changelogFlags struct {
 	base     string
@@ -110,7 +114,7 @@ func runChangelogWith(args []string, stdout, stderr io.Writer, deps changelogDep
 		if verdict.Reason != changelog.ReasonIndeterminate {
 			deps.offerSuggestion(*req, f, diff, stdout, stderr)
 		}
-		return 1
+		return exitChangelogRefused
 	}
 	fmt.Fprintf(stdout, "changelog: aprovado (%s): %s\n", verdict.Reason, verdict.Detail)
 	return 0
