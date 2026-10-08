@@ -1,5 +1,6 @@
 // The suggested changelog entry in the review's PR body: when the
-// repository requires an entry (changelog_check) and the pull request does
+// repository requires or suggests an entry (changelog_check mode required
+// or suggest) and the pull request does
 // not touch the changelog file at all, the body carries the same
 // ready-to-paste block the changelog check prints. The API diff is
 // windowed, so a present changelog file cannot be judged here; only the
@@ -18,7 +19,7 @@ import (
 // resolveChangelogSuggestion never fails the review: a missing source is a
 // stderr note and an omitted block.
 func (p *prReview) resolveChangelogSuggestion() (int, bool) {
-	if p.cfg == nil || !p.cfg.ChangelogCheck.Required() || p.diff == nil {
+	if p.cfg == nil || !p.cfg.ChangelogCheck.Active() || p.diff == nil {
 		return 0, false
 	}
 	req, err := changelogRequirement(p.cfg.ChangelogCheck)
@@ -42,7 +43,7 @@ func (p *prReview) resolveChangelogSuggestion() (int, bool) {
 	if s.Empty() {
 		return 0, false
 	}
-	p.changelogSuggestion = changelogSuggestionMarkdown(req, s.Source, redactSuggestion(p.filter, s.Block()), p.reviewLanguage)
+	p.changelogSuggestion = changelogSuggestionMarkdown(req, p.cfg.ChangelogCheck.EffectiveMode(), s.Source, redactSuggestion(p.filter, s.Block()), p.reviewLanguage)
 	return 0, false
 }
 

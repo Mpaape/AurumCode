@@ -1,6 +1,6 @@
-// The suggested changelog entry: when the required check refuses a pull
-// request because the entry is missing or useless, the check still fails,
-// but it offers the lines to paste. The configured model writes them from
+// The suggested changelog entry: when a pull request lacks a useful entry,
+// the required mode still fails and the suggest mode passes, and both offer
+// the lines to paste. The configured model writes them from
 // the changed paths and commit subjects; without a model (or with an
 // unusable answer) they come deterministically from the commit subjects.
 // The text is redacted once and the same string reaches every sink: the
@@ -15,6 +15,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/changelog"
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -64,10 +65,10 @@ func changelogProviderFromEnv() (llm.Provider, error) {
 	return p, err
 }
 
-// offerSuggestion prints the suggested entry for a refused check and
+// offerSuggestion prints the suggested entry for a missing or weak entry and
 // appends it to the job summary when one is configured. An indeterminate
 // verdict gets no suggestion: the file exists but could not be read.
-func (d changelogDeps) offerSuggestion(req changelog.Requirement, f *changelogFlags, diff *types.Diff, stdout, stderr io.Writer) {
+func (d changelogDeps) offerSuggestion(req changelog.Requirement, mode config.ChangelogMode, f *changelogFlags, diff *types.Diff, stdout, stderr io.Writer) {
 	commits, err := d.commits(f.repo, f.base, f.head)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode changelog: commits da PR indisponíveis para a sugestão: %v\n", err)
@@ -80,7 +81,7 @@ func (d changelogDeps) offerSuggestion(req changelog.Requirement, f *changelogFl
 	block := redactSuggestion(d.filter, s.Block())
 	fmt.Fprintf(stdout, "changelog: entrada sugerida (fonte: %s); cole na seção %s de %s:\n\n%s", s.Source, req.Section, req.File, block)
 	if path := strings.TrimSpace(os.Getenv(stepSummaryEnv)); path != "" {
-		if err := appendStepSummary(path, changelogSuggestionMarkdown(req, s.Source, block, changelogLogLanguage)); err != nil {
+		if err := appendStepSummary(path, changelogSuggestionMarkdown(req, mode, s.Source, block, changelogLogLanguage)); err != nil {
 			fmt.Fprintf(stderr, "aurumcode changelog: resumo do job não gravado: %v\n", err)
 		}
 	}
@@ -121,10 +122,14 @@ func redactSuggestion(filter *redaction.Filter, block string) string {
 
 // changelogSuggestionMarkdown is the block shown in the job summary and
 // the PR body: heading, how to use it, and the entry in a fenced block.
-func changelogSuggestionMarkdown(req changelog.Requirement, source, block, language string) string {
+func changelogSuggestionMarkdown(req changelog.Requirement, mode config.ChangelogMode, source, block, language string) string {
+	intro := "changelog.suggestion.intro"
+	if mode == config.ChangelogSuggest {
+		intro = "changelog.suggestion.intro_suggest"
+	}
 	var b strings.Builder
 	b.WriteString(i18n.Text(language, "changelog.suggestion.heading") + "\n\n")
-	b.WriteString(i18n.Format(language, "changelog.suggestion.intro", req.Section, req.File, source) + "\n\n")
+	b.WriteString(i18n.Format(language, intro, req.Section, req.File, source) + "\n\n")
 	b.WriteString("```markdown\n" + strings.TrimRight(block, "\n") + "\n```\n")
 	return b.String()
 }
