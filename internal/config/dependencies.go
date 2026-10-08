@@ -152,7 +152,9 @@ func (c *DependenciesConfig) Fails(severity string) bool {
 			threshold = r
 		}
 	}
-	return threshold > 0 && dependencySeverityRanks[sev] >= threshold
+	// No readable level in a declared fail_on (Validate refuses it; a value
+	// that bypassed it) fails closed rather than letting everything pass.
+	return threshold == 0 || dependencySeverityRanks[sev] >= threshold
 }
 
 // Validate refuses what would silently weaken the check: an unknown

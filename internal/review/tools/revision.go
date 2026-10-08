@@ -178,7 +178,10 @@ func (r *Revision) contained(full string) error {
 	return nil
 }
 
-// blobID is git's object id of a blob with content data.
+// blobID is git's object id of a blob with content data. SHA-1 here is
+// git's object format (the id `git ls-tree` prints), compared against the
+// reviewed tree to prove the bytes read are the bytes reviewed; it is an
+// identity, not a signature or a secret.
 func blobID(data []byte) string {
 	h := sha1.New()
 	h.Write([]byte("blob " + strconv.Itoa(len(data)) + "\x00"))
