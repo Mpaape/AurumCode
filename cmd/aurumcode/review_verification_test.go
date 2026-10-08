@@ -116,7 +116,7 @@ func TestVerificationDemotesRefutedModelFindingBeforeTheGate(t *testing.T) {
 	}
 	data, _ := os.ReadFile(audit)
 	if err := json.Unmarshal(data, &rec); err != nil || rec.Verdict != "comment" || len(rec.Verification) != 1 || !rec.Verification[0].Demoted || rec.Verification[0].Outcome != verify.OutcomeRefuted {
-		t.Fatalf("the audit must keep the refutation with its mark: %v %s", err, data)
+		t.Fatalf("the audit must keep the refutation with its mark: %v (%d records)", err, len(rec.Verification))
 	}
 }
 
