@@ -31,7 +31,7 @@ flowchart TD
 
 ### Changed
 
-- feature: repo-exemplo/mudanca (dbbcbf5d8679d59688058e59885ef12622826a99)
+- feature: repo-exemplo/mudanca (db52525821d9ab1132eec130ee86c8f006e8734d)
 
 ### Fixed
 
@@ -41,7 +41,7 @@ exit_code=0
 RESULTADO: o review publicou a sugestao de changelog sem decidir o merge
 $ aurumcode changelog --base main
 changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
-aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
 changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
+aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
 exit_code=1
 RESULTADO: a sugestao nao substitui a entrada: o check obrigatorio reprovou

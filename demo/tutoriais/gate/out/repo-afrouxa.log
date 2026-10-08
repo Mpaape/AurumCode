@@ -2,6 +2,7 @@
 --- so o repositorio: inconclusive warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
 ## Code Review Summary
 
@@ -20,7 +21,6 @@ Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully re
 - 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
-aurumcode review: policy gate: review inconclusive (partial_coverage)
 exit_code=0
 RESULTADO: o proprio repositorio aceita cobertura parcial como alerta
 --- com a politica (inconclusive block): o gate do repositorio e ignorado
