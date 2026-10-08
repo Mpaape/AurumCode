@@ -1,8 +1,6 @@
 == auditoria-reprovado
 $ aurumcode review --base main --politica /policy --modelo modelo-demo --auditoria /work/auditoria.json
 aurumcode review: reviewing with model "modelo-demo" (offline fixture provider)
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -26,6 +24,8 @@ app.go:6: [error] Credencial literal proibida pela politica da organizacao. (rul
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 exit_code=3
 RESULTADO: a revisao reprova e a auditoria e escrita mesmo assim
 --- campos da auditoria

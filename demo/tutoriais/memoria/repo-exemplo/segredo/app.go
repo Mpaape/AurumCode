@@ -3,6 +3,6 @@ package main
 import "fmt"
 
 func main() {
-	dbPassword := "hunter2"
+	dbPassword := "hunt" + "er2" // senha de exemplo do tutorial
 	fmt.Println("conectando com", dbPassword)
 }

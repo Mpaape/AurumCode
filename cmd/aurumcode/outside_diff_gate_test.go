@@ -13,8 +13,8 @@ import (
 // headed by its location, while the session approves and exits 0: it never
 // reached the threshold, the verdict or the policy gate (docs/specs/AUR-545.md).
 func TestOutsideDiffFindingNeverCountsForTheGate(t *testing.T) {
-	const token = "AUR545-OUTSIDE-DIFF"
-	response := strings.Replace(aur517Response(token, 1), `"severity": "warning"`, `"severity": "error"`, 1)
+	const marker = "AUR545-OUTSIDE-DIFF"
+	response := strings.Replace(aur517Response(marker, 1), `"severity": "warning"`, `"severity": "error"`, 1)
 	aur517Env(t, response)
 	server, posted := aur517Server(t)
 	aur517PREnv(t, server)
