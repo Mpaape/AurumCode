@@ -2,25 +2,16 @@
 
 ## Unreleased
 
-- Parecer da PR redesenhado: a decisão abre o comentário (Aprovado, Aprovado
-  com observações, Bloqueado ou Inconclusivo, num bloco de aviso do GitHub),
-  seguida de "Corrigir antes do merge", das observações em uma linha cada e do
-  resumo; pontos fortes, sugestões, CI, testes e limitações ficam recolhidos em
-  "Detalhes da revisão". Um parecer por PR: a rodada seguinte edita o anterior
-  e marca como resolvido o comentário de achado que não reencontrou. Só o que
-  bloqueia ganha comentário na linha. Todo achado do modelo passa pela
-  verificação contra o código (os bloqueantes primeiro); o refutado sai do
-  parecer e fica nos detalhes; sem revisão revisada, a verificação avisa uma
-  vez só. Achado do modelo que repete um scanner no mesmo trecho, categoria e
-  problema é publicado uma vez, sob a regra que o gate reconhece. A lista de
-  testes afetados vira uma contagem; prosa repetida entre partes da revisão é
-  removida; o aviso de cache do veredito fica só no stderr. O relatório do
-  terminal (`--base`) abre com a mesma decisão e a linha de fatos, sem o
-  resumo antigo nem o diagrama Mermaid.
-- Provedor reserva: `LLM_FALLBACK_<n>_PROVIDER`, `_BASE_URL`, `_API_KEY` e
-  `_MODEL` (até 5) declaram provedores tentados em ordem quando o principal
-  falha; cada troca aparece no stderr e, se todos falharem, a revisão falha
-  fechada nomeando cada erro. O workflow reutilizável aceita duas reservas.
+- Parecer da PR limpo: a decisão abre o comentário num bloco de aviso do
+  GitHub (Aprovado, Aprovado com observações, Bloqueado ou Inconclusivo),
+  lida do gate; "Corrigir antes do merge", observações em uma linha, resumo
+  e o resto recolhido em "Detalhes da revisão". Um parecer por PR, editado a
+  cada rodada; comentário na linha só para o que bloqueia; todo achado do
+  modelo verificado contra o código; eco de scanner publicado uma vez;
+  testes afetados contados; `--base` abre com a mesma decisão, sem Mermaid.
+- Provedor reserva: `LLM_FALLBACK_<n>_PROVIDER|_BASE_URL|_API_KEY|_MODEL`
+  (até 5) tentados em ordem quando o principal falha; troca anunciada; todos
+  falhando, a revisão falha fechada. Workflow reutilizável com duas reservas.
 - Status `aurumcode/review` e código de saída do `--pr` seguem o gate declarado:
   achado que o gate não reprova não é contado como grave.
 - Site: diagramas Mermaid renderizados localmente; a biblioteca é baixada no
