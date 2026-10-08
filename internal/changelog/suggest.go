@@ -30,20 +30,6 @@ type Suggestion struct {
 // Empty reports whether there is nothing to offer.
 func (s Suggestion) Empty() bool { return len(s.Lines) == 0 }
 
-// Block renders the suggestion as the Markdown a human pastes into the
-// changelog file: the section heading followed by one bullet per line.
-func (s Suggestion) Block() string {
-	if s.Empty() {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("## " + s.Section + "\n\n")
-	for _, l := range s.Lines {
-		b.WriteString(l + "\n")
-	}
-	return b.String()
-}
-
 // noiseSubjectPrefixes mark commits that carry no change information of
 // their own (merges, history rewrites).
 var noiseSubjectPrefixes = []string{"merge ", "fixup!", "squash!", "amend!", "revert \"revert"}
