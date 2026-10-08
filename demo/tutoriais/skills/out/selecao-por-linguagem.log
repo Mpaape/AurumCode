@@ -9,10 +9,6 @@ $ aurumcode review --base main
 
 sem gate declarado · 1 arquivo(s) revisado(s)
 
-### Resumo
-
-Revisao feita sem achados.
-
 ### Limitações da revisão
 
 - skill "estilo-ruim" (.aurumcode/skills/estilo-ruim): unknown language "linguagem-inexistente" in selector; it matches nothing (add an alias to .aurumcode/grammar/aliases.yml or use a grammar name)
@@ -30,10 +26,6 @@ $ aurumcode review --base main
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
 
 sem gate declarado · 1 arquivo(s) revisado(s)
-
-### Resumo
-
-Revisao feita sem achados.
 
 ### Limitações da revisão
 

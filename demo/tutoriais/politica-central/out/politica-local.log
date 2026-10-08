@@ -22,10 +22,6 @@ aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos n
 > **Bloqueado: 1 problema(s) precisam de correção antes do merge.**
 
 gate da política: reprovou · 1 arquivo(s) revisado(s)
-
-### Resumo
-
-Senha escrita no codigo.
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impacto: A senha vai para o historico do repositorio.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.

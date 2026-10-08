@@ -8,10 +8,6 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 
 policy gate: passed · 1 file(s) reviewed
 
-### Summary
-
-Nada a apontar.
-
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
   - notas.zzqx

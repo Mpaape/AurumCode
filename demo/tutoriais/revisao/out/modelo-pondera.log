@@ -7,10 +7,6 @@ aurumcode review: security pass applied 4 of 8 security rules (security/command-
 > **Blocked: 1 problem(s) must be fixed before merge.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-O modelo avaliou as duas evidencias deterministicas.
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.
   correlacao: E2
