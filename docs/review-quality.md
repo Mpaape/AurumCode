@@ -3,10 +3,11 @@
 O modelo recebe o diff, as linguagens detectadas e o contexto fornecido. Deve
 avaliar correção, compatibilidade, legibilidade, arquitetura, performance e
 segurança, reportando problemas introduzidos pela mudança.
-O review pede saída em modo JSON ao provedor compatível com OpenAI; o parser
-continua validando a estrutura e os achados antes da publicação. Isso evita
-depender apenas da instrução textual para formar JSON e não impõe teto de
-tokens à resposta. Respostas já válidas são analisadas como um objeto inteiro,
+O review pede saída estruturada ao provedor quando o perfil dele a oferece
+(`json_schema` ou `json_object`; veja [Provedores de LLM](provedores.md)); o
+parser continua validando a estrutura e os achados antes da publicação, inclusive
+quando o provedor não tem saída estruturada. Isso evita depender apenas da
+instrução textual para formar JSON. Respostas já válidas são analisadas como um objeto inteiro,
 mesmo quando contêm blocos de código em campos de texto.
 
 O filtro atual exige uma linha adicionada (`RIGHT`, numeração nova) ou removida
@@ -70,9 +71,15 @@ primárias, e nenhuma métrica de acurácia é inferida ou inventada aqui.
 
 ## Contexto e continuidade
 
-Prompts, skills, documentação e contexto de CI são fornecidos em cada chamada.
-A implementação atual não navega autonomamente por todo o repositório, não
-executa ferramentas pelo modelo e não busca documentação na web.
+Prompts, skills, documentação e contexto de CI são fornecidos em cada chamada;
+fontes MCP declaradas em `review.context.mcp` entram como dado não confiável
+com a origem `mcp:<name>/<tool>`. Com `deliberation.enabled: true`, o modelo
+pode pedir ferramentas dentro de limites: ler e buscar arquivos do repositório
+(`read_file`, `search_text`, `find_symbol`), o contexto de um arquivo alterado
+e scanners opcionais (veja
+[Deliberação](configuration.md#deliberacao-o-modelo-pede-ferramentas-dentro-de-limites)).
+Fora disso, o Aurum não navega livremente pelo repositório e não busca
+documentação na web.
 
 Em `review --pr`, o Aurum consulta as reviews, comentários inline, respostas e
 comentários gerais do próprio PR, com paginação. Preserva autor, IDs, commits,

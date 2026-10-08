@@ -14,7 +14,7 @@ Os blocos de configuração **são os arquivos de `demo/tutoriais/gate/`**, byte
 byte, e as saídas vêm de uma execução real registrada em
 `demo/tutoriais/gate/out/` (`run.sh --check` e `tests/acceptance/AUR-562.sh`
 conferem). Referência: [configuration.md, seção Gate](../configuration.md#gate-skills-viram-regra-citavel-e-a-politica-decide-o-que-reprova-aur-519)
-e [gate.sources](../configuration.md#gatesources-which-findings-count-toward-the-gate).
+e [gate.sources](../configuration.md#gatesources-quais-achados-contam-para-o-gate).
 
 ## Pré-requisitos
 

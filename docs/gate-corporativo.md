@@ -1,7 +1,7 @@
 # Gate corporativo: SAST, SBOM, inventário e assinatura
 
 Este guia mostra, com arquivos completos e uma demonstração executável, como
-uma organização obriga todo pull request a passar por quatro controles:
+uma organização obriga todo pull request a passar por cinco controles:
 
 | Controle | O que faz | Onde se configura |
 |---|---|---|
@@ -9,6 +9,7 @@ uma organização obriga todo pull request a passar por quatro controles:
 | SBOM | Trivy gera um CycloneDX do repositório | `quality_gates.ssor_dtrack.sbom_generator` |
 | Inventário | o SBOM vai para um OWASP Dependency-Track v5 e o gate lê as métricas do projeto | `quality_gates.ssor_dtrack` |
 | Assinatura | Cosign assina o SBOM (e imagens, se houver) | `quality_gates.supply_chain` |
+| Dependências | dependência nova ou alterada no PR conferida contra o OSV, pacote malicioso ou typosquat e licença proibida | `dependencies` |
 
 A referência de cada chave está em [configuration.md](configuration.md); aqui
 está o conjunto que funciona junto. Todo host, projeto e organização abaixo é

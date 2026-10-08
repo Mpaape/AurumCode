@@ -210,8 +210,7 @@ e no tutorial [Skills de convenção](tutorials/skills.md).
 ## 4. Fonte de contexto (`ContextProvider`)
 
 `config.ContextProvider` é a costura comum de todo contexto injetado na
-revisão: arquivos, skills, fontes MCP (`review.context.mcp`, AUR-469) e,
-no futuro, índices de repositório.
+revisão: arquivos, skills e fontes MCP (`review.context.mcp`, AUR-469).
 
 - `config.ContextProvider.Name` identifica a fonte no prompt e nos avisos.
 - `config.ContextProvider.Provide` recebe os caminhos alterados e devolve

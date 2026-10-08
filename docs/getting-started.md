@@ -178,7 +178,8 @@ de `aurumcode review` (veja acima) ou de um parecer publicado no PR.
 ## Ajuda por subcomando
 
 `aurumcode --help` lista todos os subcomandos, uma linha cada: `review`, `fix`,
-`sbom`, `sign`, `xbom`, `dependencies` e `mcp`. `aurumcode <subcomando> --help` imprime todas as flags
+`sbom`, `sign`, `xbom`, `dependencies`, `mcp`, `changelog` e `realimentacao`.
+`aurumcode <subcomando> --help` imprime todas as flags
 do subcomando (as mesmas que ele aceita: ajuda e parser leem o mesmo conjunto
 de flags) e um exemplo executável. A ajuda é gerada de um registro único de
 subcomandos, então um subcomando novo não existe sem uma linha de ajuda.

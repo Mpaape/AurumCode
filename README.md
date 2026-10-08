@@ -11,9 +11,11 @@ a análise determinística roda offline, sem nenhuma credencial.
 ## Comece aqui
 
 1. No repositório que receberá os reviews, configure os secrets de Actions
-   `LLM_API_KEY` e `LLM_BASE_URL` do seu serviço compatível com OpenAI. Se o
-   serviço exigir o identificador do modelo, adicione a variável de Actions
-   `LLM_MODEL`.
+   `LLM_API_KEY` e `LLM_BASE_URL` do seu provedor de modelo. Se o serviço
+   exigir o identificador do modelo, adicione a variável de Actions
+   `LLM_MODEL`. Para um provedor que não é compatível com OpenAI (Azure
+   OpenAI, Anthropic, Gemini, Bedrock e outros), escolha o perfil no input
+   `provider` do workflow; veja [Provedores de LLM](docs/provedores.md).
 2. Copie o [workflow pronto](docs/site/workflow.yml) para
    `.github/workflows/aurumcode.yml` no seu repositório. Ele usa a branch
    publicada `main`.
@@ -66,15 +68,42 @@ limitação real. O guia interativo reúne exemplos e saídas observadas.
   regras, severidade ou veredito.
 - **Custo sob controle** — `--limite` estima antes de chamar o modelo e recusa
   sem gastar nada. Limitação: a estimativa depende do preço configurado do modelo.
-- **Modelo agnóstico** — qualquer endpoint compatível com OpenAI, inclusive local.
-  Limitação: sem provedor, não há revisão de qualidade por IA.
+- **Modelo agnóstico** — qualquer endpoint compatível com OpenAI, inclusive
+  local, ou um perfil de provedor por `LLM_PROVIDER` (Azure OpenAI, Anthropic,
+  Gemini, Bedrock, LiteLLM, OpenRouter, OpenCode Zen, Ollama). Detalhes:
+  [Provedores de LLM](docs/provedores.md). Limitação: sem provedor, não há
+  revisão de qualidade por IA.
 - **Prompts, skills e docs do time** — `.aurumcode/prompt.md` e
-  `review.context` em [configuração](docs/configuration.md). Limitação: são
-  contexto para o modelo; não alteram permissões, redação de segredos nem
-  opções do programa.
+  `review.context` (inclusive fontes MCP em `review.context.mcp`) em
+  [configuração](docs/configuration.md). Limitação: são contexto para o
+  modelo; não alteram permissões, redação de segredos nem opções do programa.
+- **Gate de política e cadeia de suprimentos** — política central, gate por
+  severidade com exceções e auditoria SARIF, SAST com Semgrep, segredos com
+  gitleaks, SBOM, Dependency-Track, Cosign e xBOM. Guia:
+  [Guia corporativo](docs/gate-corporativo.md). Limitação: cada scanner
+  precisa estar disponível; um scanner que falha deixa o gate inconclusivo,
+  nunca aprovado.
+- **Verificação de dependências** — dependência nova ou alterada no PR
+  conferida contra o OSV, pacote malicioso ou typosquat, licença proibida e
+  `fail_on` próprio, com exceção por CVE; `aurumcode dependencies` faz a
+  varredura agendada do repositório inteiro. Referência:
+  [Dependências do PR](docs/configuration.md#dependencias-do-pr-dependencies).
+  Limitação: depende da base pública de advisories; sem resposta dela, o
+  resultado é inconclusivo.
+- **Changelog obrigatório** — `aurumcode changelog` reprova a PR sem entrada
+  em `## Unreleased`. Guia: [Changelog obrigatório](docs/changelog.md).
+  Limitação: confere a presença e a forma da entrada, não a qualidade do texto.
+- **Realimentação da política** — `aurumcode realimentacao` transforma sinais
+  de uso numa PR de propostas para a política. Tutorial:
+  [Realimentação](docs/tutorials/realimentacao.md). Limitação: só propõe; uma
+  pessoa revisa e integra a PR.
+- **No seu agente de código** — `aurumcode mcp`, servidor MCP local com o mesmo
+  gate do CI. Guia: [Aurum no seu agente](docs/agentes.md). Limitação: revisa
+  commits, não edições ainda não commitadas.
 
-Limitações atuais: não há navegação autônoma, busca web nem execução automática
-de testes em sandbox. Entre rodadas do mesmo PR, um achado já comentado não é
+Limitações atuais: o modelo só lê e busca arquivos do repositório por
+ferramentas com limites, quando `deliberation` está ligado; não há busca web
+nem execução automática de testes em sandbox. Entre rodadas do mesmo PR, um achado já comentado não é
 comentado de novo (identidade por regra, caminho e código da linha); um achado
 que o modelo descreve de outro jeito em outra regra é outro achado. PRs de forks não recebem os
 secrets do repositório por padrão. No CI, o histórico de discussão do PR exige
