@@ -24,8 +24,8 @@ RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 --- com gate.inconclusive: block
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-generated file, skipped: gerado.go
 aurumcode review: policy gate: review inconclusive (partial_coverage)
+generated file, skipped: gerado.go
 ## Code Review Summary
 
 **Verdict:** Changes requested
