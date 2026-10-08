@@ -187,7 +187,14 @@ coverage_rules=(security/command-injection security/hardcoded-secret security/sq
 # model's field and derives it from the findings, so a review with an error
 # finding now says so. Findings, order, mermaid and the coverage note are
 # byte-identical.
-readonly expected_with_provider_sha256='9c0f18c2fd611cd0efdf112c13d060790bfcfa59e88bed61ede1b11ff2ec48a0'
+# AUR-514: re-pinned from 9c0f18c2... Measured by diffing this command's
+# stdout on main (fffeef9e, old pin) against this branch: the ONLY difference
+# is four added lines under the hardcoded-secret finding (`  - Impact:`,
+# `  - Evidence:`, `  - Suggested fix:`, `  - Verify:`), the fixture's own
+# fields that printFindings now prints in `--base` (docs/specs/AUR-514.md
+# lines 20-21 and 39). Security section, order, mermaid and the coverage note
+# are byte-identical.
+readonly expected_with_provider_sha256='78b615f8759c8d00cc6026c41b9dee74e270c5e6e3f399337a6b160e33b7180a'
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its
