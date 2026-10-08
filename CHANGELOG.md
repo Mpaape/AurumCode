@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Documentação de configuração sem variável interna de teste na seção de
+  changelog.
 - Changelog obrigatório: ao reprovar, o check imprime a entrada sugerida
   (pelo modelo configurado ou pelos assuntos dos commits), redigida, no log,
   no resumo do job e no parecer do review, pronta para colar em Unreleased.

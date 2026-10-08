@@ -2245,7 +2245,7 @@ changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANG
 ```
 
 - Fonte `modelo`: o provedor configurado como no review (perfil
-  `LLM_PROVIDER`, `LLM_API_KEY`/`LLM_BASE_URL` ou `AURUMCODE_LLM_FIXTURE`)
+  `LLM_PROVIDER`, `LLM_API_KEY`/`LLM_BASE_URL`)
   recebe só os caminhos alterados e os assuntos dos commits, e responde
   `{"entry": ["linha", ...]}`. Cada linha passa pelas mesmas regras do check
   (marcadores de log de agente, `min_words`, `max_line_length`,
