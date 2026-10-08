@@ -181,25 +181,25 @@ nomeado. Uma exceção que um humano não assinou nunca é tratada como ausente.
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/excecoes/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/excecoes/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### excecao-do-repo-ignorada
 
 ![Terminal do caso excecao-do-repo-ignorada](../assets/capturas/excecoes/excecao-do-repo-ignorada-terminal.png)
 
-![Comentario do PR do caso excecao-do-repo-ignorada](../assets/capturas/excecoes/excecao-do-repo-ignorada-comentario.png)
+![Comentário do PR do caso excecao-do-repo-ignorada](../assets/capturas/excecoes/excecao-do-repo-ignorada-comentario.png)
 
 ### excecao-valida
 
 ![Terminal do caso excecao-valida](../assets/capturas/excecoes/excecao-valida-terminal.png)
 
-![Comentario do PR do caso excecao-valida](../assets/capturas/excecoes/excecao-valida-comentario.png)
+![Comentário do PR do caso excecao-valida](../assets/capturas/excecoes/excecao-valida-comentario.png)
 
 ### excecao-vencida
 
 ![Terminal do caso excecao-vencida](../assets/capturas/excecoes/excecao-vencida-terminal.png)
 
-![Comentario do PR do caso excecao-vencida](../assets/capturas/excecoes/excecao-vencida-comentario.png)
+![Comentário do PR do caso excecao-vencida](../assets/capturas/excecoes/excecao-vencida-comentario.png)
 
 ### falha-sem-dono
 
@@ -209,6 +209,6 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso nao-casa](../assets/capturas/excecoes/nao-casa-terminal.png)
 
-![Comentario do PR do caso nao-casa](../assets/capturas/excecoes/nao-casa-comentario.png)
+![Comentário do PR do caso nao-casa](../assets/capturas/excecoes/nao-casa-comentario.png)
 
 <!-- capturas:fim -->

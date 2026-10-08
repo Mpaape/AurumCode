@@ -162,25 +162,25 @@ O que observar: o erro lista os perfis válidos e nenhuma requisição sai.
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/provedores/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/provedores/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### anthropic
 
 ![Terminal do caso anthropic](../assets/capturas/provedores/anthropic-terminal.png)
 
-![Comentario do PR do caso anthropic](../assets/capturas/provedores/anthropic-comentario.png)
+![Comentário do PR do caso anthropic](../assets/capturas/provedores/anthropic-comentario.png)
 
 ### azure-openai
 
 ![Terminal do caso azure-openai](../assets/capturas/provedores/azure-openai-terminal.png)
 
-![Comentario do PR do caso azure-openai](../assets/capturas/provedores/azure-openai-comentario.png)
+![Comentário do PR do caso azure-openai](../assets/capturas/provedores/azure-openai-comentario.png)
 
 ### catalogo-do-operador
 
 ![Terminal do caso catalogo-do-operador](../assets/capturas/provedores/catalogo-do-operador-terminal.png)
 
-![Comentario do PR do caso catalogo-do-operador](../assets/capturas/provedores/catalogo-do-operador-comentario.png)
+![Comentário do PR do caso catalogo-do-operador](../assets/capturas/provedores/catalogo-do-operador-comentario.png)
 
 ### falha-fora-do-schema
 
@@ -194,6 +194,6 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso sem-perfil](../assets/capturas/provedores/sem-perfil-terminal.png)
 
-![Comentario do PR do caso sem-perfil](../assets/capturas/provedores/sem-perfil-comentario.png)
+![Comentário do PR do caso sem-perfil](../assets/capturas/provedores/sem-perfil-comentario.png)
 
 <!-- capturas:fim -->

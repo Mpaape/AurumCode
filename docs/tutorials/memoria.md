@@ -134,3 +134,34 @@ RESULTADO: o modo invalido foi relatado e a revisao seguiu sem memoria
 - A nota leva regra, arquivo e linha; o texto do achado passa pela redação.
 - O prompt apresenta a memória como observação não confiável, nunca como
   instrução.
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/memoria/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### desligada-nao-guarda
+
+![Terminal do caso desligada-nao-guarda](../assets/capturas/memoria/desligada-nao-guarda-terminal.png)
+
+![Comentário do PR do caso desligada-nao-guarda](../assets/capturas/memoria/desligada-nao-guarda-comentario.png)
+
+### falha-modo-invalido
+
+![Terminal do caso falha-modo-invalido](../assets/capturas/memoria/falha-modo-invalido-terminal.png)
+
+![Comentário do PR do caso falha-modo-invalido](../assets/capturas/memoria/falha-modo-invalido-comentario.png)
+
+### local-guarda-observacao
+
+![Terminal do caso local-guarda-observacao](../assets/capturas/memoria/local-guarda-observacao-terminal.png)
+
+![Comentário do PR do caso local-guarda-observacao](../assets/capturas/memoria/local-guarda-observacao-comentario.png)
+
+### segunda-rodada-le-a-memoria
+
+![Terminal do caso segunda-rodada-le-a-memoria](../assets/capturas/memoria/segunda-rodada-le-a-memoria-terminal.png)
+
+![Comentário do PR do caso segunda-rodada-le-a-memoria](../assets/capturas/memoria/segunda-rodada-le-a-memoria-comentario.png)
+
+<!-- capturas:fim -->
