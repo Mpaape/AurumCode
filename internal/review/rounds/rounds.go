@@ -37,10 +37,21 @@ func Marker(fingerprint, ruleID string) string {
 	return "<!-- aurumcode:finding " + fingerprint + " " + ruleID + " -->"
 }
 
+// ResolvedMarker is the hidden line a later round adds to a finding
+// comment it no longer reports. A comment carrying it was already told
+// resolved: its finding markers are not read again, so a resolved finding
+// is named once, not in every round after it.
+const ResolvedMarker = "<!-- aurumcode:resolved -->"
+
 // Comment is one earlier comment of the conversation, as the caller read it.
 // The caller passes only comments authored by the identity this product
 // publishes as: a marker from anyone else is never read.
 type Comment struct {
+	// ID and Kind identify the comment to the host ("inline" for a review
+	// line comment, "comment" for a general one), so a later round can edit
+	// it.
+	ID   int64
+	Kind string
 	Body string
 	Path string
 	Line int
@@ -49,27 +60,38 @@ type Comment struct {
 	Reply bool
 }
 
-// Previous is one finding an earlier round commented on.
+// Previous is one finding an earlier round commented on, with the comment
+// that carries it.
 type Previous struct {
 	Fingerprint string
 	RuleID      string
 	Path        string
 	Line        int
+	CommentID   int64
+	CommentKind string
+	CommentBody string
 }
 
 // Published lists the findings earlier rounds commented on, one per marker
-// found in a comment that is not a reply, in conversation order.
+// found in a comment that is not a reply and was not already told
+// resolved, in conversation order.
 func Published(comments []Comment) []Previous {
 	var out []Previous
 	for _, c := range comments {
-		if c.Reply {
+		if c.Reply || strings.Contains(c.Body, ResolvedMarker) {
 			continue
 		}
 		for _, m := range markerPattern.FindAllStringSubmatch(c.Body, -1) {
-			out = append(out, Previous{Fingerprint: m[1], RuleID: m[2], Path: c.Path, Line: c.Line})
+			out = append(out, Previous{Fingerprint: m[1], RuleID: m[2], Path: c.Path, Line: c.Line, CommentID: c.ID, CommentKind: c.Kind, CommentBody: c.Body})
 		}
 	}
 	return out
+}
+
+// Resolved is the edited body of a finding comment a later round no longer
+// reports: the note first, the original body, then the resolved marker.
+func Resolved(note, body string) string {
+	return note + "\n\n" + strings.TrimSpace(body) + "\n\n" + ResolvedMarker
 }
 
 // Plan is what a round publishes given what earlier rounds published.

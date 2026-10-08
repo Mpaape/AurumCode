@@ -1,23 +1,15 @@
 == anthropic
 $ LLM_PROVIDER=anthropic aurumcode review --base main
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
+no gate declared · 1 file(s) reviewed
 
-**Files touched:**
-- None
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["app.py"]
-
-```
+sem achados
 No issues found.
 --- requisicoes recebidas pelo provedor falso: 1
     provedor recebeu: /anthropic/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=ausente

@@ -66,13 +66,27 @@ aurum_pr() {
   echo "exit_code=$LAST_RC"
 }
 
+# tut_pr_log: o que o produto publicou, na ordem. Um status vira uma linha;
+# um comentario na linha, uma linha com o caminho; o parecer (review ou
+# comentario com o marcador) e impresso inteiro, como o leitor o ve no PR.
 tut_pr_log() { [ ! -s "$TUT_PR_LOG" ] || python3 -c '
 import json,sys
 for l in open(sys.argv[1]):
-    d=json.loads(l); c=d["corpo"]
-    if "/statuses/" in d["POST"]:
+    d=json.loads(l); c=d["corpo"]; metodo="POST" if "POST" in d else "PATCH"; rota=d[metodo]
+    if "/statuses/" in rota:
         print("status publicado: context=%s state=%s" % (c.get("context"), c.get("state")))
         print("  description: %s" % c.get("description"))
+        continue
+    corpo=c.get("body","")
+    if "<!-- aurumcode-review -->" in corpo:
+        print("parecer %s em %s:" % ("editado" if metodo=="PATCH" else "publicado", rota.split("/pulls/")[-1].split("/issues/")[-1]))
+        print(corpo.rstrip())
+        for com in c.get("comments",[]) or []:
+            print("comentario na linha %s:%s: %s" % (com.get("path"), com.get("line"), (com.get("body","").split("\n")[0])))
+    elif "path" in c:
+        print("comentario na linha %s:%s: %s" % (c.get("path"), c.get("line"), corpo.split("\n")[0]))
+    elif metodo == "PATCH":
+        print("comentario anterior editado (%s): %s" % (rota.rsplit("/", 1)[-1], corpo.split("\n")[0]))
     else:
-        print("publicado em %s" % d["POST"].split("/pulls/")[-1])
+        print("publicado em %s" % rota.split("/pulls/")[-1].split("/issues/")[-1])
 ' "$TUT_PR_LOG"; }

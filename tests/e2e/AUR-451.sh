@@ -295,7 +295,7 @@ log3="$run_dir/plain.log"
 start_fake write "$log3" "$run_dir/plain.url"
 run_review "$FAKE_URL" "$fixture_empty" "$sha1"
 [[ "$rc" -eq 0 ]] || fail "plain_wrong_exit:$rc"
-grep -Fq '0 comentario(s) publicado(s) no pull request #42 (0 na linha, 0 geral).' "$run_dir/out.stdout" \
+grep -Fq 'parecer publicado no pull request #42 (0 comentário(s) na linha).' "$run_dir/out.stdout" \
   || fail plain_missing_zero_count
 [[ "$(grep -c "^POST " "$log3")" -eq 1 ]] || fail plain_post_leaked
 if grep -q '^POST /repos/dono/projeto/pulls/42/comments ' "$log3"; then

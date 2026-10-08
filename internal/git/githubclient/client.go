@@ -700,6 +700,47 @@ func (c *Client) PostIssueComment(ctx context.Context, owner, repo string, numbe
 	return nil
 }
 
+// UpdateIssueComment replaces the body of a general pull request comment
+// this product published earlier (a new review round edits its parecer in
+// place instead of posting another one). It refuses with
+// ErrNoWritePermission when the token cannot write to the repository.
+func (c *Client) UpdateIssueComment(ctx context.Context, owner, repo string, commentID int64, body string) error {
+	return c.patchComment(ctx, owner, repo, fmt.Sprintf("%s/repos/%s/%s/issues/comments/%d", c.baseURL, owner, repo, commentID), body)
+}
+
+// UpdateReviewComment replaces the body of an inline review comment this
+// product published earlier (to mark it resolved in a later round).
+func (c *Client) UpdateReviewComment(ctx context.Context, owner, repo string, commentID int64, body string) error {
+	return c.patchComment(ctx, owner, repo, fmt.Sprintf("%s/repos/%s/%s/pulls/comments/%d", c.baseURL, owner, repo, commentID), body)
+}
+
+// patchComment is the PATCH both comment kinds share: GitHub answers 200
+// with the edited comment.
+func (c *Client) patchComment(ctx context.Context, owner, repo, url, body string) error {
+	if err := c.requireWritePermission(ctx, owner, repo); err != nil {
+		return err
+	}
+	jsonData, err := json.Marshal(map[string]string{"body": body})
+	if err != nil {
+		return fmt.Errorf("failed to marshal comment: %w", err)
+	}
+	req, err := http.NewRequest(http.MethodPatch, url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.doRequest(ctx, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
 // CommitStatus represents a commit status update
 type CommitStatus struct {
 	State       string `json:"state"`                 // "pending", "success", "error", or "failure"

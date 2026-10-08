@@ -4,24 +4,13 @@ aurumcode review: inconclusivo: limite de deliberação (deliberation_limit:max_
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [codebase_context]; não pedidas [scanner_semgrep, read_file, search_text, find_symbol, changed_file_diff]; rodadas 1; desfecho deliberation_limit:max_rounds
 aurumcode review: deliberation: rodada 1 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
 LLM quality review did not run. The following report covers deterministic analysis only.
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The model review did not complete. Only deterministic checks produced results; this review does not approve the change.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["calc.js"]
-
-```
+no gate declared · 1 file(s) reviewed
 exit_code=1
 RESULTADO: max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado
 auditoria gate: decision=inconclusive reason=review inconclusive (deliberation_limit:max_rounds)

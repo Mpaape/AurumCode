@@ -3,6 +3,7 @@ package review
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -56,12 +57,12 @@ func mergeResults(results []*types.ReviewResult) *types.ReviewResult {
 		if verdictRank[res.Verdict] > verdictRank[merged.Verdict] {
 			merged.Verdict = res.Verdict
 		}
-		merged.Strengths = append(merged.Strengths, res.Strengths...)
+		merged.Strengths = appendUnlike(merged.Strengths, res.Strengths...)
 		merged.Issues = append(merged.Issues, res.Issues...)
 		merged.Suggestions = append(merged.Suggestions, res.Suggestions...)
 		merged.CIAnalysis = append(merged.CIAnalysis, res.CIAnalysis...)
-		merged.TestPlan = append(merged.TestPlan, res.TestPlan...)
-		merged.Limitations = appendUnique(merged.Limitations, res.Limitations...)
+		merged.TestPlan = appendUnlike(merged.TestPlan, res.TestPlan...)
+		merged.Limitations = appendUnlike(merged.Limitations, res.Limitations...)
 		merged.LineComments = append(merged.LineComments, res.LineComments...)
 		merged.FileComments = append(merged.FileComments, res.FileComments...)
 		merged.EvidenceAssessments = append(merged.EvidenceAssessments, res.EvidenceAssessments...)
@@ -75,7 +76,7 @@ func mergeResults(results []*types.ReviewResult) *types.ReviewResult {
 			merged.OverallScore = res.OverallScore
 		}
 		if s := strings.TrimSpace(res.Summary); s != "" {
-			summaries = append(summaries, s)
+			summaries = appendUnlike(summaries, s)
 		}
 		mergeMetadata(merged.Metadata, res.Metadata)
 	}
@@ -156,4 +157,37 @@ func appendUnique(list []string, values ...string) []string {
 		}
 	}
 	return list
+}
+
+// appendUnlike appends the values whose opening words are not already in
+// list. Each batch writes its own prose, and two batches often say the
+// same thing in slightly different words ("the CI is green; no logs" twice):
+// the parecer keeps one.
+func appendUnlike(list []string, values ...string) []string {
+	seen := make(map[string]bool, len(list))
+	for _, v := range list {
+		seen[proseKey(v)] = true
+	}
+	for _, v := range values {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+		if key := proseKey(v); !seen[key] {
+			seen[key] = true
+			list = append(list, v)
+		}
+	}
+	return list
+}
+
+// proseKey is the first five words of a text, lowercased and stripped of
+// punctuation.
+func proseKey(text string) string {
+	words := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	if len(words) > 5 {
+		words = words[:5]
+	}
+	return strings.Join(words, " ")
 }

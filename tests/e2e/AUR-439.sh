@@ -341,10 +341,10 @@ status_posts="$(grep -c "^POST /repos/dono/projeto/statuses/$sha1 " "$log1" || t
 grep -F "POST /repos/dono/projeto/statuses/$sha1 " "$log1" | grep -Fq '"state":"failure"' \
   || fail wrong_state_reported_success
 # The finding is still published exactly like AUR-438 -- --check does not
-# suppress it. With no inline_comments config in this offline run it goes
-# out as a general comment; either publication shape satisfies the check
-# that --check did not swallow it.
-grep -Eq -- '-- publicado na linha|-- publicado como comentario geral' "$run_dir/out.stdout" \
+# suppress it. With no inline_comments config in this offline run it is
+# read in the parecer; either publication shape satisfies the check that
+# --check did not swallow it.
+grep -Eq -- '-- publicado na linha|-- no parecer' "$run_dir/out.stdout" \
   || fail grave_missing_comment
 grave_first_stdout="$(cat "$run_dir/out.stdout")"
 
@@ -375,7 +375,7 @@ log3="$run_dir/empty.log"
 start_fake write "$log3" "$run_dir/empty.url"
 run_check "$FAKE_URL" "token-sintetico-write" "$fixture_empty" "$sha1"
 [[ "$rc" -eq 0 ]] || fail "empty_wrong_exit:$rc"
-grep -Fq '0 comentario(s) publicado(s)' "$run_dir/out.stdout" || fail empty_missing_no_issues_line
+grep -Fq 'parecer publicado no pull request #42 (0 comentário(s) na linha).' "$run_dir/out.stdout" || fail empty_missing_no_issues_line
 grep -Fq "check \"aurumcode/review\" publicado no commit $sha1: success" "$run_dir/out.stdout" \
   || fail empty_missing_check_line
 # Two POSTs are expected: the summary review comment (always posted in the

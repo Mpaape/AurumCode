@@ -28,16 +28,26 @@ func TestOutsideDiffFindingNeverCountsForTheGate(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("an outside-diff finding counted for the gate: exit=%d\nstdout=%s\nstderr=%s\nposted=%s", code, stdout.String(), stderr.String(), body)
 	}
-	if !strings.Contains(body, "`app.go:1`") || !strings.Contains(body, "ReadAll ignores the error fetch returns") {
-		t.Fatalf("the proved outside-diff finding was not published as a general comment:\n%s", body)
+	if !strings.Contains(body, "`app.go:1`") || !strings.Contains(body, "ReadAll ignores the error fetch returns") || !strings.Contains(body, "outside the changed lines") {
+		t.Fatalf("the proved outside-diff finding was not listed among the observations of the parecer:\n%s", body)
 	}
 	if strings.Contains(body, `"path":"app.go"`) {
 		t.Fatalf("an outside-diff finding was anchored inline:\n%s", body)
 	}
-	if !strings.Contains(body, "**Verdict:** Approve") {
-		t.Fatalf("an outside-diff finding changed the verdict:\n%s", body)
+	if !strings.Contains(body, "[!NOTE]") || !strings.Contains(body, "Approved with 1 observation(s)") {
+		t.Fatalf("an outside-diff finding changed the decision:\n%s", body)
 	}
-	if !strings.Contains(stdout.String(), outsideDiffPublishedMarker) {
-		t.Fatalf("stdout does not report the general comment:\n%s", stdout.String())
+	if line := firstLineWith(stdout.String(), "app.go:1: [error] ReadAll ignores the error fetch returns"); !strings.HasSuffix(line, inParecerMarker) {
+		t.Fatalf("stdout does not report the finding read in the parecer:\n%s", stdout.String())
 	}
+}
+
+// firstLineWith is the first line of text containing needle, or "".
+func firstLineWith(text, needle string) string {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, needle) {
+			return line
+		}
+	}
+	return ""
 }

@@ -324,7 +324,7 @@ func TestAUR579VerdictFollowsTheGateAfterTriage(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit=%d; stderr=%s", code, errOut)
 	}
-	if strings.Contains(out, "Changes requested") || !strings.Contains(out, "**Verdict:** Comment") {
+	if strings.Contains(out, "[!CAUTION]") || !(strings.Contains(out, "[!NOTE]") || strings.Contains(out, "[!TIP]")) {
 		t.Fatalf("the gate passed after the triage; the report must not request changes:\n%s", out)
 	}
 	if gateAlignedVerdict("changes_requested", 0, &gateDecision{}) != "changes_requested" {

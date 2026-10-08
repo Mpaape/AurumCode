@@ -194,7 +194,11 @@ coverage_rules=(security/command-injection security/hardcoded-secret security/sq
 # fields that printFindings now prints in `--base` (docs/specs/AUR-514.md
 # lines 20-21 and 39). Security section, order, mermaid and the coverage note
 # are byte-identical.
-readonly expected_with_provider_sha256='78b615f8759c8d00cc6026c41b9dee74e270c5e6e3f399337a6b160e33b7180a'
+# Re-pinned for the parecer redesign (CHANGELOG, 2026-10-08): the report now
+# opens with the decision head (title, alert block, facts line, summary) in
+# place of the "Code Review Summary" block and the Mermaid diagram; the
+# finding lines, the security section and the coverage note are unchanged.
+readonly expected_with_provider_sha256='0f43f012eb5cfb1a823b2436498766c1f572a15acedfee7717fe704b5984b5a1'
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its

@@ -75,10 +75,10 @@ ac002() {
   grep -q 'src/calc.js:5: \[error\]' "$f" || fail "AC-002/linha-sast-nao-nomeada"
   grep -q 'policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0' "$f" || fail "AC-002/violacao-dtrack-nao-nomeada"
   grep -q 'componente=lodash versao=4.17.15' "$f" || fail "AC-002/componente-nao-nomeado"
-  grep -q 'Verdict:\*\* Changes requested' "$f" || fail "AC-002/veredito-reprovado-ausente"
+  grep -q '> \*\*Blocked: ' "$f" || fail "AC-002/veredito-reprovado-ausente"
   grep -q 'exit_code=3' "$f" || fail "AC-002/exit-reprovado-ausente"
-  if grep -q 'Verdict:\*\* Approve' "$f"; then fail "AC-002/fail-aprovado"; fi
-  grep -q 'Verdict:\*\* Approve' "$p" || fail "AC-002/pass-sem-aprovacao"
+  if grep -q '> \*\*Approved' "$f"; then fail "AC-002/fail-aprovado"; fi
+  grep -q '> \*\*Approved: ' "$p" || fail "AC-002/pass-sem-aprovacao"
   grep -q 'ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)' "$p" || fail "AC-002/pass-inventario-nao-aprovado"
   grep -q 'exit_code=0' "$p" || fail "AC-002/pass-exit"
   if grep -qi 'inconclus' "$p"; then fail "AC-002/pass-inconclusivo"; fi

@@ -1,11 +1,14 @@
 # Render integration
 
-`internal/render` turns a local review into a deterministic report:
+`internal/render` holds the deterministic renderings a review publishes
+beside the parecer:
 
-1. `render.Summary(result, "en")` (or `"pt-BR"`) gives a compact CLI summary.
-2. `render.Mermaid(diff)` gives an optional local diagram inferred from changed
-   files. It is not proof of runtime flow.
+1. `render.AuditRecord` and `render.SARIF*` write the audit record and the
+   SARIF report of a run.
+2. `render.FindingIdentityFor` / `render.FindingFingerprint` give a finding
+   the identity rounds and caches recognize it by.
 
-The GitHub PR publication uses one code-review body with findings, evidence,
-suggestions and limitations. It does not prepend the CLI summary or append the
-inferred diagram.
+The parecer itself (the decision headline, what to fix, the observations,
+the summary and the collapsed details) is rendered by `cmd/aurumcode`
+(`pr_summary_format.go`); the terminal report of `--base` opens with the
+same head.

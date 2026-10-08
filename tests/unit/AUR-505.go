@@ -38,6 +38,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -174,17 +175,29 @@ func readAllString(r *http.Request) (string, error) {
 
 func (f *aur505Fake) joinedPosts() string { return strings.Join(f.posts, "\n") }
 
+// findingComments are the findings the parecer lists, one line each, read
+// from the published review body (the parecer redesign of 2026-10-08
+// lists every finding there; only a blocking one on a changed line may
+// also get a comment of its own). A line starts with the location in
+// backticks: "- **`app.go:3`** — ..." for what blocks, "- `app.go:3` — ..."
+// for an observation.
 func (f *aur505Fake) findingComments() []string {
 	var out []string
 	for _, p := range f.posts {
-		// A published finding comment names a [severity] and is not the
-		// review summary (which starts with the HTML marker).
-		if strings.Contains(p, "**[") && !strings.Contains(p, "aurumcode-review") {
-			out = append(out, p)
+		if !strings.Contains(p, "aurumcode-review") {
+			continue
+		}
+		for _, line := range strings.Split(strings.ReplaceAll(p, "\\n", "\n"), "\n") {
+			if aur505FindingLine.MatchString(line) {
+				out = append(out, line)
+			}
 		}
 	}
 	return out
 }
+
+// aur505FindingLine matches one finding line of the parecer.
+var aur505FindingLine = regexp.MustCompile("^- (\\*\\*)?`[^`]+:[0-9]+`")
 
 func aur505WriteFixture(t *testing.T, content string) string {
 	t.Helper()
@@ -295,7 +308,7 @@ func TestAUR505(t *testing.T) {
 		if !strings.Contains(posts, "Quality review inconclusive") {
 			t.Fatalf("declared limitation missing on the clean deterministic run; POSTs:\n%s", posts)
 		}
-		if !strings.Contains(posts, "**Verdict:** Inconclusive") || strings.Contains(posts, "**Verdict:** Approve") {
+		if !strings.Contains(posts, "**Inconclusive") || strings.Contains(posts, "[!TIP]") {
 			t.Fatalf("degraded quality review falsely claimed approval; POSTs:\n%s", posts)
 		}
 	})

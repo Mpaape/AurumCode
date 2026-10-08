@@ -429,16 +429,18 @@ func TestFormatReviewSummaryIsAReviewNotAnExecutionTranscript(t *testing.T) {
 	t.Logf("generated review comment:\n%s", comment)
 	for _, want := range []string{
 		"## AurumCode code review",
-		"**Verdict:** Changes requested",
-		"### Strengths",
-		"### Findings",
-		"### Suggestions",
-		"### CI status",
+		"[!CAUTION]",
+		"Blocked: 1 problem(s)",
+		"### Fix before merge",
+		"<details>",
+		"#### Strengths",
+		"#### Suggestions",
+		"#### CI status",
 		"Cause:",
 		"Proposed implementation:",
 		"Rationale:",
-		"### Tests",
-		"### Review limits",
+		"#### Tests",
+		"#### Review limits",
 	} {
 		if !strings.Contains(comment, want) {
 			t.Errorf("summary missing %q:\n%s", want, comment)
@@ -463,7 +465,7 @@ func TestFormatReviewSummaryUsesFilteredResult(t *testing.T) {
 		Suggestions: []types.ReviewSuggestion{{Title: ""}},
 	}
 	comment := formatReviewSummary(result)
-	if !strings.Contains(comment, "**Verdict:** Approve") {
+	if !strings.Contains(comment, "[!TIP]") {
 		t.Fatalf("expected an all-clear result to approve, got:\n%s", comment)
 	}
 	if strings.Contains(comment, result.Summary) {
@@ -526,12 +528,12 @@ func TestIncompleteQualityReviewNeverClaimsApproval(t *testing.T) {
 		Limitations: []string{modelInvalidOutputNotice("pt-BR", "validation_failed")},
 	}
 	body := formatPublishedReviewBody(result, &types.Diff{}, "pt-BR", false, "")
-	for _, want := range []string{"**Veredito:** Inconclusivo", "este parecer não aprova a mudança", "Revisão de qualidade inconclusiva"} {
+	for _, want := range []string{"[!WARNING]", "Inconclusivo: esta revisão não aprova a mudança", "este parecer não aprova a mudança", "Revisão de qualidade inconclusiva"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q in:\n%s", want, body)
 		}
 	}
-	for _, unwanted := range []string{"**Veredito:** Aprovado", "Nenhum achado bloqueante foi identificado na mudança revisada"} {
+	for _, unwanted := range []string{"[!TIP]", "Nenhum achado bloqueante foi identificado na mudança revisada"} {
 		if strings.Contains(body, unwanted) {
 			t.Errorf("false approval %q in:\n%s", unwanted, body)
 		}
@@ -590,13 +592,13 @@ func TestFormatReviewSummaryUsesConfiguredLanguage(t *testing.T) {
 	comment := formatReviewSummaryForLanguage(result, "pt-BR")
 	for _, want := range []string{
 		"## AurumCode revisão de código",
-		"**Veredito:** Alterações solicitadas",
-		"### Achados",
+		"Bloqueado: 1 problema(s)",
+		"### Corrigir antes do merge",
 		"Impacto:",
 		"Evidência:",
 		"Correção sugerida:",
 		"Verificação:",
-		"### Status do CI",
+		"#### Status do CI",
 		"Causa:",
 	} {
 		if !strings.Contains(comment, want) {

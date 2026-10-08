@@ -200,8 +200,8 @@ func IntegrationAUR448(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("expected exit 0, got %d\nstdout=%s\nstderr=%s", code, stdout, stderr)
 		}
-		// AUR-490 prepends the summary/diagram block to every review, so the
-		// finding is the last line after the diagram, and the only one.
+		// The report head (decision, facts, summary) precedes every review,
+		// so the finding is the last line after it, and the only one.
 		// AUR-514 (docs/specs/AUR-514.md lines 20-21 and 39): printFindings in
 		// `--base` now prints the fixture's impact/evidence/fix/verification
 		// under the finding line; still pinned byte-for-byte.
@@ -210,8 +210,8 @@ func IntegrationAUR448(t *testing.T) {
 			"  - Evidence: The added line assigns DEMO_API_TOKEN to a literal value in config/demo-tokens.txt.\n" +
 			"  - Suggested fix: Remove the secret from version control and load it from the environment instead.\n" +
 			"  - Verify: Remove the literal and rerun the review fixture; the finding should disappear."
-		if got := aur448AfterDiagram(stdout); got != wantFinding {
-			t.Fatalf("stdout regressed on the zero-discard path:\ngot after the diagram: %q\nwant: %q", got, wantFinding)
+		if got := aur448AfterHead(stdout); got != wantFinding {
+			t.Fatalf("stdout regressed on the zero-discard path:\ngot after the head: %q\nwant: %q", got, wantFinding)
 		}
 		if stderr != "" {
 			t.Fatalf("expected zero bytes on stderr when nothing was discarded, got:\n%q", stderr)
@@ -265,8 +265,8 @@ func IntegrationAUR448(t *testing.T) {
 		// This is the exact defect the card's Outcome exists to fix: before
 		// AUR-448, this run produced "No issues found." with NOTHING on
 		// stderr, indistinguishable from a genuinely clean review.
-		if got := aur448AfterDiagram(stdout); got != "No issues found." {
-			t.Fatalf("expected the unchanged AUR-430/AUR-434 no-findings output after the diagram, got: %q", got)
+		if got := aur448AfterHead(stdout); got != "No issues found." {
+			t.Fatalf("expected the unchanged AUR-430/AUR-434 no-findings output after the head, got: %q", got)
 		}
 		wantStderr := "aurumcode review: 1 finding(s) discarded: 1 with no rule_id\n"
 		if stderr != wantStderr {
@@ -275,13 +275,26 @@ func IntegrationAUR448(t *testing.T) {
 	})
 }
 
-// aur448AfterDiagram is everything stdout carries after the closing fence of
-// the AUR-490 summary/diagram block, trimmed: the review's own findings (or
-// "No issues found."), compared whole so no leaked line can hide there.
-func aur448AfterDiagram(stdout string) string {
-	const fence = "```\n"
-	if i := strings.LastIndex(stdout, fence); i >= 0 {
-		stdout = stdout[i+len(fence):]
+// aur448AfterHead is everything stdout carries after the report head (the
+// decision block, the facts line that names the gate and, when the model
+// wrote one, the one-line summary of these fixtures), trimmed: the
+// review's own findings (or "No issues found."), compared whole so no
+// leaked line can hide there. The parecer redesign (CHANGELOG, 2026-10-08)
+// put that head where the summary/diagram block used to be.
+func aur448AfterHead(stdout string) string {
+	lines := strings.Split(stdout, "\n")
+	start := 0
+	for i, line := range lines {
+		if strings.HasPrefix(line, "no gate declared") || strings.HasPrefix(line, "policy gate: ") {
+			start = i + 1
+		}
 	}
-	return strings.TrimSpace(stdout)
+	rest := strings.TrimLeft(strings.Join(lines[start:], "\n"), "\n")
+	if strings.HasPrefix(rest, "### Summary\n\n") {
+		rest = strings.TrimPrefix(rest, "### Summary\n\n")
+		if i := strings.Index(rest, "\n"); i >= 0 {
+			rest = rest[i+1:]
+		}
+	}
+	return strings.TrimSpace(rest)
 }

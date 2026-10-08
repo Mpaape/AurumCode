@@ -1,42 +1,15 @@
 == repo-poliglota
 $ aurumcode review --base main
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
+no gate declared · 8 file(s) reviewed
 
-**Files touched:**
-- None
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0[".github/workflows/ci.yml"]
-    n1["Dockerfile"]
-    n2["greeter.php"]
-    n3["greeter.rb"]
-    n4["infra.tf"]
-    n5["src/csharp/Greeter.cs"]
-    n6["src/main/java/demo/Greeter.java"]
-    n7["src/main/kotlin/Greeter.kt"]
-    n2 --> n5
-    n2 --> n6
-    n2 --> n7
-    n3 --> n5
-    n3 --> n6
-    n3 --> n7
-    n5 --> n6
-    n5 --> n7
-    n6 --> n5
-    n6 --> n7
-    n7 --> n5
-    n7 --> n6
-
-```
+Nada a apontar.
 No issues found.
 exit_code=0
 RESULTADO: revisao do repositorio poliglota concluida
