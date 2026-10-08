@@ -148,7 +148,13 @@ func (c *DependenciesConfig) Fails(severity string) bool {
 	}
 	threshold := 0
 	for _, level := range c.FailOn {
-		if r := dependencySeverityRanks[NormalizeDependencySeverity(level)]; r > 0 && (threshold == 0 || r < threshold) {
+		r := dependencySeverityRanks[NormalizeDependencySeverity(level)]
+		if r == 0 {
+			// An unreadable level in a declared fail_on (Validate refuses
+			// it; a value that bypassed it) fails closed: doubt never passes.
+			return true
+		}
+		if threshold == 0 || r < threshold {
 			threshold = r
 		}
 	}
