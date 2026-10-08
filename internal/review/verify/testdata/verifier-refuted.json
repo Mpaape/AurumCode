@@ -1,0 +1,1 @@
+{"verdict":"refuted","reason":"o método Validate de BatchesConfig começa com a guarda de nil e retorna nil","quote":"func (b *BatchesConfig) Validate() error {\n\tif b == nil {\n\t\treturn nil\n\t}"}

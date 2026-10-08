@@ -153,6 +153,7 @@ func (s *reviewState) inconclusiveReason() string {
 // replace the filter and the writers (a secret learned mid-run); everything
 // after the gate writes through them.
 func (s *reviewState) runGate() (int, bool) {
+	s.verifyModelFindings()
 	run := s.run
 	run.Ctx, run.Cfg, run.Diff, run.Review = s.ctx, s.cfg, s.diff, s.result
 	run.Extra, run.Security, run.Language = s.securityApart(), s.securityFindings, s.reviewLanguage
@@ -281,4 +282,20 @@ func (s *reviewState) blockingRule() blocking.Rule {
 		return blocking.Ungated()
 	}
 	return blocking.FromGate(s.cfg.Gate.Declared(), *s.gateRes)
+}
+
+// modelFindingBlocks reports whether the model's issue, alone, would block
+// this run: at or above --fail-on, failing the declared gate (its own
+// decision over the issue, exceptions included), or an error or warning
+// when no gate is declared. Only such findings are verified.
+func (s *reviewState) modelFindingBlocks(issue types.ReviewIssue) bool {
+	if s.threshold > 0 && severityRank(issue.Severity) >= s.threshold {
+		return true
+	}
+	if s.cfg == nil || !s.cfg.Gate.Declared() {
+		return blocking.Ungated().Blocks(issue)
+	}
+	res, err := gate.EvaluateGate(s.cfg.Gate, acceptedGateOrigin(s.centralCfg != nil), s.dynamicRules,
+		[]types.ReviewIssue{issue}, "", s.cfg.Exceptions, s.repoIdentity, s.deps.clock())
+	return err != nil || res.Fail
 }
