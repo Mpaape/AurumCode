@@ -175,7 +175,7 @@ function htmlStatus(itens) {
 
 // ------------------------------------------------------------ "Como fica"
 
-const LEGENDA = { terminal: "Terminal", comentario: "Comentario do PR", status: "Status checks" };
+const LEGENDA = { terminal: "Terminal", comentario: "Comentário do PR", status: "Status checks" };
 
 function vistasDoCaso(t, c) {
   const texto = log(t, c);
@@ -187,7 +187,7 @@ function vistasDoCaso(t, c) {
 
 function secao(t) {
   const linhas = [INICIO, "## Como fica", "",
-    `Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/${t}/out/: ` +
+    `Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/${t}/out/: ` +
     "o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. " +
     "O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.", ""];
   for (const c of casos(t)) {
