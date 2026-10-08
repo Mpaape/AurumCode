@@ -323,10 +323,19 @@ func TestAUR602AC005FirstIntroductionOfTheChecker(t *testing.T) {
 }
 
 // aur602WorkflowRun extracts the run script of the check step from the
-// changelog workflow. A missing workflow fails the test, never skips it.
+// changelog workflow. A missing workflow fails the test; only an explicit
+// module-only acceptance (AURUMCODE_MODULE_ONLY=1) skips it.
 func aur602WorkflowRun(t *testing.T) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "changelog.yml"))
+	root := filepath.Join("..", "..")
+	skip, err := manifestCheckSkipped(root, os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skip {
+		t.Skip("AURUMCODE_MODULE_ONLY=1: the acceptance staged only the Go module")
+	}
+	data, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "changelog.yml"))
 	if err != nil {
 		t.Fatalf("changelog workflow unreadable: %v", err)
 	}

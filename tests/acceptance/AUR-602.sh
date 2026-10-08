@@ -40,6 +40,8 @@ repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 : "${GOCACHE:=$(mktemp -d)}"
 export GOCACHE
+# AC-005 executes the staged workflow; a module-only skip would prove nothing.
+unset AURUMCODE_MODULE_ONLY
 
 work="$(mktemp -d)"
 trap 'chmod -R u+w -- "$work" 2>/dev/null || true; rm -rf -- "$work"' EXIT

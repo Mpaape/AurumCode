@@ -7,10 +7,11 @@ pull requests pelo `CHANGELOG.md`: a entrada útil em `Unreleased` passa; a
 consolidação de uma release com resumo passa; a sugestão do review continua
 separada e não decide o merge; a PR que tenta desligar o modo no próprio
 `config.yml` continua sujeita a ele; log de agente colado no changelog é
-recusado; e a PR sem entrada reprova.
+recusado; a PR sem entrada reprova; e, ao reprovar, o check traz a entrada
+sugerida, pronta para colar.
 
-O check é determinístico: compara o arquivo da base (`main`) com o da PR
-(`feature`) e não chama modelo. A referência completa está em
+O veredito é determinístico: compara o arquivo da base (`main`) com o da PR
+(`feature`); o modelo só escreve a sugestão, nunca aprova nem reprova. A referência completa está em
 [Changelog obrigatório](../configuration.md#changelog-obrigatorio-aur-509) e o
 guia de escrita em [Changelog obrigatório](../changelog.md).
 
@@ -23,11 +24,11 @@ configuração **são os arquivos de `demo/tutoriais/changelog/`**, byte a byte.
 - `git`, `docker`, `bash` e `python3`. Nada mais roda no seu host.
 - A imagem do produto, construída do `Dockerfile` da raiz.
 - Rede **não** é necessária: a demonstração roda com `--network none` e com o
-  provedor de modelo falso (`AURUMCODE_LLM_FIXTURE`), usado só pelo caso da
-  sugestão do review.
+  provedor de modelo falso (`AURUMCODE_LLM_FIXTURE`), que serve a sugestão do
+  review (caso 3) e a entrada sugerida (caso 6).
 
 ```bash
-bash demo/tutoriais/changelog/run.sh all      # seis casos; grava out/
+bash demo/tutoriais/changelog/run.sh all      # sete casos; grava out/
 bash demo/tutoriais/changelog/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -201,6 +202,33 @@ exit_code=1
 RESULTADO: sem entrada no CHANGELOG.md o check reprova
 ```
 
+## Caso 6: a entrada sugerida, pronta para colar
+
+A mesma PR sem entrada continua reprovada, mas o check imprime a entrada
+sugerida pelo modelo configurado. O modelo recebe só os caminhos alterados e
+os assuntos dos commits e responde neste formato (aqui, o modelo falso):
+
+<!-- arquivo: demo/tutoriais/changelog/fixture-sugestao.json -->
+```json
+{"entry": ["O relatório aceita filtro por período (início e fim)."]}
+```
+
+<!-- saida: sugestao-da-entrada -->
+```text
+$ aurumcode changelog --base main
+changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
+changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
+## Unreleased
+- O relatório aceita filtro por período (início e fim).
+exit_code=1
+RESULTADO: o check reprovou e trouxe a entrada sugerida pelo modelo, pronta para colar
+```
+
+Sem modelo, a sugestão vem dos assuntos dos commits (fonte `commits`), sem
+merges, `fixup!` nem linhas de log de agente. No GitHub, o mesmo bloco vai
+para o resumo do job e, quando o review roda na PR, para o parecer do
+AurumCode. O texto é redigido antes de sair; colar continua sendo do humano.
+
 ## Problemas comuns
 
 - `indeterminado: não foi possível obter o diff`: a base não está no clone.
@@ -215,7 +243,7 @@ RESULTADO: sem entrada no CHANGELOG.md o check reprova
 ## O que conferir
 
 - Nenhum caso chama o modelo para decidir: o provedor falso só serve a
-  sugestão do caso 3.
+  sugestão do caso 3 e a entrada sugerida do caso 6.
 - O texto da entrada não aparece na saída do check: ele é contado, nunca
   repetido nem obedecido.
 
