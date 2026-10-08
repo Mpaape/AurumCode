@@ -3,6 +3,7 @@
 $ aurumcode review --base main --politica /policy --auditoria /work/nao-existe/auditoria.json
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: audit_write_failed: /work/nao-existe/auditoria.json: open /work/nao-existe/auditoria.json: no such file or directory
+aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao-existe/auditoria.json (audit_write_failed): open /work/nao-existe/auditoria.json: no such file or directory
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -22,7 +23,6 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: audit_write_failed
-aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao-existe/auditoria.json (audit_write_failed): open /work/nao-existe/auditoria.json: no such file or directory
 exit_code=1
 RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao existe
 o arquivo de auditoria nao existe

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Status `aurumcode/review` e código de saída do `--pr` seguem o gate declarado:
+  achado que o gate não reprova não é contado como grave.
 - Site: diagramas Mermaid renderizados localmente; a biblioteca é baixada no
   build com versão e sha256 fixos, sem ser versionada.
 - Changelog: `changelog_check.mode: suggest` só sugere a entrada no parecer da
