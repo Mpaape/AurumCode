@@ -115,7 +115,8 @@ nao_medido() {
 instala() {
   cp -R "$here/fixtures/$1/." .
   mkdir -p .github/workflows
-  sed "s/AURUMCODE_SHA/$sha/g" "$here/workflows/$2" > .github/workflows/aurumcode.yml
+  # O exemplo pina um SHA zero de 40 hex (placeholder) que vira o SHA medido.
+  sed "s/@0000000000000000000000000000000000000000/@$sha/g" "$here/workflows/$2" > .github/workflows/aurumcode.yml
   git add -A
   git commit -q -m "QA AUR-512: $1 com $2"
 }
