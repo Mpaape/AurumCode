@@ -119,7 +119,7 @@ func TestAUR490LocalRender(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%s", code, errOut)
 	}
-	for _, want := range []string{"## Code Review Summary", "```mermaid\nflowchart TD", `app.go`, "deterministic analysis only"} {
+	for _, want := range []string{"## AurumCode code review", "> [!", `app.go`, "deterministic analysis only"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in %s", want, out)
 		}

@@ -55,11 +55,11 @@ import (
 // behind.
 const VerdictCachePath = "aur524-gate-verdict"
 
-// VerdictCacheUnavailableNotice is AC-004's own declaration: without a
-// persistent cache directory, this run's gate verdict cannot be shared
-// with a later run, and could not have reused an earlier one either. The
-// run still proceeds -- a missing cache is never a correctness gate here
-// any more than it is for AUR-441's own cache.
+// VerdictCacheUnavailableNotice is AC-004's own declaration, on stderr:
+// without a persistent cache directory, this run's gate verdict cannot be
+// shared with a later run, and could not have reused an earlier one
+// either. The run still proceeds -- a missing cache is never a correctness
+// gate here any more than it is for AUR-441's own cache.
 const VerdictCacheUnavailableNotice = "gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either"
 
 // VerdictCacheAvailable is AC-004's gate: this card's reuse is only
@@ -233,8 +233,9 @@ func ReuseOrStoreGateVerdict(stderr io.Writer, limitations *[]string, gateDeclar
 		return currentIssues
 	}
 	if !VerdictCacheAvailable() {
+		// An operator note: said on stderr, never in the parecer, whose
+		// reader cannot act on a cache directory of the runner.
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", VerdictCacheUnavailableNotice)
-		*limitations = append(*limitations, VerdictCacheUnavailableNotice)
 		return currentIssues
 	}
 	if !promptDigestOK {

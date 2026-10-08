@@ -125,7 +125,7 @@ want_happy_tail="$(printf '%s\n' "$want_happy_tail" \
   '  - Suggested fix: Remove the secret from version control and load it from the environment instead.' \
   '  - Verify: Remove the literal and rerun the review fixture; the finding should disappear.')"
 [[ "$(tail -n5 "$run_dir/out.stdout")" == "$want_happy_tail" ]] || fail happy_path_stdout_regressed
-grep -Fq '```mermaid' "$run_dir/out.stdout" || fail happy_path_missing_summary_block
+grep -Fq '> [!' "$run_dir/out.stdout" || fail happy_path_missing_summary_block
 [[ ! -s "$run_dir/out.stderr" ]] || fail "happy_path_stderr_not_empty:$(cat "$run_dir/out.stderr")"
 # A reviewer found that tail -n1 alone lets an EXTRA, undetected finding
 # line leak earlier in stdout (a second planted finding before the real

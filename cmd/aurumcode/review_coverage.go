@@ -153,7 +153,7 @@ func dedupePaths(paths []string) []string {
 // switching to an explicit count, mirroring internal/prompt's
 // maxOmittedBullets: the notice stays a bounded size no matter how large the
 // diff is.
-const maxCoveragePaths = 20
+const maxCoveragePaths = 10
 
 // writeCoveragePaths appends up to maxCoveragePaths of paths as sub-bullets,
 // then a "and N more" line. Paths are repository paths from the diff/config,

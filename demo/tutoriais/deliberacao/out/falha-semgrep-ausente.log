@@ -4,24 +4,17 @@ aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, r
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) failed: varredura inconclusiva (sast_unavailable)
 aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_unavailable); no Semgrep finding was published for this run. Engine detail: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH
 aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_unavailable) [detalhe: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH]
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
+no gate declared · 1 file(s) reviewed
 
-**Files touched:**
-- None
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["calc.js"]
-
-```
+A varredura pedida nao concluiu.
 
 ### Suggestions
 

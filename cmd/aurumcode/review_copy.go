@@ -34,6 +34,13 @@ type reviewCopy struct {
 	// scope/evidence or rule gate discarded one of its proposed findings
 	// (AC-001/N3a): the omission must be visible, never silent.
 	summaryWithheld string
+	// The headline* texts are the one-line decision of the parecer, read
+	// from the blocking rule; the facts* texts are the line under it; the
+	// section names below head what to fix, what only to note, and the
+	// collapsed details.
+	headlineBlocked, headlineInconclusive, headlineObservations, headlineApproved string
+	factsGatePassed, factsGateFailed, factsNoGate, factsFiles, factsParts         string
+	fixBeforeMerge, observations, outsideDiffLabel, details, affectedTests        string
 }
 
 // reviewCopyFor reads the review's texts for language from the catalog.
@@ -90,5 +97,19 @@ func reviewCopyFor(language string) reviewCopy {
 		coverageFiltered:        i18n.Text(language, "review.coverage_filtered"),
 		coverageNoStructure:     i18n.Text(language, "review.coverage_no_structure"),
 		summaryWithheld:         i18n.Text(language, "review.summary_withheld"),
+		headlineBlocked:         i18n.Text(language, "review.headline_blocked"),
+		headlineInconclusive:    i18n.Text(language, "review.headline_inconclusive"),
+		headlineObservations:    i18n.Text(language, "review.headline_observations"),
+		headlineApproved:        i18n.Text(language, "review.headline_approved"),
+		factsGatePassed:         i18n.Text(language, "review.facts_gate_passed"),
+		factsGateFailed:         i18n.Text(language, "review.facts_gate_failed"),
+		factsNoGate:             i18n.Text(language, "review.facts_no_gate"),
+		factsFiles:              i18n.Text(language, "review.facts_files"),
+		factsParts:              i18n.Text(language, "review.facts_parts"),
+		fixBeforeMerge:          i18n.Text(language, "review.fix_before_merge"),
+		observations:            i18n.Text(language, "review.observations"),
+		outsideDiffLabel:        i18n.Text(language, "review.outside_diff_label"),
+		details:                 i18n.Text(language, "review.details"),
+		affectedTests:           i18n.Text(language, "review.affected_tests"),
 	}
 }

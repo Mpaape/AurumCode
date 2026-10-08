@@ -2,26 +2,12 @@
 --- sem politica: o .gitleaksignore do repositorio esconde o achado
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!NOTE]
+> **Approved with 1 observation(s) that do not block the merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- config.py
-
-
-```mermaid
-flowchart TD
-    n0[".gitleaksignore"]
-    n1["config.py"]
-    n0 --> n1
-
-```
+policy gate: passed · 2 file(s) reviewed
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
@@ -32,33 +18,18 @@ RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado
 --- sob politica central: o .gitleaksignore vira achado
 $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: gitleaks:ignore-file-present - a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present) (severidade error, limiar error, origem gitleaks, secao policy)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 2
-- warning: 0
-- info: 0
-
-**Files touched:**
-- .gitleaksignore
-- config.py
-
-
-```mermaid
-flowchart TD
-    n0[".gitleaksignore"]
-    n1["config.py"]
-    n0 --> n1
-
-```
+policy gate: failed · 2 file(s) reviewed
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
   - .gitleaksignore
 .gitleaksignore:1: [error] a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present)
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
+aurumcode review: policy gate: gitleaks:ignore-file-present - a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present) (severidade error, limiar error, origem gitleaks, secao policy)
 exit_code=3
 RESULTADO: sob politica, o .gitleaksignore na raiz e um achado bloqueante

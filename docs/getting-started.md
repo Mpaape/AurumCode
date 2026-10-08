@@ -103,9 +103,10 @@ docker run --rm \
 ```
 
 A comparação é entre a base e o commit HEAD: mudanças não commitadas ficam fora.
-A saída local inclui resumo, achados e um diagrama Mermaid dos arquivos alterados.
-O contexto do checkout e a memória opcional usam os mesmos passes do review de PR.
-O diagrama representa referências inferidas, não uma prova do fluxo em runtime.
+A saída local abre com a mesma decisão do parecer da PR (Aprovado, Aprovado
+com observações, Bloqueado ou Inconclusivo), seguida do resumo e dos achados,
+um por linha. O contexto do checkout e a memória opcional usam os mesmos
+passes do review de PR.
 
 Sem configurar um provedor, execute apenas a análise determinística:
 
@@ -118,7 +119,10 @@ A saída declara que o review por LLM não aconteceu, seguida de um relatório c
 
 ```text
 LLM quality review did not run. The following report covers deterministic analysis only.
-## Code Review Summary
+## AurumCode code review
+
+> [!CAUTION]
+> **Blocked: 1 problem(s) must be fixed before merge.**
 ...
 app.go:3: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
 ```

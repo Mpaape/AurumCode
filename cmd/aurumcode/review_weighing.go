@@ -224,13 +224,22 @@ func mergeAssessments(merged, next []types.EvidenceAssessment) []types.EvidenceA
 // a published review, so the YAML keeps its indentation.
 const codeFence = "```"
 
-// appendProposedExceptions adds the proposed exceptions to a published
-// review body as their own block, never as a limitation item.
+// proposedExceptionsBlock is the proposed exceptions as their own fenced
+// block of the parecer, never a limitation item; empty without any.
+func proposedExceptionsBlock(proposed string) string {
+	if proposed == "" {
+		return ""
+	}
+	return codeFence + "text\n" + strings.TrimRight(proposed, "\n") + "\n" + codeFence + "\n"
+}
+
+// appendProposedExceptions adds the proposed exceptions to a terminal
+// report.
 func appendProposedExceptions(body, proposed string) string {
 	if proposed == "" {
 		return body
 	}
-	return strings.TrimRight(body, "\n") + "\n\n" + codeFence + "text\n" + strings.TrimRight(proposed, "\n") + "\n" + codeFence + "\n"
+	return strings.TrimRight(body, "\n") + "\n\n" + proposedExceptionsBlock(proposed)
 }
 
 // gateAlignedVerdict is the terminal report's verdict once the model's

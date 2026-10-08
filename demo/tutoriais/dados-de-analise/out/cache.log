@@ -2,25 +2,12 @@
 --- 1. servidor no ar: baixa, verifica e guarda no cache
 $ aurumcode review --base main --auditoria audit.json
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: passed · 2 file(s) reviewed
 No issues found.
 --- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
@@ -29,64 +16,39 @@ No issues found.
 exit_code=0
 RESULTADO: primeira execucao: artefato remoto verificado e guardado no cache
 auditoria analysis_data.source: remote
-auditoria analysis_data.tag: analysis-data/20261007T184812Z
-auditoria analysis_data.generated_at: 2026-10-07T18:48:12Z
+auditoria analysis_data.tag: analysis-data/20261007T204719Z
+auditoria analysis_data.generated_at: 2026-10-07T20:47:19Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1
 --- 2. a listagem de releases cai (HTTP 503); a copia em cache, ainda dentro da idade, e usada
 $ aurumcode review --base main --auditoria audit.json
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/20261007T184812Z): a listagem de releases estava indisponível; idade e digests verificados
-## Code Review Summary
+aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/20261007T204719Z): a listagem de releases estava indisponível; idade e digests verificados
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: passed · 2 file(s) reviewed
 No issues found.
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=0
 RESULTADO: listagem fora do ar com copia valida em cache: usa o cache e o declara
 auditoria analysis_data.source: cache
-auditoria analysis_data.tag: analysis-data/20261007T184812Z
-auditoria analysis_data.generated_at: 2026-10-07T18:48:12Z
+auditoria analysis_data.tag: analysis-data/20261007T204719Z
+auditoria analysis_data.generated_at: 2026-10-07T20:47:19Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1
 --- 3. sem cache nenhum e a listagem fora do ar: inconclusivo
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: failed · 2 file(s) reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503

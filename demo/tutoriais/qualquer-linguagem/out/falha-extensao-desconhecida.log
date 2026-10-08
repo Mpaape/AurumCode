@@ -1,24 +1,17 @@
 == falha-extensao-desconhecida
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: script.zzqx:2 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
-## Code Review Summary
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
+no gate declared · 1 file(s) reviewed
 
-**Files touched:**
-- script.zzqx
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["script.zzqx"]
-
-```
+Senha escrita num arquivo de extensao desconhecida.
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
@@ -28,7 +21,6 @@ script.zzqx:2: [error] A senha esta escrita no codigo. (rule security/hardcoded-
   - Evidence: A linha adicionada atribui o literal "hunter2" a senha em script.zzqx.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: o achado em script.zzqx (sem gramatica) reprovou: extensao desconhecida nao esconde codigo
 prompt: ### File: script.zzqx
@@ -36,24 +28,16 @@ prompt: +    String senha = "hunter2";
 --- arquivo .txt com segredo
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: config/tokens.txt:2 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 2 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 2
-- warning: 0
-- info: 0
+no gate declared · 1 file(s) reviewed
 
-**Files touched:**
-- config/tokens.txt
+### Summary
 
-
-```mermaid
-flowchart TD
-    n0["config/tokens.txt"]
-
-```
+Token escrito num arquivo .txt.
 config/tokens.txt:2: [error] O token esta escrito em texto puro. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impact: Quem le o repositorio reutiliza o token.
   - Evidence: A linha adicionada atribui o literal tok_live_9f8e7d6c5b4a a DEMO_API_TOKEN em config/tokens.txt.

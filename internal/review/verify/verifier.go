@@ -21,7 +21,7 @@ const reasonNoRevision = "revisão revisada indisponível para a verificação"
 // reasonCallLimit is the record's reason past the call ceiling.
 const reasonCallLimit = "teto de chamadas da verificação atingido"
 
-// Verifier checks the model's blocking findings against the reviewed code.
+// Verifier checks the model's findings against the reviewed code.
 type Verifier struct {
 	Caller Caller
 	// Source is the reviewed revision; nil keeps every finding blocking.
@@ -42,19 +42,32 @@ func Candidate(issue types.ReviewIssue) bool {
 	return issue.Origin == "" && issue.Assessment == nil
 }
 
-// Verify sends every candidate that blocks to the verifier and returns the
-// findings that still count, the demoted ones and every record.
+// Verify sends every candidate to the verifier, the ones that block first
+// (the call ceiling protects the gate's input before the observations),
+// and returns the findings that still count, the demoted ones and every
+// record, all in input order.
 func (v *Verifier) Verify(ctx context.Context, issues []types.ReviewIssue, blocks func(types.ReviewIssue) bool) Result {
 	var res Result
-	for _, issue := range issues {
-		if !Candidate(issue) || !blocks(issue) {
+	records := make([]*Record, len(issues))
+	for _, blocking := range []bool{true, false} {
+		for i, issue := range issues {
+			if !Candidate(issue) || blocks(issue) != blocking {
+				continue
+			}
+			rec := v.verifyOne(ctx, issue, &res.Calls)
+			rec.Blocking = blocking
+			records[i] = &rec
+		}
+	}
+	for i, issue := range issues {
+		rec := records[i]
+		if rec == nil {
 			res.Kept = append(res.Kept, issue)
 			continue
 		}
-		rec := v.verifyOne(ctx, issue, &res.Calls)
-		res.Records = append(res.Records, rec)
+		res.Records = append(res.Records, *rec)
 		if rec.Demoted {
-			res.Demoted = append(res.Demoted, Demotion{Issue: issue, Record: rec})
+			res.Demoted = append(res.Demoted, Demotion{Issue: issue, Record: *rec})
 			continue
 		}
 		res.Kept = append(res.Kept, issue)

@@ -30,7 +30,7 @@ func TestAUR600WarningBelowGateIsNotBlocking(t *testing.T) {
 			t.Errorf("document must not say %q when the gate passed:\n%s", banned, posted)
 		}
 	}
-	for _, want := range []string{"**Verdict:** Comment", "The policy gate passed", "app.go:2** (non-blocking)"} {
+	for _, want := range []string{"[!NOTE]", "policy gate: passed", "### Observations (non-blocking)", "- `app.go:2` —"} {
 		if !strings.Contains(posted, want) {
 			t.Errorf("document must contain %q:\n%s", want, posted)
 		}
@@ -45,7 +45,7 @@ func TestAUR600GateBreachIsBlocking(t *testing.T) {
 	if code != exitFindings || status.State != "failure" {
 		t.Fatalf("gate must fail: exit=%d status=%+v stderr=%s", code, status, errOut)
 	}
-	for _, want := range []string{"REQUEST_CHANGES\n", "**Verdict:** Changes requested", "The review found 1 blocking finding(s)", "(non-blocking)"} {
+	for _, want := range []string{"REQUEST_CHANGES\n", "[!CAUTION]", "Blocked: 1 problem(s)", "### Fix before merge", "### Observations (non-blocking)"} {
 		if !strings.Contains(posted, want) {
 			t.Errorf("document must contain %q:\n%s", want, posted)
 		}
@@ -56,7 +56,7 @@ func TestAUR600GateBreachIsBlocking(t *testing.T) {
 // blocking and requests changes, and no finding carries a gate label.
 func TestAUR600WithoutGateKeepsHistoricalText(t *testing.T) {
 	_, _, posted, _ := aur567PR(t, aur600Diff, "review: {}\n", aur600WarnReply, prReviewOptions{})
-	for _, want := range []string{"REQUEST_CHANGES\n", "**Verdict:** Changes requested", "The review found 1 blocking finding(s)"} {
+	for _, want := range []string{"REQUEST_CHANGES\n", "[!CAUTION]", "Blocked: 1 problem(s)", "### Fix before merge"} {
 		if !strings.Contains(posted, want) {
 			t.Errorf("document must contain %q:\n%s", want, posted)
 		}

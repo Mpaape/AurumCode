@@ -1,24 +1,16 @@
 == seletor-por-caminho
 $ aurumcode review --base main
 aurumcode review: verificação: app.go:6 security/hardcoded-secret continua bloqueando (invalid_answer: veredito desconhecido "")
-## Resumo da Revisão de Código
+## AurumCode revisão de código
 
-**Veredito:** Alterações solicitadas
+> [!CAUTION]
+> **Bloqueado: 1 problema(s) precisam de correção antes do merge.**
 
-**Resultados por severidade:**
-- erro: 1
-- aviso: 0
-- informação: 0
+sem gate declarado · 1 arquivo(s) revisado(s)
 
-**Arquivos alterados:**
-- app.go
+### Resumo
 
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+A mudanca escreve uma senha no codigo de app.go.
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impacto: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.

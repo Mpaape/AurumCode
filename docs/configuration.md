@@ -1,7 +1,7 @@
 # Configuração
 
-Sem arquivo: inglês, comentário na conversa e sem comentários nas linhas.
-Para mudar, crie `.aurumcode/config.yml`:
+Sem arquivo: inglês, um parecer na conversa do PR (editado a cada rodada) e
+sem comentários nas linhas. Para mudar, crie `.aurumcode/config.yml`:
 
 ```yaml
 review:
@@ -10,9 +10,11 @@ review:
   inline_comments: true
 ```
 
-`publication: review` usa a revisão formal do GitHub. `comments` publica na
-conversa. `inline_comments` habilita comentários nas linhas; no review formal,
+`publication: review` usa a revisão formal do GitHub. `comments` publica o
+parecer na conversa. `inline_comments` habilita comentários nas linhas, só para
+os achados que bloqueiam o merge (os demais ficam no parecer); no review formal,
 uma sugestão elegível pode aparecer como substituição aplicável pelo GitHub.
+O formato do parecer está em [Qualidade e limitações](review-quality.md#o-parecer).
 O autor decide se aplica. AurumCode não altera o código automaticamente.
 
 O idioma é enviado ao modelo. Os títulos do parecer têm tradução específica
@@ -222,7 +224,7 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   explicitamente listados em `review.context`.
 
 Sem configuração, o review já inclui análise estática determinística, contexto
-de codebase limitado, resumo e diagrama Mermaid; essas capacidades funcionam
+de codebase limitado e resumo; essas capacidades funcionam
 com os padrões, sem nenhum arquivo. `aurumcode fix` converte as sugestões de
 uma revisão em um diff unificado aplicável.
 
@@ -1309,7 +1311,7 @@ consumidor.
 |---|---|---|
 | `review.language` | Idioma enviado ao modelo e títulos do parecer | inglês |
 | `review.publication` | `review` (revisão formal) ou `comments` (conversa) | `comments` |
-| `review.inline_comments` | Comentários nas linhas alteradas | `false` |
+| `review.inline_comments` | Comentários nas linhas alteradas, só para achados bloqueantes | `false` |
 | `review.context.prompt` | Caminho do prompt adicional | `.aurumcode/prompt.md` |
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
 | `review.context.docs` | Lista de documentos de contexto | vazio |
@@ -1629,10 +1631,11 @@ Cada item que fica separa observação de inferência:
 
 ## Verificação adversarial dos achados do modelo (`review.verification`)
 
-Antes do gate, cada achado do **próprio modelo** que bloquearia a execução
-(acima de `--fail-on`, reprovando o gate declarado ou, sem gate, `error` ou
-`warning`) passa por uma chamada de verificação ao mesmo provedor, com prompt
-próprio. O verificador recebe a janela em torno da linha citada e as
+Antes do gate, cada achado do **próprio modelo** passa por uma chamada de
+verificação ao mesmo provedor, com prompt próprio; os que bloqueariam a
+execução (acima de `--fail-on`, reprovando o gate declarado ou, sem gate,
+`error` ou `warning`) vão primeiro, para que o teto de chamadas proteja o gate
+antes das observações. O verificador recebe a janela em torno da linha citada e as
 ocorrências dos símbolos que o achado nomeia, nos arquivos do mesmo diretório
 que a gramática diz declará-los, tudo lido da revisão revisada (o mesmo
 checkout que as ferramentas da deliberação leem). Ele responde em JSON:
@@ -1642,13 +1645,14 @@ checkout que as ferramentas da deliberação leem). Ele responde em JSON:
 ```
 
 Só `refuted` com uma citação que existe literalmente nos arquivos mostrados
-(apenas espaços no fim das linhas são ignorados) rebaixa o achado: ele sai da
-entrada do gate e fica no parecer como comentário não bloqueante "Refutado
-pela verificação", numa limitação marcada, no stderr e na chave
-`verification` da auditoria (`--auditoria`), com motivo e citação. Nunca é
-apagado. Confirmado, incerto, citação inexistente, resposta inválida, erro do
-provedor, teto de chamadas ou revisão revisada ilegível: o achado continua
-bloqueando e o stderr diz por quê. Achados dos scanners determinísticos (e a
+(apenas espaços no fim das linhas são ignorados) tira o achado do parecer: um
+bloqueante sai da entrada do gate, uma observação é descartada, e os dois
+ficam nomeados nos detalhes do parecer ("Limitações da revisão"), no stderr e
+na chave `verification` da auditoria (`--auditoria`), com motivo e citação.
+Nunca somem sem registro. Confirmado, incerto, citação inexistente, resposta
+inválida, erro do provedor, teto de chamadas ou revisão revisada ilegível: o
+achado continua contando e o stderr diz por quê (sem a revisão revisada, o
+aviso só aparece quando esta seção foi declarada). Achados dos scanners determinísticos (e a
 avaliação do modelo sobre eles) nunca são enviados, e o verificador não cria
 achado novo.
 

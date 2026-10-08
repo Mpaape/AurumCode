@@ -261,16 +261,13 @@ run_bin() {
   set -e
 }
 
-# after_diagram prints everything after the LAST lone mermaid fence
-# ("```") line in $1 -- i.e. everything the AUR-490 summary/diagram block
-# does not own. B1 (independent review of this card): a bare `tail -n1`
-# check for "No issues found." lets an arbitrary leaked line sit right
-# before it undetected -- proven by adding a stray stdout line in
-# cmd/aurumcode/main.go's printFindings ahead of "No issues found." and
-# observing scenario 4 below stay green. This instead compares the WHOLE
-# remainder after the diagram for exact equality.
-after_diagram() {
-  awk 'BEGIN{p=0} /^```$/{p=NR} {buf[NR]=$0} END{for(i=p+1;i<=NR;i++) print buf[i]}' <<<"$1"
+# after_head prints everything after the report head: the facts line that
+# names the gate ("no gate declared ..." here), with the blank lines right
+# after it dropped. The parecer redesign (CHANGELOG, 2026-10-08) put that
+# head where the summary/diagram block used to be; the remainder is still
+# compared whole, so a leaked line cannot hide before "No issues found.".
+after_head() {
+  awk 'BEGIN{p=0} /^(no gate declared|policy gate: |sem gate declarado|gate da pol)/{p=NR} {buf[NR]=$0} END{s=p+1; while (s<=NR && buf[s]=="") s++; for(i=s;i<=NR;i++) print buf[i]}' <<<"$1"
 }
 
 # nominal_case is AC-001's core behavioral proof: run the built binary
@@ -370,10 +367,10 @@ nominal_case() {
   # AUR-547/AUR-490: the AC-002 summary/diagram block now precedes it
   # unconditionally. B1 (independent review): a bare `tail -n1` check for
   # "No issues found." plus a finding-shape-only grep let an arbitrary
-  # leaked line sit right before it undetected -- after_diagram() compares
-  # the WHOLE remainder after the diagram fence for exact equality instead.
-  local s4_after; s4_after="$(after_diagram "$(cat "$run_dir/out.stdout")")"
-  [[ "$s4_after" == "No issues found." ]] || fail s4-leaked-content-after-diagram
+  # leaked line sit right before it undetected -- after_head() compares
+  # the WHOLE remainder after the report head for exact equality instead.
+  local s4_after; s4_after="$(after_head "$(cat "$run_dir/out.stdout")")"
+  [[ "$s4_after" == "No issues found." ]] || fail s4-leaked-content-after-head
   local want_all_discarded_stderr='aurumcode review: 1 finding(s) discarded: 1 with no rule_id'
   [[ "$(cat "$run_dir/out.stderr")" == "$want_all_discarded_stderr" ]] || fail s4-discard-message-wrong
 }
