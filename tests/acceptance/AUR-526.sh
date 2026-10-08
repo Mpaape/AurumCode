@@ -82,7 +82,17 @@ go_test() {
   : >"$log"
   # One package at a time, freeing the temporary build files in between:
   # the sealed temporary disk does not hold several test binaries at once.
+  local names dir files
+  names="$(printf '%s' "$pattern" | sed -e 's/^\^(//' -e 's/)\$$//' | tr '|' '\n')"
   for pkg in "$@"; do
+    # Build only packages that hold one of the named tests: each test binary
+    # of this module is large and the sealed temporary disk is small.
+    dir="$root/${pkg%/...}"; dir="${dir%/}"
+    # find + grep, not grep --include: the sealed image's grep is BusyBox.
+    files="$(find "$dir" -name '*_test.go' -type f)"
+    [[ -n "$files" ]] || continue
+    # shellcheck disable=SC2086 # one test file per word
+    grep -qF -e "$(printf '%s\n' "$names" | sed 's/^/func /')" $files || continue
     ( cd "$root" && go test -buildvcs=false -count=1 -p 1 -v -run "$pattern" "$pkg" ) >>"$log" 2>&1 || rc=1
     rm -rf -- "$run_dir/gotmp" && mkdir -p "$run_dir/gotmp"
     case "$GOCACHE" in "$run_dir"/*) rm -rf -- "$GOCACHE" ;; esac
