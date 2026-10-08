@@ -93,14 +93,16 @@ ac004() {
 }
 
 ac001_mut001() {
-  local root="$run_dir/mut1" anchor='return render.WriteAuditRecord(in.auditoriaPath, rec, filter)'
+  # AUR-603 appends the verification to the record after writing it; the
+  # write is now guarded, and the mutation ignores its error.
+  local root="$run_dir/mut1" anchor='if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {'
   mkdir -p "$root"
   cp -R "$repo_root/go.mod" "$repo_root/go.sum" "$repo_root/cmd" "$repo_root/internal" "$repo_root/pkg" "$root/"
   chmod -R u+w "$root"
   local file="$root/cmd/aurumcode/compliance_artifacts.go"
   [[ "$(grep -cF -- "$anchor" "$file")" == 1 ]] || infra mutation-anchor-missing
-  sed -i "s|$anchor|_ = render.WriteAuditRecord(in.auditoriaPath, rec, filter)\n\treturn nil|" "$file"
-  grep -q '_ = render.WriteAuditRecord' "$file" || infra mutation-not-applied
+  sed -i "s|$anchor|if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); false \&\& err != nil { // MUT-001: write error ignored|" "$file"
+  grep -q 'MUT-001: write error ignored' "$file" || infra mutation-not-applied
   local log="$run_dir/mut1.log" survived=0
   go_test "$root" "$log" '^(TestAUR568BasePathUnwritableNeverSucceeds|TestAUR568PRPathUnwritableNeverSucceeds)$/auditoria' ./cmd/aurumcode/ && survived=1
   (( survived == 0 )) || { cat "$log" >&2; fail mutation-survived:ignore-audit-write-error; }

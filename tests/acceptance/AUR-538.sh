@@ -213,14 +213,14 @@ apply_mutation() {
   sed -i 's|^\tif r.fails {$|\tif false \&\& r.fails { // MUT-001: AUR-600 gated verdict off|' "$rule"
   grep -Fxq "$rule_anchor" "$rule" && infra gated-verdict-mutation-not-applied
   # The parecer's decision (cmd/aurumcode/pr_summary_format.go, decide) is a
-  # fourth independent reader: it calls a failing gate and the withheld
-  # marker inconclusive on its own. Neutralize that reading too, so the
-  # mutation keeps isolating the gate's own withholding: with all four gone
-  # the report reads Approved again and the tests must go red.
+  # fourth independent reader of the failing gate. Neutralize that reading
+  # too (the withheld marker it also reads stays, so the marker alone still
+  # decides): with all four gone the report reads Approved again and the
+  # tests must go red.
   local decide="$run_dir/root/cmd/aurumcode/pr_summary_format.go"
   local decide_anchor='	if rule.Fails() || result.Metadata["quality_degraded"] == metaTrue || result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue {'
   [[ "$(grep -Fxc "$decide_anchor" "$decide")" == "1" ]] || infra decide-anchor-missing
-  sed -i 's|^\tif rule.Fails() \|\| result.Metadata\["quality_degraded"\] == metaTrue \|\| result.Metadata\[prompt.PolicyGateWithheldKey\] == metaTrue {$|\tif result.Metadata["quality_degraded"] == metaTrue { // MUT-001: decision ignores the gate|' "$decide"
+  sed -i 's|^\tif rule.Fails() \|\| result.Metadata\["quality_degraded"\] == metaTrue \|\| result.Metadata\[prompt.PolicyGateWithheldKey\] == metaTrue {$|\tif result.Metadata["quality_degraded"] == metaTrue \|\| result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue { // MUT-001: decision ignores the gate|' "$decide"
   grep -Fxq "$decide_anchor" "$decide" && infra decide-mutation-not-applied
   return 0
 }

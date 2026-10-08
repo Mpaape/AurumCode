@@ -19,7 +19,7 @@ no gate declared · 1 file(s) reviewed
 
 ### Changed
 
-- feature: repo-exemplo/mudanca (067606c3b4815af9c42e079aae5c208d6012f6d5)
+- feature: repo-exemplo/mudanca (75b04c40ebd509ea7e77a23ec516065bfd8cd3cb)
 
 ### Fixed
 
@@ -29,7 +29,7 @@ exit_code=0
 RESULTADO: o review publicou a sugestao de changelog sem decidir o merge
 $ aurumcode changelog --base main
 changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
-aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
 changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
+aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
 exit_code=1
 RESULTADO: a sugestao nao substitui a entrada: o check obrigatorio reprovou

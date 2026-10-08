@@ -165,10 +165,6 @@
 
 no gate declared · 2 file(s) reviewed
 
-### Summary
-
-The change builds a SQL query by concatenation instead of binding the id.
-
 ### Suggestions
 
 - **Parameterize the query** — Replace the concatenation with a bound parameter. Applicable replacement at `app.py:5`.
@@ -195,10 +191,10 @@ db.py:1: [error] Hardcoded credentials or API keys detected [standards/security-
     </article>
 
     <article>
-      <h3>Decisão e resumo <span class="flag on">ligado por padrão</span></h3>
+      <h3>Decisão <span class="flag on">ligado por padrão</span></h3>
       <ol class="tut-flow">
         <li class="tut-step"><span class="tut-k">Ativa</span><p>Já roda em todo review com provedor, sem flag e sem arquivo.</p></li>
-        <li class="tut-step"><span class="tut-k">Como funciona</span><p>O relatório abre com a mesma decisão do parecer da PR (Aprovado, Aprovado com observações, Bloqueado ou Inconclusivo) e a linha de fatos (gate, arquivos revisados). A decisão e a linha de fatos são <strong>determinísticas</strong>: derivam dos achados e do gate, nunca do rótulo que o modelo se dá. Não gastam tokens de LLM; o resumo do modelo vem em seguida.</p></li>
+        <li class="tut-step"><span class="tut-k">Como funciona</span><p>O relatório abre com a mesma decisão do parecer da PR (Aprovado, Aprovado com observações, Bloqueado ou Inconclusivo) e a linha de fatos (gate, arquivos revisados). A decisão e a linha de fatos são <strong>determinísticas</strong>: derivam dos achados e do gate, nunca do rótulo que o modelo se dá. Não gastam tokens de LLM; os achados vêm em seguida, um por linha.</p></li>
         <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>aurumcode review --base HEAD~1</code></pre></li>
       </ol>
       <pre class="observed" aria-label="Saída real observada">## AurumCode code review

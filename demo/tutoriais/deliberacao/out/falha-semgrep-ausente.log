@@ -12,10 +12,6 @@ aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclus
 
 no gate declared · 1 file(s) reviewed
 
-### Summary
-
-A varredura pedida nao concluiu.
-
 ### Suggestions
 
 - **Varredura pedida inconclusiva** — o scanner_semgrep nao produziu resultado; nada pode ser afirmado sobre calc.js Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.

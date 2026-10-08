@@ -71,15 +71,20 @@ func IntegrationAUR433(t *testing.T) {
 
 	// The review the local endpoint answers with: one finding, in the shape
 	// internal/prompt.ResponseParser validates, citing an embedded rule so
-	// it survives the AUR-434 rule-citation gate.
+	// it survives the AUR-434 rule-citation gate, with the evidence, impact
+	// and verification the scope/evidence gate requires (AUR-517): the
+	// finding itself must reach stdout, not only the file name.
 	reviewJSON, err := json.Marshal(map[string]interface{}{
 		"issues": []map[string]interface{}{
 			{
-				"file":     "config/demo-tokens.txt",
-				"line":     4,
-				"severity": "warning",
-				"rule_id":  "security/hardcoded-secret",
-				"message":  "A planted, synthetic finding served by the local endpoint.",
+				"file":         "config/demo-tokens.txt",
+				"line":         4,
+				"severity":     "warning",
+				"rule_id":      "security/hardcoded-secret",
+				"message":      "A planted, synthetic finding served by the local endpoint.",
+				"evidence":     "The added line assigns DEMO_API_TOKEN to a literal value in config/demo-tokens.txt.",
+				"impact":       "Anyone with repository access can reuse the committed credential-shaped value.",
+				"verification": "Remove the literal and rerun the review fixture; the finding should disappear.",
 			},
 		},
 		"summary": "Deterministic local-endpoint response for AUR-433.",

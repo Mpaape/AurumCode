@@ -6,10 +6,6 @@ $ aurumcode review --base main
 > **Approved: no problem found in the reviewed change.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-Troca de mensagem sem risco.
 No issues found.
 exit_code=0
 RESULTADO: primeira revisao concluida sem achados

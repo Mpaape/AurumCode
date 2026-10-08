@@ -7,10 +7,6 @@ aurumcode review: verificação: app.go:6 security/hardcoded-secret continua blo
 > **Bloqueado: 1 problema(s) precisam de correção antes do merge.**
 
 sem gate declarado · 1 arquivo(s) revisado(s)
-
-### Resumo
-
-A mudanca escreve uma senha no codigo de app.go.
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impacto: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.

@@ -1,21 +1,17 @@
 == com-provedor
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 ## AurumCode code review
 
 > [!CAUTION]
 > **Blocked: 1 problem(s) must be fixed before merge.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-A mudanca escreve uma senha no codigo de app.go.
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impact: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente em vez de escreve-la no codigo.
   - Verify: Remova o literal e rode a revisao de novo; o achado deve sumir.
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: achado do modelo citando security/hardcoded-secret reprovou
