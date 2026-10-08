@@ -92,11 +92,19 @@ jobs:
             echo "::error title=Changelog obrigatório::a ferramenta pinada não tem scripts/ci/changelog-check.sh; fixe um SHA do AurumCode que tenha o verificador."
             exit 1
           fi
+          # O resumo e escrito no workspace pelo container e anexado aqui ao
+          # GITHUB_STEP_SUMMARY: o arquivo do runner nao e montado no container.
+          summary="${GITHUB_WORKSPACE}/.aurumcode-changelog-summary.md"
+          : > "$summary"
+          set +e
           docker run --rm \
             -e BASE_SHA -e HEAD_SHA -e POLICY_DIR \
-            -e GITHUB_STEP_SUMMARY=/tmp/aurumcode-step-summary \
-            -v "${GITHUB_STEP_SUMMARY}:/tmp/aurumcode-step-summary" \
+            -e GITHUB_STEP_SUMMARY=/w/.aurumcode-changelog-summary.md \
             -v "${GITHUB_WORKSPACE}:/w" \
             -w /w/.aurumcode-tool \
             golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 \
             sh scripts/ci/changelog-check.sh /w/.aurumcode-target
+          rc=$?
+          set -e
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"

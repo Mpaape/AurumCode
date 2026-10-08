@@ -1,7 +1,7 @@
 == falha-entrada-ausente
 $ aurumcode changelog --base main
 changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
-changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
+changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 exit_code=1
 RESULTADO: sem entrada no CHANGELOG.md o check reprova
