@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Site: diagramas Mermaid renderizados localmente (biblioteca embutida e
-  marcada como gerada).
+- Site: diagramas Mermaid renderizados localmente; a biblioteca é baixada no
+  build com versão e sha256 fixos, sem ser versionada.
 - Changelog: `changelog_check.mode: suggest` só sugere a entrada no parecer da
   PR, sem reprovar; `off` e `required` seguem como antes. Docs de changelog e
   de auditoria/SARIF reescritas, mais curtas e com diagrama.
