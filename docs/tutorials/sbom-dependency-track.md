@@ -449,7 +449,7 @@ já existiam antes ficam).
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/sbom-dependency-track/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/sbom-dependency-track/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### down
 
@@ -459,13 +459,13 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso limiares](../assets/capturas/sbom-dependency-track/limiares-terminal.png)
 
-![Comentario do PR do caso limiares](../assets/capturas/sbom-dependency-track/limiares-comentario.png)
+![Comentário do PR do caso limiares](../assets/capturas/sbom-dependency-track/limiares-comentario.png)
 
 ### projeto-por-microservico
 
 ![Terminal do caso projeto-por-microservico](../assets/capturas/sbom-dependency-track/projeto-por-microservico-terminal.png)
 
-![Comentario do PR do caso projeto-por-microservico](../assets/capturas/sbom-dependency-track/projeto-por-microservico-comentario.png)
+![Comentário do PR do caso projeto-por-microservico](../assets/capturas/sbom-dependency-track/projeto-por-microservico-comentario.png)
 
 ### sbom-versao-minima
 
@@ -475,13 +475,13 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso secret-ausente](../assets/capturas/sbom-dependency-track/secret-ausente-terminal.png)
 
-![Comentario do PR do caso secret-ausente](../assets/capturas/sbom-dependency-track/secret-ausente-comentario.png)
+![Comentário do PR do caso secret-ausente](../assets/capturas/sbom-dependency-track/secret-ausente-comentario.png)
 
 ### timeout
 
 ![Terminal do caso timeout](../assets/capturas/sbom-dependency-track/timeout-terminal.png)
 
-![Comentario do PR do caso timeout](../assets/capturas/sbom-dependency-track/timeout-comentario.png)
+![Comentário do PR do caso timeout](../assets/capturas/sbom-dependency-track/timeout-comentario.png)
 
 ### up
 
@@ -491,12 +491,12 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso upload-e-metricas](../assets/capturas/sbom-dependency-track/upload-e-metricas-terminal.png)
 
-![Comentario do PR do caso upload-e-metricas](../assets/capturas/sbom-dependency-track/upload-e-metricas-comentario.png)
+![Comentário do PR do caso upload-e-metricas](../assets/capturas/sbom-dependency-track/upload-e-metricas-comentario.png)
 
 ### violacao-de-politica
 
 ![Terminal do caso violacao-de-politica](../assets/capturas/sbom-dependency-track/violacao-de-politica-terminal.png)
 
-![Comentario do PR do caso violacao-de-politica](../assets/capturas/sbom-dependency-track/violacao-de-politica-comentario.png)
+![Comentário do PR do caso violacao-de-politica](../assets/capturas/sbom-dependency-track/violacao-de-politica-comentario.png)
 
 <!-- capturas:fim -->

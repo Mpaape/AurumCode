@@ -1,10 +1,10 @@
 $ aurumcode review --base main --auditoria auditoria.json
-aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context]; pedidas [scanner_semgrep]; não pedidas [codebase_context]; rodadas 2; desfecho answered
+aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [scanner_semgrep]; não pedidas [codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) executed: 1 achado(s)
 (severidade error, limiar error, origem sast, secao repo)
 - **Evidencia da varredura pedida** — o scanner_semgrep apontou eval() em calc.js:5 (regras.demo-sem-eval)
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval)
 exit_code=3
 RESULTADO: o modelo pediu o scanner_semgrep, a varredura achou eval() e o gate reprovou
-auditoria deliberation: oferecidas=scanner_semgrep,codebase_context pedidas=scanner_semgrep nao_pedidas=codebase_context rodadas=2 desfecho=answered
+auditoria deliberation: oferecidas=scanner_semgrep,codebase_context,read_file,search_text,find_symbol,changed_file_diff pedidas=scanner_semgrep nao_pedidas=codebase_context,read_file,search_text,find_symbol,changed_file_diff rodadas=2 desfecho=answered
 auditoria chamada: rodada=1 ferramenta=scanner_semgrep argumentos={} status=executed resultado=1 achado(s) duracao_ms_registrada=True

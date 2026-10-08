@@ -12,7 +12,17 @@ type reviewCopy struct {
 	changesRequested, comment, approve, inconclusive                                   string
 	blockingFindings, nonBlockingFindings, optionalSuggestions, noBlockingFindings     string
 	qualityIncomplete                                                                  string
-	suggestionApplicable, suggestionNotApplicable                                      string
+	// belowGateThreshold, gateFailed and nonBlockingLabel are the texts of a
+	// run with a declared gate, where blocking means what the gate fails on.
+	belowGateThreshold, gateFailed, nonBlockingLabel string
+	// ciNothingFailed is the one line of a CI status section whose every
+	// item was discarded as not a fact of this run (%d is the count).
+	ciNothingFailed                               string
+	suggestionApplicable, suggestionNotApplicable string
+	// The ci* texts separate what the CI context observed from what the
+	// model inferred (cmd/aurumcode/ci_status_render.go).
+	ciVerified, ciUnverified, ciUnverifiedNote, ciCauseUnknown, ciHypothesis string
+	ciDiagnose, ciDiagnoseNoLink, ciObserved, ciInferredCause, ciInferredFix string
 	// coverageHeading and the coverage* templates render AUR-476's
 	// deterministic "this review was partial" notice. Each reason a file was
 	// not covered gets its own sentence; coverageSummary names the count and
@@ -56,6 +66,20 @@ func reviewCopyFor(language string) reviewCopy {
 		optionalSuggestions:     i18n.Text(language, "review.optional_suggestions"),
 		noBlockingFindings:      i18n.Text(language, "review.no_blocking_findings"),
 		qualityIncomplete:       i18n.Text(language, "review.quality_incomplete"),
+		belowGateThreshold:      i18n.Text(language, "review.below_gate_threshold"),
+		gateFailed:              i18n.Text(language, "review.gate_failed"),
+		nonBlockingLabel:        i18n.Text(language, "review.non_blocking_label"),
+		ciNothingFailed:         i18n.Text(language, "review.ci_status_nothing_failed"),
+		ciVerified:              i18n.Text(language, "review.ci_verified"),
+		ciUnverified:            i18n.Text(language, "review.ci_unverified"),
+		ciUnverifiedNote:        i18n.Text(language, "review.ci_unverified_note"),
+		ciCauseUnknown:          i18n.Text(language, "review.ci_cause_unknown"),
+		ciHypothesis:            i18n.Text(language, "review.ci_hypothesis"),
+		ciDiagnose:              i18n.Text(language, "review.ci_diagnose"),
+		ciDiagnoseNoLink:        i18n.Text(language, "review.ci_diagnose_no_link"),
+		ciObserved:              i18n.Text(language, "review.ci_observed"),
+		ciInferredCause:         i18n.Text(language, "review.ci_inferred_cause"),
+		ciInferredFix:           i18n.Text(language, "review.ci_inferred_fix"),
 		suggestionApplicable:    i18n.Text(language, "review.suggestion_applicable"),
 		suggestionNotApplicable: i18n.Text(language, "review.suggestion_not_applicable"),
 		coverageHeading:         i18n.Text(language, "review.coverage_heading"),

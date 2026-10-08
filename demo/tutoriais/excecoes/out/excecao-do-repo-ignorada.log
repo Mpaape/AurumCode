@@ -5,7 +5,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: aceito por exceção (dono: time-do-repo, motivo: o proprio repositorio tenta se isentar, validade: 2099-12-31)
 ## Code Review Summary
 
-**Verdict:** Changes requested
+**Verdict:** Comment
 
 **Findings by severity:**
 - error: 0
@@ -22,12 +22,17 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 exit_code=0
 RESULTADO: sem politica, o gate e a excecao do proprio repositorio valem
 --- sob politica: a excecao do repositorio e ignorada
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: politica central: exceção do repositório para a regra "seguranca#sem-segredos-no-codigo" no caminho "app.go" (repositório "OWNER/REPO") foi ignorada: a política central decide sozinha
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
@@ -49,5 +54,9 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 exit_code=3
 RESULTADO: sob politica, a excecao do repositorio nao vale

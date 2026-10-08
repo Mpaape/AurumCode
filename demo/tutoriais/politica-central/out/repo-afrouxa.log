@@ -4,7 +4,7 @@ $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
-**Verdict:** Changes requested
+**Verdict:** Comment
 
 **Findings by severity:**
 - error: 0
@@ -21,11 +21,16 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 exit_code=0
 RESULTADO: o gate do proprio repositorio aceita o warning
 --- com a politica: fail_on [warning] vale, o do repositorio e ignorado
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
+aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Resumo da Revisão de Código
@@ -47,5 +52,9 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
 exit_code=3
 RESULTADO: o repositorio nao consegue afrouxar o gate da politica

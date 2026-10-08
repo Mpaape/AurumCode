@@ -39,6 +39,52 @@ Uma skill é um Markdown com orientações de revisão, sem execução de script
 Liste apenas arquivos existentes. `context.prompt` permite substituir o
 caminho do prompt adicional, mantendo a política embutida do produto.
 
+### Fontes MCP de contexto (`review.context.mcp`)
+
+```yaml
+review:
+  context:
+    mcp:
+      - name: adr                  # origem no prompt: mcp:adr/lookup
+        command: ["adr-mcp-server", "--stdio"]
+        tool: lookup               # a única ferramenta chamada
+        arguments:                 # argumentos fixos (texto), redigidos
+          scope: pagamentos
+        send: [changed_paths]      # único payload dinâmico possível
+        env: [ADR_TOKEN]           # além de PATH e HOME, nada mais do ambiente
+        timeout_seconds: 5         # 0 = 10 s; nunca acima de 10 s
+```
+
+O Aurum inicia o servidor (MCP por stdio), chama só a ferramenta `tool` com
+só `arguments` e, quando declarado, os caminhos alterados, tudo pela redação
+AUR-009; nada do repositório é enviado. O texto devolvido entra no contexto
+do repositório do prompt com a origem `mcp:<name>/<tool>`, como dado não
+confiável: não aprova o PR, não liga nem desliga regra e não muda gate nem
+permissão. Servidor ausente, lento, com resposta malformada ou acima de
+64 KiB vira aviso de omissão no stderr e a revisão segue sem ele.
+
+A fonte só existe em configuração confiável: a política central sempre; o
+`.aurumcode/config.yml` local no `--base` fora de CI; no `--pr`, o config
+lido na base da PR, nunca o da head (uma PR não adiciona a própria fonte).
+Um item sem `name`, `command` ou `tool`, com nome repetido, `send` diferente
+de `changed_paths` ou `timeout_seconds` fora de 0..10 é erro de
+configuração.
+
+**Risco: o servidor é um processo que o Aurum executa.** Por isso:
+
+- `command[0]` precisa ser caminho absoluto ou nome simples resolvido pelo
+  `PATH` (`adr-mcp-server`); caminho relativo (`./tools/mcp`) é recusado,
+  porque executaria um arquivo do checkout revisado, que no `--pr` é a head
+  da PR. Um caminho absoluto dentro do workspace tem o mesmo risco: aponte
+  para um binário instalado fora do checkout.
+- O servidor roda num diretório temporário vazio (nunca no checkout),
+  apagado ao fim, e recebe só `PATH`, `HOME` e as variáveis de `env`; não
+  declare em `env` um token que a fonte não precise.
+- No `--base` sob CI (`CI` ou `GITHUB_ACTIONS` definidos), o checkout pode
+  ser o de uma PR: as fontes do config local são ignoradas com aviso, a
+  menos que o workflow defina `AURUMCODE_TRUST_LOCAL_MCP=true`. Fontes da
+  política central valem sempre.
+
 ### Skills em diretório, por linguagem
 
 Além da lista `context.skills`, o review lê `.aurumcode/skills/<nome>/SKILL.md`
@@ -408,6 +454,17 @@ declarado vale a regra histórica (erro ou aviso pede mudanças). Com ou sem gat
 uma falha ao gravar `--auditoria`/`--sarif` retém a aprovação: a review formal
 nunca é `APPROVE` antes de o processo sair com 1.
 
+**Texto do parecer e gate (AUR-600).** Com `gate` declarado, o texto do
+parecer segue a mesma regra: "bloqueante" significa exatamente o que o gate
+reprova. O veredito do parecer (e o do relatório local `--base`) é "Alterações
+solicitadas" só quando o gate reprova; com o gate passando e achados abaixo do
+limiar ele é "Comentário", a frase de conclusão diz que o gate passou e que os
+achados são observações não bloqueantes, e cada achado fora do que o gate
+reprovou leva o rótulo "(não bloqueante)". A contagem de bloqueantes é a dos
+achados distintos que o gate reprovou. Uma revisão inconclusiva continua
+"Inconclusivo". Sem `gate` declarado, o texto histórico é mantido (erro ou
+aviso é bloqueante).
+
 Sob política central, `gate` do repositório é ignorado por completo — um
 aviso nomeado explica o descarte, no mesmo lugar e do mesmo jeito que os
 avisos de `rules`/`ignore` já existentes.
@@ -461,7 +518,11 @@ nas fontes concluídas; inconclusivo: <motivos>`, com os mesmos motivos do gate
 (AUR-572). No `--pr`, o status `aurumcode/policy-gate`
 é publicado junto do `aurumcode/review` que `--check` já publica, só
 quando um gate foi declarado. O gate é idêntico com ou sem `--perfis`: cada
-perfil selecionado aprende o mesmo catálogo dinâmico.
+perfil selecionado aprende o mesmo catálogo dinâmico. A fusão dos perfis
+preserva lado (`LEFT`/`RIGHT`), impacto, evidência, correção sugerida e
+verificação de cada achado; um achado que dois perfis repetem sai uma vez,
+atribuído como `[perfil a; também: b]`, e a evidência de cada perfil é mantida.
+O terminal (`--base`) mostra os mesmos campos que o parecer do PR.
 
 ## SAST multilinguagem com Semgrep (AUR-548)
 
@@ -729,87 +790,81 @@ cancelamento (`scanner.WaitDelay`) e 32 MiB por fluxo de saída
 
 ## Trilha de auditoria e SARIF (AUR-521)
 
-Qualquer `aurumcode review` (`--base` ou `--pr`) pode escrever, além do que já
-publica, dois arquivos adicionais para o time de segurança da organização:
+Cada revisão pode deixar dois arquivos, além do parecer na PR:
 
+- **Registro de auditoria** (`--auditoria`): um JSON por revisão que responde
+  quem revisou, o quê, com qual política e qual foi a decisão. Serve para
+  compliance: guarde-o junto das evidências da entrega.
+- **SARIF** (`--sarif`): o formato padrão de resultados de análise. O GitHub
+  mostra os achados dele na aba **Security → Code scanning**, como alertas
+  ligados à linha do código.
+
+```mermaid
+flowchart LR
+  R[aurumcode review] -->|--auditoria| A[auditoria.json]
+  R -->|--sarif| S[revisao.sarif]
+  A --> C[compliance / auditoria interna]
+  S --> U[job upload-sarif do seu workflow]
+  U --> G[GitHub: Security → Code scanning]
 ```
-aurumcode review --base HEAD~1 \
-  --auditoria /caminho/auditoria.json \
-  --sarif     /caminho/revisao.sarif
+
+### Quando usar
+
+- Auditoria: quando alguém precisa provar depois por que uma PR passou ou
+  reprovou (segurança, compliance, auditoria externa).
+- SARIF: quando o time quer os achados na aba de segurança do GitHub, junto
+  dos outros scanners.
+
+### Como ligar
+
+Na linha de comando, passe os caminhos:
+
+```bash
+aurumcode review --base main --auditoria auditoria.json --sarif revisao.sarif
 ```
 
-- `--auditoria <arquivo>`: um registro JSON com o digest da política, o SHA
-  do workflow (`AURUMCODE_WORKFLOW_SHA`, com `GITHUB_SHA` como alternativa), o
-  repositório, o SHA revisado, o modelo, o veredito, a decisão do gate
-  (`pass`/`fail`/`inconclusive` + motivo), os achados que efetivamente
-  reprovaram o gate, as exceções aplicadas (campo `exceptions_applied`,
-  sempre presente como lista; AUR-520 — gravada achado por achado DENTRO do
-  loop de limiar de severidade do gate, então só existe quando
-  `gate.fail_on` está declarado e o loop de fato roda) e a cobertura
-  (completa ou não, com os arquivos que ficaram de fora).
-- `--sarif <arquivo>`: um documento SARIF 2.1.0 (`tool.driver` com as regras
-  citadas, incluindo as seções dinâmicas de skill com seus títulos;
-  `results` com `ruleId`, `level` (`error`/`warning`/`note`), `message`,
-  `location` (arquivo relativo ao repositório + linha) e uma impressão
-  digital estável por achado em `partialFingerprints`). Uma revisão
-  inconclusiva ainda produz um SARIF válido, com
-  `invocations[0].executionSuccessful=false` e uma notificação nomeando o
-  motivo.
+No workflow reutilizável (`.github/workflows/review.yml`) os dois já são
+escritos sempre e enviados como artefatos do job: `aurumcode-audit-<PR>` e
+`aurumcode-sarif-<PR>`, mesmo quando o gate reprova.
 
-Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
-`--sarif`, o comportamento de hoje é idêntico, byte a byte.
+### Exemplo de auditoria
 
-**Falha ao gravar (AUR-568).** Um arquivo pedido que não pode ser gravado (o pai
-é um arquivo, o diretório não existe, sem permissão) nunca termina como sucesso:
-a mensagem em stderr nomeia o caminho e o motivo (`audit_write_failed` ou
-`sarif_write_failed`) e o exit é diferente de 0 (1, a menos que um código mais
-específico do gate já valha). Com `gate` declarado, a revisão fica inconclusiva
-pelo modo da política (`gate.inconclusive: block` reprova com status `failure`;
-`warn` publica "inconclusivo", nunca "aprovado") e a aprovação é retida. A
-gravação acontece antes da publicação e do exit, e a decisão final a considera;
-o outro arquivo, se gravável, é regravado com essa decisão final. Sem `gate`, só
-o exit e a mensagem mudam. Com caminhos graváveis o comportamento é o de sempre.
+```json
+{
+  "policy_digest": "9f2c…",
+  "repo": "OWNER/REPO",
+  "reviewed_sha": "3333333…",
+  "model": "modelo-demo",
+  "verdict": "changes_requested",
+  "gate": {"decision": "fail"},
+  "blocking_findings": [
+    {"rule_id": "seguranca#sem-segredos-no-codigo", "path": "app.go", "line": 6, "severity": "error", "origin": "skills"}
+  ],
+  "exceptions_applied": [],
+  "coverage": {"complete": true}
+}
+```
 
-O workflow reutilizável (`.github/workflows/review.yml`) escreve os dois
-sempre e envia AMBOS como artefatos do job via `actions/upload-artifact`
-(`if: always()`, para que um gate reprovado -- o caso que mais importa --
-ainda produza evidência; um arquivo vazio, de uma rodada que nunca chegou a
-escrevê-lo, nunca é enviado): `aurumcode-sarif-<PR>` e
-`aurumcode-audit-<PR>`.
+`gate.decision` é `pass`, `fail` ou `inconclusive`; `blocking_findings` lista
+só o que reprovou; `exceptions_applied` lista as exceções aceitas; `coverage`
+diz se algum arquivo ficou de fora.
 
-O workflow reutilizável **nunca** chama `github/codeql-action/upload-sarif`
-ele mesmo. Essa action exige `security-events: write`, e uma reusable
-workflow não consegue conceder a si mesma uma permissão que o CALLER não já
-tem: se este workflow declarasse esse `permissions:` sozinho, toda chamada
-cujo caller não concedesse o mesmo pararia de rodar -- não só o upload, o
-job inteiro, para todo caller existente (`code-review.yml` deste
-repositório, os exemplos, qualquer workflow de outro repositório que já
-use este). Em vez disso, quem quer o SARIF no code scanning roda um
-SEGUNDO job, no seu próprio workflow (onde conceder permissão a si mesmo é
-normal, sem cruzar fronteira de reusable workflow), que baixa o artefato e
-faz o upload:
+### Exemplo de SARIF no Code scanning
+
+O SARIF segue a versão 2.1.0: cada achado vira um `result` com regra, nível
+(`error`, `warning`, `note`), arquivo e linha, e uma impressão digital estável
+para o GitHub não duplicar o alerta a cada rodada. O workflow reutilizável não
+envia o SARIF ao Code scanning sozinho (isso exige `security-events: write`,
+que só o seu workflow pode conceder). Acrescente um segundo job:
 
 ```yaml
-jobs:
-  review:
-    uses: ./.github/workflows/review.yml
-    with:
-      security: true
-    secrets: inherit
-
   upload-sarif:
     needs: review
-    # !cancelled() (não always()): o job de review FALHA quando o gate
-    # reprova (exit 1/3) -- exatamente o caso em que o upload mais
-    # importa -- e !cancelled() ainda roda nesse caso, só pulando um
-    # cancelamento explícito do workflow.
-    # A segunda condição pula PRs de fork: neles o token não recebe
-    # security-events: write e o upload falharia.
     if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read            # necessário para download-artifact em repo privado
+      actions: read
       security-events: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -819,36 +874,25 @@ jobs:
       - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: aurumcode-review.sarif
-          category: aurumcode-policy-gate   # categoria fixa: um upload --pr
-                                             # (ou um futuro run agendado)
-                                             # atualiza a MESMA análise no
-                                             # code scanning em vez de
-                                             # acumular um conjunto de
-                                             # alertas que nunca é limpo
+          category: aurumcode-policy-gate
 ```
 
-Um PR de fork nunca recebe `security-events: write` (o GITHUB_TOKEN de um
-`pull_request` vindo de fork é somente leitura para esse escopo). Sem a
-condição de fork no `if`, o job `upload-sarif` rodaria e falharia (403 no
-upload, ou artefato ausente quando o review não recebe secrets). Com ela, o
-job é pulado nesses PRs; quando o review gera o SARIF, ele continua
-disponível como artefato, só não chega ao code scanning automaticamente.
+PR de fork não recebe essa permissão: a condição do `if` pula o upload e o
+SARIF fica só como artefato. Este repositório não tem esse job: o SARIF dele
+fica só como artefato.
 
-O `code-review.yml` deste próprio repositório ainda não tem esse segundo
-job -- está fora dos `paths` da AUR-521 e não foi criado por este card; até
-que alguém o adicione, o SARIF deste repositório fica disponível como
-artefato do job de review, mas não chega ao code scanning.
+### O que acontece se falhar
 
-A impressão digital de cada achado (`internal/render.FindingFingerprint`) é a
-identidade canônica de um achado neste projeto — a mesma que a AUR-494 deve
-reaproveitar quando existir, nunca redefinir: regra + caminho + linha +
-contexto de código normalizado, nunca o texto livre do modelo isoladamente, e
-nunca um valor por execução (hora, nonce). O mesmo achado produz sempre a
-mesma impressão digital, nesta execução ou em qualquer execução futura.
+- Sem `--auditoria` e sem `--sarif`, nada é escrito e nada muda.
+- Se um arquivo pedido não pode ser gravado (diretório inexistente, sem
+  permissão), a revisão **nunca** termina como sucesso: a mensagem nomeia o
+  caminho e o motivo (`audit_write_failed` ou `sarif_write_failed`) e o exit é
+  1. Com `gate` declarado, a revisão fica inconclusiva e não aprova.
+- Uma revisão inconclusiva ainda gera os dois: a auditoria com
+  `gate.decision: fail` e o motivo; o SARIF com `executionSuccessful: false`.
+- Segredos não vazam: os dois passam pelo mesmo filtro de redação do parecer.
 
-Os dois arquivos passam pelo mesmo filtro de redação único (AUR-009) que
-qualquer outro destino deste processo usa: nenhum segredo (nem um valor
-registrado em `AURUM_SECRET_CANARY`) sobrevive ao texto serializado.
+Passo a passo executável: [tutorial de auditoria e SARIF](tutorials/auditoria-sarif.md).
 
 ## Exceções aprovadas: dono e validade (AUR-520)
 
@@ -893,6 +937,9 @@ Sob uma política central, só as exceções DA POLÍTICA valem — exatamente c
 repositório é ignorada por completo, com um aviso nomeando a regra e o
 caminho descartados (AC-004). O repositório sozinho não consegue criar uma
 exceção para uma regra da política.
+
+Para um advisory de dependência, `rule` é `cve/<id>` e `path` é o manifesto
+ou lockfile (veja [Dependências do PR](#dependencias-do-pr-dependencies)).
 
 ## SBOM CycloneDX com Trivy (AUR-549)
 
@@ -1214,8 +1261,8 @@ o token de identidade), nunca uma aprovação silenciosa.
 A action Docker direta (`action.yml`) NÃO roda `aurumcode sign`, pelo mesmo
 motivo documentado na seção do AUR-549 acima para `aurumcode sbom`: seu
 próprio container não tem como montar volumes via o socket do Docker com
-caminhos do HOST. Até que uma futura carta resolva esse problema para a
-action standalone, assinatura só está cablada para quem chama `review.yml`.
+caminhos do HOST. Por isso a assinatura só está cablada para quem chama
+`review.yml`, não para a action standalone.
 
 O bundle do SBOM (`<sbom>.sigstore.json`, escrito pela etapa de assinatura
 ao lado do SBOM) sai do runner como artefato do job
@@ -1267,9 +1314,11 @@ consumidor.
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
 | `review.context.docs` | Lista de documentos de contexto | vazio |
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
-| `review.changelog` | Publica versão sugerida e entrada de changelog | `off` |
+| `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
+| `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
 | `review.profiles` | Perfis de revisor executados na mesma revisão | vazio |
+| `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
@@ -1347,98 +1396,100 @@ Política central por `AURUMCODE_POLICY`, provedor por `LLM_API_KEY` e
   `.aurumcode/config.yml` de uma política central; um caminho em
   `/github/workspace` é recusado).
 
-## gate.sources: which findings count toward the gate
+## gate.sources: quais achados contam para o gate
 
-When the central policy declares `gate`, every finding that passed the
-evidence gate (file and line inside the diff) and has no valid exception
-counts if its severity is at or above `fail_on`, whatever its origin:
+Quando a política central declara `gate`, todo achado que passou pelo gate de
+evidência (arquivo e linha dentro do diff) e não tem exceção válida conta se a
+severidade for igual ou acima de `fail_on`, qualquer que seja a origem:
 
-| origin | what it is |
+| origem | o que é |
 |---|---|
-| `skills` | rules from the policy's skill sections (cited by the model) |
-| `analysis` | the embedded deterministic catalog (`analysis/*`) |
-| `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`), and every other registered engine of the `sast` category |
-| `secrets` | gitleaks findings (`gitleaks:*`) and every other registered engine of the `secrets` category |
-| `lint` | go vet findings (`go-vet/<analyzer>`, engine `govet`) and every other registered engine of the `lint` category |
-| `<engine>` | a registered scanner engine by name (`semgrep`, `gitleaks`, `govet`); an engine without a category answers only to its name |
+| `skills` | regras das seções de skill da política (citadas pelo modelo) |
+| `analysis` | o catálogo determinístico embutido (`analysis/*`) |
+| `sast` | achados do Semgrep (`semgrep:*`, `quality_gates.sast`) e de toda outra engine registrada da categoria `sast` |
+| `secrets` | achados do gitleaks (`gitleaks:*`) e de toda outra engine registrada da categoria `secrets` |
+| `lint` | achados do go vet (`go-vet/<analyzer>`, engine `govet`) e de toda outra engine registrada da categoria `lint` |
+| `<engine>` | uma engine de scanner registrada, pelo nome (`semgrep`, `gitleaks`, `govet`); engine sem categoria responde só pelo nome |
 
 ```yaml
 gate:
   fail_on: [error]
-  sources: [skills, analysis, sast]   # optional; default: all three
+  sources: [skills, analysis, sast]   # opcional; padrão: todas as origens
 ```
 
-`sources` is a closed list (`skills`, `analysis`, and the registered scanner
-engines by name or category); an unknown value is an error when the config is
-loaded. Absent or empty means all origins. The central policy governs the
-list: when it declares `gate`, a repository's own `gate` (including its
-`sources`) is ignored. Analysis findings are recomputed from the diff by the
-embedded catalog, never taken from the model's answer. The origin appears in
-the gate lines of the review (parecer and stderr), in the audit
-record (`blocking_findings[].origin`, also in the reason) and in the SARIF
-result (`properties.origin`). Without a `gate`,
-nothing changes. Restricting `sources` to leave out `sast` also stops a
-declared gate from counting Semgrep findings.
+`sources` é uma lista fechada (`skills`, `analysis` e as engines de scanner
+registradas, por nome ou categoria); um valor desconhecido é erro ao carregar
+a configuração. Ausente ou vazia significa todas as origens. A política central governa a lista: quando ela declara `gate`, o
+`gate` do próprio repositório (inclusive `sources`) é ignorado. Os achados de
+análise são recalculados a partir do diff pelo catálogo embutido, nunca
+tirados da resposta do modelo. A origem aparece nas linhas de gate do review
+(parecer e stderr), no registro de auditoria (`blocking_findings[].origin`,
+também no motivo) e no resultado SARIF (`properties.origin`). Sem `gate`, nada
+muda. Restringir `sources` deixando `sast` de fora também faz um gate
+declarado parar de contar achados do Semgrep.
 
-## The model weighs the deterministic evidence; gate.triage
+## O modelo pondera a evidência determinística: gate.triage
 
-The security pass (`--seguranca`), the embedded analysis catalog and SAST run
-**before** the model. Each finding reaches the prompt as one evidence item
-(`[E1] origem=analysis regra=... local=file:line severidade=... trecho: ...`,
-redacted, under the evidence ceiling of `limits.yml`; an item left out by the
-ceiling is counted as "N omitidos" and still counts in the gate). The model
-answers, besides the usual fields, `evidence_assessments`: per evidence id a
-`status` (`confirmed`, `disputed`, `needs_context`), a `justification`,
-`correlates_with` (other ids pointing at the same code), a `priority` and a
-`suggestion`. The engine keeps only assessments of ids it offered (any other
-is discarded with a warning on stderr), never lets the model write `origin`
-or change a severity, and shows the two side by side: in the terminal report
-(`origem: analysis | avaliacao do modelo: disputed [E1] ...`), in the audit
-record (`evidence_assessments[]`: `origin` plus `assessment`) and in the SARIF
-(`properties.origin` plus `properties.assessment`).
+A passagem de segurança (`--seguranca`), o catálogo de análise embutido e o
+SAST rodam **antes** do modelo. Cada achado chega ao prompt como um item de
+evidência (`[E1] origem=analysis regra=... local=file:line severidade=... trecho: ...`),
+redigido, sob o teto de evidência de `limits.yml`; um item deixado de fora
+pelo teto é contado como "N omitidos" e continua contando no gate. O modelo
+responde, além dos campos de sempre, `evidence_assessments`: por id de
+evidência, um `status` (`confirmed`, `disputed`, `needs_context`), uma
+`justification`, `correlates_with` (outros ids que apontam para o mesmo
+código), uma `priority` e uma `suggestion`. O motor guarda só avaliações de
+ids que ele ofereceu (qualquer outro é descartado com aviso no stderr), nunca
+deixa o modelo escrever `origin` nem mudar uma severidade, e mostra os dois
+lado a lado: no relatório do terminal
+(`origem: analysis | avaliacao do modelo: disputed [E1] ...`), no registro de
+auditoria (`evidence_assessments[]`: `origin` mais `assessment`) e no SARIF
+(`properties.origin` mais `properties.assessment`).
 
-What the assessment may change in the gate:
+O que a avaliação pode mudar no gate:
 
-- **Under a central policy: nothing.** Evidence of policy origin counts
-  whatever the model says. A disputed finding becomes a **proposed exception**
-  in the report and in the audit (`proposed_exceptions`): the `exceptions`
-  YAML with the rule, the path and the model's reason, and placeholders for
-  the owner, the expiry and (on `--base`) the repository. It is never applied:
-  only a human who copies it into the policy's `exceptions` makes it count.
-- **Without a central policy**, the repository may let a dispute demote the
-  evidence of a source:
+- **Sob política central: nada.** Evidência de origem da política conta
+  independentemente do que o modelo diga. Um achado contestado vira uma
+  **exceção proposta** no relatório e na auditoria (`proposed_exceptions`): o
+  YAML de `exceptions` com a regra, o caminho e o motivo do modelo, e
+  marcadores para o dono, a validade e (em `--base`) o repositório. Ela nunca
+  é aplicada: só conta quando uma pessoa a copia para as `exceptions` da
+  política.
+- **Sem política central**, o repositório pode deixar uma contestação rebaixar
+  a evidência de uma fonte:
 
 ```yaml
 gate:
   fail_on: [high]
   triage:
-    analysis: model   # disputed analysis and --seguranca findings stop counting
-    sast: none        # the default for every source
+    analysis: model   # achados de analysis e --seguranca contestados deixam de contar
+    sast: none        # o padrão de toda fonte
 ```
 
-`gate.triage.analysis` also covers the findings of the `--seguranca` pass
-(origin `security`), exactly as `gate.sources: analysis` counts them: the
-vocabulary stays the three `gate.sources` names, and a dispute is matched by
-origin, rule, path and line, so it never demotes another source's finding at
-the same place. Evidence the prompt's ceiling left out (declared as
-"N omitidos") was never read by the model: an assessment of it is discarded
-with the same warning as an id never offered, and it can never demote.
+`gate.triage.analysis` também cobre os achados da passagem `--seguranca`
+(origem `security`), exatamente como `gate.sources: analysis` os conta: o
+vocabulário continua sendo o de `gate.sources`, e uma contestação é casada
+por origem, regra, caminho e linha, então nunca rebaixa o achado de outra
+fonte no mesmo lugar. A evidência que o teto do prompt deixou de fora
+(declarada como "N omitidos") nunca foi lida pelo modelo: uma avaliação dela
+é descartada com o mesmo aviso de um id nunca oferecido, e nunca rebaixa.
 
-`triage` keys are the `gate.sources` names (`skills`, `analysis`, `sast`, or a
-registered engine's name);
-values are `model` or `none` (the default). The evidence the model assesses
-is the deterministic one (`analysis`, the `--seguranca` pass counted under
-`analysis`, and `sast`); a skill-section finding is the model's own citation,
-so `skills: model` is accepted but has nothing to demote today. An unknown key or value is a
-load error. A demotion is never silent: stderr and the review's limitations
-name each demoted finding (`gate.triage (analysis: model): app.go:6 ...`).
-Under a central policy `triage` is ignored, including a `triage` the policy
-itself declares, and a SAST section of policy origin is never demoted.
+As chaves de `triage` são os nomes de `gate.sources` (`skills`, `analysis`,
+`sast` ou o nome de uma engine registrada); os valores são `model` ou `none`
+(o padrão). A evidência que o modelo avalia é a determinística (`analysis`, a
+passagem `--seguranca` contada sob `analysis`, e `sast`); um achado de seção
+de skill é a própria citação do modelo, então `skills: model` é aceito mas
+hoje não tem o que rebaixar. Chave ou valor desconhecido é erro de
+carregamento. Um rebaixamento nunca é silencioso: o stderr e as limitações do
+review nomeiam cada achado rebaixado
+(`gate.triage (analysis: model): app.go:6 ...`). Sob política central,
+`triage` é ignorado, inclusive um `triage` que a própria política declare, e
+uma seção de SAST de origem da política nunca é rebaixada.
 
-A review that offered evidence is not served from the per-file model cache
-(the cache stores issues, not assessments), and the verdict-reuse key includes
-the digest of the evidence offered: a verdict stored before the evidence
-existed is never reused.
+Um review que ofereceu evidência não é servido do cache de modelo por arquivo
+(o cache guarda achados, não avaliações), e a chave de reaproveitamento do
+veredito inclui o digest da evidência oferecida: um veredito guardado antes
+de a evidência existir nunca é reaproveitado.
 
 ## Deliberação: o modelo pede ferramentas dentro de limites
 
@@ -1448,6 +1499,10 @@ deliberation:
   max_rounds: 3                  # chamadas ao modelo, a resposta final incluída
   max_cost_tokens: 60000         # tokens da deliberação além do prompt base
   per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
+  max_read_bytes: 262144         # bytes que as ferramentas do repositório devolvem na revisão
+  max_cache_bytes: 67108864      # bytes de arquivos que as ferramentas mantêm em memória
+  secret_paths: []               # globs de segredo somados ao catálogo embutido
+  dependency_reachability: false # AUR-531: explicar o uso da parte vulnerável
 ```
 
 Com `enabled: true` e um provedor que chama ferramentas, a revisão oferece ao
@@ -1460,9 +1515,31 @@ modelo, num manifesto com custo e tamanho estimados de cada uma:
   `quality_gates.sast`, sempre exigido) roda antes do modelo e nunca aparece
   como opcional.
 - `codebase_context`: o contexto delimitado (símbolos, referências,
-  dependentes) de um arquivo alterado no diff; nunca outro arquivo.
+  dependentes e trechos numerados de cada uso e teste, com arquivo e linha)
+  de um arquivo alterado no diff; nunca outro arquivo como alvo, e nunca
+  arquivo de `ignore`, de segredo ou link simbólico nos trechos.
 - `skill_section`: o texto completo de uma seção de skill configurada, pelo
   `rule_id` que o catálogo de regras já lista.
+- Ferramentas do repositório, em qualquer linguagem: `read_file` (linhas
+  numeradas de um arquivo, até 200 por chamada), `search_text` (texto
+  literal, até 50 ocorrências com `arquivo:linha`), `find_symbol` (onde um
+  símbolo é definido, pela gramática tree-sitter do arquivo, e onde é usado
+  fora de comentário) e `changed_file_diff` (o diff revisado de outro arquivo
+  alterado).
+
+As ferramentas do repositório leem **só a revisão revisada**: o caminho tem
+de existir na árvore do commit revisado (`HEAD` do checkout no `--base`, a
+head verificada no `--pr`), e os bytes lidos do checkout têm de ter o mesmo
+id de blob do commit; um arquivo editado depois do commit, não rastreado ou
+de outro commit é recusado. Também são recusados caminho absoluto ou com
+`..`, link simbólico (na árvore ou no disco, inclusive diretório que aponta
+para fora do repositório), arquivo de `ignore` e arquivo de segredo (o
+catálogo embutido `.env`, `*.pem`, `*.key`, `id_rsa*`, `.ssh/`, `.aws/`,
+`kubeconfig`, `.docker/config.json`, `*service-account*.json`, entre
+outros, mais `deliberation.secret_paths`, comparados sem diferenciar
+maiúsculas de minúsculas). Todo resultado passa pela
+redação AUR-009 antes de ir ao modelo. No `--pr` com checkout não verificado
+elas não são oferecidas.
 
 A decisão é do modelo e fica registrada (oferecidas, pedidas, não pedidas) no
 stderr e no campo `deliberation` da auditoria (`--auditoria`), com cada
@@ -1480,8 +1557,13 @@ média cujo prompt base passa de 60000 tokens e que não pede ferramenta não
 estoura o teto; três rodadas com resultados de ferramenta de até 8 KiB cada
 cabem com folga no padrão.
 
-Estourar `max_rounds`, `max_cost_tokens` ou `per_tool_timeout_seconds` torna a
-revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
+A última rodada permitida não oferece ferramenta: o modelo recebe a instrução
+de entregar o parecer com a evidência já reunida. Só quando ele ainda pede
+ferramenta nessa rodada a deliberação estoura o limite.
+
+Estourar `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`,
+`max_read_bytes` ou `max_cache_bytes` (a revisão fica parcial: o resultado
+que passaria do teto não é devolvido) torna a revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
 com os demais motivos do gate: a saída é 1 (a revisão conta como não feita
 nos dois caminhos), a auditoria (com o campo `deliberation` e seu `limit`) e o
 SARIF são gravados, no `--pr` o status `aurumcode/policy-gate` sai em failure
@@ -1490,6 +1572,18 @@ parecer é só "inconclusivo: limite de deliberação"). O custo de cada rodada 
 antes da chamada e confirmado depois, então `--limite` vale por rodada. Um
 valor ausente usa o padrão acima; um valor negativo ou uma chave desconhecida
 é erro de configuração.
+
+Com `dependency_reachability: true` e a seção `dependencies` declarada,
+cada advisory introduzido ou pré-existente da verificação de dependências
+ganha uma explicação do modelo: ele procura no repositório, com as
+ferramentas acima e em qualquer linguagem, o uso do pacote e das funções
+citadas no advisory, e o parecer diz onde o uso aparece (arquivo e linha que
+a revisão contém; local inventado é descartado) ou que não achou uso, numa
+seção própria do parecer ("Alcance das dependências vulneráveis", no idioma
+da revisão), fora das limitações. A explicação acompanha o achado e nunca o rebaixa, apaga nem muda severidade
+ou veredito; rebaixar é papel de exceção da segurança. Até 5 explicações por
+revisão; sem provedor com ferramentas ou checkout verificado, o parecer diz
+que não há explicação.
 
 Sem provedor capaz de chamar ferramentas, ou com perfis de revisão, nada é
 oferecido e os scanners `required: false` rodam antes do modelo, como sem
@@ -1511,6 +1605,64 @@ modelo sobre check sem resultado, sobre status `aurumcode/*` ou sobre scanner
 (`scanner_<engine>` ou nome de engine) que não rodou nesta revisão é
 descartado antes da publicação, contado em `ci_status_discarded` e nomeado no
 stderr. Check concluído com falha continua no contexto e no parecer.
+Quando todos os itens foram descartados, a seção não some: ela diz em uma
+linha que nada falhou nesta execução e quantos itens foram descartados.
+
+Cada item que fica separa observação de inferência:
+
+- **Check concluído do contexto.** O estado e o link publicados são os do
+  contexto, nunca o `status` escrito pelo modelo, com o rótulo "verificado no
+  contexto de CI". Check que passou não ganha causa nem correção. Check que
+  falhou sem log lido diz "Causa: desconhecida", mostra a causa do modelo só
+  como "Hipótese do modelo (não verificada)", não publica correção e orienta a
+  abrir o log do check no link.
+- **Trecho de log opcional.** Cada check do arquivo de contexto aceita um
+  campo `excerpt` com um trecho já sanitizado do log (o `gh pr checks` não o
+  produz e a revisão nunca baixa logs). Quando a `evidence` do modelo cita
+  esse trecho (uma linha inteira dele, ou ao menos 20 caracteres que não são
+  espaço; uma palavra solta como `error` não basta), o parecer publica "Observado no log do CI" e, em linhas
+  separadas, "Causa inferida pelo modelo" e "Correção inferida pelo modelo".
+- **Sem check correspondente.** Sem contexto de CI, ou com um nome que o
+  contexto não conhece como check concluído, o item aparece como "estado não
+  verificado (inferência do modelo)": o `status` do modelo nunca vira estado
+  de CI aprovado ou reprovado.
+
+## Verificação adversarial dos achados do modelo (`review.verification`)
+
+Antes do gate, cada achado do **próprio modelo** que bloquearia a execução
+(acima de `--fail-on`, reprovando o gate declarado ou, sem gate, `error` ou
+`warning`) passa por uma chamada de verificação ao mesmo provedor, com prompt
+próprio. O verificador recebe a janela em torno da linha citada e as
+ocorrências dos símbolos que o achado nomeia, nos arquivos do mesmo diretório
+que a gramática diz declará-los, tudo lido da revisão revisada (o mesmo
+checkout que as ferramentas da deliberação leem). Ele responde em JSON:
+
+```json
+{"verdict": "confirmed|refuted|uncertain", "reason": "...", "quote": "trecho exato do código"}
+```
+
+Só `refuted` com uma citação que existe literalmente nos arquivos mostrados
+(apenas espaços no fim das linhas são ignorados) rebaixa o achado: ele sai da
+entrada do gate e fica no parecer como comentário não bloqueante "Refutado
+pela verificação", numa limitação marcada, no stderr e na chave
+`verification` da auditoria (`--auditoria`), com motivo e citação. Nunca é
+apagado. Confirmado, incerto, citação inexistente, resposta inválida, erro do
+provedor, teto de chamadas ou revisão revisada ilegível: o achado continua
+bloqueando e o stderr diz por quê. Achados dos scanners determinísticos (e a
+avaliação do modelo sobre eles) nunca são enviados, e o verificador não cria
+achado novo.
+
+```yaml
+review:
+  verification:
+    enabled: true   # padrão; false desliga e todo achado bloqueante do modelo conta
+    max_calls: 8    # padrão; teto de chamadas por revisão, o excedente continua bloqueando
+```
+
+Cada chamada passa pelo mesmo orquestrador da revisão, então conta no
+`--limite` de custo. `max_calls` negativo é recusado ao ler a configuração.
+É uma escolha do repositório mesmo sob política central: desligar só faz mais
+achados bloquearem.
 
 ## PR grande: diff local e revisão em lotes
 
@@ -1785,9 +1937,10 @@ analysis_data:
   repositório; sem nenhuma, valem os padrões.
 - Em um review, só os arquivos de `kind: scanners` do release são baixados e
   verificados individualmente. A cópia OSV só é baixada e verificada por
-  arquivo quando um consumidor a usar (AUR-495); o manifesto inteiro, e portanto
-  cada digest de arquivo, continua coberto pelo `set_digest`, que é conferido
-  em todo review.
+  arquivo quando um consumidor a usar; a verificação de dependências
+  (`dependencies`) consulta a API OSV ao vivo e não a usa. O manifesto
+  inteiro, e portanto cada digest de arquivo, continua coberto pelo
+  `set_digest`, que é conferido em todo review.
 - `max_age_days` ausente usa 7; escrito explicitamente como 0, negativo ou
   acima de 365 é erro de carga (nunca "sem limite" nem o padrão em silêncio).
 - Se a listagem de releases estiver indisponível, o AurumCode usa a cópia em
@@ -1798,6 +1951,236 @@ analysis_data:
   linha no parecer (`remote` quando a listagem respondeu).
 - Requisito de publicação: ative "Immutable releases" nas configurações do
   repositório publicador para que um release publicado não possa ser alterado.
+
+## Dependências do PR (`dependencies`)
+
+Com a seção `dependencies` declarada, toda revisão (`--base` e `--pr`) verifica
+as dependências que a mudança altera. Sem a seção, nada muda.
+Para o parecer explicar se o código usa a parte vulnerável de cada advisory,
+ligue `deliberation.dependency_reachability` (seção Deliberação); a
+explicação nunca muda o achado nem o veredito.
+
+```yaml
+dependencies:
+  fail_on: [critical, high]        # severidades que reprovam o introduzido
+  preexisting: warn                # ou block
+  licenses_denied: [AGPL-3.0-only, SSPL-1.0]  # identificadores SPDX proibidos
+  osv_url: https://api.osv.dev     # padrão; um espelho da API OSV (https)
+  scanner: osv-scanner             # padrão; nome no PATH ou caminho absoluto
+  max_source_age_hours: 24         # opcional: idade máxima da resposta da base
+  deps_dev_url: https://api.deps.dev  # padrão; metadados vivos do registro
+  suspicion_severity: high         # padrão; severidade da suspeita de typosquat
+```
+
+- **O modelo lê, o código confere.** O modelo recebe a lista de arquivos
+  alterados e diz quais são manifestos ou lockfiles, em qualquer formato e
+  ecossistema; depois lê o diff deles e nomeia cada pacote adicionado,
+  atualizado ou removido, com ecossistema e versão. Não existe lista de
+  ecossistemas, extensões ou pacotes no AurumCode.
+- **Nada inventado passa.** Pacote cujo nome não aparece no diff do arquivo,
+  ou versão que não aparece nas linhas alteradas do lado certo, é descartado e
+  o descarte é declarado no parecer. Arquivo que não está no diff nunca é
+  manifesto.
+- **Conferência com o scanner.** O `osv-scanner` (na imagem do AurumCode)
+  roda uma vez sobre o checkout revisado e sua extração confere a do modelo
+  em todo arquivo alterado que ele reconhece: arquivo que o scanner reconhece
+  e o modelo não apontou é lido do mesmo jeito e a omissão é declarada;
+  versão nova que o scanner não lista é divergência declarada; pacote que o
+  scanner extrai das linhas adicionadas e o modelo omitiu torna a revisão
+  inconclusiva (`dependencies_extraction_gap`). Arquivo que o scanner não
+  conhece fica só com a leitura do modelo. Scanner ausente ou com saída
+  ilegível é inconclusivo (`dependencies_scanner_unavailable`,
+  `dependencies_scanner_failed`).
+- **Fontes e scanner.** `osv_url` e `deps_dev_url` precisam ser `https`
+  (`http` só para `127.0.0.1`, `::1` ou `localhost`, um espelho local);
+  `scanner` é um nome procurado no `PATH` ou um caminho absoluto, nunca um
+  caminho relativo, que resolveria dentro do checkout que o PR controla. O
+  `osv-scanner` precisa de rede para a API OSV durante a execução.
+  Só as saídas 0 e 1 do scanner trazem relatório; 128 é "nenhum pacote";
+  qualquer outra saída, tempo esgotado ou processo morto é
+  `dependencies_scanner_failed`, mesmo com JSON na saída. Quando o scanner
+  lista o pacote, valem a versão e o ecossistema dele na consulta à base
+  (a divergência com o modelo é declarada; mais de uma versão candidata é
+  inconclusiva).
+- **Os dois lados na base OSV.** Cada versão anterior e nova é consultada na
+  API OSV. Cada advisory sai com identificador (OSV/GHSA e aliases CVE),
+  pacote, versão, severidade da fonte (a do banco de advisories; sem ela, a
+  nota do vetor CVSS v3, pela escala da especificação; só vetor CVSS v4 fica
+  `unknown`), versão corrigida quando existe e link,
+  e é classificado como **introduzido pelo PR** (só na versão nova),
+  **pré-existente** (nos dois lados) ou **corrigido pelo PR** (só na versão
+  anterior; o parecer registra a correção). Cada lockfile de um monorepo é
+  reportado separado. Registros do mesmo advisory em bancos diferentes
+  (`GO-`, `GHSA-`, `PYSEC-` com o mesmo CVE) viram um achado só.
+- **Faixa sem versão resolvida.** O modelo explica a faixa declarada e a base
+  é consultada pelo pacote inteiro (todo advisory do pacote é candidato);
+  dependência sem versão nem faixa legível segue o `gate.inconclusive`.
+- **Falha fechada.** Base inalcançável (`dependencies_source_unreachable`),
+  resposta mais velha que `max_source_age_hours` ou sem data
+  (`dependencies_source_stale`), scanner ausente
+  (`dependencies_scanner_unavailable`), modelo ausente ou com resposta fora do
+  contrato (`dependencies_no_model`, `dependencies_model_failed`), checkout
+  não verificado do PR (`dependencies_unverified_checkout`), dependência sem
+  versão nem faixa legível (`dependencies_unresolved_version`), diff de
+  manifestos acima de 256 KiB (`dependencies_manifests_omitted`) e uma fase
+  anterior que encerrou a revisão antes da verificação
+  (`dependencies_not_run`) tornam a revisão inconclusiva com o motivo; nunca
+  são lidos como "sem vulnerabilidade". Com a seção declarada, o padrão de
+  `gate.inconclusive` é `block`.
+- **Quando esperar inconclusivo.** Por desenho, falha fechada pesa em PRs
+  reais: uma atualização grande de lockfile (diff dos manifestos acima de
+  256 KiB) é `dependencies_manifests_omitted`; o `osv-scanner` roda sobre o
+  checkout inteiro em até 120 s, e um repositório muito grande pode passar
+  disso (`dependencies_scanner_failed`); pacote que o deps.dev ainda não
+  indexou (comum num typosquat recém-publicado) responde 404 e vira
+  `dependencies_metadata_unreachable`. Em adoção, `gate.inconclusive: warn`
+  deixa esses casos como aviso.
+- **O gate.** `fail_on` lista severidades da fonte (`critical`, `high`,
+  `medium`, `low`; `moderate` do GitHub é `medium`) e, como no `gate.fail_on`,
+  o menor nível listado é o limiar: advisory introduzido com severidade igual
+  ou acima dele reprova o check; abaixo, sai como alerta. Aqui `critical` fica
+  acima de `high` (`fail_on: [critical]` não reprova um `high`). Severidade que
+  a fonte não informa reprova sempre que `fail_on` existe. Pré-existente segue
+  `preexisting`: `warn` (padrão) passa com alerta, `block` reprova (o que
+  atinge o limiar, ou qualquer um quando `fail_on` está vazio). Sem `fail_on` (e sem
+  `preexisting: block`), os achados são só informativos. A severidade é a da
+  base no momento da execução: advisory reclassificado na fonte muda o
+  resultado da execução seguinte sem mudar o yml; nada é guardado entre
+  execuções.
+- **Exceção por CVE.** A mesma lista `exceptions` (veja
+  [Exceções aprovadas](#excecoes-aprovadas-dono-e-validade-aur-520)), com
+  `rule: cve/<id>` (qualquer identificador do advisory: CVE, GHSA ou OSV) e
+  `path:` o manifesto; vale com dono e validade como qualquer exceção, sai na
+  linha do gate como aceita e vencida deixa de valer.
+
+```yaml
+exceptions:
+  - repo: org/app
+    rule: cve/CVE-2021-44906
+    path: app/package-lock.json
+    owner: time-seguranca
+    reason: parser vulneravel nao e alcancado
+    expires: "2026-12-31"
+```
+
+- **Pacote malicioso.** Pacote novo ou atualizado que a base OSV marca como
+  malicioso (advisory `MAL-`) reprova o check sempre, independente de
+  `fail_on`. Exceção para advisory `MAL-` é recusada e a recusa sai no
+  parecer.
+- **Typosquat.** Para cada pacote novo ou atualizado, o AurumCode busca os
+  metadados vivos do registro no deps.dev (data da primeira publicação,
+  quantidade de versões, repositório de origem, licenças, depreciação) e o
+  modelo aponta suspeita de typosquat ou pacote malicioso citando os campos e
+  valores em que se apoia. Suspeita cuja evidência não está nos metadados
+  consultados é descartada e o descarte é declarado. A suspeita mantida conta
+  com `suspicion_severity` contra `fail_on`, como qualquer achado, e aceita
+  exceção com `rule: suspicion/<pacote>` e `path:` o manifesto. Nenhuma lista
+  de pacotes nem regra de distância de nome existe no código. Pacote que o
+  modelo não consegue situar num sistema do deps.dev, ou que só tem faixa, é
+  declarado sem análise de typosquat e, com `fail_on` declarado, torna a
+  revisão inconclusiva (`dependencies_unvetted_package`), a menos que o mesmo
+  pacote tenha sido analisado pelo lockfile da mudança; registro
+  inalcançável torna a revisão inconclusiva
+  (`dependencies_metadata_unreachable`).
+- **Licença proibida.** Com `licenses_denied`, a licença de cada pacote
+  novo ou atualizado vem do deps.dev no momento da execução e é avaliada
+  pela expressão SPDX, nunca por substring: `MIT OR AGPL-3.0-only` passa
+  (basta um ramo permitido), `MIT AND AGPL-3.0-only` reprova, `WITH` vale
+  pela licença que modifica, e `LGPL-3.0-only` não casa com
+  `GPL-3.0-only`. Cada expressão registrada precisa permitir o pacote.
+  Licença proibida reprova o check com pacote, versão e licença, em qualquer
+  `fail_on`; exceção por pacote usa `rule: license/<pacote>` e `path:` o
+  manifesto, com dono e validade. Licença sem identificador SPDX avaliável
+  (`non-standard`, `LicenseRef-*`, `NOASSERTION`), pacote só com faixa ou
+  registro inalcançável tornam a revisão inconclusiva
+  (`dependencies_license_unknown`); a imagem não traz leitor do arquivo de
+  licença, então a classificação do texto pelo modelo só entra quando um
+  leitor é ligado. Sem `licenses_denied`, nenhuma licença é consultada.
+- A seção é governada como `analysis_data`: a política central que a declara
+  decide sozinha; o repositório só vale quando a política não a menciona.
+
+## Varredura agendada de dependências (`aurumcode dependencies`)
+
+CVE publicada depois do merge não passa por nenhum PR. O mesmo workflow
+reutilizável (`.github/workflows/review.yml`) roda, quando o caller o chama
+num `schedule:`, o job `dependencies` em vez do review: ele faz checkout da
+branch padrão (a ref de um run agendado) e executa
+
+```bash
+aurumcode dependencies --repo . --sarif aurumcode-dependencies.sarif
+```
+
+- **O que lê.** Todo arquivo rastreado pelo git. O `osv-scanner` extrai os
+  pacotes de cada arquivo que reconhece, de qualquer tamanho, e essa
+  extração é usada como está (evidência determinística); o modelo aponta, na
+  lista de arquivos, manifestos que o scanner não conhece e lê só esses,
+  aterrado no conteúdo. Cada versão é consultada na API OSV atual (a mesma
+  `dependencies.osv_url`, `max_source_age_hours` e política central da
+  revisão de PR).
+- **O que a varredura não aplica.** Ela não julga: `fail_on`,
+  `preexisting`, `licenses_denied`, suspeita de typosquat e a lista
+  `exceptions` valem só no gate do PR. O SARIF agendado traz todo advisory
+  presente na branch, com a severidade da fonte como nível; aceitar um
+  risco ali é dispensar o alerta no code scanning. Pacote que o scanner
+  lista sem versão torna a varredura inconclusiva
+  (`dependencies_unresolved_version`), nunca some do resultado. O
+  `osv-scanner` precisa de rede para a API OSV.
+- **SARIF com categoria própria.** O documento traz
+  `automationDetails.id: aurumcode/dependencies-scheduled/` (mude com
+  `--categoria`), distinta da do review de PR, e cada resultado
+  (`cve/<id>` com o menor identificador do advisory, no manifesto; registros
+  `GO-`/`GHSA-` do mesmo advisory são um alerta) tem impressão digital
+  estável: advisory, manifesto, ecossistema e pacote, sem versão, linha,
+  severidade nem data, para que subir para outra versão ainda vulnerável não
+  feche e reabra o mesmo alerta.
+  Por isso o mesmo alerta continua aberto entre execuções, e quando a
+  dependência é corrigida ou o advisory é retirado o resultado some do
+  próximo upload e o code scanning fecha o alerta sozinho. Nenhum estado
+  próprio é guardado: o estado é o do code scanning.
+- **Inconclusivo não apaga alerta.** Base inalcançável, scanner ausente,
+  modelo indisponível ou lista de arquivos rastreados acima do limite do
+  modelo (256 KiB de caminhos, por volta de 6 mil arquivos): o
+  comando sai com 1, diz o motivo e **não grava SARIF**; o passo de upload do
+  workflow só roda depois de uma varredura conclusiva (`if: success()`),
+  então nenhum documento vazio fecha os alertas abertos. Código 2 é erro de
+  uso ou de configuração.
+- **O caller.** Acrescenta `schedule:` ao seu `on:` e, como no SARIF do PR,
+  um segundo job com `security-events: write` que baixa o artefato
+  `aurumcode-dependencies-sarif` e faz o upload, **sem** `category:` (o
+  documento já traz a sua):
+
+```yaml
+on:
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *"
+
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@<sha>
+    secrets: inherit
+
+  upload-dependencies-sarif:
+    needs: review
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: aurumcode-dependencies-sarif
+          path: .
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: aurumcode-dependencies.sarif
+```
+
+  Com o job `review` falhando (varredura inconclusiva), `needs` impede o
+  upload. A action standalone (`action.yml`) é só de PR e não roda a
+  varredura agendada.
 
 ## Quais arquivos saem da revisão como documentação
 
@@ -1817,3 +2200,141 @@ liste) têm categoria `other` e vão ao modelo como texto, na seção
 que o runtime ganhe em uma atualização é revisada até alguém, deliberadamente,
 a declarar como documentação forte no catálogo. Não há lista de extensões em
 Go.
+
+## Changelog obrigatório (AUR-509)
+
+O AurumCode confere se a pull request acrescenta uma linha útil ao
+`CHANGELOG.md`. Você escolhe o quanto isso pesa com `changelog_check.mode`:
+
+| Modo | O que acontece numa PR sem entrada útil | Quando usar |
+| --- | --- | --- |
+| `off` (padrão) | Nada. | O time não mantém changelog. |
+| `suggest` | O parecer traz a entrada sugerida, pronta para colar. A PR não reprova. | Quer criar o hábito sem travar ninguém. |
+| `required` | O check reprova e traz a mesma sugestão. | O changelog é parte da entrega. |
+
+```mermaid
+flowchart LR
+  PR[PR aberta] --> M{changelog_check.mode}
+  M -->|off| N[nada acontece]
+  M -->|suggest| S[parecer com a entrada sugerida<br/>a PR passa]
+  M -->|required| E{entrada útil?}
+  E -->|sim| A[aprovado]
+  E -->|não| R[reprovado<br/>com a entrada sugerida]
+```
+
+### Como ligar
+
+```yaml
+changelog_check:
+  mode: suggest           # off | suggest | required (aceita sugerir, obrigatorio, desligado)
+  file: CHANGELOG.md      # padrão
+  section: Unreleased     # padrão
+```
+
+Os limites também são configuráveis (padrões entre parênteses):
+`max_entry_lines` (12), `max_line_length` (240), `max_release_lines` (120),
+`min_words` (3) e `agent_log_markers` (somam-se aos padrões). Um modo
+desconhecido é recusado ao ler a configuração, com a lista dos três.
+
+### Exemplo
+
+Numa PR que muda o código e não toca no `CHANGELOG.md`, com `mode: suggest`:
+
+```text
+$ aurumcode changelog --base main
+changelog: sem entrada útil (entrada_ausente): a PR não altera CHANGELOG.md; modo suggest, não reprova
+changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
+## Unreleased
+- O relatório aceita filtro por período (início e fim).
+```
+
+Com `mode: required`, a primeira linha vira `changelog: reprovado
+(entrada_ausente)` e o exit é 1. A sugestão vem do modelo configurado ou, sem
+ele, dos assuntos dos commits (sem merges, `fixup!` nem log de agente), e é
+redigida antes de sair. O AurumCode nunca escreve no `CHANGELOG.md` da PR:
+colar é do humano.
+
+### Onde aparece
+
+- `aurumcode changelog --base <sha>` imprime o veredito e a sugestão. Flags:
+  `--base` (obrigatória), `--head` (padrão `HEAD`), `--repo` (padrão `.`) e
+  `--politica` (padrão `AURUMCODE_POLICY`).
+- `aurumcode review --pr` põe a sugestão no parecer quando a PR não toca no
+  arquivo do changelog (em `suggest` e em `required`).
+- No GitHub, `.github/workflows/changelog.yml` (reutilizável) roda o check e
+  escreve a sugestão no resumo do job. Para travar o merge, use `required` e
+  exija o contexto `Changelog obrigatório` na proteção da `main`.
+
+### O que acontece se falhar
+
+- Exit 0: entrada válida, modo `off` ou modo `suggest`. Exit 1: entrada
+  reprovada em `required` (`entrada_ausente`, `apenas_espacos`,
+  `sem_informacao_nova`, `entrada_longa`, `log_de_agente`) ou `indeterminado`
+  (diff ilegível, `config.yml` da base inválido). Exit 2: uso errado.
+- O modo vem da **base** da PR: uma PR que troca o modo só muda o check depois
+  do merge.
+- Com política central, a seção `changelog_check` da política decide sozinha;
+  a do repositório é ignorada com aviso.
+
+Guia de escrita, com exemplos de `Unreleased` e de release:
+[Changelog](changelog.md). Passo a passo executável:
+[tutorial de changelog](tutorials/changelog.md).
+
+## Realimentação da política (AUR-532)
+
+`aurumcode realimentacao` transforma o uso real do gate em uma pull request no
+repositório da política central. Não há banco próprio: os sinais já estão no
+GitHub, e o estado (quais sinais já foram propostos) fica no próprio
+repositório da política, em `realimentacao/sinais.json`.
+
+| Sinal | De onde vem |
+| --- | --- |
+| `falso_positivo` | Alerta de code scanning dispensado com o motivo *false positive* (repo, SHA, skill e seção da regra `skill#secao`, arquivo e linha). *Won't fix* e *used in tests* não são sinal. |
+| `verdadeiro_positivo` | Achado bloqueante de uma auditoria (`aurumcode-audit-<pr>`, AUR-521) que some na auditoria seguinte da mesma PR, com a linha do achado reescrita pelo diff entre as duas. |
+| `defeito_escapado` | Comentário `/aurum perdeu [<sha>] <descrição>` de OWNER, MEMBER ou COLLABORATOR em PR ou issue. Sem SHA, vale o head da PR; numa issue sem SHA o comando é recusado. Gera um caso candidato em `realimentacao/candidatos/`. |
+
+O modelo agrupa os sinais novos em propostas para as skills que a política
+declara em `review.context.skills`; proposta que não cita sinal, cita sinal
+desconhecido ou mira skill não declarada é descartada e listada na PR. Todo
+texto passa pela redação antes do modelo e da PR. Nada é aplicado à
+política: a PR (branch `aurum/realimentacao`) é única enquanto aberta e a
+segurança decide o merge. Rodar de novo sem sinal novo não abre nem altera
+nada.
+
+| Flag | Efeito |
+| --- | --- |
+| `--org` | Organização cujos repositórios são lidos. |
+| `--repos` | Repositórios `owner/nome` separados por vírgula (além de `--org`). |
+| `--repo-politica` | Repositório `owner/nome` da política que recebe a PR. |
+| `--desde` | Instante RFC 3339; comentários anteriores não são lidos. |
+| `--publicar` | Grava a branch e abre ou atualiza a PR (sem ela, só imprime o plano). |
+| `--medicao-antes`, `--medicao-depois` | Relatórios do corpus do AUR-523 (`multilang-report.json`). |
+| `--medir` | Só compara os dois relatórios; exit 1 em regressão ou relatório ausente. |
+
+- Tokens: `AURUMCODE_SIGNALS_TOKEN` lê a organização (alertas, artefatos,
+  comentários); `GITHUB_TOKEN` grava só no repositório da política. Sem o
+  primeiro, `GITHUB_TOKEN` lê também. A escrita usa a API de conteúdo; nenhuma
+  identidade git é configurada.
+- Quem abre a PR: com o segredo opcional `POLICY_TOKEN` do workflow (GitHub
+  App ou token fine-grained com escrita de conteúdo e PRs no repositório da
+  política), a PR é dessa identidade e a medição roda no evento
+  `pull_request`. Sem ele, a PR é do `github.token`: a org precisa ligar
+  *Settings → Actions → General → Allow GitHub Actions to create and approve
+  pull requests*, e uma PR aberta pelo `github.token` não dispara workflows de
+  `pull_request`; por isso o job dispara a medição por `workflow_dispatch`
+  (entrada `measurement_workflow`, o arquivo do repositório da política que
+  chama `realimentacao-medicao.yml` com `pr_number`).
+- Modelo: o mesmo da revisão (`LLM_API_KEY`/`LLM_BASE_URL`, com
+  `LLM_PROVIDER` quando houver perfil). Sem modelo, há sinal novo e nenhuma proposta:
+  o comando falha, sem abrir PR.
+- Workflows reutilizáveis: `.github/workflows/realimentacao.yml` (agendado no
+  repositório da política) e `.github/workflows/realimentacao-medicao.yml`
+  (nas PRs da realimentação: roda o corpus na base e na PR, comenta a tabela
+  antes/depois e falha quando "aprovado com defeito" sobe, o recall cai ou um
+  lado não pôde ser medido). A medição espera o corpus no layout do AUR-523
+  em `corpus/cases` do repositório da política.
+- O que a medição mede: o corpus do AUR-523 roda com o provedor falso,
+  derivado dos rótulos dos casos (`tests/benchmark/aur523.go`). Ela mostra o
+  efeito da política nas regras citáveis e no gate (seções, severidades,
+  `fail_on`), não a qualidade de um modelo real; a tabela e o corpo da PR
+  dizem isso.

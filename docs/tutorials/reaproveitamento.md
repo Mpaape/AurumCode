@@ -178,42 +178,42 @@ fica com 0 entradas.
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/reaproveitamento/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/reaproveitamento/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### cache-degradado
 
 ![Terminal do caso cache-degradado](../assets/capturas/reaproveitamento/cache-degradado-terminal.png)
 
-![Comentario do PR do caso cache-degradado](../assets/capturas/reaproveitamento/cache-degradado-comentario.png)
+![Comentário do PR do caso cache-degradado](../assets/capturas/reaproveitamento/cache-degradado-comentario.png)
 
 ### falha-sem-cache
 
 ![Terminal do caso falha-sem-cache](../assets/capturas/reaproveitamento/falha-sem-cache-terminal.png)
 
-![Comentario do PR do caso falha-sem-cache](../assets/capturas/reaproveitamento/falha-sem-cache-comentario.png)
+![Comentário do PR do caso falha-sem-cache](../assets/capturas/reaproveitamento/falha-sem-cache-comentario.png)
 
 ### modelo-mudou
 
 ![Terminal do caso modelo-mudou](../assets/capturas/reaproveitamento/modelo-mudou-terminal.png)
 
-![Comentario do PR do caso modelo-mudou](../assets/capturas/reaproveitamento/modelo-mudou-comentario.png)
+![Comentário do PR do caso modelo-mudou](../assets/capturas/reaproveitamento/modelo-mudou-comentario.png)
 
 ### politica-mudou
 
 ![Terminal do caso politica-mudou](../assets/capturas/reaproveitamento/politica-mudou-terminal.png)
 
-![Comentario do PR do caso politica-mudou](../assets/capturas/reaproveitamento/politica-mudou-comentario.png)
+![Comentário do PR do caso politica-mudou](../assets/capturas/reaproveitamento/politica-mudou-comentario.png)
 
 ### reuso-por-arquivo
 
 ![Terminal do caso reuso-por-arquivo](../assets/capturas/reaproveitamento/reuso-por-arquivo-terminal.png)
 
-![Comentario do PR do caso reuso-por-arquivo](../assets/capturas/reaproveitamento/reuso-por-arquivo-comentario.png)
+![Comentário do PR do caso reuso-por-arquivo](../assets/capturas/reaproveitamento/reuso-por-arquivo-comentario.png)
 
 ### veredito-base-e-pr
 
 ![Terminal do caso veredito-base-e-pr](../assets/capturas/reaproveitamento/veredito-base-e-pr-terminal.png)
 
-![Comentario do PR do caso veredito-base-e-pr](../assets/capturas/reaproveitamento/veredito-base-e-pr-comentario.png)
+![Comentário do PR do caso veredito-base-e-pr](../assets/capturas/reaproveitamento/veredito-base-e-pr-comentario.png)
 
 <!-- capturas:fim -->

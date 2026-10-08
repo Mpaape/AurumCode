@@ -1,5 +1,6 @@
 == skill-do-repo
 $ aurumcode review --base main
+aurumcode review: verification: app.go:6 convencoes#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -19,6 +20,10 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 exit_code=0
 RESULTADO: o achado cita a secao da skill como regra; sem gate o exit e 0
 prompt: - `convencoes#sem-segredos-no-codigo`

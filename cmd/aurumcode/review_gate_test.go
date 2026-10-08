@@ -15,6 +15,7 @@ import (
 var declaredGateContributors = []string{
 	"exceptions", "verdict-reuse", "policy-skills", "scanners",
 	"embedded-analysis", "security-pass", "analysis-data", "dependency-track",
+	"dependencies",
 }
 
 // observeGatePipelines returns session dependencies whose observer records

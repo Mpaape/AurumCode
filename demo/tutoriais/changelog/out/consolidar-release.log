@@ -1,0 +1,5 @@
+== consolidar-release
+$ aurumcode changelog --base main
+changelog: aprovado (entrada_valida): 0 linha(s) nova(s) em Unreleased, 1 em notas de versão
+exit_code=0
+RESULTADO: a consolidacao da release com resumo novo foi aprovada

@@ -1,5 +1,6 @@
 == veredito-base-e-pr
 $ aurumcode review --base main --politica /policy
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
@@ -20,9 +21,15 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 exit_code=3
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
+aurumcode review: verification: reviewed revision unavailable (sem checkout revisado); the model's blocking findings still block
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (source_unavailable: revisão revisada indisponível para a verificação)
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
 exit_code=3

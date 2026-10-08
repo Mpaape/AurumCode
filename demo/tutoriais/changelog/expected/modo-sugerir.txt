@@ -1,0 +1,7 @@
+$ aurumcode changelog --base main
+changelog: sem entrada útil (entrada_ausente): a PR não altera CHANGELOG.md; modo suggest, não reprova
+changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
+## Unreleased
+- O relatório aceita filtro por período (início e fim).
+exit_code=0
+RESULTADO: modo sugerir: a PR sem entrada passou e o check trouxe a entrada sugerida

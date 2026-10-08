@@ -1,0 +1,4 @@
+$ aurumcode changelog --base main
+changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
+exit_code=1
+RESULTADO: o modo foi lido da base; a PR que o desliga continua sujeita ao check

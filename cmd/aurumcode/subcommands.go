@@ -81,7 +81,17 @@ func subcommands() []subcommand {
 				return runXBOM(args, stdout, stderr)
 			},
 		},
+		{
+			name:       "dependencies",
+			docSection: "Varredura agendada de dependências (`aurumcode dependencies`)",
+			summary:    "Scan the default branch's dependencies against OSV and write a SARIF for code scanning.",
+			example:    "aurumcode dependencies --repo . --sarif dependencies.sarif",
+			flags:      func() *flag.FlagSet { fs, _ := newDependencyScanFlagSet(); return fs },
+			run:        runDependencyScan,
+		},
 		mcpSubcommand(),
+		changelogSubcommand(),
+		feedbackSubcommand(),
 	}
 }
 

@@ -6,14 +6,16 @@ Ao final você terá visto o modelo **decidir** quais recursos usar numa
 revisão: com `deliberation.enabled`, os scanners que a configuração não exige
 (`required: false`) deixam de rodar antes do modelo e passam a ser
 **ferramentas** que ele pode pedir, ao lado do contexto do código de um
-arquivo alterado e das seções de skill. O modelo vê no prompt o manifesto das
+arquivo alterado, das seções de skill e das ferramentas que leem a revisão
+revisada (`read_file`, `search_text`, `find_symbol`, `changed_file_diff`). O modelo vê no prompt o manifesto das
 ferramentas, com custo e tamanho estimados, e decide. Quatro casos: o modelo
 pede o Semgrep num diff grande, não pede num diff pequeno, estoura o limite de
 rodadas (a revisão fica inconclusiva pelo gate e nenhum texto do modelo é publicado) e pede um scanner
 cujo binário não existe (inconclusivo pela regra única dos scanners).
 
 O ponto central: **a decisão é do modelo, o teto é da configuração**. Estourar
-qualquer limite (`max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`)
+qualquer limite (`max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`,
+`max_read_bytes`)
 nunca vira um parecer parcial; e um achado que o scanner pedido devolve conta
 no gate com a origem do scanner, nunca só no texto do modelo.
 
@@ -109,14 +111,14 @@ aurumcode review --base main --auditoria auditoria.json
 <!-- saida: diff-grande-pede-semgrep -->
 ```text
 $ aurumcode review --base main --auditoria auditoria.json
-aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context]; pedidas [scanner_semgrep]; não pedidas [codebase_context]; rodadas 2; desfecho answered
+aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [scanner_semgrep]; não pedidas [codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) executed: 1 achado(s)
 (severidade error, limiar error, origem sast, secao repo)
 - **Evidencia da varredura pedida** — o scanner_semgrep apontou eval() em calc.js:5 (regras.demo-sem-eval)
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval)
 exit_code=3
 RESULTADO: o modelo pediu o scanner_semgrep, a varredura achou eval() e o gate reprovou
-auditoria deliberation: oferecidas=scanner_semgrep,codebase_context pedidas=scanner_semgrep nao_pedidas=codebase_context rodadas=2 desfecho=answered
+auditoria deliberation: oferecidas=scanner_semgrep,codebase_context,read_file,search_text,find_symbol,changed_file_diff pedidas=scanner_semgrep nao_pedidas=codebase_context,read_file,search_text,find_symbol,changed_file_diff rodadas=2 desfecho=answered
 auditoria chamada: rodada=1 ferramenta=scanner_semgrep argumentos={} status=executed resultado=1 achado(s) duracao_ms_registrada=True
 ```
 
@@ -130,17 +132,20 @@ gate; quem precisa dela sempre deve declará-la `required: true`.
 <!-- saida: diff-pequeno-nao-pede -->
 ```text
 $ aurumcode review --base main --auditoria auditoria.json
-aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context]; pedidas []; não pedidas [scanner_semgrep, codebase_context]; rodadas 1; desfecho answered
+aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas []; não pedidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 1; desfecho answered
 No issues found.
 exit_code=0
 RESULTADO: diff pequeno: o modelo nao pediu o scanner_semgrep e ele nao rodou
-auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context chamadas=0
+auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context,read_file,search_text,find_symbol,changed_file_diff chamadas=0
 ```
 
 ## Caso 3: estouro de rodadas
 
-Uma rodada é uma chamada ao modelo. Com `max_rounds: 2` e um modelo que só
-pede ferramenta, a segunda rodada termina sem resposta final: a revisão é
+Uma rodada é uma chamada ao modelo. A última rodada permitida não oferece
+ferramenta e pede o parecer com o que já foi reunido; o limite só estoura se
+o modelo ainda pedir ferramenta. Com `max_rounds: 1` (não há rodada final
+separada) e um modelo que só pede ferramenta, a rodada termina sem resposta
+final: a revisão é
 inconclusiva pelo gate (motivo `deliberation_limit:max_rounds`, na mesma
 regra dos outros motivos inconclusivos), sai com 1, a auditoria e o SARIF são
 gravados (a auditoria com o transcript e o limite) e **nenhum texto do
@@ -162,11 +167,11 @@ custo de cada rodada é reservado antes da chamada e confirmado depois, então
 ```text
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: inconclusivo: limite de deliberação (deliberation_limit:max_rounds); nenhum parecer do modelo foi publicado
-aurumcode review: deliberation: rodada 2 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
+aurumcode review: deliberation: rodada 1 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
 exit_code=1
 RESULTADO: max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado
 auditoria gate: decision=inconclusive reason=review inconclusive (deliberation_limit:max_rounds)
-auditoria deliberation: limit=max_rounds rodadas=2 chamadas=2 desfecho=deliberation_limit:max_rounds
+auditoria deliberation: limit=max_rounds rodadas=1 chamadas=1 desfecho=deliberation_limit:max_rounds
 ```
 
 ## Caso de falha: o scanner pedido não existe
@@ -193,7 +198,9 @@ RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e 
   ferramenta antes de executar; um argumento inválido é recusado, registrado
   e explicado ao modelo, e a ferramenta não roda.
 - Nenhuma ferramenta escreve nem acessa rede além do que o produto já faz; o
-  `codebase_context` só responde por arquivos do diff.
+  `codebase_context` só responde por arquivos do diff, e as ferramentas do
+  repositório só leem a revisão revisada (nunca link simbólico, arquivo de
+  `ignore` ou de segredo).
 - Sem provedor capaz de chamar ferramentas (ou com perfis de revisão), nada é
   oferecido e os scanners opcionais rodam antes do modelo, como sempre.
 - A referência dos limites está em
@@ -202,30 +209,30 @@ RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/deliberacao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/deliberacao/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### diff-grande-pede-semgrep
 
 ![Terminal do caso diff-grande-pede-semgrep](../assets/capturas/deliberacao/diff-grande-pede-semgrep-terminal.png)
 
-![Comentario do PR do caso diff-grande-pede-semgrep](../assets/capturas/deliberacao/diff-grande-pede-semgrep-comentario.png)
+![Comentário do PR do caso diff-grande-pede-semgrep](../assets/capturas/deliberacao/diff-grande-pede-semgrep-comentario.png)
 
 ### diff-pequeno-nao-pede
 
 ![Terminal do caso diff-pequeno-nao-pede](../assets/capturas/deliberacao/diff-pequeno-nao-pede-terminal.png)
 
-![Comentario do PR do caso diff-pequeno-nao-pede](../assets/capturas/deliberacao/diff-pequeno-nao-pede-comentario.png)
+![Comentário do PR do caso diff-pequeno-nao-pede](../assets/capturas/deliberacao/diff-pequeno-nao-pede-comentario.png)
 
 ### estoura-rodadas
 
 ![Terminal do caso estoura-rodadas](../assets/capturas/deliberacao/estoura-rodadas-terminal.png)
 
-![Comentario do PR do caso estoura-rodadas](../assets/capturas/deliberacao/estoura-rodadas-comentario.png)
+![Comentário do PR do caso estoura-rodadas](../assets/capturas/deliberacao/estoura-rodadas-comentario.png)
 
 ### falha-semgrep-ausente
 
 ![Terminal do caso falha-semgrep-ausente](../assets/capturas/deliberacao/falha-semgrep-ausente-terminal.png)
 
-![Comentario do PR do caso falha-semgrep-ausente](../assets/capturas/deliberacao/falha-semgrep-ausente-comentario.png)
+![Comentário do PR do caso falha-semgrep-ausente](../assets/capturas/deliberacao/falha-semgrep-ausente-comentario.png)
 
 <!-- capturas:fim -->
