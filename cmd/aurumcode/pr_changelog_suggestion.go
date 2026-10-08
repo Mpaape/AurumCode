@@ -9,6 +9,8 @@ package main
 
 import (
 	"fmt"
+	"path"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/changelog"
 )
@@ -24,7 +26,7 @@ func (p *prReview) resolveChangelogSuggestion() (int, bool) {
 		fmt.Fprintf(p.stderr, "aurumcode review: changelog_check: %v\n", err)
 		return 0, false
 	}
-	if fileSides(req.File, p.diff, nil).found {
+	if fileSides(req.File, p.diff, nil).found || changelogPathIgnored(req.File, p.ignoredPaths) {
 		return 0, false
 	}
 	verdict := req.Verify(changelog.Change{State: changelog.FileUntouched})
@@ -42,4 +44,16 @@ func (p *prReview) resolveChangelogSuggestion() (int, bool) {
 	}
 	p.changelogSuggestion = changelogSuggestionMarkdown(req, s.Source, redactSuggestion(p.filter, s.Block()), p.reviewLanguage)
 	return 0, false
+}
+
+// changelogPathIgnored reports whether the review's ignore patterns hid the
+// changelog file from the diff: then its absence proves nothing.
+func changelogPathIgnored(file string, ignored []string) bool {
+	want := path.Clean(strings.TrimSpace(file))
+	for _, p := range ignored {
+		if path.Clean(p) == want {
+			return true
+		}
+	}
+	return false
 }

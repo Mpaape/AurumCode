@@ -177,7 +177,7 @@ func TestAUR602AC003SuggestionIsRedacted(t *testing.T) {
 // without the requirement the block never appears.
 func TestAUR602AC004ReviewBodyCarriesSuggestion(t *testing.T) {
 	policy := aur509Repo(t, aur509Required)
-	code, errOut, body := aur602PR(t, "--politica", policy)
+	code, errOut, body := aur602PR(t, "", "--politica", policy)
 	if code != 0 {
 		t.Fatalf("exit %d stderr %s", code, errOut)
 	}
@@ -189,15 +189,26 @@ func TestAUR602AC004ReviewBodyCarriesSuggestion(t *testing.T) {
 	if strings.Contains(body, "Co-Authored-By") || strings.Contains(body, "Merge pull request") {
 		t.Fatalf("agent or merge noise reached the review body:\n%s", body)
 	}
-	code, errOut, body = aur602PR(t)
+	code, errOut, body = aur602PR(t, "")
 	if code != 0 || strings.Contains(body, "Suggested changelog entry") {
 		t.Fatalf("no requirement, yet the block appeared: exit %d stderr %s\n%s", code, errOut, body)
+	}
+	// A PR that touches the changelog file gets no block, even when the
+	// review's ignore patterns hide the file from the reviewed diff.
+	touched := "diff --git a/app.go b/app.go\n@@ -1,1 +1,1 @@\n-old := 1\n+new := 2\n" +
+		"diff --git a/CHANGELOG.md b/CHANGELOG.md\n@@ -3,1 +3,2 @@\n ## Unreleased\n+- O check sugere a entrada de changelog pronta.\n"
+	ignoring := aur509Repo(t, aur509Required+"ignore:\n  - \"*.md\"\n")
+	for name, dir := range map[string]string{"touched": policy, "touched and ignored": ignoring} {
+		code, errOut, body = aur602PR(t, touched, "--politica", dir)
+		if code != 0 || strings.Contains(body, "Suggested changelog entry") {
+			t.Fatalf("%s: the PR touches the changelog, yet the block appeared: exit %d stderr %s\n%s", name, code, errOut, body)
+		}
 	}
 }
 
 // aur602Fixture is the AUR-499 GitHub fixture with commit subjects long
 // enough to be changelog lines.
-func aur602Fixture(t *testing.T, posted *githubclient.PullRequestReview) *httptest.Server {
+func aur602Fixture(t *testing.T, diffBody string, posted *githubclient.PullRequestReview) *httptest.Server {
 	t.Helper()
 	inner := pr499Fixture(t, true, posted)
 	t.Cleanup(inner.Close)
@@ -208,6 +219,8 @@ func aur602Fixture(t *testing.T, posted *githubclient.PullRequestReview) *httpte
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case diffBody != "" && r.Method == "GET" && r.URL.Path == "/repos/team/project/pulls/7" && strings.Contains(r.Header.Get("Accept"), "diff"):
+			fmt.Fprint(w, diffBody)
 		case r.Method == "GET" && r.URL.Path == "/repos/team/project/pulls/7" && !strings.Contains(r.Header.Get("Accept"), "diff"):
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `{"title":"Merge pull request #7 from example/branch","body":"Implements the feature."}`)
@@ -221,10 +234,10 @@ func aur602Fixture(t *testing.T, posted *githubclient.PullRequestReview) *httpte
 }
 
 // aur602PR is one --pr review against the AUR-499 GitHub fixture.
-func aur602PR(t *testing.T, extra ...string) (int, string, string) {
+func aur602PR(t *testing.T, diffBody string, extra ...string) (int, string, string) {
 	t.Helper()
 	var posted githubclient.PullRequestReview
-	server := aur602Fixture(t, &posted)
+	server := aur602Fixture(t, diffBody, &posted)
 	defer server.Close()
 	fixture := filepath.Join(t.TempDir(), "response.json")
 	if err := os.WriteFile(fixture, []byte(`{"issues":[],"summary":"Nothing to report."}`), 0o600); err != nil {
