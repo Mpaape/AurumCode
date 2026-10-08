@@ -20,6 +20,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/session"
+	"github.com/Mpaape/AurumCode/internal/review/verify"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -195,6 +196,12 @@ type reviewState struct {
 	batches []review.Batch
 
 	gateRes *gateDecision
+
+	// verifyCaller is the model pass's provider, kept for the verification
+	// of its blocking findings (nil: no model pass, nothing verified);
+	// verification is what it recorded.
+	verifyCaller verify.Caller
+	verification []verify.Record
 
 	// depReport is the dependency check's report, nil when the
 	// configuration declares no dependencies section.
