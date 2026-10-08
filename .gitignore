@@ -100,3 +100,4 @@ __pycache__/
 
 # binario local do produto (commitado por acidente em f47543c7)
 /aurumcode
+docs/javascripts/mermaid.min.js
