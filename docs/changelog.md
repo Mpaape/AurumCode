@@ -2,11 +2,12 @@
 
 Cada pull request para a `main` acrescenta uma entrada curta, escrita para
 quem usa o produto, na seção `## Unreleased` do `CHANGELOG.md`. O check
-`aurumcode changelog` reprova a PR que não faz isso. A configuração está em
-[Changelog obrigatório (AUR-509)](configuration.md#changelog-obrigatorio-aur-509).
+`aurumcode changelog` reprova a PR que não faz isso (modo `required`) ou só
+sugere a entrada sem reprovar (modo `suggest`). Os modos estão em
+[configuração do changelog](configuration.md#changelog-obrigatorio-aur-509).
 
-O check é determinístico: compara as duas versões do arquivo e não chama
-modelo. A sugestão de entrada do review (`review.changelog` / `--changelog`)
+O veredito é determinístico: compara as duas versões do arquivo; o modelo só
+escreve a sugestão. A sugestão de entrada do review (`review.changelog` / `--changelog`)
 continua existindo, separada e só consultiva: ela propõe um texto, mas não
 aprova nem reprova o merge.
 

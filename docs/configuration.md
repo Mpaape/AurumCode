@@ -790,87 +790,81 @@ cancelamento (`scanner.WaitDelay`) e 32 MiB por fluxo de saída
 
 ## Trilha de auditoria e SARIF (AUR-521)
 
-Qualquer `aurumcode review` (`--base` ou `--pr`) pode escrever, além do que já
-publica, dois arquivos adicionais para o time de segurança da organização:
+Cada revisão pode deixar dois arquivos, além do parecer na PR:
 
+- **Registro de auditoria** (`--auditoria`): um JSON por revisão que responde
+  quem revisou, o quê, com qual política e qual foi a decisão. Serve para
+  compliance: guarde-o junto das evidências da entrega.
+- **SARIF** (`--sarif`): o formato padrão de resultados de análise. O GitHub
+  mostra os achados dele na aba **Security → Code scanning**, como alertas
+  ligados à linha do código.
+
+```mermaid
+flowchart LR
+  R[aurumcode review] -->|--auditoria| A[auditoria.json]
+  R -->|--sarif| S[revisao.sarif]
+  A --> C[compliance / auditoria interna]
+  S --> U[job upload-sarif do seu workflow]
+  U --> G[GitHub: Security → Code scanning]
 ```
-aurumcode review --base HEAD~1 \
-  --auditoria /caminho/auditoria.json \
-  --sarif     /caminho/revisao.sarif
+
+### Quando usar
+
+- Auditoria: quando alguém precisa provar depois por que uma PR passou ou
+  reprovou (segurança, compliance, auditoria externa).
+- SARIF: quando o time quer os achados na aba de segurança do GitHub, junto
+  dos outros scanners.
+
+### Como ligar
+
+Na linha de comando, passe os caminhos:
+
+```bash
+aurumcode review --base main --auditoria auditoria.json --sarif revisao.sarif
 ```
 
-- `--auditoria <arquivo>`: um registro JSON com o digest da política, o SHA
-  do workflow (`AURUMCODE_WORKFLOW_SHA`, com `GITHUB_SHA` como alternativa), o
-  repositório, o SHA revisado, o modelo, o veredito, a decisão do gate
-  (`pass`/`fail`/`inconclusive` + motivo), os achados que efetivamente
-  reprovaram o gate, as exceções aplicadas (campo `exceptions_applied`,
-  sempre presente como lista; AUR-520 — gravada achado por achado DENTRO do
-  loop de limiar de severidade do gate, então só existe quando
-  `gate.fail_on` está declarado e o loop de fato roda) e a cobertura
-  (completa ou não, com os arquivos que ficaram de fora).
-- `--sarif <arquivo>`: um documento SARIF 2.1.0 (`tool.driver` com as regras
-  citadas, incluindo as seções dinâmicas de skill com seus títulos;
-  `results` com `ruleId`, `level` (`error`/`warning`/`note`), `message`,
-  `location` (arquivo relativo ao repositório + linha) e uma impressão
-  digital estável por achado em `partialFingerprints`). Uma revisão
-  inconclusiva ainda produz um SARIF válido, com
-  `invocations[0].executionSuccessful=false` e uma notificação nomeando o
-  motivo.
+No workflow reutilizável (`.github/workflows/review.yml`) os dois já são
+escritos sempre e enviados como artefatos do job: `aurumcode-audit-<PR>` e
+`aurumcode-sarif-<PR>`, mesmo quando o gate reprova.
 
-Nenhum dos dois é escrito sem a flag correspondente: sem `--auditoria` e sem
-`--sarif`, o comportamento de hoje é idêntico, byte a byte.
+### Exemplo de auditoria
 
-**Falha ao gravar (AUR-568).** Um arquivo pedido que não pode ser gravado (o pai
-é um arquivo, o diretório não existe, sem permissão) nunca termina como sucesso:
-a mensagem em stderr nomeia o caminho e o motivo (`audit_write_failed` ou
-`sarif_write_failed`) e o exit é diferente de 0 (1, a menos que um código mais
-específico do gate já valha). Com `gate` declarado, a revisão fica inconclusiva
-pelo modo da política (`gate.inconclusive: block` reprova com status `failure`;
-`warn` publica "inconclusivo", nunca "aprovado") e a aprovação é retida. A
-gravação acontece antes da publicação e do exit, e a decisão final a considera;
-o outro arquivo, se gravável, é regravado com essa decisão final. Sem `gate`, só
-o exit e a mensagem mudam. Com caminhos graváveis o comportamento é o de sempre.
+```json
+{
+  "policy_digest": "9f2c…",
+  "repo": "OWNER/REPO",
+  "reviewed_sha": "3333333…",
+  "model": "modelo-demo",
+  "verdict": "changes_requested",
+  "gate": {"decision": "fail"},
+  "blocking_findings": [
+    {"rule_id": "seguranca#sem-segredos-no-codigo", "path": "app.go", "line": 6, "severity": "error", "origin": "skills"}
+  ],
+  "exceptions_applied": [],
+  "coverage": {"complete": true}
+}
+```
 
-O workflow reutilizável (`.github/workflows/review.yml`) escreve os dois
-sempre e envia AMBOS como artefatos do job via `actions/upload-artifact`
-(`if: always()`, para que um gate reprovado -- o caso que mais importa --
-ainda produza evidência; um arquivo vazio, de uma rodada que nunca chegou a
-escrevê-lo, nunca é enviado): `aurumcode-sarif-<PR>` e
-`aurumcode-audit-<PR>`.
+`gate.decision` é `pass`, `fail` ou `inconclusive`; `blocking_findings` lista
+só o que reprovou; `exceptions_applied` lista as exceções aceitas; `coverage`
+diz se algum arquivo ficou de fora.
 
-O workflow reutilizável **nunca** chama `github/codeql-action/upload-sarif`
-ele mesmo. Essa action exige `security-events: write`, e uma reusable
-workflow não consegue conceder a si mesma uma permissão que o CALLER não já
-tem: se este workflow declarasse esse `permissions:` sozinho, toda chamada
-cujo caller não concedesse o mesmo pararia de rodar -- não só o upload, o
-job inteiro, para todo caller existente (`code-review.yml` deste
-repositório, os exemplos, qualquer workflow de outro repositório que já
-use este). Em vez disso, quem quer o SARIF no code scanning roda um
-SEGUNDO job, no seu próprio workflow (onde conceder permissão a si mesmo é
-normal, sem cruzar fronteira de reusable workflow), que baixa o artefato e
-faz o upload:
+### Exemplo de SARIF no Code scanning
+
+O SARIF segue a versão 2.1.0: cada achado vira um `result` com regra, nível
+(`error`, `warning`, `note`), arquivo e linha, e uma impressão digital estável
+para o GitHub não duplicar o alerta a cada rodada. O workflow reutilizável não
+envia o SARIF ao Code scanning sozinho (isso exige `security-events: write`,
+que só o seu workflow pode conceder). Acrescente um segundo job:
 
 ```yaml
-jobs:
-  review:
-    uses: ./.github/workflows/review.yml
-    with:
-      security: true
-    secrets: inherit
-
   upload-sarif:
     needs: review
-    # !cancelled() (não always()): o job de review FALHA quando o gate
-    # reprova (exit 1/3) -- exatamente o caso em que o upload mais
-    # importa -- e !cancelled() ainda roda nesse caso, só pulando um
-    # cancelamento explícito do workflow.
-    # A segunda condição pula PRs de fork: neles o token não recebe
-    # security-events: write e o upload falharia.
     if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read            # necessário para download-artifact em repo privado
+      actions: read
       security-events: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -880,37 +874,25 @@ jobs:
       - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: aurumcode-review.sarif
-          category: aurumcode-policy-gate   # categoria fixa: um upload --pr
-                                             # atualiza a MESMA análise no
-                                             # code scanning em vez de
-                                             # acumular um conjunto de
-                                             # alertas que nunca é limpo; a
-                                             # varredura agendada de
-                                             # dependências usa a sua própria
+          category: aurumcode-policy-gate
 ```
 
-Um PR de fork nunca recebe `security-events: write` (o GITHUB_TOKEN de um
-`pull_request` vindo de fork é somente leitura para esse escopo). Sem a
-condição de fork no `if`, o job `upload-sarif` rodaria e falharia (403 no
-upload, ou artefato ausente quando o review não recebe secrets). Com ela, o
-job é pulado nesses PRs; quando o review gera o SARIF, ele continua
-disponível como artefato, só não chega ao code scanning automaticamente.
+PR de fork não recebe essa permissão: a condição do `if` pula o upload e o
+SARIF fica só como artefato. Este repositório não tem esse job: o SARIF dele
+fica só como artefato.
 
-O `code-review.yml` deste próprio repositório não tem esse segundo job: o
-SARIF deste repositório fica disponível como artefato do job de review, mas
-não chega ao code scanning.
+### O que acontece se falhar
 
-A impressão digital de cada achado (`internal/render.FindingFingerprint`) é a
-identidade canônica de um achado neste projeto — a mesma que as rodadas do
-mesmo PR reaproveitam para não comentar de novo um achado já comentado (veja
-[Qualidade e limitações](review-quality.md)), nunca redefinida: regra + caminho + linha +
-contexto de código normalizado, nunca o texto livre do modelo isoladamente, e
-nunca um valor por execução (hora, nonce). O mesmo achado produz sempre a
-mesma impressão digital, nesta execução ou em qualquer execução futura.
+- Sem `--auditoria` e sem `--sarif`, nada é escrito e nada muda.
+- Se um arquivo pedido não pode ser gravado (diretório inexistente, sem
+  permissão), a revisão **nunca** termina como sucesso: a mensagem nomeia o
+  caminho e o motivo (`audit_write_failed` ou `sarif_write_failed`) e o exit é
+  1. Com `gate` declarado, a revisão fica inconclusiva e não aprova.
+- Uma revisão inconclusiva ainda gera os dois: a auditoria com
+  `gate.decision: fail` e o motivo; o SARIF com `executionSuccessful: false`.
+- Segredos não vazam: os dois passam pelo mesmo filtro de redação do parecer.
 
-Os dois arquivos passam pelo mesmo filtro de redação único (AUR-009) que
-qualquer outro destino deste processo usa: nenhum segredo (nem um valor
-registrado em `AURUM_SECRET_CANARY`) sobrevive ao texto serializado.
+Passo a passo executável: [tutorial de auditoria e SARIF](tutorials/auditoria-sarif.md).
 
 ## Exceções aprovadas: dono e validade (AUR-520)
 
@@ -2184,92 +2166,82 @@ Go.
 
 ## Changelog obrigatório (AUR-509)
 
-`aurumcode changelog --base <sha>` reprova a pull request que não acrescenta
-uma entrada útil e concisa no `CHANGELOG.md`. O veredito é determinístico
-(o modelo nunca aprova nem reprova) e independente de `review.changelog`, que
-só sugere uma versão e um texto. Guia com
-exemplos de `Unreleased` e de consolidação de release: [Changelog
-obrigatório](changelog.md).
+O AurumCode confere se a pull request acrescenta uma linha útil ao
+`CHANGELOG.md`. Você escolhe o quanto isso pesa com `changelog_check.mode`:
+
+| Modo | O que acontece numa PR sem entrada útil | Quando usar |
+| --- | --- | --- |
+| `off` (padrão) | Nada. | O time não mantém changelog. |
+| `suggest` | O parecer traz a entrada sugerida, pronta para colar. A PR não reprova. | Quer criar o hábito sem travar ninguém. |
+| `required` | O check reprova e traz a mesma sugestão. | O changelog é parte da entrega. |
+
+```mermaid
+flowchart LR
+  PR[PR aberta] --> M{changelog_check.mode}
+  M -->|off| N[nada acontece]
+  M -->|suggest| S[parecer com a entrada sugerida<br/>a PR passa]
+  M -->|required| E{entrada útil?}
+  E -->|sim| A[aprovado]
+  E -->|não| R[reprovado<br/>com a entrada sugerida]
+```
+
+### Como ligar
 
 ```yaml
 changelog_check:
-  mode: required          # padrão: off (o check passa dizendo "não exigido")
+  mode: suggest           # off | suggest | required (aceita sugerir, obrigatorio, desligado)
   file: CHANGELOG.md      # padrão
-  section: Unreleased     # padrão; aceita "## [Unreleased]" e "## Unreleased - data"
-  max_entry_lines: 12     # linhas novas em Unreleased
-  max_line_length: 240    # caracteres por linha nova
-  max_release_lines: 120  # notas de uma release consolidada (uma ou duas páginas)
-  min_words: 3            # palavras para uma linha contar como informação
-  agent_log_markers: []   # somam-se aos marcadores padrão, nunca os trocam
+  section: Unreleased     # padrão
 ```
 
-| Flag | Efeito |
-| --- | --- |
-| `--base` | Commit base da PR (obrigatório). O modo e os limites vêm do `config.yml` desse commit. |
-| `--head` | Commit com a mudança proposta (padrão `HEAD`). |
-| `--repo` | Diretório do repositório (padrão `.`). |
-| `--politica` | Diretório de uma política central (o que contém `.aurumcode/`), fora do repositório revisado; padrão `AURUMCODE_POLICY`. No workflow, a entrada `policy_repository`. |
+Os limites também são configuráveis (padrões entre parênteses):
+`max_entry_lines` (12), `max_line_length` (240), `max_release_lines` (120),
+`min_words` (3) e `agent_log_markers` (somam-se aos padrões). Um modo
+desconhecido é recusado ao ler a configuração, com a lista dos três.
 
-- O modo é lido da **base**: a PR não desliga o check que se aplica a ela.
-  Quando a PR não altera o `config.yml`, ele é lido do checkout.
-- Exit 0: entrada válida, ou modo `off`. Exit 1: entrada reprovada
-  (`entrada_ausente`, `apenas_espacos`, `sem_informacao_nova`,
-  `entrada_longa`, `log_de_agente`) ou `indeterminado` (diff ilegível,
-  arquivo binário ou grande demais, `config.yml` da base inválido). Exit 2:
-  uso errado.
-- Linhas que só mudaram de lugar não são informação nova; uma linha nova
-  conta em `Unreleased` ou numa seção cujo título é uma versão
-  (`## 1.2.0`, `## [1.2.0] - 2026-10-07`).
-- Required check: `.github/workflows/changelog.yml` é reutilizável
-  (`uses: Mpaape/AurumCode/.github/workflows/changelog.yml@<sha>`) e constrói
-  o verificador do checkout do AurumCode, nunca do código da PR. Exija o
-  contexto `<job do chamador> / Changelog obrigatório` na proteção da `main`
-  (neste repositório, `Changelog obrigatório`). O teste local prova o
-  comando; o bloqueio do merge depende da proteção configurada.
-- Com política central (`--politica` ou `policy_repository` no workflow
-  reutilizável), uma seção `changelog_check` da política decide sozinha (a do
-  repositório é ignorada com aviso). Política dentro da árvore revisada é
-  recusada.
-- Nas PRs do próprio AurumCode o verificador é construído da base da PR; no
-  consumidor, do SHA pinado no `uses:`. Na PR que introduz o verificador no
-  próprio repositório, a base ainda não tem `scripts/ci/changelog-check.sh`: o
-  job imprime um `::notice::` declarando a primeira introdução e conclui sem
-  erro. No consumidor, a ferramenta pinada sem verificador continua sendo erro.
+### Exemplo
 
-### Entrada sugerida (AUR-602)
-
-Quando o check reprova por entrada ausente ou inútil, ele **continua
-reprovando** (exit 1), mas imprime a entrada sugerida, pronta para colar na
-seção `section` do `file` (o humano cola e ajusta; o AurumCode nunca escreve
-no `CHANGELOG.md` da PR):
+Numa PR que muda o código e não toca no `CHANGELOG.md`, com `mode: suggest`:
 
 ```text
-changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
+$ aurumcode changelog --base main
+changelog: sem entrada útil (entrada_ausente): a PR não altera CHANGELOG.md; modo suggest, não reprova
 changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
+## Unreleased
+- O relatório aceita filtro por período (início e fim).
 ```
 
-- Fonte `modelo`: o provedor configurado como no review (perfil
-  `LLM_PROVIDER`, `LLM_API_KEY`/`LLM_BASE_URL`)
-  recebe só os caminhos alterados e os assuntos dos commits, e responde
-  `{"entry": ["linha", ...]}`. Cada linha passa pelas mesmas regras do check
-  (marcadores de log de agente, `min_words`, `max_line_length`,
-  `max_entry_lines`); resposta fora do formato ou sem linha aproveitável cai
-  na fonte `commits`.
-- Fonte `commits`: sem modelo, as linhas vêm dos assuntos dos commits de
-  `base..head`; corpo de commit (trailers, logs) nunca é lido, e merges,
-  `fixup!`/`squash!` e assuntos com marcador de log de agente são descartados.
-- O texto é redigido (segredos registrados, como o canário
-  `AURUM_SECRET_CANARY`, e formatos de credencial) antes de ir para o log,
-  para o resumo do job (`$GITHUB_STEP_SUMMARY`, quando existe) e para o
-  parecer.
-- `aurumcode review --pr`: quando `changelog_check` está `required` e a PR não
-  toca o arquivo do changelog, o parecer traz o bloco "Entrada de changelog
-  sugerida" (fonte `commits`, sem chamada extra ao modelo). Se o arquivo
-  estiver entre os caminhos ignorados pelo review, o bloco é omitido.
-- No `.github/workflows/changelog.yml` o container do verificador não recebe
-  credencial de provedor: no CI a sugestão vem sempre dos commits. A fonte
-  `modelo` vale para quem roda `aurumcode changelog` com um provedor
-  configurado.
+Com `mode: required`, a primeira linha vira `changelog: reprovado
+(entrada_ausente)` e o exit é 1. A sugestão vem do modelo configurado ou, sem
+ele, dos assuntos dos commits (sem merges, `fixup!` nem log de agente), e é
+redigida antes de sair. O AurumCode nunca escreve no `CHANGELOG.md` da PR:
+colar é do humano.
+
+### Onde aparece
+
+- `aurumcode changelog --base <sha>` imprime o veredito e a sugestão. Flags:
+  `--base` (obrigatória), `--head` (padrão `HEAD`), `--repo` (padrão `.`) e
+  `--politica` (padrão `AURUMCODE_POLICY`).
+- `aurumcode review --pr` põe a sugestão no parecer quando a PR não toca no
+  arquivo do changelog (em `suggest` e em `required`).
+- No GitHub, `.github/workflows/changelog.yml` (reutilizável) roda o check e
+  escreve a sugestão no resumo do job. Para travar o merge, use `required` e
+  exija o contexto `Changelog obrigatório` na proteção da `main`.
+
+### O que acontece se falhar
+
+- Exit 0: entrada válida, modo `off` ou modo `suggest`. Exit 1: entrada
+  reprovada em `required` (`entrada_ausente`, `apenas_espacos`,
+  `sem_informacao_nova`, `entrada_longa`, `log_de_agente`) ou `indeterminado`
+  (diff ilegível, `config.yml` da base inválido). Exit 2: uso errado.
+- O modo vem da **base** da PR: uma PR que troca o modo só muda o check depois
+  do merge.
+- Com política central, a seção `changelog_check` da política decide sozinha;
+  a do repositório é ignorada com aviso.
+
+Guia de escrita, com exemplos de `Unreleased` e de release:
+[Changelog](changelog.md). Passo a passo executável:
+[tutorial de changelog](tutorials/changelog.md).
 
 ## Realimentação da política (AUR-532)
 

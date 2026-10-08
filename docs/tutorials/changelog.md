@@ -1,40 +1,40 @@
-# Tutorial: changelog obrigatório
+# Tutorial: changelog
 
 ## Objetivo
 
-Ao final você terá visto o check `aurumcode changelog` aprovar e reprovar
-pull requests pelo `CHANGELOG.md`: a entrada útil em `Unreleased` passa; a
-consolidação de uma release com resumo passa; a sugestão do review continua
-separada e não decide o merge; a PR que tenta desligar o modo no próprio
-`config.yml` continua sujeita a ele; log de agente colado no changelog é
-recusado; a PR sem entrada reprova; e, ao reprovar, o check traz a entrada
-sugerida, pronta para colar.
+Ver, com comandos reais, o que o `aurumcode changelog` faz em cada modo:
+`required` aprova a PR com entrada útil e reprova a PR sem ela, sempre
+trazendo a entrada sugerida; `suggest` só sugere e nunca reprova; `off` não
+faz nada. São oito casos, todos sem rede e com um modelo falso.
 
-O veredito é determinístico: compara o arquivo da base (`main`) com o da PR
-(`feature`); o modelo só escreve a sugestão, nunca aprova nem reprova. A referência completa está em
-[Changelog obrigatório](../configuration.md#changelog-obrigatorio-aur-509) e o
-guia de escrita em [Changelog obrigatório](../changelog.md).
+```mermaid
+flowchart LR
+  PR[PR aberta] --> M{changelog_check.mode<br/>lido da base}
+  M -->|off| N[nada]
+  M -->|suggest| S[sugestão no parecer<br/>exit 0]
+  M -->|required| E{entrada útil?}
+  E -->|sim| A[aprovado, exit 0]
+  E -->|não| R[reprovado, exit 1<br/>com a sugestão]
+```
 
-Cada comando e cada saída vêm de uma execução real, registrada em
-`demo/tutoriais/changelog/out/` e conferida por `run.sh --check`. Os blocos de
-configuração **são os arquivos de `demo/tutoriais/changelog/`**, byte a byte.
+Referência curta dos modos:
+[configuração do changelog](../configuration.md#changelog-obrigatorio-aur-509).
+Como escrever uma boa entrada: [guia de changelog](../changelog.md).
 
 ## Pré-requisitos
 
-- `git`, `docker`, `bash` e `python3`. Nada mais roda no seu host.
+- `git`, `docker`, `bash` e `python3`; nada roda no seu host além deles.
 - A imagem do produto, construída do `Dockerfile` da raiz.
-- Rede **não** é necessária: a demonstração roda com `--network none` e com o
-  provedor de modelo falso (`AURUMCODE_LLM_FIXTURE`), que serve a sugestão do
-  review (caso 3) e a entrada sugerida (caso 6).
+- Rede **não** é necessária: o modelo é falso e responde de um arquivo.
 
 ```bash
-bash demo/tutoriais/changelog/run.sh all      # sete casos; grava out/
-bash demo/tutoriais/changelog/run.sh --check  # compara out/ com expected/, sem docker
+bash demo/tutoriais/changelog/run.sh all      # oito casos; grava out/
+bash demo/tutoriais/changelog/run.sh --check  # compara out/ com expected/
 ```
 
 ## A configuração
 
-O repositório exige a entrada:
+O repositório de exemplo exige a entrada (todos os casos menos o 7):
 
 <!-- arquivo: demo/tutoriais/changelog/repo-exemplo/base/.aurumcode/config.yml -->
 ```yaml
@@ -42,7 +42,7 @@ changelog_check:
   mode: required
 ```
 
-O `CHANGELOG.md` da base já tem a seção `Unreleased`:
+O `CHANGELOG.md` da base:
 
 <!-- arquivo: demo/tutoriais/changelog/repo-exemplo/base/CHANGELOG.md -->
 ```markdown
@@ -57,14 +57,11 @@ O `CHANGELOG.md` da base já tem a seção `Unreleased`:
 - Primeira versão do serviço de pedidos.
 ```
 
-No GitHub, o mesmo comando roda pelo workflow reutilizável
-`.github/workflows/changelog.yml`, e o contexto **Changelog obrigatório** vira
-required check da `main` (veja a [referência](../configuration.md#changelog-obrigatorio-aur-509)).
+O caso 7 usa uma base igual, com `mode: sugerir` (sinônimo de `suggest`).
 
 ## Caso 1: entrada válida
 
-A PR muda `app.py` e acrescenta uma linha em `Unreleased`, escrita para quem
-usa o serviço:
+A PR muda `app.py` e acrescenta uma linha em `Unreleased`:
 
 <!-- arquivo: demo/tutoriais/changelog/repo-exemplo/entrada/CHANGELOG.md -->
 ```markdown
@@ -92,10 +89,11 @@ exit_code=0
 RESULTADO: a PR acrescentou uma entrada util em Unreleased e o check aprovou
 ```
 
+O que observar: uma linha nova, escrita para quem usa o serviço, basta.
+
 ## Caso 2: consolidar uma release
 
-Na PR de release, a linha de `Unreleased` passa para a seção da versão e ganha
-um resumo. A linha só movida não conta como informação nova; o resumo conta:
+A linha sai de `Unreleased` para a seção da versão e ganha um resumo:
 
 <!-- arquivo: demo/tutoriais/changelog/repo-exemplo/release/CHANGELOG.md -->
 ```markdown
@@ -122,11 +120,12 @@ exit_code=0
 RESULTADO: a consolidacao da release com resumo novo foi aprovada
 ```
 
-## Caso 3: a sugestão do review fica separada
+O que observar: a linha só movida não conta; o resumo novo conta.
 
-`aurumcode review --changelog` (ou `review.changelog: on`) propõe uma versão e
-um texto a partir dos commits revisados. É só sugestão: o check obrigatório
-continua exigindo a entrada no arquivo.
+## Caso 3: a sugestão de release do review é outra coisa
+
+`aurumcode review --changelog` propõe uma versão a partir dos commits. Isso
+não substitui a entrada no arquivo:
 
 ```bash
 aurumcode review --base main --changelog
@@ -145,18 +144,15 @@ exit_code=1
 RESULTADO: a sugestao nao substitui a entrada: o check obrigatorio reprovou
 ```
 
-## Caso 4: a PR tenta desligar o modo
+O que observar: o review sugere; quem decide em `required` é o check.
 
-A PR troca o modo para `off` no próprio `config.yml` e não escreve entrada:
+## Caso 4: a PR tenta desligar o modo
 
 <!-- arquivo: demo/tutoriais/changelog/repo-exemplo/desliga/.aurumcode/config.yml -->
 ```yaml
 changelog_check:
   mode: off
 ```
-
-O modo é lido do `config.yml` da base, então a mudança só valeria depois do
-merge:
 
 <!-- saida: pr-desliga-o-modo -->
 ```text
@@ -165,6 +161,8 @@ changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
 exit_code=1
 RESULTADO: o modo foi lido da base; a PR que o desliga continua sujeita ao check
 ```
+
+O que observar: o modo vem da base. Mudar o modo na PR só vale depois do merge.
 
 ## Caso 5: log de agente não é entrada
 
@@ -190,6 +188,8 @@ exit_code=1
 RESULTADO: a linha com log de agente foi recusada
 ```
 
+O que observar: saída de ferramenta (`/pass`, `go test verde`) é recusada.
+
 ## Quando falha: PR sem entrada
 
 A PR muda o código e não toca no `CHANGELOG.md`:
@@ -204,9 +204,8 @@ RESULTADO: sem entrada no CHANGELOG.md o check reprova
 
 ## Caso 6: a entrada sugerida, pronta para colar
 
-A mesma PR sem entrada continua reprovada, mas o check imprime a entrada
-sugerida pelo modelo configurado. O modelo recebe só os caminhos alterados e
-os assuntos dos commits e responde neste formato (aqui, o modelo falso):
+A mesma PR, agora com um modelo configurado. Ele recebe só os caminhos
+alterados e os assuntos dos commits e responde neste formato:
 
 <!-- arquivo: demo/tutoriais/changelog/fixture-sugestao.json -->
 ```json
@@ -224,28 +223,35 @@ exit_code=1
 RESULTADO: o check reprovou e trouxe a entrada sugerida pelo modelo, pronta para colar
 ```
 
-Sem modelo, a sugestão vem dos assuntos dos commits (fonte `commits`), sem
-merges, `fixup!` nem linhas de log de agente. No GitHub, o mesmo bloco vai
-para o resumo do job e, quando o review roda na PR, para o parecer do
-AurumCode. O texto é redigido antes de sair; colar continua sendo do humano.
+O que observar: continua reprovando, mas o bloco já vem pronto para colar.
+Sem modelo, a sugestão sai dos assuntos dos commits.
+
+## Caso 7: só sugerir, sem reprovar
+
+Com `mode: sugerir` na base, a mesma PR sem entrada **passa** e recebe a
+sugestão. Na PR do GitHub, o mesmo bloco aparece no parecer do AurumCode.
+
+<!-- saida: modo-sugerir -->
+```text
+$ aurumcode changelog --base main
+changelog: sem entrada útil (entrada_ausente): a PR não altera CHANGELOG.md; modo suggest, não reprova
+changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
+## Unreleased
+- O relatório aceita filtro por período (início e fim).
+exit_code=0
+RESULTADO: modo sugerir: a PR sem entrada passou e o check trouxe a entrada sugerida
+```
+
+O que observar: exit 0. Use este modo para criar o hábito sem travar ninguém.
 
 ## Problemas comuns
 
-- `indeterminado: não foi possível obter o diff`: a base não está no clone.
-  No CI, faça checkout com `fetch-depth: 0` (o workflow reutilizável já faz).
-- `sem_informacao_nova` numa PR de release: só mover linhas não conta; escreva
-  um resumo curto na seção da versão.
-- `entrada_longa`: a entrada passou de `max_entry_lines` linhas ou uma linha
-  passou de `max_line_length` caracteres; resuma para quem usa o produto.
-- `changelog: não exigido`: o `config.yml` da base não declara
-  `changelog_check.mode: required`; ligar o modo numa PR vale a partir do merge.
-
-## O que conferir
-
-- Nenhum caso chama o modelo para decidir: o provedor falso só serve a
-  sugestão do caso 3 e a entrada sugerida do caso 6.
-- O texto da entrada não aparece na saída do check: ele é contado, nunca
-  repetido nem obedecido.
+- `indeterminado: não foi possível obter o diff`: a base não está no clone;
+  no CI use `fetch-depth: 0` (o workflow reutilizável já usa).
+- `sem_informacao_nova` numa release: escreva um resumo curto na seção da
+  versão.
+- `entrada_longa`: resuma; o limite é `max_entry_lines` e `max_line_length`.
+- `changelog: não exigido`: a base está em `off` (ou sem a seção).
 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
