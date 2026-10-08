@@ -57,6 +57,6 @@ No issues found.
 exit_code=0
 RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria
 auditoria analysis_data.source: remote
-auditoria analysis_data.tag: analysis-data/20261007T045702Z
-auditoria analysis_data.generated_at: 2026-10-07T04:57:02Z
+auditoria analysis_data.tag: analysis-data/20261007T060459Z
+auditoria analysis_data.generated_at: 2026-10-07T06:04:59Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1

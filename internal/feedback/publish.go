@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -91,13 +92,13 @@ func (p PolicyRepo) ensureBranch(base string, open bool) error {
 			SHA string `json:"sha"`
 		} `json:"object"`
 	}
-	err := p.GitHub.getJSON("/repos/"+p.Repo+"/git/ref/heads/"+escapePath(Branch), &ref)
+	err := p.GitHub.getJSON(p.refPath("ref"), &ref)
 	var nf errNotFound
 	switch {
 	case err == nil && open:
 		return nil
 	case err == nil:
-		if _, _, err := p.GitHub.do("DELETE", "/repos/"+p.Repo+"/git/refs/heads/"+escapePath(Branch), nil); err != nil {
+		if _, _, err := p.GitHub.do(http.MethodDelete, p.refPath("refs"), nil); err != nil {
 			return err
 		}
 	case !errors.As(err, &nf):
@@ -155,4 +156,10 @@ func (p PolicyRepo) Publish(plan Plan, base string, openNumber int, open bool) (
 		return 0, err
 	}
 	return created.Number, nil
+}
+
+// refPath is the REST path of the feedback branch under the git ref API
+// ("ref" to read one ref, "refs" to change it).
+func (p PolicyRepo) refPath(kind string) string {
+	return fmt.Sprintf("/repos/%s/git/%s/heads/%s", p.Repo, kind, escapePath(Branch))
 }

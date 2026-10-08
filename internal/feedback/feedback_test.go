@@ -54,7 +54,7 @@ func TestAUR532AC002FixedFindingIsATruePositive(t *testing.T) {
 		{PR: 7, Created: "2026-10-01T11:00:00Z", Reviewed: "sha-2"},
 		{PR: 8, Created: "2026-10-01T11:00:00Z", Reviewed: "sha-9", Blocking: []AuditFinding{{RuleID: "seguranca#sql", Path: "x.go", Line: 1}}},
 	}
-	patch := "@@ -8,4 +8,4 @@ func q() {\n a\n b\n-\tdb.Query(\"select \" + id)\n+\tdb.Query(\"select ?\", id)\n c\n"
+	patch := "@@ -8,4 +8,4 @@ func q() {\n a\n b\n-\tlog.Print(\"id \", id)\n+\tlog.Printf(\"id %d\", id)\n c\n"
 	changed := func(repo, from, to string) (map[string]map[int]bool, error) {
 		if from != "sha-1" || to != "sha-2" {
 			t.Fatalf("compared %s..%s", from, to)

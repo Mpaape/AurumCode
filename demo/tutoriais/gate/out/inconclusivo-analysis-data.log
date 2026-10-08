@@ -1,7 +1,6 @@
 == inconclusivo-analysis-data
 $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -21,5 +20,6 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 exit_code=1
 RESULTADO: block: artefato de analise indisponivel reprova (analysis_data_unavailable)

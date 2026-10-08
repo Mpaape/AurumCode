@@ -7,7 +7,7 @@
       "rule_id": "security/hardcoded-secret",
       "message": "A senha do banco esta escrita no codigo.",
       "impact": "Quem le o repositorio ou o historico reutiliza a senha.",
-      "evidence": "A linha adicionada atribui o literal \"hunter2\" a dbPassword em app.go.",
+      "evidence": "A linha adicionada atribui uma senha literal a dbPassword em app.go.",
       "suggestion": "Leia a senha do ambiente em vez de escreve-la no codigo.",
       "verification": "Remova o literal e rode a revisao de novo; o achado deve sumir."
     }
