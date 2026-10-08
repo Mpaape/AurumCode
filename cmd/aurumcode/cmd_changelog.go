@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
+	"github.com/Mpaape/AurumCode/internal/changelog"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -53,16 +54,23 @@ func changelogSubcommand() subcommand {
 		summary:    "Require a useful, concise changelog entry in the pull request (stable check for branch protection).",
 		example:    "aurumcode changelog --base origin/main",
 		flags:      func() *flag.FlagSet { fs, _ := newChangelogFlagSet(); return fs },
-		run: func(args []string, stdout, stderr io.Writer, _ *redaction.Filter) int {
-			return runChangelog(args, stdout, stderr, gitChangelogDiff)
+		run: func(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int {
+			return runChangelogWith(args, stdout, stderr, changelogDeps{differ: gitChangelogDiff, commits: gitChangelogCommits, provider: changelogProviderFromEnv, filter: filter})
 		},
 	}
 }
 
-// runChangelog exits 0 for a valid entry (or a repository that does not
-// require one), 1 for a refused entry or anything it could not establish,
-// 2 for a usage error.
+// runChangelog is the check with the real commit and provider sources and
+// the environment's redaction filter; tests inject the diff.
 func runChangelog(args []string, stdout, stderr io.Writer, differ changelogDiffer) int {
+	return runChangelogWith(args, stdout, stderr, changelogDeps{differ: differ, commits: gitChangelogCommits, provider: changelogProviderFromEnv, filter: redaction.FromEnv()})
+}
+
+// runChangelogWith exits 0 for a valid entry (or a repository that does not
+// require one), 1 for a refused entry or anything it could not establish,
+// 2 for a usage error. A refused entry also prints the suggested entry; the
+// suggestion never changes the exit code.
+func runChangelogWith(args []string, stdout, stderr io.Writer, deps changelogDeps) int {
 	fs, f := newChangelogFlagSet()
 	if exit, ok := parseSubcommandFlags("changelog", fs, args, stdout, stderr); !ok {
 		return exit
@@ -75,7 +83,7 @@ func runChangelog(args []string, stdout, stderr io.Writer, differ changelogDiffe
 		fmt.Fprintln(stderr, "aurumcode changelog: --base é obrigatório")
 		return 2
 	}
-	diff, notices, err := differ(f.repo, f.base, f.head)
+	diff, notices, err := deps.differ(f.repo, f.base, f.head)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode changelog: indeterminado: não foi possível obter o diff: %v\n", err)
 		return 1
@@ -88,17 +96,20 @@ func runChangelog(args []string, stdout, stderr io.Writer, differ changelogDiffe
 	if policyDir == "" {
 		policyDir = strings.TrimSpace(os.Getenv("AURUMCODE_POLICY"))
 	}
-	verdict, required, err := evaluateChangelog(f.repo, policyDir, diff, notices, stderr)
+	verdict, req, err := evaluateChangelog(f.repo, policyDir, diff, notices, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode changelog: indeterminado: %v\n", err)
 		return 1
 	}
-	if !required {
+	if req == nil {
 		fmt.Fprintln(stdout, "changelog: não exigido (changelog_check.mode: off na base)")
 		return 0
 	}
 	if !verdict.OK {
 		fmt.Fprintf(stdout, "changelog: reprovado (%s): %s\n", verdict.Reason, verdict.Detail)
+		if verdict.Reason != changelog.ReasonIndeterminate {
+			deps.offerSuggestion(*req, f, diff, stdout, stderr)
+		}
 		return 1
 	}
 	fmt.Fprintf(stdout, "changelog: aprovado (%s): %s\n", verdict.Reason, verdict.Detail)

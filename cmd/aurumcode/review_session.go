@@ -132,15 +132,18 @@ type reviewState struct {
 	artifactRepo, artifactCommit string
 
 	// resolved inputs
-	diff                *types.Diff
-	cfg                 *config.Config
-	centralCfg          *config.Config
-	reviewLanguage      string
-	policyWarnings      []config.ProviderWarning
-	skillNotices        []string
-	ignoredPaths        []string
-	rawDiffFileCount    int
-	changelogText       string
+	diff             *types.Diff
+	cfg              *config.Config
+	centralCfg       *config.Config
+	reviewLanguage   string
+	policyWarnings   []config.ProviderWarning
+	skillNotices     []string
+	ignoredPaths     []string
+	rawDiffFileCount int
+	changelogText    string
+	// changelogSuggestion is the redacted suggested-entry block shown when
+	// the repository requires a changelog entry the pull request lacks.
+	changelogSuggestion string
 	changelogLimitation string
 	codebaseText        string
 	memoryStore         memory.Store
