@@ -1,38 +1,21 @@
-// Sections of the published review document that depend on the blocking
-// rule or on the facts of this run: the findings and the CI status.
+// Sections of the parecer that depend on the facts of this run: the CI
+// status and the tests the change touches.
 package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
-	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// writeFindingsSection lists the findings. Under a declared gate a finding
-// the gate did not fail on carries the non-blocking label, so the reader
-// sees which observations stay below the threshold.
-func writeFindingsSection(b *strings.Builder, issues []types.ReviewIssue, copy reviewCopy, rule blocking.Rule) {
-	sorted := sortedIssues(issues)
-	if len(sorted) == 0 {
-		return
-	}
-	fmt.Fprintf(b, "### %s\n\n", copy.findings)
-	for _, issue := range sorted {
-		label := ""
-		if rule.Gated() && !rule.Blocks(issue) {
-			label = " (" + copy.nonBlockingLabel + ")"
-		}
-		fmt.Fprintf(b, "- **[%s] %s:%d**%s — %s\n", issue.Severity, issue.File, issue.Line, label, issue.Message)
-		if issue.Side == "LEFT" {
-			fmt.Fprintln(b, "  - `LEFT`: base / −")
-		}
-		writeFindingFields(b, issue, copy)
-		printAssessment(b, issue)
-	}
-	b.WriteString("\n")
-}
+// metaAffectedTests is the metadata key with the tests the change touches,
+// one "<name> (package <pkg>)" per line, found by the static test proposal.
+const metaAffectedTests = "affected_tests"
+
+// maxAffectedTestsShown bounds the names listed under the count.
+const maxAffectedTestsShown = 10
 
 // writeCIStatusSection renders the CI status. When every analysis item was
 // discarded as not a fact of this run, the section says so in one line
@@ -40,13 +23,39 @@ func writeFindingsSection(b *strings.Builder, issues []types.ReviewIssue, copy r
 func writeCIStatusSection(b *strings.Builder, result *types.ReviewResult, copy reviewCopy) {
 	if len(result.CIAnalysis) == 0 {
 		if discarded := atoiOrZero(result.Metadata[ciStatusDiscardedKey]); discarded > 0 {
-			fmt.Fprintf(b, "### %s\n\n%s\n\n", copy.ciStatus, fmt.Sprintf(copy.ciNothingFailed, discarded))
+			fmt.Fprintf(b, "#### %s\n\n%s\n\n", copy.ciStatus, fmt.Sprintf(copy.ciNothingFailed, discarded))
 		}
 		return
 	}
-	fmt.Fprintf(b, "### %s\n\n", copy.ciStatus)
+	fmt.Fprintf(b, "#### %s\n\n", copy.ciStatus)
 	for _, analysis := range result.CIAnalysis {
 		writeCIAnalysisItem(b, analysis, copy)
+	}
+	b.WriteString("\n")
+}
+
+// writeAffectedTests renders the tests the change touches as a count with
+// the first names, never the whole list: a large change touches hundreds.
+func writeAffectedTests(b *strings.Builder, result *types.ReviewResult, copy reviewCopy) {
+	names := splitNonEmptyLines(result.Metadata[metaAffectedTests])
+	if len(names) == 0 {
+		return
+	}
+	packages := map[string]bool{}
+	for _, name := range names {
+		if _, pkg, ok := strings.Cut(name, " (package "); ok {
+			packages[strings.TrimSuffix(pkg, ")")] = true
+		}
+	}
+	fmt.Fprintf(b, "- %s", fmt.Sprintf(copy.affectedTests, len(names), len(packages)))
+	shown := names
+	if len(shown) > maxAffectedTestsShown {
+		shown = shown[:maxAffectedTestsShown]
+	}
+	sort.Strings(shown)
+	fmt.Fprintf(b, ": %s", strings.Join(shown, ", "))
+	if len(names) > len(shown) {
+		b.WriteString(", …")
 	}
 	b.WriteString("\n")
 }

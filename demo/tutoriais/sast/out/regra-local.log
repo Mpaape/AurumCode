@@ -1,24 +1,12 @@
 == regra-local
 $ aurumcode review --base main
-aurumcode review: policy gate: semgrep:regras.demo-sem-eval - eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao repo)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem(s) must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- calc.js
-
-
-```mermaid
-flowchart TD
-    n0["calc.js"]
-
-```
+no gate declared · 1 file(s) reviewed
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval)
+aurumcode review: policy gate: semgrep:regras.demo-sem-eval - eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao repo)
 exit_code=3
 RESULTADO: a regra local achou eval() e o gate de SAST reprovou, sem rede

@@ -72,7 +72,7 @@ fora.
 
 <!-- saida: primeira-revisao -->
 ```text
-**Verdict:** Approve
+> **Approved: no problem found in the reviewed change.**
 No issues found.
 exit_code=0
 ```
@@ -107,7 +107,7 @@ aurumcode review --base main --seguranca --fail-on error
 ```text
 aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
 LLM quality review did not run. The following report covers deterministic analysis only.
-**Verdict:** Comment
+> **Inconclusive: this review does not approve the change.**
 app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
@@ -165,7 +165,7 @@ aurumcode review --base main --fail-on error
 
 <!-- saida: com-provedor -->
 ```text
-**Verdict:** Changes requested
+> **Blocked: 1 problem(s) must be fixed before merge.**
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
@@ -449,7 +449,7 @@ nil }`, numa linha só) não existe no arquivo.
 ```text
 $ aurumcode review --base main --fail-on error --auditoria auditoria.json
 aurumcode review: limites.go:23 quality/missing-error-handling refuted by verification: no longer blocks and stays as a non-blocking comment (reason: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; quote: func (l *Limites) Validar() error { if l == nil { return nil })
-**Verdict:** Comment
+> **Approved: no problem found in the reviewed change.**
 exit_code=0
 RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
 --- a auditoria guarda o achado refutado, com o motivo e a citacao
@@ -457,7 +457,7 @@ limites.go 23 quality/missing-error-handling refuted rebaixado
 --- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: limites.go:23 quality/missing-error-handling still blocks (quote_not_found: Validar tem guarda de nil.)
-**Verdict:** Changes requested
+> **Blocked: 1 problem(s) must be fixed before merge.**
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
@@ -486,7 +486,7 @@ aurumcode review --base main
 <!-- saida: falha-nao-revisado -->
 ```text
 generated file, skipped: gerado.go
-**Verdict:** Comment
+> **Inconclusive: this review does not approve the change.**
 a file that was not reviewed never counts as approved.
   - gerado.go (generated)
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
@@ -528,7 +528,7 @@ um caminho em `ignore`).
 <!-- saida: falha-nao-revisado -->
 ```text
 binary file, skipped: logo.png
-**Verdict:** Approve
+> **Inconclusive: this review does not approve the change.**
 - 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
   - logo.png (binary)
 RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova
@@ -589,6 +589,8 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 ### pr-workflow
 
 ![Terminal do caso pr-workflow](../assets/capturas/revisao/pr-workflow-terminal.png)
+
+![Comentário do PR do caso pr-workflow](../assets/capturas/revisao/pr-workflow-comentario.png)
 
 ### primeira-revisao
 

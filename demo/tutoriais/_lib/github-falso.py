@@ -7,6 +7,7 @@ uso: github-falso.py PORTA DIFF_ARQUIVO LOG_ARQUIVO SHA [BASE]
   DIFF_ARQUIVO=406: o diff e recusado como o GitHub recusa um PR acima do limite de
   linhas (406, codigo too_large); BASE, quando dado, e o base.sha do pull request.
   POST reviews, comments, statuses/<sha>: o corpo e gravado em LOG_ARQUIVO, uma linha JSON cada.
+  PATCH issues/comments/ID e pulls/comments/ID (parecer editado numa rodada nova): idem.
 """
 import json, sys, re
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -47,12 +48,18 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, "[]")
         self._send(404, "{}")
 
-    def do_POST(self):
+    def _grava(self, metodo, codigo):
         n = int(self.headers.get("Content-Length", "0"))
         corpo = self.rfile.read(n).decode()
         with open(log_arq, "a") as f:
-            f.write(json.dumps({"POST": self.path.split("?")[0], "corpo": json.loads(corpo or "{}")}, ensure_ascii=False) + "\n")
-        self._send(201, '{"id":1}')
+            f.write(json.dumps({metodo: self.path.split("?")[0], "corpo": json.loads(corpo or "{}")}, ensure_ascii=False) + "\n")
+        self._send(codigo, '{"id":1}')
+
+    def do_POST(self):
+        self._grava("POST", 201)
+
+    def do_PATCH(self):
+        self._grava("PATCH", 200)
 
 
 HTTPServer(("127.0.0.1", porta), H).serve_forever()

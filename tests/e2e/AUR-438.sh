@@ -303,21 +303,21 @@ grep -Fq 'cmdb/settings.go:3: [warning] Achado sintetico na linha que o diff adi
 grep -Fq -- '-- publicado na linha' "$run_dir/out.stdout" || fail missing_inline_marker
 grep -Fq 'docs/notas.md:99: [info] Achado sintetico fora das linhas alteradas.' "$run_dir/out.stdout" \
   || fail missing_general_finding
-grep -Fq -- '-- publicado como comentario geral' "$run_dir/out.stdout" || fail missing_general_marker
-grep -Fq '2 comentario(s) publicado(s) no pull request #42 (1 na linha, 1 geral).' "$run_dir/out.stdout" \
+grep -Fq -- '-- no parecer' "$run_dir/out.stdout" || fail missing_general_marker
+grep -Fq 'parecer publicado no pull request #42 (1 comentário(s) na linha).' "$run_dir/out.stdout" \
   || fail missing_summary
 
 # Server-side proof: exactly one inline review comment (path+line anchored)
-# and exactly one general issue comment; the out-of-range finding was
-# never silently dropped (MUT-001's target).
+# and the out-of-range finding read in the parecer, never a comment of its
+# own and never silently dropped (MUT-001's target).
 inline_posts="$(grep -c '^POST /repos/dono/projeto/pulls/42/comments ' "$log1" || true)"
 [[ "$inline_posts" -eq 1 ]] || fail "wrong_inline_post_count:$inline_posts"
 grep -Fq '"path":"cmdb/settings.go"' "$log1" || fail inline_post_wrong_path
 grep -Fq '"line":3' "$log1" || fail inline_post_wrong_line
-# The review summary is also an issue comment (it carries the
-# aurumcode-review marker); only the finding comments are counted here.
+# The parecer is the one issue comment (it carries the aurumcode-review
+# marker); an outside-diff finding gets no comment of its own.
 general_posts="$(grep '^POST /repos/dono/projeto/issues/42/comments ' "$log1" | grep -vc 'aurumcode-review' || true)"
-[[ "$general_posts" -eq 1 ]] || fail missing_general_comment
+[[ "$general_posts" -eq 0 ]] || fail outside_finding_got_its_own_comment
 summary_posts="$(grep '^POST /repos/dono/projeto/issues/42/comments ' "$log1" | grep -c 'aurumcode-review' || true)"
 [[ "$summary_posts" -eq 1 ]] || fail "wrong_summary_post_count:$summary_posts"
 grep -Fq 'docs/notas.md:99' "$log1" || fail missing_general_comment
@@ -336,7 +336,7 @@ url2="$FAKE_URL"
 run_pr "$url2" "token-sintetico-write"
 [[ "$rc" -eq 0 ]] || fail "write_rerun_failed:exit:$rc"
 [[ "$(cat "$run_dir/out.stdout")" == "$first_stdout" ]] || fail non_deterministic
-[[ "$(grep -c '^POST ' "$log2")" -eq 3 ]] || fail non_deterministic_publish_count
+[[ "$(grep -c '^POST ' "$log2")" -eq 2 ]] || fail non_deterministic_publish_count
 [[ "$(grep '^POST ' "$log1" | sed 's/ {.*//')" == "$(grep '^POST ' "$log2" | sed 's/ {.*//')" ]] || fail non_deterministic_publish_order
 
 ## Scenario 2: a read-only token. Both findings were computable, but
@@ -383,9 +383,10 @@ run_pr "$url5" "token-sintetico-write"
 [[ "$rc" -eq 1 ]] || fail "onefail_wrong_exit:$rc"
 grep -Fq 'docs/notas.md:99: [info] Achado sintetico fora das linhas alteradas.' "$run_dir/out.stdout" \
   || fail onefail_swallowed_other_finding
-grep -Fq -- '-- publicado como comentario geral' "$run_dir/out.stdout" || fail onefail_swallowed_other_finding
+grep -Fq -- '-- no parecer' "$run_dir/out.stdout" || fail onefail_swallowed_other_finding
 grep -Fq '1 comentario(s) falharam ao publicar' "$run_dir/out.stderr" || fail onefail_missing_failure_summary
-# Three POSTs: the failed inline one, the general comment and the summary.
-[[ "$(grep -c '^POST ' "$log5")" -eq 3 ]] || fail onefail_second_post_not_attempted
+# Two POSTs: the failed inline one and the parecer, which carries the
+# outside-diff finding.
+[[ "$(grep -c '^POST ' "$log5")" -eq 2 ]] || fail onefail_second_post_not_attempted
 
 printf '%s/AC-001/E2EAUR438/ok\n' "$card"

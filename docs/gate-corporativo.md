@@ -287,8 +287,13 @@ Saída real de `fail` (trecho de `out/fail.log`):
 ```text
 sbom: CycloneDX 1.7, componentes: lodash@4.17.15
 aurumcode review: policy gate: semgrep:github.policy.regras.demo-sem-eval - eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
-aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0
-**Verdict:** Changes requested
+aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0 (origem dtrack)
+## AurumCode code review
+
+> [!CAUTION]
+> **Blocked: 2 problem(s) must be fixed before merge.**
+
+policy gate: failed · 5 file(s) reviewed
 src/calc.js:5: [error] eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval)
 aurumcode review: exit_code=3
 dependency-track metricas: critical=0 high=0 policyViolationsTotal=1
@@ -301,7 +306,13 @@ E de `pass`:
 ```text
 sbom: CycloneDX 1.7, componentes: lodash@4.17.21
 aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
-**Verdict:** Approve
+## AurumCode code review
+
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
+
+policy gate: passed · 5 file(s) reviewed
+No issues found.
 aurumcode review: exit_code=0
 dependency-track metricas: critical=0 high=0 policyViolationsTotal=0
 dependency-track violacoes: nenhuma

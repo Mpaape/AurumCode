@@ -119,14 +119,14 @@ aurumcode review --base main --auditoria audit.json
 ```text
 --- A. nao declarado (o servidor local esta no ar, mas ninguem o consulta)
 $ aurumcode review --base main --auditoria audit.json
-**Verdict:** Approve
+> **Approved: no problem found in the reviewed change.**
 --- requisicoes recebidas pelo servidor local (modo valido): 0
 exit_code=0
 RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data
 linhas citando analysis_data na saida do review: 0
 auditoria: sem campo analysis_data
 $ aurumcode review --base main --auditoria audit.json
-**Verdict:** Approve
+> **Approved: no problem found in the reviewed change.**
 --- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -166,7 +166,7 @@ aurumcode review --base main
 ```text
 --- gate.inconclusive: block
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
-**Verdict:** Comment
+> **Inconclusive: this review does not approve the change.**
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -174,7 +174,7 @@ exit_code=1
 RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
-**Verdict:** Comment
+> **Inconclusive: this review does not approve the change.**
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200

@@ -62,7 +62,7 @@ func earlierComments(entries []githubclient.ReviewHistoryEntry, publisher string
 		} else if e.OriginalLine != nil {
 			line = *e.OriginalLine
 		}
-		out = append(out, rounds.Comment{Body: e.Body, Path: e.Path, Line: line, Reply: e.InReplyToID != nil})
+		out = append(out, rounds.Comment{ID: e.ID, Kind: e.Kind, Body: e.Body, Path: e.Path, Line: line, Reply: e.InReplyToID != nil})
 	}
 	return out
 }
@@ -118,16 +118,14 @@ func (r roundPlan) findingBody(i int, issue types.ReviewIssue, language string) 
 	return body
 }
 
-// appendRoundNotice adds to the review body what this round did not
-// repeat and which earlier findings it no longer reports. Nothing is added
-// on a first round.
-func appendRoundNotice(body string, r roundPlan, language string) string {
+// roundNotice is the details note of what this round did not repeat and
+// which earlier findings it no longer reports. Empty on a first round.
+func roundNotice(r roundPlan, language string) string {
 	if r.plan.Repeated == 0 && len(r.plan.Resolved) == 0 {
-		return body
+		return ""
 	}
 	var b strings.Builder
-	b.WriteString(strings.TrimRight(body, "\n"))
-	fmt.Fprintf(&b, "\n\n### %s\n\n", i18n.Text(language, "review.round_heading"))
+	fmt.Fprintf(&b, "#### %s\n\n", i18n.Text(language, "review.round_heading"))
 	if r.plan.Repeated > 0 {
 		fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.round_repeated", r.plan.Repeated))
 	}
@@ -139,4 +137,29 @@ func appendRoundNotice(body string, r roundPlan, language string) string {
 		fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.round_resolved", strings.Join(names, ", ")))
 	}
 	return b.String()
+}
+
+// markResolvedComments edits each earlier finding comment this round no
+// longer reports: the resolved note on top, the original body, the marker
+// that keeps it from being read again. A failed edit is said on stderr and
+// changes nothing else: the parecer already names the resolution.
+func (p *prReview) markResolvedComments() {
+	for _, prev := range p.round.plan.Resolved {
+		if prev.CommentID == 0 {
+			continue
+		}
+		body := rounds.Resolved(i18n.Format(p.reviewLanguage, "review.resolved_note", shortSHA(p.commitID)), prev.CommentBody)
+		var err error
+		switch prev.CommentKind {
+		case "inline":
+			err = p.client.UpdateReviewComment(p.ctx, p.owner, p.repoName, prev.CommentID, body)
+		case "comment":
+			err = p.client.UpdateIssueComment(p.ctx, p.owner, p.repoName, prev.CommentID, body)
+		default:
+			continue
+		}
+		if err != nil {
+			fmt.Fprintf(p.stderr, "aurumcode review: marking the earlier comment on %s:%d resolved: %v\n", prev.Path, prev.Line, err)
+		}
+	}
 }

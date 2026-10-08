@@ -1,7 +1,7 @@
 == log-de-agente
 $ aurumcode changelog --base main
 changelog: reprovado (log_de_agente): linha 5 parece log de agente ou de ferramenta ("/pass")
-changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
+changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 exit_code=1
 RESULTADO: a linha com log de agente foi recusada

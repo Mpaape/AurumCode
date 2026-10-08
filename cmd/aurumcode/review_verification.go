@@ -1,9 +1,9 @@
-// The adversarial verification of the model's blocking findings, between
-// the evidence phase and the gate: each model finding that would block is
-// checked against the reviewed revision by a separate call of the same
-// provider (internal/review/verify). A refuted finding leaves the gate's
-// input and stays visible, marked, among the limitations and in the audit;
-// everything else keeps blocking.
+// The adversarial verification of the model's findings, between the
+// evidence phase and the gate: each model finding, the blocking ones first,
+// is checked against the reviewed revision by a separate call of the same
+// provider (internal/review/verify). A refuted finding leaves the parecer
+// and the gate's input and stays visible, marked, among the limitations and
+// in the audit; everything else keeps counting.
 package main
 
 import (
@@ -18,9 +18,6 @@ import (
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
-
-// suggestionKindGeneral is a suggestion without a patch shape.
-const suggestionKindGeneral = "general"
 
 // verifyModelFindings runs the verification when review.verification is on
 // and the model pass left a provider to call.
@@ -40,7 +37,10 @@ func (s *reviewState) verifyModelFindings() {
 	}
 	if rev, reason := s.verificationSource(); reason == "" {
 		v.Source = rev
-	} else {
+	} else if s.cfg.Review.Verification.Enabled != nil {
+		// Without the reviewed revision every finding keeps counting (the
+		// records say so); the notice is for the operator who asked for
+		// the verification, not for every local run outside a checkout.
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "review.verification_unavailable", reason))
 	}
 	res := v.Verify(s.ctx, s.result.Issues, s.modelFindingBlocks)
@@ -55,10 +55,10 @@ func (s *reviewState) verifyModelFindings() {
 	}
 }
 
-// anyVerifiable reports whether some model finding would block.
+// anyVerifiable reports whether the model left a finding to verify.
 func (s *reviewState) anyVerifiable() bool {
 	for _, issue := range s.result.Issues {
-		if verify.Candidate(issue) && s.modelFindingBlocks(issue) {
+		if verify.Candidate(issue) {
 			return true
 		}
 	}
@@ -80,21 +80,23 @@ func (s *reviewState) verificationSource() (verify.Source, string) {
 	return rev, ""
 }
 
-// reportVerification states one verified finding: a refuted one becomes a
-// marked, non-blocking comment and limitation of the review (never
-// dropped); a kept one is said on stderr with why it still blocks.
+// reportVerification states one verified finding: a refuted one leaves the
+// findings and is named, with the verifier's reason and quote, on stderr
+// and among the limitations of the parecer (never dropped silently); a
+// kept one is said on stderr with why it still counts.
 func (s *reviewState) reportVerification(rec verify.Record, issue types.ReviewIssue) {
 	if rec.Demoted {
-		s.result.Suggestions = append(s.result.Suggestions, types.ReviewSuggestion{
-			Title:       i18n.Format(s.reviewLanguage, "review.verification_comment_title", rec.RuleID),
-			Description: i18n.Format(s.reviewLanguage, "review.verification_comment_body", oneLine(issue.Message), oneLine(rec.Reason), oneLine(rec.Quote)),
-			Kind:        suggestionKindGeneral,
-			File:        issue.File,
-			Line:        issue.Line,
-		})
-		line := i18n.Format(s.reviewLanguage, "review.verification_refuted", rec.Path, rec.Line, rec.RuleID, oneLine(rec.Reason), oneLine(rec.Quote))
+		key := "review.verification_refuted"
+		if !rec.Blocking {
+			key = "review.verification_dropped"
+		}
+		line := i18n.Format(s.reviewLanguage, key, rec.Path, rec.Line, rec.RuleID, oneLine(rec.Reason), oneLine(rec.Quote))
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 		s.result.Limitations = append(s.result.Limitations, line)
+		return
+	}
+	if rec.Outcome == verify.OutcomeSourceUnavailable {
+		// Already said once, for the run, by verifyModelFindings.
 		return
 	}
 	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "review.verification_kept", rec.Path, rec.Line, rec.RuleID, rec.Outcome, oneLine(rec.Reason)))

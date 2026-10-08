@@ -393,9 +393,13 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 
 ![Terminal do caso selecao-por-linguagem](../assets/capturas/skills/selecao-por-linguagem-terminal.png)
 
+![Comentário do PR do caso selecao-por-linguagem](../assets/capturas/skills/selecao-por-linguagem-comentario.png)
+
 ### seletor-por-caminho
 
 ![Terminal do caso seletor-por-caminho](../assets/capturas/skills/seletor-por-caminho-terminal.png)
+
+![Comentário do PR do caso seletor-por-caminho](../assets/capturas/skills/seletor-por-caminho-comentario.png)
 
 ### skill-do-repo
 
