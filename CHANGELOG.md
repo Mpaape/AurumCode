@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Dependências do PR: cada dependência alterada é checada no OSV em qualquer
+  ecossistema, com gate `dependencies.fail_on`, exceção por CVE e licença,
+  pacote malicioso ou typosquat reprovando e varredura agendada
+  (`aurumcode dependencies`) publicando SARIF.
+- Qualidade do parecer: evidência completa na fusão de perfis, status do CI
+  separado da inferência do modelo, rodadas que não repetem comentário e
+  consolidação de ruído (`review.presentation.collapse`).
+- Contexto: o modelo lê e busca arquivos da revisão (qualquer linguagem),
+  fontes MCP configuradas, trechos de impacto e o alcance da parte vulnerável
+  de uma dependência.
 - Changelog obrigatório: `aurumcode changelog --base <sha>` reprova a PR sem
   entrada útil nesta seção; o repositório liga com `changelog_check.mode: required`.
 - Realimentação da política: `aurumcode realimentacao` abre uma única PR no
