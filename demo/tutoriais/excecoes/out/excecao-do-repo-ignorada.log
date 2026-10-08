@@ -2,6 +2,7 @@
 --- so o repositorio (sem politica): a excecao dele vale
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: aceito por exceção (dono: time-do-repo, motivo: o proprio repositorio tenta se isentar, validade: 2099-12-31)
 ## Code Review Summary
 
 **Verdict:** Comment
@@ -25,7 +26,6 @@ app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (r
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: aceito por exceção (dono: time-do-repo, motivo: o proprio repositorio tenta se isentar, validade: 2099-12-31)
 exit_code=0
 RESULTADO: sem politica, o gate e a excecao do proprio repositorio valem
 --- sob politica: a excecao do repositorio e ignorada
