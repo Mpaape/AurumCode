@@ -13,7 +13,9 @@ import (
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -557,10 +559,10 @@ func TestRequiredPRQualityFailurePublishesFailingStatus(t *testing.T) {
 	defer server.Close()
 	client := githubclient.NewClientWithBaseURL("test-token", server.URL)
 	var out, errOut strings.Builder
-	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, false, false); code != 0 {
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, false, false, blocking.Ungated()); code != 0 {
 		t.Fatalf("complete review exit=%d: %s", code, errOut.String())
 	}
-	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, true, false); code != exitQualityNotReviewed {
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", nil, 42, true, false, blocking.Ungated()); code != exitQualityNotReviewed {
 		t.Fatalf("inconclusive review exit=%d: %s", code, errOut.String())
 	}
 	if len(published) != 2 || published[0].State != "success" || published[1].State != "failure" || published[1].Context != checkContext || !strings.Contains(published[1].Description, "inconclusiva") {
@@ -724,5 +726,39 @@ func TestReviewFlagsAcceptSingleOrDoubleDash(t *testing.T) {
 		if one != two {
 			t.Errorf("flag %q: single-dash parse gave %q, double-dash gave %q", name, one, two)
 		}
+	}
+}
+
+// With a declared gate that passes, an error finding the gate does not fail
+// on leaves aurumcode/review green and the exit 0: the status follows the
+// same single rule as aurumcode/policy-gate and the review body.
+func TestCheckStatusFollowsTheDeclaredGate(t *testing.T) {
+	var published []githubclient.CommitStatus
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/owner/repo/statuses/head" {
+			var status githubclient.CommitStatus
+			if err := json.NewDecoder(r.Body).Decode(&status); err != nil {
+				t.Error(err)
+			}
+			published = append(published, status)
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		_, _ = w.Write([]byte(`{"permissions":{"push":true}}`))
+	}))
+	defer server.Close()
+	client := githubclient.NewClientWithBaseURL("test-token", server.URL)
+	issues := []types.ReviewIssue{{File: "a.go", Line: 1, Severity: "error", RuleID: "quality/x", Message: "m"}}
+	var out, errOut strings.Builder
+	passing := blocking.FromGate(true, gate.Result{})
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", issues, 7, false, false, passing); code != 0 {
+		t.Fatalf("exit = %d, want 0 under a passing gate: %s", code, errOut.String())
+	}
+	if len(published) != 1 || published[0].State != "success" {
+		t.Fatalf("status = %+v, want success under a passing gate", published)
+	}
+	published = nil
+	if code := publishCheckStatus(context.Background(), client, &out, &errOut, "owner", "repo", "head", issues, 7, false, false, blocking.Ungated()); code == 0 || len(published) != 1 || published[0].State != "failure" {
+		t.Fatalf("ungated: exit=%d status=%+v, want a failure for an error finding", code, published)
 	}
 }
