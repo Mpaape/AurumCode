@@ -108,17 +108,17 @@ retorna `(exit, done)`, de modo que cada saída antecipada mantém seu código:
 
 1. **resolve.** Valida a invocação; configuração, política central, diff,
    contexto, perfis, memória.
-2. **model.** Seleção do provedor e a passagem de qualidade do modelo. Com
+2. **evidence.** A passagem de segurança, a análise estática, a configuração de
+   regras do repositório, cada engine de scanner habilitada e a cobertura. Um
+   único passo decide onde ficam os achados de segurança (nos issues da revisão
+   em `--pr`, em sua própria seção em `--base`); o snapshot de reaproveitamento
+   de veredito guarda os mesmos achados nos dois casos.
+3. **model.** Seleção do provedor e a passagem de qualidade do modelo. Com
    `deliberation.enabled`, o modelo pode primeiro pedir ferramentas (abaixo).
    Seu resultado é um `gate.ModelOutcome` tipado: `reviewed`, `skipped` (nenhum
    provedor configurado), `provider failed` (sem resposta, ou uma revisão de
    qualidade exigida que não aconteceu) ou `parse failed` (uma resposta que não
    pôde ser validada).
-3. **evidence.** A passagem de segurança, a análise estática, a configuração de
-   regras do repositório, cada engine de scanner habilitada e a cobertura. Um
-   único passo decide onde ficam os achados de segurança (nos issues da revisão
-   em `--pr`, em sua própria seção em `--base`); o snapshot de reaproveitamento
-   de veredito guarda os mesmos achados nos dois casos.
 4. **gate.** O pipeline compartilhado abaixo, a partir do `gate.Run` da sessão.
    O motivo de inconclusivo é `gate.RankReason`: falha do provedor, revisão
    ignorada, resposta não interpretável, parse degradado, o motivo do primeiro
