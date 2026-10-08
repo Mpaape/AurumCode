@@ -10,13 +10,11 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/gittest"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review/blocking"
@@ -41,35 +39,20 @@ func (c *scriptedVerifier) Complete(_ context.Context, text string, _ llm.Option
 	return llm.Response{Text: c.reply}, nil
 }
 
-// verificationCheckout commits the scenario's two files in a real
-// repository and returns its directory.
+// verificationCheckout writes the scenario's two files as the head commit
+// of a repository built without the git binary (aur522Repo) and returns
+// its directory.
 func verificationCheckout(t *testing.T) string {
 	t.Helper()
-	gitBin, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git not available")
-	}
-	dir, home := t.TempDir(), t.TempDir()
+	head := map[string][]byte{}
 	for name, src := range map[string]string{"internal/config/config.go": "config.go.txt", "internal/config/batches.go": "batches.go.txt"} {
 		data, err := os.ReadFile(verifyTestdata + src)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.MkdirAll(filepath.Join(dir, filepath.Dir(name)), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, name), data, 0o600); err != nil {
-			t.Fatal(err)
-		}
+		head[name] = data
 	}
-	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"add", "."}, {"commit", "-q", "-m", "base"}} {
-		cmd := exec.Command(gitBin, args...)
-		cmd.Dir, cmd.Env = dir, append(os.Environ(), gittest.HermeticEnv(home)...)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-	return dir
+	return aur522Repo(t, map[string][]byte{"README.md": []byte("base\n")}, head, "")
 }
 
 func verificationState(t *testing.T, cfg *config.Config, caller verify.Caller) (*reviewState, *bytes.Buffer, types.ReviewIssue, types.ReviewIssue) {
