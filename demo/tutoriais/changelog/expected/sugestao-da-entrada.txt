@@ -1,0 +1,7 @@
+$ aurumcode changelog --base main
+changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
+changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
+## Unreleased
+- O relatório aceita filtro por período (início e fim).
+exit_code=1
+RESULTADO: o check reprovou e trouxe a entrada sugerida pelo modelo, pronta para colar
