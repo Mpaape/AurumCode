@@ -22,7 +22,7 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_stale
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T081526Z generated 2026-09-08T08:15:26Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T124210Z generated 2026-09-08T12:42:10Z is 30.0 days old, above max_age_days=7
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -31,7 +31,7 @@ RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T081528Z generated 2026-09-08T08:15:28Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T124212Z generated 2026-09-08T12:42:12Z is 30.0 days old, above max_age_days=7
 ## Code Review Summary
 
 **Verdict:** Comment
