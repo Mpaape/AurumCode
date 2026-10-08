@@ -896,14 +896,14 @@ upload, ou artefato ausente quando o review não recebe secrets). Com ela, o
 job é pulado nesses PRs; quando o review gera o SARIF, ele continua
 disponível como artefato, só não chega ao code scanning automaticamente.
 
-O `code-review.yml` deste próprio repositório ainda não tem esse segundo
-job -- está fora dos `paths` da AUR-521 e não foi criado por este card; até
-que alguém o adicione, o SARIF deste repositório fica disponível como
-artefato do job de review, mas não chega ao code scanning.
+O `code-review.yml` deste próprio repositório não tem esse segundo job: o
+SARIF deste repositório fica disponível como artefato do job de review, mas
+não chega ao code scanning.
 
 A impressão digital de cada achado (`internal/render.FindingFingerprint`) é a
-identidade canônica de um achado neste projeto — a mesma que a AUR-494 deve
-reaproveitar quando existir, nunca redefinir: regra + caminho + linha +
+identidade canônica de um achado neste projeto — a mesma que as rodadas do
+mesmo PR reaproveitam para não comentar de novo um achado já comentado (veja
+[Qualidade e limitações](review-quality.md)), nunca redefinida: regra + caminho + linha +
 contexto de código normalizado, nunca o texto livre do modelo isoladamente, e
 nunca um valor por execução (hora, nonce). O mesmo achado produz sempre a
 mesma impressão digital, nesta execução ou em qualquer execução futura.
@@ -1279,8 +1279,8 @@ o token de identidade), nunca uma aprovação silenciosa.
 A action Docker direta (`action.yml`) NÃO roda `aurumcode sign`, pelo mesmo
 motivo documentado na seção do AUR-549 acima para `aurumcode sbom`: seu
 próprio container não tem como montar volumes via o socket do Docker com
-caminhos do HOST. Até que uma futura carta resolva esse problema para a
-action standalone, assinatura só está cablada para quem chama `review.yml`.
+caminhos do HOST. Por isso a assinatura só está cablada para quem chama
+`review.yml`, não para a action standalone.
 
 O bundle do SBOM (`<sbom>.sigstore.json`, escrito pela etapa de assinatura
 ao lado do SBOM) sai do runner como artefato do job
@@ -1414,98 +1414,100 @@ Política central por `AURUMCODE_POLICY`, provedor por `LLM_API_KEY` e
   `.aurumcode/config.yml` de uma política central; um caminho em
   `/github/workspace` é recusado).
 
-## gate.sources: which findings count toward the gate
+## gate.sources: quais achados contam para o gate
 
-When the central policy declares `gate`, every finding that passed the
-evidence gate (file and line inside the diff) and has no valid exception
-counts if its severity is at or above `fail_on`, whatever its origin:
+Quando a política central declara `gate`, todo achado que passou pelo gate de
+evidência (arquivo e linha dentro do diff) e não tem exceção válida conta se a
+severidade for igual ou acima de `fail_on`, qualquer que seja a origem:
 
-| origin | what it is |
+| origem | o que é |
 |---|---|
-| `skills` | rules from the policy's skill sections (cited by the model) |
-| `analysis` | the embedded deterministic catalog (`analysis/*`) |
-| `sast` | Semgrep findings (`semgrep:*`, `quality_gates.sast`), and every other registered engine of the `sast` category |
-| `secrets` | gitleaks findings (`gitleaks:*`) and every other registered engine of the `secrets` category |
-| `lint` | go vet findings (`go-vet/<analyzer>`, engine `govet`) and every other registered engine of the `lint` category |
-| `<engine>` | a registered scanner engine by name (`semgrep`, `gitleaks`, `govet`); an engine without a category answers only to its name |
+| `skills` | regras das seções de skill da política (citadas pelo modelo) |
+| `analysis` | o catálogo determinístico embutido (`analysis/*`) |
+| `sast` | achados do Semgrep (`semgrep:*`, `quality_gates.sast`) e de toda outra engine registrada da categoria `sast` |
+| `secrets` | achados do gitleaks (`gitleaks:*`) e de toda outra engine registrada da categoria `secrets` |
+| `lint` | achados do go vet (`go-vet/<analyzer>`, engine `govet`) e de toda outra engine registrada da categoria `lint` |
+| `<engine>` | uma engine de scanner registrada, pelo nome (`semgrep`, `gitleaks`, `govet`); engine sem categoria responde só pelo nome |
 
 ```yaml
 gate:
   fail_on: [error]
-  sources: [skills, analysis, sast]   # optional; default: all three
+  sources: [skills, analysis, sast]   # opcional; padrão: todas as origens
 ```
 
-`sources` is a closed list (`skills`, `analysis`, and the registered scanner
-engines by name or category); an unknown value is an error when the config is
-loaded. Absent or empty means all origins. The central policy governs the
-list: when it declares `gate`, a repository's own `gate` (including its
-`sources`) is ignored. Analysis findings are recomputed from the diff by the
-embedded catalog, never taken from the model's answer. The origin appears in
-the gate lines of the review (parecer and stderr), in the audit
-record (`blocking_findings[].origin`, also in the reason) and in the SARIF
-result (`properties.origin`). Without a `gate`,
-nothing changes. Restricting `sources` to leave out `sast` also stops a
-declared gate from counting Semgrep findings.
+`sources` é uma lista fechada (`skills`, `analysis` e as engines de scanner
+registradas, por nome ou categoria); um valor desconhecido é erro ao carregar
+a configuração. Ausente ou vazia significa todas as origens. A política central governa a lista: quando ela declara `gate`, o
+`gate` do próprio repositório (inclusive `sources`) é ignorado. Os achados de
+análise são recalculados a partir do diff pelo catálogo embutido, nunca
+tirados da resposta do modelo. A origem aparece nas linhas de gate do review
+(parecer e stderr), no registro de auditoria (`blocking_findings[].origin`,
+também no motivo) e no resultado SARIF (`properties.origin`). Sem `gate`, nada
+muda. Restringir `sources` deixando `sast` de fora também faz um gate
+declarado parar de contar achados do Semgrep.
 
-## The model weighs the deterministic evidence; gate.triage
+## O modelo pondera a evidência determinística: gate.triage
 
-The security pass (`--seguranca`), the embedded analysis catalog and SAST run
-**before** the model. Each finding reaches the prompt as one evidence item
-(`[E1] origem=analysis regra=... local=file:line severidade=... trecho: ...`,
-redacted, under the evidence ceiling of `limits.yml`; an item left out by the
-ceiling is counted as "N omitidos" and still counts in the gate). The model
-answers, besides the usual fields, `evidence_assessments`: per evidence id a
-`status` (`confirmed`, `disputed`, `needs_context`), a `justification`,
-`correlates_with` (other ids pointing at the same code), a `priority` and a
-`suggestion`. The engine keeps only assessments of ids it offered (any other
-is discarded with a warning on stderr), never lets the model write `origin`
-or change a severity, and shows the two side by side: in the terminal report
-(`origem: analysis | avaliacao do modelo: disputed [E1] ...`), in the audit
-record (`evidence_assessments[]`: `origin` plus `assessment`) and in the SARIF
-(`properties.origin` plus `properties.assessment`).
+A passagem de segurança (`--seguranca`), o catálogo de análise embutido e o
+SAST rodam **antes** do modelo. Cada achado chega ao prompt como um item de
+evidência (`[E1] origem=analysis regra=... local=file:line severidade=... trecho: ...`),
+redigido, sob o teto de evidência de `limits.yml`; um item deixado de fora
+pelo teto é contado como "N omitidos" e continua contando no gate. O modelo
+responde, além dos campos de sempre, `evidence_assessments`: por id de
+evidência, um `status` (`confirmed`, `disputed`, `needs_context`), uma
+`justification`, `correlates_with` (outros ids que apontam para o mesmo
+código), uma `priority` e uma `suggestion`. O motor guarda só avaliações de
+ids que ele ofereceu (qualquer outro é descartado com aviso no stderr), nunca
+deixa o modelo escrever `origin` nem mudar uma severidade, e mostra os dois
+lado a lado: no relatório do terminal
+(`origem: analysis | avaliacao do modelo: disputed [E1] ...`), no registro de
+auditoria (`evidence_assessments[]`: `origin` mais `assessment`) e no SARIF
+(`properties.origin` mais `properties.assessment`).
 
-What the assessment may change in the gate:
+O que a avaliação pode mudar no gate:
 
-- **Under a central policy: nothing.** Evidence of policy origin counts
-  whatever the model says. A disputed finding becomes a **proposed exception**
-  in the report and in the audit (`proposed_exceptions`): the `exceptions`
-  YAML with the rule, the path and the model's reason, and placeholders for
-  the owner, the expiry and (on `--base`) the repository. It is never applied:
-  only a human who copies it into the policy's `exceptions` makes it count.
-- **Without a central policy**, the repository may let a dispute demote the
-  evidence of a source:
+- **Sob política central: nada.** Evidência de origem da política conta
+  independentemente do que o modelo diga. Um achado contestado vira uma
+  **exceção proposta** no relatório e na auditoria (`proposed_exceptions`): o
+  YAML de `exceptions` com a regra, o caminho e o motivo do modelo, e
+  marcadores para o dono, a validade e (em `--base`) o repositório. Ela nunca
+  é aplicada: só conta quando uma pessoa a copia para as `exceptions` da
+  política.
+- **Sem política central**, o repositório pode deixar uma contestação rebaixar
+  a evidência de uma fonte:
 
 ```yaml
 gate:
   fail_on: [high]
   triage:
-    analysis: model   # disputed analysis and --seguranca findings stop counting
-    sast: none        # the default for every source
+    analysis: model   # achados de analysis e --seguranca contestados deixam de contar
+    sast: none        # o padrão de toda fonte
 ```
 
-`gate.triage.analysis` also covers the findings of the `--seguranca` pass
-(origin `security`), exactly as `gate.sources: analysis` counts them: the
-vocabulary stays the three `gate.sources` names, and a dispute is matched by
-origin, rule, path and line, so it never demotes another source's finding at
-the same place. Evidence the prompt's ceiling left out (declared as
-"N omitidos") was never read by the model: an assessment of it is discarded
-with the same warning as an id never offered, and it can never demote.
+`gate.triage.analysis` também cobre os achados da passagem `--seguranca`
+(origem `security`), exatamente como `gate.sources: analysis` os conta: o
+vocabulário continua sendo o de `gate.sources`, e uma contestação é casada
+por origem, regra, caminho e linha, então nunca rebaixa o achado de outra
+fonte no mesmo lugar. A evidência que o teto do prompt deixou de fora
+(declarada como "N omitidos") nunca foi lida pelo modelo: uma avaliação dela
+é descartada com o mesmo aviso de um id nunca oferecido, e nunca rebaixa.
 
-`triage` keys are the `gate.sources` names (`skills`, `analysis`, `sast`, or a
-registered engine's name);
-values are `model` or `none` (the default). The evidence the model assesses
-is the deterministic one (`analysis`, the `--seguranca` pass counted under
-`analysis`, and `sast`); a skill-section finding is the model's own citation,
-so `skills: model` is accepted but has nothing to demote today. An unknown key or value is a
-load error. A demotion is never silent: stderr and the review's limitations
-name each demoted finding (`gate.triage (analysis: model): app.go:6 ...`).
-Under a central policy `triage` is ignored, including a `triage` the policy
-itself declares, and a SAST section of policy origin is never demoted.
+As chaves de `triage` são os nomes de `gate.sources` (`skills`, `analysis`,
+`sast` ou o nome de uma engine registrada); os valores são `model` ou `none`
+(o padrão). A evidência que o modelo avalia é a determinística (`analysis`, a
+passagem `--seguranca` contada sob `analysis`, e `sast`); um achado de seção
+de skill é a própria citação do modelo, então `skills: model` é aceito mas
+hoje não tem o que rebaixar. Chave ou valor desconhecido é erro de
+carregamento. Um rebaixamento nunca é silencioso: o stderr e as limitações do
+review nomeiam cada achado rebaixado
+(`gate.triage (analysis: model): app.go:6 ...`). Sob política central,
+`triage` é ignorado, inclusive um `triage` que a própria política declare, e
+uma seção de SAST de origem da política nunca é rebaixada.
 
-A review that offered evidence is not served from the per-file model cache
-(the cache stores issues, not assessments), and the verdict-reuse key includes
-the digest of the evidence offered: a verdict stored before the evidence
-existed is never reused.
+Um review que ofereceu evidência não é servido do cache de modelo por arquivo
+(o cache guarda achados, não avaliações), e a chave de reaproveitamento do
+veredito inclui o digest da evidência oferecida: um veredito guardado antes
+de a evidência existir nunca é reaproveitado.
 
 ## Deliberação: o modelo pede ferramentas dentro de limites
 
