@@ -1,0 +1,16 @@
+== medir-melhora
+$ aurumcode realimentacao --medir --medicao-antes /fixtures/medicao/antes.json --medicao-depois /fixtures/medicao/depois-melhor.json
+## Medição do corpus (AUR-523)
+
+| Métrica | Antes | Depois |
+| --- | --- | --- |
+| Recall | 0.8000 | 0.9000 |
+| Precisão | 0.9000 | 0.9500 |
+| Aprovado com defeito | 1 | 0 |
+| Casos | 20 | 20 |
+
+Medição com o provedor falso do AUR-523, derivado dos rótulos dos casos: mede o efeito da política nas regras citáveis e no gate, não a qualidade de um modelo real.
+
+Corpus `aaaaaaaaaaaa` → `aaaaaaaaaaaa`; política `bbbbbbbbbbbb` → `cccccccccccc`.
+exit_code=0
+RESULTADO: antes e depois medidos, sem regressao

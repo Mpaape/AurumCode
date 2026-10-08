@@ -127,7 +127,9 @@ run_ac003() {
   grep -qxF 'prompt: Uma funcao faz uma coisa so. MARCA-SKILL-EXEMPLO' "$out/skill-no-prompt.log" || fail AC-003/skill-fora-do-prompt
   grep -qF 'o prompt recebido trazia a skill de exemplo (MARCA-SKILL-EXEMPLO)' "$out/skill-no-prompt.log" || fail AC-003/fixture-nao-ecoou
   grep -qxF 'auditoria chamada: rodada=1 ferramenta=scanner_exemplo status=executed resultado=1 achado(s)' "$out/ferramenta-pedida.log" || fail AC-003/chamada-fora-do-transcript
-  grep -qF 'auditoria deliberation: oferecidas=scanner_exemplo,codebase_context pedidas=scanner_exemplo' "$out/ferramenta-pedida.log" || fail AC-003/oferta-fora-do-transcript
+  # AUR-526: a deliberacao passou a oferecer tambem as ferramentas do repositorio
+  # (read_file, search_text, find_symbol, changed_file_diff; docs/specs/AUR-526.md).
+  grep -qF 'auditoria deliberation: oferecidas=scanner_exemplo,codebase_context,read_file,search_text,find_symbol,changed_file_diff pedidas=scanner_exemplo' "$out/ferramenta-pedida.log" || fail AC-003/oferta-fora-do-transcript
   printf '%s/AC-003/ok (texto da skill no prompt e eco da fixture; scanner_exemplo no transcript da auditoria)\n' "$card"
 }
 

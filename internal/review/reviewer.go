@@ -339,6 +339,7 @@ func (r *Reviewer) parse(resp llm.Response) (*types.ReviewResult, error) {
 type gateOutcome struct {
 	workflowSuppressed int
 	scopeDiscarded     scopeDiscardSummary
+	outsideDiff        []types.ReviewIssue
 	rejected           int
 	discarded          discardSummary
 }
@@ -368,7 +369,11 @@ func (r *Reviewer) applyGates(diff *types.Diff, result *types.ReviewResult) (gat
 	// and configured prompts to reason about a change, but it cannot promote a
 	// concern about untouched code into a finding for this patch. The finding
 	// also has to carry the three pieces of proof the prompt requests.
-	result.Issues, outcome.scopeDiscarded = filterModelIssues(diff, result.Issues)
+	// A proved finding outside the changed lines is set apart, never kept
+	// in result.Issues: it becomes a general comment that the policy gate,
+	// the threshold and the verdict never see.
+	var outside []types.ReviewIssue
+	result.Issues, outside, outcome.scopeDiscarded = filterModelIssues(diff, result.Issues)
 	outcome.scopeDiscarded.CitesRedactionMarker, _ = strconv.Atoi(result.Metadata[RedactionMarkerDiscardKey])
 
 	// Rule gate (AUR-434): every issue must cite a rule of the project
@@ -379,6 +384,7 @@ func (r *Reviewer) applyGates(diff *types.Diff, result *types.ReviewResult) (gat
 		return gateOutcome{}, fmt.Errorf("review rules unavailable: %w", err)
 	}
 	outcome.rejected, outcome.discarded = enforceRuleCitations(rules, r.extraRules, result)
+	outcome.outsideDiff = r.citedOutsideDiff(rules, outside, &outcome)
 
 	// AUR-517: the model wrote result.Summary knowing every finding it
 	// proposed, including the ones the gates above removed; a removed
@@ -393,6 +399,36 @@ func (r *Reviewer) applyGates(diff *types.Diff, result *types.ReviewResult) (gat
 	return outcome, nil
 }
 
+// citedOutsideDiff passes the general-comment findings through the same
+// rule gate as every inline finding; its rejections join the outcome's
+// counts and warning, so the requirement is never weaker outside the diff.
+func (r *Reviewer) citedOutsideDiff(rules *RulesLoader, outside []types.ReviewIssue, outcome *gateOutcome) []types.ReviewIssue {
+	if len(outside) == 0 {
+		return nil
+	}
+	held := &types.ReviewResult{Issues: outside}
+	rejected, discarded := enforceRuleCitations(rules, r.extraRules, held)
+	outcome.rejected += rejected
+	outcome.discarded.Missing += discarded.Missing
+	outcome.discarded.Unknown += discarded.Unknown
+	outcome.discarded.UnknownIDs = mergeUnknownIDs(outcome.discarded.UnknownIDs, discarded.UnknownIDs)
+	return held.Issues
+}
+
+// mergeUnknownIDs returns the sorted union of two unknown rule id lists.
+func mergeUnknownIDs(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, id := range append(append([]string(nil), a...), b...) {
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // annotateResult writes the engine-derived metadata: what the gates
 // discarded, the diff's counts, and the prompt builder's own coverage
 // counts. Every key here is engine-owned; the parser already scrubbed any
@@ -405,6 +441,7 @@ func annotateResult(result *types.ReviewResult, prepared preparedPrompt, outcome
 	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", outcome.scopeDiscarded.total())
 	result.Metadata[RedactionMarkerDiscardKey] = fmt.Sprintf("%d", outcome.scopeDiscarded.CitesRedactionMarker)
 	result.Metadata["scope_discard_warning"] = outcome.scopeDiscarded.warning()
+	setOutsideDiffFindings(result.Metadata, outcome.outsideDiff)
 	result.Metadata["summary_discarded_findings"] = fmt.Sprintf("%d", outcome.total())
 	// AUR-448: a discard the rule gate makes is never silent; "" on the
 	// happy path so a caller printing a non-empty warning writes nothing.

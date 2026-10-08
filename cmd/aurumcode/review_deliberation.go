@@ -46,9 +46,10 @@ func (s *reviewState) prepareDeliberation(caller deliberation.Caller, supportsTo
 	offers := s.toolOffers()
 	maxRounds, maxCost, perTool := s.cfg.Deliberation.EffectiveLimits()
 	reviewer.SetDeliberation(&review.Deliberation{
-		Caller: caller,
-		Tools:  reviewtools.Tools(offers),
-		Limits: deliberation.Limits{MaxRounds: maxRounds, MaxCostTokens: maxCost, PerToolTimeout: perTool},
+		Caller:  caller,
+		Tools:   reviewtools.Tools(offers),
+		Limits:  deliberation.Limits{MaxRounds: maxRounds, MaxCostTokens: maxCost, PerToolTimeout: perTool},
+		Partial: reviewtools.PartialLimit(offers),
 	})
 	s.toolManifest, s.toolsOffered = reviewtools.Manifest(offers), true
 }
@@ -69,8 +70,9 @@ func (s *reviewState) toolOffers() []reviewtools.Offer {
 		})
 	}
 	if s.scanRoot != "" {
-		offers = append(offers, reviewtools.Offer{Tool: reviewtools.NewContextTool(s.scanRoot, diffPaths(s.diff)), Cost: reviewtools.ContextCost})
+		offers = append(offers, reviewtools.Offer{Tool: reviewtools.NewContextTool(s.scanRoot, diffPaths(s.diff)).WithExclude(codebaseExclude(s.cfg)), Cost: reviewtools.ContextCost})
 	}
+	offers = append(offers, s.repositoryOffers()...)
 	if sections := s.skillSections(); len(sections) > 0 {
 		offers = append(offers, reviewtools.Offer{Tool: reviewtools.NewSkillTool(sections), Cost: reviewtools.SkillCost})
 	}

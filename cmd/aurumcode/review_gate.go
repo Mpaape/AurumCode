@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -107,6 +109,9 @@ type gatePipelineInputs struct {
 
 	// Scans are the scanner pass's outcomes, one per enabled engine.
 	Scans []gateScan
+
+	// Dependencies is the dependency check's report (nil: not declared).
+	Dependencies *dependencies.Report
 }
 
 // assembleGatePipeline declares the one gate pipeline, in the order the
@@ -121,6 +126,7 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 		gate.SecurityPassContributor{},
 		gate.AnalysisDataContributor{},
 		gate.DependencyTrackContributor{},
+		gate.DependenciesContributor{Report: in.Dependencies},
 	)
 }
 
@@ -147,6 +153,7 @@ func (s *reviewState) inconclusiveReason() string {
 // replace the filter and the writers (a secret learned mid-run); everything
 // after the gate writes through them.
 func (s *reviewState) runGate() (int, bool) {
+	s.verifyModelFindings()
 	run := s.run
 	run.Ctx, run.Cfg, run.Diff, run.Review = s.ctx, s.cfg, s.diff, s.result
 	run.Extra, run.Security, run.Language = s.securityApart(), s.securityFindings, s.reviewLanguage
@@ -218,6 +225,7 @@ func (s *reviewState) gatePipelineInputs() gatePipelineInputs {
 		AcceptedOrigin: acceptedGateOrigin(s.centralCfg != nil),
 		DynamicRules:   s.dynamicRules,
 		Scans:          s.scans,
+		Dependencies:   s.dependencyReportForGate(),
 		PromptDigest:   s.deps.digestBuilder().FixedContentDigest,
 	}
 }
@@ -265,4 +273,29 @@ type publishOutcome struct {
 	checkExit        int
 	gateCheckExit    int
 	artifactsMissing bool
+}
+
+// blockingRule is what this run's review calls blocking: the declared
+// gate's decision, or the historical severity reading without a gate.
+func (s *reviewState) blockingRule() blocking.Rule {
+	if s.gateRes == nil || s.cfg == nil {
+		return blocking.Ungated()
+	}
+	return blocking.FromGate(s.cfg.Gate.Declared(), *s.gateRes)
+}
+
+// modelFindingBlocks reports whether the model's issue, alone, would block
+// this run: at or above --fail-on, failing the declared gate (its own
+// decision over the issue, exceptions included), or an error or warning
+// when no gate is declared. Only such findings are verified.
+func (s *reviewState) modelFindingBlocks(issue types.ReviewIssue) bool {
+	if s.threshold > 0 && severityRank(issue.Severity) >= s.threshold {
+		return true
+	}
+	if s.cfg == nil || !s.cfg.Gate.Declared() {
+		return blocking.Ungated().Blocks(issue)
+	}
+	res, err := gate.EvaluateGate(s.cfg.Gate, acceptedGateOrigin(s.centralCfg != nil), s.dynamicRules,
+		[]types.ReviewIssue{issue}, "", s.cfg.Exceptions, s.repoIdentity, s.deps.clock())
+	return err != nil || res.Fail
 }

@@ -14,6 +14,8 @@ func (p *prReview) publish() (int, bool) {
 	// --check needs the same already-sorted slice, empty or not, for its
 	// commit status, so both branches share one definition.
 	p.issues = sortedIssues(p.result.Issues)
+	p.shown = p.presentFindings()
+	p.round = p.planRound()
 	if code, done := p.resolveCommit(); done {
 		return code, true
 	}
@@ -69,7 +71,10 @@ func (p *prReview) resolveCommit() (int, bool) {
 // POST failure swallow the rest: failures are recorded and the loop
 // continues, so every finding that COULD be published still was.
 func (p *prReview) postReview() []string {
-	summaryBody := formatPublishedReviewBody(p.result, p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText)
+	summaryBody := appendReachSection(formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule()), p.reachLines, p.reviewLanguage)
+	summaryBody = appendChangelogSection(summaryBody, p.changelogSuggestion)
+	summaryBody = appendRoundNotice(summaryBody, p.round, p.reviewLanguage)
+	summaryBody = appendPresentationNotice(summaryBody, p.shown, p.reviewLanguage)
 	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)
 	if p.publication == "review" {
 		return p.postFormalReview(summaryBody)
@@ -82,12 +87,12 @@ func (p *prReview) postReview() []string {
 func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	formalComments := make([]githubclient.ReviewLineComment, 0)
 	if p.inlineComments {
-		for _, issue := range p.issues {
-			if !isInlineEligible(p.diff, issue) {
+		for i, issue := range p.shown.withSources(p.reviewLanguage) {
+			if !isInlineEligible(p.diff, issue) || !p.round.posts(i) {
 				continue
 			}
 			formalComments = append(formalComments, githubclient.ReviewLineComment{
-				Body: formatInlineIssueForLanguage(issue, p.reviewLanguage),
+				Body: p.round.findingBody(i, issue, p.reviewLanguage),
 				Path: issue.File,
 				Line: issue.Line,
 				Side: review.FindingSide(issue),
@@ -101,17 +106,19 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	}
 	formal := githubclient.PullRequestReview{
 		Body:     summaryBody,
-		Event:    gateAlignedReviewEvent(formalReviewEvent(p.result), p.cfg.Gate.Declared(), p.gateRes.Fail),
+		Event:    p.blockingRule().Event(formalReviewEvent(p.result)),
 		CommitID: p.commitID,
 		Comments: formalComments,
 	}
 	key := fmt.Sprintf("aurumcode/review/%d/%s", p.prNumber, p.commitID)
 	if err := p.client.PostPullRequestReview(p.ctx, p.owner, p.repoName, p.prNumber, formal, key); err != nil {
 		fmt.Fprintf(p.stderr, "aurumcode review: publishing formal review: %v\n", err)
-		return append(failures, "formal review: "+err.Error())
+		failures = append(failures, "formal review: "+err.Error())
+	} else {
+		fmt.Fprintf(p.stdout, "review formal %q publicado no pull request #%d (%d comentário(s) na linha).\n", formal.Event, p.prNumber, len(formalComments))
 	}
-	fmt.Fprintf(p.stdout, "review formal %q publicado no pull request #%d (%d comentário(s) na linha).\n", formal.Event, p.prNumber, len(formalComments))
-	return failures
+	_, outsideFailures := p.postOutsideDiffFindings()
+	return append(failures, outsideFailures...)
 }
 
 // postSeparateComments is the historical mode: one comment per finding
@@ -119,14 +126,18 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 func (p *prReview) postSeparateComments(summaryBody string) (failures []string) {
 	inlineCount, generalCount := 0, 0
 	stdout, stderr := p.stdout, p.stderr
-	for _, issue := range p.issues {
+	for i, issue := range p.shown.withSources(p.reviewLanguage) {
 		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
 		if issue.Side == "LEFT" {
 			line += " [LEFT/base]"
 		}
+		if !p.round.posts(i) {
+			fmt.Fprintf(stdout, "%s -- %s\n", line, roundRepeatedMarker(p.reviewLanguage))
+			continue
+		}
 		if p.inlineComments && isInlineEligible(p.diff, issue) {
 			comment := githubclient.ReviewComment{
-				Body:     formatInlineIssueForLanguage(issue, p.reviewLanguage),
+				Body:     p.round.findingBody(i, issue, p.reviewLanguage),
 				CommitID: p.commitID,
 				Path:     issue.File,
 				Line:     issue.Line,
@@ -142,14 +153,17 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 			inlineCount++
 			continue
 		}
-		if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, formatInlineIssueForLanguage(issue, p.reviewLanguage)); err != nil {
+		if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, p.round.findingBody(i, issue, p.reviewLanguage)); err != nil {
 			fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
 			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
 			continue
 		}
-		fmt.Fprintf(stdout, "%s -- publicado como comentario geral\n", line)
+		fmt.Fprintf(stdout, "%s %s\n", line, outsideDiffPublishedMarker)
 		generalCount++
 	}
+	outsidePublished, outsideFailures := p.postOutsideDiffFindings()
+	generalCount += outsidePublished
+	failures = append(failures, outsideFailures...)
 	if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, summaryBody); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 		failures = append(failures, "summary: "+err.Error())
@@ -173,7 +187,7 @@ func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 	}
 	out := publishOutcome{failures: len(failures), artifactsMissing: artifactsMissing}
 	if p.check {
-		out.checkExit = publishCheckStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, (p.opts.exigirQualidade && p.modelDegraded()) || p.model == modelDeliberationLimit, p.model == modelProviderFailed)
+		out.checkExit = publishCheckStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, (p.opts.exigirQualidade && p.modelDegraded()) || p.model == modelDeliberationLimit, p.model == modelProviderFailed, p.blockingRule())
 		// AUR-519: the policy gate's own status, independent of --check's
 		// grave-finding status; a no-op when no gate was declared.
 		out.gateCheckExit = publishPolicyGateStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, *p.gateRes, p.prNumber)
@@ -185,24 +199,4 @@ func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 		}
 	}
 	return p.decideExit(out)
-}
-
-// gateAlignedReviewEvent aligns the formal review with the policy gate when
-// one is declared (AUR-567): REQUEST_CHANGES only when the gate fails the
-// check, so the review and the aurumcode/policy-gate status never disagree
-// (a warning below the threshold used to request changes while the checks
-// were green). Everything else the review would have said stays: COMMENT for
-// a run with findings below the threshold or withheld approval, APPROVE for a
-// clean one. With no gate declared the event is the historical one.
-func gateAlignedReviewEvent(event string, gateDeclared, gateFails bool) string {
-	if !gateDeclared {
-		return event
-	}
-	if gateFails {
-		return "REQUEST_CHANGES"
-	}
-	if event == "REQUEST_CHANGES" {
-		return "COMMENT"
-	}
-	return event
 }

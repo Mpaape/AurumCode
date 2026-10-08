@@ -1,25 +1,25 @@
-# Benchmark de review: protocolo, metricas e corpus
+# Benchmark de review: protocolo, métricas e corpus
 
-Este documento descreve o corpus versionado e o harness deterministico em
+Este documento descreve o corpus versionado e o harness determinístico em
 `tests/benchmark`. O objetivo e comparar AurumCode, OCR e produtos hospedados
-sob o mesmo protocolo e demonstrar utilidade ao time sem contar comentario como
+sob o mesmo protocolo e demonstrar utilidade ao time sem contar comentário como
 qualidade.
 
 ## Corpus congelado
 
 O corpus vive em `tests/benchmark/testdata/corpus.json` e segue o schema
-`aurum.benchmark-corpus` versao 1. Antes de qualquer execucao:
+`aurum.benchmark-corpus` versão 1. Antes de qualquer execução:
 
 - `frozen_at` registra quando o ground truth foi congelado;
-- cada caso pina `base` e `head` (SHAs de 40 hex) e o prompt versao;
-- a separacao `dev`/`holdout` fica congelada antes da execucao;
-- o corpus cobre multiplas linguagens, ao menos um defeito cross-file e ao
+- cada caso pina `base` e `head` (SHAs de 40 hex) e o prompt versão;
+- a separação `dev`/`holdout` fica congelada antes da execução;
+- o corpus cobre múltiplas linguagens, ao menos um defeito cross-file e ao
   menos um negativo sem defeito (PR limpo).
 
 `Corpus.Validate` recusa um corpus sem dev ou sem holdout, sem duas linguagens,
 sem defeito cross-file, sem negativo ou sem defeito. `Corpus.GroundTruthDigest`
 resume o ground truth; cada rodada registra esse digest, de modo que a
-pontuacao fica amarrada ao corpus exato.
+pontuação fica amarrada ao corpus exato.
 
 ## Harness
 
@@ -28,45 +28,45 @@ pontuacao fica amarrada ao corpus exato.
 | rodada | significado |
 |---|---|
 | `original` | PR como submetido, com os defeitos |
-| `unchanged` | reexecucao sem mudanca, mede repeticao |
+| `unchanged` | reexecução sem mudança, mede repetição |
 | `partial` | PR parcialmente corrigido |
 | `fixed` | PR corrigido |
 
 Cada `RunRecord` registra modelo, provider, config, prompt, skills, `base`,
-`head`, digest do corpus, latencia e custo. Um pipeline indisponivel vira
+`head`, digest do corpus, latência e custo. Um pipeline indisponível vira
 `not-measured`: sem acesso nunca e nota zero.
 
-`Evaluate` casa achado e defeito por arquivo e linha com tolerancia de duas
+`Evaluate` casa achado e defeito por arquivo e linha com tolerância de duas
 linhas. O primeiro achado que casa e o verdadeiro positivo; um achado posterior
-no mesmo defeito e duplicata; um achado que nao casa nada e ruido. Duplicata e
-ruido contam contra a precisao, entao repetir ou inventar achado nunca melhora a
-nota. Sao reportados precisao, recall, ruido, duplicatas, localizacao exata,
-latencia, custo, tamanho de amostra e intervalo de Wilson de 95%.
+no mesmo defeito e duplicata; um achado que não casa nada e ruído. Duplicata e
+ruído contam contra a precisão, então repetir ou inventar achado nunca melhora a
+nota. São reportados precisão, recall, ruído, duplicatas, localização exata,
+latência, custo, tamanho de amostra e intervalo de Wilson de 95%.
 
-## Fixtures e o piloto semantico
+## Fixtures e o piloto semântico
 
-Fixtures deterministicas validam o harness e sao marcadas como `synthetic`;
-`RealScores` remove essas rodadas. O piloto semantico local usa Qwen e registra o
+Fixtures determinísticas validam o harness e são marcadas como `synthetic`;
+`RealScores` remove essas rodadas. O piloto semântico local usa Qwen e registra o
 modelo realmente servido, mas uma fixture nunca pode ser apresentada como score
 de modelo real.
 
-## Comparacoes controladas
+## Comparações controladas
 
 - `ComparePipelines` separa um pipeline local de um produto hospedado e exige o
-  mesmo modelo e corpus; ausencia de acesso vira `not-measured`.
+  mesmo modelo e corpus; ausência de acesso vira `not-measured`.
 - `CompareConfigs` liga/desliga contexto e varia prompts e skills versionados
-  com modelo e corpus constantes, registrando ganho e perda por cenario para
-  que um agregado nao esconda regressao.
-- `Anonymize` rotula divergencias com ids opacos e devolve o mapa oculto, para
-  adjudicacao cega.
+  com modelo e corpus constantes, registrando ganho e perda por cenário para
+  que um agregado não esconda regressão.
+- `Anonymize` rotula divergências com ids opacos e devolve o mapa oculto, para
+  adjudicação cega.
 
-## Sugestoes aplicaveis e decisao humana
+## Sugestões aplicáveis e decisão humana
 
-Uma sugestao so e aplicavel quando o patch aplica no head, preserva os testes
+Uma sugestão só é aplicável quando o patch aplica no head, preserva os testes
 pertinentes e remove o defeito (`EvaluateSuggestion`). `TriageEntry` guarda
-tempo ativo de triagem, tempo de decisao e numero de comentarios em campos
-separados; so uma decisao explicita (`accepted`) conta como aceitacao, nunca a
-quantidade de comentarios.
+tempo ativo de triagem, tempo de decisão e número de comentários em campos
+separados; só uma decisão explícita (`accepted`) conta como aceitação, nunca a
+quantidade de comentários.
 
 ## Como executar
 
@@ -75,15 +75,15 @@ quantidade de comentarios.
 ```
 
 O aceite roda `go test ./tests/benchmark` no container selado, sem rede e sem
-toolchain no host. O mesmo comando pode ser selecionado por cenario
+toolchain no host. O mesmo comando pode ser selecionado por cenário
 (`AC-001`..`AC-006`, `MUT-001`).
 
-## Limitacoes
+## Limitações
 
-O harness mede o que o pipeline entrega; ele nao substitui review independente.
+O harness mede o que o pipeline entrega; ele não substitui review independente.
 Resultados de concorrentes sem acesso ficam `not-measured`. Amostras pequenas
-vem com o intervalo de Wilson, e qualquer conclusao deve respeitar esse
-intervalo e o tamanho da amostra. Fontes e protocolo do produto estao em
+vem com o intervalo de Wilson, e qualquer conclusão deve respeitar esse
+intervalo e o tamanho da amostra. Fontes e protocolo do produto estão em
 `.board/PRODUCT_PLAN.md`.
 
 ## Corpus multilinguagem contra o gate real (AUR-523)

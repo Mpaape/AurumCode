@@ -17,6 +17,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -99,8 +100,15 @@ const checkContext = "aurumcode/review"
 // a false "nenhum achado grave" success whenever --exigir-qualidade was not
 // also given -- worse than before this card, which left the context absent
 // (failing closed) rather than falsely green.
-func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete, providerFailed bool) int {
+func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete, providerFailed bool, rule blocking.Rule) int {
+	// With a declared gate, "grave" is exactly what the gate fails on (the
+	// same single rule as the review body and the formal review), so this
+	// status never contradicts aurumcode/policy-gate. Without one, every
+	// error-severity finding counts, as before.
 	grave := countAtOrAbove(issues, rankError)
+	if rule.Gated() {
+		grave = rule.Count(issues)
+	}
 	status := githubclient.CommitStatus{Context: checkContext}
 	switch {
 	case providerFailed:

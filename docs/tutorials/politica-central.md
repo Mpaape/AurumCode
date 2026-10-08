@@ -338,13 +338,13 @@ diretório de política dentro da árvore revisada. Uma política quebrada
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/politica-central/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/politica-central/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### analysis-data
 
 ![Terminal do caso analysis-data](../assets/capturas/politica-central/analysis-data-terminal.png)
 
-![Comentario do PR do caso analysis-data](../assets/capturas/politica-central/analysis-data-comentario.png)
+![Comentário do PR do caso analysis-data](../assets/capturas/politica-central/analysis-data-comentario.png)
 
 ### falha-politica-invalida
 
@@ -358,18 +358,18 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em de
 
 ![Terminal do caso politica-local](../assets/capturas/politica-central/politica-local-terminal.png)
 
-![Comentario do PR do caso politica-local](../assets/capturas/politica-central/politica-local-comentario.png)
+![Comentário do PR do caso politica-local](../assets/capturas/politica-central/politica-local-comentario.png)
 
 ### precedencia-por-secao
 
 ![Terminal do caso precedencia-por-secao](../assets/capturas/politica-central/precedencia-por-secao-terminal.png)
 
-![Comentario do PR do caso precedencia-por-secao](../assets/capturas/politica-central/precedencia-por-secao-comentario.png)
+![Comentário do PR do caso precedencia-por-secao](../assets/capturas/politica-central/precedencia-por-secao-comentario.png)
 
 ### repo-afrouxa
 
 ![Terminal do caso repo-afrouxa](../assets/capturas/politica-central/repo-afrouxa-terminal.png)
 
-![Comentario do PR do caso repo-afrouxa](../assets/capturas/politica-central/repo-afrouxa-comentario.png)
+![Comentário do PR do caso repo-afrouxa](../assets/capturas/politica-central/repo-afrouxa-comentario.png)
 
 <!-- capturas:fim -->

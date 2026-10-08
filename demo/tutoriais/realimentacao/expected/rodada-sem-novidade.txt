@@ -1,0 +1,10 @@
+$ aurumcode realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
+PR #101 no repositório da política (aurum/realimentacao)
+exit_code=0
+RESULTADO: a primeira rodada abriu a PR
+$ aurumcode realimentacao --repos exemplo/app --repo-politica exemplo/politica --publicar
+realimentação: 2 sinal(is), 0 novo(s)
+nada novo: nenhuma PR aberta ou alterada
+exit_code=0
+RESULTADO: sem sinal novo a segunda rodada nao abriu nem gravou nada
+--- escritas no GitHub falso: 5

@@ -12,7 +12,7 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-var aur572Commands = []string{"review", "fix", "sbom", "sign", "xbom", "mcp"}
+var aur572Commands = []string{"review", "fix", "sbom", "sign", "xbom", "dependencies", "mcp", "changelog", "realimentacao"}
 
 // AC-001: the top-level help lists every command of the registry, and each
 // `<sub> --help` prints every flag its FlagSet declares plus an example.
@@ -60,13 +60,13 @@ func TestAUR572SubcommandHelpListsEveryDeclaredFlag(t *testing.T) {
 // any inconclusive source replaces it with a sentence naming it.
 func TestAUR572PrintFindingsNeverClaimsCleanWhenInconclusive(t *testing.T) {
 	var clean bytes.Buffer
-	printFindings(&clean, &types.ReviewResult{}, "")
+	printFindings(&clean, &types.ReviewResult{}, "", "")
 	if clean.String() != "No issues found.\n" {
 		t.Errorf("clean review printed %q", clean.String())
 	}
 	for _, reason := range []string{"sast_execution_error", "partial_coverage", "dtrack_unreachable", "analysis_data_stale", "provider_failure"} {
 		var out bytes.Buffer
-		printFindings(&out, &types.ReviewResult{}, reason)
+		printFindings(&out, &types.ReviewResult{}, reason, "")
 		if strings.Contains(out.String(), "No issues found.") || !strings.Contains(out.String(), reason) {
 			t.Errorf("inconclusive %q printed %q", reason, out.String())
 		}

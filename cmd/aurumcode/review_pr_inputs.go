@@ -18,7 +18,7 @@ import (
 func (p *prReview) resolveInputs() (int, bool) {
 	steps := []session.Step{
 		p.fetchPullRequest, p.loadPolicy, p.resolvePublication,
-		p.resolveChangelog, p.resolveCheckout, p.declareBinaries, p.openMemory,
+		p.resolveChangelog, p.resolveChangelogSuggestion, p.resolveCheckout, p.declareBinaries, p.openMemory,
 	}
 	for _, step := range steps {
 		if code, done := step(); done {
@@ -187,7 +187,7 @@ func (p *prReview) resolveCheckout() (int, bool) {
 	}
 	p.checkoutMismatch = mismatch
 	if mismatch == "" {
-		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, verifiedFiles)
+		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, includedFiles(verifiedFiles, p.cfg))
 	} else {
 		p.codebaseLimitation = codebaseContextOmittedNotice(p.reviewLanguage, mismatch)
 	}

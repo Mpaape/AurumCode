@@ -9,9 +9,17 @@
 4. Integre o workflow e os arquivos de contexto na branch base.
 5. Abra um PR com uma pequena alteração de código e confira o parecer e o job.
 
-O exemplo acompanha `main`. Para fixar uma instalação, use um SHA revisado.
-A tag histórica `v1` não é atualizada por esse fluxo; instalações nela continuam
-na versão anterior até mudar a referência.
+O exemplo acompanha `main`:
+
+```yaml
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@main
+```
+
+Para fixar uma instalação, use um SHA revisado ou a tag de uma release
+oficial: o roteiro de [Releases](releases.md) troca essa referência pela
+versão publicada no exemplo, no download do site e nesta página. A tag
+histórica `v1` não é atualizada por esse fluxo; instalações nela continuam na
+versão anterior até mudar a referência.
 
 O token de publicação é o `github.token` do workflow, com as permissões
 declaradas no YAML. Ele é limitado ao repositório, não a um único PR.
@@ -170,7 +178,8 @@ de `aurumcode review` (veja acima) ou de um parecer publicado no PR.
 ## Ajuda por subcomando
 
 `aurumcode --help` lista todos os subcomandos, uma linha cada: `review`, `fix`,
-`sbom`, `sign` e `xbom`. `aurumcode <subcomando> --help` imprime todas as flags
+`sbom`, `sign`, `xbom`, `dependencies`, `mcp`, `changelog` e `realimentacao`.
+`aurumcode <subcomando> --help` imprime todas as flags
 do subcomando (as mesmas que ele aceita: ajuda e parser leem o mesmo conjunto
 de flags) e um exemplo executável. A ajuda é gerada de um registro único de
 subcomandos, então um subcomando novo não existe sem uma linha de ajuda.

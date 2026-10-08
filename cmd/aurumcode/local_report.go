@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -55,15 +56,47 @@ func localVerdict(result *types.ReviewResult) *types.ReviewResult {
 // verdict enum result.Verdict and render.Summary already use
 // ("approve"/"changes_requested"/"comment").
 func canonicalVerdict(result *types.ReviewResult) string {
-	switch formalReviewEvent(result) {
-	case "REQUEST_CHANGES":
-		return "changes_requested"
-	case "COMMENT":
-		return "comment"
+	return verdictForEvent(formalReviewEvent(result))
+}
+
+// verdictForEvent maps a GitHub review event to the verdict enum.
+func verdictForEvent(event string) string {
+	switch event {
+	case blocking.EventRequestChanges:
+		return verdictChangesRequested
+	case blocking.EventComment:
+		return verdictComment
 	default:
-		return "approve"
+		return verdictApprove
 	}
 }
+
+// eventForVerdict is verdictForEvent's inverse.
+func eventForVerdict(verdict string) string {
+	switch verdict {
+	case verdictChangesRequested:
+		return blocking.EventRequestChanges
+	case verdictComment:
+		return blocking.EventComment
+	default:
+		return eventApprove
+	}
+}
+
+// gateRuleVerdict is the terminal report's verdict under the blocking rule:
+// the same alignment the published review event follows, so the local
+// report and the pull request never disagree with the gate.
+func gateRuleVerdict(rule blocking.Rule, verdict string) string {
+	return verdictForEvent(rule.Event(eventForVerdict(verdict)))
+}
+
+// The verdict enum and the approving review event.
+const (
+	verdictChangesRequested = "changes_requested"
+	verdictComment          = "comment"
+	verdictApprove          = "approve"
+	eventApprove            = "APPROVE"
+)
 
 // applicableSuggestionRange reports the 1-based start/end of a suggestion whose
 // replacement can actually be applied, reusing the same coordinate rules the

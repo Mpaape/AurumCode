@@ -1,6 +1,6 @@
 // Command aurumcode reviews code changes: `aurumcode review --base <ref>` for a
 // local diff and `aurumcode review --pr <n> --repo <owner>/<name>` for a pull
-// request, plus the compliance subcommands (sbom, sign, xbom, fix). Flags are
+// request, plus the compliance subcommands (sbom, sign, xbom, fix, changelog). Flags are
 // parsed and dependencies assembled here; the rules live in internal/.
 // `aurumcode --help` lists the subcommands.
 package main
@@ -268,7 +268,7 @@ func providerFromEnv(fixtureModel, liveModel string) (llm.Provider, string, erro
 // model boundary (internal/review.redactReviewResult, AUR-432), before the
 // trusted rule citation was appended, so the published byte-stable format
 // survives while no echoed secret can reach this sink.
-func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveReason string) {
+func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveReason, language string) {
 	issues := make([]types.ReviewIssue, len(result.Issues))
 	copy(issues, result.Issues)
 	sort.SliceStable(issues, func(i, j int) bool {
@@ -288,6 +288,7 @@ func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveRea
 		if issue.Side == "LEFT" {
 			fmt.Fprintln(stdout, "  Location: LEFT (removed line in base)")
 		}
+		writeFindingFields(stdout, issue, reviewCopyFor(language))
 		printAssessment(stdout, issue)
 	}
 }

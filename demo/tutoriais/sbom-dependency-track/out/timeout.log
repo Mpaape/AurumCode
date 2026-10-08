@@ -9,7 +9,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: policy gate: ssor_dtrack: revisão inconclusiva (dtrack_timeout)
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0

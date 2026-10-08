@@ -2,14 +2,31 @@
 
 ## Objetivo
 
-Mostrar onde ficam o registro de auditoria e o SARIF de uma revisão, como ler
-cada campo, como o SARIF chega ao Code Scanning pelo job do chamador, e provar
-que um segredo não vaza para nenhum dos dois. Seis fases (cinco executadas e uma
-conferência).
+Ver os dois arquivos que uma revisão pode deixar para quem audita:
 
-Os blocos são os arquivos de `demo/tutoriais/auditoria-sarif/` e as saídas vêm de
-`demo/tutoriais/auditoria-sarif/out/`. Referência:
-[configuration.md, Trilha de auditoria e SARIF](../configuration.md#trilha-de-auditoria-e-sarif-aur-521).
+- **Registro de auditoria** (`--auditoria`): um JSON por revisão com quem
+  revisou, o quê, com qual política e qual foi a decisão. É a evidência de
+  compliance.
+- **SARIF** (`--sarif`): o formato padrão de resultados de análise, que o
+  GitHub mostra na aba **Security → Code scanning**.
+
+```mermaid
+flowchart LR
+  R[aurumcode review] -->|--auditoria| A[auditoria.json]
+  R -->|--sarif| S[revisao.sarif]
+  A --> C[compliance / auditoria interna]
+  S --> U[job upload-sarif do seu workflow]
+  U --> G[GitHub: Security → Code scanning]
+```
+
+Um trecho da auditoria do caso 1:
+
+```json
+{"verdict": "changes_requested", "gate": {"decision": "fail"}, "coverage": {"complete": true}}
+```
+
+Seis casos: cinco executados e uma conferência de workflow. Referência curta:
+[auditoria e SARIF na configuração](../configuration.md#trilha-de-auditoria-e-sarif-aur-521).
 
 ## Pré-requisitos
 
@@ -25,10 +42,10 @@ bash demo/tutoriais/auditoria-sarif/run.sh --check
 
 ## Onde ficam
 
-Nenhum dos dois é escrito sem a flag: `--auditoria ARQUIVO` e `--sarif ARQUIVO`.
-No workflow reutilizável o produto escreve os dois e o job os envia como
-artefatos (`aurumcode-audit-<PR>` e `aurumcode-sarif-<PR>`), mesmo quando o gate
-reprova. Em execução local, o caminho é o que você passar.
+Nada é escrito sem a flag. Localmente, o arquivo vai para o caminho que você
+passar. No workflow reutilizável, os dois são escritos sempre e enviados como
+artefatos do job (`aurumcode-audit-<PR>` e `aurumcode-sarif-<PR>`), mesmo
+quando o gate reprova.
 
 ## Caso 1: a auditoria de uma revisão que reprova
 
@@ -53,16 +70,10 @@ exceptions_applied: []
 coverage.complete: True
 ```
 
-O que observar, campo a campo: `policy_digest` identifica a política aplicada;
-`workflow_sha` vem de `AURUMCODE_WORKFLOW_SHA` (ou `GITHUB_SHA`), `repo` de
-`GITHUB_REPOSITORY` e `reviewed_sha` de `GITHUB_SHA` (a demo os fixa); `model` é
-o `--modelo`; `verdict` e `gate.decision` dizem o resultado; `blocking_findings`
-lista só o que reprovou, cada um com `origin` (`skills`, `analysis`, `sast`);
-`exceptions_applied` lista as exceções aceitas (vazia aqui); `coverage` diz se a
-revisão foi completa. Os campos de `analysis_data` e de SBOM **só aparecem quando
-a política os declara** (`analysis_data`, SBOM com Trivy); **não demonstrado
-aqui:** o SBOM exige o scanner e rede, e o `analysis_data` exige um servidor de
-releases.
+O que observar: `gate.decision` diz o resultado; `blocking_findings` lista só o
+que reprovou, com a origem (`skills`, `analysis`, `sast`); `exceptions_applied`
+lista as exceções aceitas; `coverage` diz se algum arquivo ficou de fora. Os
+SHAs e o repositório vêm das variáveis do GitHub Actions (a demo os fixa).
 
 ## Caso 2: o SARIF
 
@@ -81,11 +92,9 @@ result: seguranca#sem-segredos-no-codigo level=error app.go:6 origin=skills
 partialFingerprints: aurumcode/findingId/v1
 ```
 
-O que observar: SARIF 2.1.0; cada achado vira um `result` com `ruleId`, `level`
-(`error`/`warning`/`note`), arquivo relativo e linha; `partialFingerprints`
-traz a impressão digital estável do achado (regra, caminho, linha e contexto
-normalizado, nunca o texto livre do modelo); `properties.origin` existe para
-os achados que o gate contou.
+O que observar: cada achado vira um `result` com regra, nível, arquivo e linha;
+`partialFingerprints` é a impressão digital estável que evita alerta duplicado
+no Code scanning.
 
 ## Caso 3: uma revisão inconclusiva também gera os dois
 
@@ -99,10 +108,8 @@ sarif executionSuccessful: False
 sarif notificacoes: ['partial_coverage']
 ```
 
-O que observar: `gate.decision` é `fail` com o motivo `partial_coverage`,
-`coverage.complete` é falso, e o SARIF continua válido com
-`executionSuccessful: false` e uma notificação nomeando o motivo. Nunca há
-documento de "aprovado" para uma revisão que não aconteceu.
+O que observar: uma revisão que não terminou nunca vira "aprovado": a auditoria
+diz `fail` com o motivo e o SARIF diz `executionSuccessful: false`.
 
 ## Caso 4: canário de redação
 
@@ -122,16 +129,13 @@ revisao.sarif: o valor foi trocado por [REDACTED]
 RESULTADO: o canario nao vazou para saida, auditoria nem SARIF
 ```
 
-O que observar: o valor aparece como `[REDACTED]` no parecer e no SARIF, e não
-existe em lugar nenhum da saída, da auditoria ou do SARIF. A demo falharia
-(`ERRO:`) se o canário vazasse.
+O que observar: o segredo vira `[REDACTED]` e não aparece em lugar nenhum.
 
 ## Caso 5: upload para o Code Scanning pelo job do chamador
 
-O workflow reutilizável **nunca** chama `upload-sarif`: essa action pede
-`security-events: write`, que um workflow reutilizável não consegue conceder ao
-chamador. Quem quer o SARIF no Code Scanning roda um segundo job, no próprio
-workflow:
+O workflow reutilizável não envia o SARIF ao Code scanning: isso pede
+`security-events: write`, que só o seu workflow pode conceder. Acrescente um
+segundo job:
 
 <!-- arquivo: demo/tutoriais/auditoria-sarif/workflow-chamador.yml -->
 ```yaml
@@ -187,19 +191,15 @@ PR de fork: o job de upload e pulado
 NAO EXECUTADO AQUI: o upload ao Code Scanning (nao ha runner nem GitHub neste ambiente)
 ```
 
-O que observar: esta fase **não executa** o upload (não há runner nem GitHub aqui:
-`NAO EXECUTADO AQUI`); ela confere o workflow contra o `review.yml` real: o nome
-do artefato e o arquivo coincidem, o job `review` não pede `security-events`, o
-job de upload pede e é pulado em PR de fork. O envio de fato ao Code Scanning não
-está demonstrado.
+O que observar: o upload em si **não** roda aqui (não há GitHub); a fase confere
+que o nome do artefato e o arquivo batem com o `review.yml` real e que PR de
+fork pula o upload.
 
 ## Quando falha
 
-A trilha de auditoria faz parte do veredito: se o arquivo pedido (`--auditoria`
-ou `--sarif`) não pode ser gravado, a revisão **nunca** termina como sucesso. O
-caso grava num diretório que não existe (com `gate.inconclusive: block`), depois
-num caminho cujo pai é um arquivo regular (sem `gate`) e, por fim, num caminho
-gravável:
+Se o arquivo pedido não pode ser gravado, a revisão **nunca** termina como
+sucesso. O caso tenta um diretório que não existe, depois um caminho cujo pai é
+um arquivo, e por fim um caminho válido:
 
 <!-- saida: falha-caminho-invalido -->
 ```text
@@ -216,13 +216,8 @@ o arquivo de auditoria existe
 ```
 
 O que observar: a mensagem nomeia o caminho e o motivo (`audit_write_failed` ou
-`sarif_write_failed`). Com `gate` declarado a revisão fica inconclusiva pelo modo
-da política: em `block` o status vira `failure` e o exit é 1; em `warn` o status é
-"inconclusivo" (nunca "aprovado") e o exit também é 1. O veredito aparece como
-`Comment`, nunca `Approve`. Sem `gate`, só muda o exit (1) e a mensagem. O arquivo
-que pôde ser gravado é regravado com a decisão final, então os dois concordam.
-Com o caminho gravável nada muda: exit 0 e o arquivo existe. (Este era o achado 2
-do AUR-562: o produto avisava e saía 0; o AUR-568 o corrigiu.)
+`sarif_write_failed`) e o exit é 1. Com `gate` declarado, o veredito fica
+`Comment`, nunca `Approve`. Com o caminho válido, tudo volta ao normal.
 
 ## Problemas comuns
 
@@ -238,37 +233,37 @@ do AUR-562: o produto avisava e saía 0; o AUR-568 o corrigiu.)
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica
 
-Capturas geradas por scripts/docs/capturas.sh a partir das saidas gravadas em demo/tutoriais/auditoria-sarif/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/auditoria-sarif/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
 
 ### auditoria-reprovado
 
 ![Terminal do caso auditoria-reprovado](../assets/capturas/auditoria-sarif/auditoria-reprovado-terminal.png)
 
-![Comentario do PR do caso auditoria-reprovado](../assets/capturas/auditoria-sarif/auditoria-reprovado-comentario.png)
+![Comentário do PR do caso auditoria-reprovado](../assets/capturas/auditoria-sarif/auditoria-reprovado-comentario.png)
 
 ### canario-de-redacao
 
 ![Terminal do caso canario-de-redacao](../assets/capturas/auditoria-sarif/canario-de-redacao-terminal.png)
 
-![Comentario do PR do caso canario-de-redacao](../assets/capturas/auditoria-sarif/canario-de-redacao-comentario.png)
+![Comentário do PR do caso canario-de-redacao](../assets/capturas/auditoria-sarif/canario-de-redacao-comentario.png)
 
 ### falha-caminho-invalido
 
 ![Terminal do caso falha-caminho-invalido](../assets/capturas/auditoria-sarif/falha-caminho-invalido-terminal.png)
 
-![Comentario do PR do caso falha-caminho-invalido](../assets/capturas/auditoria-sarif/falha-caminho-invalido-comentario.png)
+![Comentário do PR do caso falha-caminho-invalido](../assets/capturas/auditoria-sarif/falha-caminho-invalido-comentario.png)
 
 ### sarif-campos
 
 ![Terminal do caso sarif-campos](../assets/capturas/auditoria-sarif/sarif-campos-terminal.png)
 
-![Comentario do PR do caso sarif-campos](../assets/capturas/auditoria-sarif/sarif-campos-comentario.png)
+![Comentário do PR do caso sarif-campos](../assets/capturas/auditoria-sarif/sarif-campos-comentario.png)
 
 ### sarif-inconclusivo
 
 ![Terminal do caso sarif-inconclusivo](../assets/capturas/auditoria-sarif/sarif-inconclusivo-terminal.png)
 
-![Comentario do PR do caso sarif-inconclusivo](../assets/capturas/auditoria-sarif/sarif-inconclusivo-comentario.png)
+![Comentário do PR do caso sarif-inconclusivo](../assets/capturas/auditoria-sarif/sarif-inconclusivo-comentario.png)
 
 ### upload-workflow
 

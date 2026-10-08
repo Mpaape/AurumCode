@@ -1,0 +1,16 @@
+{
+  "issues": [
+    {
+      "file": "app.go",
+      "line": 6,
+      "severity": "error",
+      "rule_id": "security/hardcoded-secret",
+      "message": "A senha do banco esta escrita no codigo.",
+      "impact": "Quem le o repositorio ou o historico reutiliza a senha.",
+      "evidence": "A linha adicionada atribui uma senha literal a dbPassword em app.go.",
+      "suggestion": "Leia a senha do ambiente em vez de escreve-la no codigo.",
+      "verification": "Remova o literal e rode a revisao de novo; o achado deve sumir."
+    }
+  ],
+  "summary": "A mudanca escreve uma senha no codigo de app.go."
+}

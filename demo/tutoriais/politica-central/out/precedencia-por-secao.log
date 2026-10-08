@@ -7,7 +7,7 @@ aurumcode review: politica central: quality_gates.sast do config do repositório
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## Code Review Summary
 
-**Verdict:** Changes requested
+**Verdict:** Comment
 
 **Findings by severity:**
 - error: 1
@@ -24,6 +24,10 @@ flowchart TD
 
 ```
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+  - Impact: Quem le o repositorio ou o historico reutiliza a senha.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente em vez de escreve-la no codigo.
+  - Verify: Remova o literal e rode a revisao de novo; o achado deve sumir.
 exit_code=0
 RESULTADO: revisao feita sob politica
 supply_chain: a politica nao declara, entao nao ha aviso e vale o do repositorio

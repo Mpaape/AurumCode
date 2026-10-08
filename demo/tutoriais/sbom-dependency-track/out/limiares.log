@@ -10,7 +10,7 @@ aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálcu
 aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0 (origem dtrack)
 ## Code Review Summary
 
-**Verdict:** Comment
+**Verdict:** Changes requested
 
 **Findings by severity:**
 - error: 0

@@ -18,8 +18,8 @@
 # SELECTORS
 #   all             run every scenario below
 #   AC-001          every one of the six scripts either exits 0 (fixed) or
-#                   exits with the exact measured RED tag this card
-#                   documented (genuinely unresolved, origin card reopened)
+#                   is retired (exit 69 naming the retiring card's spec);
+#                   AUR-438 was red until AUR-545, AUR-459 retired by AUR-546
 #   AC-002          docs/specs/AUR-542.md records, for every one of the six
 #                   scripts, a cause, a decision, and a before/after pair
 #   AC-001-MUT-001  reverting this card's own product fix in
@@ -81,20 +81,12 @@ run_e2e() {
   set -e
 }
 
-# Fixed this card: now exits 0 directly.
-readonly -a fixed_scripts=(AUR-443 AUR-448 AUR-449 AUR-451)
-
-# Genuinely red: the origin card is reopened with the measured cause
-# (docs/specs/AUR-542.md), not fixed here. The exact tag pinned below is
-# the measured signature -- if a future change on cmd/aurumcode or
-# internal/review/scope.go makes either script print something else
-# (including, silently, exit 0), this selector must notice.
-readonly -a red_scripts=(AUR-438)
-red_tag() {
-  case "$1" in
-    AUR-438) printf 'missing_general_finding' ;;
-  esac
-}
+# Fixed: now exits 0 directly. AUR-438 was the last genuinely red script
+# (missing_general_finding): AUR-545 gave a proved finding outside the
+# changed lines its destination, a general comment that never counts for
+# the gate (docs/specs/AUR-545.md), so it moved here. No script is left
+# genuinely red; a regression of any of them is a RED of this selector.
+readonly -a fixed_scripts=(AUR-438 AUR-443 AUR-448 AUR-449 AUR-451)
 
 # Retired by a later card that removed the behavior the script proved: it
 # must exit 69 and name the spec of the retiring card, never pass and never
@@ -117,24 +109,6 @@ run_ac001() {
     if [[ "$e2e_rc" -ne 0 ]]; then
       cat "$e2e_out" >&2
       printf '%s/%s/regressed:%s:%s\n' "$card" "$selector" "$name" "$e2e_rc" >&2
-      any_bad=1
-    fi
-  done
-  for name in "${red_scripts[@]}"; do
-    run_e2e "$name"
-    if [[ "$e2e_rc" -eq 0 ]]; then
-      cat "$e2e_out" >&2
-      printf '%s/%s/unexpectedly-fixed:%s\n' "$card" "$selector" "$name" >&2
-      any_bad=1
-      continue
-    fi
-    if [[ "$e2e_rc" -eq 79 || "$e2e_rc" -eq 69 ]]; then
-      cat "$e2e_out" >&2
-      infra "e2e-infra:$name:$e2e_rc"
-    fi
-    if ! grep -Fq "$(red_tag "$name")" "$e2e_out"; then
-      cat "$e2e_out" >&2
-      printf '%s/%s/different-red-cause:%s\n' "$card" "$selector" "$name" >&2
       any_bad=1
     fi
   done

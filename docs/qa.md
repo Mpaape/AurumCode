@@ -59,3 +59,49 @@ de ruído do modelo em produção.
 
 O histórico de aceitação da reconstrução permanece no board e em `docs/specs`.
 Não confunda scripts históricos com a suíte atual de produto.
+
+## QA no repositório consumidor (AUR-512)
+
+O self-review deste repositório não prova o produto instalado. O QA do
+consumidor roda o AurumCode, pinado por SHA, num repositório separado, com a
+imagem real, PRs de código e falhas observáveis. Os cenários estão em
+`tests/consumer/cenarios.json`:
+
+| Cenário | O que prova |
+| --- | --- |
+| `comments-inline` | Workflow reutilizável, modo `comments`, parecer em português, sugestão inline, gate reprovando; o commit de correção limpa o bloqueio. |
+| `review-formal` | O mesmo no modo `review`. |
+| `acao-direta` | Action direta pinada, status `aurumcode/review` igual ao resultado. |
+| `modelo-ausente`, `modelo-inconclusivo` | Sem credencial ou com o modelo inalcançável a revisão falha fechada, com diagnóstico. |
+| `sem-permissao` | Token só de leitura: a publicação falha e o diagnóstico diz permissão. |
+| `ci-falhando` | O CI do consumidor falha e o parecer cita a falha concluída. |
+| `pr-de-fork` | Manual (precisa de uma segunda conta): sem secrets, falha fechada; a configuração vem da base. Sem evidência fornecida, fica `nao_medido`. |
+| `changelog-ausente`, `changelog-valido` | O changelog obrigatório bloqueia a PR sem entrada e passa a entrada válida. |
+| `rodada-repetida` | Rodar de novo no mesmo SHA não multiplica os comentários. |
+
+Preparação, uma vez: a `main` do consumidor recebe, por PR, o conteúdo de
+`tests/consumer/fixtures/base` (config com `review.language: pt-BR`, gate e
+`changelog_check.mode: required`) e os secrets `LLM_API_KEY` e `LLM_BASE_URL`.
+
+Rodada, no host do dono (git, `gh` autenticado e `jq`; nenhum Go):
+
+```bash
+tests/consumer/run.sh --repo OWNER/CONSUMIDOR --sha <SHA completo do AurumCode> --evidencia qa-evidencia
+```
+
+O script cria uma branch e uma PR por cenário, instala o workflow do cenário
+com o SHA sob teste, commita com a identidade git **já configurada** (nunca
+define uma), espera o run, coleta status, checks, comentários, review,
+sugestões inline e o log de falha e grava `qa-evidencia/<cenario>.json` com
+repo, SHA, id e URL do run. Run que não conclui (billing, fila) vira
+`"medido": false` com a limitação. Depois, no container:
+
+```bash
+.board/bin/go-shared up
+.board/bin/go-shared exec -w "$PWD" env AURUMCODE_QA_EVIDENCIA="$PWD/qa-evidencia" go test ./tests/consumer -count=1 -run TestAUR512
+```
+
+O verificador reprova evidência sem repo, SHA ou run, cenário negativo que
+passou (um produto sem o gate de changelog ou de qualidade) e rodada
+repetida que dobrou comentários; `nao_medido` nunca conta como aprovado. O
+site só cita resultado de uma evidência dessas, com repo, SHA e run.

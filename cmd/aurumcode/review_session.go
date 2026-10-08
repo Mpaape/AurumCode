@@ -13,12 +13,14 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
 	"github.com/Mpaape/AurumCode/internal/deliberation"
+	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/memory"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/session"
+	"github.com/Mpaape/AurumCode/internal/review/verify"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -33,6 +35,15 @@ type reviewEnv struct {
 	llmModel       string // LLM_MODEL
 	outputFile     string // AURUMCODE_OUTPUT_FILE
 	permissionMode string // AURUMCODE_PR_PERMISSION_MODE
+	// publisherLogin (AURUMCODE_PUBLISHER_LOGIN) is the login this product
+	// publishes as; only its comments' round markers are read.
+	publisherLogin string
+	// ci is set when CI or GITHUB_ACTIONS is: the checkout may be a pull
+	// request's, so its own config cannot start an MCP server.
+	ci bool
+	// trustLocalMCP is AURUMCODE_TRUST_LOCAL_MCP=true: the operator's
+	// explicit opt-in to MCP sources of the local config under CI.
+	trustLocalMCP bool
 }
 
 // readReviewEnv snapshots the environment.
@@ -44,6 +55,9 @@ func readReviewEnv() reviewEnv {
 		llmModel:       os.Getenv("LLM_MODEL"),
 		outputFile:     os.Getenv("AURUMCODE_OUTPUT_FILE"),
 		permissionMode: os.Getenv("AURUMCODE_PR_PERMISSION_MODE"),
+		publisherLogin: os.Getenv("AURUMCODE_PUBLISHER_LOGIN"),
+		ci:             os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "",
+		trustLocalMCP:  os.Getenv("AURUMCODE_TRUST_LOCAL_MCP") == "true",
 	}
 }
 
@@ -63,6 +77,7 @@ type reviewDeps struct {
 	resolveFiles  codebaseResolver
 	digestBuilder func() *prompt.PromptBuilder
 	env           *reviewEnv
+	dependencies  dependencySources
 }
 
 // withDefaults fills every unset dependency with production's.
@@ -118,15 +133,18 @@ type reviewState struct {
 	artifactRepo, artifactCommit string
 
 	// resolved inputs
-	diff                *types.Diff
-	cfg                 *config.Config
-	centralCfg          *config.Config
-	reviewLanguage      string
-	policyWarnings      []config.ProviderWarning
-	skillNotices        []string
-	ignoredPaths        []string
-	rawDiffFileCount    int
-	changelogText       string
+	diff             *types.Diff
+	cfg              *config.Config
+	centralCfg       *config.Config
+	reviewLanguage   string
+	policyWarnings   []config.ProviderWarning
+	skillNotices     []string
+	ignoredPaths     []string
+	rawDiffFileCount int
+	changelogText    string
+	// changelogSuggestion is the redacted suggested-entry block shown when
+	// the repository requires a changelog entry the pull request lacks.
+	changelogSuggestion string
 	changelogLimitation string
 	codebaseText        string
 	memoryStore         memory.Store
@@ -178,6 +196,19 @@ type reviewState struct {
 	batches []review.Batch
 
 	gateRes *gateDecision
+
+	// verifyCaller is the model pass's provider, kept for the verification
+	// of its blocking findings (nil: no model pass, nothing verified);
+	// verification is what it recorded.
+	verifyCaller verify.Caller
+	verification []verify.Record
+
+	// depReport is the dependency check's report, nil when the
+	// configuration declares no dependencies section.
+	depReport *dependencies.Report
+	// reachLines are the dependency reachability explanations, published
+	// in their own section of the review, never among the limitations.
+	reachLines []string
 }
 
 // newReviewState starts the shared state of one session.

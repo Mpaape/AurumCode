@@ -1,0 +1,30 @@
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "AURUMCODE-VERIFICACAO-DE-ACHADO",
+        "response": {
+          "verdict": "refuted",
+          "reason": "Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.",
+          "quote": "func (l *Limites) Validar() error {\n\tif l == nil {\n\t\treturn nil\n\t}"
+        }
+      }
+    ],
+    "default": {
+      "issues": [
+        {
+          "file": "limites.go",
+          "line": 23,
+          "severity": "error",
+          "rule_id": "quality/missing-error-handling",
+          "message": "Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico.",
+          "impact": "Uma configuracao sem a secao derruba o carregamento.",
+          "evidence": "carregar chama l.Validar() sem conferir se l e nil.",
+          "suggestion": "Confira l == nil antes de chamar Validar.",
+          "verification": "Chame carregar(nil) num teste."
+        }
+      ],
+      "summary": "A mudanca adiciona a validacao da secao de limites."
+    }
+  }
+}

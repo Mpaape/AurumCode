@@ -13,16 +13,18 @@ import (
 // pullRequestHistoryContext reads GitHub's existing conversation, not a second
 // database or model-authored memory. It cannot resolve threads, suppress an
 // issue, alter a rule or authorize publication. Even an APPROVED review is only
-// an attributed observation to compare with the current patch.
-func pullRequestHistoryContext(ctx context.Context, client *githubclient.Client, owner, repo string, number int, head, base string, filter *redaction.Filter) (string, error) {
+// an attributed observation to compare with the current patch. The redacted
+// entries are returned too: the publication reads the earlier rounds'
+// finding markers from them (pr_rounds.go) without a second request.
+func pullRequestHistoryContext(ctx context.Context, client *githubclient.Client, owner, repo string, number int, head, base string, filter *redaction.Filter) (string, []githubclient.ReviewHistoryEntry, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.ProviderTimeout)
 	defer cancel()
 	entries, err := client.GetPullRequestHistory(ctx, owner, repo, number)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(entries) == 0 {
-		return "", nil
+		return "", entries, nil
 	}
 	for i := range entries {
 		e := &entries[i]
@@ -47,9 +49,9 @@ func pullRequestHistoryContext(ctx context.Context, client *githubclient.Client,
 	}{filter.Redact(owner + "/" + repo), number, filter.Redact(head), filter.Redact(base), entries}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return string(data), nil
+	return string(data), entries, nil
 }
 
 func historyUnavailableNotice(language string) string {
