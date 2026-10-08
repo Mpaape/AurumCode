@@ -56,7 +56,16 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 		if round > s.Limits.MaxRounds {
 			return s.stop(out, &LimitError{Limit: LimitMaxRounds, Detail: fmt.Sprintf("%d rodadas sem resposta final", s.Limits.MaxRounds)})
 		}
-		resp, err := s.Caller.CompleteWithTools(ctx, conversation, specs, s.Options)
+		roundSpecs := specs
+		if round == s.Limits.MaxRounds && round > 1 {
+			// The last allowed round offers no tool and asks for the review
+			// with the evidence already gathered: a model that keeps asking
+			// for context would otherwise spend every round and publish
+			// nothing. A tool call here still ends at the limit below.
+			roundSpecs = nil
+			conversation = append(conversation, llm.Message{Role: llm.RoleUser, Content: finalRoundInstruction})
+		}
+		resp, err := s.Caller.CompleteWithTools(ctx, conversation, roundSpecs, s.Options)
 		if err != nil {
 			return s.stop(out, err)
 		}
@@ -64,6 +73,11 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 		out.Transcript.count(resp)
 		if used := out.Transcript.CostTokens; used > s.Limits.MaxCostTokens {
 			return s.stop(out, &LimitError{Limit: LimitMaxCostTokens, Detail: fmt.Sprintf("%d tokens de deliberacao alem do prompt base de %d, teto %d", used, out.Transcript.BaseTokens, s.Limits.MaxCostTokens)})
+		}
+		if len(resp.ToolCalls) > 0 && roundSpecs == nil {
+			// Still asking with no tool offered: the next iteration is past
+			// MaxRounds and stops at the single limit above.
+			continue
 		}
 		if len(resp.ToolCalls) == 0 {
 			out.Answer = last.Response
@@ -82,6 +96,10 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 		}
 	}
 }
+
+// finalRoundInstruction is what the last allowed round tells the model:
+// no further tool is available, answer now in the requested format.
+const finalRoundInstruction = "No more tools are available in this review: this is the last round. Answer now with the final review in the requested format, using only the evidence already gathered; state any limitation it leaves."
 
 // stop ends a deliberation with err: the transcript keeps what happened,
 // the answer stays empty.
