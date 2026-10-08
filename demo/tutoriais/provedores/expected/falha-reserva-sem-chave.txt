@@ -1,5 +1,5 @@
 $ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/reserva aurumcode review --base main
-aurumcode review: LLM_FALLBACK_1: LLM provider "openai-compatible" needs an API key: set one of LLM_API_KEY
+aurumcode review: LLM_FALLBACK_1: LLM provider "openai-compatible" needs an API key: set LLM_FALLBACK_1_API_KEY
 --- requisicoes recebidas pelo provedor falso: 0
 exit_code=1
 RESULTADO: reserva sem chave: erro nomeando LLM_FALLBACK_1, nada enviado

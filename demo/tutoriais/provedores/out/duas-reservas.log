@@ -1,7 +1,7 @@
 == duas-reservas
 $ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/fora-do-ar LLM_FALLBACK_1_API_KEY=reserva-falsa LLM_FALLBACK_2_PROVIDER=anthropic LLM_FALLBACK_2_BASE_URL=http://127.0.0.1:8080/anthropic LLM_FALLBACK_2_API_KEY=reserva-falsa aurumcode review --base main
-aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback openai-compatible
-aurumcode: provider openai-compatible failed (openai-compatible API error (status 503): overloaded: servico indisponivel); trying fallback anthropic
+aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_1 (openai-compatible)
+aurumcode: provider LLM_FALLBACK_1 (openai-compatible) failed (openai-compatible API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_2 (anthropic)
 ## Code Review Summary
 
 **Verdict:** Approve

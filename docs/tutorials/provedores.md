@@ -133,7 +133,14 @@ revisão:
 
 <!-- saida: reserva-assume -->
 ```text
-@@reserva-assume@@
+$ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/reserva LLM_FALLBACK_1_API_KEY=reserva-falsa aurumcode review --base main
+aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_1 (openai-compatible)
+No issues found.
+--- requisicoes recebidas pelo provedor falso: 2
+    provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+    provedor recebeu: /reserva/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+exit_code=0
+RESULTADO: principal fora do ar: a reserva 1 responde e a revisao conclui
 ```
 
 O que observar: a linha `trying fallback` diz qual provedor caiu, por quê e
@@ -147,7 +154,16 @@ responde:
 
 <!-- saida: duas-reservas -->
 ```text
-@@duas-reservas@@
+$ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/fora-do-ar LLM_FALLBACK_1_API_KEY=reserva-falsa LLM_FALLBACK_2_PROVIDER=anthropic LLM_FALLBACK_2_BASE_URL=http://127.0.0.1:8080/anthropic LLM_FALLBACK_2_API_KEY=reserva-falsa aurumcode review --base main
+aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_1 (openai-compatible)
+aurumcode: provider LLM_FALLBACK_1 (openai-compatible) failed (openai-compatible API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_2 (anthropic)
+No issues found.
+--- requisicoes recebidas pelo provedor falso: 3
+    provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+    provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+    provedor recebeu: /anthropic/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=ausente
+exit_code=0
+RESULTADO: principal e reserva 1 fora do ar: a reserva 2 responde, na ordem
 ```
 
 O que observar: duas trocas anunciadas, na ordem dos slots; a reserva 2 fala
@@ -196,7 +212,14 @@ O que observar: o erro lista os perfis válidos e nenhuma requisição sai.
 
 <!-- saida: falha-todas-caem -->
 ```text
-@@falha-todas-caem@@
+$ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/fora-do-ar LLM_FALLBACK_1_API_KEY=reserva-falsa aurumcode review --base main
+aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_1 (openai-compatible)
+aurumcode review: LLM request failed: all providers failed (2 tried: litellm: litellm API error (status 503): overloaded: servico indisponivel; LLM_FALLBACK_1 (openai-compatible): openai-compatible API error (status 503): overloaded: servico indisponivel)
+--- requisicoes recebidas pelo provedor falso: 2
+    provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+    provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+exit_code=1
+RESULTADO: principal e reserva fora do ar: revisao falha, nunca aprovada
 ```
 
 O que observar: a revisão falha (exit 1), nunca aprovada, e o erro nomeia o
@@ -208,7 +231,11 @@ A reserva 1 tem URL mas não tem chave:
 
 <!-- saida: falha-reserva-sem-chave -->
 ```text
-@@falha-reserva-sem-chave@@
+$ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/reserva aurumcode review --base main
+aurumcode review: LLM_FALLBACK_1: LLM provider "openai-compatible" needs an API key: set LLM_FALLBACK_1_API_KEY
+--- requisicoes recebidas pelo provedor falso: 0
+exit_code=1
+RESULTADO: reserva sem chave: erro nomeando LLM_FALLBACK_1, nada enviado
 ```
 
 O que observar: o erro sai antes de qualquer requisição e pede a variável do
@@ -237,6 +264,12 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 
 ![Comentário do PR do caso catalogo-do-operador](../assets/capturas/provedores/catalogo-do-operador-comentario.png)
 
+### duas-reservas
+
+![Terminal do caso duas-reservas](../assets/capturas/provedores/duas-reservas-terminal.png)
+
+![Comentário do PR do caso duas-reservas](../assets/capturas/provedores/duas-reservas-comentario.png)
+
 ### falha-fora-do-schema
 
 ![Terminal do caso falha-fora-do-schema](../assets/capturas/provedores/falha-fora-do-schema-terminal.png)
@@ -244,6 +277,20 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 ### falha-perfil-desconhecido
 
 ![Terminal do caso falha-perfil-desconhecido](../assets/capturas/provedores/falha-perfil-desconhecido-terminal.png)
+
+### falha-reserva-sem-chave
+
+![Terminal do caso falha-reserva-sem-chave](../assets/capturas/provedores/falha-reserva-sem-chave-terminal.png)
+
+### falha-todas-caem
+
+![Terminal do caso falha-todas-caem](../assets/capturas/provedores/falha-todas-caem-terminal.png)
+
+### reserva-assume
+
+![Terminal do caso reserva-assume](../assets/capturas/provedores/reserva-assume-terminal.png)
+
+![Comentário do PR do caso reserva-assume](../assets/capturas/provedores/reserva-assume-comentario.png)
 
 ### sem-perfil
 
