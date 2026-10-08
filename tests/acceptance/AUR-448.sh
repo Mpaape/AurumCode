@@ -319,7 +319,17 @@ nominal_case() {
   run_bin "$shared_bin" "$repo_dir" review --base HEAD~1 "AURUMCODE_LLM_FIXTURE=$known_fixture"
   [[ "$rc" -eq 0 ]] || fail s2-wrong-exit
   local want_happy='config/demo-tokens.txt:4: [error] A credential-shaped value was committed in plain text (DEMO_API_TOKEN). (rule security/hardcoded-secret: Hardcoded Secrets)'
-  [[ "$(tail -n1 "$run_dir/out.stdout")" == "$want_happy" ]] || fail s2-finding-line-wrong
+  # AUR-514 (docs/specs/AUR-514.md:20-21,39: printFindings in `--base` now
+  # prints the finding's impact/evidence/fix/verification under its line)
+  # moved the finding line up by the four detail lines of the fixture; the
+  # tail is still pinned byte-for-byte, finding line plus its own detail.
+  local want_tail
+  want_tail="$(printf '%s\n' "$want_happy" \
+    '  - Impact: Anyone with repository access can reuse the committed credential-shaped value.' \
+    '  - Evidence: The added line assigns DEMO_API_TOKEN to a literal value in config/demo-tokens.txt.' \
+    '  - Suggested fix: Remove the secret from version control and load it from the environment instead.' \
+    '  - Verify: Remove the literal and rerun the review fixture; the finding should disappear.')"
+  [[ "$(tail -n5 "$run_dir/out.stdout")" == "$want_tail" ]] || fail s2-finding-line-wrong
   [[ "$(grep -Ec '^[^ ]+:[0-9]+: \[' "$run_dir/out.stdout")" -eq 1 ]] || fail happy-path-finding-count-wrong
   [[ ! -s "$run_dir/out.stderr" ]] || fail happy-path-stderr-not-empty
 
