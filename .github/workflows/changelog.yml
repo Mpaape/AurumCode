@@ -43,7 +43,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout AurumCode
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ github.repository == job.workflow_repository && github.event.pull_request.base.sha || job.workflow_sha }}
@@ -52,7 +52,7 @@ jobs:
           fetch-depth: 1
 
       - name: Checkout pull request
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
           ref: ${{ github.event.pull_request.head.sha }}
@@ -63,7 +63,7 @@ jobs:
 
       - name: Checkout central policy
         if: ${{ inputs.policy_repository != '' }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.policy_repository }}
           ref: ${{ inputs.policy_ref }}
@@ -76,10 +76,27 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           POLICY_DIR: ${{ inputs.policy_repository != '' && '/w/.aurumcode-policy' || '' }}
-        run: >-
-          docker run --rm
-          -e BASE_SHA -e HEAD_SHA -e POLICY_DIR
-          -v "${GITHUB_WORKSPACE}:/w"
-          -w /w/.aurumcode-tool
-          golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
-          sh scripts/ci/changelog-check.sh /w/.aurumcode-target
+          SAME_REPOSITORY: ${{ github.repository == job.workflow_repository }}
+        # Na PR que introduz o verificador no proprio repositorio, a base
+        # (de onde a ferramenta e construida) ainda nao o tem: o job declara
+        # a primeira introducao e conclui. Num consumidor, a ferramenta
+        # pinada sem verificador continua sendo erro. O resumo do job
+        # recebe a entrada sugerida quando o check reprova.
+        run: |
+          checker=.aurumcode-tool/scripts/ci/changelog-check.sh
+          if [ ! -f "$checker" ]; then
+            if [ "$SAME_REPOSITORY" = "true" ]; then
+              echo "::notice title=Changelog obrigatório::primeira introdução do verificador: a base desta PR ainda não tem scripts/ci/changelog-check.sh, então o check passa a valer a partir da próxima PR."
+              exit 0
+            fi
+            echo "::error title=Changelog obrigatório::a ferramenta pinada não tem scripts/ci/changelog-check.sh; fixe um SHA do AurumCode que tenha o verificador."
+            exit 1
+          fi
+          docker run --rm \
+            -e BASE_SHA -e HEAD_SHA -e POLICY_DIR \
+            -e GITHUB_STEP_SUMMARY=/tmp/aurumcode-step-summary \
+            -v "${GITHUB_STEP_SUMMARY}:/tmp/aurumcode-step-summary" \
+            -v "${GITHUB_WORKSPACE}:/w" \
+            -w /w/.aurumcode-tool \
+            golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 \
+            sh scripts/ci/changelog-check.sh /w/.aurumcode-target
