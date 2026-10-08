@@ -1,6 +1,6 @@
 $ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/fora-do-ar LLM_FALLBACK_1_API_KEY=reserva-falsa aurumcode review --base main
-aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback openai-compatible
-aurumcode review: LLM request failed: all providers failed: provider litellm failed: all providers failed (2 tried: litellm: litellm API error (status 503): overloaded: servico indisponivel; openai-compatible: openai-compatible API error (status 503): overloaded: servico indisponivel)
+aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_1 (openai-compatible)
+aurumcode review: LLM request failed: all providers failed (2 tried: litellm: litellm API error (status 503): overloaded: servico indisponivel; LLM_FALLBACK_1 (openai-compatible): openai-compatible API error (status 503): overloaded: servico indisponivel)
 --- requisicoes recebidas pelo provedor falso: 2
     provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
     provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object

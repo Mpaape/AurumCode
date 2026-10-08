@@ -1,6 +1,6 @@
 == reserva-assume
 $ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/reserva LLM_FALLBACK_1_API_KEY=reserva-falsa aurumcode review --base main
-aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback openai-compatible
+aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_1 (openai-compatible)
 ## Code Review Summary
 
 **Verdict:** Approve

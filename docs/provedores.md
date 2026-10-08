@@ -98,7 +98,7 @@ Regras:
 - **Todos caíram: a revisão falha fechada** (exit 1), nomeando o erro de cada
   um, nunca aprovada.
 - **Reserva configurada pela metade falha antes de qualquer requisição**,
-  nomeando o slot (`LLM_FALLBACK_1: ... set one of LLM_FALLBACK_1_API_KEY`).
+  nomeando o slot (`LLM_FALLBACK_1: ... set LLM_FALLBACK_1_API_KEY`).
   A chave do principal nunca é enviada a uma reserva.
 - **Tempo:** cada provedor tem o seu limite (`AURUMCODE_LLM_TIMEOUT_SECONDS`,
   60 s por padrão); a cadeia inteira tem um limite por provedor, para que a
