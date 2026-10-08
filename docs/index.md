@@ -12,6 +12,22 @@ mensagem. Para começar do zero, leia [Primeiro review e uso local](getting-star
 Cada capacidade abaixo aponta para a referência de configuração e para o
 tutorial correspondente.
 
+## O que o Aurum oferece
+
+- **[Revisão](tutorials/revisao.md)**: a IA revisa cada pull request seguindo as regras do seu time e diz o quê, onde e por quê.
+- **[Correção](getting-started.md#corrigir-sugestoes-com-o-fix)**: `aurumcode fix` aplica no código a correção que a revisão sugeriu.
+- **[Inventário de dependências](tutorials/sbom-dependency-track.md)**: o SBOM é a lista de todas as bibliotecas e versões do projeto, como o rótulo de ingredientes de um alimento.
+- **[Assinatura](tutorials/assinatura.md)**: `aurumcode sign` sela o inventário e a imagem e prova que nada foi alterado depois.
+- **[Inventário ampliado](tutorials/xbom.md)**: o xBOM registra também como o software foi construído e que criptografia ele usa.
+- **[Dependências vulneráveis](configuration.md#dependencias-do-pr-dependencies)**: aponta biblioteca com falha conhecida, pacote malicioso ou licença proibida, em cada pull request e em varredura agendada.
+- **[Consulta do agente de IA](tutorials/agente.md)**: seu agente de código (Claude Code, Codex e outros) consulta o Aurum pelo protocolo MCP antes de abrir a pull request.
+- **[Changelog](tutorials/changelog.md)**: o Aurum não faz nada (`off`), sugere a entrada do changelog (`suggest`) ou exige a entrada (`required`).
+- **[Melhoria contínua](tutorials/realimentacao.md)**: propõe ajustes de regras a partir do uso real, e uma pessoa aprova cada ajuste.
+
+Funciona em qualquer linguagem de programação ([exemplo](tutorials/qualquer-linguagem.md)).
+
+Tutorial: comece pela [revisão](tutorials/revisao.md); todos estão em [Tutoriais](tutorials/README.md).
+
 ## Revisão
 
 Revisão de pull request por modelo, com análise determinística que funciona
@@ -114,8 +130,8 @@ Tutorial: [Qualquer linguagem](tutorials/qualquer-linguagem.md).
 ## Changelog
 
 Cada pull request acrescenta uma entrada curta e voltada a quem usa o produto
-em `## Unreleased`; o check `aurumcode changelog` reprova a PR sem ela, lendo o
-modo do commit base. A sugestão de entrada do review continua separada e só
+em `## Unreleased`; o check `aurumcode changelog` reprova a PR sem ela (modo
+`required`) ou só sugere a entrada (modo `suggest`), lendo o modo do commit base. A sugestão de entrada do review continua separada e só
 consultiva. Referência:
 [Changelog obrigatório](configuration.md#changelog-obrigatorio-aur-509) e o
 guia [Changelog obrigatório](changelog.md).

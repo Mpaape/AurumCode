@@ -8,6 +8,20 @@ a análise determinística roda offline, sem nenhuma credencial.
 
 **[Abra o guia interativo →](https://mpaape.github.io/AurumCode/)**
 
+## O que o Aurum oferece
+
+- **[Revisão](docs/tutorials/revisao.md)**: a IA revisa cada pull request seguindo as regras do seu time e diz o quê, onde e por quê.
+- **[Correção](docs/getting-started.md#corrigir-sugestoes-com-o-fix)**: `aurumcode fix` aplica no código a correção que a revisão sugeriu.
+- **[Inventário de dependências](docs/tutorials/sbom-dependency-track.md)**: o SBOM é a lista de todas as bibliotecas e versões do projeto, como o rótulo de ingredientes de um alimento.
+- **[Assinatura](docs/tutorials/assinatura.md)**: `aurumcode sign` sela o inventário e a imagem e prova que nada foi alterado depois.
+- **[Inventário ampliado](docs/tutorials/xbom.md)**: o xBOM registra também como o software foi construído e que criptografia ele usa.
+- **[Dependências vulneráveis](docs/configuration.md#dependencias-do-pr-dependencies)**: aponta biblioteca com falha conhecida, pacote malicioso ou licença proibida, em cada pull request e em varredura agendada.
+- **[Consulta do agente de IA](docs/tutorials/agente.md)**: seu agente de código (Claude Code, Codex e outros) consulta o Aurum pelo protocolo MCP antes de abrir a pull request.
+- **[Changelog](docs/tutorials/changelog.md)**: o Aurum não faz nada (`off`), sugere a entrada do changelog (`suggest`) ou exige a entrada (`required`).
+- **[Melhoria contínua](docs/tutorials/realimentacao.md)**: propõe ajustes de regras a partir do uso real, e uma pessoa aprova cada ajuste.
+
+Funciona em qualquer linguagem de programação ([exemplo](docs/tutorials/qualquer-linguagem.md)).
+
 ## Comece aqui
 
 1. No repositório que receberá os reviews, configure os secrets de Actions
