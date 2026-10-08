@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -77,6 +78,15 @@ func (p profileProvider) Tokens(input string) (int, error) {
 
 func (p profileProvider) Name() string {
 	return p.base.Name() + "/profile:" + p.profile.Name
+}
+
+// CallTimeout forwards the bound of a fallback chain behind the profile:
+// the prefix changes the prompt, never how many providers may answer it.
+func (p profileProvider) CallTimeout(each time.Duration) time.Duration {
+	if s, ok := llm.As[llm.TimeoutScaler](p.base); ok {
+		return s.CallTimeout(each)
+	}
+	return each
 }
 
 // runProfilePasses runs the quality review once per selected profile and
