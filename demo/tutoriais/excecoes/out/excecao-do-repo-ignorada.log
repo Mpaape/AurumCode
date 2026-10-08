@@ -32,6 +32,7 @@ RESULTADO: sem politica, o gate e a excecao do proprio repositorio valem
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: politica central: exceção do repositório para a regra "seguranca#sem-segredos-no-codigo" no caminho "app.go" (repositório "OWNER/REPO") foi ignorada: a política central decide sozinha
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
