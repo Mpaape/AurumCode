@@ -1,7 +1,7 @@
 == estoura-rodadas
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: inconclusivo: limite de deliberação (deliberation_limit:max_rounds); nenhum parecer do modelo foi publicado
-aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context]; pedidas [codebase_context]; não pedidas [scanner_semgrep]; rodadas 2; desfecho deliberation_limit:max_rounds
+aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [codebase_context]; não pedidas [scanner_semgrep, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho deliberation_limit:max_rounds
 aurumcode review: deliberation: rodada 1 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
 aurumcode review: deliberation: rodada 2 codebase_context({"path": "calc.js"}) executed: 2 símbolo(s), 0 dependente(s)
 LLM quality review did not run. The following report covers deterministic analysis only.

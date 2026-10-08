@@ -24,6 +24,10 @@ flowchart TD
 
 ```
 app.go:6: [error] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
 app.go:6: [error] Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal)
 exit_code=3
@@ -52,6 +56,10 @@ flowchart TD
 
 ```
 app.go:6: [error] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
 app.go:6: [error] Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal)
 exit_code=3
@@ -80,6 +88,10 @@ flowchart TD
 
 ```
 app.go:6: [error] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
 app.go:6: [error] Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal)
 exit_code=3
@@ -108,6 +120,10 @@ flowchart TD
 
 ```
 app.go:6: [error] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
 app.go:6: [error] Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal)
 exit_code=3

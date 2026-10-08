@@ -21,5 +21,9 @@ flowchart TD
 
 ```
 main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
+  - Impact: Qualquer pessoa na internet le os logs.
+  - Evidence: A linha adicionada declara acl = "public-read" em main.tf.
+  - Suggested fix: Use acl = "private".
+  - Verify: Troque a acl e rode a revisao de novo; o achado deve sumir.
 exit_code=3
 RESULTADO: achado citando a regra da skill de seguranca em main.tf bloqueou (gate.fail_on: high)
