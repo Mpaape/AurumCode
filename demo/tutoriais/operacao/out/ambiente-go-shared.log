@@ -6,7 +6,7 @@ RESULTADO: go-shared up e idempotente: o container ja estava no ar (ou foi criad
 $ <repo>/.board/bin/go-shared status
 up: aurum-go
   /var/lib/docker/volumes/aurumcode-gocache/_data -> /gocache
-  <home>/repos/AurumCode -> <home>/repos/AurumCode
+  <bind-mount> -> <home>/repos/AurumCode
   /tmp/claude-1000/office-wt -> /tmp/claude-1000/office-wt
   <home>/go/pkg/mod-aurumcode -> /go/pkg/mod
 exit_code=0

@@ -19,6 +19,10 @@ flowchart TD
 
 ```
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+  - Impacto: Quem le o repositorio ou o historico reutiliza a senha.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente em vez de escreve-la no codigo.
+  - Verificação: Remova o literal e rode a revisao de novo; o achado deve sumir.
 exit_code=0
 RESULTADO: revisao feita
 prompt: go.md (applyTo: **/*.go)

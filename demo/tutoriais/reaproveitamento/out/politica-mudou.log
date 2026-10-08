@@ -19,6 +19,10 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 exit_code=0
 RESULTADO: politica high: o warning passa
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
@@ -44,6 +48,10 @@ flowchart TD
 
 ```
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
 exit_code=3
 RESULTADO: politica medium: o mesmo warning reprova; a politica nova gera outra entrada de veredito (a resposta por arquivo segue reaproveitada)
 cache: 2 entrada(s) de veredito, 1 entrada(s) por arquivo

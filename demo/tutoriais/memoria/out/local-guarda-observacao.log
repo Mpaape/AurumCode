@@ -1,0 +1,30 @@
+== local-guarda-observacao
+$ aurumcode review --base main --fail-on error
+## Code Review Summary
+
+**Verdict:** Changes requested
+
+**Findings by severity:**
+- error: 1
+- warning: 0
+- info: 0
+
+**Files touched:**
+- app.go
+
+
+```mermaid
+flowchart TD
+    n0["app.go"]
+
+```
+app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+  - Impact: Quem le o repositorio ou o historico reutiliza a senha.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente em vez de escreve-la no codigo.
+  - Verify: Remova o literal e rode a revisao de novo; o achado deve sumir.
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+exit_code=3
+RESULTADO: a revisao reprovou e guardou o achado na memoria local
+--- arquivos de memoria: 1
+"id":"security/hardcoded-secret:app.go:6"
