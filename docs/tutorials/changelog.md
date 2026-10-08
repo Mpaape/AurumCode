@@ -274,6 +274,10 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 
 ![Terminal do caso log-de-agente](../assets/capturas/changelog/log-de-agente-terminal.png)
 
+### modo-sugerir
+
+![Terminal do caso modo-sugerir](../assets/capturas/changelog/modo-sugerir-terminal.png)
+
 ### pr-desliga-o-modo
 
 ![Terminal do caso pr-desliga-o-modo](../assets/capturas/changelog/pr-desliga-o-modo-terminal.png)
