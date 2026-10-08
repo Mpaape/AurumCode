@@ -18,7 +18,7 @@ auditoria e SARIF	auditoria-sarif	auditoria-reprovado	aurumcode review	demo/tuto
 auditoria e SARIF	auditoria-sarif	sarif-campos	aurumcode review	demo/tutoriais/auditoria-sarif	expected/sarif-campos.txt	RESULTADO: o SARIF e escrito com o gate reprovado	-	entregue
 auditoria e SARIF	auditoria-sarif	sarif-inconclusivo	aurumcode review	demo/tutoriais/auditoria-sarif	expected/sarif-inconclusivo.txt	RESULTADO: inconclusivo em block reprova	-	entregue
 auditoria e SARIF	auditoria-sarif	canario-de-redacao	aurumcode review	demo/tutoriais/auditoria-sarif	expected/canario-de-redacao.txt	RESULTADO: a revisao reprova	-	entregue
-auditoria e SARIF	auditoria-sarif	upload-workflow	ver run.sh	demo/tutoriais/auditoria-sarif	expected/upload-workflow.txt	-	-	entregue
+auditoria e SARIF	auditoria-sarif	upload-workflow	ver run.sh	demo/tutoriais/auditoria-sarif	expected/upload-workflow.txt	NAO EXECUTADO AQUI: o upload ao Code Scanning (nao ha runner nem GitHub neste ambiente)	-	entregue
 auditoria e SARIF	auditoria-sarif	falha-caminho-invalido	aurumcode review	demo/tutoriais/auditoria-sarif	expected/falha-caminho-invalido.txt	RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao existe	-	entregue
 o benchmark de recall do AurumCode	benchmark	rodar-corpus	ver run.sh	demo/tutoriais/benchmark	expected/rodar-corpus.txt	RESULTADO: o harness reproduziu o relatorio versionado	-	entregue
 o benchmark de recall do AurumCode	benchmark	ler-relatorio	ver run.sh	demo/tutoriais/benchmark	expected/ler-relatorio.txt	RESULTADO: relatorio lido	-	entregue
@@ -34,7 +34,7 @@ changelog obrigatório	changelog	falha-entrada-ausente	aurumcode changelog	demo/
 dados de análise (`analysis_data`)	dados-de-analise	declarado-ou-nao	ver run.sh	demo/tutoriais/dados-de-analise	expected/declarado-ou-nao.txt	RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data	-	entregue
 dados de análise (`analysis_data`)	dados-de-analise	vencido	ver run.sh	demo/tutoriais/dados-de-analise	expected/vencido.txt	RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)	-	entregue
 dados de análise (`analysis_data`)	dados-de-analise	cache	ver run.sh	demo/tutoriais/dados-de-analise	expected/cache.txt	RESULTADO: primeira execucao: artefato remoto verificado e guardado no cache	-	entregue
-dados de análise (`analysis_data`)	dados-de-analise	workflow-agendado	ver run.sh	demo/tutoriais/dados-de-analise	expected/workflow-agendado.txt	-	-	entregue
+dados de análise (`analysis_data`)	dados-de-analise	workflow-agendado	ver run.sh	demo/tutoriais/dados-de-analise	expected/workflow-agendado.txt	NAO foi demonstrada	-	entregue
 dados de análise (`analysis_data`)	dados-de-analise	adulterado	ver run.sh	demo/tutoriais/dados-de-analise	expected/adulterado.txt	RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova	-	entregue
 dados de análise (`analysis_data`)	dados-de-analise	indisponivel	aurumcode review	demo/tutoriais/dados-de-analise	expected/indisponivel.txt	RESULTADO: listagem 503 sem cache: analysis_data_unavailable reprova	-	entregue
 deliberação com ferramentas	deliberacao	diff-grande-pede-semgrep	aurumcode review	demo/tutoriais/deliberacao	expected/diff-grande-pede-semgrep.txt	RESULTADO: o modelo pediu o scanner_semgrep, a varredura achou eval() e o gate reprovou	-	entregue
@@ -69,9 +69,9 @@ operar o AurumCode, o ambiente de desenvolvimento e o aceite selado	operacao	sca
 operar o AurumCode, o ambiente de desenvolvimento e o aceite selado	operacao	entrega-e-evidencia	ver run.sh	demo/tutoriais/operacao	expected/entrega-e-evidencia.txt	RESULTADO: o pipeline valida o board inteiro	-	entregue
 operar o AurumCode, o ambiente de desenvolvimento e o aceite selado	operacao	falha-evidencia-ausente	ver run.sh	demo/tutoriais/operacao	expected/falha-evidencia-ausente.txt	RESULTADO: card done sem validated.json: o pipeline reprova	-	entregue
 política central	politica-central	politica-local	aurumcode review	demo/tutoriais/politica-central	expected/politica-local.txt	RESULTADO: sem politica nao ha gate	-	entregue
-política central	politica-central	policy-repository	ver run.sh	demo/tutoriais/politica-central	expected/policy-repository.txt	-	-	entregue
-política central	politica-central	precedencia-por-secao	aurumcode review	demo/tutoriais/politica-central	expected/precedencia-por-secao.txt	-	-	entregue
-política central	politica-central	analysis-data	aurumcode review	demo/tutoriais/politica-central	expected/analysis-data.txt	-	-	entregue
+política central	politica-central	policy-repository	ver run.sh	demo/tutoriais/politica-central	expected/policy-repository.txt	review.yml: passa --politica /github/policy ao aurumcode	-	entregue
+política central	politica-central	precedencia-por-secao	aurumcode review	demo/tutoriais/politica-central	expected/precedencia-por-secao.txt	supply_chain: a politica nao declara, entao nao ha aviso e vale o do repositorio	-	entregue
+política central	politica-central	analysis-data	aurumcode review	demo/tutoriais/politica-central	expected/analysis-data.txt	exit_code=0	-	entregue
 política central	politica-central	repo-afrouxa	aurumcode review	demo/tutoriais/politica-central	expected/repo-afrouxa.txt	RESULTADO: o gate do proprio repositorio aceita o warning	-	entregue
 política central	politica-central	falha-politica-invalida	aurumcode review	demo/tutoriais/politica-central	expected/falha-politica-invalida.txt	RESULTADO: politica invalida falha antes de qualquer chamada ao modelo	-	entregue
 provedores de LLM por configuração	provedores	sem-perfil	ver run.sh	demo/tutoriais/provedores	expected/sem-perfil.txt	RESULTADO: sem LLM_PROVIDER a requisicao e a de sempre e a revisao conclui	-	entregue
@@ -84,7 +84,7 @@ o AurumCode em um repositório de qualquer linguagem	qualquer-linguagem	repo-pol
 o AurumCode em um repositório de qualquer linguagem	qualquer-linguagem	arquivo-sem-gramatica	aurumcode review	demo/tutoriais/qualquer-linguagem	expected/arquivo-sem-gramatica.txt	RESULTADO: arquivo sem gramatica declarado	-	entregue
 o AurumCode em um repositório de qualquer linguagem	qualquer-linguagem	binario-e-gerado	aurumcode review	demo/tutoriais/qualquer-linguagem	expected/binario-e-gerado.txt	RESULTADO: sem gate, exit 0 mas o veredito nao e Approve	-	entregue
 o AurumCode em um repositório de qualquer linguagem	qualquer-linguagem	politica-terraform	aurumcode review	demo/tutoriais/qualquer-linguagem	expected/politica-terraform.txt	RESULTADO: achado citando a regra da skill de seguranca em main.tf bloqueou	-	entregue
-o AurumCode em um repositório de qualquer linguagem	qualquer-linguagem	apelidos-e-instrucoes	aurumcode review	demo/tutoriais/qualquer-linguagem	expected/apelidos-e-instrucoes.txt	-	-	entregue
+o AurumCode em um repositório de qualquer linguagem	qualquer-linguagem	apelidos-e-instrucoes	aurumcode review	demo/tutoriais/qualquer-linguagem	expected/apelidos-e-instrucoes.txt	exit_code=0	-	entregue
 o AurumCode em um repositório de qualquer linguagem	qualquer-linguagem	falha-extensao-desconhecida	aurumcode review	demo/tutoriais/qualquer-linguagem	expected/falha-extensao-desconhecida.txt	RESULTADO: o achado em script.zzqx (sem gramatica) reprovou	-	entregue
 reaproveitamento de revisão e cache	reaproveitamento	reuso-por-arquivo	aurumcode review	demo/tutoriais/reaproveitamento	expected/reuso-por-arquivo.txt	RESULTADO: o achado reprova	-	entregue
 reaproveitamento de revisão e cache	reaproveitamento	veredito-base-e-pr	aurumcode review	demo/tutoriais/reaproveitamento	expected/veredito-base-e-pr.txt	RESULTADO: o --pr chega ao mesmo veredito	-	entregue
@@ -94,8 +94,8 @@ reaproveitamento de revisão e cache	reaproveitamento	cache-degradado	aurumcode 
 reaproveitamento de revisão e cache	reaproveitamento	falha-sem-cache	aurumcode review	demo/tutoriais/reaproveitamento	expected/falha-sem-cache.txt	RESULTADO: sem cache a revisao funciona, mas o veredito nao e compartilhado	-	entregue
 revisão de código com o AurumCode	revisao	primeira-revisao	aurumcode review	demo/tutoriais/revisao	expected/primeira-revisao.txt	RESULTADO: primeira revisao concluida sem achados	review	entregue
 revisão de código com o AurumCode	revisao	sem-provedor	aurumcode review	demo/tutoriais/revisao	expected/sem-provedor.txt	RESULTADO: com --exigir-qualidade, sem provedor o comando falha	-	entregue
-revisão de código com o AurumCode	revisao	com-provedor	aurumcode review	demo/tutoriais/revisao	expected/com-provedor.txt	-	-	entregue
-revisão de código com o AurumCode	revisao	fix	aurumcode fix	demo/tutoriais/revisao	expected/fix.txt	-	sugestao-fix	entregue
+revisão de código com o AurumCode	revisao	com-provedor	aurumcode review	demo/tutoriais/revisao	expected/com-provedor.txt	exit_code=3	-	entregue
+revisão de código com o AurumCode	revisao	fix	aurumcode fix	demo/tutoriais/revisao	expected/fix.txt	aurumcode fix: app.go:6: working tree does not match the suggestion's current_code	sugestao-fix	entregue
 revisão de código com o AurumCode	revisao	pr-workflow	ver run.sh	demo/tutoriais/revisao	expected/pr-workflow.txt	RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou	publicacao	entregue
 revisão de código com o AurumCode	revisao	falha-nao-revisado	aurumcode review	demo/tutoriais/revisao	expected/falha-nao-revisado.txt	RESULTADO: sem gate, exit 0 mas o veredito nao e Approve	-	entregue
 revisão de código com o AurumCode	revisao	modelo-pondera	aurumcode review	demo/tutoriais/revisao	expected/modelo-pondera.txt	RESULTADO: o relatorio mostra a origem ao lado da avaliacao do modelo (contestado e confirmado), sem gate nada muda de contagem	-	entregue
@@ -120,9 +120,9 @@ segredos com gitleaks	segredos	segredo-so-no-historico	aurumcode review	demo/tut
 segredos com gitleaks	segredos	allow-sob-politica	aurumcode review	demo/tutoriais/segredos	expected/allow-sob-politica.txt	RESULTADO: sem politica, o comentario gitleaks:allow do autor silencia o achado	-	entregue
 segredos com gitleaks	segredos	ignore-sob-politica	aurumcode review	demo/tutoriais/segredos	expected/ignore-sob-politica.txt	RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado	-	entregue
 segredos com gitleaks	segredos	binario-ausente	aurumcode review	demo/tutoriais/segredos	expected/binario-ausente.txt	RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova	-	entregue
-skills de convenção	skills	skill-do-repo	aurumcode review	demo/tutoriais/skills	expected/skill-do-repo.txt	-	contexto	entregue
-skills de convenção	skills	seletor-por-caminho	aurumcode review	demo/tutoriais/skills	expected/seletor-por-caminho.txt	-	-	entregue
-skills de convenção	skills	selecao-por-linguagem	aurumcode review	demo/tutoriais/skills	expected/selecao-por-linguagem.txt	-	-	entregue
+skills de convenção	skills	skill-do-repo	aurumcode review	demo/tutoriais/skills	expected/skill-do-repo.txt	prompt: Credenciais vem do ambiente, nunca de literais.	contexto	entregue
+skills de convenção	skills	seletor-por-caminho	aurumcode review	demo/tutoriais/skills	expected/seletor-por-caminho.txt	exit_code=0	-	entregue
+skills de convenção	skills	selecao-por-linguagem	aurumcode review	demo/tutoriais/skills	expected/selecao-por-linguagem.txt	exit_code=0	-	entregue
 skills de convenção	skills	repo-vs-politica	aurumcode review	demo/tutoriais/skills	expected/repo-vs-politica.txt	RESULTADO: sob politica, a secao da skill do repo nao entra no gate	-	entregue
 skills de convenção	skills	regra-citavel	aurumcode review	demo/tutoriais/skills	expected/regra-citavel.txt	RESULTADO: o gate compara o MAIOR entre a severidade do modelo e a da secao	-	entregue
 skills de convenção	skills	falha-skill-inexistente	aurumcode review	demo/tutoriais/skills	expected/falha-skill-inexistente.txt	RESULTADO: localmente a skill ausente e avisada e a revisao continua	-	entregue
