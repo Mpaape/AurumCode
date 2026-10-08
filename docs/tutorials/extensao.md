@@ -177,7 +177,7 @@ aurumcode review: deliberation: rodada 1 scanner_exemplo({}) executed: 1 achado(
 (severidade error, limiar error, origem exemplo, secao repo)
 exit_code=3
 RESULTADO: o modelo pediu scanner_exemplo, o achado contou no gate com origem exemplo
-auditoria deliberation: oferecidas=scanner_exemplo,codebase_context pedidas=scanner_exemplo rodadas=2 desfecho=answered
+auditoria deliberation: oferecidas=scanner_exemplo,codebase_context,read_file,search_text,find_symbol,changed_file_diff pedidas=scanner_exemplo rodadas=2 desfecho=answered
 auditoria chamada: rodada=1 ferramenta=scanner_exemplo status=executed resultado=1 achado(s)
 ```
 
