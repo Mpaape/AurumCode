@@ -2181,8 +2181,9 @@ Go.
 ## Changelog obrigatório (AUR-509)
 
 `aurumcode changelog --base <sha>` reprova a pull request que não acrescenta
-uma entrada útil e concisa no `CHANGELOG.md`. O check é determinístico (sem
-modelo) e independente de `review.changelog`, que só sugere um texto. Guia com
+uma entrada útil e concisa no `CHANGELOG.md`. O veredito é determinístico
+(o modelo nunca aprova nem reprova) e independente de `review.changelog`, que
+só sugere uma versão e um texto. Guia com
 exemplos de `Unreleased` e de consolidação de release: [Changelog
 obrigatório](changelog.md).
 
@@ -2226,7 +2227,45 @@ changelog_check:
   repositório é ignorada com aviso). Política dentro da árvore revisada é
   recusada.
 - Nas PRs do próprio AurumCode o verificador é construído da base da PR; no
-  consumidor, do SHA pinado no `uses:`.
+  consumidor, do SHA pinado no `uses:`. Na PR que introduz o verificador no
+  próprio repositório, a base ainda não tem `scripts/ci/changelog-check.sh`: o
+  job imprime um `::notice::` declarando a primeira introdução e conclui sem
+  erro. No consumidor, a ferramenta pinada sem verificador continua sendo erro.
+
+### Entrada sugerida (AUR-602)
+
+Quando o check reprova por entrada ausente ou inútil, ele **continua
+reprovando** (exit 1), mas imprime a entrada sugerida, pronta para colar na
+seção `section` do `file` (o humano cola e ajusta; o AurumCode nunca escreve
+no `CHANGELOG.md` da PR):
+
+```text
+changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
+changelog: entrada sugerida (fonte: modelo); cole na seção Unreleased de CHANGELOG.md:
+```
+
+- Fonte `modelo`: o provedor configurado como no review (perfil
+  `LLM_PROVIDER`, `LLM_API_KEY`/`LLM_BASE_URL` ou `AURUMCODE_LLM_FIXTURE`)
+  recebe só os caminhos alterados e os assuntos dos commits, e responde
+  `{"entry": ["linha", ...]}`. Cada linha passa pelas mesmas regras do check
+  (marcadores de log de agente, `min_words`, `max_line_length`,
+  `max_entry_lines`); resposta fora do formato ou sem linha aproveitável cai
+  na fonte `commits`.
+- Fonte `commits`: sem modelo, as linhas vêm dos assuntos dos commits de
+  `base..head`; corpo de commit (trailers, logs) nunca é lido, e merges,
+  `fixup!`/`squash!` e assuntos com marcador de log de agente são descartados.
+- O texto é redigido (segredos registrados, como o canário
+  `AURUM_SECRET_CANARY`, e formatos de credencial) antes de ir para o log,
+  para o resumo do job (`$GITHUB_STEP_SUMMARY`, quando existe) e para o
+  parecer.
+- `aurumcode review --pr`: quando `changelog_check` está `required` e a PR não
+  toca o arquivo do changelog, o parecer traz o bloco "Entrada de changelog
+  sugerida" (fonte `commits`, sem chamada extra ao modelo). Se o arquivo
+  estiver entre os caminhos ignorados pelo review, o bloco é omitido.
+- No `.github/workflows/changelog.yml` o container do verificador não recebe
+  credencial de provedor: no CI a sugestão vem sempre dos commits. A fonte
+  `modelo` vale para quem roda `aurumcode changelog` com um provedor
+  configurado.
 
 ## Realimentação da política (AUR-532)
 

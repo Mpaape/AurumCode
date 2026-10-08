@@ -100,21 +100,21 @@ func changelogRequirement(c *config.ChangelogCheckConfig) (changelog.Requirement
 	return req, req.Validate()
 }
 
-// evaluateChangelog returns the verdict and whether the base (or the
-// central policy, which decides alone when it declares changelog_check)
-// requires one.
-func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []analyzer.DiffNotice, stderr io.Writer) (changelog.Verdict, bool, error) {
+// evaluateChangelog returns the verdict and the effective requirement; a
+// nil requirement means the base (or the central policy, which decides
+// alone when it declares changelog_check) does not require an entry.
+func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []analyzer.DiffNotice, stderr io.Writer) (changelog.Verdict, *changelog.Requirement, error) {
 	cfg, err := baseConfig(repoRoot, diff, notices)
 	if err != nil {
-		return changelog.Verdict{}, false, err
+		return changelog.Verdict{}, nil, err
 	}
 	if policyDir != "" {
 		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, repoRoot); err != nil {
-			return changelog.Verdict{}, false, err
+			return changelog.Verdict{}, nil, err
 		}
 		central, err := config.LoadCentralPolicy(policyDir)
 		if err != nil {
-			return changelog.Verdict{}, false, err
+			return changelog.Verdict{}, nil, err
 		}
 		var warnings []config.ProviderWarning
 		cfg, warnings = config.ApplyCentralPolicy(cfg, central)
@@ -123,11 +123,11 @@ func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []a
 		}
 	}
 	if !cfg.ChangelogCheck.Required() {
-		return changelog.Verdict{}, false, nil
+		return changelog.Verdict{}, nil, nil
 	}
 	req, err := changelogRequirement(cfg.ChangelogCheck)
 	if err != nil {
-		return changelog.Verdict{}, true, err
+		return changelog.Verdict{}, &req, err
 	}
 	side := fileSides(req.File, diff, notices)
 	change := changelog.Change{State: changelog.FileUntouched}
@@ -137,5 +137,5 @@ func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []a
 	case side.found:
 		change = changelog.Change{State: changelog.FileChanged, Old: side.old, New: side.new}
 	}
-	return req.Verify(change), true, nil
+	return req.Verify(change), &req, nil
 }

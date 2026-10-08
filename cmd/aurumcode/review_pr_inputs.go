@@ -18,7 +18,7 @@ import (
 func (p *prReview) resolveInputs() (int, bool) {
 	steps := []session.Step{
 		p.fetchPullRequest, p.loadPolicy, p.resolvePublication,
-		p.resolveChangelog, p.resolveCheckout, p.declareBinaries, p.openMemory,
+		p.resolveChangelog, p.resolveChangelogSuggestion, p.resolveCheckout, p.declareBinaries, p.openMemory,
 	}
 	for _, step := range steps {
 		if code, done := step(); done {
