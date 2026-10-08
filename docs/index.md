@@ -5,7 +5,8 @@ por uma revisão automática que cita as regras da própria organização, por
 uma política central que o repositório do dev não consegue afrouxar, por um
 gate que decide o que reprova e por controles de cadeia de suprimentos (SAST,
 SBOM, inventário e assinatura), em repositórios de qualquer linguagem. É
-gratuito e de código aberto (MIT).
+gratuito e de código aberto (MIT): código, issues e releases em
+[github.com/Mpaape/AurumCode](https://github.com/Mpaape/AurumCode).
 
 Use a busca (topo da página) para encontrar qualquer opção, comando ou
 mensagem. Para começar do zero, leia [Primeiro review e uso local](getting-started.md).

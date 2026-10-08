@@ -56,9 +56,13 @@ def on_config(config):
     nav = list(config["nav"] or [])
     tutorials = _section(config, "tutorials", "*.md", "README.md")
     if tutorials:
-        nav.append({"Tutoriais": tutorials})
+        # Right after Início: the tutorials are where a new reader goes next.
+        nav.insert(min(1, len(nav)), {"Tutoriais": tutorials})
     specs = _section(config, "specs", "AUR-*.md", "README.md")
     if specs:
         nav.append({"Specs": specs})
-    config["nav"] = nav
+    # External links (the GitHub tab) stay the last tabs.
+    def external(entry):
+        return isinstance(entry, dict) and any(isinstance(v, str) and v.startswith("https://") for v in entry.values())
+    config["nav"] = [e for e in nav if not external(e)] + [e for e in nav if external(e)]
     return config
