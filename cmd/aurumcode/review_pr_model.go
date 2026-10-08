@@ -121,6 +121,7 @@ func (p *prReview) buildReviewer() (int, bool) {
 		printCostEstimate(stderr, estimateCostUSD(p.diff, price), p.limiteUSD)
 	}
 	orchestrator := llm.NewOrchestrator(p.provider, nil, p.tracker)
+	p.verifyCaller = orchestrator
 	p.reviewer = review.NewReviewer(orchestrator, review.DefaultConfig())
 	p.reviewer.SetBatchLimits(configuredBatchLimits(p.cfg))
 	p.reviewer.SetDynamicRules(p.dynamicRules)

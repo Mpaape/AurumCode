@@ -1,5 +1,6 @@
 == com-provedor
 $ aurumcode review --base main --fail-on error
+aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 ## Code Review Summary
 

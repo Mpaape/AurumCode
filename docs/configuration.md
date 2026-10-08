@@ -1645,6 +1645,43 @@ Cada item que fica separa observação de inferência:
   verificado (inferência do modelo)": o `status` do modelo nunca vira estado
   de CI aprovado ou reprovado.
 
+## Verificação adversarial dos achados do modelo (`review.verification`)
+
+Antes do gate, cada achado do **próprio modelo** que bloquearia a execução
+(acima de `--fail-on`, reprovando o gate declarado ou, sem gate, `error` ou
+`warning`) passa por uma chamada de verificação ao mesmo provedor, com prompt
+próprio. O verificador recebe a janela em torno da linha citada e as
+ocorrências dos símbolos que o achado nomeia, nos arquivos do mesmo diretório
+que a gramática diz declará-los, tudo lido da revisão revisada (o mesmo
+checkout que as ferramentas da deliberação leem). Ele responde em JSON:
+
+```json
+{"verdict": "confirmed|refuted|uncertain", "reason": "...", "quote": "trecho exato do código"}
+```
+
+Só `refuted` com uma citação que existe literalmente nos arquivos mostrados
+(apenas espaços no fim das linhas são ignorados) rebaixa o achado: ele sai da
+entrada do gate e fica no parecer como comentário não bloqueante "Refutado
+pela verificação", numa limitação marcada, no stderr e na chave
+`verification` da auditoria (`--auditoria`), com motivo e citação. Nunca é
+apagado. Confirmado, incerto, citação inexistente, resposta inválida, erro do
+provedor, teto de chamadas ou revisão revisada ilegível: o achado continua
+bloqueando e o stderr diz por quê. Achados dos scanners determinísticos (e a
+avaliação do modelo sobre eles) nunca são enviados, e o verificador não cria
+achado novo.
+
+```yaml
+review:
+  verification:
+    enabled: true   # padrão; false desliga e todo achado bloqueante do modelo conta
+    max_calls: 8    # padrão; teto de chamadas por revisão, o excedente continua bloqueando
+```
+
+Cada chamada passa pelo mesmo orquestrador da revisão, então conta no
+`--limite` de custo. `max_calls` negativo é recusado ao ler a configuração.
+É uma escolha do repositório mesmo sob política central: desligar só faz mais
+achados bloquearem.
+
 ## PR grande: diff local e revisão em lotes
 
 Duas situações de um PR grande (renomeações, artefatos gerados, limpezas) que

@@ -33,6 +33,7 @@ func (b *baseReview) runQualityPass() (int, bool) {
 		return code, true
 	}
 	orchestrator := llm.NewOrchestrator(b.provider, nil, b.tracker)
+	b.verifyCaller = orchestrator
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 	reviewer.SetBatchLimits(configuredBatchLimits(b.cfg))
 	// AUR-519: teach the model the expanded catalog and accept its

@@ -109,6 +109,7 @@ func (s *reviewState) writeArtifacts() []artifactFailure {
 		coverageComplete:       !s.coverage.partial(),
 		omittedFiles:           append(append(append([]string{}, s.coverage.IgnoredPaths...), s.coverage.FilteredPaths...), s.coverage.BudgetPaths...),
 		proposedExceptions:     s.proposedExceptions,
+		verification:           s.verification,
 		deliberation:           s.offeredTranscript(),
 		batches:                auditBatches(s.batches),
 	}, s.run, res, s.filter, s.stderr)

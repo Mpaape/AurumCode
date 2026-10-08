@@ -1,5 +1,6 @@
 == cache-degradado
 $ aurumcode review --base main --politica /policy
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -28,6 +29,8 @@ exit_code=3
 RESULTADO: primeira execucao reprova e grava o cache
 --- todas as entradas do cache corrompidas
 $ aurumcode review --base main --politica /policy
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -51,7 +54,6 @@ app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (r
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: cache corrompido: revisao nova, o achado continua reprovando
 nenhuma linha 'reused': nada foi reaproveitado do cache corrompido

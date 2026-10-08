@@ -23,6 +23,7 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [Opções públicas](configuration.md#opcoes-publicas),
 [Deliberação: o modelo pede ferramentas](configuration.md#deliberacao-o-modelo-pede-ferramentas-dentro-de-limites),
 [Status do CI no parecer](configuration.md#status-do-ci-no-parecer),
+[Verificação adversarial dos achados do modelo](configuration.md#verificacao-adversarial-dos-achados-do-modelo-reviewverification),
 [PR grande: diff local e revisão em lotes](configuration.md#pr-grande-diff-local-e-revisao-em-lotes),
 [Arquivos que saem da revisão como documentação](configuration.md#quais-arquivos-saem-da-revisao-como-documentacao),
 [Dependências do PR](configuration.md#dependencias-do-pr-dependencies) e

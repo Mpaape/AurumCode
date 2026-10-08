@@ -43,7 +43,10 @@ const (
 	aur524SkillBody  = "## No Hardcoded Secrets\n\nNever commit a literal credential.\n"
 	aur524CleanResp  = `{"summary":"ok","verdict":"approve","issues":[]}`
 	aur524BreachResp = `{"summary":"ok","verdict":"approve","issues":[{"file":"app.go","line":3,"severity":"error","rule_id":"security#no-hardcoded-secrets","message":"Hardcoded secret","evidence":"dbPassword := \"hunter2-super-secret\"","impact":"Credential leak","verification":"Remove the literal secret"}]}`
-	aur524GateConfig = "review:\n  context:\n    skills:\n      - skills/security.md\ngate:\n  fail_on: [high]\n"
+	// The verification of blocking findings (review.verification) makes
+	// its own provider call; these tests count the review's own calls, so
+	// it is off here and covered by review_verification_test.go.
+	aur524GateConfig = "review:\n  context:\n    skills:\n      - skills/security.md\n  verification:\n    enabled: false\ngate:\n  fail_on: [high]\n"
 )
 
 func aur524WriteFixture(t *testing.T, body string) string {
