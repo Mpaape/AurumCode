@@ -11,7 +11,7 @@ permissions:
   checks: read
 jobs:
   review:
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@AURUMCODE_SHA
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@0000000000000000000000000000000000000000
     secrets:
       LLM_API_KEY: chave-de-qa-sem-valor
       LLM_BASE_URL: http://127.0.0.1:9/v1

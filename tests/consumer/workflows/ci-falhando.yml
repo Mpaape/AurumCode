@@ -19,7 +19,7 @@ jobs:
   review:
     needs: testes
     if: always()
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@AURUMCODE_SHA
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@0000000000000000000000000000000000000000
     with:
       model: ${{ vars.LLM_MODEL }}
     secrets:

@@ -73,7 +73,7 @@ stage() {
 free_disk() {
   rm -rf -- "$1" "$run_dir/gotmp"
   mkdir -p "$run_dir/gotmp"
-  case "$GOCACHE" in "$run_dir"/*) rm -rf -- "$GOCACHE" ;; esac
+  if [[ "$GOCACHE" == "$run_dir"/* ]]; then rm -rf -- "$GOCACHE"; fi
 }
 
 # go_test root log pattern pkgs... runs the named tests; rc is go's.
@@ -95,7 +95,7 @@ go_test() {
     grep -qF -e "$(printf '%s\n' "$names" | sed 's/^/func /')" $files || continue
     ( cd "$root" && go test -buildvcs=false -count=1 -p 1 -v -run "$pattern" "$pkg" ) >>"$log" 2>&1 || rc=1
     rm -rf -- "$run_dir/gotmp" && mkdir -p "$run_dir/gotmp"
-    case "$GOCACHE" in "$run_dir"/*) rm -rf -- "$GOCACHE" ;; esac
+    if [[ "$GOCACHE" == "$run_dir"/* ]]; then rm -rf -- "$GOCACHE"; fi
   done
   return "$rc"
 }
