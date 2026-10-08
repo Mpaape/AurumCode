@@ -58,6 +58,7 @@ $ aurumcode review --base main --politica /policy
 aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_invalid_output); no Semgrep finding was published for this run. Engine detail: semgrep: semgrep: JSON output has no "results" key: scanner: invalid output
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (sast_invalid_output)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_invalid_output) [detalhe: semgrep: semgrep: JSON output has no "results" key: scanner: invalid output]
 ## Code Review Summary
 
 **Verdict:** Changes requested
@@ -77,7 +78,6 @@ flowchart TD
 
 ```
 Sem achados nas fontes concluídas; inconclusivo: sast_invalid_output
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_invalid_output) [detalhe: semgrep: semgrep: JSON output has no "results" key: scanner: invalid output]
 exit_code=1
 RESULTADO: block: saida invalida do SAST e inconclusiva (sast_invalid_output)
 --- semgrep AUSENTE do PATH, SAST habilitado e SEM gate.inconclusive: o padrao e bloquear

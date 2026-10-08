@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Deliberação: a última rodada permitida não oferece ferramenta e pede o
+  parecer com a evidência já reunida, em vez de terminar sem resposta.
 - `dependencies.Fails`: limiar de `fail_on` calculado à parte e explícito
   (nível ilegível ou lista vazia falha fechado); `fail_on: [severe]` recusado
   ao ler a configuração.

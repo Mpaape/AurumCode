@@ -1575,6 +1575,10 @@ média cujo prompt base passa de 60000 tokens e que não pede ferramenta não
 estoura o teto; três rodadas com resultados de ferramenta de até 8 KiB cada
 cabem com folga no padrão.
 
+A última rodada permitida não oferece ferramenta: o modelo recebe a instrução
+de entregar o parecer com a evidência já reunida. Só quando ele ainda pede
+ferramenta nessa rodada a deliberação estoura o limite.
+
 Estourar `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`,
 `max_read_bytes` ou `max_cache_bytes` (a revisão fica parcial: o resultado
 que passaria do teto não é devolvido) torna a revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado

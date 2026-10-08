@@ -44,13 +44,13 @@ print("auditoria deliberation: pedidas=%s nao_pedidas=%s chamadas=%d" % (
 PY
 }
 
-# 3. Estouro de rodadas: o modelo so pede ferramenta; com max_rounds 2 a revisao
+# 3. Estouro de rodadas: o modelo so pede ferramenta; com max_rounds 1 (sem rodada final sem ferramenta) a revisao
 #    e inconclusiva pelo gate (deliberation_limit:max_rounds), a auditoria e
 #    gravada com o transcript e nenhum texto do modelo e publicado.
 caso_estoura_rodadas() {
   tut_repo estoura-rodadas repo-exemplo/base repo-exemplo/pequeno
   mkdir -p "$TUT_WORK/.aurumcode"
-  sed 's/max_rounds: 3/max_rounds: 2/' "$HERE/repo-exemplo/base/.aurumcode/config.yml" > "$TUT_WORK/.aurumcode/config.yml"
+  sed 's/max_rounds: 3/max_rounds: 1/' "$HERE/repo-exemplo/base/.aurumcode/config.yml" > "$TUT_WORK/.aurumcode/config.yml"
   TUT_FIXTURE=fixture-rodadas.json
   aurum review --base main --auditoria auditoria.json
   expect_rc 1 "max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado"
