@@ -5,6 +5,8 @@
 # da PR chega empacotado. $1 e o checkout da PR (so dado, nunca executado).
 # BASE_SHA e HEAD_SHA vem do evento; sem eles o check falha (nunca verde por
 # falta de dado). O modo e lido do config.yml da base pelo proprio comando.
+# Quando reprova, o comando imprime a entrada sugerida e, com
+# GITHUB_STEP_SUMMARY montado pelo workflow, grava-a no resumo do job.
 set -eu
 target="${1:-}"
 if [ -z "$target" ] || [ -z "${BASE_SHA:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
