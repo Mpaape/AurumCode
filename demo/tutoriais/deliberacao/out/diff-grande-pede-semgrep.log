@@ -10,10 +10,6 @@ aurumcode review: policy gate: semgrep:regras.demo-sem-eval - eval() executa tex
 
 no gate declared · 1 file(s) reviewed
 
-### Summary
-
-A varredura pedida confirmou eval() em calc.js.
-
 ### Suggestions
 
 - **Evidencia da varredura pedida** — o scanner_semgrep apontou eval() em calc.js:5 (regras.demo-sem-eval); troque por uma tabela de operacoes Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.

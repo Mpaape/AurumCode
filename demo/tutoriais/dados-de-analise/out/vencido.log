@@ -2,6 +2,7 @@
 --- gate.inconclusive: block
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T215923Z generated 2026-09-08T21:59:23Z is 30.0 days old, above max_age_days=7
 ## AurumCode code review
 
 > [!WARNING]
@@ -10,7 +11,6 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 
 policy gate: failed · 2 file(s) reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_stale
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T204716Z generated 2026-09-08T20:47:16Z is 30.0 days old, above max_age_days=7
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -19,6 +19,7 @@ RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T215925Z generated 2026-09-08T21:59:25Z is 30.0 days old, above max_age_days=7
 ## AurumCode code review
 
 > [!WARNING]
@@ -27,7 +28,6 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 
 policy gate: passed · 2 file(s) reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_stale
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T204717Z generated 2026-09-08T20:47:17Z is 30.0 days old, above max_age_days=7
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200

@@ -7,10 +7,6 @@ aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks 
 > **Blocked: 1 problem(s) must be fixed before merge.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-A mudanca escreve uma senha no codigo de app.go.
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impact: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidence: A linha adicionada atribui uma senha literal a dbPassword em app.go.
@@ -27,10 +23,6 @@ aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks 
 > **Blocked: 1 problem(s) must be fixed before merge.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-A mudanca escreve uma senha no codigo de app.go.
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impact: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidence: A linha adicionada atribui uma senha literal a dbPassword em app.go.

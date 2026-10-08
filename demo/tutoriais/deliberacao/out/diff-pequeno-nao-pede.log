@@ -8,10 +8,6 @@ aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, r
 
 no gate declared · 1 file(s) reviewed
 
-### Summary
-
-Diff pequeno: nenhuma ferramenta pedida.
-
 ### Suggestions
 
 - **Sem varredura opcional** — diff pequeno; o modelo nao pediu o scanner_semgrep Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.

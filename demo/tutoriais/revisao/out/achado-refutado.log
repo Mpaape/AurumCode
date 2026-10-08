@@ -7,10 +7,6 @@ aurumcode review: limites.go:23 quality/missing-error-handling refuted by verifi
 > **Approved: no problem found in the reviewed change.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-A mudanca adiciona a validacao da secao de limites.
 No issues found.
 exit_code=0
 RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
@@ -26,10 +22,6 @@ aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 > **Blocked: 1 problem(s) must be fixed before merge.**
 
 no gate declared · 1 file(s) reviewed
-
-### Summary
-
-A mudanca adiciona a validacao da secao de limites.
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
   - Impact: Uma configuracao sem a secao derruba o carregamento.
   - Evidence: carregar chama l.Validar() sem conferir se l e nil.
