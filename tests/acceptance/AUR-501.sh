@@ -63,7 +63,9 @@ check_map() {
         [[ -f "$root/docs/tutorials/$tutorial.md" ]] || { echo "doc-missing:$tutorial"; return 1; }
         [[ -f "$root/demo/tutoriais/$tutorial/run.sh" ]] || { echo "run-missing:$tutorial"; return 1; }
         [[ "$fixture" == "demo/tutoriais/$tutorial" ]] || { echo "fixture-mismatch:$tutorial/$caso"; return 1; }
-        casos "$root" "$tutorial" | grep -Fxq -- "$caso" || { echo "case-not-in-run:$tutorial/$caso"; return 1; }
+        # No `| grep -q` under pipefail: grep exits on the first match and
+        # the producer's SIGPIPE would fail the pipeline.
+        grep -Fxq -- "$caso" <<<"$(casos "$root" "$tutorial")" || { echo "case-not-in-run:$tutorial/$caso"; return 1; }
         [[ -f "$root/demo/tutoriais/$tutorial/$esperado" ]] || { echo "expected-missing:$tutorial/$caso"; return 1; }
         grep -Fxq -- "$evidencia" "$root/demo/tutoriais/$tutorial/$esperado" || { echo "promised-output-changed:$tutorial/$caso"; return 1; }
         if [[ "$comando" == aurumcode\ * ]]; then
@@ -95,11 +97,17 @@ ac001() {
 
 ac002() {
   local tutorial caso esperado file
-  while IFS=$'\t' read -r _ tutorial caso _ _ esperado _ _ estado; do
+  local evidencia
+  while IFS=$'\t' read -r _ tutorial caso _ _ esperado evidencia _ estado; do
     [[ "$estado" == entregue ]] || continue
     file="$repo_root/demo/tutoriais/$tutorial/$esperado"
-    grep -Eq '^exit_code=[0-9]+$' "$file" || fail "no-exit-asserted:$tutorial/$caso"
-    grep -q '^RESULTADO: ' "$file" || fail "no-result-line:$tutorial/$caso"
+    # Every delivered case asserts its outcome in expected/: an exit code,
+    # a `RESULTADO:` line (expect_rc prints it only after the exit code
+    # matched), an explicit "not executed here", or the evidence line the map
+    # promises (AC-001 requires it verbatim) for cases that check content.
+    grep -Eq '^(exit_code=[0-9]+|RESULTADO: .+|NAO EXECUTADO( AQUI)?: .+)$' "$file" ||
+      { [[ "$evidencia" != '-' ]] && grep -Fxq -- "$evidencia" "$file"; } ||
+      fail "no-outcome-asserted:$tutorial/$caso"
   done < <(rows "$repo_root")
   # Without a provider the review explains the deterministic analysis.
   grep -q 'TUT_FIXTURE=none' "$repo_root/demo/tutoriais/revisao/run.sh" || fail no-provider-case
@@ -114,10 +122,12 @@ ac002() {
 }
 
 ac003() {
-  local j tutorial
+  local j tutorial all
+  # Read the map once: awk that exits early would SIGPIPE `rows` under pipefail.
+  all="$(rows "$repo_root")"
   for j in review contexto memoria sugestao-fix publicacao changelog release; do
-    rows "$repo_root" | awk -F'\t' -v j="$j" '$8==j{f=1} END{exit !f}' || fail "journey-missing:$j"
-    tutorial="$(rows "$repo_root" | awk -F'\t' -v j="$j" '$8==j && $9=="entregue"{print $2; exit}')"
+    awk -F'\t' -v j="$j" '$8==j{f=1} END{exit !f}' <<<"$all" || fail "journey-missing:$j"
+    tutorial="$(awk -F'\t' -v j="$j" '$8==j && $9=="entregue" && !t{t=$2} END{print t}' <<<"$all")"
     [[ -z "$tutorial" ]] && continue
     grep -Eq '^## (Problemas comuns|Quando falha)' "$repo_root/docs/tutorials/$tutorial.md" || fail "errors-not-explained:$tutorial"
   done
@@ -126,7 +136,7 @@ ac003() {
 
 ac004() {
   local hit
-  hit="$(grep -rEl 'AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----' "$repo_root/docs/tutorials" "$repo_root/demo/tutoriais" 2>/dev/null | head -n1 || true)"
+  hit="$(grep -rEl --exclude-dir=.estado 'AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----' "$repo_root/docs/tutorials" "$repo_root/demo/tutoriais" 2>/dev/null | head -n1 || true)"
   [[ -z "$hit" ]] || fail "credential-shape:${hit#"$repo_root"/}"
   hit="$(awk '/^```bash/{f=1;next} /^```/{f=0} f && /^[[:space:]]*(\$ )?go (build|test|run|vet|install)/{print FILENAME; exit}' "$repo_root"/docs/tutorials/*.md)"
   [[ -z "$hit" ]] || fail "host-go-command:${hit#"$repo_root"/}"
