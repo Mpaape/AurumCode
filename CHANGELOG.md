@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Site: diagramas Mermaid renderizados localmente (biblioteca embutida e
+  marcada como gerada).
 - Changelog: `changelog_check.mode: suggest` só sugere a entrada no parecer da
   PR, sem reprovar; `off` e `required` seguem como antes. Docs de changelog e
   de auditoria/SARIF reescritas, mais curtas e com diagrama.
