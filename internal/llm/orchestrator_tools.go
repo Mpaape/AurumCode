@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
 )
@@ -52,11 +53,15 @@ func (o *Orchestrator) CompleteWithTools(ctx context.Context, messages []Message
 		if err != nil {
 			return ToolResponse{}, err
 		}
-		resp, err := runWithTimeout(ctx, func() (ToolResponse, error) {
+		resp, err := runWithTimeout(ctx, callTimeout(provider), func() (ToolResponse, error) {
 			return caller.CompleteWithTools(messages, tools, opts)
 		})
 		if err != nil {
 			reservation.Release()
+			// A fallback chain already named every member's failure.
+			if errors.Is(err, ErrAllProvidersFailed) && len(o.providers) == 1 {
+				return ToolResponse{}, err
+			}
 			lastErr = fmt.Errorf("provider %s failed: %w", provider.Name(), err)
 			continue
 		}
@@ -114,13 +119,13 @@ func toolRoundText(messages []Message, tools []ToolSpec) string {
 	return strings.Join(parts, messageSeparator)
 }
 
-// runWithTimeout runs call under ctx, bounded by ProviderTimeout when ctx
-// has no deadline. The call keeps running after a timeout but its answer
-// is discarded.
-func runWithTimeout[T any](ctx context.Context, call func() (T, error)) (T, error) {
+// runWithTimeout runs call under ctx, bounded by limit when ctx has no
+// deadline. The call keeps running after a timeout but its answer is
+// discarded.
+func runWithTimeout[T any](ctx context.Context, limit time.Duration, call func() (T, error)) (T, error) {
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, ProviderTimeout())
+		ctx, cancel = context.WithTimeout(ctx, limit)
 		defer cancel()
 	}
 	type result struct {

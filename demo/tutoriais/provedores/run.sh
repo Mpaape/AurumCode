@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Tutorial executavel: provedores de LLM por configuracao (AUR-596). Veja
+# Tutorial executavel: provedores de LLM por configuracao (AUR-596) e
+# provedores reserva quando o principal cai (AUR-605). Veja
 # ../README.md e docs/tutorials/provedores.md.
 #
-#   run.sh sem-perfil|azure-openai|anthropic|catalogo-do-operador|falha-fora-do-schema|falha-perfil-desconhecido
+#   run.sh sem-perfil|azure-openai|anthropic|catalogo-do-operador|reserva-assume|duas-reservas|falha-fora-do-schema|falha-perfil-desconhecido|falha-todas-caem|falha-reserva-sem-chave
 #   run.sh all | --check | limpar
 #
 # O provedor e um servidor FALSO (provedor-falso.py) que roda DENTRO do
@@ -14,7 +15,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(sem-perfil azure-openai anthropic catalogo-do-operador falha-fora-do-schema falha-perfil-desconhecido)
+CASOS=(sem-perfil azure-openai anthropic catalogo-do-operador reserva-assume duas-reservas falha-fora-do-schema falha-perfil-desconhecido falha-todas-caem falha-reserva-sem-chave)
 
 # aurum_prov ROTA VAR=valor... -- ARGS: como `aurum`, sem fixture, com o
 # provedor falso em LLM_BASE_URL=http://127.0.0.1:8080/ROTA. Imprime as
@@ -68,6 +69,22 @@ caso_catalogo_do_operador() {
   expect_rc 0 "perfil do operador: chave so no header x-gw-key, sem response_format, revisao conclui"
 }
 
+# 5. O principal cai (503) e a reserva 1 responde a mesma revisao, com a
+#    propria URL e a propria chave; a troca aparece no stderr.
+caso_reserva_assume() {
+  tut_repo reserva-assume repo-exemplo/base repo-exemplo/mudanca
+  aurum_prov fora-do-ar LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/reserva LLM_FALLBACK_1_API_KEY=reserva-falsa -- review --base main
+  expect_rc 0 "principal fora do ar: a reserva 1 responde e a revisao conclui"
+}
+
+# 6. Duas reservas, de perfis diferentes: o principal e a reserva 1 caem, a
+#    reserva 2 (perfil anthropic) responde. As reservas sao tentadas em ordem.
+caso_duas_reservas() {
+  tut_repo duas-reservas repo-exemplo/base repo-exemplo/mudanca
+  aurum_prov fora-do-ar LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/fora-do-ar LLM_FALLBACK_1_API_KEY=reserva-falsa LLM_FALLBACK_2_PROVIDER=anthropic LLM_FALLBACK_2_BASE_URL=http://127.0.0.1:8080/anthropic LLM_FALLBACK_2_API_KEY=reserva-falsa -- review --base main
+  expect_rc 0 "principal e reserva 1 fora do ar: a reserva 2 responde, na ordem"
+}
+
 # Falha 1: provedor sem saida estruturada respondendo fora do schema.
 caso_falha_fora_do_schema() {
   tut_repo falha-fora-do-schema repo-exemplo/base repo-exemplo/mudanca
@@ -83,6 +100,21 @@ caso_falha_perfil_desconhecido() {
   tut_repo falha-perfil-desconhecido repo-exemplo/base repo-exemplo/mudanca
   aurum_prov legado LLM_PROVIDER=nao-existe -- review --base main
   expect_rc 1 "perfil desconhecido: erro com a lista de perfis validos"
+}
+
+# Falha 3: todos caem. A revisao falha fechada e o erro nomeia cada um.
+caso_falha_todas_caem() {
+  tut_repo falha-todas-caem repo-exemplo/base repo-exemplo/mudanca
+  aurum_prov fora-do-ar LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/fora-do-ar LLM_FALLBACK_1_API_KEY=reserva-falsa -- review --base main
+  expect_rc 1 "principal e reserva fora do ar: revisao falha, nunca aprovada"
+}
+
+# Falha 4: reserva configurada pela metade (URL sem chave). Erro antes de
+# qualquer requisicao: a chave do principal nunca vai para a reserva.
+caso_falha_reserva_sem_chave() {
+  tut_repo falha-reserva-sem-chave repo-exemplo/base repo-exemplo/mudanca
+  aurum_prov legado LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/reserva -- review --base main
+  expect_rc 1 "reserva sem chave: erro nomeando LLM_FALLBACK_1, nada enviado"
 }
 
 tut_main "$@"

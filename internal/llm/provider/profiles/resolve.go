@@ -40,21 +40,29 @@ func FromEnv(getenv func(string) string) (Endpoint, bool, error) {
 	if name == "" {
 		return Endpoint{}, false, nil
 	}
-	catalog, err := Embedded()
+	catalog, err := catalogFromEnv(getenv)
 	if err != nil {
 		return Endpoint{}, true, err
+	}
+	endpoint, err := catalog.Resolve(name, getenv)
+	return endpoint, true, err
+}
+
+// catalogFromEnv is the embedded catalog merged with the operator's
+// LLM_PROVIDERS_FILE, when set.
+func catalogFromEnv(getenv func(string) string) (Catalog, error) {
+	catalog, err := Embedded()
+	if err != nil {
+		return nil, err
 	}
 	if path := getenv(EnvProvidersFile); path != "" {
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return Endpoint{}, true, fmt.Errorf("reading %s=%s: %w", EnvProvidersFile, path, err)
+			return nil, fmt.Errorf("reading %s=%s: %w", EnvProvidersFile, path, err)
 		}
-		if catalog, err = catalog.Merge(content, path); err != nil {
-			return Endpoint{}, true, err
-		}
+		return catalog.Merge(content, path)
 	}
-	endpoint, err := catalog.Resolve(name, getenv)
-	return endpoint, true, err
+	return catalog, nil
 }
 
 // Resolve turns the named profile into an endpoint, reading the URL
