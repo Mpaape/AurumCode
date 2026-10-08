@@ -13,6 +13,26 @@ on:
         required: false
         type: string
         default: ''
+      fallback_1_provider:
+        description: Optional provider profile of fallback 1 (LLM_FALLBACK_1_PROVIDER; see docs/provedores.md). Tried, in order, only when the providers before it fail. Empty with the LLM_FALLBACK_1_BASE_URL and LLM_FALLBACK_1_API_KEY secrets set uses the generic OpenAI-compatible endpoint.
+        required: false
+        type: string
+        default: ''
+      fallback_1_model:
+        description: Optional model id of fallback 1; the primary's model is never reused for a fallback.
+        required: false
+        type: string
+        default: ''
+      fallback_2_provider:
+        description: Optional provider profile of fallback 2 (LLM_FALLBACK_2_PROVIDER; see docs/provedores.md). Tried, in order, only when the providers before it fail. Empty with the LLM_FALLBACK_2_BASE_URL and LLM_FALLBACK_2_API_KEY secrets set uses the generic OpenAI-compatible endpoint.
+        required: false
+        type: string
+        default: ''
+      fallback_2_model:
+        description: Optional model id of fallback 2; the primary's model is never reused for a fallback.
+        required: false
+        type: string
+        default: ''
       publication:
         description: comments or review; the repository config is used when omitted.
         required: false
@@ -50,6 +70,18 @@ on:
       LLM_BASE_URL:
         description: Base URL of the LLM service (with a provider profile, the endpoint that profile talks to).
         required: true
+      LLM_FALLBACK_1_API_KEY:
+        description: Optional API key of fallback 1. A fallback never receives the primary's key.
+        required: false
+      LLM_FALLBACK_1_BASE_URL:
+        description: Optional base URL of fallback 1 (with a profile that has a default URL, may be empty).
+        required: false
+      LLM_FALLBACK_2_API_KEY:
+        description: Optional API key of fallback 2. A fallback never receives the primary's key.
+        required: false
+      LLM_FALLBACK_2_BASE_URL:
+        description: Optional base URL of fallback 2 (with a profile that has a default URL, may be empty).
+        required: false
       DTRACK_API_KEY:
         description: Optional Dependency-Track API key (AUR-555). Only read when quality_gates.ssor_dtrack is enabled and names this variable in api_key_secret.
         required: false
@@ -338,6 +370,14 @@ jobs:
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: ${{ inputs.model }}
           LLM_PROVIDER: ${{ inputs.provider }}
+          LLM_FALLBACK_1_PROVIDER: ${{ inputs.fallback_1_provider }}
+          LLM_FALLBACK_1_MODEL: ${{ inputs.fallback_1_model }}
+          LLM_FALLBACK_1_API_KEY: ${{ secrets.LLM_FALLBACK_1_API_KEY }}
+          LLM_FALLBACK_1_BASE_URL: ${{ secrets.LLM_FALLBACK_1_BASE_URL }}
+          LLM_FALLBACK_2_PROVIDER: ${{ inputs.fallback_2_provider }}
+          LLM_FALLBACK_2_MODEL: ${{ inputs.fallback_2_model }}
+          LLM_FALLBACK_2_API_KEY: ${{ secrets.LLM_FALLBACK_2_API_KEY }}
+          LLM_FALLBACK_2_BASE_URL: ${{ secrets.LLM_FALLBACK_2_BASE_URL }}
           PUBLICATION: ${{ inputs.publication }}
           INLINE_COMMENTS: ${{ inputs.inline_comments }}
           SECURITY: ${{ inputs.security }}
@@ -412,6 +452,14 @@ jobs:
             -e LLM_BASE_URL
             -e LLM_MODEL
             -e LLM_PROVIDER
+            -e LLM_FALLBACK_1_PROVIDER
+            -e LLM_FALLBACK_1_MODEL
+            -e LLM_FALLBACK_1_API_KEY
+            -e LLM_FALLBACK_1_BASE_URL
+            -e LLM_FALLBACK_2_PROVIDER
+            -e LLM_FALLBACK_2_MODEL
+            -e LLM_FALLBACK_2_API_KEY
+            -e LLM_FALLBACK_2_BASE_URL
             -e AURUMCODE_CI_CONTEXT_FILE
             -e AURUMCODE_OUTPUT_FILE
             -e DTRACK_API_KEY
@@ -639,6 +687,14 @@ jobs:
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: ${{ inputs.model }}
           LLM_PROVIDER: ${{ inputs.provider }}
+          LLM_FALLBACK_1_PROVIDER: ${{ inputs.fallback_1_provider }}
+          LLM_FALLBACK_1_MODEL: ${{ inputs.fallback_1_model }}
+          LLM_FALLBACK_1_API_KEY: ${{ secrets.LLM_FALLBACK_1_API_KEY }}
+          LLM_FALLBACK_1_BASE_URL: ${{ secrets.LLM_FALLBACK_1_BASE_URL }}
+          LLM_FALLBACK_2_PROVIDER: ${{ inputs.fallback_2_provider }}
+          LLM_FALLBACK_2_MODEL: ${{ inputs.fallback_2_model }}
+          LLM_FALLBACK_2_API_KEY: ${{ secrets.LLM_FALLBACK_2_API_KEY }}
+          LLM_FALLBACK_2_BASE_URL: ${{ secrets.LLM_FALLBACK_2_BASE_URL }}
           POLICY_REPOSITORY: ${{ inputs.policy_repository }}
         run: |
           set -euo pipefail
@@ -656,6 +712,14 @@ jobs:
             -e LLM_BASE_URL
             -e LLM_MODEL
             -e LLM_PROVIDER
+            -e LLM_FALLBACK_1_PROVIDER
+            -e LLM_FALLBACK_1_MODEL
+            -e LLM_FALLBACK_1_API_KEY
+            -e LLM_FALLBACK_1_BASE_URL
+            -e LLM_FALLBACK_2_PROVIDER
+            -e LLM_FALLBACK_2_MODEL
+            -e LLM_FALLBACK_2_API_KEY
+            -e LLM_FALLBACK_2_BASE_URL
             -v "${out_dir}:/aurumcode-out"
           )
           if [ -n "${POLICY_REPOSITORY}" ]; then

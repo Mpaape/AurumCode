@@ -5,10 +5,12 @@
 Mostrar, com o binário real, que o provedor de LLM é escolhido por
 configuração (`LLM_PROVIDER`) e que cada perfil do catálogo fala o dialeto do
 seu provedor: onde a chave viaja, o caminho, a query e o `response_format`.
-Quatro usos e duas falhas, todos executados: sem `LLM_PROVIDER` a requisição é
-a de sempre; Azure OpenAI; Anthropic; um perfil do operador; e, como falhas,
-uma resposta fora do schema (inconclusiva, nunca aprovada, junto de um erro do
-provedor que ecoa a chave) e um perfil desconhecido.
+Seis usos e quatro falhas, todos executados: sem `LLM_PROVIDER` a requisição é
+a de sempre; Azure OpenAI; Anthropic; um perfil do operador; um provedor
+reserva que assume quando o principal cai; duas reservas tentadas em ordem; e,
+como falhas, uma resposta fora do schema (inconclusiva, nunca aprovada, junto
+de um erro do provedor que ecoa a chave), um perfil desconhecido, todos os
+provedores fora do ar e uma reserva configurada pela metade.
 
 A configuração copiável de cada provedor está em
 [Provedores de LLM](../provedores.md).
@@ -29,7 +31,7 @@ byte a byte, e as saídas vêm de uma execução real registrada em
   produto.
 
 ```bash
-bash demo/tutoriais/provedores/run.sh all      # executa os seis casos e grava out/
+bash demo/tutoriais/provedores/run.sh all      # executa os dez casos e grava out/
 bash demo/tutoriais/provedores/run.sh --check  # compara out/ com expected/, sem docker
 ```
 
@@ -41,6 +43,9 @@ bash demo/tutoriais/provedores/run.sh --check  # compara out/ com expected/, sem
   (aqui, o servidor falso). Sem `LLM_PROVIDER`, nada muda.
 - Toda resposta é conferida contra o contrato da revisão: sem a lista de
   achados, a revisão é inconclusiva.
+- Reservas (`LLM_FALLBACK_<n>_*`) são provedores completos, tentados em
+  ordem só quando o anterior falha. A rota `fora-do-ar` do provedor falso
+  responde 503, como um provedor indisponível.
 
 ## Caso 1: sem LLM_PROVIDER, a requisição de sempre
 
@@ -120,6 +125,34 @@ exit_code=0
 RESULTADO: perfil do operador: chave so no header x-gw-key, sem response_format, revisao conclui
 ```
 
+## Caso 5: o principal cai e a reserva assume
+
+O principal responde 503. A reserva 1 tem a própria URL e a própria chave
+(`LLM_FALLBACK_1_BASE_URL`, `LLM_FALLBACK_1_API_KEY`) e responde a mesma
+revisão:
+
+<!-- saida: reserva-assume -->
+```text
+@@reserva-assume@@
+```
+
+O que observar: a linha `trying fallback` diz qual provedor caiu, por quê e
+quem assume; o provedor falso recebeu duas requisições, a segunda na rota da
+reserva; a revisão conclui com exit 0.
+
+## Caso 6: duas reservas, em ordem
+
+O principal e a reserva 1 caem; a reserva 2, de outro perfil (`anthropic`),
+responde:
+
+<!-- saida: duas-reservas -->
+```text
+@@duas-reservas@@
+```
+
+O que observar: duas trocas anunciadas, na ordem dos slots; a reserva 2 fala
+o dialeto do seu perfil (sem `response_format`).
+
 ## Falha 1: resposta fora do schema e erro do provedor
 
 O provedor (perfil `anthropic`, sem saída estruturada) responde um JSON sem a
@@ -158,6 +191,28 @@ RESULTADO: perfil desconhecido: erro com a lista de perfis validos
 ```
 
 O que observar: o erro lista os perfis válidos e nenhuma requisição sai.
+
+## Falha 3: todos os provedores caem
+
+<!-- saida: falha-todas-caem -->
+```text
+@@falha-todas-caem@@
+```
+
+O que observar: a revisão falha (exit 1), nunca aprovada, e o erro nomeia o
+motivo de cada provedor tentado.
+
+## Falha 4: reserva configurada pela metade
+
+A reserva 1 tem URL mas não tem chave:
+
+<!-- saida: falha-reserva-sem-chave -->
+```text
+@@falha-reserva-sem-chave@@
+```
+
+O que observar: o erro sai antes de qualquer requisição e pede a variável do
+próprio slot; a chave do principal nunca é enviada à reserva.
 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica

@@ -9,6 +9,7 @@ requisicao em DIR/requests.log)
   POST /<rota>/chat/completions
     rota fora-do-schema: responde JSON sem lista de achados
     rota erro: responde 401 no envelope da Anthropic, ecoando a chave recebida
+    rota fora-do-ar: responde 503 (provedor indisponivel; a reserva assume)
     demais rotas: responde {"issues": []} no envelope Chat Completions
 """
 import json, sys
@@ -44,6 +45,8 @@ class H(BaseHTTPRequestHandler):
         if rota == "erro":
             chave = auth[len("Bearer "):] if auth.startswith("Bearer ") else ""
             return self._send(401, {"type": "error", "error": {"type": "authentication_error", "message": "invalid x-api-key " + chave}})
+        if rota == "fora-do-ar":
+            return self._send(503, {"error": {"type": "overloaded", "message": "servico indisponivel"}})
         resposta = FORA if rota == "fora-do-schema" else REVISAO
         self._send(200, {"model": "modelo-falso", "choices": [{"index": 0, "message": {"role": "assistant", "content": json.dumps(resposta)}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
 
