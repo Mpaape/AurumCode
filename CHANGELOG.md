@@ -5,6 +5,8 @@
 - Changelog obrigatório: ao reprovar, o check imprime a entrada sugerida
   (pelo modelo configurado ou pelos assuntos dos commits), redigida, no log,
   no resumo do job e no parecer do review, pronta para colar em Unreleased.
+- Pré-verificação do lote: shell do aceite AUR-526 parseável pelo semgrep e
+  exemplos do QA de consumidor pinados por SHA (placeholder de 40 hex).
 - Dependências do PR: cada dependência alterada é checada no OSV em qualquer
   ecossistema, com gate `dependencies.fail_on`, exceção por CVE e licença,
   pacote malicioso ou typosquat reprovando e varredura agendada
