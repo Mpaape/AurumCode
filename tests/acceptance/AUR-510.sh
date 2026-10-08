@@ -32,7 +32,18 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 readonly release="$repo_root/scripts/release.sh"
 [[ -f "$release" ]] || infra missing-release-script
-command -v git >/dev/null 2>&1 || infra missing-git
+if ! command -v git >/dev/null 2>&1; then
+  # The sealed profile has no git; every scenario here drives git on
+  # throwaway repositories, so they are proved where git exists (the shared
+  # container and the nightly sample). Here only what needs no git runs.
+  [[ "$selector" == all ]] || infra missing-git
+  bash -n "$repo_root/scripts/release.sh" || fail release-script-syntax
+  grep -q 'publicar' "$repo_root/scripts/release.sh" || fail publish-step-missing
+  [[ -f "$repo_root/docs/releases.md" ]] || fail releases-doc-missing
+  printf '%s/all/sealed-subset: sintaxe e doc do release; cenarios com git fora do selado\n' "$card" >&2
+  printf '%s/all/pass\n' "$card"
+  exit 0
+fi
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/aurum-a510.XXXXXX")" || infra mktemp
 trap 'rm -rf -- "$work" >/dev/null 2>&1 || true' EXIT INT TERM HUP
