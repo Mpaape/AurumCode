@@ -221,7 +221,8 @@ métricas incompletas (`dtrack_metrics_incomplete`: ausente nunca é lido como
 zero), secret ausente (`dtrack_secret_missing`), SBOM ausente
 (`dtrack_sbom_unavailable`), falha do provedor do modelo (`provider_failure`),
 verificação de dependências que não concluiu (`dependencies_*`: base OSV ou
-deps.dev inalcançável, scanner ausente, licença desconhecida).
+fonte de metadados do registro (`deps_dev_url`) inalcançável, scanner ausente,
+licença desconhecida).
 
 Em produção, as métricas `critical` e `high` vêm dos espelhos de
 vulnerabilidade do **próprio servidor** (NVD, GitHub Advisories, OSV...),
