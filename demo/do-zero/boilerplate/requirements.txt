@@ -1,0 +1,1 @@
+# só a biblioteca padrão; o arquivo existe para o projeto ter manifesto de dependências

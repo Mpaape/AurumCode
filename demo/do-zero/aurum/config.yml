@@ -1,0 +1,9 @@
+# .aurumcode/config.yml do projeto: o mínimo para o gate em português.
+review:
+  language: pt-BR
+  inline_comments: true   # o que bloqueia vira comentário na linha, com a correção aplicável
+gate:
+  fail_on: [error]        # achado error (modelo, skill ou ferramenta) reprova
+  inconclusive: block     # revisão que não concluiu nunca aprova
+# scanners (gitleaks, semgrep, go vet) entram depois, por quality_gates.scanners;
+# aqui o mínimo: idioma e gate.

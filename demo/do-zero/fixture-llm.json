@@ -1,0 +1,53 @@
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "API_KEY = ",
+        "response": {
+          "verdict": "changes_requested",
+          "strengths": [],
+          "issues": [
+            {
+              "file": "assistente.py",
+              "line": 8,
+              "severity": "error",
+              "rule_id": "seguranca#seg-001-segredo-nunca-no-codigo",
+              "message": "A chave da API está escrita no código, contra a regra SEG-001 do time.",
+              "impact": "Quem lê o repositório ou o histórico reutiliza a chave; revogar exige reescrever o histórico.",
+              "evidence": "A linha adicionada é API_KEY = \"[REDACTED]\": um literal no lugar da leitura do ambiente (o valor chegou ao modelo já redigido).",
+              "suggestion": "Apague a linha 8 e volte a ler a chave do ambiente em chave(); cadastre o valor fora do código.",
+              "verification": "Depois da correção, nenhuma linha de assistente.py contém um literal de chave."
+            }
+          ],
+          "suggestions": [
+            {
+              "title": "Chave pelo ambiente",
+              "description": "Em chave(), volte a ler ASSISTENTE_API_KEY do ambiente; a linha 8 com o literal sai.",
+              "file": "assistente.py",
+              "start_line": 15,
+              "end_line": 15,
+              "current_code": "    return API_KEY",
+              "proposed_code": "    return os.environ.get(\"ASSISTENTE_API_KEY\", \"\")",
+              "rationale": "O código continua funcionando e a chave fica no cofre de secrets, fora do histórico.",
+              "verification": "Exporte ASSISTENTE_API_KEY e rode python3 assistente.py."
+            }
+          ],
+          "ci_analysis": [],
+          "test_plan": ["Rodar o assistente com ASSISTENTE_API_KEY exportada e confirmar a resposta."],
+          "limitations": [],
+          "summary": "A mudança coloca a chave da API em um literal de assistente.py; a regra SEG-001 do repositório reprova."
+        }
+      }
+    ],
+    "default": {
+      "verdict": "approve",
+      "strengths": [],
+      "issues": [],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "A chave vem do ambiente e nada contraria as regras do repositório."
+    }
+  }
+}
