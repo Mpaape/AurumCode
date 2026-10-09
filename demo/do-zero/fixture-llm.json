@@ -70,7 +70,7 @@
               "line": 36,
               "severity": "error",
               "rule_id": "ia#ia-001-resposta-do-modelo-nunca-e-executada",
-              "message": "Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 do time.",
+              "message": "Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança.",
               "impact": "Quem controla a pergunta, ou o serviço de IA, executa qualquer código na máquina de quem roda o assistente.",
               "evidence": "A linha 36 adicionada chama exec(codigo), e codigo é o texto devolvido por perguntar() na linha 35.",
               "suggestion": "Mostre o código devolvido e deixe a pessoa decidir se o executa.",
@@ -95,7 +95,7 @@
             "Rodar o assistente com --executar e confirmar que o código é impresso, não executado."
           ],
           "limitations": [],
-          "summary": "A mudança executa como código a resposta do modelo (regra IA-001 do time). A chave fixa na linha 10 foi achada pela verificação de segredos; num caso real, revogue-a."
+          "summary": "A mudança executa como código a resposta do modelo (regra IA-001 da segurança). A chave fixa na linha 10 foi achada pela verificação de segredos; num caso real, revogue-a."
         }
       }
     ],
@@ -107,7 +107,7 @@
       "ci_analysis": [],
       "test_plan": [],
       "limitations": [],
-      "summary": "A resposta do modelo é só mostrada, a chave vem do ambiente e a chamada tem limite de tempo: nada contraria as regras do repositório."
+      "summary": "Nenhum problema bloqueante: a resposta do modelo é só mostrada e a chave vem do ambiente. As observações dos analistas de padrões e de QA seguem abertas."
     }
   }
 }
