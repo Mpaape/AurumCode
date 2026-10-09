@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Aceite do guia "Instalar com ajuda da IA" (AUR-606) na amostra de aceite.
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate
