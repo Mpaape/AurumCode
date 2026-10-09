@@ -367,9 +367,17 @@ func capped(values []string, n int) []string {
 
 func writeReviewBullets(b *strings.Builder, values []string) {
 	for _, value := range values {
-		if text := strings.TrimSpace(value); text != "" {
-			fmt.Fprintf(b, "- %s\n", text)
+		text := strings.TrimSpace(value)
+		if text == "" {
+			continue
 		}
+		if title, rest, ok := strings.Cut(text, "\n"); ok {
+			// A multi-line note (the coverage block) is its own list: the
+			// first line titles it and the rest are already bullets.
+			fmt.Fprintf(b, "\n**%s**\n\n%s\n\n", title, rest)
+			continue
+		}
+		fmt.Fprintf(b, "- %s\n", text)
 	}
 }
 

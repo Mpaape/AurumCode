@@ -15,7 +15,10 @@ parecer na conversa. `inline_comments` habilita comentários nas linhas, só par
 os achados que bloqueiam o merge (os demais ficam no parecer), e, nos dois
 modos, publica cada sugestão com código pronto como substituição aplicável
 pelo GitHub (um clique) na linha alterada. Um achado da passagem de segurança
-traz a correção sugerida da regra.
+traz a correção sugerida da regra. As regras dessa passagem com forma de
+código (SQL, XSS, injeção de comando) só olham arquivos de código: `.txt`,
+`.log`, `.md` e afins não casam, porque ali o padrão é menção, não defeito;
+só segredo em texto claro é procurado em qualquer arquivo.
 O formato do parecer está em [Qualidade e limitações](review-quality.md#o-parecer).
 O autor decide se aplica. AurumCode não altera o código automaticamente.
 
