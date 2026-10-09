@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
+	"github.com/Mpaape/AurumCode/internal/review/verify"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -256,5 +258,42 @@ func TestDetailsWriteMultiLineLimitationAsTitledList(t *testing.T) {
 	}
 	if strings.Contains(got, "- Cobertura") {
 		t.Fatalf("coverage title must not be a bullet:\n%s", got)
+	}
+}
+
+// Findings the gates discarded for lack of proof never turn an approval
+// into "no problem found": the headline says none was proven.
+func TestHeadlineApprovedWhenFindingsWereDiscarded(t *testing.T) {
+	copy := reviewCopyFor("pt-BR")
+	clean := formatHeadline(&types.ReviewResult{}, copy, blocking.Ungated())
+	discarded := formatHeadline(&types.ReviewResult{Metadata: map[string]string{"summary_discarded_findings": "2"}}, copy, blocking.Ungated())
+	if !strings.Contains(clean, "nenhum problema encontrado") {
+		t.Fatalf("clean review headline: %s", clean)
+	}
+	if !strings.Contains(discarded, "nenhum problema comprovado") || strings.Contains(discarded, "encontrado") {
+		t.Fatalf("discarded findings headline: %s", discarded)
+	}
+}
+
+// A suggestion with neither title nor description is never shown, and
+// the section heading does not appear for it alone.
+func TestSuggestionsSectionSkipsEmptySuggestions(t *testing.T) {
+	result := &types.ReviewResult{Suggestions: []types.ReviewSuggestion{{File: "a.go"}}}
+	if got := detailsSections(result, reviewCopyFor("pt-BR")); strings.Contains(got, "Sugestões") {
+		t.Fatalf("empty suggestions produced a heading:\n%s", got)
+	}
+}
+
+// A verified observation is never announced as "still blocks".
+func TestKeptObservationIsNotAnnouncedAsBlocking(t *testing.T) {
+	var stderr strings.Builder
+	s := &reviewState{stderr: &stderr, reviewLanguage: "pt-BR", result: &types.ReviewResult{}}
+	s.reportVerification(verify.Record{RuleID: "time#qa-001", Path: "a.py", Line: 3, Outcome: verify.OutcomeConfirmed, Blocking: false}, types.ReviewIssue{})
+	if strings.Contains(stderr.String(), "bloqueando") {
+		t.Fatalf("an observation was announced as blocking: %q", stderr.String())
+	}
+	s.reportVerification(verify.Record{RuleID: "ia#ia-001", Path: "a.py", Line: 36, Outcome: verify.OutcomeConfirmed, Blocking: true}, types.ReviewIssue{})
+	if !strings.Contains(stderr.String(), "continua bloqueando: confirmado pelo verificador") {
+		t.Fatalf("a blocking finding must say why it still blocks: %q", stderr.String())
 	}
 }

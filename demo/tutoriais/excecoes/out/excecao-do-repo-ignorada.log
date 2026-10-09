@@ -1,7 +1,6 @@
 == excecao-do-repo-ignorada
 --- so o repositorio (sem politica): a excecao dele vale
 $ aurumcode review --base main
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: aceito por exceção (dono: time-do-repo, motivo: o proprio repositorio tenta se isentar, validade: 2099-12-31)
 ## AurumCode code review
@@ -21,7 +20,7 @@ RESULTADO: sem politica, o gate e a excecao do proprio repositorio valem
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: politica central: exceção do repositório para a regra "seguranca#sem-segredos-no-codigo" no caminho "app.go" (repositório "OWNER/REPO") foi ignorada: a política central decide sozinha
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## AurumCode code review

@@ -108,7 +108,7 @@ aurumcode review --base main --seguranca --fail-on error
 aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
 LLM quality review did not run. The following report covers deterministic analysis only.
 > **Inconclusivo: esta revisão não aprova a mudança.**
-app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 ```
@@ -413,7 +413,7 @@ responde com essas avaliações quando o prompt traz a seção de evidência:
 <!-- saida: modelo-pondera -->
 ```text
 $ aurumcode review --base main --seguranca
-app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+app.go:6: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.
   correlacao: E2
   origem: security | avaliacao do modelo: confirmed [E2] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime no terminal.
@@ -456,7 +456,7 @@ RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marca
 limites.go 23 quality/missing-error-handling refuted rebaixado
 --- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
 $ aurumcode review --base main --fail-on error
-aurumcode review: verificação: limites.go:23 quality/missing-error-handling continua bloqueando (quote_not_found: Validar tem guarda de nil.)
+aurumcode review: verificação: limites.go:23 quality/missing-error-handling continua bloqueando: a citação do verificador não está no código — Validar tem guarda de nil. [quote_not_found]
 > **Bloqueado: 1 problema precisa de correção antes do merge.**
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)

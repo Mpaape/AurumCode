@@ -1,6 +1,6 @@
 == skill-do-repo
 $ aurumcode review --base main
-aurumcode review: verification: app.go:6 convencoes#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 convencoes#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
 ## AurumCode code review
 
 > [!CAUTION]

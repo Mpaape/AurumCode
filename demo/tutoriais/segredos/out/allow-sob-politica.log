@@ -8,12 +8,13 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 > **Aprovado com 1 observação que não bloqueia o merge.**
 
 gate da política: passou · 1 arquivo revisado
-config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
+config.py:1: [error] Segredo no código casou a regra github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 exit_code=0
 RESULTADO: sem politica, o comentario gitleaks:allow do autor silencia o achado
 --- sob politica central: o mesmo commit, o autor nao consegue silenciar
 $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 4b2b6936afd5 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao policy)
 ## AurumCode code review
 
 > [!CAUTION]
@@ -22,6 +23,5 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 policy gate: failed · 1 file reviewed
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 4b2b6936afd5 (gitleaks v8.30.1) (rule gitleaks:github-pat)
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 4b2b6936afd5 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao policy)
 exit_code=3
 RESULTADO: sob politica, gitleaks:allow e ignorado e o achado reprova

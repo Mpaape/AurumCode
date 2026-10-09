@@ -13,7 +13,7 @@ LLM quality review did not run. The following report covers deterministic analys
 sem gate declarado · 1 arquivo revisado
 
 Security findings (standards/security-review):
-app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: sem provedor, a analise deterministica achou o segredo e reprovou
@@ -33,6 +33,6 @@ LLM quality review did not run. The following report covers deterministic analys
 sem gate declarado · 1 arquivo revisado
 
 Security findings (standards/security-review):
-app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
 exit_code=1
 RESULTADO: com --exigir-qualidade, sem provedor o comando falha
