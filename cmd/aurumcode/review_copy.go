@@ -27,7 +27,7 @@ type reviewCopy struct {
 	// deterministic "this review was partial" notice. Each reason a file was
 	// not covered gets its own sentence; coverageSummary names the count and
 	// the denominator so the reader sees how much of the diff actually ran.
-	coverageHeading, coverageSummary, coveragePartial, coverageBudget, coverageIgnored, coverageFiltered, coverageNoStructure string
+	coverageHeading, coverageSummary, coveragePartial, coverageBudget, coverageIgnored, coverageFiltered, coverageNoStructure, coverageMore string
 	// summaryWithheld is AUR-517's one-line notice (%d is the discard
 	// count) printed in place of the "### Summary" block whenever
 	// internal/review withheld the model's free-text summary because the
@@ -99,6 +99,7 @@ func reviewCopyFor(language string) reviewCopy {
 		coverageIgnored:         i18n.Text(language, "review.coverage_ignored"),
 		coverageFiltered:        i18n.Text(language, "review.coverage_filtered"),
 		coverageNoStructure:     i18n.Text(language, "review.coverage_no_structure"),
+		coverageMore:            i18n.Text(language, "review.coverage_more"),
 		summaryWithheld:         i18n.Text(language, "review.summary_withheld"),
 		headlineBlocked:         i18n.Text(language, "review.headline_blocked"),
 		headlineBlockedOne:      i18n.Text(language, "review.headline_blocked_one"),

@@ -160,19 +160,19 @@ func coverageNotice(copy reviewCopy, c reviewCoverageBreakdown) string {
 	}
 	if c.Budget > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageBudget, c.Budget))
-		writeCoveragePaths(&b, c.BudgetPaths)
+		writeCoveragePaths(&b, c.BudgetPaths, copy.coverageMore)
 	}
 	if c.Ignored > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageIgnored, c.Ignored))
-		writeCoveragePaths(&b, c.IgnoredPaths)
+		writeCoveragePaths(&b, c.IgnoredPaths, copy.coverageMore)
 	}
 	if c.Filtered > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageFiltered, c.Filtered))
-		writeCoveragePaths(&b, c.FilteredPaths)
+		writeCoveragePaths(&b, c.FilteredPaths, copy.coverageMore)
 	}
 	if len(c.NoStructure) > 0 {
 		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageNoStructure, len(c.NoStructure)))
-		writeCoveragePaths(&b, c.NoStructure)
+		writeCoveragePaths(&b, c.NoStructure, copy.coverageMore)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

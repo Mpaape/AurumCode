@@ -87,6 +87,15 @@ func TestRulesLoaderFailsLoud(t *testing.T) {
 			},
 			want: "invalid pattern",
 		},
+		{
+			// applies_to has one defined value; a typo must not silently
+			// widen a code-shaped rule to prose files.
+			name: "unknown applies_to",
+			fsys: fstest.MapFS{
+				"rules/bad.yml": {Data: []byte("rules:\n  - id: security/x\n    title: X\n    applies_to: source\n")},
+			},
+			want: "unknown applies_to",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
