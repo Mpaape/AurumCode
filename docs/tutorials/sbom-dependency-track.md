@@ -150,6 +150,8 @@ parte que `aurumcode sbom` lê):
 
 <!-- arquivo: demo/tutoriais/sbom-dependency-track/config/gate/.aurumcode/config.yml -->
 ```yaml
+review:
+  language: pt-BR
 gate:
   fail_on: [high]
   inconclusive: block
@@ -229,6 +231,8 @@ com `max_critical`, `max_high` e `policy_violations`. Aqui o SBOM tem
 
 <!-- arquivo: demo/tutoriais/sbom-dependency-track/config/limiar-1/.aurumcode/config.yml -->
 ```yaml
+review:
+  language: pt-BR
 gate:
   fail_on: [high]
   inconclusive: block
@@ -336,6 +340,8 @@ sempre, e a configuração aponta para ele com um timeout de 2 segundos.
 
 <!-- arquivo: demo/tutoriais/sbom-dependency-track/config/lento/.aurumcode/config.yml -->
 ```yaml
+review:
+  language: pt-BR
 gate:
   fail_on: [high]
   inconclusive: block
