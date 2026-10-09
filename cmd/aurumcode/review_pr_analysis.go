@@ -84,7 +84,9 @@ func (p *prReview) finishLimitations() (int, bool) {
 	result := p.result
 	result.Suggestions = filterSuggestionsToChangedLines(p.diff, result.Suggestions)
 	suppressOperationalStrengths(p.diff, result)
-	result.Limitations = filterLimitationsAgainstDiff(p.diff, result.Limitations)
+	// The model's own limitations are kept to a few lines; the engine's
+	// notices below are appended whole.
+	result.Limitations = capped(filterLimitationsAgainstDiff(p.diff, result.Limitations), maxModelLimitations)
 	p.coverage = mergeReviewCoverage(result.Metadata, append(append([]analyzer.DiffNotice{}, p.binaryNotices...), uninspectedPRNotices(p.diff, p.verifiedDir)...), p.rawDiffFileCount, p.ignoredPaths)
 	applyStructuralCoverage(grammar.Default(), p.diff, &p.coverage, result)
 	if notice := coverageNotice(reviewCopyFor(p.reviewLanguage), p.coverage); notice != "" {

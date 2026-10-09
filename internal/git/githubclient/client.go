@@ -559,6 +559,10 @@ type ReviewComment struct {
 	Line     int    `json:"line,omitempty"`     // For single-line comments
 	Side     string `json:"side,omitempty"`     // LEFT deletion, RIGHT addition
 	Position int    `json:"position,omitempty"` // Alternative to Line (deprecated by GitHub)
+	// StartLine and StartSide make a multi-line comment (a suggestion that
+	// replaces a range); zero keeps the comment on Line alone.
+	StartLine int    `json:"start_line,omitempty"`
+	StartSide string `json:"start_side,omitempty"`
 }
 
 // ReviewLineComment is an optional inline comment included in a formal pull

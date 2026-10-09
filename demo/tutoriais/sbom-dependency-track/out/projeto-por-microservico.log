@@ -13,7 +13,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 4 file(s) reviewed
+policy gate: passed · 4 files reviewed
 No issues found.
 exit_code=0
 RESULTADO: servico-a enviado
@@ -31,7 +31,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 4 file(s) reviewed
+policy gate: passed · 4 files reviewed
 No issues found.
 exit_code=0
 RESULTADO: servico-b enviado ao mesmo projeto
@@ -47,7 +47,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 4 file(s) reviewed
+policy gate: passed · 4 files reviewed
 No issues found.
 exit_code=0
 RESULTADO: servico-a no projeto servico-a
@@ -60,7 +60,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 4 file(s) reviewed
+policy gate: passed · 4 files reviewed
 No issues found.
 exit_code=0
 RESULTADO: servico-b no projeto servico-b

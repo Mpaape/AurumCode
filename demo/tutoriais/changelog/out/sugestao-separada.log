@@ -5,7 +5,7 @@ $ aurumcode review --base main --changelog
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 
 ### Suggested release
 
@@ -19,7 +19,7 @@ no gate declared · 1 file(s) reviewed
 
 ### Changed
 
-- feature: repo-exemplo/mudanca (75b04c40ebd509ea7e77a23ec516065bfd8cd3cb)
+- feature: repo-exemplo/mudanca (b956c3c8643dae57e06be1315c6721fb97d67303)
 
 ### Fixed
 

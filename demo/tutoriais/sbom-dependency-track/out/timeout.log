@@ -13,7 +13,7 @@ aurumcode review: policy gate: ssor_dtrack: revisão inconclusiva (dtrack_timeou
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: failed · 4 file(s) reviewed
+policy gate: failed · 4 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: dtrack_timeout
 exit_code=1
 RESULTADO: timeout_seconds: 2 vencido com block: inconclusivo e reprovado

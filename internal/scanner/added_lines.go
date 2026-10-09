@@ -21,6 +21,21 @@ type LineSet map[string]map[int]bool
 // Touched reports whether the range added any line to path.
 func (s LineSet) Touched(path string) bool { return len(s[path]) > 0 }
 
+// Without returns the set without the paths ignored reports, so an
+// ignored path neither anchors a finding nor makes a parse error count.
+func (s LineSet) Without(ignored func(string) bool) LineSet {
+	if ignored == nil {
+		return s
+	}
+	out := make(LineSet, len(s))
+	for path, lines := range s {
+		if !ignored(path) {
+			out[path] = lines
+		}
+	}
+	return out
+}
+
 // Keep returns the findings on added lines, in their order.
 func (s LineSet) Keep(findings []Finding) []Finding {
 	var out []Finding

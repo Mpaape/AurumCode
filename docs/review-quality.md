@@ -22,9 +22,8 @@ O workflow reutilizável exige a revisão por modelo: nesse caso, o status
 `aurumcode/review` e o job falham em vez de exibir um falso verde. Um uso local
 de `review --pr` sem `--exigir-qualidade` mantém o modo determinístico opcional.
 
-Sugestões são opcionais e devem ser pequenas, locais e justificadas.
-Pontos fortes devem descrever benefícios do código/testes, sem elogios
-genéricos ao workflow ou à existência do AurumCode.
+Sugestões são opcionais e devem ser pequenas, locais e justificadas. Os
+pontos fortes que o modelo escreve não são publicados no parecer.
 
 ## O parecer
 
@@ -43,9 +42,11 @@ merge ler em dez segundos:
 4. **Observações (não bloqueiam)**: uma linha por achado abaixo do limiar,
    inclusive os provados fora das linhas alteradas.
 5. **Resumo** do modelo.
-6. **Detalhes da revisão**, recolhidos: pontos fortes (até três), sugestões,
-   status do CI, testes (o plano do modelo e a contagem dos testes afetados),
-   limitações, cobertura, verificação, rodadas anteriores e consolidação.
+6. **Detalhes da revisão**, recolhidos: sugestões, status do CI, testes (até
+   três do plano do modelo e a contagem dos testes afetados), limitações
+   (até três do modelo, mais os avisos do próprio Aurum), cobertura,
+   verificação, rodadas anteriores e consolidação. Pontos fortes não são
+   publicados: elogio não é informação de que o leitor precise.
 
 A rodada seguinte **edita o mesmo parecer** em vez de publicar outro; só um
 achado **bloqueante** numa linha alterada ganha comentário na linha (com

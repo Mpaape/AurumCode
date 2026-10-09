@@ -6,9 +6,9 @@ aurumcode review: policy gate: seguranca#sem-bucket-publico - Sem bucket publico
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
   - Impact: Qualquer pessoa na internet le os logs.
   - Evidence: A linha adicionada declara acl = "public-read" em main.tf.

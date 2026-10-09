@@ -1,14 +1,14 @@
 == segredo-no-diff
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat)
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
 exit_code=3
 RESULTADO: o gitleaks achou o token no intervalo main..HEAD e o gate de segredos reprovou

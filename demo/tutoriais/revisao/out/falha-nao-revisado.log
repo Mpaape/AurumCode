@@ -27,7 +27,7 @@ generated file, skipped: gerado.go
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 
 Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully reviewed.
 - 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
@@ -44,7 +44,7 @@ binary file, skipped: logo.png
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 1 file(s) reviewed
+policy gate: passed · 1 file reviewed
 
 Review coverage
 - 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.

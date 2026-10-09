@@ -155,7 +155,7 @@ func TestOnlyBlockingFindingsGetInlineComments(t *testing.T) {
 	if strings.Count(body, "quality/missing-error-handling") != 1 {
 		t.Fatalf("the rule is cited once per finding:\n%s", body)
 	}
-	for _, want := range []string{"[!CAUTION]", "Blocked: 1 problem(s)", "### Fix before merge", "### Observations (non-blocking)", "- `app.go:7` — ReadAll could say what it reads", "<details>", "#### Review limits"} {
+	for _, want := range []string{"[!CAUTION]", "Blocked: 1 problem must be fixed", "### Fix before merge", "### Observations (non-blocking)", "- `app.go:7` — ReadAll could say what it reads", "<details>", "#### Review limits"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("parecer missing %q:\n%s", want, body)
 		}
@@ -209,5 +209,37 @@ func TestAffectedTestsAreCountedNotListed(t *testing.T) {
 	}
 	if strings.Count(body, "TestCase") != maxAffectedTestsShown || !strings.Contains(body, ", …") {
 		t.Fatalf("the list is not capped at %d names:\n%s", maxAffectedTestsShown, body)
+	}
+}
+
+// In the default (comments) mode with inline comments on, an
+// implementation-ready suggestion is posted as a GitHub suggestion on its
+// changed line, applicable with one click, beside the blocking finding.
+func TestSuggestionsAreProposedOnTheLineInCommentsMode(t *testing.T) {
+	response := `{"verdict":"comment","summary":"ReadAll ignores an error.","issues":[
+  {"file":"app.go","line":8,"side":"RIGHT","severity":"warning","rule_id":"quality/missing-error-handling","message":"ReadAll ignores the error fetch returns","evidence":"data, _ := fetch() discards the second return value","impact":"an I/O failure is treated as success","verification":"check err before returning data"}],
+ "suggestions":[{"title":"Check the error","description":"Return early when fetch fails.","kind":"code","file":"app.go","line":8,"proposed_code":"\tdata, err := fetch()\n\tif err != nil {\n\t\treturn nil\n\t}","rationale":"An I/O failure must not look like success."}]}`
+	g := &parecerServer{}
+	stdout, stderr := parecerReview(t, g, response, true)
+	var inline []string
+	for _, w := range g.written {
+		if strings.HasPrefix(w, "POST /repos/owner/repo/pulls/48/comments") {
+			inline = append(inline, bodyOf(t, w))
+		}
+	}
+	if len(inline) != 2 {
+		t.Fatalf("want the finding and the suggestion on the line, got %d inline comment(s)\nstdout=%s\nstderr=%s", len(inline), stdout, stderr)
+	}
+	var suggestion string
+	for _, b := range inline {
+		if strings.Contains(b, "```suggestion") {
+			suggestion = b
+		}
+	}
+	if !strings.Contains(suggestion, "Check the error") || !strings.Contains(suggestion, "if err != nil") {
+		t.Fatalf("the suggestion is not an applicable GitHub suggestion:\n%v", inline)
+	}
+	if !strings.Contains(stdout, "sugestão aplicável publicada na linha") || !strings.Contains(stdout, "2 comentário(s) na linha") {
+		t.Fatalf("stdout does not count the suggestion:\n%s", stdout)
 	}
 }

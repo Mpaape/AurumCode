@@ -24,8 +24,9 @@ import (
 //     published; the cause is unknown and the model's cause a hypothesis.
 func writeCIAnalysisItem(b *strings.Builder, analysis types.CIAnalysis, copy reviewCopy) {
 	if analysis.Basis != cistatus.BasisCI {
+		// No check of this name concluded in the CI context: the state is
+		// the model's guess, said once, with its hypothesis beside it.
 		fmt.Fprintf(b, "- **%s — %s** (%s)\n", analysis.Check, copy.ciUnverified, copy.ciUnverifiedNote)
-		writeSummaryField(b, copy.cause, copy.ciCauseUnknown)
 		writeSummaryField(b, copy.ciHypothesis, analysis.Cause)
 		return
 	}

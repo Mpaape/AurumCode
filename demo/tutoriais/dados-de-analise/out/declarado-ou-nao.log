@@ -7,7 +7,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 2 file(s) reviewed
+policy gate: passed · 2 files reviewed
 No issues found.
 --- requisicoes recebidas pelo servidor local (modo valido): 0
 exit_code=0
@@ -22,7 +22,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 2 file(s) reviewed
+policy gate: passed · 2 files reviewed
 No issues found.
 --- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
@@ -31,6 +31,6 @@ No issues found.
 exit_code=0
 RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria
 auditoria analysis_data.source: remote
-auditoria analysis_data.tag: analysis-data/20261007T215921Z
-auditoria analysis_data.generated_at: 2026-10-07T21:59:21Z
+auditoria analysis_data.tag: analysis-data/20261008T001914Z
+auditoria analysis_data.generated_at: 2026-10-08T00:19:14Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1

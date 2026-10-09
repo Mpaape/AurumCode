@@ -430,13 +430,12 @@ func TestFormatReviewSummaryIsAReviewNotAnExecutionTranscript(t *testing.T) {
 	for _, want := range []string{
 		"## AurumCode code review",
 		"[!CAUTION]",
-		"Blocked: 1 problem(s)",
+		"Blocked: 1 problem must be fixed",
 		"### Fix before merge",
 		"<details>",
-		"#### Strengths",
 		"#### Suggestions",
 		"#### CI status",
-		"Cause:",
+		"Model hypothesis (not verified):",
 		"Proposed implementation:",
 		"Rationale:",
 		"#### Tests",
@@ -506,7 +505,7 @@ func TestPublishedReviewBodyIsOneCodeReviewWithoutCLINoise(t *testing.T) {
 	}
 	for _, formalWithInline := range []bool{false, true} {
 		body := formatPublishedReviewBody(result, diff, "pt-BR", formalWithInline, "### Changelog\n\n- Correção de erro")
-		for _, want := range []string{"## AurumCode revisão de código", result.Summary, "### Pontos fortes", "### Changelog"} {
+		for _, want := range []string{"## AurumCode revisão de código", result.Summary, "### Changelog"} {
 			if !strings.Contains(body, want) {
 				t.Errorf("formalWithInline=%v: missing %q in:\n%s", formalWithInline, want, body)
 			}
@@ -592,14 +591,14 @@ func TestFormatReviewSummaryUsesConfiguredLanguage(t *testing.T) {
 	comment := formatReviewSummaryForLanguage(result, "pt-BR")
 	for _, want := range []string{
 		"## AurumCode revisão de código",
-		"Bloqueado: 1 problema(s)",
+		"Bloqueado: 1 problema precisa",
 		"### Corrigir antes do merge",
 		"Impacto:",
 		"Evidência:",
 		"Correção sugerida:",
 		"Verificação:",
 		"#### Status do CI",
-		"Causa:",
+		"Hipótese do modelo (não verificada):",
 	} {
 		if !strings.Contains(comment, want) {
 			t.Errorf("Portuguese summary missing %q:\n%s", want, comment)
