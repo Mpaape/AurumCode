@@ -8,12 +8,12 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
 aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 4 files reviewed
+gate da política: passou · 4 arquivos revisados
 No issues found.
 exit_code=0
 RESULTADO: servico-a enviado
@@ -26,12 +26,12 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
 aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 4 files reviewed
+gate da política: passou · 4 arquivos revisados
 No issues found.
 exit_code=0
 RESULTADO: servico-b enviado ao mesmo projeto
@@ -42,12 +42,12 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
 aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 4 files reviewed
+gate da política: passou · 4 arquivos revisados
 No issues found.
 exit_code=0
 RESULTADO: servico-a no projeto servico-a
@@ -55,12 +55,12 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
 aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 4 files reviewed
+gate da política: passou · 4 arquivos revisados
 No issues found.
 exit_code=0
 RESULTADO: servico-b no projeto servico-b

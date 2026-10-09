@@ -1,5 +1,5 @@
 $ aurumcode review --base main
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 No issues found.
 exit_code=0
 RESULTADO: primeira revisao concluida sem achados
