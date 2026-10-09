@@ -23,16 +23,25 @@ func (p *prReview) generateReview() (int, bool) {
 	stderr, limiteUSD := p.stderr, p.limiteUSD
 	gateDeclared := p.cfg.Gate.Declared()
 	p.ciFacts = readCIFacts()
-	result, err := p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, p.reviewContext(review.ReviewContext{
+	reviewCtx := p.reviewContext(review.ReviewContext{
 		CI:              p.ciFacts.ModelText(),
 		Language:        p.reviewLanguage,
 		History:         p.history,
 		CodebaseContext: p.codebaseText,
 		MemoryNotes:     p.memoryNotesText,
-	}))
+	})
+	var result *types.ReviewResult
+	var err error
+	if p.profilesApplied() {
+		// One model pass per analyst profile, each accepting the same
+		// dynamic rules and catalog as the single reviewer (AUR-519).
+		result, err = runProfilePasses(p.ctx, p.provider, p.tracker, p.profileRes.Profiles, p.diff, reviewCtx, p.dynamicRules, p.ruleCatalogIDs)
+	} else {
+		result, err = p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, reviewCtx)
+		p.transcript = p.reviewer.Transcript()
+		p.noteBatches(p.reviewer.Batches())
+	}
 	p.result = result
-	p.transcript = p.reviewer.Transcript()
-	p.noteBatches(p.reviewer.Batches())
 	if err == nil {
 		return 0, false
 	}
