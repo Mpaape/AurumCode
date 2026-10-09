@@ -13,11 +13,12 @@ import (
 // reportTriageNotRun states, in stderr and in the review's limitations,
 // that the triage did not happen: some evidence belonged to a source the
 // model could have demoted (declared gate, no central policy, not opted
-// out), yet the model did not answer or its answer did not parse. The
-// evidence counted in full; the line says whether the gate kept its block.
-func (s *reviewState) reportTriageNotRun(t gateTriage, res *gateDecision) {
+// out), yet the model did not answer cleanly, so triage demoted nothing.
+// The evidence counted in full; the line says whether the gate kept its
+// block.
+func (s *reviewState) reportTriageNotRun(res *gateDecision) {
 	reason := s.modelReason()
-	if reason == "" || !s.triageableEvidence(t) {
+	if reason == "" || !s.triageableEvidence(s.triageSources()) {
 		return
 	}
 	key := "notice.triage_not_run_clear"
@@ -30,15 +31,15 @@ func (s *reviewState) reportTriageNotRun(t gateTriage, res *gateDecision) {
 }
 
 // triageableEvidence reports whether this run holds deterministic evidence
-// of a source whose disputed findings the triage could demote: the
+// of a source whose disputed findings sources lets the triage demote: the
 // embedded analysis and the security pass (both under analysis) or a
 // repository-declared scanner.
-func (s *reviewState) triageableEvidence(t gateTriage) bool {
-	if t.BySource[config.GateSourceAnalysis] && len(s.analysisIssues)+len(s.securityFindings) > 0 {
+func (s *reviewState) triageableEvidence(sources map[string]bool) bool {
+	if sources[config.GateSourceAnalysis] && len(s.analysisIssues)+len(s.securityFindings) > 0 {
 		return true
 	}
 	for _, scan := range s.scans {
-		if scan.Section != gateOriginPolicy && t.BySource[scan.Source()] && len(scan.Issues) > 0 {
+		if scan.Section != gateOriginPolicy && sources[scan.Source()] && len(scan.Issues) > 0 {
 			return true
 		}
 	}

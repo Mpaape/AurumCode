@@ -1517,18 +1517,20 @@ review nomeiam cada achado rebaixado
 uma seção de SAST de origem da política nunca é rebaixada: nada muda em
 relação ao comportamento anterior ao padrão `model`.
 
-A triagem falha fechada. Quando havia evidência de uma fonte triável, com gate
-declarado e sem política central, mas o modelo não respondeu (sem provedor,
-falha do provedor, resposta que não passou no parser, limite de deliberação),
-nada é rebaixado e o stderr e as limitações do parecer dizem isso, no idioma
-de `review.language`:
+A triagem falha fechada. Quando o modelo não respondeu de forma limpa (sem
+provedor, falha do provedor, resposta que não passou no parser ou que só foi
+lida em modo degradado, limite de deliberação), nada é rebaixado, nem mesmo
+pela contestação justificada de um perfil ou lote saudável quando outro perfil
+ou lote da mesma execução saiu degradado. Se havia evidência de uma fonte
+triável, com gate declarado e sem política central, o stderr e as limitações
+do parecer dizem isso, no idioma de `review.language`:
 
 ```text
 aurumcode review: gate.triage: a triagem pelo modelo não ocorreu (quality_skipped); a evidência determinística contou integralmente e o bloqueio foi mantido
 ```
 
 Entre parênteses vai o motivo (`quality_skipped`, `provider_failure`,
-`model_parse_failure`, ...); quando o gate passa mesmo assim, a linha termina
+`model_parse_failure`, `degraded_parse`, ...); quando o gate passa mesmo assim, a linha termina
 em "contou integralmente", sem falar em bloqueio. Com todas as fontes da
 evidência em `none`, sem gate declarado ou sob política central, nada é
 anunciado: a triagem não teria ocorrido de qualquer forma.

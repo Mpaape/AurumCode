@@ -15,6 +15,10 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/gate"
+	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/review/session"
+	"github.com/Mpaape/AurumCode/internal/scanner"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -193,11 +197,10 @@ func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 			analysisIssues: []types.ReviewIssue{finding},
 		}, &errOut
 	}
-	triaged := gateTriage{BySource: map[string]bool{config.GateSourceAnalysis: true}}
 
 	s, _ := newState(modelReviewed)
 	s.reportTriage([]gate.Demotion{{Source: config.GateSourceAnalysis, Issue: finding}})
-	s.reportTriageNotRun(triaged, &gateDecision{})
+	s.reportTriageNotRun(&gateDecision{})
 	body := formatPublishedReviewBody(s.result, &types.Diff{}, "pt-BR", false, "")
 	if !strings.Contains(body, "gate.triage (analysis: model): app.go:4 analysis/hardcoded-secret contestado pelo modelo deixou de contar") {
 		t.Errorf("the parecer must name the triaged source:\n%s", body)
@@ -207,26 +210,73 @@ func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 	}
 
 	s, errOut := newState(modelSkipped)
-	s.reportTriageNotRun(triaged, &gateDecision{Fail: true})
+	s.reportTriageNotRun(&gateDecision{Fail: true})
 	body = formatPublishedReviewBody(s.result, &types.Diff{}, "pt-BR", false, "")
 	if !strings.Contains(body, aur608NoticePT) || !strings.Contains(errOut.String(), aur608NoticePT) {
 		t.Errorf("the parecer and stderr must say the triage did not happen:\n%s\nstderr=%s", body, errOut.String())
 	}
 
 	s, _ = newState(modelProviderFailed)
-	s.reportTriageNotRun(triaged, &gateDecision{})
+	s.reportTriageNotRun(&gateDecision{})
 	if got := strings.Join(s.result.Limitations, "\n"); !strings.Contains(got, "(provider_failure); a evidência determinística contou integralmente") || strings.Contains(got, "bloqueio") {
 		t.Errorf("a passing gate states the evidence counted, never a kept block: %q", got)
 	}
 
-	for name, tr := range map[string]gateTriage{
-		"no declared gate or central policy": {},
-		"analysis opted out":                 {BySource: map[string]bool{config.GateSourceAnalysis: false, config.GateSourceSkills: true}},
+	for name, configure := range map[string]func(*reviewState){
+		"no declared gate": func(s *reviewState) { s.cfg = &config.Config{} },
+		"central policy":   func(s *reviewState) { s.centralCfg = &config.Config{} },
+		"analysis opted out": func(s *reviewState) {
+			s.cfg.Gate.Triage = map[string]string{config.GateSourceAnalysis: config.TriageNone}
+		},
 	} {
 		s, _ = newState(modelSkipped)
-		s.reportTriageNotRun(tr, &gateDecision{Fail: true})
+		configure(s)
+		s.reportTriageNotRun(&gateDecision{Fail: true})
 		if len(s.result.Limitations) != 0 {
 			t.Errorf("%s: no triage could happen, nothing to announce: %v", name, s.result.Limitations)
 		}
+	}
+}
+
+// AC-004, degraded half: a consolidated answer the parser degraded (one
+// profile or batch out of several, profiles.go and batch_merge.go) never
+// demotes, even when a healthy pass disputed the evidence with a
+// justification. Under gate.inconclusive: warn the finding still fails the
+// gate, and the run says the triage did not happen. Driven through the
+// session's real gate and exit steps.
+func TestAUR608DegradedModelNeverDemotes(t *testing.T) {
+	cfg, err := config.Parse([]byte("review:\n  language: pt-BR\ngate:\n  fail_on: [high]\n  inconclusive: warn\n"), "case.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr strings.Builder
+	s := newReviewState(session.LocalDiff, reviewIO{stdout: &stdout, stderr: &stderr, filter: redaction.NewFilter(),
+		deps: reviewDeps{scanners: scanner.Executor{Command: missingSemgrep}, env: &reviewEnv{}}})
+	s.cfg, s.model, s.reviewLanguage = cfg, modelReviewed, "pt-BR"
+	s.repoIdentity, s.repoIdentityKnown = "owner/repo", true
+	secret := "hunter2-" + "correct-horse"
+	s.diff = &types.Diff{Files: []types.DiffFile{{Path: "app.go", Hunks: []types.DiffHunk{{NewStart: 4, Lines: []string{"+\tdbPassword := \"" + secret + "\""}}}}}}
+	s.analysisIssues = staticAnalysisIssues(s.diff, s.reviewLanguage)
+	if len(s.analysisIssues) == 0 {
+		t.Fatal("fixture: the embedded analysis must report the credential")
+	}
+	s.analysisIssues[0].Assessment = &types.EvidenceAssessment{EvidenceID: "E1", Status: types.AssessmentDisputed, Justification: "valor de exemplo de teste, nao uma credencial"}
+	s.result = &types.ReviewResult{Metadata: map[string]string{prompt.ParseModeKey: prompt.ParseModeDegraded}}
+	s.result.Issues = append(s.result.Issues, s.analysisIssues...)
+	defer s.flush()
+	if code, done := s.runGate(); done {
+		t.Fatalf("the gate ended the run (exit %d):\n%s", code, stderr.String())
+	}
+	code := s.decideExit(publishOutcome{})
+	errOut := stderr.String()
+	if code == 0 {
+		t.Fatalf("a degraded answer demoted the disputed finding and the run passed (fail open):\n%s", errOut)
+	}
+	if strings.Contains(errOut, "deixou de contar") {
+		t.Errorf("a degraded answer must never demote:\n%s", errOut)
+	}
+	notice := "gate.triage: a triagem pelo modelo não ocorreu (degraded_parse); a evidência determinística contou integralmente e o bloqueio foi mantido"
+	if !strings.Contains(errOut, notice) || !strings.Contains(strings.Join(s.result.Limitations, "\n"), notice) {
+		t.Errorf("stderr and the parecer must say the triage did not happen (%q):\nstderr=%s\nlimitations=%v", notice, errOut, s.result.Limitations)
 	}
 }

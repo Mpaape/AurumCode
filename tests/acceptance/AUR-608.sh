@@ -4,28 +4,30 @@
 # demotes only with a justification (without one it weighs as needs_context
 # and keeps counting); the triage acts only for a declared gate; without the
 # model's answer, with evidence and a declared gate, stderr and the parecer
-# say the triage did not happen and the block was kept; under a central
-# policy nothing changes.
+# say the triage did not happen and the block was kept; a model that did not
+# answer cleanly (a degraded profile or batch included) never demotes; under
+# a central policy nothing changes.
 #
 # Selectors:
-#   all      AC-001..AC-006, MUT-001..MUT-002
+#   all      AC-001..AC-006, MUT-001..MUT-003
 #   AC-001   no triage key, declared gate, justified dispute: the evidence
 #            stops counting and the parecer names the triaged source
 #   AC-002   an explicit none keeps the evidence counting
 #   AC-003   a dispute with an empty justification keeps counting
-#   AC-004   without the model the block is kept and a line says the triage
-#            did not happen
+#   AC-004   without the model, or with a degraded answer, nothing is demoted,
+#            the block is kept and a line says the triage did not happen
 #   AC-005   without a declared gate nothing is triaged or announced
 #   AC-006   under a central policy the result is the one before
 #   MUT-001  the default back to none turns AC-001 red
 #   MUT-002  a dispute accepted without a justification turns AC-003 red
+#   MUT-003  a degraded answer allowed to demote turns AC-004 red
 # Exit: 0 pass, 1 behavioral failure, 64 unknown selector, 79 infrastructure.
 set -Eeuo pipefail
 export LC_ALL=C
 
 readonly card='AUR-608'
 selector="${1:-all}"
-known='all AC-001 AC-002 AC-003 AC-004 AC-005 AC-006 MUT-001 MUT-002'
+known='all AC-001 AC-002 AC-003 AC-004 AC-005 AC-006 MUT-001 MUT-002 MUT-003'
 if [[ " $known " != *" $selector "* ]]; then
   printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2
   exit 64
@@ -123,8 +125,8 @@ ac003() {
     TestAUR608DisputeWithoutJustificationStillCounts TestAUR608DisputeCountsRequiresJustification
 }
 ac004() {
-  ac AC-004 '^(TestAUR608WithoutModelKeepsDeterministicBlock|TestAUR608TriageLinesReachTheParecer)$' \
-    TestAUR608WithoutModelKeepsDeterministicBlock TestAUR608TriageLinesReachTheParecer
+  ac AC-004 '^(TestAUR608WithoutModelKeepsDeterministicBlock|TestAUR608TriageLinesReachTheParecer|TestAUR608DegradedModelNeverDemotes)$' \
+    TestAUR608WithoutModelKeepsDeterministicBlock TestAUR608TriageLinesReachTheParecer TestAUR608DegradedModelNeverDemotes
 }
 ac005() {
   ac AC-005 '^TestAUR608TriageSilentWithoutDeclaredGate$' TestAUR608TriageSilentWithoutDeclaredGate
@@ -142,10 +144,14 @@ mut002() {
   mutate MUT-002 internal/review/assessments_dispute.go 'return strings.TrimSpace(a.Justification) != ""' \
     's/return strings.TrimSpace(a.Justification) != ""/return strings.TrimSpace(a.Justification) != "mutant"/' '^TestAUR608DisputeWithoutJustificationStillCounts$' 'TestAUR608DisputeWithoutJustificationStillCounts'
 }
+mut003() {
+  mutate MUT-003 cmd/aurumcode/review_gate.go 'if s.modelReason() != "" {' \
+    's/if s.modelReason() != "" {/if false {/' '^TestAUR608DegradedModelNeverDemotes$' 'TestAUR608DegradedModelNeverDemotes'
+}
 
 # One function per selector; all runs every one in order.
 if [[ "$selector" == 'all' ]]; then
-  for step in ac001 ac002 ac003 ac004 ac005 ac006 mut001 mut002; do
+  for step in ac001 ac002 ac003 ac004 ac005 ac006 mut001 mut002 mut003; do
     "$step"
   done
   printf '%s/all/pass\n' "$card"
