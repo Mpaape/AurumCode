@@ -158,6 +158,13 @@ az_pr() {
   printf '%s\n' "$LAST_OUT" | ui_saida
   echo "    exit_code=$LAST_RC"
 }
+# az_exporta_main: a main do remoto falso exportada para o GitHub falso servir
+# contents/ (GITHUB_FALSO_ARVORE), como o GitHub serve a base da PR.
+az_exporta_main() {
+  rm -rf "$STATE/remoto-main"; mkdir -p "$STATE/remoto-main"
+  git --git-dir "$STATE/remoto.git" archive main | tar -x -C "$STATE/remoto-main"
+  export GITHUB_FALSO_ARVORE="$STATE/remoto-main"
+}
 # az_espera_parecer N ANTERIOR: espera o comentario do AurumCode na PR real (ate 15 min).
 az_espera_parecer() {
   local i body
@@ -309,7 +316,7 @@ passo_7() {
   if [ "$MODO" = mock ]; then
     TUT_PR_SHA="$(tgit rev-parse feature)"
     ui_diz "Em mock, um servidor falso da API do GitHub serve o diff da PR #1 e grava o que o produto publica."
-    export GITHUB_FALSO_REPO="$STATE/remoto.git"   # skills e config servidas da main do remoto
+    az_exporta_main   # skills e config da PR vêm da main do remoto, como no GitHub
     tut_pr_servidor pr
     az_pr review --pr 1 --repo "$DONO/$NOME" --publicar --check --modo-publicacao comments
     ui_diz "O que foi publicado na PR #1:"
@@ -332,7 +339,7 @@ passo_8() {
   tgit log --oneline main..feature | ui_saida
   if [ "$MODO" = mock ]; then
     TUT_PR_SHA="$(tgit rev-parse feature)"
-    tut_pr_parar; tut_pr_servidor pr2
+    tut_pr_parar; az_exporta_main; tut_pr_servidor pr2
     az_pr review --pr 1 --repo "$DONO/$NOME" --publicar --check --modo-publicacao comments
     ui_diz "O que foi publicado agora (no GitHub real, o mesmo comentário é editado; o servidor falso não guarda o anterior, então aqui aparece um novo):"
     az_publicado; tut_pr_parar
