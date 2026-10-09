@@ -6,7 +6,7 @@ $ aurumcode review --base main
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-no gate declared · 3 file(s) reviewed
+no gate declared · 3 files reviewed
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
@@ -22,9 +22,9 @@ aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval - eval() exec
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 2 problem(s) must be fixed before merge.**
+> **Blocked: 2 problems must be fixed before merge.**
 
-policy gate: failed · 3 file(s) reviewed
+policy gate: failed · 3 files reviewed
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.

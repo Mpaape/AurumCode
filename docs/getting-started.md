@@ -122,7 +122,7 @@ LLM quality review did not run. The following report covers deterministic analys
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 ...
 app.go:3: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
 ```

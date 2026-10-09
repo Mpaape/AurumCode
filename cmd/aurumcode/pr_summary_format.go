@@ -23,9 +23,11 @@ const reviewBodyMarker = "<!-- aurumcode-review -->"
 const metaReviewParts = "review_parts"
 
 // Caps of the collapsed details: the model's prose is kept short there.
+// Its strengths are not published at all: praise is not information a
+// reader of the parecer acts on.
 const (
-	maxStrengths = 3
-	maxTestPlan  = 5
+	maxTestPlan         = 3
+	maxModelLimitations = 3
 )
 
 // formatFormalReviewSummary keeps an actionable native suggestion from being
@@ -166,7 +168,7 @@ func formatHeadline(result *types.ReviewResult, copy reviewCopy, rule blocking.R
 	decision, n := decide(result, rule)
 	switch decision {
 	case decisionBlocked:
-		return alertBlock("CAUTION", fmt.Sprintf(copy.headlineBlocked, n), "")
+		return alertBlock("CAUTION", countText(n, copy.headlineBlockedOne, copy.headlineBlocked), "")
 	case decisionInconclusive:
 		reason := copy.gateFailed
 		if result.Metadata["quality_degraded"] == metaTrue {
@@ -174,9 +176,17 @@ func formatHeadline(result *types.ReviewResult, copy reviewCopy, rule blocking.R
 		}
 		return alertBlock("WARNING", copy.headlineInconclusive, reason)
 	case decisionObservations:
-		return alertBlock("NOTE", fmt.Sprintf(copy.headlineObservations, n), "")
+		return alertBlock("NOTE", countText(n, copy.headlineObservationsOne, copy.headlineObservations), "")
 	}
 	return alertBlock("TIP", copy.headlineApproved, "")
+}
+
+// countText is the singular text for one, the plural template otherwise.
+func countText(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return fmt.Sprintf(many, n)
 }
 
 // alertBlock renders GitHub's alert syntax: the kind on the first line, the
@@ -208,7 +218,7 @@ func factsLine(result *types.ReviewResult, diff *types.Diff, copy reviewCopy, ru
 		files = n
 	}
 	if files > 0 {
-		filesText := fmt.Sprintf(copy.factsFiles, files)
+		filesText := countText(files, copy.factsFilesOne, copy.factsFiles)
 		if n, err := strconv.Atoi(result.Metadata[metaReviewParts]); err == nil && n > 1 {
 			filesText += " " + fmt.Sprintf(copy.factsParts, n)
 		}
@@ -264,14 +274,9 @@ func writeRuleSuffix(b *strings.Builder, issue types.ReviewIssue) {
 }
 
 // detailsSections is the content of the collapsed block: the model's
-// strengths and suggestions, the CI status, the tests and the limitations.
+// suggestions, the CI status, the tests and the limitations.
 func detailsSections(result *types.ReviewResult, copy reviewCopy) string {
 	var b strings.Builder
-	if len(result.Strengths) > 0 {
-		fmt.Fprintf(&b, "#### %s\n\n", copy.strengths)
-		writeReviewBullets(&b, capped(result.Strengths, maxStrengths))
-		b.WriteString("\n")
-	}
 	writeSuggestionsSection(&b, result, copy)
 	writeCIStatusSection(&b, result, copy)
 	if len(result.TestPlan) > 0 || result.Metadata[metaAffectedTests] != "" {

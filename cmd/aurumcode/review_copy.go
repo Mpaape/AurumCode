@@ -41,6 +41,9 @@ type reviewCopy struct {
 	headlineBlocked, headlineInconclusive, headlineObservations, headlineApproved string
 	factsGatePassed, factsGateFailed, factsNoGate, factsFiles, factsParts         string
 	fixBeforeMerge, observations, outsideDiffLabel, details, affectedTests        string
+	// The *One texts are the singular forms of the counted headline and
+	// facts texts.
+	headlineBlockedOne, headlineObservationsOne, factsFilesOne string
 }
 
 // reviewCopyFor reads the review's texts for language from the catalog.
@@ -98,13 +101,16 @@ func reviewCopyFor(language string) reviewCopy {
 		coverageNoStructure:     i18n.Text(language, "review.coverage_no_structure"),
 		summaryWithheld:         i18n.Text(language, "review.summary_withheld"),
 		headlineBlocked:         i18n.Text(language, "review.headline_blocked"),
+		headlineBlockedOne:      i18n.Text(language, "review.headline_blocked_one"),
 		headlineInconclusive:    i18n.Text(language, "review.headline_inconclusive"),
 		headlineObservations:    i18n.Text(language, "review.headline_observations"),
+		headlineObservationsOne: i18n.Text(language, "review.headline_observations_one"),
 		headlineApproved:        i18n.Text(language, "review.headline_approved"),
 		factsGatePassed:         i18n.Text(language, "review.facts_gate_passed"),
 		factsGateFailed:         i18n.Text(language, "review.facts_gate_failed"),
 		factsNoGate:             i18n.Text(language, "review.facts_no_gate"),
 		factsFiles:              i18n.Text(language, "review.facts_files"),
+		factsFilesOne:           i18n.Text(language, "review.facts_files_one"),
 		factsParts:              i18n.Text(language, "review.facts_parts"),
 		fixBeforeMerge:          i18n.Text(language, "review.fix_before_merge"),
 		observations:            i18n.Text(language, "review.observations"),

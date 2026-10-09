@@ -6,9 +6,9 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 ## AurumCode code review
 
 > [!NOTE]
-> **Approved with 1 observation(s) that do not block the merge.**
+> **Approved with 1 observation that does not block the merge.**
 
-policy gate: passed · 1 file(s) reviewed
+policy gate: passed · 1 file reviewed
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impact: A senha vai para o historico do repositorio.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
@@ -25,9 +25,9 @@ aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos n
 ## AurumCode revisão de código
 
 > [!CAUTION]
-> **Bloqueado: 1 problema(s) precisam de correção antes do merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-gate da política: reprovou · 1 arquivo(s) revisado(s)
+gate da política: reprovou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impacto: A senha vai para o historico do repositorio.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.

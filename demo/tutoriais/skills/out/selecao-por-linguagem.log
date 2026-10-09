@@ -7,7 +7,7 @@ $ aurumcode review --base main
 > [!TIP]
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-sem gate declarado · 1 arquivo(s) revisado(s)
+sem gate declarado · 1 arquivo revisado
 
 ### Limitações da revisão
 
@@ -25,7 +25,7 @@ $ aurumcode review --base main
 > [!TIP]
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-sem gate declarado · 1 arquivo(s) revisado(s)
+sem gate declarado · 1 arquivo revisado
 
 ### Limitações da revisão
 

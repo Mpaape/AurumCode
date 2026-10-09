@@ -10,7 +10,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 5 file(s) reviewed
+policy gate: passed · 5 files reviewed
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.

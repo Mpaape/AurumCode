@@ -143,6 +143,7 @@ func (b *baseReview) settleQualityStatus() (int, bool) {
 // complete coverage. It also joins the changelog and policy-warning
 // limitations the terminal already showed.
 func (b *baseReview) recordCoverage() {
+	b.result.Limitations = capped(b.result.Limitations, maxModelLimitations)
 	b.coverage = mergeReviewCoverage(b.result.Metadata, b.notices, b.rawDiffFileCount, b.ignoredPaths)
 	applyStructuralCoverage(grammar.Default(), b.diff, &b.coverage, b.result)
 	b.coverageText = coverageNotice(reviewCopyFor(b.reviewLanguage), b.coverage)

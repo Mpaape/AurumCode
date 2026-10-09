@@ -8,7 +8,7 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: failed · 2 file(s) reviewed
+policy gate: failed · 2 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
@@ -18,28 +18,28 @@ RESULTADO: listagem 503 sem cache: analysis_data_unavailable reprova
 --- B. sem rede nenhuma (container sem rota, nada escuta)
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 ## AurumCode code review
 
 > [!WARNING]
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: failed · 2 file(s) reviewed
+policy gate: failed · 2 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 exit_code=1
 RESULTADO: sem rede e sem cache: analysis_data_unavailable reprova
 --- C. o mesmo com gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 ## AurumCode code review
 
 > [!WARNING]
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: passed · 2 file(s) reviewed
+policy gate: passed · 2 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
 exit_code=0
 RESULTADO: sem rede com warn: exit 0, mas nunca aprovado silenciosamente

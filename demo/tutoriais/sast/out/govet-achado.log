@@ -5,9 +5,9 @@ aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)
 exit_code=3
 RESULTADO: go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra

@@ -11,9 +11,9 @@ aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violati
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-policy gate: failed · 4 file(s) reviewed
+policy gate: failed · 4 files reviewed
 No issues found.
 exit_code=3
 RESULTADO: uma violacao de politica acima do limite 0 reprova o gate
@@ -29,7 +29,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 4 file(s) reviewed
+policy gate: passed · 4 files reviewed
 No issues found.
 exit_code=0
 RESULTADO: com limite 1, a mesma violacao esta dentro do limiar e o gate aprova

@@ -34,7 +34,7 @@ func TestOutsideDiffFindingNeverCountsForTheGate(t *testing.T) {
 	if strings.Contains(body, `"path":"app.go"`) {
 		t.Fatalf("an outside-diff finding was anchored inline:\n%s", body)
 	}
-	if !strings.Contains(body, "[!NOTE]") || !strings.Contains(body, "Approved with 1 observation(s)") {
+	if !strings.Contains(body, "[!NOTE]") || !strings.Contains(body, "Approved with 1 observation that does not block") {
 		t.Fatalf("an outside-diff finding changed the decision:\n%s", body)
 	}
 	if line := firstLineWith(stdout.String(), "app.go:1: [error] ReadAll ignores the error fetch returns"); !strings.HasSuffix(line, inParecerMarker) {

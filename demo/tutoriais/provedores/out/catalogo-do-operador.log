@@ -5,7 +5,7 @@ $ LLM_PROVIDER=meu-gateway LLM_PROVIDERS_FILE=/fixtures/meus-perfis.yml GATEWAY_
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 No issues found.
 --- requisicoes recebidas pelo provedor falso: 1
     provedor recebeu: /gateway/chat/completions query=- authorization=ausente api-key=ausente x-gw-key=<chave> limite=- response_format=ausente
