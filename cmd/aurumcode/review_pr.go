@@ -8,6 +8,7 @@ package main
 
 import (
 	"github.com/Mpaape/AurumCode/internal/analyzer"
+	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 
 	"github.com/Mpaape/AurumCode/internal/context/skills"
 
@@ -28,6 +29,7 @@ type prReview struct {
 	opts prReviewOptions
 
 	prNumber         int
+	profileRes       *reviewprofile.MultiResult
 	repoFlag         string
 	owner, repoName  string
 	publicar, inline bool // inline: --na-linha as given

@@ -8,6 +8,7 @@ package gate
 import (
 	"context"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/analysis"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -119,7 +120,7 @@ func (EmbeddedAnalysisContributor) Name() string   { return ContributorAnalysis 
 func (EmbeddedAnalysisContributor) Origin() string { return OriginAnalysis }
 func (EmbeddedAnalysisContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
 	var part Result
-	return part, Fatal(ApplyAnalysisGate(&part, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginAnalysis, AnalysisIssuesForGate(run.Diff, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+	return part, Fatal(ApplyAnalysisGate(&part, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginAnalysis, analysis.LocalizeIssues(run.Language, AnalysisIssuesForGate(run.Diff, run.Cfg))), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
 }
 
 // SecurityPassContributor counts the --seguranca pass's deterministic findings

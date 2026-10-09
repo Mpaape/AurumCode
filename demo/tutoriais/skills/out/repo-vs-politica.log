@@ -2,7 +2,6 @@
 --- o achado cita a skill do REPOSITORIO (convencoes#...)
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: verification: app.go:6 convencoes#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## AurumCode code review
 
@@ -20,8 +19,9 @@ RESULTADO: sob politica, a secao da skill do repo nao entra no gate
 --- o achado cita a skill da POLITICA (seguranca#...)
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## AurumCode code review
 
 > [!CAUTION]
@@ -29,7 +29,6 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 
 policy gate: failed · 1 file reviewed
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
   - Impact: A senha vai para o historico do repositorio.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente.

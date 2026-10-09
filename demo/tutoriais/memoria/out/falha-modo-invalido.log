@@ -1,7 +1,7 @@
 == falha-modo-invalido
 $ aurumcode review --base main --fail-on error
 aurumcode review: review memory unavailable: memory: unsupported mode "sempre" (want off, ephemeral, or local); continuing without it
-aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks: the verifier gave no valid answer [invalid_answer]
 ## AurumCode code review
 
 > [!CAUTION]

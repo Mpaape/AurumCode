@@ -1,7 +1,7 @@
 == falha-sem-cache
 --- sem AURUMCODE_CACHE_DIR
 $ aurumcode review --base main --politica /policy
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## AurumCode code review

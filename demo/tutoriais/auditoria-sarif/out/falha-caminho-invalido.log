@@ -3,7 +3,6 @@
 $ aurumcode review --base main --politica /policy --auditoria /work/nao-existe/auditoria.json
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: audit_write_failed: /work/nao-existe/auditoria.json: open /work/nao-existe/auditoria.json: no such file or directory
-aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao-existe/auditoria.json (audit_write_failed): open /work/nao-existe/auditoria.json: no such file or directory
 ## AurumCode code review
 
 > [!WARNING]
@@ -12,11 +11,13 @@ aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao
 
 policy gate: failed · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: audit_write_failed
+aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao-existe/auditoria.json (audit_write_failed): open /work/nao-existe/auditoria.json: no such file or directory
 exit_code=1
 RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao existe
 o arquivo de auditoria nao existe
 --- sem gate, SARIF cujo pai e um arquivo
 $ aurumcode review --base main --sarif /work/arquivo-regular/revisao.sarif
+aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
 ## AurumCode code review
 
 > [!WARNING]
@@ -25,7 +26,6 @@ $ aurumcode review --base main --sarif /work/arquivo-regular/revisao.sarif
 
 no gate declared · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: sarif_write_failed
-aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
 exit_code=1
 RESULTADO: sem gate: exit diferente de 0 e a mensagem nomeia o caminho
 --- caminho gravavel: comportamento inalterado

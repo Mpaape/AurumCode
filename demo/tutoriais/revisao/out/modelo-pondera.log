@@ -7,13 +7,13 @@ aurumcode review: security pass applied 4 of 8 security rules (security/command-
 > **Bloqueado: 1 problema precisa de correção antes do merge.**
 
 sem gate declarado · 1 arquivo revisado
-app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+app.go:6: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O catalogo embutido marcou o literal, mas ele e o valor de exemplo da demonstracao, nao uma credencial real.
   correlacao: E2
   sugestao: Mover o exemplo para um arquivo de teste.
 
 Security findings (standards/security-review):
-app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
   origem: security | avaliacao do modelo: confirmed [E2] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime no terminal.
   correlacao: E1
   sugestao: Ler a senha do ambiente.
