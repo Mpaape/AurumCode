@@ -45,7 +45,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 if [ "$MODO" != mock ] && [ "$MODO" != real ]; then echo "--modo: mock ou real" >&2; exit 2; fi
-[ -n "$DESTINO" ] || DESTINO="$HOME/aurum-poc/${NOME:-assistente}"
+NOME_DIR="${NOME#*/}"; [ -n "$DESTINO" ] || DESTINO="$HOME/aurum-poc/${NOME_DIR:-assistente}"
 if [ "$ACAO" = limpar ]; then
   rm -rf "$STATE"; echo "apagado: $STATE"
   if [ -f "$DESTINO/.git/aurum-poc" ]; then rm -rf "$DESTINO"; echo "apagado: $DESTINO"; fi
@@ -158,6 +158,25 @@ az_pr() {
   printf '%s\n' "$LAST_OUT" | ui_saida
   echo "    exit_code=$LAST_RC"
 }
+# az_remoto_real: liga o projeto ao GitHub. Repositorio ja existente (criado por
+# voce, vazio, com os secrets cadastrados): so adiciona o remoto e envia a main.
+# Inexistente: cria com gh repo create. --repo aceita NOME ou DONO/NOME.
+az_remoto_real() {
+  local alvo="$NOME" vis=--public
+  [ "${alvo#*/}" != "$alvo" ] || alvo="$DONO/$alvo"
+  [ "$PRIVADO" = 1 ] && vis=--private
+  if gh repo view "$alvo" >/dev/null 2>&1; then
+    ui_cmd "git remote add origin https://github.com/$alvo.git && git push -u origin main"
+    ui_pausa
+    tgit remote add origin "https://github.com/$alvo.git"
+    tgit push -q -u origin main 2>&1 | ui_saida
+  else
+    ui_cmd "gh repo create $alvo $vis --source=. --remote=origin --push"
+    ui_pausa
+    (cd "$TUT_WORK" && gh repo create "$alvo" "$vis" --source=. --remote=origin --push --description "POC: AurumCode do zero") 2>&1 | ui_saida
+  fi
+  DONO="${alvo%%/*}"; NOME="${alvo#*/}"
+}
 # az_exporta_main: a main do remoto falso exportada para o GitHub falso servir
 # contents/ (GITHUB_FALSO_ARVORE), como o GitHub serve a base da PR.
 az_exporta_main() {
@@ -193,7 +212,7 @@ if [ "$MODO" = real ]; then
     if gh api repos/Mpaape/AurumCode/git/ref/tags/v2.0.0 >/dev/null 2>&1; then REF=v2.0.0; else REF=main; fi
   fi
 else
-  DONO=voce; [ -n "$NOME" ] || NOME=assistente; [ -n "$REF" ] || REF=v2.0.0
+  DONO=voce; [ -n "$NOME" ] || NOME=assistente; [ -n "$REF" ] || REF=main
 fi
 if [ "$ACAO" = roteiro ]; then
 printf '%sAurumCode do zero%s — um projeto novo, o Aurum configurado passo a passo e o primeiro parecer.\n' "$B" "$N"
@@ -241,8 +260,7 @@ passo_2() {
     tgit remote add origin "$STATE/remoto.git"; tgit push -q -u origin main
     tgit remote -v | head -1 | ui_saida
   else
-    local vis=--public; [ "$PRIVADO" = 1 ] && vis=--private
-    ui_run "cria o repositório na sua conta e envia a main" -- gh repo create "$NOME" "$vis" --source=. --remote=origin --push --description "POC: AurumCode do zero"
+    az_remoto_real
   fi
   ui_ok "main publicada no remoto."
 }
@@ -392,10 +410,7 @@ ia_preparar() {
   tgit add -A; tgit commit -q -m "projeto: assistente"
   ui_ok "projeto criado e commitado (sem AurumCode ainda):"
   (cd "$TUT_WORK" && git ls-files) | ui_saida
-  if [ "$MODO" = real ]; then
-    local vis=--public; [ "$PRIVADO" = 1 ] && vis=--private
-    (cd "$TUT_WORK" && gh repo create "$NOME" "$vis" --source=. --remote=origin --push --description "POC: AurumCode com um agente de IA") 2>&1 | ui_saida
-  fi
+  if [ "$MODO" = real ]; then AUTO=1 az_remoto_real; fi
   ia_mcp_json
   ui_ok "AurumCode registrado como servidor MCP \"aurum\" em .mcp.json (Claude Code lê na abertura; fora do git):"
   sed 's/^/    /' "$TUT_WORK/.mcp.json" | head -40
@@ -411,22 +426,43 @@ uma recomendação explicada. Não peça chaves no chat: oriente como cadastrá-
 O servidor MCP "aurum" já está registrado neste projeto: depois de cada commit,
 verifique com aurum_gate (base main). Para PRs, fixe o workflow reutilizável em
 Mpaape/AurumCode/.github/workflows/review.yml@$REF. Revisão em português (pt-BR).
+Este é um repositório de demonstração: você pode commitar e fazer push na main
+(a revisão da PR lê a configuração e as skills da main) e abrir PR quando eu pedir.
 Comece pelo diagnóstico e pela primeira pergunta.
 PEDIDO
   printf '\n%sPróximos passos%s\n' "$B" "$N"
-  ui_diz "1. Abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+  if [ "$MODO" = real ]; then
+    ui_diz "1. Neste terminal (LLM_API_KEY e LLM_BASE_URL exportadas: o servidor MCP usa o modelo daqui), abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+  else
+    ui_diz "1. Abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+  fi
   ui_diz "2. Cole o pedido (também em $pedido):"
   sed 's/^/      │ /' "$pedido"
   ui_diz "3. Peça a regra do time, com este nome para o caso da demo:"
   printf '      │ %s\n' "Crie a skill .aurumcode/skills/ia/SKILL.md com a regra \"## IA-001 Resposta do modelo nunca e executada\" (severity: error): texto devolvido por um modelo nunca passa por exec, eval, compile, subprocess nem shell."
-  ui_diz "4. Quando o Aurum estiver configurado e commitado, simule o dev com pressa:  bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
+  ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa:  bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
   ui_diz "5. Peça ao agente:"
   printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e corrija; depois consulte de novo."
-  [ "$MODO" = real ] && ui_diz "6. Com o gate verde: peça para abrir a PR; o workflow publica o parecer na PR do GitHub."
+  if [ "$MODO" = real ]; then
+    ui_diz "6. Para o parecer na PR: peça \"faça push da feature e abra a PR\" antes ou depois da correção (antes: Bloqueado; depois: Aprovado). O workflow leva alguns minutos; acompanhe com  gh pr checks --watch"
+    ui_diz "Os secrets do repositório o agente só orienta; você digita:  gh secret set LLM_API_KEY  e  gh secret set LLM_BASE_URL  (e  gh variable set LLM_MODEL)"
+  fi
   ui_diz "Sem tempo para o agente corrigir:  bash $HERE/run.sh ia-correcao --destino $TUT_WORK"
 }
 ia_defeito() {
   [ -d "$TUT_WORK/.git" ] || { echo "projeto não encontrado em $TUT_WORK (rode run.sh ia antes)" >&2; exit 2; }
+  if ! tgit cat-file -e main:.aurumcode/config.yml 2>/dev/null; then
+    ui_aviso "a main ainda não tem .aurumcode/config.yml: peça ao agente para commitar a configuração na main antes."
+    exit 2
+  fi
+  if tgit remote get-url origin >/dev/null 2>&1; then
+    tgit fetch -q origin main 2>/dev/null || true
+    if ! tgit cat-file -e origin/main:.aurumcode/config.yml 2>/dev/null; then
+      ui_aviso "o GitHub ainda não tem a configuração na main (a PR lê config e skills de lá): peça ao agente o push da main antes."
+      exit 2
+    fi
+  fi
+  tgit checkout -q main
   if tgit rev-parse -q --verify feature >/dev/null; then tgit checkout -q feature; else tgit checkout -q -b feature; fi
   az_aplica defeito
   tgit add assistente.py; tgit commit -q -m "assistente: --executar roda o código sugerido"
