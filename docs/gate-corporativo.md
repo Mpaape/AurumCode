@@ -158,6 +158,11 @@ jobs:
 - Fixe `review.yml` e `policy_ref` por **SHA de 40 hex**, nunca por branch ou
   tag: é isso que garante que todo PR da organização é julgado pela mesma
   política até alguém, de propósito, apontar outra SHA.
+- **Atualizar o AurumCode** é uma PR neste workflow, que vale para todos os
+  repositórios de uma vez. Deixe a versão num comentário ao lado da SHA
+  (`@<SHA> # v2.0.0`) e ligue o Dependabot (`package-ecosystem:
+  github-actions`) no repositório deste workflow: ele abre a PR quando sair
+  versão nova, com as notas dela.
 - O workflow publica o status `aurumcode/policy-gate`; ele só bloqueia o merge
   se a branch (ou o ruleset da organização) o exigir.
 - Publique o SARIF no code scanning em um segundo job do seu próprio workflow

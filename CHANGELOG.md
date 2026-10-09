@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs: como saber de versão nova (Dependabot para workflows reutilizáveis, SHA com comentário da versão).
 - A autorrevisão do AurumCode envia o SARIF para a aba Security do próprio repositório.
 - Aceite do guia "Instalar com ajuda da IA" (AUR-606) na amostra de aceite.
 ## 2.0.0 - 2026-10-09
