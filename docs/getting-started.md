@@ -8,6 +8,12 @@
    `.github/workflows/aurumcode.yml` no repositório de destino.
 4. Integre o workflow e os arquivos de contexto na branch base.
 5. Abra um PR com uma pequena alteração de código e confira o parecer e o job.
+6. Faça o status impedir o merge: em Settings → Branches, na regra de proteção
+   da branch base (ou num ruleset), marque *Require status checks to pass
+   before merging* e escolha `aurumcode/policy-gate`. Sem isso o parecer e o
+   status aparecem, mas um PR reprovado ainda pode ser mesclado. O status só
+   aparece na lista depois de rodar uma vez, por isso este passo vem depois do
+   primeiro PR.
 
 O exemplo fixa a release `v2.0.0`:
 
@@ -24,13 +30,19 @@ publicada no exemplo, no download do site e nesta página. As tags `v1.x`
 são históricas, do produto anterior, e não recebem atualizações; instalações nelas
 continuam na versão antiga até mudar a referência.
 
+A tag basta para um repositório avulso. Numa organização com workflow
+obrigatório, que julga todos os repositórios, fixe a SHA de 40 hex com a
+versão num comentário, como no [guia corporativo](gate-corporativo.md): uma
+tag pode ser apontada para outro commit, a SHA não.
+
 ### Saber quando há versão nova
 
 Cada repositório roda exatamente a versão que fixou; nada muda sem uma PR
 trocando a referência. Para receber essa PR automaticamente quando sair uma
 versão nova, ligue o Dependabot para GitHub Actions no repositório: ele também
-atualiza referências a workflows reutilizáveis e abre a PR com as notas da
-versão, que o próprio AurumCode revisa.
+atualiza referências a workflows reutilizáveis (só a de `uses:`) e abre a PR
+com as notas da versão, que o próprio AurumCode revisa se os secrets abaixo
+existirem.
 
 ```yaml
 # .github/dependabot.yml
@@ -48,6 +60,13 @@ Dependabot reconhecê-la:
 ```yaml
     uses: …/review.yml@<SHA de 40 hex> # v2.0.0
 ```
+
+A PR aberta pelo Dependabot roda o workflow só com os *Dependabot secrets*:
+os secrets de Actions não chegam a ela. Cadastre `LLM_API_KEY` e
+`LLM_BASE_URL` também em Settings → Secrets and variables → Dependabot. Sem
+eles o job para no primeiro passo (*Check provider configuration*), nenhuma
+revisão roda e nenhum status é publicado; com o status exigido, a PR de
+atualização fica bloqueada.
 
 Com o workflow obrigatório da organização (guia corporativo), a referência fica
 num lugar só: uma PR no repositório desse workflow atualiza todos os

@@ -119,7 +119,14 @@ retorna `(exit, done)`, de modo que cada saída antecipada mantém seu código:
    provedor configurado), `provider failed` (sem resposta, ou uma revisão de
    qualidade exigida que não aconteceu) ou `parse failed` (uma resposta que não
    pôde ser validada).
-4. **gate.** O pipeline compartilhado abaixo, a partir do `gate.Run` da sessão.
+4. **gate.** Antes do pipeline, o verificador adversarial
+   (`review.verification`, `internal/review/verify`) confere cada achado do
+   **modelo** contra a revisão revisada, numa chamada separada ao mesmo
+   provedor; um achado refutado com citação literal sai da entrada do gate e
+   fica registrado nas limitações e na auditoria. Achados de scanner nunca são
+   enviados a ele. Roda depois do modelo e antes da decisão do gate, no
+   início deste passo (`cmd/aurumcode/review_verification.go`). Depois vem o
+   pipeline compartilhado abaixo, a partir do `gate.Run` da sessão.
    O motivo de inconclusivo é `gate.RankReason`: falha do provedor, revisão
    ignorada, resposta não interpretável, parse degradado, o motivo do primeiro
    scanner, cobertura parcial, nessa ordem.

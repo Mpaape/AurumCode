@@ -57,7 +57,7 @@ jobs:
     uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.0.0
     with:
       provider: anthropic
-      model: claude-sonnet-5-5
+      model: <id do modelo no provedor>
     secrets: inherit
 ```
 
@@ -85,7 +85,7 @@ slots numerados de 1 a 5:
 # principal: Bedrock; reserva 1: proxy LiteLLM interno; reserva 2: OpenAI
 export LLM_PROVIDER=bedrock AWS_REGION=us-east-1 LLM_API_KEY=... LLM_MODEL=...
 export LLM_FALLBACK_1_PROVIDER=litellm LLM_FALLBACK_1_BASE_URL=https://litellm.interno LLM_FALLBACK_1_API_KEY=...
-export LLM_FALLBACK_2_PROVIDER=openai LLM_FALLBACK_2_API_KEY=... LLM_FALLBACK_2_MODEL=gpt-5
+export LLM_FALLBACK_2_PROVIDER=openai LLM_FALLBACK_2_API_KEY=... LLM_FALLBACK_2_MODEL=...
 ```
 
 Regras:
@@ -125,7 +125,7 @@ jobs:
       provider: bedrock
       fallback_1_provider: litellm
       fallback_2_provider: openai
-      fallback_2_model: gpt-5
+      fallback_2_model: <id do modelo no provedor>
     secrets:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
@@ -133,6 +133,23 @@ jobs:
       LLM_FALLBACK_1_BASE_URL: ${{ secrets.LITELLM_URL }}
       LLM_FALLBACK_2_API_KEY: ${{ secrets.OPENAI_KEY }}
 ```
+
+No workflow reutilizável, o contêiner da revisão recebe do provedor só
+`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_PROVIDER` e as variáveis das
+reservas 1 e 2: `AWS_REGION`, `AZURE_OPENAI_RESOURCE`,
+`AZURE_OPENAI_DEPLOYMENT` e `AZURE_OPENAI_API_VERSION` não chegam a ele. Por
+isso, no Actions, uma reserva `bedrock` ou `azure-openai` exige
+`LLM_FALLBACK_<n>_BASE_URL` com a URL completa, sem nenhum `{VAR}` a
+preencher:
+
+| Perfil da reserva | `LLM_FALLBACK_<n>_BASE_URL` |
+|---|---|
+| `bedrock` | `https://bedrock-runtime.<região>.amazonaws.com/openai/v1` |
+| `azure-openai` | `https://<recurso>.openai.azure.com/openai/deployments/<deployment>` |
+
+Sem ela, a revisão falha antes de qualquer requisição, nomeando o slot e a
+variável que falta (`LLM_FALLBACK_1: ... set AWS_REGION`). No `azure-openai`,
+a `api-version` fica na padrão do perfil.
 
 Na action (`uses: Mpaape/AurumCode@...`), as mesmas variáveis vão no `env:`
 do passo. Demonstração com provedor falso: casos `reserva-assume`,
@@ -159,7 +176,7 @@ que os modelos de raciocínio aceitam no Chat Completions
 ```bash
 export LLM_PROVIDER=openai
 export OPENAI_API_KEY=...        # ou LLM_API_KEY
-export LLM_MODEL=gpt-5.4-mini
+export LLM_MODEL=...            # o identificador do modelo no provedor
 ```
 
 ## Azure OpenAI
@@ -233,7 +250,7 @@ e aponte o perfil `litellm` para ele:
 model_list:
   - model_name: bedrock-claude
     litellm_params:
-      model: bedrock/us.anthropic.claude-sonnet-5
+      model: bedrock/<id do modelo no provedor>
       aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
       aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
       aws_region_name: os.environ/AWS_REGION_NAME
@@ -319,7 +336,11 @@ arquivo:
 
 O [endpoint compatível com OpenAI](https://docs.ollama.com/api/openai-compatibility)
 do Ollama em `http://localhost:11434/v1`. O servidor ignora a chave: o perfil
-não envia credencial (`auth: none`) e não exige `LLM_API_KEY`.
+não envia credencial (`auth: none`) e, pela CLI e pela imagem, não exige
+`LLM_API_KEY`. No workflow reutilizável, o secret `LLM_API_KEY` precisa ter
+algum valor mesmo para o Ollama ou outro endpoint sem autenticação: o
+workflow recusa secret vazio antes da revisão (passo *Check provider
+configuration*). Qualquer texto serve, porque o perfil não o envia.
 
 ```bash
 export LLM_PROVIDER=ollama

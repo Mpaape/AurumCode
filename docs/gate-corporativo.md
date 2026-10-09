@@ -23,9 +23,17 @@ troque só os placeholders.
 
 A organização mantém um repositório de política (aqui `ORG/aurumcode-policy`)
 cujo diretório contém `.aurumcode/config.yml` e as regras. O repositório do
-dev **não** consegue afrouxar nada disso: sob política central, `rules`,
-`ignore`, `gate`, `exceptions` e cada seção de `quality_gates` do repositório
-são ignorados, com um aviso nomeado.
+dev **não** consegue afrouxar o que a política governa. Sob política central,
+`rules`, `ignore`, `gate` e `exceptions` do repositório são sempre ignorados,
+com um aviso nomeado, mesmo quando a política não os declara. Em
+`quality_gates`, vale a seção que a política declara: `ssor_dtrack` e
+`supply_chain` declarados na política substituem os do repositório, e os que
+ela não declara continuam do repositório. Os scanners (`sast` e `scanners`) se
+resolvem engine por engine: `quality_gates.sast` e as entradas com
+`required: true` na política impedem o repositório de trocar ou desligar
+aquela engine; uma entrada da política sem `required: true` cede à do
+repositório, com aviso. A tabela completa de quem decide cada seção está no
+[tutorial de política central](tutorials/politica-central.md).
 
 <!-- arquivo: demo/gate-corporativo/politica/.aurumcode/config.yml -->
 ```yaml
@@ -111,6 +119,32 @@ a política é montada em `/github/policy`). Um achado de severidade `ERROR`
 reprova (`fail_on_severity: ERROR`); abaixo do limiar ele é publicado sem
 reprovar. Em produção, troque ou some o arquivo por `p/security-audit` etc.
 
+### Padrões de engenharia centrais (hoje)
+
+O workflow aceita **um** `policy_repository`. Não existe um segundo
+repositório de política só para os padrões de engenharia, nem sincronização
+automática de skills entre repositórios. Os perfis de analista
+(`.aurumcode/profiles.yml`) e as skills do repositório vêm sempre da branch
+base do próprio repositório revisado, e a política não governa
+`review.profiles`. Para padrões de engenharia comuns a todos os serviços, há
+dois caminhos hoje:
+
+1. **No mesmo repositório da política.** Ponha as skills do time de
+   engenharia nele, numa pasta própria, por exemplo `skills/padroes/`, e
+   liste cada arquivo em `review.context.skills` do `config.yml` da política
+   (`skills/padroes/go.md`). Uma skill em `.aurumcode/skills/<nome>/SKILL.md`
+   do repositório da política também é lida, sem lista. Dê a aprovação dessa
+   pasta ao time de engenharia com `CODEOWNERS`
+   (`/skills/padroes/ @ORG/engenharia`) e o resto ao time de segurança. O
+   `CODEOWNERS` só obriga essa aprovação se a proteção da branch do
+   repositório da política exigir revisão de code owners. Essas seções viram regras **da política**: valem
+   para todo repositório que usa a política e só mudam quando o `policy_ref`
+   do workflow obrigatório aponta a nova SHA.
+2. **Copiadas em cada serviço.** Copie as skills do time para
+   `.aurumcode/skills/` de cada repositório. Elas são regras do próprio
+   repositório: o time do serviço pode mudá-las numa PR, e cada cópia só muda
+   por uma PR naquele repositório.
+
 ## 2. Configuração do repositório
 
 O repositório do dev só precisa do básico; o gate vem da política.
@@ -155,16 +189,33 @@ jobs:
       AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}
 ```
 
-- Fixe `review.yml` e `policy_ref` por **SHA de 40 hex**, nunca por branch ou
-  tag: é isso que garante que todo PR da organização é julgado pela mesma
-  política até alguém, de propósito, apontar outra SHA.
+- No workflow obrigatório da organização, fixe `review.yml` e `policy_ref`
+  por **SHA de 40 hex**, nunca por branch ou tag: uma tag pode ser apontada
+  para outro commit, a SHA não. É isso que garante que todo PR da organização
+  é julgado pela mesma ferramenta e pela mesma política até alguém, de
+  propósito, apontar outra SHA. Num repositório avulso, a tag de uma release
+  basta (veja [Primeiro review](getting-started.md)).
+- A política não fixa uma versão mínima do AurumCode: a versão que roda é a
+  da SHA em `uses:` deste workflow.
 - **Atualizar o AurumCode** é uma PR neste workflow, que vale para todos os
   repositórios de uma vez. Deixe a versão num comentário ao lado da SHA
   (`@<SHA> # v2.0.0`) e ligue o Dependabot (`package-ecosystem:
   github-actions`) no repositório deste workflow: ele abre a PR quando sair
-  versão nova, com as notas dela.
+  versão nova, com as notas dela. O Dependabot atualiza só a referência de
+  `uses:`, nunca o `policy_ref`: o `policy_ref` é um input do workflow e muda
+  por uma PR de quem mantém este workflow, depois que a mudança da política
+  foi aprovada (seção 8).
 - O workflow publica o status `aurumcode/policy-gate`; ele só bloqueia o merge
-  se a branch (ou o ruleset da organização) o exigir.
+  se a proteção da branch (ou o ruleset da organização) o exigir.
+- Para tornar o workflow obrigatório em toda a organização, crie um ruleset da
+  organização com a regra *Require workflows to pass before merging*,
+  apontando para este arquivo, e a regra *Require status checks to pass
+  before merging*, com `aurumcode/policy-gate`. O AurumCode não cria nem
+  confere esse ruleset: ele é configurado no GitHub, e depende do plano da
+  organização (o GitHub documenta rulesets da organização para os planos Team
+  e Enterprise, e a regra que exige o workflow na documentação do Enterprise
+  Cloud). Sem essa regra, cada repositório chama este workflow por conta
+  própria e exige `aurumcode/policy-gate` na proteção da branch.
 - Publique o SARIF no code scanning em um segundo job do seu próprio workflow
   (`security-events: write`): veja a seção "Trilha de auditoria e SARIF" de
   [configuration.md](configuration.md).
@@ -188,6 +239,23 @@ YAML por testes; este guia e a demonstração **não** provam a execução em um
 runner real do GitHub. A demonstração (seção 7) reproduz a mesma ordem
 (`sbom`, `review`, `sign`) em containers locais.
 
+### Versões fixadas das ferramentas
+
+Versões no workflow reutilizável e na imagem do produto, nesta versão do
+AurumCode:
+
+| Ferramenta | Versão | Onde está fixada |
+|---|---|---|
+| gitleaks | v8.30.1 | imagem por digest em `.board/bootstrap/locks/scanners.yml`; o `Dockerfile` e o workflow recusam outra versão |
+| Semgrep | 1.172.0 | `Dockerfile` (`semgrep==1.172.0`), a mesma versão de `scanners.yml` |
+| osv-scanner | v2.0.0 | `Dockerfile`, compilado do módulo nessa versão |
+| Trivy | 0.73.0 | imagem por digest em `scanners.yml`; o workflow roda essa imagem, nunca um Trivy instalado |
+| Cosign | v3.1.3 | `cosign-release` em `.github/workflows/review.yml`, com o instalador fixado por SHA |
+
+Nenhuma ferramenta roda como `latest`. Atualizar uma delas é uma PR neste
+repositório, revisada como qualquer outra; o seu workflow passa a usar a
+versão nova quando você troca a SHA de `uses:`.
+
 ## 4. Secrets
 
 | Nome | Para quê | Onde fica |
@@ -196,6 +264,23 @@ runner real do GitHub. A demonstração (seção 7) reproduz a mesma ordem
 | `DTRACK_API_KEY` | chave de API do time no Dependency-Track | secret; o nome vem de `api_key_secret` |
 | `DTRACK_PROJECT_ID` | UUID do projeto do serviço | secret; o nome vem de `project_id_secret` |
 | `AURUMCODE_POLICY_TOKEN` | ler a política central num repositório **privado ou interno** (o `github.token` de cada repositório não lê outro repositório privado) | secret da organização; token fine-grained ou de GitHub App com **Contents: read** só no repositório da política |
+
+O `AURUMCODE_POLICY_TOKEN` vai direto ao `actions/checkout` do passo
+*Checkout central policy*. Com a política num repositório privado ou interno,
+se o token faltar, tiver vencido ou não tiver **Contents: read** nele, o job
+para nesse passo, com o erro do próprio `actions/checkout`, antes de qualquer
+revisão: nenhum
+parecer e nenhum status `aurumcode/policy-gate` é publicado. Com esse status
+exigido pela proteção da branch, a PR fica esperando por ele e não pode ser
+mesclada; o motivo está no log desse passo.
+
+Uma PR aberta pelo Dependabot roda o workflow só com os *Dependabot secrets*:
+os secrets de Actions não chegam a ela. Com o workflow obrigatório, isso vale
+para toda PR do Dependabot em todo repositório da organização. Cadastre os
+mesmos nomes da tabela também como Dependabot secrets da organização; sem
+eles, a PR para no primeiro passo (sem `LLM_API_KEY`), não lê a política
+privada (sem `AURUMCODE_POLICY_TOKEN`) ou fica inconclusiva no inventário
+(sem `DTRACK_*`, com `ssor_dtrack` ligado), e nenhum desses casos aprova.
 
 Nada disso entra em Markdown ou YAML versionado. A chave do Dependency-Track é
 registrada no filtro de redação assim que é lida: não aparece no parecer, na
