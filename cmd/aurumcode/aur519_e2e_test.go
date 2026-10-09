@@ -262,7 +262,7 @@ func TestAUR519NoGateConfiguredStaysUntouched(t *testing.T) {
 	if strings.Contains(out.String()+errOut.String(), "policy gate") {
 		t.Fatalf("no gate was configured; the review must carry no policy-gate trace at all:\n%s", out.String()+errOut.String())
 	}
-	if !strings.Contains(out.String(), "**Verdict:** Approve") {
+	if !strings.Contains(out.String(), "[!TIP]") {
 		t.Fatalf("without a gate, a clean approve verdict must still publish unchanged:\n%s", out.String())
 	}
 }
@@ -714,7 +714,7 @@ func TestAUR519NoGatePublishesApproveDespiteModelCommentVerdict(t *testing.T) {
 	if !strings.Contains(stdout.String(), `"APPROVE"`) {
 		t.Fatalf("no gate configured: a model verdict of \"comment\" with no findings must still publish the APPROVE formal review action (pre-AUR-519 behavior), got: %s", stdout.String())
 	}
-	if !strings.Contains(postedBody, "**Verdict:** Approve") {
+	if !strings.Contains(postedBody, "[!TIP]") {
 		t.Fatalf("no gate configured: the published review body must still read Approve despite the model's own \"comment\" self-report, got: %s", postedBody)
 	}
 }

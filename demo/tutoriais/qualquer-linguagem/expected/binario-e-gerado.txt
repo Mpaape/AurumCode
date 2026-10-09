@@ -3,7 +3,7 @@ binary file, skipped: leia-me.txt
 generated file, skipped: schema.pb.txt
   - leia-me.txt (binary)
   - schema.pb.txt (generated)
-**Verdict:** Comment
+> **Inconclusive: this review does not approve the change.**
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 policy gate: review inconclusive (partial_coverage)
 exit_code=1

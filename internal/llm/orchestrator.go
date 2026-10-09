@@ -139,6 +139,10 @@ func (o *Orchestrator) attempt(ctx context.Context, estimateText string, opts Op
 			// consuming the budget its successor needs.
 			reservation.Release()
 
+			// A fallback chain already named every member's failure.
+			if errors.Is(err, ErrAllProvidersFailed) && len(o.providers) == 1 {
+				return Response{}, err
+			}
 			lastErr = fmt.Errorf("provider %s failed: %w", provider.Name(), err)
 
 			if i < len(o.providers)-1 {
@@ -169,7 +173,7 @@ func (o *Orchestrator) attempt(ctx context.Context, estimateText string, opts Op
 func (o *Orchestrator) executeWithTimeout(ctx context.Context, provider Provider, call func(Provider) (Response, error)) (Response, error) {
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, ProviderTimeout())
+		ctx, cancel = context.WithTimeout(ctx, callTimeout(provider))
 		defer cancel()
 	}
 

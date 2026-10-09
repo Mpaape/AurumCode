@@ -1,0 +1,15 @@
+== reserva-assume
+$ LLM_FALLBACK_1_BASE_URL=http://127.0.0.1:8080/reserva LLM_FALLBACK_1_API_KEY=reserva-falsa aurumcode review --base main
+aurumcode: provider litellm failed (litellm API error (status 503): overloaded: servico indisponivel); trying fallback LLM_FALLBACK_1 (openai-compatible)
+## AurumCode code review
+
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
+
+no gate declared · 1 file reviewed
+No issues found.
+--- requisicoes recebidas pelo provedor falso: 2
+    provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+    provedor recebeu: /reserva/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object
+exit_code=0
+RESULTADO: principal fora do ar: a reserva 1 responde e a revisao conclui

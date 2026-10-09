@@ -40,7 +40,7 @@ func TestAUR453TerminalSummaryAndSuggestion(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%s", code, errOut)
 	}
 	for _, want := range []string{
-		"## Code Review Summary",
+		"## AurumCode code review",
 		"### Suggestions",
 		"Remover o literal",
 		"Use uma variável de ambiente.",

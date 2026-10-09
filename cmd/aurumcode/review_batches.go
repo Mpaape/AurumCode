@@ -28,6 +28,12 @@ func (s *reviewState) noteBatches(batches []review.Batch) {
 	if len(batches) == 0 {
 		return
 	}
+	if s.result != nil {
+		if s.result.Metadata == nil {
+			s.result.Metadata = map[string]string{}
+		}
+		s.result.Metadata[metaReviewParts] = fmt.Sprintf("%d", len(batches))
+	}
 	sizes := make([]string, 0, len(batches))
 	for _, b := range batches {
 		sizes = append(sizes, fmt.Sprintf("%d", len(b.Files)))

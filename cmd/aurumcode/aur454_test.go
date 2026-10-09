@@ -26,13 +26,13 @@ func TestAUR454PublishedBodyExplainsMergeAndCollapse(t *testing.T) {
 		if len(issues) != 1 || !strings.Contains(issues[0].Message, "analysis, "+i18n.Text(language, "review.presentation_model_source")) {
 			t.Fatalf("(%s) consolidated finding not traceable: %+v", language, issues)
 		}
-		body := appendPresentationNotice("corpo", shown, language)
+		body := presentationNotice(shown, language)
 		if !strings.Contains(body, "`quality/poor-naming` a.go:9") || !strings.Contains(body, "review.presentation.collapse") {
 			t.Fatalf("(%s) condensed finding not explained:\n%s", language, body)
 		}
 	}
-	if body := appendPresentationNotice("corpo", presentation{consolidate.Apply(in[2:], consolidate.Options{})}, "en-US"); body != "corpo" {
-		t.Fatalf("nothing merged or condensed, body changed:\n%s", body)
+	if body := presentationNotice(presentation{consolidate.Apply(in[2:], consolidate.Options{})}, "en-US"); body != "" {
+		t.Fatalf("nothing merged or condensed, a note was written:\n%s", body)
 	}
 }
 

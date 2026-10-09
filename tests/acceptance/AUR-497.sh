@@ -62,7 +62,9 @@ card() { # $1 index, $2 label, $3 command (run with cwd=$work)
 FENCE="$(printf '\140\140\140')"   # three backticks, built without a literal one
 export FENCE
 C1='$BIN review --base HEAD~1 --seguranca 2>/dev/null'
-C2='$BIN review --base HEAD~1 2>/dev/null | awk -v f="$FENCE" "\$0==f{print; exit} {print}"'
+# The second card shows the head of the report: the decision and the facts
+# line, up to the facts line (the first line naming the gate).
+C2='$BIN review --base HEAD~1 2>/dev/null | sed -n "1,/^no gate declared/p"'
 C3='AURUMCODE_PROMPT_CAPTURE="$work/p1.txt" $BIN review --base HEAD~1 >/dev/null 2>&1; grep -o "\"dependents\":\\[[^]]*\\]" "$work/p1.txt"'
 C4='$BIN fix < '"$FX"'/review.json'
 C5='mkdir -p .aurumcode && printf "review:\n  memory: local\n" > .aurumcode/config.yml
@@ -79,7 +81,7 @@ export work BIN
 # AC-003: every cited proof path and function exists.
 proofs=(
   "internal/analysis/analysis_test.go::TestAnalyzeTable"
-  "internal/render/mermaid_test.go::TestMermaidHeaderEdgesAndFiles"
+  "cmd/aurumcode/aur517_test.go::TestAUR517SameDecisionAcrossSinks"
   "internal/context/resolver_test.go::TestResolvePython"
   "cmd/aurumcode/fix_test.go::TestRunFixAcceptsReviewResponseShape"
   "internal/memory/memory_test.go::TestLocalRoundTrip"
@@ -129,7 +131,8 @@ case "$selector" in
     card 8 modelo "$C8"
     ;;
   MUT-001)  # edit an embedded output without changing the fixture -> AC-001 fails
-    sed -i '0,/## Code Review Summary/s//## Code Review Summary (edited)/' "$HTML"
+    # Every embedded report head is edited (a BusyBox sed has no 0,/re/ address).
+    sed -i 's/## AurumCode code review/& (edited)/' "$HTML"
     card 1 analise "$C1"
     fail "MUT-001/survived" ;;
   MUT-002)  # drop one proof line -> AC-003 fails

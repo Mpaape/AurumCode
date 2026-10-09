@@ -22,9 +22,37 @@ O workflow reutilizável exige a revisão por modelo: nesse caso, o status
 `aurumcode/review` e o job falham em vez de exibir um falso verde. Um uso local
 de `review --pr` sem `--exigir-qualidade` mantém o modo determinístico opcional.
 
-Sugestões são opcionais e devem ser pequenas, locais e justificadas.
-Pontos fortes devem descrever benefícios do código/testes, sem elogios
-genéricos ao workflow ou à existência do AurumCode.
+Sugestões são opcionais e devem ser pequenas, locais e justificadas. Os
+pontos fortes que o modelo escreve não são publicados no parecer.
+
+## O parecer
+
+O `--pr` publica **um parecer por pull request**, pensado para quem decide o
+merge ler em dez segundos:
+
+1. **A decisão**, num bloco de aviso do GitHub: *Aprovado*, *Aprovado com N
+   observações*, *Bloqueado: N problemas precisam de correção* ou
+   *Inconclusivo: esta revisão não aprova a mudança*. Quem decide é o gate
+   declarado (ou, sem gate, a severidade), nunca o rótulo que o modelo se dá.
+2. **Uma linha de fatos**: gate passou ou reprovou, quantos arquivos foram
+   revisados e em quantas partes.
+3. **Corrigir antes do merge**: cada problema bloqueante com onde, o quê, a
+   regra citada e os campos que ajudam a corrigir (impacto, evidência,
+   correção sugerida, verificação).
+4. **Observações (não bloqueiam)**: uma linha por achado abaixo do limiar,
+   inclusive os provados fora das linhas alteradas.
+5. **Resumo** do modelo.
+6. **Detalhes da revisão**, recolhidos: sugestões, status do CI, testes (até
+   três do plano do modelo e a contagem dos testes afetados), limitações
+   (até três do modelo, mais os avisos do próprio Aurum), cobertura,
+   verificação, rodadas anteriores e consolidação. Pontos fortes não são
+   publicados: elogio não é informação de que o leitor precise.
+
+A rodada seguinte **edita o mesmo parecer** em vez de publicar outro; só um
+achado **bloqueante** numa linha alterada ganha comentário na linha (com
+`inline_comments`), e o comentário de um achado que a rodada seguinte não
+reencontra recebe a nota *Resolvido*. O relatório do terminal (`--base`)
+abre com a mesma decisão e a mesma linha de fatos.
 
 ## Consolidação e preferências de apresentação
 
@@ -33,14 +61,18 @@ regra) relatado por passes diferentes (modelo, análise determinística,
 passagem de segurança, scanner, lotes) é publicado uma vez: fica a ocorrência
 de origem determinística quando há uma, com a maior severidade do grupo, a
 evidência de cada passe e as fontes no texto (`[fontes: analysis, model]`).
-Regra diferente na mesma linha é outro problema; não há corte por contagem nem
+Regra diferente na mesma linha é outro problema, com uma exceção: um achado do
+**modelo** no mesmo trecho em que um scanner já apontou um problema da mesma
+categoria (o prefixo da regra do modelo, como `security`, aparece na regra do
+scanner) é o scanner repetido pelo modelo, e é publicado uma vez, sob a regra
+do scanner, com o texto do modelo como evidência. Não há corte por contagem nem
 teto de achados. A consolidação muda só o que é publicado: gate, evento da
 revisão e status continuam lendo os achados da execução.
 
 `review.presentation.collapse` (ver [Configuração](configuration.md)) é a
 preferência explícita de concisão: achados não bloqueantes das severidades
-listadas saem numa linha de "Consolidação e preferências" que nomeia cada um
-(severidade, regra, arquivo e linha), em vez de um comentário cada. Achado
+listadas saem numa linha de "Consolidação e preferências", nos detalhes do
+parecer, que nomeia cada um (severidade, regra, arquivo e linha). Achado
 bloqueante nunca é agrupado; valor desconhecido é avisado e nada é agrupado.
 
 ## Heurísticas versus defeitos provados
@@ -107,7 +139,9 @@ recebem esse histórico remoto.
 
 ### Rodadas do mesmo PR
 
-Cada comentário de achado publicado no `--pr` leva um marcador oculto
+O parecer de uma rodada nova edita o da rodada anterior (o comentário do
+publicador que abre com o marcador do parecer); sem histórico legível ou sem
+login conhecido, publica um novo. Cada comentário de achado publicado na linha leva um marcador oculto
 (`<!-- aurumcode:finding <impressão> <regra> -->`) com a impressão do achado:
 a mesma de `render.FindingFingerprint`, sobre regra, caminho e o código da
 linha revisada, sem o número da linha. A rodada seguinte lê os marcadores do
@@ -122,8 +156,10 @@ nenhum marcador é lido e todo achado é comentado de novo. Então:
 - conta no parecer quantos achados não foram comentados de novo: eles
   continuam no parecer, no gate e nos status, de modo que o veredito de duas
   rodadas iguais é o mesmo;
-- lista, em "Rodadas anteriores", os achados de rodadas anteriores que esta
-  execução não reencontrou (corrigidos ou não reencontrados). Um achado
+- lista, em "Rodadas anteriores" (nos detalhes do parecer), os achados de
+  rodadas anteriores que esta execução não reencontrou (corrigidos ou não
+  reencontrados), e edita cada um desses comentários com a nota *Resolvido*
+  e um marcador que o tira das rodadas seguintes. Um achado
   agrupado por `review.presentation.collapse` continua reportado e nunca entra
   nessa lista; uma execução inconclusiva (falha do modelo ou gate
   inconclusivo) não lista nada como resolvido. O evento da
@@ -150,13 +186,18 @@ time para esse endpoint; a remoção de segredos reconhecidos não é anonimiza�
 Um achado plausível e falso do modelo é o pior defeito de uma revisão: ele
 bloqueia o merge com uma afirmação que o código refuta (por exemplo, "método
 chamado sem guarda de nil" quando o método começa com `if c == nil { return
-nil }`). Por isso todo achado do modelo que bloquearia o gate passa por uma
-verificação adversarial com o código real da revisão revisada, e só uma
-refutação apoiada numa citação literal desse código o rebaixa a comentário não
-bloqueante marcado, visível no parecer e na auditoria. Qualquer outra resposta,
-ou falha da verificação, mantém o bloqueio: a verificação só pode tirar um
-achado do gate com prova, nunca por silêncio. Achados de scanner não passam por
-ela. Configuração em
+nil }`). Por isso todo achado do modelo passa por uma verificação adversarial
+com o código real da revisão revisada, os que bloqueariam o gate primeiro
+(o teto de chamadas protege o gate antes das observações). Só uma refutação
+apoiada numa citação literal desse código tira o achado do parecer: um
+bloqueante deixa o gate, uma observação é descartada, e os dois ficam nomeados,
+com o motivo e a citação, nos detalhes do parecer, no stderr e na auditoria.
+Qualquer outra resposta, ou falha da verificação, mantém o achado: a
+verificação só pode tirar um achado com prova, nunca por silêncio. Sem a
+revisão revisada (um `--base` fora da raiz de um checkout), nada é verificado,
+tudo continua contando e a auditoria registra o motivo; o aviso no stderr só
+aparece quando `review.verification` foi declarada. Achados de scanner não
+passam por ela. Configuração em
 [`review.verification`](configuration.md#verificacao-adversarial-dos-achados-do-modelo-reviewverification);
 o caso `achado-refutado` do tutorial de revisão mostra as duas pontas.
 

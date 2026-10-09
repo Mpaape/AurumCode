@@ -643,6 +643,8 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 
 ![Terminal do caso status-pr](../assets/capturas/gate/status-pr-terminal.png)
 
+![Comentário do PR do caso status-pr](../assets/capturas/gate/status-pr-comentario.png)
+
 ![Status checks do caso status-pr](../assets/capturas/gate/status-pr-status.png)
 
 <!-- capturas:fim -->

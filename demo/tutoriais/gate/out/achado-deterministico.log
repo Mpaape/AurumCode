@@ -8,24 +8,12 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: policy gate: review inconclusive (quality_skipped)
 aurumcode review: policy gate: security/hardcoded-secret - Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret - Hardcoded Secrets) (severidade error, limiar error, origem security)
 LLM quality review did not run. The following report covers deterministic analysis only.
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: failed · 1 file reviewed
 
 Security findings (standards/security-review):
 app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
@@ -41,24 +29,12 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 aurumcode review: policy gate: review inconclusive (quality_skipped)
 aurumcode review: policy gate: security/hardcoded-secret - Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret - Hardcoded Secrets) (severidade error, limiar error, origem security)
 LLM quality review did not run. The following report covers deterministic analysis only.
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: failed · 1 file reviewed
 
 Security findings (standards/security-review):
 app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
@@ -73,24 +49,13 @@ aurumcode review: security pass applied 4 of 8 security rules (security/command-
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (quality_skipped)
 LLM quality review did not run. The following report covers deterministic analysis only.
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The model review did not complete. Only deterministic checks produced results; this review does not approve the change.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: passed · 1 file reviewed
 
 Security findings (standards/security-review):
 No security findings.

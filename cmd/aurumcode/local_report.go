@@ -6,33 +6,25 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// renderPass is the render pass: it renders the deterministic, localized
-// summary (render.Summary) and the Mermaid flow diagram (render.Mermaid) from
-// the already-redacted result and the diff. The --base path prints them to
-// stdout; the PR path publishes a single code-review document instead.
-//
-// render.Summary prints result.Verdict verbatim, and that field is whatever
-// the model itself claimed in its JSON response -- the same kind of
-// untrusted, potentially stale self-report result.Summary is. localVerdict
-// substitutes the pipeline's own decision before it reaches render.Summary,
-// so --base can never show a different outcome than the PR comment or the
-// formal review publish for the identical, already-filtered result (AUR-517
-// AC-003).
-func renderPass(result *types.ReviewResult, diff *types.Diff, language, verdict string) (tldr string, diagram string) {
-	labeled := localVerdict(result)
-	if labeled != nil {
-		labeled.Verdict = verdict
+// renderPass renders the terminal report's head from the already-redacted
+// result: the same decision headline and facts line the parecer opens
+// with. It is deterministic and derives only from result, diff and rule, so
+// the same input always prints the same bytes, and the terminal never shows
+// a different outcome than the published parecer.
+func renderPass(result *types.ReviewResult, diff *types.Diff, language string, rule blocking.Rule) string {
+	if result == nil {
+		return ""
 	}
-	tldr = render.Summary(labeled, language)
-	if d, err := render.Mermaid(diff); err == nil {
-		diagram = d
-	}
-	return tldr, diagram
+	// The model's summary stays out of the terminal head: a run served from
+	// the review cache has none, and the same input must print the same
+	// bytes with a cold or a warm cache (AUR-441).
+	var b strings.Builder
+	writeParecerHead(&b, result, diff, reviewCopyFor(language), rule)
+	return strings.TrimRight(b.String(), "\n") + "\n"
 }
 
 // localVerdict returns a shallow copy of result with Verdict replaced by
@@ -53,7 +45,7 @@ func localVerdict(result *types.ReviewResult) *types.ReviewResult {
 }
 
 // canonicalVerdict maps formalReviewEvent's GitHub review event to the
-// verdict enum result.Verdict and render.Summary already use
+// verdict enum result.Verdict and the audit record use
 // ("approve"/"changes_requested"/"comment").
 func canonicalVerdict(result *types.ReviewResult) string {
 	return verdictForEvent(formalReviewEvent(result))
@@ -193,21 +185,8 @@ func renderSuggestions(result *types.ReviewResult, diff *types.Diff, language st
 }
 
 // renderLocalReport renders the --base path's stdout report from the shared
-// render pass: the summary block, then a fenced ```mermaid block when a
-// diagram was produced. It is deterministic and derives only from result and
-// diff, so the same input always prints the same bytes.
-// verdict is canonicalVerdict(result), or the one aligned with the gate.
-func renderLocalReport(result *types.ReviewResult, diff *types.Diff, language, verdict string) string {
-	tldr, diagram := renderPass(result, diff, language, verdict)
-	var b strings.Builder
-	if strings.TrimSpace(tldr) != "" {
-		b.WriteString(tldr)
-		b.WriteString("\n")
-	}
-	if strings.TrimSpace(diagram) != "" {
-		b.WriteString("\n```mermaid\n")
-		b.WriteString(diagram)
-		b.WriteString("\n```\n")
-	}
-	return b.String()
+// render pass. It is deterministic and derives only from result and diff,
+// so the same input always prints the same bytes.
+func renderLocalReport(result *types.ReviewResult, diff *types.Diff, language string, rule blocking.Rule) string {
+	return renderPass(result, diff, language, rule)
 }

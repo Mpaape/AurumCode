@@ -166,7 +166,7 @@ func TestAUR517SummaryWithheldWhenAccusationOutOfScope(t *testing.T) {
 		t.Fatalf("published review still names the out-of-scope finding:\n%s", body)
 	}
 	// N3a: the withholding itself must be visible, never silent.
-	if !strings.Contains(body, "Model summary omitted: 1 proposed finding(s) were discarded by the scope/rule filters.") {
+	if !strings.Contains(body, "Summary omitted: the model proposed 1 finding(s) without proof") {
 		t.Fatalf("published review gives no visible notice that the summary was withheld:\n%s", body)
 	}
 }
@@ -226,7 +226,7 @@ func TestAUR517ValidFindingKeepsEvidenceAndVerdict(t *testing.T) {
 		"data, _ := fetch() discards the second return value",      // evidence
 		"an I/O failure from fetch is silently treated as success", // impact
 		"quality/missing-error-handling",                           // rule citation
-		"Changes requested",                                        // matching verdict text
+		"Blocked: 1 problem must be fixed",                         // matching decision
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("published review missing %q:\n%s", want, body)
@@ -253,7 +253,7 @@ func TestAUR517SameDecisionAcrossSinks(t *testing.T) {
 		t.Fatalf("runReview exit=%d stdout=%s stderr=%s", code, localOut.String(), localErr.String())
 	}
 	restore()
-	if !strings.Contains(localOut.String(), "Changes requested") {
+	if !strings.Contains(localOut.String(), "[!CAUTION]") {
 		t.Fatalf("local --base report did not request changes:\n%s", localOut.String())
 	}
 
@@ -270,7 +270,7 @@ func TestAUR517SameDecisionAcrossSinks(t *testing.T) {
 		t.Fatalf("runPRReview(comments) exit=%d stdout=%s stderr=%s", code, commentOut.String(), commentErr.String())
 	}
 	commentBody := strings.Join(*commentPosted, "\n")
-	if !strings.Contains(commentBody, "Changes requested") {
+	if !strings.Contains(commentBody, "[!CAUTION]") {
 		t.Fatalf("PR comment did not request changes:\n%s", commentBody)
 	}
 
@@ -287,7 +287,7 @@ func TestAUR517SameDecisionAcrossSinks(t *testing.T) {
 		t.Fatalf("runPRReview(review) exit=%d stdout=%s stderr=%s", code, reviewOut.String(), reviewErr.String())
 	}
 	reviewBody := strings.Join(*reviewPosted, "\n")
-	if !strings.Contains(reviewBody, "Changes requested") || !strings.Contains(reviewBody, `"event":"REQUEST_CHANGES"`) {
+	if !strings.Contains(reviewBody, "[!CAUTION]") || !strings.Contains(reviewBody, `"event":"REQUEST_CHANGES"`) {
 		t.Fatalf("formal review did not request changes:\n%s", reviewBody)
 	}
 }
@@ -314,8 +314,8 @@ func TestAUR517QualityDegradedLocalVerdictIsComment(t *testing.T) {
 	if !strings.Contains(out, "LLM quality review did not run") {
 		t.Fatalf("expected the quality-skip notice, got:\n%s", out)
 	}
-	if !strings.Contains(out, "**Verdict:** Comment") {
-		t.Fatalf("quality-degraded local report did not canonicalize to Comment:\n%s", out)
+	if !strings.Contains(out, "[!WARNING]") || strings.Contains(out, "[!TIP]") {
+		t.Fatalf("quality-degraded local report did not read inconclusive:\n%s", out)
 	}
 }
 

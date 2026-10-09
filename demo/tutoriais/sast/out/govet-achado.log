@@ -2,24 +2,12 @@
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf) (severidade warning, limiar warning, origem govet, secao repo)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 0
-- warning: 1
-- info: 0
-
-**Files touched:**
-- calc/calc.go
-
-
-```mermaid
-flowchart TD
-    n0["calc/calc.go"]
-
-```
+policy gate: failed · 1 file reviewed
 calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)
 exit_code=3
 RESULTADO: go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra

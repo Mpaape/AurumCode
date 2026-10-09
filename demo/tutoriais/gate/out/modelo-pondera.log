@@ -3,24 +3,12 @@
 $ aurumcode review --base main --politica /policy --auditoria /work/auditoria-pondera.json
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: failed · 1 file reviewed
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
   sugestao: Mover o exemplo para um arquivo de teste.
@@ -41,24 +29,12 @@ RESULTADO: a politica conta o achado contestado (exit 3) e o parecer propoe a ex
 $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: failed · 1 file reviewed
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: confirmed [E1] prioridade high - A linha atribui uma senha literal a dbPassword e a imprime.
   sugestao: Ler a senha do ambiente.
@@ -68,24 +44,12 @@ RESULTADO: confirmado: o achado conta e nenhuma excecao e proposta
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: gate.triage (analysis: model): app.go:6 analysis/hardcoded-secret contestado pelo modelo deixou de contar
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!NOTE]
+> **Approved with 1 observation that does not block the merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: passed · 1 file reviewed
 app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
   sugestao: Mover o exemplo para um arquivo de teste.

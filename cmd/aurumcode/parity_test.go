@@ -66,7 +66,7 @@ func TestPRPathMergesDeterministicCapabilities(t *testing.T) {
 	if posted.Event != "REQUEST_CHANGES" {
 		t.Fatalf("event=%q, want REQUEST_CHANGES (analysis finding is error severity)", posted.Event)
 	}
-	for _, want := range []string{"analysis/hardcoded-secret", "## AurumCode code review", "### Findings"} {
+	for _, want := range []string{"analysis/hardcoded-secret", "## AurumCode code review", "### Fix before merge"} {
 		if !strings.Contains(posted.Body, want) {
 			t.Fatalf("published review missing %q:\n%s", want, posted.Body)
 		}

@@ -4,26 +4,15 @@ $ aurumcode review --base main
 aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run. Engine detail: semgrep: execution failed: exit status 2
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (sast_execution_error)
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error) [detalhe: semgrep: execution failed: exit status 2]
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["calc.js"]
-
-```
+policy gate: failed · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error) [detalhe: semgrep: execution failed: exit status 2]
 exit_code=1
 RESULTADO: semgrep falhou: inconclusivo e, com block, o gate reprova
 --- gate.inconclusive: warn
@@ -32,24 +21,13 @@ aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustw
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (sast_execution_error)
 aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error) [detalhe: semgrep: execution failed: exit status 2]
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["calc.js"]
-
-```
+policy gate: passed · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
 exit_code=0
 RESULTADO: semgrep falhou: com warn o alerta e publicado e o comando sai 0, sem aprovar

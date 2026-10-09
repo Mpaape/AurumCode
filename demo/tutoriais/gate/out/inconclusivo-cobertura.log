@@ -1,26 +1,21 @@
 == inconclusivo-cobertura
 --- inconclusive: block
 $ aurumcode review --base main --politica /policy
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
+policy gate: failed
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
 - 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: review inconclusive (partial_coverage)
 exit_code=1
 RESULTADO: block: cobertura parcial reprova
 --- inconclusive: warn
@@ -28,18 +23,13 @@ $ aurumcode review --base main --politica /policy
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
+policy gate: passed
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
 - 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.

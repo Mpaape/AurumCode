@@ -141,8 +141,10 @@ gera_pr_grande() {
   done
 }
 
-# cobertura_publicada: as linhas de cobertura do review que o produto publicou no PR.
+# cobertura_publicada: as linhas de cobertura do review que o produto publicou no PR
+# (nos detalhes do parecer), repetidas aqui sob um marcador, fora do corpo.
 cobertura_publicada() {
+  [ ! -s "$TUT_PR_LOG" ] || echo "--- cobertura publicada nos detalhes do parecer:"
   [ ! -s "$TUT_PR_LOG" ] || python3 -c '
 import json,sys
 for l in open(sys.argv[1]):

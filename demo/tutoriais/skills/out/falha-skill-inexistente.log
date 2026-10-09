@@ -3,24 +3,12 @@
 $ aurumcode review --base main
 aurumcode review: context provider "review skill (.aurumcode/skills/nao-existe.md)" unavailable: context provider "review skill (.aurumcode/skills/nao-existe.md)": reading .aurumcode/skills/nao-existe.md: open /work/.aurumcode/skills/nao-existe.md: no such file or directory; continuing without that context
 aurumcode review: 1 finding(s) discarded: 1 citing an unknown rule_id (convencoes#sem-segredos-no-codigo)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+no gate declared · 1 file reviewed
 No issues found.
 exit_code=0
 RESULTADO: localmente a skill ausente e avisada e a revisao continua

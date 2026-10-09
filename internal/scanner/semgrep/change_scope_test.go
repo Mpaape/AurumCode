@@ -86,3 +86,21 @@ func TestSemgrepWithoutRangeFails(t *testing.T) {
 		t.Fatalf("err = %v, want ErrNoRange", err)
 	}
 }
+
+// A path the review ignores is out of the change's scope: a finding there
+// is dropped and a parse error there leaves the scan trustworthy, even on
+// a line the range added.
+func TestSemgrepIgnoredPathIsOutOfTheChange(t *testing.T) {
+	report := `{"results":[
+{"check_id":"new.rule","path":"app.go","start":{"line":4},"extra":{"severity":"ERROR","message":"new"}}],"errors":[
+{"level":"warn","type":["PartialParsing",[]],"message":"Syntax error","path":"app.go","spans":[{"start":{"line":3},"end":{"line":3}}]}]}`
+	ignoreApp := func(path string) bool { return path == "app.go" }
+	got, err := Engine{}.Run(context.Background(), scanner.Request{Root: t.TempDir(), Range: changeRange, Command: scopedRunner(report), Ignored: ignoreApp})
+	if err != nil || !got.Complete || len(got.Findings) != 0 {
+		t.Fatalf("Run = %+v, %v; want a complete scan with the ignored path's finding dropped", got, err)
+	}
+	// The same report without the ignore keeps failing closed.
+	if _, err := runScoped(t, report); !errors.Is(err, scanner.ErrInvalidOutput) {
+		t.Fatalf("err = %v, want ErrInvalidOutput without the ignore", err)
+	}
+}

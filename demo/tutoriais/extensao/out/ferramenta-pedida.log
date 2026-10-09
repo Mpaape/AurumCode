@@ -4,24 +4,12 @@ aurumcode review: deliberation: oferecidas [scanner_exemplo, codebase_context, r
 aurumcode review: deliberation: rodada 1 scanner_exemplo({}) executed: 1 achado(s)
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: exemplo:marca - linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca) (severidade error, limiar error, origem exemplo, secao repo)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.py
-
-
-```mermaid
-flowchart TD
-    n0["app.py"]
-
-```
+policy gate: failed · 1 file reviewed
 app.py:2: [error] linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca)
 exit_code=3
 RESULTADO: o modelo pediu scanner_exemplo, o achado contou no gate com origem exemplo

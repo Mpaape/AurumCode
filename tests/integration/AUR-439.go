@@ -329,7 +329,7 @@ func IntegrationAUR439(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("expected exit 0, got %d\nstdout=%s", code, stdout)
 		}
-		if !strings.Contains(stdout, "0 comentario(s) publicado(s)") {
+		if !strings.Contains(stdout, "parecer publicado no pull request") {
 			t.Fatalf("expected the zero-findings summary line (AUR-490: \"No issues found.\" is the --base stdout contract), got:\n%s", stdout)
 		}
 		statuses := fake.statusPosts()

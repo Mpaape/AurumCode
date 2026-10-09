@@ -1,24 +1,12 @@
 == diff-pequeno-nao-pede
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas []; não pedidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 1; desfecho answered
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Comment
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["calc.js"]
-
-```
+no gate declared · 1 file reviewed
 
 ### Suggestions
 

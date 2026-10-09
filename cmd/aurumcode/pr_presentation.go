@@ -86,15 +86,14 @@ func sourceList(origins []string, language string) string {
 	return strings.Join(names, ", ")
 }
 
-// appendPresentationNotice explains, in the review body, what was merged
-// and what the preference condensed, naming each condensed finding.
-func appendPresentationNotice(body string, pr presentation, language string) string {
+// presentationNotice is the details note of what was merged and what the
+// preference condensed, naming each condensed finding.
+func presentationNotice(pr presentation, language string) string {
 	if pr.Merged == 0 && len(pr.Collapsed) == 0 {
-		return body
+		return ""
 	}
 	var b strings.Builder
-	b.WriteString(strings.TrimRight(body, "\n"))
-	fmt.Fprintf(&b, "\n\n### %s\n\n", i18n.Text(language, "review.presentation_heading"))
+	fmt.Fprintf(&b, "#### %s\n\n", i18n.Text(language, "review.presentation_heading"))
 	if pr.Merged > 0 {
 		fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.presentation_merged", pr.Merged))
 	}

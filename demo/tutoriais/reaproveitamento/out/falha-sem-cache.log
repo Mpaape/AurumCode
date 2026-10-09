@@ -4,24 +4,12 @@ $ aurumcode review --base main --politica /policy
 aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 0
-- warning: 1
-- info: 0
-
-**Files touched:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: failed · 1 file reviewed
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impact: A senha vai para o historico do repositorio.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
@@ -33,18 +21,13 @@ RESULTADO: sem cache a revisao funciona, mas o veredito nao e compartilhado
 $ aurumcode review --base main --politica /policy
 aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
+policy gate: failed
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
 - 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.

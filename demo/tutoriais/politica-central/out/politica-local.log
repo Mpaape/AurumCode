@@ -2,24 +2,12 @@
 --- sem politica: nenhum gate
 $ aurumcode review --base main
 aurumcode review: 1 finding(s) discarded: 1 citing an unknown rule_id (seguranca#sem-segredos-no-codigo)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+no gate declared · 1 file reviewed
 No issues found.
 exit_code=0
 RESULTADO: sem politica nao ha gate
@@ -27,29 +15,17 @@ RESULTADO: sem politica nao ha gate
 $ aurumcode review --base main --politica /policy
 aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
-## Resumo da Revisão de Código
+## AurumCode revisão de código
 
-**Veredito:** Alterações solicitadas
+> [!CAUTION]
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-**Resultados por severidade:**
-- erro: 0
-- aviso: 1
-- informação: 0
-
-**Arquivos alterados:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+gate da política: reprovou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impacto: A senha vai para o historico do repositorio.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Correção sugerida: Leia a senha do ambiente.
   - Verificação: Remova o literal e rode a revisao de novo.
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: a politica reprova o achado que cita a skill dela

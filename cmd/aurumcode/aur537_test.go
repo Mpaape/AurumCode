@@ -236,10 +236,10 @@ func TestAUR537ProviderFailureBlocksGate(t *testing.T) {
 	if !strings.Contains(postedBody, "the review did not run") {
 		t.Fatalf("published review body does not say the review did not run: %s", postedBody)
 	}
-	if !strings.Contains(postedBody, "**Verdict:** Inconclusive") {
+	if !strings.Contains(postedBody, "> **Inconclusive") {
 		t.Fatalf("published review body verdict does not read Inconclusive: %s", postedBody)
 	}
-	if strings.Contains(postedBody, "**Verdict:** Approve") {
+	if strings.Contains(postedBody, "[!TIP]") {
 		t.Fatalf("published review body verdict read Approve under a blocking, inconclusive gate: %s", postedBody)
 	}
 	if strings.Contains(stdout.String(), `"APPROVE"`) {
@@ -299,7 +299,7 @@ func TestAUR537ProviderFailureWarnsGate(t *testing.T) {
 	if !strings.Contains(postedBody, "the review did not run") {
 		t.Fatalf("published review body does not say the review did not run: %s", postedBody)
 	}
-	if !strings.Contains(postedBody, "**Verdict:** Inconclusive") {
+	if !strings.Contains(postedBody, "> **Inconclusive") {
 		t.Fatalf("published review body verdict does not read Inconclusive: %s", postedBody)
 	}
 
@@ -333,10 +333,10 @@ func TestAUR537ProviderFailureExigirQualidadeStillInconclusive(t *testing.T) {
 	if code != exitQualityNotReviewed {
 		t.Fatalf("exit=%d, want exitQualityNotReviewed(%d) under --exigir-qualidade; stdout=%s stderr=%s", code, exitQualityNotReviewed, stdout.String(), stderr.String())
 	}
-	if strings.Contains(postedBody, "**Verdict:** Approve") {
+	if strings.Contains(postedBody, "[!TIP]") {
 		t.Fatalf("published review body verdict read Approve despite --exigir-qualidade on a provider outage: %s", postedBody)
 	}
-	if !strings.Contains(postedBody, "**Verdict:** Inconclusive") {
+	if !strings.Contains(postedBody, "> **Inconclusive") {
 		t.Fatalf("published review body verdict does not read Inconclusive: %s", postedBody)
 	}
 	assertCheckStatusNeverSucceedsOnProviderFailure(t, published)

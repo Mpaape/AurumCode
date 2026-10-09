@@ -50,3 +50,16 @@ func TestPlanRoundCondensedIsNeverResolved(t *testing.T) {
 		t.Fatalf("a condensed finding was called resolved: %+v", plan.Resolved)
 	}
 }
+
+// A comment told resolved keeps its marker but is not read again, so the
+// resolution is named once; Resolved builds that body.
+func TestResolvedCommentsAreNotReadAgain(t *testing.T) {
+	body := Resolved("**Resolvido:** nao reencontrado.", "**[warning] x**\n\n"+Marker(fpA, "r1"))
+	if !strings.HasPrefix(body, "**Resolvido:**") || !strings.HasSuffix(body, ResolvedMarker) || !strings.Contains(body, Marker(fpA, "r1")) {
+		t.Fatalf("resolved body = %q", body)
+	}
+	got := Published([]Comment{{ID: 5, Kind: "inline", Body: body}, {ID: 6, Kind: "comment", Body: Marker(fpB, "r2"), Path: "a.go", Line: 3}})
+	if len(got) != 1 || got[0].Fingerprint != fpB || got[0].CommentID != 6 || got[0].CommentKind != "comment" {
+		t.Fatalf("published = %+v: the resolved comment must be skipped and the other carry its id", got)
+	}
+}

@@ -28,12 +28,17 @@ ac001() {
   if guard '../consumer/repo' bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; then fail invalid-repository-accepted; fi
 }
 ac002() {
-  local file
+  local file refs ref
   for file in .github/workflows/examples/code-review.yml docs/site/workflow.yml; do
-    # AUR-573: d3b50e74 made main the sole persistent branch, so the examples
-    # now call the reusable workflow at @main (no more @v2 lane, no @dev).
-    grep -Fq 'uses: Mpaape/AurumCode/.github/workflows/review.yml@main' "$repo_root/$file" || fail missing-main-ref
-    if grep -Eq 'review\.yml@(v2|dev)' "$repo_root/$file"; then fail stale-lane-example; fi
+    # AUR-573: d3b50e74 made main the sole persistent branch and the release
+    # process (scripts/release.sh fixar-exemplos) pins the examples to the
+    # published tag: every reference is @main or a full @vX.Y.Z tag, never a
+    # moving lane (@v2, @dev).
+    refs="$(grep -oE 'uses: Mpaape/AurumCode/\.github/workflows/review\.yml@[^[:space:]]+' "$repo_root/$file" | sed 's/.*@//')" || fail missing-ref
+    [[ -n "$refs" ]] || fail missing-ref
+    while IFS= read -r ref; do
+      [[ "$ref" == main || "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail stale-lane-example
+    done <<<"$refs"
   done
   cmp "$repo_root/.github/workflows/examples/code-review.yml" "$repo_root/docs/site/workflow.yml" || fail divergent-example
 }
@@ -55,7 +60,7 @@ mutation() {
     sed -i '/^          ref:/c\          ref: main' "$staged/.github/workflows/review.yml"
     AURUM_A493_REPO_ROOT="$staged" bash "${BASH_SOURCE[0]}" AC-001 || rc=$?
   else
-    sed -i 's/review.yml@main/review.yml@v2/' "$staged/docs/site/workflow.yml"
+    sed -i -E 's/review\.yml@[^[:space:]]+/review.yml@dev/' "$staged/docs/site/workflow.yml"
     AURUM_A493_REPO_ROOT="$staged" bash "${BASH_SOURCE[0]}" AC-002 || rc=$?
   fi
   [[ "$rc" == 1 ]] || fail mutation-survived-or-infrastructure-failed

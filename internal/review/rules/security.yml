@@ -110,6 +110,8 @@ rules:
     # quote/`$` adjacency also keeps a prose line that merely mentions a SQL
     # verb and a `$` from matching.
     pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b[^+]*["'']\s*\.\s*(?:to_owned|to_string)\s*\(\s*\)\s*\+\s*[A-Za-z_$][\w$.]*|\bformat!\s*\(\s*"[^"]*\b(?:select|insert|update|delete)\b[^"]*\{\}[^"]*"\s*,\s*[A-Za-z_$][\w$.]*|^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*["''][^"'']*\b(select|insert|update|delete)\b[^"'']*["'']\$[A-Za-z_{0-9]'
+    fix: "Bind the value as a query parameter (prepared statement) instead of concatenating it into the SQL text."
+    applies_to: code
 
   - id: security/xss
     title: Cross-Site Scripting (XSS)
@@ -164,6 +166,8 @@ rules:
     # a pattern-wide `(?i)`, so the new lowercase-start requirement on the
     # identifier itself is NOT also folded case-insensitive by accident).
     pattern: '\b(?i:innerHTML|outerHTML)\s*=\s*[a-z_$][\w$.]*\s*(?:;|$)|(?i:document\.write)\s*\(\s*[a-z_$][\w$.]*\s*\)|(?i:dangerouslySetInnerHTML)\s*=\s*\{\{\s*__html\s*:\s*[a-z_$][\w$.]*\s*\}\}'
+    fix: "Escape or encode the value for the HTML context it is written into, or use the template engine's auto-escaping."
+    applies_to: code
 
   - id: security/command-injection
     title: Command Injection
@@ -269,6 +273,8 @@ rules:
     # the token on this line; this card's AC-001 names the single-line
     # comment and string shapes. See docs/specs/AUR-503.md.
     pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|\beval\s+[^:=\s]|\b(?:Invoke-Expression|iex)\b'
+    fix: "Pass arguments as a list to the process API instead of building a shell command string; validate or allow-list the input."
+    applies_to: code
 
   - id: security/path-traversal
     title: Path Traversal
@@ -385,6 +391,7 @@ rules:
     # annotation optional there, since `let token = String::from("...")`
     # carries none). `const MAX_RETRIES: u32 = 5` and
     # `const GREETING: &str = "hello world"` stay excluded: no
+    fix: "Remove the secret from the code and read it from the environment or the CI secret store; rotate the exposed value."
     # secret-shaped keyword in the identifier, and the digit-free greeting
     # also fails the VALUE class -- matching this card's AC-002.
     pattern: '(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?::=|[:=])\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|\b[A-Z0-9_]*(?:API[_-]?KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_]*\s*=\s*(?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})|(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*:\s*(?:&''?(?:static\s+)?str|String)\s*=\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["''])|(?i:[A-Za-z0-9_]*(api[_-]?key|secret|password|passwd|token|credential|access[_-]?key)[A-Za-z0-9_]*\s*(?:\:\s*(?:&''?(?:static\s+)?str|String)\s*)?=\s*String::from\(\s*["''](?:[A-Za-z0-9_./\-]{4,}[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]{4,}|[A-Za-z0-9_./\-]{4,}[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]*|[A-Za-z0-9_./\-]*[A-Za-z][A-Za-z0-9_./\-]*[0-9][A-Za-z0-9_./\-]{4,})["'']\s*\))'
