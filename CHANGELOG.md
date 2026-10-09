@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Parecer em pt-BR também nas mensagens fixas do catálogo de análise e da passagem
+  de segurança; achado sem prova descartado deixa o título em "nenhum problema comprovado".
 - Demo `do-zero` com três analistas (segurança, padrões do time e QA), cada achado
   marcado com quem o encontrou; só a regra de um time bloqueia, o resto orienta.
 - Demonstração `demo/do-zero`: projeto novo, AurumCode configurado passo a passo

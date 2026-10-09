@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -256,5 +257,28 @@ func TestDetailsWriteMultiLineLimitationAsTitledList(t *testing.T) {
 	}
 	if strings.Contains(got, "- Cobertura") {
 		t.Fatalf("coverage title must not be a bullet:\n%s", got)
+	}
+}
+
+// Findings the gates discarded for lack of proof never turn an approval
+// into "no problem found": the headline says none was proven.
+func TestHeadlineApprovedWhenFindingsWereDiscarded(t *testing.T) {
+	copy := reviewCopyFor("pt-BR")
+	clean := formatHeadline(&types.ReviewResult{}, copy, blocking.Ungated())
+	discarded := formatHeadline(&types.ReviewResult{Metadata: map[string]string{"summary_discarded_findings": "2"}}, copy, blocking.Ungated())
+	if !strings.Contains(clean, "nenhum problema encontrado") {
+		t.Fatalf("clean review headline: %s", clean)
+	}
+	if !strings.Contains(discarded, "nenhum problema comprovado") || strings.Contains(discarded, "encontrado") {
+		t.Fatalf("discarded findings headline: %s", discarded)
+	}
+}
+
+// A suggestion with neither title nor description is never shown, and
+// the section heading does not appear for it alone.
+func TestSuggestionsSectionSkipsEmptySuggestions(t *testing.T) {
+	result := &types.ReviewResult{Suggestions: []types.ReviewSuggestion{{File: "a.go"}}}
+	if got := detailsSections(result, reviewCopyFor("pt-BR")); strings.Contains(got, "Sugestões") {
+		t.Fatalf("empty suggestions produced a heading:\n%s", got)
 	}
 }
