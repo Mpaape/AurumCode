@@ -32,6 +32,10 @@ type Record struct {
 	Line    int     `json:"line"`
 	Outcome Outcome `json:"outcome"`
 	Demoted bool    `json:"demoted"`
+	// Blocking says whether the finding would have blocked the run: a
+	// refuted blocking finding leaves the gate, a refuted observation is
+	// dropped from the parecer.
+	Blocking bool `json:"blocking"`
 	// Verdict is the verifier's own answer; empty when there was none.
 	Verdict string `json:"verdict,omitempty"`
 	// Reason is the verifier's reason, or why no answer could be used.

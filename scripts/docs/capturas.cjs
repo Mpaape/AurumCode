@@ -57,12 +57,15 @@ const log = (t, c) => fs.readFileSync(path.join(TUTORIAIS, t, "out", c + ".log")
 
 // ------------------------------------------------------------ what the user sees
 
-// The PR comment is the last "## Code Review Summary" block of the log, up to
-// the first line the CLI prints outside the comment.
-const FORA_DO_COMENTARIO = /^(exit_code=|RESULTADO:|\$ |--- |== |aurumcode |\S+:\d+: \[)/;
+// The PR comment is the last parecer of the log (the "## AurumCode" block the
+// fake GitHub echoes, or the terminal head of a --base run), up to the first
+// line the CLI prints outside it.
+const FORA_DO_COMENTARIO = /^(exit_code=|RESULTADO:|\$ |--- |== |aurumcode |parecer |status publicado|comentario na linha|\S+:\d+: \[)/;
+const ABRE_COMENTARIO = /^## AurumCode /;
 function comentario(texto) {
   const linhas = texto.split("\n");
-  const inicio = linhas.lastIndexOf("## Code Review Summary");
+  let inicio = -1;
+  linhas.forEach((l, i) => { if (ABRE_COMENTARIO.test(l)) inicio = i; });
   if (inicio < 0) return null;
   const corpo = [];
   let cerca = false;
@@ -113,16 +116,32 @@ function inline(s) {
 
 // Minimal Markdown renderer for the review comment (headings, lists, fences,
 // paragraphs): the subset the review summary uses, as GitHub shows it.
+// GitHub's alert blocks (> [!CAUTION] ...) get their colored band; a
+// <details> block is drawn collapsed, as the reader first sees it.
+const ALERTA = { CAUTION: ["#d1242f", "Caution"], WARNING: ["#9a6700", "Warning"], NOTE: ["#0969da", "Note"], TIP: ["#1a7f37", "Tip"] };
 function markdownParaHtml(md) {
   const out = [];
-  let cerca = null, lista = false;
+  let cerca = null, lista = false, alerta = null, detalhes = false;
   const fechaLista = () => { if (lista) { out.push("</ul>"); lista = false; } };
+  const fechaAlerta = () => { if (alerta) { out.push("</div>"); alerta = null; } };
   for (const l of md.split("\n")) {
+    if (detalhes) {
+      // Collapsed as GitHub first shows it: only the summary line is drawn.
+      const r = /^<summary>(.*)<\/summary>$/.exec(l.trim());
+      if (r) out.push(`<div class="detalhes">&#9656; ${inline(r[1])}</div>`);
+      else if (l.trim() === "</details>") detalhes = false;
+      continue;
+    }
     if (cerca !== null) {
       if (l.startsWith("```")) { out.push("<pre><code>" + escapa(cerca.join("\n")) + "</code></pre>"); cerca = null; }
       else cerca.push(l);
       continue;
     }
+    if (l.trim() === "<details>") { fechaLista(); fechaAlerta(); detalhes = true; continue; }
+    const abre = /^> \[!(CAUTION|WARNING|NOTE|TIP)\]$/.exec(l);
+    if (abre) { fechaLista(); fechaAlerta(); const [cor, nome] = ALERTA[abre[1]]; alerta = abre[1]; out.push(`<div class="alerta" style="border-left-color:${cor}"><div class="alerta-titulo" style="color:${cor}">${nome}</div>`); continue; }
+    if (alerta && l.startsWith(">")) { out.push("<p>" + inline(l.replace(/^>\s?/, "")) + "</p>"); continue; }
+    fechaAlerta();
     if (l.startsWith("```")) { fechaLista(); cerca = []; continue; }
     const h = /^(#{1,6})\s+(.*)$/.exec(l);
     const item = /^(\s*)[-*]\s+(.*)$/.exec(l);
@@ -134,6 +153,7 @@ function markdownParaHtml(md) {
     else { fechaLista(); out.push("<p>" + inline(l) + "</p>"); }
   }
   fechaLista();
+  fechaAlerta();
   if (cerca !== null) out.push("<pre><code>" + escapa(cerca.join("\n")) + "</code></pre>");
   return out.join("\n");
 }
@@ -155,7 +175,9 @@ function htmlComentario(md) {
 .corpo{padding:8px 16px}h2{font-size:20px;border-bottom:1px solid #d1d9e0;padding-bottom:4px}
 pre{background:#f6f8fa;padding:12px;border-radius:6px;font:12px "DejaVu Sans Mono",monospace;white-space:pre-wrap}
 code{background:#eff1f3;padding:1px 4px;border-radius:4px;font-family:"DejaVu Sans Mono",monospace;font-size:12px}
-pre code{background:none;padding:0}ul{padding-left:24px}a{color:#0969da}</style>
+pre code{background:none;padding:0}ul{padding-left:24px}a{color:#0969da}
+.alerta{border-left:4px solid;padding:4px 16px;margin:8px 0}.alerta-titulo{font-weight:bold;margin:4px 0}.alerta p{margin:4px 0}
+.detalhes{color:#59636e;margin:12px 0;cursor:pointer}h3{font-size:16px;margin:16px 0 8px}h4{font-size:14px;margin:12px 0 6px}</style>
 <div id="alvo"><div class="cab"><strong>aurumcode</strong> commented (pull request, rendered Markdown)</div>
 <div class="corpo">${markdownParaHtml(md)}</div></div>`;
 }

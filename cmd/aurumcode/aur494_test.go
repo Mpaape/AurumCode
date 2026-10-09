@@ -68,6 +68,9 @@ func (g *aur494GitHub) handler(t *testing.T) http.Handler {
 			}
 			g.record(review)
 			_, _ = w.Write([]byte(`{"id":1}`))
+		case r.Method == http.MethodPatch && strings.Contains(r.URL.Path, "/comments/"):
+			// A later round marks an earlier finding comment resolved.
+			_, _ = w.Write([]byte(`{"id":1}`))
 		default:
 			t.Errorf("unexpected GitHub request: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)

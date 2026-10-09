@@ -3,25 +3,13 @@
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: failed · 2 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
@@ -31,51 +19,27 @@ RESULTADO: listagem 503 sem cache: analysis_data_unavailable reprova
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: failed · 2 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
 exit_code=1
 RESULTADO: sem rede e sem cache: analysis_data_unavailable reprova
 --- C. o mesmo com gate.inconclusive: warn
 $ aurumcode review --base main
+## AurumCode code review
+
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+
+policy gate: passed · 2 files reviewed
+Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
-## Code Review Summary
-
-**Verdict:** Comment
-
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
-Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
 exit_code=0
 RESULTADO: sem rede com warn: exit 0, mas nunca aprovado silenciosamente

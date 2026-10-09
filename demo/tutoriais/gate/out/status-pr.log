@@ -6,22 +6,81 @@ review formal "COMMENT" publicado no pull request #7 (0 comentário(s) na linha)
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave no pull request #7)
 check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado no pull request #7)
 exit_code=0
-publicado em 7/reviews
+parecer publicado em 7/reviews:
+<!-- aurumcode-review -->
+## AurumCode code review
+
+> [!NOTE]
+> **Approved with 1 observation that does not block the merge.**
+
+policy gate: passed · 1 file reviewed
+
+### Observations (non-blocking)
+
+- `app.go:6` — Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+
+### Summary
+
+Senha escrita no codigo.
+
+<details>
+<summary>Review details</summary>
+
+#### Tests
+
+- 1 affected test(s) in 1 package(s): TestApp (package .)
+
+#### Review limits
+
+- Repository context omitted: the local checkout's identity could not be confirmed; this review does not send the local checkout's content to the provider and considers only the remote diff.
+
+</details>
 status publicado: context=aurumcode/review state=success
   description: nenhum achado grave no pull request #7
 status publicado: context=aurumcode/policy-gate state=success
   description: aprovado: gate de política aprovado no pull request #7
 --- reprovado
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
-aurumcode review: verification: reviewed revision unavailable (sem checkout revisado); the model's blocking findings still block
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (source_unavailable: revisão revisada indisponível para a verificação)
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: failure (1 achado(s) grave(s) no pull request #7)
 check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…)
 exit_code=3
-publicado em 7/reviews
+parecer publicado em 7/reviews:
+<!-- aurumcode-review -->
+## AurumCode code review
+
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
+
+policy gate: failed · 1 file reviewed
+
+### Fix before merge
+
+- **`app.go:6`** — Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+  - Impact: A senha vai para o historico do repositorio.
+  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Suggested fix: Leia a senha do ambiente.
+  - Verify: Remova o literal e rode a revisao de novo.
+
+### Summary
+
+Senha escrita no codigo.
+
+<details>
+<summary>Review details</summary>
+
+#### Tests
+
+- 1 affected test(s) in 1 package(s): TestApp (package .)
+
+#### Review limits
+
+- Repository context omitted: the local checkout's identity could not be confirmed; this review does not send the local checkout's content to the provider and considers only the remote diff.
+- policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
+
+</details>
 status publicado: context=aurumcode/review state=failure
   description: 1 achado(s) grave(s) no pull request #7
 status publicado: context=aurumcode/policy-gate state=failure
@@ -34,7 +93,39 @@ review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) n
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave no pull request #7)
 check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage))
 exit_code=1
-publicado em 7/reviews
+parecer publicado em 7/reviews:
+<!-- aurumcode-review -->
+## AurumCode code review
+
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+
+policy gate: failed · 1 file reviewed
+
+### Summary
+
+Mudanca sem risco.
+
+<details>
+<summary>Review details</summary>
+
+#### Tests
+
+- 1 affected test(s) in 1 package(s): TestGerado (package .)
+
+#### Review limits
+
+
+**Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully reviewed.**
+
+- 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+  - gerado.go (generated)
+
+- Repository context omitted: the local checkout's identity could not be confirmed; this review does not send the local checkout's content to the provider and considers only the remote diff.
+- policy gate: review inconclusive (partial_coverage)
+
+</details>
 status publicado: context=aurumcode/review state=success
   description: nenhum achado grave no pull request #7
 status publicado: context=aurumcode/policy-gate state=failure

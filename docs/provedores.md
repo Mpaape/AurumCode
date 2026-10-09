@@ -29,7 +29,9 @@ Regras que valem para todos:
 
 - Perfil desconhecido falha (exit 1) listando os válidos; perfil sem chave, sem
   a variável de um `{VAR}` ou sem URL falha nomeando o que falta. Nunca há
-  recaída silenciosa para outro provedor nem para "sem modelo".
+  recaída silenciosa para outro provedor nem para "sem modelo": só as
+  [reservas](#provedor-reserva-fallback) que o operador declarou, e cada troca
+  aparece no log.
 - O provedor, a URL e a chave vêm **só do ambiente do operador**, nunca da
   configuração do repositório revisado: um repositório não pode apontar a
   chave e o diff para um host dele.
@@ -52,7 +54,7 @@ perfil escolhido, a mesma da seção do provedor abaixo:
 ```yaml
 jobs:
   review:
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@main
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.0.0
     with:
       provider: anthropic
       model: claude-sonnet-5-5
@@ -62,6 +64,79 @@ jobs:
 Pela CLI, pela imagem e pelo servidor MCP, `LLM_PROVIDER` vale do mesmo jeito.
 
 Tudo isto está demonstrado, com um provedor falso e local, no tutorial
+[Provedores de LLM](tutorials/provedores.md).
+
+## Provedor reserva (fallback)
+
+Se o provedor principal falhar (fora do ar, limite de uso, erro 5xx, chave
+recusada, tempo esgotado), o Aurum repete **a mesma requisição** no próximo
+provedor da lista, em ordem, e segue com o primeiro que responder. Cada
+reserva é um provedor completo, de qualquer perfil do catálogo, declarada em
+slots numerados de 1 a 5:
+
+| Variável | Papel |
+|---|---|
+| `LLM_FALLBACK_<n>_PROVIDER` | perfil da reserva `n`; vazio = `openai-compatible` |
+| `LLM_FALLBACK_<n>_BASE_URL` | URL da reserva (no lugar de `LLM_BASE_URL`); opcional se o perfil tem URL padrão |
+| `LLM_FALLBACK_<n>_API_KEY` | chave da reserva, a única lida para ela: `LLM_API_KEY` e as variáveis nativas (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`...) pertencem ao principal |
+| `LLM_FALLBACK_<n>_MODEL` | modelo da reserva; o `LLM_MODEL` do principal **não** é herdado |
+
+```bash
+# principal: Bedrock; reserva 1: proxy LiteLLM interno; reserva 2: OpenAI
+export LLM_PROVIDER=bedrock AWS_REGION=us-east-1 LLM_API_KEY=... LLM_MODEL=...
+export LLM_FALLBACK_1_PROVIDER=litellm LLM_FALLBACK_1_BASE_URL=https://litellm.interno LLM_FALLBACK_1_API_KEY=...
+export LLM_FALLBACK_2_PROVIDER=openai LLM_FALLBACK_2_API_KEY=... LLM_FALLBACK_2_MODEL=gpt-5
+```
+
+Regras:
+
+- **Só erro troca de provedor.** Uma resposta que chegou mas não serve (fora
+  do schema) deixa a revisão inconclusiva; o Aurum não pergunta a outro modelo
+  até um concordar.
+- **Toda troca é anunciada** no stderr, com o motivo:
+  `aurumcode: provider litellm failed (...status 503...); trying fallback LLM_FALLBACK_1 (openai-compatible)`.
+- **Todos caíram: a revisão falha fechada** (exit 1), nomeando o erro de cada
+  um, nunca aprovada.
+- **Reserva configurada pela metade falha antes de qualquer requisição**,
+  nomeando o slot (`LLM_FALLBACK_1: ... set LLM_FALLBACK_1_API_KEY`).
+  A chave do principal nunca é enviada a uma reserva.
+- **Tempo:** cada provedor tem o seu limite (`AURUMCODE_LLM_TIMEOUT_SECONDS`,
+  60 s por padrão); a cadeia inteira tem um limite por provedor, para que a
+  reserva tenha tempo de responder depois de um principal que esgotou o dele.
+- **Custo:** o teto (`--limite`) vale para a revisão inteira, qualquer que seja
+  o provedor que respondeu; uma tentativa que falhou não consome orçamento.
+- **Cache:** uma revisão respondida por uma reserva não é guardada no cache de
+  revisão, para não ser servida depois como se fosse do principal.
+- Ferramentas da deliberação só vão para reservas que sabem chamar
+  ferramentas.
+- Como o principal, as reservas vêm só do ambiente do operador, nunca do
+  repositório revisado.
+
+No workflow reutilizável há duas reservas: inputs `fallback_1_provider`,
+`fallback_1_model`, `fallback_2_provider` e `fallback_2_model`, e secrets
+opcionais `LLM_FALLBACK_1_API_KEY`, `LLM_FALLBACK_1_BASE_URL`,
+`LLM_FALLBACK_2_API_KEY` e `LLM_FALLBACK_2_BASE_URL`:
+
+```yaml
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.0.0
+    with:
+      provider: bedrock
+      fallback_1_provider: litellm
+      fallback_2_provider: openai
+      fallback_2_model: gpt-5
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_FALLBACK_1_API_KEY: ${{ secrets.LITELLM_KEY }}
+      LLM_FALLBACK_1_BASE_URL: ${{ secrets.LITELLM_URL }}
+      LLM_FALLBACK_2_API_KEY: ${{ secrets.OPENAI_KEY }}
+```
+
+Na action (`uses: Mpaape/AurumCode@...`), as mesmas variáveis vão no `env:`
+do passo. Demonstração com provedor falso: casos `reserva-assume`,
+`duas-reservas`, `falha-todas-caem` e `falha-reserva-sem-chave` do tutorial
 [Provedores de LLM](tutorials/provedores.md).
 
 ## openai-compatible (padrão)

@@ -2,26 +2,14 @@
 --- gate.inconclusive: block
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T153601Z generated 2026-09-08T15:36:01Z is 30.0 days old, above max_age_days=7
-## Code Review Summary
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260909T010503Z generated 2026-09-09T01:05:03Z is 30.0 days old, above max_age_days=7
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: failed · 2 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_stale
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
@@ -31,26 +19,14 @@ RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260908T153603Z generated 2026-09-08T15:36:03Z is 30.0 days old, above max_age_days=7
-## Code Review Summary
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260909T010505Z generated 2026-09-09T01:05:05Z is 30.0 days old, above max_age_days=7
+## AurumCode code review
 
-**Verdict:** Comment
+> [!WARNING]
+> **Inconclusive: this review does not approve the change.**
+> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["app.go"]
-
-```
+policy gate: passed · 2 files reviewed
 Sem achados nas fontes concluídas; inconclusivo: analysis_data_stale
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200

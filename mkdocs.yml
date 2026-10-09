@@ -1,4 +1,5 @@
 site_name: AurumCode
+site_url: https://mpaape.github.io/AurumCode/
 site_description: Gate de compliance para a organização - review, skills, política central, gate e cadeia de suprimentos
 docs_dir: docs
 site_dir: site
@@ -16,6 +17,15 @@ theme:
     - search.suggest
     - search.highlight
     - content.code.copy
+# Link to the source on GitHub without repo_url: the theme's repo_url widget
+# fetches stars and forks from api.github.com in the browser, and the site
+# makes no external request (tests/docs). A nav tab and a footer icon are
+# plain links.
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Mpaape/AurumCode
+      name: AurumCode no GitHub
 extra_css:
   - stylesheets/extra.css
 # Mermaid 11.4.1 (dist/mermaid.min.js, sha256
@@ -54,22 +64,25 @@ validation:
     absolute_links: warn
     unrecognized_links: warn
 nav:
+  # Few tabs, by what the reader came to do: the horizontal bar must fit a
+  # laptop screen. Tutoriais (after Início) and Specs (before the external
+  # links) are injected by scripts/docs/hooks.py on_config.
   - Início:
     - index.md
+    - Começando: getting-started.md
     - Entrada do repositório: README.md
-  - Começando: getting-started.md
-  - Referência: configuration.md
-  - Changelog obrigatório: changelog.md
-  - Releases: releases.md
-  - Provedores de LLM: provedores.md
-  - Guia corporativo: gate-corporativo.md
-  - Aurum no seu agente: agentes.md
-  - Arquitetura: architecture.md
-  - Estendendo o Aurum: extensao.md
-  - Qualidade e benchmark:
-    - review-quality.md
-    - benchmark.md
-    - qa.md
-    - review-cache.md
-  # Specs (and Tutoriais, when docs/tutorials exists) are injected by
-  # scripts/docs/hooks.py on_config.
+  - Configurar:
+    - Referência: configuration.md
+    - Guia corporativo: gate-corporativo.md
+    - Provedores de LLM: provedores.md
+    - Changelog: changelog.md
+    - Releases: releases.md
+    - Aurum no seu agente: agentes.md
+  - Como funciona:
+    - Arquitetura: architecture.md
+    - Estendendo o Aurum: extensao.md
+    - Qualidade do review: review-quality.md
+    - Benchmark: benchmark.md
+    - QA no consumidor: qa.md
+    - Cache de review: review-cache.md
+  - GitHub: https://github.com/Mpaape/AurumCode

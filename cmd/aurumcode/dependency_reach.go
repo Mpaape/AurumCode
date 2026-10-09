@@ -100,18 +100,26 @@ func (s *reviewState) reachExplainer() (reach.Explainer, string) {
 	}, ""
 }
 
-// appendReachSection appends the reachability section to a review body:
-// its own heading, one item per explanation, after everything the filters
-// of the review touch.
-func appendReachSection(body string, lines []string, language string) string {
+// reachSection is the reachability section of the parecer: its own
+// heading, one item per explanation; empty without explanations.
+func reachSection(lines []string, language string) string {
 	if len(lines) == 0 {
-		return body
+		return ""
 	}
 	var b strings.Builder
-	b.WriteString(strings.TrimRight(body, "\n"))
-	fmt.Fprintf(&b, "\n\n### %s\n\n", i18n.Text(language, "reach.section"))
+	fmt.Fprintf(&b, "### %s\n\n", i18n.Text(language, "reach.section"))
 	for _, line := range lines {
 		fmt.Fprintf(&b, "- %s\n", line)
 	}
 	return b.String()
+}
+
+// appendReachSection appends the reachability section to a terminal
+// report, after everything the filters of the review touch.
+func appendReachSection(body string, lines []string, language string) string {
+	section := reachSection(lines, language)
+	if section == "" {
+		return body
+	}
+	return strings.TrimRight(body, "\n") + "\n\n" + section
 }

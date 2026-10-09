@@ -75,3 +75,62 @@ func TestAC003CollapseIsDeterministicExplainedAndNeverHidesBlocking(t *testing.T
 		t.Fatalf("without a preference something was condensed: %+v", none)
 	}
 }
+
+// A model finding at the place an engine of the same category already
+// reported is the same problem, whatever its rule id: published once,
+// under the engine's rule, traceable to the model. Another category at
+// the same line stays its own finding.
+func TestModelFindingEchoingAnEngineIsMergedByCategory(t *testing.T) {
+	model := types.ReviewIssue{File: "r.go", Line: 186, RuleID: "security/weak-crypto", Severity: "warning", Message: "SHA-1 e fraco", Evidence: "sha1.Sum"}
+	engine := types.ReviewIssue{File: "r.go", Line: 186, RuleID: "semgrep:go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1", Severity: "warning", Message: "Detected SHA1", Origin: "semgrep"}
+	quality := types.ReviewIssue{File: "r.go", Line: 186, RuleID: "quality/long-function", Severity: "info", Message: "funcao longa"}
+	res := Apply([]types.ReviewIssue{model, quality, engine}, Options{})
+	if len(res.Issues) != 2 || res.Merged != 1 {
+		t.Fatalf("want the echo merged and the other category kept: %+v merged=%d", res.Issues, res.Merged)
+	}
+	var kept types.ReviewIssue
+	for i, issue := range res.Issues {
+		if issue.Origin == "semgrep" {
+			kept = issue
+			if len(res.AlsoFrom[i]) != 1 || res.AlsoFrom[i][0] != "" {
+				t.Fatalf("the model occurrence is not traceable: %+v", res.AlsoFrom)
+			}
+		}
+	}
+	if kept.RuleID != engine.RuleID || !strings.Contains(kept.Evidence, "sha1.Sum") {
+		t.Fatalf("merged finding = %+v", kept)
+	}
+	// Two engines at one line with different rules stay two findings.
+	other := engine
+	other.RuleID, other.Origin = "gitleaks:generic", "gitleaks"
+	if res := Apply([]types.ReviewIssue{engine, other}, Options{}); len(res.Issues) != 2 {
+		t.Fatalf("two engine findings merged: %+v", res.Issues)
+	}
+}
+
+// A model finding of another problem of the same category, and a model
+// finding that blocks beside an engine finding that does not, are never
+// hidden under the engine's rule: the gate's key survives consolidation.
+func TestEchoKeepsTheBlockingRuleAndAnotherProblemApart(t *testing.T) {
+	scan := types.ReviewIssue{File: "a.go", Line: 10, RuleID: "semgrep:go.lang.security.audit.weak-crypto", Severity: "info", Message: "weak crypto", Origin: "semgrep"}
+	traversal := types.ReviewIssue{File: "a.go", Line: 10, RuleID: "security/path-traversal", Severity: "error", Message: "caminho vindo do usuario"}
+	res := Apply([]types.ReviewIssue{traversal, scan}, Options{})
+	if len(res.Issues) != 2 {
+		t.Fatalf("another problem of the same category was merged: %+v", res.Issues)
+	}
+	// The same problem, where only the model's occurrence is what the gate
+	// keyed its decision on: the model's rule and message are kept.
+	crypto := types.ReviewIssue{File: "a.go", Line: 10, RuleID: "security/weak-crypto", Severity: "error", Message: "SHA-1 nao serve para assinatura", Evidence: "sha1.Sum"}
+	blocksCrypto := func(i types.ReviewIssue) bool { return i.RuleID == "security/weak-crypto" }
+	res = Apply([]types.ReviewIssue{crypto, scan}, Options{Blocking: blocksCrypto})
+	if len(res.Issues) != 1 || res.Merged != 1 {
+		t.Fatalf("the echo was not merged: %+v", res.Issues)
+	}
+	got := res.Issues[0]
+	if !blocksCrypto(got) || got.Message != crypto.Message || got.Severity != "error" || !strings.Contains(got.Evidence, "sha1.Sum") {
+		t.Fatalf("the blocking occurrence lost its rule or message: %+v", got)
+	}
+	if len(res.AlsoFrom[0]) != 1 || res.AlsoFrom[0][0] != "semgrep" {
+		t.Fatalf("the merged engine occurrence is not traceable: %+v", res.AlsoFrom)
+	}
+}

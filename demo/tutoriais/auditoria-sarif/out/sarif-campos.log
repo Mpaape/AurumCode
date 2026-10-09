@@ -3,24 +3,12 @@ $ aurumcode review --base main --politica /policy --sarif /work/revisao.sarif
 aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+policy gate: failed · 1 file reviewed
 app.go:6: [error] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
   - Impact: A senha vai para o historico do repositorio.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.

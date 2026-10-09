@@ -153,16 +153,16 @@ func dedupePaths(paths []string) []string {
 // switching to an explicit count, mirroring internal/prompt's
 // maxOmittedBullets: the notice stays a bounded size no matter how large the
 // diff is.
-const maxCoveragePaths = 20
+const maxCoveragePaths = 10
 
 // writeCoveragePaths appends up to maxCoveragePaths of paths as sub-bullets,
 // then a "and N more" line. Paths are repository paths from the diff/config,
 // never model output, so they carry no untrusted bytes.
-func writeCoveragePaths(b *strings.Builder, paths []string) {
+func writeCoveragePaths(b *strings.Builder, paths []string, more string) {
 	listed := 0
 	for _, p := range paths {
 		if listed >= maxCoveragePaths {
-			fmt.Fprintf(b, "  - ... and %d more\n", len(paths)-listed)
+			fmt.Fprintf(b, "  - %s\n", fmt.Sprintf(more, len(paths)-listed))
 			break
 		}
 		fmt.Fprintf(b, "  - %s\n", p)

@@ -114,7 +114,7 @@ func aur538CleanFixtureTests(t *testing.T, configYAML, testsPrefix string) strin
 // fixture with NO findings at all (no hardcoded secret, zero model
 // issues) under gate.inconclusive: block (triggered by AUR-476's own
 // partial-coverage detection, via a repo-ignored second file) must never
-// let the --base report read "**Verdict:** Approve" for a model verdict
+// let the --base report read Approved ("[!TIP]") for a model verdict
 // of "" or "changes_requested". Removing main.go's own verdict
 // pull-down/withheld marker (the
 // `result.Metadata[prompt.PolicyGateWithheldKey] = "true"` line inside
@@ -143,7 +143,7 @@ func TestAUR538BaseCleanFixtureVerdictWithheldUnderBlock(t *testing.T) {
 			if !strings.Contains(combined, "policy gate: review inconclusive (partial_coverage)") {
 				t.Fatalf("expected the policy-gate inconclusive line naming partial_coverage:\n%s", combined)
 			}
-			if strings.Contains(out.String(), "**Verdict:** Approve") {
+			if strings.Contains(out.String(), "[!TIP]") || !strings.Contains(out.String(), "[!WARNING]") {
 				t.Fatalf("model verdict %q: verdict read as Approve under a blocking gate with NO findings at all:\n%s", modelVerdict, out.String())
 			}
 		})
@@ -153,7 +153,7 @@ func TestAUR538BaseCleanFixtureVerdictWithheldUnderBlock(t *testing.T) {
 // TestAUR538BaseCleanFixtureApprovesWithoutGate is AC-001's own positive
 // control: the identical fixture and a legitimate "approve" model
 // response, with NO `gate:` declared at all, must still publish
-// "**Verdict:** Approve" -- proving the withheld assertion above actually
+// Approved ("[!TIP]") -- proving the withheld assertion above actually
 // exercises the gate's own pull-down and is not trivially true for some
 // other, unrelated property of the fixture (the exact trap AC-003 closes
 // for a different, pre-existing test).
@@ -170,7 +170,7 @@ func TestAUR538BaseCleanFixtureApprovesWithoutGate(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit=%d stdout=%s stderr=%s", code, out.String(), errOut.String())
 	}
-	if !strings.Contains(out.String(), "**Verdict:** Approve") {
+	if !strings.Contains(out.String(), "[!TIP]") {
 		t.Fatalf("without a gate, a clean approve verdict must still publish unchanged:\n%s", out.String())
 	}
 }

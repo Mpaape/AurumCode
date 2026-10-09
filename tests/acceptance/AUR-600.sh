@@ -35,7 +35,7 @@ readonly ac1='^(TestRuleFollowsDeclaredGate|TestAUR600WarningBelowGateIsNotBlock
 readonly ac2='^(TestAUR600GateBreachIsBlocking)$'
 readonly ac3='^(TestAUR600WithoutGateKeepsHistoricalText)$'
 readonly ac4='^(TestAUR600CIStatusAllDiscardedShowsOneLine)$'
-readonly verdict_rule='if !rule.Gated() {'
+readonly verdict_rule='if n := rule.Count(result.Issues); n > 0 {'
 
 for input in go.mod go.sum cmd internal pkg; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
@@ -105,8 +105,8 @@ run_mut002() {
   stage "$root"
   file="$root/cmd/aurumcode/pr_summary_format.go"
   [[ "$(grep -Fc -- "$verdict_rule" "$file")" == 1 ]] || infra verdict-rule-missing
-  # The document's verdict ignores the gate decision.
-  sed -i 's/if !rule.Gated() {/if true {/' "$file"
+  # The document's decision ignores the gate: every error and warning blocks.
+  sed -i 's/if n := rule.Count(result.Issues); n > 0 {/if n := blocking.Ungated().Count(result.Issues); n > 0 {/' "$file"
   ! grep -Fq -- "$verdict_rule" "$file" || infra mutation-not-applied
   expect_red "$root" "$run_dir/mut2.log" "$ac1"
   printf '%s/MUT-002/rejected\n' "$card"

@@ -46,8 +46,15 @@ type Result struct {
 func Apply(issues []types.ReviewIssue, opts Options) Result {
 	var res Result
 	at := map[string]int{}
+	engines := enginesByLocation(issues)
 	for _, issue := range issues {
 		key := identity(issue)
+		if echoed, ok := echoesEngine(issue, engines[location(issue)]); ok {
+			// The model's own finding at the place an engine of the same
+			// category already reported: one problem, published once
+			// under the engine's rule, with the model's text as evidence.
+			key = identity(echoed)
+		}
 		i, seen := at[key]
 		if !seen {
 			at[key] = len(res.Issues)
@@ -57,7 +64,7 @@ func Apply(issues []types.ReviewIssue, opts Options) Result {
 		}
 		res.Merged++
 		kept, other := res.Issues[i], issue
-		if kept.Origin == "" && other.Origin != "" {
+		if prefersOther(kept, other, opts.Blocking) {
 			kept, other = other, kept
 		}
 		res.Issues[i] = merge(kept, other)
@@ -79,6 +86,80 @@ func collapse(res Result, opts Options) Result {
 		}
 		out.Issues = append(out.Issues, issue)
 		out.AlsoFrom = append(out.AlsoFrom, res.AlsoFrom[i])
+	}
+	return out
+}
+
+// location is the file, line and side of a finding, whatever its rule.
+func location(issue types.ReviewIssue) string {
+	side := strings.ToUpper(strings.TrimSpace(issue.Side))
+	if side == "" {
+		side = "RIGHT"
+	}
+	return strings.Join([]string{issue.File, strconv.Itoa(issue.Line), side}, "\x00")
+}
+
+// enginesByLocation indexes the deterministic engines' findings by place.
+func enginesByLocation(issues []types.ReviewIssue) map[string][]types.ReviewIssue {
+	out := map[string][]types.ReviewIssue{}
+	for _, issue := range issues {
+		if issue.Origin != "" {
+			out[location(issue)] = append(out[location(issue)], issue)
+		}
+	}
+	return out
+}
+
+// prefersOther decides which occurrence of one problem is kept: the one
+// that blocks the run when only one does (its rule is the gate's key, and
+// the parecer must list what blocks under that rule), otherwise the
+// deterministic one over the model's.
+func prefersOther(kept, other types.ReviewIssue, blocking func(types.ReviewIssue) bool) bool {
+	if blocking != nil && blocking(kept) != blocking(other) {
+		return blocking(other)
+	}
+	return kept.Origin == "" && other.Origin != ""
+}
+
+// echoesEngine reports the engine finding a model finding repeats: same
+// place, the model rule's category (the segment before "/", such as
+// "security") named in the engine's rule id, and a word of the model
+// rule's name (such as "crypto" of "weak-crypto") named there too. A model
+// finding of another category, or of another problem of the same category
+// ("path-traversal" beside a weak-crypto scan), stays its own finding.
+func echoesEngine(issue types.ReviewIssue, engines []types.ReviewIssue) (types.ReviewIssue, bool) {
+	if issue.Origin != "" || issue.Assessment != nil || len(engines) == 0 {
+		return types.ReviewIssue{}, false
+	}
+	category, name, ok := strings.Cut(strings.ToLower(strings.TrimSpace(issue.RuleID)), "/")
+	if !ok || category == "" {
+		return types.ReviewIssue{}, false
+	}
+	words := ruleWords(name)
+	if len(words) == 0 {
+		return types.ReviewIssue{}, false
+	}
+	for _, engine := range engines {
+		id := strings.ToLower(engine.RuleID)
+		if !strings.Contains(id, category) {
+			continue
+		}
+		for _, w := range words {
+			if strings.Contains(id, w) {
+				return engine, true
+			}
+		}
+	}
+	return types.ReviewIssue{}, false
+}
+
+// ruleWords are the words of a rule name with at least three letters.
+func ruleWords(name string) []string {
+	var out []string
+	for _, w := range strings.FieldsFunc(name, func(r rune) bool { return r == '-' || r == '_' || r == '.' || r == ':' }) {
+		if len(w) >= 3 {
+			out = append(out, w)
+		}
 	}
 	return out
 }

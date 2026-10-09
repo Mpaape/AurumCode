@@ -1,23 +1,11 @@
 == catalogo-do-operador
 $ LLM_PROVIDER=meu-gateway LLM_PROVIDERS_FILE=/fixtures/meus-perfis.yml GATEWAY_KEY=chave-falsa-gw-0123456789 aurumcode review --base main
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0["app.py"]
-
-```
+no gate declared · 1 file reviewed
 No issues found.
 --- requisicoes recebidas pelo provedor falso: 1
     provedor recebeu: /gateway/chat/completions query=- authorization=ausente api-key=ausente x-gw-key=<chave> limite=- response_format=ausente

@@ -1,24 +1,12 @@
 == segunda-rodada-le-a-memoria
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+no gate declared · 1 file reviewed
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impact: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidence: A linha adicionada atribui uma senha literal a dbPassword em app.go.
@@ -29,24 +17,12 @@ exit_code=3
 RESULTADO: primeira rodada: o achado foi guardado
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Changes requested
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
 
-**Findings by severity:**
-- error: 1
-- warning: 0
-- info: 0
-
-**Files touched:**
-- app.go
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+no gate declared · 1 file reviewed
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
   - Impact: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidence: A linha adicionada atribui uma senha literal a dbPassword em app.go.

@@ -1,0 +1,12 @@
+# O que o Semgrep deixa de ler neste repositorio: artefatos que nao sao
+# codigo e que ele nao consegue analisar por inteiro (pagina estatica com
+# trechos de parecer embutidos, capturas, saidas gravadas dos tutoriais e do
+# demo). Espelha o `ignore` de .aurumcode/config.yml, que a revisao do lote
+# dev -> main le da base e por isso nao alcanca a PR que o acrescentou.
+:include .gitignore
+docs/site/
+docs/assets/capturas/
+demo/tutoriais/*/out/
+demo/tutoriais/*/expected/
+demo/gate-corporativo/out/
+demo/gate-corporativo/expected/

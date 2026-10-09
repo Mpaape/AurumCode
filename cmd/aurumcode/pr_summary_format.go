@@ -1,14 +1,33 @@
-// The published review body: summary, verdict, formal review event and the
-// notices, in the review's language.
+// The published review document (the parecer): the decision first, what to
+// fix, what only to note, the summary, and everything else behind a
+// collapsed details block, in the review's language.
 package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
+)
+
+// reviewBodyMarker opens every parecer, so a later round finds the one it
+// edits in place.
+const reviewBodyMarker = "<!-- aurumcode-review -->"
+
+// metaReviewParts is the metadata key with how many parts (batches) the
+// diff was reviewed in, when it did not fit one prompt.
+const metaReviewParts = "review_parts"
+
+// Caps of the collapsed details: the model's prose is kept short there.
+// Its strengths are not published at all: praise is not information a
+// reader of the parecer acts on.
+const (
+	maxTestPlan         = 3
+	maxModelLimitations = 3
 )
 
 // formatFormalReviewSummary keeps an actionable native suggestion from being
@@ -26,18 +45,14 @@ func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, lan
 	return formatReviewDocument(&copy, diff, language, rule)
 }
 
-// A published review is one code-review document. The deterministic TL;DR
-// and Mermaid diagram remain available in local CLI output, but prepending
-// them here duplicated the verdict and mislabeled files without findings as
-// "none". A diagram inferred from imports is not evidence about runtime flow.
+// formatPublishedReviewBody is the parecer of a run without a declared gate.
 func formatPublishedReviewBody(result *types.ReviewResult, diff *types.Diff, language string, formalWithInline bool, changelogText string) string {
 	return formatGatedReviewBody(result, diff, language, formalWithInline, changelogText, blocking.Ungated())
 }
 
-// formatGatedReviewBody is formatPublishedReviewBody under rule: with a
-// declared gate, the verdict, the blocking count and the finding labels
-// follow the gate decision, so the document never claims a block the gate
-// did not apply.
+// formatGatedReviewBody is the parecer under rule: with a declared gate, the
+// decision, the blocking count and the finding labels follow the gate, so the
+// document never claims a block the gate did not apply.
 func formatGatedReviewBody(result *types.ReviewResult, diff *types.Diff, language string, formalWithInline bool, changelogText string, rule blocking.Rule) string {
 	body := formatReviewDocument(result, diff, language, rule)
 	if formalWithInline {
@@ -58,239 +73,311 @@ func formatReviewSummaryForLanguageAndDiff(result *types.ReviewResult, diff *typ
 	return formatReviewDocument(result, diff, language, blocking.Ungated())
 }
 
-// formatReviewDocument renders the review document under rule.
+// formatReviewDocument renders the parecer under rule.
 func formatReviewDocument(result *types.ReviewResult, diff *types.Diff, language string, rule blocking.Rule) string {
 	copy := reviewCopyFor(language)
 	var b strings.Builder
-	b.WriteString("<!-- aurumcode-review -->\n")
-	fmt.Fprintf(&b, "## AurumCode %s\n\n", copy.title)
-	fmt.Fprintf(&b, "**%s:** %s\n\n", copy.verdict, gatedVerdictText(result, copy, rule))
+	b.WriteString(reviewBodyMarker + "\n")
+	writeParecerHead(&b, result, diff, copy, rule)
+	b.WriteString("\n")
+
+	blockingIssues, observations := splitFindings(result.Issues, rule)
+	if len(blockingIssues) > 0 {
+		fmt.Fprintf(&b, "### %s\n\n", copy.fixBeforeMerge)
+		for _, issue := range blockingIssues {
+			writeBlockingFinding(&b, issue, copy)
+		}
+		b.WriteString("\n")
+	}
+	outside := review.OutsideDiffFindings(result)
+	if len(observations)+len(outside) > 0 {
+		fmt.Fprintf(&b, "### %s\n\n", copy.observations)
+		for _, issue := range observations {
+			writeObservation(&b, issue, "")
+		}
+		for _, issue := range outside {
+			writeObservation(&b, issue, copy.outsideDiffLabel)
+		}
+		b.WriteString("\n")
+	}
+
 	if diff != nil && prompt.HasSubstantiveCodeChange(diff) && strings.TrimSpace(result.Summary) != "" {
-		fmt.Fprintf(&b, "### %s\n\n%s\n\n", copy.summary, strings.TrimSpace(result.Summary))
+		writeModelSummary(&b, result, diff, copy)
 	} else if note := summaryWithheldNotice(result, copy); note != "" {
 		fmt.Fprintf(&b, "%s\n\n", note)
 	}
-	b.WriteString(gatedSummaryText(result, copy, rule))
-	b.WriteString("\n\n")
 
-	if len(result.Strengths) > 0 {
-		fmt.Fprintf(&b, "### %s\n\n", copy.strengths)
-		writeReviewBullets(&b, result.Strengths)
-		b.WriteString("\n")
+	if details := detailsSections(result, copy); details != "" {
+		b.WriteString(detailsBlock(copy.details, details))
 	}
-
-	writeFindingsSection(&b, result.Issues, copy, rule)
-
-	if len(result.Suggestions) > 0 {
-		fmt.Fprintf(&b, "### %s\n\n", copy.suggestions)
-		for _, suggestion := range result.Suggestions {
-			if strings.TrimSpace(suggestion.Title) == "" && strings.TrimSpace(suggestion.Description) == "" {
-				continue
-			}
-			fmt.Fprintf(&b, "- **%s**", strings.TrimSpace(suggestion.Title))
-			if suggestion.Description != "" {
-				fmt.Fprintf(&b, " — %s", strings.TrimSpace(suggestion.Description))
-			}
-			if suggestion.File != "" {
-				start, end := suggestionRange(suggestion)
-				if start > 0 && end > 0 {
-					if start == end {
-						fmt.Fprintf(&b, " (`%s:%d`)", suggestion.File, start)
-					} else {
-						fmt.Fprintf(&b, " (`%s:%d-%d`)", suggestion.File, start, end)
-					}
-				}
-			}
-			b.WriteByte('\n')
-			if strings.TrimSpace(suggestion.ProposedCode) != "" {
-				fmt.Fprintf(&b, "  - **%s:**\n\n    ```\n%s\n    ```\n", copy.proposedImplementation, strings.TrimSpace(suggestion.ProposedCode))
-			}
-			writeSummaryField(&b, copy.rationale, suggestion.Rationale)
-			writeSummaryField(&b, copy.verify, suggestion.Verification)
-		}
-		b.WriteString("\n")
-	}
-
-	writeCIStatusSection(&b, result, copy)
-
-	if len(result.TestPlan) > 0 {
-		fmt.Fprintf(&b, "### %s\n\n", copy.tests)
-		writeReviewBullets(&b, result.TestPlan)
-		b.WriteString("\n")
-	}
-
-	if len(result.Limitations) > 0 {
-		fmt.Fprintf(&b, "### %s\n\n", copy.limits)
-		writeReviewBullets(&b, result.Limitations)
-	}
-
 	return strings.TrimSpace(b.String()) + "\n"
 }
 
-func reviewVerdict(result *types.ReviewResult) string {
-	return reviewVerdictForLanguage(result, reviewCopyFor("en-US"))
+// writeParecerHead writes what the parecer and the terminal report open
+// with: the title, the decision headline and the facts line.
+func writeParecerHead(b *strings.Builder, result *types.ReviewResult, diff *types.Diff, copy reviewCopy, rule blocking.Rule) {
+	fmt.Fprintf(b, "## AurumCode %s\n\n", copy.title)
+	b.WriteString(formatHeadline(result, copy, rule))
+	b.WriteString("\n\n")
+	b.WriteString(factsLine(result, diff, copy, rule))
+	b.WriteString("\n")
 }
 
-func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) string {
-	return gatedVerdictText(result, copy, blocking.Ungated())
+// writeModelSummary writes the model's summary when the change is
+// substantive and the model wrote one.
+func writeModelSummary(b *strings.Builder, result *types.ReviewResult, diff *types.Diff, copy reviewCopy) {
+	if diff != nil && prompt.HasSubstantiveCodeChange(diff) && strings.TrimSpace(result.Summary) != "" {
+		fmt.Fprintf(b, "### %s\n\n%s\n\n", copy.summary, strings.TrimSpace(result.Summary))
+	}
 }
 
-// gatedVerdictText is the document's verdict under rule. A declared gate
-// decides it the way the formal review event follows the gate: a failing
-// gate requests changes, a passing one never does. A run whose quality
-// review did not complete keeps reading inconclusive: the gate fails it for
-// that reason, and inconclusive already never approves.
-func gatedVerdictText(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
-	verdict := ungatedVerdictText(result, copy)
-	if !rule.Gated() {
-		return verdict
+// reviewDecision is the one decision the headline, the facts line and the
+// terminal report read from the blocking rule.
+type reviewDecision int
+
+const (
+	decisionApproved reviewDecision = iota
+	decisionObservations
+	decisionInconclusive
+	decisionBlocked
+)
+
+// decide reads the run's decision: blocking findings block; a declared
+// gate that failed without one, a model review that did not complete and
+// an approval the gate withheld are inconclusive (never approved); findings
+// below the threshold are observations; nothing is approval.
+func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int) {
+	if n := rule.Count(result.Issues); n > 0 {
+		return decisionBlocked, n
 	}
-	if rule.Fails() && verdict != copy.inconclusive {
-		return copy.changesRequested
+	if rule.Fails() || result.Metadata["quality_degraded"] == metaTrue || result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue {
+		return decisionInconclusive, 0
 	}
-	if !rule.Fails() && verdict == copy.changesRequested {
-		return copy.comment
+	if n := len(result.Issues) + len(review.OutsideDiffFindings(result)); n > 0 {
+		return decisionObservations, n
 	}
-	return verdict
+	return decisionApproved, 0
 }
 
-// ungatedVerdictText is the historical verdict, read from the findings
-// alone: any error or warning requests changes.
-func ungatedVerdictText(result *types.ReviewResult, copy reviewCopy) string {
-	for _, issue := range result.Issues {
-		switch strings.ToLower(issue.Severity) {
-		case "error", "warning":
-			return copy.changesRequested
+// metaTrue is the value of a set metadata flag.
+const metaTrue = "true"
+
+// formatHeadline is the decision as a GitHub alert block: the host draws
+// the colored band, the text says what the reader must do.
+func formatHeadline(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
+	decision, n := decide(result, rule)
+	switch decision {
+	case decisionBlocked:
+		return alertBlock("CAUTION", countText(n, copy.headlineBlockedOne, copy.headlineBlocked), "")
+	case decisionInconclusive:
+		reason := copy.gateFailed
+		if result.Metadata["quality_degraded"] == metaTrue {
+			reason = copy.qualityIncomplete
+		}
+		return alertBlock("WARNING", copy.headlineInconclusive, reason)
+	case decisionObservations:
+		return alertBlock("NOTE", countText(n, copy.headlineObservationsOne, copy.headlineObservations), "")
+	}
+	return alertBlock("TIP", copy.headlineApproved, "")
+}
+
+// countText is the singular text for one, the plural template otherwise.
+func countText(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return fmt.Sprintf(many, n)
+}
+
+// alertBlock renders GitHub's alert syntax: the kind on the first line, the
+// bold headline, then an optional second line.
+func alertBlock(kind, headline, second string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "> [!%s]\n> **%s**", kind, headline)
+	if strings.TrimSpace(second) != "" {
+		fmt.Fprintf(&b, "\n> %s", strings.TrimSpace(second))
+	}
+	return b.String()
+}
+
+// factsLine is the line under the headline: the gate, how many files were
+// reviewed and in how many parts.
+func factsLine(result *types.ReviewResult, diff *types.Diff, copy reviewCopy, rule blocking.Rule) string {
+	gate := copy.factsNoGate
+	if rule.Gated() {
+		gate = copy.factsGatePassed
+		if rule.Fails() {
+			gate = copy.factsGateFailed
 		}
 	}
-	if len(result.Issues) > 0 {
-		return copy.comment
+	parts := []string{gate}
+	files := 0
+	if diff != nil {
+		files = len(diff.Files)
+	} else if n, err := strconv.Atoi(result.Metadata["total_files"]); err == nil {
+		files = n
 	}
-	if result.Metadata["quality_degraded"] == "true" {
-		return copy.inconclusive
+	if files > 0 {
+		filesText := countText(files, copy.factsFilesOne, copy.factsFiles)
+		if n, err := strconv.Atoi(result.Metadata[metaReviewParts]); err == nil && n > 1 {
+			filesText += " " + fmt.Sprintf(copy.factsParts, n)
+		}
+		parts = append(parts, filesText)
 	}
-	// AUR-519 (B-V): this function otherwise re-derives the verdict from
-	// Issues/Suggestions alone, never from the model's own Verdict field
-	// -- intentionally: a model is never trusted to self-report "comment"
-	// or "changes_requested" into an outcome these structural checks did
-	// not already reach on their own. The engine's OWN withholding
-	// (gate.Fail/Inconclusive, cmd/aurumcode's gate section) is a
-	// different, trusted signal and gets its own reserved,
-	// forge-safe key instead of overloading result.Verdict's value --
-	// see prompt.PolicyGateWithheldKey's own doc for why a model cannot
-	// set or erase it. A prior version of this check matched
-	// result.Verdict == "comment" directly, which regressed a model that
-	// legitimately self-reports "comment" with no gate active at all: it
-	// started publishing COMMENT instead of this function's pre-AUR-519
-	// APPROVE default, an outcome this function never produced before
-	// and the model's self-report alone must not be able to cause.
-	if result.Metadata[prompt.PolicyGateWithheldKey] == "true" {
-		return copy.comment
+	return strings.Join(parts, " · ")
+}
+
+// splitFindings separates what blocks from what is only noted, both sorted.
+func splitFindings(issues []types.ReviewIssue, rule blocking.Rule) (blockingIssues, observations []types.ReviewIssue) {
+	for _, issue := range sortedIssues(issues) {
+		if rule.Blocks(issue) {
+			blockingIssues = append(blockingIssues, issue)
+		} else {
+			observations = append(observations, issue)
+		}
 	}
+	return blockingIssues, observations
+}
+
+// writeBlockingFinding is one problem to fix: where, what, the rule, and
+// the fields that help fix it.
+func writeBlockingFinding(b *strings.Builder, issue types.ReviewIssue, copy reviewCopy) {
+	fmt.Fprintf(b, "- **`%s:%d`** — %s", issue.File, issue.Line, strings.TrimSpace(issue.Message))
+	if issue.Side == "LEFT" {
+		b.WriteString(" (`LEFT`)")
+	}
+	writeRuleSuffix(b, issue)
+	b.WriteString("\n")
+	writeFindingFields(b, issue, copy)
+	printAssessment(b, issue)
+}
+
+// writeObservation is one non-blocking finding, in one line.
+func writeObservation(b *strings.Builder, issue types.ReviewIssue, label string) {
+	fmt.Fprintf(b, "- `%s:%d` — %s", issue.File, issue.Line, strings.TrimSpace(issue.Message))
+	writeRuleSuffix(b, issue)
+	if label != "" {
+		fmt.Fprintf(b, " — %s", label)
+	}
+	b.WriteString("\n")
+}
+
+// writeRuleSuffix names the rule after a finding whose message does not
+// already cite it (the engine appends the catalog citation to the model's
+// findings; a scanner's message may not carry the rule id).
+func writeRuleSuffix(b *strings.Builder, issue types.ReviewIssue) {
+	rule := strings.TrimSpace(issue.RuleID)
+	if rule == "" || strings.Contains(issue.Message, rule) {
+		return
+	}
+	fmt.Fprintf(b, " (`%s`)", rule)
+}
+
+// detailsSections is the content of the collapsed block: the model's
+// suggestions, the CI status, the tests and the limitations.
+func detailsSections(result *types.ReviewResult, copy reviewCopy) string {
+	var b strings.Builder
+	writeSuggestionsSection(&b, result, copy)
+	writeCIStatusSection(&b, result, copy)
+	if len(result.TestPlan) > 0 || result.Metadata[metaAffectedTests] != "" {
+		fmt.Fprintf(&b, "#### %s\n\n", copy.tests)
+		writeReviewBullets(&b, capped(result.TestPlan, maxTestPlan))
+		writeAffectedTests(&b, result, copy)
+		b.WriteString("\n")
+	}
+	if len(result.Limitations) > 0 {
+		fmt.Fprintf(&b, "#### %s\n\n", copy.limits)
+		writeReviewBullets(&b, result.Limitations)
+	}
+	return strings.TrimSpace(b.String())
+}
+
+// writeSuggestionsSection lists the model's optional suggestions.
+func writeSuggestionsSection(b *strings.Builder, result *types.ReviewResult, copy reviewCopy) {
+	if len(result.Suggestions) == 0 {
+		return
+	}
+	fmt.Fprintf(b, "#### %s\n\n", copy.suggestions)
 	for _, suggestion := range result.Suggestions {
-		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
-			return copy.comment
+		if strings.TrimSpace(suggestion.Title) == "" && strings.TrimSpace(suggestion.Description) == "" {
+			continue
 		}
+		fmt.Fprintf(b, "- **%s**", strings.TrimSpace(suggestion.Title))
+		if suggestion.Description != "" {
+			fmt.Fprintf(b, " — %s", strings.TrimSpace(suggestion.Description))
+		}
+		if suggestion.File != "" {
+			start, end := suggestionRange(suggestion)
+			if start > 0 && end > 0 {
+				if start == end {
+					fmt.Fprintf(b, " (`%s:%d`)", suggestion.File, start)
+				} else {
+					fmt.Fprintf(b, " (`%s:%d-%d`)", suggestion.File, start, end)
+				}
+			}
+		}
+		b.WriteByte('\n')
+		if strings.TrimSpace(suggestion.ProposedCode) != "" {
+			fmt.Fprintf(b, "  - **%s:**\n\n    ```\n%s\n    ```\n", copy.proposedImplementation, strings.TrimSpace(suggestion.ProposedCode))
+		}
+		writeSummaryField(b, copy.rationale, suggestion.Rationale)
+		writeSummaryField(b, copy.verify, suggestion.Verification)
 	}
-	return copy.approve
+	b.WriteString("\n")
 }
 
-// formalReviewEvent maps AurumCode's review result to GitHub's formal review
-// events. Blocking findings request changes; non-blocking observations stay
-// a neutral review comment; a clean review can approve the pull request.
-func formalReviewEvent(result *types.ReviewResult) string {
-	for _, issue := range result.Issues {
-		switch strings.ToLower(strings.TrimSpace(issue.Severity)) {
-		case "error", "warning":
-			return "REQUEST_CHANGES"
-		}
-	}
-	if len(result.Issues) > 0 {
-		return "COMMENT"
-	}
-	if result.Metadata["quality_degraded"] == "true" {
-		return "COMMENT"
-	}
-	// AUR-519 (B-V): same engine-owned marker as reviewVerdictForLanguage
-	// above, never the model's own Verdict text -- see that function's
-	// comment and prompt.PolicyGateWithheldKey's own doc.
-	if result.Metadata[prompt.PolicyGateWithheldKey] == "true" {
-		return "COMMENT"
-	}
-	for _, suggestion := range result.Suggestions {
-		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
-			return "COMMENT"
-		}
-	}
-	return "APPROVE"
+// detailsBlock wraps content in GitHub's collapsed block.
+func detailsBlock(title, content string) string {
+	return "<details>\n<summary>" + title + "</summary>\n\n" + strings.TrimSpace(content) + "\n\n</details>\n"
 }
 
-// summaryWithheldNotice renders AUR-517/N3a's visible notice when
-// internal/review withheld result.Summary (withholdSummaryWhenFiltered):
-// result.Metadata["summary_discarded_findings"] names how many of the
-// model's proposed findings the scope/evidence or rule gate discarded, and
-// an empty result.Summary with a nonzero count is exactly that withholding
-// (never a model that happened to return no summary at all with nothing
-// discarded). Returns "" in every other case, so a clean review's body is
-// unchanged.
-func summaryWithheldNotice(result *types.ReviewResult, copy reviewCopy) string {
-	if result == nil || strings.TrimSpace(result.Summary) != "" {
-		return ""
+// appendBodySection adds a section to the parecer before the collapsed
+// details, so what is actionable stays in view.
+func appendBodySection(body, section string) string {
+	section = strings.TrimSpace(section)
+	if section == "" {
+		return body
 	}
-	discarded := atoiOrZero(result.Metadata["summary_discarded_findings"])
-	if discarded <= 0 {
-		return ""
+	if i := strings.Index(body, "<details>"); i >= 0 {
+		return strings.TrimRight(body[:i], "\n") + "\n\n" + section + "\n\n" + body[i:]
 	}
-	return fmt.Sprintf(copy.summaryWithheld, discarded)
+	return strings.TrimRight(body, "\n") + "\n\n" + section + "\n"
 }
 
-// reviewSummaryText is deliberately derived from the filtered result rather
-// than copied from result.Summary. The model summary can become stale when a
-// source-aware gate removes a false positive; publishing it would produce a
-// contradictory verdict and review comment.
-func reviewSummaryText(result *types.ReviewResult) string {
-	return reviewSummaryTextForLanguage(result, reviewCopyFor("en-US"))
+// appendDetailSection adds a section inside the collapsed details, creating
+// the block when the parecer has none.
+func appendDetailSection(body, title, section string) string {
+	section = strings.TrimSpace(section)
+	if section == "" {
+		return body
+	}
+	if i := strings.LastIndex(body, "\n</details>"); i >= 0 {
+		return body[:i] + "\n\n" + section + body[i:]
+	}
+	return strings.TrimRight(body, "\n") + "\n\n" + detailsBlock(title, section)
 }
 
-func reviewSummaryTextForLanguage(result *types.ReviewResult, copy reviewCopy) string {
-	return gatedSummaryText(result, copy, blocking.Ungated())
-}
-
-// gatedSummaryText is the document's one-line conclusion under rule: the
-// blocking count is the rule's, and with a declared gate that passed every
-// finding is named a non-blocking observation below the threshold.
-func gatedSummaryText(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
-	if count := rule.Count(result.Issues); count > 0 {
-		return fmt.Sprintf(copy.blockingFindings, count)
+// capped is the first n values.
+func capped(values []string, n int) []string {
+	if len(values) <= n {
+		return values
 	}
-	if rule.Fails() {
-		if result.Metadata["quality_degraded"] == "true" {
-			return copy.qualityIncomplete
-		}
-		return copy.gateFailed
-	}
-	if rule.Gated() && len(result.Issues) > 0 {
-		return fmt.Sprintf(copy.belowGateThreshold, len(result.Issues))
-	}
-	if len(result.Issues) > 0 {
-		return copy.nonBlockingFindings
-	}
-	if result.Metadata["quality_degraded"] == "true" {
-		return copy.qualityIncomplete
-	}
-	for _, suggestion := range result.Suggestions {
-		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
-			return copy.optionalSuggestions
-		}
-	}
-	return copy.noBlockingFindings
+	return values[:n]
 }
 
 func writeReviewBullets(b *strings.Builder, values []string) {
 	for _, value := range values {
-		if text := strings.TrimSpace(value); text != "" {
-			fmt.Fprintf(b, "- %s\n", text)
+		text := strings.TrimSpace(value)
+		if text == "" {
+			continue
 		}
+		if title, rest, ok := strings.Cut(text, "\n"); ok {
+			// A multi-line note (the coverage block) is its own list: the
+			// first line titles it and the rest are already bullets.
+			fmt.Fprintf(b, "\n**%s**\n\n%s\n\n", title, rest)
+			continue
+		}
+		fmt.Fprintf(b, "- %s\n", text)
 	}
 }
 

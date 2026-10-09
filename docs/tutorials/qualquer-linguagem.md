@@ -127,7 +127,7 @@ Sem gate:
 binary file, skipped: ferramenta.bin
 binary file, skipped: leia-me.txt
 generated file, skipped: schema.pb.txt
-**Verdict:** Comment
+> **Inconclusive: this review does not approve the change.**
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve (arquivos fora do alcance)
 ```
 
@@ -336,6 +336,8 @@ Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em d
 ### apelidos-e-instrucoes
 
 ![Terminal do caso apelidos-e-instrucoes](../assets/capturas/qualquer-linguagem/apelidos-e-instrucoes-terminal.png)
+
+![Comentário do PR do caso apelidos-e-instrucoes](../assets/capturas/qualquer-linguagem/apelidos-e-instrucoes-comentario.png)
 
 ### arquivo-sem-gramatica
 

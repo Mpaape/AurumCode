@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // publish resolves the commit the review anchors to, writes the compliance
@@ -67,28 +69,40 @@ func (p *prReview) resolveCommit() (int, bool) {
 	return 0, false
 }
 
-// postReview publishes the findings and the summary. The loop never lets one
-// POST failure swallow the rest: failures are recorded and the loop
-// continues, so every finding that COULD be published still was.
+// postReview publishes the parecer and the inline comments of what blocks.
+// The loop never lets one POST failure swallow the rest: failures are
+// recorded and the loop continues, so every comment that COULD be published
+// still was.
 func (p *prReview) postReview() []string {
-	summaryBody := appendReachSection(formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, p.changelogText, p.blockingRule()), p.reachLines, p.reviewLanguage)
-	summaryBody = appendChangelogSection(summaryBody, p.changelogSuggestion)
-	summaryBody = appendRoundNotice(summaryBody, p.round, p.reviewLanguage)
-	summaryBody = appendPresentationNotice(summaryBody, p.shown, p.reviewLanguage)
-	summaryBody = appendProposedExceptions(summaryBody, p.proposedExceptions)
+	summaryBody := p.reviewBody()
 	if p.publication == "review" {
 		return p.postFormalReview(summaryBody)
 	}
 	return p.postSeparateComments(summaryBody)
 }
 
-// postFormalReview posts one formal GitHub review carrying every eligible
-// inline comment and native suggestion.
+// reviewBody assembles the parecer: the document, then the actionable
+// sections (dependency reach, changelog, proposed exceptions) before the
+// collapsed details, and the round and consolidation notes inside them.
+func (p *prReview) reviewBody() string {
+	body := formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, "", p.blockingRule())
+	body = appendBodySection(body, reachSection(p.reachLines, p.reviewLanguage))
+	body = appendBodySection(body, p.changelogText)
+	body = appendBodySection(body, p.changelogSuggestion)
+	body = appendBodySection(body, proposedExceptionsBlock(p.proposedExceptions))
+	copy := reviewCopyFor(p.reviewLanguage)
+	body = appendDetailSection(body, copy.details, roundNotice(p.round, p.reviewLanguage))
+	body = appendDetailSection(body, copy.details, presentationNotice(p.shown, p.reviewLanguage))
+	return body
+}
+
+// postFormalReview posts one formal GitHub review carrying the inline
+// comments of the blocking findings and the native suggestions.
 func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	formalComments := make([]githubclient.ReviewLineComment, 0)
 	if p.inlineComments {
 		for i, issue := range p.shown.withSources(p.reviewLanguage) {
-			if !isInlineEligible(p.diff, issue) || !p.round.posts(i) {
+			if !p.commentsOwnLine(issue) || !p.round.posts(i) {
 				continue
 			}
 			formalComments = append(formalComments, githubclient.ReviewLineComment{
@@ -117,25 +131,32 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	} else {
 		fmt.Fprintf(p.stdout, "review formal %q publicado no pull request #%d (%d comentário(s) na linha).\n", formal.Event, p.prNumber, len(formalComments))
 	}
-	_, outsideFailures := p.postOutsideDiffFindings()
-	return append(failures, outsideFailures...)
+	p.markResolvedComments()
+	return failures
 }
 
-// postSeparateComments is the historical mode: one comment per finding
-// (inline when eligible and enabled, general otherwise), then the summary.
+// commentsOwnLine reports whether a finding gets a comment on its line: it
+// blocks the merge and sits on a changed line. Everything else is read in
+// the parecer, which lists every finding.
+func (p *prReview) commentsOwnLine(issue types.ReviewIssue) bool {
+	return p.blockingRule().Blocks(issue) && isInlineEligible(p.diff, issue)
+}
+
+// postSeparateComments is the default mode: an inline comment per blocking
+// finding (when inline comments are on), then the parecer, edited in place
+// when an earlier round published one.
 func (p *prReview) postSeparateComments(summaryBody string) (failures []string) {
-	inlineCount, generalCount := 0, 0
+	inlineCount := 0
 	stdout, stderr := p.stdout, p.stderr
 	for i, issue := range p.shown.withSources(p.reviewLanguage) {
 		line := fmt.Sprintf("%s:%d: [%s] %s", issue.File, issue.Line, issue.Severity, issue.Message)
 		if issue.Side == "LEFT" {
 			line += " [LEFT/base]"
 		}
-		if !p.round.posts(i) {
+		switch {
+		case !p.round.posts(i):
 			fmt.Fprintf(stdout, "%s -- %s\n", line, roundRepeatedMarker(p.reviewLanguage))
-			continue
-		}
-		if p.inlineComments && isInlineEligible(p.diff, issue) {
+		case p.inlineComments && p.commentsOwnLine(issue):
 			comment := githubclient.ReviewComment{
 				Body:     p.round.findingBody(i, issue, p.reviewLanguage),
 				CommitID: p.commitID,
@@ -151,26 +172,92 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 			}
 			fmt.Fprintf(stdout, "%s -- publicado na linha\n", line)
 			inlineCount++
-			continue
+		default:
+			fmt.Fprintf(stdout, "%s %s\n", line, inParecerMarker)
 		}
-		if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, p.round.findingBody(i, issue, p.reviewLanguage)); err != nil {
-			fmt.Fprintf(stderr, "aurumcode review: publishing general comment for %s:%d: %v\n", issue.File, issue.Line, err)
-			failures = append(failures, fmt.Sprintf("%s:%d (geral): %v", issue.File, issue.Line, err))
-			continue
-		}
-		fmt.Fprintf(stdout, "%s %s\n", line, outsideDiffPublishedMarker)
-		generalCount++
 	}
-	outsidePublished, outsideFailures := p.postOutsideDiffFindings()
-	generalCount += outsidePublished
-	failures = append(failures, outsideFailures...)
-	if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, summaryBody); err != nil {
+	for _, issue := range review.OutsideDiffFindings(p.result) {
+		fmt.Fprintf(stdout, "%s %s\n", outsideDiffLine(issue), inParecerMarker)
+	}
+	suggested, suggestionFailures := p.postNativeSuggestions()
+	failures = append(failures, suggestionFailures...)
+	inlineCount += suggested
+	how, err := p.postParecer(summaryBody)
+	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 		failures = append(failures, "summary: "+err.Error())
+	} else {
+		fmt.Fprintf(stdout, "parecer %s no pull request #%d (%d comentário(s) na linha).\n", how, p.prNumber, inlineCount)
 	}
-	fmt.Fprintf(stdout, "%d comentario(s) publicado(s) no pull request #%d (%d na linha, %d geral).\n",
-		inlineCount+generalCount, p.prNumber, inlineCount, generalCount)
+	p.markResolvedComments()
 	return failures
+}
+
+// postNativeSuggestions posts, with inline comments on, each
+// implementation-ready suggestion as a GitHub suggestion on its changed
+// lines, applicable with one click: the comments mode proposes the change
+// the same way the formal review does.
+func (p *prReview) postNativeSuggestions() (published int, failures []string) {
+	if !p.inlineComments {
+		return 0, nil
+	}
+	for _, suggestion := range p.result.Suggestions {
+		line, ok := nativeSuggestionComment(p.diff, suggestion, p.reviewLanguage)
+		if !ok {
+			continue
+		}
+		comment := githubclient.ReviewComment{Body: line.Body, CommitID: p.commitID, Path: line.Path, Line: line.Line, Side: line.Side, StartLine: line.StartLine, StartSide: line.StartSide}
+		key := fmt.Sprintf("aurumcode/%d/%s/%s/%d/suggestion", p.prNumber, p.commitID, line.Path, line.Line)
+		if err := p.client.PostReviewComment(p.ctx, p.owner, p.repoName, p.prNumber, comment, key); err != nil {
+			fmt.Fprintf(p.stderr, "aurumcode review: publishing suggestion on %s:%d: %v\n", line.Path, line.Line, err)
+			failures = append(failures, fmt.Sprintf("%s:%d (sugestão): %v", line.Path, line.Line, err))
+			continue
+		}
+		fmt.Fprintf(p.stdout, "%s:%d: sugestão aplicável publicada na linha\n", line.Path, line.Line)
+		published++
+	}
+	return published, failures
+}
+
+// inParecerMarker ends the stdout line of a finding published only in the
+// parecer.
+const inParecerMarker = "-- no parecer"
+
+// postParecer publishes the parecer: edited in place when this product
+// already published one on the pull request (one parecer per pull request,
+// the latest round), posted otherwise. An edit that fails falls back to a
+// new comment, so a round is never lost.
+func (p *prReview) postParecer(body string) (string, error) {
+	if id, ok := p.previousParecer(); ok {
+		if err := p.client.UpdateIssueComment(p.ctx, p.owner, p.repoName, id, body); err == nil {
+			return "atualizado", nil
+		} else {
+			fmt.Fprintf(p.stderr, "aurumcode review: editing the earlier parecer (%d): %v; posting a new one\n", id, err)
+		}
+	}
+	if err := p.client.PostIssueComment(p.ctx, p.owner, p.repoName, p.prNumber, body); err != nil {
+		return "", err
+	}
+	return "publicado", nil
+}
+
+// previousParecer is the latest parecer this product published on the pull
+// request: a general comment by the publisher login carrying the body
+// marker. Without a readable conversation or a known publisher there is
+// none to edit (another author's comment is never edited).
+func (p *prReview) previousParecer() (int64, bool) {
+	publisher := strings.TrimSpace(p.env().publisherLogin)
+	if p.historyErr != nil || publisher == "" {
+		return 0, false
+	}
+	var id int64
+	found := false
+	for _, e := range p.historyEntries {
+		if e.Kind == "comment" && strings.EqualFold(strings.TrimSpace(e.Author), publisher) && strings.Contains(e.Body, reviewBodyMarker) {
+			id, found = e.ID, true
+		}
+	}
+	return id, found
 }
 
 // finish saves review memory, publishes the commit statuses and returns the

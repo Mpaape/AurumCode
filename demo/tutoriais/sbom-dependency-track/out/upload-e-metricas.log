@@ -7,28 +7,12 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
 aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
-## Code Review Summary
+## AurumCode code review
 
-**Verdict:** Approve
+> [!TIP]
+> **Approved: no problem found in the reviewed change.**
 
-**Findings by severity:**
-- error: 0
-- warning: 0
-- info: 0
-
-**Files touched:**
-- None
-
-
-```mermaid
-flowchart TD
-    n0[".aurumcode/config.yml"]
-    n1["package-lock.json"]
-    n2["package.json"]
-    n3["src/index.js"]
-    n1 --> n2
-
-```
+policy gate: passed · 4 files reviewed
 No issues found.
 exit_code=0
 RESULTADO: o gate enviou o SBOM, esperou o processamento e aprovou

@@ -2,24 +2,12 @@
 skills de diretorio: estilo-ts com languages: [ts]; estilo-ruim com um apelido desconhecido
 --- a mudanca toca so app.go
 $ aurumcode review --base main
-## Resumo da Revisão de Código
+## AurumCode revisão de código
 
-**Veredito:** Aprovar
+> [!TIP]
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-**Resultados por severidade:**
-- erro: 0
-- aviso: 0
-- informação: 0
-
-**Arquivos alterados:**
-- Nenhum
-
-
-```mermaid
-flowchart TD
-    n0["app.go"]
-
-```
+sem gate declarado · 1 arquivo revisado
 
 ### Limitações da revisão
 
@@ -32,24 +20,12 @@ prompt: ### Skill selection warnings
 prompt: unknown language "linguagem-inexistente"
 --- a mudanca toca app.ts
 $ aurumcode review --base main
-## Resumo da Revisão de Código
+## AurumCode revisão de código
 
-**Veredito:** Aprovar
+> [!TIP]
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-**Resultados por severidade:**
-- erro: 0
-- aviso: 0
-- informação: 0
-
-**Arquivos alterados:**
-- Nenhum
-
-
-```mermaid
-flowchart TD
-    n0["app.ts"]
-
-```
+sem gate declarado · 1 arquivo revisado
 
 ### Limitações da revisão
 

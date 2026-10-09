@@ -83,7 +83,7 @@ func modelCacheKey(provider llm.Provider) string {
 	// internal/llm/provider/litellm (outside this card's paths).
 	if baseURL := os.Getenv("LLM_BASE_URL"); baseURL != "" {
 		name += ":baseurl:" + baseURL
-	} else if endpoint, ok := provider.(baseURLReporter); ok && endpoint.BaseURL() != "" {
+	} else if endpoint, ok := llm.As[baseURLReporter](provider); ok && endpoint.BaseURL() != "" {
 		// A catalog profile resolves its URL without LLM_BASE_URL (for
 		// example an Azure resource and deployment): the same rule holds.
 		name += ":baseurl:" + endpoint.BaseURL()
