@@ -14,11 +14,9 @@ import (
 )
 
 // redactedSecretResponse reproduces the measured false positive: the model
-// read `APIKey: [REDACTED]` (the redactor's own mask) and reported it as a
-// committed secret it never saw. Since AUR-609 an identifier is no longer
-// masked, so the fixture diff assigns a quoted literal, which still is. A
-// second finding carries the marker only in its evidence; the third is an
-// ordinary, provable finding.
+// read `APIKey: [REDACTED]` (the redactor's own mask over an identifier) and
+// reported it as a committed secret. A second finding carries the marker
+// only in its evidence; the third is an ordinary, provable finding.
 const redactedSecretResponse = `{
   "issues": [
     {"file": "profiles/resolve.go", "line": 2, "severity": "error",
@@ -51,7 +49,7 @@ func redactedSecretDiff() *types.Diff {
 		Path: "profiles/resolve.go",
 		Hunks: []types.DiffHunk{{NewStart: 1, Lines: []string{
 			" func resolve(key string, timeout int) Profile {",
-			"+\tp := Profile{APIKey: \"not-a-real-key\"}",
+			"+\tp := Profile{APIKey: key}",
 			"+\treturn p",
 			" }",
 		}}},

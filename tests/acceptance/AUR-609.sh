@@ -7,14 +7,15 @@
 #
 # Selectors:
 #   all      AC-001..AC-005, MUT-001..MUT-003
-#   AC-001   the seven expression/identifier/operator forms pass through intact
-#   AC-002   a password literal, a high-entropy token, a JWT and an AKIA key stay masked
+#   AC-001   the seven expression/operator forms pass through intact
+#   AC-002   a password literal, a weak bare password, a bare token, a JWT and
+#            an AKIA key stay masked
 #   AC-003   a docstring or string documenting subprocess/exec is no finding;
 #            the real call still is, and so is SQL built inside a string
 #   AC-004   the same line in README.md or .log is no code-rule finding;
 #            a secret in prose still is
 #   AC-005   the gate (fail_on: [error]) does not fail the docstring diff
-#   MUT-001  no secret-shape classification turns AC-001 red
+#   MUT-001  no code-shape check on bare values turns AC-001 red
 #   MUT-002  no literal guard on command-injection turns AC-003 red
 #   MUT-003  no prose skip turns AC-004 red
 # Exit: 0 pass, 1 behavioral failure, 64 unknown selector, 79 infrastructure.
@@ -109,12 +110,12 @@ mutate() {
 }
 
 ac001() {
-  ac AC-001 '^TestAUR609(KeyValueKeepsExpressionsAndIdentifiers|AssignDoesNotEatComparisonOperators|SecretShaped)$' \
-    TestAUR609KeyValueKeepsExpressionsAndIdentifiers TestAUR609AssignDoesNotEatComparisonOperators TestAUR609SecretShaped
+  ac AC-001 '^TestAUR609(KeyValueKeepsExpressionsAndOperators|AssignDoesNotEatComparisonOperators|BareSecretOrCode)$' \
+    TestAUR609KeyValueKeepsExpressionsAndOperators TestAUR609AssignDoesNotEatComparisonOperators TestAUR609BareSecretOrCode
 }
 ac002() {
-  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|SecretShaped)$' \
-    TestAUR609KeyValueStillMasksLiteralsAndTokens TestAUR609SecretShaped
+  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|BareWeakSecretStaysMasked|BareSecretOrCode)$' \
+    TestAUR609KeyValueStillMasksLiteralsAndTokens TestAUR609BareWeakSecretStaysMasked TestAUR609BareSecretOrCode
 }
 ac003() {
   ac AC-003 '^TestAUR609(DocstringMentionIsNotCommandInjection|MultilineDocstringIsNotCommandInjection|RealCallStillCommandInjection|SQLInsideStringStillFound)$' \
@@ -130,9 +131,9 @@ ac005() {
 }
 
 mut001() {
-  mutate MUT-001 internal/security/redaction/redaction.go 'if !secretShaped(value) {' \
-    's/if !secretShaped(value) {/if false \&\& !secretShaped(value) {/' \
-    '^TestAUR609KeyValueKeepsExpressionsAndIdentifiers$' 'TestAUR609KeyValueKeepsExpressionsAndIdentifiers'
+  mutate MUT-001 internal/security/redaction/redaction.go 'if !bareSecret(value) {' \
+    's/if !bareSecret(value) {/if false \&\& !bareSecret(value) {/' \
+    '^TestAUR609KeyValueKeepsExpressionsAndOperators$' 'TestAUR609KeyValueKeepsExpressionsAndOperators'
 }
 mut002() {
   mutate MUT-002 internal/analysis/literalguard.go 'if !isInsideStringLiteral(body, pos, inRaw) {' \

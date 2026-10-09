@@ -6,8 +6,9 @@ import (
 )
 
 // aur609Expressions are the seven spellings of a secret-bearing key whose
-// value is code, not a secret: before AUR-609 the filter replaced (part of)
-// each of them with the marker and handed the model a broken line.
+// value is code or an operator, not a secret: before AUR-609 the filter
+// replaced (part of) each of them with the marker and handed the model a
+// broken line.
 var aur609Expressions = []struct {
 	name, line string
 }{
@@ -15,13 +16,13 @@ var aur609Expressions = []struct {
 	{"go short declaration of a call", `token := os.Getenv("TOKEN")`},
 	{"go comparison", `if token == nil {`},
 	{"javascript strict comparison", `if (password === undefined) {`},
-	{"identifier in a struct literal", `p := Profile{APIKey: key}`},
+	{"member access in a struct literal", `p := Profile{APIKey: cfg.Key}`},
 	{"member access", `const secret = this.config.secret;`},
 	{"workflow secret reference", `LLM_API_KEY: ${{ secrets.LLM_API_KEY }}`},
 }
 
-// AC-001: expressions, identifiers and operators pass through intact.
-func TestAUR609KeyValueKeepsExpressionsAndIdentifiers(t *testing.T) {
+// AC-001: expressions and operators pass through intact.
+func TestAUR609KeyValueKeepsExpressionsAndOperators(t *testing.T) {
 	f := NewFilter()
 	for _, tc := range aur609Expressions {
 		t.Run(tc.name, func(t *testing.T) {
@@ -32,7 +33,7 @@ func TestAUR609KeyValueKeepsExpressionsAndIdentifiers(t *testing.T) {
 	}
 }
 
-// AC-002: a quoted literal, a generated token, a JWT and an AWS key id stay
+// AC-002: a quoted literal, a bare token, a JWT and an AWS key id stay
 // masked. Every secret-shaped value is assembled at run time so no literal
 // credential is committed.
 func TestAUR609KeyValueStillMasksLiteralsAndTokens(t *testing.T) {
@@ -88,38 +89,51 @@ func TestAUR609AssignDoesNotEatComparisonOperators(t *testing.T) {
 	}
 }
 
-// secretShaped classifies a bare value: a known shape or a generated token
-// is a secret; an identifier, a word with a digit or an expression is not.
-func TestAUR609SecretShaped(t *testing.T) {
+// AC-002: a weak secret written bare is still a secret and never reaches
+// the model provider; so is a bare identifier after a secret key.
+func TestAUR609BareWeakSecretStaysMasked(t *testing.T) {
+	f := NewFilter()
+	for _, tc := range []struct{ in, want string }{
+		{"password=hunter2", "password=" + Marker},
+		{"password: supersecretvalue", "password: " + Marker},
+		{"DB_PASSWORD=changeme", "DB_PASSWORD=" + Marker},
+		{"token = tok", "token = " + Marker},
+		{"secret:x", "secret:" + Marker},
+	} {
+		if got := f.Redact(tc.in); got != tc.want {
+			t.Fatalf("Redact(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// bareSecret masks every bare value except code: a known shape is masked
+// even when it carries a dot, and a value with a code marker is kept.
+func TestAUR609BareSecretOrCode(t *testing.T) {
 	cases := []struct {
 		value string
 		want  bool
 	}{
-		{"a1b2c3d4", true}, // eight distinct characters: exactly 3.0 bits
-		{"a1b2c3d", false}, // seven characters cannot reach 3.0 bits
-		{"aabbcc11", false},
-		{"abcdefghij", false},
-		{"1234567890", false},
-		{"hunter2", false},
-		{"key", false},
-		{"nil", false},
-		{"os.environ.get(", false},
-		{"os.Getenv(", false},
-		{"${{", false},
-		{"$TOKEN_VALUE_1", false},
-		{"cfg->token_v2x9", false},
-		{"Config::TOKEN_V2x9", false},
+		{"hunter2", true},
+		{"supersecretvalue", true},
+		{"key", true},
+		{"a1b2c3d", true},
 		{"Zx9Qw3Lp" + "7Rt5Vn2K", true},
 		{"tok_live_" + "9f8e7d6c5b4a", true},
 		{"AKIA" + strings.Repeat("Q", 16), true},
 		{"eyJ" + "hbGciOiJIUzI1NiJ9" + ".eyJ" + "zdWIiOiIxMjM0NTY3ODkwIn0" + ".c2ln", true},
+		{"os.environ.get(", false},
+		{"os.Getenv(", false},
+		{"cfg.Key", false},
+		{"config[", false},
+		{"${{", false},
+		{"$TOKEN_VALUE_1", false},
+		{"cfg->token_v2x9", false},
+		{"Config::TOKEN_V2x9", false},
+		{"getToken()", false},
 	}
 	for _, tc := range cases {
-		if got := secretShaped(tc.value); got != tc.want {
-			t.Fatalf("secretShaped(%q) = %v, want %v", tc.value, got, tc.want)
+		if got := bareSecret(tc.value); got != tc.want {
+			t.Fatalf("bareSecret(%q) = %v, want %v", tc.value, got, tc.want)
 		}
-	}
-	if h := shannonEntropy("a1b2c3d4"); h != 3.0 {
-		t.Fatalf("shannonEntropy(a1b2c3d4) = %v, want exactly 3.0", h)
 	}
 }
