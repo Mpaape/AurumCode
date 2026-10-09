@@ -3,4 +3,4 @@
 # por um valor montado em tempo de execucao; o arquivo atual nao o contem.
 # A historia de dev e protegida (sem force-push), entao so este fingerprint
 # exato e ignorado. Sob politica central este arquivo vira achado proprio.
-0c40584e4e132bf91391f9242c32503e7017e638:cmd/aurumcode/aur553_test.go:github-pat:32
+ac85c4f221615c6bfde11fd668424504ebd9b6e2:cmd/aurumcode/aur553_test.go:github-pat:32

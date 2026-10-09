@@ -392,7 +392,7 @@ estruturais do registro):
   "schema": "aurum.delivery-record",
   "version": 1,
   "card": "AUR-561",
-  "commit": "451e8e78d5d549a7966575b0f51d05b4f398efda",
+  "commit": "dde2eb5a4958b4ded40d239f0196653f15f29d9a",
   "review": "approved",
   "validation": "passed",
   "validator_run": {
@@ -405,7 +405,7 @@ estruturais do registro):
 
 <!-- saida: entrega-e-evidencia -->
 ```text
-- commit: 451e8e78d5d549a7966575b0f51d05b4f398efda
+- commit: dde2eb5a4958b4ded40d239f0196653f15f29d9a
 - review: approved
 - validation: passed
   "validation": "passed",
