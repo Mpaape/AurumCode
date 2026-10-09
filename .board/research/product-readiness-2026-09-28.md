@@ -1,6 +1,6 @@
 # Auditoria de casos de uso — 2026-09-28
 
-Base: `ca59d612ea0ee011f579f68e73e1c8bf927260a7`.
+Base: `a73ea97344ca7c7f63ed05a6464538cfac178095`.
 Pesquisa solicitada com modelos Luna e Sol; quatro escopos independentes:
 documentacao/ergonomia, motor de review, entrega/release e referencias externas.
 O coordenador conferiu os pontos de codigo abaixo antes de planejar correcoes.
@@ -16,7 +16,7 @@ O pipeline do board passou, a branch era unica e o HEAD estava sincronizado.
 | Site instrui caminho de config ignorado pelo produto | docs/site/index.html:349/356; app.js:12; internal/config/config.go:252 | Divergencia confirmada entre artefatos | AUR-506 |
 | Action direta nao exige review LLM | scripts/action-entrypoint.sh:82; reutilizavel review.yml:142; pr.go:691 | Fluxo confirmado por leitura; falta regressao do wrapper | AUR-507 |
 | Changelog nao bloqueia merge | action.yml:34; review.yml:26; pr.go:246; aur499_test.go:92 | Sugestao opcional e ausencia de gate confirmadas | AUR-509 |
-| Release atual nao representa o HEAD | refs remotas v1/v1.1.0 em 0ba1632; main 156 commits adiante | Consulta GitHub/Git confirmada | AUR-510 |
+| Release atual nao representa o HEAD | refs remotas v1/v1.1.0 em 8e33c69; main 156 commits adiante | Consulta GitHub/Git confirmada | AUR-510 |
 | Cache nao inclui prompt/perfil efetivo | main.go:803; review_cache.go:103 | Composicao da chave confirmada; reproduzir duas rodadas | AUR-513 |
 | Cache retira arquivos antes da analise conjunta | review_cache.go:113; main.go:803 | Operacao confirmada; perda concreta de bug cross-file ainda e hipotese | AUR-513 |
 | Fusao de perfis perde evidencia e outros campos | profiles.go:113/141 | Conversoes confirmadas por leitura | AUR-514 |

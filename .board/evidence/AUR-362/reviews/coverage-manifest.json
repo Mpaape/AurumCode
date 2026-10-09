@@ -53,7 +53,7 @@
     ],
     "hunks": [
       "covered",
-      "All hunks of the r3 candidate against 7a1b930 were read, including the new ground-truth capture and its parser."
+      "All hunks of the r3 candidate against e7e18a6 were read, including the new ground-truth capture and its parser."
     ]
   },
   "reviewer_b_notes": {

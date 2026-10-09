@@ -53,7 +53,7 @@
   ],
   "hunks": [
    "covered",
-   "Todos os hunks lidos; base_sha 2b89020 confirmado ancestral de 8b27423, logo a re-ancoragem avancou (Lei 19)."
+   "Todos os hunks lidos; base_sha eb8dd33 confirmado ancestral de b936ef5, logo a re-ancoragem avancou (Lei 19)."
   ]
  },
  "reviewer_b_notes": {
@@ -67,7 +67,7 @@
   ],
   "compatibility": [
    "covered",
-   "Mesma construcao de duas worktrees e diff; nada alem do card mudou. Registrou com honestidade que o HEAD do momento da revisao (b9b5dfe) nao e literalmente o que o coordenador descreveu, e julgou nao material."
+   "Mesma construcao de duas worktrees e diff; nada alem do card mudou. Registrou com honestidade que o HEAD do momento da revisao (71718be) nao e literalmente o que o coordenador descreveu, e julgou nao material."
   ],
   "tests": [
    "covered",

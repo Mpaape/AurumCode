@@ -11,7 +11,7 @@
       "round": 2,
       "outcome": "approved",
       "governance_change": "No card-spec change; version stayed at 1. The candidate patch was corrected in place: interoperability.md's Unified diff row and standards/contracts/unified-diff/validator.md's Source line were repointed to the archived Wayback Machine snapshot (2023-05-27), and tests/specs/AUR-017/allowed-source-domains.txt now allowlists web.archive.org in place of www.gnu.org.",
-      "candidate": "round-2 patch applied against base_sha efb32f62348dd8a9c9782dcf6f4be1d23566f623 (uncommitted working tree; not integrated by this evidence bundle)"
+      "candidate": "round-2 patch applied against base_sha b9bc4960e2f19ad2980ffbb2f238dda305248bc8 (uncommitted working tree; not integrated by this evidence bundle)"
     }
   ],
   "note": "This bundle proves round 2 against the current candidate_identity_digest. Round 1's reviewer and skeptic reports (/tmp/aurum-reviews/AUR-017-seal.md, AUR-017-skeptic.md) were produced against the pre-fix candidate and are superseded, not persisted here as live evidence bound to the current candidate identity; they are retained only as the veto record this table summarizes."

@@ -53,7 +53,7 @@
     ],
     "hunks": [
       "covered",
-      "All hunks of the r6 candidate against 5729803e were read: .board/research/mcp.md, docs/specs/AUR-021.md, standards/mcp/{protocol,tools}.yaml, tests/acceptance/AUR-021.sh, tests/integration/AUR-021_test.go, tests/specs/AUR-021/*."
+      "All hunks of the r6 candidate against 223d8d56 were read: .board/research/mcp.md, docs/specs/AUR-021.md, standards/mcp/{protocol,tools}.yaml, tests/acceptance/AUR-021.sh, tests/integration/AUR-021_test.go, tests/specs/AUR-021/*."
     ]
   },
   "reviewer_b_notes": {
@@ -95,7 +95,7 @@
     ],
     "hunks": [
       "covered",
-      "All hunks of the r6 candidate diff against 5729803e were read, prioritizing hostile-input and fail-closed behavior on each."
+      "All hunks of the r6 candidate diff against 223d8d56 were read, prioritizing hostile-input and fail-closed behavior on each."
     ]
   }
 }

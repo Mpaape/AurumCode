@@ -14,7 +14,7 @@
  "red": {
   "exit_code": 1,
   "typed_failure": "AUR-015/AC-001: interoperability baseline absent",
-  "cause": ".board/research/interoperability.md absent from the pre-candidate tree (efb32f62348dd8a9c9782dcf6f4be1d23566f623); AC-001 reaches the boundary call and fails on the missing baseline."
+  "cause": ".board/research/interoperability.md absent from the pre-candidate tree (b9bc4960e2f19ad2980ffbb2f238dda305248bc8); AC-001 reaches the boundary call and fails on the missing baseline."
  },
  "green": {
   "exit_code": 0,

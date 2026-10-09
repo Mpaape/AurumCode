@@ -14,7 +14,7 @@
   "red": {
     "exit_code": 1,
     "typed_failure": "AUR-363/AC-001/parser_lock_incomplete",
-    "cause": ".board/bootstrap/locks/parsers.yml absent from the pre-candidate tree (base_sha 7a1b930); AC-001 reaches the boundary check and fails typed. Reproduced independently by both blind reviewers."
+    "cause": ".board/bootstrap/locks/parsers.yml absent from the pre-candidate tree (base_sha e7e18a6); AC-001 reaches the boundary check and fails typed. Reproduced independently by both blind reviewers."
   },
   "green": {
     "exit_code": 0,

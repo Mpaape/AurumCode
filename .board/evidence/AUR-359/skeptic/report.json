@@ -50,5 +50,5 @@
     "pass": true,
     "leaked": 0
   },
-  "summary": "Formal re-seal over the corrected tree at 282d288 (persisted at /tmp/aurum-reviews/AUR-359-skeptic-reseal.md): APROVADO. The previous blocker (.gitignore silently swallowing fixture .board/bin replicas) is fixed and proven from scratch: clean status, all fixture files tracked, git check-ignore empty, and a git rm --cached + plain git add round-trip restages without -f. All three card mutations fail typed and restore byte-identically with green replay at the identical stdout digest; an extra vector (symlink replacing the real oci-run) fails typed source_integrity_error. No mutation landed in inconclusive (exit 79)."
+  "summary": "Formal re-seal over the corrected tree at 5b8a1fd (persisted at /tmp/aurum-reviews/AUR-359-skeptic-reseal.md): APROVADO. The previous blocker (.gitignore silently swallowing fixture .board/bin replicas) is fixed and proven from scratch: clean status, all fixture files tracked, git check-ignore empty, and a git rm --cached + plain git add round-trip restages without -f. All three card mutations fail typed and restore byte-identically with green replay at the identical stdout digest; an extra vector (symlink replacing the real oci-run) fails typed source_integrity_error. No mutation landed in inconclusive (exit 79)."
 }

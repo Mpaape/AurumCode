@@ -1,7 +1,7 @@
 # Plano de produto e entrega — AurumCode
 
 Data: 2026-09-28 (America/Sao_Paulo). Base auditada:
-`ca59d612ea0ee011f579f68e73e1c8bf927260a7`.
+`a73ea97344ca7c7f63ed05a6464538cfac178095`.
 
 ## Objetivo do usuario
 

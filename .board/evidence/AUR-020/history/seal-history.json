@@ -15,8 +15,8 @@
     {
       "round": 3,
       "outcome": "approved",
-      "governance_change": "Card version bump to v2 (commit 72bb0511ec3b0a35c1ef0829a8b1da90bb9bc902) retargeted the Integration path to tests/integration/AUR-020_test.go::TestAUR020Boundary, the only path go test can discover.",
-      "candidate": "ac79f1719544176d6c341aa3c892e1fab120ac0e"
+      "governance_change": "Card version bump to v2 (commit 45d5013448fe1186cbccb1f5df68a2b0f132fb0c) retargeted the Integration path to tests/integration/AUR-020_test.go::TestAUR020Boundary, the only path go test can discover.",
+      "candidate": "dc115109e48069c4707ac5dd31ecea41152df1f7"
     }
   ],
   "note": "This bundle only proves round 3 against the current candidate; round 1/2 artifacts were produced against the pre-v2 card and are superseded, not persisted here as live evidence for the current spec_digest."

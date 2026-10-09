@@ -53,7 +53,7 @@
     ],
     "hunks": [
       "covered",
-      "All hunks of the ac79f171 candidate diff against 72bb051 were read: ADR-0001, memory-design.md, docs/specs/AUR-020.md, standards/memory/limits.yaml, tests/acceptance/AUR-020.sh, tests/integration/AUR-020_test.go, tests/specs/AUR-020/*."
+      "All hunks of the dc115109 candidate diff against 45d5013 were read: ADR-0001, memory-design.md, docs/specs/AUR-020.md, standards/memory/limits.yaml, tests/acceptance/AUR-020.sh, tests/integration/AUR-020_test.go, tests/specs/AUR-020/*."
     ]
   },
   "reviewer_b_notes": {
@@ -95,7 +95,7 @@
     ],
     "hunks": [
       "covered",
-      "All hunks of the ac79f171 candidate diff against 72bb051 were read, prioritizing hostile-input and fail-closed behavior on each."
+      "All hunks of the dc115109 candidate diff against 45d5013 were read, prioritizing hostile-input and fail-closed behavior on each."
     ]
   }
 }

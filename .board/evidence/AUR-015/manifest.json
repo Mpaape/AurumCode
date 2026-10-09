@@ -24,8 +24,8 @@
   "role_context_manifest_digest": "sha256:54b668cc1d6aaf84c7a0e29586f9a5cb661dd05d277d9c58ef727c6a8357028d"
  },
  "provenance": {
-  "base_sha": "5729803ebcb2c3ba89da461bed43647d2c26de62",
-  "head_sha": "fcccfe925699fa298b7cb2c0a13fec4edca53002",
+  "base_sha": "223d8d56ca74471f820e8d596f8fc791f33c65c0",
+  "head_sha": "c13de0a4fdbff0be832aa78a4b5fc28054423c9c",
   "spec_digest": "sha256:8e84973ddee9d3160a5cf18ab0b0c3b6daf537df5a1ff81b1d09c784a7228964"
  },
  "gates": {

@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-434",
- "commit": "341f39fcf14c1463143bb4ce981f34acbf5a63a2",
+ "commit": "f3a4e94077fec7b7ffce59d6c41a278195edc622",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -11,7 +11,7 @@
   "raw_output": "AUR-434/AC-001/ok with E2EAUR434/ok and MUT-001/rejected; reviewer re-ran on the tip: RAW_EXIT=0, stdout digest e221a24e identical to approval"
  },
  "review_notes": {
-  "rounds": "APPROVE on c8e0a1b with one verified doc defect (spec example did not run as written); doc-fix delta 1b72707 confirmed, APPROVE upheld on 341f39f",
+  "rounds": "APPROVE on c8e0a1b with one verified doc defect (spec example did not run as written); doc-fix delta 1b72707 confirmed, APPROVE upheld on f3a4e94",
   "observed": "degraded-parse findings that AUR-430 surfaced are now suppressed when ungrounded - the literal Outcome; documented in the diagnosis table",
   "nits": "anti-zero-test grep would match 'no tests to run' (inert here); e2e_case reuses shared binary"
  }

@@ -3,7 +3,7 @@
   "version": 1,
   "card": "AUR-309",
   "scenario": "AC-001",
-  "candidate_commit": "8daa297f09e4d249f0fc6649265c1014f989f773",
+  "candidate_commit": "4068a631f1c31c0d70952d1fa1537c279175b3cc",
   "candidate_identity_v1": {
     "materialized_tree_sha256": "sha256:433dc74c7df09813d1ac423fa04ac59b7df4a0b049cbc8aefa5dbebb7344ece1",
     "pipeline_tree_sha256": "sha256:53a05eb741162835d91780627aa9a04ec1a85e3e3bdaf078d54eda5ea1c9af34",

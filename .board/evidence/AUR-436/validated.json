@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-436",
- "commit": "38ba1c8b1738a8b654edc90cd548c3ecc0666422",
+ "commit": "4ba0d46a739a751ebaf54981f3a9f94aac332bf6",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -11,7 +11,7 @@
   "raw_output": "AC-001/ok with E2EAUR436/ok and MUT-001/rejected; reviewer host reproductions are the evidence (observation_trusted:false on container output)"
  },
  "review_notes": {
-  "cross_integration": "first candidate went red on the integrated tip because AUR-434's rule gate suppressed unruled fixture findings; adapted in 38ba1c8 to a live gate, not a weakened one (verified with no/such-rule fixture)",
+  "cross_integration": "first candidate went red on the integrated tip because AUR-434's rule gate suppressed unruled fixture findings; adapted in 4ba0d46 to a live gate, not a weakened one (verified with no/such-rule fixture)",
   "finding_followup": "medium: LLM_BASE_URL userinfo echoed verbatim on the success-path stderr (main.go:353); outside this card's Secrets clause; transferred to AUR-432 which owns the redaction wiring",
   "environmental": "internal/evidence setup failure byte-identical on baseline (pre-existing)"
  }

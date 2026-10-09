@@ -25,7 +25,7 @@
     ],
     "compatibility": [
       "covered",
-      "Every file touched by candidate cecf652 is inside the card's paths except .gitignore, judged explicitly: the pre-fix swallow of fixture .board/bin replicas was reproduced from a clean index and the fix verified working."
+      "Every file touched by candidate 0d89742 is inside the card's paths except .gitignore, judged explicitly: the pre-fix swallow of fixture .board/bin replicas was reproduced from a clean index and the fix verified working."
     ],
     "tests": [
       "covered",
@@ -53,7 +53,7 @@
     ],
     "hunks": [
       "covered",
-      "All hunks of cecf652 read; 348ac6e verified to be a non-ancestor duplicate with byte-identical tree, so cecf652 alone accounts for everything merged at 282d288."
+      "All hunks of 0d89742 read; 2bd6d73 verified to be a non-ancestor duplicate with byte-identical tree, so 0d89742 alone accounts for everything merged at 5b8a1fd."
     ]
   },
   "reviewer_b_notes": {
@@ -91,11 +91,11 @@
     ],
     "scope-simplicity": [
       "covered",
-      "Scope of cecf652 matches the card's paths with the .gitignore deviation explicitly evaluated and accepted as the documented fix."
+      "Scope of 0d89742 matches the card's paths with the .gitignore deviation explicitly evaluated and accepted as the documented fix."
     ],
     "hunks": [
       "covered",
-      "All hunks of cecf652 read with adversarial priority on lock parsing, symlink handling and the fixture runner replica."
+      "All hunks of 0d89742 read with adversarial priority on lock parsing, symlink handling and the fixture runner replica."
     ]
   }
 }

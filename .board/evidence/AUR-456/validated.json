@@ -2,7 +2,7 @@
  "schema": "aurum.delivery-record",
  "version": 1,
  "card": "AUR-456",
- "commit": "39093252e11f70d3f8d95ca03b020a1ce799258c",
+ "commit": "a100ba7d59d2d6926c659d3231eb9cb6ea322908",
  "review": "approved",
  "validation": "passed",
  "validator_run": {
@@ -13,6 +13,6 @@
  "review_notes": {
   "importer_sweep": "the reviewer swept go, sh, yml, workflows, Dockerfile, Makefile, Gemfile, md and every card's acceptance script; the only hit is a hardcoded seal in AUR-001's script that the script itself replaces with a live git listing",
   "followups": "the .board/research/legacy-files.tsv inventory now has 21 stale lines, and .aurumcode/bash/test-jekyll.sh.md was orphaned by the deletion",
-  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate 643a12e5246de7ef1890cbf483376888a3e7936b, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to 39093252e11f70d3f8d95ca03b020a1ce799258c, the commit that delivers this card in main, verified by touching the card's declared paths."
+  "record_correction_2026_08_26": "The recorded commit was the work-branch candidate 643a12e5246de7ef1890cbf483376888a3e7936b, an object that existed only while refs/candidates and the card branch held it. Consolidating the repository onto a single branch collected it, and it is not recoverable from origin. Repointed to a100ba7d59d2d6926c659d3231eb9cb6ea322908, the commit that delivers this card in main, verified by touching the card's declared paths."
  }
 }

@@ -44,7 +44,7 @@
   "pass": true,
   "leaked": 0
  },
- "summary": "## Revis\u00e3o adversarial \u2014 AUR-015 r2 (segunda rodada, fun\u00e7\u00e3o APROVADOR C\u00c9TICO)\n\n**Independ\u00eancia**: contexto/processo/cache/nonce isolados em worktree descart\u00e1vel (`/tmp/.../scratchpad/aur015r2`, criada `git worktree add --detach 85cfbb4`, removida ao final), fam\u00edlia de modelo distinta do builder e dos Reviewers A/B, mesmo provider \u2014 `I2`, sem reivindicar `I3` nem independ\u00eancia de provider.\n\n### Meu",
+ "summary": "## Revis\u00e3o adversarial \u2014 AUR-015 r2 (segunda rodada, fun\u00e7\u00e3o APROVADOR C\u00c9TICO)\n\n**Independ\u00eancia**: contexto/processo/cache/nonce isolados em worktree descart\u00e1vel (`/tmp/.../scratchpad/aur015r2`, criada `git worktree add --detach 09e37be`, removida ao final), fam\u00edlia de modelo distinta do builder e dos Reviewers A/B, mesmo provider \u2014 `I2`, sem reivindicar `I3` nem independ\u00eancia de provider.\n\n### Meu",
  "report_digest": null,
  "session_digest": "sha256:d969a935a6b2eae4d6c567a6dfa8b77573e6690f4d8337a4115ca30abd40efc0"
 }

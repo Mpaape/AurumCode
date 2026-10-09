@@ -44,7 +44,7 @@ alegacao de entrega. Noxy deve ser descrito pelo suporte efetivamente provado.
 
 ## Evidencia inicial
 
-HEAD inicial 0ba1632. Release v1.1.0 sem binarios anexados. CI run 33772665278 e
+HEAD inicial 8e33c69. Release v1.1.0 sem binarios anexados. CI run 33772665278 e
 Documentation site run 33772665550 verdes. Pipeline local exit 0: 86 done,
 15 backlog, ready vazio. Essas evidencias nao provam ergonomia; screenshots
 iniciais do site foram capturadas em desktop 1440px e celular 390px.

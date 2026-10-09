@@ -73,5 +73,5 @@
       }
     ]
   },
-  "summary": "Round 3 review after the card's version-2 governance bump (commit 72bb0511ec3b0a35c1ef0829a8b1da90bb9bc902) moved the Integration test path to tests/integration/AUR-020_test.go, resolving the round-1/round-2 vetoes. Candidate ac79f1719544176d6c341aa3c892e1fab120ac0e delivers ADR-0001, memory-design.md, standards/memory/limits.yaml and the AC-001 lint entirely within the card's declared paths; no nit blocks approval."
+  "summary": "Round 3 review after the card's version-2 governance bump (commit 45d5013448fe1186cbccb1f5df68a2b0f132fb0c) moved the Integration test path to tests/integration/AUR-020_test.go, resolving the round-1/round-2 vetoes. Candidate dc115109e48069c4707ac5dd31ecea41152df1f7 delivers ADR-0001, memory-design.md, standards/memory/limits.yaml and the AC-001 lint entirely within the card's declared paths; no nit blocks approval."
 }

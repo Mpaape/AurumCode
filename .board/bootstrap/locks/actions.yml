@@ -117,7 +117,7 @@ entry_008_kind: remote
 entry_008_source: github-remote
 entry_008_owner: Mpaape
 entry_008_identity: Mpaape/AurumCode
-entry_008_ref: 6f584b5987c12399bc7a85571dad4a81e28005c8
+entry_008_ref: ca4687919ac9814eaddb75462e444aedfb81921d
 entry_008_ref_type: commit_sha
 entry_008_target: -
 entry_008_line_digest: sha256:0c2b5676553876be48d06981509cf040d17db26158f425d0cf60fb648f7e9c22
@@ -217,7 +217,7 @@ entry_018_kind: remote
 entry_018_source: github-remote
 entry_018_owner: Mpaape
 entry_018_identity: Mpaape/AurumCode
-entry_018_ref: 6f584b5987c12399bc7a85571dad4a81e28005c8
+entry_018_ref: ca4687919ac9814eaddb75462e444aedfb81921d
 entry_018_ref_type: commit_sha
 entry_018_target: -
 entry_018_line_digest: sha256:0c2b5676553876be48d06981509cf040d17db26158f425d0cf60fb648f7e9c22
@@ -247,7 +247,7 @@ entry_021_kind: remote
 entry_021_source: github-remote
 entry_021_owner: Mpaape
 entry_021_identity: Mpaape/AurumCode
-entry_021_ref: 6f584b5987c12399bc7a85571dad4a81e28005c8
+entry_021_ref: ca4687919ac9814eaddb75462e444aedfb81921d
 entry_021_ref_type: commit_sha
 entry_021_target: -
 entry_021_line_digest: sha256:0c2b5676553876be48d06981509cf040d17db26158f425d0cf60fb648f7e9c22
@@ -267,7 +267,7 @@ entry_023_kind: remote
 entry_023_source: github-remote
 entry_023_owner: Mpaape
 entry_023_identity: Mpaape/AurumCode
-entry_023_ref: 6f584b5987c12399bc7a85571dad4a81e28005c8
+entry_023_ref: ca4687919ac9814eaddb75462e444aedfb81921d
 entry_023_ref_type: commit_sha
 entry_023_target: -
 entry_023_line_digest: sha256:0c2b5676553876be48d06981509cf040d17db26158f425d0cf60fb648f7e9c22
@@ -287,7 +287,7 @@ entry_025_kind: remote
 entry_025_source: github-remote
 entry_025_owner: Mpaape
 entry_025_identity: Mpaape/AurumCode
-entry_025_ref: 6f584b5987c12399bc7a85571dad4a81e28005c8
+entry_025_ref: ca4687919ac9814eaddb75462e444aedfb81921d
 entry_025_ref_type: commit_sha
 entry_025_target: -
 entry_025_line_digest: sha256:0c2b5676553876be48d06981509cf040d17db26158f425d0cf60fb648f7e9c22

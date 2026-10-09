@@ -73,5 +73,5 @@
       }
     ]
   },
-  "summary": "Blind review over the corrected tree at 282d288 (persisted at /tmp/aurum-reviews/AUR-359-reviewB.md): APROVADO. Accept reproduced from scratch, 3 stable runs; MUT-001 and MUT-003 typed with byte-identical restoration and green replay; .gitignore deviation judged correctly scoped to test fixtures; no secret leaked; non-blocking finding recorded: the Contract/Integration/E2E selectors are label aliases of one code path (pre-existing sibling-card convention) and must not be counted as independent proofs."
+  "summary": "Blind review over the corrected tree at 5b8a1fd (persisted at /tmp/aurum-reviews/AUR-359-reviewB.md): APROVADO. Accept reproduced from scratch, 3 stable runs; MUT-001 and MUT-003 typed with byte-identical restoration and green replay; .gitignore deviation judged correctly scoped to test fixtures; no secret leaked; non-blocking finding recorded: the Contract/Integration/E2E selectors are label aliases of one code path (pre-existing sibling-card convention) and must not be counted as independent proofs."
 }

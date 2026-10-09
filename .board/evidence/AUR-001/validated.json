@@ -2,7 +2,7 @@
   "schema": "aurum.delivery-record",
   "version": 1,
   "card": "AUR-001",
-  "commit": "472c6920a04cd092508653332abe8805aa7f563f",
+  "commit": "522279debeecaf8d6f6b46c0062b0ee7d2069b7d",
   "review": "approved",
   "validation": "passed",
   "validator_context": "clean immutable worktree /tmp/aur001-final",

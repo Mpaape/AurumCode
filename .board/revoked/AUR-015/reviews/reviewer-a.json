@@ -73,7 +73,7 @@
    }
   ]
  },
- "summary": "## REVIEWER B (I2, fam\u00edlia de modelo distinta do autor, mesmo provider) \u2014 AUR-015 r2\n\n**Worktree revisado**: `/home/paape/repos/AurumCode/.claude/worktrees/wf_17e94dc0-094-1` (HEAD `85cfbb4`, confirmado por `git reflog` como fast-forward puro sem commit fabricado). Card `.board/cards/ready/AUR-015.md` confirmado em `version: 2`, `paths` inclui `tests/integration/AUR-015_test.go`.\n\n### Achados\n\nNen",
+ "summary": "## REVIEWER B (I2, fam\u00edlia de modelo distinta do autor, mesmo provider) \u2014 AUR-015 r2\n\n**Worktree revisado**: `/home/paape/repos/AurumCode/.claude/worktrees/wf_17e94dc0-094-1` (HEAD `09e37be`, confirmado por `git reflog` como fast-forward puro sem commit fabricado). Card `.board/cards/ready/AUR-015.md` confirmado em `version: 2`, `paths` inclui `tests/integration/AUR-015_test.go`.\n\n### Achados\n\nNen",
  "report_digest": null,
  "session_digest": "sha256:e251f628334967d4a45c5e337631ac93901f54890c07c462c0485179eed2eb7e"
 }

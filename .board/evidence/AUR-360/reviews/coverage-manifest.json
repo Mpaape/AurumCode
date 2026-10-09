@@ -53,7 +53,7 @@
     ],
     "hunks": [
       "covered",
-      "All hunks of the r2 candidate against 7a1b930 were read: the rewritten oracle, the lock, the five new fixtures and the spec."
+      "All hunks of the r2 candidate against e7e18a6 were read: the rewritten oracle, the lock, the five new fixtures and the spec."
     ]
   },
   "reviewer_b_notes": {

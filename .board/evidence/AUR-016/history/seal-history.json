@@ -21,7 +21,7 @@
       "round": 7,
       "outcome": "approved",
       "governance_change": "No card-spec change; version stayed at 1. The r7 delta (16 insertions, 5 deletions in tests/acceptance/AUR-016.sh) loops over every [label](url) occurrence per cell.",
-      "candidate": "r6 content (merged to main via PR #18) plus the r7 accept-script delta, applied against base_sha 5729803e; integrated by the coordinator as a staged working tree at bundle time."
+      "candidate": "r6 content (merged to main via PR #18) plus the r7 accept-script delta, applied against base_sha 223d8d56; integrated by the coordinator as a staged working tree at bundle time."
     }
   ],
   "note": "This bundle proves round 7 against the current candidate_identity_digest. Earlier-round reports are retained at /tmp/aurum-reviews/AUR-016-*.md as the veto record this table summarizes; the nominal stdout digest 03cb3ff4... is unchanged across r5-r7 because every fix touches only malformed paths, a fact measured and recorded rather than assumed."

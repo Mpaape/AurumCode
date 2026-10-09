@@ -2,13 +2,13 @@
   "schema": "aurum.delivery-record",
   "version": 1,
   "card": "AUR-502",
-  "commit": "7ad4e559e46dd0489317a3be4a39158e75505e95",
+  "commit": "61897a5b42556150b6800600a2a1dc6dd7ff2f11",
   "review": "approved",
   "validation": "passed",
   "reviewer": {
     "kind": "aurum-ci-pr-review",
     "pull_request": 39,
-    "head_sha": "7ad4e559e46dd0489317a3be4a39158e75505e95",
+    "head_sha": "61897a5b42556150b6800600a2a1dc6dd7ff2f11",
     "status_context": "aurumcode/review",
     "status_state": "success"
   },

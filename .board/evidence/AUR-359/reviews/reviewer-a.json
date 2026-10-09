@@ -73,5 +73,5 @@
       }
     ]
   },
-  "summary": "Blind review over the corrected tree at 282d288 (persisted at /tmp/aurum-reviews/AUR-359-reviewA.md): APROVADO. Accept reproduced raw 3x with stable digest a568a5ee...; trust-chain closure probed with a self-devised binding mutation (profile lock_digest corrupted, lock untouched -> typed invalid_lock_or_manifest); MUT-001 typed runner-digest-mismatch with byte-identical restoration; RED-before-GREEN reproduced via lock removal. Process flag recorded: 348ac6e is a non-ancestor duplicate of cecf652 (identical diff); the .gitignore fix is inside cecf652 itself."
+  "summary": "Blind review over the corrected tree at 5b8a1fd (persisted at /tmp/aurum-reviews/AUR-359-reviewA.md): APROVADO. Accept reproduced raw 3x with stable digest a568a5ee...; trust-chain closure probed with a self-devised binding mutation (profile lock_digest corrupted, lock untouched -> typed invalid_lock_or_manifest); MUT-001 typed runner-digest-mismatch with byte-identical restoration; RED-before-GREEN reproduced via lock removal. Process flag recorded: 2bd6d73 is a non-ancestor duplicate of 0d89742 (identical diff); the .gitignore fix is inside 0d89742 itself."
 }

@@ -24,8 +24,8 @@
     "role_context_manifest_digest": "sha256:2143ad7126c2871e06570fc678b28f15e95a54006a150b4557c7faa42a010819"
   },
   "provenance": {
-    "base_sha": "282d2888d70e73665d776887c233ded47ea50983",
-    "head_sha": "282d2888d70e73665d776887c233ded47ea50983"
+    "base_sha": "5b8a1fd217c2a72aed2e9ba6343d4bb52182c722",
+    "head_sha": "5b8a1fd217c2a72aed2e9ba6343d4bb52182c722"
   },
   "gates": {
     "status": "pass",

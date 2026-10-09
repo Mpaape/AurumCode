@@ -11,7 +11,7 @@
   {
    "round": "governance",
    "outcome": "card v2",
-   "reason": "commit 85cfbb4 renames integration path to AUR-015_test.go::TestAUR015Boundary (systemic AUR-020-class defect)"
+   "reason": "commit 09e37be renames integration path to AUR-015_test.go::TestAUR015Boundary (systemic AUR-020-class defect)"
   },
   {
    "round": 2,

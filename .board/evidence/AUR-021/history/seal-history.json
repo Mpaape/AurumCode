@@ -10,7 +10,7 @@
     {
       "round": 2,
       "outcome": "veto",
-      "reason": "Skeptic VETO after the v1->v2 governance bump (commit 85cfbb4): the reviewed patch did not create tests/integration/AUR-021_test.go; go test -list on the patched tree listed only TestAUR020Boundary. The only copy of the file lived staged-uncommitted in a foreign parallel worktree, and both other reviewers had validated against that external copy instead of the delivered artifact -- success-without-work pattern, vetoed."
+      "reason": "Skeptic VETO after the v1->v2 governance bump (commit 09e37be): the reviewed patch did not create tests/integration/AUR-021_test.go; go test -list on the patched tree listed only TestAUR020Boundary. The only copy of the file lived staged-uncommitted in a foreign parallel worktree, and both other reviewers had validated against that external copy instead of the delivered artifact -- success-without-work pattern, vetoed."
     },
     {
       "round": 3,
@@ -20,8 +20,8 @@
     {
       "round": 6,
       "outcome": "approved",
-      "governance_change": "No card-spec change since v2 (85cfbb4). The r6 candidate differs from r3 only by rewriting docs/specs/AUR-021.md's final section, fixing the factual contradiction found in r3 review.",
-      "candidate": "r6 patch (sha256 of patch bytes = change_digest in this bundle) applied against base_sha 5729803ebcb2c3ba89da461bed43647d2c26de62; integrated by the coordinator as an uncommitted working tree at bundle time."
+      "governance_change": "No card-spec change since v2 (09e37be). The r6 candidate differs from r3 only by rewriting docs/specs/AUR-021.md's final section, fixing the factual contradiction found in r3 review.",
+      "candidate": "r6 patch (sha256 of patch bytes = change_digest in this bundle) applied against base_sha 223d8d56ca74471f820e8d596f8fc791f33c65c0; integrated by the coordinator as an uncommitted working tree at bundle time."
     }
   ],
   "note": "This bundle proves round 6 against the current candidate_identity_digest. Round 1-3 reviewer and skeptic reports were produced against earlier candidates and are superseded; they are retained at /tmp/aurum-reviews/AUR-021-*.md only as the veto/approval record this table summarizes."

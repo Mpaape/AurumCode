@@ -2,7 +2,7 @@
   "schema": "aurum.delivery-record",
   "version": 1,
   "card": "AUR-493",
-  "commit": "c18723b8167ec5429b7f3387627cd298bccfd893",
+  "commit": "2c2dca3a3cf288f2d5af27e46dff5184126256c0",
   "review": "approved",
   "validation": "passed",
   "validator_run": {
@@ -11,7 +11,7 @@
     "raw_output": "AUR-493/all/pass; input_manifest_digest sha256:0bcd445481633e6dd4d8e39ac81b065673e489c4b864a7ab456257383259986a; stdout_sha256 1852aee56eefcfbebc935620f7c0cb2e457d14572f9a33bc7f393c198b74bc84"
   },
   "review_notes": {
-    "candidate": "bf4f2e7cd765d69260b71fad3daa275b0c2c239a",
+    "candidate": "70e08e94e30df3b8ffd126fba97ff359f2278c3d",
     "independent_review": "APPROVE; no reproduced blockers; nominal, MUT-001 and MUT-002 exit0; worktree unchanged.",
     "residual": "GitHub.com runner job context semantics require live CI after publication; no GHES support promised."
   }

@@ -14,7 +14,7 @@
   "red": {
     "exit_code": 1,
     "typed_failure": "AUR-020/AC-001/undecided-criterion",
-    "cause": "ADR-0001 reverted to its pre-candidate (72bb0511) content: no Rejected/Decision sections, missing required baseline terms."
+    "cause": "ADR-0001 reverted to its pre-candidate (45d50134) content: no Rejected/Decision sections, missing required baseline terms."
   },
   "green": {
     "exit_code": 0,

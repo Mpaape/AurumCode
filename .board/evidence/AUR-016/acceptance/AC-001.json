@@ -14,7 +14,7 @@
   "red": {
     "exit_code": 1,
     "typed_failure": "AUR-016/AC-001/behavior-missing",
-    "cause": ".board/research/quality-standards.md and standards/quality absent from the pre-candidate tree (base_sha 5729803e); AC-001 reaches the boundary check and fails typed on the required artifact being absent."
+    "cause": ".board/research/quality-standards.md and standards/quality absent from the pre-candidate tree (base_sha 223d8d56); AC-001 reaches the boundary check and fails typed on the required artifact being absent."
   },
   "green": {
     "exit_code": 0,

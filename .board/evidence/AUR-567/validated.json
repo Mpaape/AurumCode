@@ -2,7 +2,7 @@
   "schema": "aurum.delivery-record",
   "version": 1,
   "card": "AUR-567",
-  "commit": "542dc1d9121f0d7b0df0ccf9a7762566648c4efa",
+  "commit": "bab1702f39721ed2a03c0d98fb5d1e7aa0993cb7",
   "review": "approved",
   "validation": "passed",
   "validator_run": {

@@ -10,9 +10,9 @@
     {
       "round": 2,
       "outcome": "approved",
-      "governance_change": "No card-spec change. The fix (gitignore exception !tests/**/.board/bin/) was folded into the candidate commit cecf652 itself and merged to main via PR #17 (merge 282d288). base_sha locked to 282d288 at this transition, as the card's lock-at-execution demanded.",
-      "candidate": "cecf652 as merged at 282d288. Bookkeeping note from both blind reviewers: 348ac6e is a non-ancestor duplicate of cecf652 with a byte-identical tree; only cecf652 is ancestral to the merged tree."
+      "governance_change": "No card-spec change. The fix (gitignore exception !tests/**/.board/bin/) was folded into the candidate commit 0d89742 itself and merged to main via PR #17 (merge 5b8a1fd). base_sha locked to 5b8a1fd at this transition, as the card's lock-at-execution demanded.",
+      "candidate": "0d89742 as merged at 5b8a1fd. Bookkeeping note from both blind reviewers: 2bd6d73 is a non-ancestor duplicate of 0d89742 with a byte-identical tree; only 0d89742 is ancestral to the merged tree."
     }
   ],
-  "note": "This bundle proves round 2 against the current candidate_identity_digest, with all four seals produced over the corrected tree at 282d288: blind reviewers A and B, the formal skeptic re-seal, and the coordinator's own raw acceptance run, all reproducing stdout sha256 a568a5ee... independently."
+  "note": "This bundle proves round 2 against the current candidate_identity_digest, with all four seals produced over the corrected tree at 5b8a1fd: blind reviewers A and B, the formal skeptic re-seal, and the coordinator's own raw acceptance run, all reproducing stdout sha256 a568a5ee... independently."
 }
