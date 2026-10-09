@@ -2280,6 +2280,13 @@ da PR marca como bot: `user.type` igual a `Bot` ou login terminado em `[bot]`
 (`bot-lover` é uma pessoa). O autor vem do evento, nunca do conteúdo da PR;
 sem ele, o autor é uma pessoa e vale o `mode`. O job continua sem `if:`.
 
+Toda conta do tipo `Bot` recebe esse tratamento, não só o Dependabot: uma PR
+aberta por um workflow (`github-actions[bot]`) ou por um agente de código
+que abre PR com conta de app também é bot. Se no seu repositório essas PRs
+mudam o produto, declare `bots: required`. Um commit que alguém com acesso de
+escrita acrescenta na branch de uma PR do Dependabot continua sob o autor da
+PR, que é o bot.
+
 ### Exemplo
 
 Numa PR que muda o código e não toca no `CHANGELOG.md`, com `mode: suggest`:
