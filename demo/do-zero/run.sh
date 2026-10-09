@@ -72,6 +72,8 @@ ui_passo() {
 }
 ui_diz() { printf '%s\n' "$*" | fold -s -w 78 | sed 's/^/  /'; }
 ui_cmd() { printf '  %s$ %s%s\n' "$C" "$*" "$N"; }
+# ui_copia: comando para a pessoa copiar, inteiro numa linha (nunca quebrado)
+ui_copia() { printf '      %s%s%s\n' "$C" "$*" "$N"; }
 ui_ok() { printf '  %s%s%s\n' "$G" "$*" "$N"; }
 ui_aviso() { printf '  %s%s%s\n' "$Y" "$*" "$N"; }
 ui_pausa() { [ "$AUTO" = 1 ] || { printf '  %s⏎ para executar%s' "$D" "$N"; read -r _; }; }
@@ -434,15 +436,17 @@ Comece pelo diagnóstico e pela primeira pergunta.
 PEDIDO
   printf '\n%sPróximos passos%s\n' "$B" "$N"
   if [ "$MODO" = real ]; then
-    ui_diz "1. Neste terminal (LLM_API_KEY e LLM_BASE_URL exportadas: o servidor MCP usa o modelo daqui), abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+    ui_diz "1. Neste terminal (LLM_API_KEY e LLM_BASE_URL exportadas: o servidor MCP usa o modelo daqui), abra o agente no projeto (claude ou codex):"
   else
-    ui_diz "1. Abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+    ui_diz "1. Abra o agente no projeto (claude ou codex):"
   fi
-  ui_diz "2. Cole o pedido (também em $pedido):"
+  ui_copia "cd $TUT_WORK && claude"
+  ui_diz "2. Cole o pedido (o mesmo texto está no arquivo: cat $pedido):"
   sed 's/^/      │ /' "$pedido"
   ui_diz "3. Peça a regra do time (a segurança já a escreveu; o agente instala e explica):"
   printf '      │ %s\n' "A regra do time está em $HERE/aurum/skills/ia/SKILL.md. Instale-a como .aurumcode/skills/ia/SKILL.md, explique em uma frase cada regra e commite."
-  ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa:  bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
+  ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa, em outro terminal:"
+  ui_copia "bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
   if [ "$MODO" = real ]; then
     ui_diz "5. Peça a PR com o defeito (a main fica protegida pelo ia-defeito: merge só com o Aurum aprovando):"
     printf '      │ %s\n' "Faça push da branch feature e abra a PR para a main, sem corrigir nada ainda."
@@ -450,12 +454,14 @@ PEDIDO
     ui_diz "6. Peça a correção guiada pelo parecer:"
     printf '      │ %s\n' "Leia o parecer do AurumCode na PR, confirme com o Aurum (aurum_gate, base main), explique cada problema em uma frase, corrija, consulte de novo e faça push."
     ui_diz "   O mesmo parecer é editado para \"Aprovado\" e o merge é liberado."
-    ui_diz "Os secrets do repositório o agente só orienta; você digita:  gh secret set LLM_API_KEY  e  gh secret set LLM_BASE_URL  (e  gh variable set LLM_MODEL)"
+    ui_diz "Os secrets do repositório o agente só orienta; você digita (cada um pede o valor):"
+    ui_copia "gh secret set LLM_API_KEY && gh secret set LLM_BASE_URL && gh variable set LLM_MODEL"
   else
     ui_diz "5. Peça ao agente:"
     printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e corrija; depois consulte de novo."
   fi
-  ui_diz "Sem tempo para o agente corrigir:  bash $HERE/run.sh ia-correcao --destino $TUT_WORK"
+  ui_diz "Sem tempo para o agente corrigir:"
+  ui_copia "bash $HERE/run.sh ia-correcao --destino $TUT_WORK"
 }
 ia_defeito() {
   [ -d "$TUT_WORK/.git" ] || { echo "projeto não encontrado em $TUT_WORK (rode run.sh ia antes)" >&2; exit 2; }
