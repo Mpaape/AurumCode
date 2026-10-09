@@ -151,6 +151,8 @@ jobs:
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
       DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
       DTRACK_PROJECT_ID: ${{ secrets.DTRACK_PROJECT_ID }}
+      # Politica em repositorio privado ou interno: token so de leitura nele.
+      AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}
 ```
 
 - Fixe `review.yml` e `policy_ref` por **SHA de 40 hex**, nunca por branch ou
@@ -188,6 +190,7 @@ runner real do GitHub. A demonstração (seção 7) reproduz a mesma ordem
 | `LLM_API_KEY`, `LLM_BASE_URL` | provedor do modelo | secrets da organização/repositório |
 | `DTRACK_API_KEY` | chave de API do time no Dependency-Track | secret; o nome vem de `api_key_secret` |
 | `DTRACK_PROJECT_ID` | UUID do projeto do serviço | secret; o nome vem de `project_id_secret` |
+| `AURUMCODE_POLICY_TOKEN` | ler a política central num repositório **privado ou interno** (o `github.token` de cada repositório não lê outro repositório privado) | secret da organização; token fine-grained ou de GitHub App com **Contents: read** só no repositório da política |
 
 Nada disso entra em Markdown ou YAML versionado. A chave do Dependency-Track é
 registrada no filtro de redação assim que é lida: não aparece no parecer, na
