@@ -4,7 +4,6 @@ aurumcode review: politica central: override da regra "security/hardcoded-secret
 aurumcode review: politica central: padrão de ignore "docs/**" do repositório não foi aplicado: a política central decide sozinha
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: politica central: quality_gates.sast do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## AurumCode code review
 
