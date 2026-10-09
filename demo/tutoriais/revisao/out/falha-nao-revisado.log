@@ -2,16 +2,16 @@
 --- sem gate: veredito 'Comment', nunca 'Approve'
 $ aurumcode review --base main
 generated file, skipped: gerado.go
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-no gate declared
+sem gate declarado
 
-Review coverage — 0 of 0 file(s) in the diff were covered; 1 were not fully reviewed.
-- 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+Cobertura da revisão — 0 de 0 arquivo(s) do diff foram cobertos; 1 não foram revisados por completo.
+- 1 arquivo(s) foram filtrados antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
 exit_code=0
@@ -21,16 +21,16 @@ $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (partial_coverage)
 generated file, skipped: gerado.go
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 
-Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully reviewed.
-- 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+Cobertura da revisão — 1 de 1 arquivo(s) do diff foram cobertos; 1 não foram revisados por completo.
+- 1 arquivo(s) foram filtrados antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: partial_coverage
 exit_code=1
@@ -39,15 +39,15 @@ RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 binary file, skipped: logo.png
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 1 file reviewed
+gate da política: passou · 1 arquivo revisado
 
-Review coverage
-- 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
+Cobertura da revisão
+- 1 arquivo(s) ignorados (configuração `ignore` do repositório ou binários): ficam fora da conta de cobertura e a ausência deles no contexto NÃO prova que não existam no diff.
   - logo.png (binary)
 No issues found.
 exit_code=0

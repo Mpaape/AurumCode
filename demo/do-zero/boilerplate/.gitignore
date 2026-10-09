@@ -1,0 +1,4 @@
+__pycache__/
+.env
+# configuracao local do agente de IA (caminhos desta maquina)
+.mcp.json

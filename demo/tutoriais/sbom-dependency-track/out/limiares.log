@@ -8,12 +8,12 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
 aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0 (origem dtrack)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 4 files reviewed
+gate da política: reprovou · 4 arquivos revisados
 No issues found.
 exit_code=3
 RESULTADO: uma violacao de politica acima do limite 0 reprova o gate
@@ -23,13 +23,13 @@ config: limiar-1
 $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
-
-policy gate: passed · 4 files reviewed
-No issues found.
 aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=1)
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
+
+gate da política: passou · 4 arquivos revisados
+No issues found.
 exit_code=0
 RESULTADO: com limite 1, a mesma violacao esta dentro do limiar e o gate aprova

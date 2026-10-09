@@ -1,11 +1,11 @@
 == primeira-revisao
 $ aurumcode review --base main
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-no gate declared · 1 file reviewed
+sem gate declarado · 1 arquivo revisado
 No issues found.
 exit_code=0
 RESULTADO: primeira revisao concluida sem achados
