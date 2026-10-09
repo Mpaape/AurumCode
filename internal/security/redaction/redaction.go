@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"regexp"
 	"strings"
@@ -106,13 +107,16 @@ const (
 	authHeaderNames = `(?:authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-amz-security-token|cookie|set-cookie)`
 	secretKeyNames  = `(?:password|passwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key|credential)`
 	// assign is the separator between a key and its value in every spelling
-	// this filter accepts.
-	assign = `[ \t]*[:=][ \t]*`
+	// this filter accepts: `:`, `=` and Go's `:=`, taken whole so its `=`
+	// is never left behind as the start of a value.
+	assign = `[ \t]*(?::=|[:=])[ \t]*`
 	// bareValue stops at the first delimiter that cannot belong to an
 	// unquoted value. `"` and `'` are excluded so a quoted value is handled
 	// by the quoted rules, and `}` so a JSON object cannot smuggle the tail
-	// of a secret out through the closing brace.
-	bareValue = `[^\s"',;&}]+`
+	// of a secret out through the closing brace. Its first byte is never
+	// `=` or `:`, so the second byte of a comparison (`==`, `===`) or of a
+	// scope operator is an operator, not a value.
+	bareValue = `[^\s"',;&}=:][^\s"',;&}]*`
 )
 
 var (
@@ -161,11 +165,124 @@ func redactAuthHeaders(s string) string {
 
 // redactKeyValues replaces the value of secret-bearing key/value assignments,
 // quoted or bare. The quoting itself is preserved so a redacted payload stays
-// parseable by whatever produced it.
+// parseable by whatever produced it. A quoted value is a literal and is
+// always replaced; a bare value only when it is secret-shaped (see
+// redactBareKeyValues).
 func redactKeyValues(s string) string {
 	s = reKVDouble.ReplaceAllString(s, `${1}"`+Marker+`"`)
 	s = reKVSingle.ReplaceAllString(s, "${1}'"+Marker+"'")
-	return reKVBare.ReplaceAllString(s, "${1}"+Marker)
+	return redactBareKeyValues(s)
+}
+
+// redactBareKeyValues replaces the unquoted value of a secret-bearing key
+// only when the value is secret-shaped. In source code the right-hand side of
+// `API_KEY = os.environ.get("API_KEY")` or `token := os.Getenv("TOKEN")` is
+// the code under review, not a secret: masking it would hand the model a
+// broken line and turn every finding about it into one that cites the marker.
+func redactBareKeyValues(s string) string {
+	matches := reKVBare.FindAllStringSubmatchIndex(s, -1)
+	if matches == nil {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	last := 0
+	for _, m := range matches {
+		// m[3] ends the key-and-separator group; the value runs to m[1].
+		value := s[m[3]:m[1]]
+		if !secretShaped(value) {
+			continue
+		}
+		b.WriteString(s[last:m[3]])
+		b.WriteString(Marker)
+		last = m[1]
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
+
+// The secret-shape classification below lives in this file, not beside it:
+// the AUR-009 acceptance stages the filter as this single file, so the
+// filter must compile on its own.
+
+// Thresholds of the secret-token shape: at least minTokenLength characters,
+// mixing letters and digits, with at least minTokenEntropy bits of Shannon
+// entropy per character. Eight distinct characters are the shortest value
+// that reaches 3.0 bits, so a short word with a digit ("hunter2") never
+// qualifies, while a generated key or session token does.
+const (
+	minTokenLength  = 8
+	minTokenEntropy = 3.0
+)
+
+// expressionMarkers are the bytes and digraphs that only appear in code: a
+// call, a member or index access, a variable or template reference, a scope
+// operator. A bare value carrying one of them is an expression the reviewed
+// code evaluates, never the secret itself.
+var expressionMarkers = []string{"(", ")", ".", "[", "]", "$", "{", "->", "::"}
+
+// reJWT is the JSON Web Token shape: a known credential that carries dots,
+// so it is recognized before the expression markers can dismiss it.
+var reJWT = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+`)
+
+// secretShaped reports whether the bare value of a secret-bearing key looks
+// like the secret itself rather than code that produces it. A known
+// credential shape always does; an expression (os.environ.get(, a member
+// access, ${{ secrets.X }}) never does; anything else does only when it has
+// the shape of a generated token. An identifier such as `key`, `nil` or
+// `password` therefore stays visible to the reviewer, and a comparison
+// operand is never reached at all (see assign and bareValue).
+func secretShaped(value string) bool {
+	if reCred.MatchString(value) || reJWT.MatchString(value) {
+		return true
+	}
+	for _, m := range expressionMarkers {
+		if strings.Contains(value, m) {
+			return false
+		}
+	}
+	return tokenShaped(value)
+}
+
+// tokenShaped reports whether value has the shape of a generated secret:
+// long enough, mixing letters and digits, and with high entropy.
+func tokenShaped(value string) bool {
+	if len(value) < minTokenLength {
+		return false
+	}
+	var letter, digit bool
+	for i := 0; i < len(value); i++ {
+		c := value[i]
+		switch {
+		case c >= '0' && c <= '9':
+			digit = true
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z':
+			letter = true
+		}
+	}
+	return letter && digit && shannonEntropy(value) >= minTokenEntropy
+}
+
+// shannonEntropy is the Shannon entropy, in bits per character, of s. It is
+// the same measure the secret scanner applies to a candidate value
+// (internal/analysis); this package keeps its own copy because the
+// redaction filter sits below every other package and must not import one.
+func shannonEntropy(s string) float64 {
+	if s == "" {
+		return 0
+	}
+	counts := make(map[rune]int)
+	n := 0
+	for _, ch := range s {
+		counts[ch]++
+		n++
+	}
+	var h float64
+	for _, c := range counts {
+		p := float64(c) / float64(n)
+		h -= p * math.Log2(p)
+	}
+	return h
 }
 
 // redactCredentialShapes replaces well-known credential token shapes and any

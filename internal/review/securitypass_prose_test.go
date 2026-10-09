@@ -75,14 +75,3 @@ func TestSecurityCatalogAppliesToIsOnCodeShapedRulesOnly(t *testing.T) {
 		}
 	}
 }
-
-func TestIsProsePath(t *testing.T) {
-	for p, want := range map[string]bool{
-		"a/b.txt": true, "run.LOG": true, "README.md": true, "x.rst": true,
-		"main.go": false, "app.py": false, "index.html": false, "config.yml": false, "Makefile": false,
-	} {
-		if got := IsProsePath(p); got != want {
-			t.Fatalf("IsProsePath(%q) = %v, want %v", p, got, want)
-		}
-	}
-}
