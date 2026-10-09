@@ -18,6 +18,8 @@ name: Changelog
 # filtro de paths e sem `if:` no job: um job pulado conta como verde num
 # required check. Contexto a exigir na protecao da main: "Changelog
 # obrigatório" aqui; "<job do chamador> / Changelog obrigatório" no consumidor.
+# O autor da PR (user.login, user.type do evento) entra no container como
+# dado: um bot recebe changelog_check.bots (padrao suggest), sem pular o job.
 on:
   pull_request:
   workflow_call:
@@ -84,6 +86,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           POLICY_DIR: ${{ inputs.policy_repository != '' && '/w/.aurumcode-policy' || '' }}
           SAME_REPOSITORY: ${{ github.repository == job.workflow_repository }}
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
         # Na PR que introduz o verificador no proprio repositorio, a base
         # (de onde a ferramenta e construida) ainda nao o tem: o job declara
         # a primeira introducao e conclui. Num consumidor, a ferramenta
@@ -105,7 +109,7 @@ jobs:
           : > "$summary"
           set +e
           docker run --rm \
-            -e BASE_SHA -e HEAD_SHA -e POLICY_DIR \
+            -e BASE_SHA -e HEAD_SHA -e POLICY_DIR -e PR_AUTHOR_LOGIN -e PR_AUTHOR_TYPE \
             -e GITHUB_STEP_SUMMARY=/w/.aurumcode-changelog-summary.md \
             -v "${GITHUB_WORKSPACE}:/w" \
             -w /w/.aurumcode-tool \

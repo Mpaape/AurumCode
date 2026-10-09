@@ -28,10 +28,18 @@ const exitChangelogSuggested = 0
 
 // changelogFlags are the inputs of one check.
 type changelogFlags struct {
-	base     string
-	head     string
-	repo     string
-	politica string
+	base      string
+	head      string
+	repo      string
+	politica  string
+	autor     string
+	tipoAutor string
+}
+
+// author is the pull request author the flags carry; without them the
+// author is a person and the declared mode applies.
+func (f *changelogFlags) author() changelog.Author {
+	return changelog.Author{Login: f.autor, Type: f.tipoAutor}
 }
 
 func newChangelogFlagSet() (*flag.FlagSet, *changelogFlags) {
@@ -41,6 +49,8 @@ func newChangelogFlagSet() (*flag.FlagSet, *changelogFlags) {
 	fs.StringVar(&f.head, "head", "HEAD", "commit with the proposed change")
 	fs.StringVar(&f.repo, "repo", ".", "repository directory")
 	fs.StringVar(&f.politica, "politica", "", "directory containing a central policy's .aurumcode/ (same convention as `review --politica`); a changelog_check declared there decides alone; default: the AURUMCODE_POLICY environment variable, otherwise no policy")
+	fs.StringVar(&f.autor, "autor", "", "login of the pull request author, from the pull request event (user.login); a login ending in [bot] is a bot and gets changelog_check.bots; default: a person")
+	fs.StringVar(&f.tipoAutor, "tipo-autor", "", "account type of the pull request author, from the pull request event (user.type); Bot gets changelog_check.bots; default: a person")
 	return fs, f
 }
 
@@ -106,12 +116,17 @@ func runChangelogWith(args []string, stdout, stderr io.Writer, deps changelogDep
 	if policyDir == "" {
 		policyDir = strings.TrimSpace(os.Getenv("AURUMCODE_POLICY"))
 	}
-	ev, err := evaluateChangelog(f.repo, policyDir, diff, notices, stderr)
+	author := f.author()
+	ev, err := evaluateChangelog(f.repo, policyDir, diff, notices, author.IsBot(), stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode changelog: indeterminado: %v\n", err)
 		return 1
 	}
 	if ev.req == nil {
+		if ev.loweredForBot() {
+			fmt.Fprintf(stdout, "changelog: não exigido: autor é bot (%s); changelog_check.bots: off\n", author.Label())
+			return 0
+		}
 		fmt.Fprintln(stdout, "changelog: não exigido (changelog_check.mode: off na base)")
 		return 0
 	}
@@ -121,6 +136,9 @@ func runChangelogWith(args []string, stdout, stderr io.Writer, deps changelogDep
 		return 0
 	}
 	if ev.mode == config.ChangelogSuggest {
+		if ev.loweredForBot() {
+			fmt.Fprintf(stdout, "changelog: autor é bot (%s); changelog_check.bots: suggest — a PR não é reprovada\n", author.Label())
+		}
 		return deps.suggestOnly(*req, verdict, f, diff, stdout, stderr)
 	}
 	fmt.Fprintf(stdout, "changelog: reprovado (%s): %s\n", verdict.Reason, verdict.Detail)

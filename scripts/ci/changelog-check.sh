@@ -7,6 +7,9 @@
 # falta de dado). O modo e lido do config.yml da base pelo proprio comando.
 # Quando reprova, o comando imprime a entrada sugerida e, com
 # GITHUB_STEP_SUMMARY montado pelo workflow, grava-a no resumo do job.
+# PR_AUTHOR_LOGIN e PR_AUTHOR_TYPE (opcionais, do evento) viram --autor e
+# --tipo-autor: um bot recebe changelog_check.bots. Sem eles o autor e
+# humano e vale o modo declarado (AUR-610).
 set -eu
 target="${1:-}"
 if [ -z "$target" ] || [ -z "${BASE_SHA:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
@@ -18,9 +21,17 @@ if ! command -v git >/dev/null 2>&1; then
 fi
 git config --global --add safe.directory "$target"
 export GOFLAGS=-buildvcs=false
-go build -o /tmp/aurumcode ./cmd/aurumcode
+bin="$(mktemp -d)/aurumcode"
+go build -o "$bin" ./cmd/aurumcode
+set -- --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$target"
+if [ -n "${PR_AUTHOR_LOGIN:-}" ]; then
+  set -- "$@" --autor "$PR_AUTHOR_LOGIN"
+fi
+if [ -n "${PR_AUTHOR_TYPE:-}" ]; then
+  set -- "$@" --tipo-autor "$PR_AUTHOR_TYPE"
+fi
 if [ -n "${POLICY_DIR:-}" ]; then
-  /tmp/aurumcode changelog --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$target" --politica "$POLICY_DIR"
+  "$bin" changelog "$@" --politica "$POLICY_DIR"
 else
-  AURUMCODE_POLICY='' /tmp/aurumcode changelog --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$target"
+  AURUMCODE_POLICY='' "$bin" changelog "$@"
 fi

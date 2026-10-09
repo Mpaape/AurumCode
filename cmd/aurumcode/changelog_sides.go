@@ -101,17 +101,25 @@ func changelogRequirement(c *config.ChangelogCheckConfig) (changelog.Requirement
 }
 
 // changelogEvaluation is the verdict of one check under the effective mode;
-// a nil requirement means the mode is off.
+// a nil requirement means the mode is off. declared is the mode a person
+// gets; mode differs from it only when changelog_check.bots lowered it for
+// a bot author.
 type changelogEvaluation struct {
-	verdict changelog.Verdict
-	req     *changelog.Requirement
-	mode    config.ChangelogMode
+	verdict  changelog.Verdict
+	req      *changelog.Requirement
+	mode     config.ChangelogMode
+	declared config.ChangelogMode
+}
+
+// loweredForBot reports whether changelog_check.bots relaxed the check.
+func (e changelogEvaluation) loweredForBot() bool {
+	return e.mode != e.declared
 }
 
 // evaluateChangelog returns the verdict, the effective requirement and the
 // mode of the base (or of the central policy, which decides alone when it
-// declares changelog_check).
-func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []analyzer.DiffNotice, stderr io.Writer) (changelogEvaluation, error) {
+// declares changelog_check) for the author: bot selects changelog_check.bots.
+func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []analyzer.DiffNotice, bot bool, stderr io.Writer) (changelogEvaluation, error) {
 	cfg, err := baseConfig(repoRoot, diff, notices)
 	if err != nil {
 		return changelogEvaluation{}, err
@@ -130,13 +138,14 @@ func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []a
 			fmt.Fprintf(stderr, "aurumcode changelog: aviso (%s): %s\n", w.Provider, w.Reason)
 		}
 	}
-	mode := cfg.ChangelogCheck.EffectiveMode()
+	declared := cfg.ChangelogCheck.EffectiveMode()
+	mode := cfg.ChangelogCheck.EffectiveModeFor(bot)
 	if mode == config.ChangelogOff {
-		return changelogEvaluation{mode: mode}, nil
+		return changelogEvaluation{mode: mode, declared: declared}, nil
 	}
 	req, err := changelogRequirement(cfg.ChangelogCheck)
 	if err != nil {
-		return changelogEvaluation{req: &req, mode: mode}, err
+		return changelogEvaluation{req: &req, mode: mode, declared: declared}, err
 	}
 	side := fileSides(req.File, diff, notices)
 	change := changelog.Change{State: changelog.FileUntouched}
@@ -146,5 +155,5 @@ func evaluateChangelog(repoRoot, policyDir string, diff *types.Diff, notices []a
 	case side.found:
 		change = changelog.Change{State: changelog.FileChanged, Old: side.old, New: side.new}
 	}
-	return changelogEvaluation{verdict: req.Verify(change), req: &req, mode: mode}, nil
+	return changelogEvaluation{verdict: req.Verify(change), req: &req, mode: mode, declared: declared}, nil
 }

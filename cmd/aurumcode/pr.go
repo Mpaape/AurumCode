@@ -215,21 +215,23 @@ func newGitHubClient() (*githubclient.Client, error) {
 
 // pullRequestChangelogSource reads the PR title/body and the PR's commit
 // messages, then folds the title/body into a synthetic first commit so the
-// engine sees the whole reviewed narrative. Any missing source is an error and
-// the caller declares a limitation; nothing here is executed.
-func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client, owner, repo string, number int) ([]changelog.Commit, error) {
+// engine sees the whole reviewed narrative. It also returns the author the
+// same metadata carries (AUR-610). Any missing source is an error and the
+// caller declares a limitation; nothing here is executed.
+func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client, owner, repo string, number int) ([]changelog.Commit, changelog.Author, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.ProviderTimeout)
 	defer cancel()
 	meta, err := client.GetPullRequestMetadata(ctx, owner, repo, number)
 	if err != nil {
-		return nil, err
+		return nil, changelog.Author{}, err
 	}
+	author := changelog.Author{Login: meta.AuthorLogin, Type: meta.AuthorType}
 	commits, err := client.GetPullRequestCommits(ctx, owner, repo, number)
 	if err != nil {
-		return nil, err
+		return nil, author, err
 	}
 	if len(commits) == 0 {
-		return nil, errors.New("pull request has no commit messages")
+		return nil, author, errors.New("pull request has no commit messages")
 	}
 	out := make([]changelog.Commit, 0, len(commits)+1)
 	if strings.TrimSpace(meta.Title) != "" || strings.TrimSpace(meta.Body) != "" {
@@ -239,7 +241,7 @@ func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client
 		subject, body := splitCommitMessage(c.Message)
 		out = append(out, changelog.Commit{Subject: subject, Body: body, Hash: c.SHA})
 	}
-	return out, nil
+	return out, author, nil
 }
 
 // splitCommitMessage splits a GitHub commit message into its first line and

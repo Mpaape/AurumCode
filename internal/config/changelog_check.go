@@ -34,6 +34,9 @@ var changelogModeNames = map[string]ChangelogMode{
 	"obrigatório": ChangelogRequired,
 }
 
+// changelogModeRank orders the modes from the weakest to the strictest.
+var changelogModeRank = map[ChangelogMode]int{ChangelogOff: 0, ChangelogSuggest: 1, ChangelogRequired: 2}
+
 // ChangelogCheckConfig is the changelog_check section (nil = not declared =
 // off): whether a pull request must add a changelog entry, may only receive
 // a suggested one, or neither, and the limits that keep the entry concise.
@@ -42,7 +45,11 @@ var changelogModeNames = map[string]ChangelogMode{
 // suggests a release and never gates.
 type ChangelogCheckConfig struct {
 	// Mode is "off" (the default), "suggest" or "required".
-	Mode            string   `yaml:"mode"`
+	Mode string `yaml:"mode"`
+	// Bots is the mode for a pull request opened by a bot account
+	// (AUR-610): "suggest" (the default), "off" or "required". It only
+	// lowers Mode, never raises it.
+	Bots            string   `yaml:"bots"`
 	File            string   `yaml:"file"`
 	Section         string   `yaml:"section"`
 	MaxEntryLines   int      `yaml:"max_entry_lines"`
@@ -65,6 +72,25 @@ func (c *ChangelogCheckConfig) EffectiveMode() ChangelogMode {
 	return mode
 }
 
+// EffectiveModeFor is the mode for one author: a person gets
+// EffectiveMode; a bot gets the weaker of EffectiveMode and Bots, so the
+// bots policy can relax the check but never tighten it. An unknown Bots
+// (refused by Validate) lowers nothing.
+func (c *ChangelogCheckConfig) EffectiveModeFor(bot bool) ChangelogMode {
+	mode := c.EffectiveMode()
+	if !bot || c == nil {
+		return mode
+	}
+	bots, err := ParseChangelogBotsMode(c.Bots)
+	if err != nil {
+		return mode
+	}
+	if changelogModeRank[bots] < changelogModeRank[mode] {
+		return bots
+	}
+	return mode
+}
+
 // Required reports whether a pull request without a useful entry fails.
 func (c *ChangelogCheckConfig) Required() bool {
 	return c.EffectiveMode() == ChangelogRequired
@@ -79,9 +105,22 @@ func (c *ChangelogCheckConfig) Active() bool {
 // ParseChangelogMode accepts the three modes and their synonyms; anything
 // else is refused with the list of valid modes.
 func ParseChangelogMode(raw string) (ChangelogMode, error) {
+	return parseChangelogModeField("mode", raw)
+}
+
+// ParseChangelogBotsMode reads changelog_check.bots: empty is suggest, so a
+// bot's pull request is never failed unless the repository asks for it.
+func ParseChangelogBotsMode(raw string) (ChangelogMode, error) {
+	if strings.TrimSpace(raw) == "" {
+		return ChangelogSuggest, nil
+	}
+	return parseChangelogModeField("bots", raw)
+}
+
+func parseChangelogModeField(field, raw string) (ChangelogMode, error) {
 	mode, ok := changelogModeNames[strings.ToLower(strings.TrimSpace(raw))]
 	if !ok {
-		return ChangelogOff, fmt.Errorf("changelog_check.mode: %q nao e suportado (use off, suggest ou required)", raw)
+		return ChangelogOff, fmt.Errorf("changelog_check.%s: %q nao e suportado (use off, suggest ou required)", field, raw)
 	}
 	return mode, nil
 }
@@ -93,6 +132,9 @@ func (c *ChangelogCheckConfig) Validate() error {
 		return nil
 	}
 	if _, err := ParseChangelogMode(c.Mode); err != nil {
+		return err
+	}
+	if _, err := ParseChangelogBotsMode(c.Bots); err != nil {
 		return err
 	}
 	for name, v := range map[string]int{"max_entry_lines": c.MaxEntryLines, "max_line_length": c.MaxLineLength, "max_release_lines": c.MaxReleaseLines, "min_words": c.MinWords} {

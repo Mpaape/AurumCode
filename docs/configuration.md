@@ -1335,6 +1335,7 @@ consumidor.
 | `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
+| `changelog_check.bots` | Modo para PR aberta por bot (Dependabot, Renovate): `off`, `suggest` ou `required`; só rebaixa `mode`, nunca eleva | `suggest` |
 | `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
@@ -2234,7 +2235,10 @@ O AurumCode confere se a pull request acrescenta uma linha útil ao
 
 ```mermaid
 flowchart LR
-  PR[PR aberta] --> M{changelog_check.mode}
+  PR[PR aberta] --> B{autor é bot?}
+  B -->|não| M{changelog_check.mode}
+  B -->|sim| BM[o menor entre mode<br/>e changelog_check.bots]
+  BM --> M
   M -->|off| N[nada acontece]
   M -->|suggest| S[parecer com a entrada sugerida<br/>a PR passa]
   M -->|required| E{entrada útil?}
@@ -2247,6 +2251,7 @@ flowchart LR
 ```yaml
 changelog_check:
   mode: suggest           # off | suggest | required (aceita sugerir, obrigatorio, desligado)
+  bots: suggest           # padrão; modo para PR de bot, só rebaixa o mode
   file: CHANGELOG.md      # padrão
   section: Unreleased     # padrão
 ```
@@ -2255,6 +2260,32 @@ Os limites também são configuráveis (padrões entre parênteses):
 `max_entry_lines` (12), `max_line_length` (240), `max_release_lines` (120),
 `min_words` (3) e `agent_log_markers` (somam-se aos padrões). Um modo
 desconhecido é recusado ao ler a configuração, com a lista dos três.
+
+### PR de bot (`changelog_check.bots`)
+
+Uma PR do Dependabot que só sobe a versão de uma action não tem o que dizer
+a quem usa o produto. Por isso, quando o autor da PR é bot, vale o **menor**
+entre `mode` e `bots` (`off` < `suggest` < `required`): `bots` só rebaixa,
+nunca eleva. Com o padrão (`suggest`) e `mode: required`, a PR de bot passa
+com uma linha que diz por quê e com a entrada sugerida:
+
+```text
+changelog: autor é bot (dependabot[bot]); changelog_check.bots: suggest — a PR não é reprovada
+changelog: sem entrada útil (entrada_ausente): a PR não altera CHANGELOG.md; modo suggest, não reprova
+```
+
+`bots: off` pula o check para bots (`changelog: não exigido: autor é bot
+(...)`); `bots: required` reprova o bot como uma pessoa. Bot é quem o evento
+da PR marca como bot: `user.type` igual a `Bot` ou login terminado em `[bot]`
+(`bot-lover` é uma pessoa). O autor vem do evento, nunca do conteúdo da PR;
+sem ele, o autor é uma pessoa e vale o `mode`. O job continua sem `if:`.
+
+Toda conta do tipo `Bot` recebe esse tratamento, não só o Dependabot: uma PR
+aberta por um workflow (`github-actions[bot]`) ou por um agente de código
+que abre PR com conta de app também é bot. Se no seu repositório essas PRs
+mudam o produto, declare `bots: required`. Um commit que alguém com acesso de
+escrita acrescenta na branch de uma PR do Dependabot continua sob o autor da
+PR, que é o bot.
 
 ### Exemplo
 
@@ -2277,11 +2308,14 @@ colar é do humano.
 ### Onde aparece
 
 - `aurumcode changelog --base <sha>` imprime o veredito e a sugestão. Flags:
-  `--base` (obrigatória), `--head` (padrão `HEAD`), `--repo` (padrão `.`) e
-  `--politica` (padrão `AURUMCODE_POLICY`).
+  `--base` (obrigatória), `--head` (padrão `HEAD`), `--repo` (padrão `.`),
+  `--politica` (padrão `AURUMCODE_POLICY`) e `--autor`/`--tipo-autor` (login
+  e `user.type` do autor da PR; ausentes, o autor é uma pessoa).
 - `aurumcode review --pr` põe a sugestão no parecer quando a PR não toca no
-  arquivo do changelog (em `suggest` e em `required`).
-- No GitHub, `.github/workflows/changelog.yml` (reutilizável) roda o check e
+  arquivo do changelog (em `suggest` e em `required`), no modo que vale para
+  o autor da PR.
+- No GitHub, `.github/workflows/changelog.yml` (reutilizável) roda o check,
+  repassa o autor do evento (`PR_AUTHOR_LOGIN`, `PR_AUTHOR_TYPE`) e
   escreve a sugestão no resumo do job. Para travar o merge, use `required` e
   exija o contexto `Changelog obrigatório` na proteção da `main`.
 
@@ -2293,8 +2327,8 @@ colar é do humano.
   (diff ilegível, `config.yml` da base inválido). Exit 2: uso errado.
 - O modo vem da **base** da PR: uma PR que troca o modo só muda o check depois
   do merge.
-- Com política central, a seção `changelog_check` da política decide sozinha;
-  a do repositório é ignorada com aviso.
+- Com política central, a seção `changelog_check` da política decide sozinha,
+  `bots` incluído; a do repositório é ignorada com aviso.
 
 Guia de escrita, com exemplos de `Unreleased` e de release:
 [Changelog](changelog.md). Passo a passo executável:
