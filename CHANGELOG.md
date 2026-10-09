@@ -7,6 +7,8 @@
   e por uma regra do time, aprovada após a correção; local sem rede ou real.
 - Guia "Instalar com ajuda da IA"; exemplos dos tutoriais em pt-BR; Dependabot
   abre PR para o `dev`.
+- Demo `do-zero` no GitHub real protege a `main` (merge só com
+  `aurumcode/policy-gate` aprovado) e instala a regra do time de um arquivo pronto.
 
 ## 2.0.0 - 2026-10-09
 

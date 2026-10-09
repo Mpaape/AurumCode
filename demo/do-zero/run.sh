@@ -72,6 +72,8 @@ ui_passo() {
 }
 ui_diz() { printf '%s\n' "$*" | fold -s -w 78 | sed 's/^/  /'; }
 ui_cmd() { printf '  %s$ %s%s\n' "$C" "$*" "$N"; }
+# ui_copia: comando para a pessoa copiar, inteiro numa linha (nunca quebrado)
+ui_copia() { printf '      %s%s%s\n' "$C" "$*" "$N"; }
 ui_ok() { printf '  %s%s%s\n' "$G" "$*" "$N"; }
 ui_aviso() { printf '  %s%s%s\n' "$Y" "$*" "$N"; }
 ui_pausa() { [ "$AUTO" = 1 ] || { printf '  %s⏎ para executar%s' "$D" "$N"; read -r _; }; }
@@ -340,13 +342,14 @@ passo_7() {
     ui_diz "O que foi publicado na PR #1:"
     az_publicado
   else
+    ia_protege_main
     ui_run "abre a PR na sua conta" -- gh pr create --base main --head feature --title "assistente: chave fixa para testar rápido" --body "POC AurumCode do zero: a revisão deve reprovar esta mudança."
     NUM="$(gh pr view feature --repo "$DONO/$NOME" --json number --jq .number)"
     ui_diz "Esperando o workflow publicar o parecer na PR #$NUM…"
     ULTIMO_PARECER=""; az_espera_parecer "$NUM" "" || true
     gh pr checks "$NUM" --repo "$DONO/$NOME" 2>&1 | ui_saida || true
   fi
-  ui_ok "bloqueado: a chave no código não entra no main."
+  ui_ok "bloqueado: nada disso entra no main. A chave, porém, já foi enviada ao GitHub na branch: num caso real, revogue-a."
 }
 passo_8() {
   ui_passo 8
@@ -425,29 +428,40 @@ Primeiro inspecione o projeto. Faça uma pergunta por vez, com opções curtas e
 uma recomendação explicada. Não peça chaves no chat: oriente como cadastrá-las.
 O servidor MCP "aurum" já está registrado neste projeto: depois de cada commit,
 verifique com aurum_gate (base main). Para PRs, fixe o workflow reutilizável em
-Mpaape/AurumCode/.github/workflows/review.yml@$REF. Revisão em português (pt-BR).
+Mpaape/AurumCode/.github/workflows/review.yml@$REF (a tag v2.0.0 passa a ser a
+referência fixa quando for publicada). Revisão em português (pt-BR).
 Este é um repositório de demonstração: você pode commitar e fazer push na main
 (a revisão da PR lê a configuração e as skills da main) e abrir PR quando eu pedir.
 Comece pelo diagnóstico e pela primeira pergunta.
 PEDIDO
   printf '\n%sPróximos passos%s\n' "$B" "$N"
   if [ "$MODO" = real ]; then
-    ui_diz "1. Neste terminal (LLM_API_KEY e LLM_BASE_URL exportadas: o servidor MCP usa o modelo daqui), abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+    ui_diz "1. Neste terminal (LLM_API_KEY e LLM_BASE_URL exportadas: o servidor MCP usa o modelo daqui), abra o agente no projeto (claude ou codex):"
   else
-    ui_diz "1. Abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+    ui_diz "1. Abra o agente no projeto (claude ou codex):"
   fi
-  ui_diz "2. Cole o pedido (também em $pedido):"
+  ui_copia "cd $TUT_WORK && claude"
+  ui_diz "2. Cole o pedido (o mesmo texto está no arquivo: cat $pedido):"
   sed 's/^/      │ /' "$pedido"
-  ui_diz "3. Peça a regra do time, com este nome para o caso da demo:"
-  printf '      │ %s\n' "Crie a skill .aurumcode/skills/ia/SKILL.md com a regra \"## IA-001 Resposta do modelo nunca e executada\" (severity: error): texto devolvido por um modelo nunca passa por exec, eval, compile, subprocess nem shell."
-  ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa:  bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
-  ui_diz "5. Peça ao agente:"
-  printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e corrija; depois consulte de novo."
+  ui_diz "3. Peça a regra do time (a segurança já a escreveu; o agente instala e explica):"
+  printf '      │ %s\n' "A regra do time está em $HERE/aurum/skills/ia/SKILL.md. Instale-a como .aurumcode/skills/ia/SKILL.md, explique em uma frase cada regra e commite."
+  ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa, em outro terminal:"
+  ui_copia "bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
   if [ "$MODO" = real ]; then
-    ui_diz "6. Para o parecer na PR: peça \"faça push da feature e abra a PR\" antes ou depois da correção (antes: Bloqueado; depois: Aprovado). O workflow leva alguns minutos; acompanhe com  gh pr checks --watch"
-    ui_diz "Os secrets do repositório o agente só orienta; você digita:  gh secret set LLM_API_KEY  e  gh secret set LLM_BASE_URL  (e  gh variable set LLM_MODEL)"
+    ui_diz "5. Peça a PR com o defeito (a main fica protegida pelo ia-defeito: merge só com o Aurum aprovando):"
+    printf '      │ %s\n' "Faça push da branch feature e abra a PR para a main, sem corrigir nada ainda."
+    ui_diz "   O workflow leva alguns minutos (gh pr checks --watch): o parecer chega \"Bloqueado: 2 problemas\" e o botão de merge fica travado."
+    ui_diz "6. Peça a correção guiada pelo parecer:"
+    printf '      │ %s\n' "Leia o parecer do AurumCode na PR, confirme com o Aurum (aurum_gate, base main), explique cada problema em uma frase, corrija, consulte de novo e faça push."
+    ui_diz "   O mesmo parecer é editado para \"Aprovado\" e o merge é liberado."
+    ui_diz "Os secrets do repositório o agente só orienta; você digita (cada um pede o valor):"
+    ui_copia "gh secret set LLM_API_KEY && gh secret set LLM_BASE_URL && gh variable set LLM_MODEL"
+  else
+    ui_diz "5. Peça ao agente:"
+    printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e corrija; depois consulte de novo."
   fi
-  ui_diz "Sem tempo para o agente corrigir:  bash $HERE/run.sh ia-correcao --destino $TUT_WORK"
+  ui_diz "Sem tempo para o agente corrigir:"
+  ui_copia "bash $HERE/run.sh ia-correcao --destino $TUT_WORK"
 }
 ia_defeito() {
   [ -d "$TUT_WORK/.git" ] || { echo "projeto não encontrado em $TUT_WORK (rode run.sh ia antes)" >&2; exit 2; }
@@ -463,11 +477,27 @@ ia_defeito() {
     fi
   fi
   tgit checkout -q main
+  ia_protege_main
   if tgit rev-parse -q --verify feature >/dev/null; then tgit checkout -q feature; else tgit checkout -q -b feature; fi
   az_aplica defeito
   tgit add assistente.py; tgit commit -q -m "assistente: --executar roda o código sugerido"
   ui_ok "branch feature com a mudança (chave fixa na linha 10, exec da resposta do modelo na linha 36):"
   tgit diff main feature -- assistente.py | sed -E 's/sk-demo-[0-9a-f]+/sk-demo-…/' | grep -E '^[-+][^-+]' | ui_saida
+}
+# ia_protege_main: no GitHub real, a main passa a exigir o status
+# aurumcode/policy-gate (inclusive para administradores): o botao de merge fica
+# bloqueado enquanto o Aurum nao aprovar. Aplicada so depois que a configuracao
+# esta na main, porque a protecao tambem recusa push direto sem o status.
+ia_protege_main() {
+  local url alvo
+  url="$(tgit remote get-url origin 2>/dev/null || true)"
+  alvo="${url#https://github.com/}"; alvo="${alvo#git@github.com:}"
+  [ "$alvo" != "$url" ] || return 0
+  alvo="${alvo%.git}"
+  printf '{"required_status_checks":{"strict":false,"contexts":["aurumcode/policy-gate"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null}' \
+    | gh api -X PUT "repos/$alvo/branches/main/protection" --input - >/dev/null 2>&1 \
+    && ui_ok "main de $alvo protegida: merge só com aurumcode/policy-gate aprovado" \
+    || ui_aviso "não consegui proteger a main de $alvo (conta sem permissão de administrador?): o merge não fica bloqueado"
 }
 ia_correcao() {
   [ -d "$TUT_WORK/.git" ] || { echo "projeto não encontrado em $TUT_WORK" >&2; exit 2; }

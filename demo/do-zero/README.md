@@ -5,8 +5,8 @@ que pergunta a um serviço de IA), com a mesma história: uma mudança com dois
 defeitos de natureza diferente, a PR bloqueada e depois aprovada.
 
 - a **chave fixa no código** é achada pela camada de ferramentas, que vê o valor real;
-- **executar a resposta do modelo** (`exec(codigo)`) nenhuma regra fixa reconhece:
-  quem acha é o modelo, lendo o código à luz da regra IA-001 do time
+- **executar a resposta do modelo** (`exec(codigo)`) o catálogo de regras fixas do Aurum não
+  reconhece: quem acha é o modelo, lendo o código à luz da regra IA-001 do time
   (`aurum/skills/ia/SKILL.md`, em Markdown).
 
 ## 1. Com um agente de IA configurando (Claude Code, Codex)
@@ -24,7 +24,9 @@ coisa por vez e configura `.aurumcode/`, a skill e o workflow. Depois:
 
 ```sh
 bash demo/do-zero/run.sh ia-defeito     # a mudança com os dois defeitos, na branch feature
-# no agente: "antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main) e corrija"
+# GitHub real: "abra a PR sem corrigir" -> parecer Bloqueado, merge travado;
+#   depois "leia o parecer, confirme com o Aurum e corrija" -> o mesmo parecer vira Aprovado
+# mock: "antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main) e corrija"
 bash demo/do-zero/run.sh ia-correcao    # se faltar tempo para o agente corrigir
 bash demo/do-zero/run.sh limpar         # apaga o projeto criado por este script
 ```
