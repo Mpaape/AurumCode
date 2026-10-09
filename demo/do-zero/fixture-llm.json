@@ -43,7 +43,7 @@
           "ci_analysis": [],
           "test_plan": ["Rodar o assistente com --executar e confirmar que o código é impresso, não executado."],
           "limitations": [],
-          "summary": "A mudança executa a resposta do modelo como código (regra IA-001). A chave fixa na linha 10 é tratada pela camada de ferramentas, que vê o valor real."
+          "summary": "A mudança executa como código a resposta do modelo (regra IA-001 do time). A chave fixa na linha 10 foi achada pela verificação de segredos; num caso real, revogue-a."
         }
       }
     ],
