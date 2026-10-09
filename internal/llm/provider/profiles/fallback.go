@@ -86,12 +86,14 @@ func slotSet(n int, getenv func(string) string) bool {
 	return false
 }
 
-// slotEnv reads the slot's URL and key in place of the primary's. Every
-// key variable of the profile (LLM_API_KEY and the provider's native ones,
-// such as OPENAI_API_KEY) reads the slot's own LLM_FALLBACK_<n>_API_KEY: a
-// native variable in the environment belongs to the primary and must never
-// be sent to a fallback's endpoint. Any other variable (a URL placeholder
-// such as AWS_REGION) is read as is.
+// slotEnv reads the slot's URL and key in place of the primary's. keyEnv
+// is profile.KeyEnv, the ONLY list Resolve reads a key from (resolve.go,
+// firstSet): LLM_API_KEY and the provider's native variables such as
+// OPENAI_API_KEY are all entries of that list, so every one of them reads
+// the slot's own LLM_FALLBACK_<n>_API_KEY and no native variable of the
+// primary can reach a fallback's endpoint (AC-007,
+// TestAUR605NativeKeyNeverReachesASlot). Any other variable (a URL
+// placeholder such as AWS_REGION) is read as is.
 func slotEnv(n int, keyEnv []string, getenv func(string) string) func(string) string {
 	return func(name string) string {
 		if name == EnvBaseURL {

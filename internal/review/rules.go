@@ -49,6 +49,13 @@ type Rule struct {
 	// this rule proposes ("Correção sugerida"): a deterministic finding
 	// names what to do, not only what is wrong.
 	Fix string `yaml:"fix"`
+	// AppliesTo, when "code" (RuleAppliesToCode), restricts the matcher to
+	// files that hold code: a pattern describing a code shape (a shell
+	// call, a SQL string, an HTML sink) read in a .txt, .log or .md file
+	// is a mention, not a defect, so the security pass skips those files
+	// for the rule (see prosefiles.go). Empty applies the matcher to every
+	// file: a secret in plain text is a secret wherever it is written.
+	AppliesTo string `yaml:"applies_to"`
 	// Origin is AUR-519's provenance tag for a dynamic, skill-section rule
 	// (ParseSkillSections, skillrules.go): "policy" or "repo". It is always
 	// empty for a rule loaded from the embedded YAML catalog below -- the
@@ -144,6 +151,9 @@ func (l *RulesLoader) loadFile(fsys fs.FS, path string) error {
 				return fmt.Errorf("rule %s has an invalid pattern: %w", rule.ID, err)
 			}
 			l.patterns[rule.ID] = re
+		}
+		if rule.AppliesTo != "" && rule.AppliesTo != RuleAppliesToCode {
+			return fmt.Errorf("rule %s has an unknown applies_to %q (only %q is defined)", rule.ID, rule.AppliesTo, RuleAppliesToCode)
 		}
 		l.rules[rule.ID] = rule
 	}

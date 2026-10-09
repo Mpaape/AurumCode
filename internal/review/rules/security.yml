@@ -111,6 +111,7 @@ rules:
     # verb and a `$` from matching.
     pattern: '(?i)\b(select|insert|update|delete)\b[^+]*["'']\s*\+\s*[A-Za-z_$][\w$.]*|\b(select|insert|update|delete)\b[^+]*["'']\s*\.\s*(?:to_owned|to_string)\s*\(\s*\)\s*\+\s*[A-Za-z_$][\w$.]*|\bformat!\s*\(\s*"[^"]*\b(?:select|insert|update|delete)\b[^"]*\{\}[^"]*"\s*,\s*[A-Za-z_$][\w$.]*|^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*["''][^"'']*\b(select|insert|update|delete)\b[^"'']*["'']\$[A-Za-z_{0-9]'
     fix: "Bind the value as a query parameter (prepared statement) instead of concatenating it into the SQL text."
+    applies_to: code
 
   - id: security/xss
     title: Cross-Site Scripting (XSS)
@@ -166,6 +167,7 @@ rules:
     # identifier itself is NOT also folded case-insensitive by accident).
     pattern: '\b(?i:innerHTML|outerHTML)\s*=\s*[a-z_$][\w$.]*\s*(?:;|$)|(?i:document\.write)\s*\(\s*[a-z_$][\w$.]*\s*\)|(?i:dangerouslySetInnerHTML)\s*=\s*\{\{\s*__html\s*:\s*[a-z_$][\w$.]*\s*\}\}'
     fix: "Escape or encode the value for the HTML context it is written into, or use the template engine's auto-escaping."
+    applies_to: code
 
   - id: security/command-injection
     title: Command Injection
@@ -272,6 +274,7 @@ rules:
     # comment and string shapes. See docs/specs/AUR-503.md.
     pattern: '(?i)\b(system|popen|exec[lv]p?e?|subprocess\.(run|call|Popen))\s*\(.*["'']\s*\+|\bexec(Sync)?\s*\(.*["'']\s*\+|\bspawn\s*\(.*shell\s*:\s*true\b|\bCommand::new\s*\(\s*["''](?:sh|bash)["'']\s*\)[^;]*\.arg\s*\(\s*["'']-c["'']\s*\)|\bexec\.Command\s*\(\s*["''](?:sh|bash|cmd|powershell)["'']\s*,\s*["''](?:-c|/c|/C|-Command)["'']|\bProcess\.Start\s*\([^)]*["'']\s*\+|\bProcess\.Start\s*\(\s*["''](?:cmd|powershell)(?:\.exe)?["'']|^\s*(?:ba)?sh\s+-c\b|\beval\s+[^:=\s]|\b(?:Invoke-Expression|iex)\b'
     fix: "Pass arguments as a list to the process API instead of building a shell command string; validate or allow-list the input."
+    applies_to: code
 
   - id: security/path-traversal
     title: Path Traversal
