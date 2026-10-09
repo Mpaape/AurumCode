@@ -1,3 +1,5 @@
+review:
+  language: pt-BR
 quality_gates:
   scanners:
     - engine: gitleaks

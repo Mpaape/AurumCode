@@ -72,7 +72,7 @@ fora.
 
 <!-- saida: primeira-revisao -->
 ```text
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 No issues found.
 exit_code=0
 ```
@@ -107,7 +107,7 @@ aurumcode review --base main --seguranca --fail-on error
 ```text
 aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
 LLM quality review did not run. The following report covers deterministic analysis only.
-> **Inconclusive: this review does not approve the change.**
+> **Inconclusivo: esta revisão não aprova a mudança.**
 app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
@@ -165,7 +165,7 @@ aurumcode review --base main --fail-on error
 
 <!-- saida: com-provedor -->
 ```text
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
@@ -448,16 +448,16 @@ nil }`, numa linha só) não existe no arquivo.
 <!-- saida: achado-refutado -->
 ```text
 $ aurumcode review --base main --fail-on error --auditoria auditoria.json
-aurumcode review: limites.go:23 quality/missing-error-handling refuted by verification: no longer blocks and stays as a non-blocking comment (reason: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; quote: func (l *Limites) Validar() error { if l == nil { return nil })
-> **Approved: no problem found in the reviewed change.**
+aurumcode review: limites.go:23 quality/missing-error-handling refutado pela verificação: deixou de bloquear e segue como comentário não bloqueante (motivo: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; citação: func (l *Limites) Validar() error { if l == nil { return nil })
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 exit_code=0
 RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
 --- a auditoria guarda o achado refutado, com o motivo e a citacao
 limites.go 23 quality/missing-error-handling refuted rebaixado
 --- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
 $ aurumcode review --base main --fail-on error
-aurumcode review: verification: limites.go:23 quality/missing-error-handling still blocks (quote_not_found: Validar tem guarda de nil.)
-> **Blocked: 1 problem must be fixed before merge.**
+aurumcode review: verificação: limites.go:23 quality/missing-error-handling continua bloqueando (quote_not_found: Validar tem guarda de nil.)
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
@@ -486,8 +486,8 @@ aurumcode review --base main
 <!-- saida: falha-nao-revisado -->
 ```text
 generated file, skipped: gerado.go
-> **Inconclusive: this review does not approve the change.**
-a file that was not reviewed never counts as approved.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 ```
@@ -528,8 +528,8 @@ um caminho em `ignore`).
 <!-- saida: falha-nao-revisado -->
 ```text
 binary file, skipped: logo.png
-> **Inconclusive: this review does not approve the change.**
-- 1 file(s) ignored (repository `ignore` config or binary): they are out of the coverage count, and their absence from the reviewed context is NOT proof they are absent from the diff.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+- 1 arquivo(s) ignorados (configuração `ignore` do repositório ou binários): ficam fora da conta de cobertura e a ausência deles no contexto NÃO prova que não existam no diff.
   - logo.png (binary)
 RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova
 ```

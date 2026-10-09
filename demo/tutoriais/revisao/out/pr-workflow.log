@@ -12,7 +12,7 @@ permissao statuses: write: o chamador concede o que o reutilizavel declara
 permissao checks: read: o chamador concede o que o reutilizavel declara
 --- PR grande contra um GitHub falso local
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
-aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (042a6f32704c...2d4c4bbecade, 6 file(s))
+aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (bd5fac0f32df...7e5b2e3855c3, 6 file(s))
 aurumcode review: the diff did not fit one prompt; reviewed in 3 batches by directory (files per batch: 2, 2, 2)
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 review formal "APPROVE" publicado no pull request #7 (0 comentário(s) na linha).
@@ -41,7 +41,7 @@ Troca de mensagem sem risco.
 RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
 --- teto de lotes (batches.max_batches: 1): os arquivos fora sao listados e a aprovacao e retida
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
-aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (042a6f32704c...2d4c4bbecade, 6 file(s))
+aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (bd5fac0f32df...7e5b2e3855c3, 6 file(s))
 aurumcode review: the diff did not fit one prompt; reviewed in 1 batches by directory (files per batch: 2)
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (partial_coverage)

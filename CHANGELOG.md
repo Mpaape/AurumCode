@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Demonstração `demo/do-zero`: projeto novo, AurumCode configurado passo a passo
+  ou por um agente de IA (Aurum como servidor MCP), PR bloqueada pela ferramenta
+  e por uma regra do time, aprovada após a correção; local sem rede ou real.
+- Guia "Instalar com ajuda da IA"; exemplos dos tutoriais em pt-BR; Dependabot
+  abre PR para o `dev`.
+
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate

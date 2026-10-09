@@ -95,8 +95,8 @@ aurumcode review --base main
 <!-- saida: segredo-no-diff -->
 ```text
 $ aurumcode review --base main
-config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat)
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
+config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat)
+aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
 exit_code=3
 RESULTADO: o gitleaks achou o token no intervalo main..HEAD e o gate de segredos reprovou
 ```
@@ -110,10 +110,10 @@ token no commit intermediário, que o achado cita.
 
 <!-- saida: segredo-so-no-historico -->
 ```text
---- commit intermediario que adicionou o token: e0e6e6b93167
+--- commit intermediario que adicionou o token: 37eb089803ee
 API_TOKEN = os.environ["API_TOKEN"]
-config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat)
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit e0e6e6b93167 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
+config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat)
+aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
 exit_code=3
 RESULTADO: o token so existe num commit intermediario do PR e mesmo assim o gate reprova
 ```
@@ -171,8 +171,8 @@ do binário ou um erro registrado pelo gitleaks (`secrets_execution_error`).
 
 <!-- saida: binario-ausente -->
 ```text
-aurumcode review: SECRETS (Gitleaks) inconclusive: the scan did not produce a trustworthy result (secrets_unavailable); no Gitleaks finding was published for this run.
-aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable)
+aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (secrets_unavailable); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
+aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova
 ```
