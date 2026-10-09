@@ -1,6 +1,7 @@
 == desligada-nao-guarda
 $ aurumcode review --base main --fail-on error
-aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 security/hardcoded-secret still blocks: the verifier gave no valid answer [invalid_answer]
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 ## AurumCode code review
 
 > [!CAUTION]
@@ -12,7 +13,6 @@ app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardco
   - Evidence: A linha adicionada atribui uma senha literal a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente em vez de escreve-la no codigo.
   - Verify: Remova o literal e rode a revisao de novo; o achado deve sumir.
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: com a memoria desligada a revisao roda igual e nada e guardado
 --- arquivos de memoria: 0

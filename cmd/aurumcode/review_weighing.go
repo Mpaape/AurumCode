@@ -8,6 +8,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/analysis"
 	"io"
 	"sort"
 	"strings"
@@ -53,10 +54,10 @@ func withOrigin(issues []types.ReviewIssue, origin string) []types.ReviewIssue {
 
 // staticAnalysisIssues is the embedded analysis catalog's findings over
 // diff, labeled with their origin.
-func staticAnalysisIssues(diff *types.Diff) []types.ReviewIssue {
+func staticAnalysisIssues(diff *types.Diff, language string) []types.ReviewIssue {
 	var result types.ReviewResult
 	mergeStaticAnalysis(diff, &result)
-	return withOrigin(result.Issues, gateOriginAnalysis)
+	return withOrigin(analysis.LocalizeIssues(language, result.Issues), gateOriginAnalysis)
 }
 
 // evidenceKey identifies one deterministic finding across the passes.

@@ -25,7 +25,7 @@ func (s *reviewState) runSecurityPass() (int, bool) {
 		fmt.Fprintf(s.stderr, "aurumcode review: %v\n", err)
 		return 1, true
 	}
-	s.securityFindings = withOrigin(findings, gateOriginSecurity)
+	s.securityFindings = withOrigin(review.LocalizeSecurityFindings(s.reviewLanguage, findings), gateOriginSecurity)
 	s.securityApplied, s.securityTotal = applied, total
 	return 0, false
 }

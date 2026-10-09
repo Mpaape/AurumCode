@@ -1,7 +1,7 @@
 == regra-citavel
 --- o modelo diz warning; a secao declara severity: error
 $ aurumcode review --base main
-aurumcode review: verification: app.go:6 convencoes#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 convencoes#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: convencoes#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar error, origem skills)
 ## AurumCode code review
@@ -19,8 +19,9 @@ exit_code=3
 RESULTADO: o gate compara o MAIOR entre a severidade do modelo e a da secao
 --- uma secao nova na skill vale na execucao seguinte
 $ aurumcode review --base main
-aurumcode review: verification: app.go:6 convencoes#logs-sem-dados-pessoais still blocks (invalid_answer: veredito desconhecido "")
+aurumcode review: verification: app.go:6 convencoes#logs-sem-dados-pessoais still blocks: the verifier gave no valid answer [invalid_answer]
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: convencoes#logs-sem-dados-pessoais - Logs sem dados pessoais (severidade warning, limiar error, origem skills)
 ## AurumCode code review
 
 > [!CAUTION]
@@ -32,7 +33,6 @@ app.go:6: [warning] Credencial literal contraria a convencao do time. (rule conv
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
-aurumcode review: policy gate: convencoes#logs-sem-dados-pessoais - Logs sem dados pessoais (severidade warning, limiar error, origem skills)
 exit_code=3
 RESULTADO: a secao nova ja e citavel e reprova
 prompt: - `convencoes#logs-sem-dados-pessoais`

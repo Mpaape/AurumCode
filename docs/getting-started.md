@@ -21,7 +21,7 @@ referência. As notas de cada versão ficam no `CHANGELOG.md` e nas
 [releases do repositório](https://github.com/Mpaape/AurumCode/releases); o
 roteiro de [Releases](releases.md) troca essa referência pela versão
 publicada no exemplo, no download do site e nesta página. As tags `v1.x`
-são do produto anterior e não recebem atualizações; instalações nelas
+são históricas, do produto anterior, e não recebem atualizações; instalações nelas
 continuam na versão antiga até mudar a referência.
 
 O token de publicação é o `github.token` do workflow, com as permissões
