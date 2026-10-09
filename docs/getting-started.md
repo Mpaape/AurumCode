@@ -9,17 +9,20 @@
 4. Integre o workflow e os arquivos de contexto na branch base.
 5. Abra um PR com uma pequena alteração de código e confira o parecer e o job.
 
-O exemplo acompanha `main`:
+O exemplo fixa a release `v2.0.0`:
 
 ```yaml
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@main
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.0.0
 ```
 
-Para fixar uma instalação, use um SHA revisado ou a tag de uma release
-oficial: o roteiro de [Releases](releases.md) troca essa referência pela
-versão publicada no exemplo, no download do site e nesta página. A tag
-histórica `v1` não é atualizada por esse fluxo; instalações nela continuam na
-versão anterior até mudar a referência.
+Prefira a tag de uma release a `@main`: `@main` recebe toda mudança do
+produto sem aviso, enquanto `@v2.0.0` só muda quando você trocar a
+referência. As notas de cada versão ficam no `CHANGELOG.md` e nas
+[releases do repositório](https://github.com/Mpaape/AurumCode/releases); o
+roteiro de [Releases](releases.md) troca essa referência pela versão
+publicada no exemplo, no download do site e nesta página. As tags `v1.x`
+são do produto anterior e não recebem atualizações; instalações nelas
+continuam na versão antiga até mudar a referência.
 
 O token de publicação é o `github.token` do workflow, com as permissões
 declaradas no YAML. Ele é limitado ao repositório, não a um único PR.
