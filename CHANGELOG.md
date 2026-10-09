@@ -2,20 +2,6 @@
 
 ## Unreleased
 
-- Analistas por time (`review.profiles`, `.aurumcode/profiles.yml`) também na revisão
-  da PR: uma passada do modelo por analista, lida da base, achado marcado com o analista.
-- Parecer em pt-BR também nas mensagens fixas do catálogo de análise e da passagem
-  de segurança; achado sem prova descartado deixa o título em "nenhum problema comprovado".
-- Demo `do-zero` com três analistas (segurança, padrões do time e QA), cada achado
-  marcado com quem o encontrou; só a regra de um time bloqueia, o resto orienta.
-- Demonstração `demo/do-zero`: projeto novo, AurumCode configurado passo a passo
-  ou por um agente de IA (Aurum como servidor MCP), PR bloqueada pela ferramenta
-  e por uma regra do time, aprovada após a correção; local sem rede ou real.
-- Guia "Instalar com ajuda da IA"; exemplos dos tutoriais em pt-BR; Dependabot
-  abre PR para o `dev`.
-- Demo `do-zero` no GitHub real protege a `main` (merge só com
-  `aurumcode/policy-gate` aprovado) e instala a regra do time de um arquivo pronto.
-
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate
@@ -38,6 +24,15 @@ antes de publicar e falha fechado quando não consegue decidir.
 - O status `aurumcode/review` e o código de saída do `--pr` seguem o gate
   declarado: achado que o gate não reprova não conta como grave. O `--base`
   local abre com a mesma decisão.
+- Parecer em pt-BR também nas mensagens fixas do catálogo de análise e da
+  passagem de segurança; achado sem prova descartado deixa o título em "nenhum
+  problema comprovado"; verificação explicada em linguagem simples.
+
+#### Análise por time
+
+- Analistas por time (`review.profiles`, `.aurumcode/profiles.yml`) no local, no
+  MCP e na revisão da PR: uma passada do modelo por analista (segurança embutido;
+  padrões, QA ou outro do time), lida da base; o achado diz quem o encontrou.
 
 #### Confiança no que o modelo diz
 
@@ -82,6 +77,11 @@ antes de publicar e falha fechado quando não consegue decidir.
 
 #### Documentação e operação
 
+- Demonstração `demo/do-zero`: projeto novo com o AurumCode configurado por um
+  agente de IA (Aurum como servidor MCP) ou por roteiro; PR bloqueada pela
+  ferramenta e pela regra da segurança, aprovada após a correção, com três
+  analistas; local sem rede ou no GitHub real. Guia "Instalar com ajuda da IA".
+- Exemplos dos tutoriais em pt-BR; Dependabot abre PR para o `dev`.
 - `.semgrepignore` do próprio repositório: página estática, capturas e saídas
   gravadas ficam fora do Semgrep (um erro de sintaxe ali deixava o SAST
   inconclusivo).
