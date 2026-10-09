@@ -2,15 +2,15 @@
 --- sem politica: o .gitleaksignore do repositorio esconde o achado
 $ aurumcode review --base main
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!NOTE]
-> **Approved with 1 observation that does not block the merge.**
+> **Aprovado com 1 observação que não bloqueia o merge.**
 
-policy gate: passed · 2 files reviewed
+gate da política: passou · 2 arquivos revisados
 
-Review coverage
-- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+Cobertura da revisão
+- 1 arquivo(s) não têm gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - .gitleaksignore
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 exit_code=0

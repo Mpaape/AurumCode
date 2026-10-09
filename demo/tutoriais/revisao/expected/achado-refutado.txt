@@ -1,14 +1,14 @@
 $ aurumcode review --base main --fail-on error --auditoria auditoria.json
-aurumcode review: limites.go:23 quality/missing-error-handling refuted by verification: no longer blocks and stays as a non-blocking comment (reason: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; quote: func (l *Limites) Validar() error { if l == nil { return nil })
-> **Approved: no problem found in the reviewed change.**
+aurumcode review: limites.go:23 quality/missing-error-handling refutado pela verificação: deixou de bloquear e segue como comentário não bloqueante (motivo: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; citação: func (l *Limites) Validar() error { if l == nil { return nil })
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 exit_code=0
 RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
 --- a auditoria guarda o achado refutado, com o motivo e a citacao
 limites.go 23 quality/missing-error-handling refuted rebaixado
 --- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
 $ aurumcode review --base main --fail-on error
-aurumcode review: verification: limites.go:23 quality/missing-error-handling still blocks (quote_not_found: Validar tem guarda de nil.)
-> **Blocked: 1 problem must be fixed before merge.**
+aurumcode review: verificação: limites.go:23 quality/missing-error-handling continua bloqueando (quote_not_found: Validar tem guarda de nil.)
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3

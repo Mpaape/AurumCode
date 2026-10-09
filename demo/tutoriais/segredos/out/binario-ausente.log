@@ -1,16 +1,16 @@
 == binario-ausente
 $ aurumcode review --base main
-aurumcode review: SECRETS (Gitleaks) inconclusive: the scan did not produce a trustworthy result (secrets_unavailable); no Gitleaks finding was published for this run. Engine detail: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
+aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (secrets_unavailable); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (secrets_unavailable)
 aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova
