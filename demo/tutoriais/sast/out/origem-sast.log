@@ -5,9 +5,9 @@ aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval - eval() exec
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
 exit_code=3
 RESULTADO: a politica conta o achado de origem sast
@@ -18,9 +18,9 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 ## AurumCode code review
 
 > [!NOTE]
-> **Approved with 1 observation(s) that do not block the merge.**
+> **Approved with 1 observation that does not block the merge.**
 
-policy gate: passed · 1 file(s) reviewed
+policy gate: passed · 1 file reviewed
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
 exit_code=0
 RESULTADO: com gate.sources sem sast, o achado do Semgrep e publicado mas nao reprova o gate

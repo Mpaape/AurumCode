@@ -2,7 +2,7 @@ sbom: CycloneDX 1.7, componentes: lodash@4.17.15
 policy gate: semgrep:github.policy.regras.demo-sem-eval - eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
 src/calc.js:5: [error] eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval)
 policy gate: ssor_dtrack: policy_violations 1 > policy_violations 0 (origem dtrack)
-> **Blocked: 2 problem(s) must be fixed before merge.**
+> **Blocked: 2 problems must be fixed before merge.**
 policy gate: failed
 aurumcode review: exit_code=3
 dependency-track violacao: politica=demo-componente-proibido componente=lodash versao=4.17.15 estado=FAIL

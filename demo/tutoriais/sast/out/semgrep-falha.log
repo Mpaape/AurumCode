@@ -11,7 +11,7 @@ aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclus
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
 exit_code=1
 RESULTADO: semgrep falhou: inconclusivo e, com block, o gate reprova
@@ -27,7 +27,7 @@ aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclus
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: passed · 1 file(s) reviewed
+policy gate: passed · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
 exit_code=0
 RESULTADO: semgrep falhou: com warn o alerta e publicado e o comando sai 0, sem aprovar

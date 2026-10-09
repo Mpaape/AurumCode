@@ -10,7 +10,7 @@ aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) i
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova

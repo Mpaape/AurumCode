@@ -7,7 +7,7 @@ aurumcode: provider LLM_FALLBACK_1 (openai-compatible) failed (openai-compatible
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 No issues found.
 --- requisicoes recebidas pelo provedor falso: 3
     provedor recebeu: /fora-do-ar/chat/completions query=- authorization=Bearer <chave> api-key=ausente x-gw-key=ausente limite=- response_format=json_object

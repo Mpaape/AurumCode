@@ -70,7 +70,7 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 	case blocked != "":
 		scan.Reason = scan.Source() + blocked
 	default:
-		out := s.deps.scanners.Scan(s.ctx, engine, scanner.Request{Root: root, Trust: trust, Options: entry.Options, Range: s.scanRange})
+		out := s.deps.scanners.Scan(s.ctx, engine, scanner.Request{Root: root, Trust: trust, Options: entry.Options, Range: s.scanRange, Ignored: s.cfg.IgnoresPath})
 		if out.Version != "" {
 			s.scanVersions = append(s.scanVersions, engine.Name()+"="+out.Version)
 		}

@@ -291,9 +291,9 @@ aurumcode review: policy gate: ssor_dtrack: policy_violations 1 > policy_violati
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 2 problem(s) must be fixed before merge.**
+> **Blocked: 2 problems must be fixed before merge.**
 
-policy gate: failed · 5 file(s) reviewed
+policy gate: failed · 5 files reviewed
 src/calc.js:5: [error] eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval)
 aurumcode review: exit_code=3
 dependency-track metricas: critical=0 high=0 policyViolationsTotal=1
@@ -311,7 +311,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-policy gate: passed · 5 file(s) reviewed
+policy gate: passed · 5 files reviewed
 No issues found.
 aurumcode review: exit_code=0
 dependency-track metricas: critical=0 high=0 policyViolationsTotal=0

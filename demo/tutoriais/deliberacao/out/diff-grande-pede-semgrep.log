@@ -6,9 +6,9 @@ aurumcode review: policy gate: semgrep:regras.demo-sem-eval - eval() executa tex
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 
 ### Suggestions
 

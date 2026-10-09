@@ -4,6 +4,7 @@
 # regra citavel <nome>#<slug>, e "severity: error" nela reprova pelo gate.
 review:
   language: pt-BR
+  inline_comments: true   # achado bloqueante e sugestao aplicavel na propria linha
 # Fixtures de teste tem canarios de segredo e de injecao de proposito; as
 # capturas geradas da documentacao e os logs gravados dos tutoriais (out/ e
 # expected/, regravados pelo run.sh) repetem a saida desses casos. Artefato
@@ -13,6 +14,9 @@ ignore:
   - "docs/assets/capturas/**"
   - "demo/tutoriais/*/out/**"
   - "demo/tutoriais/*/expected/**"
+  - "demo/gate-corporativo/out/**"
+  - "demo/gate-corporativo/expected/**"
+  - "docs/site/**"          # pagina estatica antiga com saidas embutidas; nao e codigo
 gate:
   fail_on: [error]      # achado error (modelo, skill ou scanner) reprova
   inconclusive: block   # revisao que nao concluiu nunca aprova

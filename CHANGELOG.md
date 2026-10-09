@@ -5,10 +5,12 @@
 - Parecer da PR limpo: a decisão abre o comentário num bloco de aviso do
   GitHub (Aprovado, Aprovado com observações, Bloqueado ou Inconclusivo),
   lida do gate; "Corrigir antes do merge", observações em uma linha, resumo
-  e o resto recolhido em "Detalhes da revisão". Um parecer por PR, editado a
+  e o resto recolhido em "Detalhes da revisão", sem pontos fortes, com até
+  três limitações e três testes do modelo. Um parecer por PR, editado a
   cada rodada; comentário na linha só para o que bloqueia; todo achado do
   modelo verificado contra o código; eco de scanner publicado uma vez;
   testes afetados contados; `--base` abre com a mesma decisão, sem Mermaid.
+- `ignore` vale para o escopo dos scanners; sugestão aplicável na linha também no modo `comments`; achado da passagem de segurança traz a correção da regra.
 - Provedor reserva: `LLM_FALLBACK_<n>_PROVIDER|_BASE_URL|_API_KEY|_MODEL`
   (até 5) tentados em ordem quando o principal falha; troca anunciada; todos
   falhando, a revisão falha fechada. Workflow reutilizável com duas reservas.

@@ -10,22 +10,22 @@ aurumcode review: policy gate: artefato de conformidade nao gravado em /work/nao
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: audit_write_failed
 exit_code=1
 RESULTADO: block: a revisao reprova com audit_write_failed; a auditoria nao existe
 o arquivo de auditoria nao existe
 --- sem gate, SARIF cujo pai e um arquivo
 $ aurumcode review --base main --sarif /work/arquivo-regular/revisao.sarif
+aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
 ## AurumCode code review
 
 > [!WARNING]
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: sarif_write_failed
-aurumcode review: sarif_write_failed: /work/arquivo-regular/revisao.sarif: open /work/arquivo-regular/revisao.sarif: not a directory
 exit_code=1
 RESULTADO: sem gate: exit diferente de 0 e a mensagem nomeia o caminho
 --- caminho gravavel: comportamento inalterado
@@ -35,7 +35,7 @@ $ aurumcode review --base main --auditoria /work/auditoria.json
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 No issues found.
 exit_code=0
 RESULTADO: caminho gravavel: exit 0 e a auditoria existe

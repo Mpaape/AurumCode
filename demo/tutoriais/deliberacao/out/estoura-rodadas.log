@@ -10,7 +10,7 @@ LLM quality review did not run. The following report covers deterministic analys
 > **Inconclusive: this review does not approve the change.**
 > The model review did not complete. Only deterministic checks produced results; this review does not approve the change.
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 exit_code=1
 RESULTADO: max_rounds estourado: inconclusivo pelo gate, exit 1, nenhum parecer do modelo publicado
 auditoria gate: decision=inconclusive reason=review inconclusive (deliberation_limit:max_rounds)

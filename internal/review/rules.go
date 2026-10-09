@@ -45,6 +45,10 @@ type Rule struct {
 	// this catalog rule, e.g. SCR-001. Security-pass findings cite it as
 	// "standards/security-review <id>".
 	Standard string `yaml:"standard"`
+	// Fix, when non-empty, is the remediation a security-pass finding of
+	// this rule proposes ("Correção sugerida"): a deterministic finding
+	// names what to do, not only what is wrong.
+	Fix string `yaml:"fix"`
 	// Origin is AUR-519's provenance tag for a dynamic, skill-section rule
 	// (ParseSkillSections, skillrules.go): "policy" or "repo". It is always
 	// empty for a rule loaded from the embedded YAML catalog below -- the

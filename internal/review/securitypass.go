@@ -116,11 +116,12 @@ func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewI
 								msg = fmt.Sprintf("%s [standards/security-review %s]", msg, rule.Standard)
 							}
 							found = append(found, types.ReviewIssue{
-								File:     file.Path,
-								Line:     newLine,
-								Severity: rule.Severity,
-								RuleID:   rule.ID,
-								Message:  msg,
+								File:       file.Path,
+								Line:       newLine,
+								Severity:   rule.Severity,
+								RuleID:     rule.ID,
+								Message:    msg,
+								Suggestion: rule.Fix,
 							})
 						}
 					}

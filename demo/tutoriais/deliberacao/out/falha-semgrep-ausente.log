@@ -10,7 +10,7 @@ aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclus
 > **Inconclusive: this review does not approve the change.**
 > The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 
 ### Suggestions
 

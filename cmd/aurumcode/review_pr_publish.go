@@ -179,6 +179,9 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 	for _, issue := range review.OutsideDiffFindings(p.result) {
 		fmt.Fprintf(stdout, "%s %s\n", outsideDiffLine(issue), inParecerMarker)
 	}
+	suggested, suggestionFailures := p.postNativeSuggestions()
+	failures = append(failures, suggestionFailures...)
+	inlineCount += suggested
 	how, err := p.postParecer(summaryBody)
 	if err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
@@ -188,6 +191,32 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 	}
 	p.markResolvedComments()
 	return failures
+}
+
+// postNativeSuggestions posts, with inline comments on, each
+// implementation-ready suggestion as a GitHub suggestion on its changed
+// lines, applicable with one click: the comments mode proposes the change
+// the same way the formal review does.
+func (p *prReview) postNativeSuggestions() (published int, failures []string) {
+	if !p.inlineComments {
+		return 0, nil
+	}
+	for _, suggestion := range p.result.Suggestions {
+		line, ok := nativeSuggestionComment(p.diff, suggestion, p.reviewLanguage)
+		if !ok {
+			continue
+		}
+		comment := githubclient.ReviewComment{Body: line.Body, CommitID: p.commitID, Path: line.Path, Line: line.Line, Side: line.Side, StartLine: line.StartLine, StartSide: line.StartSide}
+		key := fmt.Sprintf("aurumcode/%d/%s/%s/%d/suggestion", p.prNumber, p.commitID, line.Path, line.Line)
+		if err := p.client.PostReviewComment(p.ctx, p.owner, p.repoName, p.prNumber, comment, key); err != nil {
+			fmt.Fprintf(p.stderr, "aurumcode review: publishing suggestion on %s:%d: %v\n", line.Path, line.Line, err)
+			failures = append(failures, fmt.Sprintf("%s:%d (sugestão): %v", line.Path, line.Line, err))
+			continue
+		}
+		fmt.Fprintf(p.stdout, "%s:%d: sugestão aplicável publicada na linha\n", line.Path, line.Line)
+		published++
+	}
+	return published, failures
 }
 
 // inParecerMarker ends the stdout line of a finding published only in the
