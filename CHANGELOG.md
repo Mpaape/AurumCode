@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Analistas por time (`review.profiles`, `.aurumcode/profiles.yml`) também na revisão
+  da PR: uma passada do modelo por analista, lida da base, achado marcado com o analista.
 - Parecer em pt-BR também nas mensagens fixas do catálogo de análise e da passagem
   de segurança; achado sem prova descartado deixa o título em "nenhum problema comprovado".
 - Demo `do-zero` com três analistas (segurança, padrões do time e QA), cada achado
