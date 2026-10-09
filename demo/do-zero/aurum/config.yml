@@ -2,6 +2,7 @@
 review:
   language: pt-BR
   inline_comments: true   # o que bloqueia vira comentário na linha, com a correção aplicável
+  profiles: [seguranca, padroes, qa]   # analistas: seguranca (embutido) e os do time (profiles.yml)
 gate:
   fail_on: [error]        # achado error (modelo, skill ou ferramenta) reprova
   inconclusive: block     # revisão que não concluiu nunca aprova

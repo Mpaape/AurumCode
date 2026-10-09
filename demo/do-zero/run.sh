@@ -268,17 +268,17 @@ passo_2() {
 }
 passo_3() {
   ui_passo 3
-  ui_diz "Três arquivos ligam o AurumCode: a config (idioma e gate), uma skill com as regras do time em texto (IA-001: resposta do modelo nunca é executada) e o workflow que chama a revisão em toda PR, fixado na versão $REF."
-  ui_cmd "mkdir -p .aurumcode/skills/ia .github/workflows"
-  ui_cmd "cp aurum/config.yml .aurumcode/config.yml"
-  ui_cmd "cp aurum/skills/ia/SKILL.md .aurumcode/skills/ia/SKILL.md"
+  ui_diz "O AurumCode entra com: a config (idioma, gate e os analistas que rodam), as regras de cada time em Markdown (segurança: IA-001, resposta do modelo nunca é executada; dev: PAD-001; QA: QA-001), os analistas do time (padrões e QA; o de segurança é embutido) e o workflow que chama a revisão em toda PR, fixado na versão $REF."
+  ui_cmd "mkdir -p .aurumcode/skills .github/workflows"
+  ui_cmd "cp aurum/config.yml aurum/profiles.yml .aurumcode/"
+  ui_cmd "cp -R aurum/skills/ia aurum/skills/time .aurumcode/skills/"
   ui_cmd "cp docs/site/workflow.yml .github/workflows/code-review.yml   # uses: ...review.yml@$REF"
   ui_pausa
-  mkdir -p "$TUT_WORK/.aurumcode/skills/ia" "$TUT_WORK/.github/workflows"
-  cp "$HERE/aurum/config.yml" "$TUT_WORK/.aurumcode/config.yml"
-  cp "$HERE/aurum/skills/ia/SKILL.md" "$TUT_WORK/.aurumcode/skills/ia/SKILL.md"
+  mkdir -p "$TUT_WORK/.aurumcode/skills" "$TUT_WORK/.github/workflows"
+  cp "$HERE/aurum/config.yml" "$HERE/aurum/profiles.yml" "$TUT_WORK/.aurumcode/"
+  cp -R "$HERE/aurum/skills/ia" "$HERE/aurum/skills/time" "$TUT_WORK/.aurumcode/skills/"
   sed -E "s|(review\.yml)@[^[:space:]]+|\1@$REF|" "$REPO_ROOT/docs/site/workflow.yml" > "$TUT_WORK/.github/workflows/code-review.yml"
-  { echo "# .aurumcode/config.yml"; cat "$TUT_WORK/.aurumcode/config.yml"; echo; echo "# .aurumcode/skills/ia/SKILL.md"; sed -n '/^## /,$p' "$TUT_WORK/.aurumcode/skills/ia/SKILL.md"; echo; echo "# .github/workflows/code-review.yml"; grep -E 'uses:|LLM_' "$TUT_WORK/.github/workflows/code-review.yml"; } | ui_saida
+  { echo "# .aurumcode/config.yml"; cat "$TUT_WORK/.aurumcode/config.yml"; echo; echo "# .aurumcode/profiles.yml (analistas do time)"; grep -E '^  - name:|emphasis:' "$TUT_WORK/.aurumcode/profiles.yml"; echo; echo "# regras (skills)"; grep -h '^## ' "$TUT_WORK"/.aurumcode/skills/*/SKILL.md; echo; echo "# .github/workflows/code-review.yml"; grep -E 'uses:|LLM_' "$TUT_WORK/.github/workflows/code-review.yml"; } | ui_saida
   ui_cmd "git add -A && git commit -m 'aurum: config, skill do time e workflow' && git push"; ui_pausa
   tgit add -A; tgit commit -q -m "aurum: config, skill do time e workflow"; tgit push -q
   tgit log --oneline -1 | ui_saida
@@ -443,8 +443,8 @@ PEDIDO
   ui_copia "cd $TUT_WORK && claude"
   ui_diz "2. Cole o pedido (o mesmo texto está no arquivo: cat $pedido):"
   sed 's/^/      │ /' "$pedido"
-  ui_diz "3. Peça a regra do time (a segurança já a escreveu; o agente instala e explica):"
-  printf '      │ %s\n' "A regra do time está em $HERE/aurum/skills/ia/SKILL.md. Instale-a como .aurumcode/skills/ia/SKILL.md, explique em uma frase cada regra e commite."
+  ui_diz "3. Peça as regras e os analistas de cada time (já escritos; o agente instala e explica):"
+  printf '      │ %s\n' "As regras e os analistas dos times estão em $HERE/aurum/: instale skills/ia e skills/time em .aurumcode/skills/, profiles.yml em .aurumcode/profiles.yml e ative review.profiles: [seguranca, padroes, qa] no config. Explique em uma frase cada regra e cada analista, e commite."
   ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa, em outro terminal:"
   ui_copia "bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
   if [ "$MODO" = real ]; then
