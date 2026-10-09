@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Mpaape/AurumCode/internal/review/blocking"
+	"github.com/Mpaape/AurumCode/internal/review/verify"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -280,5 +281,19 @@ func TestSuggestionsSectionSkipsEmptySuggestions(t *testing.T) {
 	result := &types.ReviewResult{Suggestions: []types.ReviewSuggestion{{File: "a.go"}}}
 	if got := detailsSections(result, reviewCopyFor("pt-BR")); strings.Contains(got, "Sugestões") {
 		t.Fatalf("empty suggestions produced a heading:\n%s", got)
+	}
+}
+
+// A verified observation is never announced as "still blocks".
+func TestKeptObservationIsNotAnnouncedAsBlocking(t *testing.T) {
+	var stderr strings.Builder
+	s := &reviewState{stderr: &stderr, reviewLanguage: "pt-BR", result: &types.ReviewResult{}}
+	s.reportVerification(verify.Record{RuleID: "time#qa-001", Path: "a.py", Line: 3, Outcome: verify.OutcomeConfirmed, Blocking: false}, types.ReviewIssue{})
+	if strings.Contains(stderr.String(), "bloqueando") {
+		t.Fatalf("an observation was announced as blocking: %q", stderr.String())
+	}
+	s.reportVerification(verify.Record{RuleID: "ia#ia-001", Path: "a.py", Line: 36, Outcome: verify.OutcomeConfirmed, Blocking: true}, types.ReviewIssue{})
+	if !strings.Contains(stderr.String(), "continua bloqueando: confirmado pelo verificador") {
+		t.Fatalf("a blocking finding must say why it still blocks: %q", stderr.String())
 	}
 }

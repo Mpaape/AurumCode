@@ -83,7 +83,8 @@ func (s *reviewState) verificationSource() (verify.Source, string) {
 // reportVerification states one verified finding: a refuted one leaves the
 // findings and is named, with the verifier's reason and quote, on stderr
 // and among the limitations of the parecer (never dropped silently); a
-// kept one is said on stderr with why it still counts.
+// kept blocking one is said on stderr with why it still counts; a kept
+// observation is only in the audit record.
 func (s *reviewState) reportVerification(rec verify.Record, issue types.ReviewIssue) {
 	if rec.Demoted {
 		key := "review.verification_refuted"
@@ -97,6 +98,11 @@ func (s *reviewState) reportVerification(rec verify.Record, issue types.ReviewIs
 	}
 	if rec.Outcome == verify.OutcomeSourceUnavailable {
 		// Already said once, for the run, by verifyModelFindings.
+		return
+	}
+	if !rec.Blocking {
+		// A kept observation changes nothing: saying it "still blocks"
+		// would be wrong, and the audit record already keeps the outcome.
 		return
 	}
 	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "review.verification_kept", rec.Path, rec.Line, rec.RuleID, keptReason(s.reviewLanguage, rec), rec.Outcome))
