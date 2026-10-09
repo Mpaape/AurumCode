@@ -5,3 +5,5 @@ quality_gates:
 gate:
   fail_on: [error]
   sources: [secrets]
+review:
+  language: pt-BR

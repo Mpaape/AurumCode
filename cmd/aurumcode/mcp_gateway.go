@@ -58,7 +58,7 @@ func (g *sessionGateway) Review(ctx context.Context, req mcpserver.ReviewRequest
 
 // sessionOutcome reads what the finished session decided.
 func sessionOutcome(b *baseReview, exit int, report, diagnostics string) mcpserver.SessionOutcome {
-	o := mcpserver.SessionOutcome{Exit: exit, ChangedFiles: b.rawDiffFileCount, Report: report, Diagnostics: diagnostics, Redactor: b.filter}
+	o := mcpserver.SessionOutcome{Exit: exit, ChangedFiles: b.rawDiffFileCount, Report: report, Diagnostics: diagnostics, Redactor: b.filter, Language: b.reviewLanguage}
 	var issues []types.ReviewIssue
 	if b.result != nil {
 		issues = append(issues, b.result.Issues...)

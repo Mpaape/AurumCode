@@ -271,8 +271,9 @@ func looksLikeCommitSHA(ref string) bool {
 // Notice text derives from diff paths -- repository-controlled input -- so
 // it passes the redaction filter before reaching the sink (AUR-432); an
 // ordinary path is filter-identity.
-func printNotices(stdout io.Writer, filter *redaction.Filter, notices []analyzer.DiffNotice) {
+// The text is in the review's language (analyzer.DiffNotice.Text).
+func printNotices(stdout io.Writer, filter *redaction.Filter, notices []analyzer.DiffNotice, language string) {
 	for _, n := range notices {
-		fmt.Fprintln(stdout, filter.Redact(n.Message))
+		fmt.Fprintln(stdout, filter.Redact(n.Text(language)))
 	}
 }

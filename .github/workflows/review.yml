@@ -133,7 +133,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${LLM_API_KEY}" ] || [ -z "${LLM_BASE_URL}" ]; then
-            echo "::error::AurumCode needs LLM_API_KEY and LLM_BASE_URL repository secrets; the review was not run"
+            echo "::error title=AurumCode sem provedor de modelo::Faltam os secrets LLM_API_KEY e LLM_BASE_URL; a revisão não rodou e o gate fica reprovado. Cadastre os dois em Settings > Secrets and variables > Actions do repositório (ou da organização) e repasse-os ao workflow reutilizável em secrets: (ou com secrets: inherit)."
             exit 1
           fi
 
@@ -644,7 +644,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${LLM_API_KEY}" ] || [ -z "${LLM_BASE_URL}" ]; then
-            echo "::error::AurumCode needs LLM_API_KEY and LLM_BASE_URL repository secrets; the scan was not run"
+            echo "::error title=AurumCode sem provedor de modelo::Faltam os secrets LLM_API_KEY e LLM_BASE_URL; a varredura não rodou e o gate fica reprovado. Cadastre os dois em Settings > Secrets and variables > Actions do repositório (ou da organização) e repasse-os ao workflow reutilizável em secrets: (ou com secrets: inherit)."
             exit 1
           fi
 

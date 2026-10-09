@@ -1,2 +1,4 @@
 analysis_data:
   max_age_days: 365
+review:
+  language: pt-BR

@@ -60,7 +60,7 @@ func (VerdictReuseContributor) Origin() string { return "verdict-cache" }
 func (c VerdictReuseContributor) Apply(_ context.Context, run *Run, prior Result) (Result, error) {
 	digest, digestErr := c.PromptDigest()
 	c.Key.PromptVersionDigest = digest
-	run.Review.Issues = ReuseOrStoreGateVerdict(run.Stderr, &run.Review.Limitations, run.Cfg.Gate.Declared(), digestErr == nil, c.Key, run.Cfg, prior.Reason, run.Review.Issues, c.Raw)
+	run.Review.Issues = ReuseOrStoreGateVerdict(run.Language, run.Stderr, &run.Review.Limitations, run.Cfg.Gate.Declared(), digestErr == nil, c.Key, run.Cfg, prior.Reason, run.Review.Issues, c.Raw)
 	return Result{}, nil
 }
 
@@ -77,7 +77,7 @@ func (c PolicySkillsContributor) Apply(_ context.Context, run *Run, prior Result
 	if c.AcceptedOrigin != OriginPolicy {
 		issues = run.keepSkills(issues, func(id string) bool { _, ok := c.Dynamic[id]; return ok })
 	}
-	d, err := EvaluateGate(run.Cfg.Gate, c.AcceptedOrigin, c.Dynamic, issues, prior.Reason, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
+	d, err := EvaluateGateIn(run.Language, run.Cfg.Gate, c.AcceptedOrigin, c.Dynamic, issues, prior.Reason, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
 	if err != nil {
 		return Result{}, Fatal(err)
 	}
@@ -106,7 +106,7 @@ func (c ScannerContributor) Apply(_ context.Context, run *Run, _ Result) (Result
 		if scan.Section != OriginPolicy {
 			issues = run.keep(scan.Source(), scan.Origin(), issues)
 		}
-		if err := ApplyScannerGate(&part, scan, issues); err != nil {
+		if err := ApplyScannerGateIn(run.Language, &part, scan, issues); err != nil {
 			return part, Fatal(err)
 		}
 	}
@@ -141,7 +141,7 @@ type AnalysisDataContributor struct{}
 func (AnalysisDataContributor) Name() string   { return ContributorAnalysisData }
 func (AnalysisDataContributor) Origin() string { return OriginAnalysisData }
 func (AnalysisDataContributor) Apply(ctx context.Context, run *Run, _ Result) (Result, error) {
-	part, reason, audit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData)
+	part, reason, audit := ApplyAnalysisDataGate(ctx, run.Language, run.Cfg.AnalysisData)
 	part.Reason, part.AnalysisData = reason, audit
 	return part, nil
 }
@@ -154,7 +154,7 @@ type DependencyTrackContributor struct{}
 func (DependencyTrackContributor) Name() string   { return ContributorDTrack }
 func (DependencyTrackContributor) Origin() string { return OriginDTrack }
 func (DependencyTrackContributor) Apply(ctx context.Context, run *Run, _ Result) (Result, error) {
-	part, reason, nextFilter := ApplyDTrackGate(ctx, run.Cfg.QualityGates.SsorDtrack, run.Filter)
+	part, reason, nextFilter := ApplyDTrackGate(ctx, run.Language, run.Cfg.QualityGates.SsorDtrack, run.Filter)
 	part.Reason = reason
 	if nextFilter != run.Filter {
 		run.Filter = nextFilter

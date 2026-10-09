@@ -161,8 +161,8 @@ RESULTADO: inconclusivo em block reprova
 cache: 0 entrada(s) de veredito, 0 entrada(s) por arquivo
 ```
 
-O que observar: `gate verdict reuse unavailable` na primeira execução (a revisão
-funciona normalmente); na segunda, a cobertura parcial reprova (exit 1) e o cache
+O que observar: `reaproveitamento do veredito do gate indisponível` na primeira
+execução (a revisão funciona normalmente); na segunda, a cobertura parcial reprova (exit 1) e o cache
 fica com 0 entradas.
 
 ## Problemas comuns

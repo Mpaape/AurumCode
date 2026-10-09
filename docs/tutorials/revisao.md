@@ -538,11 +538,12 @@ RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate e
 
 ## Problemas comuns
 
-- **`no LLM provider configured`**: faltam `LLM_API_KEY` e `LLM_BASE_URL` (ou o
+- **`nenhum provedor de modelo configurado`** (em inglês, `no LLM provider
+  configured`): faltam `LLM_API_KEY` e `LLM_BASE_URL` (ou o
   fixture). Sem provedor, só a análise determinística roda, e isso é dito na
   saída; use `--exigir-qualidade` para tornar isso uma falha.
-- **`No issues found.` não é garantia**: leia a seção de cobertura e as linhas
-  `binary file, skipped`; arquivos filtrados não foram revisados.
+- **`Nenhum problema encontrado.` não é garantia**: leia a seção de cobertura e
+  as linhas `arquivo binário, não revisado`; arquivos filtrados não foram revisados.
 - **Achado "descartado pelo gate de escopo e evidência"**: o modelo citou uma
   linha que não está no diff, ou sem evidência concreta. Isso é proposital.
 - **`git apply` recusa o patch do `fix`**: o arquivo mudou depois da revisão

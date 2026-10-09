@@ -10,6 +10,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/grammar"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review/session"
 )
@@ -109,12 +110,12 @@ func (b *baseReview) settleQualityStatus() (int, bool) {
 	f := b.f
 	if b.providerErr != nil && f.modelo == "" && errors.Is(b.providerErr, errNoProviderConfigured) {
 		b.model = modelSkipped
-		fmt.Fprintln(b.stderr, "aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only")
+		fmt.Fprintf(b.stderr, "aurumcode review: %s\n", i18n.Text(b.reviewLanguage, "terminal.quality_skipped"))
 		// AUR-542: the complete AURUMCODE_LLM_FIXTURE teaching text.
-		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", b.providerErr)
+		printLines(b.stderr, "aurumcode review: ", noProviderText(b.reviewLanguage))
 		if f.exigirQualidade {
 			b.model = modelProviderFailed
-			fmt.Fprintln(b.stderr, "aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review")
+			fmt.Fprintf(b.stderr, "aurumcode review: %s\n", i18n.Text(b.reviewLanguage, "terminal.quality_required"))
 		}
 	} else if b.providerErr != nil {
 		rc := 1

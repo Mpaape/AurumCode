@@ -13,3 +13,5 @@ rules:
     enabled: false
 ignore:
   - "docs/**"
+review:
+  language: pt-BR

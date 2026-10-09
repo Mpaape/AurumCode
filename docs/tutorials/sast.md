@@ -123,8 +123,8 @@ exit_code=1
 
 O que observar: o comando demora cerca de dois minutos (o limite de uma
 varredura é 120 s) e termina com `sast_execution_error`. Com
-`gate.inconclusive: block` isso reprova (saída 1). O parecer ainda diz
-`No issues found.`: leia a linha `SAST ... inconclusive` antes de confiar nele.
+`gate.inconclusive: block` isso reprova (saída 1). O parecer não traz
+achado do SAST: leia a linha `SAST ... inconclusivo` antes de confiar nele.
 (`RESULTADO` do script: o exit 1 é o esperado e prova que a falha de download
 não foi lida como varredura limpa; o log não distingue timeout de recusa de
 rede, então o tutorial não afirma qual das duas aconteceu.)
@@ -342,8 +342,8 @@ exit_code=0
 ```
 
 O que observar: com `block`, exit 1; com `warn`, o alerta inconclusivo é
-publicado e o comando sai 0, mas a revisão não é aprovação (o parecer diz
-`No issues found.`, o que não quer dizer varredura limpa). Escolha `block` num
+publicado e o comando sai 0, mas a revisão não é aprovação (o parecer não
+traz achado do SAST, o que não quer dizer varredura limpa). Escolha `block` num
 gate de conformidade. (Conclusão do script: os exits 1 e 0, a mesma falha com
 dois modos.)
 
@@ -381,8 +381,8 @@ pacote que não compila ou uma dependência fora do cache de módulos
   regra em exceções ou comparações, use o `rule_id` exato da saída.
 - **`nosemgrep` "não funciona"**: sob política é desligado de propósito.
 - **Esperar `--semgrep-bin`**: não existe; use o `PATH` ou a imagem do produto.
-- **Resultado `No issues found.` com SAST inconclusivo**: leia as linhas
-  `SAST ... inconclusive`; o parecer não resume o estado do SAST.
+- **Resultado sem achados com SAST inconclusivo**: leia as linhas
+  `SAST ... inconclusivo`; o parecer não resume o estado do SAST.
 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica

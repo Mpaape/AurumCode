@@ -130,7 +130,7 @@ func roundNotice(r roundPlan, language string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "#### %s\n\n", i18n.Text(language, "review.round_heading"))
 	if r.plan.Repeated > 0 {
-		fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.round_repeated", r.plan.Repeated))
+		fmt.Fprintf(&b, "- %s\n", countText(r.plan.Repeated, i18n.Text(language, "review.round_repeated_one"), i18n.Text(language, "review.round_repeated")))
 	}
 	if len(r.plan.Resolved) > 0 {
 		names := make([]string, 0, len(r.plan.Resolved))

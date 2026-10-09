@@ -5,6 +5,8 @@ package main
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/i18n"
 )
 
 // publish writes AUR-521's audit record and SARIF once the gate decision is
@@ -22,7 +24,7 @@ func (b *baseReview) publish() (int, bool) {
 // deterministic analysis only and the verdict is "comment".
 func (b *baseReview) printReport() {
 	result := b.result
-	printNotices(b.stdout, b.filter, b.notices)
+	printNotices(b.stdout, b.filter, b.notices, b.reviewLanguage)
 	if b.qualityDidNotRun() {
 		result.Verdict = "comment"
 		// canonicalVerdict reads this same flag, so a quality-degraded
@@ -32,7 +34,7 @@ func (b *baseReview) printReport() {
 			result.Metadata = make(map[string]string)
 		}
 		result.Metadata["quality_degraded"] = "true"
-		fmt.Fprintln(b.stdout, "LLM quality review did not run. The following report covers deterministic analysis only.")
+		fmt.Fprintln(b.stdout, i18n.Text(b.reviewLanguage, "terminal.deterministic_only"))
 	}
 	fmt.Fprint(b.stdout, appendReachSection(renderLocalReport(result, b.diff, b.reviewLanguage, b.blockingRule()), b.reachLines, b.reviewLanguage))
 	if b.coverageText != "" {

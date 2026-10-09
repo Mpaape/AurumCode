@@ -1,6 +1,7 @@
 gate:
   fail_on: [high]
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

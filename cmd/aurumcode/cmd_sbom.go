@@ -118,7 +118,8 @@ func runSBOM(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if genErr != nil {
-		return reportSBOMFailure(stderr, genErr, effective.Gate, gateOrigin)
+		language, _ := effective.ReviewLanguage()
+		return reportSBOMFailure(stderr, language, genErr, effective.Gate, gateOrigin)
 	}
 
 	fmt.Fprintf(stdout, "sbom: %s\n", outputPath)
@@ -137,10 +138,12 @@ func runSBOM(args []string, stdout, stderr io.Writer) int {
 // `aurumcode sbom` has no pre-AUR-519 behavior to stay byte-compatible
 // with, and the card's own Outcome is explicit: "nunca SBOM vazio
 // aceito".
-func reportSBOMFailure(stderr io.Writer, genErr error, gateCfg config.GateConfig, gateOrigin string) int {
+// Its gate lines are in the review language (an unreadable language is the
+// default one: the failure being reported is the SBOM's, not the language's).
+func reportSBOMFailure(stderr io.Writer, language string, genErr error, gateCfg config.GateConfig, gateOrigin string) int {
 	fmt.Fprintf(stderr, "aurumcode sbom: %v\n", genErr)
 
-	gateResult, gateErr := evaluateGate(gateCfg, gateOrigin, nil, nil, gateReasonSBOMFailure, nil, "", time.Now())
+	gateResult, gateErr := evaluateGate(language, gateCfg, gateOrigin, nil, nil, gateReasonSBOMFailure, nil, "", time.Now())
 	if gateErr != nil {
 		fmt.Fprintf(stderr, "aurumcode sbom: gate: %v\n", gateErr)
 		return 2

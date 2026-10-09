@@ -8,6 +8,7 @@ exceptions:
     reason: valor de demonstracao, sem credencial real
     expires: 2099-12-31
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

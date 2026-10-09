@@ -10,3 +10,5 @@ quality_gates:
     engine: cosign
     sign_sbom: true
     sign_artifacts: false
+review:
+  language: pt-BR

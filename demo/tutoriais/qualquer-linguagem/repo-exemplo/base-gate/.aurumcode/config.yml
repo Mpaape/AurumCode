@@ -1,3 +1,5 @@
 gate:
   fail_on: [high]
   inconclusive: block
+review:
+  language: pt-BR

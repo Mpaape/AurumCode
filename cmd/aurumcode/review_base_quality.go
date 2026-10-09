@@ -133,7 +133,7 @@ func (b *baseReview) reportQualityOutcome(qc *qualityCache) {
 		reused = mergeCacheHits(b.result, qc.statuses, b.filter)
 	}
 	if reused > 0 {
-		fmt.Fprintf(b.stderr, "aurumcode review: reused %d file(s) from cache (not resent to the model)\n", reused)
+		fmt.Fprintf(b.stderr, "aurumcode review: %s\n", cacheReusedLine(b.reviewLanguage, reused))
 	}
 	if b.limiteSet && b.model != modelProviderFailed {
 		printRealCost(b.stderr, realCostUSD(b.tracker, b.limiteUSD), b.limiteUSD)

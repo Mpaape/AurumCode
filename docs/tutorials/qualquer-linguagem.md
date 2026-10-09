@@ -319,7 +319,7 @@ vive no catálogo de dados `internal/analyzer/language_catalog.yml` (veja
 - **"Aprovado com binário no PR."** Não acontece: o veredito é `Comment`
   (caso 3). Para reprovar, declare `gate.inconclusive: block`. Só uma imagem,
   PDF, fonte ou mídia do catálogo de formatos é declarada ignorada.
-- **"O aviso `gate verdict reuse unavailable` apareceu."** O cache de veredito
+- **"O aviso `reaproveitamento do veredito do gate indisponível` apareceu."** O cache de veredito
   precisa de `AURUMCODE_CACHE_DIR`; sem ele o gate roda normalmente, só não
   reaproveita veredito entre execuções. É aviso, não falha.
 - **Saída em português.** Com `review.language: pt-BR` (caso 5) o parecer sai

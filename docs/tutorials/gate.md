@@ -568,8 +568,8 @@ erro **nunca** vira "sem gate": o comando falha.
   1, antes do modelo: uma chave com erro de digitação nunca vira "sem gate".
 - **O repositório declarou `gate` e nada mudou:** sob `--politica` o `gate` do
   repositório é ignorado (caso 8); um aviso nomeado diz isso.
-- **`gate verdict reuse unavailable`:** só informa que `AURUMCODE_CACHE_DIR` não
-  está definido; veja [reaproveitamento.md](reaproveitamento.md).
+- **`reaproveitamento do veredito do gate indisponível`** (em inglês, `gate verdict
+  reuse unavailable`): só informa que `AURUMCODE_CACHE_DIR` não está definido; veja [reaproveitamento.md](reaproveitamento.md).
 - **Status ausente na PR:** o `aurumcode/policy-gate` só é publicado quando há
   `gate` declarado e `--pr --publicar --check`.
 - **SAST com `p/...` falhando offline:** pacotes do registro exigem rede; use um

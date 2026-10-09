@@ -7,6 +7,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/gate/facts"
+	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -114,6 +115,13 @@ func EffectiveSeverityRank(issueSeverity, ruleSeverity string) (config.GateSever
 // real severity breach must still fail the gate, and one with no breach
 // must never publish as approved either.
 func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, inconclusiveReason string, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) (Result, error) {
+	return EvaluateGateIn("", gate, acceptedOrigin, dynamic, issues, inconclusiveReason, exceptions, repoIdentity, now)
+}
+
+// EvaluateGateIn is EvaluateGate with its inconclusive line in the review's
+// language (reasons.Line): the codes in English, as before; a
+// sentence per reason, code in brackets, in Portuguese.
+func EvaluateGateIn(language string, gate config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, inconclusiveReason string, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) (Result, error) {
 	var d Result
 	if !gate.Declared() {
 		return d, nil
@@ -128,7 +136,7 @@ func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 			return d, err
 		}
 		d.Inconclusive = true
-		d.Lines = append(d.Lines, fmt.Sprintf("review inconclusive (%s)", inconclusiveReason))
+		d.Lines = append(d.Lines, reasons.Line(language, inconclusiveReason))
 		if mode == config.InconclusiveBlock {
 			// Not graded at all; the failure itself is decided once, by
 			// ApplyInconclusiveMode.
@@ -191,6 +199,7 @@ func EvaluateGate(gate config.GateConfig, acceptedOrigin string, dynamic map[str
 		d.Fail = true
 		d.Breach = true
 		d.Lines = append(d.Lines, FindingLine(rule.ID, rule.Title, issue.Severity, name, OriginSkills))
+		d.noteBreach(rule.Title, issue)
 		d.BlockingFindings = append(d.BlockingFindings, facts.AuditFinding{
 			RuleID:   issue.RuleID,
 			Path:     issue.File,

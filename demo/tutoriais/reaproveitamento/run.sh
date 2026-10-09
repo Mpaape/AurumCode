@@ -96,8 +96,8 @@ caso_cache_degradado() {
   echo "--- todas as entradas do cache corrompidas"
   aurum review --base main --politica /policy
   expect_rc 3 "cache corrompido: revisao nova, o achado continua reprovando"
-  if grep -q 'reused' <<<"$LAST_OUT"; then echo "ERRO: reaproveitou cache corrompido"; return 1; fi
-  echo "nenhuma linha 'reused': nada foi reaproveitado do cache corrompido"
+  if grep -qE 'reused|reaproveitad' <<<"$LAST_OUT"; then echo "ERRO: reaproveitou cache corrompido"; return 1; fi
+  echo "nenhuma linha de reaproveitamento: nada foi reaproveitado do cache corrompido"
 }
 
 # Falha: sem AURUMCODE_CACHE_DIR nao ha reaproveitamento, e o produto diz isso; inconclusivo nao grava.

@@ -129,7 +129,7 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 		fmt.Fprintf(p.stderr, "aurumcode review: publishing formal review: %v\n", err)
 		failures = append(failures, "formal review: "+err.Error())
 	} else {
-		fmt.Fprintf(p.stdout, "review formal %q publicado no pull request #%d (%d comentário(s) na linha).\n", formal.Event, p.prNumber, len(formalComments))
+		fmt.Fprintln(p.stdout, formalReviewLine(p.reviewLanguage, formal.Event, p.prNumber, len(formalComments)))
 	}
 	p.markResolvedComments()
 	return failures
@@ -187,7 +187,7 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
 		failures = append(failures, "summary: "+err.Error())
 	} else {
-		fmt.Fprintf(stdout, "parecer %s no pull request #%d (%d comentário(s) na linha).\n", how, p.prNumber, inlineCount)
+		fmt.Fprintln(stdout, parecerLine(p.reviewLanguage, how, p.prNumber, inlineCount))
 	}
 	p.markResolvedComments()
 	return failures
@@ -274,10 +274,10 @@ func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 	}
 	out := publishOutcome{failures: len(failures), artifactsMissing: artifactsMissing}
 	if p.check {
-		out.checkExit = publishCheckStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, (p.opts.exigirQualidade && p.modelDegraded()) || p.model == modelDeliberationLimit, p.model == modelProviderFailed, p.blockingRule())
+		out.checkExit = publishCheckStatusIn(p.ctx, p.reviewLanguage, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, p.issues, p.prNumber, (p.opts.exigirQualidade && p.modelDegraded()) || p.model == modelDeliberationLimit, p.model == modelProviderFailed, p.blockingRule())
 		// AUR-519: the policy gate's own status, independent of --check's
 		// grave-finding status; a no-op when no gate was declared.
-		out.gateCheckExit = publishPolicyGateStatus(p.ctx, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, *p.gateRes, p.prNumber)
+		out.gateCheckExit = publishPolicyGateStatusIn(p.ctx, p.reviewLanguage, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, *p.gateRes, p.prNumber)
 	}
 	if len(failures) > 0 {
 		fmt.Fprintf(stderr, "aurumcode review: %d comentario(s) falharam ao publicar:\n", len(failures))

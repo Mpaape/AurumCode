@@ -23,7 +23,7 @@ const maxAffectedTestsShown = 10
 func writeCIStatusSection(b *strings.Builder, result *types.ReviewResult, copy reviewCopy) {
 	if len(result.CIAnalysis) == 0 {
 		if discarded := atoiOrZero(result.Metadata[ciStatusDiscardedKey]); discarded > 0 {
-			fmt.Fprintf(b, "#### %s\n\n%s\n\n", copy.ciStatus, fmt.Sprintf(copy.ciNothingFailed, discarded))
+			fmt.Fprintf(b, "#### %s\n\n%s\n\n", copy.ciStatus, countText(discarded, copy.ciNothingFailedOne, copy.ciNothingFailed))
 		}
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
 )
@@ -38,7 +39,7 @@ func (s *reviewState) noteBatches(batches []review.Batch) {
 	for _, b := range batches {
 		sizes = append(sizes, fmt.Sprintf("%d", len(b.Files)))
 	}
-	fmt.Fprintf(s.stderr, "aurumcode review: the diff did not fit one prompt; reviewed in %d batches by directory (files per batch: %s)\n", len(batches), strings.Join(sizes, ", "))
+	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.batches", len(batches), strings.Join(sizes, ", ")))
 }
 
 // auditBatches converts the batches for the audit record.

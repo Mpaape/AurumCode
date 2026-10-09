@@ -138,6 +138,7 @@ func applyDeterministic(d *Result, gate config.GateConfig, issues []types.Review
 		d.Fail = true
 		d.Breach = true
 		d.Lines = append(d.Lines, FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin))
+		d.noteBreach(issue.Message, issue)
 		d.BlockingFindings = append(d.BlockingFindings, facts.AuditFinding{
 			RuleID: issue.RuleID, Path: issue.File, Line: issue.Line, Severity: issue.Severity,
 			Origin: origin,

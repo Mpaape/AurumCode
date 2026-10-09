@@ -41,6 +41,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -55,7 +56,9 @@ import (
 // behind.
 const VerdictCachePath = "aur524-gate-verdict"
 
-// VerdictCacheUnavailableNotice is AC-004's own declaration, on stderr:
+// VerdictCacheUnavailableNotice is AC-004's own declaration, on stderr, in
+// English (the catalog's terminal.verdict_cache_unavailable carries it per
+// language):
 // without a persistent cache directory, this run's gate verdict cannot be
 // shared with a later run, and could not have reused an earlier one
 // either. The run still proceeds -- a missing cache is never a correctness
@@ -228,14 +231,14 @@ func UnionReviewIssues(current, reused []types.ReviewIssue) []types.ReviewIssue 
 //     into currentIssues (monotonic: current never shrinks or is
 //     replaced), announces how many were newly added when that is
 //     nonzero, and returns the union.
-func ReuseOrStoreGateVerdict(stderr io.Writer, limitations *[]string, gateDeclared, promptDigestOK bool, in VerdictKeyInputs, cfg *config.Config, gateInconclusiveReason string, currentIssues, rawIssues []types.ReviewIssue) []types.ReviewIssue {
+func ReuseOrStoreGateVerdict(language string, stderr io.Writer, limitations *[]string, gateDeclared, promptDigestOK bool, in VerdictKeyInputs, cfg *config.Config, gateInconclusiveReason string, currentIssues, rawIssues []types.ReviewIssue) []types.ReviewIssue {
 	if !gateDeclared {
 		return currentIssues
 	}
 	if !VerdictCacheAvailable() {
 		// An operator note: said on stderr, never in the parecer, whose
 		// reader cannot act on a cache directory of the runner.
-		fmt.Fprintf(stderr, "aurumcode review: %s\n", VerdictCacheUnavailableNotice)
+		fmt.Fprintf(stderr, "aurumcode review: %s\n", i18n.Text(language, "terminal.verdict_cache_unavailable"))
 		return currentIssues
 	}
 	if !promptDigestOK {
@@ -254,10 +257,18 @@ func ReuseOrStoreGateVerdict(stderr io.Writer, limitations *[]string, gateDeclar
 		reapplied := config.ApplyRuleConfig(stored, cfg)
 		merged := UnionReviewIssues(currentIssues, reapplied)
 		if added := len(merged) - len(currentIssues); added > 0 {
-			fmt.Fprintf(stderr, "aurumcode review: %d achado(s) de uma revisão concluída anterior deste conteúdo reaplicado(s)\n", added)
+			fmt.Fprintf(stderr, "aurumcode review: %s\n", reappliedText(language, added))
 		}
 		return merged
 	}
 	StoreGateVerdict(key, rawIssues)
 	return currentIssues
+}
+
+// reappliedText counts the findings a reused verdict added, in language.
+func reappliedText(language string, added int) string {
+	if added == 1 {
+		return i18n.Text(language, "terminal.verdict_reapplied_one")
+	}
+	return i18n.Format(language, "terminal.verdict_reapplied", added)
 }

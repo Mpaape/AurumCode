@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/i18n"
+	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -75,7 +77,7 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 			s.scanVersions = append(s.scanVersions, engine.Name()+"="+out.Version)
 		}
 		if scan.Reason = out.Reason; scan.Reason == "" {
-			scan.Issues = s.scannerIssues(out.Findings, scan.Origin())
+			scan.Issues = s.scannerIssues(out.Findings, scan.Origin(), scan.Source(), engine.Name())
 		} else {
 			scan.Detail = scanner.Summarize(out.Err, s.redactor())
 		}
@@ -83,12 +85,13 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 	return scan
 }
 
-// scannerIssues converts an engine's findings with their typed origin and
+// scannerIssues converts an engine's findings with their typed origin, in
+// the review's language (a secret leads with the catalog's label), and
 // redacts each message before it can be published.
-func (s *reviewState) scannerIssues(findings []scanner.Finding, origin string) []types.ReviewIssue {
+func (s *reviewState) scannerIssues(findings []scanner.Finding, origin, category, engine string) []types.ReviewIssue {
 	issues := make([]types.ReviewIssue, 0, len(findings))
 	for _, f := range findings {
-		issue := f.ToIssue(origin)
+		issue := review.LocalizeSecretFinding(s.reviewLanguage, category, engine, f.ToIssue(origin))
 		if s.filter != nil {
 			issue.Message = s.filter.Redact(issue.Message)
 		}
@@ -145,7 +148,7 @@ func (s *reviewState) joinScanners() {
 // not produce trustworthy findings: a Limitations entry, never a finding.
 func scannerInconclusiveNotice(language string, scan gateScan) string {
 	label, engine := strings.ToUpper(scan.Source()), displayName(scan.Engine.Name())
-	notice := i18n.Format(language, "notice.scanner_inconclusive", label, engine, scan.Reason, engine)
+	notice := i18n.Format(language, "notice.scanner_inconclusive", label, engine, reasons.Text(language, scan.Reason), engine)
 	if scan.Detail != "" {
 		notice += " " + i18n.Format(language, "notice.scanner_detail", scan.Detail)
 	}
