@@ -17,3 +17,5 @@ docker.io
 ghcr.io
 # Falso positivo declarado: nome de pacote Java (import java.io.*) casa com o padrao de dominio
 java.io
+# Site publicado da propria documentacao do AurumCode (GitHub Pages)
+mpaape.github.io

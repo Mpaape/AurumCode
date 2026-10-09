@@ -309,7 +309,7 @@ export LLM_MODEL=your-model
 aurumcode review --base HEAD~1</code></pre></li>
       </ol>
       <pre class="observed" aria-label="Saída real observada">aurumcode review: reviewing with model "local" (offline fixture provider)
-aurumcode review: verification: app.py:5 security/sql-injection still blocks (invalid_answer: veredito desconhecido "changes_requested")</pre>
+aurumcode review: verification: app.py:5 security/sql-injection still blocks: the verifier gave no valid answer [invalid_answer]</pre>
       <p class="obs-label">Fixture offline (AURUMCODE_LLM_FIXTURE) — qualquer endpoint compatível com OpenAI serve.</p>
       <p class="obs-proof">Prova: <code>cmd/aurumcode/redaction_wiring_test.go::TestStderrLinesSurviveTheRedactionWriter</code></p>
     </article>
