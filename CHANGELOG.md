@@ -68,6 +68,9 @@ antes de publicar e falha fechado quando não consegue decidir.
 
 #### Documentação e operação
 
+- `.semgrepignore` do próprio repositório: página estática, capturas e saídas
+  gravadas ficam fora do Semgrep (um erro de sintaxe ali deixava o SAST
+  inconclusivo).
 - Tutoriais executáveis por capacidade, com saídas gravadas e conferidas no
   CI; site com busca, navegação por capacidade e diagramas renderizados
   localmente; docs de changelog e de auditoria/SARIF reescritas.
