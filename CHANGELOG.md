@@ -83,6 +83,8 @@ antes de publicar e falha fechado quando não consegue decidir.
   ferramenta e pela regra da segurança, aprovada após a correção, com três
   analistas; local sem rede ou no GitHub real. Guia "Instalar com ajuda da IA".
 - Exemplos dos tutoriais em pt-BR; Dependabot abre PR para o `dev`; site da documentação aceito nos tutoriais.
+- Política central em repositório privado ou interno: secret opcional `AURUMCODE_POLICY_TOKEN`
+  (só leitura no repositório da política) nos workflows de revisão e changelog.
 - `.semgrepignore` do próprio repositório: página estática, capturas e saídas
   gravadas ficam fora do Semgrep (um erro de sintaxe ali deixava o SAST
   inconclusivo).
