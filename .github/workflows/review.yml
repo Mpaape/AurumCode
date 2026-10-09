@@ -88,6 +88,9 @@ on:
       DTRACK_PROJECT_ID:
         description: Optional Dependency-Track project id (AUR-555). Only read when quality_gates.ssor_dtrack is enabled and names this variable in project_id_secret.
         required: false
+      AURUMCODE_POLICY_TOKEN:
+        description: Optional token that reads a private or internal policy_repository (contents:read on that repository only). Empty uses github.token, which reads a public policy repository.
+        required: false
 
 jobs:
   review:
@@ -202,6 +205,12 @@ jobs:
           repository: ${{ inputs.policy_repository }}
           ref: ${{ inputs.policy_ref }}
           path: .aurumcode-policy
+          # A private or internal policy repository is not readable with this
+          # repository's github.token: AURUMCODE_POLICY_TOKEN (a fine-grained
+          # token or GitHub App token with contents:read on the policy
+          # repository only) reads it. Empty keeps github.token, which reads
+          # a public policy repository.
+          token: ${{ secrets.AURUMCODE_POLICY_TOKEN || github.token }}
           persist-credentials: false
           fetch-depth: 1
 
@@ -678,6 +687,12 @@ jobs:
           repository: ${{ inputs.policy_repository }}
           ref: ${{ inputs.policy_ref }}
           path: .aurumcode-policy
+          # A private or internal policy repository is not readable with this
+          # repository's github.token: AURUMCODE_POLICY_TOKEN (a fine-grained
+          # token or GitHub App token with contents:read on the policy
+          # repository only) reads it. Empty keeps github.token, which reads
+          # a public policy repository.
+          token: ${{ secrets.AURUMCODE_POLICY_TOKEN || github.token }}
           persist-credentials: false
           fetch-depth: 1
 
