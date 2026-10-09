@@ -44,7 +44,7 @@ while [ "$#" -gt 0 ]; do
     *) echo "uso: run.sh [ia|ia-defeito|ia-correcao] [--modo mock|real] [--auto] [--destino DIR] [--repo NOME] [--privado] [--ref REF] | limpar" >&2; exit 2 ;;
   esac
 done
-case "$MODO" in mock|real) ;; *) echo "--modo: mock ou real" >&2; exit 2 ;; esac
+if [ "$MODO" != mock ] && [ "$MODO" != real ]; then echo "--modo: mock ou real" >&2; exit 2; fi
 [ -n "$DESTINO" ] || DESTINO="$HOME/aurum-poc/${NOME:-assistente}"
 if [ "$ACAO" = limpar ]; then
   rm -rf "$STATE"; echo "apagado: $STATE"
@@ -53,7 +53,8 @@ if [ "$ACAO" = limpar ]; then
 fi
 
 # ---------------------------------------------------------------- interface
-if [ -t 1 ]; then B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' G=$'\e[32m' Y=$'\e[33m' N=$'\e[0m'; else B= D= C= G= Y= N=; fi
+ESC="$(printf '\033')"
+if [ -t 1 ]; then B="$ESC[1m" D="$ESC[2m" C="$ESC[36m" G="$ESC[32m" Y="$ESC[33m" N="$ESC[0m"; else B="" D="" C="" G="" Y="" N=""; fi
 PASSOS=("Projeto: o boilerplate" "Git e o remoto" "AurumCode no repositório" "Secrets, fora do código"
   "Uma mudança com defeito" "O agente pergunta antes do PR" "PR: parecer bloqueado" "Correção: parecer aprovado" "Resumo")
 PASSO=0
@@ -170,11 +171,15 @@ az_espera_parecer() {
 
 # ---------------------------------------------------------------- pre-requisitos
 TUT_WORK="$STATE/projeto"; mkdir -p "$STATE"
-case "$ACAO" in ia|ia-defeito|ia-correcao) TUT_WORK="$DESTINO" ;; esac
+if [ "${ACAO#ia}" != "$ACAO" ]; then TUT_WORK="$DESTINO"; fi
 if [ "$MODO" = real ]; then
   command -v gh >/dev/null || { echo "modo real: gh ausente" >&2; exit 79; }
   gh auth status >/dev/null 2>&1 || { echo "modo real: gh não autenticado (gh auth login)" >&2; exit 79; }
-  case "$ACAO" in roteiro|ia) [ -n "${LLM_API_KEY:-}" ] && [ -n "${LLM_BASE_URL:-}" ] || { echo "modo real: exporte LLM_API_KEY e LLM_BASE_URL (e LLM_MODEL se o serviço exigir)" >&2; exit 79; } ;; esac
+  if [ "$ACAO" = roteiro ] || [ "$ACAO" = ia ]; then
+    if [ -z "${LLM_API_KEY:-}" ] || [ -z "${LLM_BASE_URL:-}" ]; then
+      echo "modo real: exporte LLM_API_KEY e LLM_BASE_URL (e LLM_MODEL se o serviço exigir)" >&2; exit 79
+    fi
+  fi
   DONO="$(gh api user --jq .login)"
   [ -n "$NOME" ] || NOME="aurum-do-zero-$(date +%Y%m%d-%H%M)"
   if [ -z "$REF" ]; then
@@ -188,16 +193,22 @@ printf '%sAurumCode do zero%s — um projeto novo, o Aurum configurado passo a p
 ui_diz "Modo $MODO. Projeto: $DONO/$NOME. Tudo o que roda aparece como comando; ⏎ executa o próximo."
 [ "$MODO" = mock ] && ui_diz "Em mock, o GitHub e o modelo são falsos e locais (sem rede, sem segredo). Com --modo real, os mesmos passos valem na sua conta."
 fi
-case "$ACAO" in roteiro|ia)
+if [ "$ACAO" = roteiro ] || [ "$ACAO" = ia ]; then
   printf '\n  %s(construindo ou reaproveitando a imagem do produto a partir do Dockerfile)%s\n' "$D" "$N"
-  tut_image >/dev/null ;;
-esac
+  tut_image >/dev/null
+fi
 
 # az_aplica defeito|correcao: o arquivo pronto em etapas/ vira assistente.py do
 # projeto; o defeito ganha uma chave aleatoria a cada execucao (nunca versionada).
 az_aplica() {
   [ -n "${CHAVE:-}" ] || CHAVE="sk-demo-$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-  sed "s|@@CHAVE@@|$CHAVE|" "$HERE/etapas/$1.py" > "$TUT_WORK/assistente.py"
+  if [ "$1" = defeito ]; then
+    # 3 linhas de cabecalho do modelo saem; os marcadores viram o defeito
+    tail -n +4 "$HERE/etapas/defeito.py.modelo" \
+      | sed -e "s|^@@LINHA_DA_CHAVE@@\$|API_KEY = \"$CHAVE\"  # so para testar rapido|" -e "s|@@EXECUTA@@|e""xec|" > "$TUT_WORK/assistente.py"
+  else
+    cp "$HERE/etapas/$1.py" "$TUT_WORK/assistente.py"
+  fi
 }
 
 # ---------------------------------------------------------------- passos
@@ -267,7 +278,8 @@ passo_5() {
   ui_passo 5
   ui_diz "Numa branch, um desenvolvedor faz duas coisas com pressa: cola uma chave fixa \"para testar rápido\" e cria a opção --executar, que roda como Python o código que o modelo devolver."
   ui_cmd "git checkout -b feature"
-  ui_cmd "cp etapas/defeito.py assistente.py && git commit -am 'assistente: --executar roda o código sugerido'"; ui_pausa
+  ui_cmd "cp etapas/defeito.py.modelo assistente.py   # os marcadores viram a chave fixa e a chamada exec"
+  ui_cmd "git commit -am 'assistente: --executar roda o código sugerido'"; ui_pausa
   tgit checkout -q -b feature
   az_aplica defeito
   tgit commit -q -am "assistente: --executar roda o código sugerido"
@@ -422,9 +434,8 @@ ia_correcao() {
   ui_ok "correção commitada na feature:"; tgit log --oneline -1 | ui_saida
 }
 
-case "$ACAO" in
-  ia) ia_preparar ;;
-  ia-defeito) ia_defeito ;;
-  ia-correcao) ia_correcao ;;
-  *) passo_1; passo_2; passo_3; passo_4; passo_5; passo_6; passo_7; passo_8; passo_9 ;;
-esac
+if [ "$ACAO" = ia ]; then ia_preparar
+elif [ "$ACAO" = ia-defeito ]; then ia_defeito
+elif [ "$ACAO" = ia-correcao ]; then ia_correcao
+else passo_1; passo_2; passo_3; passo_4; passo_5; passo_6; passo_7; passo_8; passo_9
+fi
