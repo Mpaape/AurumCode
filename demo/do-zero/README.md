@@ -4,6 +4,25 @@ Duas formas de mostrar o AurumCode num projeto novo (um assistente de terminal
 que pergunta a um serviço de IA), com a mesma história: uma mudança com dois
 defeitos de natureza diferente, a PR bloqueada e depois aprovada.
 
+Três analistas revisam cada mudança, cada um com o seu foco, e cada achado
+sai marcado com quem o encontrou: **segurança** (embutido no AurumCode),
+**padrões** do time de dev e **QA** (os dois em `aurum/profiles.yml`). Bloqueia o merge
+a regra escrita com `severity: error` (por um time ou pela segurança) e o
+achado de ferramenta; o resto orienta.
+
+### Receita: um time cria o seu analista
+
+1. **Foco** — em `.aurumcode/profiles.yml`, um item com `name` (como o analista
+   aparece no parecer, `[perfil qa]`), `emphasis` (o foco em poucas palavras),
+   `families` (`quality`, `security` ou `performance`: a família dos achados) e
+   `instructions` (o que ele deve olhar). `version` é a versão do texto do analista.
+2. **Regra** — em `.aurumcode/skills/<nome>/SKILL.md`, um `## ` por regra, com
+   `severity: error` (bloqueia) ou `warning` (orienta). O analista cita a regra.
+3. **Ativar** — `review.profiles: [seguranca, padroes, qa]` no `config.yml`.
+
+Exemplo do QA: `aurum/profiles.yml` (analista `qa`) e `aurum/skills/time/SKILL.md`
+(regra `QA-001 Comportamento novo tem teste`, `severity: warning`).
+
 - a **chave fixa no código** é achada pela camada de ferramentas, que vê o valor real;
 - **executar a resposta do modelo** (`exec(codigo)`) o catálogo de regras fixas do Aurum não
   reconhece: quem acha é o modelo, lendo o código à luz da regra IA-001 do time
