@@ -896,8 +896,8 @@ que só o seu workflow pode conceder). Acrescente um segundo job:
 ```
 
 PR de fork não recebe essa permissão: a condição do `if` pula o upload e o
-SARIF fica só como artefato. Este repositório não tem esse job: o SARIF dele
-fica só como artefato.
+SARIF fica só como artefato. Este repositório usa esse job no próprio
+`code-review.yml`: os achados do lote aparecem na aba Security dele.
 
 ### O que acontece se falhar
 
