@@ -2,40 +2,48 @@
   "aurumcode_fixture": {
     "cases": [
       {
-        "prompt_contains": "API_KEY = ",
+        "prompt_contains": "AURUMCODE-VERIFICACAO-DE-ACHADO",
+        "response": {
+          "verdict": "confirmed",
+          "reason": "Com --executar, o texto devolvido por perguntar() vai direto para exec(): a resposta do modelo é executada como código.",
+          "quote": "exec(codigo)"
+        }
+      },
+      {
+        "prompt_contains": "exec(codigo)",
         "response": {
           "verdict": "changes_requested",
           "strengths": [],
           "issues": [
             {
               "file": "assistente.py",
-              "line": 8,
+              "line": 36,
               "severity": "error",
-              "rule_id": "seguranca#seg-001-segredo-nunca-no-codigo",
-              "message": "A chave da API está escrita no código, contra a regra SEG-001 do time.",
-              "impact": "Quem lê o repositório ou o histórico reutiliza a chave; revogar exige reescrever o histórico.",
-              "evidence": "A linha adicionada é API_KEY = \"[REDACTED]\": um literal no lugar da leitura do ambiente (o valor chegou ao modelo já redigido).",
-              "suggestion": "Apague a linha 8 e volte a ler a chave do ambiente em chave(); cadastre o valor fora do código.",
-              "verification": "Depois da correção, nenhuma linha de assistente.py contém um literal de chave."
+              "rule_id": "ia#ia-001-resposta-do-modelo-nunca-e-executada",
+              "message": "Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 do time.",
+              "impact": "Quem controla a pergunta, ou o serviço de IA, executa qualquer código na máquina de quem roda o assistente.",
+              "evidence": "A linha 36 adicionada chama exec(codigo), e codigo é o texto devolvido por perguntar() na linha 35.",
+              "suggestion": "Mostre o código devolvido e deixe a pessoa decidir se o executa.",
+              "verification": "Com --executar, o assistente imprime o código e não executa nada."
             }
           ],
           "suggestions": [
             {
-              "title": "Chave pelo ambiente",
-              "description": "Em chave(), volte a ler ASSISTENTE_API_KEY do ambiente; a linha 8 com o literal sai.",
+              "title": "Mostrar em vez de executar",
+              "description": "Troque exec(codigo) por print(codigo): a resposta do modelo vira texto para a pessoa ler.",
               "file": "assistente.py",
-              "start_line": 15,
-              "end_line": 15,
-              "current_code": "    return API_KEY",
-              "proposed_code": "    return os.environ.get(\"ASSISTENTE_API_KEY\", \"\")",
-              "rationale": "O código continua funcionando e a chave fica no cofre de secrets, fora do histórico.",
-              "verification": "Exporte ASSISTENTE_API_KEY e rode python3 assistente.py."
+              "start_line": 36,
+              "end_line": 36,
+              "current_code": "        exec(codigo)",
+              "proposed_code": "        print(codigo)  # quem executa e a pessoa, depois de ler",
+              "rationale": "O recurso continua útil e a decisão de executar volta para quem lê o código.",
+              "verification": "Rode python3 assistente.py --executar \"listar arquivos\" e confira que só imprime."
             }
           ],
           "ci_analysis": [],
-          "test_plan": ["Rodar o assistente com ASSISTENTE_API_KEY exportada e confirmar a resposta."],
+          "test_plan": ["Rodar o assistente com --executar e confirmar que o código é impresso, não executado."],
           "limitations": [],
-          "summary": "A mudança coloca a chave da API em um literal de assistente.py; a regra SEG-001 do repositório reprova."
+          "summary": "A mudança executa a resposta do modelo como código (regra IA-001). A chave fixa na linha 10 é tratada pela camada de ferramentas, que vê o valor real."
         }
       }
     ],
@@ -47,7 +55,7 @@
       "ci_analysis": [],
       "test_plan": [],
       "limitations": [],
-      "summary": "A chave vem do ambiente e nada contraria as regras do repositório."
+      "summary": "A resposta do modelo é só mostrada, a chave vem do ambiente e a chamada tem limite de tempo: nada contraria as regras do repositório."
     }
   }
 }

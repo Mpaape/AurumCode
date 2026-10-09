@@ -3,6 +3,7 @@
 **[Guia interativo: instalar, configurar e usar](https://mpaape.github.io/AurumCode/)**
 
 - [Primeiro review e uso local](getting-started.md)
+- [Instalar com ajuda da IA: configuração guiada por perguntas](tutorials/instalacao-ia.md)
 - [Configuração, prompts, skills e referência de opções](configuration.md)
 - [Gate corporativo: SAST, SBOM, inventário e assinatura (guia e demonstração)](gate-corporativo.md)
 - [Arquitetura: mapa de módulos, fluxo do review, pipeline do gate e pontos de extensão](architecture.md)

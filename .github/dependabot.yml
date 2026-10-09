@@ -4,18 +4,22 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    target-branch: dev   # toda mudança entra pelo dev; o main recebe só o lote revisado
 
   - package-ecosystem: docker
     directory: "/"
     schedule:
       interval: weekly
+    target-branch: dev   # toda mudança entra pelo dev; o main recebe só o lote revisado
 
   - package-ecosystem: docker
     directory: "/.board/oci/images/go-bash-1.27"
     schedule:
       interval: weekly
+    target-branch: dev   # toda mudança entra pelo dev; o main recebe só o lote revisado
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+    target-branch: dev   # toda mudança entra pelo dev; o main recebe só o lote revisado
