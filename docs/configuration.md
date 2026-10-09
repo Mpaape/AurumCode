@@ -202,7 +202,8 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   ou veredito.
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.
   Ele publica um status de commit; só bloqueia merge se exigido pela branch.
-- Action Docker direta: usa `Mpaape/AurumCode@main`, exige
+- Action Docker direta: usa `Mpaape/AurumCode@v2.0.0` (a tag da release;
+  `@main` recebe toda mudança sem aviso), exige
   `GITHUB_TOKEN`, `LLM_API_KEY`, `LLM_BASE_URL` no ambiente e evento de PR.
   Acrescenta inputs `check` e `fail-on`; não coleta CI automaticamente.
   Quem monta o próprio job (em vez do workflow reutilizável, que já faz isso)
@@ -218,7 +219,7 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   - uses: actions/checkout@v4
     with:
       ref: ${{ github.event.pull_request.head.sha }}
-  - uses: Mpaape/AurumCode@main
+  - uses: Mpaape/AurumCode@v2.0.0
     env:
       GITHUB_TOKEN: ${{ github.token }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
