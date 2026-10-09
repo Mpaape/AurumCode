@@ -166,7 +166,7 @@ func TestAUR517SummaryWithheldWhenAccusationOutOfScope(t *testing.T) {
 		t.Fatalf("published review still names the out-of-scope finding:\n%s", body)
 	}
 	// N3a: the withholding itself must be visible, never silent.
-	if !strings.Contains(body, "Model summary omitted: 1 proposed finding(s) were discarded by the scope/rule filters.") {
+	if !strings.Contains(body, "Summary omitted: the model proposed 1 finding(s) without proof") {
 		t.Fatalf("published review gives no visible notice that the summary was withheld:\n%s", body)
 	}
 }
@@ -226,7 +226,7 @@ func TestAUR517ValidFindingKeepsEvidenceAndVerdict(t *testing.T) {
 		"data, _ := fetch() discards the second return value",      // evidence
 		"an I/O failure from fetch is silently treated as success", // impact
 		"quality/missing-error-handling",                           // rule citation
-		"Blocked: 1 problem(s)",                                    // matching decision
+		"Blocked: 1 problem must be fixed",                         // matching decision
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("published review missing %q:\n%s", want, body)

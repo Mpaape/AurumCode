@@ -118,6 +118,9 @@ func (r roundPlan) findingBody(i int, issue types.ReviewIssue, language string) 
 	return body
 }
 
+// maxResolvedNamed bounds the resolved findings named one by one.
+const maxResolvedNamed = 10
+
 // roundNotice is the details note of what this round did not repeat and
 // which earlier findings it no longer reports. Empty on a first round.
 func roundNotice(r roundPlan, language string) string {
@@ -132,6 +135,10 @@ func roundNotice(r roundPlan, language string) string {
 	if len(r.plan.Resolved) > 0 {
 		names := make([]string, 0, len(r.plan.Resolved))
 		for _, prev := range r.plan.Resolved {
+			if len(names) == maxResolvedNamed {
+				names = append(names, fmt.Sprintf("+%d", len(r.plan.Resolved)-maxResolvedNamed))
+				break
+			}
 			names = append(names, fmt.Sprintf("`%s` %s:%d", prev.RuleID, prev.Path, prev.Line))
 		}
 		fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.round_resolved", strings.Join(names, ", ")))

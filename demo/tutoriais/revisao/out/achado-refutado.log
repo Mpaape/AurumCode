@@ -6,7 +6,7 @@ aurumcode review: limites.go:23 quality/missing-error-handling refuted by verifi
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 No issues found.
 exit_code=0
 RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
@@ -15,17 +15,17 @@ limites.go 23 quality/missing-error-handling refuted rebaixado
 --- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: limites.go:23 quality/missing-error-handling still blocks (quote_not_found: Validar tem guarda de nil.)
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-no gate declared · 1 file(s) reviewed
+no gate declared · 1 file reviewed
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
   - Impact: Uma configuracao sem a secao derruba o carregamento.
   - Evidence: carregar chama l.Validar() sem conferir se l e nil.
   - Suggested fix: Confira l == nil antes de chamar Validar.
   - Verify: Chame carregar(nil) num teste.
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: citacao inexistente: a refutacao e descartada e o achado reprova

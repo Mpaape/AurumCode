@@ -50,9 +50,10 @@ func (Engine) Name() string { return Name }
 // Run scans req.Root and keeps the findings on the lines req.Range added:
 // the tree is scanned whole (a rule may need the surrounding files), but a
 // finding on a line the pull request did not add is the repository's history
-// and never judges this change. Under a central policy (TrustPolicy) the
-// author's `# nosemgrep` comments and committed `.semgrepignore` files are
-// ignored.
+// and never judges this change, nor does a line of a path the review's
+// `ignore` leaves out (req.Ignored). Under a central policy (TrustPolicy)
+// the author's `# nosemgrep` comments and committed `.semgrepignore` files
+// are ignored.
 func (Engine) Run(ctx context.Context, req scanner.Request) (scanner.Report, error) {
 	packs, err := RulePacks(req.Options)
 	if err != nil {
@@ -65,6 +66,7 @@ func (Engine) Run(ctx context.Context, req scanner.Request) (scanner.Report, err
 	if err != nil {
 		return scanner.Report{}, fmt.Errorf("semgrep: %w", err)
 	}
+	added = added.Without(req.Ignored)
 	findings, err := scan(ctx, req.Root, packs, req.Trust == scanner.TrustPolicy, req.Command, added)
 	if err != nil {
 		return scanner.Report{}, err

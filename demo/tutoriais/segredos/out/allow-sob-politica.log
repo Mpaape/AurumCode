@@ -5,9 +5,9 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 ## AurumCode code review
 
 > [!NOTE]
-> **Approved with 1 observation(s) that do not block the merge.**
+> **Approved with 1 observation that does not block the merge.**
 
-policy gate: passed · 1 file(s) reviewed
+policy gate: passed · 1 file reviewed
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 exit_code=0
 RESULTADO: sem politica, o comentario gitleaks:allow do autor silencia o achado
@@ -18,9 +18,9 @@ aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-policy gate: failed · 1 file(s) reviewed
+policy gate: failed · 1 file reviewed
 config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 4b2b6936afd5 (gitleaks v8.30.1) (rule gitleaks:github-pat)
 exit_code=3

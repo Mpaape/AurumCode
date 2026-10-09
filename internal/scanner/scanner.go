@@ -43,6 +43,11 @@ type Request struct {
 	Options Options
 	Range   Range
 	Command Command
+	// Ignored reports a path the review leaves out (the repository's
+	// `ignore` globs). A change-scoped engine drops those paths from the
+	// lines the range added, so neither a finding nor a parse error there
+	// judges the change. Nil ignores nothing.
+	Ignored func(path string) bool
 }
 
 // Range is the reviewed commit range: the commits reachable from Head and

@@ -5,9 +5,9 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 ## AurumCode code review
 
 > [!NOTE]
-> **Approved with 1 observation(s) that do not block the merge.**
+> **Approved with 1 observation that does not block the merge.**
 
-policy gate: passed · 2 file(s) reviewed
+policy gate: passed · 2 files reviewed
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
@@ -22,9 +22,9 @@ aurumcode review: policy gate: gitleaks:ignore-file-present - a .gitleaksignore 
 ## AurumCode code review
 
 > [!CAUTION]
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 
-policy gate: failed · 2 file(s) reviewed
+policy gate: failed · 2 files reviewed
 
 Review coverage
 - 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.

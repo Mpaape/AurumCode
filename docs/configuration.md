@@ -12,8 +12,10 @@ review:
 
 `publication: review` usa a revisão formal do GitHub. `comments` publica o
 parecer na conversa. `inline_comments` habilita comentários nas linhas, só para
-os achados que bloqueiam o merge (os demais ficam no parecer); no review formal,
-uma sugestão elegível pode aparecer como substituição aplicável pelo GitHub.
+os achados que bloqueiam o merge (os demais ficam no parecer), e, nos dois
+modos, publica cada sugestão com código pronto como substituição aplicável
+pelo GitHub (um clique) na linha alterada. Um achado da passagem de segurança
+traz a correção sugerida da regra.
 O formato do parecer está em [Qualidade e limitações](review-quality.md#o-parecer).
 O autor decide se aplica. AurumCode não altera o código automaticamente.
 
@@ -1325,7 +1327,7 @@ consumidor.
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
 | `rules.<id>.severity` | Sobrescreve a severidade de uma regra | embutido |
-| `ignore` | Globs de caminhos removidos antes da análise | vazio |
+| `ignore` | Globs de caminhos removidos antes da análise; vale também para o escopo dos scanners (achado ou erro de parse em caminho ignorado não conta) | vazio |
 | `gate.fail_on` | Severidades (do vocabulário de `--fail-on`, mais `critical`) que reprovam o check | vazio (sem gate) |
 | `gate.inconclusive` | `block` ou `warn` para uma revisão inconclusiva | `block` quando há `gate` ou scanner habilitado; senão sem efeito |
 | `exceptions` | Exceções aprovadas (repo+rule+path, dono, motivo, validade) que tiram um achado exato do gate | vazio |

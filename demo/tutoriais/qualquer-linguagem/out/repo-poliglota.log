@@ -5,7 +5,7 @@ $ aurumcode review --base main
 > [!TIP]
 > **Approved: no problem found in the reviewed change.**
 
-no gate declared · 8 file(s) reviewed
+no gate declared · 8 files reviewed
 No issues found.
 exit_code=0
 RESULTADO: revisao do repositorio poliglota concluida

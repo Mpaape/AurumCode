@@ -197,9 +197,10 @@ coverage_rules=(security/command-injection security/hardcoded-secret security/sq
 # Re-pinned for the parecer redesign (CHANGELOG, 2026-10-08): the report now
 # opens with the decision head (title, alert block, facts line) in place of
 # the "Code Review Summary" block and the Mermaid diagram; the model's
-# summary stays out of the head (AUR-441: a cached run has none); the
+# summary stays out of the head (AUR-441: a cached run has none), the
+# counts read in the singular or the plural; the
 # finding lines, the security section and the coverage note are unchanged.
-readonly expected_with_provider_sha256='251f4d4e35702b8a4141d533b55d8f6318a992612f7f6f46e06d7839dacc110d'
+readonly expected_with_provider_sha256='f297de116b13c6a9b0b9ab8f5231009035eb580b45a87cfcfd3dcf0a56545607'
 
 # build_shared builds the binary exactly once per acceptance run and reuses
 # it for the behavioral and e2e cases; mutation_case rebuilds only its

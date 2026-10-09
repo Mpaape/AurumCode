@@ -165,7 +165,7 @@ aurumcode review --base main --fail-on error
 
 <!-- saida: com-provedor -->
 ```text
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
@@ -457,7 +457,7 @@ limites.go 23 quality/missing-error-handling refuted rebaixado
 --- citacao parafraseada: nao existe no arquivo, o achado continua bloqueando
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: limites.go:23 quality/missing-error-handling still blocks (quote_not_found: Validar tem guarda de nil.)
-> **Blocked: 1 problem(s) must be fixed before merge.**
+> **Blocked: 1 problem must be fixed before merge.**
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
 aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
