@@ -4,9 +4,28 @@ Duas formas de mostrar o AurumCode num projeto novo (um assistente de terminal
 que pergunta a um serviço de IA), com a mesma história: uma mudança com dois
 defeitos de natureza diferente, a PR bloqueada e depois aprovada.
 
+Três analistas revisam cada mudança, cada um com o seu foco, e cada achado
+sai marcado com quem o encontrou: **segurança** (embutido no AurumCode),
+**padrões** do time de dev e **QA** (os dois em `aurum/profiles.yml`). Bloqueia o merge
+a regra escrita com `severity: error` (por um time ou pela segurança) e o
+achado de ferramenta; o resto orienta.
+
+### Receita: um time cria o seu analista
+
+1. **Foco** — em `.aurumcode/profiles.yml`, um item com `name` (como o analista
+   aparece no parecer, `[perfil qa]`), `emphasis` (o foco em poucas palavras),
+   `families` (`quality`, `security` ou `performance`: a família dos achados) e
+   `instructions` (o que ele deve olhar). `version` é a versão do texto do analista.
+2. **Regra** — em `.aurumcode/skills/<nome>/SKILL.md`, um `## ` por regra, com
+   `severity: error` (bloqueia) ou `warning` (orienta). O analista cita a regra.
+3. **Ativar** — `review.profiles: [seguranca, padroes, qa]` no `config.yml`.
+
+Exemplo do QA: `aurum/profiles.yml` (analista `qa`) e `aurum/skills/time/SKILL.md`
+(regra `QA-001 Comportamento novo tem teste`, `severity: warning`).
+
 - a **chave fixa no código** é achada pela camada de ferramentas, que vê o valor real;
-- **executar a resposta do modelo** (`exec(codigo)`) nenhuma regra fixa reconhece:
-  quem acha é o modelo, lendo o código à luz da regra IA-001 do time
+- **executar a resposta do modelo** (`exec(codigo)`) o catálogo de regras fixas do Aurum não
+  reconhece: quem acha é o modelo, lendo o código à luz da regra IA-001 do time
   (`aurum/skills/ia/SKILL.md`, em Markdown).
 
 ## 1. Com um agente de IA configurando (Claude Code, Codex)
@@ -24,7 +43,9 @@ coisa por vez e configura `.aurumcode/`, a skill e o workflow. Depois:
 
 ```sh
 bash demo/do-zero/run.sh ia-defeito     # a mudança com os dois defeitos, na branch feature
-# no agente: "antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main) e corrija"
+# GitHub real: "abra a PR sem corrigir" -> parecer Bloqueado, merge travado;
+#   depois "leia o parecer, confirme com o Aurum e corrija" -> o mesmo parecer vira Aprovado
+# mock: "antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main) e corrija"
 bash demo/do-zero/run.sh ia-correcao    # se faltar tempo para o agente corrigir
 bash demo/do-zero/run.sh limpar         # apaga o projeto criado por este script
 ```

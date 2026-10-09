@@ -23,10 +23,10 @@ config: limiar-1
 $ aurumcode review --base main --fail-on error
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: ssor_dtrack: dtrack_refresh_unavailable: recálculo de métricas não permitido à chave; seguiu lendo até assentar
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=1)
 ## AurumCode revisão de código
 
 > [!TIP]
-aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=1)
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
 
 gate da política: passou · 4 arquivos revisados

@@ -18,7 +18,7 @@ func (p *prReview) collectEvidence() (int, bool) {
 	if code, done := p.runSecurityPass(); done {
 		return code, true
 	}
-	p.analysisIssues = staticAnalysisIssues(p.diff)
+	p.analysisIssues = staticAnalysisIssues(p.diff, p.reviewLanguage)
 	p.runScanners(p.verifiedDir, p.prScanRange(), p.scanBlockedReason())
 	p.offerEvidence()
 	return 0, false

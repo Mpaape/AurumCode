@@ -1,7 +1,6 @@
 == repo-afrouxa
 --- so o repositorio: fail_on [high] deixa o achado warning passar
 $ aurumcode review --base main
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks (invalid_answer: veredito desconhecido "")
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 ## AurumCode code review
 
@@ -19,8 +18,9 @@ RESULTADO: o gate do proprio repositorio aceita o warning
 --- com a politica: fail_on [warning] vale, o do repositorio e ignorado
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando (invalid_answer: veredito desconhecido "")
+aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## AurumCode revisão de código
 
 > [!CAUTION]
@@ -32,6 +32,5 @@ app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (r
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Correção sugerida: Leia a senha do ambiente.
   - Verificação: Remova o literal e rode a revisao de novo.
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: o repositorio nao consegue afrouxar o gate da politica

@@ -83,7 +83,8 @@ func (s *reviewState) verificationSource() (verify.Source, string) {
 // reportVerification states one verified finding: a refuted one leaves the
 // findings and is named, with the verifier's reason and quote, on stderr
 // and among the limitations of the parecer (never dropped silently); a
-// kept one is said on stderr with why it still counts.
+// kept blocking one is said on stderr with why it still counts; a kept
+// observation is only in the audit record.
 func (s *reviewState) reportVerification(rec verify.Record, issue types.ReviewIssue) {
 	if rec.Demoted {
 		key := "review.verification_refuted"
@@ -99,7 +100,36 @@ func (s *reviewState) reportVerification(rec verify.Record, issue types.ReviewIs
 		// Already said once, for the run, by verifyModelFindings.
 		return
 	}
-	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "review.verification_kept", rec.Path, rec.Line, rec.RuleID, rec.Outcome, oneLine(rec.Reason)))
+	if !rec.Blocking {
+		// A kept observation changes nothing: saying it "still blocks"
+		// would be wrong, and the audit record already keeps the outcome.
+		return
+	}
+	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "review.verification_kept", rec.Path, rec.Line, rec.RuleID, keptReason(s.reviewLanguage, rec), rec.Outcome))
+}
+
+// keptReason says in plain words why a verified finding still blocks. The
+// verifier's own reason is added only when it is the verifier's prose
+// (confirmed, uncertain, a quote that is not in the code); a technical
+// parse or provider detail stays in the audit record.
+func keptReason(language string, rec verify.Record) string {
+	text, ok := verificationOutcomeText(language, rec.Outcome)
+	if !ok {
+		return oneLine(rec.Reason)
+	}
+	switch rec.Outcome {
+	case verify.OutcomeConfirmed, verify.OutcomeUncertain, verify.OutcomeQuoteNotFound:
+		if reason := oneLine(rec.Reason); reason != "" {
+			return text + " — " + reason
+		}
+	}
+	return text
+}
+
+func verificationOutcomeText(language string, outcome verify.Outcome) (string, bool) {
+	key := "review.verification_outcome." + string(outcome)
+	text := i18n.Text(language, key)
+	return text, text != key
 }
 
 // declaredSymbols is the grammar provider's definitions of a file.

@@ -3,7 +3,7 @@ name: ia
 version: 1
 paths: ["**/*.py"]
 ---
-Regras do time para software que conversa com modelos de IA. Cada `## `
+Regras da seguranca para software que conversa com modelos de IA. Cada `## `
 abaixo e uma regra citavel pelo AurumCode; `severity: error` reprova o merge.
 
 ## IA-001 Resposta do modelo nunca e executada

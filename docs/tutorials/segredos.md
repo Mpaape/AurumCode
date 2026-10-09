@@ -53,6 +53,8 @@ token quando ele está no diff, é publicado mas não decide o gate):
 
 <!-- arquivo: demo/tutoriais/segredos/repo-exemplo/base/.aurumcode/config.yml -->
 ```yaml
+review:
+  language: pt-BR
 quality_gates:
   scanners:
     - engine: gitleaks

@@ -51,6 +51,8 @@ O repositório do caso declara um gate e uma skill de convenção de erros:
 
 <!-- arquivo: demo/tutoriais/agente/repo-exemplo/base/.aurumcode/config.yml -->
 ```yaml
+review:
+  language: pt-BR
 gate:
   fail_on: [error]
   inconclusive: block
