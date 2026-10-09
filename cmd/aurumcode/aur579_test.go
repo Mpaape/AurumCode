@@ -250,8 +250,12 @@ func TestAUR579PolicyFloorAndRepositoryTriage(t *testing.T) {
 		}
 	}
 	repoCfg("")
-	if code, _, errOut := aur579Review(t, nil); code != exitFindings {
-		t.Fatalf("repository, triage absent (none): the dispute must not demote: exit=%d\nstderr=%s", code, errOut)
+	if code, _, errOut := aur579Review(t, nil); code != 0 || !strings.Contains(errOut, "gate.triage (analysis: model): app.go:4 analysis/hardcoded-secret") {
+		t.Fatalf("repository, triage absent (model, AUR-608): the justified dispute demotes: exit=%d\nstderr=%s", code, errOut)
+	}
+	repoCfg("  triage:\n    analysis: none\n")
+	if code, _, errOut := aur579Review(t, nil); code != exitFindings || strings.Contains(errOut, "gate.triage") {
+		t.Fatalf("repository, gate.triage analysis: none: the dispute must not demote: exit=%d\nstderr=%s", code, errOut)
 	}
 	repoCfg("  triage:\n    analysis: model\n")
 	code, out, errOut = aur579Review(t, nil)
