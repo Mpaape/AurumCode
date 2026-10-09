@@ -426,7 +426,8 @@ Primeiro inspecione o projeto. Faça uma pergunta por vez, com opções curtas e
 uma recomendação explicada. Não peça chaves no chat: oriente como cadastrá-las.
 O servidor MCP "aurum" já está registrado neste projeto: depois de cada commit,
 verifique com aurum_gate (base main). Para PRs, fixe o workflow reutilizável em
-Mpaape/AurumCode/.github/workflows/review.yml@$REF. Revisão em português (pt-BR).
+Mpaape/AurumCode/.github/workflows/review.yml@$REF (a tag v2.0.0 passa a ser a
+referência fixa quando for publicada). Revisão em português (pt-BR).
 Este é um repositório de demonstração: você pode commitar e fazer push na main
 (a revisão da PR lê a configuração e as skills da main) e abrir PR quando eu pedir.
 Comece pelo diagnóstico e pela primeira pergunta.
@@ -442,11 +443,17 @@ PEDIDO
   ui_diz "3. Peça a regra do time (a segurança já a escreveu; o agente instala e explica):"
   printf '      │ %s\n' "A regra do time está em $HERE/aurum/skills/ia/SKILL.md. Instale-a como .aurumcode/skills/ia/SKILL.md, explique em uma frase cada regra e commite."
   ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa:  bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
-  ui_diz "5. Peça ao agente:"
-  printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e corrija; depois consulte de novo."
   if [ "$MODO" = real ]; then
-    ui_diz "6. Para o parecer na PR: peça \"faça push da feature e abra a PR\" antes ou depois da correção (antes: Bloqueado; depois: Aprovado). O workflow leva alguns minutos; acompanhe com  gh pr checks --watch"
+    ui_diz "5. Peça a PR com o defeito (a main fica protegida pelo ia-defeito: merge só com o Aurum aprovando):"
+    printf '      │ %s\n' "Faça push da branch feature e abra a PR para a main, sem corrigir nada ainda."
+    ui_diz "   O workflow leva alguns minutos (gh pr checks --watch): o parecer chega \"Bloqueado: 2 problemas\" e o botão de merge fica travado."
+    ui_diz "6. Peça a correção guiada pelo parecer:"
+    printf '      │ %s\n' "Leia o parecer do AurumCode na PR, confirme com o Aurum (aurum_gate, base main), explique cada problema em uma frase, corrija, consulte de novo e faça push."
+    ui_diz "   O mesmo parecer é editado para \"Aprovado\" e o merge é liberado."
     ui_diz "Os secrets do repositório o agente só orienta; você digita:  gh secret set LLM_API_KEY  e  gh secret set LLM_BASE_URL  (e  gh variable set LLM_MODEL)"
+  else
+    ui_diz "5. Peça ao agente:"
+    printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e corrija; depois consulte de novo."
   fi
   ui_diz "Sem tempo para o agente corrigir:  bash $HERE/run.sh ia-correcao --destino $TUT_WORK"
 }
