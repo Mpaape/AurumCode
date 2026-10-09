@@ -32,6 +32,10 @@ on:
         required: false
         type: string
         default: ''
+    secrets:
+      AURUMCODE_POLICY_TOKEN:
+        description: Optional token that reads a private or internal policy_repository (contents:read on that repository only). Empty uses github.token.
+        required: false
 
 permissions:
   contents: read
@@ -68,6 +72,9 @@ jobs:
           repository: ${{ inputs.policy_repository }}
           ref: ${{ inputs.policy_ref }}
           path: .aurumcode-policy
+          # Private or internal policy repository: AURUMCODE_POLICY_TOKEN
+          # (contents:read on it only); empty keeps github.token.
+          token: ${{ secrets.AURUMCODE_POLICY_TOKEN || github.token }}
           persist-credentials: false
           fetch-depth: 1
 
