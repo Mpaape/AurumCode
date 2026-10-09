@@ -124,8 +124,8 @@ reprovar. Em produção, troque ou some o arquivo por `p/security-audit` etc.
 O workflow aceita **um** `policy_repository`. Não existe um segundo
 repositório de política só para os padrões de engenharia, nem sincronização
 automática de skills entre repositórios. Os perfis de analista
-(`.aurumcode/profiles.yml`) e as skills do repositório vêm sempre da branch
-base do próprio repositório revisado, e a política não governa
+(`.aurumcode/profiles.yml`) e as skills do repositório vêm da branch base
+da PR, no próprio repositório revisado, e a política não governa
 `review.profiles`. Para padrões de engenharia comuns a todos os serviços, há
 dois caminhos hoje:
 
@@ -278,7 +278,8 @@ Uma PR aberta pelo Dependabot roda o workflow só com os *Dependabot secrets*:
 os secrets de Actions não chegam a ela. Com o workflow obrigatório, isso vale
 para toda PR do Dependabot em todo repositório da organização. Cadastre os
 mesmos nomes da tabela também como Dependabot secrets da organização; sem
-eles, a PR para no primeiro passo (sem `LLM_API_KEY`), não lê a política
+eles, a PR para no primeiro passo (`LLM_API_KEY` ou `LLM_BASE_URL` vazio),
+não lê a política
 privada (sem `AURUMCODE_POLICY_TOKEN`) ou fica inconclusiva no inventário
 (sem `DTRACK_*`, com `ssor_dtrack` ligado), e nenhum desses casos aprova.
 

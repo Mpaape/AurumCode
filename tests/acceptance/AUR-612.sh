@@ -87,7 +87,10 @@ ac001() {
   has F04 "$gs" 'fixe a SHA de 40 hex com a versão num comentário'
 
   # 5. o status só impede o merge com a proteção da branch.
-  has F05 "$gs" 'Faça o status impedir o merge: em Settings → Branches'
+  has F05 "$gs" 'Com gate: declarado em .aurumcode/config.yml'
+  has F05 "$gs" 'faça o status impedir o merge: em Settings → Branches'
+  has F05 "$gs" 'o status aurumcode/policy-gate não é publicado: exigi-lo na proteção da branch ou num ruleset deixaria toda PR pendente'
+  lacks F05 "$gs" '6. Faça o status impedir o merge'
   has F05 "$gs" 'Require status checks to pass before merging e escolha aurumcode/policy-gate'
 
   # 6. PR do Dependabot só recebe Dependabot secrets.
@@ -150,10 +153,13 @@ mut001() {
   done
   printf '\nSob política central, cada seção de `quality_gates` do repositório é ignorada.\n' \
     >>"$copy/docs/gate-corporativo.md"
-  if ( ac001 "$copy" ) 2>/dev/null; then
+  local err
+  if err="$( ( ac001 "$copy" ) 2>&1 )"; then
     fail "MUT-001/frase-errada-passou"
   fi
-  printf 'AUR-612/MUT-001/rejected\n'
+  # The failure must be the reintroduced sentence (F03), not another check.
+  grep -q '^AUR-612/AC-001/F03/' <<<"$err" || fail "MUT-001/falhou-por-outro-motivo:$err"
+  printf 'AUR-612/MUT-001/rejected (%s)\n' "$err"
 }
 
 case "${1:-all}" in

@@ -8,12 +8,17 @@
    `.github/workflows/aurumcode.yml` no repositório de destino.
 4. Integre o workflow e os arquivos de contexto na branch base.
 5. Abra um PR com uma pequena alteração de código e confira o parecer e o job.
-6. Faça o status impedir o merge: em Settings → Branches, na regra de proteção
-   da branch base (ou num ruleset), marque *Require status checks to pass
-   before merging* e escolha `aurumcode/policy-gate`. Sem isso o parecer e o
-   status aparecem, mas um PR reprovado ainda pode ser mesclado. O status só
-   aparece na lista depois de rodar uma vez, por isso este passo vem depois do
-   primeiro PR.
+6. Com `gate:` declarado em `.aurumcode/config.yml` (veja
+   [Configuração mínima](#configuracao-minima)), faça o status impedir o
+   merge: em Settings → Branches, na regra de proteção da branch base (ou num
+   ruleset), marque *Require status checks to pass before merging* e escolha
+   `aurumcode/policy-gate`. Sem isso o parecer e o status aparecem, mas um PR
+   reprovado ainda pode ser mesclado. O status só aparece na lista depois de
+   rodar uma vez, por isso este passo vem depois do primeiro PR. Sem gate
+   (nem `gate:`, nem scanner, `dependencies`, `ssor_dtrack` ou
+   `analysis_data` configurado), o status `aurumcode/policy-gate` não é
+   publicado: exigi-lo na proteção da branch ou num ruleset deixaria toda PR
+   pendente.
 
 O exemplo fixa a release `v2.0.0`:
 
