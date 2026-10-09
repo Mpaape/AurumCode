@@ -46,7 +46,7 @@ bash demo/do-zero/run.sh --modo real --repo meu-assistente
 | 2 Git e remoto | `git init`, primeiro commit, `push` | remoto bare em `.estado/` | `gh repo create … --push` |
 | 3 AurumCode | `.aurumcode/config.yml` (pt-BR, gate), skill `ia` (IA-001, IA-002), workflow | commit local | commit e push |
 | 4 Secrets | `gh secret set LLM_API_KEY / LLM_BASE_URL`, `gh variable set LLM_MODEL` | só mostra | executa com o seu ambiente |
-| 5 Defeitos | `etapas/defeito.py`: chave fixa (linha 10) e `exec` da resposta (linha 36) | | |
+| 5 Defeitos | `etapas/defeito.py.modelo`: chave fixa (linha 10) e `exec` da resposta (linha 36) | | |
 | 6 Agente | `aurumcode mcp`: `aurum_gate` reprova, `aurum_explain` explica; o mesmo pela CLI | modelo = fixture | modelo do ambiente |
 | 7 PR bloqueada | parecer "Bloqueado: 2 problemas", comentário na linha e correção aplicável | GitHub falso em 127.0.0.1 | PR real, espera o workflow |
 | 8 Correção | `etapas/correcao.py`; o parecer é editado: aprovado | | |

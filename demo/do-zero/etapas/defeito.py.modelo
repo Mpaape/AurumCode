@@ -1,3 +1,6 @@
+# Modelo do defeito plantado na demonstracao: run.sh troca @@LINHA_DA_CHAVE@@ por
+# uma chave aleatoria e @@EXECUTA@@ pela chamada que executa a resposta do modelo.
+# Fica como modelo para o repositorio nunca conter o defeito pronto.
 #!/usr/bin/env python3
 """Assistente de terminal: manda uma pergunta a um serviço compatível com OpenAI."""
 import json
@@ -7,7 +10,7 @@ import urllib.request
 
 BASE_URL = os.environ.get("ASSISTENTE_BASE_URL", "https://api.openai.com/v1")
 MODEL = os.environ.get("ASSISTENTE_MODEL", "gpt-4.1-mini")
-API_KEY = "@@CHAVE@@"  # so para testar rapido
+@@LINHA_DA_CHAVE@@
 
 
 def chave() -> str:
@@ -33,6 +36,6 @@ if __name__ == "__main__":
     pergunta = " ".join(args) or "Olá! O que você sabe fazer?"
     if "--executar" in sys.argv:
         codigo = perguntar(f"Responda só com código Python que faça: {pergunta}")
-        exec(codigo)
+        @@EXECUTA@@(codigo)
     else:
         print(perguntar(pergunta))
