@@ -10,6 +10,56 @@
         }
       },
       {
+        "prompt_contains": "Analista de padroes do time",
+        "response": {
+          "verdict": "comment",
+          "strengths": [],
+          "issues": [
+            {
+              "file": "assistente.py",
+              "line": 32,
+              "severity": "warning",
+              "rule_id": "time#pad-001-argumentos-de-linha-de-comando-com-argparse",
+              "message": "A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time.",
+              "impact": "Sem argparse, não há ajuda nem erro claro para opção errada.",
+              "evidence": "A linha 32 adicionada monta args filtrando sys.argv[1:].",
+              "suggestion": "Declare --executar com argparse.",
+              "verification": "python3 assistente.py --help lista --executar."
+            }
+          ],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time."
+        }
+      },
+      {
+        "prompt_contains": "Analista de QA",
+        "response": {
+          "verdict": "comment",
+          "strengths": [],
+          "issues": [
+            {
+              "file": "assistente.py",
+              "line": 34,
+              "severity": "warning",
+              "rule_id": "time#qa-001-comportamento-novo-tem-teste",
+              "message": "A opção --executar é um comportamento novo sem teste (QA-001).",
+              "impact": "Uma regressão em --executar passa sem ninguém notar.",
+              "evidence": "A linha 34 adicionada cria o caminho --executar e nenhum teste o exercita.",
+              "suggestion": "Acrescente um teste que rode --executar com um modelo falso.",
+              "verification": "O teste falha se --executar deixar de imprimir o código."
+            }
+          ],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "A opção --executar é um comportamento novo sem teste (QA-001)."
+        }
+      },
+      {
         "prompt_contains": "exec(codigo)",
         "response": {
           "verdict": "changes_requested",
@@ -41,7 +91,9 @@
             }
           ],
           "ci_analysis": [],
-          "test_plan": ["Rodar o assistente com --executar e confirmar que o código é impresso, não executado."],
+          "test_plan": [
+            "Rodar o assistente com --executar e confirmar que o código é impresso, não executado."
+          ],
           "limitations": [],
           "summary": "A mudança executa como código a resposta do modelo (regra IA-001 do time). A chave fixa na linha 10 foi achada pela verificação de segredos; num caso real, revogue-a."
         }
