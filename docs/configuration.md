@@ -276,6 +276,16 @@ caminho já presente" deixaria o próprio PR apontar para a própria política.
 `policy_ref` escolhe o que o checkout busca; vazio usa o branch padrão do
 repositório da política.
 
+Política num repositório **privado ou interno**: o `github.token` de cada
+repositório só lê o próprio repositório, então o checkout da política precisa
+de um token. Crie um token fine-grained (ou de uma GitHub App) com
+**Contents: read** apenas no repositório da política, guarde-o como secret da
+organização `AURUMCODE_POLICY_TOKEN` e repasse-o ao workflow reutilizável
+(`secrets: AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}` ou
+`secrets: inherit`). Sem o secret, o checkout usa o `github.token`, que lê uma
+política pública. O token só é usado no checkout da política, não é persistido
+no git e nunca chega ao código revisado.
+
 Exemplo de workflow obrigatório da organização, chamando o reutilizável com a
 política embutida:
 
@@ -886,8 +896,8 @@ que só o seu workflow pode conceder). Acrescente um segundo job:
 ```
 
 PR de fork não recebe essa permissão: a condição do `if` pula o upload e o
-SARIF fica só como artefato. Este repositório não tem esse job: o SARIF dele
-fica só como artefato.
+SARIF fica só como artefato. Este repositório usa esse job no próprio
+`code-review.yml`: os achados do lote aparecem na aba Security dele.
 
 ### O que acontece se falhar
 
