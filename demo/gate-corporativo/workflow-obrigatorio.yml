@@ -23,3 +23,5 @@ jobs:
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
       DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
       DTRACK_PROJECT_ID: ${{ secrets.DTRACK_PROJECT_ID }}
+      # Politica em repositorio privado ou interno: token so de leitura nele.
+      AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}
