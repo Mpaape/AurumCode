@@ -503,6 +503,8 @@ continua 0 porque nenhum gate foi pedido. Para que a cobertura parcial
 
 <!-- arquivo: demo/tutoriais/revisao/repo-exemplo/gate-estrito/.aurumcode/config.yml -->
 ```yaml
+review:
+  language: pt-BR
 gate:
   fail_on: [high]
   inconclusive: block
