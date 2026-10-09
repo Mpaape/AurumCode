@@ -21,13 +21,16 @@ func TestSecurityPassSkipsCodeShapedRulesOnProseFiles(t *testing.T) {
 	// The secret-shaped line is assembled at runtime so no scanner of this
 	// repository's history reads a credential literal in the source.
 	secret := "API_" + "KEY = " + `"` + "ab12" + "cd34" + "ef56" + `"`
+	// Likewise the shell-call shape: the analysis catalog reads string
+	// literals too, so the source must not spell the call itself.
+	call := "    subprocess." + "call(" + `"ls " + alvo)`
 	cases := []struct {
 		name, path, line, want string
 	}{
 		{"shell shape in a log", "demo/out/fail.log", shell, ""},
 		{"shell shape in a text note", "expected/fail.txt", shell, ""},
 		{"shell shape in a document", "docs/notas.md", shell, ""},
-		{"shell shape in code", "tool.py", `    subprocess.call("ls " + alvo)`, "security/command-injection"},
+		{"shell shape in code", "tool.py", call, "security/command-injection"},
 		{"secret in a text note", "notas.txt", secret, "security/hardcoded-secret"},
 	}
 	for _, tc := range cases {
