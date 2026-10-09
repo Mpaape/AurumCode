@@ -172,9 +172,15 @@ bash demo/tutoriais/extensao/run.sh ferramenta-pedida
 <!-- saida: ferramenta-pedida -->
 ```text
 $ aurumcode review --base main --auditoria /work/auditoria.json
-aurumcode review: deliberation: oferecidas [scanner_exemplo, codebase_context]; pedidas [scanner_exemplo]; não pedidas [codebase_context]; rodadas 2; desfecho answered
+aurumcode review: deliberation: oferecidas [scanner_exemplo, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [scanner_exemplo]; não pedidas [codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_exemplo({}) executed: 1 achado(s)
-(severidade error, limiar error, origem exemplo, secao repo)
+aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: policy gate: exemplo:marca - linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca) (severidade error, limiar error, origem exemplo, secao repo)
+## AurumCode code review
+> [!CAUTION]
+> **Blocked: 1 problem must be fixed before merge.**
+policy gate: failed · 1 file reviewed
+app.py:2: [error] linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca)
 exit_code=3
 RESULTADO: o modelo pediu scanner_exemplo, o achado contou no gate com origem exemplo
 auditoria deliberation: oferecidas=scanner_exemplo,codebase_context,read_file,search_text,find_symbol,changed_file_diff pedidas=scanner_exemplo rodadas=2 desfecho=answered

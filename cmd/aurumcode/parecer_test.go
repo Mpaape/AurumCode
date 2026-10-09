@@ -243,3 +243,18 @@ func TestSuggestionsAreProposedOnTheLineInCommentsMode(t *testing.T) {
 		t.Fatalf("stdout does not count the suggestion:\n%s", stdout)
 	}
 }
+
+// A multi-line limitation (the coverage block) is written as its own titled
+// list inside the details, not as one flattened bullet.
+func TestDetailsWriteMultiLineLimitationAsTitledList(t *testing.T) {
+	result := &types.ReviewResult{Limitations: []string{"diff grande", "Cobertura da revisão\n- 3 arquivo(s) ignorados\n  - a.log\n  - b.log"}}
+	got := detailsSections(result, reviewCopyFor("pt-BR"))
+	for _, want := range []string{"- diff grande\n", "\n**Cobertura da revisão**\n\n- 3 arquivo(s) ignorados\n  - a.log\n  - b.log"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("details lack %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "- Cobertura") {
+		t.Fatalf("coverage title must not be a bullet:\n%s", got)
+	}
+}

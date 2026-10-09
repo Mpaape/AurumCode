@@ -10,7 +10,7 @@
   cada rodada; comentário na linha só para o que bloqueia; todo achado do
   modelo verificado contra o código; eco de scanner publicado uma vez;
   testes afetados contados; `--base` abre com a mesma decisão, sem Mermaid.
-- `ignore` vale para o escopo dos scanners; sugestão aplicável na linha também no modo `comments`; achado da passagem de segurança traz a correção da regra.
+- `ignore` vale para o escopo dos scanners; regra de segurança com forma de código não olha `.txt`/`.log`/`.md`; sugestão aplicável na linha também no modo `comments`; achado da passagem de segurança traz a correção da regra.
 - Provedor reserva: `LLM_FALLBACK_<n>_PROVIDER|_BASE_URL|_API_KEY|_MODEL`
   (até 5) tentados em ordem quando o principal falha; troca anunciada; todos
   falhando, a revisão falha fechada. Workflow reutilizável com duas reservas.

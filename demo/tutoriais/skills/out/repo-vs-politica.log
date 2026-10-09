@@ -29,11 +29,11 @@ aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): 
 
 policy gate: failed · 1 file reviewed
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
   - Impact: A senha vai para o historico do repositorio.
   - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: a secao da skill da politica reprova
 prompt: a skill da politica aparece antes da skill do repositorio

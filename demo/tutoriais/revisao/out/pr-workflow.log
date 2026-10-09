@@ -70,17 +70,20 @@ Troca de mensagem sem risco.
 
 #### Review limits
 
-- Review coverage — 2 of 6 file(s) in the diff were covered; 4 were not fully reviewed.
+
+**Review coverage — 2 of 6 file(s) in the diff were covered; 4 were not fully reviewed.**
+
 - 4 file(s) were left out of the review by the token budget.
   - banco/catalogo.go
   - banco/tabela.go
   - web/catalogo.go
   - web/tabela.go
+
 - policy gate: review inconclusive (partial_coverage)
 
 </details>
 --- cobertura publicada nos detalhes do parecer:
-- Review coverage — 2 of 6 file(s) in the diff were covered; 4 were not fully reviewed.
+**Review coverage — 2 of 6 file(s) in the diff were covered; 4 were not fully reviewed.**
 - 4 file(s) were left out of the review by the token budget.
   - banco/catalogo.go
   - banco/tabela.go

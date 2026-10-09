@@ -73,6 +73,9 @@ func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewI
 
 	var found []types.ReviewIssue
 	for _, file := range diff.Files {
+		// A rule with applies_to: code never matches a prose file (a log,
+		// a note, a document): what it would find there is a mention.
+		prose := IsProsePath(file.Path)
 		for _, hunk := range file.Hunks {
 			// Track the new-file line number the way a unified diff reader
 			// does: context and added lines advance it, removed lines do
@@ -90,6 +93,9 @@ func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewI
 						re, ok := rules.PatternFor(rule.ID)
 						if !ok {
 							continue // metadata-only rule, never matched
+						}
+						if prose && rule.AppliesTo == RuleAppliesToCode {
+							continue
 						}
 						if loc := re.FindStringIndex(body); loc != nil {
 							// AUR-503: the four command-injection branches

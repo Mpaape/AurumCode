@@ -3,7 +3,6 @@ $ aurumcode review --base main
 aurumcode review: LINT (Govet) inconclusive: the scan did not produce a trustworthy result (lint_unavailable); no Govet finding was published for this run. Engine detail: govet: go env: exec: "go": executable file not found in $PATH
 aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
 aurumcode review: policy gate: review inconclusive (lint_unavailable)
-aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable) [detalhe: govet: go env: exec: "go": executable file not found in $PATH]
 ## AurumCode code review
 
 > [!WARNING]
@@ -12,5 +11,6 @@ aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusi
 
 policy gate: failed · 1 file reviewed
 Sem achados nas fontes concluídas; inconclusivo: lint_unavailable
+aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable) [detalhe: govet: go env: exec: "go": executable file not found in $PATH]
 exit_code=1
 RESULTADO: sem go no PATH: inconclusivo (lint_unavailable) e o gate reprova; nada e instalado

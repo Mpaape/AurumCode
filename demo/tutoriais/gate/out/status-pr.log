@@ -116,9 +116,12 @@ Mudanca sem risco.
 
 #### Review limits
 
-- Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully reviewed.
+
+**Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully reviewed.**
+
 - 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - gerado.go (generated)
+
 - Repository context omitted: the local checkout's identity could not be confirmed; this review does not send the local checkout's content to the provider and considers only the remote diff.
 - policy gate: review inconclusive (partial_coverage)
 
