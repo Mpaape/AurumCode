@@ -178,6 +178,11 @@ func formatHeadline(result *types.ReviewResult, copy reviewCopy, rule blocking.R
 	case decisionObservations:
 		return alertBlock("NOTE", countText(n, copy.headlineObservationsOne, copy.headlineObservations), "")
 	}
+	if atoiOrZero(result.Metadata["summary_discarded_findings"]) > 0 {
+		// The model proposed findings the gates discarded for lack of
+		// proof: approved, but never "no problem found".
+		return alertBlock("TIP", copy.headlineApprovedUnproven, "")
+	}
 	return alertBlock("TIP", copy.headlineApproved, "")
 }
 
@@ -294,7 +299,13 @@ func detailsSections(result *types.ReviewResult, copy reviewCopy) string {
 
 // writeSuggestionsSection lists the model's optional suggestions.
 func writeSuggestionsSection(b *strings.Builder, result *types.ReviewResult, copy reviewCopy) {
-	if len(result.Suggestions) == 0 {
+	shown := 0
+	for _, suggestion := range result.Suggestions {
+		if strings.TrimSpace(suggestion.Title) != "" || strings.TrimSpace(suggestion.Description) != "" {
+			shown++
+		}
+	}
+	if shown == 0 {
 		return
 	}
 	fmt.Fprintf(b, "#### %s\n\n", copy.suggestions)
