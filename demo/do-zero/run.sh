@@ -3,6 +3,13 @@
 # terminal. Veja README.md.
 #
 #   run.sh [--modo mock|real] [--auto] [--repo NOME] [--privado] [--ref REF]
+#       roteiro guiado: os 9 passos, cada comando mostrado e executado no ⏎
+#   run.sh ia [--modo mock|real] [--destino DIR] [--repo NOME] [--privado] [--ref REF]
+#       so prepara o projeto (boilerplate + git) e registra o AurumCode como
+#       servidor MCP (.mcp.json); imprime o pedido para o seu agente de IA
+#       configurar o Aurum por conversa (docs/tutorials/instalacao-ia.md)
+#   run.sh ia-defeito [--destino DIR]   a mudanca com defeito, numa branch
+#   run.sh ia-correcao [--destino DIR]  a correcao, na mesma branch
 #   run.sh limpar
 #
 # mock (padrao): tudo local. O "GitHub" e um repositorio bare em .estado/ e um
@@ -23,19 +30,27 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../tutoriais/_lib/pr.sh
 . "$HERE/../tutoriais/_lib/pr.sh"
 
-MODO=mock AUTO=0 NOME="" PRIVADO=0 REF="${AZ_REF:-}"
+MODO=mock AUTO=0 NOME="" PRIVADO=0 REF="${AZ_REF:-}" ACAO=roteiro DESTINO=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    ia|ia-defeito|ia-correcao) ACAO="$1"; shift ;;
+    --destino) DESTINO="$2"; shift 2 ;;
     --modo) MODO="$2"; shift 2 ;;
     --auto) AUTO=1; shift ;;
     --repo) NOME="$2"; shift 2 ;;
     --privado) PRIVADO=1; shift ;;
     --ref) REF="$2"; shift 2 ;;
-    limpar) tut_pr_parar; rm -rf "$STATE"; echo "apagado: $STATE"; exit 0 ;;
-    *) echo "uso: run.sh [--modo mock|real] [--auto] [--repo NOME] [--privado] [--ref REF] | limpar" >&2; exit 2 ;;
+    limpar) ACAO=limpar; shift ;;
+    *) echo "uso: run.sh [ia|ia-defeito|ia-correcao] [--modo mock|real] [--auto] [--destino DIR] [--repo NOME] [--privado] [--ref REF] | limpar" >&2; exit 2 ;;
   esac
 done
 case "$MODO" in mock|real) ;; *) echo "--modo: mock ou real" >&2; exit 2 ;; esac
+[ -n "$DESTINO" ] || DESTINO="$HOME/aurum-poc/${NOME:-assistente}"
+if [ "$ACAO" = limpar ]; then
+  rm -rf "$STATE"; echo "apagado: $STATE"
+  if [ -f "$DESTINO/.git/aurum-poc" ]; then rm -rf "$DESTINO"; echo "apagado: $DESTINO"; fi
+  exit 0
+fi
 
 # ---------------------------------------------------------------- interface
 if [ -t 1 ]; then B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' G=$'\e[32m' Y=$'\e[33m' N=$'\e[0m'; else B= D= C= G= Y= N=; fi
@@ -155,10 +170,11 @@ az_espera_parecer() {
 
 # ---------------------------------------------------------------- pre-requisitos
 TUT_WORK="$STATE/projeto"; mkdir -p "$STATE"
+case "$ACAO" in ia|ia-defeito|ia-correcao) TUT_WORK="$DESTINO" ;; esac
 if [ "$MODO" = real ]; then
   command -v gh >/dev/null || { echo "modo real: gh ausente" >&2; exit 79; }
   gh auth status >/dev/null 2>&1 || { echo "modo real: gh não autenticado (gh auth login)" >&2; exit 79; }
-  [ -n "${LLM_API_KEY:-}" ] && [ -n "${LLM_BASE_URL:-}" ] || { echo "modo real: exporte LLM_API_KEY e LLM_BASE_URL (e LLM_MODEL se o serviço exigir)" >&2; exit 79; }
+  case "$ACAO" in roteiro|ia) [ -n "${LLM_API_KEY:-}" ] && [ -n "${LLM_BASE_URL:-}" ] || { echo "modo real: exporte LLM_API_KEY e LLM_BASE_URL (e LLM_MODEL se o serviço exigir)" >&2; exit 79; } ;; esac
   DONO="$(gh api user --jq .login)"
   [ -n "$NOME" ] || NOME="aurum-do-zero-$(date +%Y%m%d-%H%M)"
   if [ -z "$REF" ]; then
@@ -167,12 +183,22 @@ if [ "$MODO" = real ]; then
 else
   DONO=voce; [ -n "$NOME" ] || NOME=assistente; [ -n "$REF" ] || REF=v2.0.0
 fi
-ui_passo 0 >/dev/null
+if [ "$ACAO" = roteiro ]; then
 printf '%sAurumCode do zero%s — um projeto novo, o Aurum configurado passo a passo e o primeiro parecer.\n' "$B" "$N"
 ui_diz "Modo $MODO. Projeto: $DONO/$NOME. Tudo o que roda aparece como comando; ⏎ executa o próximo."
 [ "$MODO" = mock ] && ui_diz "Em mock, o GitHub e o modelo são falsos e locais (sem rede, sem segredo). Com --modo real, os mesmos passos valem na sua conta."
-printf '\n  %s(construindo ou reaproveitando a imagem do produto a partir do Dockerfile)%s\n' "$D" "$N"
-tut_image >/dev/null
+fi
+case "$ACAO" in roteiro|ia)
+  printf '\n  %s(construindo ou reaproveitando a imagem do produto a partir do Dockerfile)%s\n' "$D" "$N"
+  tut_image >/dev/null ;;
+esac
+
+# az_aplica defeito|correcao: o arquivo pronto em etapas/ vira assistente.py do
+# projeto; o defeito ganha uma chave aleatoria a cada execucao (nunca versionada).
+az_aplica() {
+  [ -n "${CHAVE:-}" ] || CHAVE="sk-demo-$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  sed "s|@@CHAVE@@|$CHAVE|" "$HERE/etapas/$1.py" > "$TUT_WORK/assistente.py"
+}
 
 # ---------------------------------------------------------------- passos
 passo_1() {
@@ -204,19 +230,19 @@ passo_2() {
 }
 passo_3() {
   ui_passo 3
-  ui_diz "Três arquivos ligam o AurumCode: a config (idioma, gate e scanners), uma skill com a regra do time em texto, e o workflow que chama a revisão em toda PR, fixado na versão $REF."
-  ui_cmd "mkdir -p .aurumcode/skills/seguranca .github/workflows"
+  ui_diz "Três arquivos ligam o AurumCode: a config (idioma e gate), uma skill com as regras do time em texto (IA-001: resposta do modelo nunca é executada) e o workflow que chama a revisão em toda PR, fixado na versão $REF."
+  ui_cmd "mkdir -p .aurumcode/skills/ia .github/workflows"
   ui_cmd "cp aurum/config.yml .aurumcode/config.yml"
-  ui_cmd "cp aurum/skills/seguranca/SKILL.md .aurumcode/skills/seguranca/SKILL.md"
+  ui_cmd "cp aurum/skills/ia/SKILL.md .aurumcode/skills/ia/SKILL.md"
   ui_cmd "cp docs/site/workflow.yml .github/workflows/code-review.yml   # uses: ...review.yml@$REF"
   ui_pausa
-  mkdir -p "$TUT_WORK/.aurumcode/skills/seguranca" "$TUT_WORK/.github/workflows"
+  mkdir -p "$TUT_WORK/.aurumcode/skills/ia" "$TUT_WORK/.github/workflows"
   cp "$HERE/aurum/config.yml" "$TUT_WORK/.aurumcode/config.yml"
-  cp "$HERE/aurum/skills/seguranca/SKILL.md" "$TUT_WORK/.aurumcode/skills/seguranca/SKILL.md"
+  cp "$HERE/aurum/skills/ia/SKILL.md" "$TUT_WORK/.aurumcode/skills/ia/SKILL.md"
   sed -E "s|(review\.yml)@[^[:space:]]+|\1@$REF|" "$REPO_ROOT/docs/site/workflow.yml" > "$TUT_WORK/.github/workflows/code-review.yml"
-  { echo "# .aurumcode/config.yml"; cat "$TUT_WORK/.aurumcode/config.yml"; echo; echo "# .aurumcode/skills/seguranca/SKILL.md"; sed -n '/^## /,$p' "$TUT_WORK/.aurumcode/skills/seguranca/SKILL.md"; echo; echo "# .github/workflows/code-review.yml"; grep -E 'uses:|LLM_' "$TUT_WORK/.github/workflows/code-review.yml"; } | ui_saida
-  ui_cmd "git add -A && git commit -m 'aurum: config, skill de segurança e workflow' && git push"; ui_pausa
-  tgit add -A; tgit commit -q -m "aurum: config, skill de segurança e workflow"; tgit push -q
+  { echo "# .aurumcode/config.yml"; cat "$TUT_WORK/.aurumcode/config.yml"; echo; echo "# .aurumcode/skills/ia/SKILL.md"; sed -n '/^## /,$p' "$TUT_WORK/.aurumcode/skills/ia/SKILL.md"; echo; echo "# .github/workflows/code-review.yml"; grep -E 'uses:|LLM_' "$TUT_WORK/.github/workflows/code-review.yml"; } | ui_saida
+  ui_cmd "git add -A && git commit -m 'aurum: config, skill do time e workflow' && git push"; ui_pausa
+  tgit add -A; tgit commit -q -m "aurum: config, skill do time e workflow"; tgit push -q
   tgit log --oneline -1 | ui_saida
   ui_ok "o Aurum está no repositório; nenhuma chave entrou em arquivo."
 }
@@ -239,20 +265,14 @@ passo_4() {
 }
 passo_5() {
   ui_passo 5
-  CHAVE="sk-demo-$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-  ui_diz "Numa branch, um desenvolvedor troca o modelo padrão e, com pressa, cola uma chave fixa no código \"para testar rápido\", no lugar da leitura do ambiente."
+  ui_diz "Numa branch, um desenvolvedor faz duas coisas com pressa: cola uma chave fixa \"para testar rápido\" e cria a opção --executar, que roda como Python o código que o modelo devolver."
   ui_cmd "git checkout -b feature"
-  ui_cmd "sed -i 's|\"gpt-4o-mini\"|\"gpt-4.1-mini\"|' assistente.py"
-  ui_cmd "sed -i '8i API_KEY = \"sk-demo-…\"' assistente.py   # linha 8: a chave em literal"
-  ui_cmd "sed -i 's|return os.environ.get(\"ASSISTENTE_API_KEY\", \"\")|return API_KEY|' assistente.py"
-  ui_cmd "git commit -am 'assistente: chave fixa para testar rápido'"; ui_pausa
+  ui_cmd "cp etapas/defeito.py assistente.py && git commit -am 'assistente: --executar roda o código sugerido'"; ui_pausa
   tgit checkout -q -b feature
-  sed -i 's|"gpt-4o-mini"|"gpt-4.1-mini"|' "$TUT_WORK/assistente.py"
-  sed -i "8i API_KEY = \"$CHAVE\"" "$TUT_WORK/assistente.py"
-  sed -i 's|return os.environ.get("ASSISTENTE_API_KEY", "")|return API_KEY|' "$TUT_WORK/assistente.py"
-  tgit commit -q -am "assistente: chave fixa para testar rápido"
-  tgit diff main feature --stat | ui_saida
-  grep -n "^API_KEY\|return API_KEY" "$TUT_WORK/assistente.py" | sed 's/sk-demo-[0-9a-f]*/sk-demo-…/' | ui_saida
+  az_aplica defeito
+  tgit commit -q -am "assistente: --executar roda o código sugerido"
+  tgit diff main feature | sed -E 's/sk-demo-[0-9a-f]+/sk-demo-…/' | grep -E '^[-+][^-+]' | ui_saida
+  ui_diz "Duas falhas de natureza diferente: a chave fixa (linha 10) qualquer ferramenta acha; executar a resposta do modelo (linha 36) nenhuma regra fixa reconhece — só quem lê o código e a regra IA-001 do time."
 }
 passo_6() {
   ui_passo 6
@@ -260,7 +280,7 @@ passo_6() {
   ui_pausa
   az_mcp "$(chama 1 aurum_gate '{"base":"main"}')"
   local id=""
-  id="$(az_id_de 'seguranca#' 2>/dev/null || az_id_de 'analysis/hardcoded-secret' 2>/dev/null || true)"
+  id="$(az_id_de 'ia#' 2>/dev/null || az_id_de 'analysis/hardcoded-secret' 2>/dev/null || true)"
   if [ -n "$id" ]; then
     ui_diz "Os ids valem dentro de uma sessão do servidor: o agente pergunta de novo e pede a explicação na mesma conversa."
     az_mcp "$(chama 2 aurum_gate '{"base":"main"}')" "$(chama 3 aurum_explain "{\"finding_id\":\"$id\"}")"
@@ -277,6 +297,7 @@ passo_7() {
   if [ "$MODO" = mock ]; then
     TUT_PR_SHA="$(tgit rev-parse feature)"
     ui_diz "Em mock, um servidor falso da API do GitHub serve o diff da PR #1 e grava o que o produto publica."
+    export GITHUB_FALSO_REPO="$STATE/remoto.git"   # skills e config servidas da main do remoto
     tut_pr_servidor pr
     az_pr review --pr 1 --repo "$DONO/$NOME" --publicar --check --modo-publicacao comments
     ui_diz "O que foi publicado na PR #1:"
@@ -292,11 +313,10 @@ passo_7() {
 }
 passo_8() {
   ui_passo 8
-  ui_diz "O dev aplica a correção sugerida (a chave volta a vir do ambiente; a troca de modelo fica) e envia. O parecer da PR é editado no lugar, com a nova decisão: um parecer por PR, nunca uma pilha de comentários."
-  ui_cmd "sed -i '/^API_KEY = /d; s|return API_KEY|return os.environ.get(\"ASSISTENTE_API_KEY\", \"\")|' assistente.py"
-  ui_cmd "git commit -am 'assistente: chave pelo ambiente' && git push"; ui_pausa
-  sed -i '/^API_KEY = /d; s|return API_KEY|return os.environ.get("ASSISTENTE_API_KEY", "")|' "$TUT_WORK/assistente.py"
-  tgit commit -q -am "assistente: chave pelo ambiente"; tgit push -q
+  ui_diz "O dev aplica as duas correções: a chave volta a vir do ambiente e --executar só mostra o código (a sugestão da linha 36). O parecer da PR é editado no lugar, com a nova decisão: um parecer por PR, nunca uma pilha de comentários."
+  ui_cmd "cp etapas/correcao.py assistente.py && git commit -am 'assistente: chave pelo ambiente e --executar só mostra' && git push"; ui_pausa
+  az_aplica correcao
+  tgit commit -q -am "assistente: chave pelo ambiente e --executar só mostra"; tgit push -q
   tgit log --oneline main..feature | ui_saida
   if [ "$MODO" = mock ]; then
     TUT_PR_SHA="$(tgit rev-parse feature)"
@@ -322,4 +342,89 @@ passo_9() {
   fi
 }
 
-passo_1; passo_2; passo_3; passo_4; passo_5; passo_6; passo_7; passo_8; passo_9
+# ---------------------------------------------------------------- modo ia
+# ia_mcp_json: .mcp.json do projeto com o AurumCode como servidor MCP, pela
+# imagem do produto (mock: modelo = fixture, sem rede; real: o modelo do ambiente).
+ia_mcp_json() {
+  python3 -I - "$TUT_WORK/.mcp.json" "$MODO" "$TUT_IMAGE" "$TUT_WORK" "$HERE" "$(id -u):$(id -g)" <<'PY'
+import json, sys
+dest, modo, img, work, here, uid = sys.argv[1:]
+args = ["run", "-i", "--rm", "--user", uid, "-e", "HOME=/tmp", "-e", "AURUMCODE_CACHE_DIR=/tmp/cache"]
+srv = {"command": "docker"}
+if modo == "mock":
+    args += ["--network", "none", "-e", "AURUMCODE_LLM_FIXTURE=/fixtures/fixture-llm.json", "-v", here + ":/fixtures:ro"]
+else:
+    args += ["-e", "LLM_API_KEY", "-e", "LLM_BASE_URL", "-e", "LLM_MODEL"]
+    srv["env"] = {k: "${%s:-}" % k for k in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL")}
+args += ["-v", work + ":/work", "-w", "/work", "--entrypoint", "/app/aurumcode", img, "mcp"]
+srv["args"] = args
+with open(dest, "w") as f:
+    json.dump({"mcpServers": {"aurum": srv}}, f, indent=2)
+    f.write("\n")
+PY
+}
+ia_preparar() {
+  if [ -e "$TUT_WORK" ] && [ -n "$(ls -A "$TUT_WORK" 2>/dev/null)" ]; then
+    echo "o destino $TUT_WORK já existe e não está vazio; use --destino OUTRO ou: run.sh limpar --destino $TUT_WORK" >&2; exit 2
+  fi
+  printf '%sAurumCode com um agente de IA%s  %smodo %s · %s%s\n\n' "$B" "$N" "$D" "$MODO" "$TUT_WORK" "$N"
+  mkdir -p "$TUT_WORK"; cp -R "$HERE/boilerplate/." "$TUT_WORK/"
+  tgit init -q -b main; : > "$TUT_WORK/.git/aurum-poc"
+  tgit add -A; tgit commit -q -m "projeto: assistente"
+  ui_ok "projeto criado e commitado (sem AurumCode ainda):"
+  (cd "$TUT_WORK" && git ls-files) | ui_saida
+  if [ "$MODO" = real ]; then
+    local vis=--public; [ "$PRIVADO" = 1 ] && vis=--private
+    (cd "$TUT_WORK" && gh repo create "$NOME" "$vis" --source=. --remote=origin --push --description "POC: AurumCode com um agente de IA") 2>&1 | ui_saida
+  fi
+  ia_mcp_json
+  ui_ok "AurumCode registrado como servidor MCP \"aurum\" em .mcp.json (Claude Code lê na abertura; fora do git):"
+  sed 's/^/    /' "$TUT_WORK/.mcp.json" | head -40
+  printf '\n  %sCodex:%s o mesmo servidor em ~/.codex/config.toml:\n' "$B" "$N"
+  python3 -I -c 'import json,sys; s=json.load(open(sys.argv[1]))["mcpServers"]["aurum"]; print("    [mcp_servers.aurum]\n    command = \"docker\"\n    args = " + json.dumps(s["args"]))' "$TUT_WORK/.mcp.json"
+  local pedido="$STATE/pedido-ia.txt"
+  cat > "$pedido" <<PEDIDO
+Quero instalar e configurar o AurumCode neste repositório, por conversa.
+Siga o roteiro para o agente de $REPO_ROOT/docs/tutorials/instalacao-ia.md
+(o mesmo guia está em https://mpaape.github.io/AurumCode/tutorials/instalacao-ia/).
+Primeiro inspecione o projeto. Faça uma pergunta por vez, com opções curtas e
+uma recomendação explicada. Não peça chaves no chat: oriente como cadastrá-las.
+O servidor MCP "aurum" já está registrado neste projeto: depois de cada commit,
+verifique com aurum_gate (base main). Para PRs, fixe o workflow reutilizável em
+Mpaape/AurumCode/.github/workflows/review.yml@$REF. Revisão em português (pt-BR).
+Comece pelo diagnóstico e pela primeira pergunta.
+PEDIDO
+  printf '\n%sPróximos passos%s\n' "$B" "$N"
+  ui_diz "1. Abra o agente no projeto:  cd $TUT_WORK && claude   (ou codex)"
+  ui_diz "2. Cole o pedido (também em $pedido):"
+  sed 's/^/      │ /' "$pedido"
+  ui_diz "3. Peça a regra do time, com este nome para o caso da demo:"
+  printf '      │ %s\n' "Crie a skill .aurumcode/skills/ia/SKILL.md com a regra \"## IA-001 Resposta do modelo nunca e executada\" (severity: error): texto devolvido por um modelo nunca passa por exec, eval, compile, subprocess nem shell."
+  ui_diz "4. Quando o Aurum estiver configurado e commitado, simule o dev com pressa:  bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
+  ui_diz "5. Peça ao agente:"
+  printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e corrija; depois consulte de novo."
+  [ "$MODO" = real ] && ui_diz "6. Com o gate verde: peça para abrir a PR; o workflow publica o parecer na PR do GitHub."
+  ui_diz "Sem tempo para o agente corrigir:  bash $HERE/run.sh ia-correcao --destino $TUT_WORK"
+}
+ia_defeito() {
+  [ -d "$TUT_WORK/.git" ] || { echo "projeto não encontrado em $TUT_WORK (rode run.sh ia antes)" >&2; exit 2; }
+  if tgit rev-parse -q --verify feature >/dev/null; then tgit checkout -q feature; else tgit checkout -q -b feature; fi
+  az_aplica defeito
+  tgit add assistente.py; tgit commit -q -m "assistente: --executar roda o código sugerido"
+  ui_ok "branch feature com a mudança (chave fixa na linha 10, exec da resposta do modelo na linha 36):"
+  tgit diff main feature -- assistente.py | sed -E 's/sk-demo-[0-9a-f]+/sk-demo-…/' | grep -E '^[-+][^-+]' | ui_saida
+}
+ia_correcao() {
+  [ -d "$TUT_WORK/.git" ] || { echo "projeto não encontrado em $TUT_WORK" >&2; exit 2; }
+  tgit checkout -q feature
+  az_aplica correcao
+  tgit add assistente.py; tgit commit -q -m "assistente: chave pelo ambiente e --executar só mostra"
+  ui_ok "correção commitada na feature:"; tgit log --oneline -1 | ui_saida
+}
+
+case "$ACAO" in
+  ia) ia_preparar ;;
+  ia-defeito) ia_defeito ;;
+  ia-correcao) ia_correcao ;;
+  *) passo_1; passo_2; passo_3; passo_4; passo_5; passo_6; passo_7; passo_8; passo_9 ;;
+esac
