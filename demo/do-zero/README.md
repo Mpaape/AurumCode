@@ -58,6 +58,6 @@ privado) e nunca é apagado pelo script. `--ref` fixa a versão do AurumCode no
 workflow (padrão: `v2.0.0` se a tag existir, senão `main`).
 
 As skills e a config da PR vêm da branch base (a PR nunca traz a própria regra):
-no mock, o GitHub falso serve o conteúdo do remoto local (`GITHUB_FALSO_REPO`).
+no mock, o GitHub falso serve o conteúdo do remoto local (`GITHUB_FALSO_ARVORE`).
 Peças reutilizadas: `demo/tutoriais/_lib` (imagem do produto, GitHub falso,
 `review --pr`) e o cliente MCP de teste de `demo/tutoriais/agente`.
