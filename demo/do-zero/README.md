@@ -4,6 +4,11 @@ Duas formas de mostrar o AurumCode num projeto novo (um assistente de terminal
 que pergunta a um serviço de IA), com a mesma história: uma mudança com dois
 defeitos de natureza diferente, a PR bloqueada e depois aprovada.
 
+Três analistas revisam cada mudança, cada um com o seu foco, e cada achado
+sai marcado com quem o encontrou: **segurança** (embutido no AurumCode),
+**padrões** do time de dev e **QA** (os dois em `aurum/profiles.yml`). Só a
+regra escrita por um time decide o merge; o resto orienta.
+
 - a **chave fixa no código** é achada pela camada de ferramentas, que vê o valor real;
 - **executar a resposta do modelo** (`exec(codigo)`) o catálogo de regras fixas do Aurum não
   reconhece: quem acha é o modelo, lendo o código à luz da regra IA-001 do time

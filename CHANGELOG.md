@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Demo `do-zero` com três analistas (segurança, padrões do time e QA), cada achado
+  marcado com quem o encontrou; só a regra de um time bloqueia, o resto orienta.
 - Demonstração `demo/do-zero`: projeto novo, AurumCode configurado passo a passo
   ou por um agente de IA (Aurum como servidor MCP), PR bloqueada pela ferramenta
   e por uma regra do time, aprovada após a correção; local sem rede ou real.
