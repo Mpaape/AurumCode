@@ -24,6 +24,35 @@ publicada no exemplo, no download do site e nesta página. As tags `v1.x`
 são históricas, do produto anterior, e não recebem atualizações; instalações nelas
 continuam na versão antiga até mudar a referência.
 
+### Saber quando há versão nova
+
+Cada repositório roda exatamente a versão que fixou; nada muda sem uma PR
+trocando a referência. Para receber essa PR automaticamente quando sair uma
+versão nova, ligue o Dependabot para GitHub Actions no repositório: ele também
+atualiza referências a workflows reutilizáveis e abre a PR com as notas da
+versão, que o próprio AurumCode revisa.
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+```
+
+Quem fixa por SHA mantém a versão num comentário na mesma linha, para o
+Dependabot reconhecê-la:
+
+```yaml
+    uses: …/review.yml@<SHA de 40 hex> # v2.0.0
+```
+
+Com o workflow obrigatório da organização (guia corporativo), a referência fica
+num lugar só: uma PR no repositório desse workflow atualiza todos os
+repositórios de uma vez.
+
 O token de publicação é o `github.token` do workflow, com as permissões
 declaradas no YAML. Ele é limitado ao repositório, não a um único PR.
 Os secrets do repositório não são disponibilizados por padrão para PRs de forks.
