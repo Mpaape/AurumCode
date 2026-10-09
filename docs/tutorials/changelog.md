@@ -10,6 +10,8 @@ faz nada. São oito casos, todos sem rede e com um modelo falso.
 ```mermaid
 flowchart LR
   PR[PR aberta] --> M{changelog_check.mode<br/>lido da base}
+  PR -.->|autor bot| BT[changelog_check.bots<br/>só rebaixa o mode]
+  BT -.-> M
   M -->|off| N[nada]
   M -->|suggest| S[sugestão no parecer<br/>exit 0]
   M -->|required| E{entrada útil?}

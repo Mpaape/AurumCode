@@ -23,6 +23,13 @@ O modo vem do `config.yml` do commit **base** da PR. Uma PR que desliga o
 modo no próprio `config.yml` continua sujeita ao check; a mudança só vale
 depois do merge.
 
+PR aberta por bot (Dependabot, Renovate) segue `changelog_check.bots`, padrão
+`suggest`: com `mode: required`, ela passa com a linha `changelog: autor é bot
+(...)` e com a entrada sugerida, em vez de reprovar com `entrada_ausente`.
+`bots` só rebaixa o modo (`off` pula o check para bots, `required` reprova
+como para uma pessoa). Bot é o que o evento da PR diz: `user.type: Bot` ou
+login terminado em `[bot]`.
+
 No GitHub, chame o workflow reutilizável, pinado por SHA:
 
 ```yaml
