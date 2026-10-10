@@ -6,7 +6,7 @@
 # while SQL concatenated inside a string stays a finding.
 #
 # Selectors:
-#   all      AC-001..AC-005, MUT-001..MUT-004
+#   all      AC-001..AC-005, MUT-001..MUT-005
 #   AC-001   the seven expression/operator forms pass through intact
 #   AC-002   a password literal, a weak bare password, a bare token, a JWT and
 #            an AKIA key stay masked
@@ -19,13 +19,14 @@
 #   MUT-002  no literal guard on command-injection turns AC-003 red
 #   MUT-003  no prose skip turns AC-004 red
 #   MUT-004  an unanchored call grammar leaks a bare secret (AC-002 red)
+#   MUT-005  an expression read across line breaks leaks a bare secret (AC-002 red)
 # Exit: 0 pass, 1 behavioral failure, 64 unknown selector, 79 infrastructure.
 set -Eeuo pipefail
 export LC_ALL=C
 
 readonly card='AUR-609'
 selector="${1:-all}"
-known='all AC-001 AC-002 AC-003 AC-004 AC-005 MUT-001 MUT-002 MUT-003 MUT-004'
+known='all AC-001 AC-002 AC-003 AC-004 AC-005 MUT-001 MUT-002 MUT-003 MUT-004 MUT-005'
 if [[ " $known " != *" $selector "* ]]; then
   printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2
   exit 64
@@ -133,8 +134,8 @@ ac005() {
 }
 
 mut001() {
-  mutate MUT-001 internal/security/redaction/redaction.go 'if !bareSecret(value, expr) {' \
-    's/if !bareSecret(value, expr) {/if false \&\& !bareSecret(value, expr) {/' \
+  mutate MUT-001 internal/security/redaction/redaction.go 'if !bareSecret(value, expr, closed) {' \
+    's/if !bareSecret(value, expr, closed) {/if false \&\& !bareSecret(value, expr, closed) {/' \
     '^TestAUR609KeyValueKeepsExpressionsAndOperators$' 'TestAUR609KeyValueKeepsExpressionsAndOperators'
 }
 mut002() {
@@ -154,9 +155,17 @@ mut004() {
     '^TestAUR609BareSecretOrCode$' 'TestAUR609BareSecretOrCode'
 }
 
+# MUT-005 restores both halves of the line crossing: the expression no longer
+# stops at a line break inside brackets, and `.` matches a line break again.
+mut005() {
+  mutate MUT-005 internal/security/redaction/redaction.go "case c == '\\r' || c == '\\n':" \
+    's/case c == .\\r. || c == .\\n.:/case false:/; s/regexp.MustCompile(.^(?:. + p + .)\$.)/regexp.MustCompile("(?s)^(?:" + p + ")$")/' \
+    '^TestAUR609BareSecretOrCode$' 'TestAUR609BareSecretOrCode'
+}
+
 # One function per selector; all runs every one in order.
 if [[ "$selector" == 'all' ]]; then
-  for step in ac001 ac002 ac003 ac004 ac005 mut001 mut002 mut003 mut004; do
+  for step in ac001 ac002 ac003 ac004 ac005 mut001 mut002 mut003 mut004 mut005; do
     "$step"
   done
   printf '%s/all/pass\n' "$card"

@@ -187,18 +187,23 @@ func redactKeyValues(s string) string {
 // Anything else, a weak password included, is masked: the filter fails
 // closed.
 func redactBareKeyValues(s string) string {
-	matches := reKVBare.FindAllStringSubmatchIndex(s, -1)
-	if matches == nil {
-		return s
-	}
 	var b strings.Builder
 	b.Grow(len(s))
-	last := 0
-	for _, m := range matches {
+	last, pos := 0, 0
+	for pos < len(s) {
+		m := reKVBare.FindStringSubmatchIndex(s[pos:])
+		if m == nil {
+			break
+		}
 		// m[3] ends the key-and-separator group; the value runs to m[1].
-		start, end := m[3], m[1]
-		value, expr := s[start:end], expressionAt(s, start)
-		if !bareSecret(value, expr) {
+		start, end := pos+m[3], pos+m[1]
+		value := s[start:end]
+		expr, closed := expressionAt(s, start)
+		if !bareSecret(value, expr, closed) {
+			// The value is kept as code, so the arguments of the call it
+			// makes are scanned too: `token=build(secret=x)` must not hide
+			// the inner secret behind the outer key.
+			pos = start + 1
 			continue
 		}
 		// A value cut short by the closers of an enclosing call
@@ -208,7 +213,7 @@ func redactBareKeyValues(s string) string {
 		}
 		b.WriteString(s[last:start])
 		b.WriteString(Marker)
-		last = end
+		last, pos = end, end
 	}
 	b.WriteString(s[last:])
 	return b.String()
@@ -233,9 +238,11 @@ const (
 	codeSubstitution = `\$\(.*\)`
 )
 
-// anchored compiles p to match only a whole expression.
+// anchored compiles p to match only a whole expression. `.` never crosses a
+// line break, and expressionAt never returns one either: a call left open
+// at the end of a line is not code.
 func anchored(p string) *regexp.Regexp {
-	return regexp.MustCompile(`(?s)^(?:` + p + `)$`)
+	return regexp.MustCompile(`^(?:` + p + `)$`)
 }
 
 var (
@@ -255,16 +262,20 @@ var reJWT = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z
 var reDERBase64 = regexp.MustCompile(`MII[A-Za-z0-9+/]{12,}`)
 
 // bareSecret reports whether the bare value of a secret-bearing key must be
-// masked. expr is the whole expression the value starts (expressionAt); the
-// value may be cut short of it by a quote or a space. A known credential
+// masked. expr is the whole expression the value starts (expressionAt) and
+// closed reports whether its brackets and quotes balance; the value may be
+// cut short of it by a quote or a space. A known credential
 // shape always is masked; a value is kept only when expr covers it and is,
 // as a whole, a call, a variable or workflow reference or a command
 // substitution. Every other value is masked, however weak or short: a member
 // chain or an identifier included (`apiKey = [REDACTED]` stays a valid line,
 // nothing is left dangling). A comparison operand is never reached at all (see assign and
 // bareValue).
-func bareSecret(value, expr string) bool {
+func bareSecret(value, expr string, closed bool) bool {
 	if reCred.MatchString(value) || reJWT.MatchString(value) || reDERBase64.MatchString(value) {
+		return true
+	}
+	if !closed {
 		return true
 	}
 	if len(expr) < len(value) && strings.Trim(value[len(expr):], ")]") != "" {
@@ -279,16 +290,20 @@ func bareSecret(value, expr string) bool {
 }
 
 // expressionAt returns the expression that starts at s[start]: it runs to
-// the first space, `;`, `,`, `&` or line break outside brackets and quotes,
-// or to a closing bracket it did not open. Quotes and brackets are skipped
-// whole, so `os.environ.get("API_KEY")` and `${{ secrets.X }}` are one
-// expression although the bare value stops at their quote or space.
-func expressionAt(s string, start int) string {
+// the first space, `;`, `,` or `&` outside brackets and quotes, to a closing
+// bracket it did not open, or to a line break at any depth. Quotes and
+// brackets are skipped whole, so `os.environ.get("API_KEY")` and
+// `${{ secrets.X }}` are one expression although the bare value stops at
+// their quote or space. closed is false when the expression ends with a
+// bracket or quote still open (`Xk9(pL2`): such a value is never code.
+func expressionAt(s string, start int) (expr string, closed bool) {
 	depth := 0
 	var quote byte
 	for i := start; i < len(s); i++ {
 		c := s[i]
 		switch {
+		case c == '\r' || c == '\n':
+			return s[start:i], depth == 0 && quote == 0
 		case quote != 0:
 			if c == '\\' {
 				i++
@@ -301,14 +316,14 @@ func expressionAt(s string, start int) string {
 			depth++
 		case c == ')' || c == ']' || c == '}':
 			if depth == 0 {
-				return s[start:i]
+				return s[start:i], quote == 0
 			}
 			depth--
-		case depth == 0 && strings.IndexByte(" \t\r\n;,&", c) >= 0:
-			return s[start:i]
+		case depth == 0 && strings.IndexByte(" \t;,&", c) >= 0:
+			return s[start:i], true
 		}
 	}
-	return s[start:]
+	return s[start:], depth == 0 && quote == 0
 }
 
 // redactCredentialShapes replaces well-known credential token shapes and any

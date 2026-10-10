@@ -137,8 +137,14 @@ func TestAUR609BareSecretOrCode(t *testing.T) {
 		{"discord", "token=", discordShaped(), "Cl2FMQ"},
 		{"slack", "token=", "xox" + "b-" + "123456789012-1234567890123-" + "abcdEFGHijklMNOP" + ".mnop", "abcdEFGHijklMNOP"},
 		{"aws secret with slash and dot", "access_key=", "wJalrXUtnFEMI" + "/K7MDENG." + "bPxRfiCYzLmQ2Kv", "K7MDENG"},
-		{"der key body with a dot", "PRIVATE_KEY=", "MIIEvQIBADANBgkq" + "." + "hkiG9w0BAQEFAASC", "hkiG9w0"},
+		{"der key body with a dot", "PRIVATE_KEY=", "MII" + "EvQIBADANBgkq" + "." + "hkiG9w0BAQEFAASC", "hkiG9w0"},
 		{"weak password inside a call", "f(password=", "hunter" + "2)", "hunter2"},
+		{"open call continued on the next lines", "DB_PASSWORD=", "Xk9(pL2!vQ" + "\nDEBUG=true\nprint(x)", "pL2!vQ"},
+		{"open call closed on the next line", "DB_PASSWORD=", "Xk9(pL2!vQ" + "\nOTHER=1)", "pL2!vQ"},
+		{"open call with a space inside", "password: ", "Xk9(pL2" + " (temp)", "pL2"},
+		{"secret argument of a kept call", "token=build(secret=", "hunter2" + "abc)", "hunter2abc"},
+		{"same key in a kept call", "password=f(password=", "hunter2" + "abc)", "hunter2abc"},
+		{"nested kept calls", "auth = make(token=Tok(secret=", "hunter2" + "abc))", "hunter2abc"},
 	}
 	for _, tc := range masked {
 		t.Run("masked/"+tc.name, func(t *testing.T) {
@@ -148,8 +154,15 @@ func TestAUR609BareSecretOrCode(t *testing.T) {
 			}
 		})
 	}
-	if got := f.Redact("f(password=hunter" + "2)"); got != "f(password="+Marker+")" {
-		t.Fatalf("the closer of the enclosing call was masked: %q", got)
+	for in, want := range map[string]string{
+		"f(password=hunter" + "2)":                       "f(password=" + Marker + ")",
+		"token=build(secret=hunter2" + "abc)":            "token=build(secret=" + Marker + ")",
+		"auth = make(token=Tok(secret=hunter2" + "abc))": "auth = make(token=Tok(secret=" + Marker + "))",
+		"DB_PASSWORD=Xk9(pL2!vQ" + "\nOTHER=1)":          "DB_PASSWORD=" + Marker + "\nOTHER=1)",
+	} {
+		if got := f.Redact(in); got != want {
+			t.Fatalf("Redact(%q) = %q, want %q", in, got, want)
+		}
 	}
 	for _, line := range []string{
 		`token = getToken()`,
