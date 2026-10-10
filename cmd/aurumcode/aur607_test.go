@@ -521,3 +521,17 @@ func TestAUR607SARIFKeepsTheEngineMessage(t *testing.T) {
 		t.Fatalf("SARIF does not keep the engine's message:\n%s", data)
 	}
 }
+
+// TestAUR607TriageNoticeShowsTheReasonSentence: the triage notice AUR-608
+// added shows the inconclusive reason as the catalog sentence in pt-BR (code
+// in brackets, no nested parentheses) and keeps the bare code in English.
+func TestAUR607TriageNoticeShowsTheReasonSentence(t *testing.T) {
+	pt := i18n.Format("pt-BR", "notice.triage_not_run", reasons.Text("pt-BR", "quality_skipped"))
+	if strings.Contains(pt, "(quality_skipped)") || !strings.Contains(pt, "não ocorreu — revisão por modelo não executada") || !strings.Contains(pt, "[quality_skipped]") {
+		t.Fatalf("pt-BR triage notice must carry the reason sentence: %q", pt)
+	}
+	en := i18n.Format("en", "notice.triage_not_run", reasons.Text("en", "quality_skipped"))
+	if en != "gate.triage: the model's triage did not run (quality_skipped); the deterministic evidence counted in full and the block was kept" {
+		t.Fatalf("English triage notice changed: %q", en)
+	}
+}

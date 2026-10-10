@@ -1526,11 +1526,13 @@ triável, com gate declarado e sem política central, o stderr e as limitações
 do parecer dizem isso, no idioma de `review.language`:
 
 ```text
-aurumcode review: gate.triage: a triagem pelo modelo não ocorreu (quality_skipped); a evidência determinística contou integralmente e o bloqueio foi mantido
+aurumcode review: gate.triage: a triagem pelo modelo não ocorreu — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; a evidência determinística contou integralmente e o bloqueio foi mantido
 ```
 
-Entre parênteses vai o motivo (`quality_skipped`, `provider_failure`,
-`model_parse_failure`, `degraded_parse`, ...); quando o gate passa mesmo assim, a linha termina
+Depois do travessão vai o motivo, em pt-BR como frase com o código entre
+colchetes e em inglês como o próprio código entre parênteses
+(`quality_skipped`, `provider_failure`, `model_parse_failure`,
+`degraded_parse`, ...); quando o gate passa mesmo assim, a linha termina
 em "contou integralmente", sem falar em bloqueio. Com todas as fontes da
 evidência em `none`, sem gate declarado ou sob política central, nada é
 anunciado: a triagem não teria ocorrido de qualquer forma.

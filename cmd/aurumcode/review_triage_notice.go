@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/i18n"
 )
 
@@ -25,7 +26,7 @@ func (s *reviewState) reportTriageNotRun(res *gateDecision) {
 	if res != nil && res.Fail {
 		key = "notice.triage_not_run"
 	}
-	line := i18n.Format(s.reviewLanguage, key, reason)
+	line := i18n.Format(s.reviewLanguage, key, reasons.Text(s.reviewLanguage, reason))
 	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 	s.result.Limitations = append(s.result.Limitations, line)
 }
