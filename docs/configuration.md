@@ -454,8 +454,12 @@ troque a primeira palavra da mensagem por `[REDACTED]`. Pelo mesmo motivo a linh
 relatório diferem só nesse separador, e a linha mostra o título inteiro (`Hardcoded Secrets`).
 
 **Achado sobre o marcador de redação é descartado (AUR-598).** Antes de chegar
-ao modelo, todo valor com forma de segredo vira `[REDACTED]`, inclusive quando
-era só um identificador (`APIKey: key`). O modelo nunca vê o valor mascarado,
+ao modelo, o valor de toda chave de segredo vira `[REDACTED]`, citado ou nu,
+fraco ou forte (`password = "…"`, `password=hunter2`, `apiKey = cfg.APIKey`).
+Só a expressão que é, inteira, chamada ou referência de variável e o operador
+passam intactos (AUR-609): `API_KEY = os.environ.get("API_KEY")`,
+`token := os.Getenv("TOKEN")`, `token: ${{ secrets.TOKEN }}` e
+`if token == nil {` chegam ao modelo como estão. O modelo nunca vê o valor mascarado,
 então um achado dele que cita o marcador na mensagem, evidência, impacto ou
 correção é descartado, contado em `issues_rejected_by_redaction_marker` (e no
 total de `issues_rejected_by_scope`) e nomeado no aviso de descarte. Achados de

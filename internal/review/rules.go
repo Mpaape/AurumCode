@@ -24,6 +24,10 @@ import (
 //go:embed rules/*.yml
 var embeddedRules embed.FS
 
+// RuleAppliesToCode is the Rule.AppliesTo value that keeps a matcher away
+// from prose files (internal/prosefiles).
+const RuleAppliesToCode = "code"
+
 // Rule represents a code review rule
 type Rule struct {
 	ID          string   `yaml:"id"`
@@ -53,7 +57,7 @@ type Rule struct {
 	// files that hold code: a pattern describing a code shape (a shell
 	// call, a SQL string, an HTML sink) read in a .txt, .log or .md file
 	// is a mention, not a defect, so the security pass skips those files
-	// for the rule (see prosefiles.go). Empty applies the matcher to every
+	// for the rule (see internal/prosefiles). Empty applies the matcher to every
 	// file: a secret in plain text is a secret wherever it is written.
 	AppliesTo string `yaml:"applies_to"`
 	// Origin is AUR-519's provenance tag for a dynamic, skill-section rule
