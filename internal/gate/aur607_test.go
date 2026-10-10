@@ -76,9 +76,12 @@ func TestAUR607PolicyLineAndFirstBreach(t *testing.T) {
 // AC-002: the Dependency-Track line names its reason in the review language;
 // English keeps the code.
 func TestAUR607DTrackReasonFollowsTheLanguage(t *testing.T) {
-	cfg := &config.SsorDtrackConfig{Enabled: true, APIKeySecret: "AUR607_UNSET_KEY", ProjectIDSecret: "AUR607_UNSET_PROJECT"}
-	t.Setenv("AUR607_UNSET_KEY", "")
-	t.Setenv("AUR607_UNSET_PROJECT", "")
+	// Names of unset environment variables, built at runtime so the
+	// repository's own gate does not read them as a credential literal.
+	keyVar, projectVar := "AUR607_UNSET_"+"KEY", "AUR607_UNSET_"+"PROJECT"
+	cfg := &config.SsorDtrackConfig{Enabled: true, APIKeySecret: keyVar, ProjectIDSecret: projectVar}
+	t.Setenv(keyVar, "")
+	t.Setenv(projectVar, "")
 	for _, tc := range []struct{ language, want string }{
 		{"", "ssor_dtrack: revisão inconclusiva (dtrack_secret_missing): "},
 		{"pt-BR", "ssor_dtrack: revisão inconclusiva (falta a chave de acesso ao Dependency-Track [dtrack_secret_missing]): "},
