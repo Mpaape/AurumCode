@@ -32,7 +32,9 @@ import (
 //	go build -ldflags "-X main.version=1.2.3" ./cmd/aurumcode
 //
 // `aurumcode --version` (or `aurumcode version`) prints it. See
-// docs/specs/AUR-443.md.
+// docs/specs/AUR-443.md. The image's AURUMCODE_VERSION build argument stamps
+// it, and the review workflow sets that to the tool's exact tag or short SHA
+// (AUR-611); everything else reads it through toolVersion.
 var version = "dev"
 
 func main() {
@@ -96,7 +98,7 @@ func run(args []string, stdout, stderr *os.File) int {
 
 // printVersion answers `aurumcode --version` / `aurumcode version`.
 func printVersion(stdout io.Writer) {
-	fmt.Fprintf(stdout, "aurumcode %s\n", version)
+	fmt.Fprintf(stdout, "aurumcode %s\n", toolVersion().Label())
 }
 
 // runFix turns review suggestions into an applyable unified diff (one-click

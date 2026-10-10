@@ -52,8 +52,36 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+      - name: Resolve AurumCode version
+        id: tool_version
+        env:
+          TOOL_SHA: ${{ github.sha }}
+          TOOL_DIR: .
+        run: |
+          set -euo pipefail
+          # AUR-611-VERSION-BEGIN
+          # The version the image stamps into the binary (AUR-611): the
+          # tool's exact release tag when one points at TOOL_SHA, else its
+          # short SHA. ls-remote reads only the tag list, so the shallow
+          # checkout stays shallow; a failed lookup falls back to the short
+          # SHA and never fails the job.
+          version="${TOOL_SHA:0:12}"
+          tags="$(git -C "$TOOL_DIR" ls-remote --tags origin 2>/dev/null)" || tags=''
+          tag="$(printf '%s\n' "$tags" | awk -v sha="$TOOL_SHA" '$1 == sha { print $2 }' |
+            sed -e 's|^refs/tags/||' -e 's|\^{}$||' |
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -uV | tail -n 1)" || tag=''
+          version="${tag:-$version}"
+          if [[ ! "$version" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+|[0-9a-f]{12})$ ]]; then
+            echo "::error::Cannot resolve the AurumCode version from TOOL_SHA"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "AurumCode version: $version"
+          # AUR-611-VERSION-END
       - name: Build the product image
-        run: docker build --tag aurumcode-smoke .
+        env:
+          AURUMCODE_VERSION: ${{ steps.tool_version.outputs.version }}
+        run: docker build --build-arg AURUMCODE_VERSION="$AURUMCODE_VERSION" --tag aurumcode-smoke .
       - name: Review a small diff with the live provider
         env:
           PROVEDOR: ${{ matrix.provedor }}

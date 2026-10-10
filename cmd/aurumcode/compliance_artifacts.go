@@ -161,6 +161,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.ProposedExceptions = in.proposedExceptions
 	rec.Deliberation = in.deliberation
 	rec.Batches = in.batches
+	rec.StampToolVersion(toolVersion())
 	if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
 		return err
 	}
@@ -209,7 +210,7 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 			findings[i].Origin = in.issues[i].Origin
 		}
 	}
-	return render.WriteSARIF(in.sarifPath, version, findings, in.gateInconclusiveReason, filter)
+	return render.WriteSARIF(in.sarifPath, toolVersion().Label(), findings, in.gateInconclusiveReason, filter)
 }
 
 // auditGateOutcome collapses a gateDecision (policygate.go) into the
