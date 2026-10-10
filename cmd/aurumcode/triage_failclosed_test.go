@@ -254,8 +254,8 @@ func TestAUR608DegradedModelNeverDemotes(t *testing.T) {
 		deps: reviewDeps{scanners: scanner.Executor{Command: missingSemgrep}, env: &reviewEnv{}}})
 	s.cfg, s.model, s.reviewLanguage = cfg, modelReviewed, "pt-BR"
 	s.repoIdentity, s.repoIdentityKnown = "owner/repo", true
-	secret := "hunter2-" + "correct-horse"
-	s.diff = &types.Diff{Files: []types.DiffFile{{Path: "app.go", Hunks: []types.DiffHunk{{NewStart: 4, Lines: []string{"+\tdbPassword := \"" + secret + "\""}}}}}}
+	sample := "hunter2-" + "correct-horse"
+	s.diff = &types.Diff{Files: []types.DiffFile{{Path: "app.go", Hunks: []types.DiffHunk{{NewStart: 4, Lines: []string{"+\tdbPassword := \"" + sample + "\""}}}}}}
 	s.analysisIssues = staticAnalysisIssues(s.diff, s.reviewLanguage)
 	if len(s.analysisIssues) == 0 {
 		t.Fatal("fixture: the embedded analysis must report the credential")
