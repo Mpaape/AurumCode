@@ -11,7 +11,13 @@ COPY . .
 # image holds none (e.g. --build-arg GO_TAGS=aurum_exemplo adds the example
 # engine of docs/extensao.md).
 ARG GO_TAGS=""
-RUN CGO_ENABLED=0 go build -trimpath -tags "$GO_TAGS" -ldflags="-s -w" -o /aurumcode ./cmd/aurumcode
+# AURUMCODE_VERSION is the version the binary reports: --version, the line in
+# the parecer's details, the audit record's tool_version and the SARIF tool
+# version (AUR-611). The review workflow passes the tool's exact release tag,
+# or its short SHA when no tag points at it; a build without the argument
+# keeps dev, which publishes no version line (the tutorials build that way).
+ARG AURUMCODE_VERSION=dev
+RUN CGO_ENABLED=0 go build -trimpath -tags "$GO_TAGS" -ldflags="-s -w -X main.version=${AURUMCODE_VERSION}" -o /aurumcode ./cmd/aurumcode
 
 # The secrets engine: gitleaks copied from the image the scanners lock pins
 # by digest (.board/bootstrap/locks/scanners.yml, secrets_scanner_image);

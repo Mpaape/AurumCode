@@ -49,6 +49,9 @@ type reviewCopy struct {
 	// "1", the bytes of earlier releases.
 	blockingFindingsOne, belowGateThresholdOne, ciNothingFailedOne, summaryWithheldOne                     string
 	coveragePartialOne, coverageBudgetOne, coverageIgnoredOne, coverageFilteredOne, coverageNoStructureOne string
+	// toolVersion is the details' line naming the AurumCode that reviewed
+	// (%s is the stamped version; AUR-611).
+	toolVersion string
 }
 
 // reviewCopyFor reads the review's texts for language from the catalog.
@@ -133,5 +136,6 @@ func reviewCopyFor(language string) reviewCopy {
 		outsideDiffLabel:         i18n.Text(language, "review.outside_diff_label"),
 		details:                  i18n.Text(language, "review.details"),
 		affectedTests:            i18n.Text(language, "review.affected_tests"),
+		toolVersion:              i18n.Text(language, "review.tool_version"),
 	}
 }

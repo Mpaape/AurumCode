@@ -279,7 +279,8 @@ func writeRuleSuffix(b *strings.Builder, issue types.ReviewIssue) {
 }
 
 // detailsSections is the content of the collapsed block: the model's
-// suggestions, the CI status, the tests and the limitations.
+// suggestions, the CI status, the tests, the limitations and, for a build
+// with a stamped version, the AurumCode that reviewed (AUR-611).
 func detailsSections(result *types.ReviewResult, copy reviewCopy) string {
 	var b strings.Builder
 	writeSuggestionsSection(&b, result, copy)
@@ -294,7 +295,7 @@ func detailsSections(result *types.ReviewResult, copy reviewCopy) string {
 		fmt.Fprintf(&b, "#### %s\n\n", copy.limits)
 		writeReviewBullets(&b, result.Limitations)
 	}
-	return strings.TrimSpace(b.String())
+	return joinDetails(strings.TrimSpace(b.String()), toolVersionLine(toolVersion(), copy))
 }
 
 // writeSuggestionsSection lists the model's optional suggestions.

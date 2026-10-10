@@ -65,6 +65,7 @@ negócio vivem em `internal/`.
 | `internal/security` | Redação de segredos em todos os destinos de saída. |
 | `internal/supplychain` | Assinatura Sigstore/Cosign de SBOMs e imagens. |
 | `internal/testgen` | Propostas determinísticas de testes a partir de um diff. |
+| `internal/version` | Versão do binário carimbada no build (`-X main.version`, ARG `AURUMCODE_VERSION` do Dockerfile): `Info`, `IsDev`, `Label`; `dev` quando nada foi carimbado. |
 | `internal/xbom` | BOMs além do SBOM (build, dados e assim por diante) a partir de catálogos. |
 
 ## Layers
