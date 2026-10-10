@@ -139,9 +139,9 @@ var (
 	reCredBlock = regexp.MustCompile(`(?s)-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----.*?-----END[ \t][A-Z ]*PRIVATE KEY-----`)
 	reCredBegin = regexp.MustCompile(`-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----`)
 	reCredEnd   = regexp.MustCompile(`-----END[ \t][A-Z ]*PRIVATE KEY-----`)
-	// The SendGrid, Slack and Discord shapes are AUR-609's: their tokens carry
-	// dots or dashes, so they are recognized before the code grammar of a
-	// bare value can mistake them for a member chain. A Discord token's first
+	// The SendGrid, Slack and Discord shapes are AUR-609's: a well-known token
+	// is masked wherever it appears, before the code grammar of a bare value
+	// is consulted. A Discord token's first
 	// segment is the base64 of a numeric id, whose 4-character groups use a
 	// fixed alphabet ([MNO][DTjz][AEIMQUYcgk][w-z0-5]); requiring at least four
 	// such groups, a 6-character middle and a 27+ character tail keeps a
@@ -231,8 +231,6 @@ const (
 	codeVariableRef = `\$\{?[A-Za-z_]\w*\}?`
 	// codeSubstitution is a whole shell command substitution.
 	codeSubstitution = `\$\(.*\)`
-	// memberChain is a member access chain such as `cfg.Key`.
-	memberChain = `[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+`
 )
 
 // anchored compiles p to match only a whole expression.
@@ -245,26 +243,25 @@ var (
 	reCodeWorkflowRef  = anchored(codeWorkflowRef)
 	reCodeVariableRef  = anchored(codeVariableRef)
 	reCodeSubstitution = anchored(codeSubstitution)
-	reCodeMemberChain  = anchored(memberChain)
 )
 
-// reJWT is the JSON Web Token shape: a known credential that carries dots,
-// so it is recognized before the code grammar can take it for a member
-// chain.
+// reJWT is the JSON Web Token shape, a known credential recognized before
+// the code grammar of a bare value is consulted.
 var reJWT = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+`)
 
 // reDERBase64 is base64 DER key material written on one line (a PKCS#8 or
-// PKCS#1 body starts with "MII"); it can carry dots between \w runs, which
-// the member chain would otherwise accept.
+// PKCS#1 body starts with "MII"), a known shape recognized before the code
+// grammar of a bare value is consulted.
 var reDERBase64 = regexp.MustCompile(`MII[A-Za-z0-9+/]{12,}`)
 
 // bareSecret reports whether the bare value of a secret-bearing key must be
 // masked. expr is the whole expression the value starts (expressionAt); the
 // value may be cut short of it by a quote or a space. A known credential
 // shape always is masked; a value is kept only when expr covers it and is,
-// as a whole, a call, a variable or workflow reference, a command
-// substitution or a member chain. Every other value is masked, however weak
-// or short. A comparison operand is never reached at all (see assign and
+// as a whole, a call, a variable or workflow reference or a command
+// substitution. Every other value is masked, however weak or short: a member
+// chain or an identifier included (`apiKey = [REDACTED]` stays a valid line,
+// nothing is left dangling). A comparison operand is never reached at all (see assign and
 // bareValue).
 func bareSecret(value, expr string) bool {
 	if reCred.MatchString(value) || reJWT.MatchString(value) || reDERBase64.MatchString(value) {
@@ -273,7 +270,7 @@ func bareSecret(value, expr string) bool {
 	if len(expr) < len(value) && strings.Trim(value[len(expr):], ")]") != "" {
 		return true
 	}
-	for _, re := range []*regexp.Regexp{reCodeCall, reCodeWorkflowRef, reCodeVariableRef, reCodeSubstitution, reCodeMemberChain} {
+	for _, re := range []*regexp.Regexp{reCodeCall, reCodeWorkflowRef, reCodeVariableRef, reCodeSubstitution} {
 		if re.MatchString(expr) {
 			return false
 		}

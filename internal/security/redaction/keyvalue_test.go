@@ -17,8 +17,8 @@ var aur609Expressions = []struct {
 	{"go short declaration of a call", `token := os.Getenv("TOKEN")`},
 	{"go comparison", `if token == nil {`},
 	{"javascript strict comparison", `if (password === undefined) {`},
-	{"member access in a struct literal", `p := Profile{APIKey: cfg.Key}`},
-	{"member access", `const secret = this.config.secret;`},
+	{"method call in a struct literal", `p := Profile{APIKey: cfg.APIKey()}`},
+	{"chained method call", `const secret = this.config.getSecret();`},
 	{"workflow secret reference", `LLM_API_KEY: ${{ secrets.LLM_API_KEY }}`},
 }
 
@@ -129,6 +129,9 @@ func TestAUR609BareSecretOrCode(t *testing.T) {
 		{"trailing dot", "password=", "s3cr3t" + ".", "s3cr3t"},
 		{"leading dot", "password=", "." + "s3cr3t", "s3cr3t"},
 		{"equals then member chain", "secret=", "abc=" + "def.ghi", "abc=def"},
+		{"member-chain shaped password", "password=", "abc" + ".def123", "def123"},
+		{"member-chain shaped client secret", "client_secret=", "ab" + ".cd", "ab.cd"},
+		{"call shape with a trailing byte", "password=", "Passw0rd" + "(1)x", "Passw0rd"},
 		{"variable with a literal default", "password: ", "${DB_PASS:-" + "hunter2}", "hunter2"},
 		{"sendgrid", "api_key=", "SG." + "aB3dE5fG7hJ9kL1mN3pQ5r" + "." + "xY2zW4vU6tS8rQ0pO1nM3lK5jI7hG9fE2dC4bA6zY8x", "aB3dE5fG7hJ9kL1mN3pQ5r"},
 		{"discord", "token=", discordShaped(), "Cl2FMQ"},
@@ -156,7 +159,7 @@ func TestAUR609BareSecretOrCode(t *testing.T) {
 		`password: $DB_PASSWORD`,
 		`password: ${DB_PASSWORD}`,
 		`token=$(cat /run/secrets/token)`,
-		`connect(password=cfg.db_password)`,
+		`connect(password=cfg.dbPassword())`,
 	} {
 		t.Run("code/"+line, func(t *testing.T) {
 			if got := f.Redact(line); got != line {
@@ -166,14 +169,18 @@ func TestAUR609BareSecretOrCode(t *testing.T) {
 	}
 }
 
-// The documented residual: a value that is, as a whole, a member chain is
-// indistinguishable from code (`abc.def123` reads as `cfg.key123`) and is
-// kept. The secret scanner, which reads the raw diff, still sees it.
-func TestAUR609MemberChainResidual(t *testing.T) {
+// A member chain or an identifier after a secret key is masked whole; the
+// line stays valid code, with no dangling fragment and no operator eaten.
+func TestAUR609MemberChainMaskedWhole(t *testing.T) {
 	f := NewFilter()
-	for _, line := range []string{"password=abc.def123", "client_secret=ab.cd"} {
-		if got := f.Redact(line); got != line {
-			t.Fatalf("Redact(%q) = %q: the residual changed, update docs/specs/AUR-609.md", line, got)
+	for in, want := range map[string]string{
+		`apiKey = cfg.APIKey`:                "apiKey = " + Marker,
+		`p := Profile{APIKey: cfg.Key}`:      "p := Profile{APIKey: " + Marker + "}",
+		`const secret = this.config.secret;`: "const secret = " + Marker + ";",
+		`connect(password=cfg.db_password)`:  "connect(password=" + Marker + ")",
+	} {
+		if got := f.Redact(in); got != want {
+			t.Fatalf("Redact(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

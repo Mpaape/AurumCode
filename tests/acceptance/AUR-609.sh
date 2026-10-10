@@ -18,7 +18,7 @@
 #   MUT-001  no code-shape check on bare values turns AC-001 red
 #   MUT-002  no literal guard on command-injection turns AC-003 red
 #   MUT-003  no prose skip turns AC-004 red
-#   MUT-004  an unanchored member-chain grammar leaks a bare secret (AC-002 red)
+#   MUT-004  an unanchored call grammar leaks a bare secret (AC-002 red)
 # Exit: 0 pass, 1 behavioral failure, 64 unknown selector, 79 infrastructure.
 set -Eeuo pipefail
 export LC_ALL=C
@@ -115,9 +115,9 @@ ac001() {
     TestAUR609KeyValueKeepsExpressionsAndOperators TestAUR609AssignDoesNotEatComparisonOperators TestAUR609BareSecretOrCode
 }
 ac002() {
-  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|BareWeakSecretStaysMasked|BareSecretOrCode|MemberChainResidual)$' \
+  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|BareWeakSecretStaysMasked|BareSecretOrCode|MemberChainMaskedWhole)$' \
     TestAUR609KeyValueStillMasksLiteralsAndTokens TestAUR609BareWeakSecretStaysMasked TestAUR609BareSecretOrCode \
-    TestAUR609MemberChainResidual
+    TestAUR609MemberChainMaskedWhole
 }
 ac003() {
   ac AC-003 '^TestAUR609(DocstringMentionIsNotCommandInjection|MultilineDocstringIsNotCommandInjection|RealCallStillCommandInjection|SQLInsideStringStillFound)$' \
@@ -149,8 +149,8 @@ mut003() {
 }
 
 mut004() {
-  mutate MUT-004 internal/security/redaction/redaction.go 'reCodeMemberChain  = anchored(memberChain)' \
-    's/reCodeMemberChain  = anchored(memberChain)/reCodeMemberChain  = regexp.MustCompile(memberChain)/' \
+  mutate MUT-004 internal/security/redaction/redaction.go 'reCodeCall         = anchored(codeCall)' \
+    's/reCodeCall         = anchored(codeCall)/reCodeCall         = regexp.MustCompile(codeCall)/' \
     '^TestAUR609BareSecretOrCode$' 'TestAUR609BareSecretOrCode'
 }
 
