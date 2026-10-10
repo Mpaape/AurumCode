@@ -69,7 +69,7 @@ imagem real, PRs de código e falhas observáveis. Os cenários estão em
 
 | Cenário | O que prova |
 | --- | --- |
-| `comments-inline` | Workflow reutilizável, modo `comments`, parecer em português, sugestão inline, gate reprovando; o commit de correção limpa o bloqueio. |
+| `comments-inline` | Workflow reutilizável, modo `comments`, parecer em português, comentário na linha do achado bloqueante, gate reprovando; o commit de correção limpa o bloqueio. A sugestão aplicável (bloco `suggestion`) é medida, não exigida (AUR-617). |
 | `review-formal` | O mesmo no modo `review`. |
 | `acao-direta` | Action direta pinada, status `aurumcode/review` igual ao resultado. |
 | `modelo-ausente`, `modelo-inconclusivo` | Sem credencial ou com o modelo inalcançável a revisão falha fechada, com diagnóstico. |
