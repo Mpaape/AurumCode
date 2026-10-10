@@ -455,8 +455,9 @@ relatório diferem só nesse separador, e a linha mostra o título inteiro (`Har
 
 **Achado sobre o marcador de redação é descartado (AUR-598).** Antes de chegar
 ao modelo, o valor de toda chave de segredo vira `[REDACTED]`, citado ou nu,
-fraco ou forte (`password = "…"`, `password=hunter2`). Só o valor com forma de
-código e o operador passam intactos (AUR-609):
+fraco ou forte (`password = "…"`, `password=hunter2`). Só a expressão que é
+código inteira (chamada, referência de variável ou cadeia de membros) e o
+operador passam intactos (AUR-609):
 `API_KEY = os.environ.get("API_KEY")`, `token := os.Getenv("TOKEN")`,
 `APIKey: cfg.Key` e `if token == nil {` chegam ao modelo como estão. O modelo nunca vê o valor mascarado,
 então um achado dele que cita o marcador na mensagem, evidência, impacto ou

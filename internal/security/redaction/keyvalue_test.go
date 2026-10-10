@@ -1,6 +1,7 @@
 package redaction
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 )
@@ -106,34 +107,73 @@ func TestAUR609BareWeakSecretStaysMasked(t *testing.T) {
 	}
 }
 
-// bareSecret masks every bare value except code: a known shape is masked
-// even when it carries a dot, and a value with a code marker is kept.
+// discordShaped assembles a Discord-shaped token at run time: the base64 of
+// a numeric id, a 6-character middle and a 27-character tail.
+func discordShaped() string {
+	return base64.RawURLEncoding.EncodeToString([]byte("198622483471925248")) +
+		"." + "Cl2F" + "MQ" + "." + "ZnCjm1XVW7vR" + "ze4b7Cq4se7kKWs"
+}
+
+// A bare value after a secret key is masked unless the whole expression is
+// code. Each masked case below leaked between AUR-609's first rule (one code
+// byte anywhere made the value code) and the anchored grammar; every
+// secret-shaped value is assembled at run time.
 func TestAUR609BareSecretOrCode(t *testing.T) {
-	cases := []struct {
-		value string
-		want  bool
-	}{
-		{"hunter2", true},
-		{"supersecretvalue", true},
-		{"key", true},
-		{"a1b2c3d", true},
-		{"Zx9Qw3Lp" + "7Rt5Vn2K", true},
-		{"tok_live_" + "9f8e7d6c5b4a", true},
-		{"AKIA" + strings.Repeat("Q", 16), true},
-		{"eyJ" + "hbGciOiJIUzI1NiJ9" + ".eyJ" + "zdWIiOiIxMjM0NTY3ODkwIn0" + ".c2ln", true},
-		{"os.environ.get(", false},
-		{"os.Getenv(", false},
-		{"cfg.Key", false},
-		{"config[", false},
-		{"${{", false},
-		{"$TOKEN_VALUE_1", false},
-		{"cfg->token_v2x9", false},
-		{"Config::TOKEN_V2x9", false},
-		{"getToken()", false},
+	f := NewFilter()
+	masked := []struct{ name, key, value, secret string }{
+		{"dot inside a password", "DB_PASSWORD=", "Tr0ub4dor" + ".9xQ", "Tr0ub4dor"},
+		{"parenthesis inside a password", "secret: ", "p@ss" + "(1)", "p@ss"},
+		{"dollar inside a token", "token: ", "abc" + "$def", "abc"},
+		{"bracketed password", "password: ", "[hunter" + "2]", "hunter2"},
+		{"braced api key", "api_key = ", "{abc123" + "xyz}", "abc123xyz"},
+		{"trailing dot", "password=", "s3cr3t" + ".", "s3cr3t"},
+		{"leading dot", "password=", "." + "s3cr3t", "s3cr3t"},
+		{"equals then member chain", "secret=", "abc=" + "def.ghi", "abc=def"},
+		{"variable with a literal default", "password: ", "${DB_PASS:-" + "hunter2}", "hunter2"},
+		{"sendgrid", "api_key=", "SG." + "aB3dE5fG7hJ9kL1mN3pQ5r" + "." + "xY2zW4vU6tS8rQ0pO1nM3lK5jI7hG9fE2dC4bA6zY8x", "aB3dE5fG7hJ9kL1mN3pQ5r"},
+		{"discord", "token=", discordShaped(), "Cl2FMQ"},
+		{"slack", "token=", "xox" + "b-" + "123456789012-1234567890123-" + "abcdEFGHijklMNOP" + ".mnop", "abcdEFGHijklMNOP"},
+		{"aws secret with slash and dot", "access_key=", "wJalrXUtnFEMI" + "/K7MDENG." + "bPxRfiCYzLmQ2Kv", "K7MDENG"},
+		{"der key body with a dot", "PRIVATE_KEY=", "MIIEvQIBADANBgkq" + "." + "hkiG9w0BAQEFAASC", "hkiG9w0"},
+		{"weak password inside a call", "f(password=", "hunter" + "2)", "hunter2"},
 	}
-	for _, tc := range cases {
-		if got := bareSecret(tc.value); got != tc.want {
-			t.Fatalf("bareSecret(%q) = %v, want %v", tc.value, got, tc.want)
+	for _, tc := range masked {
+		t.Run("masked/"+tc.name, func(t *testing.T) {
+			got := f.Redact(tc.key + tc.value)
+			if strings.Contains(got, tc.secret) || !strings.Contains(got, Marker) {
+				t.Fatalf("Redact(%q) = %q, want %q masked", tc.key+tc.value, got, tc.secret)
+			}
+		})
+	}
+	if got := f.Redact("f(password=hunter" + "2)"); got != "f(password="+Marker+")" {
+		t.Fatalf("the closer of the enclosing call was masked: %q", got)
+	}
+	for _, line := range []string{
+		`token = getToken()`,
+		`API_KEY = os.getenv("API_KEY").strip()`,
+		`token = cfg->token()`,
+		`token = Config::token()`,
+		`password: $DB_PASSWORD`,
+		`password: ${DB_PASSWORD}`,
+		`token=$(cat /run/secrets/token)`,
+		`connect(password=cfg.db_password)`,
+	} {
+		t.Run("code/"+line, func(t *testing.T) {
+			if got := f.Redact(line); got != line {
+				t.Fatalf("Redact(%q) = %q, want the line intact", line, got)
+			}
+		})
+	}
+}
+
+// The documented residual: a value that is, as a whole, a member chain is
+// indistinguishable from code (`abc.def123` reads as `cfg.key123`) and is
+// kept. The secret scanner, which reads the raw diff, still sees it.
+func TestAUR609MemberChainResidual(t *testing.T) {
+	f := NewFilter()
+	for _, line := range []string{"password=abc.def123", "client_secret=ab.cd"} {
+		if got := f.Redact(line); got != line {
+			t.Fatalf("Redact(%q) = %q: the residual changed, update docs/specs/AUR-609.md", line, got)
 		}
 	}
 }

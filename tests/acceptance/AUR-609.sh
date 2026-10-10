@@ -6,7 +6,7 @@
 # while SQL concatenated inside a string stays a finding.
 #
 # Selectors:
-#   all      AC-001..AC-005, MUT-001..MUT-003
+#   all      AC-001..AC-005, MUT-001..MUT-004
 #   AC-001   the seven expression/operator forms pass through intact
 #   AC-002   a password literal, a weak bare password, a bare token, a JWT and
 #            an AKIA key stay masked
@@ -18,13 +18,14 @@
 #   MUT-001  no code-shape check on bare values turns AC-001 red
 #   MUT-002  no literal guard on command-injection turns AC-003 red
 #   MUT-003  no prose skip turns AC-004 red
+#   MUT-004  an unanchored member-chain grammar leaks a bare secret (AC-002 red)
 # Exit: 0 pass, 1 behavioral failure, 64 unknown selector, 79 infrastructure.
 set -Eeuo pipefail
 export LC_ALL=C
 
 readonly card='AUR-609'
 selector="${1:-all}"
-known='all AC-001 AC-002 AC-003 AC-004 AC-005 MUT-001 MUT-002 MUT-003'
+known='all AC-001 AC-002 AC-003 AC-004 AC-005 MUT-001 MUT-002 MUT-003 MUT-004'
 if [[ " $known " != *" $selector "* ]]; then
   printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2
   exit 64
@@ -114,8 +115,9 @@ ac001() {
     TestAUR609KeyValueKeepsExpressionsAndOperators TestAUR609AssignDoesNotEatComparisonOperators TestAUR609BareSecretOrCode
 }
 ac002() {
-  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|BareWeakSecretStaysMasked|BareSecretOrCode)$' \
-    TestAUR609KeyValueStillMasksLiteralsAndTokens TestAUR609BareWeakSecretStaysMasked TestAUR609BareSecretOrCode
+  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|BareWeakSecretStaysMasked|BareSecretOrCode|MemberChainResidual)$' \
+    TestAUR609KeyValueStillMasksLiteralsAndTokens TestAUR609BareWeakSecretStaysMasked TestAUR609BareSecretOrCode \
+    TestAUR609MemberChainResidual
 }
 ac003() {
   ac AC-003 '^TestAUR609(DocstringMentionIsNotCommandInjection|MultilineDocstringIsNotCommandInjection|RealCallStillCommandInjection|SQLInsideStringStillFound)$' \
@@ -131,8 +133,8 @@ ac005() {
 }
 
 mut001() {
-  mutate MUT-001 internal/security/redaction/redaction.go 'if !bareSecret(value) {' \
-    's/if !bareSecret(value) {/if false \&\& !bareSecret(value) {/' \
+  mutate MUT-001 internal/security/redaction/redaction.go 'if !bareSecret(value, expr) {' \
+    's/if !bareSecret(value, expr) {/if false \&\& !bareSecret(value, expr) {/' \
     '^TestAUR609KeyValueKeepsExpressionsAndOperators$' 'TestAUR609KeyValueKeepsExpressionsAndOperators'
 }
 mut002() {
@@ -146,9 +148,15 @@ mut003() {
     '^TestAUR609ProseFilesSkipCodeRules$' 'TestAUR609ProseFilesSkipCodeRules'
 }
 
+mut004() {
+  mutate MUT-004 internal/security/redaction/redaction.go 'reCodeMemberChain  = anchored(memberChain)' \
+    's/reCodeMemberChain  = anchored(memberChain)/reCodeMemberChain  = regexp.MustCompile(memberChain)/' \
+    '^TestAUR609BareSecretOrCode$' 'TestAUR609BareSecretOrCode'
+}
+
 # One function per selector; all runs every one in order.
 if [[ "$selector" == 'all' ]]; then
-  for step in ac001 ac002 ac003 ac004 ac005 mut001 mut002 mut003; do
+  for step in ac001 ac002 ac003 ac004 ac005 mut001 mut002 mut003 mut004; do
     "$step"
   done
   printf '%s/all/pass\n' "$card"

@@ -139,7 +139,14 @@ var (
 	reCredBlock = regexp.MustCompile(`(?s)-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----.*?-----END[ \t][A-Z ]*PRIVATE KEY-----`)
 	reCredBegin = regexp.MustCompile(`-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----`)
 	reCredEnd   = regexp.MustCompile(`-----END[ \t][A-Z ]*PRIVATE KEY-----`)
-	reCred      = regexp.MustCompile(`(?:-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----|-----END[ \t][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,})`)
+	// The SendGrid, Slack and Discord shapes are AUR-609's: their tokens carry
+	// dots or dashes, so they are recognized before the code grammar of a
+	// bare value can mistake them for a member chain. A Discord token's first
+	// segment is the base64 of a numeric id, whose 4-character groups use a
+	// fixed alphabet ([MNO][DTjz][AEIMQUYcgk][w-z0-5]); requiring at least four
+	// such groups, a 6-character middle and a 27+ character tail keeps a
+	// chain of long identifiers from matching.
+	reCred = regexp.MustCompile(`(?:-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----|-----END[ \t][A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|SG\.[\w-]{16,}\.[\w-]{16,}|xox[abpors]-[\w.-]{10,}|(?:[MNO][DTjz][AEIMQUYcgk][w-z0-5]){4,}[\w-]{0,3}\.[\w-]{6}\.[\w-]{27,})`)
 )
 
 // redactQueryStrings replaces every URL query string with the stable marker.
@@ -173,9 +180,9 @@ func redactKeyValues(s string) string {
 }
 
 // redactBareKeyValues replaces the unquoted value of a secret-bearing key
-// unless the value is code. In source code the right-hand side of
-// `API_KEY = os.environ.get("API_KEY")` or `token := os.Getenv("TOKEN")` is
-// the code under review, not a secret: masking it would hand the model a
+// unless the expression it starts is code. In source code the right-hand side
+// of `API_KEY = os.environ.get("API_KEY")` or `token := os.Getenv("TOKEN")`
+// is the code under review, not a secret: masking it would hand the model a
 // broken line and turn every finding about it into one that cites the marker.
 // Anything else, a weak password included, is masked: the filter fails
 // closed.
@@ -189,13 +196,19 @@ func redactBareKeyValues(s string) string {
 	last := 0
 	for _, m := range matches {
 		// m[3] ends the key-and-separator group; the value runs to m[1].
-		value := s[m[3]:m[1]]
-		if !bareSecret(value) {
+		start, end := m[3], m[1]
+		value, expr := s[start:end], expressionAt(s, start)
+		if !bareSecret(value, expr) {
 			continue
 		}
-		b.WriteString(s[last:m[3]])
+		// A value cut short by the closers of an enclosing call
+		// (`f(password=x)`) keeps them: only the expression is masked.
+		if n := len(expr); n > 0 && n < len(value) && strings.Trim(value[n:], ")]") == "" {
+			end = start + n
+		}
+		b.WriteString(s[last:start])
 		b.WriteString(Marker)
-		last = m[1]
+		last = end
 	}
 	b.WriteString(s[last:])
 	return b.String()
@@ -205,32 +218,100 @@ func redactBareKeyValues(s string) string {
 // the AUR-009 acceptance stages the filter as this single file, so the
 // filter must compile on its own.
 
-// codeMarkers are the bytes and digraphs that only appear in code: a call, a
-// member or index access, a variable or template reference, a scope
-// operator. `}` is not listed because a bare value already stops before it
-// (bareValue).
-var codeMarkers = []string{"(", ")", ".", "[", "]", "$", "{", "->", "::"}
+// Code grammar of a bare value. Each form is anchored on the whole
+// expression, so one code-looking byte inside a secret (`Tr0ub4dor.9xQ`,
+// `p@ss(1)`, `abc$def`) never makes it code.
+const (
+	// codeCall is a call through an optional member or scope chain.
+	codeCall = `[A-Za-z_]\w*(?:(?:\.|->|::)[A-Za-z_]\w*)*\(.*\)`
+	// codeWorkflowRef is a whole GitHub Actions expression.
+	codeWorkflowRef = `\$\{\{.*\}\}`
+	// codeVariableRef is a whole shell or template variable reference,
+	// without a default value (`${X:-literal}` carries a literal).
+	codeVariableRef = `\$\{?[A-Za-z_]\w*\}?`
+	// codeSubstitution is a whole shell command substitution.
+	codeSubstitution = `\$\(.*\)`
+	// memberChain is a member access chain such as `cfg.Key`.
+	memberChain = `[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+`
+)
+
+// anchored compiles p to match only a whole expression.
+func anchored(p string) *regexp.Regexp {
+	return regexp.MustCompile(`(?s)^(?:` + p + `)$`)
+}
+
+var (
+	reCodeCall         = anchored(codeCall)
+	reCodeWorkflowRef  = anchored(codeWorkflowRef)
+	reCodeVariableRef  = anchored(codeVariableRef)
+	reCodeSubstitution = anchored(codeSubstitution)
+	reCodeMemberChain  = anchored(memberChain)
+)
 
 // reJWT is the JSON Web Token shape: a known credential that carries dots,
-// so it is recognized before the code markers can dismiss it.
+// so it is recognized before the code grammar can take it for a member
+// chain.
 var reJWT = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+`)
 
+// reDERBase64 is base64 DER key material written on one line (a PKCS#8 or
+// PKCS#1 body starts with "MII"); it can carry dots between \w runs, which
+// the member chain would otherwise accept.
+var reDERBase64 = regexp.MustCompile(`MII[A-Za-z0-9+/]{12,}`)
+
 // bareSecret reports whether the bare value of a secret-bearing key must be
-// masked. A known credential shape always is; a value carrying a code marker
-// (os.environ.get(, a member access, ${{ secrets.X }}) is the expression
-// that produces the secret and stays visible; every other value is masked,
-// however weak or short, and a comparison operand is never reached at all
-// (see assign and bareValue).
-func bareSecret(value string) bool {
-	if reCred.MatchString(value) || reJWT.MatchString(value) {
+// masked. expr is the whole expression the value starts (expressionAt); the
+// value may be cut short of it by a quote or a space. A known credential
+// shape always is masked; a value is kept only when expr covers it and is,
+// as a whole, a call, a variable or workflow reference, a command
+// substitution or a member chain. Every other value is masked, however weak
+// or short. A comparison operand is never reached at all (see assign and
+// bareValue).
+func bareSecret(value, expr string) bool {
+	if reCred.MatchString(value) || reJWT.MatchString(value) || reDERBase64.MatchString(value) {
 		return true
 	}
-	for _, m := range codeMarkers {
-		if strings.Contains(value, m) {
+	if len(expr) < len(value) && strings.Trim(value[len(expr):], ")]") != "" {
+		return true
+	}
+	for _, re := range []*regexp.Regexp{reCodeCall, reCodeWorkflowRef, reCodeVariableRef, reCodeSubstitution, reCodeMemberChain} {
+		if re.MatchString(expr) {
 			return false
 		}
 	}
 	return true
+}
+
+// expressionAt returns the expression that starts at s[start]: it runs to
+// the first space, `;`, `,`, `&` or line break outside brackets and quotes,
+// or to a closing bracket it did not open. Quotes and brackets are skipped
+// whole, so `os.environ.get("API_KEY")` and `${{ secrets.X }}` are one
+// expression although the bare value stops at their quote or space.
+func expressionAt(s string, start int) string {
+	depth := 0
+	var quote byte
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case quote != 0:
+			if c == '\\' {
+				i++
+			} else if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'' || c == '`':
+			quote = c
+		case c == '(' || c == '[' || c == '{':
+			depth++
+		case c == ')' || c == ']' || c == '}':
+			if depth == 0 {
+				return s[start:i]
+			}
+			depth--
+		case depth == 0 && strings.IndexByte(" \t\r\n;,&", c) >= 0:
+			return s[start:i]
+		}
+	}
+	return s[start:]
 }
 
 // redactCredentialShapes replaces well-known credential token shapes and any
