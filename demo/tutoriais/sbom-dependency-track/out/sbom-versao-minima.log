@@ -10,7 +10,7 @@ RESULTADO: SBOM CycloneDX 1.7 aceito contra o minimo 1.6 (mesma major)
 config: versao-2-0
 $ aurumcode sbom --repo . --trivy-bin /fixtures/wrappers/trivy-wrap.sh
 aurumcode sbom: sbom: <temporario>: bomFormat="CycloneDX" specVersion="1.7", want bomFormat="CycloneDX" specVersion>="2.0" (mesma major)
-aurumcode sbom: policy gate: review inconclusive (sbom_generation_failure)
+aurumcode sbom: policy gate: revisão inconclusiva — o SBOM não pôde ser gerado ou validado [sbom_generation_failure]
 exit_code=1
 RESULTADO: SBOM 1.7 recusado contra minimo 2.0 (major diferente)
 RESULTADO: nenhum SBOM foi escrito

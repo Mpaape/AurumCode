@@ -5,6 +5,6 @@ generated file, skipped: schema.pb.txt
   - schema.pb.txt (generated)
 > **Inconclusive: this review does not approve the change.**
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
-policy gate: review inconclusive (partial_coverage)
+policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova

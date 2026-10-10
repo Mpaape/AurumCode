@@ -1,133 +1,133 @@
 == status-pr
 --- aprovado
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-review formal "COMMENT" publicado no pull request #7 (0 comentário(s) na linha).
-check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave no pull request #7)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado no pull request #7)
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+parecer publicado na PR #7 como comentário (sem comentários na linha).
+check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado)
 exit_code=0
 parecer publicado em 7/reviews:
 <!-- aurumcode-review -->
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!NOTE]
-> **Approved with 1 observation that does not block the merge.**
+> **Aprovado com 1 observação que não bloqueia o merge.**
 
-policy gate: passed · 1 file reviewed
+gate da política: passou · 1 arquivo revisado
 
-### Observations (non-blocking)
+### Observações (não bloqueiam)
 
 - `app.go:6` — Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
 
-### Summary
+### Resumo
 
 Senha escrita no codigo.
 
 <details>
-<summary>Review details</summary>
+<summary>Detalhes da revisão</summary>
 
-#### Tests
+#### Testes
 
-- 1 affected test(s) in 1 package(s): TestApp (package .)
+- testes afetados: 1 (pacotes: 1): TestApp (package .)
 
-#### Review limits
+#### Limitações da revisão
 
-- Repository context omitted: the local checkout's identity could not be confirmed; this review does not send the local checkout's content to the provider and considers only the remote diff.
+- Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
 
 </details>
 status publicado: context=aurumcode/review state=success
-  description: nenhum achado grave no pull request #7
+  description: nenhum achado grave
 status publicado: context=aurumcode/policy-gate state=success
-  description: aprovado: gate de política aprovado no pull request #7
+  description: aprovado: gate de política aprovado
 --- reprovado
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
-review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
-check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: failure (1 achado(s) grave(s) no pull request #7)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…)
+parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).
+check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: failure (1 achado grave)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer)
 exit_code=3
 parecer publicado em 7/reviews:
 <!-- aurumcode-review -->
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 
-### Fix before merge
+### Corrigir antes do merge
 
 - **`app.go:6`** — Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-  - Impact: A senha vai para o historico do repositorio.
-  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
-  - Suggested fix: Leia a senha do ambiente.
-  - Verify: Remova o literal e rode a revisao de novo.
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
 
-### Summary
+### Resumo
 
 Senha escrita no codigo.
 
 <details>
-<summary>Review details</summary>
+<summary>Detalhes da revisão</summary>
 
-#### Tests
+#### Testes
 
-- 1 affected test(s) in 1 package(s): TestApp (package .)
+- testes afetados: 1 (pacotes: 1): TestApp (package .)
 
-#### Review limits
+#### Limitações da revisão
 
-- Repository context omitted: the local checkout's identity could not be confirmed; this review does not send the local checkout's content to the provider and considers only the remote diff.
+- Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
 - policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 
 </details>
 status publicado: context=aurumcode/review state=failure
-  description: 1 achado(s) grave(s) no pull request #7
+  description: 1 achado grave
 status publicado: context=aurumcode/policy-gate state=failure
-  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…
+  description: falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer
 --- inconclusivo
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (partial_coverage)
-review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
-check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave no pull request #7)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage))
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
+parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).
+check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (inconclusivo: a revisão não cobriu tudo e o gate reprova por configuração — parte do diff ficou fora da revisão [partial_coverage])
 exit_code=1
 parecer publicado em 7/reviews:
 <!-- aurumcode-review -->
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 
-### Summary
+### Resumo
 
 Mudanca sem risco.
 
 <details>
-<summary>Review details</summary>
+<summary>Detalhes da revisão</summary>
 
-#### Tests
+#### Testes
 
-- 1 affected test(s) in 1 package(s): TestGerado (package .)
+- testes afetados: 1 (pacotes: 1): TestGerado (package .)
 
-#### Review limits
+#### Limitações da revisão
 
 
-**Review coverage — 1 of 1 file(s) in the diff were covered; 1 were not fully reviewed.**
+**Cobertura da revisão — arquivos do diff cobertos: 1 de 1; sem revisão completa: 1.**
 
-- 1 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+- 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 
-- Repository context omitted: the local checkout's identity could not be confirmed; this review does not send the local checkout's content to the provider and considers only the remote diff.
-- policy gate: review inconclusive (partial_coverage)
+- Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
+- policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 
 </details>
 status publicado: context=aurumcode/review state=success
-  description: nenhum achado grave no pull request #7
+  description: nenhum achado grave
 status publicado: context=aurumcode/policy-gate state=failure
-  description: inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage)
+  description: inconclusivo: a revisão não cobriu tudo e o gate reprova por configuração — parte do diff ficou fora da revisão [partial_coverage]
 RESULTADO: o ultimo caso (inconclusivo em block) sai 1 e publica status failure

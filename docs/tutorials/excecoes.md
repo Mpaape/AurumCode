@@ -106,7 +106,7 @@ RESULTADO: excecao para outro caminho nao casa
 --- outro repositorio
 RESULTADO: excecao de outro repositorio nao casa
 --- repositorio sem remoto origin: identidade nao confirmada
-aurumcode review: Exceptions disabled: the reviewed repository's identity could not be confirmed from the "origin" remote.
+aurumcode review: Exceções desativadas: não foi possível confirmar o repositório revisado a partir do remoto "origin".
 RESULTADO: sem identidade confirmada, nenhuma excecao casa (falha fechado)
 ```
 

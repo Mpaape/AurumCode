@@ -1,5 +1,5 @@
 --- com provedor, o modelo contesta a evidencia; politica fail_on [high]
-aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
+aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
 Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).
   - repo: "<owner/repo a definir>"

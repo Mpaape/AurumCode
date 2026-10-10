@@ -1,25 +1,25 @@
 == repo-afrouxa
 --- so o repositorio: fail_on [high] deixa o achado warning passar
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+## AurumCode revisão de código
 
 > [!NOTE]
-> **Approved with 1 observation that does not block the merge.**
+> **Aprovado com 1 observação que não bloqueia o merge.**
 
-policy gate: passed · 1 file reviewed
+gate da política: passou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-  - Impact: A senha vai para o historico do repositorio.
-  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
-  - Suggested fix: Leia a senha do ambiente.
-  - Verify: Remova o literal e rode a revisao de novo.
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
 exit_code=0
 RESULTADO: o gate do proprio repositorio aceita o warning
 --- com a politica: fail_on [warning] vale, o do repositorio e ignorado
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## AurumCode revisão de código
 

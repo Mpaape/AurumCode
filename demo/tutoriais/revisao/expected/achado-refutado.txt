@@ -10,6 +10,6 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: verificação: limites.go:23 quality/missing-error-handling continua bloqueando: a citação do verificador não está no código — Validar tem guarda de nil. [quote_not_found]
 > **Bloqueado: 1 problema precisa de correção antes do merge.**
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 RESULTADO: citacao inexistente: a refutacao e descartada e o achado reprova

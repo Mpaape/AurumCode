@@ -1,15 +1,15 @@
 == sugestao-separada
 $ aurumcode review --base main --changelog
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-no gate declared · 1 file reviewed
+sem gate declarado · 1 arquivo revisado
 
-### Suggested release
+### Versão sugerida
 
-**Next version:** `0.0.0`
+**Próxima versão:** `0.0.0`
 
 **Bump:** none
 
@@ -19,17 +19,17 @@ no gate declared · 1 file reviewed
 
 ### Changed
 
-- feature: repo-exemplo/mudanca (93be002e3ad230619a7ddae4a2d47ad135eca38e)
+- feature: repo-exemplo/mudanca (ff21364eb48ba77ba08c8953c254093045d032c2)
 
 ### Fixed
 
 ### Removed
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: o review publicou a sugestao de changelog sem decidir o merge
 $ aurumcode changelog --base main
 changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
-changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
+changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 exit_code=1
 RESULTADO: a sugestao nao substitui a entrada: o check obrigatorio reprovou

@@ -1,35 +1,35 @@
 == nosemgrep-e-semgrepignore
 --- sem politica (config do proprio repositorio): nosemgrep e .semgrepignore valem
 $ aurumcode review --base main
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-no gate declared · 3 files reviewed
+sem gate declarado · 3 arquivos revisados
 
-Review coverage
-- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+Cobertura da revisão
+- 1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - .semgrepignore
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: sem politica, o nosemgrep e o .semgrepignore silenciam os dois eval()
 --- sob politica central: o mesmo codigo, o autor nao consegue silenciar
 $ aurumcode review --base main --politica /policy
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval - eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
-## AurumCode code review
+aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval - eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 2 problems must be fixed before merge.**
+> **Bloqueado: 2 problemas precisam de correção antes do merge.**
 
-policy gate: failed · 3 files reviewed
+gate da política: reprovou · 3 arquivos revisados
 
-Review coverage
-- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+Cobertura da revisão
+- 1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - .semgrepignore
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
 legado.js:2: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
-aurumcode review: policy gate: semgrep:policy.regras.demo-sem-eval - eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
 exit_code=3
 RESULTADO: sob politica, os dois eval() aparecem apesar de nosemgrep e .semgrepignore

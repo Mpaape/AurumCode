@@ -1,8 +1,9 @@
 == binario-ausente
 $ aurumcode review --base main
-aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (secrets_unavailable); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (secrets_unavailable)
+aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (varredura de segredos habilitada, mas o Gitleaks não está instalado [secrets_unavailable]); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — varredura de segredos habilitada, mas o Gitleaks não está instalado [secrets_unavailable]
+aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (varredura de segredos habilitada, mas o Gitleaks não está instalado [secrets_unavailable]) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -11,6 +12,5 @@ aurumcode review: policy gate: review inconclusive (secrets_unavailable)
 
 gate da política: reprovou · 1 arquivo revisado
 config.py:1: [error] Segredo no código casou a regra github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
-aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova

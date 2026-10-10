@@ -73,7 +73,7 @@ fora.
 <!-- saida: primeira-revisao -->
 ```text
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 ```
 
@@ -105,11 +105,11 @@ aurumcode review --base main --seguranca --fail-on error
 
 <!-- saida: sem-provedor -->
 ```text
-aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
-LLM quality review did not run. The following report covers deterministic analysis only.
+aurumcode review: nenhum provedor de modelo configurado: revisão por modelo não executada; rodando só a análise determinística
+A revisão por modelo não rodou. O relatório abaixo cobre só a análise determinística.
 > **Inconclusivo: esta revisão não aprova a mudança.**
 app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 ```
 
@@ -125,7 +125,7 @@ aurumcode review --base main --seguranca --exigir-qualidade
 
 <!-- saida: sem-provedor -->
 ```text
-aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review
+aurumcode review: --exigir-qualidade: a revisão por modelo não rodou, então esta execução não é uma revisão completa
 exit_code=1
 RESULTADO: com --exigir-qualidade, sem provedor o comando falha
 ```
@@ -167,7 +167,7 @@ aurumcode review --base main --fail-on error
 ```text
 > **Bloqueado: 1 problema precisa de correção antes do merge.**
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 ```
 
@@ -316,8 +316,8 @@ review:
 
 <!-- saida: pr-workflow -->
 ```text
-aurumcode review: the diff did not fit one prompt; reviewed in 3 batches by directory (files per batch: 2, 2, 2)
-review formal "APPROVE" publicado no pull request #7 (0 comentário(s) na linha).
+aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por diretório (arquivos por lote: 2, 2, 2)
+parecer publicado na PR #7 como aprovação (sem comentários na linha).
 exit_code=0
 ```
 
@@ -330,10 +330,10 @@ arquivos fora são listados na cobertura publicada e a aprovação é retida.
 
 <!-- saida: pr-workflow -->
 ```text
-aurumcode review: policy gate: review inconclusive (partial_coverage)
-review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
+parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).
 exit_code=1
-- 4 file(s) were left out of the review by the token budget.
+- 4 arquivos ficaram fora da revisão pelo limite de tokens.
   - banco/catalogo.go
   - banco/tabela.go
   - web/catalogo.go
@@ -461,7 +461,7 @@ $ aurumcode review --base main --fail-on error
 aurumcode review: verificação: limites.go:23 quality/missing-error-handling continua bloqueando: a citação do verificador não está no código — Validar tem guarda de nil. [quote_not_found]
 > **Bloqueado: 1 problema precisa de correção antes do merge.**
 limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l e nil e a chamada entra em panico. (rule quality/missing-error-handling: Missing Error Handling)
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 RESULTADO: citacao inexistente: a refutacao e descartada e o achado reprova
 ```
@@ -487,7 +487,7 @@ aurumcode review --base main
 
 <!-- saida: falha-nao-revisado -->
 ```text
-generated file, skipped: gerado.go
+arquivo gerado, não revisado: gerado.go
 > **Inconclusivo: esta revisão não aprova a mudança.**
 arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
@@ -514,7 +514,7 @@ gate:
 
 <!-- saida: falha-nao-revisado -->
 ```text
-aurumcode review: policy gate: review inconclusive (partial_coverage)
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 ```
@@ -531,9 +531,9 @@ um caminho em `ignore`).
 
 <!-- saida: falha-nao-revisado -->
 ```text
-binary file, skipped: logo.png
+arquivo binário, não revisado: logo.png
 > **Inconclusivo: esta revisão não aprova a mudança.**
-- 1 arquivo(s) ignorados (configuração `ignore` do repositório ou binários): ficam fora da conta de cobertura e a ausência deles no contexto NÃO prova que não existam no diff.
+- 1 arquivo ignorado (regra `ignore` do repositório ou binário): não foi revisado e não entra na cobertura. Ignorado não significa aprovado.
   - logo.png (binary)
 RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova
 ```

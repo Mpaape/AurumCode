@@ -1,4 +1,4 @@
-aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (secrets_unavailable); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
-aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
+aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (varredura de segredos habilitada, mas o Gitleaks não está instalado [secrets_unavailable]); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
+aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (varredura de segredos habilitada, mas o Gitleaks não está instalado [secrets_unavailable]) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova

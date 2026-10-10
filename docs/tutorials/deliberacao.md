@@ -135,7 +135,7 @@ gate; quem precisa dela sempre deve declará-la `required: true`.
 ```text
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas []; não pedidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 1; desfecho answered
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: diff pequeno: o modelo nao pediu o scanner_semgrep e ele nao rodou
 auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context,read_file,search_text,find_symbol,changed_file_diff chamadas=0
@@ -187,9 +187,9 @@ inconclusiva (nunca "zero achados") e, com o `gate.inconclusive` padrão
 ```text
 $ aurumcode review --base main
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) failed: varredura inconclusiva (sast_unavailable)
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_unavailable)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable])
 - **Varredura pedida inconclusiva** — o scanner_semgrep nao produziu resultado; nada pode ser afirmado sobre calc.js
-Sem achados nas fontes concluídas; inconclusivo: sast_unavailable
+Sem achados nas fontes concluídas; inconclusivo: análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]
 exit_code=1
 RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e o gate reprova
 ```

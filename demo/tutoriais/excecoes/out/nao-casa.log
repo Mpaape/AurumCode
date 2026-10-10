@@ -1,56 +1,56 @@
 == nao-casa
 --- outro caminho
 $ aurumcode review --base main --politica /policy
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-  - Impact: A senha vai para o historico do repositorio.
-  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
-  - Suggested fix: Leia a senha do ambiente.
-  - Verify: Remova o literal e rode a revisao de novo.
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
 exit_code=3
 RESULTADO: excecao para outro caminho nao casa
 --- outro repositorio
 $ aurumcode review --base main --politica /policy
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
-## AurumCode code review
+aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-  - Impact: A senha vai para o historico do repositorio.
-  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
-  - Suggested fix: Leia a senha do ambiente.
-  - Verify: Remova o literal e rode a revisao de novo.
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 RESULTADO: excecao de outro repositorio nao casa
 --- repositorio sem remoto origin: identidade nao confirmada
 $ aurumcode review --base main --politica /policy
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
-aurumcode review: Exceptions disabled: the reviewed repository's identity could not be confirmed from the "origin" remote.
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
+aurumcode review: Exceções desativadas: não foi possível confirmar o repositório revisado a partir do remoto "origin".
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-  - Impact: A senha vai para o historico do repositorio.
-  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
-  - Suggested fix: Leia a senha do ambiente.
-  - Verify: Remova o literal e rode a revisao de novo.
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
 exit_code=3
 RESULTADO: sem identidade confirmada, nenhuma excecao casa (falha fechado)

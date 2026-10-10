@@ -1,19 +1,19 @@
 == canario-de-redacao
 $ aurumcode review --base main --politica /policy --auditoria /work/auditoria.json --sarif /work/revisao.sarif
-aurumcode review: verification: app.go:6 seguranca#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 app.go:6: [error] Credencial literal [REDACTED] proibida pela politica. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
-  - Impact: A senha vai para o historico do repositorio.
-  - Evidence: A linha adicionada contem [REDACTED] em app.go.
-  - Suggested fix: Leia a senha do ambiente.
-  - Verify: Remova o literal e rode a revisao de novo.
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada contem [REDACTED] em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
 exit_code=3
 RESULTADO: a revisao reprova
 --- o canario aparece em algum destino?

@@ -120,8 +120,8 @@ aurumcode review --base main
 <!-- saida: registry-sem-rede -->
 ```text
 $ aurumcode review --base main
-aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run.
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
+aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (o Semgrep falhou ao rodar [sast_execution_error]); nenhum achado determinístico do Semgrep foi publicado nesta execução.
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error])
 exit_code=1
 ```
 
@@ -345,7 +345,7 @@ aurumcode review --base main
 <!-- saida: semgrep-falha -->
 ```text
 --- gate.inconclusive: block
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error])
 exit_code=1
 --- gate.inconclusive: warn
 exit_code=0
@@ -372,8 +372,8 @@ aurumcode review --base main
 <!-- saida: govet-sem-go -->
 ```text
 $ aurumcode review --base main
-aurumcode review: LINT (Govet) inconclusive: the scan did not produce a trustworthy result (lint_unavailable); no Govet finding was published for this run.
-aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable)
+aurumcode review: LINT (Govet) inconclusivo: a varredura não produziu resultado confiável (lint habilitado, mas o go vet não está disponível [lint_unavailable]); nenhum achado determinístico do Govet foi publicado nesta execução.
+aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint habilitado, mas o go vet não está disponível [lint_unavailable])
 exit_code=1
 ```
 

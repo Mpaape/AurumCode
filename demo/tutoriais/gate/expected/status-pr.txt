@@ -1,22 +1,22 @@
 --- aprovado
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado no pull request #7)
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado)
 exit_code=0
 status publicado: context=aurumcode/review state=success
-  description: nenhum achado grave no pull request #7
+  description: nenhum achado grave
 status publicado: context=aurumcode/policy-gate state=success
-  description: aprovado: gate de política aprovado no pull request #7
+  description: aprovado: gate de política aprovado
 --- reprovado
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer)
 exit_code=3
 status publicado: context=aurumcode/review state=failure
-  description: 1 achado(s) grave(s) no pull request #7
+  description: 1 achado grave
 status publicado: context=aurumcode/policy-gate state=failure
-  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…
+  description: falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer
 --- inconclusivo
-aurumcode review: policy gate: review inconclusive (partial_coverage)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage))
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (inconclusivo: a revisão não cobriu tudo e o gate reprova por configuração — parte do diff ficou fora da revisão [partial_coverage])
 exit_code=1
-  description: inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage)
+  description: inconclusivo: a revisão não cobriu tudo e o gate reprova por configuração — parte do diff ficou fora da revisão [partial_coverage]
 RESULTADO: o ultimo caso (inconclusivo em block) sai 1 e publica status failure

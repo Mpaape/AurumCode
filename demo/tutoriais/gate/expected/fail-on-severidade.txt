@@ -1,5 +1,5 @@
 --- fail_on [high], achado warning
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 exit_code=0
 RESULTADO: warning abaixo do limiar high nao reprova
 --- fail_on [medium], o mesmo achado warning

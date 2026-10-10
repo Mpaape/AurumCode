@@ -1,16 +1,16 @@
 == govet-sem-go
 $ aurumcode review --base main
-aurumcode review: LINT (Govet) inconclusive: the scan did not produce a trustworthy result (lint_unavailable); no Govet finding was published for this run. Engine detail: govet: go env: exec: "go": executable file not found in $PATH
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (lint_unavailable)
-aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable) [detalhe: govet: go env: exec: "go": executable file not found in $PATH]
-## AurumCode code review
+aurumcode review: LINT (Govet) inconclusivo: a varredura não produziu resultado confiável (lint habilitado, mas o go vet não está disponível [lint_unavailable]); nenhum achado determinístico do Govet foi publicado nesta execução. Detalhe da engine: govet: go env: exec: "go": executable file not found in $PATH
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — lint habilitado, mas o go vet não está disponível [lint_unavailable]
+aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint habilitado, mas o go vet não está disponível [lint_unavailable]) [detalhe: govet: go env: exec: "go": executable file not found in $PATH]
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed · 1 file reviewed
-Sem achados nas fontes concluídas; inconclusivo: lint_unavailable
+gate da política: reprovou · 1 arquivo revisado
+Sem achados nas fontes concluídas; inconclusivo: lint habilitado, mas o go vet não está disponível [lint_unavailable]
 exit_code=1
 RESULTADO: sem go no PATH: inconclusivo (lint_unavailable) e o gate reprova; nada e instalado

@@ -139,7 +139,7 @@ aurumcode changelog --base main
 <!-- saida: sugestao-separada -->
 ```text
 $ aurumcode review --base main --changelog
-Suggested release
+Versão sugerida
 exit_code=0
 RESULTADO: o review publicou a sugestao de changelog sem decidir o merge
 $ aurumcode changelog --base main

@@ -11,11 +11,11 @@ tools/list: aurum_explain, aurum_gate, aurum_review, aurum_rules
   aurum_explain(finding_id) somente leitura=True
 aurum_gate: decisao=fail exit_code=3
   bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
-  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+  proximo passo: Corrija cada achado bloqueante (veja suggestion, ou chame aurum_explain com o id dele) e chame aurum_gate de novo. Nunca desligue nem afrouxe uma regra para passar.
 aurum_review: decisao=fail exit_code=3
   bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
   achado: ba04efaf2bb3 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem model)
-  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+  proximo passo: Corrija cada achado bloqueante (veja suggestion, ou chame aurum_explain com o id dele) e chame aurum_gate de novo. Nunca desligue nem afrouxe uma regra para passar.
 RESULTADO: o gate reprova a mudanca, como o CI reprovaria
 --- a mesma pergunta pela CLI: review --base com as mesmas opcoes do servidor
 $ aurumcode review --base main --seguranca --exigir-qualidade
@@ -30,10 +30,10 @@ stdout: 3 mensagens JSON-RPC 2.0, nenhuma outra linha
 initialize: servidor aurumcode, protocolo 2025-06-18
 aurum_gate: decisao=fail exit_code=3
   bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
-  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+  proximo passo: Corrija cada achado bloqueante (veja suggestion, ou chame aurum_explain com o id dele) e chame aurum_gate de novo. Nunca desligue nem afrouxe uma regra para passar.
 aurum_explain: a5a11362b168 app.go:10 erros#err-001-erro-nunca-ignorado
   sugestao: Devolva o erro com contexto.
-  como corrigir: Rule erros#err-001-erro-nunca-ignorado (skills) at app.go:10. Apply the suggestion or remove the cause in the code, then call aurum_gate again; an exception or a disabled rule is a policy decision for a human, not a fix.
+  como corrigir: Regra erros#err-001-erro-nunca-ignorado (skills) em app.go:10. Aplique a sugestão ou remova a causa no código e chame aurum_gate de novo; exceção ou regra desligada é decisão de política para um humano, não correção.
 RESULTADO: a explicacao traz a regra, a sugestao e como corrigir
 --- o agente corrige (novo commit) e consulta de novo
 $ aurumcode mcp   # cliente de teste: initialize + 1 requisicao(oes) por stdio
@@ -41,5 +41,5 @@ exit_code=0
 stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
 initialize: servidor aurumcode, protocolo 2025-06-18
 aurum_gate: decisao=pass exit_code=0
-  proximo passo: The gate passes. Commit or push.
+  proximo passo: O gate passa. Faça commit ou push.
 RESULTADO: depois da correcao o gate passa: o agente pode commitar e abrir o PR

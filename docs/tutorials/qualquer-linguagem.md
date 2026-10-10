@@ -103,8 +103,8 @@ aurumcode review --base main
 
 <!-- saida: arquivo-sem-gramatica -->
 ```text
-Review coverage
-- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+Cobertura da revisão
+- 1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - notas.zzqx
 exit_code=0
 prompt: +mas e texto simples e precisa ser lido pelo modelo
@@ -137,7 +137,7 @@ Com `gate.inconclusive: block` (a mesma configuração do caso 2):
 
 <!-- saida: binario-e-gerado -->
 ```text
-aurumcode review: policy gate: review inconclusive (partial_coverage)
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 ```

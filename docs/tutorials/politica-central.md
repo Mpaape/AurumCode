@@ -253,7 +253,7 @@ review:
 <!-- saida: analysis-data -->
 ```text
 aurumcode review: politica central: analysis_data do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable)
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable])
 exit_code=0
 ```
 

@@ -4,5 +4,5 @@ exit_code=3
 RESULTADO: o achado reprova
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
 --- segunda execucao: mesmo SHA, politica e modelo
-aurumcode review: reused 1 file(s) from cache (not resent to the model)
+aurumcode review: 1 arquivo reaproveitado do cache (não reenviado ao modelo)
 RESULTADO: o mesmo veredito, sem reenviar o arquivo ao modelo

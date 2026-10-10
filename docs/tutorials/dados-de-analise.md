@@ -125,14 +125,14 @@ aurumcode review --base main --auditoria audit.json
 ```text
 --- A. nao declarado (o servidor local esta no ar, mas ninguem o consulta)
 $ aurumcode review --base main --auditoria audit.json
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 --- requisicoes recebidas pelo servidor local (modo valido): 0
 exit_code=0
 RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data
 linhas citando analysis_data na saida do review: 0
 auditoria: sem campo analysis_data
 $ aurumcode review --base main --auditoria audit.json
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 --- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -171,16 +171,16 @@ aurumcode review --base main
 <!-- saida: vencido -->
 ```text
 --- gate.inconclusive: block
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
-> **Inconclusive: this review does not approve the change.**
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
+> **Inconclusivo: esta revisão não aprova a mudança.**
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
 exit_code=1
 RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
-> **Inconclusive: this review does not approve the change.**
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/<timestamp> generated <timestamp> is <duracao> days old, above max_age_days=7
+> **Inconclusivo: esta revisão não aprova a mudança.**
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -213,7 +213,7 @@ aurumcode review --base main --auditoria audit.json
 <!-- saida: cache -->
 ```text
 --- 1. servidor no ar: baixa, verifica e guarda no cache
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 --- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -222,7 +222,7 @@ exit_code=0
 RESULTADO: primeira execucao: artefato remoto verificado e guardado no cache
 auditoria analysis_data.source: remote
 --- 2. a listagem de releases cai (HTTP 503); a copia em cache, ainda dentro da idade, e usada
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/<timestamp>): a listagem de releases estava indisponível; idade e digests verificados
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
@@ -230,8 +230,8 @@ exit_code=0
 RESULTADO: listagem fora do ar com copia valida em cache: usa o cache e o declara
 auditoria analysis_data.source: cache
 --- 3. sem cache nenhum e a listagem fora do ar: inconclusivo
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=1
@@ -371,7 +371,7 @@ Dois modos: o `scanners.yml` servido não bate com o digest do manifesto, ou o
 <!-- saida: adulterado -->
 ```text
 --- A. scanners.yml servido diferente do digest do manifesto
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (os dados de análise não conferem com o artefato declarado [analysis_data_digest_mismatch]): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
 --- requisicoes recebidas pelo servidor local (modo adulterado-arquivo): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -379,7 +379,7 @@ aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_da
 exit_code=1
 RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova
 --- B. set_digest do manifesto nao confere com a lista de arquivos
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_digest_mismatch): manifest: set_digest "sha256:0000000000000000000000000000000000000000000000000000000000000000" does not match its files (sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1): digest mismatch
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (os dados de análise não conferem com o artefato declarado [analysis_data_digest_mismatch]): manifest: set_digest "sha256:0000000000000000000000000000000000000000000000000000000000000000" does not match its files (sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1): digest mismatch
 --- requisicoes recebidas pelo servidor local (modo adulterado-manifesto): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -399,20 +399,20 @@ container não tem rota); e o mesmo com `gate.inconclusive: warn`.
 <!-- saida: indisponivel -->
 ```text
 --- A. a listagem responde HTTP 503 e nao ha cache
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=1
 RESULTADO: listagem 503 sem cache: analysis_data_unavailable reprova
 --- B. sem rede nenhuma (container sem rota, nada escuta)
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 exit_code=1
 RESULTADO: sem rede e sem cache: analysis_data_unavailable reprova
 --- C. o mesmo com gate.inconclusive: warn
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 exit_code=0
 RESULTADO: sem rede com warn: exit 0, mas nunca aprovado silenciosamente
 ```
