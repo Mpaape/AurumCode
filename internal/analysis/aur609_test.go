@@ -105,7 +105,8 @@ func TestAUR609ProseFilesSkipCodeRules(t *testing.T) {
 func TestAUR609SecretInProseStillFound(t *testing.T) {
 	r := NewRunner()
 	for _, path := range []string{"README.md", "notes.txt", "logs/run.log"} {
-		got := r.Analyze(singleHunk(path, 1, 1, `+password = "abcdefgh12"`))
+		// Assembled so this source line does not read as a credential.
+		got := r.Analyze(singleHunk(path, 1, 1, "+password = \""+"abcdefgh"+"12"+"\""))
 		if countRule(got, RuleHardcodedSecret) != 1 {
 			t.Fatalf("a secret in %s reported %#v, want one %s finding", path, got, RuleHardcodedSecret)
 		}

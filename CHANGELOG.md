@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Exemplos de senha dos testes da redação montados em tempo de execução, para a passada de segurança do próprio repositório não os ler como credencial (AUR-609).
 - A versão da ferramenta nos workflows é resolvida por `scripts/ci/resolve-tool-version.sh`, um só script para os três builds (AUR-611).
 
 ## 2.0.0 - 2026-10-09
