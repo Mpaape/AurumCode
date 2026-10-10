@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A versão da ferramenta nos workflows é resolvida por `scripts/ci/resolve-tool-version.sh`, um só script para os três builds (AUR-611).
+
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate

@@ -284,7 +284,14 @@ run_mut002() {
   cat "$glog" >&2
   run_guard "$guard" configured
   [[ "$grc" == 0 && ! -s "$glog" ]] || fail 'guard-blocks-or-publishes-with-secrets'
-  grep -q 'needs:' "$workflow" && fail 'guard-or-review-chained-by-needs'
+  # The guard (provider) and the review must stay independent jobs, so the
+  # guard fails closed on its own. A later job that consumes the review
+  # (the SARIF upload) may need it.
+  local job
+  for job in provider review; do
+    awk -v j="  $job:" '$0 == j {on=1; next} on && /^  [A-Za-z0-9_-]+:$/ {on=0} on' "$workflow" |
+      grep -q '^ *needs:' && fail 'guard-or-review-chained-by-needs'
+  done
   local mutated="$run_dir/guard-mutated.sh"
   sed 's/^exit 1$/exit 0/' "$guard" >"$mutated"
   cmp -s "$guard" "$mutated" && infra 'guard-mutation-not-applied'
