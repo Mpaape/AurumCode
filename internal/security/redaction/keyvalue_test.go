@@ -231,7 +231,12 @@ func TestAUR609RedactionIsLinear(t *testing.T) {
 	flat := func(size int) string {
 		return strings.Repeat("token=f(x)", size/len("token=f(x)"))
 	}
-	const limit = 2 * time.Second
+	limit := 2 * time.Second
+	if raceDetector {
+		// -race slows the filter about tenfold; the quadratic version still
+		// takes minutes here, so this budget keeps rejecting it.
+		limit = 30 * time.Second
+	}
 	for name, build := range map[string]func(int) string{"nested": nested, "flat": flat} {
 		t.Run(name, func(t *testing.T) {
 			aur609RedactWithin(t, build(64<<10), limit) // warm up
