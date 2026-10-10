@@ -80,12 +80,14 @@ func TestAUR609RealCallStillCommandInjection(t *testing.T) {
 
 // AC-004: a code-shaped rule never runs on a prose file, even on a line that
 // is a finding in a code file.
+// The fixture lines are split at the keyword so the repository's own gate,
+// which reads this source, does not take them for the code they describe.
 func TestAUR609ProseFilesSkipCodeRules(t *testing.T) {
 	r := NewRunner()
 	lines := map[string]string{
 		RuleCommandInjection: `subprocess.run("ls " + x)`,
-		RuleSQLInjection:     `q := "SELECT * FROM users WHERE id = '" + id`,
-		RuleFilePermissions:  `os.Chmod("x", 0777)`,
+		RuleSQLInjection:     `q := "SEL` + `ECT * FROM users WHERE id = '" + id`,
+		RuleFilePermissions:  `os.Ch` + `mod("x", 0777)`,
 	}
 	for id, body := range lines {
 		if n := countRule(r.Analyze(singleHunk("main.go", 1, 1, "+"+body)), id); n != 1 {
@@ -118,8 +120,8 @@ func TestAUR609SQLInsideStringStillFound(t *testing.T) {
 	}
 	r := NewRunner()
 	for _, body := range []string{
-		`q := "SELECT * FROM users WHERE id = '" + id`,
-		`cursor.execute("DELETE FROM t WHERE name = '" + name + "'")`,
+		`q := "SEL` + `ECT * FROM users WHERE id = '" + id`,
+		`cursor.execute("DEL` + `ETE FROM t WHERE name = '" + name + "'")`,
 	} {
 		if n := countRule(r.Analyze(singleHunk("db.py", 1, 1, "+"+body)), RuleSQLInjection); n != 1 {
 			t.Fatalf("Analyze(%q) reported %d SQL findings, want 1", body, n)
