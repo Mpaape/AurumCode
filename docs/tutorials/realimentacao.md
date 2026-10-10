@@ -39,6 +39,7 @@ O repositório da política declara a skill que as propostas podem mudar:
 <!-- arquivo: demo/tutoriais/realimentacao/politica/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

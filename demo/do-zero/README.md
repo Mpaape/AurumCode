@@ -10,6 +10,12 @@ sai marcado com quem o encontrou: **segurança** (embutido no AurumCode),
 a regra escrita com `severity: error` (por um time ou pela segurança) e o
 achado de ferramenta; o resto orienta.
 
+O analista embutido `seguranca` é uma passada do modelo com foco em
+segurança, não a varredura determinística de segredos: um perfil muda só o
+foco e as famílias de regra que o modelo prioriza. A varredura de segredos é
+das ferramentas (o passe determinístico de segurança e o gitleaks, quando
+ligados), e ligar ou desligar o analista não a muda.
+
 ### Receita: um time cria o seu analista
 
 1. **Foco** — em `.aurumcode/profiles.yml`, um item com `name` (como o analista
@@ -70,7 +76,7 @@ bash demo/do-zero/run.sh --modo real --repo meu-assistente
 | 5 Defeitos | `etapas/defeito.py.modelo`: chave fixa (linha 10) e `exec` da resposta (linha 36) | | |
 | 6 Agente | `aurumcode mcp`: `aurum_gate` reprova, `aurum_explain` explica; o mesmo pela CLI | modelo = fixture | modelo do ambiente |
 | 7 PR bloqueada | parecer "Bloqueado: 2 problemas", comentário na linha e correção aplicável | GitHub falso em 127.0.0.1 | PR real, espera o workflow |
-| 8 Correção | `etapas/correcao.py`; o parecer é editado: aprovado | | |
+| 8 Correção | `etapas/correcao.py`; o parecer é atualizado: aprovado | | |
 | 9 Resumo | o que ficou e como continuar | | |
 
 Modo real: `gh` autenticado e `LLM_API_KEY`, `LLM_BASE_URL` (e `LLM_MODEL`, se o

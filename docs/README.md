@@ -2,6 +2,9 @@
 
 **[Guia interativo: instalar, configurar e usar](https://mpaape.github.io/AurumCode/)**
 
+**Por capacidade:** [visão geral do que o AurumCode oferece](index.md) e
+[índice de tutoriais executáveis](tutorials/README.md), um por capacidade.
+
 - [Primeiro review e uso local](getting-started.md)
 - [Instalar com ajuda da IA: configuração guiada por perguntas](tutorials/instalacao-ia.md)
 - [Configuração, prompts, skills e referência de opções](configuration.md)

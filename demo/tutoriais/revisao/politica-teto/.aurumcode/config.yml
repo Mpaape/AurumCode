@@ -3,3 +3,5 @@ gate:
   inconclusive: block
 batches:
   max_batches: 1
+review:
+  language: pt-BR

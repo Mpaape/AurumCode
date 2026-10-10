@@ -1,33 +1,33 @@
 == semgrep-falha
 --- gate.inconclusive: block
 $ aurumcode review --base main
-aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run. Engine detail: semgrep: execution failed: exit status 2
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (sast_execution_error)
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error) [detalhe: semgrep: execution failed: exit status 2]
-## AurumCode code review
+aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (o Semgrep falhou ao rodar [sast_execution_error]); nenhum achado determinístico do Semgrep foi publicado nesta execução. Detalhe da engine: semgrep: execution failed: exit status 2
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — o Semgrep falhou ao rodar [sast_execution_error]
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error]) [detalhe: semgrep: execution failed: exit status 2]
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed · 1 file reviewed
-Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
+gate da política: reprovou · 1 arquivo revisado
+Sem achados nas fontes concluídas; inconclusivo: o Semgrep falhou ao rodar [sast_execution_error]
 exit_code=1
 RESULTADO: semgrep falhou: inconclusivo e, com block, o gate reprova
 --- gate.inconclusive: warn
 $ aurumcode review --base main
-aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run. Engine detail: semgrep: execution failed: exit status 2
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (sast_execution_error)
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error) [detalhe: semgrep: execution failed: exit status 2]
-## AurumCode code review
+aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (o Semgrep falhou ao rodar [sast_execution_error]); nenhum achado determinístico do Semgrep foi publicado nesta execução. Detalhe da engine: semgrep: execution failed: exit status 2
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — o Semgrep falhou ao rodar [sast_execution_error]
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error]) [detalhe: semgrep: execution failed: exit status 2]
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: passed · 1 file reviewed
-Sem achados nas fontes concluídas; inconclusivo: sast_execution_error
+gate da política: passou · 1 arquivo revisado
+Sem achados nas fontes concluídas; inconclusivo: o Semgrep falhou ao rodar [sast_execution_error]
 exit_code=0
 RESULTADO: semgrep falhou: com warn o alerta e publicado e o comando sai 0, sem aprovar

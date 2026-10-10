@@ -1,2 +1,4 @@
 changelog_check:
   mode: off
+review:
+  language: pt-BR

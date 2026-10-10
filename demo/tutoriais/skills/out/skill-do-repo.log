@@ -1,17 +1,17 @@
 == skill-do-repo
 $ aurumcode review --base main
-aurumcode review: verification: app.go:6 convencoes#sem-segredos-no-codigo still blocks: the verifier gave no valid answer [invalid_answer]
-## AurumCode code review
+aurumcode review: verificação: app.go:6 convencoes#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-no gate declared · 1 file reviewed
+sem gate declarado · 1 arquivo revisado
 app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)
-  - Impact: A senha vai para o historico do repositorio.
-  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
-  - Suggested fix: Leia a senha do ambiente.
-  - Verify: Remova o literal e rode a revisao de novo.
+  - Impacto: A senha vai para o historico do repositorio.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente.
+  - Verificação: Remova o literal e rode a revisao de novo.
 exit_code=0
 RESULTADO: o achado cita a secao da skill como regra; sem gate o exit e 0
 prompt: - `convencoes#sem-segredos-no-codigo`

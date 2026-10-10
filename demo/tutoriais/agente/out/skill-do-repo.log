@@ -15,7 +15,7 @@ stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
 initialize: servidor aurumcode, protocolo 2025-06-18
 aurum_review: decisao=pass exit_code=0
   achado: d4eaae43264e app.go:10 [error] quality/missing-error-handling (origem model)
-  proximo passo: The gate passes. Commit or push.
+  proximo passo: O gate passa. Faça commit ou push.
 RESULTADO: achado do modelo sem regra de skill orienta e nao reprova
 --- o modelo cita a skill do repositorio (disse warning; a skill diz error): o gate reprova
 $ aurumcode mcp   # cliente de teste: initialize + 1 requisicao(oes) por stdio
@@ -24,7 +24,7 @@ stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
 initialize: servidor aurumcode, protocolo 2025-06-18
 aurum_gate: decisao=fail exit_code=3
   bloqueia: a5a11362b168 app.go:10 [warning] erros#err-001-erro-nunca-ignorado (origem skills)
-  proximo passo: Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass.
+  proximo passo: Corrija cada achado bloqueante (veja suggestion, ou chame aurum_explain com o id dele) e chame aurum_gate de novo. Nunca desligue nem afrouxe uma regra para passar.
 RESULTADO: a violacao da skill do repo reprova o gate
 --- sob politica central (AURUMCODE_POLICY): as skills da politica e as do repositorio
 $ aurumcode mcp   # cliente de teste: initialize + 2 requisicao(oes) por stdio

@@ -1,16 +1,16 @@
 == vencido
 --- gate.inconclusive: block
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed · 2 files reviewed
-Sem achados nas fontes concluídas; inconclusivo: analysis_data_stale
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260909T044804Z generated 2026-09-09T04:48:04Z is 30.0 days old, above max_age_days=7
+gate da política: reprovou · 2 arquivos revisados
+Sem achados nas fontes concluídas; inconclusivo: dados de análise vencidos [analysis_data_stale]
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/20260910T041522Z generated 2026-09-10T04:15:22Z is 30.0 days old, above max_age_days=7
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -18,16 +18,16 @@ exit_code=1
 RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_stale): artifact analysis-data/20260909T044807Z generated 2026-09-09T04:48:07Z is 30.0 days old, above max_age_days=7
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/20260910T041524Z generated 2026-09-10T04:15:24Z is 30.0 days old, above max_age_days=7
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: passed · 2 files reviewed
-Sem achados nas fontes concluídas; inconclusivo: analysis_data_stale
+gate da política: passou · 2 arquivos revisados
+Sem achados nas fontes concluídas; inconclusivo: dados de análise vencidos [analysis_data_stale]
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200

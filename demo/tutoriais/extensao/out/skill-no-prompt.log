@@ -1,16 +1,16 @@
 == skill-no-prompt
 $ aurumcode review --base main
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-no gate declared · 1 file reviewed
+sem gate declarado · 1 arquivo revisado
 
-### Suggestions
+### Sugestões
 
-- **Eco da skill** — o prompt recebido trazia a skill de exemplo (MARCA-SKILL-EXEMPLO) Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.
-No issues found.
+- **Eco da skill** — o prompt recebido trazia a skill de exemplo (MARCA-SKILL-EXEMPLO) Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: a skill chegou ao prompt; sem engine nem gate o exit e 0
 prompt: Uma funcao faz uma coisa so. MARCA-SKILL-EXEMPLO

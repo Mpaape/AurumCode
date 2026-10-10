@@ -1,13 +1,13 @@
 == govet-achado
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf) (severidade warning, limiar warning, origem govet, secao repo)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)
 exit_code=3
 RESULTADO: go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra

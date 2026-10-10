@@ -178,7 +178,7 @@ run_mut001() {
 
   local tmp="$root/main.go.mutated"
   awk '
-    prevmatch == 1 && index($0, "fmt.Fprintf(b.stderr, \"aurumcode review: %v") > 0 { prevmatch = 0; next }
+    prevmatch == 1 && index($0, "printLines(b.stderr, \"aurumcode review: \", noProviderText(") > 0 { prevmatch = 0; next }
     { prevmatch = (index($0, "AUR-542: the complete AURUMCODE_LLM_FIXTURE teaching text") > 0) ? 1 : 0; print }
   ' "$target" >"$tmp" || infra 'MUT-001/rewrite'
   mv "$tmp" "$target"

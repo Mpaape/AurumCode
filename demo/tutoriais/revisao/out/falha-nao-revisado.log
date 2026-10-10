@@ -1,7 +1,7 @@
 == falha-nao-revisado
 --- sem gate: veredito 'Comment', nunca 'Approve'
 $ aurumcode review --base main
-generated file, skipped: gerado.go
+arquivo gerado, não revisado: gerado.go
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -10,17 +10,17 @@ generated file, skipped: gerado.go
 
 sem gate declarado
 
-Cobertura da revisão — 0 de 0 arquivo(s) do diff foram cobertos; 1 não foram revisados por completo.
-- 1 arquivo(s) foram filtrados antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
+Cobertura da revisão — arquivos do diff cobertos: 0 de 0; sem revisão completa: 1.
+- 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
-Sem achados nas fontes concluídas; inconclusivo: partial_coverage
+Sem achados nas fontes concluídas; inconclusivo: parte do diff ficou fora da revisão [partial_coverage]
 exit_code=0
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
 --- com gate.inconclusive: block
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (partial_coverage)
-generated file, skipped: gerado.go
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
+arquivo gerado, não revisado: gerado.go
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -29,16 +29,16 @@ generated file, skipped: gerado.go
 
 gate da política: reprovou · 1 arquivo revisado
 
-Cobertura da revisão — 1 de 1 arquivo(s) do diff foram cobertos; 1 não foram revisados por completo.
-- 1 arquivo(s) foram filtrados antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
+Cobertura da revisão — arquivos do diff cobertos: 1 de 1; sem revisão completa: 1.
+- 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
-Sem achados nas fontes concluídas; inconclusivo: partial_coverage
+Sem achados nas fontes concluídas; inconclusivo: parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 --- binario com gate.inconclusive: block: declarado ignorado, nao parcial
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-binary file, skipped: logo.png
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+arquivo binário, não revisado: logo.png
 ## AurumCode revisão de código
 
 > [!TIP]
@@ -47,8 +47,8 @@ binary file, skipped: logo.png
 gate da política: passou · 1 arquivo revisado
 
 Cobertura da revisão
-- 1 arquivo(s) ignorados (configuração `ignore` do repositório ou binários): ficam fora da conta de cobertura e a ausência deles no contexto NÃO prova que não existam no diff.
+- 1 arquivo ignorado (regra `ignore` do repositório ou binário): não foi revisado e não entra na cobertura. Ignorado não significa aprovado.
   - logo.png (binary)
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova

@@ -5,9 +5,10 @@
 Mostrar como uma organização impõe revisão e gate a **todos** os repositórios
 a partir de um só lugar, sem que um repositório consiga afrouxar. Cinco usos,
 todos executados: o repositório de política com `--politica`, o
-`policy_repository` no workflow, a precedência seção a seção (a política
-governa só o que declara), o `analysis_data`, e um repositório que tenta
-afrouxar o `fail_on` e não consegue.
+`policy_repository` no workflow, a precedência seção a seção (algumas
+seções a política governa sempre; outras, só quando as declara), o
+`analysis_data`, e um repositório que tenta afrouxar o `fail_on` e não
+consegue.
 
 Os blocos de configuração **são os arquivos de
 `demo/tutoriais/politica-central/`**, byte a byte, e as saídas vêm de uma
@@ -161,7 +162,8 @@ review.yml: passa --politica /github/policy ao aurumcode
 
 ## Caso 3: precedência por seção
 
-A política governa **só o que declara**. Esta política declara `gate` e
+`rules`, `ignore`, `gate` e `exceptions` a política governa sempre; as
+outras seções, **só quando as declara**. Esta política declara `gate` e
 `quality_gates.sast`:
 
 <!-- arquivo: demo/tutoriais/politica-central/politica-precedencia/.aurumcode/config.yml -->
@@ -173,6 +175,8 @@ quality_gates:
   sast:
     engine: semgrep
     enabled: false
+review:
+  language: pt-BR
 ```
 
 O repositório tenta decidir tudo por conta própria:
@@ -194,6 +198,8 @@ rules:
     enabled: false
 ignore:
   - "docs/**"
+review:
+  language: pt-BR
 ```
 
 <!-- saida: precedencia-por-secao -->
@@ -212,13 +218,16 @@ foi demonstrada.
 
 O que observar, seção por seção:
 
-| Seção | A política declara? | Resultado |
+| Seção | Sob política central, quem decide | Resultado |
 |---|---|---|
-| `rules`, `ignore`, `exceptions` | sob política central, sempre governa | o do repositório é ignorado, com aviso que nomeia a regra ou o padrão |
-| `gate` | sim | o do repositório é ignorado, com aviso |
-| `quality_gates.sast` | sim | o do repositório é ignorado, com aviso |
-| `quality_gates.supply_chain` | **não** | sem aviso: vale o do repositório |
-| `review.language`, `review.publication` | só se declara | vêm da política quando declarados |
+| `rules`, `ignore`, `gate`, `exceptions` | sempre a política, declare ou não | o do repositório é ignorado, com aviso que nomeia a regra, o padrão ou a seção |
+| `quality_gates.sast` | a política, quando declara | vale como engine `semgrep` obrigatória: o `semgrep` do repositório é ignorado, com aviso (neste caso) |
+| `quality_gates.scanners` | engine por engine | entrada da política com `required: true` vence: o repositório não a troca nem a desliga; sem `required: true`, vale a do repositório, com aviso; engine que só um lado declara vale como declarada |
+| `quality_gates.ssor_dtrack`, `quality_gates.supply_chain` | a política, quando declara | declarada na política, a do repositório é ignorada, com aviso; não declarada (como `supply_chain` neste caso), vale a do repositório, sem aviso |
+| `analysis_data`, `deliberation`, `batches`, `changelog_check`, `dependencies` | a política, quando declara | se a política declara, decide sozinha e a do repositório é ignorada, com aviso; se não declara, vale a do repositório |
+| `review.language`, `review.publication` | a política, quando declara | vêm da política quando declarados |
+| `review.profiles`, `review.verification`, `review.memory`, `review.inline_comments`, `review.presentation`, `review.changelog`, `review.version` | nunca a política | sempre do repositório |
+| `review.context` | os dois | o contexto do repositório continua, e o da política (skills, prompt, documentos) entra como camada da política |
 
 Cada seção de `quality_gates` é governada de forma independente: o aviso
 existe para **o que foi descartado**, e a ausência dele em `supply_chain` é a
@@ -237,12 +246,14 @@ gate:
   inconclusive: warn
 analysis_data:
   max_age_days: 30
+review:
+  language: pt-BR
 ```
 
 <!-- saida: analysis-data -->
 ```text
 aurumcode review: politica central: analysis_data do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable)
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable])
 exit_code=0
 ```
 
@@ -261,6 +272,7 @@ da política:
 <!-- arquivo: demo/tutoriais/politica-central/repo-exemplo/base-afrouxa/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/seguranca.md
@@ -300,6 +312,8 @@ Uma política com chave desconhecida (aqui um erro de digitação,
 gate:
   fail_on: [warning]
   inconclusve: block
+review:
+  language: pt-BR
 ```
 
 <!-- saida: falha-politica-invalida -->

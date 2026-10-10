@@ -1,14 +1,14 @@
-generated file, skipped: gerado.go
+arquivo gerado, não revisado: gerado.go
 > **Inconclusivo: esta revisão não aprova a mudança.**
 arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve
-aurumcode review: policy gate: review inconclusive (partial_coverage)
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 exit_code=0
-binary file, skipped: logo.png
+arquivo binário, não revisado: logo.png
 > **Inconclusivo: esta revisão não aprova a mudança.**
-- 1 arquivo(s) ignorados (configuração `ignore` do repositório ou binários): ficam fora da conta de cobertura e a ausência deles no contexto NÃO prova que não existam no diff.
+- 1 arquivo ignorado (regra `ignore` do repositório ou binário): não foi revisado e não entra na cobertura. Ignorado não significa aprovado.
   - logo.png (binary)
 RESULTADO: o binario e declarado ignorado, a revisao nao fica parcial e o gate em block nao reprova

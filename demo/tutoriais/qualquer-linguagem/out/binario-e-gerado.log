@@ -22,24 +22,24 @@ exit_code=0
 RESULTADO: sem gate, exit 0 mas o veredito nao e Approve (arquivos fora do alcance)
 --- com gate.inconclusive: block, os mesmos arquivos
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (partial_coverage)
-binary file, skipped: ferramenta.bin
-binary file, skipped: leia-me.txt
-generated file, skipped: schema.pb.txt
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
+arquivo binário, não revisado: ferramenta.bin
+arquivo binário, não revisado: leia-me.txt
+arquivo gerado, não revisado: schema.pb.txt
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed
+gate da política: reprovou
 
-Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
-- 3 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+Cobertura da revisão — arquivos do diff cobertos: 0 de 0; sem revisão completa: 3.
+- 3 arquivos foram filtrados antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - ferramenta.bin (binary)
   - leia-me.txt (binary)
   - schema.pb.txt (generated)
-Sem achados nas fontes concluídas; inconclusivo: partial_coverage
+Sem achados nas fontes concluídas; inconclusivo: parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova

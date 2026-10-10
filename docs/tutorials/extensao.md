@@ -95,6 +95,7 @@ A skill é Markdown, listada em `review.context.skills`:
 <!-- arquivo: demo/tutoriais/extensao/repo-exemplo/base-skill/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/exemplo.md

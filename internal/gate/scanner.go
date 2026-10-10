@@ -6,6 +6,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/gate/facts"
+	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -24,6 +25,18 @@ type Scan struct {
 	// (scanner.Outcome.Detail); it joins the gate line beside Reason and
 	// never changes the decision.
 	Detail string
+	// ToolMessages is the engine's own message of each finding whose shown
+	// message was put in the review's language, by FindingOriginKey. The
+	// audit record and the SARIF document keep the engine's text.
+	ToolMessages map[string]string
+}
+
+// toolMessage is issue's message as the engine wrote it.
+func (s Scan) toolMessage(issue types.ReviewIssue) string {
+	if msg, ok := s.ToolMessages[FindingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
+		return msg
+	}
+	return issue.Message
 }
 
 // DetailSuffix is the engine's detail as a gate line ends with it, after
@@ -74,6 +87,13 @@ func (s Scan) countsUnder(g config.GateConfig) bool {
 // the triage. A failed scan is inconclusive, never "zero findings"; the
 // one rule (ApplyInconclusiveMode) decides what inconclusive does.
 func ApplyScannerGate(d *Result, s Scan, issues []types.ReviewIssue) error {
+	return ApplyScannerGateIn("", d, s, issues)
+}
+
+// ApplyScannerGateIn is ApplyScannerGate with the inconclusive reason in the
+// review's language (reasons.Text): the code itself in English, as
+// before; a sentence with the code in brackets in Portuguese.
+func ApplyScannerGateIn(language string, d *Result, s Scan, issues []types.ReviewIssue) error {
 	if !s.Config.IsEnabled() {
 		return nil
 	}
@@ -81,7 +101,10 @@ func ApplyScannerGate(d *Result, s Scan, issues []types.ReviewIssue) error {
 	origin := s.Origin()
 	if s.Reason != "" {
 		d.Inconclusive = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)%s", s.label(), s.Engine.Name(), origin, s.Section, s.Reason, s.DetailSuffix()))
+		line := func(reason string) string {
+			return fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)%s", s.label(), s.Engine.Name(), origin, s.Section, reason, s.DetailSuffix())
+		}
+		d.addLine(line(reasons.Text(language, s.Reason)), line(s.Reason))
 		return nil
 	}
 	rank, name, err := s.Config.Threshold()
@@ -95,7 +118,9 @@ func ApplyScannerGate(d *Result, s Scan, issues []types.ReviewIssue) error {
 		}
 		d.Fail = true
 		d.Breach = true
-		d.Lines = append(d.Lines, FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin+", secao "+s.Section))
+		d.addLine(FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin+", secao "+s.Section),
+			FindingLine(issue.RuleID, s.toolMessage(issue), issue.Severity, name, origin+", secao "+s.Section))
+		d.noteBreach(issue.Message, issue)
 		d.BlockingFindings = append(d.BlockingFindings, facts.AuditFinding{
 			RuleID:   issue.RuleID,
 			Path:     issue.File,

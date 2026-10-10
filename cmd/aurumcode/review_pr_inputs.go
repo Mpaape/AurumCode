@@ -147,7 +147,7 @@ func (p *prReview) resolveChangelog() (int, bool) {
 	if !on {
 		return 0, false
 	}
-	commits, sourceErr := pullRequestChangelogSource(p.ctx, p.client, p.owner, p.repoName, p.prNumber)
+	commits, _, sourceErr := pullRequestChangelogSource(p.ctx, p.client, p.owner, p.repoName, p.prNumber)
 	if sourceErr != nil {
 		p.changelogLimitation = changelogUnavailableNotice(p.reviewLanguage)
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", p.changelogLimitation)

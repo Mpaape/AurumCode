@@ -3,13 +3,13 @@
 $ aurumcode review --base main
 aurumcode review: context provider "review skill (.aurumcode/skills/nao-existe.md)" unavailable: context provider "review skill (.aurumcode/skills/nao-existe.md)": reading .aurumcode/skills/nao-existe.md: open /work/.aurumcode/skills/nao-existe.md: no such file or directory; continuing without that context
 aurumcode review: 1 finding(s) discarded: 1 citing an unknown rule_id (convencoes#sem-segredos-no-codigo)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem proven in the reviewed change.**
+> **Aprovado: nenhum problema comprovado na mudança revisada.**
 
-no gate declared · 1 file reviewed
-No issues found.
+sem gate declarado · 1 arquivo revisado
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: localmente a skill ausente e avisada e a revisao continua
 --- na politica central: erro de carga, antes de qualquer chamada ao modelo

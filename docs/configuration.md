@@ -454,8 +454,12 @@ troque a primeira palavra da mensagem por `[REDACTED]`. Pelo mesmo motivo a linh
 relatório diferem só nesse separador, e a linha mostra o título inteiro (`Hardcoded Secrets`).
 
 **Achado sobre o marcador de redação é descartado (AUR-598).** Antes de chegar
-ao modelo, todo valor com forma de segredo vira `[REDACTED]`, inclusive quando
-era só um identificador (`APIKey: key`). O modelo nunca vê o valor mascarado,
+ao modelo, o valor de toda chave de segredo vira `[REDACTED]`, citado ou nu,
+fraco ou forte (`password = "…"`, `password=hunter2`, `apiKey = cfg.APIKey`).
+Só a expressão que é, inteira, chamada ou referência de variável e o operador
+passam intactos (AUR-609): `API_KEY = os.environ.get("API_KEY")`,
+`token := os.Getenv("TOKEN")`, `token: ${{ secrets.TOKEN }}` e
+`if token == nil {` chegam ao modelo como estão. O modelo nunca vê o valor mascarado,
 então um achado dele que cita o marcador na mensagem, evidência, impacto ou
 correção é descartado, contado em `issues_rejected_by_redaction_marker` (e no
 total de `issues_rejected_by_scope`) e nomeado no aviso de descarte. Achados de
@@ -1335,6 +1339,7 @@ consumidor.
 | `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
+| `changelog_check.bots` | Modo para PR aberta por bot (Dependabot, Renovate): `off`, `suggest` ou `required`; só rebaixa `mode`, nunca eleva | `suggest` |
 | `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
@@ -1473,16 +1478,24 @@ O que a avaliação pode mudar no gate:
   marcadores para o dono, a validade e (em `--base`) o repositório. Ela nunca
   é aplicada: só conta quando uma pessoa a copia para as `exceptions` da
   política.
-- **Sem política central**, o repositório pode deixar uma contestação rebaixar
-  a evidência de uma fonte:
+- **Sem política central e com gate declarado** (`fail_on` ou
+  `inconclusive`), o modelo decide por padrão: uma contestação **justificada**
+  rebaixa a evidência de toda fonte sem chave em `triage` (padrão `model`). O
+  repositório desliga uma fonte escrevendo `none`:
 
 ```yaml
 gate:
   fail_on: [high]
   triage:
-    analysis: model   # achados de analysis e --seguranca contestados deixam de contar
-    sast: none        # o padrão de toda fonte
+    analysis: model   # o padrão; achados de analysis e --seguranca contestados com justificativa deixam de contar
+    sast: none        # desliga: a evidência de SAST conta sempre, diga o modelo o que disser
 ```
+
+Uma contestação só rebaixa com `justification` não vazia: `disputed` sem
+justificativa (vazia ou só espaços) vale como `needs_context` e o achado
+continua contando, como `confirmed` e `needs_context`. Sem gate declarado,
+nada é rebaixado nem anunciado (um scanner que retém a aprovação sozinho
+continua retendo).
 
 `gate.triage.analysis` também cobre os achados da passagem `--seguranca`
 (origem `security`), exatamente como `gate.sources: analysis` os conta: o
@@ -1493,8 +1506,11 @@ fonte no mesmo lugar. A evidência que o teto do prompt deixou de fora
 é descartada com o mesmo aviso de um id nunca oferecido, e nunca rebaixa.
 
 As chaves de `triage` são os nomes de `gate.sources` (`skills`, `analysis`,
-`sast` ou o nome de uma engine registrada); os valores são `model` ou `none`
-(o padrão). A evidência que o modelo avalia é a determinística (`analysis`, a
+`sast` ou o nome de uma engine registrada); os valores são `model` (o padrão
+de chave ausente) ou `none`. Quando mais de uma chave casa com a mesma engine
+(o nome e a categoria, por exemplo `semgrep: none` e `sast: model`), `none`
+vence; e engines da mesma categoria compartilham a chave dela, então `none` em
+qualquer uma mantém a categoria inteira contando. A evidência que o modelo avalia é a determinística (`analysis`, a
 passagem `--seguranca` contada sob `analysis`, e `sast`); um achado de seção
 de skill é a própria citação do modelo, então `skills: model` é aceito mas
 hoje não tem o que rebaixar. Chave ou valor desconhecido é erro de
@@ -1502,7 +1518,28 @@ carregamento. Um rebaixamento nunca é silencioso: o stderr e as limitações do
 review nomeiam cada achado rebaixado
 (`gate.triage (analysis: model): app.go:6 ...`). Sob política central,
 `triage` é ignorado, inclusive um `triage` que a própria política declare, e
-uma seção de SAST de origem da política nunca é rebaixada.
+uma seção de SAST de origem da política nunca é rebaixada: nada muda em
+relação ao comportamento anterior ao padrão `model`.
+
+A triagem falha fechada. Quando o modelo não respondeu de forma limpa (sem
+provedor, falha do provedor, resposta que não passou no parser ou que só foi
+lida em modo degradado, limite de deliberação), nada é rebaixado, nem mesmo
+pela contestação justificada de um perfil ou lote saudável quando outro perfil
+ou lote da mesma execução saiu degradado. Se havia evidência de uma fonte
+triável, com gate declarado e sem política central, o stderr e as limitações
+do parecer dizem isso, no idioma de `review.language`:
+
+```text
+aurumcode review: gate.triage: a triagem pelo modelo não ocorreu — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; a evidência determinística contou integralmente e o bloqueio foi mantido
+```
+
+Depois do travessão vai o motivo, em pt-BR como frase com o código entre
+colchetes e em inglês como o próprio código entre parênteses
+(`quality_skipped`, `provider_failure`, `model_parse_failure`,
+`degraded_parse`, ...); quando o gate passa mesmo assim, a linha termina
+em "contou integralmente", sem falar em bloqueio. Com todas as fontes da
+evidência em `none`, sem gate declarado ou sob política central, nada é
+anunciado: a triagem não teria ocorrido de qualquer forma.
 
 Um review que ofereceu evidência não é servido do cache de modelo por arquivo
 (o cache guarda achados, não avaliações), e a chave de reaproveitamento do
@@ -2234,7 +2271,10 @@ O AurumCode confere se a pull request acrescenta uma linha útil ao
 
 ```mermaid
 flowchart LR
-  PR[PR aberta] --> M{changelog_check.mode}
+  PR[PR aberta] --> B{autor é bot?}
+  B -->|não| M{changelog_check.mode}
+  B -->|sim| BM[o menor entre mode<br/>e changelog_check.bots]
+  BM --> M
   M -->|off| N[nada acontece]
   M -->|suggest| S[parecer com a entrada sugerida<br/>a PR passa]
   M -->|required| E{entrada útil?}
@@ -2247,6 +2287,7 @@ flowchart LR
 ```yaml
 changelog_check:
   mode: suggest           # off | suggest | required (aceita sugerir, obrigatorio, desligado)
+  bots: suggest           # padrão; modo para PR de bot, só rebaixa o mode
   file: CHANGELOG.md      # padrão
   section: Unreleased     # padrão
 ```
@@ -2255,6 +2296,32 @@ Os limites também são configuráveis (padrões entre parênteses):
 `max_entry_lines` (12), `max_line_length` (240), `max_release_lines` (120),
 `min_words` (3) e `agent_log_markers` (somam-se aos padrões). Um modo
 desconhecido é recusado ao ler a configuração, com a lista dos três.
+
+### PR de bot (`changelog_check.bots`)
+
+Uma PR do Dependabot que só sobe a versão de uma action não tem o que dizer
+a quem usa o produto. Por isso, quando o autor da PR é bot, vale o **menor**
+entre `mode` e `bots` (`off` < `suggest` < `required`): `bots` só rebaixa,
+nunca eleva. Com o padrão (`suggest`) e `mode: required`, a PR de bot passa
+com uma linha que diz por quê e com a entrada sugerida:
+
+```text
+changelog: autor é bot (dependabot[bot]); changelog_check.bots: suggest — a PR não é reprovada
+changelog: sem entrada útil (entrada_ausente): a PR não altera CHANGELOG.md; modo suggest, não reprova
+```
+
+`bots: off` pula o check para bots (`changelog: não exigido: autor é bot
+(...)`); `bots: required` reprova o bot como uma pessoa. Bot é quem o evento
+da PR marca como bot: `user.type` igual a `Bot` ou login terminado em `[bot]`
+(`bot-lover` é uma pessoa). O autor vem do evento, nunca do conteúdo da PR;
+sem ele, o autor é uma pessoa e vale o `mode`. O job continua sem `if:`.
+
+Toda conta do tipo `Bot` recebe esse tratamento, não só o Dependabot: uma PR
+aberta por um workflow (`github-actions[bot]`) ou por um agente de código
+que abre PR com conta de app também é bot. Se no seu repositório essas PRs
+mudam o produto, declare `bots: required`. Um commit que alguém com acesso de
+escrita acrescenta na branch de uma PR do Dependabot continua sob o autor da
+PR, que é o bot.
 
 ### Exemplo
 
@@ -2277,11 +2344,14 @@ colar é do humano.
 ### Onde aparece
 
 - `aurumcode changelog --base <sha>` imprime o veredito e a sugestão. Flags:
-  `--base` (obrigatória), `--head` (padrão `HEAD`), `--repo` (padrão `.`) e
-  `--politica` (padrão `AURUMCODE_POLICY`).
+  `--base` (obrigatória), `--head` (padrão `HEAD`), `--repo` (padrão `.`),
+  `--politica` (padrão `AURUMCODE_POLICY`) e `--autor`/`--tipo-autor` (login
+  e `user.type` do autor da PR; ausentes, o autor é uma pessoa).
 - `aurumcode review --pr` põe a sugestão no parecer quando a PR não toca no
-  arquivo do changelog (em `suggest` e em `required`).
-- No GitHub, `.github/workflows/changelog.yml` (reutilizável) roda o check e
+  arquivo do changelog (em `suggest` e em `required`), no modo que vale para
+  o autor da PR.
+- No GitHub, `.github/workflows/changelog.yml` (reutilizável) roda o check,
+  repassa o autor do evento (`PR_AUTHOR_LOGIN`, `PR_AUTHOR_TYPE`) e
   escreve a sugestão no resumo do job. Para travar o merge, use `required` e
   exija o contexto `Changelog obrigatório` na proteção da `main`.
 
@@ -2293,8 +2363,8 @@ colar é do humano.
   (diff ilegível, `config.yml` da base inválido). Exit 2: uso errado.
 - O modo vem da **base** da PR: uma PR que troca o modo só muda o check depois
   do merge.
-- Com política central, a seção `changelog_check` da política decide sozinha;
-  a do repositório é ignorada com aviso.
+- Com política central, a seção `changelog_check` da política decide sozinha,
+  `bots` incluído; a do repositório é ignorada com aviso.
 
 Guia de escrita, com exemplos de `Unreleased` e de release:
 [Changelog](changelog.md). Passo a passo executável:

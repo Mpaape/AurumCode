@@ -86,14 +86,14 @@ func TestAUR575DeclaredGateDefaultsToBlock(t *testing.T) {
 
 // gate.triage is validated strictly at parse time: a source outside
 // gate.sources' vocabulary or a value other than model/none is an error,
-// and the default (absent) demotes nothing.
+// and the default (absent) is model (AUR-608).
 func TestGateTriageParse(t *testing.T) {
 	cfg, err := Parse([]byte("gate:\n  fail_on: [high]\n  triage:\n    analysis: model\n    sast: none\n"), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Gate.TriageByModel(GateSourceAnalysis) || cfg.Gate.TriageByModel(GateSourceSAST) || cfg.Gate.TriageByModel(GateSourceSkills) {
-		t.Fatalf("triage = %v", cfg.Gate.Triage)
+	if !cfg.Gate.TriageByModel(GateSourceAnalysis) || cfg.Gate.TriageByModel(GateSourceSAST) || !cfg.Gate.TriageByModel(GateSourceSkills) {
+		t.Fatalf("triage = %v (skills has no key: the default model applies)", cfg.Gate.Triage)
 	}
 	for _, bad := range []string{
 		"gate:\n  triage:\n    dtrack: model\n",
@@ -109,7 +109,45 @@ func TestGateTriageParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plain.Gate.TriageByModel(GateSourceAnalysis) {
-		t.Fatal("the default must be none")
+	if !plain.Gate.TriageByModel(GateSourceAnalysis) || plain.Gate.TriageMode(GateSourceSAST) != TriageModel {
+		t.Fatal("the default must be model")
+	}
+}
+
+// AUR-608 AC-002: an explicit none opts the source out, whatever the
+// spelling, and only that source.
+func TestAUR608GateTriageExplicitNoneOptsOut(t *testing.T) {
+	cfg, err := Parse([]byte("gate:\n  fail_on: [high]\n  triage:\n    analysis: \" None \"\n"), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Gate.TriageByModel(GateSourceAnalysis) || cfg.Gate.TriageMode(GateSourceAnalysis) != TriageNone {
+		t.Fatalf("analysis: none must opt analysis out: %v", cfg.Gate.Triage)
+	}
+	if !cfg.Gate.TriageByModel(GateSourceSAST) || !cfg.Gate.TriageByModel(GateSourceSkills) {
+		t.Fatal("an opt-out of analysis must leave the other sources on the default model")
+	}
+}
+
+// AUR-608: a scanner engine resolves through every key that names it (name,
+// category, origin). Without a key it is model; any matching none wins over
+// a broader model key, whatever the map order.
+func TestAUR608GateTriageByModelForScannerDefault(t *testing.T) {
+	semgrep := func(s string) bool { return s == "semgrep" || s == "sast" }
+	if !(GateConfig{FailOn: []string{"high"}}).TriageByModelFor(semgrep) {
+		t.Fatal("a scanner without a gate.triage key must default to model")
+	}
+	for i := 0; i < 20; i++ {
+		g := GateConfig{Triage: map[string]string{"sast": "model", "semgrep": "none"}}
+		if g.TriageByModelFor(semgrep) {
+			t.Fatal("an explicit none on the engine must win over model on its category")
+		}
+		g = GateConfig{Triage: map[string]string{"sast": "none", "semgrep": "model"}}
+		if g.TriageByModelFor(semgrep) {
+			t.Fatal("an explicit none on the category must win over model on the engine")
+		}
+	}
+	if !(GateConfig{Triage: map[string]string{"skills": "none"}}).TriageByModelFor(semgrep) {
+		t.Fatal("a none that names another source must not opt the scanner out")
 	}
 }

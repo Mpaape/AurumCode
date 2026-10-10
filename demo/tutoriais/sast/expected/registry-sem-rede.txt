@@ -1,4 +1,4 @@
-SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error)
-policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
+SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (o Semgrep falhou ao rodar [sast_execution_error])
+policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error])
 exit_code=1
 RESULTADO: sem rede, o pacote p/security-audit nao baixa: inconclusivo, gate.inconclusive block reprova

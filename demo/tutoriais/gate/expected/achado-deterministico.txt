@@ -1,6 +1,6 @@
-policy gate: review inconclusive (quality_skipped)
-policy gate: security/hardcoded-secret - Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret - Hardcoded Secrets) (severidade error, limiar error, origem security)
-app.go:6: [error] Hardcoded credentials or API keys detected [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
+policy gate: revisão inconclusiva — revisão por modelo não executada (sem provedor configurado) [quality_skipped]
+policy gate: security/hardcoded-secret - Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret - Hardcoded Secrets) (severidade error, limiar error, origem security)
+app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
 exit_code=3
 RESULTADO: warn: o achado [error] do passe de seguranca reprova (exit 3), origem security
 origens na auditoria: security

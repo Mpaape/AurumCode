@@ -104,7 +104,7 @@ run_ac003() {
   log="$demo/out/inconclusivo-sast.log"
   grep -q 'politica-sast-padrao' "$demo/run.sh" || fail 'tutorial-case-missing'
   grep -q 'inconclusive' "$demo/politica-sast-padrao/.aurumcode/config.yml" && fail 'tutorial-policy-declares-inconclusive'
-  grep -q 'inconclusivo (sast_unavailable)' "$log" || fail 'out-without-sast-unavailable'
+  grep -Eq 'inconclusivo \((sast_unavailable|[^)]*\[sast_unavailable\])\)' "$log" || fail 'out-without-sast-unavailable'
   grep -q 'RESULTADO: sem gate.inconclusive, scanner habilitado que nao rodou bloqueia' "$log" || fail 'out-without-block-result'
   grep -q 'politica-sast-padrao' "$repo_root/docs/tutorials/gate.md" || fail 'tutorial-doc-without-case'
   (cd "$repo_root" && bash demo/tutoriais/gate/run.sh --check >"$run_dir/check.log" 2>&1) || { cat "$run_dir/check.log" >&2; fail 'demo-check-failed'; }

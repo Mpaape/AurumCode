@@ -36,6 +36,7 @@ bash demo/tutoriais/memoria/run.sh --check  # compara out/ com expected/, sem do
 <!-- arquivo: demo/tutoriais/memoria/repo-exemplo/base/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   memory: local
 ```
 
@@ -88,6 +89,7 @@ legíveis, e é por eles que o modelo relaciona a memória à mudança.
 <!-- arquivo: demo/tutoriais/memoria/repo-exemplo/desligada/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   memory: off
 ```
 
@@ -105,6 +107,7 @@ RESULTADO: com a memoria desligada a revisao roda igual e nada e guardado
 <!-- arquivo: demo/tutoriais/memoria/repo-exemplo/invalida/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   memory: sempre
 ```
 

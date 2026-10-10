@@ -5,7 +5,9 @@
 // ready-to-paste block the changelog check prints. The API diff is
 // windowed, so a present changelog file cannot be judged here; only the
 // unambiguous "missing" case gets the block. The review itself spends no
-// extra model call on it: the entry comes from the commit subjects.
+// extra model call on it: the entry comes from the commit subjects. The
+// wording follows the mode for the PR's author: a bot's PR gets
+// the changelog_check.bots mode, and no block when that mode is off.
 package main
 
 import (
@@ -14,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/changelog"
+	"github.com/Mpaape/AurumCode/internal/config"
 )
 
 // resolveChangelogSuggestion never fails the review: a missing source is a
@@ -34,16 +37,20 @@ func (p *prReview) resolveChangelogSuggestion() (int, bool) {
 	if verdict.OK || verdict.Reason != changelog.ReasonMissing {
 		return 0, false
 	}
-	commits, err := pullRequestChangelogSource(p.ctx, p.client, p.owner, p.repoName, p.prNumber)
+	commits, author, err := pullRequestChangelogSource(p.ctx, p.client, p.owner, p.repoName, p.prNumber)
 	if err != nil {
 		fmt.Fprintf(p.stderr, "aurumcode review: entrada de changelog sugerida omitida: %v\n", err)
+		return 0, false
+	}
+	mode := p.cfg.ChangelogCheck.EffectiveModeFor(author.IsBot())
+	if mode == config.ChangelogOff {
 		return 0, false
 	}
 	s := req.SuggestFromCommits(commits)
 	if s.Empty() {
 		return 0, false
 	}
-	p.changelogSuggestion = changelogSuggestionMarkdown(req, p.cfg.ChangelogCheck.EffectiveMode(), s.Source, redactSuggestion(p.filter, s.Block()), p.reviewLanguage)
+	p.changelogSuggestion = changelogSuggestionMarkdown(req, mode, s.Source, redactSuggestion(p.filter, s.Block()), p.reviewLanguage)
 	return 0, false
 }
 

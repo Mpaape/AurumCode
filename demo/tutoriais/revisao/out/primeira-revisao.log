@@ -6,6 +6,6 @@ $ aurumcode review --base main
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
 
 sem gate declarado · 1 arquivo revisado
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: primeira revisao concluida sem achados

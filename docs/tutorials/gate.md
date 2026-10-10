@@ -57,6 +57,7 @@ problema, a primeira vez como `warning`, a segunda como `error`:
 gate:
   fail_on: [high]
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -106,6 +107,7 @@ gate:
   fail_on: [high]
   inconclusive: block
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -114,15 +116,15 @@ review:
 <!-- saida: inconclusivo-provedor -->
 ```text
 --- inconclusive: block, sem provedor
-aurumcode review: policy gate: review inconclusive (quality_skipped)
+aurumcode review: policy gate: revisão inconclusiva — revisão por modelo não executada (sem provedor configurado) [quality_skipped]
 exit_code=1
 RESULTADO: block: provedor ausente reprova, motivo quality_skipped
 --- inconclusive: warn, sem provedor
 exit_code=0
 RESULTADO: warn: provedor ausente alerta e sai 0, nunca aprovado
 --- inconclusive: warn com --exigir-qualidade
-aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review
-aurumcode review: policy gate: review inconclusive (provider_failure)
+aurumcode review: --exigir-qualidade: a revisão por modelo não rodou, então esta execução não é uma revisão completa
+aurumcode review: policy gate: revisão inconclusiva — o provedor de modelo não respondeu [provider_failure]
 RESULTADO: --exigir-qualidade reprova mesmo com warn (provider_failure)
 ```
 
@@ -142,7 +144,7 @@ deixa a revisão parcial.)
 <!-- saida: inconclusivo-cobertura -->
 ```text
 --- inconclusive: block
-aurumcode review: policy gate: review inconclusive (partial_coverage)
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
   - gerado.go (generated)
 exit_code=1
 RESULTADO: block: cobertura parcial reprova
@@ -174,6 +176,7 @@ quality_gates:
     rule_packs:
       - /policy/regras/senha.yml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -195,6 +198,7 @@ existe:
 <!-- arquivo: demo/tutoriais/gate/politica-sast-padrao/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -210,20 +214,20 @@ quality_gates:
 <!-- saida: inconclusivo-sast -->
 ```text
 --- semgrep falso que falha (exit 2), inconclusive: block
-aurumcode review: policy gate: review inconclusive (sast_execution_error)
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_execution_error)
+aurumcode review: policy gate: revisão inconclusiva — o Semgrep falhou ao rodar [sast_execution_error]
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error])
 exit_code=1
 RESULTADO: block: SAST que falhou nunca vira 'sem achados' (sast_execution_error)
 --- o mesmo SAST falho, inconclusive: warn
 exit_code=0
 RESULTADO: warn: SAST falho alerta e sai 0
 --- semgrep falso com saida que nao e relatorio, inconclusive: block
-aurumcode review: policy gate: review inconclusive (sast_invalid_output)
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_invalid_output)
+aurumcode review: policy gate: revisão inconclusiva — a saída do Semgrep não é um relatório válido [sast_invalid_output]
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (a saída do Semgrep não é um relatório válido [sast_invalid_output])
 RESULTADO: block: saida invalida do SAST e inconclusiva (sast_invalid_output)
 --- semgrep AUSENTE do PATH, SAST habilitado e SEM gate.inconclusive: o padrao e bloquear
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (sast_unavailable)
-Sem achados nas fontes concluídas; inconclusivo: sast_unavailable
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable])
+Sem achados nas fontes concluídas; inconclusivo: análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]
 RESULTADO: sem gate.inconclusive, scanner habilitado que nao rodou bloqueia (warn so escrito)
 --- Semgrep REAL (regra local): a mesma politica conclui e o achado SAST reprova
 aurumcode review: policy gate: semgrep:policy.regras.senha-literal - Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem sast, secao policy)
@@ -254,6 +258,7 @@ gate:
 analysis_data:
   max_age_days: 7
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -261,7 +266,7 @@ review:
 
 <!-- saida: inconclusivo-analysis-data -->
 ```text
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 exit_code=1
 RESULTADO: block: artefato de analise indisponivel reprova (analysis_data_unavailable)
 ```
@@ -294,6 +299,7 @@ quality_gates:
     rule_packs:
       - /policy/regras/senha.yml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -304,7 +310,7 @@ review:
 --- gate.sources: todas
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 aurumcode review: policy gate: semgrep:policy.regras.senha-literal - Senha literal atribuida a variavel. (rule semgrep:policy.regras.senha-literal) (severidade error, limiar error, origem sast, secao policy)
-aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
+aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
 exit_code=3
 RESULTADO: sources todas: o gate reprova
 origens na auditoria: analysis, sast, skills
@@ -344,26 +350,27 @@ produto publica**, contra o GitHub falso local (`--pr`, `--publicar`, `--check`)
 --- aprovado
 exit_code=0
 status publicado: context=aurumcode/review state=success
-  description: nenhum achado grave no pull request #7
+  description: nenhum achado grave
 status publicado: context=aurumcode/policy-gate state=success
-  description: aprovado: gate de política aprovado no pull request #7
+  description: aprovado: gate de política aprovado
 --- reprovado
 exit_code=3
 status publicado: context=aurumcode/review state=failure
-  description: 1 achado(s) grave(s) no pull request #7
+  description: 1 achado grave
 status publicado: context=aurumcode/policy-gate state=failure
-  description: falha: achado(s) reprovam o gate no pull request #7: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar er…
+  description: falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer
 --- inconclusivo
 exit_code=1
-  description: inconclusivo: revisão inconclusiva (bloqueio) no pull request #7: review inconclusive (partial_coverage)
+  description: inconclusivo: a revisão não cobriu tudo e o gate reprova por configuração — parte do diff ficou fora da revisão [partial_coverage]
 ```
 
 O que observar: a **descrição** abre com a palavra do estado (`aprovado:`,
 `falha:`, `inconclusivo:`) seguida do motivo; o estado vai em `state`
 (`success`/`failure`). Um inconclusivo em `block` é `failure` com
 `inconclusivo:`; um inconclusivo em `warn` seria `success` com a mesma palavra,
-nunca `aprovado`. A descrição é cortada em 140 caracteres (termina em `…`); o
-texto completo está no parecer. Os dois status são independentes: no caso
+nunca `aprovado`. A descrição tem no máximo 140 caracteres e, quando passa
+disso, é cortada no fim de uma palavra (termina em `…`); o texto completo está
+no parecer. O número da PR não é repetido: o status já pertence ao commit da PR. Os dois status são independentes: no caso
 reprovado ambos falham, mas o `aurumcode/review` só considera achado grave
 (`error`).
 
@@ -385,12 +392,14 @@ gate:
   fail_on: [high]
   inconclusive: warn
   sources: [skills]
+review:
+  language: pt-BR
 ```
 
 <!-- saida: repo-afrouxa -->
 ```text
 --- so o repositorio: inconclusive warn
-aurumcode review: policy gate: review inconclusive (partial_coverage)
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=0
 RESULTADO: o proprio repositorio aceita cobertura parcial como alerta
 --- com a politica (inconclusive block): o gate do repositorio e ignorado
@@ -416,6 +425,7 @@ gate:
   fail_on: [high]
   inconclusive: warn
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -424,7 +434,7 @@ review:
 <!-- saida: achado-deterministico -->
 ```text
 --- --seguranca, sem provedor, fail_on [high], inconclusive: warn
-aurumcode review: policy gate: review inconclusive (quality_skipped)
+aurumcode review: policy gate: revisão inconclusiva — revisão por modelo não executada (sem provedor configurado) [quality_skipped]
 exit_code=3
 origens na auditoria: security
 RESULTADO: warn: o achado [error] do passe de seguranca reprova (exit 3), origem security
@@ -507,13 +517,15 @@ gate:
   fail_on: [high]
   triage:
     analysis: model
+review:
+  language: pt-BR
 ```
 
 <!-- saida: modelo-pondera -->
 ```text
 --- com provedor, o modelo contesta a evidencia; politica fail_on [high]
-aurumcode review: policy gate: analysis/hardcoded-secret - Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
-app.go:6: [error] Hardcoded secret or credential assigned inline (rule analysis/hardcoded-secret)
+aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
+app.go:6: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
   sugestao: Mover o exemplo para um arquivo de teste.
 Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).
@@ -568,8 +580,8 @@ erro **nunca** vira "sem gate": o comando falha.
   1, antes do modelo: uma chave com erro de digitação nunca vira "sem gate".
 - **O repositório declarou `gate` e nada mudou:** sob `--politica` o `gate` do
   repositório é ignorado (caso 8); um aviso nomeado diz isso.
-- **`gate verdict reuse unavailable`:** só informa que `AURUMCODE_CACHE_DIR` não
-  está definido; veja [reaproveitamento.md](reaproveitamento.md).
+- **`reaproveitamento do veredito do gate indisponível`** (em inglês, `gate verdict
+  reuse unavailable`): só informa que `AURUMCODE_CACHE_DIR` não está definido; veja [reaproveitamento.md](reaproveitamento.md).
 - **Status ausente na PR:** o `aurumcode/policy-gate` só é publicado quando há
   `gate` declarado e `--pr --publicar --check`.
 - **SAST com `p/...` falhando offline:** pacotes do registro exigem rede; use um

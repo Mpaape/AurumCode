@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/prosefiles"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
@@ -56,12 +57,36 @@ const (
 // a small argument-aware parser, because "is this call's last argument a
 // world-writable mode" cannot be answered by a regex without also matching
 // unrelated digits in a filename or an earlier argument.
+//
+// codeOnly keeps a rule that describes a code shape away from prose files
+// (internal/prosefiles), where the shape is only a mention. outsideLiteral
+// rejects a hit whose first byte sits inside a string literal: it is set
+// only where the true positive starts in code (the call of
+// RuleCommandInjection), never where it starts inside the string (the SQL
+// text of RuleSQLInjection).
 type rule struct {
-	id       string
-	severity string
-	message  string
-	re       *regexp.Regexp
-	checkFn  func(string) bool
+	id             string
+	severity       string
+	message        string
+	re             *regexp.Regexp
+	checkFn        func(string) bool
+	codeOnly       bool
+	outsideLiteral bool
+}
+
+// matches reports whether the rule fires on one comment-stripped added line
+// body; inRaw is the raw-string state entering the line.
+func (rl rule) matches(body string, inRaw bool) bool {
+	switch {
+	case rl.checkFn != nil:
+		return rl.checkFn(body)
+	case rl.re == nil:
+		return false
+	case rl.outsideLiteral:
+		return matchOutsideLiteral(rl.re, body, inRaw)
+	default:
+		return rl.re.MatchString(body)
+	}
 }
 
 // embeddedRules is the fixed, zero-config catalog of the non-secret rules;
@@ -74,22 +99,26 @@ type rule struct {
 // rule for matchers.
 var embeddedRules = []rule{
 	{
-		id:       RuleCommandInjection,
-		severity: "error",
-		message:  msgCommandInjection,
-		re:       regexp.MustCompile(`(?i)\b(system|popen|exec[lv]p?e?|exec(Sync)?|subprocess\.(run|call|Popen))\s*\(.*["']\s*\+`),
+		id:             RuleCommandInjection,
+		severity:       "error",
+		message:        msgCommandInjection,
+		re:             regexp.MustCompile(`(?i)\b(system|popen|exec[lv]p?e?|exec(Sync)?|subprocess\.(run|call|Popen))\s*\(.*["']\s*\+`),
+		codeOnly:       true,
+		outsideLiteral: true,
 	},
 	{
 		id:       RuleFilePermissions,
 		severity: "warning",
 		message:  msgFilePermissions,
 		checkFn:  matchesWorldWritablePermission,
+		codeOnly: true,
 	},
 	{
 		id:       RuleSQLInjection,
 		severity: "error",
 		message:  msgSQLInjection,
 		re:       regexp.MustCompile(`(?i)\b(select|insert|update|delete)\b[^+]*["']\s*\+\s*[A-Za-z_$][\w$]*`),
+		codeOnly: true,
 	},
 }
 
@@ -223,9 +252,10 @@ func splitTopLevelArgs(s string, start int) (args []string, ok bool) {
 // entering the line (whether an earlier added line left an open backtick),
 // so the scan starts already inside a raw string instead of falsely treating
 // a multi-line documentation block as code. It is used to reject a
-// hardcoded-secret match whose keyword itself is embedded inside a
-// documentation string or backtick literal, e.g. a line that is itself a
-// string constant showing an example assignment, rather than a real one.
+// hardcoded-secret or command-injection match whose keyword itself is
+// embedded inside a documentation string or backtick literal, e.g. a line
+// that is itself a string constant showing an example assignment or call,
+// rather than a real one.
 func isInsideStringLiteral(body string, pos int, inRaw bool) bool {
 	inBacktick := inRaw
 	var inQuote byte
@@ -300,6 +330,8 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 	for _, file := range diff.Files {
 		inBlockComment := false
 		inRawString := false
+		python := tracksDocstrings(file.Path)
+		docstring := ""
 		for _, hunk := range file.Hunks {
 			newLine := hunk.NewStart
 			oldLine := hunk.OldStart
@@ -309,9 +341,19 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 				}
 				marker, body := splitDiffMarker(raw)
 				code, nextBlock, nextRaw := stripComments(body, inBlockComment, inRawString)
+				// The docstring state follows the new file only: a removed
+				// line never opens or closes a string there.
+				docEnd := 0
+				if python && marker != "-" {
+					docEnd, docstring = scanDocstring(body, docstring)
+				}
 				switch marker {
 				case "+":
-					findings = append(findings, r.match(file.Path, newLine, SideRight, code, inRawString)...)
+					found := r.match(file.Path, newLine, SideRight, code, inRawString)
+					if docEnd > 0 {
+						found = r.dropDocstringMentions(found, body, docEnd)
+					}
+					findings = append(findings, found...)
 					newLine++
 				case "-":
 					oldLine++
@@ -332,25 +374,23 @@ func (r *Runner) Analyze(diff *types.Diff) []Finding {
 // match returns the catalog rules whose pattern matches body, each rendered
 // as a Finding at the given path, line and side. body is expected to have
 // had comments stripped already (stripComments), and a RuleHardcodedSecret
-// hit whose keyword starts inside an already-open string or raw-string
-// literal is rejected (isInsideStringLiteral), so an example assignment
-// quoted in prose is never treated as a real one. inRaw carries the
-// raw-string state entering this line so a multi-line backtick block is
-// suppressed too.
+// or RuleCommandInjection hit whose keyword starts inside an already-open
+// string or raw-string literal is rejected (isInsideStringLiteral), so an
+// example quoted in documentation is never treated as real code. inRaw
+// carries the raw-string state entering this line so a multi-line backtick
+// block is suppressed too. A code-shaped rule never runs on a prose file;
+// the secret rule does, since a secret is a secret wherever it is written.
 func (r *Runner) match(path string, line int, side, body string, inRaw bool) []Finding {
 	var out []Finding
 	if f, ok := r.matchSecret(path, line, side, body, inRaw); ok {
 		out = append(out, f)
 	}
+	prose := prosefiles.IsProsePath(path)
 	for _, rule := range r.rules {
-		matched := false
-		switch {
-		case rule.checkFn != nil:
-			matched = rule.checkFn(body)
-		case rule.re != nil:
-			matched = rule.re.MatchString(body)
+		if prose && rule.codeOnly {
+			continue
 		}
-		if matched {
+		if rule.matches(body, inRaw) {
 			out = append(out, Finding{
 				Path:     path,
 				Line:     line,

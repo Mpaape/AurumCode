@@ -3,3 +3,5 @@ gate:
   inconclusive: warn
 analysis_data:
   max_age_days: 30
+review:
+  language: pt-BR

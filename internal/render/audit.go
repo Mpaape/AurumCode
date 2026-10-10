@@ -14,6 +14,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	toolversion "github.com/Mpaape/AurumCode/internal/version"
 )
 
 // AuditRecord is the complete, redacted-before-write compliance record for
@@ -64,6 +65,21 @@ type AuditRecord struct {
 	// prompt: each batch's files and estimated prompt size. Absent when the
 	// review was a single prompt.
 	Batches []AuditBatch `json:"batches,omitempty"`
+	// ToolVersion (AUR-611) is the AurumCode that wrote this record: the
+	// version stamped at build time (the tool's exact tag or short SHA in
+	// the review workflow). Absent for a dev build, so the record of a
+	// build with no stamped version keeps its bytes (StampToolVersion).
+	ToolVersion string `json:"tool_version,omitempty"`
+}
+
+// StampToolVersion records the binary's version on rec, only when the build
+// stamped one: a dev build leaves tool_version absent rather than claiming a
+// version named "dev".
+func (rec *AuditRecord) StampToolVersion(info toolversion.Info) {
+	rec.ToolVersion = ""
+	if !info.IsDev() {
+		rec.ToolVersion = info.Label()
+	}
 }
 
 // AuditBatch is one batch of a review in batches.
@@ -200,6 +216,7 @@ func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
 	rec.Coverage.Omitted = omitted
 	rec.EvidenceAssessments = redactAuditEvidence(filter, rec.EvidenceAssessments)
 	rec.ProposedExceptions = filter.Redact(rec.ProposedExceptions)
+	rec.ToolVersion = filter.Redact(rec.ToolVersion)
 	return rec
 }
 

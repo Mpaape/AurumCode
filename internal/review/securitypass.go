@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Mpaape/AurumCode/internal/prosefiles"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -75,7 +76,7 @@ func securityScanWithRules(rules *RulesLoader, diff *types.Diff) []types.ReviewI
 	for _, file := range diff.Files {
 		// A rule with applies_to: code never matches a prose file (a log,
 		// a note, a document): what it would find there is a mention.
-		prose := IsProsePath(file.Path)
+		prose := prosefiles.IsProsePath(file.Path)
 		for _, hunk := range file.Hunks {
 			// Track the new-file line number the way a unified diff reader
 			// does: context and added lines advance it, removed lines do

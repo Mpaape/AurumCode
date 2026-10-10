@@ -1,5 +1,5 @@
-(analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?
+(dados de análise indisponíveis [analysis_data_unavailable]): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?
 RESULTADO: listagem 503 sem cache: analysis_data_unavailable reprova
-(analysis_data_unavailable): <detalhe de rede omitido do registro>
+(dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 RESULTADO: sem rede e sem cache: analysis_data_unavailable reprova
 RESULTADO: sem rede com warn: exit 0, mas nunca aprovado silenciosamente

@@ -1,17 +1,17 @@
 == arquivo-sem-gramatica
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 1 file reviewed
+gate da política: passou · 1 arquivo revisado
 
-Review coverage
-- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+Cobertura da revisão
+- 1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - notas.zzqx
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: arquivo sem gramatica declarado, revisao completa, gate.inconclusive: block nao dispara
 prompt: ### File: notas.zzqx

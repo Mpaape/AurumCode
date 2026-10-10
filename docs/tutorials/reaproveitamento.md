@@ -29,7 +29,8 @@ bash demo/tutoriais/reaproveitamento/run.sh --check
 
 1. **Por arquivo** (`--base`): o arquivo cujo diff, modelo, contexto e versão do
    prompt (um digest do conteúdo fixo do prompt, não uma constante) não mudaram
-   **não é reenviado ao modelo**; a saída diz `reused N file(s) from cache`.
+   **não é reenviado ao modelo**; a saída diz `N arquivos reaproveitados do cache`
+   (com `review.language: en`, `reused N file(s) from cache`).
 2. **Do veredito** (`--base` e `--pr`): o conjunto de achados de uma revisão
    **concluída** é guardado por uma chave (modelo, contexto, digest da política,
    digest do diff, SHA, identidade do repositório e do binário) e, numa execução
@@ -43,6 +44,7 @@ bash demo/tutoriais/reaproveitamento/run.sh --check
 gate:
   fail_on: [medium]
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -61,12 +63,12 @@ exit_code=3
 RESULTADO: o achado reprova
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
 --- segunda execucao: mesmo SHA, politica e modelo
-aurumcode review: reused 1 file(s) from cache (not resent to the model)
+aurumcode review: 1 arquivo reaproveitado do cache (não reenviado ao modelo)
 RESULTADO: o mesmo veredito, sem reenviar o arquivo ao modelo
 ```
 
-O que observar: a segunda execução imprime `reused 1 file(s) from cache (not
-resent to the model)` e chega ao mesmo exit 3; a contagem de entradas do cache
+O que observar: a segunda execução imprime `1 arquivo reaproveitado do cache (não
+reenviado ao modelo)` e chega ao mesmo exit 3; a contagem de entradas do cache
 (uma de veredito e uma por arquivo) não cresce.
 
 ## Caso 2: `--base` e `--pr` compartilham o veredito?
@@ -108,7 +110,7 @@ cache: 2 entrada(s) de veredito, 2 entrada(s) por arquivo
 ```
 
 O que observar: o modelo B responde sem achado e a execução sai 0; nada do
-modelo A é reaproveitado (nenhuma linha `reused`) e o cache ganha entradas novas.
+modelo A é reaproveitado (nenhuma linha `reaproveitado do cache`) e o cache ganha entradas novas.
 
 ## Caso 4: a política mudou
 
@@ -117,7 +119,7 @@ modelo A é reaproveitado (nenhuma linha `reused`) e o cache ganha entradas nova
 exit_code=0
 RESULTADO: politica high: o warning passa
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
-aurumcode review: reused 1 file(s) from cache (not resent to the model)
+aurumcode review: 1 arquivo reaproveitado do cache (não reenviado ao modelo)
 exit_code=3
 RESULTADO: politica medium: o mesmo warning reprova; a politica nova gera outra entrada de veredito (a resposta por arquivo segue reaproveitada)
 cache: 2 entrada(s) de veredito, 1 entrada(s) por arquivo
@@ -126,7 +128,7 @@ cache: 2 entrada(s) de veredito, 1 entrada(s) por arquivo
 O que observar: com a política `high` o warning passa (exit 0); com a `medium` o
 mesmo achado reprova (exit 3). A política nova gera **outra entrada de veredito**
 (o digest da política faz parte da chave). A resposta do modelo por arquivo, que
-não mudou, segue reaproveitada (`reused 1 file(s)`): quem reavalia é o gate, com
+não mudou, segue reaproveitada (`1 arquivo reaproveitado do cache`): quem reavalia é o gate, com
 a política nova.
 
 ## Caso 5: cache degradado
@@ -137,7 +139,7 @@ exit_code=3
 RESULTADO: primeira execucao reprova e grava o cache
 --- todas as entradas do cache corrompidas
 RESULTADO: cache corrompido: revisao nova, o achado continua reprovando
-nenhuma linha 'reused': nada foi reaproveitado do cache corrompido
+nenhuma linha de reaproveitamento: nada foi reaproveitado do cache corrompido
 ```
 
 O que observar: com todas as entradas corrompidas a revisão é feita de novo, o
@@ -152,7 +154,7 @@ uma revisão inconclusiva nunca grava veredito:
 <!-- saida: falha-sem-cache -->
 ```text
 --- sem AURUMCODE_CACHE_DIR
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 exit_code=3
 RESULTADO: sem cache a revisao funciona, mas o veredito nao e compartilhado
 --- revisao inconclusiva nunca grava veredito
@@ -161,13 +163,13 @@ RESULTADO: inconclusivo em block reprova
 cache: 0 entrada(s) de veredito, 0 entrada(s) por arquivo
 ```
 
-O que observar: `gate verdict reuse unavailable` na primeira execução (a revisão
-funciona normalmente); na segunda, a cobertura parcial reprova (exit 1) e o cache
+O que observar: `reaproveitamento do veredito do gate indisponível` na primeira
+execução (a revisão funciona normalmente); na segunda, a cobertura parcial reprova (exit 1) e o cache
 fica com 0 entradas.
 
 ## Problemas comuns
 
-- **Nunca aparece `reused`:** `AURUMCODE_CACHE_DIR` não persiste entre as
+- **Nunca aparece `reaproveitado do cache`:** `AURUMCODE_CACHE_DIR` não persiste entre as
   execuções, ou algo da chave mudou (modelo, política, contexto, diff).
 - **Cache restaurado de CI:** não aponte `AURUMCODE_CACHE_DIR` de um `--base`
   usado como gate para um cache restaurado de outro job: o cache por arquivo trata

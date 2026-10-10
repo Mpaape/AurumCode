@@ -2,6 +2,7 @@ gate:
   fail_on: [high]
   sources: [skills, supply]
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

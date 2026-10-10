@@ -16,6 +16,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/changelog"
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -101,6 +102,12 @@ const checkContext = "aurumcode/review"
 // also given -- worse than before this card, which left the context absent
 // (failing closed) rather than falsely green.
 func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete, providerFailed bool, rule blocking.Rule) int {
+	return publishCheckStatusIn(ctx, "", client, stdout, stderr, owner, repoName, commitID, issues, prNumber, qualityRequiredButIncomplete, providerFailed, rule)
+}
+
+// publishCheckStatusIn is publishCheckStatus with the description in the
+// review's language (reviewCheckDescription).
+func publishCheckStatusIn(ctx context.Context, language string, client *githubclient.Client, stdout, stderr io.Writer, owner, repoName, commitID string, issues []types.ReviewIssue, prNumber int, qualityRequiredButIncomplete, providerFailed bool, rule blocking.Rule) int {
 	// With a declared gate, "grave" is exactly what the gate fails on (the
 	// same single rule as the review body and the formal review), so this
 	// status never contradicts aurumcode/policy-gate. Without one, every
@@ -109,21 +116,11 @@ func publishCheckStatus(ctx context.Context, client *githubclient.Client, stdout
 	if rule.Gated() {
 		grave = rule.Count(issues)
 	}
-	status := githubclient.CommitStatus{Context: checkContext}
-	switch {
-	case providerFailed:
+	status := githubclient.CommitStatus{Context: checkContext, State: "success"}
+	if providerFailed || qualityRequiredButIncomplete || grave > 0 {
 		status.State = "failure"
-		status.Description = fmt.Sprintf("revisão não executada no pull request #%d: falha do provedor (provider_failure)", prNumber)
-	case qualityRequiredButIncomplete:
-		status.State = "failure"
-		status.Description = fmt.Sprintf("revisão por modelo inconclusiva no pull request #%d", prNumber)
-	case grave > 0:
-		status.State = "failure"
-		status.Description = fmt.Sprintf("%d achado(s) grave(s) no pull request #%d", grave, prNumber)
-	default:
-		status.State = "success"
-		status.Description = fmt.Sprintf("nenhum achado grave no pull request #%d", prNumber)
 	}
+	status.Description = reviewCheckDescription(language, prNumber, grave, qualityRequiredButIncomplete, providerFailed)
 
 	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing check status: %v\n", err)
@@ -177,7 +174,7 @@ func resolvePullRequestHeadSHA(ctx context.Context, client *githubclient.Client,
 // declared limitation, keeping the diagnosis on stderr (AUR-505).
 func (p *prReview) degradeUnparseable(parseErr *prompt.ParseError) {
 	stderr := p.stderr
-	fmt.Fprintf(stderr, "aurumcode review: could not understand the model's response (%s)\n", parseErr.Kind)
+	fmt.Fprintf(stderr, "aurumcode review: %s\n", i18n.Format(p.reviewLanguage, "terminal.model_unparsed", parseErr.Kind))
 	fmt.Fprintf(stderr, "aurumcode review: response diagnostics: bytes=%d raw_json_valid=%t finish_reason=%q syntax_offset=%d\n", parseErr.InputBytes, parseErr.RawJSONValid, parseErr.FinishReason, parseErr.SyntaxOffset)
 	if parseErr.TypeField != "" {
 		fmt.Fprintf(stderr, "aurumcode review: response schema mismatch: field=%q expected=%q actual=%q\n", parseErr.TypeField, parseErr.ExpectedType, parseErr.ActualType)
@@ -185,7 +182,7 @@ func (p *prReview) degradeUnparseable(parseErr *prompt.ParseError) {
 	if parseErr.ValidationCode != "" {
 		fmt.Fprintf(stderr, "aurumcode review: response validation: code=%s\n", parseErr.ValidationCode)
 	}
-	fmt.Fprintln(stderr, "aurumcode review: degrading to deterministic analysis; the model review is inconclusive")
+	fmt.Fprintf(stderr, "aurumcode review: %s\n", i18n.Text(p.reviewLanguage, "terminal.model_degraded"))
 	p.model = modelParseFailed
 	p.result = &types.ReviewResult{Metadata: map[string]string{"quality_degraded": "true"}}
 	p.result.Limitations = append(p.result.Limitations, modelInvalidOutputNotice(p.reviewLanguage, string(parseErr.Kind)))
@@ -215,21 +212,23 @@ func newGitHubClient() (*githubclient.Client, error) {
 
 // pullRequestChangelogSource reads the PR title/body and the PR's commit
 // messages, then folds the title/body into a synthetic first commit so the
-// engine sees the whole reviewed narrative. Any missing source is an error and
-// the caller declares a limitation; nothing here is executed.
-func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client, owner, repo string, number int) ([]changelog.Commit, error) {
+// engine sees the whole reviewed narrative. It also returns the author the
+// same metadata carries (AUR-610). Any missing source is an error and the
+// caller declares a limitation; nothing here is executed.
+func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client, owner, repo string, number int) ([]changelog.Commit, changelog.Author, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.ProviderTimeout)
 	defer cancel()
 	meta, err := client.GetPullRequestMetadata(ctx, owner, repo, number)
 	if err != nil {
-		return nil, err
+		return nil, changelog.Author{}, err
 	}
+	author := changelog.Author{Login: meta.AuthorLogin, Type: meta.AuthorType}
 	commits, err := client.GetPullRequestCommits(ctx, owner, repo, number)
 	if err != nil {
-		return nil, err
+		return nil, author, err
 	}
 	if len(commits) == 0 {
-		return nil, errors.New("pull request has no commit messages")
+		return nil, author, errors.New("pull request has no commit messages")
 	}
 	out := make([]changelog.Commit, 0, len(commits)+1)
 	if strings.TrimSpace(meta.Title) != "" || strings.TrimSpace(meta.Body) != "" {
@@ -239,7 +238,7 @@ func pullRequestChangelogSource(ctx context.Context, client *githubclient.Client
 		subject, body := splitCommitMessage(c.Message)
 		out = append(out, changelog.Commit{Subject: subject, Body: body, Hash: c.SHA})
 	}
-	return out, nil
+	return out, author, nil
 }
 
 // splitCommitMessage splits a GitHub commit message into its first line and

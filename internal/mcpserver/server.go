@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"time"
+
+	"github.com/Mpaape/AurumCode/internal/i18n"
 )
 
 // supportedVersions are the MCP protocol revisions this server speaks,
@@ -47,6 +48,8 @@ type Server struct {
 	// with the redactor that answer used.
 	last         map[string]Finding
 	lastRedactor Redactor
+	// lastLanguage is the latest answer's review language, for how_to_fix.
+	lastLanguage string
 }
 
 // New returns a server for opts.
@@ -203,7 +206,7 @@ func (s *Server) review(ctx context.Context, p callParams) (any, Redactor, *rpcE
 		return failedAnswer(reasonOf(err)), nil, nil
 	}
 	gate := answerFor(outcome)
-	s.remember(gate, outcome.Redactor)
+	s.remember(gate, outcome.Redactor, outcome.Language)
 	if p.Name == ToolGate {
 		return gate, outcome.Redactor, nil
 	}
@@ -211,12 +214,13 @@ func (s *Server) review(ctx context.Context, p callParams) (any, Redactor, *rpcE
 }
 
 // remember keeps the findings of the latest answer for aurum_explain.
-func (s *Server) remember(a gateAnswer, r Redactor) {
+func (s *Server) remember(a gateAnswer, r Redactor, language string) {
 	s.last = map[string]Finding{}
 	for _, f := range append(append([]Finding{}, a.Findings...), a.Blocking...) {
 		s.last[f.ID] = f
 	}
 	s.lastRedactor = r
+	s.lastLanguage = language
 }
 
 // rules answers aurum_rules.
@@ -245,9 +249,8 @@ func (s *Server) explain(raw json.RawMessage) (any, Redactor, *rpcError) {
 		return nil, nil, invalidParams("unknown finding_id: call aurum_review or aurum_gate first and use an id it returned")
 	}
 	return map[string]any{
-		"finding": f,
-		"how_to_fix": fmt.Sprintf("Rule %s (%s) at %s:%d. Apply the suggestion or remove the cause in the code, then call aurum_gate again; an exception or a disabled rule is a policy decision for a human, not a fix.",
-			f.RuleID, f.Origin, f.File, f.Line),
+		"finding":    f,
+		"how_to_fix": i18n.Format(s.lastLanguage, "mcp.how_to_fix", f.RuleID, f.Origin, f.File, f.Line),
 	}, s.lastRedactor, nil
 }
 

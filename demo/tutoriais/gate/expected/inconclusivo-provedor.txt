@@ -1,11 +1,11 @@
 --- inconclusive: block, sem provedor
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: review inconclusive (quality_skipped)
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — revisão por modelo não executada (sem provedor configurado) [quality_skipped]
 exit_code=1
 RESULTADO: block: provedor ausente reprova, motivo quality_skipped
 --- inconclusive: warn, sem provedor
 exit_code=0
 RESULTADO: warn: provedor ausente alerta e sai 0, nunca aprovado
 --- inconclusive: warn com --exigir-qualidade
-aurumcode review: policy gate: review inconclusive (provider_failure)
+aurumcode review: policy gate: revisão inconclusiva — o provedor de modelo não respondeu [provider_failure]
 RESULTADO: --exigir-qualidade reprova mesmo com warn (provider_failure)

@@ -6,7 +6,7 @@ $ aurumcode review --base main
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
 
 sem gate declarado · 2 arquivos revisados
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: revisao feita
 prompt: kotlin.md (applyTo: **/*.kt)

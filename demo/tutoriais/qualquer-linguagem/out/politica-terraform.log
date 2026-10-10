@@ -1,18 +1,18 @@
 == politica-terraform
 $ aurumcode review --base main
-aurumcode review: verification: main.tf:3 seguranca#sem-bucket-publico still blocks: the verifier gave no valid answer [invalid_answer]
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: verificação: main.tf:3 seguranca#sem-bucket-publico continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: seguranca#sem-bucket-publico - Sem bucket publico (severidade error, limiar error, origem skills)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
+gate da política: reprovou · 1 arquivo revisado
 main.tf:3: [error] O bucket e publico. (rule seguranca#sem-bucket-publico: Sem bucket publico)
-  - Impact: Qualquer pessoa na internet le os logs.
-  - Evidence: A linha adicionada declara acl = "public-read" em main.tf.
-  - Suggested fix: Use acl = "private".
-  - Verify: Troque a acl e rode a revisao de novo; o achado deve sumir.
+  - Impacto: Qualquer pessoa na internet le os logs.
+  - Evidência: A linha adicionada declara acl = "public-read" em main.tf.
+  - Correção sugerida: Use acl = "private".
+  - Verificação: Troque a acl e rode a revisao de novo; o achado deve sumir.
 exit_code=3
 RESULTADO: achado citando a regra da skill de seguranca em main.tf bloqueou (gate.fail_on: high)

@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strings"
+
+	"github.com/Mpaape/AurumCode/internal/i18n"
 )
 
 // originModel names a finding no deterministic analyzer produced.
@@ -29,18 +32,57 @@ type reviewAnswer struct {
 	Diagnostics string `json:"diagnostics,omitempty"`
 }
 
-// nextStep tells the agent what the decision asks of it.
-func nextStep(d Decision, reason string) string {
+// nextStep tells the agent what the decision asks of it, in language.
+func nextStep(language string, d Decision, reason string) string {
 	if reason == reasonEmptyChange {
-		return "Nothing changed between base and HEAD, so nothing was reviewed. Commit your change on the working branch first (the review covers commits), or check base, then call aurum_gate again."
+		return i18n.Text(language, "mcp.next.empty_change")
 	}
 	switch d {
 	case DecisionPass:
-		return "The gate passes. Commit or push."
+		return i18n.Text(language, "mcp.next.pass")
 	case DecisionFail:
-		return "Fix every blocking finding (see suggestion, or call aurum_explain with its id), then call aurum_gate again. Never disable or weaken a rule to pass."
+		return i18n.Text(language, "mcp.next.fail")
 	}
-	return "The review did not conclude, so this is not a pass. Read reason and fix the cause (configure the model provider, retry), then call aurum_gate again."
+	return withHints(i18n.Text(language, "mcp.next.inconclusive"), inconclusiveHints(language, reason))
+}
+
+// providerReasons are the inconclusive reasons a model provider fixes.
+var providerReasons = map[string]bool{"provider_failure": true, "quality_skipped": true, "not_reviewed": true}
+
+// scannerMissingReasons are the reasons an installed scanner fixes.
+var scannerMissingReasons = map[string]bool{"sast_unavailable": true, "secrets_unavailable": true}
+
+// inconclusiveHints names what to configure for the reasons of an
+// inconclusive answer: the provider's variables, or the missing scanner.
+// The English answer keeps the bytes of earlier releases, so it gets none.
+func inconclusiveHints(language, reason string) []string {
+	if i18n.LocaleOf(language) == i18n.English {
+		return nil
+	}
+	var provider, scanner bool
+	for _, code := range strings.Split(reason, ",") {
+		code = strings.TrimSpace(code)
+		provider = provider || providerReasons[code]
+		scanner = scanner || scannerMissingReasons[code]
+	}
+	var hints []string
+	if provider {
+		hints = append(hints, i18n.Text(language, "mcp.next.configure_provider"))
+	}
+	if scanner {
+		hints = append(hints, i18n.Text(language, "mcp.next.install_scanner"))
+	}
+	return hints
+}
+
+// withHints appends each non-empty hint to text as its own sentence.
+func withHints(text string, hints []string) string {
+	for _, h := range hints {
+		if h != "" {
+			text += " " + h
+		}
+	}
+	return text
 }
 
 // identify gives every finding a stable id derived from where it is and
@@ -86,12 +128,13 @@ func answerFor(o SessionOutcome) gateAnswer {
 		Blocking:  identify(o.Blocking),
 		Findings:  identify(o.Findings),
 		GateLines: lines,
-		Next:      nextStep(decision, reason),
+		Next:      nextStep(o.Language, decision, reason),
 	}
 }
 
 // failedAnswer is the answer when the session could not run at all: always
-// inconclusive, never a pass.
+// inconclusive, never a pass. No session read the configuration, so its
+// next step is in the default language.
 func failedAnswer(reason string) gateAnswer {
 	return gateAnswer{
 		Decision:  DecisionInconclusive,
@@ -100,6 +143,6 @@ func failedAnswer(reason string) gateAnswer {
 		Blocking:  []Finding{},
 		Findings:  []Finding{},
 		GateLines: []string{},
-		Next:      nextStep(DecisionInconclusive, reason),
+		Next:      nextStep("", DecisionInconclusive, reason),
 	}
 }

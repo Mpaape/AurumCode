@@ -90,7 +90,7 @@ func runDependencyScanWith(args []string, stdout, stderr io.Writer, filter *reda
 		fmt.Fprintf(stderr, "aurumcode dependencies: varredura inconclusiva (%s): %s; nenhum SARIF gravado, os alertas abertos ficam como estao\n", report.Reason, filter.Redact(report.Detail))
 		return 1
 	}
-	if err := render.WriteCategorizedSARIF(out, version, strings.TrimSpace(*fl.categoria), dependencySARIFFindings(report), filter); err != nil {
+	if err := render.WriteCategorizedSARIF(out, toolVersion().Label(), strings.TrimSpace(*fl.categoria), dependencySARIFFindings(report), filter); err != nil {
 		fmt.Fprintf(stderr, "aurumcode dependencies: writing SARIF: %v\n", err)
 		return 1
 	}

@@ -54,6 +54,7 @@ negócio vivem em `internal/`.
 | `internal/mcpserver` | O adaptador MCP (Model Context Protocol) por stdio de `aurumcode mcp`: o subconjunto JSON-RPC 2.0 que o MCP exige (`initialize`, `tools/list`, `tools/call`), as quatro ferramentas só leitura (`aurum_review`, `aurum_gate`, `aurum_rules`, `aurum_explain`) com JSON Schema fechado, a validação dos argumentos antes de executar e um único ponto de redação de toda resposta. Não decide nada: pergunta à porta `Gateway`, que `cmd/aurumcode` implementa com a mesma sessão `--base`. |
 | `internal/memory` | Memória de revisão opcional. |
 | `internal/prompt` | Montagem de prompt, orçamento, parsing de resposta (dividido por responsabilidade, com os padrões compilados uma vez no pacote), filtro de comentários, notas de cobertura. |
+| `internal/prosefiles` | Lista única de extensões de prosa (`.txt`, `.log`, `.md`, `.markdown`, `.rst`, `.adoc`); regra de código da passada de segurança e do catálogo de análise não roda nesses arquivos. |
 | `internal/render` | Relatórios determinísticos, registros de auditoria, SARIF (inclusive com categoria própria, `automationDetails.id`) e identidade de achados. |
 | `internal/review` | O revisor, o escopo, as regras (incluindo regras dinâmicas de skill), o cache de revisão, a sessão de revisão (`internal/review/session`: ordem das fases e dados por fonte) e as ferramentas que uma revisão oferece ao modelo (`internal/review/tools`: scanners opcionais, contexto de código, seções de skill e as ferramentas que leem a revisão revisada, com o custo declarado no manifesto). |
 | `internal/reviewprofile` | Perfis de revisor: os embutidos são YAML versionado no binário (`builtin.yml`), lidos pelo mesmo decodificador do arquivo de perfis do time. |
@@ -64,6 +65,7 @@ negócio vivem em `internal/`.
 | `internal/security` | Redação de segredos em todos os destinos de saída. |
 | `internal/supplychain` | Assinatura Sigstore/Cosign de SBOMs e imagens. |
 | `internal/testgen` | Propostas determinísticas de testes a partir de um diff. |
+| `internal/version` | Versão do binário carimbada no build (`-X main.version`, ARG `AURUMCODE_VERSION` do Dockerfile): `Info`, `IsDev`, `Label`; `dev` quando nada foi carimbado. |
 | `internal/xbom` | BOMs além do SBOM (build, dados e assim por diante) a partir de catálogos. |
 
 ## Layers
@@ -119,7 +121,14 @@ retorna `(exit, done)`, de modo que cada saída antecipada mantém seu código:
    provedor configurado), `provider failed` (sem resposta, ou uma revisão de
    qualidade exigida que não aconteceu) ou `parse failed` (uma resposta que não
    pôde ser validada).
-4. **gate.** O pipeline compartilhado abaixo, a partir do `gate.Run` da sessão.
+4. **gate.** Antes do pipeline, o verificador adversarial
+   (`review.verification`, `internal/review/verify`) confere cada achado do
+   **modelo** contra a revisão revisada, numa chamada separada ao mesmo
+   provedor; um achado refutado com citação literal sai da entrada do gate e
+   fica registrado nas limitações e na auditoria. Achados de scanner nunca são
+   enviados a ele. Roda depois do modelo e antes da decisão do gate, no
+   início deste passo (`cmd/aurumcode/review_verification.go`). Depois vem o
+   pipeline compartilhado abaixo, a partir do `gate.Run` da sessão.
    O motivo de inconclusivo é `gate.RankReason`: falha do provedor, revisão
    ignorada, resposta não interpretável, parse degradado, o motivo do primeiro
    scanner, cobertura parcial, nessa ordem.

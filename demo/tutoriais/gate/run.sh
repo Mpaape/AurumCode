@@ -111,7 +111,7 @@ caso_inconclusivo_analysis_data() {
   tut_repo inconclusivo-analysis-data repo-exemplo/base repo-exemplo/segredo
   TUT_FIXTURE=fixture-vazia.json
   TUT_POLICY=politica-analysis-data
-  TUT_SED='s/(analysis_data_unavailable\)): .*/\1: <detalhe de rede omitido do registro>/; s/(analysis_data_unavailable): .*/\1: <detalhe de rede omitido do registro>/'
+  TUT_SED='s/(analysis_data_unavailable]?\)): .*/\1: <detalhe de rede omitido do registro>/; s/(analysis_data_unavailable): .*/\1: <detalhe de rede omitido do registro>/'
   aurum review --base main --politica /policy
   expect_rc 1 "block: artefato de analise indisponivel reprova (analysis_data_unavailable)"
 }

@@ -1,7 +1,7 @@
 == allow-sob-politica
 --- sem politica (config do proprio repositorio): gitleaks:allow suprime
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 ## AurumCode revisão de código
 
 > [!NOTE]
@@ -13,15 +13,15 @@ exit_code=0
 RESULTADO: sem politica, o comentario gitleaks:allow do autor silencia o achado
 --- sob politica central: o mesmo commit, o autor nao consegue silenciar
 $ aurumcode review --base main --politica /policy
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 4b2b6936afd5 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao policy)
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: gitleaks:github-pat - Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 4b2b6936afd5, gitleaks v8.30.1) (severidade error, limiar error, origem gitleaks, secao policy)
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-policy gate: failed · 1 file reviewed
-config.py:1: [error] Hardcoded secret matched rule github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
-config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 4b2b6936afd5 (gitleaks v8.30.1) (rule gitleaks:github-pat)
+gate da política: reprovou · 1 arquivo revisado
+config.py:1: [error] Segredo no código casou a regra github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
+config.py:1: [error] Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 4b2b6936afd5, gitleaks v8.30.1)
 exit_code=3
 RESULTADO: sob politica, gitleaks:allow e ignorado e o achado reprova

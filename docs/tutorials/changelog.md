@@ -10,6 +10,8 @@ faz nada. São oito casos, todos sem rede e com um modelo falso.
 ```mermaid
 flowchart LR
   PR[PR aberta] --> M{changelog_check.mode<br/>lido da base}
+  PR -.->|autor bot| BT[changelog_check.bots<br/>só rebaixa o mode]
+  BT -.-> M
   M -->|off| N[nada]
   M -->|suggest| S[sugestão no parecer<br/>exit 0]
   M -->|required| E{entrada útil?}
@@ -40,6 +42,8 @@ O repositório de exemplo exige a entrada (todos os casos menos o 7):
 ```yaml
 changelog_check:
   mode: required
+review:
+  language: pt-BR
 ```
 
 O `CHANGELOG.md` da base:
@@ -135,7 +139,7 @@ aurumcode changelog --base main
 <!-- saida: sugestao-separada -->
 ```text
 $ aurumcode review --base main --changelog
-Suggested release
+Versão sugerida
 exit_code=0
 RESULTADO: o review publicou a sugestao de changelog sem decidir o merge
 $ aurumcode changelog --base main
@@ -152,6 +156,8 @@ O que observar: o review sugere; quem decide em `required` é o check.
 ```yaml
 changelog_check:
   mode: off
+review:
+  language: pt-BR
 ```
 
 <!-- saida: pr-desliga-o-modo -->

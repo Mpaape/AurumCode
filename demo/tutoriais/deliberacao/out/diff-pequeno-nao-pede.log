@@ -1,17 +1,17 @@
 == diff-pequeno-nao-pede
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas []; não pedidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 1; desfecho answered
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-no gate declared · 1 file reviewed
+sem gate declarado · 1 arquivo revisado
 
-### Suggestions
+### Sugestões
 
-- **Sem varredura opcional** — diff pequeno; o modelo nao pediu o scanner_semgrep Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.
-No issues found.
+- **Sem varredura opcional** — diff pequeno; o modelo nao pediu o scanner_semgrep Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: diff pequeno: o modelo nao pediu o scanner_semgrep e ele nao rodou
 auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context,read_file,search_text,find_symbol,changed_file_diff chamadas=0

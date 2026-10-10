@@ -1,6 +1,6 @@
 $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas []; não pedidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 1; desfecho answered
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: diff pequeno: o modelo nao pediu o scanner_semgrep e ele nao rodou
 auditoria deliberation: pedidas=- nao_pedidas=scanner_semgrep,codebase_context,read_file,search_text,find_symbol,changed_file_diff chamadas=0

@@ -91,7 +91,7 @@ run_ac003() {
 run_mutation() {
   local target="$run_dir/root/internal/gate/scanner.go"
   local from='name, origin+", secao "+s.Section)'
-  [[ "$(grep -Fc "$from" "$target")" == "1" ]] || infra mutation-anchor
+  (( $(grep -Fc "$from" "$target") >= 1 )) || infra mutation-anchor
   sed -i -e 's/name, origin+", secao "+s.Section)/name, s.Section)/' -e '/^func ApplyScannerGate/i // MUT-001: origem policy' "$target"
   grep -Fq 'MUT-001: origem policy' "$target" || infra mutation-not-applied
   local log="$run_dir/mutation.log"

@@ -3,3 +3,5 @@ quality_gates:
     engine: cosign
     sign_sbom: false
     sign_artifacts: true
+review:
+  language: pt-BR

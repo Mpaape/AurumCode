@@ -3,16 +3,16 @@ $ aurumcode review --base main --auditoria auditoria.json
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [scanner_semgrep]; não pedidas [codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) executed: 1 achado(s)
 aurumcode review: policy gate: semgrep:regras.demo-sem-eval - eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao repo)
-## AurumCode code review
+## AurumCode revisão de código
 
 > [!CAUTION]
-> **Blocked: 1 problem must be fixed before merge.**
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
-no gate declared · 1 file reviewed
+sem gate declarado · 1 arquivo revisado
 
-### Suggestions
+### Sugestões
 
-- **Evidencia da varredura pedida** — o scanner_semgrep apontou eval() em calc.js:5 (regras.demo-sem-eval); troque por uma tabela de operacoes Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.
+- **Evidencia da varredura pedida** — o scanner_semgrep apontou eval() em calc.js:5 (regras.demo-sem-eval); troque por uma tabela de operacoes Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:regras.demo-sem-eval)
 exit_code=3
 RESULTADO: o modelo pediu o scanner_semgrep, a varredura achou eval() e o gate reprovou

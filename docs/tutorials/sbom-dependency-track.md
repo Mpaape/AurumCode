@@ -323,7 +323,7 @@ publicado e o comando sai 0, mas o veredito continua `Comment`, não `Approve`.
 
 <!-- saida: secret-ausente -->
 ```text
-revisão inconclusiva (dtrack_secret_missing)
+revisão inconclusiva (falta a chave de acesso ao Dependency-Track [dtrack_secret_missing])
 RESULTADO: secret ausente com block: o gate reprova (inconclusivo, nunca aprovado)
 RESULTADO: com warn, o alerta inconclusivo e publicado e o comando sai 0
 ```
@@ -395,7 +395,7 @@ HTTPServer(("127.0.0.1", 8099), H).serve_forever()
 
 <!-- saida: timeout -->
 ```text
-aurumcode review: policy gate: ssor_dtrack: revisão inconclusiva (dtrack_timeout)
+aurumcode review: policy gate: ssor_dtrack: revisão inconclusiva (o Dependency-Track não respondeu a tempo [dtrack_timeout])
 RESULTADO: timeout_seconds: 2 vencido com block: inconclusivo e reprovado
 ```
 

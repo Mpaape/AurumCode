@@ -91,3 +91,36 @@ define nada. Nunca força push nem move tag; repetir não sobrescreve a release.
 
 Ative "Immutable releases" nas configurações do repositório para que a tag e
 a release publicadas não possam ser alteradas.
+
+## A versão que o AurumCode informa
+
+O binário informa uma versão em `aurumcode --version`, numa linha dentro dos
+detalhes do parecer ("Revisado com AurumCode v2.0.0"), no campo
+`tool_version` do registro de auditoria e em `tool.driver.version` do SARIF.
+
+Ela vem do argumento de build `AURUMCODE_VERSION` do `Dockerfile`, que a
+injeta com `-ldflags "-X main.version=..."`. O workflow reutilizável
+(`.github/workflows/review.yml`, nos jobs de revisão e de dependências)
+resolve o valor a partir do SHA da ferramenta que está rodando
+(`job.workflow_sha`), no passo "Resolve AurumCode version":
+
+| Situação | Versão |
+| --- | --- |
+| Uma tag de release `vX.Y.Z` aponta exatamente para o SHA | a tag, por exemplo `v2.0.0` |
+| Nenhuma tag de release aponta para o SHA (`@main`, um SHA fixado) | os 12 primeiros caracteres do SHA, por exemplo `0123456789ab` |
+| A consulta das tags falha | os 12 primeiros caracteres do SHA (o job não falha por isso) |
+
+A consulta lê só a lista de tags do repositório da ferramenta
+(`git ls-remote --tags`), sem baixar histórico. O smoke de provedores
+(`.github/workflows/providers-smoke.yml`) usa o mesmo passo com o SHA do
+próprio checkout.
+
+Um build local sem o argumento (`docker build .`, os tutoriais, `go build`)
+fica com a versão `dev`. Com `dev` o parecer não ganha a linha de versão e a
+auditoria não grava `tool_version`, então as saídas gravadas dos tutoriais
+não mudam; o SARIF continua com `"version": "dev"`. Para testar uma versão
+localmente:
+
+```bash
+docker build --build-arg AURUMCODE_VERSION=v9.9.9 --tag aurumcode-local .
+```

@@ -22,6 +22,11 @@ type PullRequestMetadata struct {
 	HeadSHA string
 	// BaseSHA is the commit of the base branch the pull request targets.
 	BaseSHA string
+	// AuthorLogin and AuthorType are the pull request author as GitHub
+	// reports it (user.login, user.type: User or Bot). They are untrusted
+	// remote text; the caller only compares them.
+	AuthorLogin string
+	AuthorType  string
 }
 
 // PullRequestCommit is one commit message attached to a pull request. SHA and
@@ -43,7 +48,8 @@ func validPullRequestCoordinates(owner, repo string, number int) bool {
 	return !strings.ContainsAny(owner+repo, "/\\")
 }
 
-// GetPullRequestMetadata reads the pull request's title and body. It is
+// GetPullRequestMetadata reads the pull request's title, body, head and base
+// commits and author. It is
 // read-only and returns the raw remote text for the caller's sanitization.
 func (c *Client) GetPullRequestMetadata(ctx context.Context, owner, repo string, number int) (PullRequestMetadata, error) {
 	if err := ctx.Err(); err != nil {
@@ -75,12 +81,23 @@ func (c *Client) GetPullRequestMetadata(ctx context.Context, owner, repo string,
 		Base struct {
 			SHA string `json:"sha"`
 		} `json:"base"`
+		User struct {
+			Login string `json:"login"`
+			Type  string `json:"type"`
+		} `json:"user"`
 	}
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 4<<20))
 	if err := decoder.Decode(&payload); err != nil {
 		return PullRequestMetadata{}, fmt.Errorf("decoding pull request metadata")
 	}
-	return PullRequestMetadata{Title: payload.Title, Body: payload.Body, HeadSHA: payload.Head.SHA, BaseSHA: payload.Base.SHA}, nil
+	return PullRequestMetadata{
+		Title:       payload.Title,
+		Body:        payload.Body,
+		HeadSHA:     payload.Head.SHA,
+		BaseSHA:     payload.Base.SHA,
+		AuthorLogin: payload.User.Login,
+		AuthorType:  payload.User.Type,
+	}, nil
 }
 
 // GetPullRequestCommits reads every page of the pull request's commit list.
