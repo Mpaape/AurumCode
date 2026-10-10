@@ -132,7 +132,11 @@ var (
 	reHeaderJSONBare   = regexp.MustCompile(`(?i)(["']` + authHeaderNames + `["']` + assign + `)` + bareValue)
 	reKVDouble         = regexp.MustCompile(`(?i)(["']?` + secretKeyNames + `["']?` + assign + `)"[^"]*"`)
 	reKVSingle         = regexp.MustCompile(`(?i)(["']?` + secretKeyNames + `["']?` + assign + `)'[^']*'`)
-	reKVBare           = regexp.MustCompile(`(?i)(["']?` + secretKeyNames + `["']?` + assign + `)` + bareValue)
+	// reKVKey matches a secret-bearing key and its separator only. The bare
+	// value after it is measured with the tables of lexTable, never by the
+	// search itself, so a search that resumes inside a value kept as code
+	// does not read the rest of the line again.
+	reKVKey = regexp.MustCompile(`(?i)(["']?` + secretKeyNames + `["']?` + assign + `)`)
 	// A private key is the material between the banners, not the banner. The
 	// whole block is replaced when the text is redacted at once; the Writer
 	// keeps the equivalent state across lines.
@@ -140,8 +144,8 @@ var (
 	reCredBegin = regexp.MustCompile(`-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----`)
 	reCredEnd   = regexp.MustCompile(`-----END[ \t][A-Z ]*PRIVATE KEY-----`)
 	// The SendGrid, Slack and Discord shapes are AUR-609's: a well-known token
-	// is masked wherever it appears, before the code grammar of a bare value
-	// is consulted. A Discord token's first
+	// is masked wherever it appears, inside a call a bare value keeps as code
+	// too. A Discord token's first
 	// segment is the base64 of a numeric id, whose 4-character groups use a
 	// fixed alphabet ([MNO][DTjz][AEIMQUYcgk][w-z0-5]); requiring at least four
 	// such groups, a 6-character middle and a 27+ character tail keeps a
@@ -180,132 +184,131 @@ func redactKeyValues(s string) string {
 }
 
 // redactBareKeyValues replaces the unquoted value of a secret-bearing key
-// unless the expression it starts is code. In source code the right-hand side
-// of `API_KEY = os.environ.get("API_KEY")` or `token := os.Getenv("TOKEN")`
-// is the code under review, not a secret: masking it would hand the model a
+// unless the value is code. In source code the right-hand side of
+// `API_KEY = os.environ.get("API_KEY")` or `token := os.Getenv("TOKEN")` is
+// the code under review, not a secret: masking it would hand the model a
 // broken line and turn every finding about it into one that cites the marker.
 // Anything else, a weak password included, is masked: the filter fails
-// closed.
+// closed. The work is linear in len(s): the lexical tables are built once,
+// each value question is answered from them in constant time, and every key
+// search starts where the previous one stopped.
 func redactBareKeyValues(s string) string {
+	var t *lexTable
 	var b strings.Builder
-	b.Grow(len(s))
 	last, pos := 0, 0
-	for pos < len(s) {
-		m := reKVBare.FindStringSubmatchIndex(s[pos:])
-		if m == nil {
+	for {
+		start, ok := nextBareKey(s, pos)
+		if !ok {
 			break
 		}
-		// m[3] ends the key-and-separator group; the value runs to m[1].
-		start, end := pos+m[3], pos+m[1]
-		value := s[start:end]
-		expr, closed := expressionAt(s, start)
-		if !bareSecret(value, expr, closed) {
+		if t == nil {
+			t = newLexTable(s)
+		}
+		end := int(t.bareEnd[start])
+		if t.codeValue(s, start, end) {
 			// The value is kept as code, so the arguments of the call it
 			// makes are scanned too: `token=build(secret=x)` must not hide
 			// the inner secret behind the outer key.
 			pos = start + 1
 			continue
 		}
-		// A value cut short by the closers of an enclosing call
-		// (`f(password=x)`) keeps them: only the expression is masked.
-		if n := len(expr); n > 0 && n < len(value) && strings.Trim(value[n:], ")]") == "" {
-			end = start + n
-		}
+		end = t.trimEnclosingClosers(s, start, end)
 		b.WriteString(s[last:start])
 		b.WriteString(Marker)
 		last, pos = end, end
 	}
+	if last == 0 && b.Len() == 0 {
+		return s
+	}
 	b.WriteString(s[last:])
 	return b.String()
+}
+
+// nextBareKey returns where the bare value of the first secret-bearing key
+// at or after pos starts. A key whose separator is followed by no value
+// byte (a comparison's second `=`, a quote, a delimiter) is skipped.
+func nextBareKey(s string, pos int) (int, bool) {
+	for pos < len(s) {
+		m := reKVKey.FindStringSubmatchIndex(s[pos:])
+		if m == nil {
+			return 0, false
+		}
+		// m[3] ends the key-and-separator group; the value starts there.
+		if start := pos + m[3]; start < len(s) && bareValueStart(s[start]) {
+			return start, true
+		}
+		pos += m[0] + 1
+	}
+	return 0, false
+}
+
+// bareValueStart reports whether c can open a bare value (bareValue): not a
+// delimiter, and never `=` or `:`, so the second byte of a comparison
+// (`==`, `===`) or of a scope operator is an operator, not a value.
+func bareValueStart(c byte) bool {
+	return !isBareDelimiter(c) && c != '=' && c != ':'
+}
+
+// isBareDelimiter reports whether c ends a bare value: whitespace (as `\s`
+// in bareValue), a quote, `,`, `;`, `&` or `}`.
+func isBareDelimiter(c byte) bool {
+	switch c {
+	case ' ', '\t', '\n', '\f', '\r', '"', '\'', ',', ';', '&', '}':
+		return true
+	}
+	return false
 }
 
 // The bare-value classification below lives in this file, not beside it:
 // the AUR-009 acceptance stages the filter as this single file, so the
 // filter must compile on its own.
 
-// Code grammar of a bare value. Each form is anchored on the whole
-// expression, so one code-looking byte inside a secret (`Tr0ub4dor.9xQ`,
-// `p@ss(1)`, `abc$def`) never makes it code.
-const (
-	// codeCall is a call through an optional member or scope chain.
-	codeCall = `[A-Za-z_]\w*(?:(?:\.|->|::)[A-Za-z_]\w*)*\(.*\)`
-	// codeWorkflowRef is a whole GitHub Actions expression.
-	codeWorkflowRef = `\$\{\{.*\}\}`
-	// codeVariableRef is a whole shell or template variable reference,
-	// without a default value (`${X:-literal}` carries a literal).
-	codeVariableRef = `\$\{?[A-Za-z_]\w*\}?`
-	// codeSubstitution is a whole shell command substitution.
-	codeSubstitution = `\$\(.*\)`
-)
-
-// anchored compiles p to match only a whole expression. `.` never crosses a
-// line break, and expressionAt never returns one either: a call left open
-// at the end of a line is not code.
-func anchored(p string) *regexp.Regexp {
-	return regexp.MustCompile(`^(?:` + p + `)$`)
+// lexTable holds, for one text, the lexical facts the bare-value rule asks
+// about, each computed in a single pass so that every question costs O(1):
+// where a bare value ends, which bracket closes an opening one on the same
+// line (quotes respected), which bracket a closing one closes, and where a
+// run of `)`/`]` ends.
+type lexTable struct {
+	bareEnd []int32
+	match   []int32
+	opener  []int32
+	closers []int32
 }
 
-var (
-	reCodeCall         = anchored(codeCall)
-	reCodeWorkflowRef  = anchored(codeWorkflowRef)
-	reCodeVariableRef  = anchored(codeVariableRef)
-	reCodeSubstitution = anchored(codeSubstitution)
-)
-
-// reJWT is the JSON Web Token shape, a known credential recognized before
-// the code grammar of a bare value is consulted.
-var reJWT = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+`)
-
-// reDERBase64 is base64 DER key material written on one line (a PKCS#8 or
-// PKCS#1 body starts with "MII"), a known shape recognized before the code
-// grammar of a bare value is consulted.
-var reDERBase64 = regexp.MustCompile(`MII[A-Za-z0-9+/]{12,}`)
-
-// bareSecret reports whether the bare value of a secret-bearing key must be
-// masked. expr is the whole expression the value starts (expressionAt) and
-// closed reports whether its brackets and quotes balance; the value may be
-// cut short of it by a quote or a space. A known credential
-// shape always is masked; a value is kept only when expr covers it and is,
-// as a whole, a call, a variable or workflow reference or a command
-// substitution. Every other value is masked, however weak or short: a member
-// chain or an identifier included (`apiKey = [REDACTED]` stays a valid line,
-// nothing is left dangling). A comparison operand is never reached at all (see assign and
-// bareValue).
-func bareSecret(value, expr string, closed bool) bool {
-	if reCred.MatchString(value) || reJWT.MatchString(value) || reDERBase64.MatchString(value) {
-		return true
+// newLexTable builds the tables for s. Brackets pair only within one line
+// and outside quotes: a line break resets both, so a call left open at the
+// end of a line never closes on a later one.
+func newLexTable(s string) *lexTable {
+	n := len(s)
+	t := &lexTable{
+		bareEnd: make([]int32, n+1),
+		match:   make([]int32, n+1),
+		opener:  make([]int32, n+1),
+		closers: make([]int32, n+1),
 	}
-	if !closed {
-		return true
-	}
-	if len(expr) < len(value) && strings.Trim(value[len(expr):], ")]") != "" {
-		return true
-	}
-	for _, re := range []*regexp.Regexp{reCodeCall, reCodeWorkflowRef, reCodeVariableRef, reCodeSubstitution} {
-		if re.MatchString(expr) {
-			return false
+	t.bareEnd[n], t.closers[n], t.match[n], t.opener[n] = int32(n), int32(n), -1, -1
+	for i := n - 1; i >= 0; i-- {
+		t.match[i], t.opener[i] = -1, -1
+		t.bareEnd[i] = t.bareEnd[i+1]
+		if isBareDelimiter(s[i]) {
+			t.bareEnd[i] = int32(i)
+		}
+		t.closers[i] = int32(i)
+		if s[i] == ')' || s[i] == ']' {
+			t.closers[i] = t.closers[i+1]
 		}
 	}
-	return true
-}
-
-// expressionAt returns the expression that starts at s[start]: it runs to
-// the first space, `;`, `,` or `&` outside brackets and quotes, to a closing
-// bracket it did not open, or to a line break at any depth. Quotes and
-// brackets are skipped whole, so `os.environ.get("API_KEY")` and
-// `${{ secrets.X }}` are one expression although the bare value stops at
-// their quote or space. closed is false when the expression ends with a
-// bracket or quote still open (`Xk9(pL2`): such a value is never code.
-func expressionAt(s string, start int) (expr string, closed bool) {
-	depth := 0
+	var stack []int32
 	var quote byte
-	for i := start; i < len(s); i++ {
+	for i := 0; i < n; i++ {
 		c := s[i]
+		if c == '\r' || c == '\n' {
+			stack, quote = stack[:0], 0
+			continue
+		}
 		switch {
-		case c == '\r' || c == '\n':
-			return s[start:i], depth == 0 && quote == 0
 		case quote != 0:
-			if c == '\\' {
+			if c == '\\' && i+1 < n && s[i+1] != '\n' && s[i+1] != '\r' {
 				i++
 			} else if c == quote {
 				quote = 0
@@ -313,23 +316,164 @@ func expressionAt(s string, start int) (expr string, closed bool) {
 		case c == '"' || c == '\'' || c == '`':
 			quote = c
 		case c == '(' || c == '[' || c == '{':
-			depth++
+			stack = append(stack, int32(i))
 		case c == ')' || c == ']' || c == '}':
-			if depth == 0 {
-				return s[start:i], quote == 0
+			if k := len(stack); k > 0 && closes(s[stack[k-1]], c) {
+				t.match[stack[k-1]], t.opener[i] = int32(i), stack[k-1]
+				stack = stack[:k-1]
 			}
-			depth--
-		case depth == 0 && strings.IndexByte(" \t;,&", c) >= 0:
-			return s[start:i], true
 		}
 	}
-	return s[start:], depth == 0 && quote == 0
+	return t
 }
+
+// closes reports whether closer c closes the opening bracket o.
+func closes(o, c byte) bool {
+	return o == '(' && c == ')' || o == '[' && c == ']' || o == '{' && c == '}'
+}
+
+// codeValue reports whether the bare value s[start:valueEnd] is code that
+// stays visible: a whole call chain or a whole variable, workflow or
+// command reference that ends at an expression boundary and covers the
+// value (or leaves only the closers of an enclosing call after it). A
+// member chain or an identifier is not code here: masked whole, it leaves a
+// valid line (`apiKey = [REDACTED]`).
+func (t *lexTable) codeValue(s string, start, valueEnd int) bool {
+	end, ok := t.codeEnd(s, start)
+	return ok && expressionStop(s, end) && (end >= valueEnd || int(t.closers[end]) >= valueEnd)
+}
+
+// codeEnd parses, from start, a reference or a call chain and returns where
+// it ends.
+func (t *lexTable) codeEnd(s string, start int) (int, bool) {
+	if s[start] == '$' {
+		return t.referenceEnd(s, start)
+	}
+	return t.callChainEnd(s, start)
+}
+
+// referenceEnd parses `${{ … }}`, `$( … )`, `${NAME}` or `$NAME` whole;
+// `${NAME:-literal}` is not a reference, it carries a literal.
+func (t *lexTable) referenceEnd(s string, start int) (int, bool) {
+	i := start + 1
+	if i >= len(s) {
+		return 0, false
+	}
+	switch {
+	case s[i] == '{' && i+1 < len(s) && s[i+1] == '{':
+		m := t.match[i]
+		if m < 0 || t.match[i+1] != m-1 {
+			return 0, false
+		}
+		return int(m) + 1, true
+	case s[i] == '(':
+		if m := t.match[i]; m >= 0 {
+			return int(m) + 1, true
+		}
+		return 0, false
+	case s[i] == '{':
+		j := identEnd(s, i+1)
+		if j == i+1 || j >= len(s) || s[j] != '}' {
+			return 0, false
+		}
+		return j + 1, true
+	default:
+		j := identEnd(s, i)
+		return j, j > i
+	}
+}
+
+// callChainEnd parses identifiers joined by `.`, `->` or `::`, each
+// optionally called, and accepts the chain only when it ends with a call
+// (`os.environ.get("X")`, `os.getenv("X").strip()`, `Config::token()`).
+func (t *lexTable) callChainEnd(s string, start int) (int, bool) {
+	i := identEnd(s, start)
+	if i == start {
+		return 0, false
+	}
+	called := false
+	for {
+		if i < len(s) && s[i] == '(' {
+			m := t.match[i]
+			if m < 0 {
+				return 0, false
+			}
+			i, called = int(m)+1, true
+		}
+		sep := separatorLen(s, i)
+		if sep == 0 {
+			return i, called
+		}
+		j := identEnd(s, i+sep)
+		if j == i+sep {
+			return 0, false
+		}
+		i, called = j, false
+	}
+}
+
+// identEnd returns the end of the identifier that starts at i, or i.
+func identEnd(s string, i int) int {
+	if i >= len(s) || !(isLetter(s[i]) || s[i] == '_') {
+		return i
+	}
+	j := i + 1
+	for j < len(s) && (isLetter(s[j]) || s[j] == '_' || s[j] >= '0' && s[j] <= '9') {
+		j++
+	}
+	return j
+}
+
+func isLetter(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+}
+
+// separatorLen returns the length of a member or scope separator at i.
+func separatorLen(s string, i int) int {
+	switch {
+	case i < len(s) && s[i] == '.':
+		return 1
+	case i+1 < len(s) && (s[i:i+2] == "->" || s[i:i+2] == "::"):
+		return 2
+	}
+	return 0
+}
+
+// expressionStop reports whether the code that ends at i ends the
+// expression: the text ends, or a space, `;`, `,`, `&`, line break or
+// closing bracket follows.
+func expressionStop(s string, i int) bool {
+	if i >= len(s) {
+		return true
+	}
+	return strings.IndexByte(" \t\r\n;,&)]}", s[i]) >= 0
+}
+
+// trimEnclosingClosers keeps out of the masked span the trailing `)`/`]`
+// that close a bracket opened before the value (`f(password=x)`), so the
+// enclosing call stays balanced.
+func (t *lexTable) trimEnclosingClosers(s string, start, end int) int {
+	for end > start && (s[end-1] == ')' || s[end-1] == ']') && int(t.opener[end-1]) < start {
+		end--
+	}
+	return end
+}
+
+// reJWT is the JSON Web Token shape and reDERBase64 base64 DER key material
+// written on one line (a PKCS#8 or PKCS#1 body starts with "MII"). Both are
+// known shapes masked wherever they appear (redactCredentialShapes), inside
+// a call kept as code too.
+var (
+	reJWT       = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+`)
+	reDERBase64 = regexp.MustCompile(`MII[A-Za-z0-9+/]{12,}`)
+)
 
 // redactCredentialShapes replaces well-known credential token shapes and any
 // complete private-key block present in the same text.
 func redactCredentialShapes(s string) string {
 	s = reCredBlock.ReplaceAllString(s, Marker)
+	s = reJWT.ReplaceAllString(s, Marker)
+	s = reDERBase64.ReplaceAllString(s, Marker)
 	return reCred.ReplaceAllString(s, Marker)
 }
 

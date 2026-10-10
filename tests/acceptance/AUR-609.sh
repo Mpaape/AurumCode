@@ -6,7 +6,7 @@
 # while SQL concatenated inside a string stays a finding.
 #
 # Selectors:
-#   all      AC-001..AC-005, MUT-001..MUT-005
+#   all      AC-001..AC-005, MUT-001..MUT-006
 #   AC-001   the seven expression/operator forms pass through intact
 #   AC-002   a password literal, a weak bare password, a bare token, a JWT and
 #            an AKIA key stay masked
@@ -19,14 +19,16 @@
 #   MUT-002  no literal guard on command-injection turns AC-003 red
 #   MUT-003  no prose skip turns AC-004 red
 #   MUT-004  an unanchored call grammar leaks a bare secret (AC-002 red)
-#   MUT-005  an expression read across line breaks leaks a bare secret (AC-002 red)
+#   MUT-005  brackets paired across line breaks leak a bare secret (AC-002 red)
+#   MUT-006  a key search that reads the value again turns the redaction
+#            quadratic (AC-002 red)
 # Exit: 0 pass, 1 behavioral failure, 64 unknown selector, 79 infrastructure.
 set -Eeuo pipefail
 export LC_ALL=C
 
 readonly card='AUR-609'
 selector="${1:-all}"
-known='all AC-001 AC-002 AC-003 AC-004 AC-005 MUT-001 MUT-002 MUT-003 MUT-004 MUT-005'
+known='all AC-001 AC-002 AC-003 AC-004 AC-005 MUT-001 MUT-002 MUT-003 MUT-004 MUT-005 MUT-006'
 if [[ " $known " != *" $selector "* ]]; then
   printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2
   exit 64
@@ -116,9 +118,9 @@ ac001() {
     TestAUR609KeyValueKeepsExpressionsAndOperators TestAUR609AssignDoesNotEatComparisonOperators TestAUR609BareSecretOrCode
 }
 ac002() {
-  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|BareWeakSecretStaysMasked|BareSecretOrCode|MemberChainMaskedWhole)$' \
+  ac AC-002 '^TestAUR609(KeyValueStillMasksLiteralsAndTokens|BareWeakSecretStaysMasked|BareSecretOrCode|MemberChainMaskedWhole|RedactionIsLinear)$' \
     TestAUR609KeyValueStillMasksLiteralsAndTokens TestAUR609BareWeakSecretStaysMasked TestAUR609BareSecretOrCode \
-    TestAUR609MemberChainMaskedWhole
+    TestAUR609MemberChainMaskedWhole TestAUR609RedactionIsLinear
 }
 ac003() {
   ac AC-003 '^TestAUR609(DocstringMentionIsNotCommandInjection|MultilineDocstringIsNotCommandInjection|RealCallStillCommandInjection|SQLInsideStringStillFound)$' \
@@ -134,8 +136,8 @@ ac005() {
 }
 
 mut001() {
-  mutate MUT-001 internal/security/redaction/redaction.go 'if !bareSecret(value, expr, closed) {' \
-    's/if !bareSecret(value, expr, closed) {/if false \&\& !bareSecret(value, expr, closed) {/' \
+  mutate MUT-001 internal/security/redaction/redaction.go 'if t.codeValue(s, start, end) {' \
+    's/if t.codeValue(s, start, end) {/if false \&\& t.codeValue(s, start, end) {/' \
     '^TestAUR609KeyValueKeepsExpressionsAndOperators$' 'TestAUR609KeyValueKeepsExpressionsAndOperators'
 }
 mut002() {
@@ -150,22 +152,29 @@ mut003() {
 }
 
 mut004() {
-  mutate MUT-004 internal/security/redaction/redaction.go 'reCodeCall         = anchored(codeCall)' \
-    's/reCodeCall         = anchored(codeCall)/reCodeCall         = regexp.MustCompile(codeCall)/' \
+  mutate MUT-004 internal/security/redaction/redaction.go 'return ok && expressionStop(s, end) && (end >= valueEnd || int(t.closers[end]) >= valueEnd)' \
+    's/return ok \&\& expressionStop(s, end) \&\& (end >= valueEnd || int(t.closers\[end\]) >= valueEnd)/return ok \&\& end >= 0/' \
     '^TestAUR609BareSecretOrCode$' 'TestAUR609BareSecretOrCode'
 }
 
-# MUT-005 restores both halves of the line crossing: the expression no longer
-# stops at a line break inside brackets, and `.` matches a line break again.
+# MUT-005 pairs brackets across line breaks again.
 mut005() {
-  mutate MUT-005 internal/security/redaction/redaction.go "case c == '\\r' || c == '\\n':" \
-    's/case c == .\\r. || c == .\\n.:/case false:/; s/regexp.MustCompile(.^(?:. + p + .)\$.)/regexp.MustCompile("(?s)^(?:" + p + ")$")/' \
+  mutate MUT-005 internal/security/redaction/redaction.go "if c == '\\r' || c == '\\n' {" \
+    's/if c == .\\r. || c == .\\n. {/if false {/' \
     '^TestAUR609BareSecretOrCode$' 'TestAUR609BareSecretOrCode'
+}
+
+# MUT-006 lets the key search consume the bare value again, so every resumed
+# search inside a kept call reads the rest of the line.
+mut006() {
+  mutate MUT-006 internal/security/redaction/redaction.go 'assign + `)`)' \
+    's/assign + `)`)$/assign + `)` + bareValue)/' \
+    '^TestAUR609RedactionIsLinear$' 'TestAUR609RedactionIsLinear'
 }
 
 # One function per selector; all runs every one in order.
 if [[ "$selector" == 'all' ]]; then
-  for step in ac001 ac002 ac003 ac004 ac005 mut001 mut002 mut003 mut004 mut005; do
+  for step in ac001 ac002 ac003 ac004 ac005 mut001 mut002 mut003 mut004 mut005 mut006; do
     "$step"
   done
   printf '%s/all/pass\n' "$card"

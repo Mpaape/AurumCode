@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
+	"time"
 )
 
 // aur609Expressions are the seven spellings of a secret-bearing key whose
@@ -82,11 +83,11 @@ func TestAUR609AssignDoesNotEatComparisonOperators(t *testing.T) {
 			t.Fatalf("Redact(%q) = %q, want the line intact", line, got)
 		}
 	}
-	if m := reKVBare.FindString(`if token == nil {`); m != "" {
-		t.Fatalf("the bare rule matched %q inside a comparison", m)
+	if start, ok := nextBareKey(`if token == nil {`, 0); ok {
+		t.Fatalf("the bare rule found a value at %d inside a comparison", start)
 	}
-	if m := reKVBare.FindString(`token := value`); m != "token := value" {
-		t.Fatalf("the bare rule matched %q, want the whole `:=` separator taken", m)
+	if start, ok := nextBareKey(`token := value`, 0); !ok || start != len(`token := `) {
+		t.Fatalf("the bare value starts at %d (found %v), want %d: the whole `:=` separator taken", start, ok, len(`token := `))
 	}
 }
 
@@ -195,5 +196,50 @@ func TestAUR609MemberChainMaskedWhole(t *testing.T) {
 		if got := f.Redact(in); got != want {
 			t.Fatalf("Redact(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// aur609RedactWithin runs Redact on in and fails when it does not return
+// within limit, so a quadratic regression fails fast instead of hanging.
+func aur609RedactWithin(t *testing.T, in string, limit time.Duration) time.Duration {
+	t.Helper()
+	f := NewFilter()
+	done := make(chan time.Duration, 1)
+	go func() {
+		begin := time.Now()
+		f.Redact(in)
+		done <- time.Since(begin)
+	}()
+	select {
+	case d := <-done:
+		return d
+	case <-time.After(limit):
+		t.Fatalf("Redact of %d bytes did not finish within %v", len(in), limit)
+		return 0
+	}
+}
+
+// The bare-value rule is linear in the input: text the author of a pull
+// request controls (deeply nested kept calls, a long run of calls on one
+// line) cannot make the redaction quadratic. Doubling the input must not
+// come near quadrupling the time.
+func TestAUR609RedactionIsLinear(t *testing.T) {
+	nested := func(size int) string {
+		n := size / len("token=f(x)")
+		return strings.Repeat("token=f(", n) + "x" + strings.Repeat(")", n)
+	}
+	flat := func(size int) string {
+		return strings.Repeat("token=f(x)", size/len("token=f(x)"))
+	}
+	const limit = 2 * time.Second
+	for name, build := range map[string]func(int) string{"nested": nested, "flat": flat} {
+		t.Run(name, func(t *testing.T) {
+			aur609RedactWithin(t, build(64<<10), limit) // warm up
+			half := aur609RedactWithin(t, build(128<<10), limit)
+			full := aur609RedactWithin(t, build(256<<10), limit)
+			if full > 3*half+50*time.Millisecond {
+				t.Fatalf("256 KB took %v and 128 KB took %v: the time grows faster than linear", full, half)
+			}
+		})
 	}
 }
