@@ -49,7 +49,11 @@ func (g *sessionGateway) Review(ctx context.Context, req mcpserver.ReviewRequest
 	if !ok {
 		return mcpserver.SessionOutcome{Exit: exit, Diagnostics: stderr.String()}, nil
 	}
-	b := newBaseReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: g.filter}, f, policyDir)
+	standardsDir, exit, ok := f.resolveStandardsDir(&stderr)
+	if !ok {
+		return mcpserver.SessionOutcome{Exit: exit, Diagnostics: stderr.String()}, nil
+	}
+	b := newBaseReview(reviewIO{stdout: &stdout, stderr: &stderr, filter: g.filter}, f, policyDir, standardsDir)
 	b.ctx = ctx
 	exit = session.Run(b)
 	b.flush()
@@ -118,34 +122,47 @@ func (g *sessionGateway) Rules(_ context.Context, paths []string) (mcpserver.Rul
 	if !ok {
 		return mcpserver.RuleSet{}, fmt.Errorf("%s", stderr.String())
 	}
-	layers, err := loadSkillLayers(cwd, policyDir)
+	standardsDir, _, ok := f.resolveStandardsDir(&stderr)
+	if !ok {
+		return mcpserver.RuleSet{}, fmt.Errorf("%s", stderr.String())
+	}
+	layers, err := loadSkillLayers(cwd, policyDir, standardsDir)
 	if err != nil {
 		return mcpserver.RuleSet{}, err
 	}
-	catalog, rules, err := resolveSkillRules(layers, paths)
+	resolved, err := resolveSkillRules(layers, paths)
 	if err != nil {
 		return mcpserver.RuleSet{}, err
 	}
-	return ruleSetOf(catalog, rules, paths, policyDir), nil
+	return ruleSetOf(resolved.catalog, resolved.rules, paths, policyDir, layers.standards.activeDir()), nil
 }
 
 // loadSkillLayers loads the repository configuration and, when a central
-// policy is set, the policy over it, exactly as the review's resolve phase.
-func loadSkillLayers(cwd, policyDir string) (skillLayers, error) {
+// policy is set, the policy over it, then the engineering standards layer
+// when one is set, exactly as the review's resolve phase.
+func loadSkillLayers(cwd, policyDir, standardsDir string) (skillLayers, error) {
 	cfg, err := config.Load(cwd)
 	if err != nil {
 		return skillLayers{}, err
 	}
 	l := skillLayers{cwd: cwd, policyDir: policyDir, cfg: cfg}
-	if policyDir == "" {
+	if policyDir != "" {
+		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, cwd); err != nil {
+			return skillLayers{}, err
+		}
+		if l.centralCfg, err = config.LoadCentralPolicy(policyDir); err != nil {
+			return skillLayers{}, err
+		}
+		l.cfg, _ = config.ApplyCentralPolicy(cfg, l.centralCfg)
+	}
+	if standardsDir == "" {
 		return l, nil
 	}
-	if err := config.ValidatePolicyOutsideReviewedTree(policyDir, cwd); err != nil {
+	if l.language, err = l.cfg.ReviewLanguage(); err != nil {
 		return skillLayers{}, err
 	}
-	if l.centralCfg, err = config.LoadCentralPolicy(policyDir); err != nil {
+	if l.standards, err = loadCentralLayer(config.Layers[config.LayerStandards], standardsDir, cwd, l.language, readReviewEnv()); err != nil {
 		return skillLayers{}, err
 	}
-	l.cfg, _ = config.ApplyCentralPolicy(cfg, l.centralCfg)
 	return l, nil
 }

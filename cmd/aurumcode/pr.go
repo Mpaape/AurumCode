@@ -54,6 +54,9 @@ type prReviewOptions struct {
 	// AURUMCODE_POLICY (AUR-518); empty means no policy was declared and
 	// this path is unchanged (AC-006).
 	policyDir string
+	// standardsDir is the engineering standards layer from --padroes or
+	// AURUMCODE_STANDARDS (AUR-613); empty means no layer.
+	standardsDir string
 	// auditoriaPath/sarifPath are AUR-521's compliance artifact paths
 	// (--auditoria/--sarif); empty means neither file is written, this
 	// path's published behavior unchanged.

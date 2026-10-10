@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/context/skills"
@@ -10,45 +11,48 @@ import (
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
+// skillSources are the skill directories of one review, by layer; a layer
+// without a source (or with a nil one) is absent.
+type skillSources map[config.LayerName]skills.Source
+
 // resolveSkillCatalog is the single place the review (--base and --pr) turns
-// the skill directories into the catalog sent to the model: the central
-// policy's skills layered over the repository's, selected by language and
-// path from the changed files.
-//
-// A policy that cannot be loaded is an error (the policy is the
-// organization's, so it fails closed before any model call, naming the
-// file). In the repository, a malformed SKILL.md drops only that skill, with
-// a warning naming it, and the other skills still apply; a repository skill
-// directory that cannot be read at all is declared and the review continues
-// without the repository's skills. Warnings reach the model and the review
-// text.
-// A nil source means that layer is absent.
-func resolveSkillCatalog(policy, repo skills.Source) (*skills.Catalog, error) {
-	var policySet, repoSet *skills.Set
+// the skill directories into the catalog sent to the model: every layer
+// loaded by its own tolerance (loadLayerSkills), the same-name precedence
+// applied in config.LayerOrder (shadowSameNames), the central policy's
+// skills layered over the rest by selector (skills.NewCatalog), and the
+// skills a layer also lists in review.context.skills sent once
+// (excludeListedSkills). Warnings reach the model and the review text;
+// shadowed are the precedence warnings alone, for the caller to print on
+// the terminal.
+func resolveSkillCatalog(src skillSources, policyCfg, repoCfg *config.Config, language string) (catalog *skills.Catalog, shadowed []string, err error) {
+	sets := layerSets{}
 	var warnings []string
-	if policy != nil {
-		set, err := skills.LoadSource(policy)
-		if err != nil {
-			return nil, fmt.Errorf("central policy: %w", err)
+	for _, name := range config.LayerOrder {
+		if src[name] == nil {
+			continue
 		}
-		policySet = set
-	}
-	if repo != nil {
-		set, skipped, err := skills.LoadSourceSkippingMalformed(repo)
+		set, loadWarnings, err := loadLayerSkills(config.Layers[name], src[name], language)
 		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("repository skills unavailable, review continues without them: %v", err))
-		} else {
-			repoSet = set
-			warnings = append(warnings, skipped...)
+			return nil, nil, err
 		}
+		sets[name] = set
+		warnings = append(warnings, loadWarnings...)
 	}
-	return skills.NewCatalog(policySet, repoSet, nil, warnings), nil
+	protected := skillDirNames(sets[config.LayerStandards])
+	shadowed = shadowSameNames(sets, language)
+	warnings = append(warnings, shadowed...)
+	catalog = skills.NewCatalog(sets[config.LayerPolicy], belowPolicy(sets), nil, warnings)
+	excludeListedSkills(catalog, policyCfg, repoCfg, protected)
+	return catalog, shadowed, nil
 }
 
 // excludeListedSkills drops from catalog every skill directory whose
 // SKILL.md its own layer also lists in review.context.skills: the listing
 // already sends that text to the model, and it must reach the prompt once.
-func excludeListedSkills(catalog *skills.Catalog, policy, repo *config.Config) {
+// The standards layer's skills sit in the catalog's repository layer, so a
+// repository listing that names one of their directories (protected) is
+// not taken as the standards skill's own listing.
+func excludeListedSkills(catalog *skills.Catalog, policy, repo *config.Config, protected map[string]bool) {
 	if catalog == nil {
 		return
 	}
@@ -56,39 +60,72 @@ func excludeListedSkills(catalog *skills.Catalog, policy, repo *config.Config) {
 		catalog.ExcludeListed(skills.LayerPolicy, policy.Review.Context.Skills)
 	}
 	if repo != nil {
-		catalog.ExcludeListed(skills.LayerRepository, repo.Review.Context.Skills)
+		catalog.ExcludeListed(skills.LayerRepository, unprotectedListing(repo.Review.Context.Skills, protected))
 	}
 }
 
-// skillLayers is where the two skill layers of a review live: the
-// repository at cwd and, when centralCfg is set, the central policy at
-// policyDir.
+// unprotectedListing is listed without the entries that name a protected
+// skill directory (.aurumcode/skills/<name>/SKILL.md). With nothing
+// protected, listed is returned as is.
+func unprotectedListing(listed []string, protected map[string]bool) []string {
+	if len(protected) == 0 {
+		return listed
+	}
+	out := make([]string, 0, len(listed))
+	for _, p := range listed {
+		clean := path.Clean(strings.TrimSpace(filepath.ToSlash(p)))
+		if dir, ok := strings.CutSuffix(clean, "/"+skills.DocName); ok && path.Dir(dir) == skills.DefaultDirName && protected[path.Base(dir)] {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// skillLayers is where the skill layers of a review live: the repository
+// at cwd, the central policy at policyDir when centralCfg is set, and the
+// engineering standards layer when standards is set. language is the
+// review's, for the layering warnings.
 type skillLayers struct {
 	cwd, policyDir  string
 	cfg, centralCfg *config.Config
+	standards       *centralLayer
+	language        string
+}
+
+// skillResolution is one computation of the skill catalog and of the
+// dynamic skill-section rules a review accepts citations against.
+type skillResolution struct {
+	catalog *skills.Catalog
+	rules   map[string]review.Rule
+	// standardsRules are the rule ids the engineering standards layer won.
+	standardsRules map[string]bool
+	// shadowed are the layers' same-name precedence warnings.
+	shadowed []string
 }
 
 // resolveSkillRules is the one computation of the skill catalog and of the
 // dynamic skill-section rules a review accepts citations against, for the
 // changed paths: the review session and the agent server's rules listing
 // both call it, so they can never disagree on which rules apply.
-func resolveSkillRules(l skillLayers, changed []string) (*skills.Catalog, map[string]review.Rule, error) {
-	var policySource skills.Source
+func resolveSkillRules(l skillLayers, changed []string) (skillResolution, error) {
+	src := skillSources{config.LayerRepository: localSkillSource(l.cwd, "")}
 	if l.centralCfg != nil {
-		policySource = localSkillSource(l.policyDir, "policy")
+		src[config.LayerPolicy] = localSkillSource(l.policyDir, string(config.LayerPolicy))
 	}
-	catalog, err := resolveSkillCatalog(policySource, localSkillSource(l.cwd, ""))
+	if source := l.standards.skillSource(); source != nil {
+		src[config.LayerStandards] = source
+	}
+	catalog, shadowed, err := resolveSkillCatalog(src, l.centralCfg, l.cfg, l.language)
 	if err != nil {
-		return nil, nil, err
+		return skillResolution{}, err
 	}
-	excludeListedSkills(catalog, l.centralCfg, l.cfg)
-	catalogPolicy, catalogRepo := dynamicRulesFromCatalog(catalog, changed)
-	policySkillRules := map[string]review.Rule{}
+	layered := dynamicRulesFromCatalog(catalog, changed, l.centralCfg != nil)
 	if l.centralCfg != nil {
-		policySkillRules = dynamicRulesFromLocalSkills(l.policyDir, l.centralCfg.Review.Context.Skills, gateOriginPolicy)
+		layered[config.LayerPolicy] = unionRules(dynamicRulesFromLocalSkills(l.policyDir, l.centralCfg.Review.Context.Skills, gateOriginPolicy), layered[config.LayerPolicy])
 	}
-	repoSkillRules := dynamicRulesFromLocalSkills(l.cwd, l.cfg.Review.Context.Skills, gateOriginRepo)
-	return catalog, mergeDynamicRules(unionRules(policySkillRules, catalogPolicy), unionRules(repoSkillRules, catalogRepo)), nil
+	layered[config.LayerRepository] = unionRules(dynamicRulesFromLocalSkills(l.cwd, l.cfg.Review.Context.Skills, gateOriginRepo), layered[config.LayerRepository])
+	return skillResolution{catalog: catalog, rules: layered.merged(), standardsRules: layered.wonBy(config.LayerStandards), shadowed: shadowed}, nil
 }
 
 // localSkillSource reads root/.aurumcode/skills from disk, shown with a

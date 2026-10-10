@@ -221,8 +221,9 @@ func TestAUR579AssessmentBesideOriginInEverySink(t *testing.T) {
 }
 
 // AC-003: under a central policy the disputed evidence still counts (the
-// gate fails) and becomes a proposed exception; without a policy,
-// gate.triage: model lets the same dispute demote it and the gate passes.
+// gate fails) and becomes a proposed exception; without a policy the
+// repository's triage -- gate.triage absent (model since AUR-608), none or
+// model -- decides whether the same dispute demotes it and the gate passes.
 func TestAUR579PolicyFloorAndRepositoryTriage(t *testing.T) {
 	aur579Repo(t)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", aur579Fixture(t, aur579Assessments))
@@ -317,7 +318,8 @@ func readJSON(t *testing.T, path string, v any) {
 func TestAUR579VerdictFollowsTheGateAfterTriage(t *testing.T) {
 	aur579Repo(t)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", aur579Fixture(t, aur579Assessments))
-	cfg := "gate:\n  fail_on: [high]\n  triage:\n    analysis: model\n"
+	// gate.triage absent: model (AUR-608).
+	cfg := "gate:\n  fail_on: [high]\n"
 	if err := os.MkdirAll(".aurumcode", 0o700); err != nil {
 		t.Fatal(err)
 	}

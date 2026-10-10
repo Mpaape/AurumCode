@@ -1,8 +1,12 @@
-// Package config is AUR-452's seam: "context providers" that feed
-// additional, UNTRUSTED material into the review call, plus the small set
-// of EXPLICIT, human-authored settings (rule on/off, severity override,
-// ignored paths) that this repository's own .aurumcode/config.yml has
-// authority to change.
+// Package config is the review's configuration seam: "context providers"
+// that feed additional, UNTRUSTED material into the review call, plus the
+// EXPLICIT, human-authored settings of .aurumcode/config.yml (Config: rules,
+// ignore, review, gate, exceptions, quality_gates, analysis_data,
+// deliberation, batches, dependencies, changelog_check) resolved across the
+// three layers declared in layer.go -- the central security policy, which
+// takes rules, ignore, gate and exceptions away from the repository when it
+// declares them (governance.go), the engineering standards layer, which
+// declares no section, and the repository itself.
 //
 // This card is the foundation four later cards build on: AUR-468 (skills),
 // AUR-469 (MCP) and AUR-470 (RAG) each add a ContextProvider; AUR-471 adds
@@ -19,13 +23,13 @@
 // prompt as clearly labeled background text (see BuildContextBlock). It
 // is never parsed for directives, and nothing in this package (or in
 // cmd/aurumcode's wiring of it) inspects provider text to decide whether a
-// rule is enabled, what severity a finding gets, where --fail-on's
-// threshold sits, whether secret redaction runs, or what the cost ceiling
-// is. Those five things are controlled exclusively by two things this
-// package also owns: the EXPLICIT, versioned Config a human wrote
-// (rules/ignore, this file) and code (--fail-on, redaction and --limite
-// remain entirely outside this card, in cmd/aurumcode and
-// internal/security/redaction, untouched). ApplyRuleConfig (rules.go)
+// rule is enabled, what severity a finding gets, what the gate fails on
+// (gate.fail_on, --fail-on), whether secret redaction runs, or what the
+// cost ceiling is. Those decisions come only from the EXPLICIT, versioned
+// Config a human wrote -- the repository's own, or the central policy's
+// where the policy governs the section (ApplyCentralPolicy) -- and from
+// code (redaction and --limite live in cmd/aurumcode and
+// internal/security/redaction). ApplyRuleConfig (rules.go)
 // reads only Config; it has no parameter through which provider text
 // could reach it even if a caller wanted that. tests/unit/AUR-452.go
 // proves the split explicitly: a provider whose contributed text asks to
@@ -292,15 +296,17 @@ type Config struct {
 // DefaultConfigPath is where Load looks, relative to the repository root.
 const DefaultConfigPath = ".aurumcode/config.yml"
 
-// Load reads root/.aurumcode/config.yml. THE ZERO-CONFIG CONTRACT: a
-// missing file returns an empty, non-nil *Config and a nil error -- every
-// caller in this package and in cmd/aurumcode treats "no file" exactly
-// like "a file with nothing in it", and both leave every downstream
-// function (ApplyRuleConfig, FilterIgnoredPaths, WrapProvider) a
-// documented no-op. A file that exists but fails to parse is a loud
-// error, never a silently-empty config: a config the user actually wrote
-// that this program could not read must not be read as "the user
-// configured nothing".
+// Load reads root/.aurumcode/config.yml, the repository layer's own
+// config. THE ZERO-CONFIG CONTRACT: a missing file returns an empty,
+// non-nil *Config and a nil error -- every caller in this package and in
+// cmd/aurumcode treats "no file" like "a file with nothing in it", and both
+// leave every downstream function (ApplyRuleConfig, FilterIgnoredPaths,
+// WrapProvider) a documented no-op. A file that exists but fails to parse
+// is a loud error, never a silently-empty config: a config the user
+// actually wrote that this program could not read must not be read as "the
+// user configured nothing". The two central layers are the opposite: a
+// declared layer must exist (LoadCentralPolicy, LoadLayerDir), and the
+// standards layer's config.yml, when present, must be empty.
 func Load(root string) (*Config, error) {
 	return LoadPath(filepath.Join(root, DefaultConfigPath))
 }

@@ -30,6 +30,9 @@ func (p *prReview) resolveProfiles() (int, bool) {
 		fmt.Fprintf(p.stderr, "aurumcode review: %v\n", err)
 		return 2, true
 	}
+	// AUR-613: the standards layer's analysts come from the workflow's
+	// local checkout, like the policy, over the base ref's team file.
+	team = p.standards.teamOver(team, p.reviewLanguage, p.stderr)
 	res, err := reviewprofile.ResolveAll(reviewprofile.Selection{Names: names}, team)
 	if err != nil {
 		fmt.Fprintf(p.stderr, "aurumcode review: %v\n", err)

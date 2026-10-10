@@ -17,7 +17,7 @@ import (
 // memory. Nothing here calls a model.
 func (p *prReview) resolveInputs() (int, bool) {
 	steps := []session.Step{
-		p.fetchPullRequest, p.loadPolicy, p.resolvePublication,
+		p.fetchPullRequest, p.loadPolicy, p.loadStandardsLayer, p.resolvePublication,
 		p.resolveChangelog, p.resolveChangelogSuggestion, p.resolveCheckout, p.declareBinaries, p.openMemory,
 	}
 	for _, step := range steps {
@@ -103,6 +103,21 @@ func (p *prReview) loadPolicy() (int, bool) {
 		return 1, true
 	}
 	return 0, false
+}
+
+// loadStandardsLayer loads the declared engineering standards layer
+// (AUR-613) against the reviewed tree, the process's working directory, as
+// loadPolicy does for the policy.
+func (p *prReview) loadStandardsLayer() (int, bool) {
+	if p.standardsDir == "" {
+		return 0, false
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(p.stderr, "aurumcode review: %v\n", err)
+		return 1, true
+	}
+	return p.loadStandards(cwd)
 }
 
 // resolvePublication picks the publication mode and inline setting, and

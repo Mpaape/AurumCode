@@ -44,6 +44,10 @@ type reviewEnv struct {
 	// trustLocalMCP is AURUMCODE_TRUST_LOCAL_MCP=true: the operator's
 	// explicit opt-in to MCP sources of the local config under CI.
 	trustLocalMCP bool
+	// standardsRepository and standardsRef (AURUMCODE_STANDARDS_REPOSITORY,
+	// AURUMCODE_STANDARDS_REF) name where the reusable workflow checked the
+	// standards layer out from, for the audit record (AUR-613).
+	standardsRepository, standardsRef string
 }
 
 // readReviewEnv snapshots the environment.
@@ -58,6 +62,9 @@ func readReviewEnv() reviewEnv {
 		publisherLogin: os.Getenv("AURUMCODE_PUBLISHER_LOGIN"),
 		ci:             os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "",
 		trustLocalMCP:  os.Getenv("AURUMCODE_TRUST_LOCAL_MCP") == "true",
+
+		standardsRepository: os.Getenv("AURUMCODE_STANDARDS_REPOSITORY"),
+		standardsRef:        os.Getenv("AURUMCODE_STANDARDS_REF"),
 	}
 }
 
@@ -122,6 +129,7 @@ type reviewState struct {
 
 	// invocation
 	policyDir                    string
+	standardsDir                 string
 	threshold                    int
 	thresholdName                string
 	limiteUSD                    float64
@@ -136,6 +144,7 @@ type reviewState struct {
 	diff             *types.Diff
 	cfg              *config.Config
 	centralCfg       *config.Config
+	standards        *centralLayer
 	reviewLanguage   string
 	policyWarnings   []config.ProviderWarning
 	skillNotices     []string
@@ -157,6 +166,7 @@ type reviewState struct {
 	baseModelIdentity  string
 	contextBlockDigest string
 	dynamicRules       map[string]review.Rule
+	standardsRuleIDs   map[string]bool // dynamic rules the standards layer won
 	ruleCatalogIDs     []string
 	ruleCatalogDigest  string
 	tracker            *cost.Tracker

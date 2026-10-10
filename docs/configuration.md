@@ -359,6 +359,103 @@ nada. Uma política ausente ou inválida (config.yml faltando, YAML inválido,
 skill/doc listada que não existe, ou um diretório dentro da própria árvore
 revisada) falha o comando antes de qualquer chamada ao modelo.
 
+## Camada de padrões de engenharia
+
+Além da política de segurança, um workflow obrigatório pode carregar uma
+segunda camada central: o diretório `.aurumcode/` de outro repositório,
+mantido pelo time de engenharia, com as skills e os analistas comuns a todos
+os serviços (padrões de código, QA, changelog, gitflow). É o mesmo molde da
+política — o diretório que CONTÉM `.aurumcode/`, checado fora da árvore
+revisada — com poderes diferentes: a camada de padrões só contribui, nunca
+decide. As três camadas e o que cada uma pode estão declaradas uma vez em
+`internal/config/layer.go`.
+
+| camada | quem mantém / como declarar | o que pode declarar | o que nunca declara |
+|---|---|---|---|
+| política de segurança | time de segurança; `--politica <dir>` / `AURUMCODE_POLICY`; `policy_repository` no workflow | todas as seções do `config.yml`, com autoridade: `rules`, `ignore`, `gate` e `exceptions` inteiros quando os declara; idioma, publicação, `analysis_data` e cada subseção de `quality_gates` quando os declara; skills, docs e prompt próprios | analistas (`profiles.yml` da política não é lido) |
+| padrões de engenharia | time de engenharia; `--padroes <dir>` / `AURUMCODE_STANDARDS`; `standards_repository` no workflow | skills (`.aurumcode/skills/<nome>/SKILL.md`), sempre aplicadas, e analistas (`.aurumcode/profiles.yml`), disponíveis para `review.profiles` do serviço | qualquer seção do `config.yml`: um `config.yml` com `gate`, `ignore`, `exceptions`, `rules`, `quality_gates`, `publication` ou qualquer outra seção é recusado com erro, antes de qualquer chamada ao modelo |
+| repositório (o serviço) | o próprio time; branch base da PR | tudo que a política não tomou: `review.*` (contexto, perfis, memória, changelog…), skills, analistas, e `rules`/`ignore`/`gate`/`exceptions` quando a política não os declara | — |
+
+Ordem das camadas: **política de segurança > padrões de engenharia >
+repositório**. Uma skill é identificada pelo nome do diretório (é ele que
+prefixa cada id de regra, `<diretório>#<seção>`): uma skill de mesmo nome numa
+camada de baixo é ignorada, com aviso no terminal e na seção de limitações do
+parecer, nomeando as duas camadas — `skill "nomes-go" da camada repositório
+ignorada: a camada padrões de engenharia declara uma skill com o mesmo nome`.
+Um analista do `profiles.yml` do repositório com o nome de um analista da
+camada de padrões é ignorado do mesmo jeito (`analista "qa" da camada
+repositório ignorado: …`). O id de uma regra vale pela mesma ordem: na
+colisão, a regra da política vence a dos padrões, que vence a do
+repositório. Sem camada de padrões declarada, nada disso roda: a política e
+o repositório seguem a regra de antes (mesmo seletor, a da política vence) e
+a saída é a mesma.
+
+O achado de uma skill da camada de padrões diz a camada de origem no parecer,
+depois da regra citada — `[padrões de engenharia]` (`[engineering standards]`
+em inglês) — em todo lugar que mostra o achado: terminal, PR publicada e
+servidor de agente. No gate ele conta como fonte `skills`, como os achados das
+skills da política (com política ativa) ou do repositório (sem política):
+uma skill de padrões reprova o PR quando o `gate.fail_on` a alcança.
+
+No CLI, `--padroes <dir>` (ou a variável `AURUMCODE_STANDARDS`, quando a flag
+não é dada) vale em `review` com diff local, `--base` e `--pr`, e no servidor
+MCP (`aurumcode mcp`, que lê só a variável). Um `<dir>` que resolva (depois de
+symlinks) para a própria árvore revisada ou para dentro dela é recusado,
+fechado, com a mesma contenção da política; um `<dir>` sem `.aurumcode/` é
+erro, nunca uma camada vazia; `--padroes ""` é erro de uso. No `--pr`, as
+skills e os analistas da camada vêm do checkout local do workflow (como a
+política), enquanto o `config.yml`, as skills e o `profiles.yml` do
+repositório continuam vindo da branch base pela API.
+
+No workflow reutilizável (`.github/workflows/review.yml`),
+`standards_repository` (`owner/repo`) é a única forma de declarar a camada:
+o próprio workflow dá checkout read-only (sem persistir credenciais) em
+`.aurumcode-standards`, monta o diretório em `/github/standards` e passa
+`--padroes /github/standards`; `standards_ref` fixa a SHA (vazio usa o branch
+padrão). Sem o input, nenhum argumento e nenhuma montagem mudam. Para um
+repositório privado ou interno, crie um token fine-grained (ou de GitHub App)
+com **Contents: read** só nesse repositório, guarde-o como secret
+`AURUMCODE_STANDARDS_TOKEN` e repasse-o; sem o secret o checkout usa o
+`github.token`, que lê um repositório público. O token só é usado no checkout
+da camada e nunca chega ao código revisado.
+
+Workflow obrigatório da organização com os dois repositórios centrais:
+
+```yaml
+jobs:
+  review:
+    uses: SuaOrg/AurumCode/.github/workflows/review.yml@<sha-fixa-do-aurumcode>
+    with:
+      policy_repository: SuaOrg/security-policy      # segurança: gate, regras, exceções
+      policy_ref: a1b2c3d4e5f6...                     # SHA fixa, não um branch
+      standards_repository: SuaOrg/devops-policy     # engenharia: skills e analistas
+      standards_ref: 0f9e8d7c6b5a...                  # SHA fixa, não um branch
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}        # só se privado
+      AURUMCODE_STANDARDS_TOKEN: ${{ secrets.AURUMCODE_STANDARDS_TOKEN }}  # só se privado
+```
+
+O repositório de padrões é só isto:
+
+```text
+devops-policy/
+  .aurumcode/
+    skills/
+      erros-go/SKILL.md       # regras citáveis (## seção) do time de engenharia
+      changelog/SKILL.md
+    profiles.yml              # analistas que os serviços selecionam em review.profiles
+    config.yml                # opcional; se existir, vazio (só comentários)
+```
+
+O registro de auditoria (`--auditoria`) ganha, só quando a camada existe, o
+campo `standards` com a origem e o digest do conteúdo (`config.yml`,
+`profiles.yml` e cada `SKILL.md`, como `policy_digest` identifica a
+política): `"standards": {"source": "SuaOrg/devops-policy", "ref":
+"0f9e8d7c6b5a...", "digest": "<sha256>"}`; com `--padroes` fora do workflow a
+origem é `"local"`. Sem a camada o registro é byte a byte o de antes.
+
 ## Gate: skills viram regra citável, e a política decide o que reprova (AUR-519)
 
 Cada seção `## ` de cada skill Markdown — as da política e as do próprio
@@ -1381,7 +1478,8 @@ consumidor.
 | `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
-| `--politica`, `--policy` | Diretório que contém o `.aurumcode/config.yml` de uma política central, com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
+| `--politica`, `--policy` | Diretório que contém o `.aurumcode/` da política de segurança central: `rules`, `ignore`, `gate` e `exceptions` passam a ser só os dela quando ela os declara; idioma, publicação, `analysis_data` e cada subseção de `quality_gates` quando ela os declara; o resto segue a regra própria de cada seção (`internal/config/governance.go`) (padrão: `AURUMCODE_POLICY`) |
+| `--padroes` | Diretório que contém o `.aurumcode/` da camada de padrões de engenharia: só skills (`skills/<nome>/SKILL.md`) e analistas (`profiles.yml`), abaixo da política e acima do repositório; um `config.yml` com qualquer seção é recusado (padrão: `AURUMCODE_STANDARDS`) |
 | `--auditoria` | Caminho para escrever o registro de auditoria JSON desta execução (padrão: não escreve) |
 | `--sarif` | Caminho para escrever o documento SARIF 2.1.0 desta execução (padrão: não escreve) |
 

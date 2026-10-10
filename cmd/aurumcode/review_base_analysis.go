@@ -83,12 +83,15 @@ func (b *baseReview) selectProvider() (int, bool) {
 		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
 	}
 	contextProviders = append(contextProviders, mcpContextProviders(trustedMCPSources(b.cfg, b.localMCPTrusted(), b.centralCfg), b.filter)...)
-	catalog, dynamicRules, catalogErr := resolveSkillRules(skillLayers{cwd: b.cwd, policyDir: b.policyDir, cfg: b.cfg, centralCfg: b.centralCfg}, diffPaths(b.diff))
+	layers := skillLayers{cwd: b.cwd, policyDir: b.policyDir, cfg: b.cfg, centralCfg: b.centralCfg, standards: b.standards, language: b.reviewLanguage}
+	resolved, catalogErr := resolveSkillRules(layers, diffPaths(b.diff))
 	if catalogErr != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", catalogErr)
 		return 1, true
 	}
-	b.dynamicRules = dynamicRules
+	printWarnings(b.stderr, resolved.shadowed)
+	catalog := resolved.catalog
+	b.dynamicRules, b.standardsRuleIDs = resolved.rules, resolved.standardsRules
 	b.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, b.dynamicRules)
 	b.ruleCatalogDigest = ruleCatalogCacheDigest(b.ruleCatalogIDs, b.dynamicRules)
 	b.skillNotices = skillSelectionNotices(catalog, diffPaths(b.diff), b.filter)

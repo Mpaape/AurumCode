@@ -93,6 +93,7 @@ func runPRReview(rio reviewIO, opts prReviewOptions) int {
 		prNumber: opts.prNumber, repoFlag: opts.repo, publicar: opts.publicar, inline: opts.naLinha, check: opts.check,
 	}
 	p.policyDir, p.modelFlag, p.seguranca, p.exigirQualidade = opts.policyDir, opts.modelo, opts.seguranca, opts.exigirQualidade
+	p.standardsDir = opts.standardsDir
 	p.auditoriaPath, p.sarifPath = opts.auditoriaPath, opts.sarifPath
 	defer p.flush()
 	return session.Run(p)

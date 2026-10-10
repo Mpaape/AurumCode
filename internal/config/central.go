@@ -1,15 +1,22 @@
-// AUR-518: the central policy a required, reusable CI workflow carries with
-// precedence over a repository's own .aurumcode/config.yml. The policy is a
-// second .aurumcode/ directory (its own config.yml, prompt.md, skills/*.md,
-// docs/*.md) checked out by the workflow, never fetched by this program over
-// the network -- see internal/config's package doc for why provider text can
-// never reach this decision either way.
+// The central security policy (AUR-518): the configuration layer a
+// required, reusable CI workflow carries with authority over a repository's
+// own .aurumcode/config.yml. The policy is a second .aurumcode/ directory
+// (its own config.yml, prompt.md, skills/*.md, docs/*.md) checked out by the
+// workflow, never fetched by this program over the network -- see
+// internal/config's package doc for why provider text can never reach this
+// decision either way. The layers themselves are declared once in layer.go:
+// this policy, the engineering standards layer (AUR-613: a second central
+// .aurumcode/ that only adds skills and analysts, with no config.yml
+// section at all) and the repository.
 //
-// The policy governs exactly three things: which rules are enabled/overridden
-// (Rules), which paths never reach either review pass (Ignore), and, when it
-// sets them, the review's language and publication mode. Everything else a
-// repository configures -- its own context files, memory, changelog,
-// profiles -- stays the repository's own, additive choice.
+// Which sections the policy decides, and how, is declared once in
+// governance.go (governedSections, eleven sections): rules, ignore, gate and
+// exceptions are the policy's entirely when it declares them; language and
+// publication, analysis_data and each quality_gates subsection are the
+// policy's when it declares them and the repository's otherwise; the rest
+// resolves by its own rule there (merged or engine by engine). The review
+// keys that are always the repository's own, additive choice are listed in
+// reviewRepositoryFields.
 package config
 
 import (
@@ -21,44 +28,11 @@ import (
 )
 
 // ValidatePolicyOutsideReviewedTree refuses a policy directory that resolves
-// (after symlinks) to the reviewed tree itself or anywhere under it. A
-// policy's entire point is that the repository under review cannot change
-// it; a policy directory living inside that same tree would let whoever
-// controls the reviewed checkout (a pull request's own head, in the --pr
-// path) edit the policy it is being judged against. Either path missing is
-// not this function's problem to report -- a missing policyDir surfaces as
-// LoadCentralPolicy's own "not found" error, and reviewedRoot always exists
-// (it is the process's own working directory) -- so a resolution failure
-// here falls back to the unresolved, absolute path rather than masking the
-// real error with one about symlinks.
+// (after symlinks) to the reviewed tree itself or anywhere under it: the
+// containment every central layer shares (ValidateLayerOutsideReviewedTree),
+// in the policy's own words.
 func ValidatePolicyOutsideReviewedTree(policyDir, reviewedRoot string) error {
-	policyDir = strings.TrimSpace(policyDir)
-	reviewedRoot = strings.TrimSpace(reviewedRoot)
-	if policyDir == "" || reviewedRoot == "" {
-		return nil
-	}
-	resolvedPolicy := resolvePathBestEffort(policyDir)
-	resolvedRoot := resolvePathBestEffort(reviewedRoot)
-	if resolvedPolicy == resolvedRoot || strings.HasPrefix(resolvedPolicy, resolvedRoot+string(filepath.Separator)) {
-		return fmt.Errorf("central policy: %s is inside the reviewed repository (%s); a policy must come from outside the reviewed tree", policyDir, reviewedRoot)
-	}
-	return nil
-}
-
-// resolvePathBestEffort returns dir's absolute, symlink-resolved form. A dir
-// that does not exist yet (EvalSymlinks fails) or an unresolvable absolute
-// path falls back to the plain absolute form -- there is nothing further to
-// resolve, and the caller that actually needs the directory to exist (e.g.
-// LoadCentralPolicy) still reports that failure on its own.
-func resolvePathBestEffort(dir string) string {
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return dir
-	}
-	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
-		return resolved
-	}
-	return abs
+	return ValidateLayerOutsideReviewedTree(Layers[LayerPolicy], policyDir, reviewedRoot, "")
 }
 
 // LoadCentralPolicy reads root/.aurumcode/config.yml -- a separate checkout
@@ -105,23 +79,26 @@ func LoadCentralPolicy(root string) (*Config, error) {
 }
 
 // ApplyCentralPolicy folds a central policy over a repository's own config.
-// central == nil means no policy was declared at all: repo is returned
-// completely unchanged (the same pointer) and the warnings are nil, so the
-// result is byte-identical to this card never having run (AC-006).
+// central == nil means no policy was declared: repo is returned unchanged
+// (the same pointer) and the warnings are nil, so a review without a policy
+// is byte-identical to one before policies existed. Of the three layers,
+// only the policy reaches this function: the engineering standards layer
+// declares no configuration section (layer.go, NoSection), so it never
+// changes the effective config.
 //
-// With a policy, the effective config is a copy of repo where the policy
-// takes exclusive authority over the two fields it governs outright --
-// Rules and Ignore -- plus Review.Language and Review.Publication when the
-// policy sets them. Every repository entry in a policy-governed field is
-// dropped, never merged with the policy's, and produces one deterministic
-// warning naming exactly what was ignored (AC-001, AC-002, AC-003): a
-// repository cannot disable a policy rule, loosen its severity, or hide a
-// path from it by also declaring an override of its own. Everything else
-// about Review -- InlineComments, Context, Memory, Changelog, Version,
-// Profiles -- stays the repository's own setting (AC-004): the policy only
-// subtracts rule/ignore authority, it never replaces a repository's own
-// context or presentation choices. Who decides each section is declared in
-// governedSections (governance.go), applied in that order.
+// With a policy, the effective config is a copy of repo resolved section by
+// section as governedSections (governance.go) declares, in that order.
+// Rules, ignore, gate and exceptions are replaced entirely by the policy's
+// when it declares them (governRules, governIgnore, governGate,
+// governExceptions): every repository entry there is dropped, never merged,
+// and produces one deterministic warning naming what was ignored, so a
+// repository cannot disable a policy rule, loosen its severity, hide a path
+// from it, weaken the gate or grant itself an exception. Language and
+// publication, analysis_data and each quality_gates subsection are the
+// policy's when it declares them and the repository's otherwise; scanners
+// resolve engine by engine; deliberation, batches, dependencies and
+// changelog_check follow their own rule there. The review keys in
+// reviewRepositoryFields stay the repository's own, additive choice.
 func ApplyCentralPolicy(repo, central *Config) (*Config, []ProviderWarning) {
 	if central == nil {
 		return repo, nil

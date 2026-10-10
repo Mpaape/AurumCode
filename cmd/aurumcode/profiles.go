@@ -29,15 +29,12 @@ func splitProfileNames(raw string) []string {
 	return strings.Split(raw, ",")
 }
 
-// resolveReviewProfiles loads the team file and resolves the effective
-// selection. The flag wins over the repository config; an empty selection is
-// the zero-config MultiResult. A load/parse error is returned as-is; an
-// unknown, empty or duplicate name is reviewprofile's named error.
-func resolveReviewProfiles(cwd string, flagNames []string, flagSet bool, repoCfg *config.Config) (*reviewprofile.MultiResult, error) {
-	team, err := reviewprofile.LoadTeamFile(cwd)
-	if err != nil {
-		return nil, err
-	}
+// resolveReviewProfiles resolves the effective selection against team (the
+// repository's team file, with the standards layer's analysts over it). The
+// flag wins over the repository config; an empty selection is the
+// zero-config MultiResult. An unknown, empty or duplicate name is
+// reviewprofile's named error.
+func resolveReviewProfiles(team *reviewprofile.Team, flagNames []string, flagSet bool, repoCfg *config.Config) (*reviewprofile.MultiResult, error) {
 	names := flagNames
 	if !flagSet {
 		configured, cerr := repoCfg.ReviewProfiles()

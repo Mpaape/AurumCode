@@ -119,31 +119,56 @@ a política é montada em `/github/policy`). Um achado de severidade `ERROR`
 reprova (`fail_on_severity: ERROR`); abaixo do limiar ele é publicado sem
 reprovar. Em produção, troque ou some o arquivo por `p/security-audit` etc.
 
-### Padrões de engenharia centrais (hoje)
+### Padrões de engenharia centrais
 
-O workflow aceita **um** `policy_repository`. Não existe um segundo
-repositório de política só para os padrões de engenharia, nem sincronização
-automática de skills entre repositórios. Os perfis de analista
-(o arquivo `profiles.yml` da pasta `.aurumcode`) e as skills do repositório vêm da branch base
-da PR, no próprio repositório revisado, e a política não governa
-`review.profiles`. Para padrões de engenharia comuns a todos os serviços, há
-dois caminhos hoje:
+O workflow aceita **dois** repositórios centrais: `policy_repository`, da
+segurança, e `standards_repository`, da engenharia (a camada de padrões,
+AUR-613). A camada de padrões é o `.aurumcode/` de outro repositório, checado
+pelo próprio workflow fora da árvore revisada, com persist-credentials
+desligado, e contribui só duas coisas: skills
+(`.aurumcode/skills/<nome>/SKILL.md`), que valem para todo serviço como
+regras do time de engenharia, e analistas (`.aurumcode/profiles.yml`), que
+cada serviço seleciona em `review.profiles`. Ela nunca declara gate, ignore,
+exceções, regras, scanners ou publicação: um `config.yml` com qualquer seção
+é recusado, e o review falha antes de chamar o modelo. Ordem: política de
+segurança > padrões > serviço; uma skill ou analista de mesmo nome numa camada
+de baixo é ignorado com aviso que nomeia as duas camadas. O achado de uma
+skill de padrões diz `[padrões de engenharia]` no parecer e conta no gate como
+fonte `skills`; a auditoria registra `standards` (repositório, ref e digest
+do conteúdo) só quando a camada existe.
 
-1. **No mesmo repositório da política.** Ponha as skills do time de
-   engenharia nele, numa pasta própria, por exemplo `skills/padroes/`, e
-   liste cada arquivo em `review.context.skills` do `config.yml` da política
-   (`skills/padroes/go.md`). Uma skill em `.aurumcode/skills/<nome>/SKILL.md`
-   do repositório da política também é lida, sem lista. Dê a aprovação dessa
-   pasta ao time de engenharia com `CODEOWNERS`
-   (`/skills/padroes/ @ORG/engenharia`) e o resto ao time de segurança. O
-   `CODEOWNERS` só obriga essa aprovação se a proteção da branch do
-   repositório da política exigir revisão de code owners. Essas seções viram regras **da política**: valem
-   para todo repositório que usa a política e só mudam quando o `policy_ref`
-   do workflow obrigatório aponta a nova SHA.
-2. **Copiadas em cada serviço.** Copie as skills do time para
-   `.aurumcode/skills/` de cada repositório. Elas são regras do próprio
-   repositório: o time do serviço pode mudá-las numa PR, e cada cópia só muda
-   por uma PR naquele repositório.
+```yaml
+jobs:
+  review:
+    uses: SuaOrg/AurumCode/.github/workflows/review.yml@<sha-fixa-do-aurumcode>
+    with:
+      policy_repository: SuaOrg/security-policy
+      policy_ref: a1b2c3d4e5f6...
+      standards_repository: SuaOrg/devops-policy
+      standards_ref: 0f9e8d7c6b5a...
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}
+      AURUMCODE_STANDARDS_TOKEN: ${{ secrets.AURUMCODE_STANDARDS_TOKEN }}
+```
+
+`AURUMCODE_STANDARDS_TOKEN` só é preciso para um repositório de padrões
+privado ou interno (token fine-grained com Contents: read nesse repositório);
+sem ele o checkout usa o `github.token`. Fora do workflow, `aurumcode review
+--padroes <dir>` (ou `AURUMCODE_STANDARDS`) aponta a mesma camada. A seção
+"Camada de padrões de engenharia" de `docs/configuration.md` tem a tabela do
+que cada camada pode.
+
+Continua valendo, como alternativa, o caminho por pasta no repositório da
+política: skills do time de engenharia numa pasta própria (por exemplo
+`skills/padroes/`), listadas em `review.context.skills` do `config.yml` da
+política, com a aprovação dessa pasta dada ao time de engenharia por
+`CODEOWNERS` (`/skills/padroes/ @ORG/engenharia`) — o `CODEOWNERS` só obriga
+essa aprovação se a proteção da branch exigir revisão de code owners. Essas
+seções viram regras **da política** e só mudam quando o `policy_ref` aponta a
+nova SHA. A diferença da camada nativa: repositório, dono, token e ref
+próprios, sem misturar a aprovação de segurança com a de engenharia.
 
 ## 2. Configuração do repositório
 

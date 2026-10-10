@@ -49,10 +49,11 @@ var reviewPolicyFields = []struct {
 	{key: "publication", field: func(r *ReviewConfig) *string { return &r.Publication }},
 }
 
-// reviewRepositoryFields are the review keys that stay the repository's
-// own, additive choice under any policy: context, presentation, memory.
-// verification is the repository's too: turning it off only keeps more
-// findings blocking, and its ceiling only bounds the extra calls.
+// reviewRepositoryFields are the eight review keys that stay the
+// repository's own, additive choice under any policy: inline_comments,
+// context, memory, changelog, version, profiles, presentation and
+// verification. verification is the repository's too: turning it off only
+// keeps more findings blocking, and its ceiling only bounds the extra calls.
 var reviewRepositoryFields = []string{"inline_comments", "context", "memory", "changelog", "version", "profiles", "presentation", "verification"}
 
 // qualityGateSections are the quality_gates keys. Scanners (and sast, the
