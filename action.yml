@@ -36,7 +36,7 @@ inputs:
     required: false
     default: 'false'
   policy_path:
-    description: Optional absolute path to the directory containing a central policy's .aurumcode/config.yml. It must be outside the reviewed checkout (/github/workspace), which is always refused; copy the policy into $RUNNER_TEMP/_github_home/<dir> in an earlier step and pass /github/home/<dir>. Its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own. Empty keeps today's behavior.
+    description: Optional absolute path to the directory containing a central policy's .aurumcode/config.yml. It must be outside the reviewed checkout (/github/workspace), which is always refused; copy the policy into $RUNNER_TEMP/_github_home/<dir> in an earlier step and pass /github/home/<dir>. Its rules, ignore, gate and exceptions replace this repository's own; its review language/publication, analysis_data and quality_gates subsections take precedence when it declares them (docs/configuration.md, «Política central»). Empty keeps today's behavior.
     required: false
     default: ''
 

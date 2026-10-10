@@ -5,7 +5,8 @@ applyTo: "**/*"
 
 Follow the canonical project instructions in AGENTS.md.
 The current product is the Go code-review CLI, its GitHub integration and
-the documentation site in docs/site. Read docs/README.md for current usage.
+the documentation site built with MkDocs from docs/ (mkdocs.yml). Read
+docs/README.md for current usage.
 
 Run Go builds, tests and QA in containers; see docs/qa.md.
 Use the human user's configured identity for commits and publication.
