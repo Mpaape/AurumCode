@@ -159,8 +159,8 @@ política precisa resolver.
 exit_code=0
 RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado
 --- sob politica central: o .gitleaksignore vira achado
-.gitleaksignore:1: [error] Segredo ou credencial escrito no código (regra `gitleaks:ignore-file-present`). Texto original do Gitleaks: a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding
-aurumcode review: policy gate: gitleaks:ignore-file-present - Segredo ou credencial escrito no código (regra `gitleaks:ignore-file-present`). Texto original do Gitleaks: a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (severidade error, limiar error, origem gitleaks, secao policy)
+.gitleaksignore:1: [error] O arquivo .gitleaksignore pode esconder achados do Gitleaks e nenhuma opção do Gitleaks o desliga; sob política central, a presença dele é um achado (regra `gitleaks:ignore-file-present`)
+aurumcode review: policy gate: gitleaks:ignore-file-present - O arquivo .gitleaksignore pode esconder achados do Gitleaks e nenhuma opção do Gitleaks o desliga; sob política central, a presença dele é um achado (regra `gitleaks:ignore-file-present`) (severidade error, limiar error, origem gitleaks, secao policy)
 exit_code=3
 RESULTADO: sob politica, o .gitleaksignore na raiz e um achado bloqueante
 ```

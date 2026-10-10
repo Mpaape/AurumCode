@@ -10,7 +10,7 @@ aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por di
 parecer publicado na PR #7 como aprovação (sem comentários na linha).
 exit_code=0
 RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
-aurumcode review: o diff não coube em um só prompt; revisado em 1 lotes por diretório (arquivos por lote: 2)
+aurumcode review: o diff não coube em um só prompt; revisado em 1 lote por diretório (arquivos por lote: 2)
 aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).
 exit_code=1

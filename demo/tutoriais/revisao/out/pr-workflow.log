@@ -42,7 +42,7 @@ RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio
 --- teto de lotes (batches.max_batches: 1): os arquivos fora sao listados e a aprovacao e retida
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
 aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (bd5fac0f32df...7e5b2e3855c3, 6 file(s))
-aurumcode review: o diff não coube em um só prompt; revisado em 1 lotes por diretório (arquivos por lote: 2)
+aurumcode review: o diff não coube em um só prompt; revisado em 1 lote por diretório (arquivos por lote: 2)
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).

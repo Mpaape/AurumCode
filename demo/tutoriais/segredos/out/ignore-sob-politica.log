@@ -18,7 +18,7 @@ RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado
 --- sob politica central: o .gitleaksignore vira achado
 $ aurumcode review --base main --politica /policy
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
-aurumcode review: policy gate: gitleaks:ignore-file-present - Segredo ou credencial escrito no código (regra `gitleaks:ignore-file-present`). Texto original do Gitleaks: a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (severidade error, limiar error, origem gitleaks, secao policy)
+aurumcode review: policy gate: gitleaks:ignore-file-present - O arquivo .gitleaksignore pode esconder achados do Gitleaks e nenhuma opção do Gitleaks o desliga; sob política central, a presença dele é um achado (regra `gitleaks:ignore-file-present`) (severidade error, limiar error, origem gitleaks, secao policy)
 ## AurumCode revisão de código
 
 > [!CAUTION]
@@ -29,7 +29,7 @@ gate da política: reprovou · 2 arquivos revisados
 Cobertura da revisão
 - 1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - .gitleaksignore
-.gitleaksignore:1: [error] Segredo ou credencial escrito no código (regra `gitleaks:ignore-file-present`). Texto original do Gitleaks: a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding
+.gitleaksignore:1: [error] O arquivo .gitleaksignore pode esconder achados do Gitleaks e nenhuma opção do Gitleaks o desliga; sob política central, a presença dele é um achado (regra `gitleaks:ignore-file-present`)
 config.py:1: [error] Segredo no código casou a regra github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
 exit_code=3
 RESULTADO: sob politica, o .gitleaksignore na raiz e um achado bloqueante
