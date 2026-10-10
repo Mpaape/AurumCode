@@ -99,10 +99,10 @@ func EffectiveSeverityRank(issueSeverity, ruleSeverity string) (config.GateSever
 //     here either. repoIdentity is this run's own verified "owner/repo"
 //     (localRepoIdentity for --base, the already-authenticated owner/
 //     repoName for --pr) or "" when it could not be confirmed -- matched
-//     against each issue's own RuleID/File by MatchException (aur520.go),
+//     against each issue's own RuleID/File by MatchException (exceptions.go),
 //     never against any other, model-authored field. now is the
 //     injectable clock the expiry comparison uses, always in UTC
-//     (truncateToUTCDate): production callers pass time.Now(), a test
+//     (TruncateToUTCDate): production callers pass time.Now(), a test
 //     passes a fixed instant (AC-002/MUT-001).
 //
 // Inconclusive handling and the severity threshold are NOT mutually

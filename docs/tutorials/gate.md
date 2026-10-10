@@ -508,8 +508,9 @@ seção não é decorativa.
 
 Sob a política `politica-high`, o modelo contesta: o achado **continua
 reprovando** e o parecer propõe a exceção, sem aplicá-la. Depois o modelo
-confirma (nenhuma exceção proposta). Por fim, sem política central, o próprio
-repositório declara `gate.triage`:
+confirma (nenhuma exceção proposta). Por fim, sem política central e com
+gate declarado, o modelo decide por padrão (`gate.triage` ausente vale
+`model`); o exemplo escreve a chave só para deixá-la explícita:
 
 <!-- arquivo: demo/tutoriais/gate/repo-exemplo/base-triagem/.aurumcode/config.yml -->
 ```yaml
@@ -551,8 +552,9 @@ O que observar: a origem (`analysis`, o que o engine mediu) aparece ao lado da
 avaliação do modelo, no relatório e na auditoria (`evidence_assessments`).
 Sob política, contestar não muda a contagem: vira exceção proposta, com dono
 e validade em aberto, que só vale se um humano a copiar para `exceptions`.
-Sem política, `gate.triage: model` deixa a contestação rebaixar o achado, e o
-rebaixamento é declarado no stderr. O mesmo `--pr` é coberto por teste do
+Sem política e com gate declarado, a contestação justificada rebaixa o achado
+(padrão `model`; `none` desliga a fonte), e o rebaixamento é declarado no
+stderr. O mesmo `--pr` é coberto por teste do
 `cmd`, não por este caso.
 
 ## Quando falha

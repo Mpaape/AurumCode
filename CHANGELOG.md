@@ -3,6 +3,7 @@
 ## Unreleased
 
 - QA no consumidor: a segunda rodada de um cenário espera a nova tentativa do mesmo run (`gh run rerun` mantém o id) em vez de procurar um run novo e cair num id vazio (AUR-512).
+- Comentários e docs de pacote alinhados ao código atual (sem funções, arquivos ou pacotes que não existem mais); tutoriais de gate e revisão com o padrão `model` da triagem; `.gitignore` sem restos de Jekyll.
 - Cards AUR-607 a AUR-612 entregues no lote #158, com o aceite selado repetido no SHA do main e a tabela de controle do AUR-589 atualizada.
 - Exemplos de senha dos testes da redação montados em tempo de execução, para a passada de segurança do próprio repositório não os ler como credencial (AUR-609).
 - A versão da ferramenta nos workflows é resolvida por `scripts/ci/resolve-tool-version.sh`, um só script para os três builds (AUR-611).
