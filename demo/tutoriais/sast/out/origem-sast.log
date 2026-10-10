@@ -14,6 +14,7 @@ RESULTADO: a politica conta o achado de origem sast
 auditoria blocking_findings: rule_id=semgrep:policy.regras.demo-sem-eval path=calc.js line=5 origin=sast
 --- gate.sources sem sast
 $ aurumcode review --base main --politica /policy
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 ## AurumCode revisão de código
 
 > [!NOTE]
@@ -21,6 +22,5 @@ $ aurumcode review --base main --politica /policy
 
 gate da política: passou · 1 arquivo revisado
 calc.js:5: [error] eval() executa texto como codigo; use uma tabela de operacoes (rule semgrep:policy.regras.demo-sem-eval)
-aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 exit_code=0
 RESULTADO: com gate.sources sem sast, o achado do Semgrep e publicado mas nao reprova o gate

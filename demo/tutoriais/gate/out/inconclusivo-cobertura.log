@@ -20,6 +20,8 @@ exit_code=1
 RESULTADO: block: cobertura parcial reprova
 --- inconclusive: warn
 $ aurumcode review --base main --politica /policy
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 arquivo gerado, não revisado: gerado.go
 ## AurumCode revisão de código
 
@@ -33,7 +35,5 @@ Cobertura da revisão — arquivos do diff cobertos: 0 de 0; sem revisão comple
 - 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: parte do diff ficou fora da revisão [partial_coverage]
-aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
-aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=0
 RESULTADO: warn: cobertura parcial alerta e sai 0

@@ -2,6 +2,7 @@
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: analysis_data do config do repositório foi ignorado: a política central decide sozinha
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -14,6 +15,5 @@ app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardco
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Correção sugerida: Leia a senha do ambiente em vez de escreve-la no codigo.
   - Verificação: Remova o literal e rode a revisao de novo; o achado deve sumir.
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 exit_code=0
 RESULTADO: analysis_data da politica indisponivel e inconclusivo (warn), nunca aprovado

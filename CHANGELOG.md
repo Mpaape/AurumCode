@@ -11,6 +11,7 @@
 - Com `review.language: pt-BR`, parecer, status do gate, terminal e MCP saem em pt-BR de ponta a ponta; auditoria e SARIF não mudam de idioma; exemplos dos tutoriais em pt-BR (AUR-607).
 - Redação antes do prompt não mutila mais código (`os.environ.get(...)`, `==`) e mascara todo valor nu que não é chamada; catálogo de análise não dispara em literal nem em prosa (AUR-609).
 - O parecer, a auditoria e o SARIF mostram a versão real do AurumCode (tag exata ou SHA curto), em vez de "dev"; build local continua "dev" (AUR-611).
+- Tutoriais regravados com o binário do lote: saídas, capturas e blocos da documentação conferidos (`run.sh --check` em todos).
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate

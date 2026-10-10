@@ -1,6 +1,7 @@
 == falha-extensao-desconhecida
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: script.zzqx:2 security/hardcoded-secret still blocks: the verifier gave no valid answer [invalid_answer]
+aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 ## AurumCode code review
 
 > [!CAUTION]
@@ -16,7 +17,6 @@ script.zzqx:2: [error] A senha esta escrita no codigo. (rule security/hardcoded-
   - Evidence: A linha adicionada atribui o literal "hunter2" a senha em script.zzqx.
   - Suggested fix: Leia a senha do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: o achado em script.zzqx (sem gramatica) reprovou: extensao desconhecida nao esconde codigo
 prompt: ### File: script.zzqx
@@ -24,6 +24,7 @@ prompt: +    String senha = "hunter2";
 --- arquivo .txt com segredo
 $ aurumcode review --base main --fail-on error
 aurumcode review: verification: config/tokens.txt:2 security/hardcoded-secret still blocks: the verifier gave no valid answer [invalid_answer]
+aurumcode review: 2 finding(s) at severity error or above (--fail-on error)
 ## AurumCode code review
 
 > [!CAUTION]
@@ -36,7 +37,6 @@ config/tokens.txt:2: [error] O token esta escrito em texto puro. (rule security/
   - Suggested fix: Leia o token do ambiente.
   - Verify: Remova o literal e rode a revisao de novo.
 config/tokens.txt:2: [error] Hardcoded secret matched rule generic-api-key (Detected a Generic API Key, potentially exposing access to various services and sensitive operations.) (rule analysis/hardcoded-secret)
-aurumcode review: 2 finding(s) at severity error or above (--fail-on error)
 exit_code=3
 RESULTADO: o achado em config/tokens.txt reprovou: arquivo .txt e revisado, nao descartado como documentacao
 prompt: ### File: config/tokens.txt
