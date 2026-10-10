@@ -50,8 +50,8 @@ const (
 // MatchException returns the first configured exception whose Repo, Rule
 // and Path all equal (repoIdentity, ruleID, path) exactly, and whether it
 // is still active. Repo compares case-insensitively (owner/repo on GitHub
-// is itself case-insensitive, like codebaseContextMismatch's own
-// comparison in aur515.go); Rule and Path compare byte-for-byte -- a rule
+// is itself case-insensitive, like cmd/aurumcode's codebaseContextMismatch
+// in checkout_identity.go); Rule and Path compare byte-for-byte -- a rule
 // id and a repository-relative path are exact identifiers an author
 // copy-pastes from the finding, never a pattern (see
 // docs/configuration.md's own "Exceções" section for why path stays exact
@@ -135,7 +135,8 @@ func TruncateToUTCDate(t time.Time) time.Time {
 // never vary with RuleID/File/Owner/Reason/Expires -- the exact text
 // between the two dynamic "%s em %s" fields and the dynamic
 // owner/reason/expires fields that follow. AUR-538's orderedGateReasons
-// (aur538.go) matches on these two constants, never on the single word
+// (cmd/aurumcode/status_description.go) matches on these two constants,
+// never on the single word
 // "exceção" alone, so a real severity-breach line (EvaluateGate's own
 // "%s: %s (severidade %s, limiar %s)" format, aur519's threshold loop)
 // can never be misclassified as an exception line merely because a

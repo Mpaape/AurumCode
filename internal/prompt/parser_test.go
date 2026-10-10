@@ -111,8 +111,8 @@ func TestParseReviewResponse(t *testing.T) {
 }
 
 func TestParseReviewResponse_ISOScoresOptional(t *testing.T) {
-	// internal/review/iso25010 is out of AUR-430's scope: this engine's own
-	// prompt never requires a model to return iso_scores, so a response
+	// No component asks a model for iso_scores: this engine's own prompt
+	// never requires them, so a response
 	// that omits the block must still parse successfully with a nil
 	// ISOScores rather than fail validation.
 	parser := NewResponseParser()

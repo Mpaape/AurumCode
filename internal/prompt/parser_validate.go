@@ -58,8 +58,8 @@ func (p *ResponseParser) validateReviewResult(result *types.ReviewResult) error 
 	// them. types.ReviewResult.ISOScores is *ISOScores (unlike c12d7ab's
 	// value field -- see AUR-430's restoration audit) precisely so a
 	// response can omit them: this card's engine never asks a model to
-	// score ISO/IEC 25010 characteristics (that is internal/review/iso25010,
-	// explicitly out of scope here), so treating a missing block as
+	// score ISO/IEC 25010 characteristics (no component of this repository
+	// does), so treating a missing block as
 	// mandatory would reject every response this card's own prompt asks
 	// for. A block that *is* present is still held to the same 1-10 range.
 	if result.ISOScores != nil {
