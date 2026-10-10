@@ -535,3 +535,18 @@ func TestAUR607TriageNoticeShowsTheReasonSentence(t *testing.T) {
 		t.Fatalf("English triage notice changed: %q", en)
 	}
 }
+
+// TestAUR607SingleBatchIsSingular: one batch reads "1 lote", never "1 lotes";
+// English keeps its bytes for any count.
+func TestAUR607SingleBatchIsSingular(t *testing.T) {
+	pt := i18n.Format("pt-BR", batchesKey(1), 1, "2")
+	if !strings.Contains(pt, "revisado em 1 lote por diretório") {
+		t.Fatalf("pt-BR single batch: %q", pt)
+	}
+	if many := i18n.Format("pt-BR", batchesKey(3), 3, "2, 2, 2"); !strings.Contains(many, "revisado em 3 lotes por diretório") {
+		t.Fatalf("pt-BR batches: %q", many)
+	}
+	if en := i18n.Format("en", batchesKey(1), 1, "2"); en != "the diff did not fit one prompt; reviewed in 1 batches by directory (files per batch: 2)" {
+		t.Fatalf("English single batch changed: %q", en)
+	}
+}

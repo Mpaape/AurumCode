@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/i18n"
+	"github.com/Mpaape/AurumCode/internal/scanner/gitleaks"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -29,6 +30,12 @@ var commitTail = regexp.MustCompile(`^(.*) in commit (\S+) \((\S+ \S+)\)$`)
 // change.
 func LocalizeSecretFinding(language, category, engine string, issue types.ReviewIssue) types.ReviewIssue {
 	if i18n.LocaleOf(language) == i18n.English || category != secretsCategory {
+		return issue
+	}
+	if issue.RuleID == gitleaks.RuleIgnoreFilePresent {
+		// The finding is the ignore file itself, not a leaked secret: it
+		// keeps its own label instead of the hardcoded-secret one.
+		issue.Message = i18n.Format(language, "scanner.gitleaks_ignore_present", issue.RuleID)
 		return issue
 	}
 	detail := strings.TrimSuffix(issue.Message, " (rule "+issue.RuleID+")")

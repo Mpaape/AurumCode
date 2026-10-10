@@ -39,7 +39,7 @@ func (s *reviewState) noteBatches(batches []review.Batch) {
 	for _, b := range batches {
 		sizes = append(sizes, fmt.Sprintf("%d", len(b.Files)))
 	}
-	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.batches", len(batches), strings.Join(sizes, ", ")))
+	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, batchesKey(len(batches)), len(batches), strings.Join(sizes, ", ")))
 }
 
 // auditBatches converts the batches for the audit record.
@@ -63,4 +63,13 @@ func splitNonEmptyLines(s string) []string {
 		}
 	}
 	return out
+}
+
+// batchesKey picks the singular sentence for a single batch: "1 lote", never
+// "1 lotes". English keeps the plural bytes in both keys.
+func batchesKey(n int) string {
+	if n == 1 {
+		return "terminal.batches_one"
+	}
+	return "terminal.batches"
 }
