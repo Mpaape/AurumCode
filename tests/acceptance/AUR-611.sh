@@ -165,10 +165,10 @@ ac003() {
     TestAUR611AuditRecordsToolVersionOnlyWhenNotDev TestAUR611AuditFileCarriesToolVersionOnlyWhenNotDev
 }
 
-# resolver_blocks <file> prints the file's marked version resolvers.
-resolver_blocks() {
-  sed -n '/# AUR-611-VERSION-BEGIN/,/# AUR-611-VERSION-END/p' "$repo_root/$1"
-}
+# The version resolver lives in one versioned script that the three
+# workflow steps call (AUR-597 keeps workflow shell out of literal blocks).
+readonly resolver_script='scripts/ci/resolve-tool-version.sh'
+readonly resolver_call='run: bash "$TOOL_DIR/scripts/ci/resolve-tool-version.sh"'
 
 # resolve <sha> <exit> <ls-remote output> runs the workflow's resolver with a
 # stub git and prints the version it wrote to GITHUB_OUTPUT; it fails when
@@ -181,7 +181,7 @@ resolve() {
   : >"$work/github_output"
   PATH="$stub:$PATH" STUB_CALLS="$work/calls" STUB_LISTING="$listing" STUB_EXIT="$status" \
     TOOL_SHA="$sha" TOOL_DIR=.aurumcode-tool GITHUB_OUTPUT="$work/github_output" \
-    bash -c "set -euo pipefail; $resolver" >/dev/null 2>&1 || return 1
+    bash "$repo_root/$resolver_script" >/dev/null 2>&1 || return 1
   sed -n 's/^version=//p' "$work/github_output"
 }
 
@@ -200,14 +200,13 @@ ac004() {
     [[ "$(count "$file" 'AURUMCODE_VERSION: ${{ steps.tool_version.outputs.version }}')" == "$n" ]] ||
       fail "AC-004/$file/version-not-from-resolver"
     [[ "$(count "$file" 'id: tool_version')" == "$n" ]] || fail "AC-004/$file/resolver-count"
-    [[ "$(count "$file" '# AUR-611-VERSION-BEGIN')" == "$n" ]] || fail "AC-004/$file/marker-count"
+    [[ "$(count "$file" "$resolver_call")" == "$n" ]] || fail "AC-004/$file/resolver-call-count"
   done
   [[ "$(count .github/workflows/review.yml 'docker build --build-arg AURUMCODE_VERSION="$AURUMCODE_VERSION" --tag aurumcode-review .aurumcode-tool')" == 2 ]] ||
     fail AC-004/review-builds-not-the-tool-checkout
-  # The three resolvers are one text, so the one run below is all of them.
-  resolver="$(resolver_blocks .github/workflows/providers-smoke.yml)"
-  [[ -n "$resolver" ]] || fail AC-004/resolver-missing
-  [[ "$(resolver_blocks .github/workflows/review.yml)" == "$resolver"$'\n'"$resolver" ]] || fail AC-004/resolvers-differ
+  # The three steps call one script, so the runs below cover all of them.
+  [[ -f "$repo_root/$resolver_script" ]] || fail AC-004/resolver-missing
+  bash -n "$repo_root/$resolver_script" || fail AC-004/resolver-syntax
 
   sha=0123456789abcdef0123456789abcdef01234567
   other=fedcba9876543210fedcba9876543210fedcba98
