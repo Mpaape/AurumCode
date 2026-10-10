@@ -78,6 +78,20 @@ espera_run() {
   return 1
 }
 
+# espera_rerun RUN_ID DEPOIS_DE: imprime "id url conclusao" quando a nova
+# tentativa do run termina depois do instante dado (gh run rerun mantem o id
+# e o createdAt, entao espera_run nunca a veria), ou falha em 30 minutos.
+espera_rerun() {
+  local id="$1" depois="$2" i linha
+  for i in $(seq 1 180); do
+    linha="$(gh run view "$id" --repo "$repo" --json databaseId,url,status,conclusion,updatedAt \
+      --jq "select(.status == \"completed\" and .updatedAt > \"$depois\") | \"\(.databaseId) \(.url) \(.conclusion)\"" 2>/dev/null || true)"
+    if [ -n "$linha" ]; then echo "$linha"; return 0; fi
+    sleep 10
+  done
+  return 1
+}
+
 # coleta CENARIO PR RUN_ID RUN_URL CONCLUSAO: o JSON de evidencia de uma rodada.
 coleta() {
   local cenario="$1" pr="$2" run_id="$3" run_url="$4" conclusao="$5" head status checks texto log idioma modo inline comentarios
@@ -138,9 +152,14 @@ for cenario in "${cenarios[@]}"; do
   run="$(espera_run "$branch" "$inicio")" || { nao_medido "$cenario" "workflow nao concluiu em 30 min (billing ou fila)"; continue; }
   for ((i = 1; i < rodadas; i++)); do
     inicio="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    gh run rerun "${run%% *}" --repo "$repo" >/dev/null
-    run="$(espera_run "$branch" "$inicio")" || run="$(gh run view "${run%% *}" --repo "$repo" --json databaseId,url,conclusion --jq '"\(.databaseId) \(.url) \(.conclusion)"')"
+    primeiro="${run%% *}"
+    gh run rerun "$primeiro" --repo "$repo" >/dev/null
+    run="$(espera_rerun "$primeiro" "$inicio")" || { nao_medido "$cenario" "a repeticao do run $primeiro nao concluiu em 30 min"; run=''; break; }
   done
+  if [ -z "$run" ]; then
+    [ "$manter" = 1 ] || gh pr close "$pr" --repo "$repo" --delete-branch >/dev/null || true
+    continue
+  fi
   read -r run_id run_url conclusao <<<"$run"
   evid="$(coleta "$cenario" "$pr" "$run_id" "$run_url" "$conclusao")"
   if [ -n "$correcao" ]; then
