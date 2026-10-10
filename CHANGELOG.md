@@ -7,6 +7,7 @@
 - Aceite do guia "Instalar com ajuda da IA" (AUR-606) na amostra de aceite.
 - Changelog obrigatório não reprova mais PR aberta por bot: nova chave `changelog_check.bots` (`off`, `suggest` ou `required`, padrão `suggest`), que só rebaixa o modo; o autor vem do evento da PR (AUR-610).
 - Docs de integração e arquitetura sem promessa que o código não cumpre: padrões centrais, precedência da política, tag x SHA, status do gate e versões das ferramentas (AUR-612).
+- gate.triage passa a `model` por padrão: o modelo decide sobre a evidência determinística, contestar exige justificativa e resposta degradada nunca rebaixa (AUR-608).
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate

@@ -1474,16 +1474,24 @@ O que a avaliação pode mudar no gate:
   marcadores para o dono, a validade e (em `--base`) o repositório. Ela nunca
   é aplicada: só conta quando uma pessoa a copia para as `exceptions` da
   política.
-- **Sem política central**, o repositório pode deixar uma contestação rebaixar
-  a evidência de uma fonte:
+- **Sem política central e com gate declarado** (`fail_on` ou
+  `inconclusive`), o modelo decide por padrão: uma contestação **justificada**
+  rebaixa a evidência de toda fonte sem chave em `triage` (padrão `model`). O
+  repositório desliga uma fonte escrevendo `none`:
 
 ```yaml
 gate:
   fail_on: [high]
   triage:
-    analysis: model   # achados de analysis e --seguranca contestados deixam de contar
-    sast: none        # o padrão de toda fonte
+    analysis: model   # o padrão; achados de analysis e --seguranca contestados com justificativa deixam de contar
+    sast: none        # desliga: a evidência de SAST conta sempre, diga o modelo o que disser
 ```
+
+Uma contestação só rebaixa com `justification` não vazia: `disputed` sem
+justificativa (vazia ou só espaços) vale como `needs_context` e o achado
+continua contando, como `confirmed` e `needs_context`. Sem gate declarado,
+nada é rebaixado nem anunciado (um scanner que retém a aprovação sozinho
+continua retendo).
 
 `gate.triage.analysis` também cobre os achados da passagem `--seguranca`
 (origem `security`), exatamente como `gate.sources: analysis` os conta: o
@@ -1494,8 +1502,11 @@ fonte no mesmo lugar. A evidência que o teto do prompt deixou de fora
 é descartada com o mesmo aviso de um id nunca oferecido, e nunca rebaixa.
 
 As chaves de `triage` são os nomes de `gate.sources` (`skills`, `analysis`,
-`sast` ou o nome de uma engine registrada); os valores são `model` ou `none`
-(o padrão). A evidência que o modelo avalia é a determinística (`analysis`, a
+`sast` ou o nome de uma engine registrada); os valores são `model` (o padrão
+de chave ausente) ou `none`. Quando mais de uma chave casa com a mesma engine
+(o nome e a categoria, por exemplo `semgrep: none` e `sast: model`), `none`
+vence; e engines da mesma categoria compartilham a chave dela, então `none` em
+qualquer uma mantém a categoria inteira contando. A evidência que o modelo avalia é a determinística (`analysis`, a
 passagem `--seguranca` contada sob `analysis`, e `sast`); um achado de seção
 de skill é a própria citação do modelo, então `skills: model` é aceito mas
 hoje não tem o que rebaixar. Chave ou valor desconhecido é erro de
@@ -1503,7 +1514,26 @@ carregamento. Um rebaixamento nunca é silencioso: o stderr e as limitações do
 review nomeiam cada achado rebaixado
 (`gate.triage (analysis: model): app.go:6 ...`). Sob política central,
 `triage` é ignorado, inclusive um `triage` que a própria política declare, e
-uma seção de SAST de origem da política nunca é rebaixada.
+uma seção de SAST de origem da política nunca é rebaixada: nada muda em
+relação ao comportamento anterior ao padrão `model`.
+
+A triagem falha fechada. Quando o modelo não respondeu de forma limpa (sem
+provedor, falha do provedor, resposta que não passou no parser ou que só foi
+lida em modo degradado, limite de deliberação), nada é rebaixado, nem mesmo
+pela contestação justificada de um perfil ou lote saudável quando outro perfil
+ou lote da mesma execução saiu degradado. Se havia evidência de uma fonte
+triável, com gate declarado e sem política central, o stderr e as limitações
+do parecer dizem isso, no idioma de `review.language`:
+
+```text
+aurumcode review: gate.triage: a triagem pelo modelo não ocorreu (quality_skipped); a evidência determinística contou integralmente e o bloqueio foi mantido
+```
+
+Entre parênteses vai o motivo (`quality_skipped`, `provider_failure`,
+`model_parse_failure`, `degraded_parse`, ...); quando o gate passa mesmo assim, a linha termina
+em "contou integralmente", sem falar em bloqueio. Com todas as fontes da
+evidência em `none`, sem gate declarado ou sob política central, nada é
+anunciado: a triagem não teria ocorrido de qualquer forma.
 
 Um review que ofereceu evidência não é servido do cache de modelo por arquivo
 (o cache guarda achados, não avaliações), e a chave de reaproveitamento do

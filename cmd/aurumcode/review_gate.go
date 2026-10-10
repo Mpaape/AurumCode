@@ -134,6 +134,17 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 // the gate failed or was inconclusive (shared by --base and --pr).
 func applyGateOutcome(run *gateRun, res *gateDecision) { gate.ApplyOutcome(run, res) }
 
+// modelReason is why this run's model half cannot be trusted, by the same
+// ranking (gate.RankReason) over the model's inputs alone: "" when the
+// model answered and its answer parsed.
+func (s *reviewState) modelReason() string {
+	return string(gate.RankReason(gate.ReasonInputs{
+		Model:             s.model,
+		DegradedParse:     prompt.IsDegradedParse(s.result),
+		DeliberationLimit: s.deliberationLimit(),
+	}))
+}
+
 // inconclusiveReason ranks why this run's model/analysis half cannot be
 // trusted (gate.RankReason, the one ranking both sources use).
 func (s *reviewState) inconclusiveReason() string {
@@ -170,28 +181,56 @@ func (s *reviewState) runGate() (int, bool) {
 	s.filter, s.stdout, s.stderr = run.Filter, run.Stdout, run.Stderr
 	applyGateOutcome(run, res)
 	s.reportTriage(run.Demoted)
+	s.reportTriageNotRun(res)
 	return 0, false
 }
 
 // triage is what the model's assessment may change in this run's gate.
-// Without a central policy the repository's gate.triage decides per
-// source; under a central policy nothing is demoted, whatever either
-// configuration says: evidence of policy origin always counts.
+// A model that did not answer cleanly (no provider, a failed or degraded
+// parse, a deliberation limit) never demotes: one degraded profile or batch
+// beside healthy ones leaves the whole consolidated answer untrusted. Only
+// a dispute with a justification is recorded (review.DisputeCounts), and
+// only for the sources triageSources lets the model demote.
 func (s *reviewState) triage() gate.Triage {
 	t := gate.Triage{Disputed: map[string]bool{}, BySource: map[string]bool{}}
-	for _, issue := range s.disputedEvidence() {
-		t.Disputed[gate.DisputeKey(issue.Origin, issue.RuleID, issue.File, issue.Line)] = true
-	}
-	if s.centralCfg != nil {
+	if s.modelReason() != "" {
 		return t
 	}
-	for _, source := range []string{config.GateSourceSkills, config.GateSourceAnalysis} {
-		t.BySource[source] = s.cfg.Gate.TriageByModel(source)
+	for _, issue := range s.disputedEvidence() {
+		if review.DisputeCounts(issue.Assessment) {
+			t.Disputed[gate.DisputeKey(issue.Origin, issue.RuleID, issue.File, issue.Line)] = true
+		}
 	}
-	for _, scan := range s.scans {
-		t.BySource[scan.Source()] = t.BySource[scan.Source()] || s.cfg.Gate.TriageByModelFor(scan.Engine.Answers)
+	for source, byModel := range s.triageSources() {
+		t.BySource[source] = byModel
 	}
 	return t
+}
+
+// triageSources is, per gate.sources name, whether the repository lets the
+// model's dispute demote that source's evidence: with a declared gate and
+// without a central policy, gate.triage decides (model unless it wrote
+// none); with no declared gate, or under a central policy, nothing is
+// demoted, whatever either configuration says (nil): evidence of policy
+// origin always counts.
+func (s *reviewState) triageSources() map[string]bool {
+	if s.centralCfg != nil || s.cfg == nil || !s.cfg.Gate.Declared() {
+		return nil
+	}
+	sources := map[string]bool{}
+	for _, source := range []string{config.GateSourceSkills, config.GateSourceAnalysis} {
+		sources[source] = s.cfg.Gate.TriageByModel(source)
+	}
+	// Engines of one category share its key: an explicit none on any of
+	// them keeps the whole category counting (fail closed).
+	for _, scan := range s.scans {
+		byModel := s.cfg.Gate.TriageByModelFor(scan.Engine.Answers)
+		if prior, seen := sources[scan.Source()]; seen {
+			byModel = byModel && prior
+		}
+		sources[scan.Source()] = byModel
+	}
+	return sources
 }
 
 // reportTriage states every finding a dispute demoted, and proposes an

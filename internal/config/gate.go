@@ -20,9 +20,10 @@ type GateConfig struct {
 	// GateSourceSAST. Empty (absent) means all three.
 	Sources []string `yaml:"sources"`
 	// Triage lets the model's assessment of a source's evidence demote it,
-	// per source: GateSourceSkills/Analysis/SAST -> TriageModel or
-	// TriageNone (the default). It is honoured only without a central
-	// policy: evidence of policy origin counts whatever the model says.
+	// per source: GateSourceSkills/Analysis/SAST -> TriageModel (the
+	// default, triageDefault) or TriageNone (the explicit opt-out). It is
+	// honoured only for a declared gate and without a central policy:
+	// evidence of policy origin counts whatever the model says.
 	Triage map[string]string `yaml:"triage"`
 }
 
@@ -30,10 +31,15 @@ type GateConfig struct {
 const (
 	// TriageNone: the model's assessment never changes what the gate counts.
 	TriageNone = "none"
-	// TriageModel: evidence the model disputes stops counting for that
-	// source (repository configuration only).
+	// TriageModel: evidence the model disputes, with a justification, stops
+	// counting for that source (repository configuration only).
 	TriageModel = "model"
 )
+
+// triageDefault is what a source without a gate.triage key resolves to: the
+// model decides, with reasoning, over the deterministic evidence; only an
+// explicit none opts a source out.
+const triageDefault = TriageModel
 
 // ValidateTriage rejects a gate.triage key outside gate.sources'
 // vocabulary or a value other than model/none.
@@ -51,21 +57,41 @@ func (g GateConfig) ValidateTriage() error {
 	return nil
 }
 
-// TriageByModel reports whether gate.triage lets the model's dispute demote
-// evidence of the named source.
-func (g GateConfig) TriageByModel(source string) bool {
-	return g.TriageByModelFor(func(s string) bool { return strings.EqualFold(strings.TrimSpace(s), source) })
+// TriageMode resolves gate.triage for the named source: the declared value,
+// or triageDefault (model) when no key names it.
+func (g GateConfig) TriageMode(source string) string {
+	return g.TriageModeFor(func(s string) bool { return strings.EqualFold(strings.TrimSpace(s), strings.TrimSpace(source)) })
 }
 
-// TriageByModelFor reports whether a gate.triage key that names matches
-// (an engine answers to its name, category and origin) is "model".
-func (g GateConfig) TriageByModelFor(names func(string) bool) bool {
+// TriageModeFor resolves gate.triage for every key that names matches (an
+// engine answers to its name, category and origin), or triageDefault when
+// none does. Every matching key is read: any one that is not "model" opts
+// the source out, so an explicit none always wins, whatever the map order
+// or a broader key says.
+func (g GateConfig) TriageModeFor(names func(string) bool) string {
+	resolved := triageDefault
 	for s, mode := range g.Triage {
-		if names(s) && strings.EqualFold(strings.TrimSpace(mode), TriageModel) {
-			return true
+		if !names(s) {
+			continue
 		}
+		if !strings.EqualFold(strings.TrimSpace(mode), TriageModel) {
+			return TriageNone
+		}
+		resolved = TriageModel
 	}
-	return false
+	return resolved
+}
+
+// TriageByModel reports whether gate.triage lets the model's justified
+// dispute demote evidence of the named source.
+func (g GateConfig) TriageByModel(source string) bool {
+	return g.TriageMode(source) == TriageModel
+}
+
+// TriageByModelFor reports whether the gate.triage keys that names matches
+// let the model's justified dispute demote the evidence.
+func (g GateConfig) TriageByModelFor(names func(string) bool) bool {
+	return g.TriageModeFor(names) == TriageModel
 }
 
 // The vocabulary of gate.sources (AUR-556): skills, analysis, and every
