@@ -242,7 +242,11 @@ func TestAUR609RedactionIsLinear(t *testing.T) {
 			aur609RedactWithin(t, build(64<<10), limit) // warm up
 			half := aur609RedactWithin(t, build(128<<10), limit)
 			full := aur609RedactWithin(t, build(256<<10), limit)
-			if full > 3*half+50*time.Millisecond {
+			// Under -race the detector's shadow memory and the runner's
+			// parallel packages make the ratio noisy (3.3x measured on CI for a
+			// linear filter); the absolute budget alone still rejects the
+			// quadratic version there, which takes over an hour under -race.
+			if !raceDetector && full > 3*half+50*time.Millisecond {
 				t.Fatalf("256 KB took %v and 128 KB took %v: the time grows faster than linear", full, half)
 			}
 		})
