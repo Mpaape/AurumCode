@@ -147,6 +147,11 @@ ac001() {
   docker_build - "$work/aurumcode-default"
   got="$("$work/aurumcode-default" --version)" || fail AC-001/version-flag-failed
   [[ "$got" == 'aurumcode dev' ]] || fail "AC-001/default-version:$got"
+  # The Dockerfile's build flags (-trimpath, -ldflags) fill a cache the tests
+  # never reuse; drop it and the two binaries so the sealed /tmp holds one
+  # build configuration at a time.
+  rm -f -- "$work/aurumcode-stamped" "$work/aurumcode-default"
+  go clean -cache >/dev/null 2>&1 || true
   ac AC-001 '^TestAUR611(SARIFCarriesStampedVersion|VersionFlagPrintsStampedVersion|StampedVersionIsNotDev|UnstampedVersionIsDev)$' \
     TestAUR611SARIFCarriesStampedVersion TestAUR611VersionFlagPrintsStampedVersion \
     TestAUR611StampedVersionIsNotDev TestAUR611UnstampedVersionIsDev
