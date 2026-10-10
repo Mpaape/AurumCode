@@ -28,8 +28,13 @@ type Expectation struct {
 	Statuses map[string]string `json:"status,omitempty"`
 	Language string            `json:"idioma,omitempty"`
 	Mode     string            `json:"modo,omitempty"`
-	// InlineSuggestion requires at least one eligible inline suggestion.
+	// InlineSuggestion requires at least one applicable inline suggestion
+	// (a ```suggestion block). Whether the model produces one for a given
+	// finding is not deterministic; see AUR-617.
 	InlineSuggestion bool `json:"sugestao_inline,omitempty"`
+	// InlineComment requires at least one product comment on a changed line
+	// (a blocking finding commented where it is).
+	InlineComment bool `json:"comentario_inline,omitempty"`
 	// MaxComments bounds the product's comments on the PR after every
 	// round (a repeated round must not multiply them). Zero: no bound.
 	MaxComments int      `json:"comentarios_max,omitempty"`
@@ -61,21 +66,22 @@ type Scenario struct {
 
 // Evidence is what run.sh recorded for one scenario.
 type Evidence struct {
-	Scenario    string            `json:"cenario"`
-	ToolSHA     string            `json:"aurumcode_sha"`
-	Repo        string            `json:"repo"`
-	SHA         string            `json:"sha"`
-	RunID       int64             `json:"run_id"`
-	RunURL      string            `json:"run_url"`
-	Measured    bool              `json:"medido"`
-	Limitations []string          `json:"limitacoes"`
-	Conclusion  string            `json:"conclusao"`
-	Statuses    map[string]string `json:"status"`
-	Language    string            `json:"idioma"`
-	Mode        string            `json:"modo"`
-	Inline      int               `json:"sugestoes_inline"`
-	Comments    int               `json:"comentarios_aurum"`
-	Text        string            `json:"texto"`
+	Scenario       string            `json:"cenario"`
+	ToolSHA        string            `json:"aurumcode_sha"`
+	Repo           string            `json:"repo"`
+	SHA            string            `json:"sha"`
+	RunID          int64             `json:"run_id"`
+	RunURL         string            `json:"run_url"`
+	Measured       bool              `json:"medido"`
+	Limitations    []string          `json:"limitacoes"`
+	Conclusion     string            `json:"conclusao"`
+	Statuses       map[string]string `json:"status"`
+	Language       string            `json:"idioma"`
+	Mode           string            `json:"modo"`
+	Inline         int               `json:"sugestoes_inline"`
+	InlineComments int               `json:"comentarios_inline"`
+	Comments       int               `json:"comentarios_aurum"`
+	Text           string            `json:"texto"`
 	// AfterFix is the evidence after the fix commit, when the scenario has one.
 	AfterFix *Evidence `json:"apos_correcao,omitempty"`
 }
@@ -222,6 +228,9 @@ func compare(x Expectation, e Evidence) []string {
 	}
 	if x.InlineSuggestion && e.Inline < 1 {
 		out = append(out, "nenhuma sugestão inline")
+	}
+	if x.InlineComment && e.InlineComments < 1 {
+		out = append(out, "nenhum comentário na linha")
 	}
 	if x.MaxComments > 0 && e.Comments > x.MaxComments {
 		out = append(out, fmt.Sprintf("%d comentários do produto, máximo %d", e.Comments, x.MaxComments))

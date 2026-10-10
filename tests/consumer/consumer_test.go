@@ -38,6 +38,9 @@ func conforming(s Scenario) Evidence {
 		for k, v := range x.Statuses {
 			e.Statuses[k] = v
 		}
+		if x.InlineComment {
+			e.InlineComments = 1
+		}
 		if x.InlineSuggestion {
 			e.Inline = 1
 		}
@@ -66,7 +69,9 @@ func TestAUR512ScenarioTableCoversTheContract(t *testing.T) {
 		acs[s.AC] = true
 		workflows[s.Workflow] = true
 		modes = modes || s.Expect.Mode == "review"
-		inline = inline || s.Expect.InlineSuggestion
+		// A blocking finding commented on its line covers the inline
+		// requirement; the applicable suggestion is measured (AUR-617).
+		inline = inline || s.Expect.InlineSuggestion || s.Expect.InlineComment
 		rounds = rounds || (s.Rounds > 1 && s.Expect.MaxComments == 1)
 		fix = fix || (s.Fix != "" && s.AfterFix != nil && s.AfterFix.Conclusion == "success")
 		fork = fork || (s.AC == "AC-003" && s.Manual)
