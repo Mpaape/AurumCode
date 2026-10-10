@@ -591,14 +591,14 @@ jobs:
       # artifact in a second job; see docs/configuration.md.
       - name: Upload SARIF document
         if: always() && steps.artifacts.outputs.sarif == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aurumcode-sarif-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/aurumcode-out/aurumcode-review.sarif
 
       - name: Upload compliance audit record
         if: always() && steps.artifacts.outputs.audit == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aurumcode-audit-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/aurumcode-out/aurumcode-audit.json
@@ -617,7 +617,7 @@ jobs:
       # SARIF/audit files.
       - name: Upload SBOM signature bundle
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aurumcode-sbom-bundle-${{ github.event.pull_request.number }}
           path: .aurumcode-target/**/*.sigstore.json
@@ -769,7 +769,7 @@ jobs:
       # artifact is what the caller uploads to code scanning.
       - name: Upload dependency SARIF
         if: success()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aurumcode-dependencies-sarif
           path: ${{ runner.temp }}/aurumcode-out/aurumcode-dependencies.sarif
