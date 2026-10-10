@@ -81,7 +81,14 @@ imagem real, PRs de código e falhas observáveis. Os cenários estão em
 
 Preparação, uma vez: a `main` do consumidor recebe, por PR, o conteúdo de
 `tests/consumer/fixtures/base` (config com `review.language: pt-BR`, gate e
-`changelog_check.mode: required`) e os secrets `LLM_API_KEY` e `LLM_BASE_URL`.
+`changelog_check.mode: required`), os secrets `LLM_API_KEY` e `LLM_BASE_URL`
+e a variável `LLM_MODEL` (a mesma do repositório do AurumCode). Cadastre os
+secrets num terminal interativo: `gh secret set LLM_API_KEY --repo OWNER/CONSUMIDOR`
+pede o valor sem mostrá-lo; rodado sem terminal (um atalho de agente, um script
+com a entrada fechada), o `gh` grava um valor vazio e o job de revisão para em
+"AurumCode sem provedor de modelo" em toda PR. A `main` não pode ter outro
+workflow do AurumCode além do que o QA instala por PR (um `code-review.yml`
+antigo apareceria na medição como job `review`).
 
 Rodada, no host do dono (git, `gh` autenticado e `jq`; nenhum Go):
 
