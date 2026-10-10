@@ -95,7 +95,7 @@ func presentationNotice(pr presentation, language string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "#### %s\n\n", i18n.Text(language, "review.presentation_heading"))
 	if pr.Merged > 0 {
-		fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.presentation_merged", pr.Merged))
+		fmt.Fprintf(&b, "- %s\n", countText(pr.Merged, i18n.Text(language, "review.presentation_merged_one"), i18n.Text(language, "review.presentation_merged")))
 	}
 	if len(pr.Collapsed) > 0 {
 		names := make([]string, 0, len(pr.Collapsed))

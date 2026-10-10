@@ -12,7 +12,7 @@ sem gate declarado · 1 arquivo revisado
 ### Limitações da revisão
 
 - skill "estilo-ruim" (.aurumcode/skills/estilo-ruim): unknown language "linguagem-inexistente" in selector; it matches nothing (add an alias to .aurumcode/grammar/aliases.yml or use a grammar name)
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: revisao feita
 prompt: a skill estilo-ts NAO chegou: a mudanca nao toca TypeScript
@@ -30,7 +30,7 @@ sem gate declarado · 1 arquivo revisado
 ### Limitações da revisão
 
 - skill "estilo-ruim" (.aurumcode/skills/estilo-ruim): unknown language "linguagem-inexistente" in selector; it matches nothing (add an alias to .aurumcode/grammar/aliases.yml or use a grammar name)
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: revisao feita
 prompt: #### estilo-ts (v1)

@@ -1,7 +1,7 @@
 $ aurumcode review --base main
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) failed: varredura inconclusiva (sast_unavailable)
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_unavailable)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable])
 - **Varredura pedida inconclusiva** — o scanner_semgrep nao produziu resultado; nada pode ser afirmado sobre calc.js
-Sem achados nas fontes concluídas; inconclusivo: sast_unavailable
+Sem achados nas fontes concluídas; inconclusivo: análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]
 exit_code=1
 RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e o gate reprova

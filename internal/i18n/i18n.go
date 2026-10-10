@@ -72,6 +72,13 @@ func Text(language, key string) string {
 	return key
 }
 
+// Lookup is Text that reports whether the catalog carries key, instead of
+// echoing the key back.
+func Lookup(language, key string) (string, bool) {
+	v, ok := catalog()[LocaleOf(language)][key]
+	return v, ok
+}
+
 // Format is fmt.Sprintf over Text.
 func Format(language, key string, args ...any) string {
 	return fmt.Sprintf(Text(language, key), args...)

@@ -115,13 +115,16 @@ func ClassifyBlob(path string, content []byte) *DiffNotice {
 	return &DiffNotice{Path: path, Message: msg, Reason: noticeReason(msg), DeclaredFormat: grammar.DeclaredBinaryFormat(path, content)}
 }
 
+// noticeReasonGenerated is the Reason of a file that says it was generated.
+const noticeReasonGenerated = "generated"
+
 // noticeReason maps a classifyBlob message to the stable reason token.
 func noticeReason(message string) string {
 	switch {
 	case strings.HasPrefix(message, "binary file"):
 		return NoticeReasonBinary
 	case strings.HasPrefix(message, "generated file"):
-		return "generated"
+		return noticeReasonGenerated
 	default:
 		return "too large"
 	}

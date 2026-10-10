@@ -5,7 +5,7 @@ exit_code=0
 stdout: 3 mensagens JSON-RPC 2.0, nenhuma outra linha
 initialize: servidor aurumcode, protocolo 2025-06-18
 aurum_gate: decisao=inconclusive exit_code=1 motivo=provider_failure
-  proximo passo: The review did not conclude, so this is not a pass. Read reason and fix the cause (configure the model provider, retry), then call aurum_gate again.
+  proximo passo: A revisão não concluiu, então isto não é aprovação. Leia reason e corrija a causa antes de chamar aurum_gate de novo. Defina LLM_API_KEY e LLM_BASE_URL no ambiente que inicia o aurumcode mcp e reinicie o servidor.
 aurum_gate: recusado antes de executar: erro -32602: invalid arguments: base must be a git ref matching ^[A-Za-z0-9_][A-Za-z0-9._/~^@{}+-]{0,199}$ without ".."
 RESULTADO: sem provedor a revisao nao aconteceu: inconclusivo, nunca pass
 RESULTADO: argumento invalido e recusado antes de qualquer revisao
@@ -15,7 +15,7 @@ exit_code=0
 stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
 initialize: servidor aurumcode, protocolo 2025-06-18
 aurum_gate: decisao=inconclusive exit_code=1 motivo=provider_failure
-  proximo passo: The review did not conclude, so this is not a pass. Read reason and fix the cause (configure the model provider, retry), then call aurum_gate again.
+  proximo passo: A revisão não concluiu, então isto não é aprovação. Leia reason e corrija a causa antes de chamar aurum_gate de novo. Defina LLM_API_KEY e LLM_BASE_URL no ambiente que inicia o aurumcode mcp e reinicie o servidor.
 RESULTADO: provedor que falha vira inconclusivo
 --- o agente pergunta antes de commitar: base HEAD, nada mudou
 $ aurumcode mcp   # cliente de teste: initialize + 1 requisicao(oes) por stdio
@@ -23,5 +23,5 @@ exit_code=0
 stdout: 2 mensagens JSON-RPC 2.0, nenhuma outra linha
 initialize: servidor aurumcode, protocolo 2025-06-18
 aurum_gate: decisao=inconclusive exit_code=0 motivo=empty_change
-  proximo passo: Nothing changed between base and HEAD, so nothing was reviewed. Commit your change on the working branch first (the review covers commits), or check base, then call aurum_gate again.
+  proximo passo: Nada mudou entre a base e o HEAD, então nada foi revisado. Faça commit da mudança no branch de trabalho (a revisão cobre commits) ou confira a base, e chame aurum_gate de novo.
 RESULTADO: mudanca vazia nao foi revisada: inconclusivo, nunca pass

@@ -93,6 +93,8 @@ repositório pede que cobertura parcial reprove (`gate.inconclusive: block`):
 gate:
   fail_on: [high]
   inconclusive: block
+review:
+  language: pt-BR
 ```
 
 ```bash
@@ -101,8 +103,8 @@ aurumcode review --base main
 
 <!-- saida: arquivo-sem-gramatica -->
 ```text
-Review coverage
-- 1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+Cobertura da revisão
+- 1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - notas.zzqx
 exit_code=0
 prompt: +mas e texto simples e precisa ser lido pelo modelo
@@ -135,7 +137,7 @@ Com `gate.inconclusive: block` (a mesma configuração do caso 2):
 
 <!-- saida: binario-e-gerado -->
 ```text
-aurumcode review: policy gate: review inconclusive (partial_coverage)
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: com gate.inconclusive: block, cobertura parcial reprova
 ```
@@ -155,6 +157,7 @@ A política do repositório declara uma skill de segurança e `gate.fail_on: [hi
 <!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-terraform/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/seguranca.md
@@ -319,7 +322,7 @@ vive no catálogo de dados `internal/analyzer/language_catalog.yml` (veja
 - **"Aprovado com binário no PR."** Não acontece: o veredito é `Comment`
   (caso 3). Para reprovar, declare `gate.inconclusive: block`. Só uma imagem,
   PDF, fonte ou mídia do catálogo de formatos é declarada ignorada.
-- **"O aviso `gate verdict reuse unavailable` apareceu."** O cache de veredito
+- **"O aviso `reaproveitamento do veredito do gate indisponível` apareceu."** O cache de veredito
   precisa de `AURUMCODE_CACHE_DIR`; sem ele o gate roda normalmente, só não
   reaproveita veredito entre execuções. É aviso, não falha.
 - **Saída em português.** Com `review.language: pt-BR` (caso 5) o parecer sai

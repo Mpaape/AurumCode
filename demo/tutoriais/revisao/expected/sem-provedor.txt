@@ -1,11 +1,11 @@
 $ aurumcode review --base main --seguranca --fail-on error
-aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
-LLM quality review did not run. The following report covers deterministic analysis only.
+aurumcode review: nenhum provedor de modelo configurado: revisão por modelo não executada; rodando só a análise determinística
+A revisão por modelo não rodou. O relatório abaixo cobre só a análise determinística.
 > **Inconclusivo: esta revisão não aprova a mudança.**
 app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 $ aurumcode review --base main --seguranca --exigir-qualidade
-aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review
+aurumcode review: --exigir-qualidade: a revisão por modelo não rodou, então esta execução não é uma revisão completa
 RESULTADO: com --exigir-qualidade, sem provedor o comando falha
 exit_code=1

@@ -44,6 +44,11 @@ type reviewCopy struct {
 	// The *One texts are the singular forms of the counted headline and
 	// facts texts.
 	headlineBlockedOne, headlineObservationsOne, factsFilesOne string
+	// The counted notices' singular forms (AUR-607): with one item they read
+	// without "(s)" in Portuguese; in English they are the plural text with
+	// "1", the bytes of earlier releases.
+	blockingFindingsOne, belowGateThresholdOne, ciNothingFailedOne, summaryWithheldOne                     string
+	coveragePartialOne, coverageBudgetOne, coverageIgnoredOne, coverageFilteredOne, coverageNoStructureOne string
 }
 
 // reviewCopyFor reads the review's texts for language from the catalog.
@@ -113,6 +118,15 @@ func reviewCopyFor(language string) reviewCopy {
 		factsNoGate:              i18n.Text(language, "review.facts_no_gate"),
 		factsFiles:               i18n.Text(language, "review.facts_files"),
 		factsFilesOne:            i18n.Text(language, "review.facts_files_one"),
+		blockingFindingsOne:      i18n.Text(language, "review.blocking_findings_one"),
+		belowGateThresholdOne:    i18n.Text(language, "review.below_gate_threshold_one"),
+		ciNothingFailedOne:       i18n.Text(language, "review.ci_status_nothing_failed_one"),
+		summaryWithheldOne:       i18n.Text(language, "review.summary_withheld_one"),
+		coveragePartialOne:       i18n.Text(language, "review.coverage_partial_one"),
+		coverageBudgetOne:        i18n.Text(language, "review.coverage_budget_one"),
+		coverageIgnoredOne:       i18n.Text(language, "review.coverage_ignored_one"),
+		coverageFilteredOne:      i18n.Text(language, "review.coverage_filtered_one"),
+		coverageNoStructureOne:   i18n.Text(language, "review.coverage_no_structure_one"),
 		factsParts:               i18n.Text(language, "review.facts_parts"),
 		fixBeforeMerge:           i18n.Text(language, "review.fix_before_merge"),
 		observations:             i18n.Text(language, "review.observations"),

@@ -133,13 +133,13 @@ caso_indisponivel() {
   expect_rc 1 "listagem 503 sem cache: analysis_data_unavailable reprova"
   echo "--- B. sem rede nenhuma (container sem rota, nada escuta)"
   repo indisponivel-rede bloqueia
-  TUT_SED='s/(analysis_data_unavailable\)): .*/\1: <detalhe de rede omitido do registro>/'
+  TUT_SED='s/(analysis_data_unavailable]?\)): .*/\1: <detalhe de rede omitido do registro>/'
   aurum review --base main
   TUT_SED=
   expect_rc 1 "sem rede e sem cache: analysis_data_unavailable reprova"
   echo "--- C. o mesmo com gate.inconclusive: warn"
   repo indisponivel-warn avisa
-  TUT_SED='s/(analysis_data_unavailable\)): .*/\1: <detalhe de rede omitido do registro>/'
+  TUT_SED='s/(analysis_data_unavailable]?\)): .*/\1: <detalhe de rede omitido do registro>/'
   aurum review --base main
   TUT_SED=
   expect_rc 0 "sem rede com warn: exit 0, mas nunca aprovado silenciosamente"

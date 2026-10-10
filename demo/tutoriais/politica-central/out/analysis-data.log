@@ -1,19 +1,19 @@
 == analysis-data
 $ aurumcode review --base main --politica /policy
 aurumcode review: politica central: analysis_data do config do repositório foi ignorado: a política central decide sozinha
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): <detalhe de rede omitido do registro>
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: passed · 1 file reviewed
+gate da política: passou · 1 arquivo revisado
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
-  - Impact: Quem le o repositorio ou o historico reutiliza a senha.
-  - Evidence: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
-  - Suggested fix: Leia a senha do ambiente em vez de escreve-la no codigo.
-  - Verify: Remova o literal e rode a revisao de novo; o achado deve sumir.
+  - Impacto: Quem le o repositorio ou o historico reutiliza a senha.
+  - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
+  - Correção sugerida: Leia a senha do ambiente em vez de escreve-la no codigo.
+  - Verificação: Remova o literal e rode a revisao de novo; o achado deve sumir.
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 exit_code=0
 RESULTADO: analysis_data da politica indisponivel e inconclusivo (warn), nunca aprovado

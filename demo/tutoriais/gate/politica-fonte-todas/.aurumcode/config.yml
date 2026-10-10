@@ -8,6 +8,7 @@ quality_gates:
     rule_packs:
       - /policy/regras/senha.yml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

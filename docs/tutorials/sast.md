@@ -58,6 +58,8 @@ quality_gates:
     enabled: true
     fail_on_severity: ERROR
     rule_packs: ["regras/sast.yml"]
+review:
+  language: pt-BR
 ```
 
 <!-- arquivo: demo/tutoriais/sast/repo-exemplo/base/regras/sast.yml -->
@@ -107,6 +109,8 @@ quality_gates:
 gate:
   fail_on: [error]
   inconclusive: block
+review:
+  language: pt-BR
 ```
 
 ```bash
@@ -116,15 +120,15 @@ aurumcode review --base main
 <!-- saida: registry-sem-rede -->
 ```text
 $ aurumcode review --base main
-aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_execution_error); no Semgrep finding was published for this run.
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
+aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (o Semgrep falhou ao rodar [sast_execution_error]); nenhum achado determinístico do Semgrep foi publicado nesta execução.
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error])
 exit_code=1
 ```
 
 O que observar: o comando demora cerca de dois minutos (o limite de uma
 varredura é 120 s) e termina com `sast_execution_error`. Com
-`gate.inconclusive: block` isso reprova (saída 1). O parecer ainda diz
-`No issues found.`: leia a linha `SAST ... inconclusive` antes de confiar nele.
+`gate.inconclusive: block` isso reprova (saída 1). O parecer não traz
+achado do SAST: leia a linha `SAST ... inconclusivo` antes de confiar nele.
 (`RESULTADO` do script: o exit 1 é o esperado e prova que a falha de download
 não foi lida como varredura limpa; o log não distingue timeout de recusa de
 rede, então o tutorial não afirma qual das duas aconteceu.)
@@ -157,6 +161,8 @@ quality_gates:
     enabled: true
     fail_on_severity: ERROR
     rule_packs: ["/policy/regras/sast.yml"]
+review:
+  language: pt-BR
 ```
 
 Observe que na política o pacote de regras é um caminho absoluto
@@ -220,6 +226,8 @@ quality_gates:
     enabled: true
     fail_on_severity: ERROR
     rule_packs: ["/policy/regras/sast.yml"]
+review:
+  language: pt-BR
 ```
 
 <!-- saida: origem-sast -->
@@ -247,6 +255,8 @@ quality_gates:
       fail_on: warning          # go vet reporta warning; o padrao ERROR so publicaria
 gate:
   fail_on: [error]
+review:
+  language: pt-BR
 ```
 
 A `main` já tem um `fmt.Printf` com verbo errado em `legado/legado.go`; a
@@ -335,15 +345,15 @@ aurumcode review --base main
 <!-- saida: semgrep-falha -->
 ```text
 --- gate.inconclusive: block
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_execution_error)
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error])
 exit_code=1
 --- gate.inconclusive: warn
 exit_code=0
 ```
 
 O que observar: com `block`, exit 1; com `warn`, o alerta inconclusivo é
-publicado e o comando sai 0, mas a revisão não é aprovação (o parecer diz
-`No issues found.`, o que não quer dizer varredura limpa). Escolha `block` num
+publicado e o comando sai 0, mas a revisão não é aprovação (o parecer não
+traz achado do SAST, o que não quer dizer varredura limpa). Escolha `block` num
 gate de conformidade. (Conclusão do script: os exits 1 e 0, a mesma falha com
 dois modos.)
 
@@ -362,8 +372,8 @@ aurumcode review --base main
 <!-- saida: govet-sem-go -->
 ```text
 $ aurumcode review --base main
-aurumcode review: LINT (Govet) inconclusive: the scan did not produce a trustworthy result (lint_unavailable); no Govet finding was published for this run.
-aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint_unavailable)
+aurumcode review: LINT (Govet) inconclusivo: a varredura não produziu resultado confiável (lint habilitado, mas o go vet não está disponível [lint_unavailable]); nenhum achado determinístico do Govet foi publicado nesta execução.
+aurumcode review: policy gate: LINT (govet, origem govet, secao repo) inconclusivo (lint habilitado, mas o go vet não está disponível [lint_unavailable])
 exit_code=1
 ```
 
@@ -381,8 +391,8 @@ pacote que não compila ou uma dependência fora do cache de módulos
   regra em exceções ou comparações, use o `rule_id` exato da saída.
 - **`nosemgrep` "não funciona"**: sob política é desligado de propósito.
 - **Esperar `--semgrep-bin`**: não existe; use o `PATH` ou a imagem do produto.
-- **Resultado `No issues found.` com SAST inconclusivo**: leia as linhas
-  `SAST ... inconclusive`; o parecer não resume o estado do SAST.
+- **Resultado sem achados com SAST inconclusivo**: leia as linhas
+  `SAST ... inconclusivo`; o parecer não resume o estado do SAST.
 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica

@@ -6,15 +6,15 @@ secret LLM_API_KEY: existe em review.yml
 secret LLM_BASE_URL: existe em review.yml
 permissao pull-requests: write: o chamador concede o que o reutilizavel declara
 aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout
-aurumcode review: the diff did not fit one prompt; reviewed in 3 batches by directory (files per batch: 2, 2, 2)
-review formal "APPROVE" publicado no pull request #7 (0 comentário(s) na linha).
+aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por diretório (arquivos por lote: 2, 2, 2)
+parecer publicado na PR #7 como aprovação (sem comentários na linha).
 exit_code=0
 RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
-aurumcode review: the diff did not fit one prompt; reviewed in 1 batches by directory (files per batch: 2)
-aurumcode review: policy gate: review inconclusive (partial_coverage)
-review formal "REQUEST_CHANGES" publicado no pull request #7 (0 comentário(s) na linha).
+aurumcode review: o diff não coube em um só prompt; revisado em 1 lote por diretório (arquivos por lote: 2)
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
+parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).
 exit_code=1
-- 4 file(s) were left out of the review by the token budget.
+- 4 arquivos ficaram fora da revisão pelo limite de tokens.
   - banco/catalogo.go
   - web/tabela.go
 RESULTADO: no teto, a revisao fica parcial (partial_coverage) e o gate em block reprova

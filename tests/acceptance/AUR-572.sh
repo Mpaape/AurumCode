@@ -129,8 +129,8 @@ ac002() {
 
 mut001() {
   local f="$run_dir/root/cmd/aurumcode/main.go"
-  grep -Fq 'fmt.Fprintln(stdout, render.NoFindingsLine(inconclusiveReason))' "$f" || infra mutation-anchor-missing
-  sed -i 's/fmt.Fprintln(stdout, render.NoFindingsLine(inconclusiveReason))/fmt.Fprintln(stdout, render.NoIssuesLine)/' "$f"
+  grep -Fq 'fmt.Fprintln(stdout, render.NoFindingsLineIn(language, inconclusiveReason))' "$f" || infra mutation-anchor-missing
+  sed -i 's/fmt.Fprintln(stdout, render.NoFindingsLineIn(language, inconclusiveReason))/fmt.Fprintln(stdout, render.NoIssuesLine)/' "$f"
   grep -Fq 'fmt.Fprintln(stdout, render.NoIssuesLine)' "$f" || infra mutation-not-applied
   # inconclusiveReason is now unused by the mutated line only as an argument; keep the build alive
   sed -i 's/^func printFindings(stdout io.Writer, result \*types.ReviewResult, inconclusiveReason string) {/&\n\t_ = inconclusiveReason/' "$f"

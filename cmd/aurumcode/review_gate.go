@@ -53,10 +53,10 @@ var applyArtifactFailures = gate.ApplyArtifactFailures
 // findingOriginKey identifies a finding for origin lookup in the audit.
 var findingOriginKey = gate.FindingOriginKey
 
-// evaluateGate is the policy gate's decision, used by the commands that
-// gate outside a review (sbom).
-func evaluateGate(cfg config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, reason string, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) (gateDecision, error) {
-	return gate.EvaluateGate(cfg, acceptedOrigin, dynamic, issues, reason, exceptions, repoIdentity, now)
+// evaluateGate is the policy gate's decision, with its lines in language,
+// used by the commands that gate outside a review (sbom).
+func evaluateGate(language string, cfg config.GateConfig, acceptedOrigin string, dynamic map[string]review.Rule, issues []types.ReviewIssue, reason string, exceptions []config.ExceptionConfig, repoIdentity string, now time.Time) (gateDecision, error) {
+	return gate.EvaluateGateIn(language, cfg, acceptedOrigin, dynamic, issues, reason, exceptions, repoIdentity, now)
 }
 
 // applyInconclusiveModeValue turns an inconclusive decision into a failure
@@ -301,7 +301,7 @@ func (s *reviewState) decideExit(pub publishOutcome) int {
 			fmt.Fprintln(s.stderr, s.source.NotReviewedNotice)
 		}
 	case gate.CauseFailOn:
-		fmt.Fprintf(s.stderr, "aurumcode review: %d finding(s) at severity %s or above (--fail-on %s)\n", s.findingsAtThreshold(), s.thresholdName, s.thresholdName)
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", failOnLine(s.reviewLanguage, s.findingsAtThreshold(), s.thresholdName))
 	}
 	return d.Code
 }

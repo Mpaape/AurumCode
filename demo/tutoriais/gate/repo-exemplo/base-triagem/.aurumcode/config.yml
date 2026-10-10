@@ -2,3 +2,5 @@ gate:
   fail_on: [high]
   triage:
     analysis: model
+review:
+  language: pt-BR

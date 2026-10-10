@@ -1,7 +1,7 @@
 == com-provedor
 $ aurumcode review --base main --fail-on error
 aurumcode review: verificação: app.go:6 security/hardcoded-secret continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 ## AurumCode revisão de código
 
 > [!CAUTION]

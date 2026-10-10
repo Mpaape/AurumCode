@@ -109,7 +109,7 @@ aurum_explain: a5a11362b168 app.go:10 erros#err-001-erro-nunca-ignorado
 <!-- saida: gate-consultado -->
 ```text
 aurum_gate: decisao=pass exit_code=0
-  proximo passo: The gate passes. Commit or push.
+  proximo passo: O gate passa. Faça commit ou push.
 RESULTADO: depois da correcao o gate passa: o agente pode commitar e abrir o PR
 ```
 
@@ -203,7 +203,7 @@ schema é recusado antes de qualquer revisão:
 <!-- saida: gate-inconclusivo -->
 ```text
 aurum_gate: decisao=inconclusive exit_code=1 motivo=provider_failure
-  proximo passo: The review did not conclude, so this is not a pass. Read reason and fix the cause (configure the model provider, retry), then call aurum_gate again.
+  proximo passo: A revisão não concluiu, então isto não é aprovação. Leia reason e corrija a causa antes de chamar aurum_gate de novo. Defina LLM_API_KEY e LLM_BASE_URL no ambiente que inicia o aurumcode mcp e reinicie o servidor.
 ```
 
 <!-- saida: gate-inconclusivo -->
@@ -218,7 +218,7 @@ revisado, e isso também não é `pass`:
 <!-- saida: gate-inconclusivo -->
 ```text
 aurum_gate: decisao=inconclusive exit_code=0 motivo=empty_change
-  proximo passo: Nothing changed between base and HEAD, so nothing was reviewed. Commit your change on the working branch first (the review covers commits), or check base, then call aurum_gate again.
+  proximo passo: Nada mudou entre a base e o HEAD, então nada foi revisado. Faça commit da mudança no branch de trabalho (a revisão cobre commits) ou confira a base, e chame aurum_gate de novo.
 RESULTADO: mudanca vazia nao foi revisada: inconclusivo, nunca pass
 ```
 

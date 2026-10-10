@@ -2,6 +2,7 @@ gate:
   fail_on: [high]
   inconclusive: warn
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

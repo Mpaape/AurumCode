@@ -59,6 +59,8 @@ quality_gates:
     engine: cosign
     sign_sbom: true
     sign_artifacts: false
+review:
+  language: pt-BR
 ```
 
 `sign_sbom: true` assina o arquivo de `sbom_generator.output_file`; o SBOM de
@@ -292,6 +294,8 @@ quality_gates:
     engine: cosign
     sign_sbom: false
     sign_artifacts: true
+review:
+  language: pt-BR
 ```
 
 ```bash

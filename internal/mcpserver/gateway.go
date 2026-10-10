@@ -44,7 +44,9 @@ type SessionOutcome struct {
 	Diagnostics string
 	// Redactor, when set, is the session's final filter (it may know a
 	// secret learned mid-run); it is applied on top of the server's.
-	Redactor Redactor
+	Redactor Redactor // Language is the review's language (review.language); the texts the
+	// server writes for the human (next_step, how_to_fix) follow it.
+	Language string
 }
 
 // Finding is one structured finding: where it is, which rule it cites,

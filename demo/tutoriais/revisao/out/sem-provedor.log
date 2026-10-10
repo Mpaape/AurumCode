@@ -1,9 +1,14 @@
 == sem-provedor
 $ aurumcode review --base main --seguranca --fail-on error
-aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
-aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider
+aurumcode review: nenhum provedor de modelo configurado: revisão por modelo não executada; rodando só a análise determinística
+aurumcode review: nenhum provedor de modelo configurado.
+aurumcode review: Para revisar com um modelo, defina LLM_API_KEY e LLM_BASE_URL.
+aurumcode review: Para uso offline, defina AURUMCODE_LLM_FIXTURE=<caminho> apontando para um JSON no formato
+aurumcode review: {"issues":[{"file":"<caminho>","line":<n>,"severity":"error|warning|info","rule_id":"<id do catálogo de regras, ex.: security/hardcoded-secret>","message":"<texto>"}]}
+aurumcode review: rule_id é obrigatório: um achado sem rule_id, ou com id desconhecido, é descartado e nunca aparece.
+aurumcode review: Exemplo pronto no código-fonte do AurumCode: tests/fixtures/review/known-problem-response.json
 aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
-LLM quality review did not run. The following report covers deterministic analysis only.
+A revisão por modelo não rodou. O relatório abaixo cobre só a análise determinística.
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -14,16 +19,21 @@ sem gate declarado · 1 arquivo revisado
 
 Security findings (standards/security-review):
 app.go:6: [error] Segredo ou credencial escrito no código [standards/security-review SCR-003] (rule security/hardcoded-secret: Hardcoded Secrets)
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 RESULTADO: sem provedor, a analise deterministica achou o segredo e reprovou
 --- sem provedor e com --exigir-qualidade: a ausencia do modelo e falha
 $ aurumcode review --base main --seguranca --exigir-qualidade
-aurumcode review: no LLM provider configured: quality review skipped; running deterministic analysis only
-aurumcode review: no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider
-aurumcode review: --exigir-qualidade: the quality review did not run, so this run is not a clean review
+aurumcode review: nenhum provedor de modelo configurado: revisão por modelo não executada; rodando só a análise determinística
+aurumcode review: nenhum provedor de modelo configurado.
+aurumcode review: Para revisar com um modelo, defina LLM_API_KEY e LLM_BASE_URL.
+aurumcode review: Para uso offline, defina AURUMCODE_LLM_FIXTURE=<caminho> apontando para um JSON no formato
+aurumcode review: {"issues":[{"file":"<caminho>","line":<n>,"severity":"error|warning|info","rule_id":"<id do catálogo de regras, ex.: security/hardcoded-secret>","message":"<texto>"}]}
+aurumcode review: rule_id é obrigatório: um achado sem rule_id, ou com id desconhecido, é descartado e nunca aparece.
+aurumcode review: Exemplo pronto no código-fonte do AurumCode: tests/fixtures/review/known-problem-response.json
+aurumcode review: --exigir-qualidade: a revisão por modelo não rodou, então esta execução não é uma revisão completa
 aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
-LLM quality review did not run. The following report covers deterministic analysis only.
+A revisão por modelo não rodou. O relatório abaixo cobre só a análise determinística.
 ## AurumCode revisão de código
 
 > [!WARNING]

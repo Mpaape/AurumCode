@@ -60,7 +60,7 @@ caso_analysis_data() {
   tut_repo analysis-data repo-exemplo/base-analysis-data repo-exemplo/segredo
   TUT_POLICY=politica-analysis-data
   TUT_FIXTURE=fixture-llm.json
-  TUT_SED='s/(analysis_data_unavailable\)): .*/\1: <detalhe de rede omitido do registro>/'
+  TUT_SED='s/(analysis_data_unavailable]?\)): .*/\1: <detalhe de rede omitido do registro>/'
   aurum review --base main --politica /policy
   expect_rc 0 "analysis_data da politica indisponivel e inconclusivo (warn), nunca aprovado"
 }

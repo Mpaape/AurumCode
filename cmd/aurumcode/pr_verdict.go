@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/prompt"
@@ -117,7 +116,7 @@ func summaryWithheldNotice(result *types.ReviewResult, copy reviewCopy) string {
 	if discarded <= 0 {
 		return ""
 	}
-	return fmt.Sprintf(copy.summaryWithheld, discarded)
+	return countText(discarded, copy.summaryWithheldOne, copy.summaryWithheld)
 }
 
 // reviewSummaryText is deliberately derived from the filtered result rather
@@ -137,7 +136,7 @@ func reviewSummaryTextForLanguage(result *types.ReviewResult, copy reviewCopy) s
 // gate that passed every finding is named a non-blocking observation.
 func gatedSummaryText(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
 	if count := rule.Count(result.Issues); count > 0 {
-		return fmt.Sprintf(copy.blockingFindings, count)
+		return countText(count, copy.blockingFindingsOne, copy.blockingFindings)
 	}
 	if rule.Fails() {
 		if result.Metadata["quality_degraded"] == metaTrue {
@@ -146,7 +145,7 @@ func gatedSummaryText(result *types.ReviewResult, copy reviewCopy, rule blocking
 		return copy.gateFailed
 	}
 	if rule.Gated() && len(result.Issues) > 0 {
-		return fmt.Sprintf(copy.belowGateThreshold, len(result.Issues))
+		return countText(len(result.Issues), copy.belowGateThresholdOne, copy.belowGateThreshold)
 	}
 	if len(result.Issues) > 0 {
 		return copy.nonBlockingFindings

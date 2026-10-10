@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -41,6 +42,10 @@ func (p *prReview) selectProvider() (int, bool) {
 	if err != nil {
 		if p.opts.modelo != "" {
 			return reportModelUnavailable(p.stderr, p.opts.modelo, err), true
+		}
+		if errors.Is(err, errNoProviderConfigured) {
+			printLines(p.stderr, "aurumcode review: ", noProviderText(p.reviewLanguage))
+			return 1, true
 		}
 		fmt.Fprintf(p.stderr, "aurumcode review: %v\n", err)
 		return 1, true

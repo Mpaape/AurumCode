@@ -5,3 +5,5 @@ quality_gates:
   sast:
     engine: semgrep
     enabled: false
+review:
+  language: pt-BR

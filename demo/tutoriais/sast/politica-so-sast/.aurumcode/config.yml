@@ -8,3 +8,5 @@ quality_gates:
     enabled: true
     fail_on_severity: ERROR
     rule_packs: ["/policy/regras/sast.yml"]
+review:
+  language: pt-BR

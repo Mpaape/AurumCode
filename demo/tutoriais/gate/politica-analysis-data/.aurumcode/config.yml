@@ -4,6 +4,7 @@ gate:
 analysis_data:
   max_age_days: 7
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

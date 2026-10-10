@@ -3,7 +3,7 @@
 RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data
 linhas citando analysis_data na saida do review: 0
 auditoria: sem campo analysis_data
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/scanners.yml -> 200
 RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria

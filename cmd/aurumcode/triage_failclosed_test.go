@@ -42,7 +42,7 @@ const (
 
 // The fail-closed notice of AC-004, in pt-BR and in the default en-US.
 const (
-	aur608NoticePT = "gate.triage: a triagem pelo modelo não ocorreu (quality_skipped); a evidência determinística contou integralmente e o bloqueio foi mantido"
+	aur608NoticePT = "gate.triage: a triagem pelo modelo não ocorreu — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; a evidência determinística contou integralmente e o bloqueio foi mantido"
 	aur608NoticeEN = "gate.triage: the model's triage did not run (quality_skipped); the deterministic evidence counted in full and the block was kept"
 )
 
@@ -218,7 +218,7 @@ func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 
 	s, _ = newState(modelProviderFailed)
 	s.reportTriageNotRun(&gateDecision{})
-	if got := strings.Join(s.result.Limitations, "\n"); !strings.Contains(got, "(provider_failure); a evidência determinística contou integralmente") || strings.Contains(got, "bloqueio") {
+	if got := strings.Join(s.result.Limitations, "\n"); !strings.Contains(got, "o provedor de modelo não respondeu [provider_failure]; a evidência determinística contou integralmente") || strings.Contains(got, "bloqueio") {
 		t.Errorf("a passing gate states the evidence counted, never a kept block: %q", got)
 	}
 
@@ -275,7 +275,7 @@ func TestAUR608DegradedModelNeverDemotes(t *testing.T) {
 	if strings.Contains(errOut, "deixou de contar") {
 		t.Errorf("a degraded answer must never demote:\n%s", errOut)
 	}
-	notice := "gate.triage: a triagem pelo modelo não ocorreu (degraded_parse); a evidência determinística contou integralmente e o bloqueio foi mantido"
+	notice := "gate.triage: a triagem pelo modelo não ocorreu — a resposta do modelo só foi aproveitada como texto livre [degraded_parse]; a evidência determinística contou integralmente e o bloqueio foi mantido"
 	if !strings.Contains(errOut, notice) || !strings.Contains(strings.Join(s.result.Limitations, "\n"), notice) {
 		t.Errorf("stderr and the parecer must say the triage did not happen (%q):\nstderr=%s\nlimitations=%v", notice, errOut, s.result.Limitations)
 	}

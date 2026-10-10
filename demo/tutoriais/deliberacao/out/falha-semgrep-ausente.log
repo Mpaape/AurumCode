@@ -2,19 +2,19 @@
 $ aurumcode review --base main
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [scanner_semgrep]; não pedidas [codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) failed: varredura inconclusiva (sast_unavailable)
-aurumcode review: SAST (Semgrep) inconclusive: the scan did not produce a trustworthy result (sast_unavailable); no Semgrep finding was published for this run. Engine detail: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (sast_unavailable) [detalhe: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH]
-## AurumCode code review
+aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]); nenhum achado determinístico do Semgrep foi publicado nesta execução. Detalhe da engine: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]) [detalhe: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH]
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-no gate declared · 1 file reviewed
+sem gate declarado · 1 arquivo revisado
 
-### Suggestions
+### Sugestões
 
-- **Varredura pedida inconclusiva** — o scanner_semgrep nao produziu resultado; nada pode ser afirmado sobre calc.js Suggestion has no eligible location in the added diff; shown as guidance with no applicable replacement.
-Sem achados nas fontes concluídas; inconclusivo: sast_unavailable
+- **Varredura pedida inconclusiva** — o scanner_semgrep nao produziu resultado; nada pode ser afirmado sobre calc.js Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.
+Sem achados nas fontes concluídas; inconclusivo: análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]
 exit_code=1
 RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e o gate reprova

@@ -1,2 +1,4 @@
 changelog_check:
   mode: required
+review:
+  language: pt-BR

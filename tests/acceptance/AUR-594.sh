@@ -143,7 +143,7 @@ run_ac004() {
   local spec="$repo_root/docs/specs/AUR-594.md"
   [[ -f "$expected" ]] || fail no-large-pr-tutorial-case
   grep -Fq 'the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout' "$expected" || fail tutorial-without-local-diff
-  grep -Eq 'reviewed in [0-9]+ batches by directory' "$expected" || fail tutorial-without-batches
+  grep -Eq 'reviewed in [0-9]+ batches by directory|revisado em [0-9]+ lotes? por diretório' "$expected" || fail tutorial-without-batches
   [[ -f "$spec" ]] || fail no-spec
   grep -Fq 'PR #88' "$spec" || fail spec-without-pr88
   grep -Fq '"complete": true' "$spec" || fail spec-without-complete-coverage

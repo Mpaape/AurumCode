@@ -1,2 +1,4 @@
 gate:
   fail_on: [error]
+review:
+  language: pt-BR

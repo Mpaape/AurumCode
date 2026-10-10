@@ -57,7 +57,11 @@ type complianceArtifactInputs struct {
 	// finding, not the code itself.
 	diff *types.Diff
 
-	issues       []types.ReviewIssue
+	issues []types.ReviewIssue
+	// toolMessages is a scanner finding's own message, by findingOriginKey,
+	// when the shown one is in the review's language: the SARIF document is
+	// machine data and keeps the engine's text.
+	toolMessages map[string]string
 	dynamicRules map[string]review.Rule
 
 	coverageComplete bool
@@ -185,7 +189,7 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 			Path:      issue.File,
 			Line:      issue.Line,
 			Severity:  issue.Severity,
-			Message:   issue.Message,
+			Message:   in.machineMessage(issue),
 			Context:   identity.Context,
 		}
 		if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
@@ -219,7 +223,7 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 // for the exact same run already marks executionSuccessful=false in that
 // case, and the two files must agree.
 func auditGateOutcome(g gateDecision, inconclusiveReason string) (decision, reason string) {
-	reason = strings.Join(g.Lines, "; ")
+	reason = strings.Join(g.AuditLines(), "; ")
 	switch {
 	case g.Breach, g.Fail:
 		return "fail", reason
@@ -230,6 +234,15 @@ func auditGateOutcome(g gateDecision, inconclusiveReason string) (decision, reas
 	default:
 		return "pass", reason
 	}
+}
+
+// machineMessage is issue's message as the SARIF document writes it: the
+// engine's own text when the shown one was put in the review's language.
+func (in complianceArtifactInputs) machineMessage(issue types.ReviewIssue) string {
+	if msg, ok := in.toolMessages[findingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
+		return msg
+	}
+	return issue.Message
 }
 
 // firstNonEmpty returns the first non-empty, trimmed value, or "" when all

@@ -76,7 +76,7 @@ func TestAUR600CIStatusAllDiscardedShowsOneLine(t *testing.T) {
 	result := &types.ReviewResult{Metadata: map[string]string{ciStatusDiscardedKey: "2"}}
 	for language, want := range map[string]string{
 		"en-US": "### CI status\n\nNothing failed in this run: 2 status item(s)",
-		"pt-BR": "### Status do CI\n\nNada falhou nesta execução: 2 item(ns)",
+		"pt-BR": "### Status do CI\n\nNada falhou nesta execução: 2 itens",
 	} {
 		body := formatReviewDocument(result, nil, language, blocking.Ungated())
 		if !strings.Contains(body, want) {

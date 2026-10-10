@@ -5,7 +5,7 @@ scanner sast: fixado por digest
 scanner shell: fixado por digest
 scanners fixados por digest: 4
 $ bash .board/bootstrap/verify.sh
-ok sha256:f67dde36bca7c474de0df4fb13cc3736f6960af0457f60a2f66e175d8152eaab
+ok sha256:85f5c95658815badb8e84f6b1114b69e4b43e9de8a320a238fbf24b686138af9
 exit_code=0
 RESULTADO: o indice de locks confere os digests dos arquivos de lock
 --- copia com a imagem do trivy trocada por outra versao (simula atualizar scanners.yml sem atualizar o indice)

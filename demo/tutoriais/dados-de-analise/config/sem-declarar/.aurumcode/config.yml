@@ -1,2 +1,4 @@
 gate:
   inconclusive: block
+review:
+  language: pt-BR

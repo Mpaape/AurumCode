@@ -1,5 +1,5 @@
 $ aurumcode review --base main
-1 file(s) have no grammar in the runtime: structural context (symbols and imports) was not produced and the model read the text only.
+1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - notas.zzqx
 exit_code=0
 prompt: +mas e texto simples e precisa ser lido pelo modelo

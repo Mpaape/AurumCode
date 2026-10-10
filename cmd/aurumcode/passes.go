@@ -156,22 +156,22 @@ func coverageNotice(copy reviewCopy, c reviewCoverageBreakdown) string {
 		fmt.Fprintf(&b, "%s\n", copy.coverageHeading)
 	}
 	if c.Partial > 0 {
-		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coveragePartial, c.Partial))
+		fmt.Fprintf(&b, "- %s\n", countText(c.Partial, copy.coveragePartialOne, copy.coveragePartial))
 	}
 	if c.Budget > 0 {
-		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageBudget, c.Budget))
+		fmt.Fprintf(&b, "- %s\n", countText(c.Budget, copy.coverageBudgetOne, copy.coverageBudget))
 		writeCoveragePaths(&b, c.BudgetPaths, copy.coverageMore)
 	}
 	if c.Ignored > 0 {
-		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageIgnored, c.Ignored))
+		fmt.Fprintf(&b, "- %s\n", countText(c.Ignored, copy.coverageIgnoredOne, copy.coverageIgnored))
 		writeCoveragePaths(&b, c.IgnoredPaths, copy.coverageMore)
 	}
 	if c.Filtered > 0 {
-		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageFiltered, c.Filtered))
+		fmt.Fprintf(&b, "- %s\n", countText(c.Filtered, copy.coverageFilteredOne, copy.coverageFiltered))
 		writeCoveragePaths(&b, c.FilteredPaths, copy.coverageMore)
 	}
 	if len(c.NoStructure) > 0 {
-		fmt.Fprintf(&b, "- %s\n", fmt.Sprintf(copy.coverageNoStructure, len(c.NoStructure)))
+		fmt.Fprintf(&b, "- %s\n", countText(len(c.NoStructure), copy.coverageNoStructureOne, copy.coverageNoStructure))
 		writeCoveragePaths(&b, c.NoStructure, copy.coverageMore)
 	}
 	return strings.TrimRight(b.String(), "\n")

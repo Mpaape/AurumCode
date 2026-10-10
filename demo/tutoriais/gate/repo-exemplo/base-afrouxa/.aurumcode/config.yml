@@ -2,3 +2,5 @@ gate:
   fail_on: [high]
   inconclusive: warn
   sources: [skills]
+review:
+  language: pt-BR

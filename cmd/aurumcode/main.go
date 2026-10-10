@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/apply"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/litellm"
 	"github.com/Mpaape/AurumCode/internal/llm/provider/profiles"
@@ -262,7 +263,7 @@ func providerFromEnv(fixtureModel, liveModel string) (llm.Provider, string, erro
 }
 
 // printFindings prints one line per issue (and, with none, render.
-// NoFindingsLine: "No issues found." only when no source was inconclusive): "<file>:<line>: [<severity>]
+// NoFindingsLineIn: the "no issues" text only when no source was inconclusive): "<file>:<line>: [<severity>]
 // <message>", sorted by (file, line) so the same review result always
 // prints in the same order regardless of the order the model listed
 // findings in.
@@ -281,7 +282,7 @@ func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveRea
 	})
 
 	if len(issues) == 0 {
-		fmt.Fprintln(stdout, render.NoFindingsLine(inconclusiveReason))
+		fmt.Fprintln(stdout, render.NoFindingsLineIn(language, inconclusiveReason))
 		return
 	}
 
@@ -321,9 +322,10 @@ func printFindings(stdout io.Writer, result *types.ReviewResult, inconclusiveRea
 // nothing at all" is eligible to fall back to the deterministic security
 // pass alone, but a caller who attempted configuration and got it wrong is
 // still told the review failed, never silently downgraded.
-// The message text is AUR-448's: the COMPLETE fixture shape the engine
+// The message text is AUR-448's, now the English text of the catalog's
+// terminal.no_provider (AUR-607): the COMPLETE fixture shape the engine
 // accepts, rule_id included, because enforceRuleCitations (AUR-434)
 // silently discards a finding whose rule_id is missing, and the
 // pre-AUR-448 shape omitted it. See selectProvider's own comment below and
 // docs/specs/AUR-448.md.
-var errNoProviderConfigured = errors.New(`no LLM provider configured: set AURUMCODE_LLM_FIXTURE=<path> to a JSON file shaped like {"issues":[{"file":"<path>","line":<n>,"severity":"error|warning|info","rule_id":"<id from the embedded rule catalog, e.g. security/hardcoded-secret>","message":"<text>"}]} for offline use -- a finding whose rule_id is missing or unknown is discarded, never shown, so rule_id is not optional -- if you have the AurumCode source checked out, tests/fixtures/review/known-problem-response.json is a worked example -- or set LLM_API_KEY and LLM_BASE_URL for a live provider`)
+var errNoProviderConfigured = errors.New(i18n.Text(string(i18n.English), "terminal.no_provider"))

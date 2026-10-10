@@ -77,6 +77,8 @@ quality_gates:
 gate:
   fail_on: [error]
   sources: [secrets]
+review:
+  language: pt-BR
 ```
 
 A engine roda `gitleaks git --log-opts=<base>..<head>` com os ids completos de
@@ -97,8 +99,8 @@ aurumcode review --base main
 <!-- saida: segredo-no-diff -->
 ```text
 $ aurumcode review --base main
-config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat)
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
+config.py:1: [error] Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1)
+aurumcode review: policy gate: gitleaks:github-pat - Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1) (severidade error, limiar error, origem gitleaks, secao repo)
 exit_code=3
 RESULTADO: o gitleaks achou o token no intervalo main..HEAD e o gate de segredos reprovou
 ```
@@ -114,8 +116,8 @@ token no commit intermediário, que o achado cita.
 ```text
 --- commit intermediario que adicionou o token: 37eb089803ee
 API_TOKEN = os.environ["API_TOKEN"]
-config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat)
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
+config.py:1: [error] Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1)
+aurumcode review: policy gate: gitleaks:github-pat - Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1) (severidade error, limiar error, origem gitleaks, secao repo)
 exit_code=3
 RESULTADO: o token so existe num commit intermediario do PR e mesmo assim o gate reprova
 ```
@@ -137,7 +139,7 @@ exit_code=0
 RESULTADO: sem politica, o comentario gitleaks:allow do autor silencia o achado
 --- sob politica central: o mesmo commit, o autor nao consegue silenciar
 $ aurumcode review --base main --politica /policy
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 4b2b6936afd5 (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao policy)
+aurumcode review: policy gate: gitleaks:github-pat - Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 4b2b6936afd5, gitleaks v8.30.1) (severidade error, limiar error, origem gitleaks, secao policy)
 exit_code=3
 RESULTADO: sob politica, gitleaks:allow e ignorado e o achado reprova
 ```
@@ -157,8 +159,8 @@ política precisa resolver.
 exit_code=0
 RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado
 --- sob politica central: o .gitleaksignore vira achado
-.gitleaksignore:1: [error] a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present)
-aurumcode review: policy gate: gitleaks:ignore-file-present - a .gitleaksignore can hide gitleaks findings and no gitleaks flag disables it; under a central policy its presence is a finding (rule gitleaks:ignore-file-present) (severidade error, limiar error, origem gitleaks, secao policy)
+.gitleaksignore:1: [error] O arquivo .gitleaksignore pode esconder achados do Gitleaks e nenhuma opção do Gitleaks o desliga; sob política central, a presença dele é um achado (regra `gitleaks:ignore-file-present`)
+aurumcode review: policy gate: gitleaks:ignore-file-present - O arquivo .gitleaksignore pode esconder achados do Gitleaks e nenhuma opção do Gitleaks o desliga; sob política central, a presença dele é um achado (regra `gitleaks:ignore-file-present`) (severidade error, limiar error, origem gitleaks, secao policy)
 exit_code=3
 RESULTADO: sob politica, o .gitleaksignore na raiz e um achado bloqueante
 ```
@@ -173,8 +175,8 @@ do binário ou um erro registrado pelo gitleaks (`secrets_execution_error`).
 
 <!-- saida: binario-ausente -->
 ```text
-aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (secrets_unavailable); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
-aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (secrets_unavailable) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
+aurumcode review: SECRETS (Gitleaks) inconclusivo: a varredura não produziu resultado confiável (varredura de segredos habilitada, mas o Gitleaks não está instalado [secrets_unavailable]); nenhum achado determinístico do Gitleaks foi publicado nesta execução. Detalhe da engine: gitleaks: version: exec: "gitleaks": executable file not found in $PATH
+aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) inconclusivo (varredura de segredos habilitada, mas o Gitleaks não está instalado [secrets_unavailable]) [detalhe: gitleaks: version: exec: "gitleaks": executable file not found in $PATH]
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova
 ```

@@ -7,7 +7,7 @@ aurumcode review: limites.go:23 quality/missing-error-handling refutado pela ver
 > **Aprovado: nenhum problema encontrado na mudança revisada.**
 
 sem gate declarado · 1 arquivo revisado
-No issues found.
+Nenhum problema encontrado.
 exit_code=0
 RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
 --- a auditoria guarda o achado refutado, com o motivo e a citacao
@@ -26,6 +26,6 @@ limites.go:23: [error] Validar chamado sem guarda de nil: com a secao ausente, l
   - Evidência: carregar chama l.Validar() sem conferir se l e nil.
   - Correção sugerida: Confira l == nil antes de chamar Validar.
   - Verificação: Chame carregar(nil) num teste.
-aurumcode review: 1 finding(s) at severity error or above (--fail-on error)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 RESULTADO: citacao inexistente: a refutacao e descartada e o achado reprova

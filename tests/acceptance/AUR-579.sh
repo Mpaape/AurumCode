@@ -155,8 +155,8 @@ run_mut002() {
   local root="$run_dir/root-mut2"
   stage "$root"
   replace_once "$root/cmd/aurumcode/review_gate.go" \
-    'if s.centralCfg != nil {' \
-    'if false && s.centralCfg != nil { // MUT-002: a dispute demotes policy evidence'
+    'if s.centralCfg != nil || s.cfg == nil || !s.cfg.Gate.Declared() {' \
+    'if false && s.centralCfg != nil || s.cfg == nil || !s.cfg.Gate.Declared() { // MUT-002: a dispute demotes policy evidence'
   expect_red "$root" "$run_dir/mut2.log" "${ac003_tests[@]}"
   grep -Eq -- '^--- FAIL: TestAUR579PolicyFloorAndRepositoryTriage' "$run_dir/mut2.log" || fail mut002-wrong-test
   printf '%s/MUT-002/rejected\n' "$card"

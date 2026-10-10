@@ -42,6 +42,8 @@ O repositório de exemplo exige a entrada (todos os casos menos o 7):
 ```yaml
 changelog_check:
   mode: required
+review:
+  language: pt-BR
 ```
 
 O `CHANGELOG.md` da base:
@@ -137,7 +139,7 @@ aurumcode changelog --base main
 <!-- saida: sugestao-separada -->
 ```text
 $ aurumcode review --base main --changelog
-Suggested release
+Versão sugerida
 exit_code=0
 RESULTADO: o review publicou a sugestao de changelog sem decidir o merge
 $ aurumcode changelog --base main
@@ -154,6 +156,8 @@ O que observar: o review sugere; quem decide em `required` é o check.
 ```yaml
 changelog_check:
   mode: off
+review:
+  language: pt-BR
 ```
 
 <!-- saida: pr-desliga-o-modo -->

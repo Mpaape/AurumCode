@@ -3,14 +3,14 @@
 --- a arvore final nao tem o token:
 API_TOKEN = os.environ["API_TOKEN"]
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: gitleaks:github-pat - Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1) (severidade error, limiar error, origem gitleaks, secao repo)
 ## AurumCode revisão de código
 
 > [!CAUTION]
 > **Bloqueado: 1 problema precisa de correção antes do merge.**
 
 gate da política: reprovou · 1 arquivo revisado
-config.py:1: [error] Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat)
-aurumcode review: policy gate: gitleaks:github-pat - Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1) (rule gitleaks:github-pat) (severidade error, limiar error, origem gitleaks, secao repo)
+config.py:1: [error] Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1)
 exit_code=3
 RESULTADO: o token so existe num commit intermediario do PR e mesmo assim o gate reprova

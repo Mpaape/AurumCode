@@ -5,6 +5,8 @@ package main
 import (
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 )
 
 // statusDescriptionLimit is GitHub's own hard limit on a commit status's
@@ -78,12 +80,19 @@ func capStatusDescription(resultWord, detail string, limit int) string {
 // inconclusive reason, but reordering it ahead of a real breach would be
 // wrong in the same way.
 func orderedGateReasons(lines []string) string {
+	return orderedGateReasonsIn("", lines)
+}
+
+// orderedGateReasonsIn is orderedGateReasons for lines in language: the
+// inconclusive line is recognized by the catalog's own template
+// (reasons.IsLine), never by its English words.
+func orderedGateReasonsIn(language string, lines []string) string {
 	breach := make([]string, 0, len(lines))
 	exception := make([]string, 0, len(lines))
 	inconclusive := make([]string, 0, len(lines))
 	for _, line := range lines {
 		switch {
-		case strings.HasPrefix(line, "review inconclusive ("):
+		case reasons.IsLine(language, line):
 			inconclusive = append(inconclusive, line)
 		case strings.Contains(line, acceptedExceptionMarker) || strings.Contains(line, expiredExceptionMarker):
 			exception = append(exception, line)

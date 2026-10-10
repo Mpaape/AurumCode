@@ -8,6 +8,7 @@ exceptions:
     reason: o proprio repositorio tenta se isentar
     expires: 2099-12-31
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/seguranca.md

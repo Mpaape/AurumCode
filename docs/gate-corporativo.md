@@ -124,7 +124,7 @@ reprovar. Em produção, troque ou some o arquivo por `p/security-audit` etc.
 O workflow aceita **um** `policy_repository`. Não existe um segundo
 repositório de política só para os padrões de engenharia, nem sincronização
 automática de skills entre repositórios. Os perfis de analista
-(`.aurumcode/profiles.yml`) e as skills do repositório vêm da branch base
+(o arquivo `profiles.yml` da pasta `.aurumcode`) e as skills do repositório vêm da branch base
 da PR, no próprio repositório revisado, e a política não governa
 `review.profiles`. Para padrões de engenharia comuns a todos os serviços, há
 dois caminhos hoje:

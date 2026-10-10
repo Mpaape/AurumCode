@@ -1,4 +1,4 @@
-(analysis_data_digest_mismatch): scanners.yml: expected sha256:
+(os dados de análise não conferem com o artefato declarado [analysis_data_digest_mismatch]): scanners.yml: expected sha256:
 (29 bytes), got sha256:
 (28 bytes): digest mismatch
 RESULTADO: arquivo adulterado: analysis_data_digest_mismatch reprova

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dependencies"
+	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/scanner"
@@ -97,7 +98,7 @@ func (s *reviewState) runDependencyCheck() {
 func dependencyNotices(language string, r dependencies.Report, redact scanner.Redactor) []string {
 	var out []string
 	if r.Inconclusive() {
-		out = append(out, i18n.Format(language, "deps.notice.inconclusive", r.Reason, redact(r.Detail)))
+		out = append(out, i18n.Format(language, "deps.notice.inconclusive", reasons.Text(language, r.Reason), redact(r.Detail)))
 	}
 	for _, d := range r.Discarded {
 		out = append(out, i18n.Format(language, "deps.notice.discarded", d))

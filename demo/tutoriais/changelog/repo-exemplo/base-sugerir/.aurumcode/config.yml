@@ -1,2 +1,4 @@
 changelog_check:
   mode: sugerir
+review:
+  language: pt-BR

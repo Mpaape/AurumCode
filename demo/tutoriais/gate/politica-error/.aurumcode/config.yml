@@ -1,6 +1,7 @@
 gate:
   fail_on: [error]
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

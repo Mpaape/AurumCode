@@ -61,6 +61,7 @@ Envolva erros com %w para a cadeia sobreviver.
 <!-- arquivo: demo/tutoriais/skills/repo-exemplo/base-skill/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/convencoes.md
@@ -223,6 +224,7 @@ gate:
   fail_on: [warning]
   inconclusive: block
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -276,6 +278,7 @@ suas skills valerem:
 <!-- arquivo: demo/tutoriais/skills/repo-exemplo/base-skill-gate/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/convencoes.md

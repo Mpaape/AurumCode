@@ -1,14 +1,14 @@
 == cache
 --- 1. servidor no ar: baixa, verifica e guarda no cache
 $ aurumcode review --base main --auditoria audit.json
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 2 files reviewed
-No issues found.
+gate da política: passou · 2 arquivos revisados
+Nenhum problema encontrado.
 --- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -16,40 +16,40 @@ No issues found.
 exit_code=0
 RESULTADO: primeira execucao: artefato remoto verificado e guardado no cache
 auditoria analysis_data.source: remote
-auditoria analysis_data.tag: analysis-data/20261008T044813Z
-auditoria analysis_data.generated_at: 2026-10-08T04:48:13Z
+auditoria analysis_data.tag: analysis-data/20261009T010006Z
+auditoria analysis_data.generated_at: 2026-10-09T01:00:06Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1
 --- 2. a listagem de releases cai (HTTP 503); a copia em cache, ainda dentro da idade, e usada
 $ aurumcode review --base main --auditoria audit.json
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/20261008T044813Z): a listagem de releases estava indisponível; idade e digests verificados
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: usando cópia em cache (analysis-data/20261009T010006Z): a listagem de releases estava indisponível; idade e digests verificados
+## AurumCode revisão de código
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
 
-policy gate: passed · 2 files reviewed
-No issues found.
+gate da política: passou · 2 arquivos revisados
+Nenhum problema encontrado.
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=0
 RESULTADO: listagem fora do ar com copia valida em cache: usa o cache e o declara
 auditoria analysis_data.source: cache
-auditoria analysis_data.tag: analysis-data/20261008T044813Z
-auditoria analysis_data.generated_at: 2026-10-08T04:48:13Z
+auditoria analysis_data.tag: analysis-data/20261009T010006Z
+auditoria analysis_data.generated_at: 2026-10-09T01:00:06Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1
 --- 3. sem cache nenhum e a listagem fora do ar: inconclusivo
 $ aurumcode review --base main
-aurumcode review: gate verdict reuse unavailable (AURUMCODE_CACHE_DIR not set): this run's verdict cannot be shared with another run, and could not reuse one either
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (analysis_data_unavailable): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
-## AurumCode code review
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+## AurumCode revisão de código
 
 > [!WARNING]
-> **Inconclusive: this review does not approve the change.**
-> The policy gate failed this run without a finding above the threshold; the reason is in the aurumcode/policy-gate status.
+> **Inconclusivo: esta revisão não aprova a mudança.**
+> O gate de política reprovou esta execução sem achado acima do limiar; o motivo está no status aurumcode/policy-gate.
 
-policy gate: failed · 2 files reviewed
-Sem achados nas fontes concluídas; inconclusivo: analysis_data_unavailable
+gate da política: reprovou · 2 arquivos revisados
+Sem achados nas fontes concluídas; inconclusivo: dados de análise indisponíveis [analysis_data_unavailable]
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): GET http://127.0.0.1:8080/repos/owner/dados-de-analise/releases?[REDACTED] HTTP 503
 --- requisicoes recebidas pelo servidor local (modo indisponivel): 1
     GET /repos/owner/dados-de-analise/releases -> 503
 exit_code=1
