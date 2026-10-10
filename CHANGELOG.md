@@ -12,6 +12,7 @@
 - Redação antes do prompt não mutila mais código (`os.environ.get(...)`, `==`) e mascara todo valor nu que não é chamada; catálogo de análise não dispara em literal nem em prosa (AUR-609).
 - O parecer, a auditoria e o SARIF mostram a versão real do AurumCode (tag exata ou SHA curto), em vez de "dev"; build local continua "dev" (AUR-611).
 - Tutoriais regravados com o binário do lote: saídas, capturas e blocos da documentação conferidos (`run.sh --check` em todos).
+- Teste de tempo linear da redação sem a checagem de proporção sob `-race`, onde ela oscila; o teto absoluto continua (AUR-609).
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate
