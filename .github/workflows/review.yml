@@ -154,7 +154,7 @@ jobs:
           # AUR-493-VERIFY-END
 
       - name: Checkout AurumCode
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -197,7 +197,7 @@ jobs:
           fi
 
       - name: Checkout pull request
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
           ref: ${{ github.event.pull_request.head.sha }}
@@ -209,7 +209,7 @@ jobs:
 
       - name: Checkout central policy
         if: ${{ inputs.policy_repository != '' }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.policy_repository }}
           ref: ${{ inputs.policy_ref }}
@@ -670,7 +670,7 @@ jobs:
           fi
 
       - name: Checkout AurumCode
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -691,7 +691,7 @@ jobs:
         run: docker build --build-arg AURUMCODE_VERSION="$AURUMCODE_VERSION" --tag aurumcode-review .aurumcode-tool
 
       - name: Checkout default branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
           path: .aurumcode-target
@@ -700,7 +700,7 @@ jobs:
 
       - name: Checkout central policy
         if: ${{ inputs.policy_repository != '' }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.policy_repository }}
           ref: ${{ inputs.policy_ref }}
