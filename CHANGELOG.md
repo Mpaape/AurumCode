@@ -2,17 +2,6 @@
 
 ## Unreleased
 
-- Docs: como saber de versão nova (Dependabot para workflows reutilizáveis, SHA com comentário da versão).
-- A autorrevisão do AurumCode envia o SARIF para a aba Security do próprio repositório.
-- Aceite do guia "Instalar com ajuda da IA" (AUR-606) na amostra de aceite.
-- Changelog obrigatório não reprova mais PR aberta por bot: nova chave `changelog_check.bots` (`off`, `suggest` ou `required`, padrão `suggest`), que só rebaixa o modo; o autor vem do evento da PR (AUR-610).
-- Docs de integração e arquitetura sem promessa que o código não cumpre: padrões centrais, precedência da política, tag x SHA, status do gate e versões das ferramentas (AUR-612).
-- gate.triage passa a `model` por padrão: o modelo decide sobre a evidência determinística, contestar exige justificativa e resposta degradada nunca rebaixa (AUR-608).
-- Com `review.language: pt-BR`, parecer, status do gate, terminal e MCP saem em pt-BR de ponta a ponta; auditoria e SARIF não mudam de idioma; exemplos dos tutoriais em pt-BR (AUR-607).
-- Redação antes do prompt não mutila mais código (`os.environ.get(...)`, `==`) e mascara todo valor nu que não é chamada; catálogo de análise não dispara em literal nem em prosa (AUR-609).
-- O parecer, a auditoria e o SARIF mostram a versão real do AurumCode (tag exata ou SHA curto), em vez de "dev"; build local continua "dev" (AUR-611).
-- Tutoriais regravados com o binário do lote: saídas, capturas e blocos da documentação conferidos (`run.sh --check` em todos).
-- Teste de tempo linear da redação sem a checagem de proporção sob `-race`, onde ela oscila; o teto absoluto continua (AUR-609).
 ## 2.0.0 - 2026-10-09
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate
@@ -35,9 +24,11 @@ antes de publicar e falha fechado quando não consegue decidir.
 - O status `aurumcode/review` e o código de saída do `--pr` seguem o gate
   declarado: achado que o gate não reprova não conta como grave. O `--base`
   local abre com a mesma decisão.
-- Parecer em pt-BR também nas mensagens fixas do catálogo de análise e da
-  passagem de segurança; achado sem prova descartado deixa o título em "nenhum
-  problema comprovado"; verificação explicada em linguagem simples.
+- Com `review.language: pt-BR`, parecer, status do gate, terminal e MCP saem
+  em pt-BR (motivo de inconclusivo em frase, com o código entre colchetes);
+  auditoria e SARIF não mudam de idioma. Achado sem prova descartado deixa o
+  título em "nenhum problema comprovado".
+- O parecer, a auditoria e o SARIF mostram a versão do AurumCode que revisou.
 
 #### Análise por time
 
@@ -56,6 +47,9 @@ antes de publicar e falha fechado quando não consegue decidir.
   regra de segurança com forma de código (SQL, XSS, injeção de comando) não
   olha `.txt`/`.log`/`.md`; achado da passagem de segurança já traz a
   correção da regra.
+- `gate.triage` vale `model`: o modelo pesa a evidência das regras, contestar
+  exige justificativa e resposta degradada nunca rebaixa. A redação antes do
+  prompt não mutila código; o catálogo não dispara em literal nem em prosa.
 - Contexto: o modelo lê e busca arquivos da revisão em qualquer linguagem,
   fontes MCP configuradas, trechos de impacto e o alcance da parte vulnerável
   de uma dependência; status do CI separado da inferência do modelo.
@@ -79,6 +73,7 @@ antes de publicar e falha fechado quando não consegue decidir.
 - `aurumcode changelog --base <sha>` reprova a PR sem entrada útil em
   `Unreleased` (`changelog_check.mode: required`; `suggest` só sugere); ao
   reprovar, a entrada sugerida vai ao log, ao resumo do job e ao parecer.
+  PR aberta por bot não reprova (`changelog_check.bots`, padrão `suggest`).
 
 #### Realimentação da política
 
@@ -92,17 +87,13 @@ antes de publicar e falha fechado quando não consegue decidir.
   agente de IA (Aurum como servidor MCP) ou por roteiro; PR bloqueada pela
   ferramenta e pela regra da segurança, aprovada após a correção, com três
   analistas; local sem rede ou no GitHub real. Guia "Instalar com ajuda da IA".
-- Exemplos dos tutoriais em pt-BR; Dependabot abre PR para o `dev`; site da documentação aceito nos tutoriais.
 - Política central em repositório privado ou interno: secret opcional `AURUMCODE_POLICY_TOKEN`
   (só leitura no repositório da política) nos workflows de revisão e changelog.
-- `.semgrepignore` do próprio repositório: página estática, capturas e saídas
-  gravadas ficam fora do Semgrep (um erro de sintaxe ali deixava o SAST
-  inconclusivo).
 - Tutoriais executáveis por capacidade, com saídas gravadas e conferidas no
   CI; site com busca, navegação por capacidade e diagramas renderizados
   localmente; docs de changelog e de auditoria/SARIF reescritas.
-- QA no repositório consumidor (`tests/consumer`) e roteiro de release
-  (`scripts/release.sh`, `docs/releases.md`).
+- Guias com proteção de branch, secrets do Dependabot, precedência da política
+  central, versões fixadas das ferramentas e como saber que há versão nova.
 
 ### Limites
 
