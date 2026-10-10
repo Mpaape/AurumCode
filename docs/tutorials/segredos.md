@@ -77,6 +77,8 @@ quality_gates:
 gate:
   fail_on: [error]
   sources: [secrets]
+review:
+  language: pt-BR
 ```
 
 A engine roda `gitleaks git --log-opts=<base>..<head>` com os ids completos de

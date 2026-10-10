@@ -49,6 +49,14 @@ func List(language, list string) string {
 	return strings.Join(Texts(language, list), i18n.Text(language, "gate.reason_list_separator"))
 }
 
+// IsLine reports whether line is the policy gate's inconclusive line (Line)
+// in language: it starts with the catalog template's text before the
+// reasons, whatever they are.
+func IsLine(language, line string) bool {
+	prefix, _, _ := strings.Cut(i18n.Text(language, "gate.inconclusive_line"), "%s")
+	return prefix != "" && strings.HasPrefix(line, prefix)
+}
+
 // Line is the policy gate's line for an inconclusive run: "review
 // inconclusive (<codes>)" in English, byte for byte as before; the reasons
 // as sentences in Portuguese.

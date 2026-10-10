@@ -105,6 +105,7 @@ func (s *reviewState) writeArtifacts() []artifactFailure {
 		analysisData:           res.AnalysisData,
 		diff:                   s.diff,
 		issues:                 s.run.IssuesForGate(),
+		toolMessages:           s.toolMessages(),
 		dynamicRules:           s.dynamicRules,
 		coverageComplete:       !s.coverage.partial(),
 		omittedFiles:           append(append(append([]string{}, s.coverage.IgnoredPaths...), s.coverage.FilteredPaths...), s.coverage.BudgetPaths...),

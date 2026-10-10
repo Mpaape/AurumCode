@@ -77,7 +77,7 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 			s.scanVersions = append(s.scanVersions, engine.Name()+"="+out.Version)
 		}
 		if scan.Reason = out.Reason; scan.Reason == "" {
-			scan.Issues = s.scannerIssues(out.Findings, scan.Origin(), scan.Source(), engine.Name())
+			scan.Issues, scan.ToolMessages = s.scannerIssues(out.Findings, scan.Origin(), scan.Source(), engine.Name())
 		} else {
 			scan.Detail = scanner.Summarize(out.Err, s.redactor())
 		}
@@ -87,17 +87,38 @@ func (s *reviewState) scanEntry(entry config.ScannerConfig) gateScan {
 
 // scannerIssues converts an engine's findings with their typed origin, in
 // the review's language (a secret leads with the catalog's label), and
-// redacts each message before it can be published.
-func (s *reviewState) scannerIssues(findings []scanner.Finding, origin, category, engine string) []types.ReviewIssue {
-	issues := make([]types.ReviewIssue, 0, len(findings))
+// redacts each message before it can be published. toolMessages keeps the
+// engine's own (redacted) message of each finding whose shown message
+// changed, by gate.FindingOriginKey, for the audit and the SARIF document.
+func (s *reviewState) scannerIssues(findings []scanner.Finding, origin, category, engine string) (issues []types.ReviewIssue, toolMessages map[string]string) {
+	issues = make([]types.ReviewIssue, 0, len(findings))
 	for _, f := range findings {
-		issue := review.LocalizeSecretFinding(s.reviewLanguage, category, engine, f.ToIssue(origin))
+		original := f.ToIssue(origin)
+		issue := review.LocalizeSecretFinding(s.reviewLanguage, category, engine, original)
 		if s.filter != nil {
+			original.Message = s.filter.Redact(original.Message)
 			issue.Message = s.filter.Redact(issue.Message)
+		}
+		if issue.Message != original.Message {
+			if toolMessages == nil {
+				toolMessages = map[string]string{}
+			}
+			toolMessages[findingOriginKey(issue.RuleID, issue.File, issue.Line)] = original.Message
 		}
 		issues = append(issues, issue)
 	}
-	return issues
+	return issues, toolMessages
+}
+
+// toolMessages is every scan's engine messages (scannerIssues), merged.
+func (s *reviewState) toolMessages() map[string]string {
+	out := map[string]string{}
+	for _, scan := range s.scans {
+		for key, msg := range scan.ToolMessages {
+			out[key] = msg
+		}
+	}
+	return out
 }
 
 // redactor is the review's redaction filter, or a fresh one: a failed

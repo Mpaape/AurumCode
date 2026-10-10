@@ -43,6 +43,7 @@ bash demo/tutoriais/reaproveitamento/run.sh --check
 gate:
   fail_on: [medium]
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md

@@ -219,6 +219,8 @@ A política precisa de um `.aurumcode/config.yml` válido:
 ```yaml
 gate:
   fail_on: [error]
+review:
+  language: pt-BR
 ```
 
 ```bash

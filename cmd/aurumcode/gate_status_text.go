@@ -108,11 +108,13 @@ func breachStatusDescription(language string, g gateDecision) string {
 	if n == 0 {
 		n = 1
 	}
-	head := gateStatusWordFailure + ": " + countText(n, i18n.Text(language, "gate.status.breach_one"), i18n.Text(language, "gate.status.breach"))
 	b := g.FirstBreach
 	if b == nil {
-		return capAtWord(head+orderedGateReasons(g.Lines), statusDescriptionLimit)
+		// A breach without a finding to name (dependencies, Dependency-Track):
+		// its lines, the breach ahead of the inconclusive one.
+		return capAtWord(gateStatusWordFailure+": "+i18n.Format(language, "gate.status.breach_lines", orderedGateReasonsIn(language, g.Lines)), statusDescriptionLimit)
 	}
+	head := gateStatusWordFailure + ": " + countText(n, i18n.Text(language, "gate.status.breach_one"), i18n.Text(language, "gate.status.breach"))
 	tail := " (" + b.Severity + ")"
 	if place := breachPlace(b.Path, b.Line); place != "" {
 		tail += i18n.Format(language, "gate.status.place", place)

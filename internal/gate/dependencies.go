@@ -40,7 +40,8 @@ func (c DependenciesContributor) Apply(_ context.Context, run *Run, _ Result) (R
 		if run.Filter != nil {
 			detail = run.Filter.Redact(detail)
 		}
-		part.Lines = append(part.Lines, i18n.Format(run.Language, "deps.gate.inconclusive", reasons.Text(run.Language, report.Reason), detail))
+		part.addLine(i18n.Format(run.Language, "deps.gate.inconclusive", reasons.Text(run.Language, report.Reason), detail),
+			i18n.Format(run.Language, "deps.gate.inconclusive", report.Reason, detail))
 	}
 	policy, err := newDependencyPolicy(run)
 	if err != nil {

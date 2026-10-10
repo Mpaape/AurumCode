@@ -48,6 +48,36 @@ type Result struct {
 	// summary of the policy-gate status. It is never part of the audit
 	// record or the SARIF document.
 	FirstBreach *Breach
+
+	// auditText maps a line shown in the review's language to the text the
+	// audit record keeps for it: the audit is machine data and does not
+	// change language. Lines shown as written are not in it.
+	auditText map[string]string
+}
+
+// addLine appends a line shown as shown and audited as audit.
+func (r *Result) addLine(shown, audit string) {
+	r.Lines = append(r.Lines, shown)
+	if shown == audit {
+		return
+	}
+	if r.auditText == nil {
+		r.auditText = map[string]string{}
+	}
+	r.auditText[shown] = audit
+}
+
+// AuditLines is Lines as the audit record writes them, whatever the review
+// language.
+func (r Result) AuditLines() []string {
+	out := make([]string, len(r.Lines))
+	for i, line := range r.Lines {
+		if audit, ok := r.auditText[line]; ok {
+			line = audit
+		}
+		out[i] = line
+	}
+	return out
 }
 
 // Breach is one finding that failed the gate, as the status names it.
@@ -108,6 +138,12 @@ func (r *Result) Merge(other Result) {
 	r.BlockingFindings = append(r.BlockingFindings, other.BlockingFindings...)
 	r.AppliedExceptions = append(r.AppliedExceptions, other.AppliedExceptions...)
 	r.AddReason(other.Reason)
+	for shown, audit := range other.auditText {
+		if r.auditText == nil {
+			r.auditText = map[string]string{}
+		}
+		r.auditText[shown] = audit
+	}
 	if r.FirstBreach == nil {
 		r.FirstBreach = other.FirstBreach
 	}

@@ -129,7 +129,7 @@ check_mutation_red() {
 # AC-003-MUT-002: the single gate call of the analysis-data contributor (shared by --base and --pr) is dropped: the contributor returns an empty partial decision and no audit; the --pr tests must go red.
 check_pr_mutation_red() {
   local target="$run_dir/root/internal/gate/contributors.go"
-  local anchor='part, reason, audit := ApplyAnalysisDataGate(ctx, run.Cfg.AnalysisData)'
+  local anchor='part, reason, audit := ApplyAnalysisDataGate(ctx, run.Language, run.Cfg.AnalysisData)'
   [[ "$(grep -Fc "$anchor" "$target")" == "1" ]] || infra mutation-anchor-not-unique
   local line
   line="$(grep -Fn "$anchor" "$target" | head -1 | cut -d: -f1)"

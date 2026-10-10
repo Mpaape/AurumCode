@@ -175,6 +175,8 @@ quality_gates:
   sast:
     engine: semgrep
     enabled: false
+review:
+  language: pt-BR
 ```
 
 O repositório tenta decidir tudo por conta própria:
@@ -196,6 +198,8 @@ rules:
     enabled: false
 ignore:
   - "docs/**"
+review:
+  language: pt-BR
 ```
 
 <!-- saida: precedencia-por-secao -->
@@ -242,6 +246,8 @@ gate:
   inconclusive: warn
 analysis_data:
   max_age_days: 30
+review:
+  language: pt-BR
 ```
 
 <!-- saida: analysis-data -->
@@ -266,6 +272,7 @@ da política:
 <!-- arquivo: demo/tutoriais/politica-central/repo-exemplo/base-afrouxa/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/seguranca.md
@@ -305,6 +312,8 @@ Uma política com chave desconhecida (aqui um erro de digitação,
 gate:
   fail_on: [warning]
   inconclusve: block
+review:
+  language: pt-BR
 ```
 
 <!-- saida: falha-politica-invalida -->

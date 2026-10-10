@@ -66,6 +66,8 @@ quality_gates:
       required: false
       options:
         rule_packs: ["regras/sast.yml"]
+review:
+  language: pt-BR
 ```
 
 O modelo falso do tutorial:

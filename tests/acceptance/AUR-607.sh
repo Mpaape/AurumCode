@@ -120,18 +120,20 @@ ac001() {
     TestAUR607LookupReportsMissingKeys
 }
 ac002() {
-  ac AC-002 '^TestAUR607(InconclusiveReasonIsASentenceWithItsCode|DTrackReasonFollowsTheLanguage|InconclusiveLineBothLanguages|ScannerInconclusiveLineFollowsTheLanguage|PolicyLineAndFirstBreach|ClosingLineNamesTheReasons|PolicyGateStatusInPortuguese)$' \
+  ac AC-002 '^TestAUR607(InconclusiveReasonIsASentenceWithItsCode|DTrackReasonFollowsTheLanguage|AuditAndSARIFIgnoreTheLanguage|AuditLinesIgnoreTheLanguage|InconclusiveLineBothLanguages|ScannerInconclusiveLineFollowsTheLanguage|PolicyLineAndFirstBreach|ClosingLineNamesTheReasons|PolicyGateStatusInPortuguese)$' \
     TestAUR607InconclusiveReasonIsASentenceWithItsCode TestAUR607InconclusiveLineBothLanguages \
     TestAUR607ScannerInconclusiveLineFollowsTheLanguage TestAUR607PolicyLineAndFirstBreach \
     TestAUR607ClosingLineNamesTheReasons TestAUR607PolicyGateStatusInPortuguese \
-    TestAUR607DTrackReasonFollowsTheLanguage
+    TestAUR607DTrackReasonFollowsTheLanguage TestAUR607AuditAndSARIFIgnoreTheLanguage TestAUR607AuditLinesIgnoreTheLanguage
 }
 ac003() {
-  ac AC-003 '^TestAUR607PolicyGateStatus(InPortuguese|CutsAtAWord|EnglishUnchanged)$' \
-    TestAUR607PolicyGateStatusInPortuguese TestAUR607PolicyGateStatusCutsAtAWord TestAUR607PolicyGateStatusEnglishUnchanged
+  ac AC-003 '^TestAUR607(PolicyGateStatusInPortuguese|PolicyGateStatusCutsAtAWord|PolicyGateStatusEnglishUnchanged|BreachWithoutFindingKeepsTheBreachAhead)$' \
+    TestAUR607PolicyGateStatusInPortuguese TestAUR607PolicyGateStatusCutsAtAWord TestAUR607PolicyGateStatusEnglishUnchanged \
+    TestAUR607BreachWithoutFindingKeepsTheBreachAhead
 }
 ac004() {
-  ac AC-004 '^TestAUR607GitleaksFindingLeadsWithTheCatalogLabel$' TestAUR607GitleaksFindingLeadsWithTheCatalogLabel
+  ac AC-004 '^TestAUR607(GitleaksFindingLeadsWithTheCatalogLabel|SARIFKeepsTheEngineMessage)$' \
+    TestAUR607GitleaksFindingLeadsWithTheCatalogLabel TestAUR607SARIFKeepsTheEngineMessage
 }
 
 # need <file> <literal> <count> fails unless the file carries the literal
@@ -148,7 +150,9 @@ ac005() {
   need "$wf" '::error title=AurumCode sem provedor de modelo::Faltam os secrets LLM_API_KEY e LLM_BASE_URL;' 2
   need "$wf" 'Cadastre os dois em Settings > Secrets and variables > Actions do repositório (ou da organização)' 2
   need "$wf" 'em secrets: (ou com secrets: inherit)' 2
-  need "$wf" 'o gate fica reprovado' 2
+  need "$wf" 'a revisão não roda e o status aurumcode/policy-gate não é publicado (com o status exigido na proteção da branch, a PR fica bloqueada esperando)' 1
+  need "$wf" 'a varredura agendada de dependências não roda e este job falha' 1
+  need "$wf" 'o gate fica reprovado' 0
   need "$wf" 'AurumCode needs LLM_API_KEY' 0
   printf '%s/AC-005/pass\n' "$card"
 }

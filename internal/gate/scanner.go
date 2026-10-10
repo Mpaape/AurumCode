@@ -25,6 +25,18 @@ type Scan struct {
 	// (scanner.Outcome.Detail); it joins the gate line beside Reason and
 	// never changes the decision.
 	Detail string
+	// ToolMessages is the engine's own message of each finding whose shown
+	// message was put in the review's language, by FindingOriginKey. The
+	// audit record and the SARIF document keep the engine's text.
+	ToolMessages map[string]string
+}
+
+// toolMessage is issue's message as the engine wrote it.
+func (s Scan) toolMessage(issue types.ReviewIssue) string {
+	if msg, ok := s.ToolMessages[FindingOriginKey(issue.RuleID, issue.File, issue.Line)]; ok {
+		return msg
+	}
+	return issue.Message
 }
 
 // DetailSuffix is the engine's detail as a gate line ends with it, after
@@ -89,7 +101,10 @@ func ApplyScannerGateIn(language string, d *Result, s Scan, issues []types.Revie
 	origin := s.Origin()
 	if s.Reason != "" {
 		d.Inconclusive = true
-		d.Lines = append(d.Lines, fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)%s", s.label(), s.Engine.Name(), origin, s.Section, reasons.Text(language, s.Reason), s.DetailSuffix()))
+		line := func(reason string) string {
+			return fmt.Sprintf("%s (%s, origem %s, secao %s) inconclusivo (%s)%s", s.label(), s.Engine.Name(), origin, s.Section, reason, s.DetailSuffix())
+		}
+		d.addLine(line(reasons.Text(language, s.Reason)), line(s.Reason))
 		return nil
 	}
 	rank, name, err := s.Config.Threshold()
@@ -103,7 +118,8 @@ func ApplyScannerGateIn(language string, d *Result, s Scan, issues []types.Revie
 		}
 		d.Fail = true
 		d.Breach = true
-		d.Lines = append(d.Lines, FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin+", secao "+s.Section))
+		d.addLine(FindingLine(issue.RuleID, issue.Message, issue.Severity, name, origin+", secao "+s.Section),
+			FindingLine(issue.RuleID, s.toolMessage(issue), issue.Severity, name, origin+", secao "+s.Section))
 		d.noteBreach(issue.Message, issue)
 		d.BlockingFindings = append(d.BlockingFindings, facts.AuditFinding{
 			RuleID:   issue.RuleID,

@@ -136,7 +136,7 @@ func EvaluateGateIn(language string, gate config.GateConfig, acceptedOrigin stri
 			return d, err
 		}
 		d.Inconclusive = true
-		d.Lines = append(d.Lines, reasons.Line(language, inconclusiveReason))
+		d.addLine(reasons.Line(language, inconclusiveReason), reasons.Line("", inconclusiveReason))
 		if mode == config.InconclusiveBlock {
 			// Not graded at all; the failure itself is decided once, by
 			// ApplyInconclusiveMode.

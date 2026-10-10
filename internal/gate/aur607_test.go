@@ -108,3 +108,30 @@ func TestAUR607ReappliedVerdictCount(t *testing.T) {
 		}
 	}
 }
+
+// The audit record keeps the language-independent lines: the inconclusive
+// reason codes and the engine's own finding message, across a merge.
+func TestAUR607AuditLinesIgnoreTheLanguage(t *testing.T) {
+	gateCfg := config.GateConfig{FailOn: []string{"error"}, Inconclusive: "warn"}
+	d, err := EvaluateGateIn("pt-BR", gateCfg, OriginRepo, nil, nil, "partial_coverage", nil, "", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	scan := semgrepScan(t, OriginRepo, "")
+	issue := types.ReviewIssue{File: "a.go", Line: 2, Severity: "error", RuleID: "semgrep:x", Message: "mensagem mostrada"}
+	scan.ToolMessages = map[string]string{FindingOriginKey("semgrep:x", "a.go", 2): "engine message"}
+	var part Result
+	if err := ApplyScannerGateIn("pt-BR", &part, scan, []types.ReviewIssue{issue}); err != nil {
+		t.Fatal(err)
+	}
+	var merged Result
+	merged.Merge(d)
+	merged.Merge(part)
+	shown, audit := strings.Join(merged.Lines, "\n"), strings.Join(merged.AuditLines(), "\n")
+	if !strings.Contains(shown, "revisão inconclusiva — parte do diff") || !strings.Contains(shown, "mensagem mostrada") {
+		t.Errorf("shown lines = %q", shown)
+	}
+	if !strings.Contains(audit, "review inconclusive (partial_coverage)") || !strings.Contains(audit, "engine message") || strings.Contains(audit, "mensagem mostrada") || strings.Contains(audit, "revisão inconclusiva —") {
+		t.Errorf("audit lines = %q", audit)
+	}
+}

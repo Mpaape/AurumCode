@@ -58,6 +58,8 @@ quality_gates:
     enabled: true
     fail_on_severity: ERROR
     rule_packs: ["regras/sast.yml"]
+review:
+  language: pt-BR
 ```
 
 <!-- arquivo: demo/tutoriais/sast/repo-exemplo/base/regras/sast.yml -->
@@ -107,6 +109,8 @@ quality_gates:
 gate:
   fail_on: [error]
   inconclusive: block
+review:
+  language: pt-BR
 ```
 
 ```bash
@@ -157,6 +161,8 @@ quality_gates:
     enabled: true
     fail_on_severity: ERROR
     rule_packs: ["/policy/regras/sast.yml"]
+review:
+  language: pt-BR
 ```
 
 Observe que na política o pacote de regras é um caminho absoluto
@@ -220,6 +226,8 @@ quality_gates:
     enabled: true
     fail_on_severity: ERROR
     rule_packs: ["/policy/regras/sast.yml"]
+review:
+  language: pt-BR
 ```
 
 <!-- saida: origem-sast -->
@@ -247,6 +255,8 @@ quality_gates:
       fail_on: warning          # go vet reporta warning; o padrao ERROR so publicaria
 gate:
   fail_on: [error]
+review:
+  language: pt-BR
 ```
 
 A `main` já tem um `fmt.Printf` com verbo errado em `legado/legado.go`; a

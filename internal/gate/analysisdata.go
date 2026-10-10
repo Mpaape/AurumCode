@@ -59,7 +59,8 @@ func ApplyAnalysisDataGate(ctx context.Context, language string, cfg *config.Ana
 	if !out.Usable {
 		result.Active = true
 		result.Inconclusive = true
-		result.Lines = append(result.Lines, fmt.Sprintf("analysis_data: revisão inconclusiva (%s): %s", reasons.Text(language, out.Reason), out.Detail))
+		line := "analysis_data: revisão inconclusiva (%s): %s"
+		result.addLine(fmt.Sprintf(line, reasons.Text(language, out.Reason), out.Detail), fmt.Sprintf(line, out.Reason, out.Detail))
 		return result, out.Reason, nil
 	}
 	if out.Source == artifacts.SourceCache {

@@ -57,6 +57,7 @@ problema, a primeira vez como `warning`, a segunda como `error`:
 gate:
   fail_on: [high]
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -106,6 +107,7 @@ gate:
   fail_on: [high]
   inconclusive: block
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -174,6 +176,7 @@ quality_gates:
     rule_packs:
       - /policy/regras/senha.yml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -195,6 +198,7 @@ existe:
 <!-- arquivo: demo/tutoriais/gate/politica-sast-padrao/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -254,6 +258,7 @@ gate:
 analysis_data:
   max_age_days: 7
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -294,6 +299,7 @@ quality_gates:
     rule_packs:
       - /policy/regras/senha.yml
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -385,6 +391,8 @@ gate:
   fail_on: [high]
   inconclusive: warn
   sources: [skills]
+review:
+  language: pt-BR
 ```
 
 <!-- saida: repo-afrouxa -->
@@ -416,6 +424,7 @@ gate:
   fail_on: [high]
   inconclusive: warn
 review:
+  language: pt-BR
   context:
     skills:
       - skills/seguranca.md
@@ -507,6 +516,8 @@ gate:
   fail_on: [high]
   triage:
     analysis: model
+review:
+  language: pt-BR
 ```
 
 <!-- saida: modelo-pondera -->

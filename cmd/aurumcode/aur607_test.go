@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -9,6 +12,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/gate/facts"
+	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/scanner"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -327,19 +331,25 @@ func TestAUR607GitleaksFindingLeadsWithTheCatalogLabel(t *testing.T) {
 		Path: "config.py", Line: 1, RuleID: "gitleaks:github-pat", Severity: "error",
 		Message: "Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure. in commit 37eb089803ee (gitleaks v8.30.1)",
 	}
-	en := (&reviewState{reviewLanguage: "en-US"}).scannerIssues([]scanner.Finding{finding}, "gitleaks", "secrets", "gitleaks")
+	en, enTools := (&reviewState{reviewLanguage: "en-US"}).scannerIssues([]scanner.Finding{finding}, "gitleaks", "secrets", "gitleaks")
 	if want := finding.Message + " (rule gitleaks:github-pat)"; en[0].Message != want {
 		t.Errorf("en message = %q, want %q", en[0].Message, want)
 	}
-	pt := (&reviewState{reviewLanguage: "pt-BR"}).scannerIssues([]scanner.Finding{finding}, "gitleaks", "secrets", "gitleaks")
+	pt, ptTools := (&reviewState{reviewLanguage: "pt-BR"}).scannerIssues([]scanner.Finding{finding}, "gitleaks", "secrets", "gitleaks")
 	want := "Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1)"
 	if pt[0].Message != want {
 		t.Errorf("pt-BR message = %q, want %q", pt[0].Message, want)
 	}
+	if enTools != nil {
+		t.Errorf("en kept tool messages for an unchanged message: %v", enTools)
+	}
+	if got := ptTools[findingOriginKey("gitleaks:github-pat", "config.py", 1)]; got != finding.Message+" (rule gitleaks:github-pat)" {
+		t.Errorf("pt-BR lost the engine's own message for the machine artifacts: %q", got)
+	}
 	if strings.Contains(pt[0].Message, ". in commit") || pt[0].RuleID != finding.RuleID || pt[0].File != "config.py" || pt[0].Line != 1 || pt[0].Severity != "error" {
 		t.Errorf("pt-BR finding changed more than its text: %+v", pt[0])
 	}
-	sast := (&reviewState{reviewLanguage: "pt-BR"}).scannerIssues([]scanner.Finding{{Path: "a.go", Line: 1, RuleID: "semgrep:x", Message: "m"}}, "sast", "sast", "semgrep")
+	sast, _ := (&reviewState{reviewLanguage: "pt-BR"}).scannerIssues([]scanner.Finding{{Path: "a.go", Line: 1, RuleID: "semgrep:x", Message: "m"}}, "sast", "sast", "semgrep")
 	if sast[0].Message != "m (rule semgrep:x)" {
 		t.Errorf("a non-secret finding changed: %q", sast[0].Message)
 	}
@@ -400,5 +410,114 @@ func TestAUR607ReviewCheckAndCacheLinesFollowTheLanguage(t *testing.T) {
 		if got := cacheReusedLine(tc.language, tc.n); got != tc.want {
 			t.Errorf("cacheReusedLine(%s, %d) = %q, want %q", tc.language, tc.n, got, tc.want)
 		}
+	}
+}
+
+// AUR-538 AC-007 in both languages: a breach without a finding to name
+// (dependencies) stays ahead of the inconclusive line, which is recognized
+// by the catalog's template in Portuguese too; English is unchanged.
+func TestAUR607BreachWithoutFindingKeepsTheBreachAhead(t *testing.T) {
+	dep := "DEPENDÊNCIAS reprova evil-pkg 1.0.0 (npm, package.json), severidade critical, introduzida pelo PR, pacote malicioso [dependencies]"
+	for _, tc := range []struct{ language, want string }{
+		{"en-US", "falha: achado(s) reprovam o gate numa revisão também inconclusiva no pull request #7: " + dep + "; review inconclusive (partial_coverage,quality_skipped)"},
+		{"pt-BR", "falha: o gate reprovou — DEPENDÊNCIAS reprova evil-pkg 1.0.0 (npm, package.json), severidade critical, introduzida pelo PR, pacote…"},
+	} {
+		g := gateDecision{
+			Active: true, Breach: true, Fail: true, Inconclusive: true, Reason: "partial_coverage,quality_skipped",
+			Lines:            []string{reasons.Line(tc.language, "partial_coverage,quality_skipped"), dep},
+			BlockingFindings: []facts.AuditFinding{{RuleID: "dependencies/evil-pkg", Path: "package.json", Severity: "critical"}},
+		}
+		_, got := gateStatusDescription(tc.language, g, 7)
+		want := tc.want
+		if tc.language == "en-US" {
+			want = capStatusDescription(gateStatusWordFailure, strings.TrimPrefix(tc.want, "falha: "), statusDescriptionLimit)
+		}
+		if got != want {
+			t.Errorf("%s: got %q, want %q", tc.language, got, want)
+		}
+		if !strings.Contains(got, "evil-pkg") || utf8.RuneCountInString(got) > statusDescriptionLimit {
+			t.Errorf("%s: the dependency that failed the gate was cut: %q", tc.language, got)
+		}
+	}
+	if !reasons.IsLine("pt-BR", reasons.Line("pt-BR", "partial_coverage")) || !reasons.IsLine("en-US", "review inconclusive (x)") || reasons.IsLine("pt-BR", "DEPENDÊNCIAS reprova x") {
+		t.Error("IsLine does not recognize the inconclusive line by the catalog template")
+	}
+}
+
+// aur607Artifacts runs the review of aur607Review writing the audit record
+// and the SARIF document, and returns the audit's gate reason and every
+// SARIF message.
+func aur607Artifacts(t *testing.T, language string) (reason string, messages []string) {
+	t.Helper()
+	dir := t.TempDir()
+	audit, sarif := filepath.Join(dir, "audit.json"), filepath.Join(dir, "review.sarif")
+	aur607Review(t, language, "--auditoria", audit, "--sarif", sarif)
+	var rec struct {
+		Gate struct{ Decision, Reason string } `json:"gate"`
+	}
+	aur607ReadJSON(t, audit, &rec)
+	var doc struct {
+		Runs []struct {
+			Results     []struct{ Message struct{ Text string } } `json:"results"`
+			Invocations []struct {
+				Notifications []struct{ Message struct{ Text string } } `json:"toolExecutionNotifications"`
+			} `json:"invocations"`
+		} `json:"runs"`
+	}
+	aur607ReadJSON(t, sarif, &doc)
+	for _, run := range doc.Runs {
+		for _, r := range run.Results {
+			messages = append(messages, r.Message.Text)
+		}
+		for _, inv := range run.Invocations {
+			for _, n := range inv.Notifications {
+				messages = append(messages, n.Message.Text)
+			}
+		}
+	}
+	return rec.Gate.Decision + "|" + rec.Gate.Reason, messages
+}
+
+func aur607ReadJSON(t *testing.T, path string, v any) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, v); err != nil {
+		t.Fatalf("%s: %v\n%s", path, err, data)
+	}
+}
+
+// The audit record and the SARIF document are machine data: the same in
+// pt-BR and en, with the reason codes written as before.
+func TestAUR607AuditAndSARIFIgnoreTheLanguage(t *testing.T) {
+	enReason, enMessages := aur607Artifacts(t, "")
+	ptReason, ptMessages := aur607Artifacts(t, "pt-BR")
+	if enReason != ptReason || strings.Join(enMessages, "\n") != strings.Join(ptMessages, "\n") {
+		t.Fatalf("artifacts differ by language:\nen %q %q\npt %q %q", enReason, enMessages, ptReason, ptMessages)
+	}
+	if !strings.Contains(enReason, "review inconclusive (quality_skipped)") {
+		t.Fatalf("audit reason lost the earlier line: %q", enReason)
+	}
+}
+
+// A secret finding's SARIF message is the engine's own text in every
+// language; the shown message is the parecer's.
+func TestAUR607SARIFKeepsTheEngineMessage(t *testing.T) {
+	finding := scanner.Finding{Path: "config.py", Line: 1, RuleID: "gitleaks:github-pat", Severity: "error",
+		Message: "Uncovered a GitHub Personal Access Token. in commit 37eb089803ee (gitleaks v8.30.1)"}
+	issues, tools := (&reviewState{reviewLanguage: "pt-BR"}).scannerIssues([]scanner.Finding{finding}, "gitleaks", "secrets", "gitleaks")
+	path := filepath.Join(t.TempDir(), "review.sarif")
+	in := complianceArtifactInputs{sarifPath: path, issues: issues, toolMessages: tools}
+	if err := writeSARIFFile(in, redaction.NewFilter()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), finding.Message+" (rule gitleaks:github-pat)") || strings.Contains(string(data), "Segredo ou credencial") {
+		t.Fatalf("SARIF does not keep the engine's message:\n%s", data)
 	}
 }

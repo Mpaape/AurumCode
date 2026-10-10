@@ -310,6 +310,8 @@ o gate:
 gate:
   fail_on: [error]
   inconclusive: block
+review:
+  language: pt-BR
 ```
 
 <!-- saida: pr-workflow -->

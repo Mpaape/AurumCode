@@ -93,6 +93,8 @@ repositório pede que cobertura parcial reprove (`gate.inconclusive: block`):
 gate:
   fail_on: [high]
   inconclusive: block
+review:
+  language: pt-BR
 ```
 
 ```bash
@@ -155,6 +157,7 @@ A política do repositório declara uma skill de segurança e `gate.fail_on: [hi
 <!-- arquivo: demo/tutoriais/qualquer-linguagem/repo-exemplo/base-terraform/.aurumcode/config.yml -->
 ```yaml
 review:
+  language: pt-BR
   context:
     skills:
       - .aurumcode/skills/seguranca.md

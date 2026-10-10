@@ -80,6 +80,8 @@ Os arquivos de configuração dos casos:
 ```yaml
 gate:
   inconclusive: block
+review:
+  language: pt-BR
 ```
 
 <!-- arquivo: demo/tutoriais/dados-de-analise/config/bloqueia/.aurumcode/config.yml -->
@@ -89,6 +91,8 @@ analysis_data:
   max_age_days: 7
 gate:
   inconclusive: block
+review:
+  language: pt-BR
 ```
 
 <!-- arquivo: demo/tutoriais/dados-de-analise/config/avisa/.aurumcode/config.yml -->
@@ -98,6 +102,8 @@ analysis_data:
   max_age_days: 7
 gate:
   inconclusive: warn
+review:
+  language: pt-BR
 ```
 
 `repository` é opcional (o padrão é o repositório que publica o artefato do
