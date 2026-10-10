@@ -1,8 +1,8 @@
 schema: bootstrap-lockset-v1
-identity: sha256:f67dde36bca7c474de0df4fb13cc3736f6960af0457f60a2f66e175d8152eaab
+identity: sha256:85f5c95658815badb8e84f6b1114b69e4b43e9de8a320a238fbf24b686138af9
 child: AUR-359 locks/trust-root.yml sha256:f4e7055f5b88f376aeb487b7e6b3ed1f19286ab48446bd8f726a902d3dd766f0
 child: AUR-360 locks/go.yml sha256:52573a1058bc5d9d7b0a784bd17058b4e1c2923a75d13757274bdc3b416f0ddf
-child: AUR-361 locks/actions.yml sha256:1ab8a8a2d1aa1d770f990b43f6b3a1d66c1b1d5c59f3fc618ffba40e92d8d7c8
+child: AUR-361 locks/actions.yml sha256:6182a72401f67e03435f8fc90ff2e90e73847ba9794d4453d0b40dd501a1cbe1
 child: AUR-362 locks/scanners.yml sha256:44843190d36f74990a69c866c20af76c34e6a8160313260b4543327c425b475e
 child: AUR-363 locks/parsers.yml sha256:850f36df954e59c122010e5deb2be770d85614c7154452d13d8240dc9dd4e826
 child: AUR-364 locks/docs.yml sha256:92d72fbaed513298fb6cf9be52c248f5e8ddd6763cbf57f629de3c6144fde585
