@@ -19,7 +19,6 @@ exit_code=3
 RESULTADO: sem cache a revisao funciona, mas o veredito nao e compartilhado
 --- revisao inconclusiva nunca grava veredito
 $ aurumcode review --base main --politica /policy
-aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 arquivo gerado, não revisado: gerado.go
 ## AurumCode revisão de código
 
@@ -33,6 +32,7 @@ Cobertura da revisão — arquivos do diff cobertos: 0 de 0; sem revisão comple
 - 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: parte do diff ficou fora da revisão [partial_coverage]
+aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1
 RESULTADO: inconclusivo em block reprova
 cache: 0 entrada(s) de veredito, 0 entrada(s) por arquivo

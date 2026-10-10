@@ -1,6 +1,7 @@
 == inconclusivo-analysis-data
 $ aurumcode review --base main --politica /policy
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -9,6 +10,5 @@ aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_
 
 gate da política: reprovou · 1 arquivo revisado
 Sem achados nas fontes concluídas; inconclusivo: dados de análise indisponíveis [analysis_data_unavailable]
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise indisponíveis [analysis_data_unavailable]): <detalhe de rede omitido do registro>
 exit_code=1
 RESULTADO: block: artefato de analise indisponivel reprova (analysis_data_unavailable)

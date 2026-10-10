@@ -2,7 +2,6 @@
 --- gate.inconclusive: block
 $ aurumcode review --base main
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/20260910T010002Z generated 2026-09-10T01:00:02Z is 30.0 days old, above max_age_days=7
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -11,6 +10,7 @@ aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de an
 
 gate da política: reprovou · 2 arquivos revisados
 Sem achados nas fontes concluídas; inconclusivo: dados de análise vencidos [analysis_data_stale]
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/20260910T041522Z generated 2026-09-10T04:15:22Z is 30.0 days old, above max_age_days=7
 --- requisicoes recebidas pelo servidor local (modo vencido): 2
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200
@@ -19,7 +19,7 @@ RESULTADO: artefato vencido com block: o review falha (analysis_data_stale)
 --- gate.inconclusive: warn
 $ aurumcode review --base main
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/20260910T010004Z generated 2026-09-10T01:00:04Z is 30.0 days old, above max_age_days=7
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (dados de análise vencidos [analysis_data_stale]): artifact analysis-data/20260910T041524Z generated 2026-09-10T04:15:24Z is 30.0 days old, above max_age_days=7
 ## AurumCode revisão de código
 
 > [!WARNING]
