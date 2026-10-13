@@ -84,11 +84,13 @@ func deniedGitHub(t *testing.T, diffBody, repoConfig string) *httptest.Server {
 // status -- tells the operator which permission is missing, keeps GitHub's
 // answer, and the run still exits as a failure.
 func TestAUR619PublishingDeniedReachesTheOperator(t *testing.T) {
-	diff := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change(id string) string {\n+ return \"select * from t where id = \" + id\n+}\n"
-	resp := `{"summary":"ok","verdict":"request_changes","issues":[{"file":"app.go","line":3,"severity":"error","rule_id":"security/sql-injection","message":"SQL built by concatenation","evidence":"\"select * from t where id = \" + id","impact":"Injection","verification":"Bind the value"}]}`
+	// The blocking finding is the embedded catalog's own (a world-writable
+	// mode on the changed line), so the proof needs no model answer.
+	diff := "diff --git a/app.go b/app.go\n@@ -1,2 +1,4 @@\n package demo\n+func Change(p string) {\n+ _ = os.Chmod(p, 0777)\n+}\n"
+	resp := `{"summary":"ok","verdict":"approve","issues":[]}`
 	cases := []struct{ name, config, denied string }{
-		{"pt-BR", "review:\n  language: pt-BR\ngate:\n  fail_on: [error]\n", "sem permissão para publicar: o token precisa de `"},
-		{"en", "gate:\n  fail_on: [error]\n", "permission denied: the token needs `"},
+		{"pt-BR", "review:\n  language: pt-BR\ngate:\n  fail_on: [warning]\n", "sem permissão para publicar: o token precisa de `"},
+		{"en", "gate:\n  fail_on: [warning]\n", "permission denied: the token needs `"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -120,7 +122,7 @@ func TestAUR619PublishingDeniedReachesTheOperator(t *testing.T) {
 				"summary: " + tc.denied + "pull-requests: write`",
 			} {
 				if !strings.Contains(out, want) {
-					t.Fatalf("stderr lacks %q:\n%s", want, out)
+					t.Fatalf("stderr lacks %q:\n%s\nstdout:\n%s", want, out, stdout.String())
 				}
 			}
 		})
