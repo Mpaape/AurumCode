@@ -20,7 +20,7 @@ import (
 // codebaseContextReasonUnverifiable is the fixed reason code returned
 // whenever this checkout's identity, HEAD, or (AUR-536) clean-tree state
 // simply could not be confirmed -- as opposed to "repository"/"head", where
-// it WAS confirmed and found to mismatch, or "dirty" (aur536.go), where it
+// it WAS confirmed and found to mismatch, or "dirty" (verified_checkout.go), where it
 // was confirmed and found unclean. Hoisted into one constant so every
 // "cannot tell" return agrees, and so a single, stable edit can flip them
 // all for a skeptical mutation.

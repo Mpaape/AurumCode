@@ -33,9 +33,10 @@ func (p *prReview) generateReview() (int, bool) {
 	var result *types.ReviewResult
 	var err error
 	if p.profilesApplied() {
-		// One model pass per analyst profile, each accepting the same
-		// dynamic rules and catalog as the single reviewer (AUR-519).
-		result, err = runProfilePasses(p.ctx, p.provider, p.tracker, p.profileRes.Profiles, p.diff, reviewCtx, p.dynamicRules, p.ruleCatalogIDs)
+		// One model pass per analyst, each accepting the same dynamic
+		// rules and catalog as the single reviewer and deliberating with
+		// the same tools from the review's shared budget.
+		result, p.transcript, err = runProfilePasses(p.ctx, p.analystPasses(analystsOf(p.profileRes)), p.diff, reviewCtx)
 	} else {
 		result, err = p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, reviewCtx)
 		p.transcript = p.reviewer.Transcript()

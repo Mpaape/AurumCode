@@ -320,7 +320,7 @@ func TestAUR519ProfilePassesCarryDegradedMetadata(t *testing.T) {
 		Hunks: []types.DiffHunk{{NewStart: 3, Lines: []string{"+ suspicious"}}},
 	}}}
 	profiles := []reviewprofile.Profile{{Name: "a"}, {Name: "b"}}
-	merged, err := runProfilePasses(context.Background(), provider, nil, profiles, diff, review.ReviewContext{}, nil, prompt.DefaultRuleCatalog)
+	merged, _, err := runProfilePasses(context.Background(), analystPasses{provider: provider, profiles: profiles, ruleCatalogIDs: prompt.DefaultRuleCatalog}, diff, review.ReviewContext{})
 	if err != nil {
 		t.Fatalf("runProfilePasses() error = %v", err)
 	}
@@ -660,7 +660,7 @@ func TestAUR519ProfilePassesCoverageTakesWorstCase(t *testing.T) {
 	diff := &types.Diff{Files: []types.DiffFile{{Path: "app.go", Hunks: []types.DiffHunk{{NewStart: 1, Lines: []string{"+x"}}}}}}
 	profiles := []reviewprofile.Profile{{Name: "a"}, {Name: "b"}}
 
-	merged, err := runProfilePasses(context.Background(), provider, nil, profiles, diff, review.ReviewContext{}, nil, prompt.DefaultRuleCatalog)
+	merged, _, err := runProfilePasses(context.Background(), analystPasses{provider: provider, profiles: profiles, ruleCatalogIDs: prompt.DefaultRuleCatalog}, diff, review.ReviewContext{})
 	if err != nil {
 		t.Fatalf("runProfilePasses() error = %v", err)
 	}

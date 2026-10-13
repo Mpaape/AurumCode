@@ -40,6 +40,21 @@ type Transcript struct {
 	// offered (it never answered); NotRequested is then empty, because
 	// nothing was declined.
 	Undecided string `json:"undecided,omitempty"`
+	// Analyst names the analyst whose pass this transcript records
+	// (AttributeTo); a review's merged transcript lists its analysts in
+	// Analysts instead, one entry per pass, in pass order.
+	Analyst  string              `json:"analyst,omitempty"`
+	Analysts []AnalystTranscript `json:"analysts,omitempty"`
+}
+
+// AnalystTranscript is one analyst's share of a review's deliberation.
+type AnalystTranscript struct {
+	Analyst    string   `json:"analyst"`
+	Rounds     int      `json:"rounds"`
+	CostTokens int      `json:"cost_tokens"`
+	Requested  []string `json:"requested"`
+	Outcome    string   `json:"outcome"`
+	Limit      string   `json:"limit,omitempty"`
 }
 
 // MarkUndecided records that the model never finished deciding: no offered
@@ -47,6 +62,22 @@ type Transcript struct {
 func (t *Transcript) MarkUndecided(reason string) {
 	t.Undecided = reason
 	t.NotRequested = []string{}
+}
+
+// AttributeTo names the analyst whose pass this transcript records, on the
+// transcript and on each of its calls, so a merged review transcript still
+// says who asked for what.
+func (t *Transcript) AttributeTo(analyst string) {
+	t.Analyst = analyst
+	for i := range t.Calls {
+		t.Calls[i].Analyst = analyst
+	}
+}
+
+// analystEntry is the transcript's summary as a merged record lists it.
+func (t *Transcript) analystEntry() AnalystTranscript {
+	requested := append([]string{}, t.Requested...)
+	return AnalystTranscript{Analyst: t.Analyst, Rounds: t.Rounds, CostTokens: t.CostTokens, Requested: requested, Outcome: t.Outcome, Limit: t.Limit}
 }
 
 // Call is one tool call the model made.
@@ -59,6 +90,9 @@ type Call struct {
 	DurationMS int64  `json:"duration_ms"`
 	Result     string `json:"result"`
 	Digest     string `json:"digest,omitempty"`
+	// Analyst is the analyst whose pass made the call, when the review ran
+	// analysts (Transcript.AttributeTo).
+	Analyst string `json:"analyst,omitempty"`
 }
 
 // ResultDigests is every executed call's result digest, in call order: the

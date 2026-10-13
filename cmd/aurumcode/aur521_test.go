@@ -597,7 +597,7 @@ func TestAUR521AuditGateOutcomeInconclusiveWithoutGateDeclared(t *testing.T) {
 // TestAUR521AuditAndSARIFAgreeOnInconclusive is M7: the audit record's
 // gate.decision and the SARIF's invocations[0].executionSuccessful are
 // computed from the SAME gateInconclusiveReason in writeComplianceArtifacts
-// (aur521.go) -- forcing SARIF's executionSuccessful to a hardcoded true
+// (compliance_artifacts.go) -- forcing SARIF's executionSuccessful to a hardcoded true
 // would make the two files, for the exact same run, disagree about whether
 // the review was trustworthy.
 func TestAUR521AuditAndSARIFAgreeOnInconclusive(t *testing.T) {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,9 +303,10 @@ func TestAUR607PolicyGateStatusCutsAtAWord(t *testing.T) {
 	}
 }
 
-// AC-002/AC-003: English keeps the description of earlier releases byte for
-// byte, mid-word cut included.
-func TestAUR607PolicyGateStatusEnglishUnchanged(t *testing.T) {
+// AC-002/AC-003: the default language (no review.language, or a tag that is
+// not Portuguese) keeps the description of earlier releases byte for byte,
+// mid-word cut included.
+func TestAUR607PolicyGateStatusDefaultLanguageUnchanged(t *testing.T) {
 	for _, tc := range []struct {
 		g    gateDecision
 		want string
@@ -455,7 +455,7 @@ func aur607Artifacts(t *testing.T, language string) (reason string, messages []s
 	var rec struct {
 		Gate struct{ Decision, Reason string } `json:"gate"`
 	}
-	aur607ReadJSON(t, audit, &rec)
+	readJSON(t, audit, &rec)
 	var doc struct {
 		Runs []struct {
 			Results     []struct{ Message struct{ Text string } } `json:"results"`
@@ -464,7 +464,7 @@ func aur607Artifacts(t *testing.T, language string) (reason string, messages []s
 			} `json:"invocations"`
 		} `json:"runs"`
 	}
-	aur607ReadJSON(t, sarif, &doc)
+	readJSON(t, sarif, &doc)
 	for _, run := range doc.Runs {
 		for _, r := range run.Results {
 			messages = append(messages, r.Message.Text)
@@ -476,17 +476,6 @@ func aur607Artifacts(t *testing.T, language string) (reason string, messages []s
 		}
 	}
 	return rec.Gate.Decision + "|" + rec.Gate.Reason, messages
-}
-
-func aur607ReadJSON(t *testing.T, path string, v any) {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(data, v); err != nil {
-		t.Fatalf("%s: %v\n%s", path, err, data)
-	}
 }
 
 // The audit record and the SARIF document are machine data: the same in

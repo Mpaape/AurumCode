@@ -5,10 +5,11 @@ import (
 	"strings"
 )
 
-// GateConfig is AUR-519's gate: which severities fail the check (FailOn)
-// and what an inconclusive review does (Inconclusive). The zero value
-// (both fields empty/absent) means no gate at all -- this card adds no new
-// behavior over today's review until a config explicitly declares one. See
+// GateConfig is the gate section: which severities fail the check (FailOn),
+// what an inconclusive review does (Inconclusive), which finding origins
+// count (Sources) and how the model's triage weighs each origin (Triage).
+// Only FailOn and Inconclusive declare a gate (Declared): with both absent
+// there is no gate at all, whatever Sources and Triage say. See
 // ApplyCentralPolicy: under a central policy, only the policy's own
 // GateConfig ever applies (AC-005); a repository's own GateConfig is its
 // explicit opt-in only when no central policy is in play.
@@ -16,12 +17,13 @@ type GateConfig struct {
 	FailOn       []string `yaml:"fail_on"`
 	Inconclusive string   `yaml:"inconclusive"`
 	// Sources (AUR-556) restricts which finding origins count toward the
-	// gate: a closed list of GateSourceSkills, GateSourceAnalysis,
-	// GateSourceSAST. Empty (absent) means all three.
+	// gate: GateSourceSkills, GateSourceAnalysis, or any registered scanner
+	// engine or category (knownGateSource). Empty (absent) means all of them.
 	Sources []string `yaml:"sources"`
 	// Triage lets the model's assessment of a source's evidence demote it,
-	// per source: GateSourceSkills/Analysis/SAST -> TriageModel (the
-	// default, triageDefault) or TriageNone (the explicit opt-out). It is
+	// per source (skills, analysis, or a scanner engine or category) ->
+	// TriageModel (the default, triageDefault) or TriageNone (the explicit
+	// opt-out). It is
 	// honoured only for a declared gate and without a central policy:
 	// evidence of policy origin counts whatever the model says.
 	Triage map[string]string `yaml:"triage"`

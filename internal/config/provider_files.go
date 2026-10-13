@@ -188,13 +188,10 @@ func parseApplyToFrontMatter(content string) (applyTo, body string, err error) {
 	return applyTo, body, nil
 }
 
-// DefaultProviders returns Camada 1's two file providers rooted at root,
-// in the fixed order their contributions are rendered: the repository-
-// wide prompt first, then path-scoped instructions. AUR-468 (skills),
-// AUR-469 (MCP), AUR-470 (RAG) and AUR-471 (ISO policy) append their own
-// providers to a slice built the same way; this function's return type
-// (ContextProvider) and this ordering convention are the contract they
-// build against.
+// DefaultProviders is ConfiguredProviders with no explicit configuration:
+// the zero-config file providers rooted at root, in the fixed order their
+// contributions are rendered -- the repository-wide prompt first, then
+// path-scoped instructions.
 func DefaultProviders(root string) []ContextProvider {
 	return ConfiguredProviders(root, &Config{})
 }

@@ -8,14 +8,15 @@
 // declares them (governance.go), the engineering standards layer, which
 // declares no section, and the repository itself.
 //
-// This card is the foundation four later cards build on: AUR-468 (skills),
-// AUR-469 (MCP) and AUR-470 (RAG) each add a ContextProvider; AUR-471 adds
-// an ISO policy provider. From the engine's point of view all of them are
-// the same thing -- a named source of free text handed to the model as
-// background -- which is exactly what ContextProvider (provider.go)
-// captures.
+// The providers that exist are the repository's own context files
+// (provider_files.go: the prompt, the path-scoped instructions and the
+// review.context lists), the skills catalog (internal/context/skills) and
+// the MCP sources (mcpcontext.go, internal/context/mcp). From the engine's
+// point of view all of them are the same thing -- a named source of free
+// text handed to the model as background -- which is exactly what
+// ContextProvider (provider.go) captures.
 //
-// # THE SECURITY BOUNDARY THAT EVERY LATER CARD INHERITS
+// # THE SECURITY BOUNDARY EVERY CONTEXT PROVIDER INHERITS
 //
 // Content that arrives through a ContextProvider -- a repository prompt
 // file, a skill, an MCP tool result, a RAG chunk -- is DATA, never an
@@ -56,9 +57,10 @@ type RuleConfig struct {
 }
 
 // ReviewContextConfig is the small, repository-owned list of optional context
-// files that can enrich a review. All three entries are Markdown or plain-text
-// guidance: they never replace the built-in review prompt and never control
-// rules, gates, redaction, cost, or permissions.
+// sources that can enrich a review. Prompt, Skills and Docs are Markdown or
+// plain-text guidance and MCP names configured tool sources (mcpcontext.go):
+// none of them replaces the built-in review prompt or controls rules, gates,
+// redaction, cost, or permissions.
 //
 // Prompt is one repository-wide instruction file. Skills and Docs are curated
 // lists so a repository can add focused review knowledge without injecting an
@@ -268,12 +270,12 @@ type Config struct {
 	// and ApplyCentralPolicy for why, under a central policy, only the
 	// policy's own Exceptions ever apply.
 	Exceptions []ExceptionConfig `yaml:"exceptions"`
-	// QualityGates is the shared quality_gates section the corporate
-	// adoption cards write their own subsection into (AUR-548 Sast,
-	// AUR-549 SsorDtrack.SBOMGenerator, AUR-550 the rest of SsorDtrack,
-	// and SupplyChain for a future xBOM card). See QualityGatesConfig
-	// (qualitygates.go) and ApplyCentralPolicy for why each subsection is
-	// governed independently, the same way Gate/Exceptions already are.
+	// QualityGates is the shared quality_gates section: sast (AUR-548),
+	// ssor_dtrack (SBOM generation, AUR-549, and Dependency-Track, AUR-550),
+	// supply_chain (the Cosign signature of the image, AUR-551, cmd_sign.go)
+	// and the registered scanners. See QualityGatesConfig (qualitygates.go)
+	// and ApplyCentralPolicy for why each subsection is governed
+	// independently, the same way Gate/Exceptions already are.
 	QualityGates QualityGatesConfig `yaml:"quality_gates"`
 	// AnalysisData is AUR-533's section (nil = not declared): the maximum
 	// age of the published analysis-data artifact. Governed per section by

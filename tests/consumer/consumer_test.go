@@ -208,3 +208,64 @@ func TestAUR512EvidenceIdentifiesTheRunAndInfraIsNotMeasured(t *testing.T) {
 		}
 	}
 }
+
+// TestAUR619FailedChecksAreNamed: a run concluded as failure after the fix
+// names the checks that failed, so the verdict says whether the product's
+// own checks passed and another job (the changelog) failed.
+func TestAUR619FailedChecksAreNamed(t *testing.T) {
+	s := byID(t, scenarios(t), "comments-inline")
+	e := conforming(s)
+	e.AfterFix.Conclusion = "failure"
+	e.AfterFix.Statuses["changelog / Changelog obrigatório"] = "failure"
+	e.AfterFix.Statuses["review / Scheduled dependency scan"] = "skipped"
+	r := Verify(s, e, true)
+	want := `após correção: conclusão "failure", esperada "success"; checks reprovados: changelog / Changelog obrigatório`
+	if r.State != Failed || len(r.Reasons) != 1 || r.Reasons[0] != want {
+		t.Fatalf("got %+v, want one reason %q", r, want)
+	}
+	if got := failedChecks(map[string]string{"a": "success", "b": "skipped", "c": "neutral"}); len(got) != 0 {
+		t.Fatalf("passed, skipped and neutral checks are not failures: %v", got)
+	}
+}
+
+// TestAUR619CorrectionFixtureCarriesAChangelogEntry: the fix commit of the
+// SQL scenario must satisfy the consumer's mandatory changelog, or the run
+// after the fix fails for a reason that is not the product's.
+func TestAUR619CorrectionFixtureCarriesAChangelogEntry(t *testing.T) {
+	base := changelogEntries(t, filepath.Join("fixtures", "base", "CHANGELOG.md"))
+	fixed := changelogEntries(t, filepath.Join("fixtures", "bug-sql-corrigido", "CHANGELOG.md"))
+	added := 0
+	for entry := range fixed {
+		if !base[entry] {
+			added++
+		}
+	}
+	if added == 0 {
+		t.Fatalf("bug-sql-corrigido adds no changelog entry under Unreleased beyond the base: %v", fixed)
+	}
+}
+
+// changelogEntries reads the bullet lines under "## Unreleased" of path.
+func changelogEntries(t *testing.T, path string) map[string]bool {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]bool{}
+	inUnreleased := false
+	for _, line := range strings.Split(string(data), "\n") {
+		switch {
+		case strings.HasPrefix(line, "## Unreleased"):
+			inUnreleased = true
+		case strings.HasPrefix(line, "## "):
+			inUnreleased = false
+		case inUnreleased && strings.HasPrefix(line, "- "):
+			out[line] = true
+		}
+	}
+	if !inUnreleased && len(out) == 0 {
+		t.Fatalf("%s has no ## Unreleased section with entries", path)
+	}
+	return out
+}

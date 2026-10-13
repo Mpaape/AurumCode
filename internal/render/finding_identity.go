@@ -1,7 +1,6 @@
-// AUR-521: the single, canonical finding identity. SARIF's
-// partialFingerprints (this card) is its first caller; AUR-494's own finding
-// deduplication, once that card lands, must import this function instead of
-// defining a second identity for "the same finding".
+// AUR-521: the single, canonical finding identity, shared by SARIF's
+// partialFingerprints (sarif.go) and the comparison with earlier rounds in
+// cmd/aurumcode (pr_rounds.go), so "the same finding" has one definition.
 package render
 
 import (

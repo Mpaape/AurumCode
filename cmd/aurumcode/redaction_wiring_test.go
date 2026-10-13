@@ -79,11 +79,6 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		// DIRECTORY (a hierarchical branch namespace) is a third distinct
 		// message, never the raw leaked "refs/heads/..." chain.
 		`aurumcode review: ref "feature" is not a branch: a directory of refs by that name exists (a hierarchical branch namespace, e.g. "feature/...") -- name the exact branch, not a namespace prefix`,
-		// AUR-426's docs subcommand.
-		"aurumcode docs: source directory /abs/missing: stat /abs/missing: no such file or directory",
-		"aurumcode docs: source directory /abs/file.txt is not a directory",
-		"aurumcode docs: no documentation page was generated",
-		"aurumcode docs: partial run: 1 extraction error(s), 1 language(s) skipped",
 		// AUR-438's --pr review-and-publish path.
 		"aurumcode review: --repo is required with --pr",
 		"aurumcode review: --na-linha is required with --pr",

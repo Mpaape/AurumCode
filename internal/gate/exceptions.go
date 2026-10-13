@@ -28,6 +28,7 @@ package gate
 
 import (
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"strings"
 	"time"
 
@@ -189,8 +190,5 @@ func ExceptionsConfigured(cfg *config.Config) bool {
 // and this says why, the same way codebaseContextOmittedNotice already
 // explains --pr's own identity-verification failures.
 func RepoIdentityUnavailableNotice(language string) string {
-	if language == "pt-BR" || language == "pt" {
-		return "Exceções desativadas: não foi possível confirmar o repositório revisado a partir do remoto \"origin\"."
-	}
-	return "Exceptions disabled: the reviewed repository's identity could not be confirmed from the \"origin\" remote."
+	return i18n.Text(language, "gate.exceptions_identity_unavailable")
 }

@@ -137,7 +137,7 @@ func runXBOM(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "aurumcode xbom: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stderr, "aurumcode xbom: %s: %d componente(s), %d descartado(s) sem evidencia\n", t, gen.Components, gen.Dropped.DroppedComponents)
+	fmt.Fprintf(stderr, "aurumcode xbom: %s: %s\n", t, xbomSummaryText(effective.Review.Language, gen.Components, gen.Dropped.DroppedComponents))
 	return 0
 }
 

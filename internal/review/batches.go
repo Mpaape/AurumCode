@@ -147,7 +147,7 @@ func (r *Reviewer) reviewInBatches(ctx context.Context, diff *types.Diff, review
 		r.transcript = nil
 		result, err := r.reviewPrepared(ctx, batch.prepared)
 		transcripts = append(transcripts, r.transcript)
-		r.transcript = mergeTranscripts(transcripts)
+		r.transcript = deliberation.Merge(transcripts...)
 		if err != nil {
 			return nil, fmt.Errorf("review batch %d of %d: %w", i+1, len(plan.batches), err)
 		}

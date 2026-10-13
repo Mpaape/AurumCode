@@ -172,7 +172,7 @@ func publishPolicyGateStatusIn(ctx context.Context, language string, client *git
 	status.State, status.Description = gateStatusDescription(language, gateResult, prNumber)
 
 	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: publishing policy gate status: %v\n", err)
+		fmt.Fprintf(stderr, "aurumcode review: publishing policy gate status: %s\n", publishError(language, publishStatus, err))
 		return 1
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", policyGateContext, commitID, status.State, status.Description)

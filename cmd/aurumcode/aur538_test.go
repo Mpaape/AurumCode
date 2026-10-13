@@ -180,7 +180,7 @@ func TestAUR538BaseCleanFixtureApprovesWithoutGate(t *testing.T) {
 // deleted from the (loose-object-only) store -- the sealed acceptance
 // profile's own shape, never a packed repository -- must be declared
 // unverifiable, both with and without a `git` binary on PATH. This calls
-// verifiedCleanCheckoutReason (aur536.go) directly, bypassing
+// verifiedCleanCheckoutReason (verified_checkout.go) directly, bypassing
 // codebaseContextMismatch's own, earlier unverifiable checks entirely, so
 // the assertion can only be explained by THIS function's own
 // `if err != nil { return codebaseContextReasonUnverifiable, nil }`
@@ -230,7 +230,7 @@ func TestAUR538MissingTreeObjectIsUnverifiable(t *testing.T) {
 // aur538ExceptionFixtureNoOrigin mirrors aur520_test.go's own
 // exceptionFixture (a local checkout with a configured `exceptions:`
 // section), except .git/config here declares NO "origin" remote at all
-// (AC-005): localRepoIdentity (aur520.go) can then never resolve a repo
+// (AC-005): localRepoIdentity (repo_identity.go) can then never resolve a repo
 // identity, so every configured exception must fail closed no matter how
 // exactly it would otherwise have matched.
 func aur538ExceptionFixtureNoOrigin(t *testing.T, configYAML string) string {
@@ -330,8 +330,8 @@ func TestAUR538BaseNoOriginExceptionNeverMatches(t *testing.T) {
 // TestAUR538BaseNoOriginNoExceptionsNoNotice covers AC-005's second case:
 // with no "origin" remote AND no exceptions configured anywhere, the
 // identity-unavailable notice must never appear at all -- a run that
-// never uses this feature carries no new line (exceptionsConfigured's own
-// guard, aur520.go).
+// never uses this feature carries no new line (gate.ExceptionsConfigured's
+// own guard, internal/gate/contributors.go).
 func TestAUR538BaseNoOriginNoExceptionsNoNotice(t *testing.T) {
 	aur538ExceptionFixtureNoOrigin(t, "gate:\n  fail_on: [high]\n  sources: [skills]\n")
 	fixture := filepath.Join(t.TempDir(), "response.json")
@@ -541,8 +541,9 @@ func TestAUR538PublishPolicyGateStatusWordAndStateTable(t *testing.T) {
 // happens to contain the EXACT word "exceção" (a policy/repo author
 // could title a rule anything) must stay in the breach tier, never be
 // misclassified into the exception tier just because the bare word
-// appears somewhere in the line. Only acceptedExceptionLine/
-// expiredExceptionLine's own fixed markers (aur520.go) select that tier.
+// appears somewhere in the line. Only gate.AcceptedExceptionLine/
+// ExpiredExceptionLine's own fixed markers (internal/gate/exceptions.go)
+// select that tier.
 //
 // The title below is "Tratamento de exceção" (singular), which DOES
 // contain the exact substring "exceção" -- unlike an earlier draft of

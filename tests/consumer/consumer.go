@@ -208,7 +208,11 @@ func identityProblems(e Evidence) []string {
 func compare(x Expectation, e Evidence) []string {
 	var out []string
 	if e.Conclusion != x.Conclusion {
-		out = append(out, fmt.Sprintf("conclusão %q, esperada %q", e.Conclusion, x.Conclusion))
+		why := fmt.Sprintf("conclusão %q, esperada %q", e.Conclusion, x.Conclusion)
+		if failed := failedChecks(e.Statuses); len(failed) > 0 {
+			why += "; checks reprovados: " + strings.Join(failed, ", ")
+		}
+		out = append(out, why)
 	}
 	names := make([]string, 0, len(x.Statuses))
 	for k := range x.Statuses {
@@ -245,6 +249,22 @@ func compare(x Expectation, e Evidence) []string {
 			out = append(out, fmt.Sprintf("texto contém %q", bad))
 		}
 	}
+	return out
+}
+
+// failedChecks names, in order, every check of the run that did not pass:
+// a run concluded as failure says which job failed, so a product check
+// that passed is never read as the product's fault.
+func failedChecks(statuses map[string]string) []string {
+	var out []string
+	for name, state := range statuses {
+		switch state {
+		case "success", "skipped", "neutral":
+		default:
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 

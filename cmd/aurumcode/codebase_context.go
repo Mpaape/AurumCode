@@ -14,11 +14,11 @@ import (
 // the model sees what else the change can affect. It is an enhancement,
 // never a gate: any failure degrades to empty context and the review
 // continues on the diff alone. --pr's own entrypoint,
-// resolveVerifiedCodebaseContext (aur536.go), shares codebaseContextJSON's
+// resolveVerifiedCodebaseContext (verified_checkout.go), shares codebaseContextJSON's
 // marshal-or-empty tail with this one -- AUR-490 parity -- but resolves
 // through ResolveWithFiles against its own already-verified file set
 // instead of codebaseContextPack's unrestricted walk, since on --pr the
-// checkout is not necessarily the change under review (see aur515.go).
+// checkout is not necessarily the change under review (see checkout_identity.go).
 // exclude (AUR-470) is the policy's ignore and secret-file paths, never
 // read; nil excludes nothing.
 func resolveCodebaseContext(diff *types.Diff, exclude func(string) bool) string {
@@ -29,7 +29,7 @@ func resolveCodebaseContext(diff *types.Diff, exclude func(string) bool) string 
 
 // codebaseContextJSON is the shared tail of both codebase-context passes
 // (resolveCodebaseContext above, resolveVerifiedCodebaseContext in
-// aur536.go): resolve, by whichever means the caller's closure embeds, and
+// verified_checkout.go): resolve, by whichever means the caller's closure embeds, and
 // marshal the result, or degrade to "" on any error. Neither pass is ever
 // a gate, so this never returns an error of its own.
 func codebaseContextJSON(resolve func() (*codebasectx.Pack, error)) string {

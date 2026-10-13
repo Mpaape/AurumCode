@@ -5,7 +5,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -113,50 +112,6 @@ func declareOutside(result *types.ReviewResult, outside []string) {
 		result.Metadata[key] = strconv.Itoa(metaCount(result.Metadata, key) + len(outside))
 	}
 	result.Metadata[MetaOmittedPaths] = strings.Join(outside, "\n")
-}
-
-// mergeTranscripts joins the deliberations of the batches; nil when no
-// batch deliberated.
-func mergeTranscripts(transcripts []*deliberation.Transcript) *deliberation.Transcript {
-	var merged *deliberation.Transcript
-	for _, t := range transcripts {
-		if t == nil {
-			continue
-		}
-		if merged == nil {
-			merged = &deliberation.Transcript{}
-		}
-		merged.Offered = appendUnique(merged.Offered, t.Offered...)
-		merged.Requested = append(merged.Requested, t.Requested...)
-		merged.NotRequested = appendUnique(merged.NotRequested, t.NotRequested...)
-		merged.Rounds += t.Rounds
-		merged.TokensIn += t.TokensIn
-		merged.TokensOut += t.TokensOut
-		merged.Calls = append(merged.Calls, t.Calls...)
-		merged.Outcome = t.Outcome
-		if merged.Limit == "" {
-			merged.Limit = t.Limit
-		}
-		if merged.Undecided == "" {
-			merged.Undecided = t.Undecided
-		}
-	}
-	return merged
-}
-
-// appendUnique appends the values not already in list.
-func appendUnique(list []string, values ...string) []string {
-	seen := make(map[string]bool, len(list))
-	for _, v := range list {
-		seen[v] = true
-	}
-	for _, v := range values {
-		if !seen[v] {
-			seen[v] = true
-			list = append(list, v)
-		}
-	}
-	return list
 }
 
 // appendUnlike appends the values whose opening words are not already in

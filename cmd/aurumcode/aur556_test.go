@@ -181,7 +181,7 @@ func TestAUR556NoGateUnchanged(t *testing.T) {
 	}
 }
 
-// TestAUR556GateSourcesValidation covers the closed list.
+// TestAUR556GateSourcesValidation covers the gate.sources vocabulary.
 func TestAUR556GateSourcesValidation(t *testing.T) {
 	if _, err := config.Parse([]byte("gate:\n  fail_on: [error]\n  sources: [skills, analysis, sast]\n"), "t.yml"); err != nil {
 		t.Fatalf("valid sources rejected: %v", err)

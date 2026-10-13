@@ -3,6 +3,7 @@ package feedback
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"sort"
 	"strings"
 )
@@ -66,8 +67,14 @@ func BuildPlan(in Inputs) (Plan, bool) {
 		data, _ := json.MarshalIndent(c, "", "  ")
 		files[CandidatesDir+"/"+c.ID+".json"] = string(data) + "\n"
 	}
-	title := fmt.Sprintf("Realimentação do gate: %d sinal(is), %d proposta(s)", len(in.Signals), len(in.Proposals))
-	return Plan{Title: title, Body: planBody(in), Files: files}, true
+	return Plan{Title: planTitle(len(in.Signals), len(in.Proposals)), Body: planBody(in), Files: files}, true
+}
+
+// planTitle counts the signals and proposals of the pull request. The
+// realimentacao command reads no repository configuration, so the title is
+// in the catalog's default language.
+func planTitle(signals, proposals int) string {
+	return i18n.Format("", "feedback.plan_title", i18n.Counted("", "feedback.plan_signals", signals), i18n.Counted("", "feedback.plan_proposals", proposals))
 }
 
 func planBody(in Inputs) string {
@@ -82,7 +89,7 @@ func planBody(in Inputs) string {
 		fmt.Fprintf(&b, "### %s\n\n`%s` → seção `## %s`\n\nSinais citados: %s\n\n", cell(p.Title), cell(p.Skill), cell(p.Section), "`"+strings.Join(p.Signals, "`, `")+"`")
 	}
 	if len(in.Discarded) > 0 {
-		fmt.Fprintf(&b, "\n%d proposta(s) descartada(s):\n\n", len(in.Discarded))
+		fmt.Fprintf(&b, "\n%s\n\n", i18n.Counted("", "feedback.plan_discarded", len(in.Discarded)))
 		for _, d := range in.Discarded {
 			fmt.Fprintf(&b, "- %s: %s\n", cell(d.Title), d.Reason)
 		}
