@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
-	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -67,6 +66,18 @@ func (p *prReview) wrapContext() (int, bool) {
 	if strings.TrimSpace(p.contextRef) == "" {
 		p.contextRef = p.env().githubSHA
 	}
+	src := centralSkillSources(p.opts.policyDir, p.centralCfg, p.standards)
+	src[config.LayerRepository] = remoteSkillSource{ctx: p.ctx, client: p.client, owner: p.owner, repo: p.repoName, ref: p.contextRef}
+	res, catalogErr := resolveSkillCatalog(src, p.centralCfg, p.cfg, p.reviewLanguage)
+	if catalogErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", catalogErr)
+		return 1, true
+	}
+	printWarnings(stderr, res.shadowed)
+	// The listing read at the base ref is the resolution's: a skill a layer
+	// above shadowed never comes back through it (AC-003), here or in
+	// resolveSkills.
+	p.cfg = res.repositoryConfig(p.cfg)
 	providers, contextErr := loadPullRequestContext(p.ctx, p.client, p.owner, p.repoName, p.cfg, p.contextRef)
 	if contextErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: loading repository review context: %v\n", contextErr)
@@ -76,16 +87,7 @@ func (p *prReview) wrapContext() (int, bool) {
 		providers = append(config.ConfiguredProviders(p.opts.policyDir, p.centralCfg), providers...)
 	}
 	providers = append(providers, mcpContextProviders(trustedMCPSources(p.cfg, strings.TrimSpace(p.env().baseSHA) != "", p.centralCfg), p.filter)...)
-	var policySkills skills.Source
-	if p.centralCfg != nil {
-		policySkills = localSkillSource(p.opts.policyDir, "policy")
-	}
-	catalog, catalogErr := resolveSkillCatalog(policySkills, remoteSkillSource{ctx: p.ctx, client: p.client, owner: p.owner, repo: p.repoName, ref: p.contextRef})
-	if catalogErr != nil {
-		fmt.Fprintf(stderr, "aurumcode review: %v\n", catalogErr)
-		return 1, true
-	}
-	excludeListedSkills(catalog, p.centralCfg, p.cfg)
+	catalog := res.catalog
 	p.skillCatalog = catalog
 	p.skillNotices = skillSelectionNotices(catalog, diffPaths(p.diff), p.filter)
 	providers = append(providers, catalog)
@@ -94,17 +96,17 @@ func (p *prReview) wrapContext() (int, bool) {
 }
 
 // resolveSkills builds the dynamic, skill-section rule set this run accepts
-// citations against (AUR-519): policy skills read locally, repo skills read
-// at the trusted base ref, never the pull request's own head.
+// citations against (AUR-519): policy and standards skills read locally,
+// repo skills read at the trusted base ref, never the pull request's own
+// head.
 func (p *prReview) resolveSkills() (int, bool) {
-	policySkillRules := map[string]review.Rule{}
-	if p.centralCfg != nil {
-		policySkillRules = dynamicRulesFromLocalSkills(p.opts.policyDir, p.centralCfg.Review.Context.Skills, gateOriginPolicy)
-	}
-	repoSkillRules := dynamicRulesFromRemoteSkills(p.ctx, p.client, p.owner, p.repoName, p.cfg.Review.Context.Skills, p.contextRef, gateOriginRepo)
 	// The skill directories the catalog read at the same trusted ref.
-	catalogPolicy, catalogRepo := dynamicRulesFromCatalog(p.skillCatalog, diffPaths(p.diff))
-	p.dynamicRules = mergeDynamicRules(unionRules(policySkillRules, catalogPolicy), unionRules(repoSkillRules, catalogRepo))
+	layered := dynamicRulesFromCatalog(p.skillCatalog, diffPaths(p.diff), p.centralCfg != nil)
+	if p.centralCfg != nil {
+		layered[config.LayerPolicy] = unionRules(dynamicRulesFromLocalSkills(p.opts.policyDir, p.centralCfg.Review.Context.Skills, gateOriginPolicy), layered[config.LayerPolicy])
+	}
+	layered[config.LayerRepository] = unionRules(dynamicRulesFromRemoteSkills(p.ctx, p.client, p.owner, p.repoName, p.cfg.Review.Context.Skills, p.contextRef, gateOriginRepo), layered[config.LayerRepository])
+	p.dynamicRules, p.standardsRuleIDs = layered.merged(), layered.wonBy(config.LayerStandards)
 	p.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, p.dynamicRules)
 	p.ruleCatalogDigest = ruleCatalogCacheDigest(p.ruleCatalogIDs, p.dynamicRules)
 	return 0, false

@@ -37,6 +37,9 @@ type complianceArtifactInputs struct {
 	// means no policy was declared this run, exactly as elsewhere.
 	policyDir  string
 	centralCfg *config.Config
+	// standards is the engineering standards layer's audit entry
+	// (AUR-613); nil when no layer was declared.
+	standards *render.AuditStandards
 
 	repo        string
 	reviewedSHA string
@@ -161,6 +164,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.ProposedExceptions = in.proposedExceptions
 	rec.Deliberation = in.deliberation
 	rec.Batches = in.batches
+	rec.Standards = in.standards
 	rec.StampToolVersion(toolVersion())
 	if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
 		return err

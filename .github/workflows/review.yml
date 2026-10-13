@@ -63,6 +63,16 @@ on:
         required: false
         type: string
         default: ''
+      standards_repository:
+        description: Optional owner/repo of an engineering standards layer (AUR-613), below the central policy and above the reviewed repository. When set, this workflow checks it out itself (read-only, no credentials persisted) into .aurumcode-standards and passes it as --padroes. The layer contributes skills (.aurumcode/skills/<name>/SKILL.md) and analysts (.aurumcode/profiles.yml) only; a config.yml in it that declares any section fails the review. Empty keeps today's behavior.
+        required: false
+        type: string
+        default: ''
+      standards_ref:
+        description: Branch, tag or SHA of standards_repository to check out (pin a SHA). Empty checks out that repository's default branch. Ignored when standards_repository is empty.
+        required: false
+        type: string
+        default: ''
     secrets:
       LLM_API_KEY:
         description: API key for the configured OpenAI-compatible service.
@@ -90,6 +100,9 @@ on:
         required: false
       AURUMCODE_POLICY_TOKEN:
         description: Optional token that reads a private or internal policy_repository (contents:read on that repository only). Empty uses github.token, which reads a public policy repository.
+        required: false
+      AURUMCODE_STANDARDS_TOKEN:
+        description: Optional token that reads a private or internal standards_repository (contents:read on that repository only). Empty uses github.token, which reads a public standards repository.
         required: false
 
 jobs:
@@ -220,6 +233,25 @@ jobs:
           # repository only) reads it. Empty keeps github.token, which reads
           # a public policy repository.
           token: ${{ secrets.AURUMCODE_POLICY_TOKEN || github.token }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      # AUR-613: the engineering standards layer, checked out exactly like
+      # the policy -- read-only, no credentials persisted, outside the
+      # reviewed head's checkout.
+      - name: Checkout engineering standards
+        if: ${{ inputs.standards_repository != '' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.standards_repository }}
+          ref: ${{ inputs.standards_ref }}
+          path: .aurumcode-standards
+          # A private or internal standards repository is not readable with
+          # this repository's github.token: AURUMCODE_STANDARDS_TOKEN (a
+          # fine-grained token or GitHub App token with contents:read on the
+          # standards repository only) reads it. Empty keeps github.token,
+          # which reads a public standards repository.
+          token: ${{ secrets.AURUMCODE_STANDARDS_TOKEN || github.token }}
           persist-credentials: false
           fetch-depth: 1
 
@@ -401,6 +433,10 @@ jobs:
           SECURITY: ${{ inputs.security }}
           CHANGELOG: ${{ inputs.changelog }}
           POLICY_REPOSITORY: ${{ inputs.policy_repository }}
+          # AUR-613: where the standards layer came from, recorded by the
+          # audit record when the layer is applied.
+          AURUMCODE_STANDARDS_REPOSITORY: ${{ inputs.standards_repository }}
+          AURUMCODE_STANDARDS_REF: ${{ inputs.standards_ref }}
           # AUR-555: optional Dependency-Track credentials, exposed ONLY to
           # this step (the one that runs the ssor_dtrack gate). The names
           # match the default api_key_secret/project_id_secret of
@@ -435,6 +471,12 @@ jobs:
           fi
           if [ -n "${policy_dir}" ]; then
             args+=(--politica /github/policy)
+          fi
+          # AUR-613: standards_repository, checked out above into
+          # .aurumcode-standards, is the engineering standards layer. Unset
+          # keeps today's behavior unchanged -- no --padroes, no mount.
+          if [ -n "${AURUMCODE_STANDARDS_REPOSITORY}" ]; then
+            args+=(--padroes /github/standards)
           fi
           # AUR-521: the compliance audit record and SARIF document, always
           # written by this reusable workflow (the org's required policy
@@ -488,6 +530,10 @@ jobs:
           )
           if [ -n "${policy_dir}" ]; then
             docker_args+=(-v "${GITHUB_WORKSPACE}/${policy_dir}:/github/policy:ro")
+          fi
+          if [ -n "${AURUMCODE_STANDARDS_REPOSITORY}" ]; then
+            docker_args+=(-v "${GITHUB_WORKSPACE}/.aurumcode-standards:/github/standards:ro"
+              -e AURUMCODE_STANDARDS_REPOSITORY -e AURUMCODE_STANDARDS_REF)
           fi
           docker_args+=(aurumcode-review "${args[@]}")
           review_rc=0

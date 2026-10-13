@@ -68,8 +68,11 @@ func (s *reviewState) securityApart() []types.ReviewIssue {
 // (AUR-524 v2) -- the model's, the static analysis' and the security
 // pass's, the same set on every source -- immediately before this run's
 // own rule config filters/overrides them, so a stored verdict can be
-// re-evaluated against a later run's rule config.
+// re-evaluated against a later run's rule config. A finding that cites a
+// rule of the engineering standards layer is attributed first, so a
+// reused verdict keeps naming the layer.
 func (s *reviewState) snapshotAndApplyRules() {
+	s.result.Issues = attributeLayerFindings(s.result.Issues, s.standardsRuleIDs, config.Layers[config.LayerStandards], s.reviewLanguage)
 	s.rawIssues = append(append([]types.ReviewIssue(nil), s.result.Issues...), s.securityApart()...)
 	s.result.Issues = config.ApplyRuleConfig(s.result.Issues, s.cfg)
 	if !s.source.SecurityInIssues {
@@ -96,6 +99,7 @@ func (s *reviewState) writeArtifacts() []artifactFailure {
 		sarifPath:              s.sarifPath,
 		policyDir:              s.policyDir,
 		centralCfg:             s.centralCfg,
+		standards:              s.standards.audit(),
 		repo:                   s.artifactRepo,
 		reviewedSHA:            s.artifactCommit,
 		model:                  firstNonEmpty(s.modelFlag, s.env().llmModel),

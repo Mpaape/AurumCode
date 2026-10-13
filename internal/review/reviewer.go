@@ -30,9 +30,7 @@ import (
 // missing or unknown. enforceRuleCitations below keeps that enrichment and
 // adds the rejection: every issue GenerateReview returns cites a rule of
 // the project review standard that sustains it, and an issue that cannot
-// never reaches the caller. iso25010 scoring remains out of scope here (it
-// belongs to another card), so this Reviewer still has no iso25010
-// dependency.
+// never reaches the caller.
 type Reviewer struct {
 	completer     Completer
 	diffAnalyzer  *analyzer.DiffAnalyzer

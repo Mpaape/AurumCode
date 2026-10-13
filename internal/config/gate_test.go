@@ -21,9 +21,10 @@ func TestAUR519GateConfigThreshold(t *testing.T) {
 	}
 }
 
-// TestAUR519GateConfigInconclusive proves gate.inconclusive accepts the
-// documented block/warn values (and their Portuguese aliases), defaults to
-// "" (no opt-in) when absent, and rejects anything else.
+// TestAUR519GateConfigInconclusive proves resolveInconclusive accepts the
+// documented block/warn values (and their Portuguese aliases), resolves an
+// absent value to the fallback the caller passes (a declared gate passes
+// block, GateConfig.InconclusiveMode) and rejects anything else.
 func TestAUR519GateConfigInconclusive(t *testing.T) {
 	cases := map[string]string{"": "fallback", "block": "block", "bloquear": "block", "warn": "warn", "alertar": "warn"}
 	for in, want := range cases {

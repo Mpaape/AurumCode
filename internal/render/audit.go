@@ -70,6 +70,21 @@ type AuditRecord struct {
 	// the review workflow). Absent for a dev build, so the record of a
 	// build with no stamped version keeps its bytes (StampToolVersion).
 	ToolVersion string `json:"tool_version,omitempty"`
+	// Standards (AUR-613) is the engineering standards layer this run
+	// applied: where it came from and the digest of its content. Absent
+	// when no layer was declared, so a run without one keeps its bytes.
+	Standards *AuditStandards `json:"standards,omitempty"`
+}
+
+// AuditStandards identifies the engineering standards layer of one run.
+// Source is the repository the reusable workflow checked the layer out
+// from (owner/repo), or "local" for a directory given on the command line;
+// Ref is the workflow's standards_ref when it named one; Digest is the
+// layer's content digest (config.LayerDir.Digest).
+type AuditStandards struct {
+	Source string `json:"source"`
+	Ref    string `json:"ref,omitempty"`
+	Digest string `json:"digest"`
 }
 
 // StampToolVersion records the binary's version on rec, only when the build
@@ -177,6 +192,13 @@ func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
 	rec.Verdict = filter.Redact(rec.Verdict)
 	rec.Gate.Decision = filter.Redact(rec.Gate.Decision)
 	rec.Gate.Reason = filter.Redact(rec.Gate.Reason)
+	if rec.Standards != nil {
+		rec.Standards = &AuditStandards{
+			Source: filter.Redact(rec.Standards.Source),
+			Ref:    filter.Redact(rec.Standards.Ref),
+			Digest: filter.Redact(rec.Standards.Digest),
+		}
+	}
 	if rec.AnalysisData != nil {
 		ad := AnalysisDataAudit{
 			Digest:      filter.Redact(rec.AnalysisData.Digest),

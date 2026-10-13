@@ -49,14 +49,21 @@ ac001() {
   rd="$(flat "$root" docs/README.md)"
   dz="$(flat "$root" demo/do-zero/README.md)"
 
-  # 1. camada 2: padrões de engenharia centrais não são nativos.
-  has F01 "$gc" '### Padrões de engenharia centrais (hoje)'
-  has F01 "$gc" 'O workflow aceita um policy_repository. Não existe um segundo repositório de política'
-  has F01 "$gc" 'nem sincronização automática de skills entre repositórios'
-  has F01 "$gc" 'a política não governa review.profiles'
+  # 1. camada 2: padrões de engenharia centrais são nativos (AUR-613:
+  # standards_repository, skills e analistas, nunca gate/ignore/exceções);
+  # o caminho por pasta no repositório da política segue como alternativa.
+  has F01 "$gc" '### Padrões de engenharia centrais'
+  has F01 "$gc" 'O workflow aceita dois repositórios centrais: policy_repository, da segurança, e standards_repository, da engenharia'
+  has F01 "$gc" 'contribui só duas coisas: skills'
+  has F01 "$gc" 'Ela nunca declara gate, ignore, exceções, regras, scanners ou publicação'
+  has F01 "$gc" 'standards_repository: SuaOrg/devops-policy'
+  has F01 "$gc" 'AURUMCODE_STANDARDS_TOKEN'
+  has F01 "$gc" 'Continua valendo, como alternativa, o caminho por pasta no repositório da política'
   has F01 "$gc" 'skills/padroes/'
   has F01 "$gc" 'CODEOWNERS'
-  has F01 "$gc" 'Copie as skills do time para .aurumcode/skills/ de cada repositório'
+  lacks F01 "$gc" 'Padrões de engenharia centrais (hoje)'
+  lacks F01 "$gc" 'Não existe um segundo repositório de política'
+  lacks F01 "$gc" 'nem sincronização automática de skills entre repositórios'
 
   # 2. tabela de precedência: gate sempre da política; seções novas.
   has F02 "$pc" '| rules, ignore, gate, exceptions | sempre a política, declare ou não |'

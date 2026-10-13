@@ -22,6 +22,7 @@ import (
 type reviewFlags struct {
 	base, failOn, modelo, repo, modoPublicacao, limite string
 	perfis, perfil, politica, policy, auditoria, sarif string
+	padroes, standards                                 string
 	seguranca, publicar, naLinha, check                bool
 	exigirQualidade, changelog                         bool
 	pr                                                 int
@@ -56,6 +57,8 @@ func declareReviewFlags() (*flag.FlagSet, *reviewFlags) {
 	fs.StringVar(&f.perfil, "profile", "", "alias of --perfis for a single reviewer profile (AUR-502)")
 	fs.StringVar(&f.politica, "politica", "", "directory containing a central policy's .aurumcode/config.yml (the directory that HOLDS .aurumcode/, same convention as a repository's own config.yml/skills); its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own (AUR-518; default: the AURUMCODE_POLICY environment variable, otherwise no policy)")
 	fs.StringVar(&f.policy, "policy", "", "alias of --politica")
+	fs.StringVar(&f.padroes, "padroes", "", "directory that HOLDS an engineering standards layer's .aurumcode/, outside the reviewed tree. The layer adds skills (.aurumcode/skills/<name>/SKILL.md) and analysts (.aurumcode/profiles.yml), ranked below the central policy and above this repository; its config.yml, when present, must be empty (AUR-613; default: the AURUMCODE_STANDARDS environment variable, otherwise no layer)")
+	fs.StringVar(&f.standards, "standards", "", "alias of --padroes")
 	fs.StringVar(&f.auditoria, "auditoria", "", "path to write AUR-521's compliance audit record (JSON) for this run: policy digest, workflow/reviewed SHA, model, verdict, gate decision, blocking findings, exceptions applied and coverage (default: no audit record written)")
 	fs.StringVar(&f.sarif, "sarif", "", "path to write AUR-521's SARIF 2.1.0 document for this run, for a workflow to upload to GitHub code scanning (default: no SARIF written)")
 	return fs, f
@@ -96,7 +99,7 @@ func (f *reviewFlags) resolvePolicyDir(stderr io.Writer) (dir string, exit int, 
 }
 
 // prOptions maps the flags onto the --pr path's options.
-func (f *reviewFlags) prOptions(policyDir string) prReviewOptions {
+func (f *reviewFlags) prOptions(policyDir, standardsDir string) prReviewOptions {
 	return prReviewOptions{
 		prNumber:        f.pr,
 		repo:            f.repo,
@@ -115,6 +118,7 @@ func (f *reviewFlags) prOptions(policyDir string) prReviewOptions {
 		changelog:       f.changelog,
 		exigirQualidade: f.exigirQualidade,
 		policyDir:       policyDir,
+		standardsDir:    standardsDir,
 		auditoriaPath:   f.auditoria,
 		sarifPath:       f.sarif,
 	}
@@ -168,6 +172,10 @@ func runReviewWith(rio reviewIO, args []string) int {
 	if !ok {
 		return exit
 	}
+	standardsDir, exit, ok := f.resolveStandardsDir(stderr)
+	if !ok {
+		return exit
+	}
 	if f.given["pr"] {
 		// AUR-502: --perfis selects the --base passes only; refused loudly
 		// with --pr as a usage error.
@@ -175,9 +183,9 @@ func runReviewWith(rio reviewIO, args []string) int {
 			fmt.Fprintln(stderr, "aurumcode review: --perfis/--profile are not supported with --pr (they select the --base review passes only)")
 			return 2
 		}
-		return runPRReview(rio, f.prOptions(policyDir))
+		return runPRReview(rio, f.prOptions(policyDir, standardsDir))
 	}
-	b := newBaseReview(rio, f, policyDir)
+	b := newBaseReview(rio, f, policyDir, standardsDir)
 	defer b.flush()
 	return session.Run(b)
 }
@@ -185,8 +193,9 @@ func runReviewWith(rio reviewIO, args []string) int {
 // newBaseReview is the one constructor of a --base session: the review
 // command and the agent server (cmd_mcp.go) both start their local review
 // here and run it with session.Run.
-func newBaseReview(rio reviewIO, f *reviewFlags, policyDir string) *baseReview {
+func newBaseReview(rio reviewIO, f *reviewFlags, policyDir, standardsDir string) *baseReview {
 	b := &baseReview{reviewState: newReviewState(session.LocalDiff, rio), f: f}
+	b.standardsDir = standardsDir
 	b.policyDir, b.modelFlag, b.seguranca, b.exigirQualidade = policyDir, f.modelo, f.seguranca, f.exigirQualidade
 	b.auditoriaPath, b.sarifPath = f.auditoria, f.sarif
 	b.artifactRepo, b.artifactCommit = b.env().repository, b.env().githubSHA
