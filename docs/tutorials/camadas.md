@@ -357,7 +357,7 @@ aurumcode review --base main --padroes /standards
 
 <!-- saida: padroes-com-gate -->
 ```text
-aurumcode review: padrões de engenharia: /standards/.aurumcode/config.yml declara as seções "gate"; a camada de padrões não aceita seção nenhuma no config.yml (apague o arquivo ou deixe só comentários): ela contribui apenas skills em .aurumcode/skills/<nome>/SKILL.md e analistas em .aurumcode/profiles.yml; qualquer seção pertence à política de segurança ou ao repositório
+aurumcode review: padrões de engenharia: /standards/.aurumcode/config.yml declara as seções "gate"; a camada de padrões de engenharia não aceita seção nenhuma no config.yml (apague o arquivo ou deixe só comentários): ela contribui apenas skills em .aurumcode/skills/<nome>/SKILL.md e analistas em .aurumcode/profiles.yml; qualquer seção pertence à política de segurança ou ao repositório
 exit_code=1
 RESULTADO: a camada de padroes com gate e recusada antes de qualquer chamada ao modelo
 ```
