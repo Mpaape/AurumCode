@@ -18,6 +18,8 @@ ignore:
   - "demo/gate-corporativo/expected/**"
   - "demo/do-zero/out/**"       # evidencia gravada do roteiro (contem a chave de proposito do defeito)
   - "demo/do-zero/expected/**"
+  - ".board/**"             # estado do board: validado por .board/pipeline.sh, nao e produto
+  - "docs/specs/**"          # historico de cada card, por desenho
   - "docs/site/**"          # pagina estatica antiga com saidas embutidas; nao e codigo
 gate:
   fail_on: [error]      # achado error (modelo, skill ou scanner) reprova
@@ -38,3 +40,6 @@ deliberation:
 # CHANGELOG.md; o check "Changelog obrigatório" le este modo da base (AUR-509).
 changelog_check:
   mode: required
+batches:
+  max_batches: 8             # lote dev -> main grande: nenhum arquivo fica fora por teto
+  max_prompt_tokens: 1500000
