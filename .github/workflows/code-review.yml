@@ -31,11 +31,16 @@ jobs:
     with:
       model: ${{ vars.LLM_MODEL }}
       provider: ${{ vars.LLM_PROVIDER }}
+      # Reserva: tentada so quando o provedor principal falha (docs/provedores.md).
+      fallback_1_provider: ${{ vars.LLM_FALLBACK_1_PROVIDER }}
+      fallback_1_model: ${{ vars.LLM_FALLBACK_1_MODEL }}
       security: true
     # So o que o review usa (menor privilegio), nunca secrets: inherit.
     secrets:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_FALLBACK_1_API_KEY: ${{ secrets.LLM_FALLBACK_1_API_KEY }}
+      LLM_FALLBACK_1_BASE_URL: ${{ secrets.LLM_FALLBACK_1_BASE_URL }}
 
   # SARIF na aba Security (Code scanning) deste repositorio: o reutilizavel
   # so anexa o arquivo como artefato, porque enviar ao Code scanning exige
