@@ -43,7 +43,7 @@ func (b *baseReview) runQualityPass() (int, bool) {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
 		return 2, true
 	}
-	b.prepareDeliberation(orchestrator, toolsCapable(orchestrator, b.profilesApplied), reviewer)
+	b.prepareDeliberation(orchestrator, reviewer, len(analystsOf(b.profileRes)))
 	qc := b.prepareCache()
 	// A diff with no files at all is the pre-existing "nothing changed"
 	// edge case and is still sent; only a genuine full cache hit skips the
@@ -89,9 +89,10 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 	})
 	var err error
 	if b.profilesApplied {
-		// AUR-519: every profile's Reviewer accepts the same dynamic rules
-		// and expanded catalog as the single-reviewer path.
-		b.result, err = runProfilePasses(b.ctx, b.provider, b.tracker, b.profileRes.Profiles, qc.toSend, reviewCtx, b.dynamicRules, b.ruleCatalogIDs)
+		// Every analyst's reviewer accepts the same dynamic rules and
+		// expanded catalog as the single reviewer, and deliberates with
+		// the same tools from the review's shared budget.
+		b.result, b.transcript, err = runProfilePasses(b.ctx, b.analystPasses(analystsOf(b.profileRes)), qc.toSend, reviewCtx)
 	} else {
 		b.result, err = reviewer.GenerateReviewWithContext(b.ctx, qc.toSend, reviewCtx)
 		b.transcript = reviewer.Transcript()

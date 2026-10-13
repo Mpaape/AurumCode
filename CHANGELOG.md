@@ -6,6 +6,7 @@
 - Camada de padrões de engenharia: segundo repositório central (`--padroes`, `standards_repository` no workflow) com skills e analistas abaixo da política; `config.yml` com seção é recusado; parecer e auditoria nomeiam a camada (AUR-613).
 - Dados de análise publicados como pre-release e cópias com mais de 7 dias apagadas pelo workflow diário (mínimo 3 mantidas; inputs `retention_days`/`keep_at_least`; só `analysis-data/*`); a doc explica a lista de Releases (AUR-618).
 - Publicação recusada por permissão (401/403): o diagnóstico nomeia a permissão que o token precisa (`pull-requests: write` ou `statuses: write`) e onde declará-la; a fixture da correção do QA traz entrada de changelog (AUR-619).
+- Analistas (`--perfis`/`review.profiles`) deliberam com as mesmas ferramentas da passada única, num teto somado por revisão; o terminal diz o motivo real quando nada é oferecido e a auditoria registra as rodadas por analista (AUR-616).
 - QA no consumidor alinhado ao parecer atual: idioma lido do título do parecer (não há mais "Veredito"); o cenário de comentário na linha exige o comentário do achado bloqueante e mede, sem exigir, a sugestão aplicável (AUR-512).
 - QA no consumidor: a segunda rodada de um cenário espera a nova tentativa do mesmo run (`gh run rerun` mantém o id) em vez de procurar um run novo e cair num id vazio (AUR-512).
 - Comentários e docs de pacote alinhados ao código atual (sem funções, arquivos ou pacotes que não existem mais); tutoriais de gate e revisão com o padrão `model` da triagem; `.gitignore` sem restos de Jekyll.

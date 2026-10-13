@@ -1453,7 +1453,7 @@ consumidor.
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
 | `changelog_check.bots` | Modo para PR aberta por bot (Dependabot, Renovate): `off`, `suggest` ou `required`; só rebaixa `mode`, nunca eleva | `suggest` |
-| `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
+| `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo, pede as ferramentas da deliberação dentro do teto somado da revisão, e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
@@ -1785,11 +1785,42 @@ ou veredito; rebaixar é papel de exceção da segurança. Até 5 explicações 
 revisão; sem provedor com ferramentas ou checkout verificado, o parecer diz
 que não há explicação.
 
-Sem provedor capaz de chamar ferramentas, ou com perfis de revisão, nada é
-oferecido e os scanners `required: false` rodam antes do modelo, como sem
-`deliberation`. Sob política central, uma seção `deliberation` da política
+Sem provedor capaz de chamar ferramentas nada é oferecido e os scanners
+`required: false` rodam antes do modelo, como sem `deliberation`; o terminal
+diz o motivo real, no idioma da revisão: o provedor pelo nome
+(`deliberation: o provedor <nome> não chama ferramentas; ...`) ou, quando há
+analistas e a seção está desligada, a chave da configuração
+(`deliberation: desligada na configuração (deliberation.enabled: false); ...`).
+Sob política central, uma seção `deliberation` da política
 decide sozinha (a do repositório é ignorada com aviso); uma política sem a
 seção mantém a do repositório. Tutorial: [Deliberação com ferramentas](tutorials/deliberacao.md).
+
+### Analistas com as mesmas ferramentas
+
+Com analistas selecionados (`review.profiles` ou `--perfis`), cada passada de
+analista recebe as mesmas ferramentas da passada única e decide sozinha o que
+pedir; os achados continuam com o rótulo do analista. O teto é da revisão,
+não de cada analista: as rodadas que pedem ferramenta somam `max_rounds - 1`
+entre todos os analistas (cada um sempre faz a sua resposta final, que não
+conta nesse total) e os tokens de deliberação de todas as passadas somam
+`max_cost_tokens`. Selecionar analistas nunca multiplica o custo além do
+teto. Um analista que começa depois de as rodadas com ferramenta acabarem é
+avisado no terminal (`deliberation: analista <nome> sem ferramentas: as
+rodadas com ferramenta da revisão (max_rounds) já foram gastas ...`) e
+responde com a evidência já reunida pelos anteriores; um analista cuja
+passada estoura o teto somado de tokens torna a revisão inconclusiva com
+`deliberation_limit:max_cost_tokens`, exatamente como na passada única.
+`per_tool_timeout_seconds` continua valendo por execução de ferramenta, igual
+para todos. Um scanner pedido por mais de um analista, ou mais de uma vez na
+mesma conversa, roda uma só vez na revisão e responde a todos com o mesmo
+resultado.
+
+O stderr mostra, além da linha da revisão, uma linha por analista
+(`deliberation: analista <nome>: rodadas N; pedidas [...]; desfecho ...`) e
+cada chamada com o analista que a fez. A auditoria registra em
+`deliberation.analysts` o nome, as rodadas, os tokens de deliberação, as
+ferramentas pedidas, o desfecho e o limite de cada analista, e cada entrada
+de `deliberation.calls` leva o campo `analyst`. Sem analistas nada muda.
 
 ## Status do CI no parecer
 

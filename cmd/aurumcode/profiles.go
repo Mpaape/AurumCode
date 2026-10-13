@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/deliberation"
 	"github.com/Mpaape/AurumCode/internal/llm"
-	"github.com/Mpaape/AurumCode/internal/llm/cost"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/reviewprofile"
@@ -86,34 +86,29 @@ func (p profileProvider) CallTimeout(each time.Duration) time.Duration {
 	return each
 }
 
-// runProfilePasses runs the quality review once per selected profile and
-// merges the findings deterministically. Each finding is attributed to the
-// profile whose pass produced it; a finding two profiles agree on is reported
-// once, attributed to the earliest profile in declaration order. The shared
-// tracker (when configured) meters the combined spend, so adding a profile can
-// never raise the cost ceiling.
-// dynamicRules and ruleCatalogIDs are AUR-519's per-run skill-section rule
-// set and expanded prompt catalog (cmd/aurumcode/policygate.go). Each
-// profile gets its OWN Reviewer (a fresh model pass per profile), so each
-// one must be taught the catalog and accept the same dynamic rules
-// independently -- selecting --perfis must never quietly narrow the gate
-// back to the embedded catalog alone. Without this, a policy skill-section
-// finding is discarded as an unknown rule_id before the gate ever sees it,
-// which is "approved with a defect present" -- never a safe default.
-func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.Tracker, profiles []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext, dynamicRules map[string]review.Rule, ruleCatalogIDs []string) (*types.ReviewResult, error) {
+// runProfilePasses runs the quality review once per selected analyst
+// (passes.reviewer: a fresh model pass each, the shared cost tracker, the
+// same catalog and dynamic rules as the single reviewer, and the review's
+// deliberation when tools are offered) and merges the findings
+// deterministically. Each finding is attributed to the analyst whose pass
+// produced it; a finding two analysts agree on is reported once, attributed
+// to the earliest in declaration order. The transcript is every pass's
+// deliberation merged and attributed (deliberation.Merge), returned beside
+// an error too, so a pass stopped by a limit is still in the audit.
+func runProfilePasses(ctx context.Context, passes analystPasses, diff *types.Diff, reviewContext review.ReviewContext) (*types.ReviewResult, *deliberation.Transcript, error) {
 	merged := &types.ReviewResult{}
 	var findings []reviewprofile.Finding
 	var originals []types.ReviewIssue
-	for _, p := range profiles {
-		orchestrator := llm.NewOrchestrator(newProfileProvider(provider, p), nil, tracker)
-		reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
-		reviewer.SetDynamicRules(dynamicRules)
-		if err := reviewer.SetRuleCatalog(ruleCatalogIDs); err != nil {
-			return nil, err
+	var transcripts []*deliberation.Transcript
+	for _, p := range passes.profiles {
+		reviewer, err := passes.reviewer(p)
+		if err != nil {
+			return nil, deliberation.Merge(transcripts...), err
 		}
 		res, err := reviewer.GenerateReviewWithContext(ctx, diff, reviewContext)
+		transcripts = append(transcripts, transcriptOf(reviewer, p))
 		if err != nil {
-			return nil, err
+			return nil, deliberation.Merge(transcripts...), err
 		}
 		for _, issue := range res.Issues {
 			findings = append(findings, profileFinding(p.Name, len(originals), issue))
@@ -161,7 +156,7 @@ func runProfilePasses(ctx context.Context, provider llm.Provider, tracker *cost.
 		merged.Metadata = mergeWorstCaseCoverage(merged.Metadata, res.Metadata)
 	}
 	merged.Issues = attributedIssues(reviewprofile.MergeFindings(findings), originals, reviewContext.Language)
-	return merged, nil
+	return merged, deliberation.Merge(transcripts...), nil
 }
 
 // mergeWorstCaseCoverage folds one profile pass's AUR-476 coverage counts

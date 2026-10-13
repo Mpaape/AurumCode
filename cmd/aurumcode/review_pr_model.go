@@ -136,7 +136,7 @@ func (p *prReview) buildReviewer() (int, bool) {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)
 		return 2, true
 	}
-	p.prepareDeliberation(orchestrator, toolsCapable(orchestrator, p.profilesApplied()), p.reviewer)
+	p.prepareDeliberation(orchestrator, p.reviewer, len(analystsOf(p.profileRes)))
 	p.history, p.historyEntries, p.historyErr = pullRequestHistoryContext(p.ctx, p.client, p.owner, p.repoName, p.prNumber,
 		p.env().githubSHA, p.env().baseSHA, p.filter)
 	if p.historyErr != nil {

@@ -3,7 +3,6 @@ package deliberation
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -23,6 +22,11 @@ type Session struct {
 	Tools   []Tool
 	Limits  Limits
 	Options llm.Options
+	// Shared, when set, is the review's Budget this session draws from
+	// beside the review's other sessions (one per analyst): tool rounds and
+	// cost are then summed over the sessions instead of bounded by Limits
+	// alone. nil keeps Limits for this session alone.
+	Shared *Budget
 	// Redact is applied to every argument recorded in the transcript and to
 	// every tool result before it is sent to the model. nil keeps the text.
 	Redact func(string) string
@@ -42,6 +46,8 @@ type Outcome struct {
 // limit is exceeded. Exceeding MaxRounds, MaxCostTokens or PerToolTimeout
 // returns a *LimitError and no answer. MaxCostTokens bounds the
 // deliberation's own cost (Transcript.CostTokens), never the base prompt.
+// With Shared set, the rounds that ask for a tool and the cost are the
+// review's (ledger.go): the session answers when the budget is spent.
 func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, error) {
 	if err := s.Limits.Validate(); err != nil {
 		return Outcome{}, err
@@ -49,19 +55,23 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 	tools, specs := s.index()
 	out := Outcome{Transcript: Transcript{Offered: specNames(specs), Calls: []Call{}}}
 	conversation := append([]llm.Message(nil), messages...)
+	ledger := s.ledger()
 	// last is the latest round's reply. Text that came beside tool calls is
 	// never an answer: only a round without calls ends the conversation.
 	var last llm.ToolResponse
+	askedWithoutTools := false
 	for round := 1; ; round++ {
-		if round > s.Limits.MaxRounds {
-			return s.stop(out, &LimitError{Limit: LimitMaxRounds, Detail: fmt.Sprintf("%d rodadas sem resposta final", s.Limits.MaxRounds)})
+		if limit := ledger.exceeded(round, askedWithoutTools); limit != nil {
+			return s.stop(out, limit)
 		}
 		roundSpecs := specs
-		if round == s.Limits.MaxRounds && round > 1 {
-			// The last allowed round offers no tool and asks for the review
-			// with the evidence already gathered: a model that keeps asking
-			// for context would otherwise spend every round and publish
-			// nothing. A tool call here still ends at the limit below.
+		if !ledger.offersTools(round) {
+			// A round that offers no tool (the last allowed one, or any
+			// round after the review's tool rounds are spent) asks for the
+			// review with the evidence already gathered: a model that keeps
+			// asking for context would otherwise spend every round and
+			// publish nothing. A tool call here still ends at the limit
+			// above.
 			roundSpecs = nil
 			conversation = append(conversation, llm.Message{Role: llm.RoleUser, Content: finalRoundInstruction})
 		}
@@ -71,12 +81,13 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 		}
 		last = resp
 		out.Transcript.count(resp)
-		if used := out.Transcript.CostTokens; used > s.Limits.MaxCostTokens {
-			return s.stop(out, &LimitError{Limit: LimitMaxCostTokens, Detail: fmt.Sprintf("%d tokens de deliberacao alem do prompt base de %d, teto %d", used, out.Transcript.BaseTokens, s.Limits.MaxCostTokens)})
+		if limit := ledger.charge(&out.Transcript, roundSpecs != nil && len(resp.ToolCalls) > 0); limit != nil {
+			return s.stop(out, limit)
 		}
 		if len(resp.ToolCalls) > 0 && roundSpecs == nil {
 			// Still asking with no tool offered: the next iteration is past
-			// MaxRounds and stops at the single limit above.
+			// the rounds and stops at the limit above.
+			askedWithoutTools = true
 			continue
 		}
 		if len(resp.ToolCalls) == 0 {

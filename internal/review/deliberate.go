@@ -22,6 +22,11 @@ type Deliberation struct {
 	// a nil result means none. A hit limit discards the answer exactly like
 	// a limit of the conversation: the review is partial, never a verdict.
 	Partial func() *deliberation.LimitError
+	// Budget, when set, is the review's deliberation budget this reviewer
+	// shares with the review's other passes (one per analyst): tool rounds
+	// and cost are summed over them. nil keeps Limits for this reviewer
+	// alone.
+	Budget *deliberation.Budget
 }
 
 // reviewAnswerSchemaName names the answer schema sent to the provider.
@@ -50,6 +55,7 @@ func (r *Reviewer) answer(ctx context.Context, parts prompt.PromptParts) (llm.Re
 		Caller: d.Caller,
 		Tools:  d.Tools,
 		Limits: d.Limits,
+		Shared: d.Budget,
 		Options: llm.Options{
 			MaxTokens:          r.replyCap(),
 			Temperature:        r.cfg.Temperature,

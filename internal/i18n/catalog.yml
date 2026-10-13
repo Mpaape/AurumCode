@@ -320,6 +320,11 @@ pt-BR:
   review.headline_approved_unproven: "Aprovado: nenhum problema comprovado na mudança revisada."
   terminal.publish_denied: "sem permissão para publicar: o token precisa de `%s`; declare essa permissão em `permissions:` do job que chama o workflow (%v)"
 
+  terminal.deliberation_no_tools: "deliberation: o provedor %s não chama ferramentas; os scanners opcionais rodam sem consulta ao modelo"
+  terminal.deliberation_off: "deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas"
+  terminal.deliberation_rounds_spent: "deliberation: analista %s sem ferramentas: as rodadas com ferramenta da revisão (max_rounds) já foram gastas pelos analistas anteriores"
+  terminal.deliberation_analyst: "deliberation: analista %s: rodadas %d; pedidas [%s]; desfecho %s"
+  terminal.deliberation_analyst_call: "deliberation: rodada %d, analista %s: %s(%s) %s: %s"
 en:
   review.title: "code review"
   review.verdict: "Verdict"
@@ -634,3 +639,8 @@ en:
   security.hardcoded-secret.fix: "Remove the secret from the code and read it from the environment or the CI secret store; rotate the exposed value."
   review.headline_approved_unproven: "Approved: no problem proven in the reviewed change."
   terminal.publish_denied: "permission denied: the token needs `%s`; grant it under `permissions:` of the job that calls the workflow (%v)"
+  terminal.deliberation_no_tools: "deliberation: provider %s does not call tools; the optional scanners run without consulting the model"
+  terminal.deliberation_off: "deliberation: off in the configuration (deliberation.enabled: false); the analysts review without asking for tools"
+  terminal.deliberation_rounds_spent: "deliberation: analyst %s without tools: the review's tool rounds (max_rounds) were already spent by the earlier analysts"
+  terminal.deliberation_analyst: "deliberation: analyst %s: rounds %d; requested [%s]; outcome %s"
+  terminal.deliberation_analyst_call: "deliberation: round %d, analyst %s: %s(%s) %s: %s"

@@ -48,7 +48,7 @@ func aur514Merged(t *testing.T) *types.ReviewResult {
 	t.Helper()
 	provider := &review.FakeProvider{Response: aur514Response}
 	profiles := []reviewprofile.Profile{{Name: "solid"}, {Name: "release"}}
-	merged, err := runProfilePasses(context.Background(), provider, nil, profiles, aur514Diff(), review.ReviewContext{Language: "pt-BR"}, nil, prompt.DefaultRuleCatalog)
+	merged, _, err := runProfilePasses(context.Background(), analystPasses{provider: provider, profiles: profiles, ruleCatalogIDs: prompt.DefaultRuleCatalog}, aur514Diff(), review.ReviewContext{Language: "pt-BR"})
 	if err != nil {
 		t.Fatalf("runProfilePasses: %v", err)
 	}

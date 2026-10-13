@@ -201,6 +201,9 @@ type reviewState struct {
 	scanVersions []string
 	toolManifest []prompt.ToolOffer
 	toolsOffered bool
+	// deliberation is the plan every model pass shares, nil when no tool
+	// is offered.
+	deliberation *deliberationPlan
 	transcript   *deliberation.Transcript
 	// batches are the batches of a review whose diff did not fit one
 	// prompt, nil otherwise.
