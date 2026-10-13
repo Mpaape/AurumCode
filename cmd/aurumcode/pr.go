@@ -126,7 +126,7 @@ func publishCheckStatusIn(ctx context.Context, language string, client *githubcl
 	status.Description = reviewCheckDescription(language, prNumber, grave, qualityRequiredButIncomplete, providerFailed)
 
 	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: publishing check status: %v\n", err)
+		fmt.Fprintf(stderr, "aurumcode review: publishing check status: %s\n", publishError(language, publishStatus, err))
 		return 1
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", checkContext, commitID, status.State, status.Description)

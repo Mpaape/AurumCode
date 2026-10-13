@@ -318,6 +318,7 @@ pt-BR:
   security.hardcoded-secret.description: "Segredo ou credencial escrito no código"
   security.hardcoded-secret.fix: "Tire o segredo do código e leia-o do ambiente ou do cofre de secrets do CI; revogue o valor exposto."
   review.headline_approved_unproven: "Aprovado: nenhum problema comprovado na mudança revisada."
+  terminal.publish_denied: "sem permissão para publicar: o token precisa de `%s`; declare essa permissão em `permissions:` do job que chama o workflow (%v)"
 
 en:
   review.title: "code review"
@@ -632,3 +633,4 @@ en:
   security.hardcoded-secret.description: "Hardcoded credentials or API keys detected"
   security.hardcoded-secret.fix: "Remove the secret from the code and read it from the environment or the CI secret store; rotate the exposed value."
   review.headline_approved_unproven: "Approved: no problem proven in the reviewed change."
+  terminal.publish_denied: "permission denied: the token needs `%s`; grant it under `permissions:` of the job that calls the workflow (%v)"

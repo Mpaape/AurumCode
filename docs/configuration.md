@@ -1533,6 +1533,37 @@ Política central por `AURUMCODE_POLICY`, provedor por `LLM_API_KEY` e
   `.aurumcode/config.yml` de uma política central; um caminho em
   `/github/workspace` é recusado).
 
+### Permissões do token e o que o log diz quando falta (AUR-619)
+
+O produto escreve no GitHub de duas formas, e cada uma pede uma permissão
+do token do job que chama o workflow (ou que roda a action):
+
+| O que o produto publica | Permissão no job | Quando |
+| --- | --- | --- |
+| o parecer (comentário geral), os comentários na linha, a revisão formal e a edição do parecer de uma rodada anterior | `pull-requests: write` | `publication: comments` ou `review`; comentários na linha com `inline_comments: true` |
+| os status de commit `aurumcode/review` e `aurumcode/policy-gate` | `statuses: write` | `check: true` (o segundo só quando há `gate:` declarado) |
+
+A leitura do diff, dos arquivos de contexto e do histórico da PR usa
+`contents: read` e `pull-requests: read`, já cobertas pelas permissões acima.
+Um workflow reutilizável não concede permissão que o chamador não tem, então
+a declaração fica no job que faz o `uses:` (exemplo completo em
+[docs/gate-corporativo.md](gate-corporativo.md)).
+
+Quando o GitHub recusa uma publicação por permissão (401 ou 403; para um
+token de workflow a resposta é `Resource not accessible by integration`),
+cada linha do diagnóstico diz qual permissão falta e onde declará-la, e
+mantém a resposta do GitHub entre parênteses:
+
+```
+aurumcode review: publishing review summary: sem permissão para publicar: o token precisa de `pull-requests: write`; declare essa permissão em `permissions:` do job que chama o workflow (HTTP 403: {"message":"Resource not accessible by integration",...})
+aurumcode review: publishing check status: sem permissão para publicar: o token precisa de `statuses: write`; declare essa permissão em `permissions:` do job que chama o workflow (HTTP 403: {"message":"Resource not accessible by integration",...})
+```
+
+Em inglês (sem `review.language`) a linha diz `permission denied: the token
+needs ...`. O exit continua sendo de falha, como em toda publicação que não
+aconteceu, e nada é publicado por outro caminho. Qualquer outra resposta do
+GitHub (404, 422, 5xx) é impressa como antes, sem o diagnóstico de permissão.
+
 ## gate.sources: quais achados contam para o gate
 
 Quando a política central declara `gate`, todo achado que passou pelo gate de

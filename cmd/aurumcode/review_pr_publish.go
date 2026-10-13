@@ -126,8 +126,9 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 	}
 	key := fmt.Sprintf("aurumcode/review/%d/%s", p.prNumber, p.commitID)
 	if err := p.client.PostPullRequestReview(p.ctx, p.owner, p.repoName, p.prNumber, formal, key); err != nil {
-		fmt.Fprintf(p.stderr, "aurumcode review: publishing formal review: %v\n", err)
-		failures = append(failures, "formal review: "+err.Error())
+		why := publishError(p.reviewLanguage, publishComment, err)
+		fmt.Fprintf(p.stderr, "aurumcode review: publishing formal review: %s\n", why)
+		failures = append(failures, "formal review: "+why)
 	} else {
 		fmt.Fprintln(p.stdout, formalReviewLine(p.reviewLanguage, formal.Event, p.prNumber, len(formalComments)))
 	}
@@ -166,8 +167,9 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 			}
 			key := fmt.Sprintf("aurumcode/%d/%s/%s/%d/%s/%s", p.prNumber, p.commitID, issue.File, issue.Line, review.FindingSide(issue), issue.RuleID)
 			if err := p.client.PostReviewComment(p.ctx, p.owner, p.repoName, p.prNumber, comment, key); err != nil {
-				fmt.Fprintf(stderr, "aurumcode review: publishing inline comment on %s:%d: %v\n", issue.File, issue.Line, err)
-				failures = append(failures, fmt.Sprintf("%s:%d (na linha): %v", issue.File, issue.Line, err))
+				why := publishError(p.reviewLanguage, publishComment, err)
+				fmt.Fprintf(stderr, "aurumcode review: publishing inline comment on %s:%d: %s\n", issue.File, issue.Line, why)
+				failures = append(failures, fmt.Sprintf("%s:%d (na linha): %s", issue.File, issue.Line, why))
 				continue
 			}
 			fmt.Fprintf(stdout, "%s -- publicado na linha\n", line)
@@ -184,8 +186,9 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 	inlineCount += suggested
 	how, err := p.postParecer(summaryBody)
 	if err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %v\n", err)
-		failures = append(failures, "summary: "+err.Error())
+		why := publishError(p.reviewLanguage, publishComment, err)
+		fmt.Fprintf(stderr, "aurumcode review: publishing review summary: %s\n", why)
+		failures = append(failures, "summary: "+why)
 	} else {
 		fmt.Fprintln(stdout, parecerLine(p.reviewLanguage, how, p.prNumber, inlineCount))
 	}
@@ -209,8 +212,9 @@ func (p *prReview) postNativeSuggestions() (published int, failures []string) {
 		comment := githubclient.ReviewComment{Body: line.Body, CommitID: p.commitID, Path: line.Path, Line: line.Line, Side: line.Side, StartLine: line.StartLine, StartSide: line.StartSide}
 		key := fmt.Sprintf("aurumcode/%d/%s/%s/%d/suggestion", p.prNumber, p.commitID, line.Path, line.Line)
 		if err := p.client.PostReviewComment(p.ctx, p.owner, p.repoName, p.prNumber, comment, key); err != nil {
-			fmt.Fprintf(p.stderr, "aurumcode review: publishing suggestion on %s:%d: %v\n", line.Path, line.Line, err)
-			failures = append(failures, fmt.Sprintf("%s:%d (sugestão): %v", line.Path, line.Line, err))
+			why := publishError(p.reviewLanguage, publishComment, err)
+			fmt.Fprintf(p.stderr, "aurumcode review: publishing suggestion on %s:%d: %s\n", line.Path, line.Line, why)
+			failures = append(failures, fmt.Sprintf("%s:%d (sugestão): %s", line.Path, line.Line, why))
 			continue
 		}
 		fmt.Fprintf(p.stdout, "%s:%d: sugestão aplicável publicada na linha\n", line.Path, line.Line)
