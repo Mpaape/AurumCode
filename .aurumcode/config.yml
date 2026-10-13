@@ -16,6 +16,8 @@ ignore:
   - "demo/tutoriais/*/expected/**"
   - "demo/gate-corporativo/out/**"
   - "demo/gate-corporativo/expected/**"
+  - "demo/do-zero/out/**"       # evidencia gravada do roteiro (contem a chave de proposito do defeito)
+  - "demo/do-zero/expected/**"
   - "docs/site/**"          # pagina estatica antiga com saidas embutidas; nao e codigo
 gate:
   fail_on: [error]      # achado error (modelo, skill ou scanner) reprova
