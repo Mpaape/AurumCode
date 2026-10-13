@@ -79,13 +79,17 @@ Tutorial: [Aurum no seu agente](tutorials/agente.md).
 
 Skills de convenção escritas em Markdown pelos times e uma política central,
 mantida num repositório da organização, que `rules` e `gate` do repositório
-do dev não conseguem afrouxar. Referência:
-[Política central](configuration.md#politica-central) e
+do dev não conseguem afrouxar. Abaixo da política, uma segunda camada
+central, a de padrões de engenharia (`standards_repository`, `--padroes`),
+traz as skills e os analistas comuns a todos os serviços sem decidir gate,
+ignore ou exceções. Referência:
+[Política central](configuration.md#politica-central),
+[Camada de padrões de engenharia](configuration.md#camada-de-padroes-de-engenharia) e
 [Realimentação da política](configuration.md#realimentacao-da-politica-aur-532),
 que transforma falsos positivos, achados corrigidos e defeitos escapados numa
 PR de propostas para a política.
 
-Tutorial: [Skills de convenção](tutorials/skills.md), [Política central](tutorials/politica-central.md) e [Realimentação da política](tutorials/realimentacao.md).
+Tutorial: [Skills de convenção](tutorials/skills.md), [Política central](tutorials/politica-central.md), [Camadas: política, padrões e serviço](tutorials/camadas.md) e [Realimentação da política](tutorials/realimentacao.md).
 
 ## Gate
 

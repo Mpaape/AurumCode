@@ -1,0 +1,26 @@
+== mesmo-nome
+$ aurumcode review --base main --politica /policy --padroes /standards
+aurumcode review: skill "nomes" dos padrões de engenharia ignorada: já existe uma skill com esse nome na política de segurança, camada de cima
+aurumcode review: skill "nomes" do repositório ignorada: já existe uma skill com esse nome na política de segurança, camada de cima
+aurumcode review: verificação: app.py:13 nomes#nome-claro continua bloqueando: confirmado pelo verificador — As linhas adicionadas guardam a resposta em r e os dados em d: nomes de uma letra fora de laço. [confirmed]
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: nomes#nome-claro - Nome claro (severidade warning, limiar error, origem skills)
+## AurumCode revisão de código
+
+> [!CAUTION]
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
+
+gate da política: reprovou · 1 arquivo revisado
+
+### Limitações da revisão
+
+- skill "nomes" dos padrões de engenharia ignorada: já existe uma skill com esse nome na política de segurança, camada de cima
+- skill "nomes" do repositório ignorada: já existe uma skill com esse nome na política de segurança, camada de cima
+app.py:13: [warning] A resposta fica em "r" e os dados em "d": nomes de uma letra fora de um laço, contra a regra Nome claro. (rule nomes#nome-claro: Nome claro)
+  - Impacto: Quem lê não sabe o que r e d guardam sem reler a função inteira.
+  - Evidência: As linhas 11 a 13 adicionadas usam r e d.
+  - Correção sugerida: Renomeie para resposta e dados.
+  - Verificação: Nenhum nome de uma letra fora de laço em app.py.
+exit_code=3
+RESULTADO: a skill da politica venceu: severity error, o gate reprova
+o achado nao leva o rotulo da camada de padroes: a regra que valeu e a da politica

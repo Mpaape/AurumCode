@@ -1,0 +1,36 @@
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "AURUMCODE-VERIFICACAO-DE-ACHADO",
+        "response": {
+          "verdict": "confirmed",
+          "reason": "As linhas adicionadas guardam a resposta em r e os dados em d: nomes de uma letra fora de laço.",
+          "quote": "d = r.json()"
+        }
+      }
+    ],
+    "default": {
+      "verdict": "changes_requested",
+      "strengths": [],
+      "issues": [
+        {
+          "file": "app.py",
+          "line": 13,
+          "severity": "warning",
+          "rule_id": "nomes#nome-claro",
+          "message": "A resposta fica em \"r\" e os dados em \"d\": nomes de uma letra fora de um laço, contra a regra Nome claro.",
+          "impact": "Quem lê não sabe o que r e d guardam sem reler a função inteira.",
+          "evidence": "As linhas 11 a 13 adicionadas usam r e d.",
+          "suggestion": "Renomeie para resposta e dados.",
+          "verification": "Nenhum nome de uma letra fora de laço em app.py."
+        }
+      ],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "A mudança usa nomes de uma letra fora de laço (regra Nome claro)."
+    }
+  }
+}

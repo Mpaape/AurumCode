@@ -1,0 +1,12 @@
+$ aurumcode review --base main --padroes /standards
+> **Aprovado: nenhum problema encontrado na mudança revisada.**
+- 1 arquivo ignorado (regra `ignore` do repositório ou binário): não foi revisado e não entra na cobertura. Ignorado não significa aprovado.
+exit_code=0
+RESULTADO: sozinho, o servico aprova a propria mudanca
+$ aurumcode review --base main --politica /policy --padroes /standards
+aurumcode review: politica central: padrão de ignore "app.py" do repositório não foi aplicado: a política central decide sozinha
+aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
+aurumcode review: policy gate: seguranca#seg-001-verificacao-de-tls-nunca-e-desligada - SEG-001 Verificacao de TLS nunca e desligada (severidade error, limiar error, origem skills)
+exit_code=3
+RESULTADO: o servico nao consegue afrouxar a politica

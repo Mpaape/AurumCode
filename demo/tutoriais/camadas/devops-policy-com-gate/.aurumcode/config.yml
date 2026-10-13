@@ -1,0 +1,4 @@
+# Tentativa errada: a camada de padroes declarando um gate.
+# A camada so pode trazer skills e analistas; este arquivo e recusado.
+gate:
+  fail_on: [error]

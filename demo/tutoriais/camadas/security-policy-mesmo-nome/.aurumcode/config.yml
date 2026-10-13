@@ -1,0 +1,6 @@
+# security-policy do caso 3: o mesmo gate, e uma skill chamada "nomes".
+gate:
+  fail_on: [error]
+  inconclusive: block
+review:
+  language: pt-BR

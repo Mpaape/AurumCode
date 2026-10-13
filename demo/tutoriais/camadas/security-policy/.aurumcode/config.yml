@@ -1,0 +1,8 @@
+# Repositorio security-policy: mantido pelo time de seguranca.
+# E a politica central: o gate declarado aqui vale para todo servico, e um
+# servico nao consegue afrouxa-lo nem tirar um arquivo da revisao.
+gate:
+  fail_on: [error]        # achado error (skill, modelo ou ferramenta) reprova o merge
+  inconclusive: block     # revisao que nao concluiu nunca aprova
+review:
+  language: pt-BR         # o idioma do parecer e decisao da politica

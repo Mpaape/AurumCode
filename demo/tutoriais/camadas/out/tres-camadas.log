@@ -1,0 +1,34 @@
+== tres-camadas
+$ aurumcode review --base main --politica /policy --padroes /standards
+aurumcode review: profiles: padroes
+aurumcode review: verificação: app.py:12 seguranca#seg-001-verificacao-de-tls-nunca-e-desligada continua bloqueando: confirmado pelo verificador — A linha 12 adicionada passa verify=False ao requests.get: a verificação do certificado do servidor foi desligada. [confirmed]
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: seguranca#seg-001-verificacao-de-tls-nunca-e-desligada - SEG-001 Verificacao de TLS nunca e desligada (severidade error, limiar error, origem skills)
+## AurumCode revisão de código
+
+> [!CAUTION]
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
+
+gate da política: reprovou · 1 arquivo revisado
+app.py:12: [error] A chamada HTTPS desliga a verificação do certificado (verify=False), contra a regra SEG-001 da segurança. (rule seguranca#seg-001-verificacao-de-tls-nunca-e-desligada: SEG-001 Verificacao de TLS nunca e desligada) [perfil padroes]
+  - Impacto: Qualquer um no caminho da rede se passa pelo servidor de pedidos e lê ou altera as respostas.
+  - Evidência: A linha 12 adicionada chama requests.get com verify=False.
+  - Correção sugerida: Remova verify=False; em homologação, instale o certificado da autoridade interna.
+  - Verificação: A chamada a um servidor com certificado inválido falha com SSLError.
+app.py:14: [warning] A mensagem de erro "order not found" está em inglês, contra a regra APP-001 do serviço. (rule app#app-001-mensagem-para-a-pessoa-em-portugues: APP-001 Mensagem para a pessoa em portugues) [perfil padroes]
+  - Impacto: Quem usa o cliente recebe uma mensagem que o serviço prometeu dar em português.
+  - Evidência: A linha 14 adicionada imprime "order not found" em stderr.
+  - Correção sugerida: Troque por "pedido não encontrado".
+  - Verificação: Consultar um pedido inexistente mostra a mensagem em português.
+app.py:20: [warning] A opção --json é lida filtrando sys.argv na mão, contra a convenção PAD-001 da engenharia. (rule padroes#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia]
+  - Impacto: Sem argparse, não há ajuda nem erro claro para opção errada.
+  - Evidência: A linha 20 adicionada monta args filtrando sys.argv[1:].
+  - Correção sugerida: Declare --json com argparse.
+  - Verificação: python3 app.py --help lista --json.
+exit_code=3
+RESULTADO: a regra da seguranca bloqueia; as da engenharia e do servico orientam
+--- de onde veio cada achado (conclusao do script, lendo a saida acima)
+rule seguranca#seg-001-verificacao-de-tls-nunca-e-desligada: politica de seguranca (security-policy), bloqueia pelo gate dela
+[padrões de engenharia]: camada de padroes (devops-policy), rotulada pelo produto
+rule app#app-001-mensagem-para-a-pessoa-em-portugues: o proprio servico (servico/.aurumcode/skills/app)
+[perfil padroes]: analista do profiles.yml da devops-policy, selecionado pelo servico
