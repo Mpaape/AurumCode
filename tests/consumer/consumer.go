@@ -28,8 +28,13 @@ type Expectation struct {
 	Statuses map[string]string `json:"status,omitempty"`
 	Language string            `json:"idioma,omitempty"`
 	Mode     string            `json:"modo,omitempty"`
-	// InlineSuggestion requires at least one eligible inline suggestion.
+	// InlineSuggestion requires at least one applicable inline suggestion
+	// (a ```suggestion block). Whether the model produces one for a given
+	// finding is not deterministic; see AUR-617.
 	InlineSuggestion bool `json:"sugestao_inline,omitempty"`
+	// InlineComment requires at least one product comment on a changed line
+	// (a blocking finding commented where it is).
+	InlineComment bool `json:"comentario_inline,omitempty"`
 	// MaxComments bounds the product's comments on the PR after every
 	// round (a repeated round must not multiply them). Zero: no bound.
 	MaxComments int      `json:"comentarios_max,omitempty"`
@@ -61,21 +66,22 @@ type Scenario struct {
 
 // Evidence is what run.sh recorded for one scenario.
 type Evidence struct {
-	Scenario    string            `json:"cenario"`
-	ToolSHA     string            `json:"aurumcode_sha"`
-	Repo        string            `json:"repo"`
-	SHA         string            `json:"sha"`
-	RunID       int64             `json:"run_id"`
-	RunURL      string            `json:"run_url"`
-	Measured    bool              `json:"medido"`
-	Limitations []string          `json:"limitacoes"`
-	Conclusion  string            `json:"conclusao"`
-	Statuses    map[string]string `json:"status"`
-	Language    string            `json:"idioma"`
-	Mode        string            `json:"modo"`
-	Inline      int               `json:"sugestoes_inline"`
-	Comments    int               `json:"comentarios_aurum"`
-	Text        string            `json:"texto"`
+	Scenario       string            `json:"cenario"`
+	ToolSHA        string            `json:"aurumcode_sha"`
+	Repo           string            `json:"repo"`
+	SHA            string            `json:"sha"`
+	RunID          int64             `json:"run_id"`
+	RunURL         string            `json:"run_url"`
+	Measured       bool              `json:"medido"`
+	Limitations    []string          `json:"limitacoes"`
+	Conclusion     string            `json:"conclusao"`
+	Statuses       map[string]string `json:"status"`
+	Language       string            `json:"idioma"`
+	Mode           string            `json:"modo"`
+	Inline         int               `json:"sugestoes_inline"`
+	InlineComments int               `json:"comentarios_inline"`
+	Comments       int               `json:"comentarios_aurum"`
+	Text           string            `json:"texto"`
 	// AfterFix is the evidence after the fix commit, when the scenario has one.
 	AfterFix *Evidence `json:"apos_correcao,omitempty"`
 }
@@ -202,7 +208,11 @@ func identityProblems(e Evidence) []string {
 func compare(x Expectation, e Evidence) []string {
 	var out []string
 	if e.Conclusion != x.Conclusion {
-		out = append(out, fmt.Sprintf("conclusão %q, esperada %q", e.Conclusion, x.Conclusion))
+		why := fmt.Sprintf("conclusão %q, esperada %q", e.Conclusion, x.Conclusion)
+		if failed := failedChecks(e.Statuses); len(failed) > 0 {
+			why += "; checks reprovados: " + strings.Join(failed, ", ")
+		}
+		out = append(out, why)
 	}
 	names := make([]string, 0, len(x.Statuses))
 	for k := range x.Statuses {
@@ -223,6 +233,9 @@ func compare(x Expectation, e Evidence) []string {
 	if x.InlineSuggestion && e.Inline < 1 {
 		out = append(out, "nenhuma sugestão inline")
 	}
+	if x.InlineComment && e.InlineComments < 1 {
+		out = append(out, "nenhum comentário na linha")
+	}
 	if x.MaxComments > 0 && e.Comments > x.MaxComments {
 		out = append(out, fmt.Sprintf("%d comentários do produto, máximo %d", e.Comments, x.MaxComments))
 	}
@@ -236,6 +249,22 @@ func compare(x Expectation, e Evidence) []string {
 			out = append(out, fmt.Sprintf("texto contém %q", bad))
 		}
 	}
+	return out
+}
+
+// failedChecks names, in order, every check of the run that did not pass:
+// a run concluded as failure says which job failed, so a product check
+// that passed is never read as the product's fault.
+func failedChecks(statuses map[string]string) []string {
+	var out []string
+	for name, state := range statuses {
+		switch state {
+		case "success", "skipped", "neutral":
+		default:
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 

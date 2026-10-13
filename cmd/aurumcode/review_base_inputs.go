@@ -10,6 +10,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review/session"
+	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 )
 
 // resolveInputs validates usage, computes the diff, loads the effective
@@ -17,7 +18,7 @@ import (
 // context the model will see (codebase, memory, changelog).
 func (b *baseReview) resolveInputs() (int, bool) {
 	steps := []session.Step{
-		b.validateUsage, b.loadDiff, b.loadConfig, b.resolveProfiles, b.gatherContext,
+		b.validateUsage, b.loadDiff, b.loadConfig, b.loadStandardsLayer, b.resolveProfiles, b.gatherContext,
 	}
 	for _, step := range steps {
 		if code, done := step(); done {
@@ -132,6 +133,12 @@ func (b *baseReview) loadConfig() (int, bool) {
 	return 0, false
 }
 
+// loadStandardsLayer loads the declared engineering standards layer
+// (AUR-613) against the reviewed tree, the working directory.
+func (b *baseReview) loadStandardsLayer() (int, bool) {
+	return b.loadStandards(b.cwd)
+}
+
 // resolveProfiles resolves the reviewer-profile selection (AUR-502):
 // --perfis/--profile wins over review.profiles; an unknown, empty or
 // duplicate name is a usage error before any model call. The profile
@@ -151,8 +158,11 @@ func (b *baseReview) resolveProfiles() (int, bool) {
 		}
 		flagNames = splitProfileNames(raw)
 	}
-	var err error
-	b.profileRes, err = resolveReviewProfiles(b.cwd, flagNames, perfisGiven, b.cfg)
+	team, err := reviewprofile.LoadTeamFile(b.cwd)
+	if err == nil {
+		team = b.standards.teamOver(team, b.reviewLanguage, b.stderr)
+		b.profileRes, err = resolveReviewProfiles(team, flagNames, perfisGiven, b.cfg)
+	}
 	if err != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
 		return 2, true

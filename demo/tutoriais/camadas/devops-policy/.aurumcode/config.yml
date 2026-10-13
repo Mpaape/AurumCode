@@ -1,0 +1,4 @@
+# Repositorio devops-policy: mantido pelo time de engenharia.
+# A camada de padroes nao declara secao nenhuma: gate, ignore, excecoes,
+# regras, scanners e publicacao ficam com a security-policy e com o servico.
+# Aqui so skills/ (regras) e profiles.yml (analistas).

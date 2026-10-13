@@ -5,7 +5,7 @@
 // blanket, org-wide exception for a rule with no path). This file owns
 // only the configuration shape and its fail-closed validation; the actual
 // repo/rule/path/expiry comparison against a finding runs in
-// cmd/aurumcode (matchException, aur520.go) alongside the gate it
+// internal/gate (MatchException, exceptions.go) alongside the gate it
 // modifies -- see that file's own doc comment for why the match stays
 // there instead of here.
 package config
@@ -36,7 +36,7 @@ type ExceptionConfig struct {
 // ExceptionDateLayout is the one accepted spelling of `expires`: a plain
 // calendar date with no time-of-day and no timezone offset. Accepting
 // only this layout at config-load time (Validate) means the expiry
-// comparison itself (cmd/aurumcode's matchException) never has to guess a
+// comparison itself (gate.MatchException) never has to guess a
 // caller's intent from an RFC3339 string, a slash date, or a trailing
 // "Z"/offset -- every one of those is refused here, loudly, instead of
 // silently misread later (MUT-001's own target: a format trick must not

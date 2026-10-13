@@ -4,11 +4,11 @@ package main
 //
 //   - AC-001: a checkout verified as the reviewed repository at the
 //     reviewed head commit (AUR-515) can still carry an untracked file.
-//     verifiedCleanCheckoutReason (aur536.go) must still catch it: the
+//     verifiedCleanCheckoutReason (verified_checkout.go) must still catch it: the
 //     untracked file's own path -- the fixture's observable marker here --
 //     must never reach the provider prompt, and the published review must
 //     declare why.
-//   - AC-002: codebaseContextMismatch (aur515.go) already returns
+//   - AC-002: codebaseContextMismatch (checkout_identity.go) already returns
 //     codebaseContextReasonUnverifiable for three cases -- no local git
 //     metadata at all, a checkout with no configured "origin", and a
 //     failure fetching the pull request's head SHA from the GitHub API --

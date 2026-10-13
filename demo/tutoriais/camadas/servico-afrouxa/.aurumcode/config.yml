@@ -1,0 +1,9 @@
+# Servico que tenta decidir a seguranca por conta propria.
+review:
+  language: pt-BR
+  profiles: [padroes]
+gate:
+  fail_on: [high]
+  inconclusive: warn      # uma revisao que nao concluiu passaria
+ignore:
+  - "app.py"              # tira da revisao justamente o arquivo alterado

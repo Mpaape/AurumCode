@@ -298,7 +298,7 @@ func decodeJSON(resp *http.Response, v interface{}) error {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return apiError(resp.StatusCode, body)
 	}
 
 	return json.NewDecoder(resp.Body).Decode(v)
@@ -355,9 +355,9 @@ func (c *Client) GetPullRequestDiff(ctx context.Context, owner, repo string, num
 
 	if resp.StatusCode != http.StatusOK {
 		if diffRefusedAsTooLarge(resp.StatusCode, body) {
-			return nil, fmt.Errorf("HTTP %d: %s: %w", resp.StatusCode, string(body), ErrDiffTooLarge)
+			return nil, fmt.Errorf("%w: %w", apiError(resp.StatusCode, body), ErrDiffTooLarge)
 		}
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return nil, apiError(resp.StatusCode, body)
 	}
 
 	// Parse diff
@@ -412,7 +412,7 @@ func (c *Client) GetRepositoryFile(ctx context.Context, owner, repo, path, ref s
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, false, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return nil, false, apiError(resp.StatusCode, body)
 	}
 
 	var payload struct {
@@ -456,7 +456,7 @@ func (c *Client) ListChangedFiles(ctx context.Context, owner, repo string, numbe
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+			return nil, apiError(resp.StatusCode, body)
 		}
 
 		// Parse JSON response
@@ -623,7 +623,7 @@ func (c *Client) PostReviewComment(ctx context.Context, owner, repo string, numb
 
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return apiError(resp.StatusCode, body)
 	}
 
 	return nil
@@ -659,7 +659,7 @@ func (c *Client) PostPullRequestReview(ctx context.Context, owner, repo string, 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return apiError(resp.StatusCode, body)
 	}
 	return nil
 }
@@ -698,7 +698,7 @@ func (c *Client) PostIssueComment(ctx context.Context, owner, repo string, numbe
 
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return apiError(resp.StatusCode, body)
 	}
 
 	return nil
@@ -740,7 +740,7 @@ func (c *Client) patchComment(ctx context.Context, owner, repo, url, body string
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return apiError(resp.StatusCode, body)
 	}
 	return nil
 }
@@ -797,7 +797,7 @@ func (c *Client) SetStatus(ctx context.Context, owner, repo, sha string, status 
 
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		return apiError(resp.StatusCode, body)
 	}
 
 	return nil

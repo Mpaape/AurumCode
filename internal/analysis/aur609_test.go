@@ -80,8 +80,10 @@ func TestAUR609RealCallStillCommandInjection(t *testing.T) {
 
 // AC-004: a code-shaped rule never runs on a prose file, even on a line that
 // is a finding in a code file.
-// The fixture lines are split at the keyword so the repository's own gate,
-// which reads this source, does not take them for the code they describe.
+// The SQL and permission fixture lines are split at the keyword so the
+// repository's own gate, which reads this source, does not take them for
+// the code they describe; the command-injection line needs no split, since
+// inside a Go literal the rule's literal guard skips it.
 func TestAUR609ProseFilesSkipCodeRules(t *testing.T) {
 	r := NewRunner()
 	lines := map[string]string{

@@ -1,0 +1,71 @@
+{
+  "aurumcode_fixture": {
+    "cases": [
+      {
+        "prompt_contains": "AURUMCODE-VERIFICACAO-DE-ACHADO",
+        "response": {
+          "verdict": "confirmed",
+          "reason": "A linha 12 adicionada passa verify=False ao requests.get: a verificação do certificado do servidor foi desligada.",
+          "quote": "verify=False"
+        }
+      },
+      {
+        "prompt_contains": "Analista de padroes da engenharia",
+        "response": {
+          "verdict": "changes_requested",
+          "strengths": [],
+          "issues": [
+            {
+              "file": "app.py",
+              "line": 12,
+              "severity": "error",
+              "rule_id": "seguranca#seg-001-verificacao-de-tls-nunca-e-desligada",
+              "message": "A chamada HTTPS desliga a verificação do certificado (verify=False), contra a regra SEG-001 da segurança.",
+              "impact": "Qualquer um no caminho da rede se passa pelo servidor de pedidos e lê ou altera as respostas.",
+              "evidence": "A linha 12 adicionada chama requests.get com verify=False.",
+              "suggestion": "Remova verify=False; em homologação, instale o certificado da autoridade interna.",
+              "verification": "A chamada a um servidor com certificado inválido falha com SSLError."
+            },
+            {
+              "file": "app.py",
+              "line": 20,
+              "severity": "warning",
+              "rule_id": "padroes#pad-001-argumentos-de-linha-de-comando-com-argparse",
+              "message": "A opção --json é lida filtrando sys.argv na mão, contra a convenção PAD-001 da engenharia.",
+              "impact": "Sem argparse, não há ajuda nem erro claro para opção errada.",
+              "evidence": "A linha 20 adicionada monta args filtrando sys.argv[1:].",
+              "suggestion": "Declare --json com argparse.",
+              "verification": "python3 app.py --help lista --json."
+            },
+            {
+              "file": "app.py",
+              "line": 14,
+              "severity": "warning",
+              "rule_id": "app#app-001-mensagem-para-a-pessoa-em-portugues",
+              "message": "A mensagem de erro \"order not found\" está em inglês, contra a regra APP-001 do serviço.",
+              "impact": "Quem usa o cliente recebe uma mensagem que o serviço prometeu dar em português.",
+              "evidence": "A linha 14 adicionada imprime \"order not found\" em stderr.",
+              "suggestion": "Troque por \"pedido não encontrado\".",
+              "verification": "Consultar um pedido inexistente mostra a mensagem em português."
+            }
+          ],
+          "suggestions": [],
+          "ci_analysis": [],
+          "test_plan": [],
+          "limitations": [],
+          "summary": "A mudança desliga a verificação de TLS (SEG-001, bloqueia), lê a opção --json na mão (PAD-001) e mostra um erro em inglês (APP-001)."
+        }
+      }
+    ],
+    "default": {
+      "verdict": "approve",
+      "strengths": [],
+      "issues": [],
+      "suggestions": [],
+      "ci_analysis": [],
+      "test_plan": [],
+      "limitations": [],
+      "summary": "Nenhum problema encontrado."
+    }
+  }
+}

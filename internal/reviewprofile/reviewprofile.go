@@ -1,10 +1,11 @@
 // Package reviewprofile defines the built-in, versioned reviewer profiles a
 // team can pick for a review: solid, seguranca and performance.
 //
-// A profile is a DETERMINISTIC PRESET, never a plugin. It declares exactly two
-// things -- the review EMPHASIS and the ENABLED RULE FAMILIES -- and it is
-// code-owned and resolved in-process. Nothing here reads a profile file, opens
-// a socket, executes profile content, or lets a profile carry an instruction.
+// A profile is a DETERMINISTIC PRESET, never a plugin. It declares the review
+// EMPHASIS, the ENABLED RULE FAMILIES and the INSTRUCTIONS the prompt carries
+// verbatim, and it is resolved in-process: a built-in is code-owned, a team
+// profile is parsed from a versioned file (team.go). Nothing here opens a
+// socket, downloads or executes profile content.
 //
 // # THE FIVE THINGS A PROFILE CAN NEVER TOUCH
 //

@@ -113,8 +113,9 @@ type VerdictKeyInputs struct {
 	// AC-002's tests must then fail.
 	PolicyDigest string
 	// PromptVersionDigest is AUR-543's own content digest of the fixed
-	// prompt a builder renders (newCacheDigestBuilder().
-	// FixedContentDigest()) -- the SAME value runReview's per-file cache
+	// prompt a builder renders (prompt.PromptBuilder.FixedContentDigest,
+	// supplied by the command through VerdictReuseContributor.PromptDigest)
+	// -- the SAME value runReview's per-file cache
 	// already folds into cache.Key's promptVersion argument, reused here
 	// rather than recomputed with different inputs.
 	PromptVersionDigest string
@@ -212,14 +213,14 @@ func UnionReviewIssues(current, reused []types.ReviewIssue) []types.ReviewIssue 
 	return out
 }
 
-// ReuseOrStoreGateVerdict is the one call site runReview and runPRReview
-// both make, right after gateInconclusiveReason is final and right
-// before EvaluateGate runs. currentIssues is this run's own, freshly
-// computed, already-rule-config-applied result.Issues; rawIssues is the
-// SAME run's issues captured immediately before that rule config was
-// applied (what gets stored on a miss). cfg is this run's effective
-// config (repoCfg for --base, reviewConfig for --pr), reapplied to a
-// reused entry's raw issues before the union (AC-006).
+// ReuseOrStoreGateVerdict is called by VerdictReuseContributor
+// (contributors.go), the verdict-reuse step both --base and --pr assemble,
+// right after the inconclusive reason is final and right before
+// EvaluateGate runs. currentIssues is this run's own, freshly computed,
+// already-rule-config-applied result.Issues; rawIssues is the SAME run's
+// issues captured immediately before that rule config was applied (what
+// gets stored on a miss). cfg is the run's effective config (run.Cfg),
+// reapplied to a reused entry's raw issues before the union (AC-006).
 //
 // Every path through this function returns currentIssues UNCHANGED
 // unless a hit actually adds something:

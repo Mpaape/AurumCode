@@ -12,6 +12,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [deliberacao](../../docs/tutorials/deliberacao.md) | `deliberacao/` | diff-grande-pede-semgrep, diff-pequeno-nao-pede, estoura-rodadas, falha-semgrep-ausente |
 | [skills](../../docs/tutorials/skills.md) | `skills/` | ver `skills/run.sh` |
 | [politica-central](../../docs/tutorials/politica-central.md) | `politica-central/` | ver `politica-central/run.sh` |
+| [camadas](../../docs/tutorials/camadas.md) | `camadas/` | tres-camadas, servico-nao-afrouxa, mesmo-nome, padroes-com-gate (tres repositorios de exemplo: `security-policy/`, `devops-policy/`, `servico/`, montados em `/policy` e `/standards`) |
 | [qualquer-linguagem](../../docs/tutorials/qualquer-linguagem.md) | `qualquer-linguagem/` | repo-poliglota, arquivo-sem-gramatica, binario-e-gerado, politica-terraform, apelidos-e-instrucoes, falha-extensao-desconhecida |
 | [benchmark](../../docs/tutorials/benchmark.md) | `benchmark/` | rodar-corpus, ler-relatorio, adicionar-caso, aprovado-com-defeito, falha-caso-sem-manifest (via `go-shared`, sem o produto na imagem) |
 | [operacao](../../docs/tutorials/operacao.md) | `operacao/` | ambiente-go-shared, aceite-selado, profiles-e-locks, dependencia-e-repin, scanners-por-digest, entrega-e-evidencia, falha-evidencia-ausente |

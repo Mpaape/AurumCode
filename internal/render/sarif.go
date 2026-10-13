@@ -120,9 +120,9 @@ type sarifSuppression struct {
 // SARIFFinding is one finding to render into the SARIF document. Context is
 // the normalized code line/hunk content at Line -- the same material
 // FindingFingerprint hashes -- never the free-text Message alone.
-// Suppressed/Justification are AUR-520's own, synthetic until that card
-// lands: this writer already renders them into SARIF's "suppressions" shape
-// whenever a caller sets them (AC-003).
+// Suppressed/Justification come from an applied exception (cmd/aurumcode's
+// compliance artifacts set them from gate.MatchException's result); this
+// writer renders them into SARIF's "suppressions" shape (AC-003).
 type SARIFFinding struct {
 	RuleID        string
 	RuleTitle     string

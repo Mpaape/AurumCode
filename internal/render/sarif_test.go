@@ -136,9 +136,9 @@ func TestAUR521SARIFFingerprintStableAcrossWrites(t *testing.T) {
 }
 
 // TestAUR521SARIFSuppressionForExceptedFinding covers AC-003: a finding
-// marked as excepted (synthetic until AUR-520 lands and starts populating
-// this from a real exception) renders into SARIF's own suppressions shape
-// with its justification.
+// marked as excepted (as the compliance artifacts mark one an applied
+// exception covers) renders into SARIF's own suppressions shape with its
+// justification.
 func TestAUR521SARIFSuppressionForExceptedFinding(t *testing.T) {
 	log := BuildSARIFLog("v", []SARIFFinding{
 		{RuleID: "r1", Path: "app.go", Line: 1, Severity: "error", Message: "m", Context: "x",

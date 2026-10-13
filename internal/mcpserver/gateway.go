@@ -66,14 +66,17 @@ type Finding struct {
 
 // RuleSet is the rules and skills that apply to a set of paths.
 type RuleSet struct {
-	PolicyActive string   `json:"central_policy"`
-	Skills       []Skill  `json:"skills"`
-	Rules        []Rule   `json:"rules"`
-	Notices      []string `json:"notices,omitempty"`
+	PolicyActive string `json:"central_policy"`
+	// StandardsActive is the engineering standards layer's directory
+	// (AUR-613); absent when no layer was declared.
+	StandardsActive string   `json:"standards,omitempty"`
+	Skills          []Skill  `json:"skills"`
+	Rules           []Rule   `json:"rules"`
+	Notices         []string `json:"notices,omitempty"`
 }
 
 // Skill is one skill document selected for the paths and the layer it
-// belongs to ("policy" or "repository").
+// belongs to ("policy", "standards" or "repository").
 type Skill struct {
 	Path  string `json:"path"`
 	Layer string `json:"layer"`

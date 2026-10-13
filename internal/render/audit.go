@@ -1,9 +1,11 @@
 // AUR-521: the audit record a policy-governed review writes alongside its
-// SARIF (sarif.go). It carries exactly the fields AC-001 names: the policy
+// SARIF (sarif.go). It always carries the fields AC-001 names: the policy
 // digest, the workflow and reviewed SHAs, the repo, the model, the verdict,
 // the gate's own decision, the findings that actually blocked it, the
-// exceptions applied to it (AUR-520's own field -- empty until that card
-// lands), and the coverage this run achieved.
+// exceptions applied to it, and the coverage this run achieved. The
+// sections later capabilities added (analysis data, evidence assessments,
+// proposed exceptions, deliberation, batches, tool version, standards
+// layer) appear only when the run produced them.
 package render
 
 import (
@@ -37,11 +39,11 @@ type AuditRecord struct {
 
 	BlockingFindings []AuditFinding `json:"blocking_findings"`
 
-	// ExceptionsApplied is AUR-520's own field: the exceptions this run
-	// actually applied to a finding. It is always present as a list -- an
-	// empty one until AUR-520 lands and starts populating it -- never
-	// omitted, so a consumer parsing this record never has to special-case
-	// its absence (see docs/specs/AUR-521.md).
+	// ExceptionsApplied lists the exceptions this run actually applied to a
+	// finding (gate.MatchException, through cmd/aurumcode's compliance
+	// artifacts). It is always present as a list -- empty when none applied
+	// -- never omitted, so a consumer parsing this record never has to
+	// special-case its absence (see docs/specs/AUR-521.md).
 	ExceptionsApplied []AuditException `json:"exceptions_applied"`
 
 	Coverage AuditCoverage `json:"coverage"`
@@ -70,6 +72,21 @@ type AuditRecord struct {
 	// the review workflow). Absent for a dev build, so the record of a
 	// build with no stamped version keeps its bytes (StampToolVersion).
 	ToolVersion string `json:"tool_version,omitempty"`
+	// Standards (AUR-613) is the engineering standards layer this run
+	// applied: where it came from and the digest of its content. Absent
+	// when no layer was declared, so a run without one keeps its bytes.
+	Standards *AuditStandards `json:"standards,omitempty"`
+}
+
+// AuditStandards identifies the engineering standards layer of one run.
+// Source is the repository the reusable workflow checked the layer out
+// from (owner/repo), or "local" for a directory given on the command line;
+// Ref is the workflow's standards_ref when it named one; Digest is the
+// layer's content digest (config.LayerDir.Digest).
+type AuditStandards struct {
+	Source string `json:"source"`
+	Ref    string `json:"ref,omitempty"`
+	Digest string `json:"digest"`
 }
 
 // StampToolVersion records the binary's version on rec, only when the build
@@ -177,6 +194,13 @@ func redactAuditRecord(filter *redaction.Filter, rec AuditRecord) AuditRecord {
 	rec.Verdict = filter.Redact(rec.Verdict)
 	rec.Gate.Decision = filter.Redact(rec.Gate.Decision)
 	rec.Gate.Reason = filter.Redact(rec.Gate.Reason)
+	if rec.Standards != nil {
+		rec.Standards = &AuditStandards{
+			Source: filter.Redact(rec.Standards.Source),
+			Ref:    filter.Redact(rec.Standards.Ref),
+			Digest: filter.Redact(rec.Standards.Digest),
+		}
+	}
 	if rec.AnalysisData != nil {
 		ad := AnalysisDataAudit{
 			Digest:      filter.Redact(rec.AnalysisData.Digest),

@@ -5,7 +5,10 @@
 // other (its findings count in the gate with their origin, its failure is
 // the scan's inconclusive reason); one it did not ask for does not run, and
 // the transcript records both. When tools cannot be offered, the deferred
-// scanners run exactly as they did before the model existed.
+// scanners run exactly as they did before the model existed. With analysts
+// selected (review.profiles, --perfis), every analyst's pass is offered the
+// same tools and the passes draw their rounds and cost from one budget of
+// the review (profiles_deliberation.go).
 package main
 
 import (
@@ -16,6 +19,7 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/deliberation"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -29,28 +33,55 @@ import (
 // per-file cache: its answer depends on tool results the cache never sees.
 var errDeliberationNotCacheable = errors.New("the review offered tools to the model; per-file cache bypassed")
 
-// prepareDeliberation installs the deliberation on reviewer and records the
-// manifest the prompt's tools slot shows (s.toolManifest), or offers nothing
-// when deliberation is off or tools cannot be offered. supportsTools is
-// false for a provider without tool calling and for profile passes (each
-// profile decorates the request, so its provider is not a plain caller).
-func (s *reviewState) prepareDeliberation(caller deliberation.Caller, supportsTools bool, reviewer *review.Reviewer) {
-	s.toolManifest, s.toolsOffered = nil, false
+// deliberationPlan is what every model pass of one review shares when the
+// model may ask for tools: the tools (stateful: the repository tools' byte
+// budget is the review's), their limits and the partial-limit report of
+// the tools themselves. budget is the analysts' shared budget, nil for the
+// single reviewer, which keeps the limits for itself.
+type deliberationPlan struct {
+	tools   []deliberation.Tool
+	limits  deliberation.Limits
+	partial func() *deliberation.LimitError
+	budget  *deliberation.Budget
+}
+
+// forCaller is the plan installed on one reviewer, behind that pass's own
+// caller, drawing from budget (nil: the pass's own limits).
+func (d *deliberationPlan) forCaller(caller deliberation.Caller, budget *deliberation.Budget) *review.Deliberation {
+	return &review.Deliberation{Caller: caller, Tools: d.tools, Limits: d.limits, Partial: d.partial, Budget: budget}
+}
+
+// prepareDeliberation decides whether this review offers tools and records
+// the manifest the prompt's tools slot shows (s.toolManifest). Nothing is
+// offered when deliberation is off or the provider cannot call tools, and
+// the terminal says which one it was, in the review's language. The single
+// reviewer gets the plan installed here; the analysts (analysts > 0) get it
+// pass by pass, with the review's shared budget (analystPasses.reviewer).
+func (s *reviewState) prepareDeliberation(orchestrator *llm.Orchestrator, reviewer *review.Reviewer, analysts int) {
+	s.toolManifest, s.toolsOffered, s.deliberation = nil, false, nil
 	if !s.cfg.Deliberation.Active() {
+		if analysts > 0 {
+			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Text(s.reviewLanguage, "terminal.deliberation_off"))
+		}
 		return
 	}
-	if !supportsTools {
-		fmt.Fprintf(s.stderr, "aurumcode review: deliberation: o provedor não chama ferramentas; os scanners opcionais rodam sem consulta ao modelo\n")
+	if !orchestrator.SupportsTools() {
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_no_tools", s.provider.Name()))
 		return
 	}
 	offers := s.toolOffers()
 	maxRounds, maxCost, perTool := s.cfg.Deliberation.EffectiveLimits()
-	reviewer.SetDeliberation(&review.Deliberation{
-		Caller:  caller,
-		Tools:   reviewtools.Tools(offers),
-		Limits:  deliberation.Limits{MaxRounds: maxRounds, MaxCostTokens: maxCost, PerToolTimeout: perTool},
-		Partial: reviewtools.PartialLimit(offers),
-	})
+	plan := &deliberationPlan{
+		tools:   reviewtools.Tools(offers),
+		limits:  deliberation.Limits{MaxRounds: maxRounds, MaxCostTokens: maxCost, PerToolTimeout: perTool},
+		partial: reviewtools.PartialLimit(offers),
+	}
+	if analysts > 0 {
+		plan.budget = deliberation.NewBudget(plan.limits)
+	} else {
+		reviewer.SetDeliberation(plan.forCaller(orchestrator, nil))
+	}
+	s.deliberation = plan
 	s.toolManifest, s.toolsOffered = reviewtools.Manifest(offers), true
 }
 
@@ -91,9 +122,14 @@ func (s *reviewState) skillSections() map[string]reviewtools.SkillSection {
 
 // scanOnRequest runs entry when the model asks for it, through the same
 // path as the evidence phase (same root, trust and refusal of an
-// unverified checkout), and joins the scan to the session's scans.
+// unverified checkout), and joins the scan to the session's scans. A
+// scanner asked for again, by a later round or by another analyst's pass,
+// is not run again: the scan already joined answers.
 func (s *reviewState) scanOnRequest(entry config.ScannerConfig) reviewtools.ScanFunc {
 	return func(ctx context.Context) scanner.Outcome {
+		if scan, done := s.scanDone(entry.Name()); done {
+			return scanOutcome(scan)
+		}
 		// scanEntry runs under the session's context; the copy carries the
 		// tool's own deadline instead.
 		bounded := *s
@@ -102,6 +138,16 @@ func (s *reviewState) scanOnRequest(entry config.ScannerConfig) reviewtools.Scan
 		s.scans = append(s.scans, scan)
 		return scanOutcome(scan)
 	}
+}
+
+// scanDone is the session's scan of the engine named name, when it ran.
+func (s *reviewState) scanDone(name string) (gateScan, bool) {
+	for _, scan := range s.scans {
+		if scan.Config.Name() == name {
+			return scan, true
+		}
+	}
+	return gateScan{}, false
 }
 
 // scanOutcome is the scan as the tool reports it to the model.
@@ -155,7 +201,8 @@ func (s *reviewState) modelDecided() bool {
 }
 
 // reportDeliberation states on stderr what the model was offered, what it
-// asked for and how the conversation ended.
+// asked for and how the conversation ended; with analysts, each analyst's
+// own rounds and requests, and which analyst made each call.
 func (s *reviewState) reportDeliberation() {
 	t := s.transcript
 	if t == nil {
@@ -166,7 +213,14 @@ func (s *reviewState) reportDeliberation() {
 	if t.Undecided != "" {
 		fmt.Fprintf(s.stderr, "aurumcode review: deliberation: sem decisão do modelo: %s\n", t.Undecided)
 	}
+	for _, a := range t.Analysts {
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_analyst", a.Analyst, a.Rounds, strings.Join(a.Requested, ", "), a.Outcome))
+	}
 	for _, c := range t.Calls {
+		if c.Analyst != "" {
+			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_analyst_call", c.Round, c.Analyst, c.Tool, c.Arguments, c.Status, c.Result))
+			continue
+		}
 		fmt.Fprintf(s.stderr, "aurumcode review: deliberation: rodada %d %s(%s) %s: %s\n", c.Round, c.Tool, c.Arguments, c.Status, c.Result)
 	}
 }
@@ -208,11 +262,6 @@ func (s *reviewState) deliberationLimit() string {
 		return ""
 	}
 	return s.transcript.Limit
-}
-
-// toolsCapable reports whether the orchestrator can deliberate.
-func toolsCapable(o *llm.Orchestrator, profilesApplied bool) bool {
-	return !profilesApplied && o.SupportsTools()
 }
 
 // manifestOrNil keeps the prompt's tools slot empty unless tools were

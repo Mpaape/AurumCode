@@ -236,8 +236,8 @@ func TestAUR609RedactionIsLinear(t *testing.T) {
 	}
 	limit := 2 * time.Second
 	if raceDetector {
-		// -race slows the filter about tenfold; the quadratic version still
-		// takes minutes here, so this budget keeps rejecting it.
+		// -race slows the filter about tenfold; the quadratic version takes
+		// over an hour under -race, so this budget keeps rejecting it.
 		limit = 30 * time.Second
 	}
 	for name, build := range map[string]func(int) string{"nested": nested, "flat": flat} {

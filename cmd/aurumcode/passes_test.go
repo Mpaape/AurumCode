@@ -184,7 +184,7 @@ func TestAUR490SharedPasses(t *testing.T) {
 	// AUR-536: pr.go's own codebase-context entrypoint is
 	// resolveVerifiedCodebaseContext, not resolveCodebaseContext itself --
 	// on --pr, the checkout is not necessarily the change under review (see
-	// aur515.go/aur536.go), so --pr additionally reads only the exact file
+	// checkout_identity.go/verified_checkout.go), so --pr additionally reads only the exact file
 	// set its own clean-checkout proof already verified, by construction,
 	// rather than resolveCodebaseContext's own, independent filesystem walk.
 	// main.go (--base) keeps calling resolveCodebaseContext directly: there

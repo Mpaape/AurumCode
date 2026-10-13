@@ -122,11 +122,17 @@ linhas` vira `tamanho#tam-001-funcao-com-no-maximo-150-linhas`), sem listar
 nada em `context.skills`. Se o mesmo `SKILL.md` também estiver listado em
 `context.skills`, o texto chega ao modelo uma única vez (pela lista) e o id é
 o mesmo. A regra de uma skill do repositório tem sempre a origem do
-repositório; a de uma skill da política, a da política.
+repositório; a de uma skill da política, a da política; a de uma skill da
+camada de padrões de engenharia conta no gate como fonte `skills` e o achado
+termina com `[padrões de engenharia]` (seção "Camada de padrões de
+engenharia").
 
 A política central pode ter as suas skills em `<política>/.aurumcode/skills/`.
 Se uma skill da política e uma do repositório declaram o mesmo seletor, a da
-política vence e o repositório recebe um aviso. Um `SKILL.md` ilegível na
+política vence e o repositório recebe um aviso. Com a camada de padrões
+declarada vale também a regra por nome de diretório, na ordem política >
+padrões > repositório: uma skill de mesmo nome numa camada de baixo é ignorada,
+com aviso que nomeia as duas camadas. Um `SKILL.md` ilegível na
 política é erro de carga; no repositório é declarado e o review continua sem
 essas skills. Os arquivos `.aurumcode/instructions/*.md` com `applyTo`
 continuam valendo.
@@ -359,10 +365,114 @@ nada. Uma política ausente ou inválida (config.yml faltando, YAML inválido,
 skill/doc listada que não existe, ou um diretório dentro da própria árvore
 revisada) falha o comando antes de qualquer chamada ao modelo.
 
+## Camada de padrões de engenharia
+
+Além da política de segurança, um workflow obrigatório pode carregar uma
+segunda camada central: o diretório `.aurumcode/` de outro repositório,
+mantido pelo time de engenharia, com as skills e os analistas comuns a todos
+os serviços (padrões de código, QA, changelog, gitflow). É o mesmo molde da
+política — o diretório que CONTÉM `.aurumcode/`, obtido por checkout pelo
+workflow, fora da árvore revisada — com poderes diferentes: a camada de
+padrões só contribui, nunca
+decide. As três camadas e o que cada uma pode estão declaradas uma vez em
+`internal/config/layer.go`.
+
+| camada | quem mantém / como declarar | o que pode declarar | o que nunca declara |
+|---|---|---|---|
+| política de segurança | time de segurança; `--politica <dir>` / `AURUMCODE_POLICY`; `policy_repository` no workflow | `rules`, `ignore`, `gate` e `exceptions` inteiros, sempre; idioma, publicação, `analysis_data`, `quality_gates.sast`, `.ssor_dtrack` e `.supply_chain` quando os declara; `quality_gates.scanners` engine por engine (a entrada da política vence só com `required: true`); `deliberation`, `batches`, `dependencies` e `changelog_check` pela regra própria de cada um (tutorial politica-central, Caso 3); skills, docs e prompt próprios | analistas (`profiles.yml` da política não é lido) |
+| padrões de engenharia | time de engenharia; `--padroes <dir>` / `AURUMCODE_STANDARDS`; `standards_repository` no workflow | skills (`.aurumcode/skills/<nome>/SKILL.md`), sempre aplicadas, e analistas (`.aurumcode/profiles.yml`), disponíveis para `review.profiles` do serviço | qualquer seção do `config.yml`: um `config.yml` com `gate`, `ignore`, `exceptions`, `rules`, `quality_gates`, `publication` ou qualquer outra seção é recusado com erro, antes de qualquer chamada ao modelo |
+| repositório (o serviço) | o próprio time; branch base da PR | tudo que a política não tomou: `review.*` (contexto, perfis, memória, changelog…), skills, analistas, e `rules`/`ignore`/`gate`/`exceptions` quando a política não os declara | — |
+
+Ordem das camadas: **política de segurança > padrões de engenharia >
+repositório**. Uma skill é identificada pelo nome do diretório (é ele que
+prefixa cada id de regra, `<diretório>#<seção>`): uma skill de mesmo nome numa
+camada de baixo é ignorada, com aviso no terminal e na seção de limitações do
+parecer, nomeando as duas camadas — `skill "nomes-go" do repositório
+ignorada: já existe uma skill com esse nome nos padrões de engenharia, camada
+de cima`. Um analista do `profiles.yml` do repositório com o nome de um
+analista da camada de padrões é ignorado do mesmo jeito (`analista "qa" do
+repositório ignorado: já existe um analista com esse nome nos padrões de
+engenharia, camada de cima`). Uma skill sombreada também não volta por
+`review.context.skills`: a entrada da listagem que a nomeia é descartada
+antes de o texto ir ao modelo e de as seções virarem regras. O id de uma
+regra vale pela mesma ordem: na
+colisão, a regra da política vence a dos padrões, que vence a do
+repositório. Sem camada de padrões declarada, nada disso roda: a política e
+o repositório seguem a regra de antes (mesmo seletor, a da política vence) e
+a saída é a mesma.
+
+O achado de uma skill da camada de padrões termina com a camada de origem —
+`[padrões de engenharia]` (`[engineering standards]` em inglês), anexada ao
+fim da mensagem, como `[perfil <nome>]` nomeia o analista — em todo lugar que
+mostra o achado: terminal, PR publicada e servidor de agente. No gate ele
+conta como fonte `skills`, como os achados das
+skills da política (com política ativa) ou do repositório (sem política):
+uma skill de padrões reprova o PR quando o `gate.fail_on` a alcança.
+
+No CLI, `--padroes <dir>` (ou a variável `AURUMCODE_STANDARDS`, quando a flag
+não é dada) vale em `review` com diff local, `--base` e `--pr`, e no servidor
+MCP (`aurumcode mcp`, que lê só a variável). Um `<dir>` que resolva (depois de
+symlinks) para a própria árvore revisada ou para dentro dela é recusado antes
+de qualquer chamada ao modelo, com a mesma contenção da política; um `<dir>`
+sem `.aurumcode/` é
+erro, nunca uma camada vazia; `--padroes ""` é erro de uso. No `--pr`, as
+skills e os analistas da camada vêm do checkout local do workflow (como a
+política), enquanto o `config.yml`, as skills e o `profiles.yml` do
+repositório continuam vindo da branch base pela API.
+
+No workflow reutilizável (`.github/workflows/review.yml`),
+`standards_repository` (`owner/repo`) é a única forma de declarar a camada:
+o próprio workflow dá checkout read-only (sem persistir credenciais) em
+`.aurumcode-standards`, monta o diretório em `/github/standards` e passa
+`--padroes /github/standards`; `standards_ref` fixa a SHA (vazio usa o branch
+padrão). Sem o input, nenhum argumento e nenhuma montagem mudam. Para um
+repositório privado ou interno, crie um token fine-grained (ou de GitHub App)
+com **Contents: read** só nesse repositório, guarde-o como secret
+`AURUMCODE_STANDARDS_TOKEN` e repasse-o; sem o secret o checkout usa o
+`github.token`, que lê um repositório público. O token só é usado no checkout
+da camada e nunca chega ao código revisado.
+
+Workflow obrigatório da organização com os dois repositórios centrais:
+
+```yaml
+jobs:
+  review:
+    uses: SuaOrg/AurumCode/.github/workflows/review.yml@<sha-fixa-do-aurumcode>
+    with:
+      policy_repository: SuaOrg/security-policy      # segurança: gate, regras, exceções
+      policy_ref: a1b2c3d4e5f6...                     # SHA fixa, não um branch
+      standards_repository: SuaOrg/devops-policy     # engenharia: skills e analistas
+      standards_ref: 0f9e8d7c6b5a...                  # SHA fixa, não um branch
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}        # só se privado
+      AURUMCODE_STANDARDS_TOKEN: ${{ secrets.AURUMCODE_STANDARDS_TOKEN }}  # só se privado
+```
+
+O repositório de padrões é só isto:
+
+```text
+devops-policy/
+  .aurumcode/
+    skills/
+      erros-go/SKILL.md       # regras citáveis (## seção) do time de engenharia
+      changelog/SKILL.md
+    profiles.yml              # analistas que os serviços selecionam em review.profiles
+    config.yml                # opcional; se existir, vazio (só comentários)
+```
+
+O registro de auditoria (`--auditoria`) ganha, só quando a camada existe, o
+campo `standards` com a origem e o digest do conteúdo (`config.yml`,
+`profiles.yml` e cada `SKILL.md`, como `policy_digest` identifica a
+política): `"standards": {"source": "SuaOrg/devops-policy", "ref":
+"0f9e8d7c6b5a...", "digest": "<sha256>"}`; com `--padroes` fora do workflow a
+origem é `"local"`. Sem a camada o registro é byte a byte o de antes.
+
 ## Gate: skills viram regra citável, e a política decide o que reprova (AUR-519)
 
-Cada seção `## ` de cada skill Markdown — as da política e as do próprio
-repositório — é lida a cada execução e vira uma regra citável, com id
+Cada seção `## ` de cada skill Markdown — as da política, as da camada de
+padrões de engenharia e as do próprio repositório — é lida a cada execução e vira uma regra citável, com id
 `<nome-do-arquivo-da-skill>#<slug-da-seção>` (para um `SKILL.md` de
 diretório, o nome do diretório no lugar do nome do arquivo; minúsculas, qualquer sequência
 de caracteres não alfanuméricos some num único `-`, sem `-` nas pontas; ex.:
@@ -867,6 +977,9 @@ escritos sempre e enviados como artefatos do job: `aurumcode-audit-<PR>` e
 }
 ```
 
+Com a camada de padrões, o registro ganha `standards` (`source`, `ref`,
+`digest`).
+
 `gate.decision` é `pass`, `fail` ou `inconclusive`; `blocking_findings` lista
 só o que reprovou; `exceptions_applied` lista as exceções aceitas; `coverage`
 diz se algum arquivo ficou de fora.
@@ -1340,7 +1453,7 @@ consumidor.
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
 | `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
 | `changelog_check.bots` | Modo para PR aberta por bot (Dependabot, Renovate): `off`, `suggest` ou `required`; só rebaixa `mode`, nunca eleva | `suggest` |
-| `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
+| `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo, pede as ferramentas da deliberação dentro do teto somado da revisão, e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
 | `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
 | `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
@@ -1381,7 +1494,8 @@ consumidor.
 | `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
-| `--politica`, `--policy` | Diretório que contém o `.aurumcode/config.yml` de uma política central, com precedência sobre `rules`/`ignore`/idioma/publicação do repositório (padrão: `AURUMCODE_POLICY`) |
+| `--politica`, `--policy` | Diretório que contém o `.aurumcode/` da política de segurança central: `rules`, `ignore`, `gate` e `exceptions` passam a ser só os dela quando ela os declara; idioma, publicação, `analysis_data` e as subseções de `quality_gates` que declara (`scanners` engine por engine, só com `required: true`); o resto segue a regra própria de cada seção (`internal/config/governance.go`) (padrão: `AURUMCODE_POLICY`) |
+| `--padroes`, `--standards` | Diretório que contém o `.aurumcode/` da camada de padrões de engenharia: só skills (`skills/<nome>/SKILL.md`) e analistas (`profiles.yml`), abaixo da política e acima do repositório; um `config.yml` com qualquer seção é recusado (padrão: `AURUMCODE_STANDARDS`) |
 | `--auditoria` | Caminho para escrever o registro de auditoria JSON desta execução (padrão: não escreve) |
 | `--sarif` | Caminho para escrever o documento SARIF 2.1.0 desta execução (padrão: não escreve) |
 
@@ -1418,6 +1532,37 @@ Política central por `AURUMCODE_POLICY`, provedor por `LLM_API_KEY` e
   `$RUNNER_TEMP/_github_home`, do diretório que contém o
   `.aurumcode/config.yml` de uma política central; um caminho em
   `/github/workspace` é recusado).
+
+### Permissões do token e o que o log diz quando falta (AUR-619)
+
+O produto escreve no GitHub de duas formas, e cada uma pede uma permissão
+do token do job que chama o workflow (ou que roda a action):
+
+| O que o produto publica | Permissão no job | Quando |
+| --- | --- | --- |
+| o parecer (comentário geral), os comentários na linha, a revisão formal e a edição do parecer de uma rodada anterior | `pull-requests: write` | `publication: comments` ou `review`; comentários na linha com `inline_comments: true` |
+| os status de commit `aurumcode/review` e `aurumcode/policy-gate` | `statuses: write` | `check: true` (o segundo só quando há `gate:` declarado) |
+
+A leitura do diff, dos arquivos de contexto e do histórico da PR usa
+`contents: read` e `pull-requests: read`, já cobertas pelas permissões acima.
+Um workflow reutilizável não concede permissão que o chamador não tem, então
+a declaração fica no job que faz o `uses:` (exemplo completo em
+[docs/gate-corporativo.md](gate-corporativo.md)).
+
+Quando o GitHub recusa uma publicação por permissão (401 ou 403; para um
+token de workflow a resposta é `Resource not accessible by integration`),
+cada linha do diagnóstico diz qual permissão falta e onde declará-la, e
+mantém a resposta do GitHub entre parênteses:
+
+```
+aurumcode review: publishing review summary: sem permissão para publicar: o token precisa de `pull-requests: write`; declare essa permissão em `permissions:` do job que chama o workflow (HTTP 403: {"message":"Resource not accessible by integration",...})
+aurumcode review: publishing check status: sem permissão para publicar: o token precisa de `statuses: write`; declare essa permissão em `permissions:` do job que chama o workflow (HTTP 403: {"message":"Resource not accessible by integration",...})
+```
+
+Em inglês (sem `review.language`) a linha diz `permission denied: the token
+needs ...`. O exit continua sendo de falha, como em toda publicação que não
+aconteceu, e nada é publicado por outro caminho. Qualquer outra resposta do
+GitHub (404, 422, 5xx) é impressa como antes, sem o diagnóstico de permissão.
 
 ## gate.sources: quais achados contam para o gate
 
@@ -1640,11 +1785,42 @@ ou veredito; rebaixar é papel de exceção da segurança. Até 5 explicações 
 revisão; sem provedor com ferramentas ou checkout verificado, o parecer diz
 que não há explicação.
 
-Sem provedor capaz de chamar ferramentas, ou com perfis de revisão, nada é
-oferecido e os scanners `required: false` rodam antes do modelo, como sem
-`deliberation`. Sob política central, uma seção `deliberation` da política
+Sem provedor capaz de chamar ferramentas nada é oferecido e os scanners
+`required: false` rodam antes do modelo, como sem `deliberation`; o terminal
+diz o motivo real, no idioma da revisão: o provedor pelo nome
+(`deliberation: o provedor <nome> não chama ferramentas; ...`) ou, quando há
+analistas e a seção está desligada, a chave da configuração
+(`deliberation: desligada na configuração (deliberation.enabled: false); ...`).
+Sob política central, uma seção `deliberation` da política
 decide sozinha (a do repositório é ignorada com aviso); uma política sem a
 seção mantém a do repositório. Tutorial: [Deliberação com ferramentas](tutorials/deliberacao.md).
+
+### Analistas com as mesmas ferramentas
+
+Com analistas selecionados (`review.profiles` ou `--perfis`), cada passada de
+analista recebe as mesmas ferramentas da passada única e decide sozinha o que
+pedir; os achados continuam com o rótulo do analista. O teto é da revisão,
+não de cada analista: as rodadas que pedem ferramenta somam `max_rounds - 1`
+entre todos os analistas (cada um sempre faz a sua resposta final, que não
+conta nesse total) e os tokens de deliberação de todas as passadas somam
+`max_cost_tokens`. Selecionar analistas nunca multiplica o custo além do
+teto. Um analista que começa depois de as rodadas com ferramenta acabarem é
+avisado no terminal (`deliberation: analista <nome> sem ferramentas: as
+rodadas com ferramenta da revisão (max_rounds) já foram gastas ...`) e
+responde com a evidência já reunida pelos anteriores; um analista cuja
+passada estoura o teto somado de tokens torna a revisão inconclusiva com
+`deliberation_limit:max_cost_tokens`, exatamente como na passada única.
+`per_tool_timeout_seconds` continua valendo por execução de ferramenta, igual
+para todos. Um scanner pedido por mais de um analista, ou mais de uma vez na
+mesma conversa, roda uma só vez na revisão e responde a todos com o mesmo
+resultado.
+
+O stderr mostra, além da linha da revisão, uma linha por analista
+(`deliberation: analista <nome>: rodadas N; pedidas [...]; desfecho ...`) e
+cada chamada com o analista que a fez. A auditoria registra em
+`deliberation.analysts` o nome, as rodadas, os tokens de deliberação, as
+ferramentas pedidas, o desfecho e o limite de cada analista, e cada entrada
+de `deliberation.calls` leva o campo `analyst`. Sem analistas nada muda.
 
 ## Status do CI no parecer
 
@@ -1965,6 +2141,22 @@ data de geração em UTC, fontes, sha256 de cada arquivo e do conjunto) e um
 arquivo por ecossistema; a lista de ecossistemas vem da própria fonte OSV a
 cada build, nunca do código. Teste falhando mantém o release anterior como o
 mais novo. Não há atualização manual.
+
+### O que a lista de Releases mostra
+
+A lista de Releases do repositório mistura duas coisas: as versões do produto
+(`vX.Y.Z`, a mais nova marcada como Latest) e as cópias diárias dos dados de
+análise (`analysis-data/<AAAAMMDDTHHMMSSZ>`). Cada cópia é publicada como
+pre-release, então nunca disputa Latest com o produto. Logo depois de publicar,
+o mesmo workflow apaga as cópias publicadas há mais de 7 dias (release e tag),
+mantendo sempre as 3 mais novas: o produto recusa dados mais velhos que
+`max_age_days` (`analysis_data_stale`), então uma cópia fora dessa janela não
+serve para ninguém. No disparo manual do workflow os dois números são os inputs
+`retention_days` e `keep_at_least` (padrão 7 e 3); o passo roda
+`scripts/artifacts/retain.sh` (`--days`, `--keep`, e `--dry-run` para só
+listar o que seria apagado). Nada fora do prefixo `analysis-data/` é candidato:
+as releases do produto nunca são tocadas. Quem fixa uma cópia por tag precisa
+ficar dentro da janela de 7 dias, como o próprio produto já exige.
 
 Em execução, o AurumCode usa o release mais novo, confere o digest de cada
 arquivo e do conjunto e compara a data com a idade máxima:

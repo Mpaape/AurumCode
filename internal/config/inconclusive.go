@@ -2,10 +2,12 @@ package config
 
 // InconclusiveMode resolves gate.inconclusive against the effective
 // configuration. When the key is absent, the default is block whenever the
-// configuration declares a gate or enables a scanner (SAST, Dependency-Track,
-// analysis data): a tool that was asked to verify and could not must never
-// approve by omission. Avisar (warn) only happens when "warn" is written.
-// With neither a gate nor a scanner, nothing is gated and the mode is "".
+// configuration declares a gate or switches on any deterministic check
+// (scannerEnabled: an enabled scanner engine, Dependency-Track, analysis
+// data or the dependencies gate): a tool that was asked to verify and could
+// not must never approve by omission. Avisar (warn) only happens when
+// "warn" is written. With neither a gate nor a check, nothing is gated and
+// the mode is "".
 func (c *Config) InconclusiveMode() (string, error) {
 	if c == nil {
 		return "", nil

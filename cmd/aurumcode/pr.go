@@ -54,6 +54,9 @@ type prReviewOptions struct {
 	// AURUMCODE_POLICY (AUR-518); empty means no policy was declared and
 	// this path is unchanged (AC-006).
 	policyDir string
+	// standardsDir is the engineering standards layer from --padroes or
+	// AURUMCODE_STANDARDS (AUR-613); empty means no layer.
+	standardsDir string
 	// auditoriaPath/sarifPath are AUR-521's compliance artifact paths
 	// (--auditoria/--sarif); empty means neither file is written, this
 	// path's published behavior unchanged.
@@ -123,7 +126,7 @@ func publishCheckStatusIn(ctx context.Context, language string, client *githubcl
 	status.Description = reviewCheckDescription(language, prNumber, grave, qualityRequiredButIncomplete, providerFailed)
 
 	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: publishing check status: %v\n", err)
+		fmt.Fprintf(stderr, "aurumcode review: publishing check status: %s\n", publishError(language, publishStatus, err))
 		return 1
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", checkContext, commitID, status.State, status.Description)

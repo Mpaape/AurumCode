@@ -25,16 +25,16 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// version is aurumcode's build-time version string. This reconstruction
-// publishes no numbered release yet, so it defaults to "dev"; a future
-// release pipeline stamps a real value with no other code change via:
+// version is aurumcode's build-time version string: "dev" in a plain
+// `go build`, the real value when the build stamps it:
 //
 //	go build -ldflags "-X main.version=1.2.3" ./cmd/aurumcode
 //
-// `aurumcode --version` (or `aurumcode version`) prints it. See
-// docs/specs/AUR-443.md. The image's AURUMCODE_VERSION build argument stamps
-// it, and the review workflow sets that to the tool's exact tag or short SHA
-// (AUR-611); everything else reads it through toolVersion.
+// The image's AURUMCODE_VERSION build argument (Dockerfile) stamps it, and
+// the review workflow sets that to the tool's exact tag or short SHA
+// (AUR-611). `aurumcode --version` (or `aurumcode version`) prints it;
+// everything else reads it through toolVersion. See docs/specs/AUR-443.md
+// and docs/specs/AUR-611.md.
 var version = "dev"
 
 func main() {

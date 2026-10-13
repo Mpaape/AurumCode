@@ -65,10 +65,10 @@ func TestAUR607EnglishSingularIsThePluralWithOne(t *testing.T) {
 	}
 }
 
-// Portuguese counts without "(s)" in every text the review prints.
+// Every Portuguese catalog text counts without a parenthesized plural.
 func TestAUR607PortugueseHasNoParenthesizedPlural(t *testing.T) {
 	for key, text := range catalog()[Portuguese] {
-		if strings.Contains(text, "(s)") || strings.Contains(text, "(ns)") {
+		if strings.Contains(text, "(s)") || strings.Contains(text, "(ns)") || strings.Contains(text, "(is)") {
 			t.Errorf("pt-BR %s still counts with a parenthesized plural: %q", key, text)
 		}
 	}

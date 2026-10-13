@@ -37,7 +37,7 @@ const codebaseContextReasonDirty = "dirty"
 // files is the sorted set of root-relative paths proven clean -- the exact
 // set resolveVerifiedCodebaseContext goes on to read, and no more.
 // Otherwise it returns (codebaseContextReasonDirty, nil) or
-// (codebaseContextReasonUnverifiable, nil) (aur515.go). dir must already be
+// (codebaseContextReasonUnverifiable, nil) (checkout_identity.go). dir must already be
 // verified, by the caller, as the reviewed repository at the reviewed pull
 // request's head commit -- this function only adds the clean-tree half of
 // that proof.

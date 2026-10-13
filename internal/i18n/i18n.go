@@ -84,6 +84,15 @@ func Format(language, key string, args ...any) string {
 	return fmt.Sprintf(Text(language, key), args...)
 }
 
+// Counted formats a count: key's text with n, or the "_one" text of the
+// same key when n is exactly one, so a locale can decline the noun.
+func Counted(language, key string, n int) string {
+	if n == 1 {
+		return Text(language, key+"_one")
+	}
+	return Format(language, key, n)
+}
+
 // Keys returns the embedded catalog's keys, sorted.
 func Keys() []string {
 	return sortedKeys(catalog()[English])

@@ -7,6 +7,7 @@ import urllib.request
 
 BASE_URL = os.environ.get("ASSISTENTE_BASE_URL", "https://api.openai.com/v1")
 MODEL = os.environ.get("ASSISTENTE_MODEL", "gpt-4.1-mini")
+# A chave nunca fica no código: vem do ambiente (ASSISTENTE_API_KEY).
 
 
 def chave() -> str:

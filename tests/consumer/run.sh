@@ -78,6 +78,20 @@ espera_run() {
   return 1
 }
 
+# espera_rerun RUN_ID DEPOIS_DE: imprime "id url conclusao" quando a nova
+# tentativa do run termina depois do instante dado (gh run rerun mantem o id
+# e o createdAt, entao espera_run nunca a veria), ou falha em 30 minutos.
+espera_rerun() {
+  local id="$1" depois="$2" i linha
+  for i in $(seq 1 180); do
+    linha="$(gh run view "$id" --repo "$repo" --json databaseId,url,status,conclusion,updatedAt \
+      --jq "select(.status == \"completed\" and .updatedAt > \"$depois\") | \"\(.databaseId) \(.url) \(.conclusion)\"" 2>/dev/null || true)"
+    if [ -n "$linha" ]; then echo "$linha"; return 0; fi
+    sleep 10
+  done
+  return 1
+}
+
 # coleta CENARIO PR RUN_ID RUN_URL CONCLUSAO: o JSON de evidencia de uma rodada.
 coleta() {
   local cenario="$1" pr="$2" run_id="$3" run_url="$4" conclusao="$5" head status checks texto log idioma modo inline comentarios
@@ -93,16 +107,19 @@ coleta() {
 $(gh api "repos/$repo/pulls/$pr/reviews" --jq '[.[] | .body] | join("\n")')"
   fi
   inline="$(gh api "repos/$repo/pulls/$pr/comments" --jq '[.[] | select(.body | contains("```suggestion"))] | length')"
+  # Comentarios do produto na linha (bloqueantes), com ou sem bloco suggestion.
+  na_linha="$(gh api "repos/$repo/pulls/$pr/comments" --jq '[.[] | select(.body | contains("<!-- aurumcode:finding"))] | length')"
   log="$(gh run view "$run_id" --repo "$repo" --log-failed 2>/dev/null | tail -n 200 || true)"
   idioma=''
-  if printf '%s' "$texto" | grep -q 'Veredito'; then idioma=pt-BR; elif printf '%s' "$texto" | grep -q 'Verdict'; then idioma=en; fi
+  # O parecer nao tem "Veredito" (regra do dono): o idioma vem do titulo do parecer.
+  if printf '%s' "$texto" | grep -q '## AurumCode revisão de código'; then idioma=pt-BR; elif printf '%s' "$texto" | grep -q '## AurumCode code review'; then idioma=en; fi
   jq -n --arg c "$cenario" --arg t "$sha" --arg r "$repo" --arg s "$head" --argjson id "$run_id" --arg url "$run_url" \
     --arg conc "$conclusao" --argjson st "$(jq -n --argjson a "$status" --argjson b "$checks" '$a + $b')" \
-    --arg idioma "$idioma" --arg modo "$modo" --argjson inline "$inline" --argjson com "$comentarios" \
+    --arg idioma "$idioma" --arg modo "$modo" --argjson inline "$inline" --argjson na_linha "$na_linha" --argjson com "$comentarios" \
     --arg texto "$texto
 $log" \
     '{cenario: $c, aurumcode_sha: $t, repo: $r, sha: $s, run_id: $id, run_url: $url, medido: true, limitacoes: [],
-      conclusao: $conc, status: $st, idioma: $idioma, modo: $modo, sugestoes_inline: $inline,
+      conclusao: $conc, status: $st, idioma: $idioma, modo: $modo, sugestoes_inline: $inline, comentarios_inline: $na_linha,
       comentarios_aurum: $com, texto: $texto}'
 }
 
@@ -138,9 +155,14 @@ for cenario in "${cenarios[@]}"; do
   run="$(espera_run "$branch" "$inicio")" || { nao_medido "$cenario" "workflow nao concluiu em 30 min (billing ou fila)"; continue; }
   for ((i = 1; i < rodadas; i++)); do
     inicio="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    gh run rerun "${run%% *}" --repo "$repo" >/dev/null
-    run="$(espera_run "$branch" "$inicio")" || run="$(gh run view "${run%% *}" --repo "$repo" --json databaseId,url,conclusion --jq '"\(.databaseId) \(.url) \(.conclusion)"')"
+    primeiro="${run%% *}"
+    gh run rerun "$primeiro" --repo "$repo" >/dev/null
+    run="$(espera_rerun "$primeiro" "$inicio")" || { nao_medido "$cenario" "a repeticao do run $primeiro nao concluiu em 30 min"; run=''; break; }
   done
+  if [ -z "$run" ]; then
+    [ "$manter" = 1 ] || gh pr close "$pr" --repo "$repo" --delete-branch >/dev/null || true
+    continue
+  fi
   read -r run_id run_url conclusao <<<"$run"
   evid="$(coleta "$cenario" "$pr" "$run_id" "$run_url" "$conclusao")"
   if [ -n "$correcao" ]; then

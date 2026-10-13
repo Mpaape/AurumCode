@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/context/skills"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -102,26 +103,37 @@ func dynamicRulesFromRemoteSkills(ctx context.Context, client *githubclient.Clie
 }
 
 // dynamicRulesFromCatalog turns every skill the catalog selected for changed
-// into dynamic rules, tagged with its own layer's origin: a repository skill
-// directory is citable exactly like a listed skill file (same ids, see
-// review.ParseSkillSections), and never with the policy's origin
-// (CR-TRUST-001). It returns the policy and repository rule sets apart so
-// the caller merges them with the policy winning.
-func dynamicRulesFromCatalog(catalog *skills.Catalog, changed []string) (policy, repo map[string]review.Rule) {
-	policy, repo = map[string]review.Rule{}, map[string]review.Rule{}
+// into dynamic rules, by layer, each tagged with its layer's gate origin
+// (layerRuleOrigin): a repository skill directory is citable exactly like a
+// listed skill file (same ids, see review.ParseSkillSections), and never
+// with a central layer's origin (CR-TRUST-001). policyActive is whether a
+// central policy governs this run.
+func dynamicRulesFromCatalog(catalog *skills.Catalog, changed []string, policyActive bool) layeredRules {
+	r := layeredRules{}
 	if catalog == nil {
-		return policy, repo
+		return r
 	}
 	for _, doc := range catalog.Docs(changed) {
-		target, origin := repo, gateOriginRepo
-		if doc.Layer == skills.LayerPolicy {
-			target, origin = policy, gateOriginPolicy
-		}
-		for _, rule := range review.ParseSkillSections(doc.Path, doc.Instructions, origin) {
-			target[rule.ID] = rule
+		layer := layerOfDoc(doc)
+		for _, rule := range review.ParseSkillSections(doc.Path, doc.Instructions, layerRuleOrigin(layer, policyActive)) {
+			r.add(layer, rule)
 		}
 	}
-	return policy, repo
+	return r
+}
+
+// layerRuleOrigin is the gate origin of a layer's skill-section rules: the
+// policy's own and the repository's own, and for the engineering standards
+// layer -- central like the policy, so its findings count in the gate as
+// source skills -- the origin the run's gate accepts (acceptedGateOrigin).
+func layerRuleOrigin(layer config.LayerName, policyActive bool) string {
+	switch layer {
+	case config.LayerPolicy:
+		return gateOriginPolicy
+	case config.LayerRepository:
+		return gateOriginRepo
+	}
+	return acceptedGateOrigin(policyActive)
 }
 
 // unionRules adds every rule of extra to base that base does not already
@@ -133,23 +145,6 @@ func unionRules(base, extra map[string]review.Rule) map[string]review.Rule {
 		}
 	}
 	return base
-}
-
-// mergeDynamicRules combines policy and repo dynamic rule sets into one
-// map, keyed by id. On an id collision (the policy and the repository both
-// declare a skill section that slugs to the same id) the POLICY's rule
-// always wins: a repository must never be able to shadow a policy's rule
-// id with its own, lower-trust, repo-origin copy and quietly remove it
-// from the gate's accepted set (CR-TRUST-001).
-func mergeDynamicRules(policy, repo map[string]review.Rule) map[string]review.Rule {
-	out := make(map[string]review.Rule, len(policy)+len(repo))
-	for id, rule := range repo {
-		out[id] = rule
-	}
-	for id, rule := range policy {
-		out[id] = rule
-	}
-	return out
 }
 
 // publishPolicyGateStatus publishes AC-006's own commit status
@@ -177,7 +172,7 @@ func publishPolicyGateStatusIn(ctx context.Context, language string, client *git
 	status.State, status.Description = gateStatusDescription(language, gateResult, prNumber)
 
 	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
-		fmt.Fprintf(stderr, "aurumcode review: publishing policy gate status: %v\n", err)
+		fmt.Fprintf(stderr, "aurumcode review: publishing policy gate status: %s\n", publishError(language, publishStatus, err))
 		return 1
 	}
 	fmt.Fprintf(stdout, "check %q publicado no commit %s: %s (%s)\n", policyGateContext, commitID, status.State, status.Description)

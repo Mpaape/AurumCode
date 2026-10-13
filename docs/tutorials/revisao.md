@@ -425,9 +425,10 @@ RESULTADO: o relatorio mostra a origem ao lado da avaliacao do modelo (contestad
 ```
 
 O que observar: cada achado mostra o que o engine mediu (`origem`) ao lado do
-que o modelo concluiu. Sem política e sem `gate.triage`, só o parecer muda:
-o achado contestado continua no relatório e nada é rebaixado; sem `gate`
-declarado também não há exceção a propor. Com um gate, veja o caso 10 do
+que o modelo concluiu. Sem política e sem `gate` declarado, só o parecer muda:
+o achado contestado continua no relatório, nada é rebaixado e não há exceção a
+propor. Com gate declarado, `gate.triage` vale `model` por padrão e uma
+contestação justificada rebaixa o achado; veja o caso 10 do
 tutorial `gate`.
 
 ## Caso 7: o achado do modelo é verificado contra o código

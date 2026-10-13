@@ -245,10 +245,10 @@ var publishedStatusForTest githubclient.CommitStatus
 func TestAUR519MergeDynamicRulesPolicyWins(t *testing.T) {
 	policy := map[string]review.Rule{"security#x": {ID: "security#x", Title: "Policy version", Origin: gateOriginPolicy, Severity: "error"}}
 	repo := map[string]review.Rule{"security#x": {ID: "security#x", Title: "Repo version", Origin: gateOriginRepo, Severity: "info"}}
-	merged := mergeDynamicRules(policy, repo)
+	merged := layeredRules{config.LayerPolicy: policy, config.LayerRepository: repo}.merged()
 	got, ok := merged["security#x"]
 	if !ok || got.Origin != gateOriginPolicy || got.Title != "Policy version" {
-		t.Fatalf("mergeDynamicRules() = %+v, want the policy's own rule to win the collision", got)
+		t.Fatalf("layeredRules.merged() = %+v, want the policy's own rule to win the collision", got)
 	}
 }
 

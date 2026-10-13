@@ -1,0 +1,9 @@
+# Analistas do time de engenharia, disponiveis para todo servico que os
+# selecionar em review.profiles. Cada um e uma passada do modelo com o seu
+# foco; o achado sai no parecer marcado com o analista.
+profiles:
+  - name: padroes
+    version: "1"
+    emphasis: "padroes de codigo da engenharia"
+    families: ["quality"]
+    instructions: "Analista de padroes da engenharia: confira no codigo alterado as convencoes das skills de todas as camadas e cite a regra da skill em cada achado."

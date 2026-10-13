@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- POC `demo/do-zero` em três repositórios (security-policy, devops-policy e o serviço) com modo real só montado, tutorial executável `camadas` com quatro casos e aceite sobre a evidência gravada (AUR-614).
+- Nenhum texto stale no código: comentários e docs de pacote alinhados ao produto atual, e as linhas de terminal que contavam com "(s)" passam pelo catálogo pt-BR/en com singular e plural (AUR-615).
+- Autorrevisão do repositório com provedor reserva: o chamador repassa `fallback_1_*` ao workflow reutilizável, então uma falha do provedor principal cai na reserva em vez de bloquear o lote.
+- Camada de padrões de engenharia: segundo repositório central (`--padroes`, `standards_repository` no workflow) com skills e analistas abaixo da política; `config.yml` com seção é recusado; parecer e auditoria nomeiam a camada (AUR-613).
+- Dados de análise publicados como pre-release e cópias com mais de 7 dias apagadas pelo workflow diário (mínimo 3 mantidas; inputs `retention_days`/`keep_at_least`; só `analysis-data/*`); a doc explica a lista de Releases (AUR-618).
+- Publicação recusada por permissão (401/403): o diagnóstico nomeia a permissão que o token precisa (`pull-requests: write` ou `statuses: write`) e onde declará-la; a fixture da correção do QA traz entrada de changelog (AUR-619).
+- Analistas (`--perfis`/`review.profiles`) deliberam com as mesmas ferramentas da passada única, num teto somado por revisão; o terminal diz o motivo real quando nada é oferecido e a auditoria registra as rodadas por analista (AUR-616).
+- QA no consumidor alinhado ao parecer atual: idioma lido do título do parecer (não há mais "Veredito"); o cenário de comentário na linha exige o comentário do achado bloqueante e mede, sem exigir, a sugestão aplicável (AUR-512).
+- QA no consumidor: a segunda rodada de um cenário espera a nova tentativa do mesmo run (`gh run rerun` mantém o id) em vez de procurar um run novo e cair num id vazio (AUR-512).
+- Comentários e docs de pacote alinhados ao código atual (sem funções, arquivos ou pacotes que não existem mais); tutoriais de gate e revisão com o padrão `model` da triagem; `.gitignore` sem restos de Jekyll.
+- Cards AUR-607 a AUR-612 entregues no lote #158, com o aceite selado repetido no SHA do main e a tabela de controle do AUR-589 atualizada.
 - Autorrevisão do repositório: as mudanças com defeito encenadas no tutorial `camadas` (`servico-mudanca`, `servico-mesmo-nome-mudanca`) saem do diff revisado, como os demais repositórios de exemplo.
 - Autorrevisão do repositório: os repositórios de exemplo da POC em camadas (`demo/do-zero/camadas/`) saem do diff revisado, como as saídas gravadas; o lote `dev → main` cabe num prompt sem arquivo fora da cobertura.
 - Autorrevisão do repositório: até 8 lotes e teto de prompts maior, para o lote `dev → main` não ficar com arquivos fora da revisão; `.board/` e `docs/specs/` saem do diff revisado.

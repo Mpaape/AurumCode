@@ -1,0 +1,45 @@
+# Evidencia do roteiro `run.sh --modo mock --auto` (AUR-614): cada linha abaixo
+# precisa estar, literalmente, em out/roteiro-mock.log (run.sh --check).
+# AC-001: os tres repositorios nascem no "GitHub" falso (remotos bare em .estado/)
+$ git init --bare ../remotos/assistente.git && git remote add origin ../remotos/assistente.git && git push -u origin main
+$ git init --bare ../remotos/security-policy.git && git remote add origin ../remotos/security-policy.git && git push -u origin main
+$ git init --bare ../remotos/devops-policy.git && git remote add origin ../remotos/devops-policy.git && git push -u origin main
+política de segurança publicada: nenhum serviço precisa copiar nada dela.
+padrões de engenharia publicados; o gate continua com a segurança.
+o serviço aponta para as duas camadas; nenhuma regra foi copiada para ele e nenhuma chave entrou em arquivo.
+# o agente pergunta antes da PR (MCP com as duas camadas) e a CLI responde o mesmo
+$ AURUMCODE_POLICY=/github/policy AURUMCODE_STANDARDS=/github/standards aurumcode mcp
+aurum_gate: decisao=fail exit_code=3
+$ aurumcode review --base main --politica /github/policy --padroes /github/standards
+o gate reprovou antes do PR; a chave ainda não saiu da máquina do dev.
+# AC-001: a PR e bloqueada e cada achado diz a camada de origem e o analista
+$ aurumcode review --pr 1 --repo voce/assistente --publicar --check --modo-publicacao comments --politica /github/policy --padroes /github/standards
+> **Bloqueado: 2 problemas precisam de correção antes do merge.**
+(rule ia#ia-001-resposta-do-modelo-nunca-e-executada: IA-001 Resposta do modelo nunca e executada) [perfil seguranca] -- publicado na linha
+# os achados da engenharia entram no parecer da PR com o analista e o rotulo da camada (na PR bloqueada e na aprovada)
+(rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia] -- no parecer
+(rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia] -- no parecer
+(rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia] -- no parecer
+(rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia] -- no parecer
+- `assistente.py:32` — A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. (rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia]
+- `assistente.py:34` — A opção --executar é um comportamento novo sem teste (QA-001). (rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia]
+status aurumcode/policy-gate: failure
+assistente.py:10:  analysis/hardcoded-secret → verificação determinística do AurumCode, cobrada pelo gate do security-policy
+assistente.py:32:  time#pad-001-argumentos-de-linha-de-comando-com-argparse → devops-policy (padrões de engenharia), analista padroes
+assistente.py:34:  time#qa-001-comportamento-novo-tem-teste → devops-policy (padrões de engenharia), analista qa
+assistente.py:36:  ia#ia-001-resposta-do-modelo-nunca-e-executada → security-policy (política de segurança), analista seguranca
+bloqueado pelas três camadas: a segurança reprova (IA-001), a engenharia observa (PAD-001, QA-001) e o serviço só escolheu os analistas.
+# AC-002: o gate e o ignore escritos no servico sao descartados com aviso e o bloqueio e o mesmo
+$ cp camadas/servico/afrouxa.yml .aurumcode/config.yml && git diff .aurumcode/config.yml
+aurumcode review: politica central: padrão de ignore "assistente.py" do repositório não foi aplicado: a política central decide sozinha
+aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
+exit_code=3
+exit_code=3
+exit_code=3
+nada mudou: o serviço não consegue afrouxar a segurança.
+# AC-001: a correcao e aprovada pelas mesmas camadas; as observacoes da engenharia ficam abertas
+$ cp etapas/correcao.py assistente.py && git commit -am 'assistente: chave pelo ambiente e --executar só mostra' && git push
+exit_code=0
+> **Aprovado com 2 observações que não bloqueiam o merge.**
+status aurumcode/policy-gate: success
+aprovado: a correção passou pelas mesmas três camadas que reprovaram a versão anterior; as observações da engenharia seguem abertas, sem bloquear.

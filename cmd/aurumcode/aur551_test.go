@@ -167,7 +167,7 @@ func TestAUR551SignFailureNamesArtifactAndFailsClosed(t *testing.T) {
 // above: with sign_artifacts on (and sign_sbom off, so only the image
 // branch runs), a cosign failure fails the command and names the image
 // reference on stderr -- unconditionally, exactly like the SBOM case.
-// Before this test, that branch's own failure path (aur551.go's second
+// Before this test, that branch's own failure path (cmd_sign.go's
 // `return exitQualityNotReviewed` after a signing error) had no test of
 // its own; tests/acceptance/AUR-551.sh's mutation now covers both.
 func TestAUR551ImageSignFailureNamesArtifactAndFailsClosed(t *testing.T) {

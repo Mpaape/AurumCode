@@ -1,0 +1,26 @@
+# Workflow do serviço: toda PR passa pela revisão do AurumCode com as duas
+# camadas centrais. run.sh troca __REF__, __POLICY_REPO__, __POLICY_REF__,
+# __STANDARDS_REPO__ e __STANDARDS_REF__ pelos valores da execução.
+name: Code review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: read
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@__REF__
+    with:
+      model: ${{ vars.LLM_MODEL }}
+      policy_repository: __POLICY_REPO__        # segurança: gate, regras IA-*, ignore e exceções
+      policy_ref: __POLICY_REF__                # SHA fixa da main do security-policy
+      standards_repository: __STANDARDS_REPO__  # engenharia: skills PAD-*/QA-* e analistas padroes e qa
+      standards_ref: __STANDARDS_REF__          # SHA fixa da main do devops-policy
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}        # só se o security-policy for privado
+      AURUMCODE_STANDARDS_TOKEN: ${{ secrets.AURUMCODE_STANDARDS_TOKEN }}  # só se o devops-policy for privado

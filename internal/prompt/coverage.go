@@ -15,9 +15,10 @@ import (
 // cmd/aurumcode's stdout, so the declaration below is what the reviewer
 // (and the LLM) reads inside the assembled prompt, plus the same counts
 // in PromptParts.Meta for a caller (or a test) to assert on directly.
-// Surfacing this on the CLI's own stdout, alongside the finding list,
-// needs a follow-up card that owns cmd/aurumcode (AUR-476); this card
-// does not.
+// The CLI surfaces the same counts in the published review's coverage
+// notice (AUR-476, cmd/aurumcode/review_copy.go and the review.coverage_*
+// catalog keys); this package only declares them inside the prompt and
+// in PromptParts.Meta.
 //
 // Adversarial review (post-ff64e18) found two measured defects in the
 // first cut of this file, both fixed here:

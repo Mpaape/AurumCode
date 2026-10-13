@@ -2,7 +2,7 @@
 // produced by running Trivy as an external process (never a network call
 // this package makes itself, and never a second, in-process SBOM builder).
 //
-// Generator is the seam cmd/aurumcode's wiring (aur549.go) calls through, so
+// Generator is the seam cmd/aurumcode's wiring (cmd_sbom.go) calls through, so
 // the orchestration (GenerateAndValidate, pipeline.go) and its tests never
 // depend on the real trivy binary being installed: TrivyGenerator is the
 // only implementation that actually shells out, and the acceptance tests
@@ -62,7 +62,7 @@ func (t TrivyGenerator) GenerateFilesystem(ctx context.Context, root, outputPath
 // GenerateImage runs `trivy image --format <format> --output <outputPath>
 // <image>` -- AC-004's separate scan for an explicitly given image
 // reference. Never invoked unless the caller was actually given an image
-// (see aur549.go): this card's Non-goals exclude inventing one.
+// (see cmd_sbom.go): the SBOM gate never invents one.
 func (t TrivyGenerator) GenerateImage(ctx context.Context, image, outputPath string) error {
 	return t.run(ctx, []string{"image", "--format", t.format(), "--output", outputPath, image})
 }
