@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Autorrevisão do repositório: as mudanças com defeito encenadas no tutorial `camadas` (`servico-mudanca`, `servico-mesmo-nome-mudanca`) saem do diff revisado, como os demais repositórios de exemplo.
 - Autorrevisão do repositório: os repositórios de exemplo da POC em camadas (`demo/do-zero/camadas/`) saem do diff revisado, como as saídas gravadas; o lote `dev → main` cabe num prompt sem arquivo fora da cobertura.
 - Autorrevisão do repositório: até 8 lotes e teto de prompts maior, para o lote `dev → main` não ficar com arquivos fora da revisão; `.board/` e `docs/specs/` saem do diff revisado.
 - Revisão do próprio repositório ignora a evidência gravada da POC `demo/do-zero` (`out/` e `expected/`), como já faz com os tutoriais: a chave de propósito do defeito encenado não é achado.
