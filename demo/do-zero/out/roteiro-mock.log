@@ -286,15 +286,16 @@ AurumCode do zero, em camadas  modo mock
   e --padroes apontam para os clones):
   $ aurumcode review --base main --politica /github/policy --padroes /github/standards
     │ aurumcode review: profiles: seguranca, padroes, qa
+    │ aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
     │ aurumcode review: verificação: assistente.py:36 ia#ia-001-resposta-do-modelo-nunca-e-executada continua bloqueando: confirmado pelo verificador — Com --executar, o texto devolvido por perguntar() vai direto para exec(): a resposta do modelo é executada como código. [confirmed]
     │ aurumcode review: policy gate: ia#ia-001-resposta-do-modelo-nunca-e-executada - IA-001 Resposta do modelo nunca e executada (severidade error, limiar error, origem skills)
+    │ aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
     │ ## AurumCode revisão de código
     │ 
     │ > [!CAUTION]
     │ > **Bloqueado: 2 problemas precisam de correção antes do merge.**
     │ 
     │ gate da política: reprovou · 1 arquivo revisado
-    │ aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
     │ 
     │ ### Sugestões
     │ 
@@ -351,6 +352,7 @@ AurumCode do zero, em camadas  modo mock
   central, montadas fora da árvore do serviço, como o workflow faz.
   $ aurumcode review --pr 1 --repo voce/assistente --publicar --check --modo-publicacao comments --politica /github/policy --padroes /github/standards
     │ aurumcode review: profiles: seguranca, padroes, qa
+    │ aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
     │ aurumcode review: policy gate: ia#ia-001-resposta-do-modelo-nunca-e-executada - IA-001 Resposta do modelo nunca e executada (severidade error, limiar error, origem skills)
     │ aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
     │ assistente.py:10: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) -- publicado na linha
@@ -464,6 +466,7 @@ AurumCode do zero, em camadas  modo mock
     │ aurumcode review: politica central: padrão de ignore "assistente.py" do repositório não foi aplicado: a política central decide sozinha
     │ aurumcode review: politica central: gate do config do repositório foi ignorado: a política central decide sozinha
     │ aurumcode review: profiles: seguranca, padroes, qa
+    │ aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
     │ aurumcode review: verificação: assistente.py:36 ia#ia-001-resposta-do-modelo-nunca-e-executada continua bloqueando: confirmado pelo verificador — Com --executar, o texto devolvido por perguntar() vai direto para exec(): a resposta do modelo é executada como código. [confirmed]
     │ aurumcode review: policy gate: ia#ia-001-resposta-do-modelo-nunca-e-executada - IA-001 Resposta do modelo nunca e executada (severidade error, limiar error, origem skills)
     │ aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
@@ -532,6 +535,7 @@ AurumCode do zero, em camadas  modo mock
     │ <sha7> assistente: --executar roda o código sugerido
   $ aurumcode review --pr 1 --repo voce/assistente --publicar --check --modo-publicacao comments --politica /github/policy --padroes /github/standards
     │ aurumcode review: profiles: seguranca, padroes, qa
+    │ aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
     │ assistente.py:32: [warning] A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. (rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia] -- no parecer
     │ assistente.py:34: [warning] A opção --executar é um comportamento novo sem teste (QA-001). (rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia] -- no parecer
     │ parecer publicado na PR #1 (sem comentários na linha).

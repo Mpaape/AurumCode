@@ -1,9 +1,9 @@
 == tres-camadas
 $ aurumcode review --base main --politica /policy --padroes /standards
 aurumcode review: profiles: padroes
+aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
 aurumcode review: verificação: app.py:12 seguranca#seg-001-verificacao-de-tls-nunca-e-desligada continua bloqueando: confirmado pelo verificador — A linha 12 adicionada passa verify=False ao requests.get: a verificação do certificado do servidor foi desligada. [confirmed]
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
-aurumcode review: policy gate: seguranca#seg-001-verificacao-de-tls-nunca-e-desligada - SEG-001 Verificacao de TLS nunca e desligada (severidade error, limiar error, origem skills)
 ## AurumCode revisão de código
 
 > [!CAUTION]
@@ -25,6 +25,7 @@ app.py:20: [warning] A opção --json é lida filtrando sys.argv na mão, contra
   - Evidência: A linha 20 adicionada monta args filtrando sys.argv[1:].
   - Correção sugerida: Declare --json com argparse.
   - Verificação: python3 app.py --help lista --json.
+aurumcode review: policy gate: seguranca#seg-001-verificacao-de-tls-nunca-e-desligada - SEG-001 Verificacao de TLS nunca e desligada (severidade error, limiar error, origem skills)
 exit_code=3
 RESULTADO: a regra da seguranca bloqueia; as da engenharia e do servico orientam
 --- de onde veio cada achado (conclusao do script, lendo a saida acima)
