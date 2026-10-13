@@ -2080,6 +2080,22 @@ arquivo por ecossistema; a lista de ecossistemas vem da própria fonte OSV a
 cada build, nunca do código. Teste falhando mantém o release anterior como o
 mais novo. Não há atualização manual.
 
+### O que a lista de Releases mostra
+
+A lista de Releases do repositório mistura duas coisas: as versões do produto
+(`vX.Y.Z`, a mais nova marcada como Latest) e as cópias diárias dos dados de
+análise (`analysis-data/<AAAAMMDDTHHMMSSZ>`). Cada cópia é publicada como
+pre-release, então nunca disputa Latest com o produto. Logo depois de publicar,
+o mesmo workflow apaga as cópias publicadas há mais de 7 dias (release e tag),
+mantendo sempre as 3 mais novas: o produto recusa dados mais velhos que
+`max_age_days` (`analysis_data_stale`), então uma cópia fora dessa janela não
+serve para ninguém. No disparo manual do workflow os dois números são os inputs
+`retention_days` e `keep_at_least` (padrão 7 e 3); o passo roda
+`scripts/artifacts/retain.sh` (`--days`, `--keep`, e `--dry-run` para só
+listar o que seria apagado). Nada fora do prefixo `analysis-data/` é candidato:
+as releases do produto nunca são tocadas. Quem fixa uma cópia por tag precisa
+ficar dentro da janela de 7 dias, como o próprio produto já exige.
+
 Em execução, o AurumCode usa o release mais novo, confere o digest de cada
 arquivo e do conjunto e compara a data com a idade máxima:
 

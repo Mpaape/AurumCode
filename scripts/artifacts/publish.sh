@@ -5,6 +5,9 @@
 # manifest (nothing changed between the test and the upload). The release is
 # created as a draft, filled, then published, so a half-uploaded release is
 # never visible to the runtime. An existing tag is never touched.
+# AUR-618: every copy is a pre-release, so the product's own releases keep
+# "Latest"; retain.sh (the next workflow step) deletes the copies the runtime
+# no longer accepts.
 set -Eeuo pipefail
 export LC_ALL=C
 
@@ -31,8 +34,8 @@ done < <(awk '
 ' "$dist/manifest.json")
 [[ "${#assets[@]}" -gt 1 ]] || { echo "publish.sh: manifest lists no files" >&2; exit 1; }
 
-"$gh_bin" release create "$tag" "${assets[@]}" --draft --latest=false \
+"$gh_bin" release create "$tag" "${assets[@]}" --draft --prerelease --latest=false \
   --title "Analysis data ${tag#analysis-data/}" \
   --notes "Automated analysis-data artifact. set_digest: $digest"
-"$gh_bin" release edit "$tag" --draft=false --latest=false
+"$gh_bin" release edit "$tag" --draft=false --prerelease --latest=false
 echo "published $tag"
