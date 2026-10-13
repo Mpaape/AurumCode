@@ -27,6 +27,8 @@ ignore:
   - "demo/tutoriais/camadas/servico-afrouxa/**"
   - "demo/tutoriais/camadas/servico-mesmo-nome/**"
   - "demo/tutoriais/camadas/servico/**"
+  - "demo/tutoriais/camadas/servico-mudanca/**"            # a mudanca com defeito encenada no tutorial
+  - "demo/tutoriais/camadas/servico-mesmo-nome-mudanca/**"
   - ".board/**"             # estado do board: validado por .board/pipeline.sh, nao e produto
   - "docs/specs/**"          # historico de cada card, por desenho
   - "docs/site/**"          # pagina estatica antiga com saidas embutidas; nao e codigo
