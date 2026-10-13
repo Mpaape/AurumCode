@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- QA no consumidor: o cenário de changelog ausente usa o fixture `sem-changelog` (mudança de código válida sem entrada), pois `bug-sql-corrigido` passou a trazer a entrada que a correção precisa (AUR-512).
 ## 2.0.0 - 2026-10-13
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate
