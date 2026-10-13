@@ -97,8 +97,9 @@ func (f *dtrackFakeServer) handler() http.HandlerFunc {
 	}
 }
 
-// useFakeDTrackClock overrides this card's own injectable clock/sleeper
-// (aur550.go) so a configured timeout never costs a test real wall-clock
+// useFakeDTrackClock overrides the Dependency-Track gate's injectable
+// clock/sleeper (gate.DTrackClockNow/DTrackSleeper, internal/gate/dtrack.go)
+// so a configured timeout never costs a test real wall-clock
 // time, restoring the production defaults on cleanup.
 func useFakeDTrackClock(t *testing.T) {
 	t.Helper()
@@ -454,9 +455,9 @@ func TestAUR550DisabledByDefaultNoOp(t *testing.T) {
 // gate.inconclusive: warn (the non-blocking mode): exit 0, the stable
 // dtrack_timeout reason still visible, and approval never claimed. This
 // is MUT-001's own "warn" counterpart to TestAUR550PollingTimeoutIsInconclusive's
-// "block" case -- together they kill a mutation that hardcodes
-// applyDTrackGate's blockOnInconclusive to true regardless of the
-// configured mode (aur550.go).
+// "block" case -- together they kill a mutation that makes a
+// Dependency-Track timeout block regardless of the configured
+// gate.inconclusive mode.
 func TestAUR550PollingTimeoutWarnsNeverBlocks(t *testing.T) {
 	fs := &dtrackFakeServer{pendingPolls: 1 << 20}
 	srv := httptest.NewServer(fs.handler())

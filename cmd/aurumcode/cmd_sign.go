@@ -60,7 +60,7 @@ func newSignFlagSet() (*flag.FlagSet, signFlags) {
 }
 
 // runSign is cmd/aurumcode's AUR-551 wiring: flag parsing, configuration
-// resolution (repo vs. central policy, reusing aur549.go's
+// resolution (repo vs. central policy, reusing cmd_sbom.go's
 // loadEffectiveConfig), and the cosign calls themselves. It never touches
 // the review pipeline in main.go/pr.go, nor `aurumcode sbom` -- this is a
 // new, standalone subcommand, additive to the existing

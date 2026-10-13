@@ -6,7 +6,7 @@ package main
 import "strings"
 
 // localRepoIdentity returns the --base path's own "owner/repo" identity,
-// derived the exact same read-only way aur515.go's codebaseContextMismatch
+// derived the exact same read-only way checkout_identity.go's codebaseContextMismatch
 // already derives it for --pr's local-checkout verification: the
 // repository's configured "origin" remote, parsed for the owner/repo it
 // names, never anything the reviewed diff or a provider reply could

@@ -74,7 +74,7 @@ func TestAUR607PolicyLineAndFirstBreach(t *testing.T) {
 }
 
 // AC-002: the Dependency-Track line names its reason in the review language;
-// English keeps the code.
+// the default language keeps the code.
 func TestAUR607DTrackReasonFollowsTheLanguage(t *testing.T) {
 	// Names of unset environment variables, built at runtime so the
 	// repository's own gate does not read them as a credential literal.
@@ -94,7 +94,7 @@ func TestAUR607DTrackReasonFollowsTheLanguage(t *testing.T) {
 }
 
 // AC-001: the count of findings a reused verdict added keeps its earlier
-// bytes in English and agrees in number in Portuguese.
+// bytes in the default language and agrees in number in Portuguese.
 func TestAUR607ReappliedVerdictCount(t *testing.T) {
 	for _, tc := range []struct {
 		language string

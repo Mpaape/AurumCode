@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"path"
 	"sort"
 	"strings"
@@ -132,7 +133,9 @@ func (s scopeDiscardSummary) total() int {
 	return s.OutsideAddedLines + s.MissingEvidence + s.MissingImpact + s.MissingVerification + s.CitesRedactionMarker
 }
 
-func (s scopeDiscardSummary) warning() string {
+// warning is the operator-visible line counting what the scope gate
+// discarded, in the review language.
+func (s scopeDiscardSummary) warning(language string) string {
 	if s.total() == 0 {
 		return ""
 	}
@@ -152,7 +155,10 @@ func (s scopeDiscardSummary) warning() string {
 	if s.CitesRedactionMarker > 0 {
 		reasons = append(reasons, fmt.Sprintf("%d %s", s.CitesRedactionMarker, redactedMarkerDiscardReason))
 	}
-	return fmt.Sprintf("%d finding(s) descartado(s) pelo gate de escopo e evidencia: %s", s.total(), strings.Join(reasons, ", "))
+	if s.total() == 1 {
+		return i18n.Format(language, "review.scope_discarded_one", strings.Join(reasons, ", "))
+	}
+	return i18n.Format(language, "review.scope_discarded", s.total(), strings.Join(reasons, ", "))
 }
 
 // filterModelIssues enforces the review's precision contract after parsing

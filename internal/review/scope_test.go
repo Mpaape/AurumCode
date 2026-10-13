@@ -57,8 +57,11 @@ func TestFilterModelIssuesRoutesProvedOutsideFindingsAndRejectsUnproved(t *testi
 	if discarded.OutsideAddedLines != 3 || discarded.MissingImpact != 1 || discarded.MissingVerification != 0 || discarded.MissingEvidence != 0 {
 		t.Fatalf("discard summary = %#v, want outside=3 impact=1", discarded)
 	}
-	if discarded.warning() == "" {
-		t.Fatal("discarding model findings must produce an operator-visible warning")
+	if got, want := discarded.warning(""), "4 finding(s) descartado(s) pelo gate de escopo e evidencia: 3 fora de linhas alteradas no diff, 1 sem impacto explicado"; got != want {
+		t.Fatalf("warning (default language) = %q, want %q", got, want)
+	}
+	if got, want := discarded.warning("pt-BR"), "4 achados descartados pelo gate de escopo e evidência: 3 fora de linhas alteradas no diff, 1 sem impacto explicado"; got != want {
+		t.Fatalf("warning (pt-BR) = %q, want %q", got, want)
 	}
 }
 

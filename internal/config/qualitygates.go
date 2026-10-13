@@ -5,20 +5,17 @@ import (
 	"strings"
 )
 
-// QualityGatesConfig is quality_gates: one shared top-level key three
-// corporate-adoption cards each write their own subsection into (AUR-548
-// Semgrep/SAST, AUR-549 SBOM/Trivy, AUR-550 Dependency-Track). Every
-// subsection is a pointer: nil means "not declared at all", distinct from
-// "declared with every inner field still at its zero value" -- a central
-// policy can enable a subsection with nothing but defaults, and
-// ApplyCentralPolicy needs to tell that apart from the key being absent
-// altogether (ValidatePolicyOutsideReviewedTree's sibling concern, same
-// idea GateConfig.Declared() already uses for a single flat section).
+// QualityGatesConfig is quality_gates: one shared top-level key with four
+// subsections -- sast (Semgrep, AUR-548), ssor_dtrack (SBOM/Trivy and
+// Dependency-Track, AUR-549/AUR-550), supply_chain (Cosign, AUR-551) and
+// the generic scanners list (scanners.go). Every named subsection is a
+// pointer: nil means "not declared at all", distinct from "declared with
+// every inner field still at its zero value" -- a central policy can enable
+// a subsection with nothing but defaults, and ApplyCentralPolicy needs to
+// tell that apart from the key being absent altogether (the same idea
+// GateConfig.Declared() uses for a single flat section).
 //
-// Each card defines only the fields it needs inside its own subsection;
-// the rest stay empty structs (or, within SsorDtrackConfig, absent
-// fields) for that card's own builder to add as sibling fields, never by
-// this card reaching into another card's section.
+// Each subsection carries only its own fields; none reaches into another.
 type QualityGatesConfig struct {
 	Sast        *SastConfig        `yaml:"sast"`
 	SsorDtrack  *SsorDtrackConfig  `yaml:"ssor_dtrack"`
@@ -88,7 +85,7 @@ type SsorDtrackConfig struct {
 // empty string on a declared-but-incomplete section) is a loud
 // configuration error at load time, never a silent no-op and never an
 // attempt to shell out to an unreviewed signer. Artifacts is optional: the
-// CLI's own --image flags (aur551.go, cmd/aurumcode) may name the image(s)
+// CLI's own --image flags (cmd_sign.go, cmd/aurumcode) may name the image(s)
 // to sign instead, but any entry that does appear here is validated the
 // same way -- pinned by a sha256 digest, never a mutable tag.
 type SupplyChainConfig struct {
@@ -135,8 +132,8 @@ func (s *SupplyChainConfig) Validate() error {
 // tag sem digest e recusada"). Deliberately duplicated (never imported) in
 // internal/supplychain's own ValidateArtifactRef, the same way
 // isMajorMinorVersion above is duplicated rather than imported from
-// internal/sbom: internal/supplychain's CLI-flag validation (aur551.go)
-// must refuse an unpinned --image before this package is even reached,
+// internal/sbom: ValidateArtifactRef, which cmd_sign.go runs on --image,
+// must refuse an unpinned reference before this package is even reached,
 // and internal/config must never import a package that itself might need
 // to import internal/config later.
 func validateImageDigestRef(ref string) error {

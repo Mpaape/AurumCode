@@ -94,7 +94,7 @@ func runDependencyScanWith(args []string, stdout, stderr io.Writer, filter *reda
 		fmt.Fprintf(stderr, "aurumcode dependencies: writing SARIF: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "aurumcode dependencies: %d manifesto(s), %d pacote(s), %d advisory(s)\n", len(report.Manifests), len(report.Changes), len(report.Findings))
+	fmt.Fprintf(stdout, "aurumcode dependencies: %s\n", dependenciesSummaryText(cfg.Review.Language, len(report.Manifests), len(report.Changes), len(report.Findings)))
 	return 0
 }
 

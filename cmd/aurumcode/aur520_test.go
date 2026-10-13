@@ -73,7 +73,7 @@ func TestAUR520MatchExceptionExactFieldsRequired(t *testing.T) {
 
 // TestAUR520MatchExceptionRepoCaseInsensitive proves the repo comparison
 // tolerates case the way GitHub's own owner/repo naming does (the same
-// convention aur515.go's codebaseContextMismatch already uses), while
+// convention checkout_identity.go's codebaseContextMismatch already uses), while
 // rule and path stay exact.
 func TestAUR520MatchExceptionRepoCaseInsensitive(t *testing.T) {
 	exc := sampleException()

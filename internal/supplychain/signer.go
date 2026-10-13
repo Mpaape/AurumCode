@@ -8,7 +8,7 @@
 // never verifies that path itself -- that is Sigstore's transparency log
 // and the eventual consumer's job.
 //
-// Signer is the seam cmd/aurumcode's wiring (aur551.go) calls through, so
+// Signer is the seam cmd/aurumcode's wiring (cmd_sign.go) calls through, so
 // the orchestration and its tests never depend on the real cosign binary
 // being installed: tests and docs/specs/AUR-551.md's own real-proof run
 // point Binary at a script or a pinned container instead of a system
@@ -135,7 +135,7 @@ func (s Signer) SignBlob(ctx context.Context, opts Options, path string) error {
 	// "--" is never re-interpreted as a flag even when it starts with
 	// "--" itself. ValidateArtifactRef's own leading-"-" refusal (image
 	// refs) and this package's path check (SBOM paths, cmd/aurumcode's
-	// own aur551.go) are the PRIMARY defense -- a single-dash value was
+	// own cmd_sign.go) are the PRIMARY defense -- a single-dash value was
 	// observed, in that same investigation, to still trigger cosign's
 	// legacy shorthand-flag normalization even after "--", so "--" alone
 	// is not relied upon here.

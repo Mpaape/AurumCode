@@ -284,7 +284,7 @@ func (p *prReview) finish(failures []string, artifactsMissing bool) int {
 		out.gateCheckExit = publishPolicyGateStatusIn(p.ctx, p.reviewLanguage, p.client, p.stdout, stderr, p.owner, p.repoName, p.commitID, *p.gateRes, p.prNumber)
 	}
 	if len(failures) > 0 {
-		fmt.Fprintf(stderr, "aurumcode review: %d comentario(s) falharam ao publicar:\n", len(failures))
+		fmt.Fprintf(stderr, "aurumcode review: %s:\n", publishFailuresText(p.reviewLanguage, len(failures)))
 		for _, f := range failures {
 			fmt.Fprintf(stderr, "  %s\n", f)
 		}

@@ -16,9 +16,9 @@ import (
 	"github.com/Mpaape/AurumCode/internal/sbom"
 )
 
-// gateReasonSBOMFailure is this card's own token for evaluateGate's
+// gateReasonSBOMFailure is the SBOM gate's token for evaluateGate's
 // inconclusiveReason parameter, in the same closed vocabulary as
-// gateReasonProviderFailure (aur537.go), "model_parse_failure",
+// gateReasonProviderFailure (provider_failure.go), "model_parse_failure",
 // "degraded_parse" and "partial_coverage" (pr.go): a stable,
 // non-model-authored string naming exactly what went wrong, never text an
 // LLM or a scanned repository controls.

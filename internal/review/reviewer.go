@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -227,6 +228,8 @@ type preparedPrompt struct {
 	diff    *types.Diff // redacted copy: everything downstream sees this one
 	metrics *analyzer.DiffMetrics
 	parts   prompt.PromptParts
+	// language is the review language of the operator-visible lines.
+	language string
 }
 
 // preparePrompt redacts every untrusted input and assembles the budgeted
@@ -264,7 +267,7 @@ func (r *Reviewer) preparePrompt(diff *types.Diff, reviewContext ReviewContext) 
 	if err != nil {
 		return preparedPrompt{}, fmt.Errorf("failed to build prompt: %w", err)
 	}
-	return preparedPrompt{diff: diff, metrics: metrics, parts: parts}, nil
+	return preparedPrompt{diff: diff, metrics: metrics, parts: parts, language: reviewContext.Language}, nil
 }
 
 // promptBudget is the explicit MaxTokens when set, else the default prompt
@@ -438,12 +441,12 @@ func annotateResult(result *types.ReviewResult, prepared preparedPrompt, outcome
 	result.Metadata["issues_rejected_without_rule"] = fmt.Sprintf("%d", outcome.rejected)
 	result.Metadata["issues_rejected_by_scope"] = fmt.Sprintf("%d", outcome.scopeDiscarded.total())
 	result.Metadata[RedactionMarkerDiscardKey] = fmt.Sprintf("%d", outcome.scopeDiscarded.CitesRedactionMarker)
-	result.Metadata["scope_discard_warning"] = outcome.scopeDiscarded.warning()
+	result.Metadata["scope_discard_warning"] = outcome.scopeDiscarded.warning(prepared.language)
 	setOutsideDiffFindings(result.Metadata, outcome.outsideDiff)
 	result.Metadata["summary_discarded_findings"] = fmt.Sprintf("%d", outcome.total())
 	// AUR-448: a discard the rule gate makes is never silent; "" on the
 	// happy path so a caller printing a non-empty warning writes nothing.
-	result.Metadata["discard_warning"] = formatDiscardWarning(outcome.discarded)
+	result.Metadata["discard_warning"] = formatDiscardWarning(prepared.language, outcome.discarded)
 	result.Metadata["total_files"] = fmt.Sprintf("%d", prepared.metrics.TotalFiles)
 	result.Metadata["lines_added"] = fmt.Sprintf("%d", prepared.metrics.LinesAdded)
 	result.Metadata["lines_deleted"] = fmt.Sprintf("%d", prepared.metrics.LinesDeleted)
@@ -664,25 +667,28 @@ func enforceRuleCitations(rules *RulesLoader, extra map[string]Rule, result *typ
 }
 
 // formatDiscardWarning renders discarded as the one-line explanation
-// GenerateReview's caller prints to stderr: how many findings the rule gate
-// discarded and why (a missing rule_id, an unknown rule_id, or both) --
-// never a silent "No issues found." when the model actually reported
-// something the gate then hid (AUR-448). Returns "" when nothing was
-// discarded, so the happy path (every finding cites a resolvable rule)
-// never receives a byte on stderr.
-func formatDiscardWarning(discarded discardSummary) string {
+// GenerateReview's caller prints to stderr, in the review language: how
+// many findings the rule gate discarded and why (a missing rule_id, an
+// unknown rule_id, or both) -- never a silent "No issues found." when the
+// model actually reported something the gate then hid (AUR-448). Returns ""
+// when nothing was discarded, so the happy path (every finding cites a
+// resolvable rule) never receives a byte on stderr.
+func formatDiscardWarning(language string, discarded discardSummary) string {
 	total := discarded.Missing + discarded.Unknown
 	if total == 0 {
 		return ""
 	}
 	var reasons []string
 	if discarded.Missing > 0 {
-		reasons = append(reasons, fmt.Sprintf("%d with no rule_id", discarded.Missing))
+		reasons = append(reasons, i18n.Format(language, "review.rule_discarded_missing", discarded.Missing))
 	}
 	if discarded.Unknown > 0 {
-		reasons = append(reasons, fmt.Sprintf("%d citing an unknown rule_id (%s)", discarded.Unknown, strings.Join(discarded.UnknownIDs, ", ")))
+		reasons = append(reasons, i18n.Format(language, "review.rule_discarded_unknown", discarded.Unknown, strings.Join(discarded.UnknownIDs, ", ")))
 	}
-	return fmt.Sprintf("%d finding(s) discarded: %s", total, strings.Join(reasons, ", "))
+	if total == 1 {
+		return i18n.Format(language, "review.rule_discarded_one", strings.Join(reasons, ", "))
+	}
+	return i18n.Format(language, "review.rule_discarded", total, strings.Join(reasons, ", "))
 }
 
 // withholdSummaryWhenFiltered returns summary unchanged when discardedCount

@@ -156,7 +156,7 @@ func readCorpusReports(beforePath, afterPath string) (*feedback.CorpusReport, *f
 }
 
 func printFeedbackResult(stdout io.Writer, res feedback.Result, publish bool) {
-	fmt.Fprintf(stdout, "realimentação: %d sinal(is), %d novo(s)\n", res.Signals, res.Fresh)
+	fmt.Fprintf(stdout, "realimentação: %s\n", feedbackSummaryText(res.Signals, res.Fresh))
 	for _, n := range res.Notes {
 		fmt.Fprintf(stdout, "nota: %s\n", n)
 	}

@@ -1,9 +1,11 @@
 // AUR-521: the audit record a policy-governed review writes alongside its
-// SARIF (sarif.go). It carries exactly the fields AC-001 names: the policy
+// SARIF (sarif.go). It always carries the fields AC-001 names: the policy
 // digest, the workflow and reviewed SHAs, the repo, the model, the verdict,
 // the gate's own decision, the findings that actually blocked it, the
-// exceptions applied to it (AUR-520's own field -- empty until that card
-// lands), and the coverage this run achieved.
+// exceptions applied to it, and the coverage this run achieved. The
+// sections later capabilities added (analysis data, evidence assessments,
+// proposed exceptions, deliberation, batches, tool version, standards
+// layer) appear only when the run produced them.
 package render
 
 import (
@@ -37,11 +39,11 @@ type AuditRecord struct {
 
 	BlockingFindings []AuditFinding `json:"blocking_findings"`
 
-	// ExceptionsApplied is AUR-520's own field: the exceptions this run
-	// actually applied to a finding. It is always present as a list -- an
-	// empty one until AUR-520 lands and starts populating it -- never
-	// omitted, so a consumer parsing this record never has to special-case
-	// its absence (see docs/specs/AUR-521.md).
+	// ExceptionsApplied lists the exceptions this run actually applied to a
+	// finding (gate.MatchException, through cmd/aurumcode's compliance
+	// artifacts). It is always present as a list -- empty when none applied
+	// -- never omitted, so a consumer parsing this record never has to
+	// special-case its absence (see docs/specs/AUR-521.md).
 	ExceptionsApplied []AuditException `json:"exceptions_applied"`
 
 	Coverage AuditCoverage `json:"coverage"`
