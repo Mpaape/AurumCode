@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-616",
+  "commit": "8c76f78fa5c002fbc6f2baa5c9091c18857934f0",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-616",
+    "exit_code": 0,
+    "raw_output": "oci-run: untrusted stdout: AUR-616/AC-001/pass\noci-run: untrusted stdout: AUR-616/AC-002/pass\noci-run: untrusted stdout: AUR-616/AC-003/pass\noci-run: untrusted stdout: AUR-616/AC-004/pass\noci-run: untrusted stdout: AUR-616/MUT-001/rejected\noci-run: untrusted stdout: AUR-616/MUT-002/rejected\noci-run: untrusted stdout: AUR-616/all/pass\noci-run: untrusted stderr:     aur616_test.go:77: stderr lacks \"deliberation: analyst seguranca: rounds 2; requested [scanner_fakescan]; outcome answered\":\noci-run: untrusted stderr:     aur616_test.go:77: stderr lacks \"deliberation: analyst solid: rounds 2; requested [scanner_fakescan]; outcome answered\":\noci-run: untrusted stderr:     aur616_test.go:77: stderr lacks \"deliberation: round 1, analyst seguranca: scanner_fakescan(\":\noci-run: untrusted stderr:     aur616_test.go:77: stderr lacks \"deliberation: round 1, analyst solid: scanner_fakescan(\":\noci-run: untrusted stderr:     aur616_test.go:108: stderr lacks the spent-budget line for solid:\noci-run: untrusted stderr:     aur616_test.go:118: second analyst = {Analyst:solid Rounds:2 Requested:[scanner_fakescan] Outcome:answered Limit:}, want one round, no request, answered\noci-run: untrusted stderr: --- FAIL: TestAUR616ToolRoundsAreSummedOverTheAnalysts (0.04s)\noci-run: untrusted stderr:     aur616_test.go:136: exit=3, want the summed cost to stop the review; stderr=aurumcode review: profiles: seguranca, solid\n{\"schema\":\"aurum.acceptance-execution\",\"version\":1,\"card_id\":\"AUR-616\",\"profile\":\"go-unit-offline-v1\",\"profile_source\":\"registry\",\"profile_digest\":\"sha256:a53293e94829d0cb788df6aa9d3076770b96ecf4b2d1097713fe26c77d0ab07f\",\"lock_digest\":\"sha256:026e9310444c083a5e51f5ab99e1d9caa829bf857a8b3c75bf3c317c2df6c4f4\",\"engine\":\"docker\",\"image\":\"aurum-bootstrap-go-bash@sha256:b678437d5b61b54437940fd62d5716f237de249ed921765bd02b2077c945308c\",\"input_manifest_digest\":\"sha256:2c5545310dddb4aa1bb5634e355f7735d57a707840c7a55cf6218967b813ec83\",\"exit_code\":0,\"stdout_sha256\":\"sha256:834642269882dc6cfe6fe490c1164f4e6e2061b646e28f387a81718b05e5df5c\",\"stderr_sha256\":\"sha256:adca9635f95cc8bf77b0ddbcdb19ea47adccecb73b08a0888a85912077dafa76\",\"stdout_bytes\":147,\"stderr_bytes\":863,\"output_truncated\":false,\"timed_out\":false,\"secret_detected\":false,\"forbidden_authority_assertion\":false,\"observation_trusted\":false}\nrc=0\n"
+  }
+}

@@ -2,31 +2,20 @@
 
 ## Unreleased
 
-- POC `demo/do-zero` em três repositórios (security-policy, devops-policy e o serviço) com modo real só montado, tutorial executável `camadas` com quatro casos e aceite sobre a evidência gravada (AUR-614).
-- Nenhum texto stale no código: comentários e docs de pacote alinhados ao produto atual, e as linhas de terminal que contavam com "(s)" passam pelo catálogo pt-BR/en com singular e plural (AUR-615).
-- Autorrevisão do repositório com provedor reserva: o chamador repassa `fallback_1_*` ao workflow reutilizável, então uma falha do provedor principal cai na reserva em vez de bloquear o lote.
-- Camada de padrões de engenharia: segundo repositório central (`--padroes`, `standards_repository` no workflow) com skills e analistas abaixo da política; `config.yml` com seção é recusado; parecer e auditoria nomeiam a camada (AUR-613).
-- Dados de análise publicados como pre-release e cópias com mais de 7 dias apagadas pelo workflow diário (mínimo 3 mantidas; inputs `retention_days`/`keep_at_least`; só `analysis-data/*`); a doc explica a lista de Releases (AUR-618).
-- Publicação recusada por permissão (401/403): o diagnóstico nomeia a permissão que o token precisa (`pull-requests: write` ou `statuses: write`) e onde declará-la; a fixture da correção do QA traz entrada de changelog (AUR-619).
-- Analistas (`--perfis`/`review.profiles`) deliberam com as mesmas ferramentas da passada única, num teto somado por revisão; o terminal diz o motivo real quando nada é oferecido e a auditoria registra as rodadas por analista (AUR-616).
-- QA no consumidor alinhado ao parecer atual: idioma lido do título do parecer (não há mais "Veredito"); o cenário de comentário na linha exige o comentário do achado bloqueante e mede, sem exigir, a sugestão aplicável (AUR-512).
-- QA no consumidor: a segunda rodada de um cenário espera a nova tentativa do mesmo run (`gh run rerun` mantém o id) em vez de procurar um run novo e cair num id vazio (AUR-512).
-- Comentários e docs de pacote alinhados ao código atual (sem funções, arquivos ou pacotes que não existem mais); tutoriais de gate e revisão com o padrão `model` da triagem; `.gitignore` sem restos de Jekyll.
-- Cards AUR-607 a AUR-612 entregues no lote #158, com o aceite selado repetido no SHA do main e a tabela de controle do AUR-589 atualizada.
-- Autorrevisão do repositório: as mudanças com defeito encenadas no tutorial `camadas` (`servico-mudanca`, `servico-mesmo-nome-mudanca`) saem do diff revisado, como os demais repositórios de exemplo.
-- Autorrevisão do repositório: os repositórios de exemplo da POC em camadas (`demo/do-zero/camadas/`) saem do diff revisado, como as saídas gravadas; o lote `dev → main` cabe num prompt sem arquivo fora da cobertura.
-- Autorrevisão do repositório: até 8 lotes e teto de prompts maior, para o lote `dev → main` não ficar com arquivos fora da revisão; `.board/` e `docs/specs/` saem do diff revisado.
-- Revisão do próprio repositório ignora a evidência gravada da POC `demo/do-zero` (`out/` e `expected/`), como já faz com os tutoriais: a chave de propósito do defeito encenado não é achado.
-- Exemplos de senha dos testes da redação montados em tempo de execução, para a passada de segurança do próprio repositório não os ler como credencial (AUR-609).
-- A versão da ferramenta nos workflows é resolvida por `scripts/ci/resolve-tool-version.sh`, um só script para os três builds (AUR-611).
-
-## 2.0.0 - 2026-10-09
+## 2.0.0 - 2026-10-13
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate
 de conformidade que escreve para gente ler, verifica o que o modelo afirma
 antes de publicar e falha fechado quando não consegue decidir.
 
 ### Entregue
+
+#### Camadas de política e padrões, analistas com ferramentas
+
+- Camada de padrões de engenharia: segundo repositório central (`--padroes`; `standards_repository` no workflow) com skills e analistas abaixo da política; `config.yml` com seção é recusado; parecer e auditoria nomeiam a camada.
+- Analistas (`--perfis`/`review.profiles`) deliberam com as mesmas ferramentas da passada única, num teto somado por revisão; o terminal diz o motivo real quando nada é oferecido e a auditoria registra as rodadas por analista.
+- Publicação recusada por permissão (401/403): o diagnóstico nomeia a permissão que o token precisa (`pull-requests: write` ou `statuses: write`) e onde declará-la, mantendo a resposta do GitHub.
+- Dados de análise publicados como pre-release e cópias com mais de 7 dias apagadas pelo workflow diário (mínimo de 3 mantidas; só `analysis-data/*`); terminal sem "(s)": singular e plural pelo catálogo pt-BR/en.
 
 #### Parecer da pull request
 
@@ -101,17 +90,10 @@ antes de publicar e falha fechado quando não consegue decidir.
 
 #### Documentação e operação
 
-- Demonstração `demo/do-zero`: projeto novo com o AurumCode configurado por um
-  agente de IA (Aurum como servidor MCP) ou por roteiro; PR bloqueada pela
-  ferramenta e pela regra da segurança, aprovada após a correção, com três
-  analistas; local sem rede ou no GitHub real. Guia "Instalar com ajuda da IA".
-- Política central em repositório privado ou interno: secret opcional `AURUMCODE_POLICY_TOKEN`
-  (só leitura no repositório da política) nos workflows de revisão e changelog.
-- Tutoriais executáveis por capacidade, com saídas gravadas e conferidas no
-  CI; site com busca, navegação por capacidade e diagramas renderizados
-  localmente; docs de changelog e de auditoria/SARIF reescritas.
-- Guias com proteção de branch, secrets do Dependabot, precedência da política
-  central, versões fixadas das ferramentas e como saber que há versão nova.
+- Demonstração `demo/do-zero` em três repositórios (segurança, engenharia e o serviço): PR bloqueada pelas três camadas, o serviço não afrouxa a segurança, correção aprovada; tutorial executável `camadas`.
+- Política central em repositório privado ou interno: secret opcional `AURUMCODE_POLICY_TOKEN` (só leitura) nos workflows de revisão e changelog.
+- Tutoriais executáveis por capacidade, com saídas gravadas e conferidas no CI; site com busca e navegação por capacidade; docs de changelog e de auditoria/SARIF reescritas.
+- Guias com proteção de branch, secrets do Dependabot, precedência da política central, versões fixadas e como saber que há versão nova.
 
 ### Limites
 

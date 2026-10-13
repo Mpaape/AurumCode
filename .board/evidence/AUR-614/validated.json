@@ -1,0 +1,13 @@
+{
+  "schema": "aurum.delivery-record",
+  "version": 1,
+  "card": "AUR-614",
+  "commit": "8c76f78fa5c002fbc6f2baa5c9091c18857934f0",
+  "review": "approved",
+  "validation": "passed",
+  "validator_run": {
+    "command": "./.board/bin/oci-run --profile go-unit-offline-v1 --card AUR-614",
+    "exit_code": 0,
+    "raw_output": "oci-run: untrusted stdout: AUR-614/AC-001/ok (tres repositorios, PR bloqueada com as tres camadas identificadas, correcao aprovada)\noci-run: untrusted stdout: AUR-614/AC-002/ok (gate e ignore do servico descartados com aviso; bloqueio igual)\noci-run: untrusted stdout: AUR-614/AC-003/ok (modo real montado sem rede: tres repositorios, comandos gh, secrets e tokens)\noci-run: untrusted stdout: AUR-614/AC-004/ok (limpar remove .estado/ e o projeto do modo ia; nada alem)\noci-run: untrusted stdout: AUR-614/AC-005/ok (4 casos; 34 linhas de saida do texto no out/; 12 blocos identicos; 5 flags conferidas; execucao real na spec)\noci-run: untrusted stdout: AUR-614/MUT-001/rejected (sem docker: a evidencia sem as linhas da camada de padroes diverge no --check)\noci-run: untrusted stdout: AUR-614/MUT-002/rejected (sem docker: a evidencia sem a prova do caso 3 diverge no --check)\n{\"schema\":\"aurum.acceptance-execution\",\"version\":1,\"card_id\":\"AUR-614\",\"profile\":\"go-unit-offline-v1\",\"profile_source\":\"registry\",\"profile_digest\":\"sha256:a53293e94829d0cb788df6aa9d3076770b96ecf4b2d1097713fe26c77d0ab07f\",\"lock_digest\":\"sha256:026e9310444c083a5e51f5ab99e1d9caa829bf857a8b3c75bf3c317c2df6c4f4\",\"engine\":\"docker\",\"image\":\"aurum-bootstrap-go-bash@sha256:b678437d5b61b54437940fd62d5716f237de249ed921765bd02b2077c945308c\",\"input_manifest_digest\":\"sha256:690cfe15961e91e25d703f08b93b8dc36114afa55b770e2b1430baf0af962683\",\"exit_code\":0,\"stdout_sha256\":\"sha256:3828a35c3d3b6d27e736639e460424b8be1230e28bb83e4635a210a2e9308bdf\",\"stderr_sha256\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"stdout_bytes\":688,\"stderr_bytes\":0,\"output_truncated\":false,\"timed_out\":false,\"secret_detected\":false,\"forbidden_authority_assertion\":false,\"observation_trusted\":false}\nrc=0\n"
+  }
+}
