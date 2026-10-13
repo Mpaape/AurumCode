@@ -18,6 +18,15 @@ ignore:
   - "demo/gate-corporativo/expected/**"
   - "demo/do-zero/out/**"       # evidencia gravada do roteiro (contem a chave de proposito do defeito)
   - "demo/do-zero/expected/**"
+  - "demo/do-zero/camadas/**"   # repositorios de exemplo da POC (politica e padroes encenados), nao sao o produto
+  - "demo/tutoriais/camadas/devops-policy-com-gate/**"
+  - "demo/tutoriais/camadas/devops-policy-mesmo-nome/**"
+  - "demo/tutoriais/camadas/devops-policy/**"
+  - "demo/tutoriais/camadas/security-policy-mesmo-nome/**"
+  - "demo/tutoriais/camadas/security-policy/**"
+  - "demo/tutoriais/camadas/servico-afrouxa/**"
+  - "demo/tutoriais/camadas/servico-mesmo-nome/**"
+  - "demo/tutoriais/camadas/servico/**"
   - ".board/**"             # estado do board: validado por .board/pipeline.sh, nao e produto
   - "docs/specs/**"          # historico de cada card, por desenho
   - "docs/site/**"          # pagina estatica antiga com saidas embutidas; nao e codigo
