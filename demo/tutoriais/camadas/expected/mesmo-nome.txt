@@ -1,0 +1,8 @@
+$ aurumcode review --base main --politica /policy --padroes /standards
+aurumcode review: skill "nomes" dos padrões de engenharia ignorada: já existe uma skill com esse nome na política de segurança, camada de cima
+aurumcode review: skill "nomes" do repositório ignorada: já existe uma skill com esse nome na política de segurança, camada de cima
+aurumcode review: policy gate: nomes#nome-claro - Nome claro (severidade warning, limiar error, origem skills)
+app.py:13: [warning] A resposta fica em "r" e os dados em "d": nomes de uma letra fora de um laço, contra a regra Nome claro. (rule nomes#nome-claro: Nome claro)
+exit_code=3
+RESULTADO: a skill da politica venceu: severity error, o gate reprova
+o achado nao leva o rotulo da camada de padroes: a regra que valeu e a da politica

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- POC `demo/do-zero` em três repositórios (security-policy, devops-policy e o serviço) com modo real só montado, tutorial executável `camadas` com quatro casos e aceite sobre a evidência gravada (AUR-614).
 - Nenhum texto stale no código: comentários e docs de pacote alinhados ao produto atual, e as linhas de terminal que contavam com "(s)" passam pelo catálogo pt-BR/en com singular e plural (AUR-615).
 - Autorrevisão do repositório com provedor reserva: o chamador repassa `fallback_1_*` ao workflow reutilizável, então uma falha do provedor principal cai na reserva em vez de bloquear o lote.
 - Camada de padrões de engenharia: segundo repositório central (`--padroes`, `standards_repository` no workflow) com skills e analistas abaixo da política; `config.yml` com seção é recusado; parecer e auditoria nomeiam a camada (AUR-613).

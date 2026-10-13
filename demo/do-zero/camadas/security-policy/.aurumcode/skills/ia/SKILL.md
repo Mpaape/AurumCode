@@ -1,7 +1,7 @@
 ---
 name: ia
 version: 1
-paths: ["**/*.py"]
+languages: [python]
 ---
 Regras da seguranca para software que conversa com modelos de IA. Cada `## `
 abaixo e uma regra citavel pelo AurumCode; `severity: error` reprova o merge.

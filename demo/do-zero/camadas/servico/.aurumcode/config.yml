@@ -1,0 +1,8 @@
+# .aurumcode/config.yml do serviço: só o que é do serviço.
+# O gate, o idioma e as regras de segurança vêm do security-policy; as skills
+# PAD-*/QA-* e os analistas padroes e qa vêm do devops-policy (os dois
+# apontados no workflow). Um gate ou ignore escrito aqui é ignorado com aviso.
+review:
+  language: pt-BR
+  inline_comments: true   # o que bloqueia vira comentário na linha, com a correção aplicável
+  profiles: [seguranca, padroes, qa]   # analistas: seguranca (embutido) e os do devops-policy

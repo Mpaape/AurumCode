@@ -1,0 +1,5 @@
+# Servico: o minimo. O gate vem da security-policy; as regras e os analistas
+# comuns vem da devops-policy. Aqui so o idioma e os analistas que rodam.
+review:
+  language: pt-BR
+  profiles: [padroes]     # analista declarado no profiles.yml da devops-policy

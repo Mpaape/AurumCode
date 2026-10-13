@@ -1,0 +1,12 @@
+# O que o dev com pressa tenta escrever em .aurumcode/config.yml do serviço:
+# um gate que só reprova o crítico e um ignore do próprio arquivo com defeito.
+# Sob a política central, as duas seções são ignoradas com aviso.
+review:
+  language: pt-BR
+  inline_comments: true
+  profiles: [seguranca, padroes, qa]
+gate:
+  fail_on: [critical]     # "só o crítico bloqueia" (a política diz error)
+  inconclusive: warn
+ignore:
+  - assistente.py         # "esse arquivo não precisa de revisão"

@@ -76,6 +76,10 @@ política central	politica-central	precedencia-por-secao	aurumcode review	demo/t
 política central	politica-central	analysis-data	aurumcode review	demo/tutoriais/politica-central	expected/analysis-data.txt	exit_code=0	-	entregue
 política central	politica-central	repo-afrouxa	aurumcode review	demo/tutoriais/politica-central	expected/repo-afrouxa.txt	RESULTADO: o gate do proprio repositorio aceita o warning	-	entregue
 política central	politica-central	falha-politica-invalida	aurumcode review	demo/tutoriais/politica-central	expected/falha-politica-invalida.txt	RESULTADO: politica invalida falha antes de qualquer chamada ao modelo	-	entregue
+camadas: política, padrões e serviço	camadas	tres-camadas	aurumcode review	demo/tutoriais/camadas	expected/tres-camadas.txt	RESULTADO: a regra da seguranca bloqueia; as da engenharia e do servico orientam	-	entregue
+camadas: política, padrões e serviço	camadas	servico-nao-afrouxa	aurumcode review	demo/tutoriais/camadas	expected/servico-nao-afrouxa.txt	RESULTADO: sozinho, o servico aprova a propria mudanca	-	entregue
+camadas: política, padrões e serviço	camadas	mesmo-nome	aurumcode review	demo/tutoriais/camadas	expected/mesmo-nome.txt	RESULTADO: a skill da politica venceu: severity error, o gate reprova	-	entregue
+camadas: política, padrões e serviço	camadas	padroes-com-gate	aurumcode review	demo/tutoriais/camadas	expected/padroes-com-gate.txt	RESULTADO: a camada de padroes com gate e recusada antes de qualquer chamada ao modelo	-	entregue
 provedores de LLM por configuração	provedores	sem-perfil	ver run.sh	demo/tutoriais/provedores	expected/sem-perfil.txt	RESULTADO: sem LLM_PROVIDER a requisicao e a de sempre e a revisao conclui	-	entregue
 provedores de LLM por configuração	provedores	azure-openai	ver run.sh	demo/tutoriais/provedores	expected/azure-openai.txt	RESULTADO: azure-openai: api-key e api-version, sem Authorization, e a revisao conclui	-	entregue
 provedores de LLM por configuração	provedores	anthropic	ver run.sh	demo/tutoriais/provedores	expected/anthropic.txt	RESULTADO: anthropic: sem response_format, resposta dentro do schema, revisao conclui	-	entregue

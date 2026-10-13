@@ -157,11 +157,16 @@ servidores do cliente e configure a raiz correta do projeto. O MCP revisa
 commits entre a base e `HEAD`; edições não commitadas não entram nessa revisão.
 Um hook já existente deve ser integrado, nunca sobrescrito.
 
-Scanners, política central, SBOM, Dependency-Track, assinatura, changelog e
-provedores de reserva podem ser acrescentados depois, quando solicitados e
-suportados pela versão instalada. Não habilite tudo na primeira conversa.
-Uma política central existente continua valendo; não a enfraqueça para obter
-um resultado verde.
+Scanners, política central, camada de padrões, SBOM, Dependency-Track,
+assinatura, changelog e provedores de reserva podem ser acrescentados depois,
+quando solicitados e suportados pela versão instalada. Não habilite tudo na
+primeira conversa. Uma política central existente continua valendo; não a
+enfraqueça para obter um resultado verde. Quando o time de segurança mantém um
+repositório de política (`policy_repository`) e o time de engenharia um
+repositório de padrões (`standards_repository`, com as skills e os analistas
+comuns), o serviço aponta para os dois no workflow, cada um fixado em SHA, e
+não copia regra nenhuma para dentro de si; as três camadas estão em
+[camadas.md](camadas.md).
 
 ### 5. Verifique o caminho escolhido
 
@@ -205,7 +210,10 @@ o usuário quer acrescentar; não refaça a instalação nem duplique arquivos.
 
 ## Demonstração
 
-`demo/do-zero/run.sh ia` prepara um projeto novo com o AurumCode registrado como
-servidor MCP e imprime este pedido pronto para colar no agente; `ia-defeito`
-cria uma mudança que a camada de ferramentas e uma regra do time reprovam.
-Veja `demo/do-zero/README.md`.
+`demo/do-zero/run.sh ia` cria os dois repositórios centrais da demonstração
+(`security-policy`, do time de segurança, e `devops-policy`, do time de
+engenharia), prepara um projeto novo com o AurumCode registrado como servidor
+MCP já recebendo as duas camadas, e imprime este pedido pronto para colar no
+agente, que aponta o serviço para os dois repositórios; `ia-defeito` cria uma
+mudança que a camada de ferramentas e uma regra da segurança reprovam. Veja
+`demo/do-zero/README.md`.
