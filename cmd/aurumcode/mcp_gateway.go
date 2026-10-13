@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/mcpserver"
 	"github.com/Mpaape/AurumCode/internal/review/session"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -126,7 +125,7 @@ func (g *sessionGateway) Rules(_ context.Context, paths []string) (mcpserver.Rul
 	if !ok {
 		return mcpserver.RuleSet{}, fmt.Errorf("%s", stderr.String())
 	}
-	layers, err := loadSkillLayers(cwd, policyDir, standardsDir)
+	layers, err := resolveCentralLayers(cwd, policyDir, standardsDir, readReviewEnv())
 	if err != nil {
 		return mcpserver.RuleSet{}, err
 	}
@@ -135,34 +134,4 @@ func (g *sessionGateway) Rules(_ context.Context, paths []string) (mcpserver.Rul
 		return mcpserver.RuleSet{}, err
 	}
 	return ruleSetOf(resolved.catalog, resolved.rules, paths, policyDir, layers.standards.activeDir()), nil
-}
-
-// loadSkillLayers loads the repository configuration and, when a central
-// policy is set, the policy over it, then the engineering standards layer
-// when one is set, exactly as the review's resolve phase.
-func loadSkillLayers(cwd, policyDir, standardsDir string) (skillLayers, error) {
-	cfg, err := config.Load(cwd)
-	if err != nil {
-		return skillLayers{}, err
-	}
-	l := skillLayers{cwd: cwd, policyDir: policyDir, cfg: cfg}
-	if policyDir != "" {
-		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, cwd); err != nil {
-			return skillLayers{}, err
-		}
-		if l.centralCfg, err = config.LoadCentralPolicy(policyDir); err != nil {
-			return skillLayers{}, err
-		}
-		l.cfg, _ = config.ApplyCentralPolicy(cfg, l.centralCfg)
-	}
-	if standardsDir == "" {
-		return l, nil
-	}
-	if l.language, err = l.cfg.ReviewLanguage(); err != nil {
-		return skillLayers{}, err
-	}
-	if l.standards, err = loadCentralLayer(config.Layers[config.LayerStandards], standardsDir, cwd, l.language, readReviewEnv()); err != nil {
-		return skillLayers{}, err
-	}
-	return l, nil
 }

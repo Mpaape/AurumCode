@@ -8,11 +8,13 @@
 # only when it exists; without it nothing changes.
 #
 # Selectors:
-#   all      AC-001..AC-008, MUT-001..MUT-003
+#   all      AC-001..AC-008, MUT-001..MUT-005
 #   AC-001   a standards skill yields a finding on --base, --pr and the agent
 #            server, named after the layer and counted in the gate as skills
 #   AC-002   analysts of the standards profiles.yml run when selected
-#   AC-003   policy > standards > repository by skill name, with warnings
+#   AC-003   policy > standards > repository by skill name, with warnings; a
+#            shadowed skill never comes back through review.context.skills; a
+#            repository listing cannot drop a standards skill
 #   AC-004   config.yml with gate/ignore/exceptions/rules/quality_gates/
 #            publication is refused
 #   AC-005   a standards directory inside the reviewed tree is refused
@@ -24,13 +26,15 @@
 #   MUT-001  accepting gate in the layer's config.yml turns AC-004 red
 #   MUT-002  inverting the policy/standards order turns AC-003 red
 #   MUT-003  accepting a directory inside the reviewed tree turns AC-005 red
+#   MUT-004  keeping a shadowed skill in the listing turns AC-003 red
+#   MUT-005  a raw repository listing reaching ExcludeListed turns AC-003 red
 # Exit: 0 pass, 1 behavioral failure, 64 unknown selector, 79 infrastructure.
 set -Eeuo pipefail
 export LC_ALL=C
 
 readonly card='AUR-613'
 selector="${1:-all}"
-known='all AC-001 AC-002 AC-003 AC-004 AC-005 AC-006 AC-007 AC-008 MUT-001 MUT-002 MUT-003'
+known='all AC-001 AC-002 AC-003 AC-004 AC-005 AC-006 AC-007 AC-008 MUT-001 MUT-002 MUT-003 MUT-004 MUT-005'
 if [[ " $known " != *" $selector "* ]]; then
   printf '%s/%s/unknown-selector\n' "$card" "$selector" >&2
   exit 64
@@ -135,8 +139,9 @@ ac002() {
     TestAUR613StandardsAnalystRunsWhenSelected TestAUR613StandardsAnalystRunsOnPR TestAUR613StandardsAnalystShadowsRepositoryAnalyst
 }
 ac003() {
-  ac AC-003 '^TestAUR613(ThreeLayersOrderAndAttribution|StandardsWinOverRepositorySkill)$' \
-    TestAUR613ThreeLayersOrderAndAttribution TestAUR613StandardsWinOverRepositorySkill
+  ac AC-003 '^TestAUR613(ThreeLayersOrderAndAttribution|StandardsWinOverRepositorySkill|ShadowedListedSkillNeverReachesThePrompt|ListingCannotDropAStandardsSkill)$' \
+    TestAUR613ThreeLayersOrderAndAttribution TestAUR613StandardsWinOverRepositorySkill \
+    TestAUR613ShadowedListedSkillNeverReachesThePrompt TestAUR613ListingCannotDropAStandardsSkill
 }
 ac004() {
   ac AC-004 '^TestAUR613StandardsConfigWithSectionIsRefused$' TestAUR613StandardsConfigWithSectionIsRefused
@@ -191,9 +196,20 @@ mut003() {
     '^TestAUR613StandardsInsideReviewedTreeIsRefused$' 'TestAUR613StandardsInsideReviewedTreeIsRefused'
 }
 
+mut004() {
+  mutate MUT-004 cmd/aurumcode/skill_catalog.go 'c.Review.Context.Skills = listingWithout(cfg.Review.Context.Skills, r.takenAbove)' \
+    's/c.Review.Context.Skills = listingWithout(cfg.Review.Context.Skills, r.takenAbove)/c.Review.Context.Skills = cfg.Review.Context.Skills/' \
+    '^TestAUR613ShadowedListedSkillNeverReachesThePrompt$' 'TestAUR613ShadowedListedSkillNeverReachesThePrompt'
+}
+mut005() {
+  mutate MUT-005 cmd/aurumcode/skill_catalog.go 'return listingWithout(listed, protected)' \
+    's/return listingWithout(listed, protected)/return listed/' \
+    '^TestAUR613ListingCannotDropAStandardsSkill$' 'TestAUR613ListingCannotDropAStandardsSkill'
+}
+
 # One function per selector; all runs every one in order.
 if [[ "$selector" == 'all' ]]; then
-  for step in ac001 ac002 ac003 ac004 ac005 ac006 ac007 ac008 mut001 mut002 mut003; do
+  for step in ac001 ac002 ac003 ac004 ac005 ac006 ac007 ac008 mut001 mut002 mut003 mut004 mut005; do
     "$step"
   done
   printf '%s/all/pass\n' "$card"

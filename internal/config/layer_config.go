@@ -43,7 +43,7 @@ func validateLayerConfig(layer Layer, path, language string) error {
 		}
 		keys, kind := documentKeys(&doc)
 		if kind != "" {
-			return errors.New(i18n.Format(language, "layer.config_not_mapping", layer.Prefix(language), path, kind))
+			return errors.New(i18n.Format(language, "layer.config_not_mapping", layer.Prefix(language), path, i18n.Text(language, "layer.kind."+kind)))
 		}
 		for _, key := range keys {
 			found = append(found, fmt.Sprintf("%q", key))
@@ -57,8 +57,9 @@ func validateLayerConfig(layer Layer, path, language string) error {
 
 // documentKeys returns the top-level keys of one decoded YAML document. An
 // empty or null document has none. For a document that is not a mapping,
-// kind names what it is instead ("sequence", "scalar"), so the error can
-// say what was found. A merge key ("<<") is a key like any other.
+// kind names what it is instead ("sequence", "scalar", "alias": the
+// layer.kind.* catalog keys), so the error can say what was found. A merge
+// key ("<<") is a key like any other.
 func documentKeys(doc *yaml.Node) (keys []string, kind string) {
 	if doc.Kind == 0 || len(doc.Content) == 0 {
 		return nil, ""

@@ -129,7 +129,7 @@ func TestAUR613EnvDeclaresLayerAndEmptyFlagIsUsageError(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "MARCADOR-ACHADO") || !strings.Contains(out, aur613LabelEN) {
 		t.Fatalf("AURUMCODE_STANDARDS did not apply the layer (exit=%d):\n%s%s", code, out, errOut)
 	}
-	if code, _, errOut, _ := aur613Review(t, "--padroes", ""); code != 2 || !strings.Contains(errOut, "--padroes: directory must not be empty") {
+	if code, _, errOut, _ := aur613Review(t, "--padroes", ""); code != 2 || !strings.Contains(errOut, "--padroes/--standards: directory must not be empty") {
 		t.Fatalf("empty --padroes: exit=%d, want 2 naming the flag:\n%s", code, errOut)
 	}
 }
@@ -340,7 +340,7 @@ func TestAUR613StandardsAnalystShadowsRepositoryAnalyst(t *testing.T) {
 	if !strings.Contains(prompt, "MARCADOR-ANALISTA-PADROES") || strings.Contains(prompt, "MARCADOR-ANALISTA-REPO") {
 		t.Fatalf("the standards analyst must win over the repository's (%d bytes)", len(prompt))
 	}
-	if !strings.Contains(errOut, `analyst "qa-padroes" of the repository layer ignored: the engineering standards layer declares an analyst with the same name`) {
+	if !strings.Contains(errOut, `analyst "qa-padroes" of the repository ignored: an analyst with that name already exists in the engineering standards, a layer above`) {
 		t.Fatalf("the warning must name both layers:\n%s", errOut)
 	}
 }
@@ -359,7 +359,7 @@ func aur613ThreeLayers(t *testing.T) (policy, standards string) {
 		".aurumcode/skills/testes-go/SKILL.md": aur613SkillDoc("testes-go", `paths: ["*.go"]`, "Teste junto", "MARCADOR-REPO-TESTES"),
 	})
 	policy = aur613Layer(t, map[string]string{
-		".aurumcode/config.yml":                "gate:\n  fail_on: [error]\n",
+		".aurumcode/config.yml":               "gate:\n  fail_on: [error]\n",
 		".aurumcode/skills/erros-go/SKILL.md": aur613SkillDoc("erros-go", "languages: [go]", "Erro com contexto", "MARCADOR-POLITICA-ERROS"),
 	})
 	standards = aur613Layer(t, map[string]string{
@@ -397,8 +397,8 @@ func TestAUR613ThreeLayersOrderAndAttribution(t *testing.T) {
 		}
 	}
 	for _, warning := range []string{
-		`skill "erros-go" of the engineering standards layer ignored: the security policy layer declares a skill with the same name`,
-		`skill "nomes-go" of the repository layer ignored: the engineering standards layer declares a skill with the same name`,
+		`skill "erros-go" of the engineering standards ignored: a skill with that name already exists in the security policy, a layer above`,
+		`skill "nomes-go" of the repository ignored: a skill with that name already exists in the engineering standards, a layer above`,
 	} {
 		if !strings.Contains(errOut, warning) {
 			t.Fatalf("missing warning %q in:\n%s", warning, errOut)
@@ -443,7 +443,7 @@ func TestAUR613StandardsWinOverRepositorySkill(t *testing.T) {
 	if !strings.Contains(prompt, "MARCADOR-PADROES-NOMES") || strings.Contains(prompt, "MARCADOR-REPO-NOMES") || !strings.Contains(prompt, "MARCADOR-PADROES-ERROS") {
 		t.Fatalf("without a policy the standards skills must win and all apply (%d bytes)", len(prompt))
 	}
-	if !strings.Contains(errOut, `skill "nomes-go" of the repository layer ignored: the engineering standards layer declares a skill with the same name`) {
+	if !strings.Contains(errOut, `skill "nomes-go" of the repository ignored: a skill with that name already exists in the engineering standards, a layer above`) {
 		t.Fatalf("missing the warning naming both layers:\n%s", errOut)
 	}
 	if line := aur613Line(out, "MARCADOR-ACHADO-NOMES"); !strings.HasSuffix(line, aur613LabelEN) {
@@ -462,7 +462,7 @@ func TestAUR613StandardsConfigWithSectionIsRefused(t *testing.T) {
 		t.Run(section, func(t *testing.T) {
 			layer := aur613Layer(t, map[string]string{".aurumcode/config.yml": section + ": {}\n"})
 			code, _, errOut, prompt := aur613Review(t, "--padroes", layer)
-			want := `standards layer: ` + filepath.Join(layer, ".aurumcode", "config.yml") + ` declares the sections "` + section + `"; allowed: no section`
+			want := `engineering standards: ` + filepath.Join(layer, ".aurumcode", "config.yml") + ` declares the sections "` + section + `"; the engineering standards layer accepts no section in config.yml (delete the file or leave only comments)`
 			if code != 1 || !strings.Contains(errOut, want) || prompt != "" {
 				t.Fatalf("exit=%d (prompt %d bytes), want 1 and %q in:\n%s", code, len(prompt), want, errOut)
 			}
@@ -476,7 +476,7 @@ func TestAUR613StandardsConfigWithSectionIsRefused(t *testing.T) {
 	})
 	t.Run("not a mapping", func(t *testing.T) {
 		layer := aur613Layer(t, map[string]string{".aurumcode/config.yml": "- gate\n"})
-		if code, _, errOut, _ := aur613Review(t, "--padroes", layer); code != 1 || !strings.Contains(errOut, "found: a sequence document, not a mapping of sections") {
+		if code, _, errOut, _ := aur613Review(t, "--padroes", layer); code != 1 || !strings.Contains(errOut, "found: a list instead of a mapping of sections") {
 			t.Fatalf("a sequence document must be refused naming what was found (exit=%d):\n%s", code, errOut)
 		}
 	})
@@ -489,7 +489,7 @@ func TestAUR613StandardsConfigWithSectionIsRefused(t *testing.T) {
 	t.Run("pt-BR", func(t *testing.T) {
 		aur613Repo(t, "review:\n  language: pt-BR\n")
 		layer := aur613Layer(t, map[string]string{".aurumcode/config.yml": "gate: {}\n"})
-		if code, _, errOut, _ := aur613Review(t, "--padroes", layer); code != 1 || !strings.Contains(errOut, `camada de padrões: `) || !strings.Contains(errOut, `declara as seções "gate"; permitido: nenhuma seção`) {
+		if code, _, errOut, _ := aur613Review(t, "--padroes", layer); code != 1 || !strings.Contains(errOut, `padrões de engenharia: `) || !strings.Contains(errOut, `declara as seções "gate"; a camada de padrões de engenharia não aceita seção nenhuma no config.yml`) {
 			t.Fatalf("the refusal must be in the review language (exit=%d):\n%s", code, errOut)
 		}
 	})
@@ -505,14 +505,14 @@ func TestAUR613StandardsInsideReviewedTreeIsRefused(t *testing.T) {
 	for name, dir := range map[string]string{"the tree itself": repo, "a directory under it": filepath.Join(repo, "padroes"), "relative": "padroes"} {
 		t.Run(name, func(t *testing.T) {
 			code, _, errOut, prompt := aur613Review(t, "--padroes", dir)
-			if code != 1 || !strings.Contains(errOut, "standards layer: "+dir+" is inside the reviewed repository") || !strings.Contains(errOut, "a standards layer must come from outside the reviewed tree") || prompt != "" {
+			if code != 1 || !strings.Contains(errOut, "engineering standards: "+dir+" is inside the reviewed repository") || !strings.Contains(errOut, "an engineering standards layer must come from outside the reviewed tree") || prompt != "" {
 				t.Fatalf("exit=%d (prompt %d bytes), want 1 and the refusal:\n%s", code, len(prompt), errOut)
 			}
 		})
 	}
 	t.Run("missing .aurumcode", func(t *testing.T) {
 		dir := t.TempDir()
-		if code, _, errOut, _ := aur613Review(t, "--padroes", dir); code != 1 || !strings.Contains(errOut, "standards layer: "+filepath.Join(dir, ".aurumcode")+" does not exist") {
+		if code, _, errOut, _ := aur613Review(t, "--padroes", dir); code != 1 || !strings.Contains(errOut, "engineering standards: "+filepath.Join(dir, ".aurumcode")+" does not exist") {
 			t.Fatalf("exit=%d:\n%s", code, errOut)
 		}
 	})
@@ -685,4 +685,68 @@ func aur613Line(text, marker string) string {
 		}
 	}
 	return ""
+}
+
+// AC-003: a repository skill a layer above shadows does not come back
+// through review.context.skills: the listing entry is dropped before the
+// context providers and the rule builders read it, the warning stays, and
+// the standards skill is what the model sees -- on --base and on --pr.
+// Without the layer the listing works as always.
+func TestAUR613ShadowedListedSkillNeverReachesThePrompt(t *testing.T) {
+	listing := "review:\n  context:\n    skills:\n      - .aurumcode/skills/erros-go/SKILL.md\n"
+	repoSkill := aur613SkillDoc("erros-go", "languages: [go]", "Erro com contexto", "MARCADOR-REPO-ERROS")
+	t.Run("base", func(t *testing.T) {
+		repo := aur613Repo(t, listing)
+		aur613Write(t, repo, map[string]string{".aurumcode/skills/erros-go/SKILL.md": repoSkill})
+		aur522Fixture(t, aur613Finding)
+		code, out, errOut, prompt := aur613Review(t)
+		if code != 0 || !strings.Contains(prompt, "MARCADOR-REPO-ERROS") {
+			t.Fatalf("control: without the layer the listed repository skill must reach the prompt (exit=%d):\n%s%s", code, out, errOut)
+		}
+		code, out, errOut, prompt = aur613Review(t, "--padroes", aur613StandardsSkillLayer(t))
+		if code != 0 {
+			t.Fatalf("exit=%d\n%s%s", code, out, errOut)
+		}
+		if strings.Contains(prompt, "MARCADOR-REPO-ERROS") || !strings.Contains(prompt, "MARCADOR-PADROES") {
+			t.Fatalf("the shadowed repository skill came back through the listing (repo marker present=%v, standards marker present=%v)", strings.Contains(prompt, "MARCADOR-REPO-ERROS"), strings.Contains(prompt, "MARCADOR-PADROES"))
+		}
+		if !strings.Contains(errOut, `skill "erros-go" of the repository ignored: a skill with that name already exists in the engineering standards, a layer above`) {
+			t.Fatalf("the warning must stay:\n%s", errOut)
+		}
+		if line := aur613Line(out, "MARCADOR-ACHADO"); !strings.HasSuffix(line, aur613LabelEN) {
+			t.Fatalf("the finding must cite the standards rule, attributed to the layer:\n%s", line)
+		}
+	})
+	t.Run("pr", func(t *testing.T) {
+		t.Setenv("AURUMCODE_PROMPT_CAPTURE", "")
+		aur522Fixture(t, aur613Finding)
+		var posted string
+		aur613PRServer(t, map[string]string{".aurumcode/config.yml": listing, ".aurumcode/skills/erros-go/SKILL.md": repoSkill}, &posted)
+		code, errOut, prompt := aur613PRReview(t, aur613StandardsSkillLayer(t))
+		if code != 0 {
+			t.Fatalf("exit=%d\n%s", code, errOut)
+		}
+		if strings.Contains(prompt, "MARCADOR-REPO-ERROS") || !strings.Contains(prompt, "MARCADOR-PADROES") {
+			t.Fatalf("on --pr the shadowed repository skill came back through the listing read at the base ref (%d bytes)", len(prompt))
+		}
+	})
+}
+
+// Trust boundary: a repository cannot drop a standards skill from the prompt
+// or the gate by listing its path in review.context.skills (a path it has
+// no file for): the standards skill stays in the catalog, reaches the
+// prompt, and its rule still blocks under the gate, attributed to the layer.
+func TestAUR613ListingCannotDropAStandardsSkill(t *testing.T) {
+	aur613Repo(t, "gate:\n  fail_on: [error]\nreview:\n  context:\n    skills:\n      - .aurumcode/skills/erros-go/SKILL.md\n")
+	aur522Fixture(t, aur613Finding)
+	code, out, errOut, prompt := aur613Review(t, "--padroes", aur613StandardsSkillLayer(t))
+	if code != exitFindings {
+		t.Fatalf("exit=%d, want %d: the gate must still fail on the standards rule\n%s%s", code, exitFindings, out, errOut)
+	}
+	if !strings.Contains(prompt, "MARCADOR-PADROES") {
+		t.Fatalf("the standards skill left the prompt because the repository listed its path (%d bytes)", len(prompt))
+	}
+	if !strings.Contains(out+errOut, aur613Rule) || !strings.Contains(out, aur613LabelEN) {
+		t.Fatalf("the standards rule must block, attributed to the layer:\n%s%s", out, errOut)
+	}
 }

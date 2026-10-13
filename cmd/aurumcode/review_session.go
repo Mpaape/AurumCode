@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -253,4 +254,11 @@ func (s *reviewState) qualityRequirement() qualityRequirement {
 // notReviewed applies this source's outcome table.
 func (s *reviewState) notReviewed() bool {
 	return s.source.NotReviewed.NotReviewed(s.model, s.qualityRequirement())
+}
+
+// printWarnings writes each warning as its own terminal line.
+func printWarnings(w io.Writer, warnings []string) {
+	for _, warning := range warnings {
+		fmt.Fprintf(w, "aurumcode review: %s\n", warning)
+	}
 }

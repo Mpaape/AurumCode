@@ -123,8 +123,8 @@ reprovar. Em produção, troque ou some o arquivo por `p/security-audit` etc.
 
 O workflow aceita **dois** repositórios centrais: `policy_repository`, da
 segurança, e `standards_repository`, da engenharia (a camada de padrões,
-AUR-613). A camada de padrões é o `.aurumcode/` de outro repositório, checado
-pelo próprio workflow fora da árvore revisada, com persist-credentials
+AUR-613). A camada de padrões é o `.aurumcode/` de outro repositório, obtido
+por checkout pelo workflow, fora da árvore revisada, com persist-credentials
 desligado, e contribui só duas coisas: skills
 (`.aurumcode/skills/<nome>/SKILL.md`), que valem para todo serviço como
 regras do time de engenharia, e analistas (`.aurumcode/profiles.yml`), que
@@ -214,6 +214,11 @@ jobs:
       AURUMCODE_POLICY_TOKEN: ${{ secrets.AURUMCODE_POLICY_TOKEN }}
 ```
 
+- Para a camada de padrões de engenharia, acrescente em `with:`
+  `standards_repository: ORG/devops-policy` e
+  `standards_ref: <SHA-FIXA-DE-40-HEX-DOS-PADRÕES>` e, se o repositório for
+  privado, `AURUMCODE_STANDARDS_TOKEN` em `secrets:` (bloco da seção "Padrões
+  de engenharia centrais"). A demonstração da seção 7 não monta essa camada.
 - No workflow obrigatório da organização, fixe `review.yml` e `policy_ref`
   por **SHA de 40 hex**, nunca por branch ou tag: uma tag pode ser apontada
   para outro commit, a SHA não. É isso que garante que todo PR da organização

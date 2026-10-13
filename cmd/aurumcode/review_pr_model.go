@@ -66,6 +66,18 @@ func (p *prReview) wrapContext() (int, bool) {
 	if strings.TrimSpace(p.contextRef) == "" {
 		p.contextRef = p.env().githubSHA
 	}
+	src := centralSkillSources(p.opts.policyDir, p.centralCfg, p.standards)
+	src[config.LayerRepository] = remoteSkillSource{ctx: p.ctx, client: p.client, owner: p.owner, repo: p.repoName, ref: p.contextRef}
+	res, catalogErr := resolveSkillCatalog(src, p.centralCfg, p.cfg, p.reviewLanguage)
+	if catalogErr != nil {
+		fmt.Fprintf(stderr, "aurumcode review: %v\n", catalogErr)
+		return 1, true
+	}
+	printWarnings(stderr, res.shadowed)
+	// The listing read at the base ref is the resolution's: a skill a layer
+	// above shadowed never comes back through it (AC-003), here or in
+	// resolveSkills.
+	p.cfg = res.repositoryConfig(p.cfg)
 	providers, contextErr := loadPullRequestContext(p.ctx, p.client, p.owner, p.repoName, p.cfg, p.contextRef)
 	if contextErr != nil {
 		fmt.Fprintf(stderr, "aurumcode review: loading repository review context: %v\n", contextErr)
@@ -75,19 +87,7 @@ func (p *prReview) wrapContext() (int, bool) {
 		providers = append(config.ConfiguredProviders(p.opts.policyDir, p.centralCfg), providers...)
 	}
 	providers = append(providers, mcpContextProviders(trustedMCPSources(p.cfg, strings.TrimSpace(p.env().baseSHA) != "", p.centralCfg), p.filter)...)
-	src := skillSources{config.LayerRepository: remoteSkillSource{ctx: p.ctx, client: p.client, owner: p.owner, repo: p.repoName, ref: p.contextRef}}
-	if p.centralCfg != nil {
-		src[config.LayerPolicy] = localSkillSource(p.opts.policyDir, string(config.LayerPolicy))
-	}
-	if source := p.standards.skillSource(); source != nil {
-		src[config.LayerStandards] = source
-	}
-	catalog, shadowed, catalogErr := resolveSkillCatalog(src, p.centralCfg, p.cfg, p.reviewLanguage)
-	if catalogErr != nil {
-		fmt.Fprintf(stderr, "aurumcode review: %v\n", catalogErr)
-		return 1, true
-	}
-	printWarnings(stderr, shadowed)
+	catalog := res.catalog
 	p.skillCatalog = catalog
 	p.skillNotices = skillSelectionNotices(catalog, diffPaths(p.diff), p.filter)
 	providers = append(providers, catalog)

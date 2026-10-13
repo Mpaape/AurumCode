@@ -82,6 +82,17 @@ func (l Layer) Label(language string) string {
 	return i18n.Text(language, "layer."+string(l.Name))
 }
 
+// Of is the layer after "of" ("of the repository"), in language, for the
+// warnings that name two layers.
+func (l Layer) Of(language string) string {
+	return i18n.Text(language, "layer."+string(l.Name)+".of")
+}
+
+// In is the layer after "in" ("in the engineering standards"), in language.
+func (l Layer) In(language string) string {
+	return i18n.Text(language, "layer."+string(l.Name)+".in")
+}
+
 // Prefix is how the layer's own errors start ("central policy",
 // "standards layer"), in the layer's error language.
 func (l Layer) Prefix(language string) string {
@@ -97,8 +108,8 @@ func (l Layer) ErrorLang(language string) string {
 	return language
 }
 
-// noun is how the layer is called after "a" in a sentence ("policy",
-// "standards layer"), in language.
+// noun is the layer as the subject of a sentence, article included ("a
+// policy", "an engineering standards layer"), in language.
 func (l Layer) noun(language string) string {
 	return i18n.Text(l.ErrorLang(language), "layer."+string(l.Name)+".noun")
 }

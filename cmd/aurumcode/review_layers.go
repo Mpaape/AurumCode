@@ -37,20 +37,58 @@ type centralLayer struct {
 	team *reviewprofile.Team
 }
 
-// resolveStandardsDir picks the standards directory: --padroes, else
-// AURUMCODE_STANDARDS, else "" (no layer). An explicitly empty --padroes is
+// resolveStandardsDir picks the standards directory: --padroes/--standards,
+// else AURUMCODE_STANDARDS, else "" (no layer). An explicitly empty value is
 // a usage error, never a silent fallback -- the rule resolvePolicyDir
-// applies to --politica.
+// applies to --politica/--policy.
 func (f *reviewFlags) resolveStandardsDir(stderr io.Writer) (dir string, exit int, ok bool) {
 	dir = strings.TrimSpace(f.padroes)
-	if f.given["padroes"] && dir == "" {
-		fmt.Fprintln(stderr, "aurumcode review: --padroes: directory must not be empty")
+	if dir == "" {
+		dir = strings.TrimSpace(f.standards)
+	}
+	given := f.given["padroes"] || f.given["standards"]
+	if given && dir == "" {
+		fmt.Fprintln(stderr, "aurumcode review: --padroes/--standards: directory must not be empty")
 		return "", 2, false
 	}
-	if !f.given["padroes"] {
+	if !given {
 		dir = strings.TrimSpace(os.Getenv("AURUMCODE_STANDARDS"))
 	}
 	return dir, 0, true
+}
+
+// resolveCentralLayers loads the repository's config at cwd and the two
+// central layers over it, in the order the review's resolve steps take
+// (loadConfig, then loadStandards): the policy validated outside the tree,
+// loaded and folded over the config; the effective review language; then
+// the engineering standards layer. The agent server's rules listing reaches
+// the same skill layers the review session resolves through it; the
+// session keeps the steps apart only to print each warning in place.
+func resolveCentralLayers(cwd, policyDir, standardsDir string, env reviewEnv) (skillLayers, error) {
+	cfg, err := config.Load(cwd)
+	if err != nil {
+		return skillLayers{}, err
+	}
+	l := skillLayers{cwd: cwd, policyDir: policyDir, cfg: cfg}
+	if policyDir != "" {
+		if err := config.ValidatePolicyOutsideReviewedTree(policyDir, cwd); err != nil {
+			return skillLayers{}, err
+		}
+		if l.centralCfg, err = config.LoadCentralPolicy(policyDir); err != nil {
+			return skillLayers{}, err
+		}
+		l.cfg, _ = config.ApplyCentralPolicy(cfg, l.centralCfg)
+	}
+	if standardsDir == "" {
+		return l, nil
+	}
+	if l.language, err = l.cfg.ReviewLanguage(); err != nil {
+		return skillLayers{}, err
+	}
+	if l.standards, err = loadCentralLayer(config.Layers[config.LayerStandards], standardsDir, cwd, l.language, env); err != nil {
+		return skillLayers{}, err
+	}
+	return l, nil
 }
 
 // loadCentralLayer validates and loads layer at dir for the tree at
@@ -120,7 +158,7 @@ func (l *centralLayer) teamOver(repo *reviewprofile.Team, language string, stder
 		return repo
 	}
 	team, shadowed := reviewprofile.LayerTeams(l.team, repo)
-	lower, upper := config.Layers[config.LayerRepository].Label(language), l.Layer.Label(language)
+	lower, upper := config.Layers[config.LayerRepository].Of(language), l.Layer.In(language)
 	for _, name := range shadowed {
 		fmt.Fprintf(stderr, "aurumcode review: %s\n", i18n.Format(language, "layer.profile_shadowed", name, lower, upper))
 	}
@@ -141,11 +179,4 @@ func (l *centralLayer) activeDir() string {
 		return ""
 	}
 	return l.Dir
-}
-
-// printWarnings writes each warning as its own terminal line.
-func printWarnings(w io.Writer, warnings []string) {
-	for _, warning := range warnings {
-		fmt.Fprintf(w, "aurumcode review: %s\n", warning)
-	}
 }

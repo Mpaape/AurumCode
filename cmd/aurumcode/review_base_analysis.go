@@ -63,8 +63,9 @@ func (b *baseReview) qualityDidNotRun() bool {
 
 // selectProvider picks the provider (--modelo commands which model reviews,
 // AUR-436), computes the dynamic skill-section rule set this run accepts
-// citations against (AUR-519: policy skills first, then the repository's,
-// computed once before the model is taught a catalog) and renders the
+// citations against (AUR-519/613: the policy's skills, then the engineering
+// standards layer's, then the repository's, computed once before the model
+// is taught a catalog) and renders the
 // context providers' block for the prompt's repository-context slot
 // (AUR-452/518: the policy's own context first). The provider itself is
 // never wrapped, so its capabilities stay visible (AUR-513).
@@ -78,11 +79,6 @@ func (b *baseReview) selectProvider() (int, bool) {
 		return 0, false
 	}
 	b.baseModelIdentity = modelCacheKey(b.provider)
-	contextProviders := config.ConfiguredProviders(b.cwd, b.cfg)
-	if b.centralCfg != nil {
-		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
-	}
-	contextProviders = append(contextProviders, mcpContextProviders(trustedMCPSources(b.cfg, b.localMCPTrusted(), b.centralCfg), b.filter)...)
 	layers := skillLayers{cwd: b.cwd, policyDir: b.policyDir, cfg: b.cfg, centralCfg: b.centralCfg, standards: b.standards, language: b.reviewLanguage}
 	resolved, catalogErr := resolveSkillRules(layers, diffPaths(b.diff))
 	if catalogErr != nil {
@@ -90,6 +86,14 @@ func (b *baseReview) selectProvider() (int, bool) {
 		return 1, true
 	}
 	printWarnings(b.stderr, resolved.shadowed)
+	// The listing the context providers read is the resolution's: a skill a
+	// layer above shadowed never comes back through it (AC-003).
+	b.cfg = resolved.cfg
+	contextProviders := config.ConfiguredProviders(b.cwd, b.cfg)
+	if b.centralCfg != nil {
+		contextProviders = append(config.ConfiguredProviders(b.policyDir, b.centralCfg), contextProviders...)
+	}
+	contextProviders = append(contextProviders, mcpContextProviders(trustedMCPSources(b.cfg, b.localMCPTrusted(), b.centralCfg), b.filter)...)
 	catalog := resolved.catalog
 	b.dynamicRules, b.standardsRuleIDs = resolved.rules, resolved.standardsRules
 	b.ruleCatalogIDs = mergedRuleCatalogIDs(prompt.DefaultRuleCatalog, b.dynamicRules)

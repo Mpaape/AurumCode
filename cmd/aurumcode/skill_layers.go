@@ -68,11 +68,31 @@ func shadowSameNames(sets layerSets, language string) []string {
 			var dropped []string
 			sets[lower], dropped = withoutNames(sets[lower], declared[upper])
 			for _, name := range dropped {
-				warnings = append(warnings, i18n.Format(language, "layer.skill_shadowed", name, config.Layers[lower].Label(language), config.Layers[upper].Label(language)))
+				warnings = append(warnings, i18n.Format(language, "layer.skill_shadowed", name, config.Layers[lower].Of(language), config.Layers[upper].In(language)))
 			}
 		}
 	}
 	return warnings
+}
+
+// namesAboveRepository is the set of skill directory names every layer
+// above the repository declares, when the engineering standards layer is
+// declared; nil otherwise. It is read before any contest drops a skill, so
+// a name the policy took from the standards layer is still a name above.
+func namesAboveRepository(sets layerSets) map[string]bool {
+	if sets[config.LayerStandards] == nil {
+		return nil
+	}
+	names := map[string]bool{}
+	for _, name := range config.LayerOrder {
+		if name == config.LayerRepository {
+			continue
+		}
+		for dir := range skillDirNames(sets[name]) {
+			names[dir] = true
+		}
+	}
+	return names
 }
 
 // belowPolicy joins the sets below the policy, in layer order, into the

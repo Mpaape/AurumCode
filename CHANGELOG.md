@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Autorrevisão do repositório com provedor reserva: o chamador repassa `fallback_1_*` ao workflow reutilizável, então uma falha do provedor principal cai na reserva em vez de bloquear o lote.
+- Camada de padrões de engenharia: segundo repositório central (`--padroes`, `standards_repository` no workflow) com skills e analistas abaixo da política; `config.yml` com seção é recusado; parecer e auditoria nomeiam a camada (AUR-613).
 - QA no consumidor alinhado ao parecer atual: idioma lido do título do parecer (não há mais "Veredito"); o cenário de comentário na linha exige o comentário do achado bloqueante e mede, sem exigir, a sugestão aplicável (AUR-512).
 - QA no consumidor: a segunda rodada de um cenário espera a nova tentativa do mesmo run (`gh run rerun` mantém o id) em vez de procurar um run novo e cair num id vazio (AUR-512).
 - Comentários e docs de pacote alinhados ao código atual (sem funções, arquivos ou pacotes que não existem mais); tutoriais de gate e revisão com o padrão `model` da triagem; `.gitignore` sem restos de Jekyll.

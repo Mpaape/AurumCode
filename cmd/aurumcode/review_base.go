@@ -22,7 +22,7 @@ import (
 type reviewFlags struct {
 	base, failOn, modelo, repo, modoPublicacao, limite string
 	perfis, perfil, politica, policy, auditoria, sarif string
-	padroes                                            string
+	padroes, standards                                 string
 	seguranca, publicar, naLinha, check                bool
 	exigirQualidade, changelog                         bool
 	pr                                                 int
@@ -57,7 +57,8 @@ func declareReviewFlags() (*flag.FlagSet, *reviewFlags) {
 	fs.StringVar(&f.perfil, "profile", "", "alias of --perfis for a single reviewer profile (AUR-502)")
 	fs.StringVar(&f.politica, "politica", "", "directory containing a central policy's .aurumcode/config.yml (the directory that HOLDS .aurumcode/, same convention as a repository's own config.yml/skills); its rules, ignore patterns and, when set, review language/publication take precedence over this repository's own (AUR-518; default: the AURUMCODE_POLICY environment variable, otherwise no policy)")
 	fs.StringVar(&f.policy, "policy", "", "alias of --politica")
-	fs.StringVar(&f.padroes, "padroes", "", "directory containing an engineering standards layer's .aurumcode/ (the directory that HOLDS .aurumcode/, outside the reviewed tree): its skills (.aurumcode/skills/<name>/SKILL.md) always apply below the central policy's and above this repository's, and its analysts (.aurumcode/profiles.yml) can be selected in review.profiles; it never declares gate, ignore, exceptions, rules, scanners or publication (AUR-613; default: the AURUMCODE_STANDARDS environment variable, otherwise no layer)")
+	fs.StringVar(&f.padroes, "padroes", "", "directory that HOLDS an engineering standards layer's .aurumcode/, outside the reviewed tree. The layer adds skills (.aurumcode/skills/<name>/SKILL.md) and analysts (.aurumcode/profiles.yml), ranked below the central policy and above this repository; its config.yml, when present, must be empty (AUR-613; default: the AURUMCODE_STANDARDS environment variable, otherwise no layer)")
+	fs.StringVar(&f.standards, "standards", "", "alias of --padroes")
 	fs.StringVar(&f.auditoria, "auditoria", "", "path to write AUR-521's compliance audit record (JSON) for this run: policy digest, workflow/reviewed SHA, model, verdict, gate decision, blocking findings, exceptions applied and coverage (default: no audit record written)")
 	fs.StringVar(&f.sarif, "sarif", "", "path to write AUR-521's SARIF 2.1.0 document for this run, for a workflow to upload to GitHub code scanning (default: no SARIF written)")
 	return fs, f
