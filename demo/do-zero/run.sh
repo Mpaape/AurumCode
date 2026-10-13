@@ -345,11 +345,12 @@ az_espera_parecer() {
 }
 
 # ---------------------------------------------------------------- pre-requisitos
-TUT_WORK="$STATE/projeto"; mkdir -p "$STATE"
+TUT_WORK="$STATE/projeto"
 if [ "${ACAO#ia}" != "$ACAO" ]; then TUT_WORK="$DESTINO"; fi
 if [ "$MODO" = real ] && [ "$MOSTRAR" = 1 ]; then
   DONO='<seu-usuario>'; az_nomes; az_mostrar; exit 0
 fi
+mkdir -p "$STATE"
 if [ "$MODO" = real ]; then
   command -v gh >/dev/null || { echo "modo real: gh ausente" >&2; exit 79; }
   gh auth status >/dev/null 2>&1 || { echo "modo real: gh não autenticado (gh auth login)" >&2; exit 79; }
