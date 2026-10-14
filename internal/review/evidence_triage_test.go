@@ -189,3 +189,15 @@ func TestEvidenceTriagerAsksOnceMoreAboutOmittedItems(t *testing.T) {
 		t.Fatalf("assessments %+v after %d calls; the second prompt must carry only the omitted items:\n%s", got, caller.calls, caller.prompts[len(caller.prompts)-1])
 	}
 }
+
+// The triage never tells the model to confirm when in doubt: it decides by
+// the path and the context, and only what it confirms blocks.
+func TestTriagePromptHasNoConfirmWhenInDoubt(t *testing.T) {
+	text, err := prompt.BuildTriagePrompt(prompt.TriageInput{Items: triageItems(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(text, "na dúvida confirme") || !strings.Contains(text, "A máscara nunca é motivo para") || !strings.Contains(text, "Só bloqueia o que você confirmar") {
+		t.Fatalf("triage prompt:\n%s", text)
+	}
+}

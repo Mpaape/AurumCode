@@ -59,6 +59,11 @@ type ReviewIssue struct {
 	// Assessment is the model's verdict on one piece of deterministic
 	// evidence offered in the prompt; nil when the issue assesses none.
 	Assessment *EvidenceAssessment `json:"assessment,omitempty" yaml:"assessment,omitempty"`
+	// Commit is the commit a scanner of the history (gitleaks) found the
+	// finding in; File and Line are then that commit's, which may differ
+	// from the reviewed tree. Only the engine writes it, and it is never
+	// serialized: a model reply cannot set it.
+	Commit string `json:"-" yaml:"-"`
 }
 
 // Assessment statuses the model may give a piece of evidence.

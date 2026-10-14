@@ -1698,6 +1698,16 @@ recusar o prompt por tamanho, os achados são divididos em metades; não há tet
 de quantidade. Contestado com justificativa, o achado deixa de contar;
 confirmado, bloqueia como sempre.
 
+Um achado que o Gitleaks encontrou num commit do histórico é mostrado com o
+conteúdo daquele commit ao redor da linha, dizendo que o valor está no
+histórico (pode não existir mais no arquivo atual); se o commit não puder ser
+lido, nenhum trecho é mostrado, nunca o arquivo atual numa linha sem relação.
+Uma avaliação `needs_context` (ou uma contestação sem justificativa) é
+perguntada de novo uma vez, com o arquivo inteiro quando couber; se o modelo
+ainda não decidir, o achado aguarda a avaliação (`triage_needs_context`). Só
+bloqueia o que o modelo confirma. Um alarme contestado sai do parecer: uma
+linha nos detalhes conta os descartados, e o SARIF e a auditoria o guardam.
+
 Uma resposta da triagem que deixa achados de fora é repetida uma vez, só com
 os omitidos. Achado estático nunca reprova sozinho: quando o modelo não deu
 resposta utilizável (sem provedor configurado, falha do provedor, recusa sem
@@ -1707,7 +1717,7 @@ nada é rebaixado, nem mesmo pela contestação de um perfil ou lote saudável,
 e os achados que bloqueariam também não reprovam o gate: ficam aguardando a
 avaliação do modelo, numa linha só, e o gate fica inconclusivo pelo motivo
 do modelo (`quality_skipped`, `provider_failure`, `model_parse_failure`,
-`triage_unanswered`, ...) e falha, qualquer que seja `gate.inconclusive`:
+`triage_unanswered`, `triage_needs_context`, ...) e falha, qualquer que seja `gate.inconclusive`:
 
 ```text
 aurumcode review: policy gate: gate.triage: achados determinísticos aguardando a avaliação do modelo: 29 — o modelo não deu uma resposta utilizável (o provedor de modelo não respondeu [provider_failure]); sem a decisão do modelo não há veredito
