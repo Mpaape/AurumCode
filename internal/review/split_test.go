@@ -251,3 +251,27 @@ func TestUnparseableReplyIsNotSplit(t *testing.T) {
 		t.Fatalf("calls %d refusals %v: an unparseable reply must not split the review", calls, reviewer.PromptRefusals())
 	}
 }
+
+// What goes with some files can fill the ceiling by itself. The plan does not
+// fail for it: those files do not fit together, and each one, whose own
+// evidence fits, gets a batch.
+func TestPlanBatchesTreatsEvidenceThatFillsTheCeilingAsNotFitting(t *testing.T) {
+	reviewer := NewReviewer(&windowCompleter{limit: 1 << 30}, DefaultConfig())
+	reviewer.learnedBudget = 12000
+	diff := manyFilesDiff(1, 2, 20)
+	var evidence []prompt.EvidenceItem
+	for i, f := range diff.Files {
+		evidence = append(evidence, prompt.EvidenceItem{
+			ID: fmt.Sprintf("E%d", i+1), Origin: "test", RuleID: "quality/test", File: f.Path, Line: 1,
+			Severity: "warning", Snippet: strings.Repeat("evidence ", 2700), // about 6000 tokens for each file
+		})
+	}
+
+	plan, err := reviewer.planBatches(diff, ReviewContext{Evidence: evidence})
+	if err != nil {
+		t.Fatalf("the plan failed instead of giving each file a batch: %v", err)
+	}
+	if len(plan.batches) != 2 || len(plan.outside) != 0 {
+		t.Fatalf("%d batches, %d files outside: want one batch per file", len(plan.batches), len(plan.outside))
+	}
+}

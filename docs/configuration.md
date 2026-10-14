@@ -1966,8 +1966,10 @@ antes paravam a revisão:
   cada recusa e `reviewed in N batches by directory` ao fim, e a auditoria
   (`--auditoria`) ganha o campo `batches` (arquivos e tamanho estimado de cada
   lote). Um arquivo sem patch (binário) não decide a divisão nem ocupa lote.
-  Se nem as instruções, a política, o contexto e a evidência de um arquivo
-  cabem na janela, a revisão falha dizendo isso (saída 1, nunca aprovada). Um
+  Um único arquivo maior que a janela é aparado por hunks inteiros e
+  declarado parcial na cobertura (a aprovação é retida). Se nem as
+  instruções, a política, o contexto e a evidência de um arquivo cabem na
+  janela, a revisão falha dizendo isso (saída 1, nunca aprovada). Um
   lote que falha por outro motivo (provedor, resposta, limite de
   deliberação) faz a revisão inteira falhar, como o prompt único. Um modelo
   que aceita o prompt inteiro é chamado uma vez, sem lote.

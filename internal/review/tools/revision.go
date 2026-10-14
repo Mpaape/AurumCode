@@ -148,9 +148,15 @@ func (r *Revision) Read(rel string) ([]byte, error) {
 	if blobID(data) != r.opts.Tracked[rel].SHA {
 		return nil, fmt.Errorf("%q no checkout difere da revisão revisada; não é lido", rel)
 	}
+	if r.opts.MaxCacheBytes <= 0 {
+		// No ceiling declared: the verified bytes are returned and not kept,
+		// so a search over every tracked file never grows memory to the size
+		// of the repository, and the review is never made partial by it.
+		return data, nil
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.opts.MaxCacheBytes > 0 && r.cached+len(data) > r.opts.MaxCacheBytes {
+	if r.cached+len(data) > r.opts.MaxCacheBytes {
 		r.opts.Budget.Exhaust(LimitMaxCacheBytes, fmt.Sprintf("%d de %d bytes de arquivos já em memória", r.cached, r.opts.MaxCacheBytes))
 		return nil, fmt.Errorf("teto de %s atingido; a revisão fica parcial", LimitMaxCacheBytes)
 	}

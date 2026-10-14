@@ -50,24 +50,29 @@ var promptTooLongMarkers = []string{
 	"exceeds the maximum number of tokens",
 	"input is too long",
 	"reduce the length of the messages",
+	"exceed context limit",
 }
 
 var (
 	openAIOverflow    = regexp.MustCompile(`maximum context length is (\d+) tokens.{0,40}?resulted in (\d+) tokens`)
 	anthropicOverflow = regexp.MustCompile(`prompt is too long: (\d+) tokens > (\d+) maximum`)
 	googleOverflow    = regexp.MustCompile(`input token count \((\d+)\) exceeds the maximum number of tokens allowed \((\d+)\)`)
+	// Anthropic, when the prompt plus the reply cap crosses the window:
+	// "input length and `max_tokens` exceed context limit: A + B > C".
+	anthropicCap = regexp.MustCompile("exceed context limit: (\\d+) \\+ (\\d+) > (\\d+)")
 )
 
 // DetectPromptTooLong classifies a non-200 answer: it is a refusal for length
-// when the status is 400 or 413 and the message says the prompt is longer than
-// the context window. text is the redacted summary of the provider's message,
+// when the status is 413 (the request is too large; a gateway says no more
+// than that) or 400 with a message that says the prompt is longer than the
+// context window. text is the redacted summary of the provider's message,
 // before it is bounded for a log line, so the sizes are still in it.
 func DetectPromptTooLong(status int, text string) *PromptTooLong {
 	if status != 400 && status != 413 {
 		return nil
 	}
 	lower := strings.ToLower(text)
-	marked := false
+	marked := status == 413
 	for _, marker := range promptTooLongMarkers {
 		if strings.Contains(lower, marker) {
 			marked = true
@@ -84,6 +89,8 @@ func DetectPromptTooLong(status int, text string) *PromptTooLong {
 		refusal.Requested, refusal.Limit = atoi(m[1]), atoi(m[2])
 	} else if m := googleOverflow.FindStringSubmatch(lower); m != nil {
 		refusal.Requested, refusal.Limit = atoi(m[1]), atoi(m[2])
+	} else if m := anthropicCap.FindStringSubmatch(lower); m != nil {
+		refusal.Requested, refusal.Limit = atoi(m[1])+atoi(m[2]), atoi(m[3])
 	}
 	return refusal
 }

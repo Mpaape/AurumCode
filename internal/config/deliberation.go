@@ -86,7 +86,7 @@ func (d *DeliberationConfig) Validate() error {
 		{"max_cache_bytes", d.MaxCacheBytes},
 	} {
 		if f.value < 0 {
-			return fmt.Errorf("deliberation.%s: must be positive (got %d)", f.key, f.value)
+			return fmt.Errorf("deliberation.%s: must not be negative (got %d)", f.key, f.value)
 		}
 	}
 	return nil

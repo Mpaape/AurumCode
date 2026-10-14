@@ -136,9 +136,10 @@ quality_gates:
 - PR grande também é revisado: quando o GitHub recusa o diff por tamanho, o
   diff sai do checkout verificado do PR; quando o modelo recusa o prompt por
   ser maior que a janela dele, a revisão é feita em lotes por diretório, com
-  um parecer e um gate. O produto não põe teto de tamanho: só num teto de
-  lotes que você escreveu (`batches`) a revisão fica parcial, listando os
-  arquivos que ficaram fora (ver "PR grande" em docs/configuration.md).
+  um parecer e um gate. O produto não põe teto de tamanho: a revisão só fica
+  parcial, listando o que ficou fora, num teto de lotes que você escreveu
+  (`batches`) ou quando um único arquivo é maior que a janela do modelo (ver
+  "PR grande" em docs/configuration.md).
 - Saída gravada por script (logs de tutorial, golden files, capturas) repete
   de propósito exemplos de injeção e canários de segredo: ponha-a em `ignore`
   e revise a fonte que a gera.

@@ -96,3 +96,30 @@ func TestCacheCeilingExistsOnlyWhenDeclared(t *testing.T) {
 		t.Fatalf("explicit ceiling: partial = %+v, want max_cache_bytes", limit)
 	}
 }
+
+// Without a declared ceiling the cache keeps nothing: every read is verified
+// against the reviewed tree again, and memory stays flat however many files a
+// search walks. With a ceiling the verified bytes are kept, as before.
+func TestFileCacheKeepsNothingWithoutADeclaredCeiling(t *testing.T) {
+	root, tracked := revisionFixture(t, javaFixture(t))
+
+	rev := openRevision(t, root, tracked, RevisionOptions{})
+	offers := RepositoryOffers(rev, nil, grammar.Default(), nil)
+	for i := 0; i < 2; i++ {
+		if _, err := run(t, offers[0].Tool, `{"path":"src/shop/Contract.java"}`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(rev.cache) != 0 || rev.cached != 0 {
+		t.Fatalf("no ceiling: %d files (%d bytes) kept in memory, want none", len(rev.cache), rev.cached)
+	}
+
+	capped := openRevision(t, root, tracked, RevisionOptions{MaxCacheBytes: 1 << 30})
+	cappedOffers := RepositoryOffers(capped, nil, grammar.Default(), nil)
+	if _, err := run(t, cappedOffers[0].Tool, `{"path":"src/shop/Contract.java"}`); err != nil {
+		t.Fatal(err)
+	}
+	if len(capped.cache) != 1 {
+		t.Fatalf("explicit ceiling: %d files kept, want the one read", len(capped.cache))
+	}
+}

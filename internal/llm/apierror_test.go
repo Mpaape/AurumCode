@@ -18,6 +18,8 @@ func TestDetectPromptTooLongOnWhatProvidersAnswer(t *testing.T) {
 		{"litellm over openai", 400, "invalid_request_error: litellm.ContextWindowExceededError: litellm.BadRequestError: ContextWindowExceededError: OpenAIException - This model's maximum context length is 128000 tokens. However, your messages resulted in 1258937 tokens. Please reduce the length of the messages. model=gpt-4o-mini.", &PromptTooLong{Limit: 128000, Requested: 1258937}},
 		{"anthropic", 400, "invalid_request_error: prompt is too long: 1946751 tokens > 1000000 maximum", &PromptTooLong{Limit: 1000000, Requested: 1946751}},
 		{"google", 400, "INVALID_ARGUMENT: The input token count (1200000) exceeds the maximum number of tokens allowed (1048576).", &PromptTooLong{Limit: 1048576, Requested: 1200000}},
+		{"anthropic, reply cap crosses the window", 400, "invalid_request_error: input length and `max_tokens` exceed context limit: 998000 + 8192 > 1000000, decrease input length or `max_tokens` and try again", &PromptTooLong{Limit: 1000000, Requested: 1006192}},
+		{"a gateway that only says too large", 413, "Request Entity Too Large", &PromptTooLong{}},
 		{"bedrock, sizes unsaid", 400, "ValidationException: Input is too long for requested model.", &PromptTooLong{}},
 		{"too large, sizes unsaid", 413, "context_length_exceeded", &PromptTooLong{}},
 		{"another bad request", 400, "invalid_request_error: max_tokens is too large: 9000000", nil},
