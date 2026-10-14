@@ -76,6 +76,9 @@ type Finding struct {
 	RuleID   string
 	Severity string
 	Message  string
+	// Commit is the commit a history scanner found the finding in, empty
+	// for a finding of the reviewed tree.
+	Commit string
 }
 
 // ToIssue is the one conversion of a deterministic finding into a review
@@ -90,6 +93,7 @@ func (f Finding) ToIssue(origin string) types.ReviewIssue {
 		RuleID:   f.RuleID,
 		Message:  fmt.Sprintf("%s (rule %s)", f.Message, f.RuleID),
 		Origin:   origin,
+		Commit:   f.Commit,
 	}
 }
 

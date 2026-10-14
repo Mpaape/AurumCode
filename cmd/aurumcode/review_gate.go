@@ -12,6 +12,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/gate"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -210,7 +211,7 @@ func (s *reviewState) triage() gate.Triage {
 	}
 	for _, list := range s.evidenceLists() {
 		for _, issue := range list {
-			if issue.Assessment != nil {
+			if !undecided(issue.Assessment) {
 				t.Assessed[gate.DisputeKey(issue.Origin, issue.RuleID, issue.File, issue.Line)] = true
 			}
 		}
@@ -260,6 +261,11 @@ func (s *reviewState) reportTriage(demoted []gate.Demotion) {
 		line := fmt.Sprintf("gate.triage (%s: model): %s:%d %s contestado pelo modelo deixou de contar", d.Source, d.Issue.File, d.Issue.Line, d.Issue.RuleID)
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 		s.result.Limitations = append(s.result.Limitations, line)
+	}
+	// The parecer hides those lines (isEngineLine) and says, once, how many
+	// alarms the model dismissed; the SARIF keeps them as suppressed.
+	if len(demoted) > 0 {
+		s.result.Limitations = append(s.result.Limitations, i18n.Format(s.reviewLanguage, "notice.triage_dismissed", len(demoted)))
 	}
 	// Without a declared gate nothing counts, so there is nothing to except.
 	if !s.cfg.Gate.Declared() {

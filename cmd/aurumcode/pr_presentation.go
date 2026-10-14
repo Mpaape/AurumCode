@@ -33,7 +33,28 @@ func (p *prReview) presentFindings() presentation {
 	if !collapseAllowed(rule, p.gateRes != nil && p.gateRes.Inconclusive) {
 		collapse = nil
 	}
-	return presentation{consolidate.Apply(p.issues, consolidate.Options{Collapse: collapse, Blocking: rule.Blocks})}
+	return presentation{consolidate.Apply(p.withoutDismissed(p.issues), consolidate.Options{Collapse: collapse, Blocking: rule.Blocks})}
+}
+
+// withoutDismissed is issues without the deterministic findings the
+// model's triage demoted: a refuted alarm leaves the parecer (no
+// observation line); the SARIF and the audit record keep it.
+func (s *reviewState) withoutDismissed(issues []types.ReviewIssue) []types.ReviewIssue {
+	if len(s.triageDemotions) == 0 {
+		return issues
+	}
+	dismissed := make(map[string]bool, len(s.triageDemotions))
+	for _, d := range s.triageDemotions {
+		dismissed[findingOriginKey(d.RuleID, d.File, d.Line)] = true
+	}
+	out := make([]types.ReviewIssue, 0, len(issues))
+	for _, issue := range issues {
+		if issue.Origin != "" && dismissed[findingOriginKey(issue.RuleID, issue.File, issue.Line)] {
+			continue
+		}
+		out = append(out, issue)
+	}
+	return out
 }
 
 // collapseAllowed reports whether the run's blocking rule can tell what

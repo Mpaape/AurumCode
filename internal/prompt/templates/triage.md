@@ -10,7 +10,13 @@ O AurumCode mascara todo valor com cara de segredo antes de mostrá-lo a você:
 o texto `[REDACTED]` no trecho é essa máscara, não o valor do arquivo. O
 analisador casou o valor original, sem máscara. A máscara nunca é motivo para
 contestar: decida pelo caminho e pelo contexto (arquivo de teste, fixture,
-mock, exemplo de documentação, valor lido do ambiente), e na dúvida confirme.
+mock, exemplo de documentação, valor lido do ambiente).
+
+Só bloqueia o que você confirmar. Um achado de segredo pode vir do histórico:
+o valor está num commit do intervalo revisado, mesmo que não exista mais no
+arquivo atual; a observação do achado diz isso e o trecho é o daquele commit.
+Se o trecho não bastar, responda "needs_context": o achado volta uma vez com
+mais contexto (o arquivo inteiro, quando couber).
 
 Para CADA achado, responda com uma avaliação. Responda somente com um objeto
 JSON, sem texto fora dele:
@@ -33,6 +39,9 @@ origem: {{.Origin}}
 regra: {{.RuleID}}
 local: {{.File}}:{{.Line}}
 severidade: {{.Severity}}
+{{- if .Note}}
+observação: {{.Note}}
+{{- end}}
 {{- if .Snippet}}
 trecho:
 ```

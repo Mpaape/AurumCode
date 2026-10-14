@@ -682,3 +682,24 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 
 	return diff, notices, nil
 }
+
+// FileAt returns the content of path in the commit ref resolves to, read
+// from the object database (a commit of the history, not the checkout).
+func (r *Repo) FileAt(ref, path string) ([]byte, error) {
+	tracked, err := r.TrackedFiles(ref)
+	if err != nil {
+		return nil, err
+	}
+	entry, ok := tracked[path]
+	if !ok {
+		return nil, fmt.Errorf("%s is not tracked at %s", path, ref)
+	}
+	kind, data, err := r.readObject(entry.SHA)
+	if err != nil {
+		return nil, err
+	}
+	if kind != "blob" {
+		return nil, fmt.Errorf("%s at %s is a %s, not a file", path, ref, kind)
+	}
+	return data, nil
+}

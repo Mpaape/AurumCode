@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Corrigido: a triagem mostra o trecho do commit em que o Gitleaks achou o segredo (nunca a linha atual sem relação); needs_context volta uma vez com o arquivo inteiro e, indeciso, aguarda o modelo; alarme contestado sai do parecer.
+
 ## 2.1.0 - 2026-10-14
 
 Nenhum limite de tamanho derruba a revisão, e um agente de scan de vulnerabilidade entra como plugin da validação agendada, com achados só na aba Security.
