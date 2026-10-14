@@ -108,3 +108,18 @@ func TestManifestPastTheOldCeilingIsSentWhole(t *testing.T) {
 		t.Fatalf("the answer is capped at %d tokens, want no cap", opts.MaxTokens)
 	}
 }
+
+// A tree whose path list passes the old 256 KiB ceiling is still scanned:
+// the check concludes instead of reporting the manifests omitted.
+func TestScanPastTheOldPathListCeilingConcludes(t *testing.T) {
+	osv := newFakeOSV(t, fixture)
+	paths := []string{"go.mod"}
+	for n := 0; len(strings.Join(paths, "    ")) <= 256<<10; n++ {
+		paths = append(paths, fmt.Sprintf("src/deep/directory/file%06d.go", n))
+	}
+	scanner := fakeExtractor{pkgs: map[string][]Package{"go.mod": {{Ecosystem: "Go", Name: "example.org/mod", Version: "v1.0.0"}}}}
+	r := Scan(context.Background(), ScanInputs{Paths: paths, Model: fakeModel{}, Source: osv.source(), Extractor: scanner})
+	if r.Reason == ReasonManifestsOmitted || r.Inconclusive() {
+		t.Fatalf("%d paths: reason %q %s", len(paths), r.Reason, r.Detail)
+	}
+}

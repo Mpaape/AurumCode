@@ -1,6 +1,7 @@
 package xbom
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -22,4 +23,22 @@ func TestLargeFileAndLongLineStillYieldCandidates(t *testing.T) {
 		}
 	}
 	t.Fatalf("no candidate from a %d-byte Dockerfile: %d candidates", len(filler), len(cands))
+}
+
+// Past the old 300 candidates and 300 bytes per line, every candidate
+// reaches the model's prompt with its whole line.
+func TestPromptCarriesEveryCandidateWhole(t *testing.T) {
+	long := strings.Repeat("c", 400)
+	var cands []*Candidate
+	for n := 0; n < 310; n++ {
+		cands = append(cands, &Candidate{ID: fmt.Sprintf("c%03d", n), Entry: "e", Line: long,
+			Component: &Component{Type: "library", Name: "n", Occurrences: []Occurrence{{Location: "f", Line: n + 1, Token: "n"}}}})
+	}
+	prompt, err := buildPrompt("p", cands, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(prompt, `"c309"`) || strings.Count(prompt, long) != 310 {
+		t.Fatalf("prompt carries %d whole lines, last candidate=%v", strings.Count(prompt, long), strings.Contains(prompt, `"c309"`))
+	}
 }
